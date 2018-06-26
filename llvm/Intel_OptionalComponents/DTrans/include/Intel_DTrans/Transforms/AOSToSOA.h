@@ -40,7 +40,8 @@ public:
 
   // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-               const TargetLibraryInfo &TLI, DominatorTreeFuncType &GetDT);
+               const TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
+               DominatorTreeFuncType &GetDT);
 
 private:
   // Populate the \p CandidateTypes vector with all the structure types

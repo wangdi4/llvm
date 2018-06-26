@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-callinfo -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies allocation call info collection for the transforms from
 ; memory allocation calls.

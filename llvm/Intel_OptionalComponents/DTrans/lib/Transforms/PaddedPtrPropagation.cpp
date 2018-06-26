@@ -474,7 +474,7 @@ public:
     }
   }
 
-  bool transform();
+  bool transform(WholeProgramInfo &WPInfo);
 };
 
 // Helper function inserting padding annotation for a Value at the location
@@ -880,7 +880,11 @@ bool PaddedPtrPropImpl::placeInitialAnnotations() {
 // 5. Emission of padded annotations for parameters, returns and after function
 //    calls.
 
-bool PaddedPtrPropImpl::transform() {
+bool PaddedPtrPropImpl::transform(WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
   LLVM_DEBUG(dbgs() << "\n---- PADDED MALLOC TRANSFORM START ----\n\n");
 
   placeInitialAnnotations();
@@ -959,15 +963,18 @@ PaddedPtrPropWrapper::PaddedPtrPropWrapper() : ModulePass(ID) {
 
 void PaddedPtrPropWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DTransAnalysisWrapper>();
-  AU.addPreserved<WholeProgramWrapperPass>();
   AU.addPreserved<DTransAnalysisWrapper>();
+  AU.addRequired<WholeProgramWrapperPass>();
+  AU.addPreserved<WholeProgramWrapperPass>();
 }
 
 // Potentially the pass can change the CFG by inserting a new BB after
 // InvokeInst. In that case, it preserves none of its analyses.
 bool PaddedPtrPropWrapper::runOnModule(Module &M) {
   auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-  bool Modified = PaddedPtrPropImpl(M, DTInfo).transform();
+  WholeProgramInfo &WPInfo =
+      getAnalysis<WholeProgramWrapperPass>().getResult();
+  bool Modified = PaddedPtrPropImpl(M, DTInfo).transform(WPInfo);
   return Modified;
 }
 
@@ -1030,7 +1037,8 @@ ModulePass *createPaddedPtrPropWrapperPass() {
 // In that case, it preserves none of its analyses.
 PreservedAnalyses PaddedPtrPropPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTInfo = AM.getResult<DTransAnalysis>(M);
-  bool Modified = PaddedPtrPropImpl(M, DTInfo).transform();
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  bool Modified = PaddedPtrPropImpl(M, DTInfo).transform(WPInfo);
   if (Modified) {
       PreservedAnalyses PA;
       PA.preserve<DTransAnalysis>();
@@ -1050,5 +1058,6 @@ PreservedAnalyses PaddedPtrPropPass::run(Module &M, ModuleAnalysisManager &AM) {
 INITIALIZE_PASS_BEGIN(PaddedPtrPropWrapper, DEBUG_TYPE,
                       "Optimize data layout with malloc padding", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(PaddedPtrPropWrapper, DEBUG_TYPE,
                     "Optimize data layout with malloc padding", false, false)

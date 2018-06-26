@@ -6110,6 +6110,7 @@ INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
                       "Data transformation analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
                     "Data transformation analysis", false, true)
 
@@ -6135,7 +6136,8 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
   };
 
   return Result.analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GetBFI);
+      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+      getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
@@ -6288,8 +6290,15 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
 }
 
 bool DTransAnalysisInfo::analyzeModule(
-    Module &M, TargetLibraryInfo &TLI,
+    Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
+
+  if (!WPInfo.isWholeProgramSafe()) {
+    LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
+                      << "DTransAnalysis didn't run\n");
+    return false;
+  }
+
   DTransAllocAnalyzer DTAA(TLI, M);
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
                             GetBFI);
@@ -6601,6 +6610,7 @@ void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
+  AU.addRequired<WholeProgramWrapperPass>();
 }
 
 char DTransAnalysis::PassID;
@@ -6613,8 +6623,10 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
   };
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M), GetBFI);
+  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M),
+                         WPInfo, GetBFI);
   return DTResult;
 }

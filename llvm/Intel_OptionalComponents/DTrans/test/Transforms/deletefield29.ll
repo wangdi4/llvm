@@ -104,7 +104,7 @@ entry:
 ; CHECK: %call1 = call i32 @_Z11doSomethingP4testi.1(%__DFT_struct.test* %tmp, i32 %argc)
 
 
-; CHECK-LABEL: define i32 @_Z11doSomethingP4testi.1(%__DFT_struct.test* %p, i32 %cond)
+; CHECK-LABEL: define internal i32 @_Z11doSomethingP4testi.1(%__DFT_struct.test* %p, i32 %cond)
 ; CHECK-SAME:  #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
 ; CHECK  %i1 = getelementptr inbounds %__DFT_struct.test, %__DFT_struct.test* %p, i32 0, i32 0
 ; CHECK  store i32 1, i32* %i1, align 8

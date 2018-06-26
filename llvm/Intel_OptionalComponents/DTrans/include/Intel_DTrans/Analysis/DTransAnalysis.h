@@ -20,6 +20,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
@@ -78,6 +79,7 @@ public:
   DTransAnalysisInfo &operator=(DTransAnalysisInfo &&);
 
   bool analyzeModule(Module &M, TargetLibraryInfo &TLI,
+                     WholeProgramInfo &WPInfo,
                      function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
   /// Parse command line option and create an internal map of
   /// <transform> -> <list_of_type_names>.

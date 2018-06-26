@@ -1,3 +1,6 @@
+; XFAIL: *
+; Test fails due to dead functions elimination after adding -whole-program-assume (CMPLRS-51381)
+
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 

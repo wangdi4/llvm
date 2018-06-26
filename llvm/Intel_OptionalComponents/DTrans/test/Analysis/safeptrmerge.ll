@@ -1,5 +1,5 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that we create a correct LocalPointerInfo for bitcast corresponding to zero element access.
 

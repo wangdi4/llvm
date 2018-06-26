@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; This tests the cases of a byte-flattened GEP used in a function that
 ; will be cloned.
@@ -17,7 +17,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 }
 
 define void @test01(%struct.test01* %in) {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
 
   ; Get a byte-pointer to the structure.
   %p = bitcast %struct.test01* %in to i8*

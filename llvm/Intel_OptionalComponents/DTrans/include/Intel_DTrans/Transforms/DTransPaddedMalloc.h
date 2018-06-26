@@ -49,7 +49,7 @@ public:
 
   // Actual implementation of the optimization
   bool runImpl(Module &M, DTransAnalysisInfo &DTInfo, LoopInfoFuncType &GetLI,
-               const TargetLibraryInfo &TLInfo);
+               const TargetLibraryInfo &TLInfo, WholeProgramInfo &WPInfo);
 
 private:
   // Name of the global variable used as a counter. The constructor

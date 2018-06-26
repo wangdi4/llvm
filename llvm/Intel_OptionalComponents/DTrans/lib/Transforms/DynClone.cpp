@@ -45,12 +45,14 @@ public:
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     return Impl.runImpl(M, DTInfo,
-                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
+                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+                        getAnalysis<WholeProgramWrapperPass>().getResult());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -62,6 +64,7 @@ INITIALIZE_PASS_BEGIN(DTransDynCloneWrapper, "dtrans-dynclone",
                       "DTrans dynamic cloning", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransDynCloneWrapper, "dtrans-dynclone",
                     "DTrans dynamic cloning", false, false)
 
@@ -161,7 +164,11 @@ bool DynCloneImpl::run(void) {
 }
 
 bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           TargetLibraryInfo &TLI) {
+                           TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
   auto &DL = M.getDataLayout();
 
   DynCloneImpl DynCloneI(M, DL, DTInfo);
@@ -170,8 +177,9 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
 PreservedAnalyses DynClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M)))
+  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

@@ -1,4 +1,4 @@
-; RUN: opt -dtransanalysis -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies that we are correctly analyzing calls to functions with
 ; void pointer arguments. When a function has a void pointer argument, we need

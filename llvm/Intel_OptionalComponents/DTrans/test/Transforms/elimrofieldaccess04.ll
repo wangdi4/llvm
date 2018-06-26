@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies the dtrans eliminate read-only field access pass.
 ; First IF basic block doesn't meet the criteria.

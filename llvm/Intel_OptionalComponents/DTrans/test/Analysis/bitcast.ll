@@ -1,5 +1,5 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies the behavior of the DTransAnalysis of bitcast instructions.
 ; The test cases below present representative examples of bitcasts that

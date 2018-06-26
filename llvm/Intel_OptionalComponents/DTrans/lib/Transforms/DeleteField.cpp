@@ -48,13 +48,15 @@ public:
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     const TargetLibraryInfo &TLI =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-    return Impl.runImpl(M, DTInfo, TLI);
+    WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+    return Impl.runImpl(M, DTInfo, TLI, WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // TODO: Mark the actual required and preserved analyses.
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -113,6 +115,7 @@ INITIALIZE_PASS_BEGIN(DTransDeleteFieldWrapper, "dtrans-deletefield",
                       "DTrans delete field", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransDeleteFieldWrapper, "dtrans-deletefield",
                     "DTrans delete field", false, false)
 
@@ -694,7 +697,11 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
 }
 
 bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                      const TargetLibraryInfo &TLI) {
+                                      const TargetLibraryInfo &TLI,
+                                      WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
 
   DTransTypeRemapper TypeRemapper;
   DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
@@ -706,8 +713,9 @@ PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, TLI))
+  if (!runImpl(M, DTransInfo, TLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dtrans-elim-ro-field-access -dtrans-print-types -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-elim-ro-field-access -dtrans-print-types -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -dtrans-print-types -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -dtrans-print-types -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies the dtrans eliminate read-only field access pass.
 ; lzma_allocator type has safety check violations due to bad casting.

@@ -98,7 +98,7 @@ eh.resume:                                        ; preds = %catch.dispatch
 ; CHECK: %call1 = invoke i32 @_Z11doSomethingP4testi.1(%__DFT_struct.test* %tmp, i32 %argc)
 ; CHECK-NEXT: to label %invoke.cont unwind label %lpad
 
-; CHECK-LABEL: define i32 @_Z11doSomethingP4testi.1(%__DFT_struct.test* %p, i32 %cond)
+; CHECK-LABEL: define internal i32 @_Z11doSomethingP4testi.1(%__DFT_struct.test* %p, i32 %cond)
 ; CHECK  %i1 = getelementptr inbounds %__DFT_struct.test, %__DFT_struct.test* %p, i32 0, i32 0
 ; CHECK  store i32 1, i32* %i1, align 8
 ; CHECK  %i11 = getelementptr inbounds %__DFT_struct.test, %__DFT_struct.test* %p, i32 0, i32 0

@@ -56,6 +56,7 @@ public:
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<DTransAnalysisWrapper>();
   }
@@ -72,13 +73,16 @@ public:
     const TargetLibraryInfo &TLInfo =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
+
     // Lambda function to find the LoopInfo related to an input function
     dtrans::PaddedMallocPass::LoopInfoFuncType GetLI =
         [this](Function &F) -> LoopInfo & {
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
 
-    return Impl.runImpl(M, DTInfo, GetLI, TLInfo);
+    return Impl.runImpl(M, DTInfo, GetLI, TLInfo, WPInfo);
   }
 };
 
@@ -626,6 +630,7 @@ INITIALIZE_PASS_BEGIN(DTransPaddedMallocWrapper, "dtrans-paddedmalloc",
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransPaddedMallocWrapper, "dtrans-paddedmalloc",
                     "DTrans padded malloc", false, false)
 
@@ -636,7 +641,11 @@ ModulePass *llvm::createDTransPaddedMallocWrapperPass() {
 // Actual implementation of padded malloc
 bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                                        LoopInfoFuncType &GetLI,
-                                       const TargetLibraryInfo &TLInfo) {
+                                       const TargetLibraryInfo &TLInfo,
+                                       WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
 
   // TODO: Guard the optimization with -memory-layout-trans=3 when
   // support is available.
@@ -670,6 +679,7 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
 
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLInfo = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   FunctionAnalysisManager &FAM =
       AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
@@ -678,7 +688,7 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
     return FAM.getResult<LoopAnalysis>(F);
   };
 
-  if (!runImpl(M, DTransInfo, GetLI, TLInfo))
+  if (!runImpl(M, DTransInfo, GetLI, TLInfo, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

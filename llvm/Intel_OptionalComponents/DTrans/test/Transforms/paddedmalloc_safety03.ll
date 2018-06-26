@@ -4,7 +4,7 @@
 ; applied the optimization since it didn't find a malloc function, even
 ; if a search loop is available.
 
-; RUN: opt < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 

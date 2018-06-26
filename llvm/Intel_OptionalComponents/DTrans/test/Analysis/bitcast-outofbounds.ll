@@ -1,5 +1,5 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
 ; Check that no Bad casting is flagged for %struct.S3, as the GEP accesses
 ; only a field of the struct.

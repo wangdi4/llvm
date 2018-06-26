@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; The test checks the transformation by the AOS-to-SOA transformation for
 ; memset calls.
@@ -26,7 +26,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; Use memset with the size of one structure element
 define void @test01(%struct.test01* %in) {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
   %ptr = bitcast %struct.test01* %in to i8*
 
   ; Currently, we will generate one memset per field of the original
@@ -57,7 +57,7 @@ define void @test01(%struct.test01* %in) {
 
 ; Use memset with a constant size and a non-zero value being set
 define void @test02(%struct.test01* %in) {
-; CHECK-LABEL: define void @test02
+; CHECK-LABEL: define internal void @test02
   %ptr = bitcast %struct.test01* %in to i8*
 
   call void @llvm.memset.p0i8.i64(i8* %ptr, i8 -1, i64 48, i1 false)
@@ -84,7 +84,7 @@ define void @test02(%struct.test01* %in) {
 
 ; Use memset with the size that is a multiple of the structure element size.
 define void @test03(%struct.test01* %in, i64 %count) {
-; CHECK-LABEL: define void @test03
+; CHECK-LABEL: define internal void @test03
 
   %ptr = bitcast %struct.test01* %in to i8*
 
@@ -122,7 +122,7 @@ define void @test03(%struct.test01* %in, i64 %count) {
 ; Test with memset parameter that needs to be updated being used in multiple
 ; memset calls.
 define void @test04(%struct.test01* %in1, %struct.test01* %in2, i64 %count) {
-; CHECK-LABEL: define void @test04
+; CHECK-LABEL: define internal void @test04
 
   %ptr1 = bitcast %struct.test01* %in1 to i8*
   %ptr2 = bitcast %struct.test01* %in2 to i8*
@@ -142,7 +142,7 @@ define void @test04(%struct.test01* %in1, %struct.test01* %in2, i64 %count) {
 ; Use memset with on a case where the transform tracks the type through
 ; a select statement
 define void @test05(%struct.test01* %in1, %struct.test01* %in2, i64 %count) {
-; CHECK-LABEL: define void @test05
+; CHECK-LABEL: define internal void @test05
   %ptr1 = bitcast %struct.test01* %in1 to i8*
   %ptr2 = bitcast %struct.test01* %in2 to i8*
   %ptr = select i1 undef, i8* %ptr1, i8* %ptr2
@@ -178,7 +178,7 @@ define void @test05(%struct.test01* %in1, %struct.test01* %in2, i64 %count) {
 
 ; Use memset starting with the address of a field that is not array element 0
 define void @test06(%struct.test01* %in) {
-; CHECK-LABEL: define void @test06
+; CHECK-LABEL: define internal void @test06
 
   %field0_addr = getelementptr inbounds %struct.test01, %struct.test01* %in, i64 2, i32 0
 
@@ -222,7 +222,7 @@ define void @test06(%struct.test01* %in) {
 ; Test with partial memset from indexed elements, such as:
 ;   memset(&in1[0].y, 0, 8)
 define void @test07(%struct.test01* %in1) {
-; CHECK-LABEL: define void @test07
+; CHECK-LABEL: define internal void @test07
 
   %field1_addr = getelementptr %struct.test01, %struct.test01* %in1, i64 0, i32 1
 

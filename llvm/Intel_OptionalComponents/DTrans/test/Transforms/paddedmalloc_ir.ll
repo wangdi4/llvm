@@ -3,10 +3,10 @@
 ; global counter and the interface correctly, and modified the malloc
 ; function successfully.
 
-; RUN: opt < %s -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-paddedmalloc -S 2>&1 | FileCheck %s
-; RUN: opt < %s -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
-; RUN: opt < %s -passes="dtrans-paddedmalloc,padded-pointer-prop" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
+; RUN: opt < %s -whole-program-assume -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes=dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
+; RUN: opt < %s -whole-program-assume -passes="dtrans-paddedmalloc,padded-pointer-prop" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
 
 %struct.testStruct = type { i8* }
 

@@ -3,7 +3,7 @@
 ; Test that identifies if the DTrans padded malloc optimization was applied with -fiopenmp.
 ; In order to apply padded malloc, the optimization must find a malloc function and a search loop.
 
-; RUN: opt < %s -vpo-paropt -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -vpo-paropt -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 

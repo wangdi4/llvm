@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 %struct.test01 = type { i32, i32 }
 @g_instance.test01 = internal unnamed_addr global %struct.test01 zeroinitializer

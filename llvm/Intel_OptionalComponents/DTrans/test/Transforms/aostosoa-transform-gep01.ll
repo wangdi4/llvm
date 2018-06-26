@@ -1,19 +1,19 @@
 ; Legacy pass manager runs:
 ; RUN: sed -e s/.T1:// %s | \
-; RUN:   opt -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN:   opt -whole-program-assume -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST1 %s
 
 ; RUN: sed -e s/.T2:// %s | \
-; RUN:   opt -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN:   opt -whole-program-assume -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck %s --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST2
 
 ; New pass manager runs:
 ; RUN: sed -e s/.T1:// %s | \
-; RUN: opt -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN: opt -whole-program-assume -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck %s --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST1
 
 ; RUN: sed -e s/.T2:// %s | \
-; RUN: opt -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN: opt -whole-program-assume -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck %s --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST2
 
 
@@ -71,8 +71,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; This function tests the basic transformations of GEP instructions.
 ;T1: define void @test01(i64 %idx1) {
 ;T2: define void @test01(i64 %idx1, %struct.test01* %base) {
-; CHECK-TEST1: define void @test01(i64 %idx1)
-; CHECK-TEST2: define void @test01.1(i64 %idx1, i64 %base)
+; CHECK-TEST1: define internal void @test01(i64 %idx1)
+; CHECK-TEST2: define internal void @test01.1(i64 %idx1, i64 %base)
 
 ;T1:  %base = load %struct.test01*, %struct.test01** @g_test01ptr
 ; CHECK-TEST1:  %base = load i64, i64* @g_test01ptr
@@ -153,8 +153,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; another structure.
 ;T1: define void @test02() {
 ;T2: define void @test02(%struct.test01dep* %dep_base) {
-; CHECK-TEST1: define void @test02()
-; CHECK-TEST2: define void @test02.2(%__SOADT_struct.test01dep* %dep_base)
+; CHECK-TEST1: define internal void @test02()
+; CHECK-TEST2: define internal void @test02.2(%__SOADT_struct.test01dep* %dep_base)
 
 ;T1:  %dep_base = load %struct.test01dep*, %struct.test01dep** @g_test01depptr
 

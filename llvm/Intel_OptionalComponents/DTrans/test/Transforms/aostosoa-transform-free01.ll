@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA transformation for calls to free when the
 ; pointer to the structure comes from a bitcast.
@@ -25,7 +25,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 }
 
 define void @test01(%struct.test01* %st_mem) {
-; CHECK: define void @test01
+; CHECK define internal void@test01
 
   ; The pointer to structure being transformed will be converted to
   ; an i64 type, but this will be dead once the free call is

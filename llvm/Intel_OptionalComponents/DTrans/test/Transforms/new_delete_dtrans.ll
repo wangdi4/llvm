@@ -1,3 +1,5 @@
+; Test marked as fail due to Delete Fields Tranformation (CMPLRS-51358)
+;
 ; RUN: sed -e s/^.new64:// %s | \
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.newa64:// %s | \

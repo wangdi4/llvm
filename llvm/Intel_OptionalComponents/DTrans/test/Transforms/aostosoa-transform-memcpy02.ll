@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; The test checks the transformation by the AOS-to-SOA transformation for
 ; memcpy calls when the structure contains a mix of data types.
@@ -19,7 +19,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; Use memcpy with the size of one structure element
 define void @test01(%struct.test01* %in1, %struct.test01* %in2) {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
 
   %ptr1 = bitcast %struct.test01* %in1 to i8*
   %ptr2 = bitcast %struct.test01* %in2 to i8*

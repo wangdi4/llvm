@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
 
 ; This test verifies that GetElementPointer instructions get transformed
 ; when there are multiple structures to be converted.
@@ -26,7 +26,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 }
 
 define void @test01(i64 %idx1) {
-; CHECK: define void @test01(i64 %idx1) {
+; CHECK define internal void@test01(i64 %idx1) {
 
   %base1 = load %struct.test01*, %struct.test01** @g_test01ptr
 ;CHECK:   %base1 = load i64, i64* @g_test01ptr

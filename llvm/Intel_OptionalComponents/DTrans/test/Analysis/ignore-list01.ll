@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
 
 ; The test checks '-dtrans-nosafetychecks-list=' option functionality. This options allows ignoring safety check violations for types.
 

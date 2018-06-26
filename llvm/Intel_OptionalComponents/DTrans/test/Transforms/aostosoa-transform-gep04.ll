@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; This test verifies replacements when the GEP result is used
 ; in more than one basic blocks.
@@ -22,7 +22,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 }
 
 define i32 @test01(i64 %idx1) {
-; CHECK: define i32 @test01(i64 %idx1)
+; CHECK: define internal i32 @test01(i64 %idx1)
 
   %base = load %struct.test01*, %struct.test01** @g_test01ptr
 ; CHECK:  %base = load i64, i64* @g_test01ptr

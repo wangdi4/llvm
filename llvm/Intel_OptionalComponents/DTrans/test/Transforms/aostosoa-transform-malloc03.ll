@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA transformation for a malloc call with a constant size that
 ; is a multiple of the structure size, when using a structure that has padding
@@ -20,7 +20,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; Test a case where padding does not need to be inserted
 define void @test01() {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
 
 %mem = call i8* @malloc(i64 120)
 ; Verify the allocation size is increased by the size of 1 structure element.
@@ -48,7 +48,7 @@ define void @test01() {
 
 ; Test a case where padding does need to be inserted
 define void @test02() {
-; CHECK-LABEL: define void @test02
+; CHECK-LABEL: define internal void @test02
 
   %mem = call i8* @malloc(i64 96)
 ; Verify the allocation size is increased by the size of 1 structure element.

@@ -1,5 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the size argument of a calloc calls are correctly
 ; updated in a few different combinations.
@@ -22,7 +22,7 @@ define void @test1() {
   ret void
 }
 
-; CHECK: define void @test1()
+; CHECK define internal void@test1()
 ; CHECK: %p = call i8* @calloc(i64 8, i64 8)
 ; CHECK: %p_test = bitcast i8* %p to %__DFT_struct.test*
 ; CHECK: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
@@ -41,7 +41,7 @@ define void @test2() {
   ret void
 }
 
-; CHECK: define void @test2()
+; CHECK define internal void@test2()
 ; CHECK: %p = call i8* @calloc(i64 8, i64 8)
 ; CHECK: %p_test = bitcast i8* %p to %__DFT_struct.test*
 ; CHECK: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
@@ -61,7 +61,7 @@ define void @test3(i64 %val) {
   ret void
 }
 
-; CHECK: define void @test3(i64 %val)
+; CHECK define internal void@test3(i64 %val)
 ; CHECK: %sz = mul i64 %val, 8
 ; CHECK: %p = call i8* @calloc(i64 %sz, i64 8)
 ; CHECK: %p_test = bitcast i8* %p to %__DFT_struct.test*
@@ -82,7 +82,7 @@ define void @test4(i64 %val) {
   ret void
 }
 
-; CHECK: define void @test4(i64 %val)
+; CHECK define internal void@test4(i64 %val)
 ; CHECK: %sz = mul i64 %val, 8
 ; CHECK: %p = call i8* @calloc(i64 8, i64 %sz)
 ; CHECK: %p_test = bitcast i8* %p to %__DFT_struct.test*
@@ -104,7 +104,7 @@ define void @test5(i32 %val) {
   ret void
 }
 
-; CHECK: define void @test5(i32 %val)
+; CHECK define internal void@test5(i32 %val)
 ; CHECK: %sz = mul i32 %val, 8
 ; CHECK: %sz64 = sext i32 %sz to i64
 ; CHECK: %p = call i8* @calloc(i64 %sz64, i64 8)
@@ -127,7 +127,7 @@ define void @test6(i32 %val) {
   ret void
 }
 
-; CHECK: define void @test6(i32 %val)
+; CHECK define internal void@test6(i32 %val)
 ; CHECK: %sz = mul i32 %val, 8
 ; CHECK: %sz64 = sext i32 %sz to i64
 ; CHECK: %p = call i8* @calloc(i64 8, i64 %sz64)
@@ -148,7 +148,7 @@ define void @test7() {
   ret void
 }
 
-; CHECK: define void @test7()
+; CHECK define internal void@test7()
 ; CHECK: %p = call i8* @calloc(i64 8, i64 16)
 ; CHECK: %p_test = bitcast i8* %p to %__DFT_struct.test*
 ; CHECK: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
@@ -168,7 +168,7 @@ define void @test8(i64 %val) {
   ret void
 }
 
-; CHECK: define void @test8(i64 %val)
+; CHECK define internal void@test8(i64 %val)
 ; CHECK: %sz.dt = mul i64 %val, 8
 ; CHECK: %sz = mul i64 %val, 16
 ; CHECK: %p = call i8* @calloc(i64 %sz.dt, i64 %sz)
@@ -191,7 +191,7 @@ define void @test9(i64 %val) {
   ret void
 }
 
-; CHECK: define void @test9(i64 %val)
+; CHECK define internal void@test9(i64 %val)
 ; CHECK: %sz.dt = mul i64 %val, 8
 ; CHECK: %sz = mul i64 %val, 16
 ; CHECK: %other = add i64 %sz
@@ -231,7 +231,7 @@ define i32 @doSomething(%struct.test* %p_test) {
   ret i32 %valA
 }
 
-; CHECK: define i32 @doSomething.1(%__DFT_struct.test* %p_test)
+; CHECK: define internal i32 @doSomething.1(%__DFT_struct.test* %p_test)
 ; CHECK: %p_test_A = getelementptr %__DFT_struct.test,
 ; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 0
 ; CHECK-NOT: %p_test_B = getelementptr

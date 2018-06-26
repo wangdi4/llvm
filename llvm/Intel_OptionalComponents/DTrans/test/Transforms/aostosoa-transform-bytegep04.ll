@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; This tests the case of a byte-flattened GEP being passed to a PHI node.
 
@@ -26,7 +26,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; created via a byte-flattened GEP after it is cast back to its original
 ; pointer type.
 define void @test01() {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
 
 entry:
   %var = load %struct.test01*, %struct.test01** @g_test01ptr
@@ -104,7 +104,7 @@ exit:
 ; In this case, the PHI node operates on the byte-flattened GEP
 ; address, which will be cast for use in the store.
 define void @test02() {
-; CHECK-LABEL: define void @test02
+; CHECK-LABEL: define internal void @test02
 
 entry:
   %var = load %struct.test01*, %struct.test01** @g_test01ptr
@@ -178,7 +178,7 @@ exit:
 ; In this case the PHI node operates on the base address of the
 ; structure before it is converted into a byte-flattend GEP.
 define void @test03() {
-; CHECK-LABEL: define void @test03
+; CHECK-LABEL: define internal void @test03
 
 entry:
   %var = load %struct.test01*, %struct.test01** @g_test01ptr

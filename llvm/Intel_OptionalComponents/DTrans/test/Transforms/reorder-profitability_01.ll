@@ -2,7 +2,7 @@
 ; This test verifies that reordering transformation will not be
 ; enabled for struct.test based on profitability heuristic.
 
-;  RUN: opt < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Not profitable to reorder: struct.test ( Size: 16 SpaceSaved: 0 )
 

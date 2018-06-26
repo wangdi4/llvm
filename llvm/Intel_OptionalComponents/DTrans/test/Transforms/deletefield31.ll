@@ -81,10 +81,10 @@
 ; CHECK-REPLACED:  %__DFT_struct.test = type { i32 }
 ; CHECK-REPLACED-NOT: %struct.test = type { i32, i64, i32 }
 
-; CHECK-REPLACED-LABEL: define void @_Z4foo1P1Ai(%struct.A* %m, i32 %cond)
+; CHECK-REPLACED-LABEL: define internal void @_Z4foo1P1Ai(%struct.A* %m, i32 %cond)
 ; CHECK-REPLACED: %call = call i8* %tmp1(%struct.A* %m, i64 4)
 
-; CHECK-REPLACED-LABEL: define void @_Z4foo2i(i32 %cond)
+; CHECK-REPLACED-LABEL: define internal void @_Z4foo2i(i32 %cond)
 ; CHECK-REPLACED:   %call = call i8* @_ZN4testnwEm(i64 4)
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -1508,7 +1508,7 @@ public:
       return false;
     auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-
+    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
     // This lambda function is to allow getting the DominatorTree analysis for a
     // specific function to allow analysis of loops for the dynamic allocation
     // of the structure.
@@ -1517,7 +1517,7 @@ public:
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
 
-    return Impl.runImpl(M, DTInfo, TLI, GetDT);
+    return Impl.runImpl(M, DTInfo, TLI, WPInfo, GetDT);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -1525,6 +1525,7 @@ public:
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -1538,6 +1539,7 @@ INITIALIZE_PASS_BEGIN(DTransAOSToSOAWrapper, "dtrans-aostosoa",
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransAOSToSOAWrapper, "dtrans-aostosoa",
                     "DTrans array of structs to struct of arrays", false, false)
 
@@ -1550,7 +1552,12 @@ namespace dtrans {
 
 bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            const TargetLibraryInfo &TLI,
+                           WholeProgramInfo &WPInfo,
                            AOSToSOAPass::DominatorTreeFuncType &GetDT) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
   // Check whether there are any candidate structures that can be transformed.
   StructInfoVec CandidateTypes;
   gatherCandidateTypes(DTInfo, CandidateTypes);
@@ -1990,11 +1997,12 @@ PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   DominatorTreeFuncType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
 
-  bool Changed = runImpl(M, DTransInfo, TLI, GetDT);
+  bool Changed = runImpl(M, DTransInfo, TLI, WPInfo, GetDT);
 
   if (!Changed)
     return PreservedAnalyses::all();

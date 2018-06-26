@@ -82,12 +82,14 @@ public:
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     return Impl.runImpl(M, DTInfo,
-                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
+                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+                        getAnalysis<WholeProgramWrapperPass>().getResult());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -99,6 +101,7 @@ INITIALIZE_PASS_BEGIN(DTransReorderFieldsWrapper, "dtrans-reorderfields",
                       "DTrans reorder fields", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransReorderFieldsWrapper, "dtrans-reorderfields",
                     "DTrans reorder fields", false, false)
 
@@ -697,7 +700,12 @@ bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
 }
 
 bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                const TargetLibraryInfo &TLI) {
+                                const TargetLibraryInfo &TLI,
+                                WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
   auto &DL = M.getDataLayout();
 
   if (!gatherCandidateTypes(DTInfo, DL))
@@ -720,8 +728,9 @@ bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
 PreservedAnalyses ReorderFieldsPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M)))
+  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

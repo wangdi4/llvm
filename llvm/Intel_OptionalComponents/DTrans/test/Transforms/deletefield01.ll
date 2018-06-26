@@ -1,5 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the dtrans delete pass correctly transforms
 ; structures that have unused fields and meet the necessary safety conditions.
@@ -42,7 +42,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
 
 
-; CHECK: define i32 @doSomething.1(%__DFT_struct.test* %p_test)
+; CHECK: define internal i32 @doSomething.1(%__DFT_struct.test* %p_test)
 ; CHECK: %p_test_A = getelementptr %__DFT_struct.test,
 ; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 0
 ; CHECK-NOT: %p_test_B = getelementptr
