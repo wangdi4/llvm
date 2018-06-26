@@ -983,8 +983,6 @@ public:
     // Use the same type as the allocation parameter for the offset
     // calculations.
     Type *ArithType = NewAllocCountVal->getType();
-
-    unsigned AccumElemSize = 0;
     Value *AddrOffset = ConstantInt::get(ArithType, 0);
     Type *PrevArrayElemType = nullptr;
 
@@ -1000,25 +998,26 @@ public:
         // Compute the offset for the next array based on the size
         // of the previous element's array.
         unsigned PrevElemSize = DL.getTypeAllocSize(PrevArrayElemType);
-        AccumElemSize += PrevElemSize;
         Value *Mul = IRB.CreateMul(NewAllocCountVal,
                                    ConstantInt::get(ArithType, PrevElemSize));
-
         if (AddrOffset == ConstantInt::get(ArithType, 0))
           AddrOffset = Mul;
         else
           AddrOffset = IRB.CreateAdd(AddrOffset, Mul);
 
-        // Add padding, if needed.
+        // Update the offset value to account for any padding that may be
+        // needed, if this element has a stricter alignment requirement than the
+        // previous element.
+        uint64_t PrevFieldAlign = DL.getABITypeAlignment(PrevArrayElemType);
         uint64_t FieldAlign = DL.getABITypeAlignment(ArrayElemType);
-        uint64_t OldAccumElemSize = AccumElemSize;
-        if ((AccumElemSize & (FieldAlign - 1)) != 0)
-          AccumElemSize = alignTo(AccumElemSize, FieldAlign);
-
-        unsigned Padding = AccumElemSize - OldAccumElemSize;
-        if (Padding)
+        if (FieldAlign > PrevFieldAlign) {
+          Value *Numerator = IRB.CreateAdd(
+              AddrOffset, ConstantInt::get(ArithType, FieldAlign - 1));
+          Value *Div = IRB.CreateSDiv(Numerator,
+                                      ConstantInt::get(ArithType, FieldAlign));
           AddrOffset =
-              IRB.CreateAdd(AddrOffset, ConstantInt::get(ArithType, Padding));
+              IRB.CreateMul(Div, ConstantInt::get(ArithType, FieldAlign));
+        }
       }
 
       // Compute the address in the memory block where the array for this field
