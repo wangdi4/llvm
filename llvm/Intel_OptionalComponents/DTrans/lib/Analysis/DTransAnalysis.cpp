@@ -2501,6 +2501,90 @@ public:
       return;
     }
 
+    // Check for BitCast functions
+    if (isa<ConstantExpr>(CI.getCalledValue())) {
+      CallSite CS = CallSite(&CI);
+      unsigned ArgNum = 0;
+
+      for (auto &Arg : F->args()) {
+        ArgNum = Arg.getArgNo();
+
+        // Collect the formal parameter
+        Value *FormalVal = dyn_cast<Value>(&Arg);
+        Type *FormalType = FormalVal->getType();
+
+         // Collect the actual parameter
+        Value *ActualVal = CS.getArgument(ArgNum);
+        LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ActualVal);
+        // Collect the dominant Type of the actual parameter
+        Type *ActualType = LPI.getDominantAggregateTy();
+
+        if (ActualType && FormalType == ActualType)
+          continue;
+
+        // Type mismatch
+        if (FormalType != ActualType) {
+          bool InnerType = checkUsersType(FormalVal, ActualType);
+          if (!InnerType) {
+
+            if (DTInfo.isTypeOfInterest(FormalType))
+              setBaseTypeInfoSafetyData(FormalType, dtrans::BadCasting);
+
+            if (ActualType && DTInfo.isTypeOfInterest(ActualType))
+              setBaseTypeInfoSafetyData(ActualType, dtrans::BadCasting);
+
+            // Print debug information if "Bad casting" was set either
+            // in the formal or actual Type.
+            LLVM_DEBUG({
+              if (DTInfo.isTypeOfInterest(FormalType) ||
+                  (ActualType && DTInfo.isTypeOfInterest(ActualType))) {
+                dbgs() << "dtrans-safety: Bad casting -- bitcast function "
+                       << "arguments mismatch:\n  ";
+                CI.print(dbgs());
+
+                dbgs() << "\n    Formal: " << *FormalVal;
+                dbgs() << "  Type: " << *FormalType << "\n";
+                dbgs() << "    Actual: " << *ActualVal << "\n";
+                dbgs() << "  Dominant Type: ";
+                if (ActualType)
+                  dbgs() << *ActualType;
+                else
+                  dbgs() << "null";
+                dbgs() << "\n";
+              }
+            });
+          }
+        }
+      }
+
+      // Check for varargs
+      if (F->isVarArg()) {
+        ArgNum++;
+        while (ArgNum < CS.arg_size()) {
+          Value *ActualVal = CS.getArgument(ArgNum);
+          LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ActualVal);
+          Type *ActualType = LPI.getDominantAggregateTy();
+
+          if (ActualType && DTInfo.isTypeOfInterest(ActualType) &&
+              !isVarArgSameType(F, ActualType)) {
+
+            LLVM_DEBUG({
+              dbgs() << "dtrans-safety: Bad casting -- bitcast function "
+                     << "arguments mismatch:\n  ";
+              CI.print(dbgs());
+              dbgs() << "\n    Formal: ...  Type: vararg";
+              dbgs() << "\n    Actual: " << *ActualVal;
+              dbgs() << "  Dominant Type: " << *ActualType << "\n";
+            });
+
+            setBaseTypeInfoSafetyData(ActualType, dtrans::BadCasting);
+          }
+
+          ArgNum++;
+        }
+      }
+    }
+
     // For all other calls, if a pointer to an aggregate type is passed as an
     // argument to a function in a form other than its dominant type, the
     // address has escaped. Also, if a pointer to a field is passed as an
@@ -3375,6 +3459,28 @@ private:
   llvm::Type *PtrSizeIntTy;
   llvm::Type *PtrSizeIntPtrTy;
 
+  // Return true if the dominant Type of all Users of the input Value
+  // are the same as the input Type, else return false.
+  bool checkUsersType(Value *Val, Type *Ty) {
+    if (!Ty)
+      return false;
+
+    if (Val->user_empty())
+      return false;
+
+    for (User *User : Val->users()) {
+      llvm::Value *UserVal = dyn_cast<Value>(User);
+      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(UserVal);
+      llvm::Type *UserType = LPI.getDominantAggregateTy();
+
+      if (Ty != UserType)
+        return false;
+    }
+
+    return true;
+  }
+
+
   // There are frequent cases where a pointer to an aggregate type is
   // cast to either i8*, i64* or i64 and we need to look at the uses of
   // the cast value to determine whether or not it is being used in a way
@@ -3400,6 +3506,202 @@ private:
       return (LPI.pointsToSomeElement() || LPI.canAliasToAggregatePointer());
     }
     return false;
+  }
+
+  // Return true if the input Function is variadic, and the input
+  // Type is the only Type handled by the va_list, else return false.
+  bool isVarArgSameType(Function *Fn, Type *ArgType) {
+
+    if (!Fn->isVarArg())
+      return false;
+
+    // The Type of the structure that is holding va_list
+    Type *VAListType = nullptr;
+
+    // Lambda function that returns true if the input Value is
+    // in the va_list
+    auto checkIfVarArgType = [&](Value *Val) {
+      if (!VAListType)
+        return false;
+
+      if (!isa<BitCastInst>(Val) && !isa<GetElementPtrInst>(Val) &&
+              isa<LoadInst>(Val))
+        return false;
+
+      Instruction *NewInst = dyn_cast<Instruction>(Val);
+
+      // Keep iterating through the operand's chain until the Type matches
+      // the va_list, else break
+      while (NewInst) {
+        if (NewInst->getType() == VAListType)
+          return true;
+
+        Value *ValOp = NewInst->getOperand(0);
+        if (ValOp) {
+          LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ValOp);
+          Type *OpType = LPI.getDominantAggregateTy();
+
+          if (OpType == VAListType)
+            return true;
+
+          if (isa<BitCastInst>(ValOp) || isa<GetElementPtrInst>(ValOp) ||
+              isa<LoadInst>(ValOp))
+            NewInst = dyn_cast<Instruction>(ValOp);
+          else
+            break;
+        }
+        else
+          break;
+      }
+
+      return false;
+    };
+
+    for (BasicBlock &BB : *Fn) {
+      for (Instruction &Inst: BB) {
+
+        // Check the Type in case VAArgInst is available
+        if (VAArgInst *VarArg = dyn_cast<VAArgInst>(&Inst)) {
+          if (VarArg->getType() != ArgType)
+            return false;
+        }
+
+        // Note: The IR of a variadic function is represented
+        // as follow:
+        //
+        // C code:
+        //
+        //  struct test {
+        //    int i;
+        //  };
+        //
+        //  void foo(int n, ...)
+        //  {
+        //    va_list vl;
+        //    struct test loc;
+        //    va_start(vl, n);
+        //    loc = va_arg(vl, struct test);
+        //    va_end(vl);
+        //  }
+        //
+        // IR:
+        //
+        //  %struct.__va_list_tag = type { i32, i32, i8*, i8* }
+        //  %struct.test = type { i32 }
+        //
+        //  define void @foo( i32 %n, ...) {
+        //
+        //    %vl = alloca [1 x %struct.__va_list_tag], align 16
+        //            *
+        //            *
+        //            *
+        //    %arraydecay = getelementptr inbounds [1 x %struct.__va_list_tag],
+        //                  [1 x %struct.__va_list_tag]* %vl, i32 0, i32 0
+        //    %arraydecay1 = bitcast %struct.__va_list_tag* %arraydecay to i8*
+        //    call void @llvm.va_start(i8* %arraydecay1)
+        //    %arraydecay2 = getelementptr inbounds
+        //                   [1 x %struct.__va_list_tag],
+        //                   [1 x %struct.__va_list_tag]* %vl, i32 0, i32 0
+        //            *
+        //            *
+        //            *
+        //    %gp_offset = load i32, i32* %gp_offset_p, align 16
+        //    %fits_in_gp = icmp ule i32 %gp_offset, 40
+        //    br i1 %fits_in_gp, label %vaarg.in_reg, label %vaarg.in_mem
+        //
+        //    vaarg.in_reg:
+        //      %0 = getelementptr inbounds %struct.__va_list_tag,
+        //           %struct.__va_list_tag* %arraydecay2, i32 0, i32 3
+        //      %reg_save_area = load i8*, i8** %0, align 16
+        //      %1 = getelementptr i8, i8* %reg_save_area, i32 %gp_offset
+        //      %2 = bitcast i8* %1 to %struct.test*
+        //            *
+        //            *
+        //            *
+        //      br label %vaarg.end
+        //
+        //    vaarg.in_mem:
+        //      %overflow_arg_area_p = getelementptr inbounds
+        //                             %struct.__va_list_tag,
+        //                             %struct.__va_list_tag* %arraydecay2,
+        //                             i32 0, i32 2
+        //       %overflow_arg_area = load i8*, i8** %overflow_arg_area_p,
+        //                            align 8
+        //       %4 = bitcast i8* %overflow_arg_area to %struct.test*
+        //            *
+        //            *
+        //            *
+        //       br label %vaarg.end
+        //
+        //    vaarg.end:
+        //       %vaarg.addr = phi %struct.test* [ %2, %vaarg.in_reg ],
+        //                     [ %4, %vaarg.in_mem ]
+        //            *
+        //            *
+        //            *
+        //  }
+        //
+        // In simple words:
+        //
+        // The array that contains the vararg is in the structure
+        // %struct.__va_list_tag. Each entry will be accessed through
+        // a GetElementPrInst that can be found inside an if/else path,
+        // and merges in a PHINode. This PHINode is the actual vararg.
+        //
+        // To find the vararg:
+        //
+        //   1) Collect the Type of the input parameter to llvm.va_start
+        //      (%struct.__va_list_tag)
+        //   2) Find a PHINode and prove that all incoming Values for the
+        //      node point to %struct.__va_list_tag
+
+        // Collect %struct.__va_list_tag from llvm.va_start
+        else if ((isa<CallInst>(&Inst) || isa<InvokeInst>(&Inst)) &&
+            (!VAListType)) {
+          CallSite CS = CallSite(&Inst);
+          Function *Fn = CS.getCalledFunction();
+          if (Fn->isIntrinsic() &&
+              Fn->getIntrinsicID() == Intrinsic::vastart) {
+              Value *Arg = CS.getArgument(0);
+              LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
+              VAListType = LPI.getDominantAggregateTy();
+
+              // Return false if no dominant Type was found
+              if (!VAListType)
+                return false;
+          }
+        }
+
+        // Check that the PHINode points to %struct.__va_list_tag
+        else if (VAListType && isa<PHINode>(&Inst)) {
+          PHINode *Phi = cast<PHINode>(&Inst);
+          Type *PHIType = Phi->getType();
+          if (PHIType == ArgType)
+            continue;
+
+          unsigned i;
+          for (i = 0; i < Phi->getNumIncomingValues(); i++) {
+            Value *IncVal = Phi->getIncomingValue(i);
+            // Return false if the Type of the PHINode is not the
+            // same as the input Type, and the incoming Value
+            // comes from the va_list. For example:
+            //
+            // Consider that ArgType is %struct.test2. In the previous
+            // example we can see that the PHINode's Type is %struct.test.
+            // Since there is a Type mismatch, then we need to check if
+            // the incoming Values of the PHINode point to
+            // %struct.__va_list_tag. The function checkIfVarArgType
+            // may return true, which means that the input vararg's
+            // Type is different compared to the Type that is being used
+            // within the Function Fn.
+            if (checkIfVarArgType(IncVal))
+              return false;
+          }
+        }
+      }
+    }
+
+    return true;
   }
 
   inline bool isInt8Ptr(Value *V) { return (V->getType() == Int8PtrTy); }

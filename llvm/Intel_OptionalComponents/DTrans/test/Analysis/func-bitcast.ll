@@ -1,5 +1,4 @@
 ; RUN: opt -dtransanalysis -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
-; XFAIL: *
 
 ; This test verifies that a bitcast of a function pointer in a call instruction
 ; is handled as a bitcast of the arguments.
@@ -20,14 +19,15 @@ define void @test01(%struct.test01* %p) {
 ; Test the case where the argument is not known to match the function called.
 %struct.test02 = type { i32, i32 }
 define void @doNothing02(%struct.test02*) { ret void }
-define void @test02(i8* %vp) {
+define void @test02(i8** %pp) {
+  %vp = load i8*, i8** %pp
   call void bitcast (void (%struct.test02*)* @doNothing02
                        to void (i8*)*)(i8* %vp)
   ret void
 }
 
 ; CHECK: LLVMType: %struct.test02 = type { i32, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: Bad casting
 
 ; Test the case where the argument is known to mismatch the function called.
 %struct.test03.a = type { i32, i32 }
@@ -41,9 +41,9 @@ define void @test03(%struct.test03.a* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test03.a = type { i32, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: Bad casting | Mismatched argument use
 ; CHECK: LLVMType: %struct.test03.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: Bad casting | Mismatched argument use
 
 ; Test the case where there is a second argument but it matches.
 %struct.test04 = type { i32, i32 }
@@ -69,7 +69,7 @@ define void @test05(%struct.test05* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test05 = type { i32, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: Bad casting | Mismatched argument use
 
 ; Test the case where two structures are correctly passed.
 %struct.test06.a = type { i32, i32 }
@@ -84,9 +84,9 @@ define void @test06(%struct.test06.a* %pa, %struct.test06.b* %pb) {
 }
 
 ; CHECK: LLVMType: %struct.test06.a = type { i32, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: No issues found
 ; CHECK: LLVMType: %struct.test06.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: No issues found
 
 ; Test the case where two structures are expected but i8* values are passed.
 %struct.test07.a = type { i32, i32 }
@@ -99,6 +99,80 @@ define void @test07(i8* %p1, i8* %p2) {
 }
 
 ; CHECK: LLVMType: %struct.test07.a = type { i32, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: Bad casting | Mismatched argument use
 ; CHECK: LLVMType: %struct.test07.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad bitcast
+; CHECK: Safety data: Bad casting | Mismatched argument use
+
+; Test that the memory space allocated refers to the
+; proper structure
+declare noalias i8* @malloc(i64)
+%struct.test08 = type { i32, i32 }
+define void @doNothing08(%struct.test08*) { ret void }
+define void @test08() {
+  %p = call i8* @malloc(i64 16)
+  %ps = bitcast i8* %p to %struct.test08*
+  call void bitcast (void (%struct.test08*)* @doNothing08
+                       to void (i8*)*)(i8* %p)
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test08 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
+; Test for checking type casting inside the function
+%struct.test10 = type { i32, i32 }
+define void @doSomething10(i8* %p) {
+  %ps = bitcast i8* %p to %struct.test10*
+  ret void
+}
+define void @test10(%struct.test10* %p) {
+  call void bitcast (void (i8*)* @doSomething10
+                       to void (%struct.test10*)*)(%struct.test10* %p)
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test10 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
+
+; Test a case where the argument is passed through an intermediate function.
+
+%struct.test11 = type { i32, i32 }
+define void @doNothing11(%struct.test11* %p) {
+  ret void
+}
+define void @passthru11(i8* %p) {
+  call void (i8*) bitcast (void (%struct.test11 *)*
+                                    @doNothing11
+                                  to void (i8*)*)
+                         (i8* %p)
+  ret void
+}
+define void @test11() {
+  %p = call i8* @malloc(i64 8)
+  bitcast i8* %p to %struct.test11*
+  call void @passthru11(i8* %p)
+  ret void
+}
+
+; CHECK-LABEL: LLVMType: %struct.test11 = type { i32, i32 }
+; CHECK: Safety data: No issues found
+
+
+; Test the case for nested structures
+%struct.test9a = type { i32, i32 }
+%struct.test9b = type { %struct.test9a, i32 }
+define void @doNothing9(%struct.test9b*) { ret void }
+define void @test9(i8** %pp) {
+  %vp = load i8*, i8** %pp
+  call void bitcast (void (%struct.test9b*)* @doNothing9
+                       to void (i8*)*)(i8* %vp)
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test9a = type { i32, i32 }
+; CHECK: Safety data: Bad casting | Nested structure
+; CHECK: LLVMType: %struct.test9b = type { %struct.test9a, i32 }
+; CHECK: Safety data: Bad casting | Contains nested structure
+
+
