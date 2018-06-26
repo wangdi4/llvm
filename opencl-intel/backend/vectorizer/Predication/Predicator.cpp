@@ -327,17 +327,15 @@ void Predicator::LinearizeBlock(BasicBlock* block, BasicBlock* next,
     //If the block only has a backedge, its branch
     //is replaced by a conditional branch with edges to the header and the next
     //block in the list with the exit mask of the block as the branch condition.
-    if (succ0 == header) {
-      Value* loop_mask_p = m_inMask[loop->getHeader()];
-      Value* loop_mask   = new LoadInst(loop_mask_p, "loop_mask", block);
-      V_ASSERT(m_allzero && "Unable to find allzero func");
-      CallInst *call_allzero =
-        CallInst::Create(m_allzero, loop_mask, "leave", block);
+    Value* loop_mask_p = m_inMask[loop->getHeader()];
+    Value* loop_mask   = new LoadInst(loop_mask_p, "loop_mask", block);
+    V_ASSERT(m_allzero && "Unable to find allzero func");
+    CallInst *call_allzero =
+      CallInst::Create(m_allzero, loop_mask, "leave", block);
 
-      term->eraseFromParent();
-      BranchInst::Create(next_after_loop, header, call_allzero, block);
-      return LinearizeFixPhiNode(next_after_loop, block);
-    }
+    term->eraseFromParent();
+    BranchInst::Create(next_after_loop, header, call_allzero, block);
+    return LinearizeFixPhiNode(next_after_loop, block);
   }
 
   // conditional
