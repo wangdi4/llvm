@@ -2724,6 +2724,31 @@ bool CSACvtCFDFPass::parentsLinearInCDG(MachineBasicBlock *mbb) {
   return true;
 }
 
+//need to use dynamic predication for loops with multiple exits;
+//and for jump-thread style branches where nested braches
+//have shared or interleaving if-footers. In CDG, those are nodes
+//with more than one parents with each parents unrelated to each other
+//JIRA CMPLRS-50024 CMPLRS-50410 have such CFGs.
+//one such example is:
+/*
+                                 |--|
+                                 +---
+                               --/ |
+                           |--/    |
+                           +-|-    |
+                             |    /
+                             |    |
+                             |  |-|-|
+                              \ +----
+                              |  /  \-
+                              |-/     \-
+                            |-|-|      |\--|
+                            +----      +-/--
+                                \-     -/
+                                  \   /
+                                  |-/-|
+                                  +----
+*/
 bool CSACvtCFDFPass::needDynamicPreds() {
   for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE;
        ++LI) {
@@ -2735,25 +2760,26 @@ bool CSACvtCFDFPass::needDynamicPreds() {
        BB != E; ++BB) {
     MachineBasicBlock *mbb = &*BB;
     if (!parentsLinearInCDG(mbb)) {
-      unsigned nParent              = 0;
-      ControlDependenceNode *inNode = CDG->getNode(mbb);
-      for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(),
-                                                pend  = inNode->parent_end();
-           pnode != pend; ++pnode) {
-        ControlDependenceNode *ctrlNode = *pnode;
-        MachineBasicBlock *ctrlBB       = ctrlNode->getBlock();
-        if (!ctrlBB)
-          continue;
-        // ignore loop latch, keep looking beyond the loop
-        if (MLI->getLoopFor(ctrlBB) &&
-            MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
-          continue;
-        nParent++;
-      }
-      if (nParent > 1 && mbb->succ_size() > 1)
-        // the phi value will be used by the switch to define new values
-        return true;
+      return true;
     }
+    unsigned nParent              = 0;
+    ControlDependenceNode *inNode = CDG->getNode(mbb);
+    for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(),
+           pend  = inNode->parent_end();
+         pnode != pend; ++pnode) {
+      ControlDependenceNode *ctrlNode = *pnode;
+      MachineBasicBlock *ctrlBB       = ctrlNode->getBlock();
+      if (!ctrlBB)
+        continue;
+      // ignore loop latch, keep looking beyond the loop
+      if (MLI->getLoopFor(ctrlBB) &&
+          MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+        continue;
+      nParent++;
+    }
+    if (nParent > 1 && mbb->succ_size() > 1)
+      // the phi value will be used by the switch to define new values
+      return true;
   }
   return false;
 }
