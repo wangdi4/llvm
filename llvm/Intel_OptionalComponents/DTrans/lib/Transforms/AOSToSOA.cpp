@@ -45,6 +45,15 @@ static cl::opt<std::string>
                                cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Minimum frequency relative to hottest structure frequency required to
+// enable transformation of a qualified structure with the AOS-to-SOA transform.
+// This value is a percentage that the structure's frequency must meet relative
+// to the maximum structure frequency.
+//   i.e. 100 * struct_freq / max_struct_freq >= threshold
+static cl::opt<unsigned>
+    DTransAOSToSOAFrequencyThreshold("dtrans-aostosoa-frequency-threshold",
+                                     cl::init(20), cl::ReallyHidden);
+
 namespace {
 // This class is used during the type remapping process to perform the
 // translation of a null value pointer to an integer index.
@@ -1946,9 +1955,27 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  // TODO: Add the type to the qualified list if it passes the heuristic
-  // check. For now, we reject everything not explicitly added above, by
-  // not placing them in the Qualified list.
+  // If we don't have good frequency info, then process all available
+  // structures, otherwise select the structures that reach some percentage of
+  // the max frequency.
+  uint64_t MaxFreq = DTInfo.getMaxTotalFrequency();
+  if (MaxFreq == 0 || MaxFreq == std::numeric_limits<uint64_t>::max())
+    return !CandidateTypes.empty();
+
+  for (auto *Candidate : CandidateTypes) {
+    uint64_t Freq = Candidate->getTotalFrequency();
+    uint64_t RelHotness = (uint64_t)((((float)Freq) / MaxFreq) * 100.0);
+    if (RelHotness < DTransAOSToSOAFrequencyThreshold) {
+      LLVM_DEBUG(
+          dbgs()
+          << "DTRANS-AOSTOSOA: Rejecting -- Does not meet hotness threshold: "
+          << getStructName(Candidate->getLLVMType()) << "\n  " << RelHotness
+          << " < " << DTransAOSToSOAFrequencyThreshold << "\n");
+      continue;
+    }
+
+    Qualified.push_back(Candidate);
+  }
 
   std::swap(CandidateTypes, Qualified);
   return !CandidateTypes.empty();
