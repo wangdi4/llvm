@@ -18,6 +18,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/PassRegistry.h"
+#include <algorithm>
 
 using namespace llvm;
 
@@ -25,13 +26,23 @@ using namespace llvm;
 // to 2 by default. DTransMemLayoutLevel is used to control transformations
 // by not adding the transformation passes.
 static cl::opt<unsigned> DTransMemLayoutLevel("dtrans-mem-layout-level",
-                                         cl::init(2), cl::ReallyHidden);
+                                              cl::init(2), cl::ReallyHidden);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<bool> DumpModuleBeforeDTrans(
-    "dump-module-before-dtrans", cl::init(false), cl::Hidden,
-    cl::desc(
-        "Dumps LLVM module to dbgs() before first DTRANS transformation"));
+// Valid values: early -> dump before early DTrans passes
+//               late -> dump before late DTrans passes
+enum DumpModuleBeforeDTransValues { early, late };
+
+static cl::list<DumpModuleBeforeDTransValues> DumpModuleBeforeDTrans(
+    "dump-module-before-dtrans", cl::ReallyHidden,
+    cl::desc("Dumps LLVM module to dbgs() before DTRANS transformation"),
+    cl::values(clEnumVal(early, "Dump LLVM Module before early DTRANS passes"),
+               clEnumVal(late, "Dump LLVM Module before late DTRANS passes")));
+
+static bool hasDumpModuleBeforeDTransValue(DumpModuleBeforeDTransValues V) {
+  return std::find(DumpModuleBeforeDTrans.begin(), DumpModuleBeforeDTrans.end(),
+                   V) != DumpModuleBeforeDTrans.end();
+}
 
 // Padded pointer propagation
 static cl::opt<bool>
@@ -39,11 +50,13 @@ static cl::opt<bool>
                         cl::Hidden,
                         cl::desc("Enable padded pointer property propagation"));
 #else
-constexpr bool DumpModuleBeforeDTrans = false;
+
+#define hasDumpModuleBeforeDTransValue(x) (false)
 constexpr bool EnablePaddedPtrProp = false;
+
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-void llvm::initializeDTransPasses(PassRegistry& PR) {
+void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnalysisWrapperPass(PR);
   initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
@@ -58,9 +71,8 @@ void llvm::initializeDTransPasses(PassRegistry& PR) {
 }
 
 void llvm::addDTransPasses(ModulePassManager &MPM) {
-  if (DumpModuleBeforeDTrans) {
-    MPM.addPass(PrintModulePass(dbgs(), "; Module Before DTrans\n"));
-  }
+  if (hasDumpModuleBeforeDTransValue(early))
+    MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
   MPM.addPass(dtrans::DeleteFieldPass());
   MPM.addPass(dtrans::AOSToSOAPass());
@@ -69,9 +81,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
 }
 
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
-  if (DumpModuleBeforeDTrans) {
-    PM.add(createPrintModulePass(dbgs(), "; Module Before DTrans\n"));
-  }
+  if (hasDumpModuleBeforeDTransValue(early))
+    PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
   PM.add(createDTransDeleteFieldWrapperPass());
   PM.add(createDTransAOSToSOAWrapperPass());
@@ -80,6 +91,9 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
 }
 
 void llvm::addLateDTransPasses(ModulePassManager &MPM) {
+  if (hasDumpModuleBeforeDTransValue(late))
+    MPM.addPass(PrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
+
   MPM.addPass(dtrans::PaddedMallocPass());
 
   if (EnablePaddedPtrProp) {
@@ -88,6 +102,9 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
 }
 
 void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
+  if (hasDumpModuleBeforeDTransValue(late))
+    PM.add(createPrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
+
   PM.add(createDTransPaddedMallocWrapperPass());
 
   if (EnablePaddedPtrProp) {
@@ -107,6 +124,6 @@ void llvm::createDTransPasses() {
   (void) llvm::createDTransAnalysisWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
-  (void) llvm::createDTransOptBaseTestWrapperPass();
+  (void)llvm::createDTransOptBaseTestWrapperPass();
 #endif // !INTEL_PRODUCT_RELEASE
 }
