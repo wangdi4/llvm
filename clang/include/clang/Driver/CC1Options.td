@@ -292,6 +292,12 @@ def mlink_bitcode_file : Separate<["-"], "mlink-bitcode-file">,
 def mlink_cuda_bitcode : Separate<["-"], "mlink-cuda-bitcode">,
   HelpText<"Link and internalize needed symbols from the given bitcode file "
            "before performing optimizations.">;
+// INTEL_CUSTOMIZATION
+// csa .bc file link support
+def mlink_csa_bitcode : Separate<["-"], "mlink-csa-bitcode">,
+  HelpText<"Link and internalize needed symbols from the given bitcode file "
+           "before performing optimizations.">;
+// end INTEL_CUSTOMIZATION
 def vectorize_loops : Flag<["-"], "vectorize-loops">,
   HelpText<"Run the Loop vectorization passes">;
 def vectorize_slp : Flag<["-"], "vectorize-slp">,
