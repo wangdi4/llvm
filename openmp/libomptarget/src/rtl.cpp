@@ -283,6 +283,12 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
 
     if (!FoundRTL) {
       DP("No RTL found for image " DPxMOD "!\n", DPxPTR(img->ImageStart));
+#ifdef INTEL_CUSTOMIZATION
+      // Currently spelling out the missing csa library to convey meaning info
+      // to users.
+      CheckMandatoryIsOffload("libomptarget.rtl.csa.so not found");
+#endif
+
     }
   }
   RTLsMtx.unlock();
