@@ -673,16 +673,16 @@ namespace CGIntelOpenMP {
   template <typename RedClause>
   void OpenMPCodeOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
                                                         StringRef QualName) {
-    SmallString<64> Op;
-    Op += "QUAL.OMP.";
-    Op += QualName;
-    Op += ".";
     OverloadedOperatorKind OOK =
         Cl->getNameInfo().getName().getCXXOverloadedOperator();
     auto I = Cl->reduction_ops().begin();
     for (auto *E : Cl->varlists()) {
       addExplicit(E);
       assert(isa<BinaryOperator>((*I)->IgnoreImpCasts()));
+      SmallString<64> Op;
+      Op += "QUAL.OMP.";
+      Op += QualName;
+      Op += ".";
       switch (OOK) {
       case OO_Plus:
         Op += "ADD";
