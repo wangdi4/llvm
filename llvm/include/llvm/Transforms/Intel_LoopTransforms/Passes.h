@@ -48,18 +48,21 @@ FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0);
 /// unrolling after vectorizer.
 FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0);
 
-/// createHIRDistributionForMemRecPass - This creates a pass that performs Loop
-/// Distribution for breaking memory recurrences.
+/// createHIRLoopDistributionForMemRecPass - This creates a pass that
+/// performs Loop Distribution for breaking memory recurrences.
 FunctionPass *createHIRLoopDistributionForMemRecPass();
 
-/// createHIRDistributionForLoopNestPass - This creates a pass that performs
-/// Loop
-/// Distribution for enabling perfect Loop Nests.
+/// createHIRLoopDistributionForLoopNestPass - This creates a pass that
+/// performs Loop Distribution for enabling perfect Loop Nests.
 FunctionPass *createHIRLoopDistributionForLoopNestPass();
 
-/// createHIRInterchangePass - This creates a pass that performs Loop
+/// createHIRLoopInterchangePass - This creates a pass that performs Loop
 /// Interchange.
 FunctionPass *createHIRLoopInterchangePass();
+
+/// createHIRLoopBlockingPass - This creates a pass that performs Loop
+/// Blocking.
+FunctionPass *createHIRLoopBlockingPass();
 
 /// createHIRRuntimeDDPass - This creates a HIR Loop pass that is used
 /// for Runtime DD transformation.

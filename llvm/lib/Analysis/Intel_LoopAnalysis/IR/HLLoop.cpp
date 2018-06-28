@@ -1253,7 +1253,7 @@ bool HLLoop::normalize() {
   return true;
 }
 
-bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) {
+bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) const {
 
   uint64_t TripCount;
 
@@ -1276,7 +1276,7 @@ bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) {
   // Check out if loop can be mormalized before proceeding
   // Need to create a new LB
 
-  CanonExpr *LBCE = getLowerDDRef()->getSingleCanonExpr();
+  const CanonExpr *LBCE = getLowerDDRef()->getSingleCanonExpr();
 
   CanonExpr *CE = LBCE->clone();
   CE->clear();

@@ -13,6 +13,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRDummyTransformation.cpp
         HIRLoopInterchange.cpp
         HIRRuntimeDD.cpp
+        HIRLoopBlocking.cpp
         HIRLoopDistribution.cpp
         HIRLoopDistributionMemRec.cpp
         HIRLoopDistributionLoopNest.cpp
