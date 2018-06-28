@@ -344,13 +344,25 @@ void HIRScalarSymbaseAssignment::populateRegionLiveouts(
 
     // Check if any instructions inside the basic blocks are live outside the
     // region.
-    for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
-         ++Inst) {
+    for (auto InstIt = (*BBIt)->begin(), EndI = (*BBIt)->end(); InstIt != EndI;
+         ++InstIt) {
 
-      if (SCCF.isRegionLiveOut(RegIt, &*Inst)) {
-        auto Symbase = getOrAssignScalarSymbase(&*Inst, *RegIt);
-        RegIt->addLiveOutTemp(Symbase, &*Inst);
-        populateLoopLiveouts(&*Inst, Symbase);
+      auto *Inst = &*InstIt;
+
+      if (SCCF.isRegionLiveOut(RegIt, Inst)) {
+        auto Symbase = getOrAssignScalarSymbase(Inst, *RegIt);
+        RegIt->addLiveOutTemp(Symbase, Inst);
+        populateLoopLiveouts(Inst, Symbase);
+
+        // If the single operand liveout phi's operand is an instruction from
+        // outside the region, we need to mark it as region livein.
+        auto *BaseInst =
+            dyn_cast<Instruction>(traceSingleOperandPhis(Inst, *RegIt));
+
+        if (BaseInst && (BaseInst != Inst) &&
+            !RegIt->containsBBlock(BaseInst->getParent())) {
+          RegIt->addLiveInTemp(Symbase, BaseInst);
+        }
       }
     }
   }
