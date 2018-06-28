@@ -661,22 +661,12 @@ RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
   return TripRef;
 }
 
-unsigned HLLoop::getNumOperandsInternal() const {
-  return getNumLoopDDRefs() + getNumZttOperands();
-}
-
-unsigned HLLoop::getNumOperands() const { return getNumOperandsInternal(); }
-
 unsigned HLLoop::getNumZttOperands() const {
   if (hasZtt()) {
     return Ztt->getNumOperands();
   }
 
   return 0;
-}
-
-void HLLoop::resizeToNumLoopDDRefs() {
-  RegDDRefs.resize(getNumLoopDDRefs(), nullptr);
 }
 
 HLNode *HLLoop::getFirstPreheaderNode() {

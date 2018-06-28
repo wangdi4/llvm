@@ -572,10 +572,6 @@ public:
   /// assumes that the DDRef is connected to a HLDDNode.
   bool isLval() const override;
 
-  /// Returns true if this DDRef is a rval DDRef. This function
-  /// assumes that the DDRef is connected to a HLDDNode.
-  bool isRval() const;
-
   /// Returns true if this DDRef is a fake DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
   bool isFake() const;

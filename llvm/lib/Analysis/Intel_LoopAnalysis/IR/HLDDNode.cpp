@@ -35,14 +35,6 @@ HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj)
       NumFakeLvals(HLDDNodeObj.NumFakeLvals),
       IsDistributePoint(HLDDNodeObj.IsDistributePoint) {}
 
-void HLDDNode::setNode(RegDDRef *Ref, HLDDNode *HNode) {
-  Ref->setHLDDNode(HNode);
-}
-
-RegDDRef *HLDDNode::getOperandDDRefImpl(unsigned OperandNum) const {
-  return RegDDRefs[OperandNum];
-}
-
 void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
 
   /// Reset HLDDNode of a previous DDRef, if any. We can catch more errors
@@ -58,20 +50,6 @@ void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
   }
 
   RegDDRefs[OperandNum] = Ref;
-}
-
-RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) {
-  assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  return getOperandDDRefImpl(OperandNum);
-}
-
-const RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) const {
-  return const_cast<HLDDNode *>(this)->getOperandDDRef(OperandNum);
-}
-
-void HLDDNode::setOperandDDRef(RegDDRef *Ref, unsigned OperandNum) {
-  assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  setOperandDDRefImpl(Ref, OperandNum);
 }
 
 RegDDRef *HLDDNode::removeOperandDDRef(unsigned OperandNum) {

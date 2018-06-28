@@ -438,14 +438,6 @@ bool RegDDRef::isLval() const {
   return HNode->isLval(this);
 }
 
-bool RegDDRef::isRval() const {
-  auto HNode = getHLDDNode();
-
-  assert(HNode && "DDRef is not attached to any node!");
-
-  return HNode->isRval(this);
-}
-
 bool RegDDRef::isFake() const {
   auto HNode = getHLDDNode();
 

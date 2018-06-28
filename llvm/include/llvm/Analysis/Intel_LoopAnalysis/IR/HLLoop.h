@@ -160,18 +160,19 @@ protected:
   /// Comes down to DDRefs for lower, tripcount and stride.
   unsigned getNumLoopDDRefs() const { return 3; }
 
-  /// Returns the number of operands this loop is supposed to have.
-  unsigned getNumOperands() const override;
-
   /// Sets DDRefs' size to getNumLoopDDRefs().
-  void resizeToNumLoopDDRefs();
+  void resizeToNumLoopDDRefs() {
+    RegDDRefs.resize(getNumLoopDDRefs(), nullptr);
+  }
 
   /// Used to implement get*CanonExpr() functionality.
   CanonExpr *getLoopCanonExpr(RegDDRef *Ref);
   const CanonExpr *getLoopCanonExpr(const RegDDRef *Ref) const;
 
   /// Implements getNumOperands() functionality.
-  unsigned getNumOperandsInternal() const;
+  unsigned getNumOperandsInternal() const {
+    return getNumLoopDDRefs() + getNumZttOperands();
+  }
 
   /// Returns the DDRef offset of a ztt predicate.
   unsigned getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
@@ -317,6 +318,9 @@ public:
 
   /// Returns true if this Ref belongs to ztt.
   bool isZttOperandDDRef(const RegDDRef *Ref) const;
+
+  /// Returns the number of operands this loop is supposed to have.
+  unsigned getNumOperands() const override { return getNumOperandsInternal(); }
 
   /// Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.

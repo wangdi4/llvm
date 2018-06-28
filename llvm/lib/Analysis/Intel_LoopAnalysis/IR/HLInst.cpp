@@ -297,16 +297,6 @@ RegDDRef *HLInst::getLvalDDRef() {
   return nullptr;
 }
 
-const RegDDRef *HLInst::getLvalDDRef() const {
-  return const_cast<HLInst *>(this)->getLvalDDRef();
-}
-
-void HLInst::setLvalDDRef(RegDDRef *RDDRef) {
-  assert(hasLval() && "This instruction does not have an lval!");
-
-  setOperandDDRefImpl(RDDRef, 0);
-}
-
 RegDDRef *HLInst::removeLvalDDRef() {
   auto TRef = getLvalDDRef();
 
@@ -328,16 +318,6 @@ RegDDRef *HLInst::getRvalDDRef() {
   return nullptr;
 }
 
-const RegDDRef *HLInst::getRvalDDRef() const {
-  return const_cast<HLInst *>(this)->getRvalDDRef();
-}
-
-void HLInst::setRvalDDRef(RegDDRef *Ref) {
-  assert(hasRval() && "This instruction does not have a rval!");
-
-  setOperandDDRefImpl(Ref, 1);
-}
-
 RegDDRef *HLInst::removeRvalDDRef() {
   auto TRef = getRvalDDRef();
 
@@ -345,16 +325,6 @@ RegDDRef *HLInst::removeRvalDDRef() {
 
   return TRef;
 }
-
-bool HLInst::isLval(const RegDDRef *Ref) const {
-  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
-
-  return ((getLvalDDRef() == Ref) || isFakeLval(Ref));
-}
-
-bool HLInst::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
-
-unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
 unsigned HLInst::getNumOperandsInternal() const {
   unsigned NumOp = 0;
@@ -401,14 +371,6 @@ bool HLInst::isInPreheaderPostexitImpl(bool Preheader) const {
   }
 
   return false;
-}
-
-bool HLInst::isInPreheader() const { return isInPreheaderPostexitImpl(true); }
-
-bool HLInst::isInPostexit() const { return isInPreheaderPostexitImpl(false); }
-
-bool HLInst::isInPreheaderOrPostexit() const {
-  return (isInPreheader() || isInPostexit());
 }
 
 void HLInst::verify() const {
