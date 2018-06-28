@@ -330,8 +330,9 @@ const Transform DT_FieldSingleAllocFunction = 0x0002;
 const Transform DT_ReorderFields = 0x0004;
 const Transform DT_DeleteField = 0x0008;
 const Transform DT_AOSToSOA = 0x0010;
-const Transform DT_Last = 0x0020;
-const Transform DT_Legal = 0x001f;
+const Transform DT_ElimROFieldAccess = 0x0020;
+const Transform DT_Last = 0x0040;
+const Transform DT_Legal = 0x003f;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible

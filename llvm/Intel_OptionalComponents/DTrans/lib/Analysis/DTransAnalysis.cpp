@@ -5677,6 +5677,8 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_DeleteField;
         else if (TransformationAndTypes.first == "aostosoa")
           TransName = dtrans::DT_AOSToSOA;
+        else if (TransformationAndTypes.first == "elimrofieldaccess")
+          TransName = dtrans::DT_ElimROFieldAccess;
         else {
           LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
                        << "\': bad transformation name");
@@ -5910,7 +5912,7 @@ bool DTransAnalysisInfo::isReadOnlyFieldAccess(LoadInst *Load) {
   if (!Res.first)
     return false;
 
-  if (Res.first->testSafetyData(dtrans::SDElimROFieldAccess))
+  if (testSafetyData(Res.first, dtrans::DT_ElimROFieldAccess))
     return false;
 
   dtrans::FieldInfo &FI = Res.first->getField(Res.second);

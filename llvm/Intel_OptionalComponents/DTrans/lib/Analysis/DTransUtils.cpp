@@ -518,6 +518,8 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "reorderfields";
   case dtrans::DT_AOSToSOA:
     return "aostosoa";
+  case dtrans::DT_ElimROFieldAccess:
+    return "elimrofieldaccess";
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
@@ -539,17 +541,17 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
     return dtrans::SDReorderFields;
   case dtrans::DT_AOSToSOA:
     return dtrans::SDAOSToSOA;
+  case dtrans::DT_ElimROFieldAccess:
+    return dtrans::SDElimROFieldAccess;
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return dtrans::NoIssues;
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Helper method for getting a name to print for structures in debug traces.
 StringRef dtrans::getStructName(llvm::Type *Ty) {
   auto *StructTy = dyn_cast<llvm::StructType>(Ty);
   assert(StructTy && "Expected structure type");
   return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
 }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 

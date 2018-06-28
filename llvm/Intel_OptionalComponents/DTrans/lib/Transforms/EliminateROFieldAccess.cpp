@@ -74,6 +74,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -347,7 +348,7 @@ public:
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
-    AU.addPreserved<DTransAnalysisWrapper>();
+    AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
 
@@ -388,9 +389,12 @@ PreservedAnalyses EliminateROFieldAccessPass::run(Module &M,
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
 
   EliminateROFieldAccessImpl Impl(DTransInfo);
-  if (Impl.run(M))
-    return PreservedAnalyses::none();
-  return PreservedAnalyses::all();
+  if (!Impl.run(M))
+    return PreservedAnalyses::all();
+  // TODO: Mark the actual preserved analyses.
+  PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();
+  return PA;
 }
 } // namespace dtrans
 

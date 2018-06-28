@@ -82,7 +82,6 @@ public:
   /// <transform> -> <list_of_type_names>.
   void parseIgnoreList();
 
-  bool analyzeModule(Module &M, TargetLibraryInfo &TLI);
   void reset();
 
   /// Return true if we are interested in tracking values of the specified type.
