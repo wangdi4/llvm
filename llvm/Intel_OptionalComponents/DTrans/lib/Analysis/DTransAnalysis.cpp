@@ -5666,7 +5666,7 @@ void DTransAnalysisInfo::parseIgnoreList() {
         if (TransformationAndTypes.first.empty() ||
             TransformationAndTypes.second.empty()) {
           LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
-                       << "\': transform name or types list is missing");
+                            << "\': transform name or types list is missing");
           continue;
         }
         dtrans::Transform TransName;
@@ -5684,7 +5684,7 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_ElimROFieldAccess;
         else {
           LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
-                       << "\': bad transformation name");
+                            << "\': bad transformation name");
           continue;
         }
         LLVM_DEBUG(dbgs() << "\n\tAdding   \'" << Element << "\' ");
@@ -5911,7 +5911,7 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
 // violations.
 //
 bool DTransAnalysisInfo::isReadOnlyFieldAccess(LoadInst *Load) {
-  std::pair<dtrans::StructInfo*, uint64_t> Res = getInfoFromLoad(Load);
+  std::pair<dtrans::StructInfo *, uint64_t> Res = getInfoFromLoad(Load);
   if (!Res.first)
     return false;
 
@@ -5967,18 +5967,33 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     FP->dump();
   });
   auto LI = dyn_cast<LoadInst>(FP);
-  std::pair<dtrans::StructInfo*, uint64_t> Res = getInfoFromLoad(LI);
-  if (!Res.first)
+  std::pair<dtrans::StructInfo *, uint64_t> Res = getInfoFromLoad(LI);
+  if (!Res.first) {
+    LLVM_DEBUG(dbgs() << "FSV ICS: INCOMPLETE\n"
+                      << "Load " << *LI << "\n"
+                      << "Target List is NULL\n");
     return false;
+  }
   dtrans::FieldInfo &FI = Res.first->getField(Res.second);
-  auto F = dyn_cast_or_null<Function>(FI.getSingleValue());
-  if (!F)
-    return false;
-  Targets.push_back(F);
-
-  LLVM_DEBUG(dbgs() << "FSV ICS: Specialized TO " << F->getName() << " Load "
-                    << *LI << "\n");
-  return true;
+  bool IsIncomplete = !FI.isValueSetComplete();
+  for (auto *C : FI.values()) {
+    if (auto F = dyn_cast<Function>(C))
+      Targets.push_back(F);
+    else if (!C->isZeroValue())
+      IsIncomplete = true;
+  }
+  LLVM_DEBUG({
+    dbgs() << "FSV ICS: " << (!IsIncomplete ? "COMPLETE\n" : "INCOMPLETE\n")
+           << "Load " << *LI << "\n";
+    if (Targets.empty())
+      dbgs() << "Target List is NULL\n";
+    else {
+      dbgs() << "Target List:\n ";
+      for (auto *F : Targets)
+        dbgs() << "  " << F->getName() << "\n";
+    }
+  });
+  return !IsIncomplete;
 }
 
 void DTransAnalysisInfo::printIgnoreTransListForStructure(

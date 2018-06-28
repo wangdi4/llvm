@@ -1,8 +1,9 @@
 ; RUN: opt -intel-ind-call-force-dtrans -dtransanalysis -indirectcallconv < %s -S 2>&1 | FileCheck %s
-; RUN: opt -intel-ind-call-force-dtrans -passes='require<dtransanalysis>,function(indirectcallconv)' < %s -S 2>&1 | FileCheck %s
+; RUN: opt -intel-ind-call-force-dtrans -passes='require<dtransanalysis>,function(indirectcallconv)' < %s  -S 2>&1 | FileCheck %s
 
 ; Check that field single value indirect call specialization will specialize
-; when the indirect call is done through a GetElementPtrInst
+; when the indirect call is done through a GetElementPtrInst, even when the
+; struct containing the function pointers is zero initialized.
 
 ; CHECK-NOT{{.*}}icmp{{.*}}
 ; CHECK:{{.*}}call i32 @foo()
@@ -19,11 +20,13 @@ define dso_local i32 @bar() {
 
 %struct.MYSTRUCT = type { i32 ()*, i32 ()* }
 
-@globstruct = internal global %struct.MYSTRUCT { i32 ()* @foo, i32 ()* @bar }, align 8
+@globstruct = internal global %struct.MYSTRUCT zeroinitializer, align 8
 
 @globstructptr = internal global %struct.MYSTRUCT* @globstruct, align 8
 
 define dso_local i32 @main() {
+  store i32 ()* @foo, i32 ()** getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @globstruct, i32 0, i32 0), align 8
+  store i32 ()* @bar, i32 ()** getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @globstruct, i32 0, i32 1), align 8
   %t0 = load %struct.MYSTRUCT*, %struct.MYSTRUCT** @globstructptr, align 8
   %myfp1 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %t0, i32 0, i32 0
   %t1 = load i32 ()*, i32 ()** %myfp1, align 8
