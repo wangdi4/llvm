@@ -5,7 +5,7 @@
 
 define void @main() {
 ; CHECK-LABEL: main:
-; CHECK: xorl %eax, %eax
+; CHECK-NOT: xorl %eax, %eax
   ret void
 }
 
