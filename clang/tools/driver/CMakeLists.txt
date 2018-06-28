@@ -142,6 +142,11 @@ endif()
 if(INTEL_INCLUDE_DTRANS)
   target_link_libraries(clang PRIVATE LLVMIntel_DTrans)
 endif(INTEL_INCLUDE_DTRANS)
+if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
+# Explicit dependency for LLVMIntel_CSAScalarOpt to satisfy
+# ForcePassLinking dependencies on CSA passes.
+  target_link_libraries(clang PRIVATE LLVMIntel_CSAScalarOpt)
+endif()
 # end INTEL_CUSTOMIZATION
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
