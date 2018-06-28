@@ -758,10 +758,8 @@ public:
 
   /// Returns true if loop has pragma to enable complete or general unrolling.
   bool hasUnrollEnablingPragma() const {
-    return (
-        getLoopStringMetadata("llvm.loop.unroll.enable") ||
-        getLoopStringMetadata("llvm.loop.unroll.count") ||
-        (isConstTripLoop() && getLoopStringMetadata("llvm.loop.unroll.full")));
+    return hasCompleteUnrollEnablingPragma() ||
+           hasGeneralUnrollEnablingPragma();
   }
 
   /// Returns true if loop has pragma to enable complete unrolling.
@@ -772,17 +770,17 @@ public:
 
   /// Returns true if loop has pragma to enable general unrolling.
   bool hasGeneralUnrollEnablingPragma() const {
-    return getLoopStringMetadata("llvm.loop.unroll.enable") ||
-           getLoopStringMetadata("llvm.loop.unroll.count");
+    if (getLoopStringMetadata("llvm.loop.unroll.enable")) {
+      return true;
+    }
+
+    unsigned PragmaCount = getUnrollPragmaCount();
+
+    return (PragmaCount > 1);
   }
 
   /// Returns true if loop has pragma to disable general unrolling.
-  bool hasGeneralUnrollDisablingPragma() const {
-    return getLoopStringMetadata("llvm.loop.unroll.disable") ||
-           getLoopStringMetadata("llvm.loop.unroll.runtime.disable") ||
-           // 'full' metadata only implies complete unroll, not partial unroll.
-           getLoopStringMetadata("llvm.loop.unroll.full");
-  }
+  bool hasGeneralUnrollDisablingPragma() const;
 
   /// Returns unroll count specified through pragma, otherwise returns 0.
   unsigned getUnrollPragmaCount() const {
@@ -795,16 +793,26 @@ public:
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
-  /// Returns true if loop has pragma to enable distribution.
   /// Returns true if loop has pragma to enable unroll & jam.
   bool hasUnrollAndJamEnablingPragma() const {
-    return getLoopStringMetadata("llvm.loop.unroll_and_jam.enable") ||
-           getLoopStringMetadata("llvm.loop.unroll_and_jam.count");
+    if (getLoopStringMetadata("llvm.loop.unroll_and_jam.enable")) {
+      return true;
+    }
+
+    unsigned PragmaCount = getUnrollAndJamPragmaCount();
+
+    return (PragmaCount > 1);
   }
 
   /// Returns true if loop has pragma to disable unroll & jam.
   bool hasUnrollAndJamDisablingPragma() const {
-    return getLoopStringMetadata("llvm.loop.unroll_and_jam.disable");
+    if (getLoopStringMetadata("llvm.loop.unroll_and_jam.disable")) {
+      return true;
+    }
+
+    unsigned PragmaCount = getUnrollAndJamPragmaCount();
+
+    return (PragmaCount == 1);
   }
 
   /// Returns unroll & jam count specified through pragma, otherwise returns 0.

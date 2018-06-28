@@ -600,13 +600,10 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
 
   if (HasEnablingPragma) {
     UnrollFactor = Lp->getUnrollAndJamPragmaCount();
+    assert(UnrollFactor != 1 && "pragma unroll count of 1 not expected!");
 
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
-    } else if (UnrollFactor == 1) {
-      LLVM_DEBUG(
-          dbgs() << "Skipping unroll & jam as pragma count is set to 1!\n");
-      return 0;
     }
 
     if (IsConstTC) {

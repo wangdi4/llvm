@@ -1342,20 +1342,20 @@ MDNode *HLLoop::getLoopStringMetadata(StringRef Name) const {
 }
 
 bool HLLoop::hasCompleteUnrollEnablingPragma() const {
-  if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
-      getLoopStringMetadata("llvm.loop.unroll.full")) {
-    return true;
-  }
-
   uint64_t TC;
   if (!isConstTripLoop(&TC)) {
     return false;
   }
 
+  if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
+      getLoopStringMetadata("llvm.loop.unroll.full")) {
+    return true;
+  }
+
   // Unroll if loop's trip count is less than unroll count.
   auto PragmaTC = getUnrollPragmaCount();
 
-  return PragmaTC && (TC <= PragmaTC);
+  return (TC <= PragmaTC);
 }
 
 bool HLLoop::hasCompleteUnrollDisablingPragma() const {
@@ -1375,6 +1375,21 @@ bool HLLoop::hasCompleteUnrollDisablingPragma() const {
   }
 
   return false;
+}
+
+bool HLLoop::hasGeneralUnrollDisablingPragma() const {
+
+  if (getLoopStringMetadata("llvm.loop.unroll.disable") ||
+      getLoopStringMetadata("llvm.loop.unroll.runtime.disable") ||
+      // 'full' metadata only implies complete unroll, not partial unroll.
+      getLoopStringMetadata("llvm.loop.unroll.full")) {
+    return true;
+  }
+
+  unsigned PragmaCount = getUnrollPragmaCount();
+
+  // Unroll count of 1 also qualifies as disabling pragma.
+  return (PragmaCount == 1);
 }
 
 bool HLLoop::hasVectorizeEnablingPragma() const {
