@@ -1,22 +1,25 @@
-//===- LoopSPMDization.cpp - Loop SPMDization pass          ---------------===//
+//===--- LoopSPMDization.cpp - Loop SPMDization pass ------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This pass implements the Loop SPMDization transformation that generates
-// multiple loops from one loop. These loops can run in parallel. Two approaches
-// are implemented here: the cyclic approach where each loop has a stride of k
-// and the blocking approach where each loop iterates over contiguous
-// #iterations/NPEs iterations.
-//
+///===---------------------------------------------------------------------===//
+/// \file
+///
+/// This pass implements the Loop SPMDization transformation that generates
+/// multiple loops from one loop. These loops can run in parallel.
+/// Two approaches are implemented here: the cyclic approach where each loop
+/// has a stride of k and the blocking approach where each loop iterates
+/// over contiguous #iterations/NPEs iterations.
+///
 //===----------------------------------------------------------------------===//
 
+#include "Intel_CSA/CSAIRPasses.h"
 #include "llvm/Analysis/LoopPass.h"
-//#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/IR/Dominators.h"

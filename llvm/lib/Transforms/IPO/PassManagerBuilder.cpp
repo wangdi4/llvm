@@ -56,7 +56,6 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
-#include "llvm/Bitcode/CSASaveRawBC.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
@@ -64,6 +63,10 @@
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_CSA
+#include "Intel_CSA/Bitcode/CSASaveRawBC.h"
+#include "Intel_CSA/CSAIRPasses.h"
+#endif  // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -366,11 +369,13 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
     legacy::PassManagerBase &PM) const {
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   // CSA: add the CSASaveRawBC pass which will preserve the initial IR
   // for a module. This must be added early so it gets IR that's
   // equivalent to the Bitcode emmitted by the -flto option
   PM.add(createCSASaveRawBCPass());
-#endif
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   switch (UseCFLAA) {
   case CFLAAType::Steensgaard:
@@ -567,7 +572,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   MPM.add(createLoopSPMDizationPass());
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
 
   if (OptLevel > 1) {
@@ -945,7 +954,9 @@ void PassManagerBuilder::populateModulePassManager(
   addInstructionCombiningPass(MPM);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   MPM.add(createLoopSPMDizationPass());
+#endif  // INTEL_FEATURE_CSA
   // Disable unroll in LTO mode if loopopt is enabled so it only gets triggered
   // in link phase after loopopt.
   if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) {
@@ -953,7 +964,9 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     MPM.add(createCSALowerParallelIntrinsicsWrapperPass());
+#endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
     // LoopUnroll may generate some redundency to cleanup.
@@ -1218,7 +1231,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createLoopUnrollPass(OptLevel));
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   PM.add(createCSALowerParallelIntrinsicsWrapperPass());
+#endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
   // Now that we've optimized loops (in particular loop induction variables),

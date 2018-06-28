@@ -1,4 +1,4 @@
-;===- ./Intel_OptionalComponents/LLVMBuild.txt -----------------*- Conf -*--===;
+;===- Intel_OptionalComponents/CSA/lib/LLVMBuild.txt -----------*- Conf -*--===;
 ;
 ; Copyright (C) 2018 Intel Corporation. All rights reserved.
 ;
@@ -19,10 +19,9 @@
 
 [common]
 subdirectories =
- DTrans
- CSA
+ Transforms
 
 [component_0]
 type = Group
-name = Intel_OptionalComponents
-parent = $ROOT
+name = Intel_CSALib
+parent = CSA_Base

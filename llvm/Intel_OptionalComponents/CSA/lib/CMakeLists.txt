@@ -11,10 +11,4 @@
 #    Configures build for project.
 #
 
-if (INTEL_INCLUDE_DTRANS)
-  add_subdirectory(DTrans)
-endif()
-
-if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
-  add_subdirectory(CSA)
-endif()
+add_subdirectory(Transforms)

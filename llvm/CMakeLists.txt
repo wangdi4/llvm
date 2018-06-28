@@ -674,6 +674,25 @@ if(INTEL_CUSTOMIZATION)
   else()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
   endif()
+
+  if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
+    if (NOT ";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
+      list(APPEND LLVM_INTEL_FEATURES "CSA")
+    endif()
+
+    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
+    set(INTEL_CSA_INCLUDE_DIR
+        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/CSA/include)
+    include_directories(AFTER ${INTEL_CSA_INCLUDE_DIR})
+    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
+                               Intel_CSATableGen
+                               Intel_CSAScalarOpt)
+  endif()
+
+  foreach(f ${LLVM_INTEL_FEATURES})
+    string(CONCAT FOPT "-DINTEL_FEATURE_" ${f} "=1")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
+  endforeach(f)
 endif(INTEL_CUSTOMIZATION)
 
 message(STATUS "Constructing LLVMBuild project information")

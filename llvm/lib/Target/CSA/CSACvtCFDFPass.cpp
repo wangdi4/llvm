@@ -16,6 +16,7 @@
 
 #include "CSACvtCFDFPass.h"
 #include "CSASubtarget.h"
+#include "CSATargetMachine.h"
 #include "CSAUtils.h"
 #include "InstPrinter/CSAInstPrinter.h"
 #include "llvm/ADT/PostOrderIterator.h"

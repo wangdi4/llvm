@@ -192,12 +192,6 @@ Pass *createLoopRerollPass();
 
 //===----------------------------------------------------------------------===//
 //
-// LoopSPMDization - This pass is a simple loop SPMDization pass.
-//
-Pass *createLoopSPMDizationPass();
-
-//===----------------------------------------------------------------------===//
-//
 // LoopRotate - This pass is a simple loop rotating pass.
 //
 Pass *createLoopRotatePass(int MaxHeaderSize = -1);

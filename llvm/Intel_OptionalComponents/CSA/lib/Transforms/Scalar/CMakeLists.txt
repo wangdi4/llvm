@@ -11,10 +11,14 @@
 #    Configures build for project.
 #
 
-if (INTEL_INCLUDE_DTRANS)
-  add_subdirectory(DTrans)
-endif()
+add_llvm_library(LLVMIntel_CSAScalarOpt
+  Scalar.cpp
+  LoopSPMDization.cpp
+  CSALowerParallelIntrinsics.cpp
 
-if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
-  add_subdirectory(CSA)
-endif()
+  ADDITIONAL_HEADER_DIRS
+  ${CSA_MAIN_INCLUDE_DIR}/Transforms/Scalar
+
+  DEPENDS
+  intrinsics_gen
+  )

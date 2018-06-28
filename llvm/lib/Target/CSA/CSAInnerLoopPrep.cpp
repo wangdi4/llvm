@@ -23,6 +23,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Intel_CSA/Transforms/Scalar/CSALowerParallelIntrinsics.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -37,7 +38,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/CSALowerParallelIntrinsics.h"
 using namespace llvm;
 using namespace llvm::PatternMatch;
 

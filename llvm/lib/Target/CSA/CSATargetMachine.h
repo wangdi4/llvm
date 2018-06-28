@@ -23,6 +23,8 @@ namespace llvm {
 
 void initializeCSAOptDFPassPass(PassRegistry &);
 void initializeCSAMemopOrderingPass(PassRegistry &);
+void initializeControlDependenceGraphPass(PassRegistry&);
+void initializeCSACvtCFDFPassPass(PassRegistry&);
 
 class CSATargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;

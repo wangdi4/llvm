@@ -20,9 +20,11 @@ add_subdirectory(LineEditor)
 add_subdirectory(Linker)
 add_subdirectory(MC)
 add_subdirectory(MI)
-if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
+# INTEL_CUSTOMIZATION
+if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
 add_subdirectory(Intel_MIRMatcher)
 endif()
+# end INTEL_CUSTOMIZATION
 add_subdirectory(Object)
 add_subdirectory(ObjectYAML)
 add_subdirectory(Option)

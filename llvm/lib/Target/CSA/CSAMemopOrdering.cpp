@@ -7,13 +7,6 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
-//
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
-//
 //===----------------------------------------------------------------------===//
 //
 // This file implements a machine function pass for the CSA target that
@@ -24,6 +17,7 @@
 #include "CSA.h"
 #include "CSATargetMachine.h"
 #include "CSAUtils.h"
+#include "Intel_CSA/Transforms/Scalar/CSALowerParallelIntrinsics.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -33,7 +27,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/CSALowerParallelIntrinsics.h"
 
 #include <algorithm>
 #include <iterator>

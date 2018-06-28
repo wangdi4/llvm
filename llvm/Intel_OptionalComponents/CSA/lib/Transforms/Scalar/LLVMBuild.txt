@@ -1,4 +1,4 @@
-;===- ./Intel_OptionalComponents/LLVMBuild.txt -----------------*- Conf -*--===;
+;==- Intel_OptionalComponents/CSA/lib/Transforms/Scalar/LLVMBuild.txt *- Conf -*-==;
 ;
 ; Copyright (C) 2018 Intel Corporation. All rights reserved.
 ;
@@ -17,12 +17,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories =
- DTrans
- CSA
-
 [component_0]
-type = Group
-name = Intel_OptionalComponents
-parent = $ROOT
+type = OptionalLibrary
+name = Intel_CSAScalarOpt
+parent = Intel_CSALibTransforms
+
+required_libraries = Analysis Core Support TransformUtils

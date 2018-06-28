@@ -255,7 +255,6 @@ void initializeLoopRerollPass(PassRegistry&);
 void initializeLoopRotateLegacyPassPass(PassRegistry&);
 void initializeLoopSimplifyCFGLegacyPassPass(PassRegistry&);
 void initializeLoopSimplifyPass(PassRegistry&);
-void initializeLoopSPMDizationPass(PassRegistry&);
 void initializeLoopStrengthReducePass(PassRegistry&);
 void initializeLoopUnrollPass(PassRegistry&);
 void initializeLoopUnswitchPass(PassRegistry&);
@@ -284,10 +283,6 @@ void initializeMachineDominatorTreePass(PassRegistry&);
 void initializeMachineFunctionPrinterPassPass(PassRegistry&);
 void initializeMachineLICMPass(PassRegistry&);
 void initializeMachineLoopInfoPass(PassRegistry&);
-#if INTEL_CUSTOMIZATION
-void initializeControlDependenceGraphPass(PassRegistry&); //CSA EDIT
-void initializeCSACvtCFDFPassPass(PassRegistry&);         //CSA EDIT
-#endif
 void initializeMachineModuleInfoPass(PassRegistry&);
 void initializeMachineOptimizationRemarkEmitterPassPass(PassRegistry&);
 void initializeMachineOutlinerPass(PassRegistry&);
@@ -525,7 +520,6 @@ void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
-void initializeCSALowerParallelIntrinsicsWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

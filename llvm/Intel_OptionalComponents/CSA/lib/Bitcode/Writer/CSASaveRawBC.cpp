@@ -1,3 +1,20 @@
+//===- CSASaveRawBC.cpp - Dump raw bitcode to file --------------*- C++ -*-===//
+//
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+///
+/// This file provides implementation of raw bitcode dumping to file.
+///
+//===----------------------------------------------------------------------===//
+
+#include "Intel_CSA/Bitcode/CSASaveRawBC.h"
 #include "llvm/Pass.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/raw_ostream.h"
@@ -6,8 +23,6 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Threading.h"
-
-#include "llvm/Bitcode/CSASaveRawBC.h"
 
 using namespace llvm;
 

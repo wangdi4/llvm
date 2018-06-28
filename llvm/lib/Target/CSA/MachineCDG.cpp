@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 #include "MachineCDG.h"
 #include "CSA.h"
+#include "CSATargetMachine.h"
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/DOTGraphTraitsPass.h"

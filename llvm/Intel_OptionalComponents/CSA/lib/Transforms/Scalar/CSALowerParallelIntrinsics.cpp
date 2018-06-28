@@ -1,4 +1,4 @@
-//===-CSALowerParallelIntrinsics - Lower section intrinsics into metadata-===//
+//===- CSALowerParallelIntrinsics.cpp - Lower section intrinsics into metadata -*- C++ -*-===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -7,17 +7,18 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
-///===----------------------------------------------------------------------===//
+///===---------------------------------------------------------------------===//
 /// \file
 ///
 /// This file provides implementation of CSALowerParallelIntrinsics.
 ///
-///===----------------------------------------------------------------------===//
+///===---------------------------------------------------------------------===//
 
+#include "Intel_CSA/CSAIRPasses.h"
+#include "Intel_CSA/Transforms/Scalar/CSALowerParallelIntrinsics.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -26,14 +27,11 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/CSALowerParallelIntrinsics.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include <deque>
 #include <queue>
 #include <unordered_set>
 
 using namespace llvm;
-using namespace llvm::vpo;
 
 namespace llvm {
 // Forward declarations.

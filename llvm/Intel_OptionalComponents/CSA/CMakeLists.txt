@@ -11,10 +11,8 @@
 #    Configures build for project.
 #
 
-if (INTEL_INCLUDE_DTRANS)
-  add_subdirectory(DTrans)
-endif()
+set(CSA_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(CSA_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(CSA_MAIN_INCLUDE_DIR ${CSA_SOURCE_DIR}/include/Intel_CSA)
 
-if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
-  add_subdirectory(CSA)
-endif()
+add_subdirectory(lib)

@@ -27,6 +27,11 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "Intel_CSA/CSAIRPasses.h"
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -109,7 +114,9 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopOptMarkerLegacyPassPass(Registry);
   initializeLoopOptReportEmitterLegacyPassPass(Registry);
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
-  initializeLoopSPMDizationPass(Registry);
+#if INTEL_FEATURE_CSA
+  initializeCSAScalarPasses(Registry);
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
@@ -279,10 +286,6 @@ void LLVMAddScopedNoAliasAAPass(LLVMPassManagerRef PM) {
 #if INTEL_CUSTOMIZATION
 void LLVMAddStdContainerAAPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createStdContainerAAWrapperPass());
-}
-
-void LLVMAddLoopSPMDizationPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoopSPMDizationPass());
 }
 #endif // INTEL_CUSTOMIZATION
 

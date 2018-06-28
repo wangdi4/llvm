@@ -204,10 +204,14 @@ bool VPOParoptTransform::paroptTransforms() {
   // BID, respectively.
   gatherWRegionNodeList(NeedTID, NeedBID);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   if (isTargetCSA()) {
     NeedTID = false;
     NeedBID = false;
   }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   Type *Int32Ty = Type::getInt32Ty(C);
 
@@ -235,12 +239,17 @@ bool VPOParoptTransform::paroptTransforms() {
     bool RemoveDirectives = false;
     bool RemovePrivateClauses = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     if (isTargetCSA() && !isSupportedOnCSA(W)) {
       reportCSAWarning(W, "ignoring unsupported \"omp " + W->getName() + "\"");
       RemoveDirectives = true;
     }
-    else if (W->getIsOmpLoop() && !W->getIsSections()
-                      &&  W->getWRNLoopInfo().getLoop()==nullptr) {
+    else
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+    if (W->getIsOmpLoop() && !W->getIsSections()
+        &&  W->getWRNLoopInfo().getLoop()==nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.
@@ -284,11 +293,15 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= regularizeOMPLoop(W, false);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
             Changed |= genCSAParallelLoop(W);
             RemoveDirectives = true;
             break;
           }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
           AllocaInst *IsLastVal = nullptr;
           Changed |= genLoopSchedulingCode(W, IsLastVal);

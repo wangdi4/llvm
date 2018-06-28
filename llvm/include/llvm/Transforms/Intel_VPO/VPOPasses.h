@@ -32,7 +32,6 @@ FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5u,
 // 0x6 is equivalent to ParTrans | OmpPar
 ModulePass   *createVPOParoptPass(unsigned Mode = 0x6u,
   const std::vector<std::string> &OffloadTargets = {});
-Pass *createCSALowerParallelIntrinsicsWrapperPass();
 }
 
 #endif // LLVM_TRANSFORMS_VPO_VPOPASSES_H
