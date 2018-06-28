@@ -64,6 +64,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializePaddedPtrPropWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
+  initializeDTransDynCloneWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
@@ -78,6 +79,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   MPM.addPass(dtrans::AOSToSOAPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
   MPM.addPass(dtrans::EliminateROFieldAccessPass());
+  MPM.addPass(dtrans::DynClonePass());
 }
 
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
@@ -88,6 +90,7 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   PM.add(createDTransAOSToSOAWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
   PM.add(createDTransEliminateROFieldAccessWrapperPass());
+  PM.add(createDTransDynCloneWrapperPass());
 }
 
 void llvm::addLateDTransPasses(ModulePassManager &MPM) {
@@ -122,6 +125,7 @@ void llvm::createDTransPasses() {
   (void) llvm::createDTransEliminateROFieldAccessWrapperPass();
   (void) llvm::createPaddedPtrPropWrapperPass();
   (void) llvm::createDTransAnalysisWrapperPass();
+  (void) llvm::createDTransDynCloneWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();

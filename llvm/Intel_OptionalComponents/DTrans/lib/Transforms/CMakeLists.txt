@@ -16,6 +16,7 @@ add_llvm_library(LLVMIntel_DTransOpt
   DeleteField.cpp
   ReorderFields.cpp
   EliminateROFieldAccess.cpp
+  DynClone.cpp
   DTransOptBase.cpp
   DTransOptBaseTest.cpp
   DTransPaddedMalloc.cpp

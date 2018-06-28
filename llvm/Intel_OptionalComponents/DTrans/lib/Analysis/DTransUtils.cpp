@@ -528,6 +528,8 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "aostosoa";
   case dtrans::DT_ElimROFieldAccess:
     return "elimrofieldaccess";
+  case dtrans::DT_DynClone:
+    return "dynclone";
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
@@ -551,6 +553,8 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
     return dtrans::SDAOSToSOA;
   case dtrans::DT_ElimROFieldAccess:
     return dtrans::SDElimROFieldAccess;
+  case dtrans::DT_DynClone:
+    return dtrans::SDDynClone;
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return dtrans::NoIssues;

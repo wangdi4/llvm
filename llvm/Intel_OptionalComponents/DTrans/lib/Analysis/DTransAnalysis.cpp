@@ -5985,6 +5985,8 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_AOSToSOA;
         else if (TransformationAndTypes.first == "elimrofieldaccess")
           TransName = dtrans::DT_ElimROFieldAccess;
+        else if (TransformationAndTypes.first == "dynclone")
+          TransName = dtrans::DT_DynClone;
         else {
           LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
                             << "\': bad transformation name");
