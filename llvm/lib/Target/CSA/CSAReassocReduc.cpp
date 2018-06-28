@@ -256,7 +256,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     const unsigned lic = LMFI->allocateLIC(
       RC, base_name.empty() ? name : base_name + "." + name
     );
-    if (ignore_on_exit) LMFI->addLICAttribute(lic, "csasim_ingore_on_exit");
+    if (ignore_on_exit) LMFI->addLICAttribute(lic, "csasim_ignore_on_exit");
     return lic;
   };
 
