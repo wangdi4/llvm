@@ -4222,6 +4222,7 @@ private:
         markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()),
                                    true);
       } else {
+        FInfo.setBottomAllocFunction();
         FInfo.setMultipleValue();
         markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()));
       }
@@ -4977,8 +4978,10 @@ private:
                           << Count << "] <MULTIPLE>\n");
         if (IsNullValue)
           FI.processNewSingleValue(Constant::getNullValue(FI.getLLVMType()));
-        else
+        else {
+          FI.setBottomAllocFunction();
           FI.setMultipleValue();
+        }
 
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
         markAllFieldsMultipleValue(ComponentTI, IsNullValue);
