@@ -253,7 +253,7 @@ static void setBlockLiteralSizeMetadata(Function &F) {
     using namespace Intel::OpenCL::DeviceBackend;
     if (!(CompilationUtils::isEnqueueKernel(EEFName.str()) ||
           EEFName.equals("__get_kernel_work_group_size_impl") ||
-          EEFName.equals("__get_kernel_preferred_work_group_multiple_impl")))
+          EEFName.equals("__get_kernel_preferred_work_group_size_multiple_impl")))
       continue;
 
     unsigned BlockInvokeIdx = (EEFName.startswith("__enqueue_kernel_"))
