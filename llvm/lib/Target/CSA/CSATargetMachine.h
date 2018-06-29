@@ -28,6 +28,11 @@ class CSATargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   CSASubtarget Subtarget;
 
+  bool addAsmPrinterWithAsmWrapping(PassManagerBase &PM, raw_pwrite_stream &Out,
+                                    raw_pwrite_stream *DwoOut,
+                                    CodeGenFileType FileType,
+                                    MCContext &Context);
+
 public:
   CSATargetMachine(const Target &T, const Triple &TT, StringRef CPU,
                    StringRef FS, const TargetOptions &Options,
@@ -50,6 +55,11 @@ public:
   // important for the loop intrinsic expansion pass because some optimizations
   // move parallel loop intrinsics in unhelpful ways.
   void adjustPassManager(PassManagerBuilder &) override;
+
+  // This is overridden to set up assembly wrapping.
+  bool addPassesToEmitFile(PassManagerBase &PM, raw_pwrite_stream &Out,
+                           raw_pwrite_stream *DwoOut, CodeGenFileType FileType,
+                           bool DisableVerify, MachineModuleInfo *MMI) override;
 };
 
 } // namespace llvm

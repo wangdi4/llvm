@@ -77,27 +77,9 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
 
 bool CSAInstPrinter::WrapCsaAsm() { return WrapAsmOpt; }
 
-const char *CSAInstPrinter::WrapCsaAsmLinePrefix() {
-  if (WrapAsmOpt) {
-    return "\t.ascii \"";
-  } else {
-    return "";
-  }
-}
-
-const char *CSAInstPrinter::WrapCsaAsmLineSuffix() {
-  if (WrapAsmOpt) {
-    return "\\n\"";
-  } else {
-    return "";
-  }
-}
-
 void CSAInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
                                StringRef Annot, const MCSubtargetInfo &STI) {
-  O << WrapCsaAsmLinePrefix();
   printInstruction(MI, O);
-  O << WrapCsaAsmLineSuffix();
   printAnnotation(O, Annot);
 }
 

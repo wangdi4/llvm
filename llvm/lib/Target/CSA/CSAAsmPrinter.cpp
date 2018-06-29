@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSA.h"
+#include "CSAAsmWrapOstream.h"
 #include "CSAInstrInfo.h"
 #include "CSAMCInstLower.h"
 #include "CSATargetMachine.h"
@@ -147,7 +148,6 @@ class CSAAsmPrinter : public AsmPrinter {
   void EmitTrampolineMarkers(const MachineInstr *);
   void EmitCSAOperands(const MachineInstr *, raw_ostream &, int, int);
 
-  void writeAsmLine(const char *);
   unsigned resultReg;
   void writeSmallFountain(const MachineInstr *MI);
 
@@ -170,7 +170,7 @@ public:
   void EmitFunctionBodyEnd() override;
   void EmitInstruction(const MachineInstr *MI) override;
   void EmitConstantPool() override;
-  void EmitBasicBlockStart(const MachineBasicBlock &MBB) const override;
+  void EmitGlobalVariable(const GlobalVariable *GV) override;
 
   void EmitCsaCodeSection();
 };
@@ -369,9 +369,7 @@ void CSAAsmPrinter::emitParamList(const Function *F) {
     if (!first) {
       O << '\n';
     }
-    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
     O << "\t.param .reg " << typeStr << sz << " %r" << paramReg;
-    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
     first = false;
   }
   if (!first)
@@ -389,7 +387,6 @@ void CSAAsmPrinter::emitReturnVal(const Function *F) {
   if (Ty->getTypeID() == Type::VoidTyID)
     return;
 
-  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
   O << "\t.result .reg";
 
   if (Ty->isFloatingPointTy() || Ty->isIntegerTy()) {
@@ -413,18 +410,7 @@ void CSAAsmPrinter::emitReturnVal(const Function *F) {
   // Hack: For now, we simply go with the standard return register.
   // (Should really use the allocation.)
   O << " %r0";
-  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
 
-  OutStreamer->EmitRawText(O.str());
-}
-
-void CSAAsmPrinter::writeAsmLine(const char *text) {
-  SmallString<128> Str;
-  raw_svector_ostream O(Str);
-
-  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-  O << text;
-  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
   OutStreamer->EmitRawText(O.str());
 }
 
@@ -457,37 +443,48 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
   raw_svector_ostream O(Str);
   const CSATargetMachine *CSATM = static_cast<const CSATargetMachine *>(&TM);
   assert(CSATM && CSATM->getSubtargetImpl());
-  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-  O << "\t# .processor "; // note - commented out...
-  O << CSATM->getSubtargetImpl()->csaName();
-  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
   if (CSAInstPrinter::WrapCsaAsm()) {
     EmitCsaCodeSection();
-    OutStreamer->EmitRawText(".csa.code.start:\n");
-    writeAsmLine("\t.text");
-  }
-  OutStreamer->EmitRawText(O.str());
 
-  writeAsmLine("\t.version 0,6,0");
+    // Emit a symbol for each of the functions pointing to the CSA code
+    // block.
+    {
+      SmallString<128> OutStr;
+      raw_svector_ostream OO(OutStr);
+      for (const Function &F : M) {
+        OO << "\t.set " << *getSymbol(&F) << ", .csa.code.start\n";
+      }
+      OutStreamer->EmitRawText(OO.str());
+    }
+
+    // Start the CSA code block.
+    OutStreamer->EmitRawText(".csa.code.start:");
+    OutStreamer->EmitRawText("\t.ascii ");
+    startCSAAsmString(*OutStreamer);
+    O << "\t.text\n";
+  }
+  O << "\t# .processor "; // note - commented out...
+  O << CSATM->getSubtargetImpl()->csaName() << "\n";
+  O << "\t.version 0,6,0\n";
   // This should probably be replaced by code to handle externs
-  writeAsmLine("\t.set implicitextern");
+  O << "\t.set implicitextern\n";
   if (not StrictTermination)
-    writeAsmLine("\t.set relaxed");
+    O << "\t.set relaxed\n";
   if (ImplicitLicDefs)
-    writeAsmLine("\t.set implicit");
+    O << "\t.set implicit\n";
   if (csa_utils::isAlwaysDataFlowLinkageSet())
-    writeAsmLine("\t.unit");
+    O << "\t.unit\n";
   else
-  writeAsmLine("\t.unit sxu");
+    O << "\t.unit sxu\n";
+  OutStreamer->EmitRawText(O.str());
 }
 
 void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
   if (CSAInstPrinter::WrapCsaAsm()) {
-    // Add the terminating null for the .csa section. Note
-    // that we are NOT using SwitchSection because then we'll
-    // fight with the AmsPrinter::EmitFunctionHeader
-    EmitCsaCodeSection();
+    endCSAAsmString(*OutStreamer);
+    OutStreamer->AddBlankLine();
+    // Add the terminating null for the .csa section.
     OutStreamer->EmitRawText("\t.asciz \"\"");
   }
 
@@ -555,36 +552,19 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
 #endif
   }
 
-  // If we're wrapping the CSA assembly we need to create our own
-  // global symbol declaration
-  if (CSAInstPrinter::WrapCsaAsm()) {
-    // Define a symbol which points to the beginning of assembly string.
-    O << "\t.set " << *CurrentFnSym << ", .csa.code.start\n";
-    O << "\t.section\t\".csa.code\",\"aS\",@progbits\n";
-
-    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-    O << "\t.globl\t" << *CurrentFnSym;
-    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-    O << "\n";
-  }
   if (csa_utils::isAlwaysDataFlowLinkageSet()) {
     setLICNames();
-    OutStreamer->EmitRawText(O.str());
     return;
   }
-  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-  O << "\t.entry\t" << *CurrentFnSym;
-  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-  O << "\n";
+  O << "\t.entry\t" << *CurrentFnSym << "\n";
   // For now, assume control flow (sequential) entry
-  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-  O << *CurrentFnSym << ":";
-  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-  OutStreamer->EmitRawText(O.str());
+  O << *CurrentFnSym << ":\n";
 
   // Start a scope for this routine to localize the LIC names
   // For now, this includes parameters and results
-  writeAsmLine("{");
+  O << "{";
+
+  OutStreamer->EmitRawText(O.str());
 
   emitReturnVal(F);
 
@@ -618,14 +598,8 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   if (not ImplicitLicDefs) {
     auto printRegisterAttribs = [&](unsigned reg) {
       for (StringRef k : LMFI->getLICAttributes(reg)) {
-        SmallString<128> Str;
-        raw_svector_ostream O(Str);
-
-        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-        O << "\t.attrib " << k << " ";
-        O << LMFI->getLICAttribute(reg, k);
-        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-        OutStreamer->EmitRawText(O.str());
+        OutStreamer->EmitRawText("\t.attrib " + k + " " +
+                                 LMFI->getLICAttribute(reg, k));
       }
     };
 
@@ -639,27 +613,24 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
         if (auto group = LMFI->getLICGroup(reg)) {
           auto freq = group->executionFrequency;
           if (!freq.isZero()) {
-            O << CSAInstPrinter::WrapCsaAsmLinePrefix();
             O << "\t.attrib lic_freq=";
             freq.print(O);
-            O << CSAInstPrinter::WrapCsaAsmLineSuffix() << "\n";
+            O << "\n";
           }
         }
       }
 
-      O << CSAInstPrinter::WrapCsaAsmLinePrefix();
       O << "\t.lic";
       if (TargetRegisterInfo::isVirtualRegister(reg)) {
-      if (unsigned depth = LMFI->getLICDepth(reg)) {
-        O << "@" << depth;
-      }
+        if (unsigned depth = LMFI->getLICDepth(reg)) {
+          O << "@" << depth;
+        }
       }
       if (TargetRegisterInfo::isVirtualRegister(reg))
-      O << " .i" << LMFI->getLICSize(reg) << " ";
+        O << " .i" << LMFI->getLICSize(reg) << " ";
       else
         O << " .i64 ";
       O << "%" << name;
-      O << CSAInstPrinter::WrapCsaAsmLineSuffix();
       OutStreamer->EmitRawText(O.str());
     };
 
@@ -724,13 +695,14 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
     if (csa_utils::isAlwaysDataFlowLinkageSet() && LMFI->getNumCallSites() != 0) 
       EmitEntryInstruction();
   }
-  if (csa_utils::isAlwaysDataFlowLinkageSet()) writeAsmLine("{");
+  if (csa_utils::isAlwaysDataFlowLinkageSet())
+    OutStreamer->EmitRawText("{");
 }
 
 void CSAAsmPrinter::EmitFunctionBodyEnd() { 
   if (csa_utils::isAlwaysDataFlowLinkageSet())
     EmitReturnInstruction();
-  writeAsmLine("}");
+  OutStreamer->EmitRawText("}");
 }
 
 void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int startindex, int numopds) { 
@@ -751,15 +723,8 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int 
 }
 
 void CSAAsmPrinter::EmitSimpleEntryInstruction(void) {
-  SmallString<128> Str;
-  raw_svector_ostream O(Str);
-  O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-  O << "\t.entry\t";
-  O << MF->getFunction().getName();
-  O << ", hybriddataflow";
-  O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-  O << "\n";
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->EmitRawText("\t.entry\t" + MF->getFunction().getName() +
+                           ", hybriddataflow");
 }
 
 void CSAAsmPrinter::EmitParamsResultsDecl(void) {
@@ -773,18 +738,14 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
   if (returnMI)
     for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
       unsigned reg = returnMI->getOperand(i).getReg();
-      O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-      O << "\t.result .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg);
-      O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-      O << "\n";
+      O << "\t.result .lic .i" << LMFI->getLICSize(reg) << " %"
+        << LMFI->getLICName(reg) << "\n";
       if (i == 1) resultReg = reg;
     }
   if (entryMI) {
     unsigned reg = entryMI->getOperand(0).getReg();
-    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-    O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg);
-    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-    O << "\n";
+    O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %"
+      << LMFI->getLICName(reg) << "\n";
     int i = 1;
     int dummyid = 0;
     Function::const_arg_iterator I, E;
@@ -793,16 +754,12 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
       bool ArgHasUses = !Arg.use_empty();
       if (ArgHasUses) {
         unsigned reg = entryMI->getOperand(i).getReg();
-        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-        O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %" << LMFI->getLICName(reg);
-        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-        O << "\n";
+        O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %"
+          << LMFI->getLICName(reg) << "\n";
         ++i;
       } else {
-        O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-        O << "\t.param .lic .i64 %" << F->getName() << "_" << "_dummy" << dummyid++;
-        O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-        O << "\n";
+        O << "\t.param .lic .i64 %" << F->getName() << "_"
+          << "_dummy" << dummyid++ << "\n";
       }
     }
   }
@@ -927,17 +884,22 @@ void CSAAsmPrinter::EmitConstantPool() {
   }
 }
 
-void CSAAsmPrinter::EmitBasicBlockStart(const MachineBasicBlock &MBB) const {
-  if (!MBB.pred_empty() && !isBlockOnlyReachableByFallthrough(&MBB)) {
-    SmallString<128> Str;
-    raw_svector_ostream O(Str);
-    O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-    O << *MBB.getSymbol() << ":";
-    O << CSAInstPrinter::WrapCsaAsmLineSuffix();
-    OutStreamer->EmitRawText(O.str());
-    return;
+void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
+
+  // If the global's name starts with .omp_offloading., it needs to be emitted
+  // outside of the wrapping.
+  if (GV->getName().startswith(".omp_offloading.")) {
+    endCSAAsmString(*OutStreamer);
+    OutStreamer->AddBlankLine();
   }
-  AsmPrinter::EmitBasicBlockStart(MBB);
+
+  AsmPrinter::EmitGlobalVariable(GV);
+
+  if (GV->getName().startswith(".omp_offloading.")) {
+    EmitCsaCodeSection();
+    OutStreamer->EmitRawText("\t.ascii ");
+    startCSAAsmString(*OutStreamer);
+  }
 }
 
 // Force static initialization.

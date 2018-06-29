@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSATargetMachine.h"
+#include "CSAAsmWrapOstream.h"
 #include "CSAFortranIntrinsics.h"
 #include "CSAIROpt.h"
 #include "CSAIntrinsicCleaner.h"
@@ -25,13 +26,20 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/CommandLine.h"
@@ -39,20 +47,16 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Transforms/InstCombine/InstCombine.h"
 
 using namespace llvm;
 
@@ -333,4 +337,141 @@ void CSATargetMachine::adjustPassManager(PassManagerBuilder &PMB) {
                      PM.add(createLICMPass());
                      PM.add(createCSALoopIntrinsicExpanderPass());
                    });
+}
+
+// This function is copied from lib/CodeGen/LLVMTargetMachine.cpp because it is
+// not accessible here - feel free to update this if the original changes.
+// TODO (dwoodwor 6/29/2018): It would be good if we didn't have to duplicate
+//       this code but it isn't clear how that would happen without modifying
+//       the interface of LLVMTargetMachine. Ideally we'd just want a virtual
+//       function that we could override to change how the formatted_raw_ostream
+//       passed on to the MCAsmStreamer is constructed, though this is
+//       admittedly a pretty niche thing to need to do. We'll also be able to
+//       get rid of all of this once we have a proper binary format, so I don't
+//       think it's worth getting something into common code just for this use
+//       case.
+static MCContext *
+addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
+                        bool DisableVerify, bool &WillCompleteCodeGenPipeline,
+                        raw_pwrite_stream &Out, MachineModuleInfo *MMI) {
+  // Targets may override createPassConfig to provide a target-specific
+  // subclass.
+  TargetPassConfig *PassConfig = TM->createPassConfig(PM);
+  // Set PassConfig options provided by TargetMachine.
+  PassConfig->setDisableVerify(DisableVerify);
+  WillCompleteCodeGenPipeline = PassConfig->willCompleteCodeGenPipeline();
+  PM.add(PassConfig);
+  if (!MMI)
+    MMI = new MachineModuleInfo(TM);
+  PM.add(MMI);
+
+  if (PassConfig->addISelPasses())
+    return nullptr;
+  PassConfig->addMachinePasses();
+  PassConfig->setInitialized();
+  if (!WillCompleteCodeGenPipeline)
+    PM.add(createPrintMIRPass(Out));
+
+  return &MMI->getContext();
+}
+
+// This function is also mostly copied from lib/CodeGen/LLVMTargetMachine.cpp.
+bool CSATargetMachine::addAsmPrinterWithAsmWrapping(PassManagerBase &PM,
+                                                    raw_pwrite_stream &Out,
+                                                    raw_pwrite_stream *DwoOut,
+                                                    CodeGenFileType FileType,
+                                                    MCContext &Context) {
+  if (Options.MCOptions.MCSaveTempLabels)
+    Context.setAllowTemporaryLabels(false);
+
+  const MCSubtargetInfo &STI = *getMCSubtargetInfo();
+  const MCAsmInfo &MAI       = *getMCAsmInfo();
+  const MCRegisterInfo &MRI  = *getMCRegisterInfo();
+  const MCInstrInfo &MII     = *getMCInstrInfo();
+
+  std::unique_ptr<MCStreamer> AsmStreamer;
+
+  switch (FileType) {
+  case CGFT_AssemblyFile: {
+    MCInstPrinter *InstPrinter = getTarget().createMCInstPrinter(
+      getTargetTriple(), MAI.getAssemblerDialect(), MAI, MII, MRI);
+
+    // Create a code emitter if asked to show the encoding.
+    std::unique_ptr<MCCodeEmitter> MCE;
+    if (Options.MCOptions.ShowMCEncoding)
+      MCE.reset(getTarget().createMCCodeEmitter(MII, MRI, Context));
+
+    std::unique_ptr<MCAsmBackend> MAB(
+      getTarget().createMCAsmBackend(STI, MRI, Options.MCOptions));
+    auto FOut     = wrapStreamForCSAAsmWrapping(Out);
+    MCStreamer *S = getTarget().createAsmStreamer(
+      Context, std::move(FOut), Options.MCOptions.AsmVerbose,
+      Options.MCOptions.MCUseDwarfDirectory, InstPrinter, std::move(MCE),
+      std::move(MAB), Options.MCOptions.ShowMCInst);
+    AsmStreamer.reset(S);
+    break;
+  }
+  case CGFT_ObjectFile: {
+    // This isn't going to work for CSA yet - print a warning to give the user
+    // a better error message while we're here.
+    errs().changeColor(raw_ostream::RED, true);
+    errs() << "BINARY OUTPUT ISN'T SUPPORTED FOR CSA YET; DID YOU PASS -S?";
+    errs().resetColor();
+    errs() << "\n";
+
+    // Create the code emitter for the target if it exists.  If not, .o file
+    // emission fails.
+    MCCodeEmitter *MCE = getTarget().createMCCodeEmitter(MII, MRI, Context);
+    MCAsmBackend *MAB =
+      getTarget().createMCAsmBackend(STI, MRI, Options.MCOptions);
+    if (!MCE || !MAB)
+      return true;
+
+    // Don't waste memory on names of temp labels.
+    Context.setUseNamesOnTempLabels(false);
+
+    Triple T(getTargetTriple().str());
+    AsmStreamer.reset(getTarget().createMCObjectStreamer(
+      T, Context, std::unique_ptr<MCAsmBackend>(MAB),
+      DwoOut ? MAB->createDwoObjectWriter(Out, *DwoOut)
+             : MAB->createObjectWriter(Out),
+      std::unique_ptr<MCCodeEmitter>(MCE), STI, Options.MCOptions.MCRelaxAll,
+      Options.MCOptions.MCIncrementalLinkerCompatible,
+      /*DWARFMustBeAtTheEnd*/ true));
+    break;
+  }
+  case CGFT_Null:
+    // The Null output is intended for use for performance analysis and testing,
+    // not real users.
+    AsmStreamer.reset(getTarget().createNullStreamer(Context));
+    break;
+  }
+
+  // Create the AsmPrinter, which takes ownership of AsmStreamer if successful.
+  FunctionPass *Printer =
+    getTarget().createAsmPrinter(*this, std::move(AsmStreamer));
+  if (!Printer)
+    return true;
+
+  PM.add(Printer);
+  return false;
+}
+
+// This function is also mostly copied from lib/CodeGen/LLVMTargetMachine.cpp.
+bool CSATargetMachine::addPassesToEmitFile(
+  PassManagerBase &PM, raw_pwrite_stream &Out, raw_pwrite_stream *DwoOut,
+  CodeGenFileType FileType, bool DisableVerify, MachineModuleInfo *MMI) {
+  // Add common CodeGen passes.
+  bool WillCompleteCodeGenPipeline = true;
+  MCContext *Context               = addPassesToGenerateCode(
+    this, PM, DisableVerify, WillCompleteCodeGenPipeline, Out, MMI);
+  if (!Context)
+    return true;
+
+  if (WillCompleteCodeGenPipeline &&
+      addAsmPrinterWithAsmWrapping(PM, Out, DwoOut, FileType, *Context))
+    return true;
+
+  PM.add(createFreeMachineFunctionPass());
+  return false;
 }

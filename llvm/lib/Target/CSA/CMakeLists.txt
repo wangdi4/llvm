@@ -13,6 +13,7 @@ add_public_tablegen_target(CSACommonTableGen)
 add_llvm_target(CSACodeGen
   CSAAllocUnitPass.cpp
   CSAAsmPrinter.cpp
+  CSAAsmWrapOstream.cpp
   CSACvtCFDFPass.cpp
   CSADataflowCanonicalization.cpp
   CSADeadInstructionElim.cpp
