@@ -978,6 +978,7 @@ unsigned int Prefetch::IterLength(Loop *L)
 #endif //NDEBUG
 
     BBL = m_LI->getLoopFor(BB);
+    assert (BBL && "LoopInfo analysis can't find a loop for the basic block");
     if (BBL == L) {
       len += BB->size();
         // select the next BB in the path
