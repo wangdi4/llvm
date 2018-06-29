@@ -1124,8 +1124,6 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
     IsInnermost = OrigLoop->isInnermost();
   }
 
-  UHelper.setCurOrigLoop(OrigLoop);
-
   while (CurFirstNode) {
     // Avoid unnecessary node traversal for innermost loops as their body will
     // be handled as a single node range.
@@ -1149,6 +1147,8 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
       unrollLoopRecursive(ChildLoop, NewInnerLoop, UHelper, false);
 
     } else {
+      UHelper.setCurOrigLoop(OrigLoop);
+
       createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper);
       HLNodeUtils::insertAsLastChildren(NewLoop, &NodeRange);
     }
