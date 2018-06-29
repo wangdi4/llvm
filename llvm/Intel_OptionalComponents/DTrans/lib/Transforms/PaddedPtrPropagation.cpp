@@ -122,7 +122,7 @@ namespace {
 // Prints function padded pointer information
 static cl::opt<bool> PaddedPtrInfoDump("padded-pointer-info", cl::ReallyHidden);
 #else
-constexpr bool PaddedPtrInfoDump = false
+constexpr bool PaddedPtrInfoDump = false;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Helper function returning an annotation string in the form "padded %d bytes"
