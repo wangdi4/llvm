@@ -233,6 +233,13 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
       for (const Instruction &I : BB) {
         if (const CallInst *CI = dyn_cast<const CallInst>(&I)) {
           LLVM_DEBUG(errs() << "CallInst = " << I << "\n");
+          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()) {
+            report_fatal_error("Indirect calls not yet supported! Cannot be run on CSA!");
+          }
+          if (!CI->isInlineAsm() && !CI->getCalledFunction()->isIntrinsic() && CI->getCalledFunction()->isDeclaration()) {
+            errs() << "Func = " << CI->getCalledFunction()->getName() << "\n";
+            report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
+          }
           if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic() && name == CI->getCalledFunction()->getName()) {
             CALL_SITE_INFO csi;
             csi.caller_func = F.getName();
@@ -244,10 +251,7 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
             num_call_sites++;
             LLVM_DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
           }
-          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic() && CI->getCalledFunction()->isDeclaration()) {
-            errs() << "Func = " << CI->getCalledFunction()->getName() << "\n";
-            report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
-          } else if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic()) 
+          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic()) 
             index++;
         }
       }
@@ -373,11 +377,38 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
   MachineInstr *firstMI = getFirstMI(thisMF);
   MachineInstrBuilder MIB = BuildMI(*(firstMI->getParent()), firstMI, firstMI->getDebugLoc(), TII->get(CSA::CSA_ENTRY))
                                     .addReg(reg1,RegState::Define);
-  for (auto LI = MRI->livein_begin(); LI != MRI->livein_end(); ++LI) {
-		unsigned vReg = LI->second;
-		MachineInstr *DefMI = MRI->getVRegDef(vReg);
-    MIB.addReg(vReg,RegState::Define);
-    DefMI->eraseFromParent();
+  // Add entry parameters. If there are some dead parameters, add dummy vars instead
+  int dummyid = 0;
+  const Function *F = &thisMF->getFunction();
+  Function::const_arg_iterator I, E;
+  auto LI = MRI->livein_begin();
+  unsigned Arg;
+  for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2; I != E; ++I, ++Arg) {
+    bool ArgIsDead = false;
+    if (!MRI->isLiveIn(Arg))
+      ArgIsDead = true;
+    else {
+      unsigned vReg = LI->second;
+      ++LI;
+      MachineInstr *DefMI = MRI->getVRegDef(vReg);
+      if (DefMI) {
+        MIB.addReg(vReg,RegState::Define);
+        DefMI->eraseFromParent();
+      }
+      else
+        ArgIsDead = true;
+    } 
+    if (ArgIsDead) {
+      std::stringstream ss1;
+      ss1 << "_dummy" << dummyid++;
+      std::string str = ss1.str();
+      StringRef name(str);
+      unsigned vReg = LMFI->allocateLIC(&CSA::CI64RegClass, Twine(name), Twine(""), true);
+      MIB.addReg(vReg,RegState::Define);
+      BuildMI(*(firstMI->getParent()), firstMI, firstMI->getDebugLoc(), TII->get(CSA::MOV0), CSA::IGN)
+      .addReg(vReg)
+      .setMIFlag(MachineInstr::NonSequential);
+    }
   }
   MachineInstr *MI = &*MIB;
   MI->setFlag(MachineInstr::NonSequential);
@@ -404,24 +435,6 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
     }
   }
   LMFI->setEntryMI(MI);
-  // Add dummy vreg for unused param
-  int dummyid = 0;
-  const Function *F = &thisMF->getFunction();
-  Function::const_arg_iterator I, E;
-  for (I = F->arg_begin(), E = F->arg_end(); I != E; ++I) {
-    const Argument &Arg = *I;
-    bool ArgHasUses = !Arg.use_empty();
-    if (!ArgHasUses) {
-      std::stringstream ss1;
-      ss1 << "_dummy" << dummyid++;
-      std::string str = ss1.str();
-      StringRef name(str);
-      unsigned vreg = LMFI->allocateLIC(&CSA::CI64RegClass, Twine(name), Twine(""), false);
-      BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV0), CSA::IGN)
-      .addReg(vreg)
-      .setMIFlag(MachineInstr::NonSequential);       
-    }
-  }
   return MI;
 }
 
@@ -689,6 +702,9 @@ bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
     for (auto I = MBB->begin(); I != MBB->end(); ++I) {
       MachineInstr *MI = &*I;
       if (MI->getOpcode() == CSA::UNIT) continue;
+      if (MI->getOpcode() == TargetOpcode::DBG_VALUE) continue;
+      if (MI->getNumOperands() && MI->getOperand(0).isReg() && MI->getOperand(0).isDef() && MI->getOperand(0).isDead())
+        continue;
       if (!MI->getFlag(MachineInstr::NonSequential)) {
         errs() << "MI = " << *MI << "\n";
         report_fatal_error("Sequential instruction found! Cannot be run on CSA!");

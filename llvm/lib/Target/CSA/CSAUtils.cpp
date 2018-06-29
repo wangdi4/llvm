@@ -50,7 +50,7 @@ using namespace llvm;
 static cl::opt<int>
 AlwaysDataFlowLinkage("csa-df-calls", cl::Hidden, cl::ZeroOrMore,
                     cl::desc("CSA: Always use data flow linkage for passing parameters and results."),
-					cl::init(0));
+                    cl::init(1));
 
 bool csa_utils::isAlwaysDataFlowLinkageSet(void) {
 	return AlwaysDataFlowLinkage;

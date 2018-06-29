@@ -644,9 +644,10 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
          ri != CSA::ANYCRegClass.end(); ++ri) {
       MCPhysReg reg = *ri;
       bool isParam = false;
-      for (auto LI = MRI->livein_begin(); LI != MRI->livein_end(); ++LI) {
-        unsigned t = LI->first;
-        if (t == reg) {
+      Function::const_arg_iterator I, E;
+      unsigned Arg;
+      for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2; I != E; ++I, ++Arg) {
+        if (Arg == reg) {
           isParam = true;
           break;
         }
@@ -732,7 +733,6 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const Function *F = &MF->getFunction();
   const MachineInstr *entryMI = LMFI->getEntryMI();
   const MachineInstr *returnMI = LMFI->getReturnMI();
   // Emit CSA parameters
@@ -747,21 +747,10 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
     unsigned reg = entryMI->getOperand(0).getReg();
     O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %"
       << LMFI->getLICName(reg) << "\n";
-    int i = 1;
-    int dummyid = 0;
-    Function::const_arg_iterator I, E;
-    for (I = F->arg_begin(), E = F->arg_end(); I != E; ++I) {
-      const Argument &Arg = *I;
-      bool ArgHasUses = !Arg.use_empty();
-      if (ArgHasUses) {
-        unsigned reg = entryMI->getOperand(i).getReg();
+    for (unsigned i = 1; i < entryMI->getNumOperands(); ++i) {
+      unsigned reg = entryMI->getOperand(i).getReg();
         O << "\t.param .lic .i" << LMFI->getLICSize(reg) << " %"
           << LMFI->getLICName(reg) << "\n";
-        ++i;
-      } else {
-        O << "\t.param .lic .i64 %" << F->getName() << "_"
-          << "_dummy" << dummyid++ << "\n";
-      }
     }
   }
   OutStreamer->EmitRawText(O.str());

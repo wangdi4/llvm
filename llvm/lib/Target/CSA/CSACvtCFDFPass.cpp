@@ -155,14 +155,22 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
         // Bail out on functions with multiple exits.
         //
         // TODO (vzakhari 2/21/2018): figure out, why this is needed.
-        if (normalExitBlockSeen)
-          return false;
+        if (normalExitBlockSeen) {
+          if (csa_utils::isAlwaysDataFlowLinkageSet())
+            report_fatal_error("Function with multiple exits!!\n");
+          else
+            return false;
+        }
 
         normalExitBlockSeen = true;
         continue;
       }
-      else
-        return false;
+      else {
+        if (csa_utils::isAlwaysDataFlowLinkageSet())
+          report_fatal_error("Function with multiple exits!!\n");
+        else
+          return false;
+      }
     }
   }
   CDG = &getAnalysis<ControlDependenceGraph>();
@@ -173,7 +181,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     errs() << "WARNING: dataflow conversion not attempting to handle dynamic "
               "stack allocation.\n";
     errs() << "Function \"" << thisMF->getName() << "\" will run on the SXU.\n";
-    return false;
+    report_fatal_error("Compilation terminated!\n");
   }
 
   bool Modified = false;
@@ -1615,10 +1623,11 @@ void CSACvtCFDFPass::assignLicForDF() {
           mInst->getOpcode() == CSA::LOR1 || mInst->getOpcode() == CSA::OR1 ||
           mInst->isCopy() || TII->isInit(mInst) || TII->isLoad(mInst) ||
           TII->isStore(mInst) || mInst->getOpcode() == CSA::ALL0 ||
-          mInst->getOpcode() == CSA::MOV0) {
+          mInst->getOpcode() == CSA::MOV0 || TII->isCmp(mInst) ||
+          TII->isAtomic(mInst)) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() ||
-              !TargetRegisterInfo::isVirtualRegister(MO->getReg()) || 
+              !TargetRegisterInfo::isVirtualRegister(MO->getReg()) ||
               (MRI->getRegClass(MO->getReg()) == &CSA::RI1RegClass))
             continue;
           if (TII->isLIC(*MO, *MRI))
@@ -3034,11 +3043,9 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop *mloop,
         if (!MO->isReg() ||
             !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
           continue;
-        if (TII->isLIC(*MO, *MRI))
-          continue;
         unsigned Reg = MO->getReg();
         if (MO->isUse()) {
-          MachineInstr *dMI = MRI->getVRegDef(Reg);
+          MachineInstr *dMI = MRI->getUniqueVRegDef(Reg);
           if (!dMI || dMI->getOpcode() == CSA::PREDPROP) {
             continue;
           }
