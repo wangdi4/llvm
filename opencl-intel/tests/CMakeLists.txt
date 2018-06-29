@@ -59,7 +59,6 @@ add_subdirectory( FrontendDriver_test_type )
 add_subdirectory( task_executor_test_type )
 add_subdirectory( bi_test_type )
 add_subdirectory( backend_test_type )
-add_subdirectory( openmp_test_type )
 add_subdirectory( name_mangling_test_type )
 
 if( USE_VALGRIND )
@@ -81,7 +80,6 @@ list(APPEND RUNTIME_UNITTESTS
   FrontendDriver_test_type
   cpu_device_test_type
   backend_test_type
-  openmp_test_type
   name_mangling_test_type
 )
 if ( BUILD_FPGA_EMULATOR )
