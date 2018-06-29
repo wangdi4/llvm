@@ -107,6 +107,7 @@ bool StripIntelIP::runOnModule(Module &M) {
       continue;
     auto *FVec = KIMD.VectorizedKernel.get();
     if (FVec) {
+      KernelDecls.insert(FVec);
       auto VKIMD = KernelInternalMetadataAPI(FVec);
       auto *FVecWrapper = VKIMD.KernelWrapper.get();
       KernelDefs.insert(FVecWrapper);
