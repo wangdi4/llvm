@@ -32,37 +32,44 @@ class StringRef;
 
 class CSASubtarget : public CSAGenSubtargetInfo {
   virtual void anchor();
+
+protected:
+  bool IsOrdered    = false;
+  bool CanSpeculate = false;
+  bool HasI0        = false;
+  bool HasI1        = false;
+  bool HasI8        = false;
+  bool HasI16       = false;
+  bool HasI32       = false;
+  bool HasI64       = false;
+  bool HasF16       = false;
+  bool HasF32       = false;
+  bool HasF64       = false;
+  bool HasSextL     = false;
+  bool HasDispl     = false;
+  bool HasIndex     = false;
+  bool HasShAdd     = false;
+  bool HasBitOp     = false;
+  bool HasIDiv      = false;
+  bool HasFDiv      = false;
+  bool HasFMA       = false;
+  bool HasRcpA      = false;
+  bool HasRSqrtA    = false;
+  bool HasSqrt      = false;
+  bool HasMath0     = false;
+  bool HasRMWAtomic = false;
+
+private:
+  // The feature members listed above may be set to true during construction
+  // of members listed below (see CSASubtarget() constructor).
+  // We should initialize the feature members before we conditionally update
+  // them, thus, we need to keep this order of members.  Otherwise, the default
+  // initializers will reset the feature members to false.
   CSAFrameLowering FrameLowering;
   CSAInstrInfo InstrInfo;
   CSATargetLowering TLInfo;
   CSASelectionDAGInfo TSInfo;
   std::string CSAName;
-
-protected:
-  bool IsOrdered;
-  bool CanSpeculate;
-  bool HasI0;
-  bool HasI1;
-  bool HasI8;
-  bool HasI16;
-  bool HasI32;
-  bool HasI64;
-  bool HasF16;
-  bool HasF32;
-  bool HasF64;
-  bool HasSextL;
-  bool HasDispl;
-  bool HasIndex;
-  bool HasShAdd;
-  bool HasBitOp;
-  bool HasIDiv;
-  bool HasFDiv;
-  bool HasFMA;
-  bool HasRcpA;
-  bool HasRSqrtA;
-  bool HasSqrt;
-  bool HasMath0;
-  bool HasRMWAtomic;
 
 public:
   std::string csaName() const { return CSAName; }

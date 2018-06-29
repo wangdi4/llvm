@@ -3012,16 +3012,24 @@ void MemopCFG::calculate_data_deps() {
             Dep new_dep = node->get_phibit(pred, found_memop->second);
             deps.insert(upper_bound(begin(deps), end(deps), new_dep), new_dep);
           } else {
-            const DepVec &def_deps = memop_deps[def];
-            for (const Dep &dep : def_deps) {
-              if (dep.type == Dep::phibit and
-                  dep.node->phibits[dep.idx].loop and
-                  pred->topo_num >= node->topo_num)
-                continue;
-              deps.push_back(node->get_phibit(pred, dep));
+            // Avoid using [] operator to look for def's memory dependencies,
+            // because this may invalidate 'deps' reference.  Moreover,
+            // if def does not have incoming memory depencies, there is
+            // no sense in sorting and uniquing of the unchanged 'deps'
+            // vector.
+            auto DefDepsIt = memop_deps.find(def);
+            if (DefDepsIt != end(memop_deps)) {
+              const DepVec &def_deps = DefDepsIt->second;
+              for (const Dep &dep : def_deps) {
+                if (dep.type == Dep::phibit and
+                    dep.node->phibits[dep.idx].loop and
+                    pred->topo_num >= node->topo_num)
+                  continue;
+                deps.push_back(node->get_phibit(pred, dep));
+              }
+              sort(begin(deps), end(deps));
+              deps.erase(unique(begin(deps), end(deps)), end(deps));
             }
-            sort(begin(deps), end(deps));
-            deps.erase(unique(begin(deps), end(deps)), end(deps));
           }
         }
       }
@@ -3043,11 +3051,18 @@ void MemopCFG::calculate_data_deps() {
             Dep &new_dep = found_memop->second;
             deps.insert(upper_bound(begin(deps), end(deps), new_dep), new_dep);
           } else {
-            const DepVec &def_deps = memop_deps[def];
-            const DepVec old_deps  = deps;
-            deps.clear();
-            set_union(begin(old_deps), end(old_deps), begin(def_deps),
-                      end(def_deps), back_inserter(deps));
+            // Avoid using [] operator to look for def's memory dependencies,
+            // because this may invalidate 'deps' reference.  Moreover,
+            // if def does not have incoming memory depencies, there is
+            // no sense in creating the union the way we do it below.
+            auto DefDepsIt = memop_deps.find(def);
+            if (DefDepsIt != end(memop_deps)) {
+              const DepVec &def_deps = DefDepsIt->second;
+              const DepVec old_deps  = deps;
+              deps.clear();
+              set_union(begin(old_deps), end(old_deps), begin(def_deps),
+                        end(def_deps), back_inserter(deps));
+            }
           }
         }
       }
