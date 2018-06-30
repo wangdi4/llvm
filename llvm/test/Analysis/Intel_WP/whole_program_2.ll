@@ -6,8 +6,9 @@
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace -o %t2 %t1  2>&1 | FileCheck %s
 
-; CHECK: dealloc    Is not a recognized LibFunc.
-; CHECK:   1  FUNCTIONS UNRESOLVED
+; CHECK:   FUNCTIONS UNRESOLVED: 1
+; CHECK:   LIBFUNCS NOT FOUND: 1
+; CHECK:       dealloc
 ; CHECK:   WHOLE PROGRAM NOT DETECTED
 ; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
 ; CHECK:      whole program not seen;

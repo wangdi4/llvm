@@ -36,6 +36,11 @@ private:
 
   size_t UnresolvedCallsCount;
 
+  // Vectors used for tracing the libfuncs
+  // that were found and not found.
+  std::vector<const Function *> LibFuncsFound;
+  std::vector<const Function *> LibFuncsNotFound;
+
 public:
   WholeProgramInfo();
   //WholeProgramInfo(WholeProgramInfo &&Arg);

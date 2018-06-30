@@ -30,6 +30,10 @@ static cl::opt<bool> AssumeWholeProgram("whole-program-assume",
 static cl::opt<bool> WholeProgramTrace("whole-program-trace",
                                        cl::init(false), cl::ReallyHidden);
 
+// Flag to print the libfuncs found by whole program analysis.
+static cl::opt<bool> WholeProgramTraceLibFuncs("whole-program-trace-libfuncs",
+                                       cl::init(false), cl::ReallyHidden);
+
 // Flag asserts that whole program will be detected.
 static cl::opt<bool> WholeProgramAssert("whole-program-assert",
                                         cl::init(false), cl::ReallyHidden);
@@ -220,18 +224,25 @@ bool WholeProgramInfo::resolveCalledValue(
 
   // If the value is a function try to resolve it.
   if (const Function *Callee = dyn_cast<Function>(Arg)) {
-    if (Callee->isIntrinsic() || !Callee->isDeclaration())
+    if (Callee->isIntrinsic() || !Callee->isDeclaration()) {
+      if (WholeProgramTraceLibFuncs && Callee->isIntrinsic())
+        LibFuncsFound.push_back(Callee);
       return true;
+    }
 
     LibFunc TheLibFunc;
     if (!TLI.getLibFunc(Callee->getName(), TheLibFunc) ||
         !TLI.has(TheLibFunc)) {
-      if (WholeProgramTrace) {
-        errs() << Callee->getName() << "    Is not a recognized LibFunc.\n";
-      }
+
+      if (WholeProgramTrace || WholeProgramTraceLibFuncs)
+        LibFuncsNotFound.push_back(Callee);
+
       ++UnresolvedCallsCount;
       return false;
     }
+    // Libfunc found, return true
+    if (WholeProgramTraceLibFuncs)
+      LibFuncsFound.push_back(Callee);
     return true;
   }
 
@@ -291,12 +302,32 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
 
   if (WholeProgramTrace) {
     if (main_def_seen_in_ir)
-      errs() << "      " << "  Main def seen \n";
+      errs() << "  Main definition seen \n";
     else
-      errs() << "      " << "  Main def not seen \n";
-    errs() << "      " << UnresolvedCallsCount << "  FUNCTIONS UNRESOLVED \n";
-    errs() << "      " << unresolved_globals_count << "  GLOBALS UNRESOLVED \n";
-    errs() << "      " << unresolved_aliases_count << "  ALIASES UNRESOLVED \n";
+      errs() << "  Main definition not seen \n";
+    errs() << "  FUNCTIONS UNRESOLVED: " << UnresolvedCallsCount << "\n";
+    errs() << "  GLOBALS UNRESOLVED: " << unresolved_globals_count << "\n";
+    errs() << "  ALIASES UNRESOLVED: " << unresolved_aliases_count << "\n";
+
+    if (WholeProgramTraceLibFuncs) {
+      errs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
+      for (const Function *F : LibFuncsFound)
+        errs() << "      " << F->getName() << "\n";
+    }
+    errs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
+    for (const Function *F : LibFuncsNotFound)
+      errs() << "      " << F->getName() << "\n";
+  }
+
+  // Print only the libfuncs
+  else if (WholeProgramTraceLibFuncs) {
+    errs() << "WHOLE-PROGRAM-ANALYSIS: LIBFUNCS TRACE\n\n";
+    errs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
+    for (const Function *F : LibFuncsFound)
+      errs() << "      " << F->getName() << "\n";
+    errs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
+    for (const Function *F : LibFuncsNotFound)
+      errs() << "      " << F->getName() << "\n";
   }
 
   // Check for all_resolved if WholeProgramAssert is true.
