@@ -1,5 +1,5 @@
-;RUN: opt -disable-output -disable-verify -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -disable-output -disable-verify -padded-pointer-info -debug-pass-manager -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks that return value is propagated to FuncInfo
 

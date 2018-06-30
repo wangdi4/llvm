@@ -21,6 +21,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/IR/CallSite.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
@@ -160,6 +161,24 @@ public:
   bool GetFuncPointerPossibleTargets(llvm::Value *FP,
                                      std::vector<llvm::Value *> &Targets,
                                      llvm::CallSite, bool);
+
+  // A helper routine to retrieve structure type - field index pair from a
+  // GEPOperator. The helper routine can handle GEPOperators in both normal form
+  // and byte-flattened form. The routine falls back in the following cases:
+  //
+  // 1. The argument is not a GEPOperator.
+  // 2. The GEPOperator has more than 2 indices or either of the indices isn't a
+  // constant.
+  // 3. If the GEPOperator has 1 index but not was identified by DTransAnalysis
+  // as a byte-flattened structure access.
+  // 4. If the GEPOperator has 2 indices but the first index is not 0 or if the
+  // element type is not a structure or if the second index points out the last
+  // structure field.
+  //
+  // If, for any reason, the helper routine cannot determine
+  // the structure type and field index, it will return nullptr as the first
+  // element of the pair.
+  std::pair<llvm::StructType *, uint64_t> getStructField(GEPOperator *GEP);
 
   // A helper routine to get a DTrans structure type and field index from the
   // GEP instruction which is a pointer argument of the \p Load in the

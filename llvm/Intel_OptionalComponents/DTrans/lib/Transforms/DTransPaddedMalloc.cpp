@@ -57,6 +57,7 @@ public:
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
   }
 
   // Run the implementation
@@ -683,6 +684,7 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
+  PA.preserve<DTransAnalysis>();
   return PA;
 }
 

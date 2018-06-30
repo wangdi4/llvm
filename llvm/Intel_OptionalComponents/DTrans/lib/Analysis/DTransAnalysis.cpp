@@ -5942,6 +5942,8 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
                                  Other.ByteFlattenedGEPInfoMap.end());
+  PaddedMallocSize = Other.getPaddedMallocSize();
+  PaddedMallocInterface = Other.getPaddedMallocInterface();
   MaxTotalFrequency = Other.MaxTotalFrequency;
 }
 
@@ -6263,40 +6265,68 @@ bool DTransAnalysisInfo::isReadOnlyFieldAccess(LoadInst *Load) {
   return FI.isRead() && !FI.isWritten();
 }
 
+// A helper routine to retrieve structure type - field index pair from a
+// GEPOperator.
+std::pair<llvm::StructType *, uint64_t>
+DTransAnalysisInfo::getStructField(GEPOperator *GEP) {
+  if (!GEP || !GEP->hasAllConstantIndices())
+    return std::make_pair(nullptr, 0);
+
+  if (GEP->getNumIndices() == 1) {
+    auto *GEPI = dyn_cast<GetElementPtrInst>(GEP);
+    if (!GEPI)
+      return std::make_pair(nullptr, 0);
+
+    auto StructField = getByteFlattenedGEPElement(GEPI);
+    auto StructTy = dyn_cast<StructType>(StructField.first);
+    if (!StructTy)
+      std::make_pair(nullptr, 0);
+
+    return std::make_pair(StructTy, StructField.second);
+  }
+
+  if (GEP->getNumIndices() == 2) {
+    auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
+    if (!StructTy)
+      return std::make_pair(nullptr, 0);
+
+    if (!cast<ConstantInt>(GEP->getOperand(1))->isZeroValue())
+      return std::make_pair(nullptr, 0);
+
+    auto IndexConst = cast<ConstantInt>(GEP->getOperand(2));
+    auto FieldIndex = IndexConst->getLimitedValue();
+    if (FieldIndex >= StructTy->getNumElements())
+      return std::make_pair(nullptr, 0);
+
+    return std::make_pair(StructTy, FieldIndex);
+  }
+
+  return std::make_pair(nullptr, 0);
+}
+
 // A helper routine to get a DTrans structure type and field index from the
 // GEP instruction which is a pointer argument of the \p Load in the
 // parameters.
 //
 std::pair<dtrans::StructInfo *, uint64_t>
 DTransAnalysisInfo::getInfoFromLoad(LoadInst *Load) {
-  uint64_t Index = 0;
-  llvm::Type *Ty = nullptr;
-  ConstantInt *CZ = nullptr;
-  ConstantInt *CI = nullptr;
   if (!Load)
     return std::make_pair(nullptr, 0);
+
   auto GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
-  if (!GEP || GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
+  auto StructField = getStructField(GEP);
+  if (!StructField.first)
     return std::make_pair(nullptr, 0);
 
-  CZ = cast<ConstantInt>(GEP->getOperand(1));
-  CI = cast<ConstantInt>(GEP->getOperand(2));
-  Ty = GEP->getSourceElementType();
-
-  if (!Ty->isStructTy())
-    return std::make_pair(nullptr, 0);
-  if (!CZ->isZeroValue())
-    return std::make_pair(nullptr, 0);
-  dtrans::TypeInfo *TI = getTypeInfo(Ty);
+  dtrans::TypeInfo *TI = getTypeInfo(StructField.first);
   if (!TI)
     return std::make_pair(nullptr, 0);
+
   auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
   if (!StInfo)
     return std::make_pair(nullptr, 0);
-  Index = CI->getLimitedValue();
-  if (Index >= StInfo->getNumFields())
-    return std::make_pair(nullptr, 0);
-  return std::make_pair(StInfo, Index);
+
+  return std::make_pair(StInfo, StructField.second);
 }
 
 bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(

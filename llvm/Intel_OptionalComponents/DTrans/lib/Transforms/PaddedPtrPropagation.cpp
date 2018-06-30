@@ -98,9 +98,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
@@ -108,8 +111,6 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 
 using namespace llvm;
 using namespace std;
@@ -300,7 +301,7 @@ struct FuncPadInfo final {
       for (auto const &A : PotentiallyPaddedParams) {
         OS << "    ";
         A->print(OS);
-        OS << "\": " << getPaddingForValue(A) << "\n";
+        OS << "\": " << getPaddingForValue(A) << "\"\n";
       }
     }
 
@@ -396,6 +397,50 @@ struct InFunctionPaddingResolver {
   void popValueFromLoopTrace(Value *V) { LoopTraceSet.erase(V); }
 };
 
+// A class implementing <struct type - field index> set.
+// The set is used to track such pairs for the purpose of initial placement of
+// padded annotations. The initial padding annotations are placed based on
+// Dtrans single alloc analysis. The placement implemented in 2 phases. The
+// first is the collection of the structure fields identified as initialized by
+// a single memory allocation routine in to the set. The second is LLVM IR
+// traversal which analyzes load instructions and if the load loads from a
+// structure field contained in the set then a padding annotation is inserted.
+class StructFieldTracker {
+  using IndexSetTy = SmallDenseSet<unsigned, 8>;
+  using FieldMapTy = SmallDenseMap<StructType *, IndexSetTy *>;
+
+  FieldMapTy FieldMap;
+
+public:
+  void insert(StructType *Ty, unsigned index) {
+    auto I = FieldMap.find(Ty);
+    if (I == FieldMap.end())
+      (FieldMap[Ty] = new IndexSetTy())->insert(index);
+    else
+      FieldMap[Ty]->insert(index);
+  }
+
+  bool contains(StructType *Ty, size_t index) {
+    auto MapItor = FieldMap.find(Ty);
+    if (MapItor == FieldMap.end())
+      return false;
+
+    auto SetItor = MapItor->second->find(index);
+    if (SetItor == MapItor->second->end())
+      return false;
+
+    return true;
+  }
+
+  bool empty() { return FieldMap.empty(); }
+
+  ~StructFieldTracker() {
+    for (auto II : FieldMap) {
+      delete II.second;
+    }
+  }
+};
+
 //===----------------------------------------------------------------------===//
 /// Transformation class
 //===----------------------------------------------------------------------===//
@@ -404,17 +449,24 @@ class PaddedPtrPropImpl {
   using FuncPadInfoMapTy = SmallDenseMap<Function *, FuncPadInfo *>;
 
   Module &M;
+  DTransAnalysisInfo &DTInfo;
   FuncPadInfoMapTy FuncPadInfoMap;
   FuncPadInfo &getFuncPadInfo(Function *F);
   void propagateInFunction(Function *F, SmallDenseSet<Function *> &ImpactedFns);
   bool emit();
+
+  void collectSingleAllocsForType(dtrans::TypeInfo *TyInfo, StructFieldTracker &Fields);
+  bool placeInitialAnnotations();
+  bool processGepForInitialAllocations(GEPOperator *GEP,
+                                       StructFieldTracker &FieldMap);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(const string &msg, raw_ostream &OS) const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 public:
-  PaddedPtrPropImpl(Module &M);
+  PaddedPtrPropImpl(Module &M, DTransAnalysisInfo &DTInfo)
+      : M(M), DTInfo(DTInfo) {}
 
   ~PaddedPtrPropImpl() {
     for (auto Entry : FuncPadInfoMap) {
@@ -512,9 +564,6 @@ void PaddedPtrPropImpl::propagateInFunction(
     auto II = WorkSet.begin();
     auto Inst = cast<Instruction>(*II);
     WorkSet.erase(II);
-
-    if (!Inst)
-      continue;
 
     if (FPInfo.getPaddingForValue(Inst) >= 0)
       continue;
@@ -625,9 +674,6 @@ void PaddedPtrPropImpl::propagateInFunction(
 //===----------------------------------------------------------------------===//
 ///                        PaddedPtrPropImpl implementation
 //===----------------------------------------------------------------------===//
-
-// Constructor
-PaddedPtrPropImpl::PaddedPtrPropImpl(Module &M) : M(M) {}
 
 FuncPadInfo &PaddedPtrPropImpl::getFuncPadInfo(Function *F) {
   auto I = FuncPadInfoMap.find(F);
@@ -747,6 +793,81 @@ void PaddedPtrPropImpl::dump(const string &Header, raw_ostream &OS) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Gather single allocations assigned to a structure field.
+// The function recursively traverses TypeInfo and collects the fields in
+// the Fields structure.
+void PaddedPtrPropImpl::collectSingleAllocsForType(dtrans::TypeInfo *TyInfo,
+                                                  StructFieldTracker &Fields) {
+  auto StInfo = dyn_cast<dtrans::StructInfo>(TyInfo);
+
+  // Skip if it isn't a structure
+  if (!StInfo)
+    return;
+
+  size_t FldId = 0;
+
+  for (auto &FldInfo : StInfo->getFields()) {
+    if (isSupportedPointerType(FldInfo.getLLVMType()) &&
+        FldInfo.isSingleAllocFunction())
+      Fields.insert(cast<StructType>(StInfo->getLLVMType()), FldId);
+    else {
+      auto *ComponentTI = DTInfo.getTypeInfo(FldInfo.getLLVMType());
+      collectSingleAllocsForType(ComponentTI, Fields);
+    }
+    FldId++;
+  }
+}
+
+// The function processes a GetElementPointerInst and returns true if it
+// corresponds to a structure field which is initialized by a single allocation
+// call.
+bool PaddedPtrPropImpl::processGepForInitialAllocations(
+    GEPOperator *GEP, StructFieldTracker &FieldMap) {
+
+  auto StructField = DTInfo.getStructField(GEP);
+  if (!StructField.first)
+    return false;
+
+  return FieldMap.contains(StructField.first, StructField.second);
+}
+
+// The function places an initial padding annotation based on DTrans single
+// alloc analysis results.
+bool PaddedPtrPropImpl::placeInitialAnnotations() {
+  StructFieldTracker FieldMap;
+  for (auto TyInfo : DTInfo.type_info_entries()) {
+    collectSingleAllocsForType(TyInfo, FieldMap);
+  }
+
+  // There is no a candidate found for the padding annotation
+  if (FieldMap.empty())
+    return false;
+
+  bool Modified = false;
+  for (auto &F : M) {
+    for (auto &BB : F) {
+      for (auto &I : BB) {
+        auto Load = dyn_cast<LoadInst>(&I);
+        // Process only loads of the supported types.
+        if (!Load)
+          continue;
+
+        if (!isSupportedPointerType(Load->getType()))
+          continue;
+
+        // Insert the annotations for the loads next to the GEPs referencing the
+        // structure fields initialized by a single allocation
+        auto *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
+        if (GEP && processGepForInitialAllocations(GEP, FieldMap)) {
+          insertPaddedMarkUp(Load, DTInfo.getPaddedMallocSize());
+          Modified = true;
+        }
+      }
+    }
+  }
+  return Modified;
+}
+
 // The main routine performing the transformation consisting of the following
 // steps
 // 1. Initialization of internal data structures
@@ -761,6 +882,8 @@ void PaddedPtrPropImpl::dump(const string &Header, raw_ostream &OS) const {
 
 bool PaddedPtrPropImpl::transform() {
   LLVM_DEBUG(dbgs() << "\n---- PADDED MALLOC TRANSFORM START ----\n\n");
+
+  placeInitialAnnotations();
 
   SmallDenseSet<Function *> WorkSet;
 
@@ -835,12 +958,16 @@ PaddedPtrPropWrapper::PaddedPtrPropWrapper() : ModulePass(ID) {
 }
 
 void PaddedPtrPropWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<DTransAnalysisWrapper>();
+  AU.addPreserved<WholeProgramWrapperPass>();
+  AU.addPreserved<DTransAnalysisWrapper>();
 }
 
 // Potentially the pass can change the CFG by inserting a new BB after
 // InvokeInst. In that case, it preserves none of its analyses.
 bool PaddedPtrPropWrapper::runOnModule(Module &M) {
-  bool Modified = PaddedPtrPropImpl(M).transform();
+  auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+  bool Modified = PaddedPtrPropImpl(M, DTInfo).transform();
   return Modified;
 }
 
@@ -902,9 +1029,14 @@ ModulePass *createPaddedPtrPropWrapperPass() {
 // Potentially the pass can change CFG by inserting new BB after InvokeInst.
 // In that case, it preserves none of its analyses.
 PreservedAnalyses PaddedPtrPropPass::run(Module &M, ModuleAnalysisManager &AM) {
-  bool Modified = PaddedPtrPropImpl(M).transform();
-  if (Modified)
-    return PreservedAnalyses::none();
+  auto &DTInfo = AM.getResult<DTransAnalysis>(M);
+  bool Modified = PaddedPtrPropImpl(M, DTInfo).transform();
+  if (Modified) {
+      PreservedAnalyses PA;
+      PA.preserve<DTransAnalysis>();
+      PA.preserve<WholeProgramAnalysis>();
+    return PA;
+  }
   else
     return PreservedAnalyses::all();
 }
@@ -917,5 +1049,6 @@ PreservedAnalyses PaddedPtrPropPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 INITIALIZE_PASS_BEGIN(PaddedPtrPropWrapper, DEBUG_TYPE,
                       "Optimize data layout with malloc padding", false, false)
+INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_END(PaddedPtrPropWrapper, DEBUG_TYPE,
                     "Optimize data layout with malloc padding", false, false)
