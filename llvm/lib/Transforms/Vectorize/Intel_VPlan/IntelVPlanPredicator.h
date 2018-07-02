@@ -28,7 +28,6 @@ private:
 
   VPlan *Plan;
   VPLoopInfo *VPLI;
-  VPlanUtils PlanUtils;
 
   EdgeType getEdgeTypeBetween(VPBlockBase *FromBlock, VPBlockBase *ToBlock);
   int countSuccessorsNoBE(VPBlockBase *PredBlock, bool &HasBE);
@@ -51,9 +50,8 @@ private:
   void linearizeRegionRec(VPRegionBlock *Region);
 
 public:
-  VPlanPredicator(VPlan *Plan)
-      : Plan(Plan), VPLI(Plan->getVPLoopInfo()), PlanUtils(Plan) {}
-  
+  VPlanPredicator(VPlan *Plan) : Plan(Plan), VPLI(Plan->getVPLoopInfo()) {}
+
   /// The driver function for the predicator
   void predicate(void);
 };

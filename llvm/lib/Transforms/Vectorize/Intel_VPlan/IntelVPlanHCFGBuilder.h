@@ -52,7 +52,7 @@ protected:
   VPDominatorTree VPDomTree;
   VPPostDominatorTree VPPostDomTree;
 
-  VPlanUtils PlanUtils;
+  VPlan *Plan;
 
   /// VPlan verifier utility.
   VPlanVerifier *Verifier = nullptr;
@@ -80,7 +80,7 @@ protected:
 
   virtual VPRegionBlock *buildPlainCFG();
   virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
-    return PlanUtils.createLoopRegion(VPLp);
+    return VPlanUtils::createLoopRegion(VPLp);
   }
 
   void simplifyPlainCFG();
@@ -105,7 +105,7 @@ public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
                    const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal)
-      : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), PlanUtils(Plan), Legal(Legal) {
+      : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
     // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
     // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
     Verifier = new VPlanVerifier(Lp, LI);

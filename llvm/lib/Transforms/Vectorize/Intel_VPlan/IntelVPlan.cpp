@@ -91,9 +91,10 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
                                      VPLoopInfo *VPLInfo,
                                      VPDominatorTree &DomTree,
-                                     VPPostDominatorTree &PostDomTree) {
+                                     VPPostDominatorTree &PostDomTree,
+                                     VPlan *Plan) {
   VPBasicBlock *NewBlock = createBasicBlock();
-  insertBlockAfter(NewBlock, Block);
+  insertBlockAfter(NewBlock, Block, Plan);
 
   // Add NewBlock to VPLoopInfo
   if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
