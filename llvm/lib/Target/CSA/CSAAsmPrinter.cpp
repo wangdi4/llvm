@@ -482,6 +482,7 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
 void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
   if (CSAInstPrinter::WrapCsaAsm()) {
+    OutStreamer->AddBlankLine();
     endCSAAsmString(*OutStreamer);
     OutStreamer->AddBlankLine();
     // Add the terminating null for the .csa section.
@@ -889,6 +890,7 @@ void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
   // If the global's name starts with .omp_offloading., it needs to be emitted
   // outside of the wrapping.
   if (GV->getName().startswith(".omp_offloading.")) {
+    OutStreamer->AddBlankLine();
     endCSAAsmString(*OutStreamer);
     OutStreamer->AddBlankLine();
   }
