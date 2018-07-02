@@ -1829,7 +1829,7 @@ private:
                                             llvm::Type *AggregateTy,
                                             uint64_t Offset,
                                             LocalPointerInfo &Info) {
-    if (!AggregateTy->isAggregateType())
+    if (!AggregateTy->isAggregateType() || !AggregateTy->isSized())
       return false;
 
     if (auto *StructTy = dyn_cast<StructType>(AggregateTy))
@@ -5642,8 +5642,9 @@ void DTransAnalysisInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
 
 // Return true if we are interested in tracking values of the specified type.
 //
-// For now, let's limit this to aggregates and various levels of indirection
-// to aggregates. At some point we may also be interested in pointers to
+// For now, let's limit this to sized aggregates and various levels of
+// indirection to sized aggregates. UnhandledUse safety condition is set for
+// unsized types. At some point we may also be interested in pointers to
 // scalars.
 bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   llvm::Type *BaseTy = Ty;
@@ -5652,7 +5653,7 @@ bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   while (BaseTy->isPointerTy())
     BaseTy = cast<PointerType>(BaseTy)->getElementType();
 
-  return BaseTy->isAggregateType();
+  return BaseTy->isAggregateType() && BaseTy->isSized();
 }
 
 dtrans::TypeInfo *DTransAnalysisInfo::getTypeInfo(llvm::Type *Ty) const {
