@@ -754,8 +754,9 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   unsigned MinBlobSymbase = BlobRef->getSymbase();
 
   // 64*i1 + N2
-
-  UBRef->getSingleCanonExpr()->setBlobCoeff(MinBlobIndex, 1);
+  CanonExpr *UBRefCE = UBRef->getSingleCanonExpr();
+  UBRefCE->setBlobCoeff(MinBlobIndex, 1);
+  UBRefCE->setDefinedAtLevel(Level);
   UBRef->addBlobDDRef(MinBlobIndex, Level);
 
   // Normalize code will set linear at level
