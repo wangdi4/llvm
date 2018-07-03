@@ -11,13 +11,13 @@
 
 ; CHECK:      + DO i1 = 0
 ; CHECK-NEXT: |   %i.0.i437771.out = %i.0.i437771;
-; CHECK-NEXT: |   %t46 = (%t41)[i1 + trunc.i64.i32((2 + %indvars.iv))];
+; CHECK-NEXT: |   %t46 = (%t41)[i1 + trunc.i64.i32(%indvars.iv) + 2];
 ; CHECK-NEXT: |   %t47 = (%t41)[%i.0.i437771.out];
 ; CHECK-NEXT: |   if (%t46 != %t47)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |      goto for.body.i447.land.lhs.true.i.i.i428_crit_edge;
 ; CHECK-NEXT: |   }
-; CHECK-NEXT: |   %i.0.i437771 = i1 + trunc.i64.i32((1 + %indvars.iv)) + 1;
+; CHECK-NEXT: |   %i.0.i437771 = i1 + trunc.i64.i32(%indvars.iv) + 2;
 ; CHECK-NEXT: + END LOOP
 
 

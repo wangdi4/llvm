@@ -431,8 +431,8 @@ void PlatformDarwinKernel::AddSDKSubdirsToSearchPaths(const std::string &dir) {
 FileSpec::EnumerateDirectoryResult
 PlatformDarwinKernel::FindKDKandSDKDirectoriesInDirectory(
     void *baton, llvm::sys::fs::file_type ft, const FileSpec &file_spec) {
-  static ConstString g_sdk_suffix = ConstString("sdk");
-  static ConstString g_kdk_suffix = ConstString("kdk");
+  static ConstString g_sdk_suffix = ConstString(".sdk");
+  static ConstString g_kdk_suffix = ConstString(".kdk");
 
   PlatformDarwinKernel *thisp = (PlatformDarwinKernel *)baton;
   if (ft == llvm::sys::fs::file_type::directory_file &&
@@ -492,8 +492,8 @@ FileSpec::EnumerateDirectoryResult
 PlatformDarwinKernel::GetKernelsAndKextsInDirectoryHelper(
     void *baton, llvm::sys::fs::file_type ft, const FileSpec &file_spec,
     bool recurse) {
-  static ConstString g_kext_suffix = ConstString("kext");
-  static ConstString g_dsym_suffix = ConstString("dSYM");
+  static ConstString g_kext_suffix = ConstString(".kext");
+  static ConstString g_dsym_suffix = ConstString(".dSYM");
   static ConstString g_bundle_suffix = ConstString("Bundle");
   ConstString file_spec_extension = file_spec.GetFileNameExtension();
 
@@ -623,7 +623,7 @@ bool PlatformDarwinKernel::KextHasdSYMSibling(
       kext_bundle_filepath.GetPath() + "/Contents/MacOS/";
   deep_bundle_str += executable_name.AsCString();
   deep_bundle_str += ".dSYM";
-  dsym_fspec.SetFile(deep_bundle_str, true);
+  dsym_fspec.SetFile(deep_bundle_str, true, FileSpec::Style::native);
   if (llvm::sys::fs::is_directory(dsym_fspec.GetPath())) {
     return true;
   }
@@ -633,7 +633,7 @@ bool PlatformDarwinKernel::KextHasdSYMSibling(
   std::string shallow_bundle_str = kext_bundle_filepath.GetPath() + "/";
   shallow_bundle_str += executable_name.AsCString();
   shallow_bundle_str += ".dSYM";
-  dsym_fspec.SetFile(shallow_bundle_str, true);
+  dsym_fspec.SetFile(shallow_bundle_str, true, FileSpec::Style::native);
   if (llvm::sys::fs::is_directory(dsym_fspec.GetPath())) {
     return true;
   }
@@ -780,10 +780,10 @@ Status PlatformDarwinKernel::GetSharedModule(
 }
 
 std::vector<lldb_private::FileSpec>
-PlatformDarwinKernel::SearchForExecutablesRecursively(const ConstString &dir) {
+PlatformDarwinKernel::SearchForExecutablesRecursively(const std::string &dir) {
   std::vector<FileSpec> executables;
   std::error_code EC;
-  for (llvm::sys::fs::recursive_directory_iterator it(dir.GetStringRef(), EC),
+  for (llvm::sys::fs::recursive_directory_iterator it(dir.c_str(), EC),
        end;
        it != end && !EC; it.increment(EC)) {
     auto status = it->status();
@@ -800,7 +800,7 @@ Status PlatformDarwinKernel::ExamineKextForMatchingUUID(
     const FileSpec &kext_bundle_path, const lldb_private::UUID &uuid,
     const ArchSpec &arch, ModuleSP &exe_module_sp) {
   for (const auto &exe_file :
-       SearchForExecutablesRecursively(kext_bundle_path.GetDirectory())) {
+       SearchForExecutablesRecursively(kext_bundle_path.GetPath())) {
     if (exe_file.Exists()) {
       ModuleSpec exe_spec(exe_file);
       exe_spec.GetUUID() = uuid;

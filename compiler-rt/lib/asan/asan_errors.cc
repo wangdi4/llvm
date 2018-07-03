@@ -182,7 +182,7 @@ void ErrorCallocOverflow::Print() {
       count, size, tid, ThreadNameWithParenthesis(tid, tname, sizeof(tname)));
   Printf("%s", d.Default());
   stack->Print();
-  PrintHintAllocatorCannotReturnNull("ASAN_OPTIONS");
+  PrintHintAllocatorCannotReturnNull();
   ReportErrorSummary(scariness.GetDescription(), stack);
 }
 
@@ -198,7 +198,7 @@ void ErrorPvallocOverflow::Print() {
       ThreadNameWithParenthesis(tid, tname, sizeof(tname)));
   Printf("%s", d.Default());
   stack->Print();
-  PrintHintAllocatorCannotReturnNull("ASAN_OPTIONS");
+  PrintHintAllocatorCannotReturnNull();
   ReportErrorSummary(scariness.GetDescription(), stack);
 }
 
@@ -212,7 +212,29 @@ void ErrorInvalidAllocationAlignment::Print() {
       alignment, tid, ThreadNameWithParenthesis(tid, tname, sizeof(tname)));
   Printf("%s", d.Default());
   stack->Print();
-  PrintHintAllocatorCannotReturnNull("ASAN_OPTIONS");
+  PrintHintAllocatorCannotReturnNull();
+  ReportErrorSummary(scariness.GetDescription(), stack);
+}
+
+void ErrorInvalidAlignedAllocAlignment::Print() {
+  Decorator d;
+  Printf("%s", d.Warning());
+  char tname[128];
+#if SANITIZER_POSIX
+  Report("ERROR: AddressSanitizer: invalid alignment requested in "
+         "aligned_alloc: %zd, alignment must be a power of two and the "
+         "requested size 0x%zx must be a multiple of alignment "
+         "(thread T%d%s)\n", alignment, size, tid,
+         ThreadNameWithParenthesis(tid, tname, sizeof(tname)));
+#else
+  Report("ERROR: AddressSanitizer: invalid alignment requested in "
+         "aligned_alloc: %zd, the requested size 0x%zx must be a multiple of "
+         "alignment (thread T%d%s)\n", alignment, size, tid,
+         ThreadNameWithParenthesis(tid, tname, sizeof(tname)));
+#endif
+  Printf("%s", d.Default());
+  stack->Print();
+  PrintHintAllocatorCannotReturnNull();
   ReportErrorSummary(scariness.GetDescription(), stack);
 }
 
@@ -228,7 +250,7 @@ void ErrorInvalidPosixMemalignAlignment::Print() {
       ThreadNameWithParenthesis(tid, tname, sizeof(tname)));
   Printf("%s", d.Default());
   stack->Print();
-  PrintHintAllocatorCannotReturnNull("ASAN_OPTIONS");
+  PrintHintAllocatorCannotReturnNull();
   ReportErrorSummary(scariness.GetDescription(), stack);
 }
 
@@ -244,7 +266,7 @@ void ErrorAllocationSizeTooBig::Print() {
       ThreadNameWithParenthesis(tid, tname, sizeof(tname)));
   Printf("%s", d.Default());
   stack->Print();
-  PrintHintAllocatorCannotReturnNull("ASAN_OPTIONS");
+  PrintHintAllocatorCannotReturnNull();
   ReportErrorSummary(scariness.GetDescription(), stack);
 }
 
@@ -256,7 +278,7 @@ void ErrorRssLimitExceeded::Print() {
       "soft_rss_limit_mb=%zd\n", common_flags()->soft_rss_limit_mb);
   Printf("%s", d.Default());
   stack->Print();
-  PrintHintAllocatorCannotReturnNull("ASAN_OPTIONS");
+  PrintHintAllocatorCannotReturnNull();
   ReportErrorSummary(scariness.GetDescription(), stack);
 }
 
@@ -268,7 +290,7 @@ void ErrorOutOfMemory::Print() {
       "0x%zx bytes\n", requested_size);
   Printf("%s", d.Default());
   stack->Print();
-  PrintHintAllocatorCannotReturnNull("ASAN_OPTIONS");
+  PrintHintAllocatorCannotReturnNull();
   ReportErrorSummary(scariness.GetDescription(), stack);
 }
 

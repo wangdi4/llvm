@@ -1608,7 +1608,7 @@ bool PPCInstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, unsigned SrcReg,
   int OpC = CmpInstr.getOpcode();
   unsigned CRReg = CmpInstr.getOperand(0).getReg();
 
-  // FP record forms set CR1 based on the execption status bits, not a
+  // FP record forms set CR1 based on the exception status bits, not a
   // comparison with zero.
   if (OpC == PPC::FCMPUS || OpC == PPC::FCMPUD)
     return false;
@@ -1731,7 +1731,7 @@ bool PPCInstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, unsigned SrcReg,
     unsigned PredHint = PPC::getPredicateHint(Pred);
     int16_t Immed = (int16_t)Value;
 
-    // When modyfing the condition in the predicate, we propagate hint bits
+    // When modifying the condition in the predicate, we propagate hint bits
     // from the original predicate to the new one.
     if (Immed == -1 && PredCond == PPC::PRED_GT)
       // We convert "greater than -1" into "greater than or equal to 0",
@@ -2065,6 +2065,12 @@ bool PPCInstrInfo::expandVSXMemPseudo(MachineInstr &MI) const {
     return true;
 }
 
+#ifndef NDEBUG
+static bool isAnImmediateOperand(const MachineOperand &MO) {
+  return MO.isCPI() || MO.isGlobal() || MO.isImm();
+}
+#endif
+
 bool PPCInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   auto &MBB = *MI.getParent();
   auto DL = MI.getDebugLoc();
@@ -2087,7 +2093,8 @@ bool PPCInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case PPC::DFSTOREf64: {
     assert(Subtarget.hasP9Vector() &&
            "Invalid D-Form Pseudo-ops on Pre-P9 target.");
-    assert(MI.getOperand(2).isReg() && MI.getOperand(1).isImm() &&
+    assert(MI.getOperand(2).isReg() &&
+           isAnImmediateOperand(MI.getOperand(1)) &&
            "D-form op must have register and immediate operands");
     return expandVSXMemPseudo(MI);
   }
@@ -2233,7 +2240,7 @@ MachineInstr *PPCInstrInfo::getConstantDefMI(MachineInstr &MI,
   MachineInstr *DefMI = nullptr;
   MachineRegisterInfo *MRI = &MI.getParent()->getParent()->getRegInfo();
   const TargetRegisterInfo *TRI = &getRegisterInfo();
-  // If we'ere in SSA, get the defs through the MRI. Otherwise, only look
+  // If we're in SSA, get the defs through the MRI. Otherwise, only look
   // within the basic block to see if the register is defined using an LI/LI8.
   if (MRI->isSSA()) {
     for (int i = 1, e = MI.getNumOperands(); i < e; i++) {
@@ -3185,7 +3192,7 @@ bool PPCInstrInfo::isTOCSaveMI(const MachineInstr &MI) const {
 }
 
 // We limit the max depth to track incoming values of PHIs or binary ops
-// (e.g. AND) to avoid exsessive cost.
+// (e.g. AND) to avoid excessive cost.
 const unsigned MAX_DEPTH = 1;
 
 bool

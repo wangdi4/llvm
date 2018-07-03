@@ -24,12 +24,13 @@ public:
   using BenchmarkRunner::BenchmarkRunner;
   ~UopsBenchmarkRunner() override;
 
-private:
-  InstructionBenchmark::ModeE getMode() const override;
+  llvm::Expected<SnippetPrototype>
+  generatePrototype(unsigned Opcode) const override;
 
-  llvm::Expected<std::vector<BenchmarkConfiguration>>
-  createConfigurations(RegisterAliasingTrackerCache &RATC,
-                       unsigned Opcode) const override;
+private:
+  llvm::Error isInfeasible(const llvm::MCInstrDesc &MCInstrDesc) const;
+
+  InstructionBenchmark::ModeE getMode() const override;
 
   std::vector<BenchmarkMeasure>
   runMeasurements(const ExecutableFunction &EF,

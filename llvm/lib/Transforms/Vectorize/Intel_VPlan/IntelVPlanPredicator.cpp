@@ -591,7 +591,7 @@ static void dumpVplanDot(VPlan *Plan,
                          const char *dotFile = "/tmp/vplan.dot") {
   if (DumpVPlanDot) {
     std::error_code EC;
-    raw_fd_ostream file(dotFile, EC, sys::fs::F_RW);
+    raw_fd_ostream file(dotFile, EC, sys::fs::FA_Write);
     file << *Plan;
     file.close();
   }

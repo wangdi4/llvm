@@ -1,7 +1,4 @@
-// INTEL_CUSTOMIZATION BEGIN
-// Added -dwarf-line-version=4 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
-// RUN: llvm-mc -dwarf-line-version=4 -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -s | FileCheck %s
-// INTEL_CUSTOMIZATION END
+// RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -s | FileCheck %s
 
 // Test that we don't regress on the size of the line info section. We used
 // to handle negative line diffs incorrectly which manifested as very

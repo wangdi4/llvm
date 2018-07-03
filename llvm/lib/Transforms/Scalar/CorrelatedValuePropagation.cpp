@@ -83,6 +83,7 @@ namespace {
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<LazyValueInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     }
   };
@@ -308,7 +309,7 @@ static bool processCmp(CmpInst *C, LazyValueInfo *LVI) {
 /// that cannot fire no matter what the incoming edge can safely be removed. If
 /// a case fires on every incoming edge then the entire switch can be removed
 /// and replaced with a branch to the case destination.
-static bool processSwitch(SwitchInst *SI, LazyValueInfo *LVI) {
+static bool processSwitch(SwitchInst *SI, LazyValueInfo *LVI, DominatorTree *DT) {
   Value *Cond = SI->getCondition();
   BasicBlock *BB = SI->getParent();
 
@@ -323,6 +324,10 @@ static bool processSwitch(SwitchInst *SI, LazyValueInfo *LVI) {
 
   // Analyse each switch case in turn.
   bool Changed = false;
+  DenseMap<BasicBlock*, int> SuccessorsCount;
+  for (auto *Succ : successors(BB))
+    SuccessorsCount[Succ]++;
+
   for (auto CI = SI->case_begin(), CE = SI->case_end(); CI != CE;) {
     ConstantInt *Case = CI->getCaseValue();
 
@@ -357,7 +362,8 @@ static bool processSwitch(SwitchInst *SI, LazyValueInfo *LVI) {
 
     if (State == LazyValueInfo::False) {
       // This case never fires - remove it.
-      CI->getCaseSuccessor()->removePredecessor(BB);
+      BasicBlock *Succ = CI->getCaseSuccessor();
+      Succ->removePredecessor(BB);
       CI = SI->removeCase(CI);
       CE = SI->case_end();
 
@@ -367,6 +373,8 @@ static bool processSwitch(SwitchInst *SI, LazyValueInfo *LVI) {
 
       ++NumDeadCases;
       Changed = true;
+      if (--SuccessorsCount[Succ] == 0)
+        DT->deleteEdge(BB, Succ);
       continue;
     }
     if (State == LazyValueInfo::True) {
@@ -383,10 +391,14 @@ static bool processSwitch(SwitchInst *SI, LazyValueInfo *LVI) {
     ++CI;
   }
 
-  if (Changed)
+  if (Changed) {
     // If the switch has been simplified to the point where it can be replaced
     // by a branch then do so now.
-    ConstantFoldTerminator(BB);
+    DeferredDominance DDT(*DT);
+    ConstantFoldTerminator(BB, /*DeleteDeadConditions = */ false,
+                           /*TLI = */ nullptr, &DDT);
+    DDT.flush();
+  }
 
   return Changed;
 }
@@ -724,7 +736,7 @@ static bool runImpl(Function &F, LazyValueInfo *LVI, DominatorTree *DT,
     Instruction *Term = BB->getTerminator();
     switch (Term->getOpcode()) {
     case Instruction::Switch:
-      BBChanged |= processSwitch(cast<SwitchInst>(Term), LVI);
+      BBChanged |= processSwitch(cast<SwitchInst>(Term), LVI, DT);
       break;
     case Instruction::Ret: {
       auto *RI = cast<ReturnInst>(Term);
@@ -769,6 +781,7 @@ CorrelatedValuePropagationPass::run(Function &F, FunctionAnalysisManager &AM) {
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
+  PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<AndersensAA>();       // INTEL
   return PA;
 }

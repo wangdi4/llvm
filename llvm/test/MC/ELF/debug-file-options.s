@@ -1,7 +1,4 @@
-// INTEL_CUSTOMIZATION BEGIN
-// Added -dwarf-line-version=5 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
-// RUN: llvm-mc -triple x86_64-unknown-unknown -dwarf-version 5 -dwarf-line-version=5 -filetype=obj %s -o -| llvm-dwarfdump --debug-line --debug-line-str -v - | FileCheck %s
-// INTEL_CUSTOMIZATION END
+// RUN: llvm-mc -triple x86_64-unknown-unknown -dwarf-version 5 -filetype=obj %s -o -| llvm-dwarfdump --debug-line --debug-line-str -v - | FileCheck %s
 // Test combinations of options to the .file directive.
 
         .file 1 "dir1/foo" md5 0xee87e05688663173cd6043a3a15bba6e source "void foo() {}"
@@ -18,15 +15,15 @@
 # CHECK: include_directories[ 2] = .debug_line_str[0x[[DIR2:[0-9a-f]+]]] = "dir2"
 # CHECK-NOT: include_directories
 # CHECK: file_names[ 0]:
-# CHECK-NEXT: name: .debug_line_str[0x[[FILE0:[0-9a-f]+]]] = "{{.+}}"
-# CHECK-NEXT: dir_index: 0
+# CHECK-NEXT: name: .debug_line_str[0x[[FILE0:[0-9a-f]+]]] = "foo"
+# CHECK-NEXT: dir_index: 1
 # CHECK-NEXT: md5_checksum:
-# CHECK-NEXT: source: .debug_line_str[0x[[FILE0SRC:[0-9a-f]+]]] = ""
+# CHECK-NEXT: source: .debug_line_str[0x[[FILE0SRC:[0-9a-f]+]]] = "void foo() {}"
 # CHECK: file_names[ 1]:
-# CHECK-NEXT: name: .debug_line_str[0x[[FILE1:[0-9a-f]+]]] = "foo"
+# CHECK-NEXT: name: .debug_line_str[0x[[FILE0]]] = "foo"
 # CHECK-NEXT: dir_index: 1
 # CHECK-NEXT: md5_checksum: ee87e05688663173cd6043a3a15bba6e
-# CHECK-NEXT: source: .debug_line_str[0x[[FILE1SRC:[0-9a-f]+]]] = "void foo() {}"
+# CHECK-NEXT: source: .debug_line_str[0x[[FILE0SRC]]] = "void foo() {}"
 # CHECK: file_names[ 2]:
 # CHECK-NEXT: name: .debug_line_str[0x[[FILE2:[0-9a-f]+]]] = "bar"
 # CHECK-NEXT: dir_index: 2
@@ -37,9 +34,7 @@
 # CHECK-NEXT: 0x[[DIR0]]: "{{.+}}"
 # CHECK-NEXT: 0x[[DIR1]]: "dir1"
 # CHECK-NEXT: 0x[[DIR2]]: "dir2"
-# CHECK-NEXT: 0x[[FILE0]]: "{{.+}}"
-# CHECK-NEXT: 0x[[FILE0SRC]]: ""
-# CHECK-NEXT: 0x[[FILE1]]: "foo"
-# CHECK-NEXT: 0x[[FILE1SRC]]: "void foo() {}"
+# CHECK-NEXT: 0x[[FILE0]]: "foo"
+# CHECK-NEXT: 0x[[FILE0SRC]]: "void foo() {}"
 # CHECK-NEXT: 0x[[FILE2]]: "bar"
 # CHECK-NEXT: 0x[[FILE2SRC]]: "void bar() {}"

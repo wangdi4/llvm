@@ -432,7 +432,7 @@ HexagonTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       RegsToPass.push_back(std::make_pair(VA.getLocReg(), Arg));
   }
 
-  if (NeedsArgAlign && Subtarget.hasV60TOps()) {
+  if (NeedsArgAlign && Subtarget.hasV60Ops()) {
     LLVM_DEBUG(dbgs() << "Function needs byte stack align due to call args\n");
     unsigned VecAlign = HRI.getSpillAlignment(Hexagon::HvxVRRegClass);
     LargestAlignSeen = std::max(LargestAlignSeen, VecAlign);
@@ -1225,7 +1225,7 @@ HexagonTargetLowering::HexagonTargetLowering(const TargetMachine &TM,
                                              const HexagonSubtarget &ST)
     : TargetLowering(TM), HTM(static_cast<const HexagonTargetMachine&>(TM)),
       Subtarget(ST) {
-  bool IsV4 = !Subtarget.hasV5TOps();
+  bool IsV4 = !Subtarget.hasV5Ops();
   auto &HRI = *Subtarget.getRegisterInfo();
 
   setPrefLoopAlignment(4);
@@ -1267,7 +1267,7 @@ HexagonTargetLowering::HexagonTargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::v4i16, &Hexagon::DoubleRegsRegClass);
   addRegisterClass(MVT::v2i32, &Hexagon::DoubleRegsRegClass);
 
-  if (Subtarget.hasV5TOps()) {
+  if (Subtarget.hasV5Ops()) {
     addRegisterClass(MVT::f32, &Hexagon::IntRegsRegClass);
     addRegisterClass(MVT::f64, &Hexagon::DoubleRegsRegClass);
   }
@@ -1326,6 +1326,9 @@ HexagonTargetLowering::HexagonTargetLowering(const TargetMachine &TM,
   else
     setMinimumJumpTableEntries(std::numeric_limits<int>::max());
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
+
+  setOperationAction(ISD::ABS, MVT::i32, Legal);
+  setOperationAction(ISD::ABS, MVT::i64, Legal);
 
   // Hexagon has A4_addp_c and A4_subp_c that take and generate a carry bit,
   // but they only operate on i64.
@@ -1507,7 +1510,11 @@ HexagonTargetLowering::HexagonTargetLowering(const TargetMachine &TM,
 
   // Subtarget-specific operation actions.
   //
-  if (Subtarget.hasV5TOps()) {
+  if (Subtarget.hasV60Ops()) {
+    setOperationAction(ISD::ROTL, MVT::i32, Custom);
+    setOperationAction(ISD::ROTL, MVT::i64, Custom);
+  }
+  if (Subtarget.hasV5Ops()) {
     setOperationAction(ISD::FMA,  MVT::f64, Expand);
     setOperationAction(ISD::FADD, MVT::f64, Expand);
     setOperationAction(ISD::FSUB, MVT::f64, Expand);
@@ -1638,7 +1645,7 @@ HexagonTargetLowering::HexagonTargetLowering(const TargetMachine &TM,
     setLibcallName(RTLIB::DIV_F32, "__hexagon_divsf3");
   }
 
-  if (Subtarget.hasV5TOps()) {
+  if (Subtarget.hasV5Ops()) {
     if (FastMath)
       setLibcallName(RTLIB::SQRT_F32, "__hexagon_fast2_sqrtf");
     else
@@ -2089,6 +2096,13 @@ HexagonTargetLowering::getVectorShiftByInt(SDValue Op, SelectionDAG &DAG)
 SDValue
 HexagonTargetLowering::LowerVECTOR_SHIFT(SDValue Op, SelectionDAG &DAG) const {
   return getVectorShiftByInt(Op, DAG);
+}
+
+SDValue
+HexagonTargetLowering::LowerROTL(SDValue Op, SelectionDAG &DAG) const {
+  if (isa<ConstantSDNode>(Op.getOperand(1).getNode()))
+    return Op;
+  return SDValue();
 }
 
 SDValue
@@ -2792,6 +2806,7 @@ HexagonTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     case ISD::SRA:
     case ISD::SHL:
     case ISD::SRL:                  return LowerVECTOR_SHIFT(Op, DAG);
+    case ISD::ROTL:                 return LowerROTL(Op, DAG);
     case ISD::ConstantPool:         return LowerConstantPool(Op, DAG);
     case ISD::JumpTable:            return LowerJumpTable(Op, DAG);
     case ISD::EH_RETURN:            return LowerEH_RETURN(Op, DAG);
@@ -2910,7 +2925,7 @@ HexagonTargetLowering::getRegForInlineAsmConstraint(
       case 512:
         return {0u, &Hexagon::HvxVRRegClass};
       case 1024:
-        if (Subtarget.hasV60TOps() && Subtarget.useHVX128BOps())
+        if (Subtarget.hasV60Ops() && Subtarget.useHVX128BOps())
           return {0u, &Hexagon::HvxVRRegClass};
         return {0u, &Hexagon::HvxWRRegClass};
       case 2048:
@@ -2929,7 +2944,7 @@ HexagonTargetLowering::getRegForInlineAsmConstraint(
 /// specified FP immediate natively. If false, the legalizer will
 /// materialize the FP immediate as a load from a constant pool.
 bool HexagonTargetLowering::isFPImmLegal(const APFloat &Imm, EVT VT) const {
-  return Subtarget.hasV5TOps();
+  return Subtarget.hasV5Ops();
 }
 
 /// isLegalAddressingMode - Return true if the addressing mode represented by

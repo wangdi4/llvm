@@ -413,6 +413,24 @@ FunctionModRefBehavior AAResults::getModRefBehavior(const Function *F) {
   return Result;
 }
 
+raw_ostream &llvm::operator<<(raw_ostream &OS, AliasResult AR) {
+  switch (AR) {
+  case NoAlias:
+    OS << "NoAlias";
+    break;
+  case MustAlias:
+    OS << "MustAlias";
+    break;
+  case MayAlias:
+    OS << "MayAlias";
+    break;
+  case PartialAlias:
+    OS << "PartialAlias";
+    break;
+  }
+  return OS;
+}
+
 //===----------------------------------------------------------------------===//
 // Helper method implementation
 //===----------------------------------------------------------------------===//
