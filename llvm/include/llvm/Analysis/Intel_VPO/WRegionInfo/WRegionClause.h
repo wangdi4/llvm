@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//   This file defines the classes that represent OpenMP clauses.
+/// \file
+/// This file defines the classes that represent OpenMP clauses.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H

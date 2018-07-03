@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This header file defines prototypes for accessor functions that expose passes
-// in the WRegionInfo library.
+/// \file This header file defines prototypes for accessor functions that expose
+/// passes in the WRegionInfo library.
 //
 //===----------------------------------------------------------------------===//
 

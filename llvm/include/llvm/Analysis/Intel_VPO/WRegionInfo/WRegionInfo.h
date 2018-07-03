@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This analysis is used to create WRegion Node Graph of identified W-Regions.
+/// \file
+/// The analysis used to create WRegion Node Graph of identified W-Regions.
 //
 //===----------------------------------------------------------------------===//
 

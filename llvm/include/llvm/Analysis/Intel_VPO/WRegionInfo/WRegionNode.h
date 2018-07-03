@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//   This file defines the W-Region Graph node.
+/// \file
+/// This file defines the W-Region Graph node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -625,57 +626,71 @@ public:
 
 // Printing routines to help dump WRN content
 
-/// \brief Auxiliary function to print a BB in a WRN dump
+/// Auxiliary function to print a BB in a WRN dump.
+///
 /// If BB is null:
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: NULL BBlock"
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: NULL BBlock"
+///
 /// If BB is not null:
-///   Verbosity <= 1: : print BB->getName()
-///   Verbosity >= 2: : print *BB (dumps the Bblock content)
+///  * Verbosity <= 1: : print BB->getName()
+///  * Verbosity >= 2: : print *BB (dumps the Bblock content)
 extern void printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
                     int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print a Value in a WRN dump
+/// Auxiliary function to print a Value in a WRN dump.
+///
 /// If Val is null:
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: NULL Value"
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: NULL Value"
+///
 /// If Val is not null:
-///   print *Val regardless of Verbosity
+///  * print *Val regardless of Verbosity
 extern void printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print an ArrayRef of Values in a WRN dump.
+/// Auxiliary function to print an ArrayRef of Values in a WRN dump.
+///
 /// If an element Val in Vals is undef/null:
-///   Verbosity == 0: don't printing anything
-///   Verbosity >= 1: print "UNSPECIFIED"
+///  * Verbosity == 0: don't printing anything
+///  * Verbosity >= 1: print "UNSPECIFIED"
+///
 /// If the element Val is not undef/null:
-///   print it irrespective of verbosity
+///  * print it irrespective of verbosity
 extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
                          formatted_raw_ostream &OS, int Indent,
                          unsigned Verbosity = 1);
 
-/// \brief Auxiliary function to print an Int in a WRN dump
+/// Auxiliary function to print an Int in a WRN dump.
+///
 /// If Num is 0:
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: UNSPECIFIED"
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: UNSPECIFIED"
+///
 /// If Num is not 0:
-///   print "Title: <Num>"
+///  * print "Title: <Num>"
 extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print a boolean in a WRN dump
-/// If Verbosity == 0, don't print anything if Flag is false;
-/// otherwise, print "Title: true/false"
+/// Auxiliary function to print a boolean in a WRN dump.
+///
+/// If \p Verbosity == 0 and \p Flag is `false`:
+/// * don't print anything
+///
+/// otherwise:
+/// * print "Title: true/false"
 extern void printBool(StringRef Title, bool Flag, formatted_raw_ostream &OS,
                       int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print a String for dumping certain clauses.
+/// Auxiliary function to print a String for dumping certain clauses.
 /// E.g., for the DEFAULT clause we may print "NONE", "SHARED", "PRIVATE", etc.
-/// If <Str> == "UNSPECIFIED"  (happens when the clause is not specified)
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: UNSPECIFIED"
+///
+/// If \p Str == "UNSPECIFIED"  (happens when the clause is not specified):
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: UNSPECIFIED"
+///
 /// Else
-///   print "Title: <Str>"
+///  * print "Title: <Str>"
 extern void printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
 
