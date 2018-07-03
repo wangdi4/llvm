@@ -2162,10 +2162,6 @@ Sema::InstantiateClass(SourceLocation PointOfInstantiation,
     }
   }
 
-  // See if trivial_abi has to be dropped.
-  if (Instantiation && Instantiation->hasAttr<TrivialABIAttr>())
-    checkIllFormedTrivialABIStruct(*Instantiation);
-
   // Finish checking fields.
   ActOnFields(nullptr, Instantiation->getLocation(), Instantiation, Fields,
               SourceLocation(), SourceLocation(), nullptr);

@@ -283,6 +283,7 @@ public:
   static const TST TST_double = clang::TST_double;
   static const TST TST_float16 = clang::TST_Float16;
   static const TST TST_accum = clang::TST_Accum;
+  static const TST TST_fract = clang::TST_Fract;
   static const TST TST_float128 = clang::TST_float128;
   static const TST TST_bool = clang::TST_bool;
   static const TST TST_decimal32 = clang::TST_decimal32;
@@ -355,6 +356,7 @@ private:
 #if INTEL_CUSTOMIZATION
   unsigned TypeSpecChannel : 1;
 #endif // INTEL_CUSTOMIZATION
+  unsigned TypeSpecSat : 1;
 
   // type-qualifiers
   unsigned TypeQualifiers : 5;  // Bitwise OR of TQ.
@@ -390,7 +392,7 @@ private:
 
   SourceLocation StorageClassSpecLoc, ThreadStorageClassSpecLoc;
   SourceRange TSWRange;
-  SourceLocation TSCLoc, TSSLoc, TSTLoc, AltiVecLoc;
+  SourceLocation TSCLoc, TSSLoc, TSTLoc, AltiVecLoc, TSSatLoc;
   /// TSTNameLoc - If TypeSpecType is any of class, enum, struct, union,
   /// typename, then this is the location of the named type (if present);
   /// otherwise, it is the same as TSTLoc. Hence, the pair TSTLoc and
@@ -449,6 +451,7 @@ public:
 #if INTEL_CUSTOMIZATION
       TypeSpecChannel(false),
 #endif // INTEL_CUSTOMIZATION
+      TypeSpecSat(false),
       TypeQualifiers(TQ_unspecified),
       FS_inline_specified(false),
       FS_forceinline_specified(false),
@@ -505,6 +508,7 @@ public:
 #if INTEL_CUSTOMIZATION
   bool isTypeSpecChannel() const { return TypeSpecChannel; }
 #endif // INTEL_CUSTOMIZATION
+  bool isTypeSpecSat() const { return TypeSpecSat; }
 
   ParsedType getRepAsType() const {
     assert(isTypeRep((TST) TypeSpecType) && "DeclSpec does not store a type");
@@ -531,6 +535,7 @@ public:
   SourceLocation getTypeSpecSignLoc() const { return TSSLoc; }
   SourceLocation getTypeSpecTypeLoc() const { return TSTLoc; }
   SourceLocation getAltiVecLoc() const { return AltiVecLoc; }
+  SourceLocation getTypeSpecSatLoc() const { return TSSatLoc; }
 
   SourceLocation getTypeSpecTypeNameLoc() const {
     assert(isDeclRep((TST) TypeSpecType) || TypeSpecType == TST_typename);
@@ -691,6 +696,8 @@ public:
                       const char *&PrevSpec, unsigned &DiagID,
                       const PrintingPolicy &Policy);
 #endif // INTEL_CUSTOMIZATION
+  bool SetTypeSpecSat(SourceLocation Loc, const char *&PrevSpec,
+                      unsigned &DiagID);
   bool SetTypeSpecError();
   void UpdateDeclRep(Decl *Rep) {
     assert(isDeclRep((TST) TypeSpecType));

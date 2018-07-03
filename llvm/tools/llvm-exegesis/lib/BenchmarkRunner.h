@@ -19,12 +19,20 @@
 #include "Assembler.h"
 #include "BenchmarkResult.h"
 #include "LlvmState.h"
+#include "MCInstrDescView.h"
 #include "RegisterAliasing.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/Error.h"
 #include <vector>
 
 namespace exegesis {
+
+// A class representing failures that happened during Benchmark, they are used
+// to report informations to the user.
+class BenchmarkFailure : public llvm::StringError {
+public:
+  BenchmarkFailure(const llvm::Twine &S);
+};
 
 // A collection of instructions that are to be assembled, executed and measured.
 struct BenchmarkConfiguration {
@@ -67,16 +75,21 @@ protected:
   const LLVMState &State;
   const llvm::MCInstrInfo &MCInstrInfo;
   const llvm::MCRegisterInfo &MCRegisterInfo;
+  const RegisterAliasingTrackerCache RATC;
 
 private:
   InstructionBenchmark runOne(const BenchmarkConfiguration &Configuration,
                               unsigned Opcode, unsigned NumRepetitions) const;
 
+  // Calls generatePrototype and expands the SnippetPrototype into one or more
+  // BenchmarkConfiguration.
+  llvm::Expected<std::vector<BenchmarkConfiguration>>
+  generateConfigurations(unsigned Opcode) const;
+
   virtual InstructionBenchmark::ModeE getMode() const = 0;
 
-  virtual llvm::Expected<std::vector<BenchmarkConfiguration>>
-  createConfigurations(RegisterAliasingTrackerCache &RATC,
-                       unsigned Opcode) const = 0;
+  virtual llvm::Expected<SnippetPrototype>
+  generatePrototype(unsigned Opcode) const = 0;
 
   virtual std::vector<BenchmarkMeasure>
   runMeasurements(const ExecutableFunction &EF,
@@ -84,8 +97,8 @@ private:
 
   llvm::Expected<std::string>
   writeObjectFile(llvm::ArrayRef<llvm::MCInst> Code) const;
-
-  RegisterAliasingTrackerCache RATC;
+  llvm::Expected<ExecutableFunction>
+  createExecutableFunction(llvm::ArrayRef<llvm::MCInst> Code) const;
 };
 
 } // namespace exegesis

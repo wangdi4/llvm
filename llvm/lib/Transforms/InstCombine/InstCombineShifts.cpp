@@ -600,11 +600,11 @@ Instruction *InstCombiner::visitShl(BinaryOperator &I) {
   if (Instruction *V = commonShiftTransforms(I))
     return V;
 
+  Type *Ty = I.getType();
   const APInt *ShAmtAPInt;
   if (match(Op1, m_APInt(ShAmtAPInt))) {
     unsigned ShAmt = ShAmtAPInt->getZExtValue();
     unsigned BitWidth = I.getType()->getScalarSizeInBits();
-    Type *Ty = I.getType();
 
     // shl (zext X), ShAmt --> zext (shl X, ShAmt)
     // This is only valid if X would have zeros shifted out.
@@ -622,11 +622,8 @@ Instruction *InstCombiner::visitShl(BinaryOperator &I) {
       return BinaryOperator::CreateAnd(X, ConstantInt::get(Ty, Mask));
     }
 
-    // Be careful about hiding shl instructions behind bit masks. They are used
-    // to represent multiplies by a constant, and it is important that simple
-    // arithmetic expressions are still recognizable by scalar evolution.
-    // The inexact versions are deferred to DAGCombine, so we don't hide shl
-    // behind a bit mask.
+    // FIXME: we do not yet transform non-exact shr's. The backend (DAGCombine)
+    // needs a few fixes for the rotate pattern recognition first.
     const APInt *ShOp1;
     if (match(Op0, m_Exact(m_Shr(m_Value(X), m_APInt(ShOp1))))) {
       unsigned ShrAmt = ShOp1->getZExtValue();
@@ -668,6 +665,15 @@ Instruction *InstCombiner::visitShl(BinaryOperator &I) {
       I.setHasNoSignedWrap();
       return &I;
     }
+  }
+
+  // Transform  (x >> y) << y  to  x & (-1 << y)
+  // Valid for any type of right-shift.
+  Value *X;
+  if (match(Op0, m_OneUse(m_Shr(m_Value(X), m_Specific(Op1))))) {
+    Constant *AllOnes = ConstantInt::getAllOnesValue(Ty);
+    Value *Mask = Builder.CreateShl(AllOnes, Op1);
+    return BinaryOperator::CreateAnd(Mask, X);
   }
 
   Constant *C1;
@@ -802,6 +808,15 @@ Instruction *InstCombiner::visitLShr(BinaryOperator &I) {
       return &I;
     }
   }
+
+  // Transform  (x << y) >> y  to  x & (-1 >> y)
+  Value *X;
+  if (match(Op0, m_OneUse(m_Shl(m_Value(X), m_Specific(Op1))))) {
+    Constant *AllOnes = ConstantInt::getAllOnesValue(Ty);
+    Value *Mask = Builder.CreateLShr(AllOnes, Op1);
+    return BinaryOperator::CreateAnd(Mask, X);
+  }
+
   return nullptr;
 }
 

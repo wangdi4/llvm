@@ -202,6 +202,8 @@ def ext_imaginary_constant : Extension<
 def ext_integer_complex : Extension<
   "complex integer types are a GNU extension">, InGroup<GNUComplexInteger>;
 
+def err_invalid_saturation_spec : Error<"'_Sat' specifier is only valid on "
+  "'_Fract' or '_Accum', not '%0'">;
 def err_invalid_sign_spec : Error<"'%0' cannot be signed or unsigned">;
 def err_invalid_width_spec : Error<
   "'%select{|short|long|long long}0 %1' is invalid">;
@@ -2625,6 +2627,9 @@ def err_attribute_address_space_too_high : Error<
   "address space is larger than the maximum supported (%0)">;
 def err_attribute_address_multiple_qualifiers : Error<
   "multiple address spaces specified for type">;
+def warn_attribute_address_multiple_identical_qualifiers : Warning<
+  "multiple identical address spaces specified for type">,
+  InGroup<DuplicateDeclSpecifier>;
 def err_attribute_address_function_type : Error<
   "function type may not be qualified with an address space">;
 def err_as_qualified_auto_decl : Error<
@@ -8290,6 +8295,8 @@ def err_x86_builtin_invalid_rounding : Error<
   "invalid rounding argument">;
 def err_x86_builtin_invalid_scale : Error<
   "scale argument must be 1, 2, 4, or 8">;
+def err_builtin_target_unsupported : Error<
+  "builtin is not supported on this target">;
 
 def err_builtin_longjmp_unsupported : Error<
   "__builtin_longjmp is not supported for the current target">;
@@ -8571,7 +8578,7 @@ def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main
 
 
 def err_opencl_kernel_attr :
-  Error<"attribute %0 can only be applied to a kernel function">;
+  Error<"attribute %0 can only be applied to an OpenCL kernel function">;
 def err_opencl_return_value_with_address_space : Error<
   "return value cannot be qualified with address space">;
 def err_opencl_constant_no_init : Error<

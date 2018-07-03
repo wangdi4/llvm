@@ -682,13 +682,8 @@ Constant *llvm::ConstantFoldCastInstruction(unsigned opc, Constant *V,
       const APInt &api = CI->getValue();
       APFloat apf(DestTy->getFltSemantics(),
                   APInt::getNullValue(DestTy->getPrimitiveSizeInBits()));
-      if (APFloat::opOverflow &
-          apf.convertFromAPInt(api, opc==Instruction::SIToFP,
-                              APFloat::rmNearestTiesToEven)) {
-        // Undefined behavior invoked - the destination type can't represent
-        // the input constant.
-        return UndefValue::get(DestTy);
-      }
+      apf.convertFromAPInt(api, opc==Instruction::SIToFP,
+                           APFloat::rmNearestTiesToEven);
       return ConstantFP::get(V->getContext(), apf);
     }
     return nullptr;
@@ -1232,9 +1227,7 @@ Constant *llvm::ConstantFoldBinaryInstruction(unsigned Opcode,
       Constant *RHS = ConstantExpr::getExtractElement(C2, ExtractIdx);
 
       // If any element of a divisor vector is zero, the whole op is undef.
-      if ((Opcode == Instruction::SDiv || Opcode == Instruction::UDiv ||
-           Opcode == Instruction::SRem || Opcode == Instruction::URem) &&
-          RHS->isNullValue())
+      if (Instruction::isIntDivRem(Opcode) && RHS->isNullValue())
         return UndefValue::get(VTy);
 
       Result.push_back(ConstantExpr::get(Opcode, LHS, RHS));

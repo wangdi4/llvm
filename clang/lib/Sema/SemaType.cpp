@@ -1423,36 +1423,49 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
   }
   case DeclSpec::TST_accum: {
-    if (DS.getTypeSpecSign() != DeclSpec::TSS_unsigned) {
-      switch (DS.getTypeSpecWidth()) {
-        case DeclSpec::TSW_short:
-          Result = Context.ShortAccumTy;
-          break;
-        case DeclSpec::TSW_unspecified:
-          Result = Context.AccumTy;
-          break;
-        case DeclSpec::TSW_long:
-          Result = Context.LongAccumTy;
-          break;
-        case DeclSpec::TSW_longlong:
-          // Unreachable b/c this is caught in final analysis of the DeclSpec.
-          llvm_unreachable("Unable to specify long long as _Accum width");
-      }
-    } else {
-      switch (DS.getTypeSpecWidth()) {
-        case DeclSpec::TSW_short:
-          Result = Context.UnsignedShortAccumTy;
-          break;
-        case DeclSpec::TSW_unspecified:
-          Result = Context.UnsignedAccumTy;
-          break;
-        case DeclSpec::TSW_long:
-          Result = Context.UnsignedLongAccumTy;
-          break;
-        case DeclSpec::TSW_longlong:
-          llvm_unreachable("Unable to specify long long as _Accum width");
-      }
+    switch (DS.getTypeSpecWidth()) {
+      case DeclSpec::TSW_short:
+        Result = Context.ShortAccumTy;
+        break;
+      case DeclSpec::TSW_unspecified:
+        Result = Context.AccumTy;
+        break;
+      case DeclSpec::TSW_long:
+        Result = Context.LongAccumTy;
+        break;
+      case DeclSpec::TSW_longlong:
+        llvm_unreachable("Unable to specify long long as _Accum width");
     }
+
+    if (DS.getTypeSpecSign() == DeclSpec::TSS_unsigned)
+      Result = Context.getCorrespondingUnsignedType(Result);
+
+    if (DS.isTypeSpecSat())
+      Result = Context.getCorrespondingSaturatedType(Result);
+
+    break;
+  }
+  case DeclSpec::TST_fract: {
+    switch (DS.getTypeSpecWidth()) {
+      case DeclSpec::TSW_short:
+        Result = Context.ShortFractTy;
+        break;
+      case DeclSpec::TSW_unspecified:
+        Result = Context.FractTy;
+        break;
+      case DeclSpec::TSW_long:
+        Result = Context.LongFractTy;
+        break;
+      case DeclSpec::TSW_longlong:
+        llvm_unreachable("Unable to specify long long as _Fract width");
+    }
+
+    if (DS.getTypeSpecSign() == DeclSpec::TSS_unsigned)
+      Result = Context.getCorrespondingUnsignedType(Result);
+
+    if (DS.isTypeSpecSat())
+      Result = Context.getCorrespondingSaturatedType(Result);
+
     break;
   }
   case DeclSpec::TST_int128:
@@ -1641,6 +1654,15 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   if (S.getLangOpts().OpenCL &&
       S.checkOpenCLDisabledTypeDeclSpec(DS, Result))
     declarator.setInvalidType(true);
+
+  bool IsFixedPointType = DS.getTypeSpecType() == DeclSpec::TST_accum ||
+                          DS.getTypeSpecType() == DeclSpec::TST_fract;
+
+  // Only fixed point types can be saturated
+  if (DS.isTypeSpecSat() && !IsFixedPointType)
+    S.Diag(DS.getTypeSpecSatLoc(), diag::err_invalid_saturation_spec)
+        << DS.getSpecifierName(DS.getTypeSpecType(),
+                               Context.getPrintingPolicy());
 
   // Handle complex types.
   if (DS.getTypeSpecComplex() == DeclSpec::TSC_complex) {
@@ -5933,14 +5955,6 @@ QualType Sema::BuildAddressSpaceAttr(QualType &T, Expr *AddrSpace,
                                      SourceLocation AttrLoc) {
   if (!AddrSpace->isValueDependent()) { 
 
-    // If this type is already address space qualified, reject it.
-    // ISO/IEC TR 18037 S5.3 (amending C99 6.7.3): "No type shall be qualified
-    // by qualifiers for two or more different address spaces."
-    if (T.getAddressSpace() != LangAS::Default) {
-      Diag(AttrLoc, diag::err_attribute_address_multiple_qualifiers);
-      return QualType();
-    }
-
     llvm::APSInt addrSpace(32);
     if (!AddrSpace->isIntegerConstantExpr(addrSpace, Context)) {
       Diag(AttrLoc, diag::err_attribute_argument_type)
@@ -5971,6 +5985,20 @@ QualType Sema::BuildAddressSpaceAttr(QualType &T, Expr *AddrSpace,
     LangAS ASIdx =
         getLangASFromTargetAS(static_cast<unsigned>(addrSpace.getZExtValue()));
 
+    // If this type is already address space qualified with a different
+    // address space, reject it.
+    // ISO/IEC TR 18037 S5.3 (amending C99 6.7.3): "No type shall be qualified
+    // by qualifiers for two or more different address spaces."
+    if (T.getAddressSpace() != LangAS::Default) {
+      if (T.getAddressSpace() != ASIdx) {
+        Diag(AttrLoc, diag::err_attribute_address_multiple_qualifiers);
+        return QualType();
+      } else
+        // Emit a warning if they are identical; it's likely unintended.
+        Diag(AttrLoc,
+             diag::warn_attribute_address_multiple_identical_qualifiers);
+    }
+
     return Context.getAddrSpaceQualType(T, ASIdx);
   }
 
@@ -5992,15 +6020,6 @@ QualType Sema::BuildAddressSpaceAttr(QualType &T, Expr *AddrSpace,
 /// space for the type.
 static void HandleAddressSpaceTypeAttribute(QualType &Type,
                                             const AttributeList &Attr, Sema &S){
-  // If this type is already address space qualified, reject it.
-  // ISO/IEC TR 18037 S5.3 (amending C99 6.7.3): "No type shall be qualified by
-  // qualifiers for two or more different address spaces."
-  if (Type.getAddressSpace() != LangAS::Default) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_address_multiple_qualifiers);
-    Attr.setInvalid();
-    return;
-  }
-
   // ISO/IEC TR 18037 S5.3 (amending C99 6.7.3): "A function type shall not be
   // qualified by an address-space qualifier."
   if (Type->isFunctionType()) {
@@ -6061,6 +6080,21 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       ASIdx = LangAS::opencl_private; break;
     default:
       llvm_unreachable("Invalid address space");
+    }
+
+    // If this type is already address space qualified with a different
+    // address space, reject it.
+    // ISO/IEC TR 18037 S5.3 (amending C99 6.7.3): "No type shall be qualified by
+    // qualifiers for two or more different address spaces."
+    if (Type.getAddressSpace() != LangAS::Default) {
+      if (Type.getAddressSpace() != ASIdx) {
+        S.Diag(Attr.getLoc(), diag::err_attribute_address_multiple_qualifiers);
+        Attr.setInvalid();
+        return;
+      } else
+        // Emit a warning if they are identical; it's likely unintended.
+        S.Diag(Attr.getLoc(),
+               diag::warn_attribute_address_multiple_identical_qualifiers);
     }
 
     Type = S.Context.getAddrSpaceQualType(Type, ASIdx);
@@ -7441,9 +7475,10 @@ static void deduceOpenCLImplicitAddrSpace(TypeProcessingState &State,
   bool IsChannel =
       State.getSema().Context.getBaseElementType(T)->isChannelType();
 
-  if (State.getSema().getLangOpts().OpenCLVersion <= 120 && !IsChannel) {
+  if (State.getSema().getLangOpts().OpenCLVersion <= 120 &&
+      !State.getSema().getLangOpts().OpenCLCPlusPlus && !IsChannel) {
+    ImpAddr = LangAS::opencl_private;
 #endif // INTEL_CUSTOMIZATION
-      ImpAddr = LangAS::opencl_private;
   } else {
     // If address space is not set, OpenCL 2.0 defines non private default
     // address spaces for some cases:

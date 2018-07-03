@@ -605,8 +605,8 @@ LoadPluginCallback(void *baton, llvm::sys::fs::file_type ft,
                    const FileSpec &file_spec) {
   Status error;
 
-  static ConstString g_dylibext("dylib");
-  static ConstString g_solibext("so");
+  static ConstString g_dylibext(".dylib");
+  static ConstString g_solibext(".so");
 
   if (!baton)
     return FileSpec::eEnumerateDirectoryResultQuit;
@@ -646,19 +646,18 @@ LoadPluginCallback(void *baton, llvm::sys::fs::file_type ft,
 }
 
 void Debugger::InstanceInitialize() {
-  FileSpec dir_spec;
   const bool find_directories = true;
   const bool find_files = true;
   const bool find_other = true;
   char dir_path[PATH_MAX];
-  if (HostInfo::GetLLDBPath(ePathTypeLLDBSystemPlugins, dir_spec)) {
+  if (FileSpec dir_spec = HostInfo::GetSystemPluginDir()) {
     if (dir_spec.Exists() && dir_spec.GetPath(dir_path, sizeof(dir_path))) {
       FileSpec::EnumerateDirectory(dir_path, find_directories, find_files,
                                    find_other, LoadPluginCallback, this);
     }
   }
 
-  if (HostInfo::GetLLDBPath(ePathTypeLLDBUserPlugins, dir_spec)) {
+  if (FileSpec dir_spec = HostInfo::GetUserPluginDir()) {
     if (dir_spec.Exists() && dir_spec.GetPath(dir_path, sizeof(dir_path))) {
       FileSpec::EnumerateDirectory(dir_path, find_directories, find_files,
                                    find_other, LoadPluginCallback, this);
@@ -1241,8 +1240,8 @@ bool Debugger::EnableLog(llvm::StringRef channel,
       if (log_options & LLDB_LOG_OPTION_APPEND)
         flags |= llvm::sys::fs::F_Append;
       int FD;
-      if (std::error_code ec =
-              llvm::sys::fs::openFileForWrite(log_file, FD, flags)) {
+      if (std::error_code ec = llvm::sys::fs::openFileForWrite(
+              log_file, FD, llvm::sys::fs::CD_CreateAlways, flags)) {
         error_stream << "Unable to open log file: " << ec.message();
         return false;
       }

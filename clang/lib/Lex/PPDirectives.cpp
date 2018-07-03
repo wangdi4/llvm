@@ -2544,7 +2544,8 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
     }
     WrapperFilename = StringRef(WrapperFilenameImpl);
   } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
-                 WrapperFilename, WrapperFileDesc, llvm::sys::fs::F_Append)) {
+                 WrapperFilename, WrapperFileDesc,
+                 llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::F_Append)) {
     Diag(FilenameTok, clang::diag::err_unable_to_make_temp)
         << ErrorCode.message();
     return;
@@ -2592,17 +2593,13 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   std::string MSCompiler;
   if (auto Path = llvm::sys::findProgramByName("cl"))
     MSCompiler = *Path;
-  std::vector<const char *> Args;
-  Args.push_back(MSCompiler.c_str());
-  Args.push_back("/P");
   SmallString<128> ResponseArg = StringRef("@");
   ResponseArg += ArgFilename;
-  Args.push_back(ResponseArg.c_str());
-  Args.push_back(nullptr);
+  StringRef Args[] = { MSCompiler, "/P", ResponseArg };
 
   StringRef Nul("NUL");
   Optional<StringRef> Redirects[] = {Nul, Nul, Nul};
-  if (llvm::sys::ExecuteAndWait(MSCompiler, &Args[0], nullptr, Redirects, 0, 0,
+  if (llvm::sys::ExecuteAndWait(MSCompiler, Args, None, Redirects, 0, 0,
                                 &ErrMsg)) {
     Diag(FilenameTok, diag::err_import_exec) << MSCompiler;
     return;

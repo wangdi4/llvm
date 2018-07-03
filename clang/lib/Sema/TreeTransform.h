@@ -9106,6 +9106,12 @@ TreeTransform<Derived>::TransformIntegerLiteral(IntegerLiteral *E) {
   return E;
 }
 
+template <typename Derived>
+ExprResult TreeTransform<Derived>::TransformFixedPointLiteral(
+    FixedPointLiteral *E) {
+  return E;
+}
+
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformFloatingLiteral(FloatingLiteral *E) {
