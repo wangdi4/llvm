@@ -21,6 +21,7 @@ add_llvm_library(LLVMIntel_DTransOpt
   DTransOptBaseTest.cpp
   DTransPaddedMalloc.cpp
   PaddedPtrPropagation.cpp
+  SOAToAOS.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Transforms
