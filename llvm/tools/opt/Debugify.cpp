@@ -121,6 +121,12 @@ bool applyDebugifyMetadata(Module &M,
   addDebugifyOperand(NextVar - 1);  // Original number of variables.
   assert(NMD->getNumOperands() == 2 &&
          "llvm.debugify should have exactly 2 operands!");
+
+  // Claim that this synthetic debug info is valid.
+  StringRef DIVersionKey = "Debug Info Version";
+  if (!M.getModuleFlag(DIVersionKey))
+    M.addModuleFlag(Module::Warning, DIVersionKey, DEBUG_METADATA_VERSION);
+
   return true;
 }
 
@@ -163,10 +169,10 @@ bool checkDebugifyMetadata(Module &M,
         continue;
       }
 
-      outs() << "ERROR: Instruction with empty DebugLoc in function ";
-      outs() << F.getName() << " --";
-      I.print(outs());
-      outs() << "\n";
+      errs() << "ERROR: Instruction with empty DebugLoc in function ";
+      errs() << F.getName() << " --";
+      I.print(errs());
+      errs() << "\n";
       HasErrors = true;
     }
 
@@ -185,17 +191,19 @@ bool checkDebugifyMetadata(Module &M,
 
   // Print the results.
   for (unsigned Idx : MissingLines.set_bits())
-    outs() << "WARNING: Missing line " << Idx + 1 << "\n";
+    errs() << "WARNING: Missing line " << Idx + 1 << "\n";
 
   for (unsigned Idx : MissingVars.set_bits())
-    outs() << "ERROR: Missing variable " << Idx + 1 << "\n";
+    errs() << "ERROR: Missing variable " << Idx + 1 << "\n";
   HasErrors |= MissingVars.count() > 0;
 
-  outs() << Banner << " [" << NameOfWrappedPass << "]: "
-         << (HasErrors ? "FAIL" : "PASS") << '\n';
+  errs() << Banner;
+  if (!NameOfWrappedPass.empty())
+    errs() << " [" << NameOfWrappedPass << "]";
+  errs() << ": " << (HasErrors ? "FAIL" : "PASS") << '\n';
   if (HasErrors) {
-    outs() << "Module IR Dump\n";
-    M.print(outs(), nullptr, false);
+    errs() << "Module IR Dump\n";
+    M.print(errs(), nullptr, false);
   }
 
   // Strip the Debugify Metadata if required.
@@ -268,10 +276,12 @@ struct CheckDebugifyFunctionPass : public FunctionPass {
     Module &M = *F.getParent();
     auto FuncIt = F.getIterator();
     return checkDebugifyMetadata(M, make_range(FuncIt, std::next(FuncIt)),
-                                 NameOfWrappedPass, "CheckFunctionDebugify", Strip);
+                                 NameOfWrappedPass, "CheckFunctionDebugify",
+                                 Strip);
   }
 
-  CheckDebugifyFunctionPass(bool Strip = false, StringRef NameOfWrappedPass = "")
+  CheckDebugifyFunctionPass(bool Strip = false,
+                            StringRef NameOfWrappedPass = "")
       : FunctionPass(ID), Strip(Strip), NameOfWrappedPass(NameOfWrappedPass) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
