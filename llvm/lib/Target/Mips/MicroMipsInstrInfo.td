@@ -1,3 +1,16 @@
+//===--- MicroMipsInstrFormats.td - microMIPS Inst Defs -*- tablegen -*----===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This files describes the defintions of the microMIPSr3 instructions.
+//
+//===----------------------------------------------------------------------===//
+
 def addrimm11 : ComplexPattern<iPTR, 2, "selectIntAddr11MM", [frameindex]>;
 def addrimm12 : ComplexPattern<iPTR, 2, "selectIntAddr12MM", [frameindex]>;
 def addrimm16 : ComplexPattern<iPTR, 2, "selectIntAddr16MM", [frameindex]>;
@@ -763,7 +776,8 @@ let DecoderNamespace = "MicroMips" in {
                  ADD_FM_MM<0, 0x290>, ISA_MICROMIPS32_NOT_MIPS32R6;
   def XOR_MM   : MMRel, ArithLogicR<"xor", GPR32Opnd, 1, II_XOR, xor>,
                  ADD_FM_MM<0, 0x310>, ISA_MICROMIPS32_NOT_MIPS32R6;
-  def NOR_MM   : MMRel, LogicNOR<"nor", GPR32Opnd>, ADD_FM_MM<0, 0x2d0>;
+  def NOR_MM   : MMRel, LogicNOR<"nor", GPR32Opnd>, ADD_FM_MM<0, 0x2d0>,
+                 ISA_MICROMIPS32_NOT_MIPS32R6;
   def MULT_MM  : MMRel, Mult<"mult", II_MULT, GPR32Opnd, [HI0, LO0]>,
                  MULT_FM_MM<0x22c>, ISA_MICROMIPS32_NOT_MIPS32R6;
   def MULTu_MM : MMRel, Mult<"multu", II_MULTU, GPR32Opnd, [HI0, LO0]>,
@@ -1274,7 +1288,7 @@ class UncondBranchMMPseudo<string opstr> :
 
 def B_MM_Pseudo : UncondBranchMMPseudo<"b">, ISA_MICROMIPS;
 
-let Predicates = [InMicroMips] in {
+let EncodingPredicates = [InMicroMips] in {
   def SDIV_MM_Pseudo : MultDivPseudo<SDIV_MM, ACC64, GPR32Opnd, MipsDivRem,
                                      II_DIV, 0, 1, 1>, ISA_MIPS1_NOT_32R6_64R6;
   def UDIV_MM_Pseudo : MultDivPseudo<UDIV_MM, ACC64, GPR32Opnd, MipsDivRemU,
@@ -1361,10 +1375,10 @@ let Predicates = [InMicroMips] in {
 
   def : MipsInstAlias<"not $rt, $rs",
                       (NOR_MM GPR32Opnd:$rt, GPR32Opnd:$rs, ZERO), 0>,
-        ISA_MICROMIPS;
+        ISA_MICROMIPS32_NOT_MIPS32R6;
   def : MipsInstAlias<"not $rt",
                       (NOR_MM GPR32Opnd:$rt, GPR32Opnd:$rt, ZERO), 0>,
-        ISA_MICROMIPS;
+        ISA_MICROMIPS32_NOT_MIPS32R6;
   def : MipsInstAlias<"bnez $rs,$offset",
                       (BNE_MM GPR32Opnd:$rs, ZERO, brtarget:$offset), 0>,
         ISA_MICROMIPS;
@@ -1384,6 +1398,10 @@ let Predicates = [InMicroMips] in {
   def : MipsInstAlias<"j $rs", (JR_MM GPR32Opnd:$rs), 0>,
         ISA_MICROMIPS32_NOT_MIPS32R6;
 }
+def : MipsInstAlias<"rdhwr $rt, $rs",
+                    (RDHWR_MM GPR32Opnd:$rt, HWRegsOpnd:$rs, 0), 1>,
+      ISA_MICROMIPS32_NOT_MIPS32R6;
+
 def : MipsInstAlias<"hypcall", (HYPCALL_MM 0), 1>,
                     ISA_MICROMIPS32R5, ASE_VIRT;
 def : MipsInstAlias<"mfgc0 $rt, $rs",

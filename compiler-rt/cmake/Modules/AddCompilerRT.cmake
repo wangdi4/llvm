@@ -31,9 +31,10 @@ endfunction()
 #                                  ARCHS <architectures>
 #                                  SOURCES <source files>
 #                                  CFLAGS <compile flags>
-#                                  DEFS <compile definitions>)
+#                                  DEFS <compile definitions>
+#                                  DEPS <dependencies>)
 function(add_compiler_rt_object_libraries name)
-  cmake_parse_arguments(LIB "" "" "OS;ARCHS;SOURCES;CFLAGS;DEFS" ${ARGN})
+  cmake_parse_arguments(LIB "" "" "OS;ARCHS;SOURCES;CFLAGS;DEFS;DEPS" ${ARGN})
   set(libnames)
   if(APPLE)
     foreach(os ${LIB_OS})
@@ -56,6 +57,9 @@ function(add_compiler_rt_object_libraries name)
 
   foreach(libname ${libnames})
     add_library(${libname} OBJECT ${LIB_SOURCES})
+    if(LIB_DEPS)
+      add_dependencies(${libname} ${LIB_DEPS})
+    endif()
 
     # Strip out -msse3 if this isn't macOS.
     set(target_flags ${LIB_CFLAGS})
@@ -512,9 +516,6 @@ macro(add_custom_libcxx name prefix)
   set(PASSTHROUGH_VARIABLES
     CMAKE_C_COMPILER_TARGET
     CMAKE_CXX_COMPILER_TARGET
-    CMAKE_SHARED_LINKER_FLAGS
-    CMAKE_MODULE_LINKER_FLAGS
-    CMAKE_EXE_LINKER_FLAGS
     CMAKE_INSTALL_PREFIX
     CMAKE_MAKE_PROGRAM
     CMAKE_LINKER
@@ -533,8 +534,8 @@ macro(add_custom_libcxx name prefix)
   endforeach()
 
   string(REPLACE ";" " " FLAGS_STRING "${LIBCXX_CFLAGS}")
-  set(LIBCXX_C_FLAGS "${CMAKE_C_FLAGS} ${FLAGS_STRING}")
-  set(LIBCXX_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS_STRING}")
+  set(LIBCXX_C_FLAGS "${FLAGS_STRING}")
+  set(LIBCXX_CXX_FLAGS "${FLAGS_STRING}")
 
   ExternalProject_Add(${name}
     DEPENDS ${name}-clobber ${LIBCXX_DEPS}

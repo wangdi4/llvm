@@ -16,38 +16,17 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
+#include "llvm/Support/FormatVariadic.h"
 
 namespace exegesis {
 
-static bool HasUnknownOperand(const llvm::MCOperandInfo &OpInfo) {
+static bool hasUnknownOperand(const llvm::MCOperandInfo &OpInfo) {
   return OpInfo.OperandType == llvm::MCOI::OPERAND_UNKNOWN;
 }
 
 // FIXME: Handle memory, see PR36905.
-static bool HasMemoryOperand(const llvm::MCOperandInfo &OpInfo) {
+static bool hasMemoryOperand(const llvm::MCOperandInfo &OpInfo) {
   return OpInfo.OperandType == llvm::MCOI::OPERAND_MEMORY;
-}
-
-static bool IsInfeasible(const Instruction &Instruction, std::string &Error) {
-  const auto &MCInstrDesc = Instruction.Description;
-  if (MCInstrDesc.isPseudo()) {
-    Error = "is pseudo";
-    return true;
-  }
-  if (llvm::any_of(MCInstrDesc.operands(), HasUnknownOperand)) {
-    Error = "has unknown operands";
-    return true;
-  }
-  if (llvm::any_of(MCInstrDesc.operands(), HasMemoryOperand)) {
-    Error = "has memory operands";
-    return true;
-  }
-  return false;
-}
-
-static llvm::Error makeError(llvm::Twine Msg) {
-  return llvm::make_error<llvm::StringError>(Msg,
-                                             llvm::inconvertibleErrorCode());
 }
 
 LatencyBenchmarkRunner::~LatencyBenchmarkRunner() = default;
@@ -56,57 +35,89 @@ InstructionBenchmark::ModeE LatencyBenchmarkRunner::getMode() const {
   return InstructionBenchmark::Latency;
 }
 
-llvm::Expected<std::vector<llvm::MCInst>>
-LatencyBenchmarkRunner::createSnippet(RegisterAliasingTrackerCache &RATC,
-                                      unsigned Opcode,
-                                      llvm::raw_ostream &Info) const {
-  std::vector<llvm::MCInst> Snippet;
-  const llvm::MCInstrDesc &MCInstrDesc = MCInstrInfo.get(Opcode);
-  const Instruction ThisInstruction(MCInstrDesc, RATC);
+llvm::Error LatencyBenchmarkRunner::isInfeasible(
+    const llvm::MCInstrDesc &MCInstrDesc) const {
+  if (MCInstrDesc.isPseudo())
+    return llvm::make_error<BenchmarkFailure>("Infeasible : is pseudo");
+  if (llvm::any_of(MCInstrDesc.operands(), hasUnknownOperand))
+    return llvm::make_error<BenchmarkFailure>(
+        "Infeasible : has unknown operands");
+  if (llvm::any_of(MCInstrDesc.operands(), hasMemoryOperand))
+    return llvm::make_error<BenchmarkFailure>(
+        "Infeasible : has memory operands");
+  return llvm::Error::success();
+}
 
-  std::string Error;
-  if (IsInfeasible(ThisInstruction, Error))
-    return makeError(llvm::Twine("Infeasible : ").concat(Error));
-
-  const AliasingConfigurations SelfAliasing(ThisInstruction, ThisInstruction);
-  if (!SelfAliasing.empty()) {
-    if (!SelfAliasing.hasImplicitAliasing()) {
-      Info << "explicit self cycles, selecting one aliasing configuration.\n";
-      setRandomAliasing(SelfAliasing);
-    } else {
-      Info << "implicit Self cycles, picking random values.\n";
-    }
-    Snippet.push_back(randomizeUnsetVariablesAndBuild(ThisInstruction));
-    return Snippet;
+llvm::Expected<SnippetPrototype>
+LatencyBenchmarkRunner::generateSelfAliasingPrototype(
+    const Instruction &Instr,
+    const AliasingConfigurations &SelfAliasing) const {
+  SnippetPrototype Prototype;
+  InstructionInstance II(Instr);
+  if (SelfAliasing.hasImplicitAliasing()) {
+    Prototype.Explanation = "implicit Self cycles, picking random values.";
+  } else {
+    Prototype.Explanation =
+        "explicit self cycles, selecting one aliasing Conf.";
+    // This is a self aliasing instruction so defs and uses are from the same
+    // instance, hence twice II in the following call.
+    setRandomAliasing(SelfAliasing, II, II);
   }
+  Prototype.Snippet.push_back(std::move(II));
+  return std::move(Prototype);
+}
 
-  // Let's try to create a dependency through another opcode.
+llvm::Expected<SnippetPrototype>
+LatencyBenchmarkRunner::generateTwoInstructionPrototype(
+    const Instruction &Instr,
+    const AliasingConfigurations &SelfAliasing) const {
   std::vector<unsigned> Opcodes;
   Opcodes.resize(MCInstrInfo.getNumOpcodes());
   std::iota(Opcodes.begin(), Opcodes.end(), 0U);
   std::shuffle(Opcodes.begin(), Opcodes.end(), randomGenerator());
   for (const unsigned OtherOpcode : Opcodes) {
-    clearVariableAssignments(ThisInstruction);
-    if (OtherOpcode == Opcode)
+    if (OtherOpcode == Instr.Description->Opcode)
       continue;
-    const Instruction OtherInstruction(MCInstrInfo.get(OtherOpcode), RATC);
-    if (IsInfeasible(OtherInstruction, Error))
+    const auto &OtherInstrDesc = MCInstrInfo.get(OtherOpcode);
+    if (auto E = isInfeasible(OtherInstrDesc)) {
+      llvm::consumeError(std::move(E));
       continue;
-    const AliasingConfigurations Forward(ThisInstruction, OtherInstruction);
-    const AliasingConfigurations Back(OtherInstruction, ThisInstruction);
+    }
+    const Instruction OtherInstr(OtherInstrDesc, RATC);
+    const AliasingConfigurations Forward(Instr, OtherInstr);
+    const AliasingConfigurations Back(OtherInstr, Instr);
     if (Forward.empty() || Back.empty())
       continue;
-    setRandomAliasing(Forward);
-    setRandomAliasing(Back);
-    Info << "creating cycle through " << MCInstrInfo.getName(OtherOpcode)
-         << ".\n";
-    Snippet.push_back(randomizeUnsetVariablesAndBuild(ThisInstruction));
-    Snippet.push_back(randomizeUnsetVariablesAndBuild(OtherInstruction));
-    return Snippet;
+    InstructionInstance ThisII(Instr);
+    InstructionInstance OtherII(OtherInstr);
+    if (!Forward.hasImplicitAliasing())
+      setRandomAliasing(Forward, ThisII, OtherII);
+    if (!Back.hasImplicitAliasing())
+      setRandomAliasing(Back, OtherII, ThisII);
+    SnippetPrototype Prototype;
+    Prototype.Explanation = llvm::formatv("creating cycle through {0}.",
+                                          MCInstrInfo.getName(OtherOpcode));
+    Prototype.Snippet.push_back(std::move(ThisII));
+    Prototype.Snippet.push_back(std::move(OtherII));
+    return std::move(Prototype);
   }
+  return llvm::make_error<BenchmarkFailure>(
+      "Infeasible : Didn't find any scheme to make the instruction serial");
+}
 
-  return makeError(
-      "Infeasible : Didn't find any scheme to make the instruction serial\n");
+llvm::Expected<SnippetPrototype>
+LatencyBenchmarkRunner::generatePrototype(unsigned Opcode) const {
+  const auto &InstrDesc = MCInstrInfo.get(Opcode);
+  if (auto E = isInfeasible(InstrDesc))
+    return std::move(E);
+  const Instruction Instr(InstrDesc, RATC);
+  const AliasingConfigurations SelfAliasing(Instr, Instr);
+  if (SelfAliasing.empty()) {
+    // No self aliasing, trying to create a dependency through another opcode.
+    return generateTwoInstructionPrototype(Instr, SelfAliasing);
+  } else {
+    return generateSelfAliasingPrototype(Instr, SelfAliasing);
+  }
 }
 
 std::vector<BenchmarkMeasure>

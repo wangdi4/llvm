@@ -916,6 +916,213 @@ declare i64 @llvm.x86.avx512.vcvtsd2usi64(<2 x double>, i32)
 declare i32 @llvm.x86.avx512.cvttsd2usi(<2 x double>, i32)
 declare i64 @llvm.x86.avx512.cvttsd2usi64(<2 x double>, i32)
 
+declare <4 x float> @llvm.x86.avx512.mask.rndscale.ss(<4 x float>, <4 x float>, <4 x float>, i8, i32, i32)
+declare <2 x double> @llvm.x86.avx512.mask.rndscale.sd(<2 x double>, <2 x double>, <2 x double>, i8, i32, i32)
+declare <4 x float> @llvm.x86.avx512.mask.rndscale.ps.128(<4 x float>, i32, <4 x float>, i8)
+declare <8 x float> @llvm.x86.avx512.mask.rndscale.ps.256(<8 x float>, i32, <8 x float>, i8)
+declare <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float>, i32, <16 x float>, i16, i32)
+declare <2 x double> @llvm.x86.avx512.mask.rndscale.pd.128(<2 x double>, i32, <2 x double>, i8)
+declare <4 x double> @llvm.x86.avx512.mask.rndscale.pd.256(<4 x double>, i32, <4 x double>, i8)
+declare <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double>, i32, <8 x double>, i8, i32)
+
+define <4 x float> @test_rndscale_ss_floor(<4 x float> %src0, <4 x float> %src1, <4 x float> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_ss_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[K:%.*]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = extractelement <4 x float> [[SRC1:%.*]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = call float @llvm.floor.f32(float [[TMP3]])
+; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[DST:%.*]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TMP2]], float [[TMP5]], float [[TMP4]]
+; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <4 x float> [[SRC0:%.*]], float [[TMP6]], i64 0
+; CHECK-NEXT:    ret <4 x float> [[TMP7]]
+;
+  %1 = call <4 x float> @llvm.x86.avx512.mask.rndscale.ss(<4 x float> %src0, <4 x float> %src1, <4 x float> %dst, i8 %k, i32 1, i32 4)
+  ret <4 x float> %1
+}
+
+define <4 x float> @test_rndscale_ss_ceil(<4 x float> %src0, <4 x float> %src1, <4 x float> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_ss_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[K:%.*]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = extractelement <4 x float> [[SRC1:%.*]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = call float @llvm.ceil.f32(float [[TMP3]])
+; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[DST:%.*]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TMP2]], float [[TMP5]], float [[TMP4]]
+; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <4 x float> [[SRC0:%.*]], float [[TMP6]], i64 0
+; CHECK-NEXT:    ret <4 x float> [[TMP7]]
+;
+  %1 = call <4 x float> @llvm.x86.avx512.mask.rndscale.ss(<4 x float> %src0, <4 x float> %src1, <4 x float> %dst, i8 %k, i32 2, i32 4)
+  ret <4 x float> %1
+}
+
+define <2 x double> @test_rndscale_sd_floor(<2 x double> %src0, <2 x double> %src1, <2 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_sd_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[K:%.*]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = extractelement <2 x double> [[SRC1:%.*]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = call double @llvm.floor.f64(double [[TMP3]])
+; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <2 x double> [[DST:%.*]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TMP2]], double [[TMP5]], double [[TMP4]]
+; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> [[SRC0:%.*]], double [[TMP6]], i64 0
+; CHECK-NEXT:    ret <2 x double> [[TMP7]]
+;
+  %1 = call <2 x double> @llvm.x86.avx512.mask.rndscale.sd(<2 x double> %src0, <2 x double> %src1, <2 x double> %dst, i8 %k, i32 1, i32 4)
+  ret <2 x double> %1
+}
+
+define <2 x double> @test_rndscale_sd_ceil(<2 x double> %src0, <2 x double> %src1, <2 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_sd_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[K:%.*]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i8 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = extractelement <2 x double> [[SRC1:%.*]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = call double @llvm.ceil.f64(double [[TMP3]])
+; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <2 x double> [[DST:%.*]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = select i1 [[TMP2]], double [[TMP5]], double [[TMP4]]
+; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> [[SRC0:%.*]], double [[TMP6]], i64 0
+; CHECK-NEXT:    ret <2 x double> [[TMP7]]
+;
+  %1 = call <2 x double> @llvm.x86.avx512.mask.rndscale.sd(<2 x double> %src0, <2 x double> %src1, <2 x double> %dst, i8 %k, i32 2, i32 4)
+  ret <2 x double> %1
+}
+
+define <4 x float> @test_rndscale_ps_128_floor(<4 x float> %src, <4 x float> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_ps_128_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <4 x float> @llvm.floor.v4f32(<4 x float> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <8 x i1> [[TMP2]], <8 x i1> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP4:%.*]] = select <4 x i1> [[TMP3]], <4 x float> [[TMP1]], <4 x float> [[DST:%.*]]
+; CHECK-NEXT:    ret <4 x float> [[TMP4]]
+;
+  %1 = call <4 x float> @llvm.x86.avx512.mask.rndscale.ps.128(<4 x float> %src, i32 1, <4 x float> %dst, i8 %k)
+  ret <4 x float> %1
+}
+
+define <4 x float> @test_rndscale_ps_128_ceil(<4 x float> %src, <4 x float> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_ps_128_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <4 x float> @llvm.ceil.v4f32(<4 x float> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <8 x i1> [[TMP2]], <8 x i1> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP4:%.*]] = select <4 x i1> [[TMP3]], <4 x float> [[TMP1]], <4 x float> [[DST:%.*]]
+; CHECK-NEXT:    ret <4 x float> [[TMP4]]
+;
+  %1 = call <4 x float> @llvm.x86.avx512.mask.rndscale.ps.128(<4 x float> %src, i32 2, <4 x float> %dst, i8 %k)
+  ret <4 x float> %1
+}
+
+define <8 x float> @test_rndscale_ps_256_floor(<8 x float> %src, <8 x float> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_ps_256_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x float> @llvm.floor.v8f32(<8 x float> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x float> [[TMP1]], <8 x float> [[DST:%.*]]
+; CHECK-NEXT:    ret <8 x float> [[TMP3]]
+;
+  %1 = call <8 x float> @llvm.x86.avx512.mask.rndscale.ps.256(<8 x float> %src, i32 1, <8 x float> %dst, i8 %k)
+  ret <8 x float> %1
+}
+
+define <8 x float> @test_rndscale_ps_256_ceil(<8 x float> %src, <8 x float> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_ps_256_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x float> @llvm.ceil.v8f32(<8 x float> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x float> [[TMP1]], <8 x float> [[DST:%.*]]
+; CHECK-NEXT:    ret <8 x float> [[TMP3]]
+;
+  %1 = call <8 x float> @llvm.x86.avx512.mask.rndscale.ps.256(<8 x float> %src, i32 2, <8 x float> %dst, i8 %k)
+  ret <8 x float> %1
+}
+
+define <16 x float> @test_rndscale_ps_512_floor(<16 x float> %src, <16 x float> %dst, i16 %k) {
+; CHECK-LABEL: @test_rndscale_ps_512_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.floor.v16f32(<16 x float> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i16 [[K:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[DST:%.*]]
+; CHECK-NEXT:    ret <16 x float> [[TMP3]]
+;
+  %1 = call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %src, i32 1, <16 x float> %dst, i16 %k, i32 4)
+  ret <16 x float> %1
+}
+
+define <16 x float> @test_rndscale_ps_512_ceil(<16 x float> %src, <16 x float> %dst, i16 %k) {
+; CHECK-LABEL: @test_rndscale_ps_512_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.ceil.v16f32(<16 x float> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i16 [[K:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[DST:%.*]]
+; CHECK-NEXT:    ret <16 x float> [[TMP3]]
+;
+  %1 = call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %src, i32 2, <16 x float> %dst, i16 %k, i32 4)
+  ret <16 x float> %1
+}
+
+define <2 x double> @test_rndscale_pd_128_floor(<2 x double> %src, <2 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_pd_128_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <2 x double> @llvm.floor.v2f64(<2 x double> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <8 x i1> [[TMP2]], <8 x i1> undef, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP4:%.*]] = select <2 x i1> [[TMP3]], <2 x double> [[TMP1]], <2 x double> [[DST:%.*]]
+; CHECK-NEXT:    ret <2 x double> [[TMP4]]
+;
+  %1 = call <2 x double> @llvm.x86.avx512.mask.rndscale.pd.128(<2 x double> %src, i32 1, <2 x double> %dst, i8 %k)
+  ret <2 x double> %1
+}
+
+define <2 x double> @test_rndscale_pd_128_ceil(<2 x double> %src, <2 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_pd_128_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <2 x double> @llvm.ceil.v2f64(<2 x double> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <8 x i1> [[TMP2]], <8 x i1> undef, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP4:%.*]] = select <2 x i1> [[TMP3]], <2 x double> [[TMP1]], <2 x double> [[DST:%.*]]
+; CHECK-NEXT:    ret <2 x double> [[TMP4]]
+;
+  %1 = call <2 x double> @llvm.x86.avx512.mask.rndscale.pd.128(<2 x double> %src, i32 2, <2 x double> %dst, i8 %k)
+  ret <2 x double> %1
+}
+
+define <4 x double> @test_rndscale_pd_256_floor(<4 x double> %src, <4 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_pd_256_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <4 x double> @llvm.floor.v4f64(<4 x double> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <8 x i1> [[TMP2]], <8 x i1> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP4:%.*]] = select <4 x i1> [[TMP3]], <4 x double> [[TMP1]], <4 x double> [[DST:%.*]]
+; CHECK-NEXT:    ret <4 x double> [[TMP4]]
+;
+  %1 = call <4 x double> @llvm.x86.avx512.mask.rndscale.pd.256(<4 x double> %src, i32 1, <4 x double> %dst, i8 %k)
+  ret <4 x double> %1
+}
+
+define <4 x double> @test_rndscale_pd_256_ceil(<4 x double> %src, <4 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_pd_256_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <4 x double> @llvm.ceil.v4f64(<4 x double> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <8 x i1> [[TMP2]], <8 x i1> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP4:%.*]] = select <4 x i1> [[TMP3]], <4 x double> [[TMP1]], <4 x double> [[DST:%.*]]
+; CHECK-NEXT:    ret <4 x double> [[TMP4]]
+;
+  %1 = call <4 x double> @llvm.x86.avx512.mask.rndscale.pd.256(<4 x double> %src, i32 2, <4 x double> %dst, i8 %k)
+  ret <4 x double> %1
+}
+
+define <8 x double> @test_rndscale_pd_512_floor(<8 x double> %src, <8 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_pd_512_floor(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.floor.v8f64(<8 x double> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[DST:%.*]]
+; CHECK-NEXT:    ret <8 x double> [[TMP3]]
+;
+  %1 = call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %src, i32 1, <8 x double> %dst, i8 %k, i32 4)
+  ret <8 x double> %1
+}
+
+define <8 x double> @test_rndscale_pd_512_ceil(<8 x double> %src, <8 x double> %dst, i8 %k) {
+; CHECK-LABEL: @test_rndscale_pd_512_ceil(
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.ceil.v8f64(<8 x double> [[SRC:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[K:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[DST:%.*]]
+; CHECK-NEXT:    ret <8 x double> [[TMP3]]
+;
+  %1 = call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %src, i32 2, <8 x double> %dst, i8 %k, i32 4)
+  ret <8 x double> %1
+}
+
 declare <4 x float> @llvm.x86.avx512.mask.vfmadd.ss(<4 x float>, <4 x float>, <4 x float>, i8, i32)
 
 define <4 x float> @test_mask_vfmadd_ss(<4 x float> %a, <4 x float> %b, <4 x float> %c, i8 %mask) {
@@ -2554,23 +2761,23 @@ define <64 x i8> @undef_test_permvar_qi_512_mask(<64 x i8> %a0, <64 x i8> %passt
   ret <64 x i8> %3
 }
 
-declare <16 x float> @llvm.x86.avx512.mask.add.ps.512(<16 x float>, <16 x float>, <16 x float>, i16, i32)
+declare <16 x float> @llvm.x86.avx512.add.ps.512(<16 x float>, <16 x float>, i32)
 
 define <16 x float> @test_add_ps(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_add_ps(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fadd <16 x float> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.add.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 4)
+  %1 = call <16 x float> @llvm.x86.avx512.add.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
   ret <16 x float> %1
 }
 
 define <16 x float> @test_add_ps_round(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_add_ps_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.add.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> undef, i16 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.add.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.add.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 8)
+  %1 = call <16 x float> @llvm.x86.avx512.add.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
   ret <16 x float> %1
 }
 
@@ -2581,36 +2788,42 @@ define <16 x float> @test_add_ps_mask(<16 x float> %a, <16 x float> %b, <16 x fl
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.add.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 4)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.add.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
 define <16 x float> @test_add_ps_mask_round(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask) {
 ; CHECK-LABEL: @test_add_ps_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.add.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> [[C:%.*]], i16 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <16 x float> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.add.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i16 [[MASK:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
+; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.add.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 8)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.add.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
-declare <8 x double> @llvm.x86.avx512.mask.add.pd.512(<8 x double>, <8 x double>, <8 x double>, i8, i32)
+declare <8 x double> @llvm.x86.avx512.add.pd.512(<8 x double>, <8 x double>, i32)
 
 define <8 x double> @test_add_pd(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_add_pd(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fadd <8 x double> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.add.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 4)
+  %1 = call <8 x double> @llvm.x86.avx512.add.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
   ret <8 x double> %1
 }
 
 define <8 x double> @test_add_pd_round(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_add_pd_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.add.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> undef, i8 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.add.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.add.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 8)
+  %1 = call <8 x double> @llvm.x86.avx512.add.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
   ret <8 x double> %1
 }
 
@@ -2621,36 +2834,42 @@ define <8 x double> @test_add_pd_mask(<8 x double> %a, <8 x double> %b, <8 x dou
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.add.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 4)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.add.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
 define <8 x double> @test_add_pd_mask_round(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask) {
 ; CHECK-LABEL: @test_add_pd_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.add.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> [[C:%.*]], i8 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <8 x double> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.add.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[MASK:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
+; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.add.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 8)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.add.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
-declare <16 x float> @llvm.x86.avx512.mask.sub.ps.512(<16 x float>, <16 x float>, <16 x float>, i16, i32)
+declare <16 x float> @llvm.x86.avx512.sub.ps.512(<16 x float>, <16 x float>, i32)
 
 define <16 x float> @test_sub_ps(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_sub_ps(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fsub <16 x float> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.sub.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 4)
+  %1 = call <16 x float> @llvm.x86.avx512.sub.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
   ret <16 x float> %1
 }
 
 define <16 x float> @test_sub_ps_round(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_sub_ps_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.sub.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> undef, i16 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.sub.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.sub.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 8)
+  %1 = call <16 x float> @llvm.x86.avx512.sub.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
   ret <16 x float> %1
 }
 
@@ -2661,36 +2880,42 @@ define <16 x float> @test_sub_ps_mask(<16 x float> %a, <16 x float> %b, <16 x fl
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.sub.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 4)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.sub.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
 define <16 x float> @test_sub_ps_mask_round(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask) {
 ; CHECK-LABEL: @test_sub_ps_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.sub.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> [[C:%.*]], i16 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <16 x float> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.sub.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i16 [[MASK:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
+; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.sub.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 8)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.sub.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
-declare <8 x double> @llvm.x86.avx512.mask.sub.pd.512(<8 x double>, <8 x double>, <8 x double>, i8, i32)
+declare <8 x double> @llvm.x86.avx512.sub.pd.512(<8 x double>, <8 x double>, i32)
 
 define <8 x double> @test_sub_pd(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_sub_pd(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fsub <8 x double> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.sub.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 4)
+  %1 = call <8 x double> @llvm.x86.avx512.sub.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
   ret <8 x double> %1
 }
 
 define <8 x double> @test_sub_pd_round(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_sub_pd_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.sub.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> undef, i8 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.sub.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.sub.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 8)
+  %1 = call <8 x double> @llvm.x86.avx512.sub.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
   ret <8 x double> %1
 }
 
@@ -2701,36 +2926,42 @@ define <8 x double> @test_sub_pd_mask(<8 x double> %a, <8 x double> %b, <8 x dou
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.sub.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 4)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.sub.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
 define <8 x double> @test_sub_pd_mask_round(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask) {
 ; CHECK-LABEL: @test_sub_pd_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.sub.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> [[C:%.*]], i8 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <8 x double> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.sub.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[MASK:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
+; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.sub.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 8)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.sub.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
-declare <16 x float> @llvm.x86.avx512.mask.mul.ps.512(<16 x float>, <16 x float>, <16 x float>, i16, i32)
+declare <16 x float> @llvm.x86.avx512.mul.ps.512(<16 x float>, <16 x float>, i32)
 
 define <16 x float> @test_mul_ps(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_mul_ps(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fmul <16 x float> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.mul.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 4)
+  %1 = call <16 x float> @llvm.x86.avx512.mul.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
   ret <16 x float> %1
 }
 
 define <16 x float> @test_mul_ps_round(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_mul_ps_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.mul.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> undef, i16 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.mul.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.mul.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 8)
+  %1 = call <16 x float> @llvm.x86.avx512.mul.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
   ret <16 x float> %1
 }
 
@@ -2741,36 +2972,42 @@ define <16 x float> @test_mul_ps_mask(<16 x float> %a, <16 x float> %b, <16 x fl
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.mul.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 4)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.mul.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
 define <16 x float> @test_mul_ps_mask_round(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask) {
 ; CHECK-LABEL: @test_mul_ps_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.mul.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> [[C:%.*]], i16 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <16 x float> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.mul.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i16 [[MASK:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
+; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.mul.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 8)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.mul.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
-declare <8 x double> @llvm.x86.avx512.mask.mul.pd.512(<8 x double>, <8 x double>, <8 x double>, i8, i32)
+declare <8 x double> @llvm.x86.avx512.mul.pd.512(<8 x double>, <8 x double>, i32)
 
 define <8 x double> @test_mul_pd(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_mul_pd(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fmul <8 x double> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.mul.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 4)
+  %1 = call <8 x double> @llvm.x86.avx512.mul.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
   ret <8 x double> %1
 }
 
 define <8 x double> @test_mul_pd_round(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_mul_pd_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.mul.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> undef, i8 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.mul.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.mul.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 8)
+  %1 = call <8 x double> @llvm.x86.avx512.mul.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
   ret <8 x double> %1
 }
 
@@ -2781,36 +3018,42 @@ define <8 x double> @test_mul_pd_mask(<8 x double> %a, <8 x double> %b, <8 x dou
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.mul.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 4)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.mul.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
 define <8 x double> @test_mul_pd_mask_round(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask) {
 ; CHECK-LABEL: @test_mul_pd_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.mul.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> [[C:%.*]], i8 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <8 x double> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.mul.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[MASK:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
+; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.mul.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 8)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.mul.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
-declare <16 x float> @llvm.x86.avx512.mask.div.ps.512(<16 x float>, <16 x float>, <16 x float>, i16, i32)
+declare <16 x float> @llvm.x86.avx512.div.ps.512(<16 x float>, <16 x float>, i32)
 
 define <16 x float> @test_div_ps(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_div_ps(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fdiv <16 x float> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.div.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 4)
+  %1 = call <16 x float> @llvm.x86.avx512.div.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
   ret <16 x float> %1
 }
 
 define <16 x float> @test_div_ps_round(<16 x float> %a, <16 x float> %b) {
 ; CHECK-LABEL: @test_div_ps_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.div.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> undef, i16 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.div.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.div.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> undef, i16 -1, i32 8)
+  %1 = call <16 x float> @llvm.x86.avx512.div.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
   ret <16 x float> %1
 }
 
@@ -2821,36 +3064,42 @@ define <16 x float> @test_div_ps_mask(<16 x float> %a, <16 x float> %b, <16 x fl
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
 ; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.div.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 4)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.div.ps.512(<16 x float> %a, <16 x float> %b, i32 4)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
 define <16 x float> @test_div_ps_mask_round(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask) {
 ; CHECK-LABEL: @test_div_ps_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <16 x float> @llvm.x86.avx512.mask.div.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], <16 x float> [[C:%.*]], i16 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <16 x float> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.avx512.div.ps.512(<16 x float> [[A:%.*]], <16 x float> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i16 [[MASK:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <16 x i1> [[TMP2]], <16 x float> [[TMP1]], <16 x float> [[C:%.*]]
+; CHECK-NEXT:    ret <16 x float> [[TMP3]]
 ;
-  %1 = tail call <16 x float> @llvm.x86.avx512.mask.div.ps.512(<16 x float> %a, <16 x float> %b, <16 x float> %c, i16 %mask, i32 8)
-  ret <16 x float> %1
+  %1 = call <16 x float> @llvm.x86.avx512.div.ps.512(<16 x float> %a, <16 x float> %b, i32 8)
+  %2 = bitcast i16 %mask to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x float> %1, <16 x float> %c
+  ret <16 x float> %3
 }
 
-declare <8 x double> @llvm.x86.avx512.mask.div.pd.512(<8 x double>, <8 x double>, <8 x double>, i8, i32)
+declare <8 x double> @llvm.x86.avx512.div.pd.512(<8 x double>, <8 x double>, i32)
 
 define <8 x double> @test_div_pd(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_div_pd(
 ; CHECK-NEXT:    [[TMP1:%.*]] = fdiv <8 x double> [[A:%.*]], [[B:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.div.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 4)
+  %1 = call <8 x double> @llvm.x86.avx512.div.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
   ret <8 x double> %1
 }
 
 define <8 x double> @test_div_pd_round(<8 x double> %a, <8 x double> %b) {
 ; CHECK-LABEL: @test_div_pd_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.div.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> undef, i8 -1, i32 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.div.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
 ; CHECK-NEXT:    ret <8 x double> [[TMP1]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.div.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> undef, i8 -1, i32 8)
+  %1 = call <8 x double> @llvm.x86.avx512.div.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
   ret <8 x double> %1
 }
 
@@ -2861,17 +3110,23 @@ define <8 x double> @test_div_pd_mask(<8 x double> %a, <8 x double> %b, <8 x dou
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
 ; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.div.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 4)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.div.pd.512(<8 x double> %a, <8 x double> %b, i32 4)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
 define <8 x double> @test_div_pd_mask_round(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask) {
 ; CHECK-LABEL: @test_div_pd_mask_round(
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call <8 x double> @llvm.x86.avx512.mask.div.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], <8 x double> [[C:%.*]], i8 [[MASK:%.*]], i32 8)
-; CHECK-NEXT:    ret <8 x double> [[TMP1]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x double> @llvm.x86.avx512.div.pd.512(<8 x double> [[A:%.*]], <8 x double> [[B:%.*]], i32 8)
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8 [[MASK:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x double> [[TMP1]], <8 x double> [[C:%.*]]
+; CHECK-NEXT:    ret <8 x double> [[TMP3]]
 ;
-  %1 = tail call <8 x double> @llvm.x86.avx512.mask.div.pd.512(<8 x double> %a, <8 x double> %b, <8 x double> %c, i8 %mask, i32 8)
-  ret <8 x double> %1
+  %1 = call <8 x double> @llvm.x86.avx512.div.pd.512(<8 x double> %a, <8 x double> %b, i32 8)
+  %2 = bitcast i8 %mask to <8 x i1>
+  %3 = select <8 x i1> %2, <8 x double> %1, <8 x double> %c
+  ret <8 x double> %3
 }
 
 declare i32 @llvm.x86.avx512.vcomi.ss(<4 x float>, <4 x float>, i32, i32)

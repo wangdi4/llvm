@@ -32,6 +32,7 @@ using ::testing::Contains;
 using ::testing::Each;
 using ::testing::ElementsAre;
 using ::testing::Field;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::UnorderedElementsAre;
@@ -43,7 +44,19 @@ class IgnoreDiagnostics : public DiagnosticsConsumer {
 
 // GMock helpers for matching completion items.
 MATCHER_P(Named, Name, "") { return arg.insertText == Name; }
-MATCHER_P(Labeled, Label, "") { return arg.label == Label; }
+MATCHER_P(Labeled, Label, "") {
+  std::string Indented;
+  if (!StringRef(Label).startswith(
+          CodeCompleteOptions().IncludeIndicator.Insert) &&
+      !StringRef(Label).startswith(
+          CodeCompleteOptions().IncludeIndicator.NoInsert))
+    Indented =
+        (Twine(CodeCompleteOptions().IncludeIndicator.NoInsert) + Label).str();
+  else
+    Indented = Label;
+  return arg.label == Indented;
+}
+MATCHER_P(SigHelpLabeled, Label, "") { return arg.label == Label; }
 MATCHER_P(Kind, K, "") { return arg.kind == K; }
 MATCHER_P(Filter, F, "") { return arg.filterText == F; }
 MATCHER_P(Doc, D, "") { return arg.documentation == D; }
@@ -193,28 +206,22 @@ int main() { ClassWithMembers().^ }
 
 TEST(CompletionTest, Filter) {
   std::string Body = R"cpp(
-    int Abracadabra;
-    int Alakazam;
+    #define MotorCar
+    int Car;
     struct S {
       int FooBar;
       int FooBaz;
       int Qux;
     };
   )cpp";
+
+  // Only items matching the fuzzy query are returned.
   EXPECT_THAT(completions(Body + "int main() { S().Foba^ }").items,
               AllOf(Has("FooBar"), Has("FooBaz"), Not(Has("Qux"))));
 
-  EXPECT_THAT(completions(Body + "int main() { S().FR^ }").items,
-              AllOf(Has("FooBar"), Not(Has("FooBaz")), Not(Has("Qux"))));
-
-  EXPECT_THAT(completions(Body + "int main() { S().opr^ }").items,
-              Has("operator="));
-
-  EXPECT_THAT(completions(Body + "int main() { aaa^ }").items,
-              AllOf(Has("Abracadabra"), Has("Alakazam")));
-
-  EXPECT_THAT(completions(Body + "int main() { _a^ }").items,
-              AllOf(Has("static_cast"), Not(Has("Abracadabra"))));
+  // Macros require  prefix match.
+  EXPECT_THAT(completions(Body + "int main() { C^ }").items,
+              AllOf(Has("Car"), Not(Has("MotorCar"))));
 }
 
 void TestAfterDotCompletion(clangd::CodeCompleteOptions Opts) {
@@ -250,9 +257,10 @@ void TestAfterDotCompletion(clangd::CodeCompleteOptions Opts) {
 
   // Class members. The only items that must be present in after-dot
   // completion.
-  EXPECT_THAT(
-      Results.items,
-      AllOf(Has(Opts.EnableSnippets ? "method()" : "method"), Has("field")));
+  EXPECT_THAT(Results.items,
+              AllOf(Has(Opts.EnableSnippets ? "method()" : "method"),
+                    Has("field"), Not(Has("ClassWithMembers")),
+                    Not(Has("operator=")), Not(Has("~ClassWithMembers"))));
   EXPECT_IFF(Opts.IncludeIneligibleResults, Results.items,
              Has("private_field"));
   // Global items.
@@ -379,6 +387,25 @@ TEST(CompletionTest, Qualifiers) {
   EXPECT_THAT(Results.items, Not(Contains(Labeled("foo() const")))); // private
 }
 
+TEST(CompletionTest, InjectedTypename) {
+  // These are suppressed when accessed as a member...
+  EXPECT_THAT(completions("struct X{}; void foo(){ X().^ }").items,
+              Not(Has("X")));
+  EXPECT_THAT(completions("struct X{ void foo(){ this->^ } };").items,
+              Not(Has("X")));
+  // ...but accessible in other, more useful cases.
+  EXPECT_THAT(completions("struct X{ void foo(){ ^ } };").items, Has("X"));
+  EXPECT_THAT(completions("struct Y{}; struct X:Y{ void foo(){ ^ } };").items,
+              Has("Y"));
+  EXPECT_THAT(
+      completions(
+          "template<class> struct Y{}; struct X:Y<int>{ void foo(){ ^ } };")
+          .items,
+      Has("Y"));
+  // This case is marginal (`using X::X` is useful), we allow it for now.
+  EXPECT_THAT(completions("struct X{}; void foo(){ X::^ }").items, Has("X"));
+}
+
 TEST(CompletionTest, Snippets) {
   clangd::CodeCompleteOptions Opts;
   Opts.EnableSnippets = true;
@@ -442,21 +469,21 @@ TEST(CompletionTest, NoDuplicates) {
 TEST(CompletionTest, ScopedNoIndex) {
   auto Results = completions(
       R"cpp(
-          namespace fake { int BigBang, Babble, Ball; };
-          int main() { fake::bb^ }
+          namespace fake { int BigBang, Babble, Box; };
+          int main() { fake::ba^ }
       ")cpp");
-  // BigBang is a better match than Babble. Ball doesn't match at all.
-  EXPECT_THAT(Results.items, ElementsAre(Named("BigBang"), Named("Babble")));
+  // Babble is a better match than BigBang. Box doesn't match at all.
+  EXPECT_THAT(Results.items, ElementsAre(Named("Babble"), Named("BigBang")));
 }
 
 TEST(CompletionTest, Scoped) {
   auto Results = completions(
       R"cpp(
-          namespace fake { int Babble, Ball; };
-          int main() { fake::bb^ }
+          namespace fake { int Babble, Box; };
+          int main() { fake::ba^ }
       ")cpp",
       {var("fake::BigBang")});
-  EXPECT_THAT(Results.items, ElementsAre(Named("BigBang"), Named("Babble")));
+  EXPECT_THAT(Results.items, ElementsAre(Named("Babble"), Named("BigBang")));
 }
 
 TEST(CompletionTest, ScopedWithFilter) {
@@ -548,7 +575,10 @@ TEST(CompletionTest, IncludeInsertionPreprocessorIntegrationTests) {
       )cpp",
                              {Sym});
   EXPECT_THAT(Results.items,
-              ElementsAre(AllOf(Named("X"), InsertInclude("\"bar.h\""))));
+              ElementsAre(AllOf(
+                  Named("X"),
+                  Labeled(CodeCompleteOptions().IncludeIndicator.Insert + "X"),
+                  InsertInclude("\"bar.h\""))));
   // Duplicate based on inclusions in preamble.
   Results = completions(Server,
                         R"cpp(
@@ -556,8 +586,8 @@ TEST(CompletionTest, IncludeInsertionPreprocessorIntegrationTests) {
           int main() { ns::^ }
       )cpp",
                         {Sym});
-  EXPECT_THAT(Results.items,
-              ElementsAre(AllOf(Named("X"), Not(HasAdditionalEdits()))));
+  EXPECT_THAT(Results.items, ElementsAre(AllOf(Named("X"), Labeled("X"),
+                                               Not(HasAdditionalEdits()))));
 }
 
 TEST(CompletionTest, NoIncludeInsertionWhenDeclFoundInFile) {
@@ -815,7 +845,7 @@ MATCHER_P(ParamsAre, P, "") {
 
 Matcher<SignatureInformation> Sig(std::string Label,
                                   std::vector<std::string> Params) {
-  return AllOf(Labeled(Label), ParamsAre(Params));
+  return AllOf(SigHelpLabeled(Label), ParamsAre(Params));
 }
 
 TEST(SignatureHelpTest, Overloads) {
@@ -1046,6 +1076,61 @@ TEST(CompletionTest, NoIndexCompletionsInsideDependentCode) {
   }
 }
 
+TEST(CompletionTest, OverloadBundling) {
+  clangd::CodeCompleteOptions Opts;
+  Opts.BundleOverloads = true;
+
+  std::string Context = R"cpp(
+    struct X {
+      // Overload with int
+      int a(int);
+      // Overload with bool
+      int a(bool);
+      int b(float);
+    };
+    int GFuncC(int);
+    int GFuncD(int);
+  )cpp";
+
+  // Member completions are bundled.
+  EXPECT_THAT(completions(Context + "int y = X().^", {}, Opts).items,
+              UnorderedElementsAre(Labeled("a(…)"), Labeled("b(float)")));
+
+  // Non-member completions are bundled, including index+sema.
+  Symbol NoArgsGFunc = func("GFuncC");
+  EXPECT_THAT(
+      completions(Context + "int y = GFunc^", {NoArgsGFunc}, Opts).items,
+      UnorderedElementsAre(Labeled("GFuncC(…)"), Labeled("GFuncD(int)")));
+
+  // Differences in header-to-insert suppress bundling.
+  Symbol::Details Detail;
+  std::string DeclFile = URI::createFile(testPath("foo")).toString();
+  NoArgsGFunc.CanonicalDeclaration.FileURI = DeclFile;
+  Detail.IncludeHeader = "<foo>";
+  NoArgsGFunc.Detail = &Detail;
+  EXPECT_THAT(
+      completions(Context + "int y = GFunc^", {NoArgsGFunc}, Opts).items,
+      UnorderedElementsAre(
+          AllOf(
+              Named("GFuncC"),
+              Labeled(CodeCompleteOptions().IncludeIndicator.Insert + "GFuncC"),
+              InsertInclude("<foo>")),
+          Labeled("GFuncC(int)"), Labeled("GFuncD(int)")));
+
+  // Examine a bundled completion in detail.
+  auto A = completions(Context + "int y = X().a^", {}, Opts).items.front();
+  EXPECT_EQ(A.label, " a(…)");
+  EXPECT_EQ(A.detail, "[2 overloads]");
+  EXPECT_EQ(A.insertText, "a");
+  EXPECT_EQ(A.kind, CompletionItemKind::Method);
+  // For now we just return one of the doc strings arbitrarily.
+  EXPECT_THAT(A.documentation, AnyOf(HasSubstr("Overload with int"),
+                                     HasSubstr("Overload with bool")));
+  Opts.EnableSnippets = true;
+  A = completions(Context + "int y = X().a^", {}, Opts).items.front();
+  EXPECT_EQ(A.insertText, "a(${0})");
+}
+
 TEST(CompletionTest, DocumentationFromChangedFileCrash) {
   MockFSProvider FS;
   auto FooH = testPath("foo.h");
@@ -1084,6 +1169,68 @@ TEST(CompletionTest, DocumentationFromChangedFileCrash) {
   // comments for symbols from headers.
   EXPECT_THAT(Completions.items,
               Contains(AllOf(Not(IsDocumented()), Named("func"))));
+}
+
+TEST(CompletionTest, NonDocComments) {
+  MockFSProvider FS;
+  auto FooCpp = testPath("foo.cpp");
+  FS.Files[FooCpp] = "";
+
+  MockCompilationDatabase CDB;
+  IgnoreDiagnostics DiagConsumer;
+  ClangdServer Server(CDB, FS, DiagConsumer, ClangdServer::optsForTest());
+
+  Annotations Source(R"cpp(
+    // ------------------
+    int comments_foo();
+
+    // A comment and a decl are separated by newlines.
+    // Therefore, the comment shouldn't show up as doc comment.
+
+    int comments_bar();
+
+    // this comment should be in the results.
+    int comments_baz();
+
+
+    template <class T>
+    struct Struct {
+      int comments_qux();
+      int comments_quux();
+    };
+
+
+    // This comment should not be there.
+
+    template <class T>
+    int Struct<T>::comments_qux() {
+    }
+
+    // This comment **should** be in results.
+    template <class T>
+    int Struct<T>::comments_quux() {
+      int a = comments^;
+    }
+  )cpp");
+  // FIXME: Auto-completion in a template requires disabling delayed template
+  // parsing.
+  CDB.ExtraClangFlags.push_back("-fno-delayed-template-parsing");
+  Server.addDocument(FooCpp, Source.code(), WantDiagnostics::Yes);
+  CompletionList Completions = cantFail(runCodeComplete(
+      Server, FooCpp, Source.point(), clangd::CodeCompleteOptions()));
+
+  // We should not get any of those comments in completion.
+  EXPECT_THAT(
+      Completions.items,
+      UnorderedElementsAre(AllOf(Not(IsDocumented()), Named("comments_foo")),
+                           AllOf(IsDocumented(), Named("comments_baz")),
+                           AllOf(IsDocumented(), Named("comments_quux")),
+                           // FIXME(ibiryukov): the following items should have
+                           // empty documentation, since they are separated from
+                           // a comment with an empty line. Unfortunately, I
+                           // couldn't make Sema tests pass if we ignore those.
+                           AllOf(IsDocumented(), Named("comments_bar")),
+                           AllOf(IsDocumented(), Named("comments_qux"))));
 }
 
 TEST(CompletionTest, CompleteOnInvalidLine) {

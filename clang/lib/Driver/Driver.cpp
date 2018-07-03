@@ -1293,7 +1293,7 @@ void Driver::generateCompilationDiagnostics(
 
   std::string Script = CrashInfo.Filename.rsplit('.').first.str() + ".sh";
   std::error_code EC;
-  llvm::raw_fd_ostream ScriptOS(Script, EC, llvm::sys::fs::F_Excl);
+  llvm::raw_fd_ostream ScriptOS(Script, EC, llvm::sys::fs::CD_CreateNew);
   if (EC) {
     Diag(clang::diag::note_drv_command_failed_diag_msg)
         << "Error generating run script: " + Script + " " + EC.message();
@@ -4013,8 +4013,7 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
   }
 
   // Default to writing to stdout?
-  if (AtTopLevel && !CCGenDiagnostics &&
-      (isa<PreprocessJobAction>(JA) || JA.getType() == types::TY_ModuleFile))
+  if (AtTopLevel && !CCGenDiagnostics && isa<PreprocessJobAction>(JA))
     return "-";
 
   // Is this the assembly listing for /FA?

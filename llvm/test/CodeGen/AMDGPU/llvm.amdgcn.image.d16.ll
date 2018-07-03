@@ -50,8 +50,9 @@ main_body:
 }
 
 ; GCN-LABEL: {{^}}image_store_f16
-; GCN: {{flat|global}}_load_ushort v[[LO:[0-9]+]],
-; GCN: image_store v[[LO]], v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0x1 unorm d16
+; GCN: s_load_dword s[[LO:[0-9]+]],
+; GCN: v_mov_b32_e32 v[[V_LO:[0-9]+]], s[[LO]]
+; GCN: image_store v[[V_LO]], v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0x1 unorm d16
 define amdgpu_kernel void @image_store_f16(half %data, <4 x i32> %coords, <8 x i32> inreg %rsrc) {
 main_body:
   call void @llvm.amdgcn.image.store.f16.v4i32.v8i32(half %data, <4 x i32> %coords, <8 x i32> %rsrc, i32 1, i1 false, i1 false, i1 false, i1 false)
@@ -65,9 +66,6 @@ main_body:
 ; UNPACKED-DAG: s_and_b32 [[UNPACK_0:s[0-9]+]], [[DATA]], 0xffff
 ; UNPACKED-DAG: v_mov_b32_e32 v[[V_UNPACK_0:[0-9]+]], [[UNPACK_0]]
 ; UNPACKED-DAG: v_mov_b32_e32 v[[V_UNPACK_1:[0-9]+]], [[UNPACK_1]]
-
-
-
 ; UNPACKED: image_store v{{\[}}[[V_UNPACK_0]]:[[V_UNPACK_1]]{{\]}}, v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0x3 unorm d16
 
 ; PACKED: image_store v{{[0-9]+}}, v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0x3 unorm d16
@@ -77,19 +75,17 @@ main_body:
   ret void
 }
 
-; GCN-LABEL: {{^}}image_store_v4f16
-; UNPACKED: s_load_dword s
-; UNPACKED: s_load_dword s
-; UNPACKED: s_lshr_b32 s{{[0-9]+}}, s{{[0-9]+}}, 16
-; UNPACKED: s_lshr_b32 s{{[0-9]+}}, s{{[0-9]+}}, 16
+; GCN-LABEL: {{^}}image_store_v4f16:
+; UNPACKED: s_load_dwordx2 s{{\[}}[[LO:[0-9]+]]:[[HI:[0-9]+]]{{\]}}
+; UNPACKED-DAG: s_lshr_b32 s{{[0-9]+}}, s[[LO]], 16
+; UNPACKED-DAG: s_lshr_b32 s{{[0-9]+}}, s[[HI]], 16
 ; UNPACKED: s_and_b32
 ; UNPACKED: s_and_b32
 ; UNPACKED: image_store v{{\[[0-9]+:[0-9]+\]}}, v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0xf unorm d16
 
-; PACKED: s_load_dword [[DATA0:s[0-9]+]]
-; PACKED: s_load_dword [[DATA1:s[0-9]+]]
-; PACKED: v_mov_b32_e32 v[[V_LO:[0-9]+]], [[DATA0]]
-; PACKED: v_mov_b32_e32 v[[V_HI:[0-9]+]], [[DATA1]]
+; PACKED: s_load_dwordx2 s{{\[}}[[DATA0:[0-9]+]]:[[DATA1:[0-9]+]]{{\]}}
+; PACKED: v_mov_b32_e32 v[[V_LO:[0-9]+]], s[[DATA0]]
+; PACKED: v_mov_b32_e32 v[[V_HI:[0-9]+]], s[[DATA1]]
 ; PACKED: image_store v{{\[}}[[V_LO]]:[[V_HI]]{{\]}}, v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0xf unorm d16
 define amdgpu_kernel void @image_store_v4f16(<4 x half> %data, <4 x i32> %coords, <8 x i32> inreg %rsrc) {
 main_body:
@@ -97,19 +93,17 @@ main_body:
   ret void
 }
 
-; GCN-LABEL: {{^}}image_store_mip_v4f16
-; UNPACKD: s_load_dword s
-; UNPACKD: s_load_dword s
-; UNPACKED: s_lshr_b32 s{{[0-9]+}}, s{{[0-9]+}}, 16
-; UNPACKED: s_lshr_b32 s{{[0-9]+}}, s{{[0-9]+}}, 16
+; GCN-LABEL: {{^}}image_store_mip_v4f16:
+; UNPACKED: s_load_dwordx2 s{{\[}}[[LO:[0-9]+]]:[[HI:[0-9]+]]{{\]}}
+; UNPACKED-DAG: s_lshr_b32 s{{[0-9]+}}, s[[LO]], 16
+; UNPACKED-DAG: s_lshr_b32 s{{[0-9]+}}, s[[HI]], 16
 ; UNPACKED: s_and_b32
 ; UNPACKED: s_and_b32
 ; UNPACKED: image_store_mip v{{\[[0-9]+:[0-9]+\]}}, v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0xf unorm d16
 
-; PACKED: s_load_dword [[DATA0:s[0-9]+]]
-; PACKED: s_load_dword [[DATA1:s[0-9]+]]
-; PACKED: v_mov_b32_e32 v[[V_LO:[0-9]+]], [[DATA0]]
-; PACKED: v_mov_b32_e32 v[[V_HI:[0-9]+]], [[DATA1]]
+; PACKED: s_load_dwordx2 s{{\[}}[[DATA0:[0-9]+]]:[[DATA1:[0-9]+]]{{\]}}
+; PACKED: v_mov_b32_e32 v[[V_LO:[0-9]+]], s[[DATA0]]
+; PACKED: v_mov_b32_e32 v[[V_HI:[0-9]+]], s[[DATA1]]
 ; PACKED: image_store_mip v{{\[}}[[V_LO]]:[[V_HI]]{{\]}}, v[{{[0-9]+:[0-9]+}}], s[{{[0-9]+:[0-9]+}}] dmask:0xf unorm d16
 define amdgpu_kernel void @image_store_mip_v4f16(<4 x half> %data, <4 x i32> %coords, <8 x i32> inreg %rsrc) {
 main_body:

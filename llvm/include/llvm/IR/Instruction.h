@@ -128,6 +128,7 @@ public:
   const char *getOpcodeName() const { return getOpcodeName(getOpcode()); }
   bool isTerminator() const { return isTerminator(getOpcode()); }
   bool isBinaryOp() const { return isBinaryOp(getOpcode()); }
+  bool isIntDivRem() const { return isIntDivRem(getOpcode()); }
   bool isShift() { return isShift(getOpcode()); }
   bool isCast() const { return isCast(getOpcode()); }
   bool isFuncletPad() const { return isFuncletPad(getOpcode()); }
@@ -140,6 +141,10 @@ public:
 
   static inline bool isBinaryOp(unsigned Opcode) {
     return Opcode >= BinaryOpsBegin && Opcode < BinaryOpsEnd;
+  }
+
+  static inline bool isIntDivRem(unsigned Opcode) {
+    return Opcode == UDiv || Opcode == SDiv || Opcode == URem || Opcode == SRem;
   }
 
   /// Determine if the Opcode is one of the shift instructions.
@@ -554,6 +559,14 @@ public:
     default:
       return false;
     }
+  }
+
+  /// Return a pointer to the next non-debug instruction in the same basic
+  /// block as 'this', or nullptr if no such instruction exists.
+  const Instruction *getNextNonDebugInstruction() const;
+  Instruction *getNextNonDebugInstruction() {
+    return const_cast<Instruction *>(
+        static_cast<const Instruction *>(this)->getNextNonDebugInstruction());
   }
 
   /// Create a copy of 'this' instruction that is identical in all ways except

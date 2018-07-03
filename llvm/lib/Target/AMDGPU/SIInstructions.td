@@ -795,6 +795,27 @@ foreach Index = 0-15 in {
   >;
 }
 
+
+def : Pat <
+  (extract_subvector v4i16:$vec, (i32 0)),
+  (v2i16 (EXTRACT_SUBREG v4i16:$vec, sub0))
+>;
+
+def : Pat <
+  (extract_subvector v4i16:$vec, (i32 2)),
+  (v2i16 (EXTRACT_SUBREG v4i16:$vec, sub1))
+>;
+
+def : Pat <
+  (extract_subvector v4f16:$vec, (i32 0)),
+  (v2f16 (EXTRACT_SUBREG v4f16:$vec, sub0))
+>;
+
+def : Pat <
+  (extract_subvector v4f16:$vec, (i32 2)),
+  (v2f16 (EXTRACT_SUBREG v4f16:$vec, sub1))
+>;
+
 let SubtargetPredicate = isGCN in {
 
 // FIXME: Why do only some of these type combinations for SReg and
@@ -834,6 +855,26 @@ def : BitConvert <f64, v2f32, VReg_64>;
 def : BitConvert <v2f32, f64, VReg_64>;
 def : BitConvert <f64, v2i32, VReg_64>;
 def : BitConvert <v2i32, f64, VReg_64>;
+
+// FIXME: Make SGPR
+def : BitConvert <v2i32, v4f16, VReg_64>;
+def : BitConvert <v4f16, v2i32, VReg_64>;
+def : BitConvert <v2i32, v4f16, VReg_64>;
+def : BitConvert <v2i32, v4i16, VReg_64>;
+def : BitConvert <v4i16, v2i32, VReg_64>;
+def : BitConvert <v2f32, v4f16, VReg_64>;
+def : BitConvert <v4f16, v2f32, VReg_64>;
+def : BitConvert <v2f32, v4i16, VReg_64>;
+def : BitConvert <v4i16, v2f32, VReg_64>;
+def : BitConvert <v4i16, f64, VReg_64>;
+def : BitConvert <v4f16, f64, VReg_64>;
+def : BitConvert <f64, v4i16, VReg_64>;
+def : BitConvert <f64, v4f16, VReg_64>;
+def : BitConvert <v4i16, i64, VReg_64>;
+def : BitConvert <v4f16, i64, VReg_64>;
+def : BitConvert <i64, v4i16, VReg_64>;
+def : BitConvert <i64, v4f16, VReg_64>;
+
 def : BitConvert <v4i32, v4f32, VReg_128>;
 def : BitConvert <v4f32, v4i32, VReg_128>;
 
@@ -908,7 +949,7 @@ def : GCNPat <
 
 def : GCNPat <
   (fabs f32:$src),
-  (V_AND_B32_e64 $src, (V_MOV_B32_e32 (i32 0x7fffffff)))
+  (S_AND_B32 $src, (S_MOV_B32 (i32 0x7fffffff)))
 >;
 
 def : GCNPat <
@@ -969,12 +1010,12 @@ def : GCNPat <
 
 def : GCNPat <
   (fneg f16:$src),
-  (V_XOR_B32_e32 $src, (V_MOV_B32_e32 (i32 0x00008000)))
+  (S_XOR_B32 $src, (S_MOV_B32 (i32 0x00008000)))
 >;
 
 def : GCNPat <
   (fabs f16:$src),
-  (V_AND_B32_e64 $src, (V_MOV_B32_e32 (i32 0x00007fff)))
+  (S_AND_B32 $src, (S_MOV_B32 (i32 0x00007fff)))
 >;
 
 def : GCNPat <
@@ -984,12 +1025,12 @@ def : GCNPat <
 
 def : GCNPat <
   (fneg v2f16:$src),
-  (V_XOR_B32_e64 (S_MOV_B32 (i32 0x80008000)), $src)
+  (S_XOR_B32 $src, (S_MOV_B32 (i32 0x80008000)))
 >;
 
 def : GCNPat <
   (fabs v2f16:$src),
-  (V_AND_B32_e64 (S_MOV_B32 (i32 0x7fff7fff)), $src)
+  (S_AND_B32 $src, (S_MOV_B32 (i32 0x7fff7fff)))
 >;
 
 // This is really (fneg (fabs v2f16:$src))
@@ -998,12 +1039,12 @@ def : GCNPat <
 // VOP3P instructions, so it is turned into the bit op.
 def : GCNPat <
   (fneg (v2f16 (bitconvert (and_oneuse i32:$src, 0x7fff7fff)))),
-  (S_OR_B32 (S_MOV_B32 (i32 0x80008000)), $src) // Set sign bit
+  (S_OR_B32 $src, (S_MOV_B32 (i32 0x80008000))) // Set sign bit
 >;
 
 def : GCNPat <
   (fneg (v2f16 (fabs v2f16:$src))),
-  (S_OR_B32 (S_MOV_B32 (i32 0x80008000)), $src) // Set sign bit
+  (S_OR_B32 $src, (S_MOV_B32 (i32 0x80008000))) // Set sign bit
 >;
 
 /********** ================== **********/
@@ -1447,6 +1488,16 @@ def : GCNPat <
 //   (v2i16 (scalar_to_vector i16:$src0)),
 //   (COPY $src0)
 // >;
+
+def : GCNPat <
+  (v4i16 (scalar_to_vector i16:$src0)),
+  (INSERT_SUBREG (IMPLICIT_DEF), $src0, sub0)
+>;
+
+def : GCNPat <
+  (v4f16 (scalar_to_vector f16:$src0)),
+  (INSERT_SUBREG (IMPLICIT_DEF), $src0, sub0)
+>;
 
 //===----------------------------------------------------------------------===//
 // Fract Patterns

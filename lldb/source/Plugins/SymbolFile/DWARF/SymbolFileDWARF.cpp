@@ -27,6 +27,7 @@
 #include "lldb/Utility/Timer.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangModulesDeclVendor.h"
+#include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
 
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
@@ -800,7 +801,8 @@ lldb::CompUnitSP SymbolFileDWARF::ParseCompileUnit(DWARFUnit *dwarf_cu,
               std::string remapped_file;
               if (module_sp->RemapSourceFile(cu_file_spec.GetPath(),
                                              remapped_file))
-                cu_file_spec.SetFile(remapped_file, false);
+                cu_file_spec.SetFile(remapped_file, false,
+                                     FileSpec::Style::native);
             }
 
             LanguageType cu_language = DWARFUnit::LanguageTypeFromDWARF(
@@ -1583,7 +1585,7 @@ SymbolFileDWARF::GetDwoSymbolFileForCompileUnit(
     if (!comp_dir)
       return nullptr;
 
-    dwo_file.SetFile(comp_dir, true);
+    dwo_file.SetFile(comp_dir, true, FileSpec::Style::native);
     dwo_file.AppendPathComponent(dwo_name);
   }
 
@@ -1626,12 +1628,14 @@ void SymbolFileDWARF::UpdateExternalModuleListIfNeeded() {
               die.GetAttributeValueAsString(DW_AT_GNU_dwo_name, nullptr);
           if (dwo_path) {
             ModuleSpec dwo_module_spec;
-            dwo_module_spec.GetFileSpec().SetFile(dwo_path, false);
+            dwo_module_spec.GetFileSpec().SetFile(dwo_path, false,
+                                                  FileSpec::Style::native);
             if (dwo_module_spec.GetFileSpec().IsRelative()) {
               const char *comp_dir =
                   die.GetAttributeValueAsString(DW_AT_comp_dir, nullptr);
               if (comp_dir) {
-                dwo_module_spec.GetFileSpec().SetFile(comp_dir, true);
+                dwo_module_spec.GetFileSpec().SetFile(comp_dir, true,
+                                                      FileSpec::Style::native);
                 dwo_module_spec.GetFileSpec().AppendPathComponent(dwo_path);
               }
             }
@@ -1652,7 +1656,7 @@ void SymbolFileDWARF::UpdateExternalModuleListIfNeeded() {
             // (corresponding to .dwo) so we simply skip it.
             if (m_obj_file->GetFileSpec()
                         .GetFileNameExtension()
-                        .GetStringRef() == "dwo" &&
+                        .GetStringRef() == ".dwo" &&
                 llvm::StringRef(m_obj_file->GetFileSpec().GetPath())
                     .endswith(dwo_module_spec.GetFileSpec().GetPath())) {
               continue;
@@ -2024,13 +2028,24 @@ uint32_t SymbolFileDWARF::FindGlobalVariables(
   // Remember how many variables are in the list before we search.
   const uint32_t original_size = variables.GetSize();
 
+  llvm::StringRef basename;
+  llvm::StringRef context;
+
+  if (!CPlusPlusLanguage::ExtractContextAndIdentifier(name.GetCString(),
+                                                      context, basename))
+    basename = name.GetStringRef();
+
   DIEArray die_offsets;
-  m_index->GetGlobalVariables(name, die_offsets);
+  m_index->GetGlobalVariables(ConstString(basename), die_offsets);
   const size_t num_die_matches = die_offsets.size();
   if (num_die_matches) {
     SymbolContext sc;
     sc.module_sp = m_obj_file->GetModule();
     assert(sc.module_sp);
+
+    // Loop invariant: Variables up to this index have been checked for context
+    // matches.
+    uint32_t pruned_idx = original_size;
 
     bool done = false;
     for (size_t i = 0; i < num_die_matches && !done; ++i) {
@@ -2062,6 +2077,13 @@ uint32_t SymbolFileDWARF::FindGlobalVariables(
 
           ParseVariables(sc, die, LLDB_INVALID_ADDRESS, false, false,
                          &variables);
+          while (pruned_idx < variables.GetSize()) {
+            VariableSP var_sp = variables.GetVariableAtIndex(pruned_idx);
+            if (var_sp->GetName().GetStringRef().contains(name.GetStringRef()))
+              ++pruned_idx;
+            else
+              variables.RemoveVariableAtIndex(pruned_idx);
+          }
 
           if (variables.GetSize() - original_size >= max_matches)
             done = true;
@@ -2134,13 +2156,6 @@ uint32_t SymbolFileDWARF::FindGlobalVariables(const RegularExpression &regex,
 
   // Return the number of variable that were appended to the list
   return variables.GetSize() - original_size;
-}
-
-bool SymbolFileDWARF::ResolveFunction(const DIERef &die_ref,
-                                      bool include_inlines,
-                                      SymbolContextList &sc_list) {
-  DWARFDIE die = DebugInfo()->GetDIE(die_ref);
-  return ResolveFunction(die, include_inlines, sc_list);
 }
 
 bool SymbolFileDWARF::ResolveFunction(const DWARFDIE &orig_die,
@@ -2316,8 +2331,16 @@ uint32_t SymbolFileDWARF::FindFunctions(const RegularExpression &regex,
   DIEArray offsets;
   m_index->GetFunctions(regex, offsets);
 
-  for (DIERef ref : offsets)
-    ResolveFunction(ref, include_inlines, sc_list);
+  llvm::DenseSet<const DWARFDebugInfoEntry *> resolved_dies;
+  for (DIERef ref : offsets) {
+    DWARFDIE die = info->GetDIE(ref);
+    if (!die) {
+      m_index->ReportInvalidDIEOffset(ref.die_offset, regex.GetText());
+      continue;
+    }
+    if (resolved_dies.insert(die.GetDIE()).second)
+      ResolveFunction(die, include_inlines, sc_list);
+  }
 
   // Return the number of variable that were appended to the list
   return sc_list.GetSize() - original_size;

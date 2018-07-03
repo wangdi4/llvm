@@ -3472,6 +3472,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_strict_vtable_pointers,
                    false))
     CmdArgs.push_back("-fstrict-vtable-pointers");
+  if (Args.hasFlag(options::OPT_fforce_emit_vtables,
+                   options::OPT_fno_force_emit_vtables,
+                   false))
+    CmdArgs.push_back("-fforce-emit-vtables");
   if (!Args.hasFlag(options::OPT_foptimize_sibling_calls,
                     options::OPT_fno_optimize_sibling_calls))
     CmdArgs.push_back("-mdisable-tail-calls");
@@ -3497,8 +3501,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       Args.hasArg(options::OPT_dA))
     CmdArgs.push_back("-masm-verbose");
 
-  if (!Args.hasFlag(options::OPT_fintegrated_as, options::OPT_fno_integrated_as,
-                    IsIntegratedAssemblerDefault))
+  if (!getToolChain().useIntegratedAs())
     CmdArgs.push_back("-no-integrated-as");
 
   if (Args.hasArg(options::OPT_fdebug_pass_structure)) {
@@ -3762,6 +3765,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_ffixed_point, options::OPT_fno_fixed_point,
                    /*Default=*/false))
     Args.AddLastArg(CmdArgs, options::OPT_ffixed_point);
+
+  if (Args.hasFlag(options::OPT_fsame_fbits,
+                   options::OPT_fno_same_fbits,
+                   /*Default=*/false))
+    Args.AddLastArg(CmdArgs, options::OPT_fsame_fbits);
 
   // Handle -{std, ansi, trigraphs} -- take the last of -{std, ansi}
   // (-ansi is equivalent to -std=c89 or -std=c++98).
