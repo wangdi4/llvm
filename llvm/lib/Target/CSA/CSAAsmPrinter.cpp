@@ -452,7 +452,8 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
       SmallString<128> OutStr;
       raw_svector_ostream OO(OutStr);
       for (const Function &F : M) {
-        OO << "\t.set " << *getSymbol(&F) << ", .csa.code.start\n";
+        if (!F.isDeclaration())
+          OO << "\t.set " << *getSymbol(&F) << ", .csa.code.start\n";
       }
       OutStreamer->EmitRawText(OO.str());
     }
