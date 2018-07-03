@@ -2866,10 +2866,10 @@ static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
 
     int Val = ArgVal.getSExtValue();
 
-    if (Val <= 0) {
-      S.Diag(Attr.getRange().getBegin(),
-             diag::err_attribute_requires_positive_integer)
-          << Attr.getName();
+    if (Val < 1 || Val > 16384) {
+      S.Diag(E->getSourceRange().getBegin(),
+             diag::err_opencl_attribute_argument_out_of_bounds)
+          << Attr.getName() << i + 1 << 1 << 16384;
       return;
     }
 

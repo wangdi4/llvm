@@ -64,4 +64,20 @@ SPIR64INTELFpgaTargetInfo::getTargetBuiltins() const {
   return llvm::makeArrayRef(BuiltinInfo,
       clang::SPIRINTELFpga::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }
+
+static void defineFPGA(MacroBuilder &Builder) {
+  Builder.defineMacro("__fpga_reg", "__builtin_fpga_reg");
+}
+
+void SPIR32INTELFpgaTargetInfo::getTargetDefines(
+    const LangOptions &Opts, MacroBuilder &Builder) const {
+  SPIR32TargetInfo::getTargetDefines(Opts, Builder);
+  defineFPGA(Builder);
+}
+
+void SPIR64INTELFpgaTargetInfo::getTargetDefines(
+    const LangOptions &Opts, MacroBuilder &Builder) const {
+  SPIR64TargetInfo::getTargetDefines(Opts, Builder);
+  defineFPGA(Builder);
+}
 #endif // INTEL_CUSTOMIZATION

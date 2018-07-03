@@ -194,6 +194,7 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "bmi", true);
     setFeatureEnabledImpl(Features, "bmi2", true);
     setFeatureEnabledImpl(Features, "fma", true);
+    setFeatureEnabledImpl(Features, "invpcid", true);
     setFeatureEnabledImpl(Features, "movbe", true);
     LLVM_FALLTHROUGH;
   case CK_IvyBridge:
@@ -823,6 +824,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasPCONFIG = true;
     } else if (Feature == "+ptwrite") {
       HasPTWRITE = true;
+    } else if (Feature == "+invpcid") {
+      HasINVPCID = true;
     }
 
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -1185,6 +1188,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__PCONFIG__");
   if (HasPTWRITE)
     Builder.defineMacro("__PTWRITE__");
+  if (HasINVPCID)
+    Builder.defineMacro("__INVPCID__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -1269,6 +1274,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasFloat128)
     Builder.defineMacro("__SIZEOF_FLOAT128__", "16");
+
+#if INTEL_CUSTOMIZATION
+  if (getTriple().getEnvironment() == llvm::Triple::IntelFPGA)
+    Builder.defineMacro("__fpga_reg", "__builtin_fpga_reg");
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
@@ -1305,6 +1315,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fsgsbase", true)
       .Case("fxsr", true)
       .Case("gfni", true)
+      .Case("invpcid", true)
       .Case("lwp", true)
       .Case("lzcnt", true)
       .Case("mmx", true)
@@ -1382,6 +1393,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fsgsbase", HasFSGSBASE)
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
+      .Case("invpcid", HasINVPCID)
       .Case("lwp", HasLWP)
       .Case("lzcnt", HasLZCNT)
       .Case("mm3dnow", MMX3DNowLevel >= AMD3DNow)

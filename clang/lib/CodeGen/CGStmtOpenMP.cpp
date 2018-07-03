@@ -5009,7 +5009,7 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
   auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
   auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
   EmitVarDecl(*IVDecl);
-  
+
   // Emit the iterations count variable.
   // If it is not a variable, Sema decided to calculate iterations count on each
   // iteration (e.g., it is foldable into a constant).
@@ -5080,6 +5080,12 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
         break;
       case OMPD_taskloop_simd:
         Outliner.emitOMPTaskLoopSimdDirective();
+        break;
+      case OMPD_distribute_parallel_for:
+        Outliner.emitOMPDistributeParallelForDirective();
+        break;
+      case OMPD_distribute_parallel_for_simd:
+        Outliner.emitOMPDistributeParallelForSimdDirective();
         break;
       default:
         llvm_unreachable("unexpected loop kind");
@@ -5193,6 +5199,25 @@ void CodeGenFunction::EmitIntelOMPDistributeDirective(
   };
   emitIntelDirective(*this, OMPD_distribute, CodeGen);
 }
+
+void CodeGenFunction::EmitIntelOMPDistributeParallelForDirective(
+    const OMPDistributeParallelForDirective &S) {
+  OMPLexicalScope Scope(*this, S, OMPD_parallel);
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_distribute_parallel_for);
+  };
+  emitIntelDirective(*this, OMPD_distribute_parallel_for, CodeGen);
+}
+
+void CodeGenFunction::EmitIntelOMPDistributeParallelForSimdDirective(
+    const OMPDistributeParallelForSimdDirective &S) {
+  OMPLexicalScope Scope(*this, S, OMPD_parallel);
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_distribute_parallel_for_simd);
+  };
+  emitIntelDirective(*this, OMPD_distribute_parallel_for_simd, CodeGen);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitSimpleOMPExecutableDirective(

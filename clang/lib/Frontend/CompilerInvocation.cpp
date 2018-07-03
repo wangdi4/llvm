@@ -66,6 +66,9 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compiler.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/DynamicLibrary.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ErrorOr.h"
@@ -1447,6 +1450,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::ASTPrint; break;
     case OPT_ast_view:
       Opts.ProgramAction = frontend::ASTView; break;
+    case OPT_compiler_options_dump:
+      Opts.ProgramAction = frontend::DumpCompilerOptions; break;
     case OPT_dump_raw_tokens:
       Opts.ProgramAction = frontend::DumpRawTokens; break;
     case OPT_dump_tokens:
@@ -1591,6 +1596,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
     = !Args.hasArg(OPT_no_code_completion_ns_level_decls);
   Opts.CodeCompleteOpts.IncludeBriefComments
     = Args.hasArg(OPT_code_completion_brief_comments);
+  Opts.CodeCompleteOpts.IncludeFixIts
+    = Args.hasArg(OPT_code_completion_with_fixits);
 
   Opts.OverrideRecordLayoutsFile
     = Args.getLastArgValue(OPT_foverride_record_layout_EQ);
@@ -1896,6 +1903,11 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
 
   for (const auto *A : Args.filtered(OPT_ivfsoverlay))
     Opts.AddVFSOverlayFile(A->getValue());
+
+#if INTEL_CUSTOMIZATION
+  for (const auto *A : Args.filtered(OPT_ivfsoverlay_lib))
+    Opts.AddVFSOverlayLib(A->getValue());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
@@ -2643,6 +2655,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ObjCExceptions = Args.hasArg(OPT_fobjc_exceptions);
   Opts.CXXExceptions = Args.hasArg(OPT_fcxx_exceptions);
 
+  // -ffixed-point
+  Opts.FixedPoint =
+      Args.hasFlag(OPT_ffixed_point, OPT_fno_fixed_point, /*Default=*/false) &&
+      !Opts.CPlusPlus;
+
   // Handle exception personalities
   Arg *A = Args.getLastArg(options::OPT_fsjlj_exceptions,
                            options::OPT_fseh_exceptions,
@@ -3090,6 +3107,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
           << A->getAsString(Args) << A->getValue();
     }
   }
+
+  Opts.CompleteMemberPointers = Args.hasArg(OPT_fcomplete_member_pointers);
 }
 
 static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
@@ -3125,6 +3144,7 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::MigrateSource:
     return false;
 
+  case frontend::DumpCompilerOptions:
   case frontend::DumpRawTokens:
   case frontend::DumpTokens:
   case frontend::InitOnly:
@@ -3275,10 +3295,11 @@ static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
   Opts.FPMath = Args.getLastArgValue(OPT_mfpmath);
   Opts.FeaturesAsWritten = Args.getAllArgValues(OPT_target_feature);
   Opts.LinkerVersion = Args.getLastArgValue(OPT_target_linker_version);
-  Opts.Triple = llvm::Triple::normalize(Args.getLastArgValue(OPT_triple));
+  Opts.Triple = Args.getLastArgValue(OPT_triple);
   // Use the default target triple if unspecified.
   if (Opts.Triple.empty())
     Opts.Triple = llvm::sys::getDefaultTargetTriple();
+  Opts.Triple = llvm::Triple::normalize(Opts.Triple);
   Opts.OpenCLExtensionsAsWritten = Args.getAllArgValues(OPT_cl_ext_EQ);
   Opts.ForceEnableInt128 = Args.hasArg(OPT_fforce_enable_int128);
   Opts.NVPTXUseShortPointers = Args.hasFlag(
@@ -3534,11 +3555,18 @@ createVFSFromCompilerInvocation(const CompilerInvocation &CI,
   return createVFSFromCompilerInvocation(CI, Diags, vfs::getRealFileSystem());
 }
 
+#if INTEL_CUSTOMIZATION
+using CreateLibraryFileSystem = vfs::FileSystem *(*)(void);
+#endif // INTEL_CUSTOMIZATION
+
 IntrusiveRefCntPtr<vfs::FileSystem>
 createVFSFromCompilerInvocation(const CompilerInvocation &CI,
                                 DiagnosticsEngine &Diags,
                                 IntrusiveRefCntPtr<vfs::FileSystem> BaseFS) {
-  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty())
+#if INTEL_CUSTOMIZATION
+  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty() &&
+      CI.getHeaderSearchOpts().VFSOverlayLibs.empty())
+#endif // INTEL_CUSTOMIZATION
     return BaseFS;
 
   IntrusiveRefCntPtr<vfs::OverlayFileSystem> Overlay(
@@ -3559,6 +3587,39 @@ createVFSFromCompilerInvocation(const CompilerInvocation &CI,
     else
       Diags.Report(diag::err_invalid_vfs_overlay) << File;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Load shared libraries that provide a VFS.
+  for (const auto &LibFile : CI.getHeaderSearchOpts().VFSOverlayLibs) {
+    std::string Error;
+    auto Lib = llvm::sys::DynamicLibrary::getPermanentLibrary(
+        LibFile.c_str(), &Error);
+    if (!Lib.isValid()) {
+      Diags.Report(diag::err_unable_to_load_vfs_overlay) << LibFile << Error;
+      continue;
+    }
+
+    auto *CreateFS =
+      reinterpret_cast<CreateLibraryFileSystem>(
+          reinterpret_cast<intptr_t>(
+              Lib.getAddressOfSymbol("__clang_create_vfs")));
+
+    if (!CreateFS) {
+      Diags.Report(diag::err_unable_to_load_vfs_overlay)
+        << LibFile << "'__clang_create_vfs' function was not found";
+      continue;
+    }
+
+    IntrusiveRefCntPtr<vfs::FileSystem> FS = CreateFS();
+    if (!FS) {
+      Diags.Report(diag::err_invalid_vfs_overlay) << LibFile;
+      continue;
+    }
+
+    Overlay->pushOverlay(FS);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return Overlay;
 }
 

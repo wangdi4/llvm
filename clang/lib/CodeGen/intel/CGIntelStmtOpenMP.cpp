@@ -459,6 +459,7 @@ namespace CGIntelOpenMP {
       CurrentClauseKind = OMPC_private;
       addArg("QUAL.OMP.PRIVATE");
       break;
+    case ICK_specified_firstprivate:
     case ICK_firstprivate:
       CurrentClauseKind = OMPC_firstprivate;
       addArg("QUAL.OMP.FIRSTPRIVATE");
@@ -504,6 +505,12 @@ namespace CGIntelOpenMP {
     CGF.CapturedStmtInfo = savedCSI;
   }
 
+  bool OpenMPCodeOutliner::isUnspecifiedImplicit(const VarDecl *V) {
+    if (ImplicitMap.find(V) == ImplicitMap.end())
+      return false;
+    return ImplicitMap[V] != ICK_specified_firstprivate;
+  }
+
   bool OpenMPCodeOutliner::isImplicit(const VarDecl *V) {
     return ImplicitMap.find(V) != ImplicitMap.end();
   }
@@ -514,11 +521,28 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::addImplicitClauses() {
     auto DKind = Directive.getDirectiveKind();
-    if (DKind != OMPD_simd && DKind != OMPD_for &&
-        DKind != OMPD_taskloop && DKind != OMPD_taskloop_simd &&
-        DKind != OMPD_target &&
-        !isOpenMPParallelDirective(DKind))
+    if (!isOpenMPLoopDirective(DKind) && !isOpenMPParallelDirective(DKind) &&
+        DKind != OMPD_task && DKind != OMPD_target)
       return;
+
+    // Add clause for implicit use of the 'this' pointer.
+    if (Directive.hasAssociatedStmt() &&
+        isAllowedClauseForDirective(DKind, OMPC_shared)) {
+      if (const Stmt *AS = Directive.getAssociatedStmt()) {
+        auto CS = cast<CapturedStmt>(AS);
+        for (auto &C : CS->captures()) {
+          if (!C.capturesThis())
+            continue;
+
+          CurrentClauseKind = OMPC_shared;
+          addArg("QUAL.OMP.SHARED");
+          addArg(CGF.LoadCXXThis());
+          emitListClause();
+          CurrentClauseKind = OMPC_unknown;
+          break;
+        }
+      }
+    }
 
     for (const auto *VD : VarRefs) {
       if (isExplicit(VD)) continue;
@@ -535,7 +559,7 @@ namespace CGIntelOpenMP {
           emitImplicit(VD, ICK_map_tofrom);
         else
           emitImplicit(VD, ICK_firstprivate);
-      } else if (DKind != OMPD_simd && DKind != OMPD_for) {
+      } else if (isAllowedClauseForDirective(DKind, OMPC_shared)) {
         // Referenced but not defined in the region: shared
         emitImplicit(VD, ICK_shared);
       }
@@ -545,11 +569,13 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::addRefsToOuter() {
     if (CGF.CapturedStmtInfo) {
       for (const auto *VD : VarDefs) {
-        if (isImplicit(VD)) continue;
+        if (isUnspecifiedImplicit(VD))
+          continue;
         CGF.CapturedStmtInfo->recordVariableDefinition(VD);
       }
       for (const auto *VD : VarRefs) {
-        if (isImplicit(VD)) continue;
+        if (isUnspecifiedImplicit(VD))
+          continue;
         CGF.CapturedStmtInfo->recordVariableReference(VD);
       }
       for (const auto *VD : ExplicitRefs) {
@@ -574,10 +600,14 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     addArg("QUAL.OMP.SHARED");
-    for (auto *E : Cl->varlists())
+    for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       addArg(E);
+    }
     emitListClause();
   }
+
   void OpenMPCodeOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
     auto IPriv = Cl->private_copies().begin();
     for (auto *E : Cl->varlists()) {
@@ -643,16 +673,16 @@ namespace CGIntelOpenMP {
   template <typename RedClause>
   void OpenMPCodeOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
                                                         StringRef QualName) {
-    SmallString<64> Op;
-    Op += "QUAL.OMP.";
-    Op += QualName;
-    Op += ".";
     OverloadedOperatorKind OOK =
         Cl->getNameInfo().getName().getCXXOverloadedOperator();
     auto I = Cl->reduction_ops().begin();
     for (auto *E : Cl->varlists()) {
       addExplicit(E);
       assert(isa<BinaryOperator>((*I)->IgnoreImpCasts()));
+      SmallString<64> Op;
+      Op += "QUAL.OMP.";
+      Op += QualName;
+      Op += ".";
       switch (OOK) {
       case OO_Plus:
         Op += "ADD";
@@ -837,6 +867,15 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::emitOMPFirstprivateClause(
                                   const OMPFirstprivateClause *Cl) {
+    if (Cl->isImplicit()) {
+      for (const auto *E : Cl->varlists()) {
+        if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+          ImplicitMap.insert(std::make_pair(cast<VarDecl>(DRE->getDecl()),
+                                            ICK_specified_firstprivate));
+        }
+      }
+      return;
+    }
     auto *IPriv = Cl->private_copies().begin();
     for (auto *E : Cl->varlists()) {
       auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
@@ -1148,7 +1187,7 @@ namespace CGIntelOpenMP {
     SmallString<64> SchedString;
     switch (Cl->getDistScheduleKind()) {
     case OMPC_DIST_SCHEDULE_static:
-      SchedString = "QUAL.OMP.DIST.SCHEDULE.STATIC";
+      SchedString = "QUAL.OMP.DIST_SCHEDULE.STATIC";
       break;
     case OMPC_DIST_SCHEDULE_unknown:
       llvm_unreachable("Unknown schedule clause");
@@ -1453,6 +1492,16 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPDistributeDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE", "DIR.OMP.END.DISTRIBUTE");
   }
+  void OpenMPCodeOutliner::emitOMPDistributeParallelForDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE.PARLOOP",
+                               "DIR.OMP.END.DISTRIBUTE.PARLOOP");
+  }
+  void OpenMPCodeOutliner::emitOMPDistributeParallelForSimdDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE.PARLOOP",
+                               "DIR.OMP.END.DISTRIBUTE.PARLOOP",
+                               OMPD_distribute_parallel_for);
+    startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
+  }
   void OpenMPCodeOutliner::emitOMPSectionsDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.SECTIONS", "DIR.OMP.END.SECTIONS");
   }
@@ -1499,8 +1548,6 @@ namespace CGIntelOpenMP {
   OpenMPCodeOutliner &OpenMPCodeOutliner::
   operator<<(ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
-      if (C->isImplicit())
-        continue;
       CurrentClauseKind = C->getClauseKind();
       switch (CurrentClauseKind) {
 #define OPENMP_CLAUSE(Name, Class)                                             \

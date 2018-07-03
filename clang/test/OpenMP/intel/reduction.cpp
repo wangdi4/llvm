@@ -274,4 +274,16 @@ void foo2(int *d) {
   }
 //CHECK: call void @llvm.directive.region.exit(token [[TOK0]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKGROUP"() ]
+
+//CHECK: [[TOK16:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i64* [[N9_ADDR]])
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i64* [[N10_ADDR]])
+  #pragma omp parallel for reduction(+ : n9, n10)
+  for (int i = 0; i < 10; i++) {
+    n9++;
+    n10++;
+  }
+//CHECK: call void @llvm.directive.region.exit(token [[TOK16]])
+//CHECK-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 }
