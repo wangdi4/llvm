@@ -14,6 +14,7 @@
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/LineTable.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/Utility/Timer.h"
 
@@ -30,24 +31,135 @@ using namespace std;
 
 extern int g_verbose;
 
-DWARFUnit::DWARFUnit(SymbolFileDWARF *dwarf) : m_dwarf(dwarf) {}
+DWARFUnit::DWARFUnit(SymbolFileDWARF *dwarf)
+    : m_dwarf(dwarf), m_cancel_scopes(false) {}
 
 DWARFUnit::~DWARFUnit() {}
 
 //----------------------------------------------------------------------
-// ParseCompileUnitDIEsIfNeeded
-//
-// Parses a compile unit and indexes its DIEs if it hasn't already been done.
+// Parses first DIE of a compile unit.
 //----------------------------------------------------------------------
-size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
-  const size_t initial_die_array_size = m_die_array.size();
-  if ((cu_die_only && initial_die_array_size > 0) || initial_die_array_size > 1)
-    return 0; // Already parsed
+void DWARFUnit::ExtractUnitDIEIfNeeded() {
+  {
+    llvm::sys::ScopedReader lock(m_first_die_mutex);
+    if (m_first_die)
+      return; // Already parsed
+  }
+  llvm::sys::ScopedWriter lock(m_first_die_mutex);
+  if (m_first_die)
+    return; // Already parsed
 
   static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
   Timer scoped_timer(
-      func_cat, "%8.8x: DWARFUnit::ExtractDIEsIfNeeded( cu_die_only = %i )",
-      m_offset, cu_die_only);
+      func_cat, "%8.8x: DWARFUnit::ExtractUnitDIEIfNeeded()", m_offset);
+
+  // Set the offset to that of the first DIE and calculate the start of the
+  // next compilation unit header.
+  lldb::offset_t offset = GetFirstDIEOffset();
+
+  // We are in our compile unit, parse starting at the offset we were told to
+  // parse
+  const DWARFDataExtractor &data = GetData();
+  DWARFFormValue::FixedFormSizes fixed_form_sizes =
+      DWARFFormValue::GetFixedFormSizesForAddressSize(GetAddressByteSize(),
+                                                      IsDWARF64());
+  if (offset < GetNextCompileUnitOffset() &&
+      m_first_die.FastExtract(data, this, fixed_form_sizes, &offset)) {
+    AddUnitDIE(m_first_die);
+    return;
+  }
+
+  ExtractDIEsEndCheck(offset);
+}
+
+//----------------------------------------------------------------------
+// Parses a compile unit and indexes its DIEs if it hasn't already been done.
+// It will leave this compile unit extracted forever.
+//----------------------------------------------------------------------
+void DWARFUnit::ExtractDIEsIfNeeded() {
+  m_cancel_scopes = true;
+
+  {
+    llvm::sys::ScopedReader lock(m_die_array_mutex);
+    if (!m_die_array.empty())
+      return; // Already parsed
+  }
+  llvm::sys::ScopedWriter lock(m_die_array_mutex);
+  if (!m_die_array.empty())
+    return; // Already parsed
+
+  ExtractDIEsRWLocked();
+}
+
+//----------------------------------------------------------------------
+// Parses a compile unit and indexes its DIEs if it hasn't already been done.
+// It will clear this compile unit after returned instance gets out of scope,
+// no other ScopedExtractDIEs instance is running for this compile unit
+// and no ExtractDIEsIfNeeded() has been executed during this ScopedExtractDIEs
+// lifetime.
+//----------------------------------------------------------------------
+DWARFUnit::ScopedExtractDIEs DWARFUnit::ExtractDIEsScoped() {
+  ScopedExtractDIEs scoped(this);
+
+  {
+    llvm::sys::ScopedReader lock(m_die_array_mutex);
+    if (!m_die_array.empty())
+      return scoped; // Already parsed
+  }
+  llvm::sys::ScopedWriter lock(m_die_array_mutex);
+  if (!m_die_array.empty())
+    return scoped; // Already parsed
+
+  // Otherwise m_die_array would be already populated.
+  lldbassert(!m_cancel_scopes);
+
+  ExtractDIEsRWLocked();
+  scoped.m_clear_dies = true;
+  return scoped;
+}
+
+DWARFUnit::ScopedExtractDIEs::ScopedExtractDIEs(DWARFUnit *cu) : m_cu(cu) {
+  lldbassert(m_cu);
+  m_cu->m_die_array_scoped_mutex.lock_shared();
+}
+
+DWARFUnit::ScopedExtractDIEs::~ScopedExtractDIEs() {
+  if (!m_cu)
+    return;
+  m_cu->m_die_array_scoped_mutex.unlock_shared();
+  if (!m_clear_dies || m_cu->m_cancel_scopes)
+    return;
+  // Be sure no other ScopedExtractDIEs is running anymore.
+  llvm::sys::ScopedWriter lock_scoped(m_cu->m_die_array_scoped_mutex);
+  llvm::sys::ScopedWriter lock(m_cu->m_die_array_mutex);
+  if (m_cu->m_cancel_scopes)
+    return;
+  m_cu->ClearDIEsRWLocked();
+}
+
+DWARFUnit::ScopedExtractDIEs::ScopedExtractDIEs(ScopedExtractDIEs &&rhs)
+    : m_cu(rhs.m_cu), m_clear_dies(rhs.m_clear_dies) {
+  rhs.m_cu = nullptr;
+}
+
+DWARFUnit::ScopedExtractDIEs &DWARFUnit::ScopedExtractDIEs::operator=(
+    DWARFUnit::ScopedExtractDIEs &&rhs) {
+  m_cu = rhs.m_cu;
+  rhs.m_cu = nullptr;
+  m_clear_dies = rhs.m_clear_dies;
+  return *this;
+}
+
+//----------------------------------------------------------------------
+// Parses a compile unit and indexes its DIEs, m_die_array_mutex must be
+// held R/W and m_die_array must be empty.
+//----------------------------------------------------------------------
+void DWARFUnit::ExtractDIEsRWLocked() {
+  llvm::sys::ScopedWriter first_die_lock(m_first_die_mutex);
+
+  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+  Timer scoped_timer(
+      func_cat, "%8.8x: DWARFUnit::ExtractDIEsIfNeeded()", m_offset);
 
   // Set the offset to that of the first DIE and calculate the start of the
   // next compilation unit header.
@@ -56,16 +168,14 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
 
   DWARFDebugInfoEntry die;
   // Keep a flat array of the DIE for binary lookup by DIE offset
-  if (!cu_die_only) {
-    Log *log(
-        LogChannelDWARF::GetLogIfAny(DWARF_LOG_DEBUG_INFO | DWARF_LOG_LOOKUPS));
-    if (log) {
-      m_dwarf->GetObjectFile()->GetModule()->LogMessageVerboseBacktrace(
-          log,
-          "DWARFUnit::ExtractDIEsIfNeeded () for compile unit at "
-          ".debug_info[0x%8.8x]",
-          GetOffset());
-    }
+  Log *log(
+      LogChannelDWARF::GetLogIfAny(DWARF_LOG_DEBUG_INFO | DWARF_LOG_LOOKUPS));
+  if (log) {
+    m_dwarf->GetObjectFile()->GetModule()->LogMessageVerboseBacktrace(
+        log,
+        "DWARFUnit::ExtractDIEsIfNeeded () for compile unit at "
+        ".debug_info[0x%8.8x]",
+        GetOffset());
   }
 
   uint32_t depth = 0;
@@ -90,16 +200,21 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
 
     const bool null_die = die.IsNULL();
     if (depth == 0) {
-      if (initial_die_array_size == 0)
-        AddUnitDIE(die);
-      uint64_t base_addr = die.GetAttributeValueAsAddress(
-          m_dwarf, this, DW_AT_low_pc, LLDB_INVALID_ADDRESS);
-      if (base_addr == LLDB_INVALID_ADDRESS)
-        base_addr =
-            die.GetAttributeValueAsAddress(m_dwarf, this, DW_AT_entry_pc, 0);
-      SetBaseAddress(base_addr);
-      if (cu_die_only)
-        return 1;
+      assert(m_die_array.empty() && "Compile unit DIE already added");
+
+      // The average bytes per DIE entry has been seen to be around 14-20 so
+      // lets pre-reserve half of that since we are now stripping the NULL
+      // tags.
+
+      // Only reserve the memory if we are adding children of the main
+      // compile unit DIE. The compile unit DIE is always the first entry, so
+      // if our size is 1, then we are adding the first compile unit child
+      // DIE and should reserve the memory.
+      m_die_array.reserve(GetDebugInfoSize() / 24);
+      m_die_array.push_back(die);
+
+      if (!m_first_die)
+        AddUnitDIE(m_die_array.front());
     } else {
       if (null_die) {
         if (prev_die_had_children) {
@@ -145,25 +260,35 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
     }
   }
 
+  if (!m_die_array.empty()) {
+    lldbassert(!m_first_die || m_first_die == m_die_array.front());
+    m_first_die = m_die_array.front();
+  }
+
+  m_die_array.shrink_to_fit();
+
+  ExtractDIEsEndCheck(offset);
+
+  if (m_dwo_symbol_file) {
+    DWARFUnit *dwo_cu = m_dwo_symbol_file->GetCompileUnit();
+    dwo_cu->ExtractDIEsIfNeeded();
+  }
+}
+
+//--------------------------------------------------------------------------
+// Final checks for both ExtractUnitDIEIfNeeded() and ExtractDIEsIfNeeded().
+//--------------------------------------------------------------------------
+void DWARFUnit::ExtractDIEsEndCheck(lldb::offset_t offset) const {
   // Give a little bit of info if we encounter corrupt DWARF (our offset should
   // always terminate at or before the start of the next compilation unit
   // header).
-  if (offset > next_cu_offset) {
+  if (offset > GetNextCompileUnitOffset()) {
     m_dwarf->GetObjectFile()->GetModule()->ReportWarning(
         "DWARF compile unit extends beyond its bounds cu 0x%8.8x at "
         "0x%8.8" PRIx64 "\n",
         GetOffset(), offset);
   }
 
-  // Since std::vector objects will double their size, we really need to make a
-  // new array with the perfect size so we don't end up wasting space. So here
-  // we copy and swap to make sure we don't have any extra memory taken up.
-
-  if (m_die_array.size() < m_die_array.capacity()) {
-    DWARFDebugInfoEntry::collection exact_size_die_array(m_die_array.begin(),
-                                                         m_die_array.end());
-    exact_size_die_array.swap(m_die_array);
-  }
   Log *log(LogChannelDWARF::GetLogIfAll(DWARF_LOG_DEBUG_INFO));
   if (log && log->GetVerbose()) {
     StreamString strm;
@@ -174,30 +299,17 @@ size_t DWARFUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
       m_die_array[0].Dump(m_dwarf, this, strm, UINT32_MAX);
     log->PutString(strm.GetString());
   }
-
-  if (!m_dwo_symbol_file)
-    return m_die_array.size();
-
-  DWARFUnit *dwo_cu = m_dwo_symbol_file->GetCompileUnit();
-  size_t dwo_die_count = dwo_cu->ExtractDIEsIfNeeded(cu_die_only);
-  return m_die_array.size() + dwo_die_count -
-         1; // We have 2 CU die, but we want to count it only as one
 }
 
-void DWARFUnit::AddUnitDIE(DWARFDebugInfoEntry &die) {
-  assert(m_die_array.empty() && "Compile unit DIE already added");
+// m_die_array_mutex must be already held as read/write.
+void DWARFUnit::AddUnitDIE(const DWARFDebugInfoEntry &cu_die) {
+  uint64_t base_addr = cu_die.GetAttributeValueAsAddress(
+      m_dwarf, this, DW_AT_low_pc, LLDB_INVALID_ADDRESS);
+  if (base_addr == LLDB_INVALID_ADDRESS)
+    base_addr = cu_die.GetAttributeValueAsAddress(
+        m_dwarf, this, DW_AT_entry_pc, 0);
+  SetBaseAddress(base_addr);
 
-  // The average bytes per DIE entry has been seen to be around 14-20 so lets
-  // pre-reserve half of that since we are now stripping the NULL tags.
-  
-  // Only reserve the memory if we are adding children of the main compile unit
-  // DIE. The compile unit DIE is always the first entry, so if our size is 1,
-  // then we are adding the first compile unit child DIE and should reserve the
-  // memory.
-  m_die_array.reserve(GetDebugInfoSize() / 24);
-  m_die_array.push_back(die);
-
-  const DWARFDebugInfoEntry &cu_die = m_die_array.front();
   std::unique_ptr<SymbolFileDWARFDwo> dwo_symbol_file =
       m_dwarf->GetDwoSymbolFileForCompileUnit(*this, cu_die);
   if (!dwo_symbol_file)
@@ -243,11 +355,14 @@ size_t DWARFUnit::AppendDIEsWithTag(const dw_tag_t tag,
 				    DWARFDIECollection &dies,
 				    uint32_t depth) const {
   size_t old_size = dies.Size();
-  DWARFDebugInfoEntry::const_iterator pos;
-  DWARFDebugInfoEntry::const_iterator end = m_die_array.end();
-  for (pos = m_die_array.begin(); pos != end; ++pos) {
-    if (pos->Tag() == tag)
-      dies.Append(DWARFDIE(this, &(*pos)));
+  {
+    llvm::sys::ScopedReader lock(m_die_array_mutex);
+    DWARFDebugInfoEntry::const_iterator pos;
+    DWARFDebugInfoEntry::const_iterator end = m_die_array.end();
+    for (pos = m_die_array.begin(); pos != end; ++pos) {
+      if (pos->Tag() == tag)
+        dies.Append(DWARFDIE(this, &(*pos)));
+    }
   }
 
   // Return the number of DIEs added to the collection
@@ -288,23 +403,13 @@ void DWARFUnit::SetAddrBase(dw_addr_t addr_base,
   m_base_obj_offset = base_obj_offset;
 }
 
-void DWARFUnit::ClearDIEs() {
-  if (m_die_array.size() > 1) {
-    // std::vectors never get any smaller when resized to a smaller size, or
-    // when clear() or erase() are called, the size will report that it is
-    // smaller, but the memory allocated remains intact (call capacity() to see
-    // this). So we need to create a temporary vector and swap the contents
-    // which will cause just the internal pointers to be swapped so that when
-    // "tmp_array" goes out of scope, it will destroy the contents.
-
-    // Save at least the compile unit DIE
-    DWARFDebugInfoEntry::collection tmp_array;
-    m_die_array.swap(tmp_array);
-    m_die_array.push_back(tmp_array.front());
-  }
+// It may be called only with m_die_array_mutex held R/W.
+void DWARFUnit::ClearDIEsRWLocked() {
+  m_die_array.clear();
+  m_die_array.shrink_to_fit();
 
   if (m_dwo_symbol_file)
-    m_dwo_symbol_file->GetCompileUnit()->ClearDIEs();
+    m_dwo_symbol_file->GetCompileUnit()->ClearDIEsRWLocked();
 }
 
 void DWARFUnit::BuildAddressRangeTable(SymbolFileDWARF *dwarf,
@@ -342,7 +447,7 @@ void DWARFUnit::BuildAddressRangeTable(SymbolFileDWARF *dwarf,
   // If the DIEs weren't parsed, then we don't want all dies for all compile
   // units to stay loaded when they weren't needed. So we can end up parsing
   // the DWARF and then throwing them all away to keep memory usage down.
-  const bool clear_dies = ExtractDIEsIfNeeded(false) > 1;
+  ScopedExtractDIEs clear_dies(ExtractDIEsScoped());
 
   die = DIEPtr();
   if (die)
@@ -398,11 +503,6 @@ void DWARFUnit::BuildAddressRangeTable(SymbolFileDWARF *dwarf,
       }
     }
   }
-
-  // Keep memory down by clearing DIEs if this generate function caused them to
-  // be parsed
-  if (clear_dies)
-    ClearDIEs();
 }
 
 lldb::ByteOrder DWARFUnit::GetByteOrder() const {
@@ -422,8 +522,6 @@ DWARFFormValue::FixedFormSizes DWARFUnit::GetFixedFormSizes() {
 }
 
 void DWARFUnit::SetBaseAddress(dw_addr_t base_addr) { m_base_addr = base_addr; }
-
-bool DWARFUnit::HasDIEsParsed() const { return m_die_array.size() > 1; }
 
 //----------------------------------------------------------------------
 // Compare function DWARFDebugAranges::Range structures
@@ -447,7 +545,7 @@ DWARFUnit::GetDIE(dw_offset_t die_offset) {
       return GetDwoSymbolFile()->GetCompileUnit()->GetDIE(die_offset);
 
     if (ContainsDIEOffset(die_offset)) {
-      ExtractDIEsIfNeeded(false);
+      ExtractDIEsIfNeeded();
       DWARFDebugInfoEntry::const_iterator end = m_die_array.cend();
       DWARFDebugInfoEntry::const_iterator pos =
           lower_bound(m_die_array.cbegin(), end, die_offset, CompareDIEOffset);

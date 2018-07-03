@@ -1200,6 +1200,7 @@ AddressClass ObjectFileMachO::GetAddressClass(lldb::addr_t file_addr) {
           case eSectionTypeDWARFDebugLoc:
           case eSectionTypeDWARFDebugMacInfo:
           case eSectionTypeDWARFDebugMacro:
+          case eSectionTypeDWARFDebugNames:
           case eSectionTypeDWARFDebugPubNames:
           case eSectionTypeDWARFDebugPubTypes:
           case eSectionTypeDWARFDebugRanges:
@@ -1455,6 +1456,7 @@ static lldb::SectionType GetSectionType(uint32_t flags,
   static ConstString g_sect_name_dwarf_debug_line("__debug_line");
   static ConstString g_sect_name_dwarf_debug_loc("__debug_loc");
   static ConstString g_sect_name_dwarf_debug_macinfo("__debug_macinfo");
+  static ConstString g_sect_name_dwarf_debug_names("__debug_names");
   static ConstString g_sect_name_dwarf_debug_pubnames("__debug_pubnames");
   static ConstString g_sect_name_dwarf_debug_pubtypes("__debug_pubtypes");
   static ConstString g_sect_name_dwarf_debug_ranges("__debug_ranges");
@@ -1484,6 +1486,8 @@ static lldb::SectionType GetSectionType(uint32_t flags,
     return eSectionTypeDWARFDebugLoc;
   if (section_name == g_sect_name_dwarf_debug_macinfo)
     return eSectionTypeDWARFDebugMacInfo;
+  if (section_name == g_sect_name_dwarf_debug_names)
+    return eSectionTypeDWARFDebugNames;
   if (section_name == g_sect_name_dwarf_debug_pubnames)
     return eSectionTypeDWARFDebugPubNames;
   if (section_name == g_sect_name_dwarf_debug_pubtypes)
@@ -4001,8 +4005,8 @@ size_t ObjectFileMachO::ParseSymtab() {
                     // that looks like "/tmp/src//tmp/src/"
                     FileSpec so_dir(so_path, false);
                     if (!so_dir.Exists()) {
-                      so_dir.SetFile(&full_so_path[double_slash_pos + 1],
-                                     false);
+                      so_dir.SetFile(&full_so_path[double_slash_pos + 1], false,
+                                     FileSpec::Style::native);
                       if (so_dir.Exists()) {
                         // Trim off the incorrect path
                         full_so_path.erase(0, double_slash_pos + 1);
@@ -5545,8 +5549,7 @@ ObjectFile::Strata ObjectFileMachO::CalculateStrata() {
   return eStrataUnknown;
 }
 
-uint32_t ObjectFileMachO::GetVersion(uint32_t *versions,
-                                     uint32_t num_versions) {
+llvm::VersionTuple ObjectFileMachO::GetVersion() {
   ModuleSP module_sp(GetModule());
   if (module_sp) {
     std::lock_guard<std::recursive_mutex> guard(module_sp->GetMutex());
@@ -5574,23 +5577,13 @@ uint32_t ObjectFileMachO::GetVersion(uint32_t *versions,
     }
 
     if (version_cmd == LC_ID_DYLIB) {
-      if (versions != NULL && num_versions > 0) {
-        if (num_versions > 0)
-          versions[0] = (version & 0xFFFF0000ull) >> 16;
-        if (num_versions > 1)
-          versions[1] = (version & 0x0000FF00ull) >> 8;
-        if (num_versions > 2)
-          versions[2] = (version & 0x000000FFull);
-        // Fill in an remaining version numbers with invalid values
-        for (i = 3; i < num_versions; ++i)
-          versions[i] = UINT32_MAX;
-      }
-      // The LC_ID_DYLIB load command has a version with 3 version numbers in
-      // it, so always return 3
-      return 3;
+      unsigned major = (version & 0xFFFF0000ull) >> 16;
+      unsigned minor = (version & 0x0000FF00ull) >> 8;
+      unsigned subminor = (version & 0x000000FFull);
+      return llvm::VersionTuple(major, minor, subminor);
     }
   }
-  return false;
+  return llvm::VersionTuple();
 }
 
 bool ObjectFileMachO::GetArchitecture(ArchSpec &arch) {
@@ -5704,12 +5697,10 @@ void ObjectFileMachO::GetLLDBSharedCacheUUID(addr_t &base_addr, UUID &uuid) {
 #endif
 }
 
-uint32_t ObjectFileMachO::GetMinimumOSVersion(uint32_t *versions,
-                                              uint32_t num_versions) {
-  if (m_min_os_versions.empty()) {
+llvm::VersionTuple ObjectFileMachO::GetMinimumOSVersion() {
+  if (!m_min_os_version) {
     lldb::offset_t offset = MachHeaderSizeFromMagic(m_header.magic);
-    bool success = false;
-    for (uint32_t i = 0; success == false && i < m_header.ncmds; ++i) {
+    for (uint32_t i = 0; i < m_header.ncmds; ++i) {
       const lldb::offset_t load_cmd_offset = offset;
 
       version_min_command lc;
@@ -5725,35 +5716,21 @@ uint32_t ObjectFileMachO::GetMinimumOSVersion(uint32_t *versions,
           const uint32_t yy = (lc.version >> 8) & 0xffu;
           const uint32_t zz = lc.version & 0xffu;
           if (xxxx) {
-            m_min_os_versions.push_back(xxxx);
-            m_min_os_versions.push_back(yy);
-            m_min_os_versions.push_back(zz);
+            m_min_os_version = llvm::VersionTuple(xxxx, yy, zz);
+            break;
           }
-          success = true;
         }
       }
       offset = load_cmd_offset + lc.cmdsize;
     }
 
-    if (success == false) {
-      // Push an invalid value so we don't keep trying to
-      m_min_os_versions.push_back(UINT32_MAX);
+    if (!m_min_os_version) {
+      // Set version to an empty value so we don't keep trying to
+      m_min_os_version = llvm::VersionTuple();
     }
   }
 
-  if (m_min_os_versions.size() > 1 || m_min_os_versions[0] != UINT32_MAX) {
-    if (versions != NULL && num_versions > 0) {
-      for (size_t i = 0; i < num_versions; ++i) {
-        if (i < m_min_os_versions.size())
-          versions[i] = m_min_os_versions[i];
-        else
-          versions[i] = 0;
-      }
-    }
-    return m_min_os_versions.size();
-  }
-  // Call the superclasses version that will empty out the data
-  return ObjectFile::GetMinimumOSVersion(versions, num_versions);
+  return *m_min_os_version;
 }
 
 uint32_t ObjectFileMachO::GetSDKVersion(uint32_t *versions,

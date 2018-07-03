@@ -19,12 +19,34 @@
 #include "Assembler.h"
 #include "BenchmarkResult.h"
 #include "LlvmState.h"
+#include "MCInstrDescView.h"
 #include "RegisterAliasing.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/Error.h"
 #include <vector>
 
 namespace exegesis {
+
+// A class representing failures that happened during Benchmark, they are used
+// to report informations to the user.
+class BenchmarkFailure : public llvm::StringError {
+public:
+  BenchmarkFailure(const llvm::Twine &S);
+};
+
+// A collection of instructions that are to be assembled, executed and measured.
+struct BenchmarkConfiguration {
+  // This code is run before the Snippet is iterated. Since it is part of the
+  // measurement it should be as short as possible. It is usually used to setup
+  // the content of the Registers.
+  std::vector<llvm::MCInst> SnippetSetup;
+
+  // The sequence of instructions that are to be repeated.
+  std::vector<llvm::MCInst> Snippet;
+
+  // Informations about how this configuration was built.
+  std::string Info;
+};
 
 // Common code for all benchmark modes.
 class BenchmarkRunner {
@@ -45,20 +67,29 @@ public:
 
   virtual ~BenchmarkRunner();
 
-  InstructionBenchmark run(unsigned Opcode, const InstructionFilter &Filter,
-                           unsigned NumRepetitions);
+  llvm::Expected<std::vector<InstructionBenchmark>>
+  run(unsigned Opcode, const InstructionFilter &Filter,
+      unsigned NumRepetitions);
 
 protected:
   const LLVMState &State;
   const llvm::MCInstrInfo &MCInstrInfo;
   const llvm::MCRegisterInfo &MCRegisterInfo;
+  const RegisterAliasingTrackerCache RATC;
 
 private:
-  virtual const char *getDisplayName() const = 0;
+  InstructionBenchmark runOne(const BenchmarkConfiguration &Configuration,
+                              unsigned Opcode, unsigned NumRepetitions) const;
 
-  virtual llvm::Expected<std::vector<llvm::MCInst>>
-  createSnippet(RegisterAliasingTrackerCache &RATC, unsigned Opcode,
-                llvm::raw_ostream &Debug) const = 0;
+  // Calls generatePrototype and expands the SnippetPrototype into one or more
+  // BenchmarkConfiguration.
+  llvm::Expected<std::vector<BenchmarkConfiguration>>
+  generateConfigurations(unsigned Opcode) const;
+
+  virtual InstructionBenchmark::ModeE getMode() const = 0;
+
+  virtual llvm::Expected<SnippetPrototype>
+  generatePrototype(unsigned Opcode) const = 0;
 
   virtual std::vector<BenchmarkMeasure>
   runMeasurements(const ExecutableFunction &EF,
@@ -66,8 +97,8 @@ private:
 
   llvm::Expected<std::string>
   writeObjectFile(llvm::ArrayRef<llvm::MCInst> Code) const;
-
-  RegisterAliasingTrackerCache RATC;
+  llvm::Expected<ExecutableFunction>
+  createExecutableFunction(llvm::ArrayRef<llvm::MCInst> Code) const;
 };
 
 } // namespace exegesis

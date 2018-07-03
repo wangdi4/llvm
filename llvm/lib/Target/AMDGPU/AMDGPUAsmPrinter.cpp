@@ -116,6 +116,10 @@ AMDGPUTargetStreamer* AMDGPUAsmPrinter::getTargetStreamer() const {
 }
 
 void AMDGPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
+  if (IsaInfo::hasCodeObjectV3(getSTI()) &&
+      TM.getTargetTriple().getOS() == Triple::AMDHSA)
+    return;
+
   if (TM.getTargetTriple().getOS() != Triple::AMDHSA &&
       TM.getTargetTriple().getOS() != Triple::AMDPAL)
     return;
@@ -125,10 +129,6 @@ void AMDGPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
 
   if (TM.getTargetTriple().getOS() == Triple::AMDPAL)
     readPALMetadata(M);
-
-  // Deprecated notes are not emitted for code object v3.
-  if (IsaInfo::hasCodeObjectV3(getSTI()->getFeatureBits()))
-    return;
 
   // HSA emits NT_AMDGPU_HSA_CODE_OBJECT_VERSION for code objects v2.
   if (TM.getTargetTriple().getOS() == Triple::AMDHSA)
@@ -141,6 +141,10 @@ void AMDGPUAsmPrinter::EmitStartOfAsmFile(Module &M) {
 }
 
 void AMDGPUAsmPrinter::EmitEndOfAsmFile(Module &M) {
+  // TODO: Add metadata to code object v3.
+  if (IsaInfo::hasCodeObjectV3(getSTI()) &&
+      TM.getTargetTriple().getOS() == Triple::AMDHSA)
+    return;
 
   // Following code requires TargetStreamer to be present.
   if (!getTargetStreamer())
@@ -186,13 +190,16 @@ bool AMDGPUAsmPrinter::isBlockOnlyReachableByFallthrough(
 }
 
 void AMDGPUAsmPrinter::EmitFunctionBodyStart() {
-  const AMDGPUMachineFunction *MFI = MF->getInfo<AMDGPUMachineFunction>();
-  if (!MFI->isEntryFunction())
+  const SIMachineFunctionInfo &MFI = *MF->getInfo<SIMachineFunctionInfo>();
+  if (!MFI.isEntryFunction())
+    return;
+  if (IsaInfo::hasCodeObjectV3(getSTI()) &&
+      TM.getTargetTriple().getOS() == Triple::AMDHSA)
     return;
 
   const AMDGPUSubtarget &STM = MF->getSubtarget<AMDGPUSubtarget>();
   amd_kernel_code_t KernelCode;
-  if (STM.isAmdCodeObjectV2(*MF)) {
+  if (STM.isAmdCodeObjectV2(MF->getFunction())) {
     getAmdKernelCode(KernelCode, CurrentProgramInfo, *MF);
     getTargetStreamer()->EmitAMDKernelCodeT(KernelCode);
   }
@@ -205,10 +212,46 @@ void AMDGPUAsmPrinter::EmitFunctionBodyStart() {
                                getHSADebugProps(*MF, CurrentProgramInfo));
 }
 
+void AMDGPUAsmPrinter::EmitFunctionBodyEnd() {
+  const SIMachineFunctionInfo &MFI = *MF->getInfo<SIMachineFunctionInfo>();
+  if (!MFI.isEntryFunction())
+    return;
+  if (!IsaInfo::hasCodeObjectV3(getSTI()) ||
+      TM.getTargetTriple().getOS() != Triple::AMDHSA)
+    return;
+
+  auto &Streamer = getTargetStreamer()->getStreamer();
+  auto &Context = Streamer.getContext();
+  auto &ObjectFileInfo = *Context.getObjectFileInfo();
+  auto &ReadOnlySection = *ObjectFileInfo.getReadOnlySection();
+
+  Streamer.PushSection();
+  Streamer.SwitchSection(&ReadOnlySection);
+
+  // CP microcode requires the kernel descriptor to be allocated on 64 byte
+  // alignment.
+  Streamer.EmitValueToAlignment(64, 0, 1, 0);
+  if (ReadOnlySection.getAlignment() < 64)
+    ReadOnlySection.setAlignment(64);
+
+  SmallString<128> KernelName;
+  getNameWithPrefix(KernelName, &MF->getFunction());
+  getTargetStreamer()->EmitAmdhsaKernelDescriptor(
+      KernelName, getAmdhsaKernelDescriptor(*MF, CurrentProgramInfo));
+
+  Streamer.PopSection();
+}
+
 void AMDGPUAsmPrinter::EmitFunctionEntryLabel() {
+  if (IsaInfo::hasCodeObjectV3(getSTI()) &&
+      TM.getTargetTriple().getOS() == Triple::AMDHSA) {
+    AsmPrinter::EmitFunctionEntryLabel();
+    return;
+  }
+
   const SIMachineFunctionInfo *MFI = MF->getInfo<SIMachineFunctionInfo>();
   const AMDGPUSubtarget &STM = MF->getSubtarget<AMDGPUSubtarget>();
-  if (MFI->isEntryFunction() && STM.isAmdCodeObjectV2(*MF)) {
+  if (MFI->isEntryFunction() && STM.isAmdCodeObjectV2(MF->getFunction())) {
     SmallString<128> SymbolName;
     getNameWithPrefix(SymbolName, &MF->getFunction()),
     getTargetStreamer()->EmitAMDGPUSymbolType(
@@ -286,6 +329,70 @@ void AMDGPUAsmPrinter::emitCommonFunctionComments(
   OutStreamer->emitRawComment(" ScratchSize: " + Twine(ScratchSize), false);
   OutStreamer->emitRawComment(" MemoryBound: " + Twine(MFI->isMemoryBound()),
                               false);
+}
+
+uint16_t AMDGPUAsmPrinter::getAmdhsaKernelCodeProperties(
+    const MachineFunction &MF) const {
+  const SIMachineFunctionInfo &MFI = *MF.getInfo<SIMachineFunctionInfo>();
+  uint16_t KernelCodeProperties = 0;
+
+  if (MFI.hasPrivateSegmentBuffer()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_PRIVATE_SEGMENT_BUFFER;
+  }
+  if (MFI.hasDispatchPtr()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_DISPATCH_PTR;
+  }
+  if (MFI.hasQueuePtr()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_QUEUE_PTR;
+  }
+  if (MFI.hasKernargSegmentPtr()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_KERNARG_SEGMENT_PTR;
+  }
+  if (MFI.hasDispatchID()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_DISPATCH_ID;
+  }
+  if (MFI.hasFlatScratchInit()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_FLAT_SCRATCH_INIT;
+  }
+  if (MFI.hasGridWorkgroupCountX()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_GRID_WORKGROUP_COUNT_X;
+  }
+  if (MFI.hasGridWorkgroupCountY()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_GRID_WORKGROUP_COUNT_Y;
+  }
+  if (MFI.hasGridWorkgroupCountZ()) {
+    KernelCodeProperties |=
+        amdhsa::KERNEL_CODE_PROPERTY_ENABLE_SGPR_GRID_WORKGROUP_COUNT_Z;
+  }
+
+  return KernelCodeProperties;
+}
+
+amdhsa::kernel_descriptor_t AMDGPUAsmPrinter::getAmdhsaKernelDescriptor(
+    const MachineFunction &MF,
+    const SIProgramInfo &PI) const {
+  amdhsa::kernel_descriptor_t KernelDescriptor;
+  memset(&KernelDescriptor, 0x0, sizeof(KernelDescriptor));
+
+  assert(isUInt<32>(PI.ScratchSize));
+  assert(isUInt<32>(PI.ComputePGMRSrc1));
+  assert(isUInt<32>(PI.ComputePGMRSrc2));
+
+  KernelDescriptor.group_segment_fixed_size = PI.LDSSize;
+  KernelDescriptor.private_segment_fixed_size = PI.ScratchSize;
+  KernelDescriptor.compute_pgm_rsrc1 = PI.ComputePGMRSrc1;
+  KernelDescriptor.compute_pgm_rsrc2 = PI.ComputePGMRSrc2;
+  KernelDescriptor.kernel_code_properties = getAmdhsaKernelCodeProperties(MF);
+
+  return KernelDescriptor;
 }
 
 bool AMDGPUAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
@@ -907,7 +1014,8 @@ void AMDGPUAsmPrinter::getSIProgramInfo(SIProgramInfo &ProgInfo,
   ProgInfo.ComputePGMRSrc2 =
       S_00B84C_SCRATCH_EN(ProgInfo.ScratchBlocks > 0) |
       S_00B84C_USER_SGPR(MFI->getNumUserSGPRs()) |
-      S_00B84C_TRAP_HANDLER(STM.isTrapHandlerEnabled()) |
+      // For AMDHSA, TRAP_HANDLER must be zero, as it is populated by the CP.
+      S_00B84C_TRAP_HANDLER(STM.isAmdHsaOS() ? 0 : STM.isTrapHandlerEnabled()) |
       S_00B84C_TGID_X_EN(MFI->hasWorkGroupIDX()) |
       S_00B84C_TGID_Y_EN(MFI->hasWorkGroupIDY()) |
       S_00B84C_TGID_Z_EN(MFI->hasWorkGroupIDZ()) |
@@ -1125,7 +1233,7 @@ void AMDGPUAsmPrinter::getAmdKernelCode(amd_kernel_code_t &Out,
 
   // FIXME: Should use getKernArgSize
   Out.kernarg_segment_byte_size =
-    STM.getKernArgSegmentSize(MF, MFI->getABIArgOffset());
+    STM.getKernArgSegmentSize(MF.getFunction(), MFI->getABIArgOffset());
   Out.wavefront_sgpr_count = CurrentProgramInfo.NumSGPR;
   Out.workitem_vgpr_count = CurrentProgramInfo.NumVGPR;
   Out.workitem_private_segment_byte_size = CurrentProgramInfo.ScratchSize;
@@ -1154,7 +1262,7 @@ AMDGPU::HSAMD::Kernel::CodeProps::Metadata AMDGPUAsmPrinter::getHSACodeProps(
   HSAMD::Kernel::CodeProps::Metadata HSACodeProps;
 
   HSACodeProps.mKernargSegmentSize =
-      STM.getKernArgSegmentSize(MF, MFI.getABIArgOffset());
+    STM.getKernArgSegmentSize(MF.getFunction(), MFI.getABIArgOffset());
   HSACodeProps.mGroupSegmentFixedSize = ProgramInfo.LDSSize;
   HSACodeProps.mPrivateSegmentFixedSize = ProgramInfo.ScratchSize;
   HSACodeProps.mKernargSegmentAlign =

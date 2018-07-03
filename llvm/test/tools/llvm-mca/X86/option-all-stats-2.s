@@ -36,8 +36,8 @@ add %eax, %eax
 # FULL:      Dispatch Logic - number of cycles where we saw N instructions dispatched:
 # FULL-NEXT: [# dispatched], [# cycles]
 # FULL-NEXT:  0,              22  (21.4%)
-# FULL-NEXT:  2,              19  (18.4%)
 # FULL-NEXT:  1,              62  (60.2%)
+# FULL-NEXT:  2,              19  (18.4%)
 
 # FULL:      Schedulers - number of cycles where we saw N instructions issued:
 # FULL-NEXT: [# issued], [# cycles]
@@ -91,4 +91,3 @@ add %eax, %eax
 # FULL:      Resource pressure by instruction:
 # FULL-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   Instructions:
 # FULL-NEXT: 0.50   0.50    -      -      -      -      -      -      -      -      -      -      -      -     addl	%eax, %eax
-

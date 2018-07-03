@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
@@ -434,18 +434,31 @@ llvm::RecursivelyDeleteTriviallyDeadInstructions(Value *V,
 
   SmallVector<Instruction*, 16> DeadInsts;
   DeadInsts.push_back(I);
+  RecursivelyDeleteTriviallyDeadInstructions(DeadInsts, TLI);
 
-  do {
-    I = DeadInsts.pop_back_val();
-    salvageDebugInfo(*I);
+  return true;
+}
+
+void llvm::RecursivelyDeleteTriviallyDeadInstructions(
+    SmallVectorImpl<Instruction *> &DeadInsts, const TargetLibraryInfo *TLI) {
+  // Process the dead instruction list until empty.
+  while (!DeadInsts.empty()) {
+    Instruction &I = *DeadInsts.pop_back_val();
+    assert(I.use_empty() && "Instructions with uses are not dead.");
+    assert(isInstructionTriviallyDead(&I, TLI) &&
+           "Live instruction found in dead worklist!");
+
+    // Don't lose the debug info while deleting the instructions.
+    salvageDebugInfo(I);
 
     // Null out all of the instruction's operands to see if any operand becomes
     // dead as we go.
-    for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i) {
-      Value *OpV = I->getOperand(i);
-      I->setOperand(i, nullptr);
+    for (Use &OpU : I.operands()) {
+      Value *OpV = OpU.get();
+      OpU.set(nullptr);
 
-      if (!OpV->use_empty()) continue;
+      if (!OpV->use_empty())
+        continue;
 
       // If the operand is an instruction that became dead as we nulled out the
       // operand, and if it is 'trivially' dead, delete it in a future loop
@@ -455,10 +468,8 @@ llvm::RecursivelyDeleteTriviallyDeadInstructions(Value *V,
           DeadInsts.push_back(OpI);
     }
 
-    I->eraseFromParent();
-  } while (!DeadInsts.empty());
-
-  return true;
+    I.eraseFromParent();
+  }
 }
 
 /// areAllUsesEqual - Check whether the uses of a value are all the same.
@@ -1217,6 +1228,23 @@ static bool PhiHasDebugValue(DILocalVariable *DIVar,
   return false;
 }
 
+/// Check if the alloc size of \p ValTy is large enough to cover the variable
+/// (or fragment of the variable) described by \p DII.
+///
+/// This is primarily intended as a helper for the different
+/// ConvertDebugDeclareToDebugValue functions. The dbg.declare/dbg.addr that is
+/// converted describes an alloca'd variable, so we need to use the
+/// alloc size of the value when doing the comparison. E.g. an i1 value will be
+/// identified as covering an n-bit fragment, if the store size of i1 is at
+/// least n bits.
+static bool valueCoversEntireFragment(Type *ValTy, DbgInfoIntrinsic *DII) {
+  const DataLayout &DL = DII->getModule()->getDataLayout();
+  uint64_t ValueSize = DL.getTypeAllocSizeInBits(ValTy);
+  if (auto FragmentSize = DII->getFragmentSizeInBits())
+    return ValueSize >= *FragmentSize;
+  return false;
+}
+
 /// Inserts a llvm.dbg.value intrinsic before a store to an alloca'd value
 /// that has an associated llvm.dbg.declare or llvm.dbg.addr intrinsic.
 void llvm::ConvertDebugDeclareToDebugValue(DbgInfoIntrinsic *DII,
@@ -1226,6 +1254,21 @@ void llvm::ConvertDebugDeclareToDebugValue(DbgInfoIntrinsic *DII,
   assert(DIVar && "Missing variable");
   auto *DIExpr = DII->getExpression();
   Value *DV = SI->getOperand(0);
+
+  if (!valueCoversEntireFragment(SI->getValueOperand()->getType(), DII)) {
+    // FIXME: If storing to a part of the variable described by the dbg.declare,
+    // then we want to insert a dbg.value for the corresponding fragment.
+    LLVM_DEBUG(dbgs() << "Failed to convert dbg.declare to dbg.value: "
+                      << *DII << '\n');
+    // For now, when there is a store to parts of the variable (but we do not
+    // know which part) we insert an dbg.value instrinsic to indicate that we
+    // know nothing about the variable's content.
+    DV = UndefValue::get(DV->getType());
+    if (!LdStHasDebugValue(DIVar, DIExpr, SI))
+      Builder.insertDbgValueIntrinsic(DV, DIVar, DIExpr, DII->getDebugLoc(),
+                                      SI);
+    return;
+  }
 
   // If an argument is zero extended then use argument directly. The ZExt
   // may be zapped by an optimization pass in future.

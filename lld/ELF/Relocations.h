@@ -77,9 +77,11 @@ enum RelExpr {
   R_TLSDESC,
   R_TLSDESC_CALL,
   R_TLSDESC_PAGE,
-  R_TLSGD,
+  R_TLSGD_GOT,
+  R_TLSGD_GOT_FROM_END,
   R_TLSGD_PC,
-  R_TLSLD,
+  R_TLSLD_GOT_FROM_END,
+  R_TLSLD_GOT,
   R_TLSLD_PC,
 };
 
@@ -151,7 +153,7 @@ private:
 
   void forEachInputSectionDescription(
       ArrayRef<OutputSection *> OutputSections,
-      std::function<void(OutputSection *, InputSectionDescription *)> Fn);
+      llvm::function_ref<void(OutputSection *, InputSectionDescription *)> Fn);
 
   std::pair<Thunk *, bool> getThunk(Symbol &Sym, RelType Type, uint64_t Src);
 

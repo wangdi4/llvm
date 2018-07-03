@@ -45,7 +45,7 @@ static llvm::cl::opt<std::string>
                llvm::cl::init(""));
 
 static llvm::cl::opt<std::string>
-    BenchmarkFile("benchmarks-file", llvm::cl::desc(""), llvm::cl::init("-"));
+    BenchmarkFile("benchmarks-file", llvm::cl::desc(""), llvm::cl::init(""));
 
 enum class BenchmarkModeE { Latency, Uops, Analysis };
 static llvm::cl::opt<BenchmarkModeE> BenchmarkMode(
@@ -59,6 +59,11 @@ static llvm::cl::opt<unsigned>
     NumRepetitions("num-repetitions",
                    llvm::cl::desc("number of time to repeat the asm snippet"),
                    llvm::cl::init(10000));
+
+static llvm::cl::opt<bool> IgnoreInvalidSchedClass(
+    "ignore-invalid-sched-class",
+    llvm::cl::desc("ignore instructions that do not define a sched class"),
+    llvm::cl::init(false));
 
 static llvm::cl::opt<unsigned> AnalysisNumPoints(
     "analysis-numpoints",
@@ -79,6 +84,12 @@ static llvm::cl::opt<std::string>
 
 namespace exegesis {
 
+static llvm::ExitOnError ExitOnErr;
+
+#ifdef LLVM_EXEGESIS_INITIALIZE_NATIVE_TARGET
+void LLVM_EXEGESIS_INITIALIZE_NATIVE_TARGET();
+#endif
+
 static unsigned GetOpcodeOrDie(const llvm::MCInstrInfo &MCInstrInfo) {
   if (OpcodeName.empty() && (OpcodeIndex == 0))
     llvm::report_fatal_error(
@@ -92,17 +103,44 @@ static unsigned GetOpcodeOrDie(const llvm::MCInstrInfo &MCInstrInfo) {
   llvm::report_fatal_error(llvm::Twine("unknown opcode ").concat(OpcodeName));
 }
 
+static BenchmarkResultContext
+getBenchmarkResultContext(const LLVMState &State) {
+  BenchmarkResultContext Ctx;
+
+  const llvm::MCInstrInfo &InstrInfo = State.getInstrInfo();
+  for (unsigned E = InstrInfo.getNumOpcodes(), I = 0; I < E; ++I)
+    Ctx.addInstrEntry(I, InstrInfo.getName(I).data());
+
+  const llvm::MCRegisterInfo &RegInfo = State.getRegInfo();
+  for (unsigned E = RegInfo.getNumRegs(), I = 0; I < E; ++I)
+    Ctx.addRegEntry(I, RegInfo.getName(I));
+
+  return Ctx;
+}
+
 void benchmarkMain() {
   if (exegesis::pfm::pfmInitialize())
     llvm::report_fatal_error("cannot initialize libpfm");
 
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
+#ifdef LLVM_EXEGESIS_INITIALIZE_NATIVE_TARGET
+  LLVM_EXEGESIS_INITIALIZE_NATIVE_TARGET();
+#endif
 
   // FIXME: Target-specific filter.
   X86Filter Filter;
 
   const LLVMState State;
+  const auto Opcode = GetOpcodeOrDie(State.getInstrInfo());
+
+  // Ignore instructions without a sched class if -ignore-invalid-sched-class is
+  // passed.
+  if (IgnoreInvalidSchedClass &&
+      State.getInstrInfo().get(Opcode).getSchedClass() == 0) {
+    llvm::errs() << "ignoring instruction without sched class\n";
+    return;
+  }
 
   // FIXME: Do not require SchedModel for latency.
   if (!State.getSubtargetInfo().getSchedModel().hasExtraProcessorInfo())
@@ -123,8 +161,16 @@ void benchmarkMain() {
   if (NumRepetitions == 0)
     llvm::report_fatal_error("--num-repetitions must be greater than zero");
 
-  Runner->run(GetOpcodeOrDie(State.getInstrInfo()), Filter, NumRepetitions)
-      .writeYamlOrDie(BenchmarkFile);
+  // Write to standard output if file is not set.
+  if (BenchmarkFile.empty())
+    BenchmarkFile = "-";
+
+  const BenchmarkResultContext Context = getBenchmarkResultContext(State);
+  std::vector<InstructionBenchmark> Results =
+      ExitOnErr(Runner->run(Opcode, Filter, NumRepetitions));
+  for (InstructionBenchmark &Result : Results)
+    ExitOnErr(Result.writeYaml(Context, BenchmarkFile));
+
   exegesis::pfm::pfmTerminate();
 }
 
@@ -132,7 +178,7 @@ void benchmarkMain() {
 // if OutputFilename is non-empty.
 template <typename Pass>
 static void maybeRunAnalysis(const Analysis &Analyzer, const std::string &Name,
-                      const std::string &OutputFilename) {
+                             const std::string &OutputFilename) {
   if (OutputFilename.empty())
     return;
   if (OutputFilename != "-") {
@@ -141,7 +187,8 @@ static void maybeRunAnalysis(const Analysis &Analyzer, const std::string &Name,
   }
   std::error_code ErrorCode;
   llvm::raw_fd_ostream ClustersOS(OutputFilename, ErrorCode,
-                                  llvm::sys::fs::F_RW);
+                                  llvm::sys::fs::FA_Read |
+                                      llvm::sys::fs::FA_Write);
   if (ErrorCode)
     llvm::report_fatal_error("cannot open out file: " + OutputFilename);
   if (auto Err = Analyzer.run<Pass>(ClustersOS))
@@ -149,9 +196,17 @@ static void maybeRunAnalysis(const Analysis &Analyzer, const std::string &Name,
 }
 
 static void analysisMain() {
+  if (BenchmarkFile.empty())
+    llvm::report_fatal_error("--benchmarks-file must be set.");
+
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetDisassembler();
   // Read benchmarks.
+  const LLVMState State;
   const std::vector<InstructionBenchmark> Points =
-      InstructionBenchmark::readYamlsOrDie(BenchmarkFile);
+      ExitOnErr(InstructionBenchmark::readYamls(
+          getBenchmarkResultContext(State), BenchmarkFile));
   llvm::outs() << "Parsed " << Points.size() << " benchmark points\n";
   if (Points.empty()) {
     llvm::errs() << "no benchmarks to analyze\n";
@@ -160,9 +215,6 @@ static void analysisMain() {
   // FIXME: Check that all points have the same triple/cpu.
   // FIXME: Merge points from several runs (latency and uops).
 
-  llvm::InitializeNativeTarget();
-  llvm::InitializeNativeTargetAsmPrinter();
-
   std::string Error;
   const auto *TheTarget =
       llvm::TargetRegistry::lookupTarget(Points[0].LLVMTriple, Error);
@@ -170,7 +222,7 @@ static void analysisMain() {
     llvm::errs() << "unknown target '" << Points[0].LLVMTriple << "'\n";
     return;
   }
-  const auto Clustering = llvm::cantFail(InstructionBenchmarkClustering::create(
+  const auto Clustering = ExitOnErr(InstructionBenchmarkClustering::create(
       Points, AnalysisNumPoints, AnalysisEpsilon));
 
   const Analysis Analyzer(*TheTarget, Clustering);
@@ -186,6 +238,12 @@ static void analysisMain() {
 
 int main(int Argc, char **Argv) {
   llvm::cl::ParseCommandLineOptions(Argc, Argv, "");
+
+  exegesis::ExitOnErr.setExitCodeMapper([](const llvm::Error &Err) {
+    if (Err.isA<llvm::StringError>())
+      return EXIT_SUCCESS;
+    return EXIT_FAILURE;
+  });
 
   if (BenchmarkMode == BenchmarkModeE::Analysis) {
     exegesis::analysisMain();

@@ -997,7 +997,8 @@ Status GDBRemoteCommunication::StartDebugserverProcess(
   // debugserver to use and use it if we do.
   const char *env_debugserver_path = getenv("LLDB_DEBUGSERVER_PATH");
   if (env_debugserver_path) {
-    debugserver_file_spec.SetFile(env_debugserver_path, false);
+    debugserver_file_spec.SetFile(env_debugserver_path, false,
+                                  FileSpec::Style::native);
     if (log)
       log->Printf("GDBRemoteCommunication::%s() gdb-remote stub exe path set "
                   "from environment variable: %s",
@@ -1007,8 +1008,8 @@ Status GDBRemoteCommunication::StartDebugserverProcess(
   bool debugserver_exists = debugserver_file_spec.Exists();
   if (!debugserver_exists) {
     // The debugserver binary is in the LLDB.framework/Resources directory.
-    if (HostInfo::GetLLDBPath(ePathTypeSupportExecutableDir,
-                              debugserver_file_spec)) {
+    debugserver_file_spec = HostInfo::GetSupportExeDir();
+    if (debugserver_file_spec) {
       debugserver_file_spec.AppendPathComponent(DEBUGSERVER_BASENAME);
       debugserver_exists = debugserver_file_spec.Exists();
       if (debugserver_exists) {

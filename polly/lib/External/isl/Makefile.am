@@ -84,6 +84,7 @@ libisl_la_SOURCES = \
 	isl_blk.h \
 	isl_bound.c \
 	isl_bound.h \
+	isl_box.c \
 	isl_coalesce.c \
 	isl_constraint.c \
 	isl_constraint_private.h \
@@ -274,6 +275,7 @@ pkginclude_HEADERS = \
 	include/isl/ast_build.h \
 	include/isl/constraint.h \
 	include/isl/ctx.h \
+	include/isl/fixed_box.h \
 	include/isl/flow.h \
 	include/isl/id.h \
 	include/isl/id_type.h \
@@ -379,6 +381,7 @@ EXTRA_DIST = \
 	read_in_string_templ.c \
 	set_to_map.c \
 	set_from_map.c \
+	set_list_from_map_list_inl.c \
 	isl_tab_lexopt_templ.c \
 	uset_to_umap.c \
 	uset_from_umap.c \

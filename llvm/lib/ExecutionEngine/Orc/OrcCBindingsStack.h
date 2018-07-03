@@ -153,9 +153,10 @@ private:
 
       for (auto &S : Symbols) {
         if (auto Sym = findSymbol(*S)) {
-          if (auto Addr = Sym.getAddress())
+          if (auto Addr = Sym.getAddress()) {
             Query->resolve(S, JITEvaluatedSymbol(*Addr, Sym.getFlags()));
-          else {
+            Query->notifySymbolReady();
+          } else {
             Stack.ES.failQuery(*Query, Addr.takeError());
             return orc::SymbolNameSet();
           }
@@ -168,6 +169,9 @@ private:
 
       if (Query->isFullyResolved())
         Query->handleFullyResolved();
+
+      if (Query->isFullyReady())
+        Query->handleFullyReady();
 
       return UnresolvedSymbols;
     }
@@ -200,12 +204,10 @@ private:
   };
 
 public:
-
   OrcCBindingsStack(TargetMachine &TM,
-                    std::unique_ptr<CompileCallbackMgr> CCMgr,
                     IndirectStubsManagerBuilder IndirectStubsMgrBuilder)
-      : DL(TM.createDataLayout()),
-        IndirectStubsMgr(IndirectStubsMgrBuilder()), CCMgr(std::move(CCMgr)),
+      : CCMgr(createLocalCompileCallbackManager(TM.getTargetTriple(), ES, 0)),
+        DL(TM.createDataLayout()), IndirectStubsMgr(IndirectStubsMgrBuilder()),
         ObjectLayer(ES,
                     [this](orc::VModuleKey K) {
                       auto ResolverI = Resolvers.find(K);
@@ -216,13 +218,14 @@ public:
                       return ObjLayerT::Resources{
                           std::make_shared<SectionMemoryManager>(), Resolver};
                     },
-		    nullptr,
-		    [this](orc::VModuleKey K, const object::ObjectFile &Obj, const RuntimeDyld::LoadedObjectInfo &LoadedObjInfo) {
+                    nullptr,
+                    [this](orc::VModuleKey K, const object::ObjectFile &Obj,
+                           const RuntimeDyld::LoadedObjectInfo &LoadedObjInfo) {
 		      this->notifyFinalized(K, Obj, LoadedObjInfo);
-		    },
-		    [this](orc::VModuleKey K, const object::ObjectFile &Obj) {
+                    },
+                    [this](orc::VModuleKey K, const object::ObjectFile &Obj) {
 		      this->notifyFreed(K, Obj);
-		    }),
+                    }),
         CompileLayer(ObjectLayer, orc::SimpleCompiler(TM)),
         CODLayer(ES, CompileLayer,
                  [this](orc::VModuleKey K) {
@@ -270,15 +273,15 @@ public:
   createLazyCompileCallback(JITTargetAddress &RetAddr,
                             LLVMOrcLazyCompileCallbackFn Callback,
                             void *CallbackCtx) {
-    if (auto CCInfoOrErr = CCMgr->getCompileCallback()) {
-      auto &CCInfo = *CCInfoOrErr;
-      CCInfo.setCompileAction([=]() -> JITTargetAddress {
-          return Callback(wrap(this), CallbackCtx);
-        });
-      RetAddr = CCInfo.getAddress();
+    auto WrappedCallback = [=]() -> JITTargetAddress {
+      return Callback(wrap(this), CallbackCtx);
+    };
+
+    if (auto CCAddr = CCMgr->getCompileCallback(std::move(WrappedCallback))) {
+      RetAddr = *CCAddr;
       return LLVMOrcErrSuccess;
     } else
-      return mapError(CCInfoOrErr.takeError());
+      return mapError(CCAddr.takeError());
   }
 
   LLVMOrcErrorCode createIndirectStub(StringRef StubName,
@@ -484,6 +487,7 @@ private:
   }
 
   orc::ExecutionSession ES;
+  std::unique_ptr<CompileCallbackMgr> CCMgr;
 
   std::vector<JITEventListener *> EventListeners;
 
@@ -492,7 +496,6 @@ private:
 
   std::unique_ptr<orc::IndirectStubsManager> IndirectStubsMgr;
 
-  std::unique_ptr<CompileCallbackMgr> CCMgr;
   ObjLayerT ObjectLayer;
   CompileLayerT CompileLayer;
   CODLayerT CODLayer;

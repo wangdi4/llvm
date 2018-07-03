@@ -30,7 +30,7 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
@@ -1415,7 +1415,7 @@ SinkShiftAndTruncate(BinaryOperator *ShiftI, Instruction *User, ConstantInt *CI,
 ///   %x.extract.shift.1 = lshr i64 %arg1, 32
 ///   %x.extract.trunc = trunc i64 %x.extract.shift.1 to i16
 ///
-/// CodeGen will recoginze the pattern in BB2 and generate BitExtract
+/// CodeGen will recognize the pattern in BB2 and generate BitExtract
 /// instruction.
 /// Return true if any changes are made.
 static bool OptimizeExtractBits(BinaryOperator *ShiftI, ConstantInt *CI,
@@ -1461,7 +1461,7 @@ static bool OptimizeExtractBits(BinaryOperator *ShiftI, ConstantInt *CI,
       // cmp i16 trunc.result, opnd2
       //
       if (isa<TruncInst>(User) && shiftIsLegal
-          // If the type of the truncate is legal, no trucate will be
+          // If the type of the truncate is legal, no truncate will be
           // introduced in other basic blocks.
           &&
           (!TLI.isTypeLegal(TLI.getValueType(DL, User->getType()))))
@@ -2087,7 +2087,7 @@ class TypePromotionTransaction {
     /// Position of an instruction.
     /// Either an instruction:
     /// - Is the first in a basic block: BB is used.
-    /// - Has a previous instructon: PrevInst is used.
+    /// - Has a previous instruction: PrevInst is used.
     union {
       Instruction *PrevInst;
       BasicBlock *BB;
@@ -2362,7 +2362,7 @@ class TypePromotionTransaction {
     SetOfInstrs &RemovedInsts;
 
   public:
-    /// Remove all reference of \p Inst and optinally replace all its
+    /// Remove all reference of \p Inst and optionally replace all its
     /// uses with New.
     /// \p RemovedInsts Keep track of the instructions removed by this Action.
     /// \pre If !Inst->use_empty(), then New != nullptr
@@ -2863,7 +2863,7 @@ private:
 
   /// We have mapping between value A and basic block where value A
   /// seen to other value B where B was a field in addressing mode represented
-  /// by A. Also we have an original value C representin an address in some
+  /// by A. Also we have an original value C representing an address in some
   /// basic block. Traversing from C through phi and selects we ended up with
   /// A's in a map. This utility function tries to find a value V which is a
   /// field in addressing mode C and traversing through phi nodes and selects
@@ -3348,7 +3348,7 @@ public:
                             SmallVectorImpl<Instruction *> *Truncs,
                             const TargetLowering &TLI);
 
-  /// Given a sign/zero extend instruction \p Ext, return the approriate
+  /// Given a sign/zero extend instruction \p Ext, return the appropriate
   /// action to promote the operand of \p Ext instead of using Ext.
   /// \return NULL if no promotable action is possible with the current
   /// sign extension.
@@ -3389,6 +3389,47 @@ bool TypePromotionHelper::canGetThrough(const Instruction *Inst,
       ((!IsSExt && BinOp->hasNoUnsignedWrap()) ||
        (IsSExt && BinOp->hasNoSignedWrap())))
     return true;
+
+  // ext(and(opnd, cst)) --> and(ext(opnd), ext(cst))
+  if ((Inst->getOpcode() == Instruction::And ||
+       Inst->getOpcode() == Instruction::Or))
+    return true;
+
+  // ext(xor(opnd, cst)) --> xor(ext(opnd), ext(cst))
+  if (Inst->getOpcode() == Instruction::Xor) {
+    const ConstantInt *Cst = dyn_cast<ConstantInt>(Inst->getOperand(1));
+    // Make sure it is not a NOT.
+    if (Cst && !Cst->getValue().isAllOnesValue())
+      return true;
+  }
+
+  // zext(shrl(opnd, cst)) --> shrl(zext(opnd), zext(cst))
+  // It may change a poisoned value into a regular value, like
+  //     zext i32 (shrl i8 %val, 12)  -->  shrl i32 (zext i8 %val), 12
+  //          poisoned value                    regular value
+  // It should be OK since undef covers valid value.
+  if (Inst->getOpcode() == Instruction::LShr && !IsSExt)
+    return true;
+
+  // and(ext(shl(opnd, cst)), cst) --> and(shl(ext(opnd), ext(cst)), cst)
+  // It may change a poisoned value into a regular value, like
+  //     zext i32 (shl i8 %val, 12)  -->  shl i32 (zext i8 %val), 12
+  //          poisoned value                    regular value
+  // It should be OK since undef covers valid value.
+  if (Inst->getOpcode() == Instruction::Shl && Inst->hasOneUse()) {
+    const Instruction *ExtInst =
+        dyn_cast<const Instruction>(*Inst->user_begin());
+    if (ExtInst->hasOneUse()) {
+      const Instruction *AndInst =
+          dyn_cast<const Instruction>(*ExtInst->user_begin());
+      if (AndInst && AndInst->getOpcode() == Instruction::And) {
+        const ConstantInt *Cst = dyn_cast<ConstantInt>(AndInst->getOperand(1));
+        if (Cst &&
+            Cst->getValue().isIntN(Inst->getType()->getIntegerBitWidth()))
+          return true;
+      }
+    }
+  }
 
   // Check if we can do the following simplification.
   // ext(trunc(opnd)) --> ext(opnd)
@@ -3580,7 +3621,7 @@ Value *TypePromotionHelper::promoteOperandForOther(
       continue;
     }
 
-    // Otherwise we have to explicity sign extend the operand.
+    // Otherwise we have to explicitly sign extend the operand.
     // Check if Ext was reused to extend an operand.
     if (!ExtForOpnd) {
       // If yes, create a new one.
@@ -4825,7 +4866,7 @@ bool CodeGenPrepare::mergeSExts(Function &F) {
         }
         if (!DT.dominates(Pt, Inst))
           // Give up if we need to merge in a common dominator as the
-          // expermients show it is not profitable.
+          // experiments show it is not profitable.
           continue;
         Inst->replaceAllUsesWith(Pt);
         RemovedInsts.insert(Inst);
@@ -6137,7 +6178,7 @@ bool CodeGenPrepare::optimizeExtractElementInst(Instruction *Inst) {
 
 /// For the instruction sequence of store below, F and I values
 /// are bundled together as an i64 value before being stored into memory.
-/// Sometimes it is more efficent to generate separate stores for F and I,
+/// Sometimes it is more efficient to generate separate stores for F and I,
 /// which can remove the bitwise instructions or sink them to colder places.
 ///
 ///   (store (or (zext (bitcast F to i32) to i64),
@@ -6715,8 +6756,8 @@ bool CodeGenPrepare::splitBranchCondition(Function &F) {
     Br1->setCondition(Cond1);
     LogicOp->eraseFromParent();
 
-    // Depending on the conditon we have to either replace the true or the false
-    // successor of the original branch instruction.
+    // Depending on the condition we have to either replace the true or the
+    // false successor of the original branch instruction.
     if (Opc == Instruction::And)
       Br1->setSuccessor(0, TmpBB);
     else
@@ -6769,8 +6810,8 @@ bool CodeGenPrepare::splitBranchCondition(Function &F) {
       // We have flexibility in setting Prob for BB1 and Prob for NewBB.
       // The requirement is that
       //   TrueProb for BB1 + (FalseProb for BB1 * TrueProb for TmpBB)
-      //     = TrueProb for orignal BB.
-      // Assuming the orignal weights are A and B, one choice is to set BB1's
+      //     = TrueProb for original BB.
+      // Assuming the original weights are A and B, one choice is to set BB1's
       // weights to A and A+2B, and set TmpBB's weights to A and 2B. This choice
       // assumes that
       //   TrueProb for BB1 == FalseProb for BB1 * TrueProb for TmpBB.
@@ -6804,8 +6845,8 @@ bool CodeGenPrepare::splitBranchCondition(Function &F) {
       // We have flexibility in setting Prob for BB1 and Prob for TmpBB.
       // The requirement is that
       //   FalseProb for BB1 + (TrueProb for BB1 * FalseProb for TmpBB)
-      //     = FalseProb for orignal BB.
-      // Assuming the orignal weights are A and B, one choice is to set BB1's
+      //     = FalseProb for original BB.
+      // Assuming the original weights are A and B, one choice is to set BB1's
       // weights to 2A+B and B, and set TmpBB's weights to 2A and B. This choice
       // assumes that
       //   FalseProb for BB1 == TrueProb for BB1 * FalseProb for TmpBB.

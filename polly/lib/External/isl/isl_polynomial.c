@@ -28,6 +28,11 @@
 #include <isl_val_private.h>
 #include <isl_config.h>
 
+#undef BASE
+#define BASE pw_qpolynomial
+
+#include <isl_list_templ.c>
+
 static unsigned pos(__isl_keep isl_space *dim, enum isl_dim_type type)
 {
 	switch (type) {
@@ -2958,12 +2963,8 @@ __isl_give isl_pw_qpolynomial *isl_pw_qpolynomial_from_qpolynomial(
 #include <isl_pw_templ.c>
 #include <isl_pw_eval.c>
 
-#undef UNION
-#define UNION isl_union_pw_qpolynomial
-#undef PART
-#define PART isl_pw_qpolynomial
-#undef PARTS
-#define PARTS pw_qpolynomial
+#undef BASE
+#define BASE pw_qpolynomial
 
 #include <isl_union_single.c>
 #include <isl_union_eval.c>
@@ -4273,10 +4274,6 @@ __isl_give isl_qpolynomial *isl_qpolynomial_align_params(
 	if (!equal_params) {
 		isl_reordering *exp;
 
-		model = isl_space_drop_dims(model, isl_dim_in,
-					0, isl_space_dim(model, isl_dim_in));
-		model = isl_space_drop_dims(model, isl_dim_out,
-					0, isl_space_dim(model, isl_dim_out));
 		exp = isl_parameter_alignment_reordering(qp->dim, model);
 		exp = isl_reordering_extend_space(exp,
 					isl_qpolynomial_get_domain_space(qp));
@@ -4380,7 +4377,7 @@ static isl_stat set_div(__isl_take isl_set *set,
 error:
 	isl_set_free(set);
 	isl_qpolynomial_free(qp);
-	return -1;
+	return isl_stat_error;
 }
 
 /* Split the domain "set" such that integer division "div"

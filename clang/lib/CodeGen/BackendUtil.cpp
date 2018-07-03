@@ -1161,6 +1161,7 @@ static void runThinLTOBackend(ModuleSummaryIndex *CombinedIndex, Module *M,
   Conf.DebugPassManager = CGOpts.DebugPassManager;
   Conf.RemarksWithHotness = CGOpts.DiagnosticsWithHotness;
   Conf.RemarksFilename = CGOpts.OptRecordFile;
+  Conf.DwoPath = CGOpts.SplitDwarfFile;
   switch (Action) {
   case Backend_EmitNothing:
     Conf.PreCodeGenModuleHook = [](size_t Task, const Module &Mod) {
@@ -1292,7 +1293,7 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
 
   // Save llvm.compiler.used and remote it.
   SmallVector<Constant*, 2> UsedArray;
-  SmallSet<GlobalValue*, 4> UsedGlobals;
+  SmallPtrSet<GlobalValue*, 4> UsedGlobals;
   Type *UsedElementType = Type::getInt8Ty(M->getContext())->getPointerTo(0);
   GlobalVariable *Used = collectUsedGlobalVariables(*M, UsedGlobals, true);
   for (auto *GV : UsedGlobals) {

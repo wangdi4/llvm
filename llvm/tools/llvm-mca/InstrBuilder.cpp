@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "InstrBuilder.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -33,6 +35,19 @@ static void initializeUsedResources(InstrDesc &ID,
   // Populate resources consumed.
   using ResourcePlusCycles = std::pair<uint64_t, ResourceUsage>;
   std::vector<ResourcePlusCycles> Worklist;
+
+  // Track cycles contributed by resources that are in a "Super" relationship.
+  // This is required if we want to correctly match the behavior of method
+  // SubtargetEmitter::ExpandProcResource() in Tablegen. When computing the set
+  // of "consumed" processor resources and resource cycles, the logic in
+  // ExpandProcResource() doesn't update the number of resource cycles
+  // contributed by a "Super" resource to a group.
+  // We need to take this into account when we find that a processor resource is
+  // part of a group, and it is also used as the "Super" of other resources.
+  // This map stores the number of cycles contributed by sub-resources that are
+  // part of a "Super" resource. The key value is the "Super" resource mask ID.
+  DenseMap<uint64_t, unsigned> SuperResources;
+
   for (unsigned I = 0, E = SCDesc.NumWriteProcResEntries; I < E; ++I) {
     const MCWriteProcResEntry *PRE = STI.getWriteProcResBegin(&SCDesc) + I;
     const MCProcResourceDesc &PR = *SM.getProcResource(PRE->ProcResourceIdx);
@@ -41,6 +56,10 @@ static void initializeUsedResources(InstrDesc &ID,
       ID.Buffers.push_back(Mask);
     CycleSegment RCy(0, PRE->Cycles, false);
     Worklist.emplace_back(ResourcePlusCycles(Mask, ResourceUsage(RCy)));
+    if (PR.SuperIdx) {
+      uint64_t Super = ProcResourceMasks[PR.SuperIdx];
+      SuperResources[Super] += PRE->Cycles;
+    }
   }
 
   // Sort elements by mask popcount, so that we prioritize resource units over
@@ -80,7 +99,7 @@ static void initializeUsedResources(InstrDesc &ID,
     for (unsigned J = I + 1; J < E; ++J) {
       ResourcePlusCycles &B = Worklist[J];
       if ((NormalizedMask & B.first) == NormalizedMask) {
-        B.second.CS.Subtract(A.second.size());
+        B.second.CS.Subtract(A.second.size() - SuperResources[A.first]);
         if (countPopulation(B.first) > 1)
           B.second.NumUnits++;
       }
@@ -140,23 +159,6 @@ static void populateWrites(InstrDesc &ID, const MCInst &MCI,
                            const MCInstrDesc &MCDesc,
                            const MCSchedClassDesc &SCDesc,
                            const MCSubtargetInfo &STI) {
-  // Set if writes through this opcode may update super registers.
-  // TODO: on x86-64, a 4 byte write of a general purpose register always
-  // fully updates the super-register.
-  // More in general, (at least on x86) not all register writes perform
-  // a partial (super-)register update.
-  // For example, an AVX instruction that writes on a XMM register implicitly
-  // zeroes the upper half of every aliasing super-register.
-  //
-  // For now, we pessimistically assume that writes are all potentially
-  // partial register updates. This is a good default for most targets, execept
-  // for those like x86 which implement a special semantic for certain opcodes.
-  // At least on x86, this may lead to an inaccurate prediction of the
-  // instruction level parallelism.
-  bool FullyUpdatesSuperRegisters = false;
-
-  // Now Populate Writes.
-
   // This algorithm currently works under the strong (and potentially incorrect)
   // assumption that information related to register def/uses can be obtained
   // from MCInstrDesc.
@@ -257,7 +259,6 @@ static void populateWrites(InstrDesc &ID, const MCInst &MCI,
       Write.Latency = ID.MaxLatency;
       Write.SClassOrWriteResourceID = 0;
     }
-    Write.FullyUpdatesSuperRegs = FullyUpdatesSuperRegisters;
     Write.IsOptionalDef = false;
     LLVM_DEBUG({
       dbgs() << "\t\tOpIdx=" << Write.OpIndex << ", Latency=" << Write.Latency
@@ -378,18 +379,22 @@ const InstrDesc &InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
 
   // Then obtain the scheduling class information from the instruction.
   unsigned SchedClassID = MCDesc.getSchedClass();
-  const MCSchedClassDesc &SCDesc = *SM.getSchedClassDesc(SchedClassID);
+  unsigned CPUID = SM.getProcessorID();
+
+  // Try to solve variant scheduling classes.
+  if (SchedClassID) {
+    while (SchedClassID && SM.getSchedClassDesc(SchedClassID)->isVariant())
+      SchedClassID = STI.resolveVariantSchedClass(SchedClassID, &MCI, CPUID);
+
+    if (!SchedClassID)
+      llvm::report_fatal_error("unable to resolve this variant class.");
+  }
 
   // Create a new empty descriptor.
   std::unique_ptr<InstrDesc> ID = llvm::make_unique<InstrDesc>();
 
-  if (SCDesc.isVariant()) {
-    WithColor::warning() << "don't know how to model variant opcodes.\n";
-    WithColor::note() << "assume 1 micro opcode.\n";
-    ID->NumMicroOps = 1U;
-  } else {
-    ID->NumMicroOps = SCDesc.NumMicroOps;
-  }
+  const MCSchedClassDesc &SCDesc = *SM.getSchedClassDesc(SchedClassID);
+  ID->NumMicroOps = SCDesc.NumMicroOps;
 
   if (MCDesc.isCall()) {
     // We don't correctly model calls.
@@ -417,14 +422,24 @@ const InstrDesc &InstrBuilder::createInstrDescImpl(const MCInst &MCI) {
   LLVM_DEBUG(dbgs() << "\t\tNumMicroOps=" << ID->NumMicroOps << '\n');
 
   // Now add the new descriptor.
-  Descriptors[Opcode] = std::move(ID);
-  return *Descriptors[Opcode];
+  SchedClassID = MCDesc.getSchedClass();
+  if (!SM.getSchedClassDesc(SchedClassID)->isVariant()) {
+    Descriptors[MCI.getOpcode()] = std::move(ID);
+    return *Descriptors[MCI.getOpcode()];
+  }
+
+  VariantDescriptors[&MCI] = std::move(ID);
+  return *VariantDescriptors[&MCI];
 }
 
 const InstrDesc &InstrBuilder::getOrCreateInstrDesc(const MCInst &MCI) {
-  if (Descriptors.find_as(MCI.getOpcode()) == Descriptors.end())
-    return createInstrDescImpl(MCI);
-  return *Descriptors[MCI.getOpcode()];
+  if (Descriptors.find_as(MCI.getOpcode()) != Descriptors.end())
+    return *Descriptors[MCI.getOpcode()];
+
+  if (VariantDescriptors.find(&MCI) != VariantDescriptors.end())
+    return *VariantDescriptors[&MCI];
+
+  return createInstrDescImpl(MCI);
 }
 
 std::unique_ptr<Instruction>
@@ -456,16 +471,33 @@ InstrBuilder::createInstruction(const MCInst &MCI) {
     NewIS->getUses().emplace_back(llvm::make_unique<ReadState>(RD, RegID));
   }
 
+  // Early exit if there are no writes.
+  if (D.Writes.empty())
+    return NewIS;
+
+  // Track register writes that implicitly clear the upper portion of the
+  // underlying super-registers using an APInt.
+  APInt WriteMask(D.Writes.size(), 0);
+
+  // Now query the MCInstrAnalysis object to obtain information about which
+  // register writes implicitly clear the upper portion of a super-register.
+  MCIA.clearsSuperRegisters(MRI, MCI, WriteMask);
+
   // Initialize writes.
+  unsigned WriteIndex = 0;
   for (const WriteDescriptor &WD : D.Writes) {
     unsigned RegID =
         WD.OpIndex == -1 ? WD.RegisterID : MCI.getOperand(WD.OpIndex).getReg();
     // Check if this is a optional definition that references NoReg.
-    if (WD.IsOptionalDef && !RegID)
+    if (WD.IsOptionalDef && !RegID) {
+      ++WriteIndex;
       continue;
+    }
 
     assert(RegID && "Expected a valid register ID!");
-    NewIS->getDefs().emplace_back(llvm::make_unique<WriteState>(WD, RegID));
+    NewIS->getDefs().emplace_back(llvm::make_unique<WriteState>(
+        WD, RegID, /* ClearsSuperRegs */ WriteMask[WriteIndex]));
+    ++WriteIndex;
   }
 
   return NewIS;

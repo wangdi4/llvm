@@ -599,21 +599,21 @@ uint32_t Module::ResolveSymbolContextsForFileSpec(const FileSpec &file_spec,
 
 size_t Module::FindGlobalVariables(const ConstString &name,
                                    const CompilerDeclContext *parent_decl_ctx,
-                                   bool append, size_t max_matches,
-                                   VariableList &variables) {
-  SymbolVendor *symbols = GetSymbolVendor();
-  if (symbols)
-    return symbols->FindGlobalVariables(name, parent_decl_ctx, append,
-                                        max_matches, variables);
-  return 0;
-}
-
-size_t Module::FindGlobalVariables(const RegularExpression &regex, bool append,
                                    size_t max_matches,
                                    VariableList &variables) {
   SymbolVendor *symbols = GetSymbolVendor();
   if (symbols)
-    return symbols->FindGlobalVariables(regex, append, max_matches, variables);
+    return symbols->FindGlobalVariables(name, parent_decl_ctx, max_matches,
+                                        variables);
+  return 0;
+}
+
+size_t Module::FindGlobalVariables(const RegularExpression &regex,
+                                   size_t max_matches,
+                                   VariableList &variables) {
+  SymbolVendor *symbols = GetSymbolVendor();
+  if (symbols)
+    return symbols->FindGlobalVariables(regex, max_matches, variables);
   return 0;
 }
 
@@ -1030,6 +1030,7 @@ size_t Module::FindTypes(
         std::string name_str(name.AsCString(""));
         typesmap.RemoveMismatchedTypes(type_scope, name_str, type_class,
                                        exact_match);
+        num_matches = typesmap.GetSize();
       }
     }
   }
@@ -1639,16 +1640,10 @@ bool Module::RemapSourceFile(llvm::StringRef path,
   return m_source_mappings.RemapPath(path, new_path);
 }
 
-uint32_t Module::GetVersion(uint32_t *versions, uint32_t num_versions) {
-  ObjectFile *obj_file = GetObjectFile();
-  if (obj_file)
-    return obj_file->GetVersion(versions, num_versions);
-
-  if (versions != nullptr && num_versions != 0) {
-    for (uint32_t i = 0; i < num_versions; ++i)
-      versions[i] = LLDB_INVALID_MODULE_VERSION;
-  }
-  return 0;
+llvm::VersionTuple Module::GetVersion() {
+  if (ObjectFile *obj_file = GetObjectFile())
+    return obj_file->GetVersion();
+  return llvm::VersionTuple();
 }
 
 bool Module::GetIsDynamicLinkEditor() {

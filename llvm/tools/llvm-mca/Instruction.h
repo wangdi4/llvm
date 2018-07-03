@@ -70,11 +70,6 @@ struct WriteDescriptor {
   // This field is set to a value different than zero only if this
   // is an implicit definition.
   unsigned RegisterID;
-  // True if this write generates a partial update of a super-registers.
-  // On X86, this flag is set by byte/word writes on GPR registers. Also,
-  // a write of an XMM register only partially updates the corresponding
-  // YMM super-register if the write is associated to a legacy SSE instruction.
-  bool FullyUpdatesSuperRegs;
   // Instruction itineraries would set this field to the SchedClass ID.
   // Otherwise, it defaults to the WriteResourceID from the MCWriteLatencyEntry
   // element associated to this write.
@@ -129,6 +124,10 @@ class WriteState {
   // field RegisterID from WD.
   unsigned RegisterID;
 
+  // True if this write implicitly clears the upper portion of RegisterID's
+  // super-registers.
+  bool ClearsSuperRegs;
+
   // A list of dependent reads. Users is a set of dependent
   // reads. A dependent read is added to the set only if CyclesLeft
   // is "unknown". As soon as CyclesLeft is 'known', each user in the set
@@ -138,8 +137,10 @@ class WriteState {
   std::set<std::pair<ReadState *, int>> Users;
 
 public:
-  WriteState(const WriteDescriptor &Desc, unsigned RegID)
-      : WD(Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(RegID) {}
+  WriteState(const WriteDescriptor &Desc, unsigned RegID,
+             bool clearsSuperRegs = false)
+      : WD(Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(RegID),
+        ClearsSuperRegs(clearsSuperRegs) {}
   WriteState(const WriteState &Other) = delete;
   WriteState &operator=(const WriteState &Other) = delete;
 
@@ -148,7 +149,7 @@ public:
   unsigned getRegisterID() const { return RegisterID; }
 
   void addUser(ReadState *Use, int ReadAdvance);
-  bool fullyUpdatesSuperRegs() const { return WD.FullyUpdatesSuperRegs; }
+  bool clearsSuperRegisters() const { return ClearsSuperRegs; }
 
   // On every cycle, update CyclesLeft and notify dependent users.
   void cycleEvent();
@@ -165,9 +166,20 @@ public:
 /// writes only partially update the register associated to this read.
 class ReadState {
   const ReadDescriptor &RD;
+  // Physical register identified associated to this read.
   unsigned RegisterID;
+  // Number of writes that contribute to the definition of RegisterID.
+  // In the absence of partial register updates, the number of DependentWrites
+  // cannot be more than one.
   unsigned DependentWrites;
+  // Number of cycles left before RegisterID can be read. This value depends on
+  // the latency of all the dependent writes. It defaults to UNKNOWN_CYCLES.
+  // It gets set to the value of field TotalCycles only when the 'CyclesLeft' of
+  // every dependent write is known.
   int CyclesLeft;
+  // This field is updated on every writeStartEvent(). When the number of
+  // dependent writes (i.e. field DependentWrite) is zero, this value is
+  // propagated to field CyclesLeft.
   unsigned TotalCycles;
 
 public:

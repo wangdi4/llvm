@@ -41,6 +41,11 @@
 #include <isl_list_templ.c>
 
 #undef BASE
+#define BASE pw_multi_aff
+
+#include <isl_list_templ.c>
+
+#undef BASE
 #define BASE union_pw_aff
 
 #include <isl_list_templ.c>
@@ -557,10 +562,6 @@ __isl_give isl_aff *isl_aff_align_params(__isl_take isl_aff *aff,
 	if (!equal_params) {
 		isl_reordering *exp;
 
-		model = isl_space_drop_dims(model, isl_dim_in,
-					0, isl_space_dim(model, isl_dim_in));
-		model = isl_space_drop_dims(model, isl_dim_out,
-					0, isl_space_dim(model, isl_dim_out));
 		exp = isl_parameter_alignment_reordering(aff->ls->dim, model);
 		exp = isl_reordering_extend_space(exp,
 					isl_aff_get_domain_space(aff));
@@ -2694,12 +2695,8 @@ __isl_give isl_pw_aff *isl_pw_aff_from_aff(__isl_take isl_aff *aff)
 #include <isl_pw_hash.c>
 #include <isl_pw_union_opt.c>
 
-#undef UNION
-#define UNION isl_union_pw_aff
-#undef PART
-#define PART isl_pw_aff
-#undef PARTS
-#define PARTS pw_aff
+#undef BASE
+#define BASE pw_aff
 
 #include <isl_union_single.c>
 #include <isl_union_neg.c>
@@ -4296,12 +4293,8 @@ __isl_give isl_set *isl_multi_aff_lex_gt_set(__isl_take isl_multi_aff *ma1,
 
 #undef NO_SUB
 
-#undef UNION
-#define UNION isl_union_pw_multi_aff
-#undef PART
-#define PART isl_pw_multi_aff
-#undef PARTS
-#define PARTS pw_multi_aff
+#undef BASE
+#define BASE pw_multi_aff
 
 #include <isl_union_multi.c>
 #include <isl_union_neg.c>
@@ -7618,7 +7611,7 @@ static isl_stat isl_union_pw_aff_check_match_domain_space(
 		return isl_stat_error;
 	if (!match)
 		isl_die(isl_space_get_ctx(space), isl_error_invalid,
-			"expecting set space", return -1);
+			"expecting set space", return isl_stat_error);
 
 	upa_space = isl_union_pw_aff_get_space(upa);
 	match = isl_space_has_equal_params(space, upa_space);
