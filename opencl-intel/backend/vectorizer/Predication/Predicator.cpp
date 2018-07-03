@@ -327,17 +327,15 @@ void Predicator::LinearizeBlock(BasicBlock* block, BasicBlock* next,
     //If the block only has a backedge, its branch
     //is replaced by a conditional branch with edges to the header and the next
     //block in the list with the exit mask of the block as the branch condition.
-    if (succ0 == header) {
-      Value* loop_mask_p = m_inMask[loop->getHeader()];
-      Value* loop_mask   = new LoadInst(loop_mask_p, "loop_mask", block);
-      V_ASSERT(m_allzero && "Unable to find allzero func");
-      CallInst *call_allzero =
-        CallInst::Create(m_allzero, loop_mask, "leave", block);
+    Value* loop_mask_p = m_inMask[loop->getHeader()];
+    Value* loop_mask   = new LoadInst(loop_mask_p, "loop_mask", block);
+    V_ASSERT(m_allzero && "Unable to find allzero func");
+    CallInst *call_allzero =
+      CallInst::Create(m_allzero, loop_mask, "leave", block);
 
-      term->eraseFromParent();
-      BranchInst::Create(next_after_loop, header, call_allzero, block);
-      return LinearizeFixPhiNode(next_after_loop, block);
-    }
+    term->eraseFromParent();
+    BranchInst::Create(next_after_loop, header, call_allzero, block);
+    return LinearizeFixPhiNode(next_after_loop, block);
   }
 
   // conditional
@@ -2912,7 +2910,7 @@ BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
 static Predicator::AllOnesBlockType getAllOnesBlockTypeRec(BasicBlock* BB, int recursionLevel) {
   // allones blocks doesn't contain loops other than single block loops.
   // if recursion level is high, then we are in a loop, so
-  // this is not an allones blcok.
+  // this is not an allones block.
   if (recursionLevel > MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS+1) {
     return Predicator::NONE;
   }
@@ -2979,21 +2977,17 @@ static Predicator::AllOnesBlockType getAllOnesBlockTypeRec(BasicBlock* BB, int r
       return Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL;
     }
     else if (predType == Predicator::SINGLE_BLOCK_LOOP_ALLONES) {
-      // could not be SINGLE_BLOCK_LOOP_ALLONES, because that
-      // is already handled when handling self-loop blocks.
       return Predicator::SINGLE_BLOCK_LOOP_TEST_ALLZEROES;
     }
+    else if (predType == Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL) {
+      return Predicator::SINGLE_BLOCK_LOOP_ORIGINAL;
+    }
     else if (predType == Predicator::SINGLE_BLOCK_LOOP_ORIGINAL) {
-      // could not be SINGLE_BLOCK_LOOP_ORIGINAL, because that
-      // is already handled when handling self-loop blocks.
       return  Predicator::SINGLE_BLOCK_LOOP_EXIT;
     }
     else if (predType == Predicator::SINGLE_BLOCK_LOOP_EXIT) {
       return Predicator::NONE;
     }
-    V_ASSERT(predType !=
-     Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL &&
-     "original should have been caught at self-loop blocks");
 
     // if pred is Predicator::SINGLE_BLOCK_LOOP_TEST_ALLZEROES,
     // then two options for type, we will find out using the other predecessor.

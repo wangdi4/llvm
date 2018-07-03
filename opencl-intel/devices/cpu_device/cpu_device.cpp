@@ -1475,16 +1475,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             int build = 0;
             std::stringstream driverVerStream;
             driverVerStream.imbue(std::locale("C"));   // override the current locale, so we don't get things like commas inside the numbers
-            if (GetModuleProductVersion(__FUNCTION__, &major, &minor, &revision, &build))
-            {
-                // format is (Major version).(Minor version).(Revision number).(Build number)
-                driverVerStream << major << "." << minor << "." << revision << "." << build;
-            }
-            else
-            {
-                // TODO: remove this once GetModuleProductVersion is implemented on Linux
-                driverVerStream << "1.2.0." << (int)BUILDVERSION;
-            }
+            GetModuleProductVersion(&major, &minor, &revision, &build);
+            // format is (Major version).(Minor version).(Revision number).(Build number)
+            driverVerStream << major << "." << minor << "." << revision << "." << build;
 #ifdef BUILD_FPGA_EMULATOR
             std::string driverVer = "18.0";
 #else

@@ -202,16 +202,6 @@ TEST(FrameworkTestType, Test_clGetKernelArgInfoTest)
     EXPECT_TRUE(clGetKernelArgInfoTest());
 }
 
-TEST(FrameworkTestType, Test_clSetKernelArgTest)
-{
-    clSetKernelArgTest();
-}
-
-TEST(FrameworkTestType, Test_clSetKernelArgLocalArgTest)
-{
-    clSetKernelArgLocalArgTest();
-}
-
 TEST(FrameworkTestType, Test_clCreateBufferTest)
 {
     EXPECT_TRUE(clCreateBufferTest());
@@ -514,69 +504,6 @@ TEST(FrameworkTestType, Test_clBuildOptions)
 TEST(FrameworkTestType, Test_clShutdownSVMTest)
 {
     clShutdownSVMTest();
-}
-
-#ifdef BUILD_FPGA_EMULATOR
-TEST(FPGA, Test_checkFPGAExtension)
-{
-    checkFPGAExtension();
-}
-
-TEST(FPGA, Test_checkInfiniteLoopsBasic)
-{
-    FPGAInfiniteLoopsBasic();
-}
-
-TEST(FPGA, Test_FPGAPipes)
-{
-    FPGAPipes();
-}
-
-TEST(FPGA, Test_MaxTBBNumWorkers)
-{
-    maxTBBNumWorkers();
-}
-
-TEST(FPGA, Test_MinTBBNumWorkers)
-{
-    minTBBNumWorkers();
-}
-
-TEST(FPGA, Test_MoreThanMaxTBBNumWorkers)
-{
-    moreThanMaxTBBNumWorkers();
-}
-
-TEST(FPGA, Test_LessThanMinTBBNumWorkers)
-{
-    lessThanMinTBBNumWorkers();
-}
-
-TEST(FPGA, Test_InvalidTBBNumWorkers)
-{
-    invalidTBBNumWorkers();
-}
-
-TEST(FPGA, Test_ChannelsByValue)
-{
-    FPGAChannelsByValue();
-}
-
-TEST(FPGA, Test_checkNumWorkers)
-{
-   checkNumWorkers();
-}
-
-TEST(FrameworkTestType, Test_clGetProfileDataDeviceIntelFPGATest)
-{
-    clGetProfileDataDeviceIntelFPGATest();
-}
-
-#endif // BUILD_FPGA_EMULATOR
-
-TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)
-{
-    checkFPGAExtensionNEGATIVE();
 }
 
 TEST_F(CL, Test_CheckExtensions)

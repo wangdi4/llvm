@@ -41,7 +41,6 @@ bool CheckHandle(const char * name, cl_event expected, cl_event result);
 bool CheckHandle(const char * name, cl_sampler expected, cl_sampler result);
 bool CheckHandleImpl(const char * name, void* expected, void* result, bool bRes);
 
-void clGetProfileDataDeviceIntelFPGATest();
 bool clCreateContextTest();
 bool clGetPlatformInfoTest();
 bool clGetDeviceInfoTest();
@@ -124,8 +123,6 @@ bool EventDependenciesTest();
 bool ClkEventAsKernelArg();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
-void clSetKernelArgTest();
-void clSetKernelArgLocalArgTest();
 bool ShutdownFromChildThread();
 bool predictable_partition_test();
 bool clMultipleExecutionTest();
@@ -156,11 +153,6 @@ bool UnloadPlatformCompiler();
 void CreateProgramWithIL();
 bool Timers();
 bool CloneKernel();
-void checkFPGAExtension();
-void checkFPGAExtensionNEGATIVE();
-void FPGAInfiniteLoopsBasic();
-void FPGAPipes();
-void FPGAChannelsByValue();
 bool cl_device_local_mem_size_test();
 bool cl_device_private_mem_size_test();
 bool cl_device_private_mem_size_test_out_of_resources();
@@ -168,10 +160,4 @@ bool cl_device_private_mem_size_test_without_vectorizer();
 #ifndef _WIN32
 bool cl_device_local_mem_size_unlimited_stack_test();
 #endif
-void maxTBBNumWorkers();
-void minTBBNumWorkers();
-void moreThanMaxTBBNumWorkers();
-void lessThanMinTBBNumWorkers();
-void invalidTBBNumWorkers();
-void checkNumWorkers();
 //#define CUDA_DEVICE

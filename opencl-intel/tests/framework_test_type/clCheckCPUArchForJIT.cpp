@@ -41,7 +41,7 @@ bool GenerateBinaryFile()
 
   if (!CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10))
   {
-    if (!SETENV("VOLCANO_CPU_ARCH", "corei7-avx"))
+    if (!SETENV("CL_CONFIG_CPU_TARGET_ARCH", "corei7-avx"))
     {
       printf("ERROR: GenerateBinaryFile: Can't set environment variable. Test FAILED\n");
       return false;
@@ -50,7 +50,7 @@ bool GenerateBinaryFile()
   }
   else
   {
-    if (!SETENV("VOLCANO_CPU_ARCH", "corei7"))
+    if (!SETENV("CL_CONFIG_CPU_TARGET_ARCH", "corei7"))
     {
       printf("ERROR: GenerateBinaryFile: Can't set environment variable. Test FAILED\n");
       return false;

@@ -1,8 +1,8 @@
 /////////////////////////////////////////////////////////////////////////
-// cl_utils.cpp:
+// cl_sys_info_win32.cpp:
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2013 Intel Corporation All Rights Reserved.
+// Copyright 2007-2018 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related 
 // to the source code ("Material") are owned by Intel Corporation or its 
@@ -299,52 +299,6 @@ const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleNam
 	sprintf_s(sModulePath, MAX_PATH, "%s%s", sModulePath, moduleName);
 
 	return sModulePath;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-// return the product version:
-// On Windows: it returns the product version number that is stored in the version info of the shared object
-// On Linux:   not implemented TODO
-// Arguments - someLocalFunc - some function in the requested module
-//             major, minor, revision, build - output version numbers
-////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build)
-{
-    char filePath[MAX_PATH];
-    DWORD  verInfoSize          = 0;
-    BYTE*  verInfo              = nullptr;
-    UINT   fileInfoSize         = 0;
-    VS_FIXEDFILEINFO *fileInfo  = nullptr;
-
-    GetModulePathName(someLocalFunc, filePath, MAX_PATH - 1);
-
-    verInfoSize = GetFileVersionInfoSize( filePath, nullptr );
-    if (0 == verInfoSize)
-    {
-        return false;
-    }
-
-    verInfo = (BYTE*) STACK_ALLOC(sizeof(BYTE)*verInfoSize);
-
-    if (!GetFileVersionInfo(filePath, 0, verInfoSize, verInfo))
-    {
-        STACK_FREE(verInfo);
-        return false;
-    }
-
-    if (!VerQueryValue(verInfo, TEXT("\\"), (LPVOID*) &fileInfo, &fileInfoSize))
-    {
-        STACK_FREE(verInfo);
-        return false;
-    }
-
-    *major    = ( fileInfo->dwProductVersionMS >> 16 ) & 0xffff;
-    *minor    = ( fileInfo->dwProductVersionMS) & 0xffff;
-    *revision = ( fileInfo->dwProductVersionLS >> 16 ) & 0xffff;
-    *build    = ( fileInfo->dwProductVersionLS) & 0xffff;
-
-    STACK_FREE(verInfo);
-    return true;
 }
 
 unsigned int Intel::OpenCL::Utils::GetThreadId()

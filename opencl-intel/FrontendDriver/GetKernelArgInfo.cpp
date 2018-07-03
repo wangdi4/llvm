@@ -109,8 +109,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
 
       // Access qualifier
       llvm::MDString *pAccessQualifier =
-          llvm::dyn_cast<llvm::MDString>(pAccessQualifiers->getOperand(i));
-      assert(pAccessQualifier && "pAccessQualifier is not a valid MDString");
+          llvm::cast<llvm::MDString>(pAccessQualifiers->getOperand(i));
 
       argInfo.accessQualifier =
           llvm::StringSwitch<cl_kernel_arg_access_qualifier>(
@@ -122,8 +121,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
 
       // Type qualifier
       llvm::MDString *pTypeQualifier =
-          llvm::dyn_cast<llvm::MDString>(pTypeQualifiers->getOperand(i));
-      assert(pTypeQualifier && "pTypeQualifier is not a valid MDString*");
+          llvm::cast<llvm::MDString>(pTypeQualifiers->getOperand(i));
       argInfo.typeQualifier = 0;
       llvm::StringRef typeQualStr = pTypeQualifier->getString();
       if (typeQualStr.find("const") != llvm::StringRef::npos)
@@ -137,20 +135,18 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
 
       // Type name
       llvm::MDString *pTypeName =
-          llvm::dyn_cast<llvm::MDString>(pTypeNames->getOperand(i));
-      assert(pTypeName && "pTypeName is not a valid MDString*");
+          llvm::cast<llvm::MDString>(pTypeNames->getOperand(i));
       argInfo.typeName = pTypeName->getString().str();
 
       if (pArgNames) {
         // Parameter name
         llvm::MDString *pArgName =
-            llvm::dyn_cast<llvm::MDString>(pArgNames->getOperand(i));
-        assert(pArgName && "pArgName is not a valid MDString*");
+            llvm::cast<llvm::MDString>(pArgNames->getOperand(i));
 
         argInfo.name = pArgName->getString().str();
       }
       if (pHostAccessible) {
-        auto *pHostAccessibleFlag = llvm::dyn_cast<llvm::ConstantAsMetadata>(
+        auto *pHostAccessibleFlag = llvm::cast<llvm::ConstantAsMetadata>(
             pHostAccessible->getOperand(i));
 
         argInfo.hostAccessible =
@@ -161,7 +157,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
         argInfo.hostAccessible = false;
       }
       if (pLocalMemSize) {
-        auto *pLocalMemSizeFlag = llvm::dyn_cast<llvm::ConstantAsMetadata>(
+        auto *pLocalMemSizeFlag = llvm::cast<llvm::ConstantAsMetadata>(
             pLocalMemSize->getOperand(i));
 
         argInfo.localMemSize =

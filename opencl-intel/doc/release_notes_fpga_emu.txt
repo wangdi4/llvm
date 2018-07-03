@@ -73,9 +73,9 @@ The following sets of environment variables affect the emulator execution:
       OCL_TBB_NUM_WORKERS should be set appropriately (to the number of kernels
       used or a higher value).
 
-    * VOLCANO_CPU_ARCH (core-avx2, skx): This variable can be set to force a
-      SIMD instruction set used for OpenCL(TM) kernel compilation, where skx
-      corresponds to Intel(R) Advanced Vector Extensions 512 support.
+    * CL_CONFIG_CPU_TARGET_ARCH (core-avx2, skx): This variable can be set to
+      force a SIMD instruction set used for OpenCL(TM) kernel compilation, where
+      skx corresponds to Intel(R) Advanced Vector Extensions 512 support.
 
     * VOLCANO_CLANG_OPTIONS: This internal environment variable allows you to
       force specific options to the OpenCL(TM) compiler:
