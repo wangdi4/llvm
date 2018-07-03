@@ -271,6 +271,9 @@ def : WriteRes<WriteNop, [JALU01]> { let Latency = 1; }
 // Floating point. This covers both scalar and vector operations.
 ////////////////////////////////////////////////////////////////////////////////
 
+defm : X86WriteRes<WriteFLD0,          [JFPU1, JSTC], 3, [1,1], 1>;
+defm : X86WriteRes<WriteFLD1,          [JFPU1, JSTC], 3, [1,1], 1>;
+defm : X86WriteRes<WriteFLDC,          [JFPU1, JSTC], 3, [1,1], 1>;
 defm : X86WriteRes<WriteFLoad,         [JLAGU, JFPU01, JFPX], 5, [1, 1, 1], 1>;
 defm : X86WriteRes<WriteFLoadX,        [JLAGU, JFPU01, JFPX], 5, [1, 1, 1], 1>;
 defm : X86WriteRes<WriteFLoadY,        [JLAGU, JFPU01, JFPX], 5, [1, 1, 1], 1>;
@@ -543,5 +546,64 @@ def JWriteJVZEROUPPER: SchedWriteRes<[]> {
   let NumMicroOps = 37;
 }
 def : InstRW<[JWriteJVZEROUPPER], (instrs VZEROUPPER)>;
-} // SchedModel
 
+///////////////////////////////////////////////////////////////////////////////
+//  SchedWriteVariant definitions.
+///////////////////////////////////////////////////////////////////////////////
+
+def JWriteZeroLatency : SchedWriteRes<[]> {
+  let Latency = 0;
+}
+
+// Certain vector instructions that use the same register for both source 
+// operands do not have a real dependency on the previous contents of the
+// register, and thus, do not have to wait before completing. They can be
+// optimized out at register renaming stage.
+// Reference: Section 10.8 of the "Software Optimization Guide for AMD Family
+// 15h Processors".
+// Reference: Agner's Fog "The microarchitecture of Intel, AMD and VIA CPUs",
+// Section 21.8 [Dependency-breaking instructions].
+
+def JWriteFZeroIdiom : SchedWriteVariant<[
+    SchedVar<MCSchedPredicate<ZeroIdiomPredicate>, [JWriteZeroLatency]>,
+    SchedVar<MCSchedPredicate<TruePred>,           [WriteFLogic]>
+]>;
+def : InstRW<[JWriteFZeroIdiom], (instrs XORPSrr, VXORPSrr, XORPDrr, VXORPDrr,
+                                         ANDNPSrr, VANDNPSrr,
+                                         ANDNPDrr, VANDNPDrr)>;
+
+def JWriteVZeroIdiomLogic : SchedWriteVariant<[
+    SchedVar<MCSchedPredicate<ZeroIdiomPredicate>, [JWriteZeroLatency]>,
+    SchedVar<MCSchedPredicate<TruePred>,           [WriteVecLogic]>
+]>;
+def : InstRW<[JWriteVZeroIdiomLogic], (instrs MMX_PXORirr, MMX_PANDNirr)>;
+
+def JWriteVZeroIdiomLogicX : SchedWriteVariant<[
+    SchedVar<MCSchedPredicate<ZeroIdiomPredicate>, [JWriteZeroLatency]>,
+    SchedVar<MCSchedPredicate<TruePred>,           [WriteVecLogicX]>
+]>;
+def : InstRW<[JWriteVZeroIdiomLogicX], (instrs PXORrr, VPXORrr,
+                                               PANDNrr, VPANDNrr)>;
+
+def JWriteVZeroIdiomALU : SchedWriteVariant<[
+    SchedVar<MCSchedPredicate<ZeroIdiomPredicate>, [JWriteZeroLatency]>,
+    SchedVar<MCSchedPredicate<TruePred>,           [WriteVecALU]>
+]>;
+def : InstRW<[JWriteVZeroIdiomALU], (instrs MMX_PSUBBirr, MMX_PSUBDirr,
+                                            MMX_PSUBQirr, MMX_PSUBWirr,
+                                            MMX_PCMPGTBirr, MMX_PCMPGTDirr,
+                                            MMX_PCMPGTWirr)>;
+
+def JWriteVZeroIdiomALUX : SchedWriteVariant<[
+    SchedVar<MCSchedPredicate<ZeroIdiomPredicate>, [JWriteZeroLatency]>,
+    SchedVar<MCSchedPredicate<TruePred>,           [WriteVecALUX]>
+]>;
+def : InstRW<[JWriteVZeroIdiomALUX], (instrs PSUBBrr, VPSUBBrr,
+                                             PSUBDrr, VPSUBDrr,
+                                             PSUBQrr, VPSUBQrr,
+                                             PSUBWrr, VPSUBWrr,
+                                             PCMPGTBrr, VPCMPGTBrr,
+                                             PCMPGTDrr, VPCMPGTDrr,
+                                             PCMPGTQrr, VPCMPGTQrr,
+                                             PCMPGTWrr, VPCMPGTWrr)>;
+} // SchedModel
