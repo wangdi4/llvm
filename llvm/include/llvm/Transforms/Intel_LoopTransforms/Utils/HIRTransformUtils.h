@@ -248,6 +248,34 @@ public:
                                HLNode *End);
 
   ///  Perform Stripmine.
+  ///  Utility that can be shared by distribution and blocking
+  ///  Distribution has a sequence of loops
+  ///  Blocking normally has one -  FirstLoop == LastLoop
+  ///
+  ///  Returns true when Stripmine is performed
+  ///
+  ///    DO i1=0,N-1
+  ///      A[i1] =
+  ///    ENDDO
+  ///    DO i1=0,N-1
+  ///      A[i1] += 1
+  ///    ENDDO
+  ///  ==>
+  ///    First form a loop to enclose the input loops
+  ///    DO i1=0,N-1
+  ///      DO i2=0,N-1
+  ///         A[i1] =
+  ///      ENDDO
+  ///      DO i2=0,N-1
+  ///        ...
+  ///  ==>
+  ///    Before normalization, assuming  StripmineSize = 64
+  ///    It is changed as
+  ///    DO i1=0, (N-1) / 64
+  ///       N2 = min(-64 *i1 + N-1, 64-1)
+  ///       do i2=64*i1, 64*i1 + N2
+  ///          A[i2] = 1
+  ///
   static void stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
                         unsigned StripmineSize);
 

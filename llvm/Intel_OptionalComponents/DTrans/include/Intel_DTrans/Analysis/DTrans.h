@@ -23,6 +23,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/Support/Casting.h"
 
 namespace llvm {
@@ -33,21 +34,19 @@ class Instruction;
 class Type;
 class StructType;
 class PointerType;
-class CallInst;
 class Value;
 class Constant;
 class raw_ostream;
+class DTransAnalysisInfo;
 
 namespace dtrans {
 
 //
 // Enum to indicate the "single value" status of a field:
-//   None: No write to field seen
-//   Single: Only a single value for the field.  The value is obtained with
-//     getSingleValue()
-//   Multiple: Potentially or actually multiple values for the field
+//   Complete: All values of the field are constant and known.
+//   Incomplete: Potentially or actually unknown values for the field.
 //
-enum SingleValueKind { SVK_None, SVK_Single, SVK_Multiple };
+enum SingleValueKind { SVK_Complete, SVK_Incomplete };
 
 //
 // Enum to indicate the "single value" status of a field:
@@ -65,8 +64,8 @@ class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), ComplexUse(false),
-        AddressTaken(false), SVKind(SVK_None), SingleValue(nullptr),
-        SAFKind(SAFK_Top), SingleAllocFunction(nullptr) {}
+        AddressTaken(false), SVKind(SVK_Complete), SAFKind(SAFK_Top),
+        SingleAllocFunction(nullptr), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
@@ -74,14 +73,20 @@ public:
   bool isWritten() const { return Written; }
   bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
-  bool isNoValue() const { return SVKind == SVK_None; }
+  bool isNoValue() const {
+    return SVKind == SVK_Complete && ConstantValues.empty();
+  }
   bool isTopAllocFunction() const { return SAFKind == SAFK_Top; }
-  bool isSingleValue() const { return SVKind == SVK_Single; }
+  bool isSingleValue() const {
+    return SVKind == SVK_Complete && ConstantValues.size() == 1;
+  }
   bool isSingleAllocFunction() const { return SAFKind == SAFK_Single; }
-  bool isMultipleValue() const { return SVKind == SVK_Multiple; }
+  bool isMultipleValue() const {
+    return SVKind == SVK_Incomplete || ConstantValues.size() > 1;
+  }
   bool isBottomAllocFunction() const { return SAFKind == SAFK_Bottom; }
   llvm::Constant *getSingleValue() {
-    return SVKind == SVK_Single ? SingleValue : nullptr;
+    return isSingleValue() ? *ConstantValues.begin() : nullptr;
   }
   llvm::Function *getSingleAllocFunction() {
     return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
@@ -90,23 +95,25 @@ public:
   void setWritten(bool b) { Written = b; }
   void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
-  void setSingleValue(llvm::Constant *C) {
-    SVKind = SVK_Single;
-    SingleValue = C;
-  }
   void setSingleAllocFunction(llvm::Function *F) {
     assert((SAFKind == SAFK_Top) && "Expecting lattice at top");
     SAFKind = SAFK_Single;
     SingleAllocFunction = F;
   }
-  void setMultipleValue() {
-    SVKind = SVK_Multiple;
-    SingleValue = nullptr;
-  }
+  void setMultipleValue() { SVKind = SVK_Incomplete; }
   void setBottomAllocFunction() {
     SAFKind = SAFK_Bottom;
     SingleAllocFunction = nullptr;
   }
+  void setFrequency(uint64_t Freq) { Frequency = Freq; }
+  uint64_t getFrequency() const { return Frequency; }
+
+  // Returns a set of possible constant values.
+  llvm::SmallPtrSetImpl<llvm::Constant *> &values() { return ConstantValues; }
+
+  // Returns true if the set of possible values is complete.
+  bool isValueSetComplete() const { return SVKind == SVK_Complete; }
+
   //
   // Update the "single value" of the field, given that a constant value C
   // for the field has just been seen. Return true if the value is updated.
@@ -126,9 +133,16 @@ private:
   bool ComplexUse;
   bool AddressTaken;
   SingleValueKind SVKind;
-  llvm::Constant *SingleValue;
+  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantValues;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
+  // It represents relative field access frequency and is used in
+  // heuristics to enable transformations. Load/Store is considered as
+  // field access. AddressTaken of struct or field is not considered as
+  // field access currently.
+  // TODO: Frequency is not computed correctly for aggregate fields. Need
+  // to compute more accurate Frequency for aggregate fields.
+  uint64_t Frequency;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -229,10 +243,96 @@ const SafetyData LocalPtr = 0x00000000000400000;
 /// A local variable was found which is an instance of the type.
 const SafetyData LocalInstance = 0x0000000000000800000;
 
+/// A function was called with an i8* argument where the aliases of the
+/// value passed to the function do not match the uses of the argument
+/// within the function..
+const SafetyData MismatchedArgUse = 0x0000000000001000000;
+
+/// A global variable was found which is an array of the type.
+const SafetyData GlobalArray = 0x0000000000002000000;
+
+/// An element in the structure looks like a vtable.
+const SafetyData HasVTable = 0x0000000000004000000;
+
+/// An element in the structure points to a function.
+const SafetyData HasFnPtr = 0x0000000000008000000;
+
+/// A type has C++ processing:
+///   allocation/deallocation with new/delete.
+const SafetyData HasCppHandling = 0x0000000000010000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
 const SafetyData UnhandledUse = 0x8000000000000000;
+
+// TODO: Create a safety mask for the conditions that are common to all
+//       DTrans optimizations.
+//
+// Safety conditions for field reordering and deletion.
+//
+const SafetyData SDDeleteField =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+    AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+    MemFuncPartialWrite | SystemObject | MismatchedArgUse | GlobalArray |
+    HasVTable | HasFnPtr;
+
+const SafetyData SDReorderFields =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    LocalInstance | HasCppHandling | UnhandledUse;
+//
+// Safety conditions for field single value analysis
+//
+const SafetyData SDFieldSingleValue =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | UnhandledUse;
+
+const SafetyData SDSingleAllocFunction =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    UnsafePtrMerge | AddressTaken | UnhandledUse;
+
+const SafetyData SDElimROFieldAccess =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+    HasInitializerList | UnsafePtrMerge | AddressTaken | UnhandledUse;
+
+const SafetyData SDAOSToSOA =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
+    HasCppHandling;
+
+//
+// TODO: Update the list each time we add a new safety conditions check for a
+// new transformation pass.
+//
+typedef uint32_t Transform;
+
+const Transform DT_First = 0x0001;
+const Transform DT_FieldSingleValue = 0x0001;
+const Transform DT_FieldSingleAllocFunction = 0x0002;
+const Transform DT_ReorderFields = 0x0004;
+const Transform DT_DeleteField = 0x0008;
+const Transform DT_AOSToSOA = 0x0010;
+const Transform DT_ElimROFieldAccess = 0x0020;
+const Transform DT_Last = 0x0040;
+const Transform DT_Legal = 0x003f;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
@@ -283,21 +383,6 @@ private:
   CRuleTypeKind CRTypeKind;
 };
 
-//
-// Safety conditions for field single value analysis
-//
-const SafetyData SDFieldSingleValue =
-    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | UnhandledUse;
-
-const SafetyData SDSingleAllocFunction =
-    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | UnhandledUse;
-
 class NonAggregateTypeInfo : public TypeInfo {
 public:
   NonAggregateTypeInfo(llvm::Type *Ty)
@@ -321,8 +406,8 @@ public:
 
 class StructInfo : public TypeInfo {
 public:
-  StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes)
-      : TypeInfo(TypeInfo::StructInfo, Ty) {
+  StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes, bool IgnoreFlag)
+      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag) {
     for (llvm::Type *FieldTy : FieldTypes)
       Fields.push_back(FieldInfo(FieldTy));
   }
@@ -335,9 +420,20 @@ public:
   static inline bool classof(const TypeInfo *TI) {
     return TI->getTypeInfoKind() == TypeInfo::StructInfo;
   }
+  uint64_t getTotalFrequency() const { return TotalFrequency; }
+  void setTotalFrequency(uint64_t TFreq) { TotalFrequency = TFreq; }
+
+  /// Sets IsIgnoredFor field to true if the type was indeed ignored during FSV
+  /// and/or FSAF safety checking.
+  void setIgnoredFor(dtrans::Transform Flag) { IsIgnoredFor |= Flag; }
+  /// Returns FSV and/or FSAF if the type was ignored in those optimizations.
+  dtrans::Transform getIgnoredFor() { return IsIgnoredFor; }
 
 private:
   SmallVector<FieldInfo, 16> Fields;
+  // Total Frequency of all fields in struct.
+  uint64_t TotalFrequency;
+  dtrans::Transform IsIgnoredFor;
 };
 
 class ArrayInfo : public TypeInfo {
@@ -362,21 +458,24 @@ private:
 
 /// Kind of allocation associated with a Function.
 /// The malloc, calloc, and realloc allocation kinds each correspond to a call
-/// to the standard library function of the same name.  C++ new operators are
-/// not currently supported.
-enum AllocKind {
+/// to the standard library function of the same name.
+///
+/// See MemoryBuiltins.cpp:AllocType
+enum AllocKind : uint8_t {
   AK_NotAlloc,
   AK_Malloc,
   AK_Calloc,
   AK_Realloc,
   AK_UserMalloc,
-  AK_UserMalloc0
+  AK_UserMalloc0,
+  AK_New
 };
 
 /// Kind of free function call.
 /// - FK_Free represents a direct call to the standard library function 'free'
 /// - FK_UserFree represents a call to a user-wrapper function of 'free''
-enum FreeKind { FK_NotFree, FK_Free, FK_UserFree };
+/// - FK_Delete represents a call to C++ delete/deletep[] functions.
+enum FreeKind { FK_NotFree, FK_Free, FK_UserFree, FK_Delete };
 
 /// Get a printable string for the AllocKind
 StringRef AllocKindName(AllocKind Kind);
@@ -606,6 +705,8 @@ public:
     Regions.push_back(MRSrc);
   }
 
+  MemfuncKind getMemfuncCallInfoKind() const { return MK; }
+
   static StringRef MemfuncKindName(MemfuncKind MK) {
     switch (MK) {
     case MK_Memset:
@@ -666,29 +767,37 @@ private:
   SmallVector<MemfuncRegion, 2> Regions;
 };
 
-/// Determine whether the specified Function is an allocation function, and
-/// if so what kind of allocation function it is and the size of the allocation.
-AllocKind getAllocFnKind(Function *F, const TargetLibraryInfo &TLI);
+/// Determine whether the specified CallSite is a call to allocation function,
+/// and if so what kind of allocation function it is and the size of the
+/// allocation.
+AllocKind getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI);
 
-/// Get the size and count arguments for the allocation call. AllocCountiVal is
-/// used for calloc allocations.  For all other allocation kinds it will be set
-/// to nullptr.
-void getAllocSizeArgs(AllocKind Kind, CallInst *CI, Value *&AllocSizeVal,
-                      Value *&AllocCountVal);
+/// Get the indices of size and count arguments for the allocation call.
+/// AllocCountInd is used for calloc allocations.  For all other allocation
+/// kinds it will be set to -1U
+void getAllocSizeArgs(AllocKind Kind, CallSite CS, unsigned &AllocSizeInd,
+                      unsigned &AllocCountInd, const TargetLibraryInfo &TLI);
 
-/// Determine whether or not the specified Function is the free library
-/// function.
-bool isFreeFn(Function *F, const TargetLibraryInfo &TLI);
+/// Determine whether or not the specified CallSite is a call to the free-like
+/// library function.
+bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
+
+/// Determine whether or not the specified CallSite is a call to the
+/// delete-like library function.
+bool isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI);
+
+/// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
+bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);
 
 /// This helper function checks if \p Val is a constant integer equal to
 /// \p Size. Allows for \p Val to be nullptr, and will return false in
 /// this case.
-bool isValueEqualToSize(Value *Val, uint64_t Size);
+bool isValueEqualToSize(const Value *Val, uint64_t Size);
 
 /// This helper function checks \p Val to see if it is either (a) a constant
 /// whose value is a multiple of \p Size, or (b) an integer multiplication
 /// operator where either operand is a constant multiple of \p Size.
-bool isValueMultipleOfSize(Value *Val, uint64_t Size);
+bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
 
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The
@@ -704,6 +813,12 @@ bool isSystemObjectType(llvm::StructType *Ty);
 /// we are unwilling to attempts dtrans optimizations.
 unsigned getMaxFieldsInStruct();
 
+/// Get the transformation printable name.
+StringRef getStringForTransform(dtrans::Transform Trans);
+/// Get the safety conditions for the transformation.
+dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans);
+
+StringRef getStructName(llvm::Type *Ty);
 } // namespace dtrans
 
 } // namespace llvm

@@ -30,6 +30,7 @@ namespace llvm {
 class APInt;
 class Function;
 class FunctionPass;
+class GetElementPtrInst; // INTEL
 class Instruction;
 class MDNode;
 class Module;
@@ -78,6 +79,19 @@ public:
   /// Visit an instruction and return true if it is valid, return false if an
   /// invalid TBAA is attached.
   bool visitTBAAMetadata(Instruction &I, const MDNode *MD);
+
+#if INTEL_CUSTOMIZATION
+  // This one is static because we want to call it not only from the Verifier
+  // but also from the InstCombine code to get more "safety" checks.
+
+  /// Check if the \p GEP has "strange" form that does not matches its
+  /// !intel-tbaa annotation.
+  ///
+  /// For !intel-tbaa with the same OuterTy and InnerTy we expect the \p GEP to
+  /// be a simple pointer arithmetic. Otherwise, the \p GEP is assumed to
+  /// represent "structural" access so its first index should be zero.
+  static bool isCanonicalIntelTBAAGEP(const GetElementPtrInst *GEP);
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Check a function for errors, useful for use when debugging a

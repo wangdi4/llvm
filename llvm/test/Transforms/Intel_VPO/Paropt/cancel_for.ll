@@ -1,8 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
-;
-; XFAIL: *
-; Expected failure due to incorrect transformation for cancel clause (CMPLRS-50926)
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR -check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR -check-prefix=ALL
 ;
 ; #include <stdio.h>
 ;
@@ -47,12 +46,12 @@ entry:
   %.omp.ub = alloca i32, align 4
   %.omp.stride = alloca i32, align 4
   %.omp.is_last = alloca i32, align 4
-; CHECK-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() {{.*}}
-; CHECK-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
+; TFORM-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() {{.*}}
+; TFORM-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* @i), "QUAL.OMP.SHARED"(i32* @j), "QUAL.OMP.SHARED"(i32* @y), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last) ]
 ; #pragma omp parallel
-; CHECK: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}})
+; TFORM: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}})
 
   %1 = load i32, i32* @i, align 4, !tbaa !2
   %inc = add nsw i32 %1, 1
@@ -61,7 +60,7 @@ entry:
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.BARRIER"() ]
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.BARRIER"() ]
 ; #pragma omp barrier (should still be kmpc_barrier, not kmpc_cancel_barrier)
-; CHECK: call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; ALL: call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
 
   %3 = bitcast i32* %.omp.iv to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %3) #1
@@ -78,6 +77,9 @@ entry:
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %7) #1
   store i32 0, i32* %.omp.is_last, align 4, !tbaa !2
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.REDUCTION.ADD"(i32* @y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
+; Updated region entry intrinsic after vpo-paropt-prepare
+; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),{{.*}} "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]) ]
+
   %9 = load i32, i32* %.omp.lb, align 4, !tbaa !2
   store i32 %9, i32* %.omp.iv, align 4, !tbaa !2
   br label %omp.inner.for.cond
@@ -96,18 +98,20 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCELLATION.POINT"(), "QUAL.OMP.CANCEL.LOOP"() ]
   call void @llvm.directive.region.exit(token %13) [ "DIR.OMP.END.CANCELLATION.POINT"() ]
 ; #pragma omp cancellationpoint
-; CHECK: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
-; CHECK: [[CHECK1:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
-; CHECK: br i1 [[CHECK1]], label %[[FOREXITLABEL:[a-zA-Z._0-9]+_crit_edge]], label %{{[a-zA-Z._0-9]+}}
+; ALL: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
+; PREPR-NEXT: store i32 [[CANCEL1]], i32* [[CP1ALLOCA]]
+; TFORM: [[CHECK1:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
+; TFORM: br i1 [[CHECK1]], label %[[FOREXITLABEL:[a-zA-Z._0-9]+_crit_edge]], label %{{[a-zA-Z._0-9]+}}
 
   %14 = load i32, i32* @j, align 4, !tbaa !2
   %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.1, i32 0, i32 0), i32 %14)
   %15 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.LOOP"(), "QUAL.OMP.IF"(i32 0) ]
   call void @llvm.directive.region.exit(token %15) [ "DIR.OMP.END.CANCEL"() ]
 ; #pragma omp cancel
-; CHECK: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
-; CHECK: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
-; CHECK: br i1 [[CHECK2]], label %[[FOREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
+; ALL: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
+; PREPR-NEXT: store i32 [[CANCEL2]], i32* [[CP2ALLOCA]]
+; TFORM: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
+; TFORM: br i1 [[CHECK2]], label %[[FOREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
 
   %16 = load i32, i32* @y, align 4, !tbaa !2
   %inc2 = add nsw i32 %16, 1

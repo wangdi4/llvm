@@ -53,8 +53,8 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
-#include "HIRUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "HIRUnroll.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -508,14 +508,12 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of vector pragma loop!\n");
       HUAJ.throttle(Lp);
       return;
+    } else if (Lp->hasUnrollEnablingPragma()) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam as loop has unroll pragma!\n");
+      HUAJ.throttle(Lp);
+      return;
     }
-  } else if (Lp->hasUnrollEnablingPragma()) {
-    // TODO: Check this for all loops when we have unroll & jam metadata.
-    LLVM_DEBUG(
-        dbgs()
-        << "Skipping unroll & jam as innermost loop has unroll pragma!\n");
-    HUAJ.throttleRecursively(Lp);
-    return;
   }
 
   // Throttle unroll of outer loop whose inner loop's bounds varies within the
@@ -601,15 +599,11 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
   unsigned UnrollFactor;
 
   if (HasEnablingPragma) {
-    // TODO: fix this when frontend implements unroll & jam pragma.
-    UnrollFactor = Lp->getUnrollPragmaCount();
+    UnrollFactor = Lp->getUnrollAndJamPragmaCount();
+    assert(UnrollFactor != 1 && "pragma unroll count of 1 not expected!");
 
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
-    } else if (UnrollFactor == 1) {
-      LLVM_DEBUG(
-          dbgs() << "Skipping unroll & jam as pragma count is set to 1!\n");
-      return 0;
     }
 
     if (IsConstTC) {
@@ -1055,7 +1049,10 @@ void UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   CExpr->shift(UHelper.UnrollLevel, UHelper.UnrollIteration);
 
   CExpr->multiplyIVByConstant(UHelper.UnrollLevel, UHelper.UnrollFactor);
-  CExpr->simplify(true);
+  // Cannot simplify unsigned division unless numerator is known to be
+  // non-negative. Can use HLNodeUtils::isKnownNonNegative() if simplification
+  // is required for performance.
+  // CExpr->simplify(true);
 }
 
 static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
@@ -1127,8 +1124,6 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
     IsInnermost = OrigLoop->isInnermost();
   }
 
-  UHelper.setCurOrigLoop(OrigLoop);
-
   while (CurFirstNode) {
     // Avoid unnecessary node traversal for innermost loops as their body will
     // be handled as a single node range.
@@ -1145,13 +1140,15 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
       assert((CurFirstNode == CurLastNode) &&
              "Single node range expected for loops!");
 
-      HLLoop *NewInnerLoop = ChildLoop->cloneEmptyLoop();
+      HLLoop *NewInnerLoop = ChildLoop->cloneEmpty();
       UHelper.updateLoopMap(ChildLoop, NewInnerLoop);
 
       HLNodeUtils::insertAsLastChild(NewLoop, NewInnerLoop);
       unrollLoopRecursive(ChildLoop, NewInnerLoop, UHelper, false);
 
     } else {
+      UHelper.setCurOrigLoop(OrigLoop);
+
       createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper);
       HLNodeUtils::insertAsLastChildren(NewLoop, &NodeRange);
     }

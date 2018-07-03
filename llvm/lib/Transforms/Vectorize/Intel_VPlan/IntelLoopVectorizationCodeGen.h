@@ -243,7 +243,11 @@ public:
   bool isCondLastPrivate(Value *Val) const;
 
   // Add linear value to Linears map
-  void addLinear(Value *LinearVal, int Step) {
+  void addLinear(Value *LinearVal, Value *StepValue) {
+    assert(isa<ConstantInt>(StepValue) &&
+           "Non constant LINEAR step is not yet supported");
+    ConstantInt *CI = cast<ConstantInt>(StepValue);
+    int Step = *((CI->getValue()).getRawData());
     Linears[LinearVal] = Step;
   }
 

@@ -284,10 +284,10 @@ static cl::opt<bool>
                               cl::Hidden,
                               cl::desc("Disable shrink-wrap library calls"));
 
-static cl::opt<bool>
-    EnableSimpleLoopUnswitch("enable-simple-loop-unswitch", cl::init(false),
-                             cl::Hidden,
-                             cl::desc("Enable the simple loop unswitch pass."));
+static cl::opt<bool> EnableSimpleLoopUnswitch(
+    "enable-simple-loop-unswitch", cl::init(false), cl::Hidden,
+    cl::desc("Enable the simple loop unswitch pass. Also enables independent "
+             "cleanup passes integrated into the loop pass manager pipeline."));
 
 static cl::opt<bool> EnableGVNSink(
     "enable-gvn-sink", cl::init(false), cl::Hidden,
@@ -537,6 +537,15 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   MPM.add(createReassociatePass());           // Reassociate expressions
+
+  // Begin the loop pass pipeline.
+  if (EnableSimpleLoopUnswitch) {
+    // The simple loop unswitch pass relies on separate cleanup passes. Schedule
+    // them first so when we re-process a loop they run before other loop
+    // passes.
+    MPM.add(createLoopInstSimplifyPass());
+    MPM.add(createLoopSimplifyCFGPass());
+  }
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   MPM.add(createLICMPass());                  // Hoist loop invariants
@@ -544,14 +553,19 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createSimpleLoopUnswitchLegacyPass());
   else
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+  // FIXME: We break the loop pass pipeline here in order to do full
+  // simplify-cfg. Eventually loop-simplifycfg should be enhanced to replace the
+  // need for this.
   MPM.add(createCFGSimplificationPass());
   addInstructionCombiningPass(MPM);
+  // We resume loop passes creating a second loop pipeline here.
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   addExtensionsToPM(EP_LateLoopOptimizations, MPM);
   MPM.add(createLoopDeletionPass());          // Delete dead loops
 
   if (EnableLoopInterchange) {
+    // FIXME: These are function passes and break the loop pass pipeline.
     MPM.add(createLoopInterchangePass()); // Interchange loops
     MPM.add(createCFGSimplificationPass());
   }
@@ -559,6 +573,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
+  // This ends the loop pass pipelines.
 
   if (OptLevel > 1) {
     MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
@@ -1051,8 +1066,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
+    // These passes get the IR into a form that DTrans is able to analyze.
+    PM.add(createInstructionSimplifierPass());
+    PM.add(createCFGSimplificationPass());
+    // This call adds the DTrans passes.
     addDTransLegacyPasses(PM);
+  }
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1079,6 +1099,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Remove unused arguments from functions.
   PM.add(createDeadArgEliminationPass());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    addLateDTransLegacyPasses(PM);
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
   // simplification opportunities, and both can propagate functions through
@@ -1246,8 +1273,8 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
   }
-  #if INTEL_CUSTOMIZATION // TODO: VEC to COLLAB
-  // TODO: Temporal hook-up for VPlan VPO Vectorizer
+  #if INTEL_CUSTOMIZATION
+  // TODO: Temporary hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
@@ -1344,6 +1371,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
     PM.add(createHIRLoopDistributionForLoopNestPass());
     PM.add(createHIRLoopInterchangePass());
+    PM.add(createHIRLoopBlockingPass());
     PM.add(createHIRLoopReversalPass());
 
     if (SizeLevel == 0) {

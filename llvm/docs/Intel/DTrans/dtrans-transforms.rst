@@ -192,7 +192,10 @@ needs to be replaced, the derived class is given a chance to take control of
 that variable with a call to createGlobalVariableReplacement(). If the derived
 class takes control over that variable, then the derived class will be
 responsible for initializing the replacement within a call to
-initializeGlobalVariableReplacement().
+initializeGlobalVariableReplacement(). After the initialization replacement
+has been completed for each global variable the DTransOptBaseClass will call
+postProcessGlobalVariable() to allow derived classes an opportunity to
+update uses of that global within the IR.
 
 Step 8: For each function:
   8a. The DTransOptBase class invokes the subclass method 'processFunction'.

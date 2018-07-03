@@ -44,7 +44,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -3186,7 +3186,7 @@ private:
     assert(II.getIntrinsicID() == Intrinsic::lifetime_start ||
            II.getIntrinsicID() == Intrinsic::lifetime_end   ||  //INTEL
            II.getIntrinsicID() == Intrinsic::var_annotation);   //INTEL
-   LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
+    LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
 
 #if INTEL_CUSTOMIZATION
     if (II.getIntrinsicID() == Intrinsic::var_annotation)

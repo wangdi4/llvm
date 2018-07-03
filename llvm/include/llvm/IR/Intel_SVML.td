@@ -72,8 +72,8 @@ def FPDoubleNonMaskedIntrin : VariantType<FPDouble, NonMasked, Intrin>;
 def FPBothMaskedIntrin      : VariantType<FPBoth,   Masked,    Intrin>;
 def FPBothNonMaskedIntrin   : VariantType<FPBoth,   NonMasked, Intrin>;
 
-def sin        : SvmlVariants<[FPBothMasked]>;
-def cos        : SvmlVariants<[FPBothMasked]>;
+def sin        : SvmlVariants<[FPBothMaskedIntrin]>;
+def cos        : SvmlVariants<[FPBothMaskedIntrin]>;
 def pow        : SvmlVariants<[FPBothMaskedIntrin]>;
 def exp        : SvmlVariants<[FPBothMaskedIntrin]>;
 def log        : SvmlVariants<[FPBothMaskedIntrin]>;

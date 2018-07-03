@@ -127,7 +127,7 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
 // Returns NULL if no recipe was created.
 VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
                                                       EdgeType ET) {
-  VPValue *CBV = PredBB->getCondBitVPVal();
+  VPValue *CBV = PredBB->getCondBit();
   // TODO: Add this assertion back when HIR fake condition bits are removed
   // assert(CBV->getValue() && "Even Live-Ins should have a value");
   assert(CBV && "Broken getConditionRecipe() ?");

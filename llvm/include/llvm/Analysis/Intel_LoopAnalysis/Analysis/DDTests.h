@@ -256,6 +256,13 @@ private:
 /// DDtest - This class is the main dependence-analysis driver.
 ///
 
+// Maximum possible value of MaxLevels member field of DDTest. It is set as:
+// SrcLevels + DstLevels - CommonLevels;
+// Refer to establishNestingLevels().
+// One was added because clients are using 1 based indexing instead of zero
+// based indexing.
+const unsigned MaxPossibleLevels = 2 * MaxLoopNestLevel + 1;
+
 class DDTest {
   friend class HIRDDAnalysis;
 
@@ -803,10 +810,10 @@ class DDTest {
   /// collectCoefficientInfo - Walks through the subscript,
   /// collecting each coefficient, the associated loop bounds,
   /// and recording its positive and negative parts for later use.
-  CoefficientInfo *collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
-                                    const CanonExpr *&Constant,
-                                    const HLLoop *SrcLoop,
-                                    const HLLoop *DstLoop);
+  /// Returns false if coeficients cannot be collected.
+  bool collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
+                        const CanonExpr *&Constant, const HLLoop *SrcLoop,
+                        const HLLoop *DstLoop, CoefficientInfo CI[]);
 
   ///  New CE are always constructed for member functions here for  arith.
   ///  operations

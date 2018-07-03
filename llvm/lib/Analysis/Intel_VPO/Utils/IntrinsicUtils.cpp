@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==-- IntrinsicUtils.cpp - Utilities for VPO related intrinsics -*- C++ -*-==//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -62,9 +63,9 @@ StringRef VPOAnalysisUtils::getRegionDirectiveString(Instruction *I) {
 }
 
 int VPOAnalysisUtils::getRegionDirectiveID(Instruction *I) {
-  StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);  
+  StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
   return VPOAnalysisUtils::getDirectiveID(DirString);
-} 
+}
 
 bool VPOAnalysisUtils::isIntelDirective(Instruction *I, bool doClauses) {
   if (I) {
@@ -199,7 +200,7 @@ static bool verifyBBWithRegionDirective(BasicBlock &BB, bool DoAssert) {
 
     // 2.1 Exactly one use?
     auto Users = FirstInstr -> users();
-    int NumUsers = std::distance(Users.begin(), Users.end()); 
+    int NumUsers = std::distance(Users.begin(), Users.end());
     if (NumUsers != 1) {
       StringRef Msg = "The directive.region.entry call must have exactly ONE "
                     "use, which is its corresponding directive.region.exit";
@@ -221,7 +222,7 @@ static bool verifyBBWithRegionDirective(BasicBlock &BB, bool DoAssert) {
     // 2.3 Does the END directive match with the BEGIN directive?
     if (VPOAnalysisUtils::getMatchingEndDirective(BeginDirID) != EndDirID) {
       StringRef Msg = "The directive.region.entry call must have a matching "
-                      "END directive"; 
+                      "END directive";
       verifyBBError(Msg, BB, DoAssert);
       return false;
     }
@@ -233,7 +234,7 @@ static bool verifyBBWithRegionDirective(BasicBlock &BB, bool DoAssert) {
 /// represented with llvm.intel.directive intrinsics.
 static bool verifyBBWithIntelDirective(BasicBlock &BB, bool DoAssert) {
   // We already verified that the first instruction is an llvm.intel.directive
-  // intrinsic. 
+  // intrinsic.
   Instruction *FirstInstr = &(BB.front());
 
   // 1. Verify that FirstInstr is not DIR.QUAL.LIST.END. This can happen as
@@ -325,3 +326,4 @@ bool VPOAnalysisUtils::mayHaveOpenmpDirective(Function &F) {
 bool VPOAnalysisUtils::skipFunctionForOpenmp(Function &F) {
   return !mayHaveOpenmpDirective(F);
 }
+#endif // INTEL_COLLAB

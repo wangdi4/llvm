@@ -1,9 +1,6 @@
 ; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
-; This is failing because we don't have ptr sub mappings for cloned functions.
-; XFAIL: *
-
 ; This test verifies that the size by which the result of a pointer sub is
 ; divided is correctly updated after field deletion when the sub takes place in
 ; a cloned function.

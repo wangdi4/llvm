@@ -11,7 +11,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:     Remark: Loop completely unrolled
 ; OPTREPORT-NEXT: LOOP END
 
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s

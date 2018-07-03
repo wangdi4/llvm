@@ -50,9 +50,13 @@ MODULE_PASS("constmerge", ConstantMergePass())
 MODULE_PASS("cross-dso-cfi", CrossDSOCFIPass())
 MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 #if INTEL_INCLUDE_DTRANS
-MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass()) // INTEL
-MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass()) // INTEL
+MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass())           // INTEL
+MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
+MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
+MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass()) // INTEL
+MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
+            dtrans::EliminateROFieldAccessPass())                // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
@@ -296,6 +300,7 @@ FUNCTION_PASS("hir-pre-vec-complete-unroll", loopopt::HIRPreVecCompleteUnrollPas
 FUNCTION_PASS("hir-runtime-dd", loopopt::HIRRuntimeDDPass())
 FUNCTION_PASS("hir-scalarrepl-array", loopopt::HIRScalarReplArrayPass())
 FUNCTION_PASS("hir-unroll-and-jam", loopopt::HIRUnrollAndJamPass())
+FUNCTION_PASS("hir-loop-blocking", loopopt::HIRLoopBlockingPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
 FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
@@ -317,6 +322,7 @@ LOOP_ANALYSIS("ivusers", IVUsersAnalysis())
 LOOP_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 LOOP_PASS("licm", LICMPass())
 LOOP_PASS("loop-idiom", LoopIdiomRecognizePass())
+LOOP_PASS("loop-instsimplify", LoopInstSimplifyPass())
 LOOP_PASS("rotate", LoopRotatePass())
 LOOP_PASS("no-op-loop", NoOpLoopPass())
 LOOP_PASS("print", PrintLoopPass(dbgs()))

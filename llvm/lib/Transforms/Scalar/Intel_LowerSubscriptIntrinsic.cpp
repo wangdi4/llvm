@@ -21,10 +21,10 @@
 #include "llvm/IR/Operator.h"
 
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Pass.h"
 #include "llvm/PassAnalysisSupport.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 
@@ -276,7 +276,10 @@ bool ConvertGEPToSubscriptIntrinsicPass::convertGEPToSubscriptIntrinsic(
 bool ConvertGEPToSubscriptIntrinsicPass::convertGEPToSubscriptIntrinsic(
     const DataLayout &DL, Instruction *Inst, Use *GEPUse) {
 
-  IRBuilder<> Builder(Inst);
+  IRBuilder<> Builder(isa<PHINode>(Inst) ? &*cast<PHINode>(Inst)
+                                                 ->getIncomingBlock(*GEPUse)
+                                                 ->getFirstInsertionPt()
+                                         : Inst);
   if (Value *Replacement = convertGEPToSubscript(
           DL, Builder, cast<GEPOperator>(GEPUse->get()))) {
     GEPUse->set(Replacement);

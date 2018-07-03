@@ -24,6 +24,7 @@
 #define INTEL_OPTIONALCOMPONENTS_INTEL_DTRANS_TRANSFORMS_DTRANSOPTBASE_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -31,6 +32,7 @@
 namespace llvm {
 
 class BinaryOperator;
+class TargetLibraryInfo;
 
 namespace dtrans {
 class CallInfo;
@@ -139,11 +141,12 @@ public:
   // \param Materializer Optional class that works with ValueMapper to create
   // new Values during type remapping
   DTransOptBase(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                const DataLayout &DL, StringRef DepTypePrefix,
-                DTransTypeRemapper *TypeRemapper,
+                const DataLayout &DL, const TargetLibraryInfo &TLI,
+                StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper,
                 ValueMaterializer *Materializer = nullptr)
-      : DTInfo(DTInfo), Context(Context), DL(DL), DepTypePrefix(DepTypePrefix),
-        TypeRemapper(TypeRemapper), Materializer(Materializer) {}
+      : DTInfo(DTInfo), Context(Context), DL(DL), TLI(TLI),
+        DepTypePrefix(DepTypePrefix), TypeRemapper(TypeRemapper),
+        Materializer(Materializer) {}
 
   DTransOptBase(const DTransOptBase &) = delete;
   DTransOptBase &operator=(const DTransOptBase &) = delete;
@@ -210,10 +213,16 @@ protected:
   // this method to handle the initialization of any GlobalVariable objects the
   // derived class returned within that method
   virtual void initializeGlobalVariableReplacement(GlobalVariable *OrigGV,
-                                                   GlobalVariable *NewGV) {
+                                                   GlobalVariable *NewGV,
+                                                   ValueMapper &Mapper) {
     llvm_unreachable("Global variable replacement must be done by derived "
                      "class implementing createGlobalVariableReplacement");
   }
+
+  // Derived classes may implement this method to update uses of global
+  // variables after the global variables have been updated.
+  virtual void postprocessGlobalVariable(GlobalVariable *OrigGV,
+                                         GlobalVariable *NewGV) {}
 
   // Derived classes may implement this to perform the transformation on a
   // function.
@@ -297,14 +306,30 @@ protected:
   void updateCallSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
                              llvm::Type *OrigTy, llvm::Type *ReplTy);
 
+  // This is an overloaded version of the above function that allows the
+  // derived classes to pass in an original structure size in the \p OrigSize
+  // parameter and a new structure size in the \p ReplSize parameter to use for
+  // replacing the size operand in the function call contained within \p CInfo.
+  void updateCallSizeOperand(Instruction *I, dtrans::CallInfo *CInfo,
+                             uint64_t OrigSize, uint64_t ReplSize);
+
   // Given a pointer to a sub instruction that is known to subtract two
   // pointers, find all users of the instruction that divide the result by
   // a constant multiple of the original type and replace them with a divide
-  // by the a constant that is the same multiple of the replacement type.
+  // by a constant that is the same multiple of the replacement type.
   // This function requires that all uses of this instruction be either
   // sdiv or udiv instructions.
   void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
                                       llvm::Type *OrigTy, llvm::Type *ReplTy);
+
+  // Given a pointer to a sub instruction that is known to subtract two
+  // pointers, find all users of the instruction that divide the result by
+  // a constant multiple of the \p OrigSize and replace them with a divide
+  // by a constant that is the same multiple of the \p ReplSize.
+  // This function requires that all uses of this instruction be either
+  // sdiv or udiv instructions.
+  void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                      uint64_t OrigSize, uint64_t ReplSize);
 
   // Derived classes may use this function to find a constant input value,
   // searching from the specified operand and following the use-def chain
@@ -320,10 +345,13 @@ protected:
       User *U, unsigned Idx, uint64_t Size,
       SmallVectorImpl<std::pair<User *, unsigned>> &UseStack);
 
+  void deleteCallInfo(dtrans::CallInfo *CInfo);
+
 protected:
   DTransAnalysisInfo &DTInfo;
   LLVMContext &Context;
   const DataLayout &DL;
+  const TargetLibraryInfo &TLI;
 
   // Optional string to precede names of dependent types that get renamed.
   std::string DepTypePrefix;
@@ -351,12 +379,33 @@ protected:
 
   // A mapping from the clone function to the original function to enable
   // lookups of the original function based on a clone function pointer.
-  DenseMap<Function *, Function *> CloneFuncToOrigFuncMap;
+  MapVector<Function *, Function *> CloneFuncToOrigFuncMap;
 
   // List of global variables that are being replaced with variables of the new
   // types due to the type remapping. The variables in this list need to be
   // destroyed once the entire module has been remapped.
-  SmallVector<GlobalVariable *, 16> GlobalsForRemoval;
+  SmallVector<GlobalValue *, 16> GlobalsForRemoval;
+
+private:
+  // A mapping of "Function -> { call info set }" objects.
+  // The CallInfo objects will need to have their types updated
+  // following cloning/remapping of the function. This map will
+  // be used to find which CallInfo objects need to be updated after
+  // processing each function. This map is kept private to prevent
+  // the derived classes from accessing it directly. Any updates
+  // needed must be done through this class's interface methods.
+  DenseMap<Function *, SmallVector<dtrans::CallInfo *, 4>>
+      FunctionToCallInfoVec;
+
+  // Set up the mapping of Functions to a set of CallInfo objects that need to
+  // be processed as each function is transformed.
+  void initializeFunctionCallInfoMapping();
+
+  // Updates the CallInfo objects associated with a specific function.
+  void updateCallInfoForFunction(Function *F, bool isCloned);
+
+  // Clear the Function to CallInfo mapping.
+  void resetFunctionCallInfoMapping();
 };
 
 } // namespace llvm

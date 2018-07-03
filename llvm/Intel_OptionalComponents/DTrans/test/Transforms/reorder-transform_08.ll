@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.test = type { i32, i64, i32, i32, i16, i64, i64 }
+%struct.test.01 = type { i32, i64, i32, i32, i16, i64, i64 }
 
 ; This struct is used to verify that no GEPs related to it are modified
 ; by reordering-fields.
@@ -16,9 +16,9 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() {
 entry:
   %call = tail call noalias i8* @calloc(i64 10, i64 48)
-  %0 = bitcast i8* %call to %struct.test*
-  %bp1 = bitcast %struct.test* %0 to i8*
-; CHECK: %bp1 = bitcast %__DFR_struct.test* %0 to i8*
+  %0 = bitcast i8* %call to %struct.test.01*
+  %bp1 = bitcast %struct.test.01* %0 to i8*
+; CHECK: %bp1 = bitcast %__DFR_struct.test.01* %0 to i8*
 
   %F2 = getelementptr i8, i8* %bp1, i64 8
 ; CHECK: %F2 = getelementptr i8, i8* %bp1, i64 0
@@ -34,7 +34,7 @@ entry:
 
   %call1 = tail call noalias i8* @calloc(i64 20, i64 16)
   %tp5 = bitcast i8* %call1 to %struct.test.02*
-  tail call void @foo(%struct.test* %0, %struct.test.02* %tp5)
+  tail call void @foo(%struct.test.01* %0, %struct.test.02* %tp5)
 
 ; GEP shouldn't be modified
   %F9 = getelementptr i8, i8* %call1, i64 8
@@ -43,10 +43,10 @@ entry:
   ret i32 0
 }
 
-define void @foo(%struct.test* %tp, %struct.test.02* %tp3) {
+define void @foo(%struct.test.01* %tp, %struct.test.02* %tp3) {
 entry:
-  %bp = bitcast %struct.test* %tp to i8*
-; CHECK: %bp = bitcast %__DFR_struct.test* %tp to i8*
+  %bp = bitcast %struct.test.01* %tp to i8*
+; CHECK: %bp = bitcast %__DFR_struct.test.01* %tp to i8*
 
   %F1 = getelementptr i8, i8* %bp, i64 0
 ; CHECK: %F1 = getelementptr i8, i8* %bp, i64 24

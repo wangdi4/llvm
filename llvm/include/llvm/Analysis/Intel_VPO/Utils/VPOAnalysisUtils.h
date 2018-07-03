@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===-- VPOAnalysisUtils.h - Class definitions for VPO utilites -*- C++ -*-===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
@@ -342,4 +343,5 @@ public:
 } // End vpo namespace
 
 } // End llvm namespace
-#endif
+#endif // LLVM_ANALYSIS_VPO_UTILS_VPOANALYSISUTILS_H
+#endif // INTEL_COLLAB

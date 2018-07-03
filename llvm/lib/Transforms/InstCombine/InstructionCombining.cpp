@@ -60,7 +60,8 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -88,6 +89,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/Verifier.h" // INTEL
 #include "llvm/Pass.h"
 #include "llvm/Support/CBindingWrapping.h"
 #include "llvm/Support/Casting.h"
@@ -1354,11 +1356,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   } while (true);
 }
 
-/// Makes transformation of binary operation specific for vector types.
-/// \param Inst Binary operator to transform.
-/// \return Pointer to node that must replace the original binary operator, or
-///         null pointer if no transformation was made.
-Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
+Instruction *InstCombiner::foldShuffledBinop(BinaryOperator &Inst) {
   if (!Inst.getType()->isVectorTy()) return nullptr;
 
   // It may not be safe to reorder shuffles and things like div, urem, etc.
@@ -1376,7 +1374,7 @@ Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
     Value *XY = Builder.CreateBinOp(Inst.getOpcode(), X, Y);
     if (auto *BO = dyn_cast<BinaryOperator>(XY))
       BO->copyIRFlags(&Inst);
-    return Builder.CreateShuffleVector(XY, UndefValue::get(XY->getType()), M);
+    return new ShuffleVectorInst(XY, UndefValue::get(XY->getType()), M);
   };
 
   // If both arguments of the binary operation are shuffles that use the same
@@ -1423,22 +1421,23 @@ Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
         NewVecC[ShMask[I]] = CElt;
       }
     }
-#if INTEL_CUSTOMIZATION
-    // TODO: This is a temporary fix to resolve lit fail on stage2 self-built
-    // compiler. Community commit 3479c804 might resolve this issue. Confirm
-    // resolution by community patch once it is pulled down and remove this
-    // customization.
-    const unsigned DivisionOpcodes[] = {Instruction::UDiv, Instruction::URem,
-                                        Instruction::SDiv, Instruction::SRem};
-    if (llvm::is_contained(DivisionOpcodes, Inst.getOpcode()) &&
-        // FIXME: It is actually OK to have an undef here if it comes from the
-        // original divisor. Is it possible to filter them somehow?
-        llvm::any_of(NewVecC, [](const Constant *C) -> bool {
-          return isa<UndefValue>(C);
-        }))
-      MayChange = false;
-#endif
     if (MayChange) {
+      // With integer div/rem instructions, it is not safe to use a vector with
+      // undef elements because the entire instruction can be folded to undef.
+      // So replace undef elements with '1' because that can never induce
+      // undefined behavior. All other binop opcodes are always safe to
+      // speculate, and therefore, it is fine to include undef elements for
+      // unused lanes (and using undefs may help optimization).
+      BinaryOperator::BinaryOps Opcode = Inst.getOpcode();
+      if (Opcode == Instruction::UDiv || Opcode == Instruction::URem ||
+          Opcode == Instruction::SDiv || Opcode == Instruction::SRem) {
+        assert(C->getType()->getScalarType()->isIntegerTy() &&
+               "Not expecting FP opcodes/operands/constants here");
+        for (unsigned i = 0; i < VWidth; ++i)
+          if (isa<UndefValue>(NewVecC[i]))
+            NewVecC[i] = ConstantInt::get(NewVecC[i]->getType(), 1);
+      }
+
       // Op(shuffle(V1, Mask), C) -> shuffle(Op(V1, NewC), Mask)
       // Op(C, shuffle(V1, Mask)) -> shuffle(Op(NewC, V1), Mask)
       Constant *NewC = ConstantVector::get(NewVecC);
@@ -1450,6 +1449,43 @@ Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
 
   return nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+// TODO: Can it be merged into combineMetadata* in Local.h?
+
+/// Try to combine !intel-tbaa metadata for the \p GEP and \p Src that are being
+/// merged (no RAUW happenned yet) into the \p NewGEP.
+static void mergeIntelTBAAMetadata(GetElementPtrInst &GEP, const Value *Src,
+                                   GetElementPtrInst *NewGEP) {
+  MDNode *GepMD = GEP.getMetadata(LLVMContext::MD_intel_tbaa);
+  if (!GepMD)
+    return;
+  MDNode *SrcMD =
+      isa<Instruction>(Src)
+          ? cast<Instruction>(Src)->getMetadata(LLVMContext::MD_intel_tbaa)
+          : nullptr;
+  if (!SrcMD)
+    return;
+
+  assert(TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP) &&
+         "GEP does not have canonical !intel-tbaa metadata!");
+  assert(TBAAVerifier::isCanonicalIntelTBAAGEP(cast<GetElementPtrInst>(Src)) &&
+         "Src does not have canonical !intel-tbaa metadata!");
+
+  // LangRef actually allows non-"canonical" GEPs to be merged, but we don't
+  // expect to encounter them and want to be more restrictive in such case and
+  // abandon any combining.
+  if (!TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP) ||
+      !TBAAVerifier::isCanonicalIntelTBAAGEP(cast<GetElementPtrInst>(Src)))
+    return;
+
+  MDNode *MergedTBAA = mergeIntelTBAA(SrcMD, GepMD);
+  if (!MergedTBAA)
+    return;
+
+  NewGEP->setMetadata(LLVMContext::MD_intel_tbaa, MergedTBAA);
+}
+#endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
@@ -1706,6 +1742,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       if (Src->getNumOperands() == 2) {
         GEP.setOperand(0, Src->getOperand(0));
         GEP.setOperand(1, Sum);
+        // TODO: INTEL: Should we drop all the metadata and upstream?
+        GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr); // INTEL
         return &GEP;
       }
       Indices.append(Src->op_begin()+1, Src->op_end()-1);
@@ -1719,14 +1757,20 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       Indices.append(GEP.idx_begin()+1, GEP.idx_end());
     }
 
-    if (!Indices.empty())
-      return GEP.isInBounds() && Src->isInBounds()
-                 ? GetElementPtrInst::CreateInBounds(
-                       Src->getSourceElementType(), Src->getOperand(0), Indices,
-                       GEP.getName())
-                 : GetElementPtrInst::Create(Src->getSourceElementType(),
-                                             Src->getOperand(0), Indices,
-                                             GEP.getName());
+#if INTEL_CUSTOMIZATION
+    // Handle merging of IntelTBAA nodes and update all users accordingly.
+    if (!Indices.empty()) {
+      auto NewGEP = GEP.isInBounds() && Src->isInBounds()
+                        ? GetElementPtrInst::CreateInBounds(
+                              Src->getSourceElementType(), Src->getOperand(0),
+                              Indices, GEP.getName())
+                        : GetElementPtrInst::Create(Src->getSourceElementType(),
+                                                    Src->getOperand(0), Indices,
+                                                    GEP.getName());
+      mergeIntelTBAAMetadata(GEP, Src, NewGEP);
+      return NewGEP;
+#endif // INTEL_CUSTOMIZATION
+    }
   }
 
   if (GEP.getNumIndices() == 1) {

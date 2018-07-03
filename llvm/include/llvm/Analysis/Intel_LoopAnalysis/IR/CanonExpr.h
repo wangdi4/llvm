@@ -20,6 +20,7 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Debug.h"
 
 #include <iterator>
 #include <set>
@@ -315,8 +316,21 @@ public:
 
   /// Returns true if the canon expr is linear at level and does not have IV at
   /// given level.
-  bool isInvariantAtLevel(unsigned Level) const {
-    return (isLinearAtLevel() && (DefinedAtLevel < Level) && !hasIV(Level));
+  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerLoops = true) const {
+    if (!isLinearAtLevel() || DefinedAtLevel >= Level) {
+      return false;
+    }
+
+    if (IgnoreInnerLoops) {
+      return !hasIV(Level);
+    }
+
+    for (unsigned I = Level; I <= MaxLoopNestLevel; I++) {
+      if (hasIV(I)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// IV iterator methods

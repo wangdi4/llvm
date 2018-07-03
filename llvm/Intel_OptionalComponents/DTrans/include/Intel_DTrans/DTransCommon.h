@@ -24,7 +24,10 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
+#include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"
+#include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
+#include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 
 #if !INTEL_PRODUCT_RELEASE
 #include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
@@ -41,7 +44,11 @@ void initializeDTransPasses(PassRegistry&);
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
 void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
+void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
+// Pass for elimination of unreacheble access to field which is only read.
+void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
+void initializePaddedPtrPropWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOptBaseTestWrapperPass(PassRegistry&);
@@ -52,6 +59,8 @@ void createDTransPasses();
 
 void addDTransPasses(ModulePassManager &MPM);
 void addDTransLegacyPasses(legacy::PassManagerBase &PM);
+void addLateDTransPasses(ModulePassManager &MPM);
+void addLateDTransLegacyPasses(legacy::PassManagerBase &PM);
 
 } // namespace llvm
 

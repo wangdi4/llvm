@@ -24,13 +24,13 @@
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:         Remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:         Remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:         Remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 

@@ -33,7 +33,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -1844,11 +1844,11 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
          "ComputeValueKnownInPredecessors returned true with no "       // INTEL
          "values or regions");                                          // INTEL
 
-  LLVM_DEBUG(dbgs() << "IN BB: " << *BB; for (const auto &PredValue
-                                              : PredValues) {
-    dbgs() << "  BB '" << BB->getName()
-           << "': FOUND condition = " << *PredValue.first << " for pred '"
-           << PredValue.second->getName() << "'.\n";
+  LLVM_DEBUG(dbgs() << "IN BB: " << *BB;
+             for (const auto &PredValue : PredValues) {
+               dbgs() << "  BB '" << BB->getName()
+                      << "': FOUND condition = " << *PredValue.first
+                      << " for pred '" << PredValue.second->getName() << "'.\n";
   });
 
   // Decide what we want to thread through.  Convert our list of known values to
@@ -2443,9 +2443,8 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   LLVM_DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName()
                     << "' to '" << SuccBB->getName() << "' with cost: "
                     << JumpThreadCost << ", across blocks:\n    ";
-             for (auto BB
-                  : RegionBlocks) dbgs()
-             << " " << BB->getName();
+             for (auto BB : RegionBlocks)
+               dbgs() << " " << BB->getName();
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
 #endif // INTEL_CUSTOMIZATION
 

@@ -13,11 +13,11 @@
 ; RUN: opt -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark #XXXXX: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
+; OPTREPORT-NEXT:     Remark: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:         Remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 

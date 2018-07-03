@@ -4,8 +4,10 @@
 ; Check that field single value indirect call specialization will specialize
 ; when the indirect call is done through a GetElementPtrInst
 
-; CHECK: %call = call i32 @foo()
-; CHECK: %call1 = call i32 @bar()
+; CHECK-NOT{{.*}}icmp{{.*}}
+; CHECK:{{.*}}call i32 @foo()
+; CHECK-NOT{{.*}}icmp{{.*}}
+; CHECK:{{.*}}call i32 @bar()
 
 define dso_local i32 @foo() {
   ret i32 5

@@ -38,7 +38,6 @@ add_llvm_library(LLVMAnalysis
 # INTEL_CUSTOMIZATION
   Intel_AggInline.cpp
   Intel_Andersens.cpp
-  Intel_Directives.cpp
   Intel_IPCloningAnalysis.cpp
   Intel_SNode.cpp
   Intel_StdContainerAA.cpp
@@ -49,6 +48,7 @@ add_llvm_library(LLVMAnalysis
   Intel_XmainOptLevelPass.cpp
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
+  Intel_Directives.cpp
   Intel_VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
   Intel_VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
 # end INTEL_COLLAB
@@ -109,11 +109,15 @@ add_llvm_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen    #INTEL_COLLAB
+# INTEL_COLLAB
+  intel_directives_gen
+# end INTEL_COLLAB
   intel_svml_gen          #INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
   intel_libmvec_gen       #INTEL_CUSTOMIZATION
   )
 
 add_subdirectory(Intel_LoopAnalysis)  #INTEL_CUSTOMIZATION
-add_subdirectory(Intel_VPO)           #INTEL_COLLAB
 add_subdirectory(Intel_OptReport)     #INTEL_CUSTOMIZATION
+# INTEL_COLLAB
+add_subdirectory(Intel_VPO)
+# end INTEL_COLLAB

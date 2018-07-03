@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===--------- Intel_GeneralUtils.h - Class definition -*- C++ -*----------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -79,8 +80,10 @@ public:
   /// \brief Returns instruction I's next instruction in the same basic block.
   static Instruction* nextUniqueInstruction(Instruction *I);
 
+#if INTEL_CUSTOMIZATION
   /// \brief Returns true if the value V escapes.
   static bool isEscaped(const Value *V);
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Return the size_t type for 32/64 bit architecture
   static Type *getSizeTTy(Function *F);
@@ -89,3 +92,4 @@ public:
 } // end llvm namespace
 
 #endif // LLVM_TRANSFORM_UTILS_INTEL_GENERALUTILS_H
+#endif // INTEL_COLLAB

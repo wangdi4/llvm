@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==-- IntrinsicUtils.cpp - Utilities for VPO related intrinsics -*- C++ -*-==//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -36,7 +37,6 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   bool success = true;
   BasicBlock *ExitBB = WRN->getExitBBlock();
 
-#if INTEL_CUSTOMIZATION // old representation should not to appear in COLLAB
   // Under the old representation, we still need to remove dirs from EntryBB
   BasicBlock *EntryBB = WRN->getEntryBBlock();
   bool SeenRegionDirective = false;
@@ -48,7 +48,6 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
     }
   if (!SeenRegionDirective)
     success = VPOUtils::stripDirectives(*EntryBB);
-#endif // INTEL_CUSTOMIZATION
 
   // Under the new region representation:
   //   %1 = call token @llvm.directive.region.entry() [...]
@@ -231,3 +230,65 @@ void VPOUtils::stripDebugInfoInstrinsics(Function &F)
     }
   }
 }
+
+// Generates a memcpy call at the end of the given basic block BB.
+// The value D represents the destination while the value S represents
+// the source. The size of the memcpy is the size of destination.
+// The compiler will insert the typecast if the type of source or destination
+// does not match with the type i8.
+// One example of the output is as follows.
+//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
+CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
+                              unsigned Align, BasicBlock *BB) {
+  IRBuilder<> MemcpyBuilder(BB);
+  MemcpyBuilder.SetInsertPoint(BB->getTerminator());
+
+  Value *Dest, *Src, *Size;
+
+  // The first two arguments of the memcpy expects the i8 operands.
+  // The instruction bitcast is introduced if the incoming src or dest
+  // operand in not in i8 type.
+  if (D->getType() !=
+      Type::getInt8PtrTy(BB->getParent()->getContext())) {
+    Dest = MemcpyBuilder.CreatePointerCast(D, MemcpyBuilder.getInt8PtrTy());
+    Src = MemcpyBuilder.CreatePointerCast(S, MemcpyBuilder.getInt8PtrTy());
+  }
+  else {
+    Dest = D;
+    Src = S;
+  }
+  // For 32/64 bit architecture, the size and alignment should be
+  // set accordingly.
+  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->getIntegerBitWidth() ==
+      64)
+    Size = MemcpyBuilder.getInt64(
+        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+  else
+    Size = MemcpyBuilder.getInt32(
+        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+
+  AllocaInst *AI = dyn_cast<AllocaInst>(D);
+  if (AI && AI->isArrayAllocation())
+    Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
+
+  return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
+}
+
+// Utility to copy the data from the source to the destination.
+void VPOUtils::genCopyFromSrcToDst(Type *AllocaTy, const DataLayout &DL,
+                                   IRBuilder<> &Builder,
+                                   AllocaInst *NewPrivInst,
+                                   Value *Source, Value *Destination,
+                                   BasicBlock *InsertBB) {
+  Type *ScalarTy = AllocaTy->getScalarType();
+
+  if (!AllocaTy->isSingleValueType() ||
+      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
+      DL.getTypeSizeInBits(ScalarTy) % 8 != 0 ||
+      NewPrivInst->isArrayAllocation())
+    genMemcpy(Destination, Source, DL,
+              NewPrivInst->getAlignment(), InsertBB);
+  else
+    Builder.CreateStore(Builder.CreateLoad(Source), Destination);
+}
+#endif // INTEL_COLLAB

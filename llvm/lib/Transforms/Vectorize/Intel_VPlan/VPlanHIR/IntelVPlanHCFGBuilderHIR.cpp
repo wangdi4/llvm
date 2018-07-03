@@ -244,7 +244,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Header and set Latch condition bit.
   VPValue *LatchCondBit = Decomposer.createLoopIVNextAndBottomTest(HLp, Latch);
   PlanUtils.connectBlocks(Latch, Header);
-  PlanUtils.setBlockCondBitVPVal(Latch, LatchCondBit);
+  PlanUtils.setBlockCondBit(Latch, LatchCondBit);
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
@@ -275,7 +275,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // it as condition bit of the active VPBasicBlock.
   // TODO: Remove "not decomposed" when decomposing HLIfs.
   VPInstruction *CondBit = Decomposer.createVPInstructions(HIf, ActiveVPBB);
-  PlanUtils.setBlockCondBitVPVal(ConditionVPBB, CondBit);
+  PlanUtils.setBlockCondBit(ConditionVPBB, CondBit);
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch.

@@ -212,6 +212,20 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   return Result;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Returns indices of size arguments of Malloc-like functions.
+/// All functions except calloc return -1 as a second argument.
+std::pair<unsigned, unsigned>
+llvm::getAllocSizeArgumentIndices(const Value *I,
+                                  const TargetLibraryInfo *TLI) {
+  Optional<AllocFnsTy> Res = getAllocationSize(I, TLI);
+  if (!Res)
+    return std::make_pair(-1U, -1U);
+
+  return std::make_pair(Res->FstParam, Res->SndParam);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool hasNoAliasAttr(const Value *V, bool LookThroughBitCast) {
   ImmutableCallSite CS(LookThroughBitCast ? V->stripPointerCasts() : V);
   return CS && CS.hasRetAttr(Attribute::NoAlias);
@@ -248,6 +262,21 @@ bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                           bool LookThroughBitCast) {
   return getAllocationData(V, CallocLike, TLI, LookThroughBitCast).hasValue();
 }
+
+#if INTEL_CUSTOMIZATION
+/// Tests if a value is a call or invoke to a library function that
+/// reallocates memory (such as realloc).
+bool llvm::isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
+                          bool LookThroughBitCast) {
+  return getAllocationData(V, ReallocLike, TLI, LookThroughBitCast).hasValue();
+}
+
+/// Tests if a value is a call or invoke to a library C++ function new/new[].
+bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
+                       bool LookThroughBitCast) {
+  return getAllocationData(V, OpNewLike, TLI, LookThroughBitCast).hasValue();
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
@@ -361,6 +390,44 @@ const CallInst *llvm::extractCallocCall(const Value *I,
 
 /// isFreeCall - Returns non-null if the value is a call to the builtin free()
 const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
+#if INTEL_CUSTOMIZATION
+// Extracted all, but 'free' checks to isDeleteCall.
+  if (auto *CI = isDeleteCall(I, TLI))
+    return CI;
+
+  bool IsNoBuiltinCall;
+  const Function *Callee =
+      getCalledFunction(I, /*LookThroughBitCast=*/false, IsNoBuiltinCall);
+  if (Callee == nullptr || IsNoBuiltinCall)
+    return nullptr;
+
+  StringRef FnName = Callee->getName();
+  LibFunc TLIFn;
+  if (!TLI || !TLI->getLibFunc(FnName, TLIFn) || !TLI->has(TLIFn) ||
+      TLIFn != LibFunc_free)
+    return nullptr;
+
+  // Check free prototype.
+  // FIXME: workaround for PR5130, this will be obsolete when a nobuiltin
+  // attribute will exist.
+  FunctionType *FTy = Callee->getFunctionType();
+  if (!FTy->getReturnType()->isVoidTy())
+    return nullptr;
+  if (FTy->getNumParams() != 1)
+    return nullptr;
+  if (FTy->getParamType(0) != Type::getInt8PtrTy(Callee->getContext()))
+    return nullptr;
+
+  return dyn_cast<CallInst>(I);
+#endif // INTEL_CUSTOMIZATION
+}
+
+
+#if INTEL_CUSTOMIZATION
+/// isDeleteCall - Returns non-null if the value is a call to the builtin
+/// delete/delete[] function.
+const CallInst *llvm::isDeleteCall(const Value *I,
+                                   const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
   const Function *Callee =
       getCalledFunction(I, /*LookThroughBitCast=*/false, IsNoBuiltinCall);
@@ -373,8 +440,7 @@ const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
     return nullptr;
 
   unsigned ExpectedNumParams;
-  if (TLIFn == LibFunc_free ||
-      TLIFn == LibFunc_ZdlPv || // operator delete(void*)
+  if (TLIFn == LibFunc_ZdlPv || // operator delete(void*)
       TLIFn == LibFunc_ZdaPv || // operator delete[](void*)
       TLIFn == LibFunc_msvc_delete_ptr32 || // operator delete(void*)
       TLIFn == LibFunc_msvc_delete_ptr64 || // operator delete(void*)
@@ -417,6 +483,7 @@ const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
 
   return dyn_cast<CallInst>(I);
 }
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.

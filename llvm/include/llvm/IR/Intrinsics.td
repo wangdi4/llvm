@@ -304,12 +304,12 @@ def int_vacopy  : Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty], [],
                             "llvm.va_copy">;
 def int_vaend   : Intrinsic<[], [llvm_ptr_ty], [], "llvm.va_end">;
 
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 def int_vaargpacklen  : Intrinsic<[llvm_i32_ty], [], [], 
   "llvm.va_arg_pack_len">;
 def int_vaargpack     : Intrinsic<[llvm_i32_ty], [], [], 
   "llvm.va_arg_pack">;
-// endif //INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 //===------------------- Garbage Collection Intrinsics --------------------===//
 //
@@ -581,7 +581,7 @@ def int_expect : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>,
 let IntrProperties = [IntrNoMem, IntrSpeculatable] in {
   def int_bswap: Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>]>;
   def int_ctpop: Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>]>;
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
   // CQ#377481. Adding 'clrsb' family of intrinsics.
   ///
   /// Syntax.
@@ -605,7 +605,7 @@ let IntrProperties = [IntrNoMem, IntrSpeculatable] in {
   /// There's no special case for 0 value.
   ///
   def int_clrsb : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>]>;
-// endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
   def int_ctlz : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>, llvm_i1_ty]>;
   def int_cttz : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>, llvm_i1_ty]>;
   def int_bitreverse : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>]>;
@@ -920,7 +920,9 @@ def int_masked_compressstore: Intrinsic<[],
 def int_type_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
                               [IntrNoMem]>;
 
-// INTEL_CUSTOMIZATION // (to be obsoleted)
+// INTEL_COLLAB
+// These intrinsics will be deprecated.
+// Use int_directive_region_entry/exit instead.
 //===--------------------- Intel Directive Intrinsics ---------------------===//
 
 def int_intel_directive : Intrinsic<[], [llvm_metadata_ty],
@@ -941,7 +943,7 @@ def int_intel_directive_qual_opndlist : Intrinsic<
                                         [llvm_metadata_ty, llvm_vararg_ty],
                                         [IntrArgMemOnly],
                                         "llvm.intel.directive.qual.opndlist">;
-// endif INTEL_CUSTOMIZATION
+// end INTEL_COLLAB
 
 // Safely loads a function pointer from a virtual table pointer using type metadata.
 def int_type_checked_load : Intrinsic<[llvm_ptr_ty, llvm_i1_ty],
@@ -1048,7 +1050,7 @@ def int_ssa_copy : Intrinsic<[llvm_any_ty], [LLVMMatchType<0>],
 //===----------------------------------------------------------------------===//
 // Target-specific intrinsics
 //===----------------------------------------------------------------------===//
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 def int_intel_pragma : Intrinsic<[], [ llvm_metadata_ty, llvm_vararg_ty ], [],
                                  "llvm.intel.pragma">;
 
@@ -1091,7 +1093,7 @@ def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
                                  [LLVMMatchType<0>, llvm_metadata_ty],
                                  [IntrSpeculatable, IntrNoMem]>;
-// endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"
 include "llvm/IR/IntrinsicsX86.td"

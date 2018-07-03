@@ -56,10 +56,14 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj) : HLDDNode(HLSwitchObj) {
   }
 }
 
+HLSwitch *HLSwitch::cloneEmpty() const {
+  return new HLSwitch(*this);
+}
+
 HLSwitch *HLSwitch::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                               HLNodeMapper *NodeMapper) const {
-  // Call the Copy Constructor
-  HLSwitch *NewHLSwitch = new HLSwitch(*this);
+
+  HLSwitch *NewHLSwitch = cloneEmpty();
 
   /// Clone default case children
   for (auto It = this->default_case_child_begin(),

@@ -14,7 +14,7 @@
 
 ;OPTREPORT: LOOP BEGIN at foo.c (3, 3)
 ;OPTREPORT: <Predicate Optimized v1>
-;OPTREPORT:     Remark #XXXXX: Condition at line 4 was optimized
+;OPTREPORT:     Remark: Condition at line 4 was optimized
 ;OPTREPORT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN at foo.c (3, 3)

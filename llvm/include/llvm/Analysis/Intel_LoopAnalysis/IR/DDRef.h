@@ -129,8 +129,11 @@ public:
   /// BlobDDRef is always terminal
   virtual bool isTerminalRef() const = 0;
 
-  /// Returns true if DDRef is lvalue
+  /// Returns true if DDRef is lvalue.
   virtual bool isLval() const = 0;
+
+  /// Returns true if DDRef is rvalue.
+  bool isRval() const { return !isLval(); }
 
   /// Returns true if this ref looks like 1 * undef.
   virtual bool isStandAloneUndefBlob() const = 0;

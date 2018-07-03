@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/PreISelIntrinsicLowering.h"
-#include "llvm/Analysis/Utils/Local.h" // INTEL
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -23,6 +22,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/Utils/Local.h" // INTEL
 
 using namespace llvm;
 

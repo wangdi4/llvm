@@ -4050,10 +4050,10 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     break;
   case ISD::FNEG:
     // -(X-Y) -> (Y-X) is unsafe because when X==Y, -0.0 != +0.0
-    if (getTarget().Options.UnsafeFPMath && OpOpcode == ISD::FSUB)
-      // FIXME: FNEG has no fast-math-flags to propagate; use the FSUB's flags?
+    if ((getTarget().Options.UnsafeFPMath || Flags.hasNoSignedZeros()) &&
+        OpOpcode == ISD::FSUB)
       return getNode(ISD::FSUB, DL, VT, Operand.getOperand(1),
-                     Operand.getOperand(0), Operand.getNode()->getFlags());
+                     Operand.getOperand(0), Flags);
     if (OpOpcode == ISD::FNEG)  // --X -> X
       return Operand.getOperand(0);
     break;
@@ -6905,6 +6905,7 @@ SDNode *SelectionDAG::UpdateNodeOperands(SDNode *N, SDValue Op) {
   // Now we update the operands.
   N->OperandList[0].set(Op);
 
+  updateDivergence(N);
   // If this gets put into a CSE map, add it.
   if (InsertPos) CSEMap.InsertNode(N, InsertPos);
   return N;
@@ -6984,6 +6985,7 @@ UpdateNodeOperands(SDNode *N, ArrayRef<SDValue> Ops) {
     if (N->OperandList[i] != Ops[i])
       N->OperandList[i].set(Ops[i]);
 
+  updateDivergence(N);
   // If this gets put into a CSE map, add it.
   if (InsertPos) CSEMap.InsertNode(N, InsertPos);
   return N;

@@ -195,7 +195,7 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
     const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder, bool VecMode) {
-  HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
+  HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
   if (!VecMode) {
@@ -240,6 +240,8 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     // is defined just before the loop.
     updateBoundDDRef(NewUBRef, NewTCRef->getSelfBlobIndex(),
                      OrigLoop->getNestingLevel() - 1);
+
+    NewLoop->addLiveInTemp(NewTCRef->getSymbase());
 
     // Generate the Ztt.
     NewLoop->createZtt(false);
@@ -305,6 +307,8 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // is defined just before the loop.
     updateBoundDDRef(NewLBRef, NewTCRef->getSelfBlobIndex(),
                      OrigLoop->getNestingLevel() - 1);
+
+    OrigLoop->addLiveInTemp(NewTCRef->getSymbase());
 
     OrigLoop->createZtt(false);
 
@@ -500,6 +504,41 @@ struct UpdateDDRefForLoopPermutation final : public HLNodeVisitorBase {
 };
 } // namespace
 
+static void addLiveInToPermutedLoopnest(unsigned Symbase, HLLoop *InnermostLoop,
+                                        HLLoop *OutermostLoop) {
+  // Livein information of OutermostLoop remains unchanged.
+  for (auto *Lp = InnermostLoop; Lp != OutermostLoop;
+       Lp = Lp->getParentLoop()) {
+    Lp->addLiveInTemp(Symbase);
+  }
+}
+
+static void updatePermutedLoopnestLiveIns(HLLoop *InnermostLoop,
+                                          HLLoop *OutermostLoop) {
+  // Update livein information based on the new loop bounds after permutation.
+
+  for (auto *Lp = InnermostLoop; Lp != OutermostLoop;
+       Lp = Lp->getParentLoop()) {
+
+    // Add each temp in bound ddrefs as livein to all the parent loops involved
+    // in the permutation.
+    for (auto RefIt = Lp->ddref_begin(), E = Lp->ddref_end(); RefIt != E;
+         ++RefIt) {
+      auto *Ref = *RefIt;
+
+      if (Ref->isSelfBlob()) {
+        addLiveInToPermutedLoopnest(Ref->getSymbase(), Lp, OutermostLoop);
+      } else {
+        for (auto BlobIt = Ref->blob_cbegin(), EB = Ref->blob_cend();
+             BlobIt != EB; ++BlobIt) {
+          addLiveInToPermutedLoopnest((*BlobIt)->getSymbase(), Lp,
+                                      OutermostLoop);
+        }
+      }
+    }
+  }
+}
+
 void HIRTransformUtils::permuteLoopNests(
     HLLoop *OutermostLoop,
     const SmallVectorImpl<const HLLoop *> &LoopPermutation,
@@ -521,13 +560,21 @@ void HIRTransformUtils::permuteLoopNests(
   }
 
   SmallVector<HLLoop *, MaxLoopNestLevel> OrigLoops;
+  HLLoop *InnermostLoop = nullptr;
+
   for (auto &Lp : LoopPermutation) {
-    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
+    HLLoop *LoopCopy = Lp->cloneEmpty();
     LoopCopy->setNestingLevel(Lp->getNestingLevel());
     SavedLoops.push_back(LoopCopy);
 
     // Preparation for sorting
-    OrigLoops.push_back(const_cast<HLLoop *>(Lp));
+    // TODO: remove 'const' from LoopPermutation.
+    HLLoop *NonConstLp = const_cast<HLLoop *>(Lp);
+    OrigLoops.push_back(NonConstLp);
+
+    if (Lp->isInnermost()) {
+      InnermostLoop = NonConstLp;
+    }
   }
 
   // Sort by loop nesting level from the LoopPermutation
@@ -564,6 +611,8 @@ void HIRTransformUtils::permuteLoopNests(
       OutmostNestingLevel, InnermostNestingLevel, &NewLoopLevels[0]);
 
   HLNodeUtils::visit(UpdateDDRef, OutermostLoop);
+
+  updatePermutedLoopnestLiveIns(InnermostLoop, OutermostLoop);
 }
 
 void UpdateDDRefForLoopPermutation::updateDDRef(HLDDNode *Node,
@@ -626,35 +675,6 @@ void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
 
 void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
                                   unsigned StripmineSize) {
-
-  //  Utility that can be shared by distribution and blocking
-  //  Distribution has a sequence of loops
-  //  Blocking normally has one -  FirstLoop == LastLoop
-  //
-  //  Returns true when Stripmine is performed
-  //
-  //    DO i1=0,N-1
-  //      A[i1] =
-  //    ENDDO
-  //    DO i1=0,N-1
-  //      A[i1] += 1
-  //    ENDDO
-  //  ==>
-  //    First form a loop to enclose the input loops
-  //    DO i1=0,N-1
-  //      DO i2=0,N-1
-  //         A[i1] =
-  //      ENDDO
-  //      DO i2=0,N-1
-  //        ...
-  //  ==>
-  //    Before normalization, assuming  StripmineSize = 64
-  //    It is changed as
-  //    DO i1=0, (N-1) / 64
-  //       N2 = min(-64 *i1 + N-1, 64-1)
-  //       do i2=64*i1, 64*i1 + N2
-  //          A[i2] = 1
-
   uint64_t TripCount;
 
   // Caller should call canStripmine before
@@ -666,7 +686,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
 
-  HLLoop *NewLoop = FirstLoop->cloneEmptyLoop();
+  HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
   HLNodeUtils::insertBefore(FirstLoop, NewLoop);
 
@@ -730,12 +750,13 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
 
   UBRef = LBRef->clone();
   RegDDRef *BlobRef = MinInst->getLvalDDRef();
-  unsigned BlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
+  unsigned MinBlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
+  unsigned MinBlobSymbase = BlobRef->getSymbase();
 
   // 64*i1 + N2
 
-  UBRef->getSingleCanonExpr()->setBlobCoeff(BlobIndex, 1);
-  UBRef->addBlobDDRef(BlobIndex, Level);
+  UBRef->getSingleCanonExpr()->setBlobCoeff(MinBlobIndex, 1);
+  UBRef->addBlobDDRef(MinBlobIndex, Level);
 
   // Normalize code will set linear at level
   for (auto It = NewLoop->child_begin(), E = NewLoop->child_end(); It != E;
@@ -752,6 +773,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     UBRef2 = UBRef->clone();
     Lp->setLowerDDRef(LBRef2);
     Lp->setUpperDDRef(UBRef2);
+    Lp->addLiveInTemp(MinBlobSymbase);
 
     // Normalize
     bool Result = Lp->normalize();

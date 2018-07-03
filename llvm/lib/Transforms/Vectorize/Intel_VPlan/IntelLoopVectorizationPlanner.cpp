@@ -162,6 +162,15 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
   unsigned BestCost = ScalarCost;
   LLVM_DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
+#if INTEL_CUSTOMIZATION
+  // When a loop is marked with pragma vector always, the user wants the loop
+  // to be vectorized. In order to force the loop to be vectorized, we set
+  // BestCost to MAX value for such a case. WRLp can be null when stress testing
+  // vector code generation.
+  if (WRLp && WRLp->getIgnoreProfitability())
+    BestCost = std::numeric_limits<unsigned>::max();
+#endif // INTEL_CUSTOMIZATION
+
   // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
   // cost model.
   for (unsigned VF = 2; VF <= 16; VF *= 2) {

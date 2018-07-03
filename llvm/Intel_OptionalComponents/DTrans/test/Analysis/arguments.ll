@@ -175,3 +175,37 @@ define void @test12(%struct.test12.a* %s) {
 ; CHECK: Safety data: Address taken
 ; CHECK: LLVMType: %struct.test12.b = type { i32, i32, %struct.test12.a* }
 ; CHECK: Safety data: Address taken
+
+; Call strcpy with an i8* pointer to an i8 array field.
+%struct.test13 = type { [100 x i8], i32 }
+define void @test13(%struct.test13* %s) {
+  %buf = alloca [100 x i8]
+  %pbuf = bitcast [100 x i8]* %buf to i8*
+  %psbuf = getelementptr inbounds %struct.test13, %struct.test13* %s,
+                                  i64 0, i32 0, i32 0
+  %tmp = call i8* @strcpy(i8* %pbuf, i8* %psbuf)
+  ret void
+}
+
+; The important thing here is that we shouldn't report address taken.
+; CHECK: LLVMType: %struct.test13 = type { [100 x i8], i32 }
+; CHECK: Safety data: Field address taken
+
+; Repeat the previous test with a bitcast to get the i8* pointer.
+%struct.test14 = type { [100 x i8], i32 }
+define void @test14(%struct.test14* %s) {
+  %buf = alloca [100 x i8]
+  %pbuf = bitcast [100 x i8]* %buf to i8*
+  %sbuf = getelementptr inbounds %struct.test14, %struct.test14* %s,
+                                 i64 0, i32 0
+  %psbuf = bitcast [100 x i8]* %sbuf to i8*
+  %tmp = call i8* @strcpy(i8* %pbuf, i8* %psbuf)
+  ret void
+}
+
+; The important thing here is that we shouldn't report address taken.
+; FIXME: Should this case also report address taken on the outer struct?
+; CHECK: LLVMType: %struct.test14 = type { [100 x i8], i32 }
+; CHECK: Safety data: No issues found
+
+declare i8* @strcpy(i8*, i8*)

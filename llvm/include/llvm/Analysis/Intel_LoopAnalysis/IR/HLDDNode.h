@@ -165,10 +165,14 @@ protected:
   bool IsDistributePoint;
 
   /// Sets HLDDNode for Ref.
-  static void setNode(RegDDRef *Ref, HLDDNode *HNode);
+  static void setNode(RegDDRef *Ref, HLDDNode *HNode) {
+    Ref->setHLDDNode(HNode);
+  }
 
   /// Implements get*OperandDDRef() functionality.
-  RegDDRef *getOperandDDRefImpl(unsigned OperandNum) const;
+  RegDDRef *getOperandDDRefImpl(unsigned OperandNum) const {
+    return RegDDRefs[OperandNum];
+  }
 
   /// Implements set*OperandDDRef() functionality.
   void setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum);
@@ -334,7 +338,7 @@ public:
 
   /// Returns true if Ref is a rval DDRef of this node. MaskDDRef is treated
   /// as a rval DDRef
-  virtual bool isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
+  bool isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
 
   /// Returns true if Ref is a fake DDRef attached to this node.
   bool isFake(const RegDDRef *Ref) const;
@@ -359,10 +363,20 @@ public:
   }
 
   /// Returns the DDRef associated with the Nth operand (starting with 0).
-  RegDDRef *getOperandDDRef(unsigned OperandNum);
-  const RegDDRef *getOperandDDRef(unsigned OperandNum) const;
+  RegDDRef *getOperandDDRef(unsigned OperandNum) {
+    assert(OperandNum < getNumOperands() && "Operand is out of range!");
+    return getOperandDDRefImpl(OperandNum);
+  }
+
+  const RegDDRef *getOperandDDRef(unsigned OperandNum) const {
+    return const_cast<HLDDNode *>(this)->getOperandDDRef(OperandNum);
+  }
+
   /// Sets/replaces the DDRef associated with the Nth operand (starting with 0).
-  void setOperandDDRef(RegDDRef *Ref, unsigned OperandNum);
+  void setOperandDDRef(RegDDRef *Ref, unsigned OperandNum) {
+    assert(OperandNum < getNumOperands() && "Operand is out of range!");
+    setOperandDDRefImpl(Ref, OperandNum);
+  }
 
   /// Replaces existing operand DDRef with \p NewRef.
   void replaceOperandDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef);
@@ -375,7 +389,9 @@ public:
 
   /// Returns the lval DDRef of this node. Returns null if it doesn't exist.
   virtual RegDDRef *getLvalDDRef() { return nullptr; }
-  virtual const RegDDRef *getLvalDDRef() const { return nullptr; }
+  virtual const RegDDRef *getLvalDDRef() const {
+    return const_cast<HLDDNode *>(this)->getLvalDDRef();
+  }
 
   /// Sets/replaces the lval DDRef of this node.
   virtual void setLvalDDRef(RegDDRef *RDDRef) {
@@ -389,7 +405,9 @@ public:
   /// Returns the single rval DDRef of this node. Returns null if it doesn't
   /// exist.
   virtual RegDDRef *getRvalDDRef() { return nullptr; }
-  virtual const RegDDRef *getRvalDDRef() const { return nullptr; }
+  virtual const RegDDRef *getRvalDDRef() const {
+    return const_cast<HLDDNode *>(this)->getRvalDDRef();
+  }
 
   /// Sets/replaces the single rval DDRef of this node.
   virtual void setRvalDDRef(RegDDRef *Ref) {

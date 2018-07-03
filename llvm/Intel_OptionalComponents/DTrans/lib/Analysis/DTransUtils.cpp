@@ -16,6 +16,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -52,6 +53,8 @@ StringRef dtrans::AllocKindName(AllocKind Kind) {
     return "UserMalloc";
   case AK_UserMalloc0:
     return "UserMalloc0";
+  case AK_New:
+    return "new/new[]";
   }
   llvm_unreachable("Unexpected continuation past AllocKind switch.");
 }
@@ -76,73 +79,84 @@ StringRef dtrans::FreeKindName(FreeKind Kind) {
     return "Free";
   case FK_UserFree:
     return "UserFree";
+  case FK_Delete:
+    return "delete/delete[]";
   }
   llvm_unreachable("Unexpected continuation past FreeKind switch.");
 }
 
-AllocKind dtrans::getAllocFnKind(Function *F, const TargetLibraryInfo &TLI) {
-  // TODO: Make this implementation more comprehensive.
-  if (!F)
-    return AK_NotAlloc;
-  LibFunc LF;
-  if (!TLI.getLibFunc(*F, LF))
-    return AK_NotAlloc;
-  switch (LF) {
-  default:
-    return AK_NotAlloc;
-  case LibFunc_malloc:
-    return AK_Malloc;
-  case LibFunc_calloc:
+AllocKind dtrans::getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI) {
+  auto *I = CS.getInstruction();
+  if (isMallocLikeFn(I, &TLI))
+    return isNewLikeFn(I, &TLI) ? AK_New : AK_Malloc;
+  if (isCallocLikeFn(I, &TLI))
     return AK_Calloc;
-  case LibFunc_realloc:
+  if (isReallocLikeFn(I, &TLI))
     return AK_Realloc;
-  }
-  llvm_unreachable("Unexpected continuation past LibFunc switch.");
+  return AK_NotAlloc;
 }
 
-void dtrans::getAllocSizeArgs(AllocKind Kind, CallInst *CI,
-                              Value *&AllocSizeVal, Value *&AllocCountVal) {
+void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
+                              unsigned &AllocSizeInd, unsigned &AllocCountInd,
+                              const TargetLibraryInfo &TLI) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
-  if (Kind == AK_Malloc || Kind == AK_UserMalloc) {
-    AllocSizeVal = CI->getArgOperand(0);
-    AllocCountVal = nullptr;
+  switch (Kind) {
+  case AK_UserMalloc:
+    AllocSizeInd = 0;
+    AllocCountInd = -1U;
     return;
+  case AK_New:
+  case AK_Calloc:
+  case AK_Malloc:
+  case AK_Realloc: {
+    /// All functions except calloc return -1 as a second argument.
+    auto Inds = getAllocSizeArgumentIndices(CS.getInstruction(), &TLI);
+    if (Inds.second == -1U) {
+      AllocSizeInd = Inds.first;
+      AllocCountInd = -1U;
+    } else {
+      assert(Kind == AK_Calloc && "Only calloc has two size arguments");
+      AllocCountInd = Inds.first;
+      AllocSizeInd = Inds.second;
+    }
+    break;
   }
-
-  if (Kind == AK_Calloc) {
-    AllocCountVal = CI->getArgOperand(0);
-    AllocSizeVal = CI->getArgOperand(1);
-    return;
+  default:
+    llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
   }
-
-  if (Kind == AK_Realloc) {
-    AllocSizeVal = CI->getArgOperand(1);
-    AllocCountVal = nullptr;
-    return;
-  }
-
-  llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
 }
 
-bool dtrans::isFreeFn(Function *F, const TargetLibraryInfo &TLI) {
-  if (!F)
-    return false;
-  LibFunc LF;
-  if (!TLI.getLibFunc(*F, LF))
-    return false;
-  return (LF == LibFunc_free);
+bool dtrans::isFreeFn(CallSite CS, const TargetLibraryInfo &TLI) {
+  return isFreeCall(CS.getInstruction(), &TLI);
 }
 
-/// This helper function checks if \p Val is a constant integer equal to
-/// \p Size
-bool dtrans::isValueEqualToSize(Value *Val, uint64_t Size) {
+bool dtrans::isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI) {
+  return isDeleteCall(CS.getInstruction(), &TLI);
+}
+
+bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
   if (!Val)
     return false;
 
   if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
-    uint64_t ConstSize = ConstVal->getLimitedValue();
+    if (ConstValue)
+      *ConstValue = ConstVal->getLimitedValue();
+    return true;
+  }
+
+  return false;
+}
+
+/// This helper function checks if \p Val is a constant integer equal to
+/// \p Size
+bool dtrans::isValueEqualToSize(const Value *Val, uint64_t Size) {
+  if (!Val)
+    return false;
+
+  uint64_t ConstSize;
+  if (isValueConstant(Val, &ConstSize)) {
     return ConstSize == Size;
   }
 
@@ -153,13 +167,13 @@ bool dtrans::isValueEqualToSize(Value *Val, uint64_t Size) {
 // whose value is a multiple of the specified size, or (b) an integer
 // multiplication operator where either operand is a constant multiple of the
 // specified size.
-bool dtrans::isValueMultipleOfSize(Value *Val, uint64_t Size) {
+bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
   if (!Val)
     return false;
 
   // Is it a constant?
-  if (auto *ConstVal = dyn_cast<ConstantInt>(Val)) {
-    uint64_t ConstSize = ConstVal->getLimitedValue();
+  uint64_t ConstSize;
+  if (isValueConstant(Val, &ConstSize)) {
     return ((ConstSize % Size) == 0);
   }
   // Is it a mul?
@@ -230,6 +244,9 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
   // but I don't think we'd get here with a vector type (unless we end
   // up wanting to track vector types).
   if (auto *CompTy = dyn_cast<CompositeType>(SrcPointeeTy)) {
+    // This avoids problems with opaque types.
+    if (!CompTy->indexValid(0u))
+      return false;
     auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
     if (DestPointeeTy == ElementZeroTy) {
       if (AccessedTy)
@@ -265,7 +282,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::UnsafePtrMerge | dtrans::AddressTaken | dtrans::NoFieldsInStruct |
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
-      dtrans::UnhandledUse;
+      dtrans::MismatchedArgUse | dtrans::GlobalArray | dtrans::HasVTable |
+      dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -281,7 +299,9 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::UnsafePtrMerge ^ dtrans::AddressTaken ^
            dtrans::NoFieldsInStruct ^ dtrans::NestedStruct ^
            dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
-           dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::UnhandledUse),
+           dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::MismatchedArgUse ^
+           dtrans::GlobalArray ^ dtrans::HasVTable ^ dtrans::HasFnPtr ^
+           dtrans::HasCppHandling ^ dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -332,6 +352,16 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Local pointer");
   if (SafetyInfo & dtrans::LocalInstance)
     SafetyIssues.push_back("Local instance");
+  if (SafetyInfo & dtrans::MismatchedArgUse)
+    SafetyIssues.push_back("Mismatched argument use");
+  if (SafetyInfo & dtrans::GlobalArray)
+    SafetyIssues.push_back("Global array");
+  if (SafetyInfo & dtrans::HasVTable)
+    SafetyIssues.push_back("Has vtable");
+  if (SafetyInfo & dtrans::HasFnPtr)
+    SafetyIssues.push_back("Has function ptr");
+  if (SafetyInfo & dtrans::HasCppHandling)
+    SafetyIssues.push_back("Has C++ handling");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
@@ -365,15 +395,10 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
 }
 
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
-  if (isNoValue()) {
-    setSingleValue(C);
-    return true;
-  }
-  if (isSingleValue() && getSingleValue() != C) {
-    setMultipleValue();
-    return true;
-  }
-  return false;
+  if (!C)
+    return false;
+
+  return ConstantValues.insert(C).second;
 }
 
 bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
@@ -476,3 +501,57 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Returns StringRef with the name of the transformation
+StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
+  if (Trans == 0 || Trans & ~dtrans::DT_Legal)
+    return "";
+
+  switch (Trans) {
+  case dtrans::DT_FieldSingleValue:
+    return "fsv";
+  case dtrans::DT_FieldSingleAllocFunction:
+    return "fsaf";
+  case dtrans::DT_DeleteField:
+    return "deletefield";
+  case dtrans::DT_ReorderFields:
+    return "reorderfields";
+  case dtrans::DT_AOSToSOA:
+    return "aostosoa";
+  case dtrans::DT_ElimROFieldAccess:
+    return "elimrofieldaccess";
+  }
+  llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
+  return "";
+}
+
+// Returns safety conditions for the transformation
+dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
+  if (Trans == 0 || Trans & ~dtrans::DT_Legal)
+    return dtrans::NoIssues;
+
+  switch (Trans) {
+  case dtrans::DT_FieldSingleValue:
+    return dtrans::SDFieldSingleValue;
+  case dtrans::DT_FieldSingleAllocFunction:
+    return dtrans::SDSingleAllocFunction;
+  case dtrans::DT_DeleteField:
+    return dtrans::SDDeleteField;
+  case dtrans::DT_ReorderFields:
+    return dtrans::SDReorderFields;
+  case dtrans::DT_AOSToSOA:
+    return dtrans::SDAOSToSOA;
+  case dtrans::DT_ElimROFieldAccess:
+    return dtrans::SDElimROFieldAccess;
+  }
+  llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
+  return dtrans::NoIssues;
+}
+
+// Helper method for getting a name to print for structures in debug traces.
+StringRef dtrans::getStructName(llvm::Type *Ty) {
+  auto *StructTy = dyn_cast<llvm::StructType>(Ty);
+  assert(StructTy && "Expected structure type");
+  return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
+}
+

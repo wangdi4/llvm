@@ -161,8 +161,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
 HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                           HLNodeMapper *NodeMapper) const {
 
-  // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this);
+  HLLoop *NewHLLoop = cloneEmpty();
 
   // Assert is placed here since empty loop cloning will not use it.
   assert(GotoList && " GotoList is null.");
@@ -197,7 +196,7 @@ HLLoop *HLLoop::clone(HLNodeMapper *NodeMapper) const {
   return cast<HLLoop>(HLNode::clone(NodeMapper));
 }
 
-HLLoop *HLLoop::cloneEmptyLoop() const {
+HLLoop *HLLoop::cloneEmpty() const {
   // Call the Copy Constructor
   return new HLLoop(*this);
 }
@@ -662,22 +661,12 @@ RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
   return TripRef;
 }
 
-unsigned HLLoop::getNumOperandsInternal() const {
-  return getNumLoopDDRefs() + getNumZttOperands();
-}
-
-unsigned HLLoop::getNumOperands() const { return getNumOperandsInternal(); }
-
 unsigned HLLoop::getNumZttOperands() const {
   if (hasZtt()) {
     return Ztt->getNumOperands();
   }
 
   return 0;
-}
-
-void HLLoop::resizeToNumLoopDDRefs() {
-  RegDDRefs.resize(getNumLoopDDRefs(), nullptr);
 }
 
 HLNode *HLLoop::getFirstPreheaderNode() {
@@ -1264,7 +1253,7 @@ bool HLLoop::normalize() {
   return true;
 }
 
-bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) {
+bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) const {
 
   uint64_t TripCount;
 
@@ -1287,7 +1276,7 @@ bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) {
   // Check out if loop can be mormalized before proceeding
   // Need to create a new LB
 
-  CanonExpr *LBCE = getLowerDDRef()->getSingleCanonExpr();
+  const CanonExpr *LBCE = getLowerDDRef()->getSingleCanonExpr();
 
   CanonExpr *CE = LBCE->clone();
   CE->clear();
@@ -1353,20 +1342,20 @@ MDNode *HLLoop::getLoopStringMetadata(StringRef Name) const {
 }
 
 bool HLLoop::hasCompleteUnrollEnablingPragma() const {
-  if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
-      getLoopStringMetadata("llvm.loop.unroll.full")) {
-    return true;
-  }
-
   uint64_t TC;
   if (!isConstTripLoop(&TC)) {
     return false;
   }
 
+  if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
+      getLoopStringMetadata("llvm.loop.unroll.full")) {
+    return true;
+  }
+
   // Unroll if loop's trip count is less than unroll count.
   auto PragmaTC = getUnrollPragmaCount();
 
-  return PragmaTC && (TC <= PragmaTC);
+  return (TC <= PragmaTC);
 }
 
 bool HLLoop::hasCompleteUnrollDisablingPragma() const {
@@ -1386,6 +1375,21 @@ bool HLLoop::hasCompleteUnrollDisablingPragma() const {
   }
 
   return false;
+}
+
+bool HLLoop::hasGeneralUnrollDisablingPragma() const {
+
+  if (getLoopStringMetadata("llvm.loop.unroll.disable") ||
+      getLoopStringMetadata("llvm.loop.unroll.runtime.disable") ||
+      // 'full' metadata only implies complete unroll, not partial unroll.
+      getLoopStringMetadata("llvm.loop.unroll.full")) {
+    return true;
+  }
+
+  unsigned PragmaCount = getUnrollPragmaCount();
+
+  // Unroll count of 1 also qualifies as disabling pragma.
+  return (PragmaCount == 1);
 }
 
 bool HLLoop::hasVectorizeEnablingPragma() const {

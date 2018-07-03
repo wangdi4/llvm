@@ -1,11 +1,11 @@
 ; Test with legacy pass manager
 ; RUN: opt < %s -S -dtrans-optbasetest \
-; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a \
+; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a \
 ; RUN: 2>&1 | FileCheck %s
 
 ; Test with new pass manager
 ; RUN: opt < %s -S -passes=dtrans-optbasetest \
-; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a \
+; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a \
 ; RUN: 2>&1 | FileCheck %s
 
 ; This set of tests is to verify the functionality of the DTransOptBase class
@@ -17,8 +17,11 @@
 ; Test with a global that should not be converted
 %struct.noconvert_test00a = type { i32, i32, i64 }
 @g_noconvert_test00a = internal global %struct.noconvert_test00a zeroinitializer
-; CHECK: @g_noconvert_test00a = internal global %struct.noconvert_test00a zeroinitializer
 
+; Globals whose types do not change are output first.
+
+; CHECK: @g_noconvert_test00a = internal global %struct.noconvert_test00a zeroinitializer
+; CHECK: @g_test09b = internal constant %struct.test09b { i32 9, void (i8*)* bitcast (void (%__DTT_struct.test09a*)* @test09a_func1.4 to void (i8*)*) }
 
 ; Test with just converting a type without other types referencing it
 ; that does not have initializers to verify that type gets converted,
@@ -105,6 +108,20 @@ define void @test08a_func(%struct.test08a *%in) {
   ret void
 }
 ;CHECK: @g_test08a = global %__DTT_struct.test08a zeroinitializer
+
+; Test with converting a dependent type that is initialized with the address
+; of function that is going to be cloned, but the type of the global variable
+; is unchanged because the initialization uses a bitcast on the function type.
+%struct.test09a = type { i32, i32, i32 }
+%struct.test09b = type { i32, void (i8*)* }
+@g_test09b = internal constant %struct.test09b { i32 9, void (i8*)* bitcast (void (%struct.test09a*)* @test09a_func1 to void (i8*)* ) }
+define void @test09a_func1(%struct.test09a* %in) {
+  ret void
+}
+
+; Test to verify aliases get remapped when their aliasee changes.
+@test09a_alias = internal alias void (%struct.test09a*), void (%struct.test09a*)* @test09a_func1
+; CHECK: @test09a_alias = internal alias void (%__DTT_struct.test09a*), void (%__DTT_struct.test09a*)* @test09a_func1.4
 
 
 ; Verify that the types of the variables were converted within the function bodies.

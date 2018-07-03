@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===--------- CFGRestructuring.h - Restructures CFG for VPO*- C++ -*------===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -47,3 +48,4 @@ public:
 
 #endif // LLVM_TRANSFORMS_VPO_UTILS_CFGRESTRUCTURING_H
 
+#endif // INTEL_COLLAB

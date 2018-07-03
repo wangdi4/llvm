@@ -61,6 +61,11 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
     {MD_associated, "associated"},
     {MD_callees, "callees"},
     {MD_irr_loop, "irr_loop"},
+#if INTEL_CUSTOMIZATION
+    {MD_std_container_ptr, "std.container.ptr"},
+    {MD_std_container_ptr_iter, "std.container.ptr.iter"},
+    {MD_intel_tbaa, "intel-tbaa"}
+#endif // INTEL_CUSTOMIZATION
   };
 
   for (auto &MDKind : MDKinds) {
@@ -68,18 +73,6 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
     assert(ID == MDKind.first && "metadata kind id drifted");
     (void)ID;
   }
-
-#if INTEL_CUSTOMIZATION
-  auto StdContainerPtrID = getMDKindID("std.container.ptr");
-  assert(StdContainerPtrID == MD_std_container_ptr &&
-         "std.container.ptr id drifted");
-  (void)StdContainerPtrID;
-
-  auto StdContainerPtrIterID = getMDKindID("std.container.ptr.iter");
-  assert(StdContainerPtrIterID == MD_std_container_ptr_iter &&
-         "std.container.ptr.iter id drifted");
-  (void)StdContainerPtrIterID;
-#endif // INTEL_CUSTOMIZATION
 
   auto *DeoptEntry = pImpl->getOrInsertBundleTag("deopt");
   assert(DeoptEntry->second == LLVMContext::OB_deopt &&

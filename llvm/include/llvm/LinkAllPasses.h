@@ -112,6 +112,7 @@ namespace {
       (void) llvm::createLoopOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
+      (void) llvm::createCallTreeCloningPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -294,6 +295,7 @@ namespace {
       (void) llvm::createHIRSSADeconstructionLegacyPass();
       (void) llvm::createHIRTempCleanupPass();
       (void) llvm::createHIRLoopInterchangePass();
+      (void) llvm::createHIRLoopBlockingPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIROptVarPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();

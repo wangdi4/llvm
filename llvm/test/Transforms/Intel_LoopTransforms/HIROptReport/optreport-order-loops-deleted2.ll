@@ -16,7 +16,7 @@
 ; If we unroll loop nest, we add the remark about complete unrolling only to the outer loop in the nest.
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark #XXXXX: Loopnest completely unrolled{{[[:space:]]}}
+; OPTREPORT-NEXT:     Remark: Loopnest completely unrolled{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END

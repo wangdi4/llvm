@@ -452,12 +452,12 @@ define void @test04(%struct.test04*** %ARG) {
 ; In test05, a PHI node with a self-dependency must be analyzed.
 
 %struct.test05 = type { i32, i32 }
-define void @test05(i8* %p) {
+define void @test05() {
 BB1:
   br label %BB2
 
 BB2:
-  %P1 = phi i8* [ %p, %BB1 ], [ %P1, %BB2 ]
+  %P1 = phi i8* [ undef, %BB1 ], [ %P1, %BB2 ]
   br i1 undef, label %BB3, label %BB2
 
 BB3:
@@ -483,12 +483,12 @@ BB3:
 ; block.
 
 %struct.test06 = type { i32, i32 }
-define void @test06(i8* %p) {
+define void @test06() {
 BB1:
   br label %BB2
 
 BB2:
-  %P1 = phi i8* [ %p, %BB1 ], [ %sel, %BB2 ]
+  %P1 = phi i8* [ undef, %BB1 ], [ %sel, %BB2 ]
   %G1 = getelementptr inbounds i8, i8* %P1, i64 8
   %sel = select i1 undef, i8* %G1, i8* %P1
   br i1 undef, label %BB3, label %BB2

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===--- VPOParoptPrepare.h --- Paropt Prepare Class Support -*- C++ --*---===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -92,3 +93,4 @@ private:
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_VPO_PAROPT_PREPARE_H
+#endif // INTEL_COLLAB

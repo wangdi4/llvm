@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===---------- CFGRestructuring.cpp - Restructures CFG *- C++ -*----------===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -199,3 +200,4 @@ PreservedAnalyses VPOCFGRestructuringPass::run(Function &F,
 FunctionPass *llvm::createVPOCFGRestructuringPass() {
   return new VPOCFGRestructuring();
 }
+#endif // INTEL_COLLAB

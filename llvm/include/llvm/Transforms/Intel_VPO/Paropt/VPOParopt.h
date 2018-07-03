@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===-- VPOParopt.h - Paropt Class for AutoPar / OpenMP Support -*- C++ -*-===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -144,3 +145,4 @@ private:
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_VPO_PAROPT_H
+#endif // INTEL_COLLAB

@@ -52,6 +52,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 
 define i32 @main(i32 %argc, i8** %argv) {
+  %alloc01 = call i8* @calloc(i64 10, i64 40)
+  %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
+
 ; These calls are for case 1 where we do not want the function to be cloned.
 ;T1:  call void @test01(i64 2)
 ;T1:  call void @test02()
@@ -182,3 +185,5 @@ define i32 @main(i32 %argc, i8** %argv) {
 
   ret void
 }
+
+declare i8* @calloc(i64, i64)

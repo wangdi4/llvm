@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //=======-- VPOUtils.h - Class definitions for VPO utilites -*- C++ -*-=======//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
@@ -120,6 +121,24 @@ public:
     /// invalid metadata when present in the extracted function, causing
     /// verification failure with "-fiopenmp -O0 -g".
     static void stripDebugInfoInstrinsics(Function &F);
+
+    /// Utility to copy the data from the source to the destination.
+    static void genCopyFromSrcToDst(Type *AllocaTy, const DataLayout &DL,
+                                    IRBuilder<> &Builder,
+                                    AllocaInst *NewPrivInst,
+                                    Value *Source, Value *Destination,
+                                    BasicBlock *InsertBB);
+    /// \brief Generate a memcpy call with the destination argument D
+    /// and the source argument S at the end of basic block BB.
+    ///
+    ///     call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*),
+    ///                                          i8* %2,
+    ///                                          i32 4,
+    ///                                          i32 4,
+    ///                                          i1 false)
+    static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
+                               unsigned Align, BasicBlock *BB);
+
 
     ////////////////// MultiVersioning Transformation ////////////////////////
     //
@@ -258,4 +277,6 @@ public:
 } // End vpo namespace
 
 } // End llvm namespace
-#endif
+
+#endif // LLVM_TRANSFORM_VPO_UTILS_VPOUTILS_H
+#endif // INTEL_COLLAB

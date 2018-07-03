@@ -36,7 +36,7 @@ static cl::opt<bool> DTransReoderFieldsPaddingHeuristic(
 // Minimum unused space (padding) percent threshold to select candidate
 // structure for reorder fields.
 static cl::opt<unsigned> DTransReorderFieldsUnusedSpacePercentThreshold(
-    "dtrans-reorder-fields-unused-space-percent-threshold", cl::init(20),
+    "dtrans-reorder-fields-unused-space-percent-threshold", cl::init(16),
     cl::ReallyHidden);
 
 // Field reordering may not help to utilize all unused space in the original
@@ -44,7 +44,7 @@ static cl::opt<unsigned> DTransReorderFieldsUnusedSpacePercentThreshold(
 // transformation if reordering is not profitable. Minimum saved space
 // percent threshold with field reordering to enable the transformation.
 static cl::opt<unsigned> DTransReorderFieldsSavedSpacePercentThreshold(
-    "dtrans-reorder-fields-saved-space-percent-threshold", cl::init(16),
+    "dtrans-reorder-fields-saved-space-percent-threshold", cl::init(13),
     cl::ReallyHidden);
 
 // Limit size of structs that are selected for reordering fields based
@@ -121,12 +121,12 @@ namespace dtrans {
 //    DTransOptBase do the actual type replacement.
 class ReorderFieldsImpl : public DTransOptBase {
 public:
-  ReorderFieldsImpl(TargetLibraryInfo &TLI, ReorderTransInfo &RTI,
-                    DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                    const DataLayout &DL, StringRef DepTypePrefix,
+  ReorderFieldsImpl(ReorderTransInfo &RTI, DTransAnalysisInfo &DTInfo,
+                    LLVMContext &Context, const DataLayout &DL,
+                    const TargetLibraryInfo &TLI, StringRef DepTypePrefix,
                     DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper),
-        TLI(TLI), RTI(RTI) {}
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+        RTI(RTI) {}
 
   virtual bool prepareTypes(Module &M) override;
   virtual void populateTypes(Module &M) override;
@@ -134,7 +134,6 @@ public:
   virtual void postprocessFunction(Function &Func, bool isCloned) override;
 
 private:
-  TargetLibraryInfo &TLI;
   ReorderTransInfo &RTI;
   TypeToTypeMap OrigToNewTypeMapping;
 
@@ -262,24 +261,25 @@ void ReorderFieldsImpl::transformMemfunc(CallInst &CI, StructType *Ty) {
 
 // Fix size argument of calloc/malloc/realloc
 void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty) {
-  Function *F = CI.getCalledFunction();
-  AllocKind Kind = getAllocFnKind(F, TLI);
-  Value *AllocSizeVal;
-  Value *AllocCountVal;
+  AllocKind Kind = getAllocFnKind(&CI, TLI);
   assert((Kind == AK_Calloc || Kind == AK_Malloc || Kind == AK_Realloc) &&
          "Unexpected alloc call");
   LLVM_DEBUG(dbgs() << "Alloc Before:" << CI << "\n");
-  getAllocSizeArgs(Kind, &CI, AllocSizeVal, AllocCountVal);
-  uint32_t SizeArgPos = (Kind == AK_Malloc) ? 0 : 1;
+
+  unsigned SizeArgPos = 0;
+  unsigned CountArgPos = 0;
+  getAllocSizeArgs(Kind, &CI, SizeArgPos, CountArgPos, TLI);
+
   uint64_t OldSize = DL.getTypeAllocSize(Ty);
   uint64_t NewSize = RTI.getTransformedTypeNewSize(Ty);
-  bool Replaced = replaceOldSizeWithNewSize(AllocSizeVal, OldSize, NewSize, &CI,
-                                            SizeArgPos);
+  auto *AllocSizeVal = CI.getArgOperand(SizeArgPos);
+  bool Replaced = replaceOldSizeWithNewSize(AllocSizeVal,
+                                            OldSize, NewSize, &CI, SizeArgPos);
   // If AllocSizeVal is not multiple of size of struct, try to fix
-  // AllocCountVal.
-  if (AllocCountVal && !Replaced)
-    Replaced =
-        replaceOldSizeWithNewSize(AllocCountVal, OldSize, NewSize, &CI, 0);
+  // count argument.
+  if (CountArgPos != -1U && !Replaced)
+    Replaced = replaceOldSizeWithNewSize(CI.getArgOperand(CountArgPos),
+                                         OldSize, NewSize, &CI, CountArgPos);
 
   assert(Replaced == true &&
          "Expecting oldSize should be replaced with NewSize");
@@ -551,6 +551,9 @@ bool ReorderFieldsPass::isCandidateType(StructType *StructT,
 
   // Check more heuristics here if needed.
 
+  LLVM_DEBUG(dbgs() << "  Rejecting " << getStName(StructT)
+                    << " based on heuristics.\n");
+
   return false;
 }
 
@@ -667,17 +670,6 @@ void ReorderFieldsPass::collectReorderTransInfoIfProfitable(
 
 bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
                                              const DataLayout &DL) {
-  // TODO: Create a safety mask for the conditions that are common to all
-  //       DTrans optimizations.
-  ReorderFieldsSafetyConditions =
-      BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-      VolatileData | MismatchedElementAccess | WholeStructureReference |
-      UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-      HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-      MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
-      AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-      SystemObject | LocalInstance | UnhandledUse;
-
   LLVM_DEBUG(dbgs() << "Reorder fields: looking for candidate structures.\n");
 
   for (TypeInfo *TI : DTInfo.type_info_entries()) {
@@ -685,7 +677,7 @@ bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
     if (!StInfo)
       continue;
 
-    if (StInfo->testSafetyData(ReorderFieldsSafetyConditions)) {
+    if (DTInfo.testSafetyData(TI, dtrans::DT_ReorderFields)) {
       LLVM_DEBUG(dbgs() << "  Rejecting "
                         << getStName(cast<StructType>(StInfo->getLLVMType()))
                         << " based on safety data.\n");
@@ -705,7 +697,7 @@ bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
 }
 
 bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                TargetLibraryInfo &TLI) {
+                                const TargetLibraryInfo &TLI) {
   auto &DL = M.getDataLayout();
 
   if (!gatherCandidateTypes(DTInfo, DL))
@@ -720,7 +712,7 @@ bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   // Apply IR and type transformations using ReorderFieldsImpl.
   DTransTypeRemapper TypeRemapper;
-  ReorderFieldsImpl ReorderFieldsImpl(TLI, RTI, DTInfo, M.getContext(), DL,
+  ReorderFieldsImpl ReorderFieldsImpl(RTI, DTInfo, M.getContext(), DL, TLI,
                                       "__BDFR_", &TypeRemapper);
   ReorderFieldsImpl.run(M);
   return true;
@@ -735,7 +727,6 @@ PreservedAnalyses ReorderFieldsPass::run(Module &M, ModuleAnalysisManager &AM) {
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
   return PA;
 }
 
