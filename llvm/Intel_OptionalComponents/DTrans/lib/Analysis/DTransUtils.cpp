@@ -253,6 +253,14 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
         *AccessedTy = SrcTy;
       return true;
     }
+    // If zero element has i8* type and destination is a pointer-to-pointer type
+    // then it is a legal zero element access.
+    if (DestPointeeTy->isPointerTy() &&
+        ElementZeroTy == llvm::Type::getInt8PtrTy(SrcTy->getContext())) {
+      if (AccessedTy)
+        *AccessedTy = SrcTy;
+      return true;
+    }
     // If element zero is an aggregate type, this cast might be accessing
     // element zero of the nested type.
     if (ElementZeroTy->isAggregateType())
