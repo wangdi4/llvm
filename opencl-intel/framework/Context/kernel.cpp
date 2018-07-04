@@ -925,6 +925,10 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
         // memory object
         if ( NULL == pValue )
         {
+            if (sizeof(cl_mem) != szSize)
+            {
+                return CL_INVALID_ARG_SIZE;
+            }
             clArg.SetValue(sizeof(cl_mem), nullptr);
         } else 
         {
@@ -945,11 +949,15 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
                 }
                 SVMPointerArg* argVal = pSvmPtrArg.GetPtr();
                 clArg.SetValue(sizeof(SVMPointerArg*), &argVal );
-                clArg.SetSvmObject( pSvmPtrArg );  
+                clArg.SetSvmObject( pSvmPtrArg );
             }
             else
             {
                 // value is not NULL - get memory object from context
+                if (sizeof(cl_mem) != szSize)
+                {
+                    return CL_INVALID_ARG_SIZE;
+                }
                 cl_mem clMemId = *((cl_mem*)(pValue));
                 LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%d)"), clMemId);
                 clArg.SetSvmObject( nullptr );
