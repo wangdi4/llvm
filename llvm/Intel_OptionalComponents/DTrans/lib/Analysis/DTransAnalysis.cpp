@@ -4195,8 +4195,20 @@ private:
                                            ValTy->getPointerTo())) {
             LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
             LLVM_DEBUG(dbgs() << "  " << I << "\n");
-            setBaseTypeInfoSafetyData(ParentTy,
-                                      dtrans::MismatchedElementAccess);
+
+            if (DTransOutOfBoundsOK) {
+              // Assuming out of bound access, set safety issue for the entire
+              // ParentTy.
+              setBaseTypeInfoSafetyData(ParentTy,
+                                        dtrans::MismatchedElementAccess);
+            } else {
+              // Set safety issue to the ParentTy and to the impacted field type
+              // only.
+              DTInfo.getOrCreateTypeInfo(ParentTy)->setSafetyData(
+                  dtrans::MismatchedElementAccess);
+              setBaseTypeInfoSafetyData(FieldTy,
+                                        dtrans::MismatchedElementAccess);
+            }
           }
         }
 
