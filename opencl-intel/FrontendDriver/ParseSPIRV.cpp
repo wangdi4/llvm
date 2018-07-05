@@ -12,7 +12,7 @@
 #include "common_clang.h" //IOCLFEBinaryResult
 #include "FrontendResultImpl.h"
 #include "ParseSPIRV.h"
-#include "SPIRMaterializer.h"
+#include "SPIRVMaterializer.h"
 
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/LLVMContext.h>
@@ -243,12 +243,10 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
          "SPIR-V consumer returned a broken module!");
 
   if (success) {
-    // Currently SPIR-V consumer returns SPIR-like LLVM IR, so we need to
-    // convert it to the current LLVM IR version style.
-    // MaterializeSPIR returns 0 on success.
-    success = !ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(*pModule);
-
-    assert(!verifyModule(*pModule) && "SPIR Materializer broke the module!");
+    // Adapts the output of SPIR-V consumer to backend-friendly format.
+    // It returns 0 on success.
+    success =!ClangFECompilerMaterializeSPIRVTask(
+                  m_pProgDesc).MaterializeSPIRV(*pModule);
   }
 
   // setting the result in both sucessful an uncussessful cases
