@@ -23,8 +23,8 @@
 ; CHECK-NEXT: Running analysis: DTransAnalysis
 ; CHECK-NEXT: Running analysis: BlockFrequencyAnalysis on foo
 ; CHECK-NOT: Running analysis: DTransAnalysis
-; CHECK: Running pass: dtrans::AOSToSOAPass
-; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
+; CHECK: Running pass: dtrans::ReorderFieldsPass
+; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass

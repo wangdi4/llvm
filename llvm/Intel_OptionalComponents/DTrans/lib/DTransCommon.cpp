@@ -76,8 +76,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
   MPM.addPass(dtrans::DeleteFieldPass());
-  MPM.addPass(dtrans::AOSToSOAPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
+  MPM.addPass(dtrans::AOSToSOAPass());
   MPM.addPass(dtrans::EliminateROFieldAccessPass());
   MPM.addPass(dtrans::DynClonePass());
 }
@@ -87,8 +87,8 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
     PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
   PM.add(createDTransDeleteFieldWrapperPass());
-  PM.add(createDTransAOSToSOAWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
+  PM.add(createDTransAOSToSOAWrapperPass());
   PM.add(createDTransEliminateROFieldAccessWrapperPass());
   PM.add(createDTransDynCloneWrapperPass());
 }
