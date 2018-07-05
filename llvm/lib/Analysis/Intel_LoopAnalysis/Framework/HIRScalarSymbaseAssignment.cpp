@@ -264,13 +264,7 @@ unsigned HIRScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
 void HIRScalarSymbaseAssignment::handleMultiExitLoopLiveoutPhi(
     const PHINode *Phi, unsigned Symbase) const {
 
-  if (!Phi) {
-    return;
-  }
-
-  auto DefLp = LI.getLoopFor(Phi->getParent());
-
-  // Check if phi is in the loop exit bblock. The deconstructed definition
+  // Checks if phi is in the loop exit bblock. The deconstructed definition
   // lies inside the loop which makes it liveout of the loop. This is only
   // possible for multi-exit loops. For single-exit loops, liveout values
   // are used in single-operand phis which are optimized away. For
@@ -286,13 +280,27 @@ void HIRScalarSymbaseAssignment::handleMultiExitLoopLiveoutPhi(
   //
   // loopexit:
   //    %t1 = phi [ 1, %looplatch, 0, %loop ]
-  for (unsigned I = 0, Num = Phi->getNumIncomingValues(); I < Num; ++I) {
-    auto PredLp = LI.getLoopFor(Phi->getIncomingBlock(I));
+
+  if (!Phi) {
+    return;
+  }
+
+  unsigned NumOperands = Phi->getNumIncomingValues();
+
+  if (NumOperands == 1) {
+    return;
+  }
+
+  auto *DefLp = LI.getLoopFor(Phi->getParent());
+
+  for (unsigned I = 0; I < NumOperands; ++I) {
+    auto *PredLp = LI.getLoopFor(Phi->getIncomingBlock(I));
 
     if (PredLp && (PredLp != DefLp)) {
-      auto PredLoop = LF.findHLLoop(PredLp);
+      auto *PredLoop = LF.findHLLoop(PredLp);
       assert(PredLoop && "Could not find predecessor bblock's HLLoop!");
-      assert(DefLp->contains(PredLp) && "Incoming IR is not in LCSSA form!");
+      assert((!DefLp || DefLp->contains(PredLp)) &&
+             "Incoming IR is not in LCSSA form!");
       PredLoop->addLiveOutTemp(Symbase);
     }
   }
