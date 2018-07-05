@@ -237,10 +237,15 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
 /// Visitor to update the CanonExpr.
 struct HIRCompleteUnroll::CanonExprUpdater final : public HLNodeVisitorBase {
   const unsigned TopLoopLevel;
+  // Contains values of IVs at each loop level for the current unrolled
+  // iteration. Value of -1 represents a loop which isn't being unrolled.
   SmallVectorImpl<int64_t> &IVValues;
+  const bool IsPragmaEnabledUnrolling;
 
-  CanonExprUpdater(unsigned TopLoopLevel, SmallVectorImpl<int64_t> &IVValues)
-      : TopLoopLevel(TopLoopLevel), IVValues(IVValues) {}
+  CanonExprUpdater(unsigned TopLoopLevel, SmallVectorImpl<int64_t> &IVValues,
+                   bool IsPragma)
+      : TopLoopLevel(TopLoopLevel), IVValues(IVValues),
+        IsPragmaEnabledUnrolling(IsPragma) {}
 
   void processRegDDRef(RegDDRef *RegDD);
   void processCanonExpr(CanonExpr *CExpr);
@@ -666,17 +671,57 @@ void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
     processCanonExpr(*Iter);
   }
 
-  RegDD->makeConsistent(nullptr, TopLoopLevel - 1);
+  if (!IsPragmaEnabledUnrolling) {
+    RegDD->makeConsistent(nullptr, TopLoopLevel - 1);
+  } else {
+    // Need to account for non-unrollable loops which can be encountered when
+    // doing pragma based unrolling. For example-
+    // #pragma unroll full
+    // DO i1 = 0, 4
+    //  DO i2 = 0, N
+    //    // Final level of nodes here wil be 1.
+    //  END DO
+    // END DO
+    //
+    unsigned NonUnrollableLevels = 0;
+
+    for (auto IVVal : IVValues) {
+      if (IVVal == -1) {
+        ++NonUnrollableLevels;
+      }
+    }
+
+    RegDD->makeConsistent(nullptr, TopLoopLevel - 1 + NonUnrollableLevels);
+  }
 }
 
 void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
 
   // Start replacing the IV's from TopLoopLevel to current loop level.
   auto LoopLevel = TopLoopLevel;
+  unsigned UnrollableLevels = 0;
 
-  for (auto &Val : IVValues) {
-    CExpr->replaceIVByConstant(LoopLevel, Val);
-    LoopLevel++;
+  for (auto IVVal : IVValues) {
+    if (IVVal != -1) {
+      ++UnrollableLevels;
+      CExpr->replaceIVByConstant(LoopLevel, IVVal);
+    } else {
+      // Loop at this level is not being unrolled but its nesting level will be
+      // reduced so we need to replace the corresponding IV with a lower leveled
+      // IV. For example- #pragma unroll full DO i1 = 0, 4
+      //   DO i2 = 0, N
+      //     A[i2] = t;  << This will become A[i1] after unrolling.
+      unsigned Index;
+      int64_t Coeff;
+
+      CExpr->getIVCoeff(LoopLevel, &Index, &Coeff);
+
+      if (Coeff != 0) {
+        CExpr->removeIV(LoopLevel);
+        CExpr->setIVCoeff(LoopLevel - UnrollableLevels, Index, Coeff);
+      }
+    }
+    ++LoopLevel;
   }
 
   CExpr->simplify(true);
@@ -811,31 +856,14 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
   LLVM_DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
   LLVM_DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
 
-  float ScalingFactor;
-
-  if (CurLoop->hasCompleteUnrollEnablingPragma()) {
-    // Use max scaling factor in the presence of pragma unroll to use highest
-    // allowable code size limit for unrolled loops. We use the code size limit
-    // to ignore pragma on abusurdly big loops. This behavior is concsistent
-    // with clang's behavior described here-
-    // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
-    ScalingFactor = HCU.Limits.MaxThresholdScalingFactor;
-    LLVM_DEBUG(
-        dbgs()
-        << "Using max scaling factor due to presence of unroll enabling pragma."
-        << "\n");
-  } else {
-
-    if (SavingsPercentage < HCU.Limits.SavingsThreshold) {
-      return false;
-    }
-
-    // Use postvec(smaller) savings threshold to derive consistent scaling
-    // factor for prevec and postvec passes.
-    ScalingFactor = (SavingsPercentage / PostVectorSavingsThreshold);
-    ScalingFactor =
-        std::min(ScalingFactor, HCU.Limits.MaxThresholdScalingFactor);
+  if (SavingsPercentage < HCU.Limits.SavingsThreshold) {
+    return false;
   }
+
+  // Use postvec(smaller) savings threshold to derive consistent scaling
+  // factor for prevec and postvec passes.
+  float ScalingFactor = (SavingsPercentage / PostVectorSavingsThreshold);
+  ScalingFactor = std::min(ScalingFactor, HCU.Limits.MaxThresholdScalingFactor);
 
   auto Iter = HCU.TotalTripCount.find(CurLoop);
   assert((Iter != HCU.TotalTripCount.end()) && "Trip count of loop not found!");
@@ -2555,13 +2583,18 @@ void HIRCompleteUnroll::refineCandidates() {
       continue;
     }
 
+    SmallVector<HLLoop *, 8> ChildCandidateLoops;
     if (!OuterCandidateLoop->isInnermost()) {
+
       OuterCandidateLoop->getHLNodeUtils().gatherLoopsWithLevel(
-          OuterCandidateLoop, CandidateLoops,
+          OuterCandidateLoop, ChildCandidateLoops,
           OuterCandidateLoop->getNestingLevel() + 1);
     }
 
     CandidateLoops.erase(CandidateLoops.begin() + Index);
+    CandidateLoops.insert(CandidateLoops.begin() + Index,
+                          ChildCandidateLoops.begin(),
+                          ChildCandidateLoops.end());
   }
 }
 
@@ -2763,6 +2796,20 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
     }
   }
 
+  // If user has specified unroll pragma, unroll the loop as long as it is legal
+  // to do so.
+  if (Loop->hasCompleteUnrollEnablingPragma()) {
+    if (MinDepLevel == LoopLevel) {
+      TopLevelCandidates.insert(Loop);
+      CandidateLoops.push_back(Loop);
+    }
+
+    // We disable unroll of parent and children loops of a pragma enabled loop
+    // unless they have a pragma as well. This is done to keep the
+    // implementation (profitability and transformation) simple.
+    return std::make_pair(-1, 0);
+  }
+
   if (!Loop->isInnermost()) {
     SmallVector<HLLoop *, 8> ChildLoops;
     Loop->getHLNodeUtils().gatherLoopsWithLevel(Loop, ChildLoops,
@@ -2816,6 +2863,13 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   DenseMap<unsigned, const RegDDRef *> AllocaStores;
   SmallPtrSet<const HLNode *, 8> SimplifiedNonLoopParents;
 
+  // Skipping profitability check for pragma enabled loops can affect
+  // profitability of sibling loops but this is probably okay as the user can
+  // specify pragma on them as well.
+  if (Loop->hasCompleteUnrollEnablingPragma()) {
+    return true;
+  }
+
   ProfitabilityAnalyzer PA(*this, Loop, SimplifiedTempBlobs, MemRefMap,
                            AllocaStores, SimplifiedNonLoopParents);
 
@@ -2861,7 +2915,8 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
   Loop->getParentRegion()->setGenCode();
 
   SmallVector<int64_t, MaxLoopNestLevel> IVValues;
-  CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues);
+  CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues,
+                             Loop->hasCompleteUnrollEnablingPragma());
 
   transformLoop(Loop, CEUpdater, true);
 
@@ -2909,8 +2964,10 @@ int64_t HIRCompleteUnroll::computeUB(HLLoop *Loop, unsigned TopLoopLevel,
 
   auto LoopLevel = TopLoopLevel;
 
-  for (auto Val : IVValues) {
-    UBVal += (Val * UBCE->getIVConstCoeff(LoopLevel));
+  for (auto IVVal : IVValues) {
+    UBVal += (IVVal * UBCE->getIVConstCoeff(LoopLevel));
+    assert((IVVal != -1 || UBCE->getIVConstCoeff(LoopLevel) == 0) &&
+           "Attempt to substitute IV of non-unrollable loop!");
     LoopLevel++;
   }
 
@@ -2924,10 +2981,28 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   // Guard against the scanning phase setting it appropriately.
   assert(Loop && " Loop is null.");
 
-  // Container for cloning body.
-  HLContainerTy LoopBody;
-
   auto &IVValues = CEUpdater.IVValues;
+
+  if (CEUpdater.IsPragmaEnabledUnrolling && !IsTopLevelLoop &&
+      !Loop->hasCompleteUnrollEnablingPragma()) {
+    // This is an inner loop of a pragma enabled outer loop.
+    // We just need to update canon exprs.
+
+    // Set an invalid IV value so the IV substitution can be skipped.
+    IVValues.push_back(-1);
+
+    // Update loop refs.
+    for (auto RefIt = Loop->ddref_begin(), E = Loop->ddref_end(); RefIt != E;
+         ++RefIt) {
+      CEUpdater.processRegDDRef(*RefIt);
+    }
+
+    HLNodeUtils::visitRange<true, false>(CEUpdater, Loop->child_begin(),
+                                         Loop->child_end());
+    IVValues.pop_back();
+
+    return;
+  }
 
   int64_t LB = Loop->getLowerCanonExpr()->getConstant();
   int64_t UB = computeUB(Loop, CEUpdater.TopLoopLevel, IVValues);
@@ -2982,6 +3057,9 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   auto OrigLastChild = Loop->getLastChild();
 
   IVValues.push_back(LB);
+
+  // Container for cloning body.
+  HLContainerTy LoopBody;
 
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.

@@ -1349,8 +1349,9 @@ bool HLLoop::hasCompleteUnrollEnablingPragma() const {
     return false;
   }
 
-  if (getLoopStringMetadata("llvm.loop.unroll.enable") ||
-      getLoopStringMetadata("llvm.loop.unroll.full")) {
+  // llvm.loop.unroll.enable is a no-op for complete unroll as we still need to
+  // heuristically decide the unroll factor.
+  if (getLoopStringMetadata("llvm.loop.unroll.full")) {
     return true;
   }
 
