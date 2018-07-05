@@ -1262,20 +1262,6 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
     RetRegs.push_back(VA.getLocReg());
   } 
 
-#if INTEL_CUSTOMIZATION
-  // When main() is defined with a void return type, it is
-  // expected to return 0;
-  if (Ret->getNumOperands() == 0 && F.getName() == "main") {
-    bool Ret64 = (Subtarget->is64Bit() && !Subtarget->isTarget64BitILP32());
-    unsigned DstReg = Ret64 ? X86::RAX : X86::EAX;
-    Constant *Zero = Constant::getNullValue(DL.getIntPtrType(F.getContext()));
-    unsigned SrcReg = getRegForValue(Zero);
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-            TII.get(TargetOpcode::COPY), DstReg).addReg(SrcReg);
-    RetRegs.push_back(DstReg);
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // Swift calling convention does not require we copy the sret argument
   // into %rax/%eax for the return, and SRetReturnReg is not set for Swift.
 
