@@ -60,3 +60,57 @@ bool test_ap_uint_to_bool() {
   // CHECK: %[[TO_BOOL_3:[a-zA-Z0-9_]+]] = icmp ne i65 %[[RET_CONV]], 0
   // CHECK: ret i1 %[[TO_BOOL_3]]
 }
+
+template <unsigned int Bits>
+using ap_uint = unsigned int __attribute((__ap_int(Bits)));
+
+void test_ap_int_conversions() {
+  ap_uint<5> s(0);
+  // CHECK: store i5 0, i5* [[S:%.+]]
+  auto t1 = s + true;
+  // CHECK: [[S_VAL1:%.+]] = load i5, i5* [[S]]
+  // CHECK: [[ADD1:%.+]] = add i5 [[S_VAL1]], 1
+  auto t2 = true + s;
+  // CHECK: [[S_VAL2:%.+]] = load i5, i5* [[S]]
+  // CHECK: [[ADD2:%.+]] = add i5 1, [[S_VAL2]]
+  s += true;
+  // CHECK: [[S_VAL3:%.+]] = load i5, i5* [[S]]
+  // CHECK: [[ADD3:%.+]] = add i5 [[S_VAL3]], 1
+  // CHECK: store i5 [[ADD3]], i5* [[S]]
+
+  bool b = true;
+  // CHECK: store i8 1, i8* [[B:%.+]]
+  b += s;
+  // CHECK: [[S_VAL4:%.+]] = load i5, i5* [[S]]
+  // CHECK: [[B_VAL:%.+]] = load i8, i8* [[B]]
+  // CHECK: [[TO_BOOL1:%.+]] = trunc i8 [[B_VAL]] to i1
+  // CHECK: [[CONV1:%.+]] = zext i1 [[TO_BOOL1]] to i5
+  // CHECK: [[ADD4:%.+]] = add i5 [[CONV1]], [[S_VAL4]]
+  // CHECK: [[TO_BOOL2:%.+]] = icmp ne i5 [[ADD4]]
+  // CHECK: [[FROM_BOOL1:%.+]] = zext i1 [[TO_BOOL2]] to i8
+  // CHECK: store i8 [[FROM_BOOL1]], i8* [[B]]
+
+  ap_uint<1> s1(0);
+  // CHECK: store i1 false, i1* [[S1:%.+]]
+  auto t3 = s1 + true;
+  // CHECK: [[S1_VAL1:%.+]] = load i1, i1* [[S1]]
+  // CHECK: [[ADD5:%.+]] = add i1 [[S1_VAL1]], true
+  auto t4 = true + s1;
+  // CHECK: [[S1_VAL2:%.+]] = load i1, i1* [[S1]]
+  // CHECK: [[ADD6:%.+]] = add i1 true, [[S1_VAL2]]
+  s1 += true;
+  // CHECK: [[S1_VAL3:%.+]] = load i1, i1* [[S1]]
+  // CHECK: [[ADD7:%.+]] = add i1 [[S1_VAL3]], true
+  // CHECK: store i1 [[ADD7]], i1* [[S1]]
+
+  bool b1 = true;
+  // CHECK: store i8 1, i8* [[B1:%.+]]
+  b1 += s1;
+  // CHECK: [[S1_VAL4:%.+]] = load i1, i1* [[S1]]
+  // CHECK: [[B1_VAL:%.+]] = load i8, i8* [[B1]]
+  // CHECK: [[TO_BOOL3:%.+]] = trunc i8 [[B1_VAL]] to i1
+  // CHECK: [[ADD8:%.+]] = add i1 [[TO_BOOL3]]
+  // CHECK: [[TO_BOOL4:%.+]] = icmp ne i1 [[ADD8]]
+  // CHECK: [[FROM_BOOL2:%.+]] = zext i1 [[TO_BOOL4]]
+  // CHECK: store i8 [[FROM_BOOL2]], i8* [[B1]]
+}

@@ -8567,6 +8567,15 @@ QualType Sema::CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
     return InvalidOperands(Loc, LHS, RHS);
   }
 
+  if (LHSType->isBooleanType()) {
+    if (!IsCompAssign)
+      LHS = doIntegralCast(*this, LHS.get(), RHSType);
+    return RHSType;
+  } else if (RHSType->isBooleanType()) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
   // At this point, both sides are either ArbPrecInt or an integer type.  Since
   // the result of an operation between ArbPrecInt and an integer should be an
   // ArbPrecInt, convert BOTH LHSType and RHSType to an ArbPrecInt of the
