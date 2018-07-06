@@ -7,6 +7,7 @@
 ; CHECK-NEXT: (%A)[i1 + (%offset /u 2)] = i1;
 ; CHECK-NEXT: END LOOP
 
+target datalayout = "p:32:32"
 
 ; Function Attrs: nounwind
 define void @foo(i32* nocapture %A, i32 %offset, i32 %n) {
