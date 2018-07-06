@@ -171,8 +171,6 @@ install(
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
 
-add_subdirectory(bits)
-
 install(
   FILES ${files} ${CMAKE_CURRENT_BINARY_DIR}/arm_fp16.h
   COMPONENT clang-headers
