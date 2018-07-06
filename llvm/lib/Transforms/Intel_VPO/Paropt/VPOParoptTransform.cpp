@@ -255,6 +255,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
+          improveAliasForOutlinedFunc(W);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
@@ -278,6 +279,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
+          improveAliasForOutlinedFunc(W);
           AllocaInst *IsLastVal = nullptr;
           BasicBlock *IfLastIterBB = nullptr;
           Changed |= genLoopSchedulingCode(W, IsLastVal);
@@ -304,6 +306,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= clearCancellationPointAllocasFromIR(W);
           debugPrintHeader(W, false);
           Changed = clearCodemotionFenceIntrinsic(W);
+          improveAliasForOutlinedFunc(W);
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LastIterGep;
@@ -331,6 +334,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= regularizeOMPLoop(W, false);
+          improveAliasForOutlinedFunc(W);
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
@@ -363,6 +367,7 @@ bool VPOParoptTransform::paroptTransforms() {
           genCodemotionFenceforAggrData(W);
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genGlobalPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
@@ -387,6 +392,7 @@ bool VPOParoptTransform::paroptTransforms() {
           genCodemotionFenceforAggrData(W);
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          improveAliasForOutlinedFunc(W);
           Changed |= genGlobalPrivatizationCode(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
@@ -1209,7 +1215,6 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   ReductionClause &RedClause = W->getRed();
   if (!RedClause.empty()) {
 
-    assert(W->isBBSetEmpty() && "genReductionCode: BBSET should start empty");
     W->populateBBSet();
 
     BasicBlock *RedInitEntryBB = nullptr;
@@ -4819,5 +4824,16 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
   }
 
   return FnCopyPriv;
+}
+
+// Add alias_scope and no_alias metadata to improve the alias
+// results in the outlined function.
+void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
+  if (OptLevel < 2)
+    return;
+  W->populateBBSet();
+  VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
+                        &(F->getParent()->getDataLayout()));
+  W->resetBBSet();
 }
 #endif // INTEL_COLLAB

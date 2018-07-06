@@ -1271,7 +1271,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                       bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
+    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets, OptLevel));
   }
   #if INTEL_CUSTOMIZATION
   // TODO: Temporary hook-up for VPlan VPO Vectorizer

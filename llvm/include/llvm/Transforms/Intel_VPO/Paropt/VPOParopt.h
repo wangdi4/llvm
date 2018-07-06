@@ -79,7 +79,8 @@ class VPOParoptPass : public PassInfoMixin<VPOParoptPass> {
 public:
   explicit VPOParoptPass(unsigned MyMode = vpo::ParTrans | vpo::OmpPar |
                                            vpo::OmpVec,
-                         const std::vector<std::string> &OffloadTargets = {});
+                         const std::vector<std::string> &OffloadTargets = {},
+                         unsigned OptLevel = 2);
   ~VPOParoptPass(){};
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
@@ -113,6 +114,9 @@ private:
   // Paropt mode.
   unsigned Mode;
 
+  // Optimization level.
+  unsigned OptLevel;
+
   // List of target triples for offloading.
   SmallVector<Triple, 16> OffloadTargets;
 };
@@ -127,7 +131,8 @@ public:
   static char ID;
 
   explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
-                     const std::vector<std::string> &OffloadTargets = {});
+                     const std::vector<std::string> &OffloadTargets = {},
+                     unsigned OptLevel = 2);
   ~VPOParopt(){};
 
   StringRef getPassName() const override { return "VPO Paropt Pass"; }

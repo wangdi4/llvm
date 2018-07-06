@@ -140,7 +140,8 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                         WI.getTargetTransformInfo(), WI.getAssumptionCache(),
-                        WI.getTargetLibraryInfo(), Mode, OffloadTargets);
+                        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode,
+                        OffloadTargets);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(

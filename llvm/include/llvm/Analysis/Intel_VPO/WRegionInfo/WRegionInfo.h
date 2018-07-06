@@ -58,6 +58,7 @@ private:
   const TargetTransformInfo *TTI;
   AssumptionCache *AC;
   const TargetLibraryInfo *TLI;
+  AliasAnalysis *AA;
   WRegionCollection *WRC;
 
   /// \brief Populates W-Region with WRegionNodes.
@@ -66,7 +67,8 @@ private:
 public:
   WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
               const TargetTransformInfo *TTI, AssumptionCache *AC,
-              const TargetLibraryInfo *TLI, WRegionCollection *WRC);
+              const TargetLibraryInfo *TLI, AliasAnalysis *AA,
+              WRegionCollection *WRC);
 
   void print(raw_ostream &OS) const;
 
@@ -86,6 +88,7 @@ public:
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
+  AliasAnalysis *getAliasAnalysis() { return AA; }
 
   /// WRN Graph iterator methods
   iterator begin() { return getWRGraph()->begin(); }
