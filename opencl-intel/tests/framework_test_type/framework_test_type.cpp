@@ -202,6 +202,11 @@ TEST(FrameworkTestType, Test_clGetKernelArgInfoTest)
     EXPECT_TRUE(clGetKernelArgInfoTest());
 }
 
+TEST(FrameworkTestType, Test_clSetKernelArgInvalidArgSizeTest)
+{
+    clSetKernelArgInvalidArgSizeTest();
+}
+
 TEST(FrameworkTestType, Test_clCreateBufferTest)
 {
     EXPECT_TRUE(clCreateBufferTest());

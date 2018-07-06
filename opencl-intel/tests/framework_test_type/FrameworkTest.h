@@ -123,6 +123,7 @@ bool EventDependenciesTest();
 bool ClkEventAsKernelArg();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
+void clSetKernelArgInvalidArgSizeTest();
 bool ShutdownFromChildThread();
 bool predictable_partition_test();
 bool clMultipleExecutionTest();
