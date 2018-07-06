@@ -1186,40 +1186,50 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasPTWRITE)
     Builder.defineMacro("__PTWRITE__");
 
-  // Each case falls through to the previous one here.
-  switch (SSELevel) {
-  case AVX512F:
-    Builder.defineMacro("__AVX512F__");
-    LLVM_FALLTHROUGH;
-  case AVX2:
-    Builder.defineMacro("__AVX2__");
-    LLVM_FALLTHROUGH;
-  case AVX:
-    Builder.defineMacro("__AVX__");
-    LLVM_FALLTHROUGH;
-  case SSE42:
-    Builder.defineMacro("__SSE4_2__");
-    LLVM_FALLTHROUGH;
-  case SSE41:
-    Builder.defineMacro("__SSE4_1__");
-    LLVM_FALLTHROUGH;
-  case SSSE3:
-    Builder.defineMacro("__SSSE3__");
-    LLVM_FALLTHROUGH;
-  case SSE3:
-    Builder.defineMacro("__SSE3__");
-    LLVM_FALLTHROUGH;
-  case SSE2:
-    Builder.defineMacro("__SSE2__");
-    Builder.defineMacro("__SSE2_MATH__"); // -mfp-math=sse always implied.
-    LLVM_FALLTHROUGH;
-  case SSE1:
-    Builder.defineMacro("__SSE__");
-    Builder.defineMacro("__SSE_MATH__"); // -mfp-math=sse always implied.
-    LLVM_FALLTHROUGH;
-  case NoSSE:
-    break;
+#if INTEL_CUSTOMIZATION
+  // Disable setting of __SSE2_MATH__  as it enables guarded x86 inline asm in
+  // bits/mathinline.hfor CSA and compiler errors on encountering the inline asm
+  // Future we may was to disable only for CSA and disable other macro 
+  // defines not needed for csa
+  if (!Opts.OpenMPIsDevice) {
+#endif // INTEL_CUSTOMIZATION
+     // Each case falls through to the previous one here.
+     switch (SSELevel) {
+     case AVX512F:
+       Builder.defineMacro("__AVX512F__");
+       LLVM_FALLTHROUGH;
+     case AVX2:
+       Builder.defineMacro("__AVX2__");
+       LLVM_FALLTHROUGH;
+     case AVX:
+       Builder.defineMacro("__AVX__");
+       LLVM_FALLTHROUGH;
+     case SSE42:
+       Builder.defineMacro("__SSE4_2__");
+       LLVM_FALLTHROUGH;
+     case SSE41:
+       Builder.defineMacro("__SSE4_1__");
+       LLVM_FALLTHROUGH;
+     case SSSE3:
+       Builder.defineMacro("__SSSE3__");
+       LLVM_FALLTHROUGH;
+     case SSE3:
+       Builder.defineMacro("__SSE3__");
+       LLVM_FALLTHROUGH;
+     case SSE2:
+       Builder.defineMacro("__SSE2__");
+       Builder.defineMacro("__SSE2_MATH__"); // -mfp-math=sse always implied.
+       LLVM_FALLTHROUGH;
+     case SSE1:
+       Builder.defineMacro("__SSE__");
+       Builder.defineMacro("__SSE_MATH__"); // -mfp-math=sse always implied.
+       LLVM_FALLTHROUGH;
+     case NoSSE:
+       break;
+     }
+#if INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
   if (Opts.MicrosoftExt && getTriple().getArch() == llvm::Triple::x86) {
     switch (SSELevel) {
