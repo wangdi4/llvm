@@ -195,11 +195,12 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
-    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder, bool VecMode) {
+    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder,
+    OptimizationType OptTy) {
   HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
-  if (!VecMode) {
+  if (OptTy != OptimizationType::Vectorizer) {
     NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
   }
 
@@ -211,7 +212,9 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
-    NewBound = VecMode ? (NewTripCount * UnrollOrVecFactor) : NewTripCount;
+    NewBound = (OptTy == OptimizationType::Vectorizer)
+                   ? (NewTripCount * UnrollOrVecFactor)
+                   : NewTripCount;
 
     // Subtract 1.
     NewBound = NewBound - 1;
@@ -225,7 +228,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
-    if (VecMode) {
+    if (OptTy == OptimizationType::Vectorizer) {
       auto Ret =
           NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
       assert(Ret && "multiplyByConstant() failed");
@@ -257,7 +260,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   NewLoop->getParentRegion()->setGenCode();
 
   // Vectorization uses UnrollOrVecFactor as stride
-  if (VecMode) {
+  if (OptTy == OptimizationType::Vectorizer) {
     NewLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(
         UnrollOrVecFactor);
   }
@@ -265,18 +268,21 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   // NewLoop is the main loop now and hence, we want to associate all the opt
   // report with it.
   LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
-  if (VecMode)
+  if (OptTy == OptimizationType::Vectorizer) {
     LORBuilder(*NewLoop).addRemark(
         OptReportVerbosity::Low,
         "Loop has been vectorized with vector %d factor", UnrollOrVecFactor);
-  else if (OrigLoop->isInnermost())
+  } else if (OptTy == OptimizationType::Unroll) {
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled by %d factor",
                                    UnrollOrVecFactor);
-  else
+  } else {
+    assert(OptTy == OptimizationType::UnrollAndJam &&
+           "Invalid optimization type!");
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled and jammed by %d",
                                    UnrollOrVecFactor);
+  }
 
   return NewLoop;
 }
@@ -404,7 +410,7 @@ void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
 
 HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-    LoopOptReportBuilder &LORBuilder, bool VecMode) {
+    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy) {
   // Extract Ztt and add it outside the loop.
   OrigLoop->extractZtt();
 
@@ -420,7 +426,7 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
 
   // Create the main loop.
   HLLoop *MainLoop = createUnrollOrVecLoop(
-      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, VecMode);
+      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, OptTy);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
@@ -431,12 +437,15 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     // Since OrigLoop became a remainder and will be lexicographicaly
     // second to MainLoop, we move all the next siblings back there.
     LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
-    if (VecMode)
+    if (OptTy == OptimizationType::Vectorizer) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
-    else if (OrigLoop->isInnermost())
+    } else if (OptTy == OptimizationType::Unroll) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for partial unrolling");
-    else
+    } else {
+      assert(OptTy == OptimizationType::UnrollAndJam &&
+             "Invalid optimization type!");
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
+    }
   }
 
   // Mark parent for invalidation

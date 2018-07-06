@@ -447,7 +447,6 @@ public:
 
   /// Returns true if this is the innermost loop in the loop nest.
   bool isInnermost() const {
-    assert(getParentRegion() && "isInnermost() invoked on detached loop!");
     return IsInnermost;
   }
 

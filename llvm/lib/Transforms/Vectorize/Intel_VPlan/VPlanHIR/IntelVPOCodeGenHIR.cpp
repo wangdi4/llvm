@@ -733,7 +733,7 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VF, NeedRemainderLoop, LORBuilder, true /* VecMode */);
+      OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer);
 
   // The reduction initializer hoist loop should point to the vector loop and
   // not the original scalar loop if it was found not to be safe to hoist
