@@ -4962,6 +4962,13 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
           buildDeclRefExpr(SemaRef, PrevUBDecl, PrevUBDecl->getType(), InitLoc);
     }
   }
+#if INTEL_CUSTOMIZATION
+  // Upper bound variable, initialized with last iteration number.
+  VarDecl *UBDecl = buildVarDecl(SemaRef, InitLoc, VType, ".omp.ub");
+  ExprResult LateOutlineUB = buildDeclRefExpr(SemaRef, UBDecl, VType, InitLoc);
+  SemaRef.AddInitializerToDecl(UBDecl, LastIteration.get(),
+                               /*DirectInit*/ false);
+#endif // INTEL_CUSTOMIZATION
 
   // Build the iteration variable and its initialization before loop.
   ExprResult IV;
@@ -4998,6 +5005,12 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
           ? SemaRef.BuildBinOp(CurScope, CondLoc, BO_LE, IV.get(), UB.get())
           : SemaRef.BuildBinOp(CurScope, CondLoc, BO_LT, IV.get(),
                                NumIterations.get());
+
+#if INTEL_CUSTOMIZATION
+  ExprResult LateOutlineCond = SemaRef.BuildBinOp(
+      CurScope, CondLoc, BO_LE, IV.get(), LateOutlineUB.get());
+#endif // INTEL_CUSTOMIZATION
+
   ExprResult CombCond;
   if (isOpenMPLoopBoundSharingDirective(DKind)) {
     CombCond =
@@ -5220,6 +5233,10 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DistCombinedFields.Cond = CombCond.get();
   Built.DistCombinedFields.NLB = CombNextLB.get();
   Built.DistCombinedFields.NUB = CombNextUB.get();
+#if INTEL_CUSTOMIZATION
+  Built.LateOutlineCond = LateOutlineCond.get();
+  Built.LateOutlineUB = LateOutlineUB.get();
+#endif // INTEL_CUSTOMIZATION
 
   Expr *CounterVal = SemaRef.DefaultLvalueConversion(IV.get()).get();
   // Fill data for doacross depend clauses.

@@ -5048,6 +5048,9 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getStrideVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getIsLastIterVariable()));
+    } else if (S.getDirectiveKind() == OMPD_simd) {
+      EmitOMPHelperVar(*this,
+                       cast<DeclRefExpr>(S.getLateOutlineUpperBoundVariable()));
     }
 
     // Emit 'then' code.
@@ -5097,7 +5100,8 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       if (ThenBlock == nullptr)
         ThenBlock = Builder.GetInsertBlock();
       EmitOMPInnerLoop(
-          S, LoopScope.requiresCleanups(), S.getCond(), S.getInc(),
+          S, LoopScope.requiresCleanups(),
+          (K == OMPD_simd ? S.getLateOutlineCond() : S.getCond()), S.getInc(),
           [&S, LoopExit](CodeGenFunction &CGF) {
             CGF.EmitOMPLoopBody(S, LoopExit);
             CGF.EmitStopPoint(&S);

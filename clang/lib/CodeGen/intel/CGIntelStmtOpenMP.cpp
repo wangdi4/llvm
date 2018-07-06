@@ -476,6 +476,10 @@ namespace CGIntelOpenMP {
       CurrentClauseKind = OMPC_unknown;
       addArg("QUAL.OMP.NORMALIZED.IV");
       break;
+    case ICK_normalized_ub:
+      CurrentClauseKind = OMPC_unknown;
+      addArg("QUAL.OMP.NORMALIZED.UB");
+      break;
     default:
       llvm_unreachable("Clause not allowed");
     }
@@ -550,6 +554,11 @@ namespace CGIntelOpenMP {
         emitImplicit(VD, ImplicitMap[VD]);
         continue;
       }
+      // These are not treated like normal variables and should produce only
+      // NORMALIZED.[IV|UB] on their specific loop.  No clauses should be
+      // added to outer regions.
+      if (VD->getName() == ".omp.iv" || VD->getName() == ".omp.ub")
+        continue;
       if (VarDefs.find(VD) != VarDefs.end()) {
         // Defined in the region: private
         emitImplicit(VD, ICK_private);
@@ -1283,15 +1292,17 @@ namespace CGIntelOpenMP {
       auto IVExpr = cast<DeclRefExpr>(LoopDir->getIterationVariable());
       auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
       ImplicitMap.insert(std::make_pair(IVDecl, ICK_normalized_iv));
+      auto UBExpr = cast<DeclRefExpr>(
+          DKind == OMPD_simd ? LoopDir->getLateOutlineUpperBoundVariable()
+                             : LoopDir->getUpperBoundVariable());
+      auto UBDecl = cast<VarDecl>(UBExpr->getDecl());
+      ImplicitMap.insert(std::make_pair(UBDecl, ICK_normalized_ub));
       if (isOpenMPWorksharingDirective(DKind) ||
           isOpenMPTaskLoopDirective(DKind) ||
           isOpenMPDistributeDirective(DKind)) {
         auto LBExpr = cast<DeclRefExpr>(LoopDir->getLowerBoundVariable());
         auto LBDecl = cast<VarDecl>(LBExpr->getDecl());
         ImplicitMap.insert(std::make_pair(LBDecl, ICK_firstprivate));
-        auto UBExpr = cast<DeclRefExpr>(LoopDir->getUpperBoundVariable());
-        auto UBDecl = cast<VarDecl>(UBExpr->getDecl());
-        ImplicitMap.insert(std::make_pair(UBDecl, ICK_firstprivate));
       }
     }
   }

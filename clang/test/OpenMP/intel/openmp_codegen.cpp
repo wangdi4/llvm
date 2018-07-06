@@ -435,7 +435,7 @@ int main(int argc, char **argv) {
 // CHECK-REG: [[DIST_TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.DISTRIBUTE"(){{.*}}"QUAL.OMP.DIST_SCHEDULE.STATIC"(i32 8)
 // CHECK-REG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb
 // CHECK-REG-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv
-// CHECK-REG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub
+// CHECK-REG-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub
 // CHECK-REG-SAME: "QUAL.OMP.PRIVATE"(i32* %i
   #pragma omp target
   #pragma omp teams num_teams(16) thread_limit(4)
