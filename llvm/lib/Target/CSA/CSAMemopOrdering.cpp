@@ -180,7 +180,7 @@ namespace {
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
 // happy LLVM will be with that.
-const TargetRegisterClass *MemopRC = (csa_utils::isAlwaysDataFlowLinkageSet()) ? &CSA::CI1RegClass : &CSA::I1RegClass;
+const TargetRegisterClass *MemopRC = nullptr;
 
 // A type which represents a copy of the CFG with non-memory/non-intrinsic
 // operations stripped and with extra bookkeeping fields in each node to
@@ -1165,6 +1165,9 @@ MachineFunctionPass *llvm::createCSAMemopOrderingPass() {
 }
 
 bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
+  // Query the command line to check if this should be set.
+  MemopRC = csa_utils::isAlwaysDataFlowLinkageSet() ? &CSA::CI1RegClass :
+    &CSA::I1RegClass;
   MRI = &MF.getRegInfo();
   AA  = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   DT  = &getAnalysis<MachineDominatorTree>();
