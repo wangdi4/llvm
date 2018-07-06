@@ -253,8 +253,8 @@ struct ParamIndSetLess {
 // to either a ConstantInt or an Argument.
 //
 // All 4 checkArgOrConst(.) functions are similar in checking ConstantInt or
-// Argument, except each has a different starting point (Value*,
-// BinaryOperator*, PHINODE*, or CastInt*).
+// Argument, except each has a different starting point: Value*,
+// BinaryOperator*, PHINODE*, or CastInt*.
 //
 // ValuePtrSet saves any visited Value*. This helps to recognize a loop during
 // the track process, and thus abort tracking when a previously visited Value*
@@ -321,7 +321,12 @@ static bool checkArgOrConst(Value *V, SmallPtrSetImpl<Value *> &ValuePtrSet,
   if (CastInst *CI = dyn_cast<CastInst>(V))
     return checkArgOrConst(CI->getOperand(0), ValuePtrSet, Pset);
 
-  // PHINode: check current Phi for any potential cycle
+  // SelectInst: expect at least 1 operand to converge
+  if (SelectInst *SI = dyn_cast<SelectInst>(V))
+    return checkArgOrConst(SI->getTrueValue(), ValuePtrSet, Pset) ||
+           checkArgOrConst(SI->getFalseValue(), ValuePtrSet, Pset);
+
+  // PHINode: check current Phi form any potential cycle
   if (PHINode *Phi = dyn_cast<PHINode>(V))
     if (ValuePtrSet.find(V) == ValuePtrSet.end()) {
       ValuePtrSet.insert(V);
@@ -333,17 +338,12 @@ static bool checkArgOrConst(Value *V, SmallPtrSetImpl<Value *> &ValuePtrSet,
 
 // Check a given loop (L):
 //
-// - has induction variable;
 // - BottomTest (CmpInst) exists and is a supported predicate;
 // - CmpInst has only 2 operands;
 // - UpperBound (UB) ultimately refers to a function's argument or constant
 //
 static bool checkLoop(Loop *L, ParamIndSet &Pset) {
   assert(L && "Expect a valid Loop *\n");
-
-  // Check: has Canonical IV.
-  if (!L->getCanonicalInductionVariable())
-    return false;
 
   ICmpInst *CInst = getLoopBottomTest(L);
   if (!CInst)
@@ -356,7 +356,7 @@ static bool checkLoop(Loop *L, ParamIndSet &Pset) {
     return false;
 
   // Check: comparison is <, <= or ==.
-  // (This indicates the loop has been normalized)
+  // (since the loop has not been normalized yet)
   ICmpInst::Predicate Pred = CInst->getPredicate();
   if (!(Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_ULT ||
         Pred == ICmpInst::ICMP_ULE || Pred == ICmpInst::ICMP_SLT ||
@@ -2046,6 +2046,7 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   Clones[SearchKey] = Clone;
   ++NumCTCClones;
   LLVM_DEBUG(dbgs() << "CLONED " << Clone->getName());
+
   return Clone;
 }
 
