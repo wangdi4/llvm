@@ -85,7 +85,8 @@ public:
     const X86InterleavedClientMemref *CLMemref =
         cast<const X86InterleavedClientMemref>(&Memref);
 
-    *Distance = CLMemref->getDistance() - Dist;
+    // Dist(this) = Dist(Memref) + *Distance;
+    *Distance = Dist - CLMemref->getDistance();
     return true;
   }
   bool haveSameNumElements(const OVLSMemref &Memref) { return true; }
@@ -240,8 +241,8 @@ public:
       return false;
 
     // FIXME: Support all other types.
-    if (DL.getTypeSizeInBits(VecTy->getVectorElementType()) != 64 ||
-        Factor != 2)
+    if (!((VecTy->getScalarSizeInBits() == 64 && Factor == 2) ||
+          (VecTy->getScalarSizeInBits() == 32 && Factor == 4)))
       return false;
 
     // Create OVLSMemrefVector for the members(shuffles) of
@@ -282,6 +283,8 @@ public:
 
         // Translate the optimized-sequence(from OVLS-pseudo instruction type )
         // to LLVM-IR instruction type.
+        // Alignment is hard-coded as 16 here. It can be extracted from the
+        // memory access instruction using getAlignment().
         InstMap = OVLSConverter::genLLVMIR(
             Builder, InstVec, Addr, Inst->getType()->getVectorElementType(),
             16);
