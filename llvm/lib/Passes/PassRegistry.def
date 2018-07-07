@@ -324,6 +324,7 @@ FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
 FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 FUNCTION_PASS("agginlaa", AggInlAAPass())
+FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())
 #endif // INTEL_CUSTOMIZATION
 #undef FUNCTION_PASS
 

@@ -114,6 +114,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopOptMarkerLegacyPassPass(Registry);
   initializeLoopOptReportEmitterLegacyPassPass(Registry);
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
+  initializeAddSubReassociateLegacyPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
@@ -222,6 +223,12 @@ void LLVMAddPartiallyInlineLibCallsPass(LLVMPassManagerRef PM) {
 void LLVMAddReassociatePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createReassociatePass());
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createAddSubReassociatePass());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void LLVMAddSCCPPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createSCCPPass());
