@@ -76,10 +76,10 @@ entry:
   %4 = alloca [1 x i64]
   %5 = getelementptr [1 x i64], [1 x i64]* %4, i32 0, i32 0
   store i64 256, i64* %5, align 8
-  %call2 = call i32 @__enqueue_kernel_vaargs(%opencl.queue_t* %0, i32 %1, %struct.ndrange_t* %tmp, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*)* @__device_side_enqueue_block_invoke_2_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global to i8 addrspace(1)*) to i8 addrspace(4)*), i32 1, i64* %5)
+  %call2 = call i32 @__enqueue_kernel_varargs(%opencl.queue_t* %0, i32 %1, %struct.ndrange_t* %tmp, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*)* @__device_side_enqueue_block_invoke_2_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global to i8 addrspace(1)*) to i8 addrspace(4)*), i32 1, i64* %5)
   %call3 = call i32 @__get_kernel_work_group_size_impl(i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__device_side_enqueue_block_invoke_3_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global.1 to i8 addrspace(1)*) to i8 addrspace(4)*))
   store i32 %call3, i32* %size, align 4, !tbaa !14
-  %call4 = call i32 @__get_kernel_preferred_work_group_multiple_impl(i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*)* @__device_side_enqueue_block_invoke_4_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global.2 to i8 addrspace(1)*) to i8 addrspace(4)*))
+  %call4 = call i32 @__get_kernel_preferred_work_group_size_multiple_impl(i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*)* @__device_side_enqueue_block_invoke_4_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32 } addrspace(1)* @__block_literal_global.2 to i8 addrspace(1)*) to i8 addrspace(4)*))
   store i32 %call4, i32* %size, align 4, !tbaa !14
   ret void
 }
@@ -134,7 +134,7 @@ entry:
   ret void
 }
 
-declare i32 @__enqueue_kernel_vaargs(%opencl.queue_t*, i32, %struct.ndrange_t*, i8 addrspace(4)*, i8 addrspace(4)*, i32, i64*)
+declare i32 @__enqueue_kernel_varargs(%opencl.queue_t*, i32, %struct.ndrange_t*, i8 addrspace(4)*, i8 addrspace(4)*, i32, i64*)
 
 ; Function Attrs: convergent nounwind
 define internal spir_func void @__device_side_enqueue_block_invoke_3(i8 addrspace(4)* %.block_descriptor) #2 {
@@ -176,7 +176,7 @@ entry:
   ret void
 }
 
-declare i32 @__get_kernel_preferred_work_group_multiple_impl(i8 addrspace(4)*, i8 addrspace(4)*)
+declare i32 @__get_kernel_preferred_work_group_size_multiple_impl(i8 addrspace(4)*, i8 addrspace(4)*)
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1

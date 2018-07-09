@@ -2,8 +2,8 @@
 // functions except for those that are var-args.
 // The var-args built-ins that are not implemented here are
 // and resolved by ResolveWICall Pass:
-//    __enqueue_kernel_vaargs
-//    __enqueue_kernel_events_vaargs
+//    __enqueue_kernel_varargs
+//    __enqueue_kernel_events_varargs
 
 // Upper bound on amount of var args that can be in a call
 #define MAX_VAR_ARGS_COUNT (32)
@@ -225,7 +225,7 @@ extern uint ocl20_get_kernel_preferred_wg_size_multiple(
   void *block_invoke, void *block_literal, void *DCM, void *B2K);
 
 uint __attribute__((always_inline))
-    __get_kernel_preferred_work_group_multiple_impl(
+    __get_kernel_preferred_work_group_size_multiple_impl(
       void *block_invoke, void *block_literal) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();

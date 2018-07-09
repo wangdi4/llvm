@@ -92,7 +92,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     // It isn't needed to process this extended execution BIs
     if (CompilationUtils::isEnqueueKernel(FName.str()) ||
         FName.equals("__get_kernel_work_group_size_impl") ||
-        FName.equals("__get_kernel_preferred_work_group_multiple_impl"))
+        FName.equals("__get_kernel_preferred_work_group_size_multiple_impl"))
       return true;
     // It isn't needed to process pipes BIs
     if (CompilationUtils::isPipeBuiltin(FName))
