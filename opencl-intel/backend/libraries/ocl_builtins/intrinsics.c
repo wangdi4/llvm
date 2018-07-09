@@ -139,12 +139,8 @@ _mm512_min_epu64(__m512i __A, __m512i __B)
 __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_min_ps(__m512 __A, __m512 __B)
 {
-  return (__m512)__builtin_ia32_minps512_mask((__v16sf)__A,
-    (__v16sf)__B,
-    (__v16sf)
-    _mm512_setzero_ps(),
-    (__mmask16)-1,
-    _MM_FROUND_CUR_DIRECTION);
+  return (__m512) __builtin_ia32_minps512((__v16sf) __A, (__v16sf) __B,
+                                          _MM_FROUND_CUR_DIRECTION);
 }
 
 __m512d __attribute__((__always_inline__, __nodebug__))
