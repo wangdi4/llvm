@@ -19,18 +19,20 @@
 
 #include <gtest/gtest.h>
 
+#include "common_utils.h"
+
 #include <string>
 
 class MetadataTest : public ::testing::Test {
 protected:
   MetadataTest() : m_LLVMContext(nullptr), m_pModule(nullptr) {}
 
-  virtual void SetUp() {
+  void SetUp() override {
     m_LLVMContext.reset(new llvm::LLVMContext());
 
     llvm::SMDiagnostic errDiagnostic;
-    auto pModule =
-        llvm::parseIRFile(m_testFileName, errDiagnostic, *m_LLVMContext);
+    auto pModule = llvm::parseIRFile(get_exe_dir() + m_testFileName,
+                                     errDiagnostic, *m_LLVMContext);
 
     if (!pModule) {
       errDiagnostic.print(m_testFileName.c_str(), llvm::errs());
@@ -40,7 +42,7 @@ protected:
     m_pModule.reset(pModule.release());
   }
 
-  virtual void TearDown() {}
+  void TearDown() override {}
 
   llvm::Module *GetTestModule() { return m_pModule.get(); }
 
