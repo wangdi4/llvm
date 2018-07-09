@@ -223,12 +223,10 @@ __m512d __attribute__((__always_inline__, __nodebug__))
 _mm512_sqrt_pd(__m512d a);
 
 static  __inline__ __m512 __attribute__((__always_inline__, __nodebug__))
-_mm512_sqrt_ps(__m512 a)
+_mm512_sqrt_ps(__m512 __A)
 {
-  return (__m512)__builtin_ia32_sqrtps512_mask((__v16sf)a,
-                                               (__v16sf) _mm512_setzero_ps (),
-                                               (__mmask16) -1,
-                                               _MM_FROUND_CUR_DIRECTION);
+  return (__m512)__builtin_ia32_sqrtps512((__v16sf)__A,
+                                          _MM_FROUND_CUR_DIRECTION);
 }
 
 __m512d __attribute__((__always_inline__, __nodebug__))
