@@ -71,6 +71,30 @@ void DDEdge::print(raw_ostream &OS) const {
   // todo
 }
 
+unsigned DDGraph::getNumIncomingFlowEdges(const DDRef *Ref) const {
+  unsigned Num = 0;
+  for (auto &Edge : incoming(Ref)) {
+    if (Edge->isFLOWdep()) {
+      Num++;
+    }
+  }
+
+  const RegDDRef *RRef = dyn_cast<RegDDRef>(Ref);
+  if (!RRef) {
+    return Num;
+  }
+
+  for (auto &BRRef : make_range(RRef->blob_cbegin(), RRef->blob_cend())) {
+    for (auto &Edge : incoming(BRRef)) {
+      assert(Edge->isFLOWdep() &&
+             "Incoming edges to blob refs should be flow edges only");
+      (void)Edge;
+      Num++;
+    }
+  }
+  return Num;
+}
+
 bool DDGraph::singleEdgeGoingOut(const DDRef *LRef) {
   unsigned NumEdge = 0;
 

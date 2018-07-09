@@ -241,7 +241,11 @@ public:
     return outgoing(Ref).end();
   }
 
-  /// Single edge going out of this DDRef.
+  // Returns the total number of incoming flow edges associated with this Ref
+  // It includes the edges attached to blobs (if any) too
+  unsigned getNumIncomingFlowEdges(const DDRef *Ref) const;
+
+  // Single edge going out of this DDRef.
   bool singleEdgeGoingOut(const DDRef *LRef);
 
   void print(raw_ostream &OS) const;

@@ -58,11 +58,13 @@ class HIRLoopLocality;
 class HIRLoopResource;
 class HIRLoopStatistics;
 class HIRSafeReductionAnalysis;
+class HIRSparseArrayReductionAnalysis;
 class HIRVectVLSAnalysis;
 
 typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLoopLocality,
                                 HIRLoopResource, HIRLoopStatistics,
-                                HIRSafeReductionAnalysis, HIRVectVLSAnalysis>
+                                HIRSafeReductionAnalysis, HIRSparseArrayReductionAnalysis,
+                                HIRVectVLSAnalysis>
     HIRAnalysisProvider;
 
 /// This analysis is the public interface for the HIR framework.
