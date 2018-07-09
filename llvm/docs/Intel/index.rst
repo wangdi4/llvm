@@ -2,6 +2,8 @@
 Xmain
 =====
 
+**Intel Top Secret**
+
 .. contents::
    :local:
 
@@ -24,6 +26,7 @@ Xmain
    DTrans/index
    GapAnalysis/index
    Tools/index
+   CSA/index
 
 Introduction
 ============
@@ -120,3 +123,6 @@ Major Components
 
 :doc:`Tools <Tools/index>`
    Container for Tools documents.
+
+:doc:`CSA <CSA/index>`
+   Describes the CSA backend and related topics.
