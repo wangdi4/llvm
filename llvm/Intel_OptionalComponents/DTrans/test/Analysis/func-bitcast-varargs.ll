@@ -149,5 +149,5 @@ define void @test3(%struct.test3b* %vp) {
 ; CHECK: LLVMType: %struct.test3a = type { i32 }
 ; CHECK: Safety data: Bad casting | Local instance
 ; CHECK: LLVMType: %struct.test3b = type { i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Mismatched argument use
 

@@ -502,7 +502,7 @@ define void @test18() {
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test18 = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Mismatched argument use
 
 
 ; Test a case where a non-varadic function is bitcast as a varadic function.

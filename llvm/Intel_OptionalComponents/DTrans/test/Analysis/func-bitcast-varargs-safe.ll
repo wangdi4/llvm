@@ -63,7 +63,7 @@ vaarg.end:                                        ; preds = %vaarg.in_mem, %vaar
 
 }
 
-; Test that %struct.test2 isn't marked as Bad casting due
+; Test that %struct.test2 isn't marked as Mismatched argument use casting due
 ; to vararg
 define void @test(%struct.test2* %vp) {
   %p = call i8* @malloc(i64 16)
@@ -73,9 +73,9 @@ define void @test(%struct.test2* %vp) {
   ret void
 }
 
-; CHECK-NOT: Bad casting -- bitcast function
+; CHECK-NOT: Mismatched argument use -- bitcast function
 
-; Test that %struct.test3 is marked as Bad casting due to
+; Test that %struct.test3 is marked as Mismatched argument use due to
 ; a vararg Type mismatch
 define void @test2(%struct.test3* %vp) {
   %p = call i8* @malloc(i64 16)
@@ -85,4 +85,4 @@ define void @test2(%struct.test3* %vp) {
   ret void
 }
 
-; CHECK: Bad casting -- bitcast function
+; CHECK: Mismatched argument use -- bitcast function

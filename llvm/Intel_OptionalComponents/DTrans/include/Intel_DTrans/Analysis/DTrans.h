@@ -289,26 +289,28 @@ const SafetyData SDReorderFields =
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    LocalInstance | HasCppHandling | UnhandledUse;
+    MismatchedArgUse | LocalInstance | HasCppHandling | UnhandledUse;
 //
 // Safety conditions for field single value analysis
 //
 const SafetyData SDFieldSingleValue =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | UnhandledUse;
+    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+    UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | UnhandledUse;
+    UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    HasInitializerList | UnsafePtrMerge | AddressTaken | UnhandledUse;
+    HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+    UnhandledUse;
 
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |

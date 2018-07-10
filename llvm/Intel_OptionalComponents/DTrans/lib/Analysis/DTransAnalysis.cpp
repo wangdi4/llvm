@@ -13,6 +13,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -2495,9 +2496,9 @@ public:
 
   // See typesMayBeCRuleCompatible() immediately below for explanation of
   // this function.
-  static bool
-  typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
-                             SmallPtrSetImpl<llvm::Type *> &Tstack) {
+  static bool typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
+                                         SmallPtrSetImpl<llvm::Type *> &Tstack,
+                                         bool IgnorePointees) {
 
     // Enum indicating that on the particular predicate being compared for
     // T1 and T2, the types have the opposite value of the predicate
@@ -2519,11 +2520,8 @@ public:
 
     // An array of predicate conditions for which T1 and T2 will be tested
     // for compatibility. The predicate "isIntegerTy" and "isFloatingPointTy"
-    // are base properties that cannot be further refined.  Testing for the
-    // predicate "isFunctionTy" can be refined if we want to sharpen the
-    // results of typesMayBeCRuleCompatible().
-    MFP F1Array[] = {&llvm::Type::isIntegerTy, &llvm::Type::isFloatingPointTy,
-                     &llvm::Type::isFunctionTy};
+    // are base properties that cannot be further refined.
+    MFP F1Array[] = {&llvm::Type::isIntegerTy, &llvm::Type::isFloatingPointTy};
 
     // A Type is always compatible with itself.
     if (T1 == T2)
@@ -2536,6 +2534,7 @@ public:
       if (R == TME_OPPOSITE)
         return false;
       if (R == TME_YES)
+        // FIXME: check DataLayout::getTypeStoreSize
         return true;
     }
 
@@ -2544,6 +2543,12 @@ public:
     if (R == TME_OPPOSITE)
       return false;
     if (R == TME_YES) {
+      if (T1->getPointerAddressSpace() != T2->getPointerAddressSpace())
+        return false;
+
+      if (IgnorePointees)
+        return true;
+
       //
       // Pointers to StructTypes are a tricky case, as the definition could
       // be recursive.  This could be resolved by struct TAGs, but these are
@@ -2558,21 +2563,48 @@ public:
       //
       auto *T3 = T1->getPointerElementType();
       auto *T4 = T2->getPointerElementType();
-      TME S = typeTest(T3, T4, &llvm::Type::isStructTy);
-      if (S == TME_OPPOSITE)
-        return false;
-      if (S == TME_YES) {
-        if (T3->getStructNumElements() != T4->getStructNumElements())
+
+      // Should contain all checks resulting in recursive calls.
+      MFP CompoundChecks[] = {&llvm::Type::isArrayTy, &llvm::Type::isStructTy,
+                              &llvm::Type::isFunctionTy};
+
+      for (auto Cx : CompoundChecks) {
+        TME S = typeTest(T3, T4, Cx);
+        if (S == TME_OPPOSITE)
           return false;
-        if (Tstack.find(T3) != Tstack.end())
-          return true;
-        if (Tstack.find(T4) != Tstack.end())
-          return true;
-        Tstack.insert(T3);
-        Tstack.insert(T4);
+        if (S == TME_YES) {
+          if (Tstack.find(T3) != Tstack.end())
+            return true;
+          if (Tstack.find(T4) != Tstack.end())
+            return true;
+          Tstack.insert(T3);
+          Tstack.insert(T4);
+        }
       }
+
       return typesMayBeCRuleCompatibleX(T1->getPointerElementType(),
-                                        T2->getPointerElementType(), Tstack);
+                                        T2->getPointerElementType(), Tstack,
+                                        IgnorePointees);
+    }
+
+    R = typeTest(T1, T2, &llvm::Type::isFunctionTy);
+    if (R == TME_OPPOSITE)
+      return false;
+    if (R == TME_YES) {
+      auto *FT1 = cast<FunctionType>(T1);
+      auto *FT2 = cast<FunctionType>(T2);
+      if (!typesMayBeCRuleCompatibleX(FT1->getReturnType(),
+                                      FT2->getReturnType(), Tstack,
+                                      IgnorePointees))
+        return false;
+
+      // FIXME: extend to handle left over parameters and var-arg.
+      for (auto Pair : zip(FT1->params(), FT2->params())) {
+        auto *PT1 = std::get<0>(Pair);
+        auto *PT2 = std::get<1>(Pair);
+        if (!typesMayBeCRuleCompatibleX(PT1, PT2, Tstack, IgnorePointees))
+          return false;
+      }
     }
 
     // Two array Types are compatible if they have the same number of elements
@@ -2584,7 +2616,8 @@ public:
       if (T1->getArrayNumElements() != T2->getArrayNumElements())
         return false;
       return typesMayBeCRuleCompatibleX(T1->getArrayElementType(),
-                                        T2->getArrayElementType(), Tstack);
+                                        T2->getArrayElementType(), Tstack,
+                                        IgnorePointees);
     }
 
     // Two struct Types are compatible if they have the same number of
@@ -2597,7 +2630,8 @@ public:
         return false;
       for (unsigned I = 0; I < T1->getStructNumElements(); ++I)
         if (!typesMayBeCRuleCompatibleX(T1->getStructElementType(I),
-                                        T2->getStructElementType(I), Tstack))
+                                        T2->getStructElementType(I), Tstack,
+                                        IgnorePointees))
           return false;
       return true;
     }
@@ -2618,11 +2652,16 @@ public:
   //       code for typesMayBeCRuleCompatibleX.) In the absence of completely
   //       reliable structure tags, we keep a stack (Tstack) of Types that
   //       we have already seen to avoid recursion.
-  //   (3) Function types. This could be implemented in the future. We are
-  //       not doing it now because there is no immediate need.
-  static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2) {
+  //   (3) Vector types and function types with different numbers of
+  //       parameters and var arg. This could be implemented in the future.
+  //       We are not doing it now because there is no immediate need.
+  //
+  // IgnorePointees only checks that pointers are layout compatible,
+  // i.e. they are from the same address space.
+  static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2,
+                                        bool IgnorePointees = false) {
     SmallPtrSet<llvm::Type *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, Tstack);
+    return typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
   }
 
   // Return true if the Type T may have a distinct compatible Type by
@@ -2692,6 +2731,172 @@ public:
     return false;
   }
 
+  // Set MismatchedArgUse safety check if needed for direct call represented by
+  // F.
+  // FIXME: unify with visitCallArgument.
+  void checkArgTypeMismatch(CallSite CS, Function *F, Argument *FormalVal,
+                            Value *ActualVal) {
+
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ActualVal);
+    // Collect the dominant Type of the actual parameter
+    Type *ActualType = LPI.getDominantAggregateTy();
+    Type *FormalType = nullptr;
+
+    if (FormalVal) {
+      FormalType = FormalVal->getType();
+      // Type match
+      if (FormalType == ActualType || checkUsersType(FormalVal, ActualType))
+        return;
+    } else if (!ActualType || !DTInfo.isTypeOfInterest(ActualType) ||
+               isVarArgSameType(F, ActualType))
+      return;
+
+    if (FormalType && DTInfo.isTypeOfInterest(FormalType))
+      setBaseTypeInfoSafetyData(FormalType, dtrans::MismatchedArgUse);
+
+    if (ActualType && DTInfo.isTypeOfInterest(ActualType))
+      setBaseTypeInfoSafetyData(ActualType, dtrans::MismatchedArgUse);
+
+    // Print debug information if "Mismatched argument use" was set either
+    // in the formal or actual Type.
+    LLVM_DEBUG({
+      if ((FormalType && DTInfo.isTypeOfInterest(FormalType)) ||
+          (ActualType && DTInfo.isTypeOfInterest(ActualType))) {
+        dbgs() << "dtrans-safety: Mismatched argument use -- bitcast "
+                  "function arguments mismatch:\n  "
+               << *CS.getInstruction();
+
+        if (FormalVal) {
+          dbgs() << "\n    Formal: " << *FormalVal;
+          dbgs() << "  Type: " << *FormalType << "\n";
+        } else
+          dbgs() << "\n    Formal: ...  Type: vararg\n";
+        dbgs() << "    Actual: " << *ActualVal << "\n";
+        dbgs() << "  Dominant Type: ";
+        if (ActualType)
+          dbgs() << *ActualType;
+        else
+          dbgs() << "null";
+        dbgs() << "\n";
+      }
+    });
+  }
+
+  // FIXME: unify with checkArgTypeMismatch.
+  void visitCallArgument(CallSite CS, Function *F, bool HasICMatch, Value *Arg,
+                         unsigned ArgNo) {
+
+    bool IsFnLocal = F ? !F->isDeclaration() : false;
+
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
+    if (LPI.pointsToSomeElement()) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                        << "pointer to element passed as argument:\n"
+                        << "  " << *CS.getInstruction() << "\n  " << *Arg
+                        << "\n");
+      // Selects and PHIs may have created a pointer that refers to
+      // elements in multiple aggregate types. This sets the field
+      // address taken condition for them all.
+      for (auto &PointeePair : LPI.getElementPointeeSet()) {
+        setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
+        dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+          ParentStInfo->getField(PointeePair.second).setAddressTaken();
+      }
+    }
+
+    if (CS.isInvoke()) {
+      for (auto *Ty : LPI.getPointerTypeAliasSet()) {
+        if (!DTInfo.isTypeOfInterest(Ty))
+          continue;
+
+        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                          << "pointer to struct passed as argument to "
+                             "function invoke:\n "
+                          << *CS.getInstruction() << "\n " << *Arg << "\n");
+        setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling);
+      }
+    }
+
+    // If the argument aliases an aggregate pointer type that is not the type
+    // of the argument, the address has been taken in a way we can't track.
+    // If the called function is locally defined and the type of the argument
+    // matches the aggregate pointer type, we will be able to analyze the use
+    // when we visit that function. If more than one aggregate type is
+    // aliased, we will have flagged the overloaded pointer when we visited
+    // the select or PHI that created this situation, so here we just need to
+    // worry about the types individually. However, if the function being
+    // called is varadic and the argument is not one of the fixed parameters
+    // we can't check its use from here. It's possible to cast a non-variadic
+    // function to a varadic type for a call, so we always check the number of
+    // parameters rather than trusting isVarArg().
+    auto *ArgTy = Arg->getType();
+    if (IsFnLocal && (ArgTy == Int8PtrTy) &&
+        ArgNo < F->getFunctionType()->getNumParams()) {
+      // If we're calling a local function that takes an i8* operand
+      // get the expected alias types from the local pointer analyzer.
+      auto Param = F->arg_begin();
+      std::advance(Param, ArgNo);
+      LocalPointerInfo &ParamLPI = LPA.getLocalPointerInfo(Param);
+
+      if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
+                               /*AllowElementZeroAccess=*/true) ||
+          isAliasSetOverloaded(ParamLPI.getPointerTypeAliasSet(),
+                               /*AllowElementZeroAccess=*/true)) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched argument use -- "
+                          << "overloaded alias set found at call site:\n"
+                          << "  " << *CS.getInstruction() << "\n  " << *Arg
+                          << "\n");
+        setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
+        setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+      } else {
+        llvm::Type *DomParamTy = ParamLPI.getDominantAggregateTy();
+        llvm::Type *DomArgTy = LPI.getDominantAggregateTy();
+        if (DomParamTy != DomArgTy) {
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: Mismatched argument use -- "
+                     << "overloaded alias set found at call site:\n"
+                     << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
+          setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
+          setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+        }
+      }
+    } else {
+      for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+        if (!DTInfo.isTypeOfInterest(AliasTy))
+          continue;
+        if (IsFnLocal && (AliasTy == ArgTy))
+          continue;
+        // For indirect calls, Use the C language rule, if appropriate, to
+        // reject cases for which the Type of the formal and actual argument
+        // must match.  In such cases, there will be no "Address taken"
+        //  safety violation.
+        if (!F && DTransUseCRuleCompat && !HasICMatch &&
+            !mayHaveDistinctCompatibleCType(AliasTy))
+          continue;
+        // If the first element of the dominant type of the pointer is an
+        // an array of the actual argument, don't report address taken.
+        if (isElementZeroArrayOfType(AliasTy, ArgTy)) {
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: Field address taken -- "
+                     << "ptr to array element passed as argument:\n"
+                     << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTaken);
+          dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(AliasTy);
+          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+            ParentStInfo->getField(0).setAddressTaken();
+          continue;
+        }
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
+                          << "pointer to aggregate passed as argument:\n"
+                          << "  " << *CS.getInstruction() << "\n  " << *Arg
+                          << "\n");
+        setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
+      }
+    }
+  }
+
   void visitCallSite(CallSite CS) {
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
@@ -2724,87 +2929,41 @@ public:
     // to strip the pointer casting from the Value and then
     // access the Function.
     Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
-
     // Check for BitCast functions
     if (F && isa<ConstantExpr>(CS.getCalledValue())) {
-      unsigned ArgNum = 0;
-
-      for (auto &Arg : F->args()) {
-        ArgNum = Arg.getArgNo();
-
-        // Collect the formal parameter
-        Value *FormalVal = dyn_cast<Value>(&Arg);
-        Type *FormalType = FormalVal->getType();
-
-         // Collect the actual parameter
-        Value *ActualVal = CS.getArgument(ArgNum);
-        LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ActualVal);
-        // Collect the dominant Type of the actual parameter
-        Type *ActualType = LPI.getDominantAggregateTy();
-
-        if (ActualType && FormalType == ActualType)
-          continue;
-
-        // Type mismatch
-        if (FormalType != ActualType) {
-          bool InnerType = checkUsersType(FormalVal, ActualType);
-          if (!InnerType) {
-
-            if (DTInfo.isTypeOfInterest(FormalType))
-              setBaseTypeInfoSafetyData(FormalType, dtrans::BadCasting);
-
-            if (ActualType && DTInfo.isTypeOfInterest(ActualType))
-              setBaseTypeInfoSafetyData(ActualType, dtrans::BadCasting);
-
-            // Print debug information if "Bad casting" was set either
-            // in the formal or actual Type.
-            LLVM_DEBUG({
-              if (DTInfo.isTypeOfInterest(FormalType) ||
-                  (ActualType && DTInfo.isTypeOfInterest(ActualType))) {
-                dbgs() << "dtrans-safety: Bad casting -- bitcast function "
-                       << "arguments mismatch:\n  ";
-                CS.getInstruction()->print(dbgs());
-
-                dbgs() << "\n    Formal: " << *FormalVal;
-                dbgs() << "  Type: " << *FormalType << "\n";
-                dbgs() << "    Actual: " << *ActualVal << "\n";
-                dbgs() << "  Dominant Type: ";
-                if (ActualType)
-                  dbgs() << *ActualType;
-                else
-                  dbgs() << "null";
-                dbgs() << "\n";
-              }
-            });
-          }
+      // Account for layout in registers and on stack.
+      if (!typesMayBeCRuleCompatible(
+              CS.getCalledValue()->getType()->getPointerElementType(),
+              // Do not need to compare pointees types
+              // here.
+              F->getType()->getPointerElementType(), true)) {
+        for (Argument &Arg : F->args()) {
+          LLVM_DEBUG(
+              dbgs()
+              << "dtrans-safety: Mismatched argument use -- bitcast "
+                 "function arguments mismatch with layout incompatibility:\n  "
+              << *CS.getInstruction());
+          setValueTypeInfoSafetyData(&Arg, dtrans::MismatchedArgUse);
         }
-      }
 
-      // Check for varargs
-      if (F->isVarArg()) {
-        ArgNum++;
-        while (ArgNum < CS.arg_size()) {
-          Value *ActualVal = CS.getArgument(ArgNum);
-          LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ActualVal);
-          Type *ActualType = LPI.getDominantAggregateTy();
-
-          if (ActualType && DTInfo.isTypeOfInterest(ActualType) &&
-              !isVarArgSameType(F, ActualType)) {
-
-            LLVM_DEBUG({
-              dbgs() << "dtrans-safety: Bad casting -- bitcast function "
-                     << "arguments mismatch:\n  ";
-              CS.getInstruction()->print(dbgs());
-              dbgs() << "\n    Formal: ...  Type: vararg";
-              dbgs() << "\n    Actual: " << *ActualVal;
-              dbgs() << "  Dominant Type: " << *ActualType << "\n";
-            });
-
-            setBaseTypeInfoSafetyData(ActualType, dtrans::BadCasting);
-          }
-
-          ArgNum++;
+        for (Value *Arg : CS.args()) {
+          LLVM_DEBUG(
+              dbgs()
+              << "dtrans-safety: Mismatched argument use -- bitcast "
+                 "function arguments mismatch with layout incompatibility:\n  "
+              << *CS.getInstruction());
+          setValueTypeInfoSafetyData(Arg, dtrans::MismatchedArgUse);
         }
+      } else {
+        for (auto Pair : zip(F->args(), CS.args()))
+          checkArgTypeMismatch(CS, F, &std::get<0>(Pair), std::get<1>(Pair));
+
+        // Do not care about F->arg_size() > CS.arg_size(),
+        // it should be marked in the true-branch, or it is UB.
+        if (F->arg_size() < CS.arg_size())
+          for (Value *Arg :
+               make_range(CS.arg_begin() + F->arg_size(), CS.arg_end()))
+            checkArgTypeMismatch(CS, F, nullptr, Arg);
       }
     }
 
@@ -2846,112 +3005,7 @@ public:
       if (!isValueOfInterest(Arg))
         continue;
 
-      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
-
-      if (LPI.pointsToSomeElement()) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
-                          << "pointer to element passed as argument:\n"
-                          << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
-        // Selects and PHIs may have created a pointer that refers to
-        // elements in multiple aggregate types. This sets the field
-        // address taken condition for them all.
-        for (auto &PointeePair : LPI.getElementPointeeSet()) {
-          setBaseTypeInfoSafetyData(PointeePair.first,
-                                    dtrans::FieldAddressTaken);
-          dtrans::TypeInfo *ParentTI =
-              DTInfo.getOrCreateTypeInfo(PointeePair.first);
-          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-            ParentStInfo->getField(PointeePair.second).setAddressTaken();
-        }
-      }
-
-    if (CS.isInvoke())
-      for (auto *Ty : LPI.getPointerTypeAliasSet()) {
-        if (!DTInfo.isTypeOfInterest(Ty))
-          continue;
-
-        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
-                          << "pointer to struct passed as argument to "
-                             "function invoke:\n "
-                          << *CS.getInstruction() << "\n " << *Arg << "\n");
-        setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling);
-      }
-
-
-      // If the argument aliases an aggregate pointer type that is not the type
-      // of the argument, the address has been taken in a way we can't track.
-      // If the called function is locally defined and the type of the argument
-      // matches the aggregate pointer type, we will be able to analyze the use
-      // when we visit that function. If more than one aggregate type is
-      // aliased, we will have flagged the overloaded pointer when we visited
-      // the select or PHI that created this situation, so here we just need to
-      // worry about the types individually. However, if the function being
-      // called is varadic and the argument is not one of the fixed parameters
-      // we can't check its use from here. It's possible to cast a non-variadic
-      // function to a varadic type for a call, so we always check the number of
-      // parameters rather than trusting isVarArg().
-      auto *ArgTy = Arg->getType();
-      if (IsFnLocal && (ArgTy == Int8PtrTy) &&
-          ArgNo < F->getFunctionType()->getNumParams()) {
-        // If we're calling a local function that takes an i8* operand
-        // get the expected alias types from the local pointer analyzer.
-        auto Param = F->arg_begin();
-        std::advance(Param, ArgNo);
-        LocalPointerInfo &ParamLPI = LPA.getLocalPointerInfo(Param);
-
-        if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
-                                 /*AllowElementZeroAccess=*/true) ||
-            isAliasSetOverloaded(ParamLPI.getPointerTypeAliasSet(),
-                                 /*AllowElementZeroAccess=*/true)) {
-          LLVM_DEBUG(dbgs()
-                     << "dtrans-safety: Mismatched argument use -- "
-                     << "overloaded alias set found at call site:\n"
-                     << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
-          setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
-          setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
-        } else {
-          llvm::Type *DomParamTy = ParamLPI.getDominantAggregateTy();
-          llvm::Type *DomArgTy = LPI.getDominantAggregateTy();
-          if (DomParamTy != DomArgTy) {
-            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched argument use -- "
-                              << "overloaded alias set found at call site:\n"
-                              << "  " << *CS.getInstruction() << "\n  " << *Arg
-                              << "\n");
-            setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
-            setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
-          }
-        }
-      } else {
-        for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-          if (!DTInfo.isTypeOfInterest(AliasTy))
-            continue;
-          if (IsFnLocal && (AliasTy == ArgTy))
-            continue;
-          // For indirect calls, Use the C language rule, if appropriate, to
-          // reject cases for which the Type of the formal and actual argument
-          // must match.  In such cases, there will be no "Address taken"
-          //  safety violation.
-          if (!F && DTransUseCRuleCompat && !HasICMatch &&
-              !mayHaveDistinctCompatibleCType(AliasTy))
-            continue;
-          // If the first element of the dominant type of the pointer is an
-          // an array of the actual argument, don't report address taken.
-          if (isElementZeroArrayOfType(AliasTy, ArgTy)) {
-            LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
-                              << "ptr to array element passed as argument:\n"
-                              << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
-            setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTaken);
-            dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(AliasTy);
-            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-              ParentStInfo->getField(0).setAddressTaken();
-            continue;
-          }
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
-                            << "pointer to aggregate passed as argument:\n"
-                            << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
-          setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
-        }
-      }
+      visitCallArgument(CS, F, HasICMatch, Arg, ArgNo);
     }
   }
 

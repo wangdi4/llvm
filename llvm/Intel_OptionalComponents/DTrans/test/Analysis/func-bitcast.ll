@@ -27,7 +27,7 @@ define void @test02(i8** %pp) {
 }
 
 ; CHECK: LLVMType: %struct.test02 = type { i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Mismatched argument use
 
 ; Test the case where the argument is known to mismatch the function called.
 %struct.test03.a = type { i32, i32 }
@@ -41,9 +41,9 @@ define void @test03(%struct.test03.a* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test03.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Mismatched argument use
 ; CHECK: LLVMType: %struct.test03.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Mismatched argument use
 
 ; Test the case where there is a second argument but it matches.
 %struct.test04 = type { i32, i32 }
@@ -69,7 +69,7 @@ define void @test05(%struct.test05* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test05 = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Mismatched argument use
 
 ; Test the case where two structures are correctly passed.
 %struct.test06.a = type { i32, i32 }
@@ -99,9 +99,9 @@ define void @test07(i8* %p1, i8* %p2) {
 }
 
 ; CHECK: LLVMType: %struct.test07.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Mismatched argument use
 ; CHECK: LLVMType: %struct.test07.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Mismatched argument use
 
 ; Test that the memory space allocated refers to the
 ; proper structure
@@ -158,6 +158,21 @@ define void @test11() {
 ; CHECK-LABEL: LLVMType: %struct.test11 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
+; Test the case layout incompatibility
+%struct.test12a = type { i32, i32 }
+%struct.test12b = type { i32 }
+define void @doNothing12(%struct.test12a*, %struct.test12b*) { ret void }
+define void @test12(%struct.test12b** %pp) {
+  %vp = load %struct.test12b*, %struct.test12b** %pp
+  call void bitcast (void (%struct.test12a*, %struct.test12b*)* @doNothing12
+                       to void (i32, %struct.test12b*)*)(i32 0, %struct.test12b* %vp)
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test12a = type { i32, i32 }
+; CHECK: Safety data: Mismatched argument use
+; CHECK: LLVMType: %struct.test12b = type { i32 }
+; CHECK: Safety data: Mismatched argument use
 
 ; Test the case for nested structures
 %struct.test9a = type { i32, i32 }
@@ -171,8 +186,8 @@ define void @test9(i8** %pp) {
 }
 
 ; CHECK: LLVMType: %struct.test9a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Nested structure
+; CHECK: Safety data: Nested structure | Mismatched argument use
 ; CHECK: LLVMType: %struct.test9b = type { %struct.test9a, i32 }
-; CHECK: Safety data: Bad casting | Contains nested structure
+; CHECK: Safety data: Contains nested structure | Mismatched argument use
 
 
