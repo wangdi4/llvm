@@ -182,7 +182,10 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     errs() << "WARNING: dataflow conversion not attempting to handle dynamic "
               "stack allocation.\n";
     errs() << "Function \"" << thisMF->getName() << "\" will run on the SXU.\n";
-    report_fatal_error("Compilation terminated!\n");
+    if (csa_utils::isAlwaysDataFlowLinkageSet())
+      report_fatal_error("Compilation terminated!!\n");
+    else
+      return false;
   }
 
   bool Modified = false;
