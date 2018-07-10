@@ -229,7 +229,7 @@ static bool isLifeTimeInst(Instruction *I) {
 
 // @llvm.used is an array of global constants created by llvm.
 // It contains all globals marked with llvm.used attribute
-// csa_mem_malloc, csa_mem_free, and csa_mem_initialize functions are marked with this attribute
+// csa_mem_alloc, csa_mem_free, and csa_mem_initialize functions are marked with this attribute
 // so that they are not internalized and deleted by dead code elimination before their references
 // are introduced in this pass
 // However, there are cases when these functions are not required (SXU compilation or no alloca's)
@@ -265,7 +265,7 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
   const DataLayout &DL = M.getDataLayout();
   LLVMContext &Context = M.getContext();
   bool IsAllocaPresent = isAllocaPresent(M);
-  Function *CSAMalloc = M.getFunction("csa_mem_malloc");
+  Function *CSAMalloc = M.getFunction("csa_mem_alloc");
   Function *CSAFree = M.getFunction("csa_mem_free");
   Function *CSAInitialize = M.getFunction("csa_mem_initialize");
   if (!csa_utils::isAlwaysDataFlowLinkageSet()) {
