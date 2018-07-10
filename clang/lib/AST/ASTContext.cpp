@@ -5597,6 +5597,11 @@ int ASTContext::getFloatingTypeOrder(QualType LHS, QualType RHS) const {
 /// or if it is not canonicalized.
 unsigned ASTContext::getIntegerRank(const Type *T) const {
   assert(T->isCanonicalUnqualified() && "T should be canonicalized");
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(T)) {
+    return 7 + (getIntWidth(QualType(T, 0)) << 3);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   switch (cast<BuiltinType>(T)->getKind()) {
   default: llvm_unreachable("getIntegerRank(): not a built-in integer");
