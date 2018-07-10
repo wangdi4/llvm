@@ -138,6 +138,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     // (phi, select, icmp, etc.) cannot be deleted.
     bool CanDeleteField = false;
     size_t NumFields = StInfo->getNumFields();
+    size_t NumFieldsDeleted = 0;
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
       auto *FieldTy = FI.getLLVMType();
@@ -161,9 +162,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
         // bitfields.
         DeleteableBytes += DL.getTypeSizeInBits(FieldTy) / 8;
         CanDeleteField = true;
-#ifdef NDEBUG
-        break;
-#endif // NDEBUG
+        ++NumFieldsDeleted;
       }
     }
 
@@ -175,6 +174,17 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " based on safety data.\n";
+      });
+      continue;
+    }
+
+    // In this case we really ought to be able to eliminate the type
+    // completely, but that's more work than we want to do right now.
+    if (NumFields == NumFieldsDeleted) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because all fields would be deleted.\n";
       });
       continue;
     }
