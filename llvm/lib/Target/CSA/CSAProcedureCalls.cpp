@@ -478,15 +478,32 @@ MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
   unsigned reg1 = LMFI->allocateLIC(&CSA::CI1RegClass, Twine("callee_out_caller_mem_ord"));
   MachineInstrBuilder MIB = BuildMI(*(lastMI->getParent()), lastMI, lastMI->getDebugLoc(), TII->get(CSA::CSA_RETURN))
                                     .addReg(reg1);
+  MachineInstr *MI = &*MIB;
   if (copyMI->getOpcode() != CSA::RET) {
     returnReg = copyMI->getOperand(1).getReg();
     assert(copyMI && copyMI->getOpcode() == CSA::MOV64);
-    MIB.addReg(returnReg);
+    // Sometimes return reg is one of the parameters. We need to handle this
+    bool isParam = false;
+    for (unsigned i = 0; i < entryMI->getNumOperands(); ++i) {
+      unsigned reg = entryMI->getOperand(i).getReg();
+      if (reg == returnReg) { isParam = true; break; }
+    }
+    if (isParam) {
+      StringRef name = thisMF->getFunction().getName();
+      const TargetRegisterClass *TRC = MRI->getRegClass(returnReg);
+      unsigned newReturnReg = LMFI->allocateLIC(TRC, "ret_val", Twine(name), true /*isDeclared*/, false/*isGloballyVisible*/);
+      BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
+                                    .addReg(newReturnReg,RegState::Define)
+                                    .addReg(returnReg)
+                                    .setMIFlag(MachineInstr::NonSequential);
+      MIB.addReg(newReturnReg);
+    }
+    else
+      MIB.addReg(returnReg);
   }
 
   if (lastMI != copyMI) lastMI->eraseFromParent();
   copyMI->eraseFromParent();
-  MachineInstr *MI = &*MIB;
   MI->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "Return instruction = " << *MI << "\n");
 
