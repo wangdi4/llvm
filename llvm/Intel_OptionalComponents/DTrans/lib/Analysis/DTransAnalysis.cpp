@@ -2717,7 +2717,7 @@ public:
     Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
 
     // Check for BitCast functions
-    if (isa<ConstantExpr>(CS.getCalledValue())) {
+    if (F && isa<ConstantExpr>(CS.getCalledValue())) {
       unsigned ArgNum = 0;
 
       for (auto &Arg : F->args()) {
