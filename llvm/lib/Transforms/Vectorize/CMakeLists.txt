@@ -13,6 +13,7 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/IntelLoopVectorizationCodeGen.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
   Intel_VPlan/IntelVPlan.cpp
+  Intel_VPlan/IntelVPlanBranchDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
   Intel_VPlan/IntelVPlanDriver.cpp

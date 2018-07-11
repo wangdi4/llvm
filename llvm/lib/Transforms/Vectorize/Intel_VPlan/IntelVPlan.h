@@ -1302,6 +1302,29 @@ public:
     return (Predecessors.size() == 1 ? *Predecessors.begin() : nullptr);
   }
 
+#if INTEL_CUSTOMIZATION
+  /// If this basic block has a unique predecessor block, return the block,
+  /// otherwise return a null pointer. Note that unique predecessor doesn't
+  /// mean single edge, there can be multiple edges from the unique predecessor
+  /// to this block (for example a switch statement with multiple cases having
+  /// the same destination).
+  const VPBlockBase *getUniquePredecessor() const {
+    auto PI = Predecessors.begin();
+    auto E = Predecessors.end();
+    if (PI == E)
+      return nullptr; // No preds.
+    const VPBlockBase *PredBB = *PI;
+    ++PI;
+    for (; PI != E; ++PI) {
+      if (*PI != PredBB)
+        return nullptr;
+      // The same predecessor appears multiple times in the predecessor list.
+      // This is OK.
+    }
+    return PredBB;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Returns the closest ancestor starting from "this", which has successors.
   /// Returns the root ancestor if all ancestors have no successors.
   VPBlockBase *getAncestorWithSuccessors();
