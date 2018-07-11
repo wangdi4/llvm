@@ -59,7 +59,7 @@ entry:
   %0 = load i64, i64* @step, align 8
 ; CHECK: [[LOAD_STEP:%[a-zA-Z._0-9]+]] = load i64, i64* @step, align 8
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.LINEAR"(i32** @xptr, i64 %0), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i16* %i) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.LINEAR"(i32** @xptr, i64 %0), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i16* %i) ]
 
 ; Initial copy of linear var
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i32*, i32** @xptr

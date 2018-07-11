@@ -54,7 +54,7 @@ entry:
 ; CHECK-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() {{.*}}
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
 
-  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC"(i32 1), "QUAL.OMP.REDUCTION.ADD"(i32* @y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC"(i32 1), "QUAL.OMP.REDUCTION.ADD"(i32* @y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
   %6 = load i32, i32* %.omp.lb, align 4, !tbaa !2
   store i32 %6, i32* %.omp.iv, align 4, !tbaa !2
   br label %omp.inner.for.cond

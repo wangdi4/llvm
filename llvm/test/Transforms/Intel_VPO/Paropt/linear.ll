@@ -51,7 +51,7 @@ entry:
   store i64 9, i64* %.omp.ub, align 8
   store i64 1, i64* %.omp.stride, align 8
   store i32 0, i32* %.omp.is_last, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.LINEAR"(i16* @y, i32 2), "QUAL.OMP.SHARED"(i16* @y), "QUAL.OMP.FIRSTPRIVATE"(i64* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i64* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i64* %.omp.ub), "QUAL.OMP.PRIVATE"(i64* %i) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.LINEAR"(i16* @y, i32 2), "QUAL.OMP.SHARED"(i16* @y), "QUAL.OMP.FIRSTPRIVATE"(i64* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i64* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i64* %.omp.ub), "QUAL.OMP.PRIVATE"(i64* %i) ]
 
 ; Initial copy of linear var
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i16, i16* @y
