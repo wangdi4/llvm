@@ -1883,10 +1883,19 @@ private:
         // meet the element zero idiom. If it does, we want to know about all
         // of them.
         bool IsElementZeroAccess = false;
+        auto *DestTy = BC->getDestTy();
         for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet()) {
           llvm::Type *AccessedTy = nullptr;
-          if (dtrans::isElementZeroAccess(AliasTy, BC->getDestTy(),
-                                          &AccessedTy)) {
+          // If element zero is an i8* and we're casting the source value
+          // as a pointer to a pointer, that is an element zero access
+          // but it isn't reported as such because we need to recognize the
+          // i8*->(struct**) bitcast elsewhere as a potential problem.
+          if (dtrans::isElementZeroAccess(AliasTy, DestTy, &AccessedTy) ||
+              (AliasTy->isPointerTy() &&
+               DestTy->isPointerTy() &&
+               DestTy->getPointerElementType()->isPointerTy() &&
+               dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
+                                          &AccessedTy))) {
             Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
             IsElementZeroAccess = true;
           }
@@ -4169,6 +4178,23 @@ private:
     // it's a safe cast.
     if (dtrans::isElementZeroAccess(SrcTy, DestTy))
       return;
+
+    // If element zero is an i8* and we're casting the source value as a
+    // pointer to a pointer, that is an element zero access but it isn't
+    // reported as such because we need to recognize the i8*->(struct**)
+    // bitcast as a potential problem for the destination type.
+    if (DTInfo.isTypeOfInterest(DestTy) &&
+        SrcTy->isPointerTy() && DestTy->isPointerTy() &&
+        DestTy->getPointerElementType()->isPointerTy() &&
+        dtrans::isElementZeroI8Ptr(SrcTy->getPointerElementType())) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                        << "unsafe cast of i8* element to specific type:\n"
+                        << "  " << I << "\n");
+      // In this case we always want to avoid setting the element pointee
+      // safety data, regardless of the state of DTransOutOfBoundsOK.
+      (void)setValueTypeInfoSafetyDataBase(&I, dtrans::BadCasting);
+      return;
+    }
 
     // Otherwise, it's not safe.
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "

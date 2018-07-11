@@ -260,14 +260,6 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
         *AccessedTy = SrcTy;
       return true;
     }
-    // If zero element has i8* type and destination is a pointer-to-pointer type
-    // then it is a legal zero element access.
-    if (DestPointeeTy->isPointerTy() &&
-        ElementZeroTy == llvm::Type::getInt8PtrTy(SrcTy->getContext())) {
-      if (AccessedTy)
-        *AccessedTy = SrcTy;
-      return true;
-    }
     // If element zero is an aggregate type, this cast might be accessing
     // element zero of the nested type.
     if (ElementZeroTy->isAggregateType())
@@ -275,6 +267,25 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
                                  AccessedTy);
     // Otherwise, it must be a bad cast. The caller should handle that.
     return false;
+  }
+  return false;
+}
+
+bool dtrans::isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy) {
+  auto *CompTy = dyn_cast<CompositeType>(Ty);
+  if (!CompTy)
+    return false;
+  // This avoids problems with opaque types.
+  if (!CompTy->indexValid(0u))
+    return false;
+  auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+  // If element zero is a composite type, look at its first element.
+  if (ElementZeroTy->isAggregateType())
+    return isElementZeroI8Ptr(ElementZeroTy, AccessedTy);
+  if (ElementZeroTy == llvm::Type::getInt8PtrTy(Ty->getContext())) {
+    if (AccessedTy)
+      *AccessedTy = Ty->getPointerTo();
+    return true;
   }
   return false;
 }

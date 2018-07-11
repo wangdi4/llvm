@@ -29,5 +29,10 @@ define internal i32 @foo(%struct.nextstruct* nocapture) {
 
 declare noalias i8* @malloc(i64)
 
+; CHECK-LABEL:  LLVMType: %struct.mystruct = type { i32, i32 }
+; CHECK: Bad casting
+; CHECK-NOT: Unsafe pointer merge
+
 ; CHECK-LABEL:  LLVMType: %struct.nextstruct = type { i8*, i64 }
+; CHECK-NOT: Bad casting
 ; CHECK-NOT: Unsafe pointer merge

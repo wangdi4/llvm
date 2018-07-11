@@ -819,6 +819,12 @@ bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
 bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
                          llvm::Type **AccessedTy = nullptr);
 
+/// Examine the specified type to determine if it is a composite type whose
+/// first element (at any level of casting) has i8* type. The
+/// \p AccessedTy argument if non-null returns the type (possibly a nested
+/// type) whose element zero is i8*, if any.
+bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
+
 /// Check whether the specified type is the type of a known system object.
 bool isSystemObjectType(llvm::StructType *Ty);
 
