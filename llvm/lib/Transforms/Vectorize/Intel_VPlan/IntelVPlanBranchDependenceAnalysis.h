@@ -20,9 +20,10 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_BRANCH_DEPENDENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_BRANCH_DEPENDENCE_ANALYSIS_H
 
+#include "IntelVPlan.h"
+#include "IntelVPlanLoopInfo.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "IntelVPlanLoopInfo.h"
 
 namespace llvm {
 

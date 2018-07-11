@@ -38,6 +38,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
+#include "IntelVPlanDivergenceAnalysis.h"
 #include "Intel_VPlan/IntelVPLoopAnalysis.h"
 #include "Intel_VPlan/IntelVPlanLoopInfo.h"
 #include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
@@ -74,6 +75,8 @@ using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
 #if INTEL_CUSTOMIZATION
 class VPlanCostModel; // INTEL: to be later declared as a friend
 class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
+class VPlanDivergenceAnalysis;
+class VPlanBranchDependenceAnalysis;
 #endif // INTEL_CUSTOMIZATION
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
@@ -1869,6 +1872,7 @@ class VPlan {
 private:
 #if INTEL_CUSTOMIZATION
   VPLoopInfo *VPLInfo = nullptr;
+  VPlanDivergenceAnalysis *VPlanDA = nullptr;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -1932,6 +1936,8 @@ public:
 #if INTEL_CUSTOMIZATION
     if (VPLInfo)
       delete (VPLInfo);
+    if (VPlanDA)
+      delete VPlanDA;
     for (auto *VPConst : VPConstants)
       delete VPConst;
     for (auto *VPInst : VPExternalDefs)
@@ -1953,6 +1959,8 @@ public:
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
 
   void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
+
+  void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
