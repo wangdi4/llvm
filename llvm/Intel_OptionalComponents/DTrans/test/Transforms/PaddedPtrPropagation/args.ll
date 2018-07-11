@@ -1,6 +1,3 @@
-; XFAIL: *
-; Test fails due to dead functions elimination after adding -whole-program-assume (CMPLRS-51381)
-
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
@@ -8,13 +5,13 @@
 
 ;CHECK: ==== INITIAL FUNCTION SET ====
 ;CHECK:      Function info(caller1):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9) :: 32
 ;CHECK-DAG:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8) :: 4
 
 ;CHECK:      Function info(caller2):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15) :: 8
 ;CHECK-DAG:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16) :: 16
@@ -24,18 +21,18 @@
 ;CHECK:      Function info(callee):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-DAG:      float* %fp": 16
-;CHECK-DAG:      i32* %ip": 4
+;CHECK-DAG:      float* %fp : 16
+;CHECK-DAG:      i32* %ip : 4
 ;CHECK-NEXT:   Value paddings:
 
 ;CHECK:      Function info(caller1):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9) :: 32
 ;CHECK-DAG:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8) :: 4
 
 ;CHECK:      Function info(caller2):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15) :: 8
 ;CHECK-DAG:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16) :: 16

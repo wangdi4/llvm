@@ -1,6 +1,3 @@
-; XFAIL: *
-; Test fails due to dead functions elimination after adding -whole-program-assume (CMPLRS-51381)
-
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
@@ -8,18 +5,18 @@
 
 ;CHECK:      ==== INITIAL FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %p": 0
+;CHECK-NEXT:     i32* %p : -1
 ;CHECK:      ==== END OF INITIAL FUNCTION SET ====
 
 ;CHECK:      ==== TRANSFORMED FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: 16
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %p": 0
+;CHECK-NEXT:     i32* %p : -1
 ;CHECK-NEXT:   Value paddings:
 ;CHECK:          %add.ptr = getelementptr inbounds i32, i32* %0, i64 1 :: 16
 ;CHECK:      ==== END OF TRANSFORMED FUNCTION SET ====

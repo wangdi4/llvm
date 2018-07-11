@@ -1,6 +1,3 @@
-; XFAIL: *
-; Test fails due to dead functions elimination after adding -whole-program-assume (CMPLRS-51381)
-
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
 ;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
@@ -8,7 +5,7 @@
 
 ;CHECK:      ==== INITIAL FUNCTION SET ====
 ;CHECK:      Function info(callee):
-;CHECK:        HasUnknownCallSites: 1
+;CHECK:        HasUnknownCallSites: 0
 ;CHECK:        Return Padding: -1
 ;CHECK:        Value paddings:
 ;CHECK-NEXT:     %2 = tail call i32* @llvm.ptr.annotation.p0i32
@@ -16,13 +13,13 @@
 ;CHECK:      ==== END OF INITIAL FUNCTION SET ====
 ;CHECK:      ==== TRANSFORMED FUNCTION SET ====
 ;CHECK:      Function info(callee):
-;CHECK:        HasUnknownCallSites: 1
+;CHECK:        HasUnknownCallSites: 0
 ;CHECK:        Return Padding: 32
 ;CHECK:        Value paddings:
 ;CHECK-NEXT:     %2 = tail call i32* @llvm.ptr.annotation.p0i32
 ;CHECK-SAME:          {{:: 32$}}
 ;CHECK:      Function info(caller):
-;CHECK:        HasUnknownCallSites: 1
+;CHECK:        HasUnknownCallSites: 0
 ;CHECK:        Return Padding: -1
 ;CHECK:        Value paddings:
 ;CHECK-NEXT:     %call = invoke i32* @callee()

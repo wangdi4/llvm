@@ -301,7 +301,7 @@ struct FuncPadInfo final {
       for (auto const &A : PotentiallyPaddedParams) {
         OS << "    ";
         A->print(OS);
-        OS << "\": " << getPaddingForValue(A) << "\"\n";
+        OS << " : " << getPaddingForValue(A) << "\n";
       }
     }
 
@@ -524,7 +524,8 @@ void PaddedPtrPropImpl::propagateInFunction(
       continue; // Is already set. Skip it.
 
     // Take minimal padding among all call sites
-    int ResPadding = INT_MAX;
+    int ResPadding = -1;
+    int UseCnt = 0;
     for (auto *CI : F->users()) {
       CallSite CS(CI);
       auto Caller = CS.getParent()->getParent();
@@ -532,7 +533,11 @@ void PaddedPtrPropImpl::propagateInFunction(
       auto *CSArg = CS.getArgOperand(P->getArgNo());
       int PaddingAtCallSite = CFPInfo.getPaddingForValue(CSArg);
 
-      if (ResPadding > PaddingAtCallSite)
+      // Initialize the ResultPadding by the padding value from the first call
+      // site or get the minimal padding value among the current known minimum
+      // and the one obtained from the call site if the first call site is not
+      // processed.
+      if (UseCnt++ == 0 || ResPadding > PaddingAtCallSite)
         ResPadding = PaddingAtCallSite;
       if (ResPadding <= 0)
         break; // Stop iterating since padding is either 0 - minimal allowed,
