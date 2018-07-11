@@ -132,7 +132,7 @@ static bool checkIfProgramHasCachedExecutable(Program *pProgram) {
   return reader.IsCachedObject();
 }
 
-// Update the size of the variables in global adress space used by the program.
+// Update the size of the variables in global address space used by the program.
 static void updateGlobalVariableTotalSize(Program *pProgram, Module *pModule) {
   auto globalSizeMetadata = ModuleInternalMetadataAPI(pModule).GlobalVariableTotalSize;
   // The info is missing only when we build image built-ins and we don't
