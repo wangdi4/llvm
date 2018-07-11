@@ -648,7 +648,7 @@ public:
 
   /// Returns true if the DDRef is a unitary blob. A unitary blob is a single
   /// (non-nested) standalone blob.
-  bool isUnitaryBlob() const;
+  bool isUnitaryBlob() const override;
 
   /// Returns true if this ref looks like 1 * undef.
   bool isStandAloneUndefBlob() const override;

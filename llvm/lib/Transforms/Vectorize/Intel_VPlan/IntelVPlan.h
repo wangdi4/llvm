@@ -2048,15 +2048,17 @@ protected:
   /// Holds all the VPConstants created for this VPlan.
   DenseSet<VPConstant*> VPConstants;
 
-  // TODO: We should follow the same approach for VPExternalDefs as for
-  // VPConstant (i.e. having a single instance per structurally equal external
-  // definition). However, it is better to wait until we have the right
-  // class to represent external definitions (VPLiveIn class or similar) because
-  // they need a specific '<' operator and guarantee that the class is immutable
-  // after the construction. For now, the following data structure is used only
-  // for memory deallocation purposes.
-  /// Holds all the external definitions created for this VPlan.
-  SmallSet<VPValue *, 32> VPExternalDefs;
+  /// Holds all the external definitions representing an underlying Value
+  /// in this VPlan. The key is the underlying Value that uniquely identifies
+  /// each external definition.
+  DenseMap<Value *, std::unique_ptr<VPExternalDef>> VPExternalDefs;
+
+  /// Holds all the external definitions representing an HIR underlying entity
+  /// in this VPlan. The key is the underlying HIR information that uniquely
+  /// identifies each external definition.
+  DenseMap<UnitaryBlobOrIV, std::unique_ptr<VPExternalDef>,
+           SymbaseIVLevelMapInfo>
+      VPExternalDefsHIR;
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 #else
@@ -2086,8 +2088,6 @@ public:
       delete VPlanDA;
     for (auto *VPConst : VPConstants)
       delete VPConst;
-    for (auto *VPInst : VPExternalDefs)
-      delete VPInst;
 #else
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
@@ -2161,11 +2161,46 @@ public:
     return *VPConstants.insert(new VPConstant(Const)).first;
   }
 
-  /// Add \p VPVal to the pool of external definitions if it's not already
-  /// in the pool.
-  void addExternalDef(VPValue *VPVal) {
-    VPExternalDefs.insert(VPVal);
+  // Create or retrieve a VPExternalDef for a given Value \p ExtVal.
+  VPExternalDef *getVPExternalDef(Value *ExtDef) {
+    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefs[ExtDef];
+    if (!UPtr)
+      // ExtDef is a new VPExternalDef to be inserted in the map.
+      UPtr.reset(new VPExternalDef(ExtDef));
+
+    return UPtr.get();
   }
+
+  /// Create or retrieve a VPExternalDef for a given HIR unitary DDRef \p DDR.
+  VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
+    UnitaryBlobOrIV ExtDef(DDR);
+    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
+    if (!UPtr)
+      // ExtDef is a new VPExternalDef to be inserted in the map.
+      UPtr.reset(new VPExternalDef(DDR));
+
+    return UPtr.get();
+  }
+
+  /// Create or retrieve a VPExternalDef for an HIR IV identified by its \p
+  /// IVLevel.
+  VPExternalDef *getVPExternalDefForIV(unsigned IVLevel, Type *BaseTy) {
+    UnitaryBlobOrIV ExtDef(IVLevel);
+    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
+    if (!UPtr)
+      // ExtDef is a new VPExternalDef to be inserted in the map.
+      UPtr.reset(new VPExternalDef(IVLevel, BaseTy));
+
+    return UPtr.get();
+  }
+
+  // Verify that VPExternalDefs are unique in the pool and that the map keys are
+  // consistent with the underlying IR information of each VPExternalDef.
+  void verifyVPExternalDefs() const;
+
+  // Verify that VPExternalDefs are unique in the pool and that the map keys are
+  // consistent with the underlying HIR information of each VPExternalDef.
+  void verifyVPExternalDefsHIR() const;
 #else
   void addVPValue(Value &V) {
     if (!Value2VPValue.count(&V))

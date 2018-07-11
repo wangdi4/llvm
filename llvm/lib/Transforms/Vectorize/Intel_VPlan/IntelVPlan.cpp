@@ -1084,6 +1084,50 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
          Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
   Entry->executeHIR(CG);
 }
+
+void VPlan::verifyVPExternalDefs() const {
+  SmallPtrSet<const Value *, 16> ValueSet;
+  for (const auto &Pair : VPExternalDefs) {
+    const Value *KeyVal = Pair.first;
+    assert(KeyVal == Pair.second->getUnderlyingValue() &&
+           "Value key and VPExternalDef's underlying Value must be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!ValueSet.count(KeyVal) && "Repeated VPExternalDef!");
+    ValueSet.insert(KeyVal);
+  }
+}
+
+void VPlan::verifyVPExternalDefsHIR() const {
+  SmallSet<unsigned, 16> SymbaseSet;
+  SmallSet<unsigned, 16> IVLevelSet;
+  SmallPtrSet<const MetadataAsValue *, 16> MDSet;
+  for (const auto &Pair : VPExternalDefsHIR) {
+    const UnitaryBlobOrIV &KeyHIROp = Pair.first;
+    assert(KeyHIROp.isStructurallyEqual(Pair.second->getUnitaryBlobOrIV()) &&
+           "UnitaryBlobOrIV key and VPExternalDef's UnitaryBlobOrIV must be "
+           "the same!");
+
+    // Deeper verification depending on the kind of the underlying HIR operand.
+    if (KeyHIROp.isNonMDBlob()) {
+      // For blobs we check that the symbases are unique.
+      unsigned Symbase = KeyHIROp.getBlob()->getSymbase();
+      assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
+      SymbaseSet.insert(Symbase);
+    } else if (KeyHIROp.isIV()) {
+      // For IVs we check that the IV levels are unique.
+      unsigned IVLevel = KeyHIROp.getIVLevel();
+      assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalDef!");
+      IVLevelSet.insert(IVLevel);
+    } else {
+      assert(KeyHIROp.isMDBlob() && "Expected metadata VPExternalDef!");
+      // For metadata we check that the underlying metadata is unique.
+      const MetadataAsValue *MD = KeyHIROp.getMetadata();
+      assert(!MDSet.count(MD) && "Repeated Metadata VPExternalDef!");
+      MDSet.insert(MD);
+    }
+  }
+}
 #endif
 
 void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,

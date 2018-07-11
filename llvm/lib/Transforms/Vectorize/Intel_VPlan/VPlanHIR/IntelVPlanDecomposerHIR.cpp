@@ -177,16 +177,14 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   }
 
   VPValue *VPIndVar = HLLp2IVSemiPhi[getHLLoopForLevel(RDDR, IVLevel)];
-  if (!VPIndVar) {
+  if (!VPIndVar)
     // If there is no semi-phi in the map, it means that the IV is an external
     // definition.
     // TODO: We could be creating redundant external definitions here because
     // this external definition cannot be mapped to an HLInst. Add check at the
     // beginning of this function to return an existing external definition in
     // the VPlan pool.
-    VPIndVar = new VPValue(Ty);
-    Plan->addExternalDef(VPIndVar);
-  }
+    VPIndVar = Plan->getVPExternalDefForIV(IVLevel, Ty);
 
   DecompIV = combineDecompDefs(DecompIV, VPIndVar, Ty, Instruction::Mul);
   return DecompIV;
@@ -520,13 +518,8 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
 
   // Process external definitions.
-  // TODO: We are creating redundant external definitions. To be fixed with the
-  // introduction of VPExternalDef class.
-  if (isExternalDef(UseDDR)) {
-    VPValue *VPExtDef = new VPValue(UseDDR->getSrcType());
-    Plan->addExternalDef(VPExtDef);
-    VPDefs.push_back(VPExtDef);
-  }
+  if (isExternalDef(UseDDR))
+    VPDefs.push_back(Plan->getVPExternalDefForDDRef(UseDDR));
 
   // Process definitions coming from incoming DD edges. At this point, all
   // the sources of the incoming edges of UseDDR must have an associated

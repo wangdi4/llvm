@@ -29,6 +29,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
+#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/IR/Constant.h"
 #endif
 
@@ -85,15 +86,14 @@ protected:
   Value *UnderlyingVal;
 
 #if INTEL_CUSTOMIZATION
-  // TODO: Prohibit nullptr in BaseTy. It is nullptr for the defs external to
-  // VPlan.
   VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
       : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV) {
     assert(BaseTy && "BaseTy can't be null!");
   }
-#endif // INTEL_CUSTOMIZATION
+#else
   VPValue(const unsigned char SC, Value *UV = nullptr)
       : SubclassID(SC), UnderlyingVal(UV) {}
+#endif // INTEL_CUSTOMIZATION
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
@@ -117,7 +117,7 @@ public:
   /// the SubclassID field of the VPValue objects. They are used for concrete
   /// type identification.
 #if INTEL_CUSTOMIZATION
-  enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC };
+  enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC, VPExternalDefSC };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
 #endif // INTEL_CUSTOMIZATION
@@ -219,6 +219,7 @@ protected:
 #endif
 
 public:
+#ifndef INTEL_CUSTOMIZATION
   VPUser(const unsigned char SC) : VPValue(SC) {}
   VPUser(const unsigned char SC, std::initializer_list<VPValue *> Operands)
       : VPValue(SC) {
@@ -233,6 +234,8 @@ public:
   }
   VPUser(std::initializer_list<VPValue *> Operands)
       : VPUser(ArrayRef<VPValue *>(Operands)) {}
+#endif // INTEL_CUSTOMIZATION
+
   VPUser(const VPUser &) = delete;
   VPUser &operator=(const VPUser &) = delete;
 
@@ -345,8 +348,66 @@ public:
     return V->getVPValueID() == VPConstantSC;
   }
 };
+
+/// This class augments VPValue with definitions that happen outside of the
+/// top region represented in VPlan. Similar to VPConstants and Constants,
+/// VPExternalDefs are immutable (once created they never change) and are fully
+/// shared by structural equivalence (e.g. i32 %param0 == i32 %param0). They
+/// must be created through the VPlan::getVPExternalDef interface, to guarantee
+/// that only once instance of each external definition is created.
+class VPExternalDef : public VPValue {
+  // VPlan is currently the context where the pool of VPExternalDefs is held.
+  friend class VPlan;
+
+private:
+  // Hold the HIR information related to this external definition operand (DDRef
+  // or IV).
+  UnitaryBlobOrIV HIROperand;
+
+  // Construct a VPExternalDef given a Value \p ExtVal.
+  VPExternalDef(Value *ExtVal)
+      : VPValue(VPValue::VPExternalDefSC, ExtVal->getType(), ExtVal) {
+    assert(ExtVal && "An external definition must have a underlying Value!");
+  }
+
+  // Construct a VPExternalDef given an underlying DDRef \p DDR.
+  VPExternalDef(loopopt::DDRef *DDR)
+      : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()), HIROperand(DDR) {
+  }
+
+  // Construct a VPExternalDef given an underlying IV level \p IVLevel.
+  VPExternalDef(unsigned IVLevel, Type *BaseTy)
+      : VPValue(VPValue::VPExternalDefSC, BaseTy), HIROperand(IVLevel) {}
+
+  // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
+  // the front-end and back-end of VPlan so that the middle-end is as
+  // independent as possible of the underlying IR. We grant access to the
+  // underlying IR using friendship.
+
+  /// Return the underlying HIR information for this VPExternalDef.
+  const UnitaryBlobOrIV &getUnitaryBlobOrIV() { return HIROperand; };
+
+public:
+  VPExternalDef() = delete;
+  VPExternalDef(const VPExternalDef &) = delete;
+  VPExternalDef &operator=(const VPExternalDef &) const = delete;
+
+  void printAsOperand(raw_ostream &OS) const {
+    if (UnderlyingVal)
+      UnderlyingVal->printAsOperand(OS);
+    else {
+      getBaseType()->print(OS);
+      OS << " ";
+      HIROperand.print(OS);
+    }
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPExternalDefSC;
+  }
+};
 } // namespace vpo
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm
-
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
