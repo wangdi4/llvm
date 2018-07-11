@@ -235,6 +235,9 @@ private:
   /// Enable combines that trigger rarely but are costly in compiletime.
   const bool ExpensiveCombines;
 
+  /// INTEL Enable optimizations like merging and zero element GEP removal
+  const bool GEPInstOptimizations; // INTEL
+
   AliasAnalysis *AA;
 
   // Required analyses.
@@ -253,13 +256,17 @@ private:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, bool ExpensiveCombines, AliasAnalysis *AA,
+               bool MinimizeSize, bool ExpensiveCombines,  // INTEL
+               bool GEPInstOptimizations,                  // INTEL
+               AliasAnalysis *AA,                          // INTEL
                AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
                OptimizationRemarkEmitter &ORE, const DataLayout &DL,
                LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
-        ExpensiveCombines(ExpensiveCombines), AA(AA), AC(AC), TLI(TLI), DT(DT),
-        DL(DL), SQ(DL, &TLI, &DT, &AC), ORE(ORE), LI(LI) {}
+        ExpensiveCombines(ExpensiveCombines),          // INTEL
+        GEPInstOptimizations(GEPInstOptimizations),    // INTEL
+        AA(AA), AC(AC), TLI(TLI),                      // INTEL
+        DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC), ORE(ORE), LI(LI) {} // INTEL
 
   /// Run the combiner over the entire worklist until it is empty.
   ///

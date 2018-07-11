@@ -392,7 +392,16 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
 void PassManagerBuilder::addInstructionCombiningPass(
     legacy::PassManagerBase &PM) const {
   bool ExpensiveCombines = OptLevel > 2;
-  PM.add(createInstructionCombiningPass(ExpensiveCombines));
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+#else
+  bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+  PM.add(
+      createInstructionCombiningPass(ExpensiveCombines,
+                                     GEPInstOptimizations));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::populateFunctionPassManager(

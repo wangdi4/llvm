@@ -128,6 +128,13 @@ static cl::opt<bool>
 EnableExpensiveCombines("expensive-combines",
                         cl::desc("Enable expensive instruction combines"));
 
+#if INTEL_CUSTOMIZATION
+// Used for LIT tests to unconditionally suppress GEPInst optimizations
+static cl::opt<bool>
+DisableGEPInstOptimizations("disable-gepinst-opts",
+                            cl::desc("Disable GEPInst optimizations"));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
              cl::desc("Maximum array size considered when doing a combine"));
@@ -1535,6 +1542,15 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   }
   if (MadeChange)
     return &GEP;
+
+#if INTEL_CUSTOMIZATION
+  // Disable optimizations on GEPs that might fold two GEPs together, as
+  // this can cause a loss of type info for DTrans. We allow some initial
+  // cleanup, as no GEPs will be removed by this, and the cleanup is needed
+  // when folding selects over GEPs in InstCombineSelect.cpp.
+  if (!GEPInstOptimizations)
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   // Check to see if the inputs to the PHI node are getelementptr instructions.
   if (auto *PN = dyn_cast<PHINode>(PtrOp)) {
@@ -3305,9 +3321,11 @@ static bool combineInstructionsOverFunction(
     Function &F, InstCombineWorklist &Worklist, AliasAnalysis *AA,
     AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
     OptimizationRemarkEmitter &ORE, bool ExpensiveCombines = true,
-    LoopInfo *LI = nullptr) {
+    bool GEPInstOptimizations = true, LoopInfo *LI = nullptr) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
   ExpensiveCombines |= EnableExpensiveCombines;
+  if (DisableGEPInstOptimizations)  // INTEL
+    GEPInstOptimizations = false;   // INTEL
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -3334,8 +3352,9 @@ static bool combineInstructionsOverFunction(
 
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
-    InstCombiner IC(Worklist, Builder, F.optForMinSize(), ExpensiveCombines, AA,
-                    AC, TLI, DT, ORE, DL, LI);
+    InstCombiner IC(Worklist, Builder, F.optForMinSize(),     // INTEL
+                    ExpensiveCombines, GEPInstOptimizations,  // INTEL
+                    AA, AC, TLI, DT, ORE, DL, LI);            // INTEL
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())
@@ -3356,7 +3375,9 @@ PreservedAnalyses InstCombinePass::run(Function &F,
 
   auto *AA = &AM.getResult<AAManager>(F);
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
-                                       ExpensiveCombines, LI))
+                                       ExpensiveCombines,      // INTEL
+                                       GEPInstOptimizations,   // INTEL
+                                       LI))                    // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3404,7 +3425,8 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
-                                         ExpensiveCombines, LI);
+                                         ExpensiveCombines,          // INTEL
+                                         GEPInstOptimizations, LI);  // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -3430,9 +3452,12 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
   initializeInstructionCombiningPassPass(*unwrap(R));
 }
 
-FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines) {
-  return new InstructionCombiningPass(ExpensiveCombines);
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
+                                                   bool GEPInstOptimizations) {
+  return new InstructionCombiningPass(ExpensiveCombines, GEPInstOptimizations);
 }
+#endif // INTEL_CUSTOMIZATION
 
 void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInstructionCombiningPass());
