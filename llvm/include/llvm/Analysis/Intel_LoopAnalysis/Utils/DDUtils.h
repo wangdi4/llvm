@@ -22,7 +22,8 @@
 namespace llvm {
 namespace loopopt {
 
-typedef SmallSet<unsigned, 16> InterchangeIgnorableSymbasesTy;
+typedef SmallSet<unsigned, 16> SpecialSymbasesTy;
+typedef SpecialSymbasesTy InterchangeIgnorableSymbasesTy;
 
 /// \brief Defines utilities for DDUtils Class
 ///
@@ -93,12 +94,26 @@ public:
   /// interchange). Usable in any transformation for preparing checking
   /// validity of permutation. OutermostLoop is the outermost loop of
   /// the loopnest being analyzed for permutation.
-  static void
-  computeDVsForPermute(SmallVectorImpl<DirectionVector> &DV,
-                       const HLLoop *OutermostLoop,
-                       unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
-                       HIRSafeReductionAnalysis &SRA, bool RefineDV,
-                       InterchangeIgnorableSymbasesTy *IgnorableSBs = nullptr);
+  static void computeDVsForPermute(SmallVectorImpl<DirectionVector> &DV,
+                                   const HLLoop *OutermostLoop,
+                                   unsigned InnermostNestingLevel,
+                                   HIRDDAnalysis &DDA,
+                                   HIRSafeReductionAnalysis &SRA,
+                                   bool RefineDV);
+
+  static void computeDVsForPermuteIgnoringSBs(
+      SmallVectorImpl<DirectionVector> &DV, const HLLoop *OutermostLoop,
+      unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
+      HIRSafeReductionAnalysis &SRA, bool RefineDV,
+      const SpecialSymbasesTy *IgnorableSBs);
+
+  static void computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DV,
+                                          const HLLoop *OutermostLoop,
+                                          unsigned InnermostNestingLevel,
+                                          HIRDDAnalysis &DDA,
+                                          HIRSafeReductionAnalysis &SRA,
+                                          bool RefineDV,
+                                          const SpecialSymbasesTy *SpecialSBs);
 };
 } // End namespace loopopt
 } // End namespace llvm

@@ -560,8 +560,9 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *Loop) {
   // The following visitor will gather DVs from DDG and push them into
   // HIRLoopInterchange::DVs;
 
-  DDUtils::computeDVsForPermute(DVs, Lp, InnermostNestingLevel, DDA, SRA, false,
-                                &CandLoopToIgnorableSymBases[Lp]);
+  DDUtils::computeDVsForPermuteIgnoringSBs(DVs, Lp, InnermostNestingLevel, DDA,
+                                           SRA, false,
+                                           &CandLoopToIgnorableSymBases[Lp]);
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order

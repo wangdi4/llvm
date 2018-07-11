@@ -520,46 +520,17 @@ bool isLegalToStripmineAndInterchange(
   SmallVector<DirectionVector, 16> DVs;
   SRA.computeSafeReductionChains(OutermostLoop);
 
-  // Gather all rval temp ddrefs in the innermost loop and
-  // ignore symbases of temps that are NOT live-ins to the innermost.
-  // They are either from preloop/postloop inst before the perfect loop nests
-  // are enabled. Or non-loop-carried from the beginning as it(or those when
-  // multiple defs of a same temp in two childrens of if-stmt) is dominating
-  // its(their) uses.
-
-  // TODO: Revise computeDVsForPermute to also has special symbases not to
-  // ignore
-  //       but to include. Then live-in set can be directly passed.
-  DDRefGatherer<RegDDRef, TerminalRefs>::VectorTy Refs;
-  DDRefGatherer<RegDDRef, TerminalRefs>::gatherRange(
-      InnermostLoop->child_begin(), InnermostLoop->child_end(), Refs);
-
-  SmallVector<unsigned, 8> Temps;
-  for (auto &Ref : Refs) {
-    Temps.push_back(Ref->getSymbase());
-  }
-
-  SmallVector<unsigned, 8> LiveIns;
+  // For temps, consider only temps that are live-in.
+  // Other temps are OK to ignore for DV checks.
+  SpecialSymbasesTy TempSBsToConsider;
   for (auto I : llvm::make_range(InnermostLoop->live_in_begin(),
                                  InnermostLoop->live_in_end())) {
-    LiveIns.push_back(I);
+    TempSBsToConsider.insert(I);
   }
 
-  std::sort(Temps.begin(), Temps.end());
-  std::sort(LiveIns.begin(), LiveIns.end());
-  SmallVector<unsigned, 8> Diff;
-  std::set_difference(Temps.begin(), Temps.end(), LiveIns.begin(),
-                      LiveIns.end(),
-                      std::back_inserter<SmallVector<unsigned, 8>>(Diff));
-
-  InterchangeIgnorableSymbasesTy IgnorableSBs;
-  for (auto &I : Diff) {
-    IgnorableSBs.insert(I);
-  }
-
-  DDUtils::computeDVsForPermute(DVs, OutermostLoop,
-                                InnermostLoop->getNestingLevel(), DDA, SRA,
-                                RefineDV, &IgnorableSBs);
+  DDUtils::computeDVsForPermuteWithSBs(DVs, OutermostLoop,
+                                       InnermostLoop->getNestingLevel(), DDA,
+                                       SRA, RefineDV, &TempSBsToConsider);
 
   unsigned OutermostLevel = OutermostLoop->getNestingLevel();
   for (auto &DV : DVs) {
