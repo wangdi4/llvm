@@ -1185,13 +1185,18 @@ RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
   llvm::SmallVector<Value *, 8> Args;
   const Expr *PtrArg = E->getArg(0);
   const PointerType *PtrTy = cast<PointerType>(PtrArg->getType().getTypePtr());
+  llvm::Type *PtrLLVMType = ConvertType(PtrArg->getType());
   llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
 
   llvm::Function *Func =
       CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
 
   if (isHLSStreamWrite(BuiltinID)) {
-    Args.push_back(EmitScalarExpr(PtrArg));
+    llvm::Type *ArgTy = llvm::PointerType::getUnqual(OverloadTy);
+    Value *PtrVal = EmitScalarExpr(PtrArg);
+    if (ArgTy != PtrVal->getType())
+      PtrVal = Builder.CreateBitCast(PtrVal, ArgTy);
+    Args.push_back(PtrVal);
   }
 
   const Expr *BufferIdArg = E->getArg(1);
@@ -1253,7 +1258,10 @@ RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
     Builder.CreateDefaultAlignedStore(
         Builder.CreateExtractValue(Call, 3 + HasSuccess), Empty);
     // Return the read object.
-    return RValue::get(Builder.CreateExtractValue(Call, 0));
+    llvm::Value *Return = Builder.CreateExtractValue(Call, 0);
+    if (Return->getType() != PtrLLVMType)
+      Return = Builder.CreateBitCast(Return, PtrLLVMType);
+    return RValue::get(Return);
   }
 
   return RValue::get(Builder.CreateCall(Func, Args));
