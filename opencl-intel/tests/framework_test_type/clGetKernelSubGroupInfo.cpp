@@ -110,7 +110,7 @@ void CL21::GetKernelSubGroupInfo_MAX_SB_SIZE() const
                                        /*param_value*/nullptr,
                                        &returned_size);
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
-        ASSERT_EQ((size_t)0, returned_size)
+        ASSERT_EQ(sizeof(size_t), returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
     }
 
@@ -236,7 +236,7 @@ void CL21::GetKernelSubGroupInfo_SG_COUNT() const
                                        /*param_value*/nullptr,
                                        &returned_size);
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
-        ASSERT_EQ((size_t)0, returned_size)
+        ASSERT_EQ(sizeof(size_t), returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
     }
 }
