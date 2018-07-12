@@ -76,6 +76,7 @@
 // innermost to outermost if considering all distribution possibilities
 
 #include "HIRLoopDistributionPreProcGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -170,14 +171,16 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
 struct DistributionEdgeCreator final : public HLNodeVisitorBase {
 
   DDGraph *LoopDDGraph;
+  HIRSparseArrayReductionAnalysis *SARA;
   DistPPGraph *DistG;
   HLLoop *Loop;
   bool ForceCycleForLoopIndepDep;
   unsigned EdgeCount = 0;
   typedef DenseMap<DistPPNode *, SmallVector<const DDEdge *, 16>> EdgeNodeMapTy;
-  DistributionEdgeCreator(DDGraph *DDG, DistPPGraph *DistPreProcGraph,
-                          HLLoop *Loop, bool ForceCycleForLoopIndepDep)
-      : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop),
+  DistributionEdgeCreator(DDGraph *DDG, HIRSparseArrayReductionAnalysis *SARA,
+                          DistPPGraph *DistPreProcGraph, HLLoop *Loop,
+                          bool ForceCycleForLoopIndepDep)
+      : LoopDDGraph(DDG), SARA(SARA), DistG(DistPreProcGraph), Loop(Loop),
         ForceCycleForLoopIndepDep(ForceCycleForLoopIndepDep) {}
 
   void processOutgoingEdges(const DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
@@ -202,20 +205,30 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     //  Relaxing the condition will cause temps splitted into
     //  different PiGroups resulting in scalar expansion
 
+    // We want sparse array reduction chains to be distributed
+    // So back edges to those instructions should not be constructed
+    // Except edges in between sparse array reduction instructions
+    const HLInst *SinkInst = dyn_cast<HLInst>(Edge->getSink()->getHLDDNode());
+    const HLInst *SrcInst = dyn_cast<HLInst>(Edge->getSrc()->getHLDDNode());
+    if (SinkInst && SrcInst && SARA->isSparseArrayReduction(SinkInst) &&
+        !SARA->isSparseArrayReduction(SrcInst)) {
+      return false;
+    }
+
     //  When max level is reached, cannot stripmine
     if (LoopLevel == MaxLoopNestLevel || ForceCycleForLoopIndepDep) {
       return true;
     }
 
-    DDRef *DDRefSrc = Edge->getSrc();
-    const HLInst *Inst = dyn_cast<HLInst>(DDRefSrc->getHLDDNode());
-    if (Inst && Inst->isInPreheaderOrPostexit()) {
+    if (SrcInst && SrcInst->isInPreheaderOrPostexit()) {
       return true;
     }
 
-    //  Will not handle Blob DDREF for scalar expansion now
+    //  Except blobs in Sparse Array Reductions,
+    //  We will not handle Blob DDREF for scalar expansion now
     //  because of direct replacement is done w/o creating an assignment.
     //  It is uncommon anyway.
+    //  TODO: Check it helps performance
     DDRef *DDRefSink = Edge->getSink();
     if (isa<BlobDDRef>(DDRefSink)) {
       return true;
@@ -332,9 +345,10 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
 };
 
 DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
+                         HIRSparseArrayReductionAnalysis &SARA,
                          bool ForceCycleForLoopIndepDep) {
 
-  const unsigned MaxDDEdges = 256;
+  const unsigned MaxDDEdges = 300;
 
   createNodes(Loop);
   if (!isGraphValid()) {
@@ -342,7 +356,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
   }
 
   DDGraph DDG = DDA.getGraph(Loop);
-  DistributionEdgeCreator EdgeCreator(&DDG, this, Loop,
+  DistributionEdgeCreator EdgeCreator(&DDG, &SARA, this, Loop,
                                       ForceCycleForLoopIndepDep);
 
   Loop->getHLNodeUtils().visitRange(EdgeCreator, Loop->getFirstChild(),

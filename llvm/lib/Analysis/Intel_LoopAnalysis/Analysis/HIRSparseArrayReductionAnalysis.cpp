@@ -31,9 +31,15 @@
 // <62>      |   %14 = (@f)[0][%div + %foff];
 // <63>      |   %add46 = %14  +  %mul42;
 // <64>      |   (@f)[0][%div + %foff] = %add46;
+
+// After temp cleanup instead of <62> and <63> we can get instructions like-
+// <63>      |   %add46 = (@f)[0][%div + %foff]  +  %mul42;
+// which is also recognized as sparse array reduction
+
 // TODO: Closed form is generated for integer arrays and will not match the
 // above pattern. We could improve this to support integer arrays in addition
 // to floating point arrays.
+
 // TODO: For long chains in sparse array reduction as those in gromacs,
 // special replacement of the arrays are needed before building the pi-groups.
 // Ex. tempx below will be scalar expanded.
@@ -45,6 +51,7 @@
 //   ...
 //   tempx =  tx12 + t30
 //   faction(j) += tempx
+
 // TODO: Extend recognition for chains more than 3 statement. Example-
 //   jx1 = pos(j3)
 //   dx21 = ix2 - jx1
@@ -403,6 +410,14 @@ bool HIRSparseArrayReductionAnalysis::isReductionStmt(const HLInst *Inst,
     }
 
     const RegDDRef *RRef = *I;
+
+    // The rval can be a memref (without separate load instruction)
+    // After temp cleanup we get instructions like-
+    // <63>      |   %add46 = (@f)[0][%div + %foff]  +  %mul42;
+    if (RRef == LoadRef) {
+      return true;
+    }
+
     // There should be only one incoming flow edge to rval operand %14.
     if (DDG.getNumIncomingFlowEdges(RRef) != 1) {
       continue;

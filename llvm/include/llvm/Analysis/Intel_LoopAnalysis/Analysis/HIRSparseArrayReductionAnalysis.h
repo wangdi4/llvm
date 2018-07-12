@@ -118,6 +118,12 @@ public:
   const SparseArrayReductionChainList &
   getSparseArrayReductionChain(const HLLoop *Loop);
 
+  // Returns the total number of chains identified
+  unsigned getNumSparseArrayReductionChains(const HLLoop *Loop) {
+    SparseArrayReductionChainList &SARCL = SparseArrayReductionMap[Loop];
+    return SARCL.size();
+  }
+
   // Is Inst part of a Sparse Array Reduction. Indicate of Single Stmt when
   // argument supplied
   bool isSparseArrayReduction(const HLInst *Inst,

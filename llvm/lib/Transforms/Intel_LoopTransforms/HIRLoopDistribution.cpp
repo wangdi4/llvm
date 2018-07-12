@@ -18,6 +18,7 @@
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Support/Debug.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
@@ -78,8 +79,12 @@ bool HIRLoopDistribution::run() {
       }
     }
 
+    // Sparse array reduction info is needed to create the DistPPGraph
+    // and in findDistPoints while breaking the PiBlock Recurrences.
+    SARA.computeSparseArrayReductionChains(Lp);
+
     std::unique_ptr<PiGraph> PG(
-        new PiGraph(Lp, DDA, ForceCycleForLoopIndepDep));
+        new PiGraph(Lp, DDA, SARA, ForceCycleForLoopIndepDep));
 
     if (!PG->isGraphValid()) {
       if (OptReportLevel >= 3) {
@@ -169,10 +174,10 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(RegDDRef *TempRef) {
 }
 
 void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
-                                              RegDDRef *TmpArrayRef) {
+                                              RegDDRef *TmpArrayRef,
+                                              HLDDNode *Node) {
 
   //  tx = TEMP[i]
-  HLDDNode *Node = TempRef->getHLDDNode();
   HLLoop *Lp = Node->getParentLoop();
 
   const std::string TempName = "scextmp";
@@ -201,21 +206,26 @@ void HIRLoopDistribution::replaceWithArrayTemp(
   RegDDRef *TmpArrayRef = nullptr;
 
   for (unsigned I = 0; I < LastLoopNum - 1; ++I) {
-    for (const auto TempRef : Refs[I]) {
-      if (TempRef->isRval()) {
+    // refs can only be terminal or blobs here
+    for (DDRef *Ref : Refs[I]) {
+      if (Ref->isRval()) {
         continue;
       }
+
       bool StoreInserted = false;
+      RegDDRef *TempRef = cast<RegDDRef>(Ref);
       const HLInst *Inst = dyn_cast<HLInst>(TempRef->getHLDDNode());
 
-      if (Inst &&
-          (Inst->isInPreheaderOrPostexit() || SRA.isSafeReduction(Inst))) {
+      // No need to check for safe reduction because reduction temps
+      // will not be distributed into two different loops
+      if (Inst && Inst->isInPreheaderOrPostexit()) {
         continue;
       }
       for (unsigned J = I + 1; J < LastLoopNum; ++J) {
         bool LoadInserted = false;
         for (auto It = Refs[J].begin(); It != Refs[J].end();) {
-          RegDDRef *SinkRef = *It;
+          // Refs here could be blob or temp
+          DDRef *SinkRef = *It;
           if (SinkRef->isLval() ||
               TempRef->getSymbase() != SinkRef->getSymbase()) {
             ++It;
@@ -229,7 +239,7 @@ void HIRLoopDistribution::replaceWithArrayTemp(
           //  Create tx = TEMP[i] and insert.  Cannot do direct replacement
           //  because Copy Inst does not allow Memref
           if (!LoadInserted) {
-            createTempArrayLoad(SinkRef, TmpArrayRef);
+            createTempArrayLoad(TempRef, TmpArrayRef, SinkRef->getHLDDNode());
             LoadInserted = true;
           }
 
@@ -250,11 +260,12 @@ bool HIRLoopDistribution::arrayTempExceeded(
   }
 
   for (unsigned I = 0; I < LastLoopNum - 1; ++I) {
-    for (const auto TempRef : Refs[I]) {
-      if (TempRef->isRval()) {
+    for (const DDRef *Ref : Refs[I]) {
+      if (Ref->isRval()) {
         continue;
       }
-      const HLInst *Inst = dyn_cast<HLInst>(TempRef->getHLDDNode());
+
+      const HLInst *Inst = dyn_cast<HLInst>(Ref->getHLDDNode());
       if (Inst &&
           (Inst->isInPreheaderOrPostexit() || SRA.isSafeReduction(Inst))) {
         continue;
@@ -262,9 +273,13 @@ bool HIRLoopDistribution::arrayTempExceeded(
       // Check any usage in another loop
       bool Done = false;
       for (unsigned J = I + 1; J < LastLoopNum && !Done; ++J) {
-        for (const auto SinkRef : Refs[J]) {
-          if (SinkRef->isRval() &&
-              TempRef->getSymbase() == SinkRef->getSymbase()) {
+        for (const DDRef *SinkRef : Refs[J]) {
+
+          if (SinkRef->isLval()) {
+            continue;
+          }
+
+          if (Ref->getSymbase() == SinkRef->getSymbase()) {
             if (++NumArrayTemps >= MaxArrayTempsAllowed) {
               LLVM_DEBUG(dbgs()
                          << "Loop Dist  bail out because #of Array temps "
@@ -620,15 +635,31 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   return true;
 }
 
+// Right now we are checking whether this PiBlock contains any sparse
+// array reduction instructions. Later we may want to modify to match more
+// patterns like in 435.gromacs
+bool containsSparseArrayReductions(PiBlock *SrcBlk,
+                                   HIRSparseArrayReductionAnalysis &SARA) {
+  for (auto NodeI = SrcBlk->nodes_begin(), E = SrcBlk->nodes_end(); NodeI != E;
+       ++NodeI) {
+    HLDDNode *Node = cast<HLDDNode>(*NodeI);
+    HLInst *Inst = dyn_cast<HLInst>(Node);
+    if (Inst && SARA.isSparseArrayReduction(Inst)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void HIRLoopDistribution::breakPiBlockRecurrences(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
     SmallVectorImpl<PiBlockList> &DistPoints) const {
 
   PiBlockList CurLoopPiBlkList;
-  // Walk through topsorted nodes of Pigraph, keeping in mind the fact that each
-  // of those nodes can legally form its own loop if the loops(distributed
-  // chunks) are ordered in same topsort order of nodes.
-  // Add the node to current loop. Look for outgoing edges that indicate
+  // Walk through topsorted nodes of Pigraph, keeping in mind the fact that
+  // each of those nodes can legally form its own loop if the
+  // loops(distributed chunks) are ordered in same topsort order of nodes. Add
+  // the node to current loop. Look for outgoing edges that indicate
   // recurrences. If none, continue on. Otherwise terminate the current loop,
   // start a new one. Src and sink of recurrence will be in different loops,
   // breaking the recurrence.
@@ -637,6 +668,8 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
   SmallVector<unsigned, 12> MemRefSBVector;
 
   SRA.computeSafeReductionChains(Lp);
+  unsigned HasSparseArrayReductions =
+      SARA.getNumSparseArrayReductionChains(Lp) > 0;
 
   // Get number of loads/stores, needed to decide if threashold is exceeded.
   // Arrays with same SB, in general, have locality, and do not need to be
@@ -644,9 +677,21 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
   for (auto N = PGraph->node_begin(), E = PGraph->node_end(); N != E; ++N) {
     PiBlock *SrcBlk = *N;
+
+    // If this current block has sparse array reduction instructions,
+    // we need to break the recurrence before this block so that sparse array
+    // reductions can be distributed into another separate loop.
+    if (HasSparseArrayReductions && !CurLoopPiBlkList.empty() &&
+        containsSparseArrayReductions(SrcBlk, SARA)) {
+      DistPoints.push_back(CurLoopPiBlkList);
+      CurLoopPiBlkList.clear();
+      NumRefCounter = 0;
+    }
+
     for (auto NodeI = SrcBlk->nodes_begin(), E = SrcBlk->nodes_end();
          NodeI != E; ++NodeI) {
       HLDDNode *Node = cast<HLDDNode>(*NodeI);
+
       for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
            ++RefIt) {
         RegDDRef *Ref = *RefIt;
@@ -727,6 +772,7 @@ void HIRLoopDistributionLegacyPass::getAnalysisUsage(
   AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+  AU.addRequiredTransitive<HIRSparseArrayReductionAnalysisWrapperPass>();
 }
 
 bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
@@ -738,6 +784,8 @@ bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
              getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
+             getAnalysis<HIRSparseArrayReductionAnalysisWrapperPass>()
+                 .getHSAR(),
              getAnalysis<HIRLoopResourceWrapperPass>().getHLR(), DistCostModel)
       .run();
 }

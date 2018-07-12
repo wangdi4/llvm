@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -51,14 +52,15 @@ enum class DistHeuristics : unsigned char {
 
 class HIRLoopDistribution {
   typedef SmallVector<PiBlock *, 4> PiBlockList;
-  typedef DDRefGatherer<RegDDRef, TerminalRefs> TerminalRefGatherer;
+  typedef DDRefGatherer<DDRef, (TerminalRefs | BlobRefs)> TerminalRefGatherer;
 
 public:
   HIRLoopDistribution(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                      HIRSafeReductionAnalysis &SRA, HIRLoopResource &HLR,
-                      DistHeuristics DistCostModel)
-      : HIRF(HIRF), DDA(DDA), SRA(SRA), HNU(HIRF.getHLNodeUtils()), HLR(HLR),
-        DistCostModel(DistCostModel) {}
+                      HIRSafeReductionAnalysis &SRA,
+                      HIRSparseArrayReductionAnalysis &SARA,
+                      HIRLoopResource &HLR, DistHeuristics DistCostModel)
+      : HIRF(HIRF), DDA(DDA), SRA(SRA), SARA(SARA), HNU(HIRF.getHLNodeUtils()),
+        HLR(HLR), DistCostModel(DistCostModel) {}
 
   bool run();
 
@@ -68,6 +70,7 @@ private:
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &SRA;
+  HIRSparseArrayReductionAnalysis &SARA;
   HLNodeUtils &HNU;
   HIRLoopResource &HLR;
 
@@ -117,7 +120,8 @@ private:
   RegDDRef *createTempArrayStore(RegDDRef *TempRef);
 
   // Create an assignment  temp = TEMP[i]
-  void createTempArrayLoad(RegDDRef *TempRef, RegDDRef *TempArrayRef);
+  void createTempArrayLoad(RegDDRef *TempRef, RegDDRef *TempArrayRef,
+                           HLDDNode *Node);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
   void replaceWithArrayTemp(TerminalRefGatherer::VectorTy *Refs);
