@@ -135,12 +135,51 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
   }
 }
 
+// Should be kept in sync with DTransInstVisitor::DTanalyzeAllocationCall.
+void dtrans::collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
+                                     SmallPtrSet<Value *, 3> &OutputSet,
+                                     const TargetLibraryInfo &TLI) {
+
+  unsigned AllocSizeInd = -1U;
+  unsigned AllocCountInd = -1U;
+  getAllocSizeArgs(Kind, CS, AllocSizeInd, AllocCountInd, TLI);
+  if (AllocSizeInd < CS.arg_size())
+    OutputSet.insert(CS.getArgument(AllocSizeInd));
+  if (AllocCountInd < CS.arg_size())
+    OutputSet.insert(CS.getArgument(AllocCountInd));
+
+  if (Kind == AK_Realloc)
+    OutputSet.insert(CS.getArgument(0));
+}
+
 bool dtrans::isFreeFn(CallSite CS, const TargetLibraryInfo &TLI) {
   return isFreeCall(CS.getInstruction(), &TLI);
 }
 
 bool dtrans::isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI) {
   return isDeleteCall(CS.getInstruction(), &TLI);
+}
+
+void dtrans::getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
+                           const TargetLibraryInfo &TLI) {
+  assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
+
+  if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
+    assert(Kind == FK_UserFree);
+    PtrArgInd = 1;
+    return;
+  }
+  PtrArgInd = 0;
+}
+
+void dtrans::collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
+                                    SmallPtrSet<Value *, 3> &OutputSet,
+                                    const TargetLibraryInfo &TLI) {
+  unsigned PtrArgInd = -1U;
+  getFreePtrArg(Kind, CS, PtrArgInd, TLI);
+
+  if (PtrArgInd < CS.arg_size())
+    OutputSet.insert(CS.getArgument(PtrArgInd));
 }
 
 bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {

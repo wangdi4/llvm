@@ -2907,29 +2907,33 @@ public:
   }
 
   void visitCallSite(CallSite CS) {
+    SmallPtrSet<Value*, 3> SpecialArguments;
+
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
-    auto Kind = dtrans::getAllocFnKind(CS, TLI);
-    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
-      Kind = dtrans::AK_UserMalloc;
-    if (Kind != dtrans::AK_NotAlloc) {
-      analyzeAllocationCall(CS, Kind);
-      return;
+    auto AllocKind = dtrans::getAllocFnKind(CS, TLI);
+    if (AllocKind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
+      AllocKind = dtrans::AK_UserMalloc;
+    if (AllocKind != dtrans::AK_NotAlloc) {
+      analyzeAllocationCall(CS, AllocKind);
+      collectSpecialAllocArgs(AllocKind, CS, SpecialArguments, TLI);
     }
 
     // If this is a call to the "free" lib function,  the call is safe, but
     // we analyze the instruction for the purpose of capturing the argument
     // TypeInfo, which will be needed by some of the transformations when
     // rewriting allocations and frees.
-    if (dtrans::isFreeFn(CS, TLI)) {
-      analyzeFreeCall(CS, dtrans::isDeleteFn(CS, TLI) ? dtrans::FK_Delete
-                                                      : dtrans::FK_Free);
-      return;
-    }
+    auto FreeKind = dtrans::isFreeFn(CS, TLI)
+                        ? (dtrans::isDeleteFn(CS, TLI) ? dtrans::FK_Delete
+                                                       : dtrans::FK_Free)
+                        : dtrans::FK_NotFree;
 
-    if (DTAA.isFreePostDom(CS)) {
-      analyzeFreeCall(CS, dtrans::FK_UserFree);
-      return;
+    if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(CS))
+      FreeKind = dtrans::FK_UserFree;
+
+    if (FreeKind != dtrans::FK_NotFree) {
+      analyzeFreeCall(CS, FreeKind);
+      collectSpecialFreeArgs(FreeKind, CS, SpecialArguments, TLI);
     }
 
     // If the Function wasn't found, then there is a possibility
@@ -2937,6 +2941,36 @@ public:
     // to strip the pointer casting from the Value and then
     // access the Function.
     Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+
+    // For all other calls, if a pointer to an aggregate type is passed as an
+    // argument to a function in a form other than its dominant type, the
+    // address has escaped. Also, if a pointer to a field is passed as an
+    // argument to a function, the address of the field has escaped.
+    // FIXME: Try to resolve indirect calls.
+    bool IsFnLocal = F ? !F->isDeclaration() : false;
+
+    // Mark structures returned by non-local functions as system types.
+    auto *RetTy = CS.getType();
+    if (DTInfo.isTypeOfInterest(RetTy) &&
+        AllocKind == dtrans::AK_NotAlloc) {
+      if (!IsFnLocal) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                          << "type returned by extern function\n  " << *RetTy
+                          << "\n");
+        setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
+      }
+      if (CS.isInvoke()) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                          << "struct (or pointer to struct) returned from "
+                             "function invoke:\n "
+                          << *CS.getInstruction() << "\n");
+        setBaseTypeInfoSafetyData(RetTy, dtrans::HasCppHandling);
+      }
+    }
+
+    if (SpecialArguments.size() == CS.arg_size())
+      return;
+
     // Check for BitCast functions
     if (F && isa<ConstantExpr>(CS.getCalledValue())) {
       // Account for layout in registers and on stack.
@@ -2964,31 +2998,17 @@ public:
         }
       } else {
         for (auto Pair : zip(F->args(), CS.args()))
-          checkArgTypeMismatch(CS, F, &std::get<0>(Pair), std::get<1>(Pair));
+          if (!SpecialArguments.count(std::get<1>(Pair)))
+            checkArgTypeMismatch(CS, F, &std::get<0>(Pair), std::get<1>(Pair));
 
         // Do not care about F->arg_size() > CS.arg_size(),
         // it should be marked in the true-branch, or it is UB.
         if (F->arg_size() < CS.arg_size())
           for (Value *Arg :
                make_range(CS.arg_begin() + F->arg_size(), CS.arg_end()))
-            checkArgTypeMismatch(CS, F, nullptr, Arg);
+            if (!SpecialArguments.count(Arg))
+              checkArgTypeMismatch(CS, F, nullptr, Arg);
       }
-    }
-
-    // For all other calls, if a pointer to an aggregate type is passed as an
-    // argument to a function in a form other than its dominant type, the
-    // address has escaped. Also, if a pointer to a field is passed as an
-    // argument to a function, the address of the field has escaped.
-    // FIXME: Try to resolve indirect calls.
-    bool IsFnLocal = F ? !F->isDeclaration() : false;
-
-    // Mark structures returned by non-local functions as system types.
-    auto *RetTy = CS.getType();
-    if (!IsFnLocal && DTInfo.isTypeOfInterest(RetTy)) {
-      LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
-                        << "type returned by extern function\n  " << *RetTy
-                        << "\n");
-      setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
     }
 
     // If this is an indirect call site, find out if there is a matching
@@ -2997,20 +3017,12 @@ public:
     // the AddressTaken safety check.
     bool HasICMatch = hasICMatch(CS);
 
-    if (CS.isInvoke() && DTInfo.isTypeOfInterest(RetTy)) {
-      LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
-                        << "struct (or pointer to struct) returned from "
-                           "function invoke:\n "
-                        << *CS.getInstruction() << "\n");
-      setBaseTypeInfoSafetyData(RetTy, dtrans::HasCppHandling);
-    }
-
     unsigned NextArgNo = 0;
     for (Value *Arg : CS.args()) {
       // Keep track of the argument index we're working with.
       unsigned ArgNo = NextArgNo++;
 
-      if (!isValueOfInterest(Arg))
+      if (!isValueOfInterest(Arg) || SpecialArguments.count(Arg))
         continue;
 
       visitCallArgument(CS, F, HasICMatch, Arg, ArgNo);
@@ -4386,7 +4398,10 @@ private:
     // argument for the potential pointer types. If it's a user free call, there
     // is currently no guarantee to know which argument contains the TypeInfo.
     if (FK == dtrans::FK_Free || FK == dtrans::FK_Delete) {
-      Value *Arg = CS.getArgument(0);
+      unsigned PtrArgInd = -1U;
+      getFreePtrArg(FK, CS, PtrArgInd, TLI);
+      Value *Arg = CS.getArgument(PtrArgInd);
+
       LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
       LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
           LPI.getPointerTypeAliasSet();

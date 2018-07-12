@@ -803,6 +803,13 @@ AllocKind getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI);
 void getAllocSizeArgs(AllocKind Kind, CallSite CS, unsigned &AllocSizeInd,
                       unsigned &AllocCountInd, const TargetLibraryInfo &TLI);
 
+/// Collects all special arguments for malloc-like call.
+/// Elements are added to OutputSet.
+/// Realloc-like functions have pointer argument returned in OutputSet.
+void collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
+                             SmallPtrSet<Value *, 3> &OutputSet,
+                             const TargetLibraryInfo &TLI);
+
 /// Determine whether or not the specified CallSite is a call to the free-like
 /// library function.
 bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
@@ -810,6 +817,15 @@ bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
 /// Determine whether or not the specified CallSite is a call to the
 /// delete-like library function.
 bool isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI);
+
+/// Returns the index of pointer argument for CS.
+void getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
+                   const TargetLibraryInfo &TLI);
+
+/// Collects all special arguments for free-like call.
+void collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
+                            SmallPtrSet<Value *, 3> &OutputSet,
+                            const TargetLibraryInfo &TLI);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
 bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);

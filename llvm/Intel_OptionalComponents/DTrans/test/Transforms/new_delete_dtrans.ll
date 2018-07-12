@@ -1,11 +1,11 @@
-; Test marked as fail due to Delete Fields Tranformation (CMPLRS-51358)
-;
 ; RUN: sed -e s/^.new64:// %s | \
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.newa64:// %s | \
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
 ; RUN: sed -e s/^.new64nt:// %s | \
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN: sed -e s/^.new64nt:// %s | \
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -dtrans-print-types -o - | FileCheck --check-prefix=CHECK-types64nt %s
 ; RUN: sed -e s/^.newa64nt:// %s | \
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
 ; RUN: sed -e s/^.new64al:// %s | \
@@ -16,13 +16,17 @@
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
 ; RUN: sed -e s/^.newa64alnt:// %s | \
 ; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
+; RUN: sed -e s/^.newa64alnt:// %s | \
+; RUN:      opt -whole-program-assume -dtrans-deletefield -S -dtrans-print-types -o - | FileCheck --check-prefix=CHECK-types64alnt %s
 
 ; RUN: sed -e s/^.new64:// %s | \
 ; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64 %s
 ; RUN: sed -e s/^.newa64:// %s | \
-; RUN:      opt -whole-program-assume -dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64 %s
 ; RUN: sed -e s/^.new64nt:// %s | \
 ; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64nt %s
+; RUN: sed -e s/^.new64nt:// %s | \
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-print-types -S -o - | FileCheck --check-prefix=CHECK-types64nt %s
 ; RUN: sed -e s/^.newa64nt:// %s | \
 ; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64nt %s
 ; RUN: sed -e s/^.new64al:// %s | \
@@ -33,6 +37,8 @@
 ; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-new64alnt %s
 ; RUN: sed -e s/^.newa64alnt:// %s | \
 ; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -S -o - | FileCheck --check-prefix=CHECK-newa64alnt %s
+; RUN: sed -e s/^.newa64alnt:// %s | \
+; RUN:      opt -whole-program-assume -passes=dtrans-deletefield -dtrans-print-types -S -o - | FileCheck --check-prefix=CHECK-types64alnt %s
 
 ; This test verifies that the dtrans delete pass correctly transforms new/delete routines.
 
@@ -120,6 +126,12 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-newa64al: %p = call i8* @_ZnamSt11align_val_t(i64 8, i64 %a)
 ; CHECK-new64alnt: %p = call i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64 8, i64 %a, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
 ; CHECK-newa64alnt: %p = call i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64 8, i64 %a, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
+
+; CMPLRS-51358
+; CHECK-types64nt-LABEL: LLVMType: %"struct.std::nothrow_t" = type { i8 }
+; CHECK-types64nt: Safety data: {{.*}}Address taken
+; CHECK-types64alnt-LABEL: LLVMType: %"struct.std::nothrow_t" = type { i8 }
+; CHECK-types64alnt: Safety data: {{.*}}Address taken
 
 
 declare void @_ZdlPv(i8*) #0

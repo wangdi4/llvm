@@ -1119,7 +1119,9 @@ public:
 
     LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Before modifying free call: "
                       << *FreeCall << "\n");
-    FreeCall->setOperand(0, SOAAddrAsI8Ptr);
+    unsigned PtrArgInd = -1U;
+    getFreePtrArg(CInfo->getFreeKind(), CallSite(FreeCall), PtrArgInd, TLI);
+    FreeCall->setOperand(PtrArgInd, SOAAddrAsI8Ptr);
     LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: After modifying free call: "
                       << *FreeCall << "\n");
   }
