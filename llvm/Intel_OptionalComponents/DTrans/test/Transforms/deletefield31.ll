@@ -78,14 +78,14 @@
 ; CHECK-NOT:  %__DFT_struct.test = type {}
 ; CHECK: %struct.test = type { i32, i64, i32 }
 
-; CHECK-REPLACED:  %__DFT_struct.test = type {}
+; CHECK-REPLACED:  %__DFT_struct.test = type { i32 }
 ; CHECK-REPLACED-NOT: %struct.test = type { i32, i64, i32 }
 
 ; CHECK-REPLACED-LABEL: define void @_Z4foo1P1Ai(%struct.A* %m, i32 %cond)
-; CHECK-REPLACED: %call = call i8* %tmp1(%struct.A* %m, i64 0)
+; CHECK-REPLACED: %call = call i8* %tmp1(%struct.A* %m, i64 4)
 
 ; CHECK-REPLACED-LABEL: define void @_Z4foo2i(i32 %cond)
-; CHECK-REPLACED:   %call = call i8* @_ZN4testnwEm(i64 0)
+; CHECK-REPLACED:   %call = call i8* @_ZN4testnwEm(i64 4)
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
@@ -121,6 +121,8 @@ declare i8* @__cxa_allocate_exception(i64)
 
 declare void @__cxa_throw(i8*, i8*, i8*)
 
+@a = external global i32
+
 define void @_Z4foo1P1Ai(%struct.A* %m, i32 %cond) #0 {
 entry:
   %tmp = bitcast %struct.A* %m to i8* (%struct.A*, i64)***
@@ -131,6 +133,10 @@ entry:
   %tmp2 = bitcast i8* %call to %struct.test*
   %tmp3 = bitcast %struct.test* %tmp2 to i8*
   %tmp4 = bitcast %struct.A* %m to void (%struct.A*, i8*)***
+  %addr = getelementptr inbounds %struct.test, %struct.test* %tmp2, i32 0, i32 0
+  store i32 0, i32* %addr
+  %zero = load i32, i32* %addr
+  store i32 %zero, i32* @a
   %vtable2 = load void (%struct.A*, i8*)**, void (%struct.A*, i8*)*** %tmp4, align 8
   %vfn3 = getelementptr inbounds void (%struct.A*, i8*)*, void (%struct.A*, i8*)** %vtable2, i64 1
   %tmp5 = load void (%struct.A*, i8*)*, void (%struct.A*, i8*)** %vfn3, align 8
