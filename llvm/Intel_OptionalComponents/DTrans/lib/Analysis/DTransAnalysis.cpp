@@ -6528,7 +6528,7 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
       if (Ty->isStructTy()) {
         StringRef Name = dtrans::getStructName(Ty);
         // Cut the "struct." from the LLVM type name.
-        if (Name.consume_front("struct."))
+        if (Name.consume_front("struct.") || Name.consume_front("class."))
           if (IgnoreTypeMap[Transform].find(Name) !=
               IgnoreTypeMap[Transform].end())
             if (checkFailed) {
