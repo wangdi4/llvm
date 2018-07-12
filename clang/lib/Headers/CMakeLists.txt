@@ -177,6 +177,8 @@ install(
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
 
+add_subdirectory(bits)
+
 install(
   FILES ${cuda_wrapper_files}
   COMPONENT clang-headers
