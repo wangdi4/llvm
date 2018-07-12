@@ -15,6 +15,7 @@
 #include "frontend_api.h"
 #include "SPIRVMaterializer.h"
 
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
 #include <sstream>
@@ -30,8 +31,12 @@ namespace ClangFE {
 // optimization level, thus clang generates NoInline attributes
 // for every function. It blocks inline optimizations.
 // The function removes this attribute.
-static void removeNoInlineAttr(llvm::Function &F) {
-  F.removeFnAttr(llvm::Attribute::AttrKind::NoInline);
+static void removeNoInlineAttr(Function &F) {
+  F.removeFnAttr(Attribute::AttrKind::NoInline);
+  for (auto *U : F.users()) {
+    if (auto *CI = dyn_cast<CallInst>(U))
+      CI->removeAttribute(AttributeList::FunctionIndex, Attribute::NoInline);
+  }
 }
 
 // Checks if the program was compiled with optimization.
