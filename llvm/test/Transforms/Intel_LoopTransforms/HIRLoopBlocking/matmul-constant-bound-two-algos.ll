@@ -6,7 +6,6 @@
 
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
-
 ;
 ; for(i=0; i<N; i++)
 ;   for(j=0; j<N; j++)
@@ -16,9 +15,9 @@
 ; KANDR: Function: sub
 
 ; KANDR:     BEGIN REGION { modified }
-; KANDR:           + DO i1 = 0, %N + -1, 1   
-; KANDR:           |   + DO i2 = 0, %N + -1, 1
-; KANDR:           |   |   + DO i3 = 0, %N + -1, 1
+; KANDR:           + DO i1 = 0, 1023, 1   
+; KANDR:           |   + DO i2 = 0, 1023, 1
+; KANDR:           |   |   + DO i3 = 0, 1023, 1
 ; KANDR:           |   |   |   %0 = (@c)[0][i1][i3];
 ; KANDR:           |   |   |   %mul = (@a)[0][i1][i2]  *  (@b)[0][i2][i3];
 ; KANDR:           |   |   |   %0 = %0  +  %mul;
@@ -34,15 +33,11 @@
 ; KANDR: Function: sub
 
 ; KANDR:     BEGIN REGION { modified }
-; KANDR:           + DO i1 = 0, (%N + -1)/u128, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; KANDR:           |   + DO i2 = 0, (%N + -1)/u128, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; KANDR:           |   |   %min3 = (-128 * i1 + %N + -1 <= 127) ? -128 * i1 + %N + -1 : 127;
-; KANDR:           |   |   
-; KANDR:           |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; KANDR:           |   |   |   + DO i4 = 0, %min3, 1   <DO_LOOP>  <MAX_TC_EST = 128>
-; KANDR:           |   |   |   |   %min = (-128 * i2 + %N + -1 <= 127) ? -128 * i2 + %N + -1 : 127;
-; KANDR:           |   |   |   |   
-; KANDR:           |   |   |   |   + DO i5 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 128>
+; KANDR:           + DO i1 = 0, 7, 1   <DO_LOOP>
+; KANDR:           |   + DO i2 = 0, 7, 1   <DO_LOOP>
+; KANDR:           |   |   + DO i3 = 0, 1023, 1   <DO_LOOP>
+; KANDR:           |   |   |   + DO i4 = 0, 127, 1   <DO_LOOP>
+; KANDR:           |   |   |   |   + DO i5 = 0, 127, 1   <DO_LOOP>
 ; KANDR:           |   |   |   |   |   %0 = (@c)[0][i3][128 * i2 + i5];
 ; KANDR:           |   |   |   |   |   %mul = (@a)[0][i3][128 * i1 + i4]  *  (@b)[0][128 * i1 + i4][128 * i2 + i5];
 ; KANDR:           |   |   |   |   |   %0 = %0  +  %mul;
@@ -57,9 +52,9 @@
 ; DEFAULT: Function: sub
 
 ; DEFAULT:       BEGIN REGION { modified }
-; DEFAULT:             + DO i1 = 0, %N + -1, 1
-; DEFAULT:             |   + DO i2 = 0, %N + -1, 1
-; DEFAULT:             |   |   + DO i3 = 0, %N + -1, 1
+; DEFAULT:             + DO i1 = 0, 1023, 1
+; DEFAULT:             |   + DO i2 = 0, 1023, 1
+; DEFAULT:             |   |   + DO i3 = 0, 1023, 1
 ; DEFAULT:             |   |   |   %0 = (@c)[0][i1][i3];
 ; DEFAULT:             |   |   |   %mul = (@a)[0][i1][i2]  *  (@b)[0][i2][i3];
 ; DEFAULT:             |   |   |   %0 = %0  +  %mul;
@@ -75,14 +70,11 @@
 ; DEFAULT: Function: sub
 
 ; DEFAULT:       BEGIN REGION { modified }
-; DEFAULT:             + DO i1 = 0, (%N + -1)/u128, 1
-; DEFAULT:             |   %min3 = (-128 * i1 + %N + -1 <= 127) ? -128 * i1 + %N + -1 : 127;
-; DEFAULT:             |   
-; DEFAULT:             |   + DO i2 = 0, (%N + -1)/u128, 1
-; DEFAULT:             |   |   + DO i3 = 0, %min3, 1
-; DEFAULT:             |   |   |   %min = (-128 * i2 + %N + -1 <= 127) ? -128 * i2 + %N + -1 : 127;
-; DEFAULT:             |   |   |   + DO i4 = 0, %min, 1
-; DEFAULT:             |   |   |   |   + DO i5 = 0, %N + -1, 1
+; DEFAULT:             + DO i1 = 0, 7, 1
+; DEFAULT:             |   + DO i2 = 0, 7, 1
+; DEFAULT:             |   |   + DO i3 = 0, 127, 1
+; DEFAULT:             |   |   |   + DO i4 = 0, 127, 1
+; DEFAULT:             |   |   |   |   + DO i5 = 0, 1023, 1
 ; DEFAULT:             |   |   |   |   |   %0 = (@c)[0][128 * i1 + i3][i5];
 ; DEFAULT:             |   |   |   |   |   %mul = (@a)[0][128 * i1 + i3][128 * i2 + i4]  *  (@b)[0][128 * i2 + i4][i5];
 ; DEFAULT:             |   |   |   |   |   %0 = %0  +  %mul;
@@ -103,9 +95,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @b = common global [1024 x [1024 x double]] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define i32 @sub(i64 %N) #0 {
+define i32 @sub() #0 {
 entry:
-  %cmp.41 = icmp sgt i64 %N, 0
+  %cmp.41 = icmp sgt i64 1024, 0
   br i1 %cmp.41, label %for.cond.4.preheader.preheader, label %for.end.19
 
 for.cond.4.preheader.preheader:                   ; preds = %entry, %for.inc.17
@@ -128,18 +120,18 @@ for.body.6:                                       ; preds = %for.body.6, %for.bo
   %mul = fmul double %1, %2
   %add = fadd double %0, %mul
   %inc = add nuw nsw i64 %k.037, 1
-  %exitcond = icmp eq i64 %inc, %N
+  %exitcond = icmp eq i64 %inc, 1024
   br i1 %exitcond, label %for.cond.4.for.inc.14_crit_edge, label %for.body.6
 
 for.cond.4.for.inc.14_crit_edge:                  ; preds = %for.body.6
   store double %add, double* %arrayidx7, align 8, !tbaa !1
   %inc15 = add nuw nsw i64 %j.039, 1
-  %exitcond44 = icmp eq i64 %inc15, %N
+  %exitcond44 = icmp eq i64 %inc15, 1024
   br i1 %exitcond44, label %for.inc.17, label %for.body.6.lr.ph
 
 for.inc.17:                                       ; preds = %for.cond.4.for.inc.14_crit_edge
   %inc18 = add nuw nsw i64 %i.042, 1
-  %exitcond45 = icmp eq i64 %inc18, %N
+  %exitcond45 = icmp eq i64 %inc18, 1024
   br i1 %exitcond45, label %for.end.19, label %for.cond.4.preheader.preheader
 
 for.end.19:                                       ; preds = %for.inc.17, %entry

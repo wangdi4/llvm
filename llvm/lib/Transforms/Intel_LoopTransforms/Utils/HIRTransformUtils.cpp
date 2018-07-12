@@ -677,12 +677,11 @@ void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
 void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
                                   unsigned StripmineSize) {
   uint64_t TripCount;
+  bool IsConstTrip = FirstLoop->isConstTripLoop(&TripCount);
 
   // Caller should call canStripmine before
-  assert(!(FirstLoop->isConstTripLoop(&TripCount) &&
-           (TripCount <= StripmineSize)) &&
-         "Caller should call scanStripmine first");
-  (void)TripCount;
+  assert(!(IsConstTrip && (TripCount <= StripmineSize)) &&
+         "Caller should call canStripmine() first");
 
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
@@ -715,80 +714,93 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   }
 
   RegDDRef *UBRef = NewLoop->getUpperDDRef();
+  // Store original UB in MinOpRef1.
   RegDDRef *MinOpRef1 = UBRef->clone();
-  RegDDRef *MinOpRef2;
-  CanonExpr *LBCE = NewLoop->getLowerDDRef()->getSingleCanonExpr();
-  CanonExpr *UBCE = NewLoop->getUpperDDRef()->getSingleCanonExpr();
 
-  int64_t UBDenom = UBCE->getDenominator();
+  CanonExpr *UBCE = UBRef->getSingleCanonExpr();
 
   //  UB / StripmineSize: (N-1) / 64
   UBCE->divide(StripmineSize);
   UBCE->simplify(true);
 
-  // -StripmineSize *i1 + UB
-  //  Need to convert from unsign to sign first
-  //  Result expression needs to acconut for non-1 denom
+  RegDDRef *InnerLBRef =
+      UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
 
-  int64_t Coeff = StripmineSize * UBDenom;
-  MinOpRef1->getSingleCanonExpr()->setIVConstCoeff(Level, -Coeff);
-
-  MinOpRef1->setSymbase(GenericRvalSymbase);
-
-  // 64-1
-  MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(MinOpRef1->getDestType(),
-                                                      StripmineSize - 1);
-
-  HLInst *MinInst = HNU->createMin(MinOpRef1, MinOpRef2);
-  HLNodeUtils::insertAsFirstChild(NewLoop, MinInst);
-  RegDDRef *LBRef = UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
-
+  CanonExpr *LBCE = NewLoop->getLowerCanonExpr();
   CanonExpr *InnerLoopLBCE = UBRef->getCanonExprUtils().createExtCanonExpr(
       LBCE->getSrcType(), LBCE->getDestType(), LBCE->isSExt());
   //  64*i1
   InnerLoopLBCE->setIVConstCoeff(Level, StripmineSize);
-  LBRef->setSingleCanonExpr(InnerLoopLBCE);
+  InnerLBRef->setSingleCanonExpr(InnerLoopLBCE);
 
-  UBRef = LBRef->clone();
-  RegDDRef *BlobRef = MinInst->getLvalDDRef();
-  unsigned MinBlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
-  unsigned MinBlobSymbase = BlobRef->getSymbase();
+  auto *InnerUBRef = InnerLBRef->clone();
 
-  // 64*i1 + N2
-  CanonExpr *UBRefCE = UBRef->getSingleCanonExpr();
-  UBRefCE->setBlobCoeff(MinBlobIndex, 1);
-  UBRefCE->setDefinedAtLevel(Level);
-  UBRef->addBlobDDRef(MinBlobIndex, Level);
+  // If trip count is evenly divisble by stripmine factor, the trip count of
+  // stripmined loop will be the same as the factor.
+  bool MinInstRequired = (!IsConstTrip || (TripCount % StripmineSize != 0));
+  unsigned MinBlobSymbase = InvalidSymbase;
+
+  if (MinInstRequired) {
+    // -StripmineSize *i1 + original UB
+    // Need to convert from unsign to sign first
+    int64_t Coeff = StripmineSize;
+
+    MinOpRef1->getSingleCanonExpr()->addIV(Level, InvalidBlobIndex,
+                                           -Coeff, true);
+    MinOpRef1->setSymbase(GenericRvalSymbase);
+
+    // StripmineSize-1
+    RegDDRef *MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(
+        MinOpRef1->getDestType(), StripmineSize - 1);
+
+    HLInst *MinInst = HNU->createMin(MinOpRef1, MinOpRef2);
+    HLNodeUtils::insertAsFirstChild(NewLoop, MinInst);
+
+    RegDDRef *BlobRef = MinInst->getLvalDDRef();
+    unsigned MinBlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
+    MinBlobSymbase = BlobRef->getSymbase();
+
+    // 64*i1 + %min
+    CanonExpr *UBRefCE = InnerUBRef->getSingleCanonExpr();
+    UBRefCE->setBlobCoeff(MinBlobIndex, 1);
+    UBRefCE->setDefinedAtLevel(Level);
+
+    InnerUBRef->addBlobDDRef(MinBlobIndex, Level);
+  } else {
+    InnerUBRef->getSingleCanonExpr()->setConstant(StripmineSize - 1);
+  }
 
   // Normalize code will set linear at level
   for (auto It = NewLoop->child_begin(), E = NewLoop->child_end(); It != E;
        ++It) {
-    HLNode *NodeI = &(*It);
-    HLLoop *Lp = dyn_cast<HLLoop>(NodeI);
+
+    HLLoop *Lp = dyn_cast<HLLoop>(&(*It));
     if (!Lp) {
       continue;
     }
     // Set Loop Bounds
-    RegDDRef *LBRef2;
-    RegDDRef *UBRef2;
-    LBRef2 = LBRef->clone();
-    UBRef2 = UBRef->clone();
-    Lp->setLowerDDRef(LBRef2);
-    Lp->setUpperDDRef(UBRef2);
-    Lp->addLiveInTemp(MinBlobSymbase);
-
-    // Normalize
-    bool Result = Lp->normalize();
-    assert(Result && "Not expecting cannot be normalized");
-    (void)Result;
+    // Use original refs for the last loop.
+    Lp->setLowerDDRef((Lp == LastLoop) ? InnerLBRef : InnerLBRef->clone());
+    Lp->setUpperDDRef((Lp == LastLoop) ? InnerUBRef : InnerUBRef->clone());
 
     // Copy LiveInOut to enclosing loop
     for (auto LiveIn : make_range(Lp->live_in_begin(), Lp->live_in_end())) {
       NewLoop->addLiveInTemp(LiveIn);
     }
+
     for (auto LiveOut : make_range(Lp->live_out_begin(), Lp->live_out_end())) {
       NewLoop->addLiveOutTemp(LiveOut);
     }
+
+    if (MinInstRequired) {
+      Lp->addLiveInTemp(MinBlobSymbase);
+      Lp->setMaxTripCountEstimate(StripmineSize);
+    }
+
+    // Normalize
+    bool Result = Lp->normalize();
+    assert(Result && "Not expecting cannot be normalized");
+    (void)Result;
   }
 }
 
