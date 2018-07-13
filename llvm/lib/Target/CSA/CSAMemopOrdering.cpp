@@ -3213,7 +3213,9 @@ void MemopCFG::emit_chains() {
 
       // Terminating mov0 memops need registers with a special class in order
       // to make sure they're on the SXU.
-      if (not memop.MI and not memop.is_start) {
+      if (not memop.MI and not memop.call_mi) {
+        memop.reg_no = memop.is_start ? LMFI->getInMemoryLic() : LMFI->getOutMemoryLic();
+      } else if (not memop.MI and not memop.is_start) {
         memop.reg_no = LMFI->allocateLIC(&CSA::RI1RegClass, Twine("memop.") + Twine(node->topo_num) + "o" + Twine(index++));
       } else
         memop.reg_no = LMFI->allocateLIC(MemopRC, Twine("memop.") + Twine(node->topo_num) + "o" + Twine(index++));

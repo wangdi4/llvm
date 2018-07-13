@@ -72,6 +72,12 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   /// VarArgsFrameIndex - FrameIndex for start of varargs area.
   int VarArgsFrameIndex;
 
+  /// Register number of the input memory ordering edge.
+  unsigned InMemoryLic;
+
+  /// Register number of the output memory ordering edge.
+  unsigned OutMemoryLic;
+
 public:
   explicit CSAMachineFunctionInfo(MachineFunction &MF);
   ~CSAMachineFunctionInfo();
@@ -173,6 +179,12 @@ public:
   void setLICGroup(unsigned vreg, std::shared_ptr<CSALicGroup> group) {
     getLICInfo(vreg).licGroup = group;
   }
+
+  /// Return the register that has the input memory edge.
+  unsigned getInMemoryLic() const { return InMemoryLic; }
+
+  /// Return the register that has the output memory edge.
+  unsigned getOutMemoryLic() const { return OutMemoryLic; }
 };
 
 } // namespace llvm

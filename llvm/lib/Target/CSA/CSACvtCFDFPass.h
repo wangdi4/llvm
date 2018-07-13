@@ -159,6 +159,9 @@ public:
   void linearizeCFG();
   unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock *mbb);
   void handleAllConstantInputs();
+
+  /// Return true if the instruction is a MOV instruction whose inputs are all
+  /// constant.
   bool hasAllConstantInputs(MachineInstr *);
   void releaseMemory() override;
   bool replaceUndefWithIgn();

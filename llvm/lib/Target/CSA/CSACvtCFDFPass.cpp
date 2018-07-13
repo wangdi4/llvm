@@ -1770,53 +1770,41 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
     while (iterMI != BB->end()) {
       MachineInstr *MI = &*iterMI;
       ++iterMI;
-      if (!TII->isMOV(MI))
+      if (!TII->isMOV(MI) || !hasAllConstantInputs(MI))
         continue;
 
-      bool allConst = true;
-      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-        if (MO->isReg() && MO->isDef())
-          continue;
-        // These are the known types of operands which will always be available
-        // to the instruction/operator.
-        bool isConst = MO->isImm() or MO->isCImm() or MO->isFPImm() or
-                       MO->isGlobal() or MO->isSymbol();
-
-        if (not isConst) {
-          allConst = false;
-          break;
-        }
-      }
-      if (allConst && mbb != entry && !domIf) {
+      if (mbb != entry && !domIf) {
         MI->removeFromParent();
         entry->insertAfter(entry->begin(), MI);
+      }
+      // Replace the MOV with a GATE on the in memory edge.
+      if (MI->getParent() == entry) {
+        BuildMI(*entry, MI, MI->getDebugLoc(),
+            TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::GATE)),
+            MI->getOperand(0).getReg())
+          .addReg(LMFI->getInMemoryLic())
+          .add(MI->getOperand(1))
+          .setMIFlag(MachineInstr::NonSequential);
+        MI->eraseFromParent();
       }
     }
   }
 }
 
 bool CSACvtCFDFPass::hasAllConstantInputs(MachineInstr *MI) {
-  if (!TII->isMOV(MI)) {
+  if (!TII->isMOV(MI))
     return false;
-  }
-  bool allConst = true;
-  for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-    if (MO->isReg() && MO->isDef())
-      continue;
+
+  for (auto &MO : MI->uses()) {
     // These are the known types of operands which will always be available
     // to the instruction/operator.
-    bool isConst = MO->isImm() or MO->isCImm() or MO->isFPImm() or
-                   MO->isGlobal() or MO->isSymbol();
+    bool isConst = MO.isImm() or MO.isCImm() or MO.isFPImm() or
+                   MO.isGlobal() or MO.isSymbol();
 
-    if (not isConst) {
-      allConst = false;
-      break;
-    }
+    if (not isConst)
+      return false;
   }
-  if (allConst) {
-    MI->clearFlag(MachineInstr::NonSequential);
-  }
-  return allConst;
+  return true;
 }
 
 void CSACvtCFDFPass::removeBranch() {
@@ -2282,7 +2270,7 @@ unsigned CSACvtCFDFPass::findLoopExitCondition(MachineLoop* mloop) {
     const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
     if (CDG->getEdgeType(exitingBB, exitBB, true) != ControlDependenceNode::FALSE) {
       unsigned int notOpcode = TII->makeOpcode(CSA::Generic::NOT, TRC);
-      MachineInstr* notInstr = BuildMI(*exitingBB, loc, DebugLoc(), 
+      MachineInstr* notInstr = BuildMI(*exitingBB, loc, DebugLoc(),
                                        TII->get(notOpcode), cpyReg).addReg(predReg);
       notInstr->setFlag(MachineInstr::NonSequential);
       predReg = cpyReg;
@@ -2294,7 +2282,7 @@ unsigned CSACvtCFDFPass::findLoopExitCondition(MachineLoop* mloop) {
     unsigned landSeq = generateLandSeq(landOpnds, exitingBB);
     orOpnds.push_back(landSeq);
   }
-  
+
   unsigned orSeq = generateOrSeq(orOpnds, mloop->getLoopLatch());
   return orSeq;
 }
@@ -2447,10 +2435,11 @@ unsigned CSACvtCFDFPass::computeEdgePred(MachineBasicBlock *fromBB,
     if (!(bbPredReg = getBBPred(fromBB))) {
       MachineBasicBlock *entryBB = &*thisMF->begin();
       unsigned cpyReg            = MRI->createVirtualRegister(&CSA::I1RegClass);
-      const unsigned moveOpcode  = TII->getMoveOpcode(&CSA::I1RegClass);
       BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(),
-              TII->get(moveOpcode), cpyReg)
-        .addImm(1);
+              TII->get(CSA::GATE1), cpyReg)
+        .addReg(LMFI->getInMemoryLic())
+        .addImm(1)
+        .setMIFlag(MachineInstr::NonSequential);
       bbPredReg = cpyReg;
       setBBPred(fromBB, bbPredReg);
     }

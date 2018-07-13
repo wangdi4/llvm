@@ -39,6 +39,10 @@ static cl::opt<bool>
                          cl::desc("CSA Specific: Disable switch inversion"));
 
 namespace llvm {
+/// This pass is structured as a series of smaller, mini passes. Each of these
+/// passes could effectively be thought of as a MachineInstructionPass, in that
+/// they operate on a single MachineInstr and return the same changed boolean
+/// that passes normally return.
 class CSADataflowCanonicalizationPass : public MachineFunctionPass {
 public:
   static char ID;
@@ -59,6 +63,8 @@ private:
   MachineRegisterInfo *MRI;
   CSAMachineFunctionInfo *LMFI;
   const CSAInstrInfo *TII;
+  /// A list of instructions to be deleted. This is accumulated during a run of
+  /// a mini pass, and is deleted after the mini pass is finished.
   std::vector<MachineInstr *> to_delete;
 
   /// The following mini pass implements a peephole pass that removes NOT
@@ -77,10 +83,17 @@ private:
   /// The following mini pass replaces MOV operations.
   bool eliminateMovInsts(MachineInstr *MI);
 
+  /// The following mini pass pushes literals as late as possible.
+  bool stopPipingLiterals(MachineInstr *MI);
+
   MachineInstr *getDefinition(const MachineOperand &MO) const;
   void getUses(const MachineOperand &MO,
                SmallVectorImpl<MachineInstr *> &uses) const;
   MachineInstr *getSingleUse(const MachineOperand &MO) const;
+
+  /// Get the number of a LIC that is the negation of MO, creating one if it is
+  /// necessary.
+  unsigned getNotReg(MachineInstr *MI, const MachineOperand &MO) const;
 };
 } // namespace llvm
 
@@ -112,7 +125,9 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(
     &CSADataflowCanonicalizationPass::eliminateNotPicks,
     &CSADataflowCanonicalizationPass::eliminateMovInsts,
     &CSADataflowCanonicalizationPass::createFilterOps,
-    &CSADataflowCanonicalizationPass::invertIgnoredSwitches};
+    &CSADataflowCanonicalizationPass::invertIgnoredSwitches,
+    &CSADataflowCanonicalizationPass::stopPipingLiterals
+  };
   for (auto func : functions) {
     if (func == &CSADataflowCanonicalizationPass::invertIgnoredSwitches &&
         DisableSwitchInversion)
@@ -180,6 +195,27 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
   return false;
 }
 
+unsigned CSADataflowCanonicalizationPass::getNotReg(MachineInstr *MI,
+    const MachineOperand &MO) const {
+  auto InputReg = MO.getReg();
+
+  // Try to find an existing NOT we can reuse.
+  for (auto &Use : MRI->use_instructions(InputReg)) {
+    if (Use.getOpcode() == CSA::NOT1) {
+      return Use.getOperand(0).getReg();
+    }
+  }
+
+  // No prior NOT? Generate one instead.
+  unsigned InvertedReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+  BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::NOT1),
+          InvertedReg)
+    .addReg(MI->getOperand(1).getReg())
+    ->setFlag(MachineInstr::NonSequential);
+  LMFI->setLICGroup(InvertedReg, LMFI->getLICGroup(MI->getOperand(1).getReg()));
+  return InvertedReg;
+}
+
 bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
   if (!TII->isSwitch(MI))
     return false;
@@ -196,23 +232,7 @@ bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
     MI->setDesc(
       TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::FILTER)));
     MI->RemoveOperand(1);
-    auto ctrlOperand     = MI->getOperand(1).getReg();
-    unsigned invertedReg = 0;
-    for (auto &use : MRI->use_instructions(ctrlOperand)) {
-      if (use.getOpcode() == CSA::NOT1) {
-        invertedReg = use.getOperand(0).getReg();
-        break;
-      }
-    }
-    if (invertedReg == 0) {
-      invertedReg = LMFI->allocateLIC(&CSA::CI1RegClass);
-      BuildMI(*MI->getParent(), MI, DebugLoc{}, TII->get(CSA::NOT1),
-              invertedReg)
-        .addReg(MI->getOperand(1).getReg())
-        ->setFlag(MachineInstr::NonSequential);
-      LMFI->setLICGroup(invertedReg, LMFI->getLICGroup(MI->getOperand(1).getReg()));
-    }
-    MI->getOperand(1).setReg(invertedReg);
+    MI->getOperand(1).setReg(getNotReg(MI, MI->getOperand(1)));
     return true;
   }
 
@@ -304,6 +324,123 @@ bool CSADataflowCanonicalizationPass::invertIgnoredSwitches(MachineInstr *MI) {
   to_delete.push_back(MI);
 
   return true;
+}
+
+bool CSADataflowCanonicalizationPass::stopPipingLiterals(MachineInstr *MI) {
+  if (!MI->getFlag(MachineInstr::NonSequential))
+    return false;
+
+  const MachineOperand *Literal = nullptr;
+  unsigned RegCheck;
+  switch (TII->getGenericOpcode(MI->getOpcode())) {
+  case CSA::Generic::MOV:
+    Literal = &MI->getOperand(1);
+    RegCheck = MI->getOperand(0).getReg();
+    break;
+  case CSA::Generic::FILTER:
+  case CSA::Generic::GATE:
+  case CSA::Generic::REPEAT:
+  case CSA::Generic::REPEATO:
+    Literal = &MI->getOperand(2);
+    RegCheck = MI->getOperand(0).getReg();
+    break;
+  case CSA::Generic::SWITCH: {
+    // For switches, if the input is constant, break the switch into two
+    // filter operations.
+    if (MI->getOperand(3).isReg())
+      return false;
+
+    auto FilterL = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
+            TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::FILTER)))
+      .add(MI->getOperand(0))
+      .addReg(getNotReg(MI, MI->getOperand(2)))
+      .add(MI->getOperand(3))
+      .setMIFlag(MachineInstr::NonSequential);
+    auto FilterR = BuildMI(*MI->getParent(), MI, MI->getDebugLoc(),
+            TII->get(TII->adjustOpcode(MI->getOpcode(), CSA::Generic::FILTER)))
+      .add(MI->getOperand(1))
+      .add(MI->getOperand(2))
+      .add(MI->getOperand(3))
+      .setMIFlag(MachineInstr::NonSequential);
+
+    // Set the original outputs on the switch to ignore. This keeps them from
+    // showing up as defined.
+    MI->getOperand(0).setReg(CSA::IGN);
+    MI->getOperand(1).setReg(CSA::IGN);
+    to_delete.push_back(MI);
+
+    // Process the generated instructions.
+    stopPipingLiterals(FilterL);
+    stopPipingLiterals(FilterR);
+    return true;
+  }
+  default:
+    return false;
+  }
+
+  // To be viable for optimization, we need the register to not have an initial
+  // value (i.e., this must be the only definition), and we need the literal to
+  // be a constant value.
+  if (Literal->isReg() || !MRI->getUniqueVRegDef(RegCheck))
+    return false;
+
+  // Helper lambda to check if all of the input operands would be literal
+  // registers if this value were replaced. This is the most common criterion
+  // for whether or not it is safe to use the literal.
+  auto wouldAllBeLiterals = [=](const MachineInstr &use) {
+    for (auto &UseOp : use.uses()) {
+      if (UseOp.isReg() &&
+          UseOp.getReg() != RegCheck && UseOp.getReg() != CSA::IGN)
+        return false;
+    }
+    return true;
+  };
+
+  auto safeToUseLiteral = [=](const MachineInstr &use) {
+    switch (TII->getGenericOpcode(use.getOpcode())) {
+    case CSA::Generic::ANY:
+    case CSA::Generic::PICKANY:
+    case CSA::Generic::SWITCHANY:
+      // These values depend on LIC availability for consistency. Replacing with
+      // a literal changes semantic meaning.
+      return false;
+    case CSA::Generic::PICK:
+    case CSA::Generic::SWITCH:
+    case CSA::Generic::FILTER:
+      // Making everything be literal here enables further optimization. Don't
+      // check if everything becomes literal--we want that to happen.
+      return true;
+    default:
+      // If making everything become literal would cause it to continuously
+      // fire, don't do anything.
+      return !wouldAllBeLiterals(use);
+    }
+  };
+
+  SmallVector<MachineInstr *, 4> InstsToReplace;
+  bool ReplacedAllUses = true;
+  for (auto &Use : MRI->use_instructions(RegCheck)) {
+    // Check to see if it's safe to replace all uses of this value.
+    if (safeToUseLiteral(Use)) {
+      InstsToReplace.push_back(&Use);
+    } else {
+      ReplacedAllUses = false;
+    }
+  }
+  for (auto &Use : InstsToReplace) {
+    // Replace the value with the constant.
+    for (auto &Op : Use->operands()) {
+      if (Op.isReg() && Op.getReg() == RegCheck) {
+        // We need this to clear bits from MRI register def/use tracking, since
+        // the copy constructor is just the default one.
+        Op.ChangeToImmediate(0);
+        Op = *Literal;
+      }
+    }
+  }
+  if (ReplacedAllUses)
+    to_delete.push_back(MI);
+  return !InstsToReplace.empty();
 }
 
 bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {

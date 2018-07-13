@@ -122,8 +122,8 @@ bool CSAStreamingMemoryConversionPass::runOnMachineFunction(
 
 MachineInstr *CSAStreamingMemoryConversionPass::getDefinition(
   const MachineOperand &MO) const {
-  assert(MO.isReg() && "LICs to search for can only be registers");
-  return MRI->getUniqueVRegDef(MO.getReg());
+  // We might end up searching on a global variable.
+  return MO.isReg() ? MRI->getUniqueVRegDef(MO.getReg()) : nullptr;
 }
 
 void CSAStreamingMemoryConversionPass::getUses(
