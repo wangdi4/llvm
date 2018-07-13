@@ -4472,6 +4472,17 @@ private:
   void analyzeElementLoadOrStore(LocalPointerInfo &PtrInfo, Value *WriteVal,
                                  Instruction &I, llvm::Type *ValTy,
                                  bool IsVolatile, bool IsLoad) {
+
+    // Update LoadInfoMap and StoreInfoMap if the instruction I is accessing
+    // a structure element.
+    auto &PointeeSet = PtrInfo.getElementPointeeSet();
+    if (PointeeSet.size() == 1 && PointeeSet.begin()->first->isStructTy()) {
+      if (IsLoad)
+        DTInfo.addLoadMapping(cast<LoadInst>(&I), *PointeeSet.begin());
+      else
+        DTInfo.addStoreMapping(cast<StoreInst>(&I), *PointeeSet.begin());
+    }
+
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
     // analysis as general as possible.
@@ -6117,6 +6128,32 @@ void DTransAnalysisInfo::addByteFlattenedGEPMapping(
   ByteFlattenedGEPInfoMap[GEP] = Pointee;
 }
 
+void DTransAnalysisInfo::addLoadMapping(
+    LoadInst *LdInst, std::pair<llvm::Type *, size_t> Pointee) {
+  LoadInfoMap[LdInst] = Pointee;
+}
+
+void DTransAnalysisInfo::addStoreMapping(
+    StoreInst *StInst, std::pair<llvm::Type *, size_t> Pointee) {
+  StoreInfoMap[StInst] = Pointee;
+}
+
+std::pair<llvm::Type *, size_t>
+DTransAnalysisInfo::getStoreElement(StoreInst *StInst) {
+  auto It = StoreInfoMap.find(StInst);
+  if (It == StoreInfoMap.end())
+    return std::make_pair(nullptr, 0);
+  return It->second;
+}
+
+std::pair<llvm::Type *, size_t>
+DTransAnalysisInfo::getLoadElement(LoadInst *LdInst) {
+  auto It = LoadInfoMap.find(LdInst);
+  if (It == LoadInfoMap.end())
+    return std::make_pair(nullptr, 0);
+  return It->second;
+}
+
 std::pair<llvm::Type *, size_t>
 DTransAnalysisInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
   auto It = ByteFlattenedGEPInfoMap.find(GEP);
@@ -6236,6 +6273,10 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
                                  Other.ByteFlattenedGEPInfoMap.end());
   PaddedMallocSize = Other.getPaddedMallocSize();
   PaddedMallocInterface = Other.getPaddedMallocInterface();
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(),
+                      Other.StoreInfoMap.end());
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(),
+                     Other.LoadInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
 }
 
@@ -6245,6 +6286,13 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   reset();
   TypeInfoMap = std::move(Other.TypeInfoMap);
   CallInfoMap = std::move(Other.CallInfoMap);
+  PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
+  ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
+                                 Other.ByteFlattenedGEPInfoMap.end());
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(),
+                      Other.StoreInfoMap.end());
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(),
+                     Other.LoadInfoMap.end());
   PaddedMallocSize = Other.getPaddedMallocSize();
   PaddedMallocInterface = Other.getPaddedMallocInterface();
   MaxTotalFrequency = Other.MaxTotalFrequency;
@@ -6275,6 +6323,10 @@ void DTransAnalysisInfo::reset() {
       break;
     }
   }
+  PtrSubInfoMap.clear();
+  ByteFlattenedGEPInfoMap.clear();
+  StoreInfoMap.clear();
+  LoadInfoMap.clear();
   TypeInfoMap.clear();
   IgnoreTypeMap.clear();
 }
