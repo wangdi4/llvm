@@ -682,6 +682,15 @@ Function *CompilationUtils::AddMoreArgsToFunc(
     // Replace the users to the new version.
     I->replaceAllUsesWith(&*NI);
   }
+
+  // Replace F by NewF in KernelList module Metadata (if any)
+  llvm::Module *M = F->getParent();
+  assert(M && "Module is NULL");
+  auto kernels = KernelList(M).getList();
+  std::replace_if(std::begin(kernels), std::end(kernels),
+          [F](llvm::Function *Func) { return F == Func; }, NewF);
+  KernelList(M).set(kernels);
+
   return NewF;
 }
 
