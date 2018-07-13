@@ -99,6 +99,9 @@ set(files
   __stddef_max_align_t.h
   stdint.h
   stdnoreturn.h
+# INTEL_CUSTOMIZATION
+  svmlintrin.h
+# end INTEL_CUSTOMIZATION
   tbmintrin.h
   tgmath.h
   tmmintrin.h
@@ -121,7 +124,6 @@ set(files
   xsaveoptintrin.h
   xsavesintrin.h
   xtestintrin.h
-  svmlintrin.h
   )
 
 set(cuda_wrapper_files
