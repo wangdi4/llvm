@@ -1,11 +1,13 @@
 ; Check if the inner two levels of matmul are blocked using a K&R algorithm (prefix KANDR)  and default algorithm (prefix DEFAULT).
 ;
 ; REQUIRES: asserts
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking < %s 2>&1 | FileCheck %s --check-prefix=KANDR
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -print-before=hir-loop-blocking  < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s --check-prefix=KANDR
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -print-before=hir-loop-blocking  -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=all -print-before=hir-loop-blocking -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s --check-prefix=ALL
 
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=kandr -hir-verify-cf-def-level 2>&1 < %s | FileCheck %s --check-prefix=KANDR
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-verify-cf-def-level 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=all -hir-verify-cf-def-level 2>&1 < %s | FileCheck %s --check-prefix=ALL
 
 ;
 ; for(i=0; i<N; i++)
@@ -13,7 +15,6 @@
 ;     for(k=0; k<N; k++)
 ;       c[i][j] = c[i][j] + a[i][k] * b[k][j];
 
-; KANDR: Function: sub
 
 ; KANDR:     BEGIN REGION { modified }
 ; KANDR:           + DO i1 = 0, %N + -1, 1   
@@ -31,30 +32,28 @@
 ; KANDR: Blocked at Level 2
 ; KANDR: Blocked at Level 3
 
-; KANDR: Function: sub
 
 ; KANDR:     BEGIN REGION { modified }
-; KANDR:           + DO i1 = 0, (%N + -1)/u128, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; KANDR:           |   + DO i2 = 0, (%N + -1)/u128, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; KANDR:           |   |   %min3 = (-128 * i1 + %N + -1 <= 127) ? -128 * i1 + %N + -1 : 127;
-; KANDR:           |   |   
-; KANDR:           |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; KANDR:           |   |   |   + DO i4 = 0, %min3, 1   <DO_LOOP>  <MAX_TC_EST = 128>
-; KANDR:           |   |   |   |   %min = (-128 * i2 + %N + -1 <= 127) ? -128 * i2 + %N + -1 : 127;
-; KANDR:           |   |   |   |   
-; KANDR:           |   |   |   |   + DO i5 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 128>
-; KANDR:           |   |   |   |   |   %0 = (@c)[0][i3][128 * i2 + i5];
-; KANDR:           |   |   |   |   |   %mul = (@a)[0][i3][128 * i1 + i4]  *  (@b)[0][128 * i1 + i4][128 * i2 + i5];
-; KANDR:           |   |   |   |   |   %0 = %0  +  %mul;
-; KANDR:           |   |   |   |   |   (@c)[0][i3][128 * i2 + i5] = %0;
-; KANDR:           |   |   |   |   + END LOOP
-; KANDR:           |   |   |   + END LOOP
-; KANDR:           |   |   + END LOOP
-; KANDR:           |   + END LOOP
-; KANDR:           + END LOOP
-; KANDR:     END REGION
+; KANDR:    + DO i1 = 0, (%N + -1)/u128, 1
+; KANDR:    |   %min = (-128 * i1 + %N + -1 <= 127) ? -128 * i1 + %N + -1 : 127;
+; KANDR:    |   
+; KANDR:    |   + DO i2 = 0, (%N + -1)/u128, 1  
+; KANDR:    |   |   %min3 = (-128 * i2 + %N + -1 <= 127) ? -128 * i2 + %N + -1 : 127;
+; KANDR:    |   |   
+; KANDR:    |   |   + DO i3 = 0, %N + -1, 1 
+; KANDR:    |   |   |   + DO i4 = 0, %min, 1 
+; KANDR:    |   |   |   |   + DO i5 = 0, %min3, 1 
+; KANDR:    |   |   |   |   |   %0 = (@c)[0][i3][128 * i2 + i5];
+; KANDR:    |   |   |   |   |   %mul = (@a)[0][i3][128 * i1 + i4]  *  (@b)[0][128 * i1 + i4][128 * i2 + i5];
+; KANDR:    |   |   |   |   |   %0 = %0  +  %mul;
+; KANDR:    |   |   |   |   |   (@c)[0][i3][128 * i2 + i5] = %0;
+; KANDR:    |   |   |   |   + END LOOP
+; KANDR:    |   |   |   + END LOOP
+; KANDR:    |   |   + END LOOP
+; KANDR:    |   + END LOOP
+; KANDR:    + END LOOP
+; KANDR:   END REGION
 
-; DEFAULT: Function: sub
 
 ; DEFAULT:       BEGIN REGION { modified }
 ; DEFAULT:             + DO i1 = 0, %N + -1, 1
@@ -72,27 +71,71 @@
 ; DEFAULT: Blocked at Level 1
 ; DEFAULT: Blocked at Level 2
 
-; DEFAULT: Function: sub
 
-; DEFAULT:       BEGIN REGION { modified }
-; DEFAULT:             + DO i1 = 0, (%N + -1)/u128, 1
-; DEFAULT:             |   %min3 = (-128 * i1 + %N + -1 <= 127) ? -128 * i1 + %N + -1 : 127;
-; DEFAULT:             |   
-; DEFAULT:             |   + DO i2 = 0, (%N + -1)/u128, 1
-; DEFAULT:             |   |   + DO i3 = 0, %min3, 1
-; DEFAULT:             |   |   |   %min = (-128 * i2 + %N + -1 <= 127) ? -128 * i2 + %N + -1 : 127;
-; DEFAULT:             |   |   |   + DO i4 = 0, %min, 1
-; DEFAULT:             |   |   |   |   + DO i5 = 0, %N + -1, 1
-; DEFAULT:             |   |   |   |   |   %0 = (@c)[0][128 * i1 + i3][i5];
-; DEFAULT:             |   |   |   |   |   %mul = (@a)[0][128 * i1 + i3][128 * i2 + i4]  *  (@b)[0][128 * i2 + i4][i5];
-; DEFAULT:             |   |   |   |   |   %0 = %0  +  %mul;
-; DEFAULT:             |   |   |   |   |   (@c)[0][128 * i1 + i3][i5] = %0;
-; DEFAULT:             |   |   |   |   + END LOOP
-; DEFAULT:             |   |   |   + END LOOP
-; DEFAULT:             |   |   + END LOOP
-; DEFAULT:             |   + END LOOP
-; DEFAULT:             + END LOOP
-; DEFAULT:       END REGION
+; DEFAULT: BEGIN REGION { modified }
+; DEFAULT:   + DO i1 = 0, (%N + -1)/u128, 1  
+; DEFAULT:   |   %min = (-128 * i1 + %N + -1 <= 127) ? -128 * i1 + %N + -1 : 127;
+; DEFAULT:   |   
+; DEFAULT:   |   + DO i2 = 0, (%N + -1)/u128, 1 
+; DEFAULT:   |   |   %min3 = (-128 * i2 + %N + -1 <= 127) ? -128 * i2 + %N + -1 : 127;
+; DEFAULT:   |   |   
+; DEFAULT:   |   |   + DO i3 = 0, %min, 1  
+; DEFAULT:   |   |   |   + DO i4 = 0, %min3, 1
+; DEFAULT:   |   |   |   |   + DO i5 = 0, %N + -1, 1 
+; DEFAULT:   |   |   |   |   |   %0 = (@c)[0][128 * i1 + i3][i5];
+; DEFAULT:   |   |   |   |   |   %mul = (@a)[0][128 * i1 + i3][128 * i2 + i4]  *  (@b)[0][128 * i2 + i4][i5];
+; DEFAULT:   |   |   |   |   |   %0 = %0  +  %mul;
+; DEFAULT:   |   |   |   |   |   (@c)[0][128 * i1 + i3][i5] = %0;
+; DEFAULT:   |   |   |   |   + END LOOP
+; DEFAULT:   |   |   |   + END LOOP
+; DEFAULT:   |   |   + END LOOP
+; DEFAULT:   |   + END LOOP
+; DEFAULT:   + END LOOP
+; DEFAULT: END REGION
+
+
+
+; ALL:       BEGIN REGION { modified }
+; ALL:             + DO i1 = 0, %N + -1, 1
+; ALL:             |   + DO i2 = 0, %N + -1, 1
+; ALL:             |   |   + DO i3 = 0, %N + -1, 1
+; ALL:             |   |   |   %0 = (@c)[0][i1][i3];
+; ALL:             |   |   |   %mul = (@a)[0][i1][i2]  *  (@b)[0][i2][i3];
+; ALL:             |   |   |   %0 = %0  +  %mul;
+; ALL:             |   |   |   (@c)[0][i1][i3] = %0;
+; ALL:             |   |   + END LOOP
+; ALL:             |   + END LOOP
+; ALL:             + END LOOP
+; ALL:       END REGION
+
+; ALL: Blocked at Level 1
+; ALL: Blocked at Level 2
+; ALL: Blocked at Level 3
+
+; ALL: BEGIN REGION { modified }
+; ALL:      + DO i1 = 0, (%N + -1)/u128, 1   
+; ALL:      |   %min = (-128 * i1 + %N + -1 <= 127) ? -128 * i1 + %N + -1 : 127;
+; ALL:      |   
+; all:      |   + do i2 = 0, (%n + -1)/u128, 1   
+; all:      |   |   %min3 = (-128 * i2 + %n + -1 <= 127) ? -128 * i2 + %N + -1 : 127;
+; ALL:      |   |   
+; ALL:      |   |   + DO i3 = 0, (%N + -1)/u128, 1   
+; ALL:      |   |   |   %min4 = (-128 * i3 + %N + -1 <= 127) ? -128 * i3 + %N + -1 : 127;
+; ALL:      |   |   |   
+; ALL:      |   |   |   + DO i4 = 0, %min, 1   
+; ALL:      |   |   |   |   + DO i5 = 0, %min3, 1   
+; ALL:      |   |   |   |   |   + DO i6 = 0, %min4, 1   
+; ALL:      |   |   |   |   |   |   %0 = (@c)[0][128 * i1 + i4][128 * i3 + i6];
+; ALL:      |   |   |   |   |   |   %mul = (@a)[0][128 * i1 + i4][128 * i2 + i5]  *  (@b)[0][128 * i2 + i5][128 * i3 + i6];
+; ALL:      |   |   |   |   |   |   %0 = %0  +  %mul;
+; ALL:      |   |   |   |   |   |   (@c)[0][128 * i1 + i4][128 * i3 + i6] = %0;
+; ALL:      |   |   |   |   |   + END LOOP
+; ALL:      |   |   |   |   + END LOOP
+; ALL:      |   |   |   + END LOOP
+; ALL:      |   |   + END LOOP
+; ALL:      |   + END LOOP
+; ALL:      + END LOOP
+; ALL: END REGION
 
 ; ModuleID = 'matmul.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
