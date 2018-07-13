@@ -2,7 +2,7 @@
 ; fault during DTrans with whole program analysis and LTO.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -enable-dtrans=true -exported-symbol=main -whole-program-assume -o %t2 %t1 
+; RUN: llvm-lto -enable-dtrans=true -exported-symbol=main -whole-program-assume -o %t2 %t1
 
 define i32 @add(i32 %a) {
 entry:
