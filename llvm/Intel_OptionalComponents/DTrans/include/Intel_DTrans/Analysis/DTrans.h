@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/CallSite.h"
@@ -432,7 +433,8 @@ public:
 class StructInfo : public TypeInfo {
 public:
   StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes, bool IgnoreFlag)
-      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag) {
+      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag),
+        SubGraph() {
     for (llvm::Type *FieldTy : FieldTypes)
       Fields.push_back(FieldInfo(FieldTy));
   }
@@ -454,11 +456,47 @@ public:
   /// Returns FSV and/or FSAF if the type was ignored in those optimizations.
   dtrans::Transform getIgnoredFor() { return IsIgnoredFor; }
 
+  // To represent call graph in C++ one stores outermost type,
+  // in whose methods there was reference to this structure.
+  // Lattice: {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
+  // Type should be some struct from which given type is reachable.
+  // insertFunction is a 'join' operation of this lattice.
+  class CallSubGraph {
+    PointerIntPair<StructType *, 1, bool> State;
+    void setTop() {
+      State.setPointer(nullptr);
+      State.setInt(true);
+    }
+  public:
+    // State is zero-initialized to 'bottom'.
+    CallSubGraph() = default;
+    bool isBottom() const {
+      return !State.getPointer() && !State.getInt();
+    }
+    bool isTop() const {
+      return State.getInt();
+    }
+    StructType *getEnclosingType() const {
+      assert(!isBottom() && !isTop() && "Invalid access to CallSubGraph");
+      return State.getPointer();
+    }
+    // If occurrence is not inside specific Function,
+    // then mark it as 'top'.
+    // It is a case of GlobalVariable.
+    void insertFunction(Function *F, StructType *ThisTy);
+  };
+
+  void insertCallGraphNode(Function *F) {
+    SubGraph.insertFunction(F, cast<StructType>(getLLVMType()));
+  }
+  const CallSubGraph &getCallSubGraph() const { return SubGraph; }
+
 private:
   SmallVector<FieldInfo, 16> Fields;
   // Total Frequency of all fields in struct.
   uint64_t TotalFrequency;
   dtrans::Transform IsIgnoredFor;
+  CallSubGraph SubGraph;
 };
 
 class ArrayInfo : public TypeInfo {

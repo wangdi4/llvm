@@ -48,6 +48,7 @@ define i32 @main() {
 ; CHECK-NEXT:    Single Value: i32 0 (ignored)
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
 ; CHECK-NEXT:  Total Frequency: 1
+; CHECK-NEXT:  Call graph:
 ; CHECK-NEXT:  Safety data: Bad casting | Global instance
 
 
@@ -66,4 +67,5 @@ define i32 @main() {
 ; CHECK-NEXT:    Multiple Value: [ 0 ] <incomplete>
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
 ; CHECK-NEXT:  Total Frequency: 0
+; CHECK-NEXT:  Call graph:
 ; CHECK-NEXT:  Safety data: Global instance | Unhandled use

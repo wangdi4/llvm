@@ -44,6 +44,9 @@ using namespace llvm::PatternMatch;
 // Debug type for verbose local pointer analysis output.
 #define DTRANS_LPA_VERBOSE "dtrans-lpa-verbose"
 
+// Debug type for verbose call graph computations.
+#define DTRANS_CG "dtrans-cg"
+
 // Debug type for verbose partial pointer load/store analysis output.
 #define DTRANS_PARTIALPTR "dtrans-partialptr"
 
@@ -3727,6 +3730,12 @@ public:
             setBaseTypeInfoSafetyData(GVTy, dtrans::HasInitializerList);
           }
           analyzeGlobalStructSingleValue(GVElemTy, Initializer);
+
+          DEBUG_WITH_TYPE(
+              DTRANS_CG,
+              dbgs() << "dtrans-cg: CGraph update for Globalvalue  -- \n"
+                     << "  " << GV << "\n");
+          setBaseTypeCallGraph(GV.getType(), nullptr);
         }
       }
     }
@@ -3753,6 +3762,33 @@ public:
 
     // Call the base class to visit the instructions in the function.
     InstVisitor<DTransInstVisitor>::visitFunction(F);
+  }
+
+  void visitBasicBlock(BasicBlock &BB) {
+    InstVisitor<DTransInstVisitor>::visitBasicBlock(BB);
+
+    auto &F = *BB.getParent();
+    for (auto &I : BB) {
+      if (isValueOfInterest(&I)) {
+        DEBUG_WITH_TYPE(DTRANS_CG,
+                        dbgs()
+                            << "dtrans-cg: CGraph update for Instruction -- \n"
+                            << "  " << I << "\n");
+        setBaseTypeCallGraph(I.getType(), &F);
+      }
+
+      for (Value *Arg : I.operands()) {
+        if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
+          continue;
+        if (isValueOfInterest(Arg)) {
+          DEBUG_WITH_TYPE(DTRANS_CG,
+                          dbgs()
+                              << "dtrans-cg: CGraph update for Operand  -- \n"
+                              << "  " << *Arg << "\n");
+          setBaseTypeCallGraph(Arg->getType(), &F);
+        }
+      }
+    }
   }
 
   // Accumulate field frequency of \p FI that is accessed in \p I.
@@ -6013,6 +6049,35 @@ private:
     else if (isa<dtrans::ArrayInfo>(TI))
       maybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data);
   }
+
+  void setBaseTypeCallGraph(llvm::Type *Ty, Function *F) {
+    // Strip only outermost Pointer type constructors to account
+    // for load/stores/calls, etc. instructions.
+    llvm::Type *BaseTy = Ty;
+    while (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+
+    // This lambda encapsulates the logic for propagating CallGraph info
+    // to structure fields and array elements to account for implicit types
+    // in GEP. Pointer types should be handled indirectly through
+    // load/stores/calls, etc.
+    auto &DT = DTInfo;
+    std::function<void(llvm::Type *)> Propagate =
+        [&DT, F, &Propagate](llvm::Type *Ty) -> void {
+      if (!DT.isTypeOfInterest(Ty))
+        return;
+      if (auto *STy = dyn_cast<StructType>(Ty)) {
+        cast<dtrans::StructInfo>(DT.getOrCreateTypeInfo(STy))
+            ->insertCallGraphNode(F);
+        for (auto FTy: STy->elements())
+          Propagate(FTy);
+      }
+      else if (auto *ATy = dyn_cast<ArrayType>(Ty))
+        Propagate(ATy->getElementType());
+    };
+
+    Propagate(BaseTy);
+  }
 };
 
 } // end anonymous namespace
@@ -6631,6 +6696,12 @@ void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
     printFieldInfo(Field, SI->getIgnoredFor());
   }
   outs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
+  auto &CG = SI->getCallSubGraph();
+  outs() << "  Call graph: "
+         << (CG.isBottom() ? "bottom\n" : (CG.isTop() ? "top\n" : ""));
+  if (!CG.isBottom() && !CG.isTop()) {
+    outs() << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
+  }
   SI->printSafetyData();
   outs() << "\n";
 }
