@@ -54,3 +54,15 @@ void ternary_thing() {
   count = cond ? count + 1 : zero_1; // expected-warning{{implicit conversion loses integer precision}}
   count = cond ? count + 1 : zero_2; // expected-warning{{implicit conversion loses integer precision}}
 }
+
+void sizeof_test() {
+  ap_int<56> a;
+  ap_int<56> as[2];
+  ap_int<66> a2;
+  ap_int<66> a2s[2];
+
+  static_assert(sizeof(a) == 8, "Lie about sizeof so that array allocs work");
+  static_assert(sizeof(as) == 16, "Lie about sizeof so that array allocs work");
+  static_assert(sizeof(a2) == 16, "Lie about sizeof so that array allocs work");
+  static_assert(sizeof(a2s) == 32, "Lie about sizeof so that array allocs work");
+}
