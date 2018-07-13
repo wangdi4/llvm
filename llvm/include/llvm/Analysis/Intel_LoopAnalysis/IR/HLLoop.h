@@ -457,9 +457,9 @@ public:
   pre_iterator pre_end() { return ChildBegin; }
   const_pre_iterator pre_end() const { return ChildBegin; }
 
-  reverse_pre_iterator pre_rbegin() { return ChildBegin.getReverse(); }
+  reverse_pre_iterator pre_rbegin() { return ++ChildBegin.getReverse(); }
   const_reverse_pre_iterator pre_rbegin() const {
-    return ChildBegin.getReverse();
+    return const_cast<HLLoop*>(this)->pre_rbegin();
   }
 
   reverse_pre_iterator pre_rend() { return Children.rend(); }
@@ -502,9 +502,9 @@ public:
 
   reverse_post_iterator post_rbegin() { return Children.rbegin(); }
   const_reverse_post_iterator post_rbegin() const { return Children.rbegin(); }
-  reverse_post_iterator post_rend() { return PostexitBegin.getReverse(); }
+  reverse_post_iterator post_rend() { return ++PostexitBegin.getReverse(); }
   const_reverse_post_iterator post_rend() const {
-    return PostexitBegin.getReverse();
+    return const_cast<HLLoop *>(this)->post_rend();
   }
 
   /// Postexit acess methods

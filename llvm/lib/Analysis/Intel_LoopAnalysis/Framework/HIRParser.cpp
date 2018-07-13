@@ -366,7 +366,9 @@ BlobTy HIRParser::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
   BlobTy NewBlob = nullptr;
 
   if (Ty->getPrimitiveSizeInBits() >
-      Blob->getType()->getPrimitiveSizeInBits()) {
+      // In some case blob can be pointer type as SCEV is not very thorough in
+      // changing pointer to integer type for cases like (ptr1 - ptr2 + 1).
+      getDataLayout().getTypeSizeInBits(Blob->getType())) {
     NewBlob = IsSExt ? SE.getSignExtendExpr(Blob, Ty)
                      : SE.getZeroExtendExpr(Blob, Ty);
   } else {
