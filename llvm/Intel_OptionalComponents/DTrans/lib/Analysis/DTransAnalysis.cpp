@@ -6629,11 +6629,15 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
     Field.getSingleValue()->printAsOperand(outs());
   } else if (Field.isMultipleValue()) {
     outs() << "    Multiple Value: [ ";
-    for (auto *C : Field.values()) {
-      C->printAsOperand(outs(), false);
-      outs() << " ";
+    auto FirstI = Field.values().begin();
+    for (auto I = FirstI, E = Field.values().end(); I != E; ++I) {
+      if (I != FirstI) {
+        outs() << ", ";
+      }
+
+      (*I)->printAsOperand(outs(), false);
     }
-    outs() << "] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
+    outs() << " ] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
            << ">";
   }
   if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
