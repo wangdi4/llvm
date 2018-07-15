@@ -48,7 +48,8 @@ public:
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     const TargetLibraryInfo &TLI =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-    WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
     return Impl.runImpl(M, DTInfo, TLI, WPInfo);
   }
 
@@ -192,8 +193,8 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
     }
 
-    if (((DeleteableBytes * 100) / DL.getTypeAllocSize(StInfo->getLLVMType()))
-            < 10) {
+    if (((DeleteableBytes * 100) / DL.getTypeAllocSize(StInfo->getLLVMType())) <
+        10) {
       LLVM_DEBUG({
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
@@ -582,8 +583,8 @@ Constant *DeleteFieldImpl::getArrayReplacement(ConstantArray *ArInit,
   unsigned OrigNumElements = OrigTy->getArrayNumElements();
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumElements; ++Idx)
-    NewInitVals.push_back(getReplacement(ArInit->getAggregateElement(Idx),
-                          Mapper));
+    NewInitVals.push_back(
+        getReplacement(ArInit->getAggregateElement(Idx), Mapper));
   Type *NewTy = TypeRemapper->remapType(OrigTy);
   assert(NewTy->getArrayNumElements() == NewInitVals.size() &&
          "Mismatched number of elements in array initializer creation!");
@@ -599,8 +600,8 @@ Constant *DeleteFieldImpl::getStructReplacement(ConstantStruct *StInit,
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
     if (FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
-      NewInitVals.push_back(getReplacement(StInit->getAggregateElement(Idx),
-                            Mapper));
+      NewInitVals.push_back(
+          getReplacement(StInit->getAggregateElement(Idx), Mapper));
   auto *NewTy = OrigToNewTypeMapping[OrigTy];
   assert(NewTy->getStructNumElements() == NewInitVals.size() &&
          "Mismatched number of elements in struct initializer creation!");
@@ -701,6 +702,9 @@ bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                                       WholeProgramInfo &WPInfo) {
 
   if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
     return false;
 
   DTransTypeRemapper TypeRemapper;

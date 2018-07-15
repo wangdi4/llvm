@@ -96,7 +96,7 @@ namespace {
 
 struct EliminateROFieldAccessImpl {
   EliminateROFieldAccessImpl(DTransAnalysisInfo &DTransInfo)
-      : DTransInfo(DTransInfo) {};
+      : DTransInfo(DTransInfo){};
   bool run(Module &M, WholeProgramInfo &WPInfo);
   bool visit(BasicBlock *BB);
   bool checkSecondIfBB(BasicBlock *SecondIfBB, Value *BaseOp);
@@ -260,7 +260,7 @@ bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
     return false;
 
   BasicBlock *TrueFieldBB, *UnreachableBB;
-  if(FieldCond->getPredicate() == CmpInst::ICMP_EQ) {
+  if (FieldCond->getPredicate() == CmpInst::ICMP_EQ) {
     TrueFieldBB = FieldBrInst->getSuccessor(0);
     UnreachableBB = FieldBrInst->getSuccessor(1);
   } else {
@@ -322,6 +322,9 @@ bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
 bool EliminateROFieldAccessImpl::run(Module &M, WholeProgramInfo &WPInfo) {
 
   if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTransInfo.useDTransAnalysis())
     return false;
 
   bool Changed = false;

@@ -42,11 +42,12 @@ public:
       : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   ~SOAToAOSTransformImpl() {}
+
 private:
   bool prepareTypes(Module &M) { return false; }
   void populateTypes(Module &M) {}
 };
-}
+} // namespace
 
 namespace llvm {
 namespace dtrans {
@@ -105,6 +106,9 @@ public:
       return false;
 
     auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    if (!DTInfo.useDTransAnalysis())
+      return false;
+
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
     return Impl.runImpl(M, DTInfo, TLI);
@@ -134,4 +138,3 @@ INITIALIZE_PASS_END(DTransSOAToAOSWrapper, "dtrans-soatoaos",
 ModulePass *llvm::createDTransSOAToAOSWrapperPass() {
   return new DTransSOAToAOSWrapper();
 }
-

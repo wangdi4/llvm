@@ -431,6 +431,9 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   if (!WPInfo.isWholeProgramSafe())
     return false;
 
+  if (!DTInfo.useDTransAnalysis())
+    return false;
+
   auto &DL = M.getDataLayout();
 
   DynCloneImpl DynCloneI(M, DL, DTInfo);

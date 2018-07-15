@@ -1082,9 +1082,9 @@ public:
                       << *FreeCall << "\n");
   }
 
-    // The transformation of the memfunc call needs to replace the original
-    // call with a set of calls, one for each field being touched. This routine
-    // dispatches to the appropriate routine based on the type of call.
+  // The transformation of the memfunc call needs to replace the original
+  // call with a set of calls, one for each field being touched. This routine
+  // dispatches to the appropriate routine based on the type of call.
   void processMemfuncCall(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
     switch (CInfo->getMemfuncCallInfoKind()) {
     case MemfuncCallInfo::MK_Memset:
@@ -1185,10 +1185,10 @@ public:
     InstructionsToDelete.insert(I);
   }
 
-  // Conversion of the memcpy/memmove requires that each field of the structure be processed
-  // individually because they are no longer adjacent to one another. This
-  // routine will replace the original call with memcpy/memmove calls that
-  // operate on the array for each field that is being processed.
+  // Conversion of the memcpy/memmove requires that each field of the structure
+  // be processed individually because they are no longer adjacent to one
+  // another. This routine will replace the original call with memcpy/memmove
+  // calls that operate on the array for each field that is being processed.
   void processMemCpyOrMemmove(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
     assert(CInfo->getIsCompleteAggregate(0) ==
                CInfo->getIsCompleteAggregate(1) &&
@@ -1251,8 +1251,8 @@ public:
       // types are the same.
 
       Value *FieldNumVal = ConstantInt::get(Int32Ty, FieldNum);
-      Instruction *FieldAddr = createPeelFieldLoad(
-        PeelTy, PeelVar, FieldNumVal, I);
+      Instruction *FieldAddr =
+          createPeelFieldLoad(PeelTy, PeelVar, FieldNumVal, I);
 
       // Offset the address from the start of the array to the index
       Value *DestPtrAddr = IRB.CreateGEP(FieldAddr, DestPeelIndex);
@@ -1556,6 +1556,9 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            AOSToSOAPass::DominatorTreeFuncType &GetDT) {
 
   if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
     return false;
 
   // Check whether there are any candidate structures that can be transformed.

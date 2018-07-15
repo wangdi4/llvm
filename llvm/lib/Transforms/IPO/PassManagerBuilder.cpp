@@ -216,7 +216,7 @@ static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
 
 // Call Tree Cloning
 static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
-    cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
+    cl::init(false), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
 
 // Inline Aggressive Analysis
 static cl::opt<bool>

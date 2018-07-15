@@ -547,8 +547,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
       continue;
 
     // Check that the instruction is a call site to malloc
-    if (dtrans::getAllocFnKind(CS, TLInfo) !=
-        dtrans::AK_Malloc) {
+    if (dtrans::getAllocFnKind(CS, TLInfo) != dtrans::AK_Malloc) {
       continue;
     }
 
@@ -647,6 +646,9 @@ bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   if (!WPInfo.isWholeProgramSafe())
     return false;
 
+  if (!DTInfo.useDTransAnalysis())
+    return false;
+
   // TODO: Guard the optimization with -memory-layout-trans=3 when
   // support is available.
 
@@ -697,4 +699,3 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
   PA.preserve<DTransAnalysis>();
   return PA;
 }
-

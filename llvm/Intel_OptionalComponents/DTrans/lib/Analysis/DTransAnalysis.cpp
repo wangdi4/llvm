@@ -67,6 +67,16 @@ static cl::list<std::string> DTransNoSafetyChecksList(
     cl::desc("Suppress dtrans safety violations for aggregate types."),
     cl::ReallyHidden);
 
+// Maximum number of callsites before we disable DTransAnalysis
+static cl::opt<unsigned> DTransMaxCallsiteCount("dtrans-maxcallsitecount",
+                                                cl::init(150000),
+                                                cl::ReallyHidden);
+
+// Maximum number of instructions before we disable DTransAnalysis
+static cl::opt<unsigned> DTransMaxInstructionCount("dtrans-maxinstructioncount",
+                                                   cl::init(1500000),
+                                                   cl::ReallyHidden);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints information that is saved during analysis about specific function
 /// calls (malloc, free, memset, etc) that may be useful to the transformations.
@@ -1280,8 +1290,8 @@ bool DTransAllocAnalyzer::analyzeForIndirectStatus(CallSite CS, bool Malloc) {
   if (IdxVal != It->second)
     return false;
 
-  auto *VTable = dyn_cast<LoadInst>(VFn ? VFn->getPointerOperand() :
-                                    Callee->getPointerOperand());
+  auto *VTable = dyn_cast<LoadInst>(VFn ? VFn->getPointerOperand()
+                                        : Callee->getPointerOperand());
   if (!VTable)
     return false;
 
@@ -1892,8 +1902,7 @@ private:
           // but it isn't reported as such because we need to recognize the
           // i8*->(struct**) bitcast elsewhere as a potential problem.
           if (dtrans::isElementZeroAccess(AliasTy, DestTy, &AccessedTy) ||
-              (AliasTy->isPointerTy() &&
-               DestTy->isPointerTy() &&
+              (AliasTy->isPointerTy() && DestTy->isPointerTy() &&
                DestTy->getPointerElementType()->isPointerTy() &&
                dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
                                           &AccessedTy))) {
@@ -2913,9 +2922,8 @@ public:
     // TypeInfo, which will be needed by some of the transformations when
     // rewriting allocations and frees.
     if (dtrans::isFreeFn(CS, TLI)) {
-      analyzeFreeCall(CS, dtrans::isDeleteFn(CS, TLI)
-                              ? dtrans::FK_Delete
-                              : dtrans::FK_Free);
+      analyzeFreeCall(CS, dtrans::isDeleteFn(CS, TLI) ? dtrans::FK_Delete
+                                                      : dtrans::FK_Free);
       return;
     }
 
@@ -3780,7 +3788,6 @@ private:
     return true;
   }
 
-
   // There are frequent cases where a pointer to an aggregate type is
   // cast to either i8*, i64* or i64 and we need to look at the uses of
   // the cast value to determine whether or not it is being used in a way
@@ -3825,7 +3832,7 @@ private:
         return false;
 
       if (!isa<BitCastInst>(Val) && !isa<GetElementPtrInst>(Val) &&
-              isa<LoadInst>(Val))
+          isa<LoadInst>(Val))
         return false;
 
       Instruction *NewInst = dyn_cast<Instruction>(Val);
@@ -3849,8 +3856,7 @@ private:
             NewInst = dyn_cast<Instruction>(ValOp);
           else
             break;
-        }
-        else
+        } else
           break;
       }
 
@@ -3858,7 +3864,7 @@ private:
     };
 
     for (BasicBlock &BB : *Fn) {
-      for (Instruction &Inst: BB) {
+      for (Instruction &Inst : BB) {
 
         // Check the Type in case VAArgInst is available
         if (VAArgInst *VarArg = dyn_cast<VAArgInst>(&Inst)) {
@@ -3957,18 +3963,17 @@ private:
 
         // Collect %struct.__va_list_tag from llvm.va_start
         else if ((isa<CallInst>(&Inst) || isa<InvokeInst>(&Inst)) &&
-            (!VAListType)) {
+                 (!VAListType)) {
           CallSite CS = CallSite(&Inst);
           Function *Fn = CS.getCalledFunction();
-          if (Fn->isIntrinsic() &&
-              Fn->getIntrinsicID() == Intrinsic::vastart) {
-              Value *Arg = CS.getArgument(0);
-              LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
-              VAListType = LPI.getDominantAggregateTy();
+          if (Fn->isIntrinsic() && Fn->getIntrinsicID() == Intrinsic::vastart) {
+            Value *Arg = CS.getArgument(0);
+            LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
+            VAListType = LPI.getDominantAggregateTy();
 
-              // Return false if no dominant Type was found
-              if (!VAListType)
-                return false;
+            // Return false if no dominant Type was found
+            if (!VAListType)
+              return false;
           }
         }
 
@@ -4237,8 +4242,8 @@ private:
     // pointer to a pointer, that is an element zero access but it isn't
     // reported as such because we need to recognize the i8*->(struct**)
     // bitcast as a potential problem for the destination type.
-    if (DTInfo.isTypeOfInterest(DestTy) &&
-        SrcTy->isPointerTy() && DestTy->isPointerTy() &&
+    if (DTInfo.isTypeOfInterest(DestTy) && SrcTy->isPointerTy() &&
+        DestTy->isPointerTy() &&
         DestTy->getPointerElementType()->isPointerTy() &&
         dtrans::isElementZeroI8Ptr(SrcTy->getPointerElementType())) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
@@ -6258,8 +6263,8 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
-    : PaddedMallocSize(0), PaddedMallocInterface(nullptr),
-      MaxTotalFrequency(0) {}
+    : PaddedMallocSize(0), PaddedMallocInterface(nullptr), MaxTotalFrequency(0),
+      FunctionCount(0), CallsiteCount(0), InstructionCount(0) {}
 
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
@@ -6278,6 +6283,9 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   LoadInfoMap.insert(Other.LoadInfoMap.begin(),
                      Other.LoadInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
+  FunctionCount = Other.FunctionCount;
+  CallsiteCount = Other.CallsiteCount;
+  InstructionCount = Other.InstructionCount;
 }
 
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
@@ -6296,6 +6304,9 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   PaddedMallocSize = Other.getPaddedMallocSize();
   PaddedMallocInterface = Other.getPaddedMallocInterface();
   MaxTotalFrequency = Other.MaxTotalFrequency;
+  FunctionCount = Other.FunctionCount;
+  CallsiteCount = Other.CallsiteCount;
+  InstructionCount = Other.InstructionCount;
   IgnoreTypeMap = std::move(Other.IgnoreTypeMap);
   return *this;
 }
@@ -6423,6 +6434,40 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
   return checkFailed;
 }
 
+// Count up the number of functions, callsites, and instructions to see
+// if the call graph is too large for DtransAnalysis
+void DTransAnalysisInfo::setCallGraphStats(Module &M) {
+  FunctionCount = 0;
+  CallsiteCount = 0;
+  InstructionCount = 0;
+  for (auto &F : M.functions()) {
+    FunctionCount++;
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        InstructionCount++;
+        if (isa<CallInst>(&I) || isa<InvokeInst>(&I))
+          CallsiteCount++;
+      }
+    }
+  }
+  LLVM_DEBUG(dbgs() << "Call Graph Stats:\n"
+                    << "  Functions:    " << FunctionCount
+                    << "  Callsites:    " << CallsiteCount
+                    << "  Instructions: " << InstructionCount << "\n");
+}
+
+// Return true if we should/have run DTransAnalysis.
+// Right now, we just disable DTransAnalysis if the call graph is too large.
+bool DTransAnalysisInfo::useDTransAnalysis(void) {
+  if (CallsiteCount > DTransMaxCallsiteCount ||
+      InstructionCount > DTransMaxInstructionCount) {
+    LLVM_DEBUG(dbgs() << "dtrans: Call graph too large ..."
+                      << "DTransAnalysis didn't run\n");
+    return false;
+  }
+  return true;
+}
+
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
@@ -6432,6 +6477,11 @@ bool DTransAnalysisInfo::analyzeModule(
                       << "DTransAnalysis didn't run\n");
     return false;
   }
+
+  setCallGraphStats(M);
+
+  if (!useDTransAnalysis())
+    return false;
 
   DTransAllocAnalyzer DTAA(TLI, M);
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
@@ -6760,7 +6810,7 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M),
-                         WPInfo, GetBFI);
+  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M), WPInfo,
+                         GetBFI);
   return DTResult;
 }

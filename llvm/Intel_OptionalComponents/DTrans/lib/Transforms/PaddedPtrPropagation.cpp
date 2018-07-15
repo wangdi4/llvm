@@ -455,7 +455,8 @@ class PaddedPtrPropImpl {
   void propagateInFunction(Function *F, SmallDenseSet<Function *> &ImpactedFns);
   bool emit();
 
-  void collectSingleAllocsForType(dtrans::TypeInfo *TyInfo, StructFieldTracker &Fields);
+  void collectSingleAllocsForType(dtrans::TypeInfo *TyInfo,
+                                  StructFieldTracker &Fields);
   bool placeInitialAnnotations();
   bool processGepForInitialAllocations(GEPOperator *GEP,
                                        StructFieldTracker &FieldMap);
@@ -760,7 +761,7 @@ bool PaddedPtrPropImpl::emit() {
       // Do not insert annotations if the padding is unknown or zero.
       int Padding = FPInfo.getPaddingForValue(RetV);
       if (Padding <= 0)
-	continue;
+        continue;
 
       insertPaddedMarkUp(RetV, Padding);
       Modified = true;
@@ -797,7 +798,7 @@ void PaddedPtrPropImpl::dump(const string &Header, raw_ostream &OS) const {
 // The function recursively traverses TypeInfo and collects the fields in
 // the Fields structure.
 void PaddedPtrPropImpl::collectSingleAllocsForType(dtrans::TypeInfo *TyInfo,
-                                                  StructFieldTracker &Fields) {
+                                                   StructFieldTracker &Fields) {
   auto StInfo = dyn_cast<dtrans::StructInfo>(TyInfo);
 
   // Skip if it isn't a structure
@@ -883,6 +884,9 @@ bool PaddedPtrPropImpl::placeInitialAnnotations() {
 bool PaddedPtrPropImpl::transform(WholeProgramInfo &WPInfo) {
 
   if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
     return false;
 
   LLVM_DEBUG(dbgs() << "\n---- PADDED MALLOC TRANSFORM START ----\n\n");
@@ -972,8 +976,7 @@ void PaddedPtrPropWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
 // InvokeInst. In that case, it preserves none of its analyses.
 bool PaddedPtrPropWrapper::runOnModule(Module &M) {
   auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-  WholeProgramInfo &WPInfo =
-      getAnalysis<WholeProgramWrapperPass>().getResult();
+  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
   bool Modified = PaddedPtrPropImpl(M, DTInfo).transform(WPInfo);
   return Modified;
 }
@@ -1040,12 +1043,11 @@ PreservedAnalyses PaddedPtrPropPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   bool Modified = PaddedPtrPropImpl(M, DTInfo).transform(WPInfo);
   if (Modified) {
-      PreservedAnalyses PA;
-      PA.preserve<DTransAnalysis>();
-      PA.preserve<WholeProgramAnalysis>();
+    PreservedAnalyses PA;
+    PA.preserve<DTransAnalysis>();
+    PA.preserve<WholeProgramAnalysis>();
     return PA;
-  }
-  else
+  } else
     return PreservedAnalyses::all();
 }
 
