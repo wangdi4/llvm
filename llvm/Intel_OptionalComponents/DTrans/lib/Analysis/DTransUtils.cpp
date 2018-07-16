@@ -178,6 +178,22 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
   if (!Val)
     return false;
 
+  // If the size is zero, always return false.
+  //
+  // In practice, this can happen with zero-size arrays, which could be handled
+  // differently. For instance, if an allocated pointer is cast as a
+  // [0 x <type>]* array, we could possibly handle this case by checking that
+  // the allocation size is a multiple of the size of <type> but the
+  // data layout will report that the allocation size of [0 x <type>] is
+  // zero, so we'd need special handling where we call isValueMultipleOfSize
+  // and in DTransOptBase::findMultipleOfSizeInst.
+  //
+  // The effect of returning false here is that the caller will assume that
+  // the allocation is not in a form that we can optimize, so this keeps us
+  // out of trouble.
+  if (Size == 0)
+    return false;
+
   // Is it a constant?
   uint64_t ConstSize;
   if (isValueConstant(Val, &ConstSize)) {
