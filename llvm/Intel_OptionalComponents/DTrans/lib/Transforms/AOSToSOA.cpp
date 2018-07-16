@@ -54,6 +54,13 @@ static cl::opt<unsigned>
     DTransAOSToSOAFrequencyThreshold("dtrans-aostosoa-frequency-threshold",
                                      cl::init(20), cl::ReallyHidden);
 
+// When set, this option causes the peeling index size to be 32-bits, instead of
+// the number of bits required to hold a pointer type, if possible. The safety
+// checks of dependent structures may prevent the index from being 32-bits, if
+// it is determined that those structures cannot have their sizes changed.
+static cl::opt<bool> DTransAOSToSOAIndex32("dtrans-aostosoa-index32",
+                                           cl::init(false), cl::ReallyHidden);
+
 namespace {
 // This class is used during the type remapping process to perform the
 // translation of a null value pointer to an integer index.
@@ -105,7 +112,12 @@ public:
                       Materializer) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
 
-    PeelIndexWidth = DL.getPointerSizeInBits();
+    // TODO: Move the initialization of these until after dependent data
+    // structures are checked for safety.
+    PointerShrinkingEnabled = DTransAOSToSOAIndex32;
+    PeelIndexWidth = PointerShrinkingEnabled ? 32 : DL.getPointerSizeInBits();
+    assert(PeelIndexWidth >= 32 && "Peeling index must be 32-bits or larger");
+
     PeelIndexType = Type::getIntNTy(Context, PeelIndexWidth);
     PtrSizedIntType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
     Int8PtrType = llvm::Type::getInt8PtrTy(Context);
@@ -358,10 +370,17 @@ public:
     if (NumIndices == 1) {
       // This will convert the GEP of case 1 from:
       //    %arrayidx = getelementptr %struct.t, %struct.t* %base, i64 %idx_in
-      // To:
+      //
+      // When the peeling index is not being shrunk, creates:
       //    %peelIdxAsInt = ptrtoint %struct.t* %base to i64
       //    %add = add i64 %peelIdxAsInt, %idx_in
       //    %arrayidx = inttoptr i64 %add to %struct.t*
+      //
+      // When the peeling index is being shrunk to 32-bits, creates:
+      //    %peelIdxAsInt = ptrtoint %struct.t* %base to i32
+      //    %trunc_idx = trunc i64 %idx_in to i32
+      //    %add = add i32 %peelIdxAsInt, %trunc_idx
+      //    %arrayidx = inttoptr i32 %add to %struct.t*
       //
       // Note: We do not use a named variable in the IR for this, the names are
       // just shown here to make the following code transformation clearer.
@@ -374,37 +393,34 @@ public:
       // conversion instruction here allows for values into and out of affected
       // instructions to be replaced without violating the type matching.
       Value *Src = GEP->getPointerOperand();
-      CastInst *PeelIdxAsInt = createCastToPeelIndexType(Src, GEP);
+      Value *PeelIdxAsInt = createCastToPeelIndexType(Src, GEP);
 
       // Indexing into an array allows the GEP index value to be an integer of
       // any width, sign-extend the smaller of the GEP index and our peeling
       // index to make the types compatible for addition.
       Value *GEPBaseIdx = GEP->getOperand(1);
+      llvm::Type *PeelIdxTy = getPeeledIndexType();
       uint64_t PeelIdxWidth = getPeeledIndexWidth();
-      uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
-      if (BaseIdxWidth < PeelIdxWidth) {
-        CastInst *SE = CastInst::Create(CastInst::SExt, GEPBaseIdx,
-                                        PeelIdxAsInt->getType());
-        SE->insertBefore(GEP);
-        GEPBaseIdx = SE;
-      } else if (PeelIdxWidth < BaseIdxWidth) {
-        // We don't expect a GEP index parameter to ever be larger than a
-        // pointer, assert to be sure.
-        assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
-               "Unsupported GEP index type");
-        CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
-                                        GEPBaseIdx->getType());
-        SE->insertBefore(GEP);
-        PeelIdxAsInt = SE;
-      }
 
-      BinaryOperator *Add = BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx);
+      // We should never have a GEP index member that is larger than the size of
+      // a pointer. If we do, then the indexing calculations will not work.
+      assert(DL.getTypeSizeInBits(GEPBaseIdx->getType()) <=
+                 DL.getTypeSizeInBits(getPtrSizedIntType()) &&
+        "Unsupported GEP index type");
+
+      // Match the base value to the size of peeling index. In the case where
+      // the peeling index is being shrunk, this will result in truncating the
+      // value, however that should be ok because by using the option, the user
+      // is asserting the value must fit within 32-bits.
+      GEPBaseIdx =
+          promoteOrTruncValueToWidth(GEPBaseIdx, PeelIdxWidth, PeelIdxTy, GEP);
+
+      Value *Add = BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", GEP);
 
       // We will steal the name of the GEP and put it on this instruction
       // because even if the replacement is going to be done via a cast
       // statement, the cast is going to eventually be eliminated anyway.
       Add->takeName(GEP);
-      Add->insertBefore(GEP);
 
       // Cast the computed peeled index back to the original pointer type, and
       // substitute this into the users. When the type remapping occurs, the
@@ -426,7 +442,7 @@ public:
       //    %elem_addr =
       //         getelementptr %struct.t, %struct.t* %base, i64 %idx_n, i32 1
       //
-      // To:
+      // When the peeling index is not being shrunk, creates:
       //    %peelIdxAsInt = ptrtoint %struct.test01* %base to i64
       //    %peel_base = getelementptr % __soa_struct.t,
       //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
@@ -434,6 +450,16 @@ public:
       //    %adjusted_idx = add i64 %peelIdxAsInt, %idx_n
       //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %adjusted_idx
       //
+      // When the peeling index is being shrunk to 32-bits, creates:
+      //    %peelIdxAsInt = ptrtoint %struct.test01* %base to i32
+      //    %peel_base = getelementptr % __soa_struct.t,
+      //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+      //    %soa_addr = load i32*, i32** %peel_base
+      //    %trunc_idx = trunc i64 %idx_n to i32
+      //    %adjusted_idx = add i32 %peelIdxAsInt, %trunc_idx
+      //    %zadjusted_idx = zext i32 %adjusted_idx to i64
+      //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %zadjusted_idx
+
       // In this case, the 2nd GEP index will always be the field number which
       // is a constant integer.
 
@@ -495,6 +521,21 @@ public:
     return ToInt;
   }
 
+  Value *promoteOrTruncValueToWidth(Value *V, uint64_t DstWidth,
+                                    llvm::Type *DstTy,
+                                    Instruction *InsertBefore) {
+    assert(DL.getTypeSizeInBits(DstTy) == DstWidth &&
+           "Target type size must match DstWdith");
+
+    uint64_t SrcWidth = DL.getTypeSizeInBits(V->getType());
+    if (SrcWidth < DstWidth)
+      return CastInst::Create(CastInst::SExt, V, DstTy, "", InsertBefore);
+    else if (DstWidth < SrcWidth)
+      return CastInst::Create(CastInst::Trunc, V, DstTy, "", InsertBefore);
+
+    return V;
+  }
+
   // Create and insert the instruction sequence that gets the address of a
   // specific element in the peeled structure.
   // \p PeelType is the peeled structure type.
@@ -505,12 +546,21 @@ public:
   // InsertBefore.
   // Returns the getelementptr instruction that represents the address.
   //
-  // Generates:
+  // When the peeling index is not being shrunk, creates:
   //    %peel_base = getelementptr % __soa_struct.t,
   //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
   //    %soa_addr = load i32*, i32** %peel_base
   //    %adjusted_idx = add i64 %peelIdxAsInt, %idx_n
   //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %adjusted_idx
+  //
+  // When the peeling index is being shrunk to 32-bits, creates:
+  //    %peel_base = getelementptr % __soa_struct.t,
+  //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  //    %trunc_idx = trunc i64 %idx_n to i32
+  //    %adjusted_idx = add i32 %peelIdxAsInt, %trunc_idx
+  //    %zadjusted_idx = zext i32 %adjusted_idx to i64
+  //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %zadjusted_idx
   Instruction *createGEPFieldAddressReplacement(
       llvm::StructType *PeelType, Value *PeelVar, Value *PeelIdxAsInt,
       Value *GEPBaseIdx, Value *GEPFieldNum, Instruction *InsertBefore) {
@@ -518,28 +568,12 @@ public:
     Instruction *SOAAddr =
         createPeelFieldLoad(PeelType, PeelVar, GEPFieldNum, InsertBefore);
     uint64_t PeelIdxWidth = getPeeledIndexWidth();
-    uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
-
-    if (PeelIdxWidth < BaseIdxWidth) {
-      // We don't expect a GEP index parameter to ever be larger than a
-      // pointer, assert to be sure.
-      assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
-             "Unsupported GEP index type");
-      CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
-                                      GEPBaseIdx->getType(), "", InsertBefore);
-      PeelIdxAsInt = SE;
-    }
 
     Value *AdjustedPeelIdxAsInt = PeelIdxAsInt;
     // If first index is not constant 0, then we need to index by that amount
     if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
-      if (BaseIdxWidth < PeelIdxWidth) {
-        CastInst *SE =
-            CastInst::Create(CastInst::SExt, GEPBaseIdx,
-                             PeelIdxAsInt->getType(), "", InsertBefore);
-        GEPBaseIdx = SE;
-      }
-
+      GEPBaseIdx = promoteOrTruncValueToWidth(
+          GEPBaseIdx, PeelIdxWidth, PeelIdxAsInt->getType(), InsertBefore);
       BinaryOperator *Add =
           BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", InsertBefore);
       AdjustedPeelIdxAsInt = Add;
@@ -552,6 +586,14 @@ public:
     // We know all elements of the peeled structure are pointer types.
     // Get the type that it points to.
     Type *FieldElementTy = cast<PointerType>(PeelFieldTy)->getElementType();
+
+    // Extend the index back to a 64-bit value for use in the GEP instruction
+    // because the pointer-type size used as the base is a 64-bit type.
+    if (isPointerShrinkingEnabled())
+      AdjustedPeelIdxAsInt =
+          CastInst::Create(CastInst::ZExt, AdjustedPeelIdxAsInt,
+                           getPtrSizedIntType(), "", InsertBefore);
+
     GetElementPtrInst *FieldGEP = GetElementPtrInst::Create(
         FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt, "", InsertBefore);
 
@@ -1341,6 +1383,8 @@ private:
   llvm::Type *getPtrSizedIntType() const { return PtrSizedIntType; }
   llvm::Type *getInt8PtrType() const { return Int8PtrType; }
 
+  bool isPointerShrinkingEnabled() const { return PointerShrinkingEnabled; }
+
   bool isTypeToTransform(llvm::Type *Ty) {
     if (!Ty->isStructTy())
       return false;
@@ -1457,6 +1501,7 @@ private:
   // variables hold the integer width and type that will used for the index.
   uint64_t PeelIndexWidth;
   llvm::Type *PeelIndexType;
+  bool PointerShrinkingEnabled;
 
   // Integer type that has the same size as a pointer type. This may be
   // different than the peel index type.
