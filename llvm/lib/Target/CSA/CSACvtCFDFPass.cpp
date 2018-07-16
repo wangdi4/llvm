@@ -2765,6 +2765,8 @@ bool CSACvtCFDFPass::needDynamicPreds() {
        BB != E; ++BB) {
     MachineBasicBlock *mbb = &*BB;
     if (!parentsLinearInCDG(mbb)) {
+      LLVM_DEBUG(dbgs() << "Using dynamic predication because parents of BB#"
+          << mbb->getNumber() << " are nonlinear.\n");
       return true;
     }
     unsigned nParent              = 0;
@@ -2776,15 +2778,19 @@ bool CSACvtCFDFPass::needDynamicPreds() {
       MachineBasicBlock *ctrlBB       = ctrlNode->getBlock();
       if (!ctrlBB)
         continue;
-      // ignore loop latch, keep looking beyond the loop
+      // A loop is control dependent on the exiting blocks of the loop. Ignore
+      // nodes that are exiting control blocks.
       if (MLI->getLoopFor(ctrlBB) &&
-          MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+          MLI->getLoopFor(ctrlBB)->isLoopExiting(ctrlBB))
         continue;
       nParent++;
     }
-    if (nParent > 1 && mbb->succ_size() > 1)
+    if (nParent > 1 && mbb->succ_size() > 1) {
       // the phi value will be used by the switch to define new values
+      LLVM_DEBUG(dbgs() << "Using dynamic predication because BB#"
+          << mbb->getNumber() << " has too many control-dependent parents.\n");
       return true;
+    }
   }
   return false;
 }
@@ -2796,22 +2802,25 @@ bool CSACvtCFDFPass::needDynamicPreds(MachineLoop *L) {
   }
   MachineLoop *mloop = L;
   // multiple exiting blocks
-  if (!mloop->getExitingBlock())
+  if (!L->getExitingBlock()) {
+    LLVM_DEBUG(dbgs() << L
+        << " has multiple exiting blocks, requires dynamic predication.\n");
     return true;
+  }
   MachineBasicBlock *lhdr = mloop->getHeader();
 
-  if (lhdr->pred_size() > 2)
+  if (lhdr->pred_size() > 2) {
+    LLVM_DEBUG(dbgs() << L << " has a header with more than two predecessors, "
+        "requires dynamic predication.\n");
     return true;
+  }
   // multiple backedges
   MachineBasicBlock *latch = mloop->getLoopLatch();
-  if (!latch)
+  if (!latch) {
+    LLVM_DEBUG(dbgs() << L << " has multiple backedges, "
+        "requires dynamic predication.\n");
     return true;
-#if 0
-  // both loop lattch and header are not exiting point
-  if (!mloop->isLoopExiting(mloop->getLoopLatch()) &&
-      !mloop->isLoopExiting(mloop->getHeader()))
-    return true;
-#endif
+  }
   return false;
 }
 
