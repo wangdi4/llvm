@@ -1634,8 +1634,13 @@ void CSACvtCFDFPass::assignLicForDF() {
               !TargetRegisterInfo::isVirtualRegister(MO->getReg()) ||
               (MRI->getRegClass(MO->getReg()) == &CSA::RI1RegClass))
             continue;
-          if (TII->isLIC(*MO, *MRI))
+          if (TII->isLIC(*MO, *MRI)) {
+            unsigned Reg = MO->getReg();
+            if (MRI->use_empty(Reg)) {
+              MI->substituteRegister(Reg, CSA::IGN, 0, *TRI);
+            }
             continue;
+          }
           unsigned Reg = MO->getReg();
           renameQueue.push_back(Reg);
         }
