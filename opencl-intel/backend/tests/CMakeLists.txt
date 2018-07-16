@@ -1,6 +1,5 @@
 add_subdirectory(type_conversion)
 add_subdirectory(debugger_test_type)
-add_subdirectory(metadata_api_test_type)
 
 include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
 

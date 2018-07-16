@@ -1,7 +1,6 @@
 ; ModuleID = 'metadatatest.cl'
-; The IR below was generated with the following command
+; The IR below was generated using the following OpenCL C source code
 ;
-; $ cat metadatatest.cl
 ; __attribute__((vec_type_hint(float)))
 ; __attribute__((work_group_size_hint(8,16,32)))
 ; __attribute__((reqd_work_group_size(1,2,4)))
@@ -10,6 +9,7 @@
 ;     return;
 ; }
 ;
+; The IR below was generated with the following command
 ; $ ./clang -cc1 -emit-llvm -O0 -x cl -triple spir64-unknown-unknown -cl-kernel-arg-info metadatatest.cl -o backend/metadata_api/tests/metadatatest.ll
 ;
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
