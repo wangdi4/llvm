@@ -83,6 +83,12 @@ static cl::opt<bool> IgnoreDataDeps{
            "ordering."),
   cl::init(false)};
 
+static cl::opt<bool> GateParams{
+  "csa-memop-ordering-gate-params", cl::Hidden,
+  cl::desc("CSA-specific: Gate parameters on the input ordering signal to "
+           "implicitly order more memops with the function entry."),
+  cl::init(false)};
+
 static cl::opt<bool> ViewMemopCFG{"csa-view-memop-cfg", cl::Hidden,
                                   cl::desc("CSA-specific: view memop CFG"),
                                   cl::init(false)};
@@ -723,6 +729,11 @@ private:
   // Calculates data dependencies, appending any that it finds to memops'
   // imp_deps field. Also called as part of calculate_imp_deps.
   void calculate_data_deps();
+
+  // Gates inputs on the incoming ordering edge. This is run at the end of
+  // emit_chains if parameter gating is enabled, and requires that the MI field
+  // of the initial fence-like mov is set.
+  void gate_parameters();
 };
 
 // A pass for filling out memory ordering operands on memory operations. Full
@@ -2636,7 +2647,7 @@ void MemopCFG::Node::emit_memops() {
   const CSAInstrInfo *TII = static_cast<const CSAInstrInfo *>(
     BB->getParent()->getSubtarget().getInstrInfo());
   const unsigned mov_opcode = TII->getMemTokenMOVOpcode();
-  for (const Memop &memop : memops) {
+  for (Memop &memop : memops) {
 
     // If this memop has a corresponding instruction, that instruction should
     // be updated.
@@ -2649,7 +2660,8 @@ void MemopCFG::Node::emit_memops() {
       ++MemopCount;
     }
 
-    // Otherwise, a new sxu mov0 should be emitted.
+    // Otherwise, a new sxu mov0 should be emitted. Update the MI field to point
+    // at the new instruction.
     else {
 
       // If is_start is set, it goes at the beginning of the block or after the
@@ -2660,16 +2672,20 @@ void MemopCFG::Node::emit_memops() {
             ? (memop.call_mi->getNextNode() ? memop.call_mi->getNextNode()
                                             : BB->getFirstTerminator())
             : BB->getFirstNonPHI();
-        BuildMI(*BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no)
-          .addUse(CSA::RA);
+        memop.MI =
+          BuildMI(*BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no)
+            .addUse(CSA::RA)
+            .getInstr();
       }
 
       // Otherwise, it goes at the end or before the call.
       else {
         const MachineBasicBlock::iterator where =
           memop.call_mi ? memop.call_mi : BB->getFirstTerminator();
-        BuildMI(*BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no)
-          .addUse(memop.ready ? memop.ready.reg_no() : unsigned(CSA::IGN));
+        memop.MI =
+          BuildMI(*BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no)
+            .addUse(memop.ready ? memop.ready.reg_no() : unsigned(CSA::IGN))
+            .getInstr();
       }
     }
   }
@@ -2964,7 +2980,7 @@ void MemopCFG::calculate_data_deps() {
     for (int idx = 0; idx != int(node->memops.size()); ++idx) {
       if (node->memops[idx].MI) {
         memops_for_insts.insert(
-            {node->memops[idx].MI, {node.get(), Dep::memop, idx}});
+          {node->memops[idx].MI, {node.get(), Dep::memop, idx}});
       }
     }
   }
@@ -2972,6 +2988,23 @@ void MemopCFG::calculate_data_deps() {
   // And keep track of which memops each machine instruction depends on. The
   // DepVec values here are maintained in sorted order.
   DenseMap<const MachineInstr *, DepVec> memop_deps;
+
+  // If parameters are gated, mark their dependence on the function entry here
+  // so that it can get propagated.
+  if (GateParams) {
+
+    // Find the fence-like mov representing the function entry, 0o0.
+    assert(not nodes.front()->memops.empty());
+    assert(not nodes.front()->memops.front().MI);
+    const DepVec entry_depvec{Dep{nodes.front().get(), Dep::memop, 0}};
+
+    // The function parameters are represented as live-ins at the
+    // MachineFunction level: iterate the virtual registers corresponding to
+    // them and mark their uses to depend on the entry mov.
+    for (const auto &livein : MRI.liveins())
+      for (const MachineInstr &use : MRI.use_nodbg_instructions(livein.second))
+        memop_deps[&use] = entry_depvec;
+  }
 
   // Adds dependencies to memop_deps for machine instructions in a given
   // node's basic block.
@@ -3196,6 +3229,51 @@ void MemopCFG::emit_chains() {
     node->emit_phis();
     node->emit_merges();
     node->emit_memops();
+  }
+
+  // Also gate parameters if parameter gating is requested.
+  if (GateParams)
+    gate_parameters();
+}
+
+void MemopCFG::gate_parameters() {
+  using std::next;
+
+  MachineFunction *const MF = nodes.front()->BB->getParent();
+  const CSASubtarget &ST =
+    static_cast<const CSASubtarget &>(MF->getSubtarget());
+  const CSAInstrInfo *const TII =
+    static_cast<const CSAInstrInfo *>(ST.getInstrInfo());
+  CSAMachineFunctionInfo *const LMFI = MF->getInfo<CSAMachineFunctionInfo>();
+  MachineRegisterInfo &MRI           = MF->getRegInfo();
+
+  // Grab the function-initial fence-like mov for both the lic to use in the
+  // gates and the place to put the gates.
+  assert(not nodes.front()->memops.empty());
+  const Memop &EntryMemop = nodes.front()->memops.front();
+  assert(EntryMemop.MI);
+  const unsigned EntryLIC     = EntryMemop.reg_no;
+  MachineBasicBlock *const BB = EntryMemop.MI->getParent();
+  const auto Where            = next(EntryMemop.MI->getIterator());
+
+  // Add a gate for each function parameter, replacing all uses of that
+  // parameter with the gated value.
+  for (const auto &LI : MRI.liveins()) {
+    const unsigned Param      = LI.second;
+    const StringRef ParamName = LMFI->getLICName(LI.second);
+    const unsigned Gated =
+      LMFI->allocateLIC(MRI.getRegClass(Param),
+                        ParamName.empty() ? Twine("") : ParamName + ".gate");
+    for (auto UI = MRI.use_begin(Param); UI != MRI.use_end();) {
+      MachineOperand &User = *UI++;
+      User.setReg(Gated);
+    }
+    BuildMI(
+      *BB, Where, DebugLoc{},
+      TII->get(TII->makeOpcode(CSA::Generic::GATE, LMFI->getLICSize(Param))),
+      Gated)
+      .addUse(EntryLIC)
+      .addUse(Param);
   }
 }
 
