@@ -123,12 +123,26 @@ namespace intel {
     if(nullptr != pNewVal) return pNewVal;
 
     // Handle constants
-    if(ConstantVector * pConstVec = dyn_cast<ConstantVector>(pVal)) {
-      // It must be a vector of equal i1 constants
-      ConstantInt * pOldConstInt = cast<ConstantInt>(pConstVec->getSplatValue());
-      ConstantInt * pNewConstInt = ConstantInt::getSigned(cast<IntegerType>(pNewTy->getScalarType()),
-                                                          pOldConstInt->getSExtValue());
-      pNewVal = ConstantVector::getSplat(pNewTy->getVectorNumElements(), pNewConstInt);
+    if (ConstantVector *pConstVec = dyn_cast<ConstantVector>(pVal)) {
+      if (Constant *pSplatValue = pConstVec->getSplatValue()) {
+        // It must be a vector of equal i1 constants
+        ConstantInt *pOldConstInt = cast<ConstantInt>(pSplatValue);
+        ConstantInt *pNewConstInt =
+            ConstantInt::getSigned(cast<IntegerType>(pNewTy->getScalarType()),
+                                   pOldConstInt->getSExtValue());
+        pNewVal = ConstantVector::getSplat(pNewTy->getVectorNumElements(),
+                                           pNewConstInt);
+      } else {
+        std::vector<Constant *> newVec;
+        newVec.reserve(pConstVec->getNumOperands());
+        for (Value *pElem : pConstVec->operands()) {
+          Value *pNewElem = makeSExtValue(pElem, pNewTy->getScalarType());
+          Constant *pNewElemC = dyn_cast<Constant>(pNewElem);
+          assert(pNewElemC != nullptr);
+          newVec.push_back(pNewElemC);
+        }
+        pNewVal = ConstantVector::get(newVec);
+      }
     }
     else if(isa<UndefValue>(pVal)) {
       // "sext i1 undef to i32" has only two possible values while for example "undef i32"
@@ -255,7 +269,7 @@ namespace intel {
     changed |= m_workSet.size() > 0;
 
     while(m_workSet.size() > 0) {
-      std::set<llvm::Instruction *>::iterator workIter = m_workSet.begin();
+      llvm::SetVector<llvm::Instruction *>::iterator workIter = m_workSet.begin();
       Instruction * pOldSExt = *workIter;
       Value * pOldOp = pOldSExt->getOperand(0);
       m_workSet.erase(workIter);

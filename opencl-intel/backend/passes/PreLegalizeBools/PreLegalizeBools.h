@@ -19,6 +19,7 @@ File Name:  PreLegalizeBools.h
 #ifndef __PRELEGALIZEBOOLS_PASS__H__
 #define __PRELEGALIZEBOOLS_PASS__H__
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/InstrTypes.h"
@@ -113,7 +114,7 @@ namespace intel {
     bool propagateSExt(llvm::Function &F);
 
     /// \brief List of detected patterns
-    std::set<llvm::Instruction *> m_workSet;
+    llvm::SetVector<llvm::Instruction *> m_workSet;
     /// \brief Cache to minimize redundant instructions
     std::map<llvm::Type *, std::map<llvm::Value *, llvm::Value *> > m_sextCache;
     /// \brief Set of Trunc instructions created by this pass
