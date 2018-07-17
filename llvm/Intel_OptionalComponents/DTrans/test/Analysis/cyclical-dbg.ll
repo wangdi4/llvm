@@ -1,4 +1,4 @@
-; RUN: opt < %s -whole-program-assume  -dtransanalysis -debug-only=dtransanalysis,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -dtransanalysis -debug-only=dtransanalysis,dtrans-lpa,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; test01 has a cyclic dependency between PHI nodes

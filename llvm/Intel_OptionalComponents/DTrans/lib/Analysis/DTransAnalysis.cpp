@@ -38,11 +38,20 @@ using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+// Debug type for basic local pointer analysis output.
+#define DTRANS_LPA "dtrans-lpa"
+
 // Debug type for verbose local pointer analysis output.
-#define LPA_VERBOSE "dtrans-lpa-verbose"
+#define DTRANS_LPA_VERBOSE "dtrans-lpa-verbose"
 
 // Debug type for verbose partial pointer load/store analysis output.
 #define DTRANS_PARTIALPTR "dtrans-partialptr"
+
+// Debug type for verbose field single value analysis output.
+#define DTRANS_FSV "dtrans-fsv"
+
+// Debug type for verbose field single alloc function analysis output.
+#define DTRANS_FSAF "dtrans-fsaf"
 
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
@@ -1533,8 +1542,8 @@ private:
     populateDependencyStack(V, DependentVals);
 
     // This first line is intentionally left non-verbose.
-    LLVM_DEBUG(dbgs() << "analyzeValue " << *V << "\n");
-    DEBUG_WITH_TYPE(LPA_VERBOSE, dumpDependencyStack(DependentVals));
+    DEBUG_WITH_TYPE(DTRANS_LPA, dbgs() << "analyzeValue " << *V << "\n");
+    DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, dumpDependencyStack(DependentVals));
 
     // Now attempt to analyze each of these values. Some may be left in a
     // partially analyzed state, but they will be fully resolved when
@@ -1545,20 +1554,20 @@ private:
       LocalPointerInfo &DepInfo = LocalMap[Dep];
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo.getAnalyzed()) {
-        DEBUG_WITH_TYPE(LPA_VERBOSE,
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                         dbgs() << "  Already analyzed: " << *Dep << "\n");
         continue;
       }
       analyzeValueImpl(Dep, DepInfo);
     }
 
-    DEBUG_WITH_TYPE(LPA_VERBOSE, {
+    DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, {
       if (Info.isPartialAnalysis())
         dbgs() << " Analysis completed but was reported as partial.\n";
     });
     // These are intentionally left non-verbose.
-    LLVM_DEBUG(Info.dump());
-    LLVM_DEBUG(dbgs() << "\n");
+    DEBUG_WITH_TYPE(DTRANS_LPA, Info.dump());
+    DEBUG_WITH_TYPE(DTRANS_LPA, dbgs() << "\n");
 
     // Some of the dependencies may have reported partial analysis, but
     // by the time we get here everything will have been complete for
@@ -1582,7 +1591,8 @@ private:
     }
 
     if (isPartialPtrBitCast(V)) {
-      LLVM_DEBUG(dbgs() << "Partial pointer bitcast detected: " << *V << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA, dbgs() << "Partial pointer bitcast detected: "
+                                         << *V << "\n");
       Info.setPartialPtrLoadStore();
       Info.setAnalyzed();
       return;
@@ -1837,8 +1847,9 @@ private:
     TargetInfo.merge(OperandInfo);
     if (!OperandInfo.getAnalyzed()) {
       TargetInfo.setPartialAnalysis(true);
-      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis merged from "
-                                          << *Op << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                      dbgs()
+                          << "Incomplete analysis merged from " << *Op << "\n");
     }
   }
 
@@ -1865,15 +1876,16 @@ private:
       // incompleteness and continue.
       if (!SrcLPI.getAnalyzed()) {
         Info.setPartialAnalysis(true);
-        DEBUG_WITH_TYPE(LPA_VERBOSE,
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                         dbgs() << "Incomplete analysis collected from "
                                << *SrcVal << "\n");
       }
       // If the bitcast is part of an idiom where pointer values are copied
       // in smaller chunks, don't treat it like other bitcasts.
       if (isPartialPtrBitCast(V)) {
-        LLVM_DEBUG(dbgs() << "Partial pointer bitcast detected: " << *V
-                          << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA,
+                        dbgs() << "Partial pointer bitcast detected: " << *V
+                               << "\n");
         Info.setPartialPtrLoadStore();
         // Even if the input was partial, this is all we needed to know.
         Info.setAnalyzed();
@@ -1944,9 +1956,9 @@ private:
       // incompleteness and continue.
       if (!BaseLPI.getAnalyzed()) {
         Info.setPartialAnalysis(true);
-        DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs()
-                                         << "Incomplete analysis derived from "
-                                         << *BasePointer << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                        dbgs() << "Incomplete analysis derived from "
+                               << *BasePointer << "\n");
       }
       Info.merge(BaseLPI);
       return;
@@ -2026,8 +2038,9 @@ private:
     // incompleteness and continue.
     if (!BaseLPI.getAnalyzed()) {
       Info.setPartialAnalysis(true);
-      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
-                                          << *BasePointer << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                      dbgs() << "Incomplete analysis derived from "
+                             << *BasePointer << "\n");
     }
 
     // If we can't compute a constant offset, we won't be able to
@@ -2142,8 +2155,9 @@ private:
     // incompleteness and continue.
     if (!SrcLPI.getAnalyzed()) {
       Info.setPartialAnalysis(true);
-      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
-                                          << *Src << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                      dbgs() << "Incomplete analysis derived from " << *Src
+                             << "\n");
     }
     for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
       if (AliasTy->isPointerTy() &&
@@ -2182,8 +2196,9 @@ private:
   // bitcast and, unless it looks like an element zero access, add that type
   // as an alias of the allocated pointer.
   void analyzeAllocationCallAliases(CallSite CS, LocalPointerInfo &Info) {
-    LLVM_DEBUG(dbgs() << "dtrans: Analyzing allocation call.\n  "
-                      << *CS.getInstruction() << "\n");
+    DEBUG_WITH_TYPE(DTRANS_LPA, dbgs()
+                                    << "dtrans: Analyzing allocation call.\n  "
+                                    << *CS.getInstruction() << "\n");
     SmallPtrSet<llvm::PointerType *, 4> CastTypes;
     SmallPtrSet<Value *, 4> VisitedUsers;
     bool IsPartial = false;
@@ -2243,7 +2258,8 @@ private:
         // would be done with the PtrToInt instruction.
         auto PtrTy = cast<PointerType>(BI->getType());
 
-        LLVM_DEBUG(dbgs() << "  Associated bitcast: " << *BI << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA,
+                        dbgs() << "  Associated bitcast: " << *BI << "\n");
 
         // Save the type information.
         CastTypes.insert(PtrTy);
@@ -2337,7 +2353,7 @@ private:
   // function against the inferred alias set and report any
   // mismatches there.
   void analyzePossibleVoidPtrArgument(Value *V, LocalPointerInfo &Info) {
-    DEBUG_WITH_TYPE(LPA_VERBOSE,
+    DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                     dbgs() << "dtrans: Analyzing function argument.\n");
     SmallPtrSet<llvm::PointerType *, 4> CastTypes;
     SmallPtrSet<Value *, 4> VisitedUsers;
@@ -2382,7 +2398,9 @@ private:
       // If the user is a cast, that's what we're looking for.
       if (auto *Cast = dyn_cast<CastInst>(U)) {
         if (isPartialPtrBitCast(U)) {
-          LLVM_DEBUG(dbgs() << "Found partial pointer bitcast: " << *U << "\n");
+          DEBUG_WITH_TYPE(DTRANS_LPA,
+                          dbgs() << "Found partial pointer bitcast: " << *U
+                                 << "\n");
           continue;
         }
         // We want to follow the uses through PointerToInt casts, but they
@@ -2390,7 +2408,7 @@ private:
         // PtrToInt, IntToPtr, and BitCast. If the result is a pointer
         // type, we want to add it to the alias set.
         if (auto *PtrTy = dyn_cast<PointerType>(Cast->getType())) {
-          DEBUG_WITH_TYPE(LPA_VERBOSE,
+          DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                           dbgs() << "  Argument cast: " << *Cast << "\n");
           // Save the type information.
           CastTypes.insert(PtrTy);
@@ -2413,13 +2431,13 @@ private:
       // set will continue to work as expected.)
       if (auto CS = CallSite(U)) {
         if (isValueInt8PtrType(V)) {
-          DEBUG_WITH_TYPE(LPA_VERBOSE,
+          DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                           dbgs() << "Analyzing use in call instruction: "
                                  << *CS.getInstruction() << "\n");
           Function *F =
               dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
           if (!F) {
-            DEBUG_WITH_TYPE(LPA_VERBOSE,
+            DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                             dbgs() << "Unable to get called function!\n");
             continue;
           }
@@ -2430,7 +2448,7 @@ private:
           unsigned NumArgs = F->getFunctionType()->getNumParams();
           for (unsigned ArgNo = 0; ArgNo < NumArgs; ++ArgNo) {
             if (CS.getArgOperand(ArgNo) == V) {
-              DEBUG_WITH_TYPE(LPA_VERBOSE,
+              DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                               dbgs() << "Analyzing function argument: "
                                      << F->getName() << " @ " << ArgNo << "\n");
               Argument *Arg = F->arg_begin();
@@ -2757,14 +2775,9 @@ public:
       if (FormalType == ActualType || checkUsersType(FormalVal, ActualType))
         return;
     } else if (!ActualType || !DTInfo.isTypeOfInterest(ActualType) ||
-               isVarArgSameType(F, ActualType))
+               isVarArgSameType(F, ActualType)) {
       return;
-
-    if (FormalType && DTInfo.isTypeOfInterest(FormalType))
-      setBaseTypeInfoSafetyData(FormalType, dtrans::MismatchedArgUse);
-
-    if (ActualType && DTInfo.isTypeOfInterest(ActualType))
-      setBaseTypeInfoSafetyData(ActualType, dtrans::MismatchedArgUse);
+    }
 
     // Print debug information if "Mismatched argument use" was set either
     // in the formal or actual Type.
@@ -2789,6 +2802,12 @@ public:
         dbgs() << "\n";
       }
     });
+
+    if (FormalType && DTInfo.isTypeOfInterest(FormalType))
+      setBaseTypeInfoSafetyData(FormalType, dtrans::MismatchedArgUse);
+
+    if (ActualType && DTInfo.isTypeOfInterest(ActualType))
+      setBaseTypeInfoSafetyData(ActualType, dtrans::MismatchedArgUse);
   }
 
   // FIXME: unify with checkArgTypeMismatch.
@@ -4297,11 +4316,15 @@ private:
       int Count = 0;
       for (auto &FI : StInfo->getFields()) {
         Constant *NV = llvm::Constant::getNullValue(FI.getLLVMType());
-        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                          << Count << "] ");
-        LLVM_DEBUG(NV->printAsOperand(dbgs()));
+        DEBUG_WITH_TYPE(DTRANS_FSV, {
+          dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " [" << Count
+                 << "] ";
+          NV->printAsOperand(dbgs());
+        });
         FI.processNewSingleValue(NV);
-        LLVM_DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+        DEBUG_WITH_TYPE(DTRANS_FSV,
+                        dbgs()
+                            << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
         analyzeCallocSingleValue(ComponentTI);
         ++Count;
@@ -4565,16 +4588,17 @@ private:
             FI.setRead(true);
             accumulateFrequency(FI, I);
             if (!isSafeLoadForSingleAllocFunction(&I)) {
-              if (!FI.isBottomAllocFunction())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <BOTTOM>\n");
+              DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                if (!FI.isBottomAllocFunction())
+                  dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <BOTTOM>\n";
+              });
               FI.setBottomAllocFunction();
             }
           } else {
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
               if (FI.processNewSingleValue(ConstVal)) {
-                LLVM_DEBUG({
+                DEBUG_WITH_TYPE(DTRANS_FSV, {
                   dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType());
                   if (FI.isSingleValue())
                     ConstVal->printAsOperand(dbgs());
@@ -4584,22 +4608,24 @@ private:
                 });
               }
               if (!isa<ConstantPointerNull>(WriteVal)) {
-                if (!FI.isBottomAllocFunction())
-                  LLVM_DEBUG(dbgs() << "dtrans-fsaf: "
-                                    << *(ParentStInfo->getLLVMType()) << " ["
-                                    << PointeePair.second << "] <BOTTOM>\n");
+                DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                  if (!FI.isBottomAllocFunction())
+                    dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <BOTTOM>\n";
+                });
                 FI.setBottomAllocFunction();
               }
             } else if (auto CS = CallSite(WriteVal)) {
-              if (!FI.isMultipleValue())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <MULTIPLE>\n");
+              DEBUG_WITH_TYPE(DTRANS_FSV, {
+                if (!FI.isMultipleValue())
+                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <MULTIPLE>\n";
+              });
               FI.setMultipleValue();
               if (isSafeStoreForSingleAllocFunction(CS)) {
                 Function *Callee = CS.getCalledFunction();
                 if (FI.processNewSingleAllocFunction(Callee)) {
-                  LLVM_DEBUG({
+                  DEBUG_WITH_TYPE(DTRANS_FSAF, {
                     dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
                            << " [" << PointeePair.second << "] ";
                     if (FI.isSingleAllocFunction())
@@ -4610,22 +4636,25 @@ private:
                   });
                 }
               } else {
-                if (!FI.isBottomAllocFunction())
-                  LLVM_DEBUG(dbgs() << "dtrans-fsaf: "
-                                    << *(ParentStInfo->getLLVMType()) << " ["
-                                    << PointeePair.second << "] <BOTTOM>\n");
+                DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                  if (!FI.isBottomAllocFunction())
+                    dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <BOTTOM>\n";
+                });
                 FI.setBottomAllocFunction();
               }
             } else {
-              if (!FI.isMultipleValue())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <MULTIPLE>\n");
+              DEBUG_WITH_TYPE(DTRANS_FSV, {
+                if (!FI.isMultipleValue())
+                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <MULTIPLE>\n";
+              });
               FI.setMultipleValue();
-              if (!FI.isBottomAllocFunction())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <BOTTOM>\n");
+              DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                if (!FI.isBottomAllocFunction())
+                  dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <BOTTOM>\n";
+              });
               FI.setBottomAllocFunction();
             }
             FI.setWritten(true);
@@ -4870,8 +4899,9 @@ private:
 
     for (; FieldNum <= LastField; ++FieldNum) {
       auto &FInfo = SInfo->getField(FieldNum);
-      LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType()) << " ["
-                        << FieldNum << "] <MULTIPLE>\n");
+      DEBUG_WITH_TYPE(DTRANS_FSV,
+                      dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType())
+                             << " [" << FieldNum << "] <MULTIPLE>\n");
 
       if (IsNullValue && (FieldNum != LastField || !LastFieldPartialAccess)) {
         // If setting a null value and the last field is not accessed
@@ -5591,20 +5621,25 @@ private:
         llvm::Constant *ConstVal = Init->getAggregateElement(I);
         dtrans::FieldInfo &FI = StInfo->getField(I);
         analyzeGlobalStructSingleValue(FieldTy, ConstVal);
-        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                          << I << "] ");
+        DEBUG_WITH_TYPE(DTRANS_FSV,
+                        dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())
+                               << " [" << I << "] ");
         if (ConstVal->getType() == FieldTy) {
-          LLVM_DEBUG(ConstVal->printAsOperand(dbgs()));
+          DEBUG_WITH_TYPE(DTRANS_FSV, ConstVal->printAsOperand(dbgs()));
           FI.processNewSingleValue(ConstVal);
-          LLVM_DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+          DEBUG_WITH_TYPE(
+              DTRANS_FSV,
+              dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
         } else {
-          LLVM_DEBUG(dbgs() << "<MULTIPLE>\n");
+          DEBUG_WITH_TYPE(DTRANS_FSV, dbgs() << "<MULTIPLE>\n");
           FI.setMultipleValue();
         }
         if (!isa<ConstantPointerNull>(ConstVal)) {
-          if (!FI.isBottomAllocFunction())
-            LLVM_DEBUG(dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType())
-                              << " [" << I << "] <BOTTOM>\n");
+          DEBUG_WITH_TYPE(DTRANS_FSAF, {
+            if (!FI.isBottomAllocFunction())
+              dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " [" << I
+                     << "] <BOTTOM>\n";
+          });
           FI.setBottomAllocFunction();
         }
       }
@@ -5633,8 +5668,9 @@ private:
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       int Count = 0;
       for (auto &FI : StInfo->getFields()) {
-        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                          << Count << "] <MULTIPLE>\n");
+        DEBUG_WITH_TYPE(DTRANS_FSV,
+                        dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())
+                               << " [" << Count << "] <MULTIPLE>\n");
         if (IsNullValue)
           FI.processNewSingleValue(Constant::getNullValue(FI.getLLVMType()));
         else {
@@ -6293,10 +6329,8 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
                                  Other.ByteFlattenedGEPInfoMap.end());
   PaddedMallocSize = Other.getPaddedMallocSize();
   PaddedMallocInterface = Other.getPaddedMallocInterface();
-  StoreInfoMap.insert(Other.StoreInfoMap.begin(),
-                      Other.StoreInfoMap.end());
-  LoadInfoMap.insert(Other.LoadInfoMap.begin(),
-                     Other.LoadInfoMap.end());
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -6312,10 +6346,8 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
                                  Other.ByteFlattenedGEPInfoMap.end());
-  StoreInfoMap.insert(Other.StoreInfoMap.begin(),
-                      Other.StoreInfoMap.end());
-  LoadInfoMap.insert(Other.LoadInfoMap.begin(),
-                     Other.LoadInfoMap.end());
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
   PaddedMallocSize = Other.getPaddedMallocSize();
   PaddedMallocInterface = Other.getPaddedMallocInterface();
   MaxTotalFrequency = Other.MaxTotalFrequency;
