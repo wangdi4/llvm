@@ -1,4 +1,5 @@
 ; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -S 2>&1 | FileCheck %s
+; REQUIRES: csa-registered-target
 ;
 target triple = "csa"
 
