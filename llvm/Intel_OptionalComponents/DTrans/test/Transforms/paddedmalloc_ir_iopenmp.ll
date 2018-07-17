@@ -2,7 +2,7 @@
 ; global counter and the interface correctly, and modified the malloc
 ; function successfully when -fiopenmp is used.
 
-; RUN: opt  < %s -whole-program-assume -vpo-paropt -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtrans-test-paddedmalloc -vpo-paropt -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 
@@ -68,14 +68,14 @@ DIR.OMP.END.PARALLEL.EXIT:
 
 ; Verify that the counter was set correctly
 ; CHECK-LABEL: define internal noalias i8* @mallocFunc(i64) {
-; CHECK:   %2 = load atomic i32, i32* @PaddedMallocCounter seq_cst, align 4
+; CHECK:   %2 = load atomic i32, i32* @__Intel_PaddedMallocCounter seq_cst, align 4
 ; CHECK:   %3 = icmp ult i32 %2, 250
 ; CHECK:   br i1 %3, label %BBif, label %BBelse
 ;
 ; CHECK-LABEL: BBif:                                             ; preds = %1
 ; CHECK:   %4 = add i64 %0, 32
 ; CHECK:   %5 = tail call noalias i8* @malloc(i64 %4)
-; CHECK:   %6 = atomicrmw add i32* @PaddedMallocCounter, i32 1 seq_cst
+; CHECK:   %6 = atomicrmw add i32* @__Intel_PaddedMallocCounter, i32 1 seq_cst
 ; CHECK:   br label %8
 ;
 ; CHECK-LABEL: BBelse:                                           ; preds = %1
@@ -140,10 +140,11 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK: }
 
 ; Verify that the interface was created
-; CHECK-LABEL: define i1 @PaddedMallocInterface() {
+; CHECK-LABEL: define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize !2 {
 ; CHECK-LABEL: entry:
-; CHECK:   %0 = load i32, i32* @PaddedMallocCounter
+; CHECK:   %0 = load i32, i32* @__Intel_PaddedMallocCounter
 ; CHECK:   %1 = icmp ult i32 %0, 250
 ; CHECK:   ret i1 %1
 ; CHECK: }
 
+; CHECK: !2 = !{i32 32}

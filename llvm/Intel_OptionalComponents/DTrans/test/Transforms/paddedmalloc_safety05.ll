@@ -1,9 +1,11 @@
-; REQUIRES: asserts
+; This test checks that if the DTrans padded malloc optimization
+; isn't applied, the generated global variable and interface
+; are removed from the IR.
 
-; Test that identifies if the DTrans padded malloc optimization
-; didn't found a malloc function.
-
-; RUN: opt  -whole-program-assume < %s -dtrans-paddedmalloc -dtrans-test-paddedmalloc  -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-test-paddedmalloc -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-test-paddedmalloc -passes=dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-test-paddedmalloc -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-test-paddedmalloc -passes="dtrans-paddedmalloc,padded-pointer-prop" -S 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 
@@ -40,6 +42,8 @@ define i32 @main() {
   ret i32 0
 }
 
-; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc
-; CHECK: dtrans-paddedmalloc: Identifying alloc functions
-; CHECK: No alloc functions found
+; Verify that the interface isn't in the IR
+; CHECK-NOT: @__Intel_PaddedMallocInterface
+
+; Verify that the counter isn't in the IR
+; CHECK-NOT: @__Intel_PaddedMallocCounter

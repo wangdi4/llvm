@@ -3,8 +3,8 @@
 ; global counter and the interface correctly, and modified the malloc
 ; function successfully.
 
-; RUN: opt < %s -whole-program-assume -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes=dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-paddedmalloc -dtrans-test-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes=dtrans-paddedmalloc -dtrans-test-paddedmalloc  -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-paddedmalloc -padded-pointer-prop -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
 ; RUN: opt < %s -whole-program-assume -passes="dtrans-paddedmalloc,padded-pointer-prop" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
 
@@ -15,7 +15,7 @@
 @arr2 = internal global [10 x i32] zeroinitializer, align 16
 
 ; Verify that the counter was set correctly
-; CHECK: @PaddedMallocCounter = internal global i32 0
+; CHECK: @__Intel_PaddedMallocCounter = internal global i32 0
 
 ; Verify that the padding was set correctly
 ; CHECK-PROP: [[PADD:@.*]] = private unnamed_addr constant [16 x i8] c"padded 32 bytes\00"
@@ -27,14 +27,14 @@ declare void @free(i8* nocapture)
 ; Malloc function
 define internal noalias i8* @mallocFunc(i64) {
 ; CHECK-LABEL: @mallocFunc(
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* @PaddedMallocCounter
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* @__Intel_PaddedMallocCounter
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i32 [[TMP2]], 250
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[BBIF:%.*]], label [[BBELSE:%.*]]
 ; CHECK:       BBif:
 ; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[TMP0:%.*]], 32
 ; CHECK-NEXT:    [[TMP5:%.*]] = tail call noalias i8* @malloc(i64 [[TMP4]])
 ; CHECK-NEXT:    [[TMP6:%.*]] = add i32 1, [[TMP2]]
-; CHECK-NEXT:    store i32 [[TMP6]], i32* @PaddedMallocCounter
+; CHECK-NEXT:    store i32 [[TMP6]], i32* @__Intel_PaddedMallocCounter
 ; CHECK-NEXT:    br label [[TMP8:%.*]]
 ; CHECK:       BBelse:
 ; CHECK-NEXT:    [[TMP7:%.*]] = tail call noalias i8* @malloc(i64 [[TMP0]])
@@ -104,9 +104,12 @@ define i32 @main() {
 }
 
 ; Verify that the interface was created correctly
-; CHECK: define i1 @PaddedMallocInterface() {
+; CHECK: define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize !0 {
 ; CHECK: entry:
-; CHECK:   %0 = load i32, i32* @PaddedMallocCounter
+; CHECK:   %0 = load i32, i32* @__Intel_PaddedMallocCounter
 ; CHECK:   %1 = icmp ult i32 %0, 250
 ; CHECK:   ret i1 %1
 ; CHECK: }
+
+; CHECK: !0 = !{i32 32}
+

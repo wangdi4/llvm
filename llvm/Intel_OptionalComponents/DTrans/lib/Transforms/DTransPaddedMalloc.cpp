@@ -38,6 +38,11 @@ static cl::opt<unsigned> DTransPaddedMallocLimit("dtrans-paddedmalloc-limit",
 // Set the size used to increase the memory allocation for padded malloc
 static cl::opt<unsigned> DTransPaddedMallocSize("dtrans-paddedmalloc-size",
                                                 cl::init(32), cl::ReallyHidden);
+
+// Build the global variable and interface if true. Used for testing purposes.
+static cl::opt<bool> DTransTestPaddedMalloc("dtrans-test-paddedmalloc",
+                                            cl::init(false), cl::ReallyHidden);
+
 namespace {
 
 class DTransPaddedMallocWrapper : public ModulePass {
@@ -116,82 +121,10 @@ bool dtrans::PaddedMallocPass::applyPaddedMalloc(
   // and the global variable from the symbol table
   if (!FuncMod) {
     LLVM_DEBUG(dbgs() << "\tNone of the functions were updated\n");
-    PMFunc->eraseFromParent();
-    GlobalCounter->eraseFromParent();
+    PaddedMallocData.destroyGlobalsInfo(*M);
   }
 
-  DTInfo.setPaddedMallocInfo(DTransPaddedMallocSize, PMFunc);
-
   return FuncMod;
-}
-
-// Build the global variable related to padded malloc in the input Module and
-// return it. This variable is a counter that identifies if the padded malloc
-// will be used or not.
-GlobalVariable *
-dtrans::PaddedMallocPass::buildGlobalVariableCounter(Module &M) {
-
-  IRBuilder<> Builder(M.getContext());
-  ConstantInt *initVal = Builder.getInt32(0);
-
-  GlobalVariable *PaddedMallocVar = new GlobalVariable(
-      M, Builder.getInt32Ty(), false, GlobalValue::InternalLinkage, initVal,
-      DTransPaddedMallocVar, nullptr, GlobalValue::NotThreadLocal, 0, false);
-
-  // The constructor for a new GlobalVariable will automatically
-  // generate an unique name if the variable's name has been used
-  // already. If this name changes then the value of
-  // DTransPaddedMallocVar must be updated.
-  DTransPaddedMallocVar = PaddedMallocVar->getName();
-
-  LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Global variable: "
-                    << PaddedMallocVar->getName() << "\n");
-
-  return PaddedMallocVar;
-}
-
-// Build an interface function in the input Module that checks
-// if the input GlobalVariable hasn't reached the limit, and
-// return the created function. The interface will look like this:
-//
-// define i1 @pmCounterCheck() {
-//   %0 = load i32, i32* @PaddedMallocCounter
-//   %1 = icmp ult i32 %1, 250
-//   ret i1 %1
-// }
-//
-// The function pmCounterCheck will return true if _pm_counter is
-// lower that the limit (250 in this case), else return false.
-Function *dtrans::PaddedMallocPass::buildInterfaceFunction(
-    Module *M, GlobalVariable *GlobalCounter) {
-
-  IRBuilder<> Builder(M->getContext());
-
-  // Create the function first
-  FunctionType *funcType = FunctionType::get(Builder.getInt1Ty(), false);
-  Function *PMFunction = Function::Create(funcType, Function::ExternalLinkage,
-                                          DTransPaddedMallocFunc, M);
-
-  // Create the entry BasicBlock
-  BasicBlock *entry = BasicBlock::Create(M->getContext(), "entry", PMFunction);
-
-  Builder.SetInsertPoint(entry);
-
-  // Insert the conditional for testing
-  Value *PMLimitVal = Builder.getInt32(DTransPaddedMallocLimit);
-  LoadInst *load = Builder.CreateLoad(GlobalCounter);
-  Value *Cmp = Builder.CreateICmpULT(load, PMLimitVal);
-
-  Builder.CreateRet(Cmp);
-
-  // Update the name stored for the padded malloc interface
-  // in case the name wasn't unique and the constructor
-  // modified it.
-  DTransPaddedMallocFunc = PMFunction->getName();
-
-  LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Interface function: "
-                    << DTransPaddedMallocFunc << "\n");
-  return PMFunction;
 }
 
 // Trace through the Users of the input Instruction and return true if
@@ -655,20 +588,40 @@ bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   LLVM_DEBUG(dbgs() << "dtrans-paddedmalloc: Trace for DTrans Padded Malloc"
                     << "\n");
 
+  if (DTransTestPaddedMalloc) {
+    PaddedMallocData.buildGlobalsInfo(M);
+  } else if (!PaddedMallocData.isPaddedMallocDataAvailable(M)) {
+    // Make sure everything is destroyed in case the data related to
+    // padded malloc isn't set properly
+    PaddedMallocData.destroyGlobalsInfo(M);
+    LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Padded malloc disabled\n");
+    return false;
+  }
+
   // Collect the functions that padded malloc can be applied
   std::vector<PaddedMallocFunc> PaddedMallocVect;
   if (!findFieldSingleValueFuncs(DTInfo, PaddedMallocVect)) {
+    PaddedMallocData.destroyGlobalsInfo(M);
     return false;
   }
 
   // Look for search loops
   if (!findSearchLoops(M, GetLI)) {
+    PaddedMallocData.destroyGlobalsInfo(M);
     return false;
   }
 
-  // Build the global counter and the interface to access it
-  GlobalVariable *GlobalCounter = buildGlobalVariableCounter(M);
-  Function *PMFunc = buildInterfaceFunction(&M, GlobalCounter);
+  GlobalVariable *GlobalCounter = PaddedMallocData.getPaddedMallocVariable(M);
+  Function *PMFunc = PaddedMallocData.getPaddedMallocInterface(M);
+
+  assert(GlobalCounter && "dtrans-paddedmalloc: Variable not generated");
+  assert(PMFunc && "dtrans-paddedmalloc: Interface not generated");
+
+  LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Global variable: "
+                    << GlobalCounter->getName() << "\n");
+
+  LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Interface function: "
+                    << PMFunc->getName() << "\n");
 
   checkForParallelRegion(M, PaddedMallocVect);
 
@@ -698,4 +651,165 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
   PA.preserve<WholeProgramAnalysis>();
   PA.preserve<DTransAnalysis>();
   return PA;
+}
+
+// Implementation of the PaddedMallocGlobals class
+
+// Build the global variable and interface that will be used for
+// padded malloc
+void dtrans::PaddedMallocGlobals::buildGlobalsInfo(Module &M) {
+
+  buildGlobalVariableCounter(M);
+  buildInterfaceFunction(M);
+
+  Function *PaddedMallocFunc = getPaddedMallocInterface(M);
+
+  assert(PaddedMallocFunc && "dtrans-paddedmalloc: Interface not found");
+
+  LLVMContext &Context = PaddedMallocFunc->getContext();
+
+  // Build the integer
+  IntegerType *Int32Ty = Type::getInt32Ty(M.getContext());
+  ConstantInt *ConstInt =
+      ConstantInt::get(Int32Ty, DTransPaddedMallocSize, false /*isSigned*/);
+
+  // Create the node
+  MDNode *Node = MDNode::get(Context, ConstantAsMetadata::get(ConstInt));
+
+  // Set metadata
+  PaddedMallocFunc->setMetadata("dtrans.paddedmallocsize", Node);
+}
+
+// Build the global variable related to padded malloc in the input Module and
+// return it. This variable is a counter that identifies if the padded malloc
+// will be used or not.
+void dtrans::PaddedMallocGlobals::buildGlobalVariableCounter(Module &M) {
+
+  GlobalVariable *PaddedMallocVar = M.getGlobalVariable(
+      "__Intel_PaddedMallocCounter", true /*AllowInternal*/);
+
+  // Check if the global variable was created already
+  if (PaddedMallocVar)
+    return;
+
+  IRBuilder<> Builder(M.getContext());
+  ConstantInt *initVal = Builder.getInt32(0);
+
+  PaddedMallocVar = new GlobalVariable(M, Builder.getInt32Ty(), false,
+                                       GlobalValue::InternalLinkage, initVal,
+                                       "__Intel_PaddedMallocCounter", nullptr,
+                                       GlobalValue::NotThreadLocal, 0, false);
+
+  LLVM_DEBUG(
+      assert(PaddedMallocVar && "dtrans-paddedmalloc: Variable not generated"));
+}
+
+// Build an interface function in the input Module that checks
+// if the input GlobalVariable hasn't reached the limit, and
+// return the created function. The interface will look like this:
+//
+// define i1 @pmCounterCheck() {
+//   %0 = load i32, i32* @PaddedMallocCounter
+//   %1 = icmp ult i32 %1, 250
+//   ret i1 %1
+// }
+//
+// The function pmCounterCheck will return true if _pm_counter is
+// lower that the limit (250 in this case), else return false.
+void dtrans::PaddedMallocGlobals::buildInterfaceFunction(Module &M) {
+
+  Function *PMFunction = M.getFunction("__Intel_PaddedMallocInterface");
+
+  // Check if the global interface was created
+  if (PMFunction)
+    return;
+
+  IRBuilder<> Builder(M.getContext());
+
+  GlobalVariable *GlobalCounter = M.getGlobalVariable(
+      "__Intel_PaddedMallocCounter", true /*AllowInternal*/);
+
+  // Create the function first
+  FunctionType *funcType = FunctionType::get(Builder.getInt1Ty(), false);
+  PMFunction = Function::Create(funcType, Function::ExternalLinkage,
+                                "__Intel_PaddedMallocInterface", &M);
+
+  // Create the entry BasicBlock
+  BasicBlock *entry = BasicBlock::Create(M.getContext(), "entry", PMFunction);
+
+  Builder.SetInsertPoint(entry);
+
+  // Insert the conditional for testing
+  Value *PMLimitVal = Builder.getInt32(DTransPaddedMallocLimit);
+  LoadInst *load = Builder.CreateLoad(GlobalCounter);
+  Value *Cmp = Builder.CreateICmpULT(load, PMLimitVal);
+
+  Builder.CreateRet(Cmp);
+
+  LLVM_DEBUG(
+      assert(PMFunction && "dtrans-paddedmalloc: Interface not generated"));
+}
+
+// Remove from the IR the global counter and interface that was generated for
+// padded malloc.
+void dtrans::PaddedMallocGlobals::destroyGlobalsInfo(Module &M) {
+
+  Function *PMFunc = getPaddedMallocInterface(M);
+  GlobalVariable *GlobalCounter = getPaddedMallocVariable(M);
+
+  if (PMFunc)
+    PMFunc->eraseFromParent();
+
+  if (GlobalCounter)
+    GlobalCounter->eraseFromParent();
+}
+
+// Return the interface generated by padded malloc optimization
+Function *dtrans::PaddedMallocGlobals::getPaddedMallocInterface(Module &M) {
+
+  Function *PaddedMallocInterface =
+      M.getFunction("__Intel_PaddedMallocInterface");
+
+  return PaddedMallocInterface;
+}
+
+// Return the global variable generated by padded malloc optimization
+GlobalVariable *
+dtrans::PaddedMallocGlobals::getPaddedMallocVariable(Module &M) {
+
+  GlobalVariable *PaddedMallocVariable = M.getGlobalVariable(
+      "__Intel_PaddedMallocCounter", true /*AllowInternal*/);
+
+  return PaddedMallocVariable;
+}
+
+// Return the size used in the padded malloc optimizaton
+unsigned dtrans::PaddedMallocGlobals::getPaddedMallocSize(Module &M) {
+
+  Function *PaddedMallocFunc = M.getFunction("__Intel_PaddedMallocInterface");
+
+  if (!PaddedMallocFunc)
+    return 0;
+
+  if (!PaddedMallocFunc->hasMetadata("dtrans.paddedmallocsize"))
+    return 0;
+
+  // Collect the node related to the metadata
+  MDNode *Node = PaddedMallocFunc->getMetadata("dtrans.paddedmallocsize");
+
+  // Get the metadata
+  ConstantAsMetadata *ConstMetaData =
+      cast<ConstantAsMetadata>(Node->getOperand(0));
+
+  // Collect the value stored
+  unsigned PaddedMallocSize =
+      cast<ConstantInt>(ConstMetaData->getValue())->getZExtValue();
+
+  return PaddedMallocSize;
+}
+
+// Return true if all the data for padded malloc is set correctly.
+bool dtrans::PaddedMallocGlobals::isPaddedMallocDataAvailable(Module &M) {
+  return (getPaddedMallocSize(M) > 0 && getPaddedMallocVariable(M) &&
+          getPaddedMallocInterface(M));
 }
