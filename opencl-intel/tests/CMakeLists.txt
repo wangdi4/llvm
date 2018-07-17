@@ -60,6 +60,7 @@ add_subdirectory( task_executor_test_type )
 add_subdirectory( bi_test_type )
 add_subdirectory( backend_test_type )
 add_subdirectory( name_mangling_test_type )
+add_subdirectory( metadata_api_test_type )
 
 if( USE_VALGRIND )
   add_subdirectory( valgrind )
@@ -81,6 +82,7 @@ list(APPEND RUNTIME_UNITTESTS
   cpu_device_test_type
   backend_test_type
   name_mangling_test_type
+  metadata_api_test_type
 )
 if ( BUILD_FPGA_EMULATOR )
   list(APPEND RUNTIME_UNITTESTS fpga_test_type)
