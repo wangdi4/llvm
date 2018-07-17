@@ -2037,17 +2037,21 @@ private:
 
     // Get the last index argument. If we can't determine its value,
     // we can't handle this GEP.
-    // FIXME: With SCEV we might be able to handle some non-constant cases.
     // FIXME: Handle arrays with non-constant indices.
-    auto *LastArg =
-        dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1));
-    if (!LastArg)
+    if (auto *LastArg =
+            dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1))) {
+      uint64_t Idx = LastArg->getLimitedValue();
+      // Add this information to the local pointer information for the GEP.
+      Info.addElementPointee(IndexedTy, Idx);
       return;
-    uint64_t Idx = LastArg->getLimitedValue();
+    }
 
-    // Add this information to the local pointer information for the GEP.
-    Info.addElementPointee(IndexedTy, Idx);
-
+    // If the last argument is not constant and out-of-bound flag is false then
+    // it is safe to have non-constant array access. Use 0 index for Pointee
+    // set.
+    if (!DTransOutOfBoundsOK && IndexedTy->isArrayTy()) {
+      Info.addElementPointee(IndexedTy, 0);
+    }
     return;
   }
 
@@ -2063,6 +2067,8 @@ private:
   //
   // where %struct.S is a structure that has an element of type %struct.Elem
   // at offset 32 (as determined by DataLayout).
+  // TODO: add special processing for constant offsets which are multiples of
+  // structure size.
   bool analyzeByteFlattenedGEPAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
     Value *BasePointer = GEP->getPointerOperand();
     // The caller should have checked this.
@@ -2084,10 +2090,25 @@ private:
     // If we can't compute a constant offset, we won't be able to
     // figure out which element is being accessed.
     unsigned BitWidth = DL.getPointerSizeInBits();
-    APInt APOffset(BitWidth, 0);
-    if (!GEP->accumulateConstantOffset(DL, APOffset))
+    SmallVector<APInt, 3> APOffset;
+    APInt CurrOffset(BitWidth, 0);
+    // If offset is constant - put it in the list of possibe constant offsets.
+    if (GEP->accumulateConstantOffset(DL, CurrOffset)) {
+      APOffset.push_back(CurrOffset);
+    } else if (GEP->getNumOperands() == 2) {
+      // If offset comes from select instruction with two constant operands then
+      // put both values in the list of possible constant offsets.
+      // TODO: currently we only proccess Select. The same could work for PHI.
+      Value *Cond;
+      const APInt *SelT, *SelF;
+      if (!match(GEP->getOperand(1),
+                 m_Select(m_Value(Cond), m_APInt(SelT), m_APInt(SelF))))
+        return false;
+      APOffset.push_back(*SelT);
+      APOffset.push_back(*SelF);
+    } else {
       return false;
-    uint64_t Offset = APOffset.getLimitedValue();
+    }
 
     bool HasPtrToPtrAlias = false;
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
@@ -2101,10 +2122,23 @@ private:
         HasPtrToPtrAlias = true;
         continue;
       }
-      if (!HasPtrToPtrAlias &&
-          analyzePossibleOffsetAggregateAccess(
-              GEP, AliasTy->getPointerElementType(), Offset, Info))
-        return true;
+      if (!HasPtrToPtrAlias) {
+        // Try all possible offsets one by one.
+        uint32_t Res = 0;
+        auto *CurrType = AliasTy->getPointerElementType();
+        LocalPointerInfo LocalInfo;
+        for (auto &APOffsetVal : APOffset) {
+          if (analyzePossibleOffsetAggregateAccess(
+                  GEP, CurrType, APOffsetVal.getLimitedValue(), LocalInfo))
+            Res++;
+        }
+        // If all offsets are appropriate - add those element pointees and
+        // return true.
+        if (Res == APOffset.size()) {
+          Info.merge(LocalInfo);
+          return true;
+        }
+      }
     }
     if (HasPtrToPtrAlias)
       return true;
