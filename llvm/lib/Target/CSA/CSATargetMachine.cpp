@@ -21,7 +21,6 @@
 #include "CSALoopIntrinsicExpander.h"
 #include "CSALowerAggrCopies.h"
 #include "CSAUtils.h"
-#include "Intel_CSA/Bitcode/CSASaveRawBC.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
@@ -302,11 +301,6 @@ public:
   }
 
   void addIRPasses() override {
-    // Add the CSASaveRawBC pass which will preserve the initial IR
-    // for a module. This must be added early so it gets IR that's
-    // equivalent to the Bitcode emitted by the -flto option.
-    addPass(createCSASaveRawBCPass());
-
     // Do any necessary atomic expansion according to Subtarget features.
     addPass(createAtomicExpandPass());
 

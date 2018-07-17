@@ -20,7 +20,6 @@
 #include "CSAMCInstLower.h"
 #include "CSATargetMachine.h"
 #include "CSAUtils.h"
-#include "Intel_CSA/Bitcode/CSASaveRawBC.h"
 #include "InstPrinter/CSAInstPrinter.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -86,11 +85,6 @@ static cl::opt<bool>
   AllowUndefRegs("csa-allow-undef-regs", cl::Hidden,
                  cl::desc("CSA Specific: Allow LICs without definition"),
                  cl::init(false));
-
-static cl::opt<bool>
-  SaveBC("csa-save-bc", cl::Hidden,
-         cl::desc("CSA Specific: Save bitcode in the emitted object"),
-         cl::init(false));
 
 namespace {
 class LineReader {
@@ -488,32 +482,6 @@ void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
     OutStreamer->AddBlankLine();
     // Add the terminating null for the .csa section.
     OutStreamer->EmitRawText("\t.asciz \"\"");
-  }
-
-  if (SaveBC) {
-    // Dump the raw IR to the file as data. We want this information
-    // loaded into the address space, so we're giving it the "a" flag
-    auto *SRB = getAnalysisIfAvailable<CSASaveRawBC>();
-    assert(SRB && "CSASaveRawBC should always be available!");
-
-    const std::string &rawBC = SRB->getRawBC();
-    OutStreamer->EmitRawText("\t.section\t\".csa.bc.data\",\"a\",@progbits");
-    OutStreamer->EmitRawText(".csa.bc.start:");
-
-    for (size_t i = 0; i < rawBC.size(); ++i) {
-      OutStreamer->EmitIntValue(rawBC[i], 1);
-    }
-    OutStreamer->EmitRawText(".csa.bc.end:");
-
-    // Finish the file with a data structure entry containing
-    // the bounds of the IR for this file. The linker will
-    // concatenate the data in the .csa.bc.data and .csa.bc.bounds
-    // sections, and we'll need to bounds information to allow us
-    // to write the individual bitcode files to disk so they can be
-    // concatenated by llvm-link
-    OutStreamer->EmitRawText("\t.section\t\".csa.bc.bounds\",\"a\",@progbits");
-    OutStreamer->EmitRawText("\t.quad\t.csa.bc.start");
-    OutStreamer->EmitRawText("\t.quad\t.csa.bc.end\n");
   }
 }
 

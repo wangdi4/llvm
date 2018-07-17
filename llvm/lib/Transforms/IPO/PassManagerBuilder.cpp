@@ -64,7 +64,6 @@
 #include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_INCLUDE_DTRANS
 #if INTEL_FEATURE_CSA
-#include "Intel_CSA/Bitcode/CSASaveRawBC.h"
 #include "Intel_CSA/CSAIRPasses.h"
 #endif  // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
@@ -367,16 +366,6 @@ void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
 
 void PassManagerBuilder::addInitialAliasAnalysisPasses(
     legacy::PassManagerBase &PM) const {
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  // CSA: add the CSASaveRawBC pass which will preserve the initial IR
-  // for a module. This must be added early so it gets IR that's
-  // equivalent to the Bitcode emmitted by the -flto option
-  PM.add(createCSASaveRawBCPass());
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
-
   switch (UseCFLAA) {
   case CFLAAType::Steensgaard:
     PM.add(createCFLSteensAAWrapperPass());

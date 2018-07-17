@@ -1,36 +1,9 @@
-# INTEL_CUSTOMIZATION
-# Placeholder list for INTEL_CUSTOMIZATION files.
-set(INTEL_SOURCE_FILES
-  )
-set(INTEL_CSA_SOURCE_FILES
-  ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/CSA/lib/Bitcode/Writer/CSASaveRawBC.cpp
-  )
-
-set(INTEL_SOURCE_FILES_TO_BUILD)
-if (INTEL_CUSTOMIZATION)
-  if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
-    list(APPEND INTEL_SOURCE_FILES ${INTEL_CSA_SOURCE_FILES})
-  else()
-    list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_CSA_SOURCE_FILES})
-  endif()
-
-  set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
-else()
-  list(APPEND LLVM_OPTIONAL_SOURCES
-    ${INTEL_SOURCE_FILES}
-    ${INTEL_CSA_SOURCE_FILES}
-    )
-endif()
-# end INTEL_CUSTOMIZATION
-
 add_llvm_library(LLVMBitWriter
   BitWriter.cpp
   BitcodeWriter.cpp
   BitcodeWriterPass.cpp
   ValueEnumerator.cpp
-# INTEL_CUSTOMIZATION
-  ${INTEL_SOURCE_FILES_TO_BUILD}
-# end INTEL_CUSTOMIZATION
+
   DEPENDS
   intrinsics_gen
   )
