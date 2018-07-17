@@ -35,6 +35,10 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+static cl::opt<unsigned>
+    RefsThreshold("refs-threshold", cl::Hidden, cl::init(500),
+                    cl::desc("The number of references threshold"));
+
 bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   bool success = true;
   BasicBlock *ExitBB = WRN->getExitBBlock();
@@ -311,6 +315,15 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
   };
 
   collectMemReferences(BBs, MemoryInsns);
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRS-51441 [VPO][SPEC OMP 2012] spec_omp2012/367 times out at
+  // compile time in VPOUtils::genAliasSet()
+#endif // INTEL_CUSTOMIZATION
+  // Set the memory reference thresold to force the function
+  // genAliasSet to give up once the number of reference exceeds the threshold.
+  if (MemoryInsns.size() > RefsThreshold)
+    return;
 
   class BitMatrix {
   private:
