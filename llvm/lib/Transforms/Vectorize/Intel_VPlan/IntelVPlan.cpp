@@ -54,12 +54,6 @@ raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
     V.dump(OS);
   return OS;
 }
-
-VPMaskGenerationRecipe *
-VPlanUtils::createMaskGenerationRecipe(const Value *Pred,
-                                            const Value *Backedge) {
-  return new VPMaskGenerationRecipe(Pred, Backedge);
-}
 #endif
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
@@ -93,7 +87,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
                                      VPDominatorTree &DomTree,
                                      VPPostDominatorTree &PostDomTree,
                                      VPlan *Plan) {
-  VPBasicBlock *NewBlock = createBasicBlock();
+  VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   insertBlockAfter(NewBlock, Block, Plan);
 
   // Add NewBlock to VPLoopInfo

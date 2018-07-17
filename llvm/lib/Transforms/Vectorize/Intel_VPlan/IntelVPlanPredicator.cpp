@@ -117,8 +117,8 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
                                                       VPPredicateRecipeBase *R,
                                                       BasicBlock *From,
                                                       BasicBlock *To) {
-  VPEdgePredicateRecipe *EdgeRecipe =
-      VPlanUtils::createEdgePredicateRecipe(R, From, To);
+  VPEdgePredicateRecipe *EdgeRecipe = new VPEdgePredicateRecipe(R, From, To);
+  EdgeRecipe->setName(VPlanUtils::createUniqueName("AuxEdgeForMaskSetting"));
   PredBB->addRecipe(EdgeRecipe);
   return EdgeRecipe;
 }
@@ -135,9 +135,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   // CurrBB is the True successor of PredBB
   if (ET == TRUE_EDGE) {
     VPIfTruePredicateRecipe *IfTrueRecipe =
-        VPlanUtils::createIfTruePredicateRecipe(
-            CBV, PredBB->getPredicateRecipe(), PredBB->getCBlock(),
-            PredBB->getTBlock());
+        new VPIfTruePredicateRecipe(CBV, PredBB->getPredicateRecipe(),
+                                    PredBB->getCBlock(), PredBB->getTBlock());
+    IfTrueRecipe->setName(VPlanUtils::createUniqueName("IfT"));
     // Emit IfTrueRecipe into PredBB
     PredBB->addRecipe(IfTrueRecipe);
     return IfTrueRecipe;
@@ -145,9 +145,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   // CurrBB is the False successor of PredBB
   else if (ET == FALSE_EDGE) {
     VPIfFalsePredicateRecipe *IfFalseRecipe =
-        VPlanUtils::createIfFalsePredicateRecipe(
-            CBV, PredBB->getPredicateRecipe(), PredBB->getCBlock(),
-            PredBB->getFBlock());
+        new VPIfFalsePredicateRecipe(CBV, PredBB->getPredicateRecipe(),
+                                     PredBB->getCBlock(), PredBB->getFBlock());
+    IfFalseRecipe->setName(VPlanUtils::createUniqueName("IfF"));
     PredBB->addRecipe(IfFalseRecipe);
     return IfFalseRecipe;
   }
@@ -338,7 +338,8 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
 
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      VPBlockPredicateRecipe *BP = VPlanUtils::createBlockPredicateRecipe();
+      VPBlockPredicateRecipe *BP = new VPBlockPredicateRecipe();
+      BP->setName(VPlanUtils::createUniqueName("BP"));
       VPBB->addRecipe(BP, getFirstRecipeSafe(VPBB));
       VPBB->setPredicateRecipe(BP);
     } else if (auto SubRegion = dyn_cast<VPRegionBlock>(Block)) {
