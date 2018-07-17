@@ -1,5 +1,4 @@
-; Test that checks the libfuncs trace (-whole-program-trace-libfuncs) when
-; -whole-program-trace is used.
+; Test for checking that libfuncs aren't repeated in the trace.
 
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-trace-libfuncs -o %t2 %t1 2>&1 | FileCheck %s
@@ -23,18 +22,24 @@ entry:
 declare noalias i8* @malloc(i64)
 
 ; Function Attrs: nounwind uwtable
-define void @assign(i8* %ptr)  {
+define void @dealloc(i8* %ptr)  {
 entry:
   %ptr.addr = alloca i8*, align 8
   store i8* %ptr, i8** %ptr.addr, align 8
   %0 = load i8*, i8** %ptr.addr, align 8
-  %1 = bitcast i8* %0 to i32*
-  store i32 10, i32* %1, align 4
+  call void @free(i8* %0)
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
-define void @dealloc(i8* %ptr)  {
+define i8* @allocate2()  {
+entry:
+  %call = call noalias i8* @malloc(i64 8)
+  ret i8* %call
+}
+
+; Function Attrs: nounwind uwtable
+define void @dealloc2(i8* %ptr)  {
 entry:
   %ptr.addr = alloca i8*, align 8
   store i8* %ptr, i8** %ptr.addr, align 8
@@ -54,5 +59,12 @@ entry:
   store i8* %call, i8** %ptr1, align 8
   %0 = load i8*, i8** %ptr1, align 8
   call void @dealloc(i8* %0)
+
+  %ptr2 = alloca i8*, align 8
+  %call2 = call i8* @allocate2()
+  store i8* %call2, i8** %ptr2, align 8
+  %1 = load i8*, i8** %ptr2, align 8
+  call void @dealloc2(i8* %1)
+
   ret i32 0
 }

@@ -226,7 +226,7 @@ bool WholeProgramInfo::resolveCalledValue(
   if (const Function *Callee = dyn_cast<Function>(Arg)) {
     if (Callee->isIntrinsic() || !Callee->isDeclaration()) {
       if (WholeProgramTraceLibFuncs && Callee->isIntrinsic())
-        LibFuncsFound.push_back(Callee);
+        LibFuncsFound.insert(Callee);
       return true;
     }
 
@@ -235,14 +235,14 @@ bool WholeProgramInfo::resolveCalledValue(
         !TLI.has(TheLibFunc)) {
 
       if (WholeProgramTrace || WholeProgramTraceLibFuncs)
-        LibFuncsNotFound.push_back(Callee);
+        LibFuncsNotFound.insert(Callee);
 
       ++UnresolvedCallsCount;
       return false;
     }
     // Libfunc found, return true
     if (WholeProgramTraceLibFuncs)
-      LibFuncsFound.push_back(Callee);
+      LibFuncsFound.insert(Callee);
     return true;
   }
 
@@ -310,6 +310,8 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
     errs() << "  ALIASES UNRESOLVED: " << unresolved_aliases_count << "\n";
 
     if (WholeProgramTraceLibFuncs) {
+      errs() << "  TOTAL LIBFUNCS: "
+             << LibFuncsFound.size() + LibFuncsNotFound.size() << "\n";
       errs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
       for (const Function *F : LibFuncsFound)
         errs() << "      " << F->getName() << "\n";
@@ -322,6 +324,8 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   // Print only the libfuncs
   else if (WholeProgramTraceLibFuncs) {
     errs() << "WHOLE-PROGRAM-ANALYSIS: LIBFUNCS TRACE\n\n";
+    errs() << "  TOTAL LIBFUNCS: "
+           << LibFuncsFound.size() + LibFuncsNotFound.size() << "\n";
     errs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
     for (const Function *F : LibFuncsFound)
       errs() << "      " << F->getName() << "\n";
