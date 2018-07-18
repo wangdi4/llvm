@@ -6358,10 +6358,11 @@ void DTransAnalysisInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
 
 // Return true if we are interested in tracking values of the specified type.
 //
-// For now, let's limit this to sized aggregates and various levels of
-// indirection to sized aggregates. UnhandledUse safety condition is set for
-// unsized types. At some point we may also be interested in pointers to
-// scalars.
+// For pointer types, we peel off the pointers to find the base type. We
+// are primarily interested in named structures. We also include literal
+// structures and arrays that have at least one element that is a type of
+// interest (which is to see that they contain a named structure at some level
+// of nesting).
 bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   llvm::Type *BaseTy = Ty;
 
@@ -6369,7 +6370,31 @@ bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   while (BaseTy->isPointerTy())
     BaseTy = cast<PointerType>(BaseTy)->getElementType();
 
-  return BaseTy->isAggregateType() && BaseTy->isSized();
+  if (!BaseTy->isAggregateType() || !BaseTy->isSized())
+    return false;
+
+  // Skip literal structures unless one of their elements is a type of interest.
+  if (auto *StTy = dyn_cast<StructType>(BaseTy)) {
+    if (StTy->isLiteral()) {
+      bool HasElementOfInterest = false;
+      for (auto *ElemTy : StTy->elements()) {
+        if (isTypeOfInterest(ElemTy)) {
+          HasElementOfInterest = true;
+          break;
+        }
+      }
+      return HasElementOfInterest;
+    }
+    // Non-literal structs are always of interest.
+    return true;
+  }
+
+  // Based on isAggregateType and this not being a StructType, it must be
+  // an array type.
+  assert(BaseTy->isArrayTy() && "Unexpected aggregate type");
+
+  // Skip arrays whose elements are not types of interest.
+  return isTypeOfInterest(BaseTy->getArrayElementType());
 }
 
 dtrans::TypeInfo *DTransAnalysisInfo::getTypeInfo(llvm::Type *Ty) const {

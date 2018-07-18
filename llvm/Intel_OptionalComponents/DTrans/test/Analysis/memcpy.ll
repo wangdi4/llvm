@@ -335,13 +335,14 @@ define void @test17(%struct.test17* %a, %struct.test17* %b) {
 ; This could be considered a safe use, but it is not currently supported.
 ; If this is changed to be supported in the future, then transformation code may
 ; also need to be updated.
-%array.test18 = type [6 x i32]
+%struct.test18 = type { i32, i32 }
+%array.test18 = type [6 x %struct.test18*]
 define void @test18(%array.test18* %a, %array.test18* %b) {
   %d = getelementptr inbounds %array.test18, %array.test18* %a, i64 0, i32 1
-  %t0 = bitcast i32* %d to i8*
+  %t0 = bitcast %struct.test18** %d to i8*
   %s = getelementptr inbounds %array.test18, %array.test18* %b, i64 0, i32 3
-  %t1 = bitcast i32* %s to i8*
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 12, i1 false)
+  %t1 = bitcast %struct.test18** %s to i8*
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 24, i1 false)
   ret void
 }
 
@@ -382,18 +383,10 @@ define void @test20(%struct.test20* %str_in) {
 ; CHECK-LABEL: LLVMType: %struct.test20 = type { i32, i32, i32, [9 x i8], i32 }
 ; CHECK: Safety data: Global pointer | Unhandled use
 
-
 ; Array types get printed last so these checks aren't with their IR.
 
-; CHECK-LABEL: LLVMType: [6 x i32]
+; CHECK-LABEL: LLVMType: [6 x %struct.test18*]
 ; CHECK: Safety data: Unhandled use
-
-; CHECK-LABEL: LLVMType: [8 x i8]
-; CHECK: Safety data: Global pointer | Unhandled use
-
-; CHECK-LABEL: LLVMType: [9 x i8]
-; CHECK: Safety data: Global pointer | Unhandled use
-
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
 declare noalias i8* @malloc(i64)
