@@ -845,9 +845,11 @@ void CSAAsmPrinter::EmitConstantPool() {
 
 void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
 
-  // If the global's name starts with .omp_offloading., it needs to be emitted
-  // outside of the wrapping.
-  if (GV->getName().startswith(".omp_offloading.")) {
+  // If the global's section name starts with .csa.sp. it is a scratchpad and it
+  // needs to go in the target code. Otherwise, it is a normal global which
+  // should go on the host and be pulled in implicitly by the target code.
+  const bool PutOnHost = not GV->getSection().startswith(".csa.sp.");
+  if (PutOnHost) {
     OutStreamer->AddBlankLine();
     endCSAAsmString(*OutStreamer);
     OutStreamer->AddBlankLine();
@@ -855,7 +857,7 @@ void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
 
   AsmPrinter::EmitGlobalVariable(GV);
 
-  if (GV->getName().startswith(".omp_offloading.")) {
+  if (PutOnHost) {
     EmitCsaCodeSection();
     OutStreamer->EmitRawText("\t.ascii ");
     startCSAAsmString(*OutStreamer);
