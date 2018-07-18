@@ -470,7 +470,7 @@ namespace {
 // type.
 static bool isLegalMaskCompare(SDNode *N, const X86Subtarget *Subtarget) {
   unsigned Opcode = N->getOpcode();
-  if (Opcode == X86ISD::CMPM || Opcode == X86ISD::CMPMU ||
+  if (Opcode == X86ISD::CMPM || Opcode == ISD::SETCC ||
       Opcode == X86ISD::CMPM_RND || Opcode == X86ISD::VFPCLASS) {
     // We can get 256-bit 8 element types here without VLX being enabled. When
     // this happens we will use 512-bit operations and the mask will not be
@@ -568,9 +568,59 @@ X86DAGToDAGISel::IsProfitableToFold(SDValue N, SDNode *U, SDNode *Root) const {
         if (Val.getOpcode() == ISD::TargetGlobalTLSAddress)
           return false;
       }
+
+      // Don't fold load if this matches the BTS/BTR/BTC patterns.
+      // BTS: (or X, (shl 1, n))
+      // BTR: (and X, (rotl -2, n))
+      // BTC: (xor X, (shl 1, n))
+      if (U->getOpcode() == ISD::OR || U->getOpcode() == ISD::XOR) {
+        if (U->getOperand(0).getOpcode() == ISD::SHL &&
+            isOneConstant(U->getOperand(0).getOperand(0)))
+          return false;
+
+        if (U->getOperand(1).getOpcode() == ISD::SHL &&
+            isOneConstant(U->getOperand(1).getOperand(0)))
+          return false;
+      }
+      if (U->getOpcode() == ISD::AND) {
+        SDValue U0 = U->getOperand(0);
+        SDValue U1 = U->getOperand(1);
+        if (U0.getOpcode() == ISD::ROTL) {
+          auto *C = dyn_cast<ConstantSDNode>(U0.getOperand(0));
+          if (C && C->getSExtValue() == -2)
+            return false;
+        }
+
+        if (U1.getOpcode() == ISD::ROTL) {
+          auto *C = dyn_cast<ConstantSDNode>(U1.getOperand(0));
+          if (C && C->getSExtValue() == -2)
+            return false;
+        }
+      }
+
+      break;
     }
+    case ISD::SHL:
+    case ISD::SRA:
+    case ISD::SRL:
+      // Don't fold a load into a shift by immediate. The BMI2 instructions
+      // support folding a load, but not an immediate. The legacy instructions
+      // support folding an immediate, but can't fold a load. Folding an
+      // immediate is preferable to folding a load.
+      if (isa<ConstantSDNode>(U->getOperand(1)))
+        return false;
+
+      break;
     }
   }
+
+  // Prevent folding a load if this can implemented with an insert_subreg or
+  // a move that implicitly zeroes.
+  if (Root->getOpcode() == ISD::INSERT_SUBVECTOR &&
+      isNullConstant(Root->getOperand(2)) &&
+      (Root->getOperand(0).isUndef() ||
+       ISD::isBuildVectorAllZeros(Root->getOperand(0).getNode())))
+    return false;
 
   return true;
 }
@@ -668,6 +718,7 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
       CurDAG->ReplaceAllUsesOfValueWith(SDValue(N, 0), Res);
       ++I;
       CurDAG->DeleteNode(N);
+      continue;
     }
 
     if (OptLevel != CodeGenOpt::None &&
@@ -3285,7 +3336,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     }
 
     // Connect the flag usage to the last instruction created.
-    ReplaceUses(SDValue(Node, 2), SDValue(CNode, 0));
+    ReplaceUses(SDValue(Node, 2), SDValue(CNode, 1));
     CurDAG->RemoveDeadNode(Node);
     return;
   }

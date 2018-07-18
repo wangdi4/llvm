@@ -904,8 +904,18 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 
 #if INTEL_CUSTOMIZATION
 InlinerPass::InlinerPass(InlineParams Params)
-      : Params(std::move(Params)), Report(IntelInlineReportLevel) {}
+    : Params(std::move(Params)), Report(IntelInlineReportLevel) {}
 #endif  // INTEL_CUSTOMIZATION
+
+InlinerPass::~InlinerPass() {
+  if (ImportedFunctionsStats) {
+    assert(InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No);
+    ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
+                                 InlinerFunctionImportStatsOpts::Verbose);
+  }
+  if (!Report.isEmpty())
+    Report.print();
+}
 
 PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                                    CGSCCAnalysisManager &AM, LazyCallGraph &CG,
@@ -922,12 +932,20 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   ProfileSummaryInfo *PSI = MAM.getCachedResult<ProfileSummaryAnalysis>(M);
   CG.registerCGReport(&Report); // INTEL
 
+  if (!ImportedFunctionsStats &&
+      InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No) {
+    ImportedFunctionsStats =
+        llvm::make_unique<ImportedFunctionsInliningStatistics>();
+    ImportedFunctionsStats->setModuleInfo(M);
+  }
+
 #if INTEL_CUSTOMIZATION
   Report.beginSCC(CG, InitialC);
   if (!CallSitesForFusion.empty()) {
     CallSitesForFusion.clear();
   }
 #endif // INTEL_CUSTOMIZATION
+
   // We use a single common worklist for calls across the entire SCC. We
   // process these in-order and append new calls introduced during inlining to
   // the end.
@@ -1158,6 +1176,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
             if (!NewCallee->isDeclaration())
               Calls.push_back({CS, NewHistoryID});
       }
+
+      if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
+        ImportedFunctionsStats->recordInline(F, Callee);
 
       // Merge the attributes based on the inlining.
       AttributeFuncs::mergeAttributesForInlining(F, Callee);

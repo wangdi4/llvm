@@ -17,7 +17,7 @@
 ; CHECK: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}Function{{.*}}>
 ; CHECK: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifierPass{{.*}}>
+; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
 ; CHECK: Running analysis: DominatorTreeAnalysis
 ; CHECK: Running analysis: AssumptionAnalysis
 ; CHECK: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>

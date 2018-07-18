@@ -91,13 +91,12 @@ static bool hasMemoryOperand(const llvm::MCOperandInfo &OpInfo) {
 
 llvm::Error
 UopsBenchmarkRunner::isInfeasible(const llvm::MCInstrDesc &MCInstrDesc) const {
-  if (MCInstrDesc.isPseudo())
-    return llvm::make_error<BenchmarkFailure>("Infeasible : is pseudo");
   if (llvm::any_of(MCInstrDesc.operands(), hasUnknownOperand))
     return llvm::make_error<BenchmarkFailure>(
         "Infeasible : has unknown operands");
   if (llvm::any_of(MCInstrDesc.operands(), hasMemoryOperand))
-    return llvm::make_error<BenchmarkFailure>("Infeasible : has memory operands");
+    return llvm::make_error<BenchmarkFailure>(
+        "Infeasible : has memory operands");
   return llvm::Error::success();
 }
 
@@ -132,28 +131,18 @@ static void remove(llvm::BitVector &a, const llvm::BitVector &b) {
 
 UopsBenchmarkRunner::~UopsBenchmarkRunner() = default;
 
-InstructionBenchmark::ModeE UopsBenchmarkRunner::getMode() const {
-  return InstructionBenchmark::Uops;
-}
-
 llvm::Expected<SnippetPrototype>
 UopsBenchmarkRunner::generatePrototype(unsigned Opcode) const {
-  const auto &InstrDesc = MCInstrInfo.get(Opcode);
+  const auto &InstrDesc = State.getInstrInfo().get(Opcode);
   if (auto E = isInfeasible(InstrDesc))
     return std::move(E);
   const Instruction Instr(InstrDesc, RATC);
   const AliasingConfigurations SelfAliasing(Instr, Instr);
   if (SelfAliasing.empty()) {
-    SnippetPrototype Prototype;
-    Prototype.Explanation = "instruction is parallel, repeating a random one.";
-    Prototype.Snippet.emplace_back(Instr);
-    return std::move(Prototype);
+    return generateUnconstrainedPrototype(Instr, "instruction is parallel");
   }
   if (SelfAliasing.hasImplicitAliasing()) {
-    SnippetPrototype Prototype;
-    Prototype.Explanation = "instruction is serial, repeating a random one.";
-    Prototype.Snippet.emplace_back(Instr);
-    return std::move(Prototype);
+    return generateUnconstrainedPrototype(Instr, "instruction is serial");
   }
   const auto TiedVariables = getTiedVariables(Instr);
   if (!TiedVariables.empty()) {
@@ -178,7 +167,7 @@ UopsBenchmarkRunner::generatePrototype(unsigned Opcode) const {
   }
   InstructionInstance II(Instr);
   // No tied variables, we pick random values for defs.
-  llvm::BitVector Defs(MCRegisterInfo.getNumRegs());
+  llvm::BitVector Defs(State.getRegInfo().getNumRegs());
   for (const auto &Op : Instr.Operands) {
     if (Op.Tracker && Op.IsExplicit && Op.IsDef) {
       auto PossibleRegisters = Op.Tracker->sourceBits();
@@ -190,7 +179,7 @@ UopsBenchmarkRunner::generatePrototype(unsigned Opcode) const {
     }
   }
   // And pick random use values that are not reserved and don't alias with defs.
-  const auto DefAliases = getAliasedBits(MCRegisterInfo, Defs);
+  const auto DefAliases = getAliasedBits(State.getRegInfo(), Defs);
   for (const auto &Op : Instr.Operands) {
     if (Op.Tracker && Op.IsExplicit && !Op.IsDef) {
       auto PossibleRegisters = Op.Tracker->sourceBits();

@@ -20,6 +20,7 @@ add_llvm_library(LLVMScalarOpts
   InductiveRangeCheckElimination.cpp
   IndVarSimplify.cpp
   InferAddressSpaces.cpp
+  InstSimplifyPass.cpp
 # INTEL_CUSTOMIZATION
   Intel_AggInlAA.cpp
   Intel_GlobalOpt.cpp
@@ -50,6 +51,7 @@ add_llvm_library(LLVMScalarOpts
   LoopSimplifyCFG.cpp
   LoopStrengthReduce.cpp
   LoopUnrollPass.cpp
+  LoopUnrollAndJamPass.cpp
   LoopUnswitch.cpp
   LoopVersioningLICM.cpp
   LowerAtomic.cpp

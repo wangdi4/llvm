@@ -85,15 +85,15 @@ const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
 // depth otherwise the algorithm in aliasGEP will assert.
 static const unsigned MaxLookupSearchDepth = 6;
 
-bool BasicAAResult::invalidate(Function &F, const PreservedAnalyses &PA,
+bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
                                FunctionAnalysisManager::Invalidator &Inv) {
   // We don't care if this analysis itself is preserved, it has no state. But
   // we need to check that the analyses it depends on have been. Note that we
   // may be created without handles to some analyses and in that case don't
   // depend on them.
-  if (Inv.invalidate<AssumptionAnalysis>(F, PA) ||
-      (DT && Inv.invalidate<DominatorTreeAnalysis>(F, PA)) ||
-      (LI && Inv.invalidate<LoopAnalysis>(F, PA)))
+  if (Inv.invalidate<AssumptionAnalysis>(Fn, PA) ||
+      (DT && Inv.invalidate<DominatorTreeAnalysis>(Fn, PA)) ||
+      (LI && Inv.invalidate<LoopAnalysis>(Fn, PA)))
     return true;
 
   // Otherwise this analysis result remains valid.
@@ -191,10 +191,12 @@ static bool isEscapeSource(const Value *V) {
 /// Returns the size of the object specified by V or UnknownSize if unknown.
 static uint64_t getObjectSize(const Value *V, const DataLayout &DL,
                               const TargetLibraryInfo &TLI,
+                              bool NullIsValidLoc,
                               bool RoundToAlign = false) {
   uint64_t Size;
   ObjectSizeOpts Opts;
   Opts.RoundToAlign = RoundToAlign;
+  Opts.NullIsUnknownSize = NullIsValidLoc;
   if (getObjectSize(V, Size, DL, &TLI, Opts))
     return Size;
   return MemoryLocation::UnknownSize;
@@ -204,7 +206,8 @@ static uint64_t getObjectSize(const Value *V, const DataLayout &DL,
 /// Size.
 static bool isObjectSmallerThan(const Value *V, uint64_t Size,
                                 const DataLayout &DL,
-                                const TargetLibraryInfo &TLI) {
+                                const TargetLibraryInfo &TLI,
+                                bool NullIsValidLoc) {
   // Note that the meanings of the "object" are slightly different in the
   // following contexts:
   //    c1: llvm::getObjectSize()
@@ -236,15 +239,16 @@ static bool isObjectSmallerThan(const Value *V, uint64_t Size,
 
   // This function needs to use the aligned object size because we allow
   // reads a bit past the end given sufficient alignment.
-  uint64_t ObjectSize = getObjectSize(V, DL, TLI, /*RoundToAlign*/ true);
+  uint64_t ObjectSize = getObjectSize(V, DL, TLI, NullIsValidLoc,
+                                      /*RoundToAlign*/ true);
 
   return ObjectSize != MemoryLocation::UnknownSize && ObjectSize < Size;
 }
 
 /// Returns true if we can prove that the object specified by V has size Size.
 static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
-                         const TargetLibraryInfo &TLI) {
-  uint64_t ObjectSize = getObjectSize(V, DL, TLI);
+                         const TargetLibraryInfo &TLI, bool NullIsValidLoc) {
+  uint64_t ObjectSize = getObjectSize(V, DL, TLI, NullIsValidLoc);
   return ObjectSize != MemoryLocation::UnknownSize && ObjectSize == Size;
 }
 
@@ -546,13 +550,15 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
     const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Op);
     if (!GEPOp) {
       if (auto CS = ImmutableCallSite(V)) {
-        // Note: getArgumentAliasingToReturnedPointer keeps it in sync with
-        // CaptureTracking, which is needed for correctness.  This is because
-        // some intrinsics like launder.invariant.group returns pointers that
-        // are aliasing it's argument, which is known to CaptureTracking.
-        // If AliasAnalysis does not use the same information, it could assume
-        // that pointer returned from launder does not alias it's argument
-        // because launder could not return it if the pointer was not captured.
+        // CaptureTracking can know about special capturing properties of some
+        // intrinsics like launder.invariant.group, that can't be expressed with
+        // the attributes, but have properties like returning aliasing pointer.
+        // Because some analysis may assume that nocaptured pointer is not
+        // returned from some special intrinsic (because function would have to
+        // be marked with returns attribute), it is crucial to use this function
+        // because it should be in sync with CaptureTracking. Not using it may
+        // cause weird miscompilations where 2 aliasing pointers are assumed to
+        // noalias.
         if (auto *RP = getArgumentAliasingToReturnedPointer(CS)) {
           V = RP;
           continue;
@@ -1887,10 +1893,10 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   // Null values in the default address space don't point to any object, so they
   // don't alias any other pointer.
   if (const ConstantPointerNull *CPN = dyn_cast<ConstantPointerNull>(O1))
-    if (CPN->getType()->getAddressSpace() == 0)
+    if (!NullPointerIsDefined(&F, CPN->getType()->getAddressSpace()))
       return NoAlias;
   if (const ConstantPointerNull *CPN = dyn_cast<ConstantPointerNull>(O2))
-    if (CPN->getType()->getAddressSpace() == 0)
+    if (!NullPointerIsDefined(&F, CPN->getType()->getAddressSpace()))
       return NoAlias;
 
   if (O1 != O2) {
@@ -1953,10 +1959,11 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
   // If the size of one access is larger than the entire object on the other
   // side, then we know such behavior is undefined and can assume no alias.
+  bool NullIsValidLocation = NullPointerIsDefined(&F);
   if ((V1Size != MemoryLocation::UnknownSize &&
-       isObjectSmallerThan(O2, V1Size, DL, TLI)) ||
+       isObjectSmallerThan(O2, V1Size, DL, TLI, NullIsValidLocation)) ||
       (V2Size != MemoryLocation::UnknownSize &&
-       isObjectSmallerThan(O1, V2Size, DL, TLI)))
+       isObjectSmallerThan(O1, V2Size, DL, TLI, NullIsValidLocation)))
     return NoAlias;
 
   // Check the cache before climbing up use-def chains. This also terminates
@@ -2016,8 +2023,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   if (O1 == O2)
     if (V1Size != MemoryLocation::UnknownSize &&
         V2Size != MemoryLocation::UnknownSize &&
-        (isObjectSize(O1, V1Size, DL, TLI) ||
-         isObjectSize(O2, V2Size, DL, TLI)))
+        (isObjectSize(O1, V1Size, DL, TLI, NullIsValidLocation) ||
+         isObjectSize(O2, V2Size, DL, TLI, NullIsValidLocation)))
       return AliasCache[Locs] = PartialAlias;
 
   // Recurse back into the best AA results we have, potentially with refined
@@ -2161,6 +2168,7 @@ AnalysisKey BasicAA::Key;
 
 BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   return BasicAAResult(F.getParent()->getDataLayout(),
+                       F,
                        AM.getResult<TargetLibraryAnalysis>(F),
                        AM.getResult<AssumptionAnalysis>(F),
                        &AM.getResult<DominatorTreeAnalysis>(F),
@@ -2193,7 +2201,7 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
 
-  Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), TLIWP.getTLI(),
+  Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F, TLIWP.getTLI(),
                                  ACT.getAssumptionCache(F), &DTWP.getDomTree(),
                                  LIWP ? &LIWP->getLoopInfo() : nullptr));
 
@@ -2210,6 +2218,7 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
   return BasicAAResult(
       F.getParent()->getDataLayout(),
+      F,
       P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
       P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F));
 }

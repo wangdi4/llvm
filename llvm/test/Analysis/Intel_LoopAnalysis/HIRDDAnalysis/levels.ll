@@ -14,7 +14,6 @@
 
 ; L1: DD graph for function
 ; L1-DAG: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
-; L1-DAG: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
 ; L1-DAG: (@A)[0][i1] --> (@A)[0][i2] FLOW
 ; L1-DAG: (@A)[0][i2] --> (@A)[0][i1] ANTI
 

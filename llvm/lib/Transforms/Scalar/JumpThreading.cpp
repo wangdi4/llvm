@@ -69,7 +69,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
-#include "llvm/Transforms/Utils/SSAUpdaterBulk.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cassert>
@@ -2638,6 +2637,16 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       PredTerm->setSuccessor(i, BlockMapping[RegionTop]);
     }
 
+  DDT->applyUpdates({{DominatorTree::Insert, BlockMapping[RegionBottom],
+                      SuccBB},
+                     {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
+                     {DominatorTree::Delete, PredBB, RegionTop}});
+
+  // Apply all updates we queued with DDT and get the updated Dominator Tree.
+  DominatorTree *DT = &DDT->flush();
+  (void)DT;
+
+
   // If there were values defined in the region that are used outside the
   // region, then we now have to update all uses of the value to use either the
   // original value, the cloned value, or some PHI derived value. This can
@@ -2653,6 +2662,13 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       // block, and if so, record them in UsesToRename.
       for (Use &U : I.uses()) {
         Instruction *User = cast<Instruction>(U.getUser());
+        // LLORG version uses "DT->dominates(&I, U)" as the right part of the
+        // condition below becase it LLORG uses SSAUpdaterBulk. In xmain we
+        // update values one by one (no bulk update) so the check is different.
+        //
+        // TODO: Verify that there are no hidden bugs due to that check here.
+        // The test (PR37745.ll) passes in xmain but the issue might be just
+        // hidden due to some reason.
         if (!isa<PHINode>(User) && User->getParent() == OldBB)
           continue;
 
@@ -2685,15 +2701,6 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       LLVM_DEBUG(dbgs() << "\n");
     }
   }
-
-  DDT->applyUpdates({{DominatorTree::Insert, BlockMapping[RegionBottom],
-                      SuccBB},
-                     {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
-                     {DominatorTree::Delete, PredBB, RegionTop}});
-
-  // Apply all updates we queued with DDT and get the updated Dominator Tree.
-  DominatorTree *DT = &DDT->flush();
-  (void)DT;
 
   // At this point, the IR is fully up to date and consistent.  Do a quick scan
   // over the new instructions and zap any that are constants or dead.  This
