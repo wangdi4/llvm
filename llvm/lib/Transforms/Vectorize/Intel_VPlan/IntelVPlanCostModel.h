@@ -32,12 +32,26 @@ class VPlan;
 class VPBasicBlock;
 class VPBlockBase;
 class VPInstruction;
+#if INTEL_CUSTOMIZATION
+class VPlanVLSAnalysis;
+#endif // INTEL_CUSTOMIZATION
 
 class VPlanCostModel {
+#if INTEL_CUSTOMIZATION
+  // To access getMemInstValueType.
+  friend class VPlanVLSAnalysisHIR;
+#endif // INTEL_CUSTOMIZATION
 public:
+#if INTEL_CUSTOMIZATION
+  VPlanCostModel(const VPlan *Plan, const unsigned VF,
+                 const TargetTransformInfo *TTI, const DataLayout *DL,
+                 VPlanVLSAnalysis *VLSA)
+      : Plan(Plan), VF(VF), TTI(TTI), DL(DL), VLSA(VLSA) {}
+#else
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
                  const TargetTransformInfo *TTI, const DataLayout *DL)
       : Plan(Plan), VF(VF), TTI(TTI), DL(DL) {}
+#endif // INTEL_CUSTOMIZATION
   virtual unsigned getCost(const VPInstruction *VPInst) const;
   virtual unsigned getCost(const VPBasicBlock *VPBB) const;
   virtual unsigned getCost() const;
@@ -49,6 +63,9 @@ protected:
   unsigned VF;
   const TargetTransformInfo *TTI;
   const DataLayout *DL;
+#if INTEL_CUSTOMIZATION
+  VPlanVLSAnalysis *VLSA;
+#endif // INTEL_CUSTOMIZATION
 
   static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
 

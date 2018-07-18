@@ -13,6 +13,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELPROPRIETARY_H
 
 #include "IntelVPlanCostModel.h"
+#include "IntelVPlanVLSAnalysis.h"
 
 namespace llvm {
 
@@ -22,8 +23,11 @@ class VPlanCostModelProprietary : public VPlanCostModel {
 public:
   explicit VPlanCostModelProprietary(const VPlan *Plan, unsigned VF,
                                      const TargetTransformInfo *TTI,
-                                     const DataLayout *DL)
-      : VPlanCostModel(Plan, VF, TTI, DL) {}
+                                     const DataLayout *DL,
+                                     VPlanVLSAnalysis *VLSA)
+      : VPlanCostModel(Plan, VF, TTI, DL, VLSA) {
+    VLSA->getOVLSMemrefs(Plan, VF);
+  }
 
   virtual unsigned getCost(const VPInstruction *VPInst) const final;
   virtual unsigned getCost(const VPBasicBlock *VPBB) const final;

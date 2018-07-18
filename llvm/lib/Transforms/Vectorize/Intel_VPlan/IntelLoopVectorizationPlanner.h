@@ -20,6 +20,7 @@
 #include "IntelVPLoopAnalysis.h"
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
+#include "IntelVPlanVLSAnalysis.h"
 #else
 #include "VPlan.h"
 #endif
@@ -59,15 +60,19 @@ class VPlanCostModel;
 /// access groups.
 class LoopVectorizationPlanner {
 public:
+#if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
                            ScalarEvolution *SE, const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
-                           VPOVectorizationLegality *Legal)
+                           VPOVectorizationLegality *Legal,
+                           VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
-        LI(LI), SE(SE), DT(DT) {
+        LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
     VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
   }
+#endif // INTEL_CUSTOMIZATION
+
   virtual ~LoopVectorizationPlanner() {}
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
@@ -188,8 +193,13 @@ private:
   /// The dominators tree.
   class DominatorTree *DT;
 
-  /// VPLoop Analysis
+#if INTEL_CUSTOMIZATION
+  /// VPLoop Analysis.
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
+
+  /// VPlan VLS Analysis.
+  VPlanVLSAnalysis *VLSA;
+#endif // INTEL_CUSTOMIZATION
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;

@@ -22,12 +22,14 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/IntelVPlanIdioms.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
+  Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPLoopAnalysisHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

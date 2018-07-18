@@ -16,26 +16,15 @@
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanVLSAnalysis.h"
+#include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
+#include "VPlanHIR/IntelVPlanVLSClientHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
 using namespace llvm::loopopt;
-
-// TODO: Replace this function with a call to divergence analysis when it is
-// ready.
-static bool isUnitStride(const RegDDRef *Ref, unsigned NestingLevel) {
-
-  if (!Ref->isMemRef())
-    return false;
-
-  bool IsNegStride;
-  if (!Ref->isUnitStride(NestingLevel, IsNegStride) || IsNegStride)
-    return false;
-
-  return true;
-}
 
 namespace llvm {
 
@@ -53,11 +42,17 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
     return false; // CHECKME: Is that correct?
 
   if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
+    // FIXME: It's not correct to getParentLoop() for outerloop
+    // vectorization.
+    assert(Inst->getParentLoop()->isInnermost() &&
+           "Outerloop vectorization is not supported.");
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
 
     return Opcode == Instruction::Load
-               ? isUnitStride(Inst->getOperandDDRef(1), NestingLevel)
-               : isUnitStride(Inst->getLvalDDRef(), NestingLevel);
+               ? VPlanVLSAnalysisHIR::isUnitStride(Inst->getOperandDDRef(1),
+                                                   NestingLevel)
+               : VPlanVLSAnalysisHIR::isUnitStride(Inst->getLvalDDRef(),
+                                                   NestingLevel);
   }
   return false;
 }
@@ -82,9 +77,14 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst) const {
   // still not accurate. Masked loads or stores will be emulated with
   // if-then-else statements, thus additional cost of movemask and cmps
   // must be added.
-  return IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
-                                       Alignment, AddrSpace)
-                : VPlanCostModel::getCost(VPInst);
+  unsigned Cost =
+      IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
+                                    Alignment, AddrSpace)
+             : VPlanCostModel::getCost(VPInst);
+  if (VLSA->getGroupsFor(Plan, VPInst))
+    // TODO: Reduce cost according to OVLSCostModel.
+    LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->dump(););
+  return Cost;
 }
 
 unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {

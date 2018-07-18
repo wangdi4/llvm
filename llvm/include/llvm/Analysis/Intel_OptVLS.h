@@ -194,7 +194,9 @@ public:
   enum OVLSMemrefKind {
     VLSK_ClientMemref, // Represents a test-client
     VLSK_HIRVLSClientMemref, // Represents HIR-client
-    VLSK_X86InterleavedClientMemref // Represents X86InterleavedClient with LLVM-IR
+    VLSK_X86InterleavedClientMemref, // Represents X86InterleavedClient with LLVM-IR
+    VLSK_VPlanVLSClientMemref, // Represents a VPlan-client
+    VLSK_VPlanHIRVLSClientMemref, // Represents a VPlanHIR-client
   };
 
 private:
@@ -212,6 +214,7 @@ public:
   void setType(OVLSType T) { DType = T; }
 
   void setNumElements(uint32_t nelems) { DType.setNumElements(nelems); }
+  unsigned getNumElements() const { return DType.getNumElements(); };
   OVLSAccessType getAccessType() const { return AccType; }
   void setAccessType(const OVLSAccessType &Type) { AccType = Type; }
 

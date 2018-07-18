@@ -581,13 +581,15 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPBuilderHIR;
   friend class VPDecomposerHIR;
   // To get underlying HIRData until we have proper VPType.
+  friend class VPVLSClientMemrefHIR;
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
   friend class VPlanIdioms;
+  friend class VPlanVLSAnalysis;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
-  public: 
+  public:
     HIRSpecifics() {}
     ~HIRSpecifics() {
       if (isMaster())
