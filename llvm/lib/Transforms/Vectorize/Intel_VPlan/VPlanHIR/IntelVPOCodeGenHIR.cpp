@@ -109,6 +109,16 @@ public:
                RegDDRef *M)
       : RDDR(R), HNU(H), DDRU(D), ACG(C), MaskDDRef(M) {}
 
+  RegDDRef *visit(const SCEV *SC) {
+    RegDDRef *RDDR;
+    if ((RDDR = ACG->getWideRefForSCVal(SC)))
+      return RDDR;
+
+    RDDR = SCEVVisitor::visit(SC);
+    ACG->addSCEVWideRefMapping(SC, RDDR);
+    return RDDR;
+  }
+
   RegDDRef *visitConstant(const SCEVConstant *Constant);
   RegDDRef *visitTruncateExpr(const SCEVTruncateExpr *Expr);
   RegDDRef *visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr);
@@ -1454,6 +1464,16 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   const HLInst *Node = INode;
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
+
+  // Widened values for SCEV expressions cannot be reused across HIR
+  // instructions as temps that are part of such SCEV expressions can be
+  // assigned to before a use in a later HIR instruction.
+  // t1 =
+  //    = zext(t1)
+  // t1 =
+  //    = zext(t1)
+  // We clear the map at the start of widening of each HLInst.
+  SCEVWideRefMap.clear();
 
   if (!Mask)
     Mask = CurMaskValue;

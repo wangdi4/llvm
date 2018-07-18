@@ -32,7 +32,9 @@
 #endif
 
 namespace llvm {
+#if INTEL_CUSTOMIZATION
 namespace vpo {
+#endif
 
 // Forward declarations.
 class VPUser;
@@ -42,10 +44,8 @@ class VPUser;
 // TODO: This needs to be refactored
 class VPIfTruePredicateRecipe;
 class VPIfFalsePredicateRecipe;
-namespace vpo {
 class VPlanPredicator;
 class VPlan;
-}
 #endif
 
 // This is the base class of the VPlan Def/Use graph, used for modeling the data
@@ -306,8 +306,8 @@ public:
     return V->getVPValueID() == VPConstantSC;
   }
 };
-#endif // INTEL_CUSTOMIZATION
 } // namespace vpo
+#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
