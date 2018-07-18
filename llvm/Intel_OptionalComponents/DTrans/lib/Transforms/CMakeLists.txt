@@ -15,6 +15,7 @@ add_llvm_library(LLVMIntel_DTransOpt
   AOSToSOA.cpp
   DeleteField.cpp
   ReorderFields.cpp
+  ResolveTypes.cpp
   EliminateROFieldAccess.cpp
   DynClone.cpp
   DTransOptBase.cpp

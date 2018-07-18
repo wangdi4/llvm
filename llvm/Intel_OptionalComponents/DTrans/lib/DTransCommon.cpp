@@ -63,6 +63,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransPaddedMallocWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
+  initializeDTransResolveTypesWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
   initializeDTransDynCloneWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
@@ -76,6 +77,9 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(early))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
+  // This must run before any pass that depends on DTransAnalysis.
+  MPM.addPass(dtrans::ResolveTypesPass());
+
   MPM.addPass(dtrans::DeleteFieldPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
   MPM.addPass(dtrans::AOSToSOAPass());
@@ -87,6 +91,9 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   if (hasDumpModuleBeforeDTransValue(early))
     PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
+
+  // This must run before any pass that depends on DTransAnalysis.
+  PM.add(createDTransResolveTypesWrapperPass());
 
   PM.add(createDTransDeleteFieldWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
