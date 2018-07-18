@@ -54,6 +54,10 @@ static cl::opt<bool> EnableMachineCombinerPass("x86-machine-combiner",
                                cl::desc("Enable the machine combiner pass"),
                                cl::init(true), cl::Hidden);
 
+static cl::opt<bool> EnableSpeculativeLoadHardening(
+    "x86-speculative-load-hardening",
+    cl::desc("Enable speculative load hardening"), cl::init(false), cl::Hidden);
+
 namespace llvm {
 
 void initializeWinEHStatePassPass(PassRegistry &);
@@ -223,8 +227,14 @@ X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
   // to ever want to mix 32 and 64-bit windows code in a single module
   // this should be fine.
   if ((TT.isOSWindows() && TT.getArch() == Triple::x86_64) || TT.isPS4() ||
-      TT.isOSBinFormatMachO())
+      TT.isOSBinFormatMachO()) {
     this->Options.TrapUnreachable = true;
+    this->Options.NoTrapAfterNoreturn = TT.isOSBinFormatMachO();
+  }
+
+  // Outlining is available for x86-64.
+  if (TT.getArch() == Triple::x86_64)
+    setMachineOutliner(true);
 
   initAsmInfo();
 }
@@ -456,6 +466,9 @@ void X86PassConfig::addPreRegAlloc() {
     addPass(createX86CallFrameOptimization());
     addPass(createX86AvoidStoreForwardingBlocks());
   }
+
+  if (EnableSpeculativeLoadHardening)
+    addPass(createX86SpeculativeLoadHardeningPass());
 
   addPass(createX86FlagsCopyLoweringPass());
   addPass(createX86WinAllocaExpander());

@@ -41,12 +41,9 @@ if (CLANG_BUILT_STANDALONE)
   set(codegen_deps)
 endif()
 
-# INTEL_CUSTOMIZATION
 if (MSVC)
-  set_source_files_properties(CodeGenModule.cpp
-                              PROPERTIES COMPILE_FLAGS /bigobj)
+  set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()
-# end INTEL_CUSTOMIZATION
 
 add_clang_library(clangCodeGen
   BackendUtil.cpp

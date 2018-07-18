@@ -1272,8 +1272,7 @@ void TemplateDeclInstantiator::InstantiateEnumDefinition(
   }
 
   SemaRef.ActOnEnumBody(Enum->getLocation(), Enum->getBraceRange(), Enum,
-                        Enumerators,
-                        nullptr, nullptr);
+                        Enumerators, nullptr, ParsedAttributesView());
 }
 
 Decl *TemplateDeclInstantiator::VisitEnumConstantDecl(EnumConstantDecl *D) {
@@ -2802,7 +2801,8 @@ Decl *TemplateDeclInstantiator::instantiateUnresolvedUsingDecl(
 
   NamedDecl *UD = SemaRef.BuildUsingDeclaration(
       /*Scope*/ nullptr, D->getAccess(), D->getUsingLoc(),
-      /*HasTypename*/ TD, TypenameLoc, SS, NameInfo, EllipsisLoc, nullptr,
+      /*HasTypename*/ TD, TypenameLoc, SS, NameInfo, EllipsisLoc,
+      ParsedAttributesView(),
       /*IsInstantiation*/ true);
   if (UD)
     SemaRef.Context.setInstantiatedFromUsingDecl(UD, D);

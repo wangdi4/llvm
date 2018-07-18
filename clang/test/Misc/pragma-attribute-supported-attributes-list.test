@@ -4,7 +4,7 @@
 
 // if INTEL_CUSTOMIZATION
 // NOTE: The below value is currently Community value +10.
-// CHECK: #pragma clang attribute supports 79 attributes:
+// CHECK: #pragma clang attribute supports 80 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -44,6 +44,7 @@
 // CHECK-NEXT: MaxGlobalWorkDim (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: MicroMips (SubjectMatchRule_function)
+// CHECK-NEXT: MinVectorWidth (SubjectMatchRule_function)
 // CHECK-NEXT: MipsLongCall (SubjectMatchRule_function)
 // CHECK-NEXT: MipsShortCall (SubjectMatchRule_function)
 // CHECK-NEXT: NoDebug (SubjectMatchRule_hasType_functionType, SubjectMatchRule_objc_method, SubjectMatchRule_variable_not_is_parameter)

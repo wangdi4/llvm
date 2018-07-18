@@ -88,7 +88,7 @@ StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
     ArgsUnion Args[] = {KindLoc, OptionsLoc};
     TempAttrs.addNew(KindLoc->Ident, Range, nullptr,
                      KindLoc->Loc, Args, 2,
-                     AttributeList::AS_Pragma);
+                     ParsedAttr::AS_Pragma);
 
     assert(Tok.is(tok::annot_pragma_inline));
     ConsumeAnnotationToken();  // annot_pragma_inline

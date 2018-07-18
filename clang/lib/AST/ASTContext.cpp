@@ -3102,6 +3102,7 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::Builtin:
   case Type::Complex:
   case Type::Vector:
+  case Type::DependentVector:
   case Type::ExtVector:
   case Type::DependentSizedExtVector:
   case Type::DependentAddressSpace:
@@ -3381,6 +3382,45 @@ QualType ASTContext::getVectorType(QualType vecType, unsigned NumElts,
   auto *New = new (*this, TypeAlignment)
     VectorType(vecType, NumElts, Canonical, VecKind);
   VectorTypes.InsertNode(New, InsertPos);
+  Types.push_back(New);
+  return QualType(New, 0);
+}
+
+QualType
+ASTContext::getDependentVectorType(QualType VecType, Expr *SizeExpr,
+                                   SourceLocation AttrLoc,
+                                   VectorType::VectorKind VecKind) const {
+  llvm::FoldingSetNodeID ID;
+  DependentVectorType::Profile(ID, *this, getCanonicalType(VecType), SizeExpr,
+                               VecKind);
+  void *InsertPos = nullptr;
+  DependentVectorType *Canon =
+      DependentVectorTypes.FindNodeOrInsertPos(ID, InsertPos);
+  DependentVectorType *New;
+
+  if (Canon) {
+    New = new (*this, TypeAlignment) DependentVectorType(
+        *this, VecType, QualType(Canon, 0), SizeExpr, AttrLoc, VecKind);
+  } else {
+    QualType CanonVecTy = getCanonicalType(VecType);
+    if (CanonVecTy == VecType) {
+      New = new (*this, TypeAlignment) DependentVectorType(
+          *this, VecType, QualType(), SizeExpr, AttrLoc, VecKind);
+
+      DependentVectorType *CanonCheck =
+          DependentVectorTypes.FindNodeOrInsertPos(ID, InsertPos);
+      assert(!CanonCheck &&
+             "Dependent-sized vector_size canonical type broken");
+      (void)CanonCheck;
+      DependentVectorTypes.InsertNode(New, InsertPos);
+    } else {
+      QualType Canon = getDependentSizedExtVectorType(CanonVecTy, SizeExpr,
+                                                      SourceLocation());
+      New = new (*this, TypeAlignment) DependentVectorType(
+          *this, VecType, Canon, SizeExpr, AttrLoc, VecKind);
+    }
+  }
+
   Types.push_back(New);
   return QualType(New, 0);
 }
@@ -5143,15 +5183,49 @@ QualType ASTContext::getUnqualifiedArrayType(QualType type,
                                     SourceRange());
 }
 
-/// UnwrapSimilarPointerTypes - If T1 and T2 are pointer types  that
-/// may be similar (C++ 4.4), replaces T1 and T2 with the type that
-/// they point to and return true. If T1 and T2 aren't pointer types
-/// or pointer-to-member types, or if they are not similar at this
-/// level, returns false and leaves T1 and T2 unchanged. Top-level
-/// qualifiers on T1 and T2 are ignored. This function will typically
-/// be called in a loop that successively "unwraps" pointer and
-/// pointer-to-member types to compare them at each level.
-bool ASTContext::UnwrapSimilarPointerTypes(QualType &T1, QualType &T2) {
+/// Attempt to unwrap two types that may both be array types with the same bound
+/// (or both be array types of unknown bound) for the purpose of comparing the
+/// cv-decomposition of two types per C++ [conv.qual].
+static void unwrapSimilarArrayTypes(ASTContext &Ctx, QualType &T1,
+                                    QualType &T2) {
+  while (true) {
+    auto *AT1 = Ctx.getAsArrayType(T1);
+    if (!AT1) return;
+
+    auto *AT2 = Ctx.getAsArrayType(T2);
+    if (!AT2) return;
+
+    // If we don't have two array types with the same constant bound nor two
+    // incomplete array types, we've unwrapped everything we can.
+    if (auto *CAT1 = dyn_cast<ConstantArrayType>(AT1)) {
+      auto *CAT2 = dyn_cast<ConstantArrayType>(AT2);
+      if (!CAT2 || CAT1->getSize() != CAT2->getSize())
+        return;
+    } else if (!isa<IncompleteArrayType>(AT1) ||
+               !isa<IncompleteArrayType>(AT2)) {
+      return;
+    }
+
+    T1 = AT1->getElementType();
+    T2 = AT2->getElementType();
+  }
+}
+
+/// Attempt to unwrap two types that may be similar (C++ [conv.qual]).
+///
+/// If T1 and T2 are both pointer types of the same kind, or both array types
+/// with the same bound, unwraps layers from T1 and T2 until a pointer type is
+/// unwrapped. Top-level qualifiers on T1 and T2 are ignored.
+///
+/// This function will typically be called in a loop that successively
+/// "unwraps" pointer and pointer-to-member types to compare them at each
+/// level.
+///
+/// \return \c true if a pointer type was unwrapped, \c false if we reached a
+/// pair of types that can't be unwrapped further.
+bool ASTContext::UnwrapSimilarTypes(QualType &T1, QualType &T2) {
+  unwrapSimilarArrayTypes(*this, T1, T2);
+
   const auto *T1PtrType = T1->getAs<PointerType>();
   const auto *T2PtrType = T2->getAs<PointerType>();
   if (T1PtrType && T2PtrType) {
@@ -5183,6 +5257,37 @@ bool ASTContext::UnwrapSimilarPointerTypes(QualType &T1, QualType &T2) {
   // FIXME: Block pointers, too?
   
   return false;
+}
+
+bool ASTContext::hasSimilarType(QualType T1, QualType T2) {
+  while (true) {
+    Qualifiers Quals;
+    T1 = getUnqualifiedArrayType(T1, Quals);
+    T2 = getUnqualifiedArrayType(T2, Quals);
+    if (hasSameType(T1, T2))
+      return true;
+    if (!UnwrapSimilarTypes(T1, T2))
+      return false;
+  }
+}
+
+bool ASTContext::hasCvrSimilarType(QualType T1, QualType T2) {
+  while (true) {
+    Qualifiers Quals1, Quals2;
+    T1 = getUnqualifiedArrayType(T1, Quals1);
+    T2 = getUnqualifiedArrayType(T2, Quals2);
+
+    Quals1.removeCVRQualifiers();
+    Quals2.removeCVRQualifiers();
+    if (Quals1 != Quals2)
+      return false;
+
+    if (hasSameType(T1, T2))
+      return true;
+
+    if (!UnwrapSimilarTypes(T1, T2))
+      return false;
+  }
 }
 
 DeclarationNameInfo
@@ -5639,6 +5744,12 @@ QualType ASTContext::isPromotableBitField(Expr *E) const {
   if (E->isTypeDependent() || E->isValueDependent())
     return {};
 
+  // C++ [conv.prom]p5:
+  //    If the bit-field has an enumerated type, it is treated as any other
+  //    value of that type for promotion purposes.
+  if (getLangOpts().CPlusPlus && E->getType()->isEnumeralType())
+    return {};
+
   // FIXME: We should not do this unless E->refersToBitField() is true. This
   // matters in C where getSourceBitField() will find bit-fields for various
   // cases where the source expression is not a bit-field designator.
@@ -5665,13 +5776,15 @@ QualType ASTContext::isPromotableBitField(Expr *E) const {
   //
   // FIXME: C does not permit promotion of a 'long : 3' bitfield to int.
   //        We perform that promotion here to match GCC and C++.
+  // FIXME: C does not permit promotion of an enum bit-field whose rank is
+  //        greater than that of 'int'. We perform that promotion to match GCC.
   if (BitWidth < IntSize)
     return IntTy;
 
   if (BitWidth == IntSize)
     return FT->isSignedIntegerType() ? IntTy : UnsignedIntTy;
 
-  // Types bigger than int are not subject to promotions, and therefore act
+  // Bit-fields wider than int are not subject to promotions, and therefore act
   // like the base type. GCC has some weird bugs in this area that we
   // deliberately do not follow (GCC follows a pre-standard resolution to
   // C's DR315 which treats bit-width as being part of the type, and this leaks
@@ -9870,6 +9983,29 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
   else
     return false;
 
+  if (D->isFromASTFile() && !LangOpts.BuildingPCHWithObjectFile) {
+    assert(getExternalSource() && "It's from an AST file; must have a source.");
+    // On Windows, PCH files are built together with an object file. If this
+    // declaration comes from such a PCH and DeclMustBeEmitted would return
+    // true, it would have returned true and the decl would have been emitted
+    // into that object file, so it doesn't need to be emitted here.
+    // Note that decls are still emitted if they're referenced, as usual;
+    // DeclMustBeEmitted is used to decide whether a decl must be emitted even
+    // if it's not referenced.
+    //
+    // Explicit template instantiation definitions are tricky. If there was an
+    // explicit template instantiation decl in the PCH before, it will look like
+    // the definition comes from there, even if that was just the declaration.
+    // (Explicit instantiation defs of variable templates always get emitted.)
+    bool IsExpInstDef =
+        isa<FunctionDecl>(D) &&
+        cast<FunctionDecl>(D)->getTemplateSpecializationKind() ==
+            TSK_ExplicitInstantiationDefinition;
+
+    if (getExternalSource()->DeclIsFromPCHWithObjectFile(D) && !IsExpInstDef)
+      return false;
+  }
+
   // If this is a member of a class template, we do not need to emit it.
   if (D->getDeclContext()->isDependentContext())
     return false;
@@ -9890,7 +10026,7 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     // Constructors and destructors are required.
     if (FD->hasAttr<ConstructorAttr>() || FD->hasAttr<DestructorAttr>())
       return true;
-    
+
     // The key function for a class is required.  This rule only comes
     // into play when inline functions can be key functions, though.
     if (getTargetInfo().getCXXABI().canKeyFunctionBeInline()) {
@@ -9911,7 +10047,7 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     // Implicit template instantiations can also be deferred in C++.
     return !isDiscardableGVALinkage(Linkage);
   }
-  
+
   const auto *VD = cast<VarDecl>(D);
   assert(VD->isFileVarDecl() && "Expected file scoped var");
 
