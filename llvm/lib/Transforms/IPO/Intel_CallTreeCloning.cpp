@@ -82,6 +82,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -137,6 +138,11 @@ static cl::opt<unsigned>
     CTCloningMaxClones(PASS_NAME_STR "-max-clones", cl::init(1024),
                        cl::ReallyHidden,
                        cl::desc("maximum number of cloned functions"));
+
+// Maximum number of direct callsites allowed for CallTreeClone
+static cl::opt<unsigned> CTCloningMaxDirectCallSiteCount(
+    PASS_NAME_STR "-max-direct-callsites", cl::init(5120), cl::ReallyHidden,
+    cl::desc("maximum allowed number of direct callsites in linked module"));
 
 // Allows to specify "seed" functions and their parameter sets profitable to
 // clone directly from the command line bypassing the cost-model.
@@ -532,9 +538,31 @@ class DetailedCallGraph : public std::map<const Function *, DCGNodeList> {
 public:
   DetailedCallGraph() : NodeId(0) {}
 
-  static DetailedCallGraph *build(Module &M);
+  static DetailedCallGraph *build(Module &M) {
+    DetailedCallGraph *DCG = new DetailedCallGraph();
 
-  const DCGNodeList *getNodesWithCallee(const Function *F) const;
+    for (auto &F : M)
+      for (auto &I : instructions(F))
+        if (auto *CI = dyn_cast<CallInst>(&I))
+          DCG->addCallSite(CI);
+
+    return DCG;
+  }
+
+  const DCGNodeList *getNodesWithCallee(const Function *F) const {
+    // TODO edges can be "compressed":
+    // Nodes are grouped by the callee, e.g. a->b (1), a->b (2) go in group X,
+    // a->c (1), a->c (2) go into group Y; there is a single edge between the
+    // group X and echo group of b, and between Y and each group of c
+
+    // take any node of f and get all predecessors
+    auto Nit = Callee2Nodes.find(F);
+
+    if (Nit == Callee2Nodes.end())
+      return nullptr;
+
+    return &Nit->second;
+  }
 
   const DCGNodeList *getNodesOf(const Function *F) const {
     auto I = find(F);
@@ -555,7 +583,7 @@ public:
 #endif // NDEBUG
 
 private:
-  // extends the call graph with one node corrsponding to give call and 1 or
+  // extend the call graph with one node corresponding to give call and 1 or
   // more edges
   void addCallSite(CallInst *I);
 
@@ -566,6 +594,54 @@ private:
   std::map<const Function *, DCGNodeList> Callee2Nodes;
   uint32_t NodeId;
 };
+
+void DetailedCallGraph::addCallSite(CallInst *CI) {
+  // assume CI is Caller->Callee call site
+
+  Function *Caller = CI->getParent()->getParent();
+  Function *Callee = CI->getCalledFunction();
+
+  if (!Caller || !Callee || Caller->isVarArg() || Callee->isVarArg())
+    // TODO support vararg functions
+    return;
+
+  // create and push a new node
+  Nodes.emplace_front(DCGNode(CI, NodeId++));
+  DCGNode *L = &Nodes.front();
+
+  // add the node to A's node list
+  auto &ANodes = (*this)[Caller];
+  ANodes.push_back(L);
+
+  // add edges between Caller's caller nodes and L
+  auto It = Callee2Nodes.find(Caller);
+
+  if (It != Callee2Nodes.end())
+    for (auto *K : It->second) {
+      Edges.emplace_front(DCGEdge(K, L));
+      DCGEdge *Edge = &Edges.front();
+      K->outEdges()->push_back(Edge);
+      L->inEdges()->push_back(Edge);
+    }
+
+  // add L to B's caller list
+  auto &BCallers = Callee2Nodes[Callee];
+  BCallers.push_back(L);
+
+  // add edges between L and all B's nodes
+  auto It1 = find(Callee);
+
+  if (It1 != end())
+    for (auto *M : It1->second) {
+      Edges.emplace_front(DCGEdge(L, M));
+      DCGEdge *Edge = &Edges.front();
+      L->outEdges()->push_back(Edge);
+      M->inEdges()->push_back(Edge);
+    }
+
+  DBGX(1, dbgs() << "CALL " << Caller->getName() << " -> " << Callee->getName()
+                 << "\n");
+}
 
 // Result of backwards parameter mapping
 enum ParamMappingResult {
@@ -871,53 +947,6 @@ inline ParamMappingResult merge_result(ParamMappingResult SetResult,
                                        ParamMappingResult ElemResult) {
   assert(ElemResult != params_unprocessed && "");
   return static_cast<ParamMappingResult>(std::min(SetResult, ElemResult));
-}
-
-void DetailedCallGraph::addCallSite(CallInst *I) {
-  // assume I is A->B call site
-
-  Function *A = I->getParent()->getParent();
-  Function *B = I->getCalledFunction();
-
-  if (!A || !B || A->isVarArg() || B->isVarArg())
-    // TODO support vararg functions
-    return;
-
-  // create and push a new node
-  Nodes.emplace_front(DCGNode(I, NodeId++));
-  DCGNode *L = &Nodes.front();
-
-  // add the node to A's node list
-  auto &ANodes = (*this)[A];
-  ANodes.push_back(L);
-
-  // add edges between A's caller nodes and L
-  auto It = Callee2Nodes.find(A);
-
-  if (It != Callee2Nodes.end())
-    for (auto *K : It->second) {
-      Edges.emplace_front(DCGEdge(K, L));
-      DCGEdge *Edge = &Edges.front();
-      K->outEdges()->push_back(Edge);
-      L->inEdges()->push_back(Edge);
-    }
-
-  // add L to B's caller list
-  auto &BCallers = Callee2Nodes[B];
-  BCallers.push_back(L);
-
-  // add edges between L and all B's nodes
-  auto It1 = find(B);
-
-  if (It1 != end())
-    for (auto *M : It1->second) {
-      Edges.emplace_front(DCGEdge(L, M));
-      DCGEdge *Edge = &Edges.front();
-      L->outEdges()->push_back(Edge);
-      M->inEdges()->push_back(Edge);
-    }
-
-  DBGX(1, dbgs() << "CALL " << A->getName() << " -> " << B->getName() << "\n");
 }
 
 void ParamTform::copyConstantParams(ConstParamVec &ConstParams) const {
@@ -1305,22 +1334,6 @@ template <typename It> CTCDebugCostModel::CTCDebugCostModel(It Beg, It End) {
   });
 }
 
-const DCGNodeList *
-DetailedCallGraph::getNodesWithCallee(const Function *F) const {
-  // TODO edges can be "compressed":
-  // Nodes are grouped by the callee, e.g. a->b (1), a->b (2) go in group X,
-  // a->c (1), a->c (2) go into group Y; there is a single edge between the
-  // group X and echo group of b, and between Y and each group of c
-
-  // take any node of f and get all predecessors
-  auto Nit = Callee2Nodes.find(F);
-
-  if (Nit == Callee2Nodes.end())
-    return nullptr;
-
-  return &Nit->second;
-}
-
 SetOfParamIndSets CTCDebugCostModel::assess(Function &F) {
   assert(!SeedsFromCmdLine.empty() && "seeds must have been provided");
   // 'It' references a pair <function name, sets of param index sets>:
@@ -1439,6 +1452,29 @@ public:
   bool run(Module &M, Analyses &Anl, PreservedAnalyses &PA);
 
 protected:
+  // -count the number of CallInst(s) and InvokeInst(s)
+  // -check if it is within the allowed threshold
+  bool checkThreshold(Module &M) {
+    uint64_t NumCallInst = 0;
+
+    for (auto &F : M.functions())
+      for (BasicBlock &BB : F)
+        for (Instruction &I : BB)
+          // count direct calls only: support both CallInst and InvokeInst
+          if (auto CS = CallSite(&I))
+            if (!CS.isIndirectCall())
+              ++NumCallInst;
+
+    LLVM_DEBUG(dbgs() << "NumCallInst:\t" << NumCallInst << "\n");
+
+    if (NumCallInst > CTCloningMaxDirectCallSiteCount) {
+      LLVM_DEBUG(dbgs() << "Intel_CallTreeCloning: Potential Call graph too "
+                           "large, CallTreeClone pass disabled\n");
+      return false;
+    }
+    return true;
+  }
+
   // The main algorithm - performs bottom-up parameter sets propagation and
   // then top-down parameter sets propagation/evaluation and function cloning.
   bool
@@ -1476,17 +1512,6 @@ protected:
 
 } // end of anonymous namespace
 
-DetailedCallGraph *DetailedCallGraph::build(Module &M) {
-  auto Res = new DetailedCallGraph();
-
-  for (auto &F : M)
-    for (auto &I : instructions(F))
-      if (auto *CI = dyn_cast<CallInst>(&I))
-        Res->addCallSite(CI);
-
-  return Res;
-}
-
 namespace llvm {
 
 // The call-tree cloning transformation ModulePass
@@ -1509,6 +1534,14 @@ public:
 
 bool CallTreeCloningImpl::run(Module &M, Analyses &Anls,
                               PreservedAnalyses &PA) {
+
+  if (!checkThreshold(M)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Disable CallTreeClone pass due to potential callgraph's size "
+           "over threshold\n");
+    return false;
+  }
 
   // build the detailed call graph first
   std::unique_ptr<DetailedCallGraph> Cgraph(DetailedCallGraph::build(M));
@@ -1746,41 +1779,44 @@ void CallTreeCloningImpl::findParamDepsRec(
 }
 
 // Starting from given "seed" <node,parameter set> pairs, propagates the
-// parameter sets up the call tree until "root" nodes whehre all parameters
-// of interest are foldable to constants. Then goes back from roots to seeds
-// along all possible paths calculating input costant parameter sets and
+// parameter sets up the call tree until "root" nodes where all parameters
+// of interest are fold-able to constants. Then goes back from roots to seeds
+// along all possible paths calculating input constant parameter sets and
 // cloning the callee functions.
+//
 // Algorithm of finding all paths from 'start' to leaves in a directed acyclic
 // graph is DFS w/o tracking the 'visited' property
 //
 bool CallTreeCloningImpl::findAndCloneCallSubtrees(
     DetailedCallGraph *Cgraph,
     std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds) {
+
   // parameter data-flow information for each call graph node
   DCGParamFlows Flows;
 
-  // the storage of nodes which start call-trees leading to compile-time
+  // storage of nodes which start call-trees leading to compile-time
   // defined parameter sets in any of the seed nodes
   SmallPtrSet<DCGNode *, 8> CloneRoots;
 
   DBGX(1, dbgs() << "\n--- Bottom-up pass (!-can't fold, C-constant)\n\n");
 
-  // bottom-up pass finding paths to root calls with constant actual
-  // parameters and parameter transformations performed by each involved call
-  // site
+  // bottom-up pass finding paths to root calls with constant actual parameters
+  // and parameter transformations performed by each involved call site
   for (auto &AlgSeed : AlgSeeds) {
     const SetOfParamIndSets &SeedLiveOut = AlgSeed.second;
     DCGNode *SeedNode = AlgSeed.first;
     DCGNodeParamFlow *Flow = Flows.getOrCreate(SeedNode);
     Flow->liveOut().insert(SeedLiveOut.begin(), SeedLiveOut.end());
+
     // current call tree (call stack) ending with a function found in current
     // seed_node
     SmallVector<DCGNode *, EST_CLONED_CALL_TREE_DEPTH> CallStack;
-    // now recursively/interprocedurally find formal parameter data
-    // dependencies until constants are met or the upward recursion is stopped
-    // otherwise
+
+    // recursively/inter-procedurally find formal parameter data dependencies
+    // until constants are met or the upward recursion is stopped otherwise
     findParamDepsRec(SeedNode, CloneRoots, &CallStack, Flows);
   }
+
   DBGX(1, print_node_set("--- Raw clone roots:", CloneRoots));
   // Step (3) of the "Clone root reachability" maintenance described in
   // findParamDepsRec: bust the clone roots which have a predecessor marked as
