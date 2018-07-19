@@ -26,9 +26,9 @@
 
 ; CHECK: %min = (-64 * i1 + %storemerge966 + -1 <= 63) ? -64 * i1 + %storemerge966 + -1 : 63;
 ; CHECK: <LVAL-REG> NON-LINEAR i64 %min {sb:222}
-; CHECK: DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK: DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ; CHECK: <RVAL-REG> LINEAR i64 %min{def@1} {sb:222}
-; CHECK: DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK: DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ; CHECK: <RVAL-REG> LINEAR i64 %min{def@1} {sb:222}
 
 ; ModuleID = 'min-at-canon.ll'

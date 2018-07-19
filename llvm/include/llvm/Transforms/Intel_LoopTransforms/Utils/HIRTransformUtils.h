@@ -41,6 +41,12 @@ class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class HIRLoopStatistics;
 
+enum OptimizationType {
+  Unroll,
+  UnrollAndJam,
+  Vectorizer
+};
+
 /// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
 class HIRTransformUtils {
@@ -69,7 +75,7 @@ private:
   static HLLoop *
   createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                         uint64_t NewTripCount, const RegDDRef *NewTCRef,
-                        LoopOptReportBuilder &LORBuilder, bool VecMode);
+                        LoopOptReportBuilder &LORBuilder, OptimizationType);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -226,7 +232,7 @@ public:
                                             unsigned UnrollOrVecFactor,
                                             bool &NeedRemainderLoop,
                                             LoopOptReportBuilder &LORBuilder,
-                                            bool VecMode = false);
+                                            OptimizationType);
 
   /// Updates Loop properties (Bounds, etc) based on input Permutations
   /// Used by Interchange now.

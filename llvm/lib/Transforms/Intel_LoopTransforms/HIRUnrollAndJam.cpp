@@ -835,6 +835,7 @@ public:
   }
 
   bool isUnrollJamMode() const { return LoopMap != nullptr; }
+  bool isUnknownLoopUnroll() const { return UnknownLoopExitLabel != nullptr; }
 
   void patchIntermediateBottomTestForUnknownLoop(HLNode *BottomTest) const;
 
@@ -1114,29 +1115,32 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
   }
 
   HLNode *CurFirstNode = OrigLoop->getFirstChild();
-  bool IsInnermost = false;
 
-  if (OrigLoop == NewLoop) {
+  if (UHelper.isUnknownLoopUnroll()) {
     // Skip loop label cloning for unknown loops.
     CurFirstNode = CurFirstNode->getNextNode();
-    IsInnermost = true;
-  } else {
-    IsInnermost = OrigLoop->isInnermost();
   }
 
+  bool IsUnrollJam = UHelper.isUnrollJamMode();
+
+  // Avoid unnecessary node traversal for innermost loops and general unroll as
+  // the body will be handled as a single node range.
+  bool NeedSingleNodeRange = (!IsUnrollJam || OrigLoop->isInnermost());
+
   while (CurFirstNode) {
-    // Avoid unnecessary node traversal for innermost loops as their body will
-    // be handled as a single node range.
     HLNode *CurLastNode =
-        IsInnermost ? OrigLoop->getLastChild()
-                    : UnrollHelper::getLastNodeInUnrollRange(CurFirstNode);
+        (NeedSingleNodeRange)
+            ? OrigLoop->getLastChild()
+            : UnrollHelper::getLastNodeInUnrollRange(CurFirstNode);
 
     // Keep pointer to next node in case this one is moved (for last unrolled
     // iteration).
     HLNode *NextFirstNode = CurLastNode->getNextNode();
 
-    // Unroll & Jam mode
-    if (auto ChildLoop = dyn_cast<HLLoop>(CurFirstNode)) {
+    HLLoop *ChildLoop = IsUnrollJam ? dyn_cast<HLLoop>(CurFirstNode) : nullptr;
+
+    if (ChildLoop) {
+      // Unroll & Jam mode
       assert((CurFirstNode == CurLastNode) &&
              "Single node range expected for loops!");
 
@@ -1172,7 +1176,7 @@ static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
   // Unknown loop unrollng.
   if (OrigLoop == MainLoop) {
     assert(OrigLoop->isUnknown() && "Unknown loop expected!");
-    assert(OrigLoop->isInnermost() && "Only innermost unknown loops expected!");
+    assert(!LoopMap && "Cannot unroll & jam unknown loop!");
 
     // Extract postexit before adding an exit label.
     MainLoop->extractPostexit();
@@ -1221,7 +1225,8 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
   } else {
     // Create the unrolled main loop and setup remainder loop.
     MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-        Loop, UnrollFactor, NeedRemainderLoop, LORBuilder);
+        Loop, UnrollFactor, NeedRemainderLoop, LORBuilder,
+        LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }
 
   unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);
