@@ -8,9 +8,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 using namespace llvm::orc;
@@ -35,39 +38,91 @@ createLambdaValueMaterializer(MaterializerFtor M) {
 }
 } // namespace
 
-static std::unique_ptr<Module> extractGlobals(Module &M) {
-  // FIXME: Add alias support.
+static void extractAliases(MaterializationResponsibility &R, Module &M,
+                           MangleAndInterner &Mangle) {
+  SymbolAliasMap Aliases;
 
-  if (M.global_empty() && M.alias_empty() && !M.getModuleFlagsMetadata())
-    return nullptr;
+  std::vector<GlobalAlias *> ModAliases;
+  for (auto &A : M.aliases())
+    ModAliases.push_back(&A);
 
-  auto GlobalsModule = llvm::make_unique<Module>(
-      (M.getName() + ".globals").str(), M.getContext());
-  GlobalsModule->setDataLayout(M.getDataLayout());
+  for (auto *A : ModAliases) {
+    Constant *Aliasee = A->getAliasee();
+    assert(A->hasName() && "Anonymous alias?");
+    assert(Aliasee->hasName() && "Anonymous aliasee");
+    std::string AliasName = A->getName();
 
-  ValueToValueMapTy VMap;
+    Aliases[Mangle(AliasName)] = SymbolAliasMapEntry(
+        {Mangle(Aliasee->getName()), JITSymbolFlags::fromGlobalValue(*A)});
 
-  for (auto &GV : M.globals())
-    if (!GV.isDeclaration() && !VMap.count(&GV))
-      cloneGlobalVariableDecl(*GlobalsModule, GV, &VMap);
-
-  // Clone the module flags.
-  cloneModuleFlagsMetadata(*GlobalsModule, M, VMap);
-
-  auto Materializer = createLambdaValueMaterializer([&](Value *V) -> Value * {
-    if (auto *F = dyn_cast<Function>(V))
-      return cloneFunctionDecl(*GlobalsModule, *F);
-    return nullptr;
-  });
-
-  // Move the global variable initializers.
-  for (auto &GV : M.globals()) {
-    if (!GV.isDeclaration())
-      moveGlobalVariableInitializer(GV, VMap, &Materializer);
-    GV.setInitializer(nullptr);
+    if (isa<Function>(Aliasee)) {
+      auto *F = cloneFunctionDecl(M, *cast<Function>(Aliasee));
+      A->replaceAllUsesWith(F);
+      A->eraseFromParent();
+      F->setName(AliasName);
+    } else if (isa<GlobalValue>(Aliasee)) {
+      auto *G = cloneGlobalVariableDecl(M, *cast<GlobalVariable>(Aliasee));
+      A->replaceAllUsesWith(G);
+      A->eraseFromParent();
+      G->setName(AliasName);
+    }
   }
 
-  return GlobalsModule;
+  R.replace(symbolAliases(std::move(Aliases)));
+}
+
+static std::unique_ptr<Module>
+extractAndClone(Module &M, LLVMContext &NewContext, StringRef Suffix,
+                function_ref<bool(const GlobalValue *)> ShouldCloneDefinition) {
+  SmallVector<char, 1> ClonedModuleBuffer;
+
+  {
+    std::set<GlobalValue *> ClonedDefsInSrc;
+    ValueToValueMapTy VMap;
+    auto Tmp = CloneModule(M, VMap, [&](const GlobalValue *GV) {
+      if (ShouldCloneDefinition(GV)) {
+        ClonedDefsInSrc.insert(const_cast<GlobalValue *>(GV));
+        return true;
+      }
+      return false;
+    });
+
+    for (auto *GV : ClonedDefsInSrc) {
+      // Delete the definition and bump the linkage in the source module.
+      if (isa<Function>(GV)) {
+        auto &F = *cast<Function>(GV);
+        F.deleteBody();
+        F.setPersonalityFn(nullptr);
+      } else if (isa<GlobalVariable>(GV)) {
+        cast<GlobalVariable>(GV)->setInitializer(nullptr);
+      } else
+        llvm_unreachable("Unsupported global type");
+
+      GV->setLinkage(GlobalValue::ExternalLinkage);
+    }
+
+    BitcodeWriter BCWriter(ClonedModuleBuffer);
+
+    BCWriter.writeModule(*Tmp);
+    BCWriter.writeSymtab();
+    BCWriter.writeStrtab();
+  }
+
+  MemoryBufferRef ClonedModuleBufferRef(
+      StringRef(ClonedModuleBuffer.data(), ClonedModuleBuffer.size()),
+      "cloned module buffer");
+
+  auto ClonedModule =
+      cantFail(parseBitcodeFile(ClonedModuleBufferRef, NewContext));
+  ClonedModule->setModuleIdentifier((M.getName() + Suffix).str());
+  return ClonedModule;
+}
+
+static std::unique_ptr<Module> extractGlobals(Module &M,
+                                              LLVMContext &NewContext) {
+  return extractAndClone(M, NewContext, ".globals", [](const GlobalValue *GV) {
+    return isa<GlobalVariable>(GV);
+  });
 }
 
 namespace llvm {
@@ -102,12 +157,29 @@ private:
     //        original function definitions in the target VSO. All other
     //        symbols should be looked up in the backing resolver.
 
-    // Find the functions that have been requested.
     auto RequestedSymbols = R.getRequestedSymbols();
 
-    // Extract them into a new module.
-    auto ExtractedFunctionsModule =
-        Parent.extractFunctions(*M, RequestedSymbols, SymbolToDefinition);
+    // Extract the requested functions into a new module.
+    std::unique_ptr<Module> ExtractedFunctionsModule;
+    if (!RequestedSymbols.empty()) {
+      std::string Suffix;
+      std::set<const GlobalValue *> FunctionsToClone;
+      for (auto &Name : RequestedSymbols) {
+        auto I = SymbolToDefinition.find(Name);
+        assert(I != SymbolToDefinition.end() && I->second != nullptr &&
+               "Should have a non-null definition");
+        FunctionsToClone.insert(I->second);
+        Suffix += ".";
+        Suffix += *Name;
+      }
+
+      std::lock_guard<std::mutex> Lock(SourceModuleMutex);
+      ExtractedFunctionsModule =
+          extractAndClone(*M, Parent.GetAvailableContext(), Suffix,
+                          [&](const GlobalValue *GV) -> bool {
+                            return FunctionsToClone.count(GV);
+                          });
+    }
 
     // Build a new ExtractingIRMaterializationUnit to delegate the unrequested
     // symbols to.
@@ -127,13 +199,14 @@ private:
                  DelegatedSymbolToDefinition.size() &&
              "SymbolFlags and SymbolToDefinition should have the same number "
              "of entries");
-      R.delegate(llvm::make_unique<ExtractingIRMaterializationUnit>(
+      R.replace(llvm::make_unique<ExtractingIRMaterializationUnit>(
           std::move(M), std::move(DelegatedSymbolFlags),
           std::move(DelegatedSymbolToDefinition), Parent, BackingResolver));
     }
 
-    Parent.emitExtractedFunctionsModule(
-        std::move(R), std::move(ExtractedFunctionsModule), BackingResolver);
+    if (ExtractedFunctionsModule)
+      Parent.emitExtractedFunctionsModule(
+          std::move(R), std::move(ExtractedFunctionsModule), BackingResolver);
   }
 
   void discard(const VSO &V, SymbolStringPtr Name) override {
@@ -143,6 +216,7 @@ private:
                      "ExtractingIRMaterializationUnit");
   }
 
+  mutable std::mutex SourceModuleMutex;
   CompileOnDemandLayer2 &Parent;
   std::shared_ptr<SymbolResolver> BackingResolver;
 };
@@ -161,7 +235,6 @@ CompileOnDemandLayer2::CompileOnDemandLayer2(
 
 Error CompileOnDemandLayer2::add(VSO &V, VModuleKey K,
                                  std::unique_ptr<Module> M) {
-  makeAllSymbolsExternallyAccessible(*M);
   return IRLayer::add(V, K, std::move(M));
 }
 
@@ -174,9 +247,11 @@ void CompileOnDemandLayer2::emit(MaterializationResponsibility R, VModuleKey K,
     if (GV.hasWeakLinkage())
       GV.setLinkage(GlobalValue::ExternalLinkage);
 
-  auto GlobalsModule = extractGlobals(*M);
-
   MangleAndInterner Mangle(ES, M->getDataLayout());
+
+  extractAliases(R, *M, Mangle);
+
+  auto GlobalsModule = extractGlobals(*M, GetAvailableContext());
 
   // Delete the bodies of any available externally functions, rename the
   // rest, and build the compile callbacks.
@@ -190,12 +265,20 @@ void CompileOnDemandLayer2::emit(MaterializationResponsibility R, VModuleKey K,
 
     if (F.hasAvailableExternallyLinkage()) {
       F.deleteBody();
+      F.setPersonalityFn(nullptr);
       continue;
     }
 
     assert(F.hasName() && "Function should have a name");
-    auto StubName = Mangle(F.getName());
+    std::string StubUnmangledName = F.getName();
     F.setName(F.getName() + "$body");
+    auto StubDecl = cloneFunctionDecl(*M, F);
+    StubDecl->setName(StubUnmangledName);
+    StubDecl->setPersonalityFn(nullptr);
+    StubDecl->setLinkage(GlobalValue::ExternalLinkage);
+    F.replaceAllUsesWith(StubDecl);
+
+    auto StubName = Mangle(StubUnmangledName);
     auto BodyName = Mangle(F.getName());
     if (auto CallbackAddr = CCMgr.getCompileCallback(
             [BodyName, &TargetVSO, &ES]() -> JITTargetAddress {
@@ -223,13 +306,18 @@ void CompileOnDemandLayer2::emit(MaterializationResponsibility R, VModuleKey K,
     StubInits[*KV.first] = KV.second;
 
   // Build the function-body-extracting materialization unit.
+  auto SR = GetSymbolResolver(K);
   if (auto Err = R.getTargetVSO().define(
           llvm::make_unique<ExtractingIRMaterializationUnit>(
-              ES, *this, std::move(M), GetSymbolResolver(K)))) {
+              ES, *this, std::move(M), SR))) {
     ES.reportError(std::move(Err));
     R.failMaterialization();
     return;
   }
+
+  // Replace the fallback symbol resolver: We will re-use M's VModuleKey for
+  // the GlobalsModule.
+  SetSymbolResolver(K, SR);
 
   // Build the stubs.
   // FIXME: Remove function bodies materialization unit if stub creation fails.
@@ -260,48 +348,6 @@ IndirectStubsManager &CompileOnDemandLayer2::getStubsManager(const VSO &V) {
   if (I == StubsMgrs.end())
     I = StubsMgrs.insert(std::make_pair(&V, BuildIndirectStubsManager())).first;
   return *I->second;
-}
-
-std::unique_ptr<Module> CompileOnDemandLayer2::extractFunctions(
-    Module &M, const SymbolNameSet &SymbolNames,
-    const SymbolNameToDefinitionMap &SymbolToDefinition) {
-  assert(!SymbolNames.empty() && "Can not extract an empty function set");
-
-  std::string ExtractedModName;
-  {
-    raw_string_ostream ExtractedModNameStream(ExtractedModName);
-    ExtractedModNameStream << M.getName();
-    for (auto &Name : SymbolNames)
-      ExtractedModNameStream << "." << *Name;
-  }
-
-  auto ExtractedFunctionsModule =
-      llvm::make_unique<Module>(ExtractedModName, GetAvailableContext());
-  ExtractedFunctionsModule->setDataLayout(M.getDataLayout());
-
-  ValueToValueMapTy VMap;
-
-  auto Materializer = createLambdaValueMaterializer([&](Value *V) -> Value * {
-    if (auto *F = dyn_cast<Function>(V))
-      return cloneFunctionDecl(*ExtractedFunctionsModule, *F);
-    else if (auto *GV = dyn_cast<GlobalVariable>(V))
-      return cloneGlobalVariableDecl(*ExtractedFunctionsModule, *GV);
-    return nullptr;
-  });
-
-  std::vector<std::pair<Function *, Function *>> OrigToNew;
-  for (auto &FunctionName : SymbolNames) {
-    assert(SymbolToDefinition.count(FunctionName) &&
-           "No definition for symbol");
-    auto *OrigF = cast<Function>(SymbolToDefinition.find(FunctionName)->second);
-    auto *NewF = cloneFunctionDecl(*ExtractedFunctionsModule, *OrigF, &VMap);
-    OrigToNew.push_back(std::make_pair(OrigF, NewF));
-  }
-
-  for (auto &KV : OrigToNew)
-    moveFunctionBody(*KV.first, VMap, &Materializer, KV.second);
-
-  return ExtractedFunctionsModule;
 }
 
 void CompileOnDemandLayer2::emitExtractedFunctionsModule(

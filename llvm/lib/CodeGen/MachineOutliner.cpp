@@ -65,7 +65,6 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
@@ -689,6 +688,12 @@ struct MachineOutliner : public ModulePass {
   /// linkonceodr linkage.
   bool OutlineFromLinkOnceODRs = false;
 
+  /// Set to true if the outliner should run on all functions in the module
+  /// considered safe for outlining.
+  /// Set to true by default for compatibility with llc's -run-pass option.
+  /// Set when the pass is constructed in TargetPassConfig.
+  bool RunOnAllFunctions = true;
+
   // Collection of IR functions created by the outliner.
   std::vector<Function *> CreatedIRFunctions;
 
@@ -807,8 +812,10 @@ struct MachineOutliner : public ModulePass {
 char MachineOutliner::ID = 0;
 
 namespace llvm {
-ModulePass *createMachineOutlinerPass() {
-  return new MachineOutliner();
+ModulePass *createMachineOutlinerPass(bool RunOnAllFunctions) {
+  MachineOutliner *OL = new MachineOutliner();
+  OL->RunOnAllFunctions = RunOnAllFunctions;
+  return OL;
 }
 
 } // namespace llvm
@@ -905,7 +912,7 @@ unsigned MachineOutliner::findCandidates(
     // Create an OutlinedFunction to store it and check if it'd be beneficial
     // to outline.
     TargetCostInfo TCI =
-        TII.getOutlininingCandidateInfo(CandidatesForRepeatedSeq);
+        TII.getOutliningCandidateInfo(CandidatesForRepeatedSeq);
     std::vector<unsigned> Seq;
     for (unsigned i = Leaf->SuffixIdx; i < Leaf->SuffixIdx + StringLen; i++)
       Seq.push_back(ST.Str[i]);
@@ -1302,7 +1309,7 @@ bool MachineOutliner::outline(
       // First inst in outlined range <-- Anything that's defined in this
       // ...                           .. range has to be added as an implicit
       // Last inst in outlined range  <-- def to the call instruction.
-      std::for_each(CallInst, EndIt, CopyDefs);
+      std::for_each(CallInst, std::next(EndIt), CopyDefs);
     }
 
     // Erase from the point after where the call was inserted up to, and
@@ -1332,14 +1339,19 @@ bool MachineOutliner::runOnModule(Module &M) {
   const TargetRegisterInfo *TRI = STI.getRegisterInfo();
   const TargetInstrInfo *TII = STI.getInstrInfo();
 
-  // Does the target implement the MachineOutliner? If it doesn't, quit here.
-  if (!TII->useMachineOutliner()) {
-    // No. So we're done.
-    LLVM_DEBUG(
-        dbgs()
-        << "Skipping pass: Target does not support the MachineOutliner.\n");
-    return false;
-  }
+  // If the user passed -enable-machine-outliner=always or
+  // -enable-machine-outliner, the pass will run on all functions in the module.
+  // Otherwise, if the target supports default outlining, it will run on all
+  // functions deemed by the target to be worth outlining from by default. Tell
+  // the user how the outliner is running.
+  LLVM_DEBUG(
+    dbgs() << "Machine Outliner: Running on ";
+    if (RunOnAllFunctions)
+      dbgs() << "all functions";
+    else
+      dbgs() << "target-default functions";
+    dbgs() << "\n"
+  );
 
   // If the user specifies that they want to outline from linkonceodrs, set
   // it here.
@@ -1363,6 +1375,9 @@ bool MachineOutliner::runOnModule(Module &M) {
     // If it doesn't, then there's nothing to outline from. Move to the next
     // Function.
     if (!MF)
+      continue;
+
+    if (!RunOnAllFunctions && !TII->shouldOutlineFromFunctionByDefault(*MF))
       continue;
 
     // We have a MachineFunction. Ask the target if it's suitable for outlining.

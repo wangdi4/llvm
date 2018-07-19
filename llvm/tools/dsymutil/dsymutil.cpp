@@ -13,8 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "dsymutil.h"
+#include "BinaryHolder.h"
 #include "CFBundle.h"
 #include "DebugMap.h"
+#include "LinkUtils.h"
 #include "MachOUtils.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -63,6 +65,11 @@ static opt<std::string> OsoPrependPath(
     "oso-prepend-path",
     desc("Specify a directory to prepend to the paths of object files."),
     value_desc("path"), cat(DsymCategory));
+
+static opt<bool> Assembly(
+    "S",
+    desc("Output textual assembly instead of a binary dSYM companion file."),
+    init(false), cat(DsymCategory), cl::Hidden);
 
 static opt<bool> DumpStab(
     "symtab",
@@ -320,6 +327,9 @@ static Expected<LinkOptions> getOptions() {
   Options.NoTimestamp = NoTimestamp;
   Options.PrependPath = OsoPrependPath;
 
+  if (Assembly)
+    Options.FileType = OutputFileType::Assembly;
+
   if (Options.Update && std::find(InputFiles.begin(), InputFiles.end(), "-") !=
                             InputFiles.end()) {
     // FIXME: We cannot use stdin for an update because stdin will be
@@ -493,6 +503,9 @@ int main(int argc, char **argv) {
       return 1;
     }
 
+    // Shared a single binary holder for all the link steps.
+    BinaryHolder BinHolder;
+
     NumThreads =
         std::min<unsigned>(OptionsOrErr->Threads, DebugMapPtrsOrErr->size());
     llvm::ThreadPool Threads(NumThreads);
@@ -545,7 +558,7 @@ int main(int argc, char **argv) {
 
       auto LinkLambda = [&,
                          OutputFile](std::shared_ptr<raw_fd_ostream> Stream) {
-        AllOK.fetch_and(linkDwarf(*Stream, *Map, *OptionsOrErr));
+        AllOK.fetch_and(linkDwarf(*Stream, BinHolder, *Map, *OptionsOrErr));
         Stream->flush();
         if (Verify && !NoOutput)
           AllOK.fetch_and(verify(OutputFile, Map->getTriple().getArchName()));

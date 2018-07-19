@@ -144,7 +144,7 @@ const uint8_t *SBModule::GetUUIDBytes() const {
   const uint8_t *uuid_bytes = NULL;
   ModuleSP module_sp(GetSP());
   if (module_sp)
-    uuid_bytes = (const uint8_t *)module_sp->GetUUID().GetBytes();
+    uuid_bytes = module_sp->GetUUID().GetBytes().data();
 
   if (log) {
     if (uuid_bytes) {
@@ -251,6 +251,17 @@ SBCompileUnit SBModule::GetCompileUnitAtIndex(uint32_t index) {
     sb_cu.reset(cu_sp.get());
   }
   return sb_cu;
+}
+
+SBSymbolContextList
+SBModule::FindCompileUnits(const SBFileSpec &sb_file_spec) {
+  SBSymbolContextList sb_sc_list;
+  const ModuleSP module_sp(GetSP());
+  if (sb_file_spec.IsValid() && module_sp) {
+    const bool append = true;
+    module_sp->FindCompileUnits(*sb_file_spec, append, *sb_sc_list);
+  }
+  return sb_sc_list;
 }
 
 static Symtab *GetUnifiedSymbolTable(const lldb::ModuleSP &module_sp) {
