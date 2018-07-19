@@ -654,7 +654,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
           }
         }
         if (!csa_utils::isAlwaysDataFlowLinkageSet() && !AllowUndefRegs)
-          assert(!MRI->def_empty(vreg) && "No definition for register");
+          assert(!MRI->use_nodbg_empty(vreg) && "LIC without consumers");
         StringRef name = LMFI->getLICName(vreg);
         if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +

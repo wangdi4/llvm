@@ -342,7 +342,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
       .addDef(parts)
       .addUse(parts_pred_ctl)
       .addFPImm(identity)
-      .addDef(op_to_parts);
+      .addUse(op_to_parts);
   }
 
   // If it's some other immediate, use a fountain to reinitialize parts.

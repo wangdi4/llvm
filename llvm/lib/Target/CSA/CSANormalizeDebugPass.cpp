@@ -79,47 +79,35 @@ bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
   TII             = static_cast<const CSAInstrInfo *>(
     MF.getSubtarget<CSASubtarget>().getInstrInfo());
 
-  for (MachineBasicBlock &MB : MF) {
-    for (MachineInstr &MI : MB) {
-      if (!(MI.isDebugValue() && MI.getNumOperands() > 0 &&
-            MI.getOperand(0).isReg()))
-        continue;
+  // Look for LICs with a producer and no non-debug uses.
+  for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
+    unsigned reg = TargetRegisterInfo::index2VirtReg(index);
+    if (!TII->isLICClass(MRI->getRegClass(reg)))
+      continue;
 
-      unsigned reg = MI.getOperand(0).getReg();
+    // Skip LICs with no producer.
+    if (MRI->def_empty(reg))
+      continue;
 
-      // Only worry about DBG_VALUEs for LICs.
-      if (!CSA::ANYCRegClass.contains(reg))
-        continue;
-
-      // Skip LICs with no producer.
-      if (MRI->def_empty(reg))
-        continue;
-
-      // Skip LICs which have another use -- they are already connected.
-      if (!MRI->use_nodbg_empty(reg))
-        continue;
-
-      // Determine the size of MOV to be used according to the LIC producer.
-      // If OpInfo doesn't know of a specific register class for any reason,
-      // fall back to 64-bit. This is a bit painful because we're dealing with
-      // a physical register which we just happen to know only has a single
-      // def/producer.
-      assert(MRI->hasOneDef(reg) && "LIC has multiple producers?");
-      MachineOperand *defOp = &*(MRI->def_begin(reg));
-      MachineInstr *defInst = defOp->getParent();
-      unsigned opNum        = defInst->getOperandNo(defOp);
-      unsigned rcEnum       = defInst->getDesc().OpInfo[opNum].RegClass;
-      bool rcKnown          = rcEnum < TRI->getNumRegClasses();
-      const TargetRegisterClass *rc =
-        rcKnown ? TRI->getRegClass(rcEnum) : &CSA::CI64RegClass;
-
-      MachineInstr *ignMov = BuildMI(*MI.getParent(), &MI, DebugLoc(),
-                                     TII->get(TII->getMoveOpcode(rc)), CSA::IGN)
-                               .addReg(reg);
-      ignMov->setFlag(MachineInstr::NonSequential);
-      NumDbgValueMovs++;
-      AnyChanges = true;
+    // Not all debug variables end up getting the debug flag set by this point.
+    // Set the flag now, before checking for a non-debug use.
+    for (auto &op : MRI->use_nodbg_operands(reg)) {
+      if (op.getParent()->isDebugValue())
+        op.setIsDebug();
     }
+
+    // Skip LICs which have a non-debug use.
+    if (!MRI->use_nodbg_empty(reg))
+      continue;
+
+    const TargetRegisterClass *RC = MRI->getRegClass(reg);
+    MachineInstr &MI = *MRI->use_instr_begin(reg);
+    MachineInstr *ignMov = BuildMI(*MI.getParent(), &MI, DebugLoc(),
+                                   TII->get(TII->getMoveOpcode(RC)), CSA::IGN)
+                             .addReg(reg);
+    ignMov->setFlag(MachineInstr::NonSequential);
+    NumDbgValueMovs++;
+    AnyChanges = true;
   }
 
   return AnyChanges;
