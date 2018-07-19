@@ -630,14 +630,19 @@ TEST_F(CL21, clGetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
     GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS();
 }
 
-TEST_F(CL21, clGetKernelWorkGroupInfo_COMPILE_NUM_SUB_GROUPS)
+TEST_F(CL21, clGetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
 {
     GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS();
 }
 
-TEST_F(CL21, clGetKernelWorkGroupInfo_MAX_NUM_SUB_GROUPS)
+TEST_F(CL21, clGetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS)
 {
     GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS();
+}
+
+TEST_F(CL21, clGetKernelWorkGroupInfo_SizeRet)
+{
+    GetKernelWorkGroupInfo_SizeRet();
 }
 
 TEST_F(CL21, clZeroSized_clEnqueueReadBuffer)
