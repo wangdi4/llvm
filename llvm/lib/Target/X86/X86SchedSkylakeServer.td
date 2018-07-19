@@ -137,11 +137,15 @@ def  : WriteRes<WriteLAHFSAHF, [SKXPort06]>;
 // Integer shifts and rotates.
 defm : SKXWriteResPair<WriteShift, [SKXPort06],  1>;
 
+// Double shift instructions.
+defm : SKXWriteResPair<WriteShiftDouble, [SKXPort06],  1>;
+
 // Bit counts.
-defm : SKXWriteResPair<WriteBitScan, [SKXPort1], 3>;
-defm : SKXWriteResPair<WriteLZCNT,   [SKXPort1], 3>;
-defm : SKXWriteResPair<WriteTZCNT,   [SKXPort1], 3>;
-defm : SKXWriteResPair<WritePOPCNT,  [SKXPort1], 3>;
+defm : SKXWriteResPair<WriteBSF, [SKXPort1], 3>;
+defm : SKXWriteResPair<WriteBSR, [SKXPort1], 3>;
+defm : SKXWriteResPair<WriteLZCNT,          [SKXPort1], 3>;
+defm : SKXWriteResPair<WriteTZCNT,          [SKXPort1], 3>;
+defm : SKXWriteResPair<WritePOPCNT,         [SKXPort1], 3>;
 
 // BMI1 BEXTR, BMI2 BZHI
 defm : SKXWriteResPair<WriteBEXTR, [SKXPort06,SKXPort15], 2, [1,1], 2>;
@@ -823,8 +827,8 @@ def: InstRW<[SKXWriteResGroup32], (instregex "(ADD|SUB|SUBR)_(FPrST0|FST0r|FrST0
                                              "VDBPSADBWZrri", // TODO: 512-bit ops require ports 0/1 to be joined.
                                              "VFPCLASSPD(Z|Z128|Z256)rr",
                                              "VFPCLASSPS(Z|Z128|Z256)rr",
-                                             "VFPCLASSSDrr",
-                                             "VFPCLASSSSrr",
+                                             "VFPCLASSSDZrr",
+                                             "VFPCLASSSSZrr",
                                              "VPBROADCASTBrr",
                                              "VPBROADCASTWrr",
                                              "VPCMPB(Z|Z128|Z256)rri",
@@ -1608,7 +1612,7 @@ def SKXWriteResGroup119 : SchedWriteRes<[SKXPort5,SKXPort23]> {
   let ResourceCycles = [1,1];
 }
 def: InstRW<[SKXWriteResGroup119], (instregex "FCOM(P?)(32|64)m",
-                                              "VFPCLASSSDrm(b?)",
+                                              "VFPCLASSSDZrm(b?)",
                                               "VPBROADCASTBYrm",
                                               "VPBROADCASTB(Z|Z256)m(b?)",
                                               "VPBROADCASTWYrm",
@@ -1768,7 +1772,7 @@ def: InstRW<[SKXWriteResGroup136], (instregex "VALIGNDZ128rm(b?)i",
                                               "VCMPPSZ128rm(b?)i",
                                               "VCMPSDZrm",
                                               "VCMPSSZrm",
-                                              "VFPCLASSSSrm(b?)",
+                                              "VFPCLASSSSZrm(b?)",
                                               "VPCMPBZ128rmi(b?)",
                                               "VPCMPDZ128rmi(b?)",
                                               "VPCMPEQ(B|D|Q|W)Z128rm(b?)",

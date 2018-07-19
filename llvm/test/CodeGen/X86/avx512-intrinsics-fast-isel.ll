@@ -784,8 +784,8 @@ define <16 x float> @test_mm512_maskz_broadcastss_ps(i16 %a0, <4 x float> %a1) {
   ret <16 x float> %res1
 }
 
-define <8 x double> @test_mm512_movddup_pd(<8 x double> %a0) {
-; CHECK-LABEL: test_mm512_movddup_pd:
+define <8 x double> @test_mm512_movedup_pd(<8 x double> %a0) {
+; CHECK-LABEL: test_mm512_movedup_pd:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vmovddup {{.*#+}} zmm0 = zmm0[0,0,2,2,4,4,6,6]
 ; CHECK-NEXT:    ret{{[l|q]}}
@@ -793,15 +793,15 @@ define <8 x double> @test_mm512_movddup_pd(<8 x double> %a0) {
   ret <8 x double> %res
 }
 
-define <8 x double> @test_mm512_mask_movddup_pd(<8 x double> %a0, i8 %a1, <8 x double> %a2) {
-; X86-LABEL: test_mm512_mask_movddup_pd:
+define <8 x double> @test_mm512_mask_movedup_pd(<8 x double> %a0, i8 %a1, <8 x double> %a2) {
+; X86-LABEL: test_mm512_mask_movedup_pd:
 ; X86:       # %bb.0:
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
 ; X86-NEXT:    vmovddup {{.*#+}} zmm0 {%k1} = zmm1[0,0,2,2,4,4,6,6]
 ; X86-NEXT:    retl
 ;
-; X64-LABEL: test_mm512_mask_movddup_pd:
+; X64-LABEL: test_mm512_mask_movedup_pd:
 ; X64:       # %bb.0:
 ; X64-NEXT:    kmovw %edi, %k1
 ; X64-NEXT:    vmovddup {{.*#+}} zmm0 {%k1} = zmm1[0,0,2,2,4,4,6,6]
@@ -812,15 +812,15 @@ define <8 x double> @test_mm512_mask_movddup_pd(<8 x double> %a0, i8 %a1, <8 x d
   ret <8 x double> %res1
 }
 
-define <8 x double> @test_mm512_maskz_movddup_pd(i8 %a0, <8 x double> %a1) {
-; X86-LABEL: test_mm512_maskz_movddup_pd:
+define <8 x double> @test_mm512_maskz_movedup_pd(i8 %a0, <8 x double> %a1) {
+; X86-LABEL: test_mm512_maskz_movedup_pd:
 ; X86:       # %bb.0:
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
 ; X86-NEXT:    vmovddup {{.*#+}} zmm0 {%k1} {z} = zmm0[0,0,2,2,4,4,6,6]
 ; X86-NEXT:    retl
 ;
-; X64-LABEL: test_mm512_maskz_movddup_pd:
+; X64-LABEL: test_mm512_maskz_movedup_pd:
 ; X64:       # %bb.0:
 ; X64-NEXT:    kmovw %edi, %k1
 ; X64-NEXT:    vmovddup {{.*#+}} zmm0 {%k1} {z} = zmm0[0,0,2,2,4,4,6,6]
@@ -1665,52 +1665,54 @@ define <8 x i64> @test_mm512_mul_epi32(<8 x i64> %__A, <8 x i64> %__B) nounwind 
   ret <8 x i64> %tmp4
 }
 
-define <8 x i64> @test_mm512_maskz_mul_epi32(i16 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B) nounwind {
+define <8 x i64> @test_mm512_maskz_mul_epi32(i8 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B) nounwind {
 ; X86-LABEL: test_mm512_maskz_mul_epi32:
-; X86:       # %bb.0:
-; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
 ; X86-NEXT:    vpmuldq %zmm0, %zmm1, %zmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm512_maskz_mul_epi32:
-; X64:       # %bb.0:
+; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
 ; X64-NEXT:    vpmuldq %zmm0, %zmm1, %zmm0 {%k1} {z}
 ; X64-NEXT:    retq
-  %conv = trunc i16 %__k to i8
-  %tmp = shl <8 x i64> %__A, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp1 = ashr exact <8 x i64> %tmp, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp2 = shl <8 x i64> %__B, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp3 = ashr exact <8 x i64> %tmp2, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp4 = mul nsw <8 x i64> %tmp3, %tmp1
-  %tmp5 = bitcast i8 %conv to <8 x i1>
-  %tmp6 = select <8 x i1> %tmp5, <8 x i64> %tmp4, <8 x i64> zeroinitializer
-  ret <8 x i64> %tmp6
+entry:
+  %0 = shl <8 x i64> %__A, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %1 = ashr exact <8 x i64> %0, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %2 = shl <8 x i64> %__B, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %3 = ashr exact <8 x i64> %2, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %4 = mul nsw <8 x i64> %3, %1
+  %5 = bitcast i8 %__k to <8 x i1>
+  %6 = select <8 x i1> %5, <8 x i64> %4, <8 x i64> zeroinitializer
+  ret <8 x i64> %6
 }
 
-define <8 x i64> @test_mm512_mask_mul_epi32(i16 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B, <8 x i64> %__src) nounwind {
+define <8 x i64> @test_mm512_mask_mul_epi32(i8 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B, <8 x i64> %__src) nounwind {
 ; X86-LABEL: test_mm512_mask_mul_epi32:
-; X86:       # %bb.0:
-; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
 ; X86-NEXT:    vpmuldq %zmm0, %zmm1, %zmm2 {%k1}
 ; X86-NEXT:    vmovdqa64 %zmm2, %zmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm512_mask_mul_epi32:
-; X64:       # %bb.0:
+; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
 ; X64-NEXT:    vpmuldq %zmm0, %zmm1, %zmm2 {%k1}
 ; X64-NEXT:    vmovdqa64 %zmm2, %zmm0
 ; X64-NEXT:    retq
-  %conv = trunc i16 %__k to i8
-  %tmp = shl <8 x i64> %__A, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp1 = ashr exact <8 x i64> %tmp, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp2 = shl <8 x i64> %__B, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp3 = ashr exact <8 x i64> %tmp2, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
-  %tmp4 = mul nsw <8 x i64> %tmp3, %tmp1
-  %tmp5 = bitcast i8 %conv to <8 x i1>
-  %tmp6 = select <8 x i1> %tmp5, <8 x i64> %tmp4, <8 x i64> %__src
-  ret <8 x i64> %tmp6
+entry:
+  %0 = shl <8 x i64> %__A, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %1 = ashr exact <8 x i64> %0, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %2 = shl <8 x i64> %__B, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %3 = ashr exact <8 x i64> %2, <i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32, i64 32>
+  %4 = mul nsw <8 x i64> %3, %1
+  %5 = bitcast i8 %__k to <8 x i1>
+  %6 = select <8 x i1> %5, <8 x i64> %4, <8 x i64> %__src
+  ret <8 x i64> %6
 }
 
 define <8 x i64> @test_mm512_mul_epu32(<8 x i64> %__A, <8 x i64> %__B) nounwind {
@@ -1729,48 +1731,50 @@ define <8 x i64> @test_mm512_mul_epu32(<8 x i64> %__A, <8 x i64> %__B) nounwind 
   ret <8 x i64> %tmp2
 }
 
-define <8 x i64> @test_mm512_maskz_mul_epu32(i16 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B) nounwind {
+define <8 x i64> @test_mm512_maskz_mul_epu32(i8 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B) nounwind {
 ; X86-LABEL: test_mm512_maskz_mul_epu32:
-; X86:       # %bb.0:
-; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
 ; X86-NEXT:    vpmuludq %zmm0, %zmm1, %zmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm512_maskz_mul_epu32:
-; X64:       # %bb.0:
+; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
 ; X64-NEXT:    vpmuludq %zmm0, %zmm1, %zmm0 {%k1} {z}
 ; X64-NEXT:    retq
-  %conv = trunc i16 %__k to i8
-  %tmp = and <8 x i64> %__A, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
-  %tmp1 = and <8 x i64> %__B, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
-  %tmp2 = mul nuw <8 x i64> %tmp1, %tmp
-  %tmp3 = bitcast i8 %conv to <8 x i1>
-  %tmp4 = select <8 x i1> %tmp3, <8 x i64> %tmp2, <8 x i64> zeroinitializer
-  ret <8 x i64> %tmp4
+entry:
+  %0 = and <8 x i64> %__A, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
+  %1 = and <8 x i64> %__B, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
+  %2 = mul nuw <8 x i64> %1, %0
+  %3 = bitcast i8 %__k to <8 x i1>
+  %4 = select <8 x i1> %3, <8 x i64> %2, <8 x i64> zeroinitializer
+  ret <8 x i64> %4
 }
 
-define <8 x i64> @test_mm512_mask_mul_epu32(i16 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B, <8 x i64> %__src) nounwind {
+define <8 x i64> @test_mm512_mask_mul_epu32(i8 zeroext %__k, <8 x i64> %__A, <8 x i64> %__B, <8 x i64> %__src) nounwind {
 ; X86-LABEL: test_mm512_mask_mul_epu32:
-; X86:       # %bb.0:
-; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
 ; X86-NEXT:    vpmuludq %zmm0, %zmm1, %zmm2 {%k1}
 ; X86-NEXT:    vmovdqa64 %zmm2, %zmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm512_mask_mul_epu32:
-; X64:       # %bb.0:
+; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
 ; X64-NEXT:    vpmuludq %zmm0, %zmm1, %zmm2 {%k1}
 ; X64-NEXT:    vmovdqa64 %zmm2, %zmm0
 ; X64-NEXT:    retq
-  %conv = trunc i16 %__k to i8
-  %tmp = and <8 x i64> %__A, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
-  %tmp1 = and <8 x i64> %__B, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
-  %tmp2 = mul nuw <8 x i64> %tmp1, %tmp
-  %tmp3 = bitcast i8 %conv to <8 x i1>
-  %tmp4 = select <8 x i1> %tmp3, <8 x i64> %tmp2, <8 x i64> %__src
-  ret <8 x i64> %tmp4
+entry:
+  %0 = and <8 x i64> %__A, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
+  %1 = and <8 x i64> %__B, <i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295, i64 4294967295>
+  %2 = mul nuw <8 x i64> %1, %0
+  %3 = bitcast i8 %__k to <8 x i1>
+  %4 = select <8 x i1> %3, <8 x i64> %2, <8 x i64> %__src
+  ret <8 x i64> %4
 }
 
 define <8 x double> @test_mm512_set1_epi8(i8 signext %d) nounwind {
@@ -1819,7 +1823,7 @@ define <2 x double> @test_mm_cvtu64_sd(<2 x double> %__A, i64 %__B) {
 ; X86-NEXT:    vpunpckldq {{.*#+}} xmm1 = xmm1[0],mem[0],xmm1[1],mem[1]
 ; X86-NEXT:    vsubpd {{\.LCPI.*}}, %xmm1, %xmm1
 ; X86-NEXT:    vhaddpd %xmm1, %xmm1, %xmm1
-; X86-NEXT:    vmovsd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
+; X86-NEXT:    vblendpd {{.*#+}} xmm0 = xmm1[0],xmm0[1]
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_cvtu64_sd:
@@ -1869,7 +1873,7 @@ define <4 x float> @test_mm_cvtu64_ss(<4 x float> %__A, i64 %__B) {
 ; X86-NEXT:    fadds {{\.LCPI.*}}(,%ecx,4)
 ; X86-NEXT:    fstps {{[0-9]+}}(%esp)
 ; X86-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; X86-NEXT:    vmovss {{.*#+}} xmm0 = xmm1[0],xmm0[1,2,3]
+; X86-NEXT:    vblendps {{.*#+}} xmm0 = xmm1[0],xmm0[1,2,3]
 ; X86-NEXT:    movl %ebp, %esp
 ; X86-NEXT:    popl %ebp
 ; X86-NEXT:    .cfi_def_cfa %esp, 4
@@ -4886,20 +4890,27 @@ define <4 x float> @test_mm_mask_fmadd_round_ss(<4 x float> %__W, i8 zeroext %__
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fmadd_round_ss:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask.vfmadd.ss(<4 x float> %__W, <4 x float> %__A, <4 x float> %__B, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %1 = extractelement <4 x float> %__A, i64 0
+  %2 = extractelement <4 x float> %__B, i64 0
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %0
+  %7 = insertelement <4 x float> %__W, float %6, i64 0
+  ret <4 x float> %7
 }
 
-declare <4 x float> @llvm.x86.avx512.mask.vfmadd.ss(<4 x float>, <4 x float>, <4 x float>, i8, i32) #1
+declare float @llvm.x86.avx512.vfmadd.f32(float, float, float, i32) #1
 
 define <4 x float> @test_mm_maskz_fmadd_ss(i8 zeroext %__U, <4 x float> %__A, <4 x float> %__B, <4 x float> %__C) {
 ; X86-LABEL: test_mm_maskz_fmadd_ss:
@@ -4931,20 +4942,25 @@ define <4 x float> @test_mm_maskz_fmadd_round_ss(i8 zeroext %__U, <4 x float> %_
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fmadd_round_ss:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <4 x float> @llvm.x86.avx512.maskz.vfmadd.ss(<4 x float> %__A, <4 x float> %__B, <4 x float> %__C, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__A, i64 0
+  %1 = extractelement <4 x float> %__B, i64 0
+  %2 = extractelement <4 x float> %__C, i64 0
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float 0.000000e+00
+  %7 = insertelement <4 x float> %__A, float %6, i64 0
+  ret <4 x float> %7
 }
-
-declare <4 x float> @llvm.x86.avx512.maskz.vfmadd.ss(<4 x float>, <4 x float>, <4 x float>, i8, i32) #1
 
 define <4 x float> @test_mm_mask3_fmadd_ss(<4 x float> %__W, <4 x float> %__X, <4 x float> %__Y, i8 zeroext %__U) {
 ; X86-LABEL: test_mm_mask3_fmadd_ss:
@@ -4979,22 +4995,27 @@ define <4 x float> @test_mm_mask3_fmadd_round_ss(<4 x float> %__W, <4 x float> %
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd231ss {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X86-NEXT:    vfmadd231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X86-NEXT:    vmovaps %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask3_fmadd_round_ss:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd231ss {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X64-NEXT:    vfmadd231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X64-NEXT:    vmovaps %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask3.vfmadd.ss(<4 x float> %__W, <4 x float> %__X, <4 x float> %__Y, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %1 = extractelement <4 x float> %__X, i64 0
+  %2 = extractelement <4 x float> %__Y, i64 0
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %2
+  %7 = insertelement <4 x float> %__Y, float %6, i64 0
+  ret <4 x float> %7
 }
-
-declare <4 x float> @llvm.x86.avx512.mask3.vfmadd.ss(<4 x float>, <4 x float>, <4 x float>, i8, i32) #1
 
 define <4 x float> @test_mm_mask_fmsub_ss(<4 x float> %__W, i8 zeroext %__U, <4 x float> %__A, <4 x float> %__B) {
 ; X86-LABEL: test_mm_mask_fmsub_ss:
@@ -5027,23 +5048,26 @@ define <4 x float> @test_mm_mask_fmsub_round_ss(<4 x float> %__W, i8 zeroext %__
 ; X86-LABEL: test_mm_mask_fmsub_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fmsub_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__B
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask.vfmadd.ss(<4 x float> %__W, <4 x float> %__A, <4 x float> %sub, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %1 = extractelement <4 x float> %__A, i64 0
+  %.rhs = extractelement <4 x float> %__B, i64 0
+  %2 = fsub float -0.000000e+00, %.rhs
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %0
+  %7 = insertelement <4 x float> %__W, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <4 x float> @test_mm_maskz_fmsub_ss(i8 zeroext %__U, <4 x float> %__A, <4 x float> %__B, <4 x float> %__C) {
@@ -5076,23 +5100,26 @@ define <4 x float> @test_mm_maskz_fmsub_round_ss(i8 zeroext %__U, <4 x float> %_
 ; X86-LABEL: test_mm_maskz_fmsub_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fmsub_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__C
-  %0 = tail call <4 x float> @llvm.x86.avx512.maskz.vfmadd.ss(<4 x float> %__A, <4 x float> %__B, <4 x float> %sub, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__A, i64 0
+  %1 = extractelement <4 x float> %__B, i64 0
+  %.rhs = extractelement <4 x float> %__C, i64 0
+  %2 = fsub float -0.000000e+00, %.rhs
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float 0.000000e+00
+  %7 = insertelement <4 x float> %__A, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <4 x float> @test_mm_mask3_fmsub_ss(<4 x float> %__W, <4 x float> %__X, <4 x float> %__Y, i8 zeroext %__U) {
@@ -5129,22 +5156,28 @@ define <4 x float> @test_mm_mask3_fmsub_round_ss(<4 x float> %__W, <4 x float> %
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmsub231ss {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X86-NEXT:    vfmsub231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X86-NEXT:    vmovaps %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask3_fmsub_round_ss:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmsub231ss {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X64-NEXT:    vfmsub231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X64-NEXT:    vmovaps %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask3.vfmsub.ss(<4 x float> %__W, <4 x float> %__X, <4 x float> %__Y, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %1 = extractelement <4 x float> %__X, i64 0
+  %.rhs = extractelement <4 x float> %__Y, i64 0
+  %2 = fsub float -0.000000e+00, %.rhs
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %.rhs
+  %7 = insertelement <4 x float> %__Y, float %6, i64 0
+  ret <4 x float> %7
 }
-
-declare <4 x float> @llvm.x86.avx512.mask3.vfmsub.ss(<4 x float>, <4 x float>, <4 x float>, i8, i32) #1
 
 define <4 x float> @test_mm_mask_fnmadd_ss(<4 x float> %__W, i8 zeroext %__U, <4 x float> %__A, <4 x float> %__B) {
 ; X86-LABEL: test_mm_mask_fnmadd_ss:
@@ -5177,23 +5210,26 @@ define <4 x float> @test_mm_mask_fnmadd_round_ss(<4 x float> %__W, i8 zeroext %_
 ; X86-LABEL: test_mm_mask_fnmadd_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfnmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fnmadd_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfnmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__A
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask.vfmadd.ss(<4 x float> %__W, <4 x float> %sub, <4 x float> %__B, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %.rhs = extractelement <4 x float> %__A, i64 0
+  %1 = fsub float -0.000000e+00, %.rhs
+  %2 = extractelement <4 x float> %__B, i64 0
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %0
+  %7 = insertelement <4 x float> %__W, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <4 x float> @test_mm_maskz_fnmadd_ss(i8 zeroext %__U, <4 x float> %__A, <4 x float> %__B, <4 x float> %__C) {
@@ -5226,23 +5262,26 @@ define <4 x float> @test_mm_maskz_fnmadd_round_ss(i8 zeroext %__U, <4 x float> %
 ; X86-LABEL: test_mm_maskz_fnmadd_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfnmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fnmadd_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfnmadd213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__B
-  %0 = tail call <4 x float> @llvm.x86.avx512.maskz.vfmadd.ss(<4 x float> %__A, <4 x float> %sub, <4 x float> %__C, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__A, i64 0
+  %.rhs = extractelement <4 x float> %__B, i64 0
+  %1 = fsub float -0.000000e+00, %.rhs
+  %2 = extractelement <4 x float> %__C, i64 0
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float 0.000000e+00
+  %7 = insertelement <4 x float> %__A, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <4 x float> @test_mm_mask3_fnmadd_ss(<4 x float> %__W, <4 x float> %__X, <4 x float> %__Y, i8 zeroext %__U) {
@@ -5278,25 +5317,28 @@ define <4 x float> @test_mm_mask3_fnmadd_round_ss(<4 x float> %__W, <4 x float> 
 ; X86-LABEL: test_mm_mask3_fnmadd_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd231ss {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X86-NEXT:    vfnmadd231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X86-NEXT:    vmovaps %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask3_fnmadd_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd231ss {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X64-NEXT:    vfnmadd231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X64-NEXT:    vmovaps %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__X
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask3.vfmadd.ss(<4 x float> %__W, <4 x float> %sub, <4 x float> %__Y, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %.rhs = extractelement <4 x float> %__X, i64 0
+  %1 = fsub float -0.000000e+00, %.rhs
+  %2 = extractelement <4 x float> %__Y, i64 0
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %2
+  %7 = insertelement <4 x float> %__Y, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <4 x float> @test_mm_mask_fnmsub_ss(<4 x float> %__W, i8 zeroext %__U, <4 x float> %__A, <4 x float> %__B) {
@@ -5331,26 +5373,27 @@ define <4 x float> @test_mm_mask_fnmsub_round_ss(<4 x float> %__W, i8 zeroext %_
 ; X86-LABEL: test_mm_mask_fnmsub_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm1, %xmm1
-; X86-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfnmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fnmsub_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm1, %xmm1
-; X64-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfnmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__A
-  %sub1 = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__B
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask.vfmadd.ss(<4 x float> %__W, <4 x float> %sub, <4 x float> %sub1, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %.rhs = extractelement <4 x float> %__A, i64 0
+  %1 = fsub float -0.000000e+00, %.rhs
+  %.rhs2 = extractelement <4 x float> %__B, i64 0
+  %2 = fsub float -0.000000e+00, %.rhs2
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %0
+  %7 = insertelement <4 x float> %__W, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <4 x float> @test_mm_maskz_fnmsub_ss(i8 zeroext %__U, <4 x float> %__A, <4 x float> %__B, <4 x float> %__C) {
@@ -5384,26 +5427,27 @@ define <4 x float> @test_mm_maskz_fnmsub_round_ss(i8 zeroext %__U, <4 x float> %
 ; X86-LABEL: test_mm_maskz_fnmsub_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm1, %xmm1
-; X86-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfnmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fnmsub_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm1, %xmm1
-; X64-NEXT:    vxorps %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213ss {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfnmsub213ss {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__B
-  %sub1 = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__C
-  %0 = tail call <4 x float> @llvm.x86.avx512.maskz.vfmadd.ss(<4 x float> %__A, <4 x float> %sub, <4 x float> %sub1, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__A, i64 0
+  %.rhs = extractelement <4 x float> %__B, i64 0
+  %1 = fsub float -0.000000e+00, %.rhs
+  %.rhs2 = extractelement <4 x float> %__C, i64 0
+  %2 = fsub float -0.000000e+00, %.rhs2
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float 0.000000e+00
+  %7 = insertelement <4 x float> %__A, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <4 x float> @test_mm_mask3_fnmsub_ss(<4 x float> %__W, <4 x float> %__X, <4 x float> %__Y, i8 zeroext %__U) {
@@ -5440,25 +5484,29 @@ define <4 x float> @test_mm_mask3_fnmsub_round_ss(<4 x float> %__W, <4 x float> 
 ; X86-LABEL: test_mm_mask3_fnmsub_round_ss:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X86-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmsub231ss {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X86-NEXT:    vfnmsub231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X86-NEXT:    vmovaps %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask3_fnmsub_round_ss:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vbroadcastss {{.*#+}} xmm3 = [-0,-0,-0,-0]
-; X64-NEXT:    vxorps %xmm3, %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmsub231ss {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X64-NEXT:    vfnmsub231ss {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X64-NEXT:    vmovaps %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %__X
-  %0 = tail call <4 x float> @llvm.x86.avx512.mask3.vfmsub.ss(<4 x float> %__W, <4 x float> %sub, <4 x float> %__Y, i8 %__U, i32 4)
-  ret <4 x float> %0
+  %0 = extractelement <4 x float> %__W, i64 0
+  %.rhs = extractelement <4 x float> %__X, i64 0
+  %1 = fsub float -0.000000e+00, %.rhs
+  %.rhs1 = extractelement <4 x float> %__Y, i64 0
+  %2 = fsub float -0.000000e+00, %.rhs1
+  %3 = tail call float @llvm.x86.avx512.vfmadd.f32(float %0, float %1, float %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, float %3, float %.rhs1
+  %7 = insertelement <4 x float> %__Y, float %6, i64 0
+  ret <4 x float> %7
 }
 
 define <2 x double> @test_mm_mask_fmadd_sd(<2 x double> %__W, i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B) {
@@ -5492,20 +5540,27 @@ define <2 x double> @test_mm_mask_fmadd_round_sd(<2 x double> %__W, i8 zeroext %
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fmadd_round_sd:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask.vfmadd.sd(<2 x double> %__W, <2 x double> %__A, <2 x double> %__B, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %1 = extractelement <2 x double> %__A, i64 0
+  %2 = extractelement <2 x double> %__B, i64 0
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %0
+  %7 = insertelement <2 x double> %__W, double %6, i64 0
+  ret <2 x double> %7
 }
 
-declare <2 x double> @llvm.x86.avx512.mask.vfmadd.sd(<2 x double>, <2 x double>, <2 x double>, i8, i32) #1
+declare double @llvm.x86.avx512.vfmadd.f64(double, double, double, i32) #1
 
 define <2 x double> @test_mm_maskz_fmadd_sd(i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B, <2 x double> %__C) {
 ; X86-LABEL: test_mm_maskz_fmadd_sd:
@@ -5537,20 +5592,25 @@ define <2 x double> @test_mm_maskz_fmadd_round_sd(i8 zeroext %__U, <2 x double> 
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fmadd_round_sd:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <2 x double> @llvm.x86.avx512.maskz.vfmadd.sd(<2 x double> %__A, <2 x double> %__B, <2 x double> %__C, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__A, i64 0
+  %1 = extractelement <2 x double> %__B, i64 0
+  %2 = extractelement <2 x double> %__C, i64 0
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double 0.000000e+00
+  %7 = insertelement <2 x double> %__A, double %6, i64 0
+  ret <2 x double> %7
 }
-
-declare <2 x double> @llvm.x86.avx512.maskz.vfmadd.sd(<2 x double>, <2 x double>, <2 x double>, i8, i32) #1
 
 define <2 x double> @test_mm_mask3_fmadd_sd(<2 x double> %__W, <2 x double> %__X, <2 x double> %__Y, i8 zeroext %__U) {
 ; X86-LABEL: test_mm_mask3_fmadd_sd:
@@ -5585,22 +5645,27 @@ define <2 x double> @test_mm_mask3_fmadd_round_sd(<2 x double> %__W, <2 x double
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd231sd {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X86-NEXT:    vfmadd231sd {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X86-NEXT:    vmovapd %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask3_fmadd_round_sd:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd231sd {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X64-NEXT:    vfmadd231sd {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X64-NEXT:    vmovapd %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask3.vfmadd.sd(<2 x double> %__W, <2 x double> %__X, <2 x double> %__Y, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %1 = extractelement <2 x double> %__X, i64 0
+  %2 = extractelement <2 x double> %__Y, i64 0
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %2
+  %7 = insertelement <2 x double> %__Y, double %6, i64 0
+  ret <2 x double> %7
 }
-
-declare <2 x double> @llvm.x86.avx512.mask3.vfmadd.sd(<2 x double>, <2 x double>, <2 x double>, i8, i32) #1
 
 define <2 x double> @test_mm_mask_fmsub_sd(<2 x double> %__W, i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B) {
 ; X86-LABEL: test_mm_mask_fmsub_sd:
@@ -5635,19 +5700,26 @@ define <2 x double> @test_mm_mask_fmsub_round_sd(<2 x double> %__W, i8 zeroext %
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fmsub_round_sd:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    vxorpd {{.*}}(%rip), %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__B
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask.vfmadd.sd(<2 x double> %__W, <2 x double> %__A, <2 x double> %sub, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %1 = extractelement <2 x double> %__A, i64 0
+  %.rhs = extractelement <2 x double> %__B, i64 0
+  %2 = fsub double -0.000000e+00, %.rhs
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %0
+  %7 = insertelement <2 x double> %__W, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <2 x double> @test_mm_maskz_fmsub_sd(i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B, <2 x double> %__C) {
@@ -5682,19 +5754,26 @@ define <2 x double> @test_mm_maskz_fmsub_round_sd(i8 zeroext %__U, <2 x double> 
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fmsub_round_sd:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    vxorpd {{.*}}(%rip), %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__C
-  %0 = tail call <2 x double> @llvm.x86.avx512.maskz.vfmadd.sd(<2 x double> %__A, <2 x double> %__B, <2 x double> %sub, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__A, i64 0
+  %1 = extractelement <2 x double> %__B, i64 0
+  %.rhs = extractelement <2 x double> %__C, i64 0
+  %2 = fsub double -0.000000e+00, %.rhs
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double 0.000000e+00
+  %7 = insertelement <2 x double> %__A, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <2 x double> @test_mm_mask3_fmsub_sd(<2 x double> %__W, <2 x double> %__X, <2 x double> %__Y, i8 zeroext %__U) {
@@ -5730,23 +5809,33 @@ define <2 x double> @test_mm_mask3_fmsub_round_sd(<2 x double> %__W, <2 x double
 ; X86-LABEL: test_mm_mask3_fmsub_round_sd:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm2, %xmm3
+; X86-NEXT:    vfmadd213sd %xmm3, %xmm0, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmsub231sd {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X86-NEXT:    vmovsd %xmm1, %xmm2, %xmm2 {%k1}
 ; X86-NEXT:    vmovapd %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask3_fmsub_round_sd:
 ; X64:       # %bb.0: # %entry
+; X64-NEXT:    vxorpd {{.*}}(%rip), %xmm2, %xmm3
+; X64-NEXT:    vfmadd213sd %xmm3, %xmm0, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmsub231sd {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X64-NEXT:    vmovsd %xmm1, %xmm2, %xmm2 {%k1}
 ; X64-NEXT:    vmovapd %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask3.vfmsub.sd(<2 x double> %__W, <2 x double> %__X, <2 x double> %__Y, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %1 = extractelement <2 x double> %__X, i64 0
+  %.rhs = extractelement <2 x double> %__Y, i64 0
+  %2 = fsub double -0.000000e+00, %.rhs
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %.rhs
+  %7 = insertelement <2 x double> %__Y, double %6, i64 0
+  ret <2 x double> %7
 }
-
-declare <2 x double> @llvm.x86.avx512.mask3.vfmsub.sd(<2 x double>, <2 x double>, <2 x double>, i8, i32) #1
 
 define <2 x double> @test_mm_mask_fnmadd_sd(<2 x double> %__W, i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B) {
 ; X86-LABEL: test_mm_mask_fnmadd_sd:
@@ -5781,19 +5870,26 @@ define <2 x double> @test_mm_mask_fnmadd_round_sd(<2 x double> %__W, i8 zeroext 
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fnmadd_round_sd:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    vxorpd {{.*}}(%rip), %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__A
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask.vfmadd.sd(<2 x double> %__W, <2 x double> %sub, <2 x double> %__B, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %.rhs = extractelement <2 x double> %__A, i64 0
+  %1 = fsub double -0.000000e+00, %.rhs
+  %2 = extractelement <2 x double> %__B, i64 0
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %0
+  %7 = insertelement <2 x double> %__W, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <2 x double> @test_mm_maskz_fnmadd_sd(i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B, <2 x double> %__C) {
@@ -5828,19 +5924,26 @@ define <2 x double> @test_mm_maskz_fnmadd_round_sd(i8 zeroext %__U, <2 x double>
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fnmadd_round_sd:
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    vxorpd {{.*}}(%rip), %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfmadd213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__B
-  %0 = tail call <2 x double> @llvm.x86.avx512.maskz.vfmadd.sd(<2 x double> %__A, <2 x double> %sub, <2 x double> %__C, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__A, i64 0
+  %.rhs = extractelement <2 x double> %__B, i64 0
+  %1 = fsub double -0.000000e+00, %.rhs
+  %2 = extractelement <2 x double> %__C, i64 0
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double 0.000000e+00
+  %7 = insertelement <2 x double> %__A, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <2 x double> @test_mm_mask3_fnmadd_sd(<2 x double> %__W, <2 x double> %__X, <2 x double> %__Y, i8 zeroext %__U) {
@@ -5878,7 +5981,7 @@ define <2 x double> @test_mm_mask3_fnmadd_round_sd(<2 x double> %__W, <2 x doubl
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
 ; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd231sd {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X86-NEXT:    vfmadd231sd {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X86-NEXT:    vmovapd %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
@@ -5886,13 +5989,20 @@ define <2 x double> @test_mm_mask3_fnmadd_round_sd(<2 x double> %__W, <2 x doubl
 ; X64:       # %bb.0: # %entry
 ; X64-NEXT:    vxorpd {{.*}}(%rip), %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd231sd {{.*#+}} xmm2 = (xmm0 * xmm1) + xmm2
+; X64-NEXT:    vfmadd231sd {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X64-NEXT:    vmovapd %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__X
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask3.vfmadd.sd(<2 x double> %__W, <2 x double> %sub, <2 x double> %__Y, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %.rhs = extractelement <2 x double> %__X, i64 0
+  %1 = fsub double -0.000000e+00, %.rhs
+  %2 = extractelement <2 x double> %__Y, i64 0
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %2
+  %7 = insertelement <2 x double> %__Y, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <2 x double> @test_mm_mask_fnmsub_sd(<2 x double> %__W, i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B) {
@@ -5927,26 +6037,27 @@ define <2 x double> @test_mm_mask_fnmsub_round_sd(<2 x double> %__W, i8 zeroext 
 ; X86-LABEL: test_mm_mask_fnmsub_round_sd:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vmovapd {{.*#+}} xmm3 = [-0.000000e+00,-0.000000e+00]
-; X86-NEXT:    vxorpd %xmm3, %xmm1, %xmm1
-; X86-NEXT:    vxorpd %xmm3, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfnmsub213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask_fnmsub_round_sd:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vmovapd {{.*#+}} xmm3 = [-0.000000e+00,-0.000000e+00]
-; X64-NEXT:    vxorpd %xmm3, %xmm1, %xmm1
-; X64-NEXT:    vxorpd %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfnmsub213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__A
-  %sub1 = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__B
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask.vfmadd.sd(<2 x double> %__W, <2 x double> %sub, <2 x double> %sub1, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %.rhs = extractelement <2 x double> %__A, i64 0
+  %1 = fsub double -0.000000e+00, %.rhs
+  %.rhs2 = extractelement <2 x double> %__B, i64 0
+  %2 = fsub double -0.000000e+00, %.rhs2
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %0
+  %7 = insertelement <2 x double> %__W, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <2 x double> @test_mm_maskz_fnmsub_sd(i8 zeroext %__U, <2 x double> %__A, <2 x double> %__B, <2 x double> %__C) {
@@ -5980,26 +6091,27 @@ define <2 x double> @test_mm_maskz_fnmsub_round_sd(i8 zeroext %__U, <2 x double>
 ; X86-LABEL: test_mm_maskz_fnmsub_round_sd:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vmovapd {{.*#+}} xmm3 = [-0.000000e+00,-0.000000e+00]
-; X86-NEXT:    vxorpd %xmm3, %xmm1, %xmm1
-; X86-NEXT:    vxorpd %xmm3, %xmm2, %xmm2
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X86-NEXT:    vfnmsub213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_maskz_fnmsub_round_sd:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vmovapd {{.*#+}} xmm3 = [-0.000000e+00,-0.000000e+00]
-; X64-NEXT:    vxorpd %xmm3, %xmm1, %xmm1
-; X64-NEXT:    vxorpd %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; X64-NEXT:    vfnmsub213sd {rn-sae}, %xmm2, %xmm1, %xmm0 {%k1} {z}
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__B
-  %sub1 = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__C
-  %0 = tail call <2 x double> @llvm.x86.avx512.maskz.vfmadd.sd(<2 x double> %__A, <2 x double> %sub, <2 x double> %sub1, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__A, i64 0
+  %.rhs = extractelement <2 x double> %__B, i64 0
+  %1 = fsub double -0.000000e+00, %.rhs
+  %.rhs2 = extractelement <2 x double> %__C, i64 0
+  %2 = fsub double -0.000000e+00, %.rhs2
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double 0.000000e+00
+  %7 = insertelement <2 x double> %__A, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <2 x double> @test_mm_mask3_fnmsub_sd(<2 x double> %__W, <2 x double> %__X, <2 x double> %__Y, i8 zeroext %__U) {
@@ -6036,23 +6148,29 @@ define <2 x double> @test_mm_mask3_fnmsub_round_sd(<2 x double> %__W, <2 x doubl
 ; X86-LABEL: test_mm_mask3_fnmsub_round_sd:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
-; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm1, %xmm1
 ; X86-NEXT:    kmovw %eax, %k1
-; X86-NEXT:    vfmsub231sd {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X86-NEXT:    vfnmsub231sd {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X86-NEXT:    vmovapd %xmm2, %xmm0
 ; X86-NEXT:    retl
 ;
 ; X64-LABEL: test_mm_mask3_fnmsub_round_sd:
 ; X64:       # %bb.0: # %entry
-; X64-NEXT:    vxorpd {{.*}}(%rip), %xmm1, %xmm1
 ; X64-NEXT:    kmovw %edi, %k1
-; X64-NEXT:    vfmsub231sd {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
+; X64-NEXT:    vfnmsub231sd {rn-sae}, %xmm1, %xmm0, %xmm2 {%k1}
 ; X64-NEXT:    vmovapd %xmm2, %xmm0
 ; X64-NEXT:    retq
 entry:
-  %sub = fsub <2 x double> <double -0.000000e+00, double -0.000000e+00>, %__X
-  %0 = tail call <2 x double> @llvm.x86.avx512.mask3.vfmsub.sd(<2 x double> %__W, <2 x double> %sub, <2 x double> %__Y, i8 %__U, i32 4)
-  ret <2 x double> %0
+  %0 = extractelement <2 x double> %__W, i64 0
+  %.rhs = extractelement <2 x double> %__X, i64 0
+  %1 = fsub double -0.000000e+00, %.rhs
+  %.rhs1 = extractelement <2 x double> %__Y, i64 0
+  %2 = fsub double -0.000000e+00, %.rhs1
+  %3 = tail call double @llvm.x86.avx512.vfmadd.f64(double %0, double %1, double %2, i32 8)
+  %4 = bitcast i8 %__U to <8 x i1>
+  %5 = extractelement <8 x i1> %4, i64 0
+  %6 = select i1 %5, double %3, double %.rhs1
+  %7 = insertelement <2 x double> %__Y, double %6, i64 0
+  ret <2 x double> %7
 }
 
 define <8 x i64> @test_mm512_mask_expandloadu_epi64(<8 x i64> %__W, i8 zeroext %__U, i8* readonly %__P) {
@@ -6734,189 +6852,130 @@ entry:
 }
 
 define i32 @test_mm512_reduce_add_epi32(<8 x i64> %__W) {
-; X86-LABEL: test_mm512_reduce_add_epi32:
-; X86:       # %bb.0: # %entry
-; X86-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X86-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; X86-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X86-NEXT:    vpaddd %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X86-NEXT:    vpaddd %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vphaddd %xmm0, %xmm0, %xmm0
-; X86-NEXT:    vmovd %xmm0, %eax
-; X86-NEXT:    vzeroupper
-; X86-NEXT:    retl
-;
-; X64-LABEL: test_mm512_reduce_add_epi32:
-; X64:       # %bb.0: # %entry
-; X64-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X64-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-; X64-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X64-NEXT:    vpaddd %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X64-NEXT:    vpaddd %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vphaddd %xmm0, %xmm0, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
-; X64-NEXT:    vzeroupper
-; X64-NEXT:    retq
+; CHECK-LABEL: test_mm512_reduce_add_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; CHECK-NEXT:    vpaddd %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
+; CHECK-NEXT:    vpaddd %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    vphaddd %xmm0, %xmm0, %xmm0
+; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    ret{{[l|q]}}
 entry:
-  %0 = bitcast <8 x i64> %__W to <16 x i32>
-  %shuffle.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %add.i = add <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %add.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %add.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %add4.i = add <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %add4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %add7.i = add <4 x i32> %shuffle6.i, %add4.i
-  %shuffle9.i = shufflevector <4 x i32> %add7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %add10.i = add <4 x i32> %shuffle9.i, %add7.i
-  %1 = bitcast <4 x i32> %add10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %1, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %extract.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %0 = bitcast <4 x i64> %extract.i to <8 x i32>
+  %extract2.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %1 = bitcast <4 x i64> %extract2.i to <8 x i32>
+  %add.i = add <8 x i32> %0, %1
+  %2 = bitcast <8 x i32> %add.i to <4 x i64>
+  %extract3.i = shufflevector <4 x i64> %2, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %3 = bitcast <2 x i64> %extract3.i to <4 x i32>
+  %extract4.i = shufflevector <4 x i64> %2, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %4 = bitcast <2 x i64> %extract4.i to <4 x i32>
+  %add5.i = add <4 x i32> %3, %4
+  %shuffle.i = shufflevector <4 x i32> %add5.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %add6.i = add <4 x i32> %shuffle.i, %add5.i
+  %shuffle7.i = shufflevector <4 x i32> %add6.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %add8.i = add <4 x i32> %shuffle7.i, %add6.i
+  %vecext.i = extractelement <4 x i32> %add8.i, i32 0
+  ret i32 %vecext.i
 }
 
 define i32 @test_mm512_reduce_mul_epi32(<8 x i64> %__W) {
-; X86-LABEL: test_mm512_reduce_mul_epi32:
-; X86:       # %bb.0: # %entry
-; X86-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X86-NEXT:    vpmulld %ymm1, %ymm0, %ymm0
-; X86-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X86-NEXT:    vpmulld %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X86-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
-; X86-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vmovd %xmm0, %eax
-; X86-NEXT:    vzeroupper
-; X86-NEXT:    retl
-;
-; X64-LABEL: test_mm512_reduce_mul_epi32:
-; X64:       # %bb.0: # %entry
-; X64-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X64-NEXT:    vpmulld %ymm1, %ymm0, %ymm0
-; X64-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X64-NEXT:    vpmulld %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X64-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
-; X64-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
-; X64-NEXT:    vzeroupper
-; X64-NEXT:    retq
+; CHECK-LABEL: test_mm512_reduce_mul_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; CHECK-NEXT:    vpmulld %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; CHECK-NEXT:    vpmulld %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
+; CHECK-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
+; CHECK-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    ret{{[l|q]}}
 entry:
-  %0 = bitcast <8 x i64> %__W to <16 x i32>
-  %shuffle.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %mul.i = mul <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %mul.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %mul.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %mul4.i = mul <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %mul4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %mul7.i = mul <4 x i32> %shuffle6.i, %mul4.i
-  %shuffle9.i = shufflevector <4 x i32> %mul7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %mul10.i = mul <4 x i32> %shuffle9.i, %mul7.i
-  %1 = bitcast <4 x i32> %mul10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %1, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %extract.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %0 = bitcast <4 x i64> %extract.i to <8 x i32>
+  %extract2.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %1 = bitcast <4 x i64> %extract2.i to <8 x i32>
+  %mul.i = mul <8 x i32> %0, %1
+  %2 = bitcast <8 x i32> %mul.i to <4 x i64>
+  %extract3.i = shufflevector <4 x i64> %2, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %3 = bitcast <2 x i64> %extract3.i to <4 x i32>
+  %extract4.i = shufflevector <4 x i64> %2, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %4 = bitcast <2 x i64> %extract4.i to <4 x i32>
+  %mul5.i = mul <4 x i32> %3, %4
+  %shuffle.i = shufflevector <4 x i32> %mul5.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %mul6.i = mul <4 x i32> %shuffle.i, %mul5.i
+  %shuffle7.i = shufflevector <4 x i32> %mul6.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %mul8.i = mul <4 x i32> %shuffle7.i, %mul6.i
+  %vecext.i = extractelement <4 x i32> %mul8.i, i32 0
+  ret i32 %vecext.i
 }
 
 define i32 @test_mm512_reduce_or_epi32(<8 x i64> %__W) {
-; X86-LABEL: test_mm512_reduce_or_epi32:
-; X86:       # %bb.0: # %entry
-; X86-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X86-NEXT:    vpor %ymm1, %ymm0, %ymm0
-; X86-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X86-NEXT:    vpor %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X86-NEXT:    vpor %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
-; X86-NEXT:    vpor %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vmovd %xmm0, %eax
-; X86-NEXT:    vzeroupper
-; X86-NEXT:    retl
-;
-; X64-LABEL: test_mm512_reduce_or_epi32:
-; X64:       # %bb.0: # %entry
-; X64-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X64-NEXT:    vpor %ymm1, %ymm0, %ymm0
-; X64-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X64-NEXT:    vpor %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X64-NEXT:    vpor %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
-; X64-NEXT:    vpor %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
-; X64-NEXT:    vzeroupper
-; X64-NEXT:    retq
+; CHECK-LABEL: test_mm512_reduce_or_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; CHECK-NEXT:    vpor %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; CHECK-NEXT:    vpor %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
+; CHECK-NEXT:    vpor %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
+; CHECK-NEXT:    vpor %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    ret{{[l|q]}}
 entry:
-  %0 = bitcast <8 x i64> %__W to <16 x i32>
-  %shuffle.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %or.i = or <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %or.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %or.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %or4.i = or <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %or4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %or7.i = or <4 x i32> %shuffle6.i, %or4.i
-  %shuffle9.i = shufflevector <4 x i32> %or7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %or10.i = or <4 x i32> %shuffle9.i, %or7.i
-  %1 = bitcast <4 x i32> %or10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %1, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %extract.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract2.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %or25.i = or <4 x i64> %extract.i, %extract2.i
+  %extract3.i = shufflevector <4 x i64> %or25.i, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %extract4.i = shufflevector <4 x i64> %or25.i, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %or526.i = or <2 x i64> %extract3.i, %extract4.i
+  %or5.i = bitcast <2 x i64> %or526.i to <4 x i32>
+  %shuffle.i = shufflevector <4 x i32> %or5.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %or6.i = or <4 x i32> %shuffle.i, %or5.i
+  %shuffle7.i = shufflevector <4 x i32> %or6.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %or8.i = or <4 x i32> %shuffle7.i, %or6.i
+  %vecext.i = extractelement <4 x i32> %or8.i, i32 0
+  ret i32 %vecext.i
 }
 
 define i32 @test_mm512_reduce_and_epi32(<8 x i64> %__W) {
-; X86-LABEL: test_mm512_reduce_and_epi32:
-; X86:       # %bb.0: # %entry
-; X86-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X86-NEXT:    vpand %ymm1, %ymm0, %ymm0
-; X86-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X86-NEXT:    vpand %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X86-NEXT:    vpand %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
-; X86-NEXT:    vpand %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vmovd %xmm0, %eax
-; X86-NEXT:    vzeroupper
-; X86-NEXT:    retl
-;
-; X64-LABEL: test_mm512_reduce_and_epi32:
-; X64:       # %bb.0: # %entry
-; X64-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
-; X64-NEXT:    vpand %ymm1, %ymm0, %ymm0
-; X64-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; X64-NEXT:    vpand %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
-; X64-NEXT:    vpand %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
-; X64-NEXT:    vpand %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
-; X64-NEXT:    vzeroupper
-; X64-NEXT:    retq
+; CHECK-LABEL: test_mm512_reduce_and_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
+; CHECK-NEXT:    vpand %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; CHECK-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
+; CHECK-NEXT:    vpand %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
+; CHECK-NEXT:    vpand %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    ret{{[l|q]}}
 entry:
-  %0 = bitcast <8 x i64> %__W to <16 x i32>
-  %shuffle.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %0, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %and.i = and <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %and.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %and.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %and4.i = and <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %and4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %and7.i = and <4 x i32> %shuffle6.i, %and4.i
-  %shuffle9.i = shufflevector <4 x i32> %and7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %and10.i = and <4 x i32> %shuffle9.i, %and7.i
-  %1 = bitcast <4 x i32> %and10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %1, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %extract.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract2.i = shufflevector <8 x i64> %__W, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %and25.i = and <4 x i64> %extract.i, %extract2.i
+  %extract3.i = shufflevector <4 x i64> %and25.i, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %extract4.i = shufflevector <4 x i64> %and25.i, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %and526.i = and <2 x i64> %extract3.i, %extract4.i
+  %and5.i = bitcast <2 x i64> %and526.i to <4 x i32>
+  %shuffle.i = shufflevector <4 x i32> %and5.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %and6.i = and <4 x i32> %shuffle.i, %and5.i
+  %shuffle7.i = shufflevector <4 x i32> %and6.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %and8.i = and <4 x i32> %shuffle7.i, %and6.i
+  %vecext.i = extractelement <4 x i32> %and8.i, i32 0
+  ret i32 %vecext.i
 }
 
 define i32 @test_mm512_mask_reduce_add_epi32(i16 zeroext %__M, <8 x i64> %__W) {
@@ -6946,28 +7005,31 @@ define i32 @test_mm512_mask_reduce_add_epi32(i16 zeroext %__M, <8 x i64> %__W) {
 ; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,0,1]
 ; X64-NEXT:    vpaddd %xmm0, %xmm1, %xmm0
 ; X64-NEXT:    vphaddd %xmm0, %xmm0, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
+; X64-NEXT:    vmovd %xmm0, %eax
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
   %0 = bitcast <8 x i64> %__W to <16 x i32>
   %1 = bitcast i16 %__M to <16 x i1>
   %2 = select <16 x i1> %1, <16 x i32> %0, <16 x i32> zeroinitializer
-  %shuffle.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %add.i = add <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %add.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %add.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %add4.i = add <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %add4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %add7.i = add <4 x i32> %shuffle6.i, %add4.i
-  %shuffle9.i = shufflevector <4 x i32> %add7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %add10.i = add <4 x i32> %shuffle9.i, %add7.i
-  %3 = bitcast <4 x i32> %add10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %3, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %3 = bitcast <16 x i32> %2 to <8 x i64>
+  %extract.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %4 = bitcast <4 x i64> %extract.i to <8 x i32>
+  %extract3.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %5 = bitcast <4 x i64> %extract3.i to <8 x i32>
+  %add.i = add <8 x i32> %4, %5
+  %6 = bitcast <8 x i32> %add.i to <4 x i64>
+  %extract4.i = shufflevector <4 x i64> %6, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %7 = bitcast <2 x i64> %extract4.i to <4 x i32>
+  %extract5.i = shufflevector <4 x i64> %6, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %8 = bitcast <2 x i64> %extract5.i to <4 x i32>
+  %add6.i = add <4 x i32> %7, %8
+  %shuffle.i = shufflevector <4 x i32> %add6.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %add7.i = add <4 x i32> %shuffle.i, %add6.i
+  %shuffle8.i = shufflevector <4 x i32> %add7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %add9.i = add <4 x i32> %shuffle8.i, %add7.i
+  %vecext.i = extractelement <4 x i32> %add9.i, i32 0
+  ret i32 %vecext.i
 }
 
 define i32 @test_mm512_mask_reduce_mul_epi32(i16 zeroext %__M, <8 x i64> %__W) {
@@ -7001,28 +7063,31 @@ define i32 @test_mm512_mask_reduce_mul_epi32(i16 zeroext %__M, <8 x i64> %__W) {
 ; X64-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
 ; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
 ; X64-NEXT:    vpmulld %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
+; X64-NEXT:    vmovd %xmm0, %eax
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
   %0 = bitcast <8 x i64> %__W to <16 x i32>
   %1 = bitcast i16 %__M to <16 x i1>
   %2 = select <16 x i1> %1, <16 x i32> %0, <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
-  %shuffle.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %mul.i = mul <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %mul.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %mul.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %mul4.i = mul <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %mul4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %mul7.i = mul <4 x i32> %shuffle6.i, %mul4.i
-  %shuffle9.i = shufflevector <4 x i32> %mul7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %mul10.i = mul <4 x i32> %shuffle9.i, %mul7.i
-  %3 = bitcast <4 x i32> %mul10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %3, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %3 = bitcast <16 x i32> %2 to <8 x i64>
+  %extract.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %4 = bitcast <4 x i64> %extract.i to <8 x i32>
+  %extract4.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %5 = bitcast <4 x i64> %extract4.i to <8 x i32>
+  %mul.i = mul <8 x i32> %4, %5
+  %6 = bitcast <8 x i32> %mul.i to <4 x i64>
+  %extract5.i = shufflevector <4 x i64> %6, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %7 = bitcast <2 x i64> %extract5.i to <4 x i32>
+  %extract6.i = shufflevector <4 x i64> %6, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %8 = bitcast <2 x i64> %extract6.i to <4 x i32>
+  %mul7.i = mul <4 x i32> %7, %8
+  %shuffle.i = shufflevector <4 x i32> %mul7.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %mul8.i = mul <4 x i32> %shuffle.i, %mul7.i
+  %shuffle9.i = shufflevector <4 x i32> %mul8.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %mul10.i = mul <4 x i32> %shuffle9.i, %mul8.i
+  %vecext.i = extractelement <4 x i32> %mul10.i, i32 0
+  ret i32 %vecext.i
 }
 
 define i32 @test_mm512_mask_reduce_and_epi32(i16 zeroext %__M, <8 x i64> %__W) {
@@ -7056,28 +7121,27 @@ define i32 @test_mm512_mask_reduce_and_epi32(i16 zeroext %__M, <8 x i64> %__W) {
 ; X64-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
 ; X64-NEXT:    vpand %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
+; X64-NEXT:    vmovd %xmm0, %eax
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
   %0 = bitcast <8 x i64> %__W to <16 x i32>
   %1 = bitcast i16 %__M to <16 x i1>
   %2 = select <16 x i1> %1, <16 x i32> %0, <16 x i32> <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>
-  %shuffle.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %and.i = and <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %and.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %and.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %and4.i = and <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %and4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %and7.i = and <4 x i32> %shuffle6.i, %and4.i
-  %shuffle9.i = shufflevector <4 x i32> %and7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %and10.i = and <4 x i32> %shuffle9.i, %and7.i
-  %3 = bitcast <4 x i32> %and10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %3, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %3 = bitcast <16 x i32> %2 to <8 x i64>
+  %extract.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract4.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %and28.i = and <4 x i64> %extract.i, %extract4.i
+  %extract5.i = shufflevector <4 x i64> %and28.i, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %extract6.i = shufflevector <4 x i64> %and28.i, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %and729.i = and <2 x i64> %extract5.i, %extract6.i
+  %and7.i = bitcast <2 x i64> %and729.i to <4 x i32>
+  %shuffle.i = shufflevector <4 x i32> %and7.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %and8.i = and <4 x i32> %shuffle.i, %and7.i
+  %shuffle9.i = shufflevector <4 x i32> %and8.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %and10.i = and <4 x i32> %shuffle9.i, %and8.i
+  %vecext.i = extractelement <4 x i32> %and10.i, i32 0
+  ret i32 %vecext.i
 }
 
 define i32 @test_mm512_mask_reduce_or_epi32(i16 zeroext %__M, <8 x i64> %__W) {
@@ -7109,28 +7173,27 @@ define i32 @test_mm512_mask_reduce_or_epi32(i16 zeroext %__M, <8 x i64> %__W) {
 ; X64-NEXT:    vpor %xmm0, %xmm1, %xmm0
 ; X64-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,2,3]
 ; X64-NEXT:    vpor %xmm0, %xmm1, %xmm0
-; X64-NEXT:    vmovq %xmm0, %rax
-; X64-NEXT:    # kill: def $eax killed $eax killed $rax
+; X64-NEXT:    vmovd %xmm0, %eax
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
   %0 = bitcast <8 x i64> %__W to <16 x i32>
   %1 = bitcast i16 %__M to <16 x i1>
   %2 = select <16 x i1> %1, <16 x i32> %0, <16 x i32> zeroinitializer
-  %shuffle.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x i32> %2, <16 x i32> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %or.i = or <8 x i32> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x i32> %or.i, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x i32> %or.i, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %or4.i = or <4 x i32> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x i32> %or4.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %or7.i = or <4 x i32> %shuffle6.i, %or4.i
-  %shuffle9.i = shufflevector <4 x i32> %or7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %or10.i = or <4 x i32> %shuffle9.i, %or7.i
-  %3 = bitcast <4 x i32> %or10.i to <2 x i64>
-  %vecext.i = extractelement <2 x i64> %3, i32 0
-  %conv.i = trunc i64 %vecext.i to i32
-  ret i32 %conv.i
+  %3 = bitcast <16 x i32> %2 to <8 x i64>
+  %extract.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract3.i = shufflevector <8 x i64> %3, <8 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %or27.i = or <4 x i64> %extract.i, %extract3.i
+  %extract4.i = shufflevector <4 x i64> %or27.i, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  %extract5.i = shufflevector <4 x i64> %or27.i, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  %or628.i = or <2 x i64> %extract4.i, %extract5.i
+  %or6.i = bitcast <2 x i64> %or628.i to <4 x i32>
+  %shuffle.i = shufflevector <4 x i32> %or6.i, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %or7.i = or <4 x i32> %shuffle.i, %or6.i
+  %shuffle8.i = shufflevector <4 x i32> %or7.i, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+  %or9.i = or <4 x i32> %shuffle8.i, %or7.i
+  %vecext.i = extractelement <4 x i32> %or9.i, i32 0
+  ret i32 %vecext.i
 }
 
 define double @test_mm512_reduce_add_pd(<8 x double> %__W) {
@@ -7147,7 +7210,8 @@ define double @test_mm512_reduce_add_pd(<8 x double> %__W) {
 ; X86-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X86-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vhaddpd %xmm0, %xmm0, %xmm0
+; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovlpd %xmm0, (%esp)
 ; X86-NEXT:    fldl (%esp)
 ; X86-NEXT:    movl %ebp, %esp
@@ -7162,7 +7226,8 @@ define double @test_mm512_reduce_add_pd(<8 x double> %__W) {
 ; X64-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X64-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X64-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vhaddpd %xmm0, %xmm0, %xmm0
+; X64-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X64-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
@@ -7172,7 +7237,7 @@ entry:
   %shuffle2.i = shufflevector <4 x double> %add.i, <4 x double> undef, <2 x i32> <i32 0, i32 1>
   %shuffle3.i = shufflevector <4 x double> %add.i, <4 x double> undef, <2 x i32> <i32 2, i32 3>
   %add4.i = fadd <2 x double> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <2 x double> %add4.i, <2 x double> undef, <2 x i32> <i32 1, i32 undef>
+  %shuffle6.i = shufflevector <2 x double> %add4.i, <2 x double> undef, <2 x i32> <i32 1, i32 0>
   %add7.i = fadd <2 x double> %add4.i, %shuffle6.i
   %vecext.i = extractelement <2 x double> %add7.i, i32 0
   ret double %vecext.i
@@ -7219,7 +7284,7 @@ entry:
   %shuffle2.i = shufflevector <4 x double> %mul.i, <4 x double> undef, <2 x i32> <i32 0, i32 1>
   %shuffle3.i = shufflevector <4 x double> %mul.i, <4 x double> undef, <2 x i32> <i32 2, i32 3>
   %mul4.i = fmul <2 x double> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <2 x double> %mul4.i, <2 x double> undef, <2 x i32> <i32 1, i32 undef>
+  %shuffle6.i = shufflevector <2 x double> %mul4.i, <2 x double> undef, <2 x i32> <i32 1, i32 0>
   %mul7.i = fmul <2 x double> %mul4.i, %shuffle6.i
   %vecext.i = extractelement <2 x double> %mul7.i, i32 0
   ret double %vecext.i
@@ -7236,7 +7301,8 @@ define float @test_mm512_reduce_add_ps(<16 x float> %__W) {
 ; X86-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vaddps %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vhaddps %xmm0, %xmm0, %xmm0
+; X86-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
+; X86-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovss %xmm0, (%esp)
 ; X86-NEXT:    flds (%esp)
 ; X86-NEXT:    popl %eax
@@ -7252,21 +7318,25 @@ define float @test_mm512_reduce_add_ps(<16 x float> %__W) {
 ; X64-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X64-NEXT:    vaddps %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vhaddps %xmm0, %xmm0, %xmm0
+; X64-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
+; X64-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
-  %shuffle.i = shufflevector <16 x float> %__W, <16 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x float> %__W, <16 x float> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %add.i = fadd <8 x float> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %add4.i = fadd <4 x float> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x float> %add4.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %add7.i = fadd <4 x float> %add4.i, %shuffle6.i
-  %shuffle9.i = shufflevector <4 x float> %add7.i, <4 x float> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %add10.i = fadd <4 x float> %add7.i, %shuffle9.i
-  %vecext.i = extractelement <4 x float> %add10.i, i32 0
+  %0 = bitcast <16 x float> %__W to <8 x double>
+  %extract.i = shufflevector <8 x double> %0, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %1 = bitcast <4 x double> %extract.i to <8 x float>
+  %extract2.i = shufflevector <8 x double> %0, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %2 = bitcast <4 x double> %extract2.i to <8 x float>
+  %add.i = fadd <8 x float> %1, %2
+  %extract3.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract4.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %add5.i = fadd <4 x float> %extract3.i, %extract4.i
+  %shuffle.i = shufflevector <4 x float> %add5.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %add6.i = fadd <4 x float> %add5.i, %shuffle.i
+  %shuffle7.i = shufflevector <4 x float> %add6.i, <4 x float> undef, <4 x i32> <i32 1, i32 0, i32 3, i32 2>
+  %add8.i = fadd <4 x float> %add6.i, %shuffle7.i
+  %vecext.i = extractelement <4 x float> %add8.i, i32 0
   ret float %vecext.i
 }
 
@@ -7281,7 +7351,7 @@ define float @test_mm512_reduce_mul_ps(<16 x float> %__W) {
 ; X86-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vmulps %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vmovshdup {{.*#+}} xmm1 = xmm0[1,1,3,3]
+; X86-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
 ; X86-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovss %xmm0, (%esp)
 ; X86-NEXT:    flds (%esp)
@@ -7298,22 +7368,25 @@ define float @test_mm512_reduce_mul_ps(<16 x float> %__W) {
 ; X64-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X64-NEXT:    vmulps %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vmovshdup {{.*#+}} xmm1 = xmm0[1,1,3,3]
+; X64-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
 ; X64-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
-  %shuffle.i = shufflevector <16 x float> %__W, <16 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x float> %__W, <16 x float> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %mul.i = fmul <8 x float> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %mul4.i = fmul <4 x float> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x float> %mul4.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %mul7.i = fmul <4 x float> %mul4.i, %shuffle6.i
-  %shuffle9.i = shufflevector <4 x float> %mul7.i, <4 x float> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %mul10.i = fmul <4 x float> %mul7.i, %shuffle9.i
-  %vecext.i = extractelement <4 x float> %mul10.i, i32 0
+  %0 = bitcast <16 x float> %__W to <8 x double>
+  %extract.i = shufflevector <8 x double> %0, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %1 = bitcast <4 x double> %extract.i to <8 x float>
+  %extract2.i = shufflevector <8 x double> %0, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %2 = bitcast <4 x double> %extract2.i to <8 x float>
+  %mul.i = fmul <8 x float> %1, %2
+  %extract3.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract4.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %mul5.i = fmul <4 x float> %extract3.i, %extract4.i
+  %shuffle.i = shufflevector <4 x float> %mul5.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %mul6.i = fmul <4 x float> %mul5.i, %shuffle.i
+  %shuffle7.i = shufflevector <4 x float> %mul6.i, <4 x float> undef, <4 x i32> <i32 1, i32 0, i32 3, i32 2>
+  %mul8.i = fmul <4 x float> %mul6.i, %shuffle7.i
+  %vecext.i = extractelement <4 x float> %mul8.i, i32 0
   ret float %vecext.i
 }
 
@@ -7334,7 +7407,8 @@ define double @test_mm512_mask_reduce_add_pd(i8 zeroext %__M, <8 x double> %__W)
 ; X86-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X86-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vhaddpd %xmm0, %xmm0, %xmm0
+; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovlpd %xmm0, (%esp)
 ; X86-NEXT:    fldl (%esp)
 ; X86-NEXT:    movl %ebp, %esp
@@ -7351,7 +7425,8 @@ define double @test_mm512_mask_reduce_add_pd(i8 zeroext %__M, <8 x double> %__W)
 ; X64-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X64-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X64-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vhaddpd %xmm0, %xmm0, %xmm0
+; X64-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X64-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
@@ -7363,7 +7438,7 @@ entry:
   %shuffle2.i = shufflevector <4 x double> %add.i, <4 x double> undef, <2 x i32> <i32 0, i32 1>
   %shuffle3.i = shufflevector <4 x double> %add.i, <4 x double> undef, <2 x i32> <i32 2, i32 3>
   %add4.i = fadd <2 x double> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <2 x double> %add4.i, <2 x double> undef, <2 x i32> <i32 1, i32 undef>
+  %shuffle6.i = shufflevector <2 x double> %add4.i, <2 x double> undef, <2 x i32> <i32 1, i32 0>
   %add7.i = fadd <2 x double> %add4.i, %shuffle6.i
   %vecext.i = extractelement <2 x double> %add7.i, i32 0
   ret double %vecext.i
@@ -7419,7 +7494,7 @@ entry:
   %shuffle2.i = shufflevector <4 x double> %mul.i, <4 x double> undef, <2 x i32> <i32 0, i32 1>
   %shuffle3.i = shufflevector <4 x double> %mul.i, <4 x double> undef, <2 x i32> <i32 2, i32 3>
   %mul4.i = fmul <2 x double> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <2 x double> %mul4.i, <2 x double> undef, <2 x i32> <i32 1, i32 undef>
+  %shuffle6.i = shufflevector <2 x double> %mul4.i, <2 x double> undef, <2 x i32> <i32 1, i32 0>
   %mul7.i = fmul <2 x double> %mul4.i, %shuffle6.i
   %vecext.i = extractelement <2 x double> %mul7.i, i32 0
   ret double %vecext.i
@@ -7438,7 +7513,8 @@ define float @test_mm512_mask_reduce_add_ps(i16 zeroext %__M, <16 x float> %__W)
 ; X86-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vaddps %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vhaddps %xmm0, %xmm0, %xmm0
+; X86-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
+; X86-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovss %xmm0, (%esp)
 ; X86-NEXT:    flds (%esp)
 ; X86-NEXT:    popl %eax
@@ -7456,23 +7532,27 @@ define float @test_mm512_mask_reduce_add_ps(i16 zeroext %__M, <16 x float> %__W)
 ; X64-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X64-NEXT:    vaddps %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vhaddps %xmm0, %xmm0, %xmm0
+; X64-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
+; X64-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
   %0 = bitcast i16 %__M to <16 x i1>
   %1 = select <16 x i1> %0, <16 x float> %__W, <16 x float> zeroinitializer
-  %shuffle.i = shufflevector <16 x float> %1, <16 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x float> %1, <16 x float> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %add.i = fadd <8 x float> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %add4.i = fadd <4 x float> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x float> %add4.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %add7.i = fadd <4 x float> %add4.i, %shuffle6.i
-  %shuffle9.i = shufflevector <4 x float> %add7.i, <4 x float> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %add10.i = fadd <4 x float> %add7.i, %shuffle9.i
-  %vecext.i = extractelement <4 x float> %add10.i, i32 0
+  %2 = bitcast <16 x float> %1 to <8 x double>
+  %extract.i = shufflevector <8 x double> %2, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %3 = bitcast <4 x double> %extract.i to <8 x float>
+  %extract3.i = shufflevector <8 x double> %2, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %4 = bitcast <4 x double> %extract3.i to <8 x float>
+  %add.i = fadd <8 x float> %3, %4
+  %extract4.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract5.i = shufflevector <8 x float> %add.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %add6.i = fadd <4 x float> %extract4.i, %extract5.i
+  %shuffle.i = shufflevector <4 x float> %add6.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %add7.i = fadd <4 x float> %add6.i, %shuffle.i
+  %shuffle8.i = shufflevector <4 x float> %add7.i, <4 x float> undef, <4 x i32> <i32 1, i32 0, i32 3, i32 2>
+  %add9.i = fadd <4 x float> %add7.i, %shuffle8.i
+  %vecext.i = extractelement <4 x float> %add9.i, i32 0
   ret float %vecext.i
 }
 
@@ -7490,7 +7570,7 @@ define float @test_mm512_mask_reduce_mul_ps(i16 zeroext %__M, <16 x float> %__W)
 ; X86-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vmulps %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vmovshdup {{.*#+}} xmm1 = xmm0[1,1,3,3]
+; X86-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
 ; X86-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovss %xmm0, (%esp)
 ; X86-NEXT:    flds (%esp)
@@ -7510,23 +7590,26 @@ define float @test_mm512_mask_reduce_mul_ps(i16 zeroext %__M, <16 x float> %__W)
 ; X64-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X64-NEXT:    vmulps %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vmovshdup {{.*#+}} xmm1 = xmm0[1,1,3,3]
+; X64-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,0,3,2]
 ; X64-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 entry:
   %0 = bitcast i16 %__M to <16 x i1>
   %1 = select <16 x i1> %0, <16 x float> %__W, <16 x float> <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00>
-  %shuffle.i = shufflevector <16 x float> %1, <16 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %shuffle1.i = shufflevector <16 x float> %1, <16 x float> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %mul.i = fmul <8 x float> %shuffle.i, %shuffle1.i
-  %shuffle2.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  %shuffle3.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-  %mul4.i = fmul <4 x float> %shuffle2.i, %shuffle3.i
-  %shuffle6.i = shufflevector <4 x float> %mul4.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %mul7.i = fmul <4 x float> %mul4.i, %shuffle6.i
-  %shuffle9.i = shufflevector <4 x float> %mul7.i, <4 x float> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %mul10.i = fmul <4 x float> %mul7.i, %shuffle9.i
+  %2 = bitcast <16 x float> %1 to <8 x double>
+  %extract.i = shufflevector <8 x double> %2, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %3 = bitcast <4 x double> %extract.i to <8 x float>
+  %extract4.i = shufflevector <8 x double> %2, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %4 = bitcast <4 x double> %extract4.i to <8 x float>
+  %mul.i = fmul <8 x float> %3, %4
+  %extract5.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %extract6.i = shufflevector <8 x float> %mul.i, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %mul7.i = fmul <4 x float> %extract5.i, %extract6.i
+  %shuffle.i = shufflevector <4 x float> %mul7.i, <4 x float> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
+  %mul8.i = fmul <4 x float> %mul7.i, %shuffle.i
+  %shuffle9.i = shufflevector <4 x float> %mul8.i, <4 x float> undef, <4 x i32> <i32 1, i32 0, i32 3, i32 2>
+  %mul10.i = fmul <4 x float> %mul8.i, %shuffle9.i
   %vecext.i = extractelement <4 x float> %mul10.i, i32 0
   ret float %vecext.i
 }
@@ -8697,6 +8780,1000 @@ entry:
   ret float %vecext.i
 }
 
+define <8 x double> @test_mm512_mask_max_pd(<8 x double> %__W, i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_mask_max_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vmaxpd %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_max_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxpd %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.max.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> %__W
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_maskz_max_pd(i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_maskz_max_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vmaxpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_max_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.max.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> zeroinitializer
+  ret <8 x double> %2
+}
+
+define <16 x float> @test_mm512_mask_max_ps(<16 x float> %__W, i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_mask_max_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vmaxps %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_max_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxps %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.max.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> %__W
+  ret <16 x float> %2
+}
+
+define <8 x double> @test_mm512_mask_max_round_pd(<8 x double> %__W, i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_mask_max_round_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vmaxpd %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_max_round_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxpd %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.max.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> %__W
+  ret <8 x double> %2
+}
+
+declare <8 x double> @llvm.x86.avx512.max.pd.512(<8 x double>, <8 x double>, i32)
+
+define <8 x double> @test_mm512_maskz_max_round_pd(i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_maskz_max_round_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vmaxpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_max_round_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.max.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> zeroinitializer
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_max_round_pd(<8 x double> %__A, <8 x double> %__B) {
+; CHECK-LABEL: test_mm512_max_round_pd:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmaxpd %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.max.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  ret <8 x double> %0
+}
+
+define <16 x float> @test_mm512_maskz_max_ps(i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_maskz_max_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vmaxps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_max_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.max.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> zeroinitializer
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_mask_max_round_ps(<16 x float> %__W, i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_mask_max_round_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vmaxps %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_max_round_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxps %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.max.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> %__W
+  ret <16 x float> %2
+}
+
+declare <16 x float> @llvm.x86.avx512.max.ps.512(<16 x float>, <16 x float>, i32)
+
+define <16 x float> @test_mm512_maskz_max_round_ps(i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_maskz_max_round_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vmaxps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_max_round_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vmaxps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.max.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> zeroinitializer
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_max_round_ps(<16 x float> %__A, <16 x float> %__B) {
+; CHECK-LABEL: test_mm512_max_round_ps:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmaxps %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.max.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  ret <16 x float> %0
+}
+
+define <8 x double> @test_mm512_mask_min_pd(<8 x double> %__W, i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_mask_min_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vminpd %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_min_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminpd %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.min.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> %__W
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_maskz_min_pd(i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_maskz_min_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vminpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_min_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.min.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> zeroinitializer
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_mask_min_round_pd(<8 x double> %__W, i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_mask_min_round_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vminpd %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_min_round_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminpd %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.min.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> %__W
+  ret <8 x double> %2
+}
+
+declare <8 x double> @llvm.x86.avx512.min.pd.512(<8 x double>, <8 x double>, i32)
+
+define <8 x double> @test_mm512_maskz_min_round_pd(i8 zeroext %__U, <8 x double> %__A, <8 x double> %__B) {
+; X86-LABEL: test_mm512_maskz_min_round_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vminpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_min_round_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminpd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.min.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> zeroinitializer
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_min_round_pd(<8 x double> %__A, <8 x double> %__B) {
+; CHECK-LABEL: test_mm512_min_round_pd:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vminpd %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.min.pd.512(<8 x double> %__A, <8 x double> %__B, i32 4)
+  ret <8 x double> %0
+}
+
+define <16 x float> @test_mm512_mask_min_ps(<16 x float> %__W, i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_mask_min_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vminps %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_min_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminps %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.min.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> %__W
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_maskz_min_ps(i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_maskz_min_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vminps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_min_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.min.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> zeroinitializer
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_mask_min_round_ps(<16 x float> %__W, i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_mask_min_round_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vminps %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_min_round_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminps %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.min.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> %__W
+  ret <16 x float> %2
+}
+
+declare <16 x float> @llvm.x86.avx512.min.ps.512(<16 x float>, <16 x float>, i32)
+
+define <16 x float> @test_mm512_maskz_min_round_ps(i16 zeroext %__U, <16 x float> %__A, <16 x float> %__B) {
+; X86-LABEL: test_mm512_maskz_min_round_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vminps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_min_round_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vminps %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.min.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> zeroinitializer
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_min_round_ps(<16 x float> %__A, <16 x float> %__B) {
+; CHECK-LABEL: test_mm512_min_round_ps:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vminps %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.min.ps.512(<16 x float> %__A, <16 x float> %__B, i32 4)
+  ret <16 x float> %0
+}
+
+define <8 x double> @test_mm512_sqrt_pd(<8 x double> %a) {
+; CHECK-LABEL: test_mm512_sqrt_pd:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vsqrtpd %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x double> @llvm.sqrt.v8f64(<8 x double> %a)
+  ret <8 x double> %0
+}
+
+define <8 x double> @test_mm512_mask_sqrt_pd(<8 x double> %__W, i8 zeroext %__U, <8 x double> %__A) {
+; X86-LABEL: test_mm512_mask_sqrt_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vsqrtpd %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_sqrt_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtpd %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.sqrt.v8f64(<8 x double> %__A)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> %__W
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_maskz_sqrt_pd(i8 zeroext %__U, <8 x double> %__A) {
+; X86-LABEL: test_mm512_maskz_sqrt_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vsqrtpd %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_sqrt_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtpd %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.sqrt.v8f64(<8 x double> %__A)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> zeroinitializer
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_mask_sqrt_round_pd(<8 x double> %__W, i8 zeroext %__U, <8 x double> %__A) {
+; X86-LABEL: test_mm512_mask_sqrt_round_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vsqrtpd {rn-sae}, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_sqrt_round_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtpd {rn-sae}, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.sqrt.pd.512(<8 x double> %__A, i32 8)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> %__W
+  ret <8 x double> %2
+}
+
+declare <8 x double> @llvm.x86.avx512.sqrt.pd.512(<8 x double>, i32)
+
+define <8 x double> @test_mm512_maskz_sqrt_round_pd(i8 zeroext %__U, <8 x double> %__A) {
+; X86-LABEL: test_mm512_maskz_sqrt_round_pd:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vsqrtpd {rn-sae}, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_sqrt_round_pd:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtpd {rn-sae}, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.sqrt.pd.512(<8 x double> %__A, i32 8)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x double> %0, <8 x double> zeroinitializer
+  ret <8 x double> %2
+}
+
+define <8 x double> @test_mm512_sqrt_round_pd(<8 x double> %__A) {
+; CHECK-LABEL: test_mm512_sqrt_round_pd:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vsqrtpd {rn-sae}, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x double> @llvm.x86.avx512.sqrt.pd.512(<8 x double> %__A, i32 8)
+  ret <8 x double> %0
+}
+
+define <16 x float> @test_mm512_sqrt_ps(<16 x float> %a) {
+; CHECK-LABEL: test_mm512_sqrt_ps:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vsqrtps %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <16 x float> @llvm.sqrt.v16f32(<16 x float> %a)
+  ret <16 x float> %0
+}
+
+define <16 x float> @test_mm512_mask_sqrt_ps(<16 x float> %__W, i16 zeroext %__U, <16 x float> %__A) {
+; X86-LABEL: test_mm512_mask_sqrt_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vsqrtps %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_sqrt_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtps %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.sqrt.v16f32(<16 x float> %__A)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> %__W
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_maskz_sqrt_ps(i16 zeroext %__U, <16 x float> %__A) {
+; X86-LABEL: test_mm512_maskz_sqrt_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vsqrtps %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_sqrt_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtps %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.sqrt.v16f32(<16 x float> %__A)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> zeroinitializer
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_mask_sqrt_round_ps(<16 x float> %__W, i16 zeroext %__U, <16 x float> %__A) {
+; X86-LABEL: test_mm512_mask_sqrt_round_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vsqrtps {rn-sae}, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_sqrt_round_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtps {rn-sae}, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.sqrt.ps.512(<16 x float> %__A, i32 8)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> %__W
+  ret <16 x float> %2
+}
+
+declare <16 x float> @llvm.x86.avx512.sqrt.ps.512(<16 x float>, i32)
+
+define <16 x float> @test_mm512_maskz_sqrt_round_ps(i16 zeroext %__U, <16 x float> %__A) {
+; X86-LABEL: test_mm512_maskz_sqrt_round_ps:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vsqrtps {rn-sae}, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_sqrt_round_ps:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vsqrtps {rn-sae}, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.sqrt.ps.512(<16 x float> %__A, i32 8)
+  %1 = bitcast i16 %__U to <16 x i1>
+  %2 = select <16 x i1> %1, <16 x float> %0, <16 x float> zeroinitializer
+  ret <16 x float> %2
+}
+
+define <16 x float> @test_mm512_sqrt_round_ps(<16 x float> %__A) {
+; CHECK-LABEL: test_mm512_sqrt_round_ps:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vsqrtps {rn-sae}, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <16 x float> @llvm.x86.avx512.sqrt.ps.512(<16 x float> %__A, i32 8)
+  ret <16 x float> %0
+}
+
+define <8 x i64> @test_mm512_rol_epi32(<8 x i64> %__A) local_unnamed_addr #0 {
+; CHECK-LABEL: test_mm512_rol_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprold $5, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = tail call <16 x i32> @llvm.x86.avx512.prol.d.512(<16 x i32> %0, i32 5)
+  %2 = bitcast <16 x i32> %1 to <8 x i64>
+  ret <8 x i64> %2
+}
+
+declare <16 x i32> @llvm.x86.avx512.prol.d.512(<16 x i32>, i32) #1
+
+define <8 x i64> @test_mm512_mask_rol_epi32(<8 x i64> %__W, i16 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_mask_rol_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprold $5, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_rol_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprold $5, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = tail call <16 x i32> @llvm.x86.avx512.prol.d.512(<16 x i32> %0, i32 5)
+  %2 = bitcast <8 x i64> %__W to <16 x i32>
+  %3 = bitcast i16 %__U to <16 x i1>
+  %4 = select <16 x i1> %3, <16 x i32> %1, <16 x i32> %2
+  %5 = bitcast <16 x i32> %4 to <8 x i64>
+  ret <8 x i64> %5
+}
+
+define <8 x i64> @test_mm512_maskz_rol_epi32(i16 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_maskz_rol_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprold $5, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_rol_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprold $5, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = tail call <16 x i32> @llvm.x86.avx512.prol.d.512(<16 x i32> %0, i32 5)
+  %2 = bitcast i16 %__U to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> zeroinitializer
+  %4 = bitcast <16 x i32> %3 to <8 x i64>
+  ret <8 x i64> %4
+}
+
+define <8 x i64> @test_mm512_rol_epi64(<8 x i64> %__A) {
+; CHECK-LABEL: test_mm512_rol_epi64:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprolq $5, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prol.q.512(<8 x i64> %__A, i32 5)
+  ret <8 x i64> %0
+}
+
+declare <8 x i64> @llvm.x86.avx512.prol.q.512(<8 x i64>, i32) #1
+
+define <8 x i64> @test_mm512_mask_rol_epi64(<8 x i64> %__W, i8 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_mask_rol_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprolq $5, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_rol_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprolq $5, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prol.q.512(<8 x i64> %__A, i32 5)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> %__W
+  ret <8 x i64> %2
+}
+
+define <8 x i64> @test_mm512_maskz_rol_epi64(i8 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_maskz_rol_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprolq $5, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_rol_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprolq $5, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prol.q.512(<8 x i64> %__A, i32 5)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> zeroinitializer
+  ret <8 x i64> %2
+}
+
+define <8 x i64> @test_mm512_rolv_epi32(<8 x i64> %__A, <8 x i64> %__B) {
+; CHECK-LABEL: test_mm512_rolv_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprolvd %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = bitcast <8 x i64> %__B to <16 x i32>
+  %2 = tail call <16 x i32> @llvm.x86.avx512.prolv.d.512(<16 x i32> %0, <16 x i32> %1)
+  %3 = bitcast <16 x i32> %2 to <8 x i64>
+  ret <8 x i64> %3
+}
+
+define <8 x i64> @test_mm512_mask_rolv_epi32(<8 x i64> %__W, i16 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_mask_rolv_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprolvd %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_rolv_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprolvd %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = bitcast <8 x i64> %__B to <16 x i32>
+  %2 = tail call <16 x i32> @llvm.x86.avx512.prolv.d.512(<16 x i32> %0, <16 x i32> %1)
+  %3 = bitcast <8 x i64> %__W to <16 x i32>
+  %4 = bitcast i16 %__U to <16 x i1>
+  %5 = select <16 x i1> %4, <16 x i32> %2, <16 x i32> %3
+  %6 = bitcast <16 x i32> %5 to <8 x i64>
+  ret <8 x i64> %6
+}
+
+define <8 x i64> @test_mm512_maskz_rolv_epi32(i16 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_maskz_rolv_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprolvd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_rolv_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprolvd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = bitcast <8 x i64> %__B to <16 x i32>
+  %2 = tail call <16 x i32> @llvm.x86.avx512.prolv.d.512(<16 x i32> %0, <16 x i32> %1)
+  %3 = bitcast i16 %__U to <16 x i1>
+  %4 = select <16 x i1> %3, <16 x i32> %2, <16 x i32> zeroinitializer
+  %5 = bitcast <16 x i32> %4 to <8 x i64>
+  ret <8 x i64> %5
+}
+
+define <8 x i64> @test_mm512_rolv_epi64(<8 x i64> %__A, <8 x i64> %__B) {
+; CHECK-LABEL: test_mm512_rolv_epi64:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprolvq %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prolv.q.512(<8 x i64> %__A, <8 x i64> %__B)
+  ret <8 x i64> %0
+}
+
+define <8 x i64> @test_mm512_mask_rolv_epi64(<8 x i64> %__W, i8 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_mask_rolv_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprolvq %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_rolv_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprolvq %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prolv.q.512(<8 x i64> %__A, <8 x i64> %__B)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> %__W
+  ret <8 x i64> %2
+}
+
+define <8 x i64> @test_mm512_maskz_rolv_epi64(i8 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_maskz_rolv_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprolvq %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_rolv_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprolvq %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prolv.q.512(<8 x i64> %__A, <8 x i64> %__B)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> zeroinitializer
+  ret <8 x i64> %2
+}
+
+define <8 x i64> @test_mm512_ror_epi32(<8 x i64> %__A) {
+; CHECK-LABEL: test_mm512_ror_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprord $5, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = tail call <16 x i32> @llvm.x86.avx512.pror.d.512(<16 x i32> %0, i32 5)
+  %2 = bitcast <16 x i32> %1 to <8 x i64>
+  ret <8 x i64> %2
+}
+
+declare <16 x i32> @llvm.x86.avx512.pror.d.512(<16 x i32>, i32) #1
+
+define <8 x i64> @test_mm512_mask_ror_epi32(<8 x i64> %__W, i16 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_mask_ror_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprord $5, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_ror_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprord $5, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = tail call <16 x i32> @llvm.x86.avx512.pror.d.512(<16 x i32> %0, i32 5)
+  %2 = bitcast <8 x i64> %__W to <16 x i32>
+  %3 = bitcast i16 %__U to <16 x i1>
+  %4 = select <16 x i1> %3, <16 x i32> %1, <16 x i32> %2
+  %5 = bitcast <16 x i32> %4 to <8 x i64>
+  ret <8 x i64> %5
+}
+
+define <8 x i64> @test_mm512_maskz_ror_epi32(i16 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_maskz_ror_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprord $5, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_ror_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprord $5, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = tail call <16 x i32> @llvm.x86.avx512.pror.d.512(<16 x i32> %0, i32 5)
+  %2 = bitcast i16 %__U to <16 x i1>
+  %3 = select <16 x i1> %2, <16 x i32> %1, <16 x i32> zeroinitializer
+  %4 = bitcast <16 x i32> %3 to <8 x i64>
+  ret <8 x i64> %4
+}
+
+define <8 x i64> @test_mm512_ror_epi64(<8 x i64> %__A) {
+; CHECK-LABEL: test_mm512_ror_epi64:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprorq $5, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.pror.q.512(<8 x i64> %__A, i32 5)
+  ret <8 x i64> %0
+}
+
+declare <8 x i64> @llvm.x86.avx512.pror.q.512(<8 x i64>, i32) #1
+
+define <8 x i64> @test_mm512_mask_ror_epi64(<8 x i64> %__W, i8 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_mask_ror_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprorq $5, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_ror_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprorq $5, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.pror.q.512(<8 x i64> %__A, i32 5)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> %__W
+  ret <8 x i64> %2
+}
+
+define <8 x i64> @test_mm512_maskz_ror_epi64(i8 zeroext %__U, <8 x i64> %__A) {
+; X86-LABEL: test_mm512_maskz_ror_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprorq $5, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_ror_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprorq $5, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.pror.q.512(<8 x i64> %__A, i32 5)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> zeroinitializer
+  ret <8 x i64> %2
+}
+
+define <8 x i64> @test_mm512_rorv_epi32(<8 x i64> %__A, <8 x i64> %__B) {
+; CHECK-LABEL: test_mm512_rorv_epi32:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprorvd %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = bitcast <8 x i64> %__B to <16 x i32>
+  %2 = tail call <16 x i32> @llvm.x86.avx512.prorv.d.512(<16 x i32> %0, <16 x i32> %1)
+  %3 = bitcast <16 x i32> %2 to <8 x i64>
+  ret <8 x i64> %3
+}
+
+define <8 x i64> @test_mm512_mask_rorv_epi32(<8 x i64> %__W, i16 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_mask_rorv_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprorvd %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_rorv_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprorvd %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = bitcast <8 x i64> %__B to <16 x i32>
+  %2 = tail call <16 x i32> @llvm.x86.avx512.prorv.d.512(<16 x i32> %0, <16 x i32> %1)
+  %3 = bitcast <8 x i64> %__W to <16 x i32>
+  %4 = bitcast i16 %__U to <16 x i1>
+  %5 = select <16 x i1> %4, <16 x i32> %2, <16 x i32> %3
+  %6 = bitcast <16 x i32> %5 to <8 x i64>
+  ret <8 x i64> %6
+}
+
+define <8 x i64> @test_mm512_maskz_rorv_epi32(i16 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_maskz_rorv_epi32:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1
+; X86-NEXT:    vprorvd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_rorv_epi32:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprorvd %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = bitcast <8 x i64> %__A to <16 x i32>
+  %1 = bitcast <8 x i64> %__B to <16 x i32>
+  %2 = tail call <16 x i32> @llvm.x86.avx512.prorv.d.512(<16 x i32> %0, <16 x i32> %1)
+  %3 = bitcast i16 %__U to <16 x i1>
+  %4 = select <16 x i1> %3, <16 x i32> %2, <16 x i32> zeroinitializer
+  %5 = bitcast <16 x i32> %4 to <8 x i64>
+  ret <8 x i64> %5
+}
+
+define <8 x i64> @test_mm512_rorv_epi64(<8 x i64> %__A, <8 x i64> %__B) {
+; CHECK-LABEL: test_mm512_rorv_epi64:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vprorvq %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prorv.q.512(<8 x i64> %__A, <8 x i64> %__B)
+  ret <8 x i64> %0
+}
+
+define <8 x i64> @test_mm512_mask_rorv_epi64(<8 x i64> %__W, i8 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_mask_rorv_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprorvq %zmm2, %zmm1, %zmm0 {%k1}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_mask_rorv_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprorvq %zmm2, %zmm1, %zmm0 {%k1}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prorv.q.512(<8 x i64> %__A, <8 x i64> %__B)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> %__W
+  ret <8 x i64> %2
+}
+
+define <8 x i64> @test_mm512_maskz_rorv_epi64(i8 zeroext %__U, <8 x i64> %__A, <8 x i64> %__B) {
+; X86-LABEL: test_mm512_maskz_rorv_epi64:
+; X86:       # %bb.0: # %entry
+; X86-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X86-NEXT:    kmovw %eax, %k1
+; X86-NEXT:    vprorvq %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X86-NEXT:    retl
+;
+; X64-LABEL: test_mm512_maskz_rorv_epi64:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    kmovw %edi, %k1
+; X64-NEXT:    vprorvq %zmm1, %zmm0, %zmm0 {%k1} {z}
+; X64-NEXT:    retq
+entry:
+  %0 = tail call <8 x i64> @llvm.x86.avx512.prorv.q.512(<8 x i64> %__A, <8 x i64> %__B)
+  %1 = bitcast i8 %__U to <8 x i1>
+  %2 = select <8 x i1> %1, <8 x i64> %0, <8 x i64> zeroinitializer
+  ret <8 x i64> %2
+}
+
 declare <8 x double> @llvm.fma.v8f64(<8 x double>, <8 x double>, <8 x double>) #9
 declare <16 x float> @llvm.fma.v16f32(<16 x float>, <16 x float>, <16 x float>) #9
 declare float @llvm.fma.f32(float, float, float) #9
@@ -8717,6 +9794,12 @@ declare <8 x float> @llvm.x86.avx.max.ps.256(<8 x float>, <8 x float>)
 declare <4 x float> @llvm.x86.sse.max.ps(<4 x float>, <4 x float>)
 declare <8 x float> @llvm.x86.avx.min.ps.256(<8 x float>, <8 x float>)
 declare <4 x float> @llvm.x86.sse.min.ps(<4 x float>, <4 x float>)
+declare <8 x double> @llvm.sqrt.v8f64(<8 x double>)
+declare <16 x float> @llvm.sqrt.v16f32(<16 x float>)
+declare <16 x i32> @llvm.x86.avx512.prolv.d.512(<16 x i32>, <16 x i32>)
+declare <8 x i64> @llvm.x86.avx512.prolv.q.512(<8 x i64>, <8 x i64>)
+declare <16 x i32> @llvm.x86.avx512.prorv.d.512(<16 x i32>, <16 x i32>)
+declare <8 x i64> @llvm.x86.avx512.prorv.q.512(<8 x i64>, <8 x i64>)
 
 !0 = !{i32 1}
 

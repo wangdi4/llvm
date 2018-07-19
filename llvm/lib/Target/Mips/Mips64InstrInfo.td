@@ -85,6 +85,17 @@ let usesCustomInserter = 1 in {
   def ATOMIC_CMP_SWAP_I64  : AtomicCmpSwap<atomic_cmp_swap_64, GPR64>;
 }
 
+def ATOMIC_LOAD_ADD_I64_POSTRA  : Atomic2OpsPostRA<GPR64>;
+def ATOMIC_LOAD_SUB_I64_POSTRA  : Atomic2OpsPostRA<GPR64>;
+def ATOMIC_LOAD_AND_I64_POSTRA  : Atomic2OpsPostRA<GPR64>;
+def ATOMIC_LOAD_OR_I64_POSTRA   : Atomic2OpsPostRA<GPR64>;
+def ATOMIC_LOAD_XOR_I64_POSTRA  : Atomic2OpsPostRA<GPR64>;
+def ATOMIC_LOAD_NAND_I64_POSTRA : Atomic2OpsPostRA<GPR64>;
+
+def ATOMIC_SWAP_I64_POSTRA      : Atomic2OpsPostRA<GPR64>;
+
+def ATOMIC_CMP_SWAP_I64_POSTRA  : AtomicCmpSwapPostRA<GPR64>;
+
 /// Pseudo instructions for loading and storing accumulator registers.
 let isPseudo = 1, isCodeGenOnly = 1, hasNoSchedulingInfo = 1 in {
   def LOAD_ACC128  : Load<"", ACC128>;
@@ -1020,6 +1031,38 @@ let AdditionalPredicates = [NotInMicroMips] in {
   def : MipsInstAlias<"ddivu $rd, $imm", (DUDivIMacro GPR64Opnd:$rd,
                                                       GPR64Opnd:$rd,
                                                       imm64:$imm), 0>,
+        ISA_MIPS3_NOT_32R6_64R6;
+  def DSRemMacro : MipsAsmPseudoInst<(outs GPR64Opnd:$rd),
+                                     (ins GPR64Opnd:$rs, GPR64Opnd:$rt),
+                                     "drem\t$rd, $rs, $rt">,
+                   ISA_MIPS3_NOT_32R6_64R6;
+  def DSRemIMacro : MipsAsmPseudoInst<(outs GPR64Opnd:$rd),
+                                      (ins GPR64Opnd:$rs, simm32_relaxed:$imm),
+                                      "drem\t$rd, $rs, $imm">,
+                    ISA_MIPS3_NOT_32R6_64R6;
+  def DURemMacro : MipsAsmPseudoInst<(outs GPR64Opnd:$rd),
+                                     (ins GPR64Opnd:$rs, GPR64Opnd:$rt),
+                                     "dremu\t$rd, $rs, $rt">,
+                   ISA_MIPS3_NOT_32R6_64R6;
+  def DURemIMacro : MipsAsmPseudoInst<(outs GPR64Opnd:$rd),
+                                      (ins GPR64Opnd:$rs, simm32_relaxed:$imm),
+                                      "dremu\t$rd, $rs, $imm">,
+                    ISA_MIPS3_NOT_32R6_64R6;
+  def : MipsInstAlias<"drem $rt, $rs", (DSRemMacro GPR64Opnd:$rt,
+                                                   GPR64Opnd:$rt,
+                                                   GPR64Opnd:$rs), 0>,
+        ISA_MIPS3_NOT_32R6_64R6;
+  def : MipsInstAlias<"drem $rd, $imm", (DSRemIMacro GPR64Opnd:$rd,
+                                                     GPR64Opnd:$rd,
+                                                     simm32_relaxed:$imm), 0>,
+        ISA_MIPS3_NOT_32R6_64R6;
+  def : MipsInstAlias<"dremu $rt, $rs", (DURemMacro GPR64Opnd:$rt,
+                                                    GPR64Opnd:$rt,
+                                                    GPR64Opnd:$rs), 0>,
+        ISA_MIPS3_NOT_32R6_64R6;
+  def : MipsInstAlias<"dremu $rd, $imm", (DURemIMacro GPR64Opnd:$rd,
+                                                      GPR64Opnd:$rd,
+                                                      simm32_relaxed:$imm), 0>,
         ISA_MIPS3_NOT_32R6_64R6;
 }
 

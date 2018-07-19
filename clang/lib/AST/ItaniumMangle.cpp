@@ -539,7 +539,9 @@ private:
   void mangleBareFunctionType(const FunctionProtoType *T, bool MangleReturnType,
                               const FunctionDecl *FD = nullptr);
   void mangleNeonVectorType(const VectorType *T);
+  void mangleNeonVectorType(const DependentVectorType *T);
   void mangleAArch64NeonVectorType(const VectorType *T);
+  void mangleAArch64NeonVectorType(const DependentVectorType *T);
 
   void mangleIntegerLiteral(QualType T, const llvm::APSInt &Value);
   void mangleMemberExprBase(const Expr *base, bool isArrow);
@@ -707,8 +709,10 @@ void CXXNameMangler::mangleFunctionEncodingBareType(const FunctionDecl *FD) {
   if (FD->hasAttr<EnableIfAttr>()) {
     FunctionTypeDepthState Saved = FunctionTypeDepth.push();
     Out << "Ua9enable_ifI";
-    for (AttrVec::const_iterator I = FD->getAttrs().begin(),
-                                 E = FD->getAttrs().end();
+    // FIXME: specific_attr_iterator iterates in reverse order. Fix that and use
+    // it here.
+    for (AttrVec::const_reverse_iterator I = FD->getAttrs().rbegin(),
+                                         E = FD->getAttrs().rend();
          I != E; ++I) {
       EnableIfAttr *EIA = dyn_cast<EnableIfAttr>(*I);
       if (!EIA)
@@ -1928,6 +1932,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::VariableArray:
   case Type::DependentSizedArray:
   case Type::DependentAddressSpace:
+  case Type::DependentVector:
   case Type::DependentSizedExtVector:
   case Type::Vector:
   case Type::ExtVector:
@@ -2998,6 +3003,14 @@ void CXXNameMangler::mangleNeonVectorType(const VectorType *T) {
   Out << BaseName << EltName;
 }
 
+void CXXNameMangler::mangleNeonVectorType(const DependentVectorType *T) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(
+      DiagnosticsEngine::Error,
+      "cannot mangle this dependent neon vector type yet");
+  Diags.Report(T->getAttributeLoc(), DiagID);
+}
+
 static StringRef mangleAArch64VectorBase(const BuiltinType *EltType) {
   switch (EltType->getKind()) {
   case BuiltinType::SChar:
@@ -3065,6 +3078,13 @@ void CXXNameMangler::mangleAArch64NeonVectorType(const VectorType *T) {
       ("__" + EltName + "x" + Twine(T->getNumElements()) + "_t").str();
   Out << TypeName.length() << TypeName;
 }
+void CXXNameMangler::mangleAArch64NeonVectorType(const DependentVectorType *T) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(
+      DiagnosticsEngine::Error,
+      "cannot mangle this dependent neon vector type yet");
+  Diags.Report(T->getAttributeLoc(), DiagID);
+}
 
 // GNU extension: vector types
 // <type>                  ::= <vector-type>
@@ -3095,6 +3115,32 @@ void CXXNameMangler::mangleType(const VectorType *T) {
   else
     mangleType(T->getElementType());
 }
+
+void CXXNameMangler::mangleType(const DependentVectorType *T) {
+  if ((T->getVectorKind() == VectorType::NeonVector ||
+       T->getVectorKind() == VectorType::NeonPolyVector)) {
+    llvm::Triple Target = getASTContext().getTargetInfo().getTriple();
+    llvm::Triple::ArchType Arch =
+        getASTContext().getTargetInfo().getTriple().getArch();
+    if ((Arch == llvm::Triple::aarch64 || Arch == llvm::Triple::aarch64_be) &&
+        !Target.isOSDarwin())
+      mangleAArch64NeonVectorType(T);
+    else
+      mangleNeonVectorType(T);
+    return;
+  }
+
+  Out << "Dv";
+  mangleExpression(T->getSizeExpr());
+  Out << '_';
+  if (T->getVectorKind() == VectorType::AltiVecPixel)
+    Out << 'p';
+  else if (T->getVectorKind() == VectorType::AltiVecBool)
+    Out << 'b';
+  else
+    mangleType(T->getElementType());
+}
+
 void CXXNameMangler::mangleType(const ExtVectorType *T) {
   mangleType(static_cast<const VectorType*>(T));
 }
@@ -3501,6 +3547,7 @@ recurse:
   case Expr::AsTypeExprClass:
   case Expr::PseudoObjectExprClass:
   case Expr::AtomicExprClass:
+  case Expr::FixedPointLiteralClass:
   {
     if (!NullOut) {
       // As bad as this diagnostic is, it's better than crashing.

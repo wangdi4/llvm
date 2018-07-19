@@ -1368,7 +1368,7 @@ uint32_t DynamicLoaderDarwinKernel::ReadKextSummaries(
       if (name_data == NULL)
         break;
       image_infos[i].SetName((const char *)name_data);
-      UUID uuid(extractor.GetData(&offset, 16), 16);
+      UUID uuid = UUID::fromOptionalData(extractor.GetData(&offset, 16), 16);
       image_infos[i].SetUUID(uuid);
       image_infos[i].SetLoadAddress(extractor.GetU64(&offset));
       image_infos[i].SetSize(extractor.GetU64(&offset));
@@ -1403,30 +1403,12 @@ bool DynamicLoaderDarwinKernel::ReadAllKextSummaries() {
 // Dump an image info structure to the file handle provided.
 //----------------------------------------------------------------------
 void DynamicLoaderDarwinKernel::KextImageInfo::PutToLog(Log *log) const {
-  if (log == NULL)
-    return;
-  const uint8_t *u = static_cast<const uint8_t *>(m_uuid.GetBytes());
-
   if (m_load_address == LLDB_INVALID_ADDRESS) {
-    if (u) {
-      log->Printf("\tuuid=%2.2X%2.2X%2.2X%2.2X-%2.2X%2.2X-%2.2X%2.2X-%2.2X%2."
-                  "2X-%2.2X%2.2X%2.2X%2.2X%2.2X%2.2X name=\"%s\" (UNLOADED)",
-                  u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7], u[8], u[9],
-                  u[10], u[11], u[12], u[13], u[14], u[15], m_name.c_str());
-    } else
-      log->Printf("\tname=\"%s\" (UNLOADED)", m_name.c_str());
+    LLDB_LOG(log, "uuid={0} name=\"{1}\" (UNLOADED)", m_uuid.GetAsString(),
+             m_name);
   } else {
-    if (u) {
-      log->Printf("\taddr=0x%16.16" PRIx64 " size=0x%16.16" PRIx64
-                  " uuid=%2.2X%2.2X%2.2X%2.2X-%2.2X%2.2X-%2.2X%2.2X-%2.2X%2.2X-"
-                  "%2.2X%2.2X%2.2X%2.2X%2.2X%2.2X name=\"%s\"",
-                  m_load_address, m_size, u[0], u[1], u[2], u[3], u[4], u[5],
-                  u[6], u[7], u[8], u[9], u[10], u[11], u[12], u[13], u[14],
-                  u[15], m_name.c_str());
-    } else {
-      log->Printf("\t[0x%16.16" PRIx64 " - 0x%16.16" PRIx64 ") name=\"%s\"",
-                  m_load_address, m_load_address + m_size, m_name.c_str());
-    }
+    LLDB_LOG(log, "addr={0:x+16} size={1:x+16} uuid={2} name=\"{3}\"",
+        m_load_address, m_size, m_uuid.GetAsString(), m_name);
   }
 }
 

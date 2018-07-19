@@ -1217,6 +1217,7 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
       !Config->DLL && Args.hasFlag(OPT_tsaware, OPT_tsaware_no, true);
   Config->DebugDwarf = Args.hasArg(OPT_debug_dwarf);
   Config->DebugGHashes = Args.hasArg(OPT_debug_ghash);
+  Config->DebugSymtab = Args.hasArg(OPT_debug_symtab);
 
   Config->MapFile = getMapFile(Args);
 
@@ -1383,7 +1384,12 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
     // /pdbaltpath flag was passed.
     if (Config->PDBAltPath.empty()) {
       Config->PDBAltPath = Config->PDBPath;
+
+      // It's important to make the path absolute and remove dots.  This path
+      // will eventually be written into the PE header, and certain Microsoft
+      // tools won't work correctly if these assumptions are not held.
       sys::fs::make_absolute(Config->PDBAltPath);
+      sys::path::remove_dots(Config->PDBAltPath);
     }
   }
 
