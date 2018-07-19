@@ -75,41 +75,247 @@ private:
   //    MemoryManager*
   // }
   class CandidateLayoutInfo {
-    constexpr static int MaxNumFieldArrayCandidates = 3;
+  protected:
+    constexpr static int MaxNumFieldTotalCandidates = 3;
     constexpr static int MaxNumFieldCandidates = 2;
     // There should be at least 'capacity' and 'size' fields.
     // Also permit auxiliary field.
     constexpr static int MaxNumIntFields = 3;
-
   public:
+    using OffsetsTy = SmallVector<unsigned, MaxNumFieldCandidates>;
+
+    template <typename IterTraits, typename IterTy>
+    class base_iterator : public IterTraits {
+      IterTy It;
+
+    public:
+      using typename IterTraits::pointer;
+      using typename IterTraits::reference;
+      using typename IterTraits::value_type;
+
+      // FIXME: extend as needed
+      typedef std::bidirectional_iterator_tag iterator_category;
+      typedef unsigned difference_type;
+
+      base_iterator(typename IterTraits::Cand Info, IterTy It)
+          : IterTraits(Info), It(It) {}
+
+      base_iterator &operator++() {
+        ++It;
+        return *this;
+      }
+
+      base_iterator &operator--() {
+        --It;
+        return *this;
+      }
+
+      base_iterator operator++(int) {
+        base_iterator retval = *this;
+        ++(*this);
+        return std::move(retval);
+      }
+
+      base_iterator operator--(int) {
+        base_iterator retval = *this;
+        --(*this);
+        return std::move(retval);
+      }
+
+      // Special de-reference.
+      reference operator*() const { return this->IterTraits::getReference(It); }
+      pointer operator->() const { return &operator*(); }
+
+      bool operator==(const base_iterator &It) const {
+        return this->It == It.It;
+      }
+      bool operator!=(const base_iterator &It) const {
+        return !(operator==(It));
+      }
+    };
+
+    template <typename IterTy>
+    class ArrayTraits {
+    public:
+      typedef StructType *value_type;
+      typedef value_type reference;
+      typedef value_type *pointer;
+      typedef const CandidateLayoutInfo *Cand;
+
+    protected:
+      Cand Info;
+      ArrayTraits(Cand Info) : Info(Info) {}
+      // Extract field from offset (*It).
+      reference getReference(IterTy It) const {
+        return Info->getSOAArrayType(*It);
+      }
+    };
+
+    template <typename IterTy>
+    class ElementTraits {
+    public:
+      typedef Type *value_type;
+      typedef value_type reference;
+      typedef value_type *pointer;
+      typedef const CandidateLayoutInfo *Cand;
+
+    protected:
+      Cand Info;
+      ElementTraits(Cand Info) : Info(Info) {}
+      // Extract field from offset (*It).
+      reference getReference(IterTy It) const {
+        return Info->getSOAElementType(*It);
+      }
+    };
+
+    // Accessing structures representing arrays.
+    using const_iterator = base_iterator<ArrayTraits<OffsetsTy::const_iterator>,
+                                         OffsetsTy::const_iterator>;
+
+    const_iterator fields_begin() const {
+      return const_iterator(this, ArrayFieldOffsets.begin());
+    }
+    const_iterator fields_end() const {
+      return const_iterator(this, ArrayFieldOffsets.end());
+    }
+    iterator_range<const_iterator> fields() const {
+      return make_range(fields_begin(), fields_end());
+    }
+
+    // Accessing types of elements stored in arrays.
+    using const_elem_iterator =
+        base_iterator<ElementTraits<OffsetsTy::const_iterator>,
+                      OffsetsTy::const_iterator>;
+
+    const_elem_iterator elements_begin() const {
+      return const_elem_iterator(this, ArrayFieldOffsets.begin());
+    }
+    const_elem_iterator elements_end() const {
+      return const_elem_iterator(this, ArrayFieldOffsets.end());
+    }
+    iterator_range<const_elem_iterator> elements() const {
+      return make_range(elements_begin(), elements_end());
+    }
+
+    unsigned getNumArrays() const { return ArrayFieldOffsets.size(); }
+
+    // Off is some element of ArrayFieldOffsets.
+    StructType *getSOAArrayType(unsigned Off) const {
+      return cast<StructType>(
+          Struct->getElementType(Off)->getPointerElementType());
+    }
+    // Off is some element of ArrayFieldOffsets.
+    Type *getSOAElementType(unsigned Off) const {
+      return getSOAArrayType(Off)
+          ->getElementType(BasePointerOffset)
+          ->getPointerElementType();
+    }
+
     StructType *Struct = nullptr;
-    // Offsets in Struct's elements() to represent pointers to candidate
-    // _arrays_. _Arrays_ are represented as some classes.
-    SmallVector<unsigned, MaxNumFieldArrayCandidates> ArrayFieldOffsets;
-    // Offset inside _arrays_' elements(), which represent base pointers to
-    // allocated memory.
-    unsigned BasePointerOffset = -1U;
     // Memory management pointer.
     StructType *MemoryInterface = nullptr;
 
     // Returns false if idiom is not recognized.
     // Single out-of-line method with lambdas.
     bool populateLayoutInformation(Type *Ty);
+
+    // Offsets in Struct's elements() to represent pointers to candidate
+    // _arrays_. _Arrays_ are represented as some classes.
+    OffsetsTy ArrayFieldOffsets;
+    // Offset inside _arrays_' elements(), which represent base pointers to
+    // allocated memory.
+    unsigned BasePointerOffset = -1U;
   };
 
-  class CandidateInfo : public CandidateLayoutInfo {
+  // Prepare CFG information and methods to analyze.
+  // Cheap checks are performed.
+  //
+  // Later need to classify methods:
+  //  - append element and/or set element at index (at least one is required);
+  //  - get element at index (required);
+  //  - c-tor (required);
+  //  - d-tor (required);
+  //  - copy c-tor (optional);
+  //  - memory reallocate (optional);
+  //  - field accessors (optional).
+  //
+  // Array object interacts with remaining program:
+  //  - reading and updating its fields relying only on values of methods
+  //    argument;
+  //  - returning pointer to its fields (needed to be immediately be
+  //  dereferenced);
+  //  - throwing exceptions;
+  //  - calling MemoryInterface for allocation/deallocation.
+  class CandidateCFGInfo : public CandidateLayoutInfo {
+  protected:
+    constexpr static int NumRequiredMethods = 4;
+    // Specific methods (3) and integer fields accessors (3).
+    constexpr static int NumSupportedMethods = 3 + 3;
+    constexpr static int MaxNumMethods =
+        NumRequiredMethods + NumSupportedMethods;
+    constexpr static int MaxMethodBBCount = 10;
+
+    // Field methods are used only Struct's methods,
+    // it should not be too big.
+    const static int MaxNumFieldMethodUses = 2;
+
+  public:
+    using MethodSetTy = SmallVector<Function *, MaxNumMethods>;
+    MethodSetTy StructMethods;
+
+    // It is matched by ArrayFieldsMethods, can be iterated in parallel using
+    // zip_first.
+    SmallVector<MethodSetTy, MaxNumFieldCandidates> ArrayFieldsMethods;
+
+    template <typename IterTy> class MethodsetsTraits {
+    public:
+      typedef MethodSetTy *value_type;
+      typedef value_type reference;
+      typedef value_type *pointer;
+      typedef CandidateCFGInfo *Cand;
+
+    protected:
+      Cand Info;
+      MethodsetsTraits(Cand Info) : Info(Info) {}
+      reference getReference(IterTy It) const { return &*It; }
+    };
+
+    // Accessing method sets of arrays.
+    using iterator =
+        base_iterator<MethodsetsTraits<decltype(ArrayFieldsMethods)::iterator>,
+                      decltype(ArrayFieldsMethods)::iterator>;
+
+    iterator methodsets_begin() {
+      return iterator(this, ArrayFieldsMethods.begin());
+    }
+    iterator methodsets_end() {
+      return iterator(this, ArrayFieldsMethods.end());
+    }
+    iterator_range<iterator> methodsets() {
+      return make_range(methodsets_begin(), methodsets_end());
+    }
+
+    // Returns false if idiom is not recognized.
+    // Single out-of-line method with lambdas.
+    // Check that
+    // 1. all field arrays' methods are called from structure's methods;
+    // 2. arrays' methods are small and have at most MaxNumFieldMethodUses call
+    //    sites;
+    // 3. arguments of arrays' methods are 'this' pointers (not captured),
+    //    elements of array (not captured if passed by reference),
+    //    integers and MemoryInterface.
+    bool populateCFGInformation(SOAToAOSTransformImpl &Impl, Module &M);
+  };
+
+  class CandidateInfo : public CandidateCFGInfo {
   public:
     void setCandidateStructs(SOAToAOSTransformImpl &Impl,
                              dtrans::StructInfo *S) {
       StructsToConvert.push_back(S);
 
       unsigned I = 0;
-      for (auto Index : ArrayFieldOffsets) {
+      for (auto *OrigTy : fields()) {
         I++;
-        auto *OrigTy = cast<StructType>(
-            cast<PointerType>(cast<StructType>(getOuterStruct()->getLLVMType())
-                                  ->getElementType(Index))
-                ->getElementType());
         StructsToConvert.push_back(
             cast<dtrans::StructInfo>(Impl.DTInfo.getTypeInfo(OrigTy)));
       }
@@ -158,6 +364,10 @@ private:
   TypeToTypeMap OrigToNewTypeMapping;
 };
 
+// Hook point. Top-level returns from populate* methods.
+inline bool FALSE() { return false; }
+
+
 bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
     Type *Ty) {
 
@@ -199,18 +409,31 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
     return true;
   };
 
-  auto StripTrivialDerivedClasses = [](StructType *STy) -> StructType * {
+  auto IsPaddingFieldCandidate = [](Type *Ty) -> bool {
+    if (!Ty->isArrayTy())
+      return false;
+    auto *El = Ty->getArrayElementType();
+    if (!El->isIntegerTy() || El->getIntegerBitWidth() != 8)
+      return false;
+    return true;
+  };
+
+  auto StripTrivialDerivedClasses =
+      [&IsPaddingFieldCandidate](StructType *STy) -> StructType * {
     auto *I = STy;
-    for (; I && I->getNumElements() == 1;
+    for (; I && I->getNumElements() >= 1 && I->getNumElements() <= 2;
          I = dyn_cast<StructType>(I->getElementType(0))) {
+      if (I->getNumElements() == 2)
+        if (!IsPaddingFieldCandidate(I->getElementType(1)))
+          return I;
     }
     return I;
   };
 
   // Looks like array wrapper.
-  auto IsPtrToArrayCandidate = [&ExtractStructTy, &ExtractPointeeTy, &IsVTable,
-                                &HasNoData](StructType *STy,
-                                            bool &HasVT) -> bool {
+  auto IsPtrToArrayCandidate =
+      [&ExtractStructTy, &ExtractPointeeTy, &IsVTable, &HasNoData,
+       &IsPaddingFieldCandidate](StructType *STy, bool &HasVT) -> bool {
     HasVT = false;
     unsigned NoDataPointerFields = 0;
     unsigned ElemDataPointerFields = 0;
@@ -222,6 +445,9 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
         HasVT = true;
         continue;
       }
+
+      if (IsPaddingFieldCandidate(ETy))
+        continue;
 
       auto *Pointee = ExtractPointeeTy(ETy);
       if (!Pointee)
@@ -251,10 +477,10 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
   Struct = ExtractStructTy(Ty);
 
   if (!Struct)
-    return false;
+    return FALSE();
 
   if (Struct->getNumElements() < 2)
-    return false;
+    return FALSE();
 
   // Set ArrayFieldOffsets and MemoryInterface.
   {
@@ -264,9 +490,12 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
     for (auto *FTy : Struct->elements()) {
       ++Offset;
 
+      if (IsPaddingFieldCandidate(FTy))
+        continue;
+
       auto *Pointee = ExtractStructTy(ExtractPointeeTy(FTy));
       if (!Pointee)
-        return false;
+        return FALSE();
 
       if (HasNoData(Pointee)) {
         ++NumberPtrsToNoData;
@@ -280,8 +509,8 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
           ++NumberPtrsToArr;
 
           // Too many fields to analyze.
-          if (MaxNumFieldArrayCandidates < NumberPtrsToArr)
-            return false;
+          if (MaxNumFieldTotalCandidates < NumberPtrsToArr)
+            return FALSE();
 
           // Ignore classes with non-trivial base classes and/or vtable.
           if (!HasVT && S == Pointee)
@@ -290,12 +519,12 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
         }
       }
 
-      return false;
+      return FALSE();
     }
 
-    if (ArrayFieldOffsets.size() < 2 || NumberPtrsToNoData > 1 ||
-        ArrayFieldOffsets.size() > MaxNumFieldCandidates)
-      return false;
+    if (getNumArrays() < 2 || getNumArrays() > MaxNumFieldCandidates ||
+        NumberPtrsToNoData > 1)
+      return FALSE();
   }
 
   // Set BasePointerOffset.
@@ -303,10 +532,13 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
   {
     unsigned NumIntFields = 0;
     unsigned Offset = -1U;
-    for (auto E : cast<StructType>(Struct->getElementType(ArrayFieldOffsets[0])
-                                       ->getPointerElementType())
-                      ->elements()) {
+    auto *S = *fields_begin();
+    for (auto E : S->elements()) {
       ++Offset;
+
+      if (IsPaddingFieldCandidate(E))
+        continue;
+
 
       if (E->isIntegerTy()) {
         ++NumIntFields;
@@ -315,53 +547,48 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
 
       if (auto *F = ExtractStructTy(ExtractPointeeTy(E))) {
         if (MemoryInterface != F)
-          return false;
+          return FALSE();
         continue;
       }
 
       if (!ExtractPointeeTy(ExtractPointeeTy(E)))
-        return false;
+        return FALSE();
 
       BasePointerOffset = Offset;
     }
 
-    // There should be at least 'capacity' and 'size' fields.
-    if (NumIntFields > MaxNumIntFields || NumIntFields < 2)
-      return false;
+    // There should be at least 2 integer fields: 'capacity' and 'size' fields.
+    // There should be base pointer field.
+    if (NumIntFields > MaxNumIntFields || NumIntFields < 2 ||
+        BasePointerOffset == -1U)
+      return FALSE();
   }
 
   // Compare classes representing arrays.
   {
-    auto *S = cast<StructType>(
-        Struct->getElementType(ArrayFieldOffsets[0])->getPointerElementType());
-
+    auto *S = *fields_begin();
     // Compare first array candidate with remaining.
-    for (auto I = ArrayFieldOffsets.begin() + 1, E = ArrayFieldOffsets.end();
-         I != E; ++I) {
-
-      auto *S1 =
-          cast<StructType>(Struct->getElementType(*I)->getPointerElementType());
-
+    for (auto *S1 : fields()) {
       if (S1->getNumElements() != S->getNumElements())
-        return false;
+        return FALSE();
 
       for (auto Pair : zip_first(S->elements(), S1->elements())) {
-        auto *E = std::get<0>(Pair);
-        auto *E1 = std::get<1>(Pair);
+        auto *E = std::get<1>(Pair);
 
-        if (auto *F = ExtractStructTy(ExtractPointeeTy(E1))) {
+        if (auto *F = ExtractStructTy(ExtractPointeeTy(E))) {
           if (MemoryInterface != F)
-            return false;
+            return FALSE();
           continue;
         }
 
-        if (E == E1 && E1->isIntegerTy())
-          continue;
+        if (std::get<0>(Pair) == E)
+          if (IsPaddingFieldCandidate(E) || E->isIntegerTy())
+            continue;
 
-        if (!ExtractPointeeTy(ExtractPointeeTy(E1)))
-          return false;
+        if (!ExtractPointeeTy(ExtractPointeeTy(E)))
+          return FALSE();
 
-        assert(ExtractPointeeTy(ExtractPointeeTy(E)) &&
+        assert(ExtractPointeeTy(ExtractPointeeTy(std::get<0>(Pair))) &&
                "Non-exhaustive checks of 0th candidate");
       }
     }
@@ -370,6 +597,133 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
   return true;
 }
 
+bool SOAToAOSTransformImpl::CandidateCFGInfo::populateCFGInformation(
+    SOAToAOSTransformImpl &Impl, Module &M) {
+
+  auto GetThisParameter = [](Function &F) -> StructType * {
+    FunctionType *FTy = F.getFunctionType();
+
+    if (FTy->getNumParams() < 1)
+      return nullptr;
+
+    if (auto *PTy = dyn_cast<PointerType>(*FTy->param_begin()))
+      if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+        return STy;
+
+    return nullptr;
+  };
+
+  // Cannot process declarations and varargs.
+  auto IsValidMethod = [](Function &F) -> bool {
+    if (F.isDeclaration() || F.isVarArg())
+      return false;
+    return true;
+  };
+
+  for (auto *ArrTy : fields()) {
+    auto *FI = cast_or_null<dtrans::StructInfo>(Impl.DTInfo.getTypeInfo(ArrTy));
+
+    if (!FI)
+      return FALSE();
+
+    // May restrict analysis to Struct's methods.
+    auto &CG = FI->getCallSubGraph();
+    if (CG.isTop() || CG.isBottom() || CG.getEnclosingType() != Struct)
+      return FALSE();
+  }
+
+  // Initialize to fields' methods to empty sets.
+  ArrayFieldsMethods.assign(getNumArrays(), MethodSetTy());
+
+  for (auto &F : M)
+    if (auto *ThisTy = GetThisParameter(F)) {
+      if (ThisTy == Struct) {
+
+        if (!IsValidMethod(F))
+          return FALSE();
+
+        StructMethods.push_back(&F);
+        continue;
+      }
+
+      // Tolerating linear search, because ArrayFieldOffsets.size() is very
+      // small.
+      for (auto Pair : zip_first(fields(), methodsets()))
+        if (ThisTy == std::get<0>(Pair)) {
+          if (!IsValidMethod(F))
+            return FALSE();
+
+          // Structure of array should have simple call graph wrt to arrays'
+          // methods.
+          if (F.hasNUsesOrMore(MaxNumFieldMethodUses + 1))
+            return FALSE();
+
+          std::get<1>(Pair)->push_back(&F);
+        }
+    }
+
+  for (auto Triple : zip_first(methodsets(), elements(), fields())) {
+    if (std::get<0>(Triple)->size() > MaxNumMethods)
+      return FALSE();
+
+    for (auto *F : *std::get<0>(Triple)) {
+      // Given that only primitive methods are recognized,
+      // restrict the size.
+      if (std::distance(F->begin(), F->end()) > MaxMethodBBCount)
+        return FALSE();
+
+      for (auto &Arg : F->args()) {
+        auto *Ty = Arg.getType();
+        if (Ty->isIntegerTy())
+          continue;
+        // By-value argument of element type.
+        if (Ty == std::get<1>(Triple))
+          continue;
+
+        if (!Ty->isPointerTy())
+          return FALSE();
+
+
+        if (Ty->getPointerAddressSpace())
+          return FALSE();
+
+        auto *Pointee = Ty->getPointerElementType();
+        if (Pointee == MemoryInterface)
+          continue;
+
+        // Only MemoryInterface and by-value argument of element type can be
+        // captured.
+        if (!Arg.hasNoCaptureAttr())
+          return FALSE();
+
+        // See list of methods supported.
+        if (Pointee != std::get<1>(Triple) && Pointee != std::get<2>(Triple))
+          return FALSE();
+      }
+    }
+  }
+
+  assert(StructMethods.size() && "There should be methods for outer struct");
+
+  LLVM_DEBUG({
+    dbgs() << "  Struct's " << Struct->getName() << " methods:\n";
+    for (auto *F : StructMethods) {
+      dbgs() << "   " << F->getName() << "\n";
+    }
+
+    for (auto Pair : zip_first(fields(), methodsets())) {
+      dbgs() << "  Fields's " << std::get<0>(Pair)->getName() << " methods:\n";
+      for (auto *F : *std::get<1>(Pair)) {
+        dbgs() << "   " << F->getName() << ", #uses = " << F->getNumUses()
+               << "\n";
+      }
+    }
+  });
+
+  return true;
+}
+
+// FIXME: make sure padding fields are dead.
 bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
@@ -378,7 +732,17 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
       LLVM_DEBUG({
         dbgs() << "  Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
-        dbgs() << " because it does not look like a candidate.\n";
+        dbgs() << " because it does not look like a candidate structurally.\n";
+      });
+      continue;
+    }
+
+    if (!Info.populateCFGInformation(*this, M)) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because it does not look like a candidate from CFG "
+                  "analysis.\n";
       });
       continue;
     }
