@@ -45,13 +45,19 @@ public:
       return false;
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo,
-                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-                        getAnalysis<WholeProgramWrapperPass>().getResult());
+
+    dtrans::LoopInfoFuncType GetLI = [this](Function &F) -> LoopInfo & {
+      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    };
+
+    return Impl.runImpl(
+        M, DTInfo, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+        getAnalysis<WholeProgramWrapperPass>().getResult(), GetLI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
@@ -64,6 +70,7 @@ char DTransDynCloneWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransDynCloneWrapper, "dtrans-dynclone",
                       "DTrans dynamic cloning", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransDynCloneWrapper, "dtrans-dynclone",
@@ -85,16 +92,17 @@ class DynCloneImpl {
   using DynFieldSet = std::set<DynField>;
 
 public:
-  DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo)
-      : M(M), DL(DL), DTInfo(DTInfo),
-        ShrinkedIntTy(Type::getInt32Ty(M.getContext())),
-        InitRoutine(nullptr) {};
+  DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
+               LoopInfoFuncType &GetLI)
+      : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI),
+        ShrinkedIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr){};
   bool run(void);
 
 private:
   Module &M;
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
+  LoopInfoFuncType &GetLI;
 
   // Holds result Type after shrinking 64-bit to 32-bit integer values.
   llvm::Type *ShrinkedIntTy;
@@ -116,6 +124,7 @@ private:
 
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
+  bool verifyLegalityChecksForInitRoutine(void);
   bool isCandidateField(DynField &DField) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
@@ -406,6 +415,141 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   return !CandidateFields.empty();
 }
 
+// Check legality issues for InitRoutine here. DynClone will be disabled
+// if any legality check is failed for InitRoutine. Basically, it proves
+// that structs with candidate fields are not accessed before
+// InitRoutine is called. It does following checks:
+//   1. InitRoutine is called only once in "main" routine
+//   2. Call to InitRoutine is not in Loop
+//   3. No access to a struct with candidate fields before InitRoutine is
+//      called.
+//
+bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
+
+  std::function<bool(BasicBlock * CurrentBB,
+                     SmallPtrSetImpl<BasicBlock *> & Visited,
+                     Instruction * InitInst)>
+      CandidateFieldAccessAfterBB;
+
+  // Returns Type of struct accessed in GEP if the GEP is in allowed format
+  // to enable DynClone for the struct. Otherwise, returns nullptr.
+  std::function<Type *(GetElementPtrInst * GEP)> GetGEPStructType =
+      [this, &GetGEPStructType](GetElementPtrInst *GEP) -> Type * {
+    int32_t NumIndices = GEP->getNumIndices();
+    if (NumIndices > 2)
+      return nullptr;
+    if (NumIndices == 1) {
+      auto FPair = DTInfo.getByteFlattenedGEPElement(GEP);
+      return FPair.first;
+    }
+    auto ElemTy = GEP->getSourceElementType();
+    if (!isa<StructType>(ElemTy))
+      return nullptr;
+    return ElemTy;
+  };
+
+  // Recursive lambda function to check legality issues for InitRoutine
+  // in CurrentBB and all of the successors until InitInst.
+  CandidateFieldAccessAfterBB =
+      [this, &CandidateFieldAccessAfterBB, &GetGEPStructType](
+          BasicBlock *CurrentBB, SmallPtrSetImpl<BasicBlock *> &Visited,
+          Instruction *InitInst) -> bool {
+    if (!Visited.insert(CurrentBB).second)
+      return true;
+
+    // If CurrentBB is the BasicBlock that has call to InitRoutine, check
+    // legality issues until the call. Otherwise, check for all instructions
+    // in CurrentBB.
+    BasicBlock *InitBB = InitInst->getParent();
+    BasicBlock::iterator EndIt;
+    if (InitBB == CurrentBB)
+      EndIt = InitInst->getIterator();
+    else
+      EndIt = CurrentBB->end();
+
+    BasicBlock::iterator It = CurrentBB->begin();
+    for (; It != EndIt; ++It) {
+      Instruction &I = *It;
+      if (auto CS = CallSite(&I)) {
+        // Treat InitRoutine as invalid if there are any indirect calls or
+        // calls to user defined routines.
+        const Function *Callee = CS.getCalledFunction();
+        if (!Callee) {
+          LLVM_DEBUG(dbgs() << "    InitRoutine failed...Indirect call: " << I
+                            << "\n");
+          return false;
+        }
+        // Since WholeProgramSafe is true, just check if Callee is defined
+        // to prove it is a user defined routine.
+        if (!Callee->isDeclaration()) {
+          LLVM_DEBUG(dbgs() << "    InitRoutine failed...User routine called: "
+                            << I << "\n");
+          return false;
+        }
+      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+        // DynClone is disabled if a struct with candidate fields is
+        // accessed before InitRoutine is called.
+        auto StType = GetGEPStructType(GEP);
+        if (!StType)
+          continue;
+        for (auto &CandidatePair : CandidateFields)
+          if (CandidatePair.first == StType) {
+            LLVM_DEBUG(dbgs() << "    InitRoutine failed...Struct accessed "
+                                 "before InitRoutine:"
+                              << getStructName(StType) << "\n");
+            return false;
+          }
+      }
+    }
+    // Stop checking successors of CurrentBB if it is the BasicBlock that
+    // has call to InitRoutine.
+    if (InitBB == CurrentBB)
+      return true;
+
+    bool Result = true;
+    for (auto *BB : successors(CurrentBB))
+      Result = Result && CandidateFieldAccessAfterBB(BB, Visited, InitInst);
+
+    return Result;
+  };
+
+  assert(InitRoutine && "Expected InitRoutine");
+
+  // Check if InitRoutine is called only once from main and it is not in
+  // Loop.
+  if (!InitRoutine->hasOneUse()) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than single use \n");
+    return false;
+  }
+  CallSite CS(InitRoutine->user_back());
+  if (CS.getCalledFunction() != InitRoutine) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...No direct call \n");
+    return false;
+  }
+  Function *Caller = CS.getCaller();
+  if (Caller->getName() != "main" || !Caller->use_empty()) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...Not called from main \n");
+    return false;
+  }
+
+  // TODO: Irreducible CFG check needs to be added here.
+
+  BasicBlock *InitBB = CS.getInstruction()->getParent();
+  LoopInfo &LI = (GetLI)(*Caller);
+  if (!LI.empty() && LI.getLoopFor(InitBB)) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...call in Loop \n");
+    return false;
+  }
+
+  // Check legality issues in all BasicBlocks starting from Entry block
+  // to the place where InitRoutine is called.
+  SmallPtrSet<BasicBlock *, 32> Visited;
+  BasicBlock *StartBB = &Caller->getEntryBlock();
+  if (!CandidateFieldAccessAfterBB(StartBB, Visited, CS.getInstruction()))
+    return false;
+  return true;
+}
+
 bool DynCloneImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
@@ -419,6 +563,11 @@ bool DynCloneImpl::run(void) {
   if (!prunePossibleCandidateFields())
     return false;
 
+  if (!verifyLegalityChecksForInitRoutine())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
+
   LLVM_DEBUG(dbgs() << "  Final Candidate fields: \n";
              printCandidateFields(dbgs()));
 
@@ -426,7 +575,8 @@ bool DynCloneImpl::run(void) {
 }
 
 bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo) {
+                           TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
+                           LoopInfoFuncType &GetLI) {
 
   if (!WPInfo.isWholeProgramSafe())
     return false;
@@ -436,7 +586,7 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   auto &DL = M.getDataLayout();
 
-  DynCloneImpl DynCloneI(M, DL, DTInfo);
+  DynCloneImpl DynCloneI(M, DL, DTInfo, GetLI);
   return DynCloneI.run();
 }
 
@@ -444,7 +594,15 @@ PreservedAnalyses DynClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo))
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
+
+  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo,
+               GetLI))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.
