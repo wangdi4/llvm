@@ -50,6 +50,10 @@ protected:
 
     void GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS() const;
 
+    // clGetKernelWorkGroupInfo
+
+    void GetKernelWorkGroupInfo_SizeRet() const;
+
     // clGetDeviceInfo
 
     void GetDeviceInfo_INDEPENDENT_PROGRESS() const;
