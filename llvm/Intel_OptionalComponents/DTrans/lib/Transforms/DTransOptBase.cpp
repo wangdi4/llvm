@@ -213,17 +213,16 @@ bool DTransOptBase::run(Module &M) {
 // created as a result of creating those types. Returns 'true' if types are
 // changed.
 bool DTransOptBase::prepareTypesBaseImpl(Module &M) {
+  // Compute the set of types that each type is a dependee of. This will
+  // enable the determination of other types that need to be rewritten when one
+  // type changes.
+  buildTypeDependencyMapping(TypeToDependentTypes);
+
   // Invoke the derived class to populate the TypeRemapper with any types
   // the transformation is going to directly transform.
   bool Changed = prepareTypes(M);
   if (!Changed)
     return false;
-
-  // Compute the set of types that each type is a dependee of. This will
-  // enable the determination of other types that need to be rewritten when one
-  // type changes.
-  TypeDependencyMapping TypeToDependentTypes;
-  buildTypeDependencyMapping(TypeToDependentTypes);
 
   // Identify and create new types for types dependent on changes made by the
   // derived class. This map holds the original type to the replacement type

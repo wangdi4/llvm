@@ -99,6 +99,17 @@ private:
 // This class is responsible for all the transformation work for the AOS to SOA
 // with Indexing conversion.
 class AOSToSOATransformImpl : public DTransOptBase {
+private:
+  // This enumeration is used to indicate the type of conversion an
+  // instruction needs when checking whether the transformation needs to
+  // process the instruction.
+  //   AOS_NoConv  - Instruction does not need to be converted.
+  //   AOS_SOAConv - Instruction requires the AOS-to-SOA with peeling
+  //                 conversion.
+  //   AOS_DepConv - Instruction requires changes due to data structure size
+  //                 change made to a dependent type.
+  typedef enum { AOS_NoConv, AOS_SOAConv, AOS_DepConv } AOSConvType;
+
 public:
   // Constructor that takes parameters needed for the base class, plus a list of
   // types that have been qualified for the transformation.
@@ -109,26 +120,88 @@ public:
                         AOSToSOAMaterializer *Materializer,
                         SmallVectorImpl<dtrans::StructInfo *> &Types)
       : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper,
-                      Materializer) {
+                      Materializer),
+        PeelIndexWidth(64), PeelIndexType(nullptr),
+        PointerShrinkingEnabled(false) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
 
-    // TODO: Move the initialization of these until after dependent data
-    // structures are checked for safety.
-    PointerShrinkingEnabled = DTransAOSToSOAIndex32;
-    PeelIndexWidth = PointerShrinkingEnabled ? 32 : DL.getPointerSizeInBits();
-    assert(PeelIndexWidth >= 32 && "Peeling index must be 32-bits or larger");
-
-    PeelIndexType = Type::getIntNTy(Context, PeelIndexWidth);
     PtrSizedIntType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
     Int8PtrType = llvm::Type::getInt8PtrTy(Context);
-
-    IncompatiblePeelTypeAttrs = AttributeFuncs::typeIncompatible(PeelIndexType);
   }
 
   ~AOSToSOATransformImpl() {}
 
   // Create new data types for each of the types being converted.
   virtual bool prepareTypes(Module &M) override {
+    // Collect the list of structure types that have dependencies on the types
+    // being converted. When shrinking the index to 32-bits, instructions that
+    // are dependent on the size of dependent data structures will need to be
+    // updated.
+
+    SmallVector<dtrans::StructInfo *, 4> Qualified;
+    unsigned PointerSizeInBits = DL.getPointerSizeInBits();
+    PointerShrinkingEnabled = DTransAOSToSOAIndex32 && PointerSizeInBits != 32;
+
+    for (auto *StInfo : TypesToTransform) {
+      StructType *OrigTy = cast<StructType>(StInfo->getLLVMType());
+      auto It = TypeToDependentTypes.find(OrigTy);
+      if (It == TypeToDependentTypes.end()) {
+        Qualified.push_back(StInfo);
+        continue;
+      }
+
+      bool DepQualified = true;
+      for (auto *DepTy : It->second) {
+        // Don't check dependent types that are being directly transformed by
+        // AOS-to-SOA.
+        if (std::find(TypesToTransform.begin(), TypesToTransform.end(),
+                      DTInfo.getTypeInfo(DepTy)) != TypesToTransform.end())
+          continue;
+
+        // TODO: This can be improved to ignore cases that do not contain a
+        // pointer to the type being transformed. Such as structures containing
+        // a pointer-to-pointer of the type being converted, or a containing a
+        // function pointer that refers to a type being converted.
+
+        // Verify whether it is going to be safe to change a pointer type within
+        // a type that refers to a type to be converted into an integer type.
+        if (!checkDependentTypeSafety(DepTy)) {
+          DepQualified = false;
+          break;
+        }
+
+        // Verify whether it is going to be safe to use a 32-bit integer type
+        // within a dependent type.
+        if (PointerShrinkingEnabled &&
+            !checkDependentTypeSafeForShrinking(DepTy)) {
+          PointerShrinkingEnabled = false;
+          continue;
+        }
+
+        DepTypesToTransform.insert(DepTy);
+        LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Transforming type    : "
+                          << *OrigTy << "\n"
+                          << "                 will also affect type: "
+                          << *DepTy << "\n");
+      }
+
+      if (DepQualified)
+        Qualified.push_back(StInfo);
+      else
+        LLVM_DEBUG(dbgs() << "Disqualifying type based on dependencies: "
+                          << getStructName(OrigTy));
+    }
+
+    std::swap(Qualified, TypesToTransform);
+
+    // If indexes are not being changed from the size of a pointer then we
+    // don't need to transform instructions dealing with dependent types. Clear
+    // the list to avoid checks for them within processFunction.
+    if (!PointerShrinkingEnabled)
+      DepTypesToTransform.clear();
+
+    initializePeeledIndexType(PointerShrinkingEnabled ? 32 : PointerSizeInBits);
+
     for (auto *StInfo : TypesToTransform) {
       StructType *OrigTy = cast<StructType>(StInfo->getLLVMType());
       StructType *NewTy = StructType::create(
@@ -190,45 +263,79 @@ public:
     SmallVector<std::pair<MemfuncCallInfo *, StructInfo *>, 4>
         MemfuncsToConvert;
 
+    // These lists are for instructions that need to be updated because they
+    // operate on types that are dependent on the type being transformed.
+    SmallVector<GetElementPtrInst *, 16> DepByteGEPsToConvert;
+    SmallVector<BinaryOperator *, 16> DepBinOptsToConvert;
+    SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 4> DepAllocsToResize;
+    SmallVector<std::pair<MemfuncCallInfo *, StructInfo *>, 4>
+        DepMemfuncsToResize;
+
     for (auto It = inst_begin(&F), E = inst_end(F); It != E; ++It) {
+      AOSConvType ConvType = AOS_NoConv;
       Instruction *I = &*It;
       if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
         CallSite CS(I);
         updateCallAttributes(CS);
 
         // Check if the call needs to be transformed based on the CallInfo.
-        if (auto *CInfo = DTInfo.getCallInfo(I))
-          if (auto *CInfoElemTy = getCallInfoTypeToTransform(CInfo)) {
-            auto *TI = DTInfo.getTypeInfo(CInfoElemTy);
-            assert(TI && "Expected TypeInfo for structure type");
+        if (auto *CInfo = DTInfo.getCallInfo(I)) {
+          std::pair<llvm::Type *, AOSConvType> ElemConvPair =
+              getCallInfoTypeToTransform(CInfo);
+          if (ElemConvPair.second == AOS_NoConv)
+            continue;
 
-            switch (CInfo->getCallInfoKind()) {
-            case dtrans::CallInfo::CIK_Alloc: {
-              auto *AInfo = cast<AllocCallInfo>(CInfo);
-              // The candidate qualification should have only allowed calloc or
-              // malloc calls.
-              assert((AInfo->getAllocKind() == AK_Calloc ||
+          auto *CInfoElemTy = ElemConvPair.first;
+          ConvType = ElemConvPair.second;
+
+          auto *TI = DTInfo.getTypeInfo(CInfoElemTy);
+          assert(TI && "Expected TypeInfo for structure type");
+
+          switch (CInfo->getCallInfoKind()) {
+          case dtrans::CallInfo::CIK_Alloc: {
+            auto *AInfo = cast<AllocCallInfo>(CInfo);
+            // The candidate qualification should have only allowed calloc or
+            // malloc for the types being directly transformed. Dependent type
+            // only simply resized, so other calls are allowed.
+            if (ConvType == AOS_SOAConv)
+              assert((ConvType == AOS_DepConv ||
+                      AInfo->getAllocKind() == AK_Calloc ||
                       AInfo->getAllocKind() == AK_Malloc) &&
-                     "Only calloc or malloc expected for transformed types");
+                     "Only calloc or malloc expected for AOS-to-SOA types");
 
+            if (ConvType == AOS_SOAConv)
               AllocsToConvert.push_back(
                   std::make_pair(AInfo, cast<StructInfo>(TI)));
-              break;
-            }
-            case dtrans::CallInfo::CIK_Free:
+            else
+              DepAllocsToResize.push_back(
+                  std::make_pair(AInfo, cast<StructInfo>(TI)));
+            break;
+          }
+          case dtrans::CallInfo::CIK_Free:
+            // We only need to update the 'free' if it's the AOS-to-SOA type
+            // being converted. There is no impact on calls to free for
+            // dependent types.
+            if (ConvType == AOS_SOAConv)
               FreesToConvert.push_back(std::make_pair(cast<FreeCallInfo>(CInfo),
                                                       cast<StructInfo>(TI)));
-              break;
-            case dtrans::CallInfo::CIK_Memfunc:
+            break;
+          case dtrans::CallInfo::CIK_Memfunc:
+            if (ConvType == AOS_SOAConv)
               MemfuncsToConvert.push_back(std::make_pair(
                   cast<MemfuncCallInfo>(CInfo), cast<StructInfo>(TI)));
-              break;
-            }
+            else
+              DepMemfuncsToResize.push_back(std::make_pair(
+                  cast<MemfuncCallInfo>(CInfo), cast<StructInfo>(TI)));
+            break;
           }
+        }
       } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
-        if (checkByteGEPConversionNeeded(GEP))
-          ByteGEPsToConvert.push_back(GEP);
-        else if (checkConversionNeeded(GEP))
+        if ((ConvType = checkByteGEPConversionNeeded(GEP)) != AOS_NoConv) {
+          if (ConvType == AOS_SOAConv)
+            ByteGEPsToConvert.push_back(GEP);
+          else
+            DepByteGEPsToConvert.push_back(GEP);
+        } else if (checkConversionNeeded(GEP))
           GEPsToConvert.push_back(GEP);
       } else if (auto *PTI = dyn_cast<PtrToIntInst>(I)) {
         // A pointer may be cast to an integer type, and after the
@@ -247,8 +354,11 @@ public:
         if (checkConversionNeeded(BC))
           BCsToConvert.push_back(BC);
       } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
-        if (checkConversionNeeded(BinOp)) {
-          BinOpsToConvert.push_back(BinOp);
+        if ((ConvType = checkConversionNeeded(BinOp)) != AOS_NoConv) {
+          if (ConvType == AOS_SOAConv)
+            BinOpsToConvert.push_back(BinOp);
+          else
+            DepBinOptsToConvert.push_back(BinOp);
         }
       }
     }
@@ -277,6 +387,19 @@ public:
     for (auto *BC : BCsToConvert)
       processBitcast(BC);
 
+    // Process the instructions using dependent structure types.
+    for (auto &Alloc : DepAllocsToResize)
+      ProcessDepAllocCall(Alloc.first, Alloc.second);
+
+    for (auto &MemCall : DepMemfuncsToResize)
+      processDepMemfuncCall(MemCall.first, MemCall.second);
+
+    for (auto *GEP : DepByteGEPsToConvert)
+      processDepByteFlattendGEP(GEP);
+
+    for (auto *BinOp : DepBinOptsToConvert)
+      processDepBinOp(BinOp);
+
     for (auto *I : InstructionsToDelete)
       I->eraseFromParent();
 
@@ -294,15 +417,17 @@ public:
     return isTypeToTransform(ElementTy);
   }
 
-  bool checkByteGEPConversionNeeded(GetElementPtrInst *GEP) {
+  // Return whether the GEP instruction type is of a type being transformed, or
+  // is dependent on a type being transformed, or does not change.
+  AOSConvType checkByteGEPConversionNeeded(GetElementPtrInst *GEP) {
     if (GEP->getNumIndices() != 1)
-      return false;
+      return AOS_NoConv;
 
     auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
     if (!InfoPair.first)
-      return false;
+      return AOS_NoConv;
 
-    return isTypeToTransform(InfoPair.first);
+    return isTypeOrDepTypeToTransform(InfoPair.first);
   }
 
   bool checkConversionNeeded(PtrToIntInst *PTI) {
@@ -337,15 +462,18 @@ public:
     return true;
   }
 
-  bool checkConversionNeeded(BinaryOperator *BinOp) {
+  // Return whether the subtract instruction type is of a type being
+  // transformed, or is dependent on a type being transformed, or does not
+  // change.
+  AOSConvType checkConversionNeeded(BinaryOperator *BinOp) {
     if (BinOp->getOpcode() != Instruction::Sub)
-      return false;
+      return AOS_NoConv;
 
     llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
     if (!PtrSubTy)
-      return false;
+      return AOS_NoConv;
 
-    return isTypeToTransform(PtrSubTy);
+    return isTypeOrDepTypeToTransform(PtrSubTy);
   }
 
   void processGEP(GetElementPtrInst *GEP) {
@@ -406,7 +534,7 @@ public:
       // a pointer. If we do, then the indexing calculations will not work.
       assert(DL.getTypeSizeInBits(GEPBaseIdx->getType()) <=
                  DL.getTypeSizeInBits(getPtrSizedIntType()) &&
-        "Unsupported GEP index type");
+             "Unsupported GEP index type");
 
       // Match the base value to the size of peeling index. In the case where
       // the peeling index is being shrunk, this will result in truncating the
@@ -846,6 +974,21 @@ public:
     }
 
     PtrConverts.clear();
+  }
+
+private:
+  bool checkDependentTypeSafety(llvm::Type *Ty) {
+    // TODO: Check if the dependent type is safe to have a pointer type within
+    // it change to be an index value.
+
+    return true;
+  }
+
+  bool checkDependentTypeSafeForShrinking(llvm::Type *Ty) {
+    // TODO: Analyze the dependent types to determine whether the peeling
+    // index can be safely converted to 32-bits.
+
+    return true;
   }
 
   // The allocation call for a type being transformed into a structure of arrays
@@ -1377,10 +1520,65 @@ public:
     InstructionsToDelete.insert(BC);
   }
 
-private:
+  // Update the size used for pointer arithmetic involving dependent structure
+  // types.
+  void processDepBinOp(BinaryOperator *BinOp) {
+    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    llvm::Type *ReplTy = TypeRemapper->remapType(PtrSubTy);
+    updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy);
+  }
+
+  // Update the offsets of a byte flattened GEP for dependent structure types.
+  void processDepByteFlattendGEP(GetElementPtrInst *GEP) {
+    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    auto *OrigStructTy = cast<llvm::StructType>(InfoPair.first);
+
+    llvm::Type *ReplTy = TypeRemapper->remapType(OrigStructTy);
+    const StructLayout *SL = DL.getStructLayout(cast<StructType>(ReplTy));
+    uint64_t NewOffset = SL->getElementOffset(InfoPair.second);
+    LLVM_DEBUG(dbgs() << "AOS-to-SOA: Replacing instruction\n" << *GEP << "\n");
+    GEP->setOperand(1,
+                    ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
+    LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
+  }
+
+  // Update the allocation size for a dependent structure type.
+  void ProcessDepAllocCall(dtrans::AllocCallInfo *AInfo, StructInfo *StInfo) {
+    llvm::Type *OrigTy = StInfo->getLLVMType();
+    llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
+    updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy);
+  }
+
+  // Update the memfunc size operand for a dependent structure type.
+  void processDepMemfuncCall(dtrans::MemfuncCallInfo *CInfo,
+                             StructInfo *StInfo) {
+    assert(CInfo->getIsCompleteAggregate(0) &&
+           "Partial memfuncs currently not supported for dependent structure "
+           "types");
+
+    llvm::Type *OrigTy = StInfo->getLLVMType();
+    llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
+    updateCallSizeOperand(CInfo->getInstruction(), CInfo, OrigTy, ReplTy);
+  }
+
   // Return an integer type that will be used as a replacement type for pointers
   // to the types being peeled.
-  llvm::Type *getPeeledIndexType() const { return PeelIndexType; }
+  llvm::Type *getPeeledIndexType() const {
+    assert(PeelIndexType && "Peeling index type not set");
+    return PeelIndexType;
+  }
+
+  // Initialize class fields that are dependent on the size
+  // of the peeling index type.
+  void initializePeeledIndexType(unsigned BitWidth) {
+    assert(BitWidth >= 32 && "Peeling index must be 32-bits or larger");
+
+    PeelIndexWidth = BitWidth;
+    PeelIndexType = Type::getIntNTy(Context, PeelIndexWidth);
+
+    IncompatiblePeelTypeAttrs = AttributeFuncs::typeIncompatible(PeelIndexType);
+  }
+
   uint64_t getPeeledIndexWidth() const { return PeelIndexWidth; }
   llvm::Type *getPtrSizedIntType() const { return PtrSizedIntType; }
   llvm::Type *getInt8PtrType() const { return Int8PtrType; }
@@ -1401,27 +1599,58 @@ private:
     return false;
   }
 
+  // Return 'true' if \p Ty is a structure type that is modified as a result of
+  // containing a reference to a peeling index.
+  bool isDepTypeToTransform(llvm::Type *Ty) {
+    if (!Ty->isStructTy() || DepTypesToTransform.empty())
+      return false;
+
+    return DepTypesToTransform.count(Ty) != 0;
+  }
+
+  // Return the type of conversion being done for llvm::Type \p Ty.
+  // If the type is a structure, then it could be a type being converted
+  // to a structure of arrays. When the peeling index is smaller than a
+  // pointer, then structures that contain pointers to the type also have
+  // their size affected.
+  AOSConvType isTypeOrDepTypeToTransform(llvm::Type *Ty) {
+    if (!Ty->isStructTy())
+      return AOS_NoConv;
+
+    if (isTypeToTransform(Ty))
+      return AOS_SOAConv;
+
+    if (isPointerShrinkingEnabled() && isDepTypeToTransform(Ty))
+      return AOS_DepConv;
+
+    return AOS_NoConv;
+  }
+
   // Helper function to get the Type for \p CallInfo cases
   // that can be transformed. If the CallInfo is for a case that is not
   // being transformed, return nullptr.
-  llvm::Type *getCallInfoTypeToTransform(dtrans::CallInfo *CInfo) {
+  std::pair<llvm::Type *, AOSConvType>
+  getCallInfoTypeToTransform(dtrans::CallInfo *CInfo) {
     auto &TypeList = CInfo->getPointerTypeInfoRef().getTypes();
 
     // Only cases with a single type will be allowed during the transformation.
     // If there's more than one, we don't need the type, because we won't be
     // transforming it.
     if (TypeList.size() != 1)
-      return nullptr;
+      return std::make_pair(nullptr, AOS_NoConv);
 
     llvm::Type *Ty = *TypeList.begin();
     if (!Ty->isPointerTy())
-      return nullptr;
+      return std::make_pair(nullptr, AOS_NoConv);
 
     llvm::Type *ElemTy = Ty->getPointerElementType();
-    if (!isTypeToTransform(ElemTy))
-      return nullptr;
+    if (isTypeToTransform(ElemTy))
+      return std::make_pair(ElemTy, AOS_SOAConv);
 
-    return ElemTy;
+    if (isDepTypeToTransform(ElemTy))
+      return std::make_pair(ElemTy, AOS_DepConv);
+
+    return std::make_pair(nullptr, AOS_NoConv);
   }
 
   // Get the new type for a structure type being transformed. This function
@@ -1490,6 +1719,10 @@ private:
 
   // The list of types to be transformed.
   SmallVector<dtrans::StructInfo *, 4> TypesToTransform;
+
+  // The list of dependent types that are impacted due to the
+  // peeling index.
+  SetVector<llvm::Type *> DepTypesToTransform;
 
   // A mapping from the original structure type to the new structure type
   TypeToTypeMap OrigToNewTypeMapping;

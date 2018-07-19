@@ -356,6 +356,12 @@ protected:
   // Optional string to precede names of dependent types that get renamed.
   std::string DepTypePrefix;
 
+  // This will be populated with the a list of dependent types for each
+  // structure type prior to call to the prepareTypes method of derived
+  // classes. This enables derived classes to examine those types, which may
+  // impact how transformed types are constructed.
+  TypeDependencyMapping TypeToDependentTypes;
+
   DTransTypeRemapper *TypeRemapper;
   ValueMaterializer *Materializer;
 
