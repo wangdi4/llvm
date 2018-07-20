@@ -1573,7 +1573,14 @@ private:
     populateDependencyStack(V, DependentVals);
 
     // This first line is intentionally left non-verbose.
-    DEBUG_WITH_TYPE(DTRANS_LPA, dbgs() << "analyzeValue " << *V << "\n");
+    DEBUG_WITH_TYPE(DTRANS_LPA, {
+      dbgs() << "analyzeValue ";
+      if (isa<Function>(V))
+        V->printAsOperand(dbgs());
+      else
+        dbgs() << *V;
+      dbgs() << "\n";
+    });
     DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, dumpDependencyStack(DependentVals));
 
     // Now attempt to analyze each of these values. Some may be left in a
@@ -2957,7 +2964,7 @@ public:
   }
 
   void visitCallSite(CallSite CS) {
-    SmallPtrSet<Value*, 3> SpecialArguments;
+    SmallPtrSet<Value *, 3> SpecialArguments;
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
@@ -3001,8 +3008,7 @@ public:
 
     // Mark structures returned by non-local functions as system types.
     auto *RetTy = CS.getType();
-    if (DTInfo.isTypeOfInterest(RetTy) &&
-        AllocKind == dtrans::AK_NotAlloc) {
+    if (DTInfo.isTypeOfInterest(RetTy) && AllocKind == dtrans::AK_NotAlloc) {
       if (!IsFnLocal) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
                           << "type returned by extern function\n  " << *RetTy
@@ -3809,10 +3815,9 @@ public:
         if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
           continue;
         if (isValueOfInterest(Arg)) {
-          DEBUG_WITH_TYPE(DTRANS_CG,
-                          dbgs()
-                              << "dtrans-cg: CGraph update for Operand  -- \n"
-                              << "  " << *Arg << "\n");
+          DEBUG_WITH_TYPE(
+              DTRANS_CG, dbgs() << "dtrans-cg: CGraph update for Operand  -- \n"
+                                << "  " << *Arg << "\n");
           setBaseTypeCallGraph(Arg->getType(), &F);
         }
       }
@@ -6097,10 +6102,9 @@ private:
       if (auto *STy = dyn_cast<StructType>(Ty)) {
         cast<dtrans::StructInfo>(DT.getOrCreateTypeInfo(STy))
             ->insertCallGraphNode(F);
-        for (auto FTy: STy->elements())
+        for (auto FTy : STy->elements())
           Propagate(FTy);
-      }
-      else if (auto *ATy = dyn_cast<ArrayType>(Ty))
+      } else if (auto *ATy = dyn_cast<ArrayType>(Ty))
         Propagate(ATy->getElementType());
     };
 
