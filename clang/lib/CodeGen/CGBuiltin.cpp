@@ -10988,8 +10988,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_parallel_region_exit:
   case X86::BI__builtin_csa_parallel_section_entry:
   case X86::BI__builtin_csa_parallel_section_exit:
-  case X86::BI__builtin_csa_parallel_loop: 
-  case X86::BI__builtin_csa_spmdization: {
+  case X86::BI__builtin_csa_parallel_loop:
+  case X86::BI__builtin_csa_spmdization:
+  case X86::BI__builtin_csa_spmd: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
 #endif // INTEL_CUSTOMIZATION
@@ -11057,6 +11058,13 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
                                      {X->getType(), Y->getType()});
     return Builder.CreateCall(Callee, {X, Builder.CreateBitCast(CGM.EmitAnnotationString(Str), Int8PtrTy)});
+  }
+  case CSA::BI__builtin_csa_spmd: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Y = EmitScalarExpr(E->getArg(1));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd,
+                                     {X->getType(), Y->getType()});
+    return Builder.CreateCall(Callee, {X, Y});
   }
   case CSA::BI__builtin_csa_pipeline_loop: {
     Value *X = EmitScalarExpr(E->getArg(0));
