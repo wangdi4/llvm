@@ -8,8 +8,8 @@
 // from the company.
 //===----------------------------------------------------------------------===//
 //
-// This pass implements the Loop SPMDization transformation that distributes loop
-// iterations and assigns them to multiple loops. These loops can run in
+// This pass implements the Loop SPMDization transformation that distributes
+// loop iterations and assigns them to multiple loops. These loops can run in
 // parallel. Three approaches are implemented: the cyclic approach where each
 // loop has an iteration stride of k, the blocking approach where each loop
 // iterates over contiguous #iterations/NPEs iterations, and the hybrid approach
@@ -51,8 +51,6 @@ public:
   }
 
 private:
-  int Chunk_Size; // will be removed as it will be added as an argument to the
-                  // intrinsics. Will implement this as a separate commit
   int next_token;
   unsigned spmd_approach;
   Value *steptimesk;
@@ -73,7 +71,8 @@ private:
   bool FindReductionVariables(Loop *L, std::vector<Value *> *ReduceVarExitOrig,
                               std::vector<Instruction *> *ReduceVarOrig);
   PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
-  bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs);
+  bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs,
+                                int Chunk_Size);
   bool TransformLoopInitandBound(Loop *L, ScalarEvolution *SE, int PE,
                                  int NPEs);
   void AddHybridLoopLevel(Loop *L, int Chunk_Size, PHINode *ClonedInductionPHI,
@@ -85,7 +84,7 @@ private:
                                    BasicBlock *OrigPH, BasicBlock *E);
   IntrinsicInst *detectSPMDIntrinsic(Loop *L, LoopInfo *LI, DominatorTree *DT,
                                      PostDominatorTree *PDT, int &NPEs,
-                                     Value *&approach);
+                                     int &Chunk_Size);
 
   bool runOnLoop(Loop *L, LPPassManager &) override {
 
@@ -97,7 +96,6 @@ private:
       if (GetUnrollMetadata(LoopID, "llvm.loop.spmd.disable")) {
         return true;
       }
-
     LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     PostDominatorTree *PDT =
@@ -114,245 +112,199 @@ private:
     Loop *OrigL = L;
     spmd_approach = 0;
     int NPEs;
-    Value *approachV = nullptr;
+    int Chunk_Size;
     IntrinsicInst *found_spmd =
-        detectSPMDIntrinsic(L, LI, DT, PDT, NPEs, approachV);
-    if (found_spmd) {
-      if (ConstantExpr *expr = dyn_cast<ConstantExpr>(approachV)) {
-        if (expr->getOpcode() == Instruction::GetElementPtr) {
-          GlobalVariable *glob_arg =
-              dyn_cast<GlobalVariable>(expr->getOperand(0));
-          if (glob_arg and glob_arg->isConstant() and
-              glob_arg->getInitializer()) {
-            // Unlike C, Fortran string has no null byte at the end
-            StringRef user_approach;
-            if (dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
-                    ->isCString())
-              user_approach =
-                  dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
-                      ->getAsCString();
-            else
-              user_approach =
-                  dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
-                      ->getAsString();
-
-            if (user_approach.compare_lower("cyclic") == 0) {
-              spmd_approach = SPMD_CYCLIC;
-            } else if (user_approach.compare_lower("blocked") == 0 ||
-                       user_approach.compare_lower("blocking") == 0 ||
-                       user_approach.compare_lower("block") == 0) {
-              spmd_approach = SPMD_BLOCKING;
-            } else if (user_approach.compare_lower("hybrid") == 0) {
-              // To be fixed:
-              // We assume a fixed chunk size of 8. This will be fixed once I
-              // add the appropriate arguments for the hybrid approach
-              Chunk_Size = 8;
-              spmd_approach = SPMD_HYBRID;
-            } else {
-              errs() << "\n";
-              errs().changeColor(raw_ostream::BLUE, true);
-              errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
-              errs().resetColor();
-              errs() << " Second argument should be Cyclic, Blocked, Blocking, "
-                        "or Hybrid.\n"
-                        "This call will be ignored.\n\n";
-              return false;
-            }
-          } else {
-            errs() << "\n";
-            errs().changeColor(raw_ostream::BLUE, true);
-            errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
-            errs().resetColor();
-            return false;
-          }
-        } else {
-          errs() << "\n";
-          errs().changeColor(raw_ostream::BLUE, true);
-          errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
-          errs().resetColor();
-          return false;
-        }
-      } else {
-        errs() << "\n";
-        errs().changeColor(raw_ostream::BLUE, true);
-        errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
-        errs().resetColor();
-        return false;
-      }
-
-      if (!L->getExitBlock()) {
-        /*ORE.emit(
-          OptimizationRemarkMissed(DEBUG_TYPE, "Unstructured Code",
-          L->getStartLoc(), L->getHeader())
-          << "Unable to perform loop SPMDization as directed by the pragma"
-          "because loop body has unstructured code.");
-        */
-        errs() << "\n";
-        errs().changeColor(raw_ostream::BLUE, true);
-        errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
-        errs().resetColor();
-        errs() << R"help(The SPMDization loop body has unstructured code.
+        detectSPMDIntrinsic(L, LI, DT, PDT, NPEs, Chunk_Size);
+    if (!found_spmd)
+      return false;
+    if (Chunk_Size == 0)
+      spmd_approach = SPMD_BLOCKING;
+    else if (Chunk_Size == 1)
+      spmd_approach = SPMD_CYCLIC;
+    else if (Chunk_Size > 1)
+      spmd_approach = SPMD_HYBRID;
+    else {
+      errs() << "\n";
+      errs().changeColor(raw_ostream::BLUE, true);
+      errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
+      errs().resetColor();
+      errs() << " Second argument should be 0 for Blocked, 1 for Cyclic, "
+                "or > 1 for Hybrid.\n"
+                "This call will be ignored.\n\n";
+      return false;
+    }
+    if (!L->getExitBlock()) {
+      /*ORE.emit(
+        OptimizationRemarkMissed(DEBUG_TYPE, "Unstructured Code",
+        L->getStartLoc(), L->getHeader())
+        << "Unable to perform loop SPMDization as directed by the pragma"
+        "because loop body has unstructured code.");
+      */
+      errs() << "\n";
+      errs().changeColor(raw_ostream::BLUE, true);
+      errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+      errs().resetColor();
+      errs() << R"help(The SPMDization loop body has unstructured code.
 
 Branches to or from an OpenMP structured block are illegal
 
 )help";
+      return false;
+    }
+    ORE.emit(
+        OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
+        << "Performed loop SPMDization as directed by the pragma.");
+
+    // Fix me: We assume a maximum of 16 reductions in the loop
+    std::vector<Value *> ReduceVarExitOrig(16);
+    std::vector<Instruction *> ReduceVarOrig(16);
+    // there is OldInst foreach reduction variable
+    std::vector<Instruction *> OldInsts(16);
+    FindReductionVariables(L, &ReduceVarExitOrig, &ReduceVarOrig);
+    if (spmd_approach == SPMD_CYCLIC) {
+      if (!TransformLoopInitandStep(L, SE, 0, NPEs, Chunk_Size)) {
         return false;
       }
-      ORE.emit(
-          OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
-          << "Performed loop SPMDization as directed by the pragma.");
-
-      // Fix me: We assume a maximum of 16 reductions in the loop
-      std::vector<Value *> ReduceVarExitOrig(16);
-      std::vector<Instruction *> ReduceVarOrig(16);
-      // there is OldInst foreach reduction variable
-      std::vector<Instruction *> OldInsts(16);
-      FindReductionVariables(L, &ReduceVarExitOrig, &ReduceVarOrig);
-      if (spmd_approach == SPMD_CYCLIC) {
-        if (!TransformLoopInitandStep(L, SE, 0, NPEs)) {
-          return false;
-        }
-      } else if (spmd_approach == SPMD_HYBRID) {
-        // Save the loop iterator before it gets modified to be used for the
-        // creation of the inner loop
-        PHINode *InductionPHI = getInductionVariable(L, SE);
-	if (!InductionPHI) {
-	  errs() << "\n";
-	  errs().changeColor(raw_ostream::BLUE, true);
-	  errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
-	  errs().resetColor();
-	  errs() << R"help(
+    } else if (spmd_approach == SPMD_HYBRID) {
+      // Save the loop iterator before it gets modified to be used for the
+      // creation of the inner loop
+      PHINode *InductionPHI = getInductionVariable(L, SE);
+      if (!InductionPHI) {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+        errs().resetColor();
+        errs() << R"help(
 Failed to find the loop induction variable.
 
 )help";
-	  LLVM_DEBUG(dbgs() << "Failed to find the loop induction variable \n");
-	  return false;
-	}
-	PHINode *ClonedInductionPHI =
-            cast<PHINode>((cast<Instruction>(InductionPHI))->clone());
+        LLVM_DEBUG(dbgs() << "Failed to find the loop induction variable \n");
+        return false;
+      }
+      PHINode *ClonedInductionPHI =
+          cast<PHINode>((cast<Instruction>(InductionPHI))->clone());
 
-        if (!TransformLoopInitandStep(L, SE, 0, NPEs)) {
-          return false;
-        }
-        // Create a loop inside L that goes from L iterator to
-        // iterator+chunk_size
-        AddHybridLoopLevel(L, Chunk_Size, ClonedInductionPHI, SE, DT, LI);
-      } else if (spmd_approach == SPMD_BLOCKING) {
-        const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
-        SCEVExpander Expander(*SE, DL, "loop-SPMDization");
-        BranchInst *PreHeaderBR =
-            cast<BranchInst>(L->getLoopPreheader()->getTerminator());
-        const SCEV *BECountSC = SE->getBackedgeTakenCount(L);
+      if (!TransformLoopInitandStep(L, SE, 0, NPEs, Chunk_Size)) {
+        return false;
+      }
+      // Create a loop inside L that goes from L iterator to
+      // iterator+chunk_size
+      AddHybridLoopLevel(L, Chunk_Size, ClonedInductionPHI, SE, DT, LI);
+    } else if (spmd_approach == SPMD_BLOCKING) {
+      const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
+      SCEVExpander Expander(*SE, DL, "loop-SPMDization");
+      BranchInst *PreHeaderBR =
+          cast<BranchInst>(L->getLoopPreheader()->getTerminator());
+      const SCEV *BECountSC = SE->getBackedgeTakenCount(L);
 
-        // Sometimes SCEV can't figure out the backedge taken count; bail and
-        // print a warning if that happens.
-        if (isa<SCEVCouldNotCompute>(BECountSC)) {
-          errs() << "\n";
-          errs().changeColor(raw_ostream::BLUE, true);
-          errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!";
-          errs().resetColor();
-          errs() << R"help(
+      // Sometimes SCEV can't figure out the backedge taken count; bail and
+      // print a warning if that happens.
+      if (isa<SCEVCouldNotCompute>(BECountSC)) {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!";
+        errs().resetColor();
+        errs() << R"help(
 
 We were unable to determine an expression for the trip count of a loop for which
 blocking SPMDization was requested. Please simplify the loop control logic or
 try a different SPMDization strategy instead.
 
 )help";
-          return false;
-        }
-
-        const SCEV *TripCountSC =
-            SE->getAddExpr(BECountSC, SE->getConstant(BECountSC->getType(), 1));
-        TripCountV = Expander.expandCodeFor(TripCountSC, TripCountSC->getType(),
-                                            PreHeaderBR);
-
-        IRBuilder<> BPR(L->getLoopPreheader()->getTerminator());
-        Value *nbykmightzero = BPR.CreateUDiv(
-            TripCountV, ConstantInt::get(BECountSC->getType(), NPEs), ".nbyk");
-        auto *IsZero = BPR.CreateICmpEQ(
-            nbykmightzero, ConstantInt::get(BECountSC->getType(), 0));
-        // If n by k is zero (there will be loops with zero trip count), each
-        // loop will run at most one iteration
-        nbyk = BPR.CreateSelect(
-            IsZero, ConstantInt::get(BECountSC->getType(), 1), nbykmightzero);
-
-        TransformLoopInitandBound(L, SE, 0, NPEs);
+        return false;
       }
 
-      setLoopAlreadySPMDized(L);
+      const SCEV *TripCountSC =
+          SE->getAddExpr(BECountSC, SE->getConstant(BECountSC->getType(), 1));
+      TripCountV = Expander.expandCodeFor(TripCountSC, TripCountSC->getType(),
+                                          PreHeaderBR);
 
-      BasicBlock *PH = SplitBlock(OrigPH, OrigPH->getTerminator(), DT, LI);
-      PH->setName(L->getHeader()->getName() + ".ph");
-      BasicBlock *OrigE = L->getExitBlock();
+      IRBuilder<> BPR(L->getLoopPreheader()->getTerminator());
+      Value *nbykmightzero = BPR.CreateUDiv(
+          TripCountV, ConstantInt::get(BECountSC->getType(), NPEs), ".nbyk");
+      auto *IsZero = BPR.CreateICmpEQ(
+          nbykmightzero, ConstantInt::get(BECountSC->getType(), 0));
+      // If n by k is zero (there will be loops with zero trip count), each
+      // loop will run at most one iteration
+      nbyk = BPR.CreateSelect(IsZero, ConstantInt::get(BECountSC->getType(), 1),
+                              nbykmightzero);
 
-      Instruction *i = dyn_cast<Instruction>(OrigE->begin());
-      BasicBlock *E = SplitBlock(OrigE, i, DT, LI);
-      OrigE->setName(L->getHeader()->getName() + ".e");
-      BasicBlock *AfterLoop = E;
+      TransformLoopInitandBound(L, SE, 0, NPEs);
+    }
 
-      // Add CSA parallel intrinsics:
-      AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
-      SmallVector<Value *, 128> NewReducedValues; // should be equal to NPEs
-      for (int PE = 1; PE < NPEs; PE++) {
-        SmallVector<BasicBlock *, 8> NewLoopBlocks;
-        BasicBlock *Exit = L->getExitBlock();
-        // clone the exit block, to be attached to the cloned loop
-        BasicBlock *NewE =
-            CloneBasicBlock(Exit, VMap, ".PE" + std::to_string(PE), F);
-        VMap[Exit] = NewE;
+    setLoopAlreadySPMDized(L);
 
-        Loop *NewLoop = cloneLoopWithPreheader(PH, OrigPH, L, VMap,
-                                               ".PE" + std::to_string(PE), LI,
-                                               DT, NewLoopBlocks);
-        NewLoopBlocks.push_back(NewE);
-        remapInstructionsInBlocks(NewLoopBlocks, VMap);
-        // Update LoopInfo.
-        if (OrigL->getParentLoop())
-          OrigL->getParentLoop()->addBasicBlockToLoop(NewE, *LI);
-        // Add DominatorTree node, update to correct IDom.
-        DT->addNewBlock(NewE, NewLoop->getLoopPreheader());
+    BasicBlock *PH = SplitBlock(OrigPH, OrigPH->getTerminator(), DT, LI);
+    PH->setName(L->getHeader()->getName() + ".ph");
+    BasicBlock *OrigE = L->getExitBlock();
 
-        Instruction *ExitTerm = Exit->getTerminator();
-        BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
-        ExitTerm->eraseFromParent();
-        if (spmd_approach == SPMD_CYCLIC)
-          TransformLoopInitandStep(NewLoop, SE, 1, NPEs);
-        else if (spmd_approach == SPMD_HYBRID) {
-          TransformLoopInitandStep(NewLoop, SE, 1, NPEs);
-        } else if (spmd_approach == SPMD_BLOCKING)
-          TransformLoopInitandBound(NewLoop, SE, PE, NPEs);
+    Instruction *i = dyn_cast<Instruction>(OrigE->begin());
+    BasicBlock *E = SplitBlock(OrigE, i, DT, LI);
+    OrigE->setName(L->getHeader()->getName() + ".e");
+    BasicBlock *AfterLoop = E;
 
-        ZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
-        // This assumes -ffp-contract=fast is set
-        bool success_p =
-            FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs,
-                               &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts);
-        if (!success_p)
-          return false;
-        L = NewLoop;
-        // NOTE: we do not need to call setLoopAlreadySPMDized()
-        // for the new loop, because the metadata was set previously
-        // for the original loop and it will be copied to each new loop
-        // automatically, by cloneLoopWithPreheader().
-      }
-      // Fix missed Phi operands in AfterLoop
-      BasicBlock::iterator bi, bie;
-      for (bi = AfterLoop->begin(), bie = AfterLoop->end(); (bi != bie); ++bi) {
-        PHINode *RedPhi = dyn_cast<PHINode>(&*bi);
-        if (!RedPhi)
-          continue;
-        Value *RedV;
-        if (RedPhi->getBasicBlockIndex(L->getExitBlock()) == -1)
-          // Afterloop did not have a phi node
-          RedPhi->setIncomingBlock(0, L->getExitBlock());
+    // Add CSA parallel intrinsics:
+    AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
+    SmallVector<Value *, 128> NewReducedValues; // should be equal to NPEs
+    for (int PE = 1; PE < NPEs; PE++) {
+      SmallVector<BasicBlock *, 8> NewLoopBlocks;
+      BasicBlock *Exit = L->getExitBlock();
+      // clone the exit block, to be attached to the cloned loop
+      BasicBlock *NewE =
+          CloneBasicBlock(Exit, VMap, ".PE" + std::to_string(PE), F);
+      VMap[Exit] = NewE;
 
-        RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
-        for (auto it = pred_begin(AfterLoop), et = pred_end(AfterLoop);
-             it != et; ++it) {
-          BasicBlock *predecessor = *it;
-          if (RedPhi->getBasicBlockIndex(predecessor) == -1) {
-            RedPhi->addIncoming(RedV, predecessor);
-          }
+      Loop *NewLoop = cloneLoopWithPreheader(PH, OrigPH, L, VMap,
+                                             ".PE" + std::to_string(PE), LI, DT,
+                                             NewLoopBlocks);
+      NewLoopBlocks.push_back(NewE);
+      remapInstructionsInBlocks(NewLoopBlocks, VMap);
+      // Update LoopInfo.
+      if (OrigL->getParentLoop())
+        OrigL->getParentLoop()->addBasicBlockToLoop(NewE, *LI);
+      // Add DominatorTree node, update to correct IDom.
+      DT->addNewBlock(NewE, NewLoop->getLoopPreheader());
+
+      Instruction *ExitTerm = Exit->getTerminator();
+      BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
+      ExitTerm->eraseFromParent();
+      if (spmd_approach == SPMD_CYCLIC)
+        TransformLoopInitandStep(NewLoop, SE, 1, NPEs, Chunk_Size);
+      else if (spmd_approach == SPMD_HYBRID) {
+        TransformLoopInitandStep(NewLoop, SE, 1, NPEs, Chunk_Size);
+      } else if (spmd_approach == SPMD_BLOCKING)
+        TransformLoopInitandBound(NewLoop, SE, PE, NPEs);
+
+      ZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
+      // This assumes -ffp-contract=fast is set
+      bool success_p =
+          FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs,
+                             &ReduceVarExitOrig, &ReduceVarOrig, &OldInsts);
+      if (!success_p)
+        return false;
+      L = NewLoop;
+      // NOTE: we do not need to call setLoopAlreadySPMDized()
+      // for the new loop, because the metadata was set previously
+      // for the original loop and it will be copied to each new loop
+      // automatically, by cloneLoopWithPreheader().
+    }
+    // Fix missed Phi operands in AfterLoop
+    BasicBlock::iterator bi, bie;
+    for (bi = AfterLoop->begin(), bie = AfterLoop->end(); (bi != bie); ++bi) {
+      PHINode *RedPhi = dyn_cast<PHINode>(&*bi);
+      if (!RedPhi)
+        continue;
+      Value *RedV;
+      if (RedPhi->getBasicBlockIndex(L->getExitBlock()) == -1)
+        // Afterloop did not have a phi node
+        RedPhi->setIncomingBlock(0, L->getExitBlock());
+
+      RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
+      for (auto it = pred_begin(AfterLoop), et = pred_end(AfterLoop); it != et;
+           ++it) {
+        BasicBlock *predecessor = *it;
+        if (RedPhi->getBasicBlockIndex(predecessor) == -1) {
+          RedPhi->addIncoming(RedV, predecessor);
         }
       }
     }
@@ -702,12 +654,12 @@ IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
                                                     DominatorTree *DT,
                                                     PostDominatorTree *PDT,
                                                     int &NPEs,
-                                                    Value *&approach) {
+                                                    int &Chunk_Size) {
 
   // Attempts to match a valid SPMDization entry/exit pair with an exit in a
   // given basic block.
   const auto match_pair_from_block =
-      [=, &NPEs, &approach](BasicBlock *BB) -> IntrinsicInst * {
+      [=, &NPEs, &Chunk_Size](BasicBlock *BB) -> IntrinsicInst * {
     using namespace llvm::PatternMatch;
 
     // The block must be exactly one loop level above the loop.
@@ -723,10 +675,11 @@ IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
     for (Instruction &exit : *BB) {
       Instruction *entry = nullptr;
       uint64_t NPEs_64;
+      uint64_t Chunk_64;
       if (!match(&exit, m_Intrinsic<Intrinsic::csa_spmdization_exit>(
                             m_Instruction(entry))) ||
           !match(entry, m_Intrinsic<Intrinsic::csa_spmdization_entry>(
-                            m_ConstantInt(NPEs_64), m_Value(approach))))
+                            m_ConstantInt(NPEs_64), m_ConstantInt(Chunk_64))))
         continue;
 
       // If one is found, make sure that the entry block is also one loop level
@@ -740,6 +693,7 @@ IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
       IntrinsicInst *const entry_intr = dyn_cast<IntrinsicInst>(entry);
       assert(entry_intr && "Entry intrinsic is not an intrinsic??");
       NPEs = NPEs_64;
+      Chunk_Size = Chunk_64;
       return entry_intr;
     }
 
@@ -1083,7 +1037,8 @@ bool LoopSPMDization::TransformLoopInitandBound(Loop *L, ScalarEvolution *SE,
 }
 
 bool LoopSPMDization::TransformLoopInitandStep(Loop *L, ScalarEvolution *SE,
-                                               int PE, int NPEs) {
+                                               int PE, int NPEs,
+                                               int Chunk_Size) {
 
   PHINode *InductionPHI = getInductionVariable(L, SE);
   BasicBlock *PreHeader = L->getLoopPreheader();
@@ -1254,8 +1209,7 @@ bool LoopSPMDization::ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE,
   if (spmd_approach == SPMD_CYCLIC || spmd_approach == SPMD_HYBRID) {
     NewCondOp1 = NewInitV;
     NewCondOp0 = TripCount;
-  }
-  else if (spmd_approach == SPMD_BLOCKING) {
+  } else if (spmd_approach == SPMD_BLOCKING) {
     NewCondOp1 = ConstantInt::get(TripCountV->getType(), PE);
     NewCondOp0 = TripCountV;
   }

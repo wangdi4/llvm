@@ -273,7 +273,8 @@ CSALoopIntrinsicExpander::asLoopIntrinsic(Instruction &inst) const {
   if (intr_inst and
       (intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_loop or
        intr_inst->getIntrinsicID() == Intrinsic::csa_pipeline_loop or
-       intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization))
+       intr_inst->getIntrinsicID() == Intrinsic::csa_spmdization or
+       intr_inst->getIntrinsicID() == Intrinsic::csa_spmd))
     return intr_inst;
   return nullptr;
 }
@@ -420,14 +421,82 @@ to see more location information.
 
   // If this is an SPMDization intrinsic, it needs to have its own entry and
   // exit inserted for the SPMDization pass later.
-  if (intr->getIntrinsicID() == Intrinsic::csa_spmdization) {
+  if (intr->getIntrinsicID() == Intrinsic::csa_spmdization ||
+      intr->getIntrinsicID() == Intrinsic::csa_spmd) {
     Instruction *const preheader_terminator =
       L->getLoopPreheader()->getTerminator();
     assert(intr->getNumArgOperands() == 2 && "Bad SPMDization intrinsic?");
+    // In order to have one pair of spmd entry and exit, we transform here
+    // spmdization to spmd intrinsic
+    Value *chunk_size;
+    if (intr->getIntrinsicID() == Intrinsic::csa_spmdization) {
+      Value *approach = intr->getArgOperand(1);
+      if (ConstantExpr *expr = dyn_cast<ConstantExpr>(approach)) {
+        if (expr->getOpcode() == Instruction::GetElementPtr) {
+          GlobalVariable *glob_arg =
+            dyn_cast<GlobalVariable>(expr->getOperand(0));
+          if (glob_arg and glob_arg->isConstant() and
+              glob_arg->getInitializer()) {
+            // Unlike C, Fortran string has no null byte at the end
+            StringRef user_approach;
+            if (dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
+                    ->isCString())
+              user_approach =
+                  dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
+                      ->getAsCString();
+            else
+              user_approach =
+                  dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
+                      ->getAsString();
+
+            if (user_approach.compare_lower("cyclic") == 0) {
+              chunk_size = ConstantInt::get(IntegerType::get(context, 32), 1);
+            } else if (user_approach.compare_lower("blocked") == 0 ||
+                       user_approach.compare_lower("blocking") == 0 ||
+                       user_approach.compare_lower("block") == 0) {
+              chunk_size = ConstantInt::get(IntegerType::get(context, 32), 0);
+            } else if (user_approach.compare_lower("hybrid") == 0) {
+              // When using this SPMD syntax, we assume a fixed chunk size of 8
+              chunk_size = ConstantInt::get(IntegerType::get(context, 32), 8);
+            } else {
+              errs() << "\n";
+              errs().changeColor(raw_ostream::BLUE, true);
+              errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
+              errs().resetColor();
+              errs() << " Second argument should be Cyclic, Blocked, Blocking, "
+                "or Hybrid.\n"
+                "This call will be ignored.\n\n";
+              return false;
+            }
+          } else {
+            errs() << "\n";
+            errs().changeColor(raw_ostream::BLUE, true);
+            errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
+            errs().resetColor();
+            return false;
+          }
+        } else {
+          errs() << "\n";
+          errs().changeColor(raw_ostream::BLUE, true);
+          errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
+          errs().resetColor();
+          return false;
+        }
+      } else {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
+        errs().resetColor();
+        return false;
+      }
+    } else {
+      chunk_size = intr->getOperand(1);
+    }
     CallInst *const spmdization_entry =
       IRBuilder<>{preheader_terminator}.CreateCall(
-        Intrinsic::getDeclaration(module, Intrinsic::csa_spmdization_entry),
-        {intr->getArgOperand(0), intr->getArgOperand(1)}, "spmdization_entry");
+            Intrinsic::getDeclaration(module, Intrinsic::csa_spmdization_entry),
+            {intr->getArgOperand(0), chunk_size}, "spmdization_entry");
+
     SmallVector<BasicBlock *, 2> exits;
     L->getExitBlocks(exits);
     for (BasicBlock *const exit : exits) {

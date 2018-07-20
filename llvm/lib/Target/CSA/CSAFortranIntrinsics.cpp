@@ -60,7 +60,8 @@ namespace {
 //
 constexpr std::pair<const char *, Intrinsic::ID> intrinsic_table[] = {
   {"builtin_csa_parallel_loop_", Intrinsic::csa_parallel_loop},
-  {"builtin_csa_spmdization_", Intrinsic::csa_spmdization}};
+  {"builtin_csa_spmdization_", Intrinsic::csa_spmdization},
+  {"builtin_csa_spmd_", Intrinsic::csa_spmd}};
 
 struct CSAFortranIntrinsics : FunctionPass {
   static char ID;
