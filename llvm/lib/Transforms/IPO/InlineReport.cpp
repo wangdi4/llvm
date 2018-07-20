@@ -175,6 +175,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
     {InlPrtSimple, "Structured EH prevents inlining"},
     // NinlrPreferCloning,
     {InlPrtSimple, "Callsite preferred for cloning"},
+    // NinlrNullPtrMismatch,
+    {InlPrtSimple, "Caller/callee null pointer mismatch"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

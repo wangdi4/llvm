@@ -3117,7 +3117,7 @@ InlineCost llvm::getInlineCost(
   // Don't inline a function that treats null pointer as valid into a caller
   // that does not have this attribute.
   if (!Caller->nullPointerIsDefined() && Callee->nullPointerIsDefined())
-    return llvm::InlineCost::getNever();
+    return llvm::InlineCost::getNever(NinlrNullPtrMismatch);
 
   // Don't inline functions which can be interposed at link-time.  Don't inline
   // functions marked noinline or call sites marked noinline.
