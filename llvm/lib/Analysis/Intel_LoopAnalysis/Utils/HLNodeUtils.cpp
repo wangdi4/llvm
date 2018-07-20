@@ -199,9 +199,8 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     assert(RvalRef->isMemRef() &&
            "Rval of load instruction should be a mem ref!");
 
-    auto DummyPtrType =
-        PointerType::get(RvalRef->getDestType(),
-                         RvalRef->getPointerAddressSpace());
+    auto DummyPtrType = PointerType::get(RvalRef->getDestType(),
+                                         RvalRef->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateLoad(DummyPtrVal, false, Name);
@@ -212,9 +211,8 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     assert(LvalRef && LvalRef->isMemRef() &&
            "Lval of store instruction should be a non-null mem ref");
 
-    auto DummyPtrType =
-        PointerType::get(LvalRef->getDestType(),
-                         LvalRef->getPointerAddressSpace());
+    auto DummyPtrType = PointerType::get(LvalRef->getDestType(),
+                                         LvalRef->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateStore(DummyVal, DummyPtrVal);
@@ -290,7 +288,8 @@ RegDDRef *HLNodeUtils::createTemp(Type *Ty, const Twine &Name) {
   return getDDRefUtils().createSelfBlobRef(Inst);
 }
 
-unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name) {
+unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef,
+                                           const Twine &Name) {
   assert(TempRef && "TempRef is null!");
   assert(TempRef->isTerminalRef() && "TempRef is suppored to be a terminal!");
 
@@ -309,7 +308,6 @@ unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name)
 
   return Index;
 }
-
 
 HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
                                     RegDDRef *LvalRef) {
@@ -3540,9 +3538,8 @@ private:
 
 public:
   bool HasNonUnitStride;
-  NonUnitStrideMemRefs(const HLLoop *Loop)
-      : NumNonLinearLRefs(0), LoopLevel(Loop->getNestingLevel()),
-        HasNonUnitStride(false) {}
+  NonUnitStrideMemRefs(const HLLoop *Loop, unsigned TargetLevel)
+      : NumNonLinearLRefs(0), LoopLevel(TargetLevel), HasNonUnitStride(false) {}
   void visit(const HLNode *Node) {}
   void visit(const HLDDNode *Node);
   void postVisit(const HLNode *Node) {}
@@ -3597,13 +3594,22 @@ void NonUnitStrideMemRefs::visit(const HLDDNode *Node) {
 ///   Any memref with non-unit stride?
 ///   Will take innermost loop for now
 ///   used mostly for blocking / interchange
-
 bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
 
   assert(Loop && "InnermostLoop must not be nullptr");
   assert(Loop->isInnermost() && "Loop must be innermost Loop");
 
-  NonUnitStrideMemRefs NUS(Loop);
+  return hasNonUnitStrideRefs(Loop, Loop->getNestingLevel());
+}
+
+bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop,
+                                       unsigned TargetLevel) {
+
+  if (!Loop) {
+    return false;
+  }
+
+  NonUnitStrideMemRefs NUS(Loop, TargetLevel);
   HLNodeUtils::visit(NUS, Loop);
   return NUS.HasNonUnitStride;
 }
