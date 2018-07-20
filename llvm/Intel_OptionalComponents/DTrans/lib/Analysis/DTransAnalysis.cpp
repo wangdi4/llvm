@@ -800,7 +800,8 @@ private:
   bool mallocBasedGEPChain(GetElementPtrInst *GV, GetElementPtrInst **GBV,
                            CallSite *GCI) const;
   bool mallocOffset(Value *V, int64_t *offset) const;
-  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t *Result) const;
+  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t Offset,
+                   int64_t *Result) const;
   bool returnValueIsMallocAddress(Value *RV, BasicBlock *BB);
   bool analyzeForMallocStatus(Function *F);
 
@@ -1011,9 +1012,9 @@ void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
 }
 
 //
-// Return true if 'GV' is the root of a malloc based GEP chain. This
-// means that if we keep following the pointer operand for a series of
-// GEP instructions, we will eventually get to a malloc() call.
+// Return true if 'GV' is the root of a malloc based byte-flattened GEP chain.
+// This means that if we keep following the pointer operand for a series of
+// byte flattened GEP instructions, we will eventually get to a malloc() call.
 //
 // For example:
 //   %5 = tail call noalias i8* @malloc(i64 %4)
@@ -1099,26 +1100,38 @@ static bool isLowerBitMask(int64_t Value) {
 
 //
 // Return true if we can find an upper bound for the amount 'V' is less than
-// the address computed by the 'GBV'.
+// the address computed by the sequence of GEPs starting with 'GBV', and if
+// the sequence of GEPs starting with 'GBV' compute an offset equal to 'Offset'.
+//
+// If we return true, we set '*Result' to the value of the upper bound.
 //
 // For example:
 //
-//  %8 = getelementptr inbounds i8, i8* %5, i64 27
+//  %6 = getelementptr inbounds i8, i8* %5, i64 15
+//  %7 = getelementptr inbounds i8, i8* %6, i64 8
+//  %8 = getelementptr inbounds i8, i8* %7, i64 4
 //  %9 = ptrtoint i8* %8 to i64
 //  %10 = and i64 %9, 15
 //  %11 = sub nsw i64 0, %10
 //  %12 = getelementptr inbounds i8, i8* %8, i64 %11
 //
-// If 'V' here is %11 and 'GBV' is %8, then the most that %12 can be less
+// If 'V' here is %11 and 'GBV' is %6, then the most that %12 can be less
 // than %8 is 15.
 //
-// If we return true, we set '*Result' to the value of the upper bound.
+// The sequence of GEPs starting with 'GBV' are:
+//
+//  %6 = getelementptr inbounds i8, i8* %5, i64 15
+//  %7 = getelementptr inbounds i8, i8* %6, i64 8
+//  %8 = getelementptr inbounds i8, i8* %7, i64 4
+//
+// The offset computed is 15+8+4 == 27, which should be equal to 'Offset'.
+// The value returned in '*Result' is 15.
 //
 // NOTE: mallocLimit() is a bit of a pattern match, albeit for a very
 // important case.
 //
 bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
-                                      int64_t *Result) const {
+                                      int64_t Offset, int64_t *Result) const {
   auto BIS = dyn_cast<BinaryOperator>(V);
   if (!BIS || BIS->getOpcode() != Instruction::Sub)
     return false;
@@ -1143,8 +1156,23 @@ bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
   auto PI = dyn_cast<PtrToIntInst>(W);
   if (!PI)
     return false;
-  auto GEP = dyn_cast<GetElementPtrInst>(PI->getOperand(0));
-  if (GEP != GBV)
+  int64_t LocalOffset = 0;
+  Value *NewGEP = PI->getOperand(0);
+  auto Int8PtrTy = llvm::Type::getInt8PtrTy(PI->getContext());
+  GetElementPtrInst *LastGEP = nullptr;
+  while (auto GEP = dyn_cast<GetElementPtrInst>(NewGEP)) {
+    LastGEP = GEP;
+    NewGEP = GEP->getPointerOperand();
+    if (NewGEP->getType() != Int8PtrTy)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    if (!CI)
+      return false;
+    LocalOffset += CI->getSExtValue();
+  }
+  if (LocalOffset != Offset)
+    return false;
+  if (LastGEP != GBV)
     return false;
   *Result = Limit;
   return true;
@@ -1189,7 +1217,7 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
       return false;
     if (!mallocOffset(CS.getArgument(0), &Offset))
       return false;
-    if (!mallocLimit(GBV, GV->getOperand(1), &Limit))
+    if (!mallocLimit(GBV, GV->getOperand(1), Offset, &Limit))
       return false;
     return Offset >= Limit;
   }
