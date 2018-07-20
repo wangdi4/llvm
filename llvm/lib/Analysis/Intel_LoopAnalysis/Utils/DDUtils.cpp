@@ -67,7 +67,7 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
 
 namespace {
 
-inline void checkFail(const char *Banner) {
+inline void reportFail(const char *Banner) {
   LLVM_DEBUG(dbgs() << "Can't canMoveLoadIntoLoop: " << Banner << "\n");
 }
 
@@ -102,7 +102,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
 
   if (DDUtils::anyEdgeToLoop(DDG, RRef, InnermostLoop)) {
     // (a) no edge into innermost Loop
-    checkFail("F1");
+    reportFail("F1");
     return false;
   }
 
@@ -117,7 +117,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     if (Node->getLexicalParentLoop() == InnermostLoop) {
       // TODO: remove this check as it is redundant with one in anyEdgeToLoop
       //       above
-      checkFail("F2");
+      reportFail("F2");
       return false;
     }
     if (Edge->isANTIdep()) {
@@ -136,7 +136,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     DDRef *DDRefSink = Edge->getSink();
     if (DisablePerfectLoopNestWithBlob) {
       if (!isa<RegDDRef>(DDRefSink)) {
-        checkFail("F3");
+        reportFail("F3");
         return false;
       }
     }
@@ -150,12 +150,12 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
       return false;
     }
     if (Edge->isOUTPUTdep() && Node->getParentLoop() != InnermostLoop) {
-      checkFail("F4");
+      reportFail("F4");
       return false;
     }
     if (Edge->isOUTPUTdep()) {
       if (++Defs > 1) {
-        checkFail("F5");
+        reportFail("F5");
         return false;
       }
     } else if (Edge->isFLOWdep()) {
@@ -171,7 +171,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
   // FlowEdge and AntiEdges are all between inst in
   // right outside the innermostloop.
   if (Defs == 1 && (StoreNode1 != StoreNode2)) {
-    checkFail("F6");
+    reportFail("F6");
     // not-equal-load-store-invalid.ll is sifted here.
     // FlowDep from Load to Store exists, but no AntiDep from Store to Load
     // found.
@@ -181,17 +181,17 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     if (!FlowEdge || !AntiEdge) {
       // This is a case that the load goes through 2 copy stmts
       // Need some forwardSub cleanup. Bail out now.
-      checkFail("F7");
+      reportFail("F7");
       return false;
     }
     unsigned Level = InnermostLoop->getNestingLevel() - 1;
     if (FlowEdge->getDVAtLevel(Level) != DVKind::EQ) {
-      checkFail("F8");
+      reportFail("F8");
       return false;
     }
     if (AntiEdge->getDVAtLevel(Level) != DVKind::EQ) {
       // invalid-sink.ll is sifted here.
-      checkFail("F9");
+      reportFail("F9");
       return false;
     }
   }
@@ -235,7 +235,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
       LLVM_DEBUG(dbgs() << "Instruction's matching store: ");
       LLVM_DEBUG((*StoreInst)->dump());
 
-      checkFail("F10");
+      reportFail("F10");
       return false;
     }
 
@@ -251,7 +251,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     // <975>  |   (%s)[0].32[-1 * i1 + 15] = -16 * i1 + 4080;
     // <1941> + END LOOP
     if (!DDRefUtils::areEqual(LRef, (*StoreInst)->getRvalDDRef())) {
-      checkFail("F11");
+      reportFail("F11");
       return false;
     }
   }
