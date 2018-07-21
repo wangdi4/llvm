@@ -966,8 +966,8 @@ Value *getPointerOperand(Instruction *I) {
 void DDTest::establishNestingLevels(const DDRef *SrcDDRef,
                                     const DDRef *DstDDRef, bool ForFusion) {
 
-  HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getParentLoop();
-  HLLoop *DstLoop = DstDDRef->getHLDDNode()->getParentLoop();
+  HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getLexicalParentLoop();
+  HLLoop *DstLoop = DstDDRef->getHLDDNode()->getLexicalParentLoop();
 
   HLLoop *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, DstLoop);
 
