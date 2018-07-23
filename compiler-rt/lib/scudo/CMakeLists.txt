@@ -17,7 +17,7 @@ if (INTEL_CUSTOMIZATION)
 # "-nodefaultlibs" is used when linking scudo. Make sure we supply libirc
 # when it is available.
   check_library_exists(irc _intel_fast_memset "" COMPILER_RT_HAS_LIBIRC)
-  append_list_if(COMPILER_RT_HAS_LIBIRC irc SCUDO_DYNAMIC_LIBS)
+  append_list_if(COMPILER_RT_HAS_LIBIRC irc SCUDO_MINIMAL_DYNAMIC_LIBS)
 endif()
 
 set(SCUDO_DYNAMIC_LINK_FLAGS ${SANITIZER_COMMON_LINK_FLAGS})
