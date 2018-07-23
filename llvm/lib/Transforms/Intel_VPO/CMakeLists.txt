@@ -1,3 +1,4 @@
+# INTEL_COLLAB
 # INTEL_CUSTOMIZATION
 # Placeholder list for INTEL_CUSTOMIZATION files.
 set(INTEL_SOURCE_FILES
@@ -27,14 +28,15 @@ add_llvm_library(LLVMIntel_VPOTransforms
   VPOTransform.cpp
 
   Utils/CFGRestructuring.cpp
-#  Utils/IntrinsicUtils.cpp // TODO: move to Transforms/Utils
-#  Utils/GeneralUtils.cpp // moved to Transforms/Utils
   Utils/MultiVersioning.cpp
   Utils/ParSecTrans.cpp
+# Utils/IntrinsicUtils.cpp // moved to Transforms/Utils/CMakeLists.txt
 
+# INTEL_CUSTOMIZATION
   Vecopt/VPODriver.cpp
   Vecopt/VPOAvrLLVMCodeGen.cpp
   Vecopt/VPOAvrHIRCodeGen.cpp
+# end INTEL_CUSTOMIZATION
 
   Paropt/VPOParopt.cpp
   Paropt/VPOParoptAtomics.cpp
@@ -50,3 +52,5 @@ add_llvm_library(LLVMIntel_VPOTransforms
 )
 
 add_dependencies(LLVMIntel_VPOTransforms intrinsics_gen intel_directives_gen)
+
+# end INTEL_COLLAB

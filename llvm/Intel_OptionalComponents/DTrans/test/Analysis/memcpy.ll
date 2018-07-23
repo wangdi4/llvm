@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Call memcpy with matched struct pointers.
 ; This is an safe use.
@@ -9,7 +9,7 @@ define void @test01(%struct.test01* %s1, %struct.test01* %s2) {
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test01 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test01 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
 
@@ -23,9 +23,14 @@ define void @test02(%struct.test02.a* %sa, %struct.test02.b* %sb) {
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pa, i8* %pb, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test02.a = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test02.a = type { i32, i32 }
+; CHECK: Multiple Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc manipulation
-; CHECK: LLVMType: %struct.test02.b = type { i16, i16, i32 }
+; CHECK-LABEL: LLVMType: %struct.test02.b = type { i16, i16, i32 }
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: No Value
 ; CHECK: Safety data: Bad memfunc manipulation
 
 
@@ -38,9 +43,10 @@ define void @test03(%struct.test03* %s1, i8* %b1) {
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %b1, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test03 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test03 = type { i32, i32 }
+; CHECK: Multiple Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc manipulation
-
 
 ; Call memcpy with source as a structure type, but destination as a
 ; fundamental pointer type.
@@ -51,7 +57,9 @@ define void @test04(i8* %b1, %struct.test04* %s1) {
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %b1, i8* %p1, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test04 = type { i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test04 = type { i32, i32 }
+; CHECK: No Value
+; CHECK: No Value
 ; CHECK: Safety data: Bad memfunc manipulation
 
 
@@ -65,7 +73,7 @@ define void @test05(%struct.test05* %s1, %struct.test05* %s2) {
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test05 = type { i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test05 = type { i32, i32, i32, i32 }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -86,9 +94,9 @@ entry:
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %1, i8* %3, i64 %mul, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test06.a = type { i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test06.a = type { i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
-; CHECK: LLVMType: %struct.test06.b = type { i32, %struct.test06.a** }
+; CHECK-LABEL: LLVMType: %struct.test06.b = type { i32, %struct.test06.a** }
 ; CHECK: Safety data: No issues found
 
 
@@ -105,7 +113,7 @@ define void @test07(%struct.test07* %dest, %struct.test07* %src) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 200, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test07 = type { i32, i32, i32, [50 x i32] }
+; CHECK-LABEL: LLVMType: %struct.test07 = type { i32, i32, i32, [50 x i32] }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -122,7 +130,7 @@ define void @test08(%struct.test08* %dest, %struct.test08* %src) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 400, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test08 = type { i32, i32, i32, [50 x i32], [50 x i32] }
+; CHECK-LABEL: LLVMType: %struct.test08 = type { i32, i32, i32, [50 x i32], [50 x i32] }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -140,9 +148,9 @@ define void @test09(%struct.test09.b* %dest, %struct.test09.b* %src) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 80, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test09.a = type { [20 x i32] }
+; CHECK-LABEL: LLVMType: %struct.test09.a = type { [20 x i32] }
 ; CHECK: Safety data: Nested structure
-; CHECK: LLVMType: %struct.test09.b = type { i32, i32, i32, %struct.test09.a }
+; CHECK-LABEL: LLVMType: %struct.test09.b = type { i32, i32, i32, %struct.test09.a }
 ; CHECK: Safety data: Memfunc partial write | Contains nested structure
 
 
@@ -161,9 +169,18 @@ define void @test10(%struct.test10.a* %dest, %struct.test10.b* %src) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 20, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test10.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test10.a = type { i32, i32, i32, i32, i32 }
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc manipulation | Nested structure
-; CHECK: LLVMType: %struct.test10.b = type { i32, i32, i32, %struct.test10.a }
+; CHECK-LABEL: LLVMType: %struct.test10.b = type { i32, i32, i32, %struct.test10.a }
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure
 
 
@@ -180,9 +197,18 @@ define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 20, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test11.a = type { i32, i32, i32, i32, i32 }
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc manipulation | Nested structure
-; CHECK: LLVMType: %struct.test11.b = type { i32, i32, i32, %struct.test11.a }
+; CHECK-LABEL: LLVMType: %struct.test11.b = type { i32, i32, i32, %struct.test11.a }
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure
 
 
@@ -199,9 +225,9 @@ define void @test12(%struct.test12.b* %dest, %struct.test12.b* %src) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test12.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test12.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
-; CHECK: LLVMType: %struct.test12.b = type { i32, i32, i32, %struct.test12.a* }
+; CHECK-LABEL: LLVMType: %struct.test12.b = type { i32, i32, i32, %struct.test12.a* }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -219,9 +245,9 @@ define void @test13(%struct.test13.b* %dest, %struct.test13.b* %src) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_ptr, i8* %src_ptr, i64 16, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test13.a = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test13.a = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
-; CHECK: LLVMType: %struct.test13.b = type { i32, i32, i32, %struct.test13.a*, i64 }
+; CHECK-LABEL: LLVMType: %struct.test13.b = type { i32, i32, i32, %struct.test13.a*, i64 }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -237,7 +263,7 @@ define void @test14(%struct.test14* %a, %struct.test14* %b) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 12, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test14 = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test14 = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: Memfunc partial write
 
 
@@ -253,9 +279,17 @@ define void @test15(%struct.test15.a* %a, %struct.test15.b* %b) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 12, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test15.a = type { i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test15.a = type { i32, i32, i32 }
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
 ; CHECK: Safety data: Bad memfunc manipulation
-; CHECK: LLVMType: %struct.test15.b = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test15.b = type { i32, i32, i32, i32, i32 }
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: No Value
+; CHECK: No Value
 ; CHECK: Safety data: Bad memfunc manipulation
 
 
@@ -270,7 +304,7 @@ define void @test16(%struct.test16* %a, %struct.test16* %b) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 0, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test16 = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test16 = type { i32, i32, i32, i32, i32 }
 ; CHECK: Safety data: No issues found
 
 
@@ -288,7 +322,12 @@ define void @test17(%struct.test17* %a, %struct.test17* %b) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %t0, i8* %t1, i64 8, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test17 = type { i32, i32, i32, i32, i32 }
+; CHECK-LABEL: LLVMType: %struct.test17 = type { i32, i32, i32, i32, i32 }
+; CHECK: No Value
+; CHECK: Multiple Value
+; CHECK: Multiple Value
+; CHECK: No Value
+; CHECK: No Value
 ; CHECK: Safety data: Bad memfunc manipulation
 
 ; This test checks using memcpy to with the same types, but with a different
@@ -323,7 +362,7 @@ define void @test19(%struct.test19* %str_in) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %str_data, i8*getelementptr inbounds ([8 x i8], [8 x i8]* @test19.str, i64 0, i64 0), i64 31, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test19 = type { i32, i32, i32, [8 x i8], i32 }
+; CHECK-LABEL: LLVMType: %struct.test19 = type { i32, i32, i32, [8 x i8], i32 }
 ; CHECK: Safety data: Global pointer | Unhandled use
 
 
@@ -340,19 +379,19 @@ define void @test20(%struct.test20* %str_in) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8*getelementptr inbounds ([9 x i8], [9 x i8]* @test20.str, i64 0, i64 0), i8* %str_data, i64 5, i1 false)
   ret void
 }
-; CHECK: LLVMType: %struct.test20 = type { i32, i32, i32, [9 x i8], i32 }
+; CHECK-LABEL: LLVMType: %struct.test20 = type { i32, i32, i32, [9 x i8], i32 }
 ; CHECK: Safety data: Global pointer | Unhandled use
 
 
 ; Array types get printed last so these checks aren't with their IR.
 
-; CHECK: LLVMType: [6 x i32]
+; CHECK-LABEL: LLVMType: [6 x i32]
 ; CHECK: Safety data: Unhandled use
 
-; CHECK: LLVMType: [8 x i8]
+; CHECK-LABEL: LLVMType: [8 x i8]
 ; CHECK: Safety data: Global pointer | Unhandled use
 
-; CHECK: LLVMType: [9 x i8]
+; CHECK-LABEL: LLVMType: [9 x i8]
 ; CHECK: Safety data: Global pointer | Unhandled use
 
 

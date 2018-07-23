@@ -3,7 +3,7 @@
 ; Test that identifies if the DTrans padded malloc optimization was applied. In order to apply
 ; padded malloc, the optimization must find a malloc function and a search loop.
 
-; RUN: opt < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 
@@ -63,4 +63,5 @@ define i32 @main() {
 ; CHECK: dtrans-paddedmalloc: Global variable: PaddedMallocCounter
 ; CHECK: dtrans-paddedmalloc: Interface function: PaddedMallocInterface
 ; CHECK: dtrans-paddedmalloc: Applying padded malloc
-; CHECK: Function update: mallocFunc
+; CHECK: Function updated: mallocFunc
+

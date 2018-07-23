@@ -1,4 +1,4 @@
-//===- Intel_VPlan.h - Represent A Vectorizer Plan ------------------------===//
+//===- IntelVPlan.h - Represent A Vectorizer Plan -------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -550,8 +550,16 @@ private:
 ///      or master VPInstruction attached. New VPInstructions also exist in the
 ///      LLVM-IR path.
 ///
-/// DESIGN PRINCIPLE: access to underlying IR is forbidden by default. Adding
-/// new friends to this class to have access to it must be very well justified.
+/// DESIGN PRINCIPLE: access to the underlying IR is forbidden by default. Only
+/// the front-end and back-end of VPlan should have access to the underlying IR
+/// and be aware of the VPInstruction sub-type (master/decomposed/new)
+/// instructions. Some well-delimited VPlan analyses, previous design review
+/// approval, may also need to have access to the underlying IR and
+/// VPInstruction sub-types to bring analysis information computed on the input
+/// IR to VPlan. The remaining VPlan algorithms should process all the
+/// VPInstructions ignoring their underlying IR and sub-type. For these
+/// reasons, adding new friends to this class must be very well justified.
+///
 /// DESIGN DECISION: for VPO, we decided to pay the memory and design cost of
 /// having LLVM-IR data (Inst) HIR data (MasterData) and their respective
 /// interfaces in the same class in favor of minimizing divergence with the
@@ -715,7 +723,7 @@ public:
   // proper Phi nodes. At this point, we can find semi-phis at any point of the
   // VPBasicBlock and even redundant semi-phis blending exactly the same
   // definitions.
-  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi };
+  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi, SMax, UMax };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
 #endif
@@ -1172,7 +1180,7 @@ private:
 
   /// The immediate VPRegionBlock which this VPBlockBase belongs to, or null if
   /// it is a topmost VPBlockBase.
-  class VPRegionBlock *Parent;
+  class VPRegionBlock *Parent = nullptr;
 
   /// List of predecessor blocks.
   SmallVector<VPBlockBase *, 2> Predecessors;
@@ -1180,13 +1188,11 @@ private:
   /// List of successor blocks.
   SmallVector<VPBlockBase *, 2> Successors;
 
-#if INTEL_CUSTOMIZATION
-  /// \brief Successor selector, null for zero or single successor blocks.
-  VPValue *CondBitVPVal;
-#endif
+  /// Successor selector, null for zero or single successor blocks.
+  VPValue *CondBit = nullptr;
 
   /// holds a predicate for a VPBlock.
-  VPPredicateRecipeBase *PredicateRecipe;
+  VPPredicateRecipeBase *PredicateRecipe = nullptr;
 
   /// \brief Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Successor) {
@@ -1215,14 +1221,8 @@ private:
   }
 
 protected:
-#if INTEL_CUSTOMIZATION
   VPBlockBase(const unsigned char SC, const std::string &N)
-      : VBID(SC), Name(N), Parent(nullptr), CondBitVPVal(nullptr),
-        PredicateRecipe(nullptr) {}
-#else
-  VPBlockBase(const unsigned char SC, const std::string &N)
-      : VBID(SC), Name(N), Parent(nullptr), PredicateRecipe(nullptr) {}
-#endif
+      : VBID(SC), Name(N) {}
 
 public:
   /// An enumeration for keeping track of the concrete subclass of VPBlockBase
@@ -1348,19 +1348,15 @@ public:
     return getAncestorWithPredecessors()->getSinglePredecessor();
   }
 
-  /// If a VPBlockBase has two successors, this is the Recipe that will generate
-  /// the condition bit selecting the successor, and feeding the terminating
-  /// conditional branch. Otherwise this is null.
+  /// \return the condition bit selecting the successor.
+  VPValue *getCondBit() { return CondBit; }
+
+  const VPValue *getCondBit() const { return CondBit; }
+
 #if INTEL_CUSTOMIZATION
-  VPValue *getCondBitVPVal() {
-    return CondBitVPVal;
-  }
-
-  const VPValue *getCondBitVPVal() const {
-    return CondBitVPVal;
-  }
-
-  void setCondBitVPVal(VPValue *V, VPlan *Plan);
+  void setCondBit(VPValue *CB, VPlan *Plan);
+#else
+  void setCondBit(VPValue *CB) { CondBit = CB; }
 #endif
 
   VPPredicateRecipeBase *getPredicateRecipe() const { return PredicateRecipe; }
@@ -2066,8 +2062,8 @@ protected:
   /// serves optimizations that operate on the VPlan.
   DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
 
-  /// Keep track of the VPBasicBlock users of a CondBitVPVal.
-  DenseMap<VPValue *, std::set<const VPBlockBase *>> CondBitVPValUsers;
+  /// Keep track of the VPBasicBlock users of a CondBit.
+  DenseMap<VPValue *, std::set<const VPBlockBase *>> CondBitUsers;
 #endif // INTEL_CUSTOMIZATION
 
   /// Holds the VFs applicable to this VPlan.
@@ -2153,17 +2149,16 @@ public:
     }
   }
 
-  std::set<const VPBlockBase *> &
-  getCondBitVPValUsers(VPValue *ConditionV) {
-    return CondBitVPValUsers[ConditionV];
+  std::set<const VPBlockBase *> &getCondBitUsers(VPValue *ConditionV) {
+    return CondBitUsers[ConditionV];
   }
 
-  void removeCondBitVPValUsers(VPValue *ConditionV) {
-    CondBitVPValUsers[ConditionV].clear();
+  void removeCondBitUsers(VPValue *ConditionV) {
+    CondBitUsers[ConditionV].clear();
   }
 
-  void setCondBitVPValUser(VPValue *ConditionV, const VPBlockBase *Block) {
-    CondBitVPValUsers[ConditionV].insert(Block);
+  void setCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
+    CondBitUsers[ConditionV].insert(Block);
   }
 
   void printInst2Recipe();
@@ -2411,23 +2406,17 @@ private:
   static unsigned NextOrdinal;
 
 protected:
-  VPlan *Plan;
-
   typedef iplist<VPRecipeBase> RecipeListTy;
-  RecipeListTy *getRecipes(VPBasicBlock *Block) { return &Block->Recipes; }
+  static RecipeListTy *getRecipes(VPBasicBlock *Block) {
+    return &Block->Recipes;
+  }
 
 public:
-  VPlanUtils(VPlan *Plan) : Plan(Plan) {}
-
-  ~VPlanUtils() {}
-
-#if INTEL_CUSTOMIZATION
-  VPlan *getVPlan() { return Plan; }
-#endif
+  VPlanUtils() = delete;
 
   /// Create a unique name for a new VPlan entity such as a VPBasicBlock or
   /// VPRegionBlock.
-  std::string createUniqueName(const char *Prefix) {
+  static std::string createUniqueName(const char *Prefix) {
     std::string S;
     raw_string_ostream RSO(S);
     RSO << Prefix << NextOrdinal++;
@@ -2435,27 +2424,28 @@ public:
   }
 
   /// Add a given \p Recipe as the last recipe of a given VPBasicBlock.
-  void appendRecipeToBasicBlock(VPRecipeBase *Recipe, VPBasicBlock *ToVPBB) {
+  static void appendRecipeToBasicBlock(VPRecipeBase *Recipe,
+                                       VPBasicBlock *ToVPBB) {
     assert(Recipe && "No recipe to append.");
     assert(!Recipe->Parent && "Recipe already in VPlan");
     ToVPBB->addRecipe(Recipe);
   }
 
   /// Create a new empty VPBasicBlock and return it.
-  VPBasicBlock *createBasicBlock() {
+  static VPBasicBlock *createBasicBlock() {
     VPBasicBlock *BasicBlock = new VPBasicBlock(createUniqueName("BB"));
     return BasicBlock;
   }
 
   /// Create a new VPBasicBlock with a single \p Recipe and return it.
-  VPBasicBlock *createBasicBlock(VPRecipeBase *Recipe) {
+  static VPBasicBlock *createBasicBlock(VPRecipeBase *Recipe) {
     VPBasicBlock *BasicBlock = new VPBasicBlock(createUniqueName("BB"));
     appendRecipeToBasicBlock(Recipe, BasicBlock);
     return BasicBlock;
   }
 
   /// Create a new, empty VPRegionBlock, with no blocks.
-  VPRegionBlock *createRegion(bool IsReplicator) {
+  static VPRegionBlock *createRegion(bool IsReplicator) {
 #if INTEL_CUSTOMIZATION
     VPRegionBlock *Region = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
                                               createUniqueName("region"));
@@ -2468,7 +2458,7 @@ public:
 
   /// Set the entry VPBlockBase of a given VPRegionBlock to a given \p Block.
   /// Block is to have no predecessors.
-  void setRegionEntry(VPRegionBlock *Region, VPBlockBase *Block) {
+  static void setRegionEntry(VPRegionBlock *Region, VPBlockBase *Block) {
     assert(Block->Predecessors.empty() &&
            "Entry block cannot have predecessors.");
     Region->Entry = Block;
@@ -2477,22 +2467,22 @@ public:
 
   /// Set the exit VPBlockBase of a given VPRegionBlock to a given \p Block.
   /// Block is to have no successors.
-  void setRegionExit(VPRegionBlock *Region, VPBlockBase *Block) {
+  static void setRegionExit(VPRegionBlock *Region, VPBlockBase *Block) {
     assert(Block->Successors.empty() && "Exit block cannot have successors.");
     Region->Exit = Block;
     Block->Parent = Region;
   }
 
-  void setReplicator(VPRegionBlock *Region, bool ToReplicate) {
+  static void setReplicator(VPRegionBlock *Region, bool ToReplicate) {
     Region->setReplicator(ToReplicate);
   }
 
 #if INTEL_CUSTOMIZATION
-  void setRegionSize(VPRegionBlock *Region, unsigned Size) {
+  static void setRegionSize(VPRegionBlock *Region, unsigned Size) {
     Region->Size = Size;
   }
 
-  void setRegionDivergent(VPRegionBlock *Region, bool IsDivergent) {
+  static void setRegionDivergent(VPRegionBlock *Region, bool IsDivergent) {
     Region->IsDivergent = IsDivergent;
   }
 #endif
@@ -2513,7 +2503,7 @@ public:
   /// Sets a given VPBlockBase \p Successor as the single successor of another
   /// VPBlockBase \p Block. The parent of \p Block is copied to be the parent of
   /// \p Successor.
-  void setSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
+  static void setSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
     assert(Block->getSuccessors().empty() && "Block successors already set.");
     Block->appendSuccessor(Successor);
     Successor->appendPredecessor(Block);
@@ -2523,8 +2513,8 @@ public:
   /// Sets two given VPBlockBases \p IfTrue and \p IfFalse to be the two
   /// successors of another VPBlockBase \p Block. The parent of
   /// \p Block is copied to be the parent of \p IfTrue and \p IfFalse.
-  void setTwoSuccessors(VPBlockBase *Block, VPBlockBase *IfTrue,
-                        VPBlockBase *IfFalse) {
+  static void setTwoSuccessors(VPBlockBase *Block, VPBlockBase *IfTrue,
+                               VPBlockBase *IfFalse) {
     assert(Block->getSuccessors().empty() && "Block successors already set.");
     Block->appendSuccessor(IfTrue);
     Block->appendSuccessor(IfFalse);
@@ -2536,20 +2526,21 @@ public:
 #endif
 
   /// Given two VPBlockBases \p From and \p To, disconnect them from each other.
-  void disconnectBlocks(VPBlockBase *From, VPBlockBase *To) {
+  static void disconnectBlocks(VPBlockBase *From, VPBlockBase *To) {
     From->removeSuccessor(To);
     To->removePredecessor(From);
   }
 
 #if INTEL_CUSTOMIZATION
   /// \brief Add \p Successor as the last successor to this block.
-  void appendBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
+  static void appendBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
     assert(Successor && "Cannot add nullptr successor!");
     Block->appendSuccessor(Successor);
   }
 
   /// \brief Add \p Predecessor as the last predecessor to this block.
-  void appendBlockPredecessor(VPBlockBase *Block, VPBlockBase *Predecessor) {
+  static void appendBlockPredecessor(VPBlockBase *Block,
+                                     VPBlockBase *Predecessor) {
     assert(Predecessor && "Cannot add nullptr successor!");
     Block->appendPredecessor(Predecessor);
   }
@@ -2558,20 +2549,20 @@ public:
   /// Set a given VPBlockBase \p Successor as the single successor of another
   /// VPBlockBase \p Block. Block's successor list must be empty. Block is not
   /// added as Successor's predecessor.
-  void setBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
+  static void setBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
     assert(Block->getSuccessors().empty() && "Block successors already set.");
     appendBlockSuccessor(Block, Successor);
   }
 
   /// connectBlocks should be used instead of this function when possible.
   /// Set two given VPBlockBases \p IfTrue and \p IfFalse to be the two
-  /// successors of another VPBlockBase \p Block. A given
-  /// VPCondBitVPVal provides the control selector. Block is not added
-  /// as IfTrue/IfFalse's predecessor.
-  void setBlockTwoSuccessors(VPBlockBase *Block, VPValue *ConditionV,
-                             VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
+  /// successors of another VPBlockBase \p Block. \p ConditionV is set as
+  /// successor selector. Block is not added as IfTrue/IfFalse's predecessor.
+  static void setBlockTwoSuccessors(VPBlockBase *Block, VPValue *ConditionV,
+                                    VPBlockBase *IfTrue, VPBlockBase *IfFalse,
+                                    VPlan *Plan) {
     assert(Block->getSuccessors().empty() && "Block successors already set.");
-    Block->setCondBitVPVal(ConditionV, Plan);
+    Block->setCondBit(ConditionV, Plan);
     appendBlockSuccessor(Block, IfTrue);
     appendBlockSuccessor(Block, IfFalse);
   }
@@ -2579,7 +2570,7 @@ public:
   /// Connect \p From and \p To VPBlockBases bi-directionally. To is set as
   /// successor of From. From is set as predecessor of To. From must have no
   /// successors.
-  void connectBlocks(VPBlockBase *From, VPBlockBase *To) {
+  static void connectBlocks(VPBlockBase *From, VPBlockBase *To) {
     setBlockSuccessor(From, To);
     appendBlockPredecessor(To, From);
   }
@@ -2587,16 +2578,17 @@ public:
   /// Connect \p From to \p IfTrue and \p IfFalse bi-directionally. IfTrue and
   /// IfFalse are set as successors of From. From is set as predecessor of
   /// IfTrue and IfFalse. From must have no successors.
-  void connectBlocks(VPBlockBase *From, VPValue *ConditionV,
-                     VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
-    setBlockTwoSuccessors(From, ConditionV, IfTrue, IfFalse);
+  static void connectBlocks(VPBlockBase *From, VPValue *ConditionV,
+                            VPBlockBase *IfTrue, VPBlockBase *IfFalse,
+                            VPlan *Plan) {
+    setBlockTwoSuccessors(From, ConditionV, IfTrue, IfFalse, Plan);
     appendBlockPredecessor(IfTrue, From);
     appendBlockPredecessor(IfFalse, From);
   }
 
   /// Insert NewBlock in the HCFG before BlockPtr and update parent region
   /// accordingly
-  void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+  static void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
     VPRegionBlock *ParentRegion = BlockPtr->getParent();
 
     movePredecessors(BlockPtr, NewBlock);
@@ -2612,11 +2604,12 @@ public:
   }
 
   /// Insert NewBlock in the HCFG after BlockPtr and update parent region
-  /// accordingly. If BlockPtr has more that two successors, its
-  /// CondBitVPVal is propagated to NewBlock.
-  void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+  /// accordingly. If BlockPtr has more that one successors, its CondBit is
+  /// propagated to NewBlock.
+  static void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr,
+                               VPlan *Plan) {
 
-    if (isa<VPBasicBlock>(BlockPtr) && isa<VPBasicBlock>(NewBlock)) {
+    if (BlockPtr->getNumSuccessors() > 1) {
       VPBasicBlock *ThisBB = cast<VPBasicBlock>(BlockPtr);
       VPBasicBlock *ToBB = cast<VPBasicBlock>(NewBlock);
       ThisBB->moveConditionalEOBTo(ToBB, Plan);
@@ -2636,30 +2629,34 @@ public:
   }
 
   /// \brief Set the parent of this block.
-  void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
+  static void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
     Block->Parent = Parent;
   }
 
-  /// \brief Set the CondBitVPVal of this block.
-  void setBlockCondBitVPVal(VPBlockBase *Block, VPValue *Condition) {
+  /// \brief Set the CondBit of this block.
+  static void setBlockCondBit(VPBlockBase *Block, VPValue *Condition,
+                              VPlan *Plan) {
     assert(Condition && "Don't allow NULL conditions.");
-    Block->setCondBitVPVal(Condition, Plan);
+    Block->setCondBit(Condition, Plan);
   }
 
   /// \brief Remove all the predecessor of this block.
-  void clearPredecessors(VPBlockBase *Block) { Block->Predecessors.clear(); }
+  static void clearPredecessors(VPBlockBase *Block) {
+    Block->Predecessors.clear();
+  }
 
   /// \brief Remove all the successors of this block and set to null its
   /// condition bit recipe.
-  void clearSuccessors(VPBlockBase *Block) {
+  static void clearSuccessors(VPBlockBase *Block) {
     Block->Successors.clear();
-    Block->CondBitVPVal = nullptr;
+    Block->CondBit = nullptr;
   }
 
   // Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
   // \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
-  void replaceBlockSuccessor(VPBlockBase *Block, VPBlockBase *OldSuccessor,
-                             VPBlockBase *NewSuccessor) {
+  static void replaceBlockSuccessor(VPBlockBase *Block,
+                                    VPBlockBase *OldSuccessor,
+                                    VPBlockBase *NewSuccessor) {
     // Replace successor
     // TODO: Add VPBlockBase::replaceSuccessor. Let's not modify VPlan.h too
     // much by now
@@ -2673,8 +2670,9 @@ public:
   // Replace \p OldPredecessor by \p NewPredecessor in Block's predecessor list.
   // \p NewPredecessor will be inserted in the same position as \p
   // OldPredecessor.
-  void replaceBlockPredecessor(VPBlockBase *Block, VPBlockBase *OldPredecessor,
-                               VPBlockBase *NewPredecessor) {
+  static void replaceBlockPredecessor(VPBlockBase *Block,
+                                      VPBlockBase *OldPredecessor,
+                                      VPBlockBase *NewPredecessor) {
     // Replace predecessor
     // TODO: Add VPBlockBase::replacePredecessor. Let's not modify VPlan.h too
     // much by now
@@ -2686,13 +2684,14 @@ public:
     Predecessors.insert(PredIt, NewPredecessor);
   }
 
-  void movePredecessor(VPBlockBase *Pred, VPBlockBase *From, VPBlockBase *To) {
+  static void movePredecessor(VPBlockBase *Pred, VPBlockBase *From,
+                              VPBlockBase *To) {
     replaceBlockSuccessor(Pred, From /*OldSuccessor*/, To /*NewSuccessor*/);
     To->appendPredecessor(Pred);
     From->removePredecessor(Pred);
   }
 
-  void movePredecessors(VPBlockBase *From, VPBlockBase *To) {
+  static void movePredecessors(VPBlockBase *From, VPBlockBase *To) {
     auto &Predecessors = From->getPredecessors();
 
     for (auto &Pred : Predecessors) {
@@ -2704,7 +2703,7 @@ public:
     Predecessors.clear();
   }
 
-  void moveSuccessors(VPBlockBase *From, VPBlockBase *To) {
+  static void moveSuccessors(VPBlockBase *From, VPBlockBase *To) {
     auto &Successors = From->getSuccessors();
 
     for (auto &Succ : Successors) {
@@ -2719,8 +2718,8 @@ public:
   /// Insert a Region in a HCFG using Entry and Exit blocks as Region's single
   /// entry and single exit. Entry and Exit blocks must be part of the HCFG and
   /// be in the same region. Region cannot be part of a HCFG.
-  void insertRegion(VPRegionBlock *Region, VPBlockBase *Entry,
-                    VPBlockBase *Exit, bool RecomputeSize = true) {
+  static void insertRegion(VPRegionBlock *Region, VPBlockBase *Entry,
+                           VPBlockBase *Exit, bool RecomputeSize = true) {
 
     assert(Entry->getNumSuccessors() != 0 && "Entry must be in a HCFG");
     assert(Entry->getNumPredecessors() != 0 && "Exit must be in a HCFG");
@@ -2757,31 +2756,31 @@ public:
   }
 
   /// \brief Add Incoming Predicate to BlockPredicate.
-  void appendIncomingToBlockPred(VPBlockPredicateRecipe *BlockPred,
-                                 VPPredicateRecipeBase *Incoming) {
+  static void appendIncomingToBlockPred(VPBlockPredicateRecipe *BlockPred,
+                                        VPPredicateRecipeBase *Incoming) {
     if (Incoming)
       BlockPred->appendIncomingPredicate(Incoming);
   }
 
   /// \brief Remove Incoming Predicate from BlockPredicate.
-  void removeIncomingFromBlockPred(VPBlockPredicateRecipe *BlockPred,
-                                   VPPredicateRecipeBase *Incoming) {
+  static void removeIncomingFromBlockPred(VPBlockPredicateRecipe *BlockPred,
+                                          VPPredicateRecipeBase *Incoming) {
     if (Incoming)
       BlockPred->removeIncomingPredicate(Incoming);
   }
 
   /// \brief Clear list of incoming predicates from BlockPredicate.
-  void clearIncomingsFromBlockPred(VPBlockPredicateRecipe *BlockPred) {
+  static void clearIncomingsFromBlockPred(VPBlockPredicateRecipe *BlockPred) {
     BlockPred->clearIncomingPredicates();
   }
 
   /// Creates a new recipe that represents generation of an i1 vector to be used
   /// as a mask.
-  VPMaskGenerationRecipe *createMaskGenerationRecipe(
-    const Value *Pred, const Value *Backedge);
+  static VPMaskGenerationRecipe *
+  createMaskGenerationRecipe(const Value *Pred, const Value *Backedge);
 
   /// Create a new VPIfTruePredicateRecipe.
-  VPIfTruePredicateRecipe *
+  static VPIfTruePredicateRecipe *
   createIfTruePredicateRecipe(VPValue *CV,
                               VPPredicateRecipeBase *PredecessorPredicate,
                               BasicBlock *From, BasicBlock *To) {
@@ -2792,7 +2791,7 @@ public:
   }
 
   /// Create a new VPIfFalsePredicateRecipe.
-  VPIfFalsePredicateRecipe *
+  static VPIfFalsePredicateRecipe *
   createIfFalsePredicateRecipe(VPValue *CV,
                                VPPredicateRecipeBase *PredecessorPredicate,
                                BasicBlock *From, BasicBlock *To) {
@@ -2802,7 +2801,7 @@ public:
     return newRecipe;
   }
 
-  VPEdgePredicateRecipe *
+  static VPEdgePredicateRecipe *
   createEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
                             BasicBlock *From, BasicBlock *To) {
     VPEdgePredicateRecipe *newRecipe =
@@ -2811,15 +2810,15 @@ public:
     return newRecipe;
   }
   /// Create a new VPBlockPredicateRecipe.
-  VPBlockPredicateRecipe *createBlockPredicateRecipe(void) {
+  static VPBlockPredicateRecipe *createBlockPredicateRecipe(void) {
     VPBlockPredicateRecipe *newRecipe = new VPBlockPredicateRecipe();
     newRecipe->setName(createUniqueName("BP"));
     return newRecipe;
   }
 
   /// Returns true if the edge FromBlock->ToBlock is a back-edge.
-  bool isBackEdge(const VPBlockBase *FromBlock, const VPBlockBase *ToBlock,
-                  const VPLoopInfo *VPLI) {
+  static bool isBackEdge(const VPBlockBase *FromBlock,
+                         const VPBlockBase *ToBlock, const VPLoopInfo *VPLI) {
     assert(FromBlock->getParent() == ToBlock->getParent() &&
            FromBlock->getParent() != nullptr && "Must be in same region");
     const VPLoop *FromLoop = VPLI->getLoopFor(FromBlock);
@@ -2832,7 +2831,7 @@ public:
   }
 
   /// Create a new and empty VPLoopRegion.
-  VPLoopRegion *createLoopRegion(VPLoop *VPL) {
+  static VPLoopRegion *createLoopRegion(VPLoop *VPL) {
     assert (VPL && "Expected a valid VPLoop.");
     VPLoopRegion *Loop = new VPLoopRegion(createUniqueName("loop"), VPL);
     setReplicator(Loop, false /*IsReplicator*/);
@@ -2840,7 +2839,7 @@ public:
   }
 
   /// Create a new and empty VPLoopRegionHIR.
-  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, loopopt::HLLoop *HLLp) {
+  static VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, loopopt::HLLoop *HLLp) {
     assert (VPL && HLLp && "Expected a valid VPLoop and HLLoop.");
     VPLoopRegion *Loop =
         new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);
@@ -2849,8 +2848,8 @@ public:
   }
 
   /// Returns true if Block is a loop latch
-  bool blockIsLoopLatch(const VPBlockBase *Block,
-                        const VPLoopInfo *VPLInfo) const {
+  static bool blockIsLoopLatch(const VPBlockBase *Block,
+                               const VPLoopInfo *VPLInfo) {
 
     if (const VPLoop *ParentVPL = VPLInfo->getLoopFor(Block)) {
       return ParentVPL->isLoopLatch(Block);
@@ -2859,9 +2858,10 @@ public:
     return false;
   }
 
-  VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
-                           VPDominatorTree &DomTree,
-                           VPPostDominatorTree &PostDomTree);
+  static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                                  VPDominatorTree &DomTree,
+                                  VPPostDominatorTree &PostDomTree,
+                                  VPlan *Plan);
 #endif // INTEL_CUSTOMIZATION
 
 };

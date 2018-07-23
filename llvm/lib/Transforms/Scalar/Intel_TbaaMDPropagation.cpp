@@ -65,6 +65,7 @@
 
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -81,35 +82,60 @@ namespace {
 struct TbaaMDPropagationImpl : public InstVisitor<TbaaMDPropagationImpl> {
 public:
   void visitInstruction(Instruction &I) { return; }
+  void visitLoad(LoadInst &LI);
+  void visitStore(StoreInst &SI);
   void visitIntrinsicInst(IntrinsicInst &II);
 
 private:
   friend class InstVisitor<TbaaMDPropagationImpl>;
 };
 
+/// \Returns combined !intel-tbaa metadata for a chain of GEPs starting at \p
+/// GEP.
+MDNode *getGepChainTBAA(const GetElementPtrInst *GEP) {
+  MDNode *GepMD = GEP->getMetadata(LLVMContext::MD_intel_tbaa);
+  if (!GepMD)
+    return nullptr;
+  const auto *BaseGEP = dyn_cast<GetElementPtrInst>(GEP->getPointerOperand());
+  if (!BaseGEP)
+    return GepMD;
+
+  return mergeIntelTBAA(getGepChainTBAA(BaseGEP), GepMD);
+}
+
 // The tbaa information is retrieved from the fakeload intrinsic
 // and attached to the pointer's dereference sites.
 void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
-  MDNode *P;
   if (II.getIntrinsicID() != Intrinsic::intel_fakeload)
     return;
+
+  MDNode *FakeloadTBAA = dyn_cast<MDNode>(
+      cast<MetadataAsValue>(II.getArgOperand(1))->getMetadata());
+
+  if (const auto *GEP = dyn_cast<GetElementPtrInst>(II.getArgOperand(0))) {
+    // Try to refine TBAA info of the GEP chain feeding our fakeload.
+    MDNode *MergedTBAA =
+        getMostSpecificTBAA(getGepChainTBAA(GEP), FakeloadTBAA);
+    if (MergedTBAA != FakeloadTBAA)
+      II.setArgOperand(1, MetadataAsValue::get(GEP->getContext(), MergedTBAA));
+  }
 
   // If the only user is a return instruction, we aren't at the right level
   // of inlining yet.
   if (II.hasOneUse() && isa<ReturnInst>(II.user_back()))
     return;
-  P = dyn_cast<MDNode>(
+  FakeloadTBAA = dyn_cast<MDNode>(
       cast<MetadataAsValue>(II.getArgOperand(1))->getMetadata());
   bool HasRetUser = false;
   for (auto *User : II.users()) {
     LoadInst *LI = dyn_cast<LoadInst>(User);
     if (LI && LI->getPointerOperand() == &II) {
-      LI->setMetadata(LLVMContext::MD_tbaa, P);
+      LI->setMetadata(LLVMContext::MD_tbaa, FakeloadTBAA);
       continue;
     }
     StoreInst *SI = dyn_cast<StoreInst>(User);
     if (SI && SI->getPointerOperand() == &II) {
-      SI->setMetadata(LLVMContext::MD_tbaa, P);
+      SI->setMetadata(LLVMContext::MD_tbaa, FakeloadTBAA);
       continue;
     }
     // If there is a return instruction user but it wasn't the only user we
@@ -124,6 +150,34 @@ void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
     II.replaceAllUsesWith(II.getArgOperand(0));
     II.eraseFromParent();
   }
+}
+
+// Helper function to unify processing of both Load/Store.
+/// Refine and propagate TBAA information from the \p MemInst's \p PointerOp
+/// pointer operand.
+void propagateIntelTBAAToMemInst(Instruction &MemInst, Value *PointerOp) {
+  const auto *GEP = dyn_cast<GetElementPtrInst>(PointerOp);
+  if (!GEP)
+    return;
+
+  MDNode *MemInstTBAA = MemInst.getMetadata(LLVMContext::MD_tbaa);
+
+  // MemInst's TU was compiled without TBAA support, can't legally propagate
+  // information from the GEP.
+  if (!MemInstTBAA)
+    return;
+
+  MDNode *MergedTBAA = getMostSpecificTBAA(getGepChainTBAA(GEP), MemInstTBAA);
+  if (MemInstTBAA != MergedTBAA)
+    MemInst.setMetadata(LLVMContext::MD_tbaa, MergedTBAA);
+}
+
+void TbaaMDPropagationImpl::visitLoad(LoadInst &LI) {
+  propagateIntelTBAAToMemInst(LI, LI.getPointerOperand());
+}
+
+void TbaaMDPropagationImpl::visitStore(StoreInst &SI) {
+  propagateIntelTBAAToMemInst(SI, SI.getPointerOperand());
 }
 
 bool runTbaaMDPropagation(Function &F) {

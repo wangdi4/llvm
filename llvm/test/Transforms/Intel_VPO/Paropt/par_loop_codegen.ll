@@ -72,7 +72,7 @@ target triple = "x86_64-unknown-linux-gnu"
 $__clang_call_terminate = comdat any
 
 ; CHECK-LABEL: @_Z23without_schedule_clausePfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z23without_schedule_clausePfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -111,7 +111,8 @@ entry:
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %c.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %d.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   %5 = load i32, i32* %.omp.lb, align 4, !tbaa !5
   store i32 %5, i32* %.omp.iv, align 4, !tbaa !5
@@ -203,7 +204,7 @@ declare void @llvm.intel.directive(metadata) #1
 declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
 
 ; CHECK-LABEL: @_Z18static_not_chunkedPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z18static_not_chunkedPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -237,7 +238,8 @@ entry:
   store i32 0, i32* %.omp.is_last, align 4, !tbaa !5
   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", i32 0)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %d.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %c.addr)
@@ -317,7 +319,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z18static_chunked_incPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z18static_chunked_incPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -353,7 +355,8 @@ entry:
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", i32 5)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.lb)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %d.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %b.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %c.addr)
@@ -431,7 +434,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z18static_chunked_decPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*, i64*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z18static_chunked_decPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -465,7 +468,8 @@ entry:
   store i32 0, i32* %.omp.is_last, align 4, !tbaa !5
   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", i32 0)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i64* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i64* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i64* %.omp.iv)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i64* %i)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i64* %.omp.lb)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %a.addr)
@@ -541,7 +545,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z23static_chunked_unsignedPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*, i64*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z23static_chunked_unsignedPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -581,7 +585,8 @@ entry:
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %b.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i64* %i)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %c.addr)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i64* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i64* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i64* %.omp.iv)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   %5 = load i64, i64* %.omp.lb, align 8, !tbaa !9
   store i64 %5, i64* %.omp.iv, align 8, !tbaa !9
@@ -651,7 +656,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z19static_chunked_charPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, i8*, float**, i32*, i32*, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, i8*, float**, i32*, i32*, i32)*
 ; Function Attrs: nounwind uwtable
 define void @_Z19static_chunked_charPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -722,7 +727,8 @@ omp.precond.then:                                 ; preds = %entry
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", i8* %.capture_expr.)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %c.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", i32* %x)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.lb)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   %12 = load i32, i32* %.omp.lb, align 4, !tbaa !5
@@ -826,7 +832,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 }
 
 ; CHECK-LABEL: @_Z33static_chunked_char_unsigned_charPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z33static_chunked_char_unsigned_charPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -866,7 +872,8 @@ entry:
   call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.COLLAPSE", i32 2)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", i32 0)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %d.addr)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %x)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i8* %i)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %a.addr)
@@ -962,7 +969,7 @@ entry:
 }
 
 ; CHECK-LABEL: @_Z12parallel_forPfi
-; CHECK:  bitcast (void (i32*, i32*, i64, float**, i32*, i32*)*
+; CHECK: bitcast (void (i32*, i32*, i64, float**, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z12parallel_forPfi(float* %a, i32 %n) #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
@@ -1003,7 +1010,8 @@ entry:
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", float* %vla)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", float** %a.addr)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i32* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i32* %.omp.lb)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   %8 = load i32, i32* %.omp.lb, align 4, !tbaa !5

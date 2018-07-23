@@ -21,7 +21,7 @@
 ;OPTREPORT: Global loop optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT-NEXT:     Remark #XXXXX: The memcpy idiom has been recognized
+;OPTREPORT-NEXT:     Remark: The memcpy idiom has been recognized
 ;OPTREPORT-NEXT: LOOP END
 
 ;Module Before HIR; ModuleID = 'memcpy.c'

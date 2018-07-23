@@ -1154,7 +1154,7 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(
 void HIRLoopConcatenation::createAllocaInitializationLoop() {
 
   // Create a new loop with trip count 8 and insert it before first read loop.
-  auto AllocaInitLp = AllocaReadLoops[0]->cloneEmptyLoop();
+  auto AllocaInitLp = AllocaReadLoops[0]->cloneEmpty();
   auto &HNU = AllocaInitLp->getHLNodeUtils();
   auto &DDRU = HNU.getDDRefUtils();
   auto &CEU = DDRU.getCanonExprUtils();
@@ -1341,7 +1341,7 @@ void HIRLoopConcatenation::addReductionToLoop(HLLoop *Lp, RegDDRef *TempRef,
 
 void HIRLoopConcatenation::createReductionLoop(
     SmallVector<HLLoop *, 4> &UnConcatenatedLoops) const {
-  auto RednLp = UnConcatenatedLoops[0]->cloneEmptyLoop();
+  auto RednLp = UnConcatenatedLoops[0]->cloneEmpty();
   RegDDRef *AllocaRef = nullptr;
 
   HLNodeUtils::insertBefore(UnConcatenatedLoops[0], RednLp);

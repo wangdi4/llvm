@@ -92,7 +92,7 @@ if(CMAKE_HOST_APPLE AND APPLE)
 
     foreach(lang ${languages})
       set(CMAKE_${lang}_CREATE_STATIC_LIBRARY
-        "${CMAKE_LIBTOOL} -static ${LIBTOOL_NO_WARNING_FLAG} -o <TARGET> \
+        "\"${CMAKE_LIBTOOL}\" -static ${LIBTOOL_NO_WARNING_FLAG} -o <TARGET> \
         <LINK_FLAGS> <OBJECTS> ")
     endforeach()
   endif()
@@ -211,6 +211,10 @@ option(LLVM_APPEND_VC_REV
 set(PACKAGE_NAME LLVM)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "https://bugs.llvm.org/")
+
+if (INTEL_CUSTOMIZATION)
+  set(PACKAGE_BUGREPORT "https://software.intel.com/en-us/support/priority-support")
+endif (INTEL_CUSTOMIZATION)
 
 set(BUG_REPORT_URL "${PACKAGE_BUGREPORT}" CACHE STRING
   "Default URL where bug reports are to be submitted.")
@@ -430,6 +434,9 @@ option(LLVM_USE_OPROFILE
 option(LLVM_EXTERNALIZE_DEBUGINFO
   "Generate dSYM files and strip executables and libraries (Darwin Only)" OFF)
 
+option(LLVM_CODESIGNING_IDENTITY
+  "Sign executables and dylibs with the given identity (Darwin Only)" OFF)
+
 # If enabled, verify we are on a platform that supports oprofile.
 if( LLVM_USE_OPROFILE )
   if( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
@@ -585,6 +592,9 @@ endif()
 set(LLVM_TARGET_TRIPLE_ENV CACHE STRING "The name of environment variable to override default target. Disabled by blank.")
 mark_as_advanced(LLVM_TARGET_TRIPLE_ENV)
 
+set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF CACHE BOOL
+  "Enable per-target runtimes directory")
+
 # All options referred to from HandleLLVMOptions have to be specified
 # BEFORE this include, otherwise options will not be correctly set on
 # first cmake run
@@ -648,8 +658,10 @@ if (LLVM_USE_OPROFILE)
   set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} OProfileJIT)
 endif (LLVM_USE_OPROFILE)
 
+# INTEL_COLLAB
 SET(INTEL_COLLAB ON)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_COLLAB=1")
+# end INTEL_COLLAB
 SET(INTEL_CUSTOMIZATION ON)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
@@ -1039,6 +1051,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
 
   if (NOT CMAKE_CONFIGURATION_TYPES)
     add_llvm_install_targets(install-llvm-headers
+                             DEPENDS llvm-headers
                              COMPONENT llvm-headers)
   endif()
 endif()

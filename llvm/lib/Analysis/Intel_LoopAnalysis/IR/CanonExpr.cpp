@@ -746,7 +746,7 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
   }
 
   // Cast constant value to the CE source type.
-  Type *SrcType = getSrcType();
+  Type *SrcType = getSrcType()->getScalarType();
   APInt APVal(SrcType->getPrimitiveSizeInBits(), Val);
   if (!ConstantInt::isValueValidForType(SrcType, (uint64_t)Val)) {
     // In HIR the IV is always non negative and may be safely represented as

@@ -174,6 +174,28 @@ private:
 };
 } // namespace
 
+// Collects loops in post (inner to outer) order.
+struct PostLoopCollector final : public HLNodeVisitorBase {
+  SmallVector<HLLoop *, 64> CandidateLoops;
+  HLNode *SkipNode = nullptr;
+
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+
+  void postVisit(HLLoop *Loop) {
+    if (Loop->isInnermost()) {
+      CandidateLoops.push_back(Loop);
+      SkipNode = Loop;
+    } else if (Loop->hasGeneralUnrollEnablingPragma()) {
+      CandidateLoops.push_back(Loop);
+    }
+  }
+
+  bool skipRecursion(HLNode *Node) {
+    return Node == SkipNode;
+  }
+};
+
 bool HIRGeneralUnroll::run() {
   // Skip if DisableHIRGeneralUnroll is enabled
   if (DisableHIRGeneralUnroll) {
@@ -192,11 +214,12 @@ bool HIRGeneralUnroll::run() {
   sanitizeOptions();
 
   // Gather the innermost loops as candidates.
-  SmallVector<HLLoop *, 64> CandidateLoops;
-  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+  PostLoopCollector PLC;
+
+  HIRF.getHLNodeUtils().visitAll(PLC);
 
   // Process General Unrolling
-  processGeneralUnroll(CandidateLoops);
+  processGeneralUnroll(PLC.CandidateLoops);
 
   return IsUnrollTriggered;
 }
@@ -290,12 +313,10 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   if (HasEnablingPragma) {
     // Pragma related sanity checks...
     UnrollFactor = HLoop->getUnrollPragmaCount();
+    assert(UnrollFactor != 1 && "pragma unroll count of 1 not expected!");
 
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
-    } else if (UnrollFactor == 1) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll as pragma count is set to 1!\n");
-      return 0;
     }
 
     if (IsConstTripLoop) {

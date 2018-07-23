@@ -84,6 +84,8 @@ namespace {
 
 /// Get the name of the enum value used to number the predicate function.
 std::string getEnumNameForPredicate(const TreePredicateFn &Predicate) {
+  if (Predicate.hasGISelPredicateCode())
+    return "GIPFP_MI_" + Predicate.getFnName();
   return "GIPFP_" + Predicate.getImmTypeIdentifier().str() + "_" +
          Predicate.getFnName();
 }
@@ -317,6 +319,9 @@ static Error isTrivialOperatorNode(const TreePatternNode *N) {
          Predicate.isAtomicOrderingWeakerThanAcquire() ||
          Predicate.isAtomicOrderingReleaseOrStronger() ||
          Predicate.isAtomicOrderingWeakerThanRelease()))
+      continue;
+
+    if (Predicate.hasGISelPredicateCode())
       continue;
 
     HasUnsupportedPredicate = true;
@@ -905,6 +910,7 @@ public:
 
   std::unique_ptr<PredicateMatcher> popFirstCondition() override;
   const PredicateMatcher &getFirstCondition() const override;
+  LLTCodeGen getFirstConditionAsRootType();
   bool hasFirstCondition() const override;
   unsigned getNumOperands() const;
   StringRef getOpcode() const;
@@ -1013,6 +1019,7 @@ public:
     IPM_AtomicOrderingMMO,
     IPM_MemoryLLTSize,
     IPM_MemoryVsLLTSize,
+    IPM_GenericPredicate,
     OPM_SameOperand,
     OPM_ComplexPattern,
     OPM_IntrinsicID,
@@ -1816,6 +1823,30 @@ public:
   }
 };
 
+/// Generates code to check an arbitrary C++ instruction predicate.
+class GenericInstructionPredicateMatcher : public InstructionPredicateMatcher {
+protected:
+  TreePredicateFn Predicate;
+
+public:
+  GenericInstructionPredicateMatcher(unsigned InsnVarID,
+                                     TreePredicateFn Predicate)
+      : InstructionPredicateMatcher(IPM_GenericPredicate, InsnVarID),
+        Predicate(Predicate) {}
+
+  static bool classof(const InstructionPredicateMatcher *P) {
+    return P->getKind() == IPM_GenericPredicate;
+  }
+  void emitPredicateOpcodes(MatchTable &Table,
+                            RuleMatcher &Rule) const override {
+    Table << MatchTable::Opcode("GIM_CheckCxxInsnPredicate")
+          << MatchTable::Comment("MI") << MatchTable::IntValue(InsnVarID)
+          << MatchTable::Comment("FnId")
+          << MatchTable::NamedValue(getEnumNameForPredicate(Predicate))
+          << MatchTable::LineBreak;
+  }
+};
+
 /// Generates code to check that a set of predicates and operands match for a
 /// particular instruction.
 ///
@@ -1975,6 +2006,16 @@ unsigned RuleMatcher::getNumOperands() const {
   return Matchers.front()->getNumOperands();
 }
 
+LLTCodeGen RuleMatcher::getFirstConditionAsRootType() {
+  InstructionMatcher &InsnMatcher = *Matchers.front();
+  if (!InsnMatcher.predicates_empty())
+    if (const auto *TM =
+            dyn_cast<LLTOperandMatcher>(&**InsnMatcher.predicates_begin()))
+      if (TM->getInsnVarID() == 0 && TM->getOpIdx() == 0)
+        return TM->getTy();
+  return {};
+}
+
 /// Generates code to check that the operand is a register defined by an
 /// instruction that matches the given instruction matcher.
 ///
@@ -2056,6 +2097,12 @@ void InstructionMatcher::optimize() {
     for (auto &OP : Operands[0]->predicates())
       OP.reset();
     Operands[0]->eraseNullPredicates();
+  }
+  for (auto &OM : Operands) {
+    for (auto &OP : OM->predicates())
+      if (isa<LLTOperandMatcher>(OP))
+        Stash.push_back(std::move(OP));
+    OM->eraseNullPredicates();
   }
   while (!Stash.empty())
     prependPredicate(Stash.pop_back_val());
@@ -2937,20 +2984,25 @@ private:
   void gatherOpcodeValues();
   void gatherTypeIDValues();
   void gatherNodeEquivs();
+  // Instruction predicate code that will be emitted in generated functions.
+  SmallVector<std::string, 2> InstructionPredicateCodes;
+  unsigned getOrCreateInstructionPredicateFnId(StringRef Code);
+
   Record *findNodeEquiv(Record *N) const;
   const CodeGenInstruction *getEquivNode(Record &Equiv,
                                          const TreePatternNode *N) const;
 
   Error importRulePredicates(RuleMatcher &M, ArrayRef<Predicate> Predicates);
-  Expected<InstructionMatcher &> createAndImportSelDAGMatcher(
-      RuleMatcher &Rule, InstructionMatcher &InsnMatcher,
-      const TreePatternNode *Src, unsigned &TempOpIdx) const;
+  Expected<InstructionMatcher &>
+  createAndImportSelDAGMatcher(RuleMatcher &Rule,
+                               InstructionMatcher &InsnMatcher,
+                               const TreePatternNode *Src, unsigned &TempOpIdx);
   Error importComplexPatternOperandMatcher(OperandMatcher &OM, Record *R,
                                            unsigned &TempOpIdx) const;
   Error importChildMatcher(RuleMatcher &Rule, InstructionMatcher &InsnMatcher,
                            const TreePatternNode *SrcChild,
                            bool OperandIsAPointer, unsigned OpIdx,
-                           unsigned &TempOpIdx) const;
+                           unsigned &TempOpIdx);
 
   Expected<BuildMIAction &>
   createAndImportInstructionRenderer(RuleMatcher &M,
@@ -2976,9 +3028,14 @@ private:
   importImplicitDefRenderers(BuildMIAction &DstMIBuilder,
                              const std::vector<Record *> &ImplicitDefs) const;
 
-  void emitImmPredicates(raw_ostream &OS, StringRef TypeIdentifier,
-                         StringRef Type,
-                         std::function<bool(const Record *R)> Filter);
+  void emitCxxPredicateFns(raw_ostream &OS, StringRef CodeFieldName,
+                           StringRef TypeIdentifier, StringRef ArgType,
+                           StringRef ArgName, StringRef AdditionalDeclarations,
+                           std::function<bool(const Record *R)> Filter);
+  void emitImmPredicateFns(raw_ostream &OS, StringRef TypeIdentifier,
+                           StringRef ArgType,
+                           std::function<bool(const Record *R)> Filter);
+  void emitMIPredicateFns(raw_ostream &OS);
 
   /// Analyze pattern \p P, returning a matcher for it if possible.
   /// Otherwise, return an Error explaining why we don't support it.
@@ -3027,6 +3084,20 @@ void GlobalISelEmitter::gatherOpcodeValues() {
 
 void GlobalISelEmitter::gatherTypeIDValues() {
   LLTOperandMatcher::initTypeIDValuesMap();
+}
+unsigned GlobalISelEmitter::getOrCreateInstructionPredicateFnId(StringRef Code) {
+  // There's not very many predicates that need to be here at the moment so we
+  // just maintain a simple set-like vector. If it grows then we'll need to do
+  // something more efficient.
+  const auto &I = std::find(InstructionPredicateCodes.begin(),
+                            InstructionPredicateCodes.end(),
+                            Code);
+  if (I == InstructionPredicateCodes.end()) {
+    unsigned ID = InstructionPredicateCodes.size();
+    InstructionPredicateCodes.push_back(Code);
+    return ID;
+  }
+  return std::distance(InstructionPredicateCodes.begin(), I);
 }
 
 void GlobalISelEmitter::gatherNodeEquivs() {
@@ -3089,7 +3160,7 @@ GlobalISelEmitter::importRulePredicates(RuleMatcher &M,
 
 Expected<InstructionMatcher &> GlobalISelEmitter::createAndImportSelDAGMatcher(
     RuleMatcher &Rule, InstructionMatcher &InsnMatcher,
-    const TreePatternNode *Src, unsigned &TempOpIdx) const {
+    const TreePatternNode *Src, unsigned &TempOpIdx) {
   Record *SrcGIEquivOrNull = nullptr;
   const CodeGenInstruction *SrcGIOrNull = nullptr;
 
@@ -3234,6 +3305,11 @@ Expected<InstructionMatcher &> GlobalISelEmitter::createAndImportSelDAGMatcher(
       }
     }
 
+    if (Predicate.hasGISelPredicateCode()) {
+      InsnMatcher.addPredicate<GenericInstructionPredicateMatcher>(Predicate);
+      continue;
+    }
+
     return failedImport("Src pattern child has predicate (" +
                         explainPredicates(Src) + ")");
   }
@@ -3312,7 +3388,7 @@ Error GlobalISelEmitter::importChildMatcher(RuleMatcher &Rule,
                                             const TreePatternNode *SrcChild,
                                             bool OperandIsAPointer,
                                             unsigned OpIdx,
-                                            unsigned &TempOpIdx) const {
+                                            unsigned &TempOpIdx) {
   OperandMatcher &OM =
       InsnMatcher.addOperand(OpIdx, SrcChild->getName(), TempOpIdx);
   if (OM.isSameAsAnotherOperand())
@@ -3974,14 +4050,15 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
 // Emit imm predicate table and an enum to reference them with.
 // The 'Predicate_' part of the name is redundant but eliminating it is more
 // trouble than it's worth.
-void GlobalISelEmitter::emitImmPredicates(
-    raw_ostream &OS, StringRef TypeIdentifier, StringRef Type,
+void GlobalISelEmitter::emitCxxPredicateFns(
+    raw_ostream &OS, StringRef CodeFieldName, StringRef TypeIdentifier,
+    StringRef ArgType, StringRef ArgName, StringRef AdditionalDeclarations,
     std::function<bool(const Record *R)> Filter) {
   std::vector<const Record *> MatchedRecords;
   const auto &Defs = RK.getAllDerivedDefinitions("PatFrag");
   std::copy_if(Defs.begin(), Defs.end(), std::back_inserter(MatchedRecords),
                [&](Record *Record) {
-                 return !Record->getValueAsString("ImmediateCode").empty() &&
+                 return !Record->getValueAsString(CodeFieldName).empty() &&
                         Filter(Record);
                });
 
@@ -3998,16 +4075,20 @@ void GlobalISelEmitter::emitImmPredicates(
     OS << "};\n";
   }
 
-  OS << "bool " << Target.getName() << "InstructionSelector::testImmPredicate_"
-     << TypeIdentifier << "(unsigned PredicateID, " << Type
-     << " Imm) const {\n";
+  OS << "bool " << Target.getName() << "InstructionSelector::test" << ArgName
+     << "Predicate_" << TypeIdentifier << "(unsigned PredicateID, " << ArgType << " "
+     << ArgName << ") const {\n"
+     << AdditionalDeclarations;
+  if (!AdditionalDeclarations.empty())
+    OS << "\n";
   if (!MatchedRecords.empty())
     OS << "  switch (PredicateID) {\n";
   for (const auto *Record : MatchedRecords) {
     OS << "  case GIPFP_" << TypeIdentifier << "_Predicate_"
        << Record->getName() << ": {\n"
-       << "    " << Record->getValueAsString("ImmediateCode") << "\n"
-       << "    llvm_unreachable(\"ImmediateCode should have returned\");\n"
+       << "    " << Record->getValueAsString(CodeFieldName) << "\n"
+       << "    llvm_unreachable(\"" << CodeFieldName
+       << " should have returned\");\n"
        << "    return false;\n"
        << "  }\n";
   }
@@ -4016,6 +4097,22 @@ void GlobalISelEmitter::emitImmPredicates(
   OS << "  llvm_unreachable(\"Unknown predicate\");\n"
      << "  return false;\n"
      << "}\n";
+}
+
+void GlobalISelEmitter::emitImmPredicateFns(
+    raw_ostream &OS, StringRef TypeIdentifier, StringRef ArgType,
+    std::function<bool(const Record *R)> Filter) {
+  return emitCxxPredicateFns(OS, "ImmediateCode", TypeIdentifier, ArgType,
+                             "Imm", "", Filter);
+}
+
+void GlobalISelEmitter::emitMIPredicateFns(raw_ostream &OS) {
+  return emitCxxPredicateFns(
+      OS, "GISelPredicateCode", "MI", "const MachineInstr &", "MI",
+      "  const MachineFunction &MF = *MI.getParent()->getParent();\n"
+      "  const MachineRegisterInfo &MRI = MF.getRegInfo();\n"
+      "  (void)MRI;",
+      [](const Record *R) { return true; });
 }
 
 template <class GroupT>
@@ -4113,7 +4210,30 @@ GlobalISelEmitter::buildMatchTable(MutableArrayRef<RuleMatcher> Rules,
 }
 
 void GroupMatcher::optimize() {
+  // Make sure we only sort by a specific predicate within a range of rules that
+  // all have that predicate checked against a specific value (not a wildcard):
+  auto F = Matchers.begin();
+  auto T = F;
+  auto E = Matchers.end();
+  while (T != E) {
+    while (T != E) {
+      auto *R = static_cast<RuleMatcher *>(*T);
+      if (!R->getFirstConditionAsRootType().get().isValid())
+        break;
+      ++T;
+    }
+    std::stable_sort(F, T, [](Matcher *A, Matcher *B) {
+      auto *L = static_cast<RuleMatcher *>(A);
+      auto *R = static_cast<RuleMatcher *>(B);
+      return L->getFirstConditionAsRootType() <
+             R->getFirstConditionAsRootType();
+    });
+    if (T != E)
+      F = ++T;
+  }
   GlobalISelEmitter::optimizeRules<GroupMatcher>(Matchers, MatcherStorage)
+      .swap(Matchers);
+  GlobalISelEmitter::optimizeRules<SwitchMatcher>(Matchers, MatcherStorage)
       .swap(Matchers);
 }
 
@@ -4221,6 +4341,8 @@ void GlobalISelEmitter::run(raw_ostream &OS) {
      << "  bool testImmPredicate_APFloat(unsigned PredicateID, const APFloat "
         "&Imm) const override;\n"
      << "  const int64_t *getMatchTable() const override;\n"
+     << "  bool testMIPredicate_MI(unsigned PredicateID, const MachineInstr &MI) "
+        "const override;\n"
      << "#endif // ifdef GET_GLOBALISEL_TEMPORARIES_DECL\n\n";
 
   OS << "#ifdef GET_GLOBALISEL_TEMPORARIES_INIT\n"
@@ -4334,18 +4456,19 @@ void GlobalISelEmitter::run(raw_ostream &OS) {
   OS << "};\n"
      << "// See constructor for table contents\n\n";
 
-  emitImmPredicates(OS, "I64", "int64_t", [](const Record *R) {
+  emitImmPredicateFns(OS, "I64", "int64_t", [](const Record *R) {
     bool Unset;
     return !R->getValueAsBitOrUnset("IsAPFloat", Unset) &&
            !R->getValueAsBit("IsAPInt");
   });
-  emitImmPredicates(OS, "APFloat", "const APFloat &", [](const Record *R) {
+  emitImmPredicateFns(OS, "APFloat", "const APFloat &", [](const Record *R) {
     bool Unset;
     return R->getValueAsBitOrUnset("IsAPFloat", Unset);
   });
-  emitImmPredicates(OS, "APInt", "const APInt &", [](const Record *R) {
+  emitImmPredicateFns(OS, "APInt", "const APInt &", [](const Record *R) {
     return R->getValueAsBit("IsAPInt");
   });
+  emitMIPredicateFns(OS);
   OS << "\n";
 
   OS << Target.getName() << "InstructionSelector::ComplexMatcherMemFn\n"
@@ -4452,17 +4575,14 @@ void RuleMatcher::optimize() {
   for (auto &Item : InsnVariableIDs) {
     InstructionMatcher &InsnMatcher = *Item.first;
     for (auto &OM : InsnMatcher.operands()) {
-      // Register Banks checks rarely fail, but often crash as targets usually
-      // provide only partially defined RegisterBankInfo::getRegBankFromRegClass
-      // method. Often the problem is hidden as non-optimized MatchTable checks
-      // banks rather late, most notably after checking target / function /
-      // module features and a few opcodes. That makes these checks a)
-      // beneficial to delay until the very end (we don't want to perform a lot
-      // of checks that all pass and then fail at the very end) b) not safe to
-      // have as early checks.
+      // Complex Patterns are usually expensive and they relatively rarely fail
+      // on their own: more often we end up throwing away all the work done by a
+      // matching part of a complex pattern because some other part of the
+      // enclosing pattern didn't match. All of this makes it beneficial to
+      // delay complex patterns until the very end of the rule matching,
+      // especially for targets having lots of complex patterns.
       for (auto &OP : OM->predicates())
-        if (isa<RegisterBankOperandMatcher>(OP) ||
-            isa<ComplexPatternOperandMatcher>(OP))
+        if (isa<ComplexPatternOperandMatcher>(OP))
           EpilogueMatchers.emplace_back(std::move(OP));
       OM->eraseNullPredicates();
     }
@@ -4568,10 +4688,20 @@ void GroupMatcher::finalize() {
     return;
 
   Matcher &FirstRule = **Matchers.begin();
+  for (;;) {
+    // All the checks are expected to succeed during the first iteration:
+    for (const auto &Rule : Matchers)
+      if (!Rule->hasFirstCondition())
+        return;
+    const auto &FirstCondition = FirstRule.getFirstCondition();
+    for (unsigned I = 1, E = Matchers.size(); I < E; ++I)
+      if (!Matchers[I]->getFirstCondition().isIdentical(FirstCondition))
+        return;
 
-  Conditions.push_back(FirstRule.popFirstCondition());
-  for (unsigned I = 1, E = Matchers.size(); I < E; ++I)
-    Matchers[I]->popFirstCondition();
+    Conditions.push_back(FirstRule.popFirstCondition());
+    for (unsigned I = 1, E = Matchers.size(); I < E; ++I)
+      Matchers[I]->popFirstCondition();
+  }
 }
 
 void GroupMatcher::emit(MatchTable &Table) {
@@ -4596,7 +4726,7 @@ void GroupMatcher::emit(MatchTable &Table) {
 }
 
 bool SwitchMatcher::isSupportedPredicateType(const PredicateMatcher &P) {
-  return isa<InstructionOpcodeMatcher>(P);
+  return isa<InstructionOpcodeMatcher>(P) || isa<LLTOperandMatcher>(P);
 }
 
 bool SwitchMatcher::candidateConditionMatches(
@@ -4670,6 +4800,13 @@ void SwitchMatcher::emitPredicateSpecificOpcodes(const PredicateMatcher &P,
   if (const auto *Condition = dyn_cast<InstructionOpcodeMatcher>(&P)) {
     Table << MatchTable::Opcode("GIM_SwitchOpcode") << MatchTable::Comment("MI")
           << MatchTable::IntValue(Condition->getInsnVarID());
+    return;
+  }
+  if (const auto *Condition = dyn_cast<LLTOperandMatcher>(&P)) {
+    Table << MatchTable::Opcode("GIM_SwitchType") << MatchTable::Comment("MI")
+          << MatchTable::IntValue(Condition->getInsnVarID())
+          << MatchTable::Comment("Op")
+          << MatchTable::IntValue(Condition->getOpIdx());
     return;
   }
 

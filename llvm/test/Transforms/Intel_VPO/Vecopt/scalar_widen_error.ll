@@ -12,7 +12,7 @@
 ; }
 ; 
 ; Check that loop is successfully vectorized
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR 2>&1 < %s | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR 2>&1 < %s | FileCheck %s
 ; CHECK: (<4 x i32>*)(@a1)[0][i1] =
 ; CHECK: (<4 x i32>*)(@d1)[0][i1] =
 

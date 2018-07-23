@@ -43,15 +43,23 @@ using namespace dtrans;
 static cl::opt<std::string>
     DTransAOSToSOAHeurOverride("dtrans-aostosoa-heur-override",
                                cl::ReallyHidden);
-
-// This is a temporary flag to allow testing of the selection/qualification of
-// candidates without the transformation code being available to completely
-// transform the IR contained within those tests. Once the transformation code
-// is complete, this flag will be removed.
-static cl::opt<bool>
-    DTransAOSToSOAQualificationOnly("dtrans-aostosoa-qualification-only",
-                                    cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Minimum frequency relative to hottest structure frequency required to
+// enable transformation of a qualified structure with the AOS-to-SOA transform.
+// This value is a percentage that the structure's frequency must meet relative
+// to the maximum structure frequency.
+//   i.e. 100 * struct_freq / max_struct_freq >= threshold
+static cl::opt<unsigned>
+    DTransAOSToSOAFrequencyThreshold("dtrans-aostosoa-frequency-threshold",
+                                     cl::init(20), cl::ReallyHidden);
+
+// When set, this option causes the peeling index size to be 32-bits, instead of
+// the number of bits required to hold a pointer type, if possible. The safety
+// checks of dependent structures may prevent the index from being 32-bits, if
+// it is determined that those structures cannot have their sizes changed.
+static cl::opt<bool> DTransAOSToSOAIndex32("dtrans-aostosoa-index32",
+                                           cl::init(false), cl::ReallyHidden);
 
 namespace {
 // This class is used during the type remapping process to perform the
@@ -88,15 +96,6 @@ private:
   ValueMapTypeRemapper &TypeRemapper;
 };
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Helper method for getting a name to print for structures in debug traces.
-StringRef getStructName(llvm::Type *Ty) {
-  auto *StructTy = dyn_cast<llvm::StructType>(Ty);
-  assert(StructTy && "Expected structure type");
-  return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
-}
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 // This class is responsible for all the transformation work for the AOS to SOA
 // with Indexing conversion.
 class AOSToSOATransformImpl : public DTransOptBase {
@@ -104,15 +103,21 @@ public:
   // Constructor that takes parameters needed for the base class, plus a list of
   // types that have been qualified for the transformation.
   AOSToSOATransformImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                        const DataLayout &DL, StringRef DepTypePrefix,
+                        const DataLayout &DL, const TargetLibraryInfo &TLI,
+                        StringRef DepTypePrefix,
                         DTransTypeRemapper *TypeRemapper,
                         AOSToSOAMaterializer *Materializer,
                         SmallVectorImpl<dtrans::StructInfo *> &Types)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper,
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper,
                       Materializer) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
 
-    PeelIndexWidth = DL.getPointerSizeInBits();
+    // TODO: Move the initialization of these until after dependent data
+    // structures are checked for safety.
+    PointerShrinkingEnabled = DTransAOSToSOAIndex32;
+    PeelIndexWidth = PointerShrinkingEnabled ? 32 : DL.getPointerSizeInBits();
+    assert(PeelIndexWidth >= 32 && "Peeling index must be 32-bits or larger");
+
     PeelIndexType = Type::getIntNTy(Context, PeelIndexWidth);
     PtrSizedIntType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
     Int8PtrType = llvm::Type::getInt8PtrTy(Context);
@@ -176,9 +181,14 @@ public:
 
   virtual void processFunction(Function &F) override {
     SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
+    SmallVector<GetElementPtrInst *, 16> ByteGEPsToConvert;
     SmallVector<BitCastInst *, 16> BCsToConvert;
+    SmallVector<BinaryOperator *, 16> BinOpsToConvert;
+
     SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 4> AllocsToConvert;
     SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 4> FreesToConvert;
+    SmallVector<std::pair<MemfuncCallInfo *, StructInfo *>, 4>
+        MemfuncsToConvert;
 
     for (auto It = inst_begin(&F), E = inst_end(F); It != E; ++It) {
       Instruction *I = &*It;
@@ -205,19 +215,20 @@ public:
                   std::make_pair(AInfo, cast<StructInfo>(TI)));
               break;
             }
-            case dtrans::CallInfo::CIK_Free: {
+            case dtrans::CallInfo::CIK_Free:
               FreesToConvert.push_back(std::make_pair(cast<FreeCallInfo>(CInfo),
                                                       cast<StructInfo>(TI)));
               break;
-            }
             case dtrans::CallInfo::CIK_Memfunc:
-              // TODO: Need to add support for converted memfunc
-              // calls.
+              MemfuncsToConvert.push_back(std::make_pair(
+                  cast<MemfuncCallInfo>(CInfo), cast<StructInfo>(TI)));
               break;
             }
           }
       } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
-        if (checkConversionNeeded(GEP))
+        if (checkByteGEPConversionNeeded(GEP))
+          ByteGEPsToConvert.push_back(GEP);
+        else if (checkConversionNeeded(GEP))
           GEPsToConvert.push_back(GEP);
       } else if (auto *PTI = dyn_cast<PtrToIntInst>(I)) {
         // A pointer may be cast to an integer type, and after the
@@ -235,9 +246,11 @@ public:
       } else if (auto *BC = dyn_cast<BitCastInst>(I)) {
         if (checkConversionNeeded(BC))
           BCsToConvert.push_back(BC);
+      } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
+        if (checkConversionNeeded(BinOp)) {
+          BinOpsToConvert.push_back(BinOp);
+        }
       }
-
-      // TODO: add support for sdiv for pointer arithmetic.
     }
 
     for (auto &Alloc : AllocsToConvert)
@@ -246,14 +259,29 @@ public:
     for (auto &Free : FreesToConvert)
       processFreeCall(Free.first, Free.second);
 
+    for (auto &MemCall : MemfuncsToConvert)
+      processMemfuncCall(MemCall.first, MemCall.second);
+
+    for (auto *GEP : ByteGEPsToConvert)
+      processByteFlattendGEP(GEP);
+
     for (auto *GEP : GEPsToConvert)
       processGEP(GEP);
 
+    for (auto *BinOp : BinOpsToConvert)
+      processBinOp(BinOp);
+
     // The bitcasts should be processed after the 'free' calls and
-    // byte-flattened GEPs, because those conversions are expecting instructions
-    // with the bitcasts as an input.
+    // byte-flattened GEPs, because those conversions are expecting
+    // instructions with the bitcasts as an input.
     for (auto *BC : BCsToConvert)
-      processBC(BC);
+      processBitcast(BC);
+
+    for (auto *I : InstructionsToDelete)
+      I->eraseFromParent();
+
+    PeelIndexCache.clear();
+    InstructionsToDelete.clear();
   }
 
   bool checkConversionNeeded(GetElementPtrInst *GEP) {
@@ -266,24 +294,58 @@ public:
     return isTypeToTransform(ElementTy);
   }
 
+  bool checkByteGEPConversionNeeded(GetElementPtrInst *GEP) {
+    if (GEP->getNumIndices() != 1)
+      return false;
+
+    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    if (!InfoPair.first)
+      return false;
+
+    return isTypeToTransform(InfoPair.first);
+  }
+
   bool checkConversionNeeded(PtrToIntInst *PTI) {
     Type *Ty = PTI->getOperand(0)->getType()->getPointerElementType();
     return isTypeToTransform(Ty);
   }
 
+  // Conversions to or from pointers to the struct type being converted need
+  // to be processed, because after rewriting the types, these would become
+  // a bitcast from or to an i64 type.
   bool checkConversionNeeded(BitCastInst *BC) {
-    // Conversions of struct.t* to i8* need to be processed, because
-    // after rewriting the types, these would become "bitcast i64 to i8*"
-    Type *Ty = BC->getOperand(0)->getType()->getPointerElementType();
+    if (!BC->getType()->isPointerTy())
+      return false;
+
+    if (isTypeToTransform(BC->getDestTy()->getPointerElementType())) {
+      // We only expect bitcasts to be with i8* due to the safety checks, assert
+      // this to be sure.
+      assert(BC->getSrcTy() == getInt8PtrType() &&
+             "Only cast from i8* expected for transformed type");
+      return true;
+    }
+
+    Type *Ty = BC->getSrcTy()->getPointerElementType();
     bool ShouldTransform = isTypeToTransform(Ty);
     if (!ShouldTransform)
       return false;
 
     // We only expect bitcasts to be to i8* due to the safety checks, assert
     // this to be sure.
-    assert(BC->getType() == getInt8PtrType() &&
+    assert(BC->getDestTy() == getInt8PtrType() &&
            "Only cast to i8* expected for transformed type");
     return true;
+  }
+
+  bool checkConversionNeeded(BinaryOperator *BinOp) {
+    if (BinOp->getOpcode() != Instruction::Sub)
+      return false;
+
+    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    if (!PtrSubTy)
+      return false;
+
+    return isTypeToTransform(PtrSubTy);
   }
 
   void processGEP(GetElementPtrInst *GEP) {
@@ -308,10 +370,17 @@ public:
     if (NumIndices == 1) {
       // This will convert the GEP of case 1 from:
       //    %arrayidx = getelementptr %struct.t, %struct.t* %base, i64 %idx_in
-      // To:
+      //
+      // When the peeling index is not being shrunk, creates:
       //    %peelIdxAsInt = ptrtoint %struct.t* %base to i64
       //    %add = add i64 %peelIdxAsInt, %idx_in
       //    %arrayidx = inttoptr i64 %add to %struct.t*
+      //
+      // When the peeling index is being shrunk to 32-bits, creates:
+      //    %peelIdxAsInt = ptrtoint %struct.t* %base to i32
+      //    %trunc_idx = trunc i64 %idx_in to i32
+      //    %add = add i32 %peelIdxAsInt, %trunc_idx
+      //    %arrayidx = inttoptr i32 %add to %struct.t*
       //
       // Note: We do not use a named variable in the IR for this, the names are
       // just shown here to make the following code transformation clearer.
@@ -324,40 +393,34 @@ public:
       // conversion instruction here allows for values into and out of affected
       // instructions to be replaced without violating the type matching.
       Value *Src = GEP->getPointerOperand();
-      CastInst *PeelIdxAsInt =
-          CastInst::CreateBitOrPointerCast(Src, getPeeledIndexType());
-      PeelIdxAsInt->insertBefore(GEP);
-      PtrConverts.push_back(PeelIdxAsInt);
+      Value *PeelIdxAsInt = createCastToPeelIndexType(Src, GEP);
 
       // Indexing into an array allows the GEP index value to be an integer of
       // any width, sign-extend the smaller of the GEP index and our peeling
       // index to make the types compatible for addition.
       Value *GEPBaseIdx = GEP->getOperand(1);
+      llvm::Type *PeelIdxTy = getPeeledIndexType();
       uint64_t PeelIdxWidth = getPeeledIndexWidth();
-      uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
-      if (BaseIdxWidth < PeelIdxWidth) {
-        CastInst *SE = CastInst::Create(CastInst::SExt, GEPBaseIdx,
-                                        PeelIdxAsInt->getType());
-        SE->insertBefore(GEP);
-        GEPBaseIdx = SE;
-      } else if (PeelIdxWidth < BaseIdxWidth) {
-        // We don't expect a GEP index parameter to ever be larger than a
-        // pointer, assert to be sure.
-        assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
-               "Unsupported GEP index type");
-        CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
-                                        GEPBaseIdx->getType());
-        SE->insertBefore(GEP);
-        PeelIdxAsInt = SE;
-      }
 
-      BinaryOperator *Add = BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx);
+      // We should never have a GEP index member that is larger than the size of
+      // a pointer. If we do, then the indexing calculations will not work.
+      assert(DL.getTypeSizeInBits(GEPBaseIdx->getType()) <=
+                 DL.getTypeSizeInBits(getPtrSizedIntType()) &&
+        "Unsupported GEP index type");
+
+      // Match the base value to the size of peeling index. In the case where
+      // the peeling index is being shrunk, this will result in truncating the
+      // value, however that should be ok because by using the option, the user
+      // is asserting the value must fit within 32-bits.
+      GEPBaseIdx =
+          promoteOrTruncValueToWidth(GEPBaseIdx, PeelIdxWidth, PeelIdxTy, GEP);
+
+      Value *Add = BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", GEP);
 
       // We will steal the name of the GEP and put it on this instruction
       // because even if the replacement is going to be done via a cast
       // statement, the cast is going to eventually be eliminated anyway.
       Add->takeName(GEP);
-      Add->insertBefore(GEP);
 
       // Cast the computed peeled index back to the original pointer type, and
       // substitute this into the users. When the type remapping occurs, the
@@ -373,20 +436,30 @@ public:
       PtrConverts.push_back(ArrayIdx);
 
       GEP->replaceAllUsesWith(ArrayIdx);
-      GEP->eraseFromParent();
+      InstructionsToDelete.insert(GEP);
     } else {
       // This will convert the GEP of case 2 from:
-      //    %elem_addr = getelementptr %struct.t, %struct.t* %base, i64 %idx_n,
-      //    i32 1
+      //    %elem_addr =
+      //         getelementptr %struct.t, %struct.t* %base, i64 %idx_n, i32 1
       //
-      // To:
-      //    %peel_base = getelementptr % __soa_struct.t,
-      //         %__soa_struct.tt* @__soa_struct.t, i64 0, i32 1
-      //    %soa_addr = load i32*, i32** %peel_base
+      // When the peeling index is not being shrunk, creates:
       //    %peelIdxAsInt = ptrtoint %struct.test01* %base to i64
+      //    %peel_base = getelementptr % __soa_struct.t,
+      //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+      //    %soa_addr = load i32*, i32** %peel_base
       //    %adjusted_idx = add i64 %peelIdxAsInt, %idx_n
       //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %adjusted_idx
       //
+      // When the peeling index is being shrunk to 32-bits, creates:
+      //    %peelIdxAsInt = ptrtoint %struct.test01* %base to i32
+      //    %peel_base = getelementptr % __soa_struct.t,
+      //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+      //    %soa_addr = load i32*, i32** %peel_base
+      //    %trunc_idx = trunc i64 %idx_n to i32
+      //    %adjusted_idx = add i32 %peelIdxAsInt, %trunc_idx
+      //    %zadjusted_idx = zext i32 %adjusted_idx to i64
+      //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %zadjusted_idx
+
       // In this case, the 2nd GEP index will always be the field number which
       // is a constant integer.
 
@@ -395,68 +468,18 @@ public:
       Value *PeelVar = PeeledTypeToVariable[PeelType];
       assert(PeelVar && "Peeling variable should have already been created");
 
-      Value *Idx[2];
-      Idx[0] = Constant::getNullValue(getPtrSizedIntType());
-      Value *FieldNum = GEP->getOperand(2);
-      Idx[1] = FieldNum;
-      GetElementPtrInst *PeelBase =
-          GetElementPtrInst::Create(PeelType, PeelVar, Idx);
-      PeelBase->insertBefore(GEP);
-      LoadInst *SOAAddr = new LoadInst(PeelBase);
-      SOAAddr->insertBefore(GEP);
-
-      Value *Src = GEP->getPointerOperand();
       CastInst *PeelIdxAsInt =
-          CastInst::CreateBitOrPointerCast(Src, getPeeledIndexType());
-      PeelIdxAsInt->insertBefore(GEP);
-      PtrConverts.push_back(PeelIdxAsInt);
+          createCastToPeelIndexType(GEP->getPointerOperand(), GEP);
+      Value *FieldNum = GEP->getOperand(2);
 
-      Value *GEPBaseIdx = GEP->getOperand(1);
-      uint64_t PeelIdxWidth = getPeeledIndexWidth();
-      uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
-
-      if (PeelIdxWidth < BaseIdxWidth) {
-        // We don't expect a GEP index parameter to ever be larger than a
-        // pointer, assert to be sure.
-        assert(BaseIdxWidth <= DL.getTypeSizeInBits(getPtrSizedIntType()) &&
-               "Unsupported GEP index type");
-        CastInst *SE = CastInst::Create(CastInst::SExt, PeelIdxAsInt,
-                                        GEPBaseIdx->getType());
-        SE->insertBefore(GEP);
-        PeelIdxAsInt = SE;
-      }
-
-      Value *AdjustedPeelIdxAsInt = PeelIdxAsInt;
-      // If first index is not constant 0, then we need to index by that amount
-      if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
-        if (BaseIdxWidth < PeelIdxWidth) {
-          CastInst *SE = CastInst::Create(CastInst::SExt, GEPBaseIdx,
-                                          PeelIdxAsInt->getType());
-          SE->insertBefore(GEP);
-          GEPBaseIdx = SE;
-        }
-
-        BinaryOperator *Add =
-            BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx);
-        Add->insertBefore(GEP);
-        AdjustedPeelIdxAsInt = Add;
-      }
-
-      // Identify the type in the new structure for the field being accessed.
-      unsigned FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
-      llvm::Type *PeelFieldTy = PeelType->getElementType(FieldIdx);
-
-      // We know all elements of the peeled structure are pointer types.
-      // Get the type that it points to.
-      Type *FieldElementTy = cast<PointerType>(PeelFieldTy)->getElementType();
-      GetElementPtrInst *FieldGEP = GetElementPtrInst::Create(
-          FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt);
-
+      // Create and insert the instructions that get the address of the field in
+      // the transformed structure.
+      Instruction *FieldGEP = createGEPFieldAddressReplacement(
+          PeelType, PeelVar, PeelIdxAsInt, GEP->getOperand(1), FieldNum, GEP);
       // We will steal the name of the GEP and put it on this instruction
       // because even if the replacement is going to be done via a cast
       // statement, the cast is going to eventually be eliminated anyway.
       FieldGEP->takeName(GEP);
-      FieldGEP->insertBefore(GEP);
 
       // If the field type is pointer to a structure that is being transformed,
       // generate a temporary cast to the original type so that the user
@@ -465,6 +488,10 @@ public:
       // removed during post-processing.
       Type *OrigFieldTy = GEP->getType();
       Value *ReplVal = FieldGEP;
+
+      // Identify the type in the new structure for the field being accessed.
+      unsigned FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
+      llvm::Type *PeelFieldTy = PeelType->getElementType(FieldIdx);
 
       if (PeelFieldTy != OrigFieldTy) {
         CastInst *CastToPtr =
@@ -475,8 +502,276 @@ public:
       }
 
       GEP->replaceAllUsesWith(ReplVal);
-      GEP->eraseFromParent();
+      InstructionsToDelete.insert(GEP);
     }
+  }
+
+  // Create an intermediate cast instruction to cast a pointer to a
+  // structure type being converted into the peeling index type. If
+  // \p InsertBefore is non-null the instruction will be inserted into the IR
+  // before it. This cast is added to the list of casts that are to be removed
+  // during post processing because it will end up being i64 to i64 after the
+  // type remapping.
+  CastInst *createCastToPeelIndexType(Value *V,
+                                      Instruction *InsertBefore = nullptr) {
+    CastInst *ToInt = CastInst::CreateBitOrPointerCast(V, getPeeledIndexType(),
+                                                       "", InsertBefore);
+    PtrConverts.push_back(ToInt);
+
+    return ToInt;
+  }
+
+  Value *promoteOrTruncValueToWidth(Value *V, uint64_t DstWidth,
+                                    llvm::Type *DstTy,
+                                    Instruction *InsertBefore) {
+    assert(DL.getTypeSizeInBits(DstTy) == DstWidth &&
+           "Target type size must match DstWdith");
+
+    uint64_t SrcWidth = DL.getTypeSizeInBits(V->getType());
+    if (SrcWidth < DstWidth)
+      return CastInst::Create(CastInst::SExt, V, DstTy, "", InsertBefore);
+    else if (DstWidth < SrcWidth)
+      return CastInst::Create(CastInst::Trunc, V, DstTy, "", InsertBefore);
+
+    return V;
+  }
+
+  // Create and insert the instruction sequence that gets the address of a
+  // specific element in the peeled structure.
+  // \p PeelType is the peeled structure type.
+  // \p PeelVar is the global variable for the peeled structure.
+  // \p FieldNumVal is a constant integer for the field number.
+  // \p GEPBaseIdx and \p GEPFieldNum are the two GEP indices.
+  // The set of instructions will be inserted immediately before \p
+  // InsertBefore.
+  // Returns the getelementptr instruction that represents the address.
+  //
+  // When the peeling index is not being shrunk, creates:
+  //    %peel_base = getelementptr % __soa_struct.t,
+  //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  //    %adjusted_idx = add i64 %peelIdxAsInt, %idx_n
+  //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %adjusted_idx
+  //
+  // When the peeling index is being shrunk to 32-bits, creates:
+  //    %peel_base = getelementptr % __soa_struct.t,
+  //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  //    %trunc_idx = trunc i64 %idx_n to i32
+  //    %adjusted_idx = add i32 %peelIdxAsInt, %trunc_idx
+  //    %zadjusted_idx = zext i32 %adjusted_idx to i64
+  //    %elem_addr = getelementptr i32, i32* %soa_addr, i64 %zadjusted_idx
+  Instruction *createGEPFieldAddressReplacement(
+      llvm::StructType *PeelType, Value *PeelVar, Value *PeelIdxAsInt,
+      Value *GEPBaseIdx, Value *GEPFieldNum, Instruction *InsertBefore) {
+
+    Instruction *SOAAddr =
+        createPeelFieldLoad(PeelType, PeelVar, GEPFieldNum, InsertBefore);
+    uint64_t PeelIdxWidth = getPeeledIndexWidth();
+
+    Value *AdjustedPeelIdxAsInt = PeelIdxAsInt;
+    // If first index is not constant 0, then we need to index by that amount
+    if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
+      GEPBaseIdx = promoteOrTruncValueToWidth(
+          GEPBaseIdx, PeelIdxWidth, PeelIdxAsInt->getType(), InsertBefore);
+      BinaryOperator *Add =
+          BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", InsertBefore);
+      AdjustedPeelIdxAsInt = Add;
+    }
+
+    // Identify the type in the new structure for the field being accessed.
+    unsigned FieldIdx = cast<ConstantInt>(GEPFieldNum)->getLimitedValue();
+    llvm::Type *PeelFieldTy = PeelType->getElementType(FieldIdx);
+
+    // We know all elements of the peeled structure are pointer types.
+    // Get the type that it points to.
+    Type *FieldElementTy = cast<PointerType>(PeelFieldTy)->getElementType();
+
+    // Extend the index back to a 64-bit value for use in the GEP instruction
+    // because the pointer-type size used as the base is a 64-bit type.
+    if (isPointerShrinkingEnabled())
+      AdjustedPeelIdxAsInt =
+          CastInst::Create(CastInst::ZExt, AdjustedPeelIdxAsInt,
+                           getPtrSizedIntType(), "", InsertBefore);
+
+    GetElementPtrInst *FieldGEP = GetElementPtrInst::Create(
+        FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt, "", InsertBefore);
+
+    return FieldGEP;
+  }
+
+  // Create a load of the array address for a specific field of the peeled
+  // structure.
+  // \p PeelType is the peeled structure type
+  // \p PeelVar is the global variable for the peeled structure
+  // \p FieldNumVal is a constant integer for the field number.
+  // Instructions are inserted before \p InsertBefore
+  //
+  // Generates:
+  //    %peel_base = getelementptr % __soa_struct.t, %__soa_struct.t*
+  //                     @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  Instruction *createPeelFieldLoad(llvm::Type *PeelType, Value *PeelVar,
+                                   Value *FieldNumVal,
+                                   Instruction *InsertBefore) {
+    GetElementPtrInst *PeelBase = GetElementPtrInst::Create(
+        PeelType, PeelVar,
+        {Constant::getNullValue(getPtrSizedIntType()), FieldNumVal}, "",
+        InsertBefore);
+    LoadInst *SOAAddr = new LoadInst(PeelBase);
+    SOAAddr->insertBefore(InsertBefore);
+    return SOAAddr;
+  }
+
+  // The analysis phase has resolved that the use of this subtract instruction
+  // is used to divide by the structure size or some multiple of it.
+  // Because the pointer to the structure has been converted to be an
+  // integer index, the result of the subtract is the distance between
+  // the pointers that the divide was going to compute when the divisor
+  // equaled the structure size. Update the divide instruction to replace the
+  // divisor.
+  void processBinOp(BinaryOperator *BinOp) {
+    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    uint64_t OrigSize = DL.getTypeAllocSize(PtrSubTy);
+    updatePtrSubDivUserSizeOperand(BinOp, OrigSize, 1);
+  }
+
+  // The byte-flattened GEP needs to be transformed from getting the address as:
+  //    %p8_B = getelementptr i8, i8* %p, i64 8
+  // (In this case field 1 is offset 8 bytes from the start of the structure)
+  //
+  // To:
+  //    %peelIdxAsInt = ptrtoint %struct.test01* %p to i64
+  //    %peel_base = getelementptr % __soa_struct.t,
+  //                        %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+  //    %soa_addr = load i32*, i32** %peel_base
+  //    %field_gep = getelementptr i32, i32* %soa_addr, i64 %peelIdxAsInt
+  //    %p8_B = bitcast i32* %elem_addr to i8*
+  void processByteFlattendGEP(GetElementPtrInst *GEP) {
+    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    auto *OrigStructTy = cast<llvm::StructType>(InfoPair.first);
+
+    // Trace the pointer operand to find the base value that is needed
+    // for indexing into the field's array.
+    Value *IndexAsInt =
+        getPeelIndexFromValue(GEP->getPointerOperand(), OrigStructTy,
+                              /*ForMemfunc=*/false);
+
+    StructType *PeelType = getTransformedType(OrigStructTy);
+    Value *PeelVar = PeeledTypeToVariable[PeelType];
+    Value *FieldNum =
+        ConstantInt::get(Type::getInt32Ty(GEP->getContext()), InfoPair.second);
+    Instruction *FieldGEP = createGEPFieldAddressReplacement(
+        PeelType, PeelVar, IndexAsInt,
+        ConstantInt::get(getPtrSizedIntType(), 0), FieldNum, GEP);
+
+    llvm::Type *PeelFieldTy = PeelType->getElementType(InfoPair.second);
+    if (PeelFieldTy != GEP->getType())
+      FieldGEP =
+          CastInst::CreateBitOrPointerCast(FieldGEP, GEP->getType(), "", GEP);
+
+    FieldGEP->takeName(GEP);
+    GEP->replaceAllUsesWith(FieldGEP);
+    InstructionsToDelete.insert(GEP);
+  }
+
+  // This is a helper function for identifying the peeling index to use
+  // for byte-flattened GEPs and for memfunc transformations. For memfunc
+  // transformations there is an additional pattern allowed which looks at
+  // GEPs that get the address of a field within the original structure when
+  // \p ForMemfunc is true.
+  Value *getPeelIndexFromValue(Value *Op, StructType *OrigStructTy,
+                               bool ForMemfunc) {
+    auto &V = PeelIndexCache[Op];
+
+    if (!V)
+      V = createPeelIndexFromValue(Op, OrigStructTy, ForMemfunc);
+
+    return V;
+  }
+
+  // This walks the definitions through bitcasts, selects and PHI nodes for
+  // \p Op to find the index value to use for peeling index.
+  Value *createPeelIndexFromValue(Value *Op, StructType *OrigStructTy,
+                                  bool ForMemfunc) {
+    // If \p Op is a bitcast from a pointer to the type being transformed to an
+    // i8*, then we can directly use the source operand of bitcast, since we
+    // know this is going to be turned into the peeling index type.
+    if (auto *BC = dyn_cast<BitCastInst>(Op)) {
+      if (BC->getOperand(0)->getType() == OrigStructTy->getPointerTo())
+        return createCastToPeelIndexType(BC->getOperand(0), BC);
+      else
+        return getPeelIndexFromValue(BC->getOperand(0), OrigStructTy,
+                                     ForMemfunc);
+    }
+
+    // For select and PHI nodes, create new instructions that will act on the
+    // peeling index type, instead of the pointer type.
+    if (auto *Sel = dyn_cast<SelectInst>(Op)) {
+      Value *NewTrue =
+          getPeelIndexFromValue(Sel->getTrueValue(), OrigStructTy, ForMemfunc);
+      Value *NewFalse =
+          getPeelIndexFromValue(Sel->getFalseValue(), OrigStructTy, ForMemfunc);
+      Instruction *NewSel =
+          SelectInst::Create(Sel->getCondition(), NewTrue, NewFalse, "", Sel);
+      return NewSel;
+    }
+
+    if (auto *PHI = dyn_cast<PHINode>(Op)) {
+      PHINode *NewPhi = PHINode::Create(getPeeledIndexType(), 0, "", PHI);
+
+      // Save the new PHI so that if another reference to is found while walking
+      // the definitions this one will be used.
+      PeelIndexCache[PHI] = NewPhi;
+
+      SmallVector<Value *, 4> NewPhiVals;
+      for (Value *Val : PHI->incoming_values())
+        NewPhiVals.push_back(
+            getPeelIndexFromValue(Val, OrigStructTy, ForMemfunc));
+
+      unsigned NumIncoming = PHI->getNumIncomingValues();
+      for (unsigned Num = 0; Num < NumIncoming; ++Num)
+        NewPhi->addIncoming(NewPhiVals[Num], PHI->getIncomingBlock(Num));
+
+      return NewPhi;
+    }
+
+    // When back tracing for the index used in a memfunc, we need to also
+    // consider the case where the address of the field is used to form
+    // the i8* pointer passed to the call.
+    // For example:
+    //    %p = getelementptr %struct.ty, %struct.ty* %S, i64 %n, i32 0
+    //
+    // If %p were passed to a memfunc, we cannot simply convert the pointer to
+    // an integer to get the peeling index. %S will be the peeling index, and we
+    // need to offset this by the value of %n to get &S.field0[n]. In this case,
+    // we return the expression (ptrtoint %S) + %n so that the conversion of the
+    // memfunc call will start with that index value in all the fields being
+    // touched. If %n equals 0, we can just return (ptrtoint %S)
+    if (ForMemfunc)
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(Op))
+        if (GEP->getSourceElementType() == OrigStructTy &&
+            GEP->getNumIndices() == 2) {
+          Instruction *PeelIdxAsInt =
+              createCastToPeelIndexType(GEP->getPointerOperand(), GEP);
+
+          Value *GEPBaseIdx = GEP->getOperand(1);
+          if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
+            uint64_t PeelIdxWidth = getPeeledIndexWidth();
+            uint64_t BaseIdxWidth = DL.getTypeSizeInBits(GEPBaseIdx->getType());
+            if (BaseIdxWidth < PeelIdxWidth)
+              GEPBaseIdx = CastInst::Create(CastInst::SExt, GEPBaseIdx,
+                                            PeelIdxAsInt->getType(), "", GEP);
+
+            PeelIdxAsInt =
+                BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", GEP);
+          }
+          return PeelIdxAsInt;
+        }
+
+    // We should not get here, but assert if we do in case there are additional
+    // cases that require a conversion of the pointer type to the peeling index.
+    llvm_unreachable("Not handled");
   }
 
   // Update the signature of the function's clone and any instructions that need
@@ -585,10 +880,12 @@ public:
     Value *NewAllocCountVal = nullptr;
 
     AllocKind Kind = AInfo->getAllocKind();
-    Value *OrigAllocSizeVal;
-    Value *OrigAllocCountVal;
-    getAllocSizeArgs(Kind, AllocCallInst, OrigAllocSizeVal, OrigAllocCountVal);
+    unsigned OrigAllocSizeInd = 0;
+    unsigned OrigAllocCountInd = 0;
+    getAllocSizeArgs(Kind, AllocCallInst, OrigAllocSizeInd, OrigAllocCountInd,
+                     TLI);
 
+    auto *OrigAllocSizeVal = AllocCallInst->getArgOperand(OrigAllocSizeInd);
     if (Kind == dtrans::AK_Malloc) {
       assert(OrigAllocSizeVal && "getAllocSizeArgs should return size value");
 
@@ -608,9 +905,10 @@ public:
       NewAllocCountVal =
           IRB.CreateAdd(NewAllocCountVal, ConstantInt::get(SizeType, 1));
       Value *NewAllocationSize = IRB.CreateMul(NewAllocCountVal, StructSizeVal);
-      AllocCallInst->setOperand(0, NewAllocationSize);
+      AllocCallInst->setOperand(OrigAllocSizeInd, NewAllocationSize);
     } else {
       assert(Kind == dtrans::AK_Calloc && "Expected calloc");
+      auto *OrigAllocCountVal = AllocCallInst->getArgOperand(OrigAllocCountInd);
       assert(OrigAllocSizeVal && OrigAllocCountVal &&
              "getAllocSizeArgs should return size and count value");
 
@@ -640,8 +938,8 @@ public:
       // size for the calloc parameters.
       NewAllocCountVal = IRB.CreateAdd(
           AllocCountVal, ConstantInt::get(AllocCountVal->getType(), 1));
-      AllocCallInst->setOperand(0, NewAllocCountVal);
-      AllocCallInst->setOperand(1, AllocSizeVal);
+      AllocCallInst->setOperand(OrigAllocCountInd, NewAllocCountVal);
+      AllocCallInst->setOperand(OrigAllocSizeInd, AllocSizeVal);
     }
 
     assert(NewAllocCountVal &&
@@ -706,7 +1004,7 @@ public:
           ConstantInt::get(getPeeledIndexType(), 1), BC->getType());
       IndexAsPtr->insertBefore(BC);
       BC->replaceAllUsesWith(IndexAsPtr);
-      BC->eraseFromParent();
+      InstructionsToDelete.insert(BC);
       PtrConverts.push_back(IndexAsPtr);
     }
 
@@ -731,8 +1029,6 @@ public:
     // Use the same type as the allocation parameter for the offset
     // calculations.
     Type *ArithType = NewAllocCountVal->getType();
-
-    unsigned AccumElemSize = 0;
     Value *AddrOffset = ConstantInt::get(ArithType, 0);
     Type *PrevArrayElemType = nullptr;
 
@@ -748,25 +1044,26 @@ public:
         // Compute the offset for the next array based on the size
         // of the previous element's array.
         unsigned PrevElemSize = DL.getTypeAllocSize(PrevArrayElemType);
-        AccumElemSize += PrevElemSize;
         Value *Mul = IRB.CreateMul(NewAllocCountVal,
                                    ConstantInt::get(ArithType, PrevElemSize));
-
         if (AddrOffset == ConstantInt::get(ArithType, 0))
           AddrOffset = Mul;
         else
           AddrOffset = IRB.CreateAdd(AddrOffset, Mul);
 
-        // Add padding, if needed.
+        // Update the offset value to account for any padding that may be
+        // needed, if this element has a stricter alignment requirement than the
+        // previous element.
+        uint64_t PrevFieldAlign = DL.getABITypeAlignment(PrevArrayElemType);
         uint64_t FieldAlign = DL.getABITypeAlignment(ArrayElemType);
-        uint64_t OldAccumElemSize = AccumElemSize;
-        if ((AccumElemSize & (FieldAlign - 1)) != 0)
-          AccumElemSize = alignTo(AccumElemSize, FieldAlign);
-
-        unsigned Padding = AccumElemSize - OldAccumElemSize;
-        if (Padding)
+        if (FieldAlign > PrevFieldAlign) {
+          Value *Numerator = IRB.CreateAdd(
+              AddrOffset, ConstantInt::get(ArithType, FieldAlign - 1));
+          Value *Div = IRB.CreateSDiv(Numerator,
+                                      ConstantInt::get(ArithType, FieldAlign));
           AddrOffset =
-              IRB.CreateAdd(AddrOffset, ConstantInt::get(ArithType, Padding));
+              IRB.CreateMul(Div, ConstantInt::get(ArithType, FieldAlign));
+        }
       }
 
       // Compute the address in the memory block where the array for this field
@@ -807,14 +1104,9 @@ public:
     StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
     StructType *PeelTy = getTransformedType(StructTy);
     Value *PeelVar = PeeledTypeToVariable[PeelTy];
-    Value *Idx[2];
-    Idx[0] = Constant::getNullValue(Type::getInt64Ty(Context));
-    Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), 0);
-    GetElementPtrInst *PeelBase =
-        GetElementPtrInst::Create(PeelTy, PeelVar, Idx);
-    PeelBase->insertBefore(FreeCall);
-    LoadInst *SOAAddr = new LoadInst(PeelBase);
-    SOAAddr->insertBefore(FreeCall);
+    Instruction *SOAAddr = createPeelFieldLoad(
+        PeelTy, PeelVar, ConstantInt::get(Type::getInt32Ty(Context), 0),
+        FreeCall);
 
     // The peeled structure only contains pointer types, and the value of the
     // first field is always the address that the allocation call returned. This
@@ -827,30 +1119,262 @@ public:
 
     LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Before modifying free call: "
                       << *FreeCall << "\n");
-    FreeCall->setOperand(0, SOAAddrAsI8Ptr);
+    unsigned PtrArgInd = -1U;
+    getFreePtrArg(CInfo->getFreeKind(), CallSite(FreeCall), PtrArgInd, TLI);
+    FreeCall->setOperand(PtrArgInd, SOAAddrAsI8Ptr);
     LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: After modifying free call: "
                       << *FreeCall << "\n");
   }
 
-  // For Bitcasts from pointers to the type being transformed, we
+  // The transformation of the memfunc call needs to replace the original
+  // call with a set of calls, one for each field being touched. This routine
+  // dispatches to the appropriate routine based on the type of call.
+  void processMemfuncCall(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
+    switch (CInfo->getMemfuncCallInfoKind()) {
+    case MemfuncCallInfo::MK_Memset:
+      processMemset(CInfo, StInfo);
+      break;
+    case MemfuncCallInfo::MK_Memcpy:
+    case MemfuncCallInfo::MK_Memmove:
+      // Because the supported cases only allow an exact match of the source
+      // and destination structure types for the pointer parameters, the only
+      // case where an overlap could occur is when the source and destination
+      // are the same address, which means we can use the same code for
+      // handling both memcpyy and memmove calls.
+      processMemCpyOrMemmove(CInfo, StInfo);
+      break;
+    }
+  }
+
+  // Conversion of the memset requires that each field of the structure be set
+  // individually because they are no longer adjacent to one another. This
+  // routine will replace the original call with a set of memset calls which
+  // operate on the arrays of each field that is being set.
+  void processMemset(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
+    // Compute the number of elements that are going to be set.
+    // Partial memfuncs can only operate on a single structure element, so
+    // we don't update the size multiple for those.
+    IntrinsicInst *I = cast<IntrinsicInst>(CInfo->getInstruction());
+    StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
+    llvm::Type *SizeType = I->getArgOperand(2)->getType();
+    Value *CountToSet = nullptr;
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      CountToSet = ConstantInt::get(SizeType, 1);
+    } else {
+      // Replace the size computation as if the size were effectively 1 to
+      // make the computation equal the number of elements being modified.
+      // Each memset created will multiply the size of the field by this
+      // new value to set the expected number of bytes in the array.
+      uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      CountToSet = I->getOperand(2);
+    }
+
+    // Find the peeling index value to use for indexing into the arrays.
+    Value *DestPeelIndex = getPeelIndexFromValue(I->getArgOperand(0), StructTy,
+                                                 /*ForMemfunc/*/ true);
+    assert(DestPeelIndex->getType() == getPeeledIndexType() &&
+           "DestPeelIndex expected to match peeling type");
+
+    StructType *PeelTy = getTransformedType(StructTy);
+    unsigned FromField = 0;
+    unsigned ToField = PeelTy->getNumElements();
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      FromField = CInfo->getFirstField(0);
+      ToField = CInfo->getLastField(0) + 1;
+    }
+
+    Value *PeelVar = PeeledTypeToVariable[PeelTy];
+    IRBuilder<> IRB(I);
+    llvm::Type *Int32Ty = Type::getIntNTy(I->getContext(), 32);
+
+    for (unsigned FieldNum = FromField; FieldNum < ToField; ++FieldNum) {
+      // Generate the load of the array address for the field, and then index
+      // into that by the peeling index.
+      Value *FieldNumVal = ConstantInt::get(Int32Ty, FieldNum);
+      Instruction *FieldGEP = createGEPFieldAddressReplacement(
+          PeelTy, PeelVar, DestPeelIndex,
+          ConstantInt::get(getPtrSizedIntType(), 0), FieldNumVal, I);
+
+      // Create the parameter to use for the pointer parameter of the memset
+      Value *PtrI8 = IRB.CreateBitCast(FieldGEP, getInt8PtrType());
+
+      // Compute the number of bytes to be written: CountToSet * sizeof(field)
+      llvm::Type *FieldType =
+          cast<llvm::PointerType>(PeelTy->getElementType(FieldNum))
+              ->getPointerElementType();
+      Value *BytesToSet = IRB.CreateMul(
+          CountToSet,
+          ConstantInt::get(SizeType, DL.getTypeStoreSize(FieldType)));
+
+      // Create a clone of the original call that will maintain all the
+      // original attributes, but on which we will modify the pointer and size
+      // parameters. We maintain the same value being written because the value
+      // being written is a byte, so will be the same for each field even if
+      // there is padding between fields. We do not currently preserve DTrans
+      // analysis info between transformation passes, and we did not add the
+      // peeling structure to the list of analysis data types, so we do not
+      // create new a CallInfo object for it. We only need the CallInfo when
+      // we start processing the function to identify which ones to update.
+      Instruction *CloneCall = I->clone();
+      CloneCall->setOperand(0, PtrI8);
+      CloneCall->setOperand(2, BytesToSet);
+      IRB.Insert(CloneCall);
+    }
+
+    // Inform the base class the call info for the original call is no longer
+    // valid. This is required because for cloned functions, the base class will
+    // update the CallInfo instruction pointer after the cloning is done.
+    deleteCallInfo(CInfo);
+    InstructionsToDelete.insert(I);
+  }
+
+  // Conversion of the memcpy/memmove requires that each field of the structure
+  // be processed individually because they are no longer adjacent to one
+  // another. This routine will replace the original call with memcpy/memmove
+  // calls that operate on the array for each field that is being processed.
+  void processMemCpyOrMemmove(MemfuncCallInfo *CInfo, StructInfo *StInfo) {
+    assert(CInfo->getIsCompleteAggregate(0) ==
+               CInfo->getIsCompleteAggregate(1) &&
+           "Expected source and destination to both be complete or both be "
+           "partial aggregates");
+    assert((CInfo->getIsCompleteAggregate(0) ||
+            (CInfo->getFirstField(0) == CInfo->getFirstField(0) &&
+             CInfo->getLastField(0) == CInfo->getLastField(1))) &&
+           "Expected source and destination to be same field range for partial "
+           "aggregates");
+
+    IntrinsicInst *I = cast<IntrinsicInst>(CInfo->getInstruction());
+    StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
+
+    // Compute the number of elements that are going to be set.
+    // Partial memfuncs can only operate on a single structure element, so
+    // we don't update the size multiple for those.
+    llvm::Type *SizeType = I->getArgOperand(2)->getType();
+    Value *CountToSet = nullptr;
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      CountToSet = ConstantInt::get(SizeType, 1);
+    } else {
+      // Replace the size computation as if the size were effectively 1 to
+      // make the computation equal the number of elements being modified.
+      // Each memcpy/memmove created will multiply the size of the field by this
+      // new value to set the expected number of bytes in the array.
+      uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      CountToSet = I->getOperand(2);
+    }
+
+    // Find the peeling index value to use for indexing into the arrays.
+    Value *DestPeelIndex = getPeelIndexFromValue(I->getArgOperand(0), StructTy,
+                                                 /*ForMemfunc/*/ true);
+    assert(DestPeelIndex->getType() == getPeeledIndexType() &&
+           "DestPeelIndex expected to match peeling type");
+
+    Value *SrcPeelIndex = getPeelIndexFromValue(I->getArgOperand(1), StructTy,
+                                                /*ForMemfunc/*/ true);
+    assert(SrcPeelIndex->getType() == getPeeledIndexType() &&
+           "SrcPeelIndex expected to match peeling type");
+
+    StructType *PeelTy = getTransformedType(StructTy);
+    unsigned FromField = 0;
+    unsigned ToField = PeelTy->getNumElements();
+    if (!CInfo->getIsCompleteAggregate(0)) {
+      FromField = CInfo->getFirstField(0);
+      ToField = CInfo->getLastField(0) + 1;
+    }
+
+    Value *PeelVar = PeeledTypeToVariable[PeelTy];
+    IRBuilder<> IRB(I);
+    llvm::Type *Int32Ty = Type::getIntNTy(I->getContext(), 32);
+
+    for (unsigned FieldNum = FromField; FieldNum < ToField; ++FieldNum) {
+      // Generate the load of the array address for the field, and then index
+      // into that by the peeling index. This only needs to be done once,
+      // since both the source and destination pointers will just be different
+      // offsets from that array because the only support cases are when the
+      // types are the same.
+
+      Value *FieldNumVal = ConstantInt::get(Int32Ty, FieldNum);
+      Instruction *FieldAddr =
+          createPeelFieldLoad(PeelTy, PeelVar, FieldNumVal, I);
+
+      // Offset the address from the start of the array to the index
+      Value *DestPtrAddr = IRB.CreateGEP(FieldAddr, DestPeelIndex);
+      Value *DestPtrI8 = IRB.CreateBitCast(DestPtrAddr, getInt8PtrType());
+
+      // The source element is from the same array as the destination
+      Value *SrcPtrAddr = IRB.CreateGEP(FieldAddr, SrcPeelIndex);
+      Value *SrcPtrI8 = IRB.CreateBitCast(SrcPtrAddr, getInt8PtrType());
+
+      llvm::Type *FieldType =
+          cast<llvm::PointerType>(PeelTy->getElementType(FieldNum))
+              ->getPointerElementType();
+      Value *BytesToSet = IRB.CreateMul(
+          CountToSet, ConstantInt::get(CountToSet->getType(),
+                                       DL.getTypeStoreSize(FieldType)));
+
+      // Create a clone of the original call that will maintain all the
+      // original attributes, but on which we can modify the pointer and size
+      // parameters. We do not currently preserve DTrans analysis info between
+      // transformation passes, and the new call is not  a form that the
+      // memfunc analysis would support, so we do not create new CallInfo
+      // objects.
+      Instruction *CloneCall = I->clone();
+      CloneCall->setOperand(0, DestPtrI8);
+      CloneCall->setOperand(1, SrcPtrI8);
+      CloneCall->setOperand(2, BytesToSet);
+      IRB.Insert(CloneCall);
+    }
+
+    // Inform the base class the call info for the original call is no longer
+    // valid. This is required because for cloned f, the base class will
+    // update the CallInfo after the cloning is done.
+    deleteCallInfo(CInfo);
+    InstructionsToDelete.insert(I);
+  }
+
+  // For bitcasts from pointers to the type being transformed, we
   // need to update them because the pointer is going to be converted
-  // to an integer type during type reampping.
-  void processBC(BitCastInst *BC) {
-    // Convert: %y = bitcast %struct.ty* %x to i8*
-    // To be  : %cast1 = ptrtoint %struct.ty* %x to i64
-    //          %y = inttoptr i64 %cast1 to i8*
+  // to an integer type during type remapping. We also need to do this
+  // if the cast is to the type being converted.
+  void processBitcast(BitCastInst *BC) {
+
+    // The bitcast may no longer be needed after processing the byte flattened
+    // GEPs.
+    if (BC->user_empty()) {
+      InstructionsToDelete.insert(BC);
+      return;
+    }
+
+    // Convert a bitcast from or to a pointer of the type being transformed:
+    //
+    // From: %y = bitcast %struct.ty* %x to i8*
+    // To  : %cast1 = ptrtoint %struct.ty* %x to i64
+    //        %y = inttoptr i64 %cast1 to i8*
+    //
+    // From: %y = bitcast i8* %x to %struct.ty*
+    // To  : %cast1 = ptrtoint i8* %x to i64
+    //       %y = inttoptr i64 %cast1 to struct.ty*
+    //
     // This will makes the types consistent. During post-processing
-    // the ptrtoint instruction will be removed, because it will be a
-    // conversion from i64 to i64 after the types are remapped.
-    CastInst *ToInt = CastInst::CreateBitOrPointerCast(BC->getOperand(0),
-                                                       getPeeledIndexType());
-    ToInt->insertBefore(BC);
-    PtrConverts.push_back(ToInt);
-    CastInst *ToPtr = CastInst::CreateBitOrPointerCast(ToInt, BC->getType());
-    ToPtr->insertBefore(BC);
-    ToPtr->takeName(BC);
+    // the one of the int-ptr conversions will just be a conversion
+    // from i64 to i64, and will be removed.
+    CastInst *ToInt = CastInst::CreateBitOrPointerCast(
+        BC->getOperand(0), getPeeledIndexType(), "", BC);
+    CastInst *ToPtr =
+        CastInst::CreateBitOrPointerCast(ToInt, BC->getType(), "", BC);
+
+    // Mark one of the casts for remove, and steal the name for the other
+    if (isTypeToTransform(BC->getType()->getPointerElementType())) {
+      PtrConverts.push_back(ToPtr);
+      ToInt->takeName(BC);
+    } else {
+      PtrConverts.push_back(ToInt);
+      ToPtr->takeName(BC);
+    }
+
     BC->replaceAllUsesWith(ToPtr);
-    BC->eraseFromParent();
+    InstructionsToDelete.insert(BC);
   }
 
 private:
@@ -860,6 +1384,8 @@ private:
   uint64_t getPeeledIndexWidth() const { return PeelIndexWidth; }
   llvm::Type *getPtrSizedIntType() const { return PtrSizedIntType; }
   llvm::Type *getInt8PtrType() const { return Int8PtrType; }
+
+  bool isPointerShrinkingEnabled() const { return PointerShrinkingEnabled; }
 
   bool isTypeToTransform(llvm::Type *Ty) {
     if (!Ty->isStructTy())
@@ -977,6 +1503,7 @@ private:
   // variables hold the integer width and type that will used for the index.
   uint64_t PeelIndexWidth;
   llvm::Type *PeelIndexType;
+  bool PointerShrinkingEnabled;
 
   // Integer type that has the same size as a pointer type. This may be
   // different than the peel index type.
@@ -998,6 +1525,18 @@ private:
   // and destination types, and are to be removed during function post
   // processing. This list is reset for each function processed.
   SmallVector<CastInst *, 16> PtrConverts;
+
+  // When processing byte-flattened GEPs and memfuncs some instructions may be
+  // processed to get the peeling index. This cache is used to get the
+  // processed values so they do not need to be recomputed for multiple
+  // instructions being processed. This is also necessary to avoid cycles when
+  // walking PHI nodes. This map needs be cleared after processing each
+  // function.
+  DenseMap<Value *, Value *> PeelIndexCache;
+
+  // List of instructions that are to be removed at the end of
+  // processFunction().
+  SmallPtrSet<Instruction *, 16> InstructionsToDelete;
 };
 
 class DTransAOSToSOAWrapper : public ModulePass {
@@ -1016,7 +1555,7 @@ public:
       return false;
     auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-
+    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
     // This lambda function is to allow getting the DominatorTree analysis for a
     // specific function to allow analysis of loops for the dynamic allocation
     // of the structure.
@@ -1025,7 +1564,7 @@ public:
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
 
-    return Impl.runImpl(M, DTInfo, TLI, GetDT);
+    return Impl.runImpl(M, DTInfo, TLI, WPInfo, GetDT);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -1033,6 +1572,7 @@ public:
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -1046,6 +1586,7 @@ INITIALIZE_PASS_BEGIN(DTransAOSToSOAWrapper, "dtrans-aostosoa",
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransAOSToSOAWrapper, "dtrans-aostosoa",
                     "DTrans array of structs to struct of arrays", false, false)
 
@@ -1058,30 +1599,32 @@ namespace dtrans {
 
 bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            const TargetLibraryInfo &TLI,
+                           WholeProgramInfo &WPInfo,
                            AOSToSOAPass::DominatorTreeFuncType &GetDT) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
+    return false;
+
   // Check whether there are any candidate structures that can be transformed.
   StructInfoVec CandidateTypes;
   gatherCandidateTypes(DTInfo, CandidateTypes);
+  if (CandidateTypes.empty())
+    return false;
+
   qualifyCandidates(CandidateTypes, M, DTInfo, GetDT);
 
   if (CandidateTypes.empty())
     return false;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Temporary code to allow testing of qualification criteria without having
-  // implemented transformation code. Currently, there is no profitability
-  // heuristic so only cases specified with the dtrans-aostosoa-heur-override
-  // option will reach this point.
-  if (DTransAOSToSOAQualificationOnly)
-    return false;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
   // Perform the actual transformation.
   DTransTypeRemapper TypeRemapper;
   AOSToSOAMaterializer Materializer(TypeRemapper);
   AOSToSOATransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
-                                    "__SOADT_", &TypeRemapper, &Materializer,
-                                    CandidateTypes);
+                                    TLI, "__SOADT_", &TypeRemapper,
+                                    &Materializer, CandidateTypes);
   return Transformer.run(M);
 }
 
@@ -1089,27 +1632,19 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 // that meet the minimum safety conditions to be considered for transformation.
 void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
                                         StructInfoVecImpl &CandidateTypes) {
-  const dtrans::SafetyData AOSToSOASafetyConditions =
-      dtrans::BadCasting | dtrans::BadAllocSizeArg |
-      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
-      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
-      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
-      dtrans::GlobalInstance | dtrans::HasInitializerList |
-      dtrans::UnsafePtrMerge | dtrans::BadMemFuncSize |
-      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
-      dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
-      dtrans::ContainsNestedStruct | dtrans::SystemObject |
-      dtrans::LocalInstance;
 
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
     if (!StInfo)
       continue;
 
-    if (TI->testSafetyData(AOSToSOASafetyConditions)) {
+    if (cast<StructType>(TI->getLLVMType())->isLiteral())
+      continue;
+
+    if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOA)) {
       LLVM_DEBUG(
           dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
-                 << getStructName(TI->getLLVMType()) << "\n");
+                 << dtrans::getStructName(TI->getLLVMType()) << "\n");
       continue;
     }
 
@@ -1136,7 +1671,7 @@ void AOSToSOAPass::qualifyCandidates(
   LLVM_DEBUG({
     for (auto *Candidate : CandidateTypes)
       dbgs() << "DTRANS-AOSTOSOA: Passed qualification tests: "
-             << getStructName(Candidate->getLLVMType()) << "\n";
+             << dtrans::getStructName(Candidate->getLLVMType()) << "\n";
   });
 }
 
@@ -1173,7 +1708,8 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
   for (auto *Candidate : CandidateTypes) {
     if (ArrayElemTypes.find(Candidate) != ArrayElemTypes.end()) {
       LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
-                        << getStructName(Candidate->getLLVMType()) << "\n");
+                        << dtrans::getStructName(Candidate->getLLVMType())
+                        << "\n");
       continue;
     }
 
@@ -1196,7 +1732,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
       LLVM_DEBUG(
           dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
                     "element type: "
-                 << getStructName(Candidate->getLLVMType()) << "\n");
+                 << dtrans::getStructName(Candidate->getLLVMType()) << "\n");
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -1232,7 +1768,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                  TypeToAllocInstr[StInfo] != nullptr))
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
                         "allocation function: "
-                     << getStructName(Ty) << "\n"
+                     << dtrans::getStructName(Ty) << "\n"
                      << "  " << *ACI->getInstruction() << "\n";
           });
 
@@ -1255,7 +1791,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
-                     << getStructName(Ty) << "\n";
+                     << dtrans::getStructName(Ty) << "\n";
           });
           TypeToAllocInstr[StInfo] = nullptr;
           continue;
@@ -1270,10 +1806,9 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
   // populate a set of instructions  by function that need to be checked to
   // verify the allocation is not within a loop. We group these by function so
   // that the LoopInfo for a function only needs to be calculated one time.
-  //
-  // Note: Currently this does not reject a type if there is no dynamic
-  // allocation of the  type. This may need to be revisited when implementing
-  // the transformation.
+  // This will reject any type that does not have a dynamic allocation because
+  // currently the only way for the pointers in the peeled structure to be
+  // initialized is by modifying the allocation site.
   StructInfoVec Qualified;
   DenseMap<Function *, DenseSet<std::pair<Instruction *, dtrans::StructInfo *>>>
       AllocPathMap;
@@ -1310,9 +1845,9 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       for (auto &FuncInstrPair : CallChain)
         AllocPathMap[FuncInstrPair.first].insert(
             std::make_pair(FuncInstrPair.second, TyInfo));
-    }
 
-    Qualified.push_back(TyInfo);
+      Qualified.push_back(TyInfo);
+    }
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -1446,8 +1981,8 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
   StructInfoVec Qualified;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Check for any command line structures that do not need to meet the
-  // profitability heuristics, and add them to the Qualified list.
+  // Check for any structures specified on the command line, and use these
+  // instead of the profitability heuristics.
   SmallVector<StringRef, 4> SubStrings;
   if (!DTransAOSToSOAHeurOverride.empty()) {
     SplitString(DTransAOSToSOAHeurOverride, SubStrings, ",");
@@ -1476,12 +2011,33 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
         Qualified.push_back(StInfo);
       }
     }
+
+    std::swap(CandidateTypes, Qualified);
+    return !CandidateTypes.empty();
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  // TODO: Add the type to the qualified list if it passes the heuristic
-  // check. For now, we reject everything not explicitly added above, by
-  // not placing them in the Qualified list.
+  // If we don't have good frequency info, then process all available
+  // structures, otherwise select the structures that reach some percentage of
+  // the max frequency.
+  uint64_t MaxFreq = DTInfo.getMaxTotalFrequency();
+  if (MaxFreq == 0 || MaxFreq == std::numeric_limits<uint64_t>::max())
+    return !CandidateTypes.empty();
+
+  for (auto *Candidate : CandidateTypes) {
+    uint64_t Freq = Candidate->getTotalFrequency();
+    uint64_t RelHotness = (uint64_t)((((float)Freq) / MaxFreq) * 100.0);
+    if (RelHotness < DTransAOSToSOAFrequencyThreshold) {
+      LLVM_DEBUG(
+          dbgs()
+          << "DTRANS-AOSTOSOA: Rejecting -- Does not meet hotness threshold: "
+          << getStructName(Candidate->getLLVMType()) << "\n  " << RelHotness
+          << " < " << DTransAOSToSOAFrequencyThreshold << "\n");
+      continue;
+    }
+
+    Qualified.push_back(Candidate);
+  }
 
   std::swap(CandidateTypes, Qualified);
   return !CandidateTypes.empty();
@@ -1491,11 +2047,12 @@ PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   DominatorTreeFuncType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
 
-  bool Changed = runImpl(M, DTransInfo, TLI, GetDT);
+  bool Changed = runImpl(M, DTransInfo, TLI, WPInfo, GetDT);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -1503,7 +2060,6 @@ PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
   return PA;
 }
 

@@ -106,7 +106,7 @@ omp.precond.then:                                 ; preds = %entry
   br label %DIR.OMP.LOOP.4
 
 DIR.OMP.LOOP.4:                                   ; preds = %omp.precond.then
-  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 666), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
+  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 666), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
   %8 = load i32, i32* %.omp.lb, align 4, !tbaa !17
   store volatile i32 %8, i32* %.omp.iv, align 4, !tbaa !17
   %9 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !17

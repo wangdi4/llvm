@@ -221,7 +221,8 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   (void)Ret;
   assert(Ret && "Temp blob was not replaced!");
 
-  auto LvalRef = UseRef->getHLDDNode()->getLvalDDRef();
+  auto *UseNode = UseRef->getHLDDNode();
+  auto *LvalRef = UseNode->getLvalDDRef();
 
   // Blob could have been propagated to the temp lval by parser. Replace
   // it there as well.
@@ -230,8 +231,9 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   }
 
   // Replace lval symbase by rval symbase as livein.
-  auto DefLoop = getLoop();
-  auto UseLoop = UseRef->getLexicalParentLoop();
+  auto *DefLoop = getLoop();
+  auto *UseLoop = isa<HLLoop>(UseNode) ? cast<HLLoop>(UseNode)
+                                       : UseRef->getLexicalParentLoop();
   unsigned RvalSymbase = getRvalSymbase();
   unsigned LvalSymbase = getSymbase();
 
@@ -432,8 +434,10 @@ void TempSubstituter::visit(HLDDNode *Node) {
         } else {
           HLLoop *ParentLoop;
 
-          if ((ParentLoop = Node->getLexicalParentLoop()) &&
-              !Node->getHLNodeUtils().contains(ParentLoop, Temp.getDefInst())) {
+          if (isa<HLLoop>(Node) ||
+              ((ParentLoop = Node->getLexicalParentLoop()) &&
+               !Node->getHLNodeUtils().contains(ParentLoop,
+                                                Temp.getDefInst()))) {
             // Inner loop uses are handled when either the temp is marked as
             // non-substitutable or after traversing the region.
             Temp.addInnerLoopUse(Ref);
@@ -564,6 +568,20 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
 
   if (HInst->getRvalDDRef()->isVolatile()) {
     return false;
+  }
+
+  if (auto *ParLoop = HInst->getParentLoop()) {
+    // Bail out on loops with distribute point as we do not track whether we are
+    // crossing a distribute point due to substitution. For example-
+    //
+    // t1 = A[i];
+    // t2 = C[i];  <distribute_point>
+    //
+    // B[i] = t1;  << Cannot substitute here.
+    //             << We need to perform scalar expansion for t1.
+    if (ParLoop->hasDistributePoint()) {
+      return false;
+    }
   }
 
   return true;

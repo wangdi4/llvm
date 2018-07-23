@@ -35,7 +35,8 @@ entry:
   call void @llvm.intel.directive(metadata !"DIR.OMP.TASKLOOP")
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i64* %.omp.lb)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.FIRSTPRIVATE", i64* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i64* %.omp.ub)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   %5 = load i64, i64* %.omp.lb, align 8, !tbaa !1
   %conv = trunc i64 %5 to i32

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===--------- WRegionNode.h - W-Region Graph Node --------------*- C++ -*-===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -9,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//   This file defines the W-Region Graph node.
+/// \file
+/// This file defines the W-Region Graph node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -103,17 +105,19 @@ private:
   /// Children container
   WRContainerTy Children;
 
-  /// True if the WRN came from HIR; false otherwise
-  bool IsFromHIR;
-
   /// Counter used for assigning unique numbers to WRegionNodes.
   static unsigned UniqueNum;
 
   /// \brief Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
 
+#if INTEL_CUSTOMIZATION
+  /// True if the WRN came from HIR; false otherwise
+  bool IsFromHIR;
+
   /// \brief Sets the flag to indicate if WRN came from HIR
   void setIsFromHIR(bool flag) { IsFromHIR = flag; }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Destroys all objects of this class. Should only be
   /// called after code gen.
@@ -123,7 +127,9 @@ protected:
 
   /// \brief constructors
   WRegionNode(unsigned SCID, BasicBlock *BB); // for LLVM IR
+#if INTEL_CUSTOMIZATION
   WRegionNode(unsigned SCID);                 // for HIR only
+#endif // INTEL_CUSTOMIZATION
   WRegionNode(WRegionNode *W);                // for both
 
   // copy constructor not needed (at least for now)
@@ -160,7 +166,7 @@ protected:
   /// \brief Common code to parse a clause, used for both representations:
   /// llvm.intel.directive.qual* and directive.region.entry/exit.
   void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args,
-                   unsigned NumArgs);
+                   unsigned NumArgs, LLVMContext &C);
 
   /// \brief Update WRN for clauses with no operands.
   void handleQual(int ClauseID);
@@ -174,9 +180,7 @@ protected:
 
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
-  /// If \p RegionExit is \b true, process the 'region.exit' intrinsic,
-  /// otherwise process 'region.entry'.
-  void getClausesFromOperandBundles(bool RegionExit = false);
+  void getClausesFromOperandBundles();
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -233,6 +237,8 @@ public:
   virtual ReductionClause &getRed()          {WRNERROR("REDUCTION");          }
   virtual ScheduleClause &getSchedule()      {WRNERROR("SCHEDULE");           }
        // ScheduleClause is not list-type, but has similar API so put here too
+  virtual ScheduleClause &getDistSchedule()   {WRNERROR("DIST_SCHEDULE");     }
+
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual UseDevicePtrClause &getUseDevicePtr()
@@ -268,6 +274,8 @@ public:
                                            {WRNERROR("REDUCTION");          }
   virtual const ScheduleClause &getSchedule() const
                                            {WRNERROR("SCHEDULE");           }
+  virtual const ScheduleClause &getDistSchedule() const
+                                           {WRNERROR("DIST_SCHEDULE");      }
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
   virtual const UniformClause &getUniform() const
@@ -326,6 +334,13 @@ public:
   virtual void addCancellationPoint(Instruction *V) {
     WRNERROR("CANCELLATION_POINTS");
   }
+  virtual const SmallVectorImpl<AllocaInst *> &
+  getCancellationPointAllocas() const {
+    WRNERROR("CANCELLATION_POINT_ALLOCAS");
+  }
+  virtual void addCancellationPointAlloca(AllocaInst *V) {
+    WRNERROR("CANCELLATION_POINT_ALLOCAS");
+  }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
@@ -372,8 +387,10 @@ public:
   /// \brief Returns the nesting level of this WRegionNode.
   unsigned getLevel() const { return Level; }
 
+#if INTEL_CUSTOMIZATION
   /// \brief Returns the flag that indicates if WRN came from HIR
   bool getIsFromHIR() const { return IsFromHIR; }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Dumps WRegionNode.
   void dump(unsigned Verbosity=0) const;
@@ -407,11 +424,13 @@ public:
   void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity=1) const;
 
+#if INTEL_CUSTOMIZATION
   /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
   /// This is virtual here; the derived WRNs supporting HIR have to provide the
   /// actual routine. Currently only WRNVecLoopNode uses HIR.
   virtual void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity=1) const {}
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief If IsOmpLoop==true, prints loop preheader, header, and latch BBs
   void printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
@@ -607,57 +626,71 @@ public:
 
 // Printing routines to help dump WRN content
 
-/// \brief Auxiliary function to print a BB in a WRN dump
+/// Auxiliary function to print a BB in a WRN dump.
+///
 /// If BB is null:
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: NULL BBlock"
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: NULL BBlock"
+///
 /// If BB is not null:
-///   Verbosity <= 1: : print BB->getName()
-///   Verbosity >= 2: : print *BB (dumps the Bblock content)
+///  * Verbosity <= 1: : print BB->getName()
+///  * Verbosity >= 2: : print *BB (dumps the Bblock content)
 extern void printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
                     int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print a Value in a WRN dump
+/// Auxiliary function to print a Value in a WRN dump.
+///
 /// If Val is null:
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: NULL Value"
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: NULL Value"
+///
 /// If Val is not null:
-///   print *Val regardless of Verbosity
+///  * print *Val regardless of Verbosity
 extern void printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print an ArrayRef of Values in a WRN dump.
+/// Auxiliary function to print an ArrayRef of Values in a WRN dump.
+///
 /// If an element Val in Vals is undef/null:
-///   Verbosity == 0: don't printing anything
-///   Verbosity >= 1: print "UNSPECIFIED"
+///  * Verbosity == 0: don't printing anything
+///  * Verbosity >= 1: print "UNSPECIFIED"
+///
 /// If the element Val is not undef/null:
-///   print it irrespective of verbosity
+///  * print it irrespective of verbosity
 extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
                          formatted_raw_ostream &OS, int Indent,
                          unsigned Verbosity = 1);
 
-/// \brief Auxiliary function to print an Int in a WRN dump
+/// Auxiliary function to print an Int in a WRN dump.
+///
 /// If Num is 0:
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: UNSPECIFIED"
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: UNSPECIFIED"
+///
 /// If Num is not 0:
-///   print "Title: <Num>"
+///  * print "Title: <Num>"
 extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print a boolean in a WRN dump
-/// If Verbosity == 0, don't print anything if Flag is false;
-/// otherwise, print "Title: true/false"
+/// Auxiliary function to print a boolean in a WRN dump.
+///
+/// If \p Verbosity == 0 and \p Flag is `false`:
+/// * don't print anything
+///
+/// otherwise:
+/// * print "Title: true/false"
 extern void printBool(StringRef Title, bool Flag, formatted_raw_ostream &OS,
                       int Indent, unsigned Verbosity=1);
 
-/// \brief Auxiliary function to print a String for dumping certain clauses.
+/// Auxiliary function to print a String for dumping certain clauses.
 /// E.g., for the DEFAULT clause we may print "NONE", "SHARED", "PRIVATE", etc.
-/// If <Str> == "UNSPECIFIED"  (happens when the clause is not specified)
-///   Verbosity == 0: exit without printing anything
-///   Verbosity >= 1: print "Title: UNSPECIFIED"
+///
+/// If \p Str == "UNSPECIFIED"  (happens when the clause is not specified):
+///  * Verbosity == 0: exit without printing anything
+///  * Verbosity >= 1: print "Title: UNSPECIFIED"
+///
 /// Else
-///   print "Title: <Str>"
+///  * print "Title: <Str>"
 extern void printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
 
@@ -665,4 +698,5 @@ extern void printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
 
 } // End llvm namespace
 
-#endif
+#endif // LLVM_ANALYSIS_VPO_WREGIONNODE_H
+#endif // INTEL_COLLAB

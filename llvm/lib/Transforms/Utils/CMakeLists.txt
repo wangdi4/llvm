@@ -27,15 +27,14 @@ add_llvm_library(LLVMTransformUtils
   Intel_IntrinsicUtils.cpp
   ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 # end INTEL_COLLAB
-# INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
-  Intel_VecClone.cpp
-# end INTEL_CUSTOMIZATION
+  Intel_VecClone.cpp   # INTEL_CUSTOMIZATION    TODO: VEC to COLLAB
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
   Local.cpp
   LoopRotationUtils.cpp
   LoopSimplify.cpp
   LoopUnroll.cpp
+  LoopUnrollAndJam.cpp
   LoopUnrollPeel.cpp
   LoopUnrollRuntime.cpp
   LoopUtils.cpp
@@ -56,7 +55,6 @@ add_llvm_library(LLVMTransformUtils
   SanitizerStats.cpp
   SimplifyCFG.cpp
   SimplifyIndVar.cpp
-  SimplifyInstructions.cpp
   SimplifyLibCalls.cpp
   SplitModule.cpp
   StripNonLineTableDebugInfo.cpp
@@ -72,5 +70,7 @@ add_llvm_library(LLVMTransformUtils
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen  #INTEL_COLLAB
+# INTEL_COLLAB
+  intel_directives_gen
+# end INTEL_COLLAB
   )

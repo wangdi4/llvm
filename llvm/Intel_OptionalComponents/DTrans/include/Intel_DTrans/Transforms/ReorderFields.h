@@ -78,7 +78,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info, TargetLibraryInfo &TLI);
+  bool runImpl(Module &M, DTransAnalysisInfo &Info,
+               const TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo);
 
 private:
   SafetyData ReorderFieldsSafetyConditions;

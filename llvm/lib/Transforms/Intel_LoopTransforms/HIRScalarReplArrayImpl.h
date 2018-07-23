@@ -361,9 +361,6 @@ class HIRScalarReplArray {
 
   SmallVector<MemRefGroup, 8> MRGVec;
 
-  bool Is32Bit; // Check if target is a 32b or 64b platform
-  unsigned ScalarReplArrayMaxDepDist;
-
 public:
   HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                      HIRLoopLocality &HLA, HIRLoopStatistics &HLS);
@@ -487,7 +484,6 @@ public:
   void doInLoopProc(HLLoop *Lp, MemRefGroup &MRG);
 
   // Utility Functions
-  bool handleCmdlineArgs();
   void clearWorkingSetMemory(void);
   void getAnalysisUsage(AnalysisUsage &AU) const;
 

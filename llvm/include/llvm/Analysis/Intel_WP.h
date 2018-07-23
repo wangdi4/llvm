@@ -13,6 +13,7 @@
 #ifndef LLVM_ANALYSIS_INTELWP_H
 #define LLVM_ANALYSIS_INTELWP_H
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -35,6 +36,11 @@ private:
   bool WholeProgramSeen;
 
   size_t UnresolvedCallsCount;
+
+  // SetVectors used for tracing the libfuncs
+  // that were found and not found.
+  SetVector<const Function *> LibFuncsFound;
+  SetVector<const Function *> LibFuncsNotFound;
 
 public:
   WholeProgramInfo();

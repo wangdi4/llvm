@@ -1,4 +1,4 @@
-//===- Intel_VPlan.cpp - Vectorizer Plan ----------------------------------===//
+//===- IntelVPlan.cpp - Vectorizer Plan -----------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -91,9 +91,10 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
                                      VPLoopInfo *VPLInfo,
                                      VPDominatorTree &DomTree,
-                                     VPPostDominatorTree &PostDomTree) {
+                                     VPPostDominatorTree &PostDomTree,
+                                     VPlan *Plan) {
   VPBasicBlock *NewBlock = createBasicBlock();
-  insertBlockAfter(NewBlock, Block);
+  insertBlockAfter(NewBlock, Block, Plan);
 
   // Add NewBlock to VPLoopInfo
   if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
@@ -182,10 +183,10 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPBlockBase::setCondBitVPVal(VPValue *CV, VPlan *Plan) {
-  CondBitVPVal = CV;
-  if (CV)
-    Plan->setCondBitVPValUser(CV, this);
+void VPBlockBase::setCondBit(VPValue *CB, VPlan *Plan) {
+  CondBit = CB;
+  if (CB)
+    Plan->setCondBitUser(CB, this);
 }
 #endif
 
@@ -240,8 +241,8 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         }
 
         PredBB->getTerminator()->eraseFromParent();
-        VPValue *CBV = PredVPBlock->getCondBitVPVal();
-        assert(CBV && "Expected CondBitVPVal");
+        VPValue *CBV = PredVPBlock->getCondBit();
+        assert(CBV && "Expected condition bit!");
         Value *Bit = nullptr;
         if (State->CBVToConditionBitMap.count(CBV)) {
           Bit = State->CBVToConditionBitMap[CBV];
@@ -442,17 +443,18 @@ void VPRegionBlock::execute(VPTransformState *State) {
 }
 
 #if INTEL_CUSTOMIZATION
+// TODO: Please, remove this interface once C/T/F blocks have been removed.
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
-  // Set CondBitVPVal in NewBlock. Note that we are only setting the
-  // successor selector pointer. The CondBitVPVal is kept in its
+  // Set CondBit in NewBlock. Note that we are only setting the
+  // successor selector pointer. The CondBit is kept in its
   // original VPBB recipe list.
   if (getNumSuccessors() > 1) {
-    assert(getCondBitVPVal() && "Missing CondBitVPVal");
-    ToBB->setCondBitVPVal(getCondBitVPVal(), Plan);
+    assert(getCondBit() && "Missing CondBit");
+    ToBB->setCondBit(getCondBit(), Plan);
     ToBB->setCBlock(CBlock);
     ToBB->setTBlock(TBlock);
     ToBB->setFBlock(FBlock);
-    setCondBitVPVal(nullptr, Plan);
+    setCondBit(nullptr, Plan);
     CBlock = TBlock = FBlock = nullptr;
   }
 }
@@ -480,7 +482,7 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
       OS << StrIndent << " " << Recipe;
     }
   }
-  const VPValue *CB = getCondBitVPVal();
+  const VPValue *CB = getCondBit();
   if (CB) {
     const VPInstruction *CBI = dyn_cast<VPInstruction>(CB);
     if (CBI && CBI->getNumOperands()) {
@@ -650,36 +652,65 @@ void VPInstruction::generateInstruction(VPTransformState &State,
 
 #if INTEL_CUSTOMIZATION
 void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
+  // TODO: For the reuse/invalidation of the underlying HIR to be working
+  // properly, we need to do an independent traversal of all the VPInstructions
+  // in the CFG and invalidate their HIR when:
+  //  1) there are nested blobs that need to be widened,
+  //  2) the decomposed VPInstructions don't precede their master VPInstruction
+  //     (rule to be refined), and
+  //  3) the decomposed VPInstructions have more than one use.
+
   HLInst *WInst;
 
   // TBD - see if anything special is needed for semiphis.
   if (Opcode == SemiPhi)
     return;
 
-  // TODO: As a temporal workaround, we are currently skipping VPInstructions
-  // resulting from decomposition. These VPInstructions are:
-  //    1. VPInstructions with no attached HLDDNode .
-  //    2. VPInstructions with an attached HLLoop (inductive semi-phis
-  //       - already skipped by previous early exit - and bottom test loop
-  //       condition).
-  // CG currently relies only on the VPInstruction with the HLDDNode information
-  // to generate the whole "re-composed" HIR. This approach won't work when we
-  // introduce VPlan-to-VPlan transformations that modify the input
-  // VPInstructions.
-  if (HIR.isMaster()) {
-    HLDDNode *Node = HIR.getUnderlyingDDN();
-    if (HLInst *Inst = dyn_cast<HLInst>(Node))
+  if (HIR.isDecomposed() && HIR.isValid()) {
+    // Skip decomposed VPInstruction with valid HIR. They will be codegen'ed by
+    // its master VPInstruction.
+    LLVM_DEBUG(dbgs() << "Skipping decomposed VPInstruction with valid HIR:"
+                      << *this << "\n");
+    return;
+  }
+
+  if (HIR.isValid()) {
+    // Master VPInstruction with valid HIR.
+    assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "
+                             "VPInstruction at this point.");
+    HLDDNode *HNode = HIR.getUnderlyingDDN();
+    if (auto *Inst = dyn_cast<HLInst>(HNode)) {
       CG->widenNode(Inst, nullptr);
-    else if (HLIf *HIf = dyn_cast<HLIf>(Node)) {
+      return;
+    }
+    if (auto *HIf = dyn_cast<HLIf>(HNode)) {
       // We generate a compare instruction from the IF predicate. The VPValue
-      // corresponding to this instruction gets used as the condition bit value
-      // for the conditional branch. We need a mapping between this VPValue and
-      // the widened value so that we can generate code for the predicate
-      // recipes.
+      // corresponding to this instruction gets used as the condition bit
+      // value for the conditional branch. We need a mapping between this
+      // VPValue and the widened value so that we can generate code for the
+      // predicate recipes.
       WInst = CG->widenIfPred(HIf, nullptr);
       CG->addVPValueWideRefMapping(this, WInst->getOperandDDRef(0));
+      return;
     }
+    if (isa<HLLoop>(HNode)) {
+      // Master VPInstructions with an attached HLLoop are IV-related or bottom
+      // test instructions that don't have explicit instruction representation
+      // in HIR. This information will be updated directly when processing the
+      // HLLoop construct.
+      return;
+    }
+
+    llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
   }
+
+  // VPInstruction with invalid or no HIR (new).
+  LLVM_DEBUG(
+      dbgs()
+      << "TODO: Generate new HIR for VPInstruction with invalid or no HIR: "
+      << *this << "\n");
+  llvm_unreachable("VPInstruction with invalid HIR shouldn't be generated at "
+                   "this point in VPlan.");
 }
 #endif
 
@@ -733,6 +764,12 @@ void VPInstruction::print(raw_ostream &O) const {
 #if INTEL_CUSTOMIZATION
   case VPInstruction::SemiPhi:
     O << "semi-phi";
+    break;
+  case VPInstruction::SMax:
+    O << "smax";
+    break;
+  case VPInstruction::UMax:
+    O << "umax";
     break;
 #endif
   default:
@@ -805,7 +842,7 @@ void VPlan::execute(VPTransformState *State) {
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
     FromBB->getTerminator()->eraseFromParent();
-    VPValue *CBV = FromVPBB->getCondBitVPVal();
+    VPValue *CBV = FromVPBB->getCondBit();
     assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
     Value *NCondBit = State->CBVToConditionBitMap[CBV];
     assert(NCondBit && "Null scalar value for condition bit.");
@@ -1037,8 +1074,8 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BasicBlock) {
   for (const VPRecipeBase &Recipe : *BasicBlock)
     Recipe.print(OS, Indent);
 #if INTEL_CUSTOMIZATION
-  const VPValue *CBV = BasicBlock->getCondBitVPVal();
-  // Dump the CondBitVPVal
+  const VPValue *CBV = BasicBlock->getCondBit();
+  // Dump the CondBit
   if (CBV) {
     OS << " +\n" << Indent << " \"CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {

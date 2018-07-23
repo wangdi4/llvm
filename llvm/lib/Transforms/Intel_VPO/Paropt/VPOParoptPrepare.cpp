@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===------- VPOParoptPrepare.cpp - Paropt Prepare Pass for OpenMP --------===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -139,7 +140,8 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                         WI.getTargetTransformInfo(), WI.getAssumptionCache(),
-                        WI.getTargetLibraryInfo(), Mode, OffloadTargets);
+                        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode,
+                        OffloadTargets);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(
@@ -178,3 +180,4 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
 
   return PreservedAnalyses::none();;
 }
+#endif // INTEL_COLLAB

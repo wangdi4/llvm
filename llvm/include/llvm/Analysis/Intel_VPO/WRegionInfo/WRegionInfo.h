@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===--------- WRegionInfo.h - Build WRegionInfo Graph --------*-- C++ --*-===//
 //
 //   Copyright (C) 2015 Intel Corporation. All rights reserved.
@@ -9,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This analysis is used to create WRegion Node Graph of identified W-Regions.
+/// \file
+/// The analysis used to create WRegion Node Graph of identified W-Regions.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,6 +21,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 namespace llvm {
 
@@ -55,6 +58,7 @@ private:
   const TargetTransformInfo *TTI;
   AssumptionCache *AC;
   const TargetLibraryInfo *TLI;
+  AliasAnalysis *AA;
   WRegionCollection *WRC;
 
   /// \brief Populates W-Region with WRegionNodes.
@@ -63,12 +67,15 @@ private:
 public:
   WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
               const TargetTransformInfo *TTI, AssumptionCache *AC,
-              const TargetLibraryInfo *TLI, WRegionCollection *WRC);
+              const TargetLibraryInfo *TLI, AliasAnalysis *AA,
+              WRegionCollection *WRC);
 
   void print(raw_ostream &OS) const;
 
-  /// \brief Entry point for on-demand call to gather WRegion info out of the
-  /// IR. If FromHIR==true, it walks the HIR; else, it walks the LLVM IR
+  /// \brief Entry point for on-demand call to gather WRegion info from the IR
+#if INTEL_CUSTOMIZATION
+  /// If IR==HIR, it walks the HIR; else, it walks the LLVM IR
+#endif // INTEL_CUSTOMIZATION
   void buildWRGraph(WRegionCollection::InputIRKind IR);
 
   /// WRN Graph
@@ -81,6 +88,7 @@ public:
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
+  AliasAnalysis *getAliasAnalysis() { return AA; }
 
   /// WRN Graph iterator methods
   iterator begin() { return getWRGraph()->begin(); }
@@ -135,4 +143,5 @@ public:
 
 } // End namespace llvm
 
-#endif
+#endif // LLVM_ANALYSIS_VPO_WREGIONINFO_H
+#endif // INTEL_COLLAB

@@ -1,12 +1,16 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output -hir-details 2>&1 | FileCheck %s
 
 ; Verify that we are able to replace multiple uses of liveout copy %ll.addr.034.out in a single canon expr successfully and eliminate it.
 
 ; CHECK: Function
 
-; CHECK: + DO i1 = 0, %0 + -1, 1   <DO_LOOP>
+; CHECK: + DO i64 i1 = 0, %0 + -1, 1   <DO_LOOP>
 ; CHECK: |   %ll.addr.034.out = %ll.addr.034;
+
+; CHECK: <LVAL-REG> NON-LINEAR i64 %ll.addr.034.out {sb:[[OLDLIVEINSYM:.*]]}
+; CHECK: <RVAL-REG> NON-LINEAR i64 %ll.addr.034 {sb:[[NEWLIVEINSYM:.*]]}
+
 ; CHECK: |   %lp.addr.036.out1 = &((%lp.addr.036)[0]);
 ; CHECK: |   %1 = (%rnp)[i1];
 ; CHECK: |   %sub = %ll.addr.034.out  -  -1 * smax((-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))) + -1;
@@ -14,7 +18,7 @@
 ; CHECK: |   {
 ; CHECK: |      %2 = (%rpp)[i1];
 ; CHECK: |
-; CHECK: |      + DO i2 = 0, -1 * smax((-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))) + smax(-2, (-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))), 1   <DO_LOOP>
+; CHECK: |      + DO i64 i2 = 0, -1 * smax((-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))) + smax(-2, (-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))), 1   <DO_LOOP>
 ; CHECK: |      |   %3 = (%2)[i2];
 ; CHECK: |      |   %incdec.ptr5 = &((%lp.addr.036.out1)[i2 + 1]);
 ; CHECK: |      |   (%lp.addr.036.out1)[i2] = %3;
@@ -29,14 +33,21 @@
 
 ; CHECK: Function
 
-; CHECK: + DO i1 = 0, %0 + -1, 1   <DO_LOOP>
+; CHECK: + DO i64 i1 = 0, %0 + -1, 1   <DO_LOOP>
 ; CHECK: |   %1 = (%rnp)[i1];
 ; CHECK: |   %sub = %ll.addr.034  -  -1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + -1;
 ; CHECK: |   if (-1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + -1 > 0)
 ; CHECK: |   {
 ; CHECK: |      %2 = (%rpp)[i1];
 ; CHECK: |
-; CHECK: |      + DO i2 = 0, -1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + smax(-2, (-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))), 1   <DO_LOOP>
+
+; Check that ll.addr.034 becomes livein to inner loop after subtitution.
+; CHECK: LiveIn symbases:
+; CHECK-SAME: [[NEWLIVEINSYM]]
+; CHECK-NOT: [[OLDLIVEINSYM]]
+; CHECK: LiveOut symbases
+
+; CHECK: |      + DO i64 i2 = 0, -1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + smax(-2, (-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))), 1   <DO_LOOP>
 ; CHECK: |      |   %incdec.ptr5 = &((%lp.addr.036)[i2 + 1]);
 ; CHECK: |      |   (%lp.addr.036)[i2] = (%2)[i2];
 ; CHECK: |      + END LOOP

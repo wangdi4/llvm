@@ -18,6 +18,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
@@ -45,12 +46,18 @@ public:
       return false;
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo);
+    const TargetLibraryInfo &TLI =
+        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
+    return Impl.runImpl(M, DTInfo, TLI, WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // TODO: Mark the actual required and preserved analyses.
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -58,9 +65,9 @@ public:
 class DeleteFieldImpl : public DTransOptBase {
 public:
   DeleteFieldImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                  const DataLayout &DL, StringRef DepTypePrefix,
-                  DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {}
+                  const DataLayout &DL, const TargetLibraryInfo &TLI,
+                  StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -89,11 +96,17 @@ private:
   // value of FIELD_DELETED indicates that the field was deleted.
   DenseMap<llvm::Type *, SmallVector<uint64_t, 16>> FieldIdxMap;
 
+  bool typeContainsDeletedFields(llvm::Type *Ty);
+
+  Constant *getStructReplacement(ConstantStruct *StInit, ValueMapper &Mapper);
+  Constant *getArrayReplacement(ConstantArray *ArInit, ValueMapper &Mapper);
+  Constant *getReplacement(Constant *Init, ValueMapper &Mapper);
+
   bool processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
                       bool IsPreCloning);
   bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
-  void postprocessCallInst(Instruction *I);
-  void postprocessSubInst(Instruction *I);
+  void postprocessCallSite(CallSite CS);
+  void processSubInst(Instruction *I);
 };
 
 } // end anonymous namespace
@@ -102,6 +115,8 @@ char DTransDeleteFieldWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransDeleteFieldWrapper, "dtrans-deletefield",
                       "DTrans delete field", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransDeleteFieldWrapper, "dtrans-deletefield",
                     "DTrans delete field", false, false)
 
@@ -110,24 +125,16 @@ ModulePass *llvm::createDTransDeleteFieldWrapperPass() {
 }
 
 bool DeleteFieldImpl::prepareTypes(Module &M) {
-  // TODO: Create a safety mask for the conditions that are common to all
-  //       DTrans optimizations.
-  dtrans::SafetyData DeleteFieldSafetyConditions =
-      dtrans::BadCasting | dtrans::BadAllocSizeArg |
-      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
-      dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
-      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
-      dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
-      dtrans::AmbiguousPointerTarget | dtrans::UnsafePtrMerge |
-      dtrans::AddressTaken | dtrans::NoFieldsInStruct | dtrans::NestedStruct |
-      dtrans::ContainsNestedStruct | dtrans::MemFuncPartialWrite |
-      dtrans::SystemObject;
-
   LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
+  uint64_t DeleteableBytes = 0;
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
     if (!StInfo)
+      continue;
+
+    // Don't try to delete fields from literal structures.
+    if (cast<StructType>(StInfo->getLLVMType())->isLiteral())
       continue;
 
     // We're only interested in fields that are never read. Fields that are
@@ -135,29 +142,63 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     // (phi, select, icmp, etc.) cannot be deleted.
     bool CanDeleteField = false;
     size_t NumFields = StInfo->getNumFields();
+    size_t NumFieldsDeleted = 0;
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
+      auto *FieldTy = FI.getLLVMType();
+      if (FieldTy->isAggregateType()) {
+        LLVM_DEBUG({
+          dbgs() << "  Rejecting ";
+          StInfo->getLLVMType()->print(dbgs(), true, true);
+          dbgs() << " because it contains an aggregate field.\n";
+        });
+        CanDeleteField = false;
+        break;
+      }
       if (!FI.isRead() && !FI.hasComplexUse()) {
         LLVM_DEBUG({
           dbgs() << "  Found unread field: ";
           StInfo->getLLVMType()->print(dbgs(), true, true);
           dbgs() << " @ " << i << "\n";
         });
+        // Get the field size in bytes. If the field is an i1 this will
+        // return zero, but that keeps us from overestimating the size of
+        // bitfields.
+        DeleteableBytes += DL.getTypeSizeInBits(FieldTy) / 8;
         CanDeleteField = true;
-#ifdef NDEBUG
-        break;
-#endif // NDEBUG
+        ++NumFieldsDeleted;
       }
     }
 
     if (!CanDeleteField)
       continue;
 
-    if (StInfo->testSafetyData(DeleteFieldSafetyConditions)) {
+    if (DTInfo.testSafetyData(TI, dtrans::DT_DeleteField)) {
       LLVM_DEBUG({
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " based on safety data.\n";
+      });
+      continue;
+    }
+
+    // In this case we really ought to be able to eliminate the type
+    // completely, but that's more work than we want to do right now.
+    if (NumFields == NumFieldsDeleted) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because all fields would be deleted.\n";
+      });
+      continue;
+    }
+
+    if (((DeleteableBytes * 100) / DL.getTypeAllocSize(StInfo->getLLVMType())) <
+        10) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " based on size.\n";
       });
       continue;
     }
@@ -228,8 +269,12 @@ void DeleteFieldImpl::processFunction(Function &F) {
   // and delete everything after we've walked the function.
   SmallVector<GetElementPtrInst *, 4> GEPsToDelete;
 
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(&*I)) {
+  for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
+    switch (It->getOpcode()) {
+    default:
+      break;
+    case Instruction::GetElementPtr: {
+      auto *GEP = cast<GetElementPtrInst>(&*It);
       // If the GEP has a single index, it might be in the byte-flattened
       // form. Check that, and delete the field if necessary.
       // Otherwise, there's nothing more to do with this GEP.
@@ -244,6 +289,11 @@ void DeleteFieldImpl::processFunction(Function &F) {
       uint64_t Unused;
       if (processGEPInst(GEP, Unused, /*IsPreCloning=*/true))
         GEPsToDelete.push_back(GEP);
+      break;
+    }
+    case Instruction::Sub:
+      processSubInst(&*It);
+      break;
     }
   }
 
@@ -410,7 +460,6 @@ bool DeleteFieldImpl::processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
 // accessing elements whose index was changing by field deletion and any
 // instructions that are referencing the structure size.
 void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
-  // TODO: Add code to update instructions using the size of our structs.
   Function *F = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
   for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
     switch (It->getOpcode()) {
@@ -428,17 +477,15 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
       }
     } break;
     case Instruction::Call:
-      postprocessCallInst(&*It);
-      break;
-    case Instruction::Sub:
-      postprocessSubInst(&*It);
+    case Instruction::Invoke:
+      postprocessCallSite(CallSite(&*It));
       break;
     }
   }
 }
 
-void DeleteFieldImpl::postprocessCallInst(Instruction *I) {
-  auto *CInfo = DTInfo.getCallInfo(I);
+void DeleteFieldImpl::postprocessCallSite(CallSite CS) {
+  auto *CInfo = DTInfo.getCallInfo(CS.getInstruction());
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
@@ -457,14 +504,14 @@ void DeleteFieldImpl::postprocessCallInst(Instruction *I) {
       if (PointeeTy != ReplTy)
         continue;
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
-                        << *I << "\n"
+                        << *CS.getInstruction() << "\n"
                         << "  " << *OrigTy << "\n");
-      updateCallSizeOperand(I, CInfo, OrigTy, ReplTy);
+      updateCallSizeOperand(CS.getInstruction(), CInfo, OrigTy, ReplTy);
     }
   }
 }
 
-void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
+void DeleteFieldImpl::processSubInst(Instruction *I) {
   auto *BinOp = cast<BinaryOperator>(I);
   assert(BinOp->getOpcode() == Instruction::Sub &&
          "postProcessSubInst called for non-sub instruction!");
@@ -474,11 +521,6 @@ void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
   for (auto &ONPair : OrigToNewTypeMapping) {
     llvm::Type *OrigTy = ONPair.first;
     llvm::Type *ReplTy = ONPair.second;
-    // FIXME: We should be remapping these the ptr sub type.
-    //    assert(PtrSubTy != OrigTy &&
-    //           "Original type ptr sub found after type replacement!");
-    //    if (PtrSubTy != ReplTy)
-    //      continue;
     if (PtrSubTy != OrigTy)
       continue;
     // Call the base class to find and update all users that divide this result
@@ -487,12 +529,23 @@ void DeleteFieldImpl::postprocessSubInst(Instruction *I) {
   }
 }
 
+// Check to see if we have deleted fields from this type at any level.
+bool DeleteFieldImpl::typeContainsDeletedFields(llvm::Type *Ty) {
+  if (!Ty->isAggregateType())
+    return false;
+  if (Ty->isStructTy())
+    return FieldIdxMap.count(Ty);
+  if (Ty->isArrayTy())
+    return typeContainsDeletedFields(Ty->getArrayElementType());
+  llvm_unreachable("Unexpected aggregate type");
+}
+
 GlobalVariable *
 DeleteFieldImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
   Type *GVTy = GV->getType();
 
   // If we aren't deleting fields from this type, let the base class handle it.
-  if (!FieldIdxMap.count(GVTy->getPointerElementType()))
+  if (!typeContainsDeletedFields(GVTy->getPointerElementType()))
     return nullptr;
 
   Type *ReplTy = TypeRemapper->remapType(GVTy);
@@ -524,37 +577,49 @@ DeleteFieldImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
   return NewGV;
 }
 
-void DeleteFieldImpl::initializeGlobalVariableReplacement(
-    GlobalVariable *OrigGV, GlobalVariable *NewGV, ValueMapper &Mapper) {
-  Constant *OrigInit = OrigGV->getInitializer();
-  assert(
-      (isa<ConstantAggregateZero>(OrigInit) || isa<ConstantStruct>(OrigInit)) &&
-      "Unexpected global variable initializer!");
-  // If the original initializer is a zero initializer just remap it.
-  if (isa<ConstantAggregateZero>(OrigInit)) {
-    NewGV->setInitializer(Mapper.mapConstant(*OrigGV->getInitializer()));
-    return;
-  }
+Constant *DeleteFieldImpl::getArrayReplacement(ConstantArray *ArInit,
+                                               ValueMapper &Mapper) {
+  llvm::Type *OrigTy = ArInit->getType();
+  unsigned OrigNumElements = OrigTy->getArrayNumElements();
+  SmallVector<Constant *, 16> NewInitVals;
+  for (unsigned Idx = 0; Idx < OrigNumElements; ++Idx)
+    NewInitVals.push_back(
+        getReplacement(ArInit->getAggregateElement(Idx), Mapper));
+  Type *NewTy = TypeRemapper->remapType(OrigTy);
+  assert(NewTy->getArrayNumElements() == NewInitVals.size() &&
+         "Mismatched number of elements in array initializer creation!");
+  return ConstantArray::get(cast<ArrayType>(NewTy), NewInitVals);
+}
 
-  // Otherwise, we need to do an element by element copy.
-
-  // Because globals are always pointers, we need the type it's pointing to.
-  llvm::Type *OrigTy = OrigGV->getType()->getPointerElementType();
-
+Constant *DeleteFieldImpl::getStructReplacement(ConstantStruct *StInit,
+                                                ValueMapper &Mapper) {
+  llvm::Type *OrigTy = StInit->getType();
   assert(FieldIdxMap.count(OrigTy) &&
          "initializeGlobalVariableReplacement called for dependent type!");
-
   unsigned OrigNumFields = OrigTy->getStructNumElements();
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
     if (FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
       NewInitVals.push_back(
-          Mapper.mapConstant(*OrigInit->getAggregateElement(Idx)));
-  auto *NewTy = cast<StructType>(NewGV->getType()->getPointerElementType());
-  assert(NewTy->getNumElements() == NewInitVals.size() &&
-         "Mismatched number of elements in global initializer creation!");
-  Constant *NewInit = ConstantStruct::get(NewTy, NewInitVals);
-  NewGV->setInitializer(NewInit);
+          getReplacement(StInit->getAggregateElement(Idx), Mapper));
+  auto *NewTy = OrigToNewTypeMapping[OrigTy];
+  assert(NewTy->getStructNumElements() == NewInitVals.size() &&
+         "Mismatched number of elements in struct initializer creation!");
+  return ConstantStruct::get(cast<StructType>(NewTy), NewInitVals);
+}
+
+Constant *DeleteFieldImpl::getReplacement(Constant *Init, ValueMapper &Mapper) {
+  if (auto *StInit = dyn_cast<ConstantStruct>(Init))
+    return getStructReplacement(StInit, Mapper);
+  if (auto *ArInit = dyn_cast<ConstantArray>(Init))
+    return getArrayReplacement(ArInit, Mapper);
+  return Mapper.mapConstant(*Init);
+}
+
+void DeleteFieldImpl::initializeGlobalVariableReplacement(
+    GlobalVariable *OrigGV, GlobalVariable *NewGV, ValueMapper &Mapper) {
+  Constant *OrigInit = OrigGV->getInitializer();
+  NewGV->setInitializer(getReplacement(OrigInit, Mapper));
 }
 
 void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
@@ -632,10 +697,18 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
   }
 }
 
-bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
+bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
+                                      const TargetLibraryInfo &TLI,
+                                      WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
+    return false;
 
   DTransTypeRemapper TypeRemapper;
-  DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
+  DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
                               "__DFDT_", &TypeRemapper);
   return Transformer.run(M);
 }
@@ -643,13 +716,14 @@ bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
 PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo))
+  if (!runImpl(M, DTransInfo, TLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<DTransAnalysis>();
   return PA;
 }

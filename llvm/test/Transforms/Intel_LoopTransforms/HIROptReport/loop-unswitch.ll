@@ -27,7 +27,7 @@
 ; RUN: opt -loop-unswitch -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMITTER --strict-whitespace
 
 ; CHECK-EMITTER: LOOP BEGIN
-; CHECK-EMITTER-NEXT:     Remark #XXXXX: Loop has been unswitched via cmp113{{[[:space:]]}}
+; CHECK-EMITTER-NEXT:     Remark: Loop has been unswitched via cmp113{{[[:space:]]}}
 ; CHECK-EMITTER-NEXT:     LOOP BEGIN
 ; CHECK-EMITTER-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-EMITTER-NEXT:     LOOP BEGIN
@@ -37,15 +37,15 @@
 ; RUN: opt -loop-unswitch -intel-loop-optreport=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
 
 ; CHECK-HIR: LOOP BEGIN
-; CHECK-HIR-NEXT:     Remark #XXXXX: Loop has been unswitched via {{.*}}{{[[:space:]]}}
+; CHECK-HIR-NEXT:     Remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
-; CHECK-HIR-NEXT:         Remark #XXXXX: Loop has been vectorized with vector {{.*}} factor
+; CHECK-HIR-NEXT:         Remark: Loop has been vectorized with vector {{.*}} factor
 ; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
 ; CHECK-HIR-NEXT:         <Remainder loop for vectorization>
 ; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
-; CHECK-HIR-NEXT:         Remark #XXXXX: Loop completely unrolled
+; CHECK-HIR-NEXT:         Remark: Loop completely unrolled
 ; CHECK-HIR-NEXT:     LOOP END
 ; CHECK-HIR-NEXT: LOOP END
 

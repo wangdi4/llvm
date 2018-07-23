@@ -126,14 +126,14 @@ private:
   // Optimization report for the loop.
   LoopOptReport OptReport;
 
+  bool HasDistributePoint;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
          RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx);
 
   /// Copy constructor used by cloning.
-  /// CloneChildren parameter denotes if we want to clone
-  /// children and preheader/postexit.
   HLLoop(const HLLoop &HLLoopObj);
 
   /// Move assignment operator used by HLNodeUtils::permuteLoopNests() to move
@@ -162,18 +162,19 @@ protected:
   /// Comes down to DDRefs for lower, tripcount and stride.
   unsigned getNumLoopDDRefs() const { return 3; }
 
-  /// Returns the number of operands this loop is supposed to have.
-  unsigned getNumOperands() const override;
-
   /// Sets DDRefs' size to getNumLoopDDRefs().
-  void resizeToNumLoopDDRefs();
+  void resizeToNumLoopDDRefs() {
+    RegDDRefs.resize(getNumLoopDDRefs(), nullptr);
+  }
 
   /// Used to implement get*CanonExpr() functionality.
   CanonExpr *getLoopCanonExpr(RegDDRef *Ref);
   const CanonExpr *getLoopCanonExpr(const RegDDRef *Ref) const;
 
   /// Implements getNumOperands() functionality.
-  unsigned getNumOperandsInternal() const;
+  unsigned getNumOperandsInternal() const {
+    return getNumLoopDDRefs() + getNumZttOperands();
+  }
 
   /// Returns the DDRef offset of a ztt predicate.
   unsigned getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
@@ -320,6 +321,9 @@ public:
   /// Returns true if this Ref belongs to ztt.
   bool isZttOperandDDRef(const RegDDRef *Ref) const;
 
+  /// Returns the number of operands this loop is supposed to have.
+  unsigned getNumOperands() const override { return getNumOperandsInternal(); }
+
   /// Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
   RegDDRef *getLowerDDRef() { return getOperandDDRefImpl(0); }
@@ -443,7 +447,6 @@ public:
 
   /// Returns true if this is the innermost loop in the loop nest.
   bool isInnermost() const {
-    assert(getParentRegion() && "isInnermost() invoked on detached loop!");
     return IsInnermost;
   }
 
@@ -622,7 +625,7 @@ public:
   /// such as exits, ub, lb, etc. Data members that depend on where the cloned
   /// loop lives in HIR (like parent, nesting level) are not copied. They will
   /// be updated by HLNode insertion/removal utilities.
-  HLLoop *cloneEmptyLoop() const;
+  HLLoop *cloneEmpty() const;
 
   /// Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;
@@ -756,10 +759,8 @@ public:
 
   /// Returns true if loop has pragma to enable complete or general unrolling.
   bool hasUnrollEnablingPragma() const {
-    return (
-        getLoopStringMetadata("llvm.loop.unroll.enable") ||
-        getLoopStringMetadata("llvm.loop.unroll.count") ||
-        (isConstTripLoop() && getLoopStringMetadata("llvm.loop.unroll.full")));
+    return hasCompleteUnrollEnablingPragma() ||
+           hasGeneralUnrollEnablingPragma();
   }
 
   /// Returns true if loop has pragma to enable complete unrolling.
@@ -770,35 +771,54 @@ public:
 
   /// Returns true if loop has pragma to enable general unrolling.
   bool hasGeneralUnrollEnablingPragma() const {
-    return getLoopStringMetadata("llvm.loop.unroll.enable") ||
-           getLoopStringMetadata("llvm.loop.unroll.count");
+    if (getLoopStringMetadata("llvm.loop.unroll.enable")) {
+      return true;
+    }
+
+    unsigned PragmaCount = getUnrollPragmaCount();
+
+    return (PragmaCount > 1);
   }
 
   /// Returns true if loop has pragma to disable general unrolling.
-  bool hasGeneralUnrollDisablingPragma() const {
-    return getLoopStringMetadata("llvm.loop.unroll.disable") ||
-           getLoopStringMetadata("llvm.loop.unroll.runtime.disable") ||
-           // 'full' metadata only implies complete unroll, not partial unroll.
-           getLoopStringMetadata("llvm.loop.unroll.full");
+  bool hasGeneralUnrollDisablingPragma() const;
+
+  /// Returns unroll count specified through pragma, otherwise returns 0.
+  unsigned getUnrollPragmaCount() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.unroll.count");
+
+    if (!MD) {
+      return 0;
+    }
+
+    return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
   /// Returns true if loop has pragma to enable unroll & jam.
   bool hasUnrollAndJamEnablingPragma() const {
-    // TODO: Use unroll & jam metadata when available. Also add the check to
-    // other passes such as loop interchange and loop distribution.
-    return hasGeneralUnrollEnablingPragma();
+    if (getLoopStringMetadata("llvm.loop.unroll_and_jam.enable")) {
+      return true;
+    }
+
+    unsigned PragmaCount = getUnrollAndJamPragmaCount();
+
+    return (PragmaCount > 1);
   }
 
   /// Returns true if loop has pragma to disable unroll & jam.
   bool hasUnrollAndJamDisablingPragma() const {
-    // TODO: Use unroll & jam metadata when available.
-    return hasGeneralUnrollDisablingPragma();
+    if (getLoopStringMetadata("llvm.loop.unroll_and_jam.disable")) {
+      return true;
+    }
+
+    unsigned PragmaCount = getUnrollAndJamPragmaCount();
+
+    return (PragmaCount == 1);
   }
 
-  /// Returns unroll count specified through pragma, otherwise returns 0.
-  unsigned getUnrollPragmaCount() const {
-    // Unroll if loop's trip count is less than unroll count.
-    auto *MD = getLoopStringMetadata("llvm.loop.unroll.count");
+  /// Returns unroll & jam count specified through pragma, otherwise returns 0.
+  unsigned getUnrollAndJamPragmaCount() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.unroll_and_jam.count");
 
     if (!MD) {
       return 0;
@@ -879,7 +899,7 @@ public:
 
   /// return false if loop cannot be stripmined - some stripmined
   /// loop cannot be normalized. NotRequired set for tripCnt <= StripmineSize
-  bool canStripmine(unsigned StripmineSize, bool &NotRequired);
+  bool canStripmine(unsigned StripmineSize, bool &NotRequired) const;
 
   const DebugLoc &getCmpDebugLoc() const { return CmpDbgLoc; }
   void setCmpTestDebugLoc(const DebugLoc &Loc) { CmpDbgLoc = Loc; }
@@ -906,6 +926,9 @@ public:
   const HLLabel *getHeaderLabel() const {
     return const_cast<HLLoop *>(this)->getHeaderLabel();
   }
+
+  bool hasDistributePoint() const { return HasDistributePoint; }
+  void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
 };
 
 } // End namespace loopopt

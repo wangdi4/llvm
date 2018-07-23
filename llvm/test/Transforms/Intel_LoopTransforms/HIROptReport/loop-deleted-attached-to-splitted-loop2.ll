@@ -18,13 +18,13 @@
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark #XXXXX: Loop has been vectorized with vector {{.*}} factor
+; OPTREPORT-NEXT:         Remark: Loop has been vectorized with vector {{.*}} factor
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark #XXXXX: Loop completely unrolled
+; OPTREPORT-NEXT:         Remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 

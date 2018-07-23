@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 
 ; This test verifies that function attributes on the function signatures and
@@ -9,6 +9,22 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01 = type { i32, i64, %struct.test01*, %struct.test02*, i16** }
 %struct.test02 = type { %struct.test01*, %struct.test01*, %struct.test01** }
+
+define i32 @main(i32 %argc, i8** %argv) {
+  %alloc01 = call i8* @calloc(i64 10, i64 40)
+  %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
+
+  %alloc02 = call i8* @calloc(i64 10, i64 24)
+  %struct02_mem = bitcast i8* %alloc02 to %struct.test02*
+
+  call void @test01caller();
+  call void @test02caller();
+  call void @test03caller();
+  call void @test04caller();
+  call void @test05caller();
+  call void @test06caller(i32 0);
+  ret i32 0
+}
 
 
 ; Verify the pointer parameters at the call site get their attributes
@@ -120,7 +136,7 @@ define nonnull i8* @test04callee(i8* noalias nonnull readnone %in1, i8* nocaptur
   %sel = select i1 undef, i8* %in1, i8* %in2
   ret i8* %sel
 }
-; CHECK: define nonnull i8* @test04callee(i8* noalias nonnull readnone %in1, i8* nocapture %in2)
+; CHECK: define internal nonnull i8* @test04callee(i8* noalias nonnull readnone %in1, i8* nocapture %in2)
 
 
 
@@ -134,7 +150,7 @@ define nonnull %struct.test01* @test01callee(%struct.test01* noalias nonnull rea
   %sel = select i1 undef, %struct.test01* %in1, %struct.test01* %in2
   ret %struct.test01* %sel
 }
-; CHECK: define i64 @test01callee.1(i64 %in1, i64 %in2, i8* noalias nonnull %in3) {
+; CHECK: define internal i64 @test01callee.1(i64 %in1, i64 %in2, i8* noalias nonnull %in3) {
 
 
 ; Test with pointer to pointer of type being converted.
@@ -144,7 +160,7 @@ define nonnull %struct.test01** @test02callee(%struct.test01** noalias nonnull r
   %sel = select i1 undef, %struct.test01** %in1, %struct.test01** %in2
   ret %struct.test01** %sel
 }
-; CHECK: define nonnull i64* @test02callee.2(i64* noalias nonnull readnone %in1, i64* nocapture %in2, i8* nonnull %in3) {
+; CHECK define internal nonnull i64* @test02callee.2(i64* noalias nonnull readnone %in1, i64* nocapture %in2, i8* nonnull %in3) {
 
 
 ; Verify changes to attributes do not occur on the pointers of dependent
@@ -153,7 +169,7 @@ define nonnull %struct.test02* @test03callee(%struct.test02* noalias nonnull rea
   %sel = select i1 undef, %struct.test02* %in1, %struct.test02* %in2
   ret %struct.test02* %sel
 }
-; CHECK: define nonnull %__SOADT_struct.test02* @test03callee.3(%__SOADT_struct.test02* noalias nonnull readnone %in1, %__SOADT_struct.test02* nocapture %in2)
+; CHECK define internal nonnull %__SOADT_struct.test02* @test03callee.3(%__SOADT_struct.test02* noalias nonnull readnone %in1, %__SOADT_struct.test02* nocapture %in2)
 
 ; This function is called for testing the usage of 'invoke'.
 ; The checks for test01callee already cover the verification of the
@@ -170,5 +186,5 @@ define void @test06callee(%struct.test01* noalias nonnull %in1) {
   ret void
 }
 
-declare noalias i8* @malloc(i64)
+declare i8* @calloc(i64, i64)
 declare i32 @__gxx_personality_v0(...)

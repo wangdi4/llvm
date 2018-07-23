@@ -26,8 +26,6 @@ class BasicBlock;
 
 namespace loopopt {
 
-class RegDDRef;
-
 /// High level node representing a LLVM instruction
 class HLInst final : public HLDDNode {
 private:
@@ -90,25 +88,43 @@ public:
 
   /// Returns the lval DDRef of this node.
   virtual RegDDRef *getLvalDDRef() override;
-  virtual const RegDDRef *getLvalDDRef() const override;
+  virtual const RegDDRef *getLvalDDRef() const override {
+    // If we make this function non-virtual in HLDDNode base class the compiler
+    // is not able to find it.
+    return const_cast<HLInst *>(this)->getLvalDDRef();
+  }
+
   /// Sets/replaces the lval DDRef of this node.
-  virtual void setLvalDDRef(RegDDRef *RDDRef) override;
+  virtual void setLvalDDRef(RegDDRef *RDDRef) override {
+    assert(hasLval() && "This instruction does not have an lval!");
+    setOperandDDRefImpl(RDDRef, 0);
+  }
+
   /// Removes and returns the lval DDRef of this node.
   virtual RegDDRef *removeLvalDDRef() override;
 
   /// Returns the single rval DDRef of this node.
   virtual RegDDRef *getRvalDDRef() override;
-  virtual const RegDDRef *getRvalDDRef() const override;
+  virtual const RegDDRef *getRvalDDRef() const override {
+    // If we make this function non-virtual in HLDDNode base class the compiler
+    // is not able to find it.
+    return const_cast<HLInst *>(this)->getRvalDDRef();
+  }
+
   /// Sets/replaces the single rval DDRef of this node.
-  virtual void setRvalDDRef(RegDDRef *Ref) override;
+  virtual void setRvalDDRef(RegDDRef *Ref) override {
+    assert(hasRval() && "This instruction does not have a rval!");
+    setOperandDDRefImpl(Ref, 1);
+  }
+
   /// Removes and returns the single rval DDRef of this node.
   virtual RegDDRef *removeRvalDDRef() override;
 
   /// Returns true if Ref is the lval DDRef of this node.
-  virtual bool isLval(const RegDDRef *Ref) const override;
-
-  /// Returns true if Ref is a rval DDRef of this node.
-  virtual bool isRval(const RegDDRef *Ref) const override;
+  virtual bool isLval(const RegDDRef *Ref) const override {
+    assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+    return ((getLvalDDRef() == Ref) || isFakeLval(Ref));
+  }
 
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
@@ -123,14 +139,18 @@ public:
 
   /// Returns the number of operands this HLInst is supposed to have.
   /// If lval is present, it becomes the 0th operand.
-  unsigned getNumOperands() const override;
+  unsigned getNumOperands() const override { return getNumOperandsInternal(); }
 
   /// Returns true if this is in a loop's preheader.
-  bool isInPreheader() const;
+  bool isInPreheader() const { return isInPreheaderPostexitImpl(true); }
+
   /// Returns true if this is in a loop's postexit.
-  bool isInPostexit() const;
+  bool isInPostexit() const { return isInPreheaderPostexitImpl(false); }
+
   /// Returns true if this is in a loop's preheader or postexit.
-  bool isInPreheaderOrPostexit() const;
+  bool isInPreheaderOrPostexit() const {
+    return (isInPreheader() || isInPostexit());
+  }
 
   /// Returns predicate for select instruction.
   const HLPredicate &getPredicate() const {

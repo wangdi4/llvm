@@ -30,6 +30,7 @@
 
 using namespace llvm;
 
+namespace {
 // Class that is used to build the plain CFG for the incoming IR.
 class PlainCFGBuilder {
 private:
@@ -74,12 +75,7 @@ public:
   // Build the plain CFG and return its Top Region.
   VPRegionBlock *buildPlainCFG();
 };
-
-// Return true if \p Inst is an incoming Instruction to be ignored in the VPlan
-// representation.
-static bool isInstructionToIgnore(Instruction *Inst) {
-  return isa<BranchInst>(Inst);
-}
+} // anonymous namespace
 
 // Set predecessors of \p VPBB in the same order as they are in \p BB. \p VPBB
 // must have no predecessors.
@@ -195,16 +191,24 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
   VPIRBuilder.setInsertPoint(VPBB);
   for (Instruction &InstRef : *BB) {
     Instruction *Inst = &InstRef;
-    if (isInstructionToIgnore(Inst))
-      continue;
 
-    // There should't be any VPValue for Inst at this point. Otherwise, we
+    // There shouldn't be any VPValue for Inst at this point. Otherwise, we
     // visited Inst when we shouldn't, breaking the RPO traversal order.
     assert(!IRDef2VPValue.count(Inst) &&
            "Instruction shouldn't have been visited.");
 
+    if (auto *Br = dyn_cast<BranchInst>(Inst)) {
+      // Branch instruction is not explicitly represented in VPlan but we need
+      // to represent its condition bit when it's conditional.
+      if (Br->isConditional())
+        getOrCreateVPOperand(Br->getCondition());
+
+      // Skip the rest of the Instruction processing for Branch instructions.
+      continue;
+    }
+
     VPInstruction *NewVPInst;
-    if (PHINode *Phi = dyn_cast<PHINode>(Inst)) {
+    if (auto *Phi = dyn_cast<PHINode>(Inst)) {
       // Phi node's operands may have not been visited at this point. We create
       // an empty VPInstruction that we will fix once the whole plain CFG has
       // been built.
@@ -277,7 +281,19 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
       assert(SuccVPBB0 && "Successor 0 not found.");
       VPBasicBlock *SuccVPBB1 = getOrCreateVPBB(TI->getSuccessor(1));
       assert(SuccVPBB1 && "Successor 1 not found.");
-      VPBB->setTwoSuccessors(SuccVPBB0, SuccVPBB1);
+
+      // Get VPBB's condition bit.
+      assert(isa<BranchInst>(TI) && "Unsupported terminator!");
+      auto *Br = cast<BranchInst>(TI);
+      Value *BrCond = Br->getCondition();
+      // Look up the branch condition to get the corresponding VPValue
+      // representing the condition bit in VPlan (which may be in another VPBB).
+      assert(IRDef2VPValue.count(BrCond) &&
+             "Missing condition bit in IRDef2VPValue!");
+      VPValue *VPCondBit = IRDef2VPValue[BrCond];
+
+      // Link successors using condition bit.
+      VPBB->setTwoSuccessors(SuccVPBB0, SuccVPBB1, VPCondBit);
     } else
       llvm_unreachable("Number of successors not supported.");
 

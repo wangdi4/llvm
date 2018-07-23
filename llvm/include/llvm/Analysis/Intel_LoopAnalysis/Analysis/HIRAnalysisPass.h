@@ -116,6 +116,7 @@ public:
     HIRLoopResourceVal,
     HIRLoopStatisticsVal,
     HIRSafeReductionAnalysisVal,
+    HIRSparseArrayReductionAnalysisVal,
     HIRVectVLSAnalysisVal,
     // Should be kept last
     HIRPassCountVal

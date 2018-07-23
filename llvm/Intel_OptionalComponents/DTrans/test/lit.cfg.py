@@ -66,6 +66,6 @@ llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
 # tools that might happen to be in the user's PATH.
 tool_dirs = [config.llvm_tools_dir]
 
-tools = [ 'opt', 'FileCheck' ]
+tools = [ 'opt', 'FileCheck', 'llvm-as', 'llvm-lto' ]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)

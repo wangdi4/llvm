@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; struct S1 {
 ;   int  x;
@@ -78,6 +78,12 @@ define void @test_good_cases(i32 %a, %struct.S3* %ps3) {
   ; dynamic array.
   %idx = zext i32 %x to i64
   %ps3unkown = getelementptr %struct.S3, %struct.S3* %ps3, i64 %idx
+
+  ; Allocate an array of pointers to S1 and get the address of the fourth ptr
+  ; by way of a bitcast.
+  %pp = call noalias i8* @malloc(i64 80)
+  %pps1 = bitcast i8* %pp to %struct.S1**
+  %p4s1 = getelementptr i8, i8* %pp, i64 24
 
   ret void
 }

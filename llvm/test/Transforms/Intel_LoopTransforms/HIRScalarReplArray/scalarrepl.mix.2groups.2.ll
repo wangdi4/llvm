@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-; Scalar Replacement Sanity Test: mix, 2 groups, working on group A[] only
+; Scalar Replacement Sanity Test: mix, 2 groups, A[] and B[].
 ;
 ; [REASONS]  
 ; - Applicable: YES  
@@ -23,16 +23,6 @@
 ;  return A[0] + B[1] + C[2] + 1;
 ;}
 ;
-;
-;[MemRef Group Data]
-;((@A)[0][i1] (R), 0, %scalarepl ) 
-;((@A)[0][i1 + 1] (R), 1, %scalarepl1 ) 
-;((@A)[0][i1 + 1] (W), 1, %scalarepl1 ) min_idx 
-;((@A)[0][i1 + 2] (W), 2, %scalarepl2 ) 
-;%scalarepl, %scalarepl1, %scalarepl2, 
-;
-;<4> { ((@A)[0][i1] (R), 0, %scalarepl ) , ((@A)[0][i1 + 1] (R), 1, %scalarepl1 ) , ((@A)[0][i1 + 1] (W), 1, %scalarepl1 ) min_idx , ((@A)[0][i1 + 2] (W), 2, %scalarepl2 ) ,  } 2W : 2R , profitable , legal , MaxDD: 2, Symbase: 23, TmpV:<3> [ %scalarepl, %scalarepl1, %scalarepl2] 
-; 
 ; CHECK: Function
 ;
 ; CHECK:    BEGIN REGION { }
@@ -52,25 +42,26 @@
 ;
 ; CHECK:  BEGIN REGION { modified }
 ;
-; [loads in loop's preheader]
-; CHECK:          %scalarepl = (@A)[0][0];
-; CHECK:          %scalarepl1 = (@A)[0][1];
-;        
-; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:        |   %4 = %scalarepl;
-; CHECK:        |   %5 = (@B)[0][i1];
-; CHECK:        |   %scalarepl2 = %4 + %5;
-; CHECK:        |   %6 = %scalarepl1;
-; CHECK:        |   %7 = (@B)[0][i1 + 1];
-; CHECK:        |   %8 = (@B)[0][i1 + 2];
-; CHECK:        |   %scalarepl1 = %6 + %7 + %8;
-; CHECK:        |   (@A)[0][i1 + 1] = %scalarepl1;
-; CHECK:        |   %scalarepl = %scalarepl1;
-; CHECK:        |   %scalarepl1 = %scalarepl2;
-; CHECK:        + END LOOP
-;        
-; [stores in loop's postexit]:
-; CHECK:           (@A)[0][101] = %scalarepl1;
+; CHECK: %scalarepl = (@A)[0][0];
+; CHECK: %scalarepl1 = (@A)[0][1];
+; CHECK: %scalarepl10 = (@B)[0][0];
+; CHECK: %scalarepl11 = (@B)[0][1];
+; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK: |   %4 = %scalarepl;
+; CHECK: |   %5 = %scalarepl10;
+; CHECK: |   %scalarepl2 = %4 + %5;
+; CHECK: |   %6 = %scalarepl1;
+; CHECK: |   %7 = %scalarepl11;
+; CHECK: |   %scalarepl12 = (@B)[0][i1 + 2];
+; CHECK: |   %8 = %scalarepl12;
+; CHECK: |   %scalarepl1 = %6 + %7 + %8;
+; CHECK: |   (@A)[0][i1 + 1] = %scalarepl1;
+; CHECK: |   %scalarepl = %scalarepl1;
+; CHECK: |   %scalarepl1 = %scalarepl2;
+; CHECK: |   %scalarepl10 = %scalarepl11;
+; CHECK: |   %scalarepl11 = %scalarepl12;
+; CHECK: + END LOOP
+; CHECK: (@A)[0][101] = %scalarepl1;
 ;
 ; CHECK:  END REGION
 ;
@@ -80,7 +71,7 @@
 ;OPTREPORT: Global loop optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     Remark #XXXXX: Number of Array Refs Scalar Replaced In Loop: 3
+;OPTREPORT:     Remark: Number of Array Refs Scalar Replaced In Loop: 6
 ;OPTREPORT: LOOP END
 
 ; === ---------------------------------------------------------------- ===

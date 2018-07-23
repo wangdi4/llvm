@@ -16,8 +16,8 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLIF_H
 #define LLVM_IR_INTEL_LOOPIR_HLIF_H
 
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
+#include "llvm/IR/InstrTypes.h"
 
 namespace llvm {
 
@@ -128,9 +128,7 @@ public:
   then_iterator then_end() { return ElseBegin; }
   const_then_iterator then_end() const { return ElseBegin; }
 
-  reverse_then_iterator then_rbegin() {
-    return ElseBegin.getReverse();
-  }
+  reverse_then_iterator then_rbegin() { return ElseBegin.getReverse(); }
   const_reverse_then_iterator then_rbegin() const {
     return ElseBegin.getReverse();
   }
@@ -145,12 +143,8 @@ public:
   reverse_else_iterator else_rbegin() { return Children.rbegin(); }
   const_reverse_else_iterator else_rbegin() const { return Children.rbegin(); }
 
-  reverse_else_iterator else_rend() {
-    return then_rbegin();
-  }
-  const_reverse_else_iterator else_rend() const {
-    return then_rbegin();
-  }
+  reverse_else_iterator else_rend() { return then_rbegin(); }
+  const_reverse_else_iterator else_rend() const { return then_rbegin(); }
 
   /// Children acess methods
 
@@ -197,6 +191,9 @@ public:
     return Node->getHLNodeClassID() == HLNode::HLIfVal;
   }
 
+  /// Creates a clone without children nodes.
+  HLIf *cloneEmpty() const;
+
   /// clone() - Create a copy of 'this' HLIf that is identical in all
   /// ways except the following:
   ///   * The HLIf has no parent
@@ -213,7 +210,7 @@ public:
                      bool Detailed = false) const override;
 
   /// \brief Returns the number of operands this HLIf is supposed to have.
-  unsigned getNumOperands() const override;
+  unsigned getNumOperands() const override { return getNumOperandsInternal(); }
 
   /// \brief Adds new predicate in HLIf.
   void addPredicate(const HLPredicate &Pred, RegDDRef *Ref1, RegDDRef *Ref2);

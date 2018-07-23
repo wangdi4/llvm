@@ -1,4 +1,4 @@
-//===-- LoopVectorizationPlanner.cpp --------------------------------------===//
+//===-- IntelLoopVectorizationPlanner.cpp ---------------------------------===//
 //
 //   Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
 //
@@ -79,7 +79,7 @@ static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
   return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
 }
 
-unsigned LoopVectorizationPlannerBase::buildInitialVPlans() {
+unsigned LoopVectorizationPlanner::buildInitialVPlans() {
   collectDeadInstructions();
 
   unsigned MinVF, MaxVF;
@@ -131,7 +131,7 @@ unsigned LoopVectorizationPlannerBase::buildInitialVPlans() {
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns VF which corresponds to the best VPlan (could be VF = 1).
 template <typename CostModelTy>
-unsigned LoopVectorizationPlannerBase::selectBestPlan() {
+unsigned LoopVectorizationPlanner::selectBestPlan() {
   if (VPlans.size() == 1) {
     unsigned ForcedVF = getForcedVF(WRLp);
     assert(ForcedVF &&
@@ -208,13 +208,13 @@ unsigned LoopVectorizationPlannerBase::selectBestPlan() {
 }
 
 template unsigned
-LoopVectorizationPlannerBase::selectBestPlan<VPlanCostModel>(void);
+LoopVectorizationPlanner::selectBestPlan<VPlanCostModel>(void);
 #if INTEL_CUSTOMIZATION
 template unsigned
-LoopVectorizationPlannerBase::selectBestPlan<VPlanCostModelProprietary>(void);
+LoopVectorizationPlanner::selectBestPlan<VPlanCostModelProprietary>(void);
 #endif // INTEL_CUSTOMIZATION
 
-void LoopVectorizationPlannerBase::predicate() {
+void LoopVectorizationPlanner::predicate() {
   if (DisableVPlanPredicator)
     return;
 
@@ -265,7 +265,7 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(WRLp, TheLoop, Plan, LI, SE, Legal);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, SE, WRLp, Plan, Legal);
   HCFGBuilder.buildHierarchicalCFG();
 
   return SharedPlan;

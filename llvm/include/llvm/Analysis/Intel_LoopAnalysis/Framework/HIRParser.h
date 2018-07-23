@@ -37,6 +37,7 @@
 namespace llvm {
 
 class Type;
+class IntegerType;
 class ArrayType;
 class Function;
 class PHINode;
@@ -319,12 +320,17 @@ class HIRParser {
   /// instruction and recursively parsing the cast operand.
   bool shouldParseWithoutCast(const CastInst *CI, bool IsTop) const;
 
-  /// Forces incoming value to be parsed as a blob.
-  CanonExpr *parseAsBlob(const Value *Val, unsigned Level);
+  /// Forces incoming value to be parsed as a blob. \p FinalIntTy is the
+  /// eventual type of the value we want to return. This is done by either
+  /// truncating or sign extending \p Val.
+  CanonExpr *parseAsBlob(const Value *Val, unsigned Level,
+                         IntegerType *FinalIntTy = nullptr);
 
   /// Forms and returns a CanonExpr representing Val. IsTop is passed to
-  /// parseRecursive().
-  CanonExpr *parse(const Value *Val, unsigned Level, bool IsTop = true);
+  /// parseRecursive(). \p FinalIntTy is the eventual type of the value we want
+  /// to return. This is done by either truncating or sign extending \p Val.
+  CanonExpr *parse(const Value *Val, unsigned Level, bool IsTop = true,
+                   IntegerType *FinalIntTy = nullptr);
 
   /// Returns fast math flags if \p Cmp is a FPMathOperator. Returns default
   /// FMF otherwise.

@@ -35,9 +35,6 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
     KernargSegmentPtr(false),
     DispatchID(false),
     FlatScratchInit(false),
-    GridWorkgroupCountX(false),
-    GridWorkgroupCountY(false),
-    GridWorkgroupCountZ(false),
     WorkGroupIDX(false),
     WorkGroupIDY(false),
     WorkGroupIDZ(false),
@@ -50,10 +47,13 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
     ImplicitArgPtr(false),
     GITPtrHigh(0xffffffff),
     HighBitsOf32BitAddress(0) {
-  const SISubtarget &ST = MF.getSubtarget<SISubtarget>();
+  const GCNSubtarget &ST = MF.getSubtarget<GCNSubtarget>();
   const Function &F = MF.getFunction();
   FlatWorkGroupSizes = ST.getFlatWorkGroupSizes(F);
   WavesPerEU = ST.getWavesPerEU(F);
+
+  Occupancy = getMaxWavesPerEU();
+  limitOccupancy(MF);
 
   if (!isEntryFunction()) {
     // Non-entry functions have no special inputs for now, other registers
@@ -71,8 +71,11 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
     if (F.hasFnAttribute("amdgpu-implicitarg-ptr"))
       ImplicitArgPtr = true;
   } else {
-    if (F.hasFnAttribute("amdgpu-implicitarg-ptr"))
+    if (F.hasFnAttribute("amdgpu-implicitarg-ptr")) {
       KernargSegmentPtr = true;
+      assert(MaxKernArgAlign == 0);
+      MaxKernArgAlign =  ST.getAlignmentForImplicitArgPtr();
+    }
   }
 
   CallingConv::ID CC = F.getCallingConv();
@@ -134,7 +137,7 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
     }
   }
 
-  bool IsCOV2 = ST.isAmdCodeObjectV2(MF);
+  bool IsCOV2 = ST.isAmdCodeObjectV2(F);
   if (IsCOV2) {
     if (HasStackObjects || MaySpill)
       PrivateSegmentBuffer = true;
@@ -147,7 +150,7 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
 
     if (F.hasFnAttribute("amdgpu-dispatch-id"))
       DispatchID = true;
-  } else if (ST.isMesaGfxShader(MF)) {
+  } else if (ST.isMesaGfxShader(F)) {
     if (HasStackObjects || MaySpill)
       ImplicitBufferPtr = true;
   }
@@ -171,6 +174,13 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
   S = A.getValueAsString();
   if (!S.empty())
     S.consumeInteger(0, HighBitsOf32BitAddress);
+}
+
+void SIMachineFunctionInfo::limitOccupancy(const MachineFunction &MF) {
+  limitOccupancy(getMaxWavesPerEU());
+  const GCNSubtarget& ST = MF.getSubtarget<GCNSubtarget>();
+  limitOccupancy(ST.getOccupancyWithLocalMemSize(getLDSSize(),
+                 MF.getFunction()));
 }
 
 unsigned SIMachineFunctionInfo::addPrivateSegmentBuffer(
@@ -243,7 +253,7 @@ bool SIMachineFunctionInfo::allocateSGPRSpillToVGPR(MachineFunction &MF,
   if (!SpillLanes.empty())
     return true;
 
-  const SISubtarget &ST = MF.getSubtarget<SISubtarget>();
+  const GCNSubtarget &ST = MF.getSubtarget<GCNSubtarget>();
   const SIRegisterInfo *TRI = ST.getRegisterInfo();
   MachineFrameInfo &FrameInfo = MF.getFrameInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();

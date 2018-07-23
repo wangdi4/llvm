@@ -1,5 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume  -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the dtrans delete pass is able to handle global
 ; variables accessed by GEP operators when the type of a field whose index
@@ -40,7 +40,7 @@ define %struct.test01* @test01(i64 %num) {
   ret %struct.test01* %res
 }
 
-; CHECK: define %__DFT_struct.test01* @test01.1(i64 %num)
+; CHECK: define internal %__DFT_struct.test01* @test01.1(i64 %num)
 ; CHECK: %size = mul nsw i64 %num, 16
 ; CHECK: %mem1 = call i8* @malloc(i64 %size)
 ; CHECK: %st_mem1 = bitcast i8* %mem1 to %__DFT_struct.test01*

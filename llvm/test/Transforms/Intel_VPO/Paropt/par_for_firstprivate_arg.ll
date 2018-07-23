@@ -133,7 +133,7 @@ entry:
   br label %DIR.OMP.LOOP.1
 
 DIR.OMP.LOOP.1:                                   ; preds = %entry
-  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"([12 x i16]* %y2), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"([12 x i16]* %y2), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
   br label %DIR.OMP.LOOP.11
 
 DIR.OMP.LOOP.11:                                  ; preds = %DIR.OMP.LOOP.1

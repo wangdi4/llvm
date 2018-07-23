@@ -1,4 +1,4 @@
-//===-- VPlanCostModelProprietary.cpp ---------------------------------------------===//
+//===-- IntelVPlanCostModelProprietary.cpp --------------------------------===//
 //
 //   Copyright (C) 2018 Intel Corporation. All rights reserved.
 //

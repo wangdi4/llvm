@@ -251,7 +251,10 @@ public:
 
     // The following code is used to verify loop liveins/liveouts
     // Obtain the use loop
-    HLLoop *UseLoop = DDNode->getLexicalParentLoop();
+    const HLLoop *UseLoop = isa<HLLoop>(DDNode)
+                                ? cast<HLLoop>(DDNode)
+                                : DDNode->getLexicalParentLoop();
+
     // Find the use variable
     for (auto I = DDNode->op_ddref_begin(), E = DDNode->op_ddref_end(); I != E;
          ++I) {
@@ -279,7 +282,7 @@ public:
   }
 
   void checkLoopLiveinLiveout(unsigned UseSB, const HLDDNode *UseNode,
-                              HLLoop *UseLoop);
+                              const HLLoop *UseLoop);
 
   void visit(const HLRegion *Region) {
     TempSymbaseDefMap.clear();
@@ -353,8 +356,8 @@ public:
 
 void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned UseSB,
                                              const HLDDNode *UseNode,
-                                             HLLoop *UseLoop) {
-  HLLoop *DefLoop = nullptr;
+                                             const HLLoop *UseLoop) {
+  const HLLoop *DefLoop = nullptr;
   const HLNode *DefNode = nullptr;
   auto Iter = TempSymbaseDefMap.find(UseSB);
 
@@ -381,7 +384,7 @@ void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned UseSB,
   }
 
   // Get the lowest common ancestor loop of the define loop and use loop
-  HLLoop *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
+  auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
 
   while (UseLoop != LCALoop) {
     assert(UseLoop->isLiveIn(UseSB) && "Temp expected to be livein to loop.");

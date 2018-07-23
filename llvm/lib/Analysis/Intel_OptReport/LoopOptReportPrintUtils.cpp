@@ -130,7 +130,7 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth,
                  LoopOptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   FOS.indent(IntentationStep * Depth);
-  FOS << "Remark #XXXXX: " << formatRemarkMessage(Remark) << "\n";
+  FOS << "Remark: " << formatRemarkMessage(Remark) << "\n";
 }
 
 void printOrigin(formatted_raw_ostream &FOS, unsigned Depth,

@@ -5,7 +5,7 @@
 
 ; CHECK: [[IVPhi:%.*]] = semi-phi i64 0 [[IVNext:%.*]]
 ; CHECK: [[IVNext]] = add [[IVPhi]] i64 1
-; CHECK: {{%.*}} = icmp [[IVNext]] {{%.*}}
+; CHECK: {{%.*}} = icmp [[IVNext]] i64 1599
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @c = common local_unnamed_addr global [1600 x i32] zeroinitializer, align 16
 
 
-define void @foo() local_unnamed_addr #0 {
+define void @foo() local_unnamed_addr {
 entry:
   br label %omp.inner.for.body
 
@@ -34,5 +34,3 @@ omp.inner.for.body:
 omp.loop.exit:
   ret void
 }
-
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

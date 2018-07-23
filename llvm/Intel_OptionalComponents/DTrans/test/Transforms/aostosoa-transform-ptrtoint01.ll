@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; This test verifies special cases of the AOS to SOA transformation
 ; where PtrToInt instructions need to be updated/removed from the IR.
@@ -18,6 +18,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 
 define i32 @main(i32 %argc, i8** %argv) {
+  %alloc01 = call i8* @calloc(i64 10, i64 400)
+  %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
+
   call void @test01()
   ret i32 0
 }
@@ -45,3 +48,5 @@ define void @test01() {
 
   ret void
 }
+
+declare i8* @calloc(i64, i64)

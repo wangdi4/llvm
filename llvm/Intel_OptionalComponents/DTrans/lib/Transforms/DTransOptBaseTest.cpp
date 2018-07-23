@@ -24,6 +24,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 using namespace llvm;
 
@@ -50,11 +51,13 @@ public:
 
   bool runOnModule(Module &M) override {
     auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo);
+    auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    return Impl.runImpl(M, DTInfo, TLI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -63,9 +66,9 @@ public:
 class DTransOptBaseTest : public DTransOptBase {
 public:
   DTransOptBaseTest(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                    const DataLayout &DL, StringRef DepTypePrefix,
-                    DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, DepTypePrefix, TypeRemapper) {}
+                    const DataLayout &DL, const TargetLibraryInfo &TLI,
+                    StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   virtual bool prepareTypes(Module &M) override {
     SmallVector<StringRef, 4> SubStrings;
@@ -121,6 +124,7 @@ char DTransOptBaseTestWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransOptBaseTestWrapper, "dtrans-optbasetest",
                       "DTrans optimization base class tester", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DTransOptBaseTestWrapper, "dtrans-optbasetest",
                     "DTrans optimization base class tester", false, false)
 
@@ -128,10 +132,11 @@ ModulePass *llvm::createDTransOptBaseTestWrapperPass() {
   return new DTransOptBaseTestWrapper();
 }
 
-bool dtrans::OptBaseTestPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
+bool dtrans::OptBaseTestPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
+                                      const TargetLibraryInfo &TLI) {
 
   DTransTypeRemapper TypeRemapper;
-  DTransOptBaseTest Transformer(DTInfo, M.getContext(), M.getDataLayout(),
+  DTransOptBaseTest Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
                                 "__DDT_", &TypeRemapper);
   return Transformer.run(M);
 }
@@ -139,7 +144,8 @@ bool dtrans::OptBaseTestPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo) {
 PreservedAnalyses dtrans::OptBaseTestPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  bool Changed = runImpl(M, DTransInfo);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  bool Changed = runImpl(M, DTransInfo, TLI);
 
   if (!Changed)
     return PreservedAnalyses::all();

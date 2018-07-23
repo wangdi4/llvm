@@ -3,7 +3,7 @@
 ; Test that identifies if the DTrans padded malloc optimization
 ; didn't found a malloc function.
 
-; RUN: opt < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -dtrans-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 

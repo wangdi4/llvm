@@ -109,7 +109,9 @@ public:
                 const MCTargetOptions &Options)
       : MCTargetAsmParser(Options, sti, MII), Parser(parser) {
     Parser.addAliasForDirective(".half", ".2byte");
+    Parser.addAliasForDirective(".uahalf", ".2byte");
     Parser.addAliasForDirective(".word", ".4byte");
+    Parser.addAliasForDirective(".uaword", ".4byte");
     Parser.addAliasForDirective(".nword", is64Bit() ? ".8byte" : ".4byte");
     if (is64Bit())
       Parser.addAliasForDirective(".xword", ".8byte");
@@ -883,9 +885,17 @@ SparcAsmParser::parseSparcAsmOperand(std::unique_ptr<SparcOperand> &Op,
 
       const MCExpr *Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None,
                                                   getContext());
-      if (isCall && getContext().getObjectFileInfo()->isPositionIndependent())
-        Res = SparcMCExpr::create(SparcMCExpr::VK_Sparc_WPLT30, Res,
-                                  getContext());
+      SparcMCExpr::VariantKind Kind = SparcMCExpr::VK_Sparc_13;
+
+      if (getContext().getObjectFileInfo()->isPositionIndependent()) {
+        if (isCall)
+          Kind = SparcMCExpr::VK_Sparc_WPLT30;
+        else
+          Kind = SparcMCExpr::VK_Sparc_GOT13;
+      }
+
+      Res = SparcMCExpr::create(Kind, Res, getContext());
+
       Op = SparcOperand::CreateImm(Res, S, E);
     }
     break;

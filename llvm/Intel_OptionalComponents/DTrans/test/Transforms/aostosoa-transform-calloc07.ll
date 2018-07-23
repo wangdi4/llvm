@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA transformation for a calloc call using 32 bit types
 ; to verify allocation count computations and offset calculations
@@ -32,11 +32,17 @@ define void @test01(i32 %count, i32 %some_val) {
 ; CHECK:  [[ADDR1:%[0-9]+]] = getelementptr i8, i8* %mem, i32 0
 ; CHECK:  [[CAST1:%[0-9]+]] = bitcast i8* [[ADDR1]] to i16*
 ; CHECK:  store i16* [[CAST1]], i16** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 0)
-; CHECK:  [[OFFSET2:%[0-9]+]] = mul i32 [[NUM_ALLOC]], 2
-; CHECK:  [[PAD_OFFSET2:%[0-9]+]] = add i32 [[OFFSET2]], 2
+
+; Padding calculation to find aligned offset is:
+;    ((offset + align_req - 1) / align_req) * align_req
+; CHECK:  [[SIZE2:%[0-9]+]] = mul i32 [[NUM_ALLOC]], 2
+; CHECK:  [[PAD2_TMP1:%[0-9]+]] = add i32 [[SIZE2]], 3
+; CHECK:  [[PAD2_TMP2:%[0-9]+]] = sdiv i32 [[PAD2_TMP1]], 4
+; CHECK:  [[PAD_OFFSET2:%[0-9]+]] = mul i32 [[PAD2_TMP2]], 4
 ; CHECK:  [[ADDR2:%[0-9]+]] = getelementptr i8, i8* %mem, i32 [[PAD_OFFSET2]]
 ; CHECK:  [[CAST2:%[0-9]+]] = bitcast i8* [[ADDR2]] to i32*
 ; CHECK:  store i32* [[CAST2]], i32** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 1)
+
 ; CHECK:  [[SIZE3:%[0-9]+]] = mul i32 [[NUM_ALLOC]], 4
 ; CHECK:  [[OFFSET3:%[0-9]+]] = add i32 [[PAD_OFFSET2]], [[SIZE3]]
 ; CHECK:  [[ADDR3:%[0-9]+]] = getelementptr i8, i8* %mem, i32 [[OFFSET3]]

@@ -1,8 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loop-interchange -hir-loop-interchange -print-after=hir-loop-interchange  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-loop-interchange,print<hir>,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -O2 -debug-only=hir-loop-interchange   < %s 2>&1 | FileCheck %s
-; XFAIL: *
-; CHECK:  Loopnest Interchanged: ( 1 2 3 ) --> ( 3 2 1 ) 
+; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-interchange -print-after=hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -O2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; CHECK:  Loopnest Interchanged: ( 1 2 3 ) --> ( 3 2 1 )
 ; Currently, hir loop interchange bails out in sinking preloop/postloop instructions into 
 ; the innermost loop because of dd edges due to blob ddrefs. 
 ; This should be fixed so that given code can be interchanged.
@@ -15,34 +14,46 @@
 ; int b[T][T];
 ; int c[T][T];
 ; 
-; void f(int N) {
-;    int i, j, k;
-;    for(j=0; j<N; j++) 
-;        for(i=0; i<N; i++) 
-;            for(k=0; k<N; k++)     
-; 		 c[i][j] = c[i][j] + a[i][k+1] * b[k][j+1] + 1;
-; }
-;
-; *** IR Dump Before HIR Loop Interchange ***
-; Function: f
-; 
-; <0>       BEGIN REGION { }
-; <40>            + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-; <41>            |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-; <7>             |   |   %1 = (@c)[0][i2][i1];
-; <42>            |   |   
-; <42>            |   |   + DO i3 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-; <15>            |   |   |   %2 = (@a)[0][i2][i3 + 1];
-; <17>            |   |   |   %3 = (@b)[0][i3][i1 + 1];
-; <20>            |   |   |   %1 = %1 + 1  +  (%2 * %3);
-; <42>            |   |   + END LOOP
-; <42>            |   |   
-; <27>            |   |   (@c)[0][i2][i1] = %1;
-; <41>            |   + END LOOP
-; <40>            + END LOOP
-; <0>       END REGION
-;
-;
+;void f(int N) {
+;int i, j, k;
+;for(j=0;j<N; j++) 
+;for(i=0;i<N; i++) 
+;for(k=0;k<N; k++)     
+;c[i][j]= c[i][j] + a[k + 1][i] * b[k][j+1] + 1;
+;}
+
+;***IR Dump Before HIR Loop Interchange ***
+
+;<40>+ DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
+;<41>|   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+;<7>|   |   %1 = (@c)[0][i2][i1];
+;<42>|   |
+;<42>|   |   + DO i3 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
+;<15>|   |   |   %2 = (@a)[0][i3 + 1][i2];
+;<17>|   |   |   %3 = (@b)[0][i3][i1 + 1];
+;<20>|   |   |   %1 = %1 + 1  +  (%2 * %3);
+;<42>|   |   + END LOOP
+;<42>|   |
+;<27>|   |   (@c)[0][i2][i1] = %1;
+;<41>|   + END LOOP
+;<40>+ END LOOP
+
+;***IR Dump After HIR Loop Interchange ***
+
+;<0>BEGIN REGION { modified }
+;<40>+ DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
+;<41>|   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+;<42>|   |   + DO i3 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
+;<7>|   |   |   %1 = (@c)[0][i2][i3];
+;<15>|   |   |   %2 = (@a)[0][i1 + 1][i2];
+;<17>|   |   |   %3 = (@b)[0][i1][i3 + 1];
+;<20>|   |   |   %1 = %1 + 1  +  (%2 * %3);
+;<27>|   |   |   (@c)[0][i2][i3] = %1;
+;<42>|   |   + END LOOP
+;<41>|   + END LOOP
+;<40>+ END LOOP
+;<0>END REGION
+
 ; ;Module Before HIR; ModuleID = 'mt6.c'
 source_filename = "mt6.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -77,7 +88,7 @@ for.body6:                                        ; preds = %for.body6, %for.bod
   %indvars.iv = phi i64 [ 0, %for.body6.lr.ph ], [ %indvars.iv.next, %for.body6 ]
   %1 = phi i32 [ %arrayidx8.promoted, %for.body6.lr.ph ], [ %add19, %for.body6 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx12 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @a, i64 0, i64 %indvars.iv51, i64 %indvars.iv.next
+  %arrayidx12 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @a, i64 0,  i64 %indvars.iv.next, i64 %indvars.iv51
   %2 = load i32, i32* %arrayidx12, align 4, !tbaa !2
   %arrayidx17 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @b, i64 0, i64 %indvars.iv, i64 %0
   %3 = load i32, i32* %arrayidx17, align 4, !tbaa !2

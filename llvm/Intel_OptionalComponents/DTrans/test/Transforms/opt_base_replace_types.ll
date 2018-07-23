@@ -1,5 +1,5 @@
 ; Test with legacy pass manager
-; RUN: opt < %s -S -dtrans-optbasetest \
+; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
 ; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
 ; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\
@@ -45,7 +45,7 @@ define void @test01() {
   %local = alloca %struct.test01a
   ret void;
 }
-; CHECK: define void @test01()
+; CHECK: define internal void @test01()
 ; CHECK: %local = alloca %__DTT_struct.test01a
 
 ; Test with converting a type that has another type referencing it.
@@ -55,7 +55,7 @@ define void @test02() {
   %local = alloca %struct.test02b
   ret void;
 }
-; CHECK: define void @test02()
+; CHECK: define internal void @test02()
 ; CHECK: %local = alloca %__DDT_struct.test02b
 
 ; Test with converting a type that causes another type to need to be mapped,
@@ -67,7 +67,7 @@ define void @test03() {
   %local = alloca %struct.test03c
   ret void;
 }
-; CHECK: define void @test03()
+; CHECK: define internal void @test03()
 ; CHECK: %local = alloca %__DDT_struct.test03c
 
 ; Test with converting a type that has a pointer-to-pointer reference
@@ -78,7 +78,7 @@ define void @test04() {
   %local = alloca %struct.test04b
   ret void;
 }
-; CHECK: define void @test04()
+; CHECK: define internal void @test04()
 ; CHECK: %local = alloca %__DDT_struct.test04b
 
 ; Test with converting a type that contains self-pointer references.
@@ -88,7 +88,7 @@ define void @test05() {
   %local = alloca %struct.test05b
   ret void;
 }
-; CHECK: define void @test05()
+; CHECK: define internal void @test05()
 ; CHECK: %local = alloca %__DDT_struct.test05b
 
 ; Test with converting a type contained within an array
@@ -98,7 +98,7 @@ define void @test06() {
   %local = alloca %struct.test06b
   ret void;
 }
-; CHECK: define void @test06()
+; CHECK: define internal void @test06()
 ; CHECK: %local = alloca %__DDT_struct.test06b
 
 ; Test with converting a type with a pointer to the type contained in an array
@@ -108,7 +108,7 @@ define void @test07() {
   %local = alloca %struct.test07b
   ret void;
 }
-; CHECK: define void @test07()
+; CHECK: define internal void @test07()
 ; CHECK: %local = alloca %__DDT_struct.test07b
 
 ; Test with converting a type that contains a function type.
@@ -118,7 +118,7 @@ define void @test08() {
   %local = alloca %struct.test08b
   ret void;
 }
-; CHECK: define void @test08()
+; CHECK: define internal void @test08()
 ; CHECK: %local = alloca %__DDT_struct.test08b
 
 ; Test with converting a type that contains a vararg function type.
@@ -128,7 +128,7 @@ define void @test09() {
   %local = alloca %struct.test09b
   ret void;
 }
-; CHECK: define void @test09()
+; CHECK: define internal void @test09()
 ; CHECK: %local = alloca %__DDT_struct.test09b
 
 ; Test with converting a type that has another type referencing it, when using
@@ -139,7 +139,7 @@ define void @test10() {
   %local = alloca %struct.test10b
   ret void;
 }
-; CHECK: define void @test10()
+; CHECK: define internal void @test10()
 ; CHECK: %local = alloca %__DDT_struct.test10b
 
 
@@ -149,7 +149,7 @@ define void @test11() {
   %local = alloca [10 x %struct.test11a]
   ret void;
 }
-; CHECK: define void @test11() {
+; CHECK: define internal void @test11() {
 ; CHECK: %local = alloca [10 x %__DTT_struct.test11a]
 
 ; Test that pointers to array types get converted when they reference a pointers to
@@ -159,7 +159,7 @@ define void @test12() {
   %local = alloca [10 x %struct.test12a**]*
   ret void;
 }
-; CHECK: define void @test12() {
+; CHECK: define internal void @test12() {
 ; CHECK: %local = alloca [10 x %__DTT_struct.test12a**]*
 
 ; Test with multi-dimimensional array
@@ -168,7 +168,7 @@ define void @test13() {
   %local = alloca [2 x [3 x [4 x %struct.test13a**]]]*
   ret void;
 }
-; CHECK: define void @test13() {
+; CHECK: define internal void @test13() {
 ; CHECK: %local = alloca [2 x [3 x [4 x %__DTT_struct.test13a**]]]*
 
 ; Test with multi-dimimensional array that triggers a dependent type conversion.
@@ -178,7 +178,7 @@ define void @test14() {
   %local = alloca %struct.test14b
   ret void;
 }
-; CHECK: define void @test14() {
+; CHECK: define internal void @test14() {
 ; CHECK: %local = alloca %__DDT_struct.test14b
 
 ; Test with array of function pointers which use a dependent type, and
@@ -189,5 +189,5 @@ define void @test15() {
   %local = alloca %struct.test15b
   ret void;
 }
-; CHECK: define void @test15() {
+; CHECK: define internal void @test15() {
 ; CHECK: %local = alloca %__DDT_struct.test15b

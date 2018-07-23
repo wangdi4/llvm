@@ -1,10 +1,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the addIV() operation for GEP is performed successfully.
-; CHECK: DO i1 = 0, %vn.0.vn.0. + -1
-; CHECK-NEXT: {vol}(%p)[(1 + %vn.0.vn.0.) * i1] = 1
-; CHECK-NEXT: END LOOP
 
+; CHECK: + DO i1 = 0, %vn.0.vn.0. + -1, 1   <DO_LOOP>
+; CHECK: |   {vol}(%p)[(1 + sext.i32.i64(%vn.0.vn.0.)) * i1] = 1;
+; CHECK: + END LOOP
 
 ; Function Attrs: nounwind uwtable
 define i32 @main(i32* %vn, i32* %p)  {

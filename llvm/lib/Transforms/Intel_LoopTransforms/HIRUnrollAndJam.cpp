@@ -53,8 +53,8 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
-#include "HIRUnroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "HIRUnroll.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -508,14 +508,12 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of vector pragma loop!\n");
       HUAJ.throttle(Lp);
       return;
+    } else if (Lp->hasUnrollEnablingPragma()) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam as loop has unroll pragma!\n");
+      HUAJ.throttle(Lp);
+      return;
     }
-  } else if (Lp->hasUnrollEnablingPragma()) {
-    // TODO: Check this for all loops when we have unroll & jam metadata.
-    LLVM_DEBUG(
-        dbgs()
-        << "Skipping unroll & jam as innermost loop has unroll pragma!\n");
-    HUAJ.throttleRecursively(Lp);
-    return;
   }
 
   // Throttle unroll of outer loop whose inner loop's bounds varies within the
@@ -601,15 +599,11 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
   unsigned UnrollFactor;
 
   if (HasEnablingPragma) {
-    // TODO: fix this when frontend implements unroll & jam pragma.
-    UnrollFactor = Lp->getUnrollPragmaCount();
+    UnrollFactor = Lp->getUnrollAndJamPragmaCount();
+    assert(UnrollFactor != 1 && "pragma unroll count of 1 not expected!");
 
     if (!UnrollFactor) {
       UnrollFactor = MaxUnrollFactor;
-    } else if (UnrollFactor == 1) {
-      LLVM_DEBUG(
-          dbgs() << "Skipping unroll & jam as pragma count is set to 1!\n");
-      return 0;
     }
 
     if (IsConstTC) {
@@ -841,6 +835,7 @@ public:
   }
 
   bool isUnrollJamMode() const { return LoopMap != nullptr; }
+  bool isUnknownLoopUnroll() const { return UnknownLoopExitLabel != nullptr; }
 
   void patchIntermediateBottomTestForUnknownLoop(HLNode *BottomTest) const;
 
@@ -1055,7 +1050,10 @@ void UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   CExpr->shift(UHelper.UnrollLevel, UHelper.UnrollIteration);
 
   CExpr->multiplyIVByConstant(UHelper.UnrollLevel, UHelper.UnrollFactor);
-  CExpr->simplify(true);
+  // Cannot simplify unsigned division unless numerator is known to be
+  // non-negative. Can use HLNodeUtils::isKnownNonNegative() if simplification
+  // is required for performance.
+  // CExpr->simplify(true);
 }
 
 static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
@@ -1117,41 +1115,44 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
   }
 
   HLNode *CurFirstNode = OrigLoop->getFirstChild();
-  bool IsInnermost = false;
 
-  if (OrigLoop == NewLoop) {
+  if (UHelper.isUnknownLoopUnroll()) {
     // Skip loop label cloning for unknown loops.
     CurFirstNode = CurFirstNode->getNextNode();
-    IsInnermost = true;
-  } else {
-    IsInnermost = OrigLoop->isInnermost();
   }
 
-  UHelper.setCurOrigLoop(OrigLoop);
+  bool IsUnrollJam = UHelper.isUnrollJamMode();
+
+  // Avoid unnecessary node traversal for innermost loops and general unroll as
+  // the body will be handled as a single node range.
+  bool NeedSingleNodeRange = (!IsUnrollJam || OrigLoop->isInnermost());
 
   while (CurFirstNode) {
-    // Avoid unnecessary node traversal for innermost loops as their body will
-    // be handled as a single node range.
     HLNode *CurLastNode =
-        IsInnermost ? OrigLoop->getLastChild()
-                    : UnrollHelper::getLastNodeInUnrollRange(CurFirstNode);
+        (NeedSingleNodeRange)
+            ? OrigLoop->getLastChild()
+            : UnrollHelper::getLastNodeInUnrollRange(CurFirstNode);
 
     // Keep pointer to next node in case this one is moved (for last unrolled
     // iteration).
     HLNode *NextFirstNode = CurLastNode->getNextNode();
 
-    // Unroll & Jam mode
-    if (auto ChildLoop = dyn_cast<HLLoop>(CurFirstNode)) {
+    HLLoop *ChildLoop = IsUnrollJam ? dyn_cast<HLLoop>(CurFirstNode) : nullptr;
+
+    if (ChildLoop) {
+      // Unroll & Jam mode
       assert((CurFirstNode == CurLastNode) &&
              "Single node range expected for loops!");
 
-      HLLoop *NewInnerLoop = ChildLoop->cloneEmptyLoop();
+      HLLoop *NewInnerLoop = ChildLoop->cloneEmpty();
       UHelper.updateLoopMap(ChildLoop, NewInnerLoop);
 
       HLNodeUtils::insertAsLastChild(NewLoop, NewInnerLoop);
       unrollLoopRecursive(ChildLoop, NewInnerLoop, UHelper, false);
 
     } else {
+      UHelper.setCurOrigLoop(OrigLoop);
+
       createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper);
       HLNodeUtils::insertAsLastChildren(NewLoop, &NodeRange);
     }
@@ -1175,7 +1176,7 @@ static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
   // Unknown loop unrollng.
   if (OrigLoop == MainLoop) {
     assert(OrigLoop->isUnknown() && "Unknown loop expected!");
-    assert(OrigLoop->isInnermost() && "Only innermost unknown loops expected!");
+    assert(!LoopMap && "Cannot unroll & jam unknown loop!");
 
     // Extract postexit before adding an exit label.
     MainLoop->extractPostexit();
@@ -1224,7 +1225,8 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
   } else {
     // Create the unrolled main loop and setup remainder loop.
     MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-        Loop, UnrollFactor, NeedRemainderLoop, LORBuilder);
+        Loop, UnrollFactor, NeedRemainderLoop, LORBuilder,
+        LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }
 
   unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);

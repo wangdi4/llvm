@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===------- WRegionInfo.cpp - Build WRegion Graph ---------*- C++ -*------===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -42,8 +43,9 @@ WRegionInfo WRegionInfoAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   auto *TTI  = WRC.getTargetTransformInfo();
   auto *AC   = WRC.getAssumptionCache();
   auto *TLI  = WRC.getTargetLibraryInfo();
+  auto *AA   = WRC.getAliasAnalysis();
 
-  WRegionInfo WRI(&F, DT, LI, SE, TTI, AC, TLI, &WRC);
+  WRegionInfo WRI(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC);
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoAnalysis::run: " << F.getName()
                     << "\n");
@@ -83,8 +85,9 @@ bool WRegionInfoWrapperPass::runOnFunction(Function &F) {
   auto *TTI  = WRC.getTargetTransformInfo();
   auto *AC   = WRC.getAssumptionCache();
   auto *TLI  = WRC.getTargetLibraryInfo();
+  auto *AA   = WRC.getAliasAnalysis();
 
-  WRI.reset(new WRegionInfo(&F, DT, LI, SE, TTI, AC, TLI, &WRC));
+  WRI.reset(new WRegionInfo(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC));
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoWrapperPass::runOnFunction: "
                     << F.getName() << "\n");
@@ -96,8 +99,9 @@ void WRegionInfoWrapperPass::releaseMemory() { WRI.reset(); }
 WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
                          ScalarEvolution *SE, const TargetTransformInfo *TTI,
                          AssumptionCache *AC, const TargetLibraryInfo *TLI,
-                         WRegionCollection *WRC)
-    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), WRC(WRC) {}
+                         AliasAnalysis *AA, WRegionCollection *WRC)
+    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
+      WRC(WRC) {}
 
 void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
   LLVM_DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR=" << IR
@@ -113,12 +117,19 @@ void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
 }
 
 void WRegionInfo::print(raw_ostream &OS) const {
-#if !INTEL_PRODUCT_RELEASE
   formatted_raw_ostream FOS(OS);
 
   for (auto I = begin(), E = end(); I != E; ++I) {
+#if INTEL_CUSTOMIZATION
+  #if !INTEL_PRODUCT_RELEASE
     FOS << "\n";
     (*I)->print(FOS, 0);
+  #endif // !INTEL_PRODUCT_RELEASE
+#else
+    FOS << "\n";
+    (*I)->print(FOS, 0);
+#endif // INTEL_CUSTOMIZATION
   }
-#endif // !INTEL_PRODUCT_RELEASE
 }
+
+#endif // INTEL_COLLAB

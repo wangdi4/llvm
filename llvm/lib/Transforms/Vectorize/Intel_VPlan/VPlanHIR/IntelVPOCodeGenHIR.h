@@ -70,12 +70,19 @@ public:
   static bool isConstStrideRef(const RegDDRef *Ref, unsigned Level,
                                int64_t *CoeffPtr = nullptr);
 
+  static bool refIsUnit(const HLLoop *HLoop, const RegDDRef *Ref);
+
   Function &getFunction() const { return Fn; }
   HLLoop *getMainLoop() const { return MainLoop; }
   int getVF() const { return VF; };
 
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
+
+  // Returns the HLLoop where it is safe to hoist the reduction initializer
+  // statement. It is also the point after which the last value computation
+  // instructions can be placed.
+  HLLoop *findRednHoistInsertionPoint(HLLoop *Lp);
 
   // Widen the given instruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
@@ -172,6 +179,10 @@ private:
   // maps
   std::map<int, RegDDRef *> WideMap;
 
+  // The loop for which it is safe to hoist the reduction initializer and sink
+  // reduction last value compute instructions.
+  HLLoop *RednHoistLp;
+
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
 
@@ -194,13 +205,14 @@ private:
 
   // Given reduction operator identity value, insert vector reduction operand
   // initialization to a vector of length VF identity values. Return the
-  // initialization instruction. The initialization is added before the loop
+  // initialization instruction. The initialization is added before RednHoistLp
   // and the LVAL of this instruction is used as the widened reduction ref.
   HLInst *insertReductionInitializer(Constant *Iden);
 
   // Add entry to WidenMap and handle generating code for liveout/reduction at
-  // the end of loop.
-  void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst);
+  // the end of loop specified by /p HoistLp.
+  void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst,
+                                HLLoop *HoistLp);
 
   // Find users of OrigRef and replaces them with NewRef.
   void replaceOrigRef(RegDDRef *OrigRef, RegDDRef *NewRef);
@@ -208,6 +220,12 @@ private:
   // Replace math library calls in the remainder loop with the vectorized one
   // used in the main vector loop.
   void replaceLibCallsInRemainderLoop(HLInst *HInst);
+
+  // The small loop trip count and body thresholds used to determine where it
+  // is appropriate for complete unrolling. May eventually need to be moved to
+  // the cost model.
+  static constexpr unsigned SmallTripThreshold = 16;
+  static constexpr unsigned SmallLoopBodyThreshold = 10;
 
   class HIRLoopVisitor : public HIRVisitor<HIRLoopVisitor> {
   private:

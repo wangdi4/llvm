@@ -11,8 +11,8 @@
 #define liblldb_Address_h_
 
 #include "lldb/lldb-defines.h"      // for LLDB_INVALID_ADDRESS
-#include "lldb/lldb-enumerations.h" // for AddressClass::eAddressClassInvalid
 #include "lldb/lldb-forward.h"      // for SectionWP, SectionSP, ModuleSP
+#include "lldb/lldb-private-enumerations.h" // for AddressClass
 #include "lldb/lldb-types.h"        // for addr_t
 
 #include <stddef.h> // for size_t
@@ -270,7 +270,7 @@ public:
             DumpStyle fallback_style = DumpStyleInvalid,
             uint32_t addr_byte_size = UINT32_MAX) const;
 
-  lldb::AddressClass GetAddressClass() const;
+  AddressClass GetAddressClass() const;
 
   //------------------------------------------------------------------
   /// Get the file address.
@@ -338,7 +338,7 @@ public:
   //------------------------------------------------------------------
   lldb::addr_t GetOpcodeLoadAddress(
       Target *target,
-      lldb::AddressClass addr_class = lldb::eAddressClassInvalid) const;
+      AddressClass addr_class = AddressClass::eInvalid) const;
 
   //------------------------------------------------------------------
   /// Get the section relative offset value.
@@ -370,7 +370,7 @@ public:
   /// Check if the object state is valid.
   ///
   /// A valid Address object contains either a section pointer and
-  /// and offset (for section offset based addresses), or just a valid offset
+  /// offset (for section offset based addresses), or just a valid offset
   /// (for absolute addresses that have no section).
   ///
   /// @return
@@ -390,7 +390,7 @@ public:
   //------------------------------------------------------------------
   /// Resolve a file virtual address using a section list.
   ///
-  /// Given a list of sections, attempt to resolve \a addr as a an offset into
+  /// Given a list of sections, attempt to resolve \a addr as an offset into
   /// one of the file sections.
   ///
   /// @return
@@ -432,7 +432,7 @@ public:
 
   bool SetOpcodeLoadAddress(
       lldb::addr_t load_addr, Target *target,
-      lldb::AddressClass addr_class = lldb::eAddressClassInvalid,
+      AddressClass addr_class = AddressClass::eInvalid,
       bool allow_section_end = false);
 
   bool SetCallableLoadAddress(lldb::addr_t load_addr, Target *target);

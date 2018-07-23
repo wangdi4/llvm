@@ -30,6 +30,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVectVLSAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 

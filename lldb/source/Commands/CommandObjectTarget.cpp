@@ -195,20 +195,13 @@ public:
 
   Options *GetOptions() override { return &m_option_group; }
 
-  int HandleArgumentCompletion(Args &input, int &cursor_index,
-                               int &cursor_char_position,
-                               OptionElementVector &opt_element_vector,
-                               int match_start_point, int max_return_elements,
-                               bool &word_complete,
-                               StringList &matches) override {
-    std::string completion_str(input.GetArgumentAtIndex(cursor_index));
-    completion_str.erase(cursor_char_position);
-
+  int HandleArgumentCompletion(
+      CompletionRequest &request,
+      OptionElementVector &opt_element_vector) override {
     CommandCompletions::InvokeCommonCompletionCallbacks(
         GetCommandInterpreter(), CommandCompletions::eDiskFileCompletion,
-        completion_str.c_str(), match_start_point, max_return_elements, nullptr,
-        word_complete, matches);
-    return matches.GetSize();
+        request, nullptr);
+    return request.GetMatches().GetSize();
   }
 
 protected:
@@ -258,7 +251,7 @@ protected:
       FileSpec file_spec;
 
       if (file_path)
-        file_spec.SetFile(file_path, true);
+        file_spec.SetFile(file_path, true, FileSpec::Style::native);
 
       bool must_set_platform_path = false;
 
@@ -752,7 +745,7 @@ public:
                                     VariableList &variable_list) {
     Target *target = static_cast<Target *>(baton);
     if (target) {
-      return target->GetImages().FindGlobalVariables(ConstString(name), true,
+      return target->GetImages().FindGlobalVariables(ConstString(name),
                                                      UINT32_MAX, variable_list);
     }
     return 0;
@@ -818,8 +811,8 @@ protected:
             return false;
           }
           use_var_name = true;
-          matches = target->GetImages().FindGlobalVariables(
-              regex, true, UINT32_MAX, variable_list);
+          matches = target->GetImages().FindGlobalVariables(regex, UINT32_MAX,
+                                                            variable_list);
         } else {
           Status error(Variable::GetValuesForVariableExpressionPath(
               arg, m_exe_ctx.GetBestExecutionContextScope(),
@@ -947,8 +940,8 @@ protected:
                     llvm::StringRef(
                         ".")); // Any global with at least one character
                 VariableList variable_list;
-                sc.module_sp->FindGlobalVariables(all_globals_regex, append,
-                                                  UINT32_MAX, variable_list);
+                sc.module_sp->FindGlobalVariables(all_globals_regex, UINT32_MAX,
+                                                  variable_list);
                 DumpGlobalVariableList(m_exe_ctx, sc, variable_list, s);
               }
             }
@@ -1811,21 +1804,13 @@ public:
 
   ~CommandObjectTargetModulesModuleAutoComplete() override = default;
 
-  int HandleArgumentCompletion(Args &input, int &cursor_index,
-                               int &cursor_char_position,
-                               OptionElementVector &opt_element_vector,
-                               int match_start_point, int max_return_elements,
-                               bool &word_complete,
-                               StringList &matches) override {
-    // Arguments are the standard module completer.
-    std::string completion_str(input.GetArgumentAtIndex(cursor_index));
-    completion_str.erase(cursor_char_position);
-
+  int HandleArgumentCompletion(
+      CompletionRequest &request,
+      OptionElementVector &opt_element_vector) override {
     CommandCompletions::InvokeCommonCompletionCallbacks(
-        GetCommandInterpreter(), CommandCompletions::eModuleCompletion,
-        completion_str.c_str(), match_start_point, max_return_elements, nullptr,
-        word_complete, matches);
-    return matches.GetSize();
+        GetCommandInterpreter(), CommandCompletions::eModuleCompletion, request,
+        nullptr);
+    return request.GetMatches().GetSize();
   }
 };
 
@@ -1860,21 +1845,13 @@ public:
 
   ~CommandObjectTargetModulesSourceFileAutoComplete() override = default;
 
-  int HandleArgumentCompletion(Args &input, int &cursor_index,
-                               int &cursor_char_position,
-                               OptionElementVector &opt_element_vector,
-                               int match_start_point, int max_return_elements,
-                               bool &word_complete,
-                               StringList &matches) override {
-    // Arguments are the standard source file completer.
-    std::string completion_str(input.GetArgumentAtIndex(cursor_index));
-    completion_str.erase(cursor_char_position);
-
+  int HandleArgumentCompletion(
+      CompletionRequest &request,
+      OptionElementVector &opt_element_vector) override {
     CommandCompletions::InvokeCommonCompletionCallbacks(
         GetCommandInterpreter(), CommandCompletions::eSourceFileCompletion,
-        completion_str.c_str(), match_start_point, max_return_elements, nullptr,
-        word_complete, matches);
-    return matches.GetSize();
+        request, nullptr);
+    return request.GetMatches().GetSize();
   }
 };
 
@@ -2410,20 +2387,13 @@ public:
 
   Options *GetOptions() override { return &m_option_group; }
 
-  int HandleArgumentCompletion(Args &input, int &cursor_index,
-                               int &cursor_char_position,
-                               OptionElementVector &opt_element_vector,
-                               int match_start_point, int max_return_elements,
-                               bool &word_complete,
-                               StringList &matches) override {
-    std::string completion_str(input.GetArgumentAtIndex(cursor_index));
-    completion_str.erase(cursor_char_position);
-
+  int HandleArgumentCompletion(
+      CompletionRequest &request,
+      OptionElementVector &opt_element_vector) override {
     CommandCompletions::InvokeCommonCompletionCallbacks(
         GetCommandInterpreter(), CommandCompletions::eDiskFileCompletion,
-        completion_str.c_str(), match_start_point, max_return_elements, nullptr,
-        word_complete, matches);
-    return matches.GetSize();
+        request, nullptr);
+    return request.GetMatches().GetSize();
   }
 
 protected:
@@ -3581,7 +3551,7 @@ public:
         break;
 
       case 'f':
-        m_file.SetFile(option_arg, false);
+        m_file.SetFile(option_arg, false, FileSpec::Style::native);
         m_type = eLookupTypeFileLine;
         break;
 
@@ -4011,20 +3981,13 @@ public:
 
   ~CommandObjectTargetSymbolsAdd() override = default;
 
-  int HandleArgumentCompletion(Args &input, int &cursor_index,
-                               int &cursor_char_position,
-                               OptionElementVector &opt_element_vector,
-                               int match_start_point, int max_return_elements,
-                               bool &word_complete,
-                               StringList &matches) override {
-    std::string completion_str(input.GetArgumentAtIndex(cursor_index));
-    completion_str.erase(cursor_char_position);
-
+  int HandleArgumentCompletion(
+      CompletionRequest &request,
+      OptionElementVector &opt_element_vector) override {
     CommandCompletions::InvokeCommonCompletionCallbacks(
         GetCommandInterpreter(), CommandCompletions::eDiskFileCompletion,
-        completion_str.c_str(), match_start_point, max_return_elements, nullptr,
-        word_complete, matches);
-    return matches.GetSize();
+        request, nullptr);
+    return request.GetMatches().GetSize();
   }
 
   Options *GetOptions() override { return &m_option_group; }
@@ -4319,7 +4282,8 @@ protected:
 
         for (auto &entry : args.entries()) {
           if (!entry.ref.empty()) {
-            module_spec.GetSymbolFileSpec().SetFile(entry.ref, true);
+            module_spec.GetSymbolFileSpec().SetFile(entry.ref, true,
+                                                    FileSpec::Style::native);
             if (file_option_set) {
               module_spec.GetFileSpec() =
                   m_file_option.GetOptionValue().GetCurrentValue();

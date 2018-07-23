@@ -165,7 +165,7 @@ static unsigned getFunctionAttribute(const DISubprogram *SP,
     }
     break;
   default:
-    assert(!"unhandled virtuality case");
+    llvm_unreachable("Unhandled virtuality case");
     break;
   }
 
@@ -436,7 +436,7 @@ static size_t calculateFieldLength(const STITypeFieldListItem *field) {
     break;
 
   default:
-    assert(!"Invalid field list item kind!");
+    llvm_unreachable("Invalid field list item kind!");
     length = 0;
     break;
   }
@@ -2304,7 +2304,7 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
         // DIE &ElemDie = createAndAddDIE(dwarf::DW_TAG_friend, Buffer);
         // addType(ElemDie, resolve(DDTy->getBaseType()),
         //        dwarf::DW_AT_friend);
-        assert(!"FIXME: implement this case");
+        llvm_unreachable("FIXME: implement this case");
       } else {
         if (DDTy->getName() == virtualTableName) {
           assert(!info.vFuncTab && "Class has more than one virtual table.");
@@ -2560,8 +2560,7 @@ static uint16_t leafForAggregateType(const DICompositeType *llvmType) {
     X(DW_TAG_union_type,     LF_UNION);
 #undef  X
   default:
-    assert(!"Unknown structure type");
-    leaf = LF_INTEL_NONE;
+    llvm_unreachable("Unknown structure type!");
     break;
   }
 
@@ -4131,13 +4130,13 @@ STISymbolVariable *STIDebugImpl::createSymbolVariableFromDbgValue(
       }
     }
   } else if (DVInsn->getOperand(0).isImm()) {
-    //assert(!"FIXME: support this case");
+    // llvm_unreachable("FIXME: support this case");
     // addConstantValue(*VariableDie, DVInsn->getOperand(0), DV.getType());
   } else if (DVInsn->getOperand(0).isFPImm()) {
-    //assert(!"FIXME: support this case");
+    // llvm_unreachable("FIXME: support this case");
     // addConstantFPValue(*VariableDie, DVInsn->getOperand(0));
   } else if (DVInsn->getOperand(0).isCImm()) {
-    //assert(!"FIXME: support this case");
+    // llvm_unreachable("FIXME: support this case");
     // addConstantValue(*VariableDie, DVInsn->getOperand(0).getCImm(),
     //                 DV.getType());
   }
@@ -4366,7 +4365,7 @@ STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlockBase* LB) {
 }
 
 STIChecksumEntry *STIDebugImpl::getOrCreateChecksum(StringRef path) {
-  STIStringEntry *string = _stringTable.find(strdup(path.str().c_str()));
+  STIStringEntry *string = _stringTable.find(path);
   STIChecksumEntry *checksum = _checksumTable.findEntry(string);
 
   if (checksum == nullptr) {
@@ -4868,7 +4867,7 @@ static void setTypeCompositeProperty(
     break;
 
   default:
-    assert(!"Invalid nested type declaration kind!");
+    llvm_unreachable("Invalid nested type declaration kind!");
     break;
   }
 }
@@ -5369,7 +5368,7 @@ STIDebugImpl::emitSymbolThunk(const STISymbolThunk *thunk) const {
     break;
 
   default:
-    assert(!"Invalid ordinal kind!");
+    llvm_unreachable("Invalid ordinal kind!");
     ordinalSize = 0;
     break;
   }
@@ -5411,7 +5410,7 @@ STIDebugImpl::emitSymbolThunk(const STISymbolThunk *thunk) const {
     break;
 
   default:
-    assert(!"Invalid ordinal kind!");
+    llvm_unreachable("Invalid ordinal kind!");
     break;
   }
 }
@@ -6331,7 +6330,7 @@ void STIDebugImpl::emitTypeFieldListItem(
   X(INDEX,      emitTypeIndex,      STITypeIndex);
 #undef  X
   default:
-    assert(!"unsupported field list item kind!");
+    llvm_unreachable("unsupported field list item kind!");
     break;
   }
 }

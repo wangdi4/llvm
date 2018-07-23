@@ -282,7 +282,8 @@ void DTransOptBase::buildTypeDependencyMapping(
 void DTransOptBase::dumpTypeDepenencyMapping(
     TypeDependencyMapping &TypeToDependentTypes) {
   auto PrintNameOrType = [](Type *Ty) {
-    if (auto *StructTy = dyn_cast<StructType>(Ty))
+    auto *StructTy = dyn_cast<StructType>(Ty);
+    if (StructTy && StructTy->hasName())
       dbgs() << StructTy->getName();
     else
       dbgs() << *Ty;
@@ -322,7 +323,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
     if (Depender == Dependee)
       return;
 
-    if (!Dependee->isAggregateType())
+    if (!Dependee->isAggregateType() || !Depender->isAggregateType())
       return;
 
     LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing "
@@ -355,7 +356,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
   if (auto *FuncTy = dyn_cast<FunctionType>(Ty)) {
     Type *RetTy = FuncTy->getReturnType();
     Type *BaseTy = unwrapType(RetTy);
-    UpdateTypeToDependentTypeMap(Dependee, BaseTy);
+    UpdateTypeToDependentTypeMap(BaseTy, Dependee);
 
     unsigned Total = FuncTy->getNumParams();
     for (unsigned Idx = 0; Idx < Total; ++Idx) {
@@ -413,7 +414,12 @@ void DTransOptBase::prepareDependentTypes(
     // been determined. For other types, such as arrays, we don't need to do
     // anything here, the replacements for them will be computed on demand.
     if (auto *StructTy = dyn_cast<StructType>(Ty)) {
-      Type *ReplacementTy = StructType::create(
+      // If StructTy is literal, don't give the replacement a name.
+      Type *ReplacementTy;
+      if (StructTy->isLiteral())
+        ReplacementTy = StructType::create(Context);
+      else
+        ReplacementTy = StructType::create(
           Context, Twine(DepTypePrefix + StructTy->getStructName()).str());
       TypeRemapper->addTypeMapping(Ty, ReplacementTy);
       OrigToNewTypeReplacement[Ty] = ReplacementTy;
@@ -448,38 +454,9 @@ void DTransOptBase::populateDependentTypes(
 }
 
 void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
-  // Create a mapping of "Function -> { call info set }" objects.
-  // The CallInfo objects will need to have their types updated
-  // following cloning/remapping of the function. This map will
-  // be used to find which CallInfo objects need to be updated after
-  // processing each function.
-  DenseMap<Function *, SmallVector<dtrans::CallInfo *, 4>>
-      FunctionToCallInfoVec;
-
-  // This lambda function is used to update the CallInfo objects associated
-  // with a specific function. The type list of each call info will be
-  // updated to reflect the remapped types. For cloned functions, the
-  // instruction pointer in the call info will be updated to point
-  // to the instruction in the cloned function.
-  auto UpdateCallInfo = [this, &FunctionToCallInfoVec](Function *F,
-                                                       bool isCloned) {
-    if (FunctionToCallInfoVec.count(F))
-      for (auto *CInfo : FunctionToCallInfoVec[F]) {
-        if (isCloned)
-          DTInfo.replaceCallInfoInstruction(
-              CInfo, cast<Instruction>(VMap[CInfo->getInstruction()]));
-
-        dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
-        size_t Num = PTI.getNumTypes();
-        for (size_t i = 0; i < Num; ++i)
-          PTI.setType(i, TypeRemapper->remapType(PTI.getType(i)));
-      }
-  };
-
-  for (auto *CInfo : DTInfo.call_info_entries()) {
-    Function *F = CInfo->getInstruction()->getParent()->getParent();
-    FunctionToCallInfoVec[F].push_back(CInfo);
-  }
+  // Set up the mapping of Functions to CallInfo objects that need to
+  // be processed as each function is transformed.
+  initializeFunctionCallInfoMapping();
 
   for (auto &F : M) {
     if (F.isDeclaration())
@@ -506,7 +483,7 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
 
       CloneFunctionInto(CloneFunc, &F, VMap, true, Returns, "", &CodeInfo,
                         TypeRemapper, Materializer);
-      UpdateCallInfo(&F, /* IsCloned=*/true);
+      updateCallInfoForFunction(&F, /* IsCloned=*/true);
 
       // Let the derived class perform any additional actions needed on the
       // cloned function. For example, if the transformation is changing
@@ -522,7 +499,7 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       // Perform the type remapping for the function
       ValueMapper(VMap, RF_IgnoreMissingLocals, TypeRemapper, Materializer)
           .remapFunction(F);
-      UpdateCallInfo(&F, /* IsCloned=*/false);
+      updateCallInfoForFunction(&F, /* IsCloned=*/false);
 
       // Let the derived class perform any additional actions needed on the
       // remapped function.
@@ -534,6 +511,45 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
     dbgs() << "Call info after remapping\n";
     DTInfo.printCallInfo(dbgs());
   });
+
+  // The Function to CallInfo mapping is no longer needed, and can be released
+  // now.
+  resetFunctionCallInfoMapping();
+}
+
+// Set up the Function to CallInfo mapping that is needed for keeping
+// the CallInfo objects up to date while the transformation is running.
+void DTransOptBase::initializeFunctionCallInfoMapping() {
+  resetFunctionCallInfoMapping();
+
+  for (auto *CInfo : DTInfo.call_info_entries()) {
+    Function *F = CInfo->getInstruction()->getParent()->getParent();
+    FunctionToCallInfoVec[F].push_back(CInfo);
+  }
+}
+
+// This function is used to update the CallInfo objects associated
+// with a specific function. The type list of each call info will be
+// updated to reflect the remapped types. For cloned functions, the
+// instruction pointer in the call info will be updated to point to the
+// instruction in the cloned function.
+void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
+  if (FunctionToCallInfoVec.count(F))
+    for (auto *CInfo : FunctionToCallInfoVec[F]) {
+      if (isCloned)
+        DTInfo.replaceCallInfoInstruction(
+            CInfo, cast<Instruction>(VMap[CInfo->getInstruction()]));
+
+      dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
+      size_t Num = PTI.getNumTypes();
+      for (size_t i = 0; i < Num; ++i)
+        PTI.setType(i, TypeRemapper->remapType(PTI.getType(i)));
+    }
+}
+
+// Clear all the data in the Function to CallInfo mapping
+void DTransOptBase::resetFunctionCallInfoMapping() {
+  FunctionToCallInfoVec.clear();
 }
 
 // Identify and create new function prototypes for dependent functions
@@ -648,26 +664,58 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
     GlobalsForRemoval.push_back(GV);
   }
 
-  // Fill in the initializers for all the new variables.
-  for (auto &Mapping : LocalVMap) {
-    GlobalVariable *OrigGV = Mapping.first;
-    GlobalVariable *NewGV = Mapping.second;
+  // Create or update the initializers for all the global variables. This
+  // handles newly created variables that had their types changed, and
+  // existing variables that may have been initialized with the address of a
+  // function or global that is being remapped.
+  for (auto &GV : M.globals()) {
+    GlobalVariable *OrigGV = &GV;
+    GlobalVariable *VarToRemap = OrigGV;
+    auto LocalVMapIt = LocalVMap.find(OrigGV);
+    if (LocalVMapIt != LocalVMap.end())
+      VarToRemap = LocalVMapIt->second;
 
     if (OrigGV->hasInitializer()) {
       // If the derived class handled the replacement variable creation, then
       // the derived class needs to handle the initialization.
       if (SubclassHandledGVMap.count(OrigGV))
-        initializeGlobalVariableReplacement(OrigGV, NewGV, Mapper);
+        initializeGlobalVariableReplacement(OrigGV, VarToRemap, Mapper);
       else
-        NewGV->setInitializer(Mapper.mapConstant(*OrigGV->getInitializer()));
-      NewGV->takeName(OrigGV);
+        VarToRemap->setInitializer(
+            Mapper.mapConstant(*OrigGV->getInitializer()));
+
+      if (VarToRemap != OrigGV) {
+        VarToRemap->takeName(OrigGV);
+        postprocessGlobalVariable(OrigGV, VarToRemap);
+      }
+
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global Var replacement:\n  Orig: "
+                        << *OrigGV << "\n  New : " << *VarToRemap << "\n");
     }
+  }
 
-    postprocessGlobalVariable(OrigGV, NewGV);
+  // Create and initialize new aliases for all the aliases that have their type
+  // changed. The original alias will be removed after all the functions
+  // have been processed.
+  // TODO: Will the transformations need to post process the aliases, like it
+  // does for global variables?
+  for (auto &Alias : M.getAliasList()) {
+    Constant *Aliasee = Alias.getAliasee();
+    // If the Aliasee is being mapped to something other than itself,
+    // then this GlobalAlias needs to be updated.
+    auto VMapIt = VMap.find(Aliasee);
+    if (VMapIt != VMap.end() && VMapIt->second != Aliasee) {
+      Type *RemapTy = VMapIt->second->getType();
+      auto *NewAlias = GlobalAlias::create(
+          RemapTy->getPointerElementType(), Alias.getType()->getAddressSpace(),
+          Alias.getLinkage(), "", Mapper.mapConstant(*Aliasee), &M);
+      NewAlias->takeName(&Alias);
+      VMap[&Alias] = NewAlias;
+      GlobalsForRemoval.push_back(&Alias);
 
-    LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global Var replacement:\n  Orig: "
-                      << *Mapping.first << "\n  New : " << *Mapping.second
-                      << "\n");
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global alias replacement:\n  Orig: "
+                        << Alias << "\n  New : " << *NewAlias << "\n");
+    }
   }
 }
 
@@ -699,6 +747,17 @@ void DTransOptBase::updateCallSizeOperand(Instruction *I,
   uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
   uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
 
+  updateCallSizeOperand(I, CInfo, OrigSize, ReplSize);
+}
+
+// This function performs the actual replacement for the size parameter
+// of a function call, by finding the original constant that is a
+// multiple of \p OrigSize, and replacing that value with a multiple
+// of \p ReplSize.
+void DTransOptBase::updateCallSizeOperand(Instruction *I,
+                                          dtrans::CallInfo *CInfo,
+                                          uint64_t OrigSize,
+                                          uint64_t ReplSize) {
   // Find the User value that has a constant integer multiple of the original
   // structure size as an operand.
   bool Found = false;
@@ -710,20 +769,28 @@ void DTransOptBase::updateCallSizeOperand(Instruction *I,
       llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
     case dtrans::AK_UserMalloc0:
       llvm_unreachable("AK_UserMalloc0 not yet supported!");
+    case dtrans::AK_New:
     case dtrans::AK_Malloc:
-    case dtrans::AK_UserMalloc:
-      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
-      break;
     case dtrans::AK_Realloc:
-      Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
-      break;
     case dtrans::AK_Calloc:
-      Found = findValueMultipleOfSizeInst(I, 0, OrigSize, SizeUseStack);
-      assert((Found || SizeUseStack.empty()) &&
-             "SizeUseStack not empty after failed value search!");
-      if (!Found)
-        Found = findValueMultipleOfSizeInst(I, 1, OrigSize, SizeUseStack);
+    case dtrans::AK_UserMalloc: {
+      unsigned SizeArgPos = 0;
+      unsigned CountArgPos = 0;
+      getAllocSizeArgs(AK, CallSite(I), SizeArgPos, CountArgPos, TLI);
+      if (AK == dtrans::AK_Calloc) {
+        Found =
+            findValueMultipleOfSizeInst(I, CountArgPos, OrigSize, SizeUseStack);
+        assert((Found || SizeUseStack.empty()) &&
+               "SizeUseStack not empty after failed value search!");
+        if (!Found)
+          Found = findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize,
+                                              SizeUseStack);
+      } else {
+        Found =
+            findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize, SizeUseStack);
+      }
       break;
+    }
     }
   } else {
     // This asserts because we only expect alloc info or memfunc info.
@@ -745,6 +812,12 @@ void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
   uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
   uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
 
+  updatePtrSubDivUserSizeOperand(Sub, OrigSize, ReplSize);
+}
+
+void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                   uint64_t OrigSize,
+                                                   uint64_t ReplSize) {
   for (auto *U : Sub->users()) {
     auto *BinOp = cast<BinaryOperator>(U);
     assert((BinOp->getOpcode() == Instruction::SDiv ||
@@ -826,7 +899,7 @@ void DTransOptBase::replaceSizeValue(
   LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
 }
 
-// This helper function searches, starting with \p U opernad \p Idx and
+// This helper function searches, starting with \p U operand \p Idx and
 // following only multiply operations, for a User value with an operand that
 // is a constant integer and is an exact multiple of the specified size. If a
 // match is found, the \p UseStack vector will be populated with <User, Index>
@@ -885,4 +958,14 @@ bool DTransOptBase::findValueMultipleOfSizeInst(
 
   // Otherwise, it's definitely not what we were looking for.
   return false;
+}
+
+void DTransOptBase::deleteCallInfo(dtrans::CallInfo *CInfo) {
+  Instruction *I = CInfo->getInstruction();
+  Function *F = I->getParent()->getParent();
+  auto &InfoVec = FunctionToCallInfoVec[F];
+
+  auto It = std::find(InfoVec.begin(), InfoVec.end(), CInfo);
+  InfoVec.erase(It);
+  DTInfo.deleteCallInfo(I);
 }

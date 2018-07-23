@@ -1,4 +1,4 @@
-//===-- VPlanHCFGBuilderHIR.h -----------------------------------*- C++ -*-===//
+//===-- IntelVPlanHCFGBuilderHIR.h ------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -33,7 +33,7 @@ class HLLoop;
 
 namespace vpo {
 
-class VPlanHCFGBuilderHIR : public VPlanHCFGBuilderBase {
+class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {
 
 private:
   /// The outermost loop to be vectorized.
@@ -54,8 +54,8 @@ private:
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,
                       VPOVectorizationLegality *Legal, const DDGraph &DDG)
-      : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), DDG(DDG) {
-
+      : VPlanHCFGBuilder(nullptr, nullptr, nullptr, WRL, Plan, Legal),
+        TheLoop(Lp), DDG(DDG) {
     Verifier = new VPlanVerifierHIR(Lp);
     assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
            "Inconsistent Loop information");

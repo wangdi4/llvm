@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===----- WRegionNodeUtils.h - Utilities for WRegionNodeNode class -----*- C++
 //-*-===//
 //
@@ -20,7 +21,9 @@
 
 #include "llvm/Support/Compiler.h"
 #include "llvm/IR/IntrinsicInst.h"
+#if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
@@ -171,6 +174,7 @@ public:
                                     LoopInfo *LI, unsigned NestingLevel,
                                     bool IsRegionIntrinsic);
 
+#if INTEL_CUSTOMIZATION
   /// \brief Similar to createWRegion, but for HIR vectorizer support
   static WRegionNode *createWRegionHIR(int DirID,
                                        loopopt::HLNode *EntryHLNode,
@@ -191,6 +195,7 @@ public:
 
   /// \brief Driver routine to build WRGraph based on HIR representation
   static WRContainerImpl *buildWRGraphFromHIR(loopopt::HIRFramework &HIRF);
+#endif // INTEL_CUSTOMIZATION
 
   /// Removal Utilities
 
@@ -319,7 +324,7 @@ public:
   /// \brief Return true if destructors are needed for privatized variables
   static bool needsDestructors(WRegionNode *W);
 
-  /// \brief Returns \b true if \p W contains a '#pragma omp cancel' construct
+  /// Returns \b true if \p W contains a `\#pragma omp cancel` construct
   /// directly inside its region; \b false otherwise.
   static bool hasCancelConstruct(WRegionNode *W);
 };
@@ -329,3 +334,4 @@ public:
 } // End LLVM Namespace
 
 #endif // LLVM_ANAYSIS_VPO_WREGIONUTILS_H
+#endif // INTEL_COLLAB

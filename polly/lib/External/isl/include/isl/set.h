@@ -10,13 +10,14 @@
 #ifndef ISL_SET_H
 #define ISL_SET_H
 
+#include <isl/id_type.h>
 #include <isl/map_type.h>
 #include <isl/aff_type.h>
 #include <isl/list.h>
 #include <isl/mat.h>
 #include <isl/point.h>
 #include <isl/local_space.h>
-#include <isl/val.h>
+#include <isl/val_type.h>
 #include <isl/stdint.h>
 #include <isl/stride_info.h>
 
@@ -496,6 +497,11 @@ __isl_give isl_basic_set *isl_basic_set_from_constraint_matrices(
 	__isl_take isl_space *dim,
 	__isl_take isl_mat *eq, __isl_take isl_mat *ineq, enum isl_dim_type c1,
 	enum isl_dim_type c2, enum isl_dim_type c3, enum isl_dim_type c4);
+
+__isl_give isl_basic_set *isl_basic_set_from_multi_aff(
+	__isl_take isl_multi_aff *ma);
+
+__isl_give isl_set *isl_set_from_multi_aff(__isl_take isl_multi_aff *ma);
 
 __isl_give isl_mat *isl_basic_set_reduced_basis(__isl_keep isl_basic_set *bset);
 

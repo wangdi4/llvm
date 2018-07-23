@@ -52,19 +52,18 @@
 ; CHECK:   END REGION
 ;
 ;
-; *** *** 
-;          
+; *** ***
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:        |      %limm = (@A)[0][i1];
+; CHECK:        |      %1 = (@A)[0][i1];
 ; CHECK:        |   + DO i2 = 0, 49, 1   <DO_LOOP>
-; CHECK:        |   |   %1 = %limm;
 ; CHECK:        |   |   %3 = (@B)[0][i1 + i2];
-; CHECK:        |   |   %limm2 = %1 + %3 + 1;
+; CHECK:        |   |   %limm = %1 + %3 + 1;
 ; CHECK:        |   + END LOOP
-; CHECK:        |      (@A)[0][i1 + 2] = %limm2;
+; CHECK:        |      (@A)[0][i1 + 2] = %limm;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;

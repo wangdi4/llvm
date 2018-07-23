@@ -103,6 +103,9 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
           [&]() { return AM.getCachedResult<HIRLoopResourceAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRSafeReductionAnalysisPass>(F); },
+          [&]() {
+            return AM.getCachedResult<HIRSparseArrayReductionAnalysisPass>(F);
+          },
           [&]() { return nullptr; }));
 }
 
@@ -159,8 +162,7 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       getAnalysis<OptReportOptionsPass>().getVerbosity(),
       HIRAnalysisProvider(
           [&]() {
-            auto *Wrapper =
-                getAnalysisIfAvailable<HIRDDAnalysisWrapperPass>();
+            auto *Wrapper = getAnalysisIfAvailable<HIRDDAnalysisWrapperPass>();
             return Wrapper ? &Wrapper->getDDA() : nullptr;
           },
           [&]() {
@@ -182,6 +184,11 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
             auto *Wrapper =
                 getAnalysisIfAvailable<HIRSafeReductionAnalysisWrapperPass>();
             return Wrapper ? &Wrapper->getHSR() : nullptr;
+          },
+          [&]() {
+            auto *Wrapper = getAnalysisIfAvailable<
+                HIRSparseArrayReductionAnalysisWrapperPass>();
+            return Wrapper ? &Wrapper->getHSAR() : nullptr;
           },
           [&]() { return getAnalysisIfAvailable<HIRVectVLSAnalysis>(); })));
   return false;
@@ -346,8 +353,7 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   // Highest dimension is intentionally skipped as it doesn't contain
   // information about number of elements.
   for (unsigned I = 1; I < NumDims; ++I) {
-    visit(Ref->getDimensionIndex(I), Ref->getNumDimensionElements(I),
-          Node);
+    visit(Ref->getDimensionIndex(I), Ref->getNumDimensionElements(I), Node);
   }
 
   // We try getting the information about number of elements in the highest

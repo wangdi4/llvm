@@ -81,5 +81,5 @@ for.end8:                                         ; preds = %for.cond.for.end8_c
 }
 
 !0 = distinct !{!0, !1}
-!1 = !{!"llvm.loop.unroll.count", i32 5}
+!1 = !{!"llvm.loop.unroll_and_jam.count", i32 5}
 

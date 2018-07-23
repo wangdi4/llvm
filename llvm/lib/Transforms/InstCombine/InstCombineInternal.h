@@ -20,7 +20,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetFolder.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
@@ -212,6 +212,61 @@ IntrinsicIDToOverflowCheckFlavor(unsigned ID) {
   }
 }
 
+/// Some binary operators require special handling to avoid poison and undefined
+/// behavior. If a constant vector has undef elements, replace those undefs with
+/// identity constants if possible because those are always safe to execute.
+/// If no identity constant exists, replace undef with some other safe constant.
+static inline Constant *getSafeVectorConstantForBinop(
+      BinaryOperator::BinaryOps Opcode, Constant *In, bool IsRHSConstant) {
+  assert(In->getType()->isVectorTy() && "Not expecting scalars here");
+
+  Type *EltTy = In->getType()->getVectorElementType();
+  auto *SafeC = ConstantExpr::getBinOpIdentity(Opcode, EltTy, IsRHSConstant);
+  if (!SafeC) {
+    // TODO: Should this be available as a constant utility function? It is
+    // similar to getBinOpAbsorber().
+    if (IsRHSConstant) {
+      switch (Opcode) {
+      case Instruction::SRem: // X % 1 = 0
+      case Instruction::URem: // X %u 1 = 0
+        SafeC = ConstantInt::get(EltTy, 1);
+        break;
+      case Instruction::FRem: // X % 1.0 (doesn't simplify, but it is safe)
+        SafeC = ConstantFP::get(EltTy, 1.0);
+        break;
+      default:
+        llvm_unreachable("Only rem opcodes have no identity constant for RHS");
+      }
+    } else {
+      switch (Opcode) {
+      case Instruction::Shl:  // 0 << X = 0
+      case Instruction::LShr: // 0 >>u X = 0
+      case Instruction::AShr: // 0 >> X = 0
+      case Instruction::SDiv: // 0 / X = 0
+      case Instruction::UDiv: // 0 /u X = 0
+      case Instruction::SRem: // 0 % X = 0
+      case Instruction::URem: // 0 %u X = 0
+      case Instruction::Sub:  // 0 - X (doesn't simplify, but it is safe)
+      case Instruction::FSub: // 0.0 - X (doesn't simplify, but it is safe)
+      case Instruction::FDiv: // 0.0 / X (doesn't simplify, but it is safe)
+      case Instruction::FRem: // 0.0 % X = 0
+        SafeC = Constant::getNullValue(EltTy);
+        break;
+      default:
+        llvm_unreachable("Expected to find identity constant for opcode");
+      }
+    }
+  }
+  assert(SafeC && "Must have safe constant for binop");
+  unsigned NumElts = In->getType()->getVectorNumElements();
+  SmallVector<Constant *, 16> Out(NumElts);
+  for (unsigned i = 0; i != NumElts; ++i) {
+    Constant *C = In->getAggregateElement(i);
+    Out[i] = isa<UndefValue>(C) ? SafeC : C;
+  }
+  return ConstantVector::get(Out);
+}
+
 /// The core instruction combiner logic.
 ///
 /// This class provides both the logic to recursively visit instructions and
@@ -235,6 +290,9 @@ private:
   /// Enable combines that trigger rarely but are costly in compiletime.
   const bool ExpensiveCombines;
 
+  /// INTEL Enable optimizations like merging and zero element GEP removal
+  const bool GEPInstOptimizations; // INTEL
+
   AliasAnalysis *AA;
 
   // Required analyses.
@@ -253,13 +311,17 @@ private:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, bool ExpensiveCombines, AliasAnalysis *AA,
+               bool MinimizeSize, bool ExpensiveCombines,  // INTEL
+               bool GEPInstOptimizations,                  // INTEL
+               AliasAnalysis *AA,                          // INTEL
                AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
                OptimizationRemarkEmitter &ORE, const DataLayout &DL,
                LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
-        ExpensiveCombines(ExpensiveCombines), AA(AA), AC(AC), TLI(TLI), DT(DT),
-        DL(DL), SQ(DL, &TLI, &DT, &AC), ORE(ORE), LI(LI) {}
+        ExpensiveCombines(ExpensiveCombines),          // INTEL
+        GEPInstOptimizations(GEPInstOptimizations),    // INTEL
+        AA(AA), AC(AC), TLI(TLI),                      // INTEL
+        DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC), ORE(ORE), LI(LI) {} // INTEL
 
   /// Run the combiner over the entire worklist until it is empty.
   ///
@@ -710,11 +772,15 @@ private:
   /// demanded bits.
   bool SimplifyDemandedInstructionBits(Instruction &Inst);
 
+  Value *simplifyAMDGCNMemoryIntrinsicDemanded(IntrinsicInst *II,
+                                               APInt DemandedElts,
+                                               int DmaskIdx = -1);
+
   Value *SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
                                     APInt &UndefElts, unsigned Depth = 0);
 
-  Value *SimplifyVectorOp(BinaryOperator &Inst);
-
+  /// Canonicalize the position of binops relative to shufflevector.
+  Instruction *foldShuffledBinop(BinaryOperator &Inst);
 
   /// Given a binary operator, cast instruction, or select which has a PHI node
   /// as operand #0, see if we can fold the instruction into the PHI (which is

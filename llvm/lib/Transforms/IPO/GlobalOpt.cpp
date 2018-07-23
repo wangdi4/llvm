@@ -17,7 +17,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Twine.h"
@@ -30,7 +29,7 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -640,7 +639,13 @@ static GlobalVariable *SRAGlobal(GlobalVariable *GV, const DataLayout &DL) {
 /// reprocessing them.
 static bool AllUsesOfValueWillTrapIfNull(const Value *V,
                                         SmallPtrSetImpl<const PHINode*> &PHIs) {
-  for (const User *U : V->users())
+  for (const User *U : V->users()) {
+    if (const Instruction *I = dyn_cast<Instruction>(U)) {
+      // If null pointer is considered valid, then all uses are non-trapping.
+      // Non address-space 0 globals have already been pruned by the caller.
+      if (NullPointerIsDefined(I->getFunction()))
+        return false;
+    }
     if (isa<LoadInst>(U)) {
       // Will trap.
     } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
@@ -674,7 +679,7 @@ static bool AllUsesOfValueWillTrapIfNull(const Value *V,
       //cerr << "NONTRAPPING USE: " << *U;
       return false;
     }
-
+  }
   return true;
 }
 
@@ -701,6 +706,10 @@ static bool OptimizeAwayTrappingUsesOfValue(Value *V, Constant *NewV) {
   bool Changed = false;
   for (auto UI = V->user_begin(), E = V->user_end(); UI != E; ) {
     Instruction *I = cast<Instruction>(*UI++);
+    // Uses are non-trapping if null pointer is considered valid.
+    // Non address-space 0 globals are already pruned by the caller.
+    if (NullPointerIsDefined(I->getFunction()))
+      return false;
     if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
       LI->setOperand(0, NewV);
       Changed = true;
@@ -1588,7 +1597,10 @@ static bool optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
   // users of the loaded value (often calls and loads) that would trap if the
   // value was null.
   if (GV->getInitializer()->getType()->isPointerTy() &&
-      GV->getInitializer()->isNullValue()) {
+      GV->getInitializer()->isNullValue() &&
+      !NullPointerIsDefined(
+          nullptr /* F */,
+          GV->getInitializer()->getType()->getPointerAddressSpace())) {
     if (Constant *SOVC = dyn_cast<Constant>(StoredOnceVal)) {
       if (GV->getInitializer()->getType() != SOVC->getType())
         SOVC = ConstantExpr::getBitCast(SOVC, GV->getInitializer()->getType());
@@ -1750,8 +1762,8 @@ static bool TryToShrinkGlobalToBoolean(GlobalVariable *GV, Constant *OtherVal) {
   return true;
 }
 
-static bool deleteIfDead(GlobalValue &GV,
-                         SmallSet<const Comdat *, 8> &NotDiscardableComdats) {
+static bool deleteIfDead(
+    GlobalValue &GV, SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
   GV.removeDeadConstantUsers();
 
   if (!GV.isDiscardableIfUnused() && !GV.isDeclaration())
@@ -2327,7 +2339,7 @@ OptimizeFunctions(Module &M, TargetLibraryInfo *TLI,
                   function_ref<TargetTransformInfo &(Function &)> GetTTI,
                   function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
                   function_ref<DominatorTree &(Function &)> LookupDomTree,
-                  SmallSet<const Comdat *, 8> &NotDiscardableComdats) {
+                  SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
 
   bool Changed = false;
 
@@ -2422,7 +2434,7 @@ OptimizeFunctions(Module &M, TargetLibraryInfo *TLI,
 static bool
 OptimizeGlobalVars(Module &M, TargetLibraryInfo *TLI,
                    function_ref<DominatorTree &(Function &)> LookupDomTree,
-                   SmallSet<const Comdat *, 8> &NotDiscardableComdats) {
+                   SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
   bool Changed = false;
 
   for (Module::global_iterator GVI = M.global_begin(), E = M.global_end();
@@ -2665,7 +2677,7 @@ static int compareNames(Constant *const *A, Constant *const *B) {
 }
 
 static void setUsedInitializer(GlobalVariable &V,
-                               const SmallPtrSet<GlobalValue *, 8> &Init) {
+                               const SmallPtrSetImpl<GlobalValue *> &Init) {
   if (Init.empty()) {
     V.eraseFromParent();
     return;
@@ -2818,7 +2830,7 @@ static bool hasUsesToReplace(GlobalAlias &GA, const LLVMUsed &U,
 
 static bool
 OptimizeGlobalAliases(Module &M,
-                      SmallSet<const Comdat *, 8> &NotDiscardableComdats) {
+                      SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
   bool Changed = false;
   LLVMUsed Used(M);
 
@@ -3001,7 +3013,7 @@ static bool optimizeGlobalsInModule(
     function_ref<TargetTransformInfo &(Function &)> GetTTI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
     function_ref<DominatorTree &(Function &)> LookupDomTree) {
-  SmallSet<const Comdat *, 8> NotDiscardableComdats;
+  SmallPtrSet<const Comdat *, 8> NotDiscardableComdats;
   bool Changed = false;
   bool LocalChange = true;
   while (LocalChange) {

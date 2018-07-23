@@ -1,4 +1,4 @@
-//===-- VPlanHCFGBuilder.h --------------------------------------*- C++ -*-===//
+//===-- IntelVPlanHCFGBuilder.h ---------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -31,7 +31,16 @@ class Loop;
 
 namespace vpo {
 
-class VPlanHCFGBuilderBase {
+class VPlanHCFGBuilder {
+private:
+  /// The outermost loop to be vectorized.
+  Loop *TheLoop;
+
+  /// Loop Info analysis.
+  LoopInfo *LI;
+
+  /// Scalar Evolution analysis.
+  ScalarEvolution *SE;
 
 protected:
   /// Hold WRegion information for TheLoop, if available.
@@ -43,7 +52,7 @@ protected:
   VPDominatorTree VPDomTree;
   VPPostDominatorTree VPPostDomTree;
 
-  VPlanUtils PlanUtils;
+  VPlan *Plan;
 
   /// VPlan verifier utility.
   VPlanVerifier *Verifier = nullptr;
@@ -69,11 +78,10 @@ protected:
   // of the new loop, so the old one can become dead.
   // SmallPtrSet<Instruction *, 4> DeadInstructions;
 
-  VPlanHCFGBuilderBase(const WRNVecLoopNode *WRL, VPlan *Plan,
-                       VPOVectorizationLegality *Legal)
-      : WRLp(WRL), PlanUtils(Plan), Legal(Legal) {}
-
-  virtual VPRegionBlock *buildPlainCFG() = 0;
+  virtual VPRegionBlock *buildPlainCFG();
+  virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
+    return VPlanUtils::createLoopRegion(VPLp);
+  }
 
   void simplifyPlainCFG();
   void splitLoopsPreheader(VPLoop *VPLp);
@@ -82,7 +90,7 @@ protected:
   void simplifyNonLoopRegions();
 
   void buildLoopRegions();
-  virtual void collectUniforms(VPRegionBlock *Region) = 0;
+  virtual void collectUniforms(VPRegionBlock *Region);
   void buildNonLoopRegions(VPRegionBlock *ParentRegion);
 
   // Utility functions.
@@ -93,34 +101,11 @@ protected:
                                  VPRegionBlock *ParentRegion);
   bool isDivergentBlock(VPBlockBase *Block);
 
-  virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) = 0;
-
 public:
-  /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
-  void buildHierarchicalCFG();
-};
-
-class VPlanHCFGBuilder : public VPlanHCFGBuilderBase {
-
-private:
-  /// The outermost loop to be vectorized.
-  Loop *TheLoop;
-
-  /// Loop Info analysis.
-  LoopInfo *LI;
-
-  /// Scalar Evolution analysis.
-  ScalarEvolution *SE;
-
-  VPRegionBlock *buildPlainCFG() override;
-  void collectUniforms(VPRegionBlock *Region) override;
-
-public:
-  VPlanHCFGBuilder(const WRNVecLoopNode *WRL, Loop *Lp, VPlan *Plan,
-                   LoopInfo *LI, ScalarEvolution *SE,
+  VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
+                   const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal)
-      : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), LI(LI), SE(SE) {
-
+      : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
     // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
     // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
     Verifier = new VPlanVerifier(Lp, LI);
@@ -128,9 +113,8 @@ public:
            "Inconsistent Loop information");
   }
 
-  VPLoopRegion *createLoopRegion(VPLoop *VPLp) override {
-    return PlanUtils.createLoopRegion(VPLp);
-  }
+  /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
+  void buildHierarchicalCFG();
 };
 
 } // namespace vpo

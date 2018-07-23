@@ -24,10 +24,10 @@ static cl::opt<bool> EnableHCFGVerifier("vplan-verify-hcfg", cl::init(false),
                                         cl::Hidden,
                                         cl::desc("Verify VPlan H-CFG."));
 
+#ifndef NDEBUG
 /// Utility function that checks whether \p VPBlockVec has duplicate
 /// VPBlockBases.
-LLVM_ATTRIBUTE_USED static bool
-hasDuplicates(const SmallVectorImpl<VPBlockBase *> &VPBlockVec) {
+static bool hasDuplicates(const SmallVectorImpl<VPBlockBase *> &VPBlockVec) {
   SmallDenseSet<const VPBlockBase *, 8> VPBlockSet;
   for (const auto *Block : VPBlockVec) {
     if (VPBlockSet.count(Block))
@@ -36,6 +36,7 @@ hasDuplicates(const SmallVectorImpl<VPBlockBase *> &VPBlockVec) {
   }
   return false;
 }
+#endif
 
 /// Helper function that verifies the CFG invariants of the VPBlockBases within
 /// \p Region. Checks in this function are generic for VPBlockBases. They are
@@ -46,6 +47,12 @@ static void verifyBlocksInRegion(const VPRegionBlock *Region) {
                   df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
     // Check block's parent.
     assert(VPB->getParent() == Region && "VPBlockBase has wrong parent");
+
+    // Check block's condition bit.
+    if (VPB->getNumSuccessors() > 1)
+      assert(VPB->getCondBit() && "Missing condition bit!");
+    else
+      assert(!VPB->getCondBit() && "Unexpected condition bit!");
 
     // Check block's successors.
     const auto &Successors = VPB->getSuccessors();

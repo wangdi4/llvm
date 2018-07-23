@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===--- WRegionInfoAnalysis.cpp --------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -17,3 +18,4 @@ using namespace llvm;
 //  initializeWRegionCollectionWrapperPassPass(Registry);
 //  initializeWRegionInfoWrapperPassPass(Registry);
 //}
+#endif // INTEL_COLLAB

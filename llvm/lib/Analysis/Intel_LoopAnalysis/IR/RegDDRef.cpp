@@ -13,10 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
@@ -225,7 +225,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
 
   // Update attached blob DDRefs' def level first.
   for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
-    auto CE = (*It)->getMutableSingleCanonExpr();
+    auto CE = (*It)->getSingleCanonExpr();
 
     if (CE->isNonLinear()) {
       continue;
@@ -436,14 +436,6 @@ bool RegDDRef::isLval() const {
   assert(HNode && "DDRef is not attached to any node!");
 
   return HNode->isLval(this);
-}
-
-bool RegDDRef::isRval() const {
-  auto HNode = getHLDDNode();
-
-  assert(HNode && "DDRef is not attached to any node!");
-
-  return HNode->isRval(this);
 }
 
 bool RegDDRef::isFake() const {
@@ -1023,25 +1015,32 @@ bool RegDDRef::findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
   return false;
 }
 
-void RegDDRef::checkBlobDDRefsConsistency() const {
+void RegDDRef::checkDefAtLevelConsistency(
+    const CanonExpr *CE, SmallVectorImpl<unsigned> &TempBlobIndices) const {
+  SmallVector<unsigned, 8> CEBlobIndices;
+
+  CE->collectTempBlobIndices(CEBlobIndices, false);
+
+  unsigned MaxLevel = findMaxTempBlobLevel(CEBlobIndices);
+  (void)MaxLevel;
+
+  assert(MaxLevel == CE->getDefinedAtLevel() &&
+         "DefAtLevel of CE is inconsistent!");
+  TempBlobIndices.append(CEBlobIndices.begin(), CEBlobIndices.end());
+}
+
+void RegDDRef::checkBlobAndDefAtLevelConsistency() const {
   SmallVector<unsigned, 8> BlobIndices;
 
-  collectTempBlobIndices(BlobIndices);
-
-  // Check that the DDRef contains a blob DDRef for each contained temp blob.
-  for (auto &BI : BlobIndices) {
-    bool BlobFound = false;
-
-    for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
-      if (BI == (*I)->getBlobIndex()) {
-        BlobFound = true;
-        break;
-      }
-    }
-
-    (void)BlobFound;
-    assert(BlobFound && "Temp blob not found in blob DDRefs!");
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    checkDefAtLevelConsistency(*I, BlobIndices);
   }
+
+  if (hasGEPInfo()) {
+    checkDefAtLevelConsistency(getBaseCE(), BlobIndices);
+  }
+
+  std::sort(BlobIndices.begin(), BlobIndices.end());
 
   // Look for stale blob DDRefs.
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
@@ -1145,7 +1144,7 @@ void RegDDRef::verify() const {
     assert((BlobDDRefs.size() == 0) &&
            "Self-blobs couldn't contain any BlobDDRefs!");
   } else {
-    checkBlobDDRefsConsistency();
+    checkBlobAndDefAtLevelConsistency();
   }
 
   if (!IsConst || isLval()) {

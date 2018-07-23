@@ -38,6 +38,7 @@
 ; CHECK-NOT: DO i3
 ; CHECK: else
 
+target datalayout = "p:32:32"
 
 define void @foo(float* %ptr1, float* %ptr2, float* %ptr3, i32 %stride1, i32 %stride2) {
 entry:

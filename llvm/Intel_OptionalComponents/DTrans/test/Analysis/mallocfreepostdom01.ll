@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check that we see "Bad casting | Mismatched element access |
 ; Unsafe pointer store" due to unrecognized equivalency of i8** and

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==-- IntrinsicUtils.cpp - Utilities for VPO related intrinsics -*- C++ -*-==//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -15,16 +16,18 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #define DEBUG_TYPE "VPOIntrinsicUtils"
@@ -32,11 +35,14 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+static cl::opt<unsigned>
+    RefsThreshold("refs-threshold", cl::Hidden, cl::init(500),
+                    cl::desc("The number of references threshold"));
+
 bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   bool success = true;
   BasicBlock *ExitBB = WRN->getExitBBlock();
 
-#if INTEL_CUSTOMIZATION // old representation should not to appear in COLLAB
   // Under the old representation, we still need to remove dirs from EntryBB
   BasicBlock *EntryBB = WRN->getEntryBBlock();
   bool SeenRegionDirective = false;
@@ -48,7 +54,6 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
     }
   if (!SeenRegionDirective)
     success = VPOUtils::stripDirectives(*EntryBB);
-#endif // INTEL_CUSTOMIZATION
 
   // Under the new region representation:
   //   %1 = call token @llvm.directive.region.entry() [...]
@@ -231,3 +236,285 @@ void VPOUtils::stripDebugInfoInstrinsics(Function &F)
     }
   }
 }
+
+// Generates a memcpy call at the end of the given basic block BB.
+// The value D represents the destination while the value S represents
+// the source. The size of the memcpy is the size of destination.
+// The compiler will insert the typecast if the type of source or destination
+// does not match with the type i8.
+// One example of the output is as follows.
+//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
+CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
+                              unsigned Align, BasicBlock *BB) {
+  IRBuilder<> MemcpyBuilder(BB);
+  MemcpyBuilder.SetInsertPoint(BB->getTerminator());
+
+  Value *Dest, *Src, *Size;
+
+  // The first two arguments of the memcpy expects the i8 operands.
+  // The instruction bitcast is introduced if the incoming src or dest
+  // operand in not in i8 type.
+  if (D->getType() !=
+      Type::getInt8PtrTy(BB->getParent()->getContext())) {
+    Dest = MemcpyBuilder.CreatePointerCast(D, MemcpyBuilder.getInt8PtrTy());
+    Src = MemcpyBuilder.CreatePointerCast(S, MemcpyBuilder.getInt8PtrTy());
+  }
+  else {
+    Dest = D;
+    Src = S;
+  }
+  // For 32/64 bit architecture, the size and alignment should be
+  // set accordingly.
+  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->getIntegerBitWidth() ==
+      64)
+    Size = MemcpyBuilder.getInt64(
+        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+  else
+    Size = MemcpyBuilder.getInt32(
+        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+
+  AllocaInst *AI = dyn_cast<AllocaInst>(D);
+  if (AI && AI->isArrayAllocation())
+    Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
+
+  return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
+}
+
+// Utility to copy the data from the source to the destination.
+void VPOUtils::genCopyFromSrcToDst(Type *AllocaTy, const DataLayout &DL,
+                                   IRBuilder<> &Builder,
+                                   AllocaInst *NewPrivInst,
+                                   Value *Source, Value *Destination,
+                                   BasicBlock *InsertBB) {
+  Type *ScalarTy = AllocaTy->getScalarType();
+
+  if (!AllocaTy->isSingleValueType() ||
+      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
+      DL.getTypeSizeInBits(ScalarTy) % 8 != 0 ||
+      NewPrivInst->isArrayAllocation())
+    genMemcpy(Destination, Source, DL,
+              NewPrivInst->getAlignment(), InsertBB);
+  else
+    Builder.CreateStore(Builder.CreateLoad(Source), Destination);
+}
+
+typedef SmallDenseMap<Value *, MDNode *, 8> PtrScopeMap;
+void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
+                           const DataLayout *DL) {
+
+  SmallVector<Instruction *, 8> MemoryInsns;
+
+  auto collectMemReferences = [&](ArrayRef<BasicBlock *> BBs,
+                                  SmallVectorImpl<Instruction *> &MemoryInsns) {
+    for (auto *BB : BBs) {
+      for (auto &I : *BB) {
+        if (isa<LoadInst>(&I) || isa<StoreInst>(&I))
+          MemoryInsns.push_back(&I);
+      }
+    }
+  };
+
+  collectMemReferences(BBs, MemoryInsns);
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRS-51441 [VPO][SPEC OMP 2012] spec_omp2012/367 times out at
+  // compile time in VPOUtils::genAliasSet()
+#endif // INTEL_CUSTOMIZATION
+  // Set the memory reference thresold to force the function
+  // genAliasSet to give up once the number of reference exceeds the threshold.
+  if (MemoryInsns.size() > RefsThreshold)
+    return;
+
+  class BitMatrix {
+  private:
+    BitVector BV;
+    unsigned RecLen;
+
+  public:
+    BitMatrix(){};
+    ~BitMatrix(){};
+    void clear() {
+      RecLen = 0;
+      BV.clear();
+    }
+    void resize(unsigned N) {
+      RecLen = N;
+      BV.resize(N * N);
+    }
+    bool bitTest(int rowno, int colno) {
+      return BV.test(rowno * RecLen + colno);
+    }
+    void bitSet(int rowno, int colno) { BV.set(rowno * RecLen + colno); }
+    void bitReset(int rowno, int colno) { BV.flip(rowno * RecLen + colno); }
+    void dump(raw_ostream &OS) {
+      unsigned I, J;
+      if (BV.size() == 0)
+        return;
+      OS << "alias matrix\n";
+      for (I = 0; I < RecLen; I++) {
+        for (J = 0; J < RecLen; J++)
+          if (bitTest(I, J))
+            OS << "1 ";
+          else
+            OS << "0 ";
+        OS << "\n";
+      }
+      OS << "\n";
+    }
+  };
+
+  // Build an alias matrix based on the AA for the incoming loads/stores.
+  auto initAliasMatrix = [&](SmallVectorImpl<Instruction *> &Insns,
+                             AliasAnalysis *AA, const DataLayout *DL,
+                             BitMatrix &BM) {
+    int N = Insns.size();
+    BM.clear();
+    BM.resize(N);
+    for (int I = 0; I < N; I++) {
+      LoadInst *LIA = dyn_cast<LoadInst>(Insns[I]);
+      StoreInst *STA = dyn_cast<StoreInst>(Insns[I]);
+      assert((LIA || STA) && "Expect load/store instruction");
+      for (int J = I + 1; J < N; J++) {
+        LoadInst *LIB = dyn_cast<LoadInst>(Insns[J]);
+        StoreInst *STB = dyn_cast<StoreInst>(Insns[J]);
+        assert((LIB || STB) && "Expect load/store instruction");
+        if (LIA && LIB)
+          continue;
+        Value *V1, *V2;
+        V1 = LIA ? LIA->getPointerOperand() : STA->getPointerOperand();
+        V2 = LIB ? LIB->getPointerOperand() : STB->getPointerOperand();
+        uint64_t I1Size = MemoryLocation::UnknownSize;
+        Type *I1ElTy = cast<PointerType>(V1->getType())->getElementType();
+        if (I1ElTy->isSized())
+          I1Size = DL->getTypeStoreSize(I1ElTy);
+        uint64_t I2Size = MemoryLocation::UnknownSize;
+        Type *I2ElTy = cast<PointerType>(V2->getType())->getElementType();
+        if (I2ElTy->isSized())
+          I2Size = DL->getTypeStoreSize(I2ElTy);
+        if (!AA->isNoAlias(V1, I1Size, V2, I2Size))
+          BM.bitSet(J, I);
+      }
+    }
+  };
+
+  BitMatrix BM;
+  initAliasMatrix(MemoryInsns, AA, DL, BM);
+
+  // Form a clique if the references are proved to be aliased with
+  // each other.
+  auto formClique = [&](BitVector &C, int Col, int Row, class BitMatrix &CM) {
+    for (int I = Col; I >= 0; --I) {
+      if (C.test(I)) {
+        CM.bitSet(Row, I);
+        for (int J = Row; J > I; --J) {
+          if (C.test(J))
+            CM.bitSet(J, I);
+        }
+        for (int K = I - 1; K >= 0; --K) {
+          if (C.test(K) && !BM.bitTest(I, K))
+            C.flip(K);
+        }
+      }
+    }
+    C.set(Row);
+  };
+
+  // Set alias_scope MetaData for 'I' using new scope.
+  auto generateScopeMD = [&](Instruction* I, MDNode* NewScope) {
+    MDNode* SM = I->getMetadata(LLVMContext::MD_alias_scope);
+    MDNode* SM1 = MDNode::concatenate(SM, NewScope);
+    I->setMetadata(LLVMContext::MD_alias_scope, SM1);
+  };
+
+  // Set noAlias MetaData for 'I' using new scope.
+  auto generateNoAliasMD = [&](Instruction* I, MDNode* NewScope) {
+    MDNode* AM = I->getMetadata(LLVMContext::MD_noalias);
+    MDNode* AM1 = MDNode::concatenate(AM, NewScope);
+    I->setMetadata(LLVMContext::MD_noalias, AM1);
+  };
+
+  // It generates a unique metadata ID for every clique.
+  // Then every load/stores is updated with alias_scope metadata
+  // as well as noalias metadata.
+  auto genMDForCliques = [&](std::vector<BitVector> &CliqueSet,
+                             SmallVectorImpl<Instruction *> &Insns,
+                             BitMatrix &BM) {
+    if (Insns.size() == 0)
+      return;
+    LLVMContext &C = Insns[0]->getContext();
+    MDBuilder MDB(C);
+    MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain();
+
+    DenseMap<unsigned, SmallVector<MDNode *, 8>> InstrToCliqueSetMap(
+        Insns.size());
+
+    for (const BitVector &Bv : CliqueSet) {
+      MDNode *CliqueIdMD = MDB.createAnonymousAliasScope(NewDomain, "OMPDomain");
+      for (unsigned I = 0; I < Bv.size(); ++I) {
+        if (Bv.test(I))
+          InstrToCliqueSetMap[I].push_back(CliqueIdMD);
+      }
+    }
+
+    StringRef Name = "OMPAliasScope";
+    PtrScopeMap PointersScopes;
+
+    for (unsigned I = 0; I < Insns.size(); ++I) {
+      SmallVector<MDNode *, 8> &InstrCliques = InstrToCliqueSetMap[I];
+      Instruction *Ins = Insns[I];
+      if (InstrCliques.empty()) {
+        MDNode *M = MDB.createAnonymousAliasScope(NewDomain, Name);
+        generateScopeMD(Ins, M);
+      } else {
+        MDNode *M = InstrCliques[0];
+        for (unsigned II = 1; II < InstrCliques.size(); II++)
+          M = MDNode::concatenate(M, InstrCliques[II]);
+        generateScopeMD(Ins, M);
+      }
+      PointersScopes[Ins] = Ins->getMetadata(LLVMContext::MD_alias_scope);
+    }
+
+    for (unsigned I = 0; I < Insns.size(); ++I) {
+      LoadInst *LIA = dyn_cast<LoadInst>(Insns[I]);
+      for (unsigned J = I + 1; J < Insns.size(); ++J) {
+        LoadInst *LIB = dyn_cast<LoadInst>(Insns[J]);
+        if (LIA && LIB)
+          continue;
+        if (!BM.bitTest(J, I)) {
+          generateNoAliasMD(Insns[J], PointersScopes.lookup(Insns[I]));
+          generateNoAliasMD(Insns[I], PointersScopes.lookup(Insns[J]));
+        }
+      }
+    }
+  };
+
+  // In order to reduce the number of metadata, the compiler calculates
+  // the number of cliques in the alias matrix.
+  auto calculateClique = [&](SmallVectorImpl<Instruction *> &Insns,
+                             BitMatrix &BM) {
+    unsigned N = Insns.size();
+    std::vector<BitVector> CliqueSet;
+    BitMatrix CliquedMatrix;
+    CliquedMatrix.resize(N);
+    BitVector Clique(N);
+
+    for (int I = N - 1; I >= 0; --I) {
+      for (int J = I - 1; J >= 0; --J) {
+        if (BM.bitTest(I, J) && !CliquedMatrix.bitTest(I, J)) {
+          Clique.reset();
+          for (int K = J; K >= 0; --K) {
+            if (BM.bitTest(I, K))
+              Clique.set(K);
+          }
+          formClique(Clique, J, I, CliquedMatrix);
+          CliqueSet.push_back(Clique);
+        }
+      }
+    }
+
+    genMDForCliques(CliqueSet, Insns, BM);
+  };
+
+  calculateClique(MemoryInsns, BM);
+}
+#endif // INTEL_COLLAB

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===------ Intel_GeneralUtils.cpp - General set of utilities for VPO -----===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -30,7 +31,7 @@ using namespace llvm;
 cl::opt<bool> Usei1MaskForSimdFunctions(
   "use-i1-mask-for-simd-funcs", cl::init(false),
   cl::desc("Use vector of i1 as mask for simd functions"));
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 template Constant *
 IntelGeneralUtils::getConstantValue<int>(Type *Ty, LLVMContext &Context,
@@ -223,6 +224,10 @@ Instruction* IntelGeneralUtils::nextUniqueInstruction(Instruction *I) {
   return &*++I->getIterator();
 }
 
+#if INTEL_CUSTOMIZATION
+// This code uses class AddressInst, which is an INTEL_CUSTOMIZATION code in
+// include/llvm/IR/IntrinsicInst.h, so we have to guard this util as well
+
 // Recursively checks whether V escapes or not.
 static bool analyzeEscapeAux(const Value *V,
                              SmallPtrSetImpl<const PHINode *> &PhiUsers) {
@@ -293,6 +298,7 @@ bool IntelGeneralUtils::isEscaped(const Value *V) {
   SmallPtrSet<const PHINode *, 16> PhiUsers;
   return analyzeEscapeAux(V, PhiUsers);
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Return the size_t type for 32/64 bit architecture
 Type *IntelGeneralUtils::getSizeTTy(Function *F) {
@@ -307,3 +313,4 @@ Type *IntelGeneralUtils::getSizeTTy(Function *F) {
     IntTy = Type::getInt32Ty(C);
   return IntTy;
 }
+#endif // INTEL_COLLAB

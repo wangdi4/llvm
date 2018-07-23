@@ -56,7 +56,9 @@ public:
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
   }
 
   // Run the implementation
@@ -71,13 +73,16 @@ public:
     const TargetLibraryInfo &TLInfo =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
+
     // Lambda function to find the LoopInfo related to an input function
     dtrans::PaddedMallocPass::LoopInfoFuncType GetLI =
         [this](Function &F) -> LoopInfo & {
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
 
-    return Impl.runImpl(M, DTInfo, GetLI, TLInfo);
+    return Impl.runImpl(M, DTInfo, GetLI, TLInfo, WPInfo);
   }
 };
 
@@ -86,19 +91,21 @@ public:
 // Traverse through each Function stored in PaddedMallocFuncs and
 // apply the padded malloc optimization.
 bool dtrans::PaddedMallocPass::applyPaddedMalloc(
-    std::vector<Function *> &PaddedMallocFuncs, GlobalVariable *GlobalCounter,
-    Function *PMFunc, Module *M, const TargetLibraryInfo &TLInfo,
-    DTransAnalysisInfo &DTInfo, bool UseOpenMP) {
+    std::vector<PaddedMallocFunc> &PaddedMallocVect,
+    GlobalVariable *GlobalCounter, Function *PMFunc, Module *M,
+    const TargetLibraryInfo &TLInfo, DTransAnalysisInfo &DTInfo) {
 
   bool FuncMod = false;
 
-  LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Applying padded malloc" <<
-      (UseOpenMP ? " with atomic operation" : "") << "\n");
+  LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Applying padded malloc\n");
 
-  for (Function *F : PaddedMallocFuncs) {
-    for (BasicBlock &BB : *F) {
-      if (updateBasicBlock(BB, F, GlobalCounter, TLInfo, M, UseOpenMP)) {
-        LLVM_DEBUG(dbgs() << "\tFunction update: " << F->getName() << "\n");
+  for (auto &Entry : PaddedMallocVect) {
+    for (BasicBlock &BB : *(Entry.first)) {
+      if (updateBasicBlock(BB, Entry.first, GlobalCounter, TLInfo, M,
+                           Entry.second)) {
+        LLVM_DEBUG(dbgs() << "\tFunction updated: " << Entry.first->getName()
+                          << (Entry.second ? " with atomic operation" : "")
+                          << "\n");
         FuncMod = true;
         break;
       }
@@ -109,8 +116,8 @@ bool dtrans::PaddedMallocPass::applyPaddedMalloc(
   // and the global variable from the symbol table
   if (!FuncMod) {
     LLVM_DEBUG(dbgs() << "\tNone of the functions were updated\n");
-    GlobalCounter->eraseFromParent();
     PMFunc->eraseFromParent();
+    GlobalCounter->eraseFromParent();
   }
 
   DTInfo.setPaddedMallocInfo(DTransPaddedMallocSize, PMFunc);
@@ -155,9 +162,8 @@ dtrans::PaddedMallocPass::buildGlobalVariableCounter(Module &M) {
 //
 // The function pmCounterCheck will return true if _pm_counter is
 // lower that the limit (250 in this case), else return false.
-Function *
-dtrans::PaddedMallocPass::buildInterfaceFunction(Module *M,
-                                                 GlobalVariable *GlobalCounter) {
+Function *dtrans::PaddedMallocPass::buildInterfaceFunction(
+    Module *M, GlobalVariable *GlobalCounter) {
 
   IRBuilder<> Builder(M->getContext());
 
@@ -235,6 +241,58 @@ bool dtrans::PaddedMallocPass::checkDependence(Instruction *CheckInst,
   return false;
 }
 
+// Traverse through the PaddedMallocVect and identify which functions are used
+// inside a parallel region.
+void dtrans::PaddedMallocPass::checkForParallelRegion(
+    Module &M, std::vector<PaddedMallocFunc> &PaddedMallocVect) {
+
+  // Note: There are two types of OpenMP outlining:
+  //  a) -fopenmp:  OpenMP outlining is done by CFE (frontend)
+  //  b) -fiopenmp: OpenMP outlining is done by VPO (backend)
+  //
+  // This implementation is for identifying the OpenMP outline
+  // function if -fiopenmp was used (backend outlining).
+  //
+  // TODO: In case icc -xllvm supports -fopenmp (frontend
+  // outlining), then one of the following options must be
+  // implemented:
+  //
+  //   a) Traverse the symbol table and identify if there is any
+  //      function with "__kmpc_" in its name. If so, assume that all
+  //      malloc functions will need atomic operations.
+  //   b) The driver passes to the backend that -fopenmp is being
+  //      used and assume that all malloc functions will need atomic
+  //      operations.
+  //   c) The CFE must set the attributes mt-func or task-mt-func to
+  //      the outline functions when they are created. (Nothing to
+  //      update here).
+  //   d) The CFE sets an special attribute (e.g. is-omp-outline)
+  //      to the outline functions when they are created. The
+  //      function isOutlineFunction must be updated so it can recognize
+  //      the new attribute.
+
+  // Check if there is a parallel region
+  bool HasOpenMP = false;
+  for (Function &F : M) {
+    if (VPOAnalysisUtils::mayHaveOpenmpDirective(F) || isOutlineFunction(&F)) {
+      HasOpenMP = true;
+      break;
+    }
+  }
+
+  if (!HasOpenMP)
+    return;
+
+  // Check if the malloc Functions are inside a parallel region
+  SmallPtrSet<Function *, 10> VisitedFuncs;
+  unsigned i = 0;
+  for (i = 0; i < PaddedMallocVect.size(); i++) {
+    if (insideParallelRegion(PaddedMallocVect[i].first, VisitedFuncs))
+      PaddedMallocVect[i].second = true;
+    VisitedFuncs.clear();
+  }
+}
+
 // Return true if the input BasicBlock is a comparison between
 // two pointer/array/vector entries in order to exit a loop.
 // Else, return false. For example:
@@ -294,7 +352,8 @@ bool dtrans::PaddedMallocPass::exitDueToSearch(BasicBlock &BB) {
 // so, then collect that Function and store it in PaddedMallocFuncs. Return
 // true if at least one Function was collected, else return false.
 bool dtrans::PaddedMallocPass::findFieldSingleValueFuncs(
-    DTransAnalysisInfo &DTInfo, std::vector<Function *> &PaddedMallocFuncs) {
+    DTransAnalysisInfo &DTInfo,
+    std::vector<PaddedMallocFunc> &PaddedMallocVect) {
 
   LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Identifying alloc functions\n");
 
@@ -307,15 +366,16 @@ bool dtrans::PaddedMallocPass::findFieldSingleValueFuncs(
     // Go through each field of the structure
     for (dtrans::FieldInfo &FldInfo : StInfo->getFields()) {
 
-      if (FldInfo.isSingleAllocFunction()) {
+      if (FldInfo.isSingleAllocFunction() &&
+          !FldInfo.getSingleAllocFunction()->isDeclaration()) {
         Function *Fn = FldInfo.getSingleAllocFunction();
-        PaddedMallocFuncs.push_back(Fn);
+        PaddedMallocVect.push_back({Fn, false});
         LLVM_DEBUG(dbgs() << "\tAlloc Function: " << Fn->getName() << "\n");
       }
     }
   }
 
-  if (PaddedMallocFuncs.empty()) {
+  if (PaddedMallocVect.empty()) {
     LLVM_DEBUG(dbgs() << "\tNo alloc functions found\n");
     return false;
   }
@@ -373,6 +433,43 @@ bool dtrans::PaddedMallocPass::funcHasSearchLoop(Function &Fn,
   return false;
 }
 
+// Return true if Fn is being called from an OpenMP region,
+// else return false.
+bool dtrans::PaddedMallocPass::insideParallelRegion(
+    Function *Fn, SmallPtrSet<Function *, 10> &VisitedFuncs) {
+
+  if (!Fn)
+    return false;
+
+  if (Fn->hasAddressTaken())
+    return true;
+
+  VisitedFuncs.insert(Fn);
+
+  for (User *User : Fn->users()) {
+
+    if (Instruction *Inst = dyn_cast<Instruction>(User)) {
+      CallSite CS = CallSite(Inst);
+      if (!CS.isCall() && !CS.isInvoke())
+        continue;
+
+      Function *Caller = CS.getCaller();
+
+      if (isOutlineFunction(Caller)) {
+        return true;
+      }
+
+      if (VisitedFuncs.find(Caller) != VisitedFuncs.end())
+        continue;
+
+      if (insideParallelRegion(Caller, VisitedFuncs))
+        return true;
+    }
+  }
+
+  return false;
+}
+
 // Return true if at least one of the BasicBlock's successors goes
 // out of the loop.
 bool dtrans::PaddedMallocPass::isExitLoop(Loop *LoopData, BasicBlock *BB) {
@@ -384,6 +481,21 @@ bool dtrans::PaddedMallocPass::isExitLoop(Loop *LoopData, BasicBlock *BB) {
     if (LoopData->isLoopExiting(SuccBB))
       return true;
   }
+
+  return false;
+}
+
+// Return true if the input Function is an OpenMP outline function,
+// else return false
+bool dtrans::PaddedMallocPass::isOutlineFunction(Function *F) {
+
+  AttributeList FnAttr = F->getAttributes();
+
+  // Note: These attributes are set if the OpenMP outlining is done by the
+  // backend (-fiopenmp).
+  if (FnAttr.hasAttribute(AttributeList::FunctionIndex, "mt-func") ||
+      FnAttr.hasAttribute(AttributeList::FunctionIndex, "task-mt-func"))
+    return true;
 
   return false;
 }
@@ -428,15 +540,14 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
                                                 Module *M, bool UseOpenMP) {
 
   // Traverse the instructions in the BasicBlock
-  for (Instruction &Inst: BB) {
+  for (Instruction &Inst : BB) {
 
     CallSite CS = CallSite(&Inst);
     if (!CS.isCall() && !CS.isInvoke())
       continue;
 
     // Check that the instruction is a call site to malloc
-    if (dtrans::getAllocFnKind(CS.getCalledFunction(), TLInfo) !=
-        dtrans::AK_Malloc) {
+    if (dtrans::getAllocFnKind(CS, TLInfo) != dtrans::AK_Malloc) {
       continue;
     }
 
@@ -450,6 +561,10 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     // Insert the conditional for the multiversioning
     Value *PMLimitVal = Builder.getInt32(DTransPaddedMallocLimit);
     LoadInst *load = Builder.CreateLoad(GlobalCounter);
+    if (UseOpenMP) {
+      load->setAtomic(AtomicOrdering::SequentiallyConsistent);
+      load->setAlignment(4);
+    }
     Value *Cmp = Builder.CreateICmpULT(load, PMLimitVal);
 
     // Build the BasicBlocks structure
@@ -483,7 +598,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     if (UseOpenMP)
       Builder.CreateAtomicRMW(AtomicRMWInst::BinOp::Add, GlobalCounter,
                               Builder.getInt32(1),
-                              AtomicOrdering::AcquireRelease, 1);
+                              AtomicOrdering::SequentiallyConsistent, 1);
     else {
       Value *addOp = Builder.CreateAdd(Builder.getInt32(1), load);
       Builder.CreateStore(addOp, GlobalCounter);
@@ -514,6 +629,7 @@ INITIALIZE_PASS_BEGIN(DTransPaddedMallocWrapper, "dtrans-paddedmalloc",
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransPaddedMallocWrapper, "dtrans-paddedmalloc",
                     "DTrans padded malloc", false, false)
 
@@ -524,14 +640,24 @@ ModulePass *llvm::createDTransPaddedMallocWrapperPass() {
 // Actual implementation of padded malloc
 bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                                        LoopInfoFuncType &GetLI,
-                                       const TargetLibraryInfo &TLInfo) {
+                                       const TargetLibraryInfo &TLInfo,
+                                       WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
+    return false;
+
+  // TODO: Guard the optimization with -memory-layout-trans=3 when
+  // support is available.
 
   LLVM_DEBUG(dbgs() << "dtrans-paddedmalloc: Trace for DTrans Padded Malloc"
                     << "\n");
 
   // Collect the functions that padded malloc can be applied
-  std::vector<Function *> PaddedMallocFuncs;
-  if (!findFieldSingleValueFuncs(DTInfo, PaddedMallocFuncs)) {
+  std::vector<PaddedMallocFunc> PaddedMallocVect;
+  if (!findFieldSingleValueFuncs(DTInfo, PaddedMallocVect)) {
     return false;
   }
 
@@ -544,10 +670,10 @@ bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   GlobalVariable *GlobalCounter = buildGlobalVariableCounter(M);
   Function *PMFunc = buildInterfaceFunction(&M, GlobalCounter);
 
-  // TODO: UseOpenMP needs to be fixed using a mechanism from
-  // the driver that collects the OpenMP flags passed by the user.
-  return applyPaddedMalloc(PaddedMallocFuncs, GlobalCounter, PMFunc, &M, TLInfo,
-                           DTInfo, /*UseOpenMP*/ false);
+  checkForParallelRegion(M, PaddedMallocVect);
+
+  return applyPaddedMalloc(PaddedMallocVect, GlobalCounter, PMFunc, &M, TLInfo,
+                           DTInfo);
 }
 
 PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
@@ -555,6 +681,7 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
 
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLInfo = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   FunctionAnalysisManager &FAM =
       AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
@@ -563,11 +690,12 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
     return FAM.getResult<LoopAnalysis>(F);
   };
 
-  if (!runImpl(M, DTransInfo, GetLI, TLInfo))
+  if (!runImpl(M, DTransInfo, GetLI, TLInfo, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
+  PA.preserve<DTransAnalysis>();
   return PA;
 }

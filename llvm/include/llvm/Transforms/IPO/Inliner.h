@@ -104,7 +104,12 @@ protected:
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
   InlinerPass(InlineParams Params = getInlineParams());     // INTEL
-  ~InlinerPass() { if (!Report.isEmpty()) Report.print(); } // INTEL
+  ~InlinerPass();
+  InlinerPass(InlinerPass &&Arg)
+      : Params(std::move(Arg.Params)),
+        ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
+        Report(std::move(Arg.Report))                                  // INTEL
+  {}                                                                   // INTEL
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
@@ -112,6 +117,7 @@ public:
   InlineReport& getReport() { return Report; } // INTEL
 private:
   InlineParams Params;
+  std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
   // INTEL The inline report
   InlineReport Report; // INTEL

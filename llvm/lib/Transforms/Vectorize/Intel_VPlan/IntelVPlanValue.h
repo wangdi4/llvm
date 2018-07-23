@@ -1,4 +1,4 @@
-//===- VPlanValue.h - Represent Values in Vectorizer Plan -----------------===//
+//===- IntelVPlanValue.h - Represent Values in Vectorizer Plan ------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

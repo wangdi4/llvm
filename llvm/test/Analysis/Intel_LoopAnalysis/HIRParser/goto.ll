@@ -53,8 +53,8 @@
 
 ; which contains ld/st to a[0][i1]
 ; CHECK-CG: hir.L2:
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
 ; and a jump to hir version of L2.63
 ; CHECK-CG: br label %hir.L2.63
 
@@ -68,8 +68,8 @@
 
 ; which also contains ld/st to a[0][i1]
 ; CHECK-CG: hir.L2.63:
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
-; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
+; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
 ; and ivupdate and loop end
 ; CHECK-CG: br i1 %condloop
 

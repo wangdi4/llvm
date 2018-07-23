@@ -1,4 +1,4 @@
-//===-- VPlanVerifier.cpp -------------------------------------------------===//
+//===-- IntelVPlanVerifier.cpp --------------------------------------------===//
 //
 //   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
@@ -212,9 +212,9 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
 
     // Check block's ConditionBit
     if (VPB->getNumSuccessors() > 1)
-      assert(VPB->getCondBitVPVal() && "Missing CondBitVPVal");
+      assert(VPB->getCondBit() && "Missing condition bit!");
     else
-      assert(!VPB->getCondBitVPVal() && "Unexpected CondBitVPVal");
+      assert(!VPB->getCondBit() && "Unexpected condition bit!");
 
     // Check block's successors
     const auto &Successors = VPB->getSuccessors();

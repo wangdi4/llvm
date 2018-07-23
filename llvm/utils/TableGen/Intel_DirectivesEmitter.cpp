@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //
 //      Copyright (c) 2016 Intel Corporation.
 //      All rights reserved.
@@ -213,3 +214,4 @@ void EmitDirectives(RecordKeeper &RK, raw_ostream &OS) {
 }
 
 } // End llvm namespace
+#endif // INTEL_COLLAB

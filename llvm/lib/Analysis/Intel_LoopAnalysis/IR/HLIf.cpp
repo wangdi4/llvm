@@ -73,10 +73,12 @@ HLIf::HLIf(const HLIf &HLIfObj)
   }
 }
 
+HLIf *HLIf::cloneEmpty() const { return new HLIf(*this); }
+
 HLIf *HLIf::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                       HLNodeMapper *NodeMapper) const {
-  // Call the Copy Constructor
-  HLIf *NewHLIf = new HLIf(*this);
+
+  HLIf *NewHLIf = cloneEmpty();
 
   /// Loop over Then children and Else children
   for (auto ThenIter = this->then_begin(), ThenIterEnd = this->then_end();
@@ -193,8 +195,6 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
 unsigned HLIf::getNumOperandsInternal() const {
   return (2 * Predicates.size());
 }
-
-unsigned HLIf::getNumOperands() const { return getNumOperandsInternal(); }
 
 HLNode *HLIf::getFirstThenChild() {
   if (hasThenChildren()) {

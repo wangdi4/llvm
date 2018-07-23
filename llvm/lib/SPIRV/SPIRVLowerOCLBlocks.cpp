@@ -115,6 +115,9 @@ static bool isFuncPtrInst(const Instruction *I) {
   if (auto *AI = dyn_cast<AllocaInst>(I))
     return isFuncPtrAlloca(AI);
   for (auto &Op : I->operands()) {
+    if (auto *AI = dyn_cast<AllocaInst>(Op))
+      return isFuncPtrAlloca(AI);
+
     auto *OpI = dyn_cast<Instruction>(&Op);
     if (OpI && OpI != I && hasFuncPtrType(OpI))
       return true;
@@ -155,25 +158,25 @@ static void fixFunctionPtrAllocaUsers(AllocaInst *AI) {
     }
   }
 }
-
-static int getBlockLiteralIdx(const StringRef FName) {
+static int getBlockLiteralIdx(const Function &F) {
+  StringRef FName = F.getName();
   if (isEnqueueKernelBI(FName))
     return FName.contains("events") ? 7 : 4;
   if (isKernelQueryBI(FName))
     return FName.contains("for_ndrange") ? 2 : 1;
   if (FName.startswith("__") && FName.contains("_block_invoke"))
-    return 0;
+    return F.hasStructRetAttr() ? 1 : 0;
 
   return -1; // No block literal argument
 }
 
-static bool hasBlockLiteralArg(const StringRef FName) {
-  return getBlockLiteralIdx(FName) != -1;
+static bool hasBlockLiteralArg(const Function &F) {
+  return getBlockLiteralIdx(F) != -1;
 }
 
 static bool simplifyFunctionPtrCasts(Function &F) {
   bool Changed = false;
-  int BlockLiteralIdx = getBlockLiteralIdx(F.getName());
+  int BlockLiteralIdx = getBlockLiteralIdx(F);
   for (auto *U : F.users()) {
     auto *Call = dyn_cast<CallInst>(U);
     if (!Call)
@@ -253,7 +256,7 @@ public:
 
     // 2. Simplify consecutive casts which use function pointer types
     for (auto &F : M)
-      if (hasBlockLiteralArg(F.getName()))
+      if (hasBlockLiteralArg(F))
         Changed |= simplifyFunctionPtrCasts(F);
 
     // 3. Cleanup unused instructions with function pointer type

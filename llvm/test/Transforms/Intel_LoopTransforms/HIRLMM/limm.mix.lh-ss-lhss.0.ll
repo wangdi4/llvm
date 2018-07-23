@@ -115,7 +115,7 @@
 ; CHECK:           (@B)[0][2] = %limm11;
 ; CHECK:           (@A)[0][1] = %limm8;
 ; CHECK:           (@B)[0][1] = %limm5;
-; CHECK:            (@B)[0][0] = %limm3;
+; CHECK:           (@B)[0][0] = %limm3;
 ; CHECK:           (@A)[0][0] = %limm;
 ; CHECK:  END REGION
 ;

@@ -1,3 +1,4 @@
+#if INTEL_COLLAB // -*- C++ -*-
 //===----- WRegionPasses.h - Constructors for WRegionInfo  ------*- C++ -*-===//
 //
 //   Copyright (C) 2015 Intel Corporation. All rights reserved.
@@ -9,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This header file defines prototypes for accessor functions that expose passes
-// in the WRegionInfo library.
+/// \file This header file defines prototypes for accessor functions that expose
+/// passes in the WRegionInfo library.
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,4 +29,5 @@ FunctionPass *createWRegionCollectionWrapperPassPass();
 FunctionPass *createWRegionInfoWrapperPassPass();
 
 }
-#endif
+#endif // LLVM_ANALYSIS_VPO_WREGIONINFO_PASSES_H
+#endif // INTEL_COLLAB

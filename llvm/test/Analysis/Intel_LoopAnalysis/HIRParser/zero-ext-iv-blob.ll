@@ -5,7 +5,7 @@
 ; CHECK-NEXT: %0 = (%B)[%indvars.iv47][i1]
 ; CHECK-NEXT: %1 = (%C)[%indvars.iv47][i1]
 ; CHECK-NEXT: (%A)[%indvars.iv47][i1] = %0 + %1
-; CHECK-NEXT: %2 = (%A)[trunc.i64.i32((4294967295 + %indvars.iv47))][i1]
+; CHECK-NEXT: %2 = (%A)[trunc.i64.i32(%indvars.iv47) + -1][i1]
 ; CHECK-NEXT: %conv = sitofp.i32.double(%2)
 ; CHECK-NEXT: %mul = %conv  *  2.000000e+00
 ; CHECK-NEXT: %conv18 = fptosi.double.i32(%mul)

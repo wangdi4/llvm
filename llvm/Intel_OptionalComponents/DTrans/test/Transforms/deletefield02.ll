@@ -1,5 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the dtrans delete pass correctly transforms
 ; structures that have unused fields and meet the necessary safety conditions
@@ -70,8 +70,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; sufficient to check the function signatures. This allows us to tolerate
 ; any ordering of the functions.
 
-; CHECK-DAG: define i32 @doSomething.{{[0-9]+}}(%__DFT_struct.test* %p_test)
-; CHECK-DAG: define void @connect.{{[0-9]+}}(%__DFT_struct.test* %p_test, %__DFDT_struct.other* %p_other)
+; CHECK-DAG: define internal i32 @doSomething.{{[0-9]+}}(%__DFT_struct.test* %p_test)
+; CHECK-DAG: define internal void @connect.{{[0-9]+}}(%__DFT_struct.test* %p_test, %__DFDT_struct.other* %p_other)
 
 declare i8* @malloc(i64)
 declare void @free(i8*)

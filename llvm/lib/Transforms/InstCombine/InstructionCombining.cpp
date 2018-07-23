@@ -60,7 +60,8 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -88,6 +89,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/Verifier.h" // INTEL
 #include "llvm/Pass.h"
 #include "llvm/Support/CBindingWrapping.h"
 #include "llvm/Support/Casting.h"
@@ -125,6 +127,13 @@ DEBUG_COUNTER(VisitCounter, "instcombine-visit",
 static cl::opt<bool>
 EnableExpensiveCombines("expensive-combines",
                         cl::desc("Enable expensive instruction combines"));
+
+#if INTEL_CUSTOMIZATION
+// Used for LIT tests to unconditionally suppress GEPInst optimizations
+static cl::opt<bool>
+DisableGEPInstOptimizations("disable-gepinst-opts",
+                            cl::desc("Disable GEPInst optimizations"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
@@ -1354,11 +1363,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   } while (true);
 }
 
-/// Makes transformation of binary operation specific for vector types.
-/// \param Inst Binary operator to transform.
-/// \return Pointer to node that must replace the original binary operator, or
-///         null pointer if no transformation was made.
-Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
+Instruction *InstCombiner::foldShuffledBinop(BinaryOperator &Inst) {
   if (!Inst.getType()->isVectorTy()) return nullptr;
 
   // It may not be safe to reorder shuffles and things like div, urem, etc.
@@ -1376,7 +1381,7 @@ Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
     Value *XY = Builder.CreateBinOp(Inst.getOpcode(), X, Y);
     if (auto *BO = dyn_cast<BinaryOperator>(XY))
       BO->copyIRFlags(&Inst);
-    return Builder.CreateShuffleVector(XY, UndefValue::get(XY->getType()), M);
+    return new ShuffleVectorInst(XY, UndefValue::get(XY->getType()), M);
   };
 
   // If both arguments of the binary operation are shuffles that use the same
@@ -1423,25 +1428,17 @@ Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
         NewVecC[ShMask[I]] = CElt;
       }
     }
-#if INTEL_CUSTOMIZATION
-    // TODO: This is a temporary fix to resolve lit fail on stage2 self-built
-    // compiler. Community commit 3479c804 might resolve this issue. Confirm
-    // resolution by community patch once it is pulled down and remove this
-    // customization.
-    const unsigned DivisionOpcodes[] = {Instruction::UDiv, Instruction::URem,
-                                        Instruction::SDiv, Instruction::SRem};
-    if (llvm::is_contained(DivisionOpcodes, Inst.getOpcode()) &&
-        // FIXME: It is actually OK to have an undef here if it comes from the
-        // original divisor. Is it possible to filter them somehow?
-        llvm::any_of(NewVecC, [](const Constant *C) -> bool {
-          return isa<UndefValue>(C);
-        }))
-      MayChange = false;
-#endif
     if (MayChange) {
+      Constant *NewC = ConstantVector::get(NewVecC);
+      // It may not be safe to execute a binop on a vector with undef elements
+      // because the entire instruction can be folded to undef or create poison
+      // that did not exist in the original code.
+      bool ConstOp1 = isa<Constant>(Inst.getOperand(1));
+      if (Inst.isIntDivRem() || (Inst.isShift() && ConstOp1))
+        NewC = getSafeVectorConstantForBinop(Inst.getOpcode(), NewC, ConstOp1);
+      
       // Op(shuffle(V1, Mask), C) -> shuffle(Op(V1, NewC), Mask)
       // Op(C, shuffle(V1, Mask)) -> shuffle(Op(NewC, V1), Mask)
-      Constant *NewC = ConstantVector::get(NewVecC);
       Value *NewLHS = isa<Constant>(LHS) ? NewC : V1;
       Value *NewRHS = isa<Constant>(LHS) ? V1 : NewC;
       return createBinOpShuffle(NewLHS, NewRHS, Mask);
@@ -1450,6 +1447,43 @@ Value *InstCombiner::SimplifyVectorOp(BinaryOperator &Inst) {
 
   return nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+// TODO: Can it be merged into combineMetadata* in Local.h?
+
+/// Try to combine !intel-tbaa metadata for the \p GEP and \p Src that are being
+/// merged (no RAUW happenned yet) into the \p NewGEP.
+static void mergeIntelTBAAMetadata(GetElementPtrInst &GEP, const Value *Src,
+                                   GetElementPtrInst *NewGEP) {
+  MDNode *GepMD = GEP.getMetadata(LLVMContext::MD_intel_tbaa);
+  if (!GepMD)
+    return;
+  MDNode *SrcMD =
+      isa<Instruction>(Src)
+          ? cast<Instruction>(Src)->getMetadata(LLVMContext::MD_intel_tbaa)
+          : nullptr;
+  if (!SrcMD)
+    return;
+
+  assert(TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP) &&
+         "GEP does not have canonical !intel-tbaa metadata!");
+  assert(TBAAVerifier::isCanonicalIntelTBAAGEP(cast<GetElementPtrInst>(Src)) &&
+         "Src does not have canonical !intel-tbaa metadata!");
+
+  // LangRef actually allows non-"canonical" GEPs to be merged, but we don't
+  // expect to encounter them and want to be more restrictive in such case and
+  // abandon any combining.
+  if (!TBAAVerifier::isCanonicalIntelTBAAGEP(&GEP) ||
+      !TBAAVerifier::isCanonicalIntelTBAAGEP(cast<GetElementPtrInst>(Src)))
+    return;
+
+  MDNode *MergedTBAA = mergeIntelTBAA(SrcMD, GepMD);
+  if (!MergedTBAA)
+    return;
+
+  NewGEP->setMetadata(LLVMContext::MD_intel_tbaa, MergedTBAA);
+}
+#endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
@@ -1501,6 +1535,15 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   }
   if (MadeChange)
     return &GEP;
+
+#if INTEL_CUSTOMIZATION
+  // Disable optimizations on GEPs that might fold two GEPs together, as
+  // this can cause a loss of type info for DTrans. We allow some initial
+  // cleanup, as no GEPs will be removed by this, and the cleanup is needed
+  // when folding selects over GEPs in InstCombineSelect.cpp.
+  if (!GEPInstOptimizations)
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   // Check to see if the inputs to the PHI node are getelementptr instructions.
   if (auto *PN = dyn_cast<PHINode>(PtrOp)) {
@@ -1706,6 +1749,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       if (Src->getNumOperands() == 2) {
         GEP.setOperand(0, Src->getOperand(0));
         GEP.setOperand(1, Sum);
+        // TODO: INTEL: Should we drop all the metadata and upstream?
+        GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr); // INTEL
         return &GEP;
       }
       Indices.append(Src->op_begin()+1, Src->op_end()-1);
@@ -1719,14 +1764,20 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       Indices.append(GEP.idx_begin()+1, GEP.idx_end());
     }
 
-    if (!Indices.empty())
-      return GEP.isInBounds() && Src->isInBounds()
-                 ? GetElementPtrInst::CreateInBounds(
-                       Src->getSourceElementType(), Src->getOperand(0), Indices,
-                       GEP.getName())
-                 : GetElementPtrInst::Create(Src->getSourceElementType(),
-                                             Src->getOperand(0), Indices,
-                                             GEP.getName());
+#if INTEL_CUSTOMIZATION
+    // Handle merging of IntelTBAA nodes and update all users accordingly.
+    if (!Indices.empty()) {
+      auto NewGEP = GEP.isInBounds() && Src->isInBounds()
+                        ? GetElementPtrInst::CreateInBounds(
+                              Src->getSourceElementType(), Src->getOperand(0),
+                              Indices, GEP.getName())
+                        : GetElementPtrInst::Create(Src->getSourceElementType(),
+                                                    Src->getOperand(0), Indices,
+                                                    GEP.getName());
+      mergeIntelTBAAMetadata(GEP, Src, NewGEP);
+      return NewGEP;
+#endif // INTEL_CUSTOMIZATION
+    }
   }
 
   if (GEP.getNumIndices() == 1) {
@@ -3263,9 +3314,11 @@ static bool combineInstructionsOverFunction(
     Function &F, InstCombineWorklist &Worklist, AliasAnalysis *AA,
     AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
     OptimizationRemarkEmitter &ORE, bool ExpensiveCombines = true,
-    LoopInfo *LI = nullptr) {
+    bool GEPInstOptimizations = true, LoopInfo *LI = nullptr) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
   ExpensiveCombines |= EnableExpensiveCombines;
+  if (DisableGEPInstOptimizations)  // INTEL
+    GEPInstOptimizations = false;   // INTEL
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -3292,8 +3345,9 @@ static bool combineInstructionsOverFunction(
 
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
-    InstCombiner IC(Worklist, Builder, F.optForMinSize(), ExpensiveCombines, AA,
-                    AC, TLI, DT, ORE, DL, LI);
+    InstCombiner IC(Worklist, Builder, F.optForMinSize(),     // INTEL
+                    ExpensiveCombines, GEPInstOptimizations,  // INTEL
+                    AA, AC, TLI, DT, ORE, DL, LI);            // INTEL
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())
@@ -3314,7 +3368,9 @@ PreservedAnalyses InstCombinePass::run(Function &F,
 
   auto *AA = &AM.getResult<AAManager>(F);
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
-                                       ExpensiveCombines, LI))
+                                       ExpensiveCombines,      // INTEL
+                                       GEPInstOptimizations,   // INTEL
+                                       LI))                    // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3362,7 +3418,8 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
-                                         ExpensiveCombines, LI);
+                                         ExpensiveCombines,          // INTEL
+                                         GEPInstOptimizations, LI);  // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -3388,9 +3445,12 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
   initializeInstructionCombiningPassPass(*unwrap(R));
 }
 
-FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines) {
-  return new InstructionCombiningPass(ExpensiveCombines);
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
+                                                   bool GEPInstOptimizations) {
+  return new InstructionCombiningPass(ExpensiveCombines, GEPInstOptimizations);
 }
+#endif // INTEL_CUSTOMIZATION
 
 void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInstructionCombiningPass());

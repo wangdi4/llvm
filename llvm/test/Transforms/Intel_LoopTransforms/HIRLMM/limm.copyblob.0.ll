@@ -38,19 +38,18 @@
 ; CHECK:   END REGION
 ;
 ;
-; *** *** 
-;          
+; *** ***
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:        |      %limm = (@A)[0][i1 + sext.i32.i64(%1) + sext.i32.i64(%0)];
+; CHECK:        |      %8 = (@A)[0][i1 + sext.i32.i64(%1) + sext.i32.i64(%0)];
 ; CHECK:        |   + DO i2 = 0, 49, 1   <DO_LOOP>
-; CHECK:        |   |   %8 = %limm;
 ; CHECK:        |   |   %10 = (@B)[0][i1 + i2];
-; CHECK:        |   |   %limm2 = %8 + %10 + 1;
+; CHECK:        |   |   %limm = %8 + %10 + 1;
 ; CHECK:        |   + END LOOP
-; CHECK:        |      (@C)[0][i1 + sext.i32.i64(%0) + 2] = %limm2;
+; CHECK:        |      (@C)[0][i1 + sext.i32.i64(%0) + 2] = %limm;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
@@ -59,8 +58,8 @@
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    LOOP BEGIN
-; OPTREPORT:        Remark #XXXXX: Load hoisted out of the loop
-; OPTREPORT:        Remark #XXXXX: Store sinked out of the loop
+; OPTREPORT:        Remark: Load hoisted out of the loop
+; OPTREPORT:        Remark: Store sinked out of the loop
 ; OPTREPORT:    LOOP END
 ; OPTREPORT: LOOP END
 ;

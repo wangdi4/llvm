@@ -13,6 +13,8 @@
 #include <memory>
 #include <system_error>
 
+#include "llvm/ADT/StringRef.h"
+
 namespace llvm {
 namespace object {
 class COFFImportFile;
@@ -41,12 +43,15 @@ public:
   virtual void printDynamicTable() { }
   virtual void printNeededLibraries() { }
   virtual void printProgramHeaders() { }
+  virtual void printSectionAsString(StringRef SectionName) {}
+  virtual void printSectionAsHex(StringRef SectionName) {}
   virtual void printHashTable() { }
   virtual void printGnuHashTable() { }
   virtual void printLoadName() {}
   virtual void printVersionInfo() {}
   virtual void printGroupSections() {}
   virtual void printHashHistogram() {}
+  virtual void printCGProfile() {}
   virtual void printNotes() {}
   virtual void printELFLinkerOptions() {}
 
@@ -84,6 +89,7 @@ public:
 
 protected:
   ScopedPrinter &W;
+  void SectionHexDump(StringRef SecName, const uint8_t *Section, size_t Size);
 };
 
 std::error_code createCOFFDumper(const object::ObjectFile *Obj,

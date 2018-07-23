@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 
+#include "HIRUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -194,11 +195,12 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
-    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder, bool VecMode) {
-  HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
+    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder,
+    OptimizationType OptTy) {
+  HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
-  if (!VecMode) {
+  if (OptTy != OptimizationType::Vectorizer) {
     NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
   }
 
@@ -210,7 +212,9 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
-    NewBound = VecMode ? (NewTripCount * UnrollOrVecFactor) : NewTripCount;
+    NewBound = (OptTy == OptimizationType::Vectorizer)
+                   ? (NewTripCount * UnrollOrVecFactor)
+                   : NewTripCount;
 
     // Subtract 1.
     NewBound = NewBound - 1;
@@ -224,7 +228,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
-    if (VecMode) {
+    if (OptTy == OptimizationType::Vectorizer) {
       auto Ret =
           NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
       assert(Ret && "multiplyByConstant() failed");
@@ -241,6 +245,8 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     updateBoundDDRef(NewUBRef, NewTCRef->getSelfBlobIndex(),
                      OrigLoop->getNestingLevel() - 1);
 
+    NewLoop->addLiveInTemp(NewTCRef->getSymbase());
+
     // Generate the Ztt.
     NewLoop->createZtt(false);
 
@@ -254,7 +260,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   NewLoop->getParentRegion()->setGenCode();
 
   // Vectorization uses UnrollOrVecFactor as stride
-  if (VecMode) {
+  if (OptTy == OptimizationType::Vectorizer) {
     NewLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(
         UnrollOrVecFactor);
   }
@@ -262,18 +268,21 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   // NewLoop is the main loop now and hence, we want to associate all the opt
   // report with it.
   LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
-  if (VecMode)
+  if (OptTy == OptimizationType::Vectorizer) {
     LORBuilder(*NewLoop).addRemark(
         OptReportVerbosity::Low,
         "Loop has been vectorized with vector %d factor", UnrollOrVecFactor);
-  else if (OrigLoop->isInnermost())
+  } else if (OptTy == OptimizationType::Unroll) {
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled by %d factor",
                                    UnrollOrVecFactor);
-  else
+  } else {
+    assert(OptTy == OptimizationType::UnrollAndJam &&
+           "Invalid optimization type!");
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled and jammed by %d",
                                    UnrollOrVecFactor);
+  }
 
   return NewLoop;
 }
@@ -305,6 +314,8 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // is defined just before the loop.
     updateBoundDDRef(NewLBRef, NewTCRef->getSelfBlobIndex(),
                      OrigLoop->getNestingLevel() - 1);
+
+    OrigLoop->addLiveInTemp(NewTCRef->getSymbase());
 
     OrigLoop->createZtt(false);
 
@@ -399,7 +410,7 @@ void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
 
 HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-    LoopOptReportBuilder &LORBuilder, bool VecMode) {
+    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy) {
   // Extract Ztt and add it outside the loop.
   OrigLoop->extractZtt();
 
@@ -415,7 +426,7 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
 
   // Create the main loop.
   HLLoop *MainLoop = createUnrollOrVecLoop(
-      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, VecMode);
+      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, OptTy);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
@@ -426,12 +437,15 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     // Since OrigLoop became a remainder and will be lexicographicaly
     // second to MainLoop, we move all the next siblings back there.
     LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
-    if (VecMode)
+    if (OptTy == OptimizationType::Vectorizer) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
-    else if (OrigLoop->isInnermost())
+    } else if (OptTy == OptimizationType::Unroll) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for partial unrolling");
-    else
+    } else {
+      assert(OptTy == OptimizationType::UnrollAndJam &&
+             "Invalid optimization type!");
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
+    }
   }
 
   // Mark parent for invalidation
@@ -500,6 +514,41 @@ struct UpdateDDRefForLoopPermutation final : public HLNodeVisitorBase {
 };
 } // namespace
 
+static void addLiveInToPermutedLoopnest(unsigned Symbase, HLLoop *InnermostLoop,
+                                        HLLoop *OutermostLoop) {
+  // Livein information of OutermostLoop remains unchanged.
+  for (auto *Lp = InnermostLoop; Lp != OutermostLoop;
+       Lp = Lp->getParentLoop()) {
+    Lp->addLiveInTemp(Symbase);
+  }
+}
+
+static void updatePermutedLoopnestLiveIns(HLLoop *InnermostLoop,
+                                          HLLoop *OutermostLoop) {
+  // Update livein information based on the new loop bounds after permutation.
+
+  for (auto *Lp = InnermostLoop; Lp != OutermostLoop;
+       Lp = Lp->getParentLoop()) {
+
+    // Add each temp in bound ddrefs as livein to all the parent loops involved
+    // in the permutation.
+    for (auto RefIt = Lp->ddref_begin(), E = Lp->ddref_end(); RefIt != E;
+         ++RefIt) {
+      auto *Ref = *RefIt;
+
+      if (Ref->isSelfBlob()) {
+        addLiveInToPermutedLoopnest(Ref->getSymbase(), Lp, OutermostLoop);
+      } else {
+        for (auto BlobIt = Ref->blob_cbegin(), EB = Ref->blob_cend();
+             BlobIt != EB; ++BlobIt) {
+          addLiveInToPermutedLoopnest((*BlobIt)->getSymbase(), Lp,
+                                      OutermostLoop);
+        }
+      }
+    }
+  }
+}
+
 void HIRTransformUtils::permuteLoopNests(
     HLLoop *OutermostLoop,
     const SmallVectorImpl<const HLLoop *> &LoopPermutation,
@@ -521,13 +570,21 @@ void HIRTransformUtils::permuteLoopNests(
   }
 
   SmallVector<HLLoop *, MaxLoopNestLevel> OrigLoops;
+  HLLoop *InnermostLoop = nullptr;
+
   for (auto &Lp : LoopPermutation) {
-    HLLoop *LoopCopy = Lp->cloneEmptyLoop();
+    HLLoop *LoopCopy = Lp->cloneEmpty();
     LoopCopy->setNestingLevel(Lp->getNestingLevel());
     SavedLoops.push_back(LoopCopy);
 
     // Preparation for sorting
-    OrigLoops.push_back(const_cast<HLLoop *>(Lp));
+    // TODO: remove 'const' from LoopPermutation.
+    HLLoop *NonConstLp = const_cast<HLLoop *>(Lp);
+    OrigLoops.push_back(NonConstLp);
+
+    if (Lp->isInnermost()) {
+      InnermostLoop = NonConstLp;
+    }
   }
 
   // Sort by loop nesting level from the LoopPermutation
@@ -564,6 +621,8 @@ void HIRTransformUtils::permuteLoopNests(
       OutmostNestingLevel, InnermostNestingLevel, &NewLoopLevels[0]);
 
   HLNodeUtils::visit(UpdateDDRef, OutermostLoop);
+
+  updatePermutedLoopnestLiveIns(InnermostLoop, OutermostLoop);
 }
 
 void UpdateDDRefForLoopPermutation::updateDDRef(HLDDNode *Node,
@@ -626,47 +685,17 @@ void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
 
 void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
                                   unsigned StripmineSize) {
-
-  //  Utility that can be shared by distribution and blocking
-  //  Distribution has a sequence of loops
-  //  Blocking normally has one -  FirstLoop == LastLoop
-  //
-  //  Returns true when Stripmine is performed
-  //
-  //    DO i1=0,N-1
-  //      A[i1] =
-  //    ENDDO
-  //    DO i1=0,N-1
-  //      A[i1] += 1
-  //    ENDDO
-  //  ==>
-  //    First form a loop to enclose the input loops
-  //    DO i1=0,N-1
-  //      DO i2=0,N-1
-  //         A[i1] =
-  //      ENDDO
-  //      DO i2=0,N-1
-  //        ...
-  //  ==>
-  //    Before normalization, assuming  StripmineSize = 64
-  //    It is changed as
-  //    DO i1=0, (N-1) / 64
-  //       N2 = min(-64 *i1 + N-1, 64-1)
-  //       do i2=64*i1, 64*i1 + N2
-  //          A[i2] = 1
-
   uint64_t TripCount;
+  bool IsConstTrip = FirstLoop->isConstTripLoop(&TripCount);
 
   // Caller should call canStripmine before
-  assert(!(FirstLoop->isConstTripLoop(&TripCount) &&
-           (TripCount <= StripmineSize)) &&
-         "Caller should call scanStripmine first");
-  (void)TripCount;
+  assert(!(IsConstTrip && (TripCount <= StripmineSize)) &&
+         "Caller should call canStripmine() first");
 
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
 
-  HLLoop *NewLoop = FirstLoop->cloneEmptyLoop();
+  HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
   HLNodeUtils::insertBefore(FirstLoop, NewLoop);
 
@@ -694,77 +723,93 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   }
 
   RegDDRef *UBRef = NewLoop->getUpperDDRef();
+  // Store original UB in MinOpRef1.
   RegDDRef *MinOpRef1 = UBRef->clone();
-  RegDDRef *MinOpRef2;
-  CanonExpr *LBCE = NewLoop->getLowerDDRef()->getSingleCanonExpr();
-  CanonExpr *UBCE = NewLoop->getUpperDDRef()->getSingleCanonExpr();
 
-  int64_t UBDenom = UBCE->getDenominator();
+  CanonExpr *UBCE = UBRef->getSingleCanonExpr();
 
   //  UB / StripmineSize: (N-1) / 64
   UBCE->divide(StripmineSize);
   UBCE->simplify(true);
 
-  // -StripmineSize *i1 + UB
-  //  Need to convert from unsign to sign first
-  //  Result expression needs to acconut for non-1 denom
+  RegDDRef *InnerLBRef =
+      UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
 
-  int64_t Coeff = StripmineSize * UBDenom;
-  MinOpRef1->getSingleCanonExpr()->setIVConstCoeff(Level, -Coeff);
-
-  MinOpRef1->setSymbase(GenericRvalSymbase);
-
-  // 64-1
-  MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(MinOpRef1->getDestType(),
-                                                      StripmineSize - 1);
-
-  HLInst *MinInst = HNU->createMin(MinOpRef1, MinOpRef2);
-  HLNodeUtils::insertAsFirstChild(NewLoop, MinInst);
-  RegDDRef *LBRef = UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
-
+  CanonExpr *LBCE = NewLoop->getLowerCanonExpr();
   CanonExpr *InnerLoopLBCE = UBRef->getCanonExprUtils().createExtCanonExpr(
       LBCE->getSrcType(), LBCE->getDestType(), LBCE->isSExt());
   //  64*i1
   InnerLoopLBCE->setIVConstCoeff(Level, StripmineSize);
-  LBRef->setSingleCanonExpr(InnerLoopLBCE);
+  InnerLBRef->setSingleCanonExpr(InnerLoopLBCE);
 
-  UBRef = LBRef->clone();
-  RegDDRef *BlobRef = MinInst->getLvalDDRef();
-  unsigned BlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
+  auto *InnerUBRef = InnerLBRef->clone();
 
-  // 64*i1 + N2
+  // If trip count is evenly divisble by stripmine factor, the trip count of
+  // stripmined loop will be the same as the factor.
+  bool MinInstRequired = (!IsConstTrip || (TripCount % StripmineSize != 0));
+  unsigned MinBlobSymbase = InvalidSymbase;
 
-  UBRef->getSingleCanonExpr()->setBlobCoeff(BlobIndex, 1);
-  UBRef->addBlobDDRef(BlobIndex, Level);
+  if (MinInstRequired) {
+    // -StripmineSize *i1 + original UB
+    // Need to convert from unsign to sign first
+    int64_t Coeff = StripmineSize;
+
+    MinOpRef1->getSingleCanonExpr()->addIV(Level, InvalidBlobIndex,
+                                           -Coeff, true);
+    MinOpRef1->setSymbase(GenericRvalSymbase);
+
+    // StripmineSize-1
+    RegDDRef *MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(
+        MinOpRef1->getDestType(), StripmineSize - 1);
+
+    HLInst *MinInst = HNU->createMin(MinOpRef1, MinOpRef2);
+    HLNodeUtils::insertAsFirstChild(NewLoop, MinInst);
+
+    RegDDRef *BlobRef = MinInst->getLvalDDRef();
+    unsigned MinBlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
+    MinBlobSymbase = BlobRef->getSymbase();
+
+    // 64*i1 + %min
+    CanonExpr *UBRefCE = InnerUBRef->getSingleCanonExpr();
+    UBRefCE->setBlobCoeff(MinBlobIndex, 1);
+    UBRefCE->setDefinedAtLevel(Level);
+
+    InnerUBRef->addBlobDDRef(MinBlobIndex, Level);
+  } else {
+    InnerUBRef->getSingleCanonExpr()->setConstant(StripmineSize - 1);
+  }
 
   // Normalize code will set linear at level
   for (auto It = NewLoop->child_begin(), E = NewLoop->child_end(); It != E;
        ++It) {
-    HLNode *NodeI = &(*It);
-    HLLoop *Lp = dyn_cast<HLLoop>(NodeI);
+
+    HLLoop *Lp = dyn_cast<HLLoop>(&(*It));
     if (!Lp) {
       continue;
     }
     // Set Loop Bounds
-    RegDDRef *LBRef2;
-    RegDDRef *UBRef2;
-    LBRef2 = LBRef->clone();
-    UBRef2 = UBRef->clone();
-    Lp->setLowerDDRef(LBRef2);
-    Lp->setUpperDDRef(UBRef2);
-
-    // Normalize
-    bool Result = Lp->normalize();
-    assert(Result && "Not expecting cannot be normalized");
-    (void)Result;
+    // Use original refs for the last loop.
+    Lp->setLowerDDRef((Lp == LastLoop) ? InnerLBRef : InnerLBRef->clone());
+    Lp->setUpperDDRef((Lp == LastLoop) ? InnerUBRef : InnerUBRef->clone());
 
     // Copy LiveInOut to enclosing loop
     for (auto LiveIn : make_range(Lp->live_in_begin(), Lp->live_in_end())) {
       NewLoop->addLiveInTemp(LiveIn);
     }
+
     for (auto LiveOut : make_range(Lp->live_out_begin(), Lp->live_out_end())) {
       NewLoop->addLiveOutTemp(LiveOut);
     }
+
+    if (MinInstRequired) {
+      Lp->addLiveInTemp(MinBlobSymbase);
+      Lp->setMaxTripCountEstimate(StripmineSize);
+    }
+
+    // Normalize
+    bool Result = Lp->normalize();
+    assert(Result && "Not expecting cannot be normalized");
+    (void)Result;
   }
 }
 
@@ -795,4 +840,10 @@ void HIRTransformUtils::updateStripminedLoopCE(HLLoop *Loop) {
           }
         }
       });
+}
+
+void HIRTransformUtils::completeUnroll(HLLoop *Loop) {
+  assert(Loop->isConstTripLoop() &&
+         "Cannot unroll non-constant trip count loop!");
+  unroll::completeUnrollLoop(Loop);
 }

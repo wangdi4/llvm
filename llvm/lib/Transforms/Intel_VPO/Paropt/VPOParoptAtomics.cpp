@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===- VPOParoptAtomics.cpp - Transformation of W-Region for threading --===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
@@ -1607,3 +1608,4 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
          "__kmpc_atomic_float16_sub_a16_cpt_rev"},
         {{Instruction::FDiv, {F128, F128}},
          "__kmpc_atomic_float16_div_a16_cpt_rev"}};
+#endif // INTEL_COLLAB

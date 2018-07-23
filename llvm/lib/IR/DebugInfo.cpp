@@ -313,7 +313,7 @@ static MDNode *stripDebugLocFromLoopID(MDNode *N) {
 
 bool llvm::stripDebugInfo(Function &F) {
   bool Changed = false;
-  if (F.getMetadata(LLVMContext::MD_dbg)) {
+  if (F.hasMetadata(LLVMContext::MD_dbg)) {
     Changed = true;
     F.setSubprogram(nullptr);
   }
@@ -369,12 +369,7 @@ bool llvm::StripDebugInfo(Module &M) {
     Changed |= stripDebugInfo(F);
 
   for (auto &GV : M.globals()) {
-    SmallVector<MDNode *, 1> MDs;
-    GV.getMetadata(LLVMContext::MD_dbg, MDs);
-    if (!MDs.empty()) {
-      GV.eraseMetadata(LLVMContext::MD_dbg);
-      Changed = true;
-    }
+    Changed |= GV.eraseMetadata(LLVMContext::MD_dbg);
   }
 
   if (GVMaterializer *Materializer = M.getMaterializer())
@@ -674,10 +669,10 @@ bool llvm::stripNonLineTableDebugInfo(Module &M) {
     SmallVector<MDNode *, 8> Ops;
     for (MDNode *Op : NMD.operands())
       Ops.push_back(remap(Op));
- 
+
     if (!Changed)
       continue;
- 
+
     NMD.clearOperands();
     for (auto *Op : Ops)
       if (Op)

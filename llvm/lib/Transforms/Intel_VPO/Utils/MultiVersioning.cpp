@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===---- MultiVersioning.cpp - Create Multiple Versions for a WRegion ----===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -292,3 +293,4 @@ void VPOUtils::singleRegionMultiVersioning(
     DT->changeImmediateDominator(NewTail, NewHead);
   }
 }
+#endif // INTEL_COLLAB

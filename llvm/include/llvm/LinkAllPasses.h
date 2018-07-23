@@ -56,6 +56,7 @@
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -115,6 +116,7 @@ namespace {
       (void) llvm::createLoopOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
+      (void) llvm::createCallTreeCloningPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
@@ -162,6 +164,7 @@ namespace {
       (void) llvm::createIndirectCallConvLegacyPass(); // INTEL
       (void) llvm::createInductiveRangeCheckEliminationPass();
       (void) llvm::createIndVarSimplifyPass();
+      (void) llvm::createInstSimplifyLegacyPass();
       (void) llvm::createInstructionCombiningPass();
       (void) llvm::createInternalizePass();
       (void) llvm::createLCSSAPass();
@@ -176,6 +179,7 @@ namespace {
       (void) llvm::createLoopStrengthReducePass();
       (void) llvm::createLoopRerollPass();
       (void) llvm::createLoopUnrollPass();
+      (void) llvm::createLoopUnrollAndJamPass();
       (void) llvm::createLoopUnswitchPass();
       (void) llvm::createLoopVersioningLICMPass();
       (void) llvm::createLoopIdiomPass();
@@ -246,7 +250,6 @@ namespace {
       (void) llvm::createLowerAtomicPass();
       (void) llvm::createCorrelatedValuePropagationPass();
       (void) llvm::createMemDepPrinter();
-      (void) llvm::createInstructionSimplifierPass();
       (void) llvm::createLoopVectorizePass();
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
@@ -294,9 +297,11 @@ namespace {
       (void) llvm::createHIRParVecAnalysisPass();
       (void) llvm::createHIRVectVLSAnalysisPass();
       (void) llvm::createHIRSafeReductionAnalysisPass();
+      (void) llvm::createHIRSparseArrayReductionAnalysisPass();
       (void) llvm::createHIRSSADeconstructionLegacyPass();
       (void) llvm::createHIRTempCleanupPass();
       (void) llvm::createHIRLoopInterchangePass();
+      (void) llvm::createHIRLoopBlockingPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIROptVarPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();

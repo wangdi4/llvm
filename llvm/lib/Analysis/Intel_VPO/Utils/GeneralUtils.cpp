@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //==-- GeneralUtils.cpp - General Utilities for VPO Analysis     -*- C++ -*-==//
 //
 // Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
@@ -41,3 +42,4 @@ AllocaInst *VPOAnalysisUtils::findAllocaInst(Value *V) {
   }
   return nullptr; // not found
 }
+#endif // INTEL_COLLAB

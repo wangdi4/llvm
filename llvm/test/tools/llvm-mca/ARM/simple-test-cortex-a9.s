@@ -3,11 +3,12 @@
 
 vadd.f32 s0, s2, s2
 
-# CHECK:      Iterations:     100
-# CHECK-NEXT: Instructions:   100
-# CHECK-NEXT: Total Cycles:   105
-# CHECK-NEXT: Dispatch Width: 2
-# CHECK-NEXT: IPC:            0.95
+# CHECK:      Iterations:        100
+# CHECK-NEXT: Instructions:      100
+# CHECK-NEXT: Total Cycles:      105
+# CHECK-NEXT: Dispatch Width:    2
+# CHECK-NEXT: IPC:               0.95
+# CHECK-NEXT: Block RThroughput: 1.0
 
 # CHECK:      Instruction Info:
 # CHECK-NEXT: [1]: #uOps
@@ -15,7 +16,7 @@ vadd.f32 s0, s2, s2
 # CHECK-NEXT: [3]: RThroughput
 # CHECK-NEXT: [4]: MayLoad
 # CHECK-NEXT: [5]: MayStore
-# CHECK-NEXT: [6]: HasSideEffects
+# CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
 # CHECK-NEXT:  1      4     1.00                        vadd.f32	s0, s2, s2
@@ -36,4 +37,3 @@ vadd.f32 s0, s2, s2
 # CHECK:      Resource pressure by instruction:
 # CHECK-NEXT: [0]    [1.0]  [1.1]  [2]    [3]    [4]    [5]    Instructions:
 # CHECK-NEXT: 1.00    -      -      -     1.00    -      -     vadd.f32	s0, s2, s2
-

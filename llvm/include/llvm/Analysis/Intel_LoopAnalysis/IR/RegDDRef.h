@@ -56,7 +56,8 @@ public:
   typedef CanonExprsTy::iterator canon_iterator;
   typedef ConstCanonExprsTy::const_iterator const_canon_iterator;
   typedef CanonExprsTy::reverse_iterator reverse_canon_iterator;
-  typedef ConstCanonExprsTy::const_reverse_iterator const_reverse_canon_iterator;
+  typedef ConstCanonExprsTy::const_reverse_iterator
+      const_reverse_canon_iterator;
 
   /// Iterators to iterate over blob ddrefs
   typedef BlobDDRefsTy::iterator blob_iterator;
@@ -198,9 +199,17 @@ private:
   void removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices,
                              SmallVectorImpl<BlobDDRef *> &StaleBlobs);
 
+  /// Checks that the DefAtLevel of \p CE is consistent with the temp blobs
+  /// contained in it. Returns the contained blobs in \p TempBlobIndices.
+  void
+  checkDefAtLevelConsistency(const CanonExpr *CE,
+                             SmallVectorImpl<unsigned> &TempBlobIndices) const;
+
   /// Called by the verifier to check that the temp blobs contained in
-  /// the DDRef correspond to blob DDRefs attached to the DDRef.
-  void checkBlobDDRefsConsistency() const;
+  /// the DDRef correspond to blob DDRefs attached to the DDRef. Also checks
+  /// that the DefAtLevel set in canon exprs is consistent with the contained
+  /// temp blobs' def levels.
+  void checkBlobAndDefAtLevelConsistency() const;
 
   /// Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
@@ -272,12 +281,12 @@ public:
   }
 
   bool isOpaqueAddressOf() const {
-    if  (!isAddressOf()) {
+    if (!isAddressOf()) {
       return false;
     }
 
-    auto StructElemTy = dyn_cast<StructType>(
-        getBaseType()->getPointerElementType());
+    auto StructElemTy =
+        dyn_cast<StructType>(getBaseType()->getPointerElementType());
     return StructElemTy && StructElemTy->isOpaque();
   }
 
@@ -562,10 +571,6 @@ public:
   /// Returns true if this DDRef is a lval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
   bool isLval() const override;
-
-  /// Returns true if this DDRef is a rval DDRef. This function
-  /// assumes that the DDRef is connected to a HLDDNode.
-  bool isRval() const;
 
   /// Returns true if this DDRef is a fake DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.

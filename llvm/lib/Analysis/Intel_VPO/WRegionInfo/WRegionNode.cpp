@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===-- WRegionNode.cpp - Implements the WRegionNode class ----------------===//
 //
 //   Copyright (C) 2016 Intel Corporation. All rights reserved.
@@ -66,10 +67,13 @@ WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
   setNextNumber();
   setParent(nullptr);
   setExitBBlock(nullptr);
+#if INTEL_CUSTOMIZATION
   setIsFromHIR(false);
+#endif // INTEL_CUSTOMIZATION
   resetBBSet();
 }
 
+#if INTEL_CUSTOMIZATION
 // constructor for HIR representation
 WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setNextNumber();
@@ -79,6 +83,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   resetBBSet();
   setIsFromHIR(true);
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Wrap up the WRN creation now that we have the ExitBB. Perform these
 /// tasks to finalize the WRN construction:
@@ -288,9 +293,12 @@ void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
                             unsigned Depth, unsigned Verbosity) const {
   printClauses(OS, Depth, Verbosity);
 
+#if INTEL_CUSTOMIZATION
   if (getIsFromHIR())
     printHIR(OS, Depth, Verbosity); // defined by derived WRN
-  else {
+  else
+#endif // INTEL_CUSTOMIZATION
+  {
     printEntryExitBB(OS, Depth, Verbosity);
     if (getIsOmpLoop())
       printLoopBB(OS, Depth, Verbosity);
@@ -305,10 +313,10 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
                                unsigned Depth, unsigned Verbosity) const {
   bool PrintedSomething = false;
 
-  if (canHaveSchedule())
-    PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
-
   if (canHaveDistSchedule())
+    PrintedSomething |= getDistSchedule().print(OS, Depth, Verbosity);
+
+  if (canHaveSchedule())
     PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
 
   if (canHaveShared())
@@ -372,8 +380,10 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 // Verbosity >= 4: above + print BB content for all BBs in BBSet
 void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
                                    unsigned Verbosity) const {
+#if INTEL_CUSTOMIZATION
   if (getIsFromHIR()) // HIR representation; no BBs to print
     return;
+#endif // INTEL_CUSTOMIZATION
 
   int Ind = 2*Depth;
 
@@ -441,14 +451,16 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
 
   // Skip Args[0] as it's the clause name metadata; hence the -1 below
   unsigned NumArgs = Call->getNumArgOperands() - 1;
+  LLVMContext &C = Call->getParent()->getParent()->getContext();
 
-  parseClause(ClauseInfo, &Args[1], NumArgs);
+  parseClause(ClauseInfo, &Args[1], NumArgs, C);
 }
 
 // Common code to parse the clause. This routine is used for both
 // representations: llvm.intel.directive.qual* and directive.region.entry/exit.
 void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
-                              const Use *Args, unsigned NumArgs) {
+                              const Use *Args, unsigned NumArgs,
+                              LLVMContext &C) {
   int ClauseID = ClauseInfo.getId();
 
   // Classify the clause based on the number of arguments allowed by the
@@ -467,7 +479,17 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
     Value *V = (Value*)(Args[0]);
-    handleQualOpnd(ClauseID, V);
+
+    // The compiler does not set the value in the clause if the value
+    // is NULL pointer. The fix is to force the routine regularizeOMPLoop
+    // to bail out early since the %.omp.iv in OMP.NORMALIZED.IV is null after
+    // %.omp.iv is promoted into the register.
+    if (V != ConstantPointerNull::get(Type::getInt8PtrTy(C)))
+      handleQualOpnd(ClauseID, V);
+    else
+      assert((ClauseID == QUAL_OMP_NORMALIZED_IV ||
+              ClauseID == QUAL_OMP_NORMALIZED_UB) &&
+              "Expect QUAL_OMP_NORMALIZED_IV or QUAL_OMP_NORMALIZED_UB");
   } else {
     // The clause takes a list of arguments
     assert(NumArgs >= 1 && "This clause takes one or more arguments.");
@@ -818,16 +840,14 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
   // is the Value in Args[NumArgs-1].
   assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
   Value *StepValue = (Value*) Args[NumArgs-1];
-  ConstantInt *CI = dyn_cast<ConstantInt>(StepValue);
-  assert (CI != nullptr && "LINEAR step must be a constant");
-  int64_t Step = *((CI->getValue()).getRawData());
+  assert(StepValue != nullptr && "Null LINEAR 'step'");
 
   // The linear list items are in Args[0..NumArgs-2]
   for (unsigned I = 0; I < NumArgs-1; ++I) {
     Value *V = (Value*) Args[I];
     C.add(V);
     LinearItem *LI = C.back();
-    LI->setStep(Step);
+    LI->setStep(StepValue);
   }
 }
 
@@ -936,16 +956,39 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     assert(canHaveCancellationPoints() &&
            "CANCELLATION.POINTS is not supported on this construct");
     for (unsigned I = 0; I < NumArgs; ++I) {
-      auto *V = dyn_cast<Instruction>(Args[I]);
+      assert(isa<AllocaInst>(Args[I]) &&
+             "Unexpected operand in CANCELLATION.POINTS bundle.");
+      auto *CPAlloca = cast<AllocaInst>(Args[I]);
+      addCancellationPointAlloca(CPAlloca);
 
-      // Cancellation point may have been removed/replaced with undef by
-      // some dead-code elimination optimization e.g.
-      // if (expr)
-      //   %1 = _kmpc_cancel(...)
+      // Cancellation Points in the IR look like:
       //
-      // 'expr' may be always false, and %1 can be optimized away.
-      if (V)
-        addCancellationPoint(V);
+      // %cp = alloca i32            ; CPAlloca
+      // ...
+      // llvm.region.entry(...) [..."QUAL.OMP.CANCELLATION.POINTS"(%cp) ]
+      // ...
+      // %1 = __kmpc_cancel(...)     ; CancellationPoint
+      // store %1, %cp               ; CPStore
+      // ...
+      for (auto &CPUse : CPAlloca->uses()) {
+        User *CPUser = CPUse.getUser();
+        if (StoreInst *CPStore = dyn_cast<StoreInst>(CPUser)) {
+          Value *CancellationPoint = CPStore->getValueOperand();
+          // Cancellation point may have been removed/replaced with undef by
+          // some dead-code elimination optimization e.g.
+          // if (expr)
+          //   %1 = _kmpc_cancel(...)
+          //
+          // 'expr' may be always false, and %1 can be optimized away.
+          if (!CancellationPoint)
+            continue;
+
+          assert(isa<CallInst>(CancellationPoint) &&
+                 "Cancellation Point is not a Call.");
+
+          addCancellationPoint(cast<CallInst>(CancellationPoint));
+        }
+      }
     }
     break;
   }
@@ -1047,7 +1090,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_DIST_SCHEDULE_STATIC: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
+    WRegionUtils::extractScheduleOpndList(getDistSchedule(), Args, ClauseInfo,
                                           WRNScheduleDistributeStatic);
     break;
   }
@@ -1097,26 +1140,19 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
-void WRegionNode::getClausesFromOperandBundles(bool RegionExit) {
+void WRegionNode::getClausesFromOperandBundles() {
 
   Instruction *I;
 
-  if (!RegionExit) {
-    // Under the directive.region.entry/exit representation the intrinsic
-    // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-    I = &(getEntryBBlock()->front());
-    assert(isa<IntrinsicInst>(I) &&
-           "Call not found for directive.region.entry()");
-  } else {
-    // ExitBB can have PHIs, so we get the first non-PHI to access the
-    // directive.region.exit intrinsic.
-    I = getExitBBlock()->getFirstNonPHI();
-    assert(isa<IntrinsicInst>(I) &&
-           "Call not found for directive.region.exit()");
-  }
+  // Under the directive.region.entry/exit representation the intrinsic
+  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+  I = &(getEntryBBlock()->front());
+  assert(isa<IntrinsicInst>(I) &&
+         "Call not found for directive.region.entry()");
 
   IntrinsicInst *Call = cast<IntrinsicInst>(I);
   unsigned i, NumOB = Call->getNumOperandBundles();
+  LLVMContext &C = Call->getParent()->getParent()->getContext();
 
   // Index i start from 1 (not 0) because we want to skip the first
   // OperandBundle, which is the directive name.
@@ -1137,7 +1173,7 @@ void WRegionNode::getClausesFromOperandBundles(bool RegionExit) {
     const Use *ArgList = NumArgs == 0 ? nullptr : &Args[0];
 
     // Parse the clause and update the WRN
-    parseClause(ClauseInfo, ArgList, NumArgs);
+    parseClause(ClauseInfo, ArgList, NumArgs, C);
   }
 }
 
@@ -1490,3 +1526,5 @@ void vpo::printStr(StringRef Title, StringRef Str, formatted_raw_ostream &OS,
   if (Verbosity!=0 || Str!="UNSPECIFIED")
     OS.indent(Indent) << Title << ": " << Str << "\n";
 }
+
+#endif // INTEL_COLLAB

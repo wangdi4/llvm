@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -dtrans-optbasetest \
+; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
 ; RUN: -dtrans-optbasetest-typelist=struct.type01a,struct.type02a 2>&1 | FileCheck %s
 
 %struct.type01a = type { i32, i32, i32 }
@@ -27,7 +27,7 @@ define void @test01caller() {
   ret void
 }
 ; CHECK-NOT: void @test01callee(%struct.type01b*)
-; CHECK: define void @test01caller() {
+; CHECK: define internal void @test01caller() {
 ; CHECK: %a = alloca %__DDT_struct.type01b*
 ; CHECK: %p = load %__DDT_struct.type01b*, %__DDT_struct.type01b** %a
 ; CHECK: call void @test01callee.{{[0-9]+}}(%__DDT_struct.type01b* %p)
@@ -48,7 +48,7 @@ define void @test02caller() {
   ret void
 }
 ; CHECK-NOT: void @test02callee(%struct.type01b*)
-; CHECK: define void @test02caller() {
+; CHECK: define internal void @test02caller() {
 ; CHECK: %a1 = alloca %__DDT_struct.type01b*
 ; CHECK: %p1 = load %__DDT_struct.type01b*, %__DDT_struct.type01b** %a1
 ; CHECK: %a2 = alloca %__DDT_struct.type02b*
@@ -72,7 +72,7 @@ define void @test03caller() {
   ret void
 }
 ; CHECK-NOT: void @test03callee(%struct.nochangetype* %in1, %struct.type02b* %in2)
-; CHECK: define void @test03caller() {
+; CHECK: define internal void @test03caller() {
 ; CHECK: %a1 = alloca %struct.nochangetype*
 ; CHECK: %p1 = load %struct.nochangetype*, %struct.nochangetype** %a1
 ; CHECK: %a2 = alloca %__DDT_struct.type02b*
@@ -93,7 +93,7 @@ define void @test04caller() {
   ret void
 }
 ; CHECK-NOT: void @test04callee(%struct.type01b* %in, i32 %count, ...)
-; CHECK: define void @test04caller() {
+; CHECK: define internal void @test04caller() {
 ; CHECK: %a = alloca %__DDT_struct.type01b*
 ; CHECK: %p = load %__DDT_struct.type01b*, %__DDT_struct.type01b** %a
 ; CHECK: call void (%__DDT_struct.type01b*, i32, ...) @test04callee.{{[0-9]+}}(%__DDT_struct.type01b* %p, i32 2, i32 4, i32 16)
@@ -112,7 +112,7 @@ define void @test05caller() {
   ret void
 }
 ; CHECK-NOT: %struct.type01b* @test05callee()
-; CHECK: define void @test05caller() {
+; CHECK: define internal void @test05caller() {
 ; CHECK: %p = call %__DDT_struct.type01b* @test05callee.{{[0-9]+}}()
 
 
@@ -126,8 +126,8 @@ define void @test06caller() {
   call void @test06callee(%struct.nochangetype* %p)
   ret void
 }
-; CHECK: define void @test06callee(%struct.nochangetype* %in)
-; CHECK: define void @test06caller() {
+; CHECK: define internal void @test06callee(%struct.nochangetype* %in)
+; CHECK: define internal void @test06caller() {
 ; CHECK: %a = alloca %struct.nochangetype*
 ; CHECK: %p = load %struct.nochangetype*, %struct.nochangetype** %a
 ; CHECK: call void @test06callee(%struct.nochangetype* %p)
@@ -138,10 +138,10 @@ define void @test06caller() {
 ; they get processed in, which could changes the suffixes or order, so we
 ; use CHECK-DAG and regular expressions here.
 
-; CHECK-DAG: define void @test01callee.{{[0-9]+}}(%__DDT_struct.type01b* %in)
-; CHECK-DAG: define void @test02callee.{{[0-9]+}}(%__DDT_struct.type01b* %in1, %__DDT_struct.type02b* %in2)
-; CHECK-DAG: define void @test03callee.{{[0-9]+}}(%struct.nochangetype* %in1, %__DDT_struct.type02b* %in2)
-; CHECK-DAG: define void @test04callee.{{[0-9]+}}(%__DDT_struct.type01b* %in, i32 %count, ...)
-; CHECK-DAG: define %__DDT_struct.type01b* @test05callee.{{[0-9]+}}()
+; CHECK-DAG: define internal void @test01callee.{{[0-9]+}}(%__DDT_struct.type01b* %in)
+; CHECK-DAG: define internal void @test02callee.{{[0-9]+}}(%__DDT_struct.type01b* %in1, %__DDT_struct.type02b* %in2)
+; CHECK-DAG: define internal void @test03callee.{{[0-9]+}}(%struct.nochangetype* %in1, %__DDT_struct.type02b* %in2)
+; CHECK-DAG: define internal void @test04callee.{{[0-9]+}}(%__DDT_struct.type01b* %in, i32 %count, ...)
+; CHECK-DAG: define internal %__DDT_struct.type01b* @test05callee.{{[0-9]+}}()
 
 declare i8* @malloc(i64)

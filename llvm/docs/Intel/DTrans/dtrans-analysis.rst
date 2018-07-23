@@ -225,6 +225,12 @@ GlobalInstance
 ~~~~~~~~~~~~~~
 This indicates that a global variable was found that is an instance of the type.
 
+GlobalArray
+~~~~~~~~~~~
+This indicates that a global variable was found that is a fixed size array
+containing elements of the type. The elements of the array may be pointers
+or instances.
+
 HasInitializerList
 ~~~~~~~~~~~~~~~~~~
 This indicates that a global variable was found that is an instance of the type
@@ -306,6 +312,31 @@ This indicates that a local variable was found that is a pointer to the type.
 LocalInstance
 ~~~~~~~~~~~~~~
 This indicates that a local variable was found that is an instance of the type.
+
+MismatchedArgUse
+~~~~~~~~~~~~~~~~
+This indicates that a function with at least one i8* argument was called with
+a value passed as an i8* argument whose alias set did not match the expected
+alias set for the argument based on the uses of the argument within the
+function.
+
+HasVTable
+~~~~~~~~~
+This indicates that the type is a structure with at least one field that seems
+as though it may be a vtable. Any field that is a pointer to a pointer to a
+function will trigger this safety condition.
+
+HasFnPtr
+~~~~~~~~
+This indicates that the type is a structure with at least one field that is
+a pointer to a function.
+
+HasCppHandling
+~~~~~~~~
+This indicates that the type has C++ processing:
+    - there is a memory allocation and/or deallocation with C++ operators
+      new/new[] and or delete/delete[];
+    - there is an invoke instructions related to the type.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -390,8 +421,9 @@ Call
 ~~~~
 When a call instruction is encountered, the DTrans analysis will attempt to
 determine whether or not the call is allocating memory. For LibFuncs,
-LLVM's LibFunc mechanism is used to check for calls to malloc, calloc,
-and realloc.
+LLVM's LibFunc mechanism is used to check for calls to malloc, calloc, realloc
+and for calls to standard new and new[] operators allocating memory.
+Note, that standard placement new operators do not allocate memory.
 
 Some user functions are also handled.  Right now, we distinguish two types:
   AK_UserMalloc0: The user function may have any number of arguments, but the
@@ -432,6 +464,7 @@ exact multiple of the aggregate type size. **Currently, only constant arguments
 are handled.**
 
 If the called function is the "free" function, the call is viewed as safe.
+Calls to standard delete/delete[] operators are viewed as safe too.
 
 If the called function is an unknown externally defined function and any of the
 arguments is a pointer to an aggregate type, that type is marked with the
@@ -449,6 +482,11 @@ the argument can be tracked when the function is analyzed. However, if a
 %struct.A* value is cast to an i8* and then passed to a function call, we
 cannot know what the argument's original type was when we are analyzing the
 called function.
+
+Invoke
+~~~~
+Processing is the same as for call instructions. HasCppHandling is set among
+safety conditions for a type.
 
 Intrinsic
 ~~~~~~~~~
