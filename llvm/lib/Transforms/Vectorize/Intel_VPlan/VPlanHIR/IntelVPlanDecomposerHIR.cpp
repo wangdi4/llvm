@@ -378,25 +378,22 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
   }
 }
 
-// Create a VPInstruction for the incoming DDNode and insert it in the current
-// VPBuilder's insertion point. During *plain* CFG construction, we create
-// VPCmpInst for the following complex HIR constructs:
-//     1) HLIf: The VPCmpInst represents the (multi-)predicate comparisons and
-//        contains all the operands involved in the comparisons.
-//     2) HLLoop: The VPCmpInst represents the bottom test comparison.
+// Create VPInstruction for \p DDNode and insert it in VPBuilder's insertion
+// point. If \p DDNode is an HLIf, create a VPCmpInst representing the
+// (multi-)predicate comparisons. HLLoop are not expected.
 VPInstruction *
 VPDecomposerHIR::createVPInstruction(HLDDNode *DDNode,
                                      ArrayRef<VPValue *> VPOperands) {
   assert(DDNode && "Expected DDNode to create a VPInstruction.");
+  assert(!isa<HLLoop>(DDNode) && "HLLoop shouldn't be processed here!");
   HLInst *HInst = dyn_cast<HLInst>(DDNode);
   assert((!HInst || HInst->getLLVMInstruction()) &&
          "Missing LLVM Instruction for HLInst.");
 
-  // Create VPCmpInst for HLInst representing a CmpInst, HLIfs and HLLoops
-  // (bottom test).
+  // Create VPCmpInst for HLInst representing a CmpInst or HLIf.
   VPInstruction *NewVPInst;
   if ((HInst && isa<CmpInst>(HInst->getLLVMInstruction())) ||
-      isa<HLIf>(DDNode) || isa<HLLoop>(DDNode)) {
+      isa<HLIf>(DDNode)) {
     assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
     NewVPInst = Builder.createCmpInst(VPOperands[0], VPOperands[1],
                                       getPredicateFromHIR(DDNode), DDNode);
@@ -493,11 +490,10 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
          "Lower bound and IV type doesn't match.");
   VPConstant *IVStart = Plan->getVPConstant(
       ConstantInt::getSigned(LowerCE->getDestType(), LowerCE->getConstant()));
-  // TODO: Attach HLp as underlying HIR of the IV Start and set HIR to valid.
 
   // Create induction phi only with IVStart. We will add IVNext in a separate
   // step. Insert it at the beginning of the loop header and map it to the loop
-  // level.
+  // level. HLp is set as underlying HIR of the induction phi.
   VPBuilder::InsertPointGuard Guard(Builder);
   Builder.setInsertPoint(LpH, LpH->begin());
   VPInstruction *IndSemiPhi =
@@ -510,12 +506,33 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
 VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
                                                         VPBasicBlock *LpPH,
                                                         VPBasicBlock *LpLatch) {
+  // This is an example of the master and decomposed VPInstructions that are
+  // generated for an HLLoop by this method:
+  // HLLoop:
+  //   <26> + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
+  //   ...
+  //   <26> + END LOOP
+  //
+  // Output:
+  //   BB3: // Loop PH
+  //    %vp43808 = sext %vp43744 // UB decomposition.
+  //    %vp44016 = add %vp43808 i64 -1 // UB decomposition (master VPI)
+  //   SUCCESSORS(1):BB4
+  //
+  //   BB4: // Loop H and Latch
+  //    %vp40944 = semi-phi i64 0 %vp43488
+  //    ...
+  //    %vp43488 = add %vp40944 i64 1 // IVNext (master VPI)
+  //    %vp44352 = icmp %vp43488 %vp44016 // BottomTest (master VPI)
+  //   SUCCESSORS(2):BB4(%vp44352), BB5(!%vp44352)
+
   // Retrieve the inductive semi-phi (IV) generated for this HLLoop.
   assert(HLLp2IVSemiPhi.count(HLp) &&
          "Expected semi-phi VPInstruction for HLLoop.");
   VPInstruction *IndSemiPhi = HLLp2IVSemiPhi[HLp];
 
-  // Create IV next. Only normalized loops are expected so we use step 1.
+  // Create add VPInstruction for IV next. HLp is set as underlying HIR of the
+  // created VPInstruction. Only normalized loops are expected so we use step 1.
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
   Builder.setInsertPoint(LpLatch);
@@ -526,24 +543,39 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   // Add IVNext to induction semi-phi.
   IndSemiPhi->addOperand(IVNext);
 
-  // Create VPInstruction for bottom test condition. We 1) decompose UB operand,
-  // 2) create master VPInstruction for the test condition with IVNext and UB as
-  // operands and 3) set master VPInstruction of decomposed VPInstructions. The
-  // VPInstructions resulting from the UB decomposition are inserted into the
-  // loop PH since they are loop invariant.
+  // Create VPValue for bottom test condition. If decomposition is needed:
+  //   1) decompose UB operand. Decomposed VPInstructions are inserted into the
+  //      loop PH since they are loop invariant,
+  //   2) create master VPInstruction for the bottom test condition with IVNext
+  //      and decomposed UB as operands, and,
+  //   3) set the last created VPInstruction for UB as master VPInstruction for
+  //      that UB group of decomposed VPInstructions.
   assert(HLp->getUpperDDRef() && "Expected a valid upper DDRef for HLLoop.");
   SmallVector<VPValue *, 2> VPOperands;
+  VPValue *DecompUB;
   VPOperands.push_back(IVNext);
-  { // Scope for Guard (RAII).
+  { // #1. This scope is for Guard (RAII).
     VPBuilder::InsertPointGuard Guard(Builder);
     Builder.setInsertPoint(LpPH);
-    VPOperands.push_back(decomposeVPOperand(HLp->getUpperDDRef()));
+    DecompUB = decomposeVPOperand(HLp->getUpperDDRef());
+    VPOperands.push_back(DecompUB);
   }
-  auto *BottomTest = createVPInstruction(HLp, VPOperands);
-  // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
-  // resulting from decomposing its operands.
-  setMasterForDecomposedVPIs(BottomTest, IVNext /*First VPI before decomp*/,
-                             LpLatch);
+
+  // #2.
+  auto *BottomTest = Builder.createCmpInst(VPOperands[0], VPOperands[1],
+                                           getPredicateFromHIR(HLp), HLp);
+
+  if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {
+    // #3. Turn last decomposed VPInstruction of UB as master VPInstruction of
+    // the decomposed group.
+    DecompUBVPI->HIR.setUnderlyingDDN(HLp);
+
+    // Set DecompUBVPI as master VPInstruction of any other decomposed
+    // VPInstruction of UB.
+    setMasterForDecomposedVPIs(DecompUBVPI, nullptr /*First VPI before decomp*/,
+                               LpPH);
+    DecompUBVPI->HIR.setValid();
+  }
 
   // Set the underlying HIR of the new VPInstructions (and its potential
   // decomposed VPInstructions) to valid.
