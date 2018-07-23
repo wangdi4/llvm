@@ -19,6 +19,11 @@
 
 using namespace llvm;
 
+static cl::opt<bool>
+  CSAForceMath0("csa-force-math0-instructions", cl::Hidden,
+                 cl::desc("CSA Specific: Flag to turn on Math0 instructions by force"),
+                 cl::init(false));
+
 #define DEBUG_TYPE "csa-subtarget"
 
 #define GET_SUBTARGETINFO_TARGET_DESC
@@ -38,3 +43,9 @@ CSASubtarget::CSASubtarget(const Triple &TT, const std::string &CPU,
     : CSAGenSubtargetInfo(TT, CPU, FS), FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM, *this),
       TSInfo(), CSAName(CPU.empty() ? "autounit" : CPU) {}
+bool CSASubtarget::hasMath0() const {
+  if (CSAForceMath0)
+    return true;
+  else
+    return HasMath0;
+}

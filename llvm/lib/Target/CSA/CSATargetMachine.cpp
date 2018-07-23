@@ -77,7 +77,6 @@ namespace llvm {
 void initializeCSALowerAggrCopiesPass(PassRegistry &);
 void initializeCSAFortranIntrinsicsPass(PassRegistry &);
 void initializeCSAInnerLoopPrepPass(PassRegistry &);
-void initializeCSAReplaceAllocaWithMallocPass(PassRegistry &);
 } // namespace llvm
 
 extern "C" void LLVMInitializeCSATarget() {
@@ -89,7 +88,6 @@ extern "C" void LLVMInitializeCSATarget() {
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeCSAOptDFPassPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
-  initializeCSAReplaceAllocaWithMallocPass(PR);
   initializeCSALowerAggrCopiesPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
 }
@@ -185,7 +183,7 @@ public:
     // selection
     addPass(createCSAIntrinsicCleanerPass());
     // Add pass to replace alloca instructions
-    addPass(createCSAReplaceAllocaWithMallocPass());
+    addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
     addPass(createGlobalDCEPass());
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...

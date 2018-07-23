@@ -95,7 +95,7 @@ public:
   bool hasRcpA() const { return HasRcpA; }
   bool hasRSqrtA() const { return HasRSqrtA; }
   bool hasSqrt() const { return HasSqrt; }
-  bool hasMath0() const { return HasMath0; }
+  bool hasMath0() const;
   bool hasRMWAtomic() const { return HasRMWAtomic; }
 
   /// This constructor initializes the data members to match that
