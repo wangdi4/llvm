@@ -28,6 +28,7 @@
 //===
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -211,8 +212,10 @@ static bool isAllocaPresent(Module &M) {
       for (auto II = std::begin(BB), E = std::end(BB); II != E; ++II) {
         Instruction *I = &*II;
         if (AllocaInst *AI = dyn_cast<AllocaInst>(I))
-          if (AI->isStaticAlloca())
+          if (AI->isStaticAlloca()) {
+            LLVM_DEBUG(errs() << "Alloca Inst found in " << F.getName() << "\n");
             return true;
+          }
       }
     }
   }
@@ -232,50 +235,186 @@ static bool isLifeTimeInst(Instruction *I) {
 // csa_mem_alloc, csa_mem_free, and csa_mem_initialize functions are marked with this attribute
 // so that they are not internalized and deleted by dead code elimination before their references
 // are introduced in this pass
-// However, there are cases when these functions are not required (SXU compilation or no alloca's)
-// In these cases, these functions should be removed from the @llvm.used array and then deleted
-static void deleteCSAMemoryFunctions(Module &M, Function *CSAMalloc,
+// After this pass, the csa_mem* will have valid references and should not rely on the llvm.used attribute
+// In these cases, these functions should be removed from the @llvm.used array
+static void removeCSAMemoryFunctionsFromUsedList(Module &M, Function *CSAMalloc,
                                      Function *CSAFree, Function *CSAInitialize) {
-  SmallVector<Constant *, 32> Elts;
-  GlobalVariable *GV = M.getGlobalVariable("llvm.used");
-  if (!GV || !GV->hasInitializer()) return;
-  // Should be an array of 'i8*'.
-  const ConstantArray *InitList = cast<ConstantArray>(GV->getInitializer());
-  for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i)
+  SmallVector<Constant *, 32> FuncsMarkedAsUsed;
+  GlobalVariable *UsedV = M.getGlobalVariable("llvm.used");
+  if (!UsedV || !UsedV->hasInitializer()) return;
+  const ConstantArray *UsedList = cast<ConstantArray>(UsedV->getInitializer());
+  for (unsigned i = 0, e = UsedList->getNumOperands(); i != e; ++i)
     if (Function *F =
-        dyn_cast<Function>(InitList->getOperand(i)->stripPointerCasts())) {
+        dyn_cast<Function>(UsedList->getOperand(i)->stripPointerCasts())) {
       if (F != CSAMalloc && F != CSAFree && F != CSAInitialize)
-        Elts.push_back(InitList->getOperand(i));
+        FuncsMarkedAsUsed.push_back(UsedList->getOperand(i));
     } else
-      Elts.push_back(InitList->getOperand(i));
-  auto Linkage = GV->getLinkage();
-  auto Name = GV->getName();
-  GV->eraseFromParent();
-  if (Elts.size()) {
-    ArrayType *ArrTy = ArrayType::get(InitList->getType()->getElementType(),Elts.size());
-    auto *NewGV = new GlobalVariable(M,ArrTy,true,Linkage,0,Name);
-    NewGV->setInitializer(ConstantArray::get(ArrTy,Elts));
+      FuncsMarkedAsUsed.push_back(UsedList->getOperand(i));
+  auto UsedLinkage = UsedV->getLinkage();
+  auto UsedVName = UsedV->getName();
+  UsedV->eraseFromParent();
+  if (FuncsMarkedAsUsed.size()) {
+    ArrayType *ArrTy = ArrayType::get(UsedList->getType()->getElementType(),FuncsMarkedAsUsed.size());
+    auto *NewUsedV = new GlobalVariable(M,ArrTy,true,UsedLinkage,0,UsedVName);
+    NewUsedV->setInitializer(ConstantArray::get(ArrTy,FuncsMarkedAsUsed));
   }
-  if (CSAMalloc) { CSAMalloc->eraseFromParent(); }
-  if (CSAFree) { CSAFree->eraseFromParent(); }
+}
+
+// Function to delete all csa_mem* functions if needed
+static void deleteCSAMemoryFunctions(Function *CSAMalloc,
+                                     Function *CSAFree, Function *CSAInitialize) {
+  if (CSAMalloc)     { CSAMalloc->eraseFromParent(); }
+  if (CSAFree)       { CSAFree->eraseFromParent(); }
   if (CSAInitialize) { CSAInitialize->eraseFromParent(); }
+}
+
+// Given a CallInst. this function returns a handle to the callee function
+// This function is duplicated in CSAProcedureCalls pass
+// Chnages will need to be synchronized
+static const Function *getLoweredFunc(const CallInst *CI, const Module &M) {
+  const Function *LowerF = nullptr;
+  if (!CI->getCalledFunction()) return nullptr;
+  auto F = CI->getCalledFunction();
+  auto IID = F->getIntrinsicID();
+  if (IID == Intrinsic::not_intrinsic) { 
+    if (F->isDeclaration()) return nullptr;
+    LowerF = F;
+  }
+  bool IsFloat = (CI->getArgOperand(0)->getType()->getTypeID() == Type::FloatTyID);
+  bool IsDouble = (CI->getArgOperand(0)->getType()->getTypeID() == Type::DoubleTyID);
+  if (IsDouble) {
+    switch (IID) {
+    case Intrinsic::ceil: { LowerF = M.getFunction("ceil"); break; }
+    case Intrinsic::cos: { LowerF = M.getFunction("cos"); break; }
+    case Intrinsic::exp: { LowerF = M.getFunction("exp"); break; }
+    case Intrinsic::exp2: { LowerF = M.getFunction("exp2"); break; }
+    case Intrinsic::floor: { LowerF = M.getFunction("floor"); break; }
+    case Intrinsic::log: { LowerF = M.getFunction("log"); break; }
+    case Intrinsic::log2: { LowerF = M.getFunction("log2"); break; }
+    case Intrinsic::log10: { LowerF = M.getFunction("log10"); break; }
+    case Intrinsic::pow: { LowerF = M.getFunction("pow"); break; }
+    case Intrinsic::round: { LowerF = M.getFunction("round"); break; }
+    case Intrinsic::sin: { LowerF = M.getFunction("sin"); break; }
+    case Intrinsic::trunc: { LowerF = M.getFunction("trunc"); break; }
+    default: { break; }
+    }
+  } else if (IsFloat) {
+    switch (IID) {
+    case Intrinsic::ceil: { LowerF = M.getFunction("ceilf"); break; }
+    case Intrinsic::cos: { LowerF = M.getFunction("cosf"); break; }
+    case Intrinsic::exp: { LowerF = M.getFunction("expf"); break; }
+    case Intrinsic::exp2: { LowerF = M.getFunction("exp2f"); break; }
+    case Intrinsic::floor: { LowerF = M.getFunction("floorf"); break; }
+    case Intrinsic::log: { LowerF = M.getFunction("logf"); break; }
+    case Intrinsic::log2: { LowerF = M.getFunction("log2f"); break; }
+    case Intrinsic::log10: { LowerF = M.getFunction("log10f"); break; }
+    case Intrinsic::pow: { LowerF = M.getFunction("powf"); break; }
+    case Intrinsic::round: { LowerF = M.getFunction("roundf"); break; }
+    case Intrinsic::sin: { LowerF = M.getFunction("sinf"); break; }
+    case Intrinsic::trunc: { LowerF = M.getFunction("truncf"); break; }
+    default: { break; }
+    }
+  }
+  return LowerF;
+}
+
+// This deletes all unused math library functions
+static void deleteUnusedMathFunctions(Module &M, Function *CSAMalloc,
+                                     Function *CSAFree, Function *CSAInitialize) {
+  SmallSet<Constant *, 32> FuncsMarkedAsUsed;
+  SmallVector<Constant *, 32> FuncsMarkedAsUsed_V;
+  SmallVector<Function *, 32> FuncsToDelete;
+  GlobalVariable *UsedV = M.getGlobalVariable("llvm.used");
+  if (!UsedV || !UsedV->hasInitializer()) return;
+  const ConstantArray *UsedList = cast<ConstantArray>(UsedV->getInitializer());
+  auto UsedLinkage = UsedV->getLinkage();
+  auto UsedVName = UsedV->getName();
+  for (auto &F : M) {
+    for (BasicBlock &BB : F) {
+      for (auto II = std::begin(BB), E = std::end(BB); II != E;) {
+        Instruction *I = &*II;
+        ++II;
+        const Function *LowerF;
+        if (const CallInst *CI = dyn_cast<const CallInst>(I)) {
+          LLVM_DEBUG(errs() << "CI = " << *CI << "\n");
+          LowerF = getLoweredFunc(CI,M);
+          // if this function is marked with llvm.used, add to FuncsMarkedAsUsed set
+          if (LowerF != nullptr) {
+            for (unsigned i = 0, e = UsedList->getNumOperands(); i != e; ++i)
+              if (Function *F =
+                    dyn_cast<Function>(UsedList->getOperand(i)->stripPointerCasts()))
+              if (F == LowerF)
+                FuncsMarkedAsUsed.insert(UsedList->getOperand(i));
+          }
+        }
+      }
+    }
+  }
+
+  // FuncsMarkedAsUsed_V is a subset of UsedList
+  // All functions in UsedList that have atleast one call-site and are not csa_mem*
+  // functions are copied to FuncsMarkedAsUsed_V
+  // All the other functions in UsedList that have no call-sites will be marked for deletion
+  for (unsigned i = 0, e = UsedList->getNumOperands(); i != e; ++i)
+    if (Function *F = dyn_cast<Function>(UsedList->getOperand(i)->stripPointerCasts())) {
+      if (F != CSAMalloc && F != CSAFree && F != CSAInitialize && FuncsMarkedAsUsed.count(UsedList->getOperand(i)) == 0) {
+        FuncsToDelete.push_back(F);
+      } else {
+        FuncsMarkedAsUsed_V.push_back(UsedList->getOperand(i));
+      }
+    }
+  UsedV->eraseFromParent();
+  if (FuncsMarkedAsUsed_V.size()) {
+    ArrayType *ArrTy = ArrayType::get(UsedList->getType()->getElementType(),FuncsMarkedAsUsed_V.size());
+    auto *NewUsedV = new GlobalVariable(M,ArrTy,true,UsedLinkage,0,UsedVName);
+    NewUsedV->setInitializer(ConstantArray::get(ArrTy,FuncsMarkedAsUsed_V));
+  }
+
+  // sincos and sincosf are forcibly deleted if not needed
+  // this might be removed later with better DCE support
+  bool SinDeleted = false;
+  bool CosDeleted = false;
+  bool SinfDeleted = false;
+  bool CosfDeleted = false;
+  for (auto F: FuncsToDelete) {
+    if (F->getName() == "sin") SinDeleted = true;
+    if (F->getName() == "cos") CosDeleted = true;
+    if (F->getName() == "sinf") SinfDeleted = true;
+    if (F->getName() == "cosf") CosfDeleted = true;
+    F->eraseFromParent();
+  }
+  if (SinDeleted && CosDeleted) {
+    Function *F = M.getFunction("sincos");
+    if (F) F->eraseFromParent();
+  }
+  if (SinfDeleted && CosfDeleted) {
+    Function *F = M.getFunction("sincosf");
+    if (F) F->eraseFromParent();
+  }
 }
 
 bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
   const DataLayout &DL = M.getDataLayout();
   LLVMContext &Context = M.getContext();
-  bool IsAllocaPresent = isAllocaPresent(M);
   Function *CSAMalloc = M.getFunction("csa_mem_alloc");
   Function *CSAFree = M.getFunction("csa_mem_free");
   Function *CSAInitialize = M.getFunction("csa_mem_initialize");
+
+  // Parse the module and delete unneeded math lib functions
+  deleteUnusedMathFunctions(M,CSAMalloc,CSAFree,CSAInitialize);
+
+  // Delete csa_mem* functions if SXU linkage selected or if there is no stack required
   if (!csa_utils::isAlwaysDataFlowLinkageSet()) {
     LLVM_DEBUG(errs() << "Data flow linkage not set\n");
-    deleteCSAMemoryFunctions(M,CSAMalloc,CSAFree,CSAInitialize);
+    removeCSAMemoryFunctionsFromUsedList(M,CSAMalloc,CSAFree,CSAInitialize);
+    deleteCSAMemoryFunctions(CSAMalloc,CSAFree,CSAInitialize);
     return false;
   }
+  bool IsAllocaPresent = isAllocaPresent(M);
   if (!IsAllocaPresent) {
     LLVM_DEBUG(errs() << "No stack allocations found. No need to run this pass\n");
-    deleteCSAMemoryFunctions(M,CSAMalloc,CSAFree,CSAInitialize);
+    removeCSAMemoryFunctionsFromUsedList(M,CSAMalloc,CSAFree,CSAInitialize);
+    deleteCSAMemoryFunctions(CSAMalloc,CSAFree,CSAInitialize);
     return false;
   }
   if (!CSAMalloc || CSAMalloc->isDeclaration())
@@ -284,7 +423,6 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
     report_fatal_error("CSAFree function definition not found!");
   if (!CSAInitialize || CSAInitialize->isDeclaration())
     report_fatal_error("CSAInitialize function definition not found!");
-
   for (auto &F : M) {
     LLVM_DEBUG(errs() << "Looking at " << F.getName() << "\n");
     if (F.isDeclaration()) {
@@ -337,6 +475,7 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
       coalesceMallocs(F, CSAMalloc, CSAFree, RI);
   } // End of F loop
   deleteInstructions();
+  removeCSAMemoryFunctionsFromUsedList(M,CSAMalloc,CSAFree,CSAInitialize);
   return true;
 }
 

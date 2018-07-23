@@ -210,6 +210,57 @@ void CSAProcCallsPass::getReturnArgs(CALL_SITE_INFO &csi, MachineInstr *returnMI
   }
 }
 
+// Given a CallInst. this function returns a handle to the callee function
+// This function is duplicated in CSAReplaceAllocaWithMalloc pass
+// Chnages will need to be synchronized
+static const Function *getLoweredFunc(const CallInst *CI, const Module *M) {
+  const Function *LowerF = nullptr;
+  if (!CI->getCalledFunction()) return nullptr;
+  auto F = CI->getCalledFunction();
+  auto IID = F->getIntrinsicID();
+  if (IID == Intrinsic::not_intrinsic) {
+    if (F->isDeclaration()) return nullptr;
+    LowerF = F;
+  }
+  bool IsFloat = (CI->getArgOperand(0)->getType()->getTypeID() == Type::FloatTyID);
+  bool IsDouble = (CI->getArgOperand(0)->getType()->getTypeID() == Type::DoubleTyID);
+  if (IsDouble) {
+    switch (IID) {
+    case Intrinsic::ceil: { LowerF = M->getFunction("ceil"); break; }
+    case Intrinsic::cos: { LowerF = M->getFunction("cos"); break; }
+    case Intrinsic::exp: { LowerF = M->getFunction("exp"); break; }
+    case Intrinsic::exp2: { LowerF = M->getFunction("exp2"); break; }
+    case Intrinsic::floor: { LowerF = M->getFunction("floor"); break; }
+    case Intrinsic::log: { LowerF = M->getFunction("log"); break; }
+    case Intrinsic::log2: { LowerF = M->getFunction("log2"); break; }
+    case Intrinsic::log10: { LowerF = M->getFunction("log10"); break; }
+    case Intrinsic::pow: { LowerF = M->getFunction("pow"); break; }
+    case Intrinsic::round: { LowerF = M->getFunction("round"); break; }
+    case Intrinsic::sin: { LowerF = M->getFunction("sin"); break; }
+    case Intrinsic::trunc: { LowerF = M->getFunction("trunc"); break; }
+    default: { break; }
+    }
+  } else if (IsFloat) {
+    switch (IID) {
+    case Intrinsic::ceil: { LowerF = M->getFunction("ceilf"); break; }
+    case Intrinsic::cos: { LowerF = M->getFunction("cosf"); break; }
+    case Intrinsic::exp: { LowerF = M->getFunction("expf"); break; }
+    case Intrinsic::exp2: { LowerF = M->getFunction("exp2f"); break; }
+    case Intrinsic::floor: { LowerF = M->getFunction("floorf"); break; }
+    case Intrinsic::log: { LowerF = M->getFunction("logf"); break; }
+    case Intrinsic::log2: { LowerF = M->getFunction("log2f"); break; }
+    case Intrinsic::log10: { LowerF = M->getFunction("log10f"); break; }
+    case Intrinsic::pow: { LowerF = M->getFunction("powf"); break; }
+    case Intrinsic::round: { LowerF = M->getFunction("roundf"); break; }
+    case Intrinsic::sin: { LowerF = M->getFunction("sinf"); break; }
+    case Intrinsic::trunc: { LowerF = M->getFunction("truncf"); break; }
+    default: { break; }
+    }
+  }
+  return LowerF;
+}
+
+
 // For a given function, this function identifies all its call-sites and connects the arguments
 // in its entryMI instruction with the parameters from various call-sites via pick-tree.
 // Also, all the results in the returnMI instruction are sent back to the call-sites via a switch tree
@@ -245,10 +296,9 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
         // This indexing accounts for only internal calls;
         if (const CallInst *CI = dyn_cast<const CallInst>(&I)) {
           LLVM_DEBUG(errs() << "In AddTrampolineCode: CallInst = " << I << "\n");
-          if (CI->isInlineAsm()) continue;
-          if (!CI->getCalledFunction()) continue;
-          if (CI->getCalledFunction()->isDeclaration()) continue;
-          if (name == CI->getCalledFunction()->getName()) {
+          auto callee_func = getLoweredFunc(CI,M);
+          if (callee_func == nullptr) continue;
+          if (name == callee_func->getName()) {
             CALL_SITE_INFO csi;
             csi.caller_func = F.getName();
             bool isDeclared = (get_func_order(name,M) < get_func_order(csi.caller_func,M));
@@ -472,15 +522,41 @@ MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
     reg = op.getReg();
     bool outerLoop = true;
     // Find the copy instruction that defines this operand in the RETURN instruction
-    for (MachineFunction::iterator MBB = thisMF->begin(), E = thisMF->end(); (MBB != E) && outerLoop; ++MBB) {
-      for (MachineBasicBlock::iterator I = MBB->begin(); (I != MBB->end()) && outerLoop; ++I) {
-        copyMI = &*I;
-        for (unsigned i = 0; i < copyMI->getNumOperands(); ++i) {
-          MachineOperand &top = copyMI->getOperand(i);
-          if (top.isReg()) {
-            if (top.isDef() && top.getReg() == reg) {
-              outerLoop = false;
-              break;
+    for (MachineFunction::reverse_iterator MBB = thisMF->rbegin(), E = thisMF->rend(); (MBB != E) && outerLoop; ++MBB) {
+      for (MachineBasicBlock::reverse_iterator I = MBB->rbegin(); (I != MBB->rend()) && outerLoop; ++I) {
+        MachineInstr *currMI = &*I;
+        // if result of callee code is directly returned by the RET instruction
+        // i.e 
+        // JSRi @tan,<parameter list>
+        // (..no def or use of p64_0...)
+        // RET p64_0
+        // Since this code relies on separate LICs 
+        // for caller RET values and Callee RET values
+        // We need to introduce copies
+        // All these changes should be replaced by performing call
+        // lowering to the correct DF instruction at ISelLowering
+        if ((currMI->getOpcode() == CSA::JSR) || (currMI->getOpcode() == CSA::JSRi)) {
+          unsigned newCallReturnReg = LMFI->allocateLIC(&CSA::CI64RegClass, "call_to_ret_tmp");
+          MachineInstrBuilder MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
+                                      .addReg(reg,RegState::Define)
+                                      .addReg(newCallReturnReg)
+                                      .setMIFlag(MachineInstr::NonSequential);
+          copyMI = &*MIB;
+          MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
+                                      .addReg(newCallReturnReg,RegState::Define)
+                                      .addReg(reg)
+                                      .setMIFlag(MachineInstr::NonSequential);
+          outerLoop = false;
+          break;
+        } else {
+          for (unsigned i = 0; i < currMI->getNumOperands(); ++i) {
+            MachineOperand &top = currMI->getOperand(i);
+            if (top.isReg()) {
+              if (top.isDef() && top.getReg() == reg) {
+                copyMI = currMI;
+                outerLoop = false;
+                break;
+              }
             }
           }
         }
@@ -557,21 +633,33 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       StringRef callee_name;
       // Report external calls here as either WARNINGs or FAILs depending on flag
       if (!MO.isGlobal()) {
-        if (ReportWarningForExtCalls) {
-          callee_name = "dummy_func";
-          errs() << "WARNING: Indirect calls not yet supported! May generate code with incomplete linkage!\n";
-        } else
-          report_fatal_error("Indirect calls not yet supported! Cannot be run on CSA!");
+        if (MO.isSymbol()) {
+          if (M->getFunction(MO.getSymbolName())) {
+            callee_name = MO.getSymbolName();
+          }
+        } else {
+          if (ReportWarningForExtCalls) {
+            callee_name = "dummy_func";
+            errs() << "WARNING: Indirect calls not yet supported! May generate code with incomplete linkage!\n";
+          } else
+            report_fatal_error("Indirect calls not yet supported! Cannot be run on CSA!");
+        }
       } else {
         const Function *F = dyn_cast<Function>(MO.getGlobal());
         if (!F) {
-          if (ReportWarningForExtCalls) {
-            callee_name = "dummy_func";
-            errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
-          } else
-            report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
-        }
-        callee_name = F->getName();
+          if (MO.isSymbol()) {
+            if (M->getFunction(MO.getSymbolName())) {
+              callee_name = MO.getSymbolName();
+            }
+          } else {
+            if (ReportWarningForExtCalls) {
+              callee_name = "dummy_func";
+              errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
+            } else
+              report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
+          }
+        } else
+          callee_name = F->getName();
       }
       LLVM_DEBUG(errs() << "Called Function name = " << callee_name << "\n");
       if (callee_name== name) {
@@ -633,10 +721,8 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
         unsigned resultReg = getParamReg(name, "result_", CallSiteIndex, 1,
                                         &CSA::CI64RegClass, isDeclared, true);
         Cont_MIB.addReg(resultReg,RegState::Define);
-        if (LMFI->canDeleteLICReg(copyMI->getOperand(0).getReg())) {
-          MRI->replaceRegWith(copyMI->getOperand(0).getReg(),resultReg);
-          copyMI->eraseFromParent();
-        }
+        copyMI->getOperand(1).setReg(resultReg);
+        copyMI->setFlag(MachineInstr::NonSequential);
       }
       Cont_MIB.addImm(CallSiteIndex++);
       MachineInstr *newCI = &*Call_MIB;

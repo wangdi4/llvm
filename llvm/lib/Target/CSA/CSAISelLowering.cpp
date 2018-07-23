@@ -309,6 +309,44 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     // setOperationAction(ISD::FMAXNUM, MVT::f64, Legal);
     // setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
     // setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
+  } else {
+    // Order from ISDOpcodes.h
+    // Same as hasMath0. May be changed when div/sqrt support is added
+    setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
+    setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
+    setOperationAction(ISD::FSQRT, MVT::f32, Legal);
+    setOperationAction(ISD::FSQRT, MVT::f64, Legal);
+    
+    setOperationAction(ISD::FSIN, MVT::f32, LibCall);
+    setOperationAction(ISD::FSIN, MVT::f64, LibCall);
+    setOperationAction(ISD::FCOS, MVT::f32, LibCall);
+    setOperationAction(ISD::FCOS, MVT::f64, LibCall);
+    setOperationAction(ISD::FTAN, MVT::f32, LibCall);
+    setOperationAction(ISD::FTAN, MVT::f64, LibCall);
+    setOperationAction(ISD::FATAN, MVT::f32, LibCall);
+    setOperationAction(ISD::FATAN, MVT::f64, LibCall);
+    setOperationAction(ISD::FATAN2, MVT::f32, LibCall);
+    setOperationAction(ISD::FATAN2, MVT::f64, LibCall);
+    setOperationAction(ISD::FPOW, MVT::f32, LibCall);
+    setOperationAction(ISD::FPOW, MVT::f64, LibCall);
+    setOperationAction(ISD::FLOG, MVT::f32, LibCall);
+    setOperationAction(ISD::FLOG, MVT::f64, LibCall);
+    setOperationAction(ISD::FLOG2, MVT::f32, LibCall);
+    setOperationAction(ISD::FLOG2, MVT::f64, LibCall);
+    setOperationAction(ISD::FLOG10,MVT::f32, LibCall);
+    setOperationAction(ISD::FLOG10,MVT::f64, LibCall);
+    setOperationAction(ISD::FEXP, MVT::f32, LibCall);
+    setOperationAction(ISD::FEXP, MVT::f64, LibCall);
+    setOperationAction(ISD::FEXP2, MVT::f32, LibCall);
+    setOperationAction(ISD::FEXP2, MVT::f64, LibCall);
+    setOperationAction(ISD::FCEIL, MVT::f32, LibCall);
+    setOperationAction(ISD::FCEIL, MVT::f64, LibCall);
+    setOperationAction(ISD::FTRUNC, MVT::f32, LibCall);
+    setOperationAction(ISD::FTRUNC, MVT::f64, LibCall);
+    setOperationAction(ISD::FROUND, MVT::f32, LibCall);
+    setOperationAction(ISD::FROUND, MVT::f64, LibCall);
+    setOperationAction(ISD::FFLOOR, MVT::f32, LibCall);
+    setOperationAction(ISD::FFLOOR, MVT::f64, LibCall);
   }
 
   setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
