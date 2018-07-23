@@ -222,7 +222,8 @@ private:
   /// Returns true of false whatever \p Edge prevents unswitching of non-linear
   /// condition. Populates PU and RefsStack.
   bool processPUEdge(const HLIf *If, DDEdge *Edge, PUContext &PU,
-                     SmallVectorImpl<const RegDDRef *> &RefsStack) const;
+                     SmallVectorImpl<const RegDDRef *> &RefsStack,
+                     DDGraph &DDG) const;
 
   /// Sorts candidates in top sort number descending.
   /// They will be handled from right to left.
@@ -350,7 +351,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
 
 bool HIROptPredicate::processPUEdge(
     const HLIf *If, DDEdge *Edge, PUContext &PU,
-    SmallVectorImpl<const RegDDRef *> &RefsStack) const {
+    SmallVectorImpl<const RegDDRef *> &RefsStack, DDGraph &DDG) const {
   if (!Edge->isFLOWdep()) {
     // May ignore non-flow edges.
     return true;
@@ -433,6 +434,12 @@ bool HIROptPredicate::processPUEdge(
   if (!HLNodeUtils::dominates(Inst, If)) {
     // Handle only simple CFG.
     return false;
+  }
+
+  for (auto &Edge : DDG.outgoing(SrcRef)) {
+    if (Edge->isOUTPUTdep()) {
+      return false;
+    }
   }
 
   PU.getInstructions().insert(Inst);
@@ -524,14 +531,14 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
     for (const BlobDDRef *BDDRef :
          make_range(VRef->blob_cbegin(), VRef->blob_cend())) {
       for (auto &Edge : DDG.incoming(BDDRef)) {
-        if (!processPUEdge(If, Edge, PU, RefsStack)) {
+        if (!processPUEdge(If, Edge, PU, RefsStack, DDG)) {
           return false;
         }
       }
     }
 
     for (auto &Edge : DDG.incoming(VRef)) {
-      if (!processPUEdge(If, Edge, PU, RefsStack)) {
+      if (!processPUEdge(If, Edge, PU, RefsStack, DDG)) {
         return false;
       }
     }
@@ -766,7 +773,8 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
   return Level;
 }
 
-/// processOptPredicate - Main routine to perform opt predicate transformation.
+/// processOptPredicate - Main routine to perform opt predicate
+/// transformation.
 bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
   SmallPtrSet<HLLoop *, 8> ParentLoopsToInvalidate;
   SmallPtrSet<HLLoop *, 8> TargetLoopsToInvalidate;
@@ -956,8 +964,8 @@ void HIROptPredicate::transformCandidate(
   // }
 
   // Unswitch every equivalent candidate - a pair of HLIfs. First we handle
-  // original If and then its clone. removeOrHoistIf() will move HLIf before the
-  // loops and make it a pivot or will remove it as needed.
+  // original If and then its clone. removeOrHoistIf() will move HLIf before
+  // the loops and make it a pivot or will remove it as needed.
   for (auto Iter = EquivCandidatesI, E = Candidates.end(); Iter != E; ++Iter) {
     HoistCandidate &C = *Iter;
     HLIf *If = C.getIf();
@@ -989,8 +997,8 @@ void HIROptPredicate::transformCandidate(
       removeOrHoistIf(C, TargetLoop, FirstIf, If, PivotIf);
 
       for (HLInst *RedundantInst : C.PUC.getInstructions()) {
-        // Remove instruction if it's still attached. May be removed by another
-        // candidate.
+        // Remove instruction if it's still attached. May be removed by
+        // another candidate.
         if (RedundantInst->isAttached()) {
           addLvalAsLivein(RedundantInst->getLvalDDRef(), TargetLoop);
           HLNodeUtils::remove(RedundantInst);
@@ -1009,8 +1017,8 @@ void HIROptPredicate::transformCandidate(
     }
 
     if (ElseContainer.empty() && If->hasElseChildren()) {
-      // If true than ElseContainer was used for the first loop and we will need
-      // it for the second loop.
+      // If true than ElseContainer was used for the first loop and we will
+      // need it for the second loop.
       HLNodeUtils::cloneSequence(&ElseContainer, If->getFirstElseChild(),
                                  If->getLastElseChild());
     }
@@ -1034,8 +1042,8 @@ void HIROptPredicate::transformCandidate(
       removeOrHoistIf(C, TargetLoop, FirstIfClone, ClonedIf, PivotIf);
 
       for (HLInst *RedundantInst : C.PUC.getInstructions()) {
-        // Remove instruction if it's still attached. May be removed by another
-        // candidate.
+        // Remove instruction if it's still attached. May be removed by
+        // another candidate.
         HLInst *RedundantInstClone = CloneMapper.getMapped(RedundantInst);
         if (RedundantInstClone && RedundantInstClone->isAttached()) {
           addLvalAsLivein(RedundantInstClone->getLvalDDRef(), NewElseLoop);

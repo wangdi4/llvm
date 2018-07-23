@@ -77,6 +77,8 @@ static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
+enum ConstructDDEdgeType { None, Forward, Backward, Both };
+
 FunctionPass *llvm::createHIRDDAnalysisPass() {
   return new HIRDDAnalysisWrapperPass();
 }
@@ -159,8 +161,7 @@ bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
 
 HIRDDAnalysis::HIRDDAnalysis(llvm::loopopt::HIRFramework &HIRF,
                              llvm::AAResults *AAR)
-    : HIRAnalysis(HIRF), AAR(AAR) {
-}
+    : HIRAnalysis(HIRF), AAR(AAR) {}
 
 void HIRDDAnalysisWrapperPass::releaseMemory() { DDA.reset(); }
 
@@ -171,7 +172,6 @@ void HIRDDAnalysis::forceBuild() {
     GraphVerifier V(this, CurLevel);
     HIRF.getHLNodeUtils().visitAll(V);
   }
-
 }
 
 void HIRDDAnalysis::markLoopBodyModified(const HLLoop *Loop) {
@@ -212,16 +212,120 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
 // do not need to do testing between rvals, unless we need explicitly need input
 // edges. There may be other reasons in the future certain refs will be excluded
 // from testing
-bool HIRDDAnalysis::edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq) {
+static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
+                                      RefVectorTy<DDRef>::iterator Ref2It,
+                                      RefVectorTy<DDRef>::iterator BeginIt,
+                                      RefVectorTy<DDRef>::iterator EndIt,
+                                      bool InputEdgesReq) {
 
-  RegDDRef *RegRef1 = dyn_cast<RegDDRef>(Ref1);
-  RegDDRef *RegRef2 = dyn_cast<RegDDRef>(Ref2);
+  DDRef *Ref1 = *Ref1It;
+  DDRef *Ref2 = *Ref2It;
 
-  if ((RegRef1 && RegRef1->isLval()) || (RegRef2 && RegRef2->isLval())) {
-    return true;
+  if (Ref1->isRval() && Ref2->isRval()) {
+    return ConstructDDEdgeType::None;
   }
 
-  return InputEdgesReq;
+  if (!Ref1->isTerminalRef()) {
+    return ConstructDDEdgeType::Both;
+  }
+
+  // We do not build self edges
+  if (Ref1 == Ref2) {
+    return ConstructDDEdgeType::None;
+  }
+
+  auto Parent1 = Ref1->getLexicalParentLoop();
+  auto Parent2 = Ref2->getLexicalParentLoop();
+
+  if (!Parent1 || (Parent1 != Parent2) || !Parent1->isInnermost()) {
+    return ConstructDDEdgeType::Both;
+  }
+
+  auto Ref1Node = Ref1->getHLDDNode();
+  auto Ref2Node = Ref2->getHLDDNode();
+
+  // Look refs in-between Ref1 and Ref2 to ignore the forward edge
+  bool NeedForwardEdge = true;
+  for (auto It = std::next(Ref1It), E = Ref2It; It != E; ++It) {
+    DDRef *InBetweenRef = *It;
+    if (InBetweenRef->isLval() &&
+        HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node)) {
+      LLVM_DEBUG(dbgs() << "Skipping forward edge from "
+                        << Ref1->getHLDDNode()->getNumber() << "("
+                        << (Ref1->isLval() ? "lval" : "rval") << ")"
+                        << " to " << Ref2->getHLDDNode()->getNumber() << "("
+                        << (Ref2->isLval() ? "lval" : "rval") << ")"
+                        << " because of inbetween def at "
+                        << InBetweenRef->getHLDDNode()->getNumber() << "("
+                        << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
+                        << "\n");
+      NeedForwardEdge = false;
+      break;
+    }
+  }
+
+  // Look refs before Ref1 to ignore the backward edge
+  bool NeedBackwardEdge = true;
+  std::reverse_iterator<decltype(Ref1It)> RI(Ref1It);
+  std::reverse_iterator<decltype(BeginIt)> RE(BeginIt);
+  for (auto It = RI; It != RE; ++It) {
+    DDRef *UpwardRef = *It;
+    if (UpwardRef->getLexicalParentLoop() != Parent1) {
+      break;
+    }
+    if (UpwardRef->isLval() &&
+        HLNodeUtils::dominates(UpwardRef->getHLDDNode(), Ref1Node)) {
+      LLVM_DEBUG(dbgs() << "Skipping backward edge from "
+                        << Ref2->getHLDDNode()->getNumber() << "("
+                        << (Ref2->isLval() ? "lval" : "rval") << ")"
+                        << " to " << Ref1->getHLDDNode()->getNumber() << "("
+                        << (Ref1->isLval() ? "lval" : "rval") << ")"
+                        << " because of upward def at "
+                        << UpwardRef->getHLDDNode()->getNumber() << "("
+                        << (UpwardRef->isLval() ? "lval" : "rval") << ")"
+                        << "\n");
+      NeedBackwardEdge = false;
+      break;
+    }
+  }
+
+  // Look refs after Ref2 to see if we can still ignore the backward edge
+  if (NeedBackwardEdge) {
+    for (auto It = std::next(Ref2It), E = EndIt; It != E; ++It) {
+      DDRef *DownwardRef = *It;
+      if (DownwardRef->getLexicalParentLoop() != Parent1) {
+        break;
+      }
+      if (DownwardRef->isLval() &&
+          HLNodeUtils::postDominates(DownwardRef->getHLDDNode(), Ref2Node)) {
+        LLVM_DEBUG(dbgs() << "Skipping backward edge from "
+                          << Ref2->getHLDDNode()->getNumber() << "("
+                          << (Ref2->isLval() ? "lval" : "rval") << ")"
+                          << " to " << Ref1->getHLDDNode()->getNumber() << "("
+                          << (Ref1->isLval() ? "lval" : "rval") << ")"
+                          << " because of downward def at "
+                          << DownwardRef->getHLDDNode()->getNumber() << "("
+                          << (DownwardRef->isLval() ? "lval" : "rval") << ")"
+                          << "\n");
+        NeedBackwardEdge = false;
+        break;
+      }
+    }
+  }
+
+  if (NeedForwardEdge && NeedBackwardEdge) {
+    return ConstructDDEdgeType::Both;
+  }
+
+  if (NeedForwardEdge) {
+    return ConstructDDEdgeType::Forward;
+  }
+
+  if (NeedBackwardEdge) {
+    return ConstructDDEdgeType::Backward;
+  }
+
+  return ConstructDDEdgeType::None;
 }
 
 // initializes direction vector used to test from Node's loop nesting level
@@ -337,14 +441,18 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
+    auto BeginIt = RefVec.begin();
+    auto EndIt = RefVec.end();
 
-    for (auto Ref1I = RefVec.begin(), E = RefVec.end(); Ref1I != E; ++Ref1I) {
-      DDRef *Ref1 = *Ref1I;
+    for (auto Ref1It = BeginIt, E = EndIt; Ref1It != E; ++Ref1It) {
+      DDRef *Ref1 = *Ref1It;
 
-      for (auto Ref2I = Ref1I; Ref2I != E; ++Ref2I) {
-        DDRef *Ref2 = *Ref2I;
+      for (auto Ref2It = Ref1It; Ref2It != E; ++Ref2It) {
+        DDRef *Ref2 = *Ref2It;
 
-        if (edgeNeeded(Ref1, Ref2, BuildInputEdges) &&
+        ConstructDDEdgeType NeededEdgeType =
+            edgeNeeded(Ref1It, Ref2It, BeginIt, EndIt, BuildInputEdges);
+        if (NeededEdgeType != ConstructDDEdgeType::None &&
             !isEdgeValid(Ref1, Ref2)) {
           DDTest DT(*AAR, Node->getHLNodeUtils());
           DirectionVector InputDV;
@@ -367,10 +475,10 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           //  else  check outputDVforward[0] != Dependences::DVEntry::NONE;
           //  etc
 
-          // TODO Blindly adding edges means we have the unfortunate side effect
-          // of obliterating edges if we request outermost loop graph then
-          // innermost loop graph. If refinement is not possible, we should
-          // keep the previous result cached somewhere.
+          // TODO Blindly adding edges means we have the unfortunate side
+          // effect of obliterating edges if we request outermost loop graph
+          // then innermost loop graph. If refinement is not possible, we
+          // should keep the previous result cached somewhere.
 
           // Sample code to check for Dep Distance
           // flow (< >) (2 -4)
@@ -384,7 +492,8 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           //  for checking distance -2, otherwise something is invalid
           //  flow (< > >) (2 -2 -1)
 
-          if (OutputDVForward[0] != DVKind::NONE) {
+          if (OutputDVForward[0] != DVKind::NONE &&
+              (NeededEdgeType & ConstructDDEdgeType::Forward)) {
             DDEdge Edge = DDEdge(Ref1, Ref2, OutputDVForward,
                                  OutputDistVForward, IsLoopIndepDepTemp);
             // LLVM_DEBUG(dbgs() << "Got edge of :");
@@ -392,7 +501,8 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
             FunctionDDGraph.addEdge(std::move(Edge));
           }
 
-          if (OutputDVBackward[0] != DVKind::NONE) {
+          if (OutputDVBackward[0] != DVKind::NONE &&
+              (NeededEdgeType & ConstructDDEdgeType::Backward)) {
             DDEdge Edge =
                 DDEdge(Ref2, Ref1, OutputDVBackward, OutputDistVBackward);
             // LLVM_DEBUG(dbgs() << "Got back edge of :");
@@ -482,7 +592,7 @@ RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
 void HIRDDAnalysis::printAnalysis(raw_ostream &OS) const {
 
   // Need a non-const pointer to force build for opt -analyze mode.
-  auto NonConstDDA = const_cast<HIRDDAnalysis*>(this);
+  auto NonConstDDA = const_cast<HIRDDAnalysis *>(this);
 
   if (DumpGraphForNodeNumbers.empty()) {
     NonConstDDA->forceBuild();
