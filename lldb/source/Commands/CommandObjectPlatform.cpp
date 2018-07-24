@@ -178,17 +178,10 @@ public:
 
   ~CommandObjectPlatformSelect() override = default;
 
-  int HandleCompletion(Args &input, int &cursor_index,
-                       int &cursor_char_position, int match_start_point,
-                       int max_return_elements, bool &word_complete,
-                       StringList &matches) override {
-    std::string completion_str(input.GetArgumentAtIndex(cursor_index));
-    completion_str.erase(cursor_char_position);
-
-    CommandCompletions::PlatformPluginNames(
-        GetCommandInterpreter(), completion_str.c_str(), match_start_point,
-        max_return_elements, nullptr, word_complete, matches);
-    return matches.GetSize();
+  int HandleCompletion(CompletionRequest &request) override {
+    CommandCompletions::PlatformPluginNames(GetCommandInterpreter(), request,
+                                            nullptr);
+    return request.GetMatches().GetSize();
   }
 
   Options *GetOptions() override { return &m_option_group; }
@@ -1342,32 +1335,32 @@ protected:
       } break;
 
       case 'n':
-        match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
-                                                                false);
+        match_info.GetProcessInfo().GetExecutableFile().SetFile(
+            option_arg, false, FileSpec::Style::native);
         match_info.SetNameMatchType(NameMatch::Equals);
         break;
 
       case 'e':
-        match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
-                                                                false);
+        match_info.GetProcessInfo().GetExecutableFile().SetFile(
+            option_arg, false, FileSpec::Style::native);
         match_info.SetNameMatchType(NameMatch::EndsWith);
         break;
 
       case 's':
-        match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
-                                                                false);
+        match_info.GetProcessInfo().GetExecutableFile().SetFile(
+            option_arg, false, FileSpec::Style::native);
         match_info.SetNameMatchType(NameMatch::StartsWith);
         break;
 
       case 'c':
-        match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
-                                                                false);
+        match_info.GetProcessInfo().GetExecutableFile().SetFile(
+            option_arg, false, FileSpec::Style::native);
         match_info.SetNameMatchType(NameMatch::Contains);
         break;
 
       case 'r':
-        match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
-                                                                false);
+        match_info.GetProcessInfo().GetExecutableFile().SetFile(
+            option_arg, false, FileSpec::Style::native);
         match_info.SetNameMatchType(NameMatch::RegularExpression);
         break;
 
@@ -1536,7 +1529,8 @@ public:
         break;
 
       case 'n':
-        attach_info.GetExecutableFile().SetFile(option_arg, false);
+        attach_info.GetExecutableFile().SetFile(option_arg, false,
+                                                FileSpec::Style::native);
         break;
 
       case 'w':
@@ -1560,11 +1554,8 @@ public:
     }
 
     bool HandleOptionArgumentCompletion(
-        Args &input, int cursor_index, int char_pos,
-        OptionElementVector &opt_element_vector, int opt_element_index,
-        int match_start_point, int max_return_elements,
-        CommandInterpreter &interpreter, bool &word_complete,
-        StringList &matches) override {
+        CompletionRequest &request, OptionElementVector &opt_element_vector,
+        int opt_element_index, CommandInterpreter &interpreter) override {
       int opt_arg_pos = opt_element_vector[opt_element_index].opt_arg_pos;
       int opt_defs_index = opt_element_vector[opt_element_index].opt_defs_index;
 
@@ -1577,7 +1568,7 @@ public:
         // plugin, otherwise use the default plugin.
 
         const char *partial_name = nullptr;
-        partial_name = input.GetArgumentAtIndex(opt_arg_pos);
+        partial_name = request.GetParsedLine().GetArgumentAtIndex(opt_arg_pos);
 
         PlatformSP platform_sp(interpreter.GetPlatform(true));
         if (platform_sp) {
@@ -1585,14 +1576,14 @@ public:
           ProcessInstanceInfoMatch match_info;
           if (partial_name) {
             match_info.GetProcessInfo().GetExecutableFile().SetFile(
-                partial_name, false);
+                partial_name, false, FileSpec::Style::native);
             match_info.SetNameMatchType(NameMatch::StartsWith);
           }
           platform_sp->FindProcesses(match_info, process_infos);
           const uint32_t num_matches = process_infos.GetSize();
           if (num_matches > 0) {
             for (uint32_t i = 0; i < num_matches; ++i) {
-              matches.AppendString(
+              request.GetMatches().AppendString(
                   process_infos.GetProcessNameAtIndex(i),
                   process_infos.GetProcessNameLengthAtIndex(i));
             }
@@ -1740,47 +1731,24 @@ public:
 
   Options *GetOptions() override { return &m_options; }
 
-  bool DoExecute(const char *raw_command_line,
+  bool DoExecute(llvm::StringRef raw_command_line,
                  CommandReturnObject &result) override {
     ExecutionContext exe_ctx = GetCommandInterpreter().GetExecutionContext();
     m_options.NotifyOptionParsingStarting(&exe_ctx);
 
-    const char *expr = nullptr;
 
     // Print out an usage syntax on an empty command line.
-    if (raw_command_line[0] == '\0') {
+    if (raw_command_line.empty()) {
       result.GetOutputStream().Printf("%s\n", this->GetSyntax().str().c_str());
       return true;
     }
 
-    if (raw_command_line[0] == '-') {
-      // We have some options and these options MUST end with --.
-      const char *end_options = nullptr;
-      const char *s = raw_command_line;
-      while (s && s[0]) {
-        end_options = ::strstr(s, "--");
-        if (end_options) {
-          end_options += 2; // Get past the "--"
-          if (::isspace(end_options[0])) {
-            expr = end_options;
-            while (::isspace(*expr))
-              ++expr;
-            break;
-          }
-        }
-        s = end_options;
-      }
+    OptionsWithRaw args(raw_command_line);
+    const char *expr = args.GetRawPart().c_str();
 
-      if (end_options) {
-        Args args(
-            llvm::StringRef(raw_command_line, end_options - raw_command_line));
-        if (!ParseOptions(args, result))
-          return false;
-      }
-    }
-
-    if (expr == nullptr)
-      expr = raw_command_line;
+    if (args.HasArgs())
+      if (!ParseOptions(args.GetArgs(), result))
+        return false;
 
     PlatformSP platform_sp(
         m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform());

@@ -34,7 +34,7 @@ enum NamingStyle {
   CategoryProperty = 2,
 };
 
-/// The acronyms are from
+/// The acronyms are aggregated from multiple sources including
 /// https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/CodingGuidelines/Articles/APIAbbreviations.html#//apple_ref/doc/uid/20001285-BCIHCGAE
 ///
 /// Keep this list sorted.
@@ -45,11 +45,13 @@ constexpr llvm::StringLiteral DefaultSpecialAcronyms[] = {
     "AR",
     "ARGB",
     "ASCII",
+    "AV",
     "BGRA",
     "CA",
     "CF",
     "CG",
     "CI",
+    "CRC",
     "CV",
     "CMYK",
     "DNS",
@@ -61,6 +63,7 @@ constexpr llvm::StringLiteral DefaultSpecialAcronyms[] = {
     "GUID",
     "HD",
     "HDR",
+    "HMAC",
     "HTML",
     "HTTP",
     "HTTPS",
@@ -70,6 +73,8 @@ constexpr llvm::StringLiteral DefaultSpecialAcronyms[] = {
     "JS",
     "LAN",
     "LZW",
+    "MAC",
+    "MD",
     "MDNS",
     "MIDI",
     "NS",
@@ -85,12 +90,15 @@ constexpr llvm::StringLiteral DefaultSpecialAcronyms[] = {
     "RGB",
     "RGBA",
     "RGBX",
+    "RIPEMD",
     "ROM",
     "RPC",
     "RTF",
     "RTL",
     "SC",
     "SDK",
+    "SHA",
+    "SQL",
     "SSO",
     "TCP",
     "TIFF",
@@ -153,7 +161,7 @@ std::string validPropertyNameRegex(llvm::ArrayRef<std::string> EscapedAcronyms,
   std::string StartMatcher = UsedInMatcher ? "::" : "^";
   std::string AcronymsMatcher = AcronymsGroupRegex(EscapedAcronyms);
   return StartMatcher + "(" + AcronymsMatcher + "[A-Z]?)?[a-z]+[a-z0-9]*(" +
-         AcronymsMatcher + "|([A-Z][a-z0-9]+))*$";
+         AcronymsMatcher + "|([A-Z][a-z0-9]+)|A|I)*$";
 }
 
 bool hasCategoryPropertyPrefix(llvm::StringRef PropertyName) {

@@ -84,7 +84,7 @@ AppleObjCRuntimeV1::CreateInstance(Process *process,
 
 void AppleObjCRuntimeV1::Initialize() {
   PluginManager::RegisterPlugin(
-      GetPluginNameStatic(), "Apple Objective C Language Runtime - Version 1",
+      GetPluginNameStatic(), "Apple Objective-C Language Runtime - Version 1",
       CreateInstance);
 }
 
@@ -281,6 +281,10 @@ bool AppleObjCRuntimeV1::ClassDescriptorV1::Describe(
     std::function<bool(const char *, const char *, lldb::addr_t,
                        uint64_t)> const &ivar_func) const {
   return false;
+}
+
+lldb::addr_t AppleObjCRuntimeV1::GetTaggedPointerObfuscator() {
+  return 0;
 }
 
 lldb::addr_t AppleObjCRuntimeV1::GetISAHashTablePointer() {

@@ -89,6 +89,15 @@ enum {
   /// - JumpTable... - (UpperBound - LowerBound) (at least 2) jump targets
   GIM_SwitchOpcode,
 
+  /// Switch over the LLT on the specified instruction operand
+  /// - InsnID - Instruction ID
+  /// - OpIdx - Operand index
+  /// - LowerBound - numerically minimum Type ID supported
+  /// - UpperBound - numerically maximum + 1 Type ID supported
+  /// - Default - failure jump target
+  /// - JumpTable... - (UpperBound - LowerBound) (at least 2) jump targets
+  GIM_SwitchType,
+
   /// Record the specified instruction
   /// - NewInsnID - Instruction ID to define
   /// - InsnID - Instruction ID
@@ -138,6 +147,10 @@ enum {
   GIM_CheckMemorySizeEqualToLLT,
   GIM_CheckMemorySizeLessThanLLT,
   GIM_CheckMemorySizeGreaterThanLLT,
+  /// Check a generic C++ instruction predicate
+  /// - InsnID - Instruction ID
+  /// - PredicateID - The ID of the predicate function to call
+  GIM_CheckCxxInsnPredicate,
 
   /// Check the type for the specified operand
   /// - InsnID - Instruction ID
@@ -371,11 +384,16 @@ public:
           FeatureBitsets(FeatureBitsets),
           ComplexPredicates(ComplexPredicates),
           CustomRenderers(CustomRenderers) {
+
+      for (size_t I = 0; I < NumTypeObjects; ++I)
+        TypeIDMap[TypeObjects[I]] = I;
     }
     const LLT *TypeObjects;
     const PredicateBitset *FeatureBitsets;
     const ComplexMatcherMemFn *ComplexPredicates;
     const CustomRendererFn *CustomRenderers;
+
+    SmallDenseMap<LLT, unsigned, 64> TypeIDMap;
   };
 
 protected:
@@ -399,13 +417,20 @@ protected:
   }
 
   virtual bool testImmPredicate_I64(unsigned, int64_t) const {
-    llvm_unreachable("Subclasses must override this to use tablegen");
+    llvm_unreachable(
+        "Subclasses must override this with a tablegen-erated function");
   }
   virtual bool testImmPredicate_APInt(unsigned, const APInt &) const {
-    llvm_unreachable("Subclasses must override this to use tablegen");
+    llvm_unreachable(
+        "Subclasses must override this with a tablegen-erated function");
   }
   virtual bool testImmPredicate_APFloat(unsigned, const APFloat &) const {
-    llvm_unreachable("Subclasses must override this to use tablegen");
+    llvm_unreachable(
+        "Subclasses must override this with a tablegen-erated function");
+  }
+  virtual bool testMIPredicate_MI(unsigned, const MachineInstr &) const {
+    llvm_unreachable(
+        "Subclasses must override this with a tablegen-erated function");
   }
 
   /// Constrain a register operand of an instruction \p I to a specified

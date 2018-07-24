@@ -44,6 +44,9 @@ enum StateType {
                    ///launched or attached to anything yet
   eStateAttaching, ///< Process is currently trying to attach
   eStateLaunching, ///< Process is in the process of launching
+  // The state changes eStateAttaching and eStateLaunching are both sent while the
+  // private state thread is either not yet started or paused. For that reason, they
+  // should only be signaled as public state changes, and not private state changes.
   eStateStopped,   ///< Process or thread is stopped and can be examined.
   eStateRunning,   ///< Process or thread is running and can't be examined.
   eStateStepping,  ///< Process or thread is in the process of stepping and can
@@ -623,7 +626,7 @@ enum SectionType {
   eSectionTypeDebug,
   eSectionTypeZeroFill,
   eSectionTypeDataObjCMessageRefs, // Pointer to function pointer + selector
-  eSectionTypeDataObjCCFStrings, // Objective C const CFString/NSString objects
+  eSectionTypeDataObjCCFStrings, // Objective-C const CFString/NSString objects
   eSectionTypeDWARFDebugAbbrev,
   eSectionTypeDWARFDebugAddr,
   eSectionTypeDWARFDebugAranges,
@@ -657,6 +660,7 @@ enum SectionType {
                                // address
   eSectionTypeDWARFGNUDebugAltLink,
   eSectionTypeDWARFDebugTypes, // DWARF .debug_types section
+  eSectionTypeDWARFDebugNames, // DWARF v5 .debug_names
   eSectionTypeOther
 };
 
@@ -785,7 +789,9 @@ FLAGS_ENUM(TypeOptions){eTypeOptionNone = (0u),
                         eTypeOptionShowOneLiner = (1u << 5),
                         eTypeOptionHideNames = (1u << 6),
                         eTypeOptionNonCacheable = (1u << 7),
-                        eTypeOptionHideEmptyAggregates = (1u << 8)};
+                        eTypeOptionHideEmptyAggregates = (1u << 8),
+                        eTypeOptionFrontEndWantsDereference = (1u << 9)
+};
 
 //----------------------------------------------------------------------
 // This is the return value for frame comparisons.  If you are comparing frame
@@ -807,26 +813,6 @@ enum FrameComparison {
   eFrameCompareSameParent,
   eFrameCompareYounger,
   eFrameCompareOlder
-};
-
-//----------------------------------------------------------------------
-// Address Class
-//
-// A way of classifying an address used for disassembling and setting
-// breakpoints. Many object files can track exactly what parts of their object
-// files are code, data and other information. This is of course above and
-// beyond just looking at the section types. For example, code might contain PC
-// relative data and the object file might be able to tell us that an address
-// in code is data.
-//----------------------------------------------------------------------
-enum AddressClass {
-  eAddressClassInvalid,
-  eAddressClassUnknown,
-  eAddressClassCode,
-  eAddressClassCodeAlternateISA,
-  eAddressClassData,
-  eAddressClassDebug,
-  eAddressClassRuntime
 };
 
 //----------------------------------------------------------------------

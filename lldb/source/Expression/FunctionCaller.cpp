@@ -48,7 +48,8 @@ FunctionCaller::FunctionCaller(ExecutionContextScope &exe_scope,
       m_function_return_type(return_type),
       m_wrapper_function_name("__lldb_caller_function"),
       m_wrapper_struct_name("__lldb_caller_struct"), m_wrapper_args_addrs(),
-      m_arg_values(arg_value_list), m_compiled(false), m_JITted(false) {
+      m_struct_valid(false), m_arg_values(arg_value_list), m_compiled(false),
+      m_JITted(false) {
   m_jit_process_wp = lldb::ProcessWP(exe_scope.CalculateProcess());
   // Can't make a FunctionCaller without a process.
   assert(m_jit_process_wp.lock());
@@ -90,8 +91,12 @@ bool FunctionCaller::WriteFunctionWrapper(
       m_jit_start_addr, m_jit_end_addr, m_execution_unit_sp, exe_ctx,
       can_interpret, eExecutionPolicyAlways));
 
-  if (!jit_error.Success())
+  if (!jit_error.Success()) {
+    diagnostic_manager.Printf(eDiagnosticSeverityError,
+                              "Error in PrepareForExecution: %s.",
+                              jit_error.AsCString());
     return false;
+  }
 
   if (m_parser->GetGenerateDebugInfo()) {
     lldb::ModuleSP jit_module_sp(m_execution_unit_sp->GetJITModule());

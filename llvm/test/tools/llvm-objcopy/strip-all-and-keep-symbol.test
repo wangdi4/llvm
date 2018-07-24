@@ -1,6 +1,18 @@
 # RUN: yaml2obj %s > %t
+# RUN: cp %t %t1
 # RUN: llvm-objcopy --strip-all --keep-symbol foo %t %t2
 # RUN: llvm-readobj -sections -symbols %t2 | FileCheck %s
+
+# Verify that the first run of llvm-objcopy
+# has not modified the input binary.
+# RUN: cmp %t %t1
+
+# RUN: llvm-strip -keep-symbol=foo %t1
+# RUN: cmp %t1 %t2
+
+# RUN: cp %t %t3
+# RUN: llvm-strip --keep-symbol foo %t3
+# RUN: cmp %t1 %t3
 
 !ELF
 FileHeader:
@@ -45,6 +57,15 @@ Symbols:
 # CHECK-NOT: Name: .debug_bar
 
 #CHECK: Symbols [
+#CHECK-NEXT:  Symbol {
+#CHECK-NEXT:    Name:
+#CHECK-NEXT:    Value: 0x0
+#CHECK-NEXT:    Size: 0
+#CHECK-NEXT:    Binding: Local
+#CHECK-NEXT:    Type: None
+#CHECK-NEXT:    Other: 0
+#CHECK-NEXT:    Section: Undefined
+#CHECK-NEXT:  }
 #CHECK-NEXT:  Symbol {
 #CHECK-NEXT:    Name: foo
 #CHECK-NEXT:    Value: 0x1000

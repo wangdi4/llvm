@@ -426,17 +426,18 @@ void MCAsmLayout::layoutFragment(MCFragment *F) {
   if (Assembler.isBundlingEnabled() && F->hasInstructions()) {
     assert(isa<MCEncodedFragment>(F) &&
            "Only MCEncodedFragment implementations have instructions");
-    uint64_t FSize = Assembler.computeFragmentSize(*this, *F);
+    MCEncodedFragment *EF = cast<MCEncodedFragment>(F);
+    uint64_t FSize = Assembler.computeFragmentSize(*this, *EF);
 
     if (!Assembler.getRelaxAll() && FSize > Assembler.getBundleAlignSize())
       report_fatal_error("Fragment can't be larger than a bundle size");
 
-    uint64_t RequiredBundlePadding = computeBundlePadding(Assembler, F,
-                                                          F->Offset, FSize);
+    uint64_t RequiredBundlePadding =
+        computeBundlePadding(Assembler, EF, EF->Offset, FSize);
     if (RequiredBundlePadding > UINT8_MAX)
       report_fatal_error("Padding cannot exceed 255 bytes");
-    F->setBundlePadding(static_cast<uint8_t>(RequiredBundlePadding));
-    F->Offset += RequiredBundlePadding;
+    EF->setBundlePadding(static_cast<uint8_t>(RequiredBundlePadding));
+    EF->Offset += RequiredBundlePadding;
   }
 }
 
@@ -450,19 +451,20 @@ void MCAssembler::registerSymbol(const MCSymbol &Symbol, bool *Created) {
   }
 }
 
-void MCAssembler::writeFragmentPadding(raw_ostream &OS, const MCFragment &F,
+void MCAssembler::writeFragmentPadding(raw_ostream &OS,
+                                       const MCEncodedFragment &EF,
                                        uint64_t FSize) const {
   assert(getBackendPtr() && "Expected assembler backend");
   // Should NOP padding be written out before this fragment?
-  unsigned BundlePadding = F.getBundlePadding();
+  unsigned BundlePadding = EF.getBundlePadding();
   if (BundlePadding > 0) {
     assert(isBundlingEnabled() &&
            "Writing bundle padding with disabled bundling");
-    assert(F.hasInstructions() &&
+    assert(EF.hasInstructions() &&
            "Writing bundle padding for a fragment without instructions");
 
     unsigned TotalLength = BundlePadding + static_cast<unsigned>(FSize);
-    if (F.alignToBundleEnd() && TotalLength > getBundleAlignSize()) {
+    if (EF.alignToBundleEnd() && TotalLength > getBundleAlignSize()) {
       // If the padding itself crosses a bundle boundary, it must be emitted
       // in 2 pieces, since even nop instructions must not cross boundaries.
       //             v--------------v   <- BundleAlignSize
@@ -473,8 +475,8 @@ void MCAssembler::writeFragmentPadding(raw_ostream &OS, const MCFragment &F,
       //        ^-------------------^   <- TotalLength
       unsigned DistanceToBoundary = TotalLength - getBundleAlignSize();
       if (!getBackend().writeNopData(OS, DistanceToBoundary))
-          report_fatal_error("unable to write NOP sequence of " +
-                             Twine(DistanceToBoundary) + " bytes");
+        report_fatal_error("unable to write NOP sequence of " +
+                           Twine(DistanceToBoundary) + " bytes");
       BundlePadding -= DistanceToBoundary;
     }
     if (!getBackend().writeNopData(OS, BundlePadding))
@@ -491,7 +493,8 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
 
   support::endianness Endian = Asm.getBackend().Endian;
 
-  Asm.writeFragmentPadding(OS, F, FragmentSize);
+  if (const MCEncodedFragment *EF = dyn_cast<MCEncodedFragment>(&F))
+    Asm.writeFragmentPadding(OS, *EF, FragmentSize);
 
   // This variable (and its dummy usage) is to participate in the assert at
   // the end of the function.
@@ -805,12 +808,17 @@ void MCAssembler::layout(MCAsmLayout &Layout) {
         continue;
       ArrayRef<MCFixup> Fixups;
       MutableArrayRef<char> Contents;
+      const MCSubtargetInfo *STI = nullptr;
       if (auto *FragWithFixups = dyn_cast<MCDataFragment>(&Frag)) {
         Fixups = FragWithFixups->getFixups();
         Contents = FragWithFixups->getContents();
+        STI = FragWithFixups->getSubtargetInfo();
+        assert(!FragWithFixups->hasInstructions() || STI != nullptr);
       } else if (auto *FragWithFixups = dyn_cast<MCRelaxableFragment>(&Frag)) {
         Fixups = FragWithFixups->getFixups();
         Contents = FragWithFixups->getContents();
+        STI = FragWithFixups->getSubtargetInfo();
+        assert(!FragWithFixups->hasInstructions() || STI != nullptr);
       } else if (auto *FragWithFixups = dyn_cast<MCCVDefRangeFragment>(&Frag)) {
         Fixups = FragWithFixups->getFixups();
         Contents = FragWithFixups->getContents();
@@ -823,7 +831,7 @@ void MCAssembler::layout(MCAsmLayout &Layout) {
         std::tie(Target, FixedValue, IsResolved) =
             handleFixup(Layout, Frag, Fixup);
         getBackend().applyFixup(*this, Fixup, Target, Contents, FixedValue,
-                                IsResolved);
+                                IsResolved, STI);
       }
     }
   }
@@ -860,7 +868,7 @@ bool MCAssembler::fragmentNeedsRelaxation(const MCRelaxableFragment *F,
   // If this inst doesn't ever need relaxation, ignore it. This occurs when we
   // are intentionally pushing out inst fragments, or because we relaxed a
   // previous instruction to one that doesn't need relaxation.
-  if (!getBackend().mayNeedRelaxation(F->getInst()))
+  if (!getBackend().mayNeedRelaxation(F->getInst(), *F->getSubtargetInfo()))
     return false;
 
   for (const MCFixup &Fixup : F->getFixups())
@@ -885,7 +893,7 @@ bool MCAssembler::relaxInstruction(MCAsmLayout &Layout,
   // Relax the fragment.
 
   MCInst Relaxed;
-  getBackend().relaxInstruction(F.getInst(), F.getSubtargetInfo(), Relaxed);
+  getBackend().relaxInstruction(F.getInst(), *F.getSubtargetInfo(), Relaxed);
 
   // Encode the new instruction.
   //
@@ -894,7 +902,7 @@ bool MCAssembler::relaxInstruction(MCAsmLayout &Layout,
   SmallVector<MCFixup, 4> Fixups;
   SmallString<256> Code;
   raw_svector_ostream VecOS(Code);
-  getEmitter().encodeInstruction(Relaxed, VecOS, Fixups, F.getSubtargetInfo());
+  getEmitter().encodeInstruction(Relaxed, VecOS, Fixups, *F.getSubtargetInfo());
 
   // Update the fragment.
   F.setInst(Relaxed);
@@ -1060,3 +1068,27 @@ void MCAssembler::finishLayout(MCAsmLayout &Layout) {
   }
   getBackend().finishLayout(*this, Layout);
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void MCAssembler::dump() const{
+  raw_ostream &OS = errs();
+
+  OS << "<MCAssembler\n";
+  OS << "  Sections:[\n    ";
+  for (const_iterator it = begin(), ie = end(); it != ie; ++it) {
+    if (it != begin()) OS << ",\n    ";
+    it->dump();
+  }
+  OS << "],\n";
+  OS << "  Symbols:[";
+
+  for (const_symbol_iterator it = symbol_begin(), ie = symbol_end(); it != ie; ++it) {
+    if (it != symbol_begin()) OS << ",\n           ";
+    OS << "(";
+    it->dump();
+    OS << ", Index:" << it->getIndex() << ", ";
+    OS << ")";
+  }
+  OS << "]>\n";
+}
+#endif

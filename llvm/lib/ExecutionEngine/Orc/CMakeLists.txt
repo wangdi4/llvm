@@ -1,10 +1,15 @@
 add_llvm_library(LLVMOrcJIT
+  CompileOnDemandLayer.cpp
   Core.cpp
   ExecutionUtils.cpp
   IndirectionUtils.cpp
+  IRCompileLayer.cpp
+  IRTransformLayer.cpp
   Legacy.cpp
   Layer.cpp
+  LLJIT.cpp
   NullResolver.cpp
+  ObjectTransformLayer.cpp
   OrcABISupport.cpp
   OrcCBindings.cpp
   OrcError.cpp
@@ -17,4 +22,10 @@ add_llvm_library(LLVMOrcJIT
 
   DEPENDS
   intrinsics_gen
+  )
+
+target_link_libraries(LLVMOrcJIT
+  PRIVATE
+  LLVMBitReader
+  LLVMBitWriter
   )
