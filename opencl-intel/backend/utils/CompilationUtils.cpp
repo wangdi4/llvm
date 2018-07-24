@@ -682,6 +682,15 @@ Function *CompilationUtils::AddMoreArgsToFunc(
     // Replace the users to the new version.
     I->replaceAllUsesWith(&*NI);
   }
+
+  // Replace F by NewF in KernelList module Metadata (if any)
+  llvm::Module *M = F->getParent();
+  assert(M && "Module is NULL");
+  auto kernels = KernelList(M).getList();
+  std::replace_if(std::begin(kernels), std::end(kernels),
+          [F](llvm::Function *Func) { return F == Func; }, NewF);
+  KernelList(M).set(kernels);
+
   return NewF;
 }
 
@@ -948,16 +957,16 @@ bool CompilationUtils::isPrefetch(const std::string& S){
 bool CompilationUtils::isEnqueueKernel(const std::string& S) {
   return S == "__enqueue_kernel_basic" ||
          S == "__enqueue_kernel_basic_events" ||
-         S == "__enqueue_kernel_vaargs" ||
-         S == "__enqueue_kernel_events_vaargs";
+         S == "__enqueue_kernel_varargs" ||
+         S == "__enqueue_kernel_events_varargs";
 }
 
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
-  return S == "__enqueue_kernel_vaargs";
+  return S == "__enqueue_kernel_varargs";
 }
 
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
-  return S == "__enqueue_kernel_events_vaargs";
+  return S == "__enqueue_kernel_events_varargs";
 }
 
 bool CompilationUtils::isWorkGroupAll(const std::string& S) {

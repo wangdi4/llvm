@@ -202,14 +202,9 @@ TEST(FrameworkTestType, Test_clGetKernelArgInfoTest)
     EXPECT_TRUE(clGetKernelArgInfoTest());
 }
 
-TEST(FrameworkTestType, Test_clSetKernelArgTest)
+TEST(FrameworkTestType, Test_clSetKernelArgInvalidArgSizeTest)
 {
-    clSetKernelArgTest();
-}
-
-TEST(FrameworkTestType, Test_clSetKernelArgLocalArgTest)
-{
-    clSetKernelArgLocalArgTest();
+    clSetKernelArgInvalidArgSizeTest();
 }
 
 TEST(FrameworkTestType, Test_clCreateBufferTest)
@@ -516,69 +511,6 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
-#ifdef BUILD_FPGA_EMULATOR
-TEST(FPGA, Test_checkFPGAExtension)
-{
-    checkFPGAExtension();
-}
-
-TEST(FPGA, Test_checkInfiniteLoopsBasic)
-{
-    FPGAInfiniteLoopsBasic();
-}
-
-TEST(FPGA, Test_FPGAPipes)
-{
-    FPGAPipes();
-}
-
-TEST(FPGA, Test_MaxTBBNumWorkers)
-{
-    maxTBBNumWorkers();
-}
-
-TEST(FPGA, Test_MinTBBNumWorkers)
-{
-    minTBBNumWorkers();
-}
-
-TEST(FPGA, Test_MoreThanMaxTBBNumWorkers)
-{
-    moreThanMaxTBBNumWorkers();
-}
-
-TEST(FPGA, Test_LessThanMinTBBNumWorkers)
-{
-    lessThanMinTBBNumWorkers();
-}
-
-TEST(FPGA, Test_InvalidTBBNumWorkers)
-{
-    invalidTBBNumWorkers();
-}
-
-TEST(FPGA, Test_ChannelsByValue)
-{
-    FPGAChannelsByValue();
-}
-
-TEST(FPGA, Test_checkNumWorkers)
-{
-   checkNumWorkers();
-}
-
-TEST(FrameworkTestType, Test_clGetProfileDataDeviceIntelFPGATest)
-{
-    clGetProfileDataDeviceIntelFPGATest();
-}
-
-#endif // BUILD_FPGA_EMULATOR
-
-TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)
-{
-    checkFPGAExtensionNEGATIVE();
-}
-
 TEST_F(CL, Test_CheckExtensions)
 {
     CheckExtensions();
@@ -698,14 +630,19 @@ TEST_F(CL21, clGetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
     GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS();
 }
 
-TEST_F(CL21, clGetKernelWorkGroupInfo_COMPILE_NUM_SUB_GROUPS)
+TEST_F(CL21, clGetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
 {
     GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS();
 }
 
-TEST_F(CL21, clGetKernelWorkGroupInfo_MAX_NUM_SUB_GROUPS)
+TEST_F(CL21, clGetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS)
 {
     GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS();
+}
+
+TEST_F(CL21, clGetKernelWorkGroupInfo_SizeRet)
+{
+    GetKernelWorkGroupInfo_SizeRet();
 }
 
 TEST_F(CL21, clZeroSized_clEnqueueReadBuffer)

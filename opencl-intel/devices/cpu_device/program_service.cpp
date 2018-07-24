@@ -721,7 +721,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
 
     case CL_DEV_KERNEL_WG_SIZE_REQUIRED:
         pValue = pKernelProps->GetRequiredWorkGroupSize();
-        stValSize = (nullptr != value)? sizeof(size_t) * MAX_WORK_DIM: 0;
+        stValSize = sizeof(size_t) * MAX_WORK_DIM;
         break;
 
     case CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT:
@@ -737,23 +737,23 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             size_t maxPrivateMemSize = (m_pCPUConfig->GetForcedPrivateMemSize() > 0) ?
                 m_pCPUConfig->GetForcedPrivateMemSize() : CPU_DEV_MAX_WG_PRIVATE_SIZE;
             ullValue = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
-            stValSize = (nullptr != value)? sizeof(size_t): 0;
+            stValSize = sizeof(size_t);
         }
         break;
 
     case CL_DEV_KERNEL_WG_SIZE:
         ullValue = pKernelProps->GetKernelPackCount();
-        stValSize = (nullptr != value)? sizeof(size_t): 0;
+        stValSize = sizeof(size_t);
         break;
 
     case CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE:
         ullValue = pKernelProps->GetImplicitLocalMemoryBufferSize();
-        stValSize = (nullptr != value)? sizeof(cl_ulong): 0;
+        stValSize = sizeof(cl_ulong);
         break;
 
     case CL_DEV_KERNEL_PRIVATE_SIZE:
         ullValue = pKernelProps->GetPrivateMemorySize();
-        stValSize = (nullptr != value)? sizeof(cl_ulong): 0;
+        stValSize = sizeof(cl_ulong);
         break;
 
     case CL_DEV_KERNEL_ARG_INFO:
@@ -783,7 +783,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         const size_t* pInVal = (const size_t*)input_value;
         const size_t  dim    = input_value_size/sizeof(size_t);
         ullValue = pKernelProps->GetMaxSubGroupSize(dim, pInVal);
-        stValSize = (nullptr != value)? sizeof(size_t): 0;
+        stValSize = sizeof(size_t);
         break;
     }
     case CL_DEV_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE:
@@ -791,7 +791,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         const size_t* pInVal = (const size_t*)input_value;
         const size_t dim = input_value_size/sizeof(size_t);
         ullValue = pKernelProps->GetNumberOfSubGroups(dim, pInVal);
-        stValSize = (nullptr != value)? sizeof(size_t): 0;
+        stValSize = sizeof(size_t);
         break;
     }
     case CL_DEV_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT:
@@ -820,25 +820,25 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     case CL_DEV_KERNEL_MAX_NUM_SUB_GROUPS:
     {
         ullValue = pKernelProps->GetMaxNumSubGroups();
-        stValSize = (nullptr != value)? sizeof(size_t): 0;
+        stValSize = sizeof(size_t);
         break;
     }
     case CL_DEV_KERNEL_COMPILE_NUM_SUB_GROUPS:
     {
         ullValue = pKernelProps->GetRequiredNumSubGroups();
-        stValSize = (nullptr != value)? sizeof(size_t): 0;
+        stValSize = sizeof(size_t);
         break;
     }
     case CL_DEV_KERNEL_IS_AUTORUN:
     {
         *(cl_bool*)pValue = (cl_bool)pKernelProps->IsAutorun();
-        stValSize = (nullptr != value) ? sizeof(cl_bool) : 0;
+        stValSize = sizeof(cl_bool);
         break;
     }
     case CL_DEV_KERNEL_IS_TASK:
     {
         *(cl_bool*)pValue = (cl_bool)pKernelProps->IsTask();
-        stValSize = (nullptr != value) ? sizeof(cl_bool) : 0;
+        stValSize = sizeof(cl_bool);
         break;
     }
 

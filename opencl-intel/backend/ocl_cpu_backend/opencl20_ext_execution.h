@@ -48,7 +48,7 @@ ocl20_enqueue_kernel_events(queue_t queue, kernel_enqueue_flags_t flags,
                             const IBlockToKernelMapper *, void *RuntimeHandle);
 
 /// @brief callback for
-///  int enqueue_kernel_vaargs (
+///  int enqueue_kernel_varargs (
 ///     queue_t queue,
 ///     kernel_enqueue_flags_t flags,
 ///     const ndrange_t ndrange,
@@ -65,7 +65,7 @@ ocl20_enqueue_kernel_localmem(queue_t queue, kernel_enqueue_flags_t flags,
                               void *RuntimeHandle);
 
 /// @brief callback for
-///  int enqueue_kernel_events_vaargs (
+///  int enqueue_kernel_events_varargs (
 ///     queue_t queue,
 ///     kernel_enqueue_flags_t flags,
 ///     const ndrange_t ndrange,

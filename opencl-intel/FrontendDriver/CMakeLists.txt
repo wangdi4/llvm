@@ -71,6 +71,8 @@ add_opencl_library (${TARGET_NAME} SHARED
     resource.h
     SPIRMaterializer.cpp
     SPIRMaterializer.h
+    SPIRVMaterializer.cpp
+    SPIRVMaterializer.h
 )
 if (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
