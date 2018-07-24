@@ -57,20 +57,6 @@ HLGoto *HLGoto::clone(HLNodeMapper *NodeMapper) const {
 void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
-  auto ParentIf = dyn_cast<HLIf>(getParent());
-
-  // ddref_begin() check is a workaround to skip the backedge check until we
-  // form ddrefs in the framework otherwise we encounter an assert for null
-  // stride ref.
-  if (ParentIf && (*ParentIf->ddref_begin()) && isUnknownLoopBackEdge()) {
-    // Print IV update for the unknown loop which will be generated during code
-    // gen.
-    auto Level = getParentLoop()->getNestingLevel();
-    indent(OS, Depth);
-    OS << "<i" << Level << " = "
-       << "i" << Level << " + 1>\n";
-  }
-
   indent(OS, Depth);
   OS << "goto ";
 
