@@ -283,7 +283,7 @@ static OptionDefinition g_breakpoint_set_options[] = {
   { LLDB_OPT_SET_9,                false, "source-regexp-function", 'X', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSymbolCompletion,     eArgTypeFunctionName,        "When used with '-p' limits the source regex to source contained in the named "
   "functions.  Can be repeated multiple times." },
   { LLDB_OPT_SET_4,                true,  "fullname",               'F', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSymbolCompletion,     eArgTypeFullName,            "Set the breakpoint by fully qualified function names. For C++ this means "
-  "namespaces and all arguments, and for Objective C this means a full function "
+  "namespaces and all arguments, and for Objective-C this means a full function "
   "prototype with class and selector.  Can be repeated multiple times to make "
   "one breakpoint for multiple names." },
   { LLDB_OPT_SET_5,                true,  "selector",               'S', OptionParser::eRequiredArgument, nullptr, nullptr, 0,                                         eArgTypeSelector,            "Set the breakpoint by ObjC selector name. Can be repeated multiple times to "
@@ -2573,8 +2573,7 @@ void CommandObjectMultiwordBreakpoint::VerifyIDs(Args &args, Target *target,
   // NOW, convert the list of breakpoint id strings in TEMP_ARGS into an actual
   // BreakpointIDList:
 
-  valid_ids->InsertStringArray(temp_args.GetConstArgumentVector(),
-                               temp_args.GetArgumentCount(), result);
+  valid_ids->InsertStringArray(temp_args.GetArgumentArrayRef(), result);
 
   // At this point,  all of the breakpoint ids that the user passed in have
   // been converted to breakpoint IDs and put into valid_ids.

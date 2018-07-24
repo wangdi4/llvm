@@ -95,6 +95,24 @@ void TestStreams() {
   StrOut.write(f, b, b, i);
   s = StrOut.tryWrite(f, b, b, i);
 }
+void TestStreamsBool() {
+  stream_in<bool, 3, 5, 4, true, true, false, false> StrIn;
+  stream_out<bool, 3, 5, 4, false, false, true, true> StrOut;
+  bool f;
+  bool b;
+  int i;
+
+  f = StrIn.read(b, b, i);
+  bool s;
+  f = StrIn.tryRead(s, b, b, i);
+  StrIn.write(f, b, b, i);
+  StrIn.tryWrite(f, b, b, i);
+
+  f = StrOut.read(b, b, i);
+  f = StrOut.tryRead(s, b, b, i);
+  StrOut.write(f, b, b, i);
+  s = StrOut.tryWrite(f, b, b, i);
+}
 // CHECK: declare { %struct.Foo*, i8, i8, i32 } @llvm.intel.hls.instream.read.s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
 // CHECK: declare { %struct.Foo*, i8, i8, i8, i32 } @llvm.intel.hls.instream.tryRead.s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
 //
@@ -106,3 +124,15 @@ void TestStreams() {
 //
 // CHECK: declare void @llvm.intel.hls.outstream.write.s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
 // CHECK: declare i1 @llvm.intel.hls.outstream.tryWrite.s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+
+// CHECK: declare { i1*, i8, i8, i32 } @llvm.intel.hls.instream.read.i1(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { i1*, i8, i8, i8, i32 } @llvm.intel.hls.instream.tryRead.i1(i64, i32, i32, i32, i1, i1, i1, i1)
+//
+// CHECK: declare void @llvm.intel.hls.instream.write.i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare i1 @llvm.intel.hls.instream.tryWrite.i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+//
+// CHECK: declare { i1*, i8, i8, i32 } @llvm.intel.hls.outstream.read.i1(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { i1*, i8, i8, i8, i32 } @llvm.intel.hls.outstream.tryRead.i1(i64, i32, i32, i32, i1, i1, i1, i1)
+//
+// CHECK: declare void @llvm.intel.hls.outstream.write.i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare i1 @llvm.intel.hls.outstream.tryWrite.i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)

@@ -152,6 +152,7 @@ class OpenMPCodeOutliner {
                                          const Expr *DstExpr,
                                          const Expr *AssignOp);
 
+  bool isUnspecifiedImplicit(const VarDecl *);
   bool isImplicit(const VarDecl *);
   bool isExplicit(const VarDecl *);
   void addImplicitClauses();
@@ -163,6 +164,9 @@ class OpenMPCodeOutliner {
     ICK_shared,
     ICK_map_tofrom,
     ICK_normalized_iv,
+    ICK_normalized_ub,
+    // A firstprivate specified with an implicit OMPFirstprivateClause.
+    ICK_specified_firstprivate,
     ICK_unknown
   };
 
@@ -199,6 +203,8 @@ public:
   void emitOMPFlushDirective();
   void emitOMPTeamsDirective();
   void emitOMPDistributeDirective();
+  void emitOMPDistributeParallelForDirective();
+  void emitOMPDistributeParallelForSimdDirective();
   void emitOMPSectionsDirective();
   void emitOMPSectionDirective();
   void emitOMPParallelSectionsDirective();

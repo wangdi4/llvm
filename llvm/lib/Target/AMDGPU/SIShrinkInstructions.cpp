@@ -10,7 +10,6 @@
 //
 
 #include "AMDGPU.h"
-#include "AMDGPUMCInstLower.h"
 #include "AMDGPUSubtarget.h"
 #include "SIInstrInfo.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
@@ -293,7 +292,7 @@ bool SIShrinkInstructions::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   MachineRegisterInfo &MRI = MF.getRegInfo();
-  const SISubtarget &ST = MF.getSubtarget<SISubtarget>();
+  const GCNSubtarget &ST = MF.getSubtarget<GCNSubtarget>();
   const SIInstrInfo *TII = ST.getInstrInfo();
   const SIRegisterInfo &TRI = TII->getRegisterInfo();
 

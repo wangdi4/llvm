@@ -59,6 +59,7 @@ set(files
   immintrin.h
   intrin.h
   inttypes.h
+  invpcidintrin.h
   iso646.h
   limits.h
   lwpintrin.h
@@ -99,6 +100,9 @@ set(files
   __stddef_max_align_t.h
   stdint.h
   stdnoreturn.h
+# INTEL_CUSTOMIZATION
+  svmlintrin.h
+# end INTEL_CUSTOMIZATION
   tbmintrin.h
   tgmath.h
   tmmintrin.h

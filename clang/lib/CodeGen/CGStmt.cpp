@@ -113,10 +113,16 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
                                 cast<OMPTaskLoopSimdDirective>(*S));
     if (S->getStmtClass() == Stmt::OMPDistributeDirectiveClass)
       return EmitIntelOMPDistributeDirective(cast<OMPDistributeDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPDistributeParallelForDirectiveClass)
+      return EmitIntelOMPDistributeParallelForDirective(
+          cast<OMPDistributeParallelForDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPDistributeParallelForSimdDirectiveClass)
+      return EmitIntelOMPDistributeParallelForSimdDirective(
+          cast<OMPDistributeParallelForSimdDirective>(*S));
     if (S->getStmtClass() != Stmt::OMPTargetDirectiveClass ||
         CGM.getLangOpts().IntelOpenMPOffload)
-       if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
-         return EmitIntelOpenMPDirective(*Dir);
+      if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+        return EmitIntelOpenMPDirective(*Dir);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -954,11 +960,6 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   // Emit the body of the loop.
   llvm::BasicBlock *LoopBody = createBasicBlock("do.body");
 
-  const SourceRange &R = S.getSourceRange();
-  LoopStack.push(LoopBody, CGM.getContext(), DoAttrs,
-                 SourceLocToDebugLoc(R.getBegin()),
-                 SourceLocToDebugLoc(R.getEnd()));
-
   EmitBlockWithFallThrough(LoopBody, &S);
   {
     RunCleanupsScope BodyScope(*this);
@@ -966,6 +967,11 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   }
 
   EmitBlock(LoopCond.getBlock());
+
+  const SourceRange &R = S.getSourceRange();
+  LoopStack.push(LoopBody, CGM.getContext(), DoAttrs,
+                 SourceLocToDebugLoc(R.getBegin()),
+                 SourceLocToDebugLoc(R.getEnd()));
 
   // C99 6.8.5.2: "The evaluation of the controlling expression takes place
   // after each execution of the loop body."

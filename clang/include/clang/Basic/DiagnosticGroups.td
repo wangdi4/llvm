@@ -32,6 +32,10 @@ def AutoDisableVptrSanitizer : DiagGroup<"auto-disable-vptr-sanitizer">;
 def Availability : DiagGroup<"availability">;
 def Section : DiagGroup<"section">;
 def AutoImport : DiagGroup<"auto-import">;
+def FrameworkHdrQuotedInclude : DiagGroup<"quoted-include-in-framework-header">;
+def FrameworkIncludePrivateFromPublic :
+  DiagGroup<"framework-include-private-from-public">;
+def FrameworkHdrAtImport : DiagGroup<"atimport-in-framework-header">;
 def CXX14BinaryLiteral : DiagGroup<"c++14-binary-literal">;
 def CXXPre14CompatBinaryLiteral : DiagGroup<"c++98-c++11-compat-binary-literal">;
 def GNUBinaryLiteral : DiagGroup<"gnu-binary-literal">;
@@ -117,6 +121,7 @@ def DeprecatedDynamicExceptionSpec
 def DeprecatedImplementations :DiagGroup<"deprecated-implementations">;
 def DeprecatedIncrementBool : DiagGroup<"deprecated-increment-bool">;
 def DeprecatedRegister : DiagGroup<"deprecated-register">;
+def DeprecatedThisCapture : DiagGroup<"deprecated-this-capture">;
 def DeprecatedWritableStr : DiagGroup<"deprecated-writable-strings",
                                       [CXX11CompatDeprecatedWritableStr]>;
 // FIXME: Why is DeprecatedImplementations not in this group?
@@ -125,6 +130,7 @@ def Deprecated : DiagGroup<"deprecated", [DeprecatedAttributes,
                                           DeprecatedDynamicExceptionSpec,
                                           DeprecatedIncrementBool,
                                           DeprecatedRegister,
+                                          DeprecatedThisCapture,
                                           DeprecatedWritableStr]>,
                  DiagCategory<"Deprecations">;
 
@@ -286,6 +292,8 @@ def IncompatiblePointerTypes
     [IncompatiblePointerTypesDiscardsQualifiers,
      IncompatibleFunctionPointerTypes]>;
 def IncompleteUmbrella : DiagGroup<"incomplete-umbrella">;
+def IncompleteFrameworkModuleDeclaration
+  : DiagGroup<"incomplete-framework-module-declaration">;
 def NonModularIncludeInFrameworkModule
   : DiagGroup<"non-modular-include-in-framework-module">;
 def NonModularIncludeInModule : DiagGroup<"non-modular-include-in-module",

@@ -173,7 +173,8 @@ ConstString PlatformMacOSX::GetSDKDirectory(lldb_private::Target &target) {
       FileSpec fspec;
       uint32_t versions[2];
       if (objfile->GetSDKVersion(versions, sizeof(versions))) {
-        if (HostInfo::GetLLDBPath(ePathTypeLLDBShlibDir, fspec)) {
+        fspec = HostInfo::GetShlibDir();
+        if (fspec) {
           std::string path;
           xcode_contents_path = fspec.GetPath();
           size_t pos = xcode_contents_path.find("/Xcode.app/Contents/");
@@ -217,13 +218,13 @@ ConstString PlatformMacOSX::GetSDKDirectory(lldb_private::Target &target) {
                           "SDKs/MacOSX%u.%u.sdk",
                           xcode_contents_path.c_str(), versions[0],
                           versions[1]);
-          fspec.SetFile(sdk_path.GetString(), false);
+          fspec.SetFile(sdk_path.GetString(), false, FileSpec::Style::native);
           if (fspec.Exists())
             return ConstString(sdk_path.GetString());
         }
 
         if (!default_xcode_sdk.empty()) {
-          fspec.SetFile(default_xcode_sdk, false);
+          fspec.SetFile(default_xcode_sdk, false, FileSpec::Style::native);
           if (fspec.Exists())
             return ConstString(default_xcode_sdk);
         }

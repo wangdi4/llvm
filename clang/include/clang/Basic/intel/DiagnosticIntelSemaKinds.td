@@ -285,6 +285,9 @@ def warn_intel_opencl_attribute_wrong_decl_type : Warning<
   "|OpenCL channels or pipes"
   "|OpenCL pipes}1">,
   InGroup<IgnoredAttributes>;
+def err_opencl_attribute_argument_out_of_bounds : Error<
+  "%0 attribute parameter %1 requires integer constant between %2 and %3 "
+  "inclusive">;
 
 def err_hls_builtin_arg_mismatch : Error<
   "HLS builtin parameter must be %select{"

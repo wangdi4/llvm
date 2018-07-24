@@ -561,9 +561,7 @@ unsigned ClangExpressionParser::Parse(DiagnosticManager &diagnostic_manager) {
       codegenoptions::FullDebugInfo) {
     int temp_fd = -1;
     llvm::SmallString<PATH_MAX> result_path;
-    FileSpec tmpdir_file_spec;
-    if (HostInfo::GetLLDBPath(lldb::ePathTypeLLDBTempSystemDir,
-                              tmpdir_file_spec)) {
+    if (FileSpec tmpdir_file_spec = HostInfo::GetProcessTempDir()) {
       tmpdir_file_spec.AppendPathComponent("lldb-%%%%%%.expr");
       std::string temp_source_path = tmpdir_file_spec.GetPath();
       llvm::sys::fs::createUniqueFile(temp_source_path, temp_fd, result_path);
@@ -803,7 +801,7 @@ lldb_private::Status ClangExpressionParser::PrepareForExecution(
   {
     auto lang = m_expr.Language();
     if (log)
-      log->Printf("%s - Currrent expression language is %s\n", __FUNCTION__,
+      log->Printf("%s - Current expression language is %s\n", __FUNCTION__,
                   Language::GetNameForLanguageType(lang));
     lldb::ProcessSP process_sp = exe_ctx.GetProcessSP();
     if (process_sp && lang != lldb::eLanguageTypeUnknown) {

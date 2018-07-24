@@ -1272,8 +1272,7 @@ void TemplateDeclInstantiator::InstantiateEnumDefinition(
   }
 
   SemaRef.ActOnEnumBody(Enum->getLocation(), Enum->getBraceRange(), Enum,
-                        Enumerators,
-                        nullptr, nullptr);
+                        Enumerators, nullptr, ParsedAttributesView());
 }
 
 Decl *TemplateDeclInstantiator::VisitEnumConstantDecl(EnumConstantDecl *D) {
@@ -2802,7 +2801,8 @@ Decl *TemplateDeclInstantiator::instantiateUnresolvedUsingDecl(
 
   NamedDecl *UD = SemaRef.BuildUsingDeclaration(
       /*Scope*/ nullptr, D->getAccess(), D->getUsingLoc(),
-      /*HasTypename*/ TD, TypenameLoc, SS, NameInfo, EllipsisLoc, nullptr,
+      /*HasTypename*/ TD, TypenameLoc, SS, NameInfo, EllipsisLoc,
+      ParsedAttributesView(),
       /*IsInstantiation*/ true);
   if (UD)
     SemaRef.Context.setInstantiatedFromUsingDecl(UD, D);
@@ -2987,7 +2987,10 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D) {
 
 Decl *
 TemplateDeclInstantiator::VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D) {
-  return VisitFunctionDecl(D, nullptr);
+  Decl *Inst = VisitFunctionDecl(D, nullptr);
+  if (Inst && !D->getDescribedFunctionTemplate())
+    Owner->addDecl(Inst);
+  return Inst;
 }
 
 Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(CXXMethodDecl *D) {
@@ -4375,6 +4378,9 @@ void Sema::InstantiateVariableInitializer(
 
     ActOnUninitializedDecl(Var);
   }
+
+  if (getLangOpts().CUDA)
+    checkAllowedCUDAInitializer(Var);
 }
 
 /// Instantiate the definition of the given variable from its

@@ -896,6 +896,22 @@ private:
   bool save;
 };
 
+/// Process a directive while looking for the through header.
+/// Only #include (to check if it is the through header) and #define (to warn
+/// about macros that don't match the PCH) are handled. All other directives
+/// are completely discarded.
+void Preprocessor::HandleSkippedThroughHeaderDirective(Token &Result,
+                                                       SourceLocation HashLoc) {
+  if (const IdentifierInfo *II = Result.getIdentifierInfo()) {
+    if (II->getPPKeywordID() == tok::pp_include)
+      return HandleIncludeDirective(HashLoc, Result);
+    if (II->getPPKeywordID() == tok::pp_define)
+      return HandleDefineDirective(Result,
+                                   /*ImmediatelyAfterHeaderGuard=*/false);
+  }
+  DiscardUntilEndOfDirective();
+}
+
 /// HandleDirective - This callback is invoked when the lexer sees a # token
 /// at the start of a line.  This consumes the directive, modifies the
 /// lexer/preprocessor state, and advances the lexer(s) so that the next token
@@ -956,6 +972,9 @@ void Preprocessor::HandleDirective(Token &Result) {
   // Temporarily enable macro expansion if set so
   // and reset to previous state when returning from this function.
   ResetMacroExpansionHelper helper(this);
+
+  if (SkippingUntilPCHThroughHeader)
+    return HandleSkippedThroughHeaderDirective(Result, SavedHash.getLocation());
 
   switch (Result.getKind()) {
   case tok::eod:
@@ -1894,6 +1913,12 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
     }
   }
 
+  if (usingPCHWithThroughHeader() && SkippingUntilPCHThroughHeader) {
+    if (isPCHThroughHeader(File))
+      SkippingUntilPCHThroughHeader = false;
+    return;
+  }
+
   // Should we enter the source file? Set to false if either the source file is
   // known to have no effect beyond its effect on module visibility -- that is,
   // if it's got an include guard that is already defined or is a modular header
@@ -2544,7 +2569,8 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
     }
     WrapperFilename = StringRef(WrapperFilenameImpl);
   } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
-                 WrapperFilename, WrapperFileDesc, llvm::sys::fs::F_Append)) {
+                 WrapperFilename, WrapperFileDesc,
+                 llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::F_Append)) {
     Diag(FilenameTok, clang::diag::err_unable_to_make_temp)
         << ErrorCode.message();
     return;
@@ -2592,17 +2618,13 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   std::string MSCompiler;
   if (auto Path = llvm::sys::findProgramByName("cl"))
     MSCompiler = *Path;
-  std::vector<const char *> Args;
-  Args.push_back(MSCompiler.c_str());
-  Args.push_back("/P");
   SmallString<128> ResponseArg = StringRef("@");
   ResponseArg += ArgFilename;
-  Args.push_back(ResponseArg.c_str());
-  Args.push_back(nullptr);
+  StringRef Args[] = { MSCompiler, "/P", ResponseArg };
 
   StringRef Nul("NUL");
   Optional<StringRef> Redirects[] = {Nul, Nul, Nul};
-  if (llvm::sys::ExecuteAndWait(MSCompiler, &Args[0], nullptr, Redirects, 0, 0,
+  if (llvm::sys::ExecuteAndWait(MSCompiler, Args, None, Redirects, 0, 0,
                                 &ErrMsg)) {
     Diag(FilenameTok, diag::err_import_exec) << MSCompiler;
     return;
@@ -3107,7 +3129,15 @@ void Preprocessor::HandleDefineDirective(
     }
   }
 
-  
+  // When skipping just warn about macros that do not match.
+  if (SkippingUntilPCHThroughHeader) {
+    const MacroInfo *OtherMI = getMacroInfo(MacroNameTok.getIdentifierInfo());
+    if (!OtherMI || !MI->isIdenticalTo(*OtherMI, *this,
+                             /*Syntactic=*/LangOpts.MicrosoftExt))
+      Diag(MI->getDefinitionLoc(), diag::warn_pp_macro_def_mismatch_with_pch)
+          << MacroNameTok.getIdentifierInfo();
+    return;
+  }
 
   // Finally, if this identifier already had a macro defined for it, verify that
   // the macro bodies are identical, and issue diagnostics if they are not.

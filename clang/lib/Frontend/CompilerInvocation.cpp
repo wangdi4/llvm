@@ -23,7 +23,6 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TargetOptions.h"
 #include "clang/Basic/Version.h"
-#include "clang/Basic/VersionTuple.h"
 #include "clang/Basic/VirtualFileSystem.h"
 #include "clang/Basic/Visibility.h"
 #include "clang/Basic/XRayInstr.h"
@@ -66,6 +65,9 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compiler.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/DynamicLibrary.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ErrorOr.h"
@@ -76,6 +78,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
 #include <algorithm>
@@ -734,6 +737,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.StrictEnums = Args.hasArg(OPT_fstrict_enums);
   Opts.StrictReturn = !Args.hasArg(OPT_fno_strict_return);
   Opts.StrictVTablePointers = Args.hasArg(OPT_fstrict_vtable_pointers);
+  Opts.ForceEmitVTables = Args.hasArg(OPT_fforce_emit_vtables);
   Opts.UnsafeFPMath = Args.hasArg(OPT_menable_unsafe_fp_math) ||
                       Args.hasArg(OPT_cl_unsafe_math_optimizations) ||
                       Args.hasArg(OPT_cl_fast_relaxed_math);
@@ -763,11 +767,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ProfileSampleAccurate = Args.hasArg(OPT_fprofile_sample_accurate);
 
   Opts.PrepareForLTO = Args.hasArg(OPT_flto, OPT_flto_EQ);
-  Opts.EmitSummaryIndex = false;
+  Opts.PrepareForThinLTO = false;
   if (Arg *A = Args.getLastArg(OPT_flto_EQ)) {
     StringRef S = A->getValue();
     if (S == "thin")
-      Opts.EmitSummaryIndex = true;
+      Opts.PrepareForThinLTO = true;
     else if (S != "full")
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << S;
   }
@@ -1455,6 +1459,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::ASTPrint; break;
     case OPT_ast_view:
       Opts.ProgramAction = frontend::ASTView; break;
+    case OPT_compiler_options_dump:
+      Opts.ProgramAction = frontend::DumpCompilerOptions; break;
     case OPT_dump_raw_tokens:
       Opts.ProgramAction = frontend::DumpRawTokens; break;
     case OPT_dump_tokens:
@@ -1599,12 +1605,13 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
     = !Args.hasArg(OPT_no_code_completion_ns_level_decls);
   Opts.CodeCompleteOpts.IncludeBriefComments
     = Args.hasArg(OPT_code_completion_brief_comments);
+  Opts.CodeCompleteOpts.IncludeFixIts
+    = Args.hasArg(OPT_code_completion_with_fixits);
 
   Opts.OverrideRecordLayoutsFile
     = Args.getLastArgValue(OPT_foverride_record_layout_EQ);
   Opts.AuxTriple =
       llvm::Triple::normalize(Args.getLastArgValue(OPT_aux_triple));
-  Opts.FindPchSource = Args.getLastArgValue(OPT_find_pch_source_EQ);
   Opts.StatsFile = Args.getLastArgValue(OPT_stats_file);
 
   if (const Arg *A = Args.getLastArg(OPT_arcmt_check,
@@ -1904,6 +1911,11 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
 
   for (const auto *A : Args.filtered(OPT_ivfsoverlay))
     Opts.AddVFSOverlayFile(A->getValue());
+
+#if INTEL_CUSTOMIZATION
+  for (const auto *A : Args.filtered(OPT_ivfsoverlay_lib))
+    Opts.AddVFSOverlayLib(A->getValue());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
@@ -2652,12 +2664,27 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ObjCExceptions = Args.hasArg(OPT_fobjc_exceptions);
   Opts.CXXExceptions = Args.hasArg(OPT_fcxx_exceptions);
 
+  // -ffixed-point
+  Opts.FixedPoint =
+      Args.hasFlag(OPT_ffixed_point, OPT_fno_fixed_point, /*Default=*/false) &&
+      !Opts.CPlusPlus;
+  Opts.PaddingOnUnsignedFixedPoint =
+      Args.hasFlag(OPT_fpadding_on_unsigned_fixed_point,
+                   OPT_fno_padding_on_unsigned_fixed_point,
+                   /*Default=*/false) &&
+      Opts.FixedPoint;
+
   // Handle exception personalities
   Arg *A = Args.getLastArg(options::OPT_fsjlj_exceptions,
                            options::OPT_fseh_exceptions,
                            options::OPT_fdwarf_exceptions);
   if (A) {
     const Option &Opt = A->getOption();
+    llvm::Triple T(TargetOpts.Triple);
+    if (T.isWindowsMSVCEnvironment())
+      Diags.Report(diag::err_fe_invalid_exception_model)
+          << Opt.getName() << T.str();
+
     Opts.SjLjExceptions = Opt.matches(options::OPT_fsjlj_exceptions);
     Opts.SEHExceptions = Opt.matches(options::OPT_fseh_exceptions);
     Opts.DWARFExceptions = Opt.matches(options::OPT_fdwarf_exceptions);
@@ -3072,6 +3099,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.getAllArgValues(OPT_fxray_never_instrument);
   Opts.XRayAttrListFiles = Args.getAllArgValues(OPT_fxray_attr_list);
 
+  // -fforce-emit-vtables
+  Opts.ForceEmitVTables = Args.hasArg(OPT_fforce_emit_vtables);
+
   // -fallow-editor-placeholders
   Opts.AllowEditorPlaceholders = Args.hasArg(OPT_fallow_editor_placeholders);
 
@@ -3103,6 +3133,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
           << A->getAsString(Args) << A->getValue();
     }
   }
+
+  Opts.CompleteMemberPointers = Args.hasArg(OPT_fcomplete_member_pointers);
+  Opts.BuildingPCHWithObjectFile = Args.hasArg(OPT_building_pch_with_obj);
 }
 
 static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
@@ -3138,6 +3171,7 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::MigrateSource:
     return false;
 
+  case frontend::DumpCompilerOptions:
   case frontend::DumpRawTokens:
   case frontend::DumpTokens:
   case frontend::InitOnly:
@@ -3161,6 +3195,7 @@ static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
 
   Opts.ImplicitPCHInclude = Args.getLastArgValue(OPT_include_pch);
   Opts.ImplicitPTHInclude = Args.getLastArgValue(OPT_include_pth);
+  Opts.PCHThroughHeader = Args.getLastArgValue(OPT_pch_through_header_EQ);
   if (const Arg *A = Args.getLastArg(OPT_token_cache))
       Opts.TokenCache = A->getValue();
   else
@@ -3288,10 +3323,11 @@ static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
   Opts.FPMath = Args.getLastArgValue(OPT_mfpmath);
   Opts.FeaturesAsWritten = Args.getAllArgValues(OPT_target_feature);
   Opts.LinkerVersion = Args.getLastArgValue(OPT_target_linker_version);
-  Opts.Triple = llvm::Triple::normalize(Args.getLastArgValue(OPT_triple));
+  Opts.Triple = Args.getLastArgValue(OPT_triple);
   // Use the default target triple if unspecified.
   if (Opts.Triple.empty())
     Opts.Triple = llvm::sys::getDefaultTargetTriple();
+  Opts.Triple = llvm::Triple::normalize(Opts.Triple);
   Opts.OpenCLExtensionsAsWritten = Args.getAllArgValues(OPT_cl_ext_EQ);
   Opts.ForceEnableInt128 = Args.hasArg(OPT_fforce_enable_int128);
   Opts.NVPTXUseShortPointers = Args.hasFlag(
@@ -3547,11 +3583,18 @@ createVFSFromCompilerInvocation(const CompilerInvocation &CI,
   return createVFSFromCompilerInvocation(CI, Diags, vfs::getRealFileSystem());
 }
 
+#if INTEL_CUSTOMIZATION
+using CreateLibraryFileSystem = vfs::FileSystem *(*)(void);
+#endif // INTEL_CUSTOMIZATION
+
 IntrusiveRefCntPtr<vfs::FileSystem>
 createVFSFromCompilerInvocation(const CompilerInvocation &CI,
                                 DiagnosticsEngine &Diags,
                                 IntrusiveRefCntPtr<vfs::FileSystem> BaseFS) {
-  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty())
+#if INTEL_CUSTOMIZATION
+  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty() &&
+      CI.getHeaderSearchOpts().VFSOverlayLibs.empty())
+#endif // INTEL_CUSTOMIZATION
     return BaseFS;
 
   IntrusiveRefCntPtr<vfs::OverlayFileSystem> Overlay(
@@ -3572,6 +3615,39 @@ createVFSFromCompilerInvocation(const CompilerInvocation &CI,
     else
       Diags.Report(diag::err_invalid_vfs_overlay) << File;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Load shared libraries that provide a VFS.
+  for (const auto &LibFile : CI.getHeaderSearchOpts().VFSOverlayLibs) {
+    std::string Error;
+    auto Lib = llvm::sys::DynamicLibrary::getPermanentLibrary(
+        LibFile.c_str(), &Error);
+    if (!Lib.isValid()) {
+      Diags.Report(diag::err_unable_to_load_vfs_overlay) << LibFile << Error;
+      continue;
+    }
+
+    auto *CreateFS =
+      reinterpret_cast<CreateLibraryFileSystem>(
+          reinterpret_cast<intptr_t>(
+              Lib.getAddressOfSymbol("__clang_create_vfs")));
+
+    if (!CreateFS) {
+      Diags.Report(diag::err_unable_to_load_vfs_overlay)
+        << LibFile << "'__clang_create_vfs' function was not found";
+      continue;
+    }
+
+    IntrusiveRefCntPtr<vfs::FileSystem> FS = CreateFS();
+    if (!FS) {
+      Diags.Report(diag::err_invalid_vfs_overlay) << LibFile;
+      continue;
+    }
+
+    Overlay->pushOverlay(FS);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return Overlay;
 }
 

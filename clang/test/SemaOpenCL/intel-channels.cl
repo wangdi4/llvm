@@ -37,6 +37,9 @@ struct incomplete;
 
 channel struct incomplete ch_arr[10]; // expected-error{{array has incomplete element type '__global channel struct incomplete'}}
 channel struct incomplete ch; // expected-error{{tentative definition has type '__global channel struct incomplete' that is never completed}}
+channel struct incomplete; // expected-warning{{declaration does not declare anything}}
+channel struct st; // expected-warning{{declaration does not declare anything}}
+channel int; // expected-warning{{declaration does not declare anything}}
 
 void write_wrapper(__global channel char *inp, char data) {
   write_channel_intel(*inp, data); // expected-error{{invalid argument type 'channel char *' to unary expression}}
@@ -52,4 +55,9 @@ __kernel void k4(__global const char *src)
   write_wrapper(&INPUT_CHANNEL, tmp); // expected-error{{invalid argument type '__global channel char' to unary expression}}
   read_channel(&arr[1]); // expected-error{{invalid argument type '__global channel int' to unary expression}}
   read_channel(&multiarr[1][2]); // expected-error{{invalid argument type '__global channel int' to unary expression}}
+}
+
+void negative_test_kernel(__global int *data) {
+  int i = read_channel_intel(wrong_channel_variable_name); // expected-error{{use of undeclared identifier 'wrong_channel_variable_name'}}
+  write_channel_intel(wrong_channel_variable_name_2, i); // expected-error{{use of undeclared identifier 'wrong_channel_variable_name_2'}}
 }

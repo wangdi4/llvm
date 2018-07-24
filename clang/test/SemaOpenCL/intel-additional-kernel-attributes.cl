@@ -102,16 +102,32 @@ __attribute__((num_compute_units(2, 3, 4)))
 __kernel void kernel_6b() {
 }
 
-__attribute__((num_compute_units(-5, 4, 3))) //expected-error{{'num_compute_units' attribute requires a positive integral compile time constant expression}}
+__attribute__((num_compute_units(-5, 4, 3))) //expected-error{{'num_compute_units' attribute parameter 1 requires integer constant between 1 and 16384 inclusive}}
 __kernel void kernel_6c() {
 }
 
-__attribute__((num_compute_units(5, -4, 3))) //expected-error{{'num_compute_units' attribute requires a positive integral compile time constant expression}}
+__attribute__((num_compute_units(5, 100500, 3))) //expected-error{{'num_compute_units' attribute parameter 2 requires integer constant between 1 and 16384 inclusive}}
 __kernel void kernel_6d() {
 }
 
-__attribute__((num_compute_units(5, 4, -3))) //expected-error{{'num_compute_units' attribute requires a positive integral compile time constant expression}}
+__attribute__((num_compute_units(5, 4, -3))) //expected-error{{'num_compute_units' attribute parameter 3 requires integer constant between 1 and 16384 inclusive}}
 __kernel void kernel_6e() {
+}
+
+__attribute__((num_compute_units(1)))
+__kernel void kernel_6f() {
+}
+
+__attribute__((num_compute_units(1, 2)))
+__kernel void kernel_6g() {
+}
+
+__attribute__((num_compute_units)) //expected-error{{'num_compute_units' attribute takes at least 1 argument}}
+__kernel void kernel_6h() {
+}
+
+__attribute__((num_compute_units(1, 2, 3, 4))) //expected-error{{'num_compute_units' attribute takes no more than 3 arguments}}
+__kernel void kernel_6i() {
 }
 
 __attribute__((scheduler_pipelining_effort_pct)) //expected-error{{'scheduler_pipelining_effort_pct' attribute takes one argument}}

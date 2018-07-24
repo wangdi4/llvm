@@ -2137,7 +2137,7 @@ private:
 #if INTEL_CUSTOMIZATION
   // The old code here used to use
   //
-  // llvm::PointerIntPair<CapturedDecl *, 1, CapturedRegionKind> CapDeclAndKind;
+  // llvm::PointerIntPair<CapturedDecl *, 2, CapturedRegionKind> CapDeclAndKind;
   //
   // This had to be changed because PointerIntPair supports a maximum of
   // only 2 bits for use for the integer, and for INTEL_CUSTOMIZATION

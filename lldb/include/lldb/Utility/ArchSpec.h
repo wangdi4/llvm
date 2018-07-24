@@ -10,6 +10,7 @@
 #ifndef LLDB_UTILITY_ARCHSPEC_H
 #define LLDB_UTILITY_ARCHSPEC_H
 
+#include "lldb/Utility/CompletionRequest.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-forward.h"
@@ -288,12 +289,13 @@ public:
   //---------------------------------------------------------------------------
   static bool ContainsOnlyArch(const llvm::Triple &normalized_triple);
 
-  static size_t AutoComplete(llvm::StringRef name, StringList &matches);
+  static void ListSupportedArchNames(StringList &list);
+  static size_t AutoComplete(CompletionRequest &request);
 
   //------------------------------------------------------------------
   /// Returns a static string representing the current architecture.
   ///
-  /// @return A static string correcponding to the current
+  /// @return A static string corresponding to the current
   ///         architecture.
   //------------------------------------------------------------------
   const char *GetArchitectureName() const;
@@ -419,7 +421,7 @@ public:
   /// @return True if the object, and CPU were successfully set.
   ///
   /// As a side effect, the vendor value is usually set to unknown. The
-  /// exections are
+  /// exceptions are
   ///   aarch64-apple-ios
   ///   arm-apple-ios
   ///   thumb-apple-ios
@@ -487,14 +489,14 @@ public:
   uint32_t GetCodeByteSize() const;
 
   //------------------------------------------------------------------
-  /// Architecture tripple accessor.
+  /// Architecture triple accessor.
   ///
   /// @return A triple describing this ArchSpec.
   //------------------------------------------------------------------
   llvm::Triple &GetTriple() { return m_triple; }
 
   //------------------------------------------------------------------
-  /// Architecture tripple accessor.
+  /// Architecture triple accessor.
   ///
   /// @return A triple describing this ArchSpec.
   //------------------------------------------------------------------
@@ -503,7 +505,7 @@ public:
   void DumpTriple(Stream &s) const;
 
   //------------------------------------------------------------------
-  /// Architecture tripple setter.
+  /// Architecture triple setter.
   ///
   /// Configures this ArchSpec according to the given triple.  If the triple
   /// has unknown components in all of the vendor, OS, and the optional
@@ -527,7 +529,7 @@ public:
   lldb::ByteOrder GetDefaultEndian() const;
 
   //------------------------------------------------------------------
-  /// Returns true if 'char' is a signed type by defualt in the architecture
+  /// Returns true if 'char' is a signed type by default in the architecture
   /// false otherwise
   ///
   /// @return True if 'char' is a signed type by default on the

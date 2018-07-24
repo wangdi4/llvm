@@ -29,8 +29,8 @@
 #include "clang/Basic/OperatorKinds.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Lex/Token.h"
-#include "clang/Sema/AttributeList.h"
 #include "clang/Sema/Ownership.h"
+#include "clang/Sema/ParsedAttr.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -282,6 +282,8 @@ public:
   static const TST TST_float = clang::TST_float;
   static const TST TST_double = clang::TST_double;
   static const TST TST_float16 = clang::TST_Float16;
+  static const TST TST_accum = clang::TST_Accum;
+  static const TST TST_fract = clang::TST_Fract;
   static const TST TST_float128 = clang::TST_float128;
   static const TST TST_bool = clang::TST_bool;
   static const TST TST_decimal32 = clang::TST_decimal32;
@@ -354,6 +356,7 @@ private:
 #if INTEL_CUSTOMIZATION
   unsigned TypeSpecChannel : 1;
 #endif // INTEL_CUSTOMIZATION
+  unsigned TypeSpecSat : 1;
 
   // type-qualifiers
   unsigned TypeQualifiers : 5;  // Bitwise OR of TQ.
@@ -389,7 +392,7 @@ private:
 
   SourceLocation StorageClassSpecLoc, ThreadStorageClassSpecLoc;
   SourceRange TSWRange;
-  SourceLocation TSCLoc, TSSLoc, TSTLoc, AltiVecLoc;
+  SourceLocation TSCLoc, TSSLoc, TSTLoc, AltiVecLoc, TSSatLoc;
   /// TSTNameLoc - If TypeSpecType is any of class, enum, struct, union,
   /// typename, then this is the location of the named type (if present);
   /// otherwise, it is the same as TSTLoc. Hence, the pair TSTLoc and
@@ -448,6 +451,7 @@ public:
 #if INTEL_CUSTOMIZATION
       TypeSpecChannel(false),
 #endif // INTEL_CUSTOMIZATION
+      TypeSpecSat(false),
       TypeQualifiers(TQ_unspecified),
       FS_inline_specified(false),
       FS_forceinline_specified(false),
@@ -504,6 +508,7 @@ public:
 #if INTEL_CUSTOMIZATION
   bool isTypeSpecChannel() const { return TypeSpecChannel; }
 #endif // INTEL_CUSTOMIZATION
+  bool isTypeSpecSat() const { return TypeSpecSat; }
 
   ParsedType getRepAsType() const {
     assert(isTypeRep((TST) TypeSpecType) && "DeclSpec does not store a type");
@@ -530,6 +535,7 @@ public:
   SourceLocation getTypeSpecSignLoc() const { return TSSLoc; }
   SourceLocation getTypeSpecTypeLoc() const { return TSTLoc; }
   SourceLocation getAltiVecLoc() const { return AltiVecLoc; }
+  SourceLocation getTypeSpecSatLoc() const { return TSSatLoc; }
 
   SourceLocation getTypeSpecTypeNameLoc() const {
     assert(isDeclRep((TST) TypeSpecType) || TypeSpecType == TST_typename);
@@ -690,6 +696,8 @@ public:
                       const char *&PrevSpec, unsigned &DiagID,
                       const PrintingPolicy &Policy);
 #endif // INTEL_CUSTOMIZATION
+  bool SetTypeSpecSat(SourceLocation Loc, const char *&PrevSpec,
+                      unsigned &DiagID);
   bool SetTypeSpecError();
   void UpdateDeclRep(Decl *Rep) {
     assert(isDeclRep((TST) TypeSpecType));
@@ -760,8 +768,8 @@ public:
   /// int __attribute__((may_alias)) __attribute__((aligned(16))) var;
   /// \endcode
   ///
-  void addAttributes(AttributeList *AL) {
-    Attrs.addAll(AL);
+  void addAttributes(ParsedAttributesView &AL) {
+    Attrs.addAll(AL.begin(), AL.end());
   }
 
   bool hasAttributes() const { return !Attrs.empty(); }
@@ -1170,11 +1178,9 @@ struct DeclaratorChunk {
     return SourceRange(Loc, EndLoc);
   }
 
-  struct TypeInfoCommon {
-    AttributeList *AttrList;
-  };
+  ParsedAttributesView AttrList;
 
-  struct PointerTypeInfo : TypeInfoCommon {
+  struct PointerTypeInfo {
     /// The type qualifiers: const/volatile/restrict/unaligned/atomic.
     unsigned TypeQuals : 5;
 
@@ -1197,7 +1203,7 @@ struct DeclaratorChunk {
     }
   };
 
-  struct ReferenceTypeInfo : TypeInfoCommon {
+  struct ReferenceTypeInfo {
     /// The type qualifier: restrict. [GNU] C++ extension
     bool HasRestrict : 1;
     /// True if this is an lvalue reference, false if it's an rvalue reference.
@@ -1206,7 +1212,7 @@ struct DeclaratorChunk {
     }
   };
 
-  struct ArrayTypeInfo : TypeInfoCommon {
+  struct ArrayTypeInfo {
     /// The type qualifiers for the array:
     /// const/volatile/restrict/__unaligned/_Atomic.
     unsigned TypeQuals : 5;
@@ -1257,7 +1263,7 @@ struct DeclaratorChunk {
     SourceRange Range;
   };
 
-  struct FunctionTypeInfo : TypeInfoCommon {
+  struct FunctionTypeInfo {
     /// hasPrototype - This is true if the function had at least one typed
     /// parameter.  If the function is () or (a,b,c), then it has no prototype,
     /// and is treated as a K&R-style function.
@@ -1486,7 +1492,7 @@ struct DeclaratorChunk {
     ParsedType getTrailingReturnType() const { return TrailingReturnType; }
   };
 
-  struct BlockPointerTypeInfo : TypeInfoCommon {
+  struct BlockPointerTypeInfo {
     /// For now, sema will catch these as invalid.
     /// The type qualifiers: const/volatile/restrict/__unaligned/_Atomic.
     unsigned TypeQuals : 5;
@@ -1495,7 +1501,7 @@ struct DeclaratorChunk {
     }
   };
 
-  struct MemberPointerTypeInfo : TypeInfoCommon {
+  struct MemberPointerTypeInfo {
     /// The type qualifiers: const/volatile/restrict/__unaligned/_Atomic.
     unsigned TypeQuals : 5;
     // CXXScopeSpec has a constructor, so it can't be a direct member.
@@ -1512,15 +1518,15 @@ struct DeclaratorChunk {
     }
   };
 
-  struct PipeTypeInfo : TypeInfoCommon {
-  /// The access writes.
-  unsigned AccessWrites : 3;
+  struct PipeTypeInfo {
+    /// The access writes.
+    unsigned AccessWrites : 3;
 
-  void destroy() {}
+    void destroy() {}
   };
 
 #if INTEL_CUSTOMIZATION
-  struct ChannelTypeInfo : TypeInfoCommon {
+  struct ChannelTypeInfo {
     /// The access writes.
     unsigned AccessWrites : 3;
 
@@ -1529,7 +1535,6 @@ struct DeclaratorChunk {
 #endif // INTEL_CUSTOMIZATION
 
   union {
-    TypeInfoCommon        Common;
     PointerTypeInfo       Ptr;
     ReferenceTypeInfo     Ref;
     ArrayTypeInfo         Arr;
@@ -1560,13 +1565,8 @@ struct DeclaratorChunk {
 
   /// If there are attributes applied to this declaratorchunk, return
   /// them.
-  const AttributeList *getAttrs() const {
-    return Common.AttrList;
-  }
-
-  AttributeList *&getAttrListRef() {
-    return Common.AttrList;
-  }
+  const ParsedAttributesView &getAttrs() const { return AttrList; }
+  ParsedAttributesView &getAttrs() { return AttrList; }
 
   /// Return a DeclaratorChunk for a pointer.
   static DeclaratorChunk getPointer(unsigned TypeQuals, SourceLocation Loc,
@@ -1584,7 +1584,6 @@ struct DeclaratorChunk {
     I.Ptr.RestrictQualLoc = RestrictQualLoc.getRawEncoding();
     I.Ptr.AtomicQualLoc   = AtomicQualLoc.getRawEncoding();
     I.Ptr.UnalignedQualLoc = UnalignedQualLoc.getRawEncoding();
-    I.Ptr.AttrList        = nullptr;
     return I;
   }
 
@@ -1596,7 +1595,6 @@ struct DeclaratorChunk {
     I.Loc             = Loc;
     I.Ref.HasRestrict = (TypeQuals & DeclSpec::TQ_restrict) != 0;
     I.Ref.LValueRef   = lvalue;
-    I.Ref.AttrList    = nullptr;
     return I;
   }
 
@@ -1608,7 +1606,6 @@ struct DeclaratorChunk {
     I.Kind          = Array;
     I.Loc           = LBLoc;
     I.EndLoc        = RBLoc;
-    I.Arr.AttrList  = nullptr;
     I.Arr.TypeQuals = TypeQuals;
     I.Arr.hasStatic = isStatic;
     I.Arr.isStar    = isStar;
@@ -1652,7 +1649,6 @@ struct DeclaratorChunk {
     I.Kind          = BlockPointer;
     I.Loc           = Loc;
     I.Cls.TypeQuals = TypeQuals;
-    I.Cls.AttrList  = nullptr;
     return I;
   }
 
@@ -1663,7 +1659,6 @@ struct DeclaratorChunk {
     I.Kind          = Pipe;
     I.Loc           = Loc;
     I.Cls.TypeQuals = TypeQuals;
-    I.Cls.AttrList  = nullptr;
     return I;
   }
 
@@ -1675,7 +1670,6 @@ struct DeclaratorChunk {
     I.Kind          = Channel;
     I.Loc           = Loc;
     I.Cls.TypeQuals = TypeQuals;
-    I.Cls.AttrList  = 0;
     return I;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1688,7 +1682,6 @@ struct DeclaratorChunk {
     I.Loc           = SS.getBeginLoc();
     I.EndLoc        = Loc;
     I.Mem.TypeQuals = TypeQuals;
-    I.Mem.AttrList  = nullptr;
     new (I.Mem.ScopeMem) CXXScopeSpec(SS);
     return I;
   }
@@ -1700,7 +1693,6 @@ struct DeclaratorChunk {
     I.Kind          = Paren;
     I.Loc           = LParenLoc;
     I.EndLoc        = RParenLoc;
-    I.Common.AttrList = nullptr;
     return I;
   }
 
@@ -2195,12 +2187,22 @@ public:
 
   /// AddTypeInfo - Add a chunk to this declarator. Also extend the range to
   /// EndLoc, which should be the last token of the chunk.
-  void AddTypeInfo(const DeclaratorChunk &TI,
-                   ParsedAttributes &attrs,
+  /// This function takes attrs by R-Value reference because it takes ownership
+  /// of those attributes from the parameter.
+  void AddTypeInfo(const DeclaratorChunk &TI, ParsedAttributes &&attrs,
                    SourceLocation EndLoc) {
     DeclTypeInfo.push_back(TI);
-    DeclTypeInfo.back().getAttrListRef() = attrs.getList();
+    DeclTypeInfo.back().getAttrs().addAll(attrs.begin(), attrs.end());
     getAttributePool().takeAllFrom(attrs.getPool());
+
+    if (!EndLoc.isInvalid())
+      SetRangeEnd(EndLoc);
+  }
+
+  /// AddTypeInfo - Add a chunk to this declarator. Also extend the range to
+  /// EndLoc, which should be the last token of the chunk.
+  void AddTypeInfo(const DeclaratorChunk &TI, SourceLocation EndLoc) {
+    DeclTypeInfo.push_back(TI);
 
     if (!EndLoc.isInvalid())
       SetRangeEnd(EndLoc);
@@ -2449,16 +2451,15 @@ public:
       SetRangeEnd(lastLoc);
   }
 
-  const AttributeList *getAttributes() const { return Attrs.getList(); }
-  AttributeList *getAttributes() { return Attrs.getList(); }
-
-  AttributeList *&getAttrListRef() { return Attrs.getListRef(); }
+  const ParsedAttributes &getAttributes() const { return Attrs; }
+  ParsedAttributes &getAttributes() { return Attrs; }
 
   /// hasAttributes - do we contain any attributes?
   bool hasAttributes() const {
-    if (getAttributes() || getDeclSpec().hasAttributes()) return true;
+    if (!getAttributes().empty() || getDeclSpec().hasAttributes())
+      return true;
     for (unsigned i = 0, e = getNumTypeObjects(); i != e; ++i)
-      if (getTypeObject(i).getAttrs())
+      if (!getTypeObject(i).getAttrs().empty())
         return true;
     return false;
   }
@@ -2466,12 +2467,9 @@ public:
   /// Return a source range list of C++11 attributes associated
   /// with the declarator.
   void getCXX11AttributeRanges(SmallVectorImpl<SourceRange> &Ranges) {
-    AttributeList *AttrList = Attrs.getList();
-    while (AttrList) {
-      if (AttrList->isCXX11Attribute())
-        Ranges.push_back(AttrList->getRange());
-      AttrList = AttrList->getNext();
-    }
+    for (const ParsedAttr &AL : Attrs)
+      if (AL.isCXX11Attribute())
+        Ranges.push_back(AL.getRange());
   }
 
   void setAsmLabel(Expr *E) { AsmLabel = E; }

@@ -725,7 +725,7 @@ Process::Process(lldb::TargetSP target_sp, ListenerSP listener_sp,
     : ProcessProperties(this), UserID(LLDB_INVALID_PROCESS_ID),
       Broadcaster((target_sp->GetDebugger().GetBroadcasterManager()),
                   Process::GetStaticBroadcasterClass().AsCString()),
-      m_target_sp(target_sp), m_public_state(eStateUnloaded),
+      m_target_wp(target_sp), m_public_state(eStateUnloaded),
       m_private_state(eStateUnloaded),
       m_private_state_broadcaster(nullptr,
                                   "lldb.process.internal_state_broadcaster"),
@@ -1465,7 +1465,7 @@ void Process::UpdateThreadListIfNeeded() {
             old_thread_list.GetThreadAtIndex(i, false)->ClearBackingThread();
 
           // Turn off dynamic types to ensure we don't run any expressions.
-          // Objective C can run an expression to determine if a SBValue is a
+          // Objective-C can run an expression to determine if a SBValue is a
           // dynamic type or not and we need to avoid this. OperatingSystem
           // plug-ins can't run expressions that require running code...
 
@@ -2539,8 +2539,10 @@ Status Process::WriteObjectFile(std::vector<ObjectFile::LoadableData> entries) {
 #define USE_ALLOCATE_MEMORY_CACHE 1
 addr_t Process::AllocateMemory(size_t size, uint32_t permissions,
                                Status &error) {
-  if (GetPrivateState() != eStateStopped)
+  if (GetPrivateState() != eStateStopped) {
+    error.SetErrorToGenericError();
     return LLDB_INVALID_ADDRESS;
+  }
 
 #if defined(USE_ALLOCATE_MEMORY_CACHE)
   return m_allocated_memory_cache.AllocateMemory(size, permissions, error);
@@ -2686,8 +2688,7 @@ StateType
 Process::WaitForProcessStopPrivate(EventSP &event_sp,
                                    const Timeout<std::micro> &timeout) {
   StateType state;
-  // Now wait for the process to launch and return control to us, and then call
-  // DidLaunch:
+
   while (true) {
     event_sp.reset();
     state = GetStateChangedEventsPrivate(event_sp, timeout);
@@ -2765,6 +2766,9 @@ Status Process::Launch(ProcessLaunchInfo &launch_info) {
           }
         } else {
           EventSP event_sp;
+
+          // Now wait for the process to launch and return control to us, and then call
+          // DidLaunch:
           StateType state = WaitForProcessStopPrivate(event_sp, seconds(10));
 
           if (state == eStateInvalid || !event_sp) {
@@ -4373,7 +4377,7 @@ bool Process::ProcessEventData::SetUpdateStateOnRemoval(Event *event_ptr) {
   return false;
 }
 
-lldb::TargetSP Process::CalculateTarget() { return m_target_sp.lock(); }
+lldb::TargetSP Process::CalculateTarget() { return m_target_wp.lock(); }
 
 void Process::CalculateExecutionContext(ExecutionContext &exe_ctx) {
   exe_ctx.SetTargetPtr(&GetTarget());
