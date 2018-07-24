@@ -630,7 +630,7 @@ class DDTest {
   /// find the bound, if available, and zero extends it to the Type T.
   /// (I zero extend since the bound should always be >= 0.)
   /// If no upper bound is available, return NULL.
-  const CanonExpr *collectUpperBound(const HLLoop *L, Type *T) const;
+  const CanonExpr *collectUpperBound(const HLLoop *L, Type *T);
 
   /// collectConstantUpperBound - Calls collectUpperBound(), then
   /// attempts to cast it to CanonExprConstant. If the cast fails,

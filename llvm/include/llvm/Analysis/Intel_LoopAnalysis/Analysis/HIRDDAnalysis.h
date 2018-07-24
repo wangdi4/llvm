@@ -278,9 +278,6 @@ private:
   /// as invalid.
   void invalidateGraph(const HLLoop *Loop, bool InvalidateInnerLoops);
 
-  /// Returns true if the graph for the Node is already constructed and valid.
-  bool graphForNodeValid(const HLNode *Node);
-
   DDGraph getGraphImpl(const HLNode *Node, bool InputEdgesReq = false);
 
   void buildGraph(const HLNode *Node, bool BuildInputEdges);

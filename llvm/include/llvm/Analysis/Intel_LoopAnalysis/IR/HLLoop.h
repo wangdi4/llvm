@@ -116,6 +116,9 @@ private:
   MDNode *LoopMetadata;
 
   uint64_t MaxTripCountEstimate;
+  // This flag is set for stripmined loops so DD can override the Upper Bound to
+  // derive a more refined DV.
+  bool MaxTCIsUsefulForDD;
 
   // Bottom test debug location.
   DebugLoc CmpDbgLoc;
@@ -446,9 +449,7 @@ public:
   }
 
   /// Returns true if this is the innermost loop in the loop nest.
-  bool isInnermost() const {
-    return IsInnermost;
-  }
+  bool isInnermost() const { return IsInnermost; }
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }
@@ -884,9 +885,22 @@ public:
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
+  // 0 means no estimate.
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 
-  void setMaxTripCountEstimate(uint64_t MaxTC) { MaxTripCountEstimate = MaxTC; }
+  // \p IsUsefulForDD indicates that the max trip count estimate can be used for
+  // DD analysis.
+  void setMaxTripCountEstimate(uint64_t MaxTC, bool IsUsefulForDD = false) {
+    MaxTripCountEstimate = MaxTC;
+    MaxTCIsUsefulForDD = IsUsefulForDD;
+  }
+
+  // Returns true if max trip count estimate can be used for DD analysis.
+  bool isMaxTripCountEstimateUsefulForDD() const { return MaxTCIsUsefulForDD; }
+
+  void setMaxTripCountEstimateUsefulForDD(bool Flag) {
+    MaxTCIsUsefulForDD = Flag;
+  }
 
   /// Marks loop to do not vectorize.
   void markDoNotVectorize();

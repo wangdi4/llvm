@@ -2,11 +2,11 @@
 ;
 ; REQUIRES: asserts
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s --check-prefix=KANDR
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -print-before=hir-loop-blocking  -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -print-before=hir-loop-blocking  -hir-verify-cf-def-level -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=all -print-before=hir-loop-blocking -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s --check-prefix=ALL
 
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=kandr -hir-verify-cf-def-level 2>&1 < %s | FileCheck %s --check-prefix=KANDR
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-verify-cf-def-level 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-verify-cf-def-level -hir-dd-analysis-verify=Region 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check -hir-loop-blocking-algo=all -hir-verify-cf-def-level 2>&1 < %s | FileCheck %s --check-prefix=ALL
 
 ;
@@ -94,6 +94,12 @@
 ; DEFAULT: END REGION
 
 
+; Verify that DD is able to create '=' DV for IVs coupled due to stripmining like [128 * i1 + i3].
+
+; DEFAULT-DAG: (@c)[0][128 * i1 + i3][i5] --> (@c)[0][128 * i1 + i3][i5] FLOW (= * = * =)
+; DEFAULT-DAG: (@c)[0][128 * i1 + i3][i5] --> (@c)[0][128 * i1 + i3][i5] OUTPUT (= * = * =)
+; DEFAULT-DAG: (@c)[0][128 * i1 + i3][i5] --> (@c)[0][128 * i1 + i3][i5] ANTI (= * = * =)
+
 
 ; ALL:       BEGIN REGION { modified }
 ; ALL:             + DO i1 = 0, %N + -1, 1
@@ -136,6 +142,7 @@
 ; ALL:      |   + END LOOP
 ; ALL:      + END LOOP
 ; ALL: END REGION
+
 
 ; ModuleID = 'matmul.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
