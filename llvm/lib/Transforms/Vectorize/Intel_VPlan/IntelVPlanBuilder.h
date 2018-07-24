@@ -181,6 +181,14 @@ public:
     return Instr;
   }
 
+  VPInstruction *createPhiInstruction(Instruction *Inst = nullptr) {
+    VPInstruction *NewVPInst = new VPPHINode();
+    NewVPInst->setUnderlyingValue(Inst);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//

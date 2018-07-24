@@ -5,7 +5,7 @@
 
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header><latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
-; CHECK-NEXT: Divergent: [[VAL1:%vp[0-9]+]] = phi i64 0 [[VAL2:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: [[VAL1:%vp[0-9]+]] = phi [ i64 0, [[BBH:.*]] ], [ [[VAL2:%vp[0-9]+]], [[BBL:.*]] ]
 ; CHECK-NEXT: Divergent: [[VAL3:%vp[0-9]+]] = getelementptr [[VAL4:%vp[0-9]+]] [[VAL1:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: store float 4.200000e+01 [[VAL3:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: [[VAL4:%vp[0-9]+]] = add [[VAL1:%vp[0-9]+]] i64 1

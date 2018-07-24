@@ -801,10 +801,31 @@ void VPInstruction::print(raw_ostream &O) const {
     O << Instruction::getOpcodeName(getOpcode());
   }
 
-  for (const VPValue *Operand : operands()) {
-    O << " ";
-    Operand->printAsOperand(O);
+#if INTEL_CUSTOMIZATION
+  // TODO: print type when this information will be available.
+  // So far don't print anything, because PHI may not have Instruction
+  if (auto *Phi = dyn_cast<const VPPHINode>(this)) {
+    auto PrintValueWithBB = [&](const unsigned i) {
+      O << " ";
+      O << " [ ";
+      Phi->getIncomingValue(i)->printAsOperand(O);
+      O << ", ";
+      O << Phi->getIncomingBlock(i)->getName();
+      O << " ]";
+    };
+    const unsigned size = Phi->getNumIncomingValues();
+    for (unsigned i = 0; i < size - 1; ++i) {
+      PrintValueWithBB(i);
+      O << ",";
+    }
+    PrintValueWithBB(size-1);
   }
+  else
+#endif // INTEL_CUSTOMIZATION
+    for (const VPValue *Operand : operands()) {
+      O << " ";
+      Operand->printAsOperand(O);
+    }
 }
 
 // Generate the code inside the body of the vectorized loop. Assumes a single

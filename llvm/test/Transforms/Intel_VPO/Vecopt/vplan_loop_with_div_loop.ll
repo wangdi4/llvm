@@ -6,9 +6,9 @@
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header>,BB4,BB5<latch><exiting>
 ; CHECK-NEXT: Loop at depth 2 containing: BB4<header><latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
-; CHECK-NEXT: Divergent: [[VAL1:%vp[0-9]+]] = phi i64 0 [[VAL2:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: [[VAL1:%vp[0-9]+]] = phi [ i64 0, BB2 ], [ [[VAL2:%vp[0-9]+]], BB5 ]
 ; CHECK-LABEL: Basic Block: BB4
-; CHECK-NEXT: Divergent: [[VAL3:%vp[0-9]+]] = phi i64 0 [[VAL4:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: [[VAL3:%vp[0-9]+]] = phi [ i64 0, BB3 ], [ [[VAL4:%vp[0-9]+]], BB4 ]
 ; CHECK-NEXT: Divergent: [[VAL5:%vp[0-9]+]] = mul [[VAL6:%vp[0-9]+]] [[VAL1:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: [[VAL7:%vp[0-9]+]] = add [[VAL5:%vp[0-9]+]] [[VAL3:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: [[VAL8:%vp[0-9]+]] = trunc [[VAL7:%vp[0-9]+]]

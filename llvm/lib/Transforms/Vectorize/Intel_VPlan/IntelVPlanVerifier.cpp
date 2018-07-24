@@ -283,9 +283,7 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
              "Missing successor link");
       (void)PredSuccs;
     }
-
-    if (const auto *VPBB = dyn_cast<VPBasicBlock>(VPB))
-      verifyBBInstrs(VPBB);
+    verifyBlock(VPB, Region);
 
     // Recurse here so that we won't need to do the traversal twice.
     if (const auto *SubRegion = dyn_cast<VPRegionBlock>(VPB))
@@ -334,14 +332,37 @@ void VPlanVerifier::verifyUsers(const VPValue *Def) {
   }
 }
 
-void VPlanVerifier::verifyInstr(const VPUser *U) {
-  verifyOperands(U);
-  verifyUsers(U);
+// Verify that number of incoming values matches to number of predecessors
+// of a \p Block where PHI node is located.
+void VPlanVerifier::verifyPHINode(const VPPHINode *Phi,
+                                  const VPBasicBlock *Block) const
+{
+  assert(Phi->getNumIncomingValues() == Block->getNumPredecessors() &&
+         "Number of incoming values doesn't match with number of preds");
 }
 
-void VPlanVerifier::verifyBBInstrs(const VPBasicBlock *VPBB) {
-  for (const VPRecipeBase &R : *VPBB) {
-    if (const auto *I = dyn_cast<VPInstruction>(&R))
-      verifyInstr(I);
+// Verify information of \p Inst nested in \p Block.
+void VPlanVerifier::verifyInstruction(
+    const VPInstruction *Inst, const VPBasicBlock *Block) const
+{
+  assert(Inst->getParent() == Block &&
+         "Incorrect VPBB parent for a VPInstruction");
+  assert((Inst->getOpcode() != Instruction::PHI || isa<VPPHINode>(Inst)) &&
+         "Phi VPInstructions should be represented with VPHINode!");
+  if (const auto *Phi = dyn_cast<const VPPHINode>(Inst))
+    verifyPHINode(Phi, Block);
+
+  verifyOperands(Inst);
+  verifyUsers(Inst);
+}
+
+// Verify information of Blocks nested in \p Region.
+void VPlanVerifier::verifyBlock(const VPBlockBase *Block,
+                                const VPRegionBlock *Region) const {
+  if (const auto *BB = dyn_cast<const VPBasicBlock>(Block)) {
+    for (const auto &Inst : BB->getInstList())
+      // FIXME: need to remove after removing of VPRecipe
+      if (const auto *I = dyn_cast<const VPInstruction>(&Inst))
+        verifyInstruction(I, BB);
   }
 }
