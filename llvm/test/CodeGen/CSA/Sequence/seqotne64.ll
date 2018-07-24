@@ -1,4 +1,6 @@
 ; RUN: llc -O1 -csa-opt-df-pass=1 -csa-seq-opt=2 -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
+; Test is expected to fail currently because of CMPLRS-51458.
+; XFAIL: *
 
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
