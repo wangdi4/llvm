@@ -302,6 +302,9 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
+            Changed |= genPrivatizationCode(W);
+            Changed |= genFirstPrivatizationCode(W);
+            Changed |= genDestructorCode(W);
             Changed |= genCSAParallelLoop(W);
             RemoveDirectives = true;
             break;
@@ -2178,7 +2181,18 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
 
-      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
+      if (isa<GlobalVariable>(Orig) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          // On CSA we also need to do privatization for function arguments
+          // because parallel region are not getting outlined. Thus we have
+          // create private instances for function arguments which are
+          // annotated as private to avoid modification of the original
+          // argument.
+          (isa<Argument>(Orig) && isTargetCSA()) ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+          isa<AllocaInst>(Orig)) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.
