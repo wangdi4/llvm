@@ -116,8 +116,8 @@ void foo_ivdep(int select)
   //
   //CHECK: [[IVD_TOK9:%[0-9]+]] = call token{{.*}}region.entry()
   //CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-  //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray2, i32 -1)
-  //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 -1) ]
+  //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray2, i32 -1,
+  //CHECK-SAME: [32 x i32]* %myArray, i32 -1) ]
   //CHECK: br{{.*}}!llvm.loop [[IVDEP3:![0-9]+]]
   //CHECK: region.exit(token [[IVD_TOK9]]) [ "DIR.PRAGMA.END.IVDEP"() ]
   #pragma ivdep safelen(8)
