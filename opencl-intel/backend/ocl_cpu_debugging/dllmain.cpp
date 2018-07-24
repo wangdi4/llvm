@@ -24,8 +24,6 @@
 /////////////////////////////////////////////////////////////////////////
 
 // Defines the entry point for the DLL application.
-#if defined (_WIN32)
-
 #include <windows.h>
 
 BOOL APIENTRY DllMain(
@@ -43,6 +41,3 @@ BOOL APIENTRY DllMain(
     }
     return TRUE;
 }
-#endif
-
-
