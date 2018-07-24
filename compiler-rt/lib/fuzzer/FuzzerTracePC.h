@@ -80,7 +80,7 @@ class TracePC {
   template <class T> void HandleCmp(uintptr_t PC, T Arg1, T Arg2);
   size_t GetTotalPCCoverage();
   void SetUseCounters(bool UC) { UseCounters = UC; }
-  void SetUseValueProfile(bool VP) { UseValueProfile = VP; }
+  void SetUseValueProfileMask(uint32_t VPMask) { UseValueProfileMask = VPMask; }
   void SetPrintNewPCs(bool P) { DoPrintNewPCs = P; }
   void SetPrintNewFuncs(size_t P) { NumPrintNewFuncs = P; }
   void UpdateObservedPCs();
@@ -102,6 +102,7 @@ class TracePC {
   void PrintModuleInfo();
 
   void PrintCoverage();
+  void DumpCoverage();
 
   template<class CallBack>
   void IterateCoveredFunctions(CallBack CB);
@@ -131,9 +132,12 @@ class TracePC {
       CB(PC);
   }
 
+  void SetFocusFunction(const std::string &FuncName);
+  bool ObservedFocusFunction();
+
 private:
   bool UseCounters = false;
-  bool UseValueProfile = false;
+  uint32_t UseValueProfileMask = false;
   bool DoPrintNewPCs = false;
   size_t NumPrintNewFuncs = 0;
 
@@ -162,6 +166,9 @@ private:
 
   Set<uintptr_t> ObservedPCs;
   Set<uintptr_t> ObservedFuncs;
+
+  std::pair<size_t, size_t> FocusFunction = {-1, -1};  // Module and PC IDs.
+
 
   ValueBitMap ValueProfileMap;
   uintptr_t InitialStack;
@@ -253,7 +260,7 @@ void TracePC::CollectFeatures(Callback HandleFeature) const {
                      Handle8bitCounter);
   FirstFeature += (ExtraCountersEnd() - ExtraCountersBegin()) * 8;
 
-  if (UseValueProfile) {
+  if (UseValueProfileMask) {
     ValueProfileMap.ForEach([&](size_t Idx) {
       HandleFeature(FirstFeature + Idx);
     });

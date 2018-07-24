@@ -36,6 +36,8 @@ def guard   : P<"guard", "Control flow guard">;
 def heap    : P<"heap", "Size of the heap">;
 def ignore : P<"ignore", "Specify warning codes to ignore">;
 def implib  : P<"implib", "Import library name">;
+def lib : F<"lib">,
+    HelpText<"Act like lib.exe; must be first argument if present">;
 def libpath : P<"libpath", "Additional library search path">;
 def linkrepro : P<"linkrepro", "Dump linker invocation and input files for debugging">;
 def lldltocache : P<"lldltocache", "Path to ThinLTO cached object file directory">;
@@ -58,6 +60,7 @@ def section : P<"section", "Specify section attributes">;
 def stack   : P<"stack", "Size of the stack">;
 def stub    : P<"stub", "Specify DOS stub file">;
 def subsystem : P<"subsystem", "Specify subsystem">;
+def timestamp : P<"timestamp", "Specify the PE header timestamp">;
 def version : P<"version", "Specify a version number in the PE header">;
 def wholearchive_file : P<"wholearchive", "Include all object files from this archive">;
 
@@ -89,6 +92,7 @@ def driver : P<"driver", "Generate a Windows NT Kernel Mode Driver">;
 def nodefaultlib_all : F<"nodefaultlib">;
 def noentry : F<"noentry">;
 def profile : F<"profile">;
+def repro : F<"Brepro">, HelpText<"Use a hash of the executable as the PE header timestamp">;
 def swaprun_cd : F<"swaprun:cd">;
 def swaprun_net : F<"swaprun:net">;
 def verbose : F<"verbose">;
@@ -115,7 +119,10 @@ defm highentropyva : B<"highentropyva",
                        "Disable 64-bit ASLR">;
 defm incremental : B<"incremental",
                      "Keep original import library if contents are unchanged",
-                     "Replace import library file even if contents are unchanged">;
+                     "Overwrite import library even if contents are unchanged">;
+defm integritycheck : B<"integritycheck",
+                        "Set FORCE_INTEGRITY bit in PE header",
+                        "No effect (default)">;
 defm largeaddressaware : B<"largeaddressaware",
                            "Enable large addresses (default on 64-bit)",
                            "Disable large addresses (default on 32-bit)">;
@@ -134,6 +141,7 @@ def help_q : Flag<["/?", "-?"], "">, Alias<help>;
 // LLD extensions
 def debug_ghash : F<"debug:ghash">;
 def debug_dwarf : F<"debug:dwarf">;
+def debug_symtab : F<"debug:symtab">;
 def export_all_symbols : F<"export-all-symbols">;
 def kill_at : F<"kill-at">;
 def lldmingw : F<"lldmingw">;

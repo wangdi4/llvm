@@ -2432,6 +2432,23 @@ void VarDecl::setDescribedVarTemplate(VarTemplateDecl *Template) {
   getASTContext().setTemplateOrSpecializationInfo(this, Template);
 }
 
+bool VarDecl::isKnownToBeDefined() const {
+  const auto &LangOpts = getASTContext().getLangOpts();
+  // In CUDA mode without relocatable device code, variables of form 'extern
+  // __shared__ Foo foo[]' are pointers to the base of the GPU core's shared
+  // memory pool.  These are never undefined variables, even if they appear
+  // inside of an anon namespace or static function.
+  //
+  // With CUDA relocatable device code enabled, these variables don't get
+  // special handling; they're treated like regular extern variables.
+  if (LangOpts.CUDA && !LangOpts.CUDARelocatableDeviceCode &&
+      hasExternalStorage() && hasAttr<CUDASharedAttr>() &&
+      isa<IncompleteArrayType>(getType()))
+    return true;
+
+  return hasDefinition();
+}
+
 MemberSpecializationInfo *VarDecl::getMemberSpecializationInfo() const {
   if (isStaticDataMember())
     // FIXME: Remove ?
@@ -3641,17 +3658,14 @@ unsigned FunctionDecl::getMemoryFunctionKind() const {
   return 0;
 }
 
+unsigned FunctionDecl::getODRHash() const {
+  assert(HasODRHash);
+  return ODRHash;
+}
+
 unsigned FunctionDecl::getODRHash() {
   if (HasODRHash)
     return ODRHash;
-
-  if (FunctionDecl *Definition = getDefinition()) {
-    if (Definition != this) {
-      HasODRHash = true;
-      ODRHash = Definition->getODRHash();
-      return ODRHash;
-    }
-  }
 
   if (auto *FT = getInstantiatedFromMemberFunction()) {
     HasODRHash = true;

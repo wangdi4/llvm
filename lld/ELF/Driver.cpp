@@ -325,6 +325,25 @@ static bool getZFlag(opt::InputArgList &Args, StringRef K1, StringRef K2,
   return Default;
 }
 
+static bool isKnown(StringRef S) {
+  return S == "combreloc" || S == "copyreloc" || S == "defs" ||
+         S == "execstack" || S == "hazardplt" || S == "initfirst" ||
+         S == "keep-text-section-prefix" || S == "lazy" || S == "muldefs" ||
+         S == "nocombreloc" || S == "nocopyreloc" || S == "nodelete" ||
+         S == "nodlopen" || S == "noexecstack" ||
+         S == "nokeep-text-section-prefix" || S == "norelro" || S == "notext" ||
+         S == "now" || S == "origin" || S == "relro" || S == "retpolineplt" ||
+         S == "rodynamic" || S == "text" || S == "wxneeded" ||
+         S.startswith("max-page-size=") || S.startswith("stack-size=");
+}
+
+// Report an error for an unknown -z option.
+static void checkZOptions(opt::InputArgList &Args) {
+  for (auto *Arg : Args.filtered(OPT_z))
+    if (!isKnown(Arg->getValue()))
+      error("unknown -z value: " + StringRef(Arg->getValue()));
+}
+
 void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
   ELFOptTable Parser;
   opt::InputArgList Args = Parser.parse(ArgsArr.slice(1));
@@ -380,8 +399,12 @@ void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
   }
 
   readConfigs(Args);
+  checkZOptions(Args);
   initLLVM();
   createFiles(Args);
+  if (errorCount())
+    return;
+
   inferMachineType();
   setConfigs(Args);
   checkOptions(Args);
@@ -584,6 +607,20 @@ getBuildId(opt::InputArgList &Args) {
   return {BuildIdKind::None, {}};
 }
 
+static std::pair<bool, bool> getPackDynRelocs(opt::InputArgList &Args) {
+  StringRef S = Args.getLastArgValue(OPT_pack_dyn_relocs, "none");
+  if (S == "android")
+    return {true, false};
+  if (S == "relr")
+    return {false, true};
+  if (S == "android+relr")
+    return {true, true};
+
+  if (S != "none")
+    error("unknown -pack-dyn-relocs format: " + S);
+  return {false, false};
+}
+
 static void readCallGraph(MemoryBufferRef MB) {
   // Build a map from symbol name to section
   DenseMap<StringRef, const Symbol *> SymbolNameToSymbol;
@@ -594,18 +631,16 @@ static void readCallGraph(MemoryBufferRef MB) {
   for (StringRef L : args::getLines(MB)) {
     SmallVector<StringRef, 3> Fields;
     L.split(Fields, ' ');
-    if (Fields.size() != 3)
-      fatal("parse error");
     uint64_t Count;
-    if (!to_integer(Fields[2], Count))
-      fatal("parse error");
+    if (Fields.size() != 3 || !to_integer(Fields[2], Count))
+      fatal(MB.getBufferIdentifier() + ": parse error");
     const Symbol *FromSym = SymbolNameToSymbol.lookup(Fields[0]);
     const Symbol *ToSym = SymbolNameToSymbol.lookup(Fields[1]);
     if (Config->WarnSymbolOrdering) {
       if (!FromSym)
-        warn("call graph file: no such symbol: " + Fields[0]);
+        warn(MB.getBufferIdentifier() + ": no such symbol: " + Fields[0]);
       if (!ToSym)
-        warn("call graph file: no such symbol: " + Fields[1]);
+        warn(MB.getBufferIdentifier() + ": no such symbol: " + Fields[1]);
     }
     if (!FromSym || !ToSym || Count == 0)
       continue;
@@ -634,12 +669,17 @@ static bool getCompressDebugSections(opt::InputArgList &Args) {
   return true;
 }
 
-static int parseInt(StringRef S, opt::Arg *Arg) {
-  int V = 0;
-  if (!to_integer(S, V, 10))
-    error(Arg->getSpelling() + "=" + Arg->getValue() +
-          ": number expected, but got '" + S + "'");
-  return V;
+static std::pair<StringRef, StringRef> getOldNewOptions(opt::InputArgList &Args,
+                                                        unsigned Id) {
+  auto *Arg = Args.getLastArg(Id);
+  if (!Arg)
+    return {"", ""};
+
+  StringRef S = Arg->getValue();
+  std::pair<StringRef, StringRef> Ret = S.split(';');
+  if (Ret.second.empty())
+    error(Arg->getSpelling() + " expects 'old;new' format, but got " + S);
+  return Ret;
 }
 
 // Parse the symbol ordering file and warn for any duplicate entries.
@@ -668,6 +708,7 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   errorHandler().Verbose = Args.hasArg(OPT_verbose);
   errorHandler().FatalWarnings =
       Args.hasFlag(OPT_fatal_warnings, OPT_no_fatal_warnings, false);
+  ThreadsEnabled = Args.hasFlag(OPT_threads, OPT_no_threads, true);
 
   Config->AllowMultipleDefinition =
       Args.hasFlag(OPT_allow_multiple_definition,
@@ -712,9 +753,11 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->LTONewPassManager = Args.hasArg(OPT_lto_new_pass_manager);
   Config->LTONewPmPasses = Args.getLastArgValue(OPT_lto_newpm_passes);
   Config->LTOO = args::getInteger(Args, OPT_lto_O, 2);
+  Config->LTOObjPath = Args.getLastArgValue(OPT_plugin_opt_obj_path_eq);
   Config->LTOPartitions = args::getInteger(Args, OPT_lto_partitions, 1);
   Config->LTOSampleProfile = Args.getLastArgValue(OPT_lto_sample_profile);
   Config->MapFile = Args.getLastArgValue(OPT_Map);
+  Config->MipsGotSize = args::getInteger(Args, OPT_mips_got_size, 0xfff0);
   Config->MergeArmExidx =
       Args.hasFlag(OPT_merge_exidx_entries, OPT_no_merge_exidx_entries, true);
   Config->NoinhibitExec = Args.hasArg(OPT_noinhibit_exec);
@@ -748,12 +791,23 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->ThinLTOCachePolicy = CHECK(
       parseCachePruningPolicy(Args.getLastArgValue(OPT_thinlto_cache_policy)),
       "--thinlto-cache-policy: invalid cache policy");
+  Config->ThinLTOEmitImportsFiles =
+      Args.hasArg(OPT_plugin_opt_thinlto_emit_imports_files);
+  Config->ThinLTOIndexOnly = Args.hasArg(OPT_plugin_opt_thinlto_index_only) ||
+                             Args.hasArg(OPT_plugin_opt_thinlto_index_only_eq);
+  Config->ThinLTOIndexOnlyArg =
+      Args.getLastArgValue(OPT_plugin_opt_thinlto_index_only_eq);
   Config->ThinLTOJobs = args::getInteger(Args, OPT_thinlto_jobs, -1u);
-  ThreadsEnabled = Args.hasFlag(OPT_threads, OPT_no_threads, true);
+  Config->ThinLTOObjectSuffixReplace =
+      getOldNewOptions(Args, OPT_plugin_opt_thinlto_object_suffix_replace_eq);
+  Config->ThinLTOPrefixReplace =
+      getOldNewOptions(Args, OPT_plugin_opt_thinlto_prefix_replace_eq);
   Config->Trace = Args.hasArg(OPT_trace);
   Config->Undefined = args::getStrings(Args, OPT_undefined);
   Config->UndefinedVersion =
       Args.hasFlag(OPT_undefined_version, OPT_no_undefined_version, true);
+  Config->UseAndroidRelrTags = Args.hasFlag(
+      OPT_use_android_relr_tags, OPT_no_use_android_relr_tags, false);
   Config->UnresolvedSymbols = getUnresolvedSymbolPolicy(Args);
   Config->WarnBackrefs =
       Args.hasFlag(OPT_warn_backrefs, OPT_no_warn_backrefs, false);
@@ -764,6 +818,7 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->ZCopyreloc = getZFlag(Args, "copyreloc", "nocopyreloc", true);
   Config->ZExecstack = getZFlag(Args, "execstack", "noexecstack", false);
   Config->ZHazardplt = hasZOption(Args, "hazardplt");
+  Config->ZInitfirst = hasZOption(Args, "initfirst");
   Config->ZKeepTextSectionPrefix = getZFlag(
       Args, "keep-text-section-prefix", "nokeep-text-section-prefix", false);
   Config->ZNodelete = hasZOption(Args, "nodelete");
@@ -777,47 +832,13 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->ZText = getZFlag(Args, "text", "notext", true);
   Config->ZWxneeded = hasZOption(Args, "wxneeded");
 
-  // Parse LTO plugin-related options for compatibility with gold.
-  for (auto *Arg : Args.filtered(OPT_plugin_opt)) {
-    StringRef S = Arg->getValue();
-    if (S == "disable-verify") {
-      Config->DisableVerify = true;
-    } else if (S == "save-temps") {
-      Config->SaveTemps = true;
-    } else if (S.startswith("O")) {
-      Config->LTOO = parseInt(S.substr(1), Arg);
-    } else if (S.startswith("lto-partitions=")) {
-      Config->LTOPartitions = parseInt(S.substr(15), Arg);
-    } else if (S.startswith("jobs=")) {
-      Config->ThinLTOJobs = parseInt(S.substr(5), Arg);
-    } else if (S.startswith("mcpu=")) {
-      parseClangOption(Saver.save("-" + S), Arg->getSpelling());
-    } else if (S == "new-pass-manager") {
-      Config->LTONewPassManager = true;
-    } else if (S == "debug-pass-manager") {
-      Config->LTODebugPassManager = true;
-    } else if (S.startswith("sample-profile=")) {
-      Config->LTOSampleProfile = S.substr(15);
-    } else if (S.startswith("obj-path=")) {
-      Config->LTOObjPath = S.substr(9);
-    } else if (S == "thinlto-index-only") {
-      Config->ThinLTOIndexOnly = true;
-    } else if (S.startswith("thinlto-index-only=")) {
-      Config->ThinLTOIndexOnly = true;
-      Config->ThinLTOIndexOnlyArg = S.substr(19);
-    } else if (S == "thinlto-emit-imports-files") {
-      Config->ThinLTOEmitImportsFiles = true;
-    } else if (S.startswith("thinlto-prefix-replace=")) {
-      std::tie(Config->ThinLTOPrefixReplace.first,
-               Config->ThinLTOPrefixReplace.second) = S.substr(23).split(';');
-      if (Config->ThinLTOPrefixReplace.second.empty())
-        error("thinlto-prefix-replace expects 'old;new' format, but got " +
-              S.substr(23));
-    } else if (!S.startswith("/") && !S.startswith("-fresolution=") &&
-               !S.startswith("-pass-through=") && !S.startswith("thinlto")) {
-      parseClangOption(S, Arg->getSpelling());
-    }
-  }
+  // Parse LTO options.
+  if (auto *Arg = Args.getLastArg(OPT_plugin_opt_mcpu_eq))
+    parseClangOption(Saver.save("-mcpu=" + StringRef(Arg->getValue())),
+                     Arg->getSpelling());
+
+  for (auto *Arg : Args.filtered(OPT_plugin_opt))
+    parseClangOption(Arg->getValue(), Arg->getSpelling());
 
   // Parse -mllvm options.
   for (auto *Arg : Args.filtered(OPT_mllvm))
@@ -864,13 +885,8 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
 
   std::tie(Config->BuildId, Config->BuildIdVector) = getBuildId(Args);
 
-  if (auto *Arg = Args.getLastArg(OPT_pack_dyn_relocs)) {
-    StringRef S = Arg->getValue();
-    if (S == "android")
-      Config->AndroidPackDynRelocs = true;
-    else if (S != "none")
-      error("unknown -pack-dyn-relocs format: " + S);
-  }
+  std::tie(Config->AndroidPackDynRelocs, Config->RelrPackDynRelocs) =
+      getPackDynRelocs(Args);
 
   if (auto *Arg = Args.getLastArg(OPT_symbol_ordering_file))
     if (Optional<MemoryBufferRef> Buffer = readFile(Arg->getValue()))
@@ -922,20 +938,35 @@ static void setConfigs(opt::InputArgList &Args) {
   ELFKind Kind = Config->EKind;
   uint16_t Machine = Config->EMachine;
 
-  // There is an ILP32 ABI for x86-64, although it's not very popular.
-  // It is called the x32 ABI.
-  bool IsX32 = (Kind == ELF32LEKind && Machine == EM_X86_64);
-
   Config->CopyRelocs = (Config->Relocatable || Config->EmitRelocs);
   Config->Is64 = (Kind == ELF64LEKind || Kind == ELF64BEKind);
   Config->IsLE = (Kind == ELF32LEKind || Kind == ELF64LEKind);
   Config->Endianness =
       Config->IsLE ? support::endianness::little : support::endianness::big;
   Config->IsMips64EL = (Kind == ELF64LEKind && Machine == EM_MIPS);
-  Config->IsRela =
-      (Config->Is64 || IsX32 || Machine == EM_PPC) && Machine != EM_MIPS;
   Config->Pic = Config->Pie || Config->Shared;
   Config->Wordsize = Config->Is64 ? 8 : 4;
+
+  // There is an ILP32 ABI for x86-64, although it's not very popular.
+  // It is called the x32 ABI.
+  bool IsX32 = (Kind == ELF32LEKind && Machine == EM_X86_64);
+
+  // ELF defines two different ways to store relocation addends as shown below:
+  //
+  //  Rel:  Addends are stored to the location where relocations are applied.
+  //  Rela: Addends are stored as part of relocation entry.
+  //
+  // In other words, Rela makes it easy to read addends at the price of extra
+  // 4 or 8 byte for each relocation entry. We don't know why ELF defined two
+  // different mechanisms in the first place, but this is how the spec is
+  // defined.
+  //
+  // You cannot choose which one, Rel or Rela, you want to use. Instead each
+  // ABI defines which one you need to use. The following expression expresses
+  // that.
+  Config->IsRela =
+      (Config->Is64 || IsX32 || Machine == EM_PPC) && Machine != EM_MIPS;
+
   // If the output uses REL relocations we must store the dynamic relocation
   // addends to the output sections. We also store addends for RELA relocations
   // if --apply-dynamic-relocs is used.
@@ -958,6 +989,10 @@ static bool getBinaryOption(StringRef S) {
 }
 
 void LinkerDriver::createFiles(opt::InputArgList &Args) {
+  // For --{push,pop}-state.
+  std::vector<std::tuple<bool, bool, bool>> Stack;
+
+  // Iterate over argv to process input files and positional arguments.
   for (auto *Arg : Args) {
     switch (Arg->getOption().getUnaliasedOption().getID()) {
     case OPT_library:
@@ -1033,6 +1068,17 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
       InLib = false;
       InputFile::IsInGroup = false;
       ++InputFile::NextGroupId;
+      break;
+    case OPT_push_state:
+      Stack.emplace_back(Config->AsNeeded, Config->Static, InWholeArchive);
+      break;
+    case OPT_pop_state:
+      if (Stack.empty()) {
+        error("unbalanced --push-state/--pop-state");
+        break;
+      }
+      std::tie(Config->AsNeeded, Config->Static, InWholeArchive) = Stack.back();
+      Stack.pop_back();
       break;
     }
   }
@@ -1116,12 +1162,19 @@ static void excludeLibs(opt::InputArgList &Args) {
   DenseSet<StringRef> Libs = getExcludeLibs(Args);
   bool All = Libs.count("ALL");
 
-  for (InputFile *File : ObjectFiles)
+  auto Visit = [&](InputFile *File) {
     if (!File->ArchiveName.empty())
       if (All || Libs.count(path::filename(File->ArchiveName)))
         for (Symbol *Sym : File->getSymbols())
           if (!Sym->isLocal() && Sym->File == File)
             Sym->VersionId = VER_NDX_LOCAL;
+  };
+
+  for (InputFile *File : ObjectFiles)
+    Visit(File);
+
+  for (BitcodeFile *File : BitcodeFiles)
+    Visit(File);
 }
 
 // Force Sym to be entered in the output. Used for -u or equivalent.
@@ -1152,6 +1205,12 @@ template <class ELFT> static bool shouldDemote(Symbol &Sym) {
   return Sym.isLazy() && Sym.IsUsedInRegularObj;
 }
 
+// Some files, such as .so or files between -{start,end}-lib may be removed
+// after their symbols are added to the symbol table. If that happens, we
+// need to remove symbols that refer files that no longer exist, so that
+// they won't appear in the symbol table of the output file.
+//
+// We remove symbols by demoting them to undefined symbol.
 template <class ELFT> static void demoteSymbols() {
   for (Symbol *Sym : Symtab->getSymbols()) {
     if (shouldDemote<ELFT>(*Sym)) {

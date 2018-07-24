@@ -193,6 +193,8 @@ def err_drv_mg_requires_m_or_mm : Error<
   "option '-MG' requires '-M' or '-MM'">;
 def err_drv_unknown_objc_runtime : Error<
   "unknown or ill-formed Objective-C runtime '%0'">;
+def err_drv_gnustep_objc_runtime_incompatible_binary : Error<
+  "GNUstep Objective-C runtime version %0 incompatible with target binary format">;
 def err_drv_emit_llvm_link : Error<
    "-emit-llvm cannot be used when linking">;
 def err_drv_optimization_remark_pattern : Error<
@@ -266,15 +268,12 @@ def warn_incompatible_sysroot : Warning<"using sysroot for '%0' but targeting '%
   InGroup<DiagGroup<"incompatible-sysroot">>;
 def warn_debug_compression_unavailable : Warning<"cannot compress debug sections (zlib not installed)">,
   InGroup<DiagGroup<"debug-compression-unavailable">>;
-def warn_drv_enabling_rtti_with_exceptions : Warning<
-  "implicitly enabling rtti for exception handling">,
-  InGroup<DiagGroup<"rtti-for-exceptions">>;
 def warn_drv_disabling_vptr_no_rtti_default : Warning<
   "implicitly disabling vptr sanitizer because rtti wasn't enabled">,
   InGroup<AutoDisableVptrSanitizer>;
 def warn_drv_object_size_disabled_O0 : Warning<
   "the object size sanitizer has no effect at -O0, but is explicitly enabled: %0">,
-  InGroup<InvalidCommandLineArgument>;
+  InGroup<InvalidCommandLineArgument>, DefaultWarnNoWerror;
 
 def note_drv_command_failed_diag_msg : Note<
   "diagnostic msg: %0">;
@@ -386,4 +385,8 @@ def warn_drv_experimental_isel_incomplete : Warning<
 def warn_drv_experimental_isel_incomplete_opt : Warning<
   "-fexperimental-isel support is incomplete for this architecture at the current optimization level">,
   InGroup<ExperimentalISel>;
+
+def warn_drv_moutline_unsupported_opt : Warning<
+  "The '%0' architecture does not support -moutline; flag ignored">,
+  InGroup<OptionIgnored>;
 }

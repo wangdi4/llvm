@@ -53,7 +53,6 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TargetOptions.h"
 #include "clang/Basic/Version.h"
-#include "clang/Basic/VersionTuple.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/MacroInfo.h"
@@ -79,6 +78,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -97,6 +97,7 @@
 #include "llvm/Support/OnDiskHashTable.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SHA1.h"
+#include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -454,6 +455,14 @@ ASTTypeWriter::VisitDependentSizedExtVectorType(
   Code = TYPE_DEPENDENT_SIZED_EXT_VECTOR;
 }
 
+void ASTTypeWriter::VisitDependentVectorType(const DependentVectorType *T) {
+  Record.AddTypeRef(T->getElementType());
+  Record.AddStmt(const_cast<Expr*>(T->getSizeExpr()));
+  Record.AddSourceLocation(T->getAttributeLoc());
+  Record.push_back(T->getVectorKind());
+  Code = TYPE_DEPENDENT_SIZED_VECTOR;
+}
+
 void
 ASTTypeWriter::VisitDependentAddressSpaceType(
     const DependentAddressSpaceType *T) {
@@ -672,6 +681,11 @@ void TypeLocWriter::VisitDependentSizedExtVectorTypeLoc(
 }
 
 void TypeLocWriter::VisitVectorTypeLoc(VectorTypeLoc TL) {
+  Record.AddSourceLocation(TL.getNameLoc());
+}
+
+void TypeLocWriter::VisitDependentVectorTypeLoc(
+    DependentVectorTypeLoc TL) {
   Record.AddSourceLocation(TL.getNameLoc());
 }
 
@@ -1458,16 +1472,23 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, ASTContext &Context,
   MetadataAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 16)); // Clang min.
   MetadataAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Relocatable
   MetadataAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Timestamps
+  MetadataAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // PCHHasObjectFile
   MetadataAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Errors
   MetadataAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob)); // SVN branch/tag
   unsigned MetadataAbbrevCode = Stream.EmitAbbrev(std::move(MetadataAbbrev));
   assert((!WritingModule || isysroot.empty()) &&
          "writing module as a relocatable PCH?");
   {
-    RecordData::value_type Record[] = {METADATA, VERSION_MAJOR, VERSION_MINOR,
-                                       CLANG_VERSION_MAJOR, CLANG_VERSION_MINOR,
-                                       !isysroot.empty(), IncludeTimestamps,
-                                       ASTHasCompilerErrors};
+    RecordData::value_type Record[] = {
+        METADATA,
+        VERSION_MAJOR,
+        VERSION_MINOR,
+        CLANG_VERSION_MAJOR,
+        CLANG_VERSION_MINOR,
+        !isysroot.empty(),
+        IncludeTimestamps,
+        Context.getLangOpts().BuildingPCHWithObjectFile,
+        ASTHasCompilerErrors};
     Stream.EmitRecordWithBlob(MetadataAbbrevCode, Record,
                               getClangFullRepositoryVersion());
   }
@@ -1955,7 +1976,7 @@ namespace {
     EmitKeyDataLength(raw_ostream& Out, key_type_ref key, data_type_ref Data) {
       using namespace llvm::support;
 
-      endian::Writer<little> LE(Out);
+      endian::Writer LE(Out, little);
       unsigned KeyLen = key.Filename.size() + 1 + 8 + 8;
       LE.write<uint16_t>(KeyLen);
       unsigned DataLen = 1 + 2 + 4 + 4;
@@ -1971,7 +1992,7 @@ namespace {
     void EmitKey(raw_ostream& Out, key_type_ref key, unsigned KeyLen) {
       using namespace llvm::support;
 
-      endian::Writer<little> LE(Out);
+      endian::Writer LE(Out, little);
       LE.write<uint64_t>(key.Size);
       KeyLen -= 8;
       LE.write<uint64_t>(key.ModTime);
@@ -1983,7 +2004,7 @@ namespace {
                   data_type_ref Data, unsigned DataLen) {
       using namespace llvm::support;
 
-      endian::Writer<little> LE(Out);
+      endian::Writer LE(Out, little);
       uint64_t Start = Out.tell(); (void)Start;
 
       unsigned char Flags = (Data.HFI.isImport << 5)
@@ -2153,7 +2174,7 @@ void ASTWriter::WriteHeaderSearch(const HeaderSearch &HS) {
 
     llvm::raw_svector_ostream Out(TableData);
     // Make sure that no bucket is at offset 0
-    endian::Writer<little>(Out).write<uint32_t>(0);
+    endian::write<uint32_t>(Out, 0, little);
     BucketOffset = Generator.Emit(Out, GeneratorTrait);
   }
 
@@ -3245,6 +3266,9 @@ void ASTWriter::WriteFileDeclIDsMap() {
 
 void ASTWriter::WriteComments() {
   Stream.EnterSubblock(COMMENTS_BLOCK_ID, 3);
+  auto _ = llvm::make_scope_exit([this] { Stream.ExitBlock(); });
+  if (!PP->getPreprocessorOpts().WriteCommentListToPCH)
+    return;
   ArrayRef<RawComment *> RawComments = Context->Comments.getComments();
   RecordData Record;
   for (const auto *I : RawComments) {
@@ -3255,7 +3279,6 @@ void ASTWriter::WriteComments() {
     Record.push_back(I->isAlmostTrailingComment());
     Stream.EmitRecord(COMMENTS_RAW_COMMENT, Record);
   }
-  Stream.ExitBlock();
 }
 
 //===----------------------------------------------------------------------===//
@@ -3292,7 +3315,7 @@ public:
                       data_type_ref Methods) {
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
     unsigned KeyLen = 2 + (Sel.getNumArgs()? Sel.getNumArgs() * 4 : 4);
     LE.write<uint16_t>(KeyLen);
     unsigned DataLen = 4 + 2 + 2; // 2 bytes for each of the method counts
@@ -3311,7 +3334,7 @@ public:
   void EmitKey(raw_ostream& Out, Selector Sel, unsigned) {
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
     uint64_t Start = Out.tell();
     assert((Start >> 32) == 0 && "Selector key offset too large");
     Writer.SetSelectorOffset(Sel, Start);
@@ -3328,7 +3351,7 @@ public:
                 data_type_ref Methods, unsigned DataLen) {
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
     uint64_t Start = Out.tell(); (void)Start;
     LE.write<uint32_t>(Methods.ID);
     unsigned NumInstanceMethods = 0;
@@ -3440,7 +3463,7 @@ void ASTWriter::WriteSelectors(Sema &SemaRef) {
       ASTMethodPoolTrait Trait(*this);
       llvm::raw_svector_ostream Out(MethodPool);
       // Make sure that no bucket is at offset 0
-      endian::Writer<little>(Out).write<uint32_t>(0);
+      endian::write<uint32_t>(Out, 0, little);
       BucketOffset = Generator.Emit(Out, Trait);
     }
 
@@ -3622,7 +3645,7 @@ public:
 
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
 
     assert((uint16_t)DataLen == DataLen && (uint16_t)KeyLen == KeyLen);
     LE.write<uint16_t>(DataLen);
@@ -3651,7 +3674,7 @@ public:
                 IdentID ID, unsigned) {
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
 
     auto MacroOffset = Writer.getMacroDirectivesOffset(II);
     if (!isInterestingIdentifier(II, MacroOffset)) {
@@ -3755,7 +3778,7 @@ void ASTWriter::WriteIdentifierTable(Preprocessor &PP,
 
       llvm::raw_svector_ostream Out(IdentifierTable);
       // Make sure that no bucket is at offset 0
-      endian::Writer<little>(Out).write<uint32_t>(0);
+      endian::write<uint32_t>(Out, 0, little);
       BucketOffset = Generator.Emit(Out, Trait);
     }
 
@@ -3851,8 +3874,7 @@ public:
 
     using namespace llvm::support;
 
-    endian::Writer<little>(Out)
-        .write<uint32_t>(Writer.getChain()->getModuleFileID(F));
+    endian::write<uint32_t>(Out, Writer.getChain()->getModuleFileID(F), little);
   }
 
   std::pair<unsigned, unsigned> EmitKeyDataLength(raw_ostream &Out,
@@ -3860,7 +3882,7 @@ public:
                                                   data_type_ref Lookup) {
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
     unsigned KeyLen = 1;
     switch (Name.getKind()) {
     case DeclarationName::Identifier:
@@ -3894,7 +3916,7 @@ public:
   void EmitKey(raw_ostream &Out, DeclarationNameKey Name, unsigned) {
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
     LE.write<uint8_t>(Name.getKind());
     switch (Name.getKind()) {
     case DeclarationName::Identifier:
@@ -3926,7 +3948,7 @@ public:
                 unsigned DataLen) {
     using namespace llvm::support;
 
-    endian::Writer<little> LE(Out);
+    endian::Writer LE(Out, little);
     uint64_t Start = Out.tell(); (void)Start;
     for (unsigned I = Lookup.first, N = Lookup.second; I != N; ++I)
       LE.write<uint32_t>(DeclIDs[I]);
@@ -4763,13 +4785,15 @@ ASTFileSignature ASTWriter::WriteASTCore(Sema &SemaRef, StringRef isysroot,
   // analyze later in AST.
   RecordData DeleteExprsToAnalyze;
 
-  for (const auto &DeleteExprsInfo :
-       SemaRef.getMismatchingDeleteExpressions()) {
-    AddDeclRef(DeleteExprsInfo.first, DeleteExprsToAnalyze);
-    DeleteExprsToAnalyze.push_back(DeleteExprsInfo.second.size());
-    for (const auto &DeleteLoc : DeleteExprsInfo.second) {
-      AddSourceLocation(DeleteLoc.first, DeleteExprsToAnalyze);
-      DeleteExprsToAnalyze.push_back(DeleteLoc.second);
+  if (!isModule) {
+    for (const auto &DeleteExprsInfo :
+         SemaRef.getMismatchingDeleteExpressions()) {
+      AddDeclRef(DeleteExprsInfo.first, DeleteExprsToAnalyze);
+      DeleteExprsToAnalyze.push_back(DeleteExprsInfo.second.size());
+      for (const auto &DeleteLoc : DeleteExprsInfo.second) {
+        AddSourceLocation(DeleteLoc.first, DeleteExprsToAnalyze);
+        DeleteExprsToAnalyze.push_back(DeleteLoc.second);
+      }
     }
   }
 
@@ -4921,7 +4945,7 @@ ASTFileSignature ASTWriter::WriteASTCore(Sema &SemaRef, StringRef isysroot,
       for (ModuleFile &M : Chain->ModuleMgr) {
         using namespace llvm::support;
 
-        endian::Writer<little> LE(Out);
+        endian::Writer LE(Out, little);
         LE.write<uint8_t>(static_cast<uint8_t>(M.Kind));
         StringRef Name =
           M.Kind == MK_PrebuiltModule || M.Kind == MK_ExplicitModule
@@ -5439,12 +5463,11 @@ void ASTRecordWriter::AddTypeSourceInfo(TypeSourceInfo *TInfo) {
     return;
   }
 
+  AddTypeRef(TInfo->getType());
   AddTypeLoc(TInfo->getTypeLoc());
 }
 
 void ASTRecordWriter::AddTypeLoc(TypeLoc TL) {
-  AddTypeRef(TL.getType());
-
   TypeLocWriter TLW(*this);
   for (; !TL.isNull(); TL = TL.getNextTypeLoc())
     TLW.Visit(TL);
@@ -5769,6 +5792,7 @@ void ASTRecordWriter::AddNestedNameSpecifierLoc(NestedNameSpecifierLoc NNS) {
     case NestedNameSpecifier::TypeSpec:
     case NestedNameSpecifier::TypeSpecWithTemplate:
       Record->push_back(Kind == NestedNameSpecifier::TypeSpecWithTemplate);
+      AddTypeRef(NNS.getTypeLoc().getType());
       AddTypeLoc(NNS.getTypeLoc());
       AddSourceLocation(NNS.getLocalSourceRange().getEnd());
       break;

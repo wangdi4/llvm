@@ -57,6 +57,9 @@ The improvements are...
 Improvements to clang-tidy
 --------------------------
 
+- The checks profiling info can now be stored as JSON files for futher
+  post-processing and analysis.
+
 - New module `abseil` for checks related to the `Abseil <https://abseil.io>`_
   library.
 
@@ -64,11 +67,23 @@ Improvements to clang-tidy
 
 - New module ``zircon`` for checks related to Fuchsia's Zircon kernel.
 
+- New :doc:`abseil-string-find-startswith
+  <clang-tidy/checks/abseil-string-find-startswith>` check.
+
+  Checks whether a ``std::string::find()`` result is compared with 0, and
+  suggests replacing with ``absl::StartsWith()``.
+
 - New :doc:`android-comparison-in-temp-failure-retry
   <clang-tidy/checks/android-comparison-in-temp-failure-retry>` check.
 
   Diagnoses comparisons that appear to be incorrectly placed in the argument to
   the ``TEMP_FAILURE_RETRY`` macro.
+
+- New :doc:`bugprone-exception-escape
+  <clang-tidy/checks/bugprone-exception-escape>` check
+
+  Finds functions which may throw an exception directly or indirectly, but they
+  should not.
 
 - New :doc:`bugprone-parent-virtual-call
   <clang-tidy/checks/bugprone-parent-virtual-call>` check.
@@ -92,6 +107,16 @@ Improvements to clang-tidy
 
   Warns on unused function return values.
 
+- New :doc:`cert-msc32-c
+  <clang-tidy/checks/cert-msc32-c>` check
+
+  Detects inappropriate seeding of ``srand()`` function.
+
+- New :doc:`cert-msc51-cpp
+  <clang-tidy/checks/cert-msc51-cpp>` check
+
+  Detects inappropriate seeding of C++ random generators and C ``srand()`` function.
+  
 - New :doc:`cppcoreguidelines-avoid-goto
   <clang-tidy/checks/cppcoreguidelines-avoid-goto>` check.
 
@@ -99,21 +124,15 @@ Improvements to clang-tidy
   with looping constructs. Every backward jump is rejected. Forward jumps are
   only allowed in nested loops.
 
-- New alias :doc:`fuchsia-header-anon-namespaces
-  <clang-tidy/checks/fuchsia-header-anon-namespaces>` to :doc:`google-build-namespaces
-  <clang-tidy/checks/google-build-namespaces>`
-  added.
+- New :doc:`cppcoreguidelines-narrowing-conversions
+  <clang-tidy/checks/cppcoreguidelines-narrowing-conversions>` check
+
+  Checks for narrowing conversions, e. g. ``int i = 0; i += 0.1;``.
 
 - New :doc:`fuchsia-multiple-inheritance
   <clang-tidy/checks/fuchsia-multiple-inheritance>` check.
 
   Warns if a class inherits from multiple classes that are not pure virtual.
-
-- New :doc:`abseil-string-find-startswith
-  <clang-tidy/checks/abseil-string-find-startswith>` check.
-
-  Checks whether a ``std::string::find()`` result is compared with 0, and
-  suggests replacing with ``absl::StartsWith()``.
 
 - New `fuchsia-restrict-system-includes
   <http://clang.llvm.org/extra/clang-tidy/checks/fuchsia-restrict-system-includes.html>`_ check
@@ -151,6 +170,11 @@ Improvements to clang-tidy
   Warns or suggests alternatives if SIMD intrinsics are used which can be replaced by
   ``std::experimental::simd`` operations.
 
+- New :doc:`readability-simplify-subscript-expr
+  <clang-tidy/checks/readability-simplify-subscript-expr>` check.
+
+  Simplifies subscript expressions like ``s.data()[i]`` into ``s[i]``.
+
 - New :doc:`zircon-temporary-objects
   <clang-tidy/checks/zircon-temporary-objects>` check.
 
@@ -175,10 +199,19 @@ Improvements to clang-tidy
 - The `AnalyzeTemporaryDtors` option was removed, since the corresponding
   `cfg-temporary-dtors` option of the Static Analyzer now defaults to `true`.
 
+- New alias :doc:`fuchsia-header-anon-namespaces
+  <clang-tidy/checks/fuchsia-header-anon-namespaces>` to :doc:`google-build-namespaces
+  <clang-tidy/checks/google-build-namespaces>`
+  added.
+
 - New alias :doc:`hicpp-avoid-goto
   <clang-tidy/checks/hicpp-avoid-goto>` to :doc:`cppcoreguidelines-avoid-goto
   <clang-tidy/checks/cppcoreguidelines-avoid-goto>`
   added.
+
+- Removed the `google-readability-redundant-smartptr-get` alias of the
+  :doc:`readability-redundant-smartptr-get
+  <clang-tidy/checks/readability-redundant-smartptr-get>` check.
 
 - The 'misc-forwarding-reference-overload' check was renamed to :doc:`bugprone-forwarding-reference-overload
   <clang-tidy/checks/bugprone-forwarding-reference-overload>`

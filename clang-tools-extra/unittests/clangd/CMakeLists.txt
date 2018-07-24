@@ -17,12 +17,12 @@ add_extra_unittest(ClangdTests
   ContextTests.cpp
   DraftStoreTests.cpp
   FileIndexTests.cpp
+  FileDistanceTests.cpp
   FindSymbolsTests.cpp
   FuzzyMatchTests.cpp
   GlobalCompilationDatabaseTests.cpp
   HeadersTests.cpp
   IndexTests.cpp
-  JSONExprTests.cpp
   QualityTests.cpp
   SourceCodeTests.cpp
   SymbolCollectorTests.cpp
@@ -48,6 +48,7 @@ target_link_libraries(ClangdTests
   clangSema
   clangTooling
   clangToolingCore
+  clangToolingInclusions
   LLVMSupport
   LLVMTestingSupport
   )

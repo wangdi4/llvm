@@ -452,7 +452,7 @@ void HexagonMCCodeEmitter::EncodeSingleInstruction(const MCInst &MI,
 
     Binary |= SubBits0 | (SubBits1 << 16);
   }
-  support::endian::Writer<support::little>(OS).write<uint32_t>(Binary);
+  support::endian::write<uint32_t>(OS, Binary, support::little);
   ++MCNumEmitted;
 }
 
@@ -657,7 +657,7 @@ unsigned HexagonMCCodeEmitter::getExprOpValue(const MCInst &MI,
           for (const MCPhysReg *U = D.getImplicitUses(); U && *U; ++U)
             if (*U == Hexagon::GP)
               return true;
-            return false;
+          return false;
         };
         if (UsesGP(MCID))
           FixupKind = GPRelFixups[Shift];

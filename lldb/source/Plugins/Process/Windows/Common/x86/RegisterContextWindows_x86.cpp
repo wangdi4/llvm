@@ -15,9 +15,9 @@
 
 #include "ProcessWindowsLog.h"
 #include "RegisterContextWindows_x86.h"
-#include "RegisterContext_x86.h"
+#include "Plugins/Process/Utility/RegisterContext_x86.h"
 #include "TargetThreadWindows.h"
-#include "lldb-x86-register-enums.h"
+#include "Plugins/Process/Utility/lldb-x86-register-enums.h"
 
 #include "llvm/ADT/STLExtras.h"
 
@@ -174,6 +174,9 @@ const RegisterSet *RegisterContextWindows_x86::GetRegisterSet(size_t reg_set) {
 bool RegisterContextWindows_x86::ReadRegister(const RegisterInfo *reg_info,
                                               RegisterValue &reg_value) {
   if (!CacheAllRegisterValues())
+    return false;
+
+  if (reg_info == nullptr)
     return false;
 
   uint32_t reg = reg_info->kinds[eRegisterKindLLDB];

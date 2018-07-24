@@ -98,6 +98,7 @@ struct Configuration {
   bool Debug = false;
   bool DebugDwarf = false;
   bool DebugGHashes = false;
+  bool DebugSymtab = false;
   bool ShowTiming = false;
   unsigned DebugTypes = static_cast<unsigned>(DebugType::None);
   std::vector<std::string> NatvisFiles;
@@ -129,10 +130,10 @@ struct Configuration {
   Symbol *SEHCount = nullptr;
 
   // Used for /opt:lldlto=N
-  unsigned LTOOptLevel = 2;
+  unsigned LTOO = 2;
 
   // Used for /opt:lldltojobs=N
-  unsigned LTOJobs = 0;
+  unsigned ThinLTOJobs = 0;
   // Used for /opt:lldltopartitions=N
   unsigned LTOPartitions = 1;
 
@@ -181,6 +182,7 @@ struct Configuration {
   uint32_t MinorImageVersion = 0;
   uint32_t MajorOSVersion = 6;
   uint32_t MinorOSVersion = 0;
+  uint32_t Timestamp = 0;
   bool DynamicBase = true;
   bool AllowBind = true;
   bool NxCompat = true;
@@ -193,7 +195,9 @@ struct Configuration {
   bool WarnMissingOrderSymbol = true;
   bool WarnLocallyDefinedImported = true;
   bool Incremental = true;
+  bool IntegrityCheck = false;
   bool KillAt = false;
+  bool Repro = false;
 };
 
 extern Configuration *Config;

@@ -152,7 +152,7 @@ roundss     $1, (%rax), %xmm2
 # CHECK-NEXT: [3]: RThroughput
 # CHECK-NEXT: [4]: MayLoad
 # CHECK-NEXT: [5]: MayStore
-# CHECK-NEXT: [6]: HasSideEffects
+# CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
 # CHECK-NEXT:  1      1     0.50                        blendpd	$11, %xmm0, %xmm2
@@ -191,12 +191,12 @@ roundss     $1, (%rax), %xmm2
 # CHECK-NEXT:  1      3     1.00           *            pextrw	$1, %xmm0, (%rax)
 # CHECK-NEXT:  1      2     1.00                        phminposuw	%xmm0, %xmm2
 # CHECK-NEXT:  1      7     1.00    *                   phminposuw	(%rax), %xmm2
-# CHECK-NEXT:  1      1     0.50                        pinsrb	$1, %eax, %xmm1
-# CHECK-NEXT:  1      6     1.00    *                   pinsrb	$1, (%rax), %xmm1
-# CHECK-NEXT:  1      1     0.50                        pinsrd	$1, %eax, %xmm1
-# CHECK-NEXT:  1      6     1.00    *                   pinsrd	$1, (%rax), %xmm1
-# CHECK-NEXT:  1      1     0.50                        pinsrq	$1, %rax, %xmm1
-# CHECK-NEXT:  1      6     1.00    *                   pinsrq	$1, (%rax), %xmm1
+# CHECK-NEXT:  2      7     0.50                        pinsrb	$1, %eax, %xmm1
+# CHECK-NEXT:  1      4     1.00    *                   pinsrb	$1, (%rax), %xmm1
+# CHECK-NEXT:  2      7     0.50                        pinsrd	$1, %eax, %xmm1
+# CHECK-NEXT:  1      4     1.00    *                   pinsrd	$1, (%rax), %xmm1
+# CHECK-NEXT:  2      7     0.50                        pinsrq	$1, %rax, %xmm1
+# CHECK-NEXT:  1      4     1.00    *                   pinsrq	$1, (%rax), %xmm1
 # CHECK-NEXT:  1      1     0.50                        pmaxsb	%xmm0, %xmm2
 # CHECK-NEXT:  1      6     1.00    *                   pmaxsb	(%rax), %xmm2
 # CHECK-NEXT:  1      1     0.50                        pmaxsd	%xmm0, %xmm2
@@ -370,4 +370,3 @@ roundss     $1, (%rax), %xmm2
 # CHECK-NEXT:  -      -      -      -      -      -     1.00   1.00    -      -     1.00    -      -      -     roundsd	$1, (%rax), %xmm2
 # CHECK-NEXT:  -      -      -      -      -      -     1.00    -      -      -     1.00    -      -      -     roundss	$1, %xmm0, %xmm2
 # CHECK-NEXT:  -      -      -      -      -      -     1.00   1.00    -      -     1.00    -      -      -     roundss	$1, (%rax), %xmm2
-

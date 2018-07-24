@@ -253,6 +253,7 @@ void AggExprEmitter::withReturnValueSlot(
                  (RequiresDestruction && !Dest.getAddress().isValid());
 
   Address RetAddr = Address::invalid();
+  Address RetAllocaAddr = Address::invalid();
 
   EHScopeStack::stable_iterator LifetimeEndBlock;
   llvm::Value *LifetimeSizePtr = nullptr;
@@ -260,10 +261,10 @@ void AggExprEmitter::withReturnValueSlot(
   if (!UseTemp) {
     RetAddr = Dest.getAddress();
   } else {
-    RetAddr = CGF.CreateMemTemp(RetTy);
+    RetAddr = CGF.CreateMemTemp(RetTy, "tmp", &RetAllocaAddr);
     uint64_t Size =
         CGF.CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(RetTy));
-    LifetimeSizePtr = CGF.EmitLifetimeStart(Size, RetAddr.getPointer());
+    LifetimeSizePtr = CGF.EmitLifetimeStart(Size, RetAllocaAddr.getPointer());
     if (LifetimeSizePtr) {
       LifetimeStartInst =
           cast<llvm::IntrinsicInst>(std::prev(Builder.GetInsertPoint()));
@@ -272,7 +273,7 @@ void AggExprEmitter::withReturnValueSlot(
              "Last insertion wasn't a lifetime.start?");
 
       CGF.pushFullExprCleanup<CodeGenFunction::CallLifetimeEnd>(
-          NormalEHLifetimeMarker, RetAddr, LifetimeSizePtr);
+          NormalEHLifetimeMarker, RetAllocaAddr, LifetimeSizePtr);
       LifetimeEndBlock = CGF.EHStack.stable_begin();
     }
   }
@@ -294,7 +295,7 @@ void AggExprEmitter::withReturnValueSlot(
     // Since we're not guaranteed to be in an ExprWithCleanups, clean up
     // eagerly.
     CGF.DeactivateCleanupBlock(LifetimeEndBlock, LifetimeStartInst);
-    CGF.EmitLifetimeEnd(LifetimeSizePtr, RetAddr.getPointer());
+    CGF.EmitLifetimeEnd(LifetimeSizePtr, RetAllocaAddr.getPointer());
   }
 }
 
@@ -683,12 +684,12 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
       CGF.EmitDynamicCast(LV.getAddress(), cast<CXXDynamicCastExpr>(E));
     else
       CGF.CGM.ErrorUnsupported(E, "non-simple lvalue dynamic_cast");
-    
+
     if (!Dest.isIgnored())
       CGF.CGM.ErrorUnsupported(E, "lvalue dynamic_cast with a destination");
     break;
   }
-      
+
   case CK_ToUnion: {
     // Evaluate even if the destination is ignored.
     if (Dest.isIgnored()) {
@@ -1672,6 +1673,8 @@ static CharUnits GetNumNonZeroBytesInInit(const Expr *E, CodeGenFunction &CGF) {
   // If this is an initlist expr, sum up the size of sizes of the (present)
   // elements.  If this is something weird, assume the whole thing is non-zero.
   const InitListExpr *ILE = dyn_cast<InitListExpr>(E);
+  while (ILE && ILE->isTransparent())
+    ILE = dyn_cast<InitListExpr>(ILE->getInit(0));
   if (!ILE || !CGF.getTypes().isZeroInitializable(ILE->getType()))
     return CGF.getContext().getTypeSizeInChars(E->getType());
   

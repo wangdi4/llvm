@@ -147,8 +147,10 @@ void TracePC::HandleCallerCallee(uintptr_t Caller, uintptr_t Callee) {
 void TracePC::UpdateObservedPCs() {
   Vector<uintptr_t> CoveredFuncs;
   auto ObservePC = [&](uintptr_t PC) {
-    if (ObservedPCs.insert(PC).second && DoPrintNewPCs)
-      PrintPC("\tNEW_PC: %p %F %L\n", "\tNEW_PC: %p\n", PC + 1);
+    if (ObservedPCs.insert(PC).second && DoPrintNewPCs) {
+      PrintPC("\tNEW_PC: %p %F %L", "\tNEW_PC: %p", PC + 1);
+      Printf("\n");
+    }
   };
 
   auto Observe = [&](const PCTableEntry &TE) {
@@ -184,8 +186,9 @@ void TracePC::UpdateObservedPCs() {
   }
 
   for (size_t i = 0, N = Min(CoveredFuncs.size(), NumPrintNewFuncs); i < N; i++) {
-    Printf("\tNEW_FUNC[%zd/%zd]: ", i, CoveredFuncs.size());
-    PrintPC("%p %F %L\n", "%p\n", CoveredFuncs[i] + 1);
+    Printf("\tNEW_FUNC[%zd/%zd]: ", i + 1, CoveredFuncs.size());
+    PrintPC("%p %F %L", "%p", CoveredFuncs[i] + 1);
+    Printf("\n");
   }
 }
 
@@ -229,6 +232,39 @@ void TracePC::IterateCoveredFunctions(CallBack CB) {
   }
 }
 
+void TracePC::SetFocusFunction(const std::string &FuncName) {
+  // This function should be called once.
+  assert(FocusFunction.first > NumModulesWithInline8bitCounters);
+  if (FuncName.empty())
+    return;
+  for (size_t M = 0; M < NumModulesWithInline8bitCounters; M++) {
+    auto &PCTE = ModulePCTable[M];
+    size_t N = PCTE.Stop - PCTE.Start;
+    for (size_t I = 0; I < N; I++) {
+      if (!(PCTE.Start[I].PCFlags & 1)) continue;  // not a function entry.
+      auto Name = DescribePC("%F", GetNextInstructionPc(PCTE.Start[I].PC));
+      if (Name[0] == 'i' && Name[1] == 'n' && Name[2] == ' ')
+        Name = Name.substr(3, std::string::npos);
+      if (FuncName != Name) continue;
+      Printf("INFO: Focus function is set to '%s'\n", Name.c_str());
+      FocusFunction = {M, I};
+      return;
+    }
+  }
+}
+
+bool TracePC::ObservedFocusFunction() {
+  size_t I = FocusFunction.first;
+  size_t J = FocusFunction.second;
+  if (I >= NumModulesWithInline8bitCounters)
+    return false;
+  auto &MC = ModuleCounters[I];
+  size_t Size = MC.Stop - MC.Start;
+  if (J >= Size)
+    return false;
+  return MC.Start[J] != 0;
+}
+
 void TracePC::PrintCoverage() {
   if (!EF->__sanitizer_symbolize_pc ||
       !EF->__sanitizer_get_module_and_offset_for_pc) {
@@ -246,7 +282,7 @@ void TracePC::PrintCoverage() {
     std::string FunctionStr = DescribePC("%F", VisualizePC);
     std::string LineStr = DescribePC("%l", VisualizePC);
     size_t Line = std::stoul(LineStr);
-    std::vector<uintptr_t> UncoveredPCs;
+    Vector<uintptr_t> UncoveredPCs;
     for (auto TE = First; TE < Last; TE++)
       if (!ObservedPCs.count(TE->PC))
         UncoveredPCs.push_back(TE->PC);
@@ -263,6 +299,15 @@ void TracePC::PrintCoverage() {
   };
 
   IterateCoveredFunctions(CoveredFunctionCallback);
+}
+
+void TracePC::DumpCoverage() {
+  if (EF->__sanitizer_dump_coverage) {
+    Vector<uintptr_t> PCsCopy(GetNumPCs());
+    for (size_t i = 0; i < GetNumPCs(); i++)
+      PCsCopy[i] = PCs()[i] ? GetPreviousInstructionPc(PCs()[i]) : 0;
+    EF->__sanitizer_dump_coverage(PCsCopy.data(), PCsCopy.size());
+  }
 }
 
 // Value profile.
@@ -314,7 +359,14 @@ void TracePC::HandleCmp(uintptr_t PC, T Arg1, T Arg2) {
       TORC4.Insert(ArgXor, Arg1, Arg2);
   else if (sizeof(T) == 8)
       TORC8.Insert(ArgXor, Arg1, Arg2);
-  ValueProfileMap.AddValue(Idx);
+  // TODO: remove these flags and instead use all metrics at once.
+  if (UseValueProfileMask & 1)
+    ValueProfileMap.AddValue(Idx);
+  if (UseValueProfileMask & 2)
+    ValueProfileMap.AddValue(
+        PC * 64 + (Arg1 == Arg2 ? 0 : __builtin_clzll(Arg1 - Arg2) + 1));
+  if (UseValueProfileMask & 4)  // alternative way to use the hamming distance
+    ValueProfileMap.AddValue(PC * 64 + ArgDistance);
 }
 
 static size_t InternalStrnlen(const char *S, size_t MaxLen) {

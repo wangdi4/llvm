@@ -181,6 +181,23 @@ report to stderr.
                                         cl::init(false),
                                         cl::cat(ClangTidyCategory));
 
+static cl::opt<std::string> StoreCheckProfile("store-check-profile",
+                                              cl::desc(R"(
+By default reports are printed in tabulated
+format to stderr. When this option is passed,
+these per-TU profiles are instead stored as JSON.
+)"),
+                                              cl::value_desc("prefix"),
+                                              cl::cat(ClangTidyCategory));
+
+/// This option allows enabling the experimental alpha checkers from the static
+/// analyzer. This option is set to false and not visible in help, because it is
+/// highly not recommended for users.
+static cl::opt<bool>
+    AllowEnablingAnalyzerAlphaCheckers("allow-enabling-analyzer-alpha-checkers",
+                                       cl::init(false), cl::Hidden,
+                                       cl::cat(ClangTidyCategory));
+
 static cl::opt<std::string> ExportFixes("export-fixes", cl::desc(R"(
 YAML file to store suggested fixes in. The
 stored fixes can be applied to the input source
@@ -323,19 +340,30 @@ static int clangTidyMain(int argc, const char **argv) {
   if (!OptionsProvider)
     return 1;
 
+  auto MakeAbsolute = [](const std::string &Input) -> SmallString<256> {
+    if (Input.empty())
+      return {};
+    SmallString<256> AbsolutePath(Input);
+    if (std::error_code EC = llvm::sys::fs::make_absolute(AbsolutePath)) {
+      llvm::errs() << "Can't make absolute path from " << Input << ": "
+                   << EC.message() << "\n";
+    }
+    return AbsolutePath;
+  };
+
+  SmallString<256> ProfilePrefix = MakeAbsolute(StoreCheckProfile);
+
   StringRef FileName("dummy");
   auto PathList = OptionsParser.getSourcePathList();
   if (!PathList.empty()) {
     FileName = PathList.front();
   }
 
-  SmallString<256> FilePath(FileName);
-  if (std::error_code EC = llvm::sys::fs::make_absolute(FilePath)) {
-    llvm::errs() << "Can't make absolute path from " << FileName << ": "
-                 << EC.message() << "\n";
-  }
+  SmallString<256> FilePath = MakeAbsolute(FileName);
+
   ClangTidyOptions EffectiveOptions = OptionsProvider->getOptions(FilePath);
-  std::vector<std::string> EnabledChecks = getCheckNames(EffectiveOptions);
+  std::vector<std::string> EnabledChecks =
+      getCheckNames(EffectiveOptions, AllowEnablingAnalyzerAlphaCheckers);
 
   if (ExplainConfig) {
     // FIXME: Show other ClangTidyOptions' fields, like ExtraArg.
@@ -366,7 +394,8 @@ static int clangTidyMain(int argc, const char **argv) {
   }
 
   if (DumpConfig) {
-    EffectiveOptions.CheckOptions = getCheckOptions(EffectiveOptions);
+    EffectiveOptions.CheckOptions =
+        getCheckOptions(EffectiveOptions, AllowEnablingAnalyzerAlphaCheckers);
     llvm::outs() << configurationAsText(
                         ClangTidyOptions::getDefaults().mergeWith(
                             EffectiveOptions))
@@ -390,9 +419,10 @@ static int clangTidyMain(int argc, const char **argv) {
   llvm::InitializeAllTargetMCs();
   llvm::InitializeAllAsmParsers();
 
-  ClangTidyContext Context(std::move(OwningOptionsProvider));
+  ClangTidyContext Context(std::move(OwningOptionsProvider),
+                           AllowEnablingAnalyzerAlphaCheckers);
   runClangTidy(Context, OptionsParser.getCompilations(), PathList, BaseFS,
-               EnableCheckProfile);
+               EnableCheckProfile, ProfilePrefix);
   ArrayRef<ClangTidyError> Errors = Context.getErrors();
   bool FoundErrors = llvm::find_if(Errors, [](const ClangTidyError &E) {
                        return E.DiagLevel == ClangTidyError::Error;

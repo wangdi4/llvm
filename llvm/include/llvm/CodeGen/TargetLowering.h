@@ -509,6 +509,16 @@ public:
     return hasAndNotCompare(X);
   }
 
+  /// There are two ways to clear extreme bits (either low or high):
+  /// Mask:    x &  (-1 << y)  (the instcombine canonical form)
+  /// Shifts:  x >> y << y
+  /// Return true if the variant with 2 shifts is preferred.
+  /// Return false if there is no preference.
+  virtual bool preferShiftsToClearExtremeBits(SDValue X) const {
+    // By default, let's assume that no one prefers shifts.
+    return false;
+  }
+
   /// Return true if the target wants to use the optimization that
   /// turns ext(promotableInst1(...(promotableInstN(load)))) into
   /// promotedInst1(...(promotedInstN(ext(load)))).
@@ -748,10 +758,10 @@ public:
   /// operations don't trap except for integer divide and remainder.
   virtual bool canOpTrap(unsigned Op, EVT VT) const;
 
-  /// Similar to isShuffleMaskLegal. This is used by Targets can use this to
-  /// indicate if there is a suitable VECTOR_SHUFFLE that can be used to replace
-  /// a VAND with a constant pool entry.
-  virtual bool isVectorClearMaskLegal(const SmallVectorImpl<int> &/*Mask*/,
+  /// Similar to isShuffleMaskLegal. Targets can use this to indicate if there
+  /// is a suitable VECTOR_SHUFFLE that can be used to replace a VAND with a
+  /// constant pool entry.
+  virtual bool isVectorClearMaskLegal(ArrayRef<int> /*Mask*/,
                                       EVT /*VT*/) const {
     return false;
   }
@@ -765,6 +775,39 @@ public:
     // to provide custom legalization for it.
     if (Op >= array_lengthof(OpActions[0])) return Custom;
     return OpActions[(unsigned)VT.getSimpleVT().SimpleTy][Op];
+  }
+
+  LegalizeAction getStrictFPOperationAction(unsigned Op, EVT VT) const {
+    unsigned EqOpc;
+    switch (Op) {
+      default: llvm_unreachable("Unexpected FP pseudo-opcode");
+      case ISD::STRICT_FADD: EqOpc = ISD::FADD; break;
+      case ISD::STRICT_FSUB: EqOpc = ISD::FSUB; break;
+      case ISD::STRICT_FMUL: EqOpc = ISD::FMUL; break;
+      case ISD::STRICT_FDIV: EqOpc = ISD::FDIV; break;
+      case ISD::STRICT_FSQRT: EqOpc = ISD::FSQRT; break;
+      case ISD::STRICT_FPOW: EqOpc = ISD::FPOW; break;
+      case ISD::STRICT_FPOWI: EqOpc = ISD::FPOWI; break;
+      case ISD::STRICT_FMA: EqOpc = ISD::FMA; break;
+      case ISD::STRICT_FSIN: EqOpc = ISD::FSIN; break;
+      case ISD::STRICT_FCOS: EqOpc = ISD::FCOS; break;
+      case ISD::STRICT_FEXP: EqOpc = ISD::FEXP; break;
+      case ISD::STRICT_FEXP2: EqOpc = ISD::FEXP2; break;
+      case ISD::STRICT_FLOG: EqOpc = ISD::FLOG; break;
+      case ISD::STRICT_FLOG10: EqOpc = ISD::FLOG10; break;
+      case ISD::STRICT_FLOG2: EqOpc = ISD::FLOG2; break;
+      case ISD::STRICT_FRINT: EqOpc = ISD::FRINT; break;
+      case ISD::STRICT_FNEARBYINT: EqOpc = ISD::FNEARBYINT; break;
+    }
+
+    auto Action = getOperationAction(EqOpc, VT);
+
+    // We don't currently handle Custom or Promote for strict FP pseudo-ops.
+    // For now, we just expand for those cases.
+    if (Action != Legal)
+      Action = Expand;
+
+    return Action;
   }
 
   /// Return true if the specified operation is legal on this target or can be
@@ -1117,10 +1160,6 @@ public:
   /// Certain combinations of ABIs, Targets and features require that types
   /// are legal for some operations and not for other operations.
   /// For MIPS all vector types must be passed through the integer register set.
-  virtual MVT getRegisterTypeForCallingConv(MVT VT) const {
-    return getRegisterType(VT);
-  }
-
   virtual MVT getRegisterTypeForCallingConv(LLVMContext &Context,
                                             EVT VT) const {
     return getRegisterType(Context, VT);

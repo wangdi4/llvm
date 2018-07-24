@@ -412,7 +412,6 @@ static void addExceptionArgs(const ArgList &Args, types::ID InputType,
                              const ToolChain &TC, bool KernelOrKext,
                              const ObjCRuntime &objcRuntime,
                              ArgStringList &CmdArgs) {
-  const Driver &D = TC.getDriver();
   const llvm::Triple &Triple = TC.getTriple();
 
   if (KernelOrKext) {
@@ -454,21 +453,6 @@ static void addExceptionArgs(const ArgList &Args, types::ID InputType,
           ExceptionArg->getOption().matches(options::OPT_fexceptions);
 
     if (CXXExceptionsEnabled) {
-      if (Triple.isPS4CPU()) {
-        ToolChain::RTTIMode RTTIMode = TC.getRTTIMode();
-        assert(ExceptionArg &&
-               "On the PS4 exceptions should only be enabled if passing "
-               "an argument");
-        if (RTTIMode == ToolChain::RM_DisabledExplicitly) {
-          const Arg *RTTIArg = TC.getRTTIArg();
-          assert(RTTIArg && "RTTI disabled explicitly but no RTTIArg!");
-          D.Diag(diag::err_drv_argument_not_allowed_with)
-              << RTTIArg->getAsString(Args) << ExceptionArg->getAsString(Args);
-        } else if (RTTIMode == ToolChain::RM_EnabledImplicitly)
-          D.Diag(diag::warn_drv_enabling_rtti_with_exceptions);
-      } else
-        assert(TC.getRTTIMode() != ToolChain::RM_DisabledImplicitly);
-
       CmdArgs.push_back("-fcxx-exceptions");
 
       EH = true;
@@ -613,6 +597,18 @@ static void addDebugCompDirArg(const ArgList &Args, ArgStringList &CmdArgs) {
   if (!llvm::sys::fs::current_path(cwd)) {
     CmdArgs.push_back("-fdebug-compilation-dir");
     CmdArgs.push_back(Args.MakeArgString(cwd));
+  }
+}
+
+/// Add a CC1 and CC1AS option to specify the debug file path prefix map.
+static void addDebugPrefixMapArg(const Driver &D, const ArgList &Args, ArgStringList &CmdArgs) {
+  for (const Arg *A : Args.filtered(options::OPT_fdebug_prefix_map_EQ)) {
+    StringRef Map = A->getValue();
+    if (Map.find('=') == StringRef::npos)
+      D.Diag(diag::err_drv_invalid_argument_to_fdebug_prefix_map) << Map;
+    else
+      CmdArgs.push_back(Args.MakeArgString("-fdebug-prefix-map=" + Map));
+    A->claim();
   }
 }
 
@@ -1076,73 +1072,28 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
   // wonky, but we include looking for .gch so we can support seamless
   // replacement into a build system already set up to be generating
   // .gch files.
-  int YcIndex = -1, YuIndex = -1;
-  {
-    int AI = -1;
+
+  if (getToolChain().getDriver().IsCLMode()) {
     const Arg *YcArg = Args.getLastArg(options::OPT__SLASH_Yc);
     const Arg *YuArg = Args.getLastArg(options::OPT__SLASH_Yu);
-    for (const Arg *A : Args.filtered(options::OPT_clang_i_Group)) {
-      // Walk the whole i_Group and skip non "-include" flags so that the index
-      // here matches the index in the next loop below.
-      ++AI;
-      if (!A->getOption().matches(options::OPT_include))
-        continue;
-      if (YcArg && strcmp(A->getValue(), YcArg->getValue()) == 0)
-        YcIndex = AI;
-      if (YuArg && strcmp(A->getValue(), YuArg->getValue()) == 0)
-        YuIndex = AI;
+    if (YcArg && JA.getKind() >= Action::PrecompileJobClass &&
+        JA.getKind() <= Action::AssembleJobClass) {
+      CmdArgs.push_back(Args.MakeArgString("-building-pch-with-obj"));
     }
-  }
-  if (isa<PrecompileJobAction>(JA) && YcIndex != -1) {
-    Driver::InputList Inputs;
-    D.BuildInputs(getToolChain(), C.getArgs(), Inputs);
-    assert(Inputs.size() == 1 && "Need one input when building pch");
-    CmdArgs.push_back(Args.MakeArgString(Twine("-find-pch-source=") +
-                                         Inputs[0].second->getValue()));
+    if (YcArg || YuArg) {
+      StringRef ThroughHeader = YcArg ? YcArg->getValue() : YuArg->getValue();
+      if (!isa<PrecompileJobAction>(JA)) {
+        CmdArgs.push_back("-include-pch");
+        CmdArgs.push_back(Args.MakeArgString(D.GetClPchPath(C, ThroughHeader)));
+      }
+      CmdArgs.push_back(
+          Args.MakeArgString(Twine("-pch-through-header=") + ThroughHeader));
+    }
   }
 
   bool RenderedImplicitInclude = false;
-  int AI = -1;
   for (const Arg *A : Args.filtered(options::OPT_clang_i_Group)) {
-    ++AI;
-
-    if (getToolChain().getDriver().IsCLMode() &&
-        A->getOption().matches(options::OPT_include)) {
-      // In clang-cl mode, /Ycfoo.h means that all code up to a foo.h
-      // include is compiled into foo.h, and everything after goes into
-      // the .obj file. /Yufoo.h means that all includes prior to and including
-      // foo.h are completely skipped and replaced with a use of the pch file
-      // for foo.h.  (Each flag can have at most one value, multiple /Yc flags
-      // just mean that the last one wins.)  If /Yc and /Yu are both present
-      // and refer to the same file, /Yc wins.
-      // Note that OPT__SLASH_FI gets mapped to OPT_include.
-      // FIXME: The code here assumes that /Yc and /Yu refer to the same file.
-      // cl.exe seems to support both flags with different values, but that
-      // seems strange (which flag does /Fp now refer to?), so don't implement
-      // that until someone needs it.
-      int PchIndex = YcIndex != -1 ? YcIndex : YuIndex;
-      if (PchIndex != -1) {
-        if (isa<PrecompileJobAction>(JA)) {
-          // When building the pch, skip all includes after the pch.
-          assert(YcIndex != -1 && PchIndex == YcIndex);
-          if (AI >= YcIndex)
-            continue;
-        } else {
-          // When using the pch, skip all includes prior to the pch.
-          if (AI < PchIndex) {
-            A->claim();
-            continue;
-          }
-          if (AI == PchIndex) {
-            A->claim();
-            CmdArgs.push_back("-include-pch");
-            CmdArgs.push_back(
-                Args.MakeArgString(D.GetClPchPath(C, A->getValue())));
-            continue;
-          }
-        }
-      }
-    } else if (A->getOption().matches(options::OPT_include)) {
+    if (A->getOption().matches(options::OPT_include)) {
       // Handling of gcc-style gch precompiled headers.
       bool IsFirstImplicitInclude = !RenderedImplicitInclude;
       RenderedImplicitInclude = true;
@@ -1487,12 +1438,6 @@ void Clang::AddAArch64TargetArgs(const ArgList &Args,
       CmdArgs.push_back("-aarch64-enable-global-merge=false");
     else
       CmdArgs.push_back("-aarch64-enable-global-merge=true");
-  }
-
-  if (!Args.hasArg(options::OPT_mno_outline) &&
-       Args.getLastArg(options::OPT_moutline)) {
-    CmdArgs.push_back("-mllvm");
-    CmdArgs.push_back("-enable-machine-outliner");
   }
 }
 
@@ -3064,7 +3009,8 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-debug-info-macro");
 
   // -ggnu-pubnames turns on gnu style pubnames in the backend.
-  if (Args.hasArg(options::OPT_ggnu_pubnames))
+  if (Args.hasFlag(options::OPT_ggnu_pubnames, options::OPT_gno_gnu_pubnames,
+                   false))
     CmdArgs.push_back("-ggnu-pubnames");
 
   // -gdwarf-aranges turns on the emission of the aranges section in the
@@ -3488,6 +3434,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_strict_vtable_pointers,
                    false))
     CmdArgs.push_back("-fstrict-vtable-pointers");
+  if (Args.hasFlag(options::OPT_fforce_emit_vtables,
+                   options::OPT_fno_force_emit_vtables,
+                   false))
+    CmdArgs.push_back("-fforce-emit-vtables");
   if (!Args.hasFlag(options::OPT_foptimize_sibling_calls,
                     options::OPT_fno_optimize_sibling_calls))
     CmdArgs.push_back("-mdisable-tail-calls");
@@ -3513,8 +3463,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       Args.hasArg(options::OPT_dA))
     CmdArgs.push_back("-masm-verbose");
 
-  if (!Args.hasFlag(options::OPT_fintegrated_as, options::OPT_fno_integrated_as,
-                    IsIntegratedAssemblerDefault))
+  if (!getToolChain().useIntegratedAs())
     CmdArgs.push_back("-no-integrated-as");
 
   if (Args.hasArg(options::OPT_fdebug_pass_structure)) {
@@ -3703,9 +3652,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (auto *ABICompatArg = Args.getLastArg(options::OPT_fclang_abi_compat_EQ))
     ABICompatArg->render(Args, CmdArgs);
 
-  // Add runtime flag for PS4 when PGO or Coverage are enabled.
-  if (RawTriple.isPS4CPU())
+  // Add runtime flag for PS4 when PGO, coverage, or sanitizers are enabled.
+  if (RawTriple.isPS4CPU()) {
     PS4cpu::addProfileRTArgs(getToolChain(), Args, CmdArgs);
+    PS4cpu::addSanitizerArgs(getToolChain(), CmdArgs);
+  }
 
   // Pass options for controlling the default header search paths.
   if (Args.hasArg(options::OPT_nostdinc)) {
@@ -3771,6 +3722,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-pedantic");
   Args.AddLastArg(CmdArgs, options::OPT_pedantic_errors);
   Args.AddLastArg(CmdArgs, options::OPT_w);
+
+  // Fixed point flags
+  if (Args.hasFlag(options::OPT_ffixed_point, options::OPT_fno_fixed_point,
+                   /*Default=*/false))
+    Args.AddLastArg(CmdArgs, options::OPT_ffixed_point);
 
   // Handle -{std, ansi, trigraphs} -- take the last of -{std, ansi}
   // (-ansi is equivalent to -std=c89 or -std=c++98).
@@ -3856,14 +3812,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Add in -fdebug-compilation-dir if necessary.
   addDebugCompDirArg(Args, CmdArgs);
 
-  for (const Arg *A : Args.filtered(options::OPT_fdebug_prefix_map_EQ)) {
-    StringRef Map = A->getValue();
-    if (Map.find('=') == StringRef::npos)
-      D.Diag(diag::err_drv_invalid_argument_to_fdebug_prefix_map) << Map;
-    else
-      CmdArgs.push_back(Args.MakeArgString("-fdebug-prefix-map=" + Map));
-    A->claim();
-  }
+  addDebugPrefixMapArg(D, Args, CmdArgs);
 
   if (Arg *A = Args.getLastArg(options::OPT_ftemplate_depth_,
                                options::OPT_ftemplate_depth_EQ)) {
@@ -4005,6 +3954,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       if (!Args.hasFlag(options::OPT_fopenmp_use_tls,
                         options::OPT_fnoopenmp_use_tls, /*Default=*/true))
         CmdArgs.push_back("-fnoopenmp-use-tls");
+      Args.AddLastArg(CmdArgs, options::OPT_fopenmp_simd,
+                      options::OPT_fno_openmp_simd);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_version_EQ);
 
       // When in OpenMP offloading mode with NVPTX target, forward
@@ -4191,8 +4142,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   ToolChain::RTTIMode RTTIMode = getToolChain().getRTTIMode();
 
   if (KernelOrKext || (types::isCXX(InputType) &&
-                       (RTTIMode == ToolChain::RM_DisabledExplicitly ||
-                        RTTIMode == ToolChain::RM_DisabledImplicitly)))
+                       (RTTIMode == ToolChain::RM_Disabled)))
     CmdArgs.push_back("-fno-rtti");
 
   // -fshort-enums=0 is default for all architectures except Hexagon.
@@ -4799,6 +4749,29 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-fforce-enable-int128");
   }
 
+  if (Args.hasFlag(options::OPT_fcomplete_member_pointers,
+                   options::OPT_fno_complete_member_pointers, false))
+    CmdArgs.push_back("-fcomplete-member-pointers");
+
+  if (Arg *A = Args.getLastArg(options::OPT_moutline,
+                               options::OPT_mno_outline)) {
+    if (A->getOption().matches(options::OPT_moutline)) {
+      // We only support -moutline in AArch64 right now. If we're not compiling
+      // for AArch64, emit a warning and ignore the flag. Otherwise, add the
+      // proper mllvm flags.
+      if (Triple.getArch() != llvm::Triple::aarch64) {
+        D.Diag(diag::warn_drv_moutline_unsupported_opt) << Triple.getArchName();
+      } else {
+          CmdArgs.push_back("-mllvm");
+          CmdArgs.push_back("-enable-machine-outliner");
+      }
+    } else {
+      // Disable all outlining behaviour.
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back("-enable-machine-outliner=never");
+    }
+  }
+
   // Finally add the compile command to the compilation.
   if (Args.hasArg(options::OPT__SLASH_fallback) &&
       Output.getType() == types::TY_Object &&
@@ -4816,12 +4789,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   } else {
     C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
   }
-
-  // Handle the debug info splitting at object creation time if we're
-  // creating an object.
-  // TODO: Currently only works on linux with newer objcopy.
-  if (SplitDWARF && Output.getType() == types::TY_Object)
-    SplitDebugInfo(getToolChain(), C, *this, JA, Args, Output, SplitDWARFOut);
 
   if (Arg *A = Args.getLastArg(options::OPT_pg))
     if (Args.hasArg(options::OPT_fomit_frame_pointer))
@@ -4873,6 +4840,13 @@ ObjCRuntime Clang::AddObjCRuntimeArgs(const ArgList &args,
       getToolChain().getDriver().Diag(diag::err_drv_unknown_objc_runtime)
           << value;
     }
+    if ((runtime.getKind() == ObjCRuntime::GNUstep) &&
+        (runtime.getVersion() >= VersionTuple(2, 0)))
+      if (!getToolChain().getTriple().isOSBinFormatELF()) {
+        getToolChain().getDriver().Diag(
+            diag::err_drv_gnustep_objc_runtime_incompatible_binary)
+          << runtime.getVersion().getMajor();
+      }
 
     runtimeArg->render(args, cmdArgs);
     return runtime;
@@ -4966,7 +4940,7 @@ ObjCRuntime Clang::AddObjCRuntimeArgs(const ArgList &args,
     // Legacy behaviour is to target the gnustep runtime if we are in
     // non-fragile mode or the GCC runtime in fragile mode.
     if (isNonFragile)
-      runtime = ObjCRuntime(ObjCRuntime::GNUstep, VersionTuple(1, 6));
+      runtime = ObjCRuntime(ObjCRuntime::GNUstep, VersionTuple(2, 0));
     else
       runtime = ObjCRuntime(ObjCRuntime::GCC, VersionTuple());
   }
@@ -5383,6 +5357,8 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
     // Add the -fdebug-compilation-dir flag if needed.
     addDebugCompDirArg(Args, CmdArgs);
 
+    addDebugPrefixMapArg(getToolChain().getDriver(), Args, CmdArgs);
+
     // Set the AT_producer to the clang version when using the integrated
     // assembler on assembly source files.
     CmdArgs.push_back("-dwarf-debug-producer");
@@ -5479,19 +5455,17 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
+  if (Args.hasArg(options::OPT_gsplit_dwarf) &&
+      getToolChain().getTriple().isOSLinux()) {
+    CmdArgs.push_back("-split-dwarf-file");
+    CmdArgs.push_back(SplitDebugName(Args, Input));
+  }
+
   assert(Input.isFilename() && "Invalid input.");
   CmdArgs.push_back(Input.getFilename());
 
   const char *Exec = getToolChain().getDriver().getClangProgramPath();
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
-
-  // Handle the debug info splitting at object creation time if we're
-  // creating an object.
-  // TODO: Currently only works on linux with newer objcopy.
-  if (Args.hasArg(options::OPT_gsplit_dwarf) &&
-      getToolChain().getTriple().isOSLinux())
-    SplitDebugInfo(getToolChain(), C, *this, JA, Args, Output,
-                   SplitDebugName(Args, Input));
 }
 
 // Begin OffloadBundler

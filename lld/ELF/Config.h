@@ -96,6 +96,7 @@ struct Configuration {
   llvm::StringRef Sysroot;
   llvm::StringRef ThinLTOCacheDir;
   llvm::StringRef ThinLTOIndexOnlyArg;
+  std::pair<llvm::StringRef, llvm::StringRef> ThinLTOObjectSuffixReplace;
   std::pair<llvm::StringRef, llvm::StringRef> ThinLTOPrefixReplace;
   std::string Rpath;
   std::vector<VersionDefinition> VersionDefinitions;
@@ -112,7 +113,7 @@ struct Configuration {
                   uint64_t>
       CallGraphProfile;
   bool AllowMultipleDefinition;
-  bool AndroidPackDynRelocs = false;
+  bool AndroidPackDynRelocs;
   bool ARMHasBlx = false;
   bool ARMHasMovtMovw = false;
   bool ARMJ1J2BranchEncoding = false;
@@ -152,6 +153,7 @@ struct Configuration {
   bool PrintGcSections;
   bool PrintIcfSections;
   bool Relocatable;
+  bool RelrPackDynRelocs;
   bool SaveTemps;
   bool SingleRoRx;
   bool Shared;
@@ -162,6 +164,7 @@ struct Configuration {
   bool ThinLTOEmitImportsFiles;
   bool ThinLTOIndexOnly;
   bool UndefinedVersion;
+  bool UseAndroidRelrTags = false;
   bool WarnBackrefs;
   bool WarnCommon;
   bool WarnMissingEntry;
@@ -171,6 +174,7 @@ struct Configuration {
   bool ZCopyreloc;
   bool ZExecstack;
   bool ZHazardplt;
+  bool ZInitfirst;
   bool ZKeepTextSectionPrefix;
   bool ZNodelete;
   bool ZNodlopen;
@@ -193,6 +197,7 @@ struct Configuration {
   uint16_t EMachine = llvm::ELF::EM_NONE;
   llvm::Optional<uint64_t> ImageBase;
   uint64_t MaxPageSize;
+  uint64_t MipsGotSize;
   uint64_t ZStackSize;
   unsigned LTOPartitions;
   unsigned LTOO;

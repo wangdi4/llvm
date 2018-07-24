@@ -42,8 +42,8 @@ public:
   /// class constructor. This method must not be executed more than once for
   /// each instance of ClangdLSPServer.
   ///
-  /// \return Wether we received a 'shutdown' request before an 'exit' request
-  bool run(std::istream &In,
+  /// \return Whether we received a 'shutdown' request before an 'exit' request.
+  bool run(std::FILE *In,
            JSONStreamStyle InputStyle = JSONStreamStyle::Standard);
 
 private:
@@ -62,6 +62,7 @@ private:
   void
   onDocumentRangeFormatting(DocumentRangeFormattingParams &Params) override;
   void onDocumentFormatting(DocumentFormattingParams &Params) override;
+  void onDocumentSymbol(DocumentSymbolParams &Params) override;
   void onCodeAction(CodeActionParams &Params) override;
   void onCompletion(TextDocumentPositionParams &Params) override;
   void onSignatureHelp(TextDocumentPositionParams &Params) override;
@@ -100,7 +101,9 @@ private:
 
   // Various ClangdServer parameters go here. It's important they're created
   // before ClangdServer.
-  DirectoryBasedGlobalCompilationDatabase CDB;
+  DirectoryBasedGlobalCompilationDatabase NonCachedCDB;
+  CachingCompilationDb CDB;
+
   RealFileSystemProvider FSProvider;
   /// Options used for code completion
   clangd::CodeCompleteOptions CCOpts;

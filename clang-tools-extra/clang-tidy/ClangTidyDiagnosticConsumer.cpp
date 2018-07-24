@@ -177,9 +177,11 @@ private:
 };
 
 ClangTidyContext::ClangTidyContext(
-    std::unique_ptr<ClangTidyOptionsProvider> OptionsProvider)
+    std::unique_ptr<ClangTidyOptionsProvider> OptionsProvider,
+    bool AllowEnablingAnalyzerAlphaCheckers)
     : DiagEngine(nullptr), OptionsProvider(std::move(OptionsProvider)),
-      Profile(false) {
+      Profile(false),
+      AllowEnablingAnalyzerAlphaCheckers(AllowEnablingAnalyzerAlphaCheckers) {
   // Before the first translation unit we can get errors related to command-line
   // parsing, use empty string for the file name in this case.
   setCurrentFile("");
@@ -234,6 +236,18 @@ ClangTidyOptions ClangTidyContext::getOptionsForFile(StringRef File) const {
 }
 
 void ClangTidyContext::setEnableProfiling(bool P) { Profile = P; }
+
+void ClangTidyContext::setProfileStoragePrefix(StringRef Prefix) {
+  ProfilePrefix = Prefix;
+}
+
+llvm::Optional<ClangTidyProfiling::StorageParams>
+ClangTidyContext::getProfileStorageParams() const {
+  if (ProfilePrefix.empty())
+    return llvm::None;
+
+  return ClangTidyProfiling::StorageParams(ProfilePrefix, CurrentFile);
+}
 
 bool ClangTidyContext::isCheckEnabled(StringRef CheckName) const {
   assert(CheckFilter != nullptr);

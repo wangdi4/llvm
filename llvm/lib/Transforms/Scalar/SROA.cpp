@@ -42,7 +42,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -1261,10 +1261,21 @@ static void speculatePHINodeLoads(PHINode &PN) {
   }
 
   // Inject loads into all of the pred blocks.
+  DenseMap<BasicBlock*, Value*> InjectedLoads;
   for (unsigned Idx = 0, Num = PN.getNumIncomingValues(); Idx != Num; ++Idx) {
     BasicBlock *Pred = PN.getIncomingBlock(Idx);
-    TerminatorInst *TI = Pred->getTerminator();
     Value *InVal = PN.getIncomingValue(Idx);
+
+    // A PHI node is allowed to have multiple (duplicated) entries for the same
+    // basic block, as long as the value is the same. So if we already injected
+    // a load in the predecessor, then we should reuse the same load for all
+    // duplicated entries.
+    if (Value* V = InjectedLoads.lookup(Pred)) {
+      NewPN->addIncoming(V, Pred);
+      continue;
+    }
+
+    TerminatorInst *TI = Pred->getTerminator();
     IRBuilderTy PredBuilder(TI);
 
     LoadInst *Load = PredBuilder.CreateLoad(
@@ -1274,6 +1285,7 @@ static void speculatePHINodeLoads(PHINode &PN) {
     if (AATags)
       Load->setAAMetadata(AATags);
     NewPN->addIncoming(Load, Pred);
+    InjectedLoads[Pred] = Load;
   }
 
   LLVM_DEBUG(dbgs() << "          speculated to: " << *NewPN << "\n");
@@ -1968,6 +1980,10 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
     // We can't handle loads that extend past the allocated memory.
     if (DL.getTypeStoreSize(LI->getType()) > Size)
       return false;
+    // So far, AllocaSliceRewriter does not support widening split slice tails
+    // in rewriteIntegerLoad.
+    if (S.beginOffset() < AllocBeginOffset)
+      return false;
     // Note that we don't count vector loads or stores as whole-alloca
     // operations which enable integer widening because we would prefer to use
     // vector widening instead.
@@ -1988,6 +2004,10 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
       return false;
     // We can't handle stores that extend past the allocated memory.
     if (DL.getTypeStoreSize(ValueTy) > Size)
+      return false;
+    // So far, AllocaSliceRewriter does not support widening split slice tails
+    // in rewriteIntegerStore.
+    if (S.beginOffset() < AllocBeginOffset)
       return false;
     // Note that we don't count vector loads or stores as whole-alloca
     // operations which enable integer widening because we would prefer to use
@@ -4009,6 +4029,8 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
     NewAI = new AllocaInst(
       SliceTy, AI.getType()->getAddressSpace(), nullptr, Alignment,
         AI.getName() + ".sroa." + Twine(P.begin() - AS.begin()), &AI);
+    // Copy the old AI debug location over to the new one.
+    NewAI->setDebugLoc(AI.getDebugLoc());
     ++NumNewAllocas;
   }
 

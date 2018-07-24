@@ -10,6 +10,7 @@
 // This file provides the Win32 specific implementation of the Signals class.
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
@@ -560,8 +561,9 @@ void llvm::sys::SetInterruptFunction(void (*IF)()) {
 /// Add a function to be called when a signal is delivered to the process. The
 /// handler can have a cookie passed to it to identify what instance of the
 /// handler it is.
-void llvm::sys::AddSignalHandler(void (*FnPtr)(void *), void *Cookie) {
-  CallBacksToRun->push_back(std::make_pair(FnPtr, Cookie));
+void llvm::sys::AddSignalHandler(sys::SignalHandlerCallback FnPtr,
+                                 void *Cookie) {
+  insertSignalHandler(FnPtr, Cookie);
   RegisterHandler();
   LeaveCriticalSection(&CriticalSection);
 }

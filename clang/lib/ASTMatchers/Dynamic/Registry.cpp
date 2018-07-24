@@ -134,8 +134,10 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(atomicExpr);
   REGISTER_MATCHER(atomicType);
   REGISTER_MATCHER(autoType);
+  REGISTER_MATCHER(autoreleasePoolStmt)
   REGISTER_MATCHER(binaryOperator);
   REGISTER_MATCHER(binaryConditionalOperator);
+  REGISTER_MATCHER(blockDecl);
   REGISTER_MATCHER(blockPointerType);
   REGISTER_MATCHER(booleanType);
   REGISTER_MATCHER(breakStmt);

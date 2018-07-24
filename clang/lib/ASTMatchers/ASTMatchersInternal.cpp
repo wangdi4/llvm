@@ -548,6 +548,8 @@ bool HasNameMatcher::matchesNode(const NamedDecl &Node) const {
 
 } // end namespace internal
 
+const internal::VariadicDynCastAllOfMatcher<Stmt, ObjCAutoreleasePoolStmt>
+    autoreleasePoolStmt;
 const internal::VariadicDynCastAllOfMatcher<Decl, TranslationUnitDecl>
     translationUnitDecl;
 const internal::VariadicDynCastAllOfMatcher<Decl, TypedefDecl> typedefDecl;
@@ -626,6 +628,8 @@ const internal::VariadicDynCastAllOfMatcher<Decl, ObjCCategoryImplDecl>
     objcCategoryImplDecl;
 const internal::VariadicDynCastAllOfMatcher<Decl, ObjCMethodDecl>
     objcMethodDecl;
+const internal::VariadicDynCastAllOfMatcher<Decl, BlockDecl>
+    blockDecl;
 const internal::VariadicDynCastAllOfMatcher<Decl, ObjCIvarDecl> objcIvarDecl;
 const internal::VariadicDynCastAllOfMatcher<Decl, ObjCPropertyDecl>
     objcPropertyDecl;
