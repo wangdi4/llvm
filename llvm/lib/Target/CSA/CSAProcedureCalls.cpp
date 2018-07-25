@@ -10,7 +10,7 @@
 // This pass looks at the list of functions inside a module.
 // For each function, the linkage is identified (internal or external)
 // For functions, with internal linkage, all the call-sites are identified
-// This information will be used to generate code for procedure calls 
+// This information will be used to generate code for procedure calls
 // where the caller and callee will both be executed on CSA
 //
 //===----------------------------------------------------------------------===//
@@ -52,7 +52,12 @@ ProcCallsPass("csa-proc-calls-pass",
           cl::Hidden, cl::ZeroOrMore,
           cl::desc("CSA Specific: Optimize data-flow to data-flow procedure calls"),
           cl::init(1));
-		  
+
+static cl::opt<bool>
+ReportWarningForExtCalls("csa-report-ext-calls-as-warning",
+          cl::Hidden, cl::ZeroOrMore,
+          cl::desc("CSA Specific: Report external calls as warnings"),
+          cl::init(false));
 #define DEBUG_TYPE "csa-proc-calls"
 
 typedef struct call_site_info {
@@ -205,6 +210,9 @@ void CSAProcCallsPass::getReturnArgs(CALL_SITE_INFO &csi, MachineInstr *returnMI
   }
 }
 
+// For a given function, this function identifies all its call-sites and connects the arguments
+// in its entryMI instruction with the parameters from various call-sites via pick-tree.
+// Also, all the results in the returnMI instruction are sent back to the call-sites via a switch tree
 void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *returnMI) {
   // Check for all call-sites of current function in the module.
   MachineInstrBuilder MIB;
@@ -213,7 +221,6 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
   int num_call_sites = 0;
   StringRef name = thisMF->getFunction().getName();
   std::vector<CALL_SITE_INFO> csilist;
-//RAVI  const TargetMachine &TM = thisMF->getTarget();
   for (const Function &F : *M) {
     LLVM_DEBUG(errs() << "function = " << F.getName() << "\n");
     if (F.isDeclaration()) continue;
@@ -221,6 +228,9 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
     typedef po_iterator<const BasicBlock *> po_cfg_iterator;
     const BasicBlock *root = &*F.begin();
     std::stack<const BasicBlock *> postk;
+    // In DF conversion, the BBs are reordered this way. It is required that we maintain a 1-1 parsing
+    // of BBs in addTrampolineCode (parses in IR level; pre DF conversion) and addCallAndContinueInstructions
+    // (parses in Machine IR level; post DF conversion)
     for (po_cfg_iterator iterbb = po_cfg_iterator::begin(root),
                        END     = po_cfg_iterator::end(root);
             iterbb != END; ++iterbb) {
@@ -231,16 +241,14 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
       const BasicBlock &BB = *(postk.top());
       postk.pop();
       for (const Instruction &I : BB) {
+        // call-site parameters are named based on their caller function names and the call-site index
+        // This indexing accounts for only internal calls;
         if (const CallInst *CI = dyn_cast<const CallInst>(&I)) {
-          LLVM_DEBUG(errs() << "CallInst = " << I << "\n");
-          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()) {
-            report_fatal_error("Indirect calls not yet supported! Cannot be run on CSA!");
-          }
-          if (!CI->isInlineAsm() && !CI->getCalledFunction()->isIntrinsic() && CI->getCalledFunction()->isDeclaration()) {
-            errs() << "Func = " << CI->getCalledFunction()->getName() << "\n";
-            report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
-          }
-          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic() && name == CI->getCalledFunction()->getName()) {
+          LLVM_DEBUG(errs() << "In AddTrampolineCode: CallInst = " << I << "\n");
+          if (CI->isInlineAsm()) continue;
+          if (!CI->getCalledFunction()) continue;
+          if (CI->getCalledFunction()->isDeclaration()) continue;
+          if (name == CI->getCalledFunction()->getName()) {
             CALL_SITE_INFO csi;
             csi.caller_func = F.getName();
             bool isDeclared = (get_func_order(name,M) < get_func_order(csi.caller_func,M));
@@ -249,17 +257,12 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
             getReturnArgs(csi, returnMI, isDeclared);
             csilist.push_back(csi);
             num_call_sites++;
-            LLVM_DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
+            LLVM_DEBUG(errs() << "In AddTrampolineCode: " << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
           }
-          if (!CI->isInlineAsm() &&  !CI->getCalledFunction()->isIntrinsic()) 
-            index++;
+          index++;
         }
       }
     }
-  }
-  
-  for (auto csi : csilist) {
-    LLVM_DEBUG(errs() << name << " is called by " << csi.caller_func << " at index " << csi.call_site_index << "\n");
   }
   LLVM_DEBUG(errs() << "Number of call sites for " << name << " is " << num_call_sites << "\n");
   LMFI->setNumCallSites(num_call_sites);
@@ -322,15 +325,12 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
                                     .addReg(src)
                                     .setMIFlag(MachineInstr::NonSequential);
     MachineInstr *MI = &*MIB;
-    LLVM_DEBUG(errs() << "MI = " << *MI << "\n");
     (void) MI;
   }
-  
   MIB = BuildMI(*(entryMI->getParent()), entryMI, entryMI->getDebugLoc(), TII->get(CSA::TRAMPOLINE_END))
                  .setMIFlag(MachineInstr::NonSequential);
   MIB = BuildMI(*(returnMI->getParent()), returnMI, returnMI->getDebugLoc(), TII->get(CSA::TRAMPOLINE_START))
                  .setMIFlag(MachineInstr::NonSequential);
-  
   for (unsigned i = 0; i < csilist[0].return_args.size(); ++i) {
     unsigned src = returnMI->getOperand(i).getReg();
     const TargetRegisterClass *TRC = MRI->getRegClass(src);
@@ -344,6 +344,8 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
                .setMIFlag(MachineInstr::NonSequential);
 }
 
+// This function returns the first non-debug instruction in a function
+// TODO: check if this functionality exists elsewhere
 static MachineInstr *getFirstMI(MachineFunction *MF) {
   for (MachineFunction::iterator MBB = MF->begin(); MBB != MF->end(); MBB++) {
     for (MachineBasicBlock::iterator I = MBB->begin(); I != MBB->end(); I++) {
@@ -352,7 +354,7 @@ static MachineInstr *getFirstMI(MachineFunction *MF) {
       return MI;
     }
   }
-  return 0;
+  return nullptr;
 }
 
 // This function generates a pseudo CSA instruction for defining the entry point directive
@@ -383,7 +385,13 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
   Function::const_arg_iterator I, E;
   auto LI = MRI->livein_begin();
   unsigned Arg;
-  for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2; I != E; ++I, ++Arg) {
+  bool flag = false;
+  for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2; I != E; ++Arg) {
+    if (I->getType()->getScalarSizeInBits() == 128) {
+      if (flag) ++I;
+      flag = !flag;
+    } else
+      ++I;
     bool ArgIsDead = false;
     if (!MRI->isLiveIn(Arg))
       ArgIsDead = true;
@@ -397,7 +405,7 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
       }
       else
         ArgIsDead = true;
-    } 
+    }
     if (ArgIsDead) {
       std::stringstream ss1;
       ss1 << "_dummy" << dummyid++;
@@ -446,68 +454,69 @@ static MachineInstr *getLastMI(MachineFunction *MF) {
       return MI;
     }
   }
-  return 0;
+  return nullptr;
 }
 
 MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
   MachineInstr *copyMI;
   MachineInstr *lastMI = getLastMI(thisMF);
-  if (!lastMI || !lastMI->isReturn()) return false;
+  if (!lastMI || !lastMI->isReturn()) return nullptr;
   unsigned reg;
-  
-  // Capturing the memory ordering instruction introduced by MemOpOrdering
-  for (auto op : lastMI->implicit_operands())
-    reg = op.getReg();
-  bool outerLoop = true;
-  for (MachineFunction::iterator MBB = thisMF->begin(), E = thisMF->end(); (MBB != E) && outerLoop; ++MBB) {
-    for (MachineBasicBlock::iterator I = MBB->begin(); (I != MBB->end()) && outerLoop; ++I) {
-      copyMI = &*I;
-      for (unsigned i = 0; i < copyMI->getNumOperands(); ++i) {
-        MachineOperand &top = copyMI->getOperand(i);
-        if (top.isReg()) {
-          if (top.isDef() && top.getReg() == reg) {
-            outerLoop = false;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  unsigned returnReg;
   unsigned reg1 = LMFI->allocateLIC(&CSA::CI1RegClass, Twine("callee_out_caller_mem_ord"));
   MachineInstrBuilder MIB = BuildMI(*(lastMI->getParent()), lastMI, lastMI->getDebugLoc(), TII->get(CSA::CSA_RETURN))
                                     .addReg(reg1);
   MachineInstr *MI = &*MIB;
-  if (copyMI->getOpcode() != CSA::RET) {
-    returnReg = copyMI->getOperand(1).getReg();
-    assert(copyMI && copyMI->getOpcode() == CSA::MOV64);
-    // Sometimes return reg is one of the parameters. We need to handle this
-    bool isParam = false;
-    for (unsigned i = 0; i < entryMI->getNumOperands(); ++i) {
-      unsigned reg = entryMI->getOperand(i).getReg();
-      if (reg == returnReg) { isParam = true; break; }
+  // Looking at implicit operands of RETURN instruction
+  // THese are values being returned
+  for (auto op : lastMI->implicit_operands()) {
+    reg = op.getReg();
+    bool outerLoop = true;
+    // Find the copy instruction that defines this operand in the RETURN instruction
+    for (MachineFunction::iterator MBB = thisMF->begin(), E = thisMF->end(); (MBB != E) && outerLoop; ++MBB) {
+      for (MachineBasicBlock::iterator I = MBB->begin(); (I != MBB->end()) && outerLoop; ++I) {
+        copyMI = &*I;
+        for (unsigned i = 0; i < copyMI->getNumOperands(); ++i) {
+          MachineOperand &top = copyMI->getOperand(i);
+          if (top.isReg()) {
+            if (top.isDef() && top.getReg() == reg) {
+              outerLoop = false;
+              break;
+            }
+          }
+        }
+      }
     }
-    if (isParam) {
-      StringRef name = thisMF->getFunction().getName();
-      const TargetRegisterClass *TRC = MRI->getRegClass(returnReg);
-      unsigned newReturnReg = LMFI->allocateLIC(TRC, "ret_val", Twine(name), true /*isDeclared*/, false/*isGloballyVisible*/);
-      BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
-                                    .addReg(newReturnReg,RegState::Define)
-                                    .addReg(returnReg)
-                                    .setMIFlag(MachineInstr::NonSequential);
-      MIB.addReg(newReturnReg);
+    unsigned returnReg;
+    if (copyMI->getOpcode() != CSA::RET) {
+      returnReg = copyMI->getOperand(1).getReg();
+      assert(copyMI && copyMI->getOpcode() == CSA::MOV64);
+      // Sometimes return reg is one of the parameters. We need to handle this
+      bool isParam = false;
+      for (unsigned i = 0; i < entryMI->getNumOperands(); ++i) {
+        unsigned reg = entryMI->getOperand(i).getReg();
+        if (reg == returnReg) { isParam = true; break; }
+      }
+      if (isParam) {
+        StringRef name = thisMF->getFunction().getName();
+        const TargetRegisterClass *TRC = MRI->getRegClass(returnReg);
+        unsigned newReturnReg = LMFI->allocateLIC(TRC, "ret_val", Twine(name), true /*isDeclared*/, false/*isGloballyVisible*/);
+        BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
+                                      .addReg(newReturnReg,RegState::Define)
+                                      .addReg(returnReg)
+                                      .setMIFlag(MachineInstr::NonSequential);
+        MIB.addReg(newReturnReg);
+      }
+      else
+        MIB.addReg(returnReg);
     }
-    else
-      MIB.addReg(returnReg);
+    copyMI->eraseFromParent();
   }
 
-  if (lastMI != copyMI) lastMI->eraseFromParent();
-  copyMI->eraseFromParent();
+  if (lastMI) lastMI->eraseFromParent();
   MI->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "Return instruction = " << *MI << "\n");
 
-  // Deal with input memory ordering edge into return
+  // Deal with input memory ordering edge also being used as returning memory ordering edge
   MachineBasicBlock::reverse_iterator RI_BEGIN(MI);
   for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != (MI->getParent())->rend(); I1++) {
     copyMI = &*I1;
@@ -540,20 +549,36 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
     MachineBasicBlock::iterator nextMI = MBB->begin();
     for (MachineBasicBlock::iterator I = MBB->begin(); nextMI != MBB->end(); I = nextMI) {
       MachineInstr *MI = &*I;
-      ++I;
       nextMI = I;
+      nextMI++;
       if ((MI->getOpcode() != CSA::JSR) && (MI->getOpcode() != CSA::JSRi)) continue;
       LLVM_DEBUG(errs() << "Input Call MI = " << *MI << "\n");
       const MachineOperand &MO = MI->getOperand(0);
-      if (!MO.isGlobal()) continue;
-      const Function *F = dyn_cast<Function>(MO.getGlobal());
-      if (!F) continue;
-      LLVM_DEBUG(errs() << "Called Function name = " << F->getName() << "\n");
-      if (F->getName() == name) {
-        errs() << "Called Function name = " << F->getName() << "\n";
+      StringRef callee_name;
+      // Report external/internal calls here as either WARNINGs or FAILs depending on flag
+      if (!MO.isGlobal()) {
+        if (ReportWarningForExtCalls) {
+          callee_name = "dummy_func";
+          errs() << "WARNING: Indirect calls not yet supported! May generate code with incomplete linkage!\n";
+        } else
+          report_fatal_error("Indirect calls not yet supported! Cannot be run on CSA!");
+      } else {
+        const Function *F = dyn_cast<Function>(MO.getGlobal());
+        if (!F) {
+          if (ReportWarningForExtCalls) {
+            callee_name = "dummy_func";
+            errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
+          } else
+            report_fatal_error("Indirect calls not yet supported! Cannot be run on CSA!");
+        }
+        callee_name = F->getName();
+      }
+      LLVM_DEBUG(errs() << "Called Function name = " << callee_name << "\n");
+      if (callee_name== name) {
+        errs() << "Called Function name = " << callee_name << "\n";
         report_fatal_error("Recursive function call not yet supported! Cannot be run on CSA!");
       }
-      StringRef callee_name = F->getName();
+      // The LIC will be declared in calle code or caller code depending on which comes first in the module
       int callee_id = get_func_order(callee_name,M);
       int caller_id = get_func_order(name,M);
       bool isDeclared = (callee_id > caller_id);
@@ -589,25 +614,28 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
                                             &CSA::CI1RegClass, isDeclared, true);
       MachineInstrBuilder Cont_MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::CSA_CONTINUE))
                                             .addReg(reg1, RegState::Define);
-      bool outerloop = true;
-      for (MachineBasicBlock::iterator I1 = I; I1 != MBB->end() && outerloop; ++I1) {
+      // Get to the instruction after JSR
+      // and look for results returned from callee till the next JSR
+      // or the end of the basic block
+      MachineBasicBlock::iterator I1 = ++I;
+      MachineBasicBlock::iterator nextI1 = I1;
+      for (; I1 != MBB->end(); I1 = nextI1) {
         copyMI = &*I1;
-        LLVM_DEBUG(errs() << "candidate copy instr for result is " << *copyMI << "\n");
-        if (!isMovOpcode(copyMI->getOpcode())) continue;
+        if (copyMI->getOpcode() == CSA::JSR || copyMI->getOpcode() == CSA::JSRi) break;
+        nextI1 = I1;
+        ++nextI1;
+        LLVM_DEBUG(errs() << "CopyMI is " << *copyMI << "\n");
+        if (copyMI->getOpcode() != CSA::MOV64) continue;
         auto top = copyMI->getOperand(1);
-        if (top.isReg()) {
-          if (top.getReg() == CSA::P64_0) {
-            LLVM_DEBUG(errs() << "copy instr for result is " << *copyMI << "\n");
-            unsigned resultReg = getParamReg(name, "result_", CallSiteIndex, 1,
-                                            &CSA::CI64RegClass, isDeclared, true);
-            Cont_MIB.addReg(resultReg,RegState::Define);
-            if (LMFI->canDeleteLICReg(copyMI->getOperand(0).getReg())) {
-              MRI->replaceRegWith(copyMI->getOperand(0).getReg(),resultReg);
-              copyMI->eraseFromParent();
-            }
-            outerloop = false;
-            break;
-          }
+        if (!top.isReg()) continue;
+        if (top.getReg() != CSA::P64_0 && top.getReg() != CSA::P64_1) continue;
+        LLVM_DEBUG(errs() << "CopyMI for result is " << *copyMI << "\n");
+        unsigned resultReg = getParamReg(name, "result_", CallSiteIndex, 1,
+                                        &CSA::CI64RegClass, isDeclared, true);
+        Cont_MIB.addReg(resultReg,RegState::Define);
+        if (LMFI->canDeleteLICReg(copyMI->getOperand(0).getReg())) {
+          MRI->replaceRegWith(copyMI->getOperand(0).getReg(),resultReg);
+          copyMI->eraseFromParent();
         }
       }
       Cont_MIB.addImm(CallSiteIndex++);

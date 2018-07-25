@@ -753,9 +753,11 @@ void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
   raw_svector_ostream O(Str);
   O << "\t#.call\t";
   const MachineOperand &MO = MI->getOperand(0);
-  assert(MO.isGlobal());
-  const Function *F = dyn_cast<Function>(MO.getGlobal());
-  O << F->getName();
+  if (MO.isGlobal()) {
+    const Function *F = dyn_cast<Function>(MO.getGlobal());
+    O << F->getName();
+  } else if (MO.isSymbol())
+    O << MI->getOperand(0).getSymbolName();
   O << ", ";
   unsigned call_site_index = MI->getOperand(1).getImm();
   O << MF->getFunction().getName() << "_cont_point_" << call_site_index << ", ";
