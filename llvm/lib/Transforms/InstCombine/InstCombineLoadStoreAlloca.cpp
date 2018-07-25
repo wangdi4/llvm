@@ -522,7 +522,7 @@ static LoadInst *combineLoadToNewType(InstCombiner &IC, LoadInst &LI, Type *NewT
 static StoreInst *combineStoreToNewValue(InstCombiner &IC, StoreInst &SI, Value *V) {
   assert((!SI.isAtomic() || isSupportedAtomicType(V->getType())) &&
          "can't fold an atomic store of requested type");
-  
+
   Value *Ptr = SI.getPointerOperand();
   unsigned AS = SI.getPointerAddressSpace();
   SmallVector<std::pair<unsigned, MDNode *>, 8> MD;
@@ -1185,6 +1185,14 @@ static bool combineStoreToValueType(InstCombiner &IC, StoreInst &SI) {
   // atomic stores here but it isn't clear that this is important.
   if (!SI.isUnordered())
     return false;
+
+#if INTEL_CUSTOMIZATION
+  // For DTRANS and other optimizations that require the type info to be
+  // intact, we should delay this optimization until the type info is no
+  // longer needed.
+  if (!IC.allowTypeLoweringOpts())
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // swifterror values can't be bitcasted.
   if (SI.getPointerOperand()->isSwiftError())

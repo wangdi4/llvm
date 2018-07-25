@@ -26,15 +26,15 @@ namespace llvm {
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
   InstCombineWorklist Worklist;
   bool ExpensiveCombines;
-  bool GEPInstOptimizations; // INTEL
+  bool TypeLoweringOpts; // INTEL
 
 public:
   static StringRef name() { return "InstCombinePass"; }
 
   explicit InstCombinePass(bool ExpensiveCombines = true,     // INTEL
-                           bool GEPInstOptimizations = true)  // INTEL
+                           bool TypeLoweringOpts = true)      // INTEL
       : ExpensiveCombines(ExpensiveCombines),                 // INTEL
-        GEPInstOptimizations(GEPInstOptimizations) {}         // INTEL
+        TypeLoweringOpts(TypeLoweringOpts) {}                 // INTEL
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
@@ -46,15 +46,15 @@ public:
 class InstructionCombiningPass : public FunctionPass {
   InstCombineWorklist Worklist;
   const bool ExpensiveCombines;
-  const bool GEPInstOptimizations; // INTEL
+  const bool TypeLoweringOpts; // INTEL
 
 public:
   static char ID; // Pass identification, replacement for typeid
 
   InstructionCombiningPass(bool ExpensiveCombines = true,       // INTEL
-                           bool GEPInstOptimizations = true)    // INTEL
+                           bool TypeLoweringOpts = true)        // INTEL
       : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines), // INTEL
-        GEPInstOptimizations(GEPInstOptimizations) {            // INTEL
+        TypeLoweringOpts(TypeLoweringOpts) {                    // INTEL
     initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -76,7 +76,7 @@ public:
 //
 #if INTEL_CUSTOMIZATION
 FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines = true,
-                                             bool GEPInstOptimizations = true);
+                                             bool TypeLoweringOpts = true);
 #endif // INTEL_CUSTOMIZATION
 }
 
