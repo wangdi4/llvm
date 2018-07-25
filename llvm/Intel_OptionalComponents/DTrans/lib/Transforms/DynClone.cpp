@@ -125,6 +125,7 @@ private:
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyLegalityChecksForInitRoutine(void);
+  bool transformInitRoutine(void);
   bool isCandidateField(DynField &DField) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
@@ -550,6 +551,284 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
   return true;
 }
 
+// Transform InitRoutine:
+//
+//   1. Generates Runtime checks to detect whether all values assigned
+//      to candidate fields fit in shrinked type. "__Shrink__Happened__"
+//      new GlobalVariable is created to indicate if sizes of candidate
+//      fields are reduced. "__Shrink__Happened__" flag is used by other
+//      routines to decide whether to use original data-layout or shrinked
+//      data-layout. "__Shrink__Happened__" is set to zero when it is
+//      created. This flag is set to 1 if all assigned values of candidate
+//      fields fit in shrinked type. Collects min and max values that are
+//      assigned to candidate fields and then decides at the end of routine
+//      if the min and max values fits in shrinked types.
+//      Ex:
+//      Before:
+//              InitRoutine() {
+//                  ...
+//                  stp->candidate1 = value1;
+//                  ...
+//                  stp->candidate2 = value2;
+//                  ...
+//                  return;
+//              }
+//
+//      After:
+//              __Shrink__Happened__ = 0;
+//
+//              InitRoutine() {
+//                  L_i64_Max = 0xffffffff80000000;
+//                  L_i64_Min = 0x000000007fffffff;
+//                  ...
+//                  stp->candidate1 = value1;
+//                  L_i64_Max = (L_i64_Max < value1) ? value1 : L_i64_Max;
+//                  L_i64_Min = (L_i64_Min > value1) ? value1 : L_i64_Min;
+//                  ...
+//                  stp->candidate2 = value2;
+//                  L_i64_Max = (L_i64_Max < value2) ? value2 : L_i64_Max;
+//                  L_i64_Min = (L_i64_Min > value2) ? value2 : L_i64_Min;
+//                  ...
+//                  if (L_i64_Max > 0x000000007fffffff ||
+//                      L_i64_Min < 0xffffffff80000000) {
+//                    __Shrink__Happened__ = 1;
+//                    // TODO: Copy contents from old layout to new layout
+//                    // here.
+//                  }
+//                  return;
+//              }
+//
+//   2. Copy Contents from old layout to new layout before ReturnInst
+//
+bool DynCloneImpl::transformInitRoutine(void) {
+
+  // Returns ConstantInt of max value that fits in shrinked type for
+  // the given Ty.
+  //    i64  ==>  Max value that fits in int32_t
+  auto GetShrinkedMaxValue = [&](Type *Ty) -> Value * {
+    if (Ty->isIntegerTy(64)) {
+      return ConstantInt::get(Ty, std::numeric_limits<int32_t>::max());
+    }
+    llvm_unreachable("Unexpected shrinked type for Max Value");
+  };
+
+  // Returns ConstantInt of min value that fits in shrinked type for
+  // the given Ty.
+  //    i64  ==>  Max value that fits in int32_t
+  auto GetShrinkedMinValue = [&](Type *Ty) -> Value * {
+    if (Ty->isIntegerTy(64))
+      return ConstantInt::get(Ty, std::numeric_limits<int32_t>::min());
+    llvm_unreachable("Unexpected shrinked type for Min Value");
+  };
+
+  // Generates instructions to find  min / max values.
+  auto GenerateMinMaxInsts =
+      [&](DynField &StElem, StoreInst *Inst, CmpInst::Predicate Pred,
+          SmallDenseMap<Type *, AllocaInst *> &TypeAllocIMap) {
+        assert(isa<StoreInst>(Inst) && "Expected StoreInst");
+        StructType *StTy = cast<StructType>(StElem.first);
+        Type *Ty = StTy->getElementType(StElem.second);
+
+        AllocaInst *AI = TypeAllocIMap[Ty];
+        assert(AI && "Expected Local var for Ty");
+
+        Value *LI = new LoadInst(AI, "d.ld", Inst);
+        Value *SOp = Inst->getValueOperand();
+        ICmpInst *ICmp = new ICmpInst(Inst, Pred, LI, SOp, "d.cmp");
+        SelectInst *Sel = SelectInst::Create(ICmp, LI, SOp, "d.sel", Inst);
+        StoreInst *SI = new StoreInst(Sel, AI, Inst);
+        (void)SI;
+        LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
+        LLVM_DEBUG(dbgs() << "      " << *ICmp << "\n");
+        LLVM_DEBUG(dbgs() << "      " << *Sel << "\n");
+        LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+        return;
+      };
+
+  // Generate final condition and "or" with previous condition if available.
+  auto GenerateFinalCond = [&](AllocaInst *AI, Value *V,
+                               CmpInst::Predicate Pred, Value *PrevCond,
+                               ReturnInst *RI) -> Value * {
+    Value *LI = new LoadInst(AI, "d.ld", RI);
+    ICmpInst *ICmp = new ICmpInst(RI, Pred, LI, V, "d.cmp");
+    LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *ICmp << "\n");
+    if (!PrevCond)
+      return ICmp;
+
+    Value *FinalCond = BinaryOperator::CreateOr(PrevCond, ICmp, "d.or", RI);
+    LLVM_DEBUG(dbgs() << "      " << *FinalCond << "\n");
+    return FinalCond;
+  };
+
+  SmallVector<BasicBlock *, 2> RetBBs;
+  SmallVector<StoreInst *, 16> RuntimeCheckStores;
+
+  // Collect all StoreInsts that assign values to candidate fields and
+  // BasicBlocks's with ReturnInst..
+  for (BasicBlock &BB : *InitRoutine) {
+    // Collect BasicBlocks's with ReturnInst.
+    if (isa<ReturnInst>(BB.getTerminator()))
+      RetBBs.push_back(&BB);
+
+    // Collect StoreInsts
+    for (auto I = BB.begin(), E = BB.end(); I != E; I++) {
+      auto *Inst = &*I;
+      if (auto *StInst = dyn_cast<StoreInst>(Inst)) {
+        auto StElem = DTInfo.getStoreElement(StInst);
+        if (!StElem.first)
+          continue;
+        if (!isCandidateField(StElem))
+          continue;
+        Value *V = StInst->getValueOperand();
+        // Ignore constant values here since they are already verified.
+        if (isa<ConstantInt>(V))
+          continue;
+        RuntimeCheckStores.push_back(StInst);
+      }
+    }
+  }
+
+  // Allow only single Return for now.
+  if (RetBBs.size() != 1) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than one Returns\n");
+    return false;
+  }
+
+  // Create GlobalVariable to indicate whether DynClone occurred or not.
+  Type *FlagType = Type::getInt8Ty(M.getContext());
+  auto *ShrinkHappenedVar = new GlobalVariable(
+      M, FlagType, false, GlobalVariable::CommonLinkage,
+      ConstantInt::get(FlagType, 0), Twine("__Shrink__Happened__"));
+
+  LLVM_DEBUG(dbgs() << "    ShrinkHappenedVar: " << *ShrinkHappenedVar << "\n");
+
+  // Map of Type and AllocaInst where max value of the type is saved.
+  SmallDenseMap<Type *, AllocaInst *> TypeMaxAllocIMap;
+  // Map of Type and AllocaInst where min value of the type is saved.
+  SmallDenseMap<Type *, AllocaInst *> TypeMinAllocIMap;
+
+  // Create Local variables to save max and min values for each candidate
+  // type.
+  //  entry:
+  //      %d.max = alloca i64
+  //      store i64 -2147483648, i64* %d.max
+  //      %d.min = alloca i64
+  //      store i64 2147483647, i64* %d.min
+  //
+  LLVM_DEBUG(dbgs() << "    Create and Initialize min and max variables: \n");
+  for (auto &CPair : CandidateFields) {
+    StructType *StTy = cast<StructType>(CPair.first);
+    Type *Ty = StTy->getElementType(CPair.second);
+    // Create new Local max and min variables for Ty if not already there.
+    if (TypeMaxAllocIMap[Ty]) {
+      assert(TypeMinAllocIMap[Ty] &&
+             " Expected local min variable already created");
+      continue;
+    }
+    AllocaInst *AI =
+        new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr, "d.max",
+                       &InitRoutine->getEntryBlock().front());
+    TypeMaxAllocIMap[Ty] = AI;
+    StoreInst *SI =
+        new StoreInst(GetShrinkedMinValue(Ty), AI, AI->getNextNode());
+    LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+
+    AI = new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr, "d.min",
+                        SI->getNextNode());
+    TypeMinAllocIMap[Ty] = AI;
+    SI = new StoreInst(GetShrinkedMaxValue(Ty), AI, AI->getNextNode());
+    (void)SI;
+    LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+  }
+
+  // For each StoreInst, it generates instructions like
+  //   Before:
+  //     store i64 %g1, i64* %F1, align 8
+  //
+  //   After:
+  //       %d.ld = load i64, i64* %d.min
+  //       %d.cmp = icmp slt i64 %d.ld, %g1
+  //       %d.sel = select i1 %d.cmp, i64 %d.ld, i64 %g1
+  //       store i64 %d.sel, i64* %d.min
+  //       %d.ld1 = load i64, i64* %d.max
+  //       %d.cmp2 = icmp sgt i64 %d.ld1, %g1
+  //       %d.sel3 = select i1 %d.cmp2, i64 %d.ld1, i64 %g1
+  //       store i64 %d.sel3, i64* %d.max
+  //       store i64 %g1, i64* %F1, align 8
+  //
+  for (auto StInst : RuntimeCheckStores) {
+    auto StElem = DTInfo.getStoreElement(StInst);
+    LLVM_DEBUG(dbgs() << "    Find min and max for " << *StInst << "\n");
+    GenerateMinMaxInsts(StElem, StInst, ICmpInst::ICMP_SLT, TypeMinAllocIMap);
+    GenerateMinMaxInsts(StElem, StInst, ICmpInst::ICMP_SGT, TypeMaxAllocIMap);
+  }
+
+  // Generates instructions to compute final condition to detect
+  // whether the assigned values fit in shrinked types like below.
+  //
+  //   %d.ld16 = load i64, i64* %d.min
+  //   %d.cmp17 = icmp slt i64 %d.ld16, -2147483648
+  //   %d.ld18 = load i64, i64* %d.max
+  //   %d.cmp19 = icmp sgt i64 %d.ld18, 2147483647
+  //   %d.or = or i1 %d.cmp17, %d.cmp19
+  //
+  LLVM_DEBUG(dbgs() << "    Generate Final condition \n");
+  BasicBlock *OrigBB = RetBBs.front();
+  ReturnInst *RetI = cast<ReturnInst>(OrigBB->getTerminator());
+  Value *FinalCond = nullptr;
+  for (auto &Pair : TypeMinAllocIMap)
+    FinalCond = GenerateFinalCond(Pair.second, GetShrinkedMinValue(Pair.first),
+                                  ICmpInst::ICMP_SLT, FinalCond, RetI);
+  for (auto &Pair : TypeMaxAllocIMap)
+    FinalCond = GenerateFinalCond(Pair.second, GetShrinkedMaxValue(Pair.first),
+                                  ICmpInst::ICMP_SGT, FinalCond, RetI);
+
+  // TODO: It is better not to set __Shrink__Happened__ when none of
+  // StoreInst of candidate fields is executed at runtime in InitRoutine.
+  // Add a another check for FinalCond to do the same.
+
+  assert(FinalCond && "Expected non-null Final condition");
+
+  // Before:
+  //   original:
+  //     ...
+  //     ret void
+  //
+  // After:
+  //   original:
+  //   ...
+  //   br i1 %d.or, label %1, label %d.set_happened
+  //
+  //   d.set_happened:
+  //     store i8 1, i8* @__Shrink__Happened__
+  //     br label %1
+  //
+  //   <label>:1:
+  //     ret void
+  //
+  // Split OrigBB just before RetI.
+  LLVM_DEBUG(dbgs() << "    Set __Shrink__Happened__ to 1 \n");
+  BasicBlock *LastBB = OrigBB->splitBasicBlock(RetI);
+
+  BasicBlock *NewBB = BasicBlock::Create(OrigBB->getContext(), "d.set_happened",
+                                         OrigBB->getParent(), LastBB);
+  OrigBB->getTerminator()->eraseFromParent();
+  BranchInst *BI = BranchInst::Create(LastBB, NewBB, FinalCond, OrigBB);
+  LLVM_DEBUG(dbgs() << "      " << *BI << "\n");
+
+  StoreInst *SI =
+      new StoreInst(ConstantInt::get(ShrinkHappenedVar->getValueType(), 1),
+                    ShrinkHappenedVar, NewBB);
+  LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+  BranchInst::Create(LastBB, NewBB);
+  (void)BI;
+  (void)SI;
+  return true;
+}
+
 bool DynCloneImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
@@ -567,6 +846,16 @@ bool DynCloneImpl::run(void) {
     return false;
 
   LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
+
+  // TODO: Lot more checks are needed before generating runtime checks.
+  // Most of those checks are basically to prove it is legal to rematerialize
+  // struct pointers after shrining the struct. These checks will be
+  // implemented later.
+
+  if (!transformInitRoutine())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "    Generated Runtime checks in InitRoutine ... \n");
 
   LLVM_DEBUG(dbgs() << "  Final Candidate fields: \n";
              printCandidateFields(dbgs()));
