@@ -5,9 +5,6 @@
 
 target triple = "csa"
 
-; CHECK: [[CYCLIC:@.*]] = internal unnamed_addr constant [7 x i8] c"cyclic\00"
-; CHECK: [[BLOCKED:@.*]] = internal unnamed_addr constant [8 x i8] c"blocked\00"
-
 ; CHECK-LABEL: @foo
 define void @foo() {
 entry:
@@ -24,7 +21,8 @@ DIR.OMP.PARALLEL.LOOP.1:
   br label %DIR.OMP.PARALLEL.LOOP.19
 
 DIR.OMP.PARALLEL.LOOP.19:
-; CHECK: [[SPMD:%.*]] = call i32 @llvm.csa.spmdization.entry(i32 2, i8* getelementptr inbounds ([7 x i8], [7 x i8]* [[CYCLIC]], i32 0, i32 0))
+; No shedule translates to "cyclic" SPMDization mode (1).
+; CHECK: [[SPMD:%.*]] = call i32 @llvm.csa.spmdization.entry(i32 2, i32 1)
 ; CHECK: [[REGION:%.*]] = call i32 @llvm.csa.parallel.region.entry(i32 2001)
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 2) ]
   br label %DIR.OMP.PARALLEL.LOOP.2
@@ -80,7 +78,8 @@ DIR.OMP.PARALLEL.LOOP.1:
   br label %DIR.OMP.PARALLEL.LOOP.19
 
 DIR.OMP.PARALLEL.LOOP.19:
-; CHECK: [[SPMD:%.*]] = call i32 @llvm.csa.spmdization.entry(i32 2, i8* getelementptr inbounds ([8 x i8], [8 x i8]* [[BLOCKED]], i32 0, i32 0))
+; Static schedule (no chunk size) translates to blocked SPMDization mode (0).
+; CHECK: [[SPMD:%.*]] = call i32 @llvm.csa.spmdization.entry(i32 2, i32 0)
 ; CHECK: [[REGION:%.*]] = call i32 @llvm.csa.parallel.region.entry(i32 2002)
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 2), "QUAL.OMP.SCHEDULE.STATIC"(i32 0) ]
   br label %DIR.OMP.PARALLEL.LOOP.2

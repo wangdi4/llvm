@@ -161,26 +161,14 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
     auto *Exit = Intrinsic::getDeclaration(Module,
       Intrinsic::csa_spmdization_exit);
 
-    auto makeString = [&](const StringRef &Str) -> Value* {
-      auto &C = F->getContext();
-      auto *Arr = ConstantDataArray::getString(C, Str);
-      auto *Var = new GlobalVariable(*Module, Arr->getType(), true,
-                                     GlobalValue::InternalLinkage, Arr,
-                                     "spmd.mode");
-      Var->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-
-      Value *Zero = ConstantInt::get(Type::getInt32Ty(C), 0u);
-      return ConstantExpr::getGetElementPtr(Arr->getType(), Var,
-                                            { Zero, Zero });
-    };
-
     // Determine SPMDization mode, it depends on a schedule clause.
     //   No schedule    => cyclic SPMD
     //   schedule(auto) => cyclic SPMD
     //   schedule(static) => blocked SPMD
     //     chunksize => hybrid SPMD (not yet supported)
-    auto *Mode = makeString(Sched && Sched->getKind() == WRNScheduleStatic ?
-                            "blocked" : "cyclic");
+
+    Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
+      Sched && Sched->getKind() == WRNScheduleStatic ? 0u : 1u);
 
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
     auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");
