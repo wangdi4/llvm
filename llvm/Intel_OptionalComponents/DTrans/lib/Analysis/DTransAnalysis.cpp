@@ -3271,6 +3271,14 @@ public:
         setValueTypeInfoSafetyData(&I, dtrans::UnhandledUse);
       }
     }
+
+    // Check for possible use of pointer type loaded via pointer sized int to
+    // expose the real type to the transforms. This is temporary, until the full
+    // LocalPointerInfo is made available to the transformations.
+    if (isPtrSizeInt(&I)) {
+      LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(&I);
+      collectPtrSizedIntLoadStoreType (I, ValLPI);
+    }
   }
 
   //
@@ -3359,6 +3367,13 @@ public:
     // If the value operand is a pointer to an element within an aggregate
     // we need to mark that element as having its address taken.
     LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
+
+    // Check for possible use of pointer type stored via pointer sized int to
+    // expose the real type to the transforms. This is temporary, until the full
+    // LocalPointerInfo is made available to the transformations.
+    if (isPtrSizeInt(ValOperand))
+      collectPtrSizedIntLoadStoreType(I, ValLPI);
+
     if (ValLPI.pointsToSomeElement()) {
       auto ValPointees = ValLPI.getElementPointeeSet();
       for (auto PointeePair : ValPointees) {
@@ -3382,6 +3397,48 @@ public:
       analyzeElementLoadOrStore(PtrLPI, ValOperand, I, ValOperand->getType(),
                                 I.isVolatile(),
                                 /*IsLoad=*/false);
+  }
+
+  // Collect the aggregate type for \p ValLPI which corresponds to the Value
+  // loaded or stored by \p I which is loading/storing a pointer sized integer
+  // value. Save an association between the Instruction and the actual aggregate
+  // pointer type, if there is a single type, in the maps to allow queries by
+  // the transformations. This is temporary until the complete LocalPointerInfo
+  // is exposed to the transformations.
+  void collectPtrSizedIntLoadStoreType(Instruction &I,
+                                       LocalPointerInfo &ValLPI) {
+    if (!ValLPI.canAliasToAggregatePointer())
+      return;
+
+    // Find the actual type of aggregate pointer being loaded, if there is
+    // a single type. If there is more than one type, then we will not
+    // capture the information for the ptr-size-int mapping because the
+    // type will not pass the safety checks for the transformations.
+    llvm::Type *ActualType = nullptr;
+    for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
+      if (AliasTy == Int8PtrTy)
+        continue;
+
+      if (AliasTy == PtrSizeIntPtrTy)
+        continue;
+
+      if (ActualType) {
+        ActualType = nullptr;
+        break;
+      }
+
+      ActualType = AliasTy;
+    }
+
+    if (!ActualType)
+      return;
+
+    if (auto *LI = dyn_cast<LoadInst>(&I))
+      DTInfo.addLoadPtrSizedIntMapping(LI, ActualType);
+    else if (auto *SI = dyn_cast<StoreInst>(&I))
+      DTInfo.addStorePtrSizedIntMapping(SI, ActualType);
+    else
+      llvm_unreachable("Instruction must be LoadInst or StoreInst");
   }
 
   void visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -6341,6 +6398,30 @@ DTransAnalysisInfo::getLoadElement(LoadInst *LdInst) {
   return It->second;
 }
 
+void DTransAnalysisInfo::addLoadPtrSizedIntMapping(LoadInst *LI,
+                                                   llvm::Type *Ty) {
+  LoadPSIInfoMap[LI] = Ty;
+}
+
+void DTransAnalysisInfo::addStorePtrSizedIntMapping(StoreInst *SI,
+                                                    llvm::Type *Ty) {
+  StorePSIInfoMap[SI] = Ty;
+}
+
+llvm::Type *DTransAnalysisInfo::getPtrSizeIntLoadType(LoadInst *LI) {
+  auto It = LoadPSIInfoMap.find(LI);
+  if (It == LoadPSIInfoMap.end())
+    return nullptr;
+  return It->second;
+}
+
+llvm::Type *DTransAnalysisInfo::getPtrSizeIntStoreType(StoreInst *SI) {
+  auto It = StorePSIInfoMap.find(SI);
+  if (It == StorePSIInfoMap.end())
+    return nullptr;
+  return It->second;
+}
+
 std::pair<llvm::Type *, size_t>
 DTransAnalysisInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
   auto It = ByteFlattenedGEPInfoMap.find(GEP);
@@ -6445,6 +6526,10 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
                                  Other.ByteFlattenedGEPInfoMap.end());
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
+  StorePSIInfoMap.insert(Other.StorePSIInfoMap.begin(),
+                         Other.StorePSIInfoMap.end());
+  LoadPSIInfoMap.insert(Other.LoadPSIInfoMap.begin(),
+                        Other.LoadPSIInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -6462,6 +6547,10 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
                                  Other.ByteFlattenedGEPInfoMap.end());
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
+  StorePSIInfoMap.insert(Other.StorePSIInfoMap.begin(),
+                         Other.StorePSIInfoMap.end());
+  LoadPSIInfoMap.insert(Other.LoadPSIInfoMap.begin(),
+                        Other.LoadPSIInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -6497,6 +6586,8 @@ void DTransAnalysisInfo::reset() {
   ByteFlattenedGEPInfoMap.clear();
   StoreInfoMap.clear();
   LoadInfoMap.clear();
+  StorePSIInfoMap.clear();
+  LoadPSIInfoMap.clear();
   TypeInfoMap.clear();
   IgnoreTypeMap.clear();
 }

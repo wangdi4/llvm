@@ -72,6 +72,10 @@ public:
 
   using StoreInfoMapType = ValueMap<Value *, std::pair<llvm::Type *, size_t>>;
 
+  using LoadPtrSizeIntInfoMapType = ValueMap<Value *, llvm::Type *>;
+
+  using StorePtrSizeIntInfoMapType = ValueMap<Value *, llvm::Type *>;
+
 public:
   DTransAnalysisInfo();
   DTransAnalysisInfo(DTransAnalysisInfo &&Other);
@@ -136,6 +140,10 @@ public:
   // return the type-index pair for the element read. Otherwise,
   // return <nullptr, 0>.
   std::pair<llvm::Type *, size_t> getStoreElement(StoreInst *StInst);
+
+  llvm::Type *getPtrSizeIntLoadType(LoadInst *LI);
+
+  llvm::Type *getPtrSizeIntStoreType(StoreInst *SI);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
@@ -224,6 +232,10 @@ public:
   void addStoreMapping(StoreInst *StInst,
                        std::pair<llvm::Type *, size_t> Pointee);
 
+  void addLoadPtrSizedIntMapping(LoadInst *LI, llvm::Type *Ty);
+
+  void addStorePtrSizedIntMapping(StoreInst *SI, llvm::Type *Ty);
+
   uint64_t getMaxTotalFrequency() const { return MaxTotalFrequency; }
   void setMaxTotalFrequency(uint64_t MTFreq) { MaxTotalFrequency = MTFreq; }
 
@@ -278,6 +290,14 @@ private:
   // structure element writes to a type-index pair for the element being
   // written.
   StoreInfoMapType StoreInfoMap;
+
+  // A mapping from LoadInst instructions that load a pointer to an aggregate
+  // type as a pointer sized integer.
+  LoadPtrSizeIntInfoMapType LoadPSIInfoMap;
+
+  // A mapping from StoreInst instructions that store a pointer to an aggregate
+  // type as a pointer sized integer.
+  StorePtrSizeIntInfoMapType StorePSIInfoMap;
 
   // Maximum of TotalFrequency of all structs.
   uint64_t MaxTotalFrequency;

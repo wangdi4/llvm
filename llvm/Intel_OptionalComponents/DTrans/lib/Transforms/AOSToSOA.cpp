@@ -257,6 +257,9 @@ public:
     SmallVector<GetElementPtrInst *, 16> ByteGEPsToConvert;
     SmallVector<BitCastInst *, 16> BCsToConvert;
     SmallVector<BinaryOperator *, 16> BinOpsToConvert;
+    SmallVector<PtrToIntInst *, 16> PTIsToConvert;
+    SmallVector<LoadInst *, 16> LoadsToConvert;
+    SmallVector<StoreInst *, 16> StoresToConvert;
 
     SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 4> AllocsToConvert;
     SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 4> FreesToConvert;
@@ -341,15 +344,13 @@ public:
         // A pointer may be cast to an integer type, and after the
         // type remapping of the pointer to the structure this would be
         // a PtrToInt instruction with an integer type as the source type.
-        // Collect this cast into the list of casts that need to be removed
-        // during post processing.
         //
         // The DTransAnalysis guarantees that the size of the target integer
         // will be the same size as the pointer type.
         // The DTransAnalysis guarantees that IntToPtr instructions do not
         // need to be considered currently.
         if (checkConversionNeeded(PTI))
-          PtrConverts.push_back(PTI);
+          PTIsToConvert.push_back(PTI);
       } else if (auto *BC = dyn_cast<BitCastInst>(I)) {
         if (checkConversionNeeded(BC))
           BCsToConvert.push_back(BC);
@@ -360,6 +361,12 @@ public:
           else
             DepBinOptsToConvert.push_back(BinOp);
         }
+      } else if (auto *LI = dyn_cast<LoadInst>(I)) {
+        if (checkConversionNeeded(LI))
+          LoadsToConvert.push_back(LI);
+      } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+        if (checkConversionNeeded(SI))
+          StoresToConvert.push_back(SI);
       }
     }
 
@@ -381,6 +388,14 @@ public:
     for (auto *BinOp : BinOpsToConvert)
       processBinOp(BinOp);
 
+    for (auto *PTI : PTIsToConvert)
+      processPtrToInt(PTI);
+
+    for (auto *SI : StoresToConvert)
+      processStore(SI);
+
+    for (auto *LI : LoadsToConvert)
+      processLoad(LI);
     // The bitcasts should be processed after the 'free' calls and
     // byte-flattened GEPs, because those conversions are expecting
     // instructions with the bitcasts as an input.
@@ -474,6 +489,51 @@ public:
       return AOS_NoConv;
 
     return isTypeOrDepTypeToTransform(PtrSubTy);
+  }
+
+  // Check whether a load instruction needs to be modified directly by the
+  // transformation rather than via the type remapper. If the load was converted
+  // to use a pointer sized int, rather than the pointer type itself, it will
+  // need to be transformed when pointer shrinking is taking place, otherwise
+  // the load would be the size of a pointer rather than the peeling index type.
+  bool checkConversionNeeded(LoadInst *LI) {
+    if (!isPointerShrinkingEnabled())
+      return false;
+
+    if (!LI->getType()->isIntegerTy())
+      return false;
+
+    auto *Ty = DTInfo.getPtrSizeIntLoadType(LI);
+    if (!Ty)
+      return false;
+
+    if (!Ty->isPointerTy())
+      return false;
+
+    return isTypeToTransform(Ty->getPointerElementType());
+  }
+
+  // Check whether a store instruction needs to be modified directly by the
+  // transformation rather than via the type remapper. If the stored value was
+  // converted to use a pointer sized int, rather than the pointer type itself,
+  // it will need to be transformed when pointer shrinking is taking place,
+  // otherwise the store would be the size of a pointer rather than the peeling
+  // index type.
+  bool checkConversionNeeded(StoreInst *SI) {
+    if (!isPointerShrinkingEnabled())
+      return false;
+
+    if (!SI->getValueOperand()->getType()->isIntegerTy())
+      return false;
+
+    auto *Ty = DTInfo.getPtrSizeIntStoreType(SI);
+    if (!Ty)
+      return false;
+
+    if (!Ty->isPointerTy())
+      return false;
+
+    return isTypeToTransform(Ty->getPointerElementType());
   }
 
   void processGEP(GetElementPtrInst *GEP) {
@@ -762,6 +822,112 @@ public:
     llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
     uint64_t OrigSize = DL.getTypeAllocSize(PtrSubTy);
     updatePtrSubDivUserSizeOperand(BinOp, OrigSize, 1);
+  }
+
+  void processPtrToInt(PtrToIntInst *PTI) {
+    LLVM_DEBUG(dbgs() << "ptrtoint to convert: " << *PTI << "\n");
+
+    // An instruction of the form: ptrtoint %struct.test01* %x to i64 will
+    // not be valid after type remapping occurs.
+    //
+    // When index shrinking is not enabled, it will remap to:
+    //    ptrtoint i64 %x to i64
+    // In this case, the instruction becomes a meaningless cast, and should
+    // be removed during post processing.
+    if (!isPointerShrinkingEnabled()) {
+      PtrConverts.push_back(PTI);
+      LLVM_DEBUG(dbgs() << "ptrtoint will be deleted in post-processing\n");
+      return;
+    }
+
+    // When index shrinking is enabled, we need to create a replacement
+    // sequence to prepare for the type remapping, while maintaining the
+    // uses of the instruction as i64 types by converting it into:
+    //    %1 = ptrtoint %struct.test01* %x to i32
+    //    %2 = zext i32 %1 to i64
+    //
+    // After type remapping, the ptrtoint replacement will be ptrtoint i32 to
+    // i32 and removed during post processing.
+    CastInst *NewPTI = CastInst::CreateBitOrPointerCast(
+        PTI->getOperand(0), getPeeledIndexType(), "", PTI);
+    Instruction *ZExt =
+        CastInst::Create(CastInst::ZExt, NewPTI, PTI->getType(), "", PTI);
+    PTI->replaceAllUsesWith(ZExt);
+    ZExt->takeName(PTI);
+
+    LLVM_DEBUG(dbgs() << "After convert:\n  "
+                      << *NewPTI << "\n  " << *ZExt << "\n");
+
+    InstructionsToDelete.insert(PTI);
+    PtrConverts.push_back(NewPTI);
+    return;
+  }
+
+  // Replace a load instruction that loaded a pointer sized integer to
+  // instead load a peeling index type.
+  void processLoad(LoadInst *LI) {
+
+    assert(isPointerShrinkingEnabled() &&
+           "LoadInst transformation is only needed when shrinking the peeling "
+           "index");
+    assert(LI->getType()->isIntegerTy() && "LoadInst must be integer type");
+
+    LLVM_DEBUG(dbgs() << "Load to convert: " << *LI << "\n");
+
+    // Replace a load of the form:
+    //    %val_i64 = load i64, i64* %p_i64
+    //
+    // To be:
+    //    %1 = bitcast i64* %p_i64 to i32*
+    //    %2 = load i32, i32* %3
+    //    %val_i64 = zext i32 %2 to i64
+    //
+    // The loaded value is extended to the original size so that it can
+    // be used as a replacement in the existing instructions.
+    Instruction *PtrCast = CastInst::CreateBitOrPointerCast(
+        LI->getPointerOperand(), getPeeledIndexType()->getPointerTo(), "", LI);
+    Instruction *NewLoad = new LoadInst(PtrCast, "", LI);
+
+    Instruction *ZExt =
+        CastInst::Create(CastInst::ZExt, NewLoad, LI->getType(), "", LI);
+    LI->replaceAllUsesWith(ZExt);
+    ZExt->takeName(LI);
+    InstructionsToDelete.insert(LI);
+    LLVM_DEBUG(dbgs() << "After convert:\n  "
+                      << *PtrCast << "\n  " << *NewLoad << "\n  " << *ZExt
+                      << "\n");
+  }
+
+  // Replace a store instruction that stored a pointer to a type being
+  // transformed as a pointer sized int to instead store a peeling index type.
+  void processStore(StoreInst *SI) {
+    assert(isPointerShrinkingEnabled() &&
+           "StoreInst transformation is only needed when shrinking the peeling "
+           "index");
+    assert(SI->getValueOperand()->getType()->isIntegerTy() &&
+           "StoreInst must be integer type");
+
+    LLVM_DEBUG(dbgs() << "Store to convert: " << *SI << "\n");
+
+    // Replace a store of the form:
+    //    store i64 %val_i64, i64* %p_i64
+    //
+    // To be:
+    //    %1 = trunc i64 %val_i64 to i32
+    //    %2 = bitcast i32* %p_i64 to i32*
+    //    store i32 %1, i32* %2
+    Instruction *Trunc = CastInst::Create(
+        CastInst::Trunc, SI->getValueOperand(), getPeeledIndexType(), "", SI);
+    Instruction *PtrCast = CastInst::CreateBitOrPointerCast(
+        SI->getPointerOperand(), getPeeledIndexType()->getPointerTo(), "", SI);
+
+    Instruction *NewStore = new StoreInst(Trunc, PtrCast);
+    NewStore->insertBefore(SI);
+    InstructionsToDelete.insert(SI);
+
+    LLVM_DEBUG(dbgs() << "After convert:\n  "
+                      << *Trunc << "\n  " << *PtrCast << "\n  " << *NewStore
+                      << "\n");
   }
 
   // The byte-flattened GEP needs to be transformed from getting the address as:
