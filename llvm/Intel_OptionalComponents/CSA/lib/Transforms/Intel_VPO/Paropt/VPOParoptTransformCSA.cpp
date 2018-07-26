@@ -102,7 +102,7 @@ Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
 // which annotate loop as parallel for the back-end passes.
 // After transformation the annotated loop looks as follows
 //
-//   [%spmd = call i32 @llvm.csa.spmdization.entry(<num_threads>);]*
+//   [%spmd = call i32 @llvm.csa.spmdization.entry(<num_threads>, <mode>);]*
 //   %region = call i32 @llvm.csa.parallel.region.entry(i32 2002);
 //   for (...) {
 //     %section = call i32 @llvm.csa.parallel.section.entry(i32 %region);
@@ -138,10 +138,9 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
   // Three options for the chunk size
   //   Sched->getChunk() == 0 => chunk was not specified
   //   Sched->getChunk() > 0  => chunk is a compile time constant
-  //   Sched->getChunk() < 0  => chunk is an expression
-  // So far we handle only the "no chunk" case.
-  if (Sched && Sched->getChunk() != 0) {
-    reportCSAWarning(W, "schedule chunk is not supported");
+  //   Sched->getChunk() < 0  => chunk is an expression (unsupported)
+  if (Sched && Sched->getChunk() < 0) {
+    reportCSAWarning(W, "schedule chunk must be a compile time constant");
     Sched = nullptr;
   }
 
@@ -162,13 +161,13 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
       Intrinsic::csa_spmdization_exit);
 
     // Determine SPMDization mode, it depends on a schedule clause.
-    //   No schedule    => cyclic SPMD
-    //   schedule(auto) => cyclic SPMD
-    //   schedule(static) => blocked SPMD
-    //     chunksize => hybrid SPMD (not yet supported)
-
+    //   No schedule    => cyclic SPMD          (1)
+    //   schedule(auto) => cyclic SPMD          (1)
+    //   schedule(static) => blocked SPMD       (0)
+    //     (chunksize > 1) => hybrid SPMD       (chunksize)
     Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
-      Sched && Sched->getKind() == WRNScheduleStatic ? 0u : 1u);
+      !Sched || Sched->getKind() != WRNScheduleStatic ? 1u :
+        Sched->getChunk() <= 1 ? 0u : Sched->getChunk());
 
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
     auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");

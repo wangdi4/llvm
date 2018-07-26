@@ -11,7 +11,7 @@ entry:
   br label %DIR.OMP.PARALLEL.LOOP.19
 
 DIR.OMP.PARALLEL.LOOP.19:
-; CHECK: warning:{{.*}}CSA - schedule chunk is not supported
+; CHECK: warning:{{.*}}CSA - schedule chunk must be a compile time constant
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 %x) ]
   br label %DIR.OMP.PARALLEL.LOOP.2
 
