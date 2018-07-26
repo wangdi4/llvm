@@ -3763,7 +3763,8 @@ public:
           }
         }
       }
-      analyzeStructureType(Ty);
+      // Add this to type info list.
+      (void)DTInfo.getOrCreateTypeInfo(Ty);
     }
 
     // Before visiting each Function, ensure that the types of all of the
@@ -3864,6 +3865,9 @@ public:
         }
       }
     }
+    // Analyze definitions of all structures in type info list.
+    for (dtrans::TypeInfo *TI : DTInfo.type_info_entries())
+      analyzeStructureType(TI);
   }
 
   void visitFunction(Function &F) {
@@ -4322,9 +4326,10 @@ private:
   // Analyze a structure definition, independent of its use in any
   // instruction. This checks for basic issues like structure nesting
   // and empty structures.
-  void analyzeStructureType(llvm::StructType *Ty) {
-    // Add this to our type info list.
-    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty);
+  void analyzeStructureType(dtrans::TypeInfo *TI) {
+    auto *Ty = dyn_cast<StructType>(TI->getLLVMType());
+    if (!Ty)
+      return;
 
     // Check to see if this structure is known to be a system type.
     if (dtrans::isSystemObjectType(Ty)) {
