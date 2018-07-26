@@ -32,6 +32,15 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtrans-aostosoa"
 
+// Debug type to show IR at various stages of the transformation. For example,
+// the initial instruction conversion, prior to post-processing the function,
+// and the final result.
+#define AOSTOSOA_IR "dtrans-aostosoa-ir"
+
+// Debug type to show function attributes conversion for pointer parameters
+// that are changed to integers.
+#define AOSTOSOA_ATTRIBUTES "dtrans-aostosoa-attributes"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // This option is used during testing to allow qualifying specific structure
 // types be converted via the AOS-to-SOA transform without running the
@@ -60,6 +69,36 @@ static cl::opt<unsigned>
 // it is determined that those structures cannot have their sizes changed.
 static cl::opt<bool> DTransAOSToSOAIndex32("dtrans-aostosoa-index32",
                                            cl::init(false), cl::ReallyHidden);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// This class is a helper that can be passed to an output stream operator for
+// printing structure types in the debug traces. For named structures, the print
+// method outputs the structure's name. For unnamed structures, the print method
+// outputs the structure's type.
+class StructNamePrintHelper {
+public:
+  StructNamePrintHelper(llvm::Type *Ty) : Ty(Ty) {}
+
+  void print(raw_ostream &OS) const {
+    auto *StructTy = dyn_cast<llvm::StructType>(Ty);
+    assert(StructTy && "Expected structure type");
+    if (StructTy->hasName()) {
+      OS << StructTy->getStructName();
+      return;
+    }
+
+    OS << "unnamed " << *StructTy;
+  }
+
+private:
+  llvm::Type *Ty;
+};
+
+raw_ostream &operator<<(raw_ostream &OS, const StructNamePrintHelper &Helper) {
+  Helper.print(OS);
+  return OS;
+}
+#endif
 
 namespace {
 // This class is used during the type remapping process to perform the
@@ -140,7 +179,7 @@ public:
 
     SmallVector<dtrans::StructInfo *, 4> Qualified;
     unsigned PointerSizeInBits = DL.getPointerSizeInBits();
-    PointerShrinkingEnabled = DTransAOSToSOAIndex32 && PointerSizeInBits != 32;
+    PointerShrinkingEnabled = DTransAOSToSOAIndex32 && PointerSizeInBits == 64;
 
     for (auto *StInfo : TypesToTransform) {
       StructType *OrigTy = cast<StructType>(StInfo->getLLVMType());
@@ -179,17 +218,18 @@ public:
         }
 
         DepTypesToTransform.insert(DepTy);
+
         LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Transforming type    : "
-                          << *OrigTy << "\n"
+                          << StructNamePrintHelper(OrigTy) << "\n"
                           << "                 will also affect type: "
-                          << *DepTy << "\n");
+                          << StructNamePrintHelper(DepTy) << "\n");
       }
 
       if (DepQualified)
         Qualified.push_back(StInfo);
       else
         LLVM_DEBUG(dbgs() << "Disqualifying type based on dependencies: "
-                          << getStructName(OrigTy));
+                          << StructNamePrintHelper(OrigTy));
     }
 
     std::swap(Qualified, TypesToTransform);
@@ -229,8 +269,8 @@ public:
 
       StructType *NewStructTy = cast<StructType>(NewTy);
       NewStructTy->setBody(DataTypes);
-      LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Type replacement:\n  Old: "
-                        << *OrigTy << "\n  New: " << *NewStructTy << "\n");
+      LLVM_DEBUG(dbgs() << "\nDTRANS-AOSTOSOA: Type replacement:\n  Old: "
+                        << *OrigTy << "\n  New: " << *NewStructTy << "\n\n");
     }
   }
 
@@ -274,7 +314,10 @@ public:
     SmallVector<std::pair<MemfuncCallInfo *, StructInfo *>, 4>
         DepMemfuncsToResize;
 
-    for (auto It = inst_begin(&F), E = inst_end(F); It != E; ++It) {
+    LLVM_DEBUG(dbgs() << "\nDTRANS-AOSTOSOA: Processing function: "
+                      << F.getName() << "\n");
+
+    for (auto It = inst_begin(&F), E = inst_end(&F); It != E; ++It) {
       AOSConvType ConvType = AOS_NoConv;
       Instruction *I = &*It;
       if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
@@ -420,6 +463,10 @@ public:
 
     PeelIndexCache.clear();
     InstructionsToDelete.clear();
+
+    DEBUG_WITH_TYPE(AOSTOSOA_IR,
+                    dbgs() << "\nDTRANS-AOSTOSOA: After processFunction:\n"
+                           << F << "\n");
   }
 
   bool checkConversionNeeded(GetElementPtrInst *GEP) {
@@ -537,6 +584,8 @@ public:
   }
 
   void processGEP(GetElementPtrInst *GEP) {
+    LLVM_DEBUG(dbgs() << "Replacing GEP: " << *GEP << "\n");
+
     // There are 2 cases that need to be converted.
     // 1: Getting the address of a structure within the array of structures.
     //    %addr1 = getelementptr %struct.t, %struct.t* %base, i64 %n
@@ -855,8 +904,8 @@ public:
     PTI->replaceAllUsesWith(ZExt);
     ZExt->takeName(PTI);
 
-    LLVM_DEBUG(dbgs() << "After convert:\n  "
-                      << *NewPTI << "\n  " << *ZExt << "\n");
+    LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewPTI << "\n  " << *ZExt
+                      << "\n");
 
     InstructionsToDelete.insert(PTI);
     PtrConverts.push_back(NewPTI);
@@ -893,9 +942,8 @@ public:
     LI->replaceAllUsesWith(ZExt);
     ZExt->takeName(LI);
     InstructionsToDelete.insert(LI);
-    LLVM_DEBUG(dbgs() << "After convert:\n  "
-                      << *PtrCast << "\n  " << *NewLoad << "\n  " << *ZExt
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "After convert:\n  " << *PtrCast << "\n  " << *NewLoad
+                      << "\n  " << *ZExt << "\n");
   }
 
   // Replace a store instruction that stored a pointer to a type being
@@ -925,9 +973,8 @@ public:
     NewStore->insertBefore(SI);
     InstructionsToDelete.insert(SI);
 
-    LLVM_DEBUG(dbgs() << "After convert:\n  "
-                      << *Trunc << "\n  " << *PtrCast << "\n  " << *NewStore
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "After convert:\n  " << *Trunc << "\n  " << *PtrCast
+                      << "\n  " << *NewStore << "\n");
   }
 
   // The byte-flattened GEP needs to be transformed from getting the address as:
@@ -944,6 +991,9 @@ public:
   void processByteFlattendGEP(GetElementPtrInst *GEP) {
     auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
     auto *OrigStructTy = cast<llvm::StructType>(InfoPair.first);
+
+    LLVM_DEBUG(dbgs() << "Replacing byte flattened GEP for field "
+                      << InfoPair.second << ":\n  " << *GEP << "\n");
 
     // Trace the pointer operand to find the base value that is needed
     // for indexing into the field's array.
@@ -1072,10 +1122,17 @@ public:
   // to be modified after the type remapping of data types has taken place.
   virtual void postprocessFunction(Function &OrigFunc, bool isCloned) override {
     Function *Func = &OrigFunc;
-    if (isCloned) {
+    if (isCloned)
       Func = cast<Function>(VMap[&OrigFunc]);
 
-      LLVM_DEBUG({
+    LLVM_DEBUG(dbgs() << "\nPost-processing function: " << Func->getName()
+                      << "\n");
+    DEBUG_WITH_TYPE(AOSTOSOA_IR,
+                    dbgs() << "\nDTRANS-AOSTOSOA: Into postProcessFunction:\n"
+                           << *Func << "\n");
+
+    if (isCloned) {
+      DEBUG_WITH_TYPE(AOSTOSOA_ATTRIBUTES, {
         dbgs() << "DTRANS-AOSTOSOA: Updating function attributes for: "
                << Func->getName() << " Type: " << *Func->getType() << "\n";
         Func->getAttributes().dump();
@@ -1123,7 +1180,7 @@ public:
         }
       }
 
-      LLVM_DEBUG({
+      DEBUG_WITH_TYPE(AOSTOSOA_ATTRIBUTES, {
         dbgs() << "DTRANS-AOSTOSOA: After function attribute update\n";
         Func->getAttributes().dump();
       });
@@ -1133,6 +1190,8 @@ public:
       if (isCloned)
         Conv = cast<CastInst>(VMap[Conv]);
 
+      LLVM_DEBUG(dbgs() << "Post process deleting: " << *Conv << "\n");
+
       assert(Conv->getType() == Conv->getOperand(0)->getType() &&
              "Expected self-type in cast after remap");
       Conv->replaceAllUsesWith(Conv->getOperand(0));
@@ -1140,6 +1199,10 @@ public:
     }
 
     PtrConverts.clear();
+
+    DEBUG_WITH_TYPE(AOSTOSOA_IR,
+                    dbgs() << "\nDTRANS-AOSTOSOA: After postProcessFunction:\n"
+                           << *Func << "\n");
   }
 
 private:
@@ -1172,6 +1235,8 @@ private:
   // This function only operates on the pre-cloned version of a function.
   void processAllocCall(dtrans::AllocCallInfo *AInfo, StructInfo *StInfo) {
     auto *AllocCallInst = cast<CallInst>(AInfo->getInstruction());
+    LLVM_DEBUG(dbgs() << "Updating allocation call: " << *AllocCallInst
+                      << "\n");
 
     StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
     uint64_t StructSize = DL.getTypeAllocSize(StructTy);
@@ -1215,6 +1280,10 @@ private:
           IRB.CreateAdd(NewAllocCountVal, ConstantInt::get(SizeType, 1));
       Value *NewAllocationSize = IRB.CreateMul(NewAllocCountVal, StructSizeVal);
       AllocCallInst->setOperand(OrigAllocSizeInd, NewAllocationSize);
+      LLVM_DEBUG(dbgs() << "Modified allocation:\n"
+                        << "\nSize: " << *NewAllocationSize << "\n  "
+                        << *AllocCallInst << "\n");
+
     } else {
       assert(Kind == dtrans::AK_Calloc && "Expected calloc");
       auto *OrigAllocCountVal = AllocCallInst->getArgOperand(OrigAllocCountInd);
@@ -1249,6 +1318,9 @@ private:
           AllocCountVal, ConstantInt::get(AllocCountVal->getType(), 1));
       AllocCallInst->setOperand(OrigAllocCountInd, NewAllocCountVal);
       AllocCallInst->setOperand(OrigAllocSizeInd, AllocSizeVal);
+      LLVM_DEBUG(dbgs() << "Modified allocation:\n"
+                        << "Count:" << *NewAllocCountVal << "\nSize: "
+                        << *AllocSizeVal << "\n  " << *AllocCallInst << "\n");
     }
 
     assert(NewAllocCountVal &&
@@ -1426,13 +1498,17 @@ private:
         CastInst::CreateBitOrPointerCast(SOAAddr, getInt8PtrType());
     SOAAddrAsI8Ptr->insertBefore(FreeCall);
 
-    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Before modifying free call: "
-                      << *FreeCall << "\n");
     unsigned PtrArgInd = -1U;
     getFreePtrArg(CInfo->getFreeKind(), CallSite(FreeCall), PtrArgInd, TLI);
+
+    LLVM_DEBUG(dbgs() << "Updating free call:\n  "
+                      << *FreeCall->getOperand(PtrArgInd) << "\n  " << *FreeCall
+                      << "\n");
+
     FreeCall->setOperand(PtrArgInd, SOAAddrAsI8Ptr);
-    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: After modifying free call: "
-                      << *FreeCall << "\n");
+
+    LLVM_DEBUG(dbgs() << "to be:\n  " << *FreeCall->getOperand(PtrArgInd)
+                      << "\n  " << *FreeCall << "\n");
   }
 
   // The transformation of the memfunc call needs to replace the original
@@ -1464,6 +1540,8 @@ private:
     // Partial memfuncs can only operate on a single structure element, so
     // we don't update the size multiple for those.
     IntrinsicInst *I = cast<IntrinsicInst>(CInfo->getInstruction());
+    LLVM_DEBUG(dbgs() << "Replacing memset call: " << *I << "\n");
+
     StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
     llvm::Type *SizeType = I->getArgOperand(2)->getType();
     Value *CountToSet = nullptr;
@@ -1554,6 +1632,8 @@ private:
            "aggregates");
 
     IntrinsicInst *I = cast<IntrinsicInst>(CInfo->getInstruction());
+    LLVM_DEBUG(dbgs() << "Replacing memcpy/memmove call: " << *I << "\n");
+
     StructType *StructTy = cast<StructType>(StInfo->getLLVMType());
 
     // Compute the number of elements that are going to be set.
@@ -1651,6 +1731,7 @@ private:
     // The bitcast may no longer be needed after processing the byte flattened
     // GEPs.
     if (BC->user_empty()) {
+      LLVM_DEBUG(dbgs() << "Deleting bitcast: " << *BC << "\n");
       InstructionsToDelete.insert(BC);
       return;
     }
@@ -1682,6 +1763,9 @@ private:
       ToPtr->takeName(BC);
     }
 
+    LLVM_DEBUG(dbgs() << "Replacing bitcast: " << *BC << "\nTo be:\n  "
+                      << *ToInt << "\n  " << *ToPtr << "\n");
+
     BC->replaceAllUsesWith(ToPtr);
     InstructionsToDelete.insert(BC);
   }
@@ -1689,6 +1773,10 @@ private:
   // Update the size used for pointer arithmetic involving dependent structure
   // types.
   void processDepBinOp(BinaryOperator *BinOp) {
+    LLVM_DEBUG(dbgs() << "Updating divide operation for "
+                         "dependent type involving result of: "
+                      << *BinOp << "\n");
+
     llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
     llvm::Type *ReplTy = TypeRemapper->remapType(PtrSubTy);
     updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy);
@@ -1702,7 +1790,9 @@ private:
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigStructTy);
     const StructLayout *SL = DL.getStructLayout(cast<StructType>(ReplTy));
     uint64_t NewOffset = SL->getElementOffset(InfoPair.second);
-    LLVM_DEBUG(dbgs() << "AOS-to-SOA: Replacing instruction\n" << *GEP << "\n");
+    LLVM_DEBUG(dbgs() << "Replacing byte flattened GEP for "
+                         "dependent type: "
+                      << *GEP << "\n");
     GEP->setOperand(1,
                     ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
     LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
@@ -1710,6 +1800,10 @@ private:
 
   // Update the allocation size for a dependent structure type.
   void ProcessDepAllocCall(dtrans::AllocCallInfo *AInfo, StructInfo *StInfo) {
+    LLVM_DEBUG(dbgs() << "Updating allocation size on "
+                         "dependent type for call: "
+                      << *AInfo->getInstruction() << "\n");
+
     llvm::Type *OrigTy = StInfo->getLLVMType();
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
     updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy);
@@ -1718,6 +1812,10 @@ private:
   // Update the memfunc size operand for a dependent structure type.
   void processDepMemfuncCall(dtrans::MemfuncCallInfo *CInfo,
                              StructInfo *StInfo) {
+    LLVM_DEBUG(dbgs() << "Updating memfunc size on dependent "
+                         "type for call: "
+                      << *CInfo->getInstruction() << "\n");
+
     assert(CInfo->getIsCompleteAggregate(0) &&
            "Partial memfuncs currently not supported for dependent structure "
            "types");
@@ -1730,7 +1828,8 @@ private:
   // Return an integer type that will be used as a replacement type for pointers
   // to the types being peeled.
   llvm::Type *getPeeledIndexType() const {
-    assert(PeelIndexType && "Peeling index type not set");
+    assert(PeelIndexType && PeelIndexWidth &&
+           "Peeling index type/width not set");
     return PeelIndexType;
   }
 
@@ -1853,8 +1952,10 @@ private:
     if (Callee && !OrigFuncToCloneFuncMap.count(Callee))
       return;
 
-    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Updating callsite attributes for: "
-                      << *CS.getInstruction() << "\n");
+    DEBUG_WITH_TYPE(
+        AOSTOSOA_ATTRIBUTES,
+        dbgs() << "DTRANS-AOSTOSOA: Updating callsite attributes for: "
+               << *CS.getInstruction() << "\n");
 
     Type *OrigRetTy = CS.getType();
     if (OrigRetTy->isPointerTy() &&
@@ -1879,8 +1980,9 @@ private:
     if (Changed)
       CS.setAttributes(Attrs);
 
-    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: After callsite update: "
-                      << *CS.getInstruction() << "\n");
+    DEBUG_WITH_TYPE(AOSTOSOA_ATTRIBUTES,
+                    dbgs() << "DTRANS-AOSTOSOA: After callsite update: "
+                           << *CS.getInstruction() << "\n");
   }
 
   // The list of types to be transformed.
@@ -2001,11 +2103,17 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            WholeProgramInfo &WPInfo,
                            AOSToSOAPass::DominatorTreeFuncType &GetDT) {
 
-  if (!WPInfo.isWholeProgramSafe())
+  if (!WPInfo.isWholeProgramSafe()) {
+    LLVM_DEBUG(
+        dbgs() << "DTRANS-AOSTOSOA: inhibited -- not whole program safe");
     return false;
+  }
 
-  if (!DTInfo.useDTransAnalysis())
+  if (!DTInfo.useDTransAnalysis()) {
+    LLVM_DEBUG(
+        dbgs() << "DTRANS-AOSTOSOA: inhibited -- dtrans-analysis disabled");
     return false;
+  }
 
   // Check whether there are any candidate structures that can be transformed.
   StructInfoVec CandidateTypes;
@@ -2043,7 +2151,7 @@ void AOSToSOAPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
     if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOA)) {
       LLVM_DEBUG(
           dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: "
-                 << dtrans::getStructName(TI->getLLVMType()) << "\n");
+                 << StructNamePrintHelper(TI->getLLVMType()) << "\n");
       continue;
     }
 
@@ -2070,7 +2178,7 @@ void AOSToSOAPass::qualifyCandidates(
   LLVM_DEBUG({
     for (auto *Candidate : CandidateTypes)
       dbgs() << "DTRANS-AOSTOSOA: Passed qualification tests: "
-             << dtrans::getStructName(Candidate->getLLVMType()) << "\n";
+             << StructNamePrintHelper(Candidate->getLLVMType()) << "\n";
   });
 }
 
@@ -2107,7 +2215,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
   for (auto *Candidate : CandidateTypes) {
     if (ArrayElemTypes.find(Candidate) != ArrayElemTypes.end()) {
       LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Array of type seen: "
-                        << dtrans::getStructName(Candidate->getLLVMType())
+                        << StructNamePrintHelper(Candidate->getLLVMType())
                         << "\n");
       continue;
     }
@@ -2131,7 +2239,7 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
       LLVM_DEBUG(
           dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported structure "
                     "element type: "
-                 << dtrans::getStructName(Candidate->getLLVMType()) << "\n");
+                 << StructNamePrintHelper(Candidate->getLLVMType()) << "\n");
   }
 
   std::swap(CandidateTypes, Qualified);
@@ -2167,7 +2275,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                  TypeToAllocInstr[StInfo] != nullptr))
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
                         "allocation function: "
-                     << dtrans::getStructName(Ty) << "\n"
+                     << StructNamePrintHelper(Ty) << "\n"
                      << "  " << *ACI->getInstruction() << "\n";
           });
 
@@ -2190,7 +2298,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
-                     << dtrans::getStructName(Ty) << "\n";
+                     << StructNamePrintHelper(Ty) << "\n";
           });
           TypeToAllocInstr[StInfo] = nullptr;
           continue;
@@ -2223,7 +2331,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
         LLVM_DEBUG(
             dbgs()
             << "DTRANS-AOSTOSOA: Rejecting -- Unsupported allocation usage: "
-            << getStructName(TyInfo->getLLVMType()) << "\n"
+            << StructNamePrintHelper(TyInfo->getLLVMType()) << "\n"
             << "  " << *Unsupported << "\n");
         continue;
       }
@@ -2233,7 +2341,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
       if (!collectCallChain(I, CallChain)) {
         LLVM_DEBUG(
             dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Multiple call paths: "
-                   << TyInfo->getLLVMType()->getStructName() << "\n");
+                   << StructNamePrintHelper(TyInfo->getLLVMType()) << "\n");
         continue;
       }
 
@@ -2266,7 +2374,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
           StructInfo *StInfo = InstTypePair.second;
           LLVM_DEBUG(dbgs()
                      << "DTRANS-AOSTOSOA: Rejecting -- Allocation in loop: "
-                     << StInfo->getLLVMType()->getStructName()
+                     << StructNamePrintHelper(StInfo->getLLVMType())
                      << "\n  Function: " << F->getName() << "\n");
           auto *It =
               std::find(CandidateTypes.begin(), CandidateTypes.end(), StInfo);
@@ -2430,8 +2538,8 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
       LLVM_DEBUG(
           dbgs()
           << "DTRANS-AOSTOSOA: Rejecting -- Does not meet hotness threshold: "
-          << getStructName(Candidate->getLLVMType()) << "\n  " << RelHotness
-          << " < " << DTransAOSToSOAFrequencyThreshold << "\n");
+          << StructNamePrintHelper(Candidate->getLLVMType()) << "\n  "
+          << RelHotness << " < " << DTransAOSToSOAFrequencyThreshold << "\n");
       continue;
     }
 
