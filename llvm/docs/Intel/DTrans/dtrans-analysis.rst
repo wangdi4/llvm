@@ -338,6 +338,11 @@ This indicates that the type has C++ processing:
       new/new[] and or delete/delete[];
     - there is an invoke instructions related to the type.
 
+HasZeroSizedArray
+~~~~~~~~
+This indicates that the type is an array with zero size or the type is
+a structure with a zero-sized array member.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
