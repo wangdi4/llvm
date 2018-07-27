@@ -6953,23 +6953,28 @@ DTransAnalysisInfo::getStructField(GEPOperator *GEP) {
     return std::make_pair(StructTy, StructField.second);
   }
 
-  if (GEP->getNumIndices() == 2) {
-    auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
-    if (!StructTy)
-      return std::make_pair(nullptr, 0);
+  auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
+  if (!StructTy)
+    return std::make_pair(nullptr, 0);
 
-    if (!cast<ConstantInt>(GEP->getOperand(1))->isZeroValue())
-      return std::make_pair(nullptr, 0);
+  if (!cast<ConstantInt>(GEP->getOperand(1))->isZeroValue())
+    return std::make_pair(nullptr, 0);
 
-    auto IndexConst = cast<ConstantInt>(GEP->getOperand(2));
-    auto FieldIndex = IndexConst->getLimitedValue();
+  uint64_t FieldIndex = 0;
+  for (unsigned NI = 2; NI <= GEP->getNumIndices(); ++NI) {
+    auto IndexConst = cast<ConstantInt>(GEP->getOperand(NI));
+    FieldIndex = IndexConst->getLimitedValue();
     if (FieldIndex >= StructTy->getNumElements())
       return std::make_pair(nullptr, 0);
-
-    return std::make_pair(StructTy, FieldIndex);
+    if (NI == GEP->getNumIndices())
+      break;
+    auto *Ty = StructTy->getElementType(FieldIndex);
+    auto *NewStructTy = dyn_cast<StructType>(Ty);
+    if (!NewStructTy)
+      return std::make_pair(nullptr, 0);
+    StructTy = NewStructTy;
   }
-
-  return std::make_pair(nullptr, 0);
+  return std::make_pair(StructTy, FieldIndex);
 }
 
 // A helper routine to get a DTrans structure type and field index from the

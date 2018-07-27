@@ -1127,8 +1127,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
     addLateDTransLegacyPasses(PM);
+    if (EnableIndirectCallConv)
+      PM.add(createIndirectCallConvLegacyPass(false /* EnableAndersen */,
+                                              true /* EnableDTrans */));
+      // Indirect Call Conv
+  }
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1149,17 +1154,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableAndersen) {
     PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
   }
-#if INTEL_ENABLE_DTRANS
-  if (EnableIndirectCallConv && (EnableAndersen || EnableDTrans)) {
-    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, EnableDtrans));
-        // Indirect Call Conv
-  }
-#else
   if (EnableIndirectCallConv && EnableAndersen) {
-    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, false));
-        // Indirect Call Conv
+    PM.add(createIndirectCallConvLegacyPass(true /* EnableAndersen */,
+                                            false /* EnableDTrans */));
+    // Indirect Call Conv
   }
-#endif // INTEL_ENABLE_DTRANS
   if (EnableInlineAggAnalysis) {
     PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
   }

@@ -190,13 +190,12 @@ public:
   // and byte-flattened form. The routine falls back in the following cases:
   //
   // 1. The argument is not a GEPOperator.
-  // 2. The GEPOperator has more than 2 indices or either of the indices isn't a
-  // constant.
+  // 2. The GEPOperator has non-constant indices.
   // 3. If the GEPOperator has 1 index but not was identified by DTransAnalysis
   // as a byte-flattened structure access.
-  // 4. If the GEPOperator has 2 indices but the first index is not 0 or if the
-  // element type is not a structure or if the second index points out the last
-  // structure field.
+  // 4. If the GEPOperator has 2 or more indices but the first index is not 0
+  // or the element type is not a structure or if the 2nd, 3rd, etc. indices
+  // point out the last structure field.
   //
   // If, for any reason, the helper routine cannot determine
   // the structure type and field index, it will return nullptr as the first
