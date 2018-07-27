@@ -111,3 +111,17 @@ EXIT:
   %ind.var.e = phi <8 x i32> [ %ind.var, %ENTRY ], [ %ind.var.next, %BODY ]
   ret <8 x i32> %ind.var.e
 }
+
+; CHECK-LABEL: @test_non_splat_constant_vector
+define void @test_non_splat_constant_vector(i1 %x, <8 x i8> addrspace(1)* %ptrTypeCast) {
+; CHECK:     %[[EXTX:[A-Za-z0-9.]+]] = sext i1 %x to i8
+; CHECK:     %[[INSEL:[A-Za-z0-9.]+]] = insertelement <8 x i8> undef, i8 %[[EXTX]], i32 0
+  %1 = insertelement <8 x i1> undef, i1 %x, i32 0
+; CHECK:     %[[EXTMERGE:[A-Za-z0-9.]+]] = xor <8 x i8> %[[INSEL]], <i8 -1, i8 undef, i8 undef, i8 undef, i8 undef, i8 undef, i8 undef, i8 undef>
+; CHECK-NOT: xor <8 x i1>
+  %2 = xor <8 x i1> %1, <i1 true, i1 undef, i1 undef, i1 undef, i1 undef, i1 undef, i1 undef, i1 undef>
+; CHECK-NOT: sext <8 x i1>
+  %3 = sext <8 x i1> %2 to <8 x i8>
+  store <8 x i8> %3, <8 x i8> addrspace(1)* %ptrTypeCast, align 1
+  ret void
+}
