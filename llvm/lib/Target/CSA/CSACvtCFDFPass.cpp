@@ -1553,163 +1553,72 @@ void CSACvtCFDFPass::createFIEntryDefs() {
 }
 
 void CSACvtCFDFPass::assignLicForDF() {
-  std::deque<unsigned> renameQueue;
-  renameQueue.clear();
-  std::set<unsigned> pinedVReg;
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end();
-       BB != E; ++BB) {
-    MachineBasicBlock *mbb = &*BB;
-    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI;
-         ++MI) {
-      if (MI->isPHI()) {
-        for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-          if (!MO->isReg() ||
-              !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
-            continue;
-          if (TII->isLIC(*MO, *MRI))
-            continue;
-          unsigned Reg = MO->getReg();
-          pinedVReg.insert(Reg);
-        }
-      } else if (!csa_utils::isAlwaysDataFlowLinkageSet() &&
-        (MI->getOpcode() == CSA::JSR || MI->getOpcode() == CSA::JSRi)) {
-        // function call inside control region need to run on SXU
-        ControlDependenceNode *mnode = CDG->getNode(mbb);
-        if (mnode->getNumParents() > 1 ||
-            (mnode->getNumParents() == 1 &&
-             (*mnode->parent_begin())->getBlock())) {
+  // Mark anything that can run on the dataflow array as being able to do so.
+  // This entails remapping the I* classes to CI*, and adding the NonSequential
+  // flag where appropriate.
+  for (auto &BB : *thisMF) {
+    for (auto &MI : BB) {
+      // Is the opcode something that must run on the SXU?
+      switch (MI.getOpcode()) {
+      case CSA::JSR: case CSA::JSRi:
+      case CSA::JTR: case CSA::JTRi:
+        // If we have a function call, and the -csa-df-calls=0 is not passed in,
+        // then we need to prevent the CFG from being destroyed.
+        if (!csa_utils::isAlwaysDataFlowLinkageSet())
           RunSXU = true;
-        }
-      }
-    }
-  }
-
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end();
-       BB != E; ++BB) {
-    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI;
-         ++MI) {
-      MachineInstr *mInst = &*MI;
-      if (TII->isPick(mInst) || TII->isSwitch(mInst) ||
-          mInst->getOpcode() == CSA::MERGE64f || TII->isFMA(mInst) ||
-          TII->isDiv(mInst) || TII->isMul(mInst) || TII->isMOV(mInst) ||
-          TII->isAdd(mInst) || TII->isSub(mInst) || TII->isPickany(mInst) ||
-          mInst->getOpcode() == CSA::PREDMERGE ||
-          mInst->getOpcode() == CSA::PREDPROP ||
-          mInst->getOpcode() == CSA::NOT1 || mInst->getOpcode() == CSA::LAND1 ||
-          mInst->getOpcode() == CSA::LOR1 || mInst->getOpcode() == CSA::OR1 ||
-          mInst->isCopy() || TII->isInit(mInst) || TII->isLoad(mInst) ||
-          TII->isStore(mInst) || mInst->getOpcode() == CSA::ALL0 ||
-          mInst->getOpcode() == CSA::MOV0 || TII->isCmp(mInst) ||
-          TII->isAtomic(mInst)) {
-        for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-          if (!MO->isReg() ||
-              !TargetRegisterInfo::isVirtualRegister(MO->getReg()) ||
-              (MRI->getRegClass(MO->getReg()) == &CSA::RI1RegClass))
-            continue;
-          if (TII->isLIC(*MO, *MRI)) {
-            unsigned Reg = MO->getReg();
-            if (MRI->use_empty(Reg)) {
-              MI->substituteRegister(Reg, CSA::IGN, 0, *TRI);
-            }
-            continue;
-          }
-          unsigned Reg = MO->getReg();
-          renameQueue.push_back(Reg);
-        }
-      }
-    }
-  }
-
-  while (!renameQueue.empty()) {
-    unsigned dReg = renameQueue.front();
-    renameQueue.pop_front();
-    MachineInstr *DefMI = MRI->getVRegDef(dReg);
-    if (!DefMI)
-      continue;
-    MachineOperand *DefMO = DefMI->findRegisterDefOperand(dReg);
-    if (DefMI->isPHI())
-      continue;
-
-    // We've decided to convert this def to a LIC. If it was dead, we must send
-    // it to the %ign LIC rather than allocating a new one.
-    assert(DefMO->isDef() && "Trying to reason about uses of a non-def.");
-    if (MRI->use_empty(dReg)) {
-      DefMI->substituteRegister(dReg, CSA::IGN, 0, *TRI);
-      continue;
-    }
-
-    // Adjust the register class to be the appropriate LIC class for its size.
-    const TargetRegisterClass *TRC = MRI->getRegClass(dReg);
-    MRI->setRegClass(dReg,
-                     TII->getLicClassForSize(TII->getSizeOfRegisterClass(TRC)));
-
-    if (TII->isSwitch(DefMI)) {
-      unsigned trueReg  = DefMI->getOperand(1).getReg();
-      unsigned falseReg = DefMI->getOperand(0).getReg();
-      if (pinedVReg.find(trueReg) != pinedVReg.end() ||
-          pinedVReg.find(falseReg) != pinedVReg.end()) {
-        DefMI->clearFlag(MachineInstr::NonSequential);
+      case CSA::JMP: case CSA::RET:
+      case CSA::BT: case CSA::BF: case CSA::BR:
+      case TargetOpcode::PHI:
         continue;
       }
-    } else if (TII->isMOV(DefMI)) {
-      unsigned dstReg = DefMI->getOperand(0).getReg();
-      if (pinedVReg.find(dstReg) != pinedVReg.end()) {
-        DefMI->clearFlag(MachineInstr::NonSequential);
-        continue;
-      }
-    }
 
-    for (MIOperands MO(*DefMI); MO.isValid(); ++MO) {
-      if (!MO->isReg() || &*MO == DefMO ||
-          !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
-        continue;
-      if (TII->isLIC(*MO, *MRI))
-        continue;
-      unsigned Reg = MO->getReg();
-      renameQueue.push_back(Reg);
-    }
-  }
-
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end();
-       BB != E; ++BB) {
-    for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI;
-         ++MI) {
-      bool allLics = true;
-      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-        if (!MO->isReg()) {
-          if (MO->isImm() || MO->isCImm() || MO->isFPImm()) {
-            continue;
-          } else {
-            allLics = false;
-            break;
-          }
-        } else if (!TII->isLIC(*MO, *MRI)) {
-          allLics = false;
+      // For other instructions, check if any of the registers are SXU-specific.
+      bool HasSXUReg = false;
+      for (auto &Op : MI.operands()) {
+        if (Op.isFI()) {
+          HasSXUReg = true;
           break;
         }
-      }
-
-      // Check for instructions where all the uses are constants.
-      // These instructions shouldn't be moved on to dataflow units,
-      // because they keep firing infinitely.
-      bool allImmediateUses = true;
-      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-        // Skip defs.
-        if (MO->isReg() && MO->isDef())
+        if (!Op.isReg())
           continue;
-        if (!(MO->isImm() || MO->isCImm() || MO->isFPImm())) {
-          allImmediateUses = false;
-          break;
+        unsigned Reg = Op.getReg();
+        if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+          const TargetRegisterClass *RC = MRI->getRegClass(Reg);
+          switch (RC->getID()) {
+          case CSA::RI0RegClassID:
+          case CSA::RI1RegClassID:
+          case CSA::RI8RegClassID:
+          case CSA::RI16RegClassID:
+          case CSA::RI32RegClassID:
+          case CSA::RI64RegClassID:
+            HasSXUReg = true;
+          }
+        } else {
+          if (!CSA::ANYCRegClass.contains(Reg))
+            HasSXUReg = true;
         }
       }
 
-      // DEBUG(errs() << "Machine ins " << *MI << ": allLics = " << allLics <<
-      // ", allImmediateUses = " << allImmediateUses << "\n");
-      if (allLics && !allImmediateUses) {
-        MI->setFlag(MachineInstr::NonSequential);
-      }
-      if (!allLics && TII->isSwitch(&*MI)) {
-        MI->clearFlag(MachineInstr::NonSequential);
+      if (HasSXUReg)
+        continue;
+
+      // Move the instruction to the dataflow array.
+      MI.setFlag(MachineInstr::NonSequential);
+      for (auto &Op : MI.operands()) {
+        if (!Op.isReg())
+          continue;
+        unsigned Reg = Op.getReg();
+        if (TargetRegisterInfo::isPhysicalRegister(Reg))
+          continue;
+        // In the case of registers without uses, replace them without ignore
+        // instead of switching them to an unused LIC.
+        if (Op.isDef() && MRI->use_empty(Reg))
+          MI.substituteRegister(Reg, CSA::IGN, 0, *TRI);
+        else {
+          const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+          MRI->setRegClass(Reg,
+                     TII->getLicClassForSize(TII->getSizeOfRegisterClass(TRC)));
+        }
       }
     }
   }
