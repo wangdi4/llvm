@@ -209,3 +209,42 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
   return true;
 }
 
+bool VPOParoptTransform::genCSAIsLast(WRegionNode *W, AllocaInst *&IsLastVal) {
+  // No need to do aynthing if W doesn't have any lastprivate var.
+  if (!W->canHaveLastprivate() || W->getLpriv().empty())
+    return false;
+
+  Loop *Loop = W->getWRNLoopInfo().getLoop();
+  assert(Loop->isLoopSimplifyForm());
+
+  LLVMContext &C = F->getContext();
+  IntegerType *Int32Ty = Type::getInt32Ty(C);
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  ConstantInt *Zero = ConstantInt::getSigned(Int32Ty, 0u);
+  ConstantInt *One = ConstantInt::getSigned(Int32Ty, 1u);
+
+  // Create %is.last and initialize it with zero.
+  IsLastVal = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "is.last",
+                             &(W->getEntryBBlock()->front()));
+  auto *Init = new StoreInst(Zero, IsLastVal);
+  Init->insertAfter(IsLastVal);
+
+  // Compare IV with the upper bound and store result to %is.last
+  auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(Loop);
+  assert(IV && "no induction variable");
+
+  auto *UB = WRegionUtils::getOmpLoopUpperBound(Loop);
+  assert(UB && "no upper bound for the loop");
+
+  auto *Cmp = new ICmpInst(ICmpInst::ICMP_EQ, IV, UB);
+  Cmp->insertAfter(IV);
+
+  auto *Select = SelectInst::Create(Cmp, One, Zero);
+  Select->insertAfter(Cmp);
+
+  auto *Store = new StoreInst(Select, IsLastVal);
+  Store->insertAfter(Select);
+
+  return true;
+}

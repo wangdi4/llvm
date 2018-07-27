@@ -299,21 +299,24 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W, false);
           improveAliasForOutlinedFunc(W);
 
+          AllocaInst *IsLastVal = nullptr;
+          BasicBlock *IfLastIterBB = nullptr;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
+            Changed |= genCSAParallelLoop(W);
+            Changed |= genCSAIsLast(W, IsLastVal);
             Changed |= genPrivatizationCode(W);
+            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+            Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
             Changed |= genDestructorCode(W);
-            Changed |= genCSAParallelLoop(W);
             RemoveDirectives = true;
             break;
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
-          AllocaInst *IsLastVal = nullptr;
-          BasicBlock *IfLastIterBB = nullptr;
           Changed |= genLoopSchedulingCode(W, IsLastVal);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);

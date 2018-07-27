@@ -690,6 +690,10 @@ private:
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
 
+  /// \brief Create a stack variable \p IsLastVal which is non-zero if the
+  /// current iteration is the last one.
+  bool genCSAIsLast(WRegionNode *W, AllocaInst *&IsLastVal);
+
   /// \brief Insert CSA parallel region entry/exit calls to the work region
   /// and return region id.
   Value* genCSAParallelRegion(WRegionNode *W);
