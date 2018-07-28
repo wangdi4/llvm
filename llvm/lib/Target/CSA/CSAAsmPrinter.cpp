@@ -562,8 +562,19 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   MRI  = &MF->getRegInfo();
   LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-	EmitSimpleEntryInstruction();
-  	if (LMFI->getNumCallSites() == 0) EmitParamsResultsDecl();
+    // In one of the earlier discussions, it was decided that any function f1
+    // in a CSA graph that is called internally by another function f2 in the
+    // same CSA graph will be considered 'internal' and any function f1 that
+    // is not called from anywhere inside the CSA graph is 'external'.
+    // This is irrespective of whether the function is found to be internal or external.
+    // This argument may change when we start supporting external/proxy calls
+    // and also when we start having linker support in some sense.
+    // Hence getNumCallSites() == 0 is used as a check to see if the function
+    // is internal or external
+    if (LMFI->getNumCallSites() == 0) {
+      EmitSimpleEntryInstruction();
+      EmitParamsResultsDecl();
+    }
   }
   if (not ImplicitLicDefs) {
     auto printRegisterAttribs = [&](unsigned reg) {

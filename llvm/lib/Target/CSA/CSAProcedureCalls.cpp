@@ -555,7 +555,7 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       LLVM_DEBUG(errs() << "Input Call MI = " << *MI << "\n");
       const MachineOperand &MO = MI->getOperand(0);
       StringRef callee_name;
-      // Report external/internal calls here as either WARNINGs or FAILs depending on flag
+      // Report external calls here as either WARNINGs or FAILs depending on flag
       if (!MO.isGlobal()) {
         if (ReportWarningForExtCalls) {
           callee_name = "dummy_func";
@@ -569,7 +569,7 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
             callee_name = "dummy_func";
             errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
           } else
-            report_fatal_error("Indirect calls not yet supported! Cannot be run on CSA!");
+            report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
         }
         callee_name = F->getName();
       }
