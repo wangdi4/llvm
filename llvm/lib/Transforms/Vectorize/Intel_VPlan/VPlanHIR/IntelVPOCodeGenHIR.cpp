@@ -745,6 +745,14 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
       OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer);
 
+  // Do not attempt hoisting when a remainder loop is needed as remainder
+  // loop updates the scalar reduction value. Since we blend in the scalar
+  // reduction value in reduction initialization code, hoisting up the
+  // initialization will generate incorrect code.
+
+  if (NeedRemainderLoop)
+    RednHoistLp = OrigLoop;
+
   // The reduction initializer hoist loop should point to the vector loop and
   // not the original scalar loop if it was found not to be safe to hoist
   // further.
@@ -1155,7 +1163,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
     if (isReductionRef(Ref, RedOpCode)) {
 
       auto Identity = HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy);
-      auto RedOpVecInst = insertReductionInitializer(Identity);
+      auto RedOpVecInst = insertReductionInitializer(Identity, Ref->clone());
 
       // Add to WidenMap and handle generating code for building reduction tail
       addToMapAndHandleLiveOut(Ref, RedOpVecInst, RednHoistLp);
@@ -1375,15 +1383,10 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
   }
 
   HLInst *Extract = HLLp->getHLNodeUtils().createExtractElementInst(
-      LastVal->clone(), 0, "bin.final");
+      LastVal->clone(), 0, "bin.final", ResultRefClone);
   InstContainer.push_back(*Extract);
 
-  // Combine with initial value
-  auto FinalInst = HLLp->getHLNodeUtils().createBinaryHLInst(
-      BOpcode, Extract->getLvalDDRef()->clone(), InitValRefClone, "final",
-      ResultRefClone);
-  InstContainer.push_back(*FinalInst);
-  return FinalInst;
+  return Extract;
 }
 
 void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
@@ -1599,13 +1602,21 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   return WideInst;
 }
 
-HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden) {
-  auto IdentityVec = getConstantSplatDDRef(MainLoop->getDDRefUtils(), Iden, VF);
-  HLInst *RedOpVecInst =
-      MainLoop->getHLNodeUtils().createCopyInst(IdentityVec, "RedOp");
-  HLNodeUtils::insertBefore(RednHoistLp, RedOpVecInst);
+HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden,
+                                                  RegDDRef *ScalarRednRef) {
 
-  auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
+  // ScalarRednRef is the initial value that is assigned to result of the
+  // reduction operation. We are blending in the initial value into the
+  // identity vector in lane 0.
+
+  auto IdentityVec = getConstantSplatDDRef(MainLoop->getDDRefUtils(), Iden, VF);
+
+  HLInst *InsertElementInst =
+      MainLoop->getHLNodeUtils().createInsertElementInst(
+          IdentityVec, ScalarRednRef, 0, "result.vector");
+  HLNodeUtils::insertBefore(RednHoistLp, InsertElementInst);
+
+  auto LvalSymbase = InsertElementInst->getLvalDDRef()->getSymbase();
   // Add the reduction ref as a live-in for each loop up to and including
   // the hoist loop.
   HLLoop *ThisLoop = MainLoop;
@@ -1613,7 +1624,7 @@ HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden) {
     ThisLoop->addLiveInTemp(LvalSymbase);
     ThisLoop = ThisLoop->getParentLoop();
   }
-  return RedOpVecInst;
+  return InsertElementInst;
 }
 
 void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,

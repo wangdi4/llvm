@@ -650,6 +650,36 @@ HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
   return HInst;
 }
 
+HLInst *HLNodeUtils::createInsertElementInst(RegDDRef *OpRef1,
+                                             RegDDRef *ElDDRef, unsigned Idx,
+                                             const Twine &Name,
+                                             RegDDRef *LvalRef /* = nullptr*/) {
+
+  assert(OpRef1->getDestType()->isVectorTy() &&
+         ElDDRef->getDestType() == OpRef1->getDestType()->getScalarType() &&
+         "Illegal operand types for insertelement");
+
+  auto UndefVal = UndefValue::get(OpRef1->getDestType());
+  auto ElVal = UndefValue::get(ElDDRef->getDestType());
+
+  Value *InstVal =
+      DummyIRBuilder->CreateInsertElement(UndefVal, ElVal, Idx, Name);
+  Instruction *Inst = cast<Instruction>(InstVal);
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  RegDDRef *IdxDDref =
+      getDDRefUtils().createConstDDRef(Inst->getOperand(2)->getType(), Idx);
+
+  HInst->setOperandDDRef(OpRef1, 1);
+  HInst->setOperandDDRef(ElDDRef, 2);
+  HInst->setOperandDDRef(IdxDDref, 3);
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                               const Twine &Name,
                                               RegDDRef *LvalRef) {

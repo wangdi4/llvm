@@ -790,6 +790,11 @@ public:
                                   RegDDRef *Mask, const Twine &Name = "shuffle",
                                   RegDDRef *LvalRef = nullptr);
 
+  /// Creates a new InsertElement instruction
+  HLInst *createInsertElementInst(RegDDRef *OpRef1, RegDDRef *ElDDRef,
+                                  unsigned Idx, const Twine &Name = "insert",
+                                  RegDDRef *LvalRef = nullptr);
+
   /// Creates a new ExtractElement instruction
   HLInst *createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                    const Twine &Name = "extract",
