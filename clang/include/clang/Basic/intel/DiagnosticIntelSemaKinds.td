@@ -302,6 +302,8 @@ def warn_intel_opencl_attribute_wrong_decl_type : Warning<
 def err_opencl_attribute_argument_out_of_bounds : Error<
   "%0 attribute parameter %1 requires integer constant between %2 and %3 "
   "inclusive">;
+def err_opencl_power_of_two_in_range : Error<
+  "%0 attribute must be a constant power of two between %1 and %2 inclusive">;
 
 def err_hls_builtin_arg_mismatch : Error<
   "HLS builtin parameter must be %select{"

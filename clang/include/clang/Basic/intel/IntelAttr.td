@@ -133,6 +133,15 @@ def OpenCLLocalMemSize : Attr {
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
   let LangOpts = [OpenCL, HLS];
+  let AdditionalMembers = [{
+    static int getMinValue() {
+      return 2;
+    }
+    static int getMaxValue() {
+      return 128*1024;
+    }
+  }];
+
 }
 
 def OpenCLBufferLocation : Attr {

@@ -457,7 +457,7 @@ void foo1()
 //CHECK: FunctionDecl{{.*}}foo2
 kernel void foo2(
   //expected-error-re@+2{{local or static variables{{$}}}}
-  __local __attribute__((local_mem_size(1042)))
+  __local __attribute__((local_mem_size(1024)))
           __attribute__((singlepump)) int *a0,
   //expected-error-re@+1{{local or static variables{{$}}}}
   __local __attribute__((doublepump)) int *a1)

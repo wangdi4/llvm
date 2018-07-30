@@ -9665,6 +9665,22 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Local memory size attribute can only be used for arguments of a kernel
+  // function.
+  if (getLangOpts().OpenCL &&
+      Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+      !NewFD->hasAttr<OpenCLKernelAttr>()) {
+    for (const ParmVarDecl *Param : NewFD->parameters()) {
+      if (const auto *LocalMemAttr = Param->getAttr<OpenCLLocalMemSizeAttr>()) {
+        Diag(Param->getLocation(), diag::err_opencl_kernel_attr)
+            << LocalMemAttr;
+        NewFD->setInvalidDecl();
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return NewFD;
 }
 

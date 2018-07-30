@@ -3285,22 +3285,28 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   }
 
   Expr *E = Attr.getArgAsExpr(0);
-  llvm::APSInt LocalMemSize;
-  if (!E->EvaluateAsInt(LocalMemSize, S.Context)) {
+  llvm::APSInt APLocalMemSize;
+  if (!E->EvaluateAsInt(APLocalMemSize, S.Context)) {
     S.Diag(Attr.getLoc(), diag::err_intel_opencl_attribute_argument_type)
         << Attr << 4;
+    D->setInvalidDecl();
     return;
   }
 
-  int localMemSize = LocalMemSize.getExtValue();
-  if (localMemSize < 0) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
-        << Attr << "0";
+  int LocalMemSize = APLocalMemSize.getExtValue();
+  if (LocalMemSize < OpenCLLocalMemSizeAttr::getMinValue() ||
+      LocalMemSize > OpenCLLocalMemSizeAttr::getMaxValue() ||
+      !APLocalMemSize.isPowerOf2()) {
+    S.Diag(Attr.getLoc(), diag::err_opencl_power_of_two_in_range)
+        << Attr
+        << OpenCLLocalMemSizeAttr::getMinValue()
+        << OpenCLLocalMemSizeAttr::getMaxValue();
+    D->setInvalidDecl();
     return;
   }
 
   D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
-      Attr.getRange(), S.Context, localMemSize,
+      Attr.getRange(), S.Context, LocalMemSize,
       Attr.getAttributeSpellingListIndex()));
 }
 
