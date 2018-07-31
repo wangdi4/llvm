@@ -263,7 +263,13 @@ try a different SPMDization strategy instead.
       if (OrigL->getParentLoop())
         OrigL->getParentLoop()->addBasicBlockToLoop(NewE, *LI);
       // Add DominatorTree node, update to correct IDom.
-      DT->addNewBlock(NewE, NewLoop->getLoopPreheader());
+      BasicBlock *NLatch = NewLoop->getLoopLatch();
+      BranchInst *NLatchBR = cast<BranchInst>(NLatch->getTerminator());
+      // Calculate the immediate dominator of NewE
+      if (NLatchBR->isConditional())
+        DT->addNewBlock(NewE, NewLoop->getLoopLatch());
+      else
+        DT->addNewBlock(NewE, NewLoop->getHeader());
 
       Instruction *ExitTerm = Exit->getTerminator();
       BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
