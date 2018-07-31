@@ -2435,8 +2435,7 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
         if (ArgCnt > MinArgRefs) {
           break;
         }
-        if (isa<GetElementPtrInst>(I)) {
-          GetElementPtrInst *GEPI = dyn_cast_or_null<GetElementPtrInst>(&I);
+        if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
           Value *PtrOp = GEPI->getPointerOperand();
           if (PtrOp) {
             if (isa<PHINode>(PtrOp)) {
