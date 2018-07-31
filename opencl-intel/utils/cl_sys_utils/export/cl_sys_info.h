@@ -45,7 +45,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern bool                  GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = nullptr);
     extern unsigned int          GetCpuId();
     extern const char*           GetFullModuleNameForLoad(const char* moduleName);
-    extern void                  GetModuleProductVersion(int* major, int* minor, int* revision, int* build);
+    extern const char*           GetModuleProductVersion();
     extern unsigned int          GetThreadId();
 }}}
 

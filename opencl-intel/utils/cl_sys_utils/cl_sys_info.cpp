@@ -16,11 +16,7 @@
 // return the product version:
 // Arguments - major, minor, revision, build - output version numbers
 ////////////////////////////////////////////////////////////////////
-void Intel::OpenCL::Utils::GetModuleProductVersion(int* major, int* minor,
-                                                   int* revision, int* build)
+const char* Intel::OpenCL::Utils::GetModuleProductVersion()
 {
-    *major    = PRODUCTVERSION_MAJOR;
-    *minor    = PRODUCTVERSION_MINOR;
-    *revision = BUILDVERSION16BIT_MAJOR;
-    *build    = BUILDVERSION16BIT_MINOR;
+    return VERSIONSTRING;
 }
