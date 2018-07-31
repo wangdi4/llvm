@@ -125,12 +125,14 @@ bool CSAIRReductionOpt::runOnLoop(Loop *L, LPPassManager &) {
       Instruction *addInst;
       if (dyn_cast<Instruction>(v0) == &I) {
         addInst = dyn_cast<Instruction>(v1);
+        if (addInst->getOpcode() != Instruction::FAdd) continue;
         incrVal = (addInst->getOperand(0) == v0) ? addInst->getOperand(1)
                                                  : addInst->getOperand(0);
         exitPhi->addIncoming(Zero, exitPhi->getIncomingBlock(0));
         exitPhi->addIncoming(incrVal, exitPhi->getIncomingBlock(1));
       } else if (dyn_cast<Instruction>(v1) == &I) {
         addInst = dyn_cast<Instruction>(v0);
+        if (addInst->getOpcode() != Instruction::FAdd) continue;
         incrVal = (addInst->getOperand(0) == v1) ? addInst->getOperand(1)
                                                  : addInst->getOperand(0);
         exitPhi->addIncoming(incrVal, exitPhi->getIncomingBlock(0));
