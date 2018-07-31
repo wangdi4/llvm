@@ -80,15 +80,19 @@ public:
   /// \brief Generates LLVM-IR instructions for a set of OVLSInstructions.
   ///
   /// This function generates corresponding LLVM_IR instruction for
-  /// OVLSInstructions in \p OInst. It traverses the \p InstVec from lower
+  /// OVLSInstructions in \p InstVec. It traverses the \p InstVec from lower
   /// to higher index. Whenever there is a need to generate memory instructions
   /// it uses the pointer address given in \p Addr and the element type in \p
-  /// ElemTy. It returns a mapping from OVLSInstruction to the generated LLVM-IR
-  /// instruction.
+  /// ElemTy. The operands for a generated shufflevector instruction can either
+  /// come for a load Instruction or from the passed \p InterleavingShuffleInst.
+  /// The latter is used in case of scatters, when the temp from the \p
+  /// InterleavingShuffleInst is stored to \p Addr. The function returns a
+  /// mapping from OVLSInstruction to the generated LLVM-IR instruction.
   /// TODO: Support heterogeneous elem-types.
   static DenseMap<uint64_t, Value *>
   genLLVMIR(IRBuilder<> &Builder, const OVLSInstructionVector &InstVec,
-            Value *Addr, Type *ElemTy, unsigned Alignment);
+            ShuffleVectorInst *InterleavingShuffleInst, Value *Addr,
+            Type *ElemTy, unsigned Alignment);
 };
 }
 #endif
