@@ -990,8 +990,6 @@ void CSACvtCFDFPass::replaceLoopHdrPhi(MachineLoop *L) {
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
   MachineLoop *mloop = MLI->getLoopFor(mbb);
   assert(mloop->getHeader() == mbb);
-  if (mbb->getFirstNonPHI() == mbb->begin())
-    return;
 
   assert(mloop->getExitingBlock() &&
          "can't handle multi exiting blks in this funciton");
