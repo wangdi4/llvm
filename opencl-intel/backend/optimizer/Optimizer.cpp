@@ -36,6 +36,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -171,7 +172,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     PM->add(llvm::createIPSCCPPass());             // IP SCCP
   }
 
-  PM->add(llvm::createInstructionSimplifierPass());
+  PM->add(llvm::createInstSimplifyLegacyPass());
   PM->add(llvm::createInstructionCombiningPass()); // Clean up after IPCP & DAE
   PM->add(llvm::createCFGSimplificationPass());    // Clean up after IPCP & DAE
 
@@ -184,7 +185,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   // Break up aggregate allocas
   PM->add(llvm::createSROAPass());
   PM->add(llvm::createEarlyCSEPass());           // Catch trivial redundancies
-  PM->add(llvm::createInstructionSimplifierPass());
+  PM->add(llvm::createInstSimplifyLegacyPass());
   PM->add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
   PM->add(llvm::createJumpThreadingPass());        // Thread jumps.
   // Propagate conditionals
@@ -199,7 +200,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createLICMPass());                // Hoist loop invariants
   PM->add(llvm::createLoopUnswitchPass(OptLevel < 3));
   PM->add(llvm::createInstructionCombiningPass());
-  PM->add(llvm::createInstructionSimplifierPass());
+  PM->add(llvm::createInstSimplifyLegacyPass());
   PM->add(llvm::createIndVarSimplifyPass()); // Canonicalize indvars
   PM->add(llvm::createLoopDeletionPass());   // Delete dead loops
 
@@ -232,7 +233,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createSROAPass());
   // Clean up after the unroller
   PM->add(llvm::createInstructionCombiningPass());
-  PM->add(llvm::createInstructionSimplifierPass());
+  PM->add(llvm::createInstSimplifyLegacyPass());
   if (allowAllocaModificationOpt) {
     if (OptLevel > 1)
       PM->add(llvm::createGVNPass());     // Remove redundancies
@@ -305,7 +306,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(llvm::createSROAPass());
     }
     PM.add(llvm::createInstructionCombiningPass());
-    PM.add(llvm::createInstructionSimplifierPass());
+    PM.add(llvm::createInstSimplifyLegacyPass());
   }
 
   if (isOcl20)

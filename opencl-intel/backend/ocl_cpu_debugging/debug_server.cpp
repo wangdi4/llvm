@@ -65,7 +65,6 @@ using namespace llvm;
 using namespace debugservermessages;
 using namespace Intel::OpenCL::DeviceBackend;
 
-#ifdef _WIN32
 // Get a string value from the registry.
 //   top_hkey: one of standard the HKEY_* constants
 //   path: path to the key in the registry
@@ -153,7 +152,6 @@ static string getAbsPath(string file, string dir)
     return absPathStr;
 }
 
-#endif // _WIN32
 
 static void LOG_RECEIVED_MESSAGE(const ClientToServerMessage& msg)
 {
@@ -387,9 +385,7 @@ void DebugServer::DebugServerImpl::RegisterBreakpoints(const ClientToServerMessa
     for (int i = 0; i < run_msg.run_msg().breakpoints_size(); ++i) {
         const LineInfo& msg_lineinfo = run_msg.run_msg().breakpoints(i);
         string filename = msg_lineinfo.file();
-#ifdef _WIN32
         strToLower(filename);
-#endif
         m_breakpoints.insert(make_pair(filename, msg_lineinfo.lineno()));
         stringstream ss;
         ss << "Registered " << filename << ":" << msg_lineinfo.lineno() << "\n";
@@ -490,16 +486,12 @@ static char safe_query_addr(uint64_t addr)
 {
     char* memptr = reinterpret_cast<char*>(addr);
     char value;
-#ifdef _WIN32
     __try {
         value = *memptr;
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         value = '\x00';
     }
-#else
-    value = *memptr;
-#endif // _WIN32
     return value;
 }
 
@@ -511,7 +503,6 @@ bool DebuggingIsEnabled()
     if (rc != CL_SUCCESS || val != "1")
         return false;
 
-#ifdef _WIN32
     // On Windows only, we also check in the registry. Either a PID-specific
     // or global key must exist, with value OCL_DBG_CFG_ENABLE=1.
     // If the value is wrong or neither key exists, debugging is disabled.
@@ -529,7 +520,6 @@ bool DebuggingIsEnabled()
     }
     else 
         return false;
-#endif //_WIN32
 
     return true;
 }
@@ -537,11 +527,6 @@ bool DebuggingIsEnabled()
 
 bool InitDebugServer(unsigned int port_number)
 {
-#ifndef _WIN32
-    if (!DebuggingIsEnabled())
-        return true;
-#endif
-
     // Debugging enabled: try to initialize the server.
     //
     if (!DebugServer::GetInstance().Init(port_number))
@@ -777,26 +762,9 @@ bool DebugServer::Init(unsigned int port_number)
         return true;
     
     unsigned port_num = DEBUG_SERVER_PORT_DEFAULT;
-#ifdef _WIN32
     port_num = port_number;
-#else
-    if (!DebuggingIsEnabled())
-        return true;
-
-    string port_val_str;
-    cl_err_code rc = Intel::OpenCL::Utils::GetEnvVar(port_val_str, "CL_CONFIG_DBG_PORT_NUMBER");
-
-    if (rc == CL_SUCCESS) {
-        char c;
-        stringstream ss(port_val_str);
-        ss >> port_num;
-        if (ss.fail() || ss.get(c) || port_num > 0xFFFF)
-            port_num = DEBUG_SERVER_PORT_DEFAULT;
-    }
-#endif
 
     d->m_comm = new DebugCommunicator(port_num);
-#ifdef _WIN32
     // On Windows, as part of the handshake with the MSVC plugin, we send a 
     // Windows event when the server starts listening on the port.
     //
@@ -806,7 +774,6 @@ bool DebugServer::Init(unsigned int port_number)
     string eventName = EVENT_NAME_PREFIX + get_my_pid_string();
     HANDLE e = CreateEventA(0, false, false, eventName.c_str());
     SetEvent(e);
-#endif
 
     DEBUG_SERVER_LOG("Server waiting for connection on port " + stringify(port_num));
     d->m_comm->waitForConnection();
@@ -890,15 +857,11 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
     StringRef dir   = loc->getDirectory();
     unsigned lineno = loc->getLine();
 
-#ifdef _WIN32
     // Resolve full path.
     // This is required when .cl files include other .cl files,
     // In which case the "file" argument contains only relative path
     // while our breakpoints database deals with absolute paths.
     string absPath = getAbsPath(file, dir);
-#else
-    string absPath = file;
-#endif
 
     llvm::MutexGuard lock(m_Lock);
     d->m_prev_stoppoint_line = line_metadata;

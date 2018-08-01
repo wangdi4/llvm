@@ -32,19 +32,11 @@ using namespace std;
 
 char const* localhost = "127.0.0.1";
 
-#ifdef WIN32
 #include <windows.h>
 void sleep_ms(int ms)
 {
     SleepEx(ms, TRUE);
 }
-#else
-#include <unistd.h>
-void sleep_ms(int ms)
-{
-    usleep(1000 * ms);
-}
-#endif // WIN32
 
 
 DebugCommunicator::DebugCommunicator(unsigned short port)

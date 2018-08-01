@@ -1,16 +1,17 @@
+if (WIN32)
+
 use_rtti(TRUE)
 
-if(WIN32)
-    # This change was added in order to support the 15.33 GFX driver
-    # CPU runtime (version 3.0) installation with the new SDK
-    # TODO - undo this when OclCpuDebugging.dll is added to the driver
-    # As discussed with VPG (CORC-1070) OclCpuDebugging.dll won't be a part of the driver,
-    # "This increases footprint of the driver and don't bring value to iGFX driver product.
-    # This library should be distributed as part of SDK which is targeted for developers not final users."
-    set(TARGET_NAME OclCpuDebugging5)
-else(WIN32)
-    set(TARGET_NAME OclCpuDebugging)
-endif(WIN32)
+# This change was added in order to support the 15.33 GFX driver
+# CPU runtime (version 3.0) installation with the new SDK
+# TODO - undo this when OclCpuDebugging.dll is added to the driver
+# As discussed with VPG (CORC-1070) OclCpuDebugging.dll won't be a part of the driver,
+# "This increases footprint of the driver and don't bring value to iGFX driver product.
+# This library should be distributed as part of SDK which is targeted for developers not final users."
+
+set(DLL_VERSION 6)
+
+set(TARGET_NAME OclCpuDebugging${DLL_VERSION})
 
 project(${TARGET_NAME})
 
@@ -27,61 +28,12 @@ endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 set(OCL_CPU_DEBUGGING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(OCL_CPU_DEBUGGING_IMPORT_DIRS
-  ${OCL_CPU_DEBUGGING_DIR}/protobuf/include
-  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
-  ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${OCL_CPU_DEBUGGING_DIR}/protobuf/include
+    ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
+    ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 )
+
 set(OCL_CPU_DEBUGGING_EXPORT_DIR  ${OCL_CPU_DEBUGGING_DIR}/export)
-
-#
-# Settings for Linux compilation
-#
-if (NOT WIN32)
-
-    # Warning level
-    set (WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-
-    # Compiler switches that CANNOT be modified during makefile generation
-    set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
-
-    set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99")
-    set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS} ")
-
-    set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb -D _DEBUG")
-    set (ADD_C_FLAGS_RELEASE "-O2 -g0 ")
-
-    # Compiler switches that CAN be modified during makefile generation and configuration-independent
-    add_definitions( ${WARNING_LEVEL} )
-
-    # Linker switches
-    set (INIT_LINKER_FLAGS        )
-    set (ADD_LINKER_FLAGS_DEBUG   )
-    set (ADD_LINKER_FLAGS_RELEASE )
-
-    include(FindThreads)
-    set (INIT_LINKER_FLAGS "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} ${RT_LIB}")
-
-    # C switches
-    set (CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
-    set (CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-    set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-
-    # C++ switches
-    set (CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
-    set (CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-
-    # Linker switches - EXE
-    set (CMAKE_EXE_LINKER_FLAGS           "${CMAKE_EXE_LINKER_FLAGS} ${INIT_LINKER_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS_DEBUG     "${CMAKE_EXE_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-    set (CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
-
-    # Linker switches - Shared Lib
-    set (CMAKE_SHARED_LINKER_FLAGS         "${CMAKE_SHARED_LINKER_FLAGS} ${INIT_LINKER_FLAGS}")
-    set (CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-    set (CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
-
-endif (NOT WIN32)
 
 # Create target project
 
@@ -89,12 +41,8 @@ endif (NOT WIN32)
 link_directories (
     ${TBB_LIB_DIR}
 )
-# Link with appropriate libs
-if (WIN32)
-    set( SOCKETLIB ws2_32 )
-else (WIN32)
-    set( SOCKETLIB "" )
-endif (WIN32)
+
+set( SOCKETLIB ws2_32 )
 
 
 # Create DLL
@@ -120,11 +68,9 @@ add_opencl_library (${TARGET_NAME} SHARED
     ${LLVM_MODULE_LIBS}
 )
 
-if (NOT WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
-endif (NOT WIN32)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
+
+endif (WIN32)
 
 # Install the (GPL'd) GDB OCL plugin. The name and location is important, as
 # GDB will auto-load it if it has the same name as a loaded shared object.

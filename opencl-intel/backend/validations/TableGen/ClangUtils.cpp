@@ -52,7 +52,7 @@ void build(const std::string& code, std::string fileName){
   assert(fileName != tmpfile.str() && "fileName is reserved!");
 
   //writing the cl code to the input file
-  llvm::raw_fd_ostream input(tmpfile.c_str(), ec, llvm::sys::fs::F_RW);
+  llvm::raw_fd_ostream input(tmpfile.c_str(), ec, llvm::sys::fs::FA_Write);
   if( ec )
   {
       llvm::errs() << "couldn't open a file " << tmpfile.str() << ": " << ec.message();
