@@ -233,7 +233,11 @@ defm orphan_handling:
 
 defm pack_dyn_relocs:
   Eq<"pack-dyn-relocs", "Pack dynamic relocations in the given format">,
-  MetaVarName<"[none,android]">;
+  MetaVarName<"[none,android,relr,android+relr]">;
+
+defm use_android_relr_tags: B<"use-android-relr-tags",
+    "use SHT_ANDROID_RELR / DT_ANDROID_RELR* tags instead of SHT_RELR / DT_RELR*",
+    "use SHT_RELR / DT_RELR* tags (default)">;
 
 defm pie: B<"pie",
     "Create a position independent executable",
@@ -480,3 +484,8 @@ def: F<"EB">;
 def: F<"EL">;
 def: JoinedOrSeparate<["-"], "G">;
 def: F<"Qy">;
+
+// Hidden option used for testing MIPS multi-GOT implementation.
+defm mips_got_size:
+  Eq<"mips-got-size", "Max size of a single MIPS GOT. 0x10000 by default.">,
+  Flags<[HelpHidden]>;

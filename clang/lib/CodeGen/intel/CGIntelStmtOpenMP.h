@@ -164,6 +164,7 @@ class OpenMPCodeOutliner {
     ICK_shared,
     ICK_map_tofrom,
     ICK_normalized_iv,
+    ICK_normalized_ub,
     // A firstprivate specified with an implicit OMPFirstprivateClause.
     ICK_specified_firstprivate,
     ICK_unknown

@@ -135,19 +135,11 @@ public:
 
   /// Variable decls are numbered by identifier.
   unsigned getManglingNumber(const VarDecl *VD, unsigned) override {
-    if (auto *DD = dyn_cast<DecompositionDecl>(VD))
+    if (auto *DD = dyn_cast<DecompositionDecl>(VD)) {
+      DecompositionDeclName Name{DD->bindings()};
+      return ++DecompsitionDeclManglingNumbers[Name];
+    }
 
-#if INTEL_CUSTOMIZATION && _MSC_VER && _MSC_VER < 1914
-  // Microsoft issues incorrect warning about comma operator within
-  // array expression. This is a known bug fixed in VS2017 15.7 Preview 3.
-#pragma warning (push)
-#pragma warning (disable:4709)
-#endif //INTEL_CUSTOMIZATION
-      return ++DecompsitionDeclManglingNumbers[
-          DecompositionDeclName{DD->bindings()}];
-#if INTEL_CUSTOMIZATION && _MSC_VER && _MSC_VER < 1914
-#pragma warning (pop)
-#endif //INTEL_CUSTOMIZATION
     const IdentifierInfo *Identifier = VD->getIdentifier();
     if (!Identifier) {
       // VarDecl without an identifier represents an anonymous union

@@ -37,3 +37,32 @@ int foo() {
   uint1_tt c = (uint3_tt)2;
   return 0;
 }
+
+template<int bits> using ap_int = int __attribute__((__ap_int(bits)));
+template<unsigned int bits> using ap_uint = unsigned int
+__attribute__((__ap_int(bits)));
+
+bool unknown_b();
+void ternary_thing() {
+  bool cond = unknown_b();
+  ap_uint<6> count = 6;
+  ap_int<33> zero = 0;
+  ap_int<31> zero_1 = 0;
+  int zero_2 = 0;
+
+  count = cond ? count + 1 : zero; // expected-warning{{implicit conversion loses integer precision}}
+  count = cond ? count + 1 : zero_1; // expected-warning{{implicit conversion loses integer precision}}
+  count = cond ? count + 1 : zero_2; // expected-warning{{implicit conversion loses integer precision}}
+}
+
+void sizeof_test() {
+  ap_int<56> a;
+  ap_int<56> as[2];
+  ap_int<66> a2;
+  ap_int<66> a2s[2];
+
+  static_assert(sizeof(a) == 8, "Lie about sizeof so that array allocs work");
+  static_assert(sizeof(as) == 16, "Lie about sizeof so that array allocs work");
+  static_assert(sizeof(a2) == 16, "Lie about sizeof so that array allocs work");
+  static_assert(sizeof(a2s) == 32, "Lie about sizeof so that array allocs work");
+}

@@ -533,6 +533,12 @@ void ASTStmtReader::VisitIntegerLiteral(IntegerLiteral *E) {
   E->setValue(Record.getContext(), Record.readAPInt());
 }
 
+void ASTStmtReader::VisitFixedPointLiteral(FixedPointLiteral *E) {
+  VisitExpr(E);
+  E->setLocation(ReadSourceLocation());
+  E->setValue(Record.getContext(), Record.readAPInt());
+}
+
 void ASTStmtReader::VisitFloatingLiteral(FloatingLiteral *E) {
   VisitExpr(E);
   E->setRawSemantics(static_cast<Stmt::APFloatSemantics>(Record.readInt()));
@@ -2706,6 +2712,10 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   D->setInit(Record.readSubExpr());
   D->setInc(Record.readSubExpr());
   D->setPreInits(Record.readSubStmt());
+#if INTEL_CUSTOMIZATION
+  D->setLateOutlineCond(Record.readSubExpr());
+  D->setLateOutlineUpperBoundVariable(Record.readSubExpr());
+#endif // INTEL_CUSTOMIZATION
   if (isOpenMPWorksharingDirective(D->getDirectiveKind()) ||
       isOpenMPTaskLoopDirective(D->getDirectiveKind()) ||
       isOpenMPDistributeDirective(D->getDirectiveKind())) {

@@ -41,7 +41,15 @@ void Sanity() {
   f = mm[5];
   f = *mm;
 }
+void SanityBool() {
+  bool f;
+  mm_master<bool, 8, 32, 0, 1, 1, 0, Write, false> mm(&f, 5, true);
+  f = mm[5];
+  f = *mm;
+}
 
 // CHECK: declare void @llvm.intel.hls.mm.master.init.s_struct.Foos(%struct.Foo*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
 // CHECK: declare %struct.Foo* @llvm.intel.hls.mm.master.load.s_struct.Foos(%struct.Foo*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)
 
+// CHECK: declare void @llvm.intel.hls.mm.master.init.i1(i1*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
+// CHECK: declare i1* @llvm.intel.hls.mm.master.load.i1(i1*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)

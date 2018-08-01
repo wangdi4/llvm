@@ -1461,6 +1461,14 @@ example:
     trap or generate asynchronous exceptions. Exception handling schemes
     that are recognized by LLVM to handle asynchronous exceptions, such
     as SEH, will still provide their implementation defined semantics.
+``"null-pointer-is-valid"``
+   If ``"null-pointer-is-valid"`` is set to ``"true"``, then ``null`` address
+   in address-space 0 is considered to be a valid address for memory loads and
+   stores. Any analysis or optimization should not treat dereferencing a
+   pointer to ``null`` as undefined behavior in this function.
+   Note: Comparing address of a global variable to ``null`` may still
+   evaluate to false because of a limitation in querying this attribute inside
+   constant expressions.
 ``optforfuzzing``
     This attribute indicates that this function should be optimized
     for maximum fuzzing signal.
@@ -1703,10 +1711,10 @@ example:
     the ELF x86-64 abi, but it can be disabled for some compilation
     units.
 ``nocf_check``
-    This attribute indicates that no control-flow check will be perfomed on
+    This attribute indicates that no control-flow check will be performed on
     the attributed entity. It disables -fcf-protection=<> for a specific
     entity to fine grain the HW control flow protection mechanism. The flag
-    is target independant and currently appertains to a function or function
+    is target independent and currently appertains to a function or function
     pointer.
 ``shadowcallstack``
     This attribute indicates that the ShadowCallStack checks are enabled for
@@ -3275,25 +3283,25 @@ The following is the syntax for constant expressions:
     integer constant. TYPE must be a scalar or vector integer type. CST
     must be of scalar or vector floating-point type. Both CST and TYPE
     must be scalars, or vectors of the same number of elements. If the
-    value won't fit in the integer type, the results are undefined.
+    value won't fit in the integer type, the result is a
+    :ref:`poison value <poisonvalues>`.
 ``fptosi (CST to TYPE)``
     Convert a floating-point constant to the corresponding signed
     integer constant. TYPE must be a scalar or vector integer type. CST
     must be of scalar or vector floating-point type. Both CST and TYPE
     must be scalars, or vectors of the same number of elements. If the
-    value won't fit in the integer type, the results are undefined.
+    value won't fit in the integer type, the result is a
+    :ref:`poison value <poisonvalues>`.
 ``uitofp (CST to TYPE)``
     Convert an unsigned integer constant to the corresponding 
     floating-point constant. TYPE must be a scalar or vector floating-point
     type.  CST must be of scalar or vector integer type. Both CST and TYPE must
-    be scalars, or vectors of the same number of elements. If the value
-    won't fit in the floating-point type, the results are undefined.
+    be scalars, or vectors of the same number of elements.
 ``sitofp (CST to TYPE)``
     Convert a signed integer constant to the corresponding floating-point
     constant. TYPE must be a scalar or vector floating-point type.
     CST must be of scalar or vector integer type. Both CST and TYPE must
-    be scalars, or vectors of the same number of elements. If the value
-    won't fit in the floating-point type, the results are undefined.
+    be scalars, or vectors of the same number of elements.
 ``ptrtoint (CST to TYPE)``
     Perform the :ref:`ptrtoint operation <i_ptrtoint>` on constants.
 ``inttoptr (CST to TYPE)``
@@ -7595,7 +7603,8 @@ Semantics:
 
 The result is a scalar of the same type as the element type of ``val``.
 Its value is the value at position ``idx`` of ``val``. If ``idx``
-exceeds the length of ``val``, the results are undefined.
+exceeds the length of ``val``, the result is a
+:ref:`poison value <poisonvalues>`.
 
 Example:
 """"""""
@@ -7636,8 +7645,8 @@ Semantics:
 
 The result is a vector of the same type as ``val``. Its element values
 are those of ``val`` except at position ``idx``, where it gets the value
-``elt``. If ``idx`` exceeds the length of ``val``, the results are
-undefined.
+``elt``. If ``idx`` exceeds the length of ``val``, the result
+is a :ref:`poison value <poisonvalues>`.
 
 Example:
 """"""""
@@ -7853,9 +7862,9 @@ memory is automatically released when the function returns. The
 '``alloca``' instruction is commonly used to represent automatic
 variables that must have an address available. When the function returns
 (either with the ``ret`` or ``resume`` instructions), the memory is
-reclaimed. Allocating zero bytes is legal, but the result is undefined.
-The order in which memory is allocated (ie., which way the stack grows)
-is not specified.
+reclaimed. Allocating zero bytes is legal, but the returned pointer may not
+be unique. The order in which memory is allocated (ie., which way the stack
+grows) is not specified.
 
 Example:
 """"""""
@@ -8764,8 +8773,8 @@ Semantics:
 
 The '``fptoui``' instruction converts its :ref:`floating-point
 <t_floating>` operand into the nearest (rounding towards zero)
-unsigned integer value. If the value cannot fit in ``ty2``, the results
-are undefined.
+unsigned integer value. If the value cannot fit in ``ty2``, the result
+is a :ref:`poison value <poisonvalues>`.
 
 Example:
 """"""""
@@ -8806,8 +8815,8 @@ Semantics:
 
 The '``fptosi``' instruction converts its :ref:`floating-point
 <t_floating>` operand into the nearest (rounding towards zero)
-signed integer value. If the value cannot fit in ``ty2``, the results
-are undefined.
+signed integer value. If the value cannot fit in ``ty2``, the result
+is a :ref:`poison value <poisonvalues>`.
 
 Example:
 """"""""
@@ -8848,8 +8857,9 @@ Semantics:
 
 The '``uitofp``' instruction interprets its operand as an unsigned
 integer quantity and converts it to the corresponding floating-point
-value. If the value cannot fit in the floating-point value, the results
-are undefined.
+value. If the value cannot be exactly represented, it is rounded using
+the default rounding mode.
+
 
 Example:
 """"""""
@@ -8888,9 +8898,9 @@ Semantics:
 """"""""""
 
 The '``sitofp``' instruction interprets its operand as a signed integer
-quantity and converts it to the corresponding floating-point value. If
-the value cannot fit in the floating-point value, the results are
-undefined.
+quantity and converts it to the corresponding floating-point value. If the
+value cannot be exactly represented, it is rounded using the default rounding
+mode.
 
 Example:
 """"""""
@@ -13348,16 +13358,17 @@ Overview:
 """""""""
 
 The '``llvm.launder.invariant.group``' intrinsic can be used when an invariant
-established by invariant.group metadata no longer holds, to obtain a new pointer
-value that does not carry the invariant information. It is an experimental
-intrinsic, which means that its semantics might change in the future.
+established by ``invariant.group`` metadata no longer holds, to obtain a new
+pointer value that carries fresh invariant group information. It is an
+experimental intrinsic, which means that its semantics might change in the
+future.
 
 
 Arguments:
 """"""""""
 
-The ``llvm.launder.invariant.group`` takes only one argument, which is
-the pointer to the memory for which the ``invariant.group`` no longer holds.
+The ``llvm.launder.invariant.group`` takes only one argument, which is a pointer
+to the memory.
 
 Semantics:
 """"""""""
@@ -13365,6 +13376,43 @@ Semantics:
 Returns another pointer that aliases its argument but which is considered different
 for the purposes of ``load``/``store`` ``invariant.group`` metadata.
 It does not read any accessible memory and the execution can be speculated.
+
+'``llvm.strip.invariant.group``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic. The memory object can belong to any address
+space. The returned pointer must belong to the same address space as the
+argument.
+
+::
+
+      declare i8* @llvm.strip.invariant.group.p0i8(i8* <ptr>)
+
+Overview:
+"""""""""
+
+The '``llvm.strip.invariant.group``' intrinsic can be used when an invariant
+established by ``invariant.group`` metadata no longer holds, to obtain a new pointer
+value that does not carry the invariant information. It is an experimental
+intrinsic, which means that its semantics might change in the future.
+
+
+Arguments:
+""""""""""
+
+The ``llvm.strip.invariant.group`` takes only one argument, which is a pointer
+to the memory.
+
+Semantics:
+""""""""""
+
+Returns another pointer that aliases its argument but which has no associated
+``invariant.group`` metadata.
+It does not read any memory and can be speculated.
+
+
 
 .. _constrainedfp:
 
@@ -14419,10 +14467,10 @@ The ``llvm.objectsize`` intrinsic takes three arguments. The first argument is
 a pointer to or into the ``object``. The second argument determines whether
 ``llvm.objectsize`` returns 0 (if true) or -1 (if false) when the object size
 is unknown. The third argument controls how ``llvm.objectsize`` acts when
-``null`` is used as its pointer argument. If it's true and the pointer is in
-address space 0, ``null`` is treated as an opaque value with an unknown number
-of bytes. Otherwise, ``llvm.objectsize`` reports 0 bytes available when given
-``null``.
+``null`` in address space 0 is used as its pointer argument. If it's ``false``,
+``llvm.objectsize`` reports 0 bytes available when given ``null``. Otherwise, if
+the ``null`` is in a non-zero address space or if ``true`` is given for the
+third argument of ``llvm.objectsize``, we assume its size is unknown.
 
 The second and third arguments only accept constants.
 

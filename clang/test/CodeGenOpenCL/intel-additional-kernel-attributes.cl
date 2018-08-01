@@ -19,7 +19,7 @@ __kernel void k3() {}
 
 __attribute__((max_work_group_size(16,16,16)))
 __kernel void k4() {}
-// CHECK: define spir_kernel void @k4{{[^{]+}} !max_work_group_size ![[MD4:[0-9]+]]
+// CHECK: define spir_kernel void @k4{{[^{]+}} !max_work_group_size ![[MD3]]
 
 __attribute__((reqd_work_group_size(64,64,64)))
 __kernel void k5() {}
@@ -41,7 +41,7 @@ __kernel void k10() __attribute__((max_global_work_dim(0))) __attribute__((autor
 // CHECK: define spir_kernel void @k10{{[^{]+}} !max_global_work_dim ![[MD2]] !autorun ![[MD10:[0-9]+]]
 
 __kernel void k11() __attribute__((stall_free)) {}
-// CHECK: define spir_kernel void @k11{{[^{]+}} !stall_free ![[MD11:[0-9]+]]
+// CHECK: define spir_kernel void @k11{{[^{]+}} !stall_free ![[MD10]]
 
 __kernel void k12() __attribute__((scheduler_pipelining_effort_pct(12))) {}
 // CHECK: define spir_kernel void @k12{{[^{]+}} !scheduler_pipelining_effort_pct ![[MD12:[0-9]+]]
@@ -73,12 +73,10 @@ __kernel void k13b() {
 // CHECK-DAG: [[MD1]] = !{i32 1024, i32 1, i32 1}
 // CHECK-DAG: [[MD2]] = !{i32 0}
 // CHECK-DAG: [[MD3]] = !{i32 16, i32 16, i32 16}
-// CHECK-DAG: [[MD4]] = !{i32 16, i32 16, i32 16}
 // CHECK-DAG: [[MD5]] = !{i32 64, i32 64, i32 64}
 // CHECK-DAG: [[MD6]] = !{i32 3, i32 1, i32 1}
 // CHECK-DAG: [[MD7]] = !{i32 4}
 // CHECK-DAG: [[MD8]] = !{i32 3, i32 2, i32 4}
 // CHECK-DAG: [[MD9]] = !{i32 1}
 // CHECK-DAG: [[MD10]] = !{i1 true}
-// CHECK-DAG: [[MD11]] = !{i1 true}
 // CHECK-DAG: [[MD12]] = !{i32 12}

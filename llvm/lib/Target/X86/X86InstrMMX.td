@@ -173,15 +173,12 @@ def MMX_MOVD64rm : MMXI<0x6E, MRMSrcMem, (outs VR64:$dst), (ins i32mem:$src),
                         Sched<[WriteVecLoad]>;
 
 let Predicates = [HasMMX] in {
-  let AddedComplexity = 15 in
-    def : Pat<(x86mmx (MMX_X86movw2d GR32:$src)),
-              (MMX_MOVD64rr GR32:$src)>;
-  let AddedComplexity = 20 in {
-    def : Pat<(x86mmx (MMX_X86movw2d (i32 0))),
-              (MMX_SET0)>;
-    def : Pat<(x86mmx (MMX_X86movw2d (loadi32 addr:$src))),
-              (MMX_MOVD64rm addr:$src)>;
-  }
+  def : Pat<(x86mmx (MMX_X86movw2d GR32:$src)),
+            (MMX_MOVD64rr GR32:$src)>;
+  def : Pat<(x86mmx (MMX_X86movw2d (i32 0))),
+            (MMX_SET0)>;
+  def : Pat<(x86mmx (MMX_X86movw2d (loadi32 addr:$src))),
+            (MMX_MOVD64rm addr:$src)>;
 }
 
 let mayStore = 1 in
@@ -206,9 +203,6 @@ def MMX_MOVD64to64rm : MMXRI<0x6E, MRMSrcMem, (outs VR64:$dst),
                              (ins i64mem:$src), "movq\t{$src, $dst|$dst, $src}",
                              []>, Sched<[SchedWriteVecMoveLS.MMX.RM]>;
 
-// These are 64 bit moves, but since the OS X assembler doesn't
-// recognize a register-register movq, we write them as
-// movd.
 let isBitcast = 1 in {
 def MMX_MOVD64from64rr : MMXRI<0x7E, MRMDestReg,
                                (outs GR64:$dst), (ins VR64:$src),
@@ -224,6 +218,9 @@ def MMX_MOVQ64rr_REV : MMXI<0x7F, MRMDestReg, (outs VR64:$dst), (ins VR64:$src),
                             FoldGenData<"MMX_MOVQ64rr">;
 } // SchedRW, hasSideEffects, isMoveReg
 } // isBitcast
+
+def : InstAlias<"movq.s\t{$src, $dst|$dst, $src}",
+                (MMX_MOVQ64rr_REV VR64:$dst, VR64:$src), 0>;
 
 let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0, mayStore = 1 in
 def MMX_MOVD64from64rm : MMXRI<0x7E, MRMDestMem,
@@ -276,11 +273,9 @@ def MMX_MOVNTQmr  : MMXI<0xE7, MRMDestMem, (outs), (ins i64mem:$dst, VR64:$src),
                          Sched<[SchedWriteVecMoveLSNT.MMX.MR]>;
 
 let Predicates = [HasMMX] in {
-  let AddedComplexity = 15 in
   // movd to MMX register zero-extends
   def : Pat<(x86mmx (X86vzmovl (x86mmx (scalar_to_vector GR32:$src)))),
             (MMX_MOVD64rr GR32:$src)>;
-  let AddedComplexity = 20 in
   def : Pat<(x86mmx (X86vzmovl (x86mmx (scalar_to_vector (loadi32 addr:$src))))),
             (MMX_MOVD64rm addr:$src)>;
 }
@@ -602,6 +597,9 @@ def : Pat<(x86mmx (bitconvert (f64 FR64:$src))),
 def : Pat<(x86mmx (MMX_X86movdq2q
                    (bc_v2i64 (v4i32 (X86cvtp2Int (v4f32 VR128:$src)))))),
           (MMX_CVTPS2PIirr VR128:$src)>;
+def : Pat<(x86mmx (MMX_X86movdq2q
+                   (bc_v2i64 (v4i32 (X86cvttp2si (v4f32 VR128:$src)))))),
+          (MMX_CVTTPS2PIirr VR128:$src)>;
 def : Pat<(x86mmx (MMX_X86movdq2q
                    (bc_v2i64 (v4i32 (fp_to_sint (v4f32 VR128:$src)))))),
           (MMX_CVTTPS2PIirr VR128:$src)>;

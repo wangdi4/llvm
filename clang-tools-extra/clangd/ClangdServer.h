@@ -12,7 +12,7 @@
 
 #include "ClangdUnit.h"
 #include "CodeComplete.h"
-#include "CompileArgsCache.h"
+#include "FSProvider.h"
 #include "Function.h"
 #include "GlobalCompilationDatabase.h"
 #include "Protocol.h"
@@ -43,22 +43,6 @@ public:
                                   std::vector<Diag> Diagnostics) = 0;
 };
 
-class FileSystemProvider {
-public:
-  virtual ~FileSystemProvider() = default;
-  /// Called by ClangdServer to obtain a vfs::FileSystem to be used for parsing.
-  /// Context::current() will be the context passed to the clang entrypoint,
-  /// such as addDocument(), and will also be propagated to result callbacks.
-  /// Embedders may use this to isolate filesystem accesses.
-  virtual IntrusiveRefCntPtr<vfs::FileSystem> getFileSystem() = 0;
-};
-
-class RealFileSystemProvider : public FileSystemProvider {
-public:
-  /// Returns getRealFileSystem().
-  IntrusiveRefCntPtr<vfs::FileSystem> getFileSystem() override;
-};
-
 /// Provides API to manage ASTs for a collection of C++ files and request
 /// various language features.
 /// Currently supports async diagnostics, code completion, formatting and goto
@@ -79,6 +63,10 @@ public:
     /// If true, ClangdServer builds a dynamic in-memory index for symbols in
     /// opened files and uses the index to augment code completion results.
     bool BuildDynamicSymbolIndex = false;
+
+    /// URI schemes to use when building the dynamic index.
+    /// If empty, the default schemes in SymbolCollector will be used.
+    std::vector<std::string> URISchemes;
 
     /// If set, use this index to augment code completion results.
     SymbolIndex *StaticIndex = nullptr;
@@ -122,8 +110,7 @@ public:
   /// When \p SkipCache is true, compile commands will always be requested from
   /// compilation database even if they were cached in previous invocations.
   void addDocument(PathRef File, StringRef Contents,
-                   WantDiagnostics WD = WantDiagnostics::Auto,
-                   bool SkipCache = false);
+                   WantDiagnostics WD = WantDiagnostics::Auto);
 
   /// Remove \p File from list of tracked files, schedule a request to free
   /// resources associated with it.
@@ -139,7 +126,7 @@ public:
   /// when codeComplete results become available.
   void codeComplete(PathRef File, Position Pos,
                     const clangd::CodeCompleteOptions &Opts,
-                    Callback<CompletionList> CB);
+                    Callback<CodeCompleteResult> CB);
 
   /// Provide signature help for \p File at \p Pos.  This method should only be
   /// called for tracked files.
@@ -165,6 +152,10 @@ public:
   void workspaceSymbols(StringRef Query, int Limit,
                         Callback<std::vector<SymbolInformation>> CB);
 
+  /// Retrieve the symbols within the specified file.
+  void documentSymbols(StringRef File,
+                       Callback<std::vector<SymbolInformation>> CB);
+
   /// Run formatting for \p Rng inside \p File with content \p Code.
   llvm::Expected<tooling::Replacements> formatRange(StringRef Code,
                                                     PathRef File, Range Rng);
@@ -186,7 +177,7 @@ public:
   /// Only for testing purposes.
   /// Waits until all requests to worker thread are finished and dumps AST for
   /// \p File. \p File must be in the list of added documents.
-  void dumpAST(PathRef File, UniqueFunction<void(std::string)> Callback);
+  void dumpAST(PathRef File, llvm::unique_function<void(std::string)> Callback);
   /// Called when an event occurs for a watched file in the workspace.
   void onFileEvent(const DidChangeWatchedFilesParams &Params);
 
@@ -216,13 +207,16 @@ private:
   void consumeDiagnostics(PathRef File, DocVersion Version,
                           std::vector<Diag> Diags);
 
-  CompileArgsCache CompileArgs;
+  tooling::CompileCommand getCompileCommand(PathRef File);
+
+  GlobalCompilationDatabase &CDB;
   DiagnosticsConsumer &DiagConsumer;
   FileSystemProvider &FSProvider;
 
   /// Used to synchronize diagnostic responses for added and removed files.
   llvm::StringMap<DocVersion> InternalVersion;
 
+  Path ResourceDir;
   // The index used to look up symbols. This could be:
   //   - null (all index functionality is optional)
   //   - the dynamic index owned by ClangdServer (FileIdx)

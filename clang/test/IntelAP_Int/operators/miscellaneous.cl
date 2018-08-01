@@ -31,8 +31,8 @@
 // CHECK: %[[U60:[a-zA-Z0-9]+]] = zext i17 %[[U50]] to i64
 // CHECK: store i64 %[[U60]], i64* %res, align 8
 
-// CHECK: store i64 6, i64* %res, align 8
-// CHECK: store i64 3, i64* %res, align 8
+// CHECK: store i64 8, i64* %res, align 8
+// CHECK: store i64 4, i64* %res, align 8
 
 // CHECK: store i43* %x43_u, i43** %p, align 8
 // CHECK: %[[L3:[0-9]+]] = load i43*, i43** %p, align 8

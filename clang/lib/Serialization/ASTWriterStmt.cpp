@@ -444,6 +444,13 @@ void ASTStmtWriter::VisitIntegerLiteral(IntegerLiteral *E) {
   Code = serialization::EXPR_INTEGER_LITERAL;
 }
 
+void ASTStmtWriter::VisitFixedPointLiteral(FixedPointLiteral *E) {
+  VisitExpr(E);
+  Record.AddSourceLocation(E->getLocation());
+  Record.AddAPInt(E->getValue());
+  Code = serialization::EXPR_INTEGER_LITERAL;
+}
+
 void ASTStmtWriter::VisitFloatingLiteral(FloatingLiteral *E) {
   VisitExpr(E);
   Record.push_back(E->getRawSemantics());
@@ -2293,6 +2300,10 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Record.AddStmt(D->getInit());
   Record.AddStmt(D->getInc());
   Record.AddStmt(D->getPreInits());
+#if INTEL_CUSTOMIZATION
+  Record.AddStmt(D->getLateOutlineCond());
+  Record.AddStmt(D->getLateOutlineUpperBoundVariable());
+#endif // INTEL_CUSTOMIZATION
   if (isOpenMPWorksharingDirective(D->getDirectiveKind()) ||
       isOpenMPTaskLoopDirective(D->getDirectiveKind()) ||
       isOpenMPDistributeDirective(D->getDirectiveKind())) {

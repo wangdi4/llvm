@@ -4962,6 +4962,13 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
           buildDeclRefExpr(SemaRef, PrevUBDecl, PrevUBDecl->getType(), InitLoc);
     }
   }
+#if INTEL_CUSTOMIZATION
+  // Upper bound variable, initialized with last iteration number.
+  VarDecl *UBDecl = buildVarDecl(SemaRef, InitLoc, VType, ".omp.ub");
+  ExprResult LateOutlineUB = buildDeclRefExpr(SemaRef, UBDecl, VType, InitLoc);
+  SemaRef.AddInitializerToDecl(UBDecl, LastIteration.get(),
+                               /*DirectInit*/ false);
+#endif // INTEL_CUSTOMIZATION
 
   // Build the iteration variable and its initialization before loop.
   ExprResult IV;
@@ -4998,6 +5005,12 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
           ? SemaRef.BuildBinOp(CurScope, CondLoc, BO_LE, IV.get(), UB.get())
           : SemaRef.BuildBinOp(CurScope, CondLoc, BO_LT, IV.get(),
                                NumIterations.get());
+
+#if INTEL_CUSTOMIZATION
+  ExprResult LateOutlineCond = SemaRef.BuildBinOp(
+      CurScope, CondLoc, BO_LE, IV.get(), LateOutlineUB.get());
+#endif // INTEL_CUSTOMIZATION
+
   ExprResult CombCond;
   if (isOpenMPLoopBoundSharingDirective(DKind)) {
     CombCond =
@@ -5220,6 +5233,10 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DistCombinedFields.Cond = CombCond.get();
   Built.DistCombinedFields.NLB = CombNextLB.get();
   Built.DistCombinedFields.NUB = CombNextUB.get();
+#if INTEL_CUSTOMIZATION
+  Built.LateOutlineCond = LateOutlineCond.get();
+  Built.LateOutlineUB = LateOutlineUB.get();
+#endif // INTEL_CUSTOMIZATION
 
   Expr *CounterVal = SemaRef.DefaultLvalueConversion(IV.get()).get();
   // Fill data for doacross depend clauses.
@@ -10365,7 +10382,7 @@ static bool actOnOMPReductionKindClause(
     // OpenMP [2.9.3.3, Restrictions, C/C++, p.3]
     //  A variable that appears in a private clause must not have an incomplete
     //  type or a reference type.
-    if (S.RequireCompleteType(ELoc, Type,
+    if (S.RequireCompleteType(ELoc, D->getType(),
                               diag::err_omp_reduction_incomplete_type))
       continue;
     // OpenMP [2.14.3.6, reduction clause, Restrictions]
@@ -13042,8 +13059,12 @@ void Sema::checkDeclIsAllowedInOpenMPTarget(Expr *E, Decl *D,
     return;
   SourceRange SR = E ? E->getSourceRange() : D->getSourceRange();
   SourceLocation SL = E ? E->getLocStart() : D->getLocation();
-  // 2.10.6: threadprivate variable cannot appear in a declare target directive.
   if (auto *VD = dyn_cast<VarDecl>(D)) {
+    // Only global variables can be marked as declare target.
+    if (VD->isLocalVarDeclOrParm())
+      return;
+    // 2.10.6: threadprivate variable cannot appear in a declare target
+    // directive.
     if (DSAStack->isThreadPrivate(VD)) {
       Diag(SL, diag::err_omp_threadprivate_in_target);
       reportOriginalDsa(*this, DSAStack, VD, DSAStack->getTopDSA(VD, false));

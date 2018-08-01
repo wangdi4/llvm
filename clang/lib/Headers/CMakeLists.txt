@@ -99,6 +99,9 @@ set(files
   __stddef_max_align_t.h
   stdint.h
   stdnoreturn.h
+# INTEL_CUSTOMIZATION
+  svmlintrin.h
+# end INTEL_CUSTOMIZATION
   tbmintrin.h
   tgmath.h
   tmmintrin.h

@@ -15,8 +15,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cassert>
-#include <cstring>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -62,7 +60,6 @@ struct alignas(64) ThreadLocalData {
   size_t StackSize = 0;
   size_t StackEntries = 0;
   int Fd = -1;
-  tid_t TID = 0;
 };
 
 static pthread_key_t PThreadKey;
@@ -73,32 +70,31 @@ BasicLoggingOptions GlobalOptions;
 
 thread_local atomic_uint8_t Guard{0};
 
-static uint64_t thresholdTicks() XRAY_NEVER_INSTRUMENT {
-  static uint64_t TicksPerSec = probeRequiredCPUFeatures()
-                                    ? getTSCFrequency()
-                                    : NanosecondsPerSecond;
-  static const uint64_t ThresholdTicks =
-      TicksPerSec * GlobalOptions.DurationFilterMicros / 1000000;
-  return ThresholdTicks;
-}
+static atomic_uint8_t UseRealTSC{0};
+static atomic_uint64_t ThresholdTicks{0};
+static atomic_uint64_t TicksPerSec{0};
+static atomic_uint64_t CycleFrequency{NanosecondsPerSecond};
 
 static int openLogFile() XRAY_NEVER_INSTRUMENT {
   int F = getLogFD();
   if (F == -1)
     return -1;
 
-  // Test for required CPU features and cache the cycle frequency
-  static bool TSCSupported = probeRequiredCPUFeatures();
-  static uint64_t CycleFrequency =
-      TSCSupported ? getTSCFrequency() : NanosecondsPerSecond;
+  static pthread_once_t DetectOnce = PTHREAD_ONCE_INIT;
+  pthread_once(&DetectOnce, +[] {
+    if (atomic_load(&UseRealTSC, memory_order_acquire))
+      atomic_store(&CycleFrequency, getTSCFrequency(), memory_order_release);
+  });
 
   // Since we're here, we get to write the header. We set it up so that the
   // header will only be written once, at the start, and let the threads
   // logging do writes which just append.
   XRayFileHeader Header;
-  Header.Version = 2; // Version 2 includes tail exit records.
+  // Version 2 includes tail exit records.
+  // Version 3 includes pid inside records.
+  Header.Version = 3;
   Header.Type = FileTypes::NAIVE_LOG;
-  Header.CycleFrequency = CycleFrequency;
+  Header.CycleFrequency = atomic_load(&CycleFrequency, memory_order_acquire);
 
   // FIXME: Actually check whether we have 'constant_tsc' and 'nonstop_tsc'
   // before setting the values in the header.
@@ -109,12 +105,14 @@ static int openLogFile() XRAY_NEVER_INSTRUMENT {
   return F;
 }
 
-int getGlobalFd() XRAY_NEVER_INSTRUMENT {
-  static int Fd = openLogFile();
+static int getGlobalFd() XRAY_NEVER_INSTRUMENT {
+  static pthread_once_t OnceInit = PTHREAD_ONCE_INIT;
+  static int Fd = 0;
+  pthread_once(&OnceInit, +[] { Fd = openLogFile(); });
   return Fd;
 }
 
-ThreadLocalData &getThreadLocalData() XRAY_NEVER_INSTRUMENT {
+static ThreadLocalData &getThreadLocalData() XRAY_NEVER_INSTRUMENT {
   thread_local ThreadLocalData TLD;
   thread_local bool UNUSED TOnce = [] {
     if (GlobalOptions.ThreadBufferSize == 0) {
@@ -122,7 +120,6 @@ ThreadLocalData &getThreadLocalData() XRAY_NEVER_INSTRUMENT {
         Report("Not initializing TLD since ThreadBufferSize == 0.\n");
       return false;
     }
-    TLD.TID = GetTid();
     pthread_setspecific(PThreadKey, &TLD);
     TLD.Fd = getGlobalFd();
     TLD.InMemoryBuffer = reinterpret_cast<XRayRecord *>(
@@ -143,13 +140,6 @@ ThreadLocalData &getThreadLocalData() XRAY_NEVER_INSTRUMENT {
                       alignof(StackEntry)));
     TLD.StackSize = GlobalOptions.MaxStackDepth;
     TLD.StackEntries = 0;
-    if (Verbosity() >= 2) {
-      static auto UNUSED Once = [] {
-        auto ticks = thresholdTicks();
-        Report("Ticks threshold: %d\n", ticks);
-        return false;
-      }();
-    }
     return false;
   }();
   return TLD;
@@ -217,8 +207,8 @@ void InMemoryRawLog(int32_t FuncId, XRayEntryType Type,
     if (StackTop.FuncId == FuncId && StackTop.CPU == CPU &&
         StackTop.TSC < TSC) {
       auto Delta = TSC - StackTop.TSC;
-      if (Delta < thresholdTicks()) {
-        assert(TLD.BufferOffset > 0);
+      if (Delta < atomic_load(&ThresholdTicks, memory_order_relaxed)) {
+        DCHECK(TLD.BufferOffset > 0);
         TLD.BufferOffset -= StackTop.Type == XRayEntryType::ENTRY ? 1 : 2;
         return;
       }
@@ -227,7 +217,7 @@ void InMemoryRawLog(int32_t FuncId, XRayEntryType Type,
   }
   default:
     // Should be unreachable.
-    assert(false && "Unsupported XRayEntryType encountered.");
+    DCHECK(false && "Unsupported XRayEntryType encountered.");
     break;
   }
 
@@ -237,7 +227,8 @@ void InMemoryRawLog(int32_t FuncId, XRayEntryType Type,
   R.RecordType = RecordTypes::NORMAL;
   R.CPU = CPU;
   R.TSC = TSC;
-  R.TId = TLD.TID;
+  R.TId = GetTid(); 
+  R.PId = internal_getpid(); 
   R.Type = Type;
   R.FuncId = FuncId;
   auto FirstEntry = reinterpret_cast<XRayRecord *>(TLD.InMemoryBuffer);
@@ -284,7 +275,8 @@ void InMemoryRawLogWithArg(int32_t FuncId, XRayEntryType Type, uint64_t Arg1,
   XRayArgPayload R;
   R.RecordType = RecordTypes::ARG_PAYLOAD;
   R.FuncId = FuncId;
-  R.TId = TLD.TID;
+  R.TId = GetTid(); 
+  R.PId = internal_getpid(); 
   R.Arg = Arg1;
   internal_memcpy(FirstEntry + TLD.BufferOffset, &R, sizeof(R));
   if (++TLD.BufferOffset == BuffLen) {
@@ -344,12 +336,12 @@ static void TLDDestructor(void *P) XRAY_NEVER_INSTRUMENT {
     if (TLD.ShadowStack)
       InternalFree(TLD.ShadowStack);
     if (Verbosity())
-      Report("Cleaned up log for TID: %d\n", TLD.TID);
+      Report("Cleaned up log for TID: %d\n", GetTid());
   });
 
   if (TLD.Fd == -1 || TLD.BufferOffset == 0) {
     if (Verbosity())
-      Report("Skipping buffer for TID: %d; Fd = %d; Offset = %llu\n", TLD.TID,
+      Report("Skipping buffer for TID: %d; Fd = %d; Offset = %llu\n", GetTid(),
              TLD.Fd, TLD.BufferOffset);
     return;
   }
@@ -372,17 +364,26 @@ XRayLogInitStatus basicLoggingInit(size_t BufferSize, size_t BufferMax,
                                    void *Options,
                                    size_t OptionsSize) XRAY_NEVER_INSTRUMENT {
   uint8_t Expected = 0;
-  if (!atomic_compare_exchange_strong(
-          &BasicInitialized, &Expected, 1, memory_order_acq_rel)) {
+  if (!atomic_compare_exchange_strong(&BasicInitialized, &Expected, 1,
+                                      memory_order_acq_rel)) {
     if (Verbosity())
       Report("Basic logging already initialized.\n");
     return XRayLogInitStatus::XRAY_LOG_INITIALIZED;
   }
 
-  static bool UNUSED Once = [] {
+  static pthread_once_t OnceInit = PTHREAD_ONCE_INIT;
+  pthread_once(&OnceInit, +[] {
     pthread_key_create(&PThreadKey, TLDDestructor);
-    return false;
-  }();
+    atomic_store(&UseRealTSC, probeRequiredCPUFeatures(), memory_order_release);
+    // Initialize the global TicksPerSec value.
+    atomic_store(&TicksPerSec,
+                 probeRequiredCPUFeatures() ? getTSCFrequency()
+                                            : NanosecondsPerSecond,
+                 memory_order_release);
+    if (!atomic_load(&UseRealTSC, memory_order_relaxed) && Verbosity())
+      Report("WARNING: Required CPU features missing for XRay instrumentation, "
+             "using emulation instead.\n");
+  });
 
   if (BufferSize == 0 && BufferMax == 0 && Options != nullptr) {
     FlagParser P;
@@ -409,6 +410,7 @@ XRayLogInitStatus basicLoggingInit(size_t BufferSize, size_t BufferMax,
     GlobalOptions.ThreadBufferSize = F.thread_buffer_size;
     GlobalOptions.DurationFilterMicros = F.func_duration_threshold_us;
     GlobalOptions.MaxStackDepth = F.max_stack_depth;
+    *basicFlags() = F;
   } else if (OptionsSize != sizeof(BasicLoggingOptions)) {
     Report("Invalid options size, potential ABI mismatch; expected %d got %d",
            sizeof(BasicLoggingOptions), OptionsSize);
@@ -420,15 +422,19 @@ XRayLogInitStatus basicLoggingInit(size_t BufferSize, size_t BufferMax,
     GlobalOptions = *reinterpret_cast<BasicLoggingOptions *>(Options);
   }
 
-  static auto UseRealTSC = probeRequiredCPUFeatures();
-  if (!UseRealTSC && Verbosity())
-    Report("WARNING: Required CPU features missing for XRay instrumentation, "
-           "using emulation instead.\n");
+  atomic_store(&ThresholdTicks,
+               atomic_load(&TicksPerSec, memory_order_acquire) *
+                   GlobalOptions.DurationFilterMicros / 1000000,
+               memory_order_release);
+  __xray_set_handler_arg1(atomic_load(&UseRealTSC, memory_order_acquire)
+                              ? basicLoggingHandleArg1RealTSC
+                              : basicLoggingHandleArg1EmulateTSC);
+  __xray_set_handler(atomic_load(&UseRealTSC, memory_order_acquire)
+                         ? basicLoggingHandleArg0RealTSC
+                         : basicLoggingHandleArg0EmulateTSC);
 
-  __xray_set_handler_arg1(UseRealTSC ? basicLoggingHandleArg1RealTSC
-                                     : basicLoggingHandleArg1EmulateTSC);
-  __xray_set_handler(UseRealTSC ? basicLoggingHandleArg0RealTSC
-                                : basicLoggingHandleArg0EmulateTSC);
+  // TODO: Implement custom event and typed event handling support in Basic
+  // Mode.
   __xray_remove_customevent_handler();
   __xray_remove_typedevent_handler();
 
@@ -437,8 +443,8 @@ XRayLogInitStatus basicLoggingInit(size_t BufferSize, size_t BufferMax,
 
 XRayLogInitStatus basicLoggingFinalize() XRAY_NEVER_INSTRUMENT {
   uint8_t Expected = 0;
-  if (!atomic_compare_exchange_strong(
-          &BasicInitialized, &Expected, 0, memory_order_acq_rel) &&
+  if (!atomic_compare_exchange_strong(&BasicInitialized, &Expected, 0,
+                                      memory_order_acq_rel) &&
       Verbosity())
     Report("Basic logging already finalized.\n");
 
@@ -490,11 +496,18 @@ bool basicLogDynamicInitializer() XRAY_NEVER_INSTRUMENT {
         Report("Failed initializing XRay Basic Mode; error = %d\n", InitResult);
       return false;
     }
-    static auto UNUSED Once = [] {
-      static auto UNUSED &TLD = getThreadLocalData();
-      Atexit(+[] { TLDDestructor(&TLD); });
-      return false;
-    }();
+
+    // At this point we know that we've successfully initialized Basic mode
+    // tracing, and the only chance we're going to get for the current thread to
+    // clean-up may be at thread/program exit. To ensure that we're going to get
+    // the cleanup even without calling the finalization routines, we're
+    // registering a program exit function that will do the cleanup.
+    static pthread_once_t DynamicOnce = PTHREAD_ONCE_INIT;
+    pthread_once(&DynamicOnce, +[] {
+      static void *FakeTLD = nullptr;
+      FakeTLD = &getThreadLocalData();
+      Atexit(+[] { TLDDestructor(FakeTLD); });
+    });
   }
   return true;
 }
