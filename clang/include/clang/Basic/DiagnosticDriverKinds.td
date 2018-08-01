@@ -273,7 +273,7 @@ def warn_drv_disabling_vptr_no_rtti_default : Warning<
   InGroup<AutoDisableVptrSanitizer>;
 def warn_drv_object_size_disabled_O0 : Warning<
   "the object size sanitizer has no effect at -O0, but is explicitly enabled: %0">,
-  InGroup<InvalidCommandLineArgument>;
+  InGroup<InvalidCommandLineArgument>, DefaultWarnNoWerror;
 
 def note_drv_command_failed_diag_msg : Note<
   "diagnostic msg: %0">;
@@ -385,4 +385,8 @@ def warn_drv_experimental_isel_incomplete : Warning<
 def warn_drv_experimental_isel_incomplete_opt : Warning<
   "-fexperimental-isel support is incomplete for this architecture at the current optimization level">,
   InGroup<ExperimentalISel>;
+
+def warn_drv_moutline_unsupported_opt : Warning<
+  "The '%0' architecture does not support -moutline; flag ignored">,
+  InGroup<OptionIgnored>;
 }

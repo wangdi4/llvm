@@ -62,6 +62,7 @@ private:
   void
   onDocumentRangeFormatting(DocumentRangeFormattingParams &Params) override;
   void onDocumentFormatting(DocumentFormattingParams &Params) override;
+  void onDocumentSymbol(DocumentSymbolParams &Params) override;
   void onCodeAction(CodeActionParams &Params) override;
   void onCompletion(TextDocumentPositionParams &Params) override;
   void onSignatureHelp(TextDocumentPositionParams &Params) override;
@@ -100,7 +101,9 @@ private:
 
   // Various ClangdServer parameters go here. It's important they're created
   // before ClangdServer.
-  DirectoryBasedGlobalCompilationDatabase CDB;
+  DirectoryBasedGlobalCompilationDatabase NonCachedCDB;
+  CachingCompilationDb CDB;
+
   RealFileSystemProvider FSProvider;
   /// Options used for code completion
   clangd::CodeCompleteOptions CCOpts;

@@ -22,8 +22,29 @@ set(LIBFUZZER_SOURCES
   FuzzerUtilFuchsia.cpp
   FuzzerUtilLinux.cpp
   FuzzerUtilPosix.cpp
-  FuzzerUtilWindows.cpp
-  )
+  FuzzerUtilWindows.cpp)
+
+set(LIBFUZZER_HEADERS
+  FuzzerCommand.h
+  FuzzerCorpus.h
+  FuzzerDataFlowTrace.h
+  FuzzerDefs.h
+  FuzzerDictionary.h
+  FuzzerExtFunctions.def
+  FuzzerExtFunctions.h
+  FuzzerFlags.def
+  FuzzerIO.h
+  FuzzerInterface.h
+  FuzzerInternal.h
+  FuzzerMerge.h
+  FuzzerMutate.h
+  FuzzerOptions.h
+  FuzzerRandom.h
+  FuzzerSHA1.h
+  FuzzerShmem.h
+  FuzzerTracePC.h
+  FuzzerUtil.h
+  FuzzerValueBitMap.h)
 
 CHECK_CXX_SOURCE_COMPILES("
   static thread_local int blah;
@@ -38,6 +59,8 @@ if(OS_NAME MATCHES "Linux|Fuchsia" AND COMPILER_RT_LIBCXX_PATH)
   list(APPEND LIBFUZZER_CFLAGS -nostdinc++ -D_LIBCPP_ABI_VERSION=Fuzzer)
   # Remove -stdlib= which is unused when passing -nostdinc++.
   string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+elseif(CLANG_DEFAULT_CXX_STDLIB STREQUAL "libc++" AND (TARGET cxx OR HAVE_LIBCXX))
+  set(LIBFUZZER_DEPS cxx)
 endif()
 
 append_list_if(COMPILER_RT_HAS_OMIT_FRAME_POINTER_FLAG -fno-omit-frame-pointer LIBFUZZER_CFLAGS)
@@ -50,21 +73,22 @@ if(NOT HAS_THREAD_LOCAL)
   list(APPEND LIBFUZZER_CFLAGS -Dthread_local=__thread)
 endif()
 
-if(APPLE)
-  set(FUZZER_SUPPORTED_OS osx)
-endif()
+set(FUZZER_SUPPORTED_OS ${SANITIZER_COMMON_SUPPORTED_OS})
 
 add_compiler_rt_object_libraries(RTfuzzer
   OS ${FUZZER_SUPPORTED_OS}
   ARCHS ${FUZZER_SUPPORTED_ARCH}
   SOURCES ${LIBFUZZER_SOURCES}
-  CFLAGS ${LIBFUZZER_CFLAGS})
+  ADDITIONAL_HEADERS ${LIBFUZZER_HEADERS}
+  CFLAGS ${LIBFUZZER_CFLAGS}
+  DEPS ${LIBFUZZER_DEPS})
 
 add_compiler_rt_object_libraries(RTfuzzer_main
   OS ${FUZZER_SUPPORTED_OS}
   ARCHS ${FUZZER_SUPPORTED_ARCH}
   SOURCES FuzzerMain.cpp
-  CFLAGS ${LIBFUZZER_CFLAGS})
+  CFLAGS ${LIBFUZZER_CFLAGS}
+  DEPS ${LIBFUZZER_DEPS})
 
 add_compiler_rt_runtime(clang_rt.fuzzer
   STATIC

@@ -545,7 +545,11 @@ public:
     Timer *&T = TimingData[P];
     if (!T) {
       StringRef PassName = P->getPassName();
-      T = new Timer(PassName, PassName, TG);
+      StringRef PassArgument;
+      if (const PassInfo *PI = Pass::lookupPassInfo(P->getPassID()))
+        PassArgument = PI->getPassArgument();
+      T = new Timer(PassArgument.empty() ? PassName : PassArgument, PassName,
+                    TG);
     }
     return T;
   }
@@ -644,7 +648,7 @@ AnalysisUsage *PMTopLevelManager::findAnalysisUsage(Pass *P) {
     // of dependencies.
     AnalysisUsage AU;
     P->getAnalysisUsage(AU);
-    
+
     AUFoldingSetNode* Node = nullptr;
     FoldingSetNodeID ID;
     AUFoldingSetNode::Profile(ID, AU);

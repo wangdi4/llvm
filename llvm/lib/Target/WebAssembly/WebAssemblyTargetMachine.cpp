@@ -51,6 +51,7 @@ extern "C" void LLVMInitializeWebAssemblyTarget() {
 
   // Register backend passes
   auto &PR = *PassRegistry::getPassRegistry();
+  initializeWebAssemblyAddMissingPrototypesPass(PR);
   initializeWebAssemblyLowerEmscriptenEHSjLjPass(PR);
   initializeLowerGlobalDtorsPass(PR);
   initializeFixFunctionBitcastsPass(PR);
@@ -65,7 +66,8 @@ extern "C" void LLVMInitializeWebAssemblyTarget() {
   initializeWebAssemblyRegColoringPass(PR);
   initializeWebAssemblyExplicitLocalsPass(PR);
   initializeWebAssemblyFixIrreducibleControlFlowPass(PR);
-  initializeWebAssemblyExceptionPreparePass(PR);
+  initializeWebAssemblyLateEHPreparePass(PR);
+  initializeWebAssemblyExceptionInfoPass(PR);
   initializeWebAssemblyCFGSortPass(PR);
   initializeWebAssemblyCFGStackifyPass(PR);
   initializeWebAssemblyLowerBrUnlessPass(PR);
@@ -213,6 +215,9 @@ void WebAssemblyPassConfig::addIRPasses() {
     addPass(createAtomicExpandPass());
   }
 
+  // Add signatures to prototype-less function declarations
+  addPass(createWebAssemblyAddMissingPrototypes());
+
   // Lower .llvm.global_dtors into .llvm_global_ctors with __cxa_atexit calls.
   addPass(createWebAssemblyLowerGlobalDtors());
 
@@ -322,7 +327,7 @@ void WebAssemblyPassConfig::addPreEmitPass() {
   addPass(createWebAssemblyExplicitLocals());
 
   // Do various transformations for exception handling
-  addPass(createWebAssemblyExceptionPrepare());
+  addPass(createWebAssemblyLateEHPrepare());
 
   // Sort the blocks of the CFG into topological order, a prerequisite for
   // BLOCK and LOOP markers.

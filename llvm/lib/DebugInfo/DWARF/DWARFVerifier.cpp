@@ -171,7 +171,7 @@ bool DWARFVerifier::verifyUnitHeader(const DWARFDataExtractor DebugInfoData,
   return Success;
 }
 
-bool DWARFVerifier::verifyUnitContents(DWARFUnit Unit, uint8_t UnitType) {
+bool DWARFVerifier::verifyUnitContents(DWARFUnit &Unit, uint8_t UnitType) {
   uint32_t NumUnitErrors = 0;
   unsigned NumDies = Unit.getNumDIEs();
   for (unsigned I = 0; I < NumDies; ++I) {
@@ -324,8 +324,15 @@ unsigned DWARFVerifier::verifyDieRanges(const DWARFDie &Die,
   if (!Die.isValid())
     return NumErrors;
 
-  DWARFAddressRangesVector Ranges = Die.getAddressRanges();
+  auto RangesOrError = Die.getAddressRanges();
+  if (!RangesOrError) {
+    // FIXME: Report the error.
+    ++NumErrors;
+    llvm::consumeError(RangesOrError.takeError());
+    return NumErrors;
+  }
 
+  DWARFAddressRangesVector Ranges = RangesOrError.get();
   // Build RI for this DIE and check that ranges within this DIE do not
   // overlap.
   DieRangeInfo RI(Die);
@@ -1088,7 +1095,7 @@ unsigned DWARFVerifier::verifyNameIndexEntries(
       continue;
     }
     uint32_t CUOffset = NI.getCUOffset(CUIndex);
-    uint64_t DIEOffset = *EntryOr->getDIESectionOffset();
+    uint64_t DIEOffset = CUOffset + *EntryOr->getDIEUnitOffset();
     DWARFDie DIE = DCtx.getDIEForOffset(DIEOffset);
     if (!DIE) {
       error() << formatv("Name Index @ {0:x}: Entry @ {1:x} references a "
@@ -1261,9 +1268,10 @@ unsigned DWARFVerifier::verifyNameIndexCompleteness(
   // Now we know that our Die should be present in the Index. Let's check if
   // that's the case.
   unsigned NumErrors = 0;
+  uint64_t DieUnitOffset = Die.getOffset() - Die.getDwarfUnit()->getOffset();
   for (StringRef Name : EntryNames) {
-    if (none_of(NI.equal_range(Name), [&Die](const DWARFDebugNames::Entry &E) {
-          return E.getDIESectionOffset() == uint64_t(Die.getOffset());
+    if (none_of(NI.equal_range(Name), [&](const DWARFDebugNames::Entry &E) {
+          return E.getDIEUnitOffset() == DieUnitOffset;
         })) {
       error() << formatv("Name Index @ {0:x}: Entry for DIE @ {1:x} ({2}) with "
                          "name {3} missing.\n",

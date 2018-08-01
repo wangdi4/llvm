@@ -438,7 +438,7 @@ SDNode *PPCDAGToDAGISel::getGlobalBaseReg() {
       // a significant limitation. We should consider inserting this in the
       // block where it is used and then commoning this sequence up if it
       // appears in multiple places.
-      // Note: on ISA 3.0 cores, we can use lnia (addpcis) insteand of
+      // Note: on ISA 3.0 cores, we can use lnia (addpcis) instead of
       // MovePCtoLR8.
       MF->getInfo<PPCFunctionInfo>()->setShrinkWrapDisabled(true);
       GlobalBaseReg = RegInfo->createVirtualRegister(&PPC::G8RC_and_G8RC_NOX0RegClass);
@@ -1292,7 +1292,7 @@ class BitPermutationSelector {
         Bits[i] = ValueBit(ValueBit::ConstZero);
 
       return std::make_pair(Interesting, &Bits);
-      }
+    }
     }
 
     for (unsigned i = 0; i < NumBits; ++i)
@@ -1450,6 +1450,20 @@ class BitPermutationSelector {
     };
 
     for (auto &BG : BitGroups) {
+      // If this bit group has RLAmt of 0 and will not be merged with
+      // another bit group, we don't benefit from Repl32. We don't mark
+      // such group to give more freedom for later instruction selection.
+      if (BG.RLAmt == 0) {
+        auto PotentiallyMerged = [this](BitGroup & BG) {
+          for (auto &BG2 : BitGroups)
+            if (&BG != &BG2 && BG.V == BG2.V &&
+                (BG2.RLAmt == 0 || BG2.RLAmt == 32))
+              return true;
+          return false;
+        };
+        if (!PotentiallyMerged(BG))
+          continue;
+      }
       if (BG.StartIdx < 32 && BG.EndIdx < 32) {
         if (IsAllLow32(BG)) {
           if (BG.RLAmt >= 32) {
@@ -3402,7 +3416,7 @@ static bool allUsesExtend(SDValue Compare, SelectionDAG *CurDAG) {
 }
 
 /// Returns an equivalent of a SETCC node but with the result the same width as
-/// the inputs. This can nalso be used for SELECT_CC if either the true or false
+/// the inputs. This can also be used for SELECT_CC if either the true or false
 /// values is a power of two while the other is zero.
 SDValue IntegerCompareEliminator::getSETCCInGPR(SDValue Compare,
                                                 SetccInGPROpts ConvOpts) {
@@ -3603,9 +3617,12 @@ SDValue PPCDAGToDAGISel::SelectCC(SDValue LHS, SDValue RHS, ISD::CondCode CC,
     }
   } else if (LHS.getValueType() == MVT::f32) {
     Opc = PPC::FCMPUS;
-  } else {
-    assert(LHS.getValueType() == MVT::f64 && "Unknown vt!");
+  } else if (LHS.getValueType() == MVT::f64) {
     Opc = PPCSubTarget->hasVSX() ? PPC::XSCMPUDP : PPC::FCMPUD;
+  } else {
+    assert(LHS.getValueType() == MVT::f128 && "Unknown vt!");
+    assert(PPCSubTarget->hasVSX() && "__float128 requires VSX");
+    Opc = PPC::XSCMPUQP;
   }
   return SDValue(CurDAG->getMachineNode(Opc, dl, MVT::i32, LHS, RHS), 0);
 }
@@ -4550,6 +4567,8 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
         SelectCCOp = PPC::SELECT_CC_VSFRC;
       else
         SelectCCOp = PPC::SELECT_CC_F8;
+    else if (N->getValueType(0) == MVT::f128)
+      SelectCCOp = PPC::SELECT_CC_F16;
     else if (PPCSubTarget->hasQPX() && N->getValueType(0) == MVT::v4f64)
       SelectCCOp = PPC::SELECT_CC_QFRC;
     else if (PPCSubTarget->hasQPX() && N->getValueType(0) == MVT::v4f32)
@@ -6030,28 +6049,37 @@ void PPCDAGToDAGISel::PeepholePPC64() {
 
     unsigned FirstOp;
     unsigned StorageOpcode = N->getMachineOpcode();
+    bool RequiresMod4Offset = false;
 
     switch (StorageOpcode) {
     default: continue;
 
+    case PPC::LWA:
+    case PPC::LD:
+    case PPC::DFLOADf64:
+    case PPC::DFLOADf32:
+      RequiresMod4Offset = true;
+      LLVM_FALLTHROUGH;
     case PPC::LBZ:
     case PPC::LBZ8:
-    case PPC::LD:
     case PPC::LFD:
     case PPC::LFS:
     case PPC::LHA:
     case PPC::LHA8:
     case PPC::LHZ:
     case PPC::LHZ8:
-    case PPC::LWA:
     case PPC::LWZ:
     case PPC::LWZ8:
       FirstOp = 0;
       break;
 
+    case PPC::STD:
+    case PPC::DFSTOREf64:
+    case PPC::DFSTOREf32:
+      RequiresMod4Offset = true;
+      LLVM_FALLTHROUGH;
     case PPC::STB:
     case PPC::STB8:
-    case PPC::STD:
     case PPC::STFD:
     case PPC::STFS:
     case PPC::STH:
@@ -6098,9 +6126,7 @@ void PPCDAGToDAGISel::PeepholePPC64() {
       // For these cases, the immediate may not be divisible by 4, in
       // which case the fold is illegal for DS-form instructions.  (The
       // other cases provide aligned addresses and are always safe.)
-      if ((StorageOpcode == PPC::LWA ||
-           StorageOpcode == PPC::LD  ||
-           StorageOpcode == PPC::STD) &&
+      if (RequiresMod4Offset &&
           (!isa<ConstantSDNode>(Base.getOperand(1)) ||
            Base.getConstantOperandVal(1) % 4 != 0))
         continue;
@@ -6162,8 +6188,7 @@ void PPCDAGToDAGISel::PeepholePPC64() {
       if (auto *C = dyn_cast<ConstantSDNode>(ImmOpnd)) {
         Offset += C->getSExtValue();
 
-        if ((StorageOpcode == PPC::LWA || StorageOpcode == PPC::LD ||
-             StorageOpcode == PPC::STD) && (Offset % 4) != 0)
+        if (RequiresMod4Offset && (Offset % 4) != 0)
           continue;
 
         if (!isInt<16>(Offset))
@@ -6195,8 +6220,7 @@ void PPCDAGToDAGISel::PeepholePPC64() {
         // We can't perform this optimization for data whose alignment
         // is insufficient for the instruction encoding.
         if (GV->getAlignment() < 4 &&
-            (StorageOpcode == PPC::LD || StorageOpcode == PPC::STD ||
-             StorageOpcode == PPC::LWA || (Offset % 4) != 0)) {
+            (RequiresMod4Offset || (Offset % 4) != 0)) {
           LLVM_DEBUG(dbgs() << "Rejected this candidate for alignment.\n\n");
           continue;
         }

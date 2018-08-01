@@ -28,7 +28,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -910,6 +910,7 @@ void LoopUnswitch::EmitPreheaderBranchOnCondition(Value *LIC, Constant *Val,
                                                   BranchInst *OldBranch,
                                                   TerminatorInst *TI) {
   assert(OldBranch->isUnconditional() && "Preheader is not split correctly");
+  assert(TrueDest != FalseDest && "Branch targets should be different");
   // Insert a conditional branch on LIC to the two preheaders.  The original
   // code is the true version and the new code is the false version.
   Value *BranchVal = LIC;
@@ -942,9 +943,9 @@ void LoopUnswitch::EmitPreheaderBranchOnCondition(Value *LIC, Constant *Val,
   if (DT) {
     // First, add both successors.
     SmallVector<DominatorTree::UpdateType, 3> Updates;
-    if (TrueDest != OldBranchParent)
+    if (TrueDest != OldBranchSucc)
       Updates.push_back({DominatorTree::Insert, OldBranchParent, TrueDest});
-    if (FalseDest != OldBranchParent)
+    if (FalseDest != OldBranchSucc)
       Updates.push_back({DominatorTree::Insert, OldBranchParent, FalseDest});
     // If both of the new successors are different from the old one, inform the
     // DT that the edge was deleted.
@@ -1042,7 +1043,7 @@ bool LoopUnswitch::TryTrivialLoopUnswitch(bool &Changed) {
   // until it finds the trivial condition candidate (condition that is not a
   // constant). Since unswitching generates branches with constant conditions,
   // this scenario could be very common in practice.
-  SmallSet<BasicBlock*, 8> Visited;
+  SmallPtrSet<BasicBlock*, 8> Visited;
 
   while (true) {
     // If we exit loop or reach a previous visited block, then

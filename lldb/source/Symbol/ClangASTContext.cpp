@@ -1649,7 +1649,7 @@ bool ClangASTContext::RecordHasFields(const RecordDecl *record_decl) {
   return false;
 }
 
-#pragma mark Objective C Classes
+#pragma mark Objective-C Classes
 
 CompilerType ClangASTContext::CreateObjCClass(const char *name,
                                               DeclContext *decl_ctx,
@@ -4166,6 +4166,8 @@ ClangASTContext::GetTypeClass(lldb::opaque_compiler_type_t type) {
     return lldb::eTypeClassArray;
   case clang::Type::DependentSizedExtVector:
     return lldb::eTypeClassVector;
+  case clang::Type::DependentVector:
+    return lldb::eTypeClassVector;
   case clang::Type::ExtVector:
     return lldb::eTypeClassVector;
   case clang::Type::Vector:
@@ -4900,6 +4902,7 @@ lldb::Encoding ClangASTContext::GetEncoding(lldb::opaque_compiler_type_t type,
   case clang::Type::ConstantArray:
     break;
 
+  case clang::Type::DependentVector:
   case clang::Type::ExtVector:
   case clang::Type::Vector:
     // TODO: Set this to more than one???
@@ -4941,6 +4944,24 @@ lldb::Encoding ClangASTContext::GetEncoding(lldb::opaque_compiler_type_t type,
     case clang::BuiltinType::UShortAccum:
     case clang::BuiltinType::UAccum:
     case clang::BuiltinType::ULongAccum:
+    case clang::BuiltinType::ShortFract:
+    case clang::BuiltinType::Fract:
+    case clang::BuiltinType::LongFract:
+    case clang::BuiltinType::UShortFract:
+    case clang::BuiltinType::UFract:
+    case clang::BuiltinType::ULongFract:
+    case clang::BuiltinType::SatShortAccum:
+    case clang::BuiltinType::SatAccum:
+    case clang::BuiltinType::SatLongAccum:
+    case clang::BuiltinType::SatUShortAccum:
+    case clang::BuiltinType::SatUAccum:
+    case clang::BuiltinType::SatULongAccum:
+    case clang::BuiltinType::SatShortFract:
+    case clang::BuiltinType::SatFract:
+    case clang::BuiltinType::SatLongFract:
+    case clang::BuiltinType::SatUShortFract:
+    case clang::BuiltinType::SatUFract:
+    case clang::BuiltinType::SatULongFract:
       break;
 
     case clang::BuiltinType::Half:
@@ -5136,6 +5157,7 @@ lldb::Format ClangASTContext::GetFormat(lldb::opaque_compiler_type_t type) {
   case clang::Type::ConstantArray:
     return lldb::eFormatVoid; // no value
 
+  case clang::Type::DependentVector:
   case clang::Type::ExtVector:
   case clang::Type::Vector:
     break;

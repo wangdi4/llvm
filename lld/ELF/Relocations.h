@@ -67,11 +67,13 @@ enum RelExpr {
   R_RELAX_TLS_GD_TO_IE,
   R_RELAX_TLS_GD_TO_IE_ABS,
   R_RELAX_TLS_GD_TO_IE_END,
+  R_RELAX_TLS_GD_TO_IE_GOT_OFF,
   R_RELAX_TLS_GD_TO_IE_PAGE_PC,
   R_RELAX_TLS_GD_TO_LE,
   R_RELAX_TLS_GD_TO_LE_NEG,
   R_RELAX_TLS_IE_TO_LE,
   R_RELAX_TLS_LD_TO_LE,
+  R_RELAX_TLS_LD_TO_LE_ABS,
   R_SIZE,
   R_TLS,
   R_TLSDESC,
@@ -80,8 +82,10 @@ enum RelExpr {
   R_TLSGD_GOT,
   R_TLSGD_GOT_FROM_END,
   R_TLSGD_PC,
-  R_TLSLD_GOT_FROM_END,
   R_TLSLD_GOT,
+  R_TLSLD_GOT_FROM_END,
+  R_TLSLD_GOT_OFF,
+  R_TLSLD_HINT,
   R_TLSLD_PC,
 };
 
@@ -153,7 +157,7 @@ private:
 
   void forEachInputSectionDescription(
       ArrayRef<OutputSection *> OutputSections,
-      std::function<void(OutputSection *, InputSectionDescription *)> Fn);
+      llvm::function_ref<void(OutputSection *, InputSectionDescription *)> Fn);
 
   std::pair<Thunk *, bool> getThunk(Symbol &Sym, RelType Type, uint64_t Src);
 

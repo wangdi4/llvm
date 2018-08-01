@@ -165,6 +165,7 @@ public:
                          bool stop_at_entry, lldb::SBError &error);
 
   SBProcess LoadCore(const char *core_file);
+  SBProcess LoadCore(const char *core_file, lldb::SBError &error);
 
   //------------------------------------------------------------------
   /// Launch a new process with sensible defaults.
@@ -290,6 +291,21 @@ public:
   lldb::SBDebugger GetDebugger() const;
 
   lldb::SBModule FindModule(const lldb::SBFileSpec &file_spec);
+
+  //------------------------------------------------------------------
+  /// Find compile units related to *this target and passed source
+  /// file.
+  ///
+  /// @param[in] sb_file_spec
+  ///     A lldb::SBFileSpec object that contains source file
+  ///     specification.
+  ///
+  /// @return
+  ///     A lldb::SBSymbolContextList that gets filled in with all of
+  ///     the symbol contexts for all the matches.
+  //------------------------------------------------------------------
+  lldb::SBSymbolContextList
+  FindCompileUnits(const lldb::SBFileSpec &sb_file_spec);
 
   lldb::ByteOrder GetByteOrder();
 
@@ -718,9 +734,9 @@ public:
   // Finds all breakpoints by name, returning the list in bkpt_list.  Returns
   // false if the name is not a valid breakpoint name, true otherwise.
   bool FindBreakpointsByName(const char *name, SBBreakpointList &bkpt_list);
-  
+
   void GetBreakpointNames(SBStringList &names);
-  
+
   void DeleteBreakpointName(const char *name);
 
   bool EnableAllBreakpoints();
