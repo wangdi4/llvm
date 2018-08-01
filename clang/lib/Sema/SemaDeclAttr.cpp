@@ -2957,7 +2957,8 @@ static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
 
   uint32_t NumSimdWorkItems;
   const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0))
+  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0,
+                           /*StrictlyUnsigned=*/true))
     return;
   if (NumSimdWorkItems == 0) {
     S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
@@ -2991,7 +2992,8 @@ static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
 
   uint32_t MaxGlobalWorkDim;
   const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0))
+  if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0,
+                           /*StrictlyUnsigned=*/true))
     return;
   if (MaxGlobalWorkDim > 3) {
     S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_in_range)

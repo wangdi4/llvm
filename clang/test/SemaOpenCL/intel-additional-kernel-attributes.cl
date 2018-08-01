@@ -199,5 +199,11 @@ __kernel void kernel_7h() {
   int stuff6[100];
 }
 
+__attribute__((max_work_group_size(1, -1, 1))) // expected-error{{'max_work_group_size' attribute requires a non-negative integral compile time constant expression}}
+__kernel void kernel_8a() {}
+
+__attribute__((num_simd_work_items(-1))) // expected-error{{'num_simd_work_items' attribute requires a non-negative integral compile time constant expression}}
+__kernel void kernel_8b() {}
+
 __attribute__((max_work_group_size(1, 1, 1)))
 void fun_8b() {} // expected-error{{attribute 'max_work_group_size' can only be applied to an OpenCL kernel function}}
