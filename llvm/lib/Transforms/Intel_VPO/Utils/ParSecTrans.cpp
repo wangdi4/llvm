@@ -321,10 +321,12 @@ void VPOUtils::gatherImplicitSectionRecursive(
           }
           else {
             BasicBlock *PredBB = BB->getUniquePredecessor();
+            assert(PredBB && "No predecessor BB found.");
             BasicBlock::iterator EI = PredBB->begin();
 
             if (isa<TerminatorInst>(EI)) {
               PredBB = PredBB->getUniquePredecessor();
+              assert(PredBB && "No predecessor BB found.");
               EI = PredBB->begin();
             }
 
