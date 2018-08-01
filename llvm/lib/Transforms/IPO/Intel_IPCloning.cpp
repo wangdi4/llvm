@@ -219,7 +219,7 @@ static void collectConstantArgument(Value* FormalV, Value* ActualV,
     return;
   }
   // Now, we know it is valid constant for cloning.
-  Constant *C = dyn_cast<Constant>(ActualV);
+  Constant *C = cast<Constant>(ActualV);
   auto &ValList = FormalConstantValues[FormalV];
     
   if (!ValList.count(C))
@@ -1315,7 +1315,7 @@ static void cloneSpecializationFunction(void) {
       continue;
     }
     // Get the CallSite to be cloned
-    CallInst *CI = dyn_cast<CallInst>(Inst);
+    CallInst *CI = cast<CallInst>(Inst);
     CallSite CS = CallSite(CI);
     // Split the BasicBlock containing the CallSite, so that the newly
     // generated code with tests and calls goes between the split portions.

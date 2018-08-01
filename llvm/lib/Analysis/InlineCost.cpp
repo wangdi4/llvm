@@ -2668,6 +2668,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL
   bool FoundForgivable = false;                          // INTEL
   bool SubtractedBonus = false;                          // INTEL
+  bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false); // INTEL
 
   // Speculatively apply all possible bonuses to Threshold. If cost exceeds
   // this Threshold any time, and cost cannot decrease, we can stop processing
@@ -2675,7 +2676,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   Threshold += (SingleBBBonus + VectorBonus);
 #if INTEL_CUSTOMIZATION
   if (InlineForXmain &&
-      preferCloningToInlining(CS, *ILIC, Params.PrepareForLTO)) {
+      preferCloningToInlining(CS, *ILIC, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferCloning;
     return false;
   }
@@ -2722,12 +2723,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
         YesReasonVector.push_back(InlrForFusion);
       }
       if (worthInliningForDeeplyNestedIfs(CS, *ILIC, IsCallerRecursive,
-                                          Params.PrepareForLTO)) {
+                                          PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrDeeplyNestedIfs);
       }
-      if (worthInliningForAddressComputations(CS, *ILIC,
-                                              Params.PrepareForLTO)) {
+      if (worthInliningForAddressComputations(CS, *ILIC, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrAddressComputations);
       }

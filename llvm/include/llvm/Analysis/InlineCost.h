@@ -318,7 +318,7 @@ struct InlineParams {
 #if INTEL_CUSTOMIZATION
   /// This flag indicates that it is LTO compile phase. This flag is
   /// set when PrepareForLTO flag in PassManagerBuilder is true. .
-  bool PrepareForLTO;
+  Optional<bool> PrepareForLTO;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use when the callsite is considered hot relative to function
