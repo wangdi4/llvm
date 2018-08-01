@@ -52,7 +52,6 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
@@ -1303,10 +1302,6 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
   }
-  if (RunVPOVecopt && RunVec) {
-    PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPODriverPass());
-  }
   #endif // INTEL_CUSTOMIZATION
 }
 #endif // INTEL_COLLAB
@@ -1426,9 +1421,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
         if (EnableVPlanDriverHIR) {
           // Enable VPlan HIR Vectorizer
           PM.add(createVPlanDriverHIRPass());
-        } else {
-          // Enable AVR HIR Vectorizer
-          PM.add(createVPODriverHIRPass());
         }
       }
       PM.add(createHIRPostVecCompleteUnrollPass(OptLevel));

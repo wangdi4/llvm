@@ -34,7 +34,6 @@
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
-#include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h" // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -63,7 +62,6 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
-#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"       // INTEL
 #include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -332,23 +330,8 @@ namespace {
       (void) llvm::createWRegionInfoWrapperPassPass();
 
       // VPO Vectorizer Passes
-      (void) llvm::createAVRGeneratePass();
-      (void) llvm::createAVRGenerateHIRPass();
-      (void) llvm::createVPOPredicatorPass();
-      (void) llvm::createVPOPredicatorHIRPass();
-      (void) llvm::createVPODriverPass();
-      (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVPODirectiveCleanupPass();
       (void) llvm::createVecClonePass();
-      (void) llvm::createAvrDefUsePass();
-      (void) llvm::createAvrDefUseHIRPass();
-      (void) llvm::createAvrCFGPass();
-      (void) llvm::createAvrCFGHIRPass();
-      (void) llvm::createSIMDLaneEvolutionPass();
-      (void) llvm::createSIMDLaneEvolutionHIRPass();
-      (void) llvm::createVectorGraphInfoPass();
-      (void) llvm::createVectorGraphPredicatorPass();
-      (void) llvm::createAVRDecomposeHIRPass();
 
       // dynamic_cast calls optimization pass.
       (void) llvm::createOptimizeDynamicCastsWrapperPass();

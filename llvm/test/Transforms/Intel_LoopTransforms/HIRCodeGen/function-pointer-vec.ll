@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -hir-cost-model-throttling=0 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -hir-cost-model-throttling=0 -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we are successfully able to generate vector code for the function pointer setting loop.
  

@@ -1,5 +1,5 @@
 ; Test for infinite loop fix when compiling for MCU target
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -S  < %s | FileCheck %s
 ; Check for vectorized HIR loop
 
 ; CHECK-NOT: fadd <4 x float>
