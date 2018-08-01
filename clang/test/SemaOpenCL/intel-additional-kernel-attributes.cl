@@ -199,3 +199,5 @@ __kernel void kernel_7h() {
   int stuff6[100];
 }
 
+__attribute__((max_work_group_size(1, 1, 1)))
+void fun_8b() {} // expected-error{{attribute 'max_work_group_size' can only be applied to an OpenCL kernel function}}
