@@ -1,18 +1,18 @@
 ; REQUIRES: asserts
 ; RUN: sed -e s/.T1:// %s | \
-; RUN:   opt -whole-program-assume  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK1 %s
 ; RUN: sed -e s/.T2:// %s | \
-; RUN:   opt -whole-program-assume  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK2 %s
 ; RUN: sed -e s/.T3:// %s | \
-; RUN:   opt -whole-program-assume  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK3 %s
 ; RUN: sed -e s/.T4:// %s | \
-; RUN:   opt -whole-program-assume  -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK4 %s
 ; RUN: sed -e s/.T5:// %s | \
-; RUN:   opt -whole-program-assume -dtrans-deletefield -debug-only=dtrans-deletefield \
+; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK5 %s
 
 ; This test verifies only the candidate structure selection of the

@@ -239,7 +239,7 @@ bool DTransOptBase::prepareTypesBaseImpl(Module &M) {
   // Compute the set of types that each type is a dependee of. This will
   // enable the determination of other types that need to be rewritten when one
   // type changes.
-  buildTypeDependencyMapping(TypeToDependentTypes);
+  buildTypeDependencyMapping();
 
   // Invoke the derived class to populate the TypeRemapper with any types
   // the transformation is going to directly transform.
@@ -283,26 +283,41 @@ bool DTransOptBase::prepareTypesBaseImpl(Module &M) {
 //
 // The map created will be used to populating a work list of types that will
 // need to be processed when changing a specific type.
-void DTransOptBase::buildTypeDependencyMapping(
-    TypeDependencyMapping &TypeToDependentTypes) {
-
+void DTransOptBase::buildTypeDependencyMapping() {
   for (auto *TI : DTInfo.type_info_entries()) {
     dtrans::TypeInfo::TypeInfoKind Kind = TI->getTypeInfoKind();
     if (Kind == dtrans::TypeInfo::StructInfo ||
-        Kind == dtrans::TypeInfo::ArrayInfo)
-      collectDependenciesForType(TI->getLLVMType(), TypeToDependentTypes);
+        Kind == dtrans::TypeInfo::ArrayInfo) {
+      collectDependenciesForType(TI->getLLVMType());
+    }
   }
 
 #if !defined(NDEBUG)
-  LLVM_DEBUG(dumpTypeDepenencyMapping(TypeToDependentTypes));
+  LLVM_DEBUG(dumpTypeToTypeSetMapping("Type dependency mapping table:",
+                                      TypeToDependentTypes));
+#endif // !defined(NDEBUG)
+}
+
+void DTransOptBase::buildTypeEnclosingMapping() {
+  for (auto *TI : DTInfo.type_info_entries()) {
+    dtrans::TypeInfo::TypeInfoKind Kind = TI->getTypeInfoKind();
+    if (Kind == dtrans::TypeInfo::StructInfo ||
+        Kind == dtrans::TypeInfo::ArrayInfo) {
+      collectEnclosingForType(TI->getLLVMType());
+    }
+  }
+
+#if !defined(NDEBUG)
+  LLVM_DEBUG(dumpTypeToTypeSetMapping("Type enclosing mapping table:",
+                                      TypeToEnclosingTypes));
 #endif // !defined(NDEBUG)
 }
 
 #if !defined(NDEBUG)
 // Print the table of type dependencies in the following format:
 //   Type: UsedBy
-void DTransOptBase::dumpTypeDepenencyMapping(
-    TypeDependencyMapping &TypeToDependentTypes) {
+void DTransOptBase::dumpTypeToTypeSetMapping(
+    StringRef Header, TypeToTypeSetMap &TypeToDependentTypes) {
   auto PrintNameOrType = [](Type *Ty) {
     auto *StructTy = dyn_cast<StructType>(Ty);
     if (StructTy && StructTy->hasName())
@@ -311,7 +326,7 @@ void DTransOptBase::dumpTypeDepenencyMapping(
       dbgs() << *Ty;
   };
 
-  dbgs() << "Type dependency mapping table:\n";
+  dbgs() << Header << "\n";
   for (auto &TySetTyPair : TypeToDependentTypes) {
     Type *Ty = TySetTyPair.first;
     PrintNameOrType(Ty);
@@ -334,14 +349,13 @@ void DTransOptBase::dumpTypeDepenencyMapping(
 // will result in the sets maintained for 'i32', 'struct.test08c' and
 // 'struct.test08a' all containing 'struct.test08b' as a type is going to need
 // to be replaced if any of those types are replaced.
-void DTransOptBase::collectDependenciesForType(Type *Ty,
-                                               TypeDependencyMapping &Map) {
-  collectDependenciesForTypeRecurse(Ty, Ty, Map);
+void DTransOptBase::collectDependenciesForType(Type *Ty) {
+  collectDependenciesForTypeRecurse(Ty, Ty);
 }
 
-void DTransOptBase::collectDependenciesForTypeRecurse(
-    Type *Dependee, Type *Ty, TypeDependencyMapping &Map) {
-  auto UpdateTypeToDependentTypeMap = [&Map](Type *Depender, Type *Dependee) {
+void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
+                                                      Type *Ty) {
+  auto UpdateTypeToDependentTypeMap = [this](Type *Depender, Type *Dependee) {
     if (Depender == Dependee)
       return;
 
@@ -351,14 +365,15 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
     LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing "
                       << *Depender << " will require replacing  " << *Dependee
                       << "\n");
-    Map[Depender].insert(Dependee);
+
+    TypeToDependentTypes[Depender].insert(Dependee);
   };
 
   if (auto *StructTy = dyn_cast<StructType>(Ty)) {
     for (auto *MemberType : StructTy->elements()) {
       Type *BaseTy = unwrapType(MemberType);
       if (auto *FunctionTy = dyn_cast<FunctionType>(BaseTy))
-        collectDependenciesForTypeRecurse(Dependee, FunctionTy, Map);
+        collectDependenciesForTypeRecurse(Dependee, FunctionTy);
       else
         UpdateTypeToDependentTypeMap(BaseTy, Dependee);
     }
@@ -368,7 +383,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
   if (auto *ArrayTy = dyn_cast<ArrayType>(Ty)) {
     Type *BaseTy = unwrapType(ArrayTy->getElementType());
     if (auto *FunctionTy = dyn_cast<FunctionType>(BaseTy))
-      collectDependenciesForTypeRecurse(Dependee, FunctionTy, Map);
+      collectDependenciesForTypeRecurse(Dependee, FunctionTy);
     else
       UpdateTypeToDependentTypeMap(BaseTy, Dependee);
 
@@ -385,16 +400,66 @@ void DTransOptBase::collectDependenciesForTypeRecurse(
       Type *ParmTy = FuncTy->getParamType(Idx);
       Type *BaseTy = unwrapType(ParmTy);
       if (auto *BaseFuncTy = dyn_cast<FunctionType>(BaseTy))
-        collectDependenciesForTypeRecurse(Dependee, BaseFuncTy, Map);
+        collectDependenciesForTypeRecurse(Dependee, BaseFuncTy);
       else
         UpdateTypeToDependentTypeMap(BaseTy, Dependee);
     }
   }
 }
 
+void DTransOptBase::collectEnclosingForType(Type *Ty) {
+  SmallVector<Type *, 8> TypeStack;
+  collectEnclosingForTypeRecurse(TypeStack, Ty);
+}
+
+void DTransOptBase::collectEnclosingForTypeRecurse(
+    SmallVectorImpl<Type *> &EnclosingTypes, Type *Ty) {
+  // Do not collect non-aggregate types
+  if (!Ty->isAggregateType())
+    return;
+
+  // Assign enclosing types for Ty.
+  TypeToEnclosingTypes[Ty].insert(EnclosingTypes.begin(), EnclosingTypes.end());
+
+  if (auto *StructTy = dyn_cast<StructType>(Ty)) {
+    EnclosingTypes.push_back(Ty);
+
+    for (auto *MemberType : StructTy->elements()) {
+      collectEnclosingForTypeRecurse(EnclosingTypes, MemberType);
+    }
+
+    EnclosingTypes.pop_back();
+    return;
+  }
+
+  if (auto *ArrayTy = dyn_cast<ArrayType>(Ty)) {
+    EnclosingTypes.push_back(Ty);
+    collectEnclosingForTypeRecurse(EnclosingTypes, ArrayTy->getElementType());
+    EnclosingTypes.pop_back();
+  }
+}
+
+const typename DTransOptBase::TypeToTypeSetMap::mapped_type &
+DTransOptBase::getEnclosingTypes(Type *Ty) {
+  assert(Ty->isAggregateType() &&
+         "Only aggreagate types are corrently collected");
+
+  if (TypeToEnclosingTypes.empty()) {
+    buildTypeEnclosingMapping();
+  }
+
+  auto It = TypeToEnclosingTypes.find(Ty);
+  if (It == TypeToEnclosingTypes.end()) {
+    // Return empty set.
+    return TypeToEnclosingTypes[nullptr];
+  }
+
+  return It->second;
+}
+
 // Identify and create opaque types.
 void DTransOptBase::prepareDependentTypes(
-    Module &M, TypeDependencyMapping &TypeToDependentTypes,
+    Module &M, TypeToTypeSetMap &TypeToDependentTypes,
     TypeToTypeMap &OrigToNewTypeReplacement) {
   // Prepare a mapping from a Type to the set of all the types that depend upon
   // it.

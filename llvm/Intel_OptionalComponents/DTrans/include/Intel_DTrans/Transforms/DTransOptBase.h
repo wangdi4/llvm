@@ -131,6 +131,9 @@ public:
   // Data structure to use for mapping one type to another type.
   using TypeToTypeMap = DenseMap<llvm::Type *, llvm::Type *>;
 
+  // Data structure to use for mapping one type to a set of types.
+  using TypeToTypeSetMap = DenseMap<llvm::Type *, SetVector<Type *>>;
+
   // \param DTInfo DTrans Analysis Result
   // \param Context llvm context for the module
   // \param DL Module's data layout
@@ -244,20 +247,23 @@ private:
   // Identify and create types that need to be remapped because due to an
   // existing type that contains a reference to a type being changed by
   // the transformation.
-  using TypeDependencyMapping = DenseMap<llvm::Type *, SetVector<Type *>>;
-  void buildTypeDependencyMapping(TypeDependencyMapping &TypeToDependentTypes);
-  void collectDependenciesForType(Type *Ty, TypeDependencyMapping &Map);
+  void buildTypeDependencyMapping();
 
-  void collectDependenciesForTypeRecurse(Type *Depender, Type *Ty,
-                                         TypeDependencyMapping &Map);
+  void collectDependenciesForType(Type *Ty);
+  void collectDependenciesForTypeRecurse(Type *Depender, Type *Ty);
+
+  void buildTypeEnclosingMapping();
+  void collectEnclosingForType(Type *Ty);
+  void collectEnclosingForTypeRecurse(SmallVectorImpl<Type *> &EnclosingTypes,
+                                      Type *Ty);
 
 #if !defined(NDEBUG)
   // Debug method to print the type dependency mapping table.
-  void dumpTypeDepenencyMapping(TypeDependencyMapping &TypeToDependentTypes);
+  void dumpTypeToTypeSetMapping(StringRef Header,
+                                TypeToTypeSetMap &TypeToDependentTypes);
 #endif // !defined(NDEBUG)
 
-  void prepareDependentTypes(Module &M,
-                             TypeDependencyMapping &TypeToDependentTypes,
+  void prepareDependentTypes(Module &M, TypeToTypeSetMap &TypeToDependentTypes,
                              TypeToTypeMap &DependentTypeMapping);
 
   // Identify and clone any function prototypes for functions that will need
@@ -347,6 +353,9 @@ protected:
 
   void deleteCallInfo(dtrans::CallInfo *CInfo);
 
+  // Returns a set of types enclosing \p Ty.
+  const typename TypeToTypeSetMap::mapped_type &getEnclosingTypes(Type *Ty);
+
 protected:
   DTransAnalysisInfo &DTInfo;
   LLVMContext &Context;
@@ -360,7 +369,7 @@ protected:
   // structure type prior to call to the prepareTypes method of derived
   // classes. This enables derived classes to examine those types, which may
   // impact how transformed types are constructed.
-  TypeDependencyMapping TypeToDependentTypes;
+  TypeToTypeSetMap TypeToDependentTypes;
 
   DTransTypeRemapper *TypeRemapper;
   ValueMaterializer *Materializer;
@@ -402,6 +411,10 @@ private:
   // needed must be done through this class's interface methods.
   DenseMap<Function *, SmallVector<dtrans::CallInfo *, 4>>
       FunctionToCallInfoVec;
+
+  // A mapping of "Type -> set of enclosing types". Computed on-demand by
+  // getEnclosingTypes().
+  TypeToTypeSetMap TypeToEnclosingTypes;
 
   // Set up the mapping of Functions to a set of CallInfo objects that need to
   // be processed as each function is transformed.

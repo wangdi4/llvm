@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-identify-unused-values=false -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; Verify that 2 fields are deleted with invoke instruction involved
 ;   not directly related to type, see checks.

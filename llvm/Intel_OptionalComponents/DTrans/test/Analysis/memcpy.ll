@@ -156,10 +156,6 @@ define void @test09(%struct.test09.b* %dest, %struct.test09.b* %src) {
 
 ; Test with memcpy where the source and target types match, but the source
 ; pointer is a field within another structure, while the destination is not.
-; This is could be considered a safe use, but for simplicity for the transforms
-; that would need to rewrite the memcpy this will be marked as invalid, for now.
-; If this is changed to be supported in the future, then transformation code may
-; also need to be updated.
 %struct.test10.a = type { i32, i32, i32, i32, i32 }
 %struct.test10.b = type { i32, i32, i32, %struct.test10.a }
 define void @test10(%struct.test10.a* %dest, %struct.test10.b* %src) {
@@ -175,19 +171,17 @@ define void @test10(%struct.test10.a* %dest, %struct.test10.b* %src) {
 ; CHECK: Multiple Value
 ; CHECK: Multiple Value
 ; CHECK: Multiple Value
-; CHECK: Safety data: Bad memfunc manipulation | Nested structure
+; CHECK: Safety data: Nested structure
 ; CHECK-LABEL: LLVMType: %struct.test10.b = type { i32, i32, i32, %struct.test10.a }
 ; CHECK: No Value
 ; CHECK: No Value
 ; CHECK: No Value
 ; CHECK: Multiple Value
-; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure
+; CHECK: Safety data: Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the destination
 ; pointer is a field within another structure.
-; This is could be considered a safe use, but for simplicity for the transforms
-; that would need to rewrite the memcpy this will be marked as invalid, for now.
 %struct.test11.a = type { i32, i32, i32, i32, i32 }
 %struct.test11.b = type { i32, i32, i32, %struct.test11.a }
 define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
@@ -203,13 +197,13 @@ define void @test11(%struct.test11.a* %src, %struct.test11.b* %dest) {
 ; CHECK: Multiple Value
 ; CHECK: Multiple Value
 ; CHECK: Multiple Value
-; CHECK: Safety data: Bad memfunc manipulation | Nested structure
+; CHECK: Safety data: Nested structure
 ; CHECK-LABEL: LLVMType: %struct.test11.b = type { i32, i32, i32, %struct.test11.a }
 ; CHECK: No Value
 ; CHECK: No Value
 ; CHECK: No Value
 ; CHECK: Multiple Value
-; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure
+; CHECK: Safety data: Contains nested structure
 
 
 ; Test with memcpy where the source and target types match, but the pointers
