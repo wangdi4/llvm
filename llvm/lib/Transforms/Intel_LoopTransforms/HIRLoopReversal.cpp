@@ -771,7 +771,9 @@ class HIRLoopReversalLegacyPass : public HIRTransformPass {
 public:
   static char ID;
 
-  HIRLoopReversalLegacyPass() : HIRTransformPass(ID) {}
+  HIRLoopReversalLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRLoopReversalLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();

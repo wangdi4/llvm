@@ -1,4 +1,4 @@
-//===-- VPlanDriver.cpp ---------------------------------------------------===//
+//===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
 //   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
@@ -232,7 +232,7 @@ public:
 // FIXME: \p VF is the single VF that we have VPlan for. That should be changed
 // in the future and the argument won't be required.
 template <typename CostModelTy = VPlanCostModel>
-void printCostModelAnalysisIfRequested(LoopVectorizationPlannerBase &LVP,
+void printCostModelAnalysisIfRequested(LoopVectorizationPlanner &LVP,
                                        const TargetTransformInfo *TTI,
                                        const DataLayout *DL) {
   for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
@@ -699,23 +699,11 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // TODO: EnterExplicitData works with Values. This is weird. Please, revisit.
   // LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
 
-  // TODO: We use HIR DDGraph to build VPValue D-U graph in VPlan.
-  // Unfortunately, the current DDGraph for an HLLoop doesn't include the loop
-  // PH and Exit as we do in VPlan. As a workaround, we are currently using the
-  // parent HLLoop/HLRegion's DDGraph. However, this leads to building
-  // unecessary large DDGraph.  Potential solutions:
-  //     1. Extend HIR with a new interface that provides the HLLoop DDGraph
-  //     including PH and Exit.
-  //     2. Manually keep track of live VPValue definitions in PH and Exit while
-  //     building the DU graph.
-  //
   HLLoop *HLoop = WRLp->getTheLoop<HLLoop>();
   assert(HLoop && "Expected HIR Loop.");
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
 
-  const DDGraph &DDG = HLoop->getParentLoop()
-                           ? DDA->getGraph(HLoop->getParentLoop())
-                           : DDA->getGraph(HLoop->getParentRegion());
+  const DDGraph &DDG = DDA->getGraph(HLoop);
 
   // TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,

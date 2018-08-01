@@ -4,7 +4,7 @@
 ;
 ; A perfect loopnest shouldn't be enabled. If a perfect loopnest is enabled the end result will be wrong.
 ;
-; Current legality check avoids sinks as it bails out on blob ddrefs. %0 in <14> is blob ddrefs. If loop interchange is relaxed to handle blobs test case like this should be handled with care.
+; An anti-edge from <2> to <22> identifies <22> as a store for <2>, however, temps %0 and %c.030 does not match. Two anti-edges from <2> and <5> to <22>. 
 ;
 ; *** IR Dump Before HIR Loop Interchange ***
 ; Function: foo

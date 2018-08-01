@@ -1,4 +1,4 @@
-//===----- VPOCodeGenHIR.cpp --------------------------------------------===//
+//===----- IntelVPOCodeGenHIR.cpp -----------------------------------------===//
 //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -108,6 +108,16 @@ public:
   NestedBlobCG(const RegDDRef *R, HLNodeUtils &H, DDRefUtils &D, VPOCodeGenHIR *C,
                RegDDRef *M)
       : RDDR(R), HNU(H), DDRU(D), ACG(C), MaskDDRef(M) {}
+
+  RegDDRef *visit(const SCEV *SC) {
+    RegDDRef *RDDR;
+    if ((RDDR = ACG->getWideRefForSCVal(SC)))
+      return RDDR;
+
+    RDDR = SCEVVisitor::visit(SC);
+    ACG->addSCEVWideRefMapping(SC, RDDR);
+    return RDDR;
+  }
 
   RegDDRef *visitConstant(const SCEVConstant *Constant);
   RegDDRef *visitTruncateExpr(const SCEVTruncateExpr *Expr);
@@ -365,6 +375,9 @@ private:
   void visitRegDDRef(RegDDRef *RegDD);
   void visitCanonExpr(CanonExpr *CExpr, bool InMemRef, bool InMaskedStmt);
 
+  // For each blob of the Ref check whether it's changed somewhere in the loop.
+  bool isUniform(const RegDDRef *Ref) const;
+
 public:
   HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF)
       : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VF(VF),
@@ -389,6 +402,24 @@ public:
   bool getMemRefSeen() { return MemRefSeen; }
   bool getNegativeIVCoeffSeen() { return NegativeIVCoeffSeen; }
   bool getFieldAccessSeen() { return FieldAccessSeen; }
+};
+
+class HLInstCounter final : public HLNodeVisitorBase {
+private:
+  const HLLoop *OrigLoop;
+  unsigned NumInsts;
+
+public:
+  HLInstCounter(const HLLoop *OrigLoop) : OrigLoop(OrigLoop) { NumInsts = 0; }
+
+  unsigned getNumInsts() { return NumInsts; }
+
+  void postVisit(HLNode *Node) {}
+
+  void visit(HLNode *Node) {
+    if (isa<HLInst>(Node))
+      NumInsts++;
+  }
 };
 } // End anonymous namespace
 
@@ -433,6 +464,14 @@ void HandledCheck::visit(HLDDNode *Node) {
       LLVM_DEBUG(Inst->dump());
       LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Liveout conditional scalar assign "
                            "not handled\n");
+      IsHandled = false;
+      return;
+    }
+
+    // FIXME: With proper support from CG this bail-out is not needed.
+    if (TLval && TLval->isMemRef() && isUniform(TLval)) {
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Uniform store is not handled\n");
       IsHandled = false;
       return;
     }
@@ -592,6 +631,12 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
   }
 }
 
+// Return true if given memory reference is uniform.
+bool HandledCheck::isUniform(const RegDDRef *Ref) const {
+  assert(Ref->isMemRef() && "Given RegDDRef is not memory reference.");
+  return Ref->isStructurallyInvariantAtLevel(LoopLevel);
+}
+
 // Return true if Loop is currently handled by HIR vector code generation.
 bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
@@ -657,6 +702,20 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   return true;
 }
 
+HLLoop *VPOCodeGenHIR::findRednHoistInsertionPoint(HLLoop *Lp) {
+  // Inspired by hpo_huntHoist in icc - check to see at what loop it is safe
+  // to hoist the reduction initializer and sink the last value compute
+  // instructions. Basically a quick and dirty check to see that a parent
+  // loop only contains a child loop, so no dependences prevent hoisting.
+  if (!Lp->hasPreheader() && !Lp->hasPostexit()) {
+    HLLoop *Parent = dyn_cast<HLLoop>(Lp->getParent());
+    if (Parent && Parent->isDo() && Parent->getNumChildren() == 1) {
+      return findRednHoistInsertionPoint(Parent);
+    }
+  }
+  return Lp;
+}
+
 void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   assert(VF > 1);
   setVF(VF);
@@ -669,10 +728,28 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   LoopsVectorized++;
   SRA->computeSafeReductionChains(OrigLoop);
 
+  const SafeRedChainList &SRCL = SRA->getSafeReductionChain(OrigLoop);
+  for (auto &SafeRedInfo : SRCL) {
+    for (auto &Inst : SafeRedInfo.Chain) {
+      // Make sure all reduction instructions are part of the OrigLoop that
+      // was queried for safe reductions.
+      assert(OrigLoop == Inst->getParentLoop() &&
+             "Reduction inst should be in OrigLoop");
+      (void)Inst;
+    }
+  }
+  RednHoistLp = findRednHoistInsertionPoint(OrigLoop);
+
   // Setup main and remainder loops
   bool NeedRemainderLoop = false;
   auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VF, NeedRemainderLoop, LORBuilder, true /* VecMode */);
+      OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer);
+
+  // The reduction initializer hoist loop should point to the vector loop and
+  // not the original scalar loop if it was found not to be safe to hoist
+  // further.
+  if (RednHoistLp == OrigLoop)
+    RednHoistLp = MainLoop;
 
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);
@@ -729,6 +806,19 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     HIRLoopVisitor LV(OrigLoop, this);
     LV.replaceCalls();
   } else {
+    // NeedRemainderLoop is false so trip count % VF == 0. Also check to see
+    // that the trip count is small and the loop body is small. If so, do
+    // complete unroll of the vector loop.
+    uint64_t TripCount = getTripCount();
+    bool KnownTripCount = TripCount > 0 ? true : false;
+    if (KnownTripCount && TripCount <= SmallTripThreshold &&
+        OrigLoop->isInnermost()) {
+      HLInstCounter InstCounter(OrigLoop);
+      HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
+                              OrigLoop->child_end());
+      if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold)
+        HIRTransformUtils::completeUnroll(MainLoop);
+    }
     HLNodeUtils::remove(OrigLoop);
   }
 }
@@ -1009,9 +1099,33 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
   return SRA->isReductionRef(Ref, Opcode);
 }
 
+// FIXME: Temporal solution to check that index of the Ref will wrap.
+// This function has to be removed after proper DA.
+bool VPOCodeGenHIR::refIsUnit(const HLLoop *HLoop, const RegDDRef *Ref) {
+  unsigned NestingLevel = HLoop->getNestingLevel();
+  int64_t IVConstCoeff;
+  if (!isConstStrideRef(Ref, NestingLevel, &IVConstCoeff) || IVConstCoeff != 1)
+    return false;
+
+  for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
+    auto CE = *I;
+
+    if (CE->hasIV(NestingLevel) && CE->isZExt()) {
+      std::unique_ptr<CanonExpr> ClonedCE(CE->clone());
+      ClonedCE.get()->removeIV(NestingLevel);
+      int64_t Val;
+      // FIXME: Index can also wrap when Val + UB is huge for a given type of an
+      // index.
+      if (!ClonedCE->isIntConstant(&Val) || Val < 0 ||
+          !HLoop->isConstTripLoop())
+        return false;
+    }
+  }
+  return true;
+}
+
 RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
   RegDDRef *WideRef;
-  int64_t IVConstCoeff;
   auto RefDestTy = Ref->getDestType();
   auto VecRefDestTy = VectorType::get(RefDestTy, VF);
   auto RefSrcTy = Ref->getSrcType();
@@ -1044,7 +1158,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
       auto RedOpVecInst = insertReductionInitializer(Identity);
 
       // Add to WidenMap and handle generating code for building reduction tail
-      addToMapAndHandleLiveOut(Ref, RedOpVecInst);
+      addToMapAndHandleLiveOut(Ref, RedOpVecInst, RednHoistLp);
 
       // LVAL ref of the initialization instruction is the widened reduction
       // ref.
@@ -1095,7 +1209,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
   // For unit stride ref, nothing else to do
-  if (isConstStrideRef(Ref, NestingLevel, &IVConstCoeff) && IVConstCoeff == 1)
+  if (refIsUnit(OrigLoop, Ref))
     return WideRef;
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
@@ -1351,6 +1465,16 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
 
+  // Widened values for SCEV expressions cannot be reused across HIR
+  // instructions as temps that are part of such SCEV expressions can be
+  // assigned to before a use in a later HIR instruction.
+  // t1 =
+  //    = zext(t1)
+  // t1 =
+  //    = zext(t1)
+  // We clear the map at the start of widening of each HLInst.
+  SCEVWideRefMap.clear();
+
   if (!Mask)
     Mask = CurMaskValue;
 
@@ -1466,7 +1590,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
 
   // Add to WidenMap and handle generating code for any liveouts
   if (InsertInMap) {
-    addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst);
+    addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst, MainLoop);
     if (WideInst->getLvalDDRef()->isTerminalRef())
       WideInst->getLvalDDRef()->makeSelfBlob();
   }
@@ -1479,15 +1603,22 @@ HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden) {
   auto IdentityVec = getConstantSplatDDRef(MainLoop->getDDRefUtils(), Iden, VF);
   HLInst *RedOpVecInst =
       MainLoop->getHLNodeUtils().createCopyInst(IdentityVec, "RedOp");
-  HLNodeUtils::insertBefore(MainLoop, RedOpVecInst);
+  HLNodeUtils::insertBefore(RednHoistLp, RedOpVecInst);
 
   auto LvalSymbase = RedOpVecInst->getLvalDDRef()->getSymbase();
-  MainLoop->addLiveInTemp(LvalSymbase);
+  // Add the reduction ref as a live-in for each loop up to and including
+  // the hoist loop.
+  HLLoop *ThisLoop = MainLoop;
+  while (ThisLoop != RednHoistLp->getParentLoop()) {
+    ThisLoop->addLiveInTemp(LvalSymbase);
+    ThisLoop = ThisLoop->getParentLoop();
+  }
   return RedOpVecInst;
 }
 
 void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
-                                             HLInst *WideInst) {
+                                             HLInst *WideInst,
+                                             HLLoop *HoistLp) {
   auto ScalSymbase = ScalRef->getSymbase();
 
   // If already in WidenMap, nothing further to do
@@ -1503,7 +1634,12 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
   auto VecRef = WideInst->getLvalDDRef();
 
-  MainLoop->addLiveOutTemp(VecRef->getSymbase());
+  // Add the ref as a live-out for each loop up to and including the hoist loop.
+  HLLoop *ThisLoop = MainLoop;
+  while (ThisLoop != HoistLp->getParentLoop()) {
+    ThisLoop->addLiveOutTemp(VecRef->getSymbase());
+    ThisLoop = ThisLoop->getParentLoop();
+  }
 
   unsigned OpCode;
 
@@ -1513,7 +1649,7 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
 
     buildReductionTail(Tail, OpCode, VecRef, ScalRef->clone(), MainLoop,
                        FinalLvalRef);
-    HLNodeUtils::insertAfter(MainLoop, &Tail);
+    HLNodeUtils::insertAfter(RednHoistLp, &Tail);
   } else {
     auto Extr = WideInst->getHLNodeUtils().createExtractElementInst(
         VecRef->clone(), VF - 1, "Last", FinalLvalRef);

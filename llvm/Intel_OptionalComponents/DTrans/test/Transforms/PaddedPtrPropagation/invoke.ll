@@ -1,11 +1,11 @@
-;RUN: opt -disable-output -disable-verify -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -disable-output -disable-verify -padded-pointer-info -debug-pass-manager -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; The test checks if padding is propagated through the InvokeInst
 
 ;CHECK:      ==== INITIAL FUNCTION SET ====
 ;CHECK:      Function info(callee):
-;CHECK:        HasUnknownCallSites: 1
+;CHECK:        HasUnknownCallSites: 0
 ;CHECK:        Return Padding: -1
 ;CHECK:        Value paddings:
 ;CHECK-NEXT:     %2 = tail call i32* @llvm.ptr.annotation.p0i32
@@ -13,13 +13,13 @@
 ;CHECK:      ==== END OF INITIAL FUNCTION SET ====
 ;CHECK:      ==== TRANSFORMED FUNCTION SET ====
 ;CHECK:      Function info(callee):
-;CHECK:        HasUnknownCallSites: 1
+;CHECK:        HasUnknownCallSites: 0
 ;CHECK:        Return Padding: 32
 ;CHECK:        Value paddings:
 ;CHECK-NEXT:     %2 = tail call i32* @llvm.ptr.annotation.p0i32
 ;CHECK-SAME:          {{:: 32$}}
 ;CHECK:      Function info(caller):
-;CHECK:        HasUnknownCallSites: 1
+;CHECK:        HasUnknownCallSites: 0
 ;CHECK:        Return Padding: -1
 ;CHECK:        Value paddings:
 ;CHECK-NEXT:     %call = invoke i32* @callee()
@@ -69,7 +69,7 @@ if.end:
   ret i32* %2
 }
 
-define i32* @caller() {
+define i32* @caller() personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   %call = invoke i32* @callee()
           to label %try.cont unwind label %lpad
@@ -93,6 +93,6 @@ declare void @__cxa_throw(i8*, i8*, i8*)
 declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
 declare i8* @__cxa_begin_catch(i8*)
 declare void @__cxa_end_catch()
-
+declare i32 @__gxx_personality_v0(...)
 
 

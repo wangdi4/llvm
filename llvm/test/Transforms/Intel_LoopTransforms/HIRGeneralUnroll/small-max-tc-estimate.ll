@@ -8,6 +8,7 @@
 ; CHECK: |   (%ShiftRegister)[0][-1 * i1 + %N] = %0;
 ; CHECK: + END LOOP
 
+target datalayout = "p:32:32"
 
 define void @convolutionalEncode(i32 %N, i16 %SRIndex.185) {
 entry:

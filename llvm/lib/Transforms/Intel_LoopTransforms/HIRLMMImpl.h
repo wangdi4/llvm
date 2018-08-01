@@ -11,9 +11,9 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLMMIMPL_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLMMIMPL_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/Pass.h"
 
@@ -166,7 +166,6 @@ public:
   bool run();
 
 private:
-
   bool doLoopPreliminaryChecks(const HLLoop *Lp);
 
   bool doCollection(HLLoop *Lp);
@@ -185,23 +184,35 @@ private:
   void doTransform(HLLoop *Lp);
 
   // Do LIMM Reference Promotion on the given MRG
-  void doLIMMRef(HLLoop *Lp, MemRefGroup &MRG);
+  void doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
+                 SmallSet<unsigned, 32> &TempRefSet);
 
   bool isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG);
+
+  bool canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef, MemRefGroup &MRG,
+                          SmallSet<unsigned, 32> &TempRefSet) const;
+
+  bool canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef, MemRefGroup &MRG,
+                          SmallSet<unsigned, 32> &TempRefSet) const;
 
   void handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpDDRef,
                           bool IsLoadOnly);
 
-  void setLinear(RegDDRef *TmpRef);
+  bool hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
+                         SmallSet<unsigned, 32> &TempRefSet,
+                         LoopOptReportBuilder &LORBuilder);
+
+  bool sinkedSingleStore(HLLoop *Lp, RegDDRef *StoreRef, MemRefGroup &MRG,
+                         SmallSet<unsigned, 32> &TempRefSet,
+                         LoopOptReportBuilder &LORBuilder);
+
+  void setLinear(DDRef *TmpRef);
 
   void clearWorkingSetMemory(void) { MRC.clear(); }
 
   // *** Utility functions ***
-  HLInst *findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const;
-  void findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
-                                   RegDDRef *TmpRef) const;
-  HLInst *getLoadInLoopPreheader(HLLoop *Lp, RegDDRef *MemRef) const;
-  HLInst *getStoreInLoopPostexit(HLLoop *Lp, RegDDRef *MemRef) const;
+  HLInst *createLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const;
+  void createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef) const;
 };
 
 //

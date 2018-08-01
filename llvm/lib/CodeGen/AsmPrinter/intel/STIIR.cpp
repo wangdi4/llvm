@@ -8,8 +8,6 @@
 
 #include "STIIR.h"
 
-#include <iostream> // FIXME
-
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//

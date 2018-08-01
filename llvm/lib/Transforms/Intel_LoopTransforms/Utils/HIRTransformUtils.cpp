@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 
+#include "HIRUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -194,11 +195,12 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
-    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder, bool VecMode) {
+    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder,
+    OptimizationType OptTy) {
   HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
-  if (!VecMode) {
+  if (OptTy != OptimizationType::Vectorizer) {
     NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
   }
 
@@ -210,7 +212,9 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
-    NewBound = VecMode ? (NewTripCount * UnrollOrVecFactor) : NewTripCount;
+    NewBound = (OptTy == OptimizationType::Vectorizer)
+                   ? (NewTripCount * UnrollOrVecFactor)
+                   : NewTripCount;
 
     // Subtract 1.
     NewBound = NewBound - 1;
@@ -224,7 +228,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     // For vectorizer mode, upper bound needs to be multiplied by
     // UnrollOrVecFactor since it is used as the stride
-    if (VecMode) {
+    if (OptTy == OptimizationType::Vectorizer) {
       auto Ret =
           NewUBRef->getSingleCanonExpr()->multiplyByConstant(UnrollOrVecFactor);
       assert(Ret && "multiplyByConstant() failed");
@@ -247,8 +251,9 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     NewLoop->createZtt(false);
 
     // Update unrolled/vectorized loop's trip count estimate.
-    NewLoop->setMaxTripCountEstimate(NewLoop->getMaxTripCountEstimate() /
-                                     UnrollOrVecFactor);
+    NewLoop->setMaxTripCountEstimate(
+        NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
+        NewLoop->isMaxTripCountEstimateUsefulForDD());
   }
 
   // Set the code gen for modified region
@@ -256,7 +261,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   NewLoop->getParentRegion()->setGenCode();
 
   // Vectorization uses UnrollOrVecFactor as stride
-  if (VecMode) {
+  if (OptTy == OptimizationType::Vectorizer) {
     NewLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(
         UnrollOrVecFactor);
   }
@@ -264,18 +269,21 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   // NewLoop is the main loop now and hence, we want to associate all the opt
   // report with it.
   LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
-  if (VecMode)
+  if (OptTy == OptimizationType::Vectorizer) {
     LORBuilder(*NewLoop).addRemark(
         OptReportVerbosity::Low,
         "Loop has been vectorized with vector %d factor", UnrollOrVecFactor);
-  else if (OrigLoop->isInnermost())
+  } else if (OptTy == OptimizationType::Unroll) {
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled by %d factor",
                                    UnrollOrVecFactor);
-  else
+  } else {
+    assert(OptTy == OptimizationType::UnrollAndJam &&
+           "Invalid optimization type!");
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled and jammed by %d",
                                    UnrollOrVecFactor);
+  }
 
   return NewLoop;
 }
@@ -313,6 +321,7 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     OrigLoop->createZtt(false);
 
     // Update remainder loop's trip count estimate.
+    // TODO: can set useful for DD flag if loop is normalized.
     OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
   }
 
@@ -403,7 +412,7 @@ void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
 
 HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-    LoopOptReportBuilder &LORBuilder, bool VecMode) {
+    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy) {
   // Extract Ztt and add it outside the loop.
   OrigLoop->extractZtt();
 
@@ -419,7 +428,7 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
 
   // Create the main loop.
   HLLoop *MainLoop = createUnrollOrVecLoop(
-      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, VecMode);
+      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, OptTy);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
@@ -430,12 +439,15 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
     // Since OrigLoop became a remainder and will be lexicographicaly
     // second to MainLoop, we move all the next siblings back there.
     LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
-    if (VecMode)
+    if (OptTy == OptimizationType::Vectorizer) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
-    else if (OrigLoop->isInnermost())
+    } else if (OptTy == OptimizationType::Unroll) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for partial unrolling");
-    else
+    } else {
+      assert(OptTy == OptimizationType::UnrollAndJam &&
+             "Invalid optimization type!");
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
+    }
   }
 
   // Mark parent for invalidation
@@ -676,12 +688,11 @@ void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
 void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
                                   unsigned StripmineSize) {
   uint64_t TripCount;
+  bool IsConstTrip = FirstLoop->isConstTripLoop(&TripCount);
 
   // Caller should call canStripmine before
-  assert(!(FirstLoop->isConstTripLoop(&TripCount) &&
-           (TripCount <= StripmineSize)) &&
-         "Caller should call scanStripmine first");
-  (void)TripCount;
+  assert(!(IsConstTrip && (TripCount <= StripmineSize)) &&
+         "Caller should call canStripmine() first");
 
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
@@ -714,79 +725,93 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   }
 
   RegDDRef *UBRef = NewLoop->getUpperDDRef();
+  // Store original UB in MinOpRef1.
   RegDDRef *MinOpRef1 = UBRef->clone();
-  RegDDRef *MinOpRef2;
-  CanonExpr *LBCE = NewLoop->getLowerDDRef()->getSingleCanonExpr();
-  CanonExpr *UBCE = NewLoop->getUpperDDRef()->getSingleCanonExpr();
 
-  int64_t UBDenom = UBCE->getDenominator();
+  CanonExpr *UBCE = UBRef->getSingleCanonExpr();
 
   //  UB / StripmineSize: (N-1) / 64
   UBCE->divide(StripmineSize);
   UBCE->simplify(true);
 
-  // -StripmineSize *i1 + UB
-  //  Need to convert from unsign to sign first
-  //  Result expression needs to acconut for non-1 denom
+  RegDDRef *InnerLBRef =
+      UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
 
-  int64_t Coeff = StripmineSize * UBDenom;
-  MinOpRef1->getSingleCanonExpr()->setIVConstCoeff(Level, -Coeff);
-
-  MinOpRef1->setSymbase(GenericRvalSymbase);
-
-  // 64-1
-  MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(MinOpRef1->getDestType(),
-                                                      StripmineSize - 1);
-
-  HLInst *MinInst = HNU->createMin(MinOpRef1, MinOpRef2);
-  HLNodeUtils::insertAsFirstChild(NewLoop, MinInst);
-  RegDDRef *LBRef = UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
-
+  CanonExpr *LBCE = NewLoop->getLowerCanonExpr();
   CanonExpr *InnerLoopLBCE = UBRef->getCanonExprUtils().createExtCanonExpr(
       LBCE->getSrcType(), LBCE->getDestType(), LBCE->isSExt());
   //  64*i1
   InnerLoopLBCE->setIVConstCoeff(Level, StripmineSize);
-  LBRef->setSingleCanonExpr(InnerLoopLBCE);
+  InnerLBRef->setSingleCanonExpr(InnerLoopLBCE);
 
-  UBRef = LBRef->clone();
-  RegDDRef *BlobRef = MinInst->getLvalDDRef();
-  unsigned MinBlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
-  unsigned MinBlobSymbase = BlobRef->getSymbase();
+  auto *InnerUBRef = InnerLBRef->clone();
 
-  // 64*i1 + N2
+  // If trip count is evenly divisble by stripmine factor, the trip count of
+  // stripmined loop will be the same as the factor.
+  bool MinInstRequired = (!IsConstTrip || (TripCount % StripmineSize != 0));
+  unsigned MinBlobSymbase = InvalidSymbase;
 
-  UBRef->getSingleCanonExpr()->setBlobCoeff(MinBlobIndex, 1);
-  UBRef->addBlobDDRef(MinBlobIndex, Level);
+  if (MinInstRequired) {
+    // -StripmineSize *i1 + original UB
+    // Need to convert from unsign to sign first
+    int64_t Coeff = StripmineSize;
+
+    MinOpRef1->getSingleCanonExpr()->addIV(Level, InvalidBlobIndex, -Coeff,
+                                           true);
+    MinOpRef1->setSymbase(GenericRvalSymbase);
+
+    // StripmineSize-1
+    RegDDRef *MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(
+        MinOpRef1->getDestType(), StripmineSize - 1);
+
+    HLInst *MinInst = HNU->createMin(MinOpRef1, MinOpRef2);
+    HLNodeUtils::insertAsFirstChild(NewLoop, MinInst);
+
+    RegDDRef *BlobRef = MinInst->getLvalDDRef();
+    unsigned MinBlobIndex = BlobRef->getSingleCanonExpr()->getSingleBlobIndex();
+    MinBlobSymbase = BlobRef->getSymbase();
+
+    // 64*i1 + %min
+    CanonExpr *UBRefCE = InnerUBRef->getSingleCanonExpr();
+    UBRefCE->setBlobCoeff(MinBlobIndex, 1);
+    UBRefCE->setDefinedAtLevel(Level);
+
+    InnerUBRef->addBlobDDRef(MinBlobIndex, Level);
+  } else {
+    InnerUBRef->getSingleCanonExpr()->setConstant(StripmineSize - 1);
+  }
 
   // Normalize code will set linear at level
   for (auto It = NewLoop->child_begin(), E = NewLoop->child_end(); It != E;
        ++It) {
-    HLNode *NodeI = &(*It);
-    HLLoop *Lp = dyn_cast<HLLoop>(NodeI);
+
+    HLLoop *Lp = dyn_cast<HLLoop>(&(*It));
     if (!Lp) {
       continue;
     }
     // Set Loop Bounds
-    RegDDRef *LBRef2;
-    RegDDRef *UBRef2;
-    LBRef2 = LBRef->clone();
-    UBRef2 = UBRef->clone();
-    Lp->setLowerDDRef(LBRef2);
-    Lp->setUpperDDRef(UBRef2);
-    Lp->addLiveInTemp(MinBlobSymbase);
-
-    // Normalize
-    bool Result = Lp->normalize();
-    assert(Result && "Not expecting cannot be normalized");
-    (void)Result;
+    // Use original refs for the last loop.
+    Lp->setLowerDDRef((Lp == LastLoop) ? InnerLBRef : InnerLBRef->clone());
+    Lp->setUpperDDRef((Lp == LastLoop) ? InnerUBRef : InnerUBRef->clone());
 
     // Copy LiveInOut to enclosing loop
     for (auto LiveIn : make_range(Lp->live_in_begin(), Lp->live_in_end())) {
       NewLoop->addLiveInTemp(LiveIn);
     }
+
     for (auto LiveOut : make_range(Lp->live_out_begin(), Lp->live_out_end())) {
       NewLoop->addLiveOutTemp(LiveOut);
     }
+
+    if (MinInstRequired) {
+      Lp->addLiveInTemp(MinBlobSymbase);
+      Lp->setMaxTripCountEstimate(StripmineSize, true);
+    }
+
+    // Normalize
+    bool Result = Lp->normalize();
+    assert(Result && "Not expecting cannot be normalized");
+    (void)Result;
   }
 }
 
@@ -817,4 +842,10 @@ void HIRTransformUtils::updateStripminedLoopCE(HLLoop *Loop) {
           }
         }
       });
+}
+
+void HIRTransformUtils::completeUnroll(HLLoop *Loop) {
+  assert(Loop->isConstTripLoop() &&
+         "Cannot unroll non-constant trip count loop!");
+  unroll::completeUnrollLoop(Loop);
 }

@@ -140,6 +140,8 @@ def AMDGPUrsq : SDNode<"AMDGPUISD::RSQ", SDTFPUnaryOp>;
 def AMDGPUrcp_legacy : SDNode<"AMDGPUISD::RCP_LEGACY", SDTFPUnaryOp>;
 def AMDGPUrsq_legacy : SDNode<"AMDGPUISD::RSQ_LEGACY", SDTFPUnaryOp>;
 
+def AMDGPUrcp_iflag : SDNode<"AMDGPUISD::RCP_IFLAG", SDTFPUnaryOp>;
+
 // out = 1.0 / sqrt(a) result clamped to +/- max_float.
 def AMDGPUrsq_clamp : SDNode<"AMDGPUISD::RSQ_CLAMP", SDTFPUnaryOp>;
 
@@ -338,6 +340,8 @@ def AMDGPUumed3 : SDNode<"AMDGPUISD::UMED3", AMDGPUDTIntTernaryOp,
 >;
 
 def AMDGPUfmed3 : SDNode<"AMDGPUISD::FMED3", SDTFPTernaryOp, []>;
+
+def AMDGPUperm : SDNode<"AMDGPUISD::PERM", AMDGPUDTIntTernaryOp, []>;
 
 def AMDGPUinit_exec : SDNode<"AMDGPUISD::INIT_EXEC",
                       SDTypeProfile<0, 1, [SDTCisInt<0>]>,

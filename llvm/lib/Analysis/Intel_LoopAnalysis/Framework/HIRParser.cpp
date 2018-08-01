@@ -366,7 +366,9 @@ BlobTy HIRParser::createCastBlob(BlobTy Blob, bool IsSExt, Type *Ty,
   BlobTy NewBlob = nullptr;
 
   if (Ty->getPrimitiveSizeInBits() >
-      Blob->getType()->getPrimitiveSizeInBits()) {
+      // In some case blob can be pointer type as SCEV is not very thorough in
+      // changing pointer to integer type for cases like (ptr1 - ptr2 + 1).
+      getDataLayout().getTypeSizeInBits(Blob->getType())) {
     NewBlob = IsSExt ? SE.getSignExtendExpr(Blob, Ty)
                      : SE.getZeroExtendExpr(Blob, Ty);
   } else {
@@ -1891,9 +1893,19 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   llvm_unreachable("Unexpected SCEV type!");
 }
 
-CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
-  CanonExpr *CE = getCanonExprUtils().createCanonExpr(Val->getType());
-  auto BlobSCEV = SE.getUnknown(const_cast<Value *>(Val));
+CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level,
+                                  IntegerType *FinalIntTy) {
+
+  auto *ValTy = Val->getType();
+  bool RequiresCasting = FinalIntTy && (FinalIntTy != ValTy);
+
+  CanonExpr *CE =
+      getCanonExprUtils().createCanonExpr(RequiresCasting ? FinalIntTy : ValTy);
+  auto *BlobSCEV = SE.getUnknown(const_cast<Value *>(Val));
+
+  if (RequiresCasting) {
+    BlobSCEV = SE.getTruncateOrSignExtend(BlobSCEV, FinalIntTy);
+  }
 
   parseBlob(BlobSCEV, CE, Level);
 
@@ -1999,19 +2011,24 @@ bool HIRParser::shouldParseWithoutCast(const CastInst *CI, bool IsTop) const {
   return false;
 }
 
-CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
+CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop,
+                            IntegerType *FinalIntTy) {
   CanonExpr *CE = nullptr;
   const Value *OrigVal = Val;
+  auto *ValTy = Val->getType();
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
-  if (!SE.isSCEVable(Val->getType())) {
+  if (!SE.isSCEVable(ValTy)) {
+    assert(!FinalIntTy && "Cannot convert value to integer type! ");
     CE = parseAsBlob(Val, Level);
 
-  } else if (Val->getType()->isPointerTy()) {
+  } else if (ValTy->isPointerTy()) {
+    assert(!FinalIntTy && "Cannot convert value to integer type! ");
+
     if (isa<ConstantPointerNull>(Val)) {
       // Create null CE to represent a null pointer.
-      CE = getCanonExprUtils().createCanonExpr(Val->getType());
+      CE = getCanonExprUtils().createCanonExpr(ValTy);
     } else {
       // Force pointer values to be parsed as blobs. This is for handling lvals
       // but pointer blobs can occur in loop upper as well. CG will have to do
@@ -2023,8 +2040,9 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
 
     bool EnableCastHiding = IsTop;
     const CastInst *CI = dyn_cast<CastInst>(Val);
+    bool RequiresCasting = (FinalIntTy && (FinalIntTy != ValTy));
 
-    if (shouldParseWithoutCast(CI, IsTop)) {
+    if (!RequiresCasting && shouldParseWithoutCast(CI, IsTop)) {
       EnableCastHiding = false;
       Val = CI->getOperand(0);
 
@@ -2032,20 +2050,26 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
           CI->getSrcTy(), CI->getDestTy(), isa<SExtInst>(CI));
 
     } else {
-      CE = getCanonExprUtils().createCanonExpr(Val->getType());
+      CE = getCanonExprUtils().createCanonExpr(RequiresCasting ? FinalIntTy
+                                                               : ValTy);
     }
 
     auto SC = getSCEV(const_cast<Value *>(Val));
+
+    if (RequiresCasting) {
+      SC = SE.getTruncateOrSignExtend(SC, FinalIntTy);
+    }
 
     if (parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
       parseMetadata(OrigVal, CE);
     } else {
       getCanonExprUtils().destroy(CE);
-      CE = parseAsBlob(OrigVal, Level);
+      CE = parseAsBlob(OrigVal, Level, FinalIntTy);
     }
   }
 
-  assert((CE->getDestType() == OrigVal->getType()) &&
+  assert((CE->getDestType() == OrigVal->getType() ||
+          (CE->getDestType() == FinalIntTy)) &&
          "CE and Val types do not match!");
 
   return CE;
@@ -2309,7 +2333,7 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
     } else {
-      assert (ConstVal->isZeroValue() && "Unexpected compare condition!");
+      assert(ConstVal->isZeroValue() && "Unexpected compare condition!");
       Preds.push_back(PredicateTy::FCMP_FALSE);
     }
     Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
@@ -2666,6 +2690,8 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
   // highest dimension.
   bool MergeInHighestDimension = (Ref->getNumDimensions() != 0);
   bool IsBaseGEPOp = false;
+  auto *OffsetTy = Type::getIntNTy(
+      getContext(), getDataLayout().getTypeSizeInBits(TempGEPOp->getType()));
 
   do {
     // Ignore base pointer operand.
@@ -2703,7 +2729,8 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
                     (!PrevGEPFirstIndexCE || PrevGEPFirstIndexCE->isZero()) &&
                     ((I != 1) || (IsBaseGEPOp && !RequiresIndexMerging)));
 
-      CanonExpr *IndexCE = parse(TempGEPOp->getOperand(I), Level, IsTop);
+      CanonExpr *IndexCE =
+          parse(TempGEPOp->getOperand(I), Level, IsTop, OffsetTy);
 
       // Store the first GEP index in PrevGEPFirstIndexCE. It will be merged
       // into the last index of next GEP.
@@ -3404,6 +3431,10 @@ void HIRParser::phase2Parse() {
 
     cast<HLDDNode>(NextNode)->setDistributePoint(true);
 
+    auto *ParentLoop = NextNode->getParentLoop();
+    assert(ParentLoop && "Distribute point does not have parent loop!");
+
+    ParentLoop->setHasDistributePoint(true);
     HLNodeUtils::erase(Call);
   }
 }

@@ -1,22 +1,22 @@
-;RUN: opt -disable-output -disable-verify -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -disable-output -disable-verify -padded-pointer-info -debug-pass-manager -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks merging of padding for SelectInst
 
 ;CHECK:      ==== INITIAL FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %p": 0
+;CHECK-NEXT:     i32* %p : -1
 ;CHECK:      ==== END OF INITIAL FUNCTION SET ====
 
 ;CHECK:      ==== TRANSFORMED FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: 1
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %p": 0
+;CHECK-NEXT:     i32* %p : -1
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      %6 = select i1 %tobool, i32* %5, i32* %4 :: 1
 ;CHECK-DAG:      %4 = select i1 %cmp, i32* %0, i32* %1 :: 4

@@ -223,6 +223,7 @@ bool StandardConversionSequence::isPointerConversionToBool() const {
   // a pointer.
   if (getToType(1)->isBooleanType() &&
       (getFromType()->isPointerType() ||
+       getFromType()->isMemberPointerType() ||
        getFromType()->isObjCObjectPointerType() ||
        getFromType()->isBlockPointerType() ||
        getFromType()->isNullPtrType() ||
@@ -2006,6 +2007,14 @@ bool Sema::IsIntegralPromotion(Expr *From, QualType FromType, QualType ToType) {
         isCompleteType(From->getLocStart(), FromType))
       return Context.hasSameUnqualifiedType(
           ToType, FromEnumType->getDecl()->getPromotionType());
+
+    // C++ [conv.prom]p5:
+    //   If the bit-field has an enumerated type, it is treated as any other
+    //   value of that type for promotion purposes.
+    //
+    // ... so do not fall through into the bit-field checks below in C++.
+    if (getLangOpts().CPlusPlus)
+      return false;
   }
 
   // C++0x [conv.prom]p2:
@@ -2053,6 +2062,11 @@ bool Sema::IsIntegralPromotion(Expr *From, QualType FromType, QualType ToType) {
   // other value of that type for promotion purposes (C++ 4.5p3).
   // FIXME: We should delay checking of bit-fields until we actually perform the
   // conversion.
+  //
+  // FIXME: In C, only bit-fields of types _Bool, int, or unsigned int may be
+  // promoted, per C11 6.3.1.1/2. We promote all bit-fields (including enum
+  // bit-fields and those whose underlying type is larger than int) for GCC
+  // compatibility.
   if (From) {
     if (FieldDecl *MemberDecl = From->getSourceBitField()) {
       llvm::APSInt BitWidth;
@@ -3073,7 +3087,7 @@ Sema::IsQualificationConversion(QualType FromType, QualType ToType,
   //   in multi-level pointers, subject to the following rules: [...]
   bool PreviousToQualsIncludeConst = true;
   bool UnwrappedAnyPointer = false;
-  while (Context.UnwrapSimilarPointerTypes(FromType, ToType)) {
+  while (Context.UnwrapSimilarTypes(FromType, ToType)) {
     // Within each iteration of the loop, we check the qualifiers to
     // determine if this still looks like a qualification
     // conversion. Then, if all is well, we unwrap one more level of
@@ -3628,16 +3642,6 @@ CompareImplicitConversionSequences(Sema &S, SourceLocation Loc,
   return Result;
 }
 
-static bool hasSimilarType(ASTContext &Context, QualType T1, QualType T2) {
-  while (Context.UnwrapSimilarPointerTypes(T1, T2)) {
-    Qualifiers Quals;
-    T1 = Context.getUnqualifiedArrayType(T1, Quals);
-    T2 = Context.getUnqualifiedArrayType(T2, Quals);
-  }
-
-  return Context.hasSameUnqualifiedType(T1, T2);
-}
-
 // Per 13.3.3.2p3, compare the given standard conversion sequences to
 // determine if one is a proper subset of the other.
 static ImplicitConversionSequence::CompareKind
@@ -3661,7 +3665,7 @@ compareStandardConversionSubsets(ASTContext &Context,
       Result = ImplicitConversionSequence::Worse;
     else
       return ImplicitConversionSequence::Indistinguishable;
-  } else if (!hasSimilarType(Context, SCS1.getToType(1), SCS2.getToType(1)))
+  } else if (!Context.hasSimilarType(SCS1.getToType(1), SCS2.getToType(1)))
     return ImplicitConversionSequence::Indistinguishable;
 
   if (SCS1.Third == SCS2.Third) {
@@ -3935,7 +3939,7 @@ CompareQualificationConversions(Sema &S,
                : ImplicitConversionSequence::Better;
   }
 
-  while (S.Context.UnwrapSimilarPointerTypes(T1, T2)) {
+  while (S.Context.UnwrapSimilarTypes(T1, T2)) {
     // Within each iteration of the loop, we check the qualifiers to
     // determine if this still looks like a qualification
     // conversion. Then, if all is well, we unwrap one more level of
@@ -6380,63 +6384,61 @@ bool Sema::diagnoseArgIndependentDiagnoseIfAttrs(const NamedDecl *ND,
 /// the overload candidate set.
 void Sema::AddFunctionCandidates(const UnresolvedSetImpl &Fns,
                                  ArrayRef<Expr *> Args,
-                                 OverloadCandidateSet& CandidateSet,
+                                 OverloadCandidateSet &CandidateSet,
                                  TemplateArgumentListInfo *ExplicitTemplateArgs,
                                  bool SuppressUserConversions,
                                  bool PartialOverloading,
                                  bool FirstArgumentIsBase) {
   for (UnresolvedSetIterator F = Fns.begin(), E = Fns.end(); F != E; ++F) {
     NamedDecl *D = F.getDecl()->getUnderlyingDecl();
-    if (FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
-      ArrayRef<Expr *> FunctionArgs = Args;
-      if (isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic()) {
-        QualType ObjectType;
-        Expr::Classification ObjectClassification;
-        if (Args.size() > 0) {
-          if (Expr *E = Args[0]) {
-            // Use the explicit base to restrict the lookup:
-            ObjectType = E->getType();
-            ObjectClassification = E->Classify(Context);
-          } // .. else there is an implit base.
-          FunctionArgs = Args.slice(1);
-        }
-        AddMethodCandidate(cast<CXXMethodDecl>(FD), F.getPair(),
-                           cast<CXXMethodDecl>(FD)->getParent(), ObjectType,
-                           ObjectClassification, FunctionArgs, CandidateSet,
-                           SuppressUserConversions, PartialOverloading);
-      } else {
-        // Slice the first argument (which is the base) when we access
-        // static method as non-static
-        if (Args.size() > 0 && (!Args[0] || (FirstArgumentIsBase && isa<CXXMethodDecl>(FD) &&
-                                             !isa<CXXConstructorDecl>(FD)))) {
-          assert(cast<CXXMethodDecl>(FD)->isStatic());
-          FunctionArgs = Args.slice(1);
-        }
-        AddOverloadCandidate(FD, F.getPair(), FunctionArgs, CandidateSet,
-                             SuppressUserConversions, PartialOverloading);
-      }
-    } else {
-      FunctionTemplateDecl *FunTmpl = cast<FunctionTemplateDecl>(D);
-      if (isa<CXXMethodDecl>(FunTmpl->getTemplatedDecl()) &&
-          !cast<CXXMethodDecl>(FunTmpl->getTemplatedDecl())->isStatic()) {
-        QualType ObjectType;
-        Expr::Classification ObjectClassification;
+    ArrayRef<Expr *> FunctionArgs = Args;
+
+    FunctionTemplateDecl *FunTmpl = dyn_cast<FunctionTemplateDecl>(D);
+    FunctionDecl *FD =
+        FunTmpl ? FunTmpl->getTemplatedDecl() : cast<FunctionDecl>(D);
+
+    if (isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic()) {
+      QualType ObjectType;
+      Expr::Classification ObjectClassification;
+      if (Args.size() > 0) {
         if (Expr *E = Args[0]) {
           // Use the explicit base to restrict the lookup:
           ObjectType = E->getType();
           ObjectClassification = E->Classify(Context);
-        } // .. else there is an implit base.
+        } // .. else there is an implicit base.
+        FunctionArgs = Args.slice(1);
+      }
+      if (FunTmpl) {
         AddMethodTemplateCandidate(
             FunTmpl, F.getPair(),
             cast<CXXRecordDecl>(FunTmpl->getDeclContext()),
             ExplicitTemplateArgs, ObjectType, ObjectClassification,
-            Args.slice(1), CandidateSet, SuppressUserConversions,
+            FunctionArgs, CandidateSet, SuppressUserConversions,
             PartialOverloading);
       } else {
-        AddTemplateOverloadCandidate(FunTmpl, F.getPair(),
-                                     ExplicitTemplateArgs, Args,
-                                     CandidateSet, SuppressUserConversions,
-                                     PartialOverloading);
+        AddMethodCandidate(cast<CXXMethodDecl>(FD), F.getPair(),
+                           cast<CXXMethodDecl>(FD)->getParent(), ObjectType,
+                           ObjectClassification, FunctionArgs, CandidateSet,
+                           SuppressUserConversions, PartialOverloading);
+      }
+    } else {
+      // This branch handles both standalone functions and static methods.
+
+      // Slice the first argument (which is the base) when we access
+      // static method as non-static.
+      if (Args.size() > 0 &&
+          (!Args[0] || (FirstArgumentIsBase && isa<CXXMethodDecl>(FD) &&
+                        !isa<CXXConstructorDecl>(FD)))) {
+        assert(cast<CXXMethodDecl>(FD)->isStatic());
+        FunctionArgs = Args.slice(1);
+      }
+      if (FunTmpl) {
+        AddTemplateOverloadCandidate(
+            FunTmpl, F.getPair(), ExplicitTemplateArgs, FunctionArgs,
+            CandidateSet, SuppressUserConversions, PartialOverloading);
+      } else {
+        AddOverloadCandidate(FD, F.getPair(), FunctionArgs, CandidateSet,
+                             SuppressUserConversions, PartialOverloading);
       }
     }
   }
@@ -9613,9 +9615,7 @@ static void DiagnoseBadConversion(Sema &S, OverloadCandidate *Cand,
       S.Diag(Fn->getLocation(), diag::note_ovl_candidate_bad_addrspace)
           << (unsigned)FnKindPair.first << (unsigned)FnKindPair.second << FnDesc
           << (FromExpr ? FromExpr->getSourceRange() : SourceRange()) << FromTy
-          << FromQs.getAddressSpaceAttributePrintValue()
-          << ToQs.getAddressSpaceAttributePrintValue()
-          << (unsigned)isObjectArgument << I + 1;
+          << ToTy << (unsigned)isObjectArgument << I + 1;
       MaybeEmitInheritedConstructorNote(S, Cand->FoundDecl);
       return;
     }
@@ -12194,7 +12194,8 @@ Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
       // break out so that we will build the appropriate built-in
       // operator node.
       ExprResult InputRes = PerformImplicitConversion(
-          Input, Best->BuiltinParamTypes[0], Best->Conversions[0], AA_Passing);
+          Input, Best->BuiltinParamTypes[0], Best->Conversions[0], AA_Passing,
+          CCK_ForBuiltinOverloadedOp);
       if (InputRes.isInvalid())
         return ExprError();
       Input = InputRes.get();
@@ -12438,16 +12439,16 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
         // We matched a built-in operator. Convert the arguments, then
         // break out so that we will build the appropriate built-in
         // operator node.
-        ExprResult ArgsRes0 =
-            PerformImplicitConversion(Args[0], Best->BuiltinParamTypes[0],
-                                      Best->Conversions[0], AA_Passing);
+        ExprResult ArgsRes0 = PerformImplicitConversion(
+            Args[0], Best->BuiltinParamTypes[0], Best->Conversions[0],
+            AA_Passing, CCK_ForBuiltinOverloadedOp);
         if (ArgsRes0.isInvalid())
           return ExprError();
         Args[0] = ArgsRes0.get();
 
-        ExprResult ArgsRes1 =
-            PerformImplicitConversion(Args[1], Best->BuiltinParamTypes[1],
-                                      Best->Conversions[1], AA_Passing);
+        ExprResult ArgsRes1 = PerformImplicitConversion(
+            Args[1], Best->BuiltinParamTypes[1], Best->Conversions[1],
+            AA_Passing, CCK_ForBuiltinOverloadedOp);
         if (ArgsRes1.isInvalid())
           return ExprError();
         Args[1] = ArgsRes1.get();
@@ -12650,16 +12651,16 @@ Sema::CreateOverloadedArraySubscriptExpr(SourceLocation LLoc,
         // We matched a built-in operator. Convert the arguments, then
         // break out so that we will build the appropriate built-in
         // operator node.
-        ExprResult ArgsRes0 =
-            PerformImplicitConversion(Args[0], Best->BuiltinParamTypes[0],
-                                      Best->Conversions[0], AA_Passing);
+        ExprResult ArgsRes0 = PerformImplicitConversion(
+            Args[0], Best->BuiltinParamTypes[0], Best->Conversions[0],
+            AA_Passing, CCK_ForBuiltinOverloadedOp);
         if (ArgsRes0.isInvalid())
           return ExprError();
         Args[0] = ArgsRes0.get();
 
-        ExprResult ArgsRes1 =
-            PerformImplicitConversion(Args[1], Best->BuiltinParamTypes[1],
-                                      Best->Conversions[1], AA_Passing);
+        ExprResult ArgsRes1 = PerformImplicitConversion(
+            Args[1], Best->BuiltinParamTypes[1], Best->Conversions[1],
+            AA_Passing, CCK_ForBuiltinOverloadedOp);
         if (ArgsRes1.isInvalid())
           return ExprError();
         Args[1] = ArgsRes1.get();

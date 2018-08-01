@@ -106,13 +106,13 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     // In AVX2 this may map to several extracts and inserts.
     // Currently there is no TTI interface for a generic shuffle; the current
     // interface (TTI.getShuffleCost) supports only the following cases:
-    // SK_Broadcast, SK_Reverse, SK_Alternate, SK_InsertSubvector, or
+    // SK_Broadcast, SK_Reverse, SK_Select, SK_InsertSubvector, or
     // SK_ExtractSubvector
     // FIXME 1: Extend the OVLS cost interface to gather also one-time costs
     // (such as loading indices).
     // FIXME 2: Extend the LLVM TTI interface for shuffles.
     // FORNOW: temporary dummy implementation.
-    Cost = TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, VecTy);
+    Cost = TTI.getShuffleCost(TargetTransformInfo::SK_Select, VecTy);
     return Cost;
   }
 

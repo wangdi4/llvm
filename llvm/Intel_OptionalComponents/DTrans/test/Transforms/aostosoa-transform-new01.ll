@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck %s
 
 ; Verify that AOS-to-SOA does not happen with new/delete.
 ; CHECK-NOT:  %__SOA_struct.test

@@ -10,9 +10,48 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//   This file defines the classes derived from WRegionNode that
-//   correspond to each construct type in WRegionNode::WRegionNodeKind
-//
+/// \file
+///  This file defines the classes derived from WRegionNode that
+///  correspond to each construct type in WRegionNode::WRegionNodeKind
+///
+/// Classes below represent REGIONS, one for each type in
+/// WRegionNode::WRegionNodeKind
+///
+/// All of them are derived classes of the base WRegionNode
+///
+///   Class name:             | Example OpenMP pragma
+/// --------------------------|------------------------------------
+///   WRNParallelNode         | #pragma omp parallel
+///   WRNParallelLoopNode     | #pragma omp parallel for
+///   WRNParallelSectionsNode | #pragma omp parallel sections
+///   WRNParallelWorkshareNode| !$omp parallel workshare
+///   WRNTeamsNode            | #pragma omp teams
+///   WRNDistributeParLoopNode| #pragma omp distribute parallel for
+///   WRNTargetNode           | #pragma omp target
+///   WRNTargetDataNode       | #pragma omp target data
+///   WRNTargetEnterDataNode  | #pragma omp target enter data
+///   WRNTargetExitDataNode   | #pragma omp target exit data
+///   WRNTargetUpdateNode     | #pragma omp target update
+///   WRNTaskNode             | #pragma omp task
+///   WRNTaskloopNode         | #pragma omp taskloop
+///   WRNVecLoopNode          | #pragma omp simd
+///   WRNWksLoopNode          | #pragma omp for
+///   WRNSectionsNode         | #pragma omp sections
+///   WRNWorkshareNode        | !$omp workshare
+///   WRNDistributeNode       | #pragma omp distribute
+///   WRNAtomicNode           | #pragma omp atomic
+///   WRNBarrierNode          | #pragma omp barrier
+///   WRNCancelNode           | #pragma omp cancel
+///   WRNCriticalNode         | #pragma omp critical
+///   WRNFlushNode            | #pragma omp flush
+///   WRNOrderedNode          | #pragma omp ordered
+///   WRNMasterNode           | #pragma omp master
+///   WRNSingleNode           | #pragma omp single
+///   WRNTaskgroupNode        | #pragma omp taskgroup
+///   WRNTaskwaitNode         | #pragma omp taskwait
+///   WRNTaskyieldNode        | #pragma omp taskyield
+///
+/// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_WREGION_H
@@ -35,47 +74,10 @@ class Loop;
 
 namespace vpo {
 
-///
-/// Classes below represent REGIONS, one for each type in
-/// WRegionNode::WRegionNodeKind
-///
-/// All of them are derived classes of the base WRegionNode
-///
-///    Class name:               Example OpenMP pragma
-///
-///    WRNParallelNode           #pragma omp parallel
-///    WRNParallelLoopNode       #pragma omp parallel for
-///    WRNParallelSectionsNode   #pragma omp parallel sections
-///    WRNParallelWorkshareNode  !$omp parallel workshare
-///    WRNTeamsNode              #pragma omp teams
-///    WRNDistributeParLoopNode  #pragma omp distribute parallel for
-///    WRNTargetNode             #pragma omp target
-///    WRNTargetDataNode         #pragma omp target data
-///    WRNTargetEnterDataNode    #pragma omp target enter data
-///    WRNTargetExitDataNode     #pragma omp target exit data
-///    WRNTargetUpdateNode       #pragma omp target update
-///    WRNTaskNode               #pragma omp task
-///    WRNTaskloopNode           #pragma omp taskloop
-///    WRNVecLoopNode            #pragma omp simd
-///    WRNWksLoopNode            #pragma omp for
-///    WRNSectionsNode           #pragma omp sections
-///    WRNWorkshareNode          !$omp workshare
-///    WRNDistributeNode         #pragma omp distribute
-///    WRNAtomicNode             #pragma omp atomic
-///    WRNBarrierNode            #pragma omp barrier
-///    WRNCancelNode             #pragma omp cancel
-///    WRNCriticalNode           #pragma omp critical
-///    WRNFlushNode              #pragma omp flush
-///    WRNOrderedNode            #pragma omp ordered
-///    WRNMasterNode             #pragma omp master
-///    WRNSingleNode             #pragma omp single
-///    WRNTaskgroupNode          #pragma omp taskgroup
-///    WRNTaskwaitNode           #pragma omp taskwait
-///    WRNTaskyieldNode          #pragma omp taskyield
 
-// Macro to define getters for list-type clauses. It creates two versions:
-//   1. a const version used primarily by dumpers
-//   2. a nonconst version used by parsing and other code
+/// Macro to define getters for list-type clauses. It creates two versions:
+///     1. a const version used primarily by dumpers
+///     2. a nonconst version used by parsing and other code
 // 20171023: Also use this for WRNLoopInfo's getter fns
 #define DEFINE_GETTER(CLAUSETYPE, GETTER, CLAUSEOBJ)       \
    const CLAUSETYPE &GETTER() const { return CLAUSEOBJ; }  \

@@ -128,9 +128,9 @@ public:
   then_iterator then_end() { return ElseBegin; }
   const_then_iterator then_end() const { return ElseBegin; }
 
-  reverse_then_iterator then_rbegin() { return ElseBegin.getReverse(); }
+  reverse_then_iterator then_rbegin() { return ++ElseBegin.getReverse(); }
   const_reverse_then_iterator then_rbegin() const {
-    return ElseBegin.getReverse();
+    return ++ElseBegin.getReverse();
   }
   reverse_then_iterator then_rend() { return Children.rend(); }
   const_reverse_then_iterator then_rend() const { return Children.rend(); }

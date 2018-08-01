@@ -89,9 +89,10 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-HIR-CM-AVX2-NEXT:    Cost 2 for [[VP2:%.*]] = load [[VP3:%.*]]
 ; VPLAN-HIR-CM-AVX2-NEXT:    Cost 2 for [[VP4:%.*]] = load [[VP5:%.*]]
 ; VPLAN-HIR-CM-AVX2-NEXT:    Cost 2 for [[VP6:%.*]] = icmp [[VP2]] [[VP4]]
-; VPLAN-HIR-CM-AVX2-NEXT:    Cost 2 for store [[VP7:%.*]] [[VP8:%.*]]
+; VPLAN-HIR-CM-AVX2-NEXT:    Unknown cost for [[VP7:%.*]] = zext [[VP6]]
+; VPLAN-HIR-CM-AVX2-NEXT:    Cost 2 for store [[VP7]] [[VP8:%.*]]
 ; VPLAN-HIR-CM-AVX2-NEXT:    Unknown cost for [[VP1]] = add [[VP0]] i64 1
-; VPLAN-HIR-CM-AVX2-NEXT:    Unknown cost for [[VP9:%.*]] = icmp [[VP1]] [[VP10:%.*]]
+; VPLAN-HIR-CM-AVX2-NEXT:    Unknown cost for [[VP9:%.*]] = icmp [[VP1]] i64 1023
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
@@ -105,9 +106,10 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-HIR-CM-SSE2-NEXT:    Cost 4 for [[VP2:%.*]] = load [[VP3:%.*]]
 ; VPLAN-HIR-CM-SSE2-NEXT:    Cost 4 for [[VP4:%.*]] = load [[VP5:%.*]]
 ; VPLAN-HIR-CM-SSE2-NEXT:    Cost 32 for [[VP6:%.*]] = icmp [[VP2]] [[VP4]]
-; VPLAN-HIR-CM-SSE2-NEXT:    Cost 4 for store [[VP7:%.*]] [[VP8:%.*]]
+; VPLAN-HIR-CM-SSE2-NEXT:    Unknown cost for [[VP7:%.*]] = zext [[VP6]]
+; VPLAN-HIR-CM-SSE2-NEXT:    Cost 4 for store [[VP7]] [[VP8:%.*]]
 ; VPLAN-HIR-CM-SSE2-NEXT:    Unknown cost for [[VP1]] = add [[VP0]] i64 1
-; VPLAN-HIR-CM-SSE2-NEXT:    Unknown cost for [[VP9:%.*]] = icmp [[VP1]] [[VP10:%.*]]
+; VPLAN-HIR-CM-SSE2-NEXT:    Unknown cost for [[VP9:%.*]] = icmp [[VP1]] i64 1023
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0

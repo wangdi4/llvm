@@ -1,5 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the dtrans delete pass correctly transforms
 ; structures with global instances and a zero initializer.

@@ -1180,7 +1180,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getrlimit:
-    Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getrusage:

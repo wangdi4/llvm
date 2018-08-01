@@ -49,7 +49,7 @@ entry:
 ; TFORM-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() {{.*}}
 ; TFORM-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* @i), "QUAL.OMP.SHARED"(i32* @j), "QUAL.OMP.SHARED"(i32* @y), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* @i), "QUAL.OMP.SHARED"(i32* @j), "QUAL.OMP.SHARED"(i32* @y), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last) ]
 ; #pragma omp parallel
 ; TFORM: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}})
 
@@ -76,7 +76,7 @@ entry:
   %7 = bitcast i32* %.omp.is_last to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %7) #1
   store i32 0, i32* %.omp.is_last, align 4, !tbaa !2
-  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.REDUCTION.ADD"(i32* @y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.REDUCTION.ADD"(i32* @y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
 ; Updated region entry intrinsic after vpo-paropt-prepare
 ; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),{{.*}} "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]) ]
 

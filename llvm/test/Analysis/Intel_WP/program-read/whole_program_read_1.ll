@@ -7,7 +7,7 @@
 ; RUN:    -plugin-opt=-whole-program-assume-executable %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 
-; CHECK:   0  FUNCTIONS UNRESOLVED
+; CHECK:   FUNCTIONS UNRESOLVED: 0
 ; CHECK:   WHOLE PROGRAM DETECTED
 ; CHECK:   WHOLE PROGRAM SAFE is determined
 

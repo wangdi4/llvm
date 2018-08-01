@@ -544,17 +544,24 @@ void Writer::createImportTables() {
     if (Config->DLLOrder.count(DLL) == 0)
       Config->DLLOrder[DLL] = Config->DLLOrder.size();
 
-    if (DefinedImportThunk *Thunk = File->ThunkSym)
+    if (File->ThunkSym) {
+      if (!isa<DefinedImportThunk>(File->ThunkSym))
+        fatal(toString(*File->ThunkSym) + " was replaced");
+      DefinedImportThunk *Thunk = cast<DefinedImportThunk>(File->ThunkSym);
       if (File->ThunkLive)
         TextSec->addChunk(Thunk->getChunk());
+    }
 
+    if (File->ImpSym && !isa<DefinedImportData>(File->ImpSym))
+      fatal(toString(*File->ImpSym) + " was replaced");
+    DefinedImportData *ImpSym = cast_or_null<DefinedImportData>(File->ImpSym);
     if (Config->DelayLoads.count(StringRef(File->DLLName).lower())) {
       if (!File->ThunkSym)
         fatal("cannot delay-load " + toString(File) +
-              " due to import of data: " + toString(*File->ImpSym));
-      DelayIdata.add(File->ImpSym);
+              " due to import of data: " + toString(*ImpSym));
+      DelayIdata.add(ImpSym);
     } else {
-      Idata.add(File->ImpSym);
+      Idata.add(ImpSym);
     }
   }
 
@@ -614,7 +621,10 @@ Optional<coff_symbol16> Writer::createSymbol(Defined *Def) {
   default: {
     // Don't write symbols that won't be written to the output to the symbol
     // table.
-    OutputSection *OS = Def->getChunk()->getOutputSection();
+    Chunk *C = Def->getChunk();
+    if (!C)
+      return None;
+    OutputSection *OS = C->getOutputSection();
     if (!OS)
       return None;
 
@@ -662,7 +672,7 @@ void Writer::createSymbolAndStringTable() {
     Sec->setStringTableOff(addEntryToStringTable(Sec->Name));
   }
 
-  if (Config->DebugDwarf) {
+  if (Config->DebugDwarf || Config->DebugSymtab) {
     for (ObjFile *File : ObjFile::Instances) {
       for (Symbol *B : File->getSymbols()) {
         auto *D = dyn_cast_or_null<Defined>(B);
@@ -1041,6 +1051,11 @@ void Writer::createGuardCFTables() {
   // Mark the image entry as address-taken.
   if (Config->Entry)
     addSymbolToRVASet(AddressTakenSyms, cast<Defined>(Config->Entry));
+
+  // Ensure sections referenced in the gfid table are 16-byte aligned.
+  for (const ChunkAndOffset &C : AddressTakenSyms)
+    if (C.InputChunk->Alignment < 16)
+      C.InputChunk->Alignment = 16;
 
   maybeAddRVATable(std::move(AddressTakenSyms), "__guard_fids_table",
                    "__guard_fids_count");

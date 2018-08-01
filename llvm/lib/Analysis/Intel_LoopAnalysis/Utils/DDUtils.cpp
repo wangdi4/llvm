@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Support/Debug.h"
 
@@ -23,6 +23,11 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "dd-utils"
+
+static cl::opt<bool> DisablePerfectLoopNestWithBlob(
+    "disable-enabling-perfect-loopnest-with-blob", cl::init(false), cl::Hidden,
+    cl::desc("Do not enable a perfect loopnest when a dependency is involved "
+             "with blobs."));
 
 /// Returns true if any incoming/outgoing edge into Loop for a DDRef.
 /// Exceptions are dd edges both source and sink are preheader/postexit ddrefs.
@@ -62,6 +67,10 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
 
 namespace {
 
+inline void reportFail(const char *Banner) {
+  LLVM_DEBUG(dbgs() << "Can't canMoveLoadIntoLoop: " << Banner << "\n");
+}
+
 ///  Return true if a load can move into the loop.
 ///  t0 = A[i1]; loop { };
 ///  In some case, moving a load into a loop requires a corresponding store
@@ -93,6 +102,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
 
   if (DDUtils::anyEdgeToLoop(DDG, RRef, InnermostLoop)) {
     // (a) no edge into innermost Loop
+    reportFail("F1");
     return false;
   }
 
@@ -107,6 +117,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     if (Node->getLexicalParentLoop() == InnermostLoop) {
       // TODO: remove this check as it is redundant with one in anyEdgeToLoop
       //       above
+      reportFail("F2");
       return false;
     }
     if (Edge->isANTIdep()) {
@@ -116,28 +127,40 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
   }
 
   unsigned Defs = 0;
+  const HLLoop *ParentOfInnermost = InnermostLoop->getParentLoop();
   for (auto I1 = DDG.outgoing_edges_begin(LRef),
             E1 = DDG.outgoing_edges_end(LRef);
        I1 != E1; ++I1) {
     //   t0  = ..    ; t0 is LRef
     const DDEdge *Edge = *I1;
     DDRef *DDRefSink = Edge->getSink();
-    RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
-    if (!RegRef) {
-      // TODO: Handles blobs later
-      return false;
+    if (DisablePerfectLoopNestWithBlob) {
+      if (!isa<RegDDRef>(DDRefSink)) {
+        reportFail("F3");
+        return false;
+      }
     }
     Node = DDRefSink->getHLDDNode();
+    if (Node == InnermostLoop) {
+      // Added because of blobs
+      // Could be a blob ddref in UB/LB/Stride of a loop
+      LLVM_DEBUG(dbgs() << "Node == InnermostLoop\n");
+      LLVM_DEBUG(LRef->dump());
+
+      return false;
+    }
     if (Edge->isOUTPUTdep() && Node->getParentLoop() != InnermostLoop) {
+      reportFail("F4");
       return false;
     }
     if (Edge->isOUTPUTdep()) {
       if (++Defs > 1) {
+        reportFail("F5");
         return false;
       }
     } else if (Edge->isFLOWdep()) {
       const HLLoop *ParentLoop = Node->getLexicalParentLoop();
-      if (ParentLoop == InnermostLoop->getParentLoop()) {
+      if (ParentLoop == ParentOfInnermost) {
         FlowEdge = Edge;
         StoreNode2 = Node;
       }
@@ -147,27 +170,90 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
   // Defs is either 0 or 1
   // FlowEdge and AntiEdges are all between inst in
   // right outside the innermostloop.
-  // TODO: I did not find logic for (1 use in innermost loop
-  //       if def is 1), which is stated in the comment of this function.
   if (Defs == 1 && (StoreNode1 != StoreNode2)) {
+    reportFail("F6");
+    // not-equal-load-store-invalid.ll is sifted here.
+    // FlowDep from Load to Store exists, but no AntiDep from Store to Load
+    // found.
     return false;
   }
   if (Defs == 1) {
     if (!FlowEdge || !AntiEdge) {
       // This is a case that the load goes through 2 copy stmts
       // Need some forwardSub cleanup. Bail out now.
+      reportFail("F7");
       return false;
     }
     unsigned Level = InnermostLoop->getNestingLevel() - 1;
     if (FlowEdge->getDVAtLevel(Level) != DVKind::EQ) {
+      reportFail("F8");
       return false;
     }
     if (AntiEdge->getDVAtLevel(Level) != DVKind::EQ) {
+      // invalid-sink.ll is sifted here.
+      reportFail("F9");
       return false;
     }
   }
   if (StoreNode1) {
     *StoreInst = cast<HLInst>(StoreNode1);
+    // Check if this store's LRef has a flow dependence to
+    // another node other than Node (current source node)
+    // See invalid-sink-2.ll
+    //
+    // <28>  + DO i1 = 0, sext.i32.i64(%M) + -1, 1
+    // <2>   |   %0 = (@A)[0][1];
+    // <5>   |   %c.030 = (@A)[0][i1 + 1];
+    // <29>  |
+    // <29>  |   + DO i2 = 0, sext.i32.i64(%M) + -1, 1
+    // <14>  |   |   %c.030 = %0 + %c.030  +  (@B)[0][i2][i1];
+    // <29>  |   + END LOOP
+    // <29>  |
+    // <22>  |   (@A)[0][i1 + 1] = %c.030;
+    //
+    //
+    // DDG's==
+    //     5:14 %c.030 --> %c.030 OUTPUT (*) (?)
+    //     5:14 %c.030 --> %c.030 FLOW (=) (0)
+    //     5:22 %c.030 --> %c.030 FLOW (=) (0)
+    //     14:14 %c.030 --> %c.030 FLOW (<= *) (? ?)
+    //     14:22 %c.030 --> %c.030 FLOW (*) (?)
+    //     14:14 %c.030 --> %c.030 ANTI (= =) (0 0)
+    //     22:14 %c.030 --> %c.030 ANTI (*) (?)
+    //     2:14 %0 --> %0 FLOW (=) (0)
+    //     2:22 (@A)[0][1] --> (@A)[0][i1 + 1] ANTI (=) (0)
+    //     5:22 (@A)[0][i1 + 1] --> (@A)[0][i1 + 1] ANTI (=) (0)
+    //     22:2 (@A)[0][i1 + 1] --> (@A)[0][1] FLOW (<) (?)
+    //
+    // TODO: See if the existing logic above could be reused without
+    //       this special-casing. Notice FLOW edge 22:2 with (<).
+    if (!DDRefUtils::areEqual((*StoreInst)->getLvalDDRef(), RRef)) {
+      // invalid-sink-2.ll is sifted here.
+
+      LLVM_DEBUG(dbgs() << "Load instruction being examined: ");
+      LLVM_DEBUG(LRef->getHLDDNode()->dump());
+      LLVM_DEBUG(dbgs() << "Instruction's matching store: ");
+      LLVM_DEBUG((*StoreInst)->dump());
+
+      reportFail("F10");
+      return false;
+    }
+
+    // Temps in <953> (load) should match against Rref of <975> (store)
+    // <1941> + DO i1 = 0, 15, 1
+    // <953>  |   %1166 = (%s)[0].32[-1 * i1 + 15];
+    // <1942> |
+    // <1942> |   + DO i2 = 0, 15, 1
+    // <963>  |   |   (%s)[0].31[-16 * i1 + -1 * i2 + 4095] =
+    //                    (%s)[0].31[-1 * i2 + sext.i32.i64(%1166) + 15];
+    // <1942> |   + END LOOP
+    // <1942> |
+    // <975>  |   (%s)[0].32[-1 * i1 + 15] = -16 * i1 + 4080;
+    // <1941> + END LOOP
+    if (!DDRefUtils::areEqual(LRef, (*StoreInst)->getRvalDDRef())) {
+      reportFail("F11");
+      return false;
+    }
   }
   return true;
 }
@@ -483,17 +569,21 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
       assert(ParentLoop && ParentLoop->isInnermost() &&
              "Unexpected stmt outside loop");
       RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
-      CanonExpr *SinkCE = nullptr;
+      (void)RegRef;
+      assert(!RegRef || (RegRef->isTerminalRef() && "Unexpected memrefs"));
+      auto *SinkCE = DDRefSink->getSingleCanonExpr();
 
-      if (RegRef) {
-        assert(RegRef->isTerminalRef() && "Unexpected memrefs");
-        SinkCE = RegRef->getSingleCanonExpr();
-      } else {
-        SinkCE = cast<BlobDDRef>(DDRefSink)->getMutableSingleCanonExpr();
-      }
       // There might be defs which are non-linear encountered here,
       // update it anyway
       SinkCE->setNonLinear();
+      // If DDRefSink was a blob ddref, linearity information should be
+      // propagated to reg ddrefs.
+      if (!RegRef) {
+        unsigned InnermostLevel = ParentLoop->getNestingLevel();
+        (cast<BlobDDRef>(DDRefSink))
+            ->getParentDDRef()
+            ->updateDefLevel(InnermostLevel);
+      }
     }
   }
 }
@@ -888,7 +978,8 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   HIRDDAnalysis &DDA;
   DDGraph &DDG;
   HIRSafeReductionAnalysis &SRA;
-  InterchangeIgnorableSymbasesTy *IgnorableSymBases;
+  const SpecialSymbasesTy *SpecialSymbases;
+  bool IgnoreSpecialSymbases;
 
   // Indicates if we need to call Demand Driven DD to refine DV
   bool RefineDV;
@@ -896,13 +987,12 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   // Outputs of this visitor
   SmallVectorImpl<DirectionVector> &DVs;
 
-  InterchangeIgnorableSymbasesTy EmptyIgnorableSBs;
-
   CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned OutermostLevel,
                           unsigned InnermostLevel, HIRDDAnalysis &DDA,
                           DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
-                          InterchangeIgnorableSymbasesTy *Ignores,
-                          bool RefineDV, SmallVectorImpl<DirectionVector> &DVs);
+                          const SpecialSymbasesTy *SpecialSBs,
+                          bool IgnoreSpecialSymbases, bool RefineDV,
+                          SmallVectorImpl<DirectionVector> &DVs);
 
   void visit(const HLDDNode *DDNode);
 
@@ -915,15 +1005,14 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
 CollectDDInfoForPermute::CollectDDInfoForPermute(
     const HLLoop *CandidateLoop, unsigned OutermostLevel,
     unsigned InnermostLevel, HIRDDAnalysis &DDA, DDGraph &DDG,
-    HIRSafeReductionAnalysis &SRA, InterchangeIgnorableSymbasesTy *Ignores,
-    bool RefineDV, SmallVectorImpl<DirectionVector> &DVs)
+    HIRSafeReductionAnalysis &SRA, const SpecialSymbasesTy *SpecialSBs,
+    bool IgnoreSpecialSymbases, bool RefineDV,
+    SmallVectorImpl<DirectionVector> &DVs)
     : CandidateLoop(CandidateLoop), OutermostLevel(OutermostLevel),
       InnermostLevel(InnermostLevel), DDA(DDA), DDG(DDG), SRA(SRA),
-      IgnorableSymBases(Ignores), RefineDV(RefineDV), DVs(DVs) {
+      SpecialSymbases(SpecialSBs), IgnoreSpecialSymbases(IgnoreSpecialSymbases),
+      RefineDV(RefineDV), DVs(DVs) {
   DVs.clear();
-  if (!IgnorableSymBases) {
-    IgnorableSymBases = &EmptyIgnorableSBs;
-  }
 }
 
 void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
@@ -940,8 +1029,17 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
     // in pre(post)loop or preheader/postexit.
     // Those were legally sinked into the innermost loop.
     // The fact allows us to ignore DDs related to those temps.
-    if ((*I)->isTerminalRef() && IgnorableSymBases->count((*I)->getSymbase())) {
-      continue;
+    if ((*I)->isTerminalRef() && SpecialSymbases) {
+      if (!IgnoreSpecialSymbases &&
+          !(SpecialSymbases->count((*I)->getSymbase()))) {
+        // Consider only these symbases
+        continue;
+      }
+      if (IgnoreSpecialSymbases &&
+          (SpecialSymbases->count((*I)->getSymbase()))) {
+        // Ignore this symbase
+        continue;
+      }
     }
 
     for (auto II = DDG.outgoing_edges_begin(*I),
@@ -1008,16 +1106,47 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
   }
 }
 
-void DDUtils::computeDVsForPermute(
-    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
-    unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
-    HIRSafeReductionAnalysis &SRA, bool RefineDV,
-    InterchangeIgnorableSymbasesTy *IgnorableSBs) {
+void DDUtils::computeDVsForPermute(SmallVectorImpl<DirectionVector> &DVs,
+                                   const HLLoop *OutermostLoop,
+                                   unsigned InnermostNestingLevel,
+                                   HIRDDAnalysis &DDA,
+                                   HIRSafeReductionAnalysis &SRA,
+                                   bool RefineDV) {
 
   DDGraph DDG = DDA.getGraph(OutermostLoop);
   CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
-                              InnermostNestingLevel, DDA, DDG, SRA,
-                              IgnorableSBs, RefineDV, DVs);
+                              InnermostNestingLevel, DDA, DDG, SRA, nullptr,
+                              true, RefineDV, DVs);
+
+  HLNodeUtils::visit(CDD, OutermostLoop);
+}
+
+void DDUtils::computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DVs,
+                                          const HLLoop *OutermostLoop,
+                                          unsigned InnermostNestingLevel,
+                                          HIRDDAnalysis &DDA,
+                                          HIRSafeReductionAnalysis &SRA,
+                                          bool RefineDV,
+                                          const SpecialSymbasesTy *SpecialSBs) {
+
+  DDGraph DDG = DDA.getGraph(OutermostLoop);
+  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
+                              InnermostNestingLevel, DDA, DDG, SRA, SpecialSBs,
+                              false, RefineDV, DVs);
+
+  HLNodeUtils::visit(CDD, OutermostLoop);
+}
+
+void DDUtils::computeDVsForPermuteIgnoringSBs(
+    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
+    unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
+    HIRSafeReductionAnalysis &SRA, bool RefineDV,
+    const SpecialSymbasesTy *SpecialSBs) {
+
+  DDGraph DDG = DDA.getGraph(OutermostLoop);
+  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
+                              InnermostNestingLevel, DDA, DDG, SRA, SpecialSBs,
+                              true, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }

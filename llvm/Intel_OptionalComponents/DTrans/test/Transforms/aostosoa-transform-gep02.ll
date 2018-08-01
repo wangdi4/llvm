@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; This test verifies special cases where GetElementPointer
 ; instructions need to be transformed during the AOS to SOA
@@ -29,7 +29,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; These test transformations of GEP instructions that require
 ; conversions prior to using the GEP index.
 define void @test01(i32 %idx1) {
-; CHECK: define void @test01(i32 %idx1)
+; CHECK define internal void@test01(i32 %idx1)
 
   %base = load %struct.test01*, %struct.test01** @g_test01ptr
 ; CHECK:  %base = load i64, i64* @g_test01ptr

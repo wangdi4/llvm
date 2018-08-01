@@ -15,16 +15,20 @@ add_llvm_library(LLVMIntel_DTransOpt
   AOSToSOA.cpp
   DeleteField.cpp
   ReorderFields.cpp
+  ResolveTypes.cpp
   EliminateROFieldAccess.cpp
+  DynClone.cpp
   DTransOptBase.cpp
   DTransOptBaseTest.cpp
   DTransPaddedMalloc.cpp
   PaddedPtrPropagation.cpp
+  SOAToAOS.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Transforms
 
   DEPENDS
   intrinsics_gen
+  intel_directives_gen
   LLVMIntel_DTransAnalysis
   )

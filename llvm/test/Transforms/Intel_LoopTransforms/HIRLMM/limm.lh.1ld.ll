@@ -57,15 +57,14 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-; *** *** 
-;          
+; *** ***
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 19, 1   <DO_LOOP>
-; CHECK:        |      %limm = (@B)[0][i1];
+; CHECK:        |      %0 = (@B)[0][i1];
 ; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
-; CHECK:        |   |   %0 = %limm;
 ; CHECK:        |   |   switch(%0)
 ; CHECK:        |   |   {
 ; CHECK:        |   |   case 0:

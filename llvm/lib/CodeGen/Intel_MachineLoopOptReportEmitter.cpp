@@ -55,18 +55,7 @@ void MachineLoopOptReportEmitter::printLoopOptReportRecursive(
   MDNode *LoopID          = ML->getLoopID();
   LoopOptReport OptReport = LoopOptReport::findOptReportInLoopID(LoopID);
 
-  printLoopHeader(FOS, Depth);
-
-  //
-  // TODO (vzakhari 4/23/2018): replace this code with
-  //                            a call to printLoopHeaderAndOrigin().
-  //
-  if (OptReport && OptReport.debugLoc())
-    printDebugLocation(FOS, Depth, OptReport.debugLoc());
-  else if (ML->getStartLoc().get())
-    printDebugLocation(FOS, Depth, ML->getStartLoc().get());
-  else
-    FOS << "\n";
+  printLoopHeaderAndOrigin(FOS, Depth, OptReport, ML->getStartLoc());
 
   if (OptReport)
     printOptReport(FOS, Depth + 1, OptReport);

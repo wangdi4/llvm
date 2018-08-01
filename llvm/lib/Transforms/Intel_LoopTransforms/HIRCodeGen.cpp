@@ -1032,18 +1032,20 @@ void CGVisitor::initializeLiveins() {
     LLVM_DEBUG(I->second->dump());
     LLVM_DEBUG(dbgs() << " \n");
 
-    unsigned BlobIndex = BU.findTempBlobIndex(I->first);
+    unsigned Symbase = I->first;
+    unsigned BlobIndex = BU.findTempBlobIndex(Symbase);
 
     // Some liveins are redundant as they are eliminated during parsing. IVs are
     // an example.
     // Also, there is no need to generate alloca for non-instruction liveins as
     // the original value is used directly.
-    if ((BlobIndex == InvalidBlobIndex) || !BU.isInstBlob(BlobIndex)) {
+    if (!CurRegion->isLiveOut(Symbase) &&
+        ((BlobIndex == InvalidBlobIndex) || !BU.isInstBlob(BlobIndex))) {
       continue;
     }
 
     AllocaInst *SymSlot =
-        getSymbaseAlloca(I->first, I->second->getType(), CurRegion);
+        getSymbaseAlloca(Symbase, I->second->getType(), CurRegion);
 
     Value *Val = const_cast<Value *>(I->second);
     Builder.CreateStore(Val, SymSlot);

@@ -2,7 +2,7 @@
 ; This test verifies that Field-reordering transformation is applied
 ; to struct.test based on profitability heuristic.
 
-;  RUN: opt < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Field-reorder will be applied: struct.test ( Size: 48 SpaceSaved: 8 )
 

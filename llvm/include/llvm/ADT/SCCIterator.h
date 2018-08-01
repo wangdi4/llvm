@@ -91,8 +91,7 @@ protected: // INTEL
   /// Compute the next SCC using the DFS traversal.
   void GetNextSCC();
 
-  scc_iterator(NodeRef entryN)
-      : visitNum(0) {
+  scc_iterator(NodeRef entryN) : visitNum(0) {
     DFSVisitOne(entryN);
     GetNextSCC();
   }

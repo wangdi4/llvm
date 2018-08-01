@@ -16,24 +16,30 @@
 #define LLVM_TOOLS_LLVM_EXEGESIS_LATENCY_H
 
 #include "BenchmarkRunner.h"
+#include "MCInstrDescView.h"
 
 namespace exegesis {
 
 class LatencyBenchmarkRunner : public BenchmarkRunner {
 public:
-  using BenchmarkRunner::BenchmarkRunner;
+  LatencyBenchmarkRunner(const LLVMState &State)
+      : BenchmarkRunner(State, InstructionBenchmark::Latency) {}
   ~LatencyBenchmarkRunner() override;
 
-private:
-  InstructionBenchmark::ModeE getMode() const override;
+  llvm::Expected<SnippetPrototype>
+  generatePrototype(unsigned Opcode) const override;
 
-  llvm::Expected<std::vector<BenchmarkConfiguration>>
-  createConfigurations(RegisterAliasingTrackerCache &RATC,
-                       unsigned OpcodeIndex) const override;
+private:
+  llvm::Error isInfeasible(const llvm::MCInstrDesc &MCInstrDesc) const;
+
+  llvm::Expected<SnippetPrototype> generateTwoInstructionPrototype(
+      const Instruction &Instr) const;
 
   std::vector<BenchmarkMeasure>
   runMeasurements(const ExecutableFunction &EF,
                   const unsigned NumRepetitions) const override;
+
+  virtual const char *getCounterName() const;
 };
 
 } // namespace exegesis

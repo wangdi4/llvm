@@ -191,9 +191,6 @@ void MCWasmStreamer::EmitInstToData(const MCInst &Inst,
 void MCWasmStreamer::FinishImpl() {
   EmitFrames(nullptr);
 
-  // Set fragment atoms so we can map from code fragment to defining symbol
-  addFragmentAtoms();
-
   this->MCObjectStreamer::FinishImpl();
 }
 
@@ -218,7 +215,8 @@ void MCWasmStreamer::EmitSymbolDesc(MCSymbol *Symbol, unsigned DescValue) {
 }
 
 void MCWasmStreamer::EmitZerofill(MCSection *Section, MCSymbol *Symbol,
-                                  uint64_t Size, unsigned ByteAlignment) {
+                                  uint64_t Size, unsigned ByteAlignment,
+                                  SMLoc Loc) {
   llvm_unreachable("Wasm doesn't support this directive");
 }
 

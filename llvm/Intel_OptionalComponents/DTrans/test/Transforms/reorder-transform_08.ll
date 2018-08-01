@@ -1,8 +1,8 @@
 ; This test verifies that Field-reordering transformation applied
 ; correctly to ByteFlattened GEP instructions related to %struct.test.
 
-;  RUN: opt < %s -S -dtrans-reorderfields | FileCheck %s
-;  RUN: opt < %s -S -passes=dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

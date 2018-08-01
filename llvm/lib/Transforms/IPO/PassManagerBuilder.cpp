@@ -46,6 +46,7 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -132,6 +133,10 @@ static cl::opt<bool> EnableLoopInterchange(
     "enable-loopinterchange", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
+static cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam",
+                                        cl::init(false), cl::Hidden,
+                                        cl::desc("Enable Unroll And Jam Pass"));
+
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
@@ -216,7 +221,7 @@ static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
 
 // Call Tree Cloning
 static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
-    cl::init(false), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
+    cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
 
 // Inline Aggressive Analysis
 static cl::opt<bool>
@@ -392,7 +397,16 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
 void PassManagerBuilder::addInstructionCombiningPass(
     legacy::PassManagerBase &PM) const {
   bool ExpensiveCombines = OptLevel > 2;
-  PM.add(createInstructionCombiningPass(ExpensiveCombines));
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+#else
+  bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+  PM.add(
+      createInstructionCombiningPass(ExpensiveCombines,
+                                     GEPInstOptimizations));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::populateFunctionPassManager(
@@ -668,7 +682,7 @@ void PassManagerBuilder::populateModulePassManager(
     // This has to be done after we add the extensions to the pass manager
     // as there could be passes (e.g. Adddress sanitizer) which introduce
     // new unnamed globals.
-    if (PrepareForThinLTO)
+    if (PrepareForLTO || PrepareForThinLTO)
       MPM.add(createNameAnonGlobalPass());
 #if INTEL_COLLAB
     if (RunVPOOpt) {
@@ -954,6 +968,13 @@ void PassManagerBuilder::populateModulePassManager(
   // in link phase after loopopt.
   if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) {
 #endif // INTEL_CUSTOMIZATION
+    if (EnableUnrollAndJam) {
+      // Unroll and Jam. We do this before unroll but need to be in a separate
+      // loop pass manager in order for the outer loop to be processed by
+      // unroll and jam before the inner loop is unrolled.
+      MPM.add(createLoopUnrollAndJamPass(OptLevel));
+    }
+
     MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
 
     // LoopUnroll may generate some redundency to cleanup.
@@ -989,7 +1010,7 @@ void PassManagerBuilder::populateModulePassManager(
   // result too early.
   MPM.add(createLoopSinkPass());
   // Get rid of LCSSA nodes.
-  MPM.add(createInstructionSimplifierPass());
+  MPM.add(createInstSimplifyLegacyPass());
 
   // This hoists/decomposes div/rem ops. It should run after other sink/hoist
   // passes to avoid re-sinking, but before SimplifyCFG because it can allow
@@ -1008,6 +1029,10 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createMapIntrinToImlPass());
   }
 #endif // INTEL_CUSTOMIZATION
+
+  // Rename anon globals to be able to handle them in the summary
+  if (PrepareForLTO)
+    MPM.add(createNameAnonGlobalPass());
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
@@ -1068,7 +1093,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_INCLUDE_DTRANS
   if (EnableDTrans) {
     // These passes get the IR into a form that DTrans is able to analyze.
-    PM.add(createInstructionSimplifierPass());
+    PM.add(createInstSimplifyLegacyPass());
     PM.add(createCFGSimplificationPass());
     // This call adds the DTrans passes.
     addDTransLegacyPasses(PM);
@@ -1102,8 +1127,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
     addLateDTransLegacyPasses(PM);
+    if (EnableIndirectCallConv)
+      PM.add(createIndirectCallConvLegacyPass(false /* EnableAndersen */,
+                                              true /* EnableDTrans */));
+      // Indirect Call Conv
+  }
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1124,17 +1154,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableAndersen) {
     PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
   }
-#if INTEL_ENABLE_DTRANS
-  if (EnableIndirectCallConv && (EnableAndersen || EnableDTrans)) {
-    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, EnableDtrans));
-        // Indirect Call Conv
-  }
-#else
   if (EnableIndirectCallConv && EnableAndersen) {
-    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, false));
-        // Indirect Call Conv
+    PM.add(createIndirectCallConvLegacyPass(true /* EnableAndersen */,
+                                            false /* EnableDTrans */));
+    // Indirect Call Conv
   }
-#endif // INTEL_ENABLE_DTRANS
   if (EnableInlineAggAnalysis) {
     PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
   }
@@ -1271,7 +1295,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                       bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets));
+    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets, OptLevel));
   }
   #if INTEL_CUSTOMIZATION
   // TODO: Temporary hook-up for VPlan VPO Vectorizer
@@ -1379,6 +1403,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     }
 
     PM.add(createHIRLMMPass());
+    PM.add(createHIRLastValueComputationPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRLoopDistributionForMemRecPass());

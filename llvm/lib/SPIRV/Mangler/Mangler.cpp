@@ -109,13 +109,13 @@ public:
     size_t fpos = m_stream.str().size();
     std::string qualStr;
     MangleError me = MANGLE_SUCCESS;
+    qualStr += getMangledAttribute((p->getAddressSpace()));
     for (unsigned int i = ATTR_QUALIFIER_FIRST; i <= ATTR_QUALIFIER_LAST; i++) {
       TypeAttributeEnum qualifier = (TypeAttributeEnum)i;
       if (p->hasQualifier(qualifier)) {
         qualStr += getMangledAttribute(qualifier);
       }
     }
-    qualStr += getMangledAttribute((p->getAddressSpace()));
     if (!mangleSubstitution(p, "P" + qualStr)) {
       // A pointee type is substituted when it is a user type, a vector type
       // (but see a comment in the beginning of this file), a pointer type,
@@ -125,8 +125,7 @@ public:
       // and the pointee type itself.
       me = p->getPointee()->accept(this);
       // The type qualifiers plus a pointee type is a substitutable entity
-      if(qualStr.length() > 0)
-        substitutions[m_stream.str().substr(fpos + 1)] = seqId++;
+      substitutions[m_stream.str().substr(fpos + 1)] = seqId++;
       // The complete pointer type is substitutable as well
       substitutions[m_stream.str().substr(fpos)] = seqId++;
     }

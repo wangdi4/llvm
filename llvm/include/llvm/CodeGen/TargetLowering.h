@@ -509,6 +509,16 @@ public:
     return hasAndNotCompare(X);
   }
 
+  /// There are two ways to clear extreme bits (either low or high):
+  /// Mask:    x &  (-1 << y)  (the instcombine canonical form)
+  /// Shifts:  x >> y << y
+  /// Return true if the variant with 2 shifts is preferred.
+  /// Return false if there is no preference.
+  virtual bool preferShiftsToClearExtremeBits(SDValue X) const {
+    // By default, let's assume that no one prefers shifts.
+    return false;
+  }
+
   /// Return true if the target wants to use the optimization that
   /// turns ext(promotableInst1(...(promotableInstN(load)))) into
   /// promotedInst1(...(promotedInstN(ext(load)))).
@@ -748,10 +758,10 @@ public:
   /// operations don't trap except for integer divide and remainder.
   virtual bool canOpTrap(unsigned Op, EVT VT) const;
 
-  /// Similar to isShuffleMaskLegal. This is used by Targets can use this to
-  /// indicate if there is a suitable VECTOR_SHUFFLE that can be used to replace
-  /// a VAND with a constant pool entry.
-  virtual bool isVectorClearMaskLegal(const SmallVectorImpl<int> &/*Mask*/,
+  /// Similar to isShuffleMaskLegal. Targets can use this to indicate if there
+  /// is a suitable VECTOR_SHUFFLE that can be used to replace a VAND with a
+  /// constant pool entry.
+  virtual bool isVectorClearMaskLegal(ArrayRef<int> /*Mask*/,
                                       EVT /*VT*/) const {
     return false;
   }
@@ -771,6 +781,10 @@ public:
     unsigned EqOpc;
     switch (Op) {
       default: llvm_unreachable("Unexpected FP pseudo-opcode");
+      case ISD::STRICT_FADD: EqOpc = ISD::FADD; break;
+      case ISD::STRICT_FSUB: EqOpc = ISD::FSUB; break;
+      case ISD::STRICT_FMUL: EqOpc = ISD::FMUL; break;
+      case ISD::STRICT_FDIV: EqOpc = ISD::FDIV; break;
       case ISD::STRICT_FSQRT: EqOpc = ISD::FSQRT; break;
       case ISD::STRICT_FPOW: EqOpc = ISD::FPOW; break;
       case ISD::STRICT_FPOWI: EqOpc = ISD::FPOWI; break;

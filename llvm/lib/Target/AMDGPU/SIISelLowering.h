@@ -22,6 +22,9 @@
 namespace llvm {
 
 class SITargetLowering final : public AMDGPUTargetLowering {
+private:
+  const GCNSubtarget *Subtarget;
+
   SDValue lowerKernArgParameterPtr(SelectionDAG &DAG, const SDLoc &SL,
                                    SDValue Chain, uint64_t Offset) const;
   SDValue getImplicitArgPtr(SelectionDAG &DAG, const SDLoc &SL) const;
@@ -42,6 +45,8 @@ class SITargetLowering final : public AMDGPUTargetLowering {
                              SelectionDAG &DAG) const override;
   SDValue lowerImplicitZextParam(SelectionDAG &DAG, SDValue Op,
                                  MVT VT, unsigned Offset) const;
+  SDValue lowerImage(SDValue Op, const AMDGPU::ImageDimIntrinsicInfo *Intr,
+                     SelectionDAG &DAG) const;
 
   SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, SelectionDAG &DAG) const;
@@ -134,6 +139,7 @@ class SITargetLowering final : public AMDGPUTargetLowering {
   SDValue performSetCCCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performCvtF32UByteNCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performClampCombine(SDNode *N, DAGCombinerInfo &DCI) const;
+  SDValue performRcpCombine(SDNode *N, DAGCombinerInfo &DCI) const;
 
   bool isLegalFlatAddressingMode(const AddrMode &AM) const;
   bool isLegalGlobalAddressingMode(const AddrMode &AM) const;
@@ -156,9 +162,9 @@ class SITargetLowering final : public AMDGPUTargetLowering {
   bool shouldEmitPCReloc(const GlobalValue *GV) const;
 
 public:
-  SITargetLowering(const TargetMachine &tm, const SISubtarget &STI);
+  SITargetLowering(const TargetMachine &tm, const GCNSubtarget &STI);
 
-  const SISubtarget *getSubtarget() const;
+  const GCNSubtarget *getSubtarget() const;
 
   bool isFPExtFoldable(unsigned Opcode, EVT DestVT, EVT SrcVT) const override;
 
@@ -268,7 +274,10 @@ public:
                          EVT VT) const override;
   MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override;
   bool isFMAFasterThanFMulAndFAdd(EVT VT) const override;
+  SDValue splitUnaryVectorOp(SDValue Op, SelectionDAG &DAG) const;
+  SDValue splitBinaryVectorOp(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
+
   void ReplaceNodeResults(SDNode *N, SmallVectorImpl<SDValue> &Results,
                           SelectionDAG &DAG) const override;
 
@@ -297,6 +306,9 @@ public:
                                      const APInt &DemandedElts,
                                      const SelectionDAG &DAG,
                                      unsigned Depth = 0) const override;
+
+  bool isSDNodeSourceOfDivergence(const SDNode *N,
+    FunctionLoweringInfo *FLI, DivergenceAnalysis *DA) const override;
 };
 
 } // End namespace llvm

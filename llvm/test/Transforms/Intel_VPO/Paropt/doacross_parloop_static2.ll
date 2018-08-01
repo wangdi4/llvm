@@ -47,7 +47,7 @@ entry:
 ; TFORM-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() {{.*}}
 ; TFORM-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.ORDERED"(i32 2), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SCHEDULE.STATIC"(i32 2), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"([5 x [4 x i32]]** %v_ptr.addr) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.ORDERED"(i32 2), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SCHEDULE.STATIC"(i32 2), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"([5 x [4 x i32]]** %v_ptr.addr) ]
 ; #pragma omp parallel for ordered(2) schedule(static,2)
 ; TFORM: call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID:[a-zA-Z._0-9]*]], i32 1, { i64, i64, i64 }* %{{[a-zA-Z._0-9]*}})
 ; TFORM-NEXT: call void @__kmpc_for_static_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]], i32 33, i32* %is.last, i32* %lower.bnd, i32* %upper.bnd, i32* %stride, i32 1, i32 2)

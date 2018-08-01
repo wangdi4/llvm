@@ -54,7 +54,7 @@ omp.precond.then:                                 ; preds = %entry
   br label %DIR.OMP.PARALLEL.LOOP.1
 
 DIR.OMP.PARALLEL.LOOP.1:                          ; preds = %omp.precond.then
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(float** %output.addr), "QUAL.OMP.SHARED"(float** %image.addr), "QUAL.OMP.SHARED"(float** %filter.addr), "QUAL.OMP.SHARED"(i32* %conv1) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(float** %output.addr), "QUAL.OMP.SHARED"(float** %image.addr), "QUAL.OMP.SHARED"(float** %filter.addr), "QUAL.OMP.SHARED"(i32* %conv1) ]
   br label %DIR.OMP.PARALLEL.LOOP.115
 
 DIR.OMP.PARALLEL.LOOP.115:                        ; preds = %DIR.OMP.PARALLEL.LOOP.1

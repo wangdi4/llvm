@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -53,11 +54,12 @@ WRegionCollection WRegionCollectionAnalysis::run(Function &F,
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &AA = AM.getResult<AAManager>(F);
 #if INTEL_CUSTOMIZATION
   auto *HIRF = AM.getCachedResult<loopopt::HIRFrameworkAnalysis>(F);
-  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, HIRF);
+  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA, HIRF);
 #else
-  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI);
+  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA);
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionAnalysis::run: " << F.getName()
@@ -73,6 +75,7 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(WRegionCollectionWrapperPass, "vpo-wrncollection",
                     "VPO Work-Region Collection", false, true)
 
@@ -95,6 +98,7 @@ void WRegionCollectionWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<AAResultsWrapperPass>();
 }
 
 bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
@@ -107,12 +111,14 @@ bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
 #if INTEL_CUSTOMIZATION
   auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();
-  WRC.reset( new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI,
+  WRC.reset(
+      new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA,
                             HIRFA != nullptr ? &HIRFA->getHIR() : nullptr));
 #else
-  WRC.reset( new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI));
+  WRC.reset(new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA));
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionWrapperPass::runOnFunction: "
@@ -342,13 +348,17 @@ WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
                                      LoopInfo *LI, ScalarEvolution *SE,
                                      const TargetTransformInfo *TTI,
                                      AssumptionCache *AC,
-#if INTEL_CUSTOMIZATION
                                      const TargetLibraryInfo *TLI,
+#if INTEL_CUSTOMIZATION
+                                     AliasAnalysis *AA,
                                      loopopt::HIRFramework *HIRF)
-    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), HIRF(HIRF) {}
+    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
+      HIRF(HIRF) {
+}
 #else
-                                     const TargetLibraryInfo *TLI)
-    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI) {}
+                                     AliasAnalysis *AA)
+    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA) {
+}
 #endif // INTEL_CUSTOMIZATION
 
 void WRegionCollection::buildWRGraph(InputIRKind IR) {

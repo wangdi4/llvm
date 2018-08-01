@@ -2,7 +2,7 @@
 ; This test verifies only candidate selection for field reordering
 ; transformation based on padding heuristic.
 
-;  RUN: opt < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Selected based on padding heuristic: struct.test
 

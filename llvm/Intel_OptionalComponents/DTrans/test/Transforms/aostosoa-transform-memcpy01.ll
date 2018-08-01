@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; The test checks the transformation by the AOS-to-SOA transformation for
 ; memcpy calls.
@@ -21,7 +21,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; Use memcpy with the size of one structure element
 define void @test01(%struct.test01* %in1, %struct.test01* %in2) {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
 
   %ptr1 = bitcast %struct.test01* %in1 to i8*
   %ptr2 = bitcast %struct.test01* %in2 to i8*
@@ -55,7 +55,7 @@ define void @test01(%struct.test01* %in1, %struct.test01* %in2) {
 
 ; Use memset with the size that is a multiple of the structure element size.
 define void @test02(%struct.test01* %in1, %struct.test01* %in2, i32 %count) {
-; CHECK-LABEL: define void @test02
+; CHECK-LABEL: define internal void @test02
 
  ; Use a different variable for the memcpy param than the variable that gets
  ; modified for this test.
@@ -100,7 +100,7 @@ define void @test02(%struct.test01* %in1, %struct.test01* %in2, i32 %count) {
 ; Test with partial memcpy from indexed elements, such as:
 ;   memcpy(&in1[0].y, &in[2].y, 8)
 define void @test03(%struct.test01* %in1) {
-; CHECK-LABEL: define void @test03
+; CHECK-LABEL: define internal void @test03
 
   %dest_addr = getelementptr %struct.test01, %struct.test01* %in1, i64 0, i32 1
   %src_addr = getelementptr %struct.test01, %struct.test01* %in1, i64 2, i32 1

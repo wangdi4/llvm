@@ -14,7 +14,7 @@
 // [ORIGINAL]                       [AFTER ScalarRepl Array]
 //                                  t0 = A[0];
 // for (int i=0;i<=100;++i) {       for (int i = 0; i <= 100; ++i) {
-//   B[i] = A[i] + A[i1];             t1   = A[i+1];
+//   B[i] = A[i] + A[i+1];            t1   = A[i+1];
 //}                                   B[i] = t0 + t1;
 //                                    t0   = t1;
 //                                  }
@@ -128,9 +128,6 @@ const std::string ScalarReplTempName = "scalarepl";
 const std::string ScalarReplCopyName = "copy";
 const std::string ScalarReplLoadName = "load";
 const std::string ScalarReplStoreName = "store";
-const unsigned ScalarReplDepDistThresholdDefX64 = 5;
-const unsigned ScalarReplDepDistThresholdDefX86 = 2;
-const unsigned ScalarReplMaxNumReg = 8;
 
 // Disable the HIR Scalar Replacement of Array Transformation:
 // (default is false)
@@ -138,21 +135,15 @@ static cl::opt<bool> DisableHIRScalarReplArray(
     "disable-hir-scalarrepl-array", cl::init(false), cl::Hidden,
     cl::desc("Disable HIR Scalar Replacement of Array (HSRA) Transformation"));
 
-// Threshold for Max allowed Dependence Distance on x86
-static cl::opt<unsigned> HIRScalarReplArrayDepDistThresholdX86(
-    "hir-scalarrepl-array-depdist-threshold-x86",
-    cl::init(ScalarReplDepDistThresholdDefX86), cl::Hidden,
-    cl::desc(
-        "Dependence Distance Threshold for HIR Scalar Replacement of Array "
-        "Transformation on X86 (32b) platform"));
+// Threshold for max allowed dependence distance in a reference group.
+static cl::opt<unsigned> HIRScalarReplArrayDepDistThreshold(
+    "hir-scalarrepl-array-depdist-threshold", cl::init(8), cl::Hidden,
+    cl::desc("Dependence distance threshold for locality groups"));
 
-// Threshold for Max allowed Dependence Distance on x64
-static cl::opt<unsigned> HIRScalarReplArrayDepDistThresholdX64(
-    "hir-scalarrepl-array-depdist-threshold-x64",
-    cl::init(ScalarReplDepDistThresholdDefX64), cl::Hidden,
-    cl::desc(
-        "Dependence Distance Threshold for HIR Scalar Replacement of Array "
-        "Transformation on X64 (64b) platform"));
+// Threshold for number of registers which can be used.
+static cl::opt<unsigned> HIRScalarReplArrayNumRegThreshold(
+    "hir-scalarrepl-array-num-reg-threshold", cl::init(100), cl::Hidden,
+    cl::desc("Threshold for number of registers which can be used per loop."));
 
 STATISTIC(HIRScalarReplArrayPerformed,
           "Number of HIR Scalar Replacement of Array (HSRA) Performed");
@@ -227,7 +218,7 @@ MemRefGroup::MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA)
   assert(Ret && "Expect DepDist exist\n");
   (void)Ret;
   uint64_t AbsMaxDepDist = std::abs(MaxDepDist);
-  assert((AbsMaxDepDist <= HSRA->ScalarReplArrayMaxDepDist) &&
+  assert((AbsMaxDepDist <= HIRScalarReplArrayDepDistThreshold) &&
          "Expect MaxDepDist within bound\n");
 
   // set MaxDepDist:
@@ -905,26 +896,10 @@ HIRScalarReplArray::HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
     : HIRF(HIRF), HDDA(HDDA), HLA(HLA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
       DDRU(HIRF.getDDRefUtils()), CEU(HIRF.getCanonExprUtils()) {
 
+  // TODO: set platform specific thresholds.
   // Check whether the target is an X86 (32b) or X64 (64b) platform
-  llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
-  Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
-
-  // Adjust default parameter(s) according to current platform
-  if (Is32Bit) {
-    ScalarReplArrayMaxDepDist = HIRScalarReplArrayDepDistThresholdX86;
-  } else {
-    ScalarReplArrayMaxDepDist = HIRScalarReplArrayDepDistThresholdX64;
-  }
-}
-
-bool HIRScalarReplArray::handleCmdlineArgs() {
-  // Check: ScalarReplArrayMaxDepDist is within bound
-  if (ScalarReplArrayMaxDepDist > ScalarReplMaxNumReg) {
-    LLVM_DEBUG(dbgs() << "ScalarReplArrayMaxDepDist is out of bound\n ");
-    return false;
-  }
-
-  return true;
+  // llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
+  // Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
 }
 
 bool HIRScalarReplArray::run() {
@@ -932,11 +907,6 @@ bool HIRScalarReplArray::run() {
     LLVM_DEBUG(
         dbgs() << "HIR Scalar Replacement of Array Transformation Disabled "
                   "or Skipped\n");
-    return false;
-  }
-
-  bool CmdLineOptions = handleCmdlineArgs();
-  if (!CmdLineOptions) {
     return false;
   }
 
@@ -1084,8 +1054,8 @@ bool HIRScalarReplArray::checkIV(const RegDDRef *Ref,
 bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
   // Collect and group RegDDRefs:Don't sort the groups
   RefGroupVecTy Groups;
-  HIRLoopLocality::populateTemporalLocalityGroups(Lp, ScalarReplArrayMaxDepDist,
-                                                  Groups);
+  HIRLoopLocality::populateTemporalLocalityGroups(
+      Lp, HIRScalarReplArrayDepDistThreshold, Groups);
   LLVM_DEBUG(DDRefGrouping::dump(Groups));
 
   // Examine each individual group, validate it, and save only the good ones.
@@ -1116,7 +1086,8 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
 
 bool HIRScalarReplArray::checkAndUpdateQuota(MemRefGroup &MRG,
                                              unsigned &NumGPRsUsed) const {
-  bool Result = (NumGPRsUsed + MRG.getNumTemps() <= ScalarReplArrayMaxDepDist);
+  bool Result =
+      (NumGPRsUsed + MRG.getNumTemps() <= HIRScalarReplArrayNumRegThreshold);
   if (Result) {
     NumGPRsUsed += MRG.getNumTemps();
   }

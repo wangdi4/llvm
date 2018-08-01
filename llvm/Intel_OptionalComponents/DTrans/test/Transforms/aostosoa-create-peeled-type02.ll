@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
 
 ; This test verifies the basic functionality for creating a peeled type
 ; for the AOS to SOA transformation to verify that the transformation
@@ -33,7 +33,7 @@ define void @test01() {
   ret void
 }
 ; Verify that a scalar integer is now used for the local.
-; CHECK: define void @test01()
+; CHECK define internal void@test01()
 ; CHECK:   %local1 = alloca i64
 ; CHECK:   %local2 = alloca i64
 

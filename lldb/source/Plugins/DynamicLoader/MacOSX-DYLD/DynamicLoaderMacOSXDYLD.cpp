@@ -693,7 +693,8 @@ bool DynamicLoaderMacOSXDYLD::ReadImageInfos(
       // don't resolve the path
       if (error.Success()) {
         const bool resolve_path = false;
-        image_infos[i].file_spec.SetFile(raw_path, resolve_path);
+        image_infos[i].file_spec.SetFile(raw_path, resolve_path,
+                                         FileSpec::Style::native);
       }
     }
     return true;
@@ -892,12 +893,12 @@ uint32_t DynamicLoaderMacOSXDYLD::ParseLoadCommands(const DataExtractor &data,
           const lldb::offset_t name_offset =
               load_cmd_offset + data.GetU32(&offset);
           const char *path = data.PeekCStr(name_offset);
-          lc_id_dylinker->SetFile(path, true);
+          lc_id_dylinker->SetFile(path, true, FileSpec::Style::native);
         }
         break;
 
       case llvm::MachO::LC_UUID:
-        dylib_info.uuid.SetBytes(data.GetData(&offset, 16));
+        dylib_info.uuid = UUID::fromOptionalData(data.GetData(&offset, 16), 16);
         break;
 
       default:
@@ -1109,7 +1110,7 @@ bool DynamicLoaderMacOSXDYLD::GetSharedCacheInformation(
         uuid_t shared_cache_uuid;
         if (m_process->ReadMemory(sharedCacheUUID_address, shared_cache_uuid,
                                   sizeof(uuid_t), err) == sizeof(uuid_t)) {
-          uuid.SetBytes(shared_cache_uuid);
+          uuid = UUID::fromOptionalData(shared_cache_uuid, 16);
           if (uuid.IsValid()) {
             using_shared_cache = eLazyBoolYes;
           }

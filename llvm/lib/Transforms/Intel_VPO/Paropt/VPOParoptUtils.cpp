@@ -2729,7 +2729,6 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
   Loop *L = W->getWRNLoopInfo().getLoop();
 
   Value *RightValue = WRegionUtils::getOmpLoopUpperBound(L);
-  RightValue = VPOParoptUtils::cloneInstructions(RightValue, InsertPt);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
   IntegerType *UpperBoundTy =

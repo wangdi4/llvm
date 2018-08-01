@@ -79,7 +79,7 @@ public:
 
   // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransAnalysisInfo &Info,
-               const TargetLibraryInfo &TLI);
+               const TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo);
 
 private:
   SafetyData ReorderFieldsSafetyConditions;

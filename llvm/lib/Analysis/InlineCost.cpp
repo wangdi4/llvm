@@ -2435,8 +2435,7 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
         if (ArgCnt > MinArgRefs) {
           break;
         }
-        if (isa<GetElementPtrInst>(I)) {
-          GetElementPtrInst *GEPI = dyn_cast_or_null<GetElementPtrInst>(&I);
+        if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
           Value *PtrOp = GEPI->getPointerOperand();
           if (PtrOp) {
             if (isa<PHINode>(PtrOp)) {
@@ -3113,6 +3112,11 @@ InlineCost llvm::getInlineCost(
   // Don't inline this call if the caller has the optnone attribute.
   if (Caller->hasFnAttribute(Attribute::OptimizeNone))
     return llvm::InlineCost::getNever(NinlrOptNone); // INTEL
+
+  // Don't inline a function that treats null pointer as valid into a caller
+  // that does not have this attribute.
+  if (!Caller->nullPointerIsDefined() && Callee->nullPointerIsDefined())
+    return llvm::InlineCost::getNever(NinlrNullPtrMismatch);
 
   // Don't inline functions which can be interposed at link-time.  Don't inline
   // functions marked noinline or call sites marked noinline.

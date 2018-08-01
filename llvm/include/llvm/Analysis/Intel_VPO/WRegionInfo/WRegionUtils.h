@@ -324,7 +324,7 @@ public:
   /// \brief Return true if destructors are needed for privatized variables
   static bool needsDestructors(WRegionNode *W);
 
-  /// \brief Returns \b true if \p W contains a '#pragma omp cancel' construct
+  /// Returns \b true if \p W contains a `\#pragma omp cancel` construct
   /// directly inside its region; \b false otherwise.
   static bool hasCancelConstruct(WRegionNode *W);
 };

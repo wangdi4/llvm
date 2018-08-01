@@ -203,6 +203,11 @@ SBStructuredData SBTarget::GetStatistics() {
 }
 
 SBProcess SBTarget::LoadCore(const char *core_file) {
+  lldb::SBError error; // Ignored
+  return LoadCore(core_file, error);
+}
+
+SBProcess SBTarget::LoadCore(const char *core_file, lldb::SBError &error) {
   SBProcess sb_process;
   TargetSP target_sp(GetSP());
   if (target_sp) {
@@ -210,9 +215,14 @@ SBProcess SBTarget::LoadCore(const char *core_file) {
     ProcessSP process_sp(target_sp->CreateProcess(
         target_sp->GetDebugger().GetListener(), "", &filespec));
     if (process_sp) {
-      process_sp->LoadCore();
-      sb_process.SetSP(process_sp);
+      error.SetError(process_sp->LoadCore());
+      if (error.Success())
+        sb_process.SetSP(process_sp);
+    } else {
+      error.SetErrorString("Failed to create the process");
     }
+  } else {
+    error.SetErrorString("SBTarget is invalid");
   }
   return sb_process;
 }
@@ -491,7 +501,8 @@ lldb::SBProcess SBTarget::AttachToProcessWithName(
 
   if (name && target_sp) {
     ProcessAttachInfo attach_info;
-    attach_info.GetExecutableFile().SetFile(name, false);
+    attach_info.GetExecutableFile().SetFile(name, false,
+                                            FileSpec::Style::native);
     attach_info.SetWaitForLaunch(wait_for);
     if (listener.IsValid())
       attach_info.SetListener(listener.GetSP());
@@ -1458,10 +1469,10 @@ lldb::SBModule SBTarget::AddModule(const char *path, const char *triple,
   if (target_sp) {
     ModuleSpec module_spec;
     if (path)
-      module_spec.GetFileSpec().SetFile(path, false);
+      module_spec.GetFileSpec().SetFile(path, false, FileSpec::Style::native);
 
     if (uuid_cstr)
-      module_spec.GetUUID().SetFromCString(uuid_cstr);
+      module_spec.GetUUID().SetFromStringRef(uuid_cstr);
 
     if (triple)
       module_spec.GetArchitecture() = Platform::GetAugmentedArchSpec(
@@ -1470,7 +1481,8 @@ lldb::SBModule SBTarget::AddModule(const char *path, const char *triple,
       module_spec.GetArchitecture() = target_sp->GetArchitecture();
 
     if (symfile)
-      module_spec.GetSymbolFileSpec().SetFile(symfile, false);
+      module_spec.GetSymbolFileSpec().SetFile(symfile, false,
+                                              FileSpec::Style::native);
 
     sb_module.SetSP(target_sp->GetSharedModule(module_spec));
   }
@@ -1530,6 +1542,18 @@ SBModule SBTarget::FindModule(const SBFileSpec &sb_file_spec) {
     sb_module.SetSP(target_sp->GetImages().FindFirstModule(module_spec));
   }
   return sb_module;
+}
+
+SBSymbolContextList
+SBTarget::FindCompileUnits(const SBFileSpec &sb_file_spec) {
+  SBSymbolContextList sb_sc_list;
+  const TargetSP target_sp(GetSP());
+  if (target_sp && sb_file_spec.IsValid()) {
+    const bool append = true;
+    target_sp->GetImages().FindCompileUnits(*sb_file_spec,
+                                            append, *sb_sc_list);
+  }
+  return sb_sc_list;
 }
 
 lldb::ByteOrder SBTarget::GetByteOrder() {

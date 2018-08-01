@@ -225,7 +225,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
 
   // Update attached blob DDRefs' def level first.
   for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
-    auto CE = (*It)->getMutableSingleCanonExpr();
+    auto CE = (*It)->getSingleCanonExpr();
 
     if (CE->isNonLinear()) {
       continue;
@@ -1066,9 +1066,7 @@ bool RegDDRef::containsUndef() const {
 }
 
 bool RegDDRef::isNonLinear(void) const {
-  // Check BaseCE if available
-  const CanonExpr *BaseCE = getBaseCE();
-  if (BaseCE && BaseCE->isNonLinear()) {
+  if (hasGEPInfo() && getBaseCE()->isNonLinear()) {
     return true;
   }
 
@@ -1245,9 +1243,7 @@ bool RegDDRef::hasIV(unsigned Level) const {
 unsigned RegDDRef::getDefinedAtLevel() const {
   unsigned MaxLevel = 0;
 
-  auto BaseCE = getBaseCE();
-
-  if (BaseCE && BaseCE->isNonLinear()) {
+  if (hasGEPInfo() && getBaseCE()->isNonLinear()) {
     return NonLinearLevel;
   }
 

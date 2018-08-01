@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; This tests the AOS-to-SOA transform on cases of a byte-flattened GEP being
 ; passed to a select instruction.
@@ -25,7 +25,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; pointer type. This case is equivalent to the simple cases where the
 ; pointer can be traced back through a bitcast to find the original pointer.
 define void @test01() {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
 
   %var = load %struct.test01*, %struct.test01** @g_test01ptr
 
@@ -63,7 +63,7 @@ define void @test01() {
 ; is equivalent to the simple cases where the pointer can be traced back
 ; through a bitcast to find the original pointer.
 define void @test02() {
-; CHECK-LABEL: define void @test02
+; CHECK-LABEL: define internal void @test02
 
   %var = load %struct.test01*, %struct.test01** @g_test01ptr
 
@@ -98,7 +98,7 @@ define void @test02() {
 ; tracking to the source of the select instruction to find the array element
 ; being accessed.
 define void @test03() {
-; CHECK-LABEL: define void @test03
+; CHECK-LABEL: define internal void @test03
 
   %var1 = load %struct.test01*, %struct.test01** @g_test01ptr
   %var2 = load %struct.test01*, %struct.test01** @g_test01ptr

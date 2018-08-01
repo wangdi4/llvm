@@ -13,6 +13,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -37,11 +38,23 @@ using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+// Debug type for basic local pointer analysis output.
+#define DTRANS_LPA "dtrans-lpa"
+
 // Debug type for verbose local pointer analysis output.
-#define LPA_VERBOSE "dtrans-lpa-verbose"
+#define DTRANS_LPA_VERBOSE "dtrans-lpa-verbose"
+
+// Debug type for verbose call graph computations.
+#define DTRANS_CG "dtrans-cg"
 
 // Debug type for verbose partial pointer load/store analysis output.
 #define DTRANS_PARTIALPTR "dtrans-partialptr"
+
+// Debug type for verbose field single value analysis output.
+#define DTRANS_FSV "dtrans-fsv"
+
+// Debug type for verbose field single alloc function analysis output.
+#define DTRANS_FSAF "dtrans-fsaf"
 
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
@@ -66,11 +79,37 @@ static cl::list<std::string> DTransNoSafetyChecksList(
     cl::desc("Suppress dtrans safety violations for aggregate types."),
     cl::ReallyHidden);
 
+// Maximum number of callsites before we disable DTransAnalysis
+static cl::opt<unsigned> DTransMaxCallsiteCount("dtrans-maxcallsitecount",
+                                                cl::init(150000),
+                                                cl::ReallyHidden);
+
+// Maximum number of instructions before we disable DTransAnalysis
+static cl::opt<unsigned> DTransMaxInstructionCount("dtrans-maxinstructioncount",
+                                                   cl::init(1500000),
+                                                   cl::ReallyHidden);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints information that is saved during analysis about specific function
 /// calls (malloc, free, memset, etc) that may be useful to the transformations.
 static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
                                               cl::ReallyHidden);
+
+// ';'-separated list of items:
+// - <function name>
+//  Direct calls to function <function name> is considered as free/delete.
+// - <type name>,<offset>
+//  See DTransAll::analyzeForIndirectStatus
+static cl::list<std::string> DTransFreeFunctions("dtrans-free-functions",
+                                                 cl::ReallyHidden);
+
+// ';'-separated list of items:
+// - <function name>
+//  Direct calls to function <function name> is considered as malloc/new.
+// - <type name>,<offset>
+//  See DTransAll::analyzeForIndirectStatus
+static cl::list<std::string> DTransMallocFunctions("dtrans-malloc-functions",
+                                                   cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //
@@ -710,11 +749,18 @@ private:
 //
 class DTransAllocAnalyzer {
 public:
-  DTransAllocAnalyzer(const TargetLibraryInfo &TLI) : TLI(TLI) {}
-  bool isMallocPostDom(Function *F);
-  bool isFreePostDom(Function *F);
+  DTransAllocAnalyzer(const TargetLibraryInfo &TLI, const Module &M)
+      : TLI(TLI) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    parseListOptions(M);
+#endif
+    Int8PtrTy = Type::getInt8PtrTy(M.getContext(), 0 /*AS*/);
+  }
+  bool isMallocPostDom(CallSite CS);
+  bool isFreePostDom(CallSite CS);
 
 private:
+  typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
   // An enum recording the current status of a function. The status is
   // updated each time we need to know if the function is isMallocPostDom()
   // or isFreePostDom(), until the function is determined to be one or
@@ -729,6 +775,9 @@ private:
   };
   // Mapping for the AllocStatus of each Function we have queried.
   std::map<Function *, AllocStatus> LocalMap;
+  // Offsets inside vtable.
+  // Key is (pointer to some type, true = allocation/false = deallocation).
+  std::map<PtrBoolPair, int32_t> VTableOffs;
   // A set to hold visited BasicBlocks.  This is a temporary set used
   // while we are determining the AllocStatus of a Function.
   SmallPtrSet<BasicBlock *, 20> VisitedBlocks;
@@ -738,6 +787,8 @@ private:
   SmallPtrSet<BasicBlock *, 4> SkipTestBlocks;
   // Needed to detrmine if a function is malloc()
   const TargetLibraryInfo &TLI;
+  // Needed to check argument types
+  PointerType *Int8PtrTy;
 
   bool isSkipTestBlock(BasicBlock *BB) const;
   bool isVisitedBlock(BasicBlock *BB) const;
@@ -747,15 +798,21 @@ private:
   void visitNullPtrBlocks(Function *F);
 
   bool mallocBasedGEPChain(GetElementPtrInst *GV, GetElementPtrInst **GBV,
-                           CallInst **GCI) const;
+                           CallSite *GCI) const;
   bool mallocOffset(Value *V, int64_t *offset) const;
-  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t *Result) const;
+  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t Offset,
+                   int64_t *Result) const;
   bool returnValueIsMallocAddress(Value *RV, BasicBlock *BB);
   bool analyzeForMallocStatus(Function *F);
 
   bool hasFreeCall(BasicBlock *BB) const;
   bool isPostDominatedByFreeCall(BasicBlock *BB);
   bool analyzeForFreeStatus(Function *F);
+
+  bool analyzeForIndirectStatus(CallSite CS, bool Alloc);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void parseListOptions(const Module &M);
+#endif
 };
 
 //
@@ -775,10 +832,21 @@ bool DTransAllocAnalyzer::isVisitedBlock(BasicBlock *BB) const {
 }
 
 //
-// Return true if 'F' is post-dominated by a call to malloc() on all paths
+// Return true if 'CS' is post-dominated by a call to malloc() on all paths
 // that do not include skip blocks.
+// Trivial wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isMallocPostDom(Function *F) {
+bool DTransAllocAnalyzer::isMallocPostDom(CallSite CS) {
+  // If the Function wasn't found, then there is a possibility
+  // that it is inside a BitCast. In this case we need
+  // to strip the pointer casting from the Value and then
+  // access the Function.
+  Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+
+  if (!F)
+    // Check for allocation routine.
+    return analyzeForIndirectStatus(CS, true);
+
   AllocStatus AS = LocalMap[F];
   switch (AS) {
   case AKS_Malloc:
@@ -806,10 +874,21 @@ bool DTransAllocAnalyzer::isMallocPostDom(Function *F) {
 }
 
 //
-// Return true if 'F' is post-dominated by a call to free() on all paths
-// that do not include skip blocks.
+// Return true if 'CS' is post-dominated by a call to free() on all paths that
+// do not include skip blocks.
+// Trivial wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isFreePostDom(Function *F) {
+bool DTransAllocAnalyzer::isFreePostDom(CallSite CS) {
+  // If the Function wasn't found, then there is a possibility
+  // that it is inside a BitCast. In this case we need
+  // to strip the pointer casting from the Value and then
+  // access the Function.
+  Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+
+  if (!F)
+    // Check for deallocation routine.
+    return analyzeForIndirectStatus(CS, false);
+
   AllocStatus AS = LocalMap[F];
   switch (AS) {
   case AKS_Free:
@@ -868,8 +947,8 @@ int DTransAllocAnalyzer::skipTestSuccessor(BranchInst *BI) const {
     return -1;
   if (isa<Argument>(V))
     return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
-  if (auto CCI = dyn_cast<CallInst>(V))
-    if (auto Kind = dtrans::getAllocFnKind(CCI, TLI))
+  if (auto CS = CallSite(V))
+    if (auto Kind = dtrans::getAllocFnKind(CS, TLI))
       if (Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New)
         return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
   return -1;
@@ -933,9 +1012,9 @@ void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
 }
 
 //
-// Return true if 'GV' is the root of a malloc based GEP chain. This
-// means that if we keep following the pointer operand for a series of
-// GEP instructions, we will eventually get to a malloc() call.
+// Return true if 'GV' is the root of a malloc based byte-flattened GEP chain.
+// This means that if we keep following the pointer operand for a series of
+// byte flattened GEP instructions, we will eventually get to a malloc() call.
 //
 // For example:
 //   %5 = tail call noalias i8* @malloc(i64 %4)
@@ -949,24 +1028,26 @@ void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
 //
 bool DTransAllocAnalyzer::mallocBasedGEPChain(GetElementPtrInst *GV,
                                               GetElementPtrInst **GBV,
-                                              CallInst **GCI) const {
+                                              CallSite *GCI) const {
   GetElementPtrInst *V;
   for (V = GV; isa<GetElementPtrInst>(V->getPointerOperand());
-       V = dyn_cast<GetElementPtrInst>(V->getPointerOperand())) {
+       V = cast<GetElementPtrInst>(V->getPointerOperand())) {
     if (!V->getSourceElementType()->isIntegerTy(8))
       return false;
   }
   if (!V->getSourceElementType()->isIntegerTy(8))
     return false;
-  auto CI = dyn_cast<CallInst>(V->getPointerOperand());
-  if (!CI)
-    return false;
-  auto Kind = dtrans::getAllocFnKind(CI, TLI);
-  if (Kind != dtrans::AK_Malloc && Kind != dtrans::AK_New)
-    return false;
-  *GBV = V;
-  *GCI = CI;
-  return true;
+
+  Value *BasePtr = V->getPointerOperand();
+  if (auto CS = CallSite(BasePtr)) {
+    auto Kind = dtrans::getAllocFnKind(CS, TLI);
+    if (Kind != dtrans::AK_Malloc && Kind != dtrans::AK_New)
+      return false;
+    *GBV = V;
+    *GCI = CS;
+    return true;
+  }
+  return false;
 }
 
 //
@@ -1019,26 +1100,38 @@ static bool isLowerBitMask(int64_t Value) {
 
 //
 // Return true if we can find an upper bound for the amount 'V' is less than
-// the address computed by the 'GBV'.
+// the address computed by the sequence of GEPs starting with 'GBV', and if
+// the sequence of GEPs starting with 'GBV' compute an offset equal to 'Offset'.
+//
+// If we return true, we set '*Result' to the value of the upper bound.
 //
 // For example:
 //
-//  %8 = getelementptr inbounds i8, i8* %5, i64 27
+//  %6 = getelementptr inbounds i8, i8* %5, i64 15
+//  %7 = getelementptr inbounds i8, i8* %6, i64 8
+//  %8 = getelementptr inbounds i8, i8* %7, i64 4
 //  %9 = ptrtoint i8* %8 to i64
 //  %10 = and i64 %9, 15
 //  %11 = sub nsw i64 0, %10
 //  %12 = getelementptr inbounds i8, i8* %8, i64 %11
 //
-// If 'V' here is %11 and 'GBV' is %8, then the most that %12 can be less
+// If 'V' here is %11 and 'GBV' is %6, then the most that %12 can be less
 // than %8 is 15.
 //
-// If we return true, we set '*Result' to the value of the upper bound.
+// The sequence of GEPs starting with 'GBV' are:
+//
+//  %6 = getelementptr inbounds i8, i8* %5, i64 15
+//  %7 = getelementptr inbounds i8, i8* %6, i64 8
+//  %8 = getelementptr inbounds i8, i8* %7, i64 4
+//
+// The offset computed is 15+8+4 == 27, which should be equal to 'Offset'.
+// The value returned in '*Result' is 15.
 //
 // NOTE: mallocLimit() is a bit of a pattern match, albeit for a very
 // important case.
 //
 bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
-                                      int64_t *Result) const {
+                                      int64_t Offset, int64_t *Result) const {
   auto BIS = dyn_cast<BinaryOperator>(V);
   if (!BIS || BIS->getOpcode() != Instruction::Sub)
     return false;
@@ -1063,8 +1156,23 @@ bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
   auto PI = dyn_cast<PtrToIntInst>(W);
   if (!PI)
     return false;
-  auto GEP = dyn_cast<GetElementPtrInst>(PI->getOperand(0));
-  if (GEP != GBV)
+  int64_t LocalOffset = 0;
+  Value *NewGEP = PI->getOperand(0);
+  auto Int8PtrTy = llvm::Type::getInt8PtrTy(PI->getContext());
+  GetElementPtrInst *LastGEP = nullptr;
+  while (auto GEP = dyn_cast<GetElementPtrInst>(NewGEP)) {
+    LastGEP = GEP;
+    NewGEP = GEP->getPointerOperand();
+    if (NewGEP->getType() != Int8PtrTy)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    if (!CI)
+      return false;
+    LocalOffset += CI->getSExtValue();
+  }
+  if (LocalOffset != Offset)
+    return false;
+  if (LastGEP != GBV)
     return false;
   *Result = Limit;
   return true;
@@ -1082,8 +1190,8 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
   if (isVisitedBlock(BB))
     return false;
   VisitedBlocks.insert(BB);
-  if (auto *CI = dyn_cast<CallInst>(RV)) {
-    auto Kind = dtrans::getAllocFnKind(CI, TLI);
+  if (auto CS = CallSite(RV)) {
+    auto Kind = dtrans::getAllocFnKind(CS, TLI);
     return Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New;
   }
   if (auto *PI = dyn_cast<PHINode>(RV)) {
@@ -1104,12 +1212,12 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
   if (auto *GV = dyn_cast<GetElementPtrInst>(RV)) {
     int64_t Limit, Offset;
     GetElementPtrInst *GBV;
-    CallInst *CI;
-    if (!mallocBasedGEPChain(GV, &GBV, &CI))
+    CallSite CS;
+    if (!mallocBasedGEPChain(GV, &GBV, &CS))
       return false;
-    if (!mallocOffset(CI->getOperand(0), &Offset))
+    if (!mallocOffset(CS.getArgument(0), &Offset))
       return false;
-    if (!mallocLimit(GBV, GV->getOperand(1), &Limit))
+    if (!mallocLimit(GBV, GV->getOperand(1), Offset, &Limit))
       return false;
     return Offset >= Limit;
   }
@@ -1159,14 +1267,89 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   return rv;
 }
 
+//  Indirect calls through vtable. Matched sequence for 'allocate' is as
+//  follows.
+//      %0 = bitcast <type name>* %m to i8* (<type name>*, i64)***
+//      %vtable = load i8* (<type name>*, i64)**,
+//        i8* (<type name>*, i64)*** %0
+//      %vfn = getelementptr inbounds i8* (<type name>*, i64)*,
+//        i8* (<type name>*, i64)** %vtable, i64 <offset>
+//      %1 = load i8* (<type name>*, i64)*, i8* (<type name>*, i64)** %vfn
+//      %call = call i8* %1(<type name>* %m, i64 size)
+//
+//  Indirect calls through vtable. Matched sequence for 'deallocate' is as
+//  follows.
+//      %4 = bitcast <type name>* %m to void (<type name>*, i8*)***
+//      %vtable1 = load void (<type name>*, i8*)**,
+//          void (<type name>*, i8*)*** %4
+//      %vfn2 = getelementptr inbounds void (<type name>*, i8*)*,
+//          void (<type name>*, i8*)** %vtable1, i64 <offset>
+//      %5 = load void (<type name>*, i8*)*, void (<type name>*, i8*)** %vfn2
+//      call void %5(<type name>* %m, i8* %3)
+bool DTransAllocAnalyzer::analyzeForIndirectStatus(CallSite CS, bool Malloc) {
+
+  if (CS.getNumArgOperands() < 2)
+    return false;
+
+  // First argument is 'this' pointer.
+  Type *ObjType = CS.getArgOperand(0)->getType();
+  if (!isa<PointerType>(ObjType))
+    return false;
+
+  StructType *SObjType =
+      dyn_cast<StructType>(cast<PointerType>(ObjType)->getElementType());
+
+  if (!SObjType)
+    return false;
+
+  auto It = VTableOffs.find(PtrBoolPair(SObjType, Malloc));
+  if (It == VTableOffs.end())
+    return false;
+
+  // Check size_t or void* argument.
+  if (Malloc ? !CS.getArgOperand(1)->getType()->isIntegerTy(32) &&
+                   !CS.getArgOperand(1)->getType()->isIntegerTy(64)
+             : CS.getArgOperand(1)->getType() != Int8PtrTy)
+    return false;
+
+  // Search for definition of called Value
+  auto *Callee = dyn_cast<LoadInst>(CS.getCalledValue());
+  if (!Callee)
+    return false;
+
+  auto *VFn = dyn_cast<GetElementPtrInst>(Callee->getPointerOperand());
+  int64_t IdxVal = 0;
+  if (VFn) {
+    if (VFn->getNumIndices() != 1)
+      return false;
+    if (auto *Opc = dyn_cast<ConstantInt>(*VFn->idx_begin()))
+      IdxVal = Opc->getSExtValue();
+    else
+      return false;
+  }
+  if (IdxVal != It->second)
+    return false;
+
+  auto *VTable = dyn_cast<LoadInst>(VFn ? VFn->getPointerOperand()
+                                        : Callee->getPointerOperand());
+  if (!VTable)
+    return false;
+
+  auto *ObjCast = dyn_cast<BitCastInst>(VTable->getPointerOperand());
+  if (!ObjCast || ObjCast->getOperand(0) != CS.getArgOperand(0))
+    return false;
+
+  return true;
+}
+
 //
 // Return true if 'BB' has a call to free().
 //
 bool DTransAllocAnalyzer::hasFreeCall(BasicBlock *BB) const {
   for (auto BI = BB->rbegin(), BE = BB->rend(); BI != BE;) {
     Instruction *I = &*BI++;
-    if (auto *CI = dyn_cast<CallInst>(I))
-      if (dtrans::isFreeFn(CallSite(CI), TLI))
+    if (auto CS = CallSite(I))
+      if (dtrans::isFreeFn(CS, TLI))
         return true;
   }
   return false;
@@ -1232,6 +1415,93 @@ bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
                       << " No return post-dominated by free\n");
   return rv;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void DTransAllocAnalyzer::parseListOptions(const Module &M) {
+  auto &LM = LocalMap;
+  auto &VT = VTableOffs;
+
+  auto F = [&LM, &VT, &M](cl::list<std::string> &Options, AllocStatus AKS,
+                          bool Malloc, StringRef Banner) -> void {
+    if (Options.empty())
+      return;
+
+    LLVM_DEBUG(dbgs() << "IPO: DTrans " << Banner << " functions\n");
+
+    for (auto &Opt : Options) {
+      if (Opt.empty())
+        continue;
+
+      LLVM_DEBUG(dbgs() << "\tList: " << Opt << "\n");
+
+      StringRef OptRef(Opt);
+      SmallVector<StringRef, 8> ListRecords;
+      OptRef.split(ListRecords, ';');
+
+      for (auto Record : ListRecords) {
+
+        SmallVector<StringRef, 2> RecordItem;
+        Record.split(RecordItem, ',');
+
+        if (RecordItem.size() == 0)
+          continue;
+
+        if (RecordItem.size() > 2) {
+          LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                            << "> has a wrong format. Should be "
+                               "<funcname> or <typename,offset>\n");
+          continue;
+        }
+
+        if (RecordItem.size() == 1) {
+          // Explicit function name case.
+          if (auto *F = M.getFunction(RecordItem[0]))
+            LM[F] = AKS;
+          else
+            LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                              << "> specifies invalid function name '"
+                              << RecordItem[0] << "'\n");
+          continue;
+        }
+
+        // Indirect call through vptr.
+        int64_t Offset = -1;
+        if (RecordItem[1].getAsInteger(10, Offset)) {
+          LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                            << "> has a wrong format. Should be "
+                               "<funcname> or <typename,offset>\n");
+          continue;
+        }
+
+        if (auto *Ty = M.getTypeByName(RecordItem[0])) {
+          if (Ty->element_begin() == Ty->element_end() ||
+              !isa<PointerType>(Ty->getElementType(0))) {
+            LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                              << "> specifies type '" << Ty
+                              << "', "
+                                 "which does not have pointer first field\n");
+            continue;
+          }
+
+          auto Key = PtrBoolPair(Ty, Malloc);
+          if (VT.find(Key) != VT.end())
+            LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                              << "> overrides previous " << Banner
+                              << " for type '" << Ty << "' \n");
+
+          VT[Key] = Offset;
+        } else
+          LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record
+                            << "> specifies invalid type name '"
+                            << RecordItem[0] << "'\n");
+      }
+    }
+  };
+
+  F(DTransFreeFunctions, AKS_Free, false, "free");
+  F(DTransMallocFunctions, AKS_Malloc, true, "malloc");
+}
+#endif
 
 // End of member functions for class DTransAllocAnalyzer
 
@@ -1303,8 +1573,15 @@ private:
     populateDependencyStack(V, DependentVals);
 
     // This first line is intentionally left non-verbose.
-    LLVM_DEBUG(dbgs() << "analyzeValue " << *V << "\n");
-    DEBUG_WITH_TYPE(LPA_VERBOSE, dumpDependencyStack(DependentVals));
+    DEBUG_WITH_TYPE(DTRANS_LPA, {
+      dbgs() << "analyzeValue ";
+      if (isa<Function>(V))
+        V->printAsOperand(dbgs());
+      else
+        dbgs() << *V;
+      dbgs() << "\n";
+    });
+    DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, dumpDependencyStack(DependentVals));
 
     // Now attempt to analyze each of these values. Some may be left in a
     // partially analyzed state, but they will be fully resolved when
@@ -1315,20 +1592,20 @@ private:
       LocalPointerInfo &DepInfo = LocalMap[Dep];
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo.getAnalyzed()) {
-        DEBUG_WITH_TYPE(LPA_VERBOSE,
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                         dbgs() << "  Already analyzed: " << *Dep << "\n");
         continue;
       }
       analyzeValueImpl(Dep, DepInfo);
     }
 
-    DEBUG_WITH_TYPE(LPA_VERBOSE, {
+    DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, {
       if (Info.isPartialAnalysis())
         dbgs() << " Analysis completed but was reported as partial.\n";
     });
     // These are intentionally left non-verbose.
-    LLVM_DEBUG(Info.dump());
-    LLVM_DEBUG(dbgs() << "\n");
+    DEBUG_WITH_TYPE(DTRANS_LPA, Info.dump());
+    DEBUG_WITH_TYPE(DTRANS_LPA, dbgs() << "\n");
 
     // Some of the dependencies may have reported partial analysis, but
     // by the time we get here everything will have been complete for
@@ -1352,7 +1629,8 @@ private:
     }
 
     if (isPartialPtrBitCast(V)) {
-      LLVM_DEBUG(dbgs() << "Partial pointer bitcast detected: " << *V << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA, dbgs() << "Partial pointer bitcast detected: "
+                                         << *V << "\n");
       Info.setPartialPtrLoadStore();
       Info.setAnalyzed();
       return;
@@ -1370,12 +1648,11 @@ private:
     if (isa<PointerType>(VTy))
       Info.addPointerTypeAlias(VTy);
 
-    // FIXME: Also handle invoke instructions here.
-    if (auto *CI = getCallInstIfAlloc(V)) {
+    if (auto CS = getCallSiteIfAlloc(V)) {
       // If the value we're analyzing is a call to an allocation function
       // we need to look for bitcast users so that we can proactively assign
       // the type to which the value will be cast as an alias.
-      analyzeAllocationCallAliases(CI, Info);
+      analyzeAllocationCallAliases(CS, Info);
     } else if (auto *GEP = dyn_cast<GEPOperator>(V)) {
       // If this is a GetElementPtr, figure out what element it is
       // accessing.
@@ -1384,8 +1661,9 @@ private:
       // If the value being analyzed is a load instruction the loaded value
       // may inherit some alias information from the load's pointer operand.
       analyzeLoadInstruction(Load, Info);
+    } else if (isa<ExtractValueInst>(V)) {
+      // FIXME: Also analyze extract value instructions.
     }
-    // FIXME: Also analyze extract value instructions.
 
     // If there were no unresolved dependencies, mark the info as analyzed.
     if (!Info.isPartialAnalysis())
@@ -1425,17 +1703,15 @@ private:
     return isPartialPtrLoad(Load);
   }
 
-  CallInst *getCallInstIfAlloc(Value *V) {
-    auto *CI = dyn_cast<CallInst>(V);
-    if (!CI)
-      return nullptr;
-    Function *Callee = CI->getCalledFunction();
-    auto Kind = dtrans::getAllocFnKind(CallSite(CI), TLI);
-    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(Callee))
-      Kind = dtrans::AK_Malloc;
-    if (Kind != dtrans::AK_NotAlloc)
-      return CI;
-    return nullptr;
+  CallSite getCallSiteIfAlloc(Value *V) {
+    if (auto CS = CallSite(V)) {
+      auto Kind = dtrans::getAllocFnKind(CS, TLI);
+      if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
+        Kind = dtrans::AK_Malloc;
+      if (Kind != dtrans::AK_NotAlloc)
+        return CS;
+    }
+    return CallSite();
   }
 
   // This helper function pushes a value on the back of the dependency stack
@@ -1544,9 +1820,10 @@ private:
 
     // Allocation calls have a non-trivial dependency on their uses.
     // We have a helper function to handle this case.
-    if (auto *CI = getCallInstIfAlloc(V)) {
+    if (auto CS = getCallSiteIfAlloc(V)) {
       SmallPtrSet<User *, 8> VisitedUsers;
-      addAllocUsesToDependencyStack(CI, DependentVals, VisitedUsers);
+      addAllocUsesToDependencyStack(CS.getInstruction(), DependentVals,
+                                    VisitedUsers);
     }
 
     // FIXME: Also handle invoke and extract value instructions.
@@ -1608,8 +1885,9 @@ private:
     TargetInfo.merge(OperandInfo);
     if (!OperandInfo.getAnalyzed()) {
       TargetInfo.setPartialAnalysis(true);
-      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis merged from "
-                                          << *Op << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                      dbgs()
+                          << "Incomplete analysis merged from " << *Op << "\n");
     }
   }
 
@@ -1636,15 +1914,16 @@ private:
       // incompleteness and continue.
       if (!SrcLPI.getAnalyzed()) {
         Info.setPartialAnalysis(true);
-        DEBUG_WITH_TYPE(LPA_VERBOSE,
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                         dbgs() << "Incomplete analysis collected from "
                                << *SrcVal << "\n");
       }
       // If the bitcast is part of an idiom where pointer values are copied
       // in smaller chunks, don't treat it like other bitcasts.
       if (isPartialPtrBitCast(V)) {
-        LLVM_DEBUG(dbgs() << "Partial pointer bitcast detected: " << *V
-                          << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA,
+                        dbgs() << "Partial pointer bitcast detected: " << *V
+                               << "\n");
         Info.setPartialPtrLoadStore();
         // Even if the input was partial, this is all we needed to know.
         Info.setAnalyzed();
@@ -1665,10 +1944,18 @@ private:
         // meet the element zero idiom. If it does, we want to know about all
         // of them.
         bool IsElementZeroAccess = false;
+        auto *DestTy = BC->getDestTy();
         for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet()) {
           llvm::Type *AccessedTy = nullptr;
-          if (dtrans::isElementZeroAccess(AliasTy, BC->getDestTy(),
-                                          &AccessedTy)) {
+          // If element zero is an i8* and we're casting the source value
+          // as a pointer to a pointer, that is an element zero access
+          // but it isn't reported as such because we need to recognize the
+          // i8*->(struct**) bitcast elsewhere as a potential problem.
+          if (dtrans::isElementZeroAccess(AliasTy, DestTy, &AccessedTy) ||
+              (AliasTy->isPointerTy() && DestTy->isPointerTy() &&
+               DestTy->getPointerElementType()->isPointerTy() &&
+               dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
+                                          &AccessedTy))) {
             Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
             IsElementZeroAccess = true;
           }
@@ -1707,9 +1994,9 @@ private:
       // incompleteness and continue.
       if (!BaseLPI.getAnalyzed()) {
         Info.setPartialAnalysis(true);
-        DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs()
-                                         << "Incomplete analysis derived from "
-                                         << *BasePointer << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                        dbgs() << "Incomplete analysis derived from "
+                               << *BasePointer << "\n");
       }
       Info.merge(BaseLPI);
       return;
@@ -1750,17 +2037,21 @@ private:
 
     // Get the last index argument. If we can't determine its value,
     // we can't handle this GEP.
-    // FIXME: With SCEV we might be able to handle some non-constant cases.
     // FIXME: Handle arrays with non-constant indices.
-    auto *LastArg =
-        dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1));
-    if (!LastArg)
+    if (auto *LastArg =
+            dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1))) {
+      uint64_t Idx = LastArg->getLimitedValue();
+      // Add this information to the local pointer information for the GEP.
+      Info.addElementPointee(IndexedTy, Idx);
       return;
-    uint64_t Idx = LastArg->getLimitedValue();
+    }
 
-    // Add this information to the local pointer information for the GEP.
-    Info.addElementPointee(IndexedTy, Idx);
-
+    // If the last argument is not constant and out-of-bound flag is false then
+    // it is safe to have non-constant array access. Use 0 index for Pointee
+    // set.
+    if (!DTransOutOfBoundsOK && IndexedTy->isArrayTy()) {
+      Info.addElementPointee(IndexedTy, 0);
+    }
     return;
   }
 
@@ -1776,6 +2067,8 @@ private:
   //
   // where %struct.S is a structure that has an element of type %struct.Elem
   // at offset 32 (as determined by DataLayout).
+  // TODO: add special processing for constant offsets which are multiples of
+  // structure size.
   bool analyzeByteFlattenedGEPAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
     Value *BasePointer = GEP->getPointerOperand();
     // The caller should have checked this.
@@ -1789,17 +2082,33 @@ private:
     // incompleteness and continue.
     if (!BaseLPI.getAnalyzed()) {
       Info.setPartialAnalysis(true);
-      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
-                                          << *BasePointer << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                      dbgs() << "Incomplete analysis derived from "
+                             << *BasePointer << "\n");
     }
 
     // If we can't compute a constant offset, we won't be able to
     // figure out which element is being accessed.
     unsigned BitWidth = DL.getPointerSizeInBits();
-    APInt APOffset(BitWidth, 0);
-    if (!GEP->accumulateConstantOffset(DL, APOffset))
+    SmallVector<APInt, 3> APOffset;
+    APInt CurrOffset(BitWidth, 0);
+    // If offset is constant - put it in the list of possibe constant offsets.
+    if (GEP->accumulateConstantOffset(DL, CurrOffset)) {
+      APOffset.push_back(CurrOffset);
+    } else if (GEP->getNumOperands() == 2) {
+      // If offset comes from select instruction with two constant operands then
+      // put both values in the list of possible constant offsets.
+      // TODO: currently we only proccess Select. The same could work for PHI.
+      Value *Cond;
+      const APInt *SelT, *SelF;
+      if (!match(GEP->getOperand(1),
+                 m_Select(m_Value(Cond), m_APInt(SelT), m_APInt(SelF))))
+        return false;
+      APOffset.push_back(*SelT);
+      APOffset.push_back(*SelF);
+    } else {
       return false;
-    uint64_t Offset = APOffset.getLimitedValue();
+    }
 
     bool HasPtrToPtrAlias = false;
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
@@ -1813,10 +2122,23 @@ private:
         HasPtrToPtrAlias = true;
         continue;
       }
-      if (!HasPtrToPtrAlias &&
-          analyzePossibleOffsetAggregateAccess(
-              GEP, AliasTy->getPointerElementType(), Offset, Info))
-        return true;
+      if (!HasPtrToPtrAlias) {
+        // Try all possible offsets one by one.
+        uint32_t Res = 0;
+        auto *CurrType = AliasTy->getPointerElementType();
+        LocalPointerInfo LocalInfo;
+        for (auto &APOffsetVal : APOffset) {
+          if (analyzePossibleOffsetAggregateAccess(
+                  GEP, CurrType, APOffsetVal.getLimitedValue(), LocalInfo))
+            Res++;
+        }
+        // If all offsets are appropriate - add those element pointees and
+        // return true.
+        if (Res == APOffset.size()) {
+          Info.merge(LocalInfo);
+          return true;
+        }
+      }
     }
     if (HasPtrToPtrAlias)
       return true;
@@ -1829,7 +2151,7 @@ private:
                                             llvm::Type *AggregateTy,
                                             uint64_t Offset,
                                             LocalPointerInfo &Info) {
-    if (!AggregateTy->isAggregateType())
+    if (!AggregateTy->isAggregateType() || !AggregateTy->isSized())
       return false;
 
     if (auto *StructTy = dyn_cast<StructType>(AggregateTy))
@@ -1905,8 +2227,9 @@ private:
     // incompleteness and continue.
     if (!SrcLPI.getAnalyzed()) {
       Info.setPartialAnalysis(true);
-      DEBUG_WITH_TYPE(LPA_VERBOSE, dbgs() << "Incomplete analysis derived from "
-                                          << *Src << "\n");
+      DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                      dbgs() << "Incomplete analysis derived from " << *Src
+                             << "\n");
     }
     for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
       if (AliasTy->isPointerTy() &&
@@ -1944,13 +2267,15 @@ private:
   // Find any type to which the return value of an allocation call will be
   // bitcast and, unless it looks like an element zero access, add that type
   // as an alias of the allocated pointer.
-  void analyzeAllocationCallAliases(CallInst *CI, LocalPointerInfo &Info) {
-    LLVM_DEBUG(dbgs() << "dtrans: Analyzing allocation call.\n  " << *CI
-                      << "\n");
+  void analyzeAllocationCallAliases(CallSite CS, LocalPointerInfo &Info) {
+    DEBUG_WITH_TYPE(DTRANS_LPA, dbgs()
+                                    << "dtrans: Analyzing allocation call.\n  "
+                                    << *CS.getInstruction() << "\n");
     SmallPtrSet<llvm::PointerType *, 4> CastTypes;
     SmallPtrSet<Value *, 4> VisitedUsers;
     bool IsPartial = false;
-    collectAllocatedPtrBitcasts(CI, CastTypes, VisitedUsers, IsPartial);
+    collectAllocatedPtrBitcasts(CS.getInstruction(), CastTypes, VisitedUsers,
+                                IsPartial);
     if (IsPartial)
       Info.setPartialAnalysis(true);
     // Eliminate casts that access element zero in other known types.
@@ -2005,7 +2330,8 @@ private:
         // would be done with the PtrToInt instruction.
         auto PtrTy = cast<PointerType>(BI->getType());
 
-        LLVM_DEBUG(dbgs() << "  Associated bitcast: " << *BI << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA,
+                        dbgs() << "  Associated bitcast: " << *BI << "\n");
 
         // Save the type information.
         CastTypes.insert(PtrTy);
@@ -2099,7 +2425,7 @@ private:
   // function against the inferred alias set and report any
   // mismatches there.
   void analyzePossibleVoidPtrArgument(Value *V, LocalPointerInfo &Info) {
-    DEBUG_WITH_TYPE(LPA_VERBOSE,
+    DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                     dbgs() << "dtrans: Analyzing function argument.\n");
     SmallPtrSet<llvm::PointerType *, 4> CastTypes;
     SmallPtrSet<Value *, 4> VisitedUsers;
@@ -2144,7 +2470,9 @@ private:
       // If the user is a cast, that's what we're looking for.
       if (auto *Cast = dyn_cast<CastInst>(U)) {
         if (isPartialPtrBitCast(U)) {
-          LLVM_DEBUG(dbgs() << "Found partial pointer bitcast: " << *U << "\n");
+          DEBUG_WITH_TYPE(DTRANS_LPA,
+                          dbgs() << "Found partial pointer bitcast: " << *U
+                                 << "\n");
           continue;
         }
         // We want to follow the uses through PointerToInt casts, but they
@@ -2152,7 +2480,7 @@ private:
         // PtrToInt, IntToPtr, and BitCast. If the result is a pointer
         // type, we want to add it to the alias set.
         if (auto *PtrTy = dyn_cast<PointerType>(Cast->getType())) {
-          DEBUG_WITH_TYPE(LPA_VERBOSE,
+          DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                           dbgs() << "  Argument cast: " << *Cast << "\n");
           // Save the type information.
           CastTypes.insert(PtrTy);
@@ -2173,26 +2501,26 @@ private:
       // the called function. (Note: while it may seem counter-intuitive
       // to be able to cross function boundaries like this, the VisitedUsers
       // set will continue to work as expected.)
-      if (auto *CI = dyn_cast<CallInst>(U)) {
+      if (auto CS = CallSite(U)) {
         if (isValueInt8PtrType(V)) {
-          DEBUG_WITH_TYPE(LPA_VERBOSE,
-                          dbgs() << "Analyzing use in call instruction: " << *CI
-                                 << "\n");
+          DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                          dbgs() << "Analyzing use in call instruction: "
+                                 << *CS.getInstruction() << "\n");
           Function *F =
-              dyn_cast<Function>(CI->getCalledValue()->stripPointerCasts());
+              dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
           if (!F) {
-            DEBUG_WITH_TYPE(LPA_VERBOSE,
+            DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                             dbgs() << "Unable to get called function!\n");
             continue;
           }
           // Check all the arguments of the call as our value may be used more
-          // than once. Use F->getNumParams() rather than CI->getNumArgs()
+          // than once. Use F->getNumParams() rather than CS.getNumArgs()
           // because the function may be bitcast in a way that changes its
           // argument count.
           unsigned NumArgs = F->getFunctionType()->getNumParams();
           for (unsigned ArgNo = 0; ArgNo < NumArgs; ++ArgNo) {
-            if (CI->getArgOperand(ArgNo) == V) {
-              DEBUG_WITH_TYPE(LPA_VERBOSE,
+            if (CS.getArgOperand(ArgNo) == V) {
+              DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                               dbgs() << "Analyzing function argument: "
                                      << F->getName() << " @ " << ArgNo << "\n");
               Argument *Arg = F->arg_begin();
@@ -2267,9 +2595,9 @@ public:
 
   // See typesMayBeCRuleCompatible() immediately below for explanation of
   // this function.
-  static bool
-  typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
-                             SmallPtrSetImpl<llvm::Type *> &Tstack) {
+  static bool typesMayBeCRuleCompatibleX(llvm::Type *T1, llvm::Type *T2,
+                                         SmallPtrSetImpl<llvm::Type *> &Tstack,
+                                         bool IgnorePointees) {
 
     // Enum indicating that on the particular predicate being compared for
     // T1 and T2, the types have the opposite value of the predicate
@@ -2291,11 +2619,8 @@ public:
 
     // An array of predicate conditions for which T1 and T2 will be tested
     // for compatibility. The predicate "isIntegerTy" and "isFloatingPointTy"
-    // are base properties that cannot be further refined.  Testing for the
-    // predicate "isFunctionTy" can be refined if we want to sharpen the
-    // results of typesMayBeCRuleCompatible().
-    MFP F1Array[] = {&llvm::Type::isIntegerTy, &llvm::Type::isFloatingPointTy,
-                     &llvm::Type::isFunctionTy};
+    // are base properties that cannot be further refined.
+    MFP F1Array[] = {&llvm::Type::isIntegerTy, &llvm::Type::isFloatingPointTy};
 
     // A Type is always compatible with itself.
     if (T1 == T2)
@@ -2308,6 +2633,7 @@ public:
       if (R == TME_OPPOSITE)
         return false;
       if (R == TME_YES)
+        // FIXME: check DataLayout::getTypeStoreSize
         return true;
     }
 
@@ -2316,6 +2642,12 @@ public:
     if (R == TME_OPPOSITE)
       return false;
     if (R == TME_YES) {
+      if (T1->getPointerAddressSpace() != T2->getPointerAddressSpace())
+        return false;
+
+      if (IgnorePointees)
+        return true;
+
       //
       // Pointers to StructTypes are a tricky case, as the definition could
       // be recursive.  This could be resolved by struct TAGs, but these are
@@ -2330,21 +2662,48 @@ public:
       //
       auto *T3 = T1->getPointerElementType();
       auto *T4 = T2->getPointerElementType();
-      TME S = typeTest(T3, T4, &llvm::Type::isStructTy);
-      if (S == TME_OPPOSITE)
-        return false;
-      if (S == TME_YES) {
-        if (T3->getStructNumElements() != T4->getStructNumElements())
+
+      // Should contain all checks resulting in recursive calls.
+      MFP CompoundChecks[] = {&llvm::Type::isArrayTy, &llvm::Type::isStructTy,
+                              &llvm::Type::isFunctionTy};
+
+      for (auto Cx : CompoundChecks) {
+        TME S = typeTest(T3, T4, Cx);
+        if (S == TME_OPPOSITE)
           return false;
-        if (Tstack.find(T3) != Tstack.end())
-          return true;
-        if (Tstack.find(T4) != Tstack.end())
-          return true;
-        Tstack.insert(T3);
-        Tstack.insert(T4);
+        if (S == TME_YES) {
+          if (Tstack.find(T3) != Tstack.end())
+            return true;
+          if (Tstack.find(T4) != Tstack.end())
+            return true;
+          Tstack.insert(T3);
+          Tstack.insert(T4);
+        }
       }
+
       return typesMayBeCRuleCompatibleX(T1->getPointerElementType(),
-                                        T2->getPointerElementType(), Tstack);
+                                        T2->getPointerElementType(), Tstack,
+                                        IgnorePointees);
+    }
+
+    R = typeTest(T1, T2, &llvm::Type::isFunctionTy);
+    if (R == TME_OPPOSITE)
+      return false;
+    if (R == TME_YES) {
+      auto *FT1 = cast<FunctionType>(T1);
+      auto *FT2 = cast<FunctionType>(T2);
+      if (!typesMayBeCRuleCompatibleX(FT1->getReturnType(),
+                                      FT2->getReturnType(), Tstack,
+                                      IgnorePointees))
+        return false;
+
+      // FIXME: extend to handle left over parameters and var-arg.
+      for (auto Pair : zip(FT1->params(), FT2->params())) {
+        auto *PT1 = std::get<0>(Pair);
+        auto *PT2 = std::get<1>(Pair);
+        if (!typesMayBeCRuleCompatibleX(PT1, PT2, Tstack, IgnorePointees))
+          return false;
+      }
     }
 
     // Two array Types are compatible if they have the same number of elements
@@ -2356,7 +2715,8 @@ public:
       if (T1->getArrayNumElements() != T2->getArrayNumElements())
         return false;
       return typesMayBeCRuleCompatibleX(T1->getArrayElementType(),
-                                        T2->getArrayElementType(), Tstack);
+                                        T2->getArrayElementType(), Tstack,
+                                        IgnorePointees);
     }
 
     // Two struct Types are compatible if they have the same number of
@@ -2369,7 +2729,8 @@ public:
         return false;
       for (unsigned I = 0; I < T1->getStructNumElements(); ++I)
         if (!typesMayBeCRuleCompatibleX(T1->getStructElementType(I),
-                                        T2->getStructElementType(I), Tstack))
+                                        T2->getStructElementType(I), Tstack,
+                                        IgnorePointees))
           return false;
       return true;
     }
@@ -2390,11 +2751,16 @@ public:
   //       code for typesMayBeCRuleCompatibleX.) In the absence of completely
   //       reliable structure tags, we keep a stack (Tstack) of Types that
   //       we have already seen to avoid recursion.
-  //   (3) Function types. This could be implemented in the future. We are
-  //       not doing it now because there is no immediate need.
-  static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2) {
+  //   (3) Vector types and function types with different numbers of
+  //       parameters and var arg. This could be implemented in the future.
+  //       We are not doing it now because there is no immediate need.
+  //
+  // IgnorePointees only checks that pointers are layout compatible,
+  // i.e. they are from the same address space.
+  static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2,
+                                        bool IgnorePointees = false) {
     SmallPtrSet<llvm::Type *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, Tstack);
+    return typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
   }
 
   // Return true if the Type T may have a distinct compatible Type by
@@ -2427,25 +2793,25 @@ public:
     return true;
   }
 
-  // Return true if CI represents an indirect call site, and there is a
+  // Return true if CS represents an indirect call site, and there is a
   // an address taken external function that matches it.
-  bool hasICMatch(CallInst &CI) {
+  bool hasICMatch(CallSite CS) {
     // No point in doing this if the C language compatibility rule is not
     // enforced.
     if (!DTransUseCRuleCompat)
       return true;
     // Check if this is an indirect call site.
-    if (isa<Function>(CI.getCalledValue()))
+    if (isa<Function>(CS.getCalledValue()))
       return false;
     // Look for a matching address taken external call.
-    for (auto &F : CI.getModule()->functions())
+    for (auto &F : CS.getInstruction()->getModule()->functions())
       if (F.hasAddressTaken() && F.isDeclaration())
-        if ((F.arg_size() == CI.getNumArgOperands()) ||
-            (F.isVarArg() && (F.arg_size() <= CI.getNumArgOperands()))) {
+        if ((F.arg_size() == CS.getNumArgOperands()) ||
+            (F.isVarArg() && (F.arg_size() <= CS.getNumArgOperands()))) {
           unsigned I = 0;
           bool IsFunctionMatch = true;
           for (auto &Arg : F.args()) {
-            Value *VCI = CI.getArgOperand(I);
+            Value *VCI = CS.getArgOperand(I);
             if (!typesMayBeCRuleCompatible(VCI->getType(), Arg.getType())) {
               IsFunctionMatch = false;
               break;
@@ -2464,42 +2830,208 @@ public:
     return false;
   }
 
-  void visitCallInst(CallInst &CI) {
-    auto *CV = CI.getCalledValue();
-    Function *F = dyn_cast<Function>(CV);
+  // Set MismatchedArgUse safety check if needed for direct call represented by
+  // F.
+  // FIXME: unify with visitCallArgument.
+  void checkArgTypeMismatch(CallSite CS, Function *F, Argument *FormalVal,
+                            Value *ActualVal) {
 
-    // If the Function wasn't found, then there is a possibility
-    // that it is inside a BitCast. In this case we need
-    // to strip the pointer casting from the Value and then
-    // access the Function.
-    if (!F)
-      F = dyn_cast<Function>(CI.getCalledValue()->stripPointerCasts());
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ActualVal);
+    // Collect the dominant Type of the actual parameter
+    Type *ActualType = LPI.getDominantAggregateTy();
+    Type *FormalType = nullptr;
+
+    if (FormalVal) {
+      FormalType = FormalVal->getType();
+      // Type match
+      if (FormalType == ActualType || checkUsersType(FormalVal, ActualType))
+        return;
+    } else if (!ActualType || !DTInfo.isTypeOfInterest(ActualType) ||
+               isVarArgSameType(F, ActualType)) {
+      return;
+    }
+
+    // Print debug information if "Mismatched argument use" was set either
+    // in the formal or actual Type.
+    LLVM_DEBUG({
+      if ((FormalType && DTInfo.isTypeOfInterest(FormalType)) ||
+          (ActualType && DTInfo.isTypeOfInterest(ActualType))) {
+        dbgs() << "dtrans-safety: Mismatched argument use -- bitcast "
+                  "function arguments mismatch:\n  "
+               << *CS.getInstruction();
+
+        if (FormalVal) {
+          dbgs() << "\n    Formal: " << *FormalVal;
+          dbgs() << "  Type: " << *FormalType << "\n";
+        } else
+          dbgs() << "\n    Formal: ...  Type: vararg\n";
+        dbgs() << "    Actual: " << *ActualVal << "\n";
+        dbgs() << "  Dominant Type: ";
+        if (ActualType)
+          dbgs() << *ActualType;
+        else
+          dbgs() << "null";
+        dbgs() << "\n";
+      }
+    });
+
+    if (FormalType && DTInfo.isTypeOfInterest(FormalType))
+      setBaseTypeInfoSafetyData(FormalType, dtrans::MismatchedArgUse);
+
+    if (ActualType && DTInfo.isTypeOfInterest(ActualType))
+      setBaseTypeInfoSafetyData(ActualType, dtrans::MismatchedArgUse);
+  }
+
+  // FIXME: unify with checkArgTypeMismatch.
+  void visitCallArgument(CallSite CS, Function *F, bool HasICMatch, Value *Arg,
+                         unsigned ArgNo) {
+
+    bool IsFnLocal = F ? !F->isDeclaration() : false;
+
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
+    if (LPI.pointsToSomeElement()) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                        << "pointer to element passed as argument:\n"
+                        << "  " << *CS.getInstruction() << "\n  " << *Arg
+                        << "\n");
+      // Selects and PHIs may have created a pointer that refers to
+      // elements in multiple aggregate types. This sets the field
+      // address taken condition for them all.
+      for (auto &PointeePair : LPI.getElementPointeeSet()) {
+        setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
+        dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+          ParentStInfo->getField(PointeePair.second).setAddressTaken();
+      }
+    }
+
+    if (CS.isInvoke()) {
+      for (auto *Ty : LPI.getPointerTypeAliasSet()) {
+        if (!DTInfo.isTypeOfInterest(Ty))
+          continue;
+
+        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                          << "pointer to struct passed as argument to "
+                             "function invoke:\n "
+                          << *CS.getInstruction() << "\n " << *Arg << "\n");
+        setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling);
+      }
+    }
+
+    // If the argument aliases an aggregate pointer type that is not the type
+    // of the argument, the address has been taken in a way we can't track.
+    // If the called function is locally defined and the type of the argument
+    // matches the aggregate pointer type, we will be able to analyze the use
+    // when we visit that function. If more than one aggregate type is
+    // aliased, we will have flagged the overloaded pointer when we visited
+    // the select or PHI that created this situation, so here we just need to
+    // worry about the types individually. However, if the function being
+    // called is varadic and the argument is not one of the fixed parameters
+    // we can't check its use from here. It's possible to cast a non-variadic
+    // function to a varadic type for a call, so we always check the number of
+    // parameters rather than trusting isVarArg().
+    auto *ArgTy = Arg->getType();
+    if (IsFnLocal && (ArgTy == Int8PtrTy) &&
+        ArgNo < F->getFunctionType()->getNumParams()) {
+      // If we're calling a local function that takes an i8* operand
+      // get the expected alias types from the local pointer analyzer.
+      auto Param = F->arg_begin();
+      std::advance(Param, ArgNo);
+      LocalPointerInfo &ParamLPI = LPA.getLocalPointerInfo(Param);
+
+      if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
+                               /*AllowElementZeroAccess=*/true) ||
+          isAliasSetOverloaded(ParamLPI.getPointerTypeAliasSet(),
+                               /*AllowElementZeroAccess=*/true)) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched argument use -- "
+                          << "overloaded alias set found at call site:\n"
+                          << "  " << *CS.getInstruction() << "\n  " << *Arg
+                          << "\n");
+        setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
+        setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+      } else {
+        llvm::Type *DomParamTy = ParamLPI.getDominantAggregateTy();
+        llvm::Type *DomArgTy = LPI.getDominantAggregateTy();
+        if (DomParamTy != DomArgTy) {
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: Mismatched argument use -- "
+                     << "overloaded alias set found at call site:\n"
+                     << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
+          setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
+          setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+        }
+      }
+    } else {
+      for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
+        if (!DTInfo.isTypeOfInterest(AliasTy))
+          continue;
+        if (IsFnLocal && (AliasTy == ArgTy))
+          continue;
+        // For indirect calls, Use the C language rule, if appropriate, to
+        // reject cases for which the Type of the formal and actual argument
+        // must match.  In such cases, there will be no "Address taken"
+        //  safety violation.
+        if (!F && DTransUseCRuleCompat && !HasICMatch &&
+            !mayHaveDistinctCompatibleCType(AliasTy))
+          continue;
+        // If the first element of the dominant type of the pointer is an
+        // an array of the actual argument, don't report address taken.
+        if (isElementZeroArrayOfType(AliasTy, ArgTy)) {
+          LLVM_DEBUG(dbgs()
+                     << "dtrans-safety: Field address taken -- "
+                     << "ptr to array element passed as argument:\n"
+                     << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTaken);
+          dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(AliasTy);
+          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
+            ParentStInfo->getField(0).setAddressTaken();
+          continue;
+        }
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
+                          << "pointer to aggregate passed as argument:\n"
+                          << "  " << *CS.getInstruction() << "\n  " << *Arg
+                          << "\n");
+        setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
+      }
+    }
+  }
+
+  void visitCallSite(CallSite CS) {
+    SmallPtrSet<Value *, 3> SpecialArguments;
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
-    auto Kind = dtrans::getAllocFnKind(CallSite(&CI), TLI);
-    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
-      Kind = dtrans::AK_UserMalloc;
-    if (Kind != dtrans::AK_NotAlloc) {
-      analyzeAllocationCall(CI, Kind);
-      return;
+    auto AllocKind = dtrans::getAllocFnKind(CS, TLI);
+    if (AllocKind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
+      AllocKind = dtrans::AK_UserMalloc;
+    if (AllocKind != dtrans::AK_NotAlloc) {
+      analyzeAllocationCall(CS, AllocKind);
+      collectSpecialAllocArgs(AllocKind, CS, SpecialArguments, TLI);
     }
 
     // If this is a call to the "free" lib function,  the call is safe, but
     // we analyze the instruction for the purpose of capturing the argument
     // TypeInfo, which will be needed by some of the transformations when
     // rewriting allocations and frees.
-    if (dtrans::isFreeFn(CallSite(&CI), TLI)) {
-      analyzeFreeCall(CI, dtrans::isDeleteFn(CallSite(&CI), TLI)
-                              ? dtrans::FK_Delete
-                              : dtrans::FK_Free);
-      return;
+    auto FreeKind = dtrans::isFreeFn(CS, TLI)
+                        ? (dtrans::isDeleteFn(CS, TLI) ? dtrans::FK_Delete
+                                                       : dtrans::FK_Free)
+                        : dtrans::FK_NotFree;
+
+    if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(CS))
+      FreeKind = dtrans::FK_UserFree;
+
+    if (FreeKind != dtrans::FK_NotFree) {
+      analyzeFreeCall(CS, FreeKind);
+      collectSpecialFreeArgs(FreeKind, CS, SpecialArguments, TLI);
     }
 
-    if (DTAA.isFreePostDom(F)) {
-      analyzeFreeCall(CI, dtrans::FK_UserFree);
-      return;
-    }
+    // If the Function wasn't found, then there is a possibility
+    // that it is inside a BitCast. In this case we need
+    // to strip the pointer casting from the Value and then
+    // access the Function.
+    Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
 
     // For all other calls, if a pointer to an aggregate type is passed as an
     // argument to a function in a form other than its dominant type, the
@@ -2509,119 +3041,81 @@ public:
     bool IsFnLocal = F ? !F->isDeclaration() : false;
 
     // Mark structures returned by non-local functions as system types.
-    auto *RetTy = CI.getType();
-    if (!IsFnLocal && DTInfo.isTypeOfInterest(RetTy)) {
-      LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
-                        << "type returned by extern function\n  " << *RetTy
-                        << "\n");
-      setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
+    auto *RetTy = CS.getType();
+    if (DTInfo.isTypeOfInterest(RetTy) && AllocKind == dtrans::AK_NotAlloc) {
+      if (!IsFnLocal) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                          << "type returned by extern function\n  " << *RetTy
+                          << "\n");
+        setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
+      }
+      if (CS.isInvoke()) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                          << "struct (or pointer to struct) returned from "
+                             "function invoke:\n "
+                          << *CS.getInstruction() << "\n");
+        setBaseTypeInfoSafetyData(RetTy, dtrans::HasCppHandling);
+      }
+    }
+
+    if (SpecialArguments.size() == CS.arg_size())
+      return;
+
+    // Check for BitCast functions
+    if (F && isa<ConstantExpr>(CS.getCalledValue())) {
+      // Account for layout in registers and on stack.
+      if (!typesMayBeCRuleCompatible(
+              CS.getCalledValue()->getType()->getPointerElementType(),
+              // Do not need to compare pointees types
+              // here.
+              F->getType()->getPointerElementType(), true)) {
+        for (Argument &Arg : F->args()) {
+          LLVM_DEBUG(
+              dbgs()
+              << "dtrans-safety: Mismatched argument use -- bitcast "
+                 "function arguments mismatch with layout incompatibility:\n  "
+              << *CS.getInstruction());
+          setValueTypeInfoSafetyData(&Arg, dtrans::MismatchedArgUse);
+        }
+
+        for (Value *Arg : CS.args()) {
+          LLVM_DEBUG(
+              dbgs()
+              << "dtrans-safety: Mismatched argument use -- bitcast "
+                 "function arguments mismatch with layout incompatibility:\n  "
+              << *CS.getInstruction());
+          setValueTypeInfoSafetyData(Arg, dtrans::MismatchedArgUse);
+        }
+      } else {
+        for (auto Pair : zip(F->args(), CS.args()))
+          if (!SpecialArguments.count(std::get<1>(Pair)))
+            checkArgTypeMismatch(CS, F, &std::get<0>(Pair), std::get<1>(Pair));
+
+        // Do not care about F->arg_size() > CS.arg_size(),
+        // it should be marked in the true-branch, or it is UB.
+        if (F->arg_size() < CS.arg_size())
+          for (Value *Arg :
+               make_range(CS.arg_begin() + F->arg_size(), CS.arg_end()))
+            if (!SpecialArguments.count(Arg))
+              checkArgTypeMismatch(CS, F, nullptr, Arg);
+      }
     }
 
     // If this is an indirect call site, find out if there is a matching
     // address taken external call.  In this case, the indirect call must
     // be treated like an external call for the purpose of generating
     // the AddressTaken safety check.
-    bool HasICMatch = hasICMatch(CI);
+    bool HasICMatch = hasICMatch(CS);
 
     unsigned NextArgNo = 0;
-    for (Value *Arg : CI.arg_operands()) {
+    for (Value *Arg : CS.args()) {
       // Keep track of the argument index we're working with.
       unsigned ArgNo = NextArgNo++;
 
-      if (!isValueOfInterest(Arg))
+      if (!isValueOfInterest(Arg) || SpecialArguments.count(Arg))
         continue;
 
-      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
-
-      if (LPI.pointsToSomeElement()) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
-                          << "pointer to element passed as argument:\n"
-                          << "  " << CI << "\n  " << *Arg << "\n");
-        // Selects and PHIs may have created a pointer that refers to
-        // elements in multiple aggregate types. This sets the field
-        // address taken condition for them all.
-        for (auto &PointeePair : LPI.getElementPointeeSet()) {
-          setBaseTypeInfoSafetyData(PointeePair.first,
-                                    dtrans::FieldAddressTaken);
-          dtrans::TypeInfo *ParentTI =
-              DTInfo.getOrCreateTypeInfo(PointeePair.first);
-          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-            ParentStInfo->getField(PointeePair.second).setAddressTaken();
-        }
-      }
-
-      // If the argument aliases an aggregate pointer type that is not the type
-      // of the argument, the address has been taken in a way we can't track.
-      // If the called function is locally defined and the type of the argument
-      // matches the aggregate pointer type, we will be able to analyze the use
-      // when we visit that function. If more than one aggregate type is
-      // aliased, we will have flagged the overloaded pointer when we visited
-      // the select or PHI that created this situation, so here we just need to
-      // worry about the types individually. However, if the function being
-      // called is varadic and the argument is not one of the fixed parameters
-      // we can't check its use from here. It's possible to cast a non-variadic
-      // function to a varadic type for a call, so we always check the number of
-      // parameters rather than trusting isVarArg().
-      auto *ArgTy = Arg->getType();
-      if (IsFnLocal && (ArgTy == Int8PtrTy) &&
-          ArgNo < F->getFunctionType()->getNumParams()) {
-        // If we're calling a local function that takes an i8* operand
-        // get the expected alias types from the local pointer analyzer.
-        auto Param = F->arg_begin();
-        std::advance(Param, ArgNo);
-        LocalPointerInfo &ParamLPI = LPA.getLocalPointerInfo(Param);
-
-        if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
-                                 /*AllowElementZeroAccess=*/true) ||
-            isAliasSetOverloaded(ParamLPI.getPointerTypeAliasSet(),
-                                 /*AllowElementZeroAccess=*/true)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched argument use -- "
-                            << "overloaded alias set found at call site:\n"
-                            << "  " << CI << "\n  " << *Arg << "\n");
-          setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
-          setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
-        } else {
-          llvm::Type *DomParamTy = ParamLPI.getDominantAggregateTy();
-          llvm::Type *DomArgTy = LPI.getDominantAggregateTy();
-          if (DomParamTy != DomArgTy) {
-            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched argument use -- "
-                              << "overloaded alias set found at call site:\n"
-                              << "  " << CI << "\n  " << *Arg << "\n");
-            setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
-            setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
-          }
-        }
-      } else {
-        for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
-          if (!DTInfo.isTypeOfInterest(AliasTy))
-            continue;
-          if (IsFnLocal && (AliasTy == ArgTy))
-            continue;
-          // For indirect calls, Use the C language rule, if appropriate, to
-          // reject cases for which the Type of the formal and actual argument
-          // must match.  In such cases, there will be no "Address taken"
-          //  safety violation.
-          if (!F && DTransUseCRuleCompat && !HasICMatch &&
-              !mayHaveDistinctCompatibleCType(AliasTy))
-            continue;
-          // If the first element of the dominant type of the pointer is an
-          // an array of the actual argument, don't report address taken.
-          if (isElementZeroArrayOfType(AliasTy, ArgTy)) {
-            LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
-                              << "ptr to array element passed as argument:\n"
-                              << "  " << CI << "\n  " << *Arg << "\n");
-            setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTaken);
-            dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(AliasTy);
-            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-              ParentStInfo->getField(0).setAddressTaken();
-            continue;
-          }
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
-                            << "pointer to aggregate passed as argument:\n"
-                            << "  " << CI << "\n  " << *Arg << "\n");
-          setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken);
-        }
-      }
+      visitCallArgument(CS, F, HasICMatch, Arg, ArgNo);
     }
   }
 
@@ -2777,6 +3271,14 @@ public:
         setValueTypeInfoSafetyData(&I, dtrans::UnhandledUse);
       }
     }
+
+    // Check for possible use of pointer type loaded via pointer sized int to
+    // expose the real type to the transforms. This is temporary, until the full
+    // LocalPointerInfo is made available to the transformations.
+    if (isPtrSizeInt(&I)) {
+      LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(&I);
+      collectPtrSizedIntLoadStoreType (I, ValLPI);
+    }
   }
 
   //
@@ -2865,6 +3367,13 @@ public:
     // If the value operand is a pointer to an element within an aggregate
     // we need to mark that element as having its address taken.
     LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
+
+    // Check for possible use of pointer type stored via pointer sized int to
+    // expose the real type to the transforms. This is temporary, until the full
+    // LocalPointerInfo is made available to the transformations.
+    if (isPtrSizeInt(ValOperand))
+      collectPtrSizedIntLoadStoreType(I, ValLPI);
+
     if (ValLPI.pointsToSomeElement()) {
       auto ValPointees = ValLPI.getElementPointeeSet();
       for (auto PointeePair : ValPointees) {
@@ -2888,6 +3397,48 @@ public:
       analyzeElementLoadOrStore(PtrLPI, ValOperand, I, ValOperand->getType(),
                                 I.isVolatile(),
                                 /*IsLoad=*/false);
+  }
+
+  // Collect the aggregate type for \p ValLPI which corresponds to the Value
+  // loaded or stored by \p I which is loading/storing a pointer sized integer
+  // value. Save an association between the Instruction and the actual aggregate
+  // pointer type, if there is a single type, in the maps to allow queries by
+  // the transformations. This is temporary until the complete LocalPointerInfo
+  // is exposed to the transformations.
+  void collectPtrSizedIntLoadStoreType(Instruction &I,
+                                       LocalPointerInfo &ValLPI) {
+    if (!ValLPI.canAliasToAggregatePointer())
+      return;
+
+    // Find the actual type of aggregate pointer being loaded, if there is
+    // a single type. If there is more than one type, then we will not
+    // capture the information for the ptr-size-int mapping because the
+    // type will not pass the safety checks for the transformations.
+    llvm::Type *ActualType = nullptr;
+    for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
+      if (AliasTy == Int8PtrTy)
+        continue;
+
+      if (AliasTy == PtrSizeIntPtrTy)
+        continue;
+
+      if (ActualType) {
+        ActualType = nullptr;
+        break;
+      }
+
+      ActualType = AliasTy;
+    }
+
+    if (!ActualType)
+      return;
+
+    if (auto *LI = dyn_cast<LoadInst>(&I))
+      DTInfo.addLoadPtrSizedIntMapping(LI, ActualType);
+    else if (auto *SI = dyn_cast<StoreInst>(&I))
+      DTInfo.addStorePtrSizedIntMapping(SI, ActualType);
+    else
+      llvm_unreachable("Instruction must be LoadInst or StoreInst");
   }
 
   void visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -3212,7 +3763,8 @@ public:
           }
         }
       }
-      analyzeStructureType(Ty);
+      // Add this to type info list.
+      (void)DTInfo.getOrCreateTypeInfo(Ty);
     }
 
     // Before visiting each Function, ensure that the types of all of the
@@ -3304,9 +3856,18 @@ public:
             setBaseTypeInfoSafetyData(GVTy, dtrans::HasInitializerList);
           }
           analyzeGlobalStructSingleValue(GVElemTy, Initializer);
+
+          DEBUG_WITH_TYPE(
+              DTRANS_CG,
+              dbgs() << "dtrans-cg: CGraph update for Globalvalue  -- \n"
+                     << "  " << GV << "\n");
+          setBaseTypeCallGraph(GV.getType(), nullptr);
         }
       }
     }
+    // Analyze definitions of all structures in type info list.
+    for (dtrans::TypeInfo *TI : DTInfo.type_info_entries())
+      analyzeStructureType(TI);
   }
 
   void visitFunction(Function &F) {
@@ -3330,6 +3891,32 @@ public:
 
     // Call the base class to visit the instructions in the function.
     InstVisitor<DTransInstVisitor>::visitFunction(F);
+  }
+
+  void visitBasicBlock(BasicBlock &BB) {
+    InstVisitor<DTransInstVisitor>::visitBasicBlock(BB);
+
+    auto &F = *BB.getParent();
+    for (auto &I : BB) {
+      if (isValueOfInterest(&I)) {
+        DEBUG_WITH_TYPE(DTRANS_CG,
+                        dbgs()
+                            << "dtrans-cg: CGraph update for Instruction -- \n"
+                            << "  " << I << "\n");
+        setBaseTypeCallGraph(I.getType(), &F);
+      }
+
+      for (Value *Arg : I.operands()) {
+        if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
+          continue;
+        if (isValueOfInterest(Arg)) {
+          DEBUG_WITH_TYPE(
+              DTRANS_CG, dbgs() << "dtrans-cg: CGraph update for Operand  -- \n"
+                                << "  " << *Arg << "\n");
+          setBaseTypeCallGraph(Arg->getType(), &F);
+        }
+      }
+    }
   }
 
   // Accumulate field frequency of \p FI that is accessed in \p I.
@@ -3375,6 +3962,27 @@ private:
   llvm::Type *PtrSizeIntTy;
   llvm::Type *PtrSizeIntPtrTy;
 
+  // Return true if the dominant Type of all Users of the input Value
+  // are the same as the input Type, else return false.
+  bool checkUsersType(Value *Val, Type *Ty) {
+    if (!Ty)
+      return false;
+
+    if (Val->user_empty())
+      return false;
+
+    for (User *User : Val->users()) {
+      llvm::Value *UserVal = dyn_cast<Value>(User);
+      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(UserVal);
+      llvm::Type *UserType = LPI.getDominantAggregateTy();
+
+      if (Ty != UserType)
+        return false;
+    }
+
+    return true;
+  }
+
   // There are frequent cases where a pointer to an aggregate type is
   // cast to either i8*, i64* or i64 and we need to look at the uses of
   // the cast value to determine whether or not it is being used in a way
@@ -3400,6 +4008,200 @@ private:
       return (LPI.pointsToSomeElement() || LPI.canAliasToAggregatePointer());
     }
     return false;
+  }
+
+  // Return true if the input Function is variadic, and the input
+  // Type is the only Type handled by the va_list, else return false.
+  bool isVarArgSameType(Function *Fn, Type *ArgType) {
+
+    if (!Fn->isVarArg())
+      return false;
+
+    // The Type of the structure that is holding va_list
+    Type *VAListType = nullptr;
+
+    // Lambda function that returns true if the input Value is
+    // in the va_list
+    auto checkIfVarArgType = [&](Value *Val) {
+      if (!VAListType)
+        return false;
+
+      if (!isa<BitCastInst>(Val) && !isa<GetElementPtrInst>(Val) &&
+          isa<LoadInst>(Val))
+        return false;
+
+      Instruction *NewInst = dyn_cast<Instruction>(Val);
+
+      // Keep iterating through the operand's chain until the Type matches
+      // the va_list, else break
+      while (NewInst) {
+        if (NewInst->getType() == VAListType)
+          return true;
+
+        Value *ValOp = NewInst->getOperand(0);
+        if (ValOp) {
+          LocalPointerInfo &LPI = LPA.getLocalPointerInfo(ValOp);
+          Type *OpType = LPI.getDominantAggregateTy();
+
+          if (OpType == VAListType)
+            return true;
+
+          if (isa<BitCastInst>(ValOp) || isa<GetElementPtrInst>(ValOp) ||
+              isa<LoadInst>(ValOp))
+            NewInst = dyn_cast<Instruction>(ValOp);
+          else
+            break;
+        } else
+          break;
+      }
+
+      return false;
+    };
+
+    for (BasicBlock &BB : *Fn) {
+      for (Instruction &Inst : BB) {
+
+        // Check the Type in case VAArgInst is available
+        if (VAArgInst *VarArg = dyn_cast<VAArgInst>(&Inst)) {
+          if (VarArg->getType() != ArgType)
+            return false;
+        }
+
+        // Note: The IR of a variadic function is represented
+        // as follow:
+        //
+        // C code:
+        //
+        //  struct test {
+        //    int i;
+        //  };
+        //
+        //  void foo(int n, ...)
+        //  {
+        //    va_list vl;
+        //    struct test loc;
+        //    va_start(vl, n);
+        //    loc = va_arg(vl, struct test);
+        //    va_end(vl);
+        //  }
+        //
+        // IR:
+        //
+        //  %struct.__va_list_tag = type { i32, i32, i8*, i8* }
+        //  %struct.test = type { i32 }
+        //
+        //  define void @foo( i32 %n, ...) {
+        //
+        //    %vl = alloca [1 x %struct.__va_list_tag], align 16
+        //            *
+        //            *
+        //            *
+        //    %arraydecay = getelementptr inbounds [1 x %struct.__va_list_tag],
+        //                  [1 x %struct.__va_list_tag]* %vl, i32 0, i32 0
+        //    %arraydecay1 = bitcast %struct.__va_list_tag* %arraydecay to i8*
+        //    call void @llvm.va_start(i8* %arraydecay1)
+        //    %arraydecay2 = getelementptr inbounds
+        //                   [1 x %struct.__va_list_tag],
+        //                   [1 x %struct.__va_list_tag]* %vl, i32 0, i32 0
+        //            *
+        //            *
+        //            *
+        //    %gp_offset = load i32, i32* %gp_offset_p, align 16
+        //    %fits_in_gp = icmp ule i32 %gp_offset, 40
+        //    br i1 %fits_in_gp, label %vaarg.in_reg, label %vaarg.in_mem
+        //
+        //    vaarg.in_reg:
+        //      %0 = getelementptr inbounds %struct.__va_list_tag,
+        //           %struct.__va_list_tag* %arraydecay2, i32 0, i32 3
+        //      %reg_save_area = load i8*, i8** %0, align 16
+        //      %1 = getelementptr i8, i8* %reg_save_area, i32 %gp_offset
+        //      %2 = bitcast i8* %1 to %struct.test*
+        //            *
+        //            *
+        //            *
+        //      br label %vaarg.end
+        //
+        //    vaarg.in_mem:
+        //      %overflow_arg_area_p = getelementptr inbounds
+        //                             %struct.__va_list_tag,
+        //                             %struct.__va_list_tag* %arraydecay2,
+        //                             i32 0, i32 2
+        //       %overflow_arg_area = load i8*, i8** %overflow_arg_area_p,
+        //                            align 8
+        //       %4 = bitcast i8* %overflow_arg_area to %struct.test*
+        //            *
+        //            *
+        //            *
+        //       br label %vaarg.end
+        //
+        //    vaarg.end:
+        //       %vaarg.addr = phi %struct.test* [ %2, %vaarg.in_reg ],
+        //                     [ %4, %vaarg.in_mem ]
+        //            *
+        //            *
+        //            *
+        //  }
+        //
+        // In simple words:
+        //
+        // The array that contains the vararg is in the structure
+        // %struct.__va_list_tag. Each entry will be accessed through
+        // a GetElementPrInst that can be found inside an if/else path,
+        // and merges in a PHINode. This PHINode is the actual vararg.
+        //
+        // To find the vararg:
+        //
+        //   1) Collect the Type of the input parameter to llvm.va_start
+        //      (%struct.__va_list_tag)
+        //   2) Find a PHINode and prove that all incoming Values for the
+        //      node point to %struct.__va_list_tag
+
+        // Collect %struct.__va_list_tag from llvm.va_start
+        else if ((isa<CallInst>(&Inst) || isa<InvokeInst>(&Inst)) &&
+                 (!VAListType)) {
+          CallSite CS = CallSite(&Inst);
+          Function *Fn = CS.getCalledFunction();
+          if (Fn->isIntrinsic() && Fn->getIntrinsicID() == Intrinsic::vastart) {
+            Value *Arg = CS.getArgument(0);
+            LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
+            VAListType = LPI.getDominantAggregateTy();
+
+            // Return false if no dominant Type was found
+            if (!VAListType)
+              return false;
+          }
+        }
+
+        // Check that the PHINode points to %struct.__va_list_tag
+        else if (VAListType && isa<PHINode>(&Inst)) {
+          PHINode *Phi = cast<PHINode>(&Inst);
+          Type *PHIType = Phi->getType();
+          if (PHIType == ArgType)
+            continue;
+
+          unsigned i;
+          for (i = 0; i < Phi->getNumIncomingValues(); i++) {
+            Value *IncVal = Phi->getIncomingValue(i);
+            // Return false if the Type of the PHINode is not the
+            // same as the input Type, and the incoming Value
+            // comes from the va_list. For example:
+            //
+            // Consider that ArgType is %struct.test2. In the previous
+            // example we can see that the PHINode's Type is %struct.test.
+            // Since there is a Type mismatch, then we need to check if
+            // the incoming Values of the PHINode point to
+            // %struct.__va_list_tag. The function checkIfVarArgType
+            // may return true, which means that the input vararg's
+            // Type is different compared to the Type that is being used
+            // within the Function Fn.
+            if (checkIfVarArgType(IncVal))
+              return false;
+          }
+        }
+      }
+    }
+
+    return true;
   }
 
   inline bool isInt8Ptr(Value *V) { return (V->getType() == Int8PtrTy); }
@@ -3524,9 +4326,10 @@ private:
   // Analyze a structure definition, independent of its use in any
   // instruction. This checks for basic issues like structure nesting
   // and empty structures.
-  void analyzeStructureType(llvm::StructType *Ty) {
-    // Add this to our type info list.
-    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty);
+  void analyzeStructureType(dtrans::TypeInfo *TI) {
+    auto *Ty = dyn_cast<StructType>(TI->getLLVMType());
+    if (!Ty)
+      return;
 
     // Check to see if this structure is known to be a system type.
     if (dtrans::isSystemObjectType(Ty)) {
@@ -3631,6 +4434,23 @@ private:
     if (dtrans::isElementZeroAccess(SrcTy, DestTy))
       return;
 
+    // If element zero is an i8* and we're casting the source value as a
+    // pointer to a pointer, that is an element zero access but it isn't
+    // reported as such because we need to recognize the i8*->(struct**)
+    // bitcast as a potential problem for the destination type.
+    if (DTInfo.isTypeOfInterest(DestTy) && SrcTy->isPointerTy() &&
+        DestTy->isPointerTy() &&
+        DestTy->getPointerElementType()->isPointerTy() &&
+        dtrans::isElementZeroI8Ptr(SrcTy->getPointerElementType())) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                        << "unsafe cast of i8* element to specific type:\n"
+                        << "  " << I << "\n");
+      // In this case we always want to avoid setting the element pointee
+      // safety data, regardless of the state of DTransOutOfBoundsOK.
+      (void)setValueTypeInfoSafetyDataBase(&I, dtrans::BadCasting);
+      return;
+    }
+
     // Otherwise, it's not safe.
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "unsafe cast of aliased pointer:\n"
@@ -3661,11 +4481,15 @@ private:
       int Count = 0;
       for (auto &FI : StInfo->getFields()) {
         Constant *NV = llvm::Constant::getNullValue(FI.getLLVMType());
-        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                          << Count << "] ");
-        LLVM_DEBUG(NV->printAsOperand(dbgs()));
+        DEBUG_WITH_TYPE(DTRANS_FSV, {
+          dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " [" << Count
+                 << "] ";
+          NV->printAsOperand(dbgs());
+        });
         FI.processNewSingleValue(NV);
-        LLVM_DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+        DEBUG_WITH_TYPE(DTRANS_FSV,
+                        dbgs()
+                            << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
         analyzeCallocSingleValue(ComponentTI);
         ++Count;
@@ -3676,7 +4500,7 @@ private:
     }
   }
 
-  void analyzeAllocationCall(CallInst &CI, dtrans::AllocKind Kind) {
+  void analyzeAllocationCall(CallSite CS, dtrans::AllocKind Kind) {
 
     // The LocalPointerAnalyzer will visit bitcast users to determine the
     // type of memory being allocated. This must be done in the
@@ -3684,7 +4508,7 @@ private:
     // that we will visit the bitcast first and the LocalPointerAnalyzer
     // must be able to identify the connection with the allocation call
     // in that case also.
-    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(&CI);
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(CS.getInstruction());
 
     // The list of aliased types in the LPI will be the types to which
     // this pointer is cast that were not identified as element zero
@@ -3697,7 +4521,8 @@ private:
       return;
     }
 
-    dtrans::AllocCallInfo *ACI = DTInfo.createAllocCallInfo(&CI, Kind);
+    dtrans::AllocCallInfo *ACI =
+        DTInfo.createAllocCallInfo(CS.getInstruction(), Kind);
     populateCallInfoFromLPI(LPI, ACI);
 
     // If the value is cast to multiple types, mark them all as bad casting.
@@ -3714,7 +4539,7 @@ private:
       if (Kind == dtrans::AK_New) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
                           << "new/new[] function call:\n  "
-                          << CI << "\n");
+                          << *CS.getInstruction() << "\n");
         setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling);
       }
 
@@ -3722,21 +4547,21 @@ private:
       // handled as bad casts.
       if (WasCastToMultipleTypes) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
-                          << "allocation cast to multiple types:\n  " << CI
-                          << "\n");
+                          << "allocation cast to multiple types:\n  "
+                          << *CS.getInstruction() << "\n");
         setBaseTypeInfoSafetyData(Ty, dtrans::BadCasting);
       }
 
       // Check the size of the allocation to make sure it's a multiple of the
       // size of the type being allocated.
-      verifyAllocationSize(CI, Kind, cast<PointerType>(Ty));
+      verifyAllocationSize(CS, Kind, cast<PointerType>(Ty));
 
       // Add this to our type info list.
       (void)DTInfo.getOrCreateTypeInfo(Ty);
 
       if (DTransPrintAllocations) {
         outs() << "dtrans: Detected allocation cast to pointer type\n";
-        outs() << "  " << CI << "\n";
+        outs() << "  " << *CS.getInstruction() << "\n";
         outs() << "    Detected type: " << *(Ty->getPointerElementType())
                << "\n";
       }
@@ -3751,15 +4576,20 @@ private:
   /// Record the type of object being passed to a call to "free".
   /// This is useful for transformations that need to rewrite allocation and
   /// free calls.
-  void analyzeFreeCall(CallInst &CI, dtrans::FreeKind FK) {
-    LLVM_DEBUG(dbgs() << "dtrans: Analyzing free call.\n  " << CI << "\n");
-    dtrans::FreeCallInfo *FCI = DTInfo.createFreeCallInfo(&CI, FK);
+  void analyzeFreeCall(CallSite CS, dtrans::FreeKind FK) {
+    LLVM_DEBUG(dbgs() << "dtrans: Analyzing free call.\n  "
+                      << *CS.getInstruction() << "\n");
+    dtrans::FreeCallInfo *FCI =
+        DTInfo.createFreeCallInfo(CS.getInstruction(), FK);
 
     // If it's a standard free call, we can check for the type of the first
     // argument for the potential pointer types. If it's a user free call, there
     // is currently no guarantee to know which argument contains the TypeInfo.
     if (FK == dtrans::FK_Free || FK == dtrans::FK_Delete) {
-      Value *Arg = CI.getOperand(0);
+      unsigned PtrArgInd = -1U;
+      getFreePtrArg(FK, CS, PtrArgInd, TLI);
+      Value *Arg = CS.getArgument(PtrArgInd);
+
       LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
       LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
           LPI.getPointerTypeAliasSet();
@@ -3772,9 +4602,9 @@ private:
           if (!DTInfo.isTypeOfInterest(Ty))
             continue;
 
-          LLVM_DEBUG(dbgs()
-                     << "dtrans-safety: C++ handling -- "
-                     << "delete/delete[] function call:\n  " << CI << "\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                            << "delete/delete[] function call:\n  "
+                            << *CS.getInstruction() << "\n");
           setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling);
         }
     } else {
@@ -3804,11 +4634,8 @@ private:
           V = ICI->getOperand(0);
         if (V == nullptr)
           return false;
-      } else if (auto *CI = dyn_cast<CallInst>(U)) {
-        Function *F = CI->getCalledFunction();
-        if (F == nullptr)
-          return false;
-        if (dtrans::isFreeFn(CallSite(CI), TLI) || DTAA.isFreePostDom(F))
+      } else if (auto CS = CallSite(U)) {
+        if (dtrans::isFreeFn(CS, TLI) || DTAA.isFreePostDom(CS))
           return true;
         if (auto II = dyn_cast<IntrinsicInst>(U)) {
           Intrinsic::ID Intrin = II->getIntrinsicID();
@@ -3832,14 +4659,11 @@ private:
     return true;
   }
 
-  // Return true if the CallInst *CI is to a suitably identified alloc
+  // Return true if the CallSite CS is to a suitably identified alloc
   // function.
-  bool isSafeStoreForSingleAllocFunction(CallInst *CI) {
-    Function *F = CI->getCalledFunction();
-    if (F == nullptr)
-      return false;
-    auto Kind = dtrans::getAllocFnKind(CallSite(CI), TLI);
-    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(F))
+  bool isSafeStoreForSingleAllocFunction(CallSite CS) {
+    auto Kind = dtrans::getAllocFnKind(CS, TLI);
+    if (Kind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
       Kind = dtrans::AK_UserMalloc;
     return Kind != dtrans::AK_NotAlloc;
   }
@@ -3856,6 +4680,17 @@ private:
   void analyzeElementLoadOrStore(LocalPointerInfo &PtrInfo, Value *WriteVal,
                                  Instruction &I, llvm::Type *ValTy,
                                  bool IsVolatile, bool IsLoad) {
+
+    // Update LoadInfoMap and StoreInfoMap if the instruction I is accessing
+    // a structure element.
+    auto &PointeeSet = PtrInfo.getElementPointeeSet();
+    if (PointeeSet.size() == 1 && PointeeSet.begin()->first->isStructTy()) {
+      if (IsLoad)
+        DTInfo.addLoadMapping(cast<LoadInst>(&I), *PointeeSet.begin());
+      else
+        DTInfo.addStoreMapping(cast<StoreInst>(&I), *PointeeSet.begin());
+    }
+
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
     // analysis as general as possible.
@@ -3893,8 +4728,20 @@ private:
                                            ValTy->getPointerTo())) {
             LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
             LLVM_DEBUG(dbgs() << "  " << I << "\n");
-            setBaseTypeInfoSafetyData(ParentTy,
-                                      dtrans::MismatchedElementAccess);
+
+            if (DTransOutOfBoundsOK) {
+              // Assuming out of bound access, set safety issue for the entire
+              // ParentTy.
+              setBaseTypeInfoSafetyData(ParentTy,
+                                        dtrans::MismatchedElementAccess);
+            } else {
+              // Set safety issue to the ParentTy and to the impacted field type
+              // only.
+              DTInfo.getOrCreateTypeInfo(ParentTy)->setSafetyData(
+                  dtrans::MismatchedElementAccess);
+              setBaseTypeInfoSafetyData(FieldTy,
+                                        dtrans::MismatchedElementAccess);
+            }
           }
         }
 
@@ -3906,16 +4753,17 @@ private:
             FI.setRead(true);
             accumulateFrequency(FI, I);
             if (!isSafeLoadForSingleAllocFunction(&I)) {
-              if (!FI.isBottomAllocFunction())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <BOTTOM>\n");
+              DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                if (!FI.isBottomAllocFunction())
+                  dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <BOTTOM>\n";
+              });
               FI.setBottomAllocFunction();
             }
           } else {
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
               if (FI.processNewSingleValue(ConstVal)) {
-                LLVM_DEBUG({
+                DEBUG_WITH_TYPE(DTRANS_FSV, {
                   dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType());
                   if (FI.isSingleValue())
                     ConstVal->printAsOperand(dbgs());
@@ -3925,22 +4773,24 @@ private:
                 });
               }
               if (!isa<ConstantPointerNull>(WriteVal)) {
-                if (!FI.isBottomAllocFunction())
-                  LLVM_DEBUG(dbgs() << "dtrans-fsaf: "
-                                    << *(ParentStInfo->getLLVMType()) << " ["
-                                    << PointeePair.second << "] <BOTTOM>\n");
+                DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                  if (!FI.isBottomAllocFunction())
+                    dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <BOTTOM>\n";
+                });
                 FI.setBottomAllocFunction();
               }
-            } else if (auto *CI = dyn_cast<CallInst>(WriteVal)) {
-              if (!FI.isMultipleValue())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <MULTIPLE>\n");
+            } else if (auto CS = CallSite(WriteVal)) {
+              DEBUG_WITH_TYPE(DTRANS_FSV, {
+                if (!FI.isMultipleValue())
+                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <MULTIPLE>\n";
+              });
               FI.setMultipleValue();
-              if (isSafeStoreForSingleAllocFunction(CI)) {
-                Function *Callee = CI->getCalledFunction();
+              if (isSafeStoreForSingleAllocFunction(CS)) {
+                Function *Callee = CS.getCalledFunction();
                 if (FI.processNewSingleAllocFunction(Callee)) {
-                  LLVM_DEBUG({
+                  DEBUG_WITH_TYPE(DTRANS_FSAF, {
                     dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
                            << " [" << PointeePair.second << "] ";
                     if (FI.isSingleAllocFunction())
@@ -3951,22 +4801,25 @@ private:
                   });
                 }
               } else {
-                if (!FI.isBottomAllocFunction())
-                  LLVM_DEBUG(dbgs() << "dtrans-fsaf: "
-                                    << *(ParentStInfo->getLLVMType()) << " ["
-                                    << PointeePair.second << "] <BOTTOM>\n");
+                DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                  if (!FI.isBottomAllocFunction())
+                    dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                           << " [" << PointeePair.second << "] <BOTTOM>\n";
+                });
                 FI.setBottomAllocFunction();
               }
             } else {
-              if (!FI.isMultipleValue())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <MULTIPLE>\n");
+              DEBUG_WITH_TYPE(DTRANS_FSV, {
+                if (!FI.isMultipleValue())
+                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <MULTIPLE>\n";
+              });
               FI.setMultipleValue();
-              if (!FI.isBottomAllocFunction())
-                LLVM_DEBUG(dbgs()
-                           << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                           << " [" << PointeePair.second << "] <BOTTOM>\n");
+              DEBUG_WITH_TYPE(DTRANS_FSAF, {
+                if (!FI.isBottomAllocFunction())
+                  dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] <BOTTOM>\n";
+              });
               FI.setBottomAllocFunction();
             }
             FI.setWritten(true);
@@ -4087,7 +4940,7 @@ private:
   /// Given a call instruction that has been determined to be an allocation
   /// of the specified aggregate type, check the size arguments to verify
   /// that the allocation is a multiple of the type size.
-  void verifyAllocationSize(CallInst &CI, dtrans::AllocKind Kind,
+  void verifyAllocationSize(CallSite CS, dtrans::AllocKind Kind,
                             llvm::PointerType *Ty) {
     // The type may be a pointer to an aggregate or a pointer to a pointer.
     // In either case, it is the type that was used as a bitcast for the
@@ -4103,11 +4956,11 @@ private:
     uint64_t ElementSize = DL.getTypeAllocSize(Ty->getElementType());
     unsigned AllocSizeInd = 0;
     unsigned AllocCountInd = 0;
-    getAllocSizeArgs(Kind, &CI, AllocSizeInd, AllocCountInd, TLI);
+    getAllocSizeArgs(Kind, CS, AllocSizeInd, AllocCountInd, TLI);
 
-    auto *AllocSizeVal = CI.getArgOperand(AllocSizeInd);
+    auto *AllocSizeVal = CS.getArgOperand(AllocSizeInd);
     auto *AllocCountVal =
-        AllocCountInd != -1U ? CI.getArgOperand(AllocCountInd) : nullptr;
+        AllocCountInd != -1U ? CS.getArgOperand(AllocCountInd) : nullptr;
     // If either AllocSizeVal or AllocCountVal can be proven to be a multiple
     // of the element size, the size arguments are acceptable.
     if (dtrans::isValueMultipleOfSize(AllocSizeVal, ElementSize) ||
@@ -4132,7 +4985,7 @@ private:
 
     // Otherwise, we must assume the size arguments are not acceptable.
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
-                      << "  " << CI << "\n");
+                      << "  " << *CS.getInstruction() << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
   }
 
@@ -4211,8 +5064,9 @@ private:
 
     for (; FieldNum <= LastField; ++FieldNum) {
       auto &FInfo = SInfo->getField(FieldNum);
-      LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType()) << " ["
-                        << FieldNum << "] <MULTIPLE>\n");
+      DEBUG_WITH_TYPE(DTRANS_FSV,
+                      dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType())
+                             << " [" << FieldNum << "] <MULTIPLE>\n");
 
       if (IsNullValue && (FieldNum != LastField || !LastFieldPartialAccess)) {
         // If setting a null value and the last field is not accessed
@@ -4932,20 +5786,25 @@ private:
         llvm::Constant *ConstVal = Init->getAggregateElement(I);
         dtrans::FieldInfo &FI = StInfo->getField(I);
         analyzeGlobalStructSingleValue(FieldTy, ConstVal);
-        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                          << I << "] ");
+        DEBUG_WITH_TYPE(DTRANS_FSV,
+                        dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())
+                               << " [" << I << "] ");
         if (ConstVal->getType() == FieldTy) {
-          LLVM_DEBUG(ConstVal->printAsOperand(dbgs()));
+          DEBUG_WITH_TYPE(DTRANS_FSV, ConstVal->printAsOperand(dbgs()));
           FI.processNewSingleValue(ConstVal);
-          LLVM_DEBUG(dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
+          DEBUG_WITH_TYPE(
+              DTRANS_FSV,
+              dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
         } else {
-          LLVM_DEBUG(dbgs() << "<MULTIPLE>\n");
+          DEBUG_WITH_TYPE(DTRANS_FSV, dbgs() << "<MULTIPLE>\n");
           FI.setMultipleValue();
         }
         if (!isa<ConstantPointerNull>(ConstVal)) {
-          if (!FI.isBottomAllocFunction())
-            LLVM_DEBUG(dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType())
-                              << " [" << I << "] <BOTTOM>\n");
+          DEBUG_WITH_TYPE(DTRANS_FSAF, {
+            if (!FI.isBottomAllocFunction())
+              dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " [" << I
+                     << "] <BOTTOM>\n";
+          });
           FI.setBottomAllocFunction();
         }
       }
@@ -4974,8 +5833,9 @@ private:
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       int Count = 0;
       for (auto &FI : StInfo->getFields()) {
-        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType()) << " ["
-                          << Count << "] <MULTIPLE>\n");
+        DEBUG_WITH_TYPE(DTRANS_FSV,
+                        dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())
+                               << " [" << Count << "] <MULTIPLE>\n");
         if (IsNullValue)
           FI.processNewSingleValue(Constant::getNullValue(FI.getLLVMType()));
         else {
@@ -5318,6 +6178,34 @@ private:
     else if (isa<dtrans::ArrayInfo>(TI))
       maybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data);
   }
+
+  void setBaseTypeCallGraph(llvm::Type *Ty, Function *F) {
+    // Strip only outermost Pointer type constructors to account
+    // for load/stores/calls, etc. instructions.
+    llvm::Type *BaseTy = Ty;
+    while (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+
+    // This lambda encapsulates the logic for propagating CallGraph info
+    // to structure fields and array elements to account for implicit types
+    // in GEP. Pointer types should be handled indirectly through
+    // load/stores/calls, etc.
+    auto &DT = DTInfo;
+    std::function<void(llvm::Type *)> Propagate =
+        [&DT, F, &Propagate](llvm::Type *Ty) -> void {
+      if (!DT.isTypeOfInterest(Ty))
+        return;
+      if (auto *STy = dyn_cast<StructType>(Ty)) {
+        cast<dtrans::StructInfo>(DT.getOrCreateTypeInfo(STy))
+            ->insertCallGraphNode(F);
+        for (auto FTy : STy->elements())
+          Propagate(FTy);
+      } else if (auto *ATy = dyn_cast<ArrayType>(Ty))
+        Propagate(ATy->getElementType());
+    };
+
+    Propagate(BaseTy);
+  }
 };
 
 } // end anonymous namespace
@@ -5340,8 +6228,9 @@ void DTransAnalysisInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
 
 // Return true if we are interested in tracking values of the specified type.
 //
-// For now, let's limit this to aggregates and various levels of indirection
-// to aggregates. At some point we may also be interested in pointers to
+// For now, let's limit this to sized aggregates and various levels of
+// indirection to sized aggregates. UnhandledUse safety condition is set for
+// unsized types. At some point we may also be interested in pointers to
 // scalars.
 bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   llvm::Type *BaseTy = Ty;
@@ -5350,7 +6239,7 @@ bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   while (BaseTy->isPointerTy())
     BaseTy = cast<PointerType>(BaseTy)->getElementType();
 
-  return BaseTy->isAggregateType();
+  return BaseTy->isAggregateType() && BaseTy->isSized();
 }
 
 dtrans::TypeInfo *DTransAnalysisInfo::getTypeInfo(llvm::Type *Ty) const {
@@ -5488,27 +6377,62 @@ void DTransAnalysisInfo::addByteFlattenedGEPMapping(
   ByteFlattenedGEPInfoMap[GEP] = Pointee;
 }
 
+void DTransAnalysisInfo::addLoadMapping(
+    LoadInst *LdInst, std::pair<llvm::Type *, size_t> Pointee) {
+  LoadInfoMap[LdInst] = Pointee;
+}
+
+void DTransAnalysisInfo::addStoreMapping(
+    StoreInst *StInst, std::pair<llvm::Type *, size_t> Pointee) {
+  StoreInfoMap[StInst] = Pointee;
+}
+
+std::pair<llvm::Type *, size_t>
+DTransAnalysisInfo::getStoreElement(StoreInst *StInst) {
+  auto It = StoreInfoMap.find(StInst);
+  if (It == StoreInfoMap.end())
+    return std::make_pair(nullptr, 0);
+  return It->second;
+}
+
+std::pair<llvm::Type *, size_t>
+DTransAnalysisInfo::getLoadElement(LoadInst *LdInst) {
+  auto It = LoadInfoMap.find(LdInst);
+  if (It == LoadInfoMap.end())
+    return std::make_pair(nullptr, 0);
+  return It->second;
+}
+
+void DTransAnalysisInfo::addLoadPtrSizedIntMapping(LoadInst *LI,
+                                                   llvm::Type *Ty) {
+  LoadPSIInfoMap[LI] = Ty;
+}
+
+void DTransAnalysisInfo::addStorePtrSizedIntMapping(StoreInst *SI,
+                                                    llvm::Type *Ty) {
+  StorePSIInfoMap[SI] = Ty;
+}
+
+llvm::Type *DTransAnalysisInfo::getPtrSizeIntLoadType(LoadInst *LI) {
+  auto It = LoadPSIInfoMap.find(LI);
+  if (It == LoadPSIInfoMap.end())
+    return nullptr;
+  return It->second;
+}
+
+llvm::Type *DTransAnalysisInfo::getPtrSizeIntStoreType(StoreInst *SI) {
+  auto It = StorePSIInfoMap.find(SI);
+  if (It == StorePSIInfoMap.end())
+    return nullptr;
+  return It->second;
+}
+
 std::pair<llvm::Type *, size_t>
 DTransAnalysisInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
   auto It = ByteFlattenedGEPInfoMap.find(GEP);
   if (It == ByteFlattenedGEPInfoMap.end())
     return std::make_pair(nullptr, 0);
   return It->second;
-}
-
-// Set the size used to increase the memory allocation for padded malloc
-// and the interface generated by the optimization
-void DTransAnalysisInfo::setPaddedMallocInfo(unsigned Size, Function *Fn) {
-  PaddedMallocSize = Size;
-  PaddedMallocInterface = Fn;
-}
-
-// Return the size used in the padded malloc optimizaton
-unsigned DTransAnalysisInfo::getPaddedMallocSize() { return PaddedMallocSize; }
-
-// Return the interface generated by padded malloc function
-llvm::Function *DTransAnalysisInfo::getPaddedMallocInterface() {
-  return PaddedMallocInterface;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -5561,6 +6485,7 @@ INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
                       "Data transformation analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
                     "Data transformation analysis", false, true)
 
@@ -5586,12 +6511,13 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
   };
 
   return Result.analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GetBFI);
+      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+      getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
-    : PaddedMallocSize(0), PaddedMallocInterface(nullptr),
-      MaxTotalFrequency(0) {}
+    : MaxTotalFrequency(0), FunctionCount(0), CallsiteCount(0),
+      InstructionCount(0) {}
 
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
@@ -5603,7 +6529,16 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
                                  Other.ByteFlattenedGEPInfoMap.end());
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
+  StorePSIInfoMap.insert(Other.StorePSIInfoMap.begin(),
+                         Other.StorePSIInfoMap.end());
+  LoadPSIInfoMap.insert(Other.LoadPSIInfoMap.begin(),
+                        Other.LoadPSIInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
+  FunctionCount = Other.FunctionCount;
+  CallsiteCount = Other.CallsiteCount;
+  InstructionCount = Other.InstructionCount;
 }
 
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
@@ -5612,9 +6547,19 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   reset();
   TypeInfoMap = std::move(Other.TypeInfoMap);
   CallInfoMap = std::move(Other.CallInfoMap);
-  PaddedMallocSize = Other.getPaddedMallocSize();
-  PaddedMallocInterface = Other.getPaddedMallocInterface();
+  PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
+  ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
+                                 Other.ByteFlattenedGEPInfoMap.end());
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
+  StorePSIInfoMap.insert(Other.StorePSIInfoMap.begin(),
+                         Other.StorePSIInfoMap.end());
+  LoadPSIInfoMap.insert(Other.LoadPSIInfoMap.begin(),
+                        Other.LoadPSIInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
+  FunctionCount = Other.FunctionCount;
+  CallsiteCount = Other.CallsiteCount;
+  InstructionCount = Other.InstructionCount;
   IgnoreTypeMap = std::move(Other.IgnoreTypeMap);
   return *this;
 }
@@ -5642,6 +6587,12 @@ void DTransAnalysisInfo::reset() {
       break;
     }
   }
+  PtrSubInfoMap.clear();
+  ByteFlattenedGEPInfoMap.clear();
+  StoreInfoMap.clear();
+  LoadInfoMap.clear();
+  StorePSIInfoMap.clear();
+  LoadPSIInfoMap.clear();
   TypeInfoMap.clear();
   IgnoreTypeMap.clear();
 }
@@ -5682,6 +6633,10 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_AOSToSOA;
         else if (TransformationAndTypes.first == "elimrofieldaccess")
           TransName = dtrans::DT_ElimROFieldAccess;
+        else if (TransformationAndTypes.first == "dynclone")
+          TransName = dtrans::DT_DynClone;
+        else if (TransformationAndTypes.first == "soatoaos")
+          TransName = dtrans::DT_SOAToAOS;
         else {
           LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
                             << "\': bad transformation name");
@@ -5716,7 +6671,7 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
       if (Ty->isStructTy()) {
         StringRef Name = dtrans::getStructName(Ty);
         // Cut the "struct." from the LLVM type name.
-        if (Name.consume_front("struct."))
+        if (Name.consume_front("struct.") || Name.consume_front("class."))
           if (IgnoreTypeMap[Transform].find(Name) !=
               IgnoreTypeMap[Transform].end())
             if (checkFailed) {
@@ -5734,10 +6689,56 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
   return checkFailed;
 }
 
+// Count up the number of functions, callsites, and instructions to see
+// if the call graph is too large for DtransAnalysis
+void DTransAnalysisInfo::setCallGraphStats(Module &M) {
+  FunctionCount = 0;
+  CallsiteCount = 0;
+  InstructionCount = 0;
+  for (auto &F : M.functions()) {
+    FunctionCount++;
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        InstructionCount++;
+        if (isa<CallInst>(&I) || isa<InvokeInst>(&I))
+          CallsiteCount++;
+      }
+    }
+  }
+  LLVM_DEBUG(dbgs() << "Call Graph Stats:\n"
+                    << "  Functions:    " << FunctionCount
+                    << "  Callsites:    " << CallsiteCount
+                    << "  Instructions: " << InstructionCount << "\n");
+}
+
+// Return true if we should/have run DTransAnalysis.
+// Right now, we just disable DTransAnalysis if the call graph is too large.
+bool DTransAnalysisInfo::useDTransAnalysis(void) {
+  if (CallsiteCount > DTransMaxCallsiteCount ||
+      InstructionCount > DTransMaxInstructionCount) {
+    LLVM_DEBUG(dbgs() << "dtrans: Call graph too large ..."
+                      << "DTransAnalysis didn't run\n");
+    return false;
+  }
+  return true;
+}
+
 bool DTransAnalysisInfo::analyzeModule(
-    Module &M, TargetLibraryInfo &TLI,
+    Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
-  DTransAllocAnalyzer DTAA(TLI);
+
+  if (!WPInfo.isWholeProgramSafe()) {
+    LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
+                      << "DTransAnalysis didn't run\n");
+    return false;
+  }
+
+  setCallGraphStats(M);
+
+  if (!useDTransAnalysis())
+    return false;
+
+  DTransAllocAnalyzer DTAA(TLI, M);
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
                             GetBFI);
   parseIgnoreList();
@@ -5838,6 +6839,12 @@ void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
     printFieldInfo(Field, SI->getIgnoredFor());
   }
   outs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
+  auto &CG = SI->getCallSubGraph();
+  outs() << "  Call graph: "
+         << (CG.isBottom() ? "bottom\n" : (CG.isTop() ? "top\n" : ""));
+  if (!CG.isBottom() && !CG.isTop()) {
+    outs() << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
+  }
   SI->printSafetyData();
   outs() << "\n";
 }
@@ -5883,11 +6890,15 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
     Field.getSingleValue()->printAsOperand(outs());
   } else if (Field.isMultipleValue()) {
     outs() << "    Multiple Value: [ ";
-    for (auto *C : Field.values()) {
-      C->printAsOperand(outs(), false);
-      outs() << " ";
+    auto FirstI = Field.values().begin();
+    for (auto I = FirstI, E = Field.values().end(); I != E; ++I) {
+      if (I != FirstI) {
+        outs() << ", ";
+      }
+
+      (*I)->printAsOperand(outs(), false);
     }
-    outs() << "] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
+    outs() << " ] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
            << ">";
   }
   if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
@@ -5922,40 +6933,73 @@ bool DTransAnalysisInfo::isReadOnlyFieldAccess(LoadInst *Load) {
   return FI.isRead() && !FI.isWritten();
 }
 
+// A helper routine to retrieve structure type - field index pair from a
+// GEPOperator.
+std::pair<llvm::StructType *, uint64_t>
+DTransAnalysisInfo::getStructField(GEPOperator *GEP) {
+  if (!GEP || !GEP->hasAllConstantIndices())
+    return std::make_pair(nullptr, 0);
+
+  if (GEP->getNumIndices() == 1) {
+    auto *GEPI = dyn_cast<GetElementPtrInst>(GEP);
+    if (!GEPI)
+      return std::make_pair(nullptr, 0);
+
+    auto StructField = getByteFlattenedGEPElement(GEPI);
+    auto StructTy = dyn_cast_or_null<StructType>(StructField.first);
+    if (!StructTy)
+      std::make_pair(nullptr, 0);
+
+    return std::make_pair(StructTy, StructField.second);
+  }
+
+  auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
+  if (!StructTy)
+    return std::make_pair(nullptr, 0);
+
+  if (!cast<ConstantInt>(GEP->getOperand(1))->isZeroValue())
+    return std::make_pair(nullptr, 0);
+
+  uint64_t FieldIndex = 0;
+  for (unsigned NI = 2; NI <= GEP->getNumIndices(); ++NI) {
+    auto IndexConst = cast<ConstantInt>(GEP->getOperand(NI));
+    FieldIndex = IndexConst->getLimitedValue();
+    if (FieldIndex >= StructTy->getNumElements())
+      return std::make_pair(nullptr, 0);
+    if (NI == GEP->getNumIndices())
+      break;
+    auto *Ty = StructTy->getElementType(FieldIndex);
+    auto *NewStructTy = dyn_cast<StructType>(Ty);
+    if (!NewStructTy)
+      return std::make_pair(nullptr, 0);
+    StructTy = NewStructTy;
+  }
+  return std::make_pair(StructTy, FieldIndex);
+}
+
 // A helper routine to get a DTrans structure type and field index from the
 // GEP instruction which is a pointer argument of the \p Load in the
 // parameters.
 //
 std::pair<dtrans::StructInfo *, uint64_t>
 DTransAnalysisInfo::getInfoFromLoad(LoadInst *Load) {
-  uint64_t Index = 0;
-  llvm::Type *Ty = nullptr;
-  ConstantInt *CZ = nullptr;
-  ConstantInt *CI = nullptr;
   if (!Load)
     return std::make_pair(nullptr, 0);
+
   auto GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
-  if (!GEP || GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
+  auto StructField = getStructField(GEP);
+  if (!StructField.first)
     return std::make_pair(nullptr, 0);
 
-  CZ = cast<ConstantInt>(GEP->getOperand(1));
-  CI = cast<ConstantInt>(GEP->getOperand(2));
-  Ty = GEP->getSourceElementType();
-
-  if (!Ty->isStructTy())
-    return std::make_pair(nullptr, 0);
-  if (!CZ->isZeroValue())
-    return std::make_pair(nullptr, 0);
-  dtrans::TypeInfo *TI = getTypeInfo(Ty);
+  dtrans::TypeInfo *TI = getTypeInfo(StructField.first);
   if (!TI)
     return std::make_pair(nullptr, 0);
+
   auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
   if (!StInfo)
     return std::make_pair(nullptr, 0);
-  Index = CI->getLimitedValue();
-  if (Index >= StInfo->getNumFields())
-    return std::make_pair(nullptr, 0);
-  return std::make_pair(StInfo, Index);
+
+  return std::make_pair(StInfo, StructField.second);
 }
 
 bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
@@ -6020,6 +7064,7 @@ void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
+  AU.addRequired<WholeProgramWrapperPass>();
 }
 
 char DTransAnalysis::PassID;
@@ -6032,8 +7077,10 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
   };
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M), GetBFI);
+  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M), WPInfo,
+                         GetBFI);
   return DTResult;
 }

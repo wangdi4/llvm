@@ -1,5 +1,5 @@
-;RUN: opt -disable-output -disable-verify -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -disable-output -disable-verify -padded-pointer-info -debug-pass-manager -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks padding propagation for simple recursion case
 ; C code
@@ -9,23 +9,22 @@
 
 ;CHECK:      ==== INITIAL FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %P": 0
+;CHECK-NEXT:     i32* %P : -1
 ;CHECK-NEXT:   Value paddings:
-;CHECK-DAG:      i32* %P :: 0
-;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2) :: 32
+;CHECK-NEXT:     %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2) :: 32
 ;CHECK:      ==== END OF INITIAL FUNCTION SET ====
 
 ;CHECK:      ==== TRANSFORMED FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: 32
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %P": 0
+;CHECK-NEXT:     i32* %P : -1
 ;CHECK-NEXT:   Value paddings:
-;CHECK-DAG:      i32* %P :: 0
+;CHECK-DAG:      %call = tail call i32* @foo(i32* %P) :: 32
 ;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 2) :: 32
 ;CHECK:      ==== END OF TRANSFORMED FUNCTION SET ====
 

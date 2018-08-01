@@ -137,7 +137,7 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   else if (isReverseVectorMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, Tp, 0, nullptr);
   else if (isAlternateVectorMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0,
+    return TTI.getShuffleCost(TargetTransformInfo::SK_Select, Tp, 0,
                               nullptr);
 
   // TODO: Support SK_Insert

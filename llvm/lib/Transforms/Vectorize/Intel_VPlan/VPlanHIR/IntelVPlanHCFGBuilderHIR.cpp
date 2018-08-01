@@ -1,4 +1,4 @@
-//===-- VPlanHCFGBuilderHIR.cpp -------------------------------------------===//
+//===-- IntelVPlanHCFGBuilderHIR.cpp --------------------------------------===//
 //
 //   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
@@ -71,7 +71,7 @@ private:
   /// Outermost loop of the input loop nest.
   HLLoop *TheLoop;
 
-  VPlanUtils &PlanUtils;
+  VPlan *Plan;
 
   /// Map between loop header VPBasicBlock's and their respective HLLoop's. It
   /// is populated in this phase to keep the information necessary to create
@@ -115,10 +115,11 @@ private:
   void visit(HLLabel *HLabel);
 
 public:
-  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlanUtils &Utils,
+  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlan *Plan,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp)
-      : TheLoop(Lp), PlanUtils(Utils), Header2HLLoop(H2HLLp),
-        Decomposer(PlanUtils.getVPlan(), DDG) {}
+      : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp),
+        Decomposer(Plan, Lp, DDG) {}
+
   /// Build a plain CFG for an HLLoop loop nest. Return the TopRegion containing
   /// the plain CFG.
   VPRegionBlock *buildPlainCFG();
@@ -132,8 +133,8 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
   // Auxiliary function that creates an empty VPBasicBlock, set its parent to
   // TopRegion and increases TopRegion's size.
   auto createVPBB = [&]() -> VPBasicBlock * {
-    VPBasicBlock *NewVPBB = PlanUtils.createBasicBlock();
-    PlanUtils.setBlockParent(NewVPBB, TopRegion);
+    VPBasicBlock *NewVPBB = VPlanUtils::createBasicBlock();
+    VPlanUtils::setBlockParent(NewVPBB, TopRegion);
     ++TopRegionSize;
 
     return NewVPBB;
@@ -168,8 +169,8 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
 void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 
   for (VPBasicBlock *Pred : Predecessors) {
-    PlanUtils.appendBlockSuccessor(Pred, VPBB);
-    PlanUtils.appendBlockPredecessor(VPBB, Pred);
+    VPlanUtils::appendBlockSuccessor(Pred, VPBB);
+    VPlanUtils::appendBlockPredecessor(VPBB, Pred);
   }
 
   Predecessors.clear();
@@ -202,19 +203,22 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Force creation of a new VPBB for PH.
   ActiveVPBB = nullptr;
 
-  if (HLp->hasPreheader()) {
-    HLNodeUtils::visitRange<false /*Recursive*/>(
-        *this /*visitor*/, HLp->pre_begin(), HLp->pre_end());
+  // TODO: DDGraph doesn't include HLLoop PH and Exit at this point. As a
+  // workaround, we push them outside of the region represented in VPlan and
+  // create an empty VPBasicBlock for them.
+  // if (HLp->hasPreheader()) {
+  //  HLNodeUtils::visitRange<false /*Recursive*/>(
+  //      *this /*visitor*/, HLp->pre_begin(), HLp->pre_end());
 
-    assert(ActiveVPBB == HLN2VPBB[&*HLp->pre_begin()] &&
-           "Loop PH generates more than one VPBB?");
-  } else {
-    // There is no PH in HLLoop. Create dummy VPBB as PH. We could introduce
-    // this dummy VPBB in simplifyPlainCFG, but according to the design for
-    // LLVM-IR, we expect to have a loop with a PH as input. It's then better to
-    // introduce the dummy PH here.
-    updateActiveVPBB();
-  }
+  //  assert(ActiveVPBB == HLN2VPBB[&*HLp->pre_begin()] &&
+  //         "Loop PH generates more than one VPBB?");
+  //} else
+  // There is no PH in HLLoop. Create dummy VPBB as PH. We could introduce
+  // this dummy VPBB in simplifyPlainCFG, but according to the design for
+  // LLVM-IR, we expect to have a loop with a PH as input. It's then better to
+  // introduce the dummy PH here.
+  updateActiveVPBB();
+
   VPBasicBlock *Preheader = ActiveVPBB;
 
   // - Loop Body -
@@ -242,25 +246,33 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   // Materialize IV Next and bottom test in the loop latch. Connect Latch to
   // Header and set Latch condition bit.
-  VPValue *LatchCondBit = Decomposer.createLoopIVNextAndBottomTest(HLp, Latch);
-  PlanUtils.connectBlocks(Latch, Header);
-  PlanUtils.setBlockCondBit(Latch, LatchCondBit);
+  VPValue *LatchCondBit =
+      Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
+  VPlanUtils::connectBlocks(Latch, Header);
+  VPlanUtils::setBlockCondBit(Latch, LatchCondBit, Plan);
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
   ActiveVPBB = nullptr;
 
-  if (HLp->hasPostexit()) {
-    HLNodeUtils::visitRange<false /*Recursive*/>(
-        *this /*visitor*/, HLp->post_begin(), HLp->post_end());
+  // TODO: DDGraph doesn't include HLLoop PH and Exit at this point. As a
+  // workaround, we push them outside of the region represented in VPlan and
+  // create an empty VPBasicBlock for them.
+  // if (HLp->hasPostexit()) {
+  //  HLNodeUtils::visitRange<false /*Recursive*/>(
+  //      *this /*visitor*/, HLp->post_begin(), HLp->post_end());
 
-    assert(ActiveVPBB == HLN2VPBB[&*HLp->post_begin()] &&
-           "Loop Exit generates more than one VPBB?");
-  } else {
-    // There is no Exit in HLLoop. Create dummy VPBB as Exit (see comment for
-    // dummy PH).
-    updateActiveVPBB();
-  }
+  //  assert(ActiveVPBB == HLN2VPBB[&*HLp->post_begin()] &&
+  //         "Loop Exit generates more than one VPBB?");
+  //} else
+  // There is no Exit in HLLoop. Create dummy VPBB as Exit (see comment for
+  // dummy PH).
+  updateActiveVPBB();
+
+  // At this point, all the VPBasicBlocks have been built and all the
+  // VPInstructions have been created for this loop. It's time to fix
+  // VPInstructions representing a semi-phi operation.
+  Decomposer.fixPhiNodes();
 }
 
 void PlainCFGBuilderHIR::visit(HLIf *HIf) {
@@ -274,8 +286,9 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // Create (single, not decomposed) VPInstruction for HLIf's predicate and set
   // it as condition bit of the active VPBasicBlock.
   // TODO: Remove "not decomposed" when decomposing HLIfs.
-  VPInstruction *CondBit = Decomposer.createVPInstructions(HIf, ActiveVPBB);
-  PlanUtils.setBlockCondBit(ConditionVPBB, CondBit);
+  VPInstruction *CondBit =
+      Decomposer.createVPInstructionsForDDNode(HIf, ActiveVPBB);
+  VPlanUtils::setBlockCondBit(ConditionVPBB, CondBit, Plan);
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch.
@@ -323,7 +336,7 @@ void PlainCFGBuilderHIR::visit(HLInst *HInst) {
   updateActiveVPBB(HInst);
 
   // Create VPInstructions for HInst.
-  Decomposer.createVPInstructions(HInst, ActiveVPBB);
+  Decomposer.createVPInstructionsForDDNode(HInst, ActiveVPBB);
 }
 
 void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
@@ -347,7 +360,7 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   // Create (or get) a new VPBB for HLLabel and connect to HLGoto's VPBB.
   HLLabel *Label = HGoto->getTargetLabel();
   VPBasicBlock *LabelVPBB = createOrGetVPBB(Label);
-  PlanUtils.connectBlocks(ActiveVPBB, LabelVPBB);
+  VPlanUtils::connectBlocks(ActiveVPBB, LabelVPBB);
 
   // Force the creation of a new VPBasicBlock for the next HLNode.
   ActiveVPBB = nullptr;
@@ -361,12 +374,12 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
 
 VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
   // Create new TopRegion.
-  TopRegion = PlanUtils.createRegion(false /*isReplicator*/);
+  TopRegion = VPlanUtils::createRegion(false /*isReplicator*/);
 
   // Create a dummy VPBB as TopRegion's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
   updateActiveVPBB();
-  PlanUtils.setRegionEntry(TopRegion, ActiveVPBB);
+  VPlanUtils::setRegionEntry(TopRegion, ActiveVPBB);
 
   // Trigger the visit of the loop nest.
   visit(TheLoop);
@@ -374,15 +387,15 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as TopRegion's Exit.
   ActiveVPBB = nullptr;
   updateActiveVPBB();
-  PlanUtils.setRegionExit(TopRegion, ActiveVPBB);
+  VPlanUtils::setRegionExit(TopRegion, ActiveVPBB);
 
-  PlanUtils.setRegionSize(TopRegion, TopRegionSize);
+  VPlanUtils::setRegionSize(TopRegion, TopRegionSize);
 
   return TopRegion;
 }
 
 VPRegionBlock *VPlanHCFGBuilderHIR::buildPlainCFG() {
-  PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, PlanUtils, Header2HLLoop);
+  PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
   return TopRegion;
 }
@@ -392,5 +405,5 @@ VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
          "Expected VPBasicBlock as Loop header.");
   HLLoop *HLLp = Header2HLLoop[cast<VPBasicBlock>(VPLp->getHeader())];
   assert(HLLp && "Expected HLLoop");
-  return VPlanHCFGBuilderBase::PlanUtils.createLoopRegionHIR(VPLp, HLLp);
+  return VPlanUtils::createLoopRegionHIR(VPLp, HLLp);
 }

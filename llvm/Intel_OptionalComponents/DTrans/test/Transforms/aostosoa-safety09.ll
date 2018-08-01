@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -disable-output -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
 ; This test verifies that if one of the funtions leading to the allocation
 ; could be used for something other than a direct function call, the type

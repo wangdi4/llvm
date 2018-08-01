@@ -3,10 +3,7 @@
 ; attribute, but the other one does and the .debug_line.dwo section is present.
 
 ; RUN: llc -split-dwarf-file=foo.dwo -split-dwarf-output=%t.dwo \
-; INTEL_CUSTOMIZATION BEGIN
-; Added -dwarf-line-version=5 as workaround for ld.gold internal error until CMPLRS-48167 is fixed.
-; RUN:     -dwarf-version=5 -dwarf-line-version=5 -generate-type-units \
-; INTEL_CUSTOMIZATION END
+; RUN:     -dwarf-version=5 -generate-type-units \
 ; RUN:     -filetype=obj -O0 -mtriple=x86_64-unknown-linux-gnu < %s
 ; RUN: llvm-dwarfdump -v %t.dwo | FileCheck %s
 

@@ -1,5 +1,5 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that we create a correct LocalPointerInfo for bitcast corresponding to zero element access.
 
@@ -29,5 +29,10 @@ define internal i32 @foo(%struct.nextstruct* nocapture) {
 
 declare noalias i8* @malloc(i64)
 
+; CHECK-LABEL:  LLVMType: %struct.mystruct = type { i32, i32 }
+; CHECK: Bad casting
+; CHECK-NOT: Unsafe pointer merge
+
 ; CHECK-LABEL:  LLVMType: %struct.nextstruct = type { i8*, i64 }
+; CHECK-NOT: Bad casting
 ; CHECK-NOT: Unsafe pointer merge

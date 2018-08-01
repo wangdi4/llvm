@@ -193,7 +193,7 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
   CanonExpr *LowerCE = *Lower->canon_begin();
   CanonExpr *UpperCE = *Upper->canon_begin();
   auto DiffCE =
-      UpperCE->getCanonExprUtils().cloneAndSubtract(UpperCE, LowerCE, false);
+      UpperCE->getCanonExprUtils().cloneAndSubtract(UpperCE, LowerCE, true);
   assert(DiffCE && " CanonExpr difference failed.");
   DiffCE->simplify(true);
   if (DiffCE->isIntConstant(&DiffValue)) {

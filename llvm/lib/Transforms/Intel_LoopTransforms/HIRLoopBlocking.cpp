@@ -97,14 +97,16 @@ static cl::opt<bool> LoopBlockingNearPerfectLoopNest(
 // matmul: default algorithm, blocks outer two loops of daxpy form of matmul.
 // kandr: Algorithm from the book by Ken Kennedy and Randy Allen,
 //         blocks the inner two loops.
-enum BlockingAlgo { MatMul, KAndR };
+// All: block as many loops as possible regardless of profitability.
+enum BlockingAlgo { MatMul, KAndR, All };
 
 static cl::opt<BlockingAlgo> LoopBlockingAlgorithm(
     OPT_SWITCH "-algo", cl::Hidden, cl::desc("Choose blocking algorithm:"),
     cl::values(
         clEnumValN(MatMul, "matmul",
                    "default blocking algorithm (block outer two levels)"),
-        clEnumValN(KAndR, "kandr", "algorithm from K&R book")));
+        clEnumValN(KAndR, "kandr", "algorithm from K&R book"),
+        clEnumValN(All, "all", "block as many loops as possible")));
 
 // Knobs for tuning parameters for blocking - block size
 static cl::opt<int> LoopBlockingBlockSize(OPT_SWITCH "-blocksize",
@@ -172,65 +174,6 @@ FunctionPass *llvm::createHIRLoopBlockingPass() {
 }
 
 namespace {
-// CurLoopNests is the current loopnest.
-// LoopPermutation has the original nesting level of the current loopnest.
-// For example,
-//                             outermost --> innermost
-// CurLoopNests:                    1 2 3 4 5 6
-// LoopPermutation's nesting level: 1 3 5 2 4 6
-// Means the loop at level 2 now (i.e in CurLoopNests) was originally at Level 3
-//
-// If a loop is moved inward (i.e Original Level < Current Level),
-// the UB's non-const symbase should become live-in to
-// all loops in range [Original Level, Current Level - 1].
-//
-// In loop blocking's implementation, by-strip loops generated after stripmining
-// are just outside the stripmined loop.
-// e.g.  DO I
-//          DO J = 1, N, 1
-// will become after stipmining I and J-loop (blocking I and J loop)
-//      DO I' = 1, N, S                  // by-strip loop
-//        DO II = I', min(I'+ S, N)      // stripmined loop
-//          DO J' = 1, N, S              // by-strip loop
-//             DO JJ = J', min(J'+ S, N) // stripmined loop
-// To finish blocking J'-loop will go outside, II-loop.
-// In effect II-loop is moving inward.
-//
-// Loops moved inward are stripmined loops (See the example above).
-// Thus, their UBs are "min" var.
-// Now the "min" var get marked livein to loops in range
-// [Original II-level (level 2), New II-level - 1 (level 3 - 1)] = [2,2].
-// This logic works in conjunction with HIRTransformUtils::stripmine.
-// See how "min" vars are generated there.
-void updateLiveIns(const SmallVectorImpl<HLLoop *> &CurLoopNests,
-                   const SmallVectorImpl<const HLLoop *> &LoopPermutation) {
-
-  int OutermostLevel = CurLoopNests.front()->getNestingLevel();
-
-  for (int I = 0, S = CurLoopNests.size(); I < S; I++) {
-    unsigned OrigLevel = LoopPermutation[I]->getNestingLevel();
-    HLLoop *Lp = CurLoopNests[I];
-    unsigned CurLevel = Lp->getNestingLevel();
-    LLVM_DEBUG(dbgs() << "CurLevel: " << CurLevel << "\n";);
-    if (OrigLevel < CurLevel) {
-      // This Lp must be a stripmined(non-by-strip) loop with UB "min" temp.
-      // This "min" temp should become livein to all loops
-      // in range [Original Level, CurLevel's parent Level]
-      unsigned SymBase = Lp->getUpperDDRef()->getSymbase();
-      assert(Lp->getParentLoop());
-      if (SymBase <= GenericRvalSymbase) {
-        // Could be a constant UB. No need to add into LiveIns.
-        continue;
-      }
-      LLVM_DEBUG(dbgs() << OrigLevel << ", " << CurLevel << ", SB: " << SymBase
-                        << "\n";);
-      for (unsigned I = CurLevel - 1; I >= OrigLevel; I--) {
-        assert((CurLoopNests[I - OutermostLevel]->getNestingLevel()) == I);
-        CurLoopNests[I - OutermostLevel]->addLiveInTemp(SymBase);
-      }
-    }
-  }
-}
 
 // Stripmine the loops found in LoopsToStripmine,
 // and record the resulting by-strip loops into ByStripLoops
@@ -244,19 +187,24 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   // For printing out debug or optreport info
   SmallVector<unsigned, 4> BlockedLevels;
 
-  // This loop goes through original loops not the newly added loop
-  // produced from strip-mining
-  for (HLLoop *CurLoop = InnermostLoop,
-              *NextInner = InnermostLoop->getParentLoop(),
-              *ParentLoopOfOutermost = OutermostLoop->getParentLoop();
-       CurLoop && CurLoop != ParentLoopOfOutermost; CurLoop = NextInner,
-              NextInner = CurLoop ? CurLoop->getParentLoop() : nullptr) {
+  SmallVector<std::pair<HLLoop *, unsigned>, MaxLoopNestLevel> CurLoopNests;
 
+  ForEach<HLLoop>::visit(NewOutermost, [&CurLoopNests](HLLoop *Lp) {
+    CurLoopNests.push_back(std::make_pair(Lp, Lp->getNestingLevel()));
+  });
+
+  // Scan from outermost to innermost.
+  // By stripmining outer loop before its inner loop,
+  // def@level of min UB vars are correctly set.
+  // Notice this is true before min's definition is not hoisted.
+  // Once it is hoisted, def@level has to be updated.
+  for (auto CurLoopInfo : CurLoopNests) {
+    HLLoop *CurLoop = CurLoopInfo.first;
     if (!LoopsToStripmine.count(CurLoop)) {
       continue;
     }
 
-    BlockedLevels.push_back(CurLoop->getNestingLevel());
+    BlockedLevels.push_back(CurLoopInfo.second);
 
     // Stripmine as much as possible
     // Add some heuristic for stripmining
@@ -274,7 +222,7 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   }
 
   LLVM_DEBUG(std::for_each(
-      BlockedLevels.rbegin(), BlockedLevels.rend(),
+      BlockedLevels.begin(), BlockedLevels.end(),
       [](unsigned &Level) { dbgs() << "Blocked at Level " << Level << "\n"; }));
 
   LLVM_DEBUG(dbgs() << "A New Outermost loop\n";);
@@ -490,6 +438,36 @@ bool determineProfitableStripmineLoop(
   return !LoopsToStripmine.empty();
 }
 
+// Block as many loops as possible starting from the innermost
+// Mainly for performance testing.
+bool blockLoopsMaximally(const HLLoop *InnermostLoop,
+                         const HLLoop *OutermostLoop,
+                         LoopSetTy &LoopsToStripmine,
+                         SmallVectorImpl<unsigned> &ToStripLevels) {
+
+  unsigned NumTotalLoops = InnermostLoop->getNestingLevel();
+  for (const HLLoop *Lp = InnermostLoop, *ELp = OutermostLoop->getParentLoop();
+       Lp != ELp; Lp = Lp->getParentLoop()) {
+    bool NotRequired = false;
+    if (NumTotalLoops >= MaxLoopNestLevel) {
+      break;
+    }
+    if (Lp->canStripmine(LoopBlockingBlockSize, NotRequired)) {
+
+      NumTotalLoops++;
+
+      LLVM_DEBUG(dbgs() << "Loop at Level " << Lp->getNestingLevel()
+                        << " will be stripmined\n");
+      LoopsToStripmine.insert(const_cast<HLLoop *>(Lp));
+      ToStripLevels.push_back(Lp->getNestingLevel());
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "determineProfitableStipmineLoop result: "
+                    << !LoopsToStripmine.empty() << "\n");
+  return !LoopsToStripmine.empty();
+}
+
 // Authored by Pankaj
 bool isValidToBlock(DirectionVector &DV, unsigned OutermostLevel,
                     unsigned LevelToStrip) {
@@ -542,46 +520,17 @@ bool isLegalToStripmineAndInterchange(
   SmallVector<DirectionVector, 16> DVs;
   SRA.computeSafeReductionChains(OutermostLoop);
 
-  // Gather all rval temp ddrefs in the innermost loop and
-  // ignore symbases of temps that are NOT live-ins to the innermost.
-  // They are either from preloop/postloop inst before the perfect loop nests
-  // are enabled. Or non-loop-carried from the beginning as it(or those when
-  // multiple defs of a same temp in two childrens of if-stmt) is dominating
-  // its(their) uses.
-
-  // TODO: Revise computeDVsForPermute to also has special symbases not to
-  // ignore
-  //       but to include. Then live-in set can be directly passed.
-  DDRefGatherer<RegDDRef, TerminalRefs>::VectorTy Refs;
-  DDRefGatherer<RegDDRef, TerminalRefs>::gatherRange(
-      InnermostLoop->child_begin(), InnermostLoop->child_end(), Refs);
-
-  SmallVector<unsigned, 8> Temps;
-  for (auto &Ref : Refs) {
-    Temps.push_back(Ref->getSymbase());
-  }
-
-  SmallVector<unsigned, 8> LiveIns;
+  // For temps, consider only temps that are live-in.
+  // Other temps are OK to ignore for DV checks.
+  SpecialSymbasesTy TempSBsToConsider;
   for (auto I : llvm::make_range(InnermostLoop->live_in_begin(),
                                  InnermostLoop->live_in_end())) {
-    LiveIns.push_back(I);
+    TempSBsToConsider.insert(I);
   }
 
-  std::sort(Temps.begin(), Temps.end());
-  std::sort(LiveIns.begin(), LiveIns.end());
-  SmallVector<unsigned, 8> Diff;
-  std::set_difference(Temps.begin(), Temps.end(), LiveIns.begin(),
-                      LiveIns.end(),
-                      std::back_inserter<SmallVector<unsigned, 8>>(Diff));
-
-  InterchangeIgnorableSymbasesTy IgnorableSBs;
-  for (auto &I : Diff) {
-    IgnorableSBs.insert(I);
-  }
-
-  DDUtils::computeDVsForPermute(DVs, OutermostLoop,
-                                InnermostLoop->getNestingLevel(), DDA, SRA,
-                                RefineDV, &IgnorableSBs);
+  DDUtils::computeDVsForPermuteWithSBs(DVs, OutermostLoop,
+                                       InnermostLoop->getNestingLevel(), DDA,
+                                       SRA, RefineDV, &TempSBsToConsider);
 
   unsigned OutermostLevel = OutermostLoop->getNestingLevel();
   for (auto &DV : DVs) {
@@ -695,17 +644,21 @@ public:
     // SmallSet does not allow iteration, auxiliary data structure
     SmallVector<unsigned, MaxLoopNestLevel> ToStripLevels;
 
-    bool IsToStripmine = determineProfitableStripmineLoop(
-        InnermostLoop, NewOutermost, Refs, ToStripmines, ToStripLevels);
-    assert((IsToStripmine != (ToStripmines.empty())) && "Empty!!");
+    bool IsToStripmine = false;
+    if (LoopBlockingAlgorithm == All) {
+      IsToStripmine = blockLoopsMaximally(InnermostLoop, NewOutermost,
+                                          ToStripmines, ToStripLevels);
+    } else {
+      IsToStripmine = determineProfitableStripmineLoop(
+          InnermostLoop, NewOutermost, Refs, ToStripmines, ToStripLevels);
+      assert((IsToStripmine != (ToStripmines.empty())) && "Empty!!");
+    }
+
     if (!IsToStripmine) {
       LLVM_DEBUG(dbgs() << "Failed determineProfitableStipmineLoop\n";);
     } else if (isLegalToStripmineAndInterchange(ToStripLevels, NewOutermost,
                                                 InnermostLoop, DDA, SRA,
                                                 false)) {
-      // Legality check of permute has passed.
-      // LoopnestsAndToStripTy A = {NewOutermost, InnermostLoop, ToStripmines};
-      // OutermostToStrips.push_back(A);
       OutermostToStrips.emplace_back(NewOutermost, InnermostLoop, ToStripmines);
     } else {
       LLVM_DEBUG(dbgs() << "Failed isLegalToStripmineAndInterchange\n";);
@@ -732,6 +685,83 @@ private:
   HIRLoopStatistics &HLS;
   BlockingLoopNestInfoTy &OutermostToStrips;
 };
+
+// LoopPermutation: Info before permutation
+// CurLoopNests : Info after permutation
+void hoistMinDefs(const LoopSetTy &ByStripLoops,
+                  const SmallVectorImpl<const HLLoop *> &LoopPermutation,
+                  const SmallVectorImpl<HLLoop *> &CurLoopNests) {
+
+  unsigned OutermostLevel = CurLoopNests.front()->getNestingLevel();
+  unsigned InnermostLevel = CurLoopNests.back()->getNestingLevel();
+  unsigned DestLevel = 0;
+
+  // Find the level where min blob is used as Loop UB
+  auto FindUseMinLevel = [&LoopPermutation](unsigned OrigDefLevel) {
+    unsigned OrigUseLevel = OrigDefLevel + 1;
+    unsigned DestLevel = 0;
+    for (auto OrigLp : LoopPermutation) {
+      DestLevel++;
+      if (OrigLp->getNestingLevel() == OrigUseLevel) {
+        return DestLevel;
+      }
+    }
+    llvm_unreachable("Stripmined loop is not found after permutation.");
+  };
+
+  for (auto LpWithDef : LoopPermutation) {
+
+    DestLevel++;
+
+    if (!ByStripLoops.count(LpWithDef)) {
+      continue;
+    }
+
+    HLLoop *LpDest = CurLoopNests[DestLevel - 1];
+    unsigned OrigLevel = LpWithDef->getNestingLevel();
+    assert(DestLevel <= OrigLevel);
+
+    // Move the first child of LpWithDef to the first child of LpDest
+    // First Child is min definition
+    // Second Child is unit-stride loop with min as UB
+    HLNode *FirstChild = (const_cast<HLLoop *>(LpWithDef))->getFirstChild();
+    if (!isa<HLInst>(FirstChild)) {
+      // "min" may not be generated by stripmine
+      // because the UB of the original loop was divisible by
+      // Strip mine size
+      continue;
+    }
+
+    const HLInst *FirstInst = cast<HLInst>(FirstChild);
+    assert(isa<SelectInst>(FirstInst->getLLVMInstruction()));
+
+    HLNodeUtils::moveAsFirstChild(LpDest, FirstChild);
+
+    unsigned DefMinLevel = DestLevel;
+    unsigned UseMinLevel = FindUseMinLevel(OrigLevel);
+    // Update Def@level of Loop UB with min blob
+    CurLoopNests[UseMinLevel - 1]
+        ->getUpperDDRef()
+        ->getSingleCanonExpr()
+        ->setDefinedAtLevel(DefMinLevel);
+
+    // Update Live-in temp info.
+    // From LpDest's child-loop to LpWithDef's child-loop,
+    // "min" def is a live-in
+    unsigned MinSB = FirstInst->getLvalDDRef()->getSymbase();
+    LLVM_DEBUG(dbgs() << "MinSB: " << MinSB << " DefMinLevel: " << DefMinLevel
+                      << " UseMinLevel: " << UseMinLevel << "\n");
+    for (unsigned I = DefMinLevel + 1; I <= UseMinLevel; I++) {
+      CurLoopNests[I - 1]->addLiveInTemp(MinSB);
+    }
+    for (unsigned I = OutermostLevel; I <= DefMinLevel; I++) {
+      CurLoopNests[I - 1]->removeLiveInTemp(MinSB);
+    }
+    for (unsigned I = UseMinLevel + 1; I <= InnermostLevel; I++) {
+      CurLoopNests[I - 1]->removeLiveInTemp(MinSB);
+    }
+  }
+}
 
 // Do stripmine & interchange
 void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
@@ -762,14 +792,16 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     HIRTransformUtils::permuteLoopNests(NewOutermostLoop, LoopPermutation,
                                         InnermostLoop->getNestingLevel());
 
-    // Update LiveIns
-    // Specific logic after Stripemine & interchange.
-    // Not generic enough to be a util for other transformations.
     SmallVector<HLLoop *, MaxLoopNestLevel> CurLoopNests;
     ForEach<HLLoop>::visit(NewOutermostLoop, [&CurLoopNests](HLLoop *Lp) {
       CurLoopNests.push_back(Lp);
     });
-    updateLiveIns(CurLoopNests, LoopPermutation);
+
+    // Hoist min var's definitions to Destination Levels
+    LLVM_DEBUG(NewOutermostLoop->dump(1));
+    hoistMinDefs(ByStripLoops, LoopPermutation, CurLoopNests);
+    LLVM_DEBUG(dbgs() << "after hoist\n");
+    LLVM_DEBUG(NewOutermostLoop->dump());
 
     // Invalidate
     NewOutermostLoop->getParentRegion()->setGenCode();

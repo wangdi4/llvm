@@ -102,6 +102,13 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
 
+  if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
+    assert(Kind == AK_UserMalloc);
+    AllocSizeInd = 1;
+    AllocCountInd = -1U;
+    return;
+  }
+
   switch (Kind) {
   case AK_UserMalloc:
     AllocSizeInd = 0;
@@ -128,12 +135,51 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
   }
 }
 
+// Should be kept in sync with DTransInstVisitor::DTanalyzeAllocationCall.
+void dtrans::collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
+                                     SmallPtrSet<Value *, 3> &OutputSet,
+                                     const TargetLibraryInfo &TLI) {
+
+  unsigned AllocSizeInd = -1U;
+  unsigned AllocCountInd = -1U;
+  getAllocSizeArgs(Kind, CS, AllocSizeInd, AllocCountInd, TLI);
+  if (AllocSizeInd < CS.arg_size())
+    OutputSet.insert(CS.getArgument(AllocSizeInd));
+  if (AllocCountInd < CS.arg_size())
+    OutputSet.insert(CS.getArgument(AllocCountInd));
+
+  if (Kind == AK_Realloc)
+    OutputSet.insert(CS.getArgument(0));
+}
+
 bool dtrans::isFreeFn(CallSite CS, const TargetLibraryInfo &TLI) {
   return isFreeCall(CS.getInstruction(), &TLI);
 }
 
 bool dtrans::isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI) {
   return isDeleteCall(CS.getInstruction(), &TLI);
+}
+
+void dtrans::getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
+                           const TargetLibraryInfo &TLI) {
+  assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
+
+  if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
+    assert(Kind == FK_UserFree);
+    PtrArgInd = 1;
+    return;
+  }
+  PtrArgInd = 0;
+}
+
+void dtrans::collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
+                                    SmallPtrSet<Value *, 3> &OutputSet,
+                                    const TargetLibraryInfo &TLI) {
+  unsigned PtrArgInd = -1U;
+  getFreePtrArg(Kind, CS, PtrArgInd, TLI);
+
+  if (PtrArgInd < CS.arg_size())
+    OutputSet.insert(CS.getArgument(PtrArgInd));
 }
 
 bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
@@ -169,6 +215,22 @@ bool dtrans::isValueEqualToSize(const Value *Val, uint64_t Size) {
 // specified size.
 bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
   if (!Val)
+    return false;
+
+  // If the size is zero, always return false.
+  //
+  // In practice, this can happen with zero-size arrays, which could be handled
+  // differently. For instance, if an allocated pointer is cast as a
+  // [0 x <type>]* array, we could possibly handle this case by checking that
+  // the allocation size is a multiple of the size of <type> but the
+  // data layout will report that the allocation size of [0 x <type>] is
+  // zero, so we'd need special handling where we call isValueMultipleOfSize
+  // and in DTransOptBase::findMultipleOfSizeInst.
+  //
+  // The effect of returning false here is that the caller will assume that
+  // the allocation is not in a form that we can optimize, so this keeps us
+  // out of trouble.
+  if (Size == 0)
     return false;
 
   // Is it a constant?
@@ -253,14 +315,6 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
         *AccessedTy = SrcTy;
       return true;
     }
-    // If zero element has i8* type and destination is a pointer-to-pointer type
-    // then it is a legal zero element access.
-    if (DestPointeeTy->isPointerTy() &&
-        ElementZeroTy == llvm::Type::getInt8PtrTy(SrcTy->getContext())) {
-      if (AccessedTy)
-        *AccessedTy = SrcTy;
-      return true;
-    }
     // If element zero is an aggregate type, this cast might be accessing
     // element zero of the nested type.
     if (ElementZeroTy->isAggregateType())
@@ -268,6 +322,25 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
                                  AccessedTy);
     // Otherwise, it must be a bad cast. The caller should handle that.
     return false;
+  }
+  return false;
+}
+
+bool dtrans::isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy) {
+  auto *CompTy = dyn_cast<CompositeType>(Ty);
+  if (!CompTy)
+    return false;
+  // This avoids problems with opaque types.
+  if (!CompTy->indexValid(0u))
+    return false;
+  auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+  // If element zero is a composite type, look at its first element.
+  if (ElementZeroTy->isAggregateType())
+    return isElementZeroI8Ptr(ElementZeroTy, AccessedTy);
+  if (ElementZeroTy == llvm::Type::getInt8PtrTy(Ty->getContext())) {
+    if (AccessedTy)
+      *AccessedTy = Ty->getPointerTo();
+    return true;
   }
   return false;
 }
@@ -424,6 +497,94 @@ bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
   return false;
 }
 
+// To represent call graph in C++ one stores outermost type,
+// in whose methods there was reference to this structure.
+//
+// Lattice of properties is
+//  {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
+// Final result represents the structure type, whose methods can be used to
+// reach all uses of the given type ThisTy.
+void dtrans::StructInfo::CallSubGraph::insertFunction(Function *F,
+                                                      StructType *ThisTy) {
+  // If we could not approximate CallGraph by methods of some class,
+  // no need to analyze further.
+  if (isTop())
+    return;
+
+  // If reference to ThisTy is encountered in global scope or
+  // inside function, which does not look like class method,
+  // then mark CallGraph approximation as 'top' or 'failed' approximation.
+  if (!F || F->arg_size() < 1) {
+    setTop();
+    return;
+  }
+  // Candidate for 'this' pointer;
+  auto *Ty = F->arg_begin()->getType();
+  if (!isa<PointerType>(Ty)) {
+    setTop();
+    return;
+  }
+  auto *StTy = dyn_cast<StructType>(Ty->getPointerElementType());
+  if (!StTy) {
+    setTop();
+    return;
+  }
+
+  // Ty >= ThisTy
+  //
+  // Check if ThisTy can be reachable from Ty by recursion to
+  // structure's elements and following pointers.
+  std::function<bool(Type *, StructType *, int)> findSubType =
+      [&findSubType](Type *Ty, StructType *ThisTy, int Depth) -> bool {
+    Depth--;
+    if (Depth <= 0)
+      return false;
+    switch (Ty->getTypeID()) {
+    default:
+      return false;
+    case Type::StructTyID: {
+      auto *STy = cast<StructType>(Ty);
+      if (STy == ThisTy)
+        return true;
+      for (auto *FTy : STy->elements())
+        if (findSubType(FTy, ThisTy, Depth))
+          return true;
+      return false;
+    }
+    case Type::ArrayTyID:
+      if (findSubType(Ty->getArrayElementType(), ThisTy, Depth))
+        return true;
+      return false;
+    case Type::PointerTyID:
+      if (findSubType(Ty->getPointerElementType(), ThisTy, Depth))
+        return true;
+      return false;
+    }
+    llvm_unreachable("Non-exhaustive switch statement");
+  };
+
+  // !(StTy >= ThisTy)
+  // If ThisTy is not reachable from 'this' argument,
+  // then mark as 'top'
+  if (!findSubType(StTy, ThisTy, 5)) {
+    setTop();
+    return;
+  }
+
+  // Compute `join`.
+  // If cannot find least common approximation to old and new approximation,
+  // then mark as 'top'.
+  if (isBottom()) {
+    State.setPointer(StTy);
+  } else if (findSubType(StTy, State.getPointer(), 5)) {
+    State.setPointer(StTy);
+  } else if (!findSubType(State.getPointer(), StTy, 5)) {
+    setTop();
+    return;
+  }
+  // else do nothing
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void PointerTypeInfo::dump() { print(dbgs()); }
 
@@ -528,6 +689,10 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "aostosoa";
   case dtrans::DT_ElimROFieldAccess:
     return "elimrofieldaccess";
+  case dtrans::DT_DynClone:
+    return "dynclone";
+  case dtrans::DT_SOAToAOS:
+    return "soatoaos";
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
@@ -551,6 +716,10 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
     return dtrans::SDAOSToSOA;
   case dtrans::DT_ElimROFieldAccess:
     return dtrans::SDElimROFieldAccess;
+  case dtrans::DT_DynClone:
+    return dtrans::SDDynClone;
+  case dtrans::DT_SOAToAOS:
+    return dtrans::SDSOAToAOS;
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return dtrans::NoIssues;

@@ -1,22 +1,22 @@
-;RUN: opt -disable-output -disable-verify -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -disable-output -disable-verify -padded-pointer-info -debug-pass-manager -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks merging of padding for PHINode
 
 ;CHECK:      ==== INITIAL FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %p": 0
+;CHECK-NEXT:     i32* %p : -1
 ;CHECK:      ==== END OF INITIAL FUNCTION SET ====
 
 ;CHECK:      ==== TRANSFORMED FUNCTION SET ====
 ;CHECK:      Function info(foo):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: 2
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %p": 0
+;CHECK-NEXT:     i32* %p : -1
 ;CHECK-NEXT:   Value paddings:
 ;CHECK:          %x.0 = phi i32* [ %5, %sw.default ], [ %4, %sw.bb3 ], [ %3, %sw.bb2 ], [ %2, %sw.bb1 ], [ %1, %sw.bb ] :: 2
 ;CHECK:      ==== END OF TRANSFORMED FUNCTION SET ====

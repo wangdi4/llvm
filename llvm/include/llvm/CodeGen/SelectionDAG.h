@@ -889,7 +889,8 @@ public:
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
                   SDValue N2, const SDNodeFlags Flags = SDNodeFlags());
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
-                  SDValue N2, SDValue N3);
+                  SDValue N2, SDValue N3,
+                  const SDNodeFlags Flags = SDNodeFlags());
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
                   SDValue N2, SDValue N3, SDValue N4);
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
@@ -1486,8 +1487,11 @@ public:
   /// Test whether the given SDValue is known to never be NaN.
   bool isKnownNeverNaN(SDValue Op) const;
 
-  /// Test whether the given SDValue is known to never be positive or negative
-  /// zero.
+  /// Test whether the given floating point SDValue is known to never be
+  /// positive or negative zero.
+  bool isKnownNeverZeroFloat(SDValue Op) const;
+
+  /// Test whether the given SDValue is known to contain non-zero value(s).
   bool isKnownNeverZero(SDValue Op) const;
 
   /// Test whether two SDValues are known to compare equal. This

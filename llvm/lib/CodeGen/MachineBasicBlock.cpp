@@ -659,6 +659,25 @@ void MachineBasicBlock::addSuccessorWithoutProb(MachineBasicBlock *Succ) {
   Succ->addPredecessor(this);
 }
 
+void MachineBasicBlock::splitSuccessor(MachineBasicBlock *Old,
+                                       MachineBasicBlock *New,
+                                       bool NormalizeSuccProbs) {
+  succ_iterator OldI = llvm::find(successors(), Old);
+  assert(OldI != succ_end() && "Old is not a successor of this block!");
+  assert(llvm::find(successors(), New) == succ_end() &&
+         "New is already a successor of this block!");
+
+  // Add a new successor with equal probability as the original one. Note
+  // that we directly copy the probability using the iterator rather than
+  // getting a potentially synthetic probability computed when unknown. This
+  // preserves the probabilities as-is and then we can renormalize them and
+  // query them effectively afterward.
+  addSuccessor(New, Probs.empty() ? BranchProbability::getUnknown()
+                                  : *getProbabilityIterator(OldI));
+  if (NormalizeSuccProbs)
+    normalizeSuccProbs();
+}
+
 void MachineBasicBlock::removeSuccessor(MachineBasicBlock *Succ,
                                         bool NormalizeSuccProbs) {
   succ_iterator I = find(Successors, Succ);
@@ -853,7 +872,71 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(MachineBasicBlock *Succ,
   MachineFunction *MF = getParent();
   DebugLoc DL;  // FIXME: this is nowhere
 
-  MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock();
+  const BasicBlock *BaseBB = getBasicBlock(); // INTEL
+
+#if INTEL_CUSTOMIZATION
+  // To be able to access opt-reports from MIR, we need a valid and
+  // reasonable MBB->BB mapping.  Here we try to figure out which
+  // of the two BasicBlocks (this and Succ) has to be considered
+  // as the one (potentially) holding the opt-report for the new
+  // MachineBasicBlock created here.
+  //
+  // If MachineLoopInfo is not available, we have no choice but to
+  // pick one of the two arbitrarily - we pick 'this' one.
+  //
+  // In general, we want to keep the new MachineBasicBlock matched
+  // to a BasicBlock in the same Loop, so this code matches
+  // the code at the end of this routine.  For example, if we are breaking
+  // an edge from an outer loop (where 'this' MachineBasicBlock belongs to)
+  // to an inner loop (where 'Succ' MachineBasicBlock belongs to), then
+  // we put the new MachineBasicBlock into the outer Loop.  Thus,
+  // we want to map the new MachineBasicBlock to 'this' MachineBasicBlock's
+  // BasicBlock.
+  if (MachineLoopInfo *MLI = P.getAnalysisIfAvailable<MachineLoopInfo>())
+    // If 'this' block is not in a Loop, then the new block is not either,
+    // so we map the new block to the BasicBlock corresponding to 'this'
+    // block.
+    if (MachineLoop *SourceLoop = MLI->getLoopFor(this)) {
+      if (MachineLoop *DestLoop = MLI->getLoopFor(Succ)) {
+        if (SourceLoop == DestLoop) {
+          // Both in the same loop.  It does not actually matter
+          // to which block we map the new one, because even if both
+          // blocks are latch blocks, the opt-report metadata attached
+          // to them is the same.
+        } else if (SourceLoop->contains(DestLoop)) {
+          // Edge from an outer loop to an inner loop.  The new block
+          // will be added to the outer loop.  The edge's 'source'
+          // block ('this') may be a latch block, so we have to map
+          // the new block to the BasicBlock corresponding to 'this' block.
+        } else if (DestLoop->contains(SourceLoop)) {
+          // Edge from an inner loop to an outer loop.  The new block
+          // will be added to the outer loop.  The edge's 'target'
+          // block ('Succ') may be a latch block, so we have to map
+          // the new block to the BasicBlock corresponding to 'Succ' block.
+          BaseBB = Succ->getBasicBlock();
+        } else {
+          // Edge from two loops with no containment relation.  Because these
+          // are natural loops, we know that the destination block must be the
+          // header of its loop (adding a branch into a loop elsewhere would
+          // create an irreducible loop).  If 'this' block is a latch block
+          // in its loop, then it would be incorrect to map the new block
+          // to its BasicBlock, because the new block cannot belong
+          // to 'this' block's loop.  Map the new block to the BasicBlock
+          // corresponding to 'Succ' block.
+          BaseBB = Succ->getBasicBlock();
+        }
+      } else {
+        // If 'this' block is in a Loop, and 'Succ' block is not in a Loop,
+        // then the new block does not belong to any Loop as well.
+        // Thus, the new block cannot become a latch block for the Loop,
+        // while 'this' block may actually be a latch block.  In this case,
+        // we map the new block the BasicBlock corresponding to 'Succ' block.
+        BaseBB = Succ->getBasicBlock();
+      }
+    }
+#endif  // INTEL_CUSTOMIZATION
+
+  MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock(BaseBB); // INTEL
   MF->insert(std::next(MachineFunction::iterator(this)), NMBB);
   LLVM_DEBUG(dbgs() << "Splitting critical edge: " << printMBBReference(*this)
                     << " -- " << printMBBReference(*NMBB) << " -- "

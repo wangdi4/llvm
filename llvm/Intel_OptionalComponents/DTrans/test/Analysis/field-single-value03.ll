@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check that consistent writes do not invalidate Single Value.
 ; All ints have the value 6, all floats have the value 8.

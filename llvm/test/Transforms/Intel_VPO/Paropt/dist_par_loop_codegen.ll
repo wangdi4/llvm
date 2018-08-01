@@ -42,7 +42,7 @@ omp.precond.then:                                 ; preds = %entry
   br label %DIR.OMP.DISTRIBUTE.PARLOOP.1
 
 DIR.OMP.DISTRIBUTE.PARLOOP.1:                     ; preds = %omp.precond.then
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.DIST_SCHEDULE.STATIC"(i32 8), "QUAL.OMP.SCHEDULE.STATIC"(i32 2), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %k), "QUAL.OMP.SHARED"(float* %vla) ]
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.DIST_SCHEDULE.STATIC"(i32 8), "QUAL.OMP.SCHEDULE.STATIC"(i32 2), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %k), "QUAL.OMP.SHARED"(float* %vla) ]
   %5 = load i32, i32* %.omp.lb, align 4, !tbaa !2
   store volatile i32 %5, i32* %.omp.iv, align 4, !tbaa !2
   br label %omp.inner.for.cond

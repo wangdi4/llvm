@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   LoopVectorizerCodeGen.h -- LLVM IR Code generation
+//   IntelLoopVectorizerCodeGen.h -- LLVM IR Code generation
 //
 //===----------------------------------------------------------------------===//
 

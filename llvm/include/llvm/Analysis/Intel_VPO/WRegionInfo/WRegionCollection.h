@@ -95,6 +95,7 @@ private:
   const TargetTransformInfo *TTI;
   AssumptionCache *AC;
   const TargetLibraryInfo *TLI;
+  AliasAnalysis *AA;
 #if INTEL_CUSTOMIZATION
   loopopt::HIRFramework *HIRF;
 #endif // INTEL_CUSTOMIZATION
@@ -110,11 +111,13 @@ public:
 
   WRegionCollection(Function *F, DominatorTree *DT, LoopInfo *LI,
                     ScalarEvolution *SE, const TargetTransformInfo *TTI,
-                    AssumptionCache *AC, const TargetLibraryInfo *TLI
+                    AssumptionCache *AC, const TargetLibraryInfo *TLI,
+                    AliasAnalysis *AA
 #if INTEL_CUSTOMIZATION
-                    , loopopt::HIRFramework *HIRF
+                    ,
+                    loopopt::HIRFramework *HIRF
 #endif // INTEL_CUSTOMIZATION
-                   );
+  );
 
   void print(raw_ostream &OS) const;
 
@@ -141,6 +144,7 @@ public:
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
+  AliasAnalysis *getAliasAnalysis() { return AA; }
 
   /// \brief Returns the size of the WRGraph container
   unsigned getWRGraphSize() { return WRGraph->size(); }

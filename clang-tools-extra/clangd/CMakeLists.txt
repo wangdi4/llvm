@@ -14,16 +14,15 @@ add_clang_library(clangDaemon
   ClangdUnit.cpp
   CodeComplete.cpp
   CodeCompletionStrings.cpp
-  CompileArgsCache.cpp
   Compiler.cpp
   Context.cpp
   Diagnostics.cpp
   DraftStore.cpp
   FindSymbols.cpp
+  FileDistance.cpp
   FuzzyMatch.cpp
   GlobalCompilationDatabase.cpp
   Headers.cpp
-  JSONExpr.cpp
   JSONRPCDispatcher.cpp
   Logger.cpp
   Protocol.cpp

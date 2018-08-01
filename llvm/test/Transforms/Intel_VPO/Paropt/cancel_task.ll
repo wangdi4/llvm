@@ -74,7 +74,7 @@ entry:
 ; ALL-DAG: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 4)
 ; PREPR-DAG: store i32 [[CANCEL1]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]
 ; TFORM-DAG: [[CHECK1:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
-; TFORM-DAG: br i1 [[CHECK1]], label %[[FOREXITLABEL:[a-zA-Z._0-9]+]], label %{{[a-zA-Z._0-9]+}}
+; TFORM-DAG: br i1 [[CHECK1]], label %{{[a-zA-Z._0-9]+}}, label %{{[a-zA-Z._0-9]+}}
 
   call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.TASK"() ]
 ; Updated region entry intrinsic after vpo-paropt-prepare
@@ -87,7 +87,7 @@ entry:
 ; ALL-DAG: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 4)
 ; PREPR-DAG: store i32 [[CANCEL2]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]]
 ; TFORM-DAG: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
-; TFORM-DAG: br i1 [[CHECK2]], label %[[FOREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
+; TFORM-DAG: br i1 [[CHECK2]], label %{{[a-zA-Z._0-9]+}}, label %{{[a-zA-Z._0-9]+}}
 
   %10 = load i32, i32* @x, align 4, !tbaa !2
   %inc3 = add nsw i32 %10, 1

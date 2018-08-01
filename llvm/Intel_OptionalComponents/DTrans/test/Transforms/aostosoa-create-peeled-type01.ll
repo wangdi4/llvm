@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 
 ; This test verifies the basic functionality for creating a peeled type
@@ -45,7 +45,7 @@ define void @test01() {
   ret void
 }
 ; Verify that a scalar integer is now used for the local.
-; CHECK: define void @test01()
+; CHECK define internal void@test01()
 ; CHECK:   %local = alloca i64
 
 
@@ -64,7 +64,7 @@ define void @test02(%struct.test02* %in1) {
 }
 ; Verify that accesses to read and write pointers to the type being converted
 ; are changed to be reads and writes of integer index values.
-; CHECK: define void @test02.1(%__SOADT_struct.test02* %in1)
+; CHECK define internal void@test02.1(%__SOADT_struct.test02* %in1)
 ; CHECK:   %field1_addr = getelementptr %__SOADT_struct.test02, %__SOADT_struct.test02* %in1, i64 0, i32 0
 ; CHECK:   %field2_addr = getelementptr %__SOADT_struct.test02, %__SOADT_struct.test02* %in1, i64 0, i32 1
 ; CHECK:   %field1_val = load i64, i64* %field1_addr

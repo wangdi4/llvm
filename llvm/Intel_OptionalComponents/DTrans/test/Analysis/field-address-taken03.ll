@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -dtrans-outofboundsok -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-outofboundsok -disable-output 2>&1 | FileCheck %s
 
 ; Check that the OUTERSTRUCT is marked Field Address Taken, with the second
 ; field specifically AddressTaken, and that the INNERSTRUCT is Field

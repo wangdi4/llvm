@@ -1,5 +1,5 @@
-;RUN: opt -disable-output -disable-verify -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -disable-output -disable-verify -padded-pointer-info -debug-pass-manager -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks correct processing of implicit call conversions
 ; C code
@@ -21,12 +21,12 @@
 ;CHECK-NEXT:   HasUnknownCallSites: 1
 ;CHECK-NEXT:   Return Padding: -1
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %P": 0
+;CHECK-NEXT:     i32* %P : 0
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      i32* %P :: 0
 ;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8) :: 16
 ;CHECK:      Function info(baz):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-NEXT:     %1 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %0, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 4) :: 8
@@ -37,12 +37,12 @@
 ;CHECK-NEXT:   HasUnknownCallSites: 1
 ;CHECK-NEXT:   Return Padding: 16
 ;CHECK-NEXT:   Arguments' Padding:
-;CHECK-NEXT:     i32* %P": 0
+;CHECK-NEXT:     i32* %P : 0
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-DAG:      i32* %P :: 0
 ;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8) :: 16
 ;CHECK:      Function info(baz):
-;CHECK-NEXT:   HasUnknownCallSites: 1
+;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1
 ;CHECK-NEXT:   Value paddings:
 ;CHECK-NEXT:     %1 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %0, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 4) :: 8

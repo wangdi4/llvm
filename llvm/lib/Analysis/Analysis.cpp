@@ -73,6 +73,7 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeMustExecutePrinterPass(Registry);
   initializeObjCARCAAWrapperPassPass(Registry);
   initializeOptimizationRemarkEmitterWrapperPassPass(Registry);
+  initializePhiValuesWrapperPassPass(Registry);
   initializePostDominatorTreeWrapperPassPass(Registry);
   initializeRegionInfoPassPass(Registry);
   initializeRegionViewerPass(Registry);

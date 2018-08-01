@@ -1211,8 +1211,14 @@ bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
 // Should zero extend loop bound, since it's always >= 0.
 // This routine collects upper bound and extends if needed.
 // Return null if no bound available.
-const CanonExpr *DDTest::collectUpperBound(const HLLoop *L, Type *T) const {
+const CanonExpr *DDTest::collectUpperBound(const HLLoop *L, Type *T) {
   const CanonExpr *UpperBound = L->getUpperCanonExpr();
+
+  uint64_t MaxTC;
+  if (!UpperBound->isIntConstant() && (MaxTC = L->getMaxTripCountEstimate()) &&
+      L->isMaxTripCountEstimateUsefulForDD()) {
+    return getConstantWithType(UpperBound->getDestType(), MaxTC - 1);
+  }
   // TODO: test I8 UB
   return UpperBound;
 }
@@ -3424,11 +3430,11 @@ const CanonExpr *DDTest::getNegativePart(const CanonExpr *X) {
 // Walks through the subscript,
 // collecting each coefficient, the associated loop bounds,
 // and recording its positive and negative parts for later use.
-bool
-DDTest::collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
-                         const CanonExpr *&Constant,
-                         const HLLoop *SrcParentLoop,
-                         const HLLoop *DstParentLoop, CoefficientInfo CI[]) {
+bool DDTest::collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
+                              const CanonExpr *&Constant,
+                              const HLLoop *SrcParentLoop,
+                              const HLLoop *DstParentLoop,
+                              CoefficientInfo CI[]) {
 
   const CanonExpr *Zero = getConstantWithType(Subscript->getSrcType(), 0);
   for (unsigned K = 1; K <= MaxLevels; ++K) {

@@ -132,6 +132,9 @@ FunctionPass *createHIROptReportEmitterWrapperPass();
 
 /// Create pass that eliminates dead store.
 FunctionPass *createHIRDeadStoreEliminationPass();
+
+/// Create pass that computes last value of a temp.
+FunctionPass *createHIRLastValueComputationPass();
 }
 
 #endif

@@ -5,7 +5,7 @@
 ; to exclude the use of the dtrans option for builds that exclude dtrans, the
 ; test must be separate.
 
-; RUN: opt -disable-verify -debug-pass-manager \
+; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume \
 ; RUN:     -passes='lto<O2>' -S  %s -enable-npm-dtrans 2>&1 \
 ; RUN:     | FileCheck %s
 
@@ -14,23 +14,28 @@
 ; CHECK-NEXT: Running pass: PassManager<{{.*}}Module
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
 
+; CHECK: Running analysis: TargetLibraryAnalysis
+; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}Function{{.*}}>
 ; CHECK: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifierPass{{.*}}>
+; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
 ; CHECK: Running analysis: DominatorTreeAnalysis
 ; CHECK: Running analysis: AssumptionAnalysis
-; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
+; CHECK: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
+; CHECK-NEXT: Running pass: dtrans::ResolveTypes
+; CHECK-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running analysis: DTransAnalysis
 ; CHECK-NEXT: Running analysis: BlockFrequencyAnalysis on foo
 ; CHECK-NOT: Running analysis: DTransAnalysis
-; CHECK: Running pass: dtrans::AOSToSOAPass
-; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
+; CHECK: Running pass: dtrans::ReorderFieldsPass
+; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
+; CHECK-NEXT: Running pass: dtrans::DynClonePass
+; CHECK-NEXT: Running pass: dtrans::SOAToAOSPass
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
-; CHECK-NEXT: Running analysis: WholeProgramAnalysis
 
 ; Make sure we get the IR back out without changes when we print the module.
-; CHECK-LABEL: define void @foo(i32 %n) local_unnamed_addr {
+; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   br label %loop
 ; CHECK:      loop:
@@ -43,11 +48,18 @@
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 ;
+; CHECK-LABEL: define i32 @main() local_unnamed_addr {
+; CHECK-NEXT:    call fastcc void @foo(i32 1)
+; CHECK-NEXT:    ret i32 0
+; CHECK-NEXT:  }
+;
+; CHECK-LABEL: attributes #0 = { noinline uwtable }
 ; CHECK-NEXT: Finished llvm::Module pass manager run.
 
 declare void @bar() local_unnamed_addr
 
-define void @foo(i32 %n) local_unnamed_addr {
+; Function Attrs: noinline uwtable
+define void @foo(i32 %n) local_unnamed_addr #0 {
 entry:
   br label %loop
 loop:
@@ -59,3 +71,10 @@ loop:
 exit:
   ret void
 }
+
+define i32 @main() {
+  call void @foo(i32 1)
+  ret i32 0
+}
+
+attributes #0 = { noinline uwtable }

@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/CallSite.h"
@@ -258,7 +259,9 @@ const SafetyData HasVTable = 0x0000000000004000000;
 const SafetyData HasFnPtr = 0x0000000000008000000;
 
 /// A type has C++ processing:
-///   allocation/deallocation with new/delete.
+///   allocation/deallocation with new/delete;
+///   invoke instruction returns or takes structure/
+///     pointer to structure.
 const SafetyData HasCppHandling = 0x0000000000010000000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
@@ -287,26 +290,28 @@ const SafetyData SDReorderFields =
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    LocalInstance | HasCppHandling | UnhandledUse;
+    MismatchedArgUse | LocalInstance | HasCppHandling | UnhandledUse;
 //
 // Safety conditions for field single value analysis
 //
 const SafetyData SDFieldSingleValue =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | UnhandledUse;
+    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+    UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | UnhandledUse;
+    UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    HasInitializerList | UnsafePtrMerge | AddressTaken | UnhandledUse;
+    HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+    UnhandledUse;
 
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -317,6 +322,25 @@ const SafetyData SDAOSToSOA =
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
     HasCppHandling;
+
+const SafetyData SDDynClone =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    LocalInstance |  MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
+    UnhandledUse;
+
+const SafetyData SDSOAToAOS =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
+    GlobalArray | HasFnPtr | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -331,8 +355,10 @@ const Transform DT_ReorderFields = 0x0004;
 const Transform DT_DeleteField = 0x0008;
 const Transform DT_AOSToSOA = 0x0010;
 const Transform DT_ElimROFieldAccess = 0x0020;
-const Transform DT_Last = 0x0040;
-const Transform DT_Legal = 0x003f;
+const Transform DT_DynClone = 0x0040;
+const Transform DT_SOAToAOS = 0x0080;
+const Transform DT_Last = 0x0100;
+const Transform DT_Legal = 0x00ff;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
@@ -407,7 +433,8 @@ public:
 class StructInfo : public TypeInfo {
 public:
   StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes, bool IgnoreFlag)
-      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag) {
+      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag),
+        SubGraph() {
     for (llvm::Type *FieldTy : FieldTypes)
       Fields.push_back(FieldInfo(FieldTy));
   }
@@ -429,11 +456,47 @@ public:
   /// Returns FSV and/or FSAF if the type was ignored in those optimizations.
   dtrans::Transform getIgnoredFor() { return IsIgnoredFor; }
 
+  // To represent call graph in C++ one stores outermost type,
+  // in whose methods there was reference to this structure.
+  // Lattice: {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
+  // Type should be some struct from which given type is reachable.
+  // insertFunction is a 'join' operation of this lattice.
+  class CallSubGraph {
+    PointerIntPair<StructType *, 1, bool> State;
+    void setTop() {
+      State.setPointer(nullptr);
+      State.setInt(true);
+    }
+  public:
+    // State is zero-initialized to 'bottom'.
+    CallSubGraph() = default;
+    bool isBottom() const {
+      return !State.getPointer() && !State.getInt();
+    }
+    bool isTop() const {
+      return State.getInt();
+    }
+    StructType *getEnclosingType() const {
+      assert(!isBottom() && !isTop() && "Invalid access to CallSubGraph");
+      return State.getPointer();
+    }
+    // If occurrence is not inside specific Function,
+    // then mark it as 'top'.
+    // It is a case of GlobalVariable.
+    void insertFunction(Function *F, StructType *ThisTy);
+  };
+
+  void insertCallGraphNode(Function *F) {
+    SubGraph.insertFunction(F, cast<StructType>(getLLVMType()));
+  }
+  const CallSubGraph &getCallSubGraph() const { return SubGraph; }
+
 private:
   SmallVector<FieldInfo, 16> Fields;
   // Total Frequency of all fields in struct.
   uint64_t TotalFrequency;
   dtrans::Transform IsIgnoredFor;
+  CallSubGraph SubGraph;
 };
 
 class ArrayInfo : public TypeInfo {
@@ -778,6 +841,13 @@ AllocKind getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI);
 void getAllocSizeArgs(AllocKind Kind, CallSite CS, unsigned &AllocSizeInd,
                       unsigned &AllocCountInd, const TargetLibraryInfo &TLI);
 
+/// Collects all special arguments for malloc-like call.
+/// Elements are added to OutputSet.
+/// Realloc-like functions have pointer argument returned in OutputSet.
+void collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
+                             SmallPtrSet<Value *, 3> &OutputSet,
+                             const TargetLibraryInfo &TLI);
+
 /// Determine whether or not the specified CallSite is a call to the free-like
 /// library function.
 bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
@@ -785,6 +855,15 @@ bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
 /// Determine whether or not the specified CallSite is a call to the
 /// delete-like library function.
 bool isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI);
+
+/// Returns the index of pointer argument for CS.
+void getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
+                   const TargetLibraryInfo &TLI);
+
+/// Collects all special arguments for free-like call.
+void collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
+                            SmallPtrSet<Value *, 3> &OutputSet,
+                            const TargetLibraryInfo &TLI);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
 bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);
@@ -805,6 +884,12 @@ bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
 /// type) whose element zero is accessed, if any.
 bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
                          llvm::Type **AccessedTy = nullptr);
+
+/// Examine the specified type to determine if it is a composite type whose
+/// first element (at any level of casting) has i8* type. The
+/// \p AccessedTy argument if non-null returns the type (possibly a nested
+/// type) whose element zero is i8*, if any.
+bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
 
 /// Check whether the specified type is the type of a known system object.
 bool isSystemObjectType(llvm::StructType *Ty);

@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 
 ; This test verifies that null pointers of types being converted
@@ -50,7 +50,7 @@ merge:
   %chosen = phi %struct.test01* [ %in, %not_null ], [ null, %is_null ]
   ret void
 }
-; CHECK: define void @test01.1(i64 %in)
+; CHECK: define internal void @test01.1(i64 %in)
 ; CHECK:   %cmp = icmp eq i64 %in, 0
 ; CHECK:   %chosen = phi i64 [ %in, %not_null ], [ 0, %is_null ]
 
@@ -61,7 +61,7 @@ define void @test02(%struct.test01** %in) {
   store %struct.test01* null, %struct.test01** %in
   ret void
 }
-; CHECK: define void @test02.2(i64* %in)
+; CHECK: define internal void @test02.2(i64* %in)
 ; CHECK:   store i64 0, i64* %in
 
 
@@ -72,7 +72,7 @@ define void @test03(%struct.test01*** %in) {
   store %struct.test01** null, %struct.test01*** %in
   ret void
 }
-; CHECK: define void @test03.3(i64** %in) {
+; CHECK define internal void@test03.3(i64** %in) {
 ; CHECK:   store i64* null, i64** %in
 
 declare i8* @malloc(i64)

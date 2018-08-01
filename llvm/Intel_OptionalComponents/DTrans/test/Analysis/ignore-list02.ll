@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -dtransanalysis -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="fsv:mystruct;fsaf:mystruct,str" 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="fsv:mystruct;fsaf:mystruct,str" 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="fsv:mystruct;fsaf:mystruct,str" 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="fsv:mystruct;fsaf:mystruct,str" 2>&1 | FileCheck %s
 
 ; The test checks '-dtrans-nosafetychecks-list=' option functionality. This options allows ignoring safety check violations for types.
 
@@ -48,6 +48,7 @@ define i32 @main() {
 ; CHECK-NEXT:    Single Value: i32 0 (ignored)
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
 ; CHECK-NEXT:  Total Frequency: 1
+; CHECK-NEXT:  Call graph:
 ; CHECK-NEXT:  Safety data: Bad casting | Global instance
 
 
@@ -66,4 +67,5 @@ define i32 @main() {
 ; CHECK-NEXT:    Multiple Value: [ 0 ] <incomplete>
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
 ; CHECK-NEXT:  Total Frequency: 0
+; CHECK-NEXT:  Call graph:
 ; CHECK-NEXT:  Safety data: Global instance | Unhandled use

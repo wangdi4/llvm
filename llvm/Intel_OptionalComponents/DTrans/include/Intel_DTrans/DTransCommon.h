@@ -23,11 +23,14 @@
 // for each pass.
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
-#include "Intel_DTrans/Transforms/DeleteField.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
-#include "Intel_DTrans/Transforms/ReorderFields.h"
+#include "Intel_DTrans/Transforms/DeleteField.h"
+#include "Intel_DTrans/Transforms/DynClone.h"
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
+#include "Intel_DTrans/Transforms/ReorderFields.h"
+#include "Intel_DTrans/Transforms/ResolveTypes.h"
+#include "Intel_DTrans/Transforms/SOAToAOS.h"
 
 #if !INTEL_PRODUCT_RELEASE
 #include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
@@ -46,9 +49,12 @@ void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
+void initializeDTransResolveTypesWrapperPass(PassRegistry&);
 // Pass for elimination of unreacheble access to field which is only read.
 void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
 void initializePaddedPtrPropWrapperPass(PassRegistry&);
+void initializeDTransDynCloneWrapperPass(PassRegistry&);
+void initializeDTransSOAToAOSWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOptBaseTestWrapperPass(PassRegistry&);

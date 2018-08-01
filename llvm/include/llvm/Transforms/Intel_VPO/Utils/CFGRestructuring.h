@@ -10,22 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass invokes the CFGRestructuring member function of VPOUtils class on
-// a function. The CFG for the function is restructured, such that each
-// directive for Cilk, OpenMP, Offload, Vectorization is put into a standalone
-// basic block. This is a pre-required process for constructing WRegion for a
-// function.
+/// \file
+/// This file declares the VPOCFGRestructuringPass pass.
 //
-//            Before                 |            After
-//          -------------------------+---------------------------
-// B1:                               |       B1:
-//   %1 = begin_region()             |         %1 = begin_region()
-//                                   |         br B2
-//                                   |       B2:
-//   ...                             |         ...
-//                                   |         br B3
-//                                   |       B3:
-//   end_region(%1)                  |         end_region(%1)
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VPO_UTILS_CFGRESTRUCTURING_H
@@ -36,8 +23,25 @@
 namespace llvm {
 
 /// Re-constructs CFG with single-entry-single-exit BBLOCKS. Entry BBLOCK
-/// contains @llvm.directive.region.entry(...) Instruction and Exit BBLOCK
-/// contains @llvm.directive.region.exit(...) Instruction.
+/// contains `@llvm.directive.region.entry(...)` Instruction and Exit BBLOCK
+/// contains `@llvm.directive.region.exit(...)` Instruction.
+///
+/// This pass invokes the VPOUtils::CFGRestructuring() on a given function.
+/// The CFG for the function is restructured, such that each directive for Cilk,
+/// OpenMP, Offload, Vectorization is put into a standalone basic block. This is
+/// a pre-required process for constructing WRegion for a function.
+/// \code
+///            Before                 |            After
+///          -------------------------+---------------------------
+/// B1:                               |       B1:
+///   %1 = begin_region()             |         %1 = begin_region()
+///                                   |         br B2
+///                                   |       B2:
+///   ...                             |         ...
+///                                   |         br B3
+///                                   |       B3:
+///   end_region(%1)                  |         end_region(%1)
+/// \endcode
 class VPOCFGRestructuringPass : public PassInfoMixin<VPOCFGRestructuringPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);

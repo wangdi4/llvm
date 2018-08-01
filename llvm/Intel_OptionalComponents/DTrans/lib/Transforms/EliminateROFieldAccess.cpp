@@ -97,7 +97,7 @@ namespace {
 struct EliminateROFieldAccessImpl {
   EliminateROFieldAccessImpl(DTransAnalysisInfo &DTransInfo)
       : DTransInfo(DTransInfo){};
-  bool run(Module &M);
+  bool run(Module &M, WholeProgramInfo &WPInfo);
   bool visit(BasicBlock *BB);
   bool checkSecondIfBB(BasicBlock *SecondIfBB, Value *BaseOp);
 
@@ -260,7 +260,7 @@ bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
     return false;
 
   BasicBlock *TrueFieldBB, *UnreachableBB;
-  if(FieldCond->getPredicate() == CmpInst::ICMP_EQ) {
+  if (FieldCond->getPredicate() == CmpInst::ICMP_EQ) {
     TrueFieldBB = FieldBrInst->getSuccessor(0);
     UnreachableBB = FieldBrInst->getSuccessor(1);
   } else {
@@ -319,7 +319,14 @@ bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
   return true;
 }
 
-bool EliminateROFieldAccessImpl::run(Module &M) {
+bool EliminateROFieldAccessImpl::run(Module &M, WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTransInfo.useDTransAnalysis())
+    return false;
+
   bool Changed = false;
   for (auto &F : M) {
     if (F.isDeclaration())
@@ -348,7 +355,9 @@ public:
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
   }
 };
 
@@ -360,6 +369,7 @@ INITIALIZE_PASS_BEGIN(
     "Eliminate condition accessing structure field which is only read", false,
     false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(
     DTransEliminateROFieldAccessWrapper, "dtrans-elim-ro-field-access",
     "Eliminate condition accessing structure field which is only read", false,
@@ -371,12 +381,13 @@ ModulePass *llvm::createDTransEliminateROFieldAccessWrapperPass() {
 
 bool DTransEliminateROFieldAccessWrapper::runOnModule(Module &M) {
   auto &DTransInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+  auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
 
   if (skipModule(M))
     return false;
 
   EliminateROFieldAccessImpl Impl(DTransInfo);
-  if (Impl.run(M))
+  if (Impl.run(M, WPInfo))
     return true;
   return false;
 }
@@ -387,9 +398,10 @@ namespace dtrans {
 PreservedAnalyses EliminateROFieldAccessPass::run(Module &M,
                                                   ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   EliminateROFieldAccessImpl Impl(DTransInfo);
-  if (!Impl.run(M))
+  if (!Impl.run(M, WPInfo))
     return PreservedAnalyses::all();
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;

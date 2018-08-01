@@ -160,8 +160,6 @@ bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
 HIRDDAnalysis::HIRDDAnalysis(llvm::loopopt::HIRFramework &HIRF,
                              llvm::AAResults *AAR)
     : HIRAnalysis(HIRF), AAR(AAR) {
-
-  forceBuild();
 }
 
 void HIRDDAnalysisWrapperPass::releaseMemory() { DDA.reset(); }
@@ -174,28 +172,6 @@ void HIRDDAnalysis::forceBuild() {
     HIRF.getHLNodeUtils().visitAll(V);
   }
 
-  // Dump graph for each node specified by the cl opts.
-  for (int NodeNumber : DumpGraphForNodeNumbers) {
-    ForEach<HLNode>::visitRange(
-        HIRF.hir_begin(), HIRF.hir_end(),
-        [NodeNumber, this](const HLNode *Node) {
-          if (NodeNumber == -1 ||
-              NodeNumber == static_cast<int>(Node->getNumber())) {
-            DDGraph DDG(nullptr, nullptr);
-
-            if (const HLRegion *Region = dyn_cast<HLRegion>(Node)) {
-              DDG = getGraph(Region);
-            } else if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
-              DDG = getGraph(Loop);
-            } else {
-              return;
-            }
-
-            dbgs() << "Graph for node <" << Node->getNumber() << ">\n";
-            DDG.dump();
-          }
-        });
-  }
 }
 
 void HIRDDAnalysis::markLoopBodyModified(const HLLoop *Loop) {
@@ -503,33 +479,52 @@ RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   return Dep;
 }
 
-bool HIRDDAnalysis::graphForNodeValid(const HLNode *Node) {
-  if (ForceDDA) {
-    return false;
-  }
-
-  return ValidationMap[Node] == GraphState::Valid;
-}
-
 void HIRDDAnalysis::printAnalysis(raw_ostream &OS) const {
-  OS << "DD graph for function " << HIRF.getFunction().getName() << ":\n";
-  FunctionDDGraph.print(OS);
+
+  // Need a non-const pointer to force build for opt -analyze mode.
+  auto NonConstDDA = const_cast<HIRDDAnalysis*>(this);
+
+  if (DumpGraphForNodeNumbers.empty()) {
+    NonConstDDA->forceBuild();
+    OS << "DD graph for function " << HIRF.getFunction().getName() << ":\n";
+    FunctionDDGraph.print(OS);
+  } else {
+    // Dump graph for each node specified by the cl opts.
+    for (int NodeNumber : DumpGraphForNodeNumbers) {
+      ForEach<HLNode>::visitRange(
+          HIRF.hir_begin(), HIRF.hir_end(),
+          [NodeNumber, NonConstDDA](const HLNode *Node) {
+            if (NodeNumber == -1 ||
+                NodeNumber == static_cast<int>(Node->getNumber())) {
+              DDGraph DDG(nullptr, nullptr);
+
+              if (const HLRegion *Region = dyn_cast<HLRegion>(Node)) {
+                DDG = NonConstDDA->getGraph(Region);
+              } else if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+                DDG = NonConstDDA->getGraph(Loop);
+              } else {
+                return;
+              }
+
+              dbgs() << "Graph for node <" << Node->getNumber() << ">\n";
+              DDG.dump();
+            }
+          });
+    }
+  }
 }
 
 // Graph verifier does not build input edges
 void HIRDDAnalysis::GraphVerifier::visit(HLRegion *Region) {
-  if (CurLevel == DDVerificationLevel::Region &&
-      !CurDDA->graphForNodeValid(Region)) {
-    CurDDA->buildGraph(Region, false);
+  if (CurLevel == DDVerificationLevel::Region) {
+    CurDDA->getGraph(Region, false);
   }
 }
 
 void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
   if (Loop->getNestingLevel() == CurLevel ||
       (Loop->isInnermost() && CurLevel == DDVerificationLevel::Innermost)) {
-    if (!CurDDA->graphForNodeValid(Loop)) {
-      CurDDA->buildGraph(Loop, false);
-    }
+    CurDDA->getGraph(Loop, false);
   }
 }
 

@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   LoopVectorizationCodeGen.cpp -- LLVM IR Code generation from VPlan
+//   IntelLoopVectorizationCodeGen.cpp -- LLVM IR Code generation from VPlan
 //
 //===----------------------------------------------------------------------===//
 

@@ -75,6 +75,7 @@
 //
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -509,7 +510,7 @@ bool HIRLMM::areDDEdgesLegal(const HLLoop *Lp, const RegDDRef *Ref,
 // at least 1 suitable (both profitable and legal) group.
 void HIRLMM::doTransform(HLLoop *Lp) {
   unsigned NumLIMM = 0;
-
+  SmallSet<unsigned, 32> TempRefSet;
   // Iterate over each group in MRC, do LMM promotion if suitable.
   for (unsigned Idx = 0, IdxE = MRC.getSize(); Idx < IdxE; ++Idx) {
     MemRefGroup &MRG = MRC.get(Idx);
@@ -521,7 +522,7 @@ void HIRLMM::doTransform(HLLoop *Lp) {
 
     // LLVM_DEBUG(MRG.print(true); dbgs() << "Before LIMM on a MRG\n";
     // Lp->dump(););
-    doLIMMRef(Lp, MRG);
+    doLIMMRef(Lp, MRG, TempRefSet);
     ++NumLIMM;
     // LLVM_DEBUG(dbgs() << "After LIMM on a MRG\n"; Lp->dump(););
   }
@@ -531,6 +532,96 @@ void HIRLMM::doTransform(HLLoop *Lp) {
   Lp->getParentRegion()->setGenCode();
   HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
+
+  HLNodeUtils::removeEmptyNodes(Lp);
+}
+
+bool HIRLMM::canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef,
+                                MemRefGroup &MRG,
+                                SmallSet<unsigned, 32> &TempRefSet) const {
+  if (MRG.getSize() != 1 || !FirstRef->isRval()) {
+    return false;
+  }
+
+  HLDDNode *LoadDDNode = FirstRef->getHLDDNode();
+  HLInst *LoadHInst = dyn_cast<HLInst>(LoadDDNode);
+
+  if (!LoadHInst) {
+    return false;
+  }
+
+  const Instruction *LLVMLoadInst = LoadHInst->getLLVMInstruction();
+
+  if (!isa<LoadInst>(LLVMLoadInst)) {
+    return false;
+  }
+
+  RegDDRef *LRef = LoadHInst->getLvalDDRef();
+
+  if (TempRefSet.count(LRef->getSymbase())) {
+    return false;
+  }
+
+  DDGraph DDG = HDDA.getGraph(Lp, false);
+
+  for (DDEdge *E : DDG.incoming(LRef)) {
+    if (E->isANTIdep()) {
+      return false;
+    }
+  }
+
+  for (DDEdge *E : DDG.outgoing(LRef)) {
+    if (E->isOUTPUTdep()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
+                                MemRefGroup &MRG,
+                                SmallSet<unsigned, 32> &TempRefSet) const {
+  if (MRG.getSize() != 1 || !FirstRef->isLval()) {
+    return false;
+  }
+
+  HLDDNode *StoreDDNode = FirstRef->getHLDDNode();
+  HLInst *StoreHInst = dyn_cast<HLInst>(StoreDDNode);
+
+  if (!StoreHInst) {
+    return false;
+  }
+
+  const Instruction *LLVMStoreInst = StoreHInst->getLLVMInstruction();
+
+  if (!isa<StoreInst>(LLVMStoreInst)) {
+    return false;
+  }
+
+  RegDDRef *RRef = StoreHInst->getRvalDDRef();
+
+  if (!RRef->isSelfBlob()) {
+    return false;
+  }
+
+  if (StoreHInst == Lp->getLastChild()) {
+    return true;
+  }
+
+  if (TempRefSet.count(RRef->getSymbase())) {
+    return false;
+  }
+
+  DDGraph DDG = HDDA.getGraph(Lp, false);
+
+  for (DDEdge *E : DDG.outgoing(RRef)) {
+    if (E->isANTIdep()) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // Check whether we need a Load in the Loops' preheader:
@@ -563,6 +654,59 @@ bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
   llvm_unreachable("Not expect control to reach here\n");
 }
 
+bool HIRLMM::hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
+                               SmallSet<unsigned, 32> &TempRefSet,
+                               LoopOptReportBuilder &LORBuilder) {
+  if (!canHoistSingleLoad(Lp, LoadRef, MRG, TempRefSet)) {
+    return false;
+  }
+
+  HLDDNode *LoadDDNode = LoadRef->getHLDDNode();
+
+  HLNodeUtils::moveAsLastPreheaderNode(Lp, LoadDDNode);
+
+  RegDDRef *TempRef = LoadDDNode->getLvalDDRef();
+
+  Lp->addLiveInTemp(TempRef->getSymbase());
+
+  DDGraph DDG = HDDA.getGraph(Lp, false);
+
+  for (DDEdge *E : DDG.outgoing(TempRef)) {
+    if (E->isFLOWdep()) {
+      DDRef *DDRefSink = E->getSink();
+      setLinear(DDRefSink);
+    }
+  }
+
+  LoadRef->updateDefLevel(LoopLevel - 1);
+
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                            "Load hoisted out of the loop");
+  return true;
+}
+
+bool HIRLMM::sinkedSingleStore(HLLoop *Lp, RegDDRef *StoreRef, MemRefGroup &MRG,
+                               SmallSet<unsigned, 32> &TempRefSet,
+                               LoopOptReportBuilder &LORBuilder) {
+  if (!canSinkSingleStore(Lp, StoreRef, MRG, TempRefSet)) {
+    return false;
+  }
+
+  HLDDNode *StoreDDNode = StoreRef->getHLDDNode();
+
+  HLNodeUtils::moveAsFirstPostexitNode(Lp, StoreDDNode);
+
+  RegDDRef *TempRef = StoreDDNode->getRvalDDRef();
+
+  Lp->addLiveOutTemp(TempRef->getSymbase());
+
+  StoreRef->updateDefLevel(LoopLevel - 1);
+
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                            "Store sinked out of the loop");
+  return true;
+}
+
 // Do LIMM promotion on a MRG
 //
 // [Algorithm]
@@ -581,13 +725,15 @@ bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
 //  - Create a store in postexit if needed
 //  - Replace each load/store in group with the Tmp
 //
-void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
+void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
+                       SmallSet<unsigned, 32> &TempRefSet) {
   bool NeedLoadInPrehdr = false, NeedStoreInPostexit = false;
   RegDDRef *TmpDDRef = nullptr;
   RegDDRef *FirstRef = MRG.get(0);
-  HLInst *LoadInPrehdr = nullptr;
-  bool IsLoadOnly = MRG.isLoadOnly();
 
+  HLInst *LoadInPrehdr = nullptr;
+
+  bool IsLoadOnly = MRG.isLoadOnly();
   // Debug: Examine the Loop BEFORE transformation
   // LLVM_DEBUG(Lp->dump(););
 
@@ -599,16 +745,24 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
   // Need a Load in prehdr: check algorithm for details
   NeedLoadInPrehdr = isLoadNeededInPrehder(Lp, MRG);
 
-  // ### Promote LIMM for the MRG ###
-
   LoopOptReportBuilder &LORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  // Hoist a Load or a Store without replacing a temp
+  if (hoistedSingleLoad(Lp, FirstRef, MRG, TempRefSet, LORBuilder) ||
+      sinkedSingleStore(Lp, FirstRef, MRG, TempRefSet, LORBuilder)) {
+    return;
+  }
+
+  // ### Promote LIMM for the MRG ###
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
     LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                               "Load hoisted out of the loop");
-    LoadInPrehdr = findOrCreateLoadInPreheader(Lp, FirstRef);
+
+    LoadInPrehdr = createLoadInPreheader(Lp, FirstRef);
+
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
   }
 
@@ -617,11 +771,14 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
     TmpDDRef = HNU.createTemp(FirstRef->getDestType(), LIMMTempName);
   }
 
+  TempRefSet.insert(TmpDDRef->getSymbase());
+
   // Create a Store in postexit if needed
   if (NeedStoreInPostexit) {
     LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                               "Store sinked out of the loop");
-    findOrCreateStoreInPostexit(Lp, FirstRef, TmpDDRef);
+
+    createStoreInPostexit(Lp, FirstRef, TmpDDRef);
   }
 
   // LMM process each Ref in MRG
@@ -634,11 +791,15 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG) {
 }
 
 // Call setDefinedAtLevel(LoopLevel -1) to setLinear on a given RegDDRef*
-void HIRLMM::setLinear(RegDDRef *TmpRef) {
-  assert(TmpRef->isSingleCanonExpr() && "Expect SingleCE to be true\n");
+void HIRLMM::setLinear(DDRef *TmpRef) {
+  TmpRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
 
-  CanonExpr *CE = TmpRef->getSingleCanonExpr();
-  CE->setDefinedAtLevel(LoopLevel - 1);
+  if (auto BlobRef = dyn_cast<BlobDDRef>(TmpRef)) {
+    BlobRef->getParentDDRef()->updateDefLevel(LoopLevel);
+  } else {
+    assert(cast<RegDDRef>(TmpRef)->isTerminalRef() &&
+           "Expecting a terminal ref");
+  }
 }
 
 // Handle each loop-inv MemRef inside a group
@@ -712,32 +873,22 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
 // - Mark the new Temp as linear, defined at level = looplevel -1
 // - Call updateDefLevel() for the Rval of the new load
 //
-HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
-  HLInst *LoadInPrehdr = nullptr;
-  RegDDRef *TmpRef = nullptr;
-
+HLInst *HIRLMM::createLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
   // Debug: Examine the Loop
   // LLVM_DEBUG(Lp->dump(););
 
-  // Check if a LoadInst (E.g. t0 = A[0]) exists in Preheader
-  LoadInPrehdr = getLoadInLoopPreheader(Lp, Ref);
+  auto RvalRef = Ref->clone();
+  HLInst *LoadInPrehdr = HNU.createLoad(RvalRef, LIMMTempName);
 
-  // If the LoadInst doesn't exit in prehdr, create it
-  if (!LoadInPrehdr) {
-    auto RvalRef = Ref->clone();
-    LoadInPrehdr = HNU.createLoad(RvalRef, LIMMTempName);
+  // Insert the new Load as a last node into Loop's Prehdr
+  HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInPrehdr);
 
-    // Insert the new Load as a last node into Loop's Prehdr
-    HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInPrehdr);
+  // Mark as Loop's LiveIn Temp
+  RegDDRef *TmpRef = LoadInPrehdr->getLvalDDRef();
+  Lp->addLiveInTemp(TmpRef->getSymbase());
 
-    // Mark as Loop's LiveIn Temp
-    TmpRef = LoadInPrehdr->getLvalDDRef();
-    Lp->addLiveInTemp(TmpRef->getSymbase());
-
-    // Call updateDefLevel() for the newly-created load
-    RvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
-  }
-  assert(LoadInPrehdr && "LoadInPrehdr can't be null\n");
+  // Call updateDefLevel() for the newly-created load
+  RvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
 
   // Debug: Examine the Loop, notice the temp in prehdr
   // LLVM_DEBUG(Lp->dump(););
@@ -753,88 +904,26 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
 // - linear, defined at level = looplevel -1
 // - Call updateDefLevel() for the Lval of the new store
 //
-void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
-                                         RegDDRef *TmpRef) const {
-  // HLInst *StoreInPostexit = nullptr;
+void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
+                                   RegDDRef *TmpRef) const {
   // Debug: Examine the Loop
   // LLVM_DEBUG(Lp->dump(););
 
-  // Check if a suitable store exists in postexit
-  HLInst *StoreInPostexit = getStoreInLoopPostexit(Lp, Ref);
-
   // If no matching store is available, create one
-  if (!StoreInPostexit) {
-    RegDDRef *TmpRefClone = TmpRef->clone();
-    Lp->addLiveOutTemp(TmpRefClone->getSymbase());
+  RegDDRef *TmpRefClone = TmpRef->clone();
+  Lp->addLiveOutTemp(TmpRefClone->getSymbase());
 
-    auto LvalRef = Ref->clone();
-    StoreInPostexit = HNU.createStore(TmpRefClone, LIMMTempName, LvalRef);
+  auto LvalRef = Ref->clone();
+  auto *StoreInPostexit = HNU.createStore(TmpRefClone, LIMMTempName, LvalRef);
 
-    // Insert the new store as the 1st HLInst in Lp's Postexit
-    HLNodeUtils::insertAsFirstPostexitNode(Lp, StoreInPostexit);
+  // Insert the new store as the 1st HLInst in Lp's Postexit
+  HLNodeUtils::insertAsFirstPostexitNode(Lp, StoreInPostexit);
 
-    // Call updateDefLevel() for the newly-created store
-    LvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
-  }
+  // Call updateDefLevel() for the newly-created store
+  LvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
 
   // Debug: Examine the Loop, notice the tmp in postexit
   // LLVM_DEBUG(Lp->dump(););
-
-  assert(StoreInPostexit && "StoreInPostexit can't be null\n");
-}
-
-// Search a Loop's preheader for a LoadInst matching a given MemRef
-HLInst *HIRLMM::getLoadInLoopPreheader(HLLoop *Lp, RegDDRef *MemRef) const {
-
-  for (auto It = Lp->pre_begin(), ItE = Lp->pre_end(); It != ItE; ++It) {
-    HLInst *HInst = cast<HLInst>(It);
-
-    // Examine the HLInst*
-    // LLVM_DEBUG(HInst->dump(););
-
-    // Only interested in LoadInst
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    if (!isa<LoadInst>(LLVMInst)) {
-      continue;
-    }
-
-    // Check:
-    // -Lval() is a TempDDRef
-    // -RVal() matches the input MemRef
-    if (HInst->getLvalDDRef()->isTerminalRef() &&
-        DDRefUtils::areEqual(MemRef, HInst->getRvalDDRef())) {
-      return HInst;
-    }
-  }
-
-  return nullptr;
-}
-
-// Search a Loop's postexit for a StoreInst matching a given MemRef
-HLInst *HIRLMM::getStoreInLoopPostexit(HLLoop *Lp, RegDDRef *MemRef) const {
-
-  for (auto It = Lp->post_begin(), ItE = Lp->post_end(); It != ItE; ++It) {
-    HLInst *HInst = cast<HLInst>(It);
-
-    // Examine the HLInst*
-    // LLVM_DEBUG(HInst->dump(););
-
-    // Only interested in StoreInst
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    if (!isa<StoreInst>(LLVMInst)) {
-      continue;
-    }
-
-    // Check:
-    // -RVal() is a TempDDRef
-    // -Lval() is a MemRef matching the input Ref
-    if ((HInst->getRvalDDRef()->isTerminalRef()) &&
-        DDRefUtils::areEqual(MemRef, HInst->getLvalDDRef())) {
-      return HInst;
-    }
-  }
-
-  return nullptr;
 }
 
 PreservedAnalyses HIRLMMPass::run(llvm::Function &F,

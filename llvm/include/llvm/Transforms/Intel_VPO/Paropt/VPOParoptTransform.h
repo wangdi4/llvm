@@ -80,10 +80,11 @@ public:
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
-                     const TargetLibraryInfo *TLI, int Mode,
-                     const SmallVectorImpl<Triple> &OffloadTargets)
+                     const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
+                     const SmallVectorImpl<Triple> &OffloadTargets,
+                     unsigned OptLevel = 2)
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
-        Mode(Mode),
+        AA(AA), Mode(Mode), OptLevel(OptLevel),
         OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
@@ -120,8 +121,13 @@ private:
   /// \brief Get the target library information for the loop candidates.
   const TargetLibraryInfo *TLI;
 
+  AliasAnalysis *AA;
+
   /// \brief Paropt compilation mode
   int Mode;
+
+  /// \brief Optimization level.
+  unsigned OptLevel;
 
   /// \brief List of target triples for offloading.
   SmallVector<Triple, 16> OffloadTargets;
@@ -989,6 +995,10 @@ private:
   collectGlobalUseInsnsRecursively(WRegionNode *W,
                                    SmallVectorImpl<Instruction *> &RewriteCons,
                                    ConstantExpr *CE);
+
+  /// \brief Add alias_scope and no_alias metadata to improve the alias
+  /// results in the outlined function.
+  void improveAliasForOutlinedFunc(WRegionNode *W);
 
 };
 } /// namespace vpo

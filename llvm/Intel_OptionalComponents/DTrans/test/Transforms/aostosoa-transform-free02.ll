@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA transformation for calls to free when the pointer
 ; to the structure is directly loaded as an i8* from memory.
@@ -25,7 +25,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 }
 
 define void @test01() {
-; CHECK: define void @test01
+; CHECK define internal void@test01
   %mem2 =  load i8*, i8** bitcast (%struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1) to i8**)
 
   ; Verify the parameter passed to 'free' is changed to be the address

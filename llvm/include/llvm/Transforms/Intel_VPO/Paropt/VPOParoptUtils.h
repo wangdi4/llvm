@@ -98,815 +98,892 @@ class BasicBlock;
 
 namespace vpo {
 
-/// \brief This class contains a set of utility functions used by VPO Paropt
+/// This class contains a set of utility functions used by VPO Paropt
 /// Transformation passes.
 class VPOParoptUtils {
 
 public:
-
-    /// \brief Generate OpenMP runtime __kmpc_begin(&loc, flags)
-    /// initialization code. The generated runtime routine call is invoked
-    /// (only once) right after entering the main function.
-    static CallInst* genKmpcBeginCall(Function *F, Instruction *InsertPt,
-                                      StructType *IdentTy);
-
-    /// \brief Generate OpenMP runtime __kmpc_end(&loc) termination code
-    /// The generated runtime routine call is invoked (only once) right
-    /// before exiting the main function.
-    static CallInst* genKmpcEndCall(Function *F,
-                                    Instruction *InsertPt,
+  /// Generate OpenMP runtime `__kmpc_begin(&loc, flags)` initialization code.
+  /// The generated runtime routine call is invoked (only once) right after
+  /// entering the main function.
+  static CallInst *genKmpcBeginCall(Function *F, Instruction *InsertPt,
                                     StructType *IdentTy);
 
-    /// \brief Check whether the call __kmpc_global_thread_num() exists
-    /// in the given basic block BB.
-    static CallInst* findKmpcGlobalThreadNumCall(BasicBlock *BB);
+  /// Generate OpenMP runtime `__kmpc_end(&loc)` termination code.
+  /// The generated runtime routine call is invoked (only once) right
+  /// before exiting the main function.
+  static CallInst *genKmpcEndCall(Function *F, Instruction *InsertPt,
+                                  StructType *IdentTy);
 
-    /// \brief Check whether the given instruction is the call
-    /// __kmpc_global_thread_num().
-    static bool isKmpcGlobalThreadNumCall(Instruction *I);
+  /// Check whether the call `__kmpc_global_thread_num()` exists in the given
+  /// basic block \p BB, and return it.
+  static CallInst *findKmpcGlobalThreadNumCall(BasicBlock *BB);
 
-    /// \brief Generate OpenMP runtime __kmpc_global_thread_num() call
-    /// The generated runtime routine call is invoked (only once) to get
-    /// runtime right
-    /// after entering each function that contains OpenMP constructs
-    static CallInst* genKmpcGlobalThreadNumCall(Function    *F,
-                                                Instruction *InsertPt,
-                                                StructType  *IdentTy);
+  /// Check whether the given instruction is the call
+  /// `__kmpc_global_thread_num()`.
+  static bool isKmpcGlobalThreadNumCall(Instruction *I);
 
-    /// \brief Generates OpenMP runtime __kmpc_threadprivate_cached call.
-    static CallInst* genKmpcThreadPrivateCachedCall(Function *F,
-                                                    Instruction *AI,
-                                                    StructType *IdentTy,
-                                                    Value *Tid,
-                                                    Value *GV,
-                                                    Value *GVSize,
-                                                    Value *TpvGV);
+  /// Generate OpenMP runtime `__kmpc_global_thread_num()` call.
+  /// The generated runtime routine call is invoked (only once) to get
+  /// runtime right after entering each function that contains OpenMP
+  /// constructs.
+  static CallInst *genKmpcGlobalThreadNumCall(Function *F,
+                                              Instruction *InsertPt,
+                                              StructType *IdentTy);
 
-    /// \brief Generate OpenMP runtime ForkTest = ___kmpc_ok_to_fork(&loc)
-    static CallInst* genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
-                                     Instruction *InsertPt);
-
-    /// \brief Generate source location information from Instruction DebugLoc
-    static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
+  /// Generate OpenMP runtime `__kmpc_threadprivate_cached` call.
+  static CallInst *genKmpcThreadPrivateCachedCall(Function *F, Instruction *AI,
                                                   StructType *IdentTy,
-                                                  int Flags, BasicBlock *BS,
-                                                  BasicBlock *BE);
+                                                  Value *Tid, Value *GV,
+                                                  Value *GVSize, Value *TpvGV);
 
+  /// Generate OpenMP runtime `ForkTest = ___kmpc_ok_to_fork(&loc)`.
+  static CallInst *genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
+                                   Instruction *InsertPt);
 
-    /// \brief This function generates a call to set num_threads for the
-    /// parallel region and parallel loop/sections
-    ///
-    /// call void @__kmpc_push_num_threads(%ident_t* %loc, i32 %tid, i32 %nths)
-    static void genKmpcPushNumThreads(WRegionNode *W,
-                                      StructType *IdentTy,
-                                      Value *Tid, Value *NumThreads,
-                                      Instruction *InsertPt);
+  /// Generate source location information from Instruction \p AI's `DebugLoc`.
+  static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
+                                                StructType *IdentTy, int Flags,
+                                                BasicBlock *BS, BasicBlock *BE);
 
-    /// \brief Generate a call to notify the runtime system that the team
-    /// level static loop scheduling is started
-    /// call void @__kmpc_team_static_init_4(%ident_t* %loc, i32 %tid,
-    ///             i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
-    ///             i32 inc, i32 chunk)
-    static CallInst* genKmpcTeamStaticInit(WRegionNode *W,
-                                      StructType *IdentTy,
-                                      Value *Tid, Value *IsLastVal,
-                                      Value *LB, Value *UB, Value *ST,
-                                      Value *Inc, Value *Chunk,
-                                      int Size, bool IsUnsigned,
-                                      Instruction *InsertPt);
+  /// Generate a call to set `num_threads` for the `parallel` region and
+  /// `parallel loop/sections`. Example:
+  /// \code
+  ///  call void @__kmpc_push_num_threads(%ident_t* %loc, i32 %tid, i32 %nths)
+  /// \endcode
+  static void genKmpcPushNumThreads(WRegionNode *W, StructType *IdentTy,
+                                    Value *Tid, Value *NumThreads,
+                                    Instruction *InsertPt);
 
-    /// \brief Generate a call to notify the runtime system that the static
-    /// loop scheduling is started
-    /// call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
-    ///             i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
-    ///             i32 inc, i32 chunk)
-    static CallInst* genKmpcStaticInit(WRegionNode *W,
-                                       StructType *IdentTy,
-                                       Value *Tid, Value *SchedType,
-                                       Value *IsLastVal, Value *LB,
-                                       Value *UB, Value *DistUB,
-                                       Value *ST, Value *Inc, Value *Chunk,
-                                       int Size, bool IsUnsigned,
-                                       Instruction *InsertPt);
-
-    /// \brief Generate a call to notify the runtime system that the static
-    /// loop scheduling is done
-    ///   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcStaticFini(WRegionNode *W,
-                                       StructType *IdentTy,
-                                       Value *Tid, Instruction *InsertPt);
-
-    /// \brief Generate a call to pass all loop info to the runtime system
-    /// for guided/runtime/dynamic/auto loop scheduling
-    ///
-    ///   call void @__kmpc_for_dispatch_init_4{u}(%ident_t* %loc, i32 %tid,
-    ///               i32 schedtype, i32 %lb, i32 %ub, i32 %st, i32 chunk)
-    ///
-    ///   call void @__kmpc_for_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid,
-    ///               i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
-    static CallInst* genKmpcDispatchInit(WRegionNode *W,
-                                         StructType *IdentTy,
-                                         Value *Tid, Value *SchedType,
-                                         Value *IsLastVal, Value *LB, Value *UB,
-                                         Value *ST, Value *Chunk,
-                                         int Size, bool IsUnsigned,
-                                         Instruction *InsertPt);
-
-    /// \brief Generate a call to the runtime system that performs
-    /// loop partitioning for guided/runtime/dynamic/auto scheduling.
-    ///
-    ///   call void @__kmpc_for_dispatch_next_4{u}(%ident_t* %loc, i32 %tid,
-    ///               i32 *isLast, i32 *%lb, i32 *%ub, i32 *%st)
-    ///
-    ///   call void @__kmpc_for_dispatch_next_8{u}(%ident_t* %loc, i32 %tid,
-    ///               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
-    static CallInst* genKmpcDispatchNext(WRegionNode *W,
-                                         StructType *IdentTy,
+  /// Generate a call to notify the runtime system that the team
+  /// level static loop scheduling is started.
+  /// \code
+  ///   call void @__kmpc_team_static_init_4(%ident_t* %loc, i32 %tid,
+  ///               i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
+  ///               i32 inc, i32 chunk)
+  /// \endcode
+  static CallInst *genKmpcTeamStaticInit(WRegionNode *W, StructType *IdentTy,
                                          Value *Tid, Value *IsLastVal,
                                          Value *LB, Value *UB, Value *ST,
-                                         int Size, bool IsUnsigned,
+                                         Value *Inc, Value *Chunk, int Size,
+                                         bool IsUnsigned,
                                          Instruction *InsertPt);
 
-    /// \brief Generate a call to the runtime system that informs
-    /// guided/runtime/dynamic/auto scheduling is done.
-    ///
-    ///   call void @__kmpc_for_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
-    ///   call void @__kmpc_for_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcDispatchFini(WRegionNode *W,
-                                         StructType *IdentTy,
-                                         Value *Tid, int Size, bool IsUnsigned,
-                                         Instruction *InsertPt);
+  /// Generate a call to notify the runtime system that the static
+  /// loop scheduling is started.
+  /// \code
+  ///   call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
+  ///               i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
+  ///               i32 inc, i32 chunk)
+  /// \endcode
+  static CallInst *genKmpcStaticInit(WRegionNode *W, StructType *IdentTy,
+                                     Value *Tid, Value *SchedType,
+                                     Value *IsLastVal, Value *LB, Value *UB,
+                                     Value *DistUB, Value *ST, Value *Inc,
+                                     Value *Chunk, int Size, bool IsUnsigned,
+                                     Instruction *InsertPt);
 
-    /// \Brief Update loop scheduling kind based on ordered clause and chunk
-    /// size information
-    static WRNScheduleKind genScheduleKind(WRNScheduleKind Kind,
-                                           bool IsOrdered, int Chunk);
+  /// Generate a call to notify the runtime system that the static loop
+  /// scheduling is done.
+  /// \code
+  ///   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcStaticFini(WRegionNode *W, StructType *IdentTy,
+                                     Value *Tid, Instruction *InsertPt);
 
-    /// \Brief Query loop scheduling kind based on ordered clause and chunk
-    /// size information
-    static WRNScheduleKind getLoopScheduleKind(WRegionNode *W);
+  /// Generate a call to pass all loop info to the runtime system for
+  /// guided/runtime/dynamic/auto loop scheduling.
+  ///
+  /// \code
+  ///   call void @__kmpc_for_dispatch_init_4{u}(%ident_t* %loc, i32 %tid,
+  ///   i32 schedtype, i32 %lb, i32 %ub, i32 %st, i32 chunk)
+  ///
+  ///   call void @__kmpc_for_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid,
+  ///   i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
+  /// \endcode
+  static CallInst *genKmpcDispatchInit(WRegionNode *W, StructType *IdentTy,
+                                       Value *Tid, Value *SchedType,
+                                       Value *IsLastVal, Value *LB, Value *UB,
+                                       Value *ST, Value *Chunk, int Size,
+                                       bool IsUnsigned, Instruction *InsertPt);
 
+  /// Generate a call to the runtime system that performs loop partitioning for
+  /// guided/runtime/dynamic/auto scheduling.
+  /// \code
+  ///   call void @__kmpc_for_dispatch_next_4{u}(%ident_t* %loc, i32 %tid,
+  ///               i32 *isLast, i32 *%lb, i32 *%ub, i32 *%st)
+  ///
+  ///   call void @__kmpc_for_dispatch_next_8{u}(%ident_t* %loc, i32 %tid,
+  ///               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
+  /// \endcode
+  static CallInst *genKmpcDispatchNext(WRegionNode *W, StructType *IdentTy,
+                                       Value *Tid, Value *IsLastVal, Value *LB,
+                                       Value *UB, Value *ST, int Size,
+                                       bool IsUnsigned, Instruction *InsertPt);
 
-    /// \Brief Query distribute loop scheduling kind based on schedule
-    /// and chunk size information
-    static WRNScheduleKind getDistLoopScheduleKind(WRegionNode *W);
+  /// Generate a call to the runtime system that informs
+  /// guided/runtime/dynamic/auto scheduling is done.
+  ///
+  /// \code
+  ///   call void @__kmpc_for_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
+  ///   call void @__kmpc_for_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcDispatchFini(WRegionNode *W, StructType *IdentTy,
+                                       Value *Tid, int Size, bool IsUnsigned,
+                                       Instruction *InsertPt);
 
+  /// Update loop scheduling kind based on ordered clause and chunk size
+  /// information.
+  static WRNScheduleKind genScheduleKind(WRNScheduleKind Kind, bool IsOrdered,
+                                         int Chunk);
 
-    /// \brief Generate source location information for Explicit barrier
-    static GlobalVariable* genKmpcLocforExplicitBarrier(Instruction *InsertPt,
-                                                        StructType *IdentTy,
-                                                        BasicBlock *BB);
+  /// Query loop scheduling kind based on ordered clause and chunk size
+  /// information.
+  static WRNScheduleKind getLoopScheduleKind(WRegionNode *W);
 
-    /// \brief Generate source location information for Implicit barrier
-    static GlobalVariable* genKmpcLocforImplicitBarrier(WRegionNode *W,
-                                                        Instruction *InsertPt,
-                                                        StructType *IdentTy,
-                                                        BasicBlock *BB);
+  /// Query distribute loop scheduling kind based on schedule and chunk size
+  /// information.
+  static WRNScheduleKind getDistLoopScheduleKind(WRegionNode *W);
 
-    /// \brief Insert the following call before \p InsertPt and return it:
-    ///
-    /// If the parent WRegion has a cancel construct:
-    ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
-    ///   Also, add %1 to the parent WRegionNode's CancellationPoints.
-    ///
-    /// Otherwise:
-    ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
-    static CallInst *genKmpcBarrier(WRegionNode *W, Value *Tid,
-                                    Instruction *InsertPt, StructType *IdentTy,
-                                    bool IsExplicit);
+  /// Generate source location information for \b explicit barrier.
+  static GlobalVariable *genKmpcLocforExplicitBarrier(Instruction *InsertPt,
+                                                      StructType *IdentTy,
+                                                      BasicBlock *BB);
 
-    /// \brief Insert the following call before \p InsertPt and return it:
-    ///
-    /// If \p CancelBarrier is \b true:
-    ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
-    ///
-    /// Otherwise:
-    ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
-    static CallInst *genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
-                                        Instruction *InsertPt,
-                                        StructType *IdentTy, bool IsExplicit,
-                                        bool IsCancelBarrier);
+  /// Generate source location information for \b implicit barrier.
+  static GlobalVariable *genKmpcLocforImplicitBarrier(WRegionNode *W,
+                                                      Instruction *InsertPt,
+                                                      StructType *IdentTy,
+                                                      BasicBlock *BB);
 
-    /// \brief Insert the following call before \p InsertPt:
-    /// If \p IsCancellationPoint is \b false:
-    ///    %1 = call void @__kmpc_cancel(%ident_t* %loc, i32 %tid, i32
-    ///    cancel_kind)
-    /// If \p IsCancellationPoint is \b true:
-    ///    %1 = call void @__kmpc_cancellation_point(%ident_t* %loc, i32 %tid,
-    ///    i32 cancel_kind)
-    static CallInst *genKmpcCancelOrCancellationPointCall(
-        WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
-        Instruction *InsertPoint, WRNCancelKind CancelKind,
-        bool IsCancellationPoint);
+  /// Insert `kmpc_[cancel]_barrier` call (based on whether parent WRegion has
+  /// a cancel construct) before \p InsertPt and return it.
+  ///
+  /// If the parent WRegion has a cancel construct:
+  /// 1. Emit the following call:
+  /// \code
+  ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+  /// \code
+  /// 2. Add `%1` to the parent WRegionNode's `CancellationPoints`.
+  ///
+  /// Otherwise, emit the following call:
+  /// \code
+  ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcBarrier(WRegionNode *W, Value *Tid,
+                                  Instruction *InsertPt, StructType *IdentTy,
+                                  bool IsExplicit);
 
-    /// \brief Generates a critical section surrounding all the inner
-    /// BasicBlocks of the WRegionNode \p W. The function works only on
-    /// directives which have an Entry BasicBlock with "DIR.OMP..." intrinsic
-    /// calls, and an exit BasicBlock with a corresponding "DIR.OMP.END..."
-    /// calls. The middle BasicBlocks will then be surrounded by a critical
-    /// section. The function emits calls to `__kmpc_critical` and
-    /// `__kmpc_end_critical` in positions marked in the following diagram:
-    ///
-    ///    EntryBB:
-    ///      call void @llvm.intel.directive(metadata !"DIR.OMP...")
-    ///      call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-    /// +------< begin critical >
-    /// |    br label %BB1
-    /// |
-    /// |  BB1:
-    /// |    ...
-    /// |  ...
-    /// |    br label %ExitBB
-    /// |
-    /// |  ExitBB:
-    /// |    call void @llvm.intel.directive(metadata !"DIR.OMP.END...")
-    /// |    call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-    /// +------< end critical >
-    ///      br label %..
-    ///
-    /// \p IdentTy is needed to obtain the Loc struct for the KMPC calls.
-    /// \p TidPtr is the AllocaInst for ThreadId, needed for the KMPC calls.
-    /// \p LockNameSuffix will be used as suffix in the name of the lock
-    /// variable used for the critical section. (The prefix is determined based
-    /// on the architecture and the kind of WRegionNode \W).
-    ///
-    /// Example KMPC calls:
-    /// call void @__kmpc_begin_critical(%ident_t* %loc.addr.11.12, i32 %my.tid,
-    /// [8 x i32]* @_kmpc_atomic_lock)
-    ///
-    /// call void @__kmpc_end_critical(%ident_t* %loc.addr.11.122, i32 %my.tid1,
-    /// [8 x i32]* @_kmpc_atomic_lock)
-    ///
-    /// \returns `true` if the calls to `__kmpc_critical` and
-    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
-    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       Constant *TidPtr,
-                                       const StringRef &LockNameSuffix);
+  /// Insert `kmpc_[cancel]_barrier` call (based on \p IsCancelBarrier) before
+  /// \p InsertPt and return it. The CallInst inserted is:
+  ///
+  /// If \p CancelBarrier is \b true:
+  /// \code
+  ///   %1 = call int32 @__kmpc_cancel_barrier(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  ///
+  /// Otherwise:
+  /// \code
+  ///   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
+                                      Instruction *InsertPt,
+                                      StructType *IdentTy, bool IsExplicit,
+                                      bool IsCancelBarrier);
 
-    /// \brief Identical to the function above, but uses a default suffix for
-    /// the name of the lock variable to be used for the critical section.
-    /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
-    /// const StringRef &) for more details.
-    ///
-    /// \returns `true` if the calls to `__kmpc_critical` and
-    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
-    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       Constant *TidPtr);
+  /// Insert `__kmpc_cancel[lationpoint]` call before \p InsertPt and return
+  /// it. The inserted CallInst is:
+  ///
+  /// If \p IsCancellationPoint is \b false:
+  /// \code
+  ///   %1 = call void @__kmpc_cancel(%ident_t* %loc, i32 %tid, i32
+  ///   cancel_kind)
+  /// \endcode
+  ///
+  /// If \p IsCancellationPoint is \b true:
+  /// \code
+  ///   %1 = call void @__kmpc_cancellation_point(%ident_t* %loc, i32 %tid,
+  ///   i32 cancel_kind)
+  /// \endcode
+  static CallInst *genKmpcCancelOrCancellationPointCall(
+      WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+      Instruction *InsertPoint, WRNCancelKind CancelKind,
+      bool IsCancellationPoint);
 
-    /// \brief Generates a critical section around Instructions \p BeginInst
-    /// and \p EndInst. The function emits calls to `__kmpc_critical`
-    /// before \p BeginInst and `__kmpc_end_critical` after \p EndInst.
-    ///
-    /// +------< begin critical >
-    /// |    BeginInst
-    /// |    ...
-    /// |    ...
-    /// |    EndInst
-    /// +------< end critical >
-    ///
-    /// \p BeginInst is the Instruction before which the call to
-    /// `__kmpc_critical` is inserted.
-    /// \p EndInst is the Instruction after which the call to
-    /// `__kmpc_end_critical` is inserted.
-    ///
-    /// Note: Other Instructions, aside from the `__kmpc_critical` and
-    /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
-    /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
-    ///
-    /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
-    /// const StringRef &) for examples of the KMPC critical calls.
-    ///
-    /// \returns `true` if the calls to `__kmpc_critical` and
-    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
-    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       Constant *TidPtr, Instruction *BeginInst,
-                                       Instruction *EndInst,
-                                       const StringRef &LockNameSuffix);
+  /// Generate a critical section surrounding all the inner
+  /// BasicBlocks of the WRegionNode \p W. The function works only on
+  /// directives which have an Entry BasicBlock with "DIR.OMP..." intrinsic
+  /// calls, and an exit BasicBlock with a corresponding "DIR.OMP.END..."
+  /// calls. The middle BasicBlocks will then be surrounded by a critical
+  /// section. The function emits calls to `__kmpc_critical` and
+  /// `__kmpc_end_critical` in positions marked in the following diagram:
+  ///
+  /// \code
+  ///    EntryBB:
+  ///      %0 = call token @llvm.directive.region.entry(...) [...]
+  /// +------< begin critical >
+  /// |    br label %BB1
+  /// |
+  /// |  BB1:
+  /// |    ...
+  /// |  ...
+  /// |    br label %ExitBB
+  /// |
+  /// |  ExitBB:
+  /// |    call void @llvm.directive.region.exit(%0)
+  /// +------< end critical >
+  ///      br label %..
+  ///
+  /// \endcode
+  ///
+  /// \param W WRegionNode for the OpenMP construct.
+  /// \param IdentTy is needed to obtain the Loc struct for the KMPC calls.
+  /// \param TidPtr is the AllocaInst for ThreadId, needed for the KMPC calls.
+  /// \param LockNameSuffix will be used as suffix in the name of the lock
+  /// variable used for the critical section. (The prefix is determined based
+  /// on the architecture and the kind of WRegionNode \p W).
+  ///
+  /// Example KMPC calls:
+  /// \code
+  ///   call void @__kmpc_begin_critical(%ident_t* %loc.addr.11.12, i32 %my.tid,
+  ///   [8 x i32]* @_kmpc_atomic_lock)
+  ///
+  ///   call void @__kmpc_end_critical(%ident_t* %loc.addr.11.122, i32 %my.tid1,
+  ///   [8 x i32]* @_kmpc_atomic_lock)
+  /// \endcode
+  ///
+  /// \returns \b true if the calls to `__kmpc_critical` and
+  /// `__kmpc_end_critical` are successfully inserted, \b false otherwise.
+  static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                     Constant *TidPtr,
+                                     const StringRef &LockNameSuffix);
 
-    /// \brief This function generates a call to query if the current thread
-    /// is master thread or a call to end_master for the team of threads.
-    ///   call master = @__kmpc_master(%ident_t* %loc, i32 %tid)
-    ///      or
-    ///   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcMasterOrEndMasterCall(WRegionNode *W,
-                       StructType *IdentTy, Value *Tid, Instruction *InsertPt,
-                       bool IsMasterStart);
+  /// Identical to the function above, but uses a default suffix for
+  /// the name of the lock variable to be used for the critical section.
+  /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
+  /// const StringRef &) for more details.
+  ///
+  /// \returns `true` if the calls to `__kmpc_critical` and
+  /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+  static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                     Constant *TidPtr);
 
-    /// \brief This function generates a call to guard single-region is
-    /// executed by one of threads in the enclosing thread team.
-    ///
-    ///   call single = @__kmpc_single(%ident_t* %loc, i32 %tid)
-    ///      or
-    ///   call void @__kmpc_end_single(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcSingleOrEndSingleCall(WRegionNode *W,
-                       StructType *IdentTy, Value *Tid, Instruction *InsertPt,
-                       bool IsSingleStart);
+  /// Generate a critical section around Instructions \p BeginInst and \p
+  /// EndInst. The function emits calls to `__kmpc_critical` \b before \p
+  /// BeginInst and `__kmpc_end_critical` \b after \p EndInst.
+  ///
+  /// \code
+  /// +------< begin critical >
+  /// |    BeginInst
+  /// |    ...
+  /// |    ...
+  /// |    EndInst
+  /// +------< end critical >
+  /// \endcode
+  ///
+  /// \param BeginInst is the Instruction \b before which the call to
+  /// `__kmpc_critical` is inserted.
+  /// \param EndInst is the Instruction \b after which the call to
+  /// `__kmpc_end_critical` is inserted.
+  ///
+  /// Note: Other Instructions, aside from the `__kmpc_critical` and
+  /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
+  /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
+  ///
+  /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
+  /// const StringRef &) for examples of the KMPC critical calls.
+  ///
+  /// \returns `true` if the calls to `__kmpc_critical` and
+  /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+  static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                     Constant *TidPtr, Instruction *BeginInst,
+                                     Instruction *EndInst,
+                                     const StringRef &LockNameSuffix);
 
-    /// \Brief This function generates calls to guard the ordered thread
-    /// execution for the ordered/end ordered region.
-    ///
-    ///   call void @__kmpc_ordered(%ident_t* %loc, i32 %tid)
-    ///      or
-    ///   call void @__kmpc_end_ordered(%ident_t* %loc, i32 %tid)
-    static CallInst* genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
-                       StructType *IdentTy, Value *Tid,
-                       Instruction *InsertPt, bool IsOrderedStart);
+  /// Generate a call to query if the current thread is master thread or a
+  /// call to end_master for the team of threadsi. Emitted call:
+  /// \code
+  ///   call master = @__kmpc_master(%ident_t* %loc, i32 %tid)
+  ///      or
+  ///   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcMasterOrEndMasterCall(WRegionNode *W,
+                                                StructType *IdentTy, Value *Tid,
+                                                Instruction *InsertPt,
+                                                bool IsMasterStart);
 
-    /// \name Utilities for handling do-across loops.
-    /// @{
+  /// Generate a call to guard single-region is executed by one of threads in
+  /// the enclosing thread team. Emitted call:
+  /// \code
+  ///   call single = @__kmpc_single(%ident_t* %loc, i32 %tid)
+  ///      or
+  ///   call void @__kmpc_end_single(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcSingleOrEndSingleCall(WRegionNode *W,
+                                                StructType *IdentTy, Value *Tid,
+                                                Instruction *InsertPt,
+                                                bool IsSingleStart);
 
-    ///  \brief This function generates and inserts calls to
-    ///  kmpc_doacross_wait/post for '#pragma omp ordered depend(source/sink)'.
-    ///
-    ///   %dep.vec = alloca i64, align 8
-    ///   %dv.val = load i32, i32* %<dep.vec.value>
-    ///   %conv = sext i32 %dv.val to i64
-    ///   store i64 %conv, i64* %dep.vec, align 8
-    ///   %tid = load i32, i32* %tidptr, align 4
-    ///   call void @__kmpc_doacross_wait/post(%{ i32, i32, i32, i32, i8* }*
-    ///   %loc, i32 %tid, i64* %dims)
-    ///
-    /// If \p DepVecValue is an alloca, a load is first done from it before
-    /// storing it to 'dims' for the runtime.
-    ///
-    /// A load from \p TidPtr is emitted to get 'tid' for the call.
-    ///
-    /// The call is inserted before \p InsertPt.
-    ///
-    static CallInst *
-    genDoacrossWaitOrPostCall(WRNOrderedNode *W, StructType *IdentTy,
-                              Value *TidPtr, Instruction *InsertPt,
-                              Value *DepVecValue, bool IsDoacrossPost);
+  /// Generate calls to guard the ordered thread execution for the ordered/end
+  /// ordered region. Emitted call:
+  /// \code
+  ///   call void @__kmpc_ordered(%ident_t* %loc, i32 %tid)
+  ///      or
+  ///   call void @__kmpc_end_ordered(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
+                                                  StructType *IdentTy,
+                                                  Value *Tid,
+                                                  Instruction *InsertPt,
+                                                  bool IsOrderedStart);
 
-    /// \brief This function generates and inserts a call to
-    /// 'kmpc_doacross_init' for '#pragma omp for ordered(n)'
-    ///
-    ///   call void @__kmpc_doacross_init(%{ i32, i32, i32, i32, i8* }* %loc,
-    ///   i32 %tid, {i64, i64, i64}* %dims.vec)
-    ///
-    /// Here '%dims.vec' is a struct pf 3 I64s corresponding to \p LBound, \p
-    /// UBound and \p Stride respectively.
-    /// The call, along with the initialization of %dims.vec, is inserted before
-    /// \p InsertPt.
-    static CallInst *genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
-                                         Value *Tid, Instruction *InsertPt,
-                                         Value *LBound, Value *UBound,
-                                         Value *Stride);
+  /// \name Utilities for handling do-across loops.
+  /// @{
 
-    /// \brief This function generates and inserts a call to kmpc_doacross_fini,
-    /// for '#pragma omp for ordered(n)'
-    ///
-    ///   call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }*
-    ///   @.kmpc_loc, i32 %my.tid)
-    ///
-    ///   The call is inserted \b after \p InsertPt.
-    static CallInst *genKmpcDoacrossFini(WRegionNode *W, StructType *IdentTy,
-                                         Value *Tid, Instruction *InsertPt);
+  /// Insert a call to `kmpc_doacross_wait/post` for `#pragma omp ordered
+  /// depend(source/sink)` before \p InsertPt and return it.
+  ///
+  /// \code
+  ///   %dep.vec = alloca i64, align 8
+  ///   %dv.val = load i32, i32* %<dep.vec.value>
+  ///   %conv = sext i32 %dv.val to i64
+  ///   store i64 %conv, i64* %dep.vec, align 8
+  ///   %tid = load i32, i32* %tidptr, align 4
+  ///   call void @__kmpc_doacross_wait/post(%{ i32, i32, i32, i32, i8* }*
+  ///   %loc, i32 %tid, i64* %dims)
+  /// \endcode
+  ///
+  /// If \p DepVecValue is an alloca, a load is first done from it before
+  /// storing it to `dims` for the runtime.
+  ///
+  /// A load from \p TidPtr is emitted to get `tid` for the call.
+  ///
+  /// If \p IsDoacrossPost is \b true, call emitted is `kmpc_doacross_post`.
+  /// If \p IsDoacrossPost is \b false, the call is `kmpc_doacros_wait`.
+  static CallInst *genDoacrossWaitOrPostCall(WRNOrderedNode *W,
+                                             StructType *IdentTy, Value *TidPtr,
+                                             Instruction *InsertPt,
+                                             Value *DepVecValue,
+                                             bool IsDoacrossPost);
 
-    /// @}
+  /// Insert a call to `kmpc_doacross_init` for `#pragma omp for ordered(n)`
+  /// before \p InsertPt, and return it.
+  ///
+  /// \code
+  ///   call void @__kmpc_doacross_init(%{ i32, i32, i32, i32, i8* }* %loc,
+  ///   i32 %tid, {i64, i64, i64}* %dims.vec)
+  /// \endcode
+  ///
+  /// Here `%dims.vec` is a struct of 3 I64s corresponding to \p LBound, \p
+  /// UBound and \p Stride respectively.
+  ///
+  /// The call, along with the initialization of %dims.vec, is inserted before
+  /// \p InsertPt.
+  static CallInst *genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
+                                       Value *Tid, Instruction *InsertPt,
+                                       Value *LBound, Value *UBound,
+                                       Value *Stride);
 
-    /// \Brief This function inserts a __kmpc_flush call at InsertPt:
-    ///
-    ///   call void @__kmpc_flush(%ident_t* %loc)
-    static CallInst *genKmpcFlush(WRegionNode *W, StructType *IdentTy,
-                                  Instruction *InsertPt);
+  /// Insert a call to `kmpc_doacross_fini` for `#pragma omp for ordered(n)`
+  /// \b after \p InsertPt and return it.
+  ///
+  /// \code
+  ///   call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }*
+  ///   @.kmpc_loc, i32 %my.tid)
+  /// \endcode
+  ///
+  static CallInst *genKmpcDoacrossFini(WRegionNode *W, StructType *IdentTy,
+                                       Value *Tid, Instruction *InsertPt);
 
-    /// \brief Generate KMPC runtime call to the function \p IntrinsicName
-    /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
-    /// TidPtr), and \p Args.
-    /// \param TidPtr is the AllocaInst for Tid.
-    /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
-    /// KMPC call.
-    /// \param IntrinsicName is the name of the function.
-    /// \param ReturnTy is the return type of the function.
-    /// \param Args arguments for the function call.
-    /// Note: The function inserts a LoadInst for getting Tid, into the IR
-    /// (before the \p InsertPt), and inserts the function prototype for the
-    /// KMPC intrinsic \p IntrinsicName into the module symbol table. But it
-    /// does not insert the KMPC call into the IR.
-    ///
-    /// \returns The generated CallInst.
-    static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
-                                        Value *TidPtr, Instruction *InsertPt,
-                                        StringRef IntrinsicName, Type *ReturnTy,
-                                        ArrayRef<Value *> Args);
+  /// @}
 
-    /// \brief Utils to emit calls to ctor, dtor, cctor, and copyassign
-    static CallInst *genConstructorCall(Function *Ctor, Value *V,
-                                        Value *PrivAlloca);
-    static CallInst *genDestructorCall(Function *Dtor, Value *V,
-                                       Instruction *InsertBeforePt);
-    static CallInst *genCopyConstructorCall(Function *Cctor, Value *D,
-                                       Value *S, Instruction *InsertBeforePt);
-    static CallInst *genCopyAssignCall(Function *Cp, Value *D, Value *S,
-                                       Instruction *InsertBeforePt);
+  /// Insert a `__kmpc_flush` call at \p InsertPt.
+  /// \code
+  ///   call void @__kmpc_flush(%ident_t* %loc)
+  /// \endcode
+  static CallInst *genKmpcFlush(WRegionNode *W, StructType *IdentTy,
+                                Instruction *InsertPt);
 
-    /// \brief Computes the OpenMP loop upper bound so that the loop
-    //  iteration space can be closed interval.
-    static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
+  /// Generate KMPC runtime call to the function \p IntrinsicName
+  /// with arguments Loc(obtained using \p IdentTy), Tid (Obtained using \p
+  /// TidPtr), and \p Args.
+  /// \param W WRegionNode for current OpenMP construct..
+  /// \param TidPtr is the AllocaInst for Tid.
+  /// \param IdentTy Used to obtain Loc needed by the KMPC call.
+  /// \param InsertPt Used to obtain Loc needed by the KMPC call.
+  /// \param IntrinsicName is the name of the function.
+  /// \param ReturnTy is the return type of the function.
+  /// \param Args arguments for the function call.
+  /// Note: The function inserts a LoadInst for getting Tid, into the IR
+  /// (before the \p InsertPt), and inserts the function prototype for the
+  /// KMPC intrinsic \p IntrinsicName into the module symbol table. But it
+  /// does not insert the KMPC call into the IR.
+  ///
+  /// \returns The generated CallInst.
+  static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
+                                      Value *TidPtr, Instruction *InsertPt,
+                                      StringRef IntrinsicName, Type *ReturnTy,
+                                      ArrayRef<Value *> Args);
 
-    /// \brief Returns the predicate which includes equal for the
-    //  zero trip test.
-    static Value* computeOmpUpperBound(WRegionNode *W,
-                                       Instruction* InsertPt);
+  /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
+  /// @{
+  static CallInst *genConstructorCall(Function *Ctor, Value *V,
+                                      Value *PrivAlloca);
+  static CallInst *genDestructorCall(Function *Dtor, Value *V,
+                                     Instruction *InsertBeforePt);
+  static CallInst *genCopyConstructorCall(Function *Cctor, Value *D, Value *S,
+                                          Instruction *InsertBeforePt);
+  static CallInst *genCopyAssignCall(Function *Cp, Value *D, Value *S,
+                                     Instruction *InsertBeforePt);
+  /// @}
 
-    /// \brief Updates the bottom test predicate to include equal predicate.
-    /// It also updates the loop upper bound.
-    static void updateOmpPredicateAndUpperBound(WRegionNode *W,
-                                                Value *Load,
-                                                Instruction *InsertPt);
+  /// Compute the OpenMP loop upper bound so that the loop iteration space can
+  /// be closed interval.
+  static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
 
-    /// \brief Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
-    /// CallInst. \returns the created CallInst, if it created one, \p CI
-    /// otherwise (when \p OpBundlesToAdd is empty).
-    static CallInst *addOperandBundlesInCall(
-        CallInst *CI,
-        ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
+  /// Return the predicate which includes equal for the zero trip test.
+  static Value *computeOmpUpperBound(WRegionNode *W, Instruction *InsertPt);
 
-    /// \brief Clones the instructions and inserts before the InsertPt.
-    static Value *cloneInstructions(Value *V, Instruction *InsertPt);
+  /// Update the bottom test predicate to include equal predicate.
+  /// It also updates the loop upper bound.
+  static void updateOmpPredicateAndUpperBound(WRegionNode *W, Value *Load,
+                                              Instruction *InsertPt);
 
-    /// \brief Generate the pointer pointing to the head of the array.
-    static Value *genArrayLength(AllocaInst *AI, Value *BaseAddr,
-                                 Instruction *InsertPt, IRBuilder<> &Builder,
-                                 Type *&ElementTy, Value *&ArrayBegin);
+  /// Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
+  /// CallInst. \returns the created CallInst, if it created one, \p CI
+  /// otherwise (when \p OpBundlesToAdd is empty).
+  static CallInst *addOperandBundlesInCall(
+      CallInst *CI,
+      ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
 
-    /// \brief This function generates a call as follows.
-    ///    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
-    ///    i64, i64, i32 (i32, i8*)*)
-    static CallInst *
-    genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
-                     int KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
-                     PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
-                     Instruction *InsertPt, bool UseTbb);
+  /// Clone the instructions and insert them before \p InsertPt.
+  static Value *cloneInstructions(Value *V, Instruction *InsertPt);
 
-    /// \brief This function generates a call as follows.
-    ///    void @__kmpc_taskloop(
-    ///            { i32, i32, i32, i32, i8* }* %loc,
-    ///           i32 %tid,
-    ///           i8* %thunk_temp,
-    ///           i32 if_val,
-    ///           i64* lb,
-    ///           i64* ub,
-    ///           i64 stride,
-    ///           i32 nogroup,
-    ///           i32 sched, // 0: no grainsize or num_tasks
-    ///                         1: grainsize is used
-    ///                         2: num_tasks is used
-    ///           i64 grainsize,
-    ///           i8* task_dup)
-    static CallInst *
-    genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
-                    Value *TaskAlloc, Value *Cmp, Value *LBPtr, Value *UBPtr,
-                    Value *STPtr, StructType *KmpTaskTTWithPrivatesTy,
-                    Instruction *InsertPt, bool UseTbb, Function *FnTaskDup);
+  /// Generate the pointer pointing to the head of the array.
+  static Value *genArrayLength(AllocaInst *AI, Value *BaseAddr,
+                               Instruction *InsertPt, IRBuilder<> &Builder,
+                               Type *&ElementTy, Value *&ArrayBegin);
 
-    /// \brief This function generates a call as follows.
-    ///    void @__kmpc_task(
-    //             { i32, i32, i32, i32, i8* }* %loc,
-    //             i32 %tid,
-    //             i8* thunk_temp)
-    //
-    static CallInst *genKmpcTask(WRegionNode *W, StructType *IdentTy,
-                                 Value *TidPtr, Value *TaskAlloc,
-                                 Instruction *InsertPt);
+  /// Generate a call to `__kmpc_omp_task_alloc`. Example:
+  /// \code
+  ///   i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
+  ///   i64, i64, i32 (i32, i8*)*)
+  /// \endcode
+  static CallInst *
+  genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                   int KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
+                   PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
+                   Instruction *InsertPt, bool UseTbb);
 
-    /// \brief This function generates a call as follows.
-    ///    void @__kmpc_omp_task_begin_if0(
-    ///          { i32, i32, i32, i32, i8* }* /* &loc */,
-    ///          i32 /* tid */,
-    ///          i8* /*thunk_temp */)
-    static CallInst *genKmpcTaskBeginIf0(WRegionNode *W, StructType *IdentTy,
-                                         Value *TidPtr, Value *TaskAlloc,
-                                         Instruction *InsertPt);
+  /// Generate a call to `__kmpc_taskloop`. Example:
+  /// \code
+  ///   void @__kmpc_taskloop(
+  ///          { i32, i32, i32, i32, i8* }* %loc,
+  ///          i32 %tid,
+  ///          i8* %thunk_temp,
+  ///          i32 if_val,
+  ///          i64* lb,
+  ///          i64* ub,
+  ///          i64 stride,
+  ///          i32 nogroup,
+  ///          i32 sched, // 0: no grainsize or num_tasks
+  ///                     // 1: grainsize is used
+  ///                     // 2: num_tasks is used
+  ///          i64 grainsize,
+  ///          i8* task_dup)
+  /// \endcode
+  static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
+                                   Value *TidPtr, Value *TaskAlloc, Value *Cmp,
+                                   Value *LBPtr, Value *UBPtr, Value *STPtr,
+                                   StructType *KmpTaskTTWithPrivatesTy,
+                                   Instruction *InsertPt, bool UseTbb,
+                                   Function *FnTaskDup);
 
-    /// \brief This function generates a call as follows.
-    ///    void @__kmpc_omp_task_complete_if0(
-    ///          { i32, i32, i32, i32, i8* }* /* &loc */,
-    ///          i32 /* tid */,
-    ///          i8* /*thunk_temp */)
-    static CallInst *genKmpcTaskCompleteIf0(WRegionNode *W, StructType *IdentTy,
-                                            Value *TidPtr, Value *TaskAlloc,
-                                            Instruction *InsertPt);
+  /// Generate a call to `__kmpc_task`. Example:
+  /// \code
+  ///   void @__kmpc_task(
+  ///            { i32, i32, i32, i32, i8* }* %loc,
+  ///            i32 %tid,
+  ///            i8* thunk_temp)
+  /// \endcode
+  static CallInst *genKmpcTask(WRegionNode *W, StructType *IdentTy,
+                               Value *TidPtr, Value *TaskAlloc,
+                               Instruction *InsertPt);
 
-    /// \brief This function generates a call as follows.
-    ///    void @__kmpc_omp_task_with_deps(
-    ///           { i32, i32, i32, i32, i8* }* /* &loc */,
-    ///           i32 /* tid */,
-    ///           i8* /*thunk_temp */,
-    ///           i32 /* depend_count */,
-    ///           i8* /* &depend_record
-    ///           i32 /* 0 */,
-    ///           i8* /* 0 */)
-    static CallInst *genKmpcTaskWithDeps(WRegionNode *W, StructType *IdentTy,
-                                         Value *TidPtr, Value *TaskAlloc,
-                                         Value *Dep, int DepNum,
-                                         Instruction *InsertPt);
+  /// Generate a call to `__kmpc_omp_task_begin_if0`. Example:
+  /// \code
+  ///   void @__kmpc_omp_task_begin_if0(
+  ///         { i32, i32, i32, i32, i8* }* /* &loc */,
+  ///         i32 /* tid */,
+  ///         i8* /*thunk_temp */)
+  /// \endcode
+  static CallInst *genKmpcTaskBeginIf0(WRegionNode *W, StructType *IdentTy,
+                                       Value *TidPtr, Value *TaskAlloc,
+                                       Instruction *InsertPt);
 
-    /// \brief This function generates a call as follows.
-    ///    void @__kmpc_omp_wait_deps(
-    ///           { i32, i32, i32, i32, i8* }* /* &loc */,
-    ///           i32 /* tid */,
-    ///           i32 /* depend_count */,
-    ///           i8* /* &depend_record
-    ///           i32 /* 0 */,
-    static CallInst *genKmpcTaskWaitDeps(WRegionNode *W, StructType *IdentTy,
-                                         Value *TidPtr, Value *Dep, int DepNum,
-                                         Instruction *InsertPt);
+  /// Generate a call to `__kmpc_omp_task_complete_if0`. Example:
+  /// \code
+  ///   void @__kmpc_omp_task_complete_if0(
+  ///         { i32, i32, i32, i32, i8* }* /* &loc */,
+  ///         i32 /* tid */,
+  ///         i8* /*thunk_temp */)
+  /// \endcode
+  static CallInst *genKmpcTaskCompleteIf0(WRegionNode *W, StructType *IdentTy,
+                                          Value *TidPtr, Value *TaskAlloc,
+                                          Instruction *InsertPt);
 
-    /// \breif Generic routine to generate __kmpc_omp_task_with_deps or
-    ///  __kmpc_omp_wait_deps.
-    static CallInst *genKmpcTaskDepsGeneric(WRegionNode *W, StructType *IdentTy,
-                                            Value *TidPtr, Value *TaskAlloc,
-                                            Value *Dep, int DepNum,
-                                            Instruction *InsertPt,
-                                            StringRef FnName);
+  /// Generate a call to `__kmpc_omp_task_with_deps`. Example:
+  /// \code
+  ///   void @__kmpc_omp_task_with_deps(
+  ///          { i32, i32, i32, i32, i8* }* /* &loc */,
+  ///          i32 /* tid */,
+  ///          i8* /*thunk_temp */,
+  ///          i32 /* depend_count */,
+  ///          i8* /* &depend_record */
+  ///          i32 /* 0 */,
+  ///          i8* /* 0 */)
+  /// \endcode
+  static CallInst *genKmpcTaskWithDeps(WRegionNode *W, StructType *IdentTy,
+                                       Value *TidPtr, Value *TaskAlloc,
+                                       Value *Dep, int DepNum,
+                                       Instruction *InsertPt);
 
-    /// \brief This is a generic function to support the generation of
-    ///   __kmpc_task, __kmpc_omp_task_begin_if0 and
-    ///   __kmpc_omp_task_complete_if0.
-    static CallInst *genKmpcTaskGeneric(WRegionNode *W, StructType *IdentTy,
-                                        Value *TidPtr, Value *TaskAlloc,
-                                        Instruction *InsertPt,
-                                        StringRef FnName);
+  /// Generate a call to `__kmpc_omp_wait_deps`. Example:
+  /// \code
+  ///   void @__kmpc_omp_wait_deps(
+  ///          { i32, i32, i32, i32, i8* }* /* &loc */,
+  ///          i32 /* tid */,
+  ///          i32 /* depend_count */,
+  ///          i8* /* &depend_record */
+  ///          i32 /* 0 */,
+  ///          i8* /* 0 */)
+  /// \endcode
+  static CallInst *genKmpcTaskWaitDeps(WRegionNode *W, StructType *IdentTy,
+                                       Value *TidPtr, Value *Dep, int DepNum,
+                                       Instruction *InsertPt);
 
-    /// \brief This function generates a call as follows.
-    ///    void @__kmpc_omp_taskwait({ i32, i32, i32, i32, i8* }*, i32)
-    static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
-                                     Value *TidPtr, Instruction *InsertPt);
+  /// Generic routine to generate `__kmpc_omp_task_with_deps` or
+  /// `__kmpc_omp_wait_deps` calls.
+  static CallInst *genKmpcTaskDepsGeneric(WRegionNode *W, StructType *IdentTy,
+                                          Value *TidPtr, Value *TaskAlloc,
+                                          Value *Dep, int DepNum,
+                                          Instruction *InsertPt,
+                                          StringRef FnName);
 
-    /// \brief Build int32_t __tgt_target_data_begin(int64_t  device_id,
-    ///                                              int32_t  num_args,
-    ///                                              void**   args_base,
-    ///                                              void**   args,
-    ///                                              int64_t* args_size,
-    ///                                              int64_t* args_maptype)
-    ///
-    static CallInst *genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
-                                           Value *ArgsBase, Value *Args,
-                                           Value *ArgsSize, Value *ArgsMaptype,
-                                           Instruction *InsertPt);
+  /// Generic function to support generation of `__kmpc_task`,
+  /// `__kmpc_omp_task_begin_if0` and `__kmpc_omp_task_complete_if0` calls.
+  static CallInst *genKmpcTaskGeneric(WRegionNode *W, StructType *IdentTy,
+                                      Value *TidPtr, Value *TaskAlloc,
+                                      Instruction *InsertPt, StringRef FnName);
 
-    /// \brief Build int32_t __tgt_target_data_end(int64_t  device_id,
-    ///                                            int32_t  num_args,
-    ///                                            void**   args_base,
-    ///                                            void**   args,
-    ///                                            int64_t* args_size,
-    ///                                            int64_t* args_maptype)
-    static CallInst *genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
+  /// Generate a call to `__kmpc_omp_taskwait`. Example:
+  /// \code
+  ///   void @__kmpc_omp_taskwait({ i32, i32, i32, i32, i8* }*, i32)
+  /// \endcode
+  static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
+                                   Value *TidPtr, Instruction *InsertPt);
+
+  /// Generate a call to `__tgt_target_data_begin`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_begin(int64_t  device_id,
+  ///                                   int32_t  num_args,
+  ///                                   void**   args_base,
+  ///                                   void**   args,
+  ///                                   int64_t* args_size,
+  ///                                   int64_t* args_maptype)
+  /// \endcode
+  static CallInst *genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                          Value *ArgsBase, Value *Args,
                                          Value *ArgsSize, Value *ArgsMaptype,
                                          Instruction *InsertPt);
 
-    /// \brief Build int32_t __tgt_target_data_update(int64_t  device_id,
-    ///                                               int32_t  num_args,
-    ///                                               void**   args_base,
-    ///                                               void**   args,
-    ///                                               int64_t* args_size,
-    ///                                               int64_t* args_maptype)
-    static CallInst *genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
-                                            Value *ArgsBase, Value *Args,
-                                            Value *ArgsSize,
-                                            Value *ArgsMaptype,
-                                            Instruction *InsertPt);
-
-    /// \brief Build int32_t __tgt_target(int64_t  device_id,
-    ///                                   void*    host_addr,
-    ///                                   int32_t  num_args,
-    ///                                   void**   args_base,
-    ///                                   void**   args,
-    ///                                   int64_t* args_size,
-    ///                                   int64_t* args_maptype)
-    static CallInst *genTgtTarget(WRegionNode *W, Value *HostAddr, int NumArgs,
-                                  Value *ArgsBase, Value *Args,
-                                  Value *ArgsSize, Value *ArgsMaptype,
-                                  Instruction *InsertPt);
-
-    /// \brief Build int32_t __tgt_target_teams(int64_t  device_id,
-    ///                                         void*    host_addr,
-    ///                                         int32_t  num_args,
-    ///                                         void**   args_base,
-    ///                                         void**   args,
-    ///                                         int64_t* args_size,
-    ///                                         int64_t* args_maptype,
-    ///                                         int32_t  num_teams,
-    ///                                         int32_t  thread_limit)
-    static CallInst *genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
-                                       int NumArgs, Value *ArgsBase,
-                                       Value *Args, Value *ArgsSize,
-                                       Value *ArgsMaptype,
+  /// Generate a call to `__tgt_target_data_end`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_end(int64_t  device_id,
+  ///                                 int32_t  num_args,
+  ///                                 void**   args_base,
+  ///                                 void**   args,
+  ///                                 int64_t* args_size,
+  ///                                 int64_t* args_maptype)
+  /// \endcode
+  static CallInst *genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
+                                       Value *ArgsBase, Value *Args,
+                                       Value *ArgsSize, Value *ArgsMaptype,
                                        Instruction *InsertPt);
 
-    /// \brief Base routine to create one of these libomptarget calls:
-    /// \code
-    ///   void    __tgt_target_data_begin( int64_t device_id, <common>)
-    ///   void    __tgt_target_data_end(   int64_t device_id, <common>)
-    ///   void    __tgt_target_data_update(int64_t device_id, <common>)
-    ///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
-    ///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
-    ///                              <common>, int32_t num_teams,
-    ///                              int32_t thread_limit)
-    /// \endcode
-    /// where <common> represents these 5 arguments:
-    /// \code
-    ///   int32_t  num_args,    // number of pointers being mapped
-    ///   void**   args_base,   // array of base pointers being mapped
-    ///   void**   args,        // array of section pointers (base+offset)
-    ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
-    ///   int32_t* args_maptype // array of map attributes for each mapping
-    /// \endcode
-    static CallInst *genTgtCall(StringRef FnName, Value *DeviceIDPtr,
-                                int NumArgsCount, Value *ArgsBase, Value *Args,
-                                Value *ArgsSize, Value *ArgsMaptype,
-                                Instruction *InsertPt, Value *HostAddr=nullptr,
-                                Value *NumTeamsPtr=nullptr,
-                                Value *ThreadLimitPtr=nullptr);
+  /// Generate a call to `__tgt_target_data_update`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_update(int64_t  device_id,
+  ///                                    int32_t  num_args,
+  ///                                    void**   args_base,
+  ///                                    void**   args,
+  ///                                    int64_t* args_size,
+  ///                                    int64_t* args_maptype)
+  /// \endcode
+  static CallInst *genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
+                                          Value *ArgsBase, Value *Args,
+                                          Value *ArgsSize, Value *ArgsMaptype,
+                                          Instruction *InsertPt);
 
-    /// \brief Call to i32 __tgt_unregister_lib(__tgt_bin_desc *desc);
-    static CallInst *genTgtUnregisterLib(Value *Desc, Instruction *InsertPt);
+  /// Generate a call to `__tgt_target`. Example:
+  /// \code
+  ///   int32_t __tgt_target(int64_t  device_id,
+  ///                        void*    host_addr,
+  ///                        int32_t  num_args,
+  ///                        void**   args_base,
+  ///                        void**   args,
+  ///                        int64_t* args_size,
+  ///                        int64_t* args_maptype)
+  /// \endcode
+  static CallInst *genTgtTarget(WRegionNode *W, Value *HostAddr, int NumArgs,
+                                Value *ArgsBase, Value *Args, Value *ArgsSize,
+                                Value *ArgsMaptype, Instruction *InsertPt);
 
-    /// \brief Call to i32 __tgt_register_lib(__tgt_bin_desc *desc);
-    static CallInst *genTgtRegisterLib(Value *Desc, Instruction *InsertPt);
+  /// Generate a call to `__tgt_target_teams`. Example:
+  /// \code
+  ///   int32_t __tgt_target_teams(int64_t  device_id,
+  ///                              void*    host_addr,
+  ///                              int32_t  num_args,
+  ///                              void**   args_base,
+  ///                              void**   args,
+  ///                              int64_t* args_size,
+  ///                              int64_t* args_maptype,
+  ///                              int32_t  num_teams,
+  ///                              int32_t  thread_limit)
+  /// \endcode
+  static CallInst *genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
+                                     int NumArgs, Value *ArgsBase, Value *Args,
+                                     Value *ArgsSize, Value *ArgsMaptype,
+                                     Instruction *InsertPt);
 
-    /// \brief Call to generic function to support the generation of
-    /// __tgt_register_lib and __tgt_unregister_lib.
-    static CallInst *genTgtRegGeneric(Value *Desc, Instruction *InsertPt,
-                                      StringRef FnName);
+  /// Base routine to create `libomptarget` calls. Creates one of these calls:
+  /// \code
+  ///   void    __tgt_target_data_begin( int64_t device_id, <common>)
+  ///   void    __tgt_target_data_end(   int64_t device_id, <common>)
+  ///   void    __tgt_target_data_update(int64_t device_id, <common>)
+  ///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
+  ///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
+  ///                              <common>, int32_t num_teams,
+  ///                              int32_t thread_limit)
+  /// \endcode
+  /// where `<common>` represents these 5 arguments:
+  /// \code
+  ///   int32_t  num_args,    // number of pointers being mapped
+  ///   void**   args_base,   // array of base pointers being mapped
+  ///   void**   args,        // array of section pointers (base+offset)
+  ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
+  ///   int32_t* args_maptype // array of map attributes for each mapping
+  /// \endcode
+  static CallInst *genTgtCall(StringRef FnName, Value *DeviceIDPtr,
+                              int NumArgsCount, Value *ArgsBase, Value *Args,
+                              Value *ArgsSize, Value *ArgsMaptype,
+                              Instruction *InsertPt, Value *HostAddr = nullptr,
+                              Value *NumTeamsPtr = nullptr,
+                              Value *ThreadLimitPtr = nullptr);
 
-    /// \brief Call to i32 __cxa_atexit(void (i8*)*
-    /// @.omp_offloading.descriptor_unreg, i8* bitcast (%struct.__tgt_bin_desc*
-    /// @.omp_offloading.descriptor to i8*), i8* @__dso_handle)
-    static CallInst *genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
-                                  Value *Handle, Instruction *InsertPt);
+  /// Generate a call to `tgt_unregister_lib`. Example:
+  /// \code
+  ///   i32 __tgt_unregister_lib(__tgt_bin_desc *desc)
+  /// \endcode
+  static CallInst *genTgtUnregisterLib(Value *Desc, Instruction *InsertPt);
 
-    /// \brief This function generates a call as follows.
-    ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
-    static CallInst *genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
-                                          Value *SharedGep,
-                                          Instruction *InsertPt, bool UseTbb);
+  /// Generate a call to `tgt_register_lib`. Example:
+  /// \code
+  ///   i32 __tgt_register_lib(__tgt_bin_desc *desc)`
+  /// \endcode
+  static CallInst *genTgtRegisterLib(Value *Desc, Instruction *InsertPt);
 
-    /// \brief This function generates a call as follows.
-    ///    i8* @__kmpc_task_reduction_init(i32, i32, i8*)
-    static CallInst *genKmpcTaskReductionInit(WRegionNode *W, Value *TidPtr,
-                                              int ParmNum, Value *RedRecord,
-                                              Instruction *InsertPt,
-                                              bool UseTbb);
+  /// Generic function to support the generation of `__tgt_register_lib` and
+  /// `__tgt_unregister_lib` calls.
+  static CallInst *genTgtRegGeneric(Value *Desc, Instruction *InsertPt,
+                                    StringRef FnName);
 
-    /// \brief returns min/max int of the given integer type.
-    /// This can be used to initialize min/max reduction variables.
-    static Constant* getMinMaxIntVal(LLVMContext &C, Type *Ty,
-                                     bool IsUnsigned, bool GetMax);
-    // static uint64_t getMinInt(Type *IntTy, bool IsUnsigned);
-    // static uint64_t getMaxInt(Type *IntTy, bool IsUnsigned);
+  /// Generate a call to `_cxa_atexit`. Example:
+  /// \code
+  /// i32 __cxa_atexit(void (i8*)* @.omp_offloading.descriptor_unreg, i8*
+  /// bitcast (%struct.__tgt_bin_desc* @.omp_offloading.descriptor to i8*),
+  /// i8* @__dso_handle)
+  /// \endcode
+  static CallInst *genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
+                                Value *Handle, Instruction *InsertPt);
 
-    /// \brief This function generates a call as follows.
-    /// void __kmpc_copyprivate(
-    ///    ident_t *loc, kmp_int32 global_tid, kmp_int32 cpy size, void *cpy
-    ///    data, void(*cpy func)(void *, void *), kmp_int32 didit );
-    ///
-    ///    loc: source location information
-    ///    global_tid: global thread number
-    ///    cpy_size: size of the cpy_data buffer
-    ///    cpy_data: pointer to data to be copied
-    ///    cpy_func: helper function to call for copying data
-    ///    didit: flag variable: 1=single thread; 0=not single thread
-    static CallInst *genKmpcCopyPrivate(WRegionNode *W, StructType *IdentTy,
-                                        Value *TidPtr, unsigned Size,
-                                        Value *CpyData, Function *FnCopyPriv,
-                                        Value *IsSingleThread,
-                                        Instruction *InsertPt);
+  /// Generate a call to `__kmpc_task_reduction_get_th_data`. Prototype:
+  /// \code
+  ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
+  /// \endcode
+  static CallInst *genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
+                                        Value *SharedGep, Instruction *InsertPt,
+                                        bool UseTbb);
 
-    /// \brief This function generates a call as follows.
-    /// void @__kmpc_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
-    static CallInst *genKmpcTaskgroupCall(WRegionNode *W, StructType *IdentTy,
-                                          Value *Tid, Instruction *InsertPt);
+  /// Generate a call to `__kmpc_task_reduction_init`. Prototype:
+  /// \code
+  ///   i8* @__kmpc_task_reduction_init(i32, i32, i8*)
+  /// \endcode
+  static CallInst *genKmpcTaskReductionInit(WRegionNode *W, Value *TidPtr,
+                                            int ParmNum, Value *RedRecord,
+                                            Instruction *InsertPt, bool UseTbb);
 
-    /// \brief This function generates a call as follows.
-    /// void @__kmpc_end_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
-    static CallInst *genKmpcEndTaskgroupCall(WRegionNode *W,
-                                             StructType *IdentTy, Value *Tid,
-                                             Instruction *InsertPt);
+  /// Returns min/max int of the given integer type.
+  /// This can be used to initialize min/max reduction variables.
+  static Constant *getMinMaxIntVal(LLVMContext &C, Type *Ty, bool IsUnsigned,
+                                   bool GetMax);
+  // static uint64_t getMinInt(Type *IntTy, bool IsUnsigned);
+  // static uint64_t getMaxInt(Type *IntTy, bool IsUnsigned);
 
-  private:
-    /// \name Private constructor and destructor to disable instantiation.
-    /// @{
+  /// Generate a call to `__kmpc_copyprivate`. Example:
+  /// \code
+  ///   void __kmpc_copyprivate(
+  ///     ident_t *loc, kmp_int32 global_tid, kmp_int32 cpy_size, void
+  ///     *cpy_data, void(*cpy func)(void *, void *), kmp_int32 didit );
+  ///
+  ///   /*
+  ///   loc: source location information
+  ///   global_tid: global thread number
+  ///   cpy_size: size of the cpy_data buffer
+  ///   cpy_data: pointer to data to be copied
+  ///   cpy_func: helper function to call for copying data
+  ///   didit: flag variable: 1=single thread; 0=not single thread
+  ///   */
+  /// \endcode
+  static CallInst *genKmpcCopyPrivate(WRegionNode *W, StructType *IdentTy,
+                                      Value *TidPtr, unsigned Size,
+                                      Value *CpyData, Function *FnCopyPriv,
+                                      Value *IsSingleThread,
+                                      Instruction *InsertPt);
 
-    VPOParoptUtils() = delete;
-    ~VPOParoptUtils() = delete;
+  /// Generate a call to `__kmpc_taskgroup`. Example:
+  /// \code
+  ///   void @__kmpc_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+  /// \endcode
+  static CallInst *genKmpcTaskgroupCall(WRegionNode *W, StructType *IdentTy,
+                                        Value *Tid, Instruction *InsertPt);
 
-    /// @}
+  /// Generate a call to `__kmpc_end_taskgroup`. Example:
+  /// \code
+  ///   void @__kmpc_end_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
+  /// \endcode
+  static CallInst *genKmpcEndTaskgroupCall(WRegionNode *W, StructType *IdentTy,
+                                           Value *Tid, Instruction *InsertPt);
 
-    /// \name Helper methods for generating a KMPC call.
-    /// @{
+private:
+  /// \name Private constructor and destructor to disable instantiation.
+  /// @{
 
-    /// \brief Generates KMPC runtime call to the function \p IntrinsicName
-    /// with arguments Loc(obtained using \p IdentTy) and \p Args.
-    /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
-    /// KMPC call.
-    /// \param IntrinsicName is the name of the function.
-    /// \param ReturnTy is the return type of the function.
-    /// \param Args arguments for the function call.
-    /// \param Insert indicates whether to insert the call at InsertPt
-    ///
-    /// \returns the generated CallInst.
-    static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
-                                 Instruction *InsertPt, StringRef IntrinsicName,
-                                 Type *ReturnTy, ArrayRef<Value *> Args,
-                                 bool Insert=false);
+  VPOParoptUtils() = delete;
+  ~VPOParoptUtils() = delete;
 
-    /// \brief Generates a CallInst for the given Function* Fn and its
-    /// argument list.  Fn must be already declared.
-    static CallInst *genCall(Function *Fn, ArrayRef<Value*> FnArgs,
-                             ArrayRef<Type*> FnArgTypes, Instruction *InsertPt,
-                             bool IsTail=false, bool IsVarArg=false);
+  /// @}
 
-    /// \brief Generates a call to the function \p FnName.
-    /// If the function is not already declared in the module \p M, then it is
-    /// declared here. Otherwise, the existing declaration is used.
-    /// \param M Module for which the call is generated.
-    /// \param FnName Name of the function.
-    /// \param ReturnTy Return type of the function.
-    /// \param FnArgs Arguments for the function call.
-    /// \param FnArgTypes Types of the arguments for the function call.
-    /// \param InsertPt Insertion point for the call. Default is nullptr.
-    /// \param IsTail This call attribute is defaulted to false.
-    /// \param IsVarArg  This call attribute is defaulted to false.
-    ///
-    /// \returns the generated CallInst.
-    static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
-                             ArrayRef<Value *> FnArgs,
-                             ArrayRef<Type*> FnArgTypes,
-                             Instruction *InsertPt=nullptr, bool IsTail=false,
-                             bool IsVarArg=false);
+  /// \name Helper methods for generating a KMPC call.
+  /// @{
 
-    // A genCall() interface where FnArgTypes is omitted; it will be computed
-    // from FnArgs.
-    static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
-                             ArrayRef<Value *> FnArgs,
-                             Instruction *InsertPt=nullptr, bool IsTail=false,
-                             bool IsVarArg=false);
+  /// Generate KMPC runtime call to the function \p IntrinsicName
+  /// with arguments Loc(obtained using \p IdentTy) and \p Args.
+  /// \param IdentTy and \p InsertPt are used to obtain Loc needed by the
+  /// KMPC call.
+  /// \param IntrinsicName is the name of the function.
+  /// \param ReturnTy is the return type of the function.
+  /// \param Args arguments for the function call.
+  /// \param Insert indicates whether to insert the call at InsertPt
+  ///
+  /// \returns the generated CallInst.
+  static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
+                               Instruction *InsertPt, StringRef IntrinsicName,
+                               Type *ReturnTy, ArrayRef<Value *> Args,
+                               bool Insert = false);
 
-    // A genCall() interface where the Module is omitted; it will be computed
-    // from the insertion point, which is must be specified (no default).
-    static CallInst *genCall(StringRef FnName, Type *ReturnTy,
-                             ArrayRef<Value*> FnArgs,
-                             ArrayRef<Type*> FnArgTypes,
-                             Instruction *InsertPt, bool IsTail=false,
-                             bool IsVarArg=false);
-    /// @}
+  /// Generate a CallInst for the given Function* \p Fn and its argument list.
+  /// \p Fn must be already declared.
+  static CallInst *genCall(Function *Fn, ArrayRef<Value *> FnArgs,
+                           ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
+                           bool IsTail = false, bool IsVarArg = false);
 
-    /// \name Helper methods for generating a Critical Section.
-    /// @{
+  /// Generate a call to the function \p FnName.
+  /// If the function is not already declared in the module \p M, then it is
+  /// declared here. Otherwise, the existing declaration is used.
+  /// \param M Module for which the call is generated.
+  /// \param FnName Name of the function.
+  /// \param ReturnTy Return type of the function.
+  /// \param FnArgs Arguments for the function call.
+  /// \param FnArgTypes Types of the arguments for the function call.
+  /// \param InsertPt Insertion point for the call. Default is nullptr.
+  /// \param IsTail This call attribute is defaulted to false.
+  /// \param IsVarArg  This call attribute is defaulted to false.
+  ///
+  /// \returns the generated CallInst.
+  static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
+                           ArrayRef<Value *> FnArgs,
+                           ArrayRef<Type *> FnArgTypes,
+                           Instruction *InsertPt = nullptr, bool IsTail = false,
+                           bool IsVarArg = false);
 
-    /// \brief Creates a prefix for the name of the lock var to be used in KMPC
-    /// critical calls based on the kind of WRegionNode \p W.
-    ///
-    /// \returns A string prefix for the KMPC Lock object for \p W.
-    static SmallString<64> getKmpcCriticalLockNamePrefix(WRegionNode *W);\
+  // A genCall() interface where FnArgTypes is omitted; it will be computed
+  // from FnArgs.
+  static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
+                           ArrayRef<Value *> FnArgs,
+                           Instruction *InsertPt = nullptr, bool IsTail = false,
+                           bool IsVarArg = false);
 
-    /// \brief Returns a GlobalVariable that can be used as the Lock object for
-    /// `__kmpc_critical` and __kmpc_end_critical` calls.
-    /// \p W is used to determine the name of the Lock object generated.
-    /// \p LockNameSuffix will be used as suffix in the name of the lock
-    /// variable used for the critical section. (The prefix is determined based
-    /// on the architecture and the kind of WRegionNode \W).
-    ///
-    /// \returns The lock variable for the critical section to be generated.
-    static GlobalVariable *
-    genKmpcCriticalLockVar(WRegionNode *W, const StringRef &LockNameSuffix);
+  // A genCall() interface where the Module is omitted; it will be computed
+  // from the insertion point, which is must be specified (no default).
+  static CallInst *genCall(StringRef FnName, Type *ReturnTy,
+                           ArrayRef<Value *> FnArgs,
+                           ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
+                           bool IsTail = false, bool IsVarArg = false);
+  /// @}
 
-    /// \brief Handles generation of a critical section around \p BeginInst
-    /// and \p EndInst.
-    /// The function needs a lock variable \p LockVar, which is generated by
-    /// genKmpcCriticalLockVar().
-    /// \see genKmpcCriticalSection() functions more details. They are the
-    /// public functions which invokes this private helper.
-    ///
-    /// \returns `true` if the calls to `__kmpc_critical` and
-    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
-    static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
-                                           Constant *TidPtr,
-                                           Instruction *BeginInst,
-                                           Instruction *EndInst,
-                                           GlobalVariable *LockVar);
+  /// \name Helper methods for generating a Critical Section.
+  /// @{
 
-    /// \Brief This function generates calls for the taskgroup region.
-    ///
-    ///   call void @__kmpc_taskgroup(%ident_t* %loc, i32 %tid)
-    ///      or
-    ///   call void @__kmpc_end_taskgroup(%ident_t* %loc, i32 %tid)
-    static CallInst *genKmpcTaskgroupOrEndTaskgroupCall(WRegionNode *W,
-                                                        StructType *IdentTy,
-                                                        Value *Tid,
-                                                        Instruction *InsertPt,
-                                                        bool IsTaskGroupStart);
+  /// Creates a prefix for the name of the lock var to be used in KMPC
+  /// critical calls based on the kind of WRegionNode \p W.
+  ///
+  /// \returns A string prefix for the KMPC Lock object for \p W.
+  static SmallString<64> getKmpcCriticalLockNamePrefix(WRegionNode *W);
 
-    /// @}
+  /// Returns a GlobalVariable that can be used as the Lock object for
+  /// `__kmpc_critical` and __kmpc_end_critical` calls.
+  /// \p W is used to determine the name of the Lock object generated.
+  /// \p LockNameSuffix will be used as suffix in the name of the lock
+  /// variable used for the critical section. (The prefix is determined based
+  /// on the architecture and the kind of WRegionNode \W).
+  ///
+  /// \returns The lock variable for the critical section to be generated.
+  static GlobalVariable *
+  genKmpcCriticalLockVar(WRegionNode *W, const StringRef &LockNameSuffix);
 
-    };
+  /// Handles generation of a critical section around \p BeginInst and \p
+  /// EndInst. The function needs a lock variable \p LockVar, which is generated
+  /// by genKmpcCriticalLockVar().
+  ///
+  /// \see genKmpcCriticalSection() functions for more details. They are the
+  /// public functions which invokes this private helper.
+  ///
+  /// \returns `true` if the calls to `__kmpc_critical` and
+  /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+  static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
+                                         Constant *TidPtr,
+                                         Instruction *BeginInst,
+                                         Instruction *EndInst,
+                                         GlobalVariable *LockVar);
 
-} // End vpo namespace
-} // End llvm namespace
+  /// Generate a call to `__kmpc_[end_]taskgroup`.
+  /// \code
+  ///   call void @__kmpc_taskgroup(%ident_t* %loc, i32 %tid)
+  ///      or
+  ///   call void @__kmpc_end_taskgroup(%ident_t* %loc, i32 %tid)
+  /// \endcode
+  static CallInst *genKmpcTaskgroupOrEndTaskgroupCall(WRegionNode *W,
+                                                      StructType *IdentTy,
+                                                      Value *Tid,
+                                                      Instruction *InsertPt,
+                                                      bool IsTaskGroupStart);
+
+  /// @}
+};
+
+} // namespace vpo
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VPO_PAROPT_UTILS_H
 #endif // INTEL_COLLAB

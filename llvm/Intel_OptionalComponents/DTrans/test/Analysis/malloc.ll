@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransanalysis -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies correct identification of calls to malloc and analysis
 ; of arguments to those calls by the DTransAnalysis.
@@ -338,6 +338,17 @@ define void @test18(i32 %num1, i64 %num2) {
 ; CHECK: dtrans: Detected allocation cast to pointer type
 ; CHECK: Detected type: %struct.badsize.S4 = type { i32, i32, i32 }
 
+; Here we make sure that we don't fail on zero size arrays.
+%struct.badsize.S5 = type { i32, i32, i32 }
+define void @test19() {
+  %p1 = call noalias i8* @malloc(i64 0)
+  %p2 = bitcast i8* %p1 to [0 x %struct.badsize.S5]*
+  ret void
+}
+
+; CHECK: dtrans: Detected allocation cast to pointer type
+; CHECK: Detected type: [0 x %struct.badsize.S5]
+
 ; The allocation output immediately follows the test where the allocation
 ; occurs. All type safety info is printed at the end. We check that here.
 ; Types are sorted alphabetically for output.
@@ -365,6 +376,8 @@ define void @test18(i32 %num1, i64 %num2) {
 ; CHECK: LLVMType: %struct.badsize.S3
 ; CHECK: Safety data: Bad alloc size
 ; CHECK: LLVMType: %struct.badsize.S4
+; CHECK: Safety data: Bad alloc size
+; CHECK: LLVMType: %struct.badsize.S5
 ; CHECK: Safety data: Bad alloc size
 
 ; 'good' types should have 'No issues found'

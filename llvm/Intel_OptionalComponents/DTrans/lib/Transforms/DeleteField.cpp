@@ -48,13 +48,16 @@ public:
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     const TargetLibraryInfo &TLI =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-    return Impl.runImpl(M, DTInfo, TLI);
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
+    return Impl.runImpl(M, DTInfo, TLI, WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // TODO: Mark the actual required and preserved analyses.
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -102,7 +105,7 @@ private:
   bool processGEPInst(GetElementPtrInst *GEP, uint64_t &NewIndex,
                       bool IsPreCloning);
   bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
-  void postprocessCallInst(Instruction *I);
+  void postprocessCallSite(CallSite CS);
   void processSubInst(Instruction *I);
 };
 
@@ -113,6 +116,7 @@ INITIALIZE_PASS_BEGIN(DTransDeleteFieldWrapper, "dtrans-deletefield",
                       "DTrans delete field", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransDeleteFieldWrapper, "dtrans-deletefield",
                     "DTrans delete field", false, false)
 
@@ -138,6 +142,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     // (phi, select, icmp, etc.) cannot be deleted.
     bool CanDeleteField = false;
     size_t NumFields = StInfo->getNumFields();
+    size_t NumFieldsDeleted = 0;
     for (size_t i = 0; i < NumFields; ++i) {
       dtrans::FieldInfo &FI = StInfo->getField(i);
       auto *FieldTy = FI.getLLVMType();
@@ -161,9 +166,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
         // bitfields.
         DeleteableBytes += DL.getTypeSizeInBits(FieldTy) / 8;
         CanDeleteField = true;
-#ifdef NDEBUG
-        break;
-#endif // NDEBUG
+        ++NumFieldsDeleted;
       }
     }
 
@@ -179,8 +182,19 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       continue;
     }
 
-    if (((DeleteableBytes * 100) / DL.getTypeAllocSize(StInfo->getLLVMType()))
-            < 10) {
+    // In this case we really ought to be able to eliminate the type
+    // completely, but that's more work than we want to do right now.
+    if (NumFields == NumFieldsDeleted) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because all fields would be deleted.\n";
+      });
+      continue;
+    }
+
+    if (((DeleteableBytes * 100) / DL.getTypeAllocSize(StInfo->getLLVMType())) <
+        10) {
       LLVM_DEBUG({
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
@@ -463,14 +477,15 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
       }
     } break;
     case Instruction::Call:
-      postprocessCallInst(&*It);
+    case Instruction::Invoke:
+      postprocessCallSite(CallSite(&*It));
       break;
     }
   }
 }
 
-void DeleteFieldImpl::postprocessCallInst(Instruction *I) {
-  auto *CInfo = DTInfo.getCallInfo(I);
+void DeleteFieldImpl::postprocessCallSite(CallSite CS) {
+  auto *CInfo = DTInfo.getCallInfo(CS.getInstruction());
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
@@ -489,9 +504,9 @@ void DeleteFieldImpl::postprocessCallInst(Instruction *I) {
       if (PointeeTy != ReplTy)
         continue;
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
-                        << *I << "\n"
+                        << *CS.getInstruction() << "\n"
                         << "  " << *OrigTy << "\n");
-      updateCallSizeOperand(I, CInfo, OrigTy, ReplTy);
+      updateCallSizeOperand(CS.getInstruction(), CInfo, OrigTy, ReplTy);
     }
   }
 }
@@ -568,8 +583,8 @@ Constant *DeleteFieldImpl::getArrayReplacement(ConstantArray *ArInit,
   unsigned OrigNumElements = OrigTy->getArrayNumElements();
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumElements; ++Idx)
-    NewInitVals.push_back(getReplacement(ArInit->getAggregateElement(Idx),
-                          Mapper));
+    NewInitVals.push_back(
+        getReplacement(ArInit->getAggregateElement(Idx), Mapper));
   Type *NewTy = TypeRemapper->remapType(OrigTy);
   assert(NewTy->getArrayNumElements() == NewInitVals.size() &&
          "Mismatched number of elements in array initializer creation!");
@@ -585,8 +600,8 @@ Constant *DeleteFieldImpl::getStructReplacement(ConstantStruct *StInit,
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
     if (FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
-      NewInitVals.push_back(getReplacement(StInit->getAggregateElement(Idx),
-                            Mapper));
+      NewInitVals.push_back(
+          getReplacement(StInit->getAggregateElement(Idx), Mapper));
   auto *NewTy = OrigToNewTypeMapping[OrigTy];
   assert(NewTy->getStructNumElements() == NewInitVals.size() &&
          "Mismatched number of elements in struct initializer creation!");
@@ -683,7 +698,14 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
 }
 
 bool dtrans::DeleteFieldPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                      const TargetLibraryInfo &TLI) {
+                                      const TargetLibraryInfo &TLI,
+                                      WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
+    return false;
 
   DTransTypeRemapper TypeRemapper;
   DeleteFieldImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
@@ -695,8 +717,9 @@ PreservedAnalyses dtrans::DeleteFieldPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, TLI))
+  if (!runImpl(M, DTransInfo, TLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

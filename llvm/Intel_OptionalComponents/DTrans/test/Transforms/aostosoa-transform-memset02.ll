@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; Test memset with a structure that contains different types of fields to
 ; verify the memsets write the expected number of bytes for each.
@@ -20,7 +20,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; Use memmset with a constant size that represents 10 structure elements, on a
 ; structure of mixed data types.
 define void @test01(%struct.test01* %in) {
-; CHECK-LABEL: define void @test01
+; CHECK-LABEL: define internal void @test01
 
   %ptr = bitcast %struct.test01* %in to i8*
   call void @llvm.memset.p0i8.i64(i8* %ptr, i8 0, i64 240, i1 false)

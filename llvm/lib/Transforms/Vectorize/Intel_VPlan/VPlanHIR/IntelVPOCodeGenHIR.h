@@ -16,14 +16,14 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
+#include "../IntelVPlanValue.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include <map>
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 using namespace llvm::loopopt;
 
@@ -34,7 +34,6 @@ class HIRSafeReductionAnalysis;
 } // namespace loopopt
 
 namespace vpo {
-class VPValue;
 class WRNVecLoopNode;
 
 // VPOCodeGenHIR generates vector code by widening of scalars into
@@ -70,12 +69,19 @@ public:
   static bool isConstStrideRef(const RegDDRef *Ref, unsigned Level,
                                int64_t *CoeffPtr = nullptr);
 
+  static bool refIsUnit(const HLLoop *HLoop, const RegDDRef *Ref);
+
   Function &getFunction() const { return Fn; }
   HLLoop *getMainLoop() const { return MainLoop; }
   int getVF() const { return VF; };
 
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
+
+  // Returns the HLLoop where it is safe to hoist the reduction initializer
+  // statement. It is also the point after which the last value computation
+  // instructions can be placed.
+  HLLoop *findRednHoistInsertionPoint(HLLoop *Lp);
 
   // Widen the given instruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
@@ -95,8 +101,24 @@ public:
   // Return the widened vector value corresponding to VPVal if found
   // in VPValWideRefMap, return null otherwise.
   RegDDRef *getWideRefForVPVal(VPValue *VPVal) const {
-    if (VPValWideRefMap.find(VPVal) != VPValWideRefMap.end())
-      return VPValWideRefMap.at(VPVal);
+    auto Itr = VPValWideRefMap.find(VPVal);
+    if (Itr != VPValWideRefMap.end())
+      return Itr->second;
+    else
+      return nullptr;
+  }
+
+  // Add WideVal as the widened vector value corresponding  to SCVal
+  void addSCEVWideRefMapping(const SCEV *SCVal, RegDDRef *WideVal) {
+    SCEVWideRefMap[SCVal] = WideVal;
+  }
+
+  // Return the widened vector value corresponding to SCVal if found
+  // in SCEVWideRefMap, return null otherwise.
+  RegDDRef *getWideRefForSCVal(const SCEV *SCVal) const {
+    auto Itr = SCEVWideRefMap.find(SCVal);
+    if (Itr != SCEVWideRefMap.end())
+      return Itr->second;
     else
       return nullptr;
   }
@@ -120,8 +142,9 @@ public:
   // Return widened instruction if Symbase is in WidenMap, return nullptr
   // otherwise.
   HLInst *getWideInst(unsigned Symbase) const {
-    if (WidenMap.find(Symbase) != WidenMap.end())
-      return WidenMap.at(Symbase);
+    auto Itr = WidenMap.find(Symbase);
+    if (Itr != WidenMap.end())
+      return Itr->second;
     else
       return nullptr;
   }
@@ -165,12 +188,15 @@ private:
   LoopOptReportBuilder &LORBuilder;
 
   // Map of DDRef symbase and widened HLInst
-  std::map<unsigned, HLInst *> WidenMap;
-  std::map<VPValue *, RegDDRef *> VPValWideRefMap;
+  DenseMap<unsigned, HLInst *> WidenMap;
+  DenseMap<VPValue *, RegDDRef *> VPValWideRefMap;
 
-  // Map of avr number and widened DDRef. TODO - look into combining the two
-  // maps
-  std::map<int, RegDDRef *> WideMap;
+  // Map of SCEV expression and widened DDRef.
+  DenseMap<const SCEV *, RegDDRef *> SCEVWideRefMap;
+
+  // The loop for which it is safe to hoist the reduction initializer and sink
+  // reduction last value compute instructions.
+  HLLoop *RednHoistLp;
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
@@ -194,13 +220,14 @@ private:
 
   // Given reduction operator identity value, insert vector reduction operand
   // initialization to a vector of length VF identity values. Return the
-  // initialization instruction. The initialization is added before the loop
+  // initialization instruction. The initialization is added before RednHoistLp
   // and the LVAL of this instruction is used as the widened reduction ref.
   HLInst *insertReductionInitializer(Constant *Iden);
 
   // Add entry to WidenMap and handle generating code for liveout/reduction at
-  // the end of loop.
-  void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst);
+  // the end of loop specified by /p HoistLp.
+  void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst,
+                                HLLoop *HoistLp);
 
   // Find users of OrigRef and replaces them with NewRef.
   void replaceOrigRef(RegDDRef *OrigRef, RegDDRef *NewRef);
@@ -208,6 +235,12 @@ private:
   // Replace math library calls in the remainder loop with the vectorized one
   // used in the main vector loop.
   void replaceLibCallsInRemainderLoop(HLInst *HInst);
+
+  // The small loop trip count and body thresholds used to determine where it
+  // is appropriate for complete unrolling. May eventually need to be moved to
+  // the cost model.
+  static constexpr unsigned SmallTripThreshold = 16;
+  static constexpr unsigned SmallLoopBodyThreshold = 10;
 
   class HIRLoopVisitor : public HIRVisitor<HIRLoopVisitor> {
   private:

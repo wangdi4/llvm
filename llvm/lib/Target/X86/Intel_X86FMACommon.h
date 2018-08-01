@@ -1,6 +1,6 @@
 //====-- Intel_X86FMACommon.h - Fused Multiply Add optimization -----------====
 //
-//      Copyright (c) 2016 Intel Corporation.
+//      Copyright (c) 2018 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -13,6 +13,10 @@
 // This file defines the base classes used by two separate components:
 //   1) Table-Gen generating efficient FMA patterns;
 //   2) GlobalFMA optimization.
+//
+// Authors:
+// --------
+// Vyacheslav Klochkov (vyacheslav.n.klochkov@intel.com)
 //
 
 #ifndef LLVM_LIB_TARGET_X86_X86FMACOMMON_H

@@ -437,7 +437,7 @@ Instruction *InstCombiner::visitAllocaInst(AllocaInst &AI) {
 
 // Are we allowed to form a atomic load or store of this type?
 static bool isSupportedAtomicType(Type *Ty) {
-  return Ty->isIntegerTy() || Ty->isPointerTy() || Ty->isFloatingPointTy();
+  return Ty->isIntOrPtrTy() || Ty->isFloatingPointTy();
 }
 
 /// Helper to combine a load to a new type.
@@ -522,7 +522,7 @@ static LoadInst *combineLoadToNewType(InstCombiner &IC, LoadInst &LI, Type *NewT
 static StoreInst *combineStoreToNewValue(InstCombiner &IC, StoreInst &SI, Value *V) {
   assert((!SI.isAtomic() || isSupportedAtomicType(V->getType())) &&
          "can't fold an atomic store of requested type");
-  
+
   Value *Ptr = SI.getPointerOperand();
   unsigned AS = SI.getPointerAddressSpace();
   SmallVector<std::pair<unsigned, MDNode *>, 8> MD;
@@ -972,23 +972,26 @@ static Instruction *replaceGEPIdxWithZero(InstCombiner &IC, Value *Ptr,
 }
 
 static bool canSimplifyNullStoreOrGEP(StoreInst &SI) {
-  if (SI.getPointerAddressSpace() != 0)
+  if (NullPointerIsDefined(SI.getFunction(), SI.getPointerAddressSpace()))
     return false;
 
   auto *Ptr = SI.getPointerOperand();
   if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(Ptr))
     Ptr = GEPI->getOperand(0);
-  return isa<ConstantPointerNull>(Ptr);
+  return (isa<ConstantPointerNull>(Ptr) &&
+          !NullPointerIsDefined(SI.getFunction(), SI.getPointerAddressSpace()));
 }
 
 static bool canSimplifyNullLoadOrGEP(LoadInst &LI, Value *Op) {
   if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(Op)) {
     const Value *GEPI0 = GEPI->getOperand(0);
-    if (isa<ConstantPointerNull>(GEPI0) && GEPI->getPointerAddressSpace() == 0)
+    if (isa<ConstantPointerNull>(GEPI0) &&
+        !NullPointerIsDefined(LI.getFunction(), GEPI->getPointerAddressSpace()))
       return true;
   }
   if (isa<UndefValue>(Op) ||
-      (isa<ConstantPointerNull>(Op) && LI.getPointerAddressSpace() == 0))
+      (isa<ConstantPointerNull>(Op) &&
+       !NullPointerIsDefined(LI.getFunction(), LI.getPointerAddressSpace())))
     return true;
   return false;
 }
@@ -1084,14 +1087,16 @@ Instruction *InstCombiner::visitLoadInst(LoadInst &LI) {
 
       // load (select (cond, null, P)) -> load P
       if (isa<ConstantPointerNull>(SI->getOperand(1)) &&
-          LI.getPointerAddressSpace() == 0) {
+          !NullPointerIsDefined(SI->getFunction(),
+                                LI.getPointerAddressSpace())) {
         LI.setOperand(0, SI->getOperand(2));
         return &LI;
       }
 
       // load (select (cond, P, null)) -> load P
       if (isa<ConstantPointerNull>(SI->getOperand(2)) &&
-          LI.getPointerAddressSpace() == 0) {
+          !NullPointerIsDefined(SI->getFunction(),
+                                LI.getPointerAddressSpace())) {
         LI.setOperand(0, SI->getOperand(1));
         return &LI;
       }
@@ -1180,6 +1185,14 @@ static bool combineStoreToValueType(InstCombiner &IC, StoreInst &SI) {
   // atomic stores here but it isn't clear that this is important.
   if (!SI.isUnordered())
     return false;
+
+#if INTEL_CUSTOMIZATION
+  // For DTRANS and other optimizations that require the type info to be
+  // intact, we should delay this optimization until the type info is no
+  // longer needed.
+  if (!IC.allowTypeLoweringOpts())
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // swifterror values can't be bitcasted.
   if (SI.getPointerOperand()->isSwiftError())

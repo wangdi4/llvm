@@ -82,12 +82,14 @@ public:
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
     return Impl.runImpl(M, DTInfo,
-                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI());
+                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+                        getAnalysis<WholeProgramWrapperPass>().getResult());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -99,6 +101,7 @@ INITIALIZE_PASS_BEGIN(DTransReorderFieldsWrapper, "dtrans-reorderfields",
                       "DTrans reorder fields", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransReorderFieldsWrapper, "dtrans-reorderfields",
                     "DTrans reorder fields", false, false)
 
@@ -255,7 +258,7 @@ void ReorderFieldsImpl::transformMemfunc(CallInst &CI, StructType *Ty) {
   assert(Replaced == true &&
          "Expecting oldSize should be replaced with NewSize");
 
-  (void) Replaced;
+  (void)Replaced;
   LLVM_DEBUG(dbgs() << "Memfunc After:" << CI << "\n");
 }
 
@@ -273,13 +276,13 @@ void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty) {
   uint64_t OldSize = DL.getTypeAllocSize(Ty);
   uint64_t NewSize = RTI.getTransformedTypeNewSize(Ty);
   auto *AllocSizeVal = CI.getArgOperand(SizeArgPos);
-  bool Replaced = replaceOldSizeWithNewSize(AllocSizeVal,
-                                            OldSize, NewSize, &CI, SizeArgPos);
+  bool Replaced = replaceOldSizeWithNewSize(AllocSizeVal, OldSize, NewSize, &CI,
+                                            SizeArgPos);
   // If AllocSizeVal is not multiple of size of struct, try to fix
   // count argument.
   if (CountArgPos != -1U && !Replaced)
-    Replaced = replaceOldSizeWithNewSize(CI.getArgOperand(CountArgPos),
-                                         OldSize, NewSize, &CI, CountArgPos);
+    Replaced = replaceOldSizeWithNewSize(CI.getArgOperand(CountArgPos), OldSize,
+                                         NewSize, &CI, CountArgPos);
 
   assert(Replaced == true &&
          "Expecting oldSize should be replaced with NewSize");
@@ -316,7 +319,7 @@ void ReorderFieldsImpl::processGetElementPtrInst(GetElementPtrInst &GEP) {
 // Fix offset value in ByteFlattened GEP if it is computing address of
 // a field in any reordered struct.
 void ReorderFieldsImpl::processByteFlattenedGetElementPtrInst(
-                     GetElementPtrInst &GEP) {
+    GetElementPtrInst &GEP) {
 
   // Only two operands are expected for ByteFlattened GEPs
   if (GEP.getNumOperands() != 2)
@@ -383,7 +386,8 @@ StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
 //
 void ReorderFieldsImpl::transformDivOp(BinaryOperator &I) {
   assert((I.getOpcode() == Instruction::SDiv ||
-          I.getOpcode() == Instruction::UDiv) && "Unexpected opcode");
+          I.getOpcode() == Instruction::UDiv) &&
+         "Unexpected opcode");
   Value *SubI = I.getOperand(0);
 
   StructType *STy = getAssociatedOrigTypeOfSub(SubI);
@@ -398,7 +402,7 @@ void ReorderFieldsImpl::transformDivOp(BinaryOperator &I) {
   assert(Replaced == true &&
          "Expecting oldSize should be replaced with NewSize");
 
-  (void) Replaced;
+  (void)Replaced;
   LLVM_DEBUG(dbgs() << "SDiv/UDiv  After:" << I << "\n");
 }
 
@@ -654,8 +658,7 @@ void ReorderFieldsPass::collectReorderTransInfoIfProfitable(
                       << " SpaceSaved: " << SpaceSaved << " )\n");
     return;
   }
-  LLVM_DEBUG(dbgs() << "  Field-reorder will be applied: "
-                    << getStName(StructT)
+  LLVM_DEBUG(dbgs() << "  Field-reorder will be applied: " << getStName(StructT)
                     << " ( Size: " << DL.getTypeAllocSize(StructT)
                     << " SpaceSaved: " << SpaceSaved << " )\n");
 
@@ -697,7 +700,15 @@ bool ReorderFieldsPass::gatherCandidateTypes(DTransAnalysisInfo &DTInfo,
 }
 
 bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                const TargetLibraryInfo &TLI) {
+                                const TargetLibraryInfo &TLI,
+                                WholeProgramInfo &WPInfo) {
+
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
+
+  if (!DTInfo.useDTransAnalysis())
+    return false;
+
   auto &DL = M.getDataLayout();
 
   if (!gatherCandidateTypes(DTInfo, DL))
@@ -720,8 +731,9 @@ bool ReorderFieldsPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
 PreservedAnalyses ReorderFieldsPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M)))
+  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.
