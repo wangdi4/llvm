@@ -80,11 +80,6 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   for (auto VT : {MVT::i1, MVT::i8, MVT::i16})
     setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
 
-  setOperationAction(ISD::ADDC, XLenVT, Expand);
-  setOperationAction(ISD::ADDE, XLenVT, Expand);
-  setOperationAction(ISD::SUBC, XLenVT, Expand);
-  setOperationAction(ISD::SUBE, XLenVT, Expand);
-
   if (!Subtarget.hasStdExtM()) {
     setOperationAction(ISD::MUL, XLenVT, Expand);
     setOperationAction(ISD::MULHS, XLenVT, Expand);
@@ -141,6 +136,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
   setOperationAction(ISD::BlockAddress, XLenVT, Custom);
   setOperationAction(ISD::ConstantPool, XLenVT, Custom);
+
+  if (Subtarget.hasStdExtA())
+    setMaxAtomicSizeInBitsSupported(Subtarget.getXLen());
+  else
+    setMaxAtomicSizeInBitsSupported(0);
 
   setBooleanContents(ZeroOrOneBooleanContent);
 
@@ -1554,4 +1554,22 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
   }
 
   return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+}
+
+Instruction *RISCVTargetLowering::emitLeadingFence(IRBuilder<> &Builder,
+                                                   Instruction *Inst,
+                                                   AtomicOrdering Ord) const {
+  if (isa<LoadInst>(Inst) && Ord == AtomicOrdering::SequentiallyConsistent)
+    return Builder.CreateFence(Ord);
+  if (isa<StoreInst>(Inst) && isReleaseOrStronger(Ord))
+    return Builder.CreateFence(AtomicOrdering::Release);
+  return nullptr;
+}
+
+Instruction *RISCVTargetLowering::emitTrailingFence(IRBuilder<> &Builder,
+                                                    Instruction *Inst,
+                                                    AtomicOrdering Ord) const {
+  if (isa<LoadInst>(Inst) && isAcquireOrStronger(Ord))
+    return Builder.CreateFence(AtomicOrdering::Acquire);
+  return nullptr;
 }

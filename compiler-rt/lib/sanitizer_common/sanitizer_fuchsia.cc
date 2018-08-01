@@ -87,6 +87,7 @@ void GetThreadStackTopAndBottom(bool, uptr *stack_top, uptr *stack_bottom) {
 }
 
 void MaybeReexec() {}
+void CheckASLR() {}
 void PlatformPrepareForSandboxing(__sanitizer_sandbox_arguments *args) {}
 void DisableCoreDumperIfNecessary() {}
 void InstallDeadlySignalHandlers(SignalHandlerType handler) {}
@@ -471,9 +472,7 @@ uptr MainThreadStackBase, MainThreadStackSize;
 
 bool GetRandom(void *buffer, uptr length, bool blocking) {
   CHECK_LE(length, ZX_CPRNG_DRAW_MAX_LEN);
-  size_t size;
-  CHECK_EQ(_zx_cprng_draw(buffer, length, &size), ZX_OK);
-  CHECK_EQ(size, length);
+  _zx_cprng_draw(buffer, length);
   return true;
 }
 

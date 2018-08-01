@@ -941,8 +941,7 @@ Record *SubtargetEmitter::FindReadAdvance(const CodeGenSchedRW &SchedRead,
 void SubtargetEmitter::ExpandProcResources(RecVec &PRVec,
                                            std::vector<int64_t> &Cycles,
                                            const CodeGenProcModel &PM) {
-  // Default to 1 resource cycle.
-  Cycles.resize(PRVec.size(), 1);
+  assert(PRVec.size() == Cycles.size() && "failed precondition");
   for (unsigned i = 0, e = PRVec.size(); i != e; ++i) {
     Record *PRDef = PRVec[i];
     RecVec SubResources;
@@ -1110,6 +1109,21 @@ void SubtargetEmitter::GenSchedClassTables(const CodeGenProcModel &ProcModel,
         RecVec PRVec = WriteRes->getValueAsListOfDefs("ProcResources");
         std::vector<int64_t> Cycles =
           WriteRes->getValueAsListOfInts("ResourceCycles");
+
+        if (Cycles.empty()) {
+          // If ResourceCycles is not provided, default to one cycle per
+          // resource.
+          Cycles.resize(PRVec.size(), 1);
+        } else if (Cycles.size() != PRVec.size()) {
+          // If ResourceCycles is provided, check consistency.
+          PrintFatalError(
+              WriteRes->getLoc(),
+              Twine("Inconsistent resource cycles: !size(ResourceCycles) != "
+                    "!size(ProcResources): ")
+                  .concat(Twine(PRVec.size()))
+                  .concat(" vs ")
+                  .concat(Twine(Cycles.size())));
+        }
 
         ExpandProcResources(PRVec, Cycles, ProcModel);
 
@@ -1587,8 +1601,15 @@ void SubtargetEmitter::EmitSchedModelHelpers(const std::string &ClassName,
 
   // Emit target predicates.
   emitSchedModelHelpersImpl(OS);
+  
+  OS << "} // " << ClassName << "::resolveSchedClass\n\n";
 
-  OS << "} // " << ClassName << "::resolveSchedClass\n";
+  OS << "unsigned " << ClassName
+     << "\n::resolveVariantSchedClass(unsigned SchedClass, const MCInst *MI,"
+     << " unsigned CPUID) const {\n"
+     << "  return " << Target << "_MC"
+     << "::resolveVariantSchedClassImpl(SchedClass, MI, CPUID);\n"
+     << "} // " << ClassName << "::resolveVariantSchedClass\n";
 }
 
 void SubtargetEmitter::EmitHwModeCheck(const std::string &ClassName,
@@ -1655,6 +1676,13 @@ void SubtargetEmitter::ParseFeaturesFunction(raw_ostream &OS,
 }
 
 void SubtargetEmitter::emitGenMCSubtargetInfo(raw_ostream &OS) {
+  OS << "namespace " << Target << "_MC {\n"
+     << "unsigned resolveVariantSchedClassImpl(unsigned SchedClass,\n"
+     << "    const MCInst *MI, unsigned CPUID) {\n";
+  emitSchedModelHelpersImpl(OS, /* OnlyExpandMCPredicates */ true);
+  OS << "}\n";
+  OS << "} // end of namespace " << Target << "_MC\n\n";
+
   OS << "struct " << Target
      << "GenMCSubtargetInfo : public MCSubtargetInfo {\n";
   OS << "  " << Target << "GenMCSubtargetInfo(const Triple &TT, \n"
@@ -1668,8 +1696,9 @@ void SubtargetEmitter::emitGenMCSubtargetInfo(raw_ostream &OS) {
      << "      MCSubtargetInfo(TT, CPU, FS, PF, PD, ProcSched,\n"
      << "                      WPR, WL, RA, IS, OC, FP) { }\n\n"
      << "  unsigned resolveVariantSchedClass(unsigned SchedClass,\n"
-     << "      const MCInst *MI, unsigned CPUID) const override {\n";
-  emitSchedModelHelpersImpl(OS, /* OnlyExpandMCPredicates */ true);
+     << "      const MCInst *MI, unsigned CPUID) const override {\n"
+     << "    return " << Target << "_MC"
+     << "::resolveVariantSchedClassImpl(SchedClass, MI, CPUID); \n";
   OS << "  }\n";
   OS << "};\n";
 }
@@ -1754,6 +1783,10 @@ void SubtargetEmitter::run(raw_ostream &OS) {
   std::string ClassName = Target + "GenSubtargetInfo";
   OS << "namespace llvm {\n";
   OS << "class DFAPacketizer;\n";
+  OS << "namespace " << Target << "_MC {\n"
+     << "unsigned resolveVariantSchedClassImpl(unsigned SchedClass,"
+     << " const MCInst *MI, unsigned CPUID);\n"
+     << "}\n\n";
   OS << "struct " << ClassName << " : public TargetSubtargetInfo {\n"
      << "  explicit " << ClassName << "(const Triple &TT, StringRef CPU, "
      << "StringRef FS);\n"
@@ -1761,6 +1794,8 @@ void SubtargetEmitter::run(raw_ostream &OS) {
      << "  unsigned resolveSchedClass(unsigned SchedClass, "
      << " const MachineInstr *DefMI,"
      << " const TargetSchedModel *SchedModel) const override;\n"
+     << "  unsigned resolveVariantSchedClass(unsigned SchedClass,"
+     << " const MCInst *MI, unsigned CPUID) const override;\n"
      << "  DFAPacketizer *createDFAPacketizer(const InstrItineraryData *IID)"
      << " const;\n";
   if (TGT.getHwModes().getNumModeIds() > 1)

@@ -98,6 +98,7 @@ struct Configuration {
   bool Debug = false;
   bool DebugDwarf = false;
   bool DebugGHashes = false;
+  bool DebugSymtab = false;
   bool ShowTiming = false;
   unsigned DebugTypes = static_cast<unsigned>(DebugType::None);
   std::vector<std::string> NatvisFiles;
@@ -194,6 +195,7 @@ struct Configuration {
   bool WarnMissingOrderSymbol = true;
   bool WarnLocallyDefinedImported = true;
   bool Incremental = true;
+  bool IntegrityCheck = false;
   bool KillAt = false;
   bool Repro = false;
 };

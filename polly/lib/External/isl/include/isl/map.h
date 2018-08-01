@@ -24,6 +24,7 @@
 #include <isl/val_type.h>
 #include <isl/stdint.h>
 #include <isl/stride_info.h>
+#include <isl/fixed_box.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -607,6 +608,8 @@ __isl_give isl_map *isl_map_gist_basic_map(__isl_take isl_map *map,
 
 __isl_give isl_stride_info *isl_map_get_range_stride_info(
 	__isl_keep isl_map *map, int pos);
+__isl_give isl_fixed_box *isl_map_get_range_simple_fixed_box_hull(
+	__isl_keep isl_map *map);
 
 __isl_export
 __isl_give isl_map *isl_map_coalesce(__isl_take isl_map *map);
@@ -620,6 +623,8 @@ int isl_map_n_basic_map(__isl_keep isl_map *map);
 __isl_export
 isl_stat isl_map_foreach_basic_map(__isl_keep isl_map *map,
 	isl_stat (*fn)(__isl_take isl_basic_map *bmap, void *user), void *user);
+__isl_give isl_basic_map_list *isl_map_get_basic_map_list(
+	__isl_keep isl_map *map);
 
 __isl_give isl_map *isl_map_fixed_power_val(__isl_take isl_map *map,
 	__isl_take isl_val *exp);
@@ -664,7 +669,7 @@ __isl_give isl_basic_map *isl_basic_map_from_aff(__isl_take isl_aff *aff);
 __isl_give isl_basic_map *isl_basic_map_from_multi_aff(
 	__isl_take isl_multi_aff *maff);
 __isl_give isl_basic_map *isl_basic_map_from_aff_list(
-	__isl_take isl_space *domain_dim, __isl_take isl_aff_list *list);
+	__isl_take isl_space *domain_space, __isl_take isl_aff_list *list);
 
 __isl_give isl_map *isl_map_from_aff(__isl_take isl_aff *aff);
 __isl_give isl_map *isl_map_from_multi_aff(__isl_take isl_multi_aff *maff);

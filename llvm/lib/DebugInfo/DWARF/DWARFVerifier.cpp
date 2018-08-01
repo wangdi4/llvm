@@ -171,7 +171,7 @@ bool DWARFVerifier::verifyUnitHeader(const DWARFDataExtractor DebugInfoData,
   return Success;
 }
 
-bool DWARFVerifier::verifyUnitContents(DWARFUnit Unit, uint8_t UnitType) {
+bool DWARFVerifier::verifyUnitContents(DWARFUnit &Unit, uint8_t UnitType) {
   uint32_t NumUnitErrors = 0;
   unsigned NumDies = Unit.getNumDIEs();
   for (unsigned I = 0; I < NumDies; ++I) {
@@ -324,8 +324,15 @@ unsigned DWARFVerifier::verifyDieRanges(const DWARFDie &Die,
   if (!Die.isValid())
     return NumErrors;
 
-  DWARFAddressRangesVector Ranges = Die.getAddressRanges();
+  auto RangesOrError = Die.getAddressRanges();
+  if (!RangesOrError) {
+    // FIXME: Report the error.
+    ++NumErrors;
+    llvm::consumeError(RangesOrError.takeError());
+    return NumErrors;
+  }
 
+  DWARFAddressRangesVector Ranges = RangesOrError.get();
   // Build RI for this DIE and check that ranges within this DIE do not
   // overlap.
   DieRangeInfo RI(Die);
@@ -920,8 +927,7 @@ DWARFVerifier::verifyNameIndexBuckets(const DWARFDebugNames::NameIndex &NI,
       if (Hash % NI.getBucketCount() != B.Bucket)
         break;
 
-      auto NTE = NI.getNameTableEntry(Idx);
-      const char *Str = StrData.getCStr(&NTE.StringOffset);
+      const char *Str = NI.getNameTableEntry(Idx).getString();
       if (caseFoldingDjbHash(Str) != Hash) {
         error() << formatv("Name Index @ {0:x}: String ({1}) at index {2} "
                            "hashes to {3:x}, but "
@@ -1057,30 +1063,29 @@ static SmallVector<StringRef, 2> getNames(const DWARFDie &DIE) {
   return Result;
 }
 
-unsigned
-DWARFVerifier::verifyNameIndexEntries(const DWARFDebugNames::NameIndex &NI,
-                                      uint32_t Name,
-                                      const DataExtractor &StrData) {
+unsigned DWARFVerifier::verifyNameIndexEntries(
+    const DWARFDebugNames::NameIndex &NI,
+    const DWARFDebugNames::NameTableEntry &NTE) {
   // Verifying type unit indexes not supported.
   if (NI.getLocalTUCount() + NI.getForeignTUCount() > 0)
     return 0;
 
-  DWARFDebugNames::NameTableEntry NTE = NI.getNameTableEntry(Name);
-  const char *CStr = StrData.getCStr(&NTE.StringOffset);
+  const char *CStr = NTE.getString();
   if (!CStr) {
     error() << formatv(
         "Name Index @ {0:x}: Unable to get string associated with name {1}.\n",
-        NI.getUnitOffset(), Name);
+        NI.getUnitOffset(), NTE.getIndex());
     return 1;
   }
   StringRef Str(CStr);
 
   unsigned NumErrors = 0;
   unsigned NumEntries = 0;
-  uint32_t EntryID = NTE.EntryOffset;
-  Expected<DWARFDebugNames::Entry> EntryOr = NI.getEntry(&NTE.EntryOffset);
-  for (; EntryOr; ++NumEntries, EntryID = NTE.EntryOffset,
-                                EntryOr = NI.getEntry(&NTE.EntryOffset)) {
+  uint32_t EntryID = NTE.getEntryOffset();
+  uint32_t NextEntryID = EntryID;
+  Expected<DWARFDebugNames::Entry> EntryOr = NI.getEntry(&NextEntryID);
+  for (; EntryOr; ++NumEntries, EntryID = NextEntryID,
+                                EntryOr = NI.getEntry(&NextEntryID)) {
     uint32_t CUIndex = *EntryOr->getCUIndex();
     if (CUIndex > NI.getCUCount()) {
       error() << formatv("Name Index @ {0:x}: Entry @ {1:x} contains an "
@@ -1090,7 +1095,7 @@ DWARFVerifier::verifyNameIndexEntries(const DWARFDebugNames::NameIndex &NI,
       continue;
     }
     uint32_t CUOffset = NI.getCUOffset(CUIndex);
-    uint64_t DIEOffset = *EntryOr->getDIESectionOffset();
+    uint64_t DIEOffset = CUOffset + *EntryOr->getDIEUnitOffset();
     DWARFDie DIE = DCtx.getDIEForOffset(DIEOffset);
     if (!DIE) {
       error() << formatv("Name Index @ {0:x}: Entry @ {1:x} references a "
@@ -1129,13 +1134,14 @@ DWARFVerifier::verifyNameIndexEntries(const DWARFDebugNames::NameIndex &NI,
                       return;
                     error() << formatv("Name Index @ {0:x}: Name {1} ({2}) is "
                                        "not associated with any entries.\n",
-                                       NI.getUnitOffset(), Name, Str);
+                                       NI.getUnitOffset(), NTE.getIndex(), Str);
                     ++NumErrors;
                   },
                   [&](const ErrorInfoBase &Info) {
-                    error() << formatv(
-                        "Name Index @ {0:x}: Name {1} ({2}): {3}\n",
-                        NI.getUnitOffset(), Name, Str, Info.message());
+                    error()
+                        << formatv("Name Index @ {0:x}: Name {1} ({2}): {3}\n",
+                                   NI.getUnitOffset(), NTE.getIndex(), Str,
+                                   Info.message());
                     ++NumErrors;
                   });
   return NumErrors;
@@ -1262,9 +1268,10 @@ unsigned DWARFVerifier::verifyNameIndexCompleteness(
   // Now we know that our Die should be present in the Index. Let's check if
   // that's the case.
   unsigned NumErrors = 0;
+  uint64_t DieUnitOffset = Die.getOffset() - Die.getDwarfUnit()->getOffset();
   for (StringRef Name : EntryNames) {
-    if (none_of(NI.equal_range(Name), [&Die](const DWARFDebugNames::Entry &E) {
-          return E.getDIESectionOffset() == uint64_t(Die.getOffset());
+    if (none_of(NI.equal_range(Name), [&](const DWARFDebugNames::Entry &E) {
+          return E.getDIEUnitOffset() == DieUnitOffset;
         })) {
       error() << formatv("Name Index @ {0:x}: Entry for DIE @ {1:x} ({2}) with "
                          "name {3} missing.\n",
@@ -1302,8 +1309,8 @@ unsigned DWARFVerifier::verifyDebugNames(const DWARFSection &AccelSection,
   if (NumErrors > 0)
     return NumErrors;
   for (const auto &NI : AccelTable)
-    for (uint64_t Name = 1; Name <= NI.getNameCount(); ++Name)
-      NumErrors += verifyNameIndexEntries(NI, Name, StrData);
+    for (DWARFDebugNames::NameTableEntry NTE : NI)
+      NumErrors += verifyNameIndexEntries(NI, NTE);
 
   if (NumErrors > 0)
     return NumErrors;

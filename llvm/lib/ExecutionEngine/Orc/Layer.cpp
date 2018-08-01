@@ -8,24 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ExecutionEngine/Orc/Layer.h"
-#include "llvm/IR/Mangler.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 namespace llvm {
 namespace orc {
-
-MangleAndInterner::MangleAndInterner(ExecutionSession &ES, const DataLayout &DL)
-    : ES(ES), DL(DL) {}
-
-SymbolStringPtr MangleAndInterner::operator()(StringRef Name) {
-  std::string MangledName;
-  {
-    raw_string_ostream MangledNameStream(MangledName);
-    Mangler::getNameWithPrefix(MangledNameStream, Name, DL);
-  }
-  return ES.getSymbolStringPool().intern(MangledName);
-}
 
 IRLayer::IRLayer(ExecutionSession &ES) : ES(ES) {}
 IRLayer::~IRLayer() {}
@@ -41,22 +28,29 @@ IRMaterializationUnit::IRMaterializationUnit(ExecutionSession &ES,
 
   MangleAndInterner Mangle(ES, this->M->getDataLayout());
   for (auto &G : this->M->global_values()) {
-    if (G.hasName() && !G.isDeclaration() &&
-        !G.hasLocalLinkage() &&
-        !G.hasAvailableExternallyLinkage()) {
+    if (G.hasName() && !G.isDeclaration() && !G.hasLocalLinkage() &&
+        !G.hasAvailableExternallyLinkage() && !G.hasAppendingLinkage()) {
       auto MangledName = Mangle(G.getName());
       SymbolFlags[MangledName] = JITSymbolFlags::fromGlobalValue(G);
-      Discardable[MangledName] = &G;
+      SymbolToDefinition[MangledName] = &G;
     }
   }
 }
 
+IRMaterializationUnit::IRMaterializationUnit(
+    std::unique_ptr<Module> M, SymbolFlagsMap SymbolFlags,
+    SymbolNameToDefinitionMap SymbolToDefinition)
+    : MaterializationUnit(std::move(SymbolFlags)), M(std::move(M)),
+      SymbolToDefinition(std::move(SymbolToDefinition)) {}
+
 void IRMaterializationUnit::discard(const VSO &V, SymbolStringPtr Name) {
-  auto I = Discardable.find(Name);
-  assert(I != Discardable.end() &&
+  auto I = SymbolToDefinition.find(Name);
+  assert(I != SymbolToDefinition.end() &&
          "Symbol not provided by this MU, or previously discarded");
+  assert(!I->second->isDeclaration() &&
+         "Discard should only apply to definitions");
   I->second->setLinkage(GlobalValue::AvailableExternallyLinkage);
-  Discardable.erase(I);
+  SymbolToDefinition.erase(I);
 }
 
 BasicIRLayerMaterializationUnit::BasicIRLayerMaterializationUnit(

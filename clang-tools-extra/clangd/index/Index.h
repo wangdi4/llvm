@@ -34,12 +34,6 @@ struct SymbolLocation {
 
   // The URI of the source file where a symbol occurs.
   llvm::StringRef FileURI;
-  // The 0-based offsets of the symbol from the beginning of the source file,
-  // using half-open range, [StartOffset, EndOffset).
-  // DO NOT use these fields, as they will be removed immediately.
-  // FIXME(hokein): remove these fields in favor of Position.
-  unsigned StartOffset = 0;
-  unsigned EndOffset = 0;
 
   /// The symbol range, using half-open range [Start, End).
   Position Start;
@@ -123,6 +117,30 @@ template <> struct DenseMapInfo<clang::clangd::SymbolID> {
 namespace clang {
 namespace clangd {
 
+// Describes the source of information about a symbol.
+// Mainly useful for debugging, e.g. understanding code completion reuslts.
+// This is a bitfield as information can be combined from several sources.
+enum class SymbolOrigin : uint8_t {
+  Unknown = 0,
+  AST = 1 << 0,     // Directly from the AST (indexes should not set this).
+  Dynamic = 1 << 1, // From the dynamic index of opened files.
+  Static = 1 << 2,  // From the static, externally-built index.
+  Merge = 1 << 3,   // A non-trivial index merge was performed.
+  // Remaining bits reserved for index implementations.
+};
+inline SymbolOrigin operator|(SymbolOrigin A, SymbolOrigin B) {
+  return static_cast<SymbolOrigin>(static_cast<uint8_t>(A) |
+                                   static_cast<uint8_t>(B));
+}
+inline SymbolOrigin &operator|=(SymbolOrigin &A, SymbolOrigin B) {
+  return A = A | B;
+}
+inline SymbolOrigin operator&(SymbolOrigin A, SymbolOrigin B) {
+  return static_cast<SymbolOrigin>(static_cast<uint8_t>(A) &
+                                   static_cast<uint8_t>(B));
+}
+raw_ostream &operator<<(raw_ostream &, SymbolOrigin);
+
 // The class presents a C++ symbol, e.g. class, function.
 //
 // WARNING: Symbols do not own much of their underlying data - typically strings
@@ -131,6 +149,11 @@ namespace clangd {
 // When adding new unowned data fields to Symbol, remember to update:
 //   - SymbolSlab::Builder in Index.cpp, to copy them to the slab's storage.
 //   - mergeSymbol in Merge.cpp, to properly combine two Symbols.
+//
+// A fully documented symbol can be split as:
+// size_type std::map<k, t>::count(const K& key) const
+// | Return  |     Scope     |Name|    Signature     |
+// We split up these components to allow display flexibility later.
 struct Symbol {
   // The ID of the symbol.
   SymbolID ID;
@@ -155,20 +178,18 @@ struct Symbol {
   // The number of translation units that reference this symbol from their main
   // file. This number is only meaningful if aggregated in an index.
   unsigned References = 0;
-
-  /// A brief description of the symbol that can be displayed in the completion
-  /// candidate list. For example, "Foo(X x, Y y) const" is a labal for a
-  /// function.
-  llvm::StringRef CompletionLabel;
-  /// The piece of text that the user is expected to type to match the
-  /// code-completion string, typically a keyword or the name of a declarator or
-  /// macro.
-  llvm::StringRef CompletionFilterText;
-  /// What to insert when completing this symbol (plain text version).
-  llvm::StringRef CompletionPlainInsertText;
-  /// What to insert when completing this symbol (snippet version). This is
-  /// empty if it is the same as the plain insert text above.
-  llvm::StringRef CompletionSnippetInsertText;
+  /// Whether or not this symbol is meant to be used for the code completion.
+  /// See also isIndexedForCodeCompletion().
+  bool IsIndexedForCodeCompletion = false;
+  /// Where this symbol came from. Usually an index provides a constant value.
+  SymbolOrigin Origin = SymbolOrigin::Unknown;
+  /// A brief description of the symbol that can be appended in the completion
+  /// candidate list. For example, "(X x, Y y) const" is a function signature.
+  llvm::StringRef Signature;
+  /// What to insert when completing this symbol, after the symbol name.
+  /// This is in LSP snippet syntax (e.g. "({$0})" for a no-args function).
+  /// (When snippets are disabled, the symbol name alone is used).
+  llvm::StringRef CompletionSnippetSuffix;
 
   /// Optional symbol details that are not required to be set. For example, an
   /// index fuzzy match can return a large number of symbol candidates, and it
@@ -178,9 +199,9 @@ struct Symbol {
   struct Details {
     /// Documentation including comment for the symbol declaration.
     llvm::StringRef Documentation;
-    /// This is what goes into the LSP detail field in a completion item. For
-    /// example, the result type of a function.
-    llvm::StringRef CompletionDetail;
+    /// Type when this symbol is used in an expression. (Short display form).
+    /// e.g. return type of a function, or type of a variable.
+    llvm::StringRef ReturnType;
     /// This can be either a URI of the header to be #include'd for this symbol,
     /// or a literal header quoted with <> or "" that is suitable to be included
     /// directly. When this is a URI, the exact #include path needs to be
@@ -228,27 +249,27 @@ public:
   // SymbolSlab::Builder is a mutable container that can 'freeze' to SymbolSlab.
   // The frozen SymbolSlab will use less memory.
   class Builder {
-   public:
-     // Adds a symbol, overwriting any existing one with the same ID.
-     // This is a deep copy: underlying strings will be owned by the slab.
-     void insert(const Symbol& S);
+  public:
+    // Adds a symbol, overwriting any existing one with the same ID.
+    // This is a deep copy: underlying strings will be owned by the slab.
+    void insert(const Symbol &S);
 
-     // Returns the symbol with an ID, if it exists. Valid until next insert().
-     const Symbol* find(const SymbolID &ID) {
-       auto I = SymbolIndex.find(ID);
-       return I == SymbolIndex.end() ? nullptr : &Symbols[I->second];
-     }
+    // Returns the symbol with an ID, if it exists. Valid until next insert().
+    const Symbol *find(const SymbolID &ID) {
+      auto I = SymbolIndex.find(ID);
+      return I == SymbolIndex.end() ? nullptr : &Symbols[I->second];
+    }
 
-     // Consumes the builder to finalize the slab.
-     SymbolSlab build() &&;
+    // Consumes the builder to finalize the slab.
+    SymbolSlab build() &&;
 
-   private:
-     llvm::BumpPtrAllocator Arena;
-     // Intern table for strings. Contents are on the arena.
-     llvm::DenseSet<llvm::StringRef> Strings;
-     std::vector<Symbol> Symbols;
-     // Values are indices into Symbols vector.
-     llvm::DenseMap<SymbolID, size_t> SymbolIndex;
+  private:
+    llvm::BumpPtrAllocator Arena;
+    // Intern table for strings. Contents are on the arena.
+    llvm::DenseSet<llvm::StringRef> Strings;
+    std::vector<Symbol> Symbols;
+    // Values are indices into Symbols vector.
+    llvm::DenseMap<SymbolID, size_t> SymbolIndex;
   };
 
 private:
@@ -273,6 +294,11 @@ struct FuzzyFindRequest {
   /// \brief The number of top candidates to return. The index may choose to
   /// return more than this, e.g. if it doesn't know which candidates are best.
   size_t MaxCandidateCount = UINT_MAX;
+  /// If set to true, only symbols for completion support will be considered.
+  bool RestrictForCodeCompletion = false;
+  /// Contextually relevant files (e.g. the file we're code-completing in).
+  /// Paths should be absolute.
+  std::vector<std::string> ProximityPaths;
 };
 
 struct LookupRequest {

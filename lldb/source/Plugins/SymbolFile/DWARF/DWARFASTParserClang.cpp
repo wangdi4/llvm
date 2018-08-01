@@ -474,7 +474,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
                 if (log)
                   dwarf->GetObjectFile()->GetModule()->LogMessage(
                       log, "SymbolFileDWARF::ParseType (die = 0x%8.8x) %s '%s' "
-                           "is Objective C 'id' built-in type.",
+                           "is Objective-C 'id' built-in type.",
                       die.GetOffset(), die.GetTagAsCString(), die.GetName());
                 clang_type = m_ast.GetBasicType(eBasicTypeObjCID);
                 encoding_data_type = Type::eEncodingIsUID;
@@ -485,7 +485,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
                 if (log)
                   dwarf->GetObjectFile()->GetModule()->LogMessage(
                       log, "SymbolFileDWARF::ParseType (die = 0x%8.8x) %s '%s' "
-                           "is Objective C 'Class' built-in type.",
+                           "is Objective-C 'Class' built-in type.",
                       die.GetOffset(), die.GetTagAsCString(), die.GetName());
                 clang_type = m_ast.GetBasicType(eBasicTypeObjCClass);
                 encoding_data_type = Type::eEncodingIsUID;
@@ -495,7 +495,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
                 if (log)
                   dwarf->GetObjectFile()->GetModule()->LogMessage(
                       log, "SymbolFileDWARF::ParseType (die = 0x%8.8x) %s '%s' "
-                           "is Objective C 'selector' built-in type.",
+                           "is Objective-C 'selector' built-in type.",
                       die.GetOffset(), die.GetTagAsCString(), die.GetName());
                 clang_type = m_ast.GetBasicType(eBasicTypeObjCSel);
                 encoding_data_type = Type::eEncodingIsUID;
@@ -3486,51 +3486,29 @@ size_t DWARFASTParserClang::ParseChildParameters(
         }
 
         bool skip = false;
-        if (skip_artificial) {
-          if (is_artificial) {
-            // In order to determine if a C++ member function is "const" we
-            // have to look at the const-ness of "this"... Ugly, but that
-            if (arg_idx == 0) {
-              if (DeclKindIsCXXClass(containing_decl_ctx->getDeclKind())) {
-                // Often times compilers omit the "this" name for the
-                // specification DIEs, so we can't rely upon the name being in
-                // the formal parameter DIE...
-                if (name == NULL || ::strcmp(name, "this") == 0) {
-                  Type *this_type =
-                      die.ResolveTypeUID(DIERef(param_type_die_form));
-                  if (this_type) {
-                    uint32_t encoding_mask = this_type->GetEncodingMask();
-                    if (encoding_mask & Type::eEncodingIsPointerUID) {
-                      is_static = false;
+        if (skip_artificial && is_artificial) {
+          // In order to determine if a C++ member function is "const" we
+          // have to look at the const-ness of "this"...
+          if (arg_idx == 0 &&
+              DeclKindIsCXXClass(containing_decl_ctx->getDeclKind()) &&
+              // Often times compilers omit the "this" name for the
+              // specification DIEs, so we can't rely upon the name being in
+              // the formal parameter DIE...
+              (name == NULL || ::strcmp(name, "this") == 0)) {
+            Type *this_type = die.ResolveTypeUID(DIERef(param_type_die_form));
+            if (this_type) {
+              uint32_t encoding_mask = this_type->GetEncodingMask();
+              if (encoding_mask & Type::eEncodingIsPointerUID) {
+                is_static = false;
 
-                      if (encoding_mask & (1u << Type::eEncodingIsConstUID))
-                        type_quals |= clang::Qualifiers::Const;
-                      if (encoding_mask & (1u << Type::eEncodingIsVolatileUID))
-                        type_quals |= clang::Qualifiers::Volatile;
-                    }
-                  }
-                }
-              }
-            }
-            skip = true;
-          } else {
-
-            // HACK: Objective C formal parameters "self" and "_cmd"
-            // are not marked as artificial in the DWARF...
-            CompileUnit *comp_unit = die.GetLLDBCompileUnit();
-            if (comp_unit) {
-              switch (comp_unit->GetLanguage()) {
-              case eLanguageTypeObjC:
-              case eLanguageTypeObjC_plus_plus:
-                if (name && name[0] &&
-                    (strcmp(name, "self") == 0 || strcmp(name, "_cmd") == 0))
-                  skip = true;
-                break;
-              default:
-                break;
+                if (encoding_mask & (1u << Type::eEncodingIsConstUID))
+                  type_quals |= clang::Qualifiers::Const;
+                if (encoding_mask & (1u << Type::eEncodingIsVolatileUID))
+                  type_quals |= clang::Qualifiers::Volatile;
               }
             }
           }
+          skip = true;
         }
 
         if (!skip) {

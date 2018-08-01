@@ -20,19 +20,6 @@
 namespace llvm {
 namespace orc {
 
-/// Mangles symbol names then uniques them in the context of an
-/// ExecutionSession.
-//
-// FIXME: This may be more at home in Core.h.
-class MangleAndInterner {
-public:
-  MangleAndInterner(ExecutionSession &ES, const DataLayout &DL);
-  SymbolStringPtr operator()(StringRef Name);
-private:
-  ExecutionSession &ES;
-  const DataLayout &DL;
-};
-
 /// Interface for layers that accept LLVM IR.
 class IRLayer {
 public:
@@ -59,15 +46,26 @@ private:
 /// their linkage is changed to available-externally.
 class IRMaterializationUnit : public MaterializationUnit {
 public:
+  using SymbolNameToDefinitionMap = std::map<SymbolStringPtr, GlobalValue *>;
+
+  /// Create an IRMaterializationLayer. Scans the module to build the
+  /// SymbolFlags and SymbolToDefinition maps.
   IRMaterializationUnit(ExecutionSession &ES, std::unique_ptr<Module> M);
+
+  /// Create an IRMaterializationLayer from a module, and pre-existing
+  /// SymbolFlags and SymbolToDefinition maps. The maps must provide
+  /// entries for each definition in M.
+  /// This constructor is useful for delegating work from one
+  /// IRMaterializationUnit to another.
+  IRMaterializationUnit(std::unique_ptr<Module> M, SymbolFlagsMap SymbolFlags,
+                        SymbolNameToDefinitionMap SymbolToDefinition);
 
 protected:
   std::unique_ptr<Module> M;
+  SymbolNameToDefinitionMap SymbolToDefinition;
 
 private:
   void discard(const VSO &V, SymbolStringPtr Name) override;
-
-  std::map<SymbolStringPtr, GlobalValue *> Discardable;
 };
 
 /// MaterializationUnit that materializes modules by calling the 'emit' method
