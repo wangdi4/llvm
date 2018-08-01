@@ -439,6 +439,7 @@ public:
 
     for (auto *LI : LoadsToConvert)
       processLoad(LI);
+
     // The bitcasts should be processed after the 'free' calls and
     // byte-flattened GEPs, because those conversions are expecting
     // instructions with the bitcasts as an input.
@@ -540,47 +541,52 @@ public:
 
   // Check whether a load instruction needs to be modified directly by the
   // transformation rather than via the type remapper. If the load was converted
-  // to use a pointer sized int, rather than the pointer type itself, it will
-  // need to be transformed when pointer shrinking is taking place, otherwise
-  // the load would be the size of a pointer rather than the peeling index type.
+  // to use a pointer sized int or other generic equivalent, rather than the
+  // pointer type itself, it will need to be transformed when pointer shrinking
+  // is taking place, otherwise the load would be the size of a pointer rather
+  // than the peeling index type. Also, return 'true' for the cases where the
+  // level of indirection of the pointer should be updated. For instance,
+  // %struct.test** will be i32* after the transformation takes place.
   bool checkConversionNeeded(LoadInst *LI) {
     if (!isPointerShrinkingEnabled())
       return false;
 
-    if (!LI->getType()->isIntegerTy())
+    auto *ActualTy = DTInfo.getGenericLoadType(LI);
+    if (!ActualTy)
       return false;
 
-    auto *Ty = DTInfo.getPtrSizeIntLoadType(LI);
-    if (!Ty)
+    if (!ActualTy->isPointerTy())
       return false;
 
-    if (!Ty->isPointerTy())
-      return false;
+    while (ActualTy->isPointerTy())
+      ActualTy = ActualTy->getPointerElementType();
 
-    return isTypeToTransform(Ty->getPointerElementType());
+    return isTypeToTransform(ActualTy);
   }
 
   // Check whether a store instruction needs to be modified directly by the
   // transformation rather than via the type remapper. If the stored value was
-  // converted to use a pointer sized int, rather than the pointer type itself,
-  // it will need to be transformed when pointer shrinking is taking place,
-  // otherwise the store would be the size of a pointer rather than the peeling
-  // index type.
+  // converted to use a pointer sized int or other generic equivalent, rather
+  // than the pointer type itself, it will need to be transformed when pointer
+  // shrinking is taking place, otherwise the store would be the size of a
+  // pointer rather than the peeling index type. Also, return 'true' for the
+  // cases where the level of indirection of the pointer should be updated. For
+  // instance, %struct.test** will be i32* after the transformation takes place.
   bool checkConversionNeeded(StoreInst *SI) {
     if (!isPointerShrinkingEnabled())
       return false;
 
-    if (!SI->getValueOperand()->getType()->isIntegerTy())
+    auto *ActualTy = DTInfo.getGenericStoreType(SI);
+    if (!ActualTy)
       return false;
 
-    auto *Ty = DTInfo.getPtrSizeIntStoreType(SI);
-    if (!Ty)
+    if (!ActualTy->isPointerTy())
       return false;
 
-    if (!Ty->isPointerTy())
-      return false;
+    while (ActualTy->isPointerTy())
+      ActualTy = ActualTy->getPointerElementType();
 
-    return isTypeToTransform(Ty->getPointerElementType());
+    return isTypeToTransform(ActualTy);
   }
 
   void processGEP(GetElementPtrInst *GEP) {
@@ -912,14 +918,14 @@ public:
     return;
   }
 
-  // Replace a load instruction that loaded a pointer sized integer to
-  // instead load a peeling index type.
+  // Replace a load instruction that loads a pointer sized integer or generic
+  // pointer type for the type being transformed to instead load a peeling index
+  // type (or pointer to peeling index type).
   void processLoad(LoadInst *LI) {
 
     assert(isPointerShrinkingEnabled() &&
            "LoadInst transformation is only needed when shrinking the peeling "
            "index");
-    assert(LI->getType()->isIntegerTy() && "LoadInst must be integer type");
 
     LLVM_DEBUG(dbgs() << "Load to convert: " << *LI << "\n");
 
@@ -928,32 +934,88 @@ public:
     //
     // To be:
     //    %1 = bitcast i64* %p_i64 to i32*
-    //    %2 = load i32, i32* %3
+    //    %2 = load i32, i32* %1
     //    %val_i64 = zext i32 %2 to i64
     //
     // The loaded value is extended to the original size so that it can
     // be used as a replacement in the existing instructions.
-    Instruction *PtrCast = CastInst::CreateBitOrPointerCast(
-        LI->getPointerOperand(), getPeeledIndexType()->getPointerTo(), "", LI);
-    Instruction *NewLoad = new LoadInst(PtrCast, "", LI);
+    //
+    //
+    // Similarly, a load using an i8* for the type will be handled as:
+    //    %val = load i8*, i8** %ptr
+    //
+    // To be:
+    //    %1 = bitcast i8** %ptr to i32*
+    //    %2 = load i32, i32* %1
+    //    %val = inttoptr i32 %2 to i8*
+    //
+    //
+    // For higher levels of indirection of the underlying element type being
+    // accessed:
+    //    %val = load i8**, i8*** %ptr
+    // where %ptr represents a struct.test**
+    //
+    // The load should be changed as a pointer to the peeling type, as in:
+    //    %1 = bitcast i8*** %ptr to i32**
+    //    %2 = load i32*, i32** %1
+    //    %val = bitcast i32* %2 to i8**
+    //
+    Value *PtrOp = LI->getPointerOperand();
+    auto *ActualTy = DTInfo.getGenericLoadType(LI);
+    assert(ActualTy && "Unexpected load being converted");
 
-    Instruction *ZExt =
-        CastInst::Create(CastInst::ZExt, NewLoad, LI->getType(), "", LI);
-    LI->replaceAllUsesWith(ZExt);
-    ZExt->takeName(LI);
+    llvm::Type *RemapTy = TypeRemapper->remapType(ActualTy);
+    Value *NewPtrOp = nullptr;
+    if (auto *C = dyn_cast<Constant>(PtrOp))
+      NewPtrOp = ConstantExpr::getBitCast(C, RemapTy->getPointerTo());
+    else
+      NewPtrOp = CastInst::CreateBitOrPointerCast(
+          PtrOp, RemapTy->getPointerTo(), "", LI);
+
+    // Create a new load with the same attributes as the original instruction,
+    // except for the alignment field. Because pointers to the structure are
+    // being changed to an integer the original alignment may no longer be
+    // valid, so set it to the ABI default for the type that the load will be
+    // once remapping occurs.
+    unsigned int Alignment = DL.getABITypeAlignment(RemapTy);
+    Instruction *NewLI =
+        new LoadInst(NewPtrOp, "", LI->isVolatile(), Alignment,
+                     LI->getOrdering(), LI->getSyncScopeID(), LI);
+
+    // Determine the type of conversion needed to match the type of the users
+    // for the original load instruction.
+    //
+    //   Original load type    New load type     CastType
+    //   ------------------    --------------    --------
+    //   ptr sized int (i64)   i32               zext
+    //   ptr (i8*)             i32               inttoptr
+    //   ptr to ptr (i8**)     i32*              bitcast
+    //
+    auto *OrigLoadTy = LI->getType();
+    auto CastType = CastInst::BitCast;
+    if (NewLI->getType()->isIntegerTy()) {
+      if (OrigLoadTy->isIntegerTy())
+        CastType = CastInst::ZExt;
+      else
+        CastType = CastInst::IntToPtr;
+    }
+
+    Value *Repl = CastInst::Create(CastType, NewLI, LI->getType(), "", LI);
+    LI->replaceAllUsesWith(Repl);
+    Repl->takeName(LI);
     InstructionsToDelete.insert(LI);
-    LLVM_DEBUG(dbgs() << "After convert:\n  " << *PtrCast << "\n  " << *NewLoad
-                      << "\n  " << *ZExt << "\n");
+
+    LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewPtrOp << "\n  " << *NewLI
+                      << "\n  " << *Repl << "\n");
   }
 
-  // Replace a store instruction that stored a pointer to a type being
-  // transformed as a pointer sized int to instead store a peeling index type.
+  // Replace a store instruction that stores a pointer sized integer or generic
+  // pointer type for the type being transformed to instead store a peeling
+  // index type (or pointer to peeling index type).
   void processStore(StoreInst *SI) {
     assert(isPointerShrinkingEnabled() &&
            "StoreInst transformation is only needed when shrinking the peeling "
            "index");
-    assert(SI->getValueOperand()->getType()->isIntegerTy() &&
-           "StoreInst must be integer type");
 
     LLVM_DEBUG(dbgs() << "Store to convert: " << *SI << "\n");
 
@@ -964,17 +1026,73 @@ public:
     //    %1 = trunc i64 %val_i64 to i32
     //    %2 = bitcast i32* %p_i64 to i32*
     //    store i32 %1, i32* %2
-    Instruction *Trunc = CastInst::Create(
-        CastInst::Trunc, SI->getValueOperand(), getPeeledIndexType(), "", SI);
-    Instruction *PtrCast = CastInst::CreateBitOrPointerCast(
-        SI->getPointerOperand(), getPeeledIndexType()->getPointerTo(), "", SI);
+    //
+    //
+    // Similarly, a store using an i8* for the value type will be handled as:
+    //    store i8* %val, i8** %ptr
+    //
+    // To be:
+    //    %1 = ptrtoint i8* %val to i32
+    //    %2 = bitcast i8** %ptr to i32*
+    //    store i32 %1, i32* %2
+    //
+    //
+    // For higher levels of indirection of the underlying element type being
+    // accessed:
+    //    store i8** %val, i8*** %ptr
+    //
+    // To be:
+    //    %1 = bitcast i8** %val to i32*
+    //    %2 = bitcast i8*** %ptr to i32**
+    //    store i32* %1, i32** %2
+    //
+    auto *ActualTy = DTInfo.getGenericStoreType(SI);
+    assert(ActualTy && "Unexpected store being converted");
 
-    Instruction *NewStore = new StoreInst(Trunc, PtrCast);
-    NewStore->insertBefore(SI);
+    llvm::Type *RemapTy = TypeRemapper->remapType(ActualTy);
+    Value *ValOp = SI->getValueOperand();
+    llvm::Type *OrigValTy = ValOp->getType();
+
+    // Determine the type of conversion needed to match the type of the value
+    // being stored.
+    //
+    //   Original store type    New store type     CastType
+    //   ------------------    --------------      --------
+    //   ptr sized int (i64)   i32                 trunc
+    //   ptr (i8*)             i32                 ptrtoint
+    //   ptr to ptr (i8**)     i32*                bitcast
+    //
+    auto CastType = CastInst::BitCast;
+    if (RemapTy->isIntegerTy()) {
+      if (OrigValTy->isIntegerTy())
+        CastType = CastInst::Trunc;
+      else
+        CastType = CastInst::PtrToInt;
+    }
+
+    Value *NewValOp = CastInst::Create(CastType, ValOp, RemapTy, "", SI);
+    Value *PtrOp = SI->getPointerOperand();
+    Value *NewPtrOp = nullptr;
+    if (auto *C = dyn_cast<Constant>(PtrOp))
+      NewPtrOp = ConstantExpr::getBitCast(C, RemapTy->getPointerTo());
+    else
+      NewPtrOp = CastInst::CreateBitOrPointerCast(
+          PtrOp, RemapTy->getPointerTo(), "", SI);
+
+    // Create a new store with the same attributes as the original instruction,
+    // except for the alignment field. Because the field type in the structure
+    // is changing, the original alignment may no longer be valid, so set it
+    // to the ABI default for the type that the load will be once remapping
+    // occurs.
+    unsigned int Alignment = DL.getABITypeAlignment(RemapTy);
+    Instruction *NewSI =
+        new StoreInst(NewValOp, NewPtrOp, SI->isVolatile(), Alignment,
+                      SI->getOrdering(), SI->getSyncScopeID(), SI);
+    (void)NewSI;
     InstructionsToDelete.insert(SI);
 
-    LLVM_DEBUG(dbgs() << "After convert:\n  " << *Trunc << "\n  " << *PtrCast
-                      << "\n  " << *NewStore << "\n");
+    LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewValOp << "\n  "
+                      << *NewPtrOp << "\n  " << *NewSI << "\n");
   }
 
   // The byte-flattened GEP needs to be transformed from getting the address as:

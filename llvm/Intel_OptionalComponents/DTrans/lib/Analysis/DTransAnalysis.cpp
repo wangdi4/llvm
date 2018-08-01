@@ -3272,12 +3272,12 @@ public:
       }
     }
 
-    // Check for possible use of pointer type loaded via pointer sized int to
-    // expose the real type to the transforms. This is temporary, until the full
-    // LocalPointerInfo is made available to the transformations.
-    if (isPtrSizeInt(&I)) {
+    // Check for possible use of pointer type loaded via pointer sized int or
+    // generic i8* to expose the real type to the transforms. This is temporary,
+    // until the full LocalPointerInfo is made available to the transformations.
+    if (isGenericPtrType(I.getType())) {
       LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(&I);
-      collectPtrSizedIntLoadStoreType (I, ValLPI);
+      collectGenericLoadStoreType(I, ValLPI);
     }
   }
 
@@ -3368,11 +3368,12 @@ public:
     // we need to mark that element as having its address taken.
     LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
 
-    // Check for possible use of pointer type stored via pointer sized int to
-    // expose the real type to the transforms. This is temporary, until the full
-    // LocalPointerInfo is made available to the transformations.
-    if (isPtrSizeInt(ValOperand))
-      collectPtrSizedIntLoadStoreType(I, ValLPI);
+    // Check for possible use of pointer type stored via pointer sized int
+    // or i8* generic type to expose the real type to the transforms.
+    // This is temporary, until the full LocalPointerInfo is made available
+    // to the transformations.
+    if (isGenericPtrType(ValOperand->getType()))
+      collectGenericLoadStoreType(I, ValLPI);
 
     if (ValLPI.pointsToSomeElement()) {
       auto ValPointees = ValLPI.getElementPointeeSet();
@@ -3401,12 +3402,12 @@ public:
 
   // Collect the aggregate type for \p ValLPI which corresponds to the Value
   // loaded or stored by \p I which is loading/storing a pointer sized integer
-  // value. Save an association between the Instruction and the actual aggregate
-  // pointer type, if there is a single type, in the maps to allow queries by
-  // the transformations. This is temporary until the complete LocalPointerInfo
-  // is exposed to the transformations.
-  void collectPtrSizedIntLoadStoreType(Instruction &I,
-                                       LocalPointerInfo &ValLPI) {
+  // value or other generic form of the pointer. Save an association between the
+  // Instruction and the actual aggregate pointer type, if there is a single
+  // type, in the maps to allow queries by the transformations. This is
+  // temporary until the complete LocalPointerInfo is exposed to the
+  // transformations.
+  void collectGenericLoadStoreType(Instruction &I, LocalPointerInfo &ValLPI) {
     if (!ValLPI.canAliasToAggregatePointer())
       return;
 
@@ -3416,10 +3417,7 @@ public:
     // type will not pass the safety checks for the transformations.
     llvm::Type *ActualType = nullptr;
     for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
-      if (AliasTy == Int8PtrTy)
-        continue;
-
-      if (AliasTy == PtrSizeIntPtrTy)
+      if (isGenericPtrType(AliasTy))
         continue;
 
       if (ActualType) {
@@ -3434,11 +3432,32 @@ public:
       return;
 
     if (auto *LI = dyn_cast<LoadInst>(&I))
-      DTInfo.addLoadPtrSizedIntMapping(LI, ActualType);
+      DTInfo.addGenericLoadMapping(LI, ActualType);
     else if (auto *SI = dyn_cast<StoreInst>(&I))
-      DTInfo.addStorePtrSizedIntMapping(SI, ActualType);
+      DTInfo.addGenericStoreMapping(SI, ActualType);
     else
       llvm_unreachable("Instruction must be LoadInst or StoreInst");
+  }
+
+  // Return true if \p Ty is a type that could be a generic equivalent of
+  // a pointer (at some level of indirection) to a structure type. This is
+  // used when determining whether a Load/Store instruction should capture
+  // the aggregate type to enable exposing the actual type being loaded
+  // or stored to the transformations.
+  bool isGenericPtrType(llvm::Type *Ty) {
+    llvm::Type *PtrTy = nullptr;
+    while (Ty->isPointerTy()) {
+      PtrTy = Ty;
+      Ty = Ty->getPointerElementType();
+    }
+
+    if (PtrTy == Int8PtrTy)
+      return true;
+
+    if (Ty == PtrSizeIntTy)
+      return true;
+
+    return false;
   }
 
   void visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -6514,26 +6533,24 @@ DTransAnalysisInfo::getLoadElement(LoadInst *LdInst) {
   return It->second;
 }
 
-void DTransAnalysisInfo::addLoadPtrSizedIntMapping(LoadInst *LI,
-                                                   llvm::Type *Ty) {
-  LoadPSIInfoMap[LI] = Ty;
+void DTransAnalysisInfo::addGenericLoadMapping(LoadInst *LI, llvm::Type *Ty) {
+  GenericLoadInfoMap[LI] = Ty;
 }
 
-void DTransAnalysisInfo::addStorePtrSizedIntMapping(StoreInst *SI,
-                                                    llvm::Type *Ty) {
-  StorePSIInfoMap[SI] = Ty;
+void DTransAnalysisInfo::addGenericStoreMapping(StoreInst *SI, llvm::Type *Ty) {
+  GenericStoreInfoMap[SI] = Ty;
 }
 
-llvm::Type *DTransAnalysisInfo::getPtrSizeIntLoadType(LoadInst *LI) {
-  auto It = LoadPSIInfoMap.find(LI);
-  if (It == LoadPSIInfoMap.end())
+llvm::Type *DTransAnalysisInfo::getGenericLoadType(LoadInst *LI) {
+  auto It = GenericLoadInfoMap.find(LI);
+  if (It == GenericLoadInfoMap.end())
     return nullptr;
   return It->second;
 }
 
-llvm::Type *DTransAnalysisInfo::getPtrSizeIntStoreType(StoreInst *SI) {
-  auto It = StorePSIInfoMap.find(SI);
-  if (It == StorePSIInfoMap.end())
+llvm::Type *DTransAnalysisInfo::getGenericStoreType(StoreInst *SI) {
+  auto It = GenericStoreInfoMap.find(SI);
+  if (It == GenericStoreInfoMap.end())
     return nullptr;
   return It->second;
 }
@@ -6642,10 +6659,10 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
                                  Other.ByteFlattenedGEPInfoMap.end());
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
-  StorePSIInfoMap.insert(Other.StorePSIInfoMap.begin(),
-                         Other.StorePSIInfoMap.end());
-  LoadPSIInfoMap.insert(Other.LoadPSIInfoMap.begin(),
-                        Other.LoadPSIInfoMap.end());
+  GenericStoreInfoMap.insert(Other.GenericStoreInfoMap.begin(),
+                             Other.GenericStoreInfoMap.end());
+  GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
+                            Other.GenericLoadInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -6663,10 +6680,10 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
                                  Other.ByteFlattenedGEPInfoMap.end());
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
-  StorePSIInfoMap.insert(Other.StorePSIInfoMap.begin(),
-                         Other.StorePSIInfoMap.end());
-  LoadPSIInfoMap.insert(Other.LoadPSIInfoMap.begin(),
-                        Other.LoadPSIInfoMap.end());
+  GenericStoreInfoMap.insert(Other.GenericStoreInfoMap.begin(),
+                             Other.GenericStoreInfoMap.end());
+  GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
+                            Other.GenericLoadInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -6702,8 +6719,8 @@ void DTransAnalysisInfo::reset() {
   ByteFlattenedGEPInfoMap.clear();
   StoreInfoMap.clear();
   LoadInfoMap.clear();
-  StorePSIInfoMap.clear();
-  LoadPSIInfoMap.clear();
+  GenericStoreInfoMap.clear();
+  GenericLoadInfoMap.clear();
   TypeInfoMap.clear();
   IgnoreTypeMap.clear();
 }
