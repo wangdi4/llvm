@@ -71,7 +71,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iterator>
-#include <utility>     
+#include <utility>
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -2467,7 +2467,7 @@ static unsigned ComputeNumSignBitsImpl(const Value *V, unsigned Depth,
 
   case Instruction::Select:
     Tmp = ComputeNumSignBits(U->getOperand(1), Depth + 1, Q);
-    if (Tmp == 1) return 1;  // Early out.
+    if (Tmp == 1) break;
     Tmp2 = ComputeNumSignBits(U->getOperand(2), Depth + 1, Q);
     return std::min(Tmp, Tmp2);
 
@@ -2475,7 +2475,7 @@ static unsigned ComputeNumSignBitsImpl(const Value *V, unsigned Depth,
     // Add can have at most one carry bit.  Thus we know that the output
     // is, at worst, one more bit than the inputs.
     Tmp = ComputeNumSignBits(U->getOperand(0), Depth + 1, Q);
-    if (Tmp == 1) return 1;  // Early out.
+    if (Tmp == 1) break;
 
     // Special case decrementing a value (ADD X, -1):
     if (const auto *CRHS = dyn_cast<Constant>(U->getOperand(1)))
@@ -2495,12 +2495,12 @@ static unsigned ComputeNumSignBitsImpl(const Value *V, unsigned Depth,
       }
 
     Tmp2 = ComputeNumSignBits(U->getOperand(1), Depth + 1, Q);
-    if (Tmp2 == 1) return 1;
+    if (Tmp2 == 1) break;
     return std::min(Tmp, Tmp2)-1;
 
   case Instruction::Sub:
     Tmp2 = ComputeNumSignBits(U->getOperand(1), Depth + 1, Q);
-    if (Tmp2 == 1) return 1;
+    if (Tmp2 == 1) break;
 
     // Handle NEG.
     if (const auto *CLHS = dyn_cast<Constant>(U->getOperand(0)))
@@ -2523,15 +2523,15 @@ static unsigned ComputeNumSignBitsImpl(const Value *V, unsigned Depth,
     // Sub can have at most one carry bit.  Thus we know that the output
     // is, at worst, one more bit than the inputs.
     Tmp = ComputeNumSignBits(U->getOperand(0), Depth + 1, Q);
-    if (Tmp == 1) return 1;  // Early out.
+    if (Tmp == 1) break;
     return std::min(Tmp, Tmp2)-1;
 
   case Instruction::Mul: {
     // The output of the Mul can be at most twice the valid bits in the inputs.
     unsigned SignBitsOp0 = ComputeNumSignBits(U->getOperand(0), Depth + 1, Q);
-    if (SignBitsOp0 == 1) return 1;  // Early out.
+    if (SignBitsOp0 == 1) break;
     unsigned SignBitsOp1 = ComputeNumSignBits(U->getOperand(1), Depth + 1, Q);
-    if (SignBitsOp1 == 1) return 1;
+    if (SignBitsOp1 == 1) break;
     unsigned OutValidBits =
         (TyBits - SignBitsOp0 + 1) + (TyBits - SignBitsOp1 + 1);
     return OutValidBits > TyBits ? 1 : TyBits - OutValidBits + 1;
@@ -3977,7 +3977,7 @@ static bool checkRippleForSignedAdd(const KnownBits &LHSKnown,
 
   // If either of the values is known to be non-negative, adding them can only
   // overflow if the second is also non-negative, so we can assume that.
-  // Two non-negative numbers will only overflow if there is a carry to the 
+  // Two non-negative numbers will only overflow if there is a carry to the
   // sign bit, so we can check if even when the values are as big as possible
   // there is no overflow to the sign bit.
   if (LHSKnown.isNonNegative() || RHSKnown.isNonNegative()) {
@@ -4004,7 +4004,7 @@ static bool checkRippleForSignedAdd(const KnownBits &LHSKnown,
   }
 
   // If we reached here it means that we know nothing about the sign bits.
-  // In this case we can't know if there will be an overflow, since by 
+  // In this case we can't know if there will be an overflow, since by
   // changing the sign bits any two values can be made to overflow.
   return false;
 }
@@ -4054,7 +4054,7 @@ static OverflowResult computeOverflowForSignedAdd(const Value *LHS,
   // operands.
   bool LHSOrRHSKnownNonNegative =
       (LHSKnown.isNonNegative() || RHSKnown.isNonNegative());
-  bool LHSOrRHSKnownNegative = 
+  bool LHSOrRHSKnownNegative =
       (LHSKnown.isNegative() || RHSKnown.isNegative());
   if (LHSOrRHSKnownNonNegative || LHSOrRHSKnownNegative) {
     KnownBits AddKnown = computeKnownBits(Add, DL, /*Depth=*/0, AC, CxtI, DT);
@@ -4603,7 +4603,7 @@ static SelectPatternResult matchMinMax(CmpInst::Predicate Pred,
   SPR = matchMinMaxOfMinMax(Pred, CmpLHS, CmpRHS, TrueVal, FalseVal, Depth);
   if (SPR.Flavor != SelectPatternFlavor::SPF_UNKNOWN)
     return SPR;
-  
+
   if (Pred != CmpInst::ICMP_SGT && Pred != CmpInst::ICMP_SLT)
     return {SPF_UNKNOWN, SPNB_NA, false};
 
@@ -4660,21 +4660,25 @@ static SelectPatternResult matchMinMax(CmpInst::Predicate Pred,
   return {SPF_UNKNOWN, SPNB_NA, false};
 }
 
-bool llvm::isKnownNegation(const Value *X, const Value *Y) {
+bool llvm::isKnownNegation(const Value *X, const Value *Y, bool NeedNSW) {
   assert(X && Y && "Invalid operand");
 
-  // X = sub (0, Y)
-  if (match(X, m_Neg(m_Specific(Y))))
+  // X = sub (0, Y) || X = sub nsw (0, Y)
+  if ((!NeedNSW && match(X, m_Sub(m_ZeroInt(), m_Specific(Y)))) ||
+      (NeedNSW && match(X, m_NSWSub(m_ZeroInt(), m_Specific(Y)))))
     return true;
 
-  // Y = sub (0, X)
-  if (match(Y, m_Neg(m_Specific(X))))
+  // Y = sub (0, X) || Y = sub nsw (0, X)
+  if ((!NeedNSW && match(Y, m_Sub(m_ZeroInt(), m_Specific(X)))) ||
+      (NeedNSW && match(Y, m_NSWSub(m_ZeroInt(), m_Specific(X)))))
     return true;
 
-  // X = sub (A, B), Y = sub (B, A)
+  // X = sub (A, B), Y = sub (B, A) || X = sub nsw (A, B), Y = sub nsw (B, A)
   Value *A, *B;
-  return match(X, m_Sub(m_Value(A), m_Value(B))) &&
-         match(Y, m_Sub(m_Specific(B), m_Specific(A)));
+  return (!NeedNSW && (match(X, m_Sub(m_Value(A), m_Value(B))) &&
+                        match(Y, m_Sub(m_Specific(B), m_Specific(A))))) ||
+         (NeedNSW && (match(X, m_NSWSub(m_Value(A), m_Value(B))) &&
+                       match(Y, m_NSWSub(m_Specific(B), m_Specific(A)))));
 }
 
 static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
@@ -4776,34 +4780,49 @@ static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
     }
   }
 
-  // Sign-extending LHS does not change its sign, so TrueVal/FalseVal can
-  // match against either LHS or sext(LHS).
-  auto MaybeSExtLHS = m_CombineOr(m_Specific(CmpLHS),
-                                  m_SExt(m_Specific(CmpLHS)));
-  if ((match(TrueVal, MaybeSExtLHS) &&
-       match(FalseVal, m_Neg(m_Specific(TrueVal)))) ||
-      (match(FalseVal, MaybeSExtLHS) &&
-       match(TrueVal, m_Neg(m_Specific(FalseVal))))) {
-    // Set LHS and RHS so that RHS is the negated operand of the select
-    if (match(TrueVal, MaybeSExtLHS)) {
+  if (isKnownNegation(TrueVal, FalseVal)) {
+    // Sign-extending LHS does not change its sign, so TrueVal/FalseVal can
+    // match against either LHS or sext(LHS).
+    auto MaybeSExtCmpLHS =
+        m_CombineOr(m_Specific(CmpLHS), m_SExt(m_Specific(CmpLHS)));
+    auto ZeroOrAllOnes = m_CombineOr(m_ZeroInt(), m_AllOnes());
+    auto ZeroOrOne = m_CombineOr(m_ZeroInt(), m_One());
+    if (match(TrueVal, MaybeSExtCmpLHS)) {
+      // Set the return values. If the compare uses the negated value (-X >s 0),
+      // swap the return values because the negated value is always 'RHS'.
       LHS = TrueVal;
       RHS = FalseVal;
-    } else {
+      if (match(CmpLHS, m_Neg(m_Specific(FalseVal))))
+        std::swap(LHS, RHS);
+
+      // (X >s 0) ? X : -X or (X >s -1) ? X : -X --> ABS(X)
+      // (-X >s 0) ? -X : X or (-X >s -1) ? -X : X --> ABS(X)
+      if (Pred == ICmpInst::ICMP_SGT && match(CmpRHS, ZeroOrAllOnes))
+        return {SPF_ABS, SPNB_NA, false};
+
+      // (X <s 0) ? X : -X or (X <s 1) ? X : -X --> NABS(X)
+      // (-X <s 0) ? -X : X or (-X <s 1) ? -X : X --> NABS(X)
+      if (Pred == ICmpInst::ICMP_SLT && match(CmpRHS, ZeroOrOne))
+        return {SPF_NABS, SPNB_NA, false};
+    }
+    else if (match(FalseVal, MaybeSExtCmpLHS)) {
+      // Set the return values. If the compare uses the negated value (-X >s 0),
+      // swap the return values because the negated value is always 'RHS'.
       LHS = FalseVal;
       RHS = TrueVal;
+      if (match(CmpLHS, m_Neg(m_Specific(TrueVal))))
+        std::swap(LHS, RHS);
+
+      // (X >s 0) ? -X : X or (X >s -1) ? -X : X --> NABS(X)
+      // (-X >s 0) ? X : -X or (-X >s -1) ? X : -X --> NABS(X)
+      if (Pred == ICmpInst::ICMP_SGT && match(CmpRHS, ZeroOrAllOnes))
+        return {SPF_NABS, SPNB_NA, false};
+
+      // (X <s 0) ? -X : X or (X <s 1) ? -X : X --> ABS(X)
+      // (-X <s 0) ? X : -X or (-X <s 1) ? X : -X --> ABS(X)
+      if (Pred == ICmpInst::ICMP_SLT && match(CmpRHS, ZeroOrOne))
+        return {SPF_ABS, SPNB_NA, false};
     }
-
-    // (X >s 0) ? X : -X or (X >s -1) ? X : -X --> ABS(X)
-    // (X >s 0) ? -X : X or (X >s -1) ? -X : X --> NABS(X)
-    if (Pred == ICmpInst::ICMP_SGT &&
-        match(CmpRHS, m_CombineOr(m_ZeroInt(), m_AllOnes())))
-      return {(LHS == TrueVal) ? SPF_ABS : SPF_NABS, SPNB_NA, false};
-
-    // (X <s 0) ? -X : X or (X <s 1) ? -X : X --> ABS(X)
-    // (X <s 0) ? X : -X or (X <s 1) ? X : -X --> NABS(X)
-    if (Pred == ICmpInst::ICMP_SLT &&
-        match(CmpRHS, m_CombineOr(m_ZeroInt(), m_One())))
-      return {(LHS == FalseVal) ? SPF_ABS : SPF_NABS, SPNB_NA, false};
   }
 
   if (CmpInst::isIntPredicate(Pred))

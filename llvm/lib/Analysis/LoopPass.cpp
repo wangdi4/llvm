@@ -193,6 +193,8 @@ bool LPPassManager::runOnFunction(Function &F) {
   }
 
   // Walk Loops
+  unsigned InstrCount = 0;
+  bool EmitICRemark = M.shouldEmitInstrCountChangedRemark();
   while (!LQ.empty()) {
     CurrentLoopDeleted = false;
     CurrentLoop = LQ.back();
@@ -212,9 +214,11 @@ bool LPPassManager::runOnFunction(Function &F) {
       {
         PassManagerPrettyStackEntry X(P, *CurrentLoop->getHeader());
         TimeRegion PassTimer(getPassTimer(P));
-        unsigned InstrCount = initSizeRemarkInfo(M);
+        if (EmitICRemark)
+          InstrCount = initSizeRemarkInfo(M);
         Changed |= P->runOnLoop(CurrentLoop, *this);
-        emitInstrCountChangedRemark(P, M, InstrCount);
+        if (EmitICRemark)
+          emitInstrCountChangedRemark(P, M, InstrCount);
       }
 
 #if !INTEL_PRODUCT_RELEASE

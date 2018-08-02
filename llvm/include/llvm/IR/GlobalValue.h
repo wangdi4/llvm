@@ -129,18 +129,12 @@ protected:
   unsigned IsDSOLocal : 1;
 
 private:
-  friend class Constant;
-
-  void maybeSetDsoLocal() {
-    if (hasLocalLinkage() ||
-        (!hasDefaultVisibility() && !hasExternalWeakLinkage()))
-      setDSOLocal(true);
-  }
-
   // Give subclasses access to what otherwise would be wasted padding.
   // INTEL - (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.  Extra two bits for
   // ThreadPrivate and TargetDeclare.
   unsigned SubClassData : GlobalValueSubClassDataBits;
+
+  friend class Constant;
 
   void destroyConstantImpl();
   Value *handleOperandChangeImpl(Value *From, Value *To);
@@ -167,6 +161,12 @@ private:
     }
 
     llvm_unreachable("Fully covered switch above!");
+  }
+
+  void maybeSetDsoLocal() {
+    if (hasLocalLinkage() ||
+        (!hasDefaultVisibility() && !hasExternalWeakLinkage()))
+      setDSOLocal(true);
   }
 
 protected:

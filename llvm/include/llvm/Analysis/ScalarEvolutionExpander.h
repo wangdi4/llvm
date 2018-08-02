@@ -342,6 +342,7 @@ private:
     Value *expandAddToGEP(const SCEV *const *op_begin,
                           const SCEV *const *op_end,
                           PointerType *PTy, Type *Ty, Value *V);
+    Value *expandAddToGEP(const SCEV *Op, PointerType *PTy, Type *Ty, Value *V);
 
     /// Find a previous Value in ExprValueMap for expand.
     ScalarEvolution::ValueOffsetPair
