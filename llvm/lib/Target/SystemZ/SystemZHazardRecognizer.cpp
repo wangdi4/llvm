@@ -55,7 +55,7 @@ getNumDecoderSlots(SUnit *SU) const {
     else
       return 3; // Expanded/group-alone instruction
   }
-    
+
   return 1; // Normal instruction
 }
 
@@ -142,7 +142,7 @@ void SystemZHazardRecognizer::dumpSU(SUnit *SU, raw_ostream &OS) const {
   const MCSchedClassDesc *SC = getSchedClass(SU);
   if (!SC->isValid())
     return;
-  
+
   for (TargetSchedModel::ProcResIter
          PI = SchedModel->getWriteProcResBegin(SC),
          PE = SchedModel->getWriteProcResEnd(SC); PI != PE; ++PI) {
@@ -151,7 +151,11 @@ void SystemZHazardRecognizer::dumpSU(SUnit *SU, raw_ostream &OS) const {
     std::string FU(PRD.Name);
     // trim e.g. Z13_FXaUnit -> FXa
     FU = FU.substr(FU.find("_") + 1);
-    FU.resize(FU.find("Unit"));
+    size_t Pos = FU.find("Unit");
+    if (Pos != std::string::npos)
+      FU.resize(Pos);
+    if (FU == "LS") // LSUnit -> LSU
+      FU = "LSU";
     OS << "/" << FU;
 
     if (PI->Cycles > 1)
@@ -302,7 +306,7 @@ int SystemZHazardRecognizer::groupingCost(SUnit *SU) const {
   const MCSchedClassDesc *SC = getSchedClass(SU);
   if (!SC->isValid())
     return 0;
-  
+
   // If SU begins new group, it can either break a current group early
   // or fit naturally if current group is empty (negative cost).
   if (SC->BeginGroup) {
