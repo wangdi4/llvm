@@ -2998,7 +2998,7 @@ public:
   }
 
   void visitCallSite(CallSite CS) {
-    SmallPtrSet<Value *, 3> SpecialArguments;
+    SmallPtrSet<const Value *, 3> SpecialArguments;
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
@@ -6455,7 +6455,8 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   return DTransTy;
 }
 
-dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) const {
+dtrans::CallInfo *
+DTransAnalysisInfo::getCallInfo(const llvm::Instruction *I) const {
   auto Entry = CallInfoMap.find(I);
   if (Entry == CallInfoMap.end())
     return nullptr;

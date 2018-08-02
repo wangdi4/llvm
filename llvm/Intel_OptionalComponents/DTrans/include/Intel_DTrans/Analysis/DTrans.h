@@ -873,36 +873,37 @@ private:
 /// Determine whether the specified CallSite is a call to allocation function,
 /// and if so what kind of allocation function it is and the size of the
 /// allocation.
-AllocKind getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI);
+AllocKind getAllocFnKind(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
 
 /// Get the indices of size and count arguments for the allocation call.
 /// AllocCountInd is used for calloc allocations.  For all other allocation
 /// kinds it will be set to -1U
-void getAllocSizeArgs(AllocKind Kind, CallSite CS, unsigned &AllocSizeInd,
-                      unsigned &AllocCountInd, const TargetLibraryInfo &TLI);
+void getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
+                      unsigned &AllocSizeInd, unsigned &AllocCountInd,
+                      const TargetLibraryInfo &TLI);
 
 /// Collects all special arguments for malloc-like call.
 /// Elements are added to OutputSet.
 /// Realloc-like functions have pointer argument returned in OutputSet.
-void collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
-                             SmallPtrSet<Value *, 3> &OutputSet,
+void collectSpecialAllocArgs(AllocKind Kind, ImmutableCallSite CS,
+                             SmallPtrSet<const Value *, 3> &OutputSet,
                              const TargetLibraryInfo &TLI);
 
 /// Determine whether or not the specified CallSite is a call to the free-like
 /// library function.
-bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
+bool isFreeFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
 
 /// Determine whether or not the specified CallSite is a call to the
 /// delete-like library function.
-bool isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI);
+bool isDeleteFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
 
 /// Returns the index of pointer argument for CS.
-void getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
+void getFreePtrArg(FreeKind Kind, ImmutableCallSite CS, unsigned &PtrArgInd,
                    const TargetLibraryInfo &TLI);
 
 /// Collects all special arguments for free-like call.
-void collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
-                            SmallPtrSet<Value *, 3> &OutputSet,
+void collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
+                            SmallPtrSet<const Value *, 3> &OutputSet,
                             const TargetLibraryInfo &TLI);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.

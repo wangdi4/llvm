@@ -85,7 +85,8 @@ StringRef dtrans::FreeKindName(FreeKind Kind) {
   llvm_unreachable("Unexpected continuation past FreeKind switch.");
 }
 
-AllocKind dtrans::getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI) {
+AllocKind dtrans::getAllocFnKind(ImmutableCallSite CS,
+                                 const TargetLibraryInfo &TLI) {
   auto *I = CS.getInstruction();
   if (isMallocLikeFn(I, &TLI))
     return isNewLikeFn(I, &TLI) ? AK_New : AK_Malloc;
@@ -96,7 +97,7 @@ AllocKind dtrans::getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI) {
   return AK_NotAlloc;
 }
 
-void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
+void dtrans::getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
                               unsigned &AllocSizeInd, unsigned &AllocCountInd,
                               const TargetLibraryInfo &TLI) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
@@ -136,8 +137,8 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
 }
 
 // Should be kept in sync with DTransInstVisitor::DTanalyzeAllocationCall.
-void dtrans::collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
-                                     SmallPtrSet<Value *, 3> &OutputSet,
+void dtrans::collectSpecialAllocArgs(AllocKind Kind, ImmutableCallSite CS,
+                                     SmallPtrSet<const Value *, 3> &OutputSet,
                                      const TargetLibraryInfo &TLI) {
 
   unsigned AllocSizeInd = -1U;
@@ -152,16 +153,16 @@ void dtrans::collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
     OutputSet.insert(CS.getArgument(0));
 }
 
-bool dtrans::isFreeFn(CallSite CS, const TargetLibraryInfo &TLI) {
+bool dtrans::isFreeFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
   return isFreeCall(CS.getInstruction(), &TLI);
 }
 
-bool dtrans::isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI) {
+bool dtrans::isDeleteFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
   return isDeleteCall(CS.getInstruction(), &TLI);
 }
 
-void dtrans::getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
-                           const TargetLibraryInfo &TLI) {
+void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
+                           unsigned &PtrArgInd, const TargetLibraryInfo &TLI) {
   assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
 
   if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
@@ -172,8 +173,8 @@ void dtrans::getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
   PtrArgInd = 0;
 }
 
-void dtrans::collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
-                                    SmallPtrSet<Value *, 3> &OutputSet,
+void dtrans::collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
+                                    SmallPtrSet<const Value *, 3> &OutputSet,
                                     const TargetLibraryInfo &TLI) {
   unsigned PtrArgInd = -1U;
   getFreePtrArg(Kind, CS, PtrArgInd, TLI);
