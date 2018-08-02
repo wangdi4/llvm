@@ -6455,7 +6455,7 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   return DTransTy;
 }
 
-dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) {
+dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) const {
   auto Entry = CallInfoMap.find(I);
   if (Entry == CallInfoMap.end())
     return nullptr;

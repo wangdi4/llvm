@@ -147,7 +147,7 @@ public:
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
-  dtrans::CallInfo *getCallInfo(Instruction *I);
+  dtrans::CallInfo *getCallInfo(Instruction *I) const;
 
   // Create an entry in the CallInfoMap about a memory allocation call.
   dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
