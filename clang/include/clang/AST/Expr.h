@@ -884,7 +884,7 @@ public:
     : Expr(OpaqueValueExprClass, T, VK, OK,
            T->isDependentType() ||
            (SourceExpr && SourceExpr->isTypeDependent()),
-           T->isDependentType() || 
+           T->isDependentType() ||
            (SourceExpr && SourceExpr->isValueDependent()),
            T->isInstantiationDependentType() ||
            (SourceExpr && SourceExpr->isInstantiationDependent()),
@@ -1206,9 +1206,10 @@ public:
   enum IdentType {
     Func,
     Function,
-    LFunction,  // Same as Function, but as wide string.
+    LFunction, // Same as Function, but as wide string.
     FuncDName,
     FuncSig,
+    LFuncSig, // Same as FuncSig, but as as wide string
     PrettyFunction,
     /// The same as PrettyFunction, except that the
     /// 'virtual' keyword is omitted for virtual member functions.
@@ -2821,6 +2822,7 @@ protected:
               (op && op->containsUnexpandedParameterPack()))),
         Op(op) {
     CastExprBits.Kind = kind;
+    CastExprBits.PartOfExplicitCast = false;
     setBasePathSize(BasePathSize);
     assert(CastConsistency());
   }
@@ -2828,6 +2830,7 @@ protected:
   /// Construct an empty cast.
   CastExpr(StmtClass SC, EmptyShell Empty, unsigned BasePathSize)
     : Expr(SC, Empty) {
+    CastExprBits.PartOfExplicitCast = false;
     setBasePathSize(BasePathSize);
   }
 
@@ -2921,6 +2924,11 @@ public:
   ImplicitCastExpr(OnStack_t _, QualType ty, CastKind kind, Expr *op,
                    ExprValueKind VK)
     : CastExpr(ImplicitCastExprClass, ty, VK, kind, op, 0) {
+  }
+
+  bool isPartOfExplicitCast() const { return CastExprBits.PartOfExplicitCast; }
+  void setIsPartOfExplicitCast(bool PartOfExplicitCast) {
+    CastExprBits.PartOfExplicitCast = PartOfExplicitCast;
   }
 
   static ImplicitCastExpr *Create(const ASTContext &Context, QualType T,
@@ -5333,7 +5341,7 @@ public:
 
   SourceLocation getLocStart() const LLVM_READONLY { return SourceLocation(); }
   SourceLocation getLocEnd() const LLVM_READONLY { return SourceLocation(); }
-  
+
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == TypoExprClass;
   }
