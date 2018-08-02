@@ -863,6 +863,11 @@ namespace {
 
     const LoopHintAttr *TransformLoopHintAttr(const LoopHintAttr *LH);
 
+#if INTEL_CUSTOMIZATION
+    const IntelBlockLoopAttr *
+    TransformIntelBlockLoopAttr(const IntelBlockLoopAttr *BL);
+#endif // INTEL_CUSTOMIZATION
+
     ExprResult TransformPredefinedExpr(PredefinedExpr *E);
     ExprResult TransformDeclRefExpr(DeclRefExpr *E);
     ExprResult TransformCXXDefaultArgExpr(CXXDefaultArgExpr *E);
@@ -1268,6 +1273,44 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
       LH->getState(), TransformedExpr, TransformedLoopExpr, LH->getRange());
 #endif // INTEL_CUSTOMIZATION
 }
+
+#if INTEL_CUSTOMIZATION
+const IntelBlockLoopAttr *TemplateInstantiator::TransformIntelBlockLoopAttr(
+    const IntelBlockLoopAttr *BL) {
+
+  SmallVector<Expr *, 2> TransformedPrivates;
+  bool NeedNewAttr = false;
+  for (Expr *P : BL->privates()) {
+    Expr *TExpr = getDerived().TransformExpr(P).get();
+    if (P != TExpr)
+      NeedNewAttr = true;
+    TransformedPrivates.push_back(TExpr);
+  }
+
+  SmallVector<Expr *, 2> TransformedFactors;
+  for (Expr *F :  BL->factors()) {
+    Expr *TExpr = getDerived().TransformExpr(F).get();
+    if (F != TExpr)
+      NeedNewAttr = true;
+    TransformedFactors.push_back(TExpr);
+  }
+
+  const IntelBlockLoopAttr *NewBL = nullptr;
+  if (NeedNewAttr) {
+    // Create new IntelBlockLoopAttr with expressions in place of the
+    // non-type template parameter.
+    NewBL = IntelBlockLoopAttr::CreateImplicit(
+        getSema().Context, TransformedFactors.data(), TransformedFactors.size(),
+        BL->levels_begin(), BL->levels_size(), TransformedPrivates.data(),
+        TransformedPrivates.size(), BL->getRange());
+  } else {
+    NewBL = BL;
+  }
+
+  getSema().CheckIntelBlockLoopAttribute(NewBL);
+  return NewBL;
+}
+#endif // INTEL_CUSTOMIZATION
 
 ExprResult TemplateInstantiator::transformNonTypeTemplateParmRef(
                                                  NonTypeTemplateParmDecl *parm,

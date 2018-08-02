@@ -327,6 +327,226 @@ static Attr *handleIntelInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
       static_cast<IntelInlineAttr::Spelling>(A.getAttributeSpellingListIndex()),
       Option, A.getRange());
 }
+
+static int64_t getConstInt(Sema &S, unsigned Idx, const ParsedAttr &A) {
+  ASTContext &Ctx = S.getASTContext();
+  Expr *E = A.getArgAsExpr(Idx);
+  llvm::APSInt ValueAPS = (E)->EvaluateKnownConstInt(Ctx);
+  if (ValueAPS.getActiveBits() > std::numeric_limits<int64_t>::digits)
+    return std::numeric_limits<int64_t>::max();  //error will emit later.
+  return ValueAPS.getSExtValue();
+}
+
+static bool diagOverlapingLevels(Sema &S, int LevelFrom, int LevelTo,
+                                 SourceLocation SourceLoc,
+                                 int PrevFrom, int PrevTo,
+                                 SourceLocation PrevSourceLoc) {
+  S.Diag(SourceLoc, diag::err_blocklevel_overlap)
+      << LevelFrom << LevelTo << PrevFrom << PrevTo;
+  return S.Diag(PrevSourceLoc,
+                diag::note_second_block_loop_level_specified_here);
+}
+
+namespace {
+struct PragmaBlockLoopLevelInfo {
+  Expr *Factor;
+  int LevelFrom;
+  int LevelTo;
+  clang::SourceLocation SourceLoc;
+};
+using MapType = llvm::SmallDenseMap<int, PragmaBlockLoopLevelInfo>;
+}
+
+static bool checkOverlapingLevels(Sema &S, Expr *FE, int64_t LevelFrom,
+                                  int64_t LevelTo, SourceLocation SourceLoc,
+                                  MapType &Map) {
+  if (LevelFrom > LevelTo)
+    return S.Diag(SourceLoc, diag::err_invalid_blocklevel);
+
+  if (LevelFrom > 8 || LevelTo > 8)
+    return S.Diag(SourceLoc, diag::err_invalid_blocklevel_range) << 1;
+
+  if (LevelFrom <= 0 || LevelTo <= 0)
+    return S.Diag(SourceLoc, diag::err_invalid_blocklevel_range) << 0;
+
+  for (int L = LevelFrom; L <= LevelTo; ++L) {
+    // If found level L or found level -1 diagnostic overlapping. Level -1
+    // represent all levels.
+    MapType::iterator It = Map.find(L);
+    if (It == Map.end())
+      It = Map.find(-1);
+    if (It != Map.end())
+      return diagOverlapingLevels(S, LevelFrom, LevelTo, SourceLoc,
+                           It->second.LevelFrom, It->second.LevelTo,
+                           It->second.SourceLoc);
+    Map[L].Factor = FE;
+    Map[L].LevelFrom = LevelFrom;
+    Map[L].LevelTo = LevelTo;
+    Map[L].SourceLoc = SourceLoc;
+  }
+  return false;
+}
+
+static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
+                                      const ParsedAttributesView &AttrList,
+                                      SourceRange) {
+
+  // If BlockLoop attribute is not the first one on the attribute list,
+  // return, since all BlockLoop attributes have been processed during
+  // processing first BlockLoop attribute.
+  const auto &A = llvm::find_if(AttrList, [](const ParsedAttr &Attr) {
+    return Attr.getKind() == ParsedAttr::AT_IntelBlockLoop;
+  });
+  if (&AA != &*A)
+    return nullptr;
+
+  if (St->getStmtClass() != Stmt::DoStmtClass &&
+      St->getStmtClass() != Stmt::ForStmtClass &&
+      St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
+      St->getStmtClass() != Stmt::WhileStmtClass) {
+    S.Diag(St->getLocStart(), diag::err_pragma_loop_precedes_nonloop)
+        << "#pragma block_loop";
+    return nullptr;
+  }
+
+  SmallVector<Expr *, 2> Privates;
+  MapType Map;  //interal use only for disanostic levels overlapping.
+  for (const ParsedAttr &A : AttrList)
+    if (A.getKind() == ParsedAttr::AT_IntelBlockLoop) {
+      unsigned AI = 0;
+      Expr *FE = nullptr;
+      clang::SourceLocation SourceLoc;
+      SourceLoc = A.getArgAsIdent(AI++)->Loc;//beginning of block_loop pragma
+      if (A.isArgIdent(AI) &&
+          A.getArgAsIdent(AI)->Ident->isStr("factor")) {
+        FE = A.getArgAsExpr(++AI);
+        AI++;
+      }
+      if (A.isArgIdent(AI) &&
+          A.getArgAsIdent(AI)->Ident->isStr("level")) {
+        SourceLoc = A.getArgAsIdent(AI)->Loc; //beginning of Level clause
+        int64_t LevelFrom = getConstInt(S, ++AI, A);
+        int64_t LevelTo = getConstInt(S, ++AI, A);
+        AI++;
+        if (checkOverlapingLevels(S, FE, LevelFrom, LevelTo, SourceLoc, Map))
+          return nullptr;
+      } else {
+        if (!Map.empty()) {
+          // No user specified level for current pragma, but other block_loop
+          // has user specified level, diagnostic overlapping.
+          MapType::iterator It = Map.begin();
+          diagOverlapingLevels(S, -1, -1, SourceLoc, It->second.LevelFrom,
+                               It->second.LevelTo, It->second.SourceLoc);
+
+          return nullptr;
+        }
+        // no user specified level, need to passing -1 to BE.
+        Map[-1].Factor = FE;
+        Map[-1].LevelFrom = -1;
+        Map[-1].LevelTo = -1;
+        Map[-1].SourceLoc = SourceLoc;
+      }
+      if (A.isArgIdent(AI) &&
+          A.getArgAsIdent(AI)->Ident->getName() == "private")
+        for (AI = AI + 1; AI < A.getNumArgs(); ++AI) {
+          if (A.isArgIdent(AI))
+            break;
+          Privates.push_back(A.getArgAsExpr(AI));
+        }
+    }
+  SmallVector<int , 2> Levels;
+  SmallVector<Expr *, 2> Factors;
+  for (int I = -1; I <= 8; I++) {
+    MapType::iterator It = Map.find(I);
+    if (It != Map.end()) {
+      Factors.push_back(It->second.Factor);
+      Levels.push_back(I);
+    }
+  }
+  const IntelBlockLoopAttr *BL = IntelBlockLoopAttr::CreateImplicit(
+      S.Context, Factors.data(), Factors.size(), Levels.data(), Levels.size(),
+      Privates.data(), Privates.size(), AA.getRange());
+  if (!S.CheckIntelBlockLoopAttribute(BL))
+    return nullptr;
+  return const_cast<IntelBlockLoopAttr *>(BL);
+}
+
+static bool CheckBlockLoopScalarExpr(const Expr *E, Sema &S) {
+  assert(E && "Invalid expression");
+  QualType QT = E->getType();
+  if (!QT->isScalarType()) {
+    S.Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument) << QT;
+    return false;
+  }
+  return true;
+}
+
+static bool CheckBlockLoopIntegerExpr(const Expr *E, Sema &S) {
+  assert(E && "Invalid expression");
+  QualType QT = E->getType();
+  if (!QT->isIntegralOrEnumerationType()) {
+    S.Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument_type) << QT;
+    return false;
+  }
+  return true;
+}
+
+// Check expressions and create new attribute for block_loop.
+bool Sema::CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BL) {
+
+  if (this->CurContext->isDependentContext())
+    return true;
+
+  SmallVector<std::pair <const VarDecl *, const Expr *>, 2> PrivateVar;
+  for (const auto *P : BL->privates()) {
+    if (!CheckBlockLoopScalarExpr(P, *this))
+      return false;
+    const VarDecl *VD = nullptr;
+    if (const DeclRefExpr *DE = dyn_cast_or_null<DeclRefExpr>(P))
+      VD = dyn_cast_or_null<VarDecl>(DE->getDecl());
+    if (!VD) {
+      Diag(P->getExprLoc(),
+           diag::err_pragma_block_loop_private_expected_var_arg)
+          << VD;
+      return false;
+    }
+    PrivateVar.push_back(std::make_pair(VD, P));
+  }
+  for (auto *F : BL->factors()) {
+    if (F) {
+      if (!CheckBlockLoopIntegerExpr(F, *this))
+        return false;
+      if (!PrivateVar.empty()) {
+        llvm::APSInt ValueAPS;
+        ExprResult Res = VerifyIntegerConstantExpression(F, &ValueAPS);
+        if (Res.isInvalid())
+          return false;
+      }
+    }
+  }
+  // check duplicate variables are used in private clauses.
+  using PrivateVarType = std::pair <const VarDecl *, const Expr *>;
+  stable_sort(PrivateVar.begin(), PrivateVar.end(),
+              [](const PrivateVarType &LHS, const PrivateVarType &RHS) {
+                return LHS.first < RHS.first;
+              });
+  SmallVector<PrivateVarType, 4>::iterator Found = std::adjacent_find(
+      begin(PrivateVar), end(PrivateVar),
+      [](const PrivateVarType &LHS, const PrivateVarType &RHS) {
+        return LHS.first == RHS.first;
+      });
+  if (Found != PrivateVar.end()) {
+    Diag(Found->second->getExprLoc(),
+           diag::err_duplicate_variable_name)
+        << Found->first;
+    if (Found->second != (Found + 1)->second)
+      Diag((Found + 1)->second->getExprLoc(),
+             diag::note_omp_referenced)
+          << (Found + 1)->first;
+    return false;
+  }
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 static void
@@ -578,6 +798,9 @@ static Attr *handleOpenCLUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
 }
 
 static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
+#if INTEL_CUSTOMIZATION
+                                  const ParsedAttributesView &AL,
+#endif // INTEL_CUSTOMIZATION
                                   SourceRange Range) {
   switch (A.getKind()) {
   case ParsedAttr::UnknownAttribute:
@@ -588,6 +811,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_IntelInline:
     return handleIntelInlineAttr(S, St, A, Range);
+  case ParsedAttr::AT_IntelBlockLoop:
+    return handleIntelBlockLoopAttr(S, St, A, AL, Range);
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);
@@ -618,7 +843,9 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
                                        SourceRange Range) {
   SmallVector<const Attr*, 8> Attrs;
   for (const ParsedAttr &AL : AttrList) {
-    if (Attr *a = ProcessStmtAttribute(*this, S, AL, Range))
+#if INTEL_CUSTOMIZATION
+    if (Attr *a = ProcessStmtAttribute(*this, S, AL, AttrList,  Range))
+#endif
       Attrs.push_back(a);
   }
 

@@ -364,6 +364,10 @@ Retry:
   case tok::annot_pragma_inline:
     ProhibitAttributes(Attrs);
     return ParsePragmaInline(Stmts, Allowed, TrailingElseLoc, Attrs);
+
+  case tok::annot_pragma_blockloop:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaBlockLoop(Stmts, Allowed, TrailingElseLoc, Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_openmp:

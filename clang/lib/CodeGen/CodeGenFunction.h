@@ -440,6 +440,16 @@ public:
     CodeGenFunction &CGF;
     llvm::CallInst *CallEntry;
   };
+
+  class IntelBlockLoopExprHandler {
+  public:
+    IntelBlockLoopExprHandler(CodeGenFunction &CGF,
+                              ArrayRef<const Attr *> Attrs);
+    ~IntelBlockLoopExprHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry = nullptr;
+  };
 #endif // INTEL_CUSTOMIZATION
 
   /// RAII for correct setting/restoring of CapturedStmtInfo.

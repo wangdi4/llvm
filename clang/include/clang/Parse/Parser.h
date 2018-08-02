@@ -1971,6 +1971,13 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> NoVectorHandler;
   // Pragma vector
   std::unique_ptr<PragmaHandler> VectorHandler;
+  // Pragma block_loop
+  std::unique_ptr<PragmaHandler> BlockLoopHandler;
+  StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,
+                                  AllowedConstructsKind Allowed,
+                                  SourceLocation *TrailingElseLoc,
+                                  ParsedAttributesWithRange &Attrs);
+  bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
 #endif // INTEL_CUSTOMIZATION
 
   /// Describes the behavior that should be taken for an __if_exists

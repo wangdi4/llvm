@@ -36,6 +36,13 @@ def warn_invalid_ivdep_combination : Warning<
 def warn_pragma_vector_invalid_option : Warning<
   "%select{invalid|missing}0 option%select{ %1|}0; expected always - ignored">,
   InGroup<IgnoredPragmas>;
+def warn_pragma_block_loop_invalid_option : Warning<
+  "invalid option%select{ %1|}0; expected factor, level or private - ignored">,
+  InGroup<IgnoredPragmas>;
+def warn_multiple_blockloop_clause : Warning<
+  "%select{'factor'|'level'|'private'}0 cannot appear "
+  "multiple times in '#pragma block_loop' - ignored">,
+  InGroup<IgnoredPragmas>;
 
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;

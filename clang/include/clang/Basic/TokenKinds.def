@@ -867,6 +867,7 @@ ANNOTATION(pragma_end)
 // The lexer produces these so that they only take effect when the parser
 // handles them.
 ANNOTATION(pragma_inline)
+ANNOTATION(pragma_blockloop)
 #endif // INTEL_CUSTOMIZATION
 
 // Annotations for loop pragma directives #pragma clang loop ...

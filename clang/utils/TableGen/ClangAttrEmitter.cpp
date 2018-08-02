@@ -1344,6 +1344,8 @@ createArgument(const Record &Arg, StringRef Attr,
     Ptr = llvm::make_unique<SimpleArgument>(Arg, Attr, "SourceLocation");
   else if (ArgName == "CheckedExprArgument")
     Ptr = llvm::make_unique<CheckedExprArgument>(Arg, Attr);
+  else if (ArgName == "VariadicIntArgument")
+    Ptr = llvm::make_unique<VariadicArgument>(Arg, Attr, "int");
 #endif  // INTEL_CUSTOMIZATION
   else if (ArgName == "VariadicUnsignedArgument")
     Ptr = llvm::make_unique<VariadicArgument>(Arg, Attr, "unsigned");
