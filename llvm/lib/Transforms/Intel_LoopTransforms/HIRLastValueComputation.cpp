@@ -39,13 +39,37 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-static cl::opt<unsigned> NumOperationsThreshold(OPT_SWITCH
-                                                "-num-operations-threshold",
-                                                cl::init(5), cl::Hidden);
+static cl::opt<unsigned> NumOperationsThreshold(
+    OPT_SWITCH "-num-operations-threshold", cl::init(5), cl::Hidden,
+    cl::desc("Minimum number of operations in the loop upperbound triggers "
+             "last value computation pass"));
+
+static cl::opt<unsigned> TripCountThreshold(
+    OPT_SWITCH "-trip-count-threshold", cl::init(10), cl::Hidden,
+    cl::desc(
+        "Minimum trip count of the loop triggers last value computation pass"));
+
+// Returns true if the number of arithmetic operations in \p UBCE is greater
+// than the threshold.
+static bool isUpperBoundComplicated(CanonExpr *UBCE) {
+  auto &BU = UBCE->getBlobUtils();
+  unsigned Num = 0;
+
+  for (auto Blob = UBCE->blob_begin(), E = UBCE->blob_end(); Blob != E;
+       ++Blob) {
+
+    // TODO:  Include other operations like additions between blob operands or
+    //      // C0 addition, IV multiplications and etc.
+    Num += BU.getNumOperations(Blob->Index, nullptr);
+  }
+
+  return Num > NumOperationsThreshold;
+}
 
 bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
                                                    unsigned LoopLevel,
                                                    CanonExpr *UBCE,
+                                                   bool IsUpperBoundComplicated,
                                                    bool IsNSW) {
   if (!HInst || HInst->isCallInst()) {
     return false;
@@ -53,7 +77,8 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
 
   RegDDRef *LRef = HInst->getLvalDDRef();
 
-  if (!LRef || !LRef->isTerminalRef()) {
+  if (!LRef || !LRef->isTerminalRef() ||
+      (!LRef->isSelfBlob() && LRef->isNonLinear())) {
     return false;
   }
 
@@ -64,6 +89,7 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
   }
 
   bool HasIV = false;
+
   for (auto I = HInst->rval_op_ddref_begin(), End = HInst->rval_op_ddref_end();
        I != End; I++) {
     auto *OpRef = *I;
@@ -76,6 +102,19 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
     }
 
     if (OpRef->hasIV(LoopLevel)) {
+
+      if (IsUpperBoundComplicated) {
+
+        for (CanonExpr *CE :
+             make_range(OpRef->canon_begin(), OpRef->canon_end())) {
+          unsigned BlobCoeff = CE->getIVBlobCoeff(LoopLevel);
+
+          if (BlobCoeff != InvalidBlobIndex) {
+            return false;
+          }
+        }
+      }
+
       // TODO: creating an instruction of the form t1 = UB in the postexit and
       // replacing IV by t1.
       if (!DDRefUtils::canReplaceIVByCanonExpr(OpRef, LoopLevel, UBCE, IsNSW)) {
@@ -98,42 +137,98 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
   return true;
 }
 
-static bool isUpperBoundComplicated(CanonExpr *UBCE) {
-  auto &BU = UBCE->getBlobUtils();
-  unsigned Num = 0;
+static void
+processEarlyExits(SmallVectorImpl<HLGoto *> &Gotos, HLInst *HInst,
+                  SmallDenseMap<HLGoto *, HLNode *, 16> &GotoInsertPosition) {
 
-  for (auto Blob = UBCE->blob_begin(), E = UBCE->blob_end(); Blob != E;
-       ++Blob) {
-    Num += BU.getNumOperations(Blob->Index, nullptr);
+  for (auto &Goto : Gotos) {
+    HLInst *CloneInst = HInst->clone();
+
+    if (HInst->getTopSortNum() < Goto->getTopSortNum()) {
+      // We are transforming this-
+      //
+      // DO i1 = 0, N
+      //   t = i1;
+      //   if (){
+      //     goto Exit;
+      //   }
+      // END DO
+      //
+      // To-
+      //
+      // DO i1 = 0, N
+      //  if (){
+      //    t = i1;
+      //    goto Exit;
+      //  }
+      // END DO
+      //   t = N;
+      auto It = GotoInsertPosition.find(Goto);
+
+      if (It == GotoInsertPosition.end()) {
+        HLNodeUtils::insertBefore(Goto, CloneInst);
+      } else {
+        HLNodeUtils::insertBefore(It->second, CloneInst);
+      }
+
+      GotoInsertPosition[Goto] = CloneInst;
+    }
   }
-
-  return Num > NumOperationsThreshold;
 }
 
 bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
-  bool Sinked = false;
-  unsigned LoopLevel = Lp->getNestingLevel();
-  bool IsNSW = Lp->isNSW();
-
   // Get Loop's UpperBound (UB)
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
 
-  if (isUpperBoundComplicated(UBCE)) {
-    return false;
-  }
+  unsigned LoopLevel = Lp->getNestingLevel();
+  bool IsNSW = Lp->isNSW();
+  SmallVector<HLInst *, 64> CandidateInsts;
 
-  for (auto It = Lp->child_rbegin(), Next = It, End = Lp->child_rend();
-       It != End; It = Next) {
-    ++Next;
+  bool IsUpperBoundComplicated = isUpperBoundComplicated(UBCE);
+
+  for (auto It = Lp->child_rbegin(), End = Lp->child_rend(); It != End; ++It) {
     auto HInst = dyn_cast<HLInst>(&*It);
 
-    if (!isLegalAndProfitable(Lp, HInst, LoopLevel, UBCE, IsNSW)) {
+    if (!isLegalAndProfitable(Lp, HInst, LoopLevel, UBCE,
+                              IsUpperBoundComplicated, IsNSW)) {
       continue;
     }
 
-    Sinked = true;
+    CandidateInsts.push_back(HInst);
+  }
 
-    const SmallVector<const RegDDRef *, 1> Aux = {Lp->getUpperDDRef()};
+  if (CandidateInsts.empty()) {
+    return false;
+  }
+
+  SmallVector<HLGoto *, 16> Gotos;
+
+  bool ShouldGenCode = !IsUpperBoundComplicated;
+  bool IsMultiExit = Lp->getNumExits() > 1;
+
+  if (IsMultiExit) {
+    uint64_t TripCount = 0;
+
+    // We want to have a conservative heuristic on code generation because last
+    // value computation is not profitable enough
+    if (!Lp->isConstTripLoop(&TripCount) || TripCount <= TripCountThreshold) {
+      ShouldGenCode = false;
+    }
+    Lp->populateEarlyExits(Gotos);
+  }
+
+  const SmallVector<const RegDDRef *, 1> Aux = {Lp->getUpperDDRef()};
+  SmallDenseMap<HLGoto *, HLNode *, 16> GotoInsertPosition;
+
+  for (auto *HInst : CandidateInsts) {
+
+    if (IsMultiExit) {
+      // TODO:Remove LiveOut Temp if we did not clone it for an early exits
+      // after the instruction
+      processEarlyExits(Gotos, HInst, GotoInsertPosition);
+    } else {
+      Lp->removeLiveOutTemp(HInst->getLvalDDRef()->getSymbase());
+    }
 
     for (auto I = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); I != E;
          I++) {
@@ -144,19 +239,17 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
     }
 
     HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
-    Lp->removeLiveOutTemp(HInst->getLvalDDRef()->getSymbase());
   }
 
-  if (Sinked) {
-    // Mark the loop and its parent loop/region have been changed
+  // Mark the loop and its parent loop/region have been changed
+  if (ShouldGenCode) {
     Lp->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
-    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
-        Lp);
-    HLNodeUtils::removeEmptyNodes(Lp);
   }
 
-  return Sinked;
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
+  HLNodeUtils::removeEmptyNodes(Lp);
+  return true;
 }
 
 bool HIRLastValueComputation::run() {
@@ -185,7 +278,7 @@ bool HIRLastValueComputation::run() {
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
-    if (!Lp->isDo()) {
+    if (Lp->isUnknown() || !Lp->isNormalized()) {
       continue;
     }
 

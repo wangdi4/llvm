@@ -461,7 +461,7 @@ public:
 
   reverse_pre_iterator pre_rbegin() { return ++ChildBegin.getReverse(); }
   const_reverse_pre_iterator pre_rbegin() const {
-    return const_cast<HLLoop*>(this)->pre_rbegin();
+    return const_cast<HLLoop *>(this)->pre_rbegin();
   }
 
   reverse_pre_iterator pre_rend() { return Children.rend(); }
@@ -951,6 +951,8 @@ public:
 
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
+
+  void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);
 };
 
 } // End namespace loopopt

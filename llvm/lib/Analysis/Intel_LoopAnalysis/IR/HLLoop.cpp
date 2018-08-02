@@ -58,11 +58,12 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       HasDistributePoint(false) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
-  SmallVector<BasicBlock *, 8> Exits;
-
   initialize();
-  OrigLoop->getExitingBlocks(Exits);
-  setNumExits(Exits.size());
+
+  SmallVector<Loop::Edge, 8> ExitEdges;
+
+  OrigLoop->getExitEdges(ExitEdges);
+  setNumExits(ExitEdges.size());
   // If Lp has attached optreport metadata node - initialize HLoop
   // optreport with it. Otherwise it will initialize it with zero.
   // We also don't erase the opt report from LoopID. We only do that
@@ -1481,6 +1482,42 @@ bool HLLoop::hasVectorizeDisablingPragma() const {
   MD = getLoopStringMetadata("llvm.loop.vectorize.enable");
 
   return MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
+}
+
+struct EarlyExitCollector final : public HLNodeVisitorBase {
+  SmallVectorImpl<HLGoto *> &Gotos;
+  unsigned MaxTopSortNum;
+  HLLoop *Lp;
+
+public:
+  EarlyExitCollector(SmallVectorImpl<HLGoto *> &Gotos, HLLoop *Lp)
+      : Gotos(Gotos), Lp(Lp) {
+    assert(Lp && "Lp cannot be null\n");
+    MaxTopSortNum = Lp->getMaxTopSortNum();
+  }
+
+  void visit(HLGoto *Goto) {
+    if (Goto->isExternal() ||
+        Goto->getTargetLabel()->getTopSortNum() > MaxTopSortNum) {
+      Gotos.push_back(Goto);
+    }
+  };
+
+  void visit(HLNode *Node){};
+  void postVisit(HLNode *Node){};
+};
+
+void HLLoop::populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos) {
+  if (getNumExits() == 1) {
+    return;
+  }
+
+  // Collect Gotos in the Loop
+  EarlyExitCollector EEC(Gotos, this);
+
+  HLNodeUtils::visitRange(EEC, getFirstChild(), getLastChild());
+
+  assert((Gotos.size() == getNumExits() - 1) && "Mismatch in number of exits!");
 }
 
 LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(

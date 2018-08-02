@@ -42,7 +42,8 @@ private:
   bool doLastValueComputation(HLLoop *Lp);
 
   bool isLegalAndProfitable(HLLoop *Lp, HLInst *HInst, unsigned LoopLevel,
-                            CanonExpr *UBCE, bool IsNSW);
+                            CanonExpr *UBCE, bool IsUpperBoundComplicated,
+                            bool IsNSW);
 };
 
 //
