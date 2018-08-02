@@ -417,7 +417,7 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
         OnFirstException = false;
       else
         OS << ", ";
-      
+
       OS << E.getAsString(getPrintingPolicy());
     }
     OS << ")";

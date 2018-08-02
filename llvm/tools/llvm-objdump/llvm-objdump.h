@@ -30,6 +30,7 @@ namespace object {
 extern cl::opt<std::string> TripleName;
 extern cl::opt<std::string> ArchName;
 extern cl::opt<std::string> MCPU;
+extern cl::opt<std::string> Demangle;
 extern cl::list<std::string> MAttrs;
 extern cl::list<std::string> FilterSections;
 extern cl::opt<bool> AllHeaders;
@@ -78,6 +79,7 @@ void printMachOBindTable(object::MachOObjectFile* o);
 void printMachOLazyBindTable(object::MachOObjectFile* o);
 void printMachOWeakBindTable(object::MachOObjectFile* o);
 void printELFFileHeader(const object::ObjectFile *o);
+void printELFDynamicSection(const object::ObjectFile *Obj);
 void printCOFFFileHeader(const object::ObjectFile *o);
 void printCOFFSymbolTable(const object::COFFImportFile *i);
 void printCOFFSymbolTable(const object::COFFObjectFile *o);
@@ -96,6 +98,7 @@ void PrintSectionHeaders(const object::ObjectFile *o);
 void PrintSectionContents(const object::ObjectFile *o);
 void PrintSymbolTable(const object::ObjectFile *o, StringRef ArchiveName,
                       StringRef ArchitectureName = StringRef());
+void warn(StringRef Message);
 LLVM_ATTRIBUTE_NORETURN void error(Twine Message);
 LLVM_ATTRIBUTE_NORETURN void report_error(StringRef File, Twine Message);
 LLVM_ATTRIBUTE_NORETURN void report_error(StringRef File, std::error_code EC);

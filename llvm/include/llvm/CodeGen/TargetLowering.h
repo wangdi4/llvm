@@ -519,6 +519,19 @@ public:
     return false;
   }
 
+  /// Should we tranform the IR-optimal check for whether given truncation
+  /// down into KeptBits would be truncating or not:
+  ///   (add %x, (1 << (KeptBits-1))) srccond (1 << KeptBits)
+  /// Into it's more traditional form:
+  ///   ((%x << C) a>> C) dstcond %x
+  /// Return true if we should transform.
+  /// Return false if there is no preference.
+  virtual bool shouldTransformSignedTruncationCheck(EVT XVT,
+                                                    unsigned KeptBits) const {
+    // By default, let's assume that no one prefers shifts.
+    return false;
+  }
+
   /// Return true if the target wants to use the optimization that
   /// turns ext(promotableInst1(...(promotableInstN(load)))) into
   /// promotedInst1(...(promotedInstN(ext(load)))).
@@ -705,7 +718,7 @@ public:
   /// always broken down into scalars in some contexts. This occurs even if the
   /// vector type is legal.
   virtual unsigned getVectorTypeBreakdownForCallingConv(
-      LLVMContext &Context, EVT VT, EVT &IntermediateVT,
+      LLVMContext &Context, CallingConv::ID CC, EVT VT, EVT &IntermediateVT,
       unsigned &NumIntermediates, MVT &RegisterVT) const {
     return getVectorTypeBreakdown(Context, VT, IntermediateVT, NumIntermediates,
                                   RegisterVT);
@@ -1161,7 +1174,7 @@ public:
   /// are legal for some operations and not for other operations.
   /// For MIPS all vector types must be passed through the integer register set.
   virtual MVT getRegisterTypeForCallingConv(LLVMContext &Context,
-                                            EVT VT) const {
+                                            CallingConv::ID CC, EVT VT) const {
     return getRegisterType(Context, VT);
   }
 
@@ -1169,6 +1182,7 @@ public:
   /// this occurs when a vector type is used, as vector are passed through the
   /// integer register set.
   virtual unsigned getNumRegistersForCallingConv(LLVMContext &Context,
+                                                 CallingConv::ID CC,
                                                  EVT VT) const {
     return getNumRegisters(Context, VT);
   }
@@ -2807,7 +2821,7 @@ public:
   ///    results of this function, because simply replacing replacing TLO.Old
   ///    with TLO.New will be incorrect when this parameter is true and TLO.Old
   ///    has multiple uses.
-  bool SimplifyDemandedVectorElts(SDValue Op, const APInt &DemandedElts,
+  bool SimplifyDemandedVectorElts(SDValue Op, const APInt &DemandedEltMask,
                                   APInt &KnownUndef, APInt &KnownZero,
                                   TargetLoweringOpt &TLO, unsigned Depth = 0,
                                   bool AssumeSingleUse = false) const;
@@ -2890,7 +2904,7 @@ public:
   bool isConstFalseVal(const SDNode *N) const;
 
   /// Return if \p N is a True value when extended to \p VT.
-  bool isExtendedTrueVal(const ConstantSDNode *N, EVT VT, bool Signed) const;
+  bool isExtendedTrueVal(const ConstantSDNode *N, EVT VT, bool SExt) const;
 
   /// Try to simplify a setcc built with the specified operands and cc. If it is
   /// unable to simplify it, return a null SDValue.
@@ -3476,10 +3490,10 @@ public:
   //
   SDValue BuildSDIV(SDNode *N, const APInt &Divisor, SelectionDAG &DAG,
                     bool IsAfterLegalization,
-                    std::vector<SDNode *> *Created) const;
+                    SmallVectorImpl<SDNode *> &Created) const;
   SDValue BuildUDIV(SDNode *N, const APInt &Divisor, SelectionDAG &DAG,
                     bool IsAfterLegalization,
-                    std::vector<SDNode *> *Created) const;
+                    SmallVectorImpl<SDNode *> &Created) const;
 
   /// Targets may override this function to provide custom SDIV lowering for
   /// power-of-2 denominators.  If the target returns an empty SDValue, LLVM
@@ -3487,7 +3501,7 @@ public:
   /// operations.
   virtual SDValue BuildSDIVPow2(SDNode *N, const APInt &Divisor,
                                 SelectionDAG &DAG,
-                                std::vector<SDNode *> *Created) const;
+                                SmallVectorImpl<SDNode *> &Created) const;
 
   /// Indicate whether this target prefers to combine FDIVs with the same
   /// divisor. If the transform should never be done, return zero. If the
@@ -3611,7 +3625,7 @@ public:
   /// bounds the returned pointer is unspecified, but will be within the vector
   /// bounds.
   SDValue getVectorElementPointer(SelectionDAG &DAG, SDValue VecPtr, EVT VecVT,
-                                  SDValue Idx) const;
+                                  SDValue Index) const;
 
   //===--------------------------------------------------------------------===//
   // Instruction Emitting Hooks
@@ -3667,12 +3681,17 @@ private:
   SDValue simplifySetCCWithAnd(EVT VT, SDValue N0, SDValue N1,
                                ISD::CondCode Cond, DAGCombinerInfo &DCI,
                                const SDLoc &DL) const;
+
+  SDValue optimizeSetCCOfSignedTruncationCheck(EVT SCCVT, SDValue N0,
+                                               SDValue N1, ISD::CondCode Cond,
+                                               DAGCombinerInfo &DCI,
+                                               const SDLoc &DL) const;
 };
 
 /// Given an LLVM IR type and return type attributes, compute the return value
 /// EVTs and flags, and optionally also the offsets, if the return value is
 /// being lowered to memory.
-void GetReturnInfo(Type *ReturnType, AttributeList attr,
+void GetReturnInfo(CallingConv::ID CC, Type *ReturnType, AttributeList attr,
                    SmallVectorImpl<ISD::OutputArg> &Outs,
                    const TargetLowering &TLI, const DataLayout &DL);
 
