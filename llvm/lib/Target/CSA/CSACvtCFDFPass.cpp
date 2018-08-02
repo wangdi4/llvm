@@ -218,12 +218,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   switchOuts.resize(thisMF->size(), EdgeRegs(~0U, ~0U));
   findLICGroups(true);
 
-#if 0
-  {
-    errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
-    MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
-  }
-#endif
   typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
   MachineBasicBlock *root = &*thisMF->begin();
   std::stack<MachineBasicBlock *> postk;
@@ -231,17 +225,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
                        END     = po_cfg_iterator::end(root);
        itermbb != END; ++itermbb) {
     MachineBasicBlock *mbb = *itermbb;
-#if 0
-    //remove DBG_VALUE instrutions
-    MachineBasicBlock::iterator iInstr = mbb->begin();
-    while (iInstr != mbb->end()) {
-      MachineInstr* mInstr = &*iInstr;
-      iInstr++;
-      if (mInstr->isDebugValue()) {
-        mInstr->removeFromParent();
-      }
-    }
-#endif
     postk.push(mbb);
   }
   unsigned i = 0;
@@ -252,38 +235,28 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     i++;
   }
 
+  // Insert switches so that every value is used in the same control-dependent
+  // region where it is defined.
   insertSWITCHForLoopExit();
-  // rename, adding lhdr phi to seal all up range of each defintions up till
-  // loop hdr  insertSWITCHForRepeat();  if loop hdr is also an exiting blk,
-  // repeatOperand generated loop hdr phi need to go through SWITCHforIf process
   insertSWITCHForIf();
-  // run it twice;
-  // non-latch exit affect def/use chain running across the loop;
-  // new switch inserted at the exit blk need to repeated its src
-  // insertSWITCHForRepeat();
 
   // renaming using switch to seal all down rang of each definition within loop
   renameOnLoopEntry();
 
+  // XXX: Assert control-dependent region property here?
+  LLVM_DEBUG(dbgs() << "Function after switch generation:\n"; MF.print(dbgs()));
+
   if (needDynamicPreds() || UseDynamicPred) {
     generateDynamicPreds();
   } else {
-    // insertSWITCHForRepeat();
     replacePhiWithPICK();
   }
-#if 0
-  {
-    errs() << "CSACvtCFDFPass before LIC allocation" << ":\n";
-    MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
-  }
-#endif
+
+  // Convert LIC classes from I* to CI* and add NonSequential flag where
+  // possible.
   assignLicForDF();
-#if 0
-  {
-    errs() << "CSACvtCFDFPass after LIC allocation" << ":\n";
-    MF.print(errs(), getAnalysisIfAvailable<SlotIndexes>());
-  }
-#endif
+
+  LLVM_DEBUG(dbgs() << "Function after pick insertion:\n"; MF.print(dbgs()));
 
   // Recompute LIC groups for newly-added dataflow instructions. This time, it's
   // not safe to assume that instructions that get added necessarily correspond
@@ -356,6 +329,7 @@ unsigned CSACvtCFDFPass::findSwitchingDstForReg(unsigned Reg,
     return 0;
   }
   MachineInstr *defSwitchInstr = (*reg2switch)[Reg];
+  LLVM_DEBUG(dbgs() << *defSwitchInstr << '\n');
   unsigned switchFalseReg      = defSwitchInstr->getOperand(0).getReg();
   unsigned switchTrueReg       = defSwitchInstr->getOperand(1).getReg();
   if (MRI->use_empty(switchFalseReg)) {
@@ -1904,6 +1878,11 @@ MachineInstr *CSACvtCFDFPass::PatchOrInsertPickAtFork(
     }
     patched = true;
   }
+
+  LLVM_DEBUG(dbgs() << "  Picking " << printReg(Reg) << " on the basis of BB#"
+      << ctrlBB->getNumber() << " when coming from BB#" << inBB->getNumber()
+      << " to register " << printReg(pickInstr->getOperand(0).getReg())
+      << "\n");
   if (patched) {
     return NULL;
   } else {
@@ -1944,7 +1923,7 @@ void CSACvtCFDFPass::assignPICKSrcForReg(unsigned &pickFalseReg,
                                          MachineBasicBlock *ctrlBB,
                                          MachineBasicBlock *inBB,
                                          MachineInstr *phi) {
-  if (inBB) {
+  if (inBB != ctrlBB) {
     ControlDependenceNode *inNode   = CDG->getNode(inBB);
     ControlDependenceNode *ctrlNode = CDG->getNode(ctrlBB);
     if (ctrlNode->isFalseChild(inNode)) {
@@ -1972,28 +1951,45 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock *inBB, MachineBasicBlock *mbb,
                                MachineInstr *MI) {
   MachineBasicBlock *ctrlBB = nullptr;
   if (!DT->dominates(inBB, mbb)) {
+    // If the operand we're tracing is itself a PHI instruction, pretend that
+    // this PHI were instead merged with the original PHI instruction. In some
+    // cases, this lets us generate clean pick trees even if the control-flow
+    // graph itself isn't clean.
+    // XXX: Do we need the PHI instruction to come specifically from this
+    // basic block?
     MachineInstr *DefMI = MRI->getVRegDef(src);
     if (DefMI->getParent() == inBB && DefMI->isPHI())
       TraceThroughPhi(DefMI, mbb, dst);
     else {
+      // Not a PHI instruction. This operand is generated from the parent node
+      // (or some other basic block in the control-dependent region thereof).
+      // Build a pick tree that goes through the control-dependent parents,
+      // until we reach the dominator of the original PHI, in order.
       ControlDependenceNode *inNode = CDG->getNode(inBB);
       for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(),
                                                 pend  = inNode->parent_end();
            pnode != pend; ++pnode) {
         ControlDependenceNode *ctrlNode = *pnode;
         ctrlBB                          = ctrlNode->getBlock();
+        // XXX: Loop latch... or loop exiting block?
         if (MLI->getLoopFor(ctrlBB) &&
             MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
           continue;
 
+        // If the parent is the dominator, the pick we want will be the final
+        // one, so generate the target output. Otherwise, create a new register
+        // for the pick result that will be used as the pick input for the
+        // next level.
         unsigned pickReg = 0;
         if (DT->dominates(ctrlBB, mbb)) {
           pickReg = dst;
         }
         MachineInstr *pickInstr =
           PatchOrInsertPickAtFork(ctrlBB, dst, Reg, inBB, MI, pickReg);
+        // If the PICK instruction still has some missing nodes, continue
+        // walking up the chain. Otherwise, it's just duplicating work we've
+        // already done, so abort the recursion now.
         if (pickInstr) {
-          // not patched, keep tracing
           TraceCtrl(ctrlBB, mbb, pickInstr->getOperand(0).getReg(), dst, src,
                     MI);
         }
@@ -2014,22 +2010,37 @@ void CSACvtCFDFPass::TraceThroughPhi(MachineInstr *iphi, MachineBasicBlock *mbb,
       ++MO;
       MachineBasicBlock *inBB = MO->getMBB();
       if (DT->dominates(inBB, mbb)) {
-        // fall through
+        // We've reached the immediate dominator for the final phi via this
+        // edge. Since we're processing a phi edge, this means that there is
+        // an if statement with no else:
+        // inBB -> (if code) -> iphi
+        //   \__________________/  <-- the edge in question
+        // If we postdominate the inBB as well, then no switches will have been
+        // generated during switch generation, so we may need to generate one
+        // right now.
         MachineInstr *dMI        = MRI->getVRegDef(Reg);
         MachineBasicBlock *DefBB = dMI->getParent();
         unsigned switchingDef    = findSwitchingDstForReg(Reg, DefBB);
         if (switchingDef) {
           Reg = switchingDef;
         }
-        PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, iphi, dst);
+
+        // Add the value to the pick tree.
+        PatchOrInsertPickAtFork(inBB, dst, Reg, inBB, iphi, dst);
         continue;
       } else {
+        // Recurse up the control-dependent chain of the graph to build the
+        // pick tree. If the edge is a critical edge, then we have to do the
+        // first step of pick tree construction right now, since we're
+        // control-dependent on this block.
+        // XXX: reason about loop latch correctness later.
+        // XXX: really wants to be control-dependent check?
         bool inBBFork = inBB->succ_size() > 1 &&
                         (!MLI->getLoopFor(inBB) ||
                          MLI->getLoopFor(inBB)->getLoopLatch() != inBB);
         if (inBBFork) {
           MachineInstr *pickInstr =
-            PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, iphi, 0);
+            PatchOrInsertPickAtFork(inBB, dst, Reg, inBB, iphi, 0);
           if (!pickInstr) {
             // patched
             continue; // to next MO
@@ -2051,15 +2062,22 @@ void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock *mbb) {
     if (!MI->isPHI())
       continue;
     multiInputsPick.clear();
+    LLVM_DEBUG(dbgs() << "Generating pick tree for " << *MI);
     unsigned dst = MI->getOperand(0).getReg();
     TraceThroughPhi(MI, mbb, dst);
     MI->removeFromParent();
-    PatchCFGLeaksFromPcikTree(dst);
+
+    LLVM_DEBUG(for (auto &pickInfo : multiInputsPick) {
+      dbgs() << "  " << *pickInfo.first;
+    });
+    PatchCFGLeaksFromPickTree(dst, mbb);
   }
 }
 
 void CSACvtCFDFPass::TraceLeak(MachineBasicBlock *inBB, MachineBasicBlock *mbb,
                                SmallVectorImpl<unsigned> &landOpnds) {
+  // XXX: This code is broken in the case where nodes have multiple
+  // control-dependent parents.
   if (!DT->dominates(inBB, mbb)) {
     ControlDependenceNode *inNode = CDG->getNode(inBB);
     for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(),
@@ -2230,6 +2248,7 @@ void CSACvtCFDFPass::CombineDuplicatePickTreeInput() {
           UseMI->addOperand(MachineOperand::CreateReg(
             pickInstr->getOperand(singleIndex).getReg(), false));
 
+          LLVM_DEBUG(dbgs() << "Patching " << *pickInstr);
           pickInstr->removeFromParent();
           // remove pickInstr from MultiInputsPick
           multiInputsPick.erase(pickInstr);
@@ -2290,10 +2309,9 @@ unsigned CSACvtCFDFPass::findLoopExitCondition(MachineLoop* mloop) {
 
 
 // for each IGN remaining in the multiInputPick, generate an land
-void CSACvtCFDFPass::PatchCFGLeaksFromPcikTree(unsigned phiDst) {
+void CSACvtCFDFPass::PatchCFGLeaksFromPickTree(unsigned phiDst, MachineBasicBlock *phiHome) {
   CombineDuplicatePickTreeInput();
 
-  MachineBasicBlock *phiHome = nullptr;
   SmallVector<unsigned, 4> landOpnds;
   SmallVector<unsigned, 4> orOpnds;
   for (DenseMap<MachineInstr *, MachineBasicBlock *>::iterator itmp =
@@ -2314,9 +2332,7 @@ void CSACvtCFDFPass::PatchCFGLeaksFromPcikTree(unsigned phiDst) {
     ControlDependenceNode::EdgeType childType = pickIGNInd == 2
                                                   ? ControlDependenceNode::FALSE
                                                   : ControlDependenceNode::TRUE;
-    phiHome = phiHome ? phiHome : pickInstr->getParent();
     // all pick instructions in the pick tree are all in phi's home block
-    assert(phiHome == pickInstr->getParent());
     MachineBasicBlock *ctrlBB = itmp->getSecond();
     // start building land from ctrlBB and its child
     unsigned ec = pickInstr->getOperand(1).getReg();
@@ -2346,8 +2362,8 @@ void CSACvtCFDFPass::PatchCFGLeaksFromPcikTree(unsigned phiDst) {
     orOpnds.push_back(landSeq);
   }
 
-  // find non IGN in multiInputsPick tree
-  if (!phiHome)
+  // If we do not have any leaks, do nothing.
+  if (orOpnds.empty())
     return;
 
   unsigned orSeq = generateOrSeq(orOpnds, phiHome);

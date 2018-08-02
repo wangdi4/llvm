@@ -49,18 +49,6 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
   MachineInstr *insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB);
   MachineInstr *getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgBB);
-  MachineInstr *insertPICKForReg(MachineBasicBlock *ctrlBB, unsigned Reg,
-                                 MachineBasicBlock *inBB, MachineInstr *phi,
-                                 unsigned pickReg = 0);
-  void assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickTrueReg,
-                           unsigned Reg, MachineBasicBlock *ctrlBB,
-                           MachineBasicBlock *inBB, MachineInstr *phi);
-  // generate a PICK for SSA value dst at fork of ctrlBB with source input Reg
-  // from inBB, and output in pickReg
-  MachineInstr *PatchOrInsertPickAtFork(MachineBasicBlock *ctrlBB, unsigned dst,
-                                        unsigned Reg, MachineBasicBlock *inBB,
-                                        MachineInstr *phi,
-                                        unsigned pickReg = 0);
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineLoopInfo>();
     AU.addRequired<ControlDependenceGraph>();
@@ -109,9 +97,6 @@ public:
                                 const SmallVector<MachineOperand *, 4> vals,
                                 SmallVector<MachineInstr *, 4> *created = nullptr,
                                 unsigned unusedReg = CSA::IGN);
-  void generateCompletePickTreeForPhi(MachineBasicBlock *);
-  void CombineDuplicatePickTreeInput();
-  void PatchCFGLeaksFromPcikTree(unsigned phiDst);
   unsigned findLoopExitCondition(MachineLoop* mloop);
   unsigned generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
                            MachineBasicBlock *mbb, MachineInstr *MI = nullptr);
@@ -140,19 +125,12 @@ public:
                                   std::list<MachineBasicBlock *> &path);
   unsigned computeBBPred(MachineBasicBlock *inBB,
                          std::list<MachineBasicBlock *> &path);
-  void TraceCtrl(MachineBasicBlock *inBB, MachineBasicBlock *mbb, unsigned Reg,
-                 unsigned dst, unsigned src, MachineInstr *MI);
-  void TraceThroughPhi(MachineInstr *iphi, MachineBasicBlock *mbb,
-                       unsigned dst);
-  void TraceLeak(MachineBasicBlock *ctrlBB, MachineBasicBlock *mbb,
-                 SmallVectorImpl<unsigned> &landOpnds);
   void CombineDuplicatePhiInputs(
     SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values,
     MachineInstr *iPhi);
   void LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values,
                  MachineInstr *MI);
   bool CheckPhiInputBB(MachineBasicBlock *inBB, MachineBasicBlock *mbb);
-  void replaceIfFooterPhiSeq();
   void assignLicForDF();
   void createFIEntryDefs();
   void removeBranch();
@@ -165,6 +143,99 @@ public:
   bool hasAllConstantInputs(MachineInstr *);
   void releaseMemory() override;
   bool replaceUndefWithIgn();
+
+private:
+  /// \defgroup Structured phi generation
+  /// This set of functions implements the generation of picks for structured
+  /// code. The general overview of how this code works is documented elsewhere.
+  ///
+  /// These functions build up multiInputsPick for a single PHI statement at
+  /// the end. This PHI is generally referred to as FinalPhi, its containing
+  /// basic block FinalPhiMBB, and its output FinalDestReg when used as
+  /// parameters in this name. When traversing PHIs, if one the parameters is
+  /// itself a PHI, we trace them recursively. As parameters, this PHI is
+  /// referred to as Phi, the operand of which we are looking at is called
+  /// PhiSrcReg and its corresponding basic block the PhiSrcMBB.
+  /// @{
+
+  /// Replace phis with PICKs for all non-loop-related phi instructions.
+  void replaceIfFooterPhiSeq();
+
+  /// Converts all of the PHI instructions in the MachineBasicBlock into PICK
+  /// instructions, for structured phi generation.
+  void generateCompletePickTreeForPhi(MachineBasicBlock *);
+
+  /// Trace the phi instruction to build the pick tree for the computation of
+  /// FinalDestReg. The phi instruction is not necessarily the one generating
+  /// the final register.
+  void TraceThroughPhi(MachineInstr *Phi, MachineBasicBlock *FinalPhiMBB,
+                       unsigned FinalDestReg);
+
+  /// Recurse through the control-dependent predecessors of the source block
+  /// until we get to the dominator of the final phi, and build an inverse tree
+  /// of picks along the way.
+  void TraceCtrl(MachineBasicBlock *SourceMBB,
+                 MachineBasicBlock *FinalPhiMBB,
+                 unsigned PickOperandReg,
+                 unsigned FinalDestReg,
+                 unsigned PhiSrcReg,
+                 MachineInstr *Phi);
+
+  /// Create a PICK for the FinalDestReg that uses the switched control value
+  /// from ForkingBB.
+  ///
+  /// This will insert an instruction (or replace the %ign with a real value
+  /// for an existing instruction) of the form
+  /// PickReg = PICK ForkingBB.SwitchCtl, PhiSrcReg, %ign
+  ///
+  /// If PickReg is 0, generate a new register for the result of the PICK. This
+  /// probably means that you intend to use it immediately in a subsequent
+  /// PICK.
+  MachineInstr *PatchOrInsertPickAtFork(MachineBasicBlock *ForkingBB,
+                                        unsigned FinalDestReg,
+                                        unsigned PhiSrcReg,
+                                        MachineBasicBlock *PhiSrcBB,
+                                        MachineInstr *Phi,
+                                        unsigned PickReg = 0);
+
+  /// Create a partial PICK instruction (the other operand is set to %ign) for
+  /// the register Reg when coming from ctrlBB to inBB. If ResultReg is 0,
+  /// create a new register to save the result.
+  MachineInstr *insertPICKForReg(MachineBasicBlock *ctrlBB, unsigned Reg,
+                                 MachineBasicBlock *inBB, MachineInstr *phi,
+                                 unsigned ResultReg = 0);
+
+  /// Assign Reg to PickFalseReg or PickTrueReg, and %ign to the other edge,
+  /// based on whether or not the ctrlBB->inBB edge is the true or false edge.
+  /// If ctrlBB == inBB, use the direction of the control dependence from ctrlBB
+  /// to phi's parent block.
+  void assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickTrueReg,
+                           unsigned Reg, MachineBasicBlock *ctrlBB,
+                           MachineBasicBlock *inBB, MachineInstr *phi);
+
+  /// Find instances where the same value is used in multiple places in the
+  /// PICK tree that replaces the current phi, and insert switches to send the
+  /// value to the appropriate target.
+  void CombineDuplicatePickTreeInput();
+
+  /// Handle the PICK tree for cases where the basic block might not run
+  /// because it does not postdominate its immediate dominator. These show up
+  /// as %ign values in the PICK tree.
+  void PatchCFGLeaksFromPickTree(unsigned phiDst, MachineBasicBlock *phiHome);
+
+  /// Build a list of operands that indicate the control dependence triggers
+  /// from ctrlBB to the dominator of mbb.
+  void TraceLeak(MachineBasicBlock *ctrlBB, MachineBasicBlock *mbb,
+                 SmallVectorImpl<unsigned> &landOpnds);
+
+  /// This maps generated PICKs to the basic block whose switch they mirror.
+  /// Structured phi conversion handles one PHI at a time, but that PHI may
+  /// require multiple PICKs to be generated as a pick tree.
+  /// Since operands are traced one at a time, some of the PICKs in this map
+  /// may have some of their inputs mapped to %IGN, as we have yet to trace the
+  /// operands to join them.
+  DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
+  /// @}
 
 private:
   MachineFunction *thisMF;
@@ -188,7 +259,6 @@ private:
   DenseMap<MachineBasicBlock *, unsigned> bbpreds;
   DenseMap<MachineBasicBlock *, MachineInstr *> bb2predmerge;
   DenseMap<MachineBasicBlock *, unsigned> bb2rpo;
-  DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
   std::set<MachineBasicBlock *> dcgBBs;
 
   /// Assign a name to the LIC.

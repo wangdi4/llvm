@@ -10,6 +10,8 @@ CSA
 .. toctree::
    :hidden:
 
+   DataflowConversion
+
 Introduction
 ============
 
@@ -35,8 +37,9 @@ general compilation flow:
 - CSA Memory Operation Ordering (CSAMemopOrdering) - Inserts ordering edges
   between memory operations as needed to enforce memory ordering constraints in
   the original program.
-- CSA Dataflow Conversion (CSACvtCFDFPass) - Converts the code from SSA form
-  into dataflow by converting branches/phis into picks and switches.
+- :doc:`CSA Dataflow Conversion (CSACvtCFDFPass) <DataflowConversion>` -
+  Converts the code from SSA form into dataflow by converting branches/phis
+  into picks and switches.
 - CSA Dataflow Optimizations:
 
   - CSAOptDFPass - Optimizes dataflow loops using CSA sequence instructions.
@@ -99,4 +102,5 @@ Topics
 
 The following is a full list of CSA compilation topics documented here:
 
-[ TODO: Nothing documented yet - add pages as they are available. ]
+- :doc:`Dataflow conversion <DataflowConversion>` - The dataflow conversion pass
+  of CSA.
