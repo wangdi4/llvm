@@ -3174,7 +3174,8 @@ unsigned HIRParser::getNumRvalOperands(const Instruction *Inst) {
     // GEP is represented as an assignment of address: %t = &A[i];
     NumOp = 1;
   } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
-    NumOp = CInst->getNumArgOperands();
+    // Subtract 1 for the function itself.
+    NumOp = CInst->getNumOperands() - 1;
   } else {
     NumOp = Inst->getNumOperands();
 
@@ -3330,6 +3331,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     return;
   }
 
+  unsigned NumArgOperands = Call ? Call->getNumArgOperands() : 0;
   // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
 
@@ -3352,18 +3354,21 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     auto OpNum = HasLval ? (isa<SelectInst>(Inst) ? (I + 2) : (I + 1)) : I;
 
     HInst->setOperandDDRef(Ref, OpNum);
+    bool IsBundleOperand = (I >= NumArgOperands);
 
     if (FakeDDRefsRequired && Ref->isAddressOf() &&
         !Ref->accessesConstantArray() &&
-        !Call->paramHasAttr(I, Attribute::ReadNone)) {
+        // Add fake DDRefs for bundle operands.
+        (IsBundleOperand || !Call->paramHasAttr(I, Attribute::ReadNone))) {
       addFakeRef(HInst, Ref,
-                 (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly)));
+                 (!IsBundleOperand &&
+                  (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly))));
     }
   }
 
   // For indirect calls, set the function pointer as the last operand.
   if (Call && !Call->getCalledFunction()) {
-    RegDDRef *Ref = createRvalDDRef(Call, Call->getNumOperands() - 1, Level);
+    RegDDRef *Ref = createRvalDDRef(Call, NumRvalOp, Level);
     HInst->setOperandDDRef(Ref, NumRvalOp + HasLval);
   }
 

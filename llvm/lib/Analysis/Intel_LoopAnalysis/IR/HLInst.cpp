@@ -193,7 +193,6 @@ void HLInst::printEndOpcode(formatted_raw_ostream &OS) const {
 void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
-  unsigned Count = 0;
   bool HasSeparator = checkSeparator(OS, false);
 
   indent(OS, Depth);
@@ -204,6 +203,11 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     return;
   }
 
+  bool HasLval = hasLval();
+
+  unsigned Count = 0;
+  unsigned NumNonBundleOperands = getNumNonBundleOperands();
+  auto OpIt = op_ddref_begin();
   auto E = op_ddref_end();
 
   // Do not print function pointer value of an indirect call as an argument.
@@ -211,14 +215,15 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     --E;
   }
 
-  for (auto I = op_ddref_begin(); I != E; ++I, ++Count) {
-    if ((Count > 1) || (!hasLval() && (Count > 0))) {
+  for (; Count < NumNonBundleOperands; ++OpIt, ++Count) {
+
+    if ((Count > 1) || (!HasLval && (Count > 0))) {
       checkSeparator(OS, true);
     }
 
     if (Count == 0) {
-      if (hasLval()) {
-        *I ? (*I)->print(OS, false) : (void)(OS << *I);
+      if (HasLval) {
+        *OpIt ? (*OpIt)->print(OS, false) : (void)(OS << *OpIt);
 
         OS << " = ";
         printBeginOpcode(OS, HasSeparator);
@@ -226,10 +231,10 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
       } else {
         printBeginOpcode(OS, HasSeparator);
 
-        *I ? (*I)->print(OS, false) : (void)(OS << *I);
+        *OpIt ? (*OpIt)->print(OS, false) : (void)(OS << *OpIt);
       }
     } else {
-      *I ? (*I)->print(OS, false) : (void)(OS << *I);
+      *OpIt ? (*OpIt)->print(OS, false) : (void)(OS << *OpIt);
 
       if (isa<SelectInst>(Inst)) {
         if (Count == 1) {
@@ -251,6 +256,32 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
   printEndOpcode(OS);
 
   OS << ";";
+
+  unsigned NumOperandBundles = getNumOperandBundles();
+
+  if (NumOperandBundles > 0) {
+    OS << " [ ";
+
+    for (unsigned Count = 0; Count < NumOperandBundles; ++Count) {
+      if (Count != 0) {
+        checkSeparator(OS, true);
+      }
+
+      OperandBundleUse OB = getOperandBundleAt(Count);
+      OS << OB.getTagName() << "(";
+
+      for (unsigned I = 0, NumOperands = OB.Inputs.size(); I < NumOperands;
+           ++I, ++OpIt) {
+        *OpIt ? (*OpIt)->print(OS, false) : (void)(OS << *OpIt);
+      }
+
+      OS << ")";
+    }
+
+    OS << " ] ";
+  }
+
+  assert((OpIt == E) && "We missed printing HLInst operand(s)!");
 
   if (MaskDDRef) {
     OS << " Mask = @{";
@@ -333,7 +364,9 @@ unsigned HLInst::getNumOperandsInternal() const {
     // GEP is represented as an assignment of address: %t = &A[i];
     NumOp = 1;
   } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
-    NumOp = CInst->getNumArgOperands();
+    // Last operand of call is the function itself. We only count it for
+    // indirect calls.
+    NumOp = CInst->getNumOperands() - 1;
     // For indirect calls, we add function pointer as an operand.
     if (!CInst->getCalledFunction()) {
       ++NumOp;
@@ -352,6 +385,18 @@ unsigned HLInst::getNumOperandsInternal() const {
   }
 
   return NumOp;
+}
+
+HLDDNode::ddref_iterator HLInst::bundle_op_ddref_begin(unsigned BundleNum) {
+  assert(BundleNum < getNumOperandBundles() && "Invalid BundleNum!");
+
+  unsigned BundleOperandCount = 0;
+
+  for (unsigned I = 0; I < BundleNum; ++I) {
+    BundleOperandCount += getNumBundleOperands(I);
+  }
+
+  return op_ddref_begin() + getNumNonBundleOperands() + BundleOperandCount;
 }
 
 bool HLInst::isInPreheaderPostexitImpl(bool Preheader) const {
