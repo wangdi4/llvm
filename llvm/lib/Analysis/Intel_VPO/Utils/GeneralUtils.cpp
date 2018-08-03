@@ -25,7 +25,9 @@ using namespace llvm::vpo;
 bool VPOAnalysisUtils::isCallOfName(Instruction *I, StringRef Name) {
   CallInst *Call = dyn_cast<CallInst>(I);
   if (Call) {
-    StringRef FuncName = Call->getCalledFunction()->getName();
+    Function *Func = Call->getCalledFunction();
+    assert(Func && "Null called function.");
+    StringRef FuncName = Func->getName();
     if (FuncName.equals(Name))
       return true;
   }

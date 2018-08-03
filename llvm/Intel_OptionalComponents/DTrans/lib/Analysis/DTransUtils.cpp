@@ -219,7 +219,7 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
 
   // If the size is zero, always return false.
   //
-  // In practice, this can happen with zero-size arrays, which could be handled
+  // In practice, this can happen with zero-sized arrays, which could be handled
   // differently. For instance, if an allocated pointer is cast as a
   // [0 x <type>]* array, we could possibly handle this case by checking that
   // the allocation size is a multiple of the size of <type> but the
@@ -364,7 +364,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
       dtrans::MismatchedArgUse | dtrans::GlobalArray | dtrans::HasVTable |
-      dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::UnhandledUse;
+      dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
+      dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -382,7 +383,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
            dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::MismatchedArgUse ^
            dtrans::GlobalArray ^ dtrans::HasVTable ^ dtrans::HasFnPtr ^
-           dtrans::HasCppHandling ^ dtrans::UnhandledUse),
+           dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
+           dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -443,6 +445,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Has function ptr");
   if (SafetyInfo & dtrans::HasCppHandling)
     SafetyIssues.push_back("Has C++ handling");
+  if (SafetyInfo & dtrans::HasZeroSizedArray)
+    SafetyIssues.push_back("Has zero-sized array");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
@@ -732,3 +736,30 @@ StringRef dtrans::getStructName(llvm::Type *Ty) {
   return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
 }
 
+// Check if the last field in the struct type \p Ty is zero-sized array or the
+// type is zero-sized array itself.
+bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
+  // Return true if it is an array with zero elements.
+  if (auto *ArrayTy = dyn_cast<llvm::ArrayType>(Ty)) {
+    if (ArrayTy->getArrayNumElements() == 0)
+      return true;
+  }
+
+  if (auto *StructTy = dyn_cast<llvm::StructType>(Ty)) {
+    // Return false if it is an empty structure.
+    if (StructTy->getNumElements() == 0)
+      return false;
+    // Return true if it is a structure which last field is a zero-sized array.
+    if (auto *FinalFieldTy =
+            StructTy->getElementType(StructTy->getNumElements() - 1))
+      if (auto *ArrayTy = dyn_cast<llvm::ArrayType>(FinalFieldTy))
+        if (ArrayTy->getArrayNumElements() == 0)
+          return true;
+  }
+
+  // If it is a pointer type - check the pointer element type.
+  if (auto *PointerTy = dyn_cast<llvm::PointerType>(Ty))
+    return hasZeroSizedArrayAsLastField(PointerTy->getPointerElementType());
+
+  return false;
+}

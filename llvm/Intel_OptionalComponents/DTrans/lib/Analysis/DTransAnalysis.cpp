@@ -4351,6 +4351,13 @@ private:
     // I think opaque structures will report having zero fields.
     assert(!Ty->isOpaque());
 
+    // Check if the structure has zero-sized array in the last field.
+    if (dtrans::hasZeroSizedArrayAsLastField(Ty)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Type has zero-sized array: "
+                        << "  " << *Ty << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::HasZeroSizedArray);
+    }
+
     // It isn't clear to me under what circumstances a type will be reported
     // as unsized, but if one is we definitely can't do anything with it.
     if (!Ty->isSized()) {
@@ -4983,10 +4990,113 @@ private:
         return;
     }
 
+    // If allocation size is not constant we can try tracing it back to the
+    // constant
+    uint64_t Res;
+    if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
+        traceNonConstantValue(Ty, AllocSizeVal, ElementSize))
+      return;
+
     // Otherwise, we must assume the size arguments are not acceptable.
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
                       << "  " << *CS.getInstruction() << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
+  }
+
+  // Trace back instruction sequence corresponding to the following code:
+  //     foo (..., int n, ...) {
+  //         struct s *s_ptr = malloc(c1 + c2 * n);
+  //     }
+  // Returns false if it cannot trace \p InVal back to constants and calculate
+  // the size.
+  bool traceNonConstantValue(llvm::PointerType *Ty, Value *InVal,
+                             uint64_t ElementSize) {
+    if (!InVal)
+      return false;
+
+    Value *AddOp, *ShlOp;
+    ConstantInt *AddC, *ShlC = nullptr, *MulC = nullptr;
+
+    // Match alloc size with the add with the constant operand.
+    if (!match(InVal, m_OneUse(m_Add(m_ConstantInt(AddC), m_Value(AddOp)))) &&
+        !match(InVal, m_OneUse(m_Add(m_Value(AddOp), m_ConstantInt(AddC)))))
+      return false;
+
+    // Second add operand with the shl or mul with the constant operand.
+    if (!match(AddOp, m_Shl(m_Value(ShlOp), m_ConstantInt(ShlC))) &&
+        !match(AddOp, m_Mul(m_Value(ShlOp), m_ConstantInt(MulC))) &&
+        !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(ShlOp))))
+      return false;
+
+    // Second operand of the shl or mul expected to be function argument.
+    Argument *FormalArg = dyn_cast<Argument>(ShlOp);
+    if (!FormalArg)
+      return false;
+
+    // Now we need to look into each call site and find all constant values
+    // for the corresponding argument. If not all actual arguments are constant,
+    // return false.
+    Function *Callee = FormalArg->getParent();
+    unsigned FormalArgNo = FormalArg->getArgNo();
+
+    SmallVector<ConstantInt *, 8> ActualArgs;
+    if (!findAllArgValues(Callee, Callee, FormalArgNo, ActualArgs))
+      return false;
+
+    // Check if the structure has zero-sized array in the last field. It means
+    // that allocation size could be greater or equal to the structure size.
+    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty->getElementType());
+    bool HasZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
+
+    // Now iterate through all constants to verify that the allocation size was
+    // correct.
+    bool Verified = true;
+    for (auto *Const : ActualArgs) {
+      uint64_t ArgConst = Const->getLimitedValue();
+      uint64_t Res = ShlC ? (ArgConst << ShlC->getLimitedValue())
+                          : (ArgConst * MulC->getLimitedValue());
+      Res += AddC->getLimitedValue();
+
+      if (!HasZeroSizedArray)
+        Verified &= ((Res % ElementSize) == 0);
+      else
+        Verified &= (Res > ElementSize);
+    }
+
+    return Verified;
+  }
+
+  // Trace call sites to collect all constant actual parameters corresponding to
+  // \p FormalArgNo.
+  bool findAllArgValues(Function *F, Value *V, unsigned FormalArgNo,
+                        SmallVector<ConstantInt *, 8> &ActualArgs) {
+    for (Use &U : V->uses()) {
+      Value *Inst = U.getUser();
+      // In case of function cast operator do one more step.
+      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Inst)) {
+        if (!findAllArgValues(F, BC, FormalArgNo, ActualArgs))
+          return false;
+        continue;
+      }
+
+      CallSite CS(Inst);
+      // Must be a direct call.
+      if (CS.getInstruction() == nullptr)
+        return false;
+      // A called function should be F.
+      if (!CS.isCallee(&U))
+        if (U->stripPointerCasts() != F)
+          return false;
+
+      ConstantInt *ArgC =
+          dyn_cast_or_null<ConstantInt>(CS.getArgument(FormalArgNo));
+      if (!ArgC)
+        return false;
+
+      ActualArgs.push_back(ArgC);
+    }
+
+    return true;
   }
 
   // Mark fields designated by \p Info pointer and the memory \p Size to have
@@ -6124,6 +6234,7 @@ private:
     // We can add additional cases here to reduce the conservative behavior
     // as needs dictate.
     case dtrans::FieldAddressTaken:
+    case dtrans::HasZeroSizedArray:
       return false;
     }
     return true;
