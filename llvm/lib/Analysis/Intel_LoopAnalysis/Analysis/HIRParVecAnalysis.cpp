@@ -388,7 +388,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     }
   }
 
-  if (SrcRef && SrcRef->isTerminalRef() &&
+  if (SrcRef->isTerminalRef() &&
       !CandidateLoop->isLiveIn(SrcRef->getSymbase())) {
     LLVM_DEBUG(dbgs() << "\tis safe to vectorize/parallelize (private)\n");
     return;

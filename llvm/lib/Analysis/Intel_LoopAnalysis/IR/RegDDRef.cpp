@@ -334,8 +334,9 @@ Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
                            : RetTy->getArrayElementType();
 
     if (RetTy->isStructTy()) {
-      auto Offsets = getTrailingStructOffsets(I);
-      RetTy = DDRefUtils::getOffsetType(RetTy, *Offsets);
+      if (auto *Offsets = getTrailingStructOffsets(I)) {
+        RetTy = DDRefUtils::getOffsetType(RetTy, *Offsets);
+      }
     }
   }
 

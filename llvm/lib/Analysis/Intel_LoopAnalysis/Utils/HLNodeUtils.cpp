@@ -3628,16 +3628,16 @@ const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
   // 2) Once the levels are equal, we move up the chain for both loops
   // simultaneously until we discover the common parent.
 
-  while (Lp1 && (Lp1->getNestingLevel() > Lp2->getNestingLevel())) {
+  while (Lp1->getNestingLevel() > Lp2->getNestingLevel()) {
     Lp1 = Lp1->getParentLoop();
   }
 
-  while (Lp2 && (Lp2->getNestingLevel() > Lp1->getNestingLevel())) {
+  while (Lp2->getNestingLevel() > Lp1->getNestingLevel()) {
     Lp2 = Lp2->getParentLoop();
   }
 
   // Both loops have the same nesting level, so move up simultaneously.
-  while (Lp1 && Lp2) {
+  while (Lp1) {
     if (Lp1 == Lp2) {
       return Lp1;
     }
