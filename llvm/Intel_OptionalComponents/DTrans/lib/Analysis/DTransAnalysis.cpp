@@ -7158,6 +7158,8 @@ DTransAnalysisInfo::getInfoFromLoad(LoadInst *Load) {
 bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     llvm::Value *FP, std::vector<llvm::Value *> &Targets, llvm::CallSite,
     bool) {
+  // TODO: add a support for PHI instruction with function pointer type.
+
   Targets.clear();
   LLVM_DEBUG({
     dbgs() << "FSV ICS: Analyzing";
@@ -7167,7 +7169,7 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
   std::pair<dtrans::StructInfo *, uint64_t> Res = getInfoFromLoad(LI);
   if (!Res.first) {
     LLVM_DEBUG(dbgs() << "FSV ICS: INCOMPLETE\n"
-                      << "Load " << *LI << "\n"
+                      << "Inst " << *FP << "\n"
                       << "Target List is NULL\n");
     return false;
   }
