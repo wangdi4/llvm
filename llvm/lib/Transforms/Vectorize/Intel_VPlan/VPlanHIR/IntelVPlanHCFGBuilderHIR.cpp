@@ -50,6 +50,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanHCFGBuilderHIR.h"
+#include "IntelVPLoopRegionHIR.h"
 #include "IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"

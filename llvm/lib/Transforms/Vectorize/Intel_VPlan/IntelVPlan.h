@@ -2292,29 +2292,6 @@ public:
   }
 };
 
-class VPLoopRegionHIR : public VPLoopRegion {
-  friend class VPDecomposerHIR;
-  friend class VPLoopAnalysisHIR;
-  friend class VPlanUtils;
-  friend class VPlanVerifierHIR;
-  friend class VPlanHCFGBuilderHIR;
-
-private:
-  // Pointer to the underlying HLLoop.
-  loopopt::HLLoop *HLLp;
-
-  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, loopopt::HLLoop *HLLp)
-      : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
-
-  const loopopt::HLLoop *getHLLoop() const { return HLLp; }
-  loopopt::HLLoop *getHLLoop() { return HLLp; }
-
-public:
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPBlockBase *B) {
-    return B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
-  }
-};
 #endif
 
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
