@@ -98,6 +98,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
   // Update dom information
 
   VPDomTreeNode *BlockDT = DomTree.getNode(Block);
+  assert(BlockDT && "Expected node in dom tree!");
   SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
                                                   BlockDT->end());
   // Block is NewBlock's idom.
@@ -127,6 +128,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
   }
 
   VPDomTreeNode *BlockPDT = PostDomTree.getNode(Block);
+  assert(BlockPDT && "Expected node in post-dom tree!");
 
   // TODO: remove getBlock?
   if (BlockPDT->getIDom()->getBlock() == NewBlockPDT->getIDom()->getBlock()) {

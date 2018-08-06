@@ -683,8 +683,9 @@ void VPlanPredicator::predicate(void) {
   // TODO: We should have a better way to do this. A pointer in VPlan, for
   // example.
   assert(VPLI->size() == 1 && "more than 1 loop?");
-  VPLoopRegion *EntryLoopR =
-      cast<VPLoopRegion>((*VPLI->begin())->getLoopPreheader()->getParent());
+  VPBlockBase *PH = (*VPLI->begin())->getLoopPreheader();
+  assert(PH && "Unexpected null pre-header!");
+  VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
 
   // The plan's entry loop region must have no predicate (all-ones).
   assert(!EntryLoopR->getPredicateRecipe() &&
