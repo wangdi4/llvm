@@ -960,6 +960,24 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       });
     }
 
+  for (auto *F: StructMethods) {
+    DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
+
+    std::function<bool(const Function *)> IsMethod =
+        [F](const Function *F1) -> bool {
+      return F == F1;
+    };
+
+    DC.computeDepApproximation(IsMethod);
+
+    DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+      dbgs() << "; Dump computed dependencies ";
+
+      DepMap::DepAnnotatedWriter Annotate(*this);
+      F->print(dbgs(), &Annotate);
+    });
+  }
+
   // Direct map from MK to set of methods.
   Classifications.assign(getNumArrays(),
                          ClassifyMethodsTy(MK_Last + 1, MethodKindSetTy()));
@@ -1179,7 +1197,7 @@ SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethod(
 
   for (auto &BB : *S.Method)
     for (auto &I : BB) {
-      if (dep_iterator::isSupportedOpcode(I.getOpcode()))
+      if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode()))
         continue;
 
       auto It = ValDependencies.find(&I);

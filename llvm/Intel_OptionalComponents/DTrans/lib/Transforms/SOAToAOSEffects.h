@@ -50,7 +50,7 @@ public:
 //
 // 1. De-referencing returns Value&;
 // 2. Only Instruction and Argument are processed.
-template <typename OpIterTy, typename ValueTy>
+template <typename OpIterTy, typename ValueTy, bool AllInstructions>
 class value_op_iterator
     : public filter_iterator_with_check<
           OpIterTy, std::function<bool(
@@ -71,20 +71,32 @@ public:
   reference operator*() const { return *OpFilterIterTy::operator*().get(); }
   pointer operator->() const { return &operator*(); }
 
+  // TODO: separate into 'trait'-like structure.
   static inline bool isSupportedOpcode(unsigned OpCode) {
+    if (AllInstructions)
+      return true;
+    // FIXME: FP exception handling.
     switch (OpCode) {
     case Instruction::Add:
+    case Instruction::And:
     case Instruction::BitCast:
     case Instruction::ExtractValue:
     case Instruction::FMul:
     case Instruction::FPToUI:
+    case Instruction::FPToSI:
     case Instruction::GetElementPtr:
     case Instruction::ICmp:
+    case Instruction::InsertValue:
+    case Instruction::IntToPtr:
+    case Instruction::LShr:
     case Instruction::Mul:
     case Instruction::PHI:
+    case Instruction::PtrToInt:
     case Instruction::SExt:
     case Instruction::Select:
     case Instruction::Shl:
+    case Instruction::SIToFP:
+    case Instruction::Sub:
     case Instruction::Trunc:
     case Instruction::UIToFP:
     case Instruction::ZExt:
@@ -110,43 +122,27 @@ private:
 
     OpIterTy Begin, End;
 
-    switch (Inst->getOpcode()) {
-    // Computations.
-    // FIXME: FP exception handling.
-    case Instruction::Add:
-    case Instruction::BitCast:
-    case Instruction::ExtractValue:
-    case Instruction::FMul:
-    case Instruction::FPToUI:
-    case Instruction::GetElementPtr:
-    case Instruction::ICmp:
-    case Instruction::Mul:
-    case Instruction::PHI:
-    case Instruction::SExt:
-    case Instruction::Select:
-    case Instruction::Shl:
-    case Instruction::Trunc:
-    case Instruction::UIToFP:
-    case Instruction::ZExt:
-      Begin = Inst->op_begin();
-      End = Inst->op_end();
-      break;
-    default:
+    if (!isSupportedOpcode(Inst->getOpcode()))
       return mkDefault();
-    }
-    return OpFilterIterTy(
-        (EndOfRange ? End : Begin), End, [](OpRefTy Use) -> bool {
-          return !isa<Constant>(Use.get());
-        });
+
+    End = Inst->op_end();
+    Begin = EndOfRange ? End : Inst->op_begin();
+    return OpFilterIterTy(Begin, End, [](OpRefTy Use) -> bool {
+      // BasicBlock check is needed when AllInstructions is true.
+      return !isa<Constant>(Use.get()) &&
+             (!AllInstructions || !isa<BasicBlock>(Use.get()));
+    });
   }
   static inline OpFilterIterTy mkDefault() {
     return OpFilterIterTy(OpIterTy(), OpIterTy(),
                           [](OpRefTy Use) -> bool { return false; });
   }
 };
-// There are only 2 instances of the template above.
-template class value_op_iterator<User::op_iterator, Value>;
-template class value_op_iterator<User::const_op_iterator, const Value>;
+// There are only 4 instances of the template above.
+template class value_op_iterator<User::op_iterator, Value, false>;
+template class value_op_iterator<User::const_op_iterator, const Value, false>;
+template class value_op_iterator<User::op_iterator, Value, true>;
+template class value_op_iterator<User::const_op_iterator, const Value, true>;
 
 // Returns Value* instead of Value& from operator*().
 // operator->() is hidden.
@@ -188,50 +184,98 @@ public:
   ptr_iter(value_type ValPtr, bool EndOfRange)
       : BaseTy(IterTy(*ValPtr, EndOfRange)) {}
 };
-// There are only 2 instances of the template above.
-template class ptr_iter<value_op_iterator<User::op_iterator, Value>>;
+// There are only 4 instances of the template above.
+template class ptr_iter<value_op_iterator<User::op_iterator, Value, false>>;
 template class ptr_iter<
-    value_op_iterator<User::const_op_iterator, const Value>>;
+    value_op_iterator<User::const_op_iterator, const Value, false>>;
+template class ptr_iter<value_op_iterator<User::op_iterator, Value, true>>;
+template class ptr_iter<
+    value_op_iterator<User::const_op_iterator, const Value, true>>;
 
-using dep_iterator = ptr_iter<value_op_iterator<User::op_iterator, Value>>;
-using const_dep_iterator =
-    ptr_iter<value_op_iterator<User::const_op_iterator, const Value>>;
+using arith_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::op_iterator, Value, false>>;
+using const_arith_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value, false>>;
 
-// Specialization to use *dep_iterator.
-template <typename ValuePtrTy> struct DCFGraph {
+using all_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::op_iterator, Value, true>>;
+using const_all_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value, true>>;
+
+// Specialization to use *arith_inst_dep_iterator.
+template <typename ValuePtrTy> struct ArithDepGraph {
   ValuePtrTy ValuePtr;
-  DCFGraph(ValuePtrTy V) : ValuePtr(V) {}
+  ArithDepGraph(ValuePtrTy V) : ValuePtr(V) {}
+};
+
+// Specialization to use *all_inst_dep_iterator.
+template <typename ValuePtrTy> struct AllDepGraph {
+  ValuePtrTy ValuePtr;
+  AllDepGraph(ValuePtrTy V) : ValuePtr(V) {}
 };
 } // namespace
 
 // GraphTraits to compute closures using scc_iterator
-// and children enumeration using dep_iterator.
+// and children enumeration using arith_inst_dep_iterator and
+// all_inst_dep_iterator.
 namespace llvm {
-template <> struct GraphTraits<DCFGraph<Value *>> {
+template <> struct GraphTraits<ArithDepGraph<Value *>> {
   using NodeRef = Value *;
-  using ChildIteratorType = dep_iterator;
+  using ChildIteratorType = arith_inst_dep_iterator;
 
-  static inline NodeRef getEntryNode(DCFGraph<Value *> G) { return G.ValuePtr; }
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return dep_iterator::begin(N);
-  }
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return dep_iterator::end(N);
-  }
-};
-
-template <> struct GraphTraits<DCFGraph<const Value *>> {
-  using NodeRef = const Value *;
-  using ChildIteratorType = const_dep_iterator;
-
-  static inline NodeRef getEntryNode(DCFGraph<const Value *> G) {
+  static inline NodeRef getEntryNode(ArithDepGraph<Value *> G) {
     return G.ValuePtr;
   }
   static inline ChildIteratorType child_begin(NodeRef N) {
-    return const_dep_iterator::begin(N);
+    return arith_inst_dep_iterator::begin(N);
   }
   static inline ChildIteratorType child_end(NodeRef N) {
-    return const_dep_iterator::end(N);
+    return arith_inst_dep_iterator::end(N);
+  }
+};
+
+template <> struct GraphTraits<ArithDepGraph<const Value *>> {
+  using NodeRef = const Value *;
+  using ChildIteratorType = const_arith_inst_dep_iterator;
+
+  static inline NodeRef getEntryNode(ArithDepGraph<const Value *> G) {
+    return G.ValuePtr;
+  }
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return const_arith_inst_dep_iterator::begin(N);
+  }
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return const_arith_inst_dep_iterator::end(N);
+  }
+};
+
+template <> struct GraphTraits<AllDepGraph<Value *>> {
+  using NodeRef = Value *;
+  using ChildIteratorType = all_inst_dep_iterator;
+
+  static inline NodeRef getEntryNode(AllDepGraph<Value *> G) {
+    return G.ValuePtr;
+  }
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return all_inst_dep_iterator::begin(N);
+  }
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return all_inst_dep_iterator::end(N);
+  }
+};
+
+template <> struct GraphTraits<AllDepGraph<const Value *>> {
+  using NodeRef = const Value *;
+  using ChildIteratorType = const_all_inst_dep_iterator;
+
+  static inline NodeRef getEntryNode(AllDepGraph<const Value *> G) {
+    return G.ValuePtr;
+  }
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return const_all_inst_dep_iterator::begin(N);
+  }
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return const_all_inst_dep_iterator::end(N);
   }
 };
 } // namespace llvm
@@ -241,9 +285,11 @@ template <typename DepIterTy, typename ContainerTy> class base_scc_iterator {
   // Not going to modify ContainerTy.
   using SCCIterTy = typename ContainerTy::const_iterator;
 
-  static_assert(std::is_same<DepIterTy, dep_iterator>::value ||
-                    std::is_same<DepIterTy, const_dep_iterator>::value,
-                "DepIterTy must be a dep_iterator or const_dep_iterator ");
+  static_assert(
+      std::is_same<DepIterTy, arith_inst_dep_iterator>::value ||
+          std::is_same<DepIterTy, const_arith_inst_dep_iterator>::value,
+      "DepIterTy must be a arith_inst_dep_iterator or "
+      "const_arith_inst_dep_iterator ");
   static_assert(
       std::is_base_of<
           std::forward_iterator_tag,
@@ -274,7 +320,7 @@ public:
     return std::move(retval);
   }
 
-  // We do not have operator->() due to dep_iterator.
+  // We do not have operator->() due to arith_inst_dep_iterator.
   reference operator*() const { return *DCFIt; }
 
   bool operator==(const base_scc_iterator &It) const {
@@ -337,13 +383,13 @@ private:
   }
 };
 
-using scc_dep_iterator =
-    base_scc_iterator<GraphTraits<DCFGraph<Value *>>::ChildIteratorType,
-                      scc_iterator<DCFGraph<Value *>>::value_type>;
+using scc_arith_inst_dep_iterator =
+    base_scc_iterator<GraphTraits<ArithDepGraph<Value *>>::ChildIteratorType,
+                      scc_iterator<ArithDepGraph<Value *>>::value_type>;
 
-using const_scc_dep_iterator =
-    base_scc_iterator<GraphTraits<DCFGraph<const Value *>>::ChildIteratorType,
-                      scc_iterator<DCFGraph<const Value *>>::value_type>;
+using const_scc_arith_inst_dep_iterator = base_scc_iterator<
+    GraphTraits<ArithDepGraph<const Value *>>::ChildIteratorType,
+    scc_iterator<ArithDepGraph<const Value *>>::value_type>;
 
 // The following class is owned by class DepManager.
 // It is declared at top level for DenseMapInfo specialization.
@@ -748,6 +794,38 @@ bool isSafeBitCast(const DataLayout &DL, const Value *V) {
   return true;
 }
 
+// It is analysis counter peephole transformation.
+// Check if inttoptr can be ignored, because
+//  it is obtained the following way:
+//    %ptr  = bitcast <type>** %0 to intptr_t*
+//    %ival = load %ptr
+//    %val  = inttoptr %ival to <type>*
+bool isSafeIntToPtr(const DataLayout &DL, const Value *V) {
+  auto *I2P = dyn_cast<IntToPtrInst>(V);
+  if (!I2P || I2P->getAddressSpace())
+    return false;
+
+  if (DL.getTypeStoreSize(I2P->getType()) !=
+      DL.getTypeStoreSize(I2P->getOperand(0)->getType()))
+    return false;
+
+  auto *L = dyn_cast<LoadInst>(I2P->getOperand(0));
+  if (!L)
+    return false;
+
+  auto *BC =
+      dyn_cast<BitCastInst>(L->getPointerOperand());
+  if (!BC)
+    return false;
+
+  auto *PtrType = dyn_cast<PointerType>(BC->getOperand(0)->getType());
+
+  if (!PtrType)
+    return false;
+
+  return V->getType() == PtrType->getPointerElementType();
+}
+
 // Class performing actual computations of Dep.
 // Suitable for analysis of methods (Method field) of
 // class (ClassType field).
@@ -777,7 +855,8 @@ class DepCompute {
     if (!isa<Instruction>(Val))
       return Dep::mkBottom(DM);
 
-    if (!dep_iterator::isSupportedOpcode(cast<Instruction>(Val)->getOpcode()))
+    if (!arith_inst_dep_iterator::isSupportedOpcode(
+            cast<Instruction>(Val)->getOpcode()))
       return Dep::mkBottom(DM);
 
     auto ClassTy = ClassType;
@@ -795,8 +874,8 @@ class DepCompute {
 
     const Dep *ValRep = nullptr;
     // Find closure for dependencies. SCC returned in post order.
-    for (auto SCCIt = scc_begin(DCFGraph<const Value *>(Val)); !SCCIt.isAtEnd();
-         ++SCCIt) {
+    for (auto SCCIt = scc_begin(ArithDepGraph<const Value *>(Val));
+         !SCCIt.isAtEnd(); ++SCCIt) {
 
       // Get first instruction in SCC.
       auto DIt = DM.ValDependencies.find(*SCCIt->begin());
@@ -808,12 +887,12 @@ class DepCompute {
                       }) &&
                "Incorrect SCC traversal");
         continue;
-      } else if (!dep_iterator::isSupportedOpcode(
+      } else if (!arith_inst_dep_iterator::isSupportedOpcode(
                      cast<Instruction>(*SCCIt->begin())->getOpcode()))
         return Dep::mkBottom(DM);
 
       Dep::Container Args;
-      for (auto *Inst : const_scc_dep_iterator::deps(*SCCIt)) {
+      for (auto *Inst : const_scc_arith_inst_dep_iterator::deps(*SCCIt)) {
         auto DIt = DM.ValDependencies.find(Inst);
         if (DIt == DM.ValDependencies.end()) {
           Args.clear();
@@ -831,7 +910,8 @@ class DepCompute {
       } else {
         unsigned FieldInd = IsFieldAccessGEP(*(*SCCIt).begin());
 
-        if (isSafeBitCast(DL, *(*SCCIt).begin()))
+        if (isSafeBitCast(DL, *(*SCCIt).begin()) ||
+            isSafeIntToPtr(DL, *(*SCCIt).begin()))
           ThisRep = Dep::mkArgList(DM, Args);
         else if (FieldInd != -1U && Args.size() != 0)
           ThisRep = Dep::mkGEP(DM, Dep::mkNonEmptyArgList(DM, Args), FieldInd);
@@ -870,110 +950,130 @@ public:
     assert(IsKnownCallCheck(Method) &&
            "Unexpected predicate passed to computeDepApproximation");
 
-    SmallVector<const BasicBlock *, 32> Returns;
-    SmallPtrSet<const BasicBlock *, 32> Visited;
+    SmallVector<const Instruction *, 32> Sinks;
+    // This set is needed, because there could be multiple traversals starting
+    // from different Sinks.
+    SmallPtrSet<const Value *, 32> Visited;
 
     for (auto &Arg : Method->args())
       DM.ValDependencies[&Arg] = Dep::mkArg(DM, &Arg);
 
     for (auto &BB : *Method)
-      if (BB.getTerminator()->getNumSuccessors() == 0)
-        Returns.push_back(&BB);
+      for (auto &I : BB)
+        if (I.hasNUses(0))
+            Sinks.push_back(&I);
 
-    for (auto *R : Returns)
-      for (auto SCCIt = scc_begin(Inverse<const BasicBlock *>(R));
-           !SCCIt.isAtEnd(); ++SCCIt)
-        for (auto *BB : *SCCIt) {
-          if (Visited.find(BB) != Visited.end())
+    for (auto *S : Sinks)
+      // SCCs are returned in post-order, for example, first instruction is
+      // processed first. Graph of SCC is a tree with multiple edges between 2
+      // SCC nodes.
+      //
+      // It is expected that there is no cyclic dependencies involving
+      // instructions processed in the switch below, for example,
+      // pointer-chasing is prohibited:
+      //  t = A[0]
+      //  for ()
+      //    t = A[t]
+      //
+      // Restriction is related to use of scc_arith_inst_dep_iterator in
+      // computeValueDep: operands inside SCC are ignored.
+      for (auto SCCIt = scc_begin(AllDepGraph<const Value *>(S));
+           !SCCIt.isAtEnd(); ++SCCIt) {
+
+        // SCC should is processed in all-or-nothing way.
+        if (Visited.find(*SCCIt->begin()) != Visited.end())
+          continue;
+
+        for (auto *I : *SCCIt) {
+          assert(Visited.find(I) == Visited.end() &&
+                 "Traversal logic is broken");
+          Visited.insert(I);
+        }
+
+        for (auto *PtrI : *SCCIt) {
+          if (isa<Argument>(PtrI))
             continue;
-          Visited.insert(BB);
+          auto &I = cast<Instruction>(*PtrI);
+          // Value dependencies involving pure arithmetic are computed on
+          // demand.
+          if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode())) {
+            continue;
+          }
 
-          for (auto &I : *BB) {
-
-            // Value dependencies involving pure arithmetic are computed on
-            // demand.
-            if (dep_iterator::isSupportedOpcode(I.getOpcode())) {
-              continue;
+          const Dep *Rep = nullptr;
+          switch (I.getOpcode()) {
+          case Instruction::Load:
+            if (cast<LoadInst>(I).isVolatile()) {
+              Rep = Dep::mkBottom(DM);
+              break;
             }
-
-            const Dep *Rep = nullptr;
-            switch (I.getOpcode()) {
-            case Instruction::Load:
-              if (cast<LoadInst>(I).isVolatile()) {
-                Rep = Dep::mkBottom(DM);
-                break;
-              }
-              Rep = Dep::mkLoad(
-                  DM, computeValueDep(cast<LoadInst>(I).getPointerOperand()));
+            Rep = Dep::mkLoad(
+                DM, computeValueDep(cast<LoadInst>(I).getPointerOperand()));
+            break;
+          case Instruction::Store:
+            if (cast<StoreInst>(I).isVolatile()) {
+              Rep = Dep::mkBottom(DM);
               break;
-            case Instruction::Store:
-              if (cast<StoreInst>(I).isVolatile()) {
-                Rep = Dep::mkBottom(DM);
-                break;
-              }
-              Rep = Dep::mkStore(
-                  DM, computeValueDep(cast<StoreInst>(I).getValueOperand()),
-                  computeValueDep(cast<StoreInst>(I).getPointerOperand()));
-              break;
-            case Instruction::Unreachable:
+            }
+            Rep = Dep::mkStore(
+                DM, computeValueDep(cast<StoreInst>(I).getValueOperand()),
+                computeValueDep(cast<StoreInst>(I).getPointerOperand()));
+            break;
+          case Instruction::Unreachable:
+            Rep = Dep::mkConst(DM);
+            break;
+          case Instruction::Ret:
+            if (I.getNumOperands() == 0)
               Rep = Dep::mkConst(DM);
-              break;
-            case Instruction::Ret:
-              if (I.getNumOperands() == 0)
-                Rep = Dep::mkConst(DM);
-              else
-                // Did not introduce Ret special kind.
-                Rep = computeValueDep(I.getOperand(0));
-              break;
-            case Instruction::Resume:
+            else
+              // Did not introduce Ret special kind.
               Rep = computeValueDep(I.getOperand(0));
-              break;
-            case Instruction::LandingPad:
-              if (!cast<LandingPadInst>(I).isCleanup() ||
-                  cast<LandingPadInst>(I).getNumClauses() != 0) {
-                Rep = Dep::mkBottom(DM);
-                break;
-              }
-              // Explicitly embedded CFG.
-              Rep = computeValueDep(
-                  I.getParent()->getSinglePredecessor()->getTerminator());
-              break;
-            case Instruction::Br: {
-              if (cast<BranchInst>(I).isConditional())
-                Rep = computeValueDep(cast<BranchInst>(I).getCondition());
-              else
-                Rep = Dep::mkConst(DM);
-              break;
-            }
-            case Instruction::Invoke:
-            case Instruction::Call: {
-              if (auto *M = dyn_cast<MemSetInst>(&I)) {
-                Dep::Container Special;
-                Special.insert(computeValueDep(M->getDest()));
-                Special.insert(computeValueDep(M->getLength()));
-                Rep = Dep::mkStore(DM, computeValueDep(M->getValue()),
-                                   Dep::mkNonEmptyArgList(DM, Special));
-                break;
-              }
-              auto *Info = DTInfo.getCallInfo(&I);
-              if (!Info) {
-                ImmutableCallSite CS(&I);
-                if (auto *F = dyn_cast<Function>(CS.getCalledValue())) {
-                  Dep::Container Args;
-                  for (auto &Op : I.operands()) {
-                    if (isa<BasicBlock>(Op.get()))
-                      continue;
-                    Args.insert(computeValueDep(Op.get()));
-                  }
-                  Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Args),
-                                    IsKnownCallCheck(F));
-                  break;
-                }
-                Rep = Dep::mkBottom(DM);
+            break;
+          case Instruction::Resume:
+            Rep = computeValueDep(I.getOperand(0));
+            break;
+          case Instruction::LandingPad: {
+            auto &LP = cast<LandingPadInst>(I);
+            bool Supported = true;
+            for (unsigned I = 0, E = LP.getNumClauses(); I != E; ++I)
+              if (LP.isFilter(I)) {
+                Supported = false;
                 break;
               }
 
-              SmallPtrSet<const Value *, 3> Args;
+            if (!Supported) {
+              Rep = Dep::mkBottom(DM);
+              break;
+            }
+            // Explicitly embedded CFG.
+            Dep::Container Preds;
+            for (auto *BB : predecessors(I.getParent()))
+              Preds.insert(computeValueDep(BB->getTerminator()));
+
+            Rep = Dep::mkNonEmptyArgList(DM, Preds);
+            break;
+          }
+          case Instruction::Br: {
+            if (cast<BranchInst>(I).isConditional())
+              Rep = computeValueDep(cast<BranchInst>(I).getCondition());
+            else
+              Rep = Dep::mkConst(DM);
+            break;
+          }
+          case Instruction::Invoke:
+          case Instruction::Call: {
+            if (auto *M = dyn_cast<MemSetInst>(&I)) {
+              Dep::Container Special;
+              Special.insert(computeValueDep(M->getDest()));
+              Special.insert(computeValueDep(M->getLength()));
+              Rep = Dep::mkStore(DM, computeValueDep(M->getValue()),
+                                 Dep::mkNonEmptyArgList(DM, Special));
+              break;
+            }
+
+            SmallPtrSet<const Value *, 3> Args;
+            auto *Info = DTInfo.getCallInfo(&I);
+            if (Info) {
               if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
                 auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
                 collectSpecialAllocArgs(AK, ImmutableCallSite(&I), Args, TLI);
@@ -985,35 +1085,47 @@ public:
                 Rep = Dep::mkBottom(DM);
                 break;
               }
+            } else if (!isa<Function>(ImmutableCallSite(&I).getCalledValue())) {
+              Rep = Dep::mkBottom(DM);
+              break;
+            }
 
-              Dep::Container Special;
-              Dep::Container Remaining;
-              for (auto &Op : I.operands())
-                if (Args.count(Op.get()))
-                  Special.insert(computeValueDep(Op.get()));
-                else
-                  Remaining.insert(computeValueDep(Op.get()));
+            Dep::Container Special;
+            Dep::Container Remaining;
+            for (auto &Op : I.operands()) {
+              // CFG is processed separately.
+              if (isa<BasicBlock>(Op.get()))
+                continue;
+              if (Args.count(Op.get()))
+                Special.insert(computeValueDep(Op.get()));
+              else
+                Remaining.insert(computeValueDep(Op.get()));
+            }
 
+            if (Info)
               // Relying on check that Realloc is forbidden.
               Rep = Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc
                         ? Dep::mkAlloc(DM, Dep::mkNonEmptyArgList(DM, Special),
                                        Dep::mkArgList(DM, Remaining))
                         : Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
                                       Dep::mkArgList(DM, Remaining));
-              break;
-            }
-            default:
-              Rep = Dep::mkBottom(DM);
-              break;
-            }
-
-            assert(Rep && "Invalid switch in computeDepApproximation");
-            if (Rep->isBottom() && DTransSOAToAOSComputeAllDep)
-              return;
-
-            DM.ValDependencies[&I] = Rep;
+            else
+              Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
+                                IsKnownCallCheck(cast<Function>(
+                                    ImmutableCallSite(&I).getCalledValue())));
+            break;
           }
+          default:
+            Rep = Dep::mkBottom(DM);
+            break;
+          }
+
+          assert(Rep && "Invalid switch in computeDepApproximation");
+          if (Rep->isBottom() && DTransSOAToAOSComputeAllDep)
+            return;
+          DM.ValDependencies[&I] = Rep;
         }
+      }
   }
 };
 

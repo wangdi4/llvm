@@ -454,13 +454,6 @@ lpad:                                             ; preds = %entry
   call void @_ZdlPv(i8* %call) #8
   br label %eh.resume
 
-lpad3:                                            ; preds = %invoke.cont
-  %tmp11 = landingpad { i8*, i32 }
-          cleanup
-  %tmp12 = extractvalue { i8*, i32 } %tmp11, 0
-  %tmp13 = extractvalue { i8*, i32 } %tmp11, 1
-  br label %eh.resume
-
 lpad6:                                            ; preds = %invoke.cont4
   %tmp14 = landingpad { i8*, i32 }
           cleanup
@@ -469,9 +462,9 @@ lpad6:                                            ; preds = %invoke.cont4
   call void @_ZdlPv(i8* %call5) #8
   br label %eh.resume
 
-eh.resume:                                        ; preds = %lpad6, %lpad3, %lpad
-  %exn.slot.0 = phi i8* [ %tmp15, %lpad6 ], [ %tmp12, %lpad3 ], [ %tmp9, %lpad ]
-  %ehselector.slot.0 = phi i32 [ %tmp16, %lpad6 ], [ %tmp13, %lpad3 ], [ %tmp10, %lpad ]
+eh.resume:                                        ; preds = %lpad6, %lpad
+  %exn.slot.0 = phi i8* [ %tmp15, %lpad6 ], [ %tmp9, %lpad ]
+  %ehselector.slot.0 = phi i32 [ %tmp16, %lpad6 ], [ %tmp10, %lpad ]
   %lpad.val = insertvalue { i8*, i32 } undef, i8* %exn.slot.0, 0
   %lpad.val14 = insertvalue { i8*, i32 } %lpad.val, i32 %ehselector.slot.0, 1
   resume { i8*, i32 } %lpad.val14
