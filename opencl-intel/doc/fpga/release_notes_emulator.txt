@@ -254,7 +254,7 @@ A: By default the emulator only supports up to 32 simultaneously running
    kernels. Use the OCL_TBB_NUM_WORKERS environment variable to increase this
    value.  See the DETAILS section for more information.
 
-Q: A CL_INVALID_VALUE is returned from the clCreateKernel.
+Q: A CL_INVALID_PROGRAM_EXECUTABLE is returned from the clCreateKernel.
 A: A call to the clBuildProgram() was missed. This call is required by the
    OpenCL(TM) specification, even if a program is created from a binary. See the
    OpenCL(TM) Specification Version 1.2 [Reference 3] for details.
