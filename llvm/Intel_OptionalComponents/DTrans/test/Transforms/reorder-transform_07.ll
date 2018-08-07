@@ -24,7 +24,7 @@ entry:
   %l = bitcast i8* %call to %struct.test*
 ; realloc with non-constant size without sext/zext
   %call1 = tail call noalias i8* @realloc(i8* %call, i64 %mul)
-; CHECK:  %0 = sdiv i64 %mul, 48
+; CHECK:  %0 = sdiv exact i64 %mul, 48
 ; CHECK:  %1 = mul i64 %0, 40
 ; CHECK:  %call1 = tail call noalias i8* @realloc(i8* %call, i64 %1)
 
@@ -34,7 +34,7 @@ entry:
   %tmp1 = zext i32 %mul1 to i64
   %mul2 = mul i64 %tmp1, %num2
   %call2 = tail call noalias i8* @realloc(i8* %call, i64 %mul2)
-; CHECK:  %2 = sdiv i64 %mul2, 48
+; CHECK:  %2 = sdiv exact i64 %mul2, 48
 ; CHECK:  %3 = mul i64 %2, 40
 ; CHECK:  %call2 = tail call noalias i8* @realloc(i8* %call, i64 %3)
 
@@ -44,7 +44,7 @@ entry:
   %tmp2 = sext i32 %mul3 to i64
   %mul4 = mul i64 %tmp2, %num2
   %call3 = tail call noalias i8* @realloc(i8* %call2, i64 %mul4)
-; CHECK:  %4 = sdiv i64 %mul4, 48
+; CHECK:  %4 = sdiv exact i64 %mul4, 48
 ; CHECK:  %5 = mul i64 %4, 40
 ; CHECK:  %call3 = tail call noalias i8* @realloc(i8* %call2, i64 %5)
 

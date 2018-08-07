@@ -227,13 +227,13 @@ bool ReorderFieldsImpl::replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize,
   if (!Val)
     return false;
   // Check if Val is multiple of OldSize.
-  if (!isValueMultipleOfSize(Val, OldSize))
+  if (!isValueMultipleOfSize(Val, OldSize, true))
     return false;
   if (replaceOldSizeWithNewSizeForConst(Val, OldSize, NewSize, I, APos))
     return true;
   Value *OldSizeVal = ConstantInt::get(Val->getType(), OldSize);
   Value *NewSizeVal = ConstantInt::get(Val->getType(), NewSize);
-  Instruction *Div = BinaryOperator::CreateSDiv(Val, OldSizeVal);
+  Instruction *Div = BinaryOperator::CreateExactSDiv(Val, OldSizeVal);
   Instruction *Mul = BinaryOperator::CreateMul(Div, NewSizeVal);
   Mul->insertBefore(I);
   Div->insertBefore(Mul);

@@ -214,7 +214,8 @@ bool dtrans::isValueEqualToSize(const Value *Val, uint64_t Size) {
 // whose value is a multiple of the specified size, or (b) an integer
 // multiplication operator where either operand is a constant multiple of the
 // specified size.
-bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
+bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size,
+                                   bool ShiftLeft) {
   if (!Val)
     return false;
 
@@ -245,12 +246,21 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
   if (PatternMatch::match(Val,
                           PatternMatch::m_Mul(PatternMatch::m_Value(LHS),
                                               PatternMatch::m_Value(RHS)))) {
-    return (isValueMultipleOfSize(LHS, Size) ||
-            isValueMultipleOfSize(RHS, Size));
+    return (isValueMultipleOfSize(LHS, Size, ShiftLeft) ||
+            isValueMultipleOfSize(RHS, Size, ShiftLeft));
+  } else if (ShiftLeft &&
+             PatternMatch::match(
+                 Val, PatternMatch::m_Shl(PatternMatch::m_Value(LHS),
+                                          PatternMatch::m_Value(RHS)))) {
+    uint64_t Shift = 0;
+    if (isValueConstant(RHS, &Shift))
+      return (uint64_t(1) << Shift) % Size == 0;
+    return false;
   }
   // Handle sext and zext
   if (isa<SExtInst>(Val) || isa<ZExtInst>(Val))
-    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size);
+    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size,
+                                 ShiftLeft);
   // Otherwise, it's not what we needed.
   return false;
 }

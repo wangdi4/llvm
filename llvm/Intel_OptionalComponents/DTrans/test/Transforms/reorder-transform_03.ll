@@ -24,13 +24,13 @@ entry:
   %p6 = ptrtoint %struct.test* %0 to i64
   %diff2 = sub i64  %p6, %p5
   %num2 = sdiv i64 %diff2, %mul
-; CHECK: %2 = sdiv i64 %mul, 48
+; CHECK: %2 = sdiv exact i64 %mul, 48
 ; CHECK: %3 = mul i64 %2, 40
 ; CHECK: %num2 = sdiv i64 %diff2, %3
 
   %diff3 = sub i64  %p6, %p5
   %num3 = udiv i64 %diff3, %mul
-; CHECK: %4 = sdiv i64 %mul, 48
+; CHECK: %4 = sdiv exact i64 %mul, 48
 ; CHECK: %5 = mul i64 %4, 40
 ; CHECK: %num3 = udiv i64 %diff3, %5
   ret i32 0

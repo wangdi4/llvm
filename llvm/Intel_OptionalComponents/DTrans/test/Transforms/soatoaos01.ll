@@ -58,7 +58,7 @@
 ; CHECK-NEXT:Fields's struct.Arr.0 methods:
 ; CHECK-NEXT:_ZN3ArrIPvEC2EiP3Mem, #uses = 1
 ; CHECK-NEXT:_ZN3ArrIPvE3getEi, #uses = 1
-; CHECK-NEXT: Rejecting %class.F based on dtrans-soatoaos-typename option.
+; CHECK: Rejecting %class.F because some methods contains unknown side effect
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

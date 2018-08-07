@@ -78,6 +78,12 @@ public:
     return MapIter->second;
   }
 
+#if INTEL_CUSTOMIZATION
+  void setEqual(GlobalValue *F1, GlobalValue *F2) {
+    GlobalNumbers[F2] = getNumber(F1);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   void erase(GlobalValue *Global) {
     GlobalNumbers.erase(Global);
   }
