@@ -41,7 +41,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-unsigned VPlanUtils::NextOrdinal = 1;
+std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
 #if INTEL_CUSTOMIZATION
 // Replace dot print output with plain print.
 static cl::opt<bool>
@@ -83,11 +83,11 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 #if INTEL_CUSTOMIZATION
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
 // PostDomTree accordingly.
-VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
-                                     VPLoopInfo *VPLInfo,
-                                     VPDominatorTree &DomTree,
-                                     VPPostDominatorTree &PostDomTree,
-                                     VPlan *Plan) {
+VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
+                                       VPLoopInfo *VPLInfo,
+                                       VPDominatorTree &DomTree,
+                                       VPPostDominatorTree &PostDomTree,
+                                       VPlan *Plan) {
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   insertBlockAfter(NewBlock, Block, Plan);
 

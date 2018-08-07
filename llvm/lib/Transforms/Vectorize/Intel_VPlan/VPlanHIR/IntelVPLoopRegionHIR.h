@@ -28,7 +28,6 @@ namespace vpo {
 class VPLoopRegionHIR : public VPLoopRegion {
   friend class VPDecomposerHIR;
   friend class VPLoopAnalysisHIR;
-  friend class VPlanUtils;
   friend class VPlanVerifierHIR;
   friend class VPlanHCFGBuilderHIR;
 
