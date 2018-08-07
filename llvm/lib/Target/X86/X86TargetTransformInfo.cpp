@@ -2673,6 +2673,10 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   assert(firstOpType && "Unexpected type for SVML argument");
   if (firstOpType->getBitWidth() == 512)
     return false;
+  Function *origFunc = CI->getCalledFunction();
+  // Bail out in case of indirect call.
+  if (!origFunc)
+    return false;
   IRBuilder<> Builder(CI);
   
   LLVMContext &C(CI->getFunction()->getContext());
@@ -2691,10 +2695,8 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   FunctionType* newFuncType =
     FunctionType::get(CI->getType(), ParamTys, false);
 
-  Function *origFunc = CI->getCalledFunction();
-  Module *M = origFunc->getParent();
-  
   Function *newFunc;
+  Module *M = origFunc->getParent();
   if (origFunc->getName().startswith("_replaced_")) {
     newFunc = M->getFunction(origFunc->getName().substr(sizeof("_replaced_") - 1));
     assert(newFunc && "The function should be defined");

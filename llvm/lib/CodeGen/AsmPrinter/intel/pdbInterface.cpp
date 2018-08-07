@@ -41,6 +41,7 @@ wchar_t * utf8_to_wchar(
 ) {
   const size_t cSize = strlen(in)+1;
     wchar_t *wc = (wchar_t*)malloc(cSize*sizeof(wchar_t));
+    ASSERT_PROD(wc != NULLP, 0, 0, "out of memory in utf8_to_wchar");
     mbstowcs (wc, in, cSize);
 
     return wc;
