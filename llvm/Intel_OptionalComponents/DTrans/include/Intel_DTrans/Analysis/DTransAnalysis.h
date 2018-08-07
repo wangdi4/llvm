@@ -244,6 +244,12 @@ public:
   // transformations.
   bool useDTransAnalysis(void);
 
+  // Return the value used during analysis for the command line option
+  // "dtrans-outofboundsok" which controls the assumptions regarding whether
+  // taking the address of a structure field is allowed to access other fields
+  // of the structure.
+  static bool getDTransOutOfBoundsOK();
+
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);

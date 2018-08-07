@@ -691,6 +691,10 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "reorderfields";
   case dtrans::DT_AOSToSOA:
     return "aostosoa";
+  case dtrans::DT_AOSToSOADependent:
+    return "aostosoadependent";
+  case dtrans::DT_AOSToSOADependentIndex32:
+    return "aostosoadependentindex32";
   case dtrans::DT_ElimROFieldAccess:
     return "elimrofieldaccess";
   case dtrans::DT_DynClone:
@@ -718,6 +722,10 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
     return dtrans::SDReorderFields;
   case dtrans::DT_AOSToSOA:
     return dtrans::SDAOSToSOA;
+  case dtrans::DT_AOSToSOADependent:
+    return dtrans::SDAOSToSOADependent;
+  case dtrans::DT_AOSToSOADependentIndex32:
+    return dtrans::SDAOSToSOADependentIndex32;
   case dtrans::DT_ElimROFieldAccess:
     return dtrans::SDElimROFieldAccess;
   case dtrans::DT_DynClone:

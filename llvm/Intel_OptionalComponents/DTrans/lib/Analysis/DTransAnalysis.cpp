@@ -6784,6 +6784,10 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_DeleteField;
         else if (TransformationAndTypes.first == "aostosoa")
           TransName = dtrans::DT_AOSToSOA;
+        else if (TransformationAndTypes.first == "aostosoadependent")
+          TransName = dtrans::DT_AOSToSOADependent;
+        else if (TransformationAndTypes.first == "aostosoadependentindex32")
+          TransName = dtrans::DT_AOSToSOADependentIndex32;
         else if (TransformationAndTypes.first == "elimrofieldaccess")
           TransName = dtrans::DT_ElimROFieldAccess;
         else if (TransformationAndTypes.first == "dynclone")
@@ -6874,6 +6878,10 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) {
     return false;
   }
   return true;
+}
+
+bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
+  return DTransOutOfBoundsOK;
 }
 
 bool DTransAnalysisInfo::analyzeModule(

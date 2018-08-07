@@ -316,6 +316,9 @@ const SafetyData SDElimROFieldAccess =
     HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
     UnhandledUse;
 
+//
+// Safety conditions for a structure to be considered for the AOS-to-SOA
+// transformation.
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
@@ -325,6 +328,32 @@ const SafetyData SDAOSToSOA =
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
     HasCppHandling | HasZeroSizedArray;
+
+//
+// Safety conditions for a structure type that contains a pointer to a
+// structure that is being considered for the AOS-to-SOA transformation.
+//
+const SafetyData SDAOSToSOADependent =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
+    UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
+    NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
+    GlobalArray | HasVTable | HasCppHandling;
+
+//
+// Safety conditions for a structure type that contains a pointer to a
+// structure that is being considered for the AOS-to-SOA transformation
+// when the peeling index is being converted to use 32-bits, causing
+// the size of the dependent structure to change.
+//
+const SafetyData SDAOSToSOADependentIndex32 =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
+    AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+    SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
+    HasZeroSizedArray;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -357,11 +386,13 @@ const Transform DT_FieldSingleAllocFunction = 0x0002;
 const Transform DT_ReorderFields = 0x0004;
 const Transform DT_DeleteField = 0x0008;
 const Transform DT_AOSToSOA = 0x0010;
-const Transform DT_ElimROFieldAccess = 0x0020;
-const Transform DT_DynClone = 0x0040;
-const Transform DT_SOAToAOS = 0x0080;
-const Transform DT_Last = 0x0100;
-const Transform DT_Legal = 0x00ff;
+const Transform DT_AOSToSOADependent = 0x0020;
+const Transform DT_AOSToSOADependentIndex32 = 0x0040;
+const Transform DT_ElimROFieldAccess = 0x0080;
+const Transform DT_DynClone = 0x0100;
+const Transform DT_SOAToAOS = 0x0200;
+const Transform DT_Last = 0x0400;
+const Transform DT_Legal = 0x07ff;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
