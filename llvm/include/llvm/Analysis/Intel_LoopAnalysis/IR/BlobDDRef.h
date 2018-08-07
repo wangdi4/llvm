@@ -109,6 +109,11 @@ public:
     return CE->isStandAloneUndefBlob();
   }
 
+  /// Returns false because BlobDDRef never represents a metadata.
+  bool isMetadata(MetadataAsValue **Val = nullptr) const override {
+    return false;
+  }
+
   /// Returns true if this blob DDRef represents an undef blob.
   bool containsUndef() const override { return CE->containsUndef(); }
 

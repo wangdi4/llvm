@@ -496,7 +496,7 @@ public:
 
   /// Returns true if this RegDDRef represents a metadata.
   /// If true, metadata is returned in Val.
-  bool isMetadata(MetadataAsValue **Val = nullptr) const {
+  bool isMetadata(MetadataAsValue **Val = nullptr) const override {
     return isTerminalRef() && getSingleCanonExpr()->isMetadata(Val);
   }
 

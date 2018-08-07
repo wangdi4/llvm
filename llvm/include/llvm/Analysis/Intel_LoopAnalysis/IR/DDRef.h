@@ -138,6 +138,10 @@ public:
   /// Returns true if this ref looks like 1 * undef.
   virtual bool isStandAloneUndefBlob() const = 0;
 
+  /// Returns true if this DDRef represents a metadata.
+  /// If true, metadata is returned in Val.
+  virtual bool isMetadata(MetadataAsValue **Val = nullptr) const = 0;
+
   /// Returns single CanonExpr (important special case for terminal refs)
   virtual const CanonExpr *getSingleCanonExpr() const = 0;
 

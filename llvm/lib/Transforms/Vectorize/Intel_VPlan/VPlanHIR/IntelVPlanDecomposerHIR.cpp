@@ -309,13 +309,19 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 
 // Return true if \p Def is considered an external definition. An external
 // definition is a definition that happens outside of the outermost HLLoop,
-// including its preheader and exit.
+// including its preheader and exit. A special kind of operands that fits into
+// this category is metadata operands.
 bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
   // TODO: We are pushing outermost loop PH and Exit outside of the VPlan region
   // for now so this code won't be valid until we bring them back. return
   // !Def->getHLNodeUtils().contains(OutermostHLp, Def,
   //                                 true /*include preheader/exit*/);
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
+
+  // Check if UseDDR is metadata.
+  if (UseDDR->isMetadata())
+    return true;
+
   return OutermostHLp->isLiveIn(UseDDR->getSymbase());
 }
 
@@ -325,6 +331,12 @@ bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
 // loop.
 unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
+
+  if (UseDDR->isMetadata())
+    // Metadata is considered a external definition. I has a single definition
+    // since a metadata operand doesn't have DD edges.
+    return 1;
+
   assert((UseDDR->isSelfBlob() || isa<BlobDDRef>(UseDDR)) &&
          "Expected self blob or BlobDDRef!");
 
@@ -625,11 +637,11 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     // Decompose constant blobs that are not integer values.
     return decomposeNonIntConstBlob(Blob);
 
-  // If the RegDDRef is a self blob, we use it directly to retrieve the DDG
-  // edges of Blob because there is no BlobDDRef. Otherwise, we retrieve and use
-  // the BlobDDRef.
+  // If the RegDDRef is a self blob or metadata, we use the RegDDRef directly in
+  // the following steps since there is no BlobDDRef associated to this Blob.
+  // Otherwise, we retrieve and use the BlobDDRef.
   DDRef *DDR;
-  if (RDDR.isSelfBlob())
+  if (RDDR.isSelfBlob() || RDDR.isMetadata())
     DDR = &RDDR;
   else {
     unsigned BlobIndex = RDDR.getBlobUtils().findBlob(Blob);
