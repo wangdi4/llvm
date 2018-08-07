@@ -286,8 +286,13 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL))
       m_forcedCpuFeatures.push_back("+avx2");
 
-    if (cpuId.IsFeatureOn(CFS_F16C))
+    // Comment by Craig Topper: The F16C instructions are all encoded using the
+    // VEX prefix which became available with AVX. That's why CPU_SANDYBRIDGE
+    // appeared in condition.
+    if (!DisableAVX && (selectedCpuId >= Intel::CPU_SANDYBRIDGE)
+         && cpuId.IsFeatureOn(CFS_F16C)) {
       m_forcedCpuFeatures.push_back("+f16c");
+    }
 
     if (selectedCpuId == Intel::CPU_KNL) {
       m_forcedCpuFeatures.push_back("+avx512f");
@@ -295,6 +300,7 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
       m_forcedCpuFeatures.push_back("+avx512er");
       m_forcedCpuFeatures.push_back("+avx512pf");
     }
+
     if (selectedCpuId == Intel::CPU_SKX) {
       m_forcedCpuFeatures.push_back("+avx512f");
       m_forcedCpuFeatures.push_back("+avx512cd");
