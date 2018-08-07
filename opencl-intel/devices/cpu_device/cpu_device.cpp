@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -1469,21 +1469,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DRIVER_VERSION ):
         {
-            int major = 0;
-            int minor = 0;
-            int revision = 0;
-            int build = 0;
-            std::stringstream driverVerStream;
-            driverVerStream.imbue(std::locale("C"));   // override the current locale, so we don't get things like commas inside the numbers
-            GetModuleProductVersion(&major, &minor, &revision, &build);
-            // format is (Major version).(Minor version).(Revision number).(Build number)
-            driverVerStream << major << "." << minor << "." << revision << "." << build;
 #ifdef BUILD_FPGA_EMULATOR
             std::string driverVer = "18.1";
 #else
-            std::string driverVer = driverVerStream.str();
+            std::string driverVer = GetModuleProductVersion();
 #endif
-
             *pinternalRetunedValueSize = driverVer.length() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
