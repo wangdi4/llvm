@@ -320,6 +320,7 @@ SPIRVEntry *LLVMToSPIRVDbgTran::transDbgEntryImpl(const MDNode *MDN) {
     return transDbgInlinedAt(Loc);
   }
   llvm_unreachable("Not implemented debug info entry!");
+  return nullptr;
 }
 
 // Helper methods

@@ -157,7 +157,7 @@ DIType *SPIRVToLLVMDbgTran::transTypePointer(const SPIRVExtInst *DebugInst) {
     auto SC = static_cast<SPIRVStorageClassKind>(Ops[StorageClassIdx]);
     AS = SPIRSPIRVAddrSpaceMap::rmap(SC);
   }
-  DIType *Ty;
+  DIType *Ty = nullptr;
   SPIRVWord Flags = Ops[FlagsIdx];
   if (Flags & SPIRVDebug::FlagIsLValueReference)
     Ty = Builder.createReferenceType(dwarf::DW_TAG_reference_type, PointeeTy, 0,
@@ -168,6 +168,7 @@ DIType *SPIRVToLLVMDbgTran::transTypePointer(const SPIRVExtInst *DebugInst) {
   else
     Ty = Builder.createPointerType(PointeeTy, BM->getAddressingModel() * 32, 0,
                                    AS);
+  assert(Ty && "DIBuilder failed to create a pointer(-like) type");
 
   if (Flags & SPIRVDebug::FlagIsObjectPointer)
     Ty = Builder.createObjectPointerType(Ty);
@@ -709,6 +710,7 @@ MDNode *SPIRVToLLVMDbgTran::transTemplate(const SPIRVExtInst *DebugInst) {
     return D;
   }
   llvm_unreachable("Invalid template");
+  return nullptr;
 }
 
 DINode *SPIRVToLLVMDbgTran::transImportedEntry(const SPIRVExtInst *DebugInst) {
@@ -734,6 +736,7 @@ DINode *SPIRVToLLVMDbgTran::transImportedEntry(const SPIRVExtInst *DebugInst) {
     return Builder.createImportedDeclaration(Scope, Entity, File, Line, Name);
   }
   llvm_unreachable("Unexpected kind of imported entity!");
+  return nullptr;
 }
 
 MDNode *SPIRVToLLVMDbgTran::transExpression(const SPIRVExtInst *DebugInst) {
@@ -842,6 +845,7 @@ MDNode *SPIRVToLLVMDbgTran::transDebugInstImpl(const SPIRVExtInst *DebugInst) {
   default:
     llvm_unreachable("Not implemented SPIR-V debug instruction!");
   }
+  return nullptr;
 }
 
 Instruction *
@@ -849,6 +853,7 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
                                         BasicBlock *BB) {
   auto getLocalVar = [&](SPIRVId Id) -> std::pair<DILocalVariable *, DebugLoc> {
     auto *LV = transDebugInst<DILocalVariable>(BM->get<SPIRVExtInst>(Id));
+    assert(LV && "No debug info found for the local variable");
     DebugLoc DL = DebugLoc::get(LV->getLine(), 0, LV->getScope());
     return std::make_pair(LV, DL);
   };
@@ -881,6 +886,7 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
   default:
     llvm_unreachable("Unknown debug intrinsic!");
   }
+  return nullptr;
 }
 
 DebugLoc SPIRVToLLVMDbgTran::transDebugScope(const SPIRVInstruction *Inst) {
