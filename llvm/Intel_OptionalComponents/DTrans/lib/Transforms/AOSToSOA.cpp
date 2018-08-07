@@ -68,7 +68,7 @@ static cl::opt<unsigned>
 // checks of dependent structures may prevent the index from being 32-bits, if
 // it is determined that those structures cannot have their sizes changed.
 static cl::opt<bool> DTransAOSToSOAIndex32("dtrans-aostosoa-index32",
-                                           cl::init(false), cl::ReallyHidden);
+                                           cl::init(true), cl::ReallyHidden);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // This class is a helper that can be passed to an output stream operator for
