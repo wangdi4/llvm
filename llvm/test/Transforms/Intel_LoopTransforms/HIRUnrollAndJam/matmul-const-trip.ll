@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Verify that we unroll i1 loop by 2 and i2 loop by 8.
+; Verify that we unroll i1 loop by 4 and i2 loop by 4 by 'equalizing' the unroll factors.
 
 ; CHECK: Function
 
@@ -18,90 +18,15 @@
 
 ; CHECK: Function
 
-; CHECK: + DO i1 = 0, 49, 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, 11, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, 24, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, 24, 1   <DO_LOOP>
 ; CHECK: |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 1];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2 + 1];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2 + 1] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 1];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2 + 1];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2 + 1] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 2];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2 + 2];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2 + 2] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 2];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2 + 2];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2 + 2] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 3];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2 + 3];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2 + 3] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 3];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2 + 3];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2 + 3] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 4];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2 + 4];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2 + 4] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 4];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2 + 4];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2 + 4] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 5];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2 + 5];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2 + 5] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 5];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2 + 5];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2 + 5] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 6];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2 + 6];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2 + 6] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 6];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2 + 6];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2 + 6] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 7];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][8 * i2 + 7];
-; CHECK: |   |   |   (@C)[0][2 * i1][8 * i2 + 7] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][8 * i2 + 7];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][8 * i2 + 7];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][8 * i2 + 7] = %2 + (%1 * %0);
-; CHECK: |   |   + END LOOP
-; CHECK: |   + END LOOP
-; CHECK: |
-; CHECK: |
-; CHECK: |   + DO i2 = 96, 99, 1   <DO_LOOP>
-; CHECK: |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][i2];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1][i2];
-; CHECK: |   |   |   (@C)[0][2 * i1][i2] = %2 + (%1 * %0);
-; CHECK: |   |   |   %0 = (@A)[0][2 * i1 + 1][i3];
-; CHECK: |   |   |   %1 = (@B)[0][i3][i2];
-; CHECK: |   |   |   %2 = (@C)[0][2 * i1 + 1][i2];
-; CHECK: |   |   |   (@C)[0][2 * i1 + 1][i2] = %2 + (%1 * %0);
+
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
+
+; CHECK-NOT: DO i
 
 
 ; ModuleID = 'matmul_preproc.ll'

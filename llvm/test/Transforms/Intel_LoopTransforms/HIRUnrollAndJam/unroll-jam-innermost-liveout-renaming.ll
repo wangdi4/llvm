@@ -22,17 +22,17 @@
 
 ; CHECK: BEGIN REGION { modified }
 
-; CHECK: + DO i1 = 0, 127, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, 63, 1   <DO_LOOP>
 
-; CHECK: |   + DO i2 = 0, 31, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, 63, 1   <DO_LOOP>
 
 ; CHECK: |   |   + DO i3 = 0, 255, 1   <DO_LOOP>
-; CHECK: |   |   |   %temp19 = @llvm.fma.f64((@_ZZ4mainE9first_ref)[0][2 * i1 + 256 * i3],  (@_ZZ4mainE10second_ref)[0][2048 * i2 + i3],  %temp5);
-; CHECK: |   |   |   %temp5 = %temp19;
+; CHECK: |   |   |   %temp21 = @llvm.fma.f64((@_ZZ4mainE9first_ref)[0][4 * i1 + 256 * i3],  (@_ZZ4mainE10second_ref)[0][1024 * i2 + i3],  %temp9);
+; CHECK: |   |   |   %temp9 = %temp21;
 
 ; CHECK: |   |   + END LOOP
 
-; CHECK: |   |   (@_ZZ4mainE11product_ref)[0][2 * i1 + 2048 * i2] = %temp19;
+; CHECK: |   |   (@_ZZ4mainE11product_ref)[0][4 * i1 + 1024 * i2] = %temp21;
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

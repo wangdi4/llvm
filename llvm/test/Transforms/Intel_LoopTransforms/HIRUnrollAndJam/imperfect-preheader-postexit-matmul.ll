@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Verify that we unroll i1 loop by 2 and i2 loop by 8.
+; Verify that we unroll i1 loop by 4 and i2 loop by 4 by 'equalizing' the unroll factors.
 
 ; + DO i1 = 0, sext.i32.i64(%n1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; |   + DO i2 = 0, sext.i32.i64(%n2) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
@@ -14,65 +14,17 @@
 ; |   + END LOOP
 ; + END LOOP
 
-; CHECK: %tgu = (sext.i32.i64(%n1))/u2;
+; CHECK: %tgu = (sext.i32.i64(%n1))/u4;
 
-; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 50>
+; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 25>
 ; CHECK: |   if (%n2 > 0)
 ; CHECK: |   {
-; CHECK: |      %tgu3 = (sext.i32.i64(%n2))/u8;
+; CHECK: |      %tgu5 = (sext.i32.i64(%n2))/u4;
 ; CHECK: |
-; CHECK: |      + DO i2 = 0, %tgu3 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 12>
-; CHECK: |      |      %temp4 = (@C)[0][2 * i1][8 * i2];
-; CHECK: |      |      %temp5 = (@C)[0][2 * i1 + 1][8 * i2];
+; CHECK: |      + DO i2 = 0, %tgu5 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 25>
 
-; Skipping some unrolled instructions to keep it under control.
+; Skipping unrolled instructions as it is too big.
 
-; CHECK: |      |      %0 = (@C)[0][2 * i1 + 1][8 * i2 + 7];
-; CHECK: |      |   + DO i3 = 0, sext.i32.i64(%n3) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK: |      |   |   %mul = (@A)[0][2 * i1][i3]  *  (@B)[0][i3][8 * i2];
-; CHECK: |      |   |   %temp4 = %temp4  +  %mul;
-; CHECK: |      |   |   %mul = (@A)[0][2 * i1 + 1][i3]  *  (@B)[0][i3][8 * i2];
-; CHECK: |      |   |   %temp5 = %temp5  +  %mul;
-
-; Skipping some unrolled instructions to keep it under control.
-
-; CHECK: |      |   |   %mul = (@A)[0][2 * i1 + 1][i3]  *  (@B)[0][i3][8 * i2 + 7];
-; CHECK: |      |   |   %0 = %0  +  %mul;
-; CHECK: |      |   + END LOOP
-; CHECK: |      |      (@C)[0][2 * i1][8 * i2] = %temp4;
-; CHECK: |      |      (@C)[0][2 * i1 + 1][8 * i2] = %temp5;
-
-; Skipping some unrolled instructions to keep it under control.
-
-; CHECK: |      |      (@C)[0][2 * i1 + 1][8 * i2 + 7] = %0;
-; CHECK: |      + END LOOP
-; CHECK: |
-; CHECK: |
-; CHECK: |      + DO i2 = 8 * %tgu3, sext.i32.i64(%n2) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>
-; CHECK: |      |      %temp = (@C)[0][2 * i1][i2];
-; CHECK: |      |      %0 = (@C)[0][2 * i1 + 1][i2];
-; CHECK: |      |   + DO i3 = 0, sext.i32.i64(%n3) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK: |      |   |   %mul = (@A)[0][2 * i1][i3]  *  (@B)[0][i3][i2];
-; CHECK: |      |   |   %temp = %temp  +  %mul;
-; CHECK: |      |   |   %mul = (@A)[0][2 * i1 + 1][i3]  *  (@B)[0][i3][i2];
-; CHECK: |      |   |   %0 = %0  +  %mul;
-; CHECK: |      |   + END LOOP
-; CHECK: |      |      (@C)[0][2 * i1][i2] = %temp;
-; CHECK: |      |      (@C)[0][2 * i1 + 1][i2] = %0;
-; CHECK: |      + END LOOP
-; CHECK: |   }
-; CHECK: + END LOOP
-
-; CHECK: + DO i1 = 2 * %tgu, sext.i32.i64(%n1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>
-; CHECK: |   + DO i2 = 0, sext.i32.i64(%n2) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK: |   |      %0 = (@C)[0][i1][i2];
-; CHECK: |   |   + DO i3 = 0, sext.i32.i64(%n3) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK: |   |   |   %mul = (@A)[0][i1][i3]  *  (@B)[0][i3][i2];
-; CHECK: |   |   |   %0 = %0  +  %mul;
-; CHECK: |   |   + END LOOP
-; CHECK: |   |      (@C)[0][i1][i2] = %0;
-; CHECK: |   + END LOOP
-; CHECK: + END LOOP
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
