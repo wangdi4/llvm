@@ -32,14 +32,14 @@ loop:
   tail call void @llvm.dbg.value(metadata double %sum, i64 0, metadata !17, metadata !25), !dbg !28
   %exitcond = icmp slt i64 %indvar.next, %N
   br i1 %exitcond, label %loop, label %exit
-; CHECK: mov0 %[[INORD:[a-z0-9_]+]], %ra
-; CHECK: mov64 %[[LEN:[a-z0-9_]+]], %r3
-; CHECK: mov64 %[[SRC:[a-z0-9_]+]], %r2
+; CHECK: .result .lic .i1 %[[OUTORD:[a-z0-9_]+]]
+; CHECK: .param .lic .i1 %[[INORD:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[SRC:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_]+]]
 ; CHECK: cmplts64 %[[OT:[a-z0-9_]+]], 0, %[[LEN]]
 ; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
-; CHECK: sredaddf64 %[[REDUCE:[a-z0-9_]+]], %ign, 0, %[[VAL:[a-z0-9_]+]], 
-; CHECK: sld64 %[[VAL]], %[[SRC]], %[[SAFELEN]], 1, %[[OUTORD:[a-z0-9_]+]], %[[INORD]], MEMLEVEL_T0
-; CHECK: mov0 %r1, %[[OUTORD]]
+; CHECK: sredaddf64 %[[REDUCE:[a-z0-9_\.]+]], %ign, 0, %[[VAL:[a-z0-9_\.]+]],
+; CHECK: sld64 %[[VAL]], %[[SRC]], %[[SAFELEN]], 1, %[[OUTORD]], %[[INORD]], MEMLEVEL_T0
 
 exit:
   ret double %sum

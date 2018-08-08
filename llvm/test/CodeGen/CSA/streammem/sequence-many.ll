@@ -25,14 +25,13 @@ loop:
   %indvar.next = add nuw i64 %indvar, 1
   %exitcond = icmp eq i64 %indvar.next, %N
   br i1 %exitcond, label %exit, label %loop
-; CHECK-DAG: mov0 %[[INORD:[a-z0-9_]+]], %ra
-; CHECK-DAG: mov64 %[[ADDRA:[a-z0-9_]+]], %r2
-; CHECK-DAG: mov64 %[[ADDRB:[a-z0-9_]+]], %r3
-; CHECK-DAG: mov64 %[[ADDRC:[a-z0-9_]+]], %r4
-; CHECK-DAG: mov64 %[[ADDRD:[a-z0-9_]+]], %r5
-; CHECK-DAG: mov64 %[[ADDRE:[a-z0-9_]+]], %r6
-; CHECK-DAG: mov64 %[[LEN:[a-z0-9_]+]], %r7
-; CHECK: .unit
+; CHECK: .param .lic .i1 %[[INORD:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[ADDRA:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[ADDRB:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[ADDRC:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[ADDRD:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[ADDRE:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_]+]]
 ; CHECK: cmpne64 %[[OT:[a-z0-9_]+]], %[[LEN]], 0
 ; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
 ; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRA]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0

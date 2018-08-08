@@ -1,4 +1,4 @@
-; RUN: llvm-link %CSABASE_ROOT/libcsa/libcsac.bc %s -S -o %t
+; RUN: llvm-link %CSABASE_ROOT/libcsa/libcsac.bc %s -o %t
 ; RUN: llc -mtriple=csa < %t | FileCheck %s --check-prefix=CSA_CHECK
 ; RUN: rm %t
 

@@ -1,4 +1,5 @@
 ; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
+; RUN: llc -mtriple=csa -csa-force-math0-instructions < %s | FileCheck %s --check-prefix=CSA_CHECK_NOMATHLIB
 
 ; ModuleID = 'MathOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"
@@ -7,7 +8,8 @@ target triple = "csa"
 ; Function Attrs: nounwind readnone
 define double @floorDF(double %x) local_unnamed_addr #0 {
 ; CSA_CHECK-label: floorDF
-; CSA_CHECK: floorf64
+; CSA_CHECK: .call floor
+; CSA_CHECK_NOMATHLIB: floorf64
 
 entry:
   %call = tail call double @floor(double %x) #2

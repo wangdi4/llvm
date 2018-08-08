@@ -8,8 +8,10 @@ target triple = "csa"
 ; Function Attrs: nounwind
 define void @compute_Triad(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias %C, i32 %n, i32 %scalar) local_unnamed_addr #0 {
 
-; CHECK: debugprint %cv32_{{[0-9]+}}
-; CHECK: debugprint %cv64_{{[0-9]+}}
+; CHECK-DAG: debugprint %[[V1:[a-z0-9_]+]]
+; CHECK-DAG: .lic .i32 %[[V1]]
+; CHECK-DAG: debugprint %[[V2:[a-z0-9_]+]]
+; CHECK-DAG: .lic .i64 %[[V2]]
 
 entry:
   %cmp16 = icmp sgt i32 %n, 0

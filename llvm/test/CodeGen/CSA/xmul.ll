@@ -218,8 +218,8 @@ entry:
 ; Function Attrs: norecurse nounwind
 define i64 @xmuls32(i32 %lhs, i32 %rhs) local_unnamed_addr #0 align 2 {
 ; CHECK: xmuls32
-; CHECK: xmuls32 %[[DEST:[a-z0-9_]+]]
-; CHECK: mov64 %r0, %[[DEST]]
+; CHECK: .result .lic .i64 %[[DEST:[a-z0-9_]+]]
+; CHECK: xmuls32 %[[DEST]]
 entry:
   %conv = sext i32 %lhs to i64
   %conv1 = sext i32 %rhs to i64
@@ -230,8 +230,8 @@ entry:
 ; Function Attrs: norecurse nounwind
 define i64 @xmulu32(i32 %lhs, i32 %rhs) local_unnamed_addr #0 align 2 {
 ; CHECK: xmulu32
-; CHECK: xmulu32 %[[DEST:[a-z0-9_]+]]
-; CHECK: mov64 %r0, %[[DEST]]
+; CHECK: .result .lic .i64 %[[DEST:[a-z0-9_]+]]
+; CHECK: xmulu32 %[[DEST]]
 entry:
   %conv = zext i32 %lhs to i64
   %conv1 = zext i32 %rhs to i64

@@ -16,10 +16,10 @@ loop:
   %indvar.next = add nuw i64 %indvar, 1
   %exitcond = icmp eq i64 %indvar.next, %N
   br i1 %exitcond, label %exit, label %loop
-; CHECK: mov0 %[[INORD:[a-z0-9_]+]], %ra
-; CHECK: mov64 %[[LEN:[a-z0-9_]+]], %r4
-; CHECK: mov64 %[[SRC:[a-z0-9_]+]], %r3
-; CHECK: mov64 %[[DEST:[a-z0-9_]+]], %r2
+; CHECK: .param .lic .i1 %[[INORD:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[DEST:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[SRC:[a-z0-9_]+]]
+; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_]+]]
 ; CHECK: cmpne64 %[[OT:[a-z0-9_]+]], %[[LEN]], 0
 ; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
 ; CHECK: sld64 %[[VAL:[a-z0-9_]+]], %[[SRC]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0

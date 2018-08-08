@@ -1,5 +1,5 @@
 ; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
-
+; RUN: llc -mtriple=csa -csa-force-math0-instructions < %s | FileCheck %s --check-prefix=CSA_CHECK_NOMATHLIB
 ; ModuleID = 'MathOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
@@ -7,7 +7,8 @@ target triple = "csa"
 ; Function Attrs: nounwind readnone
 define double @atan2DF(double %y, double %x) local_unnamed_addr #0 {
 ; CSA_CHECK-label: atan2DF
-; CSA_CHECK: atan2f64
+; CSA_CHECK: .call atan2
+; CSA_CHECK_NOMATHLIB: atan2f64
 
 entry:
   %call = tail call double @atan2(double %y, double %x) #2

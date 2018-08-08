@@ -1,4 +1,4 @@
-; RUN: llc -O1 < %s
+; RUN: llc -csa-df-calls=0 -O1 < %s
 ; Note, in the off chance that anyone actually reads this file:
 ; This is checking the reduction of fast-math FCMP instructions. SelIDAG lowers
 ; these to setgt et al. instead of setogt and setugt.
