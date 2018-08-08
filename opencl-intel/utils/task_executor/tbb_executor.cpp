@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2017 Intel Corporation
+// Copyright (c) 2006-2018 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -37,6 +37,8 @@
 #include <tbb/concurrent_queue.h>
 #include <tbb/task.h>
 #include <tbb/enumerable_thread_specific.h>
+#define TBB_PREVIEW_GLOBAL_CONTROL 1
+#include <tbb/global_control.h>
 #include "cl_shared_ptr.hpp"
 #include "task_group.hpp"
 #include "tbb_execution_schedulers.h"
@@ -266,7 +268,11 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
     gWorker_threads = uiNumOfThreads;
     if (gWorker_threads == TE_AUTO_THREADS)
     {
-        gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
+        // Threads number should be inquired from the threads spawner (tbb).
+        gWorker_threads = std::min(
+              (unsigned int)Intel::OpenCL::Utils::GetNumberOfProcessors(),
+              (unsigned int)tbb::global_control::active_value(
+                                tbb::global_control::max_allowed_parallelism));
     }
 
 #ifdef BUILD_FPGA_EMULATOR

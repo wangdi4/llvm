@@ -439,7 +439,8 @@ TEST(FrameworkTestType, Test_PredictablePartition)
     EXPECT_TRUE(predictable_partition_test());
 }
 
-TEST(FrameworkTestType, Test_clMultipleExecutionTest)
+// [CORC-3234] Disable the test as it is very compute-intensive and should be moved to Nightly.
+TEST(FrameworkTestType, DISABLED_Test_clMultipleExecutionTest)
 {
     EXPECT_TRUE(clMultipleExecutionTest());
 }
