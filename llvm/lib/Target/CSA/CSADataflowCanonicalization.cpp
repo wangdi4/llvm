@@ -405,6 +405,8 @@ bool CSADataflowCanonicalizationPass::stopPipingLiterals(MachineInstr *MI) {
       // a literal changes semantic meaning.
       return false;
     case CSA::Generic::PICK:
+      // Don't drop into picks if the control value has an init value.
+      return getDefinition(use.getOperand(1)) != nullptr;
     case CSA::Generic::SWITCH:
     case CSA::Generic::FILTER:
       // Making everything be literal here enables further optimization. Don't
