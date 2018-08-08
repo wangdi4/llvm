@@ -1002,8 +1002,16 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
 
   for (; RefIt != End; ++RefIt, ++NumRvalOp) {
     RvalRef = *RefIt;
-    // Only the first two operands of select are relavant for simplification.
-    bool SimplificationCandidate = (!IsSelect || (NumRvalOp < 2));
+    // Only the first two rval operands of select are relevant for simplification.
+    // t = (t1 < t2) ? t3 : t4
+    bool IsSelectOperand = IsSelect && (NumRvalOp > 1);
+
+    if (IsSelectOperand && (HInst->isAbs() || HInst->isMinOrMax())) {
+      // Do not analyze last two operands of 'idiomatic' select.
+      break;
+    }
+
+    bool SimplificationCandidate = !IsSelectOperand;
 
     if (SimplificationCandidate) {
       HasNonConstRval = HasNonConstRval || !RvalRef->isConstant();

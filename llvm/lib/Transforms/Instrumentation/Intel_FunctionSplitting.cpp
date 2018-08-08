@@ -406,6 +406,19 @@ void FunctionSplitter::identifySplinterRegions()
 
     // Find the immediate post-dominator block of the current node.
     DomTreeNode *PDTCurNode = PDT.getNode(CurNode->getBlock());
+
+    // The call to getNode may (or may not) return a nullptr for an unreachable
+    // block. If it does return nullptr, then the block is unreachable, so
+    // there's no need to evaluate the nodes that follow it as a potential
+    // candidate region to be split out. This condition is not expected
+    // to be hit though, because the only nodes inserted into the worklist
+    // for evaluation are nodes that were identified in the dominator tree,
+    // so this could only occur if the post-dominator tree construction
+    // used a different reachability analysis than the dominator tree.
+    // (cmplrs-51726)
+    if (!PDTCurNode)
+      continue;
+
     DomTreeNode *PDTCurIDom = PDTCurNode->getIDom();
     const BasicBlock *CurIdomBlock = PDTCurIDom->getBlock();
 

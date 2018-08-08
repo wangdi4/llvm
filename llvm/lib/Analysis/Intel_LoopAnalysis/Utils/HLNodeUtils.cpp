@@ -199,9 +199,8 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     assert(RvalRef->isMemRef() &&
            "Rval of load instruction should be a mem ref!");
 
-    auto DummyPtrType =
-        PointerType::get(RvalRef->getDestType(),
-                         RvalRef->getPointerAddressSpace());
+    auto DummyPtrType = PointerType::get(RvalRef->getDestType(),
+                                         RvalRef->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateLoad(DummyPtrVal, false, Name);
@@ -212,9 +211,8 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     assert(LvalRef && LvalRef->isMemRef() &&
            "Lval of store instruction should be a non-null mem ref");
 
-    auto DummyPtrType =
-        PointerType::get(LvalRef->getDestType(),
-                         LvalRef->getPointerAddressSpace());
+    auto DummyPtrType = PointerType::get(LvalRef->getDestType(),
+                                         LvalRef->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
     InstVal = DummyIRBuilder->CreateStore(DummyVal, DummyPtrVal);
@@ -290,7 +288,8 @@ RegDDRef *HLNodeUtils::createTemp(Type *Ty, const Twine &Name) {
   return getDDRefUtils().createSelfBlobRef(Inst);
 }
 
-unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name) {
+unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef,
+                                           const Twine &Name) {
   assert(TempRef && "TempRef is null!");
   assert(TempRef->isTerminalRef() && "TempRef is suppored to be a terminal!");
 
@@ -309,7 +308,6 @@ unsigned HLNodeUtils::createAndReplaceTemp(RegDDRef *TempRef, const Twine &Name)
 
   return Index;
 }
-
 
 HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
                                     RegDDRef *LvalRef) {
@@ -646,6 +644,36 @@ HLInst *HLNodeUtils::createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
   HInst->setOperandDDRef(Mask, 3);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createInsertElementInst(RegDDRef *OpRef1,
+                                             RegDDRef *ElDDRef, unsigned Idx,
+                                             const Twine &Name,
+                                             RegDDRef *LvalRef /* = nullptr*/) {
+
+  assert(OpRef1->getDestType()->isVectorTy() &&
+         ElDDRef->getDestType() == OpRef1->getDestType()->getScalarType() &&
+         "Illegal operand types for insertelement");
+
+  auto UndefVal = UndefValue::get(OpRef1->getDestType());
+  auto ElVal = UndefValue::get(ElDDRef->getDestType());
+
+  Value *InstVal =
+      DummyIRBuilder->CreateInsertElement(UndefVal, ElVal, Idx, Name);
+  Instruction *Inst = cast<Instruction>(InstVal);
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  RegDDRef *IdxDDref =
+      getDDRefUtils().createConstDDRef(Inst->getOperand(2)->getType(), Idx);
+
+  HInst->setOperandDDRef(OpRef1, 1);
+  HInst->setOperandDDRef(ElDDRef, 2);
+  HInst->setOperandDDRef(IdxDDref, 3);
 
   return HInst;
 }
@@ -3510,9 +3538,8 @@ private:
 
 public:
   bool HasNonUnitStride;
-  NonUnitStrideMemRefs(const HLLoop *Loop)
-      : NumNonLinearLRefs(0), LoopLevel(Loop->getNestingLevel()),
-        HasNonUnitStride(false) {}
+  NonUnitStrideMemRefs(const HLLoop *Loop, unsigned TargetLevel)
+      : NumNonLinearLRefs(0), LoopLevel(TargetLevel), HasNonUnitStride(false) {}
   void visit(const HLNode *Node) {}
   void visit(const HLDDNode *Node);
   void postVisit(const HLNode *Node) {}
@@ -3567,13 +3594,22 @@ void NonUnitStrideMemRefs::visit(const HLDDNode *Node) {
 ///   Any memref with non-unit stride?
 ///   Will take innermost loop for now
 ///   used mostly for blocking / interchange
-
 bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
 
   assert(Loop && "InnermostLoop must not be nullptr");
   assert(Loop->isInnermost() && "Loop must be innermost Loop");
 
-  NonUnitStrideMemRefs NUS(Loop);
+  return hasNonUnitStrideRefs(Loop, Loop->getNestingLevel());
+}
+
+bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop,
+                                       unsigned TargetLevel) {
+
+  if (!Loop) {
+    return false;
+  }
+
+  NonUnitStrideMemRefs NUS(Loop, TargetLevel);
   HLNodeUtils::visit(NUS, Loop);
   return NUS.HasNonUnitStride;
 }
@@ -3598,16 +3634,16 @@ const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
   // 2) Once the levels are equal, we move up the chain for both loops
   // simultaneously until we discover the common parent.
 
-  while (Lp1 && (Lp1->getNestingLevel() > Lp2->getNestingLevel())) {
+  while (Lp1->getNestingLevel() > Lp2->getNestingLevel()) {
     Lp1 = Lp1->getParentLoop();
   }
 
-  while (Lp2 && (Lp2->getNestingLevel() > Lp1->getNestingLevel())) {
+  while (Lp2->getNestingLevel() > Lp1->getNestingLevel()) {
     Lp2 = Lp2->getParentLoop();
   }
 
   // Both loops have the same nesting level, so move up simultaneously.
-  while (Lp1 && Lp2) {
+  while (Lp1) {
     if (Lp1 == Lp2) {
       return Lp1;
     }

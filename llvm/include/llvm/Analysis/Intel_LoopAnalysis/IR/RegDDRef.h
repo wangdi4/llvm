@@ -475,6 +475,13 @@ public:
     return isTerminalRef() && getSingleCanonExpr()->isIntConstant(Val);
   }
 
+  /// Returns true if this RegDDRef is a constant integer splat.
+  /// Val parameter is the value associated inside the CanonExpr
+  /// of this RegDDRef
+  bool isIntConstantSplat(int64_t *Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isIntConstantSplat(Val);
+  }
+
   /// Returns true if this RegDDRef represents an FP constant.
   /// Put the underlying LLVM Value in Val
   bool isFPConstant(ConstantFP **Val = nullptr) const {

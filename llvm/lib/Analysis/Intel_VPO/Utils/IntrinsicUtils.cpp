@@ -110,18 +110,20 @@ VPOAnalysisUtils::getDirectiveMetadataString(const IntrinsicInst *Call) {
 
   MDString *OperandMDStr = nullptr;
   Value *Operand = Call->getArgOperand(0);
-  MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Operand);
+  assert(isa<MetadataAsValue>(Operand) && "Call operand 0 is not metadata.");
+  MetadataAsValue *OperandMDVal = cast<MetadataAsValue>(Operand);
   Metadata *MD = OperandMDVal->getMetadata();
 
   if (isa<MDNode>(MD)) {
     MDNode *OperandNode = cast<MDNode>(MD);
     Metadata *OperandNodeMD = OperandNode->getOperand(0);
-    OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
-  } else if (isa<MDString>(MD)) {
+    assert(isa<MDString>(OperandNodeMD) && "Metadata is not an MD string.");
+    OperandMDStr = cast<MDString>(OperandNodeMD);
+  } else if (isa<MDString>(MD))
     OperandMDStr = cast<MDString>(MD);
-  }
+  else
+    llvm_unreachable("Unexpected Call operand.");
 
-  assert(OperandMDStr && "Expected argument to be a metadata string");
   StringRef DirectiveStr = OperandMDStr->getString();
 
   return DirectiveStr;
@@ -149,18 +151,20 @@ VPOAnalysisUtils::getScheduleModifierMDString(const IntrinsicInst *Call) {
 StringRef VPOAnalysisUtils::getScheduleModifierMDString(Value *Modifier) {
 
   MDString *OperandMDStr = nullptr;
-  MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Modifier);
+  assert(isa<MetadataAsValue>(Modifier) && "Modifier is not metadata.");
+  MetadataAsValue *OperandMDVal = cast<MetadataAsValue>(Modifier);
   Metadata *MD = OperandMDVal->getMetadata();
 
   if (isa<MDNode>(MD)) {
     MDNode *OperandNode = cast<MDNode>(MD);
     Metadata *OperandNodeMD = OperandNode->getOperand(0);
-    OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
-  } else if (isa<MDString>(MD)) {
+    assert(isa<MDString>(OperandNodeMD) && "Metadata is not an MD string.");
+    OperandMDStr = cast<MDString>(OperandNodeMD);
+  } else if (isa<MDString>(MD))
     OperandMDStr = cast<MDString>(MD);
-  }
+  else
+    llvm_unreachable("Unexpected schedule modifier Value.");
 
-  assert(OperandMDStr && "Expected argument to be a metadata string");
   StringRef ModifierStr = OperandMDStr->getString();
   return ModifierStr;
 }

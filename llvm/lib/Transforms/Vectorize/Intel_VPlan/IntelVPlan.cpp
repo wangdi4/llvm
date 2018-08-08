@@ -54,12 +54,6 @@ raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
     V.dump(OS);
   return OS;
 }
-
-VPMaskGenerationRecipe *
-VPlanUtils::createMaskGenerationRecipe(const Value *Pred,
-                                            const Value *Backedge) {
-  return new VPMaskGenerationRecipe(Pred, Backedge);
-}
 #endif
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
@@ -93,7 +87,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
                                      VPDominatorTree &DomTree,
                                      VPPostDominatorTree &PostDomTree,
                                      VPlan *Plan) {
-  VPBasicBlock *NewBlock = createBasicBlock();
+  VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   insertBlockAfter(NewBlock, Block, Plan);
 
   // Add NewBlock to VPLoopInfo
@@ -104,6 +98,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
   // Update dom information
 
   VPDomTreeNode *BlockDT = DomTree.getNode(Block);
+  assert(BlockDT && "Expected node in dom tree!");
   SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
                                                   BlockDT->end());
   // Block is NewBlock's idom.
@@ -133,6 +128,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
   }
 
   VPDomTreeNode *BlockPDT = PostDomTree.getNode(Block);
+  assert(BlockPDT && "Expected node in post-dom tree!");
 
   // TODO: remove getBlock?
   if (BlockPDT->getIDom()->getBlock() == NewBlockPDT->getIDom()->getBlock()) {

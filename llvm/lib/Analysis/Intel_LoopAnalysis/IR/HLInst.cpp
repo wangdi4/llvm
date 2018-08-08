@@ -546,7 +546,8 @@ bool HLInst::isAbs() const {
 
   int64_t ConstVal;
 
-  if (!Operand2->isIntConstant(&ConstVal)) {
+  if (!Operand2->isIntConstant(&ConstVal) &&
+      !Operand2->isIntConstantSplat(&ConstVal)) {
     return false;
   }
 

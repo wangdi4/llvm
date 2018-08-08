@@ -264,6 +264,9 @@ const SafetyData HasFnPtr = 0x0000000000008000000;
 ///     pointer to structure.
 const SafetyData HasCppHandling = 0x0000000000010000000;
 
+/// The structure contains zero-sized array as the last field.
+const SafetyData HasZeroSizedArray = 0x0000000000020000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -281,7 +284,7 @@ const SafetyData SDDeleteField =
     BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
     AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
     MemFuncPartialWrite | SystemObject | MismatchedArgUse | GlobalArray |
-    HasVTable | HasFnPtr;
+    HasVTable | HasZeroSizedArray | HasFnPtr;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -321,7 +324,7 @@ const SafetyData SDAOSToSOA =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    HasCppHandling;
+    HasCppHandling | HasZeroSizedArray;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -331,7 +334,7 @@ const SafetyData SDDynClone =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance |  MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    UnhandledUse;
+    UnhandledUse | HasZeroSizedArray;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -340,7 +343,7 @@ const SafetyData SDSOAToAOS =
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-    GlobalArray | HasFnPtr | UnhandledUse;
+    GlobalArray | HasFnPtr | HasZeroSizedArray | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -398,6 +401,12 @@ public:
 
   CRuleTypeKind getCRuleTypeKind() { return CRTypeKind; }
   void setCRuleTypeKind(CRuleTypeKind K) { CRTypeKind = K; }
+
+  // Returns true if the type is a zero-sized array or it is a structure with a
+  // zero-sized array.
+  bool hasZeroSizedArrayAsLastField() {
+    return (SafetyInfo & dtrans::HasZeroSizedArray);
+  }
 
 private:
   llvm::Type *LLVMTy;
@@ -904,6 +913,10 @@ StringRef getStringForTransform(dtrans::Transform Trans);
 dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans);
 
 StringRef getStructName(llvm::Type *Ty);
+
+/// Check if the last field in the struct type \p Ty is zero-sized array or the
+/// type is zero-size array itself.
+bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 } // namespace dtrans
 
 } // namespace llvm

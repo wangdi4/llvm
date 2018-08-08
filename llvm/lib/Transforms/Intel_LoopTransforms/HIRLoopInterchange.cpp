@@ -60,18 +60,24 @@
 
 #include <sstream>
 
-#define DEBUG_TYPE "hir-loop-interchange"
+#define OPT_SWITCH "hir-loop-interchange"
+#define OPT_DESC "HIR Loop Interchange"
+#define DEBUG_TYPE OPT_SWITCH
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
 STATISTIC(LoopsInterchanged, "Number of HIR loops interchanged");
 
-static cl::opt<bool>
-    DisableHIRLoopInterchange("disable-hir-loop-interchange", cl::init(false),
-                              cl::Hidden,
-                              cl::desc("Disable HIR Loop Interchange"));
+static cl::opt<bool> DisableHIRLoopInterchange("disable-hir-loop-interchange",
+                                               cl::init(false), cl::Hidden,
+                                               cl::desc("Disable " OPT_DESC));
 
+static cl::opt<unsigned> NearPerfectLoopProfitablityTCThreshold(
+    OPT_SWITCH "-near-perfect-profitability-tc-threshold", cl::init(16),
+    cl::Hidden,
+    cl::desc("TripCount threshold to enable " OPT_DESC
+             " for near-perfect loopnests"));
 namespace {
 typedef std::pair<HLLoop *, HLLoop *> CandidateLoopPair;
 
@@ -123,13 +129,27 @@ private:
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 
-} // namespace
+bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
+                                          const HLLoop *InnermostLoop) {
+  // If a constant TC is too small,
+  // avoid aggressive interchange.
+  // Scan TC from innermost's parent loop to outermost loop.
+  for (const HLLoop *Lp = InnermostLoop->getParentLoop();
+       Lp != OutermostLoop->getParentLoop(); Lp = Lp->getParentLoop()) {
+    uint64_t TripCount = -1;
+    if (Lp->isConstTripLoop(&TripCount) &&
+        TripCount < NearPerfectLoopProfitablityTCThreshold) {
+      return false;
+    }
+  }
 
-static bool isBlockingCandidate(const HLLoop *Loop) {
-  // Will be in blocking code when it is ready
-  // To be deleted
-  return false;
+  // Memory references in Pre/postloop or prehead/postexit
+  // may does not have iv in the deepest dimision
+  return HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop->getParentLoop(),
+                                           InnermostLoop->getNestingLevel());
 }
+
+} // namespace
 
 /// Gather all perfect Loop Nest and enable near perfect one if needed
 struct HIRLoopInterchange::CollectCandidateLoops final
@@ -188,14 +208,11 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       }
     }
 
-    bool HasNonUnitStrideRefs =
-        HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop);
-
     if (IsPerfectNest) {
 
       LLVM_DEBUG(dbgs() << "\nIs Perfect Nest\n");
 
-      if (!HasNonUnitStrideRefs) {
+      if (!HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
         LLVM_DEBUG(
             dbgs() << "\nMemRefs are in unit stride or non-linear Defs\n");
       } else {
@@ -206,8 +223,9 @@ struct HIRLoopInterchange::CollectCandidateLoops final
 
       SkipNode = Loop;
       return;
+    }
 
-    } else if (HasNonUnitStrideRefs || isBlockingCandidate(Loop)) {
+    if (isInterchangingNearPerfectProfitable(Loop, InnermostLoop)) {
 
       LLVM_DEBUG(dbgs() << "\n Is NearPerfect Loop:\n");
       LLVM_DEBUG(dbgs(); Loop->dump());
@@ -234,6 +252,12 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       SkipNode = Loop;
       return;
     }
+
+    // NearPerfect Loop, but concluded not to enable a perfect loop nest.
+    // The conclusion could be different for a near perfect loop nest
+    // starting from an inner loop of this nest.
+    // It depends on "isInterchangingNearPerfectProfitable".
+    // Not skipping recursion.
   }
 
   void visit(HLNode *Node) {}

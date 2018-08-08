@@ -284,7 +284,11 @@ void VPOUtils::singleRegionMultiVersioning(
       if (BB != EntryBB) {
         // Do a one-to-one mapping change.
         BasicBlock *NewBB = cast<BasicBlock>(VMap[BB]);
-        BasicBlock *IDomBB = DT->getNode(BB)->getIDom()->getBlock();
+        auto *BBNode = DT->getNode(BB);
+        assert(BBNode && "BB not found in DT.");
+        auto *BBIDom = BBNode->getIDom();
+        assert(BBIDom && "BB's IDom not found.");
+        BasicBlock *IDomBB = BBIDom->getBlock();
         DT->addNewBlock(NewBB, cast<BasicBlock>(VMap[IDomBB]));
       }
     }
