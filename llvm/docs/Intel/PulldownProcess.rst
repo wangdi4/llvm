@@ -219,6 +219,16 @@ the normal branch promotion process, e.g.
 
 For checkin testing requirements, see :ref:`testing-requirements`.
 
+Once promotion is complete, pulldown automation in ``xmain-cand`` (both
+auto-merging from ``xmain`` to ``xmain-cand`` and nightly testing) should be
+temporarily suspended by adding
+
+   .. code-block:: bash
+
+     HALT until new xmain-cand gets taken
+
+to `<top ws>/merge.status` and `<top ws>/build.status`.
+
 Xmain Pulldown History
 ======================
 
