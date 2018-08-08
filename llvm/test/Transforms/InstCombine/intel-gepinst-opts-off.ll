@@ -1,4 +1,4 @@
-; RUN: opt -instcombine -disable-gepinst-opts=true < %s -S 2>&1 | FileCheck %s
+; RUN: opt -instcombine -disable-type-lowering-opts=true < %s -S 2>&1 | FileCheck %s
 
 ; Check that all three original GEPs are retained when
 ; -disable-gepinst-opts=true.
@@ -8,14 +8,14 @@
 
 declare dso_local noalias i8* @malloc(i64)
 
-define dso_local void @foo(%struct.lzma_next_coder* %next) local_unnamed_addr #0 {
-  %call = call noalias i8* @malloc(i64 16) #2
+define dso_local void @foo(%struct.lzma_next_coder* %next) local_unnamed_addr {
+  %call = call noalias i8* @malloc(i64 16)
   %coder = getelementptr inbounds %struct.lzma_next_coder, %struct.lzma_next_coder* %next, i32 0, i32 0
   store i8* %call, i8** %coder, align 8
   %t0 = bitcast i8* %call to %struct.lzma_coder*
   %myint1 = getelementptr inbounds %struct.lzma_coder, %struct.lzma_coder* %t0, i32 0, i32 0
   store i32 15, i32* %myint1, align 8
-  %call2 = call noalias i8* @malloc(i64 16) #2
+  %call2 = call noalias i8* @malloc(i64 16)
   %t1 = bitcast i8* %call2 to %struct.lzma_next_coder*
   %t2 = load i8*, i8** %coder, align 8
   %t3 = bitcast i8* %t2 to %struct.lzma_coder*

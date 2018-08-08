@@ -283,6 +283,8 @@ public:
   using BuilderTy = IRBuilder<TargetFolder, IRBuilderCallbackInserter>;
   BuilderTy &Builder;
 
+  bool allowTypeLoweringOpts() { return TypeLoweringOpts; } // INTEL
+
 private:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
@@ -290,8 +292,9 @@ private:
   /// Enable combines that trigger rarely but are costly in compiletime.
   const bool ExpensiveCombines;
 
-  /// INTEL Enable optimizations like merging and zero element GEP removal
-  const bool GEPInstOptimizations; // INTEL
+  /// INTEL Enable optimizations like GEP merging, zero element GEP removal
+  /// INTEL and pointer type bitcasts
+  const bool TypeLoweringOpts; // INTEL
 
   AliasAnalysis *AA;
 
@@ -312,14 +315,14 @@ private:
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
                bool MinimizeSize, bool ExpensiveCombines,  // INTEL
-               bool GEPInstOptimizations,                  // INTEL
+               bool TypeLoweringOpts,                      // INTEL
                AliasAnalysis *AA,                          // INTEL
                AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
                OptimizationRemarkEmitter &ORE, const DataLayout &DL,
                LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
         ExpensiveCombines(ExpensiveCombines),          // INTEL
-        GEPInstOptimizations(GEPInstOptimizations),    // INTEL
+        TypeLoweringOpts(TypeLoweringOpts),            // INTEL
         AA(AA), AC(AC), TLI(TLI),                      // INTEL
         DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC), ORE(ORE), LI(LI) {} // INTEL
 

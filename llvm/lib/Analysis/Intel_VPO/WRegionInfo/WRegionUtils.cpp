@@ -480,8 +480,10 @@ ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
   assert(L->isLoopExiting(L->getLoopLatch()) &&
          "Omp loop must have been rotated!");
 
-  BranchInst *ExitBrInst;
-  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+  assert(isa<BranchInst>(&*L->getLoopLatch()->rbegin()) &&
+         "Cannot find Exit Branch Instruction.");
+  BranchInst *ExitBrInst = cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
   if (CondInst && ICmpInst::isRelational(CondInst->getPredicate()))
     return CondInst;
@@ -493,9 +495,10 @@ ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
 // call. The existing LoopInfo returns two exit blocks. The utility
 // is to handle this situation.
 BasicBlock *WRegionUtils::getOmpExitBlock(Loop* L) {
-  BranchInst *ExitBrInst;
+  assert(isa<BranchInst>(&*L->getLoopLatch()->rbegin()) &&
+         "Cannot find Exit Branch Instruction.");
+  BranchInst *ExitBrInst = cast<BranchInst>(&*L->getLoopLatch()->rbegin());
 
-  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
   for (unsigned I = 0; I < ExitBrInst->getNumSuccessors(); I++) {
     if (ExitBrInst->getSuccessor(I) != L->getHeader())
       return ExitBrInst->getSuccessor(I);
@@ -505,10 +508,14 @@ BasicBlock *WRegionUtils::getOmpExitBlock(Loop* L) {
 
 // gets the predicate for the bottom test.
 CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
-  BranchInst *ExitBrInst;
-  ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
-  ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
-  assert(CondInst && "Omp loop must have cmp instruction at the end!");
+  assert(isa<BranchInst>(&*L->getLoopLatch()->rbegin()) &&
+         "Null Exit Branch Instruction.");
+  BranchInst *ExitBrInst = cast<BranchInst>(&*L->getLoopLatch()->rbegin());
+
+  assert(isa<ICmpInst>(ExitBrInst->getCondition()) &&
+         "Omp loop must have cmp instruction at the end!");
+  ICmpInst *CondInst = cast<ICmpInst>(ExitBrInst->getCondition());
+
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   Instruction *Inc =
     dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));

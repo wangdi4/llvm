@@ -32,6 +32,11 @@
 cl::opt<uint64_t>
     VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
                         cl::desc("Default estimated trip count"));
+static cl::opt<unsigned>
+VecThreshold("vec-threshold",
+             cl::desc("sets a threshold for the vectorization on the probability"
+                      "of profitable execution of the vectorized loop in parallel."),
+             cl::init(100));
 #else
 cl::opt<unsigned>
     VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
@@ -145,6 +150,10 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     return ForcedVF;
   }
 
+  // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
+  // buildInitialVPlan.
+  // TODO: Add options to set MinVF and MaxVF.
+  const unsigned MaxVF = 16;
   VPlan *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
@@ -167,13 +176,17 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // to be vectorized. In order to force the loop to be vectorized, we set
   // BestCost to MAX value for such a case. WRLp can be null when stress testing
   // vector code generation.
-  if (WRLp && WRLp->getIgnoreProfitability())
+  bool IsVectorAlways =
+      (WRLp && WRLp->getIgnoreProfitability()) || VecThreshold == 0;
+  if (IsVectorAlways) {
     BestCost = std::numeric_limits<unsigned>::max();
+    LLVM_DEBUG(dbgs() << "vector always is used for the given loop\n");
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
   // cost model.
-  for (unsigned VF = 2; VF <= 16; VF *= 2) {
+  for (unsigned VF = 2; VF <= MaxVF; VF *= 2) {
     if (!hasVPlanForVF(VF))
       continue;
 
@@ -191,6 +204,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     // representation of peel/remainder not ready.
     unsigned VectorCost = VectorIterationCost * (TripCount / VF) +
                           ScalarIterationCost * (TripCount % VF);
+    if (0 < VecThreshold && VecThreshold < 100) {
+      LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
+                        << VF << ". Original cost = " << VectorCost << "\n");
+      VectorCost = (unsigned)(VectorCost * (100.0 - VecThreshold))/100.0f;
+    }
     LLVM_DEBUG(dbgs() << "Cost of VPlan for VF=" << VF << ": " << VectorCost
                       << '\n');
     if (VectorCost < BestCost) {
@@ -198,6 +216,16 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
       BestVF = VF;
     }
   }
+#if INTEL_CUSTOMIZATION
+  // Corner case: all available VPlans have UMAX cost.
+  // With 'vector always' we have to vectorize with some VF, so select first
+  // available VF.
+  if (BestVF == 1 && IsVectorAlways)
+    for (BestVF = 2; BestVF <= MaxVF; BestVF *= 2)
+      if (hasVPlanForVF(BestVF))
+        break;
+#endif // INTEL_CUSTOMIZATION
+
   // Delete all other VPlans.
   for (auto &It : VPlans) {
     if (It.first != BestVF)

@@ -45,13 +45,19 @@ public:
       return false;
     DTransAnalysisInfo &DTInfo =
         getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo,
-                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-                        getAnalysis<WholeProgramWrapperPass>().getResult());
+
+    dtrans::LoopInfoFuncType GetLI = [this](Function &F) -> LoopInfo & {
+      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    };
+
+    return Impl.runImpl(
+        M, DTInfo, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+        getAnalysis<WholeProgramWrapperPass>().getResult(), GetLI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
@@ -64,6 +70,7 @@ char DTransDynCloneWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransDynCloneWrapper, "dtrans-dynclone",
                       "DTrans dynamic cloning", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransDynCloneWrapper, "dtrans-dynclone",
@@ -85,16 +92,17 @@ class DynCloneImpl {
   using DynFieldSet = std::set<DynField>;
 
 public:
-  DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo)
-      : M(M), DL(DL), DTInfo(DTInfo),
-        ShrinkedIntTy(Type::getInt32Ty(M.getContext())),
-        InitRoutine(nullptr) {};
+  DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
+               LoopInfoFuncType &GetLI)
+      : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI),
+        ShrinkedIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr){};
   bool run(void);
 
 private:
   Module &M;
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
+  LoopInfoFuncType &GetLI;
 
   // Holds result Type after shrinking 64-bit to 32-bit integer values.
   llvm::Type *ShrinkedIntTy;
@@ -116,6 +124,8 @@ private:
 
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
+  bool verifyLegalityChecksForInitRoutine(void);
+  bool transformInitRoutine(void);
   bool isCandidateField(DynField &DField) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
@@ -406,6 +416,419 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   return !CandidateFields.empty();
 }
 
+// Check legality issues for InitRoutine here. DynClone will be disabled
+// if any legality check is failed for InitRoutine. Basically, it proves
+// that structs with candidate fields are not accessed before
+// InitRoutine is called. It does following checks:
+//   1. InitRoutine is called only once in "main" routine
+//   2. Call to InitRoutine is not in Loop
+//   3. No access to a struct with candidate fields before InitRoutine is
+//      called.
+//
+bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
+
+  std::function<bool(BasicBlock * CurrentBB,
+                     SmallPtrSetImpl<BasicBlock *> & Visited,
+                     Instruction * InitInst)>
+      CandidateFieldAccessAfterBB;
+
+  // Returns Type of struct accessed in GEP if the GEP is in allowed format
+  // to enable DynClone for the struct. Otherwise, returns nullptr.
+  std::function<Type *(GetElementPtrInst * GEP)> GetGEPStructType =
+      [this, &GetGEPStructType](GetElementPtrInst *GEP) -> Type * {
+    int32_t NumIndices = GEP->getNumIndices();
+    if (NumIndices > 2)
+      return nullptr;
+    if (NumIndices == 1) {
+      auto FPair = DTInfo.getByteFlattenedGEPElement(GEP);
+      return FPair.first;
+    }
+    auto ElemTy = GEP->getSourceElementType();
+    if (!isa<StructType>(ElemTy))
+      return nullptr;
+    return ElemTy;
+  };
+
+  // Recursive lambda function to check legality issues for InitRoutine
+  // in CurrentBB and all of the successors until InitInst.
+  CandidateFieldAccessAfterBB =
+      [this, &CandidateFieldAccessAfterBB, &GetGEPStructType](
+          BasicBlock *CurrentBB, SmallPtrSetImpl<BasicBlock *> &Visited,
+          Instruction *InitInst) -> bool {
+    if (!Visited.insert(CurrentBB).second)
+      return true;
+
+    // If CurrentBB is the BasicBlock that has call to InitRoutine, check
+    // legality issues until the call. Otherwise, check for all instructions
+    // in CurrentBB.
+    BasicBlock *InitBB = InitInst->getParent();
+    BasicBlock::iterator EndIt;
+    if (InitBB == CurrentBB)
+      EndIt = InitInst->getIterator();
+    else
+      EndIt = CurrentBB->end();
+
+    BasicBlock::iterator It = CurrentBB->begin();
+    for (; It != EndIt; ++It) {
+      Instruction &I = *It;
+      if (auto CS = CallSite(&I)) {
+        // Treat InitRoutine as invalid if there are any indirect calls or
+        // calls to user defined routines.
+        const Function *Callee = CS.getCalledFunction();
+        if (!Callee) {
+          LLVM_DEBUG(dbgs() << "    InitRoutine failed...Indirect call: " << I
+                            << "\n");
+          return false;
+        }
+        // Since WholeProgramSafe is true, just check if Callee is defined
+        // to prove it is a user defined routine.
+        if (!Callee->isDeclaration()) {
+          LLVM_DEBUG(dbgs() << "    InitRoutine failed...User routine called: "
+                            << I << "\n");
+          return false;
+        }
+      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+        // DynClone is disabled if a struct with candidate fields is
+        // accessed before InitRoutine is called.
+        auto StType = GetGEPStructType(GEP);
+        if (!StType)
+          continue;
+        for (auto &CandidatePair : CandidateFields)
+          if (CandidatePair.first == StType) {
+            LLVM_DEBUG(dbgs() << "    InitRoutine failed...Struct accessed "
+                                 "before InitRoutine:"
+                              << getStructName(StType) << "\n");
+            return false;
+          }
+      }
+    }
+    // Stop checking successors of CurrentBB if it is the BasicBlock that
+    // has call to InitRoutine.
+    if (InitBB == CurrentBB)
+      return true;
+
+    bool Result = true;
+    for (auto *BB : successors(CurrentBB))
+      Result = Result && CandidateFieldAccessAfterBB(BB, Visited, InitInst);
+
+    return Result;
+  };
+
+  assert(InitRoutine && "Expected InitRoutine");
+
+  // Check if InitRoutine is called only once from main and it is not in
+  // Loop.
+  if (!InitRoutine->hasOneUse()) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than single use \n");
+    return false;
+  }
+  CallSite CS(InitRoutine->user_back());
+  if (CS.getCalledFunction() != InitRoutine) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...No direct call \n");
+    return false;
+  }
+  Function *Caller = CS.getCaller();
+  if (Caller->getName() != "main" || !Caller->use_empty()) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...Not called from main \n");
+    return false;
+  }
+
+  // TODO: Irreducible CFG check needs to be added here.
+
+  BasicBlock *InitBB = CS.getInstruction()->getParent();
+  LoopInfo &LI = (GetLI)(*Caller);
+  if (!LI.empty() && LI.getLoopFor(InitBB)) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...call in Loop \n");
+    return false;
+  }
+
+  // Check legality issues in all BasicBlocks starting from Entry block
+  // to the place where InitRoutine is called.
+  SmallPtrSet<BasicBlock *, 32> Visited;
+  BasicBlock *StartBB = &Caller->getEntryBlock();
+  if (!CandidateFieldAccessAfterBB(StartBB, Visited, CS.getInstruction()))
+    return false;
+  return true;
+}
+
+// Transform InitRoutine:
+//
+//   1. Generates Runtime checks to detect whether all values assigned
+//      to candidate fields fit in shrinked type. "__Shrink__Happened__"
+//      new GlobalVariable is created to indicate if sizes of candidate
+//      fields are reduced. "__Shrink__Happened__" flag is used by other
+//      routines to decide whether to use original data-layout or shrinked
+//      data-layout. "__Shrink__Happened__" is set to zero when it is
+//      created. This flag is set to 1 if all assigned values of candidate
+//      fields fit in shrinked type. Collects min and max values that are
+//      assigned to candidate fields and then decides at the end of routine
+//      if the min and max values fits in shrinked types.
+//      Ex:
+//      Before:
+//              InitRoutine() {
+//                  ...
+//                  stp->candidate1 = value1;
+//                  ...
+//                  stp->candidate2 = value2;
+//                  ...
+//                  return;
+//              }
+//
+//      After:
+//              __Shrink__Happened__ = 0;
+//
+//              InitRoutine() {
+//                  L_i64_Max = 0xffffffff80000000;
+//                  L_i64_Min = 0x000000007fffffff;
+//                  ...
+//                  stp->candidate1 = value1;
+//                  L_i64_Max = (L_i64_Max < value1) ? value1 : L_i64_Max;
+//                  L_i64_Min = (L_i64_Min > value1) ? value1 : L_i64_Min;
+//                  ...
+//                  stp->candidate2 = value2;
+//                  L_i64_Max = (L_i64_Max < value2) ? value2 : L_i64_Max;
+//                  L_i64_Min = (L_i64_Min > value2) ? value2 : L_i64_Min;
+//                  ...
+//                  if (L_i64_Max > 0x000000007fffffff ||
+//                      L_i64_Min < 0xffffffff80000000) {
+//                    __Shrink__Happened__ = 1;
+//                    // TODO: Copy contents from old layout to new layout
+//                    // here.
+//                  }
+//                  return;
+//              }
+//
+//   2. Copy Contents from old layout to new layout before ReturnInst
+//
+bool DynCloneImpl::transformInitRoutine(void) {
+
+  // Returns ConstantInt of max value that fits in shrinked type for
+  // the given Ty.
+  //    i64  ==>  Max value that fits in int32_t
+  auto GetShrinkedMaxValue = [&](Type *Ty) -> Value * {
+    if (Ty->isIntegerTy(64)) {
+      return ConstantInt::get(Ty, std::numeric_limits<int32_t>::max());
+    }
+    llvm_unreachable("Unexpected shrinked type for Max Value");
+  };
+
+  // Returns ConstantInt of min value that fits in shrinked type for
+  // the given Ty.
+  //    i64  ==>  Max value that fits in int32_t
+  auto GetShrinkedMinValue = [&](Type *Ty) -> Value * {
+    if (Ty->isIntegerTy(64))
+      return ConstantInt::get(Ty, std::numeric_limits<int32_t>::min());
+    llvm_unreachable("Unexpected shrinked type for Min Value");
+  };
+
+  // Generates instructions to find  min / max values.
+  auto GenerateMinMaxInsts =
+      [&](DynField &StElem, StoreInst *Inst, CmpInst::Predicate Pred,
+          SmallDenseMap<Type *, AllocaInst *> &TypeAllocIMap) {
+        assert(isa<StoreInst>(Inst) && "Expected StoreInst");
+        StructType *StTy = cast<StructType>(StElem.first);
+        Type *Ty = StTy->getElementType(StElem.second);
+
+        AllocaInst *AI = TypeAllocIMap[Ty];
+        assert(AI && "Expected Local var for Ty");
+
+        Value *LI = new LoadInst(AI, "d.ld", Inst);
+        Value *SOp = Inst->getValueOperand();
+        ICmpInst *ICmp = new ICmpInst(Inst, Pred, LI, SOp, "d.cmp");
+        SelectInst *Sel = SelectInst::Create(ICmp, LI, SOp, "d.sel", Inst);
+        StoreInst *SI = new StoreInst(Sel, AI, Inst);
+        (void)SI;
+        LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
+        LLVM_DEBUG(dbgs() << "      " << *ICmp << "\n");
+        LLVM_DEBUG(dbgs() << "      " << *Sel << "\n");
+        LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+        return;
+      };
+
+  // Generate final condition and "or" with previous condition if available.
+  auto GenerateFinalCond = [&](AllocaInst *AI, Value *V,
+                               CmpInst::Predicate Pred, Value *PrevCond,
+                               ReturnInst *RI) -> Value * {
+    Value *LI = new LoadInst(AI, "d.ld", RI);
+    ICmpInst *ICmp = new ICmpInst(RI, Pred, LI, V, "d.cmp");
+    LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *ICmp << "\n");
+    if (!PrevCond)
+      return ICmp;
+
+    Value *FinalCond = BinaryOperator::CreateOr(PrevCond, ICmp, "d.or", RI);
+    LLVM_DEBUG(dbgs() << "      " << *FinalCond << "\n");
+    return FinalCond;
+  };
+
+  SmallVector<BasicBlock *, 2> RetBBs;
+  SmallVector<StoreInst *, 16> RuntimeCheckStores;
+
+  // Collect all StoreInsts that assign values to candidate fields and
+  // BasicBlocks's with ReturnInst..
+  for (BasicBlock &BB : *InitRoutine) {
+    // Collect BasicBlocks's with ReturnInst.
+    if (isa<ReturnInst>(BB.getTerminator()))
+      RetBBs.push_back(&BB);
+
+    // Collect StoreInsts
+    for (auto I = BB.begin(), E = BB.end(); I != E; I++) {
+      auto *Inst = &*I;
+      if (auto *StInst = dyn_cast<StoreInst>(Inst)) {
+        auto StElem = DTInfo.getStoreElement(StInst);
+        if (!StElem.first)
+          continue;
+        if (!isCandidateField(StElem))
+          continue;
+        Value *V = StInst->getValueOperand();
+        // Ignore constant values here since they are already verified.
+        if (isa<ConstantInt>(V))
+          continue;
+        RuntimeCheckStores.push_back(StInst);
+      }
+    }
+  }
+
+  // Allow only single Return for now.
+  if (RetBBs.size() != 1) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than one Returns\n");
+    return false;
+  }
+
+  // Create GlobalVariable to indicate whether DynClone occurred or not.
+  Type *FlagType = Type::getInt8Ty(M.getContext());
+  auto *ShrinkHappenedVar = new GlobalVariable(
+      M, FlagType, false, GlobalVariable::CommonLinkage,
+      ConstantInt::get(FlagType, 0), Twine("__Shrink__Happened__"));
+
+  LLVM_DEBUG(dbgs() << "    ShrinkHappenedVar: " << *ShrinkHappenedVar << "\n");
+
+  // Map of Type and AllocaInst where max value of the type is saved.
+  SmallDenseMap<Type *, AllocaInst *> TypeMaxAllocIMap;
+  // Map of Type and AllocaInst where min value of the type is saved.
+  SmallDenseMap<Type *, AllocaInst *> TypeMinAllocIMap;
+
+  // Create Local variables to save max and min values for each candidate
+  // type.
+  //  entry:
+  //      %d.max = alloca i64
+  //      store i64 -2147483648, i64* %d.max
+  //      %d.min = alloca i64
+  //      store i64 2147483647, i64* %d.min
+  //
+  LLVM_DEBUG(dbgs() << "    Create and Initialize min and max variables: \n");
+  for (auto &CPair : CandidateFields) {
+    StructType *StTy = cast<StructType>(CPair.first);
+    Type *Ty = StTy->getElementType(CPair.second);
+    // Create new Local max and min variables for Ty if not already there.
+    if (TypeMaxAllocIMap[Ty]) {
+      assert(TypeMinAllocIMap[Ty] &&
+             " Expected local min variable already created");
+      continue;
+    }
+    AllocaInst *AI =
+        new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr, "d.max",
+                       &InitRoutine->getEntryBlock().front());
+    TypeMaxAllocIMap[Ty] = AI;
+    StoreInst *SI =
+        new StoreInst(GetShrinkedMinValue(Ty), AI, AI->getNextNode());
+    LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+
+    AI = new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr, "d.min",
+                        SI->getNextNode());
+    TypeMinAllocIMap[Ty] = AI;
+    SI = new StoreInst(GetShrinkedMaxValue(Ty), AI, AI->getNextNode());
+    (void)SI;
+    LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+  }
+
+  // For each StoreInst, it generates instructions like
+  //   Before:
+  //     store i64 %g1, i64* %F1, align 8
+  //
+  //   After:
+  //       %d.ld = load i64, i64* %d.min
+  //       %d.cmp = icmp slt i64 %d.ld, %g1
+  //       %d.sel = select i1 %d.cmp, i64 %d.ld, i64 %g1
+  //       store i64 %d.sel, i64* %d.min
+  //       %d.ld1 = load i64, i64* %d.max
+  //       %d.cmp2 = icmp sgt i64 %d.ld1, %g1
+  //       %d.sel3 = select i1 %d.cmp2, i64 %d.ld1, i64 %g1
+  //       store i64 %d.sel3, i64* %d.max
+  //       store i64 %g1, i64* %F1, align 8
+  //
+  for (auto StInst : RuntimeCheckStores) {
+    auto StElem = DTInfo.getStoreElement(StInst);
+    LLVM_DEBUG(dbgs() << "    Find min and max for " << *StInst << "\n");
+    GenerateMinMaxInsts(StElem, StInst, ICmpInst::ICMP_SLT, TypeMinAllocIMap);
+    GenerateMinMaxInsts(StElem, StInst, ICmpInst::ICMP_SGT, TypeMaxAllocIMap);
+  }
+
+  // Generates instructions to compute final condition to detect
+  // whether the assigned values fit in shrinked types like below.
+  //
+  //   %d.ld16 = load i64, i64* %d.min
+  //   %d.cmp17 = icmp slt i64 %d.ld16, -2147483648
+  //   %d.ld18 = load i64, i64* %d.max
+  //   %d.cmp19 = icmp sgt i64 %d.ld18, 2147483647
+  //   %d.or = or i1 %d.cmp17, %d.cmp19
+  //
+  LLVM_DEBUG(dbgs() << "    Generate Final condition \n");
+  BasicBlock *OrigBB = RetBBs.front();
+  ReturnInst *RetI = cast<ReturnInst>(OrigBB->getTerminator());
+  Value *FinalCond = nullptr;
+  for (auto &Pair : TypeMinAllocIMap)
+    FinalCond = GenerateFinalCond(Pair.second, GetShrinkedMinValue(Pair.first),
+                                  ICmpInst::ICMP_SLT, FinalCond, RetI);
+  for (auto &Pair : TypeMaxAllocIMap)
+    FinalCond = GenerateFinalCond(Pair.second, GetShrinkedMaxValue(Pair.first),
+                                  ICmpInst::ICMP_SGT, FinalCond, RetI);
+
+  // TODO: It is better not to set __Shrink__Happened__ when none of
+  // StoreInst of candidate fields is executed at runtime in InitRoutine.
+  // Add a another check for FinalCond to do the same.
+
+  assert(FinalCond && "Expected non-null Final condition");
+
+  // Before:
+  //   original:
+  //     ...
+  //     ret void
+  //
+  // After:
+  //   original:
+  //   ...
+  //   br i1 %d.or, label %1, label %d.set_happened
+  //
+  //   d.set_happened:
+  //     store i8 1, i8* @__Shrink__Happened__
+  //     br label %1
+  //
+  //   <label>:1:
+  //     ret void
+  //
+  // Split OrigBB just before RetI.
+  LLVM_DEBUG(dbgs() << "    Set __Shrink__Happened__ to 1 \n");
+  BasicBlock *LastBB = OrigBB->splitBasicBlock(RetI);
+
+  BasicBlock *NewBB = BasicBlock::Create(OrigBB->getContext(), "d.set_happened",
+                                         OrigBB->getParent(), LastBB);
+  OrigBB->getTerminator()->eraseFromParent();
+  BranchInst *BI = BranchInst::Create(LastBB, NewBB, FinalCond, OrigBB);
+  LLVM_DEBUG(dbgs() << "      " << *BI << "\n");
+
+  StoreInst *SI =
+      new StoreInst(ConstantInt::get(ShrinkHappenedVar->getValueType(), 1),
+                    ShrinkHappenedVar, NewBB);
+  LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+  BranchInst::Create(LastBB, NewBB);
+  (void)BI;
+  (void)SI;
+  return true;
+}
+
 bool DynCloneImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
@@ -419,6 +842,21 @@ bool DynCloneImpl::run(void) {
   if (!prunePossibleCandidateFields())
     return false;
 
+  if (!verifyLegalityChecksForInitRoutine())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
+
+  // TODO: Lot more checks are needed before generating runtime checks.
+  // Most of those checks are basically to prove it is legal to rematerialize
+  // struct pointers after shrining the struct. These checks will be
+  // implemented later.
+
+  if (!transformInitRoutine())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "    Generated Runtime checks in InitRoutine ... \n");
+
   LLVM_DEBUG(dbgs() << "  Final Candidate fields: \n";
              printCandidateFields(dbgs()));
 
@@ -426,7 +864,8 @@ bool DynCloneImpl::run(void) {
 }
 
 bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo) {
+                           TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
+                           LoopInfoFuncType &GetLI) {
 
   if (!WPInfo.isWholeProgramSafe())
     return false;
@@ -436,7 +875,7 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   auto &DL = M.getDataLayout();
 
-  DynCloneImpl DynCloneI(M, DL, DTInfo);
+  DynCloneImpl DynCloneI(M, DL, DTInfo, GetLI);
   return DynCloneI.run();
 }
 
@@ -444,7 +883,15 @@ PreservedAnalyses DynClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo))
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
+
+  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo,
+               GetLI))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

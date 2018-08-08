@@ -194,7 +194,7 @@ public:
   void throttle(HLLoop *Lp);
 
   /// Marks loop and all its parent loop as unrollable.
-  void throttleRecursively(HLLoop *Lp);
+  void throttleRecursively(HLLoop *Lp, bool IsCostModelThrottling = false);
 
   /// Returns true if the loop is marked unrollable.
   bool isThrottled(HLLoop *Lp);
@@ -461,8 +461,19 @@ bool HIRUnrollAndJam::isThrottled(HLLoop *Lp) {
 
 void HIRUnrollAndJam::throttle(HLLoop *Lp) { updateUnrollFactor(Lp, 1); }
 
-void HIRUnrollAndJam::throttleRecursively(HLLoop *Lp) {
-  while (!updateUnrollFactor(Lp, 0) && (Lp = Lp->getParentLoop())) {
+void HIRUnrollAndJam::throttleRecursively(HLLoop *Lp,
+                                          bool IsCostModelThrottling) {
+  assert(Lp && "Loop is null!");
+
+  while (Lp && !updateUnrollFactor(Lp, 0)) {
+    // Do not throttle parent loops with enabling pragma based on cost model.
+    if (IsCostModelThrottling) {
+      while (Lp && Lp->hasUnrollAndJamEnablingPragma()) {
+        Lp = Lp->getParentLoop();
+      }
+    } else {
+      Lp = Lp->getParentLoop();
+    }
   }
 }
 
@@ -499,16 +510,21 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of non-normalized loop!\n");
       HUAJ.throttle(Lp);
       return;
+    }
 
-    } else if (Lp->hasUnrollAndJamDisablingPragma()) {
+    if (Lp->hasUnrollAndJamDisablingPragma()) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of pragma disabled loop!\n");
       HUAJ.throttle(Lp);
       return;
-    } else if (Lp->hasVectorizeEnablingPragma()) {
+    }
+
+    if (Lp->hasVectorizeEnablingPragma()) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of vector pragma loop!\n");
       HUAJ.throttle(Lp);
       return;
-    } else if (Lp->hasUnrollEnablingPragma()) {
+    }
+
+    if (Lp->hasUnrollEnablingPragma()) {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll & jam as loop has unroll pragma!\n");
       HUAJ.throttle(Lp);
@@ -577,63 +593,68 @@ unsigned HIRUnrollAndJam::computeLoopNestCost(HLLoop *Lp) const {
 
 unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     HLLoop *Lp, bool HasEnablingPragma) const {
-  unsigned LoopCost = HUAJ.HLR.getSelfLoopResource(Lp).getTotalCost();
-
-  if (LoopCost > MaxOuterLoopCost) {
-    LLVM_DEBUG(dbgs() << "Skipping unroll & jam of loop as the loop body cost "
-                         "exceeds threshold!\n");
-    return 0;
-  }
-
-  unsigned LoopNestCost = HUAJ.computeLoopNestCost(Lp);
-
-  if ((2 * LoopNestCost) > MaxUnrolledLoopNestCost) {
-    LLVM_DEBUG(
-        dbgs() << "Skipping unroll & jam of loop as the unrolled loop body "
-                  "cost exceeds threshold!\n");
-    return 0;
-  }
 
   uint64_t TC;
   bool IsConstTC = Lp->isConstTripLoop(&TC);
   unsigned UnrollFactor;
 
-  if (HasEnablingPragma) {
-    UnrollFactor = Lp->getUnrollAndJamPragmaCount();
+  if ((UnrollFactor = Lp->getUnrollAndJamPragmaCount())) {
     assert(UnrollFactor != 1 && "pragma unroll count of 1 not expected!");
 
-    if (!UnrollFactor) {
-      UnrollFactor = MaxUnrollFactor;
+    if (IsConstTC && (TC < UnrollFactor)) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam of pragma enabled loop as trip "
+                    "count is too small!\n");
+      return 1;
     }
 
-    if (IsConstTC) {
-      if (TC < 3) {
-        LLVM_DEBUG(
-            dbgs() << "Skipping unroll & jam of pragma enabled loop as trip "
-                      "count is too small!\n");
-        return 1;
-      }
+    // Return pragma count as the unroll factor.
+    return UnrollFactor;
+  }
 
-      if (TC <= UnrollFactor) {
-        UnrollFactor = TC / 2;
-      }
-    }
+  if (IsConstTC && (TC < 2)) {
+    LLVM_DEBUG(
+        dbgs() << "Skipping unroll & jam of loop as trip count is too small!\n");
+    return 1;
+  }
 
-    if ((UnrollFactor * LoopNestCost) > MaxUnrolledLoopNestCost) {
-      // This it to avoid encountering unroll factor of 1 in the while loop
-      // below when using pragma count. For example if the pragma unroll factor
-      // is 3, we get 1 on dividing by 2.
-      UnrollFactor = PowerOf2Floor(UnrollFactor);
-    }
-
-  } else {
-    if ((IsConstTC || (TC = Lp->getMaxTripCountEstimate())) &&
-        (TC < MinTripCountThreshold)) {
+  if ((IsConstTC || (TC = Lp->getMaxTripCountEstimate())) &&
+      (TC < MinTripCountThreshold)) {
+    if (HasEnablingPragma) {
+      return 2;
+    } else {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of small trip count loop!\n");
       return 1;
     }
-    UnrollFactor = MaxUnrollFactor;
   }
+
+  unsigned LoopCost = HUAJ.HLR.getSelfLoopResource(Lp).getTotalCost();
+
+  if (LoopCost > MaxOuterLoopCost) {
+    if (HasEnablingPragma) {
+      return 2;
+    } else {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam of loop as the loop body cost "
+                    "exceeds threshold!\n");
+      return 0;
+    }
+  }
+
+  unsigned LoopNestCost = HUAJ.computeLoopNestCost(Lp);
+
+  if ((2 * LoopNestCost) > MaxUnrolledLoopNestCost) {
+    if (HasEnablingPragma) {
+      return 2;
+    } else {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam of loop as the unrolled loop body "
+                    "cost exceeds threshold!\n");
+      return 0;
+    }
+  }
+
+  UnrollFactor = MaxUnrollFactor;
 
   while ((UnrollFactor * LoopNestCost) > MaxUnrolledLoopNestCost) {
     UnrollFactor /= 2;
@@ -662,28 +683,31 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   unsigned UnrollFactor = computeUnrollFactorUsingCost(Lp, HasEnablingPragma);
 
   if (!UnrollFactor) {
-    HUAJ.throttleRecursively(Lp);
+    HUAJ.throttleRecursively(Lp, true);
     return;
-  } else if (UnrollFactor == 1) {
+  }
+
+  if (UnrollFactor == 1) {
     HUAJ.throttle(Lp);
     return;
   }
 
-  if (!HasEnablingPragma &&
-      // TODO: refine unroll factor using extra cache lines accessed by
-      // unrolling?
-      !HUAJ.HLA.hasTemporalLocality(Lp, UnrollFactor - 1)) {
-    LLVM_DEBUG(
-        dbgs()
-        << "Skipping unroll & jam as loop does not have temporal locality!\n");
-    HUAJ.throttle(Lp);
-    return;
-  }
+  if (!HasEnablingPragma) {
+    // TODO: refine unroll factor using extra cache lines accessed by
+    // unrolling?
+    if (!HUAJ.HLA.hasTemporalLocality(Lp, UnrollFactor - 1)) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
+                           "temporal locality!\n");
+      HUAJ.throttle(Lp);
+      return;
+    }
 
-  if (!canLegallyUnrollAndJam(Lp)) {
-    LLVM_DEBUG(dbgs() << "Skipping unroll & jam for loop as it is illegal!\n");
-    HUAJ.throttle(Lp);
-    return;
+    if (!canLegallyUnrollAndJam(Lp)) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam for loop as it is illegal!\n");
+      HUAJ.throttle(Lp);
+      return;
+    }
   }
 
   HUAJ.updateUnrollFactor(Lp, UnrollFactor);

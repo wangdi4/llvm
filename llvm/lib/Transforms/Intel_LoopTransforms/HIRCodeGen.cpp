@@ -1697,6 +1697,10 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (isa<ExtractElementInst>(Inst)) {
     StoreVal = Builder.CreateExtractElement(Ops[1], Ops[2], Inst->getName());
 
+  } else if (isa<InsertElementInst>(Inst)) {
+    StoreVal =
+        Builder.CreateInsertElement(Ops[1], Ops[2], Ops[3], Inst->getName());
+
   } else if (isa<ShuffleVectorInst>(Inst)) {
     StoreVal =
         Builder.CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());

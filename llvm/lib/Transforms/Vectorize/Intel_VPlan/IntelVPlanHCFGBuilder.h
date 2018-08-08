@@ -80,7 +80,10 @@ protected:
 
   virtual VPRegionBlock *buildPlainCFG();
   virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
-    return VPlanUtils::createLoopRegion(VPLp);
+    assert(VPLp && "Expected a valid VPLoop.");
+    VPLoopRegion *Loop =
+        new VPLoopRegion(VPlanUtils::createUniqueName("loop"), VPLp);
+    return Loop;
   }
 
   void simplifyPlainCFG();

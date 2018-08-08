@@ -1,6 +1,6 @@
 //====-- Intel_X86FMA.cpp - Fused Multiply Add optimization ---------------====
 //
-//      Copyright (c) 2017 Intel Corporation.
+//      Copyright (c) 2018 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -19,6 +19,10 @@
 //  External interfaces:
 //      FunctionPass *llvm::createX86GlobalFMAPass();
 //      bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc);
+//
+// Authors:
+// --------
+// Vyacheslav Klochkov (vyacheslav.n.klochkov@intel.com)
 //
 
 #include "X86.h"
@@ -1507,6 +1511,19 @@ public:
     IsFullyConsumedByKnownExpressions = true;
   }
 
+  // Returns true iff 'this' FMA expression has consumed some other expression.
+  // In this case it is considered as optimizable.
+  // Otherwise, 'this' expression is original and consists of only one operation
+  // MUL, SUB, ADD, or FMA, which cannot be optimized.
+  bool isOptimizable() const {
+    for (auto Op : Operands)
+      if (Op->isFMA())
+        // If IsFullyConsumed() then it must be optimized only as part
+        // of the bigger expressions including 'this' one.
+        return !isFullyConsumed();
+    return false;
+  }
+
   /// For all used terms sets the field 'LastUseMI' to nullptr, which means
   /// that the previously registered 'LastUseMI' value for them is not valid
   /// because a new expression using those terms was found. It happened that
@@ -1989,9 +2006,12 @@ void FMAExpr::consume(FMAExpr *FWSExpr) {
 
   // Add terms used by 'FWSExpr' to the list of terms used by the current
   // FMA expression.
-  // Also, FWSExpr does not need to keep the list of used terms anymore.
   addToUsedTerms(FWSExpr->UsedTerms);
-  FWSExpr->UsedTerms.clear();
+  // FWSExpr does not need to keep the list of used terms anymore unless
+  // it still can be optimized as a stand alone expression. For example,
+  // when FWSExpr has an unknown user not registered as FMA node.
+  if (FWSExpr->isFullyConsumed())
+    FWSExpr->UsedTerms.clear();
 
   LLVM_DEBUG(fmadbgs() << "  -->After consuming expr: " << *this << "\n");
 }
@@ -2600,7 +2620,7 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
 
   LLVM_DEBUG(fmadbgs() << "\nFMA-STEP3: DO PATTERN MATCHING AND CODE-GEN:\n");
   for (FMAExpr *Expr : FMABB.getFMAs()) {
-    if (Expr->isFullyConsumed())
+    if (!Expr->isOptimizable())
       continue;
 
     LLVM_DEBUG(fmadbgs() << "  Optimize FMA EXPR:\n  " << *Expr);

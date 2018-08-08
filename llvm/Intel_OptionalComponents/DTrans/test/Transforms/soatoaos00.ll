@@ -1,8 +1,8 @@
-; RUN: opt -S < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output
-; RUN: opt -S < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output
+; RUN: opt -S < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt -S < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
-; This test check essential layout requirments. See comments inlined.
+; This test check essential layout requirements. See comments inlined.
 ;
 ; Optional memory interface (only vtable).
 ; struct Mem {
@@ -44,7 +44,7 @@
 ;   f->f2 = new Arr<void*>();
 ;   f->f3 = new Arr1<float>();
 ; }
-; CHECK: Rejecting %class.F based on dtrans-soatoaos-typename option.
+; CHECK: Rejecting %class.F because it does not look like a candidate from CFG analysis.
 
 source_filename = "m5.cc"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -1157,6 +1157,9 @@ bool IRTranslator::translateAlloca(const User &U,
                                    MachineIRBuilder &MIRBuilder) {
   auto &AI = cast<AllocaInst>(U);
 
+  if (AI.isSwiftError())
+    return false;
+
   if (AI.isStaticAlloca()) {
     unsigned Res = getOrCreateVReg(AI);
     int FI = getOrCreateFrameIndex(AI);
@@ -1500,6 +1503,8 @@ bool IRTranslator::translate(const Constant &C, unsigned Reg) {
       Ops.push_back(getOrCreateVReg(*CV->getOperand(i)));
     }
     EntryBuilder.buildMerge(Reg, Ops);
+  } else if (auto *BA = dyn_cast<BlockAddress>(&C)) {
+    EntryBuilder.buildBlockAddress(Reg, BA);
   } else
     return false;
 
@@ -1572,6 +1577,18 @@ bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
       continue; // Don't handle zero sized types.
     VRegArgs.push_back(
         MRI->createGenericVirtualRegister(getLLTForType(*Arg.getType(), *DL)));
+  }
+
+  // We don't currently support translating swifterror or swiftself functions.
+  for (auto &Arg : F.args()) {
+    if (Arg.hasSwiftErrorAttr() || Arg.hasSwiftSelfAttr()) {
+      OptimizationRemarkMissed R("gisel-irtranslator", "GISelFailure",
+                                 F.getSubprogram(), &F.getEntryBlock());
+      R << "unable to lower arguments due to swifterror/swiftself: "
+        << ore::NV("Prototype", F.getType());
+      reportTranslationError(*MF, *TPC, *ORE, R);
+      return false;
+    }
   }
 
   if (!CLI->lowerFormalArguments(EntryBuilder, F, VRegArgs)) {

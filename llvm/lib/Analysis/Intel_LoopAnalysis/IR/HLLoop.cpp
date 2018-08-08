@@ -54,7 +54,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
-      MaxTripCountEstimate(0), HasDistributePoint(false) {
+      MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
+      HasDistributePoint(false) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -75,7 +76,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(nullptr),
-      MaxTripCountEstimate(0), HasDistributePoint(false) {
+      MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
+      HasDistributePoint(false) {
   initialize();
   setNumExits(NumEx);
 
@@ -109,6 +111,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
+      MaxTCIsUsefulForDD(HLLoopObj.MaxTCIsUsefulForDD),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
       HasDistributePoint(HLLoopObj.HasDistributePoint) {
 
@@ -142,6 +145,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   DistributedForMemRec = Lp.DistributedForMemRec;
   LoopMetadata = Lp.LoopMetadata;
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
+  MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
 
   // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical

@@ -116,6 +116,9 @@ private:
   MDNode *LoopMetadata;
 
   uint64_t MaxTripCountEstimate;
+  // This flag is set for stripmined loops so DD can override the Upper Bound to
+  // derive a more refined DV.
+  bool MaxTCIsUsefulForDD;
 
   // Bottom test debug location.
   DebugLoc CmpDbgLoc;
@@ -446,9 +449,7 @@ public:
   }
 
   /// Returns true if this is the innermost loop in the loop nest.
-  bool isInnermost() const {
-    return IsInnermost;
-  }
+  bool isInnermost() const { return IsInnermost; }
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }
@@ -456,9 +457,9 @@ public:
   pre_iterator pre_end() { return ChildBegin; }
   const_pre_iterator pre_end() const { return ChildBegin; }
 
-  reverse_pre_iterator pre_rbegin() { return ChildBegin.getReverse(); }
+  reverse_pre_iterator pre_rbegin() { return ++ChildBegin.getReverse(); }
   const_reverse_pre_iterator pre_rbegin() const {
-    return ChildBegin.getReverse();
+    return const_cast<HLLoop*>(this)->pre_rbegin();
   }
 
   reverse_pre_iterator pre_rend() { return Children.rend(); }
@@ -501,9 +502,9 @@ public:
 
   reverse_post_iterator post_rbegin() { return Children.rbegin(); }
   const_reverse_post_iterator post_rbegin() const { return Children.rbegin(); }
-  reverse_post_iterator post_rend() { return PostexitBegin.getReverse(); }
+  reverse_post_iterator post_rend() { return ++PostexitBegin.getReverse(); }
   const_reverse_post_iterator post_rend() const {
-    return PostexitBegin.getReverse();
+    return const_cast<HLLoop *>(this)->post_rend();
   }
 
   /// Postexit acess methods
@@ -884,9 +885,22 @@ public:
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
+  // 0 means no estimate.
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 
-  void setMaxTripCountEstimate(uint64_t MaxTC) { MaxTripCountEstimate = MaxTC; }
+  // \p IsUsefulForDD indicates that the max trip count estimate can be used for
+  // DD analysis.
+  void setMaxTripCountEstimate(uint64_t MaxTC, bool IsUsefulForDD = false) {
+    MaxTripCountEstimate = MaxTC;
+    MaxTCIsUsefulForDD = IsUsefulForDD;
+  }
+
+  // Returns true if max trip count estimate can be used for DD analysis.
+  bool isMaxTripCountEstimateUsefulForDD() const { return MaxTCIsUsefulForDD; }
+
+  void setMaxTripCountEstimateUsefulForDD(bool Flag) {
+    MaxTCIsUsefulForDD = Flag;
+  }
 
   /// Marks loop to do not vectorize.
   void markDoNotVectorize();

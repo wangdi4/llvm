@@ -63,6 +63,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransPaddedMallocWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
+  initializeDTransResolveTypesWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
   initializeDTransDynCloneWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
@@ -76,6 +77,9 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(early))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
+  // This must run before any pass that depends on DTransAnalysis.
+  MPM.addPass(dtrans::ResolveTypesPass());
+
   MPM.addPass(dtrans::DeleteFieldPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
   MPM.addPass(dtrans::AOSToSOAPass());
@@ -87,6 +91,9 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   if (hasDumpModuleBeforeDTransValue(early))
     PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
+
+  // This must run before any pass that depends on DTransAnalysis.
+  PM.add(createDTransResolveTypesWrapperPass());
 
   PM.add(createDTransDeleteFieldWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
@@ -100,36 +107,36 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(late))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
 
-  MPM.addPass(dtrans::PaddedMallocPass());
-
   if (EnablePaddedPtrProp) {
     MPM.addPass(llvm::PaddedPtrPropPass());
   }
+
+  MPM.addPass(dtrans::PaddedMallocPass());
 }
 
 void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
   if (hasDumpModuleBeforeDTransValue(late))
     PM.add(createPrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
 
-  PM.add(createDTransPaddedMallocWrapperPass());
-
   if (EnablePaddedPtrProp) {
     PM.add(createPaddedPtrPropWrapperPass());
   }
+
+  PM.add(createDTransPaddedMallocWrapperPass());
 }
 
 // This is used by LinkAllPasses.h. The passes are never actually used when
 // created this way.
 void llvm::createDTransPasses() {
-  (void) llvm::createDTransDeleteFieldWrapperPass();
-  (void) llvm::createDTransAOSToSOAWrapperPass();
-  (void) llvm::createDTransReorderFieldsWrapperPass();
-  (void) llvm::createDTransPaddedMallocWrapperPass();
-  (void) llvm::createDTransEliminateROFieldAccessWrapperPass();
-  (void) llvm::createPaddedPtrPropWrapperPass();
-  (void) llvm::createDTransSOAToAOSWrapperPass();
-  (void) llvm::createDTransAnalysisWrapperPass();
-  (void) llvm::createDTransDynCloneWrapperPass();
+  (void)llvm::createDTransDeleteFieldWrapperPass();
+  (void)llvm::createDTransAOSToSOAWrapperPass();
+  (void)llvm::createDTransReorderFieldsWrapperPass();
+  (void)llvm::createDTransPaddedMallocWrapperPass();
+  (void)llvm::createDTransEliminateROFieldAccessWrapperPass();
+  (void)llvm::createPaddedPtrPropWrapperPass();
+  (void)llvm::createDTransSOAToAOSWrapperPass();
+  (void)llvm::createDTransAnalysisWrapperPass();
+  (void)llvm::createDTransDynCloneWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();

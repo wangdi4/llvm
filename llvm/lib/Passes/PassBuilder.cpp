@@ -66,6 +66,7 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
+#include "llvm/Transforms/Instrumentation/CGProfile.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
@@ -217,6 +218,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArray.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
@@ -974,6 +976,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // Add the core optimizing pipeline.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM)));
 
+  MPM.addPass(CGProfilePass());
+
   // Now we need to do some global optimization transforms.
   // FIXME: It would seem like these should come first in the optimization
   // pipeline and maybe be the bottom of the canonicalization pipeline? Weird
@@ -1050,14 +1054,27 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level,
   return MPM;
 }
 
-ModulePassManager
-PassBuilder::buildThinLTODefaultPipeline(OptimizationLevel Level,
-                                         bool DebugLogging) {
-  // FIXME: The summary index is not hooked in the new pass manager yet.
-  // When it's going to be hooked, enable WholeProgramDevirt and LowerTypeTest
-  // here.
-
+ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
+    OptimizationLevel Level, bool DebugLogging,
+    const ModuleSummaryIndex *ImportSummary) {
   ModulePassManager MPM(DebugLogging);
+
+  if (ImportSummary) {
+    // These passes import type identifier resolutions for whole-program
+    // devirtualization and CFI. They must run early because other passes may
+    // disturb the specific instruction patterns that these passes look for,
+    // creating dependencies on resolutions that may not appear in the summary.
+    //
+    // For example, GVN may transform the pattern assume(type.test) appearing in
+    // two basic blocks into assume(phi(type.test, type.test)), which would
+    // transform a dependency on a WPD resolution into a dependency on a type
+    // identifier resolution for CFI.
+    //
+    // Also, WPD has access to more precise information than ICP and can
+    // devirtualize more effectively, so it should operate on the IR first.
+    MPM.addPass(WholeProgramDevirtPass(nullptr, ImportSummary));
+    MPM.addPass(LowerTypeTestsPass(nullptr, ImportSummary));
+  }
 
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
@@ -1089,8 +1106,9 @@ PassBuilder::buildLTOPreLinkDefaultPipeline(OptimizationLevel Level,
   return buildPerModuleDefaultPipeline(Level, DebugLogging);
 }
 
-ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
-                                                       bool DebugLogging) {
+ModulePassManager
+PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
+                                     ModuleSummaryIndex *ExportSummary) {
   assert(Level != O0 && "Must request optimizations for the default pipeline!");
   ModulePassManager MPM(DebugLogging);
 
@@ -1159,11 +1177,15 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Run whole program optimization of virtual call when the list of callees
   // is fixed.
-  MPM.addPass(WholeProgramDevirtPass());
+  MPM.addPass(WholeProgramDevirtPass(ExportSummary, nullptr));
 
   // Stop here at -O1.
-  if (Level == 1)
+  if (Level == 1) {
+    // The LowerTypeTestsPass needs to run to lower type metadata and the
+    // type.test intrinsics. The pass does nothing if CFI is disabled.
+    MPM.addPass(LowerTypeTestsPass(ExportSummary, nullptr));
     return MPM;
+  }
 
   // Optimize globals to try and fold them into constants.
   MPM.addPass(GlobalOptPass());
@@ -1180,8 +1202,15 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
     addLateDTransPasses(MPM);
+    if (EnableIndirectCallConv) {
+       MPM.addPass(RequireAnalysisPass<DTransAnalysis, Module>());
+       MPM.addPass(createModuleToFunctionPassAdaptor(
+           IndirectCallConvPass(false /* EnableAndersen */,
+                                true /* EnableDTrans */)));
+    }
+  }
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1203,20 +1232,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableAndersen) {
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
-    MPM.addPass(RequireAnalysisPass<DTransAnalysis, Module>());
-  }
-#endif // INTEL_INCLUDE_DTRANS
   // Indirect to direct call conversion.
-  if (EnableIndirectCallConv)
-#if INTEL_INCLUDE_DTRANS
+  if (EnableIndirectCallConv && EnableAndersen)
     MPM.addPass(createModuleToFunctionPassAdaptor(
-        IndirectCallConvPass(EnableAndersen, EnableDTrans)));
-#else
-    MPM.addPass(createModuleToFunctionPassAdaptor(
-        IndirectCallConvPass(EnableAndersen, false)));
-#endif // INTEL_INCLUDE_DTRANS
+        IndirectCallConvPass(true /* EnableAndersen */,
+                             false /* EnableDTrans */)));
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner and AggInlAAPass.
   if (EnableInlineAggAnalysis) {
@@ -1316,12 +1336,7 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // clang's control flow integrity mechanisms (-fsanitize=cfi*) and needs
   // to be run at link time if CFI is enabled. This pass does nothing if
   // CFI is disabled.
-  // Enable once we add support for the summary in the new PM.
-#if 0
-  MPM.addPass(LowerTypeTestsPass(Summary ? PassSummaryAction::Export :
-                                           PassSummaryAction::None,
-                                Summary));
-#endif
+  MPM.addPass(LowerTypeTestsPass(ExportSummary, nullptr));
 
   // Add late LTO optimization passes.
   // Delete basic blocks, which optimization passes may have killed.
@@ -1637,12 +1652,12 @@ bool PassBuilder::parseModulePass(ModulePassManager &MPM,
     } else if (Matches[1] == "thinlto-pre-link") {
       MPM.addPass(buildThinLTOPreLinkDefaultPipeline(L, DebugLogging));
     } else if (Matches[1] == "thinlto") {
-      MPM.addPass(buildThinLTODefaultPipeline(L, DebugLogging));
+      MPM.addPass(buildThinLTODefaultPipeline(L, DebugLogging, nullptr));
     } else if (Matches[1] == "lto-pre-link") {
       MPM.addPass(buildLTOPreLinkDefaultPipeline(L, DebugLogging));
     } else {
       assert(Matches[1] == "lto" && "Not one of the matched options!");
-      MPM.addPass(buildLTODefaultPipeline(L, DebugLogging));
+      MPM.addPass(buildLTODefaultPipeline(L, DebugLogging, nullptr));
     }
     return true;
   }

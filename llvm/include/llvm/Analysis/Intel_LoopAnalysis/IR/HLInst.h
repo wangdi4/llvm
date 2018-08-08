@@ -174,10 +174,18 @@ public:
   /// Returns true if this is a call instruction.
   bool isCallInst() const { return isa<CallInst>(Inst); }
 
+  /// Returns true if \p Call only accesses inaccessible or arg memory.
+  static bool onlyAccessesInaccessibleOrArgMemory(const CallInst *Call) {
+    return Call->onlyAccessesArgMemory() ||
+           Call->onlyAccessesInaccessibleMemory() ||
+           Call->onlyAccessesInaccessibleMemOrArgMem();
+  }
+
   /// Returns true if \p Call instruction has unsafe side effects.
   static bool hasUnsafeSideEffect(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
-    return !Call->onlyReadsMemory() && !Call->onlyAccessesArgMemory();
+    return !Call->onlyReadsMemory() &&
+           !onlyAccessesInaccessibleOrArgMemory(Call);
   }
 
   /// Returns true if this is a call instruction with unsafe side effects.
@@ -189,7 +197,8 @@ public:
   /// Returns true if \p Call instruction has unknown memory access.
   static bool hasUnknownMemoryAccess(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
-    return !Call->doesNotAccessMemory() && !Call->onlyAccessesArgMemory();
+    return !Call->doesNotAccessMemory() &&
+           !onlyAccessesInaccessibleOrArgMemory(Call);
   }
 
   /// Returns true if this is a call instruction with unknown memory access.

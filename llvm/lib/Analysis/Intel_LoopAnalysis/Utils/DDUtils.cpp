@@ -67,7 +67,7 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
 
 namespace {
 
-inline void checkFail(const char *Banner) {
+inline void reportFail(const char *Banner) {
   LLVM_DEBUG(dbgs() << "Can't canMoveLoadIntoLoop: " << Banner << "\n");
 }
 
@@ -102,7 +102,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
 
   if (DDUtils::anyEdgeToLoop(DDG, RRef, InnermostLoop)) {
     // (a) no edge into innermost Loop
-    checkFail("F1");
+    reportFail("F1");
     return false;
   }
 
@@ -117,7 +117,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     if (Node->getLexicalParentLoop() == InnermostLoop) {
       // TODO: remove this check as it is redundant with one in anyEdgeToLoop
       //       above
-      checkFail("F2");
+      reportFail("F2");
       return false;
     }
     if (Edge->isANTIdep()) {
@@ -136,7 +136,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     DDRef *DDRefSink = Edge->getSink();
     if (DisablePerfectLoopNestWithBlob) {
       if (!isa<RegDDRef>(DDRefSink)) {
-        checkFail("F3");
+        reportFail("F3");
         return false;
       }
     }
@@ -150,12 +150,12 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
       return false;
     }
     if (Edge->isOUTPUTdep() && Node->getParentLoop() != InnermostLoop) {
-      checkFail("F4");
+      reportFail("F4");
       return false;
     }
     if (Edge->isOUTPUTdep()) {
       if (++Defs > 1) {
-        checkFail("F5");
+        reportFail("F5");
         return false;
       }
     } else if (Edge->isFLOWdep()) {
@@ -171,7 +171,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
   // FlowEdge and AntiEdges are all between inst in
   // right outside the innermostloop.
   if (Defs == 1 && (StoreNode1 != StoreNode2)) {
-    checkFail("F6");
+    reportFail("F6");
     // not-equal-load-store-invalid.ll is sifted here.
     // FlowDep from Load to Store exists, but no AntiDep from Store to Load
     // found.
@@ -181,17 +181,17 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     if (!FlowEdge || !AntiEdge) {
       // This is a case that the load goes through 2 copy stmts
       // Need some forwardSub cleanup. Bail out now.
-      checkFail("F7");
+      reportFail("F7");
       return false;
     }
     unsigned Level = InnermostLoop->getNestingLevel() - 1;
     if (FlowEdge->getDVAtLevel(Level) != DVKind::EQ) {
-      checkFail("F8");
+      reportFail("F8");
       return false;
     }
     if (AntiEdge->getDVAtLevel(Level) != DVKind::EQ) {
       // invalid-sink.ll is sifted here.
-      checkFail("F9");
+      reportFail("F9");
       return false;
     }
   }
@@ -235,7 +235,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
       LLVM_DEBUG(dbgs() << "Instruction's matching store: ");
       LLVM_DEBUG((*StoreInst)->dump());
 
-      checkFail("F10");
+      reportFail("F10");
       return false;
     }
 
@@ -251,7 +251,7 @@ bool canMoveLoadIntoLoop(const DDRef *Lref, const DDRef *Rref,
     // <975>  |   (%s)[0].32[-1 * i1 + 15] = -16 * i1 + 4080;
     // <1941> + END LOOP
     if (!DDRefUtils::areEqual(LRef, (*StoreInst)->getRvalDDRef())) {
-      checkFail("F11");
+      reportFail("F11");
       return false;
     }
   }
@@ -978,7 +978,8 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   HIRDDAnalysis &DDA;
   DDGraph &DDG;
   HIRSafeReductionAnalysis &SRA;
-  InterchangeIgnorableSymbasesTy *IgnorableSymBases;
+  const SpecialSymbasesTy *SpecialSymbases;
+  bool IgnoreSpecialSymbases;
 
   // Indicates if we need to call Demand Driven DD to refine DV
   bool RefineDV;
@@ -986,13 +987,12 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   // Outputs of this visitor
   SmallVectorImpl<DirectionVector> &DVs;
 
-  InterchangeIgnorableSymbasesTy EmptyIgnorableSBs;
-
   CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned OutermostLevel,
                           unsigned InnermostLevel, HIRDDAnalysis &DDA,
                           DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
-                          InterchangeIgnorableSymbasesTy *Ignores,
-                          bool RefineDV, SmallVectorImpl<DirectionVector> &DVs);
+                          const SpecialSymbasesTy *SpecialSBs,
+                          bool IgnoreSpecialSymbases, bool RefineDV,
+                          SmallVectorImpl<DirectionVector> &DVs);
 
   void visit(const HLDDNode *DDNode);
 
@@ -1005,15 +1005,14 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
 CollectDDInfoForPermute::CollectDDInfoForPermute(
     const HLLoop *CandidateLoop, unsigned OutermostLevel,
     unsigned InnermostLevel, HIRDDAnalysis &DDA, DDGraph &DDG,
-    HIRSafeReductionAnalysis &SRA, InterchangeIgnorableSymbasesTy *Ignores,
-    bool RefineDV, SmallVectorImpl<DirectionVector> &DVs)
+    HIRSafeReductionAnalysis &SRA, const SpecialSymbasesTy *SpecialSBs,
+    bool IgnoreSpecialSymbases, bool RefineDV,
+    SmallVectorImpl<DirectionVector> &DVs)
     : CandidateLoop(CandidateLoop), OutermostLevel(OutermostLevel),
       InnermostLevel(InnermostLevel), DDA(DDA), DDG(DDG), SRA(SRA),
-      IgnorableSymBases(Ignores), RefineDV(RefineDV), DVs(DVs) {
+      SpecialSymbases(SpecialSBs), IgnoreSpecialSymbases(IgnoreSpecialSymbases),
+      RefineDV(RefineDV), DVs(DVs) {
   DVs.clear();
-  if (!IgnorableSymBases) {
-    IgnorableSymBases = &EmptyIgnorableSBs;
-  }
 }
 
 void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
@@ -1030,8 +1029,17 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
     // in pre(post)loop or preheader/postexit.
     // Those were legally sinked into the innermost loop.
     // The fact allows us to ignore DDs related to those temps.
-    if ((*I)->isTerminalRef() && IgnorableSymBases->count((*I)->getSymbase())) {
-      continue;
+    if ((*I)->isTerminalRef() && SpecialSymbases) {
+      if (!IgnoreSpecialSymbases &&
+          !(SpecialSymbases->count((*I)->getSymbase()))) {
+        // Consider only these symbases
+        continue;
+      }
+      if (IgnoreSpecialSymbases &&
+          (SpecialSymbases->count((*I)->getSymbase()))) {
+        // Ignore this symbase
+        continue;
+      }
     }
 
     for (auto II = DDG.outgoing_edges_begin(*I),
@@ -1098,16 +1106,47 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
   }
 }
 
-void DDUtils::computeDVsForPermute(
-    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
-    unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
-    HIRSafeReductionAnalysis &SRA, bool RefineDV,
-    InterchangeIgnorableSymbasesTy *IgnorableSBs) {
+void DDUtils::computeDVsForPermute(SmallVectorImpl<DirectionVector> &DVs,
+                                   const HLLoop *OutermostLoop,
+                                   unsigned InnermostNestingLevel,
+                                   HIRDDAnalysis &DDA,
+                                   HIRSafeReductionAnalysis &SRA,
+                                   bool RefineDV) {
 
   DDGraph DDG = DDA.getGraph(OutermostLoop);
   CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
-                              InnermostNestingLevel, DDA, DDG, SRA,
-                              IgnorableSBs, RefineDV, DVs);
+                              InnermostNestingLevel, DDA, DDG, SRA, nullptr,
+                              true, RefineDV, DVs);
+
+  HLNodeUtils::visit(CDD, OutermostLoop);
+}
+
+void DDUtils::computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DVs,
+                                          const HLLoop *OutermostLoop,
+                                          unsigned InnermostNestingLevel,
+                                          HIRDDAnalysis &DDA,
+                                          HIRSafeReductionAnalysis &SRA,
+                                          bool RefineDV,
+                                          const SpecialSymbasesTy *SpecialSBs) {
+
+  DDGraph DDG = DDA.getGraph(OutermostLoop);
+  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
+                              InnermostNestingLevel, DDA, DDG, SRA, SpecialSBs,
+                              false, RefineDV, DVs);
+
+  HLNodeUtils::visit(CDD, OutermostLoop);
+}
+
+void DDUtils::computeDVsForPermuteIgnoringSBs(
+    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
+    unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
+    HIRSafeReductionAnalysis &SRA, bool RefineDV,
+    const SpecialSymbasesTy *SpecialSBs) {
+
+  DDGraph DDG = DDA.getGraph(OutermostLoop);
+  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
+                              InnermostNestingLevel, DDA, DDG, SRA, SpecialSBs,
+                              true, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }

@@ -363,48 +363,4 @@ define void @test26(%struct.test26*** %pIn) {
 ; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
-; Because of the way the types get printed out, all array types are
-; after all structure types. To avoid continually renumbering the
-; array tests, I am giving them a prefix 'A' and restarting the numbering.
-; The number of elements in the array also effects sorting.
-
-; Store a pointer to an array element in arbitrary memory.
-%struct.testA01 = type [101 x i32]
-define void @testA01(%struct.testA01* %pA, i64* %pUnknown) {
-  %pA4 = getelementptr %struct.testA01, %struct.testA01* %pA, i64 0, i32 4
-
-  %tmp = ptrtoint i32* %pA4 to i64
-  store i64 %tmp, i64* %pUnknown
-  ret void
-}
-
-; CHECK: LLVMType: [101 x i32]
-; CHECK: Safety data: Field address taken
-
-; TODO: Make a variant of the test above where the array is nested within
-;       another type (e.g. { i32, [16 x i32], i32 } )
-
-; Store to an array element.
-%struct.testA02 = type [102 x i32]
-define void @testA02(%struct.testA02* %pA, i32 %val) {
-  %pA4 = getelementptr %struct.testA02, %struct.testA02* %pA, i64 0, i32 4
-  store i32 %val, i32* %pA4
-  ret void
-}
-
-; CHECK: LLVMType: [102 x i32]
-; CHECK: Safety data: No issues found
-
-; Mismatched store to an array element.
-%struct.testA03 = type [103 x i32]
-define void @testA03(%struct.testA03* %pA, i8 %val) {
-  %pA4 = getelementptr %struct.testA03, %struct.testA03* %pA, i64 0, i32 4
-  %tmp = bitcast i32* %pA4 to i8*
-  store i8 %val, i8* %tmp
-  ret void
-}
-
-; CHECK: LLVMType: [103 x i32]
-; CHECK: Safety data: Mismatched element access
-
 declare noalias i8* @malloc(i64)

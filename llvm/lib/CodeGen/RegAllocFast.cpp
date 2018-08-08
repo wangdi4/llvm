@@ -185,7 +185,7 @@ namespace {
     }
 
   private:
-    bool runOnMachineFunction(MachineFunction &Fn) override;
+    bool runOnMachineFunction(MachineFunction &MF) override;
     bool allocateBasicBlock(MachineBasicBlock &MBB); // INTEL
     void handleThroughOperands(MachineInstr &MI,
                                SmallVectorImpl<unsigned> &VirtDead);
@@ -212,7 +212,7 @@ namespace {
       return LiveVirtRegs.find(TargetRegisterInfo::virtReg2Index(VirtReg));
     }
 
-    LiveRegMap::iterator assignVirtToPhysReg(unsigned VReg, MCPhysReg PhysReg);
+    LiveRegMap::iterator assignVirtToPhysReg(unsigned VirtReg, MCPhysReg PhysReg);
     LiveRegMap::iterator allocVirtReg(MachineInstr &MI, LiveRegMap::iterator,
                                       unsigned Hint);
     LiveRegMap::iterator defineVirtReg(MachineInstr &MI, unsigned OpNum,

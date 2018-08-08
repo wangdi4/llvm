@@ -99,6 +99,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
@@ -451,6 +452,7 @@ class PaddedPtrPropImpl {
   Module &M;
   DTransAnalysisInfo &DTInfo;
   FuncPadInfoMapTy FuncPadInfoMap;
+  dtrans::PaddedMallocGlobals PaddedMallocData;
   FuncPadInfo &getFuncPadInfo(Function *F);
   void propagateInFunction(Function *F, SmallDenseSet<Function *> &ImpactedFns);
   bool emit();
@@ -772,6 +774,10 @@ bool PaddedPtrPropImpl::emit() {
       Modified = true;
     }
   }
+
+  if (!Modified)
+    PaddedMallocData.destroyGlobalsInfo(M);
+
   return Modified;
 }
 
@@ -865,7 +871,7 @@ bool PaddedPtrPropImpl::placeInitialAnnotations() {
         // structure fields initialized by a single allocation
         auto *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
         if (GEP && processGepForInitialAllocations(GEP, FieldMap)) {
-          insertPaddedMarkUp(Load, DTInfo.getPaddedMallocSize());
+          insertPaddedMarkUp(Load, PaddedMallocData.getPaddedMallocSize(M));
           Modified = true;
         }
       }
@@ -893,6 +899,8 @@ bool PaddedPtrPropImpl::transform(WholeProgramInfo &WPInfo) {
 
   if (!DTInfo.useDTransAnalysis())
     return false;
+
+  PaddedMallocData.buildGlobalsInfo(M);
 
   LLVM_DEBUG(dbgs() << "\n---- PADDED MALLOC TRANSFORM START ----\n\n");
 

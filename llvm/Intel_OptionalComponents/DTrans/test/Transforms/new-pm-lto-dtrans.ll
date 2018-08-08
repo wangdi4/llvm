@@ -21,9 +21,10 @@
 ; CHECK: Running analysis: DominatorTreeAnalysis
 ; CHECK: Running analysis: AssumptionAnalysis
 ; CHECK: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
+; CHECK-NEXT: Running pass: dtrans::ResolveTypes
+; CHECK-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running analysis: DTransAnalysis
-; CHECK-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-NEXT: Running analysis: BlockFrequencyAnalysis on foo
 ; CHECK-NOT: Running analysis: DTransAnalysis
 ; CHECK: Running pass: dtrans::ReorderFieldsPass

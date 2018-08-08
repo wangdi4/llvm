@@ -2435,8 +2435,7 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
         if (ArgCnt > MinArgRefs) {
           break;
         }
-        if (isa<GetElementPtrInst>(I)) {
-          GetElementPtrInst *GEPI = dyn_cast_or_null<GetElementPtrInst>(&I);
+        if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
           Value *PtrOp = GEPI->getPointerOperand();
           if (PtrOp) {
             if (isa<PHINode>(PtrOp)) {
@@ -2669,6 +2668,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL
   bool FoundForgivable = false;                          // INTEL
   bool SubtractedBonus = false;                          // INTEL
+  bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false); // INTEL
 
   // Speculatively apply all possible bonuses to Threshold. If cost exceeds
   // this Threshold any time, and cost cannot decrease, we can stop processing
@@ -2676,7 +2676,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   Threshold += (SingleBBBonus + VectorBonus);
 #if INTEL_CUSTOMIZATION
   if (InlineForXmain &&
-      preferCloningToInlining(CS, *ILIC, Params.PrepareForLTO)) {
+      preferCloningToInlining(CS, *ILIC, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferCloning;
     return false;
   }
@@ -2723,12 +2723,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
         YesReasonVector.push_back(InlrForFusion);
       }
       if (worthInliningForDeeplyNestedIfs(CS, *ILIC, IsCallerRecursive,
-                                          Params.PrepareForLTO)) {
+                                          PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrDeeplyNestedIfs);
       }
-      if (worthInliningForAddressComputations(CS, *ILIC,
-                                              Params.PrepareForLTO)) {
+      if (worthInliningForAddressComputations(CS, *ILIC, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrAddressComputations);
       }
@@ -3117,7 +3116,7 @@ InlineCost llvm::getInlineCost(
   // Don't inline a function that treats null pointer as valid into a caller
   // that does not have this attribute.
   if (!Caller->nullPointerIsDefined() && Callee->nullPointerIsDefined())
-    return llvm::InlineCost::getNever();
+    return llvm::InlineCost::getNever(NinlrNullPtrMismatch);
 
   // Don't inline functions which can be interposed at link-time.  Don't inline
   // functions marked noinline or call sites marked noinline.

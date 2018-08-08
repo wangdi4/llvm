@@ -800,7 +800,8 @@ private:
   bool mallocBasedGEPChain(GetElementPtrInst *GV, GetElementPtrInst **GBV,
                            CallSite *GCI) const;
   bool mallocOffset(Value *V, int64_t *offset) const;
-  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t *Result) const;
+  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t Offset,
+                   int64_t *Result) const;
   bool returnValueIsMallocAddress(Value *RV, BasicBlock *BB);
   bool analyzeForMallocStatus(Function *F);
 
@@ -1011,9 +1012,9 @@ void DTransAllocAnalyzer::visitNullPtrBlocks(Function *F) {
 }
 
 //
-// Return true if 'GV' is the root of a malloc based GEP chain. This
-// means that if we keep following the pointer operand for a series of
-// GEP instructions, we will eventually get to a malloc() call.
+// Return true if 'GV' is the root of a malloc based byte-flattened GEP chain.
+// This means that if we keep following the pointer operand for a series of
+// byte flattened GEP instructions, we will eventually get to a malloc() call.
 //
 // For example:
 //   %5 = tail call noalias i8* @malloc(i64 %4)
@@ -1099,26 +1100,38 @@ static bool isLowerBitMask(int64_t Value) {
 
 //
 // Return true if we can find an upper bound for the amount 'V' is less than
-// the address computed by the 'GBV'.
+// the address computed by the sequence of GEPs starting with 'GBV', and if
+// the sequence of GEPs starting with 'GBV' compute an offset equal to 'Offset'.
+//
+// If we return true, we set '*Result' to the value of the upper bound.
 //
 // For example:
 //
-//  %8 = getelementptr inbounds i8, i8* %5, i64 27
+//  %6 = getelementptr inbounds i8, i8* %5, i64 15
+//  %7 = getelementptr inbounds i8, i8* %6, i64 8
+//  %8 = getelementptr inbounds i8, i8* %7, i64 4
 //  %9 = ptrtoint i8* %8 to i64
 //  %10 = and i64 %9, 15
 //  %11 = sub nsw i64 0, %10
 //  %12 = getelementptr inbounds i8, i8* %8, i64 %11
 //
-// If 'V' here is %11 and 'GBV' is %8, then the most that %12 can be less
+// If 'V' here is %11 and 'GBV' is %6, then the most that %12 can be less
 // than %8 is 15.
 //
-// If we return true, we set '*Result' to the value of the upper bound.
+// The sequence of GEPs starting with 'GBV' are:
+//
+//  %6 = getelementptr inbounds i8, i8* %5, i64 15
+//  %7 = getelementptr inbounds i8, i8* %6, i64 8
+//  %8 = getelementptr inbounds i8, i8* %7, i64 4
+//
+// The offset computed is 15+8+4 == 27, which should be equal to 'Offset'.
+// The value returned in '*Result' is 15.
 //
 // NOTE: mallocLimit() is a bit of a pattern match, albeit for a very
 // important case.
 //
 bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
-                                      int64_t *Result) const {
+                                      int64_t Offset, int64_t *Result) const {
   auto BIS = dyn_cast<BinaryOperator>(V);
   if (!BIS || BIS->getOpcode() != Instruction::Sub)
     return false;
@@ -1143,8 +1156,23 @@ bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
   auto PI = dyn_cast<PtrToIntInst>(W);
   if (!PI)
     return false;
-  auto GEP = dyn_cast<GetElementPtrInst>(PI->getOperand(0));
-  if (GEP != GBV)
+  int64_t LocalOffset = 0;
+  Value *NewGEP = PI->getOperand(0);
+  auto Int8PtrTy = llvm::Type::getInt8PtrTy(PI->getContext());
+  GetElementPtrInst *LastGEP = nullptr;
+  while (auto GEP = dyn_cast<GetElementPtrInst>(NewGEP)) {
+    LastGEP = GEP;
+    NewGEP = GEP->getPointerOperand();
+    if (NewGEP->getType() != Int8PtrTy)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    if (!CI)
+      return false;
+    LocalOffset += CI->getSExtValue();
+  }
+  if (LocalOffset != Offset)
+    return false;
+  if (LastGEP != GBV)
     return false;
   *Result = Limit;
   return true;
@@ -1189,7 +1217,7 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
       return false;
     if (!mallocOffset(CS.getArgument(0), &Offset))
       return false;
-    if (!mallocLimit(GBV, GV->getOperand(1), &Limit))
+    if (!mallocLimit(GBV, GV->getOperand(1), Offset, &Limit))
       return false;
     return Offset >= Limit;
   }
@@ -1545,7 +1573,14 @@ private:
     populateDependencyStack(V, DependentVals);
 
     // This first line is intentionally left non-verbose.
-    DEBUG_WITH_TYPE(DTRANS_LPA, dbgs() << "analyzeValue " << *V << "\n");
+    DEBUG_WITH_TYPE(DTRANS_LPA, {
+      dbgs() << "analyzeValue ";
+      if (isa<Function>(V))
+        V->printAsOperand(dbgs());
+      else
+        dbgs() << *V;
+      dbgs() << "\n";
+    });
     DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, dumpDependencyStack(DependentVals));
 
     // Now attempt to analyze each of these values. Some may be left in a
@@ -2002,17 +2037,21 @@ private:
 
     // Get the last index argument. If we can't determine its value,
     // we can't handle this GEP.
-    // FIXME: With SCEV we might be able to handle some non-constant cases.
     // FIXME: Handle arrays with non-constant indices.
-    auto *LastArg =
-        dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1));
-    if (!LastArg)
+    if (auto *LastArg =
+            dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1))) {
+      uint64_t Idx = LastArg->getLimitedValue();
+      // Add this information to the local pointer information for the GEP.
+      Info.addElementPointee(IndexedTy, Idx);
       return;
-    uint64_t Idx = LastArg->getLimitedValue();
+    }
 
-    // Add this information to the local pointer information for the GEP.
-    Info.addElementPointee(IndexedTy, Idx);
-
+    // If the last argument is not constant and out-of-bound flag is false then
+    // it is safe to have non-constant array access. Use 0 index for Pointee
+    // set.
+    if (!DTransOutOfBoundsOK && IndexedTy->isArrayTy()) {
+      Info.addElementPointee(IndexedTy, 0);
+    }
     return;
   }
 
@@ -2028,6 +2067,8 @@ private:
   //
   // where %struct.S is a structure that has an element of type %struct.Elem
   // at offset 32 (as determined by DataLayout).
+  // TODO: add special processing for constant offsets which are multiples of
+  // structure size.
   bool analyzeByteFlattenedGEPAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
     Value *BasePointer = GEP->getPointerOperand();
     // The caller should have checked this.
@@ -2049,10 +2090,25 @@ private:
     // If we can't compute a constant offset, we won't be able to
     // figure out which element is being accessed.
     unsigned BitWidth = DL.getPointerSizeInBits();
-    APInt APOffset(BitWidth, 0);
-    if (!GEP->accumulateConstantOffset(DL, APOffset))
+    SmallVector<APInt, 3> APOffset;
+    APInt CurrOffset(BitWidth, 0);
+    // If offset is constant - put it in the list of possibe constant offsets.
+    if (GEP->accumulateConstantOffset(DL, CurrOffset)) {
+      APOffset.push_back(CurrOffset);
+    } else if (GEP->getNumOperands() == 2) {
+      // If offset comes from select instruction with two constant operands then
+      // put both values in the list of possible constant offsets.
+      // TODO: currently we only proccess Select. The same could work for PHI.
+      Value *Cond;
+      const APInt *SelT, *SelF;
+      if (!match(GEP->getOperand(1),
+                 m_Select(m_Value(Cond), m_APInt(SelT), m_APInt(SelF))))
+        return false;
+      APOffset.push_back(*SelT);
+      APOffset.push_back(*SelF);
+    } else {
       return false;
-    uint64_t Offset = APOffset.getLimitedValue();
+    }
 
     bool HasPtrToPtrAlias = false;
     for (auto *AliasTy : BaseLPI.getPointerTypeAliasSet()) {
@@ -2066,10 +2122,23 @@ private:
         HasPtrToPtrAlias = true;
         continue;
       }
-      if (!HasPtrToPtrAlias &&
-          analyzePossibleOffsetAggregateAccess(
-              GEP, AliasTy->getPointerElementType(), Offset, Info))
-        return true;
+      if (!HasPtrToPtrAlias) {
+        // Try all possible offsets one by one.
+        uint32_t Res = 0;
+        auto *CurrType = AliasTy->getPointerElementType();
+        LocalPointerInfo LocalInfo;
+        for (auto &APOffsetVal : APOffset) {
+          if (analyzePossibleOffsetAggregateAccess(
+                  GEP, CurrType, APOffsetVal.getLimitedValue(), LocalInfo))
+            Res++;
+        }
+        // If all offsets are appropriate - add those element pointees and
+        // return true.
+        if (Res == APOffset.size()) {
+          Info.merge(LocalInfo);
+          return true;
+        }
+      }
     }
     if (HasPtrToPtrAlias)
       return true;
@@ -2929,7 +2998,7 @@ public:
   }
 
   void visitCallSite(CallSite CS) {
-    SmallPtrSet<Value*, 3> SpecialArguments;
+    SmallPtrSet<Value *, 3> SpecialArguments;
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
@@ -2973,8 +3042,7 @@ public:
 
     // Mark structures returned by non-local functions as system types.
     auto *RetTy = CS.getType();
-    if (DTInfo.isTypeOfInterest(RetTy) &&
-        AllocKind == dtrans::AK_NotAlloc) {
+    if (DTInfo.isTypeOfInterest(RetTy) && AllocKind == dtrans::AK_NotAlloc) {
       if (!IsFnLocal) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
                           << "type returned by extern function\n  " << *RetTy
@@ -3203,6 +3271,14 @@ public:
         setValueTypeInfoSafetyData(&I, dtrans::UnhandledUse);
       }
     }
+
+    // Check for possible use of pointer type loaded via pointer sized int or
+    // generic i8* to expose the real type to the transforms. This is temporary,
+    // until the full LocalPointerInfo is made available to the transformations.
+    if (isGenericPtrType(I.getType())) {
+      LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(&I);
+      collectGenericLoadStoreType(I, ValLPI);
+    }
   }
 
   //
@@ -3291,6 +3367,14 @@ public:
     // If the value operand is a pointer to an element within an aggregate
     // we need to mark that element as having its address taken.
     LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
+
+    // Check for possible use of pointer type stored via pointer sized int
+    // or i8* generic type to expose the real type to the transforms.
+    // This is temporary, until the full LocalPointerInfo is made available
+    // to the transformations.
+    if (isGenericPtrType(ValOperand->getType()))
+      collectGenericLoadStoreType(I, ValLPI);
+
     if (ValLPI.pointsToSomeElement()) {
       auto ValPointees = ValLPI.getElementPointeeSet();
       for (auto PointeePair : ValPointees) {
@@ -3314,6 +3398,66 @@ public:
       analyzeElementLoadOrStore(PtrLPI, ValOperand, I, ValOperand->getType(),
                                 I.isVolatile(),
                                 /*IsLoad=*/false);
+  }
+
+  // Collect the aggregate type for \p ValLPI which corresponds to the Value
+  // loaded or stored by \p I which is loading/storing a pointer sized integer
+  // value or other generic form of the pointer. Save an association between the
+  // Instruction and the actual aggregate pointer type, if there is a single
+  // type, in the maps to allow queries by the transformations. This is
+  // temporary until the complete LocalPointerInfo is exposed to the
+  // transformations.
+  void collectGenericLoadStoreType(Instruction &I, LocalPointerInfo &ValLPI) {
+    if (!ValLPI.canAliasToAggregatePointer())
+      return;
+
+    // Find the actual type of aggregate pointer being loaded, if there is
+    // a single type. If there is more than one type, then we will not
+    // capture the information for the ptr-size-int mapping because the
+    // type will not pass the safety checks for the transformations.
+    llvm::Type *ActualType = nullptr;
+    for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
+      if (isGenericPtrType(AliasTy))
+        continue;
+
+      if (ActualType) {
+        ActualType = nullptr;
+        break;
+      }
+
+      ActualType = AliasTy;
+    }
+
+    if (!ActualType)
+      return;
+
+    if (auto *LI = dyn_cast<LoadInst>(&I))
+      DTInfo.addGenericLoadMapping(LI, ActualType);
+    else if (auto *SI = dyn_cast<StoreInst>(&I))
+      DTInfo.addGenericStoreMapping(SI, ActualType);
+    else
+      llvm_unreachable("Instruction must be LoadInst or StoreInst");
+  }
+
+  // Return true if \p Ty is a type that could be a generic equivalent of
+  // a pointer (at some level of indirection) to a structure type. This is
+  // used when determining whether a Load/Store instruction should capture
+  // the aggregate type to enable exposing the actual type being loaded
+  // or stored to the transformations.
+  bool isGenericPtrType(llvm::Type *Ty) {
+    llvm::Type *PtrTy = nullptr;
+    while (Ty->isPointerTy()) {
+      PtrTy = Ty;
+      Ty = Ty->getPointerElementType();
+    }
+
+    if (PtrTy == Int8PtrTy)
+      return true;
+
+    if (Ty == PtrSizeIntTy)
+      return true;
+
+    return false;
   }
 
   void visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -3638,7 +3782,8 @@ public:
           }
         }
       }
-      analyzeStructureType(Ty);
+      // Add this to type info list.
+      (void)DTInfo.getOrCreateTypeInfo(Ty);
     }
 
     // Before visiting each Function, ensure that the types of all of the
@@ -3739,6 +3884,9 @@ public:
         }
       }
     }
+    // Analyze definitions of all structures in type info list.
+    for (dtrans::TypeInfo *TI : DTInfo.type_info_entries())
+      analyzeStructureType(TI);
   }
 
   void visitFunction(Function &F) {
@@ -3781,10 +3929,9 @@ public:
         if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
           continue;
         if (isValueOfInterest(Arg)) {
-          DEBUG_WITH_TYPE(DTRANS_CG,
-                          dbgs()
-                              << "dtrans-cg: CGraph update for Operand  -- \n"
-                              << "  " << *Arg << "\n");
+          DEBUG_WITH_TYPE(
+              DTRANS_CG, dbgs() << "dtrans-cg: CGraph update for Operand  -- \n"
+                                << "  " << *Arg << "\n");
           setBaseTypeCallGraph(Arg->getType(), &F);
         }
       }
@@ -4198,9 +4345,10 @@ private:
   // Analyze a structure definition, independent of its use in any
   // instruction. This checks for basic issues like structure nesting
   // and empty structures.
-  void analyzeStructureType(llvm::StructType *Ty) {
-    // Add this to our type info list.
-    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty);
+  void analyzeStructureType(dtrans::TypeInfo *TI) {
+    auto *Ty = dyn_cast<StructType>(TI->getLLVMType());
+    if (!Ty)
+      return;
 
     // Check to see if this structure is known to be a system type.
     if (dtrans::isSystemObjectType(Ty)) {
@@ -4221,6 +4369,13 @@ private:
 
     // I think opaque structures will report having zero fields.
     assert(!Ty->isOpaque());
+
+    // Check if the structure has zero-sized array in the last field.
+    if (dtrans::hasZeroSizedArrayAsLastField(Ty)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Type has zero-sized array: "
+                        << "  " << *Ty << "\n");
+      setBaseTypeInfoSafetyData(Ty, dtrans::HasZeroSizedArray);
+    }
 
     // It isn't clear to me under what circumstances a type will be reported
     // as unsized, but if one is we definitely can't do anything with it.
@@ -4854,10 +5009,113 @@ private:
         return;
     }
 
+    // If allocation size is not constant we can try tracing it back to the
+    // constant
+    uint64_t Res;
+    if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
+        traceNonConstantValue(Ty, AllocSizeVal, ElementSize))
+      return;
+
     // Otherwise, we must assume the size arguments are not acceptable.
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
                       << "  " << *CS.getInstruction() << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
+  }
+
+  // Trace back instruction sequence corresponding to the following code:
+  //     foo (..., int n, ...) {
+  //         struct s *s_ptr = malloc(c1 + c2 * n);
+  //     }
+  // Returns false if it cannot trace \p InVal back to constants and calculate
+  // the size.
+  bool traceNonConstantValue(llvm::PointerType *Ty, Value *InVal,
+                             uint64_t ElementSize) {
+    if (!InVal)
+      return false;
+
+    Value *AddOp, *ShlOp;
+    ConstantInt *AddC, *ShlC = nullptr, *MulC = nullptr;
+
+    // Match alloc size with the add with the constant operand.
+    if (!match(InVal, m_OneUse(m_Add(m_ConstantInt(AddC), m_Value(AddOp)))) &&
+        !match(InVal, m_OneUse(m_Add(m_Value(AddOp), m_ConstantInt(AddC)))))
+      return false;
+
+    // Second add operand with the shl or mul with the constant operand.
+    if (!match(AddOp, m_Shl(m_Value(ShlOp), m_ConstantInt(ShlC))) &&
+        !match(AddOp, m_Mul(m_Value(ShlOp), m_ConstantInt(MulC))) &&
+        !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(ShlOp))))
+      return false;
+
+    // Second operand of the shl or mul expected to be function argument.
+    Argument *FormalArg = dyn_cast<Argument>(ShlOp);
+    if (!FormalArg)
+      return false;
+
+    // Now we need to look into each call site and find all constant values
+    // for the corresponding argument. If not all actual arguments are constant,
+    // return false.
+    Function *Callee = FormalArg->getParent();
+    unsigned FormalArgNo = FormalArg->getArgNo();
+
+    SmallVector<ConstantInt *, 8> ActualArgs;
+    if (!findAllArgValues(Callee, Callee, FormalArgNo, ActualArgs))
+      return false;
+
+    // Check if the structure has zero-sized array in the last field. It means
+    // that allocation size could be greater or equal to the structure size.
+    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty->getElementType());
+    bool HasZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
+
+    // Now iterate through all constants to verify that the allocation size was
+    // correct.
+    bool Verified = true;
+    for (auto *Const : ActualArgs) {
+      uint64_t ArgConst = Const->getLimitedValue();
+      uint64_t Res = ShlC ? (ArgConst << ShlC->getLimitedValue())
+                          : (ArgConst * MulC->getLimitedValue());
+      Res += AddC->getLimitedValue();
+
+      if (!HasZeroSizedArray)
+        Verified &= ((Res % ElementSize) == 0);
+      else
+        Verified &= (Res > ElementSize);
+    }
+
+    return Verified;
+  }
+
+  // Trace call sites to collect all constant actual parameters corresponding to
+  // \p FormalArgNo.
+  bool findAllArgValues(Function *F, Value *V, unsigned FormalArgNo,
+                        SmallVector<ConstantInt *, 8> &ActualArgs) {
+    for (Use &U : V->uses()) {
+      Value *Inst = U.getUser();
+      // In case of function cast operator do one more step.
+      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Inst)) {
+        if (!findAllArgValues(F, BC, FormalArgNo, ActualArgs))
+          return false;
+        continue;
+      }
+
+      CallSite CS(Inst);
+      // Must be a direct call.
+      if (CS.getInstruction() == nullptr)
+        return false;
+      // A called function should be F.
+      if (!CS.isCallee(&U))
+        if (U->stripPointerCasts() != F)
+          return false;
+
+      ConstantInt *ArgC =
+          dyn_cast_or_null<ConstantInt>(CS.getArgument(FormalArgNo));
+      if (!ArgC)
+        return false;
+
+      ActualArgs.push_back(ArgC);
+    }
+
+    return true;
   }
 
   // Mark fields designated by \p Info pointer and the memory \p Size to have
@@ -5995,6 +6253,7 @@ private:
     // We can add additional cases here to reduce the conservative behavior
     // as needs dictate.
     case dtrans::FieldAddressTaken:
+    case dtrans::HasZeroSizedArray:
       return false;
     }
     return true;
@@ -6069,10 +6328,9 @@ private:
       if (auto *STy = dyn_cast<StructType>(Ty)) {
         cast<dtrans::StructInfo>(DT.getOrCreateTypeInfo(STy))
             ->insertCallGraphNode(F);
-        for (auto FTy: STy->elements())
+        for (auto FTy : STy->elements())
           Propagate(FTy);
-      }
-      else if (auto *ATy = dyn_cast<ArrayType>(Ty))
+      } else if (auto *ATy = dyn_cast<ArrayType>(Ty))
         Propagate(ATy->getElementType());
     };
 
@@ -6100,10 +6358,11 @@ void DTransAnalysisInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
 
 // Return true if we are interested in tracking values of the specified type.
 //
-// For now, let's limit this to sized aggregates and various levels of
-// indirection to sized aggregates. UnhandledUse safety condition is set for
-// unsized types. At some point we may also be interested in pointers to
-// scalars.
+// For pointer types, we peel off the pointers to find the base type. We
+// are primarily interested in named structures. We also include literal
+// structures and arrays that have at least one element that is a type of
+// interest (which is to see that they contain a named structure at some level
+// of nesting).
 bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   llvm::Type *BaseTy = Ty;
 
@@ -6111,7 +6370,31 @@ bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
   while (BaseTy->isPointerTy())
     BaseTy = cast<PointerType>(BaseTy)->getElementType();
 
-  return BaseTy->isAggregateType() && BaseTy->isSized();
+  if (!BaseTy->isAggregateType() || !BaseTy->isSized())
+    return false;
+
+  // Skip literal structures unless one of their elements is a type of interest.
+  if (auto *StTy = dyn_cast<StructType>(BaseTy)) {
+    if (StTy->isLiteral()) {
+      bool HasElementOfInterest = false;
+      for (auto *ElemTy : StTy->elements()) {
+        if (isTypeOfInterest(ElemTy)) {
+          HasElementOfInterest = true;
+          break;
+        }
+      }
+      return HasElementOfInterest;
+    }
+    // Non-literal structs are always of interest.
+    return true;
+  }
+
+  // Based on isAggregateType and this not being a StructType, it must be
+  // an array type.
+  assert(BaseTy->isArrayTy() && "Unexpected aggregate type");
+
+  // Skip arrays whose elements are not types of interest.
+  return isTypeOfInterest(BaseTy->getArrayElementType());
 }
 
 dtrans::TypeInfo *DTransAnalysisInfo::getTypeInfo(llvm::Type *Ty) const {
@@ -6172,7 +6455,7 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   return DTransTy;
 }
 
-dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) {
+dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) const {
   auto Entry = CallInfoMap.find(I);
   if (Entry == CallInfoMap.end())
     return nullptr;
@@ -6275,27 +6558,34 @@ DTransAnalysisInfo::getLoadElement(LoadInst *LdInst) {
   return It->second;
 }
 
+void DTransAnalysisInfo::addGenericLoadMapping(LoadInst *LI, llvm::Type *Ty) {
+  GenericLoadInfoMap[LI] = Ty;
+}
+
+void DTransAnalysisInfo::addGenericStoreMapping(StoreInst *SI, llvm::Type *Ty) {
+  GenericStoreInfoMap[SI] = Ty;
+}
+
+llvm::Type *DTransAnalysisInfo::getGenericLoadType(LoadInst *LI) {
+  auto It = GenericLoadInfoMap.find(LI);
+  if (It == GenericLoadInfoMap.end())
+    return nullptr;
+  return It->second;
+}
+
+llvm::Type *DTransAnalysisInfo::getGenericStoreType(StoreInst *SI) {
+  auto It = GenericStoreInfoMap.find(SI);
+  if (It == GenericStoreInfoMap.end())
+    return nullptr;
+  return It->second;
+}
+
 std::pair<llvm::Type *, size_t>
 DTransAnalysisInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
   auto It = ByteFlattenedGEPInfoMap.find(GEP);
   if (It == ByteFlattenedGEPInfoMap.end())
     return std::make_pair(nullptr, 0);
   return It->second;
-}
-
-// Set the size used to increase the memory allocation for padded malloc
-// and the interface generated by the optimization
-void DTransAnalysisInfo::setPaddedMallocInfo(unsigned Size, Function *Fn) {
-  PaddedMallocSize = Size;
-  PaddedMallocInterface = Fn;
-}
-
-// Return the size used in the padded malloc optimizaton
-unsigned DTransAnalysisInfo::getPaddedMallocSize() { return PaddedMallocSize; }
-
-// Return the interface generated by padded malloc function
-llvm::Function *DTransAnalysisInfo::getPaddedMallocInterface() {
-  return PaddedMallocInterface;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -6379,8 +6669,8 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
-    : PaddedMallocSize(0), PaddedMallocInterface(nullptr), MaxTotalFrequency(0),
-      FunctionCount(0), CallsiteCount(0), InstructionCount(0) {}
+    : MaxTotalFrequency(0), FunctionCount(0), CallsiteCount(0),
+      InstructionCount(0) {}
 
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
@@ -6392,10 +6682,12 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
                                  Other.ByteFlattenedGEPInfoMap.end());
-  PaddedMallocSize = Other.getPaddedMallocSize();
-  PaddedMallocInterface = Other.getPaddedMallocInterface();
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
+  GenericStoreInfoMap.insert(Other.GenericStoreInfoMap.begin(),
+                             Other.GenericStoreInfoMap.end());
+  GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
+                            Other.GenericLoadInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -6413,8 +6705,10 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
                                  Other.ByteFlattenedGEPInfoMap.end());
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
-  PaddedMallocSize = Other.getPaddedMallocSize();
-  PaddedMallocInterface = Other.getPaddedMallocInterface();
+  GenericStoreInfoMap.insert(Other.GenericStoreInfoMap.begin(),
+                             Other.GenericStoreInfoMap.end());
+  GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
+                            Other.GenericLoadInfoMap.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -6450,6 +6744,8 @@ void DTransAnalysisInfo::reset() {
   ByteFlattenedGEPInfoMap.clear();
   StoreInfoMap.clear();
   LoadInfoMap.clear();
+  GenericStoreInfoMap.clear();
+  GenericLoadInfoMap.clear();
   TypeInfoMap.clear();
   IgnoreTypeMap.clear();
 }
@@ -6810,23 +7106,28 @@ DTransAnalysisInfo::getStructField(GEPOperator *GEP) {
     return std::make_pair(StructTy, StructField.second);
   }
 
-  if (GEP->getNumIndices() == 2) {
-    auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
-    if (!StructTy)
-      return std::make_pair(nullptr, 0);
+  auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
+  if (!StructTy)
+    return std::make_pair(nullptr, 0);
 
-    if (!cast<ConstantInt>(GEP->getOperand(1))->isZeroValue())
-      return std::make_pair(nullptr, 0);
+  if (!cast<ConstantInt>(GEP->getOperand(1))->isZeroValue())
+    return std::make_pair(nullptr, 0);
 
-    auto IndexConst = cast<ConstantInt>(GEP->getOperand(2));
-    auto FieldIndex = IndexConst->getLimitedValue();
+  uint64_t FieldIndex = 0;
+  for (unsigned NI = 2; NI <= GEP->getNumIndices(); ++NI) {
+    auto IndexConst = cast<ConstantInt>(GEP->getOperand(NI));
+    FieldIndex = IndexConst->getLimitedValue();
     if (FieldIndex >= StructTy->getNumElements())
       return std::make_pair(nullptr, 0);
-
-    return std::make_pair(StructTy, FieldIndex);
+    if (NI == GEP->getNumIndices())
+      break;
+    auto *Ty = StructTy->getElementType(FieldIndex);
+    auto *NewStructTy = dyn_cast<StructType>(Ty);
+    if (!NewStructTy)
+      return std::make_pair(nullptr, 0);
+    StructTy = NewStructTy;
   }
-
-  return std::make_pair(nullptr, 0);
+  return std::make_pair(StructTy, FieldIndex);
 }
 
 // A helper routine to get a DTrans structure type and field index from the
@@ -6857,6 +7158,8 @@ DTransAnalysisInfo::getInfoFromLoad(LoadInst *Load) {
 bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     llvm::Value *FP, std::vector<llvm::Value *> &Targets, llvm::CallSite,
     bool) {
+  // TODO: add a support for PHI instruction with function pointer type.
+
   Targets.clear();
   LLVM_DEBUG({
     dbgs() << "FSV ICS: Analyzing";
@@ -6866,7 +7169,7 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
   std::pair<dtrans::StructInfo *, uint64_t> Res = getInfoFromLoad(LI);
   if (!Res.first) {
     LLVM_DEBUG(dbgs() << "FSV ICS: INCOMPLETE\n"
-                      << "Load " << *LI << "\n"
+                      << "Inst " << *FP << "\n"
                       << "Target List is NULL\n");
     return false;
   }

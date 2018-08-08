@@ -334,8 +334,9 @@ Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
                            : RetTy->getArrayElementType();
 
     if (RetTy->isStructTy()) {
-      auto Offsets = getTrailingStructOffsets(I);
-      RetTy = DDRefUtils::getOffsetType(RetTy, *Offsets);
+      if (auto *Offsets = getTrailingStructOffsets(I)) {
+        RetTy = DDRefUtils::getOffsetType(RetTy, *Offsets);
+      }
     }
   }
 
@@ -1066,9 +1067,7 @@ bool RegDDRef::containsUndef() const {
 }
 
 bool RegDDRef::isNonLinear(void) const {
-  // Check BaseCE if available
-  const CanonExpr *BaseCE = getBaseCE();
-  if (BaseCE && BaseCE->isNonLinear()) {
+  if (hasGEPInfo() && getBaseCE()->isNonLinear()) {
     return true;
   }
 
@@ -1245,9 +1244,7 @@ bool RegDDRef::hasIV(unsigned Level) const {
 unsigned RegDDRef::getDefinedAtLevel() const {
   unsigned MaxLevel = 0;
 
-  auto BaseCE = getBaseCE();
-
-  if (BaseCE && BaseCE->isNonLinear()) {
+  if (hasGEPInfo() && getBaseCE()->isNonLinear()) {
     return NonLinearLevel;
   }
 

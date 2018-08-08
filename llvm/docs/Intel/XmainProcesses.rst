@@ -252,6 +252,211 @@ consideration is clarity & readability.
   This preprocessor symbol should be used the same in either modified LLVM
   files or Intel-specific source files.
 
+Guarding Intel Proprietary Features in Xmain
+============================================
+
+``Customized compiler builds``
+------------------------------
+
+This section describes development practices that allow producing customized
+compiler builds from the common source base.  Development of some SW features
+and early support of HW features may require build time controls, so that
+Intel secret features are not exposed in product compiler builds.
+
+We use CMake list variable 'LLVM_INTEL_FEATURES' to hold a list of features
+enabled for a particular compiler build.  Additional features may be enabled
+via ICS build command option:
+
+.. code-block:: console
+
+  ics build FEATURES="AVX3_1,AVX3_2"
+
+.. note:: Feature names may only consist of symbols that are valid for C/C++ identifiers.
+
+.. note:: During the initial run of `ics build`, the list of features is fixed
+          in CMake configuration, so any changes in the `FEATURES="..."` list
+          in the consequent `ics build` commands will not take effect.
+          To build a compiler with new list of features, please, build it
+          from scratch.
+
+'LLVM_INTEL_FEATURES' may be used for conditional CMake processing.  For example,
+we have the following code in `llvm/CMakeLists.txt`:
+
+.. code-block:: cmake
+
+  foreach(f ${LLVM_INTEL_FEATURES})
+    string(CONCAT FOPT "-DINTEL_FEATURE_" ${f} "=1")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
+  endforeach(f)
+
+This code populates C++ compilation flags with options like '-DINTEL_FEATURE_XXX=1'
+based on the list of features provided in 'LLVM_INTEL_FEATURES' list.
+
+.. note:: We do not currently update CMAKE_C_FLAGS, so pure C files are compiled
+          without any INTEL_FEATURE\_ macros enabled.
+
+To guard Intel secret features in C/C++ files use feature checks in addition to
+'INTEL_CUSTOMIZATION' checks, e.g.:
+
+.. code-block:: c++
+
+  #if INTEL_CUSTOMIZATION
+  #if INTEL_FEATURE_AVX3_2
+  // AVX3_2 specific code.
+  #endif // INTEL_FEATURE_AVX3_2
+  #endif // INTEL_CUSTOMIZATION
+
+To completely exclude a C/C++ file from compilation, when some feature is not
+enabled, we can use conditional processing of CMake files.  In the following
+example in `llvm/lib/CodeGen/CMakeLists.txt` we conditionally add `Intel_Avx3_2.cpp`
+file to compilation only if AVX3_2 feature is enabled:
+
+.. _conditional-comp:
+
+.. code-block:: cmake
+
+  # INTEL_CUSTOMIZATION
+  set(INTEL_SOURCE_FILES
+    Intel_MachineLoopOptReportEmitter.cpp
+    )
+  set(INTEL_AVX3_2_SOURCE_FILES
+    Intel_Avx3_2.cpp
+    )
+  set(INTEL_SOURCE_FILES_TO_BUILD)
+  if (INTEL_CUSTOMIZATION)
+    if(";${LLVM_INTEL_FEATURES};" MATCHES ";AVX3_2;")
+      list(APPEND INTEL_SOURCE_FILES ${INTEL_AVX3_2_SOURCE_FILES})
+    else()
+      list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_AVX3_2_SOURCE_FILES})
+    endif()
+    set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
+  else()
+    list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_SOURCE_FILES} ${INTEL_AVX3_2_SOURCE_FILES})
+  endif(INTEL_CUSTOMIZATION)
+  # end INTEL_CUSTOMIZATION
+
+  add_llvm_library(LLVMCodeGen
+  # INTEL_CUSTOMIZATION
+    ${INTEL_SOURCE_FILES_TO_BUILD}
+  # end INTEL_CUSTOMIZATION
+    ...
+    )
+
+.. note:: LLVM_OPTIONAL_SOURCES variable helps to avoid build errors for files
+          that are not used during build but are present in the source tree.
+
+C/C++ preprocessor is not run for files of other types, so we have to use
+different techniques to conditionally compile them.
+
+One of the most often changes in `LLVMBuild.txt` files is adding dependencies
+to some Intel proprietary LLVM component libraries.  `LLVMBuild.txt` also do not
+support inline comments, so we used to put INTEL_CUSTOMIZATION comments on
+separate lines - this complicated merges for these files a little bit.
+
+An alternative solution is to add LLVM component libraries dependencies
+in CMakeLists.txt.  For example, instead of having the following code
+in `llvm/lib/Transforms/Scalar/LLVMBuild.txt`:
+
+.. code-block:: text
+
+  [component_0]
+  type = Library
+  name = Scalar
+  parent = Transforms
+  library_name = ScalarOpts
+  required_libraries = AggressiveInstCombine Analysis Core InstCombine Support TransformUtils Intel_OptReport
+  ; ***INTEL: Intel_OptReport
+
+We may have the following in `llvm/lib/Transforms/Scalar/CMakeLists.txt`:
+
+.. _lib-dependencies:
+
+.. code-block:: cmake
+
+  # INTEL_CUSTOMIZATION
+  target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_OptReport)
+  # end INTEL_CUSTOMIZATION
+
+It is obvious how the LLVM component library dependence may be added
+in a CMakeLists.txt based, for example, on LLVM_INTEL_FEATURES.
+The only caveat is: if an Intel proprietary LLVM component library is not
+used in some compiler build, this build will complain about an unused library
+not being marked as `optional`.  In this case, we should mark this library
+as `optional` using the following `LLVMBuild.txt` syntax:
+
+.. _optional-lib:
+
+.. code-block:: text
+
+  [component_0]
+  type = OptionalLibrary
+  name = Intel_Avx3_2ScalarOpt
+  ...
+
+.. note:: Otherwise, we do not currently support any sort of preprocessing
+          of LLVMBuild.txt files during the compiler build.
+
+Conditional processing of tablegen (.td) files is not currently supported,
+but we have agreed on the following direction:
+
+- We will support simple preprocessor syntax, such as:
+
+.. code-block:: c++
+
+  // INTEL_FEATURE_AVX3_2
+  // AVX3_2 specific code.
+  // end INTEL_FEATURE_AVX3_2
+
+- A special Intel tool will be called from `llvm/cmake/modules/TableGen.cmake`
+  (and, maybe, other cmake scripts) to preprocess a .td file into a temporary
+  .td file before passing it to the tablegen.
+
+- The preprocessing will only work for .td files participating in tablegen()
+  commands in `CMakeLists.txt` files, i.e. preprocessing will not work
+  for "included" .td files.
+
+.. note:: TODO: update this text, when the preprocessing tool is ready and
+          plugged into the build process.
+
+``Source code isolation``
+-------------------------
+
+There may be cases, when some parts of the source code must be isolated
+into a separate directory with its own access rights.  For example,
+the compiler team is developing a secret feature, which cannot be exposed
+in any way to other teams that have access to xmain repository.
+The approved solution for this is to put such source code into a subdirectory
+of `llvm/Intel_OptionalComponents` and plug in things from this subdirectory
+during the compiler build using LLVM_INTEL_FEATURES controls.
+
+If implementation of a feature may done as a LLVM component library, then
+this library must be declared as :ref:`optional <optional-lib>` and it may
+be optionally :ref:`linked <lib-dependencies>` to some existing LLVM component
+library to extend its functionality.
+
+In most cases, we will have to have source code references to the isolated
+feature implmenentation, e.g. to C/C++ header files containing common
+interfaces.  This may be done by setting include directories for the compiler
+build in `llvm/CMakeLists.txt`:
+
+.. code-block:: cmake
+
+  if (";${LLVM_INTEL_FEATURES};" MATCHES ";AVX3_2;")
+    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
+    set(INTEL_AVX3_2_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/AVX3_2/include)
+    include_directories(AFTER ${INTEL_AVX3_2_INCLUDE_DIR})
+    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} Intel_Avx3_2ScalarOpt)
+  endif()
+
+This code allows using flat C/C++ include paths for header files located
+in `llvm/Intel_OptionalComponents/AVX3_2/include`.  Such include directives
+obviously need to be guarded with the corresponding INTEL_FEATURE_AVX3_2
+macro check.
+
+The same way, C/C++ source files may be conditionally added to the compiler
+build using full paths like :ref:`${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/\
+AVX3_2/lib/Transforms/Intel_Avx3_2.cpp <conditional-comp>`.
+
 Coding Standards
 ================
 

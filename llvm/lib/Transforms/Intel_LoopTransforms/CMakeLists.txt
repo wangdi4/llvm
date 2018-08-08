@@ -37,6 +37,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRLoopFusion.cpp
         HIRLoopFusionGraph.cpp
         HIRDeadStoreElimination.cpp
+        HIRLastValueComputation.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

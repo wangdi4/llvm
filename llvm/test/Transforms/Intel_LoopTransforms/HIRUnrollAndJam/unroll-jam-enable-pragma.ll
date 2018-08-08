@@ -14,12 +14,7 @@
 
 ; CHECK: BEGIN REGION { modified }
 
-; CHECK: + DO i1 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK: |   + END LOOP
-; CHECK: + END LOOP
-
-; CHECK: + DO i1 = 8, 9, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP

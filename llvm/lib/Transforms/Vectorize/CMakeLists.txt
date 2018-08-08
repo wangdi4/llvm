@@ -31,4 +31,7 @@ add_llvm_library(LLVMVectorize
 
   DEPENDS
   intrinsics_gen
+# INTEL_CUSTOMIZATION
+  intel_directives_gen
+# end INTEL_CUSTOMIZATION
   )

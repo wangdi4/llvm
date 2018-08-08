@@ -129,10 +129,10 @@ EnableExpensiveCombines("expensive-combines",
                         cl::desc("Enable expensive instruction combines"));
 
 #if INTEL_CUSTOMIZATION
-// Used for LIT tests to unconditionally suppress GEPInst optimizations
+// Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
-DisableGEPInstOptimizations("disable-gepinst-opts",
-                            cl::desc("Disable GEPInst optimizations"));
+DisableTypeLoweringOpts("disable-type-lowering-opts",
+                        cl::desc("Disable type lowering optimizations"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned>
@@ -1436,7 +1436,7 @@ Instruction *InstCombiner::foldShuffledBinop(BinaryOperator &Inst) {
       bool ConstOp1 = isa<Constant>(Inst.getOperand(1));
       if (Inst.isIntDivRem() || (Inst.isShift() && ConstOp1))
         NewC = getSafeVectorConstantForBinop(Inst.getOpcode(), NewC, ConstOp1);
-      
+
       // Op(shuffle(V1, Mask), C) -> shuffle(Op(V1, NewC), Mask)
       // Op(C, shuffle(V1, Mask)) -> shuffle(Op(NewC, V1), Mask)
       Value *NewLHS = isa<Constant>(LHS) ? NewC : V1;
@@ -1541,7 +1541,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   // this can cause a loss of type info for DTrans. We allow some initial
   // cleanup, as no GEPs will be removed by this, and the cleanup is needed
   // when folding selects over GEPs in InstCombineSelect.cpp.
-  if (!GEPInstOptimizations)
+  if (!allowTypeLoweringOpts())
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
@@ -3314,11 +3314,11 @@ static bool combineInstructionsOverFunction(
     Function &F, InstCombineWorklist &Worklist, AliasAnalysis *AA,
     AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
     OptimizationRemarkEmitter &ORE, bool ExpensiveCombines = true,
-    bool GEPInstOptimizations = true, LoopInfo *LI = nullptr) { // INTEL
+    bool TypeLoweringOpts = true, LoopInfo *LI = nullptr) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
   ExpensiveCombines |= EnableExpensiveCombines;
-  if (DisableGEPInstOptimizations)  // INTEL
-    GEPInstOptimizations = false;   // INTEL
+  if (DisableTypeLoweringOpts)      // INTEL
+    TypeLoweringOpts = false;       // INTEL
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -3346,7 +3346,7 @@ static bool combineInstructionsOverFunction(
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
     InstCombiner IC(Worklist, Builder, F.optForMinSize(),     // INTEL
-                    ExpensiveCombines, GEPInstOptimizations,  // INTEL
+                    ExpensiveCombines, TypeLoweringOpts,      // INTEL
                     AA, AC, TLI, DT, ORE, DL, LI);            // INTEL
     IC.MaxArraySizeForCombine = MaxArraySize;
 
@@ -3369,7 +3369,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *AA = &AM.getResult<AAManager>(F);
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
                                        ExpensiveCombines,      // INTEL
-                                       GEPInstOptimizations,   // INTEL
+                                       TypeLoweringOpts,       // INTEL
                                        LI))                    // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
@@ -3418,8 +3418,8 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
-                                         ExpensiveCombines,          // INTEL
-                                         GEPInstOptimizations, LI);  // INTEL
+                                         ExpensiveCombines,      // INTEL
+                                         TypeLoweringOpts, LI);  // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -3447,8 +3447,8 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 
 #if INTEL_CUSTOMIZATION
 FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
-                                                   bool GEPInstOptimizations) {
-  return new InstructionCombiningPass(ExpensiveCombines, GEPInstOptimizations);
+                                                   bool TypeLoweringOpts) {
+  return new InstructionCombiningPass(ExpensiveCombines, TypeLoweringOpts);
 }
 #endif // INTEL_CUSTOMIZATION
 

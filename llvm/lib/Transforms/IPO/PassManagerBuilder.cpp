@@ -224,7 +224,7 @@ static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
 
 // Call Tree Cloning
 static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
-    cl::init(false), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
+    cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
 
 // Inline Aggressive Analysis
 static cl::opt<bool>
@@ -1144,8 +1144,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+  if (EnableDTrans) {
     addLateDTransLegacyPasses(PM);
+    if (EnableIndirectCallConv)
+      PM.add(createIndirectCallConvLegacyPass(false /* EnableAndersen */,
+                                              true /* EnableDTrans */));
+      // Indirect Call Conv
+  }
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1166,17 +1171,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableAndersen) {
     PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
   }
-#if INTEL_ENABLE_DTRANS
-  if (EnableIndirectCallConv && (EnableAndersen || EnableDTrans)) {
-    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, EnableDtrans));
-        // Indirect Call Conv
-  }
-#else
   if (EnableIndirectCallConv && EnableAndersen) {
-    PM.add(createIndirectCallConvLegacyPass(EnableAndersen, false));
-        // Indirect Call Conv
+    PM.add(createIndirectCallConvLegacyPass(true /* EnableAndersen */,
+                                            false /* EnableDTrans */));
+    // Indirect Call Conv
   }
-#endif // INTEL_ENABLE_DTRANS
   if (EnableInlineAggAnalysis) {
     PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
   }
@@ -1393,6 +1392,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   if (PrintModuleBeforeLoopopt)
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
 
+  // Verify input LLVM IR before doing any HIR transformation.
+  if (VerifyInput)
+    PM.add(createVerifierPass());
+
   PM.add(createHIRSSADeconstructionLegacyPass());
   // This is expected to be the first pass in the HIR pipeline as it cleans up
   // unnecessary temps from the HIR and doesn't invalidate any analysis. It is
@@ -1427,6 +1430,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     }
 
     PM.add(createHIRLMMPass());
+    PM.add(createHIRLastValueComputationPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRLoopDistributionForMemRecPass());
@@ -1505,6 +1509,8 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
   PerformThinLTO = true;
+  if (LibraryInfo)
+    PM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   if (VerifyInput)
     PM.add(createVerifierPass());

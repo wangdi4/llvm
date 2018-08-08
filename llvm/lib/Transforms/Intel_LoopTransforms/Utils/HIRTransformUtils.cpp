@@ -251,8 +251,9 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     NewLoop->createZtt(false);
 
     // Update unrolled/vectorized loop's trip count estimate.
-    NewLoop->setMaxTripCountEstimate(NewLoop->getMaxTripCountEstimate() /
-                                     UnrollOrVecFactor);
+    NewLoop->setMaxTripCountEstimate(
+        NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
+        NewLoop->isMaxTripCountEstimateUsefulForDD());
   }
 
   // Set the code gen for modified region
@@ -320,6 +321,7 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     OrigLoop->createZtt(false);
 
     // Update remainder loop's trip count estimate.
+    // TODO: can set useful for DD flag if loop is normalized.
     OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
   }
 
@@ -754,8 +756,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     // Need to convert from unsign to sign first
     int64_t Coeff = StripmineSize;
 
-    MinOpRef1->getSingleCanonExpr()->addIV(Level, InvalidBlobIndex,
-                                           -Coeff, true);
+    MinOpRef1->getSingleCanonExpr()->addIV(Level, InvalidBlobIndex, -Coeff,
+                                           true);
     MinOpRef1->setSymbase(GenericRvalSymbase);
 
     // StripmineSize-1
@@ -803,7 +805,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
 
     if (MinInstRequired) {
       Lp->addLiveInTemp(MinBlobSymbase);
-      Lp->setMaxTripCountEstimate(StripmineSize);
+      Lp->setMaxTripCountEstimate(StripmineSize, true);
     }
 
     // Normalize
