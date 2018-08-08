@@ -10,8 +10,8 @@
 //===----------------------------------------------------------------------===//
 //
 // This file performs special kind of loop fusion/concatenation for loops. This
-// is performed for 16 sibling loops where alternate loops write and then read
-// from the same alloca. It is unwieldly to list all 16 loops so I am just
+// is performed for 4 or 16 sibling loops where alternate loops write and then
+// read from the same alloca. It is unwieldly to list all 16 loops so I am just
 // pasting the first 4.
 //
 // <1247>          + DO i1 = 0, 3, 1   <DO_LOOP>
@@ -132,7 +132,7 @@
 //
 // The original alloca %5 which has the type [4 x [4 x i32]] is replaced by a
 // new alloca with type [16 x [8 x i32] after the transformation. Reduction
-// results are collected into allocs in the fused read loop summed up at the
+// results are collected into allocas in the fused read loop summed up at the
 // end. There are only four loops after the transformation. The first one
 // represents all the loops which write to alloca. The second loop is used to
 // initialize alloca created to hold reduction results. The third loop consists
@@ -254,7 +254,6 @@
 // <1280>          |   %1057 = %1057  +  (%alloca33)[0][i1 + 4];
 // <1272>          + END LOOP
 //
-// TODO: extend to concatenate loops in 8x8 version if this proves profitable.
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
@@ -286,7 +285,8 @@ namespace {
 
 class HIRLoopConcatenation {
 public:
-  HIRLoopConcatenation(HIRFramework &HIRF) : HIRF(HIRF), AllocaSymbase(0) {
+  HIRLoopConcatenation(HIRFramework &HIRF)
+      : HIRF(HIRF), AllocaSymbase(0), Is16LoopMode(true) {
     llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
     Is64Bit = TargetTriple.isArch64Bit();
   }
@@ -393,6 +393,7 @@ private:
 
   unsigned AllocaSymbase;
   bool Is64Bit;
+  bool Is16LoopMode;
 };
 } // namespace
 
@@ -417,6 +418,8 @@ bool HIRLoopConcatenation::run() {
   if (!validTopLevelNodes(Reg, Loops)) {
     return false;
   }
+
+  Is16LoopMode = (Loops.size() == 16);
 
   formReadWriteLoopSet(Loops);
 
@@ -489,7 +492,7 @@ bool HIRLoopConcatenation::validTopLevelNodes(
     }
   }
 
-  return (Loops.size() == 16);
+  return (Loops.size() == 16 || Loops.size() == 4);
 }
 
 void HIRLoopConcatenation::formReadWriteLoopSet(
@@ -810,7 +813,9 @@ bool HIRLoopConcatenation::isValidReadLoopSet() {
     UniqueLivoutSet.insert(UniqueSB);
   }
 
-  for (unsigned I = 1; I != 8; ++I) {
+  unsigned NumLoops = AllocaReadLoops.size();
+
+  for (unsigned I = 1; I < NumLoops; ++I) {
     if (!areAnalogousReadLoops(RefLp, AllocaReadLoops[I])) {
       return false;
     }
@@ -946,6 +951,11 @@ bool HIRLoopConcatenation::isValidWriteLoopSet() {
     }
   }
 
+  // In 4 loop mode there are only 2 write loops.
+  if (!Is16LoopMode) {
+    return areAnalogousWriteLoops(RefLp, AllocaWriteLoops[1], 4);
+  }
+
   // There are two different sets of write loops (1, 2, 5, 6) and (2, 3, 7, 8)
   // which are analogous in a slightly different way. 1) Inter-group: there is a
   // constant offset difference between the loads in the two groups. 2)
@@ -1072,21 +1082,26 @@ bool HIRLoopConcatenation::areAnalogousWriteLoops(HLLoop *Lp1, HLLoop *Lp2,
 void HIRLoopConcatenation::concatenateLoops(HLRegion *Reg) {
   auto &HNU = AllocaReadLoops[0]->getHLNodeUtils();
 
-  // Create new alloca with [16 x [8 x i32]]* type.
+  // Create new alloca with [16 x [8 x i32]]* type for 16 loop mode and [8 x [4
+  // x i32]]* type for 4 loop mode.
   auto Int32Ty = Type::getInt32Ty(HNU.getContext());
-  auto ArrTy = ArrayType::get(Int32Ty, 8);
-  ArrTy = ArrayType::get(ArrTy, 16);
+  auto ArrTy = ArrayType::get(Int32Ty, Is16LoopMode ? 8 : 4);
+  ArrTy = ArrayType::get(ArrTy, Is16LoopMode ? 16 : 8);
 
   unsigned NewAllocaIndex = HNU.createAlloca(ArrTy, Reg);
 
   createConcatenatedWriteLoop(NewAllocaIndex);
 
-  createAllocaInitializationLoop();
+  if (Is16LoopMode) {
+    createAllocaInitializationLoop();
+  }
 
   SmallVector<HLLoop *, 4> UnConcatenatedLoops;
   createConcatenatedReadLoops(NewAllocaIndex, UnConcatenatedLoops);
 
-  createReductionLoop(UnConcatenatedLoops);
+  if (Is16LoopMode) {
+    createReductionLoop(UnConcatenatedLoops);
+  }
 }
 
 void HIRLoopConcatenation::createConcatenatedWriteLoop(
@@ -1111,35 +1126,39 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(
     Node->replaceOperandDDRef(OldRef, NewRef);
   }
 
-  // Replace old alloca stores in 3th write loop with new allocas. This loops
-  // body will be move to 1st loop.
-  auto Lp = AllocaWriteLoops[2];
-  auto ChildIt = Lp->child_begin();
+  if (Is16LoopMode) {
+    // Replace old alloca stores in 3th write loop with new allocas. This loops
+    // body will be move to 1st loop.
+    auto Lp = AllocaWriteLoops[2];
+    auto ChildIt = Lp->child_begin();
 
-  for (unsigned I = 0; I < 4; I++) {
-    auto NodeIt = ChildIt;
-    std::advance(NodeIt, AllocaStoreNodeOffset[I]);
+    for (unsigned I = 0; I < 4; I++) {
+      auto NodeIt = ChildIt;
+      std::advance(NodeIt, AllocaStoreNodeOffset[I]);
 
-    auto Node = cast<HLDDNode>(&*NodeIt);
-    auto OldRef = Node->getLvalDDRef();
+      auto Node = cast<HLDDNode>(&*NodeIt);
+      auto OldRef = Node->getLvalDDRef();
 
-    RegDDRef *NewRef = DDRU.createMemRef(NewAllocaIndex);
-    auto FirstCE = OldRef->getDimensionIndex(1);
-    // First CE needs an adjustment.
-    FirstCE->addConstant(4, true);
-    NewRef->addDimension(FirstCE);
-    NewRef->addDimension(OldRef->getDimensionIndex(2));
-    NewRef->addDimension(OldRef->getDimensionIndex(3));
+      RegDDRef *NewRef = DDRU.createMemRef(NewAllocaIndex);
+      auto FirstCE = OldRef->getDimensionIndex(1);
+      // First CE needs an adjustment.
+      FirstCE->addConstant(4, true);
+      NewRef->addDimension(FirstCE);
+      NewRef->addDimension(OldRef->getDimensionIndex(2));
+      NewRef->addDimension(OldRef->getDimensionIndex(3));
 
-    Node->replaceOperandDDRef(OldRef, NewRef);
+      Node->replaceOperandDDRef(OldRef, NewRef);
+    }
+
+    // Move 5th loop's body to 1st loop and adjust its upper canon.
+    HLNodeUtils::moveAsLastChildren(FirstLp, Lp->child_begin(),
+                                    Lp->child_end());
   }
 
-  // Move 5th loop's body to 1st loop and adjust its upper canon.
-  HLNodeUtils::moveAsLastChildren(FirstLp, Lp->child_begin(), Lp->child_end());
-  FirstLp->getUpperCanonExpr()->setConstant(15);
+  FirstLp->getUpperCanonExpr()->setConstant(Is16LoopMode ? 15 : 7);
 
   // Remove all other write loops.
-  for (unsigned I = 1; I < 8; ++I) {
+  for (unsigned I = 1, NumLoops = AllocaWriteLoops.size(); I < NumLoops; ++I) {
     HLNodeUtils::remove(AllocaWriteLoops[I]);
   }
 
@@ -1221,6 +1240,7 @@ void HIRLoopConcatenation::replaceReductionTempWithAlloca(HLLoop *Lp,
                           LoadInst->getLvalDDRef()->getSelfBlobIndex());
 
   Lp->addLiveInTemp(AllocaRef->getBasePtrSymbase());
+  Lp->removeLiveOutTemp(LvalRef->getSymbase());
 
   // Set temp ref for pair.
   TempAllocaPair.first = LvalRef;
@@ -1231,7 +1251,9 @@ void HIRLoopConcatenation::createConcatenatedReadLoops(
 
   auto FirstLp = AllocaReadLoops[0];
 
-  replaceReductionTempWithAlloca(FirstLp, 0);
+  if (Is16LoopMode) {
+    replaceReductionTempWithAlloca(FirstLp, 0);
+  }
 
   // Prepend all intermediate instructions to 1st read loop.
   for (auto &Inst : IntermediateInsts) {
@@ -1241,16 +1263,20 @@ void HIRLoopConcatenation::createConcatenatedReadLoops(
   SmallVector<HLLoop *, 3> OtherLoops;
 
   OtherLoops.push_back(AllocaReadLoops[1]);
-  OtherLoops.push_back(AllocaReadLoops[4]);
-  OtherLoops.push_back(AllocaReadLoops[5]);
+  if (Is16LoopMode) {
+    OtherLoops.push_back(AllocaReadLoops[4]);
+    OtherLoops.push_back(AllocaReadLoops[5]);
+  }
 
   createConcatenatedReadLoop(NewAllocaIndex, FirstLp, OtherLoops);
-  FirstLp->getUpperCanonExpr()->setConstant(7);
+  FirstLp->getUpperCanonExpr()->setConstant(Is16LoopMode ? 7 : 3);
 
-  UnConcatenatedLoops.push_back(AllocaReadLoops[2]);
-  UnConcatenatedLoops.push_back(AllocaReadLoops[3]);
-  UnConcatenatedLoops.push_back(AllocaReadLoops[6]);
-  UnConcatenatedLoops.push_back(AllocaReadLoops[7]);
+  if (Is16LoopMode) {
+    UnConcatenatedLoops.push_back(AllocaReadLoops[2]);
+    UnConcatenatedLoops.push_back(AllocaReadLoops[3]);
+    UnConcatenatedLoops.push_back(AllocaReadLoops[6]);
+    UnConcatenatedLoops.push_back(AllocaReadLoops[7]);
+  }
 }
 
 void HIRLoopConcatenation::createConcatenatedReadLoop(
@@ -1278,8 +1304,11 @@ void HIRLoopConcatenation::createConcatenatedReadLoop(
 
   // Adjust and append Otherloops' bodies to FirstLp.
   int64_t Offset = 4;
-  for (unsigned I = 0; I < 3; ++I, Offset += 4) {
-    replaceReductionTempWithAlloca(OtherLoops[I], I + 1);
+  for (unsigned I = 0, NumLoops = OtherLoops.size(); I < NumLoops;
+       ++I, Offset += 4) {
+    if (Is16LoopMode) {
+      replaceReductionTempWithAlloca(OtherLoops[I], I + 1);
+    }
     adjustAndAppend(FirstLp, OtherLoops[I], NewAllocaIndex, Offset);
     HLNodeUtils::remove(OtherLoops[I]);
   }
@@ -1323,6 +1352,11 @@ void HIRLoopConcatenation::adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp,
   // Add Lp's liveins to FirstLp.
   for (auto It = Lp->live_in_begin(), E = Lp->live_in_end(); It != E; ++It) {
     FirstLp->addLiveInTemp(*It);
+  }
+
+  // Add Lp's liveouts to FirstLp.
+  for (auto It = Lp->live_out_begin(), E = Lp->live_out_end(); It != E; ++It) {
+    FirstLp->addLiveOutTemp(*It);
   }
 }
 

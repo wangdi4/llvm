@@ -1612,7 +1612,8 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
   // We are looking for 16, single bblock loops which have a backedge count of
   // 3.
-  if (std::distance(LI.begin(), LI.end()) != 16) {
+  if (std::distance(LI.begin(), LI.end()) != 16 &&
+      std::distance(LI.begin(), LI.end()) != 4) {
     return false;
   }
 
