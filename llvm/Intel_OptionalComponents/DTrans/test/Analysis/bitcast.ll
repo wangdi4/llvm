@@ -328,9 +328,8 @@ define void @test24() {
   ret void
 }
 
-; FIXME: The unhandled use here is inttoptr
 ; CHECK-LABEL: LLVMType: %struct.test24 = type { i32, i32 }
-; CHECK: Safety data: Unhandled use
+; CHECK: Safety data: Bad casting
 
 ; Bad cast of inttoptr value through an intermediate i8*
 %struct.test25.a = type { i32, i32 }

@@ -553,11 +553,11 @@ public:
   }
 
   bool typesCompatible(llvm::Type *T1, llvm::Type *T2) {
-    if (T1 == T2)
-      return true;
-
     if (T1 == nullptr || T2 == nullptr)
       return false;
+
+    if (T1 == T2)
+      return true;
 
     if (T1->isPointerTy() && T2->isPointerTy()) {
       // Consider a pointer to type T and a pointer to an array of type T as
@@ -3316,14 +3316,27 @@ public:
     LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
     LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
 
-    // If the value of interest either aliases to a pointer to a type of
-    // interest or points to an element within a type of interest, check to
-    // make sure the pointer operand is compatible.
+    // If the value of interest aliases to a pointer to a type of interest,
+    // check to  make sure the pointer operand is compatible.
     if (ValLPI.canAliasToAggregatePointer()) {
       for (auto *AliasTy : ValLPI.getPointerTypeAliasSet()) {
         if (AliasTy == Int8PtrTy)
           continue;
-        if (!PtrLPI.canPointToType(AliasTy)) {
+
+        // If the value operand is a pointer to an aggregate type then the
+        // pointer operand should either be a pointer to the value type or be a
+        // pointer to pointer-sized int type. The analysis could be extended to
+        // check this condition on the further levels of indirection.
+        if (PtrLPI.canPointToType(PtrSizeIntTy) &&
+            !PtrLPI.canAliasToAggregatePointer()) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken:\n");
+          if (I != nullptr)
+            LLVM_DEBUG(dbgs() << "  " << *I << "\n");
+          else
+            LLVM_DEBUG(dbgs()
+                       << " " << *ValOperand << " -> " << *PtrOperand << " \n");
+          setValueTypeInfoSafetyData(ValOperand, dtrans::AddressTaken);
+        } else if (!PtrLPI.canPointToType(AliasTy)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
           if (I != nullptr)
             LLVM_DEBUG(dbgs() << "  " << *I << "\n");
@@ -3608,6 +3621,17 @@ public:
 
     // The isValueOfInterest() routine analyzes all PtrToInt result values
     // when they are used. Nothing more is needed here.
+  }
+
+  // TODO: Need to extend the analysis for IntToPtr instruction for more
+  // accurate safety checks.
+  void visitIntToPtrInst(IntToPtrInst &I) {
+    if (!isValueOfInterest(&I))
+      return;
+    LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                      << "Integer to ptr to aggregate cast:\n"
+                      << "  " << I << "\n");
+    setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
   }
 
   void visitReturnInst(ReturnInst &I) {

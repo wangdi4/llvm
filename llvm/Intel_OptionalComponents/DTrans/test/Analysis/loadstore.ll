@@ -232,7 +232,7 @@ define void @test15(%struct.test15* %pS, i64* %pUnknown) {
 }
 
 ; CHECK: LLVMType: %struct.test15 = type { i32, i32 }
-; CHECK: Safety data: Unsafe pointer store
+; CHECK: Safety data: Address taken
 
 ; Store of an element within an aggregate.
 %struct.test16 = type { i32, i32 }
