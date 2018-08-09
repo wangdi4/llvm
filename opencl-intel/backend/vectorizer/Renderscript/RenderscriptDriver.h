@@ -1,11 +1,16 @@
-/* ****************************************************************************** *\
-
-INTEL CORPORATION PROPRIETARY INFORMATION
-This software is supplied under the terms of a license agreement or nondisclosure
-agreement with Intel Corporation and may not be copied or disclosed except in accordance with the terms of that agreement
-Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
-
-\* ****************************************************************************** */
+// INTEL CONFIDENTIAL
+//
+// Copyright 2011-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 #ifndef __RENDERSCRIPT_DRIVER_H__
 #define __RENDERSCRIPT_DRIVER_H__
