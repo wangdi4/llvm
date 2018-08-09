@@ -113,13 +113,6 @@ static cl::opt<int>
                    cl::desc("Maximum length of dependent chains to hoist "
                             "(default = 10, unlimited = -1)"));
 
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool>
-LimitToImmediatePred("gvn-hoist-limit-to-immediate-pred", cl::Hidden,
-                     cl::init(false),
-                     cl::desc("Limit GVN Hoist to hoist to immediately "
-                              "preceding basic blocks only."));
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
@@ -283,14 +276,6 @@ public:
       for (auto &Inst : *BB)
         DFSNumber[&Inst] = ++I;
     }
-
-#ifdef INTEL_CUSTOMIZATION
-    // Self-build hangs. Restricting the optimization to be enabled only if
-    // the  number of BBs is <= 100 because incremental MemorySSA update
-    // takes a long time for large functions.
-    if (BBI > 100) return false;
-#endif //INTEL_CUSTOMIZATION
-
     int ChainLength = 0;
 
     // FIXME: use lazy evaluation of VN to avoid the fix-point computation.
@@ -617,24 +602,6 @@ private:
       Instruction *Insn = CHI.I;
       if (!Insn) // No instruction was inserted in this CHI.
         continue;
-
-#ifdef INTEL_CUSTOMIZATION
-      // JIRA 50169: Targetting simple diamond case in 525.x264 to
-      // avoid compile time and performance regression.
-      // Remove when community enables GVN Hoist pass by default.
-
-      // Immediate predecessor only.
-      bool isPred = false;
-      for (BasicBlock *Pred : predecessors(Insn->getParent())) {
-        if (BB == Pred)
-          isPred = true;
-      }
-
-      // Skip if the block hoisted to is not the immediate predecessor.
-      if (LimitToImmediatePred && !isPred)
-        continue;
-#endif // INTEL_CUSTOMIZATION
-
       if (K == InsKind::Scalar) {
         if (safeToHoistScalar(BB, Insn->getParent(), NumBBsOnAllPaths))
           Safe.push_back(CHI);
