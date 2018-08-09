@@ -2741,7 +2741,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   }
 
 #endif // INTEL_CUSTOMIZATION
-
+  
   // If this function uses the coldcc calling convention, prefer not to inline
   // it.
   if (F.getCallingConv() == CallingConv::Cold) { // INTEL
