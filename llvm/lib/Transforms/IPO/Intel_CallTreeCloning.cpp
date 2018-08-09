@@ -87,6 +87,7 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -97,6 +98,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
+#include "llvm/IR/Verifier.h"
 
 #include <bitset>
 #include <list>
@@ -120,11 +122,13 @@ const char *PASS_DESC =
 
 #define DEBUG_TYPE PASS_NAME_STR
 
-STATISTIC(NumCTCClones, "Number of clone functions created");
-STATISTIC(NumCTCClonedCalls, "Number of calls to clone");
-STATISTIC(NumPostCTCConstFolds, "Number of constants folded after CTC");
-STATISTIC(NumPostCTCCallsitesReplaced,
-          "Number of callsites replaced after CTC");
+STATISTIC(NumCTCClones, "Number of clone function(s) created");
+STATISTIC(NumCTCClonedCalls, "Number of call(s) to a clone");
+STATISTIC(NumPostCTCConstFold, "Number of constant(s) fold after CTC");
+STATISTIC(NumPostCTCCallsiteReplace,
+          "Number of callsite(s) replaced after CTC");
+STATISTIC(NumPostCTCMVFCreate,
+          "Number of multi-version function(s) created after CTC");
 
 #ifndef NDEBUG
 #define DBG(x) x
@@ -163,7 +167,7 @@ static cl::list<std::string> CCloneSeeds(
 
 // controls verbosity of the debug output
 static cl::opt<unsigned>
-    CTCloningDbgLevel(PASS_NAME_STR "-dbg", cl::init(0), cl::ReallyHidden,
+    CTCloningDbgLevel(PASS_NAME_STR "-dbg", cl::init(5), cl::ReallyHidden,
                       cl::desc("debug output verbosity level"));
 
 static cl::opt<unsigned> CTCloningMaxIRSize(
@@ -174,6 +178,39 @@ static cl::opt<unsigned> CTCloningMaxIRSize(
 static cl::opt<bool> CTCloningLeafsOnly(
     PASS_NAME_STR "-leafs-only", cl::init(false), cl::ReallyHidden,
     cl::desc("don't clone functions containing non-intrinsic calls"));
+
+// *** Options below control the behaviors of the function multiversioner ***
+
+// Enable MultiVersion transformation. Default is ON.
+static cl::opt<bool>
+    EnableMV(PASS_NAME_STR "-do-mv", cl::init(true), cl::ReallyHidden,
+             cl::desc("option to enable multi-version transformation"));
+
+// Max allowed # of LLVM Instructions in a function that may enable
+// Multi-Version (MV) transformation for 2-variable clones
+static cl::opt<unsigned> MVMax2VarInstNum(
+    PASS_NAME_STR "-mv-max2var-inst-num", cl::init(60), cl::ReallyHidden,
+    cl::desc("max # of LLVM Instructions allowed for a candidate function to "
+             "subject to 2-variable-clone multi-version transformation"));
+
+// Max allowed # of LLVM Instructions in a function that may enable
+// Multi-Version (MV) transformation for 1-variable clones
+static cl::opt<unsigned> MVMax1VarInstNum(
+    PASS_NAME_STR "-mv-max1var-inst-num", cl::init(50), cl::ReallyHidden,
+    cl::desc("max # of LLVM Instructions allowed for a candidate function to "
+             "subject to 1-variable-clone multi-version transformation"));
+
+static cl::opt<unsigned> MVMaxValueSetSize(
+    PASS_NAME_STR "-mv-max-valueset-size", cl::init(2), cl::ReallyHidden,
+    cl::desc("Maximum number of values over which a specific "
+             "formal can be cloned. For example, we may be able to prove that "
+             "the formal can have values {16, 8, 4, 2} but we only want to "
+             "clone over 2 values, and so we may choose {16, 8}"));
+
+static cl::opt<unsigned> MVDesiredArgNum(
+    PASS_NAME_STR "-mv-desired-arg-num", cl::init(8), cl::ReallyHidden,
+    cl::desc("A function must have exactly this number of arguments to be a "
+             "candidate for multiversioning"));
 
 #define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
 
@@ -236,8 +273,8 @@ public:
     return S.str();
   }
 
-  // Check: does ParamIndSet have Idx index ON?
-  bool hasIndex(const unsigned Idx) const {
+  // Check: does ParamIndSet have Idx ON?
+  bool haveIndex(const unsigned Idx) const {
     if (Idx >= size())
       return false;
     return this->operator[](Idx);
@@ -245,7 +282,7 @@ public:
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump(bool PrintNewLine = true) const {
-    llvm::dbgs() << toString() << " ";
+    llvm::dbgs() << toString();
     if (PrintNewLine)
       llvm::dbgs() << "\n";
   }
@@ -272,16 +309,16 @@ struct ParamIndSetLess {
   }
 };
 
-// Check Value* is either a ConstantInt, or an Argument, or can be traced back
-// to either a ConstantInt or an Argument.
+// Check that Value* is either a ConstantInt, or an Argument, or can be traced
+// back to either a ConstantInt or an Argument.
 //
-// All 4 checkArgOrConst(.) functions are similar in checking ConstantInt or
+// All checkArgOrConst(.) functions are similar in checking ConstantInt or
 // Argument, except each has a different starting point: Value*,
 // BinaryOperator*, PHINODE*, or CastInt*.
 //
-// ValuePtrSet saves any visited Value*. This helps to recognize a loop during
-// the track process, and thus abort tracking when a previously visited Value*
-// is again encountered.
+// ValuePtrSet saves any visited Value*. This helps to recognize any loop
+// during the back-tracking process, and can abort tracking when a previously
+// visited Value* is encountered the 2nd time.
 //
 static bool checkArgOrConst(Value *, SmallPtrSetImpl<Value *> &, ParamIndSet &);
 static bool checkArgOrConst(BinaryOperator *, SmallPtrSetImpl<Value *> &,
@@ -289,8 +326,9 @@ static bool checkArgOrConst(BinaryOperator *, SmallPtrSetImpl<Value *> &,
 static bool checkArgOrConst(PHINode *, SmallPtrSetImpl<Value *> &,
                             ParamIndSet &);
 
-// Check that each BinaryOperator's operand is either a ConstantInt, an
-// Argument, or can be traced to either a ConstantInt or an Argument.
+// Check that both of a given BinaryOperator's operand is either a
+// ConstantInt, an Argument, or can be traced to either a ConstantInt or an
+// Argument.
 static bool checkArgOrConst(BinaryOperator *BO,
                             SmallPtrSetImpl<Value *> &ValuePtrSet,
                             ParamIndSet &Pset) {
@@ -316,8 +354,8 @@ static bool checkArgOrConst(PHINode *Phi, SmallPtrSetImpl<Value *> &ValuePtrSet,
   return true;
 }
 
-// Expect that V be a ConstantInt, or an Argument, or can ultimately be traced
-// back to either a ConstantInt or an Argument.
+// Expect V be a ConstantInt, or an Argument, or can ultimately trace back to
+// either a ConstantInt or an Argument.
 //
 // Support the following types only:
 // - ConstantInt
@@ -359,7 +397,7 @@ static bool checkArgOrConst(Value *V, SmallPtrSetImpl<Value *> &ValuePtrSet,
   return false;
 }
 
-// Check a given loop (L):
+// Check that in a given loop (L):
 //
 // - BottomTest (CmpInst) exists and is a supported predicate;
 // - CmpInst has only 2 operands;
@@ -399,13 +437,11 @@ static bool isLeafFunction(const Function &F) {
   bool HasUserCall = false;
 
   for (const auto &I : instructions(&F)) {
-    // Conservative on InvokeInst
     if (isa<InvokeInst>(&I)) {
       HasUserCall = true;
       break;
     }
 
-    // check on CallInst: callee exists and not an intrinsic
     if (auto CI = dyn_cast<CallInst>(&I)) {
       Function *Callee = CI->getCalledFunction();
       if (Callee && !Callee->isIntrinsic()) {
@@ -429,10 +465,24 @@ public:
     return Res;
   }
 
+  // This function creates a vector of pairs, where the first item in the pair
+  // is the position of the formal and the second is a constant value for that
+  // formal.
+  bool enumPosVal(
+      SmallVectorImpl<std::pair<unsigned, ConstantInt *>> &PosValVec) const {
+    for (unsigned I = 0, E = size(); I < E; ++I) {
+      const ConstantInt *C = this->operator[](I);
+      if (C)
+        PosValVec.push_back(std::make_pair(I, const_cast<ConstantInt *>(C)));
+    }
+
+    return PosValVec.size();
+  }
+
   ParamIndSet getParamIndSet() const {
     ParamIndSet Res(size());
 
-    for (unsigned I = 0; I < size(); ++I)
+    for (unsigned I = 0, E = size(); I < E; ++I)
       if (this->operator[](I))
         Res.set(I);
 
@@ -844,9 +894,9 @@ public:
   }
 
   // Check: any ParamIndxSet has Idx?
-  bool hasIndex(const unsigned Idx) {
+  bool haveIndex(const unsigned Idx) {
     for (auto S : *this)
-      if (S.hasIndex(Idx))
+      if (S.haveIndex(Idx))
         return true;
     return false;
   }
@@ -899,16 +949,12 @@ private:
 #ifndef NDEBUG
 void printSeeds(const std::string &Msg,
                 std::map<DCGNode *, SetOfParamIndSets> &Seeds) {
-  dbgs() << Msg << "\n";
+  dbgs() << Msg << "<" << Seeds.size() << ">\n";
 
   for (auto &Seed : Seeds) {
     DCGNode *Node = Seed.first;
     const SetOfParamIndSets &Psets = Seed.second;
-
-    dbgs() << Node->toString();
-    dbgs() << "->";
-    dbgs() << Psets.toString();
-    dbgs() << "\n";
+    dbgs() << Node->toString() << "->" << Psets.toString() << "\n";
   }
 
   dbgs() << "\n";
@@ -945,6 +991,7 @@ void print_FunctionMap(const std::string &Msg, std::map<Function *, bool> &Map,
   }
   dbgs() << "\n";
 }
+
 #endif // NDEBUG
 
 // Maps detailed call graph nodes to their parameter data flow information
@@ -1290,7 +1337,8 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
       auto I = V2N.find(Opnd);
 
       if ((I != V2N.end()) && (I->second < DfsNum - 1)) {
-        // successor already visited and there is A dependence cycle - bail out
+        // successor already visited and there is A dependence cycle - bail
+        // out
         Ret = params_cannot_fold;
         break;
       }
@@ -1527,6 +1575,7 @@ void CTCLoopBasedCostModel::getFunctionIRStats(const Function &F,
   HasCalls = false;
 
   LLVM_DEBUG(errs() << "Function: " << F.getName() << "(.)\n;");
+
   for (const auto &I : instructions(&F)) {
     ++IRSize;
 
@@ -1577,6 +1626,7 @@ void CTCLoopBasedCostModel::gatherParamDepsForFoldableLoopBounds(
 // Both CallTreeCloningPass and CallTreeCloningLegacyPass delegate to it.
 class CallTreeCloningImpl {
   friend class PostProcessor;
+  friend class MultiVersionImpl;
 
 public:
   CallTreeCloningImpl() {}
@@ -1644,7 +1694,7 @@ protected:
                                 const DCGParamFlows &Flows);
 };
 
-// Do post processing after the recursive Call-Tree Cloning has finished the
+// Do post-process cleanup after the recursive Call-Tree Cloning finished the
 // module. New opportunities are created. E.g.
 // ...
 // %10 = shl 4, 2;
@@ -1652,19 +1702,19 @@ protected:
 // %12 = @get_ref(%10, %11) ; a call to a seed function
 // ...
 //
-// This should be turned into (1)
+// Post processor (PP) will turn this into:
 // ...
-// %10 = shl 4, 2; next InstComb will clean it up
-// %11 = shl 2, 2; next InstComb will clean it up
-// %12 = @get_ref(16, 8); a call to a seed function with constant argument(s) on
-//                        desired positions
+// %10 = shl 4, 2; if dead code, next GVN will clean it up
+// %11 = shl 2, 2; same
+// %12 = @get_ref(8, 16) ; a call to a seed function with constants on certain
+//                         arguments
 // ...
 //
-// And should be further turned into (2)
+// and then into:
 // ...
-// %10 = shl 4, 2; next InstComb will clean it up
-// %11 = shl 2, 2; next InstComb will clean it up
-// %12 = @get_ref|16.8() ; a call to a cloned function
+// %10 = shl 4, 2; dead code, next GVN will clean it up
+// %11 = shl 2, 2; same
+// %12 = @get_ref|8.16() ; a call to a cloned function
 // ...
 class PostProcessor {
 public:
@@ -1684,7 +1734,8 @@ private:
   bool collectPPCallInst(CallInst *);
   bool doCollection(void);
 
-  bool replaceWithClone(CallInst *&, unsigned);
+  // do constant folding and seed-function replacement with its matching clone
+  bool foldConstantAndReplWithClone(CallInst *&, unsigned);
   bool doTransformation(void);
 
 public:
@@ -1703,18 +1754,199 @@ private:
   CallTreeCloningImpl *CTCI;
 
   std::map<CallInst *, unsigned> PPCandidates;
-  // original and populated seed functions:
+  // includes both original and populated seed functions:
   std::map<Function *, bool> ExtSeedFunctions;
   std::map<Function *, bool> ClonedFunctions;
+};
+
+struct ConstantIntGreaterThan { // Descent-order comparator
+  bool operator()(const ConstantInt *C0, const ConstantInt *C1) const {
+    return C0->getSExtValue() > C1->getSExtValue();
+  }
+};
+
+// All information needed to conduct multi-version transformation for a given
+// Function* F.
+//
+// This includes:
+// -F: Function itself
+// -Psets: sets of all formals
+// -Size: # of LLVM Instructions inside F
+// -Param2CloneMap: map (F, ConstParamVec) -> CloneF
+// -Pos2ValMap:     map: formal position -> sorted ConstantInt* set
+//
+struct MVFunctionInfo {
+  MVFunctionInfo() : F(nullptr), Size(0) {}
+
+  void set(Function *Fn) {
+    if (F && (Fn != F))
+      assert(0 && "Wrong Fn given");
+    if (!F)
+      F = Fn;
+  }
+
+  void set(SetOfParamIndSets &SPsets) {
+    for (auto S : SPsets)
+      Psets.insert(S);
+  }
+
+  void set(ConstParamVec &ConstParams, Function *ClonedF) {
+    Param2CloneMap[ConstParams] = ClonedF;
+  }
+  void set(unsigned Idx, ConstantInt *C) { Pos2ValMap[Idx].insert(C); }
+  void set(unsigned Size) { this->Size = Size; }
+
+#ifndef NDEBUG
+  std::string toString(void) const;
+  LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
+#endif
+
+  Function *F;
+  SetOfParamIndSets Psets;
+  unsigned Size;
+  std::map<ConstParamVec, Function *> Param2CloneMap;
+  std::map<unsigned, std::set<ConstantInt *, ConstantIntGreaterThan>>
+      Pos2ValMap;
+};
+
+// Declaration of Multi-version Implementation Class
+class MultiVersionImpl {
+public:
+  MultiVersionImpl(Module &M,
+                   std::map<Function *, SetOfParamIndSets> &LeafSeeds,
+                   CloneRegistry &Clones, TargetLibraryInfo *TLI,
+                   CallTreeCloningImpl *CTCI)
+      : M(M), LeafSeeds(LeafSeeds), Clones(Clones), CTCI(CTCI) {}
+
+  bool run();
+
+private:
+  // Collect all function candidates for multi-version transformation
+  // - candidates are from cloner's leaf-seed functions;
+  // - filter the candidates by function's size, number of desired arguments,
+  //   etc.
+  //   This produces multi-version candidates (MVSeeds).
+  bool doCollection(void);
+
+  // Analyze the MVSeeds, and produce:
+  // 1. map<Function *, std::set<ConstParamsVec>>: map between OrigF*
+  //  and its potentially multiple ConstParamsVec(s);
+  //
+  // 2. map<unsigned idx, std::set<ConstantInt*>: map between OrigF's
+  //  argument position to all possible constants that position may have;
+  //
+  bool doAnalysis(void);
+
+  // clone a given function with
+  // - an all-empty ConstParams
+  // - single-variable clones on each qualified arg position
+  bool createAdditionalClones(Function *F);
+
+  // Multi-version code generation:
+  //
+  // - Generate if_then style LLVM code blocks for 2 given (Arg0,C0) and
+  //  (Arg1,C1) pairs, as:
+  //
+  //[C: 1 2-variable clone]
+  // if((i_width == C0) && (i_height == C1)) {
+  //   matched_clone();
+  // }
+  //
+  //[LLVM: 1 2-variable clone]  ---------------------------------------------
+  //%cmp = icmp eq i32 %6, 16                          CommonBB
+  //%cmp1 = icmp eq i32 %7, 16
+  //%and.cond = and i1 %cmp, %cmp1
+  // br i1 %and.cond, label %if.then, label %if.end
+  //
+  // if.then:                   ---------------------------------------------
+  // tail call void (...) @pixel_avg16x16() #2         ThenBB
+  // ret
+  //
+  // if.end:                    ---------------------------------------------
+  //                                                   MergeBB
+  //
+  //                            ---------------------------------------------
+  //
+  // Note:
+  // - Current clause's MergeBB is the CommonBB for the next clause.
+  //
+  bool doCodeGenMV(Function *F, unsigned Pos0, ConstantInt *C0, unsigned Pos1,
+                   ConstantInt *C1, BasicBlock *&CommonBB, BasicBlock *&ThenBB,
+                   BasicBlock *&MergeBB);
+
+  // Generate
+  // - a call to the original clone (with empty ConstParamsVector)
+  //   E.g. mc_chroma's original clone is mc_chroma|_._..._.()
+  //
+  // - a "ret" instruction
+  bool doCodeGenOrigClone(Function *F, BasicBlock *CallBB);
+
+  // Create additional runtime values by interpolating existing values.
+  // E.g.
+  // [Before] ValSet:{     16,     8}
+  // [After]  ValSet:{ 20, 16, 12, 8}
+  //                   ^       ^
+  // 20 and 12 are new values created through interpolation.
+  bool interpolateForRTValues(
+      std::set<ConstantInt *, ConstantIntGreaterThan> &ValSet);
+
+  // - Generate if_then style LLVM code blocks for a single (Arg,C) pair,
+  // as:
+  //
+  //[C: 1 1-variable clone]
+  // if(i_width == C0)
+  //   matched_clone();
+  // }
+  //
+  //[LLVM: 1 1-variable clone] --------------------------------------------
+  //%cmp = icmp eq i32 %6, 16                     CommonBB Blobk
+  // br i1 %cmp, label %if.then, label %if.end
+  //                           --------------------------------------------
+  // if.then:                                     ThenBB Block
+  // tail call void (...) @pixel_avg16x_() #2
+  // ret
+  //
+  // if.end:                   --------------------------------------------
+  //                                              MergeBB Block
+  //
+  //                           --------------------------------------------
+  //
+  bool doCodeGen1VarClone(Function *F, unsigned Pos, ConstantInt *C,
+                          BasicBlock *&CommonBB, BasicBlock *&ThenBB,
+                          BasicBlock *&MergeBB);
+
+  // Main entry for Multi-Version Code generation for Function F:
+  //- wipe F clean;
+  //- code generation for 2-variable clones;
+  //- code generation for 1-variable clones;
+  //- code generation for the original function;
+  bool doCodeGen(Function *F);
+
+  bool doTransformation(void);
+
+public:
+#ifndef NDEBUG
+  std::string toString(void) const;
+  LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
+#endif
+
+private:
+  Module &M;
+  std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+  CloneRegistry &Clones;
+  CallTreeCloningImpl *CTCI;
+
+  std::map<Function *, SetOfParamIndSets> MVSeeds;
+  std::map<Function *, MVFunctionInfo> MVFIMap;
 };
 
 } // end of anonymous namespace
 
 #ifndef NDEBUG
-std::string PostProcessor::toString() const {
+std::string PostProcessor::toString(void) const {
   std::ostringstream S;
 
-  // std::map<CallInst *, unsigned> PPCandidates;
+  // Data to print: std::map<CallInst *, unsigned> PPCandidates;
   S << "PPCandidates<" << PPCandidates.size() << ">:\n";
   unsigned Count = 0;
 
@@ -1731,13 +1963,64 @@ std::string PostProcessor::toString() const {
     // print Position info:
     unsigned Pos = Item.second;
     for (unsigned I = 0, E = sizeof(unsigned); I < E; ++I)
-      if (Pos & (I << I))
+      if (Pos & (1 << I))
         S << I << ",";
 
     S << "\n";
   }
 
   return S.str();
+}
+
+std::string MVFunctionInfo::toString(void) const {
+  std::ostringstream S;
+  S << "MVFunctionInfo: \t";
+
+  // print: Function * F:
+  if (F)
+    S << F->getName().str() << "()\n";
+  else
+    S << "null\n";
+
+  // print: SetOfParamIndSets Psets;
+  S << "Psets:<" << Psets.size() << ">:" << Psets.toString() << "\n";
+
+  // print: unsigned Size;
+  S << "Size: " << Size << "\n";
+
+  // std::map<ConstParamVec, Function *> Param2CloneMap;
+  S << "Param2CloneMap:<" << Param2CloneMap.size() << ">\n";
+  for (auto &Pair : Param2CloneMap) {
+    ConstParamVec ConstParams = Pair.first;
+    Function *ClonedF = Pair.second;
+    S << ConstParams.toString() << " -> " << ClonedF->getName().str() << "\n";
+  }
+
+  // print: std::map<unsigned, SmallSet<ConstantInt *, 4>> Pos2ValMap;
+  S << "Pos2ValMap:<" << Pos2ValMap.size() << ">\n";
+  for (auto &Pair : Pos2ValMap) {
+    unsigned Index = Pair.first;
+    auto &ConstSet = Pair.second;
+    S << Index << " -> ";
+
+    for (ConstantInt *C : ConstSet) {
+      APInt Val = C->getValue();
+      S << Val.toString(10, true) << "\t";
+    }
+    S << "\n";
+  }
+
+  return S.str();
+}
+
+std::string MultiVersionImpl::toString(void) const {
+  std::string S;
+
+  for (auto &P : MVFIMap) {
+    const MVFunctionInfo &MVFI = P.second;
+    S += MVFI.toString();
+  }
+  return S;
 }
 #endif
 
@@ -1748,6 +2031,9 @@ public:
   CallTreeCloningLegacyPass();
   bool runOnModule(Module &M) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+  StringRef getPassName() const override {
+    return "Call-Tree Cloning (with MultiVersioning)";
+  }
 
 protected:
   bool skipModule(const Module &M) {
@@ -1830,10 +2116,19 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
   if (!findAndCloneCallSubtrees(Cgraph.get(), AlgSeeds, Clones))
     return false;
 
+  // Do Post Processing Cleanup:
   PostProcessor PostProc(M, AlgSeeds, LeafSeeds, Clones, TLI, this);
   bool PPResult = PostProc.run();
 
-  return PPResult;
+  // Do Multi-Version transformation:
+  // [optional, default is ON]
+  bool MVResult = false;
+  if (EnableMV) {
+    MultiVersionImpl MV(M, LeafSeeds, Clones, TLI, this);
+    MVResult = MV.run();
+  }
+
+  return PPResult || MVResult;
 }
 
 bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
@@ -1846,7 +2141,6 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   });
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
-
   return Impl.run(M, Anls, TLI, PA);
 }
 
@@ -2053,6 +2347,7 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   for (auto &AlgSeed : AlgSeeds) {
     const SetOfParamIndSets &SeedLiveOut = AlgSeed.second;
     DCGNode *SeedNode = AlgSeed.first;
+
     DCGNodeParamFlow *Flow = Flows.getOrCreate(SeedNode);
     Flow->liveOut().insert(SeedLiveOut.begin(), SeedLiveOut.end());
 
@@ -2355,21 +2650,18 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
   if (!Callee || !CI->getNumArgOperands())
     return false;
 
-  // Check: is the callee in the seed-function list?
+  // Bail out if the callee is in the seed-function list
   if (!ExtSeedFunctions[Callee])
     return false;
-
-  LLVM_DEBUG(dbgs() << "CI: a call to a seed function: "; CI->dump(););
 
   SetOfParamIndSets Psets = LeafSeeds[Callee];
 
   // Check:
-  // on the Pset position, does the callee have any constant fold-able argument,
-  // or
-  // any argument that is already constant?
+  // on the Pset position, does the callee have any constant fold-able
+  // BinaryOperator argument, or any argument that is already constant?
   unsigned CFArgPos = 0;
   for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I) {
-    if (!Psets.hasIndex(I))
+    if (!Psets.haveIndex(I))
       continue;
 
     Value *arg = CI->getArgOperand(I);
@@ -2379,32 +2671,29 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
       continue;
 
     // found a BinaryOperator or a constant on index I:
-    LLVM_DEBUG({
-      dbgs() << "arg[" << I << "]: ";
-      arg->dump();
-    });
-
     if (IsConstant) {
       CFArgPos |= (1 << I);
       continue;
     }
 
     // BinOp case: check if the BinOp on index is subject to constant fold
-    // and record the index if it does.
     BinaryOperator *BOp = dyn_cast<BinaryOperator>(arg);
     if (ConstantFoldInstruction(BOp, DL, TLI)) {
+      // record this index's position
       CFArgPos |= (1 << I);
     }
   }
 
-  // If the CallInst has any constant-foldable argument, save this CallInst
+  // If the CallInst has any constant fold-able argument, save this CallInst
+  // with its matching CFArgPos.
   if (CFArgPos) {
     LLVM_DEBUG(
-        dbgs() << "CI: "; CI->dump();
         dbgs()
-        << " has constant fold-able argument(s) or constant(s) \t at ArgPos: "
+        << "CI: " << *CI
+        << " has constant a fold-able argument or a constant\t at ArgPos: "
         << std::bitset<32>(CFArgPos).to_string() << "  Dec: " << CFArgPos
         << "\n");
+
     PPCandidates[CI] = CFArgPos;
   }
 
@@ -2456,88 +2745,84 @@ bool PostProcessor::doCollection(void) {
 }
 
 // Actions:
-// -Fold constant, replace the respective argument with the constant value
-// -Replace the original callee with its matching cloned version
-//  . Create new clones if the to-replace call candidate has NO matching clone
+// - Fold constant, replace the argument in Pos-index position with its
+//   respective constant value;
+// - Replace the original callee with its matching cloned version;
+// - Create new clones if the to-replace call candidate has NO matching clone;
 //
-bool PostProcessor::replaceWithClone(CallInst *&CI, unsigned Pos) {
-  LLVM_DEBUG(dbgs() << "CI: "; CI->dump();
-             dbgs() << "Pos<bit>: " << std::bitset<32>(Pos).to_string()
+bool PostProcessor::foldConstantAndReplWithClone(CallInst *&CI, unsigned Pos) {
+  LLVM_DEBUG(dbgs() << "CI: " << *CI
+                    << "Pos<bit>: " << std::bitset<32>(Pos).to_string()
                     << "Pos<Dec<: " << Pos << "\n");
 
-  // 1.Fold constant, replace the respective argument with the constant value
+  // 1.Fold constant, replace the Pos-index argument with the constant value
   //   (construct a ConstParams object implicitly for 2nd-stage use)
-  unsigned NumArgs = CI->getNumArgOperands();
+  const unsigned NumArgs = CI->getNumArgOperands();
   ConstParamVec ConstParams;
   ConstParams.resize(NumArgs);
   bool IsBinOp = false;
-  for (unsigned I = 0, E = NumArgs; I < E; ++I) {
+  for (unsigned I = 0; I < NumArgs; ++I) {
     if (!(Pos & (1 << I)))
       continue;
 
-    // LLVM_DEBUG(dbgs() << "index: " << I << "\n");
     Value *arg = CI->getArgOperand(I);
     IsBinOp = isa<BinaryOperator>(arg);
     bool IsConstant = isa<ConstantInt>(arg);
     if (!IsBinOp && !IsConstant)
       assert(
           0 &&
-          "Expect arg be either a ConstantInt or a fold-able BinaryOperator\n");
+          "Expect the argument be either a ConstantInt or a constant fold-able "
+          "BinaryOperator\n");
 
     if (IsConstant) { // constant case
       ConstantInt *ConstInt = dyn_cast<ConstantInt>(arg);
       assert(ConstInt && "Expect the arg be a valid ConstantInt\n");
       ConstParams[I] = ConstInt;
-    } else { // BinOp case
+    } else { // BinOp case: do constant fold 1st
       BinaryOperator *BOp = dyn_cast<BinaryOperator>(arg);
       assert(BOp && "Expect the arg be a valid BinaryOperator\n");
       if (Constant *C = ConstantFoldInstruction(BOp, DL, TLI)) {
         CI->setArgOperand(I, C);
         ConstantInt *ConstInt = dyn_cast<ConstantInt>(C);
-        assert(ConstInt && "Expect the Constant be actually ConstantInt, not "
+        assert(ConstInt && "Expect the Constant is actually a ConstantInt, not "
                            "supporting float yet\n");
         ConstParams[I] = ConstInt;
-        ++NumPostCTCConstFolds;
+        ++NumPostCTCConstFold;
       }
     }
   }
 
-  if (IsBinOp)
-    LLVM_DEBUG({
-      dbgs() << "After Constant Fold: ";
-      CI->dump();
-    });
+  LLVM_DEBUG({
+    if (IsBinOp)
+      dbgs() << "After Constant Fold: " << *CI << "\n";
+  });
 
   // 2.Replace the original callee with its matching cloned version
   // Source:
-  // - CI, with constant parameter(s) folded
-  // - ConstParams:
+  // - CI, with constant parameter(s) folded;
+  // - ConstParams;
   //
   // Mapping:
   // using CloneRegistry = std::map<std::pair<const Function *, ConstParamVec>,
   //                                Function *, CloneMapKeyLess>;
   Function *OrigF = CI->getCalledFunction();
   assert(OrigF && "Expect OrigF be valid\n");
-  // Function *ClonedF = Clones[std::make_pair(OrigF, ConstParams)];
   Call2ClonedFunc Call2Clone;
   Function *ClonedF =
       CTCI->cloneFunction(OrigF, ConstParams, Call2Clone, Clones);
-  assert(ClonedF && "ClonedF must be valid now\n");
+  assert(ClonedF && "ClonedF must be available/valid now\n");
 
   LLVM_DEBUG({
     dbgs() << OrigF->getName().str();
     dbgs() << " : " << ConstParams.toString() << " -> ";
-    dbgs() << "\t" << ClonedF->getName().str() << "\n";
+    dbgs() << ClonedF->getName().str() << "\n";
   });
 
   CI = specializeCallSite(CI, ClonedF, ConstParams.getParamIndSet());
-  LLVM_DEBUG({
-    dbgs() << "\nCI after Replace with Cloned callsite: \n";
-    CI->dump();
-  });
-  ++NumPostCTCCallsitesReplaced;
+  LLVM_DEBUG(dbgs() << "\nCI after Replace with Cloned callsite:\n" << *CI);
 
-  // Done:
+  ++NumPostCTCCallsiteReplace;
+  // CI is implicitly returned
   return true;
 }
 
@@ -2552,13 +2837,14 @@ bool PostProcessor::doTransformation(void) {
   for (auto &Item : PPCandidates) {
     CallInst *CI = Item.first;
     unsigned CFPos = Item.second;
-    LLVM_DEBUG(dbgs() << "CI: "; CI->dump();
-               dbgs() << " has constant fold-able argument(s)\t at ArgPos: "
+    LLVM_DEBUG(dbgs() << "CI: " << *CI
+                      << " has constant fold-able argument(s)\t at ArgPos: "
                       << std::bitset<32>(CFPos).to_string()
                       << "  Dec: " << CFPos << "\n");
 
-    if (!replaceWithClone(CI, CFPos)) {
-      LLVM_DEBUG(dbgs() << "ReplaceWithClone(.) failed on: "; CI->dump());
+    if (!foldConstantAndReplWithClone(CI, CFPos)) {
+      LLVM_DEBUG(dbgs() << "foldConstAndReplWithClone(CI, Pos) failed: "
+                        << *CI);
       continue;
     }
     ++Count;
@@ -2577,6 +2863,749 @@ bool PostProcessor::run(void) {
   if (!doCollection())
     return false;
 
+  if (!doTransformation())
+    return false;
+
+  return true;
+}
+
+// ---------------------------------------------------------------
+// Multi-Version Code section
+// ---------------------------------------------------------------
+
+// Collect for MultiVersion.
+// Action list:
+// - filter all leaf-seed functions by size and other conditions;
+//
+//[INPUT]
+// std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+//
+//[OUTPUT]
+// std::map<Function *, SetOfParamIndSets> MVSeeds;
+//
+bool MultiVersionImpl::doCollection(void) {
+  auto countIR = [](const Function &F) {
+    unsigned IRSize = 0;
+    for (const auto &I : instructions(&F)) {
+      ++IRSize;
+      (void)I;
+    }
+    return IRSize;
+  };
+
+  for (auto &LeafSeed : LeafSeeds) {
+    Function *F = LeafSeed.first;
+    if (!isLeafFunction(*F) || (F->arg_size() != MVDesiredArgNum))
+      continue;
+
+    unsigned FSize = countIR(*F);
+    // LLVM_DEBUG(dbgs() << F->getName() << "(), size: " << FSize << "\n");
+
+    if (FSize < MVMax2VarInstNum)
+      MVSeeds[F] = LeafSeed.second;
+  }
+
+  // See what we have collected in MVSeeds:
+  LLVM_DEBUG({ printSeeds("MVSeeds: ", MVSeeds); });
+
+  return MVSeeds.size();
+}
+
+// Analyze the MVSeeds:
+// 1. fill in MVFunctionInfo record for each unique Function* from MVSeed, and
+// populate the MVFI map: Function * -> MVFunctionInfo,
+// where MVFunctinInfo contains:
+//  -Function *
+//  -SetOfParamIdxSets
+//  -map: ConstParamVec -> CloneF
+//  -map: idxPos -> std::set<ConstantInt*, ConstantIntGreaterThan>
+//
+// 2. Reduce potential combinations of std::set<ConstantInt*> by sorting and
+// limiting the max size of the set. Currently, the max size is set to 2.
+//
+bool MultiVersionImpl::doAnalysis(void) {
+  // Check: does Seeds map contains a given Function *
+  auto findFuncIn = [&](Function *Func,
+                        std::map<Function *, SetOfParamIndSets> &Seeds) {
+    for (auto I = Seeds.begin(), E = Seeds.end(); I != E; ++I) {
+      const Function *F = (*I).first;
+      if (Func == F)
+        return true;
+    }
+    return false;
+  };
+
+  auto countIR = [](const Function &F) {
+    unsigned IRSize = 0;
+    for (const auto &I : instructions(&F)) {
+      ++IRSize;
+      (void)I;
+    }
+    return IRSize;
+  };
+
+  // 1. fill in MVFunctionInfo record for each unique Function* from MVSeed, and
+  //    populate the map:
+  //    std::map<Function *, MVFunctionInfo> MVFIMap
+  //
+  for (auto &Clone : Clones) {
+    Function *OrigF = const_cast<Function *>(Clone.first.first);
+    ConstParamVec ConstParams = Clone.first.second;
+    Function *CloneF = Clone.second;
+
+    LLVM_DEBUG(dbgs() << OrigF->getName() << " : " << ConstParams.toString()
+                      << " -> " << CloneF->getName() << "\n");
+
+    if (findFuncIn(OrigF, MVSeeds)) {
+      MVFunctionInfo &MVFI = MVFIMap[OrigF];
+      MVFI.set(OrigF);
+      MVFI.set(countIR(*OrigF));
+      MVFI.set(ConstParams, CloneF);
+      MVFI.set(MVSeeds[OrigF]);
+
+      SmallVector<std::pair<unsigned, ConstantInt *>, 4> PosValVec;
+      ConstParams.enumPosVal(PosValVec);
+      for (auto &Pair : PosValVec) {
+        unsigned PosIdx = Pair.first;
+        ConstantInt *C = Pair.second;
+        LLVM_DEBUG(dbgs() << "pos: " << PosIdx << " -> C: " << *C);
+        MVFI.set(PosIdx, C);
+      }
+    }
+  }
+
+  // See what is inside MVFIMap now:
+  LLVM_DEBUG({
+    for (auto &Pair : MVFIMap) {
+      MVFunctionInfo &MVFI = Pair.second;
+      MVFI.dump();
+    }
+  });
+
+  // 2. Reduce potential multi-versioning comparison combinations over
+  // ConstantInt* values by sorting and limiting the max size of the set.
+  // Currently, the max size is set to 2.
+  //
+  // Data in: std::map<unsigned, std::set<ConstantInt *, >> Pos2ValMap;
+  for (auto &Pair : MVFIMap) {
+    Function *F = Pair.first;
+    MVFunctionInfo &MVFI = Pair.second;
+    auto &Pos2ValMap = MVFI.Pos2ValMap;
+
+    for (auto &Item : Pos2ValMap) {
+      unsigned PosIdx = Item.first;
+      auto &ValSet = Item.second;
+      LLVM_DEBUG(dbgs() << F->getName() << " , PosIdx: " << PosIdx
+                        << "\tBefore set-size reduction:\n");
+      for (auto *V : ValSet) {
+        LLVM_DEBUG(V->dump());
+        (void)V;
+      }
+      (void)PosIdx;
+      (void)F;
+
+      unsigned SetSize = ValSet.size();
+      unsigned MaxItems =
+          (SetSize > MVMaxValueSetSize) ? MVMaxValueSetSize : SetSize;
+      // remove additional items from the set
+      ValSet.erase(std::next(ValSet.begin(), MaxItems), ValSet.end());
+
+      LLVM_DEBUG(dbgs() << F->getName() << "() , PosIdx: " << PosIdx
+                        << "\tAfter set-size reduction:\n");
+      LLVM_DEBUG({
+        for (auto *V : ValSet)
+          V->dump();
+      });
+    }
+  }
+
+  // See what is inside MVFIMap after set-size reduction:
+  LLVM_DEBUG({
+    for (auto &Pair : MVFIMap) {
+      MVFunctionInfo &MVFI = Pair.second;
+      MVFI.dump();
+    }
+  });
+
+  return true;
+}
+
+#ifndef NDEBUG
+void printValSet(const std::string &Msg,
+                 std::set<ConstantInt *, ConstantIntGreaterThan> &ValSet) {
+  dbgs() << Msg << "<" << ValSet.size() << ">\n";
+
+  for (auto *C : ValSet) {
+    dbgs() << C->getSExtValue() << ", ";
+  }
+
+  dbgs() << "\n";
+}
+#endif
+
+bool MultiVersionImpl::createAdditionalClones(Function *F) {
+  Call2ClonedFunc Call2Clone;
+  ConstParamVec ConstParams;
+  const unsigned FArgSize = F->arg_size();
+  ConstParams.resize(FArgSize);
+
+  // 1. Create a cloned Function for all-empty ConstParams
+  // E.g.  pixel_avg|_._._._._._._();
+  Function *CloneF = CTCI->cloneFunction(F, ConstParams, Call2Clone, Clones);
+  if (!CloneF) {
+    LLVM_DEBUG(dbgs() << "Fail to create a clone on " << F->getName() << " : "
+                      << ConstParams.toString() << "\n");
+    return false;
+  }
+
+  // 2. Create single-variable argument clone(s)
+  // E.g. pixel_avg|_._._._._._.4();
+  // 	  pixel_avg|_._._._._._.8();
+  //
+  // Note:
+  // Data Input is in std::map<unsigned, std::set<ConstantInt *>>Pos2ValMap;
+  //
+  MVFunctionInfo &MVFI = MVFIMap[F];
+  bool Is1VarCloneCandidate = (MVFI.Size < MVMax1VarInstNum);
+  for (auto &Pos2ValPair : MVFIMap[F].Pos2ValMap) {
+    unsigned PosIdx = Pos2ValPair.first;
+    auto &ValSet = Pos2ValPair.second;
+
+    // Note:
+    // - Just create additional clone functions, not to extend ValSet.
+    // - IValSet begins with ValSet, maybe extended via interpolation, but will
+    //   be thrown away once the 1-variable clone creation is done.
+    // - The real ValueSet extension will be handled later in execution, here we
+    //   only create additional clones.
+    //
+    auto IValSet = ValSet;
+
+    if (Is1VarCloneCandidate && !interpolateForRTValues(IValSet)) {
+      LLVM_DEBUG(dbgs() << "Failed to interpolate Value Set\n");
+      return false;
+    }
+
+    for (auto &Val : IValSet) {
+      ConstParams.clear();
+      ConstParams.resize(FArgSize);
+      ConstParams[PosIdx] = Val;
+      LLVM_DEBUG(dbgs() << "\nConstParams: " << ConstParams.toString() << "\n");
+
+      CloneF = CTCI->cloneFunction(F, ConstParams, Call2Clone, Clones);
+      if (!CloneF) {
+        LLVM_DEBUG(dbgs() << "Fail to create a clone on " << F->getName()
+                          << " : " << ConstParams.toString() << "\n");
+        return false;
+      }
+    }
+  }
+
+  // See what Clones have now:
+  LLVM_DEBUG({ print_CloneRegistry("Clones: ", Clones); });
+
+  return true;
+}
+
+bool MultiVersionImpl::doCodeGenMV(Function *F, unsigned Pos0, ConstantInt *C0,
+                                   unsigned Pos1, ConstantInt *C1,
+                                   BasicBlock *&CommonBB, BasicBlock *&ThenBB,
+                                   BasicBlock *&MergeBB) {
+  unsigned static Count = 0;
+  // Figure out the CloneF Function: mapped from F and (Pos0,C0),(Pos1,C1)
+  unsigned ArgSize = F->arg_size();
+  assert((Pos0 < ArgSize) && "Pos0 is out of bound\n");
+  assert((Pos1 < ArgSize) && "Pos1 is out of bound\n");
+  ConstParamVec ConstParams;
+  ConstParams.resize(ArgSize);
+  ConstParams[Pos0] = C0;
+  ConstParams[Pos1] = C1;
+  Function *CloneF = Clones[std::make_pair(F, ConstParams)];
+  if (!CloneF) {
+    LLVM_DEBUG(dbgs() << F->getName() << " : " << ConstParams.toString()
+                      << " -> CloneF not found\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << F->getName() << " : " << ConstParams.toString() << " -> "
+                    << CloneF->getName() << "\n");
+
+  // Figure out the Function's arguments:
+  Value *Arg0 = F->arg_begin() + Pos0;
+  Value *Arg1 = F->arg_begin() + Pos1;
+  LLVM_DEBUG(dbgs() << "Arg0: " << *Arg0 << "Arg1: " << *Arg1 << "\n");
+
+  // Code generation for 1 call to a 2-variable clone
+  IRBuilder<> Builder(M.getContext());
+
+  // *** CODE GENERATION TEMPLATE ***
+  //
+  // [C: 1 2-variable clone]
+  // if((i_width == 16) && (i_height == 16)){
+  //    pixel_avg16x16();
+  // }
+  //
+  //[LLVM: 1 2-variable clone]   ---------------------------------------------
+  //%cmp0 = icmp eq i32 %a, 16
+  //%cmp1 = icmp eq i32 %b, 16                       CommonBB Block
+  //%and01 = and i1 %cmp0, %cmp1
+  // br i1 %and01, label %if.then.0, label %if.end.0
+  //                             ----------------------------------------------
+  // if.then.0:                                          ; preds = %entry
+  // tail call void (...) @pixel_avg16x16() #2
+  // ret                                             ThenBB Block
+  //                             ----------------------------------------------
+  // if.end.0:                                       MergeBB Block
+  //
+  //                             ----------------------------------------------
+
+  // Create/reuse the CommonBB
+  if (CommonBB == nullptr) {
+    // Note: only FIRST CommonBB is null
+    CommonBB = BasicBlock::Create(M.getContext(), "Common.BB", F);
+  }
+  assert(CommonBB && "Expect valid CommonBB\n");
+  CommonBB->setName("Common.BB." + Count);
+
+  Builder.SetInsertPoint(CommonBB);
+  Value *Cmp0 = Builder.CreateICmpEQ(Arg0, C0);
+  Value *Cmp1 = Builder.CreateICmpEQ(Arg1, C1);
+  Value *And01 = Builder.CreateAnd(Cmp0, Cmp1);
+
+  // Create + organize BasicBlocks: ensure ThenBB appears earlier than MergeBB
+  ThenBB = BasicBlock::Create(M.getContext(), "Then.BB", F);
+  MergeBB = BasicBlock::Create(M.getContext(), "Merge.BB", F);
+  ThenBB->setName("Then.BB." + Count);
+  MergeBB->setName("Merge.BB." + Count);
+  ThenBB->moveBefore(MergeBB);
+  ++Count;
+
+  // Create CondBr: ThenBB, MergeBB
+  Builder.CreateCondBr(And01, ThenBB, MergeBB);
+
+  // generate a call to CloneF() inside ThenBB:
+  Builder.SetInsertPoint(ThenBB);
+  SmallVector<Value *, 16> Args;
+  int32_t Pos = -1;
+  for (Argument &Arg : F->args()) {
+    ++Pos;
+
+    // Skip F's arg(s) on Pos0 and Pos1:
+    if ((static_cast<unsigned>(Pos) == Pos0) ||
+        (static_cast<unsigned>(Pos) == Pos1))
+      continue;
+    Args.push_back(&Arg);
+  }
+  CallInst *CI = Builder.CreateCall(CloneF, Args);
+  CI->setCallingConv(CloneF->getCallingConv());
+
+  // generate a "ret" inside ThenBB after the call to clone:
+  Builder.CreateRetVoid();
+
+  LLVM_DEBUG(F->dump());
+
+  return true;
+}
+
+bool MultiVersionImpl::doCodeGenOrigClone(Function *F, BasicBlock *CallBB) {
+  assert(CallBB && "Expect a valid CallBB\n");
+
+  // Get the Original-Clone Function:
+  ConstParamVec ConstParams;
+  ConstParams.resize(F->arg_size());
+  Function *OrigCloneF = Clones[std::make_pair(F, ConstParams)];
+  if (!OrigCloneF) {
+    LLVM_DEBUG(dbgs() << F->getName() << " : " << ConstParams.toString()
+                      << " -> OrigCloneF not found\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << F->getName() << " : " << ConstParams.toString() << " -> "
+                    << OrigCloneF->getName() << "\n");
+
+  // Generate a call to OrigCloneF before the very end of F
+  // - the default fail-safe path
+  IRBuilder<> Builder(M.getContext());
+  Builder.SetInsertPoint(CallBB);
+
+  SmallVector<Value *, 16> Args;
+  for (Argument &Arg : F->args()) {
+    Args.push_back(&Arg);
+  }
+  CallInst *CI = Builder.CreateCall(OrigCloneF, Args);
+  CI->setCallingConv(OrigCloneF->getCallingConv());
+
+  // Generate a "ret" instruction inside CallBB
+  Builder.SetInsertPoint(CallBB);
+  Builder.CreateRetVoid();
+
+  // LLVM_DEBUG(F->dump());
+  return true;
+}
+
+// interpolate the ValSet, and grow/guess additional run-time values.
+// E.g. ValSet:
+// before interpolation { 16, 8 }
+// after  interpolation { 20, 16, 12, 8}
+//                        ^_      ^_
+bool MultiVersionImpl::interpolateForRTValues(
+    std::set<ConstantInt *, ConstantIntGreaterThan> &ValSet) {
+  LLVM_DEBUG({ printValSet("before interpolateForRTValues():", ValSet); });
+
+  // Note: ValSet is already sorted in descending order!
+  unsigned ValSetSize = ValSet.size();
+  ConstantInt *MaxC = *ValSet.begin();
+  int64_t MaxV = MaxC->getSExtValue();
+  ConstantInt *MinC = *std::next(ValSet.begin(), ValSetSize - 1);
+  int64_t MinV = MinC->getSExtValue();
+  LLVM_DEBUG(dbgs() << "maxV: " << MaxV << "  minV: " << MinV
+                    << " Size: " << ValSetSize << "\n");
+  unsigned Dist = (MaxV - MinV) / ValSetSize;
+  IRBuilder<> Builder(M.getContext());
+
+  // Generate interpolated values into NewSet:
+  std::set<ConstantInt *, ConstantIntGreaterThan> NewSet;
+  for (auto *C : ValSet) {
+    int64_t CurVal = C->getSExtValue();
+    ConstantInt *V = Builder.getIntN(C->getBitWidth(), CurVal + Dist);
+    NewSet.insert(V);
+  }
+  LLVM_DEBUG({ printValSet("NewSet:", NewSet); });
+
+  // Merge NewSet into ValSet:
+  std::copy(NewSet.begin(), NewSet.end(),
+            std::inserter(ValSet, ValSet.begin()));
+
+  LLVM_DEBUG({ printValSet("after interpolateForRTValues():", ValSet); });
+
+  return true;
+}
+
+// *** CODE GENERATION TEMPLATE ***
+//
+// [C: 1 1-variable clone]
+// if(i_width == 16){
+//    pixel_avg16();
+// }
+//
+//[LLVM: 1 1-variable clone]   ----------------------------------------------
+//  %cmp = icmp eq i32 %b, 16                       Common Block
+//  br i1 %cmp, label %if.then, label %if.end
+//                             ----------------------------------------------
+// if.then:                                         Then Block
+//  tail call void (...) @pixel_avg16() #2
+//  return
+//                                   ----------------------------------------------
+// if.end.0:                                        Merge Block
+//
+//                                   ----------------------------------------------
+bool MultiVersionImpl::doCodeGen1VarClone(Function *F, unsigned Pos,
+                                          ConstantInt *C, BasicBlock *&CommonBB,
+                                          BasicBlock *&ThenBB,
+                                          BasicBlock *&MergeBB) {
+  unsigned ArgSize = F->arg_size();
+  assert((Pos < ArgSize) && "Pos is out of bound\n");
+  IRBuilder<> Builder(M.getContext());
+
+  // Figure out the CloneF Function:
+  ConstParamVec ConstParams;
+  ConstParams.resize(ArgSize);
+  ConstParams[Pos] = C;
+  Function *CloneF = Clones[std::make_pair(F, ConstParams)];
+  if (!CloneF) {
+    LLVM_DEBUG(dbgs() << F->getName() << " : " << ConstParams.toString()
+                      << " -> CloneF not found\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << F->getName() << " : " << ConstParams.toString() << " -> "
+                    << CloneF->getName() << "\n");
+
+  // Figure out the Function's matching argument:
+  Value *Arg = F->arg_begin() + Pos;
+  LLVM_DEBUG({ dbgs() << "Arg: " << *Arg; });
+
+  // Code generation for 1 call to a 1-variable clone
+  assert(CommonBB && "Expect valid CommonBB\n");
+  Builder.SetInsertPoint(CommonBB);
+  Value *Cmp0 = Builder.CreateICmpEQ(Arg, C);
+
+  // Create+organize BasicBlocks: ensure ThenBB appears earlier than MergeBB
+  ThenBB = BasicBlock::Create(M.getContext(), "Then.BB", F);
+  MergeBB = BasicBlock::Create(M.getContext(), "Merge.BB", F);
+  ThenBB->moveBefore(MergeBB);
+
+  // Create CondBr: ThenBB, MergeBB
+  Builder.CreateCondBr(Cmp0, ThenBB, MergeBB);
+
+  // Generate a call to CloneF() inside ThenBB:
+  Builder.SetInsertPoint(ThenBB);
+  SmallVector<Value *, 16> Args;
+  int32_t Idx = -1;
+  for (Argument &Arg : F->args()) {
+    ++Idx;
+
+    // Skip F's arg on Pos
+    if (static_cast<unsigned>(Idx) == Pos)
+      continue;
+    Args.push_back(&Arg);
+  }
+  CallInst *CI = Builder.CreateCall(CloneF, Args);
+  CI->setCallingConv(CloneF->getCallingConv());
+
+  // generate a "ret" inside ThenBB after the call to clone:
+  Builder.CreateRetVoid();
+
+  LLVM_DEBUG(dbgs() << " Generated 1-var clone\n" << *F);
+
+  return true;
+}
+
+bool MultiVersionImpl::doCodeGen(Function *F) {
+  // Clean F's function body, prepare for MultiVersion code generation
+  auto LT = F->getLinkage();
+  F->deleteBody();
+  F->setLinkage(LT);
+  LLVM_DEBUG(F->dump());
+
+  // Figure out the mapping between F's parameter list and C0,C1, etc.
+  MVFunctionInfo &MVFI = MVFIMap[F];
+  auto &Pos2ValsMap = MVFI.Pos2ValMap;
+  bool Is1VarCloneCandidate = (MVFI.Size < MVMax1VarInstNum);
+
+  // handle only 2 positions here
+  const unsigned PosSize = 2;
+  if (Pos2ValsMap.size() != PosSize) {
+    LLVM_DEBUG(dbgs() << "Wrong size of Pos2ValsMap\n");
+    return false;
+  }
+
+  SmallVector<unsigned, 2> PosVec;
+  PosVec.resize(PosSize);
+  SmallVector<std::set<ConstantInt *, ConstantIntGreaterThan>, 2> ValSetVec;
+  ValSetVec.resize(PosSize);
+  auto It = Pos2ValsMap.begin();
+  for (unsigned I = 0; I < PosSize; ++I, ++It) {
+    PosVec[I] = (*It).first;
+    ValSetVec[I] = (*It).second;
+  }
+
+  // Show details on PosVec and ValSetVec:
+  LLVM_DEBUG({
+    for (unsigned I = 0; I < PosSize; ++I) {
+      dbgs() << "PosSize[" << I << "]: " << PosVec[I] << "\n";
+    }
+
+    for (unsigned I = 0; I < PosSize; ++I) {
+      auto &ValSet = ValSetVec[I];
+      dbgs() << "ValSet[" << I << "]: ";
+      for (auto &V : ValSet) {
+        dbgs() << *V << "  ";
+      }
+      dbgs() << "\n";
+    }
+  });
+
+  // For each valid 2-value pair, call doCodeGenMV():
+  std::set<ConstantInt *, ConstantIntGreaterThan> ValSet0 = ValSetVec[0];
+  std::set<ConstantInt *, ConstantIntGreaterThan> ValSet1 = ValSetVec[1];
+  unsigned Pos0 = PosVec[0];
+  unsigned Pos1 = PosVec[1];
+
+  BasicBlock *CommonBB = nullptr;
+  BasicBlock *ThenBB = nullptr;
+  BasicBlock *MergeBB = nullptr;
+
+  // Force certain order by actually generating needed pairs and sort the
+  // pairs in particular order!!
+  using ConstantIntPair = std::pair<ConstantInt *, ConstantInt *>;
+  SmallVector<ConstantIntPair, 8> CIPVec;
+
+  for (auto &C0 : ValSet0) {
+    for (auto &C1 : ValSet1) {
+      CIPVec.push_back(std::make_pair(C0, C1));
+    }
+  }
+  LLVM_DEBUG({
+    dbgs() << "Before sorting: \n";
+    for (auto &Pair : CIPVec) {
+      ConstantInt *C0 = Pair.first;
+      ConstantInt *C1 = Pair.second;
+      dbgs() << "  " << *C0 << " : " << *C1 << "\n";
+    }
+  });
+
+  std::function<bool(const ConstantIntPair &)> isEqualValue;
+  isEqualValue = [](const ConstantIntPair &P) -> bool {
+    ConstantInt *C0 = P.first;
+    ConstantInt *C1 = P.second;
+    return (C0->getSExtValue() == C1->getSExtValue());
+  };
+
+  auto isSmallerEqualValue = [&](const ConstantIntPair &P0,
+                                 const ConstantIntPair &P1) {
+    if (!isEqualValue(P0))
+      return false;
+    if (!isEqualValue(P1))
+      return false;
+
+    ConstantInt *C0 = P0.first;
+    ConstantInt *C1 = P1.second;
+    return (C0->getSExtValue() < C1->getSExtValue());
+  };
+
+  // Force a particular sorting order!
+  // This gives better performance of the multi-version function for certain
+  // benchmarks with 2 conditionals.
+  //
+  // Note:
+  // - This case only works for 2 conditionals.
+  // - In case there are 3 or more conditionals, we may either rewrite the
+  //   logic to handle those cases, or rebuild algorithm to make it more
+  //   generic.
+  //
+  std::sort(CIPVec.begin(), CIPVec.end(),
+            [&](const ConstantIntPair &P0, const ConstantIntPair &P1) -> bool {
+              bool IsEq0 = isEqualValue(P0);
+              bool IsEq1 = isEqualValue(P1);
+
+              // - Comparison algorithm -
+              // equal value (e.g. 4x4) takes precedence over non-equal value
+              // (e.g. 4x8)
+              //
+              // smaller equal value (e.g. 4x4) takes precedence over bigger
+              // equal value (e.g. 8x8)
+              //
+              // non equal value (e.g. 4x8) over non equal value (e.g. 8x4)?:
+              // don't care
+
+              // case1: both are equal values
+              if (IsEq0 && IsEq1)
+                return isSmallerEqualValue(P0, P1);
+              // case2: P0 is EQ and P1 is NOT
+              else if (IsEq0 && !IsEq1)
+                return true;
+
+              // case3: P0 is NOT EQ and P1 is EQ
+              // case4: both are NOT EQ, doesn't matter, don't care!
+              return false;
+            });
+
+  LLVM_DEBUG({
+    dbgs() << "After sorting: \n";
+    for (auto &Pair : CIPVec) {
+      ConstantInt *C0 = Pair.first;
+      ConstantInt *C1 = Pair.second;
+      dbgs() << "  " << *C0 << " : " << *C1 << "\n";
+    }
+  });
+
+  unsigned Count = 0;
+
+  // Do code generation for all 2-variable clones:
+  for (auto &Pair : CIPVec) {
+    bool IsFirst = (Count == 0);
+    ConstantInt *C0 = Pair.first;
+    ConstantInt *C1 = Pair.second;
+
+    // Generate code for 1 set of 2-variable clone.
+    //
+    // Note:
+    // The very 1st call to doCodeGenMV() is treated differently because the
+    // reuse of MergeBB for CommonBB happens after CodeGen of 1st 2-variable
+    // clone.
+    //
+    if (IsFirst) {
+      if (!doCodeGenMV(F, Pos0, C0, Pos1, C1, CommonBB, ThenBB, MergeBB)) {
+        LLVM_DEBUG(dbgs() << "doCodeGenMV() failed: Pos0: " << Pos0
+                          << " Pos1: " << Pos1 << "\n");
+        return false;
+      }
+    } else {
+      // rotate: MergeBB from the previous iteration becomes CommonBB in current
+      // iteration.
+      CommonBB = MergeBB;
+
+      if (!doCodeGenMV(F, Pos0, C0, Pos1, C1, CommonBB, ThenBB, MergeBB)) {
+        LLVM_DEBUG(dbgs() << "doCodeGenMV() failed: Pos0: " << Pos0
+                          << " Pos1: " << Pos1 << "\n");
+        return false;
+      }
+    }
+
+    ++Count;
+  }
+  LLVM_DEBUG(dbgs() << *F);
+
+  // Do code generation for all 1-variable clones:
+  if (Is1VarCloneCandidate) {
+    std::set<ConstantInt *, ConstantIntGreaterThan> ValSet = ValSet0;
+
+    if (!interpolateForRTValues(ValSet)) {
+      LLVM_DEBUG(dbgs() << "interpolateForRTValues() failed\n");
+      return false;
+    }
+
+    for (auto &C : ValSet) {
+      // rotate, same as before
+      CommonBB = MergeBB;
+
+      if (!doCodeGen1VarClone(F, Pos0, C, CommonBB, ThenBB, MergeBB)) {
+        LLVM_DEBUG(dbgs() << "doCodeGen1VarClone() failed: Position: " << Pos0
+                          << " ConstantInt: " << *C << "\n");
+        return false;
+      }
+    }
+  }
+  LLVM_DEBUG(dbgs() << *F);
+
+  // Create a call to the original clone (e.g. mc_chrome|_._..._())
+  // at end of the last MergBB
+  if (!doCodeGenOrigClone(F, MergeBB))
+    return false;
+
+  LLVM_DEBUG(dbgs() << "Done code gen: \n" << *F);
+
+  // Ensure the generated code is good.
+  if (verifyFunction(*F))
+    report_fatal_error("Function verifier failed after Call-tree cloning "
+                       "(with Multi versioning) on Function: " +
+                       F->getName() + "()\n");
+
+  return true;
+}
+
+bool MultiVersionImpl::doTransformation(void) {
+  // for each Function in MVSeeds: transform it for multiversion
+  for (auto &MVSeed : MVSeeds) {
+    Function *F = MVSeed.first;
+    SetOfParamIndSets Psets = MVSeed.second;
+    LLVM_DEBUG(dbgs() << F->getName() << " : " << Psets.toString() << "\n");
+
+    // 1.Create additional clones:
+    if (!createAdditionalClones(F))
+      return false;
+
+    // 2.Do multi-version code generation over Function F:
+    if (!doCodeGen(F))
+      return false;
+
+    // Record the # of Multi-Version function(s) generated
+    ++NumPostCTCMVFCreate;
+  }
+
+  // LLVM_DEBUG(M.dump());
+  return true;
+}
+
+bool MultiVersionImpl::run(void) {
+  // LLVM_DEBUG({ print_CloneRegistry("Clones: ", Clones); });
+  // LLVM_DEBUG({ printSeeds("LeafSeeds: ", LeafSeeds); });
+
+  if (!doCollection())
+    return false;
+
+  // analyze MVSeeds, build + populate all needed data for MV
+  if (!doAnalysis())
+    return false;
+
+  // transform MV
   if (!doTransformation())
     return false;
 
