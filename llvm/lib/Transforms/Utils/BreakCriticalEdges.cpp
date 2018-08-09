@@ -379,66 +379,66 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     if (IBRPred == Target)
       IBRPred = BodyBlock;
 
+#if INTEL_CUSTOMIZATION
     // At this point Target only has PHIs, and BodyBlock has the rest of the
-    // block's body. Create a copy of Target that will be used by the "direct"
-    // preds.
-    ValueToValueMapTy VMap;
-    BasicBlock *DirectSucc = CloneBasicBlock(Target, VMap, ".clone", &F);
-
+    // block's body. Redirect "other" preds to BodyBlock. Note, for correct
+    // computation of a block frequency, OtherPreds should be unique ones.
+#endif // INTEL_CUSTOMIZATION
     BlockFrequency BlockFreqForDirectSucc;
     for (BasicBlock *Pred : OtherPreds) {
       // If the target is a loop to itself, then the terminator of the split
       // block (BodyBlock) needs to be updated.
       BasicBlock *Src = Pred != Target ? Pred : BodyBlock;
-      Src->getTerminator()->replaceUsesOfWith(Target, DirectSucc);
+      Src->getTerminator()->replaceUsesOfWith(Target, BodyBlock); // INTEL
       if (ShouldUpdateAnalysis)
         BlockFreqForDirectSucc += BFI->getBlockFreq(Src) *
-            BPI->getEdgeProbability(Src, DirectSucc);
+            BPI->getEdgeProbability(Src, BodyBlock); // INTEL
     }
     if (ShouldUpdateAnalysis) {
-      BFI->setBlockFreq(DirectSucc, BlockFreqForDirectSucc.getFrequency());
       BlockFrequency NewBlockFreqForTarget =
           BFI->getBlockFreq(Target) - BlockFreqForDirectSucc;
       BFI->setBlockFreq(Target, NewBlockFreqForTarget.getFrequency());
       BPI->eraseBlock(Target);
     }
 
-    // Ok, now fix up the PHIs. We know the two blocks only have PHIs, and that
-    // they are clones, so the number of PHIs are the same.
-    // (a) Remove the edge coming from IBRPred from the "Direct" PHI
-    // (b) Leave that as the only edge in the "Indirect" PHI.
-    // (c) Merge the two in the body block.
+#if INTEL_CUSTOMIZATION
+    // Ok, now fix up the PHIs. For each PHI in Target block:
+    // (a) Create a new empty PHI in Target block.
+    // (b) Populate it by all edges coming from IBRPred.
+    // (c) Create a new PHI in body block.
+    // (d) Use it to merge an edge from Target block with all other edges
+    //     not coming from IBRPred.
+    // (e) Erase an original PHI from the Target block.
     BasicBlock::iterator Indirect = Target->begin(),
                          End = Target->getFirstNonPHI()->getIterator();
-    BasicBlock::iterator Direct = DirectSucc->begin();
     BasicBlock::iterator MergeInsert = BodyBlock->getFirstInsertionPt();
 
     assert(&*End == Target->getTerminator() &&
            "Block was expected to only contain PHIs");
 
     while (Indirect != End) {
-      PHINode *DirPHI = cast<PHINode>(Direct);
       PHINode *IndPHI = cast<PHINode>(Indirect);
-
-      // Now, clean up - the direct block shouldn't get the indirect value,
-      // and vice versa.
-      DirPHI->removeIncomingValue(IBRPred);
-      Direct++;
 
       // Advance the pointer here, to avoid invalidation issues when the old
       // PHI is erased.
       Indirect++;
 
       PHINode *NewIndPHI = PHINode::Create(IndPHI->getType(), 1, "ind", IndPHI);
-      NewIndPHI->addIncoming(IndPHI->getIncomingValueForBlock(IBRPred),
-                             IBRPred);
-
       // Create a PHI in the body block, to merge the direct and indirect
       // predecessors.
       PHINode *MergePHI =
-          PHINode::Create(IndPHI->getType(), 2, "merge", &*MergeInsert);
+          PHINode::Create(IndPHI->getType(), 0, "merge", &*MergeInsert);
       MergePHI->addIncoming(NewIndPHI, Target);
-      MergePHI->addIncoming(DirPHI, DirectSucc);
+      for (unsigned Pred = 0, E = IndPHI->getNumIncomingValues(); Pred != E;
+           ++Pred) {
+        BasicBlock *PredBB = IndPHI->getIncomingBlock(Pred);
+        if (PredBB == IBRPred) {
+          NewIndPHI->addIncoming(IndPHI->getIncomingValue(Pred), IBRPred);
+        } else {
+          MergePHI->addIncoming(IndPHI->getIncomingValue(Pred), PredBB);
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
 
       IndPHI->replaceAllUsesWith(MergePHI);
       IndPHI->eraseFromParent();

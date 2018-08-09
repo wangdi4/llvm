@@ -11,17 +11,14 @@ define i32 @f_indirectbr(i8* %a) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    indirectbr i8* [[A:%.*]], [label [[IBR_EPILOG:%.*]], label [[IBR_BB:%.*]], label %ibr.bb2]
 ; CHECK:       ibr.bb:
-; CHECK-NEXT:    br label [[IBR_EPILOG_CLONE:%.*]]
-; CHECK:       ibr.bb2:
-; CHECK-NEXT:    br label [[IBR_EPILOG_CLONE]]
-; CHECK:       ibr.epilog:
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
-; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 2, [[IBR_EPILOG]] ], [ [[RETVAL_0_CLONE:%.*]], [[IBR_EPILOG_CLONE]] ]
-; CHECK-NEXT:    ret i32 [[MERGE]]
-; CHECK:       ibr.epilog.clone:
-; CHECK-NEXT:    [[RETVAL_0_CLONE]] = phi i32 [ 0, [[IBR_BB]] ], [ 1, [[IBR_BB2:%.*]] ]
+; CHECK:       ibr.bb2:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
+; CHECK:       ibr.epilog:
+; CHECK-NEXT:    br label [[DOTSPLIT]]
+; CHECK:       .split:
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 2, [[IBR_EPILOG]] ], [ 0, [[IBR_BB]] ], [ 1, [[IBR_BB2:%.*]] ]
+; CHECK-NEXT:    ret i32 [[MERGE]]
 ;
 entry:
   indirectbr i8* %a, [ label %ibr.epilog, label %ibr.bb, label %ibr.bb2 ]

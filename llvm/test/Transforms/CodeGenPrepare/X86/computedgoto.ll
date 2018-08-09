@@ -23,27 +23,29 @@ declare void @useptr([2 x i8*]*) local_unnamed_addr
 
 ; Check that we break the critical edge when an jump table has only one use.
 define void @simple(i32* nocapture readonly %p) {
+; INTEL_CUSTOMIZATION
+; Critical edges splitting algorithm is changed, clone BB isn't generated anymore.
 ; CHECK-LABEL: @simple(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[INCDEC_PTR:%.*]] = getelementptr inbounds i32, i32* [[P:%.*]], i64 1
 ; CHECK-NEXT:    [[INITVAL:%.*]] = load i32, i32* [[P]], align 4
 ; CHECK-NEXT:    [[INITOP:%.*]] = load i32, i32* [[INCDEC_PTR]], align 4
 ; CHECK-NEXT:    switch i32 [[INITOP]], label [[EXIT:%.*]] [
-; CHECK-NEXT:    i32 0, label [[BB0_CLONE:%.*]]
-; CHECK-NEXT:    i32 1, label [[BB1_CLONE:%.*]]
+; CHECK-NEXT:    i32 0, label [[DOTSPLIT:%.*]]
+; CHECK-NEXT:    i32 1, label [[DOTSPLIT3:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       bb0:
-; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
+; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32* [ [[PTR:%.*]], [[BB0:%.*]] ], [ [[INCDEC_PTR]], [[BB0_CLONE]] ]
-; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 0, [[BB0]] ], [ [[INITVAL]], [[BB0_CLONE]] ]
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i32* [ [[PTR:%.*]], [[BB0:%.*]] ], [ [[INCDEC_PTR]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 0, [[BB0]] ], [ [[INITVAL]], [[ENTRY]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE2]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO:%.*]]
 ; CHECK:       bb1:
-; CHECK-NEXT:    br label [[DOTSPLIT3:%.*]]
+; CHECK-NEXT:    br label [[DOTSPLIT3]]
 ; CHECK:       .split3:
-; CHECK-NEXT:    [[MERGE5:%.*]] = phi i32* [ [[PTR]], [[BB1:%.*]] ], [ [[INCDEC_PTR]], [[BB1_CLONE]] ]
-; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ 1, [[BB1]] ], [ [[INITVAL]], [[BB1_CLONE]] ]
+; CHECK-NEXT:    [[MERGE5:%.*]] = phi i32* [ [[PTR]], [[BB1:%.*]] ], [ [[INCDEC_PTR]], [[ENTRY]] ]
+; CHECK-NEXT:    [[MERGE7:%.*]] = phi i32 [ 1, [[BB1]] ], [ [[INITVAL]], [[ENTRY]] ]
 ; CHECK-NEXT:    tail call void @use(i32 [[MERGE7]])
 ; CHECK-NEXT:    br label [[INDIRECTGOTO]]
 ; CHECK:       indirectgoto:
@@ -56,11 +58,8 @@ define void @simple(i32* nocapture readonly %p) {
 ; CHECK-NEXT:    indirectbr i8* [[NEWOP]], [label [[BB0]], label %bb1]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
-; CHECK:       bb0.clone:
-; CHECK-NEXT:    br label [[DOTSPLIT]]
-; CHECK:       bb1.clone:
-; CHECK-NEXT:    br label [[DOTSPLIT3]]
 ;
+; end INTEL_CUSTOMIZATION
 entry:
   %incdec.ptr = getelementptr inbounds i32, i32* %p, i64 1
   %initval = load i32, i32* %p, align 4
@@ -173,7 +172,10 @@ define void @loop(i64* nocapture readonly %p) {
 ; CHECK:       bb0:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[BB0_CLONE:%.*]] ]
+; INTEL_CUSTOMIZATION
+; Critical edges splitting algorithm is changed, clone BB isn't generated anymore.
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ [[I_NEXT:%.*]], [[BB0:%.*]] ], [ 0, [[ENTRY:%.*]] ]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, i64* [[P:%.*]], i64 [[MERGE]]
 ; CHECK-NEXT:    store i64 [[MERGE]], i64* [[TMP0]], align 4
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i64 [[MERGE]], 1
