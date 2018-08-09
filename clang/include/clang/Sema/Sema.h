@@ -1952,6 +1952,7 @@ public:
   bool shouldLinkDependentDeclWithPrevious(Decl *D, Decl *OldDecl);
   void CheckMain(FunctionDecl *FD, const DeclSpec &D);
   void CheckMSVCRTEntryPoint(FunctionDecl *FD);
+  Attr *getImplicitCodeSegOrSectionAttrForFunction(const FunctionDecl *FD, bool IsDefinition);
   Decl *ActOnParamDeclarator(Scope *S, Declarator &D);
   ParmVarDecl *BuildParmVarDeclForTypedef(DeclContext *DC,
                                           SourceLocation Loc,
@@ -2446,6 +2447,8 @@ public:
                               int FirstArg, unsigned AttrSpellingListIndex);
   SectionAttr *mergeSectionAttr(Decl *D, SourceRange Range, StringRef Name,
                                 unsigned AttrSpellingListIndex);
+  CodeSegAttr *mergeCodeSegAttr(Decl *D, SourceRange Range, StringRef Name,
+                                unsigned AttrSpellingListIndex);
   AlwaysInlineAttr *mergeAlwaysInlineAttr(Decl *D, SourceRange Range,
                                           IdentifierInfo *Ident,
                                           unsigned AttrSpellingListIndex);
@@ -2581,6 +2584,11 @@ public:
                                                  NestedNameSpecifier *Qualifier,
                                                  NamedDecl *FoundDecl,
                                                  CXXMethodDecl *Method);
+
+  /// Check that the lifetime of the initializer (and its subobjects) is
+  /// sufficient for initializing the entity, and perform lifetime extension
+  /// (when permitted) if not.
+  void checkInitializerLifetime(const InitializedEntity &Entity, Expr *Init);
 
   ExprResult PerformContextuallyConvertToBool(Expr *From);
   ExprResult PerformContextuallyConvertToObjCPointer(Expr *From);
@@ -3719,9 +3727,10 @@ public:
                                    SourceLocation EndLoc);
   void ActOnForEachDeclStmt(DeclGroupPtrTy Decl);
   StmtResult ActOnForEachLValueExpr(Expr *E);
-  StmtResult ActOnCaseStmt(SourceLocation CaseLoc, Expr *LHSVal,
-                                   SourceLocation DotDotDotLoc, Expr *RHSVal,
-                                   SourceLocation ColonLoc);
+  ExprResult ActOnCaseExpr(SourceLocation CaseLoc, ExprResult Val);
+  StmtResult ActOnCaseStmt(SourceLocation CaseLoc, ExprResult LHS,
+                           SourceLocation DotDotDotLoc, ExprResult RHS,
+                           SourceLocation ColonLoc);
   void ActOnCaseStmtBody(Stmt *CaseStmt, Stmt *SubStmt);
 
   StmtResult ActOnDefaultStmt(SourceLocation DefaultLoc,
@@ -4254,6 +4263,7 @@ public:
   ExprResult ActOnUnaryOp(Scope *S, SourceLocation OpLoc,
                           tok::TokenKind Op, Expr *Input);
 
+  bool isQualifiedMemberAccess(Expr *E);
   QualType CheckAddressOfOperand(ExprResult &Operand, SourceLocation OpLoc);
 
   ExprResult CreateUnaryExprOrTypeTraitExpr(TypeSourceInfo *TInfo,
@@ -5602,8 +5612,10 @@ public:
   /// Does copying/destroying the captured variable have side effects?
   bool CaptureHasSideEffects(const sema::Capture &From);
 
-  /// Diagnose if an explicit lambda capture is unused.
-  void DiagnoseUnusedLambdaCapture(const sema::Capture &From);
+  /// Diagnose if an explicit lambda capture is unused. Returns true if a
+  /// diagnostic is emitted.
+  bool DiagnoseUnusedLambdaCapture(SourceRange CaptureRange,
+                                   const sema::Capture &From);
 
   /// Complete a lambda-expression having processed and attached the
   /// lambda body.
@@ -5845,6 +5857,7 @@ public:
   /// ensure that referenceDLLExportedClassMethods is called some point later
   /// when all outer classes of Class are complete.
   void checkClassLevelDLLAttribute(CXXRecordDecl *Class);
+  void checkClassLevelCodeSegAttribute(CXXRecordDecl *Class);
 
   void referenceDLLExportedClassMethods();
 
@@ -6900,6 +6913,9 @@ public:
     /// Template argument deduction did not deduce a value
     /// for every template parameter.
     TDK_Incomplete,
+    /// Template argument deduction did not deduce a value for every
+    /// expansion of an expanded template parameter pack.
+    TDK_IncompletePack,
     /// Template argument deduction produced inconsistent
     /// deduced values for the given template parameter.
     TDK_Inconsistent,
