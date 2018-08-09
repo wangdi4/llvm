@@ -37,4 +37,5 @@ CSAMCAsmInfo::CSAMCAsmInfo(const Triple &T) {
   // SupportsDebugInformation = true;
 
   UseIntegratedAssembler = true;
+  HasIdentDirective = false;
 }

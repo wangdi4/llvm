@@ -73,7 +73,7 @@ def FeatureFMA       : SubtargetFeature<"fma", "HasFMA", "true",
                            "Enable fused mul/add">;
 def FeatureSqrt      : SubtargetFeature<"sqrt", "HasSqrt", "true",
                            "Enable sqrt">;
-def FeatureMath0     : SubtargetFeature<"math0", "HasMath0", "true",
+def FeatureMath0     : SubtargetFeature<"math0", "HasMath0", "false",
                             "Enable exp[2]/log[2]/sin/cos">;
 def FeatureRMWAtomic : SubtargetFeature<"rmwatomic", "HasRMWAtomic", "true",
                             "Enable atomic atm[RMW] memory ops">;

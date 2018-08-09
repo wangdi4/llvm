@@ -49,6 +49,7 @@
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
@@ -185,6 +186,7 @@ public:
     addPass(createCSAIntrinsicCleanerPass());
     // Add pass to replace alloca instructions
     addPass(createCSAReplaceAllocaWithMallocPass());
+    addPass(createGlobalDCEPass());
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
