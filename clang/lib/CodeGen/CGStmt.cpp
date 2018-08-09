@@ -664,10 +664,9 @@ CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
 
   llvm::LLVMContext &Ctx = CGF.getLLVMContext();
   llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(Ctx);
-  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  SmallVector<llvm::Value *, 4> BundleValues;
   for (const auto *A : Attrs) {
     if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
-      SmallVector<llvm::Value *, 4> BundleValues;
       if (const Expr *LE = LHAttr->getLoopExprValue()) {
         assert(LE->isGLValue());
         BundleValues.push_back(CGF.EmitLValue(LE).getPointer());
@@ -676,19 +675,16 @@ CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
         else
           BundleValues.push_back(llvm::ConstantInt::get(Int32Ty, -1));
       }
-      if (!BundleValues.empty()) {
-        if (OpBundles.empty())
-          OpBundles.push_back(llvm::OperandBundleDef(
-              "DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}));
-        OpBundles.push_back(
-            llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues));
-      }
     }
   }
-  if (!OpBundles.empty())
+  if (!BundleValues.empty()) {
+    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
+        llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
+        llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
     CallEntry = CGF.Builder.CreateCall(
         CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
         OpBundles);
+  }
 }
 
 CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {

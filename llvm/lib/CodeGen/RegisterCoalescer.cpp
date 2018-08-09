@@ -162,7 +162,7 @@ namespace {
     /// was successfully coalesced away. If it is not currently possible to
     /// coalesce this interval, but it may be possible if other things get
     /// coalesced, then it returns true by reference in 'Again'.
-    bool joinCopy(MachineInstr *TheCopy, bool &Again);
+    bool joinCopy(MachineInstr *CopyMI, bool &Again);
 
     /// Attempt to join these two intervals.  On failure, this
     /// returns false.  The output "SrcInt" will not have been modified, so we
@@ -589,6 +589,13 @@ bool RegisterCoalescer::adjustCopiesBackFrom(const CoalescerPair &CP,
 
   // Do the same for the subregister segments.
   for (LiveInterval::SubRange &S : IntB.subranges()) {
+    // Check for SubRange Segments of the form [1234r,1234d:0) which can be
+    // removed to prevent creating bogus SubRange Segments.
+    LiveInterval::iterator SS = S.FindSegmentContaining(CopyIdx);
+    if (SS != S.end() && SlotIndex::isSameInstr(SS->start, SS->end)) {
+      S.removeSegment(*SS, true);
+      continue;
+    }
     VNInfo *SubBValNo = S.getVNInfoAt(CopyIdx);
     S.addSegment(LiveInterval::Segment(FillerStart, FillerEnd, SubBValNo));
     VNInfo *SubValSNo = S.getVNInfoAt(AValNo->def.getPrevSlot());
@@ -605,11 +612,21 @@ bool RegisterCoalescer::adjustCopiesBackFrom(const CoalescerPair &CP,
     ValSEndInst->getOperand(UIdx).setIsKill(false);
   }
 
-  // Rewrite the copy. If the copy instruction was killing the destination
-  // register before the merge, find the last use and trim the live range. That
-  // will also add the isKill marker.
+  // Rewrite the copy.
   CopyMI->substituteRegister(IntA.reg, IntB.reg, 0, *TRI);
-  if (AS->end == CopyIdx)
+  // If the copy instruction was killing the destination register or any
+  // subrange before the merge trim the live range.
+  bool RecomputeLiveRange = AS->end == CopyIdx;
+  if (!RecomputeLiveRange) {
+    for (LiveInterval::SubRange &S : IntA.subranges()) {
+      LiveInterval::iterator SS = S.FindSegmentContaining(CopyUseIdx);
+      if (SS != S.end() && SS->end == CopyIdx) {
+        RecomputeLiveRange = true;
+        break;
+      }
+    }
+  }
+  if (RecomputeLiveRange)
     shrinkToUses(&IntA);
 
   ++numExtends;
@@ -2126,7 +2143,7 @@ class JoinVals {
   /// Find the ultimate value that VNI was copied from.
   std::pair<const VNInfo*,unsigned> followCopyChain(const VNInfo *VNI) const;
 
-  bool valuesIdentical(VNInfo *Val0, VNInfo *Val1, const JoinVals &Other) const;
+  bool valuesIdentical(VNInfo *Value0, VNInfo *Value1, const JoinVals &Other) const;
 
   /// Analyze ValNo in this live range, and set all fields of Vals[ValNo].
   /// Return a conflict resolution when possible, but leave the hard cases as
@@ -2263,7 +2280,8 @@ std::pair<const VNInfo*, unsigned> JoinVals::followCopyChain(
       LiveQueryResult LRQ = LI.Query(Def);
       ValueIn = LRQ.valueIn();
     } else {
-      // Query subranges. Pick the first matching one.
+      // Query subranges. Ensure that all matching ones take us to the same def
+      // (allowing some of them to be undef).
       ValueIn = nullptr;
       for (const LiveInterval::SubRange &S : LI.subranges()) {
         // Transform lanemask to a mask in the joined live interval.
@@ -2271,8 +2289,12 @@ std::pair<const VNInfo*, unsigned> JoinVals::followCopyChain(
         if ((SMask & LaneMask).none())
           continue;
         LiveQueryResult LRQ = S.Query(Def);
-        ValueIn = LRQ.valueIn();
-        break;
+        if (!ValueIn) {
+          ValueIn = LRQ.valueIn();
+          continue;
+        }
+        if (LRQ.valueIn() && ValueIn != LRQ.valueIn())
+          return std::make_pair(VNI, TrackReg);
       }
     }
     if (ValueIn == nullptr) {

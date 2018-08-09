@@ -1212,7 +1212,7 @@ static bool EvaluateHasIncludeCommon(Token &Tok,
   SmallString<128> FilenameBuffer;
   StringRef Filename;
   SourceLocation EndLoc;
-  
+
   switch (Tok.getKind()) {
   case tok::eod:
     // If the token kind is EOD, the error has already been diagnosed.
@@ -1286,7 +1286,7 @@ static bool EvaluateHasIncludeNext(Token &Tok,
   // __has_include_next is like __has_include, except that we start
   // searching after the current found directory.  If we can't do this,
   // issue a diagnostic.
-  // FIXME: Factor out duplication with 
+  // FIXME: Factor out duplication with
   // Preprocessor::HandleIncludeNextDirective.
   const DirectoryLookup *Lookup = PP.GetCurDirLookup();
   const FileEntry *LookupFromFile = nullptr;
@@ -1536,7 +1536,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
         PLoc = SourceMgr.getPresumedLoc(NextLoc);
         if (PLoc.isInvalid())
           break;
-        
+
         NextLoc = PLoc.getIncludeLoc();
       }
     }

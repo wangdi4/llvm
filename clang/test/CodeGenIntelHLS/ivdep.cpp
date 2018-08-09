@@ -54,8 +54,7 @@ void foo3()
 //CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
 //CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
 //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
-//CHECK-SAME: , i32 8)
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 8) ]
+//CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 8) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
 #pragma ivdep array(ucharVar) safelen(8)
 #pragma ivdep array(structVar) safelen(8)
@@ -69,8 +68,7 @@ void foo4()
 //CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
 //CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
 //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
-//CHECK-SAME: , i32 8)
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
+//CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
 #pragma ivdep array(ucharVar) safelen(4)
 #pragma ivdep array(structVar) safelen(8)
@@ -83,8 +81,8 @@ void foo5()
 {
 //CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
 //CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar{{.*}}, i32 8)
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 -1) ]
+//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
+//CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 -1) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
 #pragma ivdep array(ucharVar)
 #pragma ivdep array(structVar) safelen(8)
@@ -112,8 +110,8 @@ void foo7()
 //CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
 //CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
 //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* getelementptr
-//CHECK-SAME: structVar2{{.*}}, i32 0, i32 2), i32 8)
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
+//CHECK-SAME: structVar2{{.*}}, i32 0, i32 2), i32 8,
+//CHECK-SAME: [10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
 #pragma ivdep array(ucharVar) safelen(4)
 #pragma ivdep array(structVar2.tmp) safelen(8)

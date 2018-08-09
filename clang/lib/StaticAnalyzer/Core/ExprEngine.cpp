@@ -2296,9 +2296,9 @@ void ExprEngine::processEndOfFunction(NodeBuilderContext& BC,
 
     // Notify checkers.
     for (const auto I : AfterRemovedDead)
-      getCheckerManager().runCheckersForEndFunction(BC, Dst, I, *this);
+      getCheckerManager().runCheckersForEndFunction(BC, Dst, I, *this, RS);
   } else {
-    getCheckerManager().runCheckersForEndFunction(BC, Dst, Pred, *this);
+    getCheckerManager().runCheckersForEndFunction(BC, Dst, Pred, *this, RS);
   }
 
   Engine.enqueueEndOfFunction(Dst, RS);
@@ -2337,7 +2337,7 @@ void ExprEngine::processSwitch(SwitchNodeBuilder& builder) {
     // Evaluate the LHS of the case value.
     llvm::APSInt V1 = Case->getLHS()->EvaluateKnownConstInt(getContext());
     assert(V1.getBitWidth() == getContext().getIntWidth(CondE->getType()));
-    
+
     // Get the RHS of the case, if it exists.
     llvm::APSInt V2;
     if (const Expr *E = Case->getRHS())
@@ -2537,12 +2537,12 @@ void ExprEngine::VisitMemberExpr(const MemberExpr *M, ExplodedNode *Pred,
   ExplodedNodeSet CheckedSet;
   getCheckerManager().runCheckersForPreStmt(CheckedSet, Pred, M, *this);
 
-  ExplodedNodeSet EvalSet;  
-  ValueDecl *Member = M->getMemberDecl();  
+  ExplodedNodeSet EvalSet;
+  ValueDecl *Member = M->getMemberDecl();
 
   // Handle static member variables and enum constants accessed via
   // member syntax.
-  if (isa<VarDecl>(Member) || isa<EnumConstantDecl>(Member)) {    
+  if (isa<VarDecl>(Member) || isa<EnumConstantDecl>(Member)) {
     for (const auto I : CheckedSet)
       VisitCommonDeclRefExpr(M, Member, I, EvalSet);
   } else {

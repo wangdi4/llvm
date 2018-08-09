@@ -95,12 +95,12 @@ Preprocessor::Preprocessor(std::shared_ptr<PreprocessorOptions> PPOpts,
       TUKind(TUKind), SkipMainFilePreamble(0, true),
       CurSubmoduleState(&NullSubmoduleState) {
   OwnsHeaderSearch = OwnsHeaders;
-  
+
   // Default to discarding comments.
   KeepComments = false;
   KeepMacroComments = false;
   SuppressIncludeNotFoundError = false;
-  
+
   // Macro expansion is enabled.
   DisableMacroExpansion = false;
   MacroExpansionInDirectivesOverride = false;
@@ -127,10 +127,10 @@ Preprocessor::Preprocessor(std::shared_ptr<PreprocessorOptions> PPOpts,
 
   // Initialize the pragma handlers.
   RegisterBuiltinPragmas();
-  
+
   // Initialize builtin macros like __LINE__ and friends.
   RegisterBuiltinMacros();
-  
+
   if(LangOpts.Borland) {
     Ident__exception_info        = getIdentifierInfo("_exception_info");
     Ident___exception_info       = getIdentifierInfo("__exception_info");
@@ -379,7 +379,7 @@ void Preprocessor::recomputeCurLexerKind() {
     CurLexerKind = CLK_PTHLexer;
   else if (CurTokenLexer)
     CurLexerKind = CLK_TokenLexer;
-  else 
+  else
     CurLexerKind = CLK_CachingLexer;
 }
 
@@ -785,7 +785,7 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
     if (IsSpecialVariadicMacro)
       II.setIsPoisoned(CurrentIsPoisoned);
   }
-  
+
   // If this identifier was poisoned, and if it was not produced from a macro
   // expansion, emit an error.
   if (II.isPoisoned() && CurPPLexer) {
@@ -831,7 +831,7 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
   // like "#define TY typeof", "TY(1) x".
   if (II.isExtensionToken() && !DisableMacroExpansion)
     Diag(Identifier, diag::ext_token_used);
-  
+
   // If this is the 'import' contextual keyword following an '@', note
   // that the next token indicates a module name.
   //
@@ -894,15 +894,15 @@ void Preprocessor::Lex(Token &Result) {
 void Preprocessor::LexAfterModuleImport(Token &Result) {
   // Figure out what kind of lexer we actually have.
   recomputeCurLexerKind();
-  
+
   // Lex the next token.
   Lex(Result);
 
-  // The token sequence 
+  // The token sequence
   //
   //   import identifier (. identifier)*
   //
-  // indicates a module import directive. We already saw the 'import' 
+  // indicates a module import directive. We already saw the 'import'
   // contextual keyword, so now we're looking for the identifiers.
   if (ModuleImportExpectsIdentifier && Result.getKind() == tok::identifier) {
     // We expected to see an identifier here, and we did; continue handling
@@ -913,7 +913,7 @@ void Preprocessor::LexAfterModuleImport(Token &Result) {
     CurLexerKind = CLK_LexAfterModuleImport;
     return;
   }
-  
+
   // If we're expecting a '.' or a ';', and we got a '.', then wait until we
   // see the next identifier. (We can also see a '[[' that begins an
   // attribute-specifier-seq here under the C++ Modules TS.)
@@ -1069,7 +1069,7 @@ CodeCompletionHandler::~CodeCompletionHandler() = default;
 void Preprocessor::createPreprocessingRecord() {
   if (Record)
     return;
-  
+
   Record = new PreprocessingRecord(getSourceManager());
   addPPCallbacks(std::unique_ptr<PPCallbacks>(Record));
 }

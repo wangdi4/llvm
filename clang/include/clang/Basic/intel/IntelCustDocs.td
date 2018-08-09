@@ -559,6 +559,56 @@ and intrinsic directives.  The table below shows how they relate.
   }];
 }
 
+def RotateIntrinsicsDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "";
+  let BugTracker= "CMPLRS-4684";
+  let RegressionTest = "CodeGen/intel/intrinsics-rotations.c";
+  let Owner = "bwyma";
+  let Content = [{
+
+Microsoft supports a set of intrinsics for performing rotations.  These include:
+  1.  _rotl8
+  2.  _rotl16
+  3.  _rotl
+  4.  _lrotl
+  5.  _rrotl64
+  6.  _rotr8
+  7.  _rotr16
+  8.  _rotr
+  9.  _lrotr
+  10. _rotr64
+
+The Intel compiler also recognized these intrinsics on Linux. The LLVM
+compiler recognizes these intrinsics on Windows (to match Microsoft) but not on
+Linux. These intrinsics were enabled on Linux in the Intel Xmain compiler to
+be compatible with the Intel classic compiler. It doesn't seem unreasonable
+for customers writing code for multiple platforms to want these intrinsics to
+work on all of them.
+
+Here is an example:
+
+.. code-block:: c
+
+  int main () {
+      unsigned int result = 1;
+      result = _rotl(result, 4);
+      return result;
+  }
+
+The rotate intrinsic above is translated into shift's like this:
+
+.. code-block:: llvm
+
+  %0 = load i32, i32* %result, align 4
+  %1 = shl i32 %0, 4
+  %2 = lshr i32 %0, 28
+  %3 = or i32 %1, %2
+  store i32 %3, i32* %result, align 4
+
+  }];
+}
+
 // Optimization
 
 def FakeLoadDocs : Documentation {

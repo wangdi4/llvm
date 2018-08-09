@@ -1860,7 +1860,7 @@ public:
   OMPClause *RebuildOMPNumTeamsClause(Expr *NumTeams, SourceLocation StartLoc,
                                       SourceLocation LParenLoc,
                                       SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPNumTeamsClause(NumTeams, StartLoc, LParenLoc, 
+    return getSema().ActOnOpenMPNumTeamsClause(NumTeams, StartLoc, LParenLoc,
                                                EndLoc);
   }
 
@@ -3078,7 +3078,7 @@ public:
                                           Sel, Method, LBracLoc, SelectorLocs,
                                           RBracLoc, Args);
 
-      
+
   }
 
   /// Build a new Objective-C ivar reference expression.
@@ -6571,7 +6571,7 @@ TreeTransform<Derived>::TransformObjCObjectType(TypeLocBuilder &TLB,
 
         TypeLocBuilder TypeArgBuilder;
         TypeArgBuilder.reserve(PatternLoc.getFullDataSize());
-        QualType NewPatternType = getDerived().TransformType(TypeArgBuilder, 
+        QualType NewPatternType = getDerived().TransformType(TypeArgBuilder,
                                                              PatternLoc);
         if (NewPatternType.isNull())
           return QualType();
@@ -6740,13 +6740,13 @@ TreeTransform<Derived>::TransformCaseStmt(CaseStmt *S) {
 
     // Transform the left-hand case value.
     LHS = getDerived().TransformExpr(S->getLHS());
-    LHS = SemaRef.ActOnConstantExpression(LHS);
+    LHS = SemaRef.ActOnCaseExpr(S->getCaseLoc(), LHS);
     if (LHS.isInvalid())
       return StmtError();
 
     // Transform the right-hand case value (for the GNU case-range extension).
     RHS = getDerived().TransformExpr(S->getRHS());
-    RHS = SemaRef.ActOnConstantExpression(RHS);
+    RHS = SemaRef.ActOnCaseExpr(S->getCaseLoc(), RHS);
     if (RHS.isInvalid())
       return StmtError();
   }
@@ -11181,7 +11181,7 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
   TypeSourceInfo *NewCallOpTSI = nullptr;
   {
     TypeSourceInfo *OldCallOpTSI = E->getCallOperator()->getTypeSourceInfo();
-    FunctionProtoTypeLoc OldCallOpFPTL = 
+    FunctionProtoTypeLoc OldCallOpFPTL =
         OldCallOpTSI->getTypeLoc().getAs<FunctionProtoTypeLoc>();
 
     TypeLocBuilder NewCallOpTLBuilder;
@@ -11277,7 +11277,7 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
 
     // Rebuild init-captures, including the implied field declaration.
     if (E->isInitCapture(C)) {
-      InitCaptureInfoTy InitExprTypePair = 
+      InitCaptureInfoTy InitExprTypePair =
           InitCaptureExprsAndTypes[C - E->capture_begin()];
       ExprResult Init = InitExprTypePair.first;
       QualType InitQualType = InitExprTypePair.second;
@@ -12900,9 +12900,11 @@ TreeTransform<Derived>::RebuildCXXOperatorCallExpr(OverloadedOperatorKind Op,
     // -> is never a builtin operation.
     return SemaRef.BuildOverloadedArrowExpr(nullptr, First, OpLoc);
   } else if (Second == nullptr || isPostIncDec) {
-    if (!First->getType()->isOverloadableType()) {
-      // The argument is not of overloadable type, so try to create a
-      // built-in unary operation.
+    if (!First->getType()->isOverloadableType() ||
+        (Op == OO_Amp && getSema().isQualifiedMemberAccess(First))) {
+      // The argument is not of overloadable type, or this is an expression
+      // of the form &Class::member, so try to create a built-in unary
+      // operation.
       UnaryOperatorKind Opc
         = UnaryOperator::getOverloadedOpcode(Op, isPostIncDec);
 

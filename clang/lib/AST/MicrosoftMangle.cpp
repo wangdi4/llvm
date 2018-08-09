@@ -348,6 +348,8 @@ private:
   void mangleArgumentType(QualType T, SourceRange Range);
   void manglePassObjectSizeArg(const PassObjectSizeAttr *POSA);
 
+  bool isArtificialTagType(QualType T) const;
+
   // Declare manglers for every type class.
 #define ABSTRACT_TYPE(CLASS, PARENT)
 #define NON_CANONICAL_TYPE(CLASS, PARENT)
@@ -777,7 +779,7 @@ void MicrosoftCXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
     //   type [ -> template-parameters]
     //      \-> namespace[s]
     // What we do is we create a new mangler, mangle the same type (without
-    // a namespace suffix) to a string using the extra mangler and then use 
+    // a namespace suffix) to a string using the extra mangler and then use
     // the mangled type name as a key to check the mangling of different types
     // for aliasing.
 
@@ -1779,7 +1781,7 @@ void MicrosoftCXXNameMangler::mangleType(QualType T, SourceRange Range,
     Quals.removeUnaligned();
     if (Quals.hasObjCLifetime())
       Quals = Quals.withoutObjCLifetime();
-    if ((!IsPointer && Quals) || isa<TagType>(T)) {
+    if ((!IsPointer && Quals) || isa<TagType>(T) || isArtificialTagType(T)) {
       Out << '?';
       mangleQualifiers(Quals, false);
     }
@@ -2318,6 +2320,8 @@ void MicrosoftCXXNameMangler::mangleType(const TagDecl *TD) {
   mangleTagTypeKind(TD->getTagKind());
   mangleName(TD);
 }
+
+// If you add a call to this, consider updating isArtificialTagType() too.
 void MicrosoftCXXNameMangler::mangleArtificalTagType(
     TagTypeKind TK, StringRef UnqualifiedName, ArrayRef<StringRef> NestedNames) {
   // <name> ::= <unscoped-name> {[<named-scope>]+ | [<nested-name>]}? @
@@ -2504,6 +2508,26 @@ void MicrosoftCXXNameMangler::mangleType(const ComplexType *T, Qualifiers,
   Extra.mangleType(ElementType, Range, QMM_Escape);
 
   mangleArtificalTagType(TTK_Struct, TemplateMangling, {"__clang"});
+}
+
+// Returns true for types that mangleArtificalTagType() gets called for with
+// TTK_Union, TTK_Struct, TTK_Class and where compatibility with MSVC's
+// mangling matters.
+// (It doesn't matter for Objective-C types and the like that cl.exe doesn't
+// support.)
+bool MicrosoftCXXNameMangler::isArtificialTagType(QualType T) const {
+  const Type *ty = T.getTypePtr();
+  switch (ty->getTypeClass()) {
+  default:
+    return false;
+
+  case Type::Vector: {
+    // For ABI compatibility only __m64, __m128(id), and __m256(id) matter,
+    // but since mangleType(VectorType*) always calls mangleArtificalTagType()
+    // just always return true (the other vector types are clang-only).
+    return true;
+  }
+  }
 }
 
 void MicrosoftCXXNameMangler::mangleType(const VectorType *T, Qualifiers Quals,
