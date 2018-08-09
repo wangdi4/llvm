@@ -50,8 +50,7 @@ enum DDRefGatherMode : unsigned int {
   AllRefs = ~0U,
 };
 
-template <typename RefTy>
-using RefVectorTy = SmallVector<RefTy *, 32>;
+template <typename RefTy> using RefVectorTy = SmallVector<RefTy *, 32>;
 
 // Data Structure to store mapping of symbase to memory references. We are using
 // std::map here instead of DenseMap because of a large vector size.
@@ -103,31 +102,32 @@ class DDRefGathererVisitor final : public HLNodeVisitorBase {
   }
 
 public:
-  DDRefGathererVisitor(ContainerTy &Container,
-                       Predicate Pred = Predicate())
+  DDRefGathererVisitor(ContainerTy &Container, Predicate Pred = Predicate())
       : Container(Container), Pred(Pred) {}
 
-  void visit(HLDDNode *RefNode) {
-    for (auto I = RefNode->ddref_begin(), E = RefNode->ddref_end(); I != E;
-         ++I) {
-      addRef<RegDDRef>(*I);
-
-      for (auto II = (*I)->blob_cbegin(), EE = (*I)->blob_cend(); II != EE;
-           ++II) {
-        addRef<BlobDDRef>(const_cast<BlobDDRef*>(*II));
-      }
+  void visit(const RegDDRef *Ref) {
+    for (auto I = Ref->blob_cbegin(), E = Ref->blob_cend(); I != E; ++I) {
+      addRef<BlobDDRef>(const_cast<BlobDDRef *>(*I));
     }
   }
 
-  void visit(const HLDDNode *RefNode) {
-    for (auto I = RefNode->ddref_begin(), E = RefNode->ddref_end(); I != E;
-         ++I) {
-      addRef<RegDDRef>(const_cast<RegDDRef*>(*I));
+  void visit(const HLDDNode *Node) {
+    // Collect rvals before lval to be in strict lexical order.
+    for (auto I = Node->rval_op_ddref_begin(), E = Node->rval_op_ddref_end();
+         I != E; ++I) {
+      addRef<RegDDRef>(const_cast<RegDDRef *>(*I));
+      visit(*I);
+    }
 
-      for (auto II = (*I)->blob_cbegin(), EE = (*I)->blob_cend(); II != EE;
-           ++II) {
-        addRef<BlobDDRef>(const_cast<BlobDDRef*>(*II));
-      }
+    if (auto LvalRef = Node->getLvalDDRef()) {
+      addRef<RegDDRef>(const_cast<RegDDRef *>(LvalRef));
+      visit(LvalRef);
+    }
+
+    for (auto I = Node->fake_ddref_begin(), E = Node->fake_ddref_end(); I != E;
+         ++I) {
+      addRef<RegDDRef>(const_cast<RegDDRef *>(*I));
+      visit(*I);
     }
   }
 
@@ -168,10 +168,10 @@ public:
   template <typename RefTy>
   static void makeUnique(RefVectorTy<RefTy> &RefVec, bool RelaxedMode = false) {
     RefVec.erase(
-          std::unique(RefVec.begin(), RefVec.end(),
-                      std::bind(DDRefUtils::areEqual, std::placeholders::_1,
-                                std::placeholders::_2, RelaxedMode)),
-          RefVec.end());
+        std::unique(RefVec.begin(), RefVec.end(),
+                    std::bind(DDRefUtils::areEqual, std::placeholders::_1,
+                              std::placeholders::_2, RelaxedMode)),
+        RefVec.end());
   }
 
   /// Removes the duplicates by comparing the Ref's in sorted order.
@@ -184,13 +184,11 @@ public:
     }
   }
 
-  template <typename RefTy>
-  static void sort(RefVectorTy<RefTy> &RefVec) {
+  template <typename RefTy> static void sort(RefVectorTy<RefTy> &RefVec) {
     sort(RefVec, DDRefUtils::compareMemRef);
   }
 
-  template <typename RefTy>
-  static void sort(SymToRefTy<RefTy> &MemRefMap) {
+  template <typename RefTy> static void sort(SymToRefTy<RefTy> &MemRefMap) {
     sort(MemRefMap, DDRefUtils::compareMemRef);
   }
 
@@ -309,8 +307,7 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
         return false;
       }
 
-      if (!(Mode & GenericRValRefs) &&
-          (Symbase == GenericRvalSymbase)) {
+      if (!(Mode & GenericRValRefs) && (Symbase == GenericRvalSymbase)) {
         return false;
       }
 
@@ -342,7 +339,7 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
   }
 };
 
-}
-}
+} // namespace loopopt
+} // namespace llvm
 
 #endif
