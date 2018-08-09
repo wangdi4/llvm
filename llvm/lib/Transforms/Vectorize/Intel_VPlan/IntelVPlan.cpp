@@ -228,6 +228,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         BasicBlock *FirstSuccBB;
         BasicBlock *SecondSuccBB;
 
+        assert(PredBB->getSingleSuccessor() && "Unexpected null successor");
         if (PredVPBB->getSuccessors()[0] == this) {
           FirstSuccBB = NewBB;
           SecondSuccBB = PredBB->getSingleSuccessor();
@@ -337,6 +338,7 @@ void VPBasicBlock::execute(VPTransformState *State) {
     // Register NewBB in its loop. In innermost loops its the same for all
     // BB's.
     Loop *L = State->LI->getLoopFor(State->CFG.LastBB);
+    assert(L && "Unexpected null loop for Last BasicBlock");
     L->addBasicBlockToLoop(NewBB, *State->LI);
     State->CFG.PrevBB = NewBB;
   }
@@ -798,6 +800,7 @@ void VPlan::execute(VPTransformState *State) {
   VectorLatchBB = VectorHeaderBB->splitBasicBlock(
       VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
   Loop *L = State->LI->getLoopFor(VectorHeaderBB);
+  assert(L && "Unexpected null loop for Vector Header");
   L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
   // Remove the edge between Header and Latch to allow other connections.
   // Temporarily terminate with unreachable until CFG is rewired.
@@ -837,6 +840,7 @@ void VPlan::execute(VPTransformState *State) {
            "One edge should be in-place");
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
+    assert(FirstSuccBB && "Unexpected null successor");
     FromBB->getTerminator()->eraseFromParent();
     VPValue *CBV = FromVPBB->getCondBit();
     assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
@@ -1234,6 +1238,7 @@ void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
 
   // Get the vector mask value of the branch condition
   RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
+  assert(VecCondMask && "ConditionValue is expected to be widened by now");
 
   // Combine with the predecessor block mask if needed - a null predecessor
   // mask implies allones(predecessor is active for all lanes).
@@ -1328,6 +1333,7 @@ void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
 
   // Get the vector mask value of the branch condition
   RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
+  assert(VecCondMask && "ConditionValue is expected to be widened by now");
   auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createNot(
       VecCondMask->clone(), "IfFPred");
   CG->addInstUnmasked(Inst);
