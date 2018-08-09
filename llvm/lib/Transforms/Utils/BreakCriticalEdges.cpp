@@ -298,8 +298,14 @@ llvm::SplitCriticalEdge(TerminatorInst *TI, unsigned SuccNum,
 // even if such a predecessor exists, if it's not useful for splitting.
 // If a predecessor is found, OtherPreds will contain all other (non-indirectbr)
 // unique predecessors of BB. // INTEL
+#if INTEL_CUSTOMIZATION
+// If ConsiderSwitch flag is enabled, in case of absence of indirectbr
+// predecessor consider an unique switch predecessor as a candidate.
 static BasicBlock *
-findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
+findIBRPredecessor(BasicBlock *BB,
+                   SmallVectorImpl<BasicBlock *> &OtherPreds,
+                   bool ConsiderSwitch) {
+#endif // INTEL_CUSTOMIZATION
   // If the block doesn't have any PHIs, we don't care about it, since there's
   // no point in splitting it.
   PHINode *PN = dyn_cast<PHINode>(BB->begin());
@@ -341,6 +347,11 @@ findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
     OtherPreds.append(UniqueSwitchPreds.begin(), UniqueSwitchPreds.end());
     return IBB;
   }
+  // If there are no IBR predecessors, but there is exactly one Switch
+  // (including multi-edges case) - return it.
+  if (ConsiderSwitch && UniqueSwitchPreds.size() == 1) {
+    return *UniqueSwitchPreds.begin();
+  }
   // We have none or more than one predecessor to split.
   return nullptr;
 #endif // INTEL_CUSTOMIZATION
@@ -348,28 +359,35 @@ findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
 
 bool llvm::SplitIndirectBrCriticalEdges(Function &F,
                                         BranchProbabilityInfo *BPI,
-                                        BlockFrequencyInfo *BFI) {
+                                        BlockFrequencyInfo *BFI,  // INTEL
+                                        bool ConsiderSwitch,      // INTEL
+                                        bool DontSplitColdEdge) { // INTEL
   // Check whether the function has any indirectbrs, and collect which blocks
   // they may jump to. Since most functions don't have indirect branches,
   // this lowers the common case's overhead to O(Blocks) instead of O(Edges).
   SmallSetVector<BasicBlock *, 16> Targets;
   for (auto &BB : F) {
-    auto *IBI = dyn_cast<IndirectBrInst>(BB.getTerminator());
-    if (!IBI)
+#if INTEL_CUSTOMIZATION
+    TerminatorInst *TI = dyn_cast<IndirectBrInst>(BB.getTerminator());
+    // If specified then consider switch as an alias of indirectbr instruction.
+    if (!TI && ConsiderSwitch)
+      TI = dyn_cast<SwitchInst>(BB.getTerminator());
+
+    if (!TI)
       continue;
 
-    for (unsigned Succ = 0, E = IBI->getNumSuccessors(); Succ != E; ++Succ)
-      Targets.insert(IBI->getSuccessor(Succ));
+    for (unsigned Succ = 0, E = TI->getNumSuccessors(); Succ != E; ++Succ)
+      Targets.insert(TI->getSuccessor(Succ));
+#endif // INTEL_CUSTOMIZATION
   }
-
-  if (Targets.empty())
-    return false;
 
   bool ShouldUpdateAnalysis = BPI && BFI;
   bool Changed = false;
-  for (BasicBlock *Target : Targets) {
+  while (!Targets.empty()) {                     // INTEL
+    BasicBlock *Target = Targets.pop_back_val(); // INTEL
     SmallVector<BasicBlock *, 16> OtherPreds;
-    BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds);
+    BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds, // INTEL
+                                             ConsiderSwitch);    // INTEL
     // If we did not found an indirectbr, or the indirectbr is the only
     // incoming edge, this isn't the kind of edge we're looking for.
     if (!IBRPred || OtherPreds.empty())
@@ -379,6 +397,33 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     Instruction *FirstNonPHI = Target->getFirstNonPHI();
     if (FirstNonPHI->isEHPad() || Target->isLandingPad())
       continue;
+
+#if INTEL_CUSTOMIZATION
+    bool SelfLoop = IBRPred == Target;
+
+    // To be conservative, when analysing a indirectbr/switch instruction
+    // try not to split a critical edge created by empty block merging during
+    // eliminateMostlyEmptyBlocks (CodeGenPrepare).
+    // NOTE: SplitIndirectBrCriticalEdges is used in PGO instrumentation
+    //       pass, where all the critical edges need to be split in order
+    //       to construct MST. Do not use heuristics there.
+    // Heuristics are:
+    // (a) Avoid splitting an edge on a hot path since that could introduce
+    //     a branch and computations sunk might be executed in any way with
+    //     high probability.
+    //     FIXME: Unify a heuristic with isMergingEmptyBlockProfitable from
+    //            CodeGenPrepare.
+    // (b) Split a loop to itself, the loop body can be sunk to a new block.
+    if (!SelfLoop && DontSplitColdEdge && ShouldUpdateAnalysis) {
+      BlockFrequency PredFreq = BFI->getBlockFreq(IBRPred);
+      BlockFrequency NewBBFreq =
+          PredFreq * BPI->getEdgeProbability(IBRPred, Target);
+      constexpr unsigned FreqRatioToSkipMerge = 2;
+      if (PredFreq.getFrequency() <=
+          NewBBFreq.getFrequency() * FreqRatioToSkipMerge)
+        continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     BasicBlock *BodyBlock = Target->splitBasicBlock(FirstNonPHI, ".split");
     if (ShouldUpdateAnalysis) {
@@ -391,7 +436,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     }
     // It's possible Target was its own successor through an indirectbr.
     // In this case, the indirectbr now comes from BodyBlock.
-    if (IBRPred == Target)
+    if (SelfLoop) // INTEL
       IBRPred = BodyBlock;
 
 #if INTEL_CUSTOMIZATION
@@ -458,6 +503,12 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
       IndPHI->replaceAllUsesWith(MergePHI);
       IndPHI->eraseFromParent();
     }
+
+#if INTEL_CUSTOMIZATION
+    // A body block that has any other incoming critical edge from a Switch
+    // predecessor will be considered on the next iteration.
+    Targets.insert(BodyBlock);
+#endif // INTEL_CUSTOMIZATION
 
     Changed = true;
   }

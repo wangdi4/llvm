@@ -342,11 +342,17 @@ Value *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
 //     a switch predecessor for now).
 // (b) new PHIs are created in D1 to merge an edge from D0 with edges from
 //     all other predecessors (e.g. A and B).
+// If ConsiderSwitch flag is enabled we also split critical edges from
+// a switch instruction.
+// If DontSplitColdEdge flag is enabled heuristics are using to estimate
+// a profitability of an edge splitting.
 #endif // INTEL_CUSTOMIZATION
 // If BPI and BFI aren't non-null, BPI/BFI will be updated accordingly.
 bool SplitIndirectBrCriticalEdges(Function &F,
                                   BranchProbabilityInfo *BPI = nullptr,
-                                  BlockFrequencyInfo *BFI = nullptr);
+                                  BlockFrequencyInfo *BFI = nullptr, // INTEL
+                                  bool ConsiderSwitch = false,       // INTEL
+                                  bool DontSplitColdEdge = false);   // INTEL
 
 } // end namespace llvm
 
