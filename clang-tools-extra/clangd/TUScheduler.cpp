@@ -159,7 +159,7 @@ public:
   /// is null, all requests will be processed on the calling thread
   /// synchronously instead. \p Barrier is acquired when processing each
   /// request, it is be used to limit the number of actively running threads.
-  static ASTWorkerHandle Create(PathRef FileName,
+  static ASTWorkerHandle create(PathRef FileName,
                                 TUScheduler::ASTCache &IdleASTs,
                                 AsyncTaskRunner *Tasks, Semaphore &Barrier,
                                 steady_clock::duration UpdateDebounce,
@@ -282,7 +282,7 @@ private:
   std::shared_ptr<ASTWorker> Worker;
 };
 
-ASTWorkerHandle ASTWorker::Create(PathRef FileName,
+ASTWorkerHandle ASTWorker::create(PathRef FileName,
                                   TUScheduler::ASTCache &IdleASTs,
                                   AsyncTaskRunner *Tasks, Semaphore &Barrier,
                                   steady_clock::duration UpdateDebounce,
@@ -324,10 +324,13 @@ void ASTWorker::update(
     ParseInputs Inputs, WantDiagnostics WantDiags,
     llvm::unique_function<void(std::vector<Diag>)> OnUpdated) {
   auto Task = [=](decltype(OnUpdated) OnUpdated) mutable {
+    // Will be used to check if we can avoid rebuilding the AST.
+    bool InputsAreTheSame =
+        std::tie(FileInputs.CompileCommand, FileInputs.Contents) ==
+        std::tie(Inputs.CompileCommand, Inputs.Contents);
+
     tooling::CompileCommand OldCommand = std::move(FileInputs.CompileCommand);
     FileInputs = Inputs;
-    // Remove the old AST if it's still in cache.
-    IdleASTs.take(this);
 
     log("Updating file {0} with command [{1}] {2}", FileName,
         Inputs.CompileCommand.Directory,
@@ -337,21 +340,48 @@ void ASTWorker::update(
         buildCompilerInvocation(Inputs);
     if (!Invocation) {
       elog("Could not build CompilerInvocation for file {0}", FileName);
+      // Remove the old AST if it's still in cache.
+      IdleASTs.take(this);
       // Make sure anyone waiting for the preamble gets notified it could not
       // be built.
       PreambleWasBuilt.notify();
       return;
     }
 
-    std::shared_ptr<const PreambleData> NewPreamble = buildPreamble(
-        FileName, *Invocation, getPossiblyStalePreamble(), OldCommand, Inputs,
-        PCHs, StorePreambleInMemory, PreambleCallback);
+    std::shared_ptr<const PreambleData> OldPreamble =
+        getPossiblyStalePreamble();
+    std::shared_ptr<const PreambleData> NewPreamble =
+        buildPreamble(FileName, *Invocation, OldPreamble, OldCommand, Inputs,
+                      PCHs, StorePreambleInMemory, PreambleCallback);
+
+    bool CanReuseAST = InputsAreTheSame && (OldPreamble == NewPreamble);
     {
       std::lock_guard<std::mutex> Lock(Mutex);
       if (NewPreamble)
         LastBuiltPreamble = NewPreamble;
     }
+    // Before doing the expensive AST reparse, we want to release our reference
+    // to the old preamble, so it can be freed if there are no other references
+    // to it.
+    OldPreamble.reset();
     PreambleWasBuilt.notify();
+
+    if (CanReuseAST) {
+      // Take a shortcut and don't build the AST if neither the inputs nor the
+      // preamble have changed.
+      // Note that we do not report the diagnostics, since they should not have
+      // changed either. All the clients should handle the lack of OnUpdated()
+      // call anyway to handle empty result from buildAST.
+      // FIXME(ibiryukov): the AST could actually change if non-preamble
+      // includes changed, but we choose to ignore it.
+      // FIXME(ibiryukov): should we refresh the cache in IdleASTs for the
+      // current file at this point?
+      log("Skipping rebuild of the AST for {0}, inputs are the same.",
+          FileName);
+      return;
+    }
+    // Remove the old AST if it's still in cache.
+    IdleASTs.take(this);
 
     // Build the AST for diagnostics.
     llvm::Optional<ParsedAST> AST =
@@ -612,7 +642,7 @@ void TUScheduler::update(
   std::unique_ptr<FileData> &FD = Files[File];
   if (!FD) {
     // Create a new worker to process the AST-related tasks.
-    ASTWorkerHandle Worker = ASTWorker::Create(
+    ASTWorkerHandle Worker = ASTWorker::create(
         File, *IdleASTs, WorkerThreads ? WorkerThreads.getPointer() : nullptr,
         Barrier, UpdateDebounce, PCHOps, StorePreamblesInMemory,
         PreambleCallback);
