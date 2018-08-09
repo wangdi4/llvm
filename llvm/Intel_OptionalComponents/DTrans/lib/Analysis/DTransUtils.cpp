@@ -346,6 +346,30 @@ bool dtrans::isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy) {
   return false;
 }
 
+// This function is used to recognize IR patterns like this:
+//
+//   %struct.test.a = type { i32, i32, %struct.test.b* }
+//   %struct.test.b = type { %struct.test.c, i32, i32 }
+//   %struct.test.c = type { i32, i32, i32, i32 }
+//   ...
+//   %tmp1 = getelementptr %struct.test.a, %struct.test.a* %p, i64 0, i32 2
+//   %tmp2 = bitcast %struct.test.b** %tmp1 to %struct.test.c**
+//   %tmp3 = load %struct.test.c*, %struct.test.c** %tmp2
+//
+// In this case %tmp1 is a pointer to a pointer to %struct.b and in %tmp2
+// it is being bitcast as a pointer to a pointer to %struct.c, which is
+// the first element of %struct.b.
+bool dtrans::isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy,
+                                           llvm::Type *DestTy) {
+  if (!DestTy->isPointerTy() || !SrcTy->isPointerTy())
+    return false;
+  llvm::Type *SrcPointeeTy = SrcTy->getPointerElementType();
+  llvm::Type *DestPointeeTy = DestTy->getPointerElementType();
+  if (!SrcPointeeTy->isPointerTy() || !DestPointeeTy->isPointerTy())
+    return false;
+  return isElementZeroAccess(SrcPointeeTy, DestPointeeTy);
+}
+
 static void printSafetyInfo(const SafetyData &SafetyInfo,
                             llvm::raw_ostream &ostr) {
   if (SafetyInfo == 0) {

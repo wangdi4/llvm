@@ -932,6 +932,12 @@ bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
 /// type) whose element zero is i8*, if any.
 bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
 
+/// Examine the specified types to determine if a bitcast from \p SrcTy to
+/// \p DestTy could be used to convert a pointer-to-pointer to a source
+/// type to a pointer-to-pointer to element zero of that type. This is
+/// equivalent to isElementZeroAccess with an additional level of indirection.
+bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
+
 /// Check whether the specified type is the type of a known system object.
 bool isSystemObjectType(llvm::StructType *Ty);
 

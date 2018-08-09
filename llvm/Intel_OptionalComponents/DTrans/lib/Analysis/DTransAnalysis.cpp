@@ -1958,6 +1958,21 @@ private:
                                           &AccessedTy))) {
             Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
             IsElementZeroAccess = true;
+          } else if (dtrans::isPtrToPtrToElementZeroAccess(AliasTy, DestTy)) {
+            // If the DestTy and the AliasTy are both pointers to pointers
+            // this may be an element zero access with an additional level
+            // of indirection.
+            // FIXME: We'll lose track of an actual element zero access if
+            //        a pointer is loaded from here.
+            // In this case, we don't have a way to express that the result
+            // is a poointer to a pointer to an element. That's a problem.
+            IsElementZeroAccess = true;
+            // If the source value was a pointer to some element, we
+            // need to transfer that information to the bitcast result
+            // because loading from the new pointer will effectively be
+            // an access of the original element.
+            for (auto &PointeePair : SrcLPI.getElementPointeeSet())
+              Info.addElementPointee(PointeePair.first, PointeePair.second);
           }
         }
         // If this is an element zero access, don't merge the source info.
@@ -4455,9 +4470,11 @@ private:
     if (isGenericPtrEquivalent(SrcTy, DestTy))
       return;
 
-    // If this can be interpreted as an element-zero access of SrcTy,
-    // it's a safe cast.
-    if (dtrans::isElementZeroAccess(SrcTy, DestTy))
+    // If this can be interpreted as an element-zero access of SrcTy
+    // or as a cast from a ptr-to-ptr to a type to a ptr-to-ptr to
+    // element zero of that type, it's a safe cast.
+    if (dtrans::isElementZeroAccess(SrcTy, DestTy) ||
+        dtrans::isPtrToPtrToElementZeroAccess(SrcTy, DestTy))
       return;
 
     // If element zero is an i8* and we're casting the source value as a
@@ -4741,33 +4758,35 @@ private:
           setBaseTypeInfoSafetyData(FieldTy, dtrans::WholeStructureReference);
         }
 
-        // The value type must be the same as the field type or the field must
-        // be a pointer and the value a pointer-sized integer or an i8*.
+        // The value type must be the same as the field type, unless one
+        // of the following conditions is met:
+        //
+        //   (1) FieldTy is a pointer type and ValTy is pointer-sized integer
+        //   (2) FieldTy is a pointer type and ValTy is i8*
+        //   (3) ValTy matches the type of element zero of FieldTy
+        //   (4) FieldTy is a pointer type and ValTy is a pointer to the type
+        //       of element zero of the type pointed to by FieldTy
         if ((FieldTy != ValTy) &&
             (!FieldTy->isPointerTy() ||
-             (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy))) {
-          // This normally won't be an element zero access, but in the case
-          // where element zero of a nested type is an i8* that determination
-          // is ambiguous, so the check here prevents us from being intolerant
-          // of that situation.
-          if (!dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
-                                           ValTy->getPointerTo())) {
-            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
-            LLVM_DEBUG(dbgs() << "  " << I << "\n");
+             (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy)) &&
+            !dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
+                                         ValTy->getPointerTo()) &&
+            !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
+                                                   ValTy->getPointerTo())) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
+          LLVM_DEBUG(dbgs() << "  " << I << "\n");
 
-            if (DTransOutOfBoundsOK) {
-              // Assuming out of bound access, set safety issue for the entire
-              // ParentTy.
-              setBaseTypeInfoSafetyData(ParentTy,
-                                        dtrans::MismatchedElementAccess);
-            } else {
-              // Set safety issue to the ParentTy and to the impacted field type
-              // only.
-              DTInfo.getOrCreateTypeInfo(ParentTy)->setSafetyData(
-                  dtrans::MismatchedElementAccess);
-              setBaseTypeInfoSafetyData(FieldTy,
-                                        dtrans::MismatchedElementAccess);
-            }
+          if (DTransOutOfBoundsOK) {
+            // Assuming out of bound access, set safety issue for the entire
+            // ParentTy.
+            setBaseTypeInfoSafetyData(ParentTy,
+                                      dtrans::MismatchedElementAccess);
+          } else {
+            // Set safety issue to the ParentTy and to the impacted field type
+            // only.
+            DTInfo.getOrCreateTypeInfo(ParentTy)->setSafetyData(
+                dtrans::MismatchedElementAccess);
+            setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
           }
         }
 
