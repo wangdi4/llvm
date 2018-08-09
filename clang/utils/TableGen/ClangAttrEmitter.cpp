@@ -3455,11 +3455,15 @@ static std::string GenerateCustomAppertainsTo(const Record &Subject,
     return "";
   }
 
+  const StringRef CheckCodeValue = Subject.getValueAsString("CheckCode");
+
   OS << "static bool " << FnName << "(const Decl *D) {\n";
-  OS << "  if (const auto *S = dyn_cast<";
-  OS << GetSubjectWithSuffix(Base);
-  OS << ">(D))\n";
-  OS << "    return " << Subject.getValueAsString("CheckCode") << ";\n";
+  if (CheckCodeValue != "false") {
+    OS << "  if (const auto *S = dyn_cast<";
+    OS << GetSubjectWithSuffix(Base);
+    OS << ">(D))\n";
+    OS << "    return " << Subject.getValueAsString("CheckCode") << ";\n";
+  }
   OS << "  return false;\n";
   OS << "}\n\n";
 
@@ -3490,11 +3494,16 @@ static std::string GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
   // Otherwise, generate an appertainsTo check specific to this attribute which
   // checks all of the given subjects against the Decl passed in. Return the
   // name of that check to the caller.
+  //
+  // If D is null, that means the attribute was not applied to a declaration
+  // at all (for instance because it was applied to a type), or that the caller
+  // has determined that the check should fail (perhaps prior to the creation
+  // of the declaration).
   std::string FnName = "check" + Attr.getName().str() + "AppertainsTo";
   std::stringstream SS;
   SS << "static bool " << FnName << "(Sema &S, const ParsedAttr &Attr, ";
   SS << "const Decl *D) {\n";
-  SS << "  if (";
+  SS << "  if (!D || (";
   for (auto I = Subjects.begin(), E = Subjects.end(); I != E; ++I) {
     // If the subject has custom code associated with it, generate a function
     // for it. The function cannot be inlined into this check (yet) because it
@@ -3510,7 +3519,7 @@ static std::string GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     if (I + 1 != E)
       SS << " && ";
   }
-  SS << ") {\n";
+  SS << ")) {\n";
 #if INTEL_CUSTOMIZATION
   if (IntelWarn) {
     SS << "    if (S.getLangOpts().IntelCompat)\n";
@@ -3521,7 +3530,6 @@ static std::string GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     SS << "    else\n";
   }
 #endif // INTEL_CUSTOMIZATION
-
   SS << "    S.Diag(Attr.getLoc(), diag::";
   SS << (Warn ? "warn_attribute_wrong_decl_type_str" :
                "err_attribute_wrong_decl_type_str");
