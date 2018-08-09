@@ -297,7 +297,7 @@ llvm::SplitCriticalEdge(TerminatorInst *TI, unsigned SuccNum,
 // Return the unique indirectbr predecessor of a block. This may return null
 // even if such a predecessor exists, if it's not useful for splitting.
 // If a predecessor is found, OtherPreds will contain all other (non-indirectbr)
-// predecessors of BB.
+// unique predecessors of BB. // INTEL
 static BasicBlock *
 findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
   // If the block doesn't have any PHIs, we don't care about it, since there's
@@ -306,29 +306,44 @@ findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
   if (!PN)
     return nullptr;
 
-  // Verify we have exactly one IBR predecessor.
-  // Conservatively bail out if one of the other predecessors is not a "regular"
-  // terminator (that is, not a switch or a br).
+  // Collect and classify all the unique predecessors. // INTEL
   BasicBlock *IBB = nullptr;
+  SmallSetVector<BasicBlock *, 4> UniqueSwitchPreds; // INTEL
   for (unsigned Pred = 0, E = PN->getNumIncomingValues(); Pred != E; ++Pred) {
     BasicBlock *PredBB = PN->getIncomingBlock(Pred);
     TerminatorInst *PredTerm = PredBB->getTerminator();
     switch (PredTerm->getOpcode()) {
+#if INTEL_CUSTOMIZATION
     case Instruction::IndirectBr:
+      // Conservatively bail out if we have more than one IBR predecessor.
       if (IBB)
         return nullptr;
       IBB = PredBB;
-      break;
-    case Instruction::Br:
+      continue;
     case Instruction::Switch:
+      // Collect Switch predecessors in a set to handle multi-edges cases.
+      UniqueSwitchPreds.insert(PredBB);
+      continue;
+    case Instruction::Br:
+      // Just collect all Branch predecessors since they are unique.
       OtherPreds.push_back(PredBB);
       continue;
+#endif // INTEL_CUSTOMIZATION
     default:
       return nullptr;
     }
   }
 
-  return IBB;
+#if INTEL_CUSTOMIZATION
+  // If we have exactly one IBR predecessor - return it.
+  if (IBB) {
+    // Consider all Switch predecessors as usual ones.
+    OtherPreds.append(UniqueSwitchPreds.begin(), UniqueSwitchPreds.end());
+    return IBB;
+  }
+  // We have none or more than one predecessor to split.
+  return nullptr;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool llvm::SplitIndirectBrCriticalEdges(Function &F,

@@ -36,6 +36,6 @@ sw.epilog:
 ; CHECK:   Edge: from sw.entry to sw.epilog  w=2666
 ; CHECK:   Edge: from sw.entry to .split  w=5333
 ; CHECK:   Edge: from sw.entry to .split  w=5333
-; CHECK:   Edge: from sw.bb to .split  w=0
+; CHECK:   Edge: from sw.bb to .split  w=3
 ; CHECK:   Edge: from .split to sw.epilog  w=8
 ; CHECK:   Edge: from sw.epilog to fake exit w = 10
