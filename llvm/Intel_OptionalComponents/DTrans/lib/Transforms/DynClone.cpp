@@ -19,10 +19,13 @@
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-dynclone"
@@ -90,12 +93,15 @@ class DynCloneImpl {
   // Even though it will be very small set,  using std::set (instead of
   // SmallSet/SetVector) to do set operations like union/intersect.
   using DynFieldSet = std::set<DynField>;
+  using FunctionSet = SmallPtrSet<Function *, 16>;
+  using CallInstSet = SmallPtrSet<CallInst *, 8>;
 
 public:
   DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
                LoopInfoFuncType &GetLI)
       : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI),
-        ShrinkedIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr){};
+        ShrinkedIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr),
+        ShrinkHappenedVar(nullptr){};
   bool run(void);
 
 private:
@@ -122,11 +128,27 @@ private:
   // Function that has unknown assignments to all qualified candidate fields.
   Function *InitRoutine;
 
+  // It is used to check at runtime if shrinking of structs occurred.
+  GlobalVariable *ShrinkHappenedVar;
+
+  // List of cloned routines.
+  FunctionSet ClonedFunctionList;
+
+  // For each candidate type, it collects all routines where the type is
+  // accessed. This set is used to decide which routines need to be
+  // cloned during transformation.
+  DenseMap<llvm::Type *, FunctionSet> TypeAccessedInFunctions;
+
+  // List of CallSites for AddressTaken routines.
+  DenseMap<Function *, CallInstSet> FunctionCallInsts;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyLegalityChecksForInitRoutine(void);
   bool transformInitRoutine(void);
+  bool createCallGraphClone(void);
   bool isCandidateField(DynField &DField) const;
+  Type *getGEPStructType(GetElementPtrInst *GEP) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
 };
@@ -187,6 +209,22 @@ bool DynCloneImpl::isCandidateField(DynField &DField) const {
     if (CandidatePair == DField)
       return true;
   return false;
+}
+
+// Returns Type of struct accessed in GEP if the GEP is in allowed format
+// to enable DynClone for the struct. Otherwise, returns nullptr.
+Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
+  int32_t NumIndices = GEP->getNumIndices();
+  if (NumIndices > 2)
+    return nullptr;
+  if (NumIndices == 1) {
+    auto FPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    return FPair.first;
+  }
+  auto ElemTy = GEP->getSourceElementType();
+  if (!isa<StructType>(ElemTy))
+    return nullptr;
+  return ElemTy;
 }
 
 // This routine tries to reduce possible candidate fields by analyzing IR
@@ -300,6 +338,41 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     }
   };
 
+  // If \p I is accessing a candidate struct, add \p F to the list
+  // of routines where the candidate struct is accessed.
+  auto UpdateTypeAccessInfo = [&](Instruction *I, Function *F) {
+    Type *StTy = nullptr;
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(I))
+      StTy = getGEPStructType(GEP);
+
+    if (!StTy)
+      return;
+    for (auto &CandidatePair : CandidateFields)
+      if (CandidatePair.first == StTy) {
+        TypeAccessedInFunctions[StTy].insert(F);
+        return;
+      }
+  };
+
+  // Returns false if \p I is not supported instruction.
+  auto IsInstructionSupported = [&](Instruction *I) {
+    // TODO: Add more unsupported instructions
+    if (isa<InvokeInst>(I))
+      return false;
+    return true;
+  };
+
+  // Returns true if \p CalledValue is a BitCast to convert a function
+  // to the FunctionType of \p CI.
+  auto IsSimpleFPtrBitCast = [&](Value *CalledValue, CallInst*  CI) {
+    if (CalledValue->getType() != CI->getFunctionType())
+      return false;
+    if (auto *BC = dyn_cast<BitCastOperator>(CalledValue))
+      if (isa<Function>(BC->getOperand(0)))
+        return true;
+    return false;
+  };
+
   for (Function &F : M) {
     if (F.isDeclaration() || F.isIntrinsic())
       continue;
@@ -308,6 +381,30 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
 
     for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
       Instruction &Inst = *II;
+      if (!IsInstructionSupported(&Inst)) {
+        LLVM_DEBUG(dbgs() << "    Unsupported Inst ... Skip DynClone\n");
+        return false;
+      }
+      if (CallInst *CI = dyn_cast<CallInst>(&Inst)) {
+        Value *CalledValue = CI->getCalledValue();
+        // Calls using aliases are treated as indirect calls.
+        if (!isa<Function>(CalledValue) &&
+            !IsSimpleFPtrBitCast(CalledValue, CI)) {
+          LLVM_DEBUG(dbgs() << "    Indirect Call ... Skip DynClone\n");
+          return false;
+        }
+        Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
+        // Collecting all uses of routines that are marked with AddressTaken.
+        // Use info of AddressTaken functions are not properly updated after
+        // IPSCCP. So, we can't get all CallSites of AddressTaken function
+        // by walking over uses of the function.
+        // FunctionCallInsts will be used later during transformation.
+        if (Callee->hasAddressTaken())
+          FunctionCallInsts[Callee].insert(cast<CallInst>(&Inst));
+      }
+
+      UpdateTypeAccessInfo(&Inst, &F);
+
       if (auto *StInst = dyn_cast<StoreInst>(&Inst)) {
         auto StElem = DTInfo.getStoreElement(StInst);
         if (!StElem.first)
@@ -432,29 +529,12 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
                      Instruction * InitInst)>
       CandidateFieldAccessAfterBB;
 
-  // Returns Type of struct accessed in GEP if the GEP is in allowed format
-  // to enable DynClone for the struct. Otherwise, returns nullptr.
-  std::function<Type *(GetElementPtrInst * GEP)> GetGEPStructType =
-      [this, &GetGEPStructType](GetElementPtrInst *GEP) -> Type * {
-    int32_t NumIndices = GEP->getNumIndices();
-    if (NumIndices > 2)
-      return nullptr;
-    if (NumIndices == 1) {
-      auto FPair = DTInfo.getByteFlattenedGEPElement(GEP);
-      return FPair.first;
-    }
-    auto ElemTy = GEP->getSourceElementType();
-    if (!isa<StructType>(ElemTy))
-      return nullptr;
-    return ElemTy;
-  };
-
   // Recursive lambda function to check legality issues for InitRoutine
   // in CurrentBB and all of the successors until InitInst.
-  CandidateFieldAccessAfterBB =
-      [this, &CandidateFieldAccessAfterBB, &GetGEPStructType](
-          BasicBlock *CurrentBB, SmallPtrSetImpl<BasicBlock *> &Visited,
-          Instruction *InitInst) -> bool {
+  CandidateFieldAccessAfterBB = [this, &CandidateFieldAccessAfterBB](
+                                    BasicBlock *CurrentBB,
+                                    SmallPtrSetImpl<BasicBlock *> &Visited,
+                                    Instruction *InitInst) -> bool {
     if (!Visited.insert(CurrentBB).second)
       return true;
 
@@ -475,11 +555,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
         // Treat InitRoutine as invalid if there are any indirect calls or
         // calls to user defined routines.
         const Function *Callee = CS.getCalledFunction();
-        if (!Callee) {
-          LLVM_DEBUG(dbgs() << "    InitRoutine failed...Indirect call: " << I
-                            << "\n");
-          return false;
-        }
+        assert(Callee && "Expected only direct calls");
         // Since WholeProgramSafe is true, just check if Callee is defined
         // to prove it is a user defined routine.
         if (!Callee->isDeclaration()) {
@@ -490,7 +566,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
       } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
         // DynClone is disabled if a struct with candidate fields is
         // accessed before InitRoutine is called.
-        auto StType = GetGEPStructType(GEP);
+        auto StType = getGEPStructType(GEP);
         if (!StType)
           continue;
         for (auto &CandidatePair : CandidateFields)
@@ -523,8 +599,8 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
     return false;
   }
   CallSite CS(InitRoutine->user_back());
-  if (CS.getCalledFunction() != InitRoutine) {
-    LLVM_DEBUG(dbgs() << "    InitRoutine failed...No direct call \n");
+  if (InitRoutine->hasAddressTaken()) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...AddressTaken \n");
     return false;
   }
   Function *Caller = CS.getCaller();
@@ -697,7 +773,8 @@ bool DynCloneImpl::transformInitRoutine(void) {
 
   // Create GlobalVariable to indicate whether DynClone occurred or not.
   Type *FlagType = Type::getInt8Ty(M.getContext());
-  auto *ShrinkHappenedVar = new GlobalVariable(
+  assert(!ShrinkHappenedVar && "Expected nullptr for ShrinkHappenedVar");
+  ShrinkHappenedVar = new GlobalVariable(
       M, FlagType, false, GlobalVariable::CommonLinkage,
       ConstantInt::get(FlagType, 0), Twine("__Shrink__Happened__"));
 
@@ -829,6 +906,284 @@ bool DynCloneImpl::transformInitRoutine(void) {
   return true;
 }
 
+//  Before:
+//      main() {
+//        ...
+//        InitRoutine();
+//        ...
+//        foo();
+//        ...
+//        bar();
+//        ..
+//      }
+//
+//      foo() {
+//        ...
+//        baz();
+//      }
+//      bar() { // Assume no accesses to shrinked structs
+//        ...
+//      }
+//      baz() { // Assume shrinked structs are accessed in this routine.
+//        ...
+//        baz();
+//      }
+//
+// No user call is allowed before calling InitRoutine. Except InitRoutine,
+// all other routines, which have accesses to shrinked structs,  are called
+// from main are call-graph cloned. Calls to those routines in main are
+// specialized with "__Shrink__Happened__ == 0" check.
+//
+//  After:
+//      main() {
+//        ...
+//        InitRoutine();
+//        ...
+//        if (__Shrink__Happened__ == 0) {
+//          foo.1();
+//        }
+//        else {
+//          foo();
+//        }
+//
+//        ...
+//        bar();  // No specialization
+//        ..
+//      }
+//
+//      foo() {
+//        ...
+//        baz();
+//      }
+//
+//      foo.1() { // foo is cloned as foo.1
+//        ...
+//        baz.1();  // baz.1 is clone of baz
+//      }
+//
+//      bar() { // bar is not cloned.
+//      }
+//      baz() {
+//        ...
+//        baz();
+//      }
+//      baz.1() {
+//        ...
+//        baz.1();
+//      }
+//
+// TODO: Main restriction for the above solution is that shrinked structs
+// shouldn't be accessed in main routine directly. We could use
+// CodeExtractor class to create a new function, which will be cloned
+// and controlled under __Shrink__Happened__, for all BasicBlocks that can
+// be reached from "InitRoutine()" call.
+//
+bool DynCloneImpl::createCallGraphClone(void) {
+
+  std::function<void(Function * F, Function * CallerMain,
+                     CallInstSet & SpecializedCallsInMain)>
+      FindCloningCallChains;
+
+  auto IsCandidateStruct = [&](Type *Ty) {
+    for (auto &CPair : CandidateFields)
+      if (CPair.first == Ty)
+        return true;
+    return false;
+  };
+
+  // We can't set NoInline for all cloned routines due to performance reasons.
+  // That means, we need to clone callers of cloned routines also to generate
+  // correct code. This recursive lambda function finds all call-chains of
+  // cloned routines till "main" is reached. NoInline attribute is set for
+  // calls of cloned routines in "main" later.
+  FindCloningCallChains = [this, &FindCloningCallChains](
+                              Function *F, Function *CallerMain,
+                              CallInstSet &SpecializedCallsInMain) {
+    LLVM_DEBUG(dbgs() << "    Finding cloning call-chain..." << F->getName()
+                      << "\n");
+    // Add to the list of cloned routines.
+    if (!ClonedFunctionList.insert(F).second) {
+      LLVM_DEBUG(dbgs() << "    Already processed ... \n");
+      return;
+    }
+
+    if (F->hasAddressTaken()) {
+      for (CallInst *CI : FunctionCallInsts[F]) {
+        LLVM_DEBUG(dbgs() << "    Processing CallSite1: " << *CI << "\n");
+        Function *CalledF = CI->getFunction();
+        if (CalledF == CallerMain) {
+          // Specialize these calls later.
+          SpecializedCallsInMain.insert(CI);
+          continue;
+        }
+        FindCloningCallChains(CalledF, CallerMain, SpecializedCallsInMain);
+      }
+    } else {
+      for (auto *U : F->users()) {
+        assert(isa<CallInst>(U) && "Expected CallInst");
+        CallInst *CI = cast<CallInst>(U);
+        LLVM_DEBUG(dbgs() << "    Processing CallSite2: " << *CI << "\n");
+        Function *CalledF = CI->getFunction();
+        if (CalledF == CallerMain) {
+          // Specialize these calls later.
+          SpecializedCallsInMain.insert(CI);
+          continue;
+        }
+        FindCloningCallChains(CalledF, CallerMain, SpecializedCallsInMain);
+      }
+    }
+  };
+
+  // Specialize CallInstruction:
+  //
+  //   Before:
+  //      main() {
+  //        ...
+  //        t = foo();  // F
+  //      }
+  //
+  //   After:
+  //      main() {
+  //        ...
+  //        if (__Shrink__Happened__ == 0) {
+  //          t0 = foo.1();  // NewF
+  //        }
+  //        else {
+  //          t1 = foo();   // F
+  //        }
+  //        t = PHI(t0, t1);
+  //      }
+  //
+  auto SpecializeCallInst = [&](CallInst *CI, Function *F, Function *NewF) {
+    // Create ICmp inst
+    Instruction *OrigInst = cast<Instruction>(CI);
+    LLVM_DEBUG(dbgs() << "    Specializing call: " << *OrigInst << "\n");
+    Type *SHVarTy = ShrinkHappenedVar->getValueType();
+    Constant *ConstantZero = ConstantInt::get(SHVarTy, 0);
+    IRBuilder<> Builder(OrigInst);
+    LoadInst *Load = Builder.CreateLoad(ShrinkHappenedVar, "d.gld");
+    auto *Cond = Builder.CreateICmpEQ(Load, ConstantZero, "d.gc");
+    LLVM_DEBUG(dbgs() << "      Load: " << *Load << "\n");
+    LLVM_DEBUG(dbgs() << "      Cmp: " << *Cond << "\n");
+
+    // Fix CFG and create new CallInst
+    TerminatorInst *TrueT = nullptr;
+    TerminatorInst *FalseT = nullptr;
+    SplitBlockAndInsertIfThenElse(Cond, OrigInst, &TrueT, &FalseT);
+    BasicBlock *TrueB = TrueT->getParent();
+    BasicBlock *FalseB = FalseT->getParent();
+    BasicBlock *MergeBlock = OrigInst->getParent();
+    TrueB->setName("d.t");
+    FalseB->setName("d.f");
+    MergeBlock->setName("d.m");
+    Instruction *NewInst = OrigInst->clone();
+    OrigInst->moveBefore(FalseT);
+    NewInst->insertBefore(TrueT);
+    CallInst *NewCI = cast<CallInst>(NewInst);
+    NewCI->setCalledFunction(NewF);
+
+    LLVM_DEBUG(dbgs() << "      New Call (False): " << *NewInst << "\n");
+    LLVM_DEBUG(dbgs() << "    Set NoInline for both orig and new calls\n");
+    CI->setIsNoInline();
+    NewCI->setIsNoInline();
+
+    if (OrigInst->getType()->isVoidTy() || OrigInst->use_empty())
+      return;
+
+    // Unify returns values of original and new call instructions
+    Builder.SetInsertPoint(&MergeBlock->front());
+    PHINode *Phi = Builder.CreatePHI(OrigInst->getType(), 0, "d.p");
+    SmallVector<User *, 16> UsersToUpdate;
+    for (User *U : OrigInst->users())
+      UsersToUpdate.push_back(U);
+    for (User *U : UsersToUpdate)
+      U->replaceUsesOfWith(OrigInst, Phi);
+    Phi->addIncoming(NewInst, NewInst->getParent());
+    Phi->addIncoming(OrigInst, OrigInst->getParent());
+    LLVM_DEBUG(dbgs() << "      PHI: " << *Phi << "\n");
+  };
+
+  CallSite CS(InitRoutine->user_back());
+  Function *CallerMain = CS.getCaller();
+
+  FunctionSet CandidateAccessRoutines;
+  // TODO: Move the below checks before generating any runtime checks.
+  for (auto TPair : TypeAccessedInFunctions) {
+    if (!IsCandidateStruct(TPair.first))
+      continue;
+    FunctionSet FSet = TPair.second;
+    // 1. Candidate struct should be accessed in at least two
+    //    routines.
+    // 2. One of them should be InitRoutine.
+    // 3. Candidate struct shouldn't be accessed in main routine.
+    if (FSet.size() < 2 || FSet.count(InitRoutine) == 0 ||
+        FSet.count(CallerMain) != 0) {
+      LLVM_DEBUG(dbgs() << "    Unexpected AccessSet .. Skip DynClone\n");
+      return false;
+    }
+    CandidateAccessRoutines.insert(FSet.begin(), FSet.end());
+  }
+  if (CandidateAccessRoutines.empty()) {
+    LLVM_DEBUG(dbgs() << "    Empty AccessSet .. Skip DynClone\n");
+    return false;
+  }
+
+  // List of CallInsts that need to be specialized in main.
+  CallInstSet SpecializedCallsInMain;
+  // Collect all routines that need to be cloned.
+  for (auto *F : CandidateAccessRoutines) {
+    // Shouldn't clone InitRoutine
+    if (F == InitRoutine)
+      continue;
+    LLVM_DEBUG(dbgs() << "    Collect call-chains: " << F->getName() << "\n");
+    FindCloningCallChains(F, CallerMain, SpecializedCallsInMain);
+  }
+
+  // Map of original and cloned routines.
+  DenseMap<Function *, Function *> CloningMap;
+  // Create cloned routines
+  for (auto *F : ClonedFunctionList) {
+    ValueToValueMapTy VMap;
+    LLVM_DEBUG(dbgs() << "    Cloning ..." << F->getName() << "\n");
+    Function *NewF = CloneFunction(F, VMap);
+    CloningMap[F] = NewF;
+    LLVM_DEBUG(dbgs() << "    New Cloned entry: " << NewF->getName() << "\n");
+  }
+
+  for (auto *F : ClonedFunctionList) {
+    Function* NewF = CloningMap[F];
+    for (inst_iterator II = inst_begin(NewF), E = inst_end(NewF); II != E; ++II) {
+      Instruction &Inst = *II;
+      if (!isa<CallInst>(&Inst))
+        continue;
+      CallInst *CI = cast<CallInst>(&Inst);
+      Value *CalledValue = CI->getCalledValue();
+      Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
+      if (!ClonedFunctionList.count(Callee))
+        continue;
+      Function *NewCallee = CloningMap[Callee];
+      LLVM_DEBUG(dbgs() << "    Inst Before ..." << Inst << " in "
+                        << NewF->getName() << "\n");
+
+      Constant *BitcastNew = NewCallee;
+      if (!isa<Function>(CalledValue)) {
+        BitcastNew =
+            ConstantExpr::getBitCast(NewCallee, CalledValue->getType());
+      }
+      CI->replaceUsesOfWith(CalledValue, BitcastNew);
+
+      LLVM_DEBUG(dbgs() << "    Inst After ..." << Inst << "\n");
+    }
+  }
+  // Specialize calls in "main".
+  for (auto *CI : SpecializedCallsInMain) {
+    Function *F = CI->getCalledFunction();
+    Function *NewF = CloningMap[F];
+    SpecializeCallInst(CI, F, NewF);
+  }
+  return true;
+}
+
 bool DynCloneImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
@@ -859,6 +1214,9 @@ bool DynCloneImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "  Final Candidate fields: \n";
              printCandidateFields(dbgs()));
+
+  if (!createCallGraphClone())
+    return false;
 
   return true;
 }
