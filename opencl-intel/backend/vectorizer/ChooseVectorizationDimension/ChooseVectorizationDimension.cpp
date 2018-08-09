@@ -256,8 +256,8 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   WIAnalysis* wi[MAX_WORK_DIM] = {nullptr}; // WI for each dimension.
   bool dimExist[MAX_WORK_DIM];  // whether the dimension exists.
   bool dimValid[MAX_WORK_DIM]; // whether the dimension is a valid possibility.
-  int goodLoadStores[MAX_WORK_DIM]; // will be used to store number of good store/load per dimension.
-  int badLoadStores[MAX_WORK_DIM]; // will be used to store number of bad store/load per dimension.
+  int goodLoadStores[MAX_WORK_DIM] = {}; // will be used to store number of good store/load per dimension.
+  int badLoadStores[MAX_WORK_DIM] = {}; // will be used to store number of bad store/load per dimension.
   bool switchMotivation[MAX_WORK_DIM]; // true if there is at least one block that prefers dimension x over 0.
   int preferredDim[MAX_WORK_DIM]; // how many BB's perfer dimension 1/2
 
