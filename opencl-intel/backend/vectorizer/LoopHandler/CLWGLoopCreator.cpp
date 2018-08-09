@@ -1,5 +1,5 @@
 /*=================================================================================
-Copyright (c) 2012, Intel Corporation
+Copyright (c) 2012-2018, Intel Corporation
 Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
@@ -416,38 +416,18 @@ void CLWGLoopCreator::replaceTIDsWithPHI(IVec &TIDs, Value *initVal,
   }
 }
 
-
-/*
-BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
-  // this is a fast way for inlining by just moving the block list
-  // of the vector kernel into scalar kernel.
-  assert(m_vectorFunc && "should not be called on null");
-  assert(m_F->getFunctionType() == m_vectorFunc->getFunctionType() &&
-      "vector and scalar functtion type mismatch");
-  assert(BB && "uninitialized parameters");
-
-  BasicBlock * vectorEntryBlock = &m_vectorFunc->getEntryBlock();
-  vectorEntryBlock->setName("vector_kernel_entry");
-    // insert block of func into m_F just before callBlock
-  m_F->getBasicBlockList().splice(BB, m_vectorFunc->getBasicBlockList());
-  Function::arg_iterator VArgIt = m_vectorFunc->arg_begin();
-  Function::arg_iterator argIt = m_F->arg_begin();
-  Function::arg_iterator argE = m_F->arg_end();
-  for (; argIt != argE; ++argIt, ++VArgIt) {
-  VArgIt->replaceAllUsesWith(argIt);
-  }
-  assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
-  if (!m_vectorFunc->getNumUses()) {
-    m_vectorFunc->eraseFromParent();
-  }
-  return vectorEntryBlock;
+static void dropDISubprogram(Function *F) {
+  if (F->hasMetadata(LLVMContext::MD_dbg))
+    F->setSubprogram(nullptr);
 }
-*/
 
-static void dropSubprogramDI (Function * func) {
-  if (cast_or_null<DISubprogram>(func->getSubprogram())) {
-    // this should remove the appropriate metadata.
-    func->setSubprogram(nullptr);
+// Remap DILocation of all instructions in the provided basic block
+// to be belong the provided function scope.
+static void fixDILocation(BasicBlock *BB, Function *ScopeF) {
+  for (auto &I : *BB) {
+    if (DebugLoc DL = I.getDebugLoc())
+      I.setDebugLoc(
+          DebugLoc::get(DL.getLine(), DL.getCol(), ScopeF->getSubprogram()));
   }
 }
 
@@ -462,25 +442,23 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   for (; argIt != argE; ++argIt, ++VArgIt) {
     valueMap[&*VArgIt] = &*argIt;
   }
-  // [LLVM 3.6 UPGRADE] Assuming the following maping will update references
-  // in metadata from vector to scalar part correctly.
-  valueMap[m_vectorFunc] = m_F;
 
   // create a list for return values
   SmallVector<ReturnInst*, 2> returns;
 
+  // Drop DISubprogram from the vector function to avoid it
+  // duplicating while cloning
+  dropDISubprogram(m_vectorFunc);
+
   // Do actual cloning work
-  // Set 'ModuleLevelChanges' to 'true' to update the debug metadata as well.
-  // To prevent Metadata merge, drop all old Metadata (they were cloned anyway before Vec)
-  SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
-  m_F->getAllMetadata(MDs);
-  for (const auto &MD : MDs)
-    m_F->setMetadata(MD.first, nullptr);
-  CloneFunctionInto(m_F, m_vectorFunc, valueMap, true, returns, "vector_func");
-  for(Function::iterator bbit = m_vectorFunc->begin(),
-      bbe = m_vectorFunc->end(); bbit != bbe; ++bbit){
-    BasicBlock *clonedBB = dyn_cast<BasicBlock>(valueMap[&*bbit]);
+  // TODO: replace manual inlining by llvm::InlineFunction()
+  CloneFunctionInto(m_F, m_vectorFunc, valueMap, /*ModuleLevelChanges*/false,
+                    returns, "vector_func");
+
+  for (auto &VBB : *m_vectorFunc) {
+    BasicBlock *clonedBB = dyn_cast<BasicBlock>(valueMap[&VBB]);
     clonedBB->moveBefore(BB);
+    fixDILocation(clonedBB, m_F);
   }
 
   for (unsigned dim=0; dim<m_numDim; ++dim) {
@@ -504,8 +482,6 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {
     intel::Statistic::removeFunctionStats(*m_vectorFunc);
-    // remove the DISubprogram metadata from the module
-    dropSubprogramDI(m_vectorFunc);
     m_vectorFunc->eraseFromParent();
   }
   return vectorEntryBlock;
@@ -545,4 +521,3 @@ extern "C" {
     return new intel::CLWGLoopCreator();
   }
 }
-

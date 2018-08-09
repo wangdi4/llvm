@@ -69,9 +69,18 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
     SET_LOGGER_CLIENT(pLoggerClient);
     LOG_DEBUG(TEXT("%s"), TEXT("DeviceKernel C'tor enter"));
 
-    if (NULL == m_pKernel || NULL == m_pDevice || CL_INVALID_HANDLE == devProgramId)
+    if (CL_INVALID_HANDLE == devProgramId)
     {
-        LOG_ERROR(TEXT("%s"), TEXT("NULL == m_pKernel || NULL == m_pDevice || CL_INVALID_HANDLE == devProgramId"));
+        LOG_ERROR(TEXT("%s"),
+                  TEXT("CL_INVALID_HANDLE == devProgramID. Please ensure "
+                       "that clBuildProgram succeeded before calling "
+                       "clCreateKernel"));
+        *pErr = CL_INVALID_PROGRAM_EXECUTABLE;
+        return;
+    }
+    if (NULL == m_pKernel || NULL == m_pDevice)
+    {
+        LOG_ERROR(TEXT("%s"), TEXT("NULL == m_pKernel || NULL == m_pDevice"));
         *pErr = CL_INVALID_VALUE;
         return;
     }
