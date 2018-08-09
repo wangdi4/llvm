@@ -775,6 +775,8 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
   Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
 
   InitVal = VPOParoptUtils::cloneInstructions(InitVal, &*(EntryBB->begin()));
+  assert(InitVal &&
+          "genLoopInitCodeForTaskLoop: Expect non-empty loop lower bound");
 
   if (InitVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
@@ -797,6 +799,8 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
   Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNegStride);
   StrideVal =
       VPOParoptUtils::cloneInstructions(StrideVal, &*(EntryBB->begin()));
+  assert(StrideVal &&
+         "genLoopInitCodeForTaskLoop: Expect non-empty loop stride.");
 
   if (StrideVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
@@ -1256,6 +1260,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     int KmpTaskTTWithPrivatesTySz =
         DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
     int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
+    assert(MTFnCI->getCalledFunction() &&
+           "genTaskGenericCode: Expect non-empty function.");
     CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
         W, IdentTy, TidPtrHolder, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
         KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
