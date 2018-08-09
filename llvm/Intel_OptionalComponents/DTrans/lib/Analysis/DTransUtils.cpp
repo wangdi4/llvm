@@ -321,10 +321,29 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     if (!CompTy->indexValid(0u))
       return false;
     auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+    // If the element zero type matches the destination pointee type,
+    // this is an element zero access.
     if (DestPointeeTy == ElementZeroTy) {
       if (AccessedTy)
         *AccessedTy = SrcTy;
       return true;
+    }
+    // Handle multiple levels of indirection with i8* destinations.
+    // If the element zero type is a pointer type and the destination pointee
+    // type is a corresponding i8* at any level of indirection, this is an
+    // element zero access.
+    if (ElementZeroTy->isPointerTy()) {
+      auto *TempZeroTy = ElementZeroTy;
+      auto *TempDestTy = DestPointeeTy;
+      while (TempZeroTy->isPointerTy() && TempDestTy->isPointerTy()) {
+        TempZeroTy = TempZeroTy->getPointerElementType();
+        TempDestTy = TempDestTy->getPointerElementType();
+      }
+      if (TempDestTy == llvm::Type::getInt8Ty(SrcTy->getContext())) {
+        if (AccessedTy)
+          *AccessedTy = SrcTy;
+        return true;
+      }
     }
     // If element zero is an aggregate type, this cast might be accessing
     // element zero of the nested type.

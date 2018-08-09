@@ -1957,6 +1957,16 @@ private:
                dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
                                           &AccessedTy))) {
             Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
+            // If the bitcast is to an i8** and element zero of the accessed
+            // type is a pointer, we need to add the type of that pointer
+            // to the destination value's alias set. If the bitcast destination
+            // is not an i8** it will be the type of the accessed element
+            // zero, so we don't need to check that condition. We can just
+            // always add the element zero pointer type to the alias set.
+            Info.addPointerTypeAlias(
+                cast<CompositeType>(AccessedTy->getPointerElementType())
+                    ->getTypeAtIndex(0u)
+                    ->getPointerTo());
             IsElementZeroAccess = true;
           } else if (dtrans::isPtrToPtrToElementZeroAccess(AliasTy, DestTy)) {
             // If the DestTy and the AliasTy are both pointers to pointers
