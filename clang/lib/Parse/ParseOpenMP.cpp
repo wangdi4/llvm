@@ -797,14 +797,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
         else
           TPA.Commit();
       }
-#if INTEL_CUSTOMIZATION // Under community review: D38798
-
-      // Save the declarations so that we can create the declare target group
-      // later on.
-      if (Ptr)
-        for (auto *V : Ptr.get())
-          Decls.push_back(V);
-#endif // INTEL_CUSTOMIZATION
     }
 
     if (DKind == OMPD_end_declare_target) {
@@ -819,11 +811,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     } else {
       Diag(Tok, diag::err_expected_end_declare_target);
       Diag(DTLoc, diag::note_matching) << "'#pragma omp declare target'";
-#if INTEL_CUSTOMIZATION // Under community review: D38798
-      // We have an error, so we don't have to attempt to generate code for the
-      // declarations.
-      Decls.clear();
-#endif // INTEL_CUSTOMIZATION
     }
     Actions.ActOnFinishOpenMPDeclareTargetDirective();
     return Actions.BuildDeclaratorGroup(Decls);

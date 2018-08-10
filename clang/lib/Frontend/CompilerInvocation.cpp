@@ -2935,9 +2935,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Opts.OpenMP = true;
     }
   }
-#if RAVI
-  Opts.OpenMPImplicitDeclareTarget = true;
-#endif
 #endif //INTEL_CUSTOMIZATION
 
   // Check if -fopenmp-simd is specified.
