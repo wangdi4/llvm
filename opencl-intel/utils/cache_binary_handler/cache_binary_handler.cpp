@@ -73,8 +73,9 @@ int CacheBinaryReader::GetSectionIndexByName(CLElfLib::CElfReader* pReader, std:
         unsigned int numSections = pElfReaderHeader->NumSectionHeaderEntries;
         for(unsigned int i =0; i <numSections; ++i)
         {
-            std::string sectionName = pReader->GetSectionName(i);
-            if(0 == sectionName.compare(Name))
+            const char *sectionName = pReader->GetSectionName(i);
+            assert(sectionName && "There is no name for that section");
+            if (0 == Name.compare(sectionName))
             {
                  return i;
             }

@@ -41,7 +41,7 @@ public:
 	 * @param bIsDependentOnEvents	whether this command is dependent on some events
 	 */
 	SVMFreeCommand(cl_uint uiNumSvmPtrs, void* pSvmPtrs[], pfnFreeFunc freeFunc, void* pUserData, const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents) :
-	   RuntimeCommand(cmdQueue, bIsDependentOnEvents), m_svmPtrs(pSvmPtrs, &pSvmPtrs[uiNumSvmPtrs]), m_freeFunc(freeFunc), m_pUserData(pUserData) { }
+	   RuntimeCommand(cmdQueue, bIsDependentOnEvents), m_svmPtrs(pSvmPtrs, pSvmPtrs + uiNumSvmPtrs), m_freeFunc(freeFunc), m_pUserData(pUserData) { }
 
 	// overriden methods:
 
