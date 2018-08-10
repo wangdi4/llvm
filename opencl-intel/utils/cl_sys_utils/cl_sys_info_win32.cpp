@@ -23,6 +23,8 @@
 using namespace Intel::OpenCL::Utils;
 
 #include <algorithm>
+#include <bitset>
+#include <vector>
 
 #include <windows.h>
 #include <powrprof.h>
@@ -224,11 +226,35 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 {
-        SYSTEM_INFO sInfo;
-        GetSystemInfo(&sInfo);
-        return sInfo.dwNumberOfProcessors;
-}
+    DWORD Size = 0;
 
+    // Ask for buffer size first
+    auto Status = GetLogicalProcessorInformationEx(RelationProcessorCore, NULL, &Size);
+
+    assert((!Status && Size) && "Failed to get required buffer size!");
+
+    // Alloc the memory
+    std::vector<unsigned char> Bytes(Size);
+
+    // Fill allocated buffer with information
+    Status = GetLogicalProcessorInformationEx(RelationProcessorCore,
+        (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)Bytes.data(), &Size);
+    assert(Status && "Failed to get Logical Processor Info!");
+
+    // Parse the info
+    unsigned long CpuCount = 0;
+    unsigned char *BytePtr = Bytes.data(), *BytePtrEnd = Bytes.data() + Size;
+    while (BytePtr < BytePtrEnd) {
+        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX LPI = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)BytePtr;
+        for (int i = 0; i < LPI->Processor.GroupCount; ++i) {
+            std::bitset<64> bits(LPI->Processor.GroupMask[i].Mask);
+            CpuCount += bits.count();
+        }
+        BytePtr += LPI->Size;
+    }
+
+    return CpuCount;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the number of NUMA nodes on the system
