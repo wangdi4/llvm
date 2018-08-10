@@ -405,7 +405,7 @@ namespace intel{
     }
     for (TInstVector::iterator vi = instructionsToDelete.begin(),
       ve = instructionsToDelete.end(); vi != ve; ++vi) {
-      Instruction *pInst = dyn_cast<Instruction>(*vi);
+      Instruction *pInst = cast<Instruction>(*vi);
       pInst->eraseFromParent();
     }
   }

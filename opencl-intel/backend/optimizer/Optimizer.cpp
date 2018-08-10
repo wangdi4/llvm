@@ -389,10 +389,10 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     //
     // std::string optionsClang = "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility";
 
-    if (getenv("VOLCANO_CLANG_OPTIONS")) {
+    if (const char* opts = getenv("VOLCANO_CLANG_OPTIONS")) {
 #ifdef NDEBUG
       // Append user options to default options.
-      optionsClang += getenv("VOLCANO_CLANG_OPTIONS");
+      optionsClang += opts;
 #else
       // Allow default to be overridden for debug purposes.
 
@@ -406,7 +406,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       //    VOLCANO_LLVM_OPTIONS. Tricky part here is whether the IR produced by
       //    the clang with -fopenmp and -fintel-openmp is compatible with our
       //    backend without VPO.
-      optionsClang = getenv("VOLCANO_CLANG_OPTIONS");
+      optionsClang = opts;
 #endif
     }
     if (!optionsClang.empty()) {

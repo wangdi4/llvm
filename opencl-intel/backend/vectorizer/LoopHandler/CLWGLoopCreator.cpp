@@ -481,7 +481,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
       m_lidCallsVec[dim][i] = inst;
     }
   }
-  m_vectorRet = dyn_cast<ReturnInst>(valueMap[m_vectorRet]);
+  m_vectorRet = cast<ReturnInst>(valueMap[m_vectorRet]);
   BasicBlock *vectorEntryBlock =
       dyn_cast<BasicBlock>(valueMap[&*(m_vectorFunc->begin())]);
   // copy stats from vector function to scalar function

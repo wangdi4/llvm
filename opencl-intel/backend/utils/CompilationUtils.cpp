@@ -412,7 +412,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
           {
             // Check by pointer vector passing, used in long16 and double16
-            llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(PTy->getElementType());
+            llvm::VectorType *pVector = llvm::cast<llvm::VectorType>(PTy->getElementType());
             unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
             unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
             //assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&
