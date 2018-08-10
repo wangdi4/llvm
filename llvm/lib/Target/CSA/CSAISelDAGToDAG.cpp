@@ -66,6 +66,8 @@ private:
                         SDValue &Offset);
 
   void Select(SDNode *N) override;
+
+  void SelectMinMax(SDNode *);
 };
 } // end anonymous namespace
 
@@ -210,6 +212,11 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
     CurDAG->SelectNodeTo(Node, CSA::MOV64, MVT::i64, TFI);
     return;
   }
+  case CSAISD::Min:
+  case CSAISD::UMin:
+  case CSAISD::Max:
+  case CSAISD::UMax:
+    return SelectMinMax(Node);
   }
 
   // Select the default instruction
@@ -220,4 +227,23 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
   LLVM_DEBUG(errs() << "\n");
 
   return;
+}
+
+void CSADAGToDAGISel::SelectMinMax(SDNode *Node) {
+  const unsigned SDOp = Node->getOpcode();
+  MVT VT              = Node->getSimpleValueType(0);
+  const unsigned Bits = VT.getSizeInBits();
+  const CSA::OpcodeClass Class =
+    VT.isFloatingPoint()
+      ? CSA::VARIANT_FLOAT
+      : (SDOp == CSAISD::UMin or SDOp == CSAISD::UMax) ? CSA::VARIANT_UNSIGNED
+                                                       : CSA::VARIANT_SIGNED;
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo *>(
+    Subtarget.TargetSubtargetInfo::getInstrInfo());
+  const unsigned OpCode = TII.makeOpcode(
+    (SDOp == CSAISD::Max or SDOp == CSAISD::UMax) ? CSA::Generic::MAX
+                                                  : CSA::Generic::MIN,
+    Bits, Class);
+  CurDAG->SelectNodeTo(Node, OpCode, VT, MVT::i1, Node->getOperand(0),
+                       Node->getOperand(1));
 }

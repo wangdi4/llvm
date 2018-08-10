@@ -303,10 +303,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::FROUND, MVT::f64, Legal);
     setOperationAction(ISD::FFLOOR, MVT::f32, Legal);
     setOperationAction(ISD::FFLOOR, MVT::f64, Legal);
-    // setOperationAction(ISD::FMINNUM, MVT::f32, Legal);
-    // setOperationAction(ISD::FMINNUM, MVT::f64, Legal);
-    // setOperationAction(ISD::FMAXNUM, MVT::f32, Legal);
-    // setOperationAction(ISD::FMAXNUM, MVT::f64, Legal);
     // setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
     // setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
   } else {
@@ -365,6 +361,16 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   // setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
 
   setOperationAction(ISD::PREFETCH, MVT::Other, Legal);
+
+  setTargetDAGCombine(ISD::SELECT);
+  setTargetDAGCombine(ISD::SMIN);
+  setTargetDAGCombine(ISD::SMAX);
+  setTargetDAGCombine(ISD::UMIN);
+  setTargetDAGCombine(ISD::UMAX);
+  setTargetDAGCombine(ISD::FMINNUM);
+  setTargetDAGCombine(ISD::FMAXNUM);
+  setTargetDAGCombine(ISD::FMINNAN);
+  setTargetDAGCombine(ISD::FMAXNAN);
 }
 
 EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL,
@@ -420,6 +426,14 @@ const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "CSAISD::Ret";
   case CSAISD::Wrapper:
     return "CSAISD::Wrapper";
+  case CSAISD::Min:
+    return "CSAISD::Min";
+  case CSAISD::UMin:
+    return "CSAISD::UMin";
+  case CSAISD::Max:
+    return "CSAISD::Max";
+  case CSAISD::UMax:
+    return "CSAISD::UMax";
   }
 }
 
@@ -567,6 +581,259 @@ SDValue CSATargetLowering::LowerADDSUB_Carry(SDValue Op, SelectionDAG &DAG,
   SDValue carryOut = SDValue{carriedOp, 1}; 
   SDValue Ops[] = {res, carryOut};
   return DAG.getMergeValues(Ops, dl);
+}
+
+SDValue CSATargetLowering::PerformDAGCombine(SDNode *N,
+                                             DAGCombinerInfo &DCI) const {
+  SelectionDAG &DAG = DCI.DAG;
+  switch (N->getOpcode()) {
+  case ISD::SELECT:
+    return CombineSelect(N, DAG);
+  case ISD::SMIN:
+  case ISD::SMAX:
+  case ISD::UMIN:
+  case ISD::UMAX:
+  case ISD::FMINNUM:
+  case ISD::FMAXNUM:
+  case ISD::FMINNAN:
+  case ISD::FMAXNAN:
+    return CombineMinMax(N, DAG);
+
+  // Return SDValue{} for opcodes that we don't handle to show that we don't
+  // handle them.
+  default:
+    return SDValue{};
+  }
+}
+
+SDValue CSATargetLowering::CombineSelect(SDNode *N, SelectionDAG &DAG) const {
+
+  // Grab inputs to the select.
+  const SDLoc DL{N};
+  const EVT VT      = N->getValueType(0);
+  SDValue Cond      = N->getOperand(0);
+  const SDValue OpT = N->getOperand(1);
+  const SDValue OpF = N->getOperand(2);
+
+  // Is the condition a not? If so, record that and move along to its def.
+  const bool CondBehindNot =
+    Cond.getOpcode() == ISD::XOR and
+    Cond.getOperand(1) == DAG.getBoolConstant(true, SDLoc{Cond},
+                                              Cond.getValueType(),
+                                              Cond.getValueType());
+  const bool NotAlsoOneUse =
+    not CondBehindNot or Cond.getOperand(0).hasOneUse();
+  if (CondBehindNot)
+    Cond = Cond->getOperand(0);
+
+  // These are set depending on the type of operations to determine what type of
+  // min/max to make.
+  bool IsMax, IsUnsigned;
+
+  // Since comparisons are replaced greedily, Cond might already be a min/max
+  // op.
+  const bool CondIsMinMax =
+    Cond.getOpcode() == CSAISD::Min or Cond.getOpcode() == CSAISD::UMin or
+    Cond.getOpcode() == CSAISD::Max or Cond.getOpcode() == CSAISD::UMax;
+
+  // Otherwise, it should be a comparison.
+  const bool CondIsCmp = Cond.getOpcode() == ISD::SETCC;
+  if (not CondIsMinMax and not CondIsCmp)
+    return SDValue{};
+
+  // Check Cond to make sure that it has the same inputs. If this is the case,
+  // Reversed will be set depending on whether the operand order differs between
+  // Cond and the select.
+  // It would also possible to replace selects of the form a < b ? 0 : 1 using
+  // min/max operations where only the sel output is used, but in that case the
+  // min/max would be equivalent to a comparison and a normal comparison op
+  // should just be used for that instead. Therefore, this check ensures that
+  // only selects with the same inputs as their conditions are considered for
+  // conversion to min/max ops.
+  const SDValue LHS = Cond.getOperand(0);
+  const SDValue RHS = Cond.getOperand(1);
+  bool Reversed;
+  if (OpT == LHS and OpF == RHS)
+    Reversed = false;
+  else if (OpT == RHS and OpF == LHS)
+    Reversed = true;
+  else
+    return SDValue{};
+
+  if (CondIsMinMax) {
+    // For min/max, the value can be reused if the operand order is _reversed_
+    // XOR the existing min/max is behind a not.
+    if (Reversed != CondBehindNot)
+      return Cond.getValue(0);
+
+    // Otherwise, a max/min will need to be constructed instead.
+    IsMax = Cond.getOpcode() == CSAISD::Min or Cond.getOpcode() == CSAISD::UMin;
+    IsUnsigned =
+      Cond.getOpcode() == CSAISD::UMin or Cond.getOpcode() == CSAISD::UMax;
+  }
+
+  else {
+    assert(CondIsCmp);
+
+    // Comparisons should be </<=/>/>=. See the notes on ISD::CmpCode in
+    // ISDOpcodes.h for more details about the bitfields used here.
+    const ISD::CondCode CC = cast<CondCodeSDNode>(Cond.getOperand(2))->get();
+    if (bool(CC & ISD::SETOLT) == bool(CC & ISD::SETOGT))
+      return SDValue{};
+
+    // This is a max if the condition is a >/>= XOR the operands are reversed
+    // XOR the comparison is behind a not. Otherwise, it is a min.
+    IsMax = (bool(CC & ISD::SETOGT) != Reversed) != CondBehindNot;
+
+    // The signedness needs to be gotten from CC.
+    IsUnsigned = VT.isInteger() and CC & ISD::SETUO;
+  }
+
+  // Replace the select and condition with a min/max of the appropriate type.
+  const SDValue MinMax =
+    DAG.getNode(IsUnsigned ? IsMax ? CSAISD::UMax : CSAISD::UMin
+                           : IsMax ? CSAISD::Max : CSAISD::Min,
+                SDLoc{N}, DAG.getVTList(VT, MVT::i1), OpF, OpT);
+  LLVM_DEBUG(dbgs() << "Created min/max:\n");
+  LLVM_DEBUG(MinMax->dumpr());
+
+  // Try to fold in compares. If Cond has only one use (the select that was just
+  // made dead), ignore it.
+  FoldComparesIntoMinMax(MinMax.getValue(1), DAG,
+                         Cond.hasOneUse() and NotAlsoOneUse ? Cond : SDValue{});
+
+  return MinMax;
+}
+
+static unsigned CSAISDMinMaxOpForISDMinMaxOp(unsigned SDOp) {
+
+  // NOTE: We are ignoring behavior with unordered compares/NaN for now.
+  switch (SDOp) {
+  case ISD::SMIN:
+  case ISD::FMINNUM:
+  case ISD::FMINNAN:
+    return CSAISD::Min;
+  case ISD::SMAX:
+  case ISD::FMAXNUM:
+  case ISD::FMAXNAN:
+    return CSAISD::Max;
+  case ISD::UMIN:
+    return CSAISD::UMin;
+  case ISD::UMAX:
+    return CSAISD::UMax;
+  default:
+    llvm_unreachable("unrecognized min/max opcode");
+  }
+}
+
+SDValue CSATargetLowering::CombineMinMax(SDNode *N, SelectionDAG &DAG) const {
+  const SDValue MinMax =
+    DAG.getNode(CSAISDMinMaxOpForISDMinMaxOp(N->getOpcode()), SDLoc{N},
+                DAG.getVTList(N->getValueType(0), MVT::i1), N->getOperand(0),
+                N->getOperand(1));
+  LLVM_DEBUG(dbgs() << "Created min/max:\n");
+  LLVM_DEBUG(MinMax->dumpr());
+  FoldComparesIntoMinMax(MinMax.getValue(1), DAG);
+  return MinMax;
+}
+
+void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
+                                               SDValue IgnoreCmp) const {
+
+  const unsigned OpC = Sel->getOpcode();
+  const bool IsMax   = OpC == CSAISD::Max or OpC == CSAISD::UMax;
+  const SDValue LHS  = Sel->getOperand(0);
+  const SDValue RHS  = Sel->getOperand(1);
+
+  // Min effectively implements a >= and max a <=, but we can get equivalent
+  // values to other comparisons by a combination of swapping operands and
+  // adding nots to the output. However, if we want to fold in multiple
+  // comparisons all of them have to have the same operand order. The
+  // comparisons are collected into SameCmps and RevCmps according to whether
+  // they would require operand reversal or not. The number of nots needed for
+  // each set is tracked in {Same,Rev}NotCount.
+  SmallVector<SDValue, 2> SameCmps, RevCmps;
+  int SameNotCount = 0, RevNotCount = 0;
+
+  // Find comparisons that might use the same inputs as this min/max.
+  for (SDNode *const Cmp : LHS->uses()) {
+    if (Cmp->getOpcode() != ISD::SETCC)
+      continue;
+
+    // Don't bother with ones that have no uses.
+    if (Cmp->use_empty())
+      continue;
+
+    // Ignore IgnoreCmp.
+    if (Cmp == IgnoreCmp.getNode())
+      continue;
+
+    // Only handle </<=/>/>=. See the notes on ISD::CmpCode in ISDOpcodes.h for
+    // more details about the bitfields used here.
+    const ISD::CondCode CC = cast<CondCodeSDNode>(Cmp->getOperand(2))->get();
+    if (bool(CC & ISD::SETOLT) == bool(CC & ISD::SETOGT))
+      continue;
+
+    // Ignore any unsigned comparisons for signed mins/maxs and vice-versa.
+    if (Sel.getValueType().isInteger() and
+        ((OpC == CSAISD::UMin or OpC == CSAISD::UMax) != bool(CC & ISD::SETUO)))
+      continue;
+
+    // Make sure that the operands match.
+    const SDValue CLHS = Cmp->getOperand(0);
+    const SDValue CRHS = Cmp->getOperand(1);
+    bool Reversed;
+    if (LHS == CLHS and RHS == CRHS)
+      Reversed = false;
+    else if (LHS == CRHS and RHS == CLHS)
+      Reversed = true;
+    else
+      continue;
+
+    // NOTE: NaNs/-0.0/other strange values aren't being considered here yet,
+    // but when we have a clearer picture of what the architecture will do with
+    // them there will probably need to be extra checks here.
+
+    // This comparison looks like a candidate for folding; put it in the right
+    // set. A >= with the same operand order can be folded into a min but
+    // switching to a <=, >, max, or swapping inputs each reverse the set
+    // assignment. This gives the string of XORs below. A not is also needed for
+    // </>.
+    const bool NeedsRev =
+      (bool(CC & ISD::SETOLT) != not(CC & ISD::SETOEQ)) != (IsMax != Reversed);
+    (NeedsRev ? RevCmps : SameCmps).emplace_back(Cmp, 0);
+    (NeedsRev ? RevNotCount : SameNotCount) += not(CC & ISD::SETOEQ);
+
+    LLVM_DEBUG(dbgs() << " Found " << (NeedsRev ? "reversed" : "non-reversed")
+                      << " comparison:\n");
+    LLVM_DEBUG(Cmp->dumpr());
+  }
+
+  // If there aren't any comparisons to fold, our work here is done.
+  if (SameCmps.empty() and RevCmps.empty())
+    return;
+
+  // Decide whether or not to swap operands. The following rules are used for
+  // this:
+  //
+  //  1. Choose the set with the most comparisons that can be folded.
+  //  2. If there is a tie, choose the set with the least nots needed.
+  //  3. If there is still a tie, don't reverse operands.
+  const bool ReverseOperands =
+    RevCmps.size() > SameCmps.size() or
+    (RevCmps.size() == SameCmps.size() and RevNotCount < SameNotCount);
+  if (ReverseOperands)
+    DAG.UpdateNodeOperands(Sel.getNode(), RHS, LHS);
+  LLVM_DEBUG(dbgs() << " Choosing "
+                    << (ReverseOperands ? "reversed" : "non-reversed")
+                    << " operands\n");
+
+  for (SDValue Cmp : ReverseOperands ? RevCmps : SameCmps) {
+    const ISD::CondCode CC = cast<CondCodeSDNode>(Cmp->getOperand(2))->get();
+    DAG.ReplaceAllUsesOfValueWith(
+      Cmp,
+      (CC & ISD::SETOEQ) ? Sel : DAG.getLogicalNOT(SDLoc{Cmp}, Sel, MVT::i1));
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -1089,8 +1356,6 @@ SDValue CSATargetLowering::LowerFormalArguments(
 	  CCInfo.AnalyzeFormalArguments(Ins, CC_LIC_CSA);
   else
   CCInfo.AnalyzeFormalArguments(Ins, CC_Reg_CSA);
-
-  SDValue StackPtr;
 
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     CCValAssign &VA = ArgLocs[i];

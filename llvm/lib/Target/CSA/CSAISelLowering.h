@@ -29,6 +29,16 @@ enum {
   Call,
   TailCall,
   Ret,
+
+  // These custom ISel nodes represent min/max operations with a second i1 "sel"
+  // output indicating which parameter was the minimum/maximum value following
+  // the conventions for the CSA instructions. Min/Max are used for signed
+  // integer and floating point types while UMin/UMax are for unsigned integer.
+  Min,
+  UMin,
+  Max,
+  UMax,
+
   // Wrapper - A wrapper node for TargetConstantPool, TargetExternalSymbol,
   // and TargetGlobalAddress
   Wrapper
@@ -113,6 +123,8 @@ public:
   TargetLowering::AtomicExpansionKind
   shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
 
+  SDValue PerformDAGCombine(SDNode *, DAGCombinerInfo &) const override;
+
 private:
   /// Keep a reference to the CSASubtarget around so that we can
   /// make the right decision when generating code for different targets.
@@ -160,6 +172,19 @@ private:
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
                       const SmallVectorImpl<SDValue> &OutVals, const SDLoc &dl,
                       SelectionDAG &DAG) const override;
+
+  SDValue CombineSelect(SDNode *, SelectionDAG &) const;
+  SDValue CombineMinMax(SDNode *, SelectionDAG &) const;
+
+  /// Searches the SelectionDAG for compares with the same inputs as a
+  /// recently-created min/max op and attempts to replace them with a value
+  /// derived from that op's sel output.
+  ///
+  /// \param Sel The sel output from the new min/max op.
+  /// \param IgnoreCmp If this is not SDValue{}, ignore it when searching for
+  /// comparisons.
+  void FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &,
+                              SDValue IgnoreCmp = {}) const;
 };
 } // namespace llvm
 

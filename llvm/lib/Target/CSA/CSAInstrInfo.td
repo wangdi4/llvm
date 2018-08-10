@@ -243,6 +243,10 @@ def SDT_CSACallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 def SDT_CSAWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
                                                SDTCisPtrTy<0>]>;
 
+def SDT_CSAMinMax       : SDTypeProfile<
+  2, 2, [SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisVT<1, i1>]
+>;
+
 def CSARet : SDNode<"CSAISD::Ret", SDTNone,
     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
@@ -260,6 +264,11 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_CSACallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
 def CSAWrapper : SDNode<"CSAISD::Wrapper", SDT_CSAWrapper>;
+
+def CSAMin  : SDNode<"CSAISD::Min",  SDT_CSAMinMax>;
+def CSAUMin : SDNode<"CSAISD::UMin", SDT_CSAMinMax>;
+def CSAMax  : SDNode<"CSAISD::Max",  SDT_CSAMinMax>;
+def CSAUMax : SDNode<"CSAISD::UMax", SDT_CSAMinMax>;
 
 let Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
@@ -397,6 +406,16 @@ class BinOpC<GenericOp gen, CSAOpInfo oi,
     (outs oi.RC:$dst, I1:$cout),
     (ins oi.RCL:$op1, oi.RCL:$op2, Ti1.RCL:$cin),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $cout, $op1, $op2, $cin"),
+    [],
+    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+// Min/max operations have an extra sel output.
+class MinMaxOp<GenericOp gen, CSAOpInfo oi,
+              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$res, I1:$sel),
+    (ins oi.RCL:$op1, oi.RCL:$op2),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $sel, $op1, $op2"),
     [],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
@@ -1135,6 +1154,30 @@ def POWF64    : BinOp<   POW,    fpow,   Tf64, IIMathF64>;
 def ATAN2     : GenericOp<"atan2", [HasMath0]>;
 def ATAN2F32  : BinOp<   ATAN2,  fatan2, Tf32, IIMathF32>;
 def ATAN2F64  : BinOp<   ATAN2,  fatan2, Tf64, IIMathF64>;
+
+def MIN       : GenericOp<"min">;
+def MINS8     : MinMaxOp<MIN,            Ts8,  IIALU>;
+def MINS16    : MinMaxOp<MIN,            Ts16, IIALU>;
+def MINS32    : MinMaxOp<MIN,            Ts32, IIALU>;
+def MINS64    : MinMaxOp<MIN,            Ts64, IIALU>;
+def MINU8     : MinMaxOp<MIN,            Tu8,  IIALU>;
+def MINU16    : MinMaxOp<MIN,            Tu16, IIALU>;
+def MINU32    : MinMaxOp<MIN,            Tu32, IIALU>;
+def MINU64    : MinMaxOp<MIN,            Tu64, IIALU>;
+def MINF32    : MinMaxOp<MIN,            Tf32, IIALU>;
+def MINF64    : MinMaxOp<MIN,            Tf64, IIALU>;
+
+def MAX       : GenericOp<"max">;
+def MAXS8     : MinMaxOp<MAX,            Ts8,  IIALU>;
+def MAXS16    : MinMaxOp<MAX,            Ts16, IIALU>;
+def MAXS32    : MinMaxOp<MAX,            Ts32, IIALU>;
+def MAXS64    : MinMaxOp<MAX,            Ts64, IIALU>;
+def MAXU8     : MinMaxOp<MAX,            Tu8,  IIALU>;
+def MAXU16    : MinMaxOp<MAX,            Tu16, IIALU>;
+def MAXU32    : MinMaxOp<MAX,            Tu32, IIALU>;
+def MAXU64    : MinMaxOp<MAX,            Tu64, IIALU>;
+def MAXF32    : MinMaxOp<MAX,            Tf32, IIALU>;
+def MAXF64    : MinMaxOp<MAX,            Tf64, IIALU>;
 
 multiclass SignedCmp<GenericOp generic, PatFrag frag> {
   def S8  : CmpOp<generic, frag, Ts8,  IIALU>;
