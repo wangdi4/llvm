@@ -3,7 +3,7 @@
 
 ; Verify that we support "llvm.loop.vectorize.enable" metadata on the loop.
 
-; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP> <vectorize>
 ; CHECK: |   if (i1 >u 5)
 ; CHECK: |   {
 ; CHECK: |      %0 = (@a)[0][i1];

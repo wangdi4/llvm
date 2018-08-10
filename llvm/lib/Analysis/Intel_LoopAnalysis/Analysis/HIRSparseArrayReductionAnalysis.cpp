@@ -180,7 +180,8 @@ void HIRSparseArrayReductionAnalysis::identifySparseArrayReductionChains(
   DDRefGrouping::groupVec(RefVecGroups, RefVecUniqueSB,
                           std::bind(DDRefUtils::areEqual, std::placeholders::_1,
                                     std::placeholders::_2, false));
-  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); DDRefGrouping::dump(RefVecGroups));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+             DDRefGrouping::dump(RefVecGroups));
 
   // Process each group and identify reduction chains.
   for (auto &RefVec : RefVecGroups) {
@@ -304,7 +305,7 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
     // STEP 2: Check number of incoming flow edges
     unsigned NumIncomingFlowEdges = DDG.getNumIncomingFlowEdges(RRef);
     LLVM_DEBUG(dbgs() << "Number of incoming edge to the rval operand: "
-                 << NumIncomingFlowEdges << "\n");
+                      << NumIncomingFlowEdges << "\n");
 
     // No edge to process, continue to the next operand.
     if (NumIncomingFlowEdges == 0) {
@@ -640,7 +641,7 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
                                      StoreRef->getSymbase(), ReductionOpCode);
     LLVM_DEBUG(dbgs() << "Sparse Array Reduction Chain:\n");
     LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
-          printAChain(FOS, 1, ReductionInsts));
+               printAChain(FOS, 1, ReductionInsts));
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
@@ -689,7 +690,6 @@ void HIRSparseArrayReductionAnalysis::print(
 
   for (auto &SARI : *SARCL) {
     Loop->indent(OS, Depth);
-    OS << "Sparse Array Reduction:\n";
     printAChain(OS, Depth, SARI.Chain);
   }
 }

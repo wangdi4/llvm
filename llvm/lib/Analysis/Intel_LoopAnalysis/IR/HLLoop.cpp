@@ -293,6 +293,51 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
 #endif // INTEL_PRODUCT_RELEASE
 }
 
+void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
+  // Some of the pragma checks require trip count information,
+  // so we skip them if it isn't present yet.
+  if (!getStrideDDRef()) {
+    return;
+  }
+
+  unsigned Count = getUnrollPragmaCount();
+  if (hasUnrollEnablingPragma()) {
+    OS << " <unroll";
+    if (Count) {
+      OS << " = " << Count;
+    }
+    OS << ">";
+  } else if (hasUnrollDisablingPragma()) {
+    OS << " <nounroll>";
+  }
+
+  Count = getUnrollAndJamPragmaCount();
+  if (hasUnrollAndJamEnablingPragma()) {
+    OS << " <unroll and jam";
+    if (Count) {
+      OS << " = " << Count;
+    }
+    OS << ">";
+  } else if (hasUnrollAndJamDisablingPragma()) {
+    OS << " <nounroll and jam>";
+  }
+
+  Count = getVectorizePragmaWidth();
+  if (hasVectorizeEnablingPragma()) {
+    OS << " <vectorize";
+    if (Count) {
+      OS << " = " << Count;
+    }
+    OS << ">";
+  } else if (hasVectorizeDisablingPragma()) {
+    OS << " <novectorize>";
+  }
+
+  if (hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma()) {
+    OS << " <ivdep>";
+  }
+}
+
 void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
                          bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
@@ -343,6 +388,7 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   printDistributePoint(OS);
+  printDirectives(OS, Depth);
 
   OS << "\n";
 
@@ -1349,7 +1395,8 @@ MDNode *HLLoop::getLoopStringMetadata(StringRef Name) const {
 
 bool HLLoop::hasCompleteUnrollEnablingPragma() const {
   uint64_t TC;
-  if (!isConstTripLoop(&TC)) {
+  // TODO: Need a fix to avoid zero trip count loops here
+  if (!isConstTripLoop(&TC, true)) {
     return false;
   }
 

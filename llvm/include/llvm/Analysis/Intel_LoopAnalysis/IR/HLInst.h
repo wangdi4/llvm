@@ -73,6 +73,8 @@ protected:
   /// for min
   bool checkMinMax(bool IsMin, bool IsMax) const;
 
+  void printReductionInfo(formatted_raw_ostream &OS) const;
+
 public:
   /// Prints HLInst.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,

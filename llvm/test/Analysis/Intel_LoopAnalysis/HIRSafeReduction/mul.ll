@@ -5,9 +5,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
-; CHECK:   Safe Reduction
-
-; CHECK:   %j.07 = %0  *  %j.07;
+; CHECK:   %j.07 = %0  *  %j.07; <Safe Reduction>
 
 ; ModuleID = 'mul.c'
 source_filename = "mul.c"

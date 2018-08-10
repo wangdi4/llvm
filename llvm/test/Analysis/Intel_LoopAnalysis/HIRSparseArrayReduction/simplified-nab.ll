@@ -15,10 +15,9 @@
 
 ; RUN: opt < %s -analyze -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes="loop-simplify,hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
-; CHECK:   Sparse Array Reduction
-; CHECK:   %1 = (@f)[0][%foff + %div];
-; CHECK:   %add4 = %1  +  %conv2;
-; CHECK:   (@f)[0][%foff + %div] = %add4;
+; CHECK:   %1 = (@f)[0][%foff + %div]; <Sparse Array Reduction>
+; CHECK:   %add4 = %1  +  %conv2; <Sparse Array Reduction>
+; CHECK:   (@f)[0][%foff + %div] = %add4; <Sparse Array Reduction>
 
 ;Module Before HIR; ModuleID = 'simplified-nab.c'
 source_filename = "simplified-nab.c"

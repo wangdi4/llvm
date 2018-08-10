@@ -10,8 +10,7 @@
 ; + END LOOP
 
 ; CHECK: + DO i1 = 0, 79, 1   <DO_LOOP>
-; CHECK:    Safe Reduction:
-; CHECK: |   %t2.09 = %mul  +  %t2.09;
+; CHECK: |   %t2.09 = %mul  +  %t2.09; <Safe Reduction>
 ; CHECK: + END LOOP
 
 ;Module Before HIR; ModuleID = 'red.c'

@@ -4,10 +4,9 @@
 
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes="loop-simplify,hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
-; CHECK:   Sparse Array Reduction
-; CHECK:   %1 = (@A)[0][%0];
-; CHECK:   %add = %1  +  %conv;
-; CHECK:   (@A)[0][%0] = %add;
+; CHECK:   %1 = (@A)[0][%0]; <Sparse Array Reduction>
+; CHECK:   %add = %1  +  %conv; <Sparse Array Reduction>
+; CHECK:   (@A)[0][%0] = %add; <Sparse Array Reduction>
 
 ;Module Before HIR; ModuleID = 'sum.c'
 source_filename = "sum.c"

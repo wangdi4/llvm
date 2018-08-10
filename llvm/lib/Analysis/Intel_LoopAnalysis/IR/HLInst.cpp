@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
@@ -305,11 +307,31 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   printDistributePoint(OS);
+  printReductionInfo(OS);
 
   OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
 #endif // !INTEL_PRODUCT_RELEASE
+}
+
+void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
+  HIRSafeReductionAnalysis *SRA = this->getHLNodeUtils()
+                                      .getHIRFramework()
+                                      .getHIRAnalysisProvider()
+                                      .get<HIRSafeReductionAnalysis>();
+  if (SRA && SRA->isSafeReduction(this)) {
+    OS << " <Safe Reduction>";
+  }
+
+  HIRSparseArrayReductionAnalysis *SARA =
+      this->getHLNodeUtils()
+          .getHIRFramework()
+          .getHIRAnalysisProvider()
+          .get<HIRSparseArrayReductionAnalysis>();
+  if (SARA && SARA->isSparseArrayReduction(this)) {
+    OS << " <Sparse Array Reduction>";
+  }
 }
 
 bool HLInst::hasLval() const {
