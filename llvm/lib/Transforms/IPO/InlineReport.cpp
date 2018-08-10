@@ -177,6 +177,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
     {InlPrtSimple, "Callsite preferred for cloning"},
     // NinlrNullPtrMismatch,
     {InlPrtSimple, "Caller/callee null pointer mismatch"},
+    // NinlrPreferMultiversioning,
+    {InlPrtSimple, "Callsite preferred for multiversioning"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 
