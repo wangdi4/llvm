@@ -116,6 +116,7 @@ void foo(int ifval, int finalval, int priorityval)
     // CHECK: DIR.OMP.END.TASKYIELD
     #pragma omp taskyield
     // CHECK: DIR.OMP.TASKWAIT
+    // CHECK: fence acq_rel
     // CHECK: DIR.OMP.END.TASKWAIT
     #pragma omp taskwait
   }

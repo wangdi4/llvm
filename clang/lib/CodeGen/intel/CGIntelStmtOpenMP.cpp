@@ -1263,6 +1263,27 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
 
+  void OpenMPCodeOutliner::addFenceCalls(bool IsBegin) {
+    switch (Directive.getDirectiveKind()) {
+    case OMPD_atomic:
+    case OMPD_critical:
+    case OMPD_single:
+    case OMPD_master:
+      if (IsBegin)
+        CGF.Builder.CreateFence(llvm::AtomicOrdering::Acquire);
+      else
+       CGF.Builder.CreateFence(llvm::AtomicOrdering::Release);
+      break;
+    case OMPD_barrier:
+    case OMPD_taskwait:
+      if (IsBegin)
+       CGF.Builder.CreateFence(llvm::AtomicOrdering::AcquireRelease);
+      break;
+    default:
+      break;
+    }
+  }
+
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)
       : CGF(CGF), C(CGF.CGM.getLLVMContext()), TLPH(CGF), Directive(D) {
@@ -1306,6 +1327,7 @@ namespace CGIntelOpenMP {
         ImplicitMap.insert(std::make_pair(LBDecl, ICK_firstprivate));
       }
     }
+    addFenceCalls(/*IsBegin=*/true);
   }
 
   void OpenMPCodeOutliner::emitMultipleDirectives(DirectiveIntrinsicSet &D) {
@@ -1338,6 +1360,9 @@ namespace CGIntelOpenMP {
   }
 
   OpenMPCodeOutliner::~OpenMPCodeOutliner() {
+
+    addFenceCalls(/*IsBegin=*/false);
+
     addImplicitClauses();
 
     // Insert the start directives

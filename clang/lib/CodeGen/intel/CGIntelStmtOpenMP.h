@@ -84,6 +84,7 @@ class OpenMPCodeOutliner {
   void addArg(StringRef Str);
   void addArg(const Expr *E);
 
+  void addFenceCalls(bool IsBegin);
   void getLegalDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
   void startDirectiveIntrinsicSet(StringRef B, StringRef E,
                                   OpenMPDirectiveKind K = OMPD_unknown);
