@@ -56,22 +56,22 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
 ; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE]] to %opencl.pipe_wo_t
-; CHECK: %[[CALL_BAR_PIPE:.*]] = call i32 @__write_pipe_2_intel({{.*}} %[[CAST_BAR_PIPE]], {{.*}}, i32 4, i32 4)
+; CHECK: %[[CALL_BAR_PIPE:.*]] = call i32 @__write_pipe_2_fpga({{.*}} %[[CAST_BAR_PIPE]], {{.*}}, i32 4, i32 4)
 ; CHECK: %[[BOOL_CALL_BAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_BAR_PIPE]], 0
 ;
 ; CHECK: %[[LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
 ; CHECK: %[[CAST_FAR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_FAR_PIPE]] to %opencl.pipe_wo_t
-; CHECK: %[[CALL_FAR_PIPE:.*]] = call i32 @__write_pipe_2_intel({{.*}} %[[CAST_FAR_PIPE]], {{.*}}, i32 1, i32 1)
+; CHECK: %[[CALL_FAR_PIPE:.*]] = call i32 @__write_pipe_2_fpga({{.*}} %[[CAST_FAR_PIPE]], {{.*}}, i32 1, i32 1)
 ; CHECK: %[[BOOL_CALL_FAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_FAR_PIPE]], 0
 ;
 ; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
 ; CHECK: %[[CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE]] to %opencl.pipe_wo_t
-; CHECK: %[[CALL_STAR_PIPE:.*]] = call i32 @__write_pipe_2_intel({{.*}} %[[CAST_STAR_PIPE]], {{.*}}, i32 16, i32 8)
+; CHECK: %[[CALL_STAR_PIPE:.*]] = call i32 @__write_pipe_2_fpga({{.*}} %[[CAST_STAR_PIPE]], {{.*}}, i32 16, i32 8)
 ; CHECK: %[[BOOL_CALL_STAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_STAR_PIPE]], 0
 ;
 ; CHECK: %[[LOAD_BAR_ARR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR_ARR]]
 ; CHECK: %[[CAST_BAR_ARR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_ARR_PIPE]] to %opencl.pipe_wo_t
-; CHECK: %[[CALL_BAR_ARR_PIPE:.*]] = call i32 @__write_pipe_2_intel({{.*}} %[[CAST_BAR_ARR_PIPE]], {{.*}}, i32 4, i32 4)
+; CHECK: %[[CALL_BAR_ARR_PIPE:.*]] = call i32 @__write_pipe_2_fpga({{.*}} %[[CAST_BAR_ARR_PIPE]], {{.*}}, i32 4, i32 4)
 ; CHECK: %[[BOOL_CALL_BAR_ARR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_BAR_ARR_PIPE]], 0
 
 ; Function Attrs: convergent nounwind

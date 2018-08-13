@@ -44,19 +44,19 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
 ; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE]] to %opencl.pipe_wo_t
-; CHECK: call i32 @__write_pipe_2_bl_intel({{.*}} %[[CAST_BAR_PIPE]], {{.*}}, i32 4, i32 4)
+; CHECK: call i32 @__write_pipe_2_bl_fpga({{.*}} %[[CAST_BAR_PIPE]], {{.*}}, i32 4, i32 4)
 ;
 ; CHECK: %[[LOAD_STAR_PIPE_ARR:.*]] = load {{.*}} @[[PIPE_STAR_ARR]]
 ; CHECK: %[[CAST_STAR_PIPE_ARR:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE_ARR]] to %opencl.pipe_wo_t
-; CHECK: call i32 @__write_pipe_2_bl_intel({{.*}} %[[CAST_STAR_PIPE_ARR]], {{.*}}, i32 8, i32 4)
+; CHECK: call i32 @__write_pipe_2_bl_fpga({{.*}} %[[CAST_STAR_PIPE_ARR]], {{.*}}, i32 8, i32 4)
 ;
 ; CHECK: %[[LOAD_BAR_PIPE1:.*]] = load {{.*}} @[[PIPE_BAR]]
 ; CHECK: %[[CAST_BAR_PIPE1:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE1]] to %opencl.pipe_wo_t
-; CHECK: call i32 @__write_pipe_2_bl_intel({{.*}} %[[CAST_BAR_PIPE1]], {{.*}}, i32 4, i32 4)
+; CHECK: call i32 @__write_pipe_2_bl_fpga({{.*}} %[[CAST_BAR_PIPE1]], {{.*}}, i32 4, i32 4)
 ;
 ; CHECK: %[[LOAD_STAR_PIPE_ARR1:.*]] = load {{.*}} @[[PIPE_STAR_ARR]]
 ; CHECK: %[[CAST_STAR_PIPE_ARR1:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE_ARR1]] to %opencl.pipe_wo_t
-; CHECK: call i32 @__write_pipe_2_bl_intel({{.*}} %[[CAST_STAR_PIPE_ARR1]], {{.*}}, i32 8, i32 4)
+; CHECK: call i32 @__write_pipe_2_bl_fpga({{.*}} %[[CAST_STAR_PIPE_ARR1]], {{.*}}, i32 8, i32 4)
 
 ; Function Attrs: convergent nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 {

@@ -25,9 +25,9 @@ extern "C" {
 //
 // Global constructor and descructor
 //
-void __pipe_init_intel(void *p, cl_int packet_size, cl_int max_packets,
-                       cl_int mode);
-void __pipe_release_intel(void* p);
+void __pipe_init_fpga(void *p, cl_int packet_size, cl_int max_packets,
+                      cl_int mode);
+void __pipe_release_fpga(void* p);
 
 //
 // Flush mechanism support
@@ -39,15 +39,16 @@ void __flush_write_pipe(void* p);
 
 // Main read/write built-ins
 //
-cl_int __read_pipe_2_intel(void* p, void* dst, cl_int size, cl_int align);
-cl_int __write_pipe_2_intel(void *p, const void *src, cl_int size,
-                            cl_int align);
+cl_int __read_pipe_2_fpga(void* p, void* dst, cl_int size, cl_int align);
+cl_int __write_pipe_2_fpga(void *p, const void *src, cl_int size,
+                           cl_int align);
 
 //
 // Info queries
 //
-cl_int __pipe_get_max_packets(cl_int depth, cl_int mode);
-cl_int __pipe_get_total_size(cl_int packet_size, cl_int depth, cl_int mode);
+cl_int __pipe_get_max_packets_fpga(cl_int depth, cl_int mode);
+cl_int __pipe_get_total_size_fpga(cl_int packet_size, cl_int depth,
+                                  cl_int mode);
 
 } // extern "C"
 

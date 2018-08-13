@@ -107,7 +107,10 @@ typedef struct _tag_pipe_control_intel_t {
 
 #define RTOS(r) ((size_t)(__builtin_astype((r), void *)))
 #define STOR(s) (__builtin_astype(((void *)(s)), reserve_id_t))
-#define PTOC(p) (__builtin_astype((p), __global pipe_control_intel_t *))
+// Defined in LLVM IR, because OpenCL standard does not allow cast from pipe
+// (opaque pointer) to other pointer type.
+__global pipe_control_intel_t* __ocl_wpipe2ptr(write_only pipe uchar p);
+__global pipe_control_intel_t* __ocl_rpipe2ptr(read_only pipe uchar p);
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Helper Functions (static)
@@ -175,7 +178,7 @@ intel_unlock_pipe_write(__global pipe_control_intel_t *p) {
 reserve_id_t __reserve_read_pipe(read_only pipe uchar pipe_, uint num_packets,
                                uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: reserve_read_pipe( num_packets = %d)\n", num_packets);
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_rpipe2ptr(pipe_);
   reserve_id_t retVal = CLK_NULL_RESERVE_ID;
 
   // The maximum possible reservation number is (_pipe_max_packets_plus_one - 1)
@@ -237,7 +240,7 @@ reserve_id_t __reserve_read_pipe(read_only pipe uchar pipe_, uint num_packets,
 reserve_id_t __reserve_write_pipe(write_only pipe uchar pipe_, uint num_packets,
                                 uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: reserve_write_pipe( num_packets = %d)\n", num_packets);
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_wpipe2ptr(pipe_);
   reserve_id_t retVal = CLK_NULL_RESERVE_ID;
 
   if (num_packets >= p->pipe_max_packets_plus_one || 0 == num_packets) {
@@ -300,7 +303,7 @@ reserve_id_t __reserve_write_pipe(write_only pipe uchar pipe_, uint num_packets,
 void __commit_read_pipe(read_only pipe uchar pipe_, reserve_id_t reserve_id,
                         uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: commit_read_pipe( reserve_id = %08X)\n", reserve_id);
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_rpipe2ptr(pipe_);
 
   intel_unlock_pipe_read(p);
   INTEL_PIPE_DPF("EXIT: commit_read_pipe\n");
@@ -309,7 +312,7 @@ void __commit_read_pipe(read_only pipe uchar pipe_, reserve_id_t reserve_id,
 void __commit_write_pipe(write_only pipe uchar pipe_, reserve_id_t reserve_id,
                          uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: commit_write_pipe( reserve_id = %08X)\n", reserve_id);
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_wpipe2ptr(pipe_);
 
   intel_unlock_pipe_write(p);
   INTEL_PIPE_DPF("EXIT: commit_write_pipe\n");
@@ -324,7 +327,7 @@ int __read_pipe_4(read_only pipe uchar pipe_, reserve_id_t reserve_id, uint inde
                   uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: read_pipe( reserve_id = %08X, index = %d)\n",
                  reserve_id, index);
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_rpipe2ptr(pipe_);
   int retVal = -1;
 
   if (is_valid_reserve_id(reserve_id)) {
@@ -348,7 +351,7 @@ int __write_pipe_4(write_only pipe uchar pipe_, reserve_id_t reserve_id, uint in
                    void *data, uint size_of_packet, uint alignment_of_packet) {
   INTEL_PIPE_DPF("ENTER: write_pipe( reserve_id = %08X, index = %d)\n",
                  reserve_id, index);
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_wpipe2ptr(pipe_);
   int retVal = -1;
 
   if (is_valid_reserve_id(reserve_id)) {
@@ -371,7 +374,7 @@ int __write_pipe_4(write_only pipe uchar pipe_, reserve_id_t reserve_id, uint in
 // Basic Reads and Writes
 int __read_pipe_2( read_only pipe uchar pipe_, void* data, uint size_of_packet, uint alignment_of_packet)
 {
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+  __global pipe_control_intel_t* p = __ocl_rpipe2ptr(pipe_);
   INTEL_PIPE_DPF( "ENTER: read_pipe\n" );
 
   int retVal = -1;
@@ -431,7 +434,7 @@ int __read_pipe_2( read_only pipe uchar pipe_, void* data, uint size_of_packet, 
 int __write_pipe_2(write_only pipe uchar pipe_, void* data, uint size_of_packet, uint alignment_of_packet)
 {
   INTEL_PIPE_DPF( "ENTER: write_pipe\n" );
-  __global pipe_control_intel_t* p = PTOC(pipe_);
+  __global pipe_control_intel_t* p = __ocl_wpipe2ptr(pipe_);
 
   int retVal = -1;
   if( intel_lock_pipe_write( p ) )
@@ -504,21 +507,21 @@ static uint __get_pipe_num_packets(__global pipe_control_intel_t *p) {
 }
 uint __get_pipe_num_packets_ro(read_only pipe uchar pipe_, uint size_of_packet,
                                uint alignment_of_packet) {
-  return __get_pipe_num_packets(PTOC(pipe_));
+  return __get_pipe_num_packets(__ocl_rpipe2ptr(pipe_));
 }
 uint __get_pipe_num_packets_wo(write_only pipe uchar pipe_, uint size_of_packet,
                                uint alignment_of_packet) {
-  return __get_pipe_num_packets(PTOC(pipe_));
+  return __get_pipe_num_packets(__ocl_wpipe2ptr(pipe_));
 }
 
 uint __get_pipe_max_packets_ro(read_only pipe uchar pipe_, uint size_of_packet,
                                uint alignment_of_packet) {
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_rpipe2ptr(pipe_);
   return p->pipe_max_packets_plus_one - 1;
 }
 uint __get_pipe_max_packets_wo(write_only pipe uchar pipe_, uint size_of_packet,
                                uint alignment_of_packet) {
-  __global pipe_control_intel_t *p = PTOC(pipe_);
+  __global pipe_control_intel_t *p = __ocl_wpipe2ptr(pipe_);
   return p->pipe_max_packets_plus_one - 1;
 }
 

@@ -25,6 +25,7 @@
 #include "llvm/IR/Module.h"
 
 #include <PipeCommon.h>
+#include <OCLAddressSpace.h>
 
 #include <string>
 #include <vector>
@@ -96,15 +97,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     OpKind Op = OpKind::NONE;
     bool Blocking = false;
     bool IO = false;
+    bool FPGA = false;
     std::string SimdSuffix = "";
 
     bool operator == (const PipeKind &LHS) const {
-      return Scope      == LHS.Scope    &&
-             Access     == LHS.Access   &&
-             Op         == LHS.Op       &&
-             Blocking   == LHS.Blocking &&
-             IO         == LHS.IO       &&
-             SimdSuffix == LHS.SimdSuffix;
+      return Scope      == LHS.Scope      &&
+             Access     == LHS.Access     &&
+             Op         == LHS.Op         &&
+             Blocking   == LHS.Blocking   &&
+             IO         == LHS.IO         &&
+             SimdSuffix == LHS.SimdSuffix &&
+             FPGA       == LHS.FPGA;
     }
 
     operator bool () const {
@@ -592,6 +595,48 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
     Module &getTargetModule() { return TargetModule; }
+  };
+
+  class PipeTypesHelper {
+  private:
+    Type *PipeRWTy = nullptr;
+    Type *PipeROTy = nullptr;
+    Type *PipeWOTy = nullptr;
+
+  public:
+    PipeTypesHelper(Type *PipeRWTy, Type *PipeROTy, Type *PipeWOTy)
+        : PipeRWTy(PipeRWTy ? PointerType::get(PipeRWTy,
+                                               Utils::OCLAddressSpace::Global)
+                            : nullptr),
+          PipeROTy(PipeROTy ? PointerType::get(PipeROTy,
+                                               Utils::OCLAddressSpace::Global)
+                            : nullptr),
+          PipeWOTy(PipeWOTy ? PointerType::get(PipeWOTy,
+                                               Utils::OCLAddressSpace::Global)
+                            : nullptr) {}
+
+    PipeTypesHelper(Module &M)
+        : PipeTypesHelper(M.getTypeByName("opencl.pipe_rw_t"),
+                          M.getTypeByName("opencl.pipe_ro_t"),
+                          M.getTypeByName("opencl.pipe_wo_t")) {}
+
+    bool hasPipeTypes() const {
+      return PipeRWTy || PipeROTy || PipeWOTy;
+    }
+
+    bool isLocalPipeType(Type *Ty) const {
+      return (PipeROTy &&
+              CompilationUtils::isSameStructPtrType(Ty, PipeROTy)) ||
+             (PipeWOTy && CompilationUtils::isSameStructPtrType(Ty, PipeWOTy));
+    }
+
+    bool isGlobalPipeType(Type *Ty) const {
+      return PipeRWTy && CompilationUtils::isSameStructPtrType(Ty, PipeRWTy);
+    }
+
+    bool isPipeType(Type *Ty) const {
+      return isLocalPipeType(Ty) || isGlobalPipeType(Ty);
+    }
   };
 
   //

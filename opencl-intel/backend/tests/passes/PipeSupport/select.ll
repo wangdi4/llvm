@@ -1,6 +1,6 @@
 ; Compiled from:
 ; ----------------------------------------------------
-; #pragma OPENCL EXTENSION cl_altera_channels : enable
+; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ;
 ; channel int ch1;
 ; channel int ch2;
@@ -18,7 +18,7 @@
 ; CHECK:      %[[SELECT:[0-9]+]] = select i1 %tobool, %opencl.pipe_rw_t
 ; CHECK:      %[[PIPERO:[0-9]+]] = bitcast %opencl.pipe_rw_t {{.*}} %[[SELECT]] to %opencl.pipe_ro_t
 ; CHECK:      call void @__store_read_pipe_use({{.*}} %opencl.pipe_ro_t addrspace(1)* %[[PIPERO:[0-9]+]]
-; CHECK:      %[[CALL:.+]] = call i32 @__read_pipe_2_intel(%opencl.pipe_ro_t addrspace(1)* %[[PIPERO]]
+; CHECK:      %[[CALL:.+]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPERO]]
 ; CHECK-NEXT: %[[ICMP:.+]] = icmp ne i32 %[[CALL]], 0
 ; CHECK-NEXT: br i1 %[[ICMP]], label %[[FLUSHBB:[0-9]+]]
 ; CHECK: ; <label>:[[FLUSHBB]]
@@ -54,7 +54,7 @@ entry:
   %1 = select i1 %tobool, %opencl.channel_t addrspace(1)* %ch2.val, %opencl.channel_t addrspace(1)* %ch1.val
   %2 = bitcast %opencl.pipe_rw_t addrspace(1)* %0 to %opencl.pipe_ro_t addrspace(1)*
   %3 = addrspacecast i32* %read.dst to i8 addrspace(4)*
-  %call12 = call i32 @__read_pipe_2_bl_intel(%opencl.pipe_ro_t addrspace(1)* %2, i8 addrspace(4)* %3, i32 4, i32 4)
+  %call12 = call i32 @__read_pipe_2_bl_fpga(%opencl.pipe_ro_t addrspace(1)* %2, i8 addrspace(4)* %3, i32 4, i32 4)
   %4 = load i32, i32* %read.dst
   store i32 %4, i32 addrspace(1)* %res, align 4, !tbaa !11
   ret void
@@ -62,20 +62,20 @@ entry:
 
 define void @__pipe_global_ctor() {
 entry:
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch1.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
+  call void @__pipe_init_fpga(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch1.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
   store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch1.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch1.pipe
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch2.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
+  call void @__pipe_init_fpga(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch2.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
   store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch2.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch2.pipe
   ret void
 }
 
 ; Function Attrs: nounwind readnone
-declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #1
+declare void @__pipe_init_fpga(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #1
 
 ; Function Attrs: nounwind readnone
-declare i32 @__read_pipe_2_intel(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)* nocapture, i32, i32) #1
+declare i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)* nocapture, i32, i32) #1
 
-declare i32 @__read_pipe_2_bl_intel(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
+declare i32 @__read_pipe_2_bl_fpga(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readnone }

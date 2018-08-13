@@ -19,7 +19,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 ; CHECK: %[[PHI:.*]] = phi %opencl.pipe_rw_t addrspace(1)* [ %[[PIPE1VAL]], %if.then ], [ %[[PIPE2VAL]], %if.else ], [ %[[PHI]], %if.end ]
 ; CHECK: %[[PHICAST:.*]] = bitcast %opencl.pipe_rw_t addrspace(1)* %[[PHI]] to %opencl.pipe_ro_t
-; CALL: call i32 @__read_pipe_2_bl_intel(%opencl.pipe_ro_t addrspace(1)* %[[PHICAST]]
+; CALL: call i32 @__read_pipe_2_bl(%opencl.pipe_ro_t addrspace(1)* %[[PHICAST]]
 
 ; Function Attrs: nounwind
 define spir_kernel void @k(i32 addrspace(1)* %cond, i32 addrspace(1)* %res) #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 {

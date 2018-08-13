@@ -102,22 +102,22 @@ void __flush_write_pipe(__global void* p);
 //
 // Global constructor and desctructor
 //
-void __pipe_init_intel(__global struct __pipe_t *p, int packet_size,
-                       int max_packets, int mode);
-void __pipe_release_intel(__global struct __pipe_t* p);
+void __pipe_init_fpga(__global struct __pipe_t *p, int packet_size,
+                      int max_packets, int mode);
+void __pipe_release_fpga(__global struct __pipe_t* p);
 
 //
 // Main read/write built-ins
 //
-int __read_pipe_2_intel(read_only pipe uchar p, void *dst, uint size,
+int __read_pipe_2_fpga(read_only pipe uchar p, void *dst, uint size,
+                       uint align);
+int __write_pipe_2_fpga(write_only pipe uchar p, const void *src, uint size,
                         uint align);
-int __write_pipe_2_intel(write_only pipe uchar p, const void *src, uint size,
-                         uint align);
 
 //
 // Info queries
 //
-int __pipe_get_max_packets(int depth, int mode);
-int __pipe_get_total_size(int packet_size, int depth, int mode);
+int __pipe_get_max_packets_fpga(int depth, int mode);
+int __pipe_get_total_size_fpga(int packet_size, int depth, int mode);
 
 #endif // __PIPES_INTERNAL_H__

@@ -48,13 +48,13 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK-NEXT: @[[PIPE_STAR_ARR:.*]] = addrspace(1) global [5 x [4 x [3 x %opencl.pipe_rw_t{{.*}} addrspace(1)*]]] zeroinitializer, align 16, !packet_size !0, !packet_align !0
 ; CHECK-NEXT: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
 ;
-; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_BAR]].bs {{.*}}, i32 4, i32 0
+; CHECK-DAG: call void @__pipe_init_fpga({{.*}}* @[[PIPE_BAR]].bs {{.*}}, i32 4, i32 0
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR]].bs {{.*}}, {{.*}}* @[[PIPE_BAR]]
 ;
-; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_FAR]].bs {{.*}}, i32 4, i32 3
+; CHECK-DAG: call void @__pipe_init_fpga({{.*}}* @[[PIPE_FAR]].bs {{.*}}, i32 4, i32 3
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR]].bs {{.*}}, {{.*}}* @[[PIPE_FAR]]
 ;
-; CHECK-DAG: call void @__pipe_init_intel({{.*}}* @[[PIPE_STAR]].bs {{.*}}, i32 4, i32 0
+; CHECK-DAG: call void @__pipe_init_fpga({{.*}}* @[[PIPE_STAR]].bs {{.*}}, i32 4, i32 0
 ; CHECK-DAG: store {{.*}}* @[[PIPE_STAR]].bs {{.*}}, {{.*}}* @[[PIPE_STAR]]
 ;
 ; CHECK-DAG: store {{.*}}* @[[PIPE_STAR_ARR]].bs {{.*}}, {{.*}}* @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 0, i32 0)
@@ -118,14 +118,14 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK-DAG: store {{.*}}* @[[PIPE_STAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 3, i32 1)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_STAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 3, i32 2)
 
-; CHECK-DAG: call void @__pipe_init_array_intel({{.*}} @[[PIPE_STAR_ARR]] {{.*}}, i32 60, i32 4, i32 0
+; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_STAR_ARR]] {{.*}}, i32 60, i32 4, i32 0
 ;
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 0)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 1)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 2)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 3)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 4)
-; CHECK-DAG: call void @__pipe_init_array_intel({{.*}} @[[PIPE_BAR_ARR]] {{.*}}, i32 5, i32 4, i32 0
+; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_BAR_ARR]] {{.*}}, i32 5, i32 4, i32 0
 ;
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 0, i32 0)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 0, i32 1)
@@ -147,7 +147,7 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 1)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 2)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i32 0, i32 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 3)
-; CHECK-DAG: call void @__pipe_init_array_intel({{.*}} @[[PIPE_FAR_ARR]] {{.*}}, i32 20, i32 4, i32 3
+; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_FAR_ARR]] {{.*}}, i32 20, i32 4, i32 3
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !12 !kernel_arg_type !12 !kernel_arg_base_type !12 !kernel_arg_type_qual !12 {

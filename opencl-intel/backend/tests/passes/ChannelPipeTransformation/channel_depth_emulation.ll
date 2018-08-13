@@ -25,9 +25,9 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; STRICT-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
 
 ; CHECK: define {{.*}}@__pipe_global_ctor
-; IGNOREDEPTH: call void @__pipe_init_intel({{.*}} @ch.pipe.bs {{.*}}, i32 4, i32 0, i32 2)
-; DEFAULT: call void @__pipe_init_intel({{.*}} @ch.pipe.bs {{.*}}, i32 4, i32 0, i32 1)
-; STRICT: call void @__pipe_init_intel({{.*}} @ch.pipe.bs {{.*}}, i32 4, i32 0, i32 0)
+; IGNOREDEPTH: call void @__pipe_init_fpga({{.*}} @ch.pipe.bs {{.*}}, i32 4, i32 0, i32 2)
+; DEFAULT: call void @__pipe_init_fpga({{.*}} @ch.pipe.bs {{.*}}, i32 4, i32 0, i32 1)
+; STRICT: call void @__pipe_init_fpga({{.*}} @ch.pipe.bs {{.*}}, i32 4, i32 0, i32 0)
 
 ; Function Attrs: convergent nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 {
