@@ -9,9 +9,7 @@ use_rtti(TRUE)
 # "This increases footprint of the driver and don't bring value to iGFX driver product.
 # This library should be distributed as part of SDK which is targeted for developers not final users."
 
-set(DLL_VERSION 6)
-
-set(TARGET_NAME OclCpuDebugging${DLL_VERSION})
+set(TARGET_NAME "${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION}")
 
 project(${TARGET_NAME})
 
