@@ -97,7 +97,10 @@ class FakeInsert : public FakeVectorOp {
   Value* getNewEltArg()             { return Call.getArgOperand(1); }
   const Value* getNewEltArg() const { return Call.getArgOperand(1); }
   /// Returns true if call is a call to a fake insert
-  static bool isFakeInsert(const CallInst &call) { return Mangler::isFakeInsert(call.getCalledFunction()->getName()); }
+  static bool isFakeInsert(const CallInst &call) {
+    assert(call.getCalledFunction() && "Unexpected indirect call");
+    return Mangler::isFakeInsert(call.getCalledFunction()->getName());
+  }
   /// Factory method
   /// vec - the base vector to insert element into.
   /// indConst - the constant index to mimic extract for.

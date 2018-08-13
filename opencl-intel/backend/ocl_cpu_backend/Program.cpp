@@ -198,8 +198,8 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
         {
             currentKernel = stats->GetBackendFactory()->CreateKernel();
             currentKernel->Deserialize(ist, stats);
+            m_kernels->AddKernel(currentKernel);
         }
-        m_kernels->AddKernel(currentKernel);
     }
     unsigned long long int tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
