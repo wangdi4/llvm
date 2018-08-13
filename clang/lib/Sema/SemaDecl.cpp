@@ -9178,6 +9178,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   // Finally, we know we have the right number of parameters, install them.
   NewFD->setParams(Params);
 
+#if INTEL_CUSTOMIZATION
+  for (const ParmVarDecl *Param : Params) {
+    QualType QTy = Param->getOriginalType().getDesugaredType(Context);
+    if (QTy->isChannelType())
+      DeclareOCLChannelBuiltins(QTy, S);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (D.getDeclSpec().isNoreturnSpecified())
     NewFD->addAttr(
         ::new(Context) C11NoReturnAttr(D.getDeclSpec().getNoreturnSpecLoc(),
