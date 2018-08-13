@@ -1504,6 +1504,20 @@ operator()(const Memop &a_memop, const Memop &b_memop, bool looped) const {
   if (RaceModeOrdering)
     return false;
 
+  // Make sure volatile accesses are ordered with everything.
+  if (a->isVolatile() or b->isVolatile())
+    return true;
+
+  // Make sure that > Monotonic atomics are also ordered with everything.
+  // TODO: This is too strict: we're allowed to let loads/stores happen
+  // before/after atomics in certain cases but more work is needed to ensure
+  // that the lack of symmetry in these cases is handled correctly.
+  if (isStrongerThanMonotonic(a->getOrdering()) or
+      isStrongerThanMonotonic(a->getFailureOrdering()) or
+      isStrongerThanMonotonic(b->getOrdering()) or
+      isStrongerThanMonotonic(b->getFailureOrdering()))
+    return true;
+
   // If neither can store, they don't need ordering. However, if either is a
   // prefetch this check should be ignored.
   const bool neither_is_prefetch = a_memop.MI->getOpcode() != CSA::PREFETCH and

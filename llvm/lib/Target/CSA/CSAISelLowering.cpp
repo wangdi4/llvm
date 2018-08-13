@@ -494,7 +494,7 @@ SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
 
   SDLoc DL(Op);
   return DAG.getLoad(AL->getMemoryVT(), DL, AL->getChain(), AL->getBasePtr(),
-                     AL->getPointerInfo(), AL->getAlignment());
+                     AL->getMemOperand());
 }
 
 SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
@@ -507,7 +507,7 @@ SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
 
   SDLoc DL(Op);
   return DAG.getStore(AS->getChain(), DL, AS->getVal(), AS->getBasePtr(),
-                      AS->getPointerInfo(), AS->getAlignment());
+                      AS->getMemOperand());
 }
 
 SDValue CSATargetLowering::LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const {
