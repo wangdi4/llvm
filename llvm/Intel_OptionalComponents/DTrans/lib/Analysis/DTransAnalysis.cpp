@@ -2998,7 +2998,7 @@ public:
   }
 
   void visitCallSite(CallSite CS) {
-    SmallPtrSet<Value *, 3> SpecialArguments;
+    SmallPtrSet<const Value *, 3> SpecialArguments;
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
@@ -6455,7 +6455,8 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   return DTransTy;
 }
 
-dtrans::CallInfo *DTransAnalysisInfo::getCallInfo(llvm::Instruction *I) const {
+dtrans::CallInfo *
+DTransAnalysisInfo::getCallInfo(const llvm::Instruction *I) const {
   auto Entry = CallInfoMap.find(I);
   if (Entry == CallInfoMap.end())
     return nullptr;
@@ -6784,6 +6785,10 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_DeleteField;
         else if (TransformationAndTypes.first == "aostosoa")
           TransName = dtrans::DT_AOSToSOA;
+        else if (TransformationAndTypes.first == "aostosoadependent")
+          TransName = dtrans::DT_AOSToSOADependent;
+        else if (TransformationAndTypes.first == "aostosoadependentindex32")
+          TransName = dtrans::DT_AOSToSOADependentIndex32;
         else if (TransformationAndTypes.first == "elimrofieldaccess")
           TransName = dtrans::DT_ElimROFieldAccess;
         else if (TransformationAndTypes.first == "dynclone")
@@ -6874,6 +6879,10 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) {
     return false;
   }
   return true;
+}
+
+bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
+  return DTransOutOfBoundsOK;
 }
 
 bool DTransAnalysisInfo::analyzeModule(

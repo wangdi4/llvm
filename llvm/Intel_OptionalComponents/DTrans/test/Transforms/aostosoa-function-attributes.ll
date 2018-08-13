@@ -1,5 +1,5 @@
-; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat -whole-program-assume 2>&1 | FileCheck %s
 
 
 ; This test verifies that function attributes on the function signatures and
@@ -22,7 +22,6 @@ define i32 @main(i32 %argc, i8** %argv) {
   call void @test03caller();
   call void @test04caller();
   call void @test05caller();
-  call void @test06caller(i32 0);
   ret i32 0
 }
 
@@ -31,7 +30,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; updated for the arguments that are changed from pointers to the structure
 ; to being integer index values. Also, verify the return value attributes
 ; are updated.
-define void @test01caller() {
+define internal void @test01caller() {
   %local1 = alloca %struct.test01*
   %local2 = alloca %struct.test01*
   %local3 = alloca i8*
@@ -44,13 +43,14 @@ define void @test01caller() {
   %res = call nonnull %struct.test01* @test01callee(%struct.test01* noalias %local1_val, %struct.test01* nocapture nonnull %local2_val, i8* nonnull %local3_val)
   ret void
 }
+; CHECK-LABEL: define internal void @test01caller
 ; CHECK: %res = call i64 @test01callee.1(i64 %local1_val, i64 %local2_val, i8* nonnull %local3_val)
 
 
 ; Verify that pointer-to-pointer parameter types at the call site of a
 ; structure being transformed do not get their attributes stripped when
 ; the parameter type is converted to an integer index.
-define void @test02caller() {
+define internal void @test02caller() {
   %local1 = alloca %struct.test01**
   %local2 = alloca %struct.test01**
   %local3 = alloca i8*
@@ -63,12 +63,13 @@ define void @test02caller() {
   %res = call nonnull %struct.test01** @test02callee(%struct.test01** noalias %local1_val, %struct.test01** nocapture nonnull %local2_val, i8* nonnull %local3_val)
   ret void
 }
+; CHECK-LABEL: define internal void @test02caller
 ; CHECK: call nonnull i64* @test02callee.2(i64* noalias %local1_val, i64* nocapture nonnull %local2_val, i8* nonnull %local3_val)
 
 
 ; Verify changes to attributes do not occur on the pointers of dependent
 ; data types that get renamed.
-define void @test03caller() {
+define internal void @test03caller() {
   %local1 = alloca %struct.test02*
   %local2 = alloca %struct.test02*
   %local1_val = load %struct.test02*, %struct.test02** %local1
@@ -76,11 +77,12 @@ define void @test03caller() {
   %res = call nonnull %struct.test02* @test03callee(%struct.test02* noalias %local1_val, %struct.test02* nocapture nonnull %local2_val)
   ret void
 }
+; CHECK-LABEL: define internal void @test03caller
 ; CHECK: call nonnull %__SOADT_struct.test02* @test03callee.3(%__SOADT_struct.test02* noalias %local1_val, %__SOADT_struct.test02* nocapture nonnull %local2_val)
 
 
 ; Verify changes to attributes do not occur on non-cloned routines.
-define void @test04caller() {
+define internal void @test04caller() {
   %local1 = alloca i8*
   %local2 = alloca i8*
   %local1_val = load i8*, i8** %local1
@@ -88,47 +90,22 @@ define void @test04caller() {
   %res = call nonnull i8* @test04callee(i8* noalias %local1_val, i8* nocapture nonnull %local2_val)
   ret void
 }
+; CHECK-LABEL: define internal void @test04caller
 ; CHECK: call nonnull i8* @test04callee(i8* noalias %local1_val, i8* nocapture nonnull %local2_val)
 
-; Verify changes to attributes when 'invoke' is used instead of 'call'.
-; The behavior for updating attributes should be the same, but be sure
-; the 'invoke' instruction is handled properly.
-define void @test05caller() personality i32 (...)* @__gxx_personality_v0 {
-  %local1 = alloca %struct.test01*
-  %local2 = alloca %struct.test01*
-  %local3 = alloca i8*
-  %local1_val = load %struct.test01*, %struct.test01** %local1
-  %local2_val = load %struct.test01*, %struct.test01** %local2
-  %local3_val = load i8*, i8** %local3
-; FIXME: These instructions are commented out because invoke instructions are
-; currently "unhandled use" instructions which would cause struct.test01 to
-; fail the safety checks.
-;  %res = invoke nonnull %struct.test01* @test05callee(%struct.test01* noalias %local1_val, %struct.test01* nocapture nonnull %local2_val, i8* nonnull %local3_val)
-;    to label %invoke.cont05 unwind label %invoke.lpad
-;invoke.cont05:
-  ret void
-;invoke.lpad:
-;  %exn = landingpad {i8*, i32} cleanup
-;  unreachable
-}
-; FIXME: invoke i64 @test05callee.4(i64 %local1_val, i64 %local2_val, i8* nonnull %local3_val)
-
-
 ; Verify changes to attributes when using an indirect function call.
-%struct.test06 = type { i32, [2 x void (%struct.test01*)*] }
-@g_test06 = global %struct.test06 { i32 2, [2 x void (%struct.test01*)*] [ void (%struct.test01*)* @test06callee, void (%struct.test01*)* @test06callee ] }
-define void @test06caller(i32 %in1) {
+%struct.test05 = type { i32, void (%struct.test01*)* }
+@g_test05 = global %struct.test05 { i32 1, void (%struct.test01*)* @test05callee }
+define internal void @test05caller() {
   %local1 = alloca %struct.test01*
   %local1_val = load %struct.test01*, %struct.test01** %local1
-  %field_addr = getelementptr inbounds %struct.test06, %struct.test06* @g_test06, i32 0, i32 1, i32 %in1
+  %field_addr = getelementptr inbounds %struct.test05, %struct.test05* @g_test05, i32 0, i32 1
   %func_addr = load void (%struct.test01*)*, void (%struct.test01*)** %field_addr
-; FIXME: The indirect call is commented out because all arguments of indirect
-; calls currently get marked as address taken, which would cause struct.test01
-; to fail the safety checks.
-;  call void %func_addr(%struct.test01* nocapture nonnull %local1_val)
+  call void %func_addr(%struct.test01* nocapture nonnull %local1_val)
   ret void
 }
-; FIXME: call void %func_addr(i64 %local1_val)
+; CHECK-LABEL: void @test05caller
+; CHECK: call void %func_addr(i64 %local1_val)
 
 
 ; Test with non-cloned call. None of the attributes should be changed.
@@ -165,26 +142,17 @@ define nonnull %struct.test01** @test02callee(%struct.test01** noalias nonnull r
 
 ; Verify changes to attributes do not occur on the pointers of dependent
 ; data types that get renamed
-define nonnull %struct.test02* @test03callee(%struct.test02* noalias nonnull readnone %in1, %struct.test02* nocapture %in2) {
+define internal nonnull %struct.test02* @test03callee(%struct.test02* noalias nonnull readnone %in1, %struct.test02* nocapture %in2) {
   %sel = select i1 undef, %struct.test02* %in1, %struct.test02* %in2
   ret %struct.test02* %sel
 }
 ; CHECK define internal nonnull %__SOADT_struct.test02* @test03callee.3(%__SOADT_struct.test02* noalias nonnull readnone %in1, %__SOADT_struct.test02* nocapture %in2)
 
-; This function is called for testing the usage of 'invoke'.
-; The checks for test01callee already cover the verification of the
-; function signature attributes, so no checks needed on this one.
-define nonnull %struct.test01* @test05callee(%struct.test01* noalias nonnull readonly dereferenceable(8) %in1, %struct.test01* nocapture nonnull readnone %in2, i8* noalias nonnull %in3) {
-  %sel = select i1 undef, %struct.test01* %in1, %struct.test01* %in2
-  ret %struct.test01* %sel
-}
-
 ; This function is called for testing indirect calls.
 ; The checks for test01callee already cover the verification of the
 ; function signature attributes, so no checks needed on this one.
-define void @test06callee(%struct.test01* noalias nonnull %in1) {
+define internal void @test05callee(%struct.test01* noalias nonnull %in1) {
   ret void
 }
 
 declare i8* @calloc(i64, i64)
-declare i32 @__gxx_personality_v0(...)

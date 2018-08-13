@@ -19,6 +19,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -204,6 +205,16 @@ bool DTransOptBase::run(Module &M) {
   transformIR(M, Mapper);
 
   removeDeadValues();
+
+#if !defined(NDEBUG)
+  // Do a sanity check of the IR for the DTrans optimizations to catch any
+  // problems introduced while the transformations are being developed. This
+  // code may be removed later after DTrans is stable. verifyModule returns
+  // 'true' if errors are found.
+  if (verifyModule(M))
+    report_fatal_error(
+      "Module verifier found errors following a DTrans optimization");
+#endif // !defined(NDEBUG)
 
   return true;
 }

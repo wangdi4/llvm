@@ -28,7 +28,10 @@
 using namespace llvm;
 using namespace dtrans;
 
+#include "SOAToAOSEffects.h"
+
 #define DEBUG_TYPE "dtrans-soatoaos"
+#define DTRANS_SOADEP "dtrans-soatoaos-deps"
 
 static cl::opt<bool>
     DTransSOAToAOSGlobalGuard("enable-dtrans-soatoaos", cl::init(false),
@@ -259,7 +262,7 @@ private:
       typename BaseTy::reference operator*() const { return &*this->wrapped(); }
     };
 
-    // Accessing method sets of arrays.
+    // Updating method sets of arrays.
     using iterator = MethodsIter<ArrayMethodSetTy::iterator>;
 
     iterator methodsets_begin() { return iterator(ArrayFieldsMethods.begin()); }
@@ -274,7 +277,25 @@ private:
     ArrayMethodSetTy ArrayFieldsMethods;
   };
 
-  class CandidateInfo : public CandidateCFGInfo {
+  // Relatively heavy weight checks to classify methods, see MethodKind.
+  // Has internal memory handling for DepMap:
+  // copying is forbidden.
+  //
+  class CandidateSideEffectsInfo : public CandidateCFGInfo, DepMap {
+  public:
+    // Computes dependencies using DepMap.
+    bool populateSideEffects(SOAToAOSTransformImpl &Impl, Module &M);
+
+  protected:
+    CandidateSideEffectsInfo() {}
+
+  private:
+    CandidateSideEffectsInfo(const CandidateSideEffectsInfo &) = delete;
+    CandidateSideEffectsInfo &
+    operator=(const CandidateSideEffectsInfo &) = delete;
+  };
+
+  class CandidateInfo : public CandidateSideEffectsInfo {
   public:
     void setCandidateStructs(SOAToAOSTransformImpl &Impl,
                              dtrans::StructInfo *S) {
@@ -518,6 +539,8 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
         continue;
       }
 
+      // Only pointers as elements are permitted.
+      // This assumption simplifies allocation size computations.
       if (!ExtractPointeeTy(ExtractPointeeTy(E)))
         return FALSE();
 
@@ -552,6 +575,8 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
           if (IsPaddingFieldCandidate(E) || E->isIntegerTy())
             continue;
 
+        // Only pointers as elements are permitted.
+        // This assumption simplifies allocation size computations.
         if (!ExtractPointeeTy(ExtractPointeeTy(E)))
           return FALSE();
 
@@ -689,6 +714,35 @@ bool SOAToAOSTransformImpl::CandidateCFGInfo::populateCFGInformation(
   return true;
 }
 
+bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
+    SOAToAOSTransformImpl &Impl, Module &M) {
+  for (auto Pair : zip_first(methodsets(), fields()))
+    for (auto *F : *std::get<0>(Pair)) {
+      DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, std::get<1>(Pair),
+                    *this);
+
+      auto &AllMethods = *std::get<0>(Pair);
+
+      // Mark calls to methods as known.
+      std::function<bool(const Function *)> IsMethod =
+          [&AllMethods](const Function *F) -> bool {
+        return std::find(AllMethods.begin(), AllMethods.end(), F) !=
+               AllMethods.end();
+      };
+      DC.computeDepApproximation(IsMethod);
+
+      DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+        dbgs() << "; Dump computed dependencies ";
+
+        DepMap::DepAnnotatedWriter Annotate(*this);
+        F->print(dbgs(), &Annotate);
+      });
+    }
+
+  // FIXME: if there is DK_BOTTOM exit.
+  return true;
+}
+
 // FIXME: make sure padding fields are dead.
 bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 
@@ -710,6 +764,15 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " because it does not look like a candidate from CFG "
                   "analysis.\n";
+      });
+      continue;
+    }
+
+    if (!Info->populateSideEffects(*this, M)) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because some methods contains unknown side effect.\n";
       });
       continue;
     }
