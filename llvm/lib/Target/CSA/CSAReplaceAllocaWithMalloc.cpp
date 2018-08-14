@@ -362,6 +362,7 @@ static void deleteUnusedMathFunctions(Module &M, Function *CSAMalloc,
         FuncsToDelete.push_back(F);
       } else {
         FuncsMarkedAsUsed_V.push_back(UsedList->getOperand(i));
+        F->setLinkage(llvm::Function::InternalLinkage);
       }
     }
   UsedV->eraseFromParent();
@@ -478,6 +479,10 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
   } // End of F loop
   deleteInstructions();
   removeCSAMemoryFunctionsFromUsedList(M,CSAMalloc,CSAFree,CSAInitialize);
+  // Fix properties for CSAInitialize
+  CSAInitialize->setLinkage(llvm::Function::ExternalLinkage);
+  CSAInitialize->removeFromParent();
+  M.getFunctionList().push_back(CSAInitialize);
   return true;
 }
 
