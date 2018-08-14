@@ -399,8 +399,11 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
   const DataLayout &DL = M.getDataLayout();
   LLVMContext &Context = M.getContext();
   Function *CSAMalloc = M.getFunction("csa_mem_alloc");
+  if (!CSAMalloc) CSAMalloc = M.getFunction("CsaMemAlloc");
   Function *CSAFree = M.getFunction("csa_mem_free");
+  if (!CSAFree) CSAFree = M.getFunction("CsaMemFree");
   Function *CSAInitialize = M.getFunction("csa_mem_initialize");
+  if (!CSAInitialize) CSAInitialize = M.getFunction("CsaMemInitialize");
 
   // delete all math functions from llvm.used if Math0 is enabled
   // delete only unused math functions from llvm.used if Math0 is disabled
