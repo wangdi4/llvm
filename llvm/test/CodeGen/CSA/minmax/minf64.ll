@@ -14,7 +14,8 @@ define double @testf64lts(double %a, double %b) {
 define {double, i1} @testf64ltslt(double %a, double %b) {
 ; CHECK-LABEL: testf64ltslt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp olt double %a, %b
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp olt double %a, %b
@@ -38,7 +39,8 @@ define {double, i1} @testf64ltsle(double %a, double %b) {
 define {double, i1} @testf64ltsgt(double %a, double %b) {
 ; CHECK-LABEL: testf64ltsgt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp olt double %a, %b
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp ogt double %a, %b
@@ -71,7 +73,8 @@ define double @testf64les(double %a, double %b) {
 define {double, i1} @testf64leslt(double %a, double %b) {
 ; CHECK-LABEL: testf64leslt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ole double %a, %b
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp olt double %a, %b
@@ -95,7 +98,8 @@ define {double, i1} @testf64lesle(double %a, double %b) {
 define {double, i1} @testf64lesgt(double %a, double %b) {
 ; CHECK-LABEL: testf64lesgt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ole double %a, %b
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp ogt double %a, %b
@@ -128,7 +132,8 @@ define double @testf64gtr(double %a, double %b) {
 define {double, i1} @testf64gtrlt(double %a, double %b) {
 ; CHECK-LABEL: testf64gtrlt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ogt double %b, %a
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp olt double %a, %b
@@ -152,7 +157,8 @@ define {double, i1} @testf64gtrle(double %a, double %b) {
 define {double, i1} @testf64gtrgt(double %a, double %b) {
 ; CHECK-LABEL: testf64gtrgt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ogt double %b, %a
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp ogt double %a, %b
@@ -185,7 +191,8 @@ define double @testf64ger(double %a, double %b) {
 define {double, i1} @testf64gerlt(double %a, double %b) {
 ; CHECK-LABEL: testf64gerlt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp oge double %b, %a
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp olt double %a, %b
@@ -209,7 +216,8 @@ define {double, i1} @testf64gerle(double %a, double %b) {
 define {double, i1} @testf64gergt(double %a, double %b) {
 ; CHECK-LABEL: testf64gergt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp oge double %b, %a
   %res = select i1 %cmp, double %a, double %b
   %cmp2 = fcmp ogt double %a, %b
@@ -241,7 +249,8 @@ define double @testf64fmin(double %a, double %b) {
 define {double, i1} @testf64fminlt(double %a, double %b) {
 ; CHECK-LABEL: testf64fminlt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %res = tail call double @llvm.minnum.f64(double %a, double %b)
   %cmp = fcmp olt double %a, %b
   %ret0 = insertvalue {double, i1} undef, double %res, 0
@@ -263,7 +272,8 @@ define {double, i1} @testf64fminle(double %a, double %b) {
 define {double, i1} @testf64fmingt(double %a, double %b) {
 ; CHECK-LABEL: testf64fmingt
 ; CHECK: minf64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %res = tail call double @llvm.minnum.f64(double %a, double %b)
   %cmp = fcmp ogt double %a, %b
   %ret0 = insertvalue {double, i1} undef, double %res, 0

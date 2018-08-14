@@ -14,7 +14,8 @@ define float @testf32lts(float %a, float %b) {
 define {float, i1} @testf32ltslt(float %a, float %b) {
 ; CHECK-LABEL: testf32ltslt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp olt float %a, %b
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp olt float %a, %b
@@ -38,7 +39,8 @@ define {float, i1} @testf32ltsle(float %a, float %b) {
 define {float, i1} @testf32ltsgt(float %a, float %b) {
 ; CHECK-LABEL: testf32ltsgt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp olt float %a, %b
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp ogt float %a, %b
@@ -71,7 +73,8 @@ define float @testf32les(float %a, float %b) {
 define {float, i1} @testf32leslt(float %a, float %b) {
 ; CHECK-LABEL: testf32leslt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ole float %a, %b
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp olt float %a, %b
@@ -95,7 +98,8 @@ define {float, i1} @testf32lesle(float %a, float %b) {
 define {float, i1} @testf32lesgt(float %a, float %b) {
 ; CHECK-LABEL: testf32lesgt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ole float %a, %b
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp ogt float %a, %b
@@ -128,7 +132,8 @@ define float @testf32gtr(float %a, float %b) {
 define {float, i1} @testf32gtrlt(float %a, float %b) {
 ; CHECK-LABEL: testf32gtrlt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ogt float %b, %a
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp olt float %a, %b
@@ -152,7 +157,8 @@ define {float, i1} @testf32gtrle(float %a, float %b) {
 define {float, i1} @testf32gtrgt(float %a, float %b) {
 ; CHECK-LABEL: testf32gtrgt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp ogt float %b, %a
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp ogt float %a, %b
@@ -185,7 +191,8 @@ define float @testf32ger(float %a, float %b) {
 define {float, i1} @testf32gerlt(float %a, float %b) {
 ; CHECK-LABEL: testf32gerlt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp oge float %b, %a
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp olt float %a, %b
@@ -209,7 +216,8 @@ define {float, i1} @testf32gerle(float %a, float %b) {
 define {float, i1} @testf32gergt(float %a, float %b) {
 ; CHECK-LABEL: testf32gergt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = fcmp oge float %b, %a
   %res = select i1 %cmp, float %a, float %b
   %cmp2 = fcmp ogt float %a, %b
@@ -241,7 +249,8 @@ define float @testf32fmin(float %a, float %b) {
 define {float, i1} @testf32fminlt(float %a, float %b) {
 ; CHECK-LABEL: testf32fminlt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %res = tail call float @llvm.minnum.f32(float %a, float %b)
   %cmp = fcmp olt float %a, %b
   %ret0 = insertvalue {float, i1} undef, float %res, 0
@@ -263,7 +272,8 @@ define {float, i1} @testf32fminle(float %a, float %b) {
 define {float, i1} @testf32fmingt(float %a, float %b) {
 ; CHECK-LABEL: testf32fmingt
 ; CHECK: minf32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %res = tail call float @llvm.minnum.f32(float %a, float %b)
   %cmp = fcmp ogt float %a, %b
   %ret0 = insertvalue {float, i1} undef, float %res, 0

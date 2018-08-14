@@ -14,7 +14,8 @@ define i64 @tests64lts(i64 %a, i64 %b) {
 define {i64, i1} @tests64ltslt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64ltslt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp slt i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -38,7 +39,8 @@ define {i64, i1} @tests64ltsle(i64 %a, i64 %b) {
 define {i64, i1} @tests64ltsgt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64ltsgt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp slt i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b
@@ -71,7 +73,8 @@ define i64 @tests64les(i64 %a, i64 %b) {
 define {i64, i1} @tests64leslt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64leslt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sle i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -95,7 +98,8 @@ define {i64, i1} @tests64lesle(i64 %a, i64 %b) {
 define {i64, i1} @tests64lesgt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64lesgt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sle i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b
@@ -128,7 +132,8 @@ define i64 @tests64gtr(i64 %a, i64 %b) {
 define {i64, i1} @tests64gtrlt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gtrlt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sgt i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -152,7 +157,8 @@ define {i64, i1} @tests64gtrle(i64 %a, i64 %b) {
 define {i64, i1} @tests64gtrgt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gtrgt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sgt i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b
@@ -185,7 +191,8 @@ define i64 @tests64ger(i64 %a, i64 %b) {
 define {i64, i1} @tests64gerlt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gerlt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sge i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -209,7 +216,8 @@ define {i64, i1} @tests64gerle(i64 %a, i64 %b) {
 define {i64, i1} @tests64gergt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gergt
 ; CHECK: mins64 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sge i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b

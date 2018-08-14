@@ -14,7 +14,8 @@ define i16 @testu16lts(i16 %a, i16 %b) {
 define {i16, i1} @testu16ltslt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16ltslt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ult i16 %a, %b
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ult i16 %a, %b
@@ -38,7 +39,8 @@ define {i16, i1} @testu16ltsle(i16 %a, i16 %b) {
 define {i16, i1} @testu16ltsgt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16ltsgt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ult i16 %a, %b
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ugt i16 %a, %b
@@ -71,7 +73,8 @@ define i16 @testu16les(i16 %a, i16 %b) {
 define {i16, i1} @testu16leslt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16leslt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ule i16 %a, %b
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ult i16 %a, %b
@@ -95,7 +98,8 @@ define {i16, i1} @testu16lesle(i16 %a, i16 %b) {
 define {i16, i1} @testu16lesgt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16lesgt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ule i16 %a, %b
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ugt i16 %a, %b
@@ -128,7 +132,8 @@ define i16 @testu16gtr(i16 %a, i16 %b) {
 define {i16, i1} @testu16gtrlt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16gtrlt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ugt i16 %b, %a
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ult i16 %a, %b
@@ -152,7 +157,8 @@ define {i16, i1} @testu16gtrle(i16 %a, i16 %b) {
 define {i16, i1} @testu16gtrgt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16gtrgt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ugt i16 %b, %a
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ugt i16 %a, %b
@@ -185,7 +191,8 @@ define i16 @testu16ger(i16 %a, i16 %b) {
 define {i16, i1} @testu16gerlt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16gerlt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp uge i16 %b, %a
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ult i16 %a, %b
@@ -209,7 +216,8 @@ define {i16, i1} @testu16gerle(i16 %a, i16 %b) {
 define {i16, i1} @testu16gergt(i16 %a, i16 %b) {
 ; CHECK-LABEL: testu16gergt
 ; CHECK: minu16 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp uge i16 %b, %a
   %res = select i1 %cmp, i16 %a, i16 %b
   %cmp2 = icmp ugt i16 %a, %b

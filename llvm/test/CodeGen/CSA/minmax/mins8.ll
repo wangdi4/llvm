@@ -14,7 +14,8 @@ define i8 @tests8lts(i8 %a, i8 %b) {
 define {i8, i1} @tests8ltslt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8ltslt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp slt i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp slt i8 %a, %b
@@ -38,7 +39,8 @@ define {i8, i1} @tests8ltsle(i8 %a, i8 %b) {
 define {i8, i1} @tests8ltsgt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8ltsgt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp slt i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp sgt i8 %a, %b
@@ -71,7 +73,8 @@ define i8 @tests8les(i8 %a, i8 %b) {
 define {i8, i1} @tests8leslt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8leslt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sle i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp slt i8 %a, %b
@@ -95,7 +98,8 @@ define {i8, i1} @tests8lesle(i8 %a, i8 %b) {
 define {i8, i1} @tests8lesgt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8lesgt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sle i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp sgt i8 %a, %b
@@ -128,7 +132,8 @@ define i8 @tests8gtr(i8 %a, i8 %b) {
 define {i8, i1} @tests8gtrlt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8gtrlt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sgt i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp slt i8 %a, %b
@@ -152,7 +157,8 @@ define {i8, i1} @tests8gtrle(i8 %a, i8 %b) {
 define {i8, i1} @tests8gtrgt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8gtrgt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sgt i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp sgt i8 %a, %b
@@ -185,7 +191,8 @@ define i8 @tests8ger(i8 %a, i8 %b) {
 define {i8, i1} @tests8gerlt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8gerlt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sge i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp slt i8 %a, %b
@@ -209,7 +216,8 @@ define {i8, i1} @tests8gerle(i8 %a, i8 %b) {
 define {i8, i1} @tests8gergt(i8 %a, i8 %b) {
 ; CHECK-LABEL: tests8gergt
 ; CHECK: mins8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sge i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp sgt i8 %a, %b

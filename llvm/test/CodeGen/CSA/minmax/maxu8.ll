@@ -14,7 +14,8 @@ define i8 @testu8ltr(i8 %a, i8 %b) {
 define {i8, i1} @testu8ltrlt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8ltrlt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ult i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ult i8 %a, %b
@@ -38,7 +39,8 @@ define {i8, i1} @testu8ltrle(i8 %a, i8 %b) {
 define {i8, i1} @testu8ltrgt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8ltrgt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ult i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ugt i8 %a, %b
@@ -71,7 +73,8 @@ define i8 @testu8ler(i8 %a, i8 %b) {
 define {i8, i1} @testu8lerlt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8lerlt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ule i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ult i8 %a, %b
@@ -95,7 +98,8 @@ define {i8, i1} @testu8lerle(i8 %a, i8 %b) {
 define {i8, i1} @testu8lergt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8lergt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ule i8 %b, %a
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ugt i8 %a, %b
@@ -128,7 +132,8 @@ define i8 @testu8gts(i8 %a, i8 %b) {
 define {i8, i1} @testu8gtslt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8gtslt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ugt i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ult i8 %a, %b
@@ -152,7 +157,8 @@ define {i8, i1} @testu8gtsle(i8 %a, i8 %b) {
 define {i8, i1} @testu8gtsgt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8gtsgt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp ugt i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ugt i8 %a, %b
@@ -185,7 +191,8 @@ define i8 @testu8ges(i8 %a, i8 %b) {
 define {i8, i1} @testu8geslt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8geslt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp uge i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ult i8 %a, %b
@@ -209,7 +216,8 @@ define {i8, i1} @testu8gesle(i8 %a, i8 %b) {
 define {i8, i1} @testu8gesgt(i8 %a, i8 %b) {
 ; CHECK-LABEL: testu8gesgt
 ; CHECK: maxu8 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp uge i8 %a, %b
   %res = select i1 %cmp, i8 %a, i8 %b
   %cmp2 = icmp ugt i8 %a, %b

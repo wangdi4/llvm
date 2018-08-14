@@ -85,7 +85,12 @@ void gen_cmp_minmax_cmp_test(
   test.file << "; CHECK-LABEL: " << test_name << "\n";
   test.file << "; CHECK: " << test.op << test.opclass << test.bits
     << " [[RES:[^,]+]], [[CMP:[^,]+]]" << "\n";
-  test.file << "; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]\n";
+  if (cmp2[1] == 't') {
+    test.file << "; CHECK: not1 [[NOT:[^,]+]], [[CMP]]\n";
+    test.file << "; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]\n";
+  } else {
+    test.file << "; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]\n";
+  }
   if (test.opclass == 'f') {
     test.file << "  %cmp = fcmp o" << cmp << " " << test.llvm_type
       << (reverse_cmp ? " %b, %a\n" : " %a, %b\n");
@@ -159,7 +164,12 @@ void gen_fminmax_cmp_test(TestFile& test, const char* cmp) {
   test.file << "; CHECK-LABEL: " << test_name << "\n";
   test.file << "; CHECK: " << test.op << test.opclass << test.bits
     << " [[RES:[^,]+]], [[CMP:[^,]+]]" << "\n";
-  test.file << "; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]\n";
+  if (cmp[1] == 't') {
+    test.file << "; CHECK: not1 [[NOT:[^,]+]], [[CMP]]\n";
+    test.file << "; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]\n";
+  } else {
+    test.file << "; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]\n";
+  }
   test.file << "  %res = tail call " << test.llvm_type
     << " @llvm." << test.op << "num.f" << test.bits << "("
     << test.llvm_type << " %a, " << test.llvm_type << " %b)\n";

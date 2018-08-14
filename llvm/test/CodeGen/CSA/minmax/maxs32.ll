@@ -14,7 +14,8 @@ define i32 @tests32ltr(i32 %a, i32 %b) {
 define {i32, i1} @tests32ltrlt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32ltrlt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp slt i32 %b, %a
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp slt i32 %a, %b
@@ -38,7 +39,8 @@ define {i32, i1} @tests32ltrle(i32 %a, i32 %b) {
 define {i32, i1} @tests32ltrgt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32ltrgt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp slt i32 %b, %a
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp sgt i32 %a, %b
@@ -71,7 +73,8 @@ define i32 @tests32ler(i32 %a, i32 %b) {
 define {i32, i1} @tests32lerlt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32lerlt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sle i32 %b, %a
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp slt i32 %a, %b
@@ -95,7 +98,8 @@ define {i32, i1} @tests32lerle(i32 %a, i32 %b) {
 define {i32, i1} @tests32lergt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32lergt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sle i32 %b, %a
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp sgt i32 %a, %b
@@ -128,7 +132,8 @@ define i32 @tests32gts(i32 %a, i32 %b) {
 define {i32, i1} @tests32gtslt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32gtslt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sgt i32 %a, %b
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp slt i32 %a, %b
@@ -152,7 +157,8 @@ define {i32, i1} @tests32gtsle(i32 %a, i32 %b) {
 define {i32, i1} @tests32gtsgt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32gtsgt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sgt i32 %a, %b
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp sgt i32 %a, %b
@@ -185,7 +191,8 @@ define i32 @tests32ges(i32 %a, i32 %b) {
 define {i32, i1} @tests32geslt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32geslt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sge i32 %a, %b
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp slt i32 %a, %b
@@ -209,7 +216,8 @@ define {i32, i1} @tests32gesle(i32 %a, i32 %b) {
 define {i32, i1} @tests32gesgt(i32 %a, i32 %b) {
 ; CHECK-LABEL: tests32gesgt
 ; CHECK: maxs32 [[RES:[^,]+]], [[CMP:[^,]+]]
-; CHECK: .return {{[^,]+}}, [[RES]], [[CMP]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
+; CHECK: .return {{[^,]+}}, [[RES]], [[NOT]]
   %cmp = icmp sge i32 %a, %b
   %res = select i1 %cmp, i32 %a, i32 %b
   %cmp2 = icmp sgt i32 %a, %b
