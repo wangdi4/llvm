@@ -7,8 +7,10 @@ set(LLVM_LINK_COMPONENTS
   Target
   )
 
-if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_BINARY_DIR}/lib/Target/CSA/")
+if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";X86;")
+include_directories(
+  ${CMAKE_BINARY_DIR}/lib/Target/X86/
+)
 
   add_llvm_unittest(Intel_MIRMatcherTests
     Intel_MIRMatcherTest.cpp

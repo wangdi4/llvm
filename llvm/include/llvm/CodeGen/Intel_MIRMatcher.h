@@ -854,11 +854,16 @@ bool InstructionMatcher<OpcodeMatcher,
   if (! OpcodeMatcher::match(mi->getOpcode()))
     return false;  // FAIL: opcode doesn't match
 
-  if (! DefMatchers::matchOperandRange(rslt,
-                                       mi->defs().begin(), mi->defs().end()))
+  // For some reason, there exists `explicit_operands` and `explicit_uses`
+  // methods, but not `explicit_defs`. We construct that range manually,
+  // here.
+  auto operands = mi->explicit_operands();
+  auto defs_end = operands.begin() + mi->getNumExplicitDefs();
+  if (! DefMatchers::matchOperandRange(rslt, operands.begin(), defs_end))
     return false;  // FAIL: Def operands do not match
-  if (! UseMatchers::matchOperandRange(rslt,
-                                       mi->uses().begin(), mi->uses().end()))
+
+  auto uses = mi->explicit_uses();
+  if (! UseMatchers::matchOperandRange(rslt, uses.begin(), uses.end()))
     return false;  // FAIL: Use operands do not match
 
   rslt.setInstrMapping(ThisInstrMatcher{}, mi);
