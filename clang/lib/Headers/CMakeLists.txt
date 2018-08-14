@@ -125,6 +125,7 @@ set(files
   xsaveoptintrin.h
   xsavesintrin.h
   xtestintrin.h
+  CSAx86intrin.h
   )
 
 set(cuda_wrapper_files
