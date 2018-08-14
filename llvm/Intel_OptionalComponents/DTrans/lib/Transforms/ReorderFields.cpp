@@ -60,7 +60,7 @@ static const unsigned MinNumElems = 3;
 namespace {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-StringRef getStName(StructType *StTy) {
+LLVM_DUMP_METHOD StringRef getStName(StructType *StTy) {
   return StTy->hasName() ? StTy->getName() : "<unnamed struct>";
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

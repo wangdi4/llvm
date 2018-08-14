@@ -2784,48 +2784,52 @@ void TargetLibraryInfoImpl::addVectorizableFunctions(ArrayRef<VecDesc> Fns) {
 void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     enum VectorLibrary VecLib) {
   switch (VecLib) {
+#if INTEL_CUSTOMIZATION
+  // The Intel customization here is to add the 'Masked' argument to all the
+  // VecLib function definitions.
   case Accelerate: {
     const VecDesc VecFuncs[] = {
         // Floating-Point Arithmetic and Auxiliary Functions
-        {"ceilf", "vceilf", 4},
-        {"fabsf", "vfabsf", 4},
-        {"llvm.fabs.f32", "vfabsf", 4},
-        {"floorf", "vfloorf", 4},
-        {"sqrtf", "vsqrtf", 4},
-        {"llvm.sqrt.f32", "vsqrtf", 4},
+        {"ceilf", "vceilf", 4, false},
+        {"fabsf", "vfabsf", 4, false},
+        {"llvm.fabs.f32", "vfabsf", 4, false},
+        {"floorf", "vfloorf", 4, false},
+        {"sqrtf", "vsqrtf", 4, false},
+        {"llvm.sqrt.f32", "vsqrtf", 4, false},
 
         // Exponential and Logarithmic Functions
-        {"expf", "vexpf", 4},
-        {"llvm.exp.f32", "vexpf", 4},
-        {"expm1f", "vexpm1f", 4},
-        {"logf", "vlogf", 4},
-        {"llvm.log.f32", "vlogf", 4},
-        {"log1pf", "vlog1pf", 4},
-        {"log10f", "vlog10f", 4},
-        {"llvm.log10.f32", "vlog10f", 4},
-        {"logbf", "vlogbf", 4},
+        {"expf", "vexpf", 4, false},
+        {"llvm.exp.f32", "vexpf", 4, false},
+        {"expm1f", "vexpm1f", 4, false},
+        {"logf", "vlogf", 4, false},
+        {"llvm.log.f32", "vlogf", 4, false},
+        {"log1pf", "vlog1pf", 4, false},
+        {"log10f", "vlog10f", 4, false},
+        {"llvm.log10.f32", "vlog10f", 4, false},
+        {"logbf", "vlogbf", 4, false},
 
         // Trigonometric Functions
-        {"sinf", "vsinf", 4},
-        {"llvm.sin.f32", "vsinf", 4},
-        {"cosf", "vcosf", 4},
-        {"llvm.cos.f32", "vcosf", 4},
-        {"tanf", "vtanf", 4},
-        {"asinf", "vasinf", 4},
-        {"acosf", "vacosf", 4},
-        {"atanf", "vatanf", 4},
+        {"sinf", "vsinf", 4, false},
+        {"llvm.sin.f32", "vsinf", 4, false},
+        {"cosf", "vcosf", 4, false},
+        {"llvm.cos.f32", "vcosf", 4, false},
+        {"tanf", "vtanf", 4, false},
+        {"asinf", "vasinf", 4, false},
+        {"acosf", "vacosf", 4, false},
+        {"atanf", "vatanf", 4, false},
 
         // Hyperbolic Functions
-        {"sinhf", "vsinhf", 4},
-        {"coshf", "vcoshf", 4},
-        {"tanhf", "vtanhf", 4},
-        {"asinhf", "vasinhf", 4},
-        {"acoshf", "vacoshf", 4},
-        {"atanhf", "vatanhf", 4},
+        {"sinhf", "vsinhf", 4, false},
+        {"coshf", "vcoshf", 4, false},
+        {"tanhf", "vtanhf", 4, false},
+        {"asinhf", "vasinhf", 4, false},
+        {"acoshf", "vacoshf", 4, false},
+        {"atanhf", "vatanhf", 4, false},
     };
     addVectorizableFunctions(VecFuncs);
     break;
   }
+#endif // INTEL_CUSTOMIZATION
   case SVML: {
     const VecDesc VecFuncs[] = {
 #if INTEL_CUSTOMIZATION
