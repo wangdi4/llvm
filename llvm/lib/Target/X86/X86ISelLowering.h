@@ -1114,7 +1114,9 @@ namespace llvm {
 
     bool hasVectorBlend() const override { return true; }
 
-    unsigned getMaxSupportedInterleaveFactor() const override { return 4; }
+#if INTEL_CUSTOMIZATION
+    unsigned getMaxSupportedInterleaveFactor() const override { return 8; }
+#endif // INTEL_CUSTOMIZATION
 
     /// Lower interleaved load(s) into target specific
     /// instructions/intrinsics.

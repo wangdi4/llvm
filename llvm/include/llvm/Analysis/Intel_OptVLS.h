@@ -1065,6 +1065,18 @@ private:
   static bool genSeqStoreStride16Packed8xi32(
       const OVLSGroup &Group, OVLSInstructionVector &InstVector,
       OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
+
+  /// Function that generates sequences for the following group:
+  //  Loads on arr[8*i], arr[8*i+1], arr[8*i+2], arr[8*i+3] arr[8*i+4]
+  //  arr[8*i+5], arr[8*i+6], arr[8*i+7] <8 x i16>
+  //  Load.
+  //  Stride: 2bytes(i16) * 8 = 16 bytes Constant.
+  //  Packed - No gaps in the loads.
+  //  Vector Register: <8 x i16>
+  static bool
+  genSeqLoadStride16Packed8xi16(const OVLSGroup &Group,
+                                OVLSInstructionVector &InstVector,
+                                OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
 };
 } // namespace llvm
 #endif

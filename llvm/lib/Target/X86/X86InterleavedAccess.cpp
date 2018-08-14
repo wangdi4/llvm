@@ -303,7 +303,8 @@ public:
 
     // FIXME: Support all other types.
     if (!((VecTy->getScalarSizeInBits() == 64 && Factor == 2) ||
-          (VecTy->getScalarSizeInBits() == 32 && Factor == 4)))
+          (VecTy->getScalarSizeInBits() == 32 && Factor == 4) ||
+          (VecTy->getScalarSizeInBits() == 16 && Factor == 8)))
       return false;
 
     // Create OVLSMemrefVector for the members(shuffles) of
@@ -428,7 +429,7 @@ bool X86InterleavedAccessGroup::isSupported() const {
   //    2. Store of 16/32-element vectors of 8 bits on AVX.
   // Stride 3:
   //    1. Load of 16/32-element vectors of 8 bits on AVX.
-  if (!Subtarget.hasAVX() || (Factor != 4 && Factor != 3))
+  if (!Subtarget.hasAVX() || (Factor != 4 && Factor != 3 && Factor != 8))
     return false;
 
   if (isa<LoadInst>(Inst)) {

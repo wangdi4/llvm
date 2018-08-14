@@ -1411,7 +1411,8 @@ static bool isSupported(const OVLSGroup &Group) {
 
   if (!((Group.getElemSize() == 64 && Group.size() == 2 &&
          Group.hasGathers()) ||
-        (Group.getElemSize() == 32 && Group.size() == 4)))
+        (Group.getElemSize() == 32 && Group.size() == 4) ||
+        (Group.getElemSize() == 16 && Group.size() == 8)))
     return false;
 
   return true;
@@ -2220,6 +2221,205 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   return true;
 }
 
+// Function with hard coded sequences for the recognized interleaved pattern:
+//  %wide.vec = load <64 x i16>, <64 x i16>* %tmp, align 2
+//  %v0 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      0, i32 8, i32 16, i32 24, i32 32, i32 40, i32 48, i32 56>
+//  %v1 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      1, i32 9, i32 17, i32 25, i32 33, i32 41, i32 49, i32 57>
+//  %v2 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      2, i32 10, i32 18, i32 26, i32 34, i32 42, i32 50, i32 58>
+//  %v3 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      3, i32 11, i32 19, i32 27, i32 35, i32 43, i32 51, i32 59>
+//  %v4 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      4, i32 12, i32 20, i32 28, i32 36, i32 44, i32 52, i32 60>
+//  %v5 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      5, i32 13, i32 21, i32 29, i32 37, i32 45, i32 53, i32 61>
+//  %v6 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      6, i32 14, i32 22, i32 30, i32 38, i32 46, i32 54, i32 62>
+//  %v7 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+//      7, i32 15, i32 23, i32 31, i32 39, i32 47, i32 55, i32 63>
+bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
+    const OVLSGroup &Group, OVLSInstructionVector &InstVector,
+    OVLSMemrefToInstMap *MemrefToInstMap) {
+
+  // Generate the instructions and push them into the InstVector, and make a
+  // MemrefToInstMap.
+  // I. Consecutive Loads:
+  // %t0  = load from base <8xi16>
+  // %t8  = base+8elem
+  // %t16 = base+16elem
+  // %t24 = base+24elem
+  // %t32 = base+32elem
+  // %t40 = base+40elem
+  // %t48 = base+48elem
+  // %t54 = base+56elem
+  // Base gets provided by Client later when generating the LLVM IR.
+  OVLSInstruction *LoadInst[8];
+  OVLSInstruction *ShuffleOnLoad[8];
+  const uint64_t ElementMask = 0x0FF;
+  OVLSType LType(16, 8); // <8xi16>
+  int64_t Offset = 0;
+
+  for (int i = 0; i < 8; i++) {
+    OVLSMemref *FirstMemref = Group.getFirstMemref();
+    OVLSAddress Src(FirstMemref, Offset);
+    LoadInst[i] = new OVLSLoad(LType, Src, ElementMask);
+    Offset = Offset + 16; // 8 elements offset.
+    InstVector.push_back(LoadInst[i]);
+  }
+
+  // %x1 = shufflevector <8 x i16> %t0, <8 x i16> %t8, <8 x i32>
+  //        <i32 0, i32 8, i32 1, i32 9,  i32 2, i32 10, i32 3, i32 11>
+  // %x2 = shufflevector <8 x i16> %t0, <8 x i16> %t8, <8 x i32>
+  //        <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+  // %y1 = shufflevector <8 x i16> %t16, <8 x i16> %t24, <8 x i32>
+  //        <i32 0, i32 8, i32 1, i32 9,  i32 2, i32 10, i32 3, i32 11>
+  // %y2 = shufflevector <8 x i16> %t16, <8 x i16> %t24, <8 x i32>
+  //        <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+  // %z1 = shufflevector <8 x i16> %t32, <8 x i16> %t40, <8 x i32>
+  //        <i32 0, i32 8,  i32 1, i32 9,  i32 2, i32 10, i32 3, i32 11>
+  // %z2 = shufflevector <8 x i16> %t32, <8 x i16> %t40, <8 x i32>
+  //        <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+  // %a1 = shufflevector <8 x i16> %t48, <8 x i16> %t54, <8 x i32>
+  //        <i32 0, i32 8,  i32 1, i32 9,  i32 2, i32 10, i32 3, i32 11>
+  // %a2 = shufflevector <8 x i16> %t48, <8 x i16> %t54, <8 x i32>
+  //        <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+  OVLSConstant *ShuffleMask;
+  const int32_t IntShuffleMask0[8] = {0, 8, 1, 9, 2, 10, 3, 11};
+  const int32_t IntShuffleMask1[8] = {4, 12, 5, 13, 6, 14, 7, 15};
+  for (int i = 0; i < 4; i++) {
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask0));
+    ShuffleOnLoad[2 * i] =
+        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask1));
+    ShuffleOnLoad[2 * i + 1] =
+        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], ShuffleMask);
+  }
+
+  for (int i = 0; i < 8; i++) {
+    InstVector.push_back(ShuffleOnLoad[i]);
+  }
+
+  //  %t1 = shufflevector <8 x i16> %x1, <8 x i16> %y1, <8 x i32> <i32 0, i32 1,
+  //        i32 8, i32 9,  i32 2, i32 3, i32 10, i32 11>
+  //  %t2 = shufflevector <8 x i16> %x1, <8 x i16> %y1, <8 x i32> <i32 4, i32 5,
+  //        i32 12, i32 13,  i32 6, i32 7, i32 14, i32 15>
+  //
+  //  %t3 = shufflevector <8 x i16> %z1, <8 x i16> %a1, <8 x i32> <i32 0, i32 1,
+  //        i32 8, i32 9,  i32 2, i32 3, i32 10, i32 11>
+  //  %t4 = shufflevector <8 x i16> %z1, <8 x i16> %a1, <8 x i32> <i32 4, i32 5,
+  //        i32 12, i32 13,  i32 6, i32 7, i32 14, i32 15>
+  //
+  //  %t5 = shufflevector <8 x i16> %x2, <8 x i16> %y2, <8 x i32> <i32 0, i32 1,
+  //        i32 8, i32 9,  i32 2, i32 3, i32 10, i32 11>
+  //  %t6 = shufflevector <8 x i16> %x2, <8 x i16> %y2, <8 x i32> <i32 4, i32 5,
+  //        i32 12, i32 13,  i32 6, i32 7, i32 14, i32 15>
+  //
+  //  %t7 = shufflevector <8 x i16> %z2, <8 x i16> %a2, <8 x i32> <i32 0, i32 1,
+  //        i32 8, i32 9,  i32 2, i32 3, i32 10, i32 11>
+  //  %t8 = shufflevector <8 x i16> %z2, <8 x i16> %a2, <8 x i32> <i32 4, i32 5,
+  //        i32 12, i32 13,  i32 6, i32 7, i32 14, i32 15>
+
+  OVLSInstruction *ShuffleOnShuffles[8];
+
+  const int32_t IntShuffleMask2[8] = {0, 1, 8, 9, 2, 3, 10, 11};
+  const int32_t IntShuffleMask3[8] = {4, 5, 12, 13, 6, 7, 14, 15};
+
+  for (int i = 0; i < 2; i++) {
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask2));
+    ShuffleOnShuffles[4 * i] =
+        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask3));
+    ShuffleOnShuffles[4 * i + 1] =
+        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask2));
+    ShuffleOnShuffles[4 * i + 2] = new OVLSShuffle(
+        ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask3));
+    ShuffleOnShuffles[4 * i + 3] = new OVLSShuffle(
+        ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], ShuffleMask);
+  }
+
+  for (int i = 0; i < 8; i++) {
+    InstVector.push_back(ShuffleOnShuffles[i]);
+  }
+
+  //  %r0 = shufflevector <8 x i16> %t1, <8 x i16> %t3, <8 x i32> <i32 0, i32 1,
+  //        i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+  //
+  //  %r1 = shufflevector <8 x i16> %t1, <8 x i16> %t3, <8 x i32> <i32 4, i32 5,
+  //        i32 6, i32 7, i32 12, i32 13, i32 14, i32 15>
+  //
+  //  %r2 = shufflevector <8 x i16> %t2, <8 x i16> %t4, <8 x i32> <i32 0, i32 1,
+  //        i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+  //
+  //  %r3 = shufflevector <8 x i16> %t2, <8 x i16> %t4, <8 x i32> <i32 4, i32 5,
+  //        i32 6, i32 7, i32 13, i32 13, i32 14, i32 15>
+  //
+  //  %r4 = shufflevector <8 x i16> %t5, <8 x i16> %t7, <8 x i32> <i32 0, i32 1,
+  //        i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+  //
+  //  %r5 = shufflevector <8 x i16> %t5, <8 x i16> %t7, <8 x i32> <i32 4, i32 5,
+  //        i32 6, i32 7, i32 12, i32 13, i32 14, i32 15>
+  //
+  //  %r6 = shufflevector <8 x i16> %t6, <8 x i16> %t8, <8 x i32> <i32 0, i32 1,
+  //        i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+  //
+  //  %r7 = shufflevector <8 x i16> %t6, <8 x i16> %t8, <8 x i32> <i32 4, i32 5,
+  //        i32 6, i32 7, i32 12, i32 13, i32 14, i32 15>
+  //
+  OVLSInstruction *ResultShuffles[8];
+
+  const int32_t IntShuffleMask4[8] = {0, 1, 2, 3, 8, 9, 10, 11};
+  const int32_t IntShuffleMask5[8] = {4, 5, 6, 7, 12, 13, 14, 15};
+
+  for (int i = 0; i < 2; i++) {
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask4));
+    ResultShuffles[4 * i] = new OVLSShuffle(
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask5));
+    ResultShuffles[4 * i + 1] = new OVLSShuffle(
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask4));
+    ResultShuffles[4 * i + 2] =
+        new OVLSShuffle(ShuffleOnShuffles[4 * i + 1],
+                        ShuffleOnShuffles[4 * i + 3], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask5));
+    ResultShuffles[4 * i + 3] =
+        new OVLSShuffle(ShuffleOnShuffles[4 * i + 1],
+                        ShuffleOnShuffles[4 * i + 3], ShuffleMask);
+  }
+
+  for (int i = 0; i < 8; i++) {
+    InstVector.push_back(ResultShuffles[i]);
+  }
+
+  // Populate the memrefmap.
+  for (int i = 0; i < 8; i++)
+    MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
+        Group.getMemref(i), ResultShuffles[i]));
+  return true;
+}
+
 // This is for hand coded sequences.
 // Group is input.
 // InstVector is the vector containing the generated shuffles.
@@ -2231,6 +2431,7 @@ bool OptVLSInterface::getSequencePredefined(
 
   // Recognize the group pattern and check if it matches any predefined pattern.
   // If the pattern is supported, call the correct function that lowers it.
+
   // Pattern To Recognize:
   //%wide.vec = load <32 x i32>, <32 x i32>* %wide.vec.ptr, align 16
   //%r1 = shufflevector <32 x i32> %wide.vec, <32 x i32> undef,<8 x i32>
@@ -2259,6 +2460,43 @@ bool OptVLSInterface::getSequencePredefined(
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi32(Group, InstVector, MemrefToInstMap);
   }
+
+  // Pattern To Recognize:
+  //  %wide.vec = load <64 x i16>, <64 x i16>* %tmp, align 2
+  //  %v0 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      0, i32 8, i32 16, i32 24, i32 32, i32 40, i32 48, i32 56>
+  //  %v1 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      1, i32 9, i32 17, i32 25, i32 33, i32 41, i32 49, i32 57>
+  //  %v2 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      2, i32 10, i32 18, i32 26, i32 34, i32 42, i32 50, i32 58>
+  //  %v3 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      3, i32 11, i32 19, i32 27, i32 35, i32 43, i32 51, i32 59>
+  //  %v4 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      4, i32 12, i32 20, i32 28, i32 36, i32 44, i32 52, i32 60>
+  //  %v5 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      5, i32 13, i32 21, i32 29, i32 37, i32 45, i32 53, i32 61>
+  //  %v6 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      6, i32 14, i32 22, i32 30, i32 38, i32 46, i32 54, i32 62>
+  //  %v7 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32
+  //      7, i32 15, i32 23, i32 31, i32 39, i32 47, i32 55, i32 63>
+  // Has a constant stride of value 16. i16*8 = 16 bytes.
+  // Group size is 8. 8 memrefs.
+  // Number elements = 8
+  // Elem Size = 16 bits
+  // Accessmask to be used for checking the gaps in memory accesses. All 1's
+  // indicate that all members are present, and there are no gaps. AccessMask is
+  // therefore 65535.
+  // MemAccess is Strided Load.
+  // No target specific information is needed here. The sequence is target
+  // independent for now.
+  if ((Group.hasAConstStride(stride) == true) && (stride == 16) &&
+      (Group.getNumElems() == 8) && (Group.getElemSize() == 16) &&
+      (Group.getNByteAccessMask() == 65535) &&
+      (Group.getAccessType().isStridedLoad())) {
+    // Sequence can be safely generated.
+    return genSeqLoadStride16Packed8xi16(Group, InstVector, MemrefToInstMap);
+  }
+
   // Pattern To Recognize:
   // %store.data0 = shufflevector <8 x i32> %1, <8 x i32> %2, <16 x i32> <i32
   //  0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,
