@@ -858,12 +858,12 @@ void CSAAsmPrinter::EmitConstantPool() {
 
 void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
 
-  // If the global's section name starts with .csa.sp. it is a scratchpad and it
+  // If the global's section name starts with .csa. it belongs on the CSA and
   // needs to go in the target code. Otherwise, it is a normal global which
   // should go on the host and be pulled in implicitly by the target code.
   // However, if we aren't wrapping assembly nothing should go on the host.
   const bool PutOnHost = CSAInstPrinter::WrapCsaAsm() and
-                         not GV->getSection().startswith(".csa.sp.");
+                         not GV->getSection().startswith(".csa.");
   if (PutOnHost) {
     OutStreamer->AddBlankLine();
     endCSAAsmString(*OutStreamer);
