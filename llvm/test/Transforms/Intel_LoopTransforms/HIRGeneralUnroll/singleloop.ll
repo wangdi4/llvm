@@ -45,6 +45,9 @@
 ; UB of Unrolled Loop
 ; CHECK: icmp sle i64 %nextivloop{{.*}}, 34
 
+; Check that unrolled loop has disable pragma
+; CHECK: !llvm.loop
+
 ; Remainder loop
 ; CHECK: afterloop{{.*}}
 ; CHECK: store i64 280
@@ -52,6 +55,11 @@
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK-NOT: getelementptr
+
+; Remainder of constant trip count loops should not have disabling metadata.
+; CHECK-NOT: !llvm.loop
+
+; CHECK: llvm.loop.unroll.disable
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

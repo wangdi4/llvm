@@ -114,14 +114,17 @@ static cl::opt<unsigned> MaxOuterLoopCost(
 typedef SmallVector<std::pair<HLLoop *, HLLoop *>, 16> LoopMapTy;
 
 // Implements unroll/unroll & jam for \p Loop.
-void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap);
+void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
+                    HLLoop **UnrolledLoop = nullptr,
+                    HLLoop **RemainderLoop = nullptr);
 
 // External interface
 namespace llvm {
 namespace loopopt {
 namespace unroll {
-void unrollLoop(HLLoop *Loop, unsigned UnrollFactor) {
-  unrollLoopImpl(Loop, UnrollFactor, nullptr);
+void unrollLoop(HLLoop *Loop, unsigned UnrollFactor, HLLoop **UnrolledLoop,
+                HLLoop **RemainderLoop) {
+  unrollLoopImpl(Loop, UnrollFactor, nullptr, UnrolledLoop, RemainderLoop);
 }
 } // namespace unroll
 } // namespace loopopt
@@ -614,7 +617,8 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
 
   if (IsConstTC && (TC < 2)) {
     LLVM_DEBUG(
-        dbgs() << "Skipping unroll & jam of loop as trip count is too small!\n");
+        dbgs()
+        << "Skipping unroll & jam of loop as trip count is too small!\n");
     return 1;
   }
 
@@ -1226,7 +1230,8 @@ static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
   HLNodeUtils::replace(MarkerNode, MainLoop);
 }
 
-void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
+void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
+                    HLLoop **UnrolledLoop, HLLoop **RemainderLoop) {
   assert(Loop && "Loop is null!");
   assert((UnrollFactor > 1) && "Invalid unroll factor!");
 
@@ -1246,6 +1251,7 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
         OptReportVerbosity::Low,
         "Unknown loop has been partially unrolled with %d factor",
         UnrollFactor);
+
   } else {
     // Create the unrolled main loop and setup remainder loop.
     MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
@@ -1262,6 +1268,14 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
     HIRInvalidationUtils::invalidateLoopNestBody(Loop);
 
     HLNodeUtils::remove(Loop);
+  }
+
+  if (UnrolledLoop) {
+    *UnrolledLoop = MainLoop;
+  }
+
+  if (RemainderLoop) {
+    *RemainderLoop = NeedRemainderLoop ? Loop : nullptr;
   }
 }
 

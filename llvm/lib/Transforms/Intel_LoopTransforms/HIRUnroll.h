@@ -27,7 +27,10 @@ class HLLoop;
 namespace unroll {
 /// Performs general unrolling or unroll & jam on \p Loop based on whether it is
 /// an innermost loop.
-void unrollLoop(HLLoop *Loop, unsigned UnrollFactor);
+/// Returns the unrolled loop in \p UnrolledLoop and remainder loop in \p
+/// RemainderLoop. Remainder loop can be null.
+void unrollLoop(HLLoop *Loop, unsigned UnrollFactor, HLLoop **UnrolledLoop,
+                HLLoop **RemainderLoop);
 
 /// Performs complete unroll for \p Loop.
 void completeUnrollLoop(HLLoop *Loop);

@@ -191,9 +191,7 @@ struct PostLoopCollector final : public HLNodeVisitorBase {
     }
   }
 
-  bool skipRecursion(HLNode *Node) {
-    return Node == SkipNode;
-  }
+  bool skipRecursion(HLNode *Node) { return Node == SkipNode; }
 };
 
 bool HIRGeneralUnroll::run() {
@@ -272,13 +270,25 @@ void HIRGeneralUnroll::processGeneralUnroll(
     // If all conditions are met, unroll it.
     if (isApplicable(Loop) &&
         isProfitable(Loop, HasEnablingPragma, &UnrollFactor)) {
-      // This may not be needed once we disable LLVM's loop unroll pass after
-      // LoopOpt.
-      if (HasEnablingPragma) {
-        addUnrollDisablingPragma(Loop);
+      HLLoop *UnrolledLoop, *RemainderLoop;
+
+      bool IsConstTrip = Loop->isConstTripLoop();
+
+      unrollLoop(Loop, UnrollFactor, &UnrolledLoop, &RemainderLoop);
+
+      // Following logic will not be needed once we disable LLVM's loop unroll
+      // pass after LoopOpt.
+
+      // Add disabling pragma to unrolled loop.
+      addUnrollDisablingPragma(UnrolledLoop);
+
+      // Add disabling pragma to remainder loop unless there is a possibility of
+      // complete unroll by LLVM pass.
+      // TODO: perform complete unroll in HIR.
+      if (RemainderLoop && (HasEnablingPragma || !IsConstTrip)) {
+        addUnrollDisablingPragma(RemainderLoop);
       }
 
-      unrollLoop(Loop, UnrollFactor);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
     }
