@@ -89,10 +89,6 @@ if (WIN32)
 
     source_group( "API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp framework_proxy.h)
 
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-
     source_group( "Resource Files" FILES ${CONFIG_FILES} )
     list( APPEND TARGET_SOURCES ${CONFIG_FILES} )
 
@@ -108,7 +104,10 @@ link_directories( ${TBB_LIB_DIR} )
 include(itt)
 
 # add a target named ${TARGET_NAME}
-add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
+
+    RC_TEMPLATE DEFAULT)
 
 copy_to (${CONFIG_FILES} DESTINATION lib)
 

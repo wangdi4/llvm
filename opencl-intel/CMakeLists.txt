@@ -194,6 +194,11 @@ message(STATUS "GIT Version: ${GIT_VERSION}")
 message(STATUS "GIT Revision: ${GIT_REVISION}")
 message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")
 
+# Define product info (currently uses only for win resource file generation)
+set(PRODUCTNAME "Intel(R) OpenCL")
+set(COMPANYNAME "Intel Corporation")
+set(LEGALCOPYRIGHT "Copyright (C) 2018 ${COMPANYNAME}. All rights reserved.")
+
 # --------------
 #  write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
@@ -211,6 +216,9 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #define IOCVERSIONSTRING \"1.6.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define KBVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
 # --------------
+# copy the file to the final header only if the version changes
+# reduces needless rebuilds
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
 
 if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}\n")
@@ -222,10 +230,6 @@ install_to(${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
 
 #copy the version file to install folder
 install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./)
-# copy the file to the final header only if the version changes
-# reduces needless rebuilds
-execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/buildversion.h.txt ${OCL_BINARY_DIR}/buildversion.h)
-
 
 if (WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir)) OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
     set( INSTALL_SUBDIR ${CMAKE_CFG_INTDIR} )

@@ -35,11 +35,14 @@ set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF}${OUTPUT_OS_SUF
 #       SHARED / STATIC - defines library type
 #       INCLUDE_DIRS    - defines include directories
 #       LINK_LIBS       - defines libraries to link
+#       RC_TEMPLATE     - defines template for .rc files generation on Windows.
+#                           No .rc file generated if omitted.
+#                           Pass 'default' to use the default one.
 
 function(add_opencl_library name)
     cmake_parse_arguments(ARG
         "SHARED;STATIC"
-        ""
+        "RC_TEMPLATE"
         "INCLUDE_DIRS;LINK_LIBS"
         ${ARGN})
 
@@ -47,6 +50,19 @@ function(add_opencl_library name)
 
     # TODO: replace with target_include_directories
     include_directories(AFTER ${ARG_INCLUDE_DIRS})
+
+    # Generate resource files for shared libs on Windows
+    if (WIN32 AND ARG_SHARED AND ARG_RC_TEMPLATE)
+        string(TOUPPER ${ARG_RC_TEMPLATE} RC_TEMPLATE_UPPERCASE)
+        if (${RC_TEMPLATE_UPPERCASE} STREQUAL "DEFAULT")
+            set(rc_template ${OCL_SOURCE_DIR}/rc_template.rc.in) # defalut template
+        else (${RC_TEMPLATE_UPPERCASE} STREQUAL "DEFAULT")
+            set(rc_template ${ARG_RC_TEMPLATE})                  # custom template
+        endif (${RC_TEMPLATE_UPPERCASE} STREQUAL "DEFAULT")
+
+        configure_file(${rc_template} ${OCL_BINARY_DIR}/${name}.rc @ONLY)
+        list(APPEND sources ${OCL_BINARY_DIR}/${name}.rc)
+    endif (WIN32 AND ARG_SHARED AND ARG_RC_TEMPLATE)
 
     if (ARG_SHARED)
         add_library(${name} SHARED ${sources})
@@ -71,7 +87,7 @@ function(add_opencl_library name)
 
     target_link_libraries(${name} ${ARG_LINK_LIBS})
 
-    # Deals with pdb files on Windows
+    # Deals with pdb on Windows
     if (WIN32 AND ARG_SHARED)
         file (TO_NATIVE_PATH ${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb PDB_NAME)
         set_target_properties (${name} PROPERTIES

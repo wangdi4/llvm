@@ -40,6 +40,9 @@ add_opencl_library (${TARGET_NAME} SHARED
     ${CL_API_HEADERS}
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${OCL_BINARY_DIR}
+
+    RC_TEMPLATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/common_runtime.rc.in
 )
 
 if (NOT WIN32 AND NOT ANDROID)

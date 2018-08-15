@@ -48,19 +48,12 @@ include_directories( AFTER
             ${CMAKE_BINARY_DIR}/include
             )
 
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-endif ()
-
 add_opencl_library (${TARGET_NAME} SHARED
     clang_device_info.h
     Compile.cpp
     Compile.h
     FrontendDriver.cpp
     FrontendDriver.h
-    FrontendDriver.rc
     FrontendResultImpl.h
     GetKernelArgInfo.cpp
     GetKernelArgInfo.h
@@ -73,6 +66,8 @@ add_opencl_library (${TARGET_NAME} SHARED
     SPIRMaterializer.h
     SPIRVMaterializer.cpp
     SPIRVMaterializer.h
+
+    RC_TEMPLATE DEFAULT
 )
 if (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)

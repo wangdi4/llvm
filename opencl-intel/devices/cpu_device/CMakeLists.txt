@@ -35,9 +35,6 @@ link_directories(   ${TBB_LIB_DIR}
 
 if (WIN32)
     add_definitions( -D_WINDOWS )
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
 else()
     add_definitions( -D_LINUX )
 endif (WIN32)
@@ -81,7 +78,10 @@ CALCULATE_TARGET_SOURCES()
 include(itt)
 
 #add a target named ${TARGET_NAME}
-add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
+
+    RC_TEMPLATE DEFAULT)
 
 if(WIN32)
     list(APPEND LINK_LIBS delayimp.lib)

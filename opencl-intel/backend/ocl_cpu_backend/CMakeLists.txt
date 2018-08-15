@@ -193,16 +193,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     opencl_printf_ext.cpp
   )
 
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # Resources
-    set (OCL_CPU_BACKEND_RESOURCE_FILES llvm_backend.rc)
-else (WIN32)
-    set (OCL_CPU_BACKEND_RESOURCE_FILES)
-endif (WIN32)
-
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
         set (ASM_SOURCES kernel_execute_64.asm)
@@ -244,8 +234,9 @@ endif( LLVM_USE_OPROFILE )
 add_opencl_library (${TARGET_NAME} SHARED
     ${OCL_CPU_BACKEND_INCLUDE_FILES}
     ${OCL_CPU_BACKEND_SOURCE_FILES}
-    ${OCL_CPU_BACKEND_RESOURCE_FILES}
     ${ASM_ADD_TO_SOURCES_LIST}
+
+    RC_TEMPLATE DEFAULT
 )
 
 if (NOT WIN32)

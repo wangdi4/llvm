@@ -43,13 +43,6 @@ set (OCL_RECORDER_SOURCE_FILES
   ${VALIDATIONS_ROOT}/Common/md5.cpp
   )
 
-# Resources
-if (WIN32)
-  set (OCL_RECORDER_RESOURCE_FILES ocl_recorder.rc)
-else (WIN32)
-  set (OCL_RECORDER_RESOURCE_FILES)
-endif (WIN32)
-
 # Add include directories
 include_directories(
   ${LLVM_INCLUDE_DIRS}
@@ -81,8 +74,9 @@ endif()
 add_opencl_library (${TARGET_NAME} SHARED
     ${OCL_RECORDER_INCLUDE_FILES}
     ${OCL_RECORDER_SOURCE_FILES}
-    ${OCL_RECORDER_RESOURCE_FILES}
     ${ASM_ADD_TO_SOURCES_LIST}
+
+    RC_TEMPLATE DEFAULT
 )
 
 # Create static library for unit tests
