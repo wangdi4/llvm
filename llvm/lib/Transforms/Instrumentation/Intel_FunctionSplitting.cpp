@@ -33,6 +33,7 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/DebugInfo.h"
@@ -132,8 +133,9 @@ raw_ostream &operator<<(raw_ostream &OS, const SplinterRegionT &Region) {
 // SplinterRegion out of the Function.
 class RegionSplitter {
 public:
-  RegionSplitter(DominatorTree &DT, BlockFrequencyInfo &BFI)
-      : DT(DT), BFI(BFI) {}
+  RegionSplitter(DominatorTree &DT, BlockFrequencyInfo &BFI,
+                 BranchProbabilityInfo &BPI)
+      : DT(DT), BFI(BFI), BPI(BPI) {}
 
   // Split the function, and return a pointer to the newly created Function.
   Function *splitRegion(const SplinterRegionT &Region);
@@ -146,11 +148,12 @@ private:
   // Do the actual split.
   Function *doSplit(const SplinterRegionT &Region);
 
-  // Handles to the DominatorTree and BlockFrequencyInfo analysis
-  // for the function are needed for calls to the CodeExtractor
-  // class.
+  // Handles to the DominatorTree, BlockFrequencyInfo, and
+  // BranchProbabilityInfo analysis for the function are needed for calls to
+  // the CodeExtractor class.
   DominatorTree &DT;
   BlockFrequencyInfo &BFI;
+  BranchProbabilityInfo &BPI;
 };
 
 // Public interface routine that performs all the steps required
@@ -221,11 +224,10 @@ bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region) {
 // Do the steps to extract the 'Region' to a new function.
 // Returns the new function, if successful, otherwise nullptr.
 Function *RegionSplitter::doSplit(const SplinterRegionT &Region) {
-  CodeExtractor Extractor(Region.getArrayRef(), &DT, &BFI);
+  CodeExtractor Extractor(Region.getArrayRef(), &DT, false, &BFI, &BPI);
   Function *NewF = Extractor.extractCodeRegion();
-  if (NewF == nullptr) {
+  if (NewF == nullptr)
     return nullptr;
-  }
 
   // Mark the function to be kept in a cold segment.
   NewF->setSectionPrefix(getUnlikelySectionPrefix());
@@ -247,9 +249,11 @@ Function *RegionSplitter::doSplit(const SplinterRegionT &Region) {
 // perform the actual split.
 class FunctionSplitter {
 public:
-  FunctionSplitter(Function &F, BlockFrequencyInfo &BFI, DominatorTree &DT,
+  FunctionSplitter(Function &F, BlockFrequencyInfo &BFI,
+                   BranchProbabilityInfo &BPI, DominatorTree &DT,
                    PostDominatorTree &PDT, CandidateBlocksT &Candidates)
-      : F(F), BFI(BFI), DT(DT), PDT(PDT), CandidateBlocks(Candidates) {}
+      : F(F), BFI(BFI), BPI(BPI), DT(DT), PDT(PDT),
+        CandidateBlocks(Candidates) {}
 
   bool runOnFunction();
 
@@ -333,6 +337,7 @@ private:
 
   // Handles to the analysis structures needed to process the function.
   BlockFrequencyInfo &BFI;
+  BranchProbabilityInfo &BPI;
   DominatorTree &DT;
   PostDominatorTree &PDT;
 
@@ -612,7 +617,7 @@ bool FunctionSplitter::splitRegions() {
   // of these to avoid verification errors.
   stripDebugInfoIntrinsics(F);
 
-  RegionSplitter Splitter(DT, BFI);
+  RegionSplitter Splitter(DT, BFI, BPI);
 
   for (auto &R : RegionsToSplit) {
     LLVM_DEBUG(dbgs() << F.getName() << ": Extracting " << R.size()
@@ -839,19 +844,23 @@ class FunctionSplittingImpl {
 public:
   bool runOnModule(Module &M, ProfileSummaryInfo *PSI,
                    std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+                   std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
                    std::function<DominatorTree &(Function &)> *GetDT,
                    std::function<PostDominatorTree &(Function &)> *GetPDT);
 
 private:
-  bool processFunction(Function &F,
-                       std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-                       std::function<DominatorTree &(Function &)> *GetDT,
-                       std::function<PostDominatorTree &(Function &)> *GetPDT);
+  bool
+  processFunction(Function &F,
+                  std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+                  std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+                  std::function<DominatorTree &(Function &)> *GetDT,
+                  std::function<PostDominatorTree &(Function &)> *GetPDT);
 };
 
 bool FunctionSplittingImpl::runOnModule(
     Module &M, ProfileSummaryInfo *PSI,
     std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+    std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
     std::function<DominatorTree &(Function &)> *GetDT,
     std::function<PostDominatorTree &(Function &)> *GetPDT) {
   bool Changed = false;
@@ -866,18 +875,20 @@ bool FunctionSplittingImpl::runOnModule(
     }
 
   for (Function *F : Worklist)
-    Changed |= processFunction(*F, GetBFI, GetDT, GetPDT);
+    Changed |= processFunction(*F, GetBFI, GetBPI, GetDT, GetPDT);
 
   return Changed;
 }
 
 bool FunctionSplittingImpl::processFunction(
     Function &F, std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+    std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
     std::function<DominatorTree &(Function &)> *GetDT,
     std::function<PostDominatorTree &(Function &)> *GetPDT) {
   // Collect a list of blocks based on the PGO data that a candidates
   // to split out of the function.
   BlockFrequencyInfo &BFI = (*GetBFI)(F);
+  BranchProbabilityInfo &BPI = (*GetBPI)(F);
 
   CandidateBlocksT ColdBlocks;
   collectColdBlocks(F, BFI, &ColdBlocks);
@@ -886,7 +897,7 @@ bool FunctionSplittingImpl::processFunction(
 
   DominatorTree &DT = (*GetDT)(F);
   PostDominatorTree &PDT = (*GetPDT)(F);
-  FunctionSplitter Splitter(F, BFI, DT, PDT, ColdBlocks);
+  FunctionSplitter Splitter(F, BFI, BPI, DT, PDT, ColdBlocks);
 
   return Splitter.runOnFunction();
 }
@@ -902,6 +913,11 @@ PreservedAnalyses FunctionSplittingPass::run(Module &M,
     return FAM.getResult<BlockFrequencyAnalysis>(F);
   };
 
+  std::function<BranchProbabilityInfo &(Function &)> GetBPI =
+      [&FAM](Function &F) -> BranchProbabilityInfo & {
+    return FAM.getResult<BranchProbabilityAnalysis>(F);
+  };
+
   std::function<DominatorTree &(Function &)> GetDT =
       [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
@@ -913,7 +929,7 @@ PreservedAnalyses FunctionSplittingPass::run(Module &M,
   };
 
   FunctionSplittingImpl Impl;
-  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetDT, &GetPDT);
+  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetBPI, &GetDT, &GetPDT);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -949,6 +965,11 @@ bool FunctionSplittingWrapper::runOnModule(Module &M) {
     return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
   };
 
+  std::function<BranchProbabilityInfo &(Function &)> GetBPI =
+      [this](Function &F) -> BranchProbabilityInfo & {
+    return this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
+  };
+
   std::function<DominatorTree &(Function &)> GetDT =
       [this](Function &F) -> DominatorTree & {
     return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
@@ -960,7 +981,7 @@ bool FunctionSplittingWrapper::runOnModule(Module &M) {
   };
 
   FunctionSplittingImpl Impl;
-  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetDT, &GetPDT);
+  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetBPI, &GetDT, &GetPDT);
 
   return Changed;
 }
