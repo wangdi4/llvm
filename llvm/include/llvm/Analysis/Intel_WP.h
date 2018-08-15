@@ -41,6 +41,7 @@ private:
   // that were found and not found.
   SetVector<const Function *> LibFuncsFound;
   SetVector<const Function *> LibFuncsNotFound;
+  SetVector<const Function *> ExternalSymbols;
 
 public:
   WholeProgramInfo();
