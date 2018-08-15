@@ -338,6 +338,9 @@ public:
     /// \brief \returns !mayHaveOpenmpDirective(F). This is mainly used in
     /// passes required by OpenMP that would otherwise be skipped at -O0.
     static bool skipFunctionForOpenmp(Function &F);
+
+    /// \brief \return true if the program is compiled for SPIRV.
+    static bool isTargetSPIRV(Module *M);
 };
 
 } // End vpo namespace
