@@ -26,10 +26,11 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/FunctionComparator.h"
 
-#include "SOAToAOSEffects.h"
-
 #define DEBUG_TYPE "dtrans-soatoaos"
 #define DTRANS_SOADEP "dtrans-soatoaos-deps"
+
+#include "SOAToAOSEffects.h"
+#include "SOAToAOSArrays.h"
 
 namespace {
 using namespace llvm;
@@ -235,19 +236,19 @@ private:
     using ArrayMethodSetTy = SmallVector<MethodSetTy, MaxNumFieldCandidates>;
 
     // Helper class for methodsets* methods.
-    template <typename IterTy>
+    template <typename IterTy, typename MethSetTy>
     class MethodsIter
         : public iterator_adaptor_base<
-              MethodsIter<IterTy>, IterTy,
+              MethodsIter<IterTy, MethSetTy>, IterTy,
               typename std::iterator_traits<IterTy>::iterator_category,
-              MethodSetTy *,
+              MethSetTy *,
               typename std::iterator_traits<IterTy>::difference_type,
-              MethodSetTy **, MethodSetTy *> {
+              MethSetTy **, MethSetTy *> {
       using BaseTy = iterator_adaptor_base<
           MethodsIter, IterTy,
           typename std::iterator_traits<IterTy>::iterator_category,
-          MethodSetTy *, typename std::iterator_traits<IterTy>::difference_type,
-          MethodSetTy **, MethodSetTy *>;
+          MethSetTy *, typename std::iterator_traits<IterTy>::difference_type,
+          MethSetTy **, MethSetTy *>;
 
     public:
       MethodsIter(IterTy It) : BaseTy(It) {}
@@ -256,11 +257,23 @@ private:
     };
 
     // Updating method sets of arrays.
-    using iterator = MethodsIter<ArrayMethodSetTy::iterator>;
+    using iterator = MethodsIter<ArrayMethodSetTy::iterator, MethodSetTy>;
 
     iterator methodsets_begin() { return iterator(ArrayFieldsMethods.begin()); }
     iterator methodsets_end() { return iterator(ArrayFieldsMethods.end()); }
     iterator_range<iterator> methodsets() {
+      return make_range(methodsets_begin(), methodsets_end());
+    }
+
+    using const_iterator =
+        MethodsIter<ArrayMethodSetTy::const_iterator, const MethodSetTy>;
+    const_iterator methodsets_begin() const {
+      return const_iterator(ArrayFieldsMethods.begin());
+    }
+    const_iterator methodsets_end() const {
+      return const_iterator(ArrayFieldsMethods.end());
+    }
+    iterator_range<const_iterator> methodsets() const {
       return make_range(methodsets_begin(), methodsets_end());
     }
 
@@ -346,20 +359,20 @@ private:
     using MethodsBinsTy = SmallVector<ClassifyMethodsTy, MaxNumFieldCandidates>;
 
     // Helper class for methodbins* methods.
-    template <typename IterTy>
+    template <typename IterTy, typename ClassifyMethTy>
     class MethodsKindIter
         : public iterator_adaptor_base<
-              MethodsKindIter<IterTy>, IterTy,
+              MethodsKindIter<IterTy, ClassifyMethTy>, IterTy,
               typename std::iterator_traits<IterTy>::iterator_category,
-              ClassifyMethodsTy *,
+              ClassifyMethTy *,
               typename std::iterator_traits<IterTy>::difference_type,
-              ClassifyMethodsTy **, ClassifyMethodsTy *> {
+              ClassifyMethTy **, ClassifyMethTy *> {
       using BaseTy = iterator_adaptor_base<
-          MethodsKindIter<IterTy>, IterTy,
+          MethodsKindIter<IterTy, ClassifyMethTy>, IterTy,
           typename std::iterator_traits<IterTy>::iterator_category,
-          ClassifyMethodsTy *,
+          ClassifyMethTy *,
           typename std::iterator_traits<IterTy>::difference_type,
-          ClassifyMethodsTy **, ClassifyMethodsTy *>;
+          ClassifyMethTy **, ClassifyMethTy *>;
 
     public:
       const CandidateSideEffectsInfo *Info;
@@ -370,7 +383,8 @@ private:
     };
 
     // Updating Classifications.
-    using iterator = MethodsKindIter<MethodsBinsTy::iterator>;
+    using iterator =
+        MethodsKindIter<MethodsBinsTy::iterator, ClassifyMethodsTy>;
 
     iterator methodbins_begin() {
       return iterator(this, Classifications.begin());
@@ -380,13 +394,27 @@ private:
       return make_range(methodbins_begin(), methodbins_end());
     }
 
+    // Analysis of Classifications.
+    using const_iterator =
+        MethodsKindIter<MethodsBinsTy::const_iterator, const ClassifyMethodsTy>;
+
+    const_iterator methodbins_begin() const {
+      return const_iterator(this, Classifications.begin());
+    }
+    const_iterator methodbins_end() const {
+      return const_iterator(this, Classifications.end());
+    }
+    iterator_range<const_iterator> methodbins() const {
+      return make_range(methodbins_begin(), methodbins_end());
+    }
+
   private:
     // Derivation of MethodKind from analysis in checkMethod.
     struct MethodClassification {
       // MK_Append only.
       bool HasMethodCall = false;
       // Call to method, should be classified as MK_Realloc
-      Function *CalledMethod = nullptr;
+      const Function *CalledMethod = nullptr;
       // MK_Get* cannot have stores to any instances of ArrType.
       bool HasStores = false;
       // MK_GetInteger.
@@ -395,13 +423,13 @@ private:
       // MK_Ctor
       // MK_Realloc
       // MK_Append
-      // Idioms::isBasePtrInitFromNewMemory
+      // ArrayIdioms::isBasePtrInitFromNewMemory
       bool HasBasePtrInitFromNewMemory = false;
       // MK_GetElement
       bool ReturnsElementAddr = false;
       // MK_Append
       // MK_Set
-      // Idioms::isElementValueFromArg
+      // ArrayIdioms::isElementValueFromArg
       bool HasElementSetFromArg = false;
       // MK_Dtor/MK_Realloc.
       bool HasBasePtrFree = false;
@@ -412,6 +440,7 @@ private:
       bool HasExternalSideEffect = false;
 
       MethodKind classifyMethod(const DTransAnalysisInfo &DTInfo,
+                                const TargetLibraryInfo &TLI,
                                 Function *F) const {
         if (HasElementSetFromArg) {
           if (CalledMethod)
@@ -432,17 +461,15 @@ private:
         if (HasBasePtrInitFromNewMemory && HasBasePtrFree)
           return HasExternalSideEffect ? MK_Unknown : MK_Realloc;
 
-        if (HasBasePtrFree && CtorDtorCheck::isThisArgIsDead(DTInfo, F))
+        if (HasBasePtrFree)
           return HasExternalSideEffect ? MK_Unknown : MK_Dtor;
 
         if (HasBasePtrInitFromNewMemory && !HasExternalSideEffect) {
-          if (CtorDtorCheck::isThisArgNonInitialized(DTInfo, F)) {
             bool IsCopyCtor =
                 F->arg_size() == 2 &&
                 (F->arg_begin() + 1)->getType() == F->arg_begin()->getType();
 
             return IsCopyCtor ? MK_CCtor : MK_Ctor;
-          }
         }
         return MK_Unknown;
       }
@@ -457,17 +484,20 @@ private:
     // Additional check of method call parameters.
     // Complements approximate dependency checks from DepCompute.
     // Helper method for checkMethod.
-    bool checkMethodCall(const SummaryForIdiom &S, CallSite CS) const;
+    bool checkMethodCall(
+        const SummaryForIdiom &S, ImmutableCallSite CS,
+        const std::function<bool(const Dep *, const SummaryForIdiom &S)>
+            &CheckArgs) const;
     // Checks for structured access to elements.
     // Complements approximate dependency checks from DepCompute.
     // Helper method for checkMethod.
     bool checkElementAccess(const DataLayout &DL, const SummaryForIdiom &S,
-                            Value *Addr) const;
+                            const Value *Addr) const;
     // Checks for structured memset.
     // Complements approximate dependency checks from DepCompute.
     // Helper method for checkMethod.
     bool checkMemset(const DataLayout &DL, const SummaryForIdiom &S,
-                     Value *Addr) const;
+                     const Value *Addr) const;
 
     MethodClassification checkMethod(const DataLayout &DL,
                                      const SummaryForIdiom &S) const;
@@ -984,14 +1014,15 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
   for (auto Tuple :
        zip_first(methodsets(), fields(), elements(), methodbins())) {
-    SmallVector<Function *, 1> MethodsCalled;
+    SmallVector<const Function *, 1> MethodsCalled;
     for (auto *F : *std::get<0>(Tuple)) {
       SummaryForIdiom S(std::get<1>(Tuple), std::get<2>(Tuple), MemoryInterface,
                         F);
-      LLVM_DEBUG(dbgs() << "; Checking method " << F->getName() << "\n");
+      LLVM_DEBUG(dbgs() << "; Checking array's method " << F->getName()
+                        << "\n");
 
       auto MC = checkMethod(Impl.DL, S);
-      auto MK = MC.classifyMethod(Impl.DTInfo, F);
+      auto MK = MC.classifyMethod(Impl.DTInfo, Impl.TLI, F);
 
       LLVM_DEBUG({
         dbgs() << "; Classification: ";
@@ -1040,8 +1071,8 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
         }
         break;
       // Combined methods.
-      case MK_Append:
       case MK_Realloc:
+      case MK_Append:
       case MK_Ctor:
       case MK_CCtor:
       case MK_Dtor: {
@@ -1054,8 +1085,8 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
         Function *F = FirstBins[i][0];
         Function *O = OtherBins[i][0];
 
-        if (!isa<Instruction>(F->use_begin()->getUser()) ||
-            !isa<Instruction>(O->use_begin()->getUser()))
+        if (!ImmutableCallSite(F->use_begin()->getUser()) ||
+            !ImmutableCallSite(O->use_begin()->getUser()))
           return FALSE();
 
         FunctionComparator cmp(F, O, &GNS);
@@ -1096,18 +1127,19 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::compareCallSites(
 // Call to method should have argument dependent on integer fields or integer
 // arguments or be 'this' like arguments.
 bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethodCall(
-    const SummaryForIdiom &S, CallSite CS) const {
+    const SummaryForIdiom &S, ImmutableCallSite CS,
+    const std::function<bool(const Dep *, const SummaryForIdiom &S)> &CheckArgs)
+    const {
 
-  assert(Idioms::isKnownCall(ValDependencies.find(CS.getInstruction())->second,
-                             S) &&
+  assert(ArrayIdioms::isKnownCall(
+             ValDependencies.find(CS.getInstruction())->second, S) &&
          "Incorrect checkMethodCall");
 
   for (auto &Op : CS.getInstruction()->operands()) {
-    if (isa<Constant>(Op.get()))
+    if (isa<Constant>(Op.get()) || isa<BasicBlock>(Op.get()))
       continue;
     const Dep *DO = ValDependencies.find(Op.get())->second;
-    if (!Idioms::isThisLikeArg(DO, S) &&
-        !Idioms::isDependentOnIntegerFieldsOnly(DO, S))
+    if (!CheckArgs(DO, S))
       return false;
   }
   return true;
@@ -1127,7 +1159,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethodCall(
 //  base pointers for arrays are merged to single one and elements are
 //  interleaved.
 bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkElementAccess(
-    const DataLayout &DL, const SummaryForIdiom &S, Value *Address) const {
+    const DataLayout &DL, const SummaryForIdiom &S, const Value *Address) const {
   if (isSafeBitCast(DL, Address)) {
     Address = cast<BitCastInst>(Address)->getOperand(0);
   }
@@ -1142,7 +1174,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkElementAccess(
       cast<GetElementPtrInst>(Address)->getNumIndices() != 1)
     return false;
 
-  Value *Base = cast<GetElementPtrInst>(Address)
+  auto *Base = cast<GetElementPtrInst>(Address)
                     ->getPointerOperand()
                     ->stripPointerCasts();
 
@@ -1150,7 +1182,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkElementAccess(
 
   // Base is direct access of base pointer in array structure,
   // or value returned from allocation.
-  return Idioms::isBasePointerLoad(DO, S) || Idioms::isAlloc(DO, S);
+  return ArrayIdioms::isBasePointerLoad(DO, S) || ArrayIdioms::isAlloc(DO, S);
 }
 
 // Checks that elements are cleared by memset using structured
@@ -1160,7 +1192,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkElementAccess(
 // Base address is a result of allocation functions and size is divisible by
 // element size.
 bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMemset(
-    const DataLayout &DL, const SummaryForIdiom &S, Value *Call) const {
+    const DataLayout &DL, const SummaryForIdiom &S, const Value *Call) const {
   if (!isa<MemSetInst>(Call))
     return false;
 
@@ -1169,7 +1201,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMemset(
   const Dep *DO = ValDependencies.find(MS->getDest())->second;
   // Base is direct access of base pointer in array structure,
   // or value returned from allocation.
-  if (!Idioms::isBasePointerLoad(DO, S) && !Idioms::isAlloc(DO, S))
+  if (!ArrayIdioms::isBasePointerLoad(DO, S) && !ArrayIdioms::isAlloc(DO, S))
     return false;
 
   return dtrans::isValueMultipleOfSize(MS->getLength(),
@@ -1233,7 +1265,7 @@ SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethod(
 
         // TODO: Extension: it is possible to have conditions to depend on
         // element values if method is not combined.
-        if (Idioms::isDependentOnIntegerFieldsOnly(D, S))
+        if (ArrayIdioms::isDependentOnIntegerFieldsOnly(D, S))
           break;
         Handled = false;
         break;
@@ -1242,18 +1274,18 @@ SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethod(
       // valid accesses to elements. Otherwise, they are checked when
       // stores/calls/returns/branches are checked
       case Instruction::Load:
-        if (Idioms::isIntegerFieldLoad(D, S))
+        if (ArrayIdioms::isIntegerFieldLoad(D, S))
           break;
-        else if (Idioms::isBasePointerLoad(D, S))
+        else if (ArrayIdioms::isBasePointerLoad(D, S))
           break;
-        else if (Idioms::isElementLoad(D, S)) {
+        else if (ArrayIdioms::isElementLoad(D, S)) {
           if (checkElementAccess(DL, S, cast<LoadInst>(I).getPointerOperand()))
             break;
           DEBUG_WITH_TYPE(DTRANS_SOADEP,
                           dbgs() << "; Unsupported address computations\n");
-        } else if (Idioms::isMemoryInterfaceFieldLoad(D, S))
+        } else if (ArrayIdioms::isMemoryInterfaceFieldLoad(D, S))
           break;
-        else if (Idioms::isElementValueFromArg(D, S))
+        else if (ArrayIdioms::isElementValueFromArg(D, S))
           break;
 
         Handled = false;
@@ -1261,23 +1293,20 @@ SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethod(
       case Instruction::Store:
         MC.HasStores = true;
 
-        if (Idioms::isIntegerFieldCopyEx(D, S)) {
+        if (ArrayIdioms::isIntegerFieldCopyEx(D, S)) {
           MC.HasFieldUpdate = true;
           break;
-        } else if (Idioms::isFieldCopyOrConstInit(D, S)) {
-          MC.HasFieldUpdate = true;
-          break;
-        } else if (Idioms::isElementCopy(D, S)) {
+        } else if (ArrayIdioms::isElementCopy(D, S)) {
           if (checkElementAccess(DL, S, cast<StoreInst>(I).getPointerOperand()))
             break;
           DEBUG_WITH_TYPE(DTRANS_SOADEP,
                           dbgs() << "; Unsupported address computations\n");
-        } else if (Idioms::isElementStoreToNewMemory(D, S)) {
+        } else if (ArrayIdioms::isElementStoreToNewMemory(D, S)) {
           if (checkElementAccess(DL, S, cast<StoreInst>(I).getPointerOperand()))
             break;
           DEBUG_WITH_TYPE(DTRANS_SOADEP,
                           dbgs() << "; Unsupported address computations\n");
-        } else if (Idioms::isElementSetFromArg(D, S)) {
+        } else if (ArrayIdioms::isElementSetFromArg(D, S)) {
           if (checkElementAccess(DL, S,
                                  cast<StoreInst>(I).getPointerOperand())) {
             MC.HasElementSetFromArg = true;
@@ -1285,21 +1314,29 @@ SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethod(
           }
           DEBUG_WITH_TYPE(DTRANS_SOADEP,
                           dbgs() << "; Unsupported address computations\n");
-        } else if (Idioms::isBasePtrInitFromNewMemory(D, S)) {
+        } else if (ArrayIdioms::isBasePtrInitFromNewMemory(D, S)) {
           MC.HasBasePtrInitFromNewMemory = true;
           MC.HasFieldUpdate = true;
+
           auto *VDep =
               ValDependencies
                   .find(
                       cast<StoreInst>(I).getValueOperand()->stripPointerCasts())
                   ->second;
-          if (Idioms::isAlloc(VDep, S))
+          if (ArrayIdioms::isAlloc(VDep, S))
             break;
           DEBUG_WITH_TYPE(DTRANS_SOADEP,
                           dbgs() << "; Unsupported base pointer initialization\n");
-        } else if (Idioms::isMemoryInterfaceSetFromArg(D, S)) {
+        } else if (ArrayIdioms::isMemoryInterfaceCopy(D, S) ||
+                   ArrayIdioms::isMemoryInterfaceSetFromArg(D, S)) {
           MC.HasFieldUpdate = true;
           break;
+        } else if (ArrayIdioms::isBasePtrInitFromConst(D, S)) {
+          if (auto *C = dyn_cast<Constant>(cast<StoreInst>(I).getValueOperand()))
+            if (C->isZeroValue()) {
+              MC.HasFieldUpdate = true;
+              break;
+            }
         }
         Handled = false;
         break;
@@ -1309,24 +1346,24 @@ SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethod(
         if (I.getNumOperands() == 0)
           break;
 
-        if (Idioms::isIntegerFieldLoad(D, S)) {
+        if (ArrayIdioms::isIntegerFieldLoad(D, S)) {
           MC.ReturnsIntField = true;
           break;
-        } else if (Idioms::isElementAddr(D, S)) {
+        } else if (ArrayIdioms::isElementAddr(D, S)) {
           MC.ReturnsElementAddr = true;
           break;
         }
         Handled = false;
         break;
       case Instruction::LandingPad:
-        if (Idioms::isExternaSideEffect(D, S)) {
+        if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
         }
         Handled = false;
         break;
       case Instruction::Resume:
-        if (Idioms::isExternaSideEffect(D, S)) {
+        if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
         }
@@ -1334,26 +1371,31 @@ SOAToAOSTransformImpl::CandidateSideEffectsInfo::checkMethod(
         break;
       case Instruction::Call:
       case Instruction::Invoke:
-        if (Idioms::isKnownCall(D, S)) {
+        if (ArrayIdioms::isKnownCall(D, S)) {
+          auto CS = ImmutableCallSite(&I);
           // Additional checks for method call.
-          if (checkMethodCall(S, CallSite(&I))) {
-            MC.CalledMethod = cast<Function>(CallSite(&I).getCalledValue());
+          auto CheckArgs = [](const Dep *D, const SummaryForIdiom &S) -> bool {
+            return ArrayIdioms::isThisLikeArg(D, S) ||
+                   ArrayIdioms::isDependentOnIntegerFieldsOnly(D, S);
+          };
+          if (checkMethodCall(S, CS, CheckArgs)) {
+            MC.CalledMethod = cast<Function>(CS.getCalledValue());
             break;
           }
-        } else if (Idioms::isAlloc(D, S))
+        } else if (ArrayIdioms::isAlloc(D, S))
           break;
-        else if (Idioms::isBasePtrFree(D, S)) {
+        else if (ArrayIdioms::isBasePtrFree(D, S)) {
           // May want to check that pointer to deallocate is exactly
           // load of base pointer.
           MC.HasBasePtrFree = true;
           break;
-        } else if (Idioms::isNewMemoryInit(D,
-                                           S)) { // Corresponds to memset
+        } else if (ArrayIdioms::isNewMemoryInit(D,
+                                                S)) { // Corresponds to memset
           if (checkMemset(DL, S, &I))
             break;
           DEBUG_WITH_TYPE(DTRANS_SOADEP,
                           dbgs() << "; Unsupported memory initialization\n");
-        } else if (Idioms::isExternaSideEffect(D, S)) {
+        } else if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
         }

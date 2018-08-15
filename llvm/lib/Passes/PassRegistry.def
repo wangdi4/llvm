@@ -150,6 +150,12 @@ FUNCTION_ANALYSIS("targetir",
                   TM ? TM->getTargetIRAnalysis() : TargetIRAnalysis())
 FUNCTION_ANALYSIS("verify", VerifierAnalysis())
 
+#if INTEL_INCLUDE_DTRANS
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+FUNCTION_ANALYSIS("soatoaos-approx", SOAToAOSApproximationDebug())    // INTEL
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_INCLUDE_DTRANS
+
 #if INTEL_CUSTOMIZATION
 FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
 FUNCTION_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())

@@ -415,13 +415,14 @@ class DepManager {
   // All Deps are owned by DepManager.
   DenseSet<Dep *> Deps;
   unsigned DepId = 0;
+  unsigned Queries = 0;
 
 public:
   inline const Dep *intern(Dep &&Tmp);
   inline ~DepManager();
 };
 
-struct Idioms;
+struct ArrayIdioms;
 struct DepCmp;
 
 // Array object interacts with remaining program:
@@ -473,8 +474,8 @@ private:
   const Dep *Arg2 = nullptr;
   unsigned Id = 0;
 
-  // Analysis of computed approximations.
-  friend struct Idioms;
+  // Analysis of computed approximations for array's methods.
+  friend struct ArrayIdioms;
   // Deterministic order in debug printing.
   friend struct DepCmp;
 
@@ -597,11 +598,10 @@ public:
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  Dep(KindTy K = DK_Bottom) : Kind(K), Arg1(nullptr) {}
-
   bool isBottom() const { return Kind == DK_Bottom; }
 
 private:
+  Dep(KindTy K = DK_Bottom) : Kind(K), Arg1(nullptr) {}
 
   // 'private:' clause related to:
   //  - Args management for DK_Function (Args is owned by given instance of
@@ -712,6 +712,7 @@ Dep Dep::Tombstone(DK_Tomb);
 
 const Dep *DepManager::intern(Dep &&Tmp) {
   assert(DepId == Deps.size() && "Inconsistent state of DepManager::Deps");
+  ++Queries;
   Tmp.Id = ++DepId;
   auto It = Deps.find(&Tmp);
   if (It != Deps.end()) {
@@ -722,6 +723,8 @@ const Dep *DepManager::intern(Dep &&Tmp) {
 }
 
 DepManager::~DepManager() {
+  DEBUG_WITH_TYPE(DTRANS_SOADEP, dbgs() << "; Deps computed: " << DepId
+                                        << ", Queries: " << Queries << "\n");
   DepId -= Deps.size();
   assert(DepId == 0 && "Inconsistent state of DepManager::Deps");
 
@@ -826,6 +829,43 @@ bool isSafeIntToPtr(const DataLayout &DL, const Value *V) {
   return V->getType() == PtrType->getPointerElementType();
 }
 
+// It is analysis counter peephole transformation.
+//  %ptr = bitcast %base* to <some type>*
+//  store <val> %ptr,
+// where <val> has size of first field.
+bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
+  if (!isa<BitCastInst>(V))
+    return false;
+
+  auto *BC = cast<BitCastInst>(V);
+  auto *FromTy = BC->getOperand(0)->getType();
+  auto *ToTy = BC->getType();
+  if (!isa<PointerType>(ToTy) || !BC->hasOneUse() || !isa<PointerType>(FromTy))
+    return false;
+
+  auto *FromPointeeTy = dyn_cast<StructType>(FromTy->getPointerElementType());
+  auto *ToPointeeTy = ToTy->getPointerElementType();
+
+  if (!FromPointeeTy || FromPointeeTy->isOpaque() ||
+      !FromPointeeTy->isSized() || FromPointeeTy->getNumElements() == 0)
+    return false;
+
+  if (DL.getTypeStoreSize(FromPointeeTy->getElementType(0)) !=
+      DL.getTypeStoreSize(ToPointeeTy))
+    return false;
+
+  auto *U = BC->use_begin()->getUser();
+
+  if (!isa<StoreInst>(U))
+    return false;
+
+  auto *S = cast<StoreInst>(U);
+  if (S->getPointerOperand() != BC)
+    return false;
+
+  return true;
+}
+
 // Class performing actual computations of Dep.
 // Suitable for analysis of methods (Method field) of
 // class (ClassType field).
@@ -834,6 +874,8 @@ bool isSafeIntToPtr(const DataLayout &DL, const Value *V) {
 // fields.
 //
 // Encapsulates short-living state.
+//
+// Lit-tests can be written with SOAToAOSApproximationDebug pass.
 class DepCompute {
   const DTransAnalysisInfo &DTInfo;
   const DataLayout &DL;
@@ -910,9 +952,11 @@ class DepCompute {
       } else {
         unsigned FieldInd = IsFieldAccessGEP(*(*SCCIt).begin());
 
-        if (isSafeBitCast(DL, *(*SCCIt).begin()) ||
-            isSafeIntToPtr(DL, *(*SCCIt).begin()))
+        auto *V = *(*SCCIt).begin();
+        if (isSafeBitCast(DL, V) || isSafeIntToPtr(DL, V))
           ThisRep = Dep::mkArgList(DM, Args);
+        else if (isBitCastLikeGep(DL, V))
+          ThisRep = Dep::mkGEP(DM, Dep::mkNonEmptyArgList(DM, Args), 0);
         else if (FieldInd != -1U && Args.size() != 0)
           ThisRep = Dep::mkGEP(DM, Dep::mkNonEmptyArgList(DM, Args), FieldInd);
         else if (Args.size() == 0)
@@ -961,7 +1005,7 @@ public:
     for (auto &BB : *Method)
       for (auto &I : BB)
         if (I.hasNUses(0))
-            Sinks.push_back(&I);
+          Sinks.push_back(&I);
 
     for (auto *S : Sinks)
       // SCCs are returned in post-order, for example, first instruction is
@@ -1064,7 +1108,7 @@ public:
           case Instruction::Call: {
             if (auto *M = dyn_cast<MemSetInst>(&I)) {
               Dep::Container Special;
-              Special.insert(computeValueDep(M->getDest()));
+              Special.insert(computeValueDep(M->getRawDest()));
               Special.insert(computeValueDep(M->getLength()));
               Rep = Dep::mkStore(DM, computeValueDep(M->getValue()),
                                  Dep::mkNonEmptyArgList(DM, Special));
@@ -1085,9 +1129,6 @@ public:
                 Rep = Dep::mkBottom(DM);
                 break;
               }
-            } else if (!isa<Function>(ImmutableCallSite(&I).getCalledValue())) {
-              Rep = Dep::mkBottom(DM);
-              break;
             }
 
             Dep::Container Special;
@@ -1102,6 +1143,9 @@ public:
                 Remaining.insert(computeValueDep(Op.get()));
             }
 
+            auto *F =
+                dyn_cast<Function>(ImmutableCallSite(&I).getCalledValue());
+
             if (Info)
               // Relying on check that Realloc is forbidden.
               Rep = Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc
@@ -1111,8 +1155,7 @@ public:
                                       Dep::mkArgList(DM, Remaining));
             else
               Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
-                                IsKnownCallCheck(cast<Function>(
-                                    ImmutableCallSite(&I).getCalledValue())));
+                                F && IsKnownCallCheck(F));
             break;
           }
           default:
@@ -1165,7 +1208,7 @@ void Dep::print(raw_ostream &OS, unsigned Indent, unsigned ClosingParen) const {
   };
   switch (Kind) {
   case DK_Bottom:
-    OS << "Unknown";
+    OS << "Unknown Dep";
     EOL(ClosingParen);
     break;
   case DK_Argument:
@@ -1251,544 +1294,6 @@ void Dep::print(raw_ostream &OS, unsigned Indent, unsigned ClosingParen) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Summary for Idioms.
-// Represents structure, which is array, see CandidateLayoutInfo.
-struct SummaryForIdiom {
-  StructType *ArrType;
-  Type *ElementType;
-  StructType *MemoryInterface;
-  Function *Method;
-  SummaryForIdiom(StructType *A, Type *E, StructType *MI, Function *F)
-      : ArrType(A), ElementType(E), MemoryInterface(MI), Method(F) {}
-};
-
-// Number of idioms related analysis of structures representing arrays.
-// Such structures contain only base pointer, integer fields and
-// MemoryInterface optionally.
-//
-// Given these checks one can analyze evolution of
-// integer fields.
-//
-// These checks (in addition to callsite analysis of methods)
-// permit to create single structure, which has one copy of
-// integer fields and MemoryInterface field.
-//
-// Element accesses need to be checked for wellformedness
-// if one is going to combine base pointers to single one.
-//
-struct Idioms {
-private:
-  // GEP (Arg ArgNo) FieldInd.
-  static inline bool isArgAddr(const Dep *D, unsigned &ArgNo,
-                                     unsigned &FieldInd) {
-    if (D->Kind != Dep::DK_GEP)
-      return false;
-
-    FieldInd = D->Const;
-    auto *Addr = D->Arg2;
-
-    if (Addr->Kind != Dep::DK_Argument)
-      return false;
-
-    ArgNo = Addr->Const;
-    return true;
-  }
-
-  // GEP (Arg ArgNo) FieldInd,
-  // where OutType is FieldInd'th field of S.ArrType.
-  static inline bool isFieldAddr(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&OutType) {
-    unsigned ArgNo = -1U;
-    unsigned FieldInd = -1U;
-    if (!isArgAddr(D, ArgNo, FieldInd))
-      return false;
-
-    auto *ATy =
-        dyn_cast<PointerType>((S.Method->arg_begin() + ArgNo)->getType());
-    if (!ATy || ATy->getPointerElementType() != S.ArrType)
-      return false;
-
-    if (FieldInd >= S.ArrType->getNumElements())
-      return false;
-
-    OutType = S.ArrType->getElementType(FieldInd);
-    return true;
-  }
-
-  // (Arg ArgNo) of integer type.
-  static inline bool isIntegerArg(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Argument)
-      return false;
-    return (S.Method->arg_begin() + D->Const)->getType()->isIntegerTy();
-  }
-
-  // GEP (Arg ArgNo) FieldInd,
-  // where corresponding type is integer of S.ArrType.
-  static inline bool isIntegerFieldAddr(const Dep *D,
-                                        const SummaryForIdiom &S) {
-    Type *Out = nullptr;
-    if (!isFieldAddr(D, S, Out))
-      return false;
-    return Out->isIntegerTy();
-  }
-
-  // GEP (Arg ArgNo) FieldInd,
-  // where corresponding type is base pointer of S.ArrType.
-  static inline bool isBasePointerAddr(const Dep *D, const SummaryForIdiom &S) {
-    Type *Out = nullptr;
-    if (!isFieldAddr(D, S, Out))
-      return false;
-    return Out->isPointerTy() && Out->getPointerElementType() == S.ElementType;
-  }
-
-  // Load of some field of S.ArrType.
-  static inline bool isFieldLoad(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&OutType) {
-    if (D->Kind != Dep::DK_Load)
-      return false;
-    return isFieldAddr(D->Arg1, S, OutType);
-  }
-
-  // Some function of several recursive load relative to S.MemoryInterface.
-  //
-  // Used in parameters check of Alloc/Free,
-  //  which are related to access to MemoryInterface and
-  //  vtable in MemoryInterface.
-  //
-  // Alloc size(..)
-  //   Remaining operands, 4th field is MemoryInterface:
-  //   MemoryInterface as 'this; pointer to virtual function call.
-  //   (Func(Load(GEP(Arg 0) 4))
-  //        (Load(Func(Load(Load(GEP(Arg 0) 4))))))
-  static inline bool isMemoryInterfaceFieldLoadRec(const Dep *D,
-                                                   const SummaryForIdiom &S) {
-    if (isMemoryInterfaceFieldLoad(D, S))
-      return true;
-
-    if (D->Kind != Dep::DK_Function)
-      return false;
-
-    for (auto *A: *D->Args)
-      // No need to check recursively.
-      if (!isMemoryInterfaceFieldLoad(A, S))
-        return false;
-
-    return true;
-  }
-
-  // Some external side effect not updating fields, because:
-  //  terminal nodes are DK_Const and isMemoryInterfaceFieldLoad,
-  //  which is assumed to be accessed only for memory allocation/deallocation.
-  //
-  // No pointers escape and relying on knowing all occurrence of structures
-  // representing arrays.
-  static inline bool isExternaSideEffectRec(const Dep *D,
-                                            const SummaryForIdiom &S,
-                                            bool &SeenUnknownTerminal) {
-    if (D->Kind == Dep::DK_Function) {
-      bool ExtSE = false;
-      for (auto *A : *D->Args)
-        if (A->Kind == Dep::DK_Const || isMemoryInterfaceFieldLoad(A, S))
-          continue;
-        else if (isExternaSideEffectRec(A, S, SeenUnknownTerminal))
-          ExtSE = true;
-        else {
-          SeenUnknownTerminal = true;
-          return false;
-        }
-      return ExtSE;
-    }
-
-    if (D->Kind == Dep::DK_Call && D->Const != 0) {
-      isExternaSideEffectRec(D->Arg2, S, SeenUnknownTerminal);
-      return !SeenUnknownTerminal;
-    }
-
-    return false;
-  }
-
-  // Load from base pointer field of S.ArrType.
-  static inline bool isBasePointerLoadBased(const Dep *D,
-                                            const SummaryForIdiom &S) {
-
-    if (isBasePointerLoad(D, S))
-      return true;
-
-    if (D->Kind != Dep::DK_Function || D->Args->size() != 1)
-      return false;
-
-    return isBasePointerLoad(*D->Args->begin(), S);
-  }
-
-public:
-  // Load from base pointer field of S.ArrType.
-  static inline bool isBasePointerLoad(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Load)
-      return false;
-    return isBasePointerAddr(D->Arg1, S);
-  }
-
-  // Load from integer field of S.ArrType.
-  static inline bool isIntegerFieldLoad(const Dep *D,
-                                        const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Load)
-      return false;
-    return isIntegerFieldAddr(D->Arg1, S);
-  }
-
-  // Some arithmetic function on integer argument and integer fields of
-  // S.ArrType.
-  //
-  // It should be satisfied for conditions in conditional branches and
-  // updates of integer fields of S.ArrType.
-  //
-  // Other checks should implicitly assume this check if control flow
-  // dependence is accounted for.
-  static inline bool isDependentOnIntegerFieldsOnly(const Dep *D, const
-                                                    SummaryForIdiom &S) {
-    if (isIntegerFieldLoad(D, S) || isIntegerArg(D, S))
-      return true;
-
-    if (D->Kind == Dep::DK_Const)
-      return true;
-
-    if (D->Kind != Dep::DK_Function)
-      return false;
-
-    for (auto *A : *D->Args)
-      if (!isIntegerFieldLoad(A, S) && !isIntegerArg(A, S))
-        return false;
-    return true;
-  }
-
-  // Store of some value dependent on other integer field and integer arguments
-  // to integer field. Should consider all integer fields and all arguments,
-  // because conditional branches depend on integer fields and integer
-  // arguments.
-  static inline bool isIntegerFieldCopyEx(const Dep *D,
-                                          const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (!isIntegerFieldAddr(D->Arg2, S))
-      return false;
-
-    if (D->Arg1->Kind != Dep::DK_Const &&
-        !isDependentOnIntegerFieldsOnly(D->Arg1, S))
-      return false;
-
-    return true;
-  }
-
-  // Direct copy of S.MemoryInterface from one argument
-  // to corresponding field of S.ArrType.
-  static inline bool isMemoryInterfaceSetFromArg(const Dep *D,
-                                                 const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    Type *Out = nullptr;
-    if (!isFieldAddr(D->Arg2, S, Out))
-      return false;
-
-    if (!isa<PointerType>(Out))
-      return false;
-
-    if (Out->getPointerElementType() != S.MemoryInterface)
-      return false;
-
-    if (D->Arg1->Kind == Dep::DK_Argument) {
-      assert((S.Method->arg_begin() + D->Arg1->Const)
-                     ->getType()
-                     ->getPointerElementType() == S.MemoryInterface &&
-             "Unexpected type cast");
-      return true;
-    }
-    return false;
-  }
-
-  // Direct copy of some field to the field of same type,
-  //  from one argument to another.
-  // Also store of some constant to fields is permitted.
-  //
-  // Base pointers to base pointers.
-  // S.MemoryInterface to S.MemoryInterface
-  //
-  // Does not depend on control flow inside S.Method.
-  static inline bool isFieldCopyOrConstInit(const Dep *D,
-                                            const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    Type *ValType = nullptr;
-    if (D->Arg1->Kind != Dep::DK_Const)
-      if (!isFieldLoad(D->Arg1, S, ValType))
-        return false;
-
-    Type *AddrType = nullptr;
-    if (!isFieldAddr(D->Arg2, S, AddrType))
-      return false;
-
-    return ValType == nullptr || AddrType == ValType;
-  }
-
-  // Some function of
-  //  - base pointer, corresponding to argument ArgNo;
-  //  - integer fields of ArrTy (given as parameter);
-  //  - integer parameters.
-  static inline bool isElementAddr(const Dep *D, const SummaryForIdiom &S) {
-    bool BaseSeen = false;
-    auto Addr = D;
-    if (Addr->Kind == Dep::DK_Function) {
-      for (auto *A : *Addr->Args)
-        if (isIntegerFieldLoad(A, S) || isIntegerArg(A, S))
-          continue;
-        else if (isBasePointerLoad(A, S)) {
-          if (BaseSeen)
-            return false;
-          BaseSeen = true;
-        } else
-          return false;
-      return BaseSeen;
-    } else if (Addr->Kind == Dep::DK_Load)
-      return isBasePointerLoad(Addr->Arg1, S);
-    return false;
-  }
-
-  // Load relative to base pointer from S.ArrType.
-  static inline bool isElementLoad(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Load)
-      return false;
-    return isElementAddr(D->Arg1, S);
-  }
-
-  // Copy of some element in S.ArrType to another element of S.ArrType,
-  // addresses are relative to base pointers.
-  static inline bool isElementCopy(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (!isElementLoad(D->Arg1, S))
-      return false;
-
-    if (!isElementAddr(D->Arg2, S))
-      return false;
-
-    return true;
-  }
-
-  // Access to S.ElementType from some argument.
-  static inline bool isElementValueFromArg(const Dep *D,
-                                           const SummaryForIdiom &S) {
-    auto *A = D;
-    if (A->Kind == Dep::DK_Load)
-      A = A->Arg1;
-
-    if (A->Kind != Dep::DK_Argument)
-      return false;
-
-    auto *ATy = (S.Method->arg_begin() + A->Const)->getType();
-
-    if (D->Kind == Dep::DK_Load)
-      return isa<PointerType>(ATy) &&
-             ATy->getPointerElementType() == S.ElementType;
-
-    return ATy == S.ElementType;
-  }
-
-  // Store of argument to array (address is relative to base pointer of
-  // S.ArrType).
-  static inline bool isElementSetFromArg(const Dep *D,
-                                         const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-    if (!isElementValueFromArg(D->Arg1, S))
-      return false;
-    return isElementAddr(D->Arg2, S);
-  }
-
-  // Whether D is represents returned pointer of Allocation.
-  static inline bool isAlloc(const Dep *D, const SummaryForIdiom &S) {
-    return D->Kind == Dep::DK_Alloc;
-  }
-
-  // Some allocation call, whose size argument depends on integer fields of
-  // S.ArrType and integer arguments.
-  static inline bool isAllocBased(const Dep *D, const SummaryForIdiom &S) {
-    auto *Alloc = D;
-
-    if (D->Kind == Dep::DK_Function)
-      for (auto *A : *D->Args)
-        if (A->Kind == Dep::DK_Alloc) {
-          // Single alloc is permitted.
-          if (Alloc->Kind == Dep::DK_Alloc)
-            return false;
-          Alloc = A;
-        } else if (!isDependentOnIntegerFieldsOnly(A, S))
-          return false;
-
-    if (Alloc->Kind != Dep::DK_Alloc)
-      return false;
-
-    if (!isDependentOnIntegerFieldsOnly(Alloc->Arg1, S) &&
-        Alloc->Arg1->Kind != Dep::DK_Const)
-      return false;
-
-    if (Alloc->Arg2->Kind == Dep::DK_Const)
-      return true;
-
-    if (!isMemoryInterfaceFieldLoadRec(Alloc->Arg2, S))
-      return false;
-
-    return true;
-  }
-
-  // Store some element of S.ArrType to newly allocated memory.
-  // Value stored is accessed relative to base pointer.
-  // Store address is relative to newly allocated memory.
-  static inline bool isElementStoreToNewMemory(const Dep *D,
-                                               const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (!isElementLoad(D->Arg1, S))
-      return false;
-
-    auto *Addr = D->Arg2;
-
-    if (Addr->Kind == Dep::DK_Function) {
-      if (Addr->Args->size() != 1)
-        return false;
-      Addr = *Addr->Args->begin();
-    }
-
-    return isAllocBased(Addr, S);
-  }
-
-  // Store of constant to newly allocated memory.
-  // TODO: extend if needed to memset of base pointer.
-  static inline bool isNewMemoryInit(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (D->Arg1->Kind != Dep::DK_Const)
-      return  false;
-
-    return isAllocBased(D->Arg2, S);
-  }
-
-  // Initialize base pointer with newly allocated memory.
-  static inline bool isBasePtrInitFromNewMemory(const Dep *D,
-                                                const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (!isAllocBased(D->Arg1, S))
-      return false;
-
-    Type *Out = nullptr;
-    if (!isFieldAddr(D->Arg2, S, Out))
-      return false;
-
-    if (!isa<PointerType>(Out))
-      return false;
-
-    return S.ElementType == Out->getPointerElementType();
-  }
-
-  // Deallocation of memory pointed to base pointer.
-  static inline bool isBasePtrFree(const Dep *D, const SummaryForIdiom &S) {
-    auto *Free = D;
-
-    if (D->Kind == Dep::DK_Function && D->Args->size() == 1)
-      Free = *D->Args->begin();
-
-    if (Free->Kind != Dep::DK_Free)
-      return false;
-
-    if (!isBasePointerLoadBased(Free->Arg1, S))
-      return false;
-
-    if (!isMemoryInterfaceFieldLoadRec(Free->Arg2, S))
-      return false;
-
-    return true;
-  }
-
-  // Potential call to MK_Realloc method.
-  // Additional checks of arguments is required.
-  // See computeDepApproximation.
-  static inline bool isKnownCall(const Dep *D, const SummaryForIdiom &S) {
-    return D->Kind == Dep::DK_Call && D->Const == 0;
-  }
-
-  static inline bool isThisLikeArg(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Argument)
-      return false;
-
-    auto *ATy =
-        dyn_cast<PointerType>((S.Method->arg_begin() + D->Const)->getType());
-    if (!ATy)
-      return false;
-
-    return ATy->getPointerElementType() == S.ArrType;
-  }
-
-  // Some function of several recursive load relative to S.MemoryInterface:
-  //  access to MemoryInterface and vtable.
-  static inline bool isMemoryInterfaceFieldLoad(const Dep *D,
-                                                const SummaryForIdiom &S) {
-
-    if (D->Kind != Dep::DK_Load && D->Kind != Dep::DK_Argument)
-      return false;
-
-    auto *A = D;
-    int Deref = 0;
-    do {
-      if (A->Kind == Dep::DK_Function) {
-        if (A->Args->size() != 1)
-          return false;
-        A = *A->Args->begin();
-      } else if (A->Kind == Dep::DK_Load) {
-        A = A->Arg1;
-        ++Deref;
-      } else if (A->Kind == Dep::DK_Argument || A->Kind == Dep::DK_GEP)
-        break;
-      else
-        return false;
-    } while (true);
-
-    {
-      Type *Out = nullptr;
-      // 1. Access pointer field in outer structure.
-      // 2. Access pointer to vtable
-      // 3. Access pointer to function
-      if (Deref <= 3 && isFieldAddr(A, S, Out) &&
-          Out->isPointerTy() &&
-          Out->getPointerElementType() == S.MemoryInterface) {
-        return true;
-      }
-    }
-
-    if (A->Kind != Dep::DK_Argument)
-      return false;
-
-    if (auto *Out = dyn_cast<PointerType>(
-            (S.Method->arg_begin() + A->Const)->getType()))
-      if (Deref <= 2 && Out->getPointerElementType() == S.MemoryInterface)
-        return true;
-
-    return false;
-  }
-
-  static inline bool isExternaSideEffect(const Dep *D,
-                                         const SummaryForIdiom &S) {
-    bool SeenUnknownTerminal = false;
-    return isExternaSideEffectRec(D, S, SeenUnknownTerminal) &&
-           !SeenUnknownTerminal;
-  }
-};
-
 // Utility class, see comments for static methods.
 //
 // We are relying that memory is not initialized before ctor, and all stores to
@@ -1806,7 +1311,29 @@ public:
   //
   // Implementation: checks that 'this' is used in free.
   static inline bool isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
+                                     const TargetLibraryInfo &TLI,
                                      const Function *F);
+
+  // Returns true if U is a pointer to memory passed to deallocation routine.
+  static inline bool isFreedPtr(const DTransAnalysisInfo &DTInfo,
+                                const TargetLibraryInfo &TLI, const Use &U) {
+
+    ImmutableCallSite CS(U.getUser());
+    if (!CS)
+      return false;
+
+    auto *Info = DTInfo.getCallInfo(CS.getInstruction());
+    if (!Info || Info->getCallInfoKind() != dtrans::CallInfo::CIK_Free)
+      return false;
+
+    SmallPtrSet<const Value *, 3> Args;
+    collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), CS, Args,
+                           TLI);
+    if (Args.size() != 1 || *Args.begin() != U.get())
+      return false;
+
+    return true;
+  }
 };
 
 bool CtorDtorCheck::isThisArgNonInitialized(const DTransAnalysisInfo &DTInfo,
@@ -1841,6 +1368,7 @@ bool CtorDtorCheck::isThisArgNonInitialized(const DTransAnalysisInfo &DTInfo,
 }
 
 bool CtorDtorCheck::isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
+                                    const TargetLibraryInfo &TLI,
                                     const Function *F) {
   // Simple wrappers only.
   if (!F->hasOneUse())
@@ -1859,28 +1387,28 @@ bool CtorDtorCheck::isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
   bool HasSameBBDelete = false;
   auto *BB = CS.getInstruction()->getParent();
   for (auto &U : ThisArg->uses()) {
-    auto *V = U.getUser();
+    auto *V = &U;
 
     // stripPointerCasts from def to single use.
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(V->getUser())) {
       if (GEP->hasAllZeroIndices()) {
         if (!GEP->hasOneUse())
           return false;
-        V = GEP->use_begin()->getUser();
+        V = &*GEP->use_begin();
       }
-    } else if (auto *BC = dyn_cast<BitCastInst>(V)) {
+    } else if (auto *BC = dyn_cast<BitCastInst>(V->getUser())) {
       if (!BC->hasOneUse())
         return false;
-      V = BC->use_begin()->getUser();
+      V = &*BC->use_begin();
     }
 
-    if (!isa<Instruction>(V))
+    if (!isa<Instruction>(V->getUser()))
       return false;
 
-    if (V == CS.getInstruction())
+    if (V->getUser() == CS.getInstruction())
       continue;
 
-    auto *Inst = cast<Instruction>(V);
+    auto *Inst = cast<Instruction>(V->getUser());
     bool IsSameBB = Inst->getParent() == BB;
     // If V follows CS in the same BB.
     bool IsBBSucc = false;
@@ -1894,9 +1422,7 @@ bool CtorDtorCheck::isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
         continue;
     }
 
-    auto *Info = DTInfo.getCallInfo(Inst);
-    // All kinds of free are OK.
-    if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
+    if (isFreedPtr(DTInfo, TLI, *V)) {
       if (IsSameBB && IsBBSucc) {
         HasSameBBDelete = true;
         continue;
@@ -1917,5 +1443,59 @@ bool CtorDtorCheck::isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
 
   return true;
 }
-
 } // namespace
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+namespace {
+// Structure name to use in SOAToAOSApproximationDebug.
+static cl::opt<std::string> DTransSOAToAOSApproxTypename(
+    "dtrans-soatoaos-approx-typename", cl::init(""), cl::ReallyHidden,
+    cl::desc("Structure name SOAToAOSApproximationDebug"));
+
+// Calls to mark as known in SOAToAOSApproximationDebug.
+static cl::list<std::string>
+    DTransSOAToAOSApproxKnown("dtrans-soatoaos-approx-known-func",
+                              cl::ReallyHidden);
+} // namespace
+
+namespace llvm {
+char SOAToAOSApproximationDebug::PassID;
+
+// Provide a definition for the static class member used to identify passes.
+AnalysisKey SOAToAOSApproximationDebug::Key;
+
+SOAToAOSApproximationDebug::Ignore
+SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
+  const ModuleAnalysisManager &MAM =
+      AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
+  auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
+  auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
+
+  DepMap Result;
+  StructType *ClassType =
+      F.getParent()->getTypeByName(DTransSOAToAOSApproxTypename);
+
+  if (!ClassType)
+    return Ignore();
+
+  std::function<bool(const Function *)> IsKnown =
+      [&F](const Function *Func) -> bool {
+    return Func == &F || find(DTransSOAToAOSApproxKnown, Func->getName()) !=
+                             DTransSOAToAOSApproxKnown.end();
+  };
+
+  // Do analysis.
+  DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), *TLI, &F, ClassType,
+                Result);
+  DC.computeDepApproximation(IsKnown);
+
+  // Dump results of analysis.
+  DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+    dbgs() << "; Dump computed dependencies ";
+    DepMap::DepAnnotatedWriter Annotate(Result);
+    F.print(dbgs(), &Annotate);
+  });
+  return Ignore();
+}
+} // namespace llvm
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

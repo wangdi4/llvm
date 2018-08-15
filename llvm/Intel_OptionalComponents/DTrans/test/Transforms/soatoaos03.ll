@@ -13,29 +13,29 @@
 ; Checks method classification and comparison of methods,
 ; which are going to be combined. See comments for C++ code.
 
-; CHECK:      Checking method _ZN3ArrIPiEC2EiP3Mem
+; CHECK:      Checking array's method _ZN3ArrIPiEC2EiP3Mem
 ; CHECK-NEXT: Classification: Ctor method
-; CHECK-NEXT: Checking method _ZN3ArrIPiE3setEiS0_
+; CHECK-NEXT: Checking array's method _ZN3ArrIPiE3setEiS0_
 ; CHECK-NEXT: Classification: Set element method
-; CHECK-NEXT: Checking method _ZN3ArrIPiE3addERKS0_
+; CHECK-NEXT: Checking array's method _ZN3ArrIPiE3addERKS0_
 ; CHECK-NEXT: Classification: Append element method
-; CHECK-NEXT: Checking method _ZN3ArrIPiE7reallocEi
+; CHECK-NEXT: Checking array's method _ZN3ArrIPiE7reallocEi
 ; CHECK-NEXT: Classification: Realloc method
-; CHECK-NEXT: Checking method _ZN3ArrIPiEC2ERKS1_
+; CHECK-NEXT: Checking array's method _ZN3ArrIPiEC2ERKS1_
 ; CHECK-NEXT: Classification: CCtor method
-; CHECK-NEXT: Checking method _ZN3ArrIPiED2Ev
+; CHECK-NEXT: Checking array's method _ZN3ArrIPiED2Ev
 ; CHECK-NEXT: Classification: Dtor method
-; CHECK-NEXT: Checking method _ZN3ArrIPvEC2EiP3Mem
+; CHECK-NEXT: Checking array's method _ZN3ArrIPvEC2EiP3Mem
 ; CHECK-NEXT: Classification: Ctor method
-; CHECK-NEXT: Checking method _ZN3ArrIPvE3getEi
+; CHECK-NEXT: Checking array's method _ZN3ArrIPvE3getEi
 ; CHECK-NEXT: Classification: Get pointer to element method
-; CHECK-NEXT: Checking method _ZN3ArrIPvE3addERKS0_
+; CHECK-NEXT: Checking array's method _ZN3ArrIPvE3addERKS0_
 ; CHECK-NEXT: Classification: Append element method
-; CHECK-NEXT: Checking method _ZN3ArrIPvE7reallocEi
+; CHECK-NEXT: Checking array's method _ZN3ArrIPvE7reallocEi
 ; CHECK-NEXT: Classification: Realloc method
-; CHECK-NEXT: Checking method _ZN3ArrIPvEC2ERKS1_
+; CHECK-NEXT: Checking array's method _ZN3ArrIPvEC2ERKS1_
 ; CHECK-NEXT: Classification: CCtor method
-; CHECK-NEXT: Checking method _ZN3ArrIPvED2Ev
+; CHECK-NEXT: Checking array's method _ZN3ArrIPvED2Ev
 ; CHECK-NEXT: Classification: Dtor method
 ; CHECK: Rejecting %class.F based on dtrans-soatoaos-typename option.
 ;

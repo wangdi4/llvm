@@ -25,11 +25,10 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
-
 namespace dtrans {
 
 /// Pass to perform DTrans AOS to SOA optimizations.
-class SOAToAOSPass : public PassInfoMixin<dtrans::SOAToAOSPass> {
+class SOAToAOSPass : public PassInfoMixin<SOAToAOSPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
@@ -37,8 +36,24 @@ public:
   bool runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                const TargetLibraryInfo &TLI);
 };
-
 } // namespace dtrans
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Debugging pass to check computation of approximate IR.
+class SOAToAOSApproximationDebug
+    : public AnalysisInfoMixin<SOAToAOSApproximationDebug> {
+  static AnalysisKey Key;
+  friend AnalysisInfoMixin<SOAToAOSApproximationDebug>;
+  static char PassID;
+
+public:
+  // Called from lit-tests, result is ignored and not consumed ever.
+  struct Ignore {};
+  typedef Ignore Result;
+
+  Result run(Function &F, FunctionAnalysisManager &AM);
+};
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 ModulePass *createDTransSOAToAOSWrapperPass();
 
