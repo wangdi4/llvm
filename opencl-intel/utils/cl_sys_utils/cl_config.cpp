@@ -477,13 +477,15 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     }
 #endif // NDEBUG
 
+    if (FPGA_EMU_DEVICE == GetDeviceMode())
+    {
+        s_ver = OPENCL_VERSION_1_0;
+        return OPENCL_VERSION_1_0;
+    }
 #ifdef BUILD_OPENCL_21
     s_ver = OPENCL_VERSION_2_1;
     return OPENCL_VERSION_2_1;
-#elif defined(BUILD_FPGA_EMULATOR)
-    s_ver = OPENCL_VERSION_1_0;
-    return OPENCL_VERSION_1_0;
-#endif // BUILD_FPGA_EMULATOR
+#endif // BUILD_OPENCL_21
 
     s_ver = GetOpenclVerByCpuModel();
     return s_ver;
