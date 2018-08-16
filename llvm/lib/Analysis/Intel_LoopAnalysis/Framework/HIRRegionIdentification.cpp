@@ -189,9 +189,12 @@ static BasicBlock *findSIMDOrParDirective(BasicBlock *BB, bool BeginDir) {
 
 /// Inserts chain of bblocks from BeginBB to EndBB inclusive, to RegBBlocks.
 static void addBBlocks(const BasicBlock *BeginBB, const BasicBlock *EndBB,
+                       bool ShouldWalkPredecessors,
                        IRRegion::RegionBBlocksTy &RegBBlocks) {
 
-  for (auto TempBB = BeginBB;; TempBB = TempBB->getSingleSuccessor()) {
+  for (auto TempBB = BeginBB;; TempBB = ShouldWalkPredecessors
+                                            ? TempBB->getSinglePredecessor()
+                                            : TempBB->getSingleSuccessor()) {
     RegBBlocks.push_back(TempBB);
 
     if (TempBB == EndBB) {
@@ -227,8 +230,8 @@ static bool isSIMDOrParLoop(const Loop &Lp,
   assert(EndBB && "Could not find SIMD END Directive!");
 
   if (RegBBlocks) {
-    addBBlocks(BeginBB, PreheaderBB, *RegBBlocks);
-    addBBlocks(ExitBB, EndBB, *RegBBlocks);
+    addBBlocks(PreheaderBB, BeginBB, true, *RegBBlocks);
+    addBBlocks(ExitBB, EndBB, false, *RegBBlocks);
   }
 
   if (RegEntryBB) {
