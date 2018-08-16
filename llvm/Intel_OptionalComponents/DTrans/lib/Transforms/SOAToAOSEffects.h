@@ -390,14 +390,22 @@ using scc_arith_inst_dep_iterator =
 using const_scc_arith_inst_dep_iterator = base_scc_iterator<
     GraphTraits<ArithDepGraph<const Value *>>::ChildIteratorType,
     scc_iterator<ArithDepGraph<const Value *>>::value_type>;
+} // namespace
 
+namespace llvm {
+namespace dtrans {
+namespace soatoaos {
+struct ArrayIdioms;
+struct DepCmp;
 // The following class is owned by class DepManager.
 // It is declared at top level for DenseMapInfo specialization.
 // DenseMapInfo specialization is needed for DepManager::intern method.
 class Dep;
-} // namespace
+} // namespace dtrans
+} // namespace soatoaos
 
-namespace llvm {
+using dtrans::soatoaos::Dep;
+// Forward specialization of DenseMapInfo for DepManager.
 template <> struct DenseMapInfo<Dep *> {
   typedef Dep *Ptr;
   typedef const Dep *CPtr;
@@ -408,9 +416,9 @@ template <> struct DenseMapInfo<Dep *> {
   static inline unsigned getHashValue(CPtr PtrVal);
   static inline bool isEqual(CPtr LHS, CPtr RHS);
 };
-} // namespace llvm
 
-namespace {
+namespace dtrans {
+namespace soatoaos {
 class DepManager {
   // All Deps are owned by DepManager.
   DenseSet<Dep *> Deps;
@@ -421,9 +429,6 @@ public:
   inline const Dep *intern(Dep &&Tmp);
   inline ~DepManager();
 };
-
-struct ArrayIdioms;
-struct DepCmp;
 
 // Array object interacts with remaining program:
 //  - reading and updating its fields relying only on values of methods
@@ -742,10 +747,15 @@ class DepCompute;
 class DepMap : DepManager {
   friend class DepCompute;
 
-protected:
   DenseMap<const Value *, const Dep *> ValDependencies;
 
 public:
+  const Dep *getApproximation(const Value *V) const {
+    auto It = ValDependencies.find(V);
+    if (It == ValDependencies.end())
+      return nullptr;
+    return It->second;
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   class DepAnnotatedWriter : public AssemblyAnnotationWriter {
     const DepMap &DM;
@@ -766,7 +776,11 @@ public:
   };
 #endif
 };
+} // namespace soatoaos
+} // namespace dtrans
+} // namespace llvm
 
+namespace {
 // Check if bitcast can be ignored, because its consumers are load/stores
 // and the size of accessed memory does not change due to bitcast.
 //
@@ -865,7 +879,11 @@ bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
 
   return true;
 }
+} // namespace
 
+namespace llvm {
+namespace dtrans {
+namespace soatoaos {
 // Class performing actual computations of Dep.
 // Suitable for analysis of methods (Method field) of
 // class (ClassType field).
@@ -1002,10 +1020,9 @@ public:
     for (auto &Arg : Method->args())
       DM.ValDependencies[&Arg] = Dep::mkArg(DM, &Arg);
 
-    for (auto &BB : *Method)
-      for (auto &I : BB)
-        if (I.hasNUses(0))
-          Sinks.push_back(&I);
+    for (auto &I : instructions(*Method))
+      if (I.hasNUses(0))
+        Sinks.push_back(&I);
 
     for (auto *S : Sinks)
       // SCCs are returned in post-order, for example, first instruction is
@@ -1171,8 +1188,9 @@ public:
       }
   }
 };
-
-} // namespace
+} // namespace soatoaos
+} // namespace dtrans
+} // namespace llvm
 
 // DenseMapInfo<Dep *> specialization.
 namespace llvm {
@@ -1186,7 +1204,9 @@ bool DenseMapInfo<Dep *>::isEqual(CPtr LHS, CPtr RHS) {
 }
 } // namespace llvm
 
-namespace {
+namespace llvm {
+namespace dtrans {
+namespace soatoaos {
 
 // Various idioms relying on checks of Dep.
 
@@ -1293,7 +1313,11 @@ void Dep::print(raw_ostream &OS, unsigned Indent, unsigned ClosingParen) const {
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // namespace soatoaos
+} // namespace dtrans
+} // namespace llvm
 
+namespace {
 // Utility class, see comments for static methods.
 //
 // We are relying that memory is not initialized before ctor, and all stores to
@@ -1450,7 +1474,7 @@ namespace {
 // Structure name to use in SOAToAOSApproximationDebug.
 static cl::opt<std::string> DTransSOAToAOSApproxTypename(
     "dtrans-soatoaos-approx-typename", cl::init(""), cl::ReallyHidden,
-    cl::desc("Structure name SOAToAOSApproximationDebug"));
+    cl::desc("Structure name for SOAToAOSApproximationDebug"));
 
 // Calls to mark as known in SOAToAOSApproximationDebug.
 static cl::list<std::string>
@@ -1459,10 +1483,25 @@ static cl::list<std::string>
 } // namespace
 
 namespace llvm {
+using namespace dtrans::soatoaos;
+
 char SOAToAOSApproximationDebug::PassID;
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey SOAToAOSApproximationDebug::Key;
+
+struct SOAToAOSApproximationDebugResult : public DepMap {};
+
+SOAToAOSApproximationDebug::Ignore::Ignore(
+    SOAToAOSApproximationDebugResult *Ptr)
+    : Ptr(Ptr) {}
+SOAToAOSApproximationDebug::Ignore::Ignore(Ignore &&Other)
+    : Ptr(std::move(Other.Ptr)) {}
+const SOAToAOSApproximationDebugResult *
+SOAToAOSApproximationDebug::Ignore::get() const {
+  return Ptr.get();
+}
+SOAToAOSApproximationDebug::Ignore::~Ignore() {}
 
 SOAToAOSApproximationDebug::Ignore
 SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
@@ -1471,12 +1510,13 @@ SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
   auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
   auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
 
-  DepMap Result;
+  std::unique_ptr<SOAToAOSApproximationDebugResult> Result(
+      new SOAToAOSApproximationDebugResult());
   StructType *ClassType =
       F.getParent()->getTypeByName(DTransSOAToAOSApproxTypename);
 
   if (!ClassType)
-    return Ignore();
+    return Ignore(Result.release());
 
   std::function<bool(const Function *)> IsKnown =
       [&F](const Function *Func) -> bool {
@@ -1486,16 +1526,17 @@ SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
 
   // Do analysis.
   DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), *TLI, &F, ClassType,
-                Result);
+                // *Result is filled-in.
+                *Result);
   DC.computeDepApproximation(IsKnown);
 
   // Dump results of analysis.
   DEBUG_WITH_TYPE(DTRANS_SOADEP, {
     dbgs() << "; Dump computed dependencies ";
-    DepMap::DepAnnotatedWriter Annotate(Result);
+    DepMap::DepAnnotatedWriter Annotate(*Result);
     F.print(dbgs(), &Annotate);
   });
-  return Ignore();
+  return Ignore(Result.release());
 }
 } // namespace llvm
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -153,6 +153,7 @@ FUNCTION_ANALYSIS("verify", VerifierAnalysis())
 #if INTEL_INCLUDE_DTRANS
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 FUNCTION_ANALYSIS("soatoaos-approx", SOAToAOSApproximationDebug())    // INTEL
+FUNCTION_ANALYSIS("soatoaos-array-methods", SOAToAOSMethodsCheckDebug())    // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_INCLUDE_DTRANS
 

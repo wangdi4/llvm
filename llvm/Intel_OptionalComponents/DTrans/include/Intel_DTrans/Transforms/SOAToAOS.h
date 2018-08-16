@@ -24,6 +24,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
+#include <memory>
+
 namespace llvm {
 namespace dtrans {
 
@@ -40,6 +42,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Debugging pass to check computation of approximate IR.
+struct SOAToAOSApproximationDebugResult;
 class SOAToAOSApproximationDebug
     : public AnalysisInfoMixin<SOAToAOSApproximationDebug> {
   static AnalysisKey Key;
@@ -48,7 +51,31 @@ class SOAToAOSApproximationDebug
 
 public:
   // Called from lit-tests, result is ignored and not consumed ever.
-  struct Ignore {};
+  class Ignore {
+    std::unique_ptr<SOAToAOSApproximationDebugResult> Ptr;
+
+  public:
+    Ignore(SOAToAOSApproximationDebugResult *Ptr);
+    Ignore(Ignore &&Other);
+    const SOAToAOSApproximationDebugResult *get() const;
+    // Prevent default dtor creation while type is incomplete.
+    ~Ignore();
+  };
+  typedef Ignore Result;
+
+  Result run(Function &F, FunctionAnalysisManager &AM);
+};
+
+// Debugging pass to check method classification.
+class SOAToAOSMethodsCheckDebug
+    : public AnalysisInfoMixin<SOAToAOSMethodsCheckDebug> {
+  static AnalysisKey Key;
+  friend AnalysisInfoMixin<SOAToAOSMethodsCheckDebug>;
+  static char PassID;
+
+public:
+  // Called from lit-tests, result is ignored and not consumed ever.
+  class Ignore {};
   typedef Ignore Result;
 
   Result run(Function &F, FunctionAnalysisManager &AM);
