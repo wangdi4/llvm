@@ -585,7 +585,6 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   void scale(unsigned Multiplier) {
     Cost *= Multiplier;
     Savings *= Multiplier;
-    NumDDRefs *= Multiplier;
   }
 
   // Adds profitability analysis results from PA to this.
@@ -824,10 +823,11 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSmallLoop(
   // Do not consider inner loops in a loopnest to be small loops. This skews the
   // profitability model.
   return !HCU.IsPreVec && (CurLoop == OuterLoop) &&
-         // NumMemRefs are computed in a scaled manner in computeGEPInfo() so we
-         // need to divide it by the trip count to get original count.
+         // NumMemRefs/NumDDRefs are computed in a scaled manner in
+         // computeGEPInfo() so we need to divide it by the trip count to get
+         // original count.
          ((NumMemRefs / TripCount) <= HCU.Limits.SmallLoopMemRefThreshold) &&
-         (NumDDRefs <= HCU.Limits.SmallLoopDDRefThreshold);
+         ((NumDDRefs / TripCount) <= HCU.Limits.SmallLoopDDRefThreshold);
 }
 
 float HIRCompleteUnroll::ProfitabilityAnalyzer::getSavingsInPercentage() const {
@@ -1002,8 +1002,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
 
   for (; RefIt != End; ++RefIt, ++NumRvalOp) {
     RvalRef = *RefIt;
-    // Only the first two rval operands of select are relevant for simplification.
-    // t = (t1 < t2) ? t3 : t4
+    // Only the first two rval operands of select are relevant for
+    // simplification. t = (t1 < t2) ? t3 : t4
     bool IsSelectOperand = IsSelect && (NumRvalOp > 1);
 
     if (IsSelectOperand && (HInst->isAbs() || HInst->isMinOrMax())) {
@@ -1037,10 +1037,6 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     if (!HInst) {
       SimplifiedNonLoopParents.insert(Node);
     }
-
-  } else {
-    // Account for ddrefs only if the node cannot be simplified.
-    NumDDRefs += NumRvalOp;
   }
 
   if (HInst && (LvalRef = HInst->getLvalDDRef())) {
@@ -1053,16 +1049,16 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
 
       // Terminal lval refs are used to invalidate their encountered uses.
       updateBlobs(LvalRef, CanSimplifyRvals);
+
+      if (!CanSimplifyLval) {
+        NumDDRefs += LoopNestTripCount;
+      }
     } else {
       CanSimplifyLval = processRef(LvalRef);
     }
 
-    if (CanSimplifyLval) {
-      if (!AlreadySimplified) {
-        ++Savings;
-      }
-    } else {
-      ++NumDDRefs;
+    if (CanSimplifyLval && !AlreadySimplified) {
+      ++Savings;
     }
 
     // Cost of load/store/gep/copy has already been accounted for in refs.
@@ -1206,7 +1202,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
   }
 
   int64_t Dist;
-  if (!DDRefUtils::getConstIterationDistance(Ref2, Ref1, LoopLevel, &Dist)) {
+  if (!DDRefUtils::getConstIterationDistance(Ref2, Ref1, LoopLevel, &Dist,
+                                             true)) {
     return false;
   }
 
@@ -1307,7 +1304,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
       continue;
     }
 
-    bool AreEqual = DDRefUtils::areEqual(Ref, SymRef);
+    bool AreEqual = DDRefUtils::areEqual(Ref, SymRef, true);
     bool SymRefIsRval = SymRef->isRval();
     bool AreRval = (IsRval && SymRefIsRval);
 
@@ -1992,6 +1989,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
       if (IsMemRef) {
         NumMemRefs += UniqueOccurences;
       }
+      NumDDRefs += UniqueOccurences;
     }
   }
 
@@ -2122,7 +2120,13 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
 
   assert(Ref->isTerminalRef() && "Unexpected ref type!");
 
-  return processCanonExpr(Ref->getSingleCanonExpr(), Ref);
+  bool Simplified = processCanonExpr(Ref->getSingleCanonExpr(), Ref);
+
+  if (!Simplified) {
+    NumDDRefs += LoopNestTripCount;
+  }
+
+  return Simplified;
 }
 
 /// Evaluates profitability of CanonExpr.

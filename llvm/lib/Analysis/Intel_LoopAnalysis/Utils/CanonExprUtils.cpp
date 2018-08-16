@@ -638,7 +638,8 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
                                                const CanonExpr *CE2,
                                                unsigned LoopLevel,
-                                               int64_t *Distance) {
+                                               int64_t *Distance,
+                                               bool RelaxedMode) {
   assert(isValidLoopLevel(LoopLevel) && "Invalid loop level!");
 
   int64_t Coeff1, Coeff2;
@@ -655,7 +656,7 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
   // Both CE1 and CE2 are invariant w.r.t IV. Return distance of 0 if both are
   // equal.
   if (!Coeff1) {
-    if (areEqual(CE1, CE2)) {
+    if (areEqual(CE1, CE2, RelaxedMode)) {
       if (Distance) {
         *Distance = 0;
       }
@@ -707,7 +708,7 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
 
   bool Res = false;
 
-  if (areEqual(NonConstCE1, NonConstCE2)) {
+  if (areEqual(NonConstCE1, NonConstCE2, RelaxedMode)) {
     if (Distance) {
       *Distance = Diff / Coeff1;
     }
@@ -731,7 +732,8 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
 }
 
 bool CanonExprUtils::getConstDistance(const CanonExpr *CE1,
-                                      const CanonExpr *CE2, int64_t *Distance) {
+                                      const CanonExpr *CE2, int64_t *Distance,
+                                      bool RelaxedMode) {
   int64_t Denom = CE1->getDenominator();
 
   if (Denom != CE2->getDenominator()) {
@@ -757,7 +759,7 @@ bool CanonExprUtils::getConstDistance(const CanonExpr *CE1,
 
   bool Res = false;
 
-  if (areEqual(NonConstCE1, NonConstCE2)) {
+  if (areEqual(NonConstCE1, NonConstCE2, RelaxedMode)) {
     if (Distance) {
       *Distance = Diff / Denom;
     }
