@@ -17,8 +17,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK:         [[BB1]] (BP: NULL) :
-; CHECK-NEXT:     [[VP0:%.*]] = load i32* @N
-; CHECK-NEXT:     [[VP1:%.*]] = sext [[VP0]]
+; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK:         [[BB2]] (BP: NULL) :
 ; CHECK-NEXT:     [[VP2:%.*]] = phi i64 0 [[VP3:%.*]]
@@ -53,7 +52,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     [[VP23:%.*]] = add [[VP22]] [[VP5]]
 ; CHECK-NEXT:     store [[VP23]] [[VP4]]
 ; CHECK-NEXT:     [[VP3]] = add [[VP2]] i64 1
-; CHECK-NEXT:     [[VP24:%.*]] = icmp [[VP3]] [[VP1]]
+; CHECK-NEXT:     [[VP24:%.*]] = icmp [[VP3]] [[VP1:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK:         [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>

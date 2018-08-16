@@ -1,16 +1,18 @@
 ; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
-; CHECK:  %[[PRIV1:.*]] = alloca <4 x float>
+; CHECK:  %[[PRIV1_VEC:.*]] = alloca <4 x float>
 ; CHECK: vector.ph
-; CHECK:  %[[PRIV1_VEC:.*]] = getelementptr float
-; CHECK:  %[[PRIV1_BITCAST:.*]] = bitcast <4 x float*> %[[PRIV1_VEC]] to <4 x i32*>
+; CHECK:  %[[PRIV1_BITCAST:.*]] = bitcast <4 x float>* %[[PRIV1_VEC]] to <4 x i32>*
 ; CHECK: vector.body
-; CHECK:   getelementptr i32, <4 x i32*> %[[PRIV1_BITCAST]]
+; CHECK:  %[[PRIV1_BITCAST2:.*]] = bitcast <4 x float>* %[[PRIV1_VEC]] to <4 x i32>*
+; CHECK:  %[[PRIV1_BITCAST3:.*]] = bitcast <4 x i32>* %[[PRIV1_BITCAST2]] to i32*
+; CHECK:  %[[PRIV1_GEP:.*]] = getelementptr i32, i32* %[[PRIV1_BITCAST3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK:   getelementptr i32, <4 x i32*> %[[PRIV1_GEP]]
 ; CHECK:   masked.scatter
-; CHECK: extractelement <4 x i32*> %[[PRIV1_BITCAST]], i32 0
+; CHECK: extractelement <4 x i32*> %[[PRIV1_GEP]], i32 0
 ; CHECK: call
-; CHECK: extractelement <4 x i32*> %[[PRIV1_BITCAST]], i32 1
+; CHECK: extractelement <4 x i32*> %[[PRIV1_GEP]], i32 1
 ; CHECK: call
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

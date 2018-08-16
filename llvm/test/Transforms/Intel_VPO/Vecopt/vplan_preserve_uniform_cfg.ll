@@ -41,7 +41,7 @@ define i32 @foo() local_unnamed_addr #0 {
 ; CG: [[VPBB1]]:
 ; CG: br label %[[VPBB2]]
 ; CG: [[VPBB2]]:
-; CG: br i1 {{%[0-9]+}}, label %middle.block, label %vector.body
+; CG: br i1 {{%[0-9]+}}, label %VPlannedBB{{[0-9]*}}, label %vector.body
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")

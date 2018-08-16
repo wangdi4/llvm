@@ -15,7 +15,7 @@
 ; CHECK:   %[[ReplicatedMaskVec:.*]] = shufflevector <4 x i1> {{.*}}, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK:   call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> %transposed.wide.masked.load, <8 x i32>* %tmp.vec, i32 4, <8 x i1> %[[ReplicatedMaskVec]])
 
-; CHECK: middle.block:                                     ; preds = %vector.body
+; CHECK: middle.block:                                     ; preds = %VPlannedBB{{[0-9]*}}
 ; CHECK:   %[[MASK_INT:.*]] = load i4, i4* %tmp.mask
 ; CHECK:   %ctlz = call i4 @llvm.ctlz.i4(i4 %[[MASK_INT]], i1 true)
 ; CHECK:   %LaneToCopyFrom = sub i4 3, %ctlz
