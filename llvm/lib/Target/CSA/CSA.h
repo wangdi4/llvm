@@ -47,6 +47,7 @@ MachineFunctionPass *createCSADataflowCanonicalizationPass();
 MachineFunctionPass *createCSAStreamingMemoryConversionPass();
 MachineFunctionPass *createCSANameLICsPass();
 MachineFunctionPass *createCSAReassocReducPass();
+MachineFunctionPass *createCSARASReplayableLoadsDetectionPass();
 // FunctionPass *createCSALowerStructArgsPass();
 Pass *createCSAInnerLoopPrepPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);

@@ -806,6 +806,9 @@ void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   if (MI->getOpcode() == CSA::CSA_CALL) { EmitCallInstruction(MI); return; }
   if (MI->getOpcode() == CSA::CSA_CONTINUE) { EmitContinueInstruction(MI); return; }
   if (MI->getOpcode() == CSA::TRAMPOLINE_START || MI->getOpcode() == CSA::TRAMPOLINE_END) { EmitTrampolineMarkers(MI); return; }
+  if (MI->getFlag(MachineInstr::RasReplayable)) {
+      OutStreamer->EmitRawText("\t.attrib ras_replayable=true\n");
+  }
   CSAMCInstLower MCInstLowering(OutContext, *this);
   emitLineNumberAsDotLoc(*MI);
   MCInst TmpInst;

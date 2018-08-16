@@ -217,6 +217,11 @@ public:
                          false));
     }
 
+    addPass(createCSARASReplayableLoadsDetectionPass(), false);
+    Banner = std::string("After CSARASReplayableLoadsDetection");
+    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
+                       false));
+
     addPass(createCSANameLICsPass(), false);
 
     if (getOptLevel() != CodeGenOpt::None) {

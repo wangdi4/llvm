@@ -31,6 +31,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-streamem"
+#define PASS_NAME "CSA: Streaming memory conversion pass"
 
 static cl::opt<bool> DisableMemoryConversion(
   "csa-disable-streammem", cl::Hidden,
@@ -72,12 +73,16 @@ private:
                       bool isEqual, int64_t stride, bool isOneTrip,
                       MachineInstr *buildPoint) const;
 };
+
+void initializeCSAStreamingMemoryConversionPassPass(PassRegistry &);
 } // namespace llvm
 
 char CSAStreamingMemoryConversionPass::ID = 0;
 
 CSAStreamingMemoryConversionPass::CSAStreamingMemoryConversionPass()
-    : MachineFunctionPass(ID) {}
+    : MachineFunctionPass(ID) {
+  initializeCSAStreamingMemoryConversionPassPass(*PassRegistry::getPassRegistry());
+}
 
 MachineFunctionPass *llvm::createCSAStreamingMemoryConversionPass() {
   return new CSAStreamingMemoryConversionPass();
@@ -596,6 +601,10 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     *memOrder,                                  // Memory ordering
     *realInSource);                             // Input memory order
 
+  if (MI->getFlag(MachineInstr::RasReplayable)) {
+      newInst->setFlag(MachineInstr::RasReplayable);
+  }
+
   // Delete the old instruction. Also delete the old output switch if needed,
   // since we added a second definition of its input. Dead instruction
   // elimination should handle the rest.
@@ -713,3 +722,9 @@ void CSAStreamingMemoryConversionPass::formWideOps(
     }
   }
 }
+
+INITIALIZE_PASS_BEGIN(CSAStreamingMemoryConversionPass, DEBUG_TYPE, PASS_NAME, false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
+INITIALIZE_PASS_END(CSAStreamingMemoryConversionPass, DEBUG_TYPE, PASS_NAME, false, false)
+
+

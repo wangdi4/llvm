@@ -1479,6 +1479,12 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
     OS << "afn ";
   if (getFlag(MachineInstr::FmReassoc))
     OS << "reassoc ";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (getFlag(MachineInstr::RasReplayable))
+    OS << "RASReplay ";
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   // Print the opcode name.
   if (TII)

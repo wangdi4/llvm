@@ -95,12 +95,16 @@ private:
   /// necessary.
   unsigned getNotReg(MachineInstr *MI, const MachineOperand &MO) const;
 };
+
+void initializeCSADataflowCanonicalizationPassPass(PassRegistry &);
 } // namespace llvm
 
 char CSADataflowCanonicalizationPass::ID = 0;
 
 CSADataflowCanonicalizationPass::CSADataflowCanonicalizationPass()
-    : MachineFunctionPass(ID) {}
+    : MachineFunctionPass(ID) {
+  initializeCSADataflowCanonicalizationPassPass(*PassRegistry::getPassRegistry());
+}
 
 MachineFunctionPass *llvm::createCSADataflowCanonicalizationPass() {
   return new CSADataflowCanonicalizationPass();
@@ -468,3 +472,6 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   to_delete.push_back(MI);
   return true;
 }
+
+INITIALIZE_PASS_BEGIN(CSADataflowCanonicalizationPass, DEBUG_TYPE, DEBUG_TYPE, false, false)
+INITIALIZE_PASS_END(CSADataflowCanonicalizationPass, DEBUG_TYPE, DEBUG_TYPE, false, false)

@@ -102,7 +102,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     ,
-    NonSequential = 1 << 11             // Instruction removed from sequence
+    NonSequential = 1 << 11,            // Instruction removed from sequence
+    RasReplayable = 1 << 12             // Instruction can be replayed
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   };
