@@ -4843,11 +4843,9 @@ private:
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
               if (FI.processNewSingleValue(ConstVal)) {
                 DEBUG_WITH_TYPE(DTRANS_FSV, {
-                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType());
-                  if (FI.isSingleValue())
-                    ConstVal->printAsOperand(dbgs());
-                  else
-                    dbgs() << "<MULTIPLE>";
+                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
+                         << " [" << PointeePair.second << "] New value: ";
+                  ConstVal->printAsOperand(dbgs());
                   dbgs() << "\n";
                 });
               }
@@ -5246,10 +5244,6 @@ private:
 
     for (; FieldNum <= LastField; ++FieldNum) {
       auto &FInfo = SInfo->getField(FieldNum);
-      DEBUG_WITH_TYPE(DTRANS_FSV,
-                      dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType())
-                             << " [" << FieldNum << "] <MULTIPLE>\n");
-
       if (IsNullValue && (FieldNum != LastField || !LastFieldPartialAccess)) {
         // If setting a null value and the last field is not accessed
         // partially.
@@ -5258,6 +5252,9 @@ private:
         markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()),
                                    true);
       } else {
+        LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType()) << " ["
+                          << FieldNum << "] <MULTIPLE>\n");
+
         FInfo.setBottomAllocFunction();
         FInfo.setMultipleValue();
         markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()));
