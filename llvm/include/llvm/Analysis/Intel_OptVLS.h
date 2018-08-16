@@ -750,6 +750,7 @@ private:
 class OVLSShuffle : public OVLSInstruction {
 
 public:
+  static constexpr uint32_t UndefMask = std::numeric_limits<uint32_t>::max();
   explicit OVLSShuffle(OVLSOperand *O1, OVLSOperand *O2, OVLSOperand *O3)
       : OVLSInstruction(OC_Shuffle, OVLSType(O1->getType().getElementSize(),
                                              O3->getType().getNumElements())) {
@@ -824,9 +825,9 @@ class OVLSCostModel {
   /// Example of a 4-element reversed-mask {3, 2, 1, 0}
   // Please note that undef elements don't prevent us from matching
   // the reverse pattern.
-  bool isReverseVectorMask(SmallVectorImpl<int> &Mask) const {
+  bool isReverseVectorMask(const SmallVectorImpl<uint32_t> &Mask) const {
     for (unsigned i = 0, MaskSize = Mask.size(); i < MaskSize; ++i)
-      if (Mask[i] >= 0 && Mask[i] != (int)(MaskSize - 1 - i))
+      if ((Mask[i] != OVLSShuffle::UndefMask) && Mask[i] != (MaskSize - 1 - i))
         return false;
     return true;
   }
@@ -835,15 +836,15 @@ class OVLSCostModel {
   // a element alternate mask: <0, 5, 2, 7> or <4,1,6,3>.
   // Please note that undef elements don't prevent us from matching
   // the alternating pattern.
-  bool isAlternateVectorMask(SmallVectorImpl<int> &Mask) const {
+  bool isAlternateVectorMask(const SmallVectorImpl<uint32_t> &Mask) const {
     bool IsAlternate = true;
     unsigned MaskSize = Mask.size();
     // A<0, 1, 2, 3>, B<4, 5, 6, 7>
     // Example of an alternate vector mask <0,5,2,7>
     for (unsigned i = 0; i < MaskSize && IsAlternate; ++i) {
-      if (Mask[i] < 0)
+      if (Mask[i] == OVLSShuffle::UndefMask)
         continue;
-      IsAlternate = Mask[i] == (int)((i & 1) ? MaskSize + i : i);
+      IsAlternate = Mask[i] == ((i & 1) ? MaskSize + i : i);
     }
 
     if (IsAlternate)
@@ -852,9 +853,9 @@ class OVLSCostModel {
     IsAlternate = true;
     // Example: shufflevector <4xT>A, <4xT>B, <4,1,6,3>
     for (unsigned i = 0; i < MaskSize && IsAlternate; ++i) {
-      if (Mask[i] < 0)
+      if (Mask[i] == OVLSShuffle::UndefMask)
         continue;
-      IsAlternate = Mask[i] == (int)((i & 1) ? i : MaskSize + i);
+      IsAlternate = Mask[i] == ((i & 1) ? i : MaskSize + i);
     }
     return IsAlternate;
   }
@@ -876,28 +877,27 @@ class OVLSCostModel {
   // source size. Where the lower subvector will be <0> and the upper subvector
   // should be <1>.
   // TODO: Support extracting other possible sized subvectors.
-  bool isExtractSubvectorMask(SmallVectorImpl<int> &Mask) const {
+  bool isExtractSubvectorMask(const SmallVectorImpl<uint32_t> &Mask) const {
     bool IsExtract = true;
-    int MaskSize = Mask.size();
+    unsigned MaskSize = Mask.size();
 
     if (MaskSize <= 1 || !isPowerOf2_32(MaskSize))
       return false;
 
-    int Modulo = MaskSize / 2;
-    int StartElem = Mask[0];
+    unsigned Modulo = MaskSize / 2;
+    uint32_t StartElem = Mask[0];
     if (StartElem != 0 && StartElem != Modulo)
       return false;
 
     // A<0, 1, 2, 3>
     // Example of an extract vector mask <0, 1, -1, -1> or <2, 3, -1, -1>
-    for (int i = 0; i < MaskSize && IsExtract; ++i) {
+    for (unsigned i = 0; i < MaskSize && IsExtract; ++i) {
       if (i >= Modulo) {
-        if (Mask[i] < 0)
+        if (Mask[i] == OVLSShuffle::UndefMask)
           continue;
         else
           return false;
       }
-
       IsExtract = Mask[i] == StartElem + i;
     }
 
@@ -916,14 +916,14 @@ class OVLSCostModel {
   /// Strictly honors, X86 (v)insertX semantics.
   /// TODO: Only detects masks with half-vector insertion. Support masks
   /// inserting other-sized vectors(specially the quarter-sized).
-  bool isInsertSubvectorMask(SmallVectorImpl<int> &Mask, int &Index,
+  bool isInsertSubvectorMask(const SmallVectorImpl<uint32_t> &Mask, int &Index,
                              unsigned &NumSubVecElems) const {
     bool InsertIntoUpperHalf = false;
     bool InsertIntoLowerHalf = false;
 
-    int i;
-    int Size = Mask.size();
-    int LowerHalfUB = Size / 2;
+    unsigned i;
+    unsigned Size = Mask.size();
+    unsigned LowerHalfUB = Size / 2;
 
     // TODO: Supports undefined.
     for (i = 0; i < LowerHalfUB; ++i)
@@ -958,6 +958,7 @@ protected:
   LLVMContext &C;
 
 public:
+  static constexpr uint64_t UnknownCost = std::numeric_limits<uint64_t>::max();
   explicit OVLSCostModel(const TargetTransformInfo &TargetTI, LLVMContext &Ctx)
       : TTI(TargetTI), C(Ctx) {}
 
@@ -977,7 +978,8 @@ public:
     return -1;
   }
 
-  virtual uint64_t getShuffleCost(SmallVectorImpl<int> &Mask, Type *Tp) const;
+  virtual uint64_t getShuffleCost(SmallVectorImpl<uint32_t> &Mask,
+                                  Type *Tp) const;
 
   LLVMContext &getContext() const { return C; }
 };
@@ -1012,10 +1014,10 @@ public:
   /// Adj. gather/scatter optimization replaces a set of gathers/scatters by a
   /// set of contiguous loads/stores followed by a sequence of shuffle
   /// instructions. This method returns the minimum between these two costs;
-  /// It computes the cost of the load/store+shuffle sequence, it computes the
-  /// cost of the gathers/shuffles, and returns the lower of the two. This is
-  /// how the vectorizer client currently uses this method: it assumes that it
-  /// provides the absolute cost of the best way to vectorize this group.
+  /// It computes and returns the cost of the load/store+shuffle sequence, if
+  /// the sequence is supported. If it is not supported, a very high value gets
+  /// returned. The client is responsible for computing the gather/scatter cost
+  /// and comparing it with this returned cost.
   static int64_t getGroupCost(const OVLSGroup &Group, const OVLSCostModel &CM);
 
   /// \brief getSequence() takes a group of gathers/scatters and a cost model,

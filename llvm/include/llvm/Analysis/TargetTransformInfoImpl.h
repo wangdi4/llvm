@@ -508,7 +508,7 @@ public:
 
   bool adjustCallArgs(CallInst *CI) { return false; }
 
-  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const {
+  bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const {
     return false;
   }
 

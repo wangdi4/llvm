@@ -103,11 +103,12 @@ define void @interleaved_store_vf8_i32_stride4(<8 x i32> %a0,<8 x i32> %b0,<8 x 
 
 ; AVX2: [[TEMP0:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; AVX2-NEXT: [[TEMP1:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT: [[TEMP4:%.*]] = shufflevector <8 x i32> [[TEMP0]], <8 x i32> [[TEMP1]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
+
 ; AVX2-NEXT: [[TEMP2:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23>
 ; AVX2-NEXT: [[TEMP3:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
-
-; AVX2-NEXT: [[TEMP4:%.*]] = shufflevector <8 x i32> [[TEMP0]], <8 x i32> [[TEMP1]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
 ; AVX2-NEXT: [[TEMP5:%.*]] = shufflevector <8 x i32> [[TEMP2]], <8 x i32> [[TEMP3]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
+
 ; AVX2-NEXT: [[RES0:%.*]] = shufflevector <8 x i32> [[TEMP4]], <8 x i32> [[TEMP5]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 12, i32 13>
 ; AVX2-NEXT: [[RES1:%.*]] = shufflevector <8 x i32> [[TEMP4]], <8 x i32> [[TEMP5]], <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
 

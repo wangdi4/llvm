@@ -809,7 +809,8 @@ int X86TTIImpl::getArithmeticInstrCost(
 /// Currently, under target specific category we are only looking for
 /// alternate-lane shuffle mask such as, <0, 4, 2, 6>([v]unpck[l,h]pd) or
 /// <1, 5, 3, 7>([v]unpckhpd).
-bool X86TTIImpl::isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const {
+bool X86TTIImpl::isTargetSpecificShuffleMask(
+    ArrayRef<uint32_t> Mask) const {
   bool IsAlternateLaneVectorMask = true;
   unsigned MaskSize = Mask.size();
 
@@ -817,8 +818,7 @@ bool X86TTIImpl::isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const {
   // Look for even-lanes
   // Example: shufflevector <4xT>A, <4xT>B, <0,4,2,6>
   for (unsigned i = 0; i < MaskSize && IsAlternateLaneVectorMask; ++i)
-    IsAlternateLaneVectorMask =
-        Mask[i] == (int)((i % 2) ? MaskSize + i - 1 : i);
+    IsAlternateLaneVectorMask = Mask[i] == ((i % 2) ? MaskSize + i - 1 : i);
 
   if (IsAlternateLaneVectorMask)
     return true;
@@ -827,8 +827,7 @@ bool X86TTIImpl::isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const {
   // Look for odd-lanes.
   // Example: shufflevector <4xT>A, <4xT>B, <1,5,3,7>
   for (unsigned i = 0; i < MaskSize && IsAlternateLaneVectorMask; ++i)
-    IsAlternateLaneVectorMask =
-        Mask[i] == (int)((i % 2) ? MaskSize + i : i + 1);
+    IsAlternateLaneVectorMask = Mask[i] == ((i % 2) ? MaskSize + i : i + 1);
 
   return IsAlternateLaneVectorMask;
 }

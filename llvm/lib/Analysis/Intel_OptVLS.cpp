@@ -30,7 +30,7 @@
 #include <deque>
 #include <set>
 using namespace llvm;
-
+constexpr uint32_t OVLSShuffle::UndefMask;
 // MemrefDistanceMap contains a set of distances where each distance gets
 // mapped to a memref. Basically, it contains a set of adjacent memrefs.
 // Keeping them in a map helps eliminate any duplicate distances and keeps them
@@ -114,7 +114,7 @@ void OVLSGroup::dump() const {
 }
 #endif
 
-uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
+uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<uint32_t> &Mask,
                                        Type *Tp) const {
   int index = 0;
   unsigned NumSubVecElems = 0;
@@ -142,8 +142,8 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
 
   // TODO: Support SK_Insert
   uint32_t TotalElems = Mask.size();
-  for (int MaskElem : Mask)
-    if (MaskElem < 0)
+  for (uint32_t MaskElem : Mask)
+    if (MaskElem == OVLSShuffle::UndefMask)
       TotalElems--;
 
   return 2 * TotalElems;
@@ -571,7 +571,7 @@ public:
              "Each edge should move element-size "
              "number of bits!!!");
       if (isa<OVLSUndef>(Src))
-        IntShuffleMask[MaskIndex++] = -1;
+        IntShuffleMask[MaskIndex++] = OVLSShuffle::UndefMask;
       else {
         if (isa<OVLSUndef>(Op1)) {
           Op1 = Src;
@@ -768,9 +768,9 @@ public:
   /// N2 N1 N2 N1, etc.
   /// It makes more sense to merge as N1 N1 N2 N2 which will most likely lead
   /// to vperm or vinsert.
-  OVLSVector<int> getPossibleIncomingMask(const GraphNode &N1,
-                                          const GraphNode &N2) const {
-    OVLSVector<int> Mask;
+  OVLSVector<uint32_t> getPossibleIncomingMask(const GraphNode &N1,
+                                               const GraphNode &N2) const {
+    OVLSVector<uint32_t> Mask;
     OVLSVector<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
     uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
@@ -791,7 +791,7 @@ public:
       uint32_t BIndex = Edge->getBitRange().getBitIndex();
 
       if (Src == nullptr)
-        Mask.push_back(-1);
+        Mask.push_back(OVLSShuffle::UndefMask);
       else if (Src == Src1)
         Mask.push_back(BIndex / ElemSize + S1StartIndex);
       else
@@ -804,7 +804,7 @@ public:
       uint32_t BIndex = Edge->getBitRange().getBitIndex();
 
       if (Src == nullptr)
-        Mask.push_back(-1);
+        Mask.push_back(OVLSShuffle::UndefMask);
       else if (Src == Src1)
         Mask.push_back(BIndex / ElemSize + S1StartIndex);
       else
@@ -813,7 +813,7 @@ public:
 
     // Mask size needs to match the source size.
     while (Mask.size() < S2StartIndex)
-      Mask.push_back(-1);
+      Mask.push_back(OVLSShuffle::UndefMask);
 
     return Mask;
   }
@@ -830,7 +830,7 @@ public:
   ///   V2-Mask: <2, -1, 1, -1>
   void getPossibleOutgoingMasks(
       const GraphNode &N, uint32_t NodeStartIndex,
-      std::map<int, SmallVector<int, 16>> &NodeMaskMap) const {
+      std::map<int, SmallVector<uint32_t, 16>> &NodeMaskMap) const {
     uint32_t ElemSize = N.type().getElementSize();
     for (const auto &E : N.outgoingEdges()) {
       GraphNode *Dst = E->getDest();
@@ -850,12 +850,11 @@ public:
       // According to the source's element size.
       uint32_t MaskElem = SrcIndex / ElemSize;
 
-      std::map<int, SmallVector<int, 16>>::iterator MapIt =
-          NodeMaskMap.find(Id);
-      SmallVector<int, 16> Mask;
+      auto MapIt = NodeMaskMap.find(Id);
+      SmallVector<uint32_t, 16> Mask;
       if (MapIt == NodeMaskMap.end())
         // Mask size needs to match the source size.
-        Mask = SmallVector<int, 16>(NumElems, -1);
+        Mask = SmallVector<uint32_t, 16>(NumElems, OVLSShuffle::UndefMask);
       else
         Mask = MapIt->second;
 
@@ -882,11 +881,11 @@ public:
   ///
   /// This needs to follow the merging pattern of getPossibleIncomingMask which
   /// assumes merging of N1 and N2 happened as N1 N1 .. N2 N2..
-  SmallVector<SmallVector<int, 16>, 16>
+  SmallVector<SmallVector<uint32_t, 16>, 16>
   getPossibleOutgoingMergeMasks(const GraphNode &N1,
                                 const GraphNode &N2) const {
-    SmallVector<SmallVector<int, 16>, 16> Masks;
-    std::map<int, SmallVector<int, 16>> NodeMaskMap;
+    SmallVector<SmallVector<uint32_t, 16>, 16> Masks;
+    std::map<int, SmallVector<uint32_t, 16>> NodeMaskMap;
 
     // Compute masks that are created by the outgoing edges of N1
     getPossibleOutgoingMasks(N1, 0, NodeMaskMap);
@@ -894,7 +893,7 @@ public:
     // Compute masks that are created by the outgoing edges of N2
     getPossibleOutgoingMasks(N2, N1.type().getSize(), NodeMaskMap);
 
-    std::map<int, SmallVector<int, 16>>::iterator MapIt, MapItE;
+    std::map<int, SmallVector<uint32_t, 16>>::iterator MapIt, MapItE;
 
     for (MapIt = NodeMaskMap.begin(), MapItE = NodeMaskMap.end();
          MapIt != MapItE; ++MapIt)
@@ -910,12 +909,12 @@ public:
     Type *ElemType = Type::getIntNTy(CM.getContext(), ElemSize);
 
     // Compute inward impact.
-    SmallVector<int, 16> Mask = getPossibleIncomingMask(N1, N2);
+    SmallVector<uint32_t, 16> Mask = getPossibleIncomingMask(N1, N2);
     VectorType *VecTy = VectorType::get(ElemType, Mask.size());
     uint64_t Cost = CM.getShuffleCost(Mask, VecTy);
 
     // Compute outward impact.
-    SmallVector<SmallVector<int, 16>, 16> Masks =
+    SmallVector<SmallVector<uint32_t, 16>, 16> Masks =
         getPossibleOutgoingMergeMasks(N1, N2);
     for (auto Mask : Masks) {
       VecTy = VectorType::get(ElemType, Mask.size());
@@ -1253,10 +1252,13 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
 
       uint64_t AccMask = CurrGrp->getNByteAccessMask();
 
+      // If Current Group has members, and the new memref cannot be added to it
+      // for either it is outside the register range or cannot be moved to the
+      // Group's firstmemref's location, we make a new group for the new memref.
       if (!CurrGrp->empty() &&
-          (( // capacity exceeded.
-               Dist - GrpFirstMDist + ElemSize) > VectorLength ||
-           !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
+          ( // capacity exceeded.
+              (Dist - GrpFirstMDist + ElemSize) > VectorLength ||
+              !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
         OVLSGrps.push_back(CurrGrp);
         CurrGrp = new OVLSGroup(VectorLength, AccType);
 
@@ -1320,10 +1322,35 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
           //    FirstSeenMrf : a[2*i+1].
           //    Memref : a[2*i], Dist = -4.
           Memref->isAConstDistanceFrom(*SetFirstSeenMrf, &Dist)) {
-        // Found a set
-        AdjMrfSetFound = true;
-        (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(Dist, Memref));
-        break;
+        // Found a possible set.
+        // Look for duplicates first.
+        auto SearchDuplicate = (*AdjMemrefSet).find(Dist);
+        if (SearchDuplicate != (*AdjMemrefSet).end()) {
+          // Found a possible redundant duplicate
+          // Duplicate is Redundant if Memref can be moved to
+          // SearchDuplicate's location.
+          // Drop Memref and do not group it with any memref, if found to be a
+          // redundant duplicate, else try to group it with other sets in
+          // AdjMemrefSetVec.
+          OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->second;
+          bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
+          if (RedundantDuplicate) {
+            // Message on Duplicates Found.
+            OVLSDebug(OVLSdbgs() << "\t\tFound Duplicates: \n");
+            OVLSDebug(Memref->print(OVLSdbgs(), 2));
+            OVLSDebug(OVLSdbgs() << " and ");
+            OVLSDebug(ExistingDuplicateMemref->print(OVLSdbgs(), 2));
+            OVLSDebug(OVLSdbgs() << "\n");
+            // Break out of the loop and proceed to next memref.
+            break;
+          }
+          // else try to group with other sets in AdjMemrefSetVec.
+        } else {
+          // Duplicate not found. Memref can be grouped.
+          AdjMrfSetFound = true;
+          (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(Dist, Memref));
+          break;
+        }
       }
     }
     if (!AdjMrfSetFound) {
@@ -2061,45 +2088,39 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
 //    i32 17, i32 25, i32 2, i32 10, i32 18, i32 26, i32 3, i32 11, i32 19, i32
 //    27, i32 4, i32 12, i32 20, i32 28, i32 5, i32 13, i32 21, i32 29, i32 6,
 //    i32 14, i32 22, i32 30, i32 7, i32 15, i32 23, i32 31>
-// store <32 x i32> %interleave.vec, <32 x i32>* %wide.vec.ptr, align 16,
-
+// store <32 x i32> %interleave.vec, <32 x i32>* %wide.vec.ptr, align 16
+// Note: Shuffle vector instructions are generated with OVLSOperands of kind:
+// 1. Undef : Undef is used for undef LLVMIR operands.
+// Both Operands cannot be undef.
+// 2. OVLSAddress : This is used when the operand is derived from an OVLSMemref.
+// The client needs to link the corresponding instruction for the OVLSMemref. If
+// it is not available, it needs to generate the required instructions. Eg:
+// Shuffles when dealing with Adjacent Stores.
+// 3. OVLSInstruction : This is used when the operand is the result of another
+// OVLSInstruction - usually an OVLSLoad or OVLSShuffle.
+//
+// The use of OVLSAddress helps in 2 ways:
+// First, The sequence is client independent. Eg, this can be called by a
+// client dealing with gathers instead of shufflevectors.
+// Second, The sequence will not consider these shuffle vectors in cost
+// computation for the optimization.
 bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
     const OVLSGroup &Group, OVLSInstructionVector &InstVector,
     OVLSMemrefToInstMap *MemrefToInstMap) {
 
-  // Create a shuffle for each mem-ref in the group.
-  // The operands are the operands of the ShuffleInstruction.
-  OVLSInstruction *ShuffleOnShuffles[20];
+  OVLSInstruction *ShuffleOnShuffles[16];
 
-  // Sequential mask.
-  // Extracting the strided data into different registers.
-  // %t0 = shufflevector <8 x i32> %store.data0, <16 x i32> %store.data1,
-  //       <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  // %t1 = shufflevector <8 x i32> %store.data0, <16 x i32> %store.data1,
-  //       <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  // %t2 = shufflevector <8 x i32> %store.data0, <16 x i32> %store.data1,
-  //       <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23>
-  // %t3 = shufflevector <8 x i32> %store.data0, <16 x i32> %store.data1,
-  //       <i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
-  //
-  const int32_t IntShuffleSeqMask[4][8] = {{0, 1, 2, 3, 4, 5, 6, 7},
-                                           {8, 9, 10, 11, 12, 13, 14, 15},
-                                           {16, 17, 18, 19, 20, 21, 22, 23},
-                                           {24, 25, 26, 27, 28, 29, 30, 31}};
-
-  // Creating Dummy OVLSOperands as Operands for the first extracting shuffle
-  // instructions. The default constructor creates a OVLSOperand of kind = OK_
-  // Undef. During Codegen, take care that you convert them to source
-  // shuffle instructions.
-
-  OVLSOperand *Dummy1 = new OVLSOperand(Group.getFirstMemref()->getType());
-  OVLSOperand *Dummy2 = new OVLSOperand(Group.getFirstMemref()->getType());
-
+  // Create the OVLSAddress with OVLSMemrefs as needed (as OVLSOperands) for the
+  // shuffles that follow.
+  OVLSAddress *MemrefAddresses[4];
+  int64_t Offset = 0;
+  // %t0 : Corresponding to Memref0 a[4*i]
+  // %t1 : Corresponding to Memref1 a[4*i+1]
+  // %t2 : Corresponding to Memref2 a[4*i+2]
+  // %t3 : Corresponding to Memref3 a[4*i+3]
   for (int i = 0; i < 4; i++) {
-    OVLSConstant *ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8),
-        reinterpret_cast<const int8_t *>(IntShuffleSeqMask[i]));
-    ShuffleOnShuffles[i] = new OVLSShuffle(Dummy1, Dummy2, ShuffleMask);
+    MemrefAddresses[i] = new OVLSAddress(Group.getMemref(i), Offset);
+    Offset = Offset + 4; // i32 = 4 bytes.
   }
 
   // %t4 = shufflevector <8 x i32> %t0, <8 x i32> %t1, <8 x i32> <i32 0, i32
@@ -2123,30 +2144,27 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
     OVLSConstant *ShuffleMask = new OVLSConstant(
         OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i]));
-    ShuffleOnShuffles[4 * i + 4] = new OVLSShuffle(
-        ShuffleOnShuffles[0], ShuffleOnShuffles[1], ShuffleMask);
+    ShuffleOnShuffles[4 * i] =
+        new OVLSShuffle(MemrefAddresses[0], MemrefAddresses[1], ShuffleMask);
 
     ShuffleMask = new OVLSConstant(
         OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i]));
-    ShuffleOnShuffles[4 * i + 5] = new OVLSShuffle(
-        ShuffleOnShuffles[2], ShuffleOnShuffles[3], ShuffleMask);
+    ShuffleOnShuffles[4 * i + 1] =
+        new OVLSShuffle(MemrefAddresses[2], MemrefAddresses[3], ShuffleMask);
 
     ShuffleMask = new OVLSConstant(
         OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 1]));
-    ShuffleOnShuffles[4 * i + 6] =
-        new OVLSShuffle(ShuffleOnShuffles[4 * i + 4],
-                        ShuffleOnShuffles[4 * i + 5], ShuffleMask);
+    ShuffleOnShuffles[4 * i + 2] = new OVLSShuffle(
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], ShuffleMask);
 
     ShuffleMask = new OVLSConstant(
         OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 2]));
-    ShuffleOnShuffles[4 * i + 7] =
-        new OVLSShuffle(ShuffleOnShuffles[4 * i + 4],
-                        ShuffleOnShuffles[4 * i + 5], ShuffleMask);
+    ShuffleOnShuffles[4 * i + 3] = new OVLSShuffle(
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], ShuffleMask);
   }
-
   // %t12= shufflevector <8 x i32> %t6, <8 x i32> %t6, <4 x i32> <i32 0, i32 1,
   //        i32 2, i32 3>
   // %t13= shufflevector <8 x i32> %t7, <8 x i32> %t7, <4 x i32> <i32 0, i32 1,
@@ -2172,31 +2190,31 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   for (int i = 0; i < 2; i++) {
     OVLSConstant *ShuffleMask = new OVLSConstant(
         OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
-    ShuffleOnShuffles[4 * i + 12] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 8] = new OVLSShuffle(
+        ShuffleOnShuffles[2], ShuffleOnShuffles[2], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
+    ShuffleOnShuffles[4 * i + 9] = new OVLSShuffle(
+        ShuffleOnShuffles[3], ShuffleOnShuffles[3], ShuffleMask);
+
+    ShuffleMask = new OVLSConstant(
+        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
+    ShuffleOnShuffles[4 * i + 10] = new OVLSShuffle(
         ShuffleOnShuffles[6], ShuffleOnShuffles[6], ShuffleMask);
 
     ShuffleMask = new OVLSConstant(
         OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
-    ShuffleOnShuffles[4 * i + 13] = new OVLSShuffle(
+    ShuffleOnShuffles[4 * i + 11] = new OVLSShuffle(
         ShuffleOnShuffles[7], ShuffleOnShuffles[7], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
-    ShuffleOnShuffles[4 * i + 14] = new OVLSShuffle(
-        ShuffleOnShuffles[10], ShuffleOnShuffles[10], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
-    ShuffleOnShuffles[4 * i + 15] = new OVLSShuffle(
-        ShuffleOnShuffles[11], ShuffleOnShuffles[11], ShuffleMask);
   }
 
   // Pushback all Shuffle instructions into InstVec.
   //
-  for (int i = 0; i < 20; i++)
+  for (int i = 0; i < 16; i++)
     InstVector.push_back(ShuffleOnShuffles[i]);
 
-  int Offset = 0;
+  Offset = 0;
   OVLSInstruction *StoreInst[8];
   uint64_t ElementMask = 0x0F;
   OVLSType LType(32, 4);
@@ -2214,7 +2232,7 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   for (int i = 0; i < 8; i++) {
     OVLSMemref *FirstMemref = Group.getFirstMemref();
     OVLSAddress Src(FirstMemref, Offset);
-    StoreInst[i] = new OVLSStore(ShuffleOnShuffles[i + 12], Src, ElementMask);
+    StoreInst[i] = new OVLSStore(ShuffleOnShuffles[i + 8], Src, ElementMask);
     Offset = Offset + 16; // 4 elements offset.
     InstVector.push_back(StoreInst[i]);
   }
@@ -2533,11 +2551,14 @@ bool OptVLSInterface::getSequencePredefined(
   return false;
 }
 
-// The members of Group can be either vectorized individually using a
+// The members of \p Group can be either vectorized individually using a
 // gather/scatter each, or can be vectorized together with their neighbors
 // in the Group using wide loads/stores and shuffles. This function
-// returns the minimum cost between these two options (i.e. the absolute
-// cost of the best way to vectorize this Group).
+// returns the cost of vectorizing the Group with Wide loads/stores and shuffles
+// sequences, if the Group is supported. If not supported, it returns an
+// absolute maximum value. (The client needs to compare it with the
+// gatherScatterOpCost() to understand if it will be profitable to do the VLS
+// transformation).
 int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
                                       const OVLSCostModel &CM) {
   int64_t Cost = 0;
@@ -2554,31 +2575,32 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
     }
   }
 
+  // Leaving this code commented for future reference and information.
   // 2. Obtain the cost of vectorizing this group using gathers/scatters.
   // FORNOW: If gathers/scatters are not supported the cost is 0.
   // TODO: We want to return the cost of the scalarized gathers/scatters
   // if they are not supported, instead of zero.
-  int64_t GatherScatterCost = 0;
-  const OVLSMemrefVector &MemrefVec = Group.getMemrefVec();
-  for (OVLSMemref *Memref : MemrefVec) {
-    int64_t C = CM.getGatherScatterOpCost(*Memref);
-    // OVLSdbgs() << "Cost = " << C << "\n";
-    GatherScatterCost += C;
-  }
+  // int64_t GatherScatterCost = 0;
+  // const OVLSMemrefVector &MemrefVec = Group.getMemrefVec();
+  // for (OVLSMemref *Memref : MemrefVec) {
+  //  int64_t C = CM.getGatherScatterOpCost(*Memref);
+  // OVLSdbgs() << "Cost = " << C << "\n";
+  //  GatherScatterCost += C;
+  //}
   // OVLSdbgs() << "Shuffle Cost = " << Cost << "\n";
   // OVLSdbgs() << "Gather/Scatter Cost = " << GatherScatterCost << "\n";
 
   // 3. Return the minimum of the two costs.
-  if (GatherScatterCost && GatherScatterCost <= Cost)
-    Cost = GatherScatterCost;
+  // if (GatherScatterCost && GatherScatterCost <= Cost)
+  //  Cost = GatherScatterCost;
 
   // Both gathers/scatters and shuffles not supported; return some high dummy
   // cost. TODO: Instead, return the scalarization cost.
   // Once the cost utilities are fully implemented we don't expect to get a
   // zero cost.
   if (Cost == 0)
-    Cost =
-        MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();
+    Cost = OVLSCostModel::UnknownCost;
+  //      MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();
 
   return Cost;
 }
