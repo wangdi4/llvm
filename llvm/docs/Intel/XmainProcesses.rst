@@ -33,12 +33,15 @@ is promoted to xmain trunk.
 Component groups are free to create additional pages here describing their
 component-specific processes.
 
+.. _xmain_gatekeeping:
+
 Xmain Gatekeeping
 =================
 
 All commits to the xmain trunk must be approved by an xmain gatekeeper, whose
 job it is to watch for potential conflicts and ensure that all processes are
-followed.
+followed. A separate page describes the
+:doc:`duties of the xmain gatekeeper <XmainGatekeeperDuties>`.
 
 Before requesting gatekeeper review, please go through the following checklist
 to ensure that your changes are ready for submission. Gatekeepers will also use
@@ -591,9 +594,8 @@ Of course, good judgment should always prevail. The gatekeeper may choose to
 permit less testing for low risk change sets and may choose to require extra
 testing for high risk change sets.
 
-Developers can also take advantage of integrated `AlloyGerrit
-<http://iclqa.sc.intel.com/BuildBoard/XmainDocs/Intel/XmainAlloyGerrit.html>`_
-testing infrastructure.
+Developers can also take advantage of integrated
+:doc:`AlloyGerrit <XmainAlloyGerrit>` testing infrastructure.
 
 Expectations Regarding New Stability Failures
 ---------------------------------------------

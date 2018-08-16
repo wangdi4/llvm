@@ -157,9 +157,12 @@ and adding mappings for them to the TypeRemapper.
 
 This is done by the base class invoking the prepareTypes method of the
 subclass.
+
+.. code-block:: c++
+
   bool prepareTypes(Module &M)
 
-For example he AOS to SOA transform class prepares opaque types for new types,
+For example the AOS to SOA transform class prepares opaque types for new types,
 and informs the TypeRemapper 'struct.node' is to be replaced with a new type,
 '__soa_struct.node', and the type 'struct.node*' is to be replaced with 'i64'.
 

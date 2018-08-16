@@ -323,6 +323,10 @@ clickable for anyone to access the results inside Gerrit.
         Warning log:       http://dss-sc.intel.com/problem_dir/lab_icltI68628812lab_26809-1/warning.log
         Zperf bt rpt log:  http://dss-sc.intel.com/problem_dir/lab_icltI68628812lab_26809-1/zperf_bt_rpt.log
 
+When using this option, please add a comment indicating the patch set on which
+the tests were run, e.g. "Tests run on Patch Set 5". The information is helpful
+to the gatekeeper.
+
 Troubleshooting Tips
 --------------------
 
