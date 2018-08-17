@@ -50,7 +50,7 @@ const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) FPGA Emulation Platf
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 #endif // BUILD_EXPERIMENTAL_21
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
-const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
+const char PlatformModule::m_vPlatformVendorStr[] = "Intel Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
 
 
