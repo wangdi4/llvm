@@ -167,6 +167,136 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+
+static bool isLoopInvariant(const Value *Val, Loop *Lp) {
+  auto *Inst = dyn_cast<Instruction>(Val);
+
+  return !Inst || !Lp->contains(Inst->getParent());
+}
+
+// Returns the phi associated with \p IVUpdate instruction.
+// Returns null if \p IVUpdate doesn't look like a valid update instruction.
+static const PHINode *getIVPhi(const Instruction *IVUpdate, Loop *Lp) {
+
+  // Most common instruction types for an IV update are add, sub and GEP.
+  const PHINode *IVPhi = nullptr;
+  const Value *Stride = nullptr;
+
+  if(IVUpdate->getOpcode() == Instruction::Add ||
+     IVUpdate->getOpcode() == Instruction::Sub) {
+    auto *Op0 = IVUpdate->getOperand(0);
+    auto *Op1 = IVUpdate->getOperand(1);
+
+    IVPhi = dyn_cast<PHINode>(Op0);
+
+    if (IVPhi && IVPhi->getParent() == Lp->getHeader()) {
+      Stride = Op1;
+    } else {
+      IVPhi = dyn_cast<PHINode>(Op1);
+      Stride = Op0;
+    }
+
+  } else if (IVUpdate->getOpcode() == Instruction::GetElementPtr &&
+             IVUpdate->getNumOperands() == 2) {
+
+    IVPhi = dyn_cast<PHINode>(IVUpdate->getOperand(0));
+    Stride = IVUpdate->getOperand(1);
+  }
+
+  if (!IVPhi || IVPhi->getParent() != Lp->getHeader())
+    return nullptr;
+
+  if (!isLoopInvariant(Stride, Lp))
+    return nullptr;
+
+  return IVPhi;
+}
+
+static Value *getHeaderPhiLatchVal(const PHINode *Phi, Loop *Lp) {
+  assert(Phi->getNumIncomingValues() == 2
+         && "Unexpected number of header phi operands!");
+
+  return Phi->getIncomingBlock(0) == Lp->getLoopLatch() ?
+               Phi->getIncomingValue(0) :
+               Phi->getIncomingValue(1);
+}
+
+static bool isIVPhi(const Value *Val, Loop *Lp) {
+  auto *IVPhi = dyn_cast<PHINode>(Val);
+
+  if (!IVPhi || IVPhi->getParent() != Lp->getHeader())
+    return false;
+
+  const Instruction *IVUpdate =
+          dyn_cast<Instruction>(getHeaderPhiLatchVal(IVPhi, Lp));
+
+  return IVUpdate && (getIVPhi(IVUpdate, Lp) == IVPhi);
+}
+
+static bool isIVUpdate(const Value *Val, Loop *Lp) {
+  auto *Inst = dyn_cast<Instruction>(Val);
+
+  if (!Inst)
+    return false;
+
+  const PHINode *IVPhi = getIVPhi(Inst, Lp);
+
+  return IVPhi && getHeaderPhiLatchVal(IVPhi, Lp) == Val;
+}
+
+static bool isIVComparisonBranch(const TerminatorInst *Term,
+                                 Loop *Lp) {
+
+  auto *BI = dyn_cast<BranchInst>(Term);
+
+  if (!BI)
+    return false;
+
+  assert(!BI->isUnconditional() && "Conditional branch expected!");
+
+  auto *CmpInst = dyn_cast<ICmpInst>(BI->getCondition());
+
+  if (!CmpInst)
+    return false;
+
+  // Look for IV compared with a loop invariant.
+  auto *Op0 = CmpInst->getOperand(0);
+  auto *Op1 = CmpInst->getOperand(1);
+
+  // We are looking for a cycle between IV phi and update instruction.
+  // For example-
+  // %ivphi = phi i32 [ %init , %preheader], [ %ivupdate, %latch ]
+  // %ivupdate = add i32 %ivphi, 1
+  // %cmp = cmp sgt i32 %ivupdate, 1
+  //
+  // Cycle can start from either IV phi or IV update instruction.
+  if (isLoopInvariant(Op0, Lp))
+    return isIVPhi(Op1, Lp) || isIVUpdate(Op1, Lp);
+
+  if (isLoopInvariant(Op1, Lp))
+    return isIVPhi(Op0, Lp) || isIVUpdate(Op0, Lp);
+
+  return false;
+}
+
+// Loop becomes countable after rotation if the header test look like an IV
+// comparison and the latch test doesn't.
+static bool loopBecomesCountable(Loop *Lp) {
+  return isIVComparisonBranch(Lp->getHeader()->getTerminator(), Lp)
+    && !isIVComparisonBranch(Lp->getLoopLatch()->getTerminator(), Lp);
+}
+
+static bool loopBecomesOptimizable(Loop *Lp) {
+  // Skip big multi-exit loops for now.
+  // We can revisit this later.
+  if (Lp->getNumBlocks() > 2)
+    return false;
+
+  return loopBecomesCountable(Lp);
+}
+
+#endif // INTEL_CUSTOMIZATION
 // Look for a phi which is only used outside the loop (via a LCSSA phi)
 // in the exit from the header. This means that rotating the loop can
 // remove the phi.
@@ -184,6 +314,12 @@ static bool shouldRotateLoopExitingLatch(Loop *L) {
       continue;
     return true;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Header->getParent()->isPreLoopOpt() && loopBecomesOptimizable(L)) {
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
