@@ -10,11 +10,14 @@
 # The test check that
 # * compiltion of a programm with autorun kernels and debug info is successful,
 # * stop breakpoints, step and continue in autorun kernel
+# Note: the test isn't supported by Windows debugger simulator
 
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, skipNotGDB
 
 class FPGAAutorun(DebuggerTestCase):
     CLNAME = 'fpga_autorun.cl'
+
+    @skipNotGDB
     def test_breakpoints(self):
         self.client.execute_debuggee(
             hostprog_name='fpga_autorun',
