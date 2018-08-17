@@ -22,14 +22,16 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/FunctionComparator.h"
 
 #define DEBUG_TYPE "dtrans-soatoaos"
 // DepCompute
 #define DTRANS_SOADEP "dtrans-soatoaos-deps"
+// ComputeArrayMethodClassification
+#define DTRANS_SOAARR "dtrans-soatoaos-arrays"
 
 #include "SOAToAOSEffects.h"
 #include "SOAToAOSArrays.h"
@@ -844,9 +846,13 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       LLVM_DEBUG(dbgs() << "; Checking array's method " << F->getName()
                         << "\n");
 
+      // TODO: store results somewhere for transformation.
+      ComputeArrayMethodClassification::TransformationData Data;
       ComputeArrayMethodClassification MC(Impl.DL,
                                           // *this as DepMap to query.
-                                          *this, S);
+                                          *this, S,
+                                          // Info for transformation
+                                          Data);
       auto Res = MC.classify();
       auto Kind = Res.first;
 

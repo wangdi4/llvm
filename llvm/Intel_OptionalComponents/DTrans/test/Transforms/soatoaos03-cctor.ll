@@ -1,18 +1,21 @@
-; RUN: opt -S < %s -whole-program-assume -disable-output \
+; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
-; RUN:    -dtrans-soatoaos-approx-typename=struct.Arr.0                                                         \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
 ; RUN:    -debug-only=dtrans-soatoaos -dtrans-malloc-functions=struct.Mem,0 -dtrans-free-functions=struct.Mem,1 \
 ; RUN:  2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -disable-output \
+; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
+; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
+; RUN:    -debug-only=dtrans-soatoaos-arrays -dtrans-malloc-functions=struct.Mem,0 -dtrans-free-functions=struct.Mem,1 \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], i8**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
 
-$_ZN3ArrIPvEC2ERKS1_ = comdat any
-
 ; The following method should be classified as copy-ctor.
+; Instructions to transform are shown.
 ;   Arr(const Arr &A) {
 ;     mem = A.mem;
 ;     capacilty = A.capacilty;
@@ -23,7 +26,8 @@ $_ZN3ArrIPvEC2ERKS1_ = comdat any
 ;   }
 ; CHECK:      Checking array's method _ZN3ArrIPvEC2ERKS1_
 ; CHECK-NEXT: Classification: CCtor method
-define void @_ZN3ArrIPvEC2ERKS1_(%struct.Arr.0* nocapture %this, %struct.Arr.0* nocapture readonly dereferenceable(32) %A) unnamed_addr #0 comdat align 2 {
+; CHECK-TRANS:; Dump instructions needing update. Total = 8
+define void @_ZN3ArrIPvEC2ERKS1_(%struct.Arr.0* %this, %struct.Arr.0* %A) {
 entry:
   %mem = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i32 0, i32 0
   %tmp = load %struct.Mem*, %struct.Mem** %mem, align 8
@@ -52,9 +56,13 @@ entry:
   %vtable = load i8* (%struct.Mem*, i32)**, i8* (%struct.Mem*, i32)*** %tmp6, align 8
   %vfn = getelementptr inbounds i8* (%struct.Mem*, i32)*, i8* (%struct.Mem*, i32)** %vtable, i64 0
   %tmp7 = load i8* (%struct.Mem*, i32)*, i8* (%struct.Mem*, i32)** %vfn, align 8
+; CHECK-TRANS:      ; BasePtrInst: Allocation call
+; CHECK-TRANS-NEXT:   %call = call i8* %tmp7(%struct.Mem* %tmp3, i32 %conv9)
   %call = call i8* %tmp7(%struct.Mem* %tmp3, i32 %conv9)
   %tmp8 = bitcast i8* %call to i8**
   %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
+; CHECK-TRANS:      ; BasePtrInst: Init base pointer with allocated memory
+; CHECK-TRANS-NEXT:   store i8** %tmp8, i8*** %base, align 8
   store i8** %tmp8, i8*** %base, align 8
   br label %for.cond
 
@@ -67,17 +75,29 @@ for.cond:                                         ; preds = %for.inc, %entry
 
 for.body:                                         ; preds = %for.cond
   %base11 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i32 0, i32 3
+; CHECK-TRANS:      ; BasePtrInst: Load of base pointer
+; CHECK-TRANS-NEXT:   %tmp10 = load i8**, i8*** %base11, align 8
   %tmp10 = load i8**, i8*** %base11, align 8
   %idxprom = sext i32 %i.0 to i64
+; CHECK-TRANS:      ; MemInstGEP: Element load
+; CHECK-TRANS-NEXT:   %arrayidx = getelementptr inbounds i8*, i8** %tmp10, i64 %idxprom
   %arrayidx = getelementptr inbounds i8*, i8** %tmp10, i64 %idxprom
+; CHECK-TRANS:      ; MemInst: Element load
+; CHECK-TRANS-NEXT:   %tmp11 = load i8*, i8** %arrayidx, align 8
   %tmp11 = load i8*, i8** %arrayidx, align 8
   %base12 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
+; CHECK-TRANS:      ; BasePtrInst: Load of base pointer
+; CHECK-TRANS-NEXT:   %tmp12 = load i8**, i8*** %base12, align 8
   %tmp12 = load i8**, i8*** %base12, align 8
   %size13 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 4
   %tmp13 = load i32, i32* %size13, align 8
   %add14 = add nsw i32 %tmp13, %i.0
   %idxprom15 = sext i32 %add14 to i64
+; CHECK-TRANS:      ; MemInstGEP: Element copy
+; CHECK-TRANS-NEXT:   %arrayidx16 = getelementptr inbounds i8*, i8** %tmp12, i64 %idxprom15
   %arrayidx16 = getelementptr inbounds i8*, i8** %tmp12, i64 %idxprom15
+; CHECK-TRANS:      ; MemInst: Element copy
+; CHECK-TRANS-NEXT:   store i8* %tmp11, i8** %arrayidx16, align 8
   store i8* %tmp11, i8** %arrayidx16, align 8
   br label %for.inc
 
@@ -88,5 +108,3 @@ for.inc:                                          ; preds = %for.body
 for.end:                                          ; preds = %for.cond
   ret void
 }
-
-attributes #0 = { noinline uwtable }

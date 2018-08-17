@@ -38,7 +38,6 @@ public:
   bool runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                const TargetLibraryInfo &TLI);
 };
-} // namespace dtrans
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Debugging pass to check computation of approximate IR.
@@ -67,6 +66,7 @@ public:
 };
 
 // Debugging pass to check method classification.
+struct SOAToAOSMethodsCheckDebugResult;
 class SOAToAOSMethodsCheckDebug
     : public AnalysisInfoMixin<SOAToAOSMethodsCheckDebug> {
   static AnalysisKey Key;
@@ -75,12 +75,22 @@ class SOAToAOSMethodsCheckDebug
 
 public:
   // Called from lit-tests, result is ignored and not consumed ever.
-  class Ignore {};
+  class Ignore {
+    std::unique_ptr<SOAToAOSMethodsCheckDebugResult> Ptr;
+
+  public:
+    Ignore(SOAToAOSMethodsCheckDebugResult *Ptr);
+    Ignore(Ignore &&Other);
+    const SOAToAOSMethodsCheckDebugResult *get() const;
+    // Prevent default dtor creation while type is incomplete.
+    ~Ignore();
+  };
   typedef Ignore Result;
 
   Result run(Function &F, FunctionAnalysisManager &AM);
 };
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // namespace dtrans
 
 ModulePass *createDTransSOAToAOSWrapperPass();
 

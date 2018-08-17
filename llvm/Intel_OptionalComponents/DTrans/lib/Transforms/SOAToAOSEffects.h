@@ -46,35 +46,8 @@ public:
   bool isEnd() const { return this->wrapped() == this->End; }
 };
 
-// OpIterTy is a derivative of op_iterator/const_op_iterator.
-//
-// 1. De-referencing returns Value&;
-// 2. Only Instruction and Argument are processed.
-template <typename OpIterTy, typename ValueTy, bool AllInstructions>
-class value_op_iterator
-    : public filter_iterator_with_check<
-          OpIterTy, std::function<bool(
-                        typename std::iterator_traits<OpIterTy>::reference)>> {
-
-  static_assert(
-      std::is_same<Value, typename std::remove_cv<ValueTy>::type>::value,
-      "ValueTy must be a CV-qualified Value");
-
-  using OpRefTy = typename std::iterator_traits<OpIterTy>::reference;
-  using OpFilterIterTy =
-      filter_iterator_with_check<OpIterTy, std::function<bool(OpRefTy)>>;
-
-public:
-  using value_type = ValueTy;
-  using reference = ValueTy &;
-  using pointer = ValueTy *;
-  reference operator*() const { return *OpFilterIterTy::operator*().get(); }
-  pointer operator->() const { return &operator*(); }
-
-  // TODO: separate into 'trait'-like structure.
+struct ArithInstructionsTrait {
   static inline bool isSupportedOpcode(unsigned OpCode) {
-    if (AllInstructions)
-      return true;
     // FIXME: FP exception handling.
     switch (OpCode) {
     case Instruction::Add:
@@ -106,6 +79,63 @@ public:
     }
     return false;
   }
+  static inline bool shouldBeAnalyzed(const Use &U) {
+    return !isa<Constant>(U.get());
+  }
+};
+
+// This class is used in value_op_iterator and in GEPDepGraph to compute SCC
+// containing GEPs, their base pointers and connected with PHIs.
+struct GEPInstructionsTrait {
+  static inline bool isSupportedOpcode(unsigned OpCode) {
+    switch (OpCode) {
+    case Instruction::GetElementPtr:
+    case Instruction::PHI:
+      return true;
+    default:
+      break;
+    }
+    return false;
+  }
+  static inline bool shouldBeAnalyzed(const Use &U) {
+    auto *GEP = dyn_cast<GetElementPtrInst>(U.getUser());
+    return GEP ? U.get() == GEP->getPointerOperand()
+               : isa<PHINode>(U.getUser());
+  }
+};
+
+struct AllInstructionsTrait {
+  static inline bool isSupportedOpcode(unsigned OpCode) { return true; }
+  static inline bool shouldBeAnalyzed(const Use &U) {
+    return !isa<Constant>(U.get()) && !isa<BasicBlock>(U.get());
+  }
+};
+
+// OpIterTy is a derivative of op_iterator/const_op_iterator.
+//
+// 1. De-referencing returns Value&;
+// 2. Only Instruction and Argument are processed.
+template <typename OpIterTy, typename ValueTy, typename FilterTrait>
+class value_op_iterator
+    : public filter_iterator_with_check<
+          OpIterTy, std::function<bool(
+                        typename std::iterator_traits<OpIterTy>::reference)>>,
+      public FilterTrait {
+
+  static_assert(
+      std::is_same<Value, typename std::remove_cv<ValueTy>::type>::value,
+      "ValueTy must be a CV-qualified Value");
+
+  using OpRefTy = typename std::iterator_traits<OpIterTy>::reference;
+  using OpFilterIterTy =
+      filter_iterator_with_check<OpIterTy, std::function<bool(OpRefTy)>>;
+
+public:
+  using value_type = ValueTy;
+  using reference = ValueTy &;
+  using pointer = ValueTy *;
+  reference operator*() const { return *OpFilterIterTy::operator*().get(); }
+  pointer operator->() const { return &operator*(); }
 
   value_op_iterator() : OpFilterIterTy(mkDefault()) {}
   value_op_iterator(reference Val, bool EndOfRange)
@@ -122,15 +152,13 @@ private:
 
     OpIterTy Begin, End;
 
-    if (!isSupportedOpcode(Inst->getOpcode()))
+    if (!FilterTrait::isSupportedOpcode(Inst->getOpcode()))
       return mkDefault();
 
     End = Inst->op_end();
     Begin = EndOfRange ? End : Inst->op_begin();
     return OpFilterIterTy(Begin, End, [](OpRefTy Use) -> bool {
-      // BasicBlock check is needed when AllInstructions is true.
-      return !isa<Constant>(Use.get()) &&
-             (!AllInstructions || !isa<BasicBlock>(Use.get()));
+      return FilterTrait::shouldBeAnalyzed(Use);
     });
   }
   static inline OpFilterIterTy mkDefault() {
@@ -138,11 +166,19 @@ private:
                           [](OpRefTy Use) -> bool { return false; });
   }
 };
-// There are only 4 instances of the template above.
-template class value_op_iterator<User::op_iterator, Value, false>;
-template class value_op_iterator<User::const_op_iterator, const Value, false>;
-template class value_op_iterator<User::op_iterator, Value, true>;
-template class value_op_iterator<User::const_op_iterator, const Value, true>;
+// There are only 6 instances of the template above.
+template class value_op_iterator<User::op_iterator, Value,
+                                 ArithInstructionsTrait>;
+template class value_op_iterator<User::const_op_iterator, const Value,
+                                 ArithInstructionsTrait>;
+template class value_op_iterator<User::op_iterator, Value,
+                                 AllInstructionsTrait>;
+template class value_op_iterator<User::const_op_iterator, const Value,
+                                 AllInstructionsTrait>;
+template class value_op_iterator<User::op_iterator, Value,
+                                 GEPInstructionsTrait>;
+template class value_op_iterator<User::const_op_iterator, const Value,
+                                 GEPInstructionsTrait>;
 
 // Returns Value* instead of Value& from operator*().
 // operator->() is hidden.
@@ -184,23 +220,37 @@ public:
   ptr_iter(value_type ValPtr, bool EndOfRange)
       : BaseTy(IterTy(*ValPtr, EndOfRange)) {}
 };
-// There are only 4 instances of the template above.
-template class ptr_iter<value_op_iterator<User::op_iterator, Value, false>>;
+// There are only 6 instances of the template above.
 template class ptr_iter<
-    value_op_iterator<User::const_op_iterator, const Value, false>>;
-template class ptr_iter<value_op_iterator<User::op_iterator, Value, true>>;
+    value_op_iterator<User::op_iterator, Value, ArithInstructionsTrait>>;
+template class ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                                          ArithInstructionsTrait>>;
 template class ptr_iter<
-    value_op_iterator<User::const_op_iterator, const Value, true>>;
+    value_op_iterator<User::op_iterator, Value, AllInstructionsTrait>>;
+template class ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                                          AllInstructionsTrait>>;
+template class ptr_iter<
+    value_op_iterator<User::op_iterator, Value, GEPInstructionsTrait>>;
+template class ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                                          GEPInstructionsTrait>>;
 
-using arith_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::op_iterator, Value, false>>;
+using arith_inst_dep_iterator = ptr_iter<
+    value_op_iterator<User::op_iterator, Value, ArithInstructionsTrait>>;
 using const_arith_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::const_op_iterator, const Value, false>>;
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                               ArithInstructionsTrait>>;
 
 using all_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::op_iterator, Value, true>>;
+    ptr_iter<value_op_iterator<User::op_iterator, Value, AllInstructionsTrait>>;
 using const_all_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::const_op_iterator, const Value, true>>;
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                               AllInstructionsTrait>>;
+
+using gep_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::op_iterator, Value, GEPInstructionsTrait>>;
+using const_gep_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                               GEPInstructionsTrait>>;
 
 // Specialization to use *arith_inst_dep_iterator.
 template <typename ValuePtrTy> struct ArithDepGraph {
@@ -212,6 +262,12 @@ template <typename ValuePtrTy> struct ArithDepGraph {
 template <typename ValuePtrTy> struct AllDepGraph {
   ValuePtrTy ValuePtr;
   AllDepGraph(ValuePtrTy V) : ValuePtr(V) {}
+};
+
+// Specialization to use *gep_inst_dep_iterator.
+template <typename ValuePtrTy> struct GEPDepGraph {
+  ValuePtrTy ValuePtr;
+  GEPDepGraph(ValuePtrTy V) : ValuePtr(V) {}
 };
 } // namespace
 
@@ -276,6 +332,36 @@ template <> struct GraphTraits<AllDepGraph<const Value *>> {
   }
   static inline ChildIteratorType child_end(NodeRef N) {
     return const_all_inst_dep_iterator::end(N);
+  }
+};
+
+template <> struct GraphTraits<GEPDepGraph<Value *>> {
+  using NodeRef = Value *;
+  using ChildIteratorType = gep_inst_dep_iterator;
+
+  static inline NodeRef getEntryNode(GEPDepGraph<Value *> G) {
+    return G.ValuePtr;
+  }
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return gep_inst_dep_iterator::begin(N);
+  }
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return gep_inst_dep_iterator::end(N);
+  }
+};
+
+template <> struct GraphTraits<GEPDepGraph<const Value *>> {
+  using NodeRef = const Value *;
+  using ChildIteratorType = const_gep_inst_dep_iterator;
+
+  static inline NodeRef getEntryNode(GEPDepGraph<const Value *> G) {
+    return G.ValuePtr;
+  }
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return const_gep_inst_dep_iterator::begin(N);
+  }
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return const_gep_inst_dep_iterator::end(N);
   }
 };
 } // namespace llvm
@@ -787,24 +873,28 @@ namespace {
 // "load (bitcast(ptr))" is ok if load produces the same
 // value as "load ptr". Similarly for store.
 bool isSafeBitCast(const DataLayout &DL, const Value *V) {
-  if (!isa<BitCastInst>(V))
+  auto *BC = dyn_cast<BitCastInst>(V);
+  if (!BC)
     return false;
 
   // Dereferenced value is the same.
-  Type *STy = cast<BitCastInst>(V)->getOperand(0)->getType();
-  if (!isa<PointerType>(STy))
+  Type *STy = BC->getOperand(0)->getType();
+  Type *DTy = BC->getType();
+  if (!isa<PointerType>(STy) || !isa<PointerType>(DTy))
     return false;
 
-  if (DL.getTypeStoreSize(V->getType()->getPointerElementType()) !=
-      DL.getTypeStoreSize(STy->getPointerElementType()))
+  auto *D = DTy->getPointerElementType();
+  auto *S = STy->getPointerElementType();
+  if (!D->isSized() || !S->isSized() ||
+      DL.getTypeStoreSize(D) != DL.getTypeStoreSize(S))
     return false;
 
   // Value is dereferenced.
-  for (auto &U : cast<BitCastInst>(V)->uses()) {
+  for (auto &U : BC->uses()) {
     if (isa<LoadInst>(U.getUser()))
       continue;
     else if (auto *S = dyn_cast<StoreInst>(U.getUser()))
-      if (V == S->getPointerOperand())
+      if (BC == S->getPointerOperand())
         continue;
     return false;
   }
@@ -964,6 +1054,7 @@ class DepCompute {
 
       const Dep *ThisRep = nullptr;
       if ((*SCCIt).size() > 1) {
+        // Conservative analysis here, but sufficient for ultimate purpose.
         if (Args.size() == 0)
           Args.insert(Dep::mkConst(DM));
         ThisRep = Dep::mkFunction(DM, Args);
@@ -1480,10 +1571,25 @@ static cl::opt<std::string> DTransSOAToAOSApproxTypename(
 static cl::list<std::string>
     DTransSOAToAOSApproxKnown("dtrans-soatoaos-approx-known-func",
                               cl::ReallyHidden);
+
+// Get StructType from command-line or from 'this' argument.
+StructType *getStructTypeOfArray(Function &F) {
+  auto *ClassType = F.getParent()->getTypeByName(DTransSOAToAOSApproxTypename);
+  if (ClassType)
+    return ClassType;
+  if (F.arg_size() == 0)
+    return nullptr;
+
+  auto *ThisType = dyn_cast<PointerType>(F.arg_begin()->getType());
+  if (!ThisType)
+    return nullptr;
+  return dyn_cast<StructType>(ThisType->getPointerElementType());
+}
 } // namespace
 
 namespace llvm {
-using namespace dtrans::soatoaos;
+namespace dtrans {
+using namespace soatoaos;
 
 char SOAToAOSApproximationDebug::PassID;
 
@@ -1510,13 +1616,17 @@ SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
   auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
   auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
 
+  // TODO: add diagnostic message.
+  if (!DTInfo || !TLI)
+    return Ignore(nullptr);
+
   std::unique_ptr<SOAToAOSApproximationDebugResult> Result(
       new SOAToAOSApproximationDebugResult());
-  StructType *ClassType =
-      F.getParent()->getTypeByName(DTransSOAToAOSApproxTypename);
+  StructType *ClassType = getStructTypeOfArray(F);
 
+  // TODO: add diagnostic message.
   if (!ClassType)
-    return Ignore(Result.release());
+    return Ignore(nullptr);
 
   std::function<bool(const Function *)> IsKnown =
       [&F](const Function *Func) -> bool {
@@ -1538,5 +1648,6 @@ SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
   });
   return Ignore(Result.release());
 }
+} // namespace dtrans
 } // namespace llvm
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

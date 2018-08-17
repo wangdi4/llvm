@@ -1,7 +1,7 @@
-; RUN: opt -S < %s -whole-program-assume -disable-output \
+; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
-; RUN:      -dtrans-soatoaos-approx-typename=struct.Arr          2>&1 | FileCheck %s
+; RUN:      2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -9,11 +9,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.Arr = type <{ %struct.Mem*, i32, [4 x i8], i32**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
 
-$_ZN3ArrIPiE3setEiS0_ = comdat any
-
 ; This test checks various approximations for side effects in set-like function.
 ; void set(int i, S val) { base[i] = val; }
-define void @_ZN3ArrIPiE3setEiS0_(%struct.Arr* nocapture readonly %this, i32 %i, i32* %set_val) #0 comdat align 2 {
+define void @_ZN3ArrIPiE3setEiS0_(%struct.Arr* %this, i32 %i, i32* %set_val) {
 entry:
   %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3
   %tmp1 = load i32**, i32*** %base, align 8
@@ -28,8 +26,6 @@ entry:
   store i32* %set_val, i32** %arrayidx, align 8
   ret void
 }
-
-attributes #0 = { noinline norecurse nounwind uwtable }
 
 ; CHECK: Deps computed: 9, Queries: 9
 ; CHECK-NOT: Unknown Dep

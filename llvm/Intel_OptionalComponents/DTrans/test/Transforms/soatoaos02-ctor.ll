@@ -1,7 +1,6 @@
-; RUN: opt -S < %s -whole-program-assume -disable-output \
+; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
-; RUN:      -dtrans-soatoaos-approx-typename=struct.Arr          \
 ; RUN:      -dtrans-malloc-functions=struct.Mem,0 \
 ; RUN:      2>&1 | FileCheck %s
 ; REQUIRES: asserts
@@ -10,14 +9,12 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.Arr = type <{ %struct.Mem*, i32, [4 x i8], i32**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
 
-$_ZN3ArrIPiEC2EiP3Mem = comdat any
-
 ; This test checks various approximations for side effects in ctor-like function.
 ; Arr(int c = 1, Mem *mem = nullptr)
 ;     : mem(mem), capacity(c), size(0), base(nullptr) {
 ;   base = (S *)mem->allocate(capacity * sizeof(S));
 ; }
-define void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* nocapture %this, i32 %c, %struct.Mem* %mem) unnamed_addr #0 comdat align 2 {
+define void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %this, i32 %c, %struct.Mem* %mem) {
 entry:
   %mem2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0
   store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
@@ -64,8 +61,6 @@ entry:
   store i8* %call, i8** %ctor_base, align 8
   ret void
 }
-
-attributes #0 = { noinline uwtable }
 
 ; CHECK: Deps computed: 20, Queries: 26
 ; CHECK-NOT: Unknown Dep
