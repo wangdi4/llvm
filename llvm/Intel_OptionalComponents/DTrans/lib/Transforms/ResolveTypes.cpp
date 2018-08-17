@@ -47,6 +47,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
@@ -108,10 +109,19 @@ private:
   // A mapping from the original structure type to the new structure type
   DenseMap<StructType *, StructType *> OrigToNewTypeMapping;
 
+  enum CompareResult {
+    Equivalent, // The types have equivalent members in every field
+    Compatible, // The types are equivalent except for pointer types of members
+    Distinct    // The types are neither equivalent nor compatible
+  };
+
+  CompareResult compareTypes(StructType *TyA, StructType *TyB);
+  CompareResult
+  compareTypeMembers(StructType *TyA, StructType *TyB,
+                     DenseSet<std::pair<Type *, Type *>> &TypesSeen);
+  bool tryToMapTypes(StructType *TyA, StructType *TyB,
+                     EquivalenceClasses<StructType *> &CompatSets);
   void addTypeMapping(StructType *SrcTy, StructType *DestTy);
-  bool areTypesEquivalent(StructType *TyA, StructType *TyB);
-  bool areTypeMembersEquivalent(StructType *TyA, StructType *TyB,
-                                DenseSet<std::pair<Type *, Type *>> &TypesSeen);
   bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB);
   StringRef getTypeBaseName(StringRef TyName);
 };
@@ -164,6 +174,10 @@ StringRef ResolveTypesImpl::getTypeBaseName(StringRef TyName) {
   return BaseName.drop_back(1);
 }
 
+// This function walks over the structure types in the specified module and
+// identifies types which we would like to remap to one another. At this point
+// we will only create opaque replacement types for the types to be remapped.
+// The types will be populated when the base class calls populateTypes.
 bool ResolveTypesImpl::prepareTypes(Module &M) {
 
   auto getContainedStructTy = [](Type *Ty) {
@@ -241,7 +255,36 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
   if (CandidateTypeSets.empty())
     return false;
 
+  // For groups of functions with the same name, try to remap equivalent
+  // types to one another. The tryToMapTypes function will perform the
+  // remapping if possible. If the types are compatible but not equivalent
+  // tryToMapTypes will add them to the CompatibleTypes data structure.
+  //
+  // EquivalenceClasses is an LLVM-defined data structure that is a hybrid of
+  // a set and a linked list. Each element in the set is an ECValue object
+  // that contains the actual data (StructType*, in our case) and pointers
+  // to previous and next ECValues in the set that have been determined to
+  // be "equivalent" by the terms of the EquivalenceClasses user (which in our
+  // case actually means the types are compatible, not equivalent).
+  //
+  // The CompatibleTypes data structure thus provides an efficient way for us
+  // to group together structure types that we will later compare against
+  // one another to see if they should be remapped.
+  //
+  // CandidateTypeSets is a collection of structure types grouped into sets
+  // where each member has the same base name as the other types in the set,
+  // distinguished by a numeric suffix. CandidateTypeSets is implemented as
+  // a map, where the key is the structure type with the base name and the
+  // value is the set of types with similar names.
+  //
+  // For each type in a candidate set, if the type is equivalent to the base
+  // type, we will remap to the base type. If not, we will compare it to
+  // any other type from the original candidate set that also did not match
+  // the base type or any other type from the set we have previously considered.
+  // If it is not equivalent to any of these, it will be added to the set of
+  // alternatives.
   bool DuplicateTypeFound = false;
+  EquivalenceClasses<StructType *> CompatibleTypes;
   for (auto Entry : CandidateTypeSets) {
     StructType *BaseTy = Entry.first;
 
@@ -256,39 +299,39 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
 
     SmallVector<StructType *, 4> Alternates;
     for (auto *CandTy : CandTypes) {
-      if (!areTypesEquivalent(BaseTy, CandTy)) {
-        DEBUG_WITH_TYPE(DTRT_VERBOSE,
-                        dbgs() << "resolve-types: Rejected candidate type.\n"
-                               << "    Base: " << *BaseTy << "\n"
-                               << "    Cand: " << *CandTy << "\n");
-        // This type didn't match the base type, but it may match another
-        // type with the same base name that also didn't match the base
-        // type.
-        bool AltMatchFound = false;
-        for (auto *AltTy : Alternates) {
-          if (areTypesEquivalent(AltTy, CandTy)) {
-            DEBUG_WITH_TYPE(DTRT_VERBOSE,
-                            dbgs()
-                                << "resolve-types: Found alt duplicate type.\n"
-                                << "    Base: " << *AltTy << "\n"
-                                << "    Cand: " << *CandTy << "\n");
-            addTypeMapping(CandTy, AltTy);
-            AltMatchFound = true;
-            DuplicateTypeFound = true;
-            break;
-          }
-        }
-        // If no match was found, add this to a list of alternate types
-        // with this base name to be checked if other types don't match
-        // the base type.
-        if (!AltMatchFound)
-          Alternates.push_back(CandTy);
+      if (tryToMapTypes(BaseTy, CandTy, CompatibleTypes)) {
+        DuplicateTypeFound = true;
         continue;
       }
-      addTypeMapping(CandTy, BaseTy);
-      DuplicateTypeFound = true;
+      DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                      dbgs() << "resolve-types: Types are not equivalent.\n"
+                             << "    Base: " << *BaseTy << "\n"
+                             << "    Cand: " << *CandTy << "\n");
+      // This type didn't match the base type, but it may match another
+      // type with the same base name that also didn't match the base
+      // type.
+      bool AltMatchFound = false;
+      for (auto *AltTy : Alternates) {
+        if (tryToMapTypes(AltTy, CandTy, CompatibleTypes)) {
+          DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                          dbgs() << "resolve-types: Found alt duplicate type.\n"
+                                 << "    Base: " << *AltTy << "\n"
+                                 << "    Cand: " << *CandTy << "\n");
+          AltMatchFound = true;
+          DuplicateTypeFound = true;
+          break;
+        }
+      }
+      // If no match was found, add this to a list of alternate types
+      // with this base name to be checked if other types don't match
+      // the base type.
+      if (!AltMatchFound)
+        Alternates.push_back(CandTy);
     }
   }
+
+  // TODO: Use the CompatibleTypes data.
+
   return DuplicateTypeFound;
 }
 
@@ -339,41 +382,101 @@ void ResolveTypesImpl::addTypeMapping(StructType *SrcTy, StructType *DestTy) {
   OrigToNewTypeMapping[SrcTy] = ActualDestTy;
 }
 
-bool ResolveTypesImpl::areTypesEquivalent(StructType *TyA, StructType *TyB) {
+// Given two structure types that we think might be equivalent, this function
+// compares the types to determine whether or not they are actually equivalent.
+// If they are equivalent, we add a mapping from \p TyA to \p TyB (which will
+// be resolved later by the DTransOptBase class). If the types are compatible
+// but not equivalent, we add them to a union in the \p CompatibleTypes data
+// structure, which will be used elsewhere to attempt further remapping.
+// If the types are neither equivalent nor compatible, this function does
+// nothing.
+//
+// The function returns true only if the types were successfully mapped. If
+// the types are compatible or distinct, the function returns false.
+bool ResolveTypesImpl::tryToMapTypes(
+    StructType *TyA, StructType *TyB,
+    EquivalenceClasses<StructType *> &CompatibleTypes) {
+  CompareResult Res = compareTypes(TyA, TyB);
+  switch (Res) {
+  case CompareResult::Equivalent:
+    addTypeMapping(TyB, TyA);
+    return true;
+  case CompareResult::Compatible:
+    CompatibleTypes.unionSets(TyA, TyB);
+    DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                    dbgs() << "resolve-types: Types are compatible.\n"
+                           << "    Base: " << *TyA << "\n"
+                           << "    Cand: " << *TyB << "\n");
+    return false;
+  case CompareResult::Distinct:
+    return false;
+  }
+  llvm_unreachable("covered switch isn't covered?");
+}
+
+// Compare \p TyA and \p TyB to see if they are equivalent or compatible.
+//
+// The types are considered Equivalent if all member fields are the same
+// at all levels of nesting except for the names of nested structure types
+// and structure type names differ only by suffix.
+//
+// The types are considered Compatible if all member fields are the same
+// at all levels of nesting except for a mismatch of pointer types. If a
+// pair of structures being compared contain pointers to other types
+// which are Compatible, then the containing types can be Compatible but
+// they cannot be Equivalent.
+//
+// The types are considered Distinct if they are neither Equivalent nor
+// Compatible. This happens when either: (a) the types have different
+// numbers of members, (b) the types have non-pointer members of different
+// types at some location, or (c) one type contains a pointer member where
+// the other does not.
+//
+// Equivalent types can always be re-mapped to one another. Compatible types
+// can only be remapped if the mismatched pointer is never accessed using
+// the pointer type in question and pointers to the type are only ever bitcast
+// as pointers to types in the same compatibility set.
+//
+// The existence of Equivalent types and Compatible types is an artifact of
+// inexact matching by LLVM's IR Linker. They do not result in incorrect code
+// but they can lead to overly conservative conclusions by the DTrans analysis.
+ResolveTypesImpl::CompareResult
+ResolveTypesImpl::compareTypes(StructType *TyA, StructType *TyB) {
   // llvm::Type provides a check for trivial equivalence. Try that first.
   if (TyA->isLayoutIdentical(TyB))
-    return true;
-
-  // If the layout is not identical, we want to check for layouts that would
-  // be identical if we remapped equivalent types.
+    return CompareResult::Equivalent;
 
   // Otherwise, do an element-by-element check for equivalent types.
   DenseSet<std::pair<Type *, Type *>> TypesSeen;
-  return areTypeMembersEquivalent(TyA, TyB, TypesSeen);
+  return compareTypeMembers(TyA, TyB, TypesSeen);
 }
 
-bool ResolveTypesImpl::areTypeMembersEquivalent(
+// This is a helper function for compareTypes. This function does a member by
+// member comparison of two structure types, calling itself recursively to
+// compare nested structure types, whether they are pointers to the structures
+// or instances. The result is as described in the compareTypes comment.
+ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
     StructType *TyA, StructType *TyB,
     DenseSet<std::pair<Type *, Type *>> &TypesSeen) {
 
   DEBUG_WITH_TYPE(DTRT_VERBOSE, {
     if (TyA->hasName() && TyB->hasName())
-      dbgs() << "areTypeMembersEquivalent(" << TyA->getName() << ", "
+      dbgs() << "compareTypeMembers(" << TyA->getName() << ", "
              << TyB->getName() << ")\n";
     else
-      dbgs() << "areTypeMembersEquivalent(" << *TyA << ", " << *TyB << ")\n";
+      dbgs() << "compareTypeMembers(" << *TyA << ", " << *TyB << ")\n";
   });
 
   // Different packing rules out our mapping.
   if (TyA->isPacked() != TyB->isPacked()) {
     DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Pack mismatch\n");
-    return false;
+    return CompareResult::Distinct;
   }
 
   // Different numbers of elements is another easy indicator.
   if (TyA->getNumElements() != TyB->getNumElements()) {
     DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Element count mismatch\n");
-    return false;
+    return CompareResult::Distinct;
   }
 
   // If we've seen this pair before, don't check it again. The previous
@@ -382,8 +485,14 @@ bool ResolveTypesImpl::areTypeMembersEquivalent(
   // result will reflect that.
   if (!TypesSeen.insert(std::make_pair(TyA, TyB)).second) {
     DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Types seen, assume match\n");
-    return true;
+    return CompareResult::Equivalent;
   }
+
+  // If the two elements we are comparing are found to mismatch but they are
+  // pointer types, the parent structures may still be compatible. When that
+  // happens we need to record the fact that we have proven the parent types
+  // are not equivalent, but continue checking for compatibility.
+  bool ProvenNotEquivalent = false;
 
   unsigned NumElements = TyA->getNumElements();
   for (unsigned i = 0; i < NumElements; ++i) {
@@ -396,6 +505,10 @@ bool ResolveTypesImpl::areTypeMembersEquivalent(
       continue;
 
     // Look past pointer, array, or vector types to see their element types.
+    // However, we need to track whether or not the base type we find is
+    // wrapped by a pointer type so we can recognize compatibility if only
+    // pointer types are different.
+    bool ComparingPointerElements = false;
     while (ElemATy->isPointerTy() || ElemATy->isArrayTy() ||
            ElemATy->isVectorTy()) {
       if (ElemATy->isPointerTy()) {
@@ -405,11 +518,12 @@ bool ResolveTypesImpl::areTypeMembersEquivalent(
           DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs()
                                             << "Indirection level mismatch @ "
                                             << i << "\n");
-          return false;
+          return CompareResult::Distinct;
         }
         // Otherwise, drill down on both pointers.
         ElemATy = ElemATy->getPointerElementType();
         ElemBTy = ElemBTy->getPointerElementType();
+        ComparingPointerElements = true;
       } else {
         assert((ElemATy->isArrayTy() || ElemATy->isVectorTy()) &&
                "Unexpected sequential type!");
@@ -418,11 +532,12 @@ bool ResolveTypesImpl::areTypeMembersEquivalent(
             (ElemATy->isVectorTy() && !ElemBTy->isVectorTy())) {
           DEBUG_WITH_TYPE(DTRT_VERBOSE,
                           dbgs() << "Array/vector mismatch @ " << i << "\n");
-          return false;
+          return CompareResult::Distinct;
         }
         // Arrays and vectors are handled together this way.
         ElemATy = ElemATy->getSequentialElementType();
         ElemBTy = ElemBTy->getSequentialElementType();
+        ComparingPointerElements = false;
       }
     }
 
@@ -447,17 +562,28 @@ bool ResolveTypesImpl::areTypeMembersEquivalent(
           else
             dbgs() << "StElemBTy (unnamed) " << *StElemBTy << "\n";
         });
-        return false;
+        if (!ComparingPointerElements)
+          return CompareResult::Distinct;
+        ProvenNotEquivalent = true;
+        continue;
       }
       // Try the simple equivalence check.
       if (StElemATy->isLayoutIdentical(StElemBTy))
         continue;
       // Otherwise, go to the next level of element-by-element checking.
       // If they don't match, we're finished.
-      if (!areTypeMembersEquivalent(StElemATy, StElemBTy, TypesSeen)) {
+      auto Result = compareTypeMembers(StElemATy, StElemBTy, TypesSeen);
+      if (Result != CompareResult::Equivalent) {
         DEBUG_WITH_TYPE(DTRT_VERBOSE,
                         dbgs() << "Element member mismatch @ " << i << "\n");
-        return false;
+        // If these nested structures are distinct but we found pointers
+        // to the structures above, the parent structures may still be
+        // compatible. If we did not find pointers to these structures
+        // above, the parent structures are also distinct.
+        if ((Result == CompareResult::Distinct) && !ComparingPointerElements)
+          return CompareResult::Distinct;
+        ProvenNotEquivalent = true;
+        continue;
       }
       // If they did match, we need to continue scanning elements in the
       // current structure.
@@ -472,14 +598,16 @@ bool ResolveTypesImpl::areTypeMembersEquivalent(
       // TODO: Support function types if needed.
       DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs()
                                         << "Element mismatch @ " << i << "\n");
-
-      return false;
+      return CompareResult::Distinct;
     }
   }
 
   // If we get here, all of the members matched.
-  DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "All members matched.\n");
-  return true;
+  DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                  dbgs() << "All members equivalent or compatible.\n");
+  if (ProvenNotEquivalent)
+    return CompareResult::Compatible;
+  return CompareResult::Equivalent;
 }
 
 bool ResolveTypesImpl::typesHaveSameBaseName(StructType *StTyA,
