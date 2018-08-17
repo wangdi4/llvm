@@ -406,10 +406,13 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
                .addUse(parts_to_op)
                .add(MI.getOperand(3)));
     } else {
+
+      // parts_to_op is the first operand here in order to make it more likely
+      // to get fused.
       add_rm(add_instr(opcode_clpsr)
                .addDef(op_to_parts)
-               .add(MI.getOperand(3))
-               .addUse(parts_to_op));
+               .addUse(parts_to_op)
+               .add(MI.getOperand(3)));
     }
   }
 
@@ -495,6 +498,18 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         .addUse(op_pred_ctl)
         .addFPImm(static_cast<ConstantFP *>(ConstantFP::get(fp_type, 1.0)))
         .add(MI.getOperand(4));
+
+      // For the lowest loop latency, we need the last input to be fused here
+      // rather than either of the first two. This disables fusion on the first
+      // two inputs so that the last one can be fused instead. See LT2-92 for
+      // more information.
+      // However, the last input can't be fused anyway for the nondeterministic
+      // case, so enable fusion on the other lics there to save space.
+      if (Multiplex != nondeterministic) {
+        LMFI->addLICAttribute(op_left, "csa_fuse_disable");
+        LMFI->addLICAttribute(op_not_as_left, "csa_fuse_disable");
+      }
+
       add_rm(add_instr(
                TII->makeOpcode(CSA::Generic::FMA, lic_size, CSA::VARIANT_FLOAT))
                .addDef(op_out)
@@ -530,10 +545,14 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         .addUse(op_pred_ctl)
         .addUse(clpsr_left)
         .add(MI.getOperand(3));
+
+      // Mapping tends to fuse the first input to binary ops, but we want the
+      // "right" one fused because that is on the critical path. Therefore, the
+      // operands are emitted in reverse order here.
       add_rm(add_instr(opcode_clpsr)
                .addDef(op_out)
-               .addUse(op_left)
-               .addUse(op_right));
+               .addUse(op_right)
+               .addUse(op_left));
     }
     add_instr(opcode_switch)
       .addDef(clpsr_out)
@@ -552,29 +571,13 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 int CSAReassocReduc::knownRedloopLatency(CSA::Generic generic) const {
   switch (Multiplex) {
   case none:
-    switch (generic) {
-    case CSA::Generic::SREDADD:
-    case CSA::Generic::SREDSUB:
-    case CSA::Generic::SREDMUL:
-      return 6; // <- switch is fused for these
-    case CSA::Generic::FMSREDA:
-      return 8; // <- switch is not fused for FMAs
-    default:
-      llvm_unreachable("unexpected generic reducer type");
-    }
+    return 9;
   case deterministic:
-    return 8; // <- FMAs are fusable when multiplexing but the loop is larger
+    return 9; // Multiplexing is "free" here because it is more fusion-friendly.
   case nondeterministic:
-    switch (generic) {
-    case CSA::Generic::SREDADD:
-    case CSA::Generic::SREDSUB:
-    case CSA::Generic::SREDMUL:
-      return 11; // <- more input picks are fused for these
-    case CSA::Generic::FMSREDA:
-      return 13; // <- but again not for FMAs
-    default:
-      llvm_unreachable("unexpected generic reducer type");
-    }
+    return generic == CSA::Generic::FMSREDA
+             ? 15  // Unfortunately fusion is not so helpful here, especially
+             : 13; // for FMAs.
   default:
     llvm_unreachable("bad multiplexing mode");
   }
