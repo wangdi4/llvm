@@ -152,6 +152,7 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
     for (SharedItem *ShaI : ShaClause.items()) {
 
       Value *Orig = ShaI->getOrig();
+      resetValueInIntelClauseGeneric(W, Orig);
 
       Value *NewPrivInst = nullptr;
       NewPrivInst = ShaI->getNew();

@@ -1062,17 +1062,13 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   assert(isa<AllocaInst>(FprivI->getNew()) &&
          "genFprivInit: Expect non-empty alloca instruction");
   AllocaInst *AI = cast<AllocaInst>(FprivI->getNew());
-  Type *AllocaTy = AI->getAllocatedType();
-  Type *ScalarTy = AllocaTy->getScalarType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-
   IRBuilder<> Builder(InsertPt);
+
   if (Function *Cctor = FprivI->getCopyConstructor())
     VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(),
                                            FprivI->getOrig(), InsertPt);
-  else if (!AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0 || AI->isArrayAllocation())
+  else if (VPOUtils::isNotLegalSingleValueType(AI, DL))
     VPOUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
                         InsertPt->getParent());
   else {
@@ -1103,17 +1099,13 @@ void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
   assert(isa<AllocaInst>(NewV) &&
          "genLprivFini: Expect non-empty alloca instruction.");
   AllocaInst *AI = cast<AllocaInst>(NewV);
-  Type *AllocaTy = AI->getAllocatedType();
-  Type *ScalarTy = AllocaTy->getScalarType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (!AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
+  if (VPOUtils::isNotLegalSingleValueType(AI, DL))
     VPOUtils::genMemcpy(OldV, AI, DL, AI->getAlignment(),
                         InsertPt->getParent());
-  } else {
+  else {
     LoadInst *Load = Builder.CreateLoad(AI);
     Builder.CreateStore(Load, OldV);
   }
@@ -2179,10 +2171,23 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           VPOParoptUtils::genConstructorCall(PrivI->getConstructor(),
                                              NewPrivInst, NewPrivInst);
         } else {
-          IRBuilder<> Builder(EntryBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()), NewPrivInst);
-          Builder.SetInsertPoint(ExitBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(NewPrivInst), PrivI->getNew());
+          AllocaInst *AI = dyn_cast<AllocaInst>(NewPrivInst);
+          const DataLayout &DL = AI->getModule()->getDataLayout();
+          // The compiler creates the stack space for the local vars. Thus
+          // the data needs to be copied from the thunk to the local vars.
+          if (VPOUtils::isNotLegalSingleValueType(AI, DL)) {
+              VPOUtils::genMemcpy(PrivI->getNew(), AI, DL, AI->getAlignment(),
+                                  EntryBB);
+              VPOUtils::genMemcpy(PrivI->getNew(), AI, DL, AI->getAlignment(),
+                                  ExitBB);
+          } else {
+              IRBuilder<> Builder(EntryBB->getTerminator());
+              Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()),
+                                  NewPrivInst);
+              Builder.SetInsertPoint(ExitBB->getTerminator());
+              Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
+                                  PrivI->getNew());
+          }
         }
 
         LLVM_DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig
