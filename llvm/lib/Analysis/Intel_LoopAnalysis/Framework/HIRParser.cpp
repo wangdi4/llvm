@@ -2653,6 +2653,18 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
       }
     }
 
+    // Stop trace back if the highest index looks like casted IV: sext(i1).
+    // This is a profitability check to form more linear indices.
+    // If we trace back, we may have to add offsets to casted IV which will make
+    // the index non-linear.
+    auto *HighestIndex = getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
+
+    if (auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex)) {
+      if (isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
+        break;
+      }
+    }
+
     GEPOp = TempGEPOp;
   }
 
