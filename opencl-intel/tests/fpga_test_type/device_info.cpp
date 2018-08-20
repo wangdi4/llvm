@@ -39,7 +39,7 @@ TEST_F(TestInfo, Platform) {
   checkPlatform(CL_PLATFORM_PROFILE, "EMBEDDED_PROFILE");
   checkPlatform(CL_PLATFORM_VERSION, "OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 18.1");
   checkPlatform(CL_PLATFORM_NAME,    "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)");
-  checkPlatform(CL_PLATFORM_VENDOR,  "Intel(R) Corporation");
+  checkPlatform(CL_PLATFORM_VENDOR,  "Intel Corporation");
 }
 
 TEST_F(TestInfo, Device) {
@@ -47,7 +47,7 @@ TEST_F(TestInfo, Device) {
     checkDevice(device, CL_DEVICE_PROFILE,          "EMBEDDED_PROFILE");
     checkDevice(device, CL_DEVICE_VERSION,          "OpenCL 1.0 ");
     checkDevice(device, CL_DEVICE_NAME,             "Intel(R) FPGA Emulation Device (preview)");
-    checkDevice(device, CL_DEVICE_VENDOR,           "Intel(R) Corporation");
+    checkDevice(device, CL_DEVICE_VENDOR,           "Intel Corporation");
     checkDevice(device, CL_DEVICE_OPENCL_C_VERSION, "OpenCL C 1.0 ");
     checkDevice(device, CL_DRIVER_VERSION,          "18.1");
 
