@@ -404,6 +404,7 @@ void FrameworkProxy::Initialize()
 			m_GPAData.pContextTrackGroup = __itt_track_group_create(pContextTrackGroupHandle, __itt_track_group_type_normal);
 
             // Create task states
+            assert(m_GPAData.pContextDomain && "m_GPAData.pContextDomain is nullptr");
             m_GPAData.pWaitingTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Waiting");
             m_GPAData.pRunningTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
         }

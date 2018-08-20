@@ -293,6 +293,9 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 				}
 				if (((size_t)modulePtr >= from) && ((size_t)modulePtr <= to))
 				{
+					assert(strLen >= pathName.size() &&
+					"safeStrCpy() produces not null-terminated string in case of"
+					"nubmer of copied chars is less than length of src string");
 					if (0 != safeStrCpy(fileName, strLen, pathName.c_str()))
 					{
 						int counter = 0;

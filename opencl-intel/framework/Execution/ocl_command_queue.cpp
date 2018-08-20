@@ -44,6 +44,7 @@ OclCommandQueue::OclCommandQueue(
     m_pEventsManager(pEventsManager),
     m_clDefaultDeviceHandle(clDefaultDeviceID),
     m_clDevCmdListId(0),
+    m_pOclGpaQueue(nullptr),
     m_bCancelAll(false)
 {
     m_pDefaultDevice = m_pContext->GetDevice(clDefaultDeviceID);

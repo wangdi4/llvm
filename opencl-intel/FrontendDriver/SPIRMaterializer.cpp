@@ -198,8 +198,10 @@ changeImageCall(llvm::CallInst *CI,
     ArgTys.push_back(CI->getArgOperand(i)->getType());
   }
   auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
-  dyn_cast<reflection::PrimitiveType>((reflection::ParamType *)FD.parameters[0])
-      ->setPrimitive(getPrimitiveType(ArgTys[0]));
+  auto OldImgTy = dyn_cast<reflection::PrimitiveType>(
+      (reflection::ParamType *)FD.parameters[0]);
+  assert(OldImgTy && "Illformed function descriptor");
+  OldImgTy->setPrimitive(getPrimitiveType(ArgTys[0]));
   auto NewName = mangle(FD);
 
   // Check if a new function is already added to the module.

@@ -85,6 +85,7 @@ m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
     m_pLogDescriptor = pTD->m_pLogDescriptor;
     m_iLogHandle = pTD->m_iLogHandle;
     m_pGPAData = pTD->m_pGPAData;
+    m_ittID = __itt_null;
 #if defined(USE_ITT)
     if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
