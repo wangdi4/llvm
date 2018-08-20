@@ -1880,9 +1880,9 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock *inBB, MachineBasicBlock *mbb,
            pnode != pend; ++pnode) {
         ControlDependenceNode *ctrlNode = *pnode;
         ctrlBB                          = ctrlNode->getBlock();
-        // XXX: Loop latch... or loop exiting block?
+        // Ignore loop-related control dependence edges.
         if (MLI->getLoopFor(ctrlBB) &&
-            MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+            MLI->getLoopFor(ctrlBB)->isLoopExiting(ctrlBB))
           continue;
 
         // If the parent is the dominator, the pick we want will be the final
@@ -1942,11 +1942,10 @@ void CSACvtCFDFPass::TraceThroughPhi(MachineInstr *iphi, MachineBasicBlock *mbb,
         // pick tree. If the edge is a critical edge, then we have to do the
         // first step of pick tree construction right now, since we're
         // control-dependent on this block.
-        // XXX: reason about loop latch correctness later.
         // XXX: really wants to be control-dependent check?
         bool inBBFork = inBB->succ_size() > 1 &&
                         (!MLI->getLoopFor(inBB) ||
-                         MLI->getLoopFor(inBB)->getLoopLatch() != inBB);
+                         !MLI->getLoopFor(inBB)->isLoopExiting(inBB));
         if (inBBFork) {
           MachineInstr *pickInstr =
             PatchOrInsertPickAtFork(inBB, dst, Reg, inBB, iphi, 0);
@@ -1994,9 +1993,9 @@ void CSACvtCFDFPass::TraceLeak(MachineBasicBlock *inBB, MachineBasicBlock *mbb,
          pnode != pend; ++pnode) {
       ControlDependenceNode *ctrlNode = *pnode;
       MachineBasicBlock *ctrlBB       = ctrlNode->getBlock();
-      // ignore loop latch, keep looking beyond the loop
+      // Ignore control-dependences due to loops.
       if (MLI->getLoopFor(ctrlBB) &&
-          MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+          MLI->getLoopFor(ctrlBB)->isLoopExiting(ctrlBB))
         continue;
       MachineInstr *bi = &*ctrlBB->getFirstInstrTerminator();
       unsigned ec      = bi->getOperand(0).getReg();
@@ -2607,9 +2606,9 @@ bool CSACvtCFDFPass::parentsLinearInCDG(MachineBasicBlock *mbb) {
     MachineBasicBlock *ctrlBB       = ctrlNode->getBlock();
     if (!ctrlBB)
       continue;
-    // ignore loop latch, keep looking beyond the loop
+    // Ignore control-dependences due to loops.
     if (MLI->getLoopFor(ctrlBB) &&
-        MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+        MLI->getLoopFor(ctrlBB)->isLoopExiting(ctrlBB))
       continue;
     // sort parents using the non-transitive parent relationship
     std::list<ControlDependenceNode *>::iterator parent = parents.begin();
@@ -3480,9 +3479,9 @@ bool CSACvtCFDFPass::CheckPhiInputBB(MachineBasicBlock *inBB,
     ControlDependenceNode *ctrlNode = *pnode;
     MachineBasicBlock *ctrlBB       = ctrlNode->getBlock();
 
-    // ignore loop latch, keep looking beyond the loop
+    // Ignore loop-related control dependences.
     if (MLI->getLoopFor(ctrlBB) &&
-        MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+        MLI->getLoopFor(ctrlBB)->isLoopExiting(ctrlBB))
       continue;
 
     ++numCtrl;

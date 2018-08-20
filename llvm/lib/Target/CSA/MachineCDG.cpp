@@ -582,41 +582,11 @@ ControlDependenceGraph::ControlDependenceGraph()
 }
 
 
-bool ControlDependenceGraph::modifyLoopLatchSucc(MachineLoop* L) {
-  bool modified = false;
-  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
-    modified = modified || modifyLoopLatchSucc(*LI);
-  }
-  MachineLoop *mloop = L;
-  MachineBasicBlock* exitingBB = mloop->getExitingBlock();
-  MachineBasicBlock* latchBB = mloop->getLoopLatch();
-  //single exiting, single latch
-  if (exitingBB && latchBB && 
-      latchBB->succ_size() == 1 && 
-      !mloop->isLoopExiting(mloop->getHeader())) {
-    latchBB->removeSuccessor(mloop->getHeader());
-    latchBB->addSuccessor(mloop->getExitBlock());
-    modifiedLatch.insert(latchBB);
-    modified = 1;
-  }
-  return modified;
-}
-
 bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
   thisMF                        = &F;
   TII                           = thisMF->getSubtarget().getInstrInfo();
-  MLI = &getAnalysis<MachineLoopInfo>();
-  modifiedLatch.clear();
-  bool modified = false;
-  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE;
-    ++LI) {
-    modified = modified || modifyLoopLatchSucc(*LI);
-  }
 
   MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
-  if (modified)
-    pdt.runOnMachineFunction(F);
-
   if (pdt.getRootNode() == nullptr) {
     return false;
   }
@@ -639,22 +609,6 @@ bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
   if (CSAViewMachineDT) {
     viewMachineDT();
   }
-  if (modified) {
-    for (SmallPtrSet<MachineBasicBlock *, 4>::iterator I = modifiedLatch.begin(),
-      E = modifiedLatch.end(); I != E; ++I) {
-      MachineBasicBlock* latchBB = *I;
-      MachineLoop* mloop = MLI->getLoopFor(latchBB);
-      assert(latchBB->succ_size() == 1);
-      latchBB->removeSuccessor(latchBB->succ_begin());
-      latchBB->addSuccessor(mloop->getHeader());
-    }
-    pdt.runOnMachineFunction(F);
-    std::string newName = F.getName().str() + "_org";
-    if (CSADumpDotGraph) {
-      writeDotGraph(newName);
-    }
-  }
-  modifiedLatch.clear();
   return false;
 }
 

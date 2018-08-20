@@ -23,7 +23,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/IR/Module.h"
@@ -294,13 +293,11 @@ class ControlDependenceGraph : public MachineFunctionPass,
                                public ControlDependenceGraphBase {
 public:
   static char ID;
-  MachineLoopInfo* MLI;
   ControlDependenceGraph();
   virtual ~ControlDependenceGraph() {}
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<MachineDominatorTree>();
     AU.addRequired<MachinePostDominatorTree>();
-    AU.addRequired<MachineLoopInfo>();
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
@@ -309,14 +306,11 @@ public:
   void viewMachineCFG(void);
   void viewMachinePDT(void);
   void viewMachineDT(void);
-  bool modifyLoopLatchSucc(MachineLoop*);
   virtual bool runOnMachineFunction(MachineFunction &F);
 
   StringRef getPassName() const override {
     return "CSA: Machine Control Dependence Graph Construction";
   }
-private:
-  SmallPtrSet<MachineBasicBlock *, 4> modifiedLatch;
 };
 
 template <>
