@@ -27,13 +27,14 @@ static cl::opt<bool>
 
 // Verify that Block is contained in the right VPLoop.
 void VPlanVerifier::verifyContainerLoop(
-    const VPBlockBase *Block, const VPLoopRegion *ParentLoopR) const {
+    const VPBlockBase *Block, const VPLoopRegion *ParentLoopR,
+    const SmallPtrSetImpl<const VPBlockBase *> &ExternalBlocks) const {
   const VPLoop *ContainerLoop = nullptr;
 
   if (ParentLoopR) {
-    if (ParentLoopR->getEntry() == Block || ParentLoopR->getExit() == Block)
-      // If Block is parent LoopRegion's Entry or Exit, Block shouldn't be
-      // contained in this loop but in ParentRegion's parent loop (if any).
+    if (ExternalBlocks.count(Block))
+      // If Block is outside of the loop cyle, Block shouldn't be contained in
+      // this loop but in ParentRegion's parent loop (if any).
       ContainerLoop = VPLInfo->getLoopFor(Block->getParent());
     else
       // Block should be contained in parent loop.
@@ -69,9 +70,38 @@ void VPlanVerifier::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
   (void) Header;
 }
 
+/// Collect VPBlockBases that are outside of the loop cycle of the loop in \p
+/// ParentLoopR. Return \p ExternalBlock with the external blocks. If \p
+/// ExternalBlock is not empty, it is cleared before collecting the new external
+/// blocks.
+static void CollectLoopExternalBlocks(
+    const VPLoopRegion *ParentLoopR, const VPLoopInfo *VPLInfo,
+    SmallPtrSetImpl<const VPBlockBase *> &ExternalBlocks) {
+  ExternalBlocks.clear();
+
+  // Add loop PH to ExternalBlocks.
+  ExternalBlocks.insert(ParentLoopR->getEntry());
+
+  // Add VPBlockBases after loop exitings to ExternalBlocks.
+  SmallVector<VPBlockBase *, 4> LoopExits;
+  ParentLoopR->getVPLoop()->getUniqueExitBlocks(LoopExits);
+  for (const auto *LpExit : LoopExits)
+    for (const auto *Block :
+         make_range(df_iterator<const VPBlockBase *>::begin(LpExit),
+                    df_iterator<const VPBlockBase *>::end(LpExit))) {
+      // TODO: Regions outside the loop cycle are not expected. Implement them
+      // when necessary.
+      assert(!isa<VPRegionBlock>(Block) && "Regions not supported!");
+      ExternalBlocks.insert(Block);
+    }
+}
+
 // Verify information of LoopRegions nested in \p Region.
 void VPlanVerifier::verifyLoopRegions(
     const VPRegionBlock *TopRegion) const {
+
+  // Hold blocks outside of the loop cycle of ParentLoopR.
+  SmallPtrSet<const VPBlockBase *, 8> ExternalBlocks;
 
   // VerifyLoopRegions implementation.
   typedef std::function<void(const VPRegionBlock *, const VPLoopRegion *)> RT;
@@ -83,7 +113,8 @@ void VPlanVerifier::verifyLoopRegions(
     if (const auto *LoopR = dyn_cast<VPLoopRegion>(Region)) {
       // If Region is a LoopRegion, Region is the new ParentLoopR.
       ParentLoopR = LoopR;
- 
+      CollectLoopExternalBlocks(ParentLoopR, VPLInfo, ExternalBlocks);
+
       // Checks for underlying-IR-specific information.
       verifyIRSpecificLoopRegion(LoopR);
     }
@@ -97,7 +128,7 @@ void VPlanVerifier::verifyLoopRegions(
         verifyVPLoopInfo(LoopRegion);
       }
 
-      verifyContainerLoop(VPB, ParentLoopR);
+      verifyContainerLoop(VPB, ParentLoopR, ExternalBlocks);
     }
 
     // Visit SubRegion

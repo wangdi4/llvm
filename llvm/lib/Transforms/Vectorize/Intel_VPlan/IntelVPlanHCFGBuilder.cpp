@@ -1,20 +1,20 @@
-//===-- IntelVPlanHCFGBuilder.cpp -----------------------------------------===//
-//
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
-//
-//   The information and source code contained herein is the exclusive
-//   property of Intel Corporation and may not be disclosed, examined
-//   or reproduced in whole or in part without explicit written authorization
-//   from the company.
-//
-//===----------------------------------------------------------------------===//
-///
-/// \file
-/// This file implements the algorithm that builds the hierarchical CFG in
-/// VPlan. Further documentation can be found in document 'VPlan Hierarchical
-/// CFG Builder'.
-///
-//===----------------------------------------------------------------------===//
+  //===-- IntelVPlanHCFGBuilder.cpp -----------------------------------------===//
+  //
+  //   Copyright (C) 2017 Intel Corporation. All rights reserved.
+  //
+  //   The information and source code contained herein is the exclusive
+  //   property of Intel Corporation and may not be disclosed, examined
+  //   or reproduced in whole or in part without explicit written authorization
+  //   from the company.
+  //
+  //===----------------------------------------------------------------------===//
+  ///
+  /// \file
+  /// This file implements the algorithm that builds the hierarchical CFG in
+  /// VPlan. Further documentation can be found in document 'VPlan Hierarchical
+  /// CFG Builder'.
+  ///
+  //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelLoopCFU.h"
@@ -29,956 +29,1006 @@
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
-using namespace llvm;
-using namespace llvm::vpo;
+  using namespace llvm;
+  using namespace llvm::vpo;
 
-static cl::opt<bool> DisableNonLoopSubRegions(
-    "disable-vplan-subregions", cl::init(false), cl::Hidden,
-    cl::desc("Disable construction of non-loop subregions in VPlan"));
+  static cl::opt<bool> DisableNonLoopSubRegions(
+      "disable-vplan-subregions", cl::init(false), cl::Hidden,
+      cl::desc("Disable construction of non-loop subregions in VPlan"));
 
-static cl::opt<bool> LoopMassagingEnabled(
-    "vplan-enable-loop-massaging",
-    cl::init(false), // TODO: vplan-disable-loop-massaging
-    cl::Hidden,
-    cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
+  static cl::opt<bool> LoopMassagingEnabled(
+      "vplan-enable-loop-massaging",
+      cl::init(false), // TODO: vplan-disable-loop-massaging
+      cl::Hidden,
+      cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
-static cl::opt<bool> VPlanLoopCFU(
-    "vplan-loop-cfu", cl::init(false), cl::Hidden,
-    cl::desc("Perform inner loop control flow uniformity transformation"));
+  static cl::opt<bool> VPlanLoopCFU(
+      "vplan-loop-cfu", cl::init(false), cl::Hidden,
+      cl::desc("Perform inner loop control flow uniformity transformation"));
 
-static cl::opt<bool> DisableUniformRegions(
-    "disable-uniform-regions", cl::init(false), cl::Hidden,
-    cl::desc("Disable detection of uniform Regions in VPlan. All regions are "
-             "set as divergent."));
+  static cl::opt<bool> DisableUniformRegions(
+      "disable-uniform-regions", cl::init(false), cl::Hidden,
+      cl::desc("Disable detection of uniform Regions in VPlan. All regions are "
+               "set as divergent."));
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool>
-    DisableVPlanDA("disable-vplan-da", cl::init(true), cl::Hidden,
-                   cl::desc("Disable VPlan divergence analysis"));
+  static cl::opt<bool>
+      DisableVPlanDA("disable-vplan-da", cl::init(true), cl::Hidden,
+                     cl::desc("Disable VPlan divergence analysis"));
 
-static cl::opt<bool>
-    VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
-                          cl::desc("Print plain dump after VPlan simplify "
-                                   "plain CFG"));
+  static cl::opt<bool>
+      VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
+                            cl::desc("Print plain dump after VPlan simplify "
+                                     "plain CFG"));
+
+  static cl::opt<bool>
+      VPlanPrintHCFG("vplan-print-after-hcfg", cl::init(false),
+                     cl::desc("Print plain dump after build VPlan H-CFG."));
 #endif
 
-// Split loops' preheader block that are not in canonical form
-void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
+  // Split loops' preheader block that are not in canonical form
+  void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
 
-  // TODO: So far, I haven't found a test case that hits one of these asserts.
-  // The code commented out below should cover the second one.
+    // TODO: So far, I haven't found a test case that hits one of these asserts.
+    // The code commented out below should cover the second one.
 
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+    VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
-  // Temporal assert to detect loop header with more than one loop external
-  // predecessor
-  unsigned NumExternalPreds = 0;
-  for (const VPBlockBase *Pred : VPL->getHeader()->getPredecessors()) {
-    if (!VPL->contains(Pred))
-      ++NumExternalPreds;
-  }
-  assert((NumExternalPreds == 1) &&
-         "Loop header's external predecessor is not 1");
+    // Temporal assert to detect loop header with more than one loop external
+    // predecessor
+    unsigned NumExternalPreds = 0;
+    for (const VPBlockBase *Pred : VPL->getHeader()->getPredecessors()) {
+      if (!VPL->contains(Pred))
+        ++NumExternalPreds;
+    }
+    assert((NumExternalPreds == 1) &&
+           "Loop header's external predecessor is not 1");
 
-  // Temporal assert to detect loop preheader with multiple successors
-  assert((VPL->getLoopPreheader()->getNumSuccessors() == 1) &&
-         "Loop preheader with multiple successors are not supported");
+    // Temporal assert to detect loop preheader with multiple successors
+    assert((VPL->getLoopPreheader()->getNumSuccessors() == 1) &&
+           "Loop preheader with multiple successors are not supported");
 
-  // If PH has multiple successors, create new PH such that PH->NewPH->H
-  // if (VPL->getLoopPreheader()->getNumSuccessors() > 1) {
+    // If PH has multiple successors, create new PH such that PH->NewPH->H
+    // if (VPL->getLoopPreheader()->getNumSuccessors() > 1) {
 
-  //  VPBlockBase *OldPreheader = VPL->getLoopPreheader();
-  //  VPBlockBase *Header = VPL->getHeader();
-  //  assert((DomTree.getNode(Header)->getIDom()->getBlock() == OldPreheader) &&
-  //         "Header IDom is not Preheader");
+    //  VPBlockBase *OldPreheader = VPL->getLoopPreheader();
+    //  VPBlockBase *Header = VPL->getHeader();
+    //  assert((DomTree.getNode(Header)->getIDom()->getBlock() == OldPreheader) &&
+    //         "Header IDom is not Preheader");
 
-  //  // Create new preheader
-  //  VPBasicBlock *NewPreheader = PlanUtils.createBasicBlock();
-  //  PlanUtils.insertBlockAfter(NewPreheader, OldPreheader);
+    //  // Create new preheader
+    //  VPBasicBlock *NewPreheader = PlanUtils.createBasicBlock();
+    //  PlanUtils.insertBlockAfter(NewPreheader, OldPreheader);
 
-  //  // Add new preheader to VPLoopInfo
-  //  if (VPLoop *PHLoop = VPLInfo->getLoopFor(OldPreheader)) {
-  //    PHLoop->addBasicBlockToLoop(NewPreheader, *VPLInfo);
-  //  }
+    //  // Add new preheader to VPLoopInfo
+    //  if (VPLoop *PHLoop = VPLInfo->getLoopFor(OldPreheader)) {
+    //    PHLoop->addBasicBlockToLoop(NewPreheader, *VPLInfo);
+    //  }
 
-  //  // Update dom/postdom information
+    //  // Update dom/postdom information
 
-  //  // Old preheader is idom of new preheader
-  //  VPDomTreeNode *NewPHDomNode =
-  //      DomTree.addNewBlock(NewPreheader, OldPreheader /*IDom*/);
+    //  // Old preheader is idom of new preheader
+    //  VPDomTreeNode *NewPHDomNode =
+    //      DomTree.addNewBlock(NewPreheader, OldPreheader /*IDom*/);
 
-  //  // New preheader is idom of header
-  //  VPDomTreeNode *DTHeader = DomTree.getNode(Header);
-  //  assert(DTHeader && "Expected DomTreeNode for loop header");
-  //  DomTree.changeImmediateDominator(DTHeader, NewPHDomNode);
+    //  // New preheader is idom of header
+    //  VPDomTreeNode *DTHeader = DomTree.getNode(Header);
+    //  assert(DTHeader && "Expected DomTreeNode for loop header");
+    //  DomTree.changeImmediateDominator(DTHeader, NewPHDomNode);
 
-  //  // Header is ipostdom of new preheader
-  //  //VPDomTreeNode *NewPHPostDomNode =
-  //  PostDomTree.addNewBlock(NewPreheader, Header /*IDom*/);
+    //  // Header is ipostdom of new preheader
+    //  //VPDomTreeNode *NewPHPostDomNode =
+    //  PostDomTree.addNewBlock(NewPreheader, Header /*IDom*/);
 
-  //  // New preheader is not ipostdom of any block
-  //
-  //  // This is not true: New preheader is ipostdom of old preheader
-  //  //VPDomTreeNode *PDTPreheader = PostDomTree.getNode(OldPreheader);
-  //  //assert(PDTPreheader && "Expected DomTreeNode for loop preheader");
-  //  //PostDomTree.changeImmediateDominator(PDTPreheader, NewPHPostDomNode);
-  //}
+    //  // New preheader is not ipostdom of any block
+    //
+    //  // This is not true: New preheader is ipostdom of old preheader
+    //  //VPDomTreeNode *PDTPreheader = PostDomTree.getNode(OldPreheader);
+    //  //assert(PDTPreheader && "Expected DomTreeNode for loop preheader");
+    //  //PostDomTree.changeImmediateDominator(PDTPreheader, NewPHPostDomNode);
+    //}
 
-  VPBlockBase *PH = VPL->getLoopPreheader();
-  assert(PH && "Expected loop preheader");
-  assert((PH->getNumSuccessors() == 1) &&
-         "Expected preheader with single successor");
+    VPBlockBase *PH = VPL->getLoopPreheader();
+    assert(PH && "Expected loop preheader");
+    assert((PH->getNumSuccessors() == 1) &&
+           "Expected preheader with single successor");
 
-  // Split loop PH if:
-  //    - there is no WRLp (auto-vectorization). We need an empty loop PH.
-  //    - has multiple predecessors (it's a potential exit of another region).
-  //    - is loop H of another loop.
-  if (!WRLp || !PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
-    VPBlockUtils::splitBlock(PH, VPLInfo, VPDomTree, VPPostDomTree, Plan);
-  }
-
-  // Apply simplification to subloops
-  for (auto VPSL : VPL->getSubLoops()) {
-    splitLoopsPreheader(VPSL);
-  }
-}
-
-void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
-
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
-
-  SmallVector<VPBlockBase *, 2> ExitBlocks;
-  VPL->getUniqueExitBlocks(ExitBlocks);
-
-  // Apply simplification to subloops
-  for (auto VPSL : VPL->getSubLoops()) {
-    mergeLoopExits(VPSL);
-  }
-
-  // If Exit-Blocks count is less than 2, then there is nothing to do.
-  if (ExitBlocks.size() < 2) {
-    return;
-  }
-
-  DenseMap<VPBlockBase *, VPBlockBase *> Exitting2ExitBlock;
-  unsigned ExitCounter = 0;
-  VPBlockBase *CascadedExit = nullptr;
-
-  // This function generates the new merged multiple to single exit epilog.
-  // This epilog is composed of cascading ifs directing the exit path for
-  // each of the loop exiting options.
-  // A new Phi recipe is added to the focal exit point indicating which
-  // exiting path was taken, then compare statements for the cascading
-  // if-blocks are generated to direct the flow to the respective exit path.
-  // This function is invoked to build the cascading ifs iteratively from the
-  // last cascading if to the first cascading if in the single exit focal point.
-  //
-  // The following tow variables are used to save data between consecutive calls
-  // of the function. PhiRecipe - holds the phi recipe after being generated at
-  // the first call. ExittingBlocks - holds the list of exitting-blocks.
-  VPPhiValueRecipe *PhiRecipe = nullptr;
-  SmallVector<VPBlockBase *, 4> ExittingBlocks;
-
-  auto CreateCascadedExit =
-      [&](VPBlockBase *LastCascadedExitBlock, VPBlockBase *ExittingBlock,
-          VPBlockBase *ExitBlock, unsigned ExitID) -> VPBlockBase * {
-
-    if (ExitID == 1) {
-      PhiRecipe = new VPPhiValueRecipe();
-      PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID),
-                                  ExittingBlock);
-      ExittingBlocks.clear();
-      ExittingBlocks.push_back(ExittingBlock);
-      return ExitBlock;
+    // Split loop PH if:
+    //    - there is no WRLp (auto-vectorization). We need an empty loop PH.
+    //    - has multiple predecessors (it's a potential exit of another region).
+    //    - is loop H of another loop.
+    if (!WRLp || !PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
+      VPBlockUtils::splitBlock(PH, VPLInfo, VPDomTree, VPPostDomTree, Plan);
     }
 
-    ExittingBlocks.push_back(ExittingBlock);
-    PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID), ExittingBlock);
-
-    VPBasicBlock *NewCascadedExit =
-        new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    llvm_unreachable("Fix CBR");
-    VPInstruction *CBR =
-        // new VPCmpInst(PhiRecipe, VPConstantRecipe(ExitID));
-        nullptr; // FIXME: This should be fixed once recipes are replaced by
-                 // VPInstructions
-    VPRegionBlock *Parent = ExitBlock->getParent();
-    NewCascadedExit->setParent(Parent);
-    Parent->setSize(Parent->getSize() + 1);
-    VPBlockUtils::connectBlocks(NewCascadedExit, CBR, ExitBlock,
-                                LastCascadedExitBlock, Plan);
-    // Add NewBlock to VPLoopInfo
-    if (VPLoop *Loop = VPLInfo->getLoopFor(ExitBlock)) {
-      Loop->addBasicBlockToLoop(NewCascadedExit, *VPLInfo);
+    // Apply simplification to subloops
+    for (auto VPSL : VPL->getSubLoops()) {
+      splitLoopsPreheader(VPSL);
     }
-    if (ExitID == ExitBlocks.size())
-      NewCascadedExit->appendRecipe(PhiRecipe);
-    NewCascadedExit->appendRecipe(CBR);
+  }
 
-    if (ExitID < ExitBlocks.size())
-      return NewCascadedExit;
+  void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
-    for (auto ExittingBlock : ExittingBlocks) {
-      VPBlockUtils::movePredecessor(
-          ExittingBlock, Exitting2ExitBlock[ExittingBlock], NewCascadedExit);
+    VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+
+    SmallVector<VPBlockBase *, 2> ExitBlocks;
+    VPL->getUniqueExitBlocks(ExitBlocks);
+
+    // Apply simplification to subloops
+    for (auto VPSL : VPL->getSubLoops()) {
+      mergeLoopExits(VPSL);
     }
 
-    return NewCascadedExit;
-  };
-
-  // This function handles the dominance and post-dominance required updates
-  // after the above cascading-exits transformation.
-  auto FixDominance = [&](VPBlockBase *LastCascadedExitBlock) -> void {
-
-    VPBlockBase *NCD = nullptr;
-    for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
-      if (!NCD) {
-        NCD = Pred;
-        continue;
-      }
-      NCD = VPDomTree.findNearestCommonDominator(NCD, Pred);
+    // If Exit-Blocks count is less than 2, then there is nothing to do.
+    if (ExitBlocks.size() < 2) {
+      return;
     }
 
-    // Update dom information
+    DenseMap<VPBlockBase *, VPBlockBase *> Exitting2ExitBlock;
+    unsigned ExitCounter = 0;
     VPBlockBase *CascadedExit = nullptr;
-    VPBlockBase *NextCascadedExit = LastCascadedExitBlock;
-    for (unsigned i = 0; i < ExitBlocks.size() - 1; ++i) {
-      CascadedExit = NextCascadedExit;
-      NCD = VPDomTree.addNewBlock(CascadedExit, NCD /*IDom*/)->getBlock();
-      VPDomTree.changeImmediateDominator(CascadedExit->getSuccessors()[0], NCD);
-      NextCascadedExit = CascadedExit->getSuccessors()[1];
-    }
-    VPDomTree.changeImmediateDominator(NextCascadedExit, NCD);
 
-    // Update post-dom information
-    // CascadedExit contains the last cascaded if.
-    for (unsigned i = 0; i < ExitBlocks.size() - 1; ++i) {
-      VPBlockBase *NCPD = VPPostDomTree.findNearestCommonDominator(
-          CascadedExit->getSuccessors()[0], CascadedExit->getSuccessors()[1]);
-      VPPostDomTree.addNewBlock(CascadedExit, NCPD);
-      CascadedExit = CascadedExit->getSinglePredecessor();
-    }
+    // This function generates the new merged multiple to single exit epilog.
+    // This epilog is composed of cascading ifs directing the exit path for
+    // each of the loop exiting options.
+    // A new Phi recipe is added to the focal exit point indicating which
+    // exiting path was taken, then compare statements for the cascading
+    // if-blocks are generated to direct the flow to the respective exit path.
+    // This function is invoked to build the cascading ifs iteratively from the
+    // last cascading if to the first cascading if in the single exit focal point.
+    //
+    // The following tow variables are used to save data between consecutive calls
+    // of the function. PhiRecipe - holds the phi recipe after being generated at
+    // the first call. ExittingBlocks - holds the list of exitting-blocks.
+    VPPhiValueRecipe *PhiRecipe = nullptr;
+    SmallVector<VPBlockBase *, 4> ExittingBlocks;
 
-    for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
-      VPPostDomTree.changeImmediateDominator(Pred, LastCascadedExitBlock);
-    }
+    auto CreateCascadedExit =
+        [&](VPBlockBase *LastCascadedExitBlock, VPBlockBase *ExittingBlock,
+            VPBlockBase *ExitBlock, unsigned ExitID) -> VPBlockBase * {
 
-    VPPostDomTree.updateDFSNumbers();
-    VPDomTree.updateDFSNumbers();
-  };
-
-  for (VPBlockBase *Exit : ExitBlocks) {
-    ++ExitCounter;
-    for (VPBlockBase *Pred : Exit->getPredecessors()) {
-      // check if Pred is an exitting block. if not continue.
-      if (!VPL->contains(Pred) || Exitting2ExitBlock[Pred])
-        continue;
-      Exitting2ExitBlock[Pred] = Exit;
-      CascadedExit = CreateCascadedExit(CascadedExit, Pred, Exit, ExitCounter);
-    }
-  }
-  // FixDominance(CascadedExit);
-
-  LLVM_DEBUG(Plan->setName("LVP: Plain CFG for VF=4\n"); dbgs() << *Plan);
-  FixDominance(CascadedExit);
-}
-
-// Split loops' exit block that are not in canonical form
-void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
-
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
-
-  VPBlockBase *Exit = VPL->getUniqueExitBlock();
-  assert(Exit && "Only single-exit loops expected");
-
-  // Split loop exit with multiple successors or that is preheader of another
-  // loop
-  VPBlockBase *PotentialH = Exit->getSingleSuccessor();
-  if (!PotentialH ||
-      (VPLInfo->isLoopHeader(PotentialH) &&
-       VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit)) {
-
-    VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree, Plan);
-  }
-
-  // Apply simplification to subloops
-  for (auto VPSL : VPL->getSubLoops()) {
-    splitLoopsExit(VPSL);
-  }
-}
-
-// Split basic blocks to increase the number of non-loop regions detected during
-// the construction of the hierarchical CFG.
-void VPlanHCFGBuilder::simplifyNonLoopRegions() {
-
-  assert(isa<VPRegionBlock>(Plan->getEntry()) &&
-         "VPlan entry is not a VPRegionBlock");
-  VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
-
-  SmallVector<VPBlockBase *, 32> WorkList;
-  SmallPtrSet<VPBlockBase *, 32> Visited;
-
-  WorkList.push_back(TopRegion->getEntry());
-
-  while (!WorkList.empty()) {
-
-    // Get Current and skip it if visited.
-    VPBlockBase *CurrentBlock = WorkList.back();
-    WorkList.pop_back();
-    if (Visited.count(CurrentBlock))
-      continue;
-
-    // Set Current to visited
-    Visited.insert(CurrentBlock);
-
-    // Potential VPRegion entry
-    if (CurrentBlock->getNumSuccessors() > 1) {
-
-      // Currently, this rule covers:
-      //   - Loop H with multiple successors
-      //   - Region exit that is another region entry
-      //   - Loop latch+exiting block with multiple predecessors
-      //
-      // TODO: skip single basic block loops?
-      if (CurrentBlock->getNumPredecessors() > 1) {
-        VPBlockUtils::splitBlock(CurrentBlock, Plan->getVPLoopInfo(), VPDomTree,
-                                 VPPostDomTree, Plan);
+      if (ExitID == 1) {
+        PhiRecipe = new VPPhiValueRecipe();
+        PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID),
+                                    ExittingBlock);
+        ExittingBlocks.clear();
+        ExittingBlocks.push_back(ExittingBlock);
+        return ExitBlock;
       }
 
-      // TODO: WIP. The code below has to be revisited. It will enable the
-      // construction of VPRegions that currently are not built because they
-      // share entry/exit nodes with other VPRegions. This transformation would
-      // require to introduce new recipes to split original phi instructions
-      // that are in the problematic basic blocks.
+      ExittingBlocks.push_back(ExittingBlock);
+      PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID), ExittingBlock);
 
-      // VPBlockBase *PostDom =
-      //    PostDomTree.getNode(CurrentBlock)->getIDom()->getBlock();
-      // VPBlockBase *Dom = DomTree.getNode(PostDom)->getIDom()->getBlock();
-      // assert(isa<VPBasicBlock>(PostDom) &&
-      //       "Expected VPBasicBlock as post-dominator");
-      // assert(isa<VPBasicBlock>(Dom) && "Expected VPBasicBlock as dominator");
+      VPBasicBlock *NewCascadedExit =
+          new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+      llvm_unreachable("Fix CBR");
+      VPInstruction *CBR =
+          // new VPCmpInst(PhiRecipe, VPConstantRecipe(ExitID));
+          nullptr; // FIXME: This should be fixed once recipes are replaced by
+                   // VPInstructions
+      VPRegionBlock *Parent = ExitBlock->getParent();
+      NewCascadedExit->setParent(Parent);
+      Parent->setSize(Parent->getSize() + 1);
+      VPBlockUtils::connectBlocks(NewCascadedExit, CBR, ExitBlock,
+                                  LastCascadedExitBlock, Plan);
+      // Add NewBlock to VPLoopInfo
+      if (VPLoop *Loop = VPLInfo->getLoopFor(ExitBlock)) {
+        Loop->addBasicBlockToLoop(NewCascadedExit, *VPLInfo);
+      }
+      if (ExitID == ExitBlocks.size())
+        NewCascadedExit->appendRecipe(PhiRecipe);
+      NewCascadedExit->appendRecipe(CBR);
 
-      // TODO: This condition is currently too generic. It needs refinement.
-      // However, if detecting more specific cases is expensive, we may want to
-      // leave as it is.
-      //
-      // When we need to insert a fake exit block:
-      //   - PostDom is exit of a region and entry of another region (PostDom
-      //   numSucc > 1)
-      //   - Dom != CurrentBlock:
-      //       - Nested region shares exit with parent region. We need a fake
-      //       exit for nested region to be created. With fake exit, Dom ==
-      //       CurrentBlock
-      //       - Dom != CurrentBlock even if we introduce the fake exit. We
-      //       won't create region for these cases so we don't want to introduce
-      //       fake exit. (TODO: We are currently introducing fake exit for this
-      //       case).
-      //       - Loops with multiple exiting blocks and region sharing exit
-      //       (TODO)
-      //       - Anything else?
-      //
-      // if (Dom != CurrentBlock || PostDom->getNumSuccessors() > 1) {
+      if (ExitID < ExitBlocks.size())
+        return NewCascadedExit;
 
-      //  // New fake exit
-      //  VPBasicBlock *FakeExit = PlanUtils.createBasicBlock();
-      //  PlanUtils.setBlockParent(FakeExit, TopRegion);
+      for (auto ExittingBlock : ExittingBlocks) {
+        VPBlockUtils::movePredecessor(
+            ExittingBlock, Exitting2ExitBlock[ExittingBlock], NewCascadedExit);
+      }
 
-      //  // Set Predecessors
-      //  if (Dom != CurrentBlock) {
-      //    // Move only those predecessors from PostDom that are part of the
-      //    // nested region (i.e. they are dominated by Dom)
-      //    for (auto Pred : PostDom->getPredecessors()) {
-      //      if (DomTree.dominates(Dom, Pred)) {
-      //        PlanUtils.movePredecessor(Pred, PostDom /*From*/,
-      //                                  FakeExit /*To*/);
-      //      }
-      //    }
-      //  } else {
-      //    // All the predecessors will be in the same region. Move them all
-      //    from
-      //    // PostDom to FakeExit
-      //    PlanUtils.movePredecessors(PostDom, FakeExit);
-      //  }
+      return NewCascadedExit;
+    };
 
-      //  // Add PostDom as single successor
-      //  PlanUtils.setSuccessor(FakeExit, PostDom);
+    // This function handles the dominance and post-dominance required updates
+    // after the above cascading-exits transformation.
+    auto FixDominance = [&](VPBlockBase *LastCascadedExitBlock) -> void {
 
-      //}
+      VPBlockBase *NCD = nullptr;
+      for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
+        if (!NCD) {
+          NCD = Pred;
+          continue;
+        }
+        NCD = VPDomTree.findNearestCommonDominator(NCD, Pred);
+      }
+
+      // Update dom information
+      VPBlockBase *CascadedExit = nullptr;
+      VPBlockBase *NextCascadedExit = LastCascadedExitBlock;
+      for (unsigned i = 0; i < ExitBlocks.size() - 1; ++i) {
+        CascadedExit = NextCascadedExit;
+        NCD = VPDomTree.addNewBlock(CascadedExit, NCD /*IDom*/)->getBlock();
+        VPDomTree.changeImmediateDominator(CascadedExit->getSuccessors()[0], NCD);
+        NextCascadedExit = CascadedExit->getSuccessors()[1];
+      }
+      VPDomTree.changeImmediateDominator(NextCascadedExit, NCD);
+
+      // Update post-dom information
+      // CascadedExit contains the last cascaded if.
+      for (unsigned i = 0; i < ExitBlocks.size() - 1; ++i) {
+        VPBlockBase *NCPD = VPPostDomTree.findNearestCommonDominator(
+            CascadedExit->getSuccessors()[0], CascadedExit->getSuccessors()[1]);
+        VPPostDomTree.addNewBlock(CascadedExit, NCPD);
+        CascadedExit = CascadedExit->getSinglePredecessor();
+      }
+
+      for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
+        VPPostDomTree.changeImmediateDominator(Pred, LastCascadedExitBlock);
+      }
+
+      VPPostDomTree.updateDFSNumbers();
+      VPDomTree.updateDFSNumbers();
+    };
+
+    for (VPBlockBase *Exit : ExitBlocks) {
+      ++ExitCounter;
+      for (VPBlockBase *Pred : Exit->getPredecessors()) {
+        // check if Pred is an exitting block. if not continue.
+        if (!VPL->contains(Pred) || Exitting2ExitBlock[Pred])
+          continue;
+        Exitting2ExitBlock[Pred] = Exit;
+        CascadedExit = CreateCascadedExit(CascadedExit, Pred, Exit, ExitCounter);
+      }
+    }
+    // FixDominance(CascadedExit);
+
+    LLVM_DEBUG(Plan->setName("LVP: Plain CFG for VF=4\n"); dbgs() << *Plan);
+    FixDominance(CascadedExit);
+  }
+
+#if INTEL_CUSTOMIZATION
+  // Return the nearest common post dominator of all the VPBlockBases in \p
+  // InputVPBlocks.
+  static VPBlockBase *getNearestCommonPostDom(
+      const VPPostDominatorTree &VPPostDomTree,
+      const SmallVectorImpl<VPBlockBase *> &InputVPBlocks) {
+    assert(InputVPBlocks.size() > 0 && "Expected at least one input block!");
+    VPBlockBase *NearestDom = *InputVPBlocks.begin();
+
+    if (InputVPBlocks.size() == 1)
+      return NearestDom;
+
+    for (auto *InputVPB : InputVPBlocks) {
+      NearestDom = VPPostDomTree.findNearestCommonDominator(InputVPB, NearestDom);
+      assert(NearestDom && "Nearest post dominator can't be null!");
     }
 
-    // Add successors to the worklist
-    for (VPBlockBase *Succ : CurrentBlock->getSuccessors())
-      WorkList.push_back(Succ);
+    return NearestDom;
   }
-}
+#endif // INTEL_CUSTOMIZATION
 
-// Main function that canonicalizes the plain CFG and applyies transformations
-// that enable the detection of more regions during the hierarchical CFG
-// construction.
-void VPlanHCFGBuilder::simplifyPlainCFG() {
+  // Split loops' exit block that are not in canonical form
+  void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
 
-  assert(isa<VPRegionBlock>(Plan->getEntry()) &&
-         "VPlan entry is not a VPRegionBlock");
-  VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
-  (void)TopRegion;
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+    VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
-  assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
-  VPLoop *TopLoop = *VPLInfo->begin();
+#if INTEL_CUSTOMIZATION
+    SmallVector<VPBlockBase *, 4> LoopExits;
+    VPL->getUniqueExitBlocks(LoopExits);
+    // If loop has single exit, the actual block to be potentially split is the
+    // single exit. If loop has multiple exits, the actual block to be potentially
+    // split is the common landing pad (nearest post dom) of all the exits.
+    // TODO: If the CFG after the loop exits gets more complicated, we can get
+    // the common post-dom block of all the exits.
+    VPBlockBase *Exit = getNearestCommonPostDom(VPPostDomTree, LoopExits);
+#else
+    VPBlockBase *Exit = VPL->getUniqueExitBlock();
+    assert(Exit && "Only single-exit loops expected");
+#endif // INTEL_CUSTOMIZATION
 
-  splitLoopsPreheader(TopLoop);
+    // Split loop exit with multiple successors or that is preheader of another
+    // loop
+    VPBlockBase *PotentialH = Exit->getSingleSuccessor();
+    if (!PotentialH ||
+        (VPLInfo->isLoopHeader(PotentialH) &&
+         VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit))
+      VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree, Plan);
 
-  if (LoopMassagingEnabled) {
-    // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
-    // VPDomTree.print(dbgs()));
-    mergeLoopExits(TopLoop);
-    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
-    // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
-    // VPDomTree.print(dbgs()));
-  }
-
-  if (VPlanLoopCFU) {
-    // TODO: Move VPLoopCFU to this file (like mergeLoopExits)?
-    // TODO: SE and LI shouldn't be necessary at this point. We have to find a
-    // way to implement it without LLVM-IR specific analyses. Temporarily
-    // commenting this code to make progress.
-    // VPLoopCFU LCFU(Plan, PlanUtils, SE, LI, VPLInfo, VPDomTree,
-    // VPPostDomTree);
-    // LCFU.makeInnerLoopControlFlowUniform();
+    // Apply simplification to subloops
+    for (auto VPSL : VPL->getSubLoops()) {
+      splitLoopsExit(VPSL);
+    }
   }
 
-  splitLoopsExit(TopLoop);
-  simplifyNonLoopRegions();
-}
+  // Split basic blocks to increase the number of non-loop regions detected during
+  // the construction of the hierarchical CFG.
+  void VPlanHCFGBuilder::simplifyNonLoopRegions() {
 
-// Create new LoopRegion's using VPLoopInfo analysis and introduce them into the
-// hierarchical CFG. This function doesn't traverse the whole CFG and region's
-// size and block's parent are not properly updated. They are updated in
-// buildNonLoopRegions.
-void VPlanHCFGBuilder::buildLoopRegions() {
+    assert(isa<VPRegionBlock>(Plan->getEntry()) &&
+           "VPlan entry is not a VPRegionBlock");
+    VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
 
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+    SmallVector<VPBlockBase *, 32> WorkList;
+    SmallPtrSet<VPBlockBase *, 32> Visited;
 
-  // Auxiliary function that implements the main functionality of
-  // buildLoopRegions
-  std::function<void(VPLoop *)> buildLoopRegionsImpl = [&](VPLoop *VPL) {
+    WorkList.push_back(TopRegion->getEntry());
 
-    // Create new loop region
-    VPLoopRegion *VPLR = createLoopRegion(VPL);
+    while (!WorkList.empty()) {
 
-    // Set VPLoop's entry and exit.
-    // Entry = loop preheader, Exit = loop single exit
-    VPBlockBase *RegionEntry = VPL->getLoopPreheader();
-    assert(RegionEntry && isa<VPBasicBlock>(RegionEntry) &&
-           "Unexpected loop preheader");
-    assert(VPL->getUniqueExitBlock() && "Only single-exit loops expected");
-    VPBasicBlock *RegionExit = cast<VPBasicBlock>(VPL->getUniqueExitBlock());
+      // Get Current and skip it if visited.
+      VPBlockBase *CurrentBlock = WorkList.back();
+      WorkList.pop_back();
+      if (Visited.count(CurrentBlock))
+        continue;
 
-    LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName() << "\n"
-                      << "   Entry: " << RegionEntry->getName() << "\n"
-                      << "   Exit: " << RegionExit->getName() << "\n");
+      // Set Current to visited
+      Visited.insert(CurrentBlock);
 
-    // Connect loop region to graph
-    VPBlockUtils::insertRegion(VPLR, RegionEntry, RegionExit,
-                               false /*recomputeSize*/);
+      // Potential VPRegion entry
+      if (CurrentBlock->getNumSuccessors() > 1) {
 
-    // Update VPLoopInfo. Add new VPLoopRegion to region entry's loop (loop PH)
-    // which, as expected, is not contained in this VPLoopRegion's VPLoop.
-    if (VPLoop *Loop = VPLInfo->getLoopFor(RegionEntry)) {
-      Loop->addBasicBlockToLoop(VPLR, *VPLInfo);
+        // Currently, this rule covers:
+        //   - Loop H with multiple successors
+        //   - Region exit that is another region entry
+        //   - Loop latch+exiting block with multiple predecessors
+        //
+        // TODO: skip single basic block loops?
+        if (CurrentBlock->getNumPredecessors() > 1) {
+          VPBlockUtils::splitBlock(CurrentBlock, Plan->getVPLoopInfo(), VPDomTree,
+                                   VPPostDomTree, Plan);
+        }
+
+        // TODO: WIP. The code below has to be revisited. It will enable the
+        // construction of VPRegions that currently are not built because they
+        // share entry/exit nodes with other VPRegions. This transformation would
+        // require to introduce new recipes to split original phi instructions
+        // that are in the problematic basic blocks.
+
+        // VPBlockBase *PostDom =
+        //    PostDomTree.getNode(CurrentBlock)->getIDom()->getBlock();
+        // VPBlockBase *Dom = DomTree.getNode(PostDom)->getIDom()->getBlock();
+        // assert(isa<VPBasicBlock>(PostDom) &&
+        //       "Expected VPBasicBlock as post-dominator");
+        // assert(isa<VPBasicBlock>(Dom) && "Expected VPBasicBlock as dominator");
+
+        // TODO: This condition is currently too generic. It needs refinement.
+        // However, if detecting more specific cases is expensive, we may want to
+        // leave as it is.
+        //
+        // When we need to insert a fake exit block:
+        //   - PostDom is exit of a region and entry of another region (PostDom
+        //   numSucc > 1)
+        //   - Dom != CurrentBlock:
+        //       - Nested region shares exit with parent region. We need a fake
+        //       exit for nested region to be created. With fake exit, Dom ==
+        //       CurrentBlock
+        //       - Dom != CurrentBlock even if we introduce the fake exit. We
+        //       won't create region for these cases so we don't want to introduce
+        //       fake exit. (TODO: We are currently introducing fake exit for this
+        //       case).
+        //       - Loops with multiple exiting blocks and region sharing exit
+        //       (TODO)
+        //       - Anything else?
+        //
+        // if (Dom != CurrentBlock || PostDom->getNumSuccessors() > 1) {
+
+        //  // New fake exit
+        //  VPBasicBlock *FakeExit = PlanUtils.createBasicBlock();
+        //  PlanUtils.setBlockParent(FakeExit, TopRegion);
+
+        //  // Set Predecessors
+        //  if (Dom != CurrentBlock) {
+        //    // Move only those predecessors from PostDom that are part of the
+        //    // nested region (i.e. they are dominated by Dom)
+        //    for (auto Pred : PostDom->getPredecessors()) {
+        //      if (DomTree.dominates(Dom, Pred)) {
+        //        PlanUtils.movePredecessor(Pred, PostDom /*From*/,
+        //                                  FakeExit /*To*/);
+        //      }
+        //    }
+        //  } else {
+        //    // All the predecessors will be in the same region. Move them all
+        //    from
+        //    // PostDom to FakeExit
+        //    PlanUtils.movePredecessors(PostDom, FakeExit);
+        //  }
+
+        //  // Add PostDom as single successor
+        //  PlanUtils.setSuccessor(FakeExit, PostDom);
+
+        //}
+      }
+
+      // Add successors to the worklist
+      for (VPBlockBase *Succ : CurrentBlock->getSuccessors())
+        WorkList.push_back(Succ);
+    }
+  }
+
+  // Main function that canonicalizes the plain CFG and applyies transformations
+  // that enable the detection of more regions during the hierarchical CFG
+  // construction.
+  void VPlanHCFGBuilder::simplifyPlainCFG() {
+
+    assert(isa<VPRegionBlock>(Plan->getEntry()) &&
+           "VPlan entry is not a VPRegionBlock");
+    VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
+    (void)TopRegion;
+    VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+
+    assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
+    VPLoop *TopLoop = *VPLInfo->begin();
+
+    splitLoopsPreheader(TopLoop);
+
+    if (LoopMassagingEnabled) {
+      // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
+      // VPDomTree.print(dbgs()));
+      mergeLoopExits(TopLoop);
+      LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+      // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
+      // VPDomTree.print(dbgs()));
     }
 
-    // Recursively build loop regions inside this loop
-    for (VPLoop *SubVPL : VPL->getSubLoops())
-      buildLoopRegionsImpl(SubVPL);
-  };
+    if (VPlanLoopCFU) {
+      // TODO: Move VPLoopCFU to this file (like mergeLoopExits)?
+      // TODO: SE and LI shouldn't be necessary at this point. We have to find a
+      // way to implement it without LLVM-IR specific analyses. Temporarily
+      // commenting this code to make progress.
+      // VPLoopCFU LCFU(Plan, PlanUtils, SE, LI, VPLInfo, VPDomTree,
+      // VPPostDomTree);
+      // LCFU.makeInnerLoopControlFlowUniform();
+    }
 
-  LLVM_DEBUG(dbgs() << "Building LoopRegion's\n");
+    splitLoopsExit(TopLoop);
+    simplifyNonLoopRegions();
+  }
 
-  for (VPLoop *VPL : make_range(VPLInfo->begin(), VPLInfo->end()))
-    buildLoopRegionsImpl(VPL);
-}
+  // Create new LoopRegion's using VPLoopInfo analysis and introduce them into the
+  // hierarchical CFG. This function doesn't traverse the whole CFG and region's
+  // size and block's parent are not properly updated. They are updated in
+  // buildNonLoopRegions.
+  void VPlanHCFGBuilder::buildLoopRegions() {
 
-// Create new non-loop VPRegionBlock's and update the information of all the
-// blocks in the hierarchical CFG. The hierarchical CFG is stable and contains
-// consisten information after this step.
-void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
+    VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+    // Auxiliary function that implements the main functionality of
+    // buildLoopRegions
+    std::function<void(VPLoop *)> buildLoopRegionsImpl = [&](VPLoop *VPL) {
 
-  LLVM_DEBUG(
-      dbgs() << "Building Non-Loop Regions for " << ParentRegion->getName()
-             << "\n"
-             << "   Entry: " << ParentRegion->getEntry()->getName() << "\n"
-             << "   Exit: " << ParentRegion->getExit()->getName() << "\n");
+      // Create new loop region
+      VPLoopRegion *VPLR = createLoopRegion(VPL);
 
-  SmallVector<VPBlockBase *, 16> WorkList;
-  SmallPtrSet<VPBlockBase *, 16> Visited;
-  WorkList.push_back(ParentRegion->getEntry());
+      // Set VPLoop's entry and exit.
+      // Entry = loop preheader, Exit = loop single exit
+#if INTEL_CUSTOMIZATION
+      // (or nearest common post dom for multi-exit loops).
+#endif
+      VPBlockBase *RegionEntry = VPL->getLoopPreheader();
+      assert(RegionEntry && isa<VPBasicBlock>(RegionEntry) &&
+             "Unexpected loop preheader");
+#if INTEL_CUSTOMIZATION
+      SmallVector<VPBlockBase *, 4> LoopExits;
+      VPL->getUniqueExitBlocks(LoopExits);
+      VPBasicBlock *RegionExit =
+          cast<VPBasicBlock>(getNearestCommonPostDom(VPPostDomTree, LoopExits));
+#else
+      assert(VPL->getUniqueExitBlock() && "Only single-exit loops expected");
+      VPBasicBlock *RegionExit = cast<VPBasicBlock>(VPL->getUniqueExitBlock());
+#endif // INTEL_CUSTOMIZATION
 
-  unsigned ParentSize = 0;
-  bool ParentIsDivergent = false;
-
-  while (!WorkList.empty()) {
-
-    // Get Current and skip it if visited.
-    VPBlockBase *Current = WorkList.back();
-    WorkList.pop_back();
-    if (Visited.count(Current))
-      continue;
-
-    Visited.insert(Current);
-    LLVM_DEBUG(dbgs() << "Visiting " << Current->getName()
-                      << "(Entry: " << Current->getEntryBasicBlock() << ")"
-                      << "\n";);
-
-    // If you hit this assert, the input CFG is very likely to be not compliant
-    // either because it contains a loop that is not supported or because loops
-    // are not in canonical form.
-    assert((isa<VPLoopRegion>(Current) || isa<VPBasicBlock>(Current)) &&
-           "Expected VPBasicBlock or VPLoopRegion");
-
-    // Increase ParentRegion's size
-    ++ParentSize;
-
-    // Pointer to a new subregion or existing VPLoopRegion subregion
-    VPRegionBlock *SubRegion = dyn_cast<VPLoopRegion>(Current);
-    VPBlockBase *RegionExit;
-
-    // Non-loop VPRegion detection.
-    if (!DisableNonLoopSubRegions && !SubRegion /* Skip VPLoopRegions */ &&
-        isNonLoopRegion(Current, ParentRegion, RegionExit /*output*/)) {
-
-      // Create new region and connect it to graph
-      SubRegion = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                                    VPlanUtils::createUniqueName("region"));
-
-      LLVM_DEBUG(dbgs() << "Creating new VPRegion " << SubRegion->getName()
-                        << "\n"
-                        << "   Entry: " << Current->getName() << "\n"
+      LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName() << "\n"
+                        << "   Entry: " << RegionEntry->getName() << "\n"
                         << "   Exit: " << RegionExit->getName() << "\n");
-      assert(RegionExit && "RegionExit cannot be null");
 
-      VPBlockUtils::insertRegion(SubRegion, Current /*Entry*/, RegionExit,
+      // Connect loop region to graph
+      VPBlockUtils::insertRegion(VPLR, RegionEntry, RegionExit,
                                  false /*recomputeSize*/);
 
-      // Add new region to VPLoopInfo.
-      if (VPLoop *Loop = VPLInfo->getLoopFor(SubRegion->getEntry())) {
-        Loop->addBasicBlockToLoop(SubRegion, *VPLInfo);
+      // Update VPLoopInfo. Add new VPLoopRegion to region entry's loop (loop PH)
+      // which, as expected, is not contained in this VPLoopRegion's VPLoop.
+      if (VPLoop *Loop = VPLInfo->getLoopFor(RegionEntry)) {
+        Loop->addBasicBlockToLoop(VPLR, *VPLInfo);
+      }
+
+      // Recursively build loop regions inside this loop
+      for (VPLoop *SubVPL : VPL->getSubLoops())
+        buildLoopRegionsImpl(SubVPL);
+    };
+
+    LLVM_DEBUG(dbgs() << "Building LoopRegion's\n");
+
+    for (VPLoop *VPL : make_range(VPLInfo->begin(), VPLInfo->end()))
+      buildLoopRegionsImpl(VPL);
+  }
+
+  // Create new non-loop VPRegionBlock's and update the information of all the
+  // blocks in the hierarchical CFG. The hierarchical CFG is stable and contains
+  // consisten information after this step.
+  void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion) {
+
+    VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+
+    LLVM_DEBUG(
+        dbgs() << "Building Non-Loop Regions for " << ParentRegion->getName()
+               << "\n"
+               << "   Entry: " << ParentRegion->getEntry()->getName() << "\n"
+               << "   Exit: " << ParentRegion->getExit()->getName() << "\n");
+
+    SmallVector<VPBlockBase *, 16> WorkList;
+    SmallPtrSet<VPBlockBase *, 16> Visited;
+    WorkList.push_back(ParentRegion->getEntry());
+
+    unsigned ParentSize = 0;
+    bool ParentIsDivergent = false;
+
+    while (!WorkList.empty()) {
+
+      // Get Current and skip it if visited.
+      VPBlockBase *Current = WorkList.back();
+      WorkList.pop_back();
+      if (Visited.count(Current))
+        continue;
+
+      Visited.insert(Current);
+      LLVM_DEBUG(dbgs() << "Visiting " << Current->getName()
+                        << "(Entry: " << Current->getEntryBasicBlock() << ")"
+                        << "\n";);
+
+      // If you hit this assert, the input CFG is very likely to be not compliant
+      // either because it contains a loop that is not supported or because loops
+      // are not in canonical form.
+      assert((isa<VPLoopRegion>(Current) || isa<VPBasicBlock>(Current)) &&
+             "Expected VPBasicBlock or VPLoopRegion");
+
+      // Increase ParentRegion's size
+      ++ParentSize;
+
+      // Pointer to a new subregion or existing VPLoopRegion subregion
+      VPRegionBlock *SubRegion = dyn_cast<VPLoopRegion>(Current);
+      VPBlockBase *RegionExit;
+
+      // Non-loop VPRegion detection.
+      if (!DisableNonLoopSubRegions && !SubRegion /* Skip VPLoopRegions */ &&
+          isNonLoopRegion(Current, ParentRegion, RegionExit /*output*/)) {
+
+        // Create new region and connect it to graph
+        SubRegion = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
+                                      VPlanUtils::createUniqueName("region"));
+
+        LLVM_DEBUG(dbgs() << "Creating new VPRegion " << SubRegion->getName()
+                          << "\n"
+                          << "   Entry: " << Current->getName() << "\n"
+                          << "   Exit: " << RegionExit->getName() << "\n");
+        assert(RegionExit && "RegionExit cannot be null");
+
+        VPBlockUtils::insertRegion(SubRegion, Current /*Entry*/, RegionExit,
+                                   false /*recomputeSize*/);
+
+        // Add new region to VPLoopInfo.
+        if (VPLoop *Loop = VPLInfo->getLoopFor(SubRegion->getEntry())) {
+          Loop->addBasicBlockToLoop(SubRegion, *VPLInfo);
+        }
+      }
+
+      // New region was built or Current is a LoopRegion.
+      if (SubRegion) {
+        // Set SubRegion's parent
+        SubRegion->setParent(ParentRegion);
+
+        // Add SubRegion's successors to worklist.
+        for (auto Succ : SubRegion->getSuccessors()) {
+          LLVM_DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
+                            << "\n");
+          WorkList.push_back(Succ);
+        }
+
+        // Recursively build non-regions inside subregion
+        buildNonLoopRegions(SubRegion);
+
+      } else {
+        // Current is a VPBasicBlock that didn't trigger the creation of a new
+        // region.
+
+        // Set Current's parent
+        Current->setParent(ParentRegion);
+
+        // Check if Current causes parent region to be divergent.
+        ParentIsDivergent |= isDivergentBlock(Current);
+
+        // No new region has been detected. Add Current's successors.
+        for (auto Succ : Current->getSuccessors()) {
+          LLVM_DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
+                            << "\n");
+          WorkList.push_back(Succ);
+        }
       }
     }
 
-    // New region was built or Current is a LoopRegion.
-    if (SubRegion) {
-      // Set SubRegion's parent
-      SubRegion->setParent(ParentRegion);
+    ParentRegion->setSize(ParentSize);
+    ParentRegion->setDivergent(ParentIsDivergent);
 
-      // Add SubRegion's successors to worklist.
-      for (auto Succ : SubRegion->getSuccessors()) {
-        LLVM_DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
-                          << "\n");
-        WorkList.push_back(Succ);
-      }
+    LLVM_DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName()
+                      << "\n");
+  }
 
-      // Recursively build non-regions inside subregion
-      buildNonLoopRegions(SubRegion);
 
-    } else {
-      // Current is a VPBasicBlock that didn't trigger the creation of a new
-      // region.
+  // Go through the blocks in Region, collecting uniforms.
+  void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
+    for (VPBlockBase *Block :
+         make_range(df_iterator<VPRegionBlock *>::begin(Region),
+                    df_iterator<VPRegionBlock *>::end(Region))) {
+      if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
+        if (Block->getNumSuccessors() >= 2) {
+          // Multiple successors. Checking uniformity of Condition Bit
+          // Instruction.
+          VPValue *CBV = VPBB->getCondBit();
+          assert(CBV && "Expected condition bit value.");
 
-      // Set Current's parent
-      Current->setParent(ParentRegion);
-
-      // Check if Current causes parent region to be divergent.
-      ParentIsDivergent |= isDivergentBlock(Current);
-
-      // No new region has been detected. Add Current's successors.
-      for (auto Succ : Current->getSuccessors()) {
-        LLVM_DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
-                          << "\n");
-        WorkList.push_back(Succ);
+          bool isUniform = Legal->isUniformForTheLoop(CBV->getUnderlyingValue());
+          if (isUniform)
+            Plan->UniformCBVs.insert(CBV);
+        }
       }
     }
   }
 
-  ParentRegion->setSize(ParentSize);
-  ParentRegion->setDivergent(ParentIsDivergent);
+  void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
-  LLVM_DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName()
-                    << "\n");
-}
+    // Build Top Region enclosing the plain CFG
+    VPRegionBlock *TopRegion = buildPlainCFG();
 
+    // Collecte divergence information
+    collectUniforms(TopRegion);
 
-// Go through the blocks in Region, collecting uniforms.
-void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
-  for (VPBlockBase *Block :
-       make_range(df_iterator<VPRegionBlock *>::begin(Region),
-                  df_iterator<VPRegionBlock *>::end(Region))) {
+    // Set Top Region as VPlan Entry
+    Plan->setEntry(TopRegion);
+    LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
+
+    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+
+    // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
+    // at this point.
+    VPDomTree.recalculate(*TopRegion);
+    LLVM_DEBUG(dbgs() << "Dominator Tree After buildPlainCFG\n";
+               VPDomTree.print(dbgs()));
+
+    // TODO: If more efficient, we may want to "translate" LoopInfo to VPLoopInfo.
+    // Compute VPLInfo and keep it in VPlan
+    VPLoopInfo *VPLInfo = new VPLoopInfo();
+    VPLInfo->analyze(VPDomTree);
+    Plan->setVPLoopInfo(VPLInfo);
+    // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
+    LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";
+               VPLInfo->print(dbgs()));
+
+    // Compute postdom tree for the plain CFG.
+    VPPostDomTree.recalculate(*TopRegion);
+    LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
+               VPPostDomTree.print(dbgs()));
+
+#if INTEL_CUSTOMIZATION
+    // simplifyPlainCFG inserts empty blocks with CondBit recipes. This messes up
+    // determining the influence region of a branch instruction. i.e., the
+    // immediate post-dominator becomes this empty block instead of the actual
+    // convergence point containing the phi. Running DA here allows reuse of the
+    // current Dominator Trees and results in fewer modifications to the DA
+    // algorithm since it was designed to run over a plain CFG. We should also
+    // be able to leverage DA for use in the inner loop control flow uniformity
+    // massaging for outer loop vectorization (done in simplifyPlainCFG). That
+    // way, we only have to transform the CFG for inner loops known to be non-
+    // uniform.
+    // TODO: Right now DA is computed per VPlan for the outermost loop of the
+    // VPlan region. We will need additional information provided to DA if we wish
+    // to vectorize more than one loop, or vectorize a specific loop within the
+    // VPlan that is not the outermost one.
+    // TODO: Check to see how this ordering impacts loops with multiple exits in
+    // mergeLoopExits(). It's possible that we may want to delay DA from running
+    // until after loops with multiple exits are canonicalized to a single loop
+    // exit. But, this means that the DA algorithm will have to be changed to have
+    // to deal with empty loop pre-header blocks unless we can run mergeLoopExits
+    // before the empty pre-header blocks are inserted.
+    if (!DisableVPlanDA) {
+      // TODO: Determine if we want to have a separate DA instance for each VF.
+      // Currently, there is only one instance and no distinction between VFs.
+      // i.e., values are either uniform or divergent for all VFs.
+      auto *VPDA = new VPlanDivergenceAnalysis();
+      VPDA->compute(*(VPLInfo->begin()), VPLInfo, &VPDomTree, &VPPostDomTree);
+      Plan->setVPlanDA(VPDA);
+    }
+#endif /* INTEL_CUSTOMIZATION */
+
+    // Prepare/simplify CFG for hierarchical CFG construction
+    simplifyPlainCFG();
+
+#if INTEL_CUSTOMIZATION
+    if (VPlanPrintSimplifyCFG) {
+      errs() << "Print after simplify plain CFG\n";
+      Plan->dump(errs());
+    }
+#endif
+
+    LLVM_DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
+               dbgs() << *Plan);
+    LLVM_DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
+               VPDomTree.print(dbgs()));
+    LLVM_DEBUG(dbgs() << "PostDominator Tree After simplifyPlainCFG:\n";
+               VPPostDomTree.print(dbgs()));
+    LLVM_DEBUG(dbgs() << "VPLoop Info After simplifyPlainCFG:\n";
+               VPLInfo->print(dbgs()));
+
+    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+
+    // Build hierarchical CFG in two step: buildLoopRegions and
+    // buildNonLoopRegions. There are two important things to notice:
+    //    1. Regions' size and blocks' parent are not consistent after
+    //       buildLoopRegions. buildLoopRegions doesn't require to traverse the
+    //       CFG. It's more effient to recompute this information while traversing
+    //       the CFG in buildNonLoopRegions.
+    //    2. Dom/Postdom trees for the plain CFG are no longer valid after
+    //       buildLoopRegions (there is no plain CFG anymore). However, we can
+    //       still use them to build non-loop regions.
+    //
+    buildLoopRegions();
+    buildNonLoopRegions(TopRegion);
+
+    LLVM_DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n");
+               dbgs() << *Plan;);
+
+#if INTEL_CUSTOMIZATION
+    if (VPlanPrintHCFG) {
+      errs() << "Print after building H-CFG:\n";
+      Plan->dump(errs());
+    }
+#endif
+
+    LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
+               Verifier->verifyHierarchicalCFG(TopRegion));
+  }
+
+  // Return true if a non-loop region can be formed from \p Entry. If so, \p Exit
+  // returns region's exit for the detected region.
+  bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
+                                         VPRegionBlock *ParentRegion,
+                                         VPBlockBase *&Exit) {
+
+    // Region's entry must have multiple successors and must be a VPBasicBlock at
+    // this point. Also skip ParentRegion's Entry to prevent infinite recursion
+    if (Entry == ParentRegion->getEntry() || Entry->getNumPredecessors() != 1 ||
+        Entry->getNumSuccessors() < 2 || !isa<VPBasicBlock>(Entry))
+      return false;
+
+    VPBlockBase *PotentialExit =
+        VPPostDomTree.getNode(Entry)->getIDom()->getBlock();
+    // Region's exit must have a single successor
+    if (PotentialExit->getNumSuccessors() != 1 ||
+        !isa<VPBasicBlock>(PotentialExit) ||
+        // TODO: Temporal check to skip regions that share exit node with parent
+        // region.
+        ParentRegion->getExit() == PotentialExit)
+      return false;
+
+    VPBlockBase *Dom = VPDomTree.getNode(PotentialExit)->getIDom()->getBlock();
+    if (Dom != Entry ||
+        !regionIsBackEdgeCompliant(Entry, PotentialExit, ParentRegion))
+      return false;
+
+    Exit = PotentialExit;
+    return true;
+  }
+
+  // This is a temporal implementation to detect and discard non-loop regions
+  // whose entry and exit blocks are in different graph cycles. At this point, the
+  // only cycles we have to care about are those created by loop latches. This
+  // means that problematic potential non-loop regions will have entry and/or exit
+  // blocks immediately nested inside a VPLoopRegion (i.e., block's parent will be
+  // a VPLoopRegion). In order to detect such cases, we currently check whether
+  // the loop header is reachable starting from region's entry block up to
+  // region's exit block.
+  bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
+                                                   const VPBlockBase *Exit,
+                                                   VPRegionBlock *ParentRegion) {
+
+    // If the immediate parent region is not a loop region, current region won't
+    // have any problem with loop cycles, so it's back edge compliant
+    if (!isa<VPLoopRegion>(ParentRegion))
+      return true;
+
+    // Expensive check: check if loop header is inside the region
+    VPLoop *ParentLoop = cast<VPLoopRegion>(ParentRegion)->getVPLoop();
+    VPBlockBase *LoopHeader = ParentLoop->getHeader();
+    assert(ParentLoop->contains(Entry) &&
+           "Potential entry blocks should be inside the loop");
+    assert(ParentLoop->contains(Exit) &&
+           "Potential exit blocks should be inside the loop");
+
+    SmallVector<const VPBlockBase *, 32> WorkList;
+    SmallPtrSet<const VPBlockBase *, 32> Visited;
+    WorkList.push_back(Entry);
+
+    while (!WorkList.empty()) {
+      const VPBlockBase *Current = WorkList.back();
+      WorkList.pop_back();
+
+      if (Visited.count(Current))
+        continue;
+      Visited.insert(Current);
+
+      if (Current == LoopHeader)
+        return false;
+
+      // Add successors but skip Exit successors
+      if (Current != Exit)
+        for (auto Succ : Current->getSuccessors())
+          WorkList.push_back(Succ);
+    }
+
+    return true;
+  }
+
+  // TODO
+  // Return true if \p Block is a VPBasicBlock that contains a successor selector
+  // (CondBit) that is not uniform. If Block is a VPRegionBlock,
+  // it returns false since a region can only have a single successor (by now).
+  bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) {
+    if (DisableUniformRegions)
+      return true;
+
     if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      if (Block->getNumSuccessors() >= 2) {
-        // Multiple successors. Checking uniformity of Condition Bit
-        // Instruction.
+      unsigned NumSuccs = Block->getNumSuccessors();
+      if (NumSuccs < 2) {
+        assert(!VPBB->getCondBit() && "Unexpected condition bit instruction");
+        return false;
+      } else {
+        // Multiple successors. Checking uniformity of Condition Bit Instruction.
         VPValue *CBV = VPBB->getCondBit();
         assert(CBV && "Expected condition bit value.");
 
-        bool isUniform = Legal->isUniformForTheLoop(CBV->getUnderlyingValue());
-        if (isUniform)
-          Plan->UniformCBVs.insert(CBV);
+        // TODO: Temporal implementation for HIR
+        return !Plan->UniformCBVs.count(CBV);
       }
     }
-  }
-}
 
-void VPlanHCFGBuilder::buildHierarchicalCFG() {
-
-  // Build Top Region enclosing the plain CFG
-  VPRegionBlock *TopRegion = buildPlainCFG();
-
-  // Collecte divergence information
-  collectUniforms(TopRegion);
-
-  // Set Top Region as VPlan Entry
-  Plan->setEntry(TopRegion);
-  LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
-
-  LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
-
-  // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
-  // at this point.
-  VPDomTree.recalculate(*TopRegion);
-  LLVM_DEBUG(dbgs() << "Dominator Tree After buildPlainCFG\n";
-             VPDomTree.print(dbgs()));
-
-  // TODO: If more efficient, we may want to "translate" LoopInfo to VPLoopInfo.
-  // Compute VPLInfo and keep it in VPlan
-  VPLoopInfo *VPLInfo = new VPLoopInfo();
-  VPLInfo->analyze(VPDomTree);
-  Plan->setVPLoopInfo(VPLInfo);
-  // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
-  LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";
-             VPLInfo->print(dbgs()));
-
-  // Compute postdom tree for the plain CFG.
-  VPPostDomTree.recalculate(*TopRegion);
-  LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
-             VPPostDomTree.print(dbgs()));
-
-#if INTEL_CUSTOMIZATION
-  // simplifyPlainCFG inserts empty blocks with CondBit recipes. This messes up
-  // determining the influence region of a branch instruction. i.e., the
-  // immediate post-dominator becomes this empty block instead of the actual
-  // convergence point containing the phi. Running DA here allows reuse of the
-  // current Dominator Trees and results in fewer modifications to the DA
-  // algorithm since it was designed to run over a plain CFG. We should also
-  // be able to leverage DA for use in the inner loop control flow uniformity
-  // massaging for outer loop vectorization (done in simplifyPlainCFG). That
-  // way, we only have to transform the CFG for inner loops known to be non-
-  // uniform.
-  // TODO: Right now DA is computed per VPlan for the outermost loop of the
-  // VPlan region. We will need additional information provided to DA if we wish
-  // to vectorize more than one loop, or vectorize a specific loop within the
-  // VPlan that is not the outermost one.
-  // TODO: Check to see how this ordering impacts loops with multiple exits in
-  // mergeLoopExits(). It's possible that we may want to delay DA from running
-  // until after loops with multiple exits are canonicalized to a single loop
-  // exit. But, this means that the DA algorithm will have to be changed to have
-  // to deal with empty loop pre-header blocks unless we can run mergeLoopExits
-  // before the empty pre-header blocks are inserted.
-  if (!DisableVPlanDA) {
-    // TODO: Determine if we want to have a separate DA instance for each VF.
-    // Currently, there is only one instance and no distinction between VFs.
-    // i.e., values are either uniform or divergent for all VFs.
-    auto *VPDA = new VPlanDivergenceAnalysis();
-    VPDA->compute(*(VPLInfo->begin()), VPLInfo, &VPDomTree, &VPPostDomTree);
-    Plan->setVPlanDA(VPDA);
-  }
-#endif /* INTEL_CUSTOMIZATION */
-
-  // Prepare/simplify CFG for hierarchical CFG construction
-  simplifyPlainCFG();
-
-#if INTEL_CUSTOMIZATION
-  if (VPlanPrintSimplifyCFG) {
-    errs() << "Print after simplify plain CFG\n";
-    Plan->dump(errs());
-  }
-#endif
-
-  LLVM_DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
-             dbgs() << *Plan);
-  LLVM_DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
-             VPDomTree.print(dbgs()));
-  LLVM_DEBUG(dbgs() << "PostDominator Tree After simplifyPlainCFG:\n";
-             VPPostDomTree.print(dbgs()));
-  LLVM_DEBUG(dbgs() << "VPLoop Info After simplifyPlainCFG:\n";
-             VPLInfo->print(dbgs()));
-
-  LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
-
-  // Build hierarchical CFG in two step: buildLoopRegions and
-  // buildNonLoopRegions. There are two important things to notice:
-  //    1. Regions' size and blocks' parent are not consistent after
-  //       buildLoopRegions. buildLoopRegions doesn't require to traverse the
-  //       CFG. It's more effient to recompute this information while traversing
-  //       the CFG in buildNonLoopRegions.
-  //    2. Dom/Postdom trees for the plain CFG are no longer valid after
-  //       buildLoopRegions (there is no plain CFG anymore). However, we can
-  //       still use them to build non-loop regions.
-  //
-  buildLoopRegions();
-  buildNonLoopRegions(TopRegion);
-
-  LLVM_DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n");
-             dbgs() << *Plan;);
-
-  LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
-             Verifier->verifyHierarchicalCFG(TopRegion));
-}
-
-// Return true if a non-loop region can be formed from \p Entry. If so, \p Exit
-// returns region's exit for the detected region.
-bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
-                                       VPRegionBlock *ParentRegion,
-                                       VPBlockBase *&Exit) {
-
-  // Region's entry must have multiple successors and must be a VPBasicBlock at
-  // this point. Also skip ParentRegion's Entry to prevent infinite recursion
-  if (Entry == ParentRegion->getEntry() || Entry->getNumPredecessors() != 1 ||
-      Entry->getNumSuccessors() < 2 || !isa<VPBasicBlock>(Entry))
+    // Regions doesn't change parent region divergence.
+    assert(Block->getSinglePredecessor() && "Region with multiple successors");
     return false;
-
-  VPBlockBase *PotentialExit =
-      VPPostDomTree.getNode(Entry)->getIDom()->getBlock();
-  // Region's exit must have a single successor
-  if (PotentialExit->getNumSuccessors() != 1 ||
-      !isa<VPBasicBlock>(PotentialExit) ||
-      // TODO: Temporal check to skip regions that share exit node with parent
-      // region.
-      ParentRegion->getExit() == PotentialExit)
-    return false;
-
-  VPBlockBase *Dom = VPDomTree.getNode(PotentialExit)->getIDom()->getBlock();
-  if (Dom != Entry ||
-      !regionIsBackEdgeCompliant(Entry, PotentialExit, ParentRegion))
-    return false;
-
-  Exit = PotentialExit;
-  return true;
-}
-
-// This is a temporal implementation to detect and discard non-loop regions
-// whose entry and exit blocks are in different graph cycles. At this point, the
-// only cycles we have to care about are those created by loop latches. This
-// means that problematic potential non-loop regions will have entry and/or exit
-// blocks immediately nested inside a VPLoopRegion (i.e., block's parent will be
-// a VPLoopRegion). In order to detect such cases, we currently check whether
-// the loop header is reachable starting from region's entry block up to
-// region's exit block.
-bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
-                                                 const VPBlockBase *Exit,
-                                                 VPRegionBlock *ParentRegion) {
-
-  // If the immediate parent region is not a loop region, current region won't
-  // have any problem with loop cycles, so it's back edge compliant
-  if (!isa<VPLoopRegion>(ParentRegion))
-    return true;
-
-  // Expensive check: check if loop header is inside the region
-  VPLoop *ParentLoop = cast<VPLoopRegion>(ParentRegion)->getVPLoop();
-  VPBlockBase *LoopHeader = ParentLoop->getHeader();
-  assert(ParentLoop->getUniqueExitBlock() && "Only single-exit loops expected");
-  assert(ParentLoop->contains(Entry) &&
-         "Potential entry blocks should be inside the loop");
-  assert(ParentLoop->contains(Exit) &&
-         "Potential exit blocks should be inside the loop");
-
-  SmallVector<const VPBlockBase *, 32> WorkList;
-  SmallPtrSet<const VPBlockBase *, 32> Visited;
-  WorkList.push_back(Entry);
-
-  while (!WorkList.empty()) {
-    const VPBlockBase *Current = WorkList.back();
-    WorkList.pop_back();
-
-    if (Visited.count(Current))
-      continue;
-    Visited.insert(Current);
-
-    if (Current == LoopHeader)
-      return false;
-
-    // Add successors but skip Exit successors
-    if (Current != Exit)
-      for (auto Succ : Current->getSuccessors())
-        WorkList.push_back(Succ);
   }
 
-  return true;
-}
+  namespace {
+  // Build plain CFG from incomming IR using only VPBasicBlock's that contain
+  // VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's
+  // of the plain CFG.
+  class PlainCFGBuilder {
+  private:
+    /// Outermost loop of the input loop nest.
+    Loop *TheLoop;
 
-// TODO
-// Return true if \p Block is a VPBasicBlock that contains a successor selector
-// (CondBit) that is not uniform. If Block is a VPRegionBlock,
-// it returns false since a region can only have a single successor (by now).
-bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) {
-  if (DisableUniformRegions)
-    return true;
+    LoopInfo *LI;
+    // TODO: This should be removed together with the UniformCBVs set.
+    LoopVectorizationLegality *Legal;
 
-  if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
-    unsigned NumSuccs = Block->getNumSuccessors();
-    if (NumSuccs < 2) {
-      assert(!VPBB->getCondBit() && "Unexpected condition bit instruction");
-      return false;
-    } else {
-      // Multiple successors. Checking uniformity of Condition Bit Instruction.
-      VPValue *CBV = VPBB->getCondBit();
-      assert(CBV && "Expected condition bit value.");
+    // Output TopRegion.
+    VPRegionBlock *TopRegion = nullptr;
 
-      // TODO: Temporal implementation for HIR
-      return !Plan->UniformCBVs.count(CBV);
+    // Number of VPBasicBlocks in TopRegion.
+    unsigned TopRegionSize = 0;
+
+    VPlan *Plan;
+
+    // Builder of the VPlan instruction-level representation.
+    VPBuilder VPIRBuilder;
+
+    // NOTE: The following maps are intentionally destroyed after the plain CFG
+    // construction because subsequent VPlan-to-VPlan transformation may
+    // invalidate them.
+    // Map incoming BasicBlocks to their newly-created VPBasicBlocks.
+    DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
+    // Map incoming Value definitions to their newly-created VPValues.
+    DenseMap<Value *, VPValue *> IRDef2VPValue;
+    /// Map the branches to the condition VPInstruction they are controlled by
+    /// (Possibly at a different VPBB).
+    DenseMap<Value *, VPValue *> BranchCondMap;
+
+    // Hold phi node's that need to be fixed once the plain CFG has been built.
+    SmallVector<PHINode *, 8> PhisToFix;
+
+    // Auxiliary functions
+    void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
+    void fixPhiNodes();
+    VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
+    bool isExternalDef(Value *Val);
+    VPValue *createOrGetVPOperand(Value *IROp);
+    void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
+
+  public:
+    PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
+                    VPlan *Plan)
+        : TheLoop(Lp), LI(LI), Legal(Legal), Plan(Plan) {}
+
+    VPRegionBlock *buildPlainCFG();
+  };
+  } // anonymous namespace
+
+  // Set predecessors of \p VPBB in the same order as they are in LLVM \p BB.
+  void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
+    SmallVector<VPBlockBase *, 8> VPBBPreds;
+    // Collect VPBB predecessors.
+    for (BasicBlock *Pred : predecessors(BB))
+      VPBBPreds.push_back(createOrGetVPBB(Pred));
+
+    VPBB->setPredecessors(VPBBPreds);
+  }
+
+  // Set operands to VPInstructions representing phi nodes from the input IR.
+  // VPlan Phi nodes were created without operands in a previous step of the H-CFG
+  // construction because those operands might not have been created in VPlan at
+  // that time despite the RPO traversal. This function expects all the
+  // instructions to have a representation in VPlan so operands of VPlan phis can
+  // be properly set.
+  void PlainCFGBuilder::fixPhiNodes() {
+    for (auto *Phi : PhisToFix) {
+      assert(IRDef2VPValue.count(Phi) && "Missing VPInstruction for PHINode.");
+      VPValue *VPVal = IRDef2VPValue[Phi];
+      assert(isa<VPInstruction>(VPVal) && "Expected VPInstruction for phi node.");
+      auto *VPPhi = cast<VPInstruction>(VPVal);
+      assert(VPPhi->getNumOperands() == 0 &&
+             "Expected VPInstruction with no operands.");
+
+      for (Value *Op : Phi->operands())
+        VPPhi->addOperand(createOrGetVPOperand(Op));
     }
   }
 
-  // Regions doesn't change parent region divergence.
-  assert(Block->getSinglePredecessor() && "Region with multiple successors");
-  return false;
-}
+  // Create a new empty VPBasicBlock for an incomming BasicBlock or retrieve an
+  // existing one if it was already created.
+  VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
 
-namespace {
-// Build plain CFG from incomming IR using only VPBasicBlock's that contain
-// VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's
-// of the plain CFG.
-class PlainCFGBuilder {
-private:
-  /// Outermost loop of the input loop nest.
-  Loop *TheLoop;
+    VPBasicBlock *VPBB;
+    auto BlockIt = BB2VPBB.find(BB);
 
-  LoopInfo *LI;
-  // TODO: This should be removed together with the UniformCBVs set.
-  LoopVectorizationLegality *Legal;
+    if (BlockIt == BB2VPBB.end()) {
+      // New VPBB
+      LLVM_DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
+      VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+      BB2VPBB[BB] = VPBB;
+      VPBB->setOriginalBB(BB);
+      VPBB->setParent(TopRegion);
+      ++TopRegionSize;
+    } else {
+      // Retrieve existing VPBB
+      VPBB = BlockIt->second;
+    }
 
-  // Output TopRegion.
-  VPRegionBlock *TopRegion = nullptr;
-
-  // Number of VPBasicBlocks in TopRegion.
-  unsigned TopRegionSize = 0;
-
-  VPlan *Plan;
-
-  // Builder of the VPlan instruction-level representation.
-  VPBuilder VPIRBuilder;
-
-  // NOTE: The following maps are intentionally destroyed after the plain CFG
-  // construction because subsequent VPlan-to-VPlan transformation may
-  // invalidate them.
-  // Map incoming BasicBlocks to their newly-created VPBasicBlocks.
-  DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
-  // Map incoming Value definitions to their newly-created VPValues.
-  DenseMap<Value *, VPValue *> IRDef2VPValue;
-  /// Map the branches to the condition VPInstruction they are controlled by
-  /// (Possibly at a different VPBB).
-  DenseMap<Value *, VPValue *> BranchCondMap;
-
-  // Hold phi node's that need to be fixed once the plain CFG has been built.
-  SmallVector<PHINode *, 8> PhisToFix;
-
-  // Auxiliary functions
-  void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
-  void fixPhiNodes();
-  VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
-  bool isExternalDef(Value *Val);
-  VPValue *createOrGetVPOperand(Value *IROp);
-  void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
-
-public:
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, LoopVectorizationLegality *Legal,
-                  VPlan *Plan)
-      : TheLoop(Lp), LI(LI), Legal(Legal), Plan(Plan) {}
-
-  VPRegionBlock *buildPlainCFG();
-};
-} // anonymous namespace
-
-// Set predecessors of \p VPBB in the same order as they are in LLVM \p BB.
-void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
-  SmallVector<VPBlockBase *, 8> VPBBPreds;
-  // Collect VPBB predecessors.
-  for (BasicBlock *Pred : predecessors(BB))
-    VPBBPreds.push_back(createOrGetVPBB(Pred));
-
-  VPBB->setPredecessors(VPBBPreds);
-}
-
-// Set operands to VPInstructions representing phi nodes from the input IR.
-// VPlan Phi nodes were created without operands in a previous step of the H-CFG
-// construction because those operands might not have been created in VPlan at
-// that time despite the RPO traversal. This function expects all the
-// instructions to have a representation in VPlan so operands of VPlan phis can
-// be properly set.
-void PlainCFGBuilder::fixPhiNodes() {
-  for (auto *Phi : PhisToFix) {
-    assert(IRDef2VPValue.count(Phi) && "Missing VPInstruction for PHINode.");
-    VPValue *VPVal = IRDef2VPValue[Phi];
-    assert(isa<VPInstruction>(VPVal) && "Expected VPInstruction for phi node.");
-    auto *VPPhi = cast<VPInstruction>(VPVal);
-    assert(VPPhi->getNumOperands() == 0 &&
-           "Expected VPInstruction with no operands.");
-
-    for (Value *Op : Phi->operands())
-      VPPhi->addOperand(createOrGetVPOperand(Op));
-  }
-}
-
-// Create a new empty VPBasicBlock for an incomming BasicBlock or retrieve an
-// existing one if it was already created.
-VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
-
-  VPBasicBlock *VPBB;
-  auto BlockIt = BB2VPBB.find(BB);
-
-  if (BlockIt == BB2VPBB.end()) {
-    // New VPBB
-    LLVM_DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
-    VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    BB2VPBB[BB] = VPBB;
-    VPBB->setOriginalBB(BB);
-    VPBB->setParent(TopRegion);
-    ++TopRegionSize;
-  } else {
-    // Retrieve existing VPBB
-    VPBB = BlockIt->second;
+    return VPBB;
   }
 
-  return VPBB;
-}
-
-// Return true if \p Val is considered an external definition in the context of
-// the plain CFG construction.
-//
-// An external definition is either:
+  // Return true if \p Val is considered an external definition in the context of
+  // the plain CFG construction.
+  //
+  // An external definition is either:
 #if INTEL_CUSTOMIZATION
-// 1. A Value that is neither a Constant nor an Instruction.
+  // 1. A Value that is neither a Constant nor an Instruction.
 #else
-// 1. A Value that is not an Instruction. This will be refined in the future.
+  // 1. A Value that is not an Instruction. This will be refined in the future.
 #endif
-// 2. An Instruction that is outside of the CFG snippet represented in VPlan.
-// However, since we don't represent loop Instructions in loop PH/Exit as
-// VPInstructions during plain CFG construction, those are also considered
-// external definitions in this particular context.
-bool PlainCFGBuilder::isExternalDef(Value *Val) {
+  // 2. An Instruction that is outside of the CFG snippet represented in VPlan.
+  // However, since we don't represent loop Instructions in loop PH/Exit as
+  // VPInstructions during plain CFG construction, those are also considered
+  // external definitions in this particular context.
+  bool PlainCFGBuilder::isExternalDef(Value *Val) {
 #if INTEL_CUSTOMIZATION
-  assert(!isa<Constant>(Val) &&
-         "Constants should have been processed separately.");
+    assert(!isa<Constant>(Val) &&
+           "Constants should have been processed separately.");
 #endif
-  // All the Values that are not Instructions are considered external
-  // definitions for now.
-  Instruction *Inst = dyn_cast<Instruction>(Val);
-  if (!Inst)
-    return true;
+    // All the Values that are not Instructions are considered external
+    // definitions for now.
+    Instruction *Inst = dyn_cast<Instruction>(Val);
+    if (!Inst)
+      return true;
 
-  // Check whether Instruction definition is within the loop nest.
-  return !TheLoop->contains(Inst);
+    // Check whether Instruction definition is within the loop nest.
+    return !TheLoop->contains(Inst);
 }
 
 // Create a new VPValue or retrieve an existing one for the Instruction's

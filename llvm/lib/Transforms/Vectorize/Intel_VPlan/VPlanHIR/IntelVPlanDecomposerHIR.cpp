@@ -292,7 +292,7 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 
   // Get the predicate for the HLLoop bottom test condition.
   auto *HLp = cast<HLLoop>(DDNode);
-  assert(HLp->isDo() && HLp->isNormalized() &&
+  assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
          "Expected single-exit normalized DO HLLoop.");
   assert(HLp->getLowerCanonExpr()->getDestType()->isIntegerTy() &&
          HLp->getUpperCanonExpr()->getDestType()->isIntegerTy() &&
@@ -476,7 +476,7 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
 }
 
 void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
-  assert(HLp->isDo() && HLp->isNormalized() &&
+  assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
          "Only normalized single-exit DO loops are supported for now.");
   assert(LpPH->getSingleSuccessor() &&
          isa<VPBasicBlock>(LpPH->getSingleSuccessor()) &&
