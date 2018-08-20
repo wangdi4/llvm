@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #if !INTEL_INCLUDE_DTRANS
-#error DTrans.h include in an non-INTEL_INCLUDE_DTRANS build.
+#error EliminateROFieldAccess.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_TRANSFORMS_ELIMROFIELDACCESS_H

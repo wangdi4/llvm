@@ -1,4 +1,4 @@
-//===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass ------------===//
+//===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -8,12 +8,29 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements iterators and other helper classes for
-// SOAToAOSTransformImpl::CandidateSideEffectsInfo included to SOAToAOSPass.cpp
-// only. This file is for analysis of arrays' methods and transformation of
-// those.
+// This file implements functionality related specifically to array structures
+// for SOA-to-AOS: method analysis and transformations.
 //
 //===----------------------------------------------------------------------===//
+
+#ifndef INTEL_DTRANS_TRANSFORMS_SOATOAOSARRAYS_H
+#define INTEL_DTRANS_TRANSFORMS_SOATOAOSARRAYS_H
+
+#if !INTEL_INCLUDE_DTRANS
+#error SOAToAOSArrays.h include in an non-INTEL_INCLUDE_DTRANS build.
+#endif
+
+#include "SOAToAOSEffects.h"
+
+#include "llvm/IR/InstIterator.h"
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/Support/FormattedStream.h"
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// ComputeArrayMethodClassification
+#define DTRANS_SOAARR "dtrans-soatoaos-arrays"
 
 namespace llvm {
 namespace dtrans {
@@ -641,7 +658,7 @@ enum MethodKind {
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-raw_ostream &operator<<(raw_ostream &OS, MethodKind MK) {
+inline raw_ostream &operator<<(raw_ostream &OS, MethodKind MK) {
   switch (MK) {
   case MK_Unknown:
     OS << "Unknown kind";
@@ -1188,112 +1205,23 @@ public:
   };
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
-} // namespace soatoaos
-} // namespace dtrans
-} // namespace llvm
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-namespace {
 // Offset of base pointer in DTransSOAToAOSApproxTypename.
-static cl::opt<unsigned> DTransSOAToAOSBasePtrOff(
-    "dtrans-soatoaos-base-ptr-off", cl::init(-1U), cl::ReallyHidden,
-    cl::desc("Base pointer offset in dtrans-soatoaos-approx-typename"));
-
+extern cl::opt<unsigned> DTransSOAToAOSBasePtrOff;
 // Offset of memory interface in DTransSOAToAOSApproxTypename.
-static cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff(
-    "dtrans-soatoaos-mem-off", cl::init(-1U), cl::ReallyHidden,
-    cl::desc("Memory interface offset in dtrans-soatoaos-approx-typename"));
+extern cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff;
+SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // namespace soatoaos
 
-SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F) {
-  StructType *ClassType = getStructTypeOfArray(F);
-
-  SummaryForIdiom Failure(nullptr, nullptr, nullptr, nullptr);
-
-  if (!ClassType)
-    return Failure;
-
-  if (ClassType->getNumElements() <= DTransSOAToAOSBasePtrOff)
-    return Failure;
-
-  auto *PBase = dyn_cast<PointerType>(
-      ClassType->getTypeAtIndex(DTransSOAToAOSBasePtrOff));
-
-  if (!PBase)
-    return Failure;
-
-  StructType *MemoryInterface = nullptr;
-  if (ClassType->getNumElements() > DTransSOAToAOSMemoryInterfaceOff) {
-    auto *PMemInt = dyn_cast<PointerType>(
-      ClassType->getTypeAtIndex(DTransSOAToAOSMemoryInterfaceOff));
-    if (!PMemInt)
-      return Failure;
-    MemoryInterface = dyn_cast<StructType>(PMemInt->getPointerElementType());
-  }
-
-  return SummaryForIdiom(ClassType, PBase->getPointerElementType(),
-                         MemoryInterface, &F);
-}
-} // namespace
-
-namespace llvm {
-namespace dtrans {
-using namespace soatoaos;
-
-char SOAToAOSMethodsCheckDebug::PassID;
-
-// Provide a definition for the static class member used to identify passes.
-AnalysisKey SOAToAOSMethodsCheckDebug::Key;
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Instructions to transform.
 struct SOAToAOSMethodsCheckDebugResult
     : public ComputeArrayMethodClassification::TransformationData {
   MethodKind MK = MK_Unknown;
 };
-
-SOAToAOSMethodsCheckDebug::Ignore::Ignore(SOAToAOSMethodsCheckDebugResult *Ptr)
-    : Ptr(Ptr) {}
-SOAToAOSMethodsCheckDebug::Ignore::Ignore(Ignore &&Other)
-    : Ptr(std::move(Other.Ptr)) {}
-const SOAToAOSMethodsCheckDebugResult *
-SOAToAOSMethodsCheckDebug::Ignore::get() const {
-  return Ptr.get();
-}
-SOAToAOSMethodsCheckDebug::Ignore::~Ignore() {}
-
-SOAToAOSMethodsCheckDebug::Ignore
-SOAToAOSMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
-
-  auto *Res = AM.getCachedResult<SOAToAOSApproximationDebug>(F);
-  if (!Res)
-    return Ignore(nullptr);
-  const DepMap *DM = Res->get();
-  // TODO: add diagnostic message.
-  if (!DM)
-    return Ignore(nullptr);
-
-  SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
-  // TODO: add diagnostic message.
-  if (!S.ArrType)
-    return Ignore(nullptr);
-
-  LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
-
-  std::unique_ptr<SOAToAOSMethodsCheckDebugResult> Result(
-      new SOAToAOSMethodsCheckDebugResult());
-  ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(), *DM, S,
-                                      *Result);
-  Result->MK = MC.classify().first;
-  LLVM_DEBUG(dbgs() << "; Classification: " << Result->MK << "\n");
-
-  // Dump results of analysis.
-  DEBUG_WITH_TYPE(DTRANS_SOAARR, {
-    dbgs() << "; Dump instructions needing update. Total = " << MC.getTotal();
-    ComputeArrayMethodClassification::AnnotatedWriter Annotate(MC);
-    F.print(dbgs(), &Annotate);
-  });
-  return Ignore(Result.release());
-}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace dtrans
 } // namespace llvm
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
+#endif // INTEL_DTRANS_TRANSFORMS_SOATOAOSARRAYS_H

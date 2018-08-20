@@ -19,22 +19,17 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 
+#include "SOAToAOSArrays.h"
+#include "SOAToAOSEffects.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/FunctionComparator.h"
 
 #define DEBUG_TYPE "dtrans-soatoaos"
-// DepCompute
-#define DTRANS_SOADEP "dtrans-soatoaos-deps"
-// ComputeArrayMethodClassification
-#define DTRANS_SOAARR "dtrans-soatoaos-arrays"
-
-#include "SOAToAOSEffects.h"
-#include "SOAToAOSArrays.h"
 
 namespace {
 using namespace llvm;
@@ -1021,6 +1016,156 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 void SOAToAOSTransformImpl::populateTypes(Module &M) {
   for_each(Candidates,
            [this, &M](CandidateInfo *C) { C->populateTypes(*this, M); });
+}
+
+// Utility class, see comments for static methods.
+//
+// We are relying that memory is not initialized before ctor, and all stores to
+// fields are observed in methods.
+class CtorDtorCheck {
+public:
+  // Checks whether 'this' argument of F points to non-initialized memory
+  // from memory allocation routine.
+  //
+  // Implementation: checks that 'this' is returned from malloc.
+  static inline bool isThisArgNonInitialized(const DTransAnalysisInfo &DTInfo,
+                                             const Function *F);
+  // Checks that 'this' argument is dead after a call to F,
+  // because it is passed to deallocation routine immediately after call to F.
+  //
+  // Implementation: checks that 'this' is used in free.
+  static inline bool isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
+                                     const TargetLibraryInfo &TLI,
+                                     const Function *F);
+
+  // Returns true if U is a pointer to memory passed to deallocation routine.
+  static inline bool isFreedPtr(const DTransAnalysisInfo &DTInfo,
+                                const TargetLibraryInfo &TLI, const Use &U) {
+
+    ImmutableCallSite CS(U.getUser());
+    if (!CS)
+      return false;
+
+    auto *Info = DTInfo.getCallInfo(CS.getInstruction());
+    if (!Info || Info->getCallInfoKind() != dtrans::CallInfo::CIK_Free)
+      return false;
+
+    SmallPtrSet<const Value *, 3> Args;
+    collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), CS, Args,
+                           TLI);
+    if (Args.size() != 1 || *Args.begin() != U.get())
+      return false;
+
+    return true;
+  }
+};
+
+bool CtorDtorCheck::isThisArgNonInitialized(const DTransAnalysisInfo &DTInfo,
+                                            const Function *F) {
+  // Simple wrappers only.
+  if (!F->hasOneUse())
+    return false;
+
+  ImmutableCallSite CS(F->use_begin()->getUser());
+  if (!CS)
+    return false;
+
+  auto *This = dyn_cast<Instruction>(CS.getArgument(0));
+  if (!This)
+    return false;
+
+  // Extract 'this' actual argument.
+  auto *Info = DTInfo.getCallInfo(cast<Instruction>(This->stripPointerCasts()));
+  if (!Info)
+    return false;
+
+  if (Info->getCallInfoKind() != dtrans::CallInfo::CIK_Alloc)
+    return false;
+
+  auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
+
+  // Malloc, New, UserMalloc are OK: they return non-initialized memory.
+  if (AK != AK_Malloc && AK != AK_New && AK != AK_UserMalloc)
+    return false;
+
+  return true;
+}
+
+bool CtorDtorCheck::isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
+                                    const TargetLibraryInfo &TLI,
+                                    const Function *F) {
+  // Simple wrappers only.
+  if (!F->hasOneUse())
+    return false;
+
+  ImmutableCallSite CS(F->use_begin()->getUser());
+  if (!CS)
+    return false;
+
+  auto *ThisArg = dyn_cast<Instruction>(CS.getArgument(0));
+  if (!ThisArg)
+    return false;
+
+  SmallPtrSet<const BasicBlock *, 2> DeleteBB;
+
+  bool HasSameBBDelete = false;
+  auto *BB = CS.getInstruction()->getParent();
+  for (auto &U : ThisArg->uses()) {
+    auto *V = &U;
+
+    // stripPointerCasts from def to single use.
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(V->getUser())) {
+      if (GEP->hasAllZeroIndices()) {
+        if (!GEP->hasOneUse())
+          return false;
+        V = &*GEP->use_begin();
+      }
+    } else if (auto *BC = dyn_cast<BitCastInst>(V->getUser())) {
+      if (!BC->hasOneUse())
+        return false;
+      V = &*BC->use_begin();
+    }
+
+    if (!isa<Instruction>(V->getUser()))
+      return false;
+
+    if (V->getUser() == CS.getInstruction())
+      continue;
+
+    auto *Inst = cast<Instruction>(V->getUser());
+    bool IsSameBB = Inst->getParent() == BB;
+    // If V follows CS in the same BB.
+    bool IsBBSucc = false;
+    if (IsSameBB) {
+      IsBBSucc = std::find_if(CS.getInstruction()->getIterator(), BB->end(),
+                              [Inst](const Instruction &I) -> bool {
+                                return &I == Inst;
+                              }) != BB->end();
+      // Uses before F's call are not relevant.
+      if (!IsBBSucc)
+        continue;
+    }
+
+    if (isFreedPtr(DTInfo, TLI, *V)) {
+      if (IsSameBB && IsBBSucc) {
+        HasSameBBDelete = true;
+        continue;
+      }
+      DeleteBB.insert(Inst->getParent());
+    }
+    // Do not complicate analysis of successors.
+    else if (find(successors(BB), Inst->getParent()) != succ_end(BB))
+      return false;
+  }
+
+  // Simple CFG handling: all successors should contain delete.
+  if (!HasSameBBDelete && !all_of(successors(CS.getInstruction()->getParent()),
+                                  [&DeleteBB](const BasicBlock *BB) -> bool {
+                                    return DeleteBB.find(BB) != DeleteBB.end();
+                                  }))
+    return false;
+
+  return true;
 }
 } // namespace
 
