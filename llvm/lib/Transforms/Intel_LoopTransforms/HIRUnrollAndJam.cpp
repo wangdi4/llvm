@@ -1429,7 +1429,7 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
 
   } else {
     // Create the unrolled main loop and setup remainder loop.
-    MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
+    MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
         Loop, UnrollFactor, NeedRemainderLoop, LORBuilder,
         LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }

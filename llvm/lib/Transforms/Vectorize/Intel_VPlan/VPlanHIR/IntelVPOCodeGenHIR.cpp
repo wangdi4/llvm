@@ -52,6 +52,13 @@ static cl::opt<bool>
     EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
                        cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
+static cl::opt<bool> EnableFirstIterPeelMEVec(
+      "enable-first-it-peel-me-vec", cl::init(true), cl::Hidden,
+          cl::desc(
+                    "Enable first iteration peel loop for vectorized multi-exit loops."));
+
+extern cl::opt<bool> AllowMemorySpeculation;
+
 /// Don't vectorize loops with a known constant trip count below this number if
 /// set to a non zero value.
 static cl::opt<unsigned> TinyTripCountThreshold(
@@ -720,10 +727,38 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   }
   RednHoistLp = findRednHoistInsertionPoint(OrigLoop);
 
-  // Setup main and remainder loops
+  // Setup peel, main and remainder loops
+  // TODO: Peeling decisions should be properly made in VPlan's cost model and
+  // not during code generation. The following logic is a temporary workaround
+  // to have 1-iteration peeling functionality working for vectorized search
+  // loops.
+  bool SearchLoopNeedsPeeling =
+      EnableFirstIterPeelMEVec && isSearchLoop() && AllowMemorySpeculation;
+  // We cannot peel any iteration of the loop when the trip count is constant
+  // and lower or equal than VF since we have already made the decision of
+  // vectorizing that loop with such a VF.
+  uint64_t TripCount = 0;
+  bool IsTCValidForPeeling =
+      OrigLoop->isConstTripLoop(&TripCount) && TripCount <= VF ? false : true;
+  if (SearchLoopNeedsPeeling && !IsTCValidForPeeling)
+    LLVM_DEBUG(dbgs() << "Can't peel first loop iteration: VF(" << VF
+                      << ") >= TC(" << TripCount << ")!\n");
+
+  bool NeedFirstItPeelLoop = SearchLoopNeedsPeeling & IsTCValidForPeeling;
   bool NeedRemainderLoop = false;
-  auto MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer);
+  HLLoop *PeelLoop = nullptr;
+  auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
+      OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
+      &PeelLoop, NeedFirstItPeelLoop);
+
+  if (PeelLoop) {
+    setNeedFirstItPeelLoop(NeedFirstItPeelLoop);
+    setPeelLoop(PeelLoop);
+    if (TripCount > 0) {
+      assert(TripCount > 1 && "Expected trip-count > 1!");
+      setTripCount(TripCount - 1);
+    }
+  }
 
   // Do not attempt hoisting when a remainder loop is needed as remainder
   // loop updates the scalar reduction value. Since we blend in the scalar
@@ -753,6 +788,8 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
 
 void VPOCodeGenHIR::finalizeVectorLoop(void) {
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
+  if (NeedFirstItPeelLoop)
+    LLVM_DEBUG(PeelLoop->dump());
   LLVM_DEBUG(MainLoop->dump());
   if (NeedRemainderLoop)
     LLVM_DEBUG(OrigLoop->dump());

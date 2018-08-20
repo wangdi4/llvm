@@ -666,7 +666,8 @@ public:
   /// Replaces the blob with \p OldTempIndex by the \p Constant value.
   bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant);
 
-  /// Clears everything from the CanonExpr except Type. Denominator is set to 1.
+  /// Clears everything from the CanonExpr except Type so it represents constant
+  /// 0 or null. Denominator is set to 1.
   void clear();
 
   /// Clears all the IV coefficients from the CanonExpr.

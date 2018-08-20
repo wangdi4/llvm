@@ -43,9 +43,10 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
                 Function &Fn, HLLoop *Loop, LoopOptReportBuilder &LORB,
                 WRNVecLoopNode *WRLp, const bool IsSearchLoop)
-      : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), MainLoop(nullptr),
-        CurMaskValue(nullptr), NeedRemainderLoop(false), TripCount(0), VF(0),
-        LORBuilder(LORB), WVecNode(WRLp), IsSearchLoop(IsSearchLoop) {}
+      : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), PeelLoop(nullptr),
+        MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
+        TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
+        IsSearchLoop(IsSearchLoop) {}
 
   ~VPOCodeGenHIR() {}
 
@@ -228,11 +229,17 @@ private:
   // loop after updating loop bounds.
   HLLoop *OrigLoop;
 
+  // Peel loop
+  HLLoop *PeelLoop;
+
   // Main vector loop
   HLLoop *MainLoop;
 
   // Mask value to add for instructions being added to MainLoop
   RegDDRef *CurMaskValue;
+
+  // Is first iteration peel loop needed?
+  bool NeedFirstItPeelLoop = false;
 
   // Is a remainder loop needed?
   bool NeedRemainderLoop;
@@ -267,7 +274,11 @@ private:
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
+  void setPeelLoop(HLLoop *L) { PeelLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
+  void setNeedFirstItPeelLoop(bool NeedFirstItPeel) {
+    NeedFirstItPeelLoop = NeedFirstItPeel;
+  }
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVF(unsigned V) { VF = V; }

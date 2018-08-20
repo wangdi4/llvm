@@ -389,6 +389,10 @@ public:
     getGEPInfo()->BaseCE = BaseCE;
   }
 
+  /// Removes all the blob ddrefs and clears the canonical form of this RegDDRef
+  /// so it represents constant 0 or null. RegDDRef must be a terminal ref.
+  void clear(bool AssumeLvalIfDetached = false);
+
   /// Returns true if the inbounds attribute is set for this access.
   bool isInBounds() const { return getGEPInfo()->InBounds; }
 

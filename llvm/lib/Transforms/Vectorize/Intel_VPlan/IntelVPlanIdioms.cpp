@@ -19,7 +19,7 @@
 
 #define DEBUG_TYPE "vplan-idioms"
 
-static cl::opt<bool>
+cl::opt<bool>
     AllowMemorySpeculation("allow-memory-speculation", cl::init(false),
                            cl::desc("Enable speculative vector unit loads."));
 
