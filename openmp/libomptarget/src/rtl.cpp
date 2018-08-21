@@ -28,6 +28,9 @@ static const char *RTLNames[] = {
     /* Nios II target */ "libomptarget.rtl.nios2.so",
     /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+    /* OpenCL target    */ "libomptarget.rtl.opencl.so",
+#endif // INTEL_COLLAB
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
     /* CUDA target    */ "libomptarget.rtl.cuda.so",

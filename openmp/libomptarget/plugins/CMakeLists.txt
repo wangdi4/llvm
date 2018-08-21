@@ -72,6 +72,10 @@ if(INTEL_CUSTOMIZATION)
   add_subdirectory(x86_64_mic)
 endif()
 
+if (INTEL_COLLAB)
+  add_subdirectory(opencl)
+endif(INTEL_COLLAB)
+
 # Make sure the parent scope can see the plugins that will be created.
 set(LIBOMPTARGET_SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS}" PARENT_SCOPE)
 
