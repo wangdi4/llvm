@@ -938,6 +938,7 @@ class FMAExprSPCommon {
 
       for (auto I : TermSPs)
         delete I;
+      delete[] NodeSPs;
 
       return IsOk;
     }
