@@ -63,6 +63,10 @@ MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
+            dtrans::SOAToAOSArrayMethodsTransformDebug())        // INTEL
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())

@@ -1,11 +1,16 @@
-; RUN: opt < %s -whole-program-assume \
-; RUN:                -disable-output \
+; RUN: opt < %s -whole-program-assume -disable-output                                                       \
 ; RUN: -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)' \
-; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4  \
-; RUN:        -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays          \
-; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2  \
-; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3    \
+; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
+; RUN:        -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays                                            \
+; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
+; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
 ; RUN:        2>&1 | FileCheck %s
+; RUN: opt -S < %s -whole-program-assume                                                                    \
+; RUN:        -passes=soatoaos-arrays-methods-transform                                                     \
+; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
+; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
+; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
+; RUN:        | FileCheck --check-prefix=CHECK-MOD %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -15,6 +20,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %class.DatatypeValidator = type opaque
 %class.ValueVectorOf = type { i8, i32, i32, %class.DatatypeValidator**, %class.XMLMsgLoader* }
 %class.XMLException = type { i32 (...)**, i32, i8*, i32, i16*, %class.XMLMsgLoader* }
+; CHECK-MOD: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
+; CHECK-MOD: %__SOA_EL_class.ValueVectorOf = type { float*, %class.DatatypeValidator* }
 
 @"typeinfo for ArrayIndexOutOfBoundsException" = external constant { i8*, i8*, i8* }
 @.str.1.2092 = external constant [31 x i8]
@@ -31,6 +38,7 @@ declare void @"ArrayIndexOutOfBoundsException::ArrayIndexOutOfBoundsException(ch
 
 ; The following method should be classified as get-like method.
 ; Instructions to transform are shown.
+; Transformed instructions are shown.
 ;  template <class TElem>
 ;  TElem &ValueVectorOf<TElem>::elementAt(const unsigned int getAt) {
 ;    if (getAt >= fCurCount)
@@ -66,14 +74,19 @@ lpad:                                             ; preds = %if.then
   resume { i8*, i32 } %tmp3
 
 if.end:                                           ; preds = %entry
+; CHECK-MOD:  %fElemList = getelementptr inbounds %__SOA_class.ValueVectorOf, %__SOA_class.ValueVectorOf* %this, i64 0, i32 3
   %fElemList = getelementptr inbounds %class.ValueVectorOf, %class.ValueVectorOf* %this, i64 0, i32 3
 ; CHECK:     ; BasePtrInst: Load of base pointer
 ; CHECK-NEXT:  %tmp4 = load %class.DatatypeValidator**, %class.DatatypeValidator*** %fElemList
+; CHECK-MOD:   %tmp4 = load %__SOA_EL_class.ValueVectorOf*, %__SOA_EL_class.ValueVectorOf** %fElemList
   %tmp4 = load %class.DatatypeValidator**, %class.DatatypeValidator*** %fElemList
   %idxprom = zext i32 %getAt to i64
 ; CHECK:     ; MemInstGEP: Address in ret
 ; CHECK-NEXT:  %arrayidx = getelementptr inbounds %class.DatatypeValidator*, %class.DatatypeValidator** %tmp4, i64 %idxprom
+; CHECK-MOD:   %arrayidx = getelementptr inbounds %__SOA_EL_class.ValueVectorOf, %__SOA_EL_class.ValueVectorOf* %tmp4, i64 %idxprom
   %arrayidx = getelementptr inbounds %class.DatatypeValidator*, %class.DatatypeValidator** %tmp4, i64 %idxprom
+; CHECK-MOD-NEXT:  %elem = getelementptr inbounds %__SOA_EL_class.ValueVectorOf, %__SOA_EL_class.ValueVectorOf* %arrayidx, i64 0, i32 1
+; CHECK-MOD-NEXT:  ret %class.DatatypeValidator** %elem
   ret %class.DatatypeValidator** %arrayidx
 }
 

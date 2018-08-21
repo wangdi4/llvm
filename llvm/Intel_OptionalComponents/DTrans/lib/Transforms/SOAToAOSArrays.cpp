@@ -19,6 +19,7 @@
 #include "SOAToAOSArrays.h"
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 
 #include "llvm/IR/InstIterator.h"
@@ -123,6 +124,141 @@ SOAToAOSMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
   });
   return Ignore(Result.release());
 }
+
+namespace {
+class SOAArrayMethodReplacement : public DTransOptBase {
+public:
+  SOAArrayMethodReplacement(
+      DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
+      const TargetLibraryInfo &TLI, const SummaryForIdiom &S,
+      const SOAToAOSMethodsCheckDebugResult &InstsToTransform,
+      StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
+      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+        S(S), InstsToTransform(InstsToTransform) {}
+
+  bool prepareTypes(Module &M) override {
+    LLVMContext &Context = M.getContext();
+
+    NewArray = StructType::create(
+        Context, (Twine(DepTypePrefix) + S.ArrType->getName()).str());
+    NewElement = StructType::create(
+        Context, (Twine(DepTypePrefix) + "EL_" + S.ArrType->getName()).str());
+
+    TypeRemapper->addTypeMapping(S.ArrType, NewArray);
+    return true;
+  }
+
+  void populateTypes(Module &M) override {
+    PFloat = PointerType::get(Type::getFloatTy(Context), 0);
+
+    // S.ElementType is pointer type too.
+    // For testing purposes assume that the second element type is simply
+    // float*.
+    NewElement->setBody(PFloat, S.ElementType);
+
+    SmallVector<Type *, 6> DataTypes;
+    for (auto *T : S.ArrType->elements()) {
+      if (auto *PT = dyn_cast<PointerType>(T))
+        if (PT->getElementType() == S.ElementType) {
+          // Replace base pointer
+          DataTypes.push_back(NewElement->getPointerTo(0));
+          continue;
+        }
+      DataTypes.push_back(T);
+    }
+    NewArray->setBody(DataTypes, S.ArrType->isPacked());
+  }
+
+  void postprocessFunction(Function &OrigFunc, bool isCloned) override {
+    // InstsToTransform contains all needed information.
+    // New instructions after cloning is obtained using VMap.
+    if (!isCloned)
+      return;
+
+    ArrayMethodTransformation AMT(DL, DTInfo, TLI, VMap, InstsToTransform,
+                                  Context);
+
+    bool CopyElemInsts = InstsToTransform.MK == MK_Realloc ||
+                         InstsToTransform.MK == MK_Ctor ||
+                         InstsToTransform.MK == MK_CCtor;
+
+    DenseMap<Instruction *, Instruction *> OrigToCopy;
+
+    AMT.updateBasePointerInsts(CopyElemInsts, 2, NewElement->getPointerTo(0));
+    if (CopyElemInsts) {
+      AMT.rawCopyAndRelink(OrigToCopy, true, 2);
+      AMT.gepRAUW(true, OrigToCopy, 0, NewElement->getPointerTo(0));
+    }
+    // Original instructions from cloned function should be replaced as a last
+    // step to keep OrigToCopy valid.
+    AMT.gepRAUW(false, OrigToCopy, 1, NewElement->getPointerTo(0));
+  }
+
+private:
+  const SummaryForIdiom &S;
+  const SOAToAOSMethodsCheckDebugResult &InstsToTransform;
+
+  StructType *NewElement = nullptr;
+  StructType *NewArray = nullptr;
+
+  // Cached types for transformation.
+  // NewElement*
+  PointerType *PNewElement = nullptr;
+  // float*
+  PointerType *PFloat = nullptr;
+};
+} // namespace
+
+PreservedAnalyses
+SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
+
+  // It should be lit-test with single defined function at this point.
+  Function *MethodToTest = nullptr;
+  for (auto &F : M)
+    if (!F.isDeclaration()) {
+      if (!MethodToTest)
+        MethodToTest = &F;
+      else
+        // TODO: add diagnostic.
+        return PreservedAnalyses::all();
+    }
+
+  // TODO: add diagnostic.
+  if (!MethodToTest)
+    return PreservedAnalyses::all();
+
+  SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(*MethodToTest);
+  // TODO: add diagnostic.
+  if (!S.ArrType)
+    return PreservedAnalyses::all();
+
+  auto &DTInfo = AM.getResult<DTransAnalysis>(M);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  // SOAToAOSMethodsCheckDebug uses SOAToAOSApproximationDebug internally.
+  FAM.getResult<SOAToAOSApproximationDebug>(*MethodToTest);
+  auto &InstsToTransformPtr =
+      FAM.getResult<SOAToAOSMethodsCheckDebug>(*MethodToTest);
+
+  // TODO: add diagnostic.
+  if (InstsToTransformPtr.get()->MK == MK_Unknown)
+    return PreservedAnalyses::all();
+
+  DTransTypeRemapper TypeRemapper;
+
+  SOAArrayMethodReplacement Transformer(
+      DTInfo, M.getContext(), M.getDataLayout(), TLI, S,
+      *InstsToTransformPtr.get(), "__SOA_", &TypeRemapper);
+
+  bool Changed = Transformer.run(M);
+  if (!Changed)
+    return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();
+  return PA;
+}
+
 } // namespace dtrans
 } // namespace llvm
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

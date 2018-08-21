@@ -211,9 +211,11 @@ bool DTransOptBase::run(Module &M) {
   // problems introduced while the transformations are being developed. This
   // code may be removed later after DTrans is stable. verifyModule returns
   // 'true' if errors are found.
-  if (verifyModule(M))
+  if (verifyModule(M, &dbgs())) {
+    LLVM_DEBUG(dbgs() << M);
     report_fatal_error(
-      "Module verifier found errors following a DTrans optimization");
+        "Module verifier found errors following a DTrans optimization");
+  }
 #endif // !defined(NDEBUG)
 
   return true;

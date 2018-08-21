@@ -89,6 +89,13 @@ public:
 
   Result run(Function &F, FunctionAnalysisManager &AM);
 };
+
+// This class is used for testing transformations of arrays' methods.
+class SOAToAOSArrayMethodsTransformDebug
+    : public PassInfoMixin<SOAToAOSArrayMethodsTransformDebug> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+};
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace dtrans
 

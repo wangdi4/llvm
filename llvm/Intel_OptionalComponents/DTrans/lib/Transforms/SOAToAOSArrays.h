@@ -22,7 +22,9 @@
 
 #include "SOAToAOSEffects.h"
 
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -1204,6 +1206,311 @@ public:
     }
   };
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+};
+
+class ArrayMethodTransformation {
+public:
+  ArrayMethodTransformation(
+      const DataLayout &DL, DTransAnalysisInfo &DTInfo,
+      const TargetLibraryInfo &TLI, ValueToValueMapTy &VMap,
+      const ComputeArrayMethodClassification::TransformationData
+          &InstsToTransform,
+      LLVMContext &Context)
+      : DL(DL), DTInfo(DTInfo), TLI(TLI), VMap(VMap),
+        InstsToTransform(InstsToTransform), Context(Context) {}
+
+
+  using OrigToCopyTy = DenseMap<Instruction *, Instruction *>;
+
+  // Update instructions related to base pointer manipulations.
+  // There are several kind of instructions:
+  //  - load of base pointer;
+  //  - store of pointer allocated to base pointer field;
+  //  - zero initialization of base pointer;
+  //  - memory allocation for array.
+  //
+  // isSafeBitCast-idiom is processed for loads and stores.
+  void updateBasePointerInsts(bool IsCombined, int NumArrays,
+                              PointerType *NewBaseType) {
+    IRBuilder<> Builder(Context);
+    auto *PNewBaseType = PointerType::get(NewBaseType, 0);
+
+    auto &LDL = DL;
+    auto GetGEP = [&LDL](Value *V, bool &BC) -> GetElementPtrInst * {
+      BC = false;
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
+        return GEP;
+      if (isSafeBitCast(LDL, V)) {
+        BC = true;
+        return cast<GetElementPtrInst>(cast<BitCastInst>(V)->getOperand(0));
+      }
+      llvm_unreachable("Check DepCompute/ComputeArrayMethodClassification for "
+                       "counter peep-hole analysis");
+    };
+
+    for (auto *I : InstsToTransform.BasePtrInst) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base = laad %pelem*, %pelem** %base_off
+        //
+        // Special base with safe bitcast (to pass to deallocation function):
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %i8ptr = bitcast %pelem** %base_off to i8**
+        // %i8base = load i8*, i8** %i8ptr
+        bool BC = false;
+        auto *Addr = GetGEP(NewLoad->getPointerOperand(), BC);
+        Addr->mutateType(PNewBaseType);
+        Addr->setResultElementType(NewBaseType);
+        // No need to make type consistent if load has non-specific type.
+        if (!BC)
+          NewLoad->mutateType(NewBaseType);
+      } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
+        // Zero initialization of base pointer:
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // store %pelem* null, %pelem** %base_off
+        //
+        // Store of pointer to newly allocated memory to base pointer
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %new_mem  = bitbast %i8 %alloc to %pelem*
+        // store %pelem* %newmem, %pelem** %base_off
+        bool BC = false;
+        auto *Addr = GetGEP(NewStore->getPointerOperand(), BC);
+        Addr->mutateType(PNewBaseType);
+        Addr->setResultElementType(NewBaseType);
+        // No need to make type consistent if load has non-specific type.
+        if (!BC) {
+          auto *Val = NewStore->getValueOperand();
+          if (auto *C = dyn_cast<Constant>(Val)) {
+            assert(C->isZeroValue() && "Incorrect analysis");
+            NewStore->replaceUsesOfWith(C,
+                                        ConstantPointerNull::get(NewBaseType));
+          } else
+            Val->mutateType(NewBaseType);
+        }
+      } else if (auto CS = CallSite(NewI)) {
+        auto *Info = DTInfo.getCallInfo(NewI);
+        assert(Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc &&
+               "Incorrect analysis");
+
+        assert(IsCombined && "Incorrect analysis");
+        unsigned S1 = -1U;
+        unsigned S2 = -1U;
+        getAllocSizeArgs(cast<AllocCallInfo>(Info)->getAllocKind(), CS, S1, S2,
+                         TLI);
+        assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
+        auto *OldSize = S1 == -1U ? CS.getArgument(S2) : CS.getArgument(S1);
+        Builder.SetInsertPoint(NewI);
+        // Allocation size is multiplied by NumArrays to reserve sufficient
+        // space in AOS.
+        auto *NewSize = Builder.CreateTruncOrBitCast(
+            Builder.CreateNUWMul(
+                Builder.CreateZExtOrBitCast(OldSize, Builder.getIntPtrTy(DL, 0),
+                                            "nsz"),
+                ConstantInt::get(Builder.getIntPtrTy(DL, 0), NumArrays), "nsz"),
+            OldSize->getType(), "nsz");
+        CS.getInstruction()->replaceUsesOfWith(OldSize, NewSize);
+      } else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
+  }
+
+  // Copy and link def-use chains of instructions related to element accesses
+  // in combined methods.
+  //
+  // ElementPtrGEP and ElementInstToTransform are processed.
+  // TODO: process ElementFromArg
+  //
+  // ElementPtrGEP: addresses of loads/stores are processed (GEPs and PHIs).
+  // ElementInstToTransform: loads/stores/memsets.
+  //  - memset is not duplicated (UniqueInsts specified the moment of
+  //  transformation), but size argument is multiplied.
+  //  - addresses of loads/stores may be adjusted from ElementPtrGEP with
+  //  safe bitcast (see checkElementAccess).
+  //
+  // In checkElementAccess the following sequences are permitted:
+  // %base = load %pelem*, %pelem** %base_off
+  // %base1 = load %pelem*, %pelem** %base_off1
+  // %arrayidx = getelementptr inbounds %pelem, %pelem* %base, i64 %iv
+  // %arrayidx1 = getelementptr inbounds %pelem, %pelem* %base1, i64 %iv1
+  // %tmp = bitcast %pelem* %arrayidx to i64*    <== safe bitcast
+  // %tmp1 = bitcast %pelem* %arrayidx1 to i64*  <== safe bitcast
+  // %val = load i64, i64* %tmp1
+  // store i64 %tmp12, i64* %tmp
+  void rawCopyAndRelink(OrigToCopyTy &OrigToCopy, bool UniqueInsts,
+                        unsigned NumArrays) {
+    IRBuilder<> Builder(Context);
+
+    auto ProcessSafeBitCast = [&](const Value *Old,
+                                  BitCastInst *NewBC) -> void {
+      assert(isSafeBitCast(DL, Old) && "Some peephole idiom is not processed");
+      assert(isa<GetElementPtrInst>(NewBC->getOperand(0)) &&
+             "Some peephole idiom is not processed");
+      auto It = OrigToCopy.find(NewBC);
+      if (It == OrigToCopy.end()) {
+        Builder.SetInsertPoint(NewBC);
+        auto *CopyBC = cast<Instruction>(Builder.CreateBitCast(
+            // Assumed all pointer types have same alignment.
+            NewBC->getOperand(0), NewBC->getType(), "copy"));
+        OrigToCopy[NewBC] = CopyBC;
+      }
+    };
+
+    // TODO: Loads from args and direct access to args should be added for
+    // append-like methods.
+
+    for (auto *I : InstsToTransform.ElementInstToTransform) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
+        auto *NewPtr = cast<Instruction>(NewLoad->getPointerOperand());
+        Builder.SetInsertPoint(NewLoad);
+        auto *CopyLoad = Builder.CreateAlignedLoad(
+            // Assumed all pointer types have same alignment.
+            NewPtr, NewLoad->getAlignment(), false, "copy");
+        OrigToCopy[NewLoad] = CopyLoad;
+        if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))
+          ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
+        else {
+          assert(isa<GetElementPtrInst>(NewPtr) &&
+                 "Some peephole idiom is not processed");
+          CopyLoad->mutateType(PointerType::get(Type::getFloatTy(Context), 0));
+        }
+      } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
+        Builder.SetInsertPoint(NewStore);
+        auto *NewPtr = cast<Instruction>(NewStore->getPointerOperand());
+        auto *CopyStore = Builder.CreateAlignedStore(
+            NewStore->getValueOperand(), NewPtr,
+            // Assumed all pointer types have same alignment.
+            NewStore->getAlignment(), false);
+        OrigToCopy[NewStore] = CopyStore;
+
+        if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))
+          ProcessSafeBitCast(cast<StoreInst>(I)->getPointerOperand(), NewBC);
+        else
+          assert(isa<GetElementPtrInst>(NewPtr) &&
+                 "Some peephole idiom is not processed");
+      } else if (auto MS = dyn_cast<MemSetInst>(NewI)) {
+        if (!UniqueInsts)
+          continue;
+
+        Builder.SetInsertPoint(MS);
+        auto *OldSize = MS->getLength();
+        auto *NewSize = Builder.CreateTruncOrBitCast(
+            Builder.CreateNUWMul(
+                Builder.CreateZExtOrBitCast(OldSize, Builder.getIntPtrTy(DL, 0),
+                                            "nsz"),
+                ConstantInt::get(Builder.getIntPtrTy(DL, 0), NumArrays), "nsz"),
+            OldSize->getType(), "nsz");
+        MS->replaceUsesOfWith(OldSize, NewSize);
+      } else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
+
+    // Relink copies.
+    for (auto P : OrigToCopy) {
+      auto *NewI = P.first;
+      auto *CopyI = P.second;
+      if (auto *CopyLoad = dyn_cast<LoadInst>(CopyI)) {
+        auto It =
+            OrigToCopy.find(cast<Instruction>(CopyLoad->getPointerOperand()));
+        if (It != OrigToCopy.end())
+          CopyLoad->setOperand(0, It->second);
+      } else if (auto *CopyStore = dyn_cast<StoreInst>(CopyI)) {
+        auto It =
+            OrigToCopy.find(cast<Instruction>(CopyStore->getPointerOperand()));
+        if (It != OrigToCopy.end())
+          CopyStore->setOperand(1, It->second);
+        if (auto *CopyVal =
+                dyn_cast<Instruction>(CopyStore->getValueOperand())) {
+          auto It = OrigToCopy.find(CopyVal);
+          if (It != OrigToCopy.end())
+            CopyStore->setOperand(0, It->second);
+        }
+      } else if (auto *CopyBC = dyn_cast<BitCastInst>(CopyI)) {
+        auto It = OrigToCopy.find(cast<Instruction>(CopyBC->getOperand(0)));
+        if (It != OrigToCopy.end())
+          CopyBC->setOperand(0, It->second);
+      } else if (isa<MemSetInst>(NewI))
+        continue;
+      else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
+  }
+
+  // Updating GEPs, whose base pointer is result of allocation or load from
+  // base pointer. Coupled with checkElementAccess.
+  //
+  // Uses outside SCC should be updated.
+  //
+  // From:
+  //  %base = load %pelem*, %pelem** %base_off
+  //  %arrayidx = getelementptr inbounds %pelem, %pelem* %base, i64 %iv
+  //  %arrayidx1 = getelementptr inbounds %pelem, %pelem* %arrayidx, i64 %iv1
+  //  load %pelem, %pelem* %arrayidx1
+  // To:
+  //  %base = load %new_elem**, %new_elem*** %base_off
+  //  %arrayidx = getelementptr inbounds %new_elem*, %pelem* %base, i64 %iv
+  //  %arrayidx1 = getelementptr inbounds %new_elem*, %pelem* %arrayidx,
+  //              i64 %iv1, 0
+  //  load %pelem, %pelem* %arrayidx1
+  void gepRAUW(bool Copy, const OrigToCopyTy &OrigToCopy, unsigned Offset,
+               PointerType *NewBaseType) {
+    IRBuilder<> Builder(Context);
+
+    auto &ElementPtrGEP = InstsToTransform.ElementPtrGEP;
+    for (auto *I : ElementPtrGEP) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *NewGEP = dyn_cast<GetElementPtrInst>(NewI)) {
+        NewGEP->mutateType(NewBaseType);
+        NewGEP->getPointerOperand()->mutateType(NewBaseType);
+        NewGEP->setResultElementType(NewBaseType->getPointerElementType());
+        NewGEP->setSourceElementType(NewBaseType->getPointerElementType());
+      } else if (auto *NewPHI = dyn_cast<PHINode>(NewI)) {
+        NewPHI->mutateType(NewBaseType);
+      } else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
+
+    for (auto *I : ElementPtrGEP) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      Value *ReplGEP = nullptr;
+      for (auto &U : I->uses()) {
+        if (ElementPtrGEP.count(cast<Instruction>(U.getUser())))
+          continue;
+        assert(!isa<PHINode>(U.getUser()) &&
+               "PHINode should be element of ElementPtrGEP");
+
+        auto *NewU = cast<Instruction>((Value *)VMap[U.getUser()]);
+
+        if (Copy)
+          NewU = cast<Instruction>(OrigToCopy.find(NewU)->second);
+
+        if (!ReplGEP) {
+          assert(NewI->getParent()->getTerminator() != NewI &&
+                 "Unexpected use of for element access");
+          Builder.SetInsertPoint(
+              isa<PHINode>(NewI) ? &*NewI->getParent()->getFirstInsertionPt()
+                                 : NewI->getNextNonDebugInstruction());
+
+          Value *Idx[] = {
+              ConstantInt::get(Context, APInt(DL.getPointerSizeInBits(0), 0)),
+              ConstantInt::get(Context, APInt(32, Offset))};
+
+          ReplGEP =
+              Builder.CreateInBoundsGEP(NewI, ArrayRef<Value *>(Idx), "elem");
+        }
+        NewU->replaceUsesOfWith(NewI, ReplGEP);
+      }
+    }
+  }
+
+private:
+  const DataLayout &DL;
+  DTransAnalysisInfo &DTInfo;
+  const TargetLibraryInfo &TLI;
+  ValueToValueMapTy &VMap;
+  const ComputeArrayMethodClassification::TransformationData &InstsToTransform;
+  LLVMContext &Context;
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
