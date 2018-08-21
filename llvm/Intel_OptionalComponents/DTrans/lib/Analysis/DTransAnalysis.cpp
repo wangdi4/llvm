@@ -657,6 +657,21 @@ public:
     return true;
   }
 
+  bool isPtrToCharArray() {
+    llvm::Type *DomTy = getDominantAggregateTy();
+    if (!DomTy)
+      return false;
+    if (!DomTy->isPointerTy())
+      return false;
+    if (auto *ArrayTy = dyn_cast<ArrayType>(DomTy->getPointerElementType())) {
+      llvm::Type *Int8Ty = llvm::Type::getIntNTy(DomTy->getContext(), 8);
+      if (ArrayTy->getArrayElementType() == Int8Ty) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
@@ -2062,7 +2077,6 @@ private:
 
     // Get the last index argument. If we can't determine its value,
     // we can't handle this GEP.
-    // FIXME: Handle arrays with non-constant indices.
     if (auto *LastArg =
             dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1))) {
       uint64_t Idx = LastArg->getLimitedValue();
@@ -2071,12 +2085,22 @@ private:
       return;
     }
 
-    // If the last argument is not constant and out-of-bound flag is false then
-    // it is safe to have non-constant array access. Use 0 index for Pointee
-    // set.
-    if (!DTransOutOfBoundsOK && IndexedTy->isArrayTy()) {
-      Info.addElementPointee(IndexedTy, 0);
+    if (auto *ArrayTy = dyn_cast<ArrayType>(IndexedTy)) {
+      // Accessing variable length array elements is always 'out-of-bounds'.
+      if (ArrayTy->getNumElements() == 0) {
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                        dbgs() << "Zero-sized array access detected "
+                               << *GEP << "\n");
+        return;
+      }
+
+      // If the last argument is not constant and out-of-bound flag is false
+      // then it is safe to have non-constant array access. Use 0 index for
+      // Pointee set.
+      if (!DTransOutOfBoundsOK)
+        Info.addElementPointee(IndexedTy, 0);
     }
+
     return;
   }
 
@@ -2941,12 +2965,16 @@ public:
       // Selects and PHIs may have created a pointer that refers to
       // elements in multiple aggregate types. This sets the field
       // address taken condition for them all.
-      for (auto &PointeePair : LPI.getElementPointeeSet()) {
-        setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
+      for (auto PointeePair : LPI.getElementPointeeSet()) {
+        auto Res = getParentStructType(PointeePair, Arg);
         dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-          ParentStInfo->getField(PointeePair.second).setAddressTaken();
+                              DTInfo.getOrCreateTypeInfo(Res.first);
+        size_t Idx = Res.second;
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+          ParentStInfo->getField(Idx).setAddressTaken();
+          setBaseTypeInfoSafetyData(Res.first,
+                                    dtrans::FieldAddressTaken);
+        }
       }
     }
 
@@ -3390,6 +3418,38 @@ public:
     }
   }
 
+  std::pair<llvm::Type *, size_t>
+  getParentStructType(std::pair<llvm::Type *, size_t> &PointeePair,
+                      Value *ValOp) {
+    llvm::Type *ParentTy  = PointeePair.first;
+    unsigned Idx = PointeePair.second;
+    if (PointeePair.first->isArrayTy() && PointeePair.second == 0) {
+      // Storing the address of zero array element is the same as saving
+      // array address. So find a structure type containing the array.
+      if (auto *GEP = dyn_cast<GEPOperator>(ValOp)) {
+        if (GEP->getNumIndices() <= 2) {
+          if (auto *LastArg = dyn_cast<ConstantInt>(
+                  GEP->getOperand(GEP->getNumOperands() - 1))) {
+            Idx = LastArg->getLimitedValue();
+            ParentTy = GEP->getSourceElementType();
+          }
+        } else {
+          SmallVector<Value *, 4> Ops(GEP->idx_begin(), GEP->idx_end() - 2);
+          Type *IndexedTy = GetElementPtrInst::getIndexedType(
+              GEP->getSourceElementType(), Ops);
+          if (IndexedTy) {
+            if (auto *LastArg = dyn_cast<ConstantInt>(
+                    GEP->getOperand(GEP->getNumOperands() - 2))) {
+              Idx = LastArg->getLimitedValue();
+              ParentTy = IndexedTy;
+            }
+          }
+        }
+      }
+    }
+    return std::make_pair(ParentTy, Idx);
+  }
+
   void visitStoreInst(StoreInst &I) {
     // Store instructions that write individual fields of a struct or array
     // are handled by following the address obtained via GetElementPtr.
@@ -3443,15 +3503,18 @@ public:
     if (ValLPI.pointsToSomeElement()) {
       auto ValPointees = ValLPI.getElementPointeeSet();
       for (auto PointeePair : ValPointees) {
+        auto Res = getParentStructType(PointeePair, ValOperand);
         dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
-                          << "  " << *(ParentTI->getLLVMType()) << " @ "
-                          << PointeePair.second << "\n"
-                          << "  " << I << "\n");
-        ParentTI->setSafetyData(dtrans::FieldAddressTaken);
-        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-          ParentStInfo->getField(PointeePair.second).setAddressTaken();
+            DTInfo.getOrCreateTypeInfo(Res.first);
+        size_t Idx = Res.second;
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
+                            << "  " << *(ParentTI->getLLVMType()) << " @ "
+                            << Idx << "\n"
+                            << "  " << I << "\n");
+          ParentTI->setSafetyData(dtrans::FieldAddressTaken);
+          ParentStInfo->getField(Idx).setAddressTaken();
+        }
       }
     }
 
@@ -3532,6 +3595,18 @@ public:
     if (!isValueOfInterest(Src))
       return;
 
+    // Since the GEP collapsing optimizations were turned off for DTrans, it is
+    // possible to see a GEP chain which calculates final address. For safety
+    // checks we need the condition to be set for all levels of nested
+    // structures containing current address.
+    GetElementPtrInst *GEPI = nullptr;
+    if (GetElementPtrInst *CurrInst = dyn_cast<GetElementPtrInst>(Src)) {
+      while (auto *PrevGEP =
+                 dyn_cast<GetElementPtrInst>(CurrInst->getPointerOperand()))
+        CurrInst = PrevGEP;
+      GEPI = CurrInst;
+    }
+
     // If a GetElementPtr instruction is used for a pointer, which aliases
     // multiple aggregate types, we need to set safety data for each of the
     // types. This may be the result of a union, but it may also be the
@@ -3542,6 +3617,13 @@ public:
                         << "  " << I << "\n");
       LLVM_DEBUG(SrcLPI.dump());
       setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousGEP);
+      // We set safety data on the first GEP. It will be naturally promoted to
+      // subtypes.
+      if (GEPI) {
+        LocalPointerInfo &DeepestLPI =
+            LPA.getLocalPointerInfo(GEPI->getPointerOperand());
+        setAllAliasedTypeSafetyData(DeepestLPI, dtrans::AmbiguousGEP);
+      }
     }
 
     // If the local pointer analysis did not conclude that this value
@@ -3557,10 +3639,19 @@ public:
       // and we should have been able to figure out the field being accessed.
       // Otherwise, a single index element indicates a pointer is being treated
       // as an array.
-      if ((isInt8Ptr(Src) && !SrcLPI.isPtrToPtr()) || I.getNumIndices() != 1) {
+      if ((isInt8Ptr(Src) &&
+           !(SrcLPI.isPtrToPtr() || SrcLPI.isPtrToCharArray())) ||
+          I.getNumIndices() != 1) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                           << "  " << I << "\n");
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation);
+        // We set safety data on the first GEP. It will be naturally promoted to
+        // subtypes.
+        if (GEPI) {
+          LocalPointerInfo &DeepestLPI =
+              LPA.getLocalPointerInfo(GEPI->getPointerOperand());
+          setAllAliasedTypeSafetyData(DeepestLPI, dtrans::BadPtrManipulation);
+        }
       }
     } else {
       auto &PointeeSet = GEPLPI.getElementPointeeSet();
@@ -3703,14 +3794,18 @@ public:
     // field access tracking.
     if (LPI.pointsToSomeElement()) {
       for (auto PointeePair : LPI.getElementPointeeSet()) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
-                          << "Address of a field is returned by function: "
-                          << I.getParent()->getParent()->getName() << "\n");
-        setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken);
+        auto Res = getParentStructType(PointeePair, RetVal);
         dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-          ParentStInfo->getField(PointeePair.second).setAddressTaken();
+                              DTInfo.getOrCreateTypeInfo(Res.first);
+        size_t Idx = Res.second;
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+                            << "Address of a field is returned by function: "
+                            << I.getParent()->getParent()->getName() << "\n");
+          setBaseTypeInfoSafetyData(Res.first,
+                                    dtrans::FieldAddressTaken);
+          ParentStInfo->getField(Idx).setAddressTaken();
+        }
       }
     }
   }
@@ -3835,32 +3930,8 @@ public:
     assert(M.isMaterialized());
 
     // Analyze the structure types declared in the module.
-    for (StructType *Ty : M.getIdentifiedStructTypes()) {
-      // This is a rather brittle workaround for the problem of types being
-      // uniqued during linking. When function bitcasts are handled that will
-      // be a better way of detecting the problem this is meant to fix.
-      // This is here rather than in analyzeStructureType() because it requires
-      // the Module and it should be temporary code so adding the Module as
-      // an argument seemed like overkill.
-      if (Ty->hasName()) {
-        StringRef TyName = Ty->getName();
-        StringRef BaseName = TyName.rtrim(".0123456789");
-        if (!TyName.equals(BaseName)) {
-          StructType *BaseTy = M.getTypeByName(BaseName);
-          if (BaseTy) {
-            LLVM_DEBUG(dbgs()
-                       << "dtrans-safety: Unhandled use -- aliased struct\n  "
-                       << TyName << " -> " << BaseName << "\n");
-            dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty);
-            TI->setSafetyData(dtrans::UnhandledUse);
-            dtrans::TypeInfo *BaseTI = DTInfo.getOrCreateTypeInfo(BaseTy);
-            BaseTI->setSafetyData(dtrans::UnhandledUse);
-          }
-        }
-      }
-      // Add this to type info list.
+    for (StructType *Ty : M.getIdentifiedStructTypes())
       (void)DTInfo.getOrCreateTypeInfo(Ty);
-    }
 
     // Before visiting each Function, ensure that the types of all of the
     // Function arguments which are Types of interest are in the
