@@ -1090,18 +1090,26 @@ bool HLLoop::isTriangularLoop() const {
 }
 
 void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
-                                       StringRef *RemoveID) {
+                                       StringRef RemoveID) {
+  assert((MDs.empty() || RemoveID.empty()) &&
+         "Simultaneous addition and removal not expected!");
+
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
 
   // Reserve space for the unique identifier
   SmallVector<Metadata *, 4> NewMDs(1);
 
+  bool IsAddition = !MDs.empty();
+  bool FoundRemoveID = false;
+
   MDNode *ExistingLoopMD = getLoopMetadata();
+
   if (ExistingLoopMD) {
     // TODO: add tests for this part of code after enabling generation of HIR
     // for loops with pragmas.
     for (unsigned I = 1, E = ExistingLoopMD->getNumOperands(); I < E; ++I) {
       Metadata *RawMD = ExistingLoopMD->getOperand(I);
+
       MDNode *MD = dyn_cast<MDNode>(RawMD);
       if (!MD || MD->getNumOperands() == 0) {
         // Unconditionally copy unknown metadata.
@@ -1111,12 +1119,17 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 
       const MDString *Id = dyn_cast<MDString>(MD->getOperand(0));
 
-      // Do not handle non-string identifiers. Unconditionally copy metadata.
-      if (Id) {
-        StringRef IdRef = Id->getString();
+      if (!Id) {
+        // Do not handle non-string identifiers. Unconditionally copy metadata.
+        NewMDs.push_back(MD);
+        continue;
+      }
 
+      StringRef IdRef = Id->getString();
+
+      if (IsAddition) {
         // Check if the metadata will be redefined by the new one.
-        bool DoRedefine =
+        bool IsRedefined =
             std::any_of(MDs.begin(), MDs.end(), [IdRef](MDNode *NewMD) {
               const MDString *NewId = dyn_cast<MDString>(NewMD->getOperand(0));
               assert(NewId && "Added metadata should contain string "
@@ -1130,20 +1143,23 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
             });
 
         // Do not copy redefined metadata.
-        if (DoRedefine) {
+        if (IsRedefined) {
           continue;
         }
 
-        bool DoRemove = RemoveID && IdRef.startswith(*RemoveID);
-
-        // Do not copy removed metadata.
-        if (DoRemove) {
-          continue;
-        }
+      } else if (IdRef.equals(RemoveID)) {
+        FoundRemoveID = true;
+        continue;
       }
 
       NewMDs.push_back(MD);
     }
+  }
+
+  // We were in removal node and did not find RemoveID so there is nothing to
+  // do.
+  if (!IsAddition && !FoundRemoveID) {
+    return;
   }
 
   NewMDs.append(MDs.begin(), MDs.end());

@@ -196,7 +196,7 @@ protected:
 
   void printDirectives(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
+  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef RemoveID);
 
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
@@ -748,11 +748,11 @@ public:
   ///
   /// The MDNode should have the format !{!"string-identifier", Args...}
   void addLoopMetadata(ArrayRef<MDNode *> MDs) {
-    addRemoveLoopMetadataImpl(MDs, nullptr);
+    addRemoveLoopMetadataImpl(MDs, "");
   }
 
   /// Remove !llvm.loop metadata that starts with \p ID.
-  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, &ID); }
+  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, ID); }
 
   /// Returns loop metadata corresponding to \p Name. Returns null if not found.
   MDNode *getLoopStringMetadata(StringRef Name) const;
