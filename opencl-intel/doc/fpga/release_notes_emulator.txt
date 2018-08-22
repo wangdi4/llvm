@@ -42,14 +42,14 @@ available:
     Profile             : EMBEDDED_PROFILE
     Version             : OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 18.1
     Name                : Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)
-    Vendor              : Intel Corporation
+    Vendor              : Intel(R) Corporation
     Devices             : 1
     Device [#1]         :
         Type            : accelerator
         Profile         : EMBEDDED_PROFILE
         Version         : OpenCL 1.0
         Name            : Intel(R) FPGA Emulation Device (preview)
-        Vendor          : Intel Corporation
+        Vendor          : Intel(R) Corporation
         C version       : OpenCL C 1.0
         Driver version  : 18.1
 
