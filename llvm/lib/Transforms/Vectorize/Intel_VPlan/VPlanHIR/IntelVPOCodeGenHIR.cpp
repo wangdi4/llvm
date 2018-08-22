@@ -73,6 +73,18 @@ static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
   llvm_unreachable("Unhandled vector type");
 }
 
+static bool refIsUnit(unsigned Level, const RegDDRef *Ref, VPOCodeGenHIR *CG) {
+  if (!Ref->isMemRef())
+    return false;
+
+  bool IsNegStride;
+  if (!Ref->isUnitStride(Level, IsNegStride) || IsNegStride)
+    return false;
+
+  CG->addUnitStrideRef(Ref);
+  return true;
+}
+
 // This class implements code generation for a nested blob.
 class NestedBlobCG : public SCEVVisitor<NestedBlobCG, RegDDRef *> {
 private:
@@ -274,66 +286,6 @@ RegDDRef *NestedBlobCG::visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
   llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
 }
 
-bool VPOCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
-                                     int64_t *CoeffPtr) {
-  if (!Ref->isMemRef())
-    return false;
-
-  // Return false for cases where the lowest dimension has trailing struct
-  // field offsets.
-  if (Ref->hasTrailingStructOffsets(1))
-    return false;
-
-  const CanonExpr *FirstCE = *(Ref->canon_begin());
-
-  // Consider a[(i1 + 1) & 3], this is changed to a[zext.i2.i64(i1 + 1)] - we
-  // do not want to treat this reference as unit stride.
-  if (FirstCE->isSExt() || FirstCE->isZExt()) {
-    auto SrcTy = FirstCE->getSrcType();
-    auto DestTy = FirstCE->getDestType();
-
-    // Do not go conservative for the common case.
-    bool OK = false;
-    if (SrcTy->isIntegerTy(32) && DestTy->isIntegerTy(64)) {
-      // Check for simple sum of IVs
-      OK = true;
-      for (auto IV = FirstCE->iv_begin(), IVE = FirstCE->iv_end(); IV != IVE;
-           ++IV) {
-        int64_t Coeff;
-        unsigned BlobCoeff;
-        FirstCE->getIVCoeff(IV, &BlobCoeff, &Coeff);
-
-        if (Coeff == 0)
-          continue;
-
-        if (BlobCoeff != 0 || Coeff != 1) {
-          OK = false;
-          break;
-        }
-      }
-    }
-
-    if (!OK)
-      return false;
-  }
-
-  int64_t ConstStride;
-  if (!Ref->getConstStrideAtLevel(NestingLevel, &ConstStride))
-    return false;
-
-  if (!ConstStride)
-    return false;
-
-  // Compute stride in terms of number of elements
-  auto DL = Ref->getDDRefUtils().getDataLayout();
-  auto RefSizeInBytes = DL.getTypeSizeInBits(Ref->getDestType()) >> 3;
-  ConstStride /= RefSizeInBytes;
-  if (CoeffPtr)
-    *CoeffPtr = ConstStride;
-
-  return true;
-}
-
 namespace {
 // Check if a scev expression can possibly result in a divide by zero.
 class DivByZeroCheck {
@@ -371,6 +323,7 @@ private:
   bool NegativeIVCoeffSeen;
   bool FieldAccessSeen;
   unsigned LoopLevel;
+  VPOCodeGenHIR *CG;
 
   void visitRegDDRef(RegDDRef *RegDD);
   void visitCanonExpr(CanonExpr *CExpr, bool InMemRef, bool InMaskedStmt);
@@ -379,10 +332,11 @@ private:
   bool isUniform(const RegDDRef *Ref) const;
 
 public:
-  HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF)
+  HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF,
+               VPOCodeGenHIR *CG)
       : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VF(VF),
         UnitStrideRefSeen(false), MemRefSeen(false), NegativeIVCoeffSeen(false),
-        FieldAccessSeen(false) {
+        FieldAccessSeen(false), CG(CG) {
     LoopLevel = OrigLoop->getNestingLevel();
   }
 
@@ -396,7 +350,7 @@ public:
 
   void postVisit(HLNode *Node) {}
 
-  bool isDone() const { return (!IsHandled); }
+  bool isDone() const { return false; }
   bool isHandled() { return IsHandled; }
   bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
   bool getMemRefSeen() { return MemRefSeen; }
@@ -543,7 +497,6 @@ void HandledCheck::visit(HLDDNode *Node) {
 // visitRegDDRef - Visits RegDDRef to visit the Canon Exprs
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
-  int64_t IVConstCoeff;
 
   if (!VectorType::isValidElementType(RegDD->getSrcType()) ||
       !VectorType::isValidElementType(RegDD->getDestType())) {
@@ -555,8 +508,7 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
     return;
   }
 
-  if (VPOCodeGenHIR::isConstStrideRef(RegDD, LoopLevel, &IVConstCoeff) &&
-      IVConstCoeff == 1)
+  if (refIsUnit(LoopLevel, RegDD, CG))
     UnitStrideRefSeen = true;
 
   // Visit CanonExprs inside the RegDDRefs
@@ -684,7 +636,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
     setTripCount((uint64_t)ConstTripCount);
   }
 
-  HandledCheck NodeCheck(Loop, TLI, VF);
+  HandledCheck NodeCheck(Loop, TLI, VF, this);
   HLNodeUtils::visitRange(NodeCheck, Loop->child_begin(), Loop->child_end());
   if (!NodeCheck.isHandled())
     return false;
@@ -1117,31 +1069,6 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
   return SRA->isReductionRef(Ref, Opcode);
 }
 
-// FIXME: Temporal solution to check that index of the Ref will wrap.
-// This function has to be removed after proper DA.
-bool VPOCodeGenHIR::refIsUnit(const HLLoop *HLoop, const RegDDRef *Ref) {
-  unsigned NestingLevel = HLoop->getNestingLevel();
-  int64_t IVConstCoeff;
-  if (!isConstStrideRef(Ref, NestingLevel, &IVConstCoeff) || IVConstCoeff != 1)
-    return false;
-
-  for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    auto CE = *I;
-
-    if (CE->hasIV(NestingLevel) && CE->isZExt()) {
-      std::unique_ptr<CanonExpr> ClonedCE(CE->clone());
-      ClonedCE.get()->removeIV(NestingLevel);
-      int64_t Val;
-      // FIXME: Index can also wrap when Val + UB is huge for a given type of an
-      // index.
-      if (!ClonedCE->isIntConstant(&Val) || Val < 0 ||
-          !HLoop->isConstTripLoop())
-        return false;
-    }
-  }
-  return true;
-}
-
 RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
   RegDDRef *WideRef;
   auto RefDestTy = Ref->getDestType();
@@ -1227,7 +1154,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
   // For unit stride ref, nothing else to do
-  if (refIsUnit(OrigLoop, Ref))
+  if (isUnitStrideRef(Ref))
     return WideRef;
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
@@ -1424,12 +1351,8 @@ void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
     if (Args[I]->isAddressOf()) {
       AttrBuilder AttrList;
       int64_t ByteStride;
-      CanonExpr *CE = Args[I]->getStrideAtLevel(LoopLevel);
 
-      // TODO - Matt, please look into using
-      //    Args[I]->getConstStrideAtLevel(LoopLevel, &ByteStride)
-      // to avoid creation of a canon expression.
-      if (CE && CE->isLinearAtLevel() && CE->isIntConstant(&ByteStride)) {
+      if (Args[I]->getConstStrideAtLevel(LoopLevel, &ByteStride)) {
         // Type of the argument will be something like <4 x double*>
         // The following code will yield a type of double. This type is used
         // to determine the stride in elements.

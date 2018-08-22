@@ -112,14 +112,6 @@ class HIRIdiomRecognition {
   bool genMemset(HLLoop *Loop, MemOpCandidate &Candidate, int64_t StoreSize,
                  bool IsNegStride);
 
-  // Returns size of the /p Ref in bytes.
-  unsigned getRefSizeInBytes(const RegDDRef *Ref);
-
-  // Returns true if the /p Ref is a unit-stride reference and outputs the IV
-  // direction to the /p IsNegStride;
-  bool isUnitStrideRef(const RegDDRef *Ref, const HLLoop *Loop,
-                       bool &IsNegStride);
-
   // Check if the \p Ref could be represented by a repeating i8 type.
   // Update RegDDRef if \p DoBitcast is true.
   static bool isBytewiseValue(RegDDRef *Ref, bool DoBitcast);
@@ -295,37 +287,6 @@ bool HIRIdiomRecognition::isLegalCandidate(const HLLoop *Loop,
   return true;
 }
 
-bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
-                                          const HLLoop *Loop,
-                                          bool &IsNegStride) {
-  const Type *IVType = Loop->getIVType();
-  unsigned Level = Loop->getNestingLevel();
-  auto IVSizeInBits = IVType->getPrimitiveSizeInBits();
-
-  for (const CanonExpr *CE :
-       llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
-    if (!CE->hasIV(Level)) {
-      continue;
-    }
-
-    if (CE->getSrcType()->getPrimitiveSizeInBits() < IVSizeInBits ||
-        CE->isTrunc()) {
-      return false;
-    }
-  }
-
-  int64_t Stride;
-
-  if (!Ref->getConstStrideAtLevel(Loop->getNestingLevel(), &Stride)) {
-    return false;
-  }
-
-  auto Size = getRefSizeInBytes(Ref);
-  IsNegStride = Stride < 0;
-
-  return Size == Stride || Size == -Stride;
-}
-
 bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                                        MemOpCandidate &Candidate) {
   Candidate = std::move(MemOpCandidate(Ref));
@@ -336,8 +297,10 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
   assert(Ref->isMemRef() && Ref->isLval() &&
          "Only lval memory references are expected here");
 
+  unsigned LoopLevel = Loop->getNestingLevel();
+
   // Check that store stride is constant.
-  if (!isUnitStrideRef(Ref, Loop, Candidate.IsStoreNegStride)) {
+  if (!Ref->isUnitStride(LoopLevel, Candidate.IsStoreNegStride)) {
     return false;
   }
 
@@ -364,7 +327,7 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
     }
 
     const CanonExpr *CE = RHS->getSingleCanonExpr();
-    if (!CE->isInvariantAtLevel(Loop->getNestingLevel())) {
+    if (!CE->isInvariantAtLevel(LoopLevel)) {
       return false;
     }
 
@@ -385,7 +348,7 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
     }
 
     bool IsNegStride;
-    if (!isUnitStrideRef(RHS, Loop, IsNegStride)) {
+    if (!RHS->isUnitStride(LoopLevel, IsNegStride)) {
       return false;
     }
 
@@ -536,15 +499,10 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
   return true;
 }
 
-unsigned HIRIdiomRecognition::getRefSizeInBytes(const RegDDRef *Ref) {
-  auto SizeInBits = DL.getTypeSizeInBits(Ref->getDestType());
-  return (unsigned)SizeInBits >> 3;
-}
-
 bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
                                         MemOpCandidate &Candidate) {
 
-  unsigned StoreSize = getRefSizeInBytes(Candidate.RHS);
+  unsigned StoreSize = Candidate.RHS->getDestTypeSizeInBytes();
 
   if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride)) {
     LoopOptReportBuilder &LORBuilder =
@@ -570,7 +528,7 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   std::unique_ptr<RegDDRef> StoreRef(Candidate.StoreRef->clone());
   std::unique_ptr<RegDDRef> LoadRef(Candidate.RHS->clone());
 
-  unsigned StoreSize = getRefSizeInBytes(StoreRef.get());
+  unsigned StoreSize = StoreRef.get()->getDestTypeSizeInBytes();
 
   if (!makeStartRef(StoreRef.get(), Loop, Candidate.IsStoreNegStride)) {
     return false;

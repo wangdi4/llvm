@@ -582,6 +582,15 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
       return nullptr;
     }
 
+    // Bail out on vector types.
+    if (!DimCE->getSrcType()->isIntegerTy()) {
+      return nullptr;
+    }
+
+    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode())) {
+      return nullptr;
+    }
+
     if (StrideAtLevel) {
       if (!getCanonExprUtils().mergeable(StrideAtLevel, DimCE)) {
         getCanonExprUtils().destroy(StrideAtLevel);
@@ -646,6 +655,15 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
       return false;
     }
 
+    // Bail out on vector types.
+    if (!DimCE->getSrcType()->isIntegerTy()) {
+      return false;
+    }
+
+    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode())) {
+      return false;
+    }
+
     StrideVal += (Coeff * getDimensionStride(I));
   }
 
@@ -654,6 +672,21 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
   }
 
   return true;
+}
+
+bool RegDDRef::isUnitStride(unsigned Level, bool &IsNegStride) const {
+  assert(hasGEPInfo() && "Stride is only valid for GEP refs!");
+
+  int64_t Stride;
+
+  if (!getConstStrideAtLevel(Level, &Stride)) {
+    return false;
+  }
+
+  uint64_t Size = getDestTypeSizeInBytes();
+  IsNegStride = Stride < 0;
+
+  return (Size == (uint64_t)std::abs(Stride));
 }
 
 uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {

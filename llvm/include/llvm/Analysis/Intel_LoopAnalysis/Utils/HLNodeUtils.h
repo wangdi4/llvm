@@ -1399,12 +1399,14 @@ public:
   }
 
   /// Returns true if minimum value of \p CE can be evaluated. Returns the
-  /// minimum value in \p Val.
+  /// minimum value in \p Val. This value is a 64 bit integer and is not
+  /// adjusted based on CE's src/dest type.
   static bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
                           int64_t &Val);
 
   /// Returns true if maximum value of \p CE can be evaluated. Returns the
-  /// maximum value in \p Val.
+  /// maximum value in \p Val. This value is a 64 bit integer and is not
+  /// adjusted based on CE's src/dest type.
   static bool getMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
                           int64_t &Val);
 
@@ -1431,6 +1433,10 @@ public:
   /// Returns true if positive or negative.
   static bool isKnownPositiveOrNegative(const CanonExpr *CE,
                                         const HLNode *ParentNode = nullptr);
+
+  /// Returns true if \p CE can wrap around at loop \p Level.
+  static bool mayWraparound(const CanonExpr *CE, unsigned Level,
+                            const HLNode *ParentNode);
 
   // Returns true if both HLIf nodes are equal.
   static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);

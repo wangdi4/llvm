@@ -24,6 +24,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/DDRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/MemoryLocation.h"
 
 namespace llvm {
@@ -263,13 +264,19 @@ public:
   /// Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
   /// [101 x float]]*, we will return float.
-  /// TODO: extend to handle struct types.
   Type *getSrcType() const override { return getTypeImpl(true); }
   /// Returns the dest element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
   /// [101 x int32]]*, we will return int32.
-  /// TODO: extend to handle struct types.
   Type *getDestType() const override { return getTypeImpl(false); }
+
+  // Returns destination type size.
+  uint64_t getDestTypeSizeInBits() const {
+    return getCanonExprUtils().getTypeSizeInBits(getDestType());
+  }
+  uint64_t getDestTypeSizeInBytes() const {
+    return getCanonExprUtils().getTypeSizeInBytes(getDestType());
+  }
 
   /// MemoryLocation for AA.
   MemoryLocation getMemoryLocation() const;
@@ -736,6 +743,10 @@ public:
   /// null.
   /// Returns false if the stride is not constant.
   bool getConstStrideAtLevel(unsigned Level, int64_t *Stride) const;
+
+  /// Returns true if ref has unit stride at \p Level, such as A[i1] or
+  /// &A[-1 * i1]. \p IsNegStride is set when stride is -1.
+  bool isUnitStride(unsigned Level, bool &IsNegStride) const;
 
   /// Not sure if removeDimension() operation even makes sense. Commenting it
   /// out for now.
