@@ -3208,13 +3208,13 @@ FastMathFlags HIRParser::parseFMF(const CmpInst *Cmp) {
   return FastMathFlags();
 }
 
-bool HIRParser::parseDebugIntrinsic(HLInst *Inst) {
+bool HIRParser::parsedDebugIntrinsic(const IntrinsicInst *Intrin) {
   if (!RemoveDebugIntrinsics) {
     return false;
   }
 
   const DbgVariableIntrinsic *DbgIntrin =
-      dyn_cast<DbgVariableIntrinsic>(Inst->getLLVMInstruction());
+      dyn_cast<DbgVariableIntrinsic>(Intrin);
 
   if (!DbgIntrin) {
     return false;
@@ -3265,12 +3265,12 @@ void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
   GEPRefToPointerMap.insert(std::make_pair(FakeRef, getGEPRefPtr(AddressRef)));
 }
 
-static bool isDistributePoint(const CallInst *CI, bool &IsBegin) {
-  if (!CI->hasOperandBundles()) {
+static bool isDistributePoint(const IntrinsicInst *Intrin, bool &IsBegin) {
+  if (!Intrin->hasOperandBundles()) {
     return false;
   }
 
-  OperandBundleUse BU = CI->getOperandBundleAt(0);
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
 
   StringRef TagName = BU.getTagName();
 
@@ -3286,6 +3286,35 @@ static bool isDistributePoint(const CallInst *CI, bool &IsBegin) {
   return false;
 }
 
+bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
+  auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
+
+  if (!Intrin) {
+    return false;
+  }
+
+  if (parsedDebugIntrinsic(Intrin)) {
+    HLNodeUtils::erase(HInst);
+    return true;
+  }
+
+  bool IsBegin;
+  if (!isDistributePoint(Intrin, IsBegin)) {
+    return false;
+  }
+
+  if (IsBegin) {
+    // Delay processing after phase2 because at this point we don't know the
+    // 'next' node.
+    DistributePoints.push_back(HInst);
+  } else {
+    // Do not need region end directive.
+    HLNodeUtils::erase(HInst);
+  }
+
+  return true;
+}
+
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
@@ -3298,8 +3327,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   if (IsPhase1) {
     Level = CurLevel;
 
-    if (parseDebugIntrinsic(HInst)) {
-      HLNodeUtils::erase(HInst);
+    if (processedRemovableIntrinsic(HInst)) {
       return;
     }
 
@@ -3329,19 +3357,6 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory());
   bool IsReadOnly =
       (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
-
-  bool IsBegin;
-  if (Call && isDistributePoint(Call, IsBegin)) {
-    if (IsBegin) {
-      // Delay processing after phase2 because at this point we don't know the
-      // 'next' node.
-      DistributePoints.push_back(HInst);
-    } else {
-      // Do not need region end directive.
-      HLNodeUtils::erase(HInst);
-    }
-    return;
-  }
 
   unsigned NumArgOperands = Call ? Call->getNumArgOperands() : 0;
   // Process rvals
