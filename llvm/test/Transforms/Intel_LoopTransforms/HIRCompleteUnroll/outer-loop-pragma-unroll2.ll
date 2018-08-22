@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-output -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-output -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output -hir-details < %s 2>&1 | FileCheck %s
 
 ; Verify that we unroll the i1 and i3 loops with unroll count metadata.
 
@@ -8,7 +8,7 @@
 ; |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
 ; |   |   |      %1 = (%A)[i1 + i3];
-; |   |   |   + DO i4 = 0, i3 + -1, 1   <DO_LOOP>
+; |   |   |   + DO i4 = 0, i3 + -2, 1   <DO_LOOP>
 ; |   |   |   |   %1 = %1  +  (%B)[i2 + i4];
 ; |   |   |   |   (%A)[i1 + i3] = %1;
 ; |   |   |   + END LOOP
@@ -16,19 +16,23 @@
 ; |   + END LOOP
 ; + END LOOP
 
-
-; CHECK: + DO i1 = 0, 3, 1   <DO_LOOP>
-; CHECK: |      %1 = (%A)[1];
-; CHECK: |   + DO i2 = 0, 0, 1   <DO_LOOP>  <MAX_TC_EST = 2>
-; CHECK: |   |   %1 = %1  +  (%B)[i1 + i2];
-; CHECK: |   |   (%A)[1] = %1;
-; CHECK: |   + END LOOP
-; CHECK: |
-; CHECK: |
+; CHECK: + Ztt: No
+; CHECK: + DO i64 i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK: |      %1 = (%A)[2];
-; CHECK: |   + DO i2 = 0, 1, 1   <DO_LOOP>  <MAX_TC_EST = 2>
+; CHECK: |   + Ztt: No
+; CHECK: |   + DO i64 i2 = 0, 0, 1   <DO_LOOP>
 ; CHECK: |   |   %1 = %1  +  (%B)[i1 + i2];
 ; CHECK: |   |   (%A)[2] = %1;
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+
+; CHECK: + Ztt: No
+; CHECK: + DO i64 i1 = 0, 3, 1   <DO_LOOP>
+; CHECK: |      %1 = (%A)[3];
+; CHECK: |   + Ztt: No
+; CHECK: |   + DO i64 i2 = 0, 0, 1   <DO_LOOP>
+; CHECK: |   |   %1 = %1  +  (%B)[i1 + i2];
+; CHECK: |   |   (%A)[3] = %1;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
@@ -51,7 +55,7 @@ for.cond4.preheader:                              ; preds = %for.inc17, %for.con
 
 for.cond7.preheader:                              ; preds = %for.inc14, %for.cond4.preheader
   %indvars.iv41 = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next42, %for.inc14 ]
-  %cmp835 = icmp sgt i64 %indvars.iv41, 0
+  %cmp835 = icmp sgt i64 %indvars.iv41, 1
   br i1 %cmp835, label %for.body9.lr.ph, label %for.inc14
 
 for.body9.lr.ph:                                  ; preds = %for.cond7.preheader
@@ -69,7 +73,8 @@ for.body9:                                        ; preds = %for.body9, %for.bod
   %add13 = add nsw i32 %1, %3
   store i32 %add13, i32* %arrayidx12, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, %indvars.iv41
+  %x = add nuw nsw i64 %indvars.iv41, -1
+  %exitcond = icmp eq i64 %indvars.iv.next, %x
   br i1 %exitcond, label %for.inc14.loopexit, label %for.body9
 
 for.inc14.loopexit:                               ; preds = %for.body9

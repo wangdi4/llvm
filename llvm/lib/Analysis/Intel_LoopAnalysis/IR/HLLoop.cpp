@@ -790,7 +790,23 @@ bool HLLoop::isNormalized() const {
   return true;
 }
 
-bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
+bool HLLoop::isKnownZttPredicate(bool *IsTrue) const {
+  if (!hasZtt()) {
+    return false;
+  }
+
+  if (HLNodeUtils::isKnownPredicateRange(
+          ztt_pred_begin(), ztt_pred_end(),
+          std::bind(&HLLoop::getZttPredicateOperandDDRef, this,
+                    std::placeholders::_1, std::placeholders::_2),
+          IsTrue)) {
+    return true;
+  }
+
+  return false;
+}
+
+bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
   if (isUnknown()) {
     return false;
   }
@@ -815,7 +831,7 @@ bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
     }
   }
 
-  assert((AllowZeroTripCnt || !ConstantTripLoop || (TC != 0)) &&
+  assert((!ConstantTripLoop || (TC != 0)) &&
          " Zero Trip Loop found!");
 
   if (ConstantTripLoop && TripCnt) {
@@ -1412,8 +1428,7 @@ MDNode *HLLoop::getLoopStringMetadata(StringRef Name) const {
 
 bool HLLoop::hasCompleteUnrollEnablingPragma() const {
   uint64_t TC;
-  // TODO: Need a fix to avoid zero trip count loops here
-  if (!isConstTripLoop(&TC, true)) {
+  if (!isConstTripLoop(&TC)) {
     return false;
   }
 

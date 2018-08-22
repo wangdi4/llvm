@@ -1363,6 +1363,41 @@ public:
   static bool isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
                                const CanonExpr *RHS, bool *Result);
 
+  template <typename IterTy, typename GetPredicateFuncTy>
+  static bool isKnownPredicateRange(IterTy Begin, IterTy End,
+                                    GetPredicateFuncTy GetPredOp,
+                                    bool *IsTrue) {
+    bool FinalResult = true;
+
+    // Check every predicate if its value is known. Evaluate the result of the
+    // whole HLIf statement.
+    for (auto I = Begin, E = End; I != E; ++I) {
+      auto *DDRefLhs = GetPredOp(I, true);
+      auto *DDRefRhs = GetPredOp(I, false);
+
+      if (!DDRefLhs->isTerminalRef() || !DDRefRhs->isTerminalRef()) {
+        return false;
+      }
+
+      bool Result;
+      if (!HLNodeUtils::isKnownPredicate(DDRefLhs->getSingleCanonExpr(), *I,
+                                         DDRefRhs->getSingleCanonExpr(),
+                                         &Result)) {
+        return false;
+      }
+
+      // TODO: we should return 'known false' if any predicate is known to be
+      // false since they are 'and'ed.
+      FinalResult = FinalResult && Result;
+    }
+
+    if (IsTrue) {
+      *IsTrue = FinalResult;
+    }
+
+    return true;
+  }
+
   /// Returns true if minimum value of \p CE can be evaluated. Returns the
   /// minimum value in \p Val.
   static bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode,

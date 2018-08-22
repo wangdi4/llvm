@@ -391,33 +391,11 @@ void HLIf::dumpHeader() const {
 #endif
 
 bool HLIf::isKnownPredicate(bool *IsTrue) const {
-  bool FinalResult = true;
-
-  // Check every predicate if its value is known. Evaluate the result of the
-  // whole HLIf statement.
-  for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
-    auto *DDRefLhs = getPredicateOperandDDRef(I, true);
-    auto *DDRefRhs = getPredicateOperandDDRef(I, false);
-
-    if (!DDRefLhs->isTerminalRef() || !DDRefRhs->isTerminalRef()) {
-      return false;
-    }
-
-    bool Result;
-    if (!HLNodeUtils::isKnownPredicate(DDRefLhs->getSingleCanonExpr(), *I,
-                                       DDRefRhs->getSingleCanonExpr(),
-                                       &Result)) {
-      return false;
-    }
-
-    FinalResult = FinalResult && Result;
-  }
-
-  if (IsTrue) {
-    *IsTrue = FinalResult;
-  }
-
-  return true;
+  return HLNodeUtils::isKnownPredicateRange(
+      pred_begin(), pred_end(),
+      std::bind(&HLIf::getPredicateOperandDDRef, this, std::placeholders::_1,
+                std::placeholders::_2),
+      IsTrue);
 }
 
 bool HLIf::isUnknownLoopBottomTest() const {

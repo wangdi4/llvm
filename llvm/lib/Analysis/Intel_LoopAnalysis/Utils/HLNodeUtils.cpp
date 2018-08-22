@@ -3984,9 +3984,10 @@ public:
       return;
     }
 
-    uint64_t TripCount;
-    bool ConstTripLoop = Loop->isConstTripLoop(&TripCount, true);
-    if (ConstTripLoop && TripCount == 0) {
+    bool ZttIsTrue = false;
+    bool IsTrivialZtt = Loop->isKnownZttPredicate(&ZttIsTrue);
+
+    if (IsTrivialZtt && !ZttIsTrue) {
       RedundantLoops++;
       notifyWillRemoveNode(Loop);
 
@@ -4000,6 +4001,11 @@ public:
       HLNodeUtils::remove(Loop);
       Changed = true;
       return;
+    }
+
+    // Remove trivial ztt
+    if (IsTrivialZtt) {
+      Loop->removeZtt();
     }
 
     // Loop will stay attached.

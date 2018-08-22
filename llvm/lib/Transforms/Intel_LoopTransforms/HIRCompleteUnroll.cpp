@@ -2942,10 +2942,6 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
-
-    auto &LS = HLS.getTotalLoopStatistics(Loop);
-    bool HasIfsOrSwitches = LS.hasIfs() || LS.hasSwitches();
-
     HLNode *ParentNode = Loop->getParentLoop();
     if (!ParentNode) {
       ParentNode = Loop->getParentRegion();
@@ -2953,9 +2949,7 @@ void HIRCompleteUnroll::transformLoops() {
 
     doUnroll(Loop);
 
-    if (HasIfsOrSwitches) {
-      HLNodeUtils::removeRedundantNodes(ParentNode);
-    }
+    HLNodeUtils::removeRedundantNodes(ParentNode);
   }
 }
 

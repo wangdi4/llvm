@@ -407,10 +407,14 @@ public:
   RegDDRef *getTripCountDDRef(unsigned NestingLevel = (MaxLoopNestLevel +
                                                        1)) const;
 
+  // Returns true if loop has ZTT and it may be proven to always evaluate to the
+  // same result, that is stored to \p IsTrue argument.
+  // Note, this will return false if there is no ZTT.
+  bool isKnownZttPredicate(bool *IsTrue = nullptr) const;
+
   /// Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
-  bool isConstTripLoop(uint64_t *TripCnt = nullptr,
-                       bool AllowZeroTripCount = false) const;
+  bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
 
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {
