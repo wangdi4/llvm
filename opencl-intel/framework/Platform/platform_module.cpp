@@ -24,6 +24,7 @@
 #include <cl_device_api.h>
 #include <cl_sys_defines.h>
 
+#include <algorithm>
 #include <assert.h>
 #include <malloc.h>
 #include <string>
@@ -34,22 +35,11 @@
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+std::string PlatformModule::m_vPlatformInfoStr = "";
+std::string PlatformModule::m_vPlatformNameStr = "";
+unsigned int PlatformModule::m_uiPlatformInfoStrSize = 0;
+unsigned int PlatformModule::m_uiPlatformNameStrSize = 0;
 std::string PlatformModule::m_vPlatformVersionStr;
-#ifdef BUILD_FPGA_EMULATOR
-const char PlatformModule::m_vPlatformInfoStr[] = "EMBEDDED_PROFILE";
-#else
-const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
-#endif
-const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
-
-#ifdef BUILD_OPENCL_21
-const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL 2.1 CPU Only Platform";
-#elif defined(BUILD_FPGA_EMULATOR)
-const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)";
-#else
-const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
-#endif // BUILD_EXPERIMENTAL_21
-const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
 
@@ -157,6 +147,9 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     // initialize GPA data
     m_pGPAData = pGPAData;
 
+    // initialize device mode
+    m_deviceMode = pConfig->GetDeviceMode();
+
     // get device agents dll names from configuration file
     string strDefaultDevice = pConfig->GetDefaultDevice();
     vector<string> strDevices = pConfig->GetDevices();
@@ -191,13 +184,20 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
             m_vPlatformVersionStr = "OpenCL 1.0";
         break;
     }
-#ifdef BUILD_FPGA_EMULATOR
-    m_vPlatformVersionStr += " Intel(R) FPGA SDK for OpenCL(TM), Version 18.1";
-#elif defined (_WIN32)
-    m_vPlatformVersionStr += " WINDOWS";
+
+    if (FPGA_EMU_DEVICE == m_deviceMode)
+    {
+        m_vPlatformVersionStr +=
+          " Intel(R) FPGA SDK for OpenCL(TM), Version 18.1";
+    }
+    else
+    {
+#if defined (_WIN32)
+        m_vPlatformVersionStr += " WINDOWS";
 #else // LINUX
-    m_vPlatformVersionStr += " LINUX";
+        m_vPlatformVersionStr += " LINUX";
 #endif
+    }
 
     return clErr;
 
@@ -293,16 +293,32 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
     cl_char pcPlatformExtension[8192] = {0};
     cl_char pcDeviceExtension[8192] = {0};
     cl_char pcOtherDeviceExtension[8192] = {0};
-#ifdef BUILD_FPGA_EMULATOR
-    cl_char pcPlatformICDSuffixKhr[10] = "IntelFPGA";
+    const char * pcPlatformICDSuffixKhr;
+
+    if (FPGA_EMU_DEVICE == m_deviceMode)
+    {
+        m_vPlatformInfoStr = "EMBEDDED_PROFILE";
+        pcPlatformICDSuffixKhr = "IntelFPGA";
+        m_vPlatformNameStr =
+          "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)";
+    }
+    else
+    {
+        m_vPlatformInfoStr = "FULL_PROFILE";
+        pcPlatformICDSuffixKhr = "INTEL";
+#ifdef BUILD_OPENCL_21
+        m_vPlatformNameStr = "Intel(R) OpenCL 2.1 CPU Only Platform";
 #else
-    cl_char pcPlatformICDSuffixKhr[8] = "INTEL";
-#endif
+        m_vPlatformNameStr = "Intel(R) OpenCL";
+#endif // BUILD_OPENCL_21
+    }
+
     switch (clParamName)
     {
     case CL_PLATFORM_PROFILE:
+        m_uiPlatformInfoStrSize = m_vPlatformInfoStr.size() + 1;
         szParamSize = m_uiPlatformInfoStrSize;
-        pValue = (void*)m_vPlatformInfoStr;
+        pValue = (void*)m_vPlatformInfoStr.c_str();
         break;
     case CL_PLATFORM_VERSION:
         // it must include the terminating null character
@@ -310,17 +326,20 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         pValue = (void*)m_vPlatformVersionStr.c_str();
         break;
     case CL_PLATFORM_NAME:
+        // it must include the terminating null character
+        m_uiPlatformNameStrSize = m_vPlatformNameStr.size() + 1;
         szParamSize = m_uiPlatformNameStrSize;
-        pValue = (void*)m_vPlatformNameStr;
+        pValue = (void*)m_vPlatformNameStr.c_str();
         break;
     case CL_PLATFORM_VENDOR:
         szParamSize = m_uiPlatformVendorStrSize;
         pValue = (void*)m_vPlatformVendorStr;
         break;
     case CL_PLATFORM_EXTENSIONS:
-        assert ((m_uiRootDevicesCount > 0) && "No devices associated to the platform");
-        pDevice = m_ppRootDevices[0];
-        clErr = m_ppRootDevices[0]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, nullptr);
+        assert ((m_uiRootDevicesCount > 0) &&
+            "No devices associated to the platform");
+        clErr = m_ppRootDevices[0]->
+          GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, nullptr);
         if (CL_FAILED(clErr))
         {
             return CL_INVALID_VALUE;
@@ -331,7 +350,9 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
             bRes = true;
             for (size_t ui=1; ui<m_uiRootDevicesCount; ++ui)
             {
-                clErr = m_ppRootDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension, nullptr);
+                clErr = m_ppRootDevices[ui]->
+                  GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension,
+                           nullptr);
                 if (CL_FAILED(clErr))
                 {
                     return CL_INVALID_VALUE;

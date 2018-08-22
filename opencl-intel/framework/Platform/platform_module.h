@@ -112,6 +112,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<FissionableDevice> GetDevice(cl_device_id IN  clDeviceId);
 
         /******************************************************************************************
+        * Function:     GetDeviceMode
+        * Description:    Returns a DeviceMode enum value
+        * Arguments:    None
+        * Return value:    DeviceMode
+        * Author:
+        * Date:
+        ******************************************************************************************/
+        DeviceMode GetDeviceMode() const { return m_deviceMode; }
+
+        /******************************************************************************************
         * Function:     GetGPAData    
         * Description:    Returns a pointer to the GPA data object.
         * Arguments:    None
@@ -198,18 +208,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
         Intel::OpenCL::Utils::OclMutex m_deviceFissionMutex;
 
         // static chars array - holds the platform's information string
-        static const char m_vPlatformInfoStr[];
+        static std::string m_vPlatformInfoStr;
         // platform's information string length
-        static const unsigned int m_uiPlatformInfoStrSize;
+        static unsigned int m_uiPlatformInfoStrSize;
 
         // static chars array - holds the platform's version string
         static std::string m_vPlatformVersionStr;
 
-        static const char m_vPlatformNameStr[];
-        static const unsigned int m_uiPlatformNameStrSize;
+        static std::string m_vPlatformNameStr;
+        static unsigned int m_uiPlatformNameStrSize;
 
         static const char m_vPlatformVendorStr[];
         static const unsigned int m_uiPlatformVendorStrSize;
+
+        DeviceMode m_deviceMode;
 
         ocl_entry_points * m_pOclEntryPoints;
 
