@@ -41,7 +41,7 @@ typedef int crt_err_code;
 #else //BUILD_OPENCL_21
 #define INTEL_PLATFORM_NAME         "Intel(R) OpenCL"
 #endif //BUILD_OPENCL_21
-#define INTEL_PLATFORM_VENDOR       "Intel Corporation"
+#define INTEL_PLATFORM_VENDOR       "Intel(R) Corporation"
 #define INTEL_ICD_EXTENSIONS_STRING "INTEL"
 
 #ifdef _WIN32 

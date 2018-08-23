@@ -63,7 +63,7 @@ USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::BuiltInKernels;
 
-const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel Corporation";
+const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
 volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
