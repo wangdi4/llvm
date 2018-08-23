@@ -22,8 +22,6 @@
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 
-#include "llvm/IR/InstIterator.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 
 // Same as in SOAToAOS.cpp.
@@ -43,56 +41,49 @@ cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff(
     "dtrans-soatoaos-mem-off", cl::init(-1U), cl::ReallyHidden,
     cl::desc("Memory interface offset in dtrans-soatoaos-approx-typename"));
 
-SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F) {
-  StructType *ClassType = getStructTypeOfArray(F);
+ArraySummaryForIdiom
+getParametersForSOAToAOSArrayMethodsCheckDebug(Function &F) {
 
-  SummaryForIdiom Failure(nullptr, nullptr, nullptr, nullptr);
+  SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
+  ArraySummaryForIdiom Failure(nullptr, nullptr, nullptr, nullptr);
 
-  if (!ClassType)
+  if (!S.StrType)
     return Failure;
 
-  if (ClassType->getNumElements() <= DTransSOAToAOSBasePtrOff)
+  if (S.StrType->getNumElements() <= DTransSOAToAOSBasePtrOff)
     return Failure;
 
   auto *PBase = dyn_cast<PointerType>(
-      ClassType->getTypeAtIndex(DTransSOAToAOSBasePtrOff));
+      S.StrType->getTypeAtIndex(DTransSOAToAOSBasePtrOff));
 
   if (!PBase)
     return Failure;
 
-  StructType *MemoryInterface = nullptr;
-  if (ClassType->getNumElements() > DTransSOAToAOSMemoryInterfaceOff) {
-    auto *PMemInt = dyn_cast<PointerType>(
-      ClassType->getTypeAtIndex(DTransSOAToAOSMemoryInterfaceOff));
-    if (!PMemInt)
-      return Failure;
-    MemoryInterface = dyn_cast<StructType>(PMemInt->getPointerElementType());
-  }
 
-  return SummaryForIdiom(ClassType, PBase->getPointerElementType(),
-                         MemoryInterface, &F);
+  return ArraySummaryForIdiom(S, PBase->getPointerElementType());
 }
 } // namespace soatoaos
 
 using namespace soatoaos;
 
-char SOAToAOSMethodsCheckDebug::PassID;
+char SOAToAOSArrayMethodsCheckDebug::PassID;
 
 // Provide a definition for the static class member used to identify passes.
-AnalysisKey SOAToAOSMethodsCheckDebug::Key;
+AnalysisKey SOAToAOSArrayMethodsCheckDebug::Key;
 
-SOAToAOSMethodsCheckDebug::Ignore::Ignore(SOAToAOSMethodsCheckDebugResult *Ptr)
+SOAToAOSArrayMethodsCheckDebug::Ignore::Ignore(
+    SOAToAOSArrayMethodsCheckDebugResult *Ptr)
     : Ptr(Ptr) {}
-SOAToAOSMethodsCheckDebug::Ignore::Ignore(Ignore &&Other)
+SOAToAOSArrayMethodsCheckDebug::Ignore::Ignore(Ignore &&Other)
     : Ptr(std::move(Other.Ptr)) {}
-const SOAToAOSMethodsCheckDebugResult *
-SOAToAOSMethodsCheckDebug::Ignore::get() const {
+const SOAToAOSArrayMethodsCheckDebugResult *
+SOAToAOSArrayMethodsCheckDebug::Ignore::get() const {
   return Ptr.get();
 }
-SOAToAOSMethodsCheckDebug::Ignore::~Ignore() {}
+SOAToAOSArrayMethodsCheckDebug::Ignore::~Ignore() {}
 
-SOAToAOSMethodsCheckDebug::Ignore
-SOAToAOSMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
+SOAToAOSArrayMethodsCheckDebug::Ignore
+SOAToAOSArrayMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
 
   auto *Res = AM.getCachedResult<SOAToAOSApproximationDebug>(F);
   if (!Res)
@@ -102,15 +93,15 @@ SOAToAOSMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
   if (!DM)
     return Ignore(nullptr);
 
-  SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
+  ArraySummaryForIdiom S = getParametersForSOAToAOSArrayMethodsCheckDebug(F);
   // TODO: add diagnostic message.
-  if (!S.ArrType)
+  if (!S.StrType)
     return Ignore(nullptr);
 
   LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
 
-  std::unique_ptr<SOAToAOSMethodsCheckDebugResult> Result(
-      new SOAToAOSMethodsCheckDebugResult());
+  std::unique_ptr<SOAToAOSArrayMethodsCheckDebugResult> Result(
+      new SOAToAOSArrayMethodsCheckDebugResult());
   ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(), *DM, S,
                                       *Result);
   Result->MK = MC.classify().first;
@@ -130,8 +121,8 @@ class SOAArrayMethodReplacement : public DTransOptBase {
 public:
   SOAArrayMethodReplacement(
       DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
-      const TargetLibraryInfo &TLI, const SummaryForIdiom &S,
-      const SOAToAOSMethodsCheckDebugResult &InstsToTransform,
+      const TargetLibraryInfo &TLI, const ArraySummaryForIdiom &S,
+      const SOAToAOSArrayMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
       : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
         S(S), InstsToTransform(InstsToTransform) {}
@@ -140,11 +131,11 @@ public:
     LLVMContext &Context = M.getContext();
 
     NewArray = StructType::create(
-        Context, (Twine(DepTypePrefix) + S.ArrType->getName()).str());
+        Context, (Twine(DepTypePrefix) + S.StrType->getName()).str());
     NewElement = StructType::create(
-        Context, (Twine(DepTypePrefix) + "EL_" + S.ArrType->getName()).str());
+        Context, (Twine(DepTypePrefix) + "EL_" + S.StrType->getName()).str());
 
-    TypeRemapper->addTypeMapping(S.ArrType, NewArray);
+    TypeRemapper->addTypeMapping(S.StrType, NewArray);
     return true;
   }
 
@@ -157,7 +148,7 @@ public:
     NewElement->setBody(PFloat, S.ElementType);
 
     SmallVector<Type *, 6> DataTypes;
-    for (auto *T : S.ArrType->elements()) {
+    for (auto *T : S.StrType->elements()) {
       if (auto *PT = dyn_cast<PointerType>(T))
         if (PT->getElementType() == S.ElementType) {
           // Replace base pointer
@@ -166,7 +157,7 @@ public:
         }
       DataTypes.push_back(T);
     }
-    NewArray->setBody(DataTypes, S.ArrType->isPacked());
+    NewArray->setBody(DataTypes, S.StrType->isPacked());
   }
 
   void postprocessFunction(Function &OrigFunc, bool isCloned) override {
@@ -195,8 +186,8 @@ public:
   }
 
 private:
-  const SummaryForIdiom &S;
-  const SOAToAOSMethodsCheckDebugResult &InstsToTransform;
+  const ArraySummaryForIdiom &S;
+  const SOAToAOSArrayMethodsCheckDebugResult &InstsToTransform;
 
   StructType *NewElement = nullptr;
   StructType *NewArray = nullptr;
@@ -227,18 +218,19 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   if (!MethodToTest)
     return PreservedAnalyses::all();
 
-  SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(*MethodToTest);
+  ArraySummaryForIdiom S =
+      getParametersForSOAToAOSArrayMethodsCheckDebug(*MethodToTest);
   // TODO: add diagnostic.
-  if (!S.ArrType)
+  if (!S.StrType)
     return PreservedAnalyses::all();
 
   auto &DTInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  // SOAToAOSMethodsCheckDebug uses SOAToAOSApproximationDebug internally.
+  // SOAToAOSArrayMethodsCheckDebug uses SOAToAOSApproximationDebug internally.
   FAM.getResult<SOAToAOSApproximationDebug>(*MethodToTest);
   auto &InstsToTransformPtr =
-      FAM.getResult<SOAToAOSMethodsCheckDebug>(*MethodToTest);
+      FAM.getResult<SOAToAOSArrayMethodsCheckDebug>(*MethodToTest);
 
   // TODO: add diagnostic.
   if (InstsToTransformPtr.get()->MK == MK_Unknown)

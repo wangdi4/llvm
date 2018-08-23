@@ -3,6 +3,11 @@
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
 ; RUN:      -dtrans-free-functions=struct.Mem,1 \
 ; RUN:      2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -disable-output \
+; RUN:      -debug-only=dtrans-soatoaos-deps \
+; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
+; RUN:      -dtrans-free-functions=struct.Mem,1 \
+; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
@@ -11,6 +16,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test checks various approximations for side effects in dtor-like function.
 ;   ~Arr() { mem->deallocate(base); }
+; Check that approximations work as expected.
+; CHECK-WF-NOT: ; {{.*}}Unknown{{.*}}Dep
+; There should be no unknown GEP
+; CHECK-WF-NOT: ; Func(GEP
 define void @_ZN3ArrIPvED2Ev(%struct.Arr.0* %this) {
 entry:
   %mem = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0
@@ -35,4 +44,3 @@ entry:
 }
 
 ; CHECK: Deps computed: 12, Queries: 12
-; CHECK-NOT: Unknown Dep

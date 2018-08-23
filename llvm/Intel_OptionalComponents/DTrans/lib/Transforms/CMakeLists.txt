@@ -24,7 +24,9 @@ add_llvm_library(LLVMIntel_DTransOpt
   PaddedPtrPropagation.cpp
   SOAToAOS.cpp
   SOAToAOSArrays.cpp
+  SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
+  SOAToAOSStruct.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Transforms
