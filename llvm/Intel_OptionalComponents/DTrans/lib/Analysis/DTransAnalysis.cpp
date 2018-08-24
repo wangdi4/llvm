@@ -3356,7 +3356,8 @@ public:
                        << " " << *ValOperand << " -> " << *PtrOperand << " \n");
           setValueTypeInfoSafetyData(ValOperand, dtrans::AddressTaken);
         } else if (!PtrLPI.canPointToType(AliasTy)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                            << "  Unmatch store of aliased value:\n");
           if (I != nullptr)
             LLVM_DEBUG(dbgs() << "  " << *I << "\n");
           else
@@ -3368,10 +3369,17 @@ public:
       }
     } else if (PtrLPI.canAliasToAggregatePointer()) {
       // If we get here the value operand is not a pointer to an aggregate
-      // type, but the pointer operand is. Unless the value operand is a
-      // null pointer, this is a bad store.
-      if (!isa<ConstantPointerNull>(ValOperand) && !isPartialPtrStore(I)) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store:\n");
+      // type, but the pointer operand is. Unless (1) the value operand is a
+      // null pointer, (2) the store is part of a partial pointer store idiom,
+      // or (3) the value is an i8 and the aliased pointer type has an i8 at
+      // element zero, this is a bad store.
+      auto *ValTy = ValOperand->getType();
+      if (!isa<ConstantPointerNull>(ValOperand) && !isPartialPtrStore(I) &&
+          !(ValTy->isIntegerTy(8) &&
+            dtrans::isElementZeroAccess(PtrLPI.getDominantAggregateTy(),
+                                        ValTy->getPointerTo()))) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                          << "  Unknown store to aliased ptr:\n");
         if (I != nullptr)
           LLVM_DEBUG(dbgs() << "  " << *I << "\n");
         else

@@ -309,6 +309,8 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
                                  llvm::Type **AccessedTy) {
   if (AccessedTy)
     *AccessedTy = nullptr;
+  if (!SrcTy || !DestTy)
+    return false;
   if (!DestTy->isPointerTy() || !SrcTy->isPointerTy())
     return false;
   llvm::Type *SrcPointeeTy = SrcTy->getPointerElementType();
