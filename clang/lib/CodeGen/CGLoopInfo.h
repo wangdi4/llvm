@@ -43,6 +43,9 @@ struct LoopAttributes {
   /// State of loop vectorization or unrolling.
   enum LVEnableState { Unspecified, Enable, Disable, Full };
 
+  /// Value for llvm.loop.vectorize.enable metadata.
+  LVEnableState VectorizeEnable;
+
 #if INTEL_CUSTOMIZATION
   /// Value for llvm.loop.coalesce.enable metadata.
   bool LoopCoalesceEnable;
@@ -72,12 +75,6 @@ struct LoopAttributes {
   /// \brief Value for llvm.loop.fusion.* metadata.
   LVEnableState FusionEnable;
 
-  /// \brief Value for llvm.loop.unroll_and_jam.* metadata.
-  LVEnableState UnrollAndJamEnable;
-
-  /// \brief Value for llvm.loop.unroll_and_jam.* count metadata.
-  unsigned UnrollAndJamCount;
-
   /// \brief Value for llvm.loop.vectorize.ivdep_loop metadata.
   bool IVDepLoop;
 
@@ -86,14 +83,13 @@ struct LoopAttributes {
 
   /// \brief Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
-
 #endif // INTEL_CUSTOMIZATION
-
-  /// Value for llvm.loop.vectorize.enable metadata.
-  LVEnableState VectorizeEnable;
 
   /// Value for llvm.loop.unroll.* metadata (enable, disable, or full).
   LVEnableState UnrollEnable;
+
+  /// Value for llvm.loop.unroll_and_jam.* metadata (enable, disable, or full).
+  LVEnableState UnrollAndJamEnable;
 
   /// Value for llvm.loop.vectorize.width metadata.
   unsigned VectorizeWidth;
@@ -103,6 +99,9 @@ struct LoopAttributes {
 
   /// llvm.unroll.
   unsigned UnrollCount;
+
+  /// llvm.unroll.
+  unsigned UnrollAndJamCount;
 
   /// Value for llvm.loop.distribute.enable metadata.
   LVEnableState DistributeEnable;
@@ -216,17 +215,6 @@ public:
         Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
   }
 
-  /// \brief Set the next pushed loop 'unroll_and_jam.*' enable or disable
-  void setUnrollAndJamEnable(bool Enable = true) {
-    StagedAttrs.UnrollAndJamEnable =
-        Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
-  }
-
-  /// \brief Set the next pushed loop 'unroll_and_jam.count'
-  void setUnrollAndJamCount(unsigned count) {
-    StagedAttrs.UnrollAndJamCount = count;
-  }
-
   /// \brief Set the loop flag for ivdep.
   void setIVDepLoop() { StagedAttrs.IVDepLoop = true; }
 
@@ -255,6 +243,11 @@ public:
     StagedAttrs.UnrollEnable = State;
   }
 
+  /// Set the next pushed loop unroll_and_jam state.
+  void setUnrollAndJamState(const LoopAttributes::LVEnableState &State) {
+    StagedAttrs.UnrollAndJamEnable = State;
+  }
+
   /// Set the vectorize width for the next loop pushed.
   void setVectorizeWidth(unsigned W) { StagedAttrs.VectorizeWidth = W; }
 
@@ -263,6 +256,9 @@ public:
 
   /// Set the unroll count for the next loop pushed.
   void setUnrollCount(unsigned C) { StagedAttrs.UnrollCount = C; }
+
+  /// \brief Set the unroll count for the next loop pushed.
+  void setUnrollAndJamCount(unsigned C) { StagedAttrs.UnrollAndJamCount = C; }
 
 private:
   /// Returns true if there is LoopInfo on the stack.

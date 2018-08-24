@@ -24,10 +24,6 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
                               const llvm::DebugLoc &EndLoc) {
 
   if (!Attrs.IsParallel && Attrs.VectorizeWidth == 0 &&
-      Attrs.InterleaveCount == 0 && Attrs.UnrollCount == 0 &&
-      Attrs.VectorizeEnable == LoopAttributes::Unspecified &&
-      Attrs.UnrollEnable == LoopAttributes::Unspecified &&
-      Attrs.DistributeEnable == LoopAttributes::Unspecified &&
 #if INTEL_CUSTOMIZATION
       !Attrs.LoopCoalesceEnable &&
       Attrs.LoopCoalesceCount == 0 && Attrs.IICount == 0 &&
@@ -35,11 +31,15 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
-      Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
-      Attrs.UnrollAndJamCount == 0 &&
       !Attrs.VectorizeAlwaysEnable &&
 #endif // INTEL_CUSTOMIZATION
-      !StartLoc && !EndLoc)
+      Attrs.InterleaveCount == 0 && Attrs.UnrollCount == 0 &&
+      Attrs.UnrollAndJamCount == 0 &&
+      Attrs.VectorizeEnable == LoopAttributes::Unspecified &&
+      Attrs.UnrollEnable == LoopAttributes::Unspecified &&
+      Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
+      Attrs.DistributeEnable == LoopAttributes::Unspecified && !StartLoc &&
+      !EndLoc)
     return nullptr;
 
   SmallVector<Metadata *, 4> Args;
@@ -123,20 +123,6 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
                                : "llvm.loop.fusion.disable")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
-  // Setting unroll_and_jam.enable or unroll_and_jam.disable
-  if (Attrs.UnrollAndJamEnable != LoopAttributes::Unspecified) {
-    Metadata *Vals[] = {
-        MDString::get(Ctx, Attrs.UnrollAndJamEnable == LoopAttributes::Enable
-                               ? "llvm.loop.unroll_and_jam.enable"
-                               : "llvm.loop.unroll_and_jam.disable")};
-    Args.push_back(MDNode::get(Ctx, Vals));
-  }
-  if (Attrs.UnrollAndJamCount > 0) {
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.unroll_and_jam.count"),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            Type::getInt32Ty(Ctx), Attrs.UnrollAndJamCount))};
-    Args.push_back(MDNode::get(Ctx, Vals));
-  }
   if (Attrs.IVDepLoop) {
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.ivdep_loop")};
     Args.push_back(MDNode::get(Ctx, Vals));
@@ -153,11 +139,19 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Setting interleave.count
+  // Setting unroll.count
   if (Attrs.UnrollCount > 0) {
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.unroll.count"),
                         ConstantAsMetadata::get(ConstantInt::get(
                             Type::getInt32Ty(Ctx), Attrs.UnrollCount))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+
+  // Setting unroll_and_jam.count
+  if (Attrs.UnrollAndJamCount > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.unroll_and_jam.count"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.UnrollAndJamCount))};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
 
@@ -183,6 +177,19 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
     Args.push_back(MDNode::get(Ctx, Vals));
   }
 
+  // Setting unroll_and_jam.full or unroll_and_jam.disable
+  if (Attrs.UnrollAndJamEnable != LoopAttributes::Unspecified) {
+    std::string Name;
+    if (Attrs.UnrollAndJamEnable == LoopAttributes::Enable)
+      Name = "llvm.loop.unroll_and_jam.enable";
+    else if (Attrs.UnrollAndJamEnable == LoopAttributes::Full)
+      Name = "llvm.loop.unroll_and_jam.full";
+    else
+      Name = "llvm.loop.unroll_and_jam.disable";
+    Metadata *Vals[] = {MDString::get(Ctx, Name)};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+
   if (Attrs.DistributeEnable != LoopAttributes::Unspecified) {
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.distribute.enable"),
                         ConstantAsMetadata::get(ConstantInt::get(
@@ -198,18 +205,17 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
 }
 
 LoopAttributes::LoopAttributes(bool IsParallel)
+    : IsParallel(IsParallel), VectorizeEnable(LoopAttributes::Unspecified),
 #if INTEL_CUSTOMIZATION
-    : IsParallel(IsParallel), LoopCoalesceEnable(false),
-      LoopCoalesceCount(0), IICount(0), MaxConcurrencyCount(0),
-      IVDepEnable(false), IVDepHLSEnable(false), IVDepHLSIntelEnable(false),
-      IVDepCount(0), FusionEnable(LoopAttributes::Unspecified),
-      UnrollAndJamEnable(LoopAttributes::Unspecified), UnrollAndJamCount(0),
-      IVDepLoop(false), IVDepBack(false),
-      VectorizeAlwaysEnable(false),
-      VectorizeEnable(LoopAttributes::Unspecified),
+      LoopCoalesceEnable(false), LoopCoalesceCount(0), IICount(0),
+      MaxConcurrencyCount(0), IVDepEnable(false), IVDepHLSEnable(false),
+      IVDepHLSIntelEnable(false), IVDepCount(0),
+      FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
+      IVDepBack(false), VectorizeAlwaysEnable(false),
 #endif // INTEL_CUSTOMIZATION
-      UnrollEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
-      InterleaveCount(0), UnrollCount(0),
+      UnrollEnable(LoopAttributes::Unspecified),
+      UnrollAndJamEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
+      InterleaveCount(0), UnrollCount(0), UnrollAndJamCount(0),
       DistributeEnable(LoopAttributes::Unspecified) {}
 
 void LoopAttributes::clear() {
@@ -224,8 +230,6 @@ void LoopAttributes::clear() {
   IVDepHLSIntelEnable = false;
   IVDepCount = 0;
   FusionEnable = LoopAttributes::Unspecified;
-  UnrollAndJamEnable = LoopAttributes::Unspecified;
-  UnrollAndJamCount = 0;
   IVDepLoop = false;
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
@@ -233,8 +237,10 @@ void LoopAttributes::clear() {
   VectorizeWidth = 0;
   InterleaveCount = 0;
   UnrollCount = 0;
+  UnrollAndJamCount = 0;
   VectorizeEnable = LoopAttributes::Unspecified;
   UnrollEnable = LoopAttributes::Unspecified;
+  UnrollAndJamEnable = LoopAttributes::Unspecified;
   DistributeEnable = LoopAttributes::Unspecified;
 }
 
@@ -308,6 +314,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Unroll:
         setUnrollState(LoopAttributes::Disable);
         break;
+      case LoopHintAttr::UnrollAndJam:
+        setUnrollAndJamState(LoopAttributes::Disable);
+        break;
       case LoopHintAttr::Distribute:
         setDistributeState(false);
         break;
@@ -315,11 +324,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Fusion:
         setFusionEnable(false);
         break;
-      case LoopHintAttr::UnrollAndJam:
-        setUnrollAndJamEnable(false);
-        break;
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::UnrollAndJamCount:
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
 #if INTEL_CUSTOMIZATION
@@ -346,10 +353,14 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Unroll:
         setUnrollState(LoopAttributes::Enable);
         break;
+      case LoopHintAttr::UnrollAndJam:
+        setUnrollAndJamState(LoopAttributes::Enable);
+        break;
       case LoopHintAttr::Distribute:
         setDistributeState(true);
         break;
       case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::UnrollAndJamCount:
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
         llvm_unreachable("Options cannot enabled.");
@@ -380,9 +391,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Fusion:
         setFusionEnable(true);
         break;
-      case LoopHintAttr::UnrollAndJam:
-        setUnrollAndJamEnable(true);
-        break;
       case LoopHintAttr::VectorizeAlways:
         setVectorizeAlwaysEnable();
         break;
@@ -398,7 +406,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setVectorizeEnable(true);
         break;
       case LoopHintAttr::Unroll:
+      case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::UnrollAndJamCount:
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
       case LoopHintAttr::Distribute:
@@ -412,7 +422,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::Fusion:
-      case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be used to assume mem safety.");
@@ -432,16 +441,19 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
       case LoopHintAttr::Fusion:
-      case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
+      case LoopHintAttr::UnrollAndJam:
+        setUnrollAndJamState(LoopAttributes::Full);
+        break;
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
       case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::UnrollAndJamCount:
       case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::InterleaveCount:
       case LoopHintAttr::Distribute:
@@ -460,6 +472,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::UnrollCount:
         setUnrollCount(ValueInt);
         break;
+      case LoopHintAttr::UnrollAndJamCount:
+        setUnrollAndJamCount(ValueInt);
+        break;
 #if INTEL_CUSTOMIZATION
       case LoopHintAttr::LoopCoalesce:
         setLoopCoalesceCount(ValueInt);
@@ -473,9 +488,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
         break;
-      case LoopHintAttr::UnrollAndJam:
-        setUnrollAndJamCount(ValueInt);
-        break;
       case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
@@ -484,6 +496,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
+      case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
       case LoopHintAttr::Distribute:
@@ -509,6 +522,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Distribute:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::UnrollAndJam:
+      case LoopHintAttr::UnrollAndJamCount:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
@@ -548,8 +562,19 @@ void LoopInfoStack::InsertHelper(Instruction *I) const {
     return;
   }
 
-  if (L.getAttributes().IsParallel && I->mayReadOrWriteMemory())
-    I->setMetadata("llvm.mem.parallel_loop_access", L.getLoopID());
+  if (I->mayReadOrWriteMemory()) {
+    SmallVector<Metadata *, 2> ParallelLoopIDs;
+    for (const LoopInfo &AL : Active)
+      if (AL.getAttributes().IsParallel)
+        ParallelLoopIDs.push_back(AL.getLoopID());
+
+    MDNode *ParallelMD = nullptr;
+    if (ParallelLoopIDs.size() == 1)
+      ParallelMD = cast<MDNode>(ParallelLoopIDs[0]);
+    else if (ParallelLoopIDs.size() >= 2)
+      ParallelMD = MDNode::get(I->getContext(), ParallelLoopIDs);
+    I->setMetadata("llvm.mem.parallel_loop_access", ParallelMD);
+  }
 }
 #if INTEL_CUSTOMIZATION
 LoopInfo::LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs)

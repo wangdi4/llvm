@@ -44,15 +44,16 @@ void zoo(int i, int *x, int *y) {
 }
 
 void error_check(int i, int *x, int *y) {
-  // expected-error@+1 {{overlapping blockloop levels between level(2:3) and level(1:3)}}
-  #pragma block_loop level(2:3) factor(16)
+  // CHECKME: Should it be s/second/first/ in the note?
+  // expected-error@+3 {{overlapping blockloop levels between level(1:3) and level(2:3)}}
   // expected-note@+1 {{second block_loop level is specified here}}
+  #pragma block_loop level(2:3) factor(16)
   #pragma block_loop level(1:3) factor(16)
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
-  // expected-error@+2 {{overlapping blockloop levels between level(-1:-1) and level(2:3)}}
-  // expected-note@+2 {{second block_loop level is specified here}}
+  // expected-error@+3 {{overlapping blockloop levels between level(2:3) and level(-1:-1)}}
+  // expected-note@+1 {{second block_loop level is specified here}}
   #pragma block_loop factor(16)
   #pragma block_loop level(2:3) factor(16)
   for (i = 0; i < 10; ++i) {
@@ -96,8 +97,9 @@ void error_check(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
-  // expected-error@+3 {{duplicate use of variable name "'a'"}}
-  // expected-note@+1 {{previously referenced here}}
+  // CHECKME: why is the order reverse?
+  // expected-error@+2 {{duplicate use of variable name "'a'"}}
+  // expected-note@+2 {{previously referenced here}}
   #pragma block_loop level(3) private(a)
   #pragma block_loop level(2) private(a)
   for (i = 0; i < 10; ++i) {

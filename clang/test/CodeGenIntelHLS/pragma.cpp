@@ -120,9 +120,9 @@ void foo_ivdep(int select)
   //CHECK-SAME: [32 x i32]* %myArray, i32 -1) ]
   //CHECK: br{{.*}}!llvm.loop [[IVDEP3:![0-9]+]]
   //CHECK: region.exit(token [[IVD_TOK9]]) [ "DIR.PRAGMA.END.IVDEP"() ]
-  #pragma ivdep safelen(8)
-  #pragma ivdep array(myArray)
   #pragma ivdep array(myArray2)
+  #pragma ivdep array(myArray)
+  #pragma ivdep safelen(8)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 }
 

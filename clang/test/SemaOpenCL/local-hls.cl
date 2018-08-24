@@ -111,20 +111,20 @@ void foo1()
   // diagnostics
 
   // **doublepump
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__doublepump__))
   __attribute__((__singlepump__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int dp_one[64];
 
   //expected-warning@+1{{attribute 'doublepump' is already applied}}
   __attribute__((doublepump))  __attribute__((__doublepump__))
   unsigned int dp_two[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__doublepump__))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int dp_three[64];
 
   // **singlepump
@@ -137,10 +137,10 @@ void foo1()
   __attribute__((singlepump))  __attribute__((__singlepump__))
   unsigned int sp_two[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__singlepump__))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int sp_three[64];
 
   // **register
@@ -148,73 +148,71 @@ void foo1()
   __attribute__((register)) __attribute__((__register__))
   unsigned int reg_one[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__singlepump__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_two[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__doublepump__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_three[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__memory__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_four[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__bank_bits__(4,5)))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_five[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__bankwidth__(16)))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_six[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__numbanks__(8)))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_seven[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__numreadports__(8)))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_eight[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__numwriteports__(8)))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_nine[64];
 
   //expected-error@+2{{attributes are not compatible}}
-  //expected-error@+1{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__numports_readonly_writeonly__(4,8)))
-  //expected-note@-1 {{conflicting attribute is here}}
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_ten[64];
 
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__merge__("mrg1","depth")))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_eleven[64];
 
   // **memory
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__memory__))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int mem_one[64];
 
   //expected-warning@+1{{attribute 'memory' is already applied}}
@@ -222,19 +220,19 @@ void foo1()
   unsigned int mem_two[64];
 
   // bankwidth
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__bankwidth__(16)))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int bw_one[64];
 
   //CHECK: VarDecl{{.*}}bw_two
-  //CHECK-NOT: IntegerLiteral{{.*}}7{{$}}
+  //CHECK: BankWidthAttr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: BankWidthAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}7{{$}}
-  //expected-warning@+1{{attribute '__bankwidth__' is already applied}}
-  __attribute__((__bankwidth__(7)))
+  //expected-warning@+2{{attribute 'bankwidth' is already applied}}
+  __attribute__((__bankwidth__(8)))
   __attribute__((__bankwidth__(16)))
   unsigned int bw_two[64];
 
@@ -260,19 +258,19 @@ void foo1()
   unsigned int bw_seven[64];
 
   // numbanks
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__numbanks__(16)))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int nb_one[64];
 
   //CHECK: VarDecl{{.*}}nb_two
-  //CHECK-NOT: IntegerLiteral{{.*}}11{{$}}
+  //CHECK: NumBanksAttr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: NumBanksAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}11{{$}}
-  //expected-warning@+1{{attribute '__numbanks__' is already applied}}
-  __attribute__((__numbanks__(11)))
+  //expected-warning@+2{{attribute 'numbanks' is already applied}}
+  __attribute__((__numbanks__(8)))
   __attribute__((__numbanks__(16)))
   unsigned int nb_two[64];
 
@@ -298,10 +296,10 @@ void foo1()
   unsigned int nb_seven[64];
 
   // numreadports
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__numreadports__(4)))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int nrp_one[4];
 
   //expected-error@+1{{requires integer constant between 1 and 1048576}}
@@ -313,10 +311,10 @@ void foo1()
   unsigned int nrp_three[4];
 
   // numwriteports
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__numwriteports__(4)))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int nwp_one[4];
 
   //expected-error@+1{{requires integer constant between 1 and 1048576}}
@@ -328,10 +326,12 @@ void foo1()
   unsigned int nwp_three[4];
 
   // numports_readonly_writeonly
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+5{{attributes are not compatible}}
+  //expected-note@+3 {{conflicting attribute is here}}
+  //expected-error@+3{{attributes are not compatible}}
+  //expected-note@+1 {{conflicting attribute is here}}
   __attribute__((__numports_readonly_writeonly__(4,4)))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
   unsigned int nprowo_one[4];
 
   //expected-error@+1{{attribute requires exactly 2 arguments}}
@@ -356,24 +356,25 @@ void foo1()
   unsigned int nprowo_six[4];
 
   //CHECK: VarDecl{{.*}}nprowo_seven
-  //CHECK-NOT: IntegerLiteral{{.*}}9{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}16{{$}}
+  //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: IntegerLiteral{{.*}}9{{$}}
+  //CHECK-NEXT: NumWritePortsAttr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: NumReadPortsAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: NumWritePortsAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}9{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}16{{$}}
-  //expected-warning@+1{{'__numports_readonly_writeonly__' is already applied}}
+  //expected-warning@+3{{'numreadports' is already applied}}
+  //expected-warning@+2{{'numwriteports' is already applied}}
   __attribute__((__numports_readonly_writeonly__(9,16)))
   __attribute__((__numports_readonly_writeonly__(2,4)))
   unsigned int nprowo_seven[4];
 
   // merge
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__merge__("mrg1","depth")))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int mrg_one[4];
 
   //expected-error@+1{{attribute requires a string}}
@@ -394,30 +395,28 @@ void foo1()
 
   //Last one is applied and others ignored.
   //CHECK: VarDecl{{.*}}mrg_six
-  //CHECK-NOT: MergeAttr{{.*}}"mrg4" "depth"{{$}}
+  //CHECK: MergeAttr{{.*}}"mrg4" "depth"{{$}}
   //CHECK: MergeAttr{{.*}}"mrg5" "width"{{$}}
-  //CHECK-NOT: MergeAttr{{.*}}"mrg4" "depth"{{$}}
-  //expected-warning@+1{{attribute '__merge__' is already applied}}
+  //expected-warning@+2{{attribute 'merge' is already applied}}
   __attribute__((__merge__("mrg4","depth")))
   __attribute__((__merge__("mrg5","width")))
   unsigned int mrg_six[4];
 
   // bank_bits
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((__bank_bits__(2,3)))
   __attribute__((__register__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   unsigned int bb_one[4];
 
   //CHECK: VarDecl{{.*}}bb_two
   //CHECK: BankBitsAttr
-  //CHECK-NOT: IntegerLiteral{{.*}}42{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}43{{$}}
-  //CHECK: IntegerLiteral{{.*}}1{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}42{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}43{{$}}
+  //CHECK: BankBitsAttr
+  //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}42{{$}}
-  //CHECK-NOT: IntegerLiteral{{.*}}43{{$}}
-  //expected-warning@+1{{attribute '__bank_bits__' is already applied}}
+  //expected-warning@+2{{attribute 'bank_bits' is already applied}}
   __attribute__((__bank_bits__(42,43)))
   __attribute__((__bank_bits__(1,2)))
   unsigned int bb_two[4];

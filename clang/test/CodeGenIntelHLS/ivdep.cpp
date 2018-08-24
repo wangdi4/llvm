@@ -56,8 +56,8 @@ void foo3()
 //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
 //CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 8) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
-#pragma ivdep array(ucharVar) safelen(8)
 #pragma ivdep array(structVar) safelen(8)
+#pragma ivdep array(ucharVar) safelen(8)
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -70,8 +70,8 @@ void foo4()
 //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
 //CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
-#pragma ivdep array(ucharVar) safelen(4)
 #pragma ivdep array(structVar) safelen(8)
+#pragma ivdep array(ucharVar) safelen(4)
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -84,8 +84,8 @@ void foo5()
 //CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
 //CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 -1) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
-#pragma ivdep array(ucharVar)
 #pragma ivdep array(structVar) safelen(8)
+#pragma ivdep array(ucharVar)
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -113,8 +113,8 @@ void foo7()
 //CHECK-SAME: structVar2{{.*}}, i32 0, i32 2), i32 8,
 //CHECK-SAME: [10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
 //CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
-#pragma ivdep array(ucharVar) safelen(4)
 #pragma ivdep array(structVar2.tmp) safelen(8)
+#pragma ivdep array(ucharVar) safelen(4)
 for (int i = 0; i < 10; ++i) {}
 }
 

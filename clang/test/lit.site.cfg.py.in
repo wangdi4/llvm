@@ -26,6 +26,7 @@ config.enable_shared = @ENABLE_SHARED@
 config.enable_backtrace = @ENABLE_BACKTRACES@
 config.host_arch = "@HOST_ARCH@"
 config.python_executable = "@PYTHON_EXECUTABLE@"
+config.use_z3_solver = lit_config.params.get('USE_Z3_SOLVER', "@USE_Z3_SOLVER@")
 
 # INTEL_CUSTOMIZATION
 config.available_features.add('openmp')

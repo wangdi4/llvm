@@ -185,6 +185,8 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> LoopHintHandler;
   std::unique_ptr<PragmaHandler> UnrollHintHandler;
   std::unique_ptr<PragmaHandler> NoUnrollHintHandler;
+  std::unique_ptr<PragmaHandler> UnrollAndJamHintHandler;
+  std::unique_ptr<PragmaHandler> NoUnrollAndJamHintHandler;
   std::unique_ptr<PragmaHandler> FPHandler;
   std::unique_ptr<PragmaHandler> STDCFENVHandler;
   std::unique_ptr<PragmaHandler> STDCCXLIMITHandler;
@@ -667,6 +669,10 @@ private:
   void HandlePragmaFPContract();
 
   /// Handle the annotation token produced for
+  /// #pragma STDC FENV_ACCESS...
+  void HandlePragmaFEnvAccess();
+
+  /// \brief Handle the annotation token produced for
   /// #pragma clang fp ...
   void HandlePragmaFP();
 
@@ -1964,10 +1970,6 @@ private:  //***INTEL
   // Pragma fusion
   std::unique_ptr<PragmaHandler> FusionHandler;
   // Pragma nounroll_and_jam
-  std::unique_ptr<PragmaHandler> NoUnrollAndJamHandler;
-  // Pragma unroll_and_jam
-  std::unique_ptr<PragmaHandler> UnrollAndJamHandler;
-  // Pragma novector
   std::unique_ptr<PragmaHandler> NoVectorHandler;
   // Pragma vector
   std::unique_ptr<PragmaHandler> VectorHandler;

@@ -8,6 +8,7 @@ list(APPEND LLVM_OPTIONAL_SOURCES IntelVfsTestLib.cpp)
 add_clang_unittest(FrontendTests
   ASTUnitTest.cpp
   CompilerInstanceTest.cpp
+  FixedPointString.cpp
   FrontendActionTest.cpp
   CodeGenActionTest.cpp
   ParsedSourceLocationTest.cpp

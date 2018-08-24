@@ -29,6 +29,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/JamCRC.h"
+#include "llvm/Support/xxhash.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/MathExtras.h"
 
@@ -127,10 +128,10 @@ class MicrosoftMangleContextImpl : public MicrosoftMangleContext {
   llvm::DenseMap<const CXXRecordDecl *, unsigned> LambdaIds;
   llvm::DenseMap<const NamedDecl *, unsigned> SEHFilterIds;
   llvm::DenseMap<const NamedDecl *, unsigned> SEHFinallyIds;
+  SmallString<16> AnonymousNamespaceHash;
 
 public:
-  MicrosoftMangleContextImpl(ASTContext &Context, DiagnosticsEngine &Diags)
-      : MicrosoftMangleContext(Context, Diags) {}
+  MicrosoftMangleContextImpl(ASTContext &Context, DiagnosticsEngine &Diags);
   bool shouldMangleCXXName(const NamedDecl *D) override;
   bool shouldMangleStringLiteral(const StringLiteral *SL) override;
   void mangleCXXName(const NamedDecl *D, raw_ostream &Out) override;
@@ -242,6 +243,12 @@ public:
     std::pair<llvm::DenseMap<const CXXRecordDecl *, unsigned>::iterator, bool>
         Result = LambdaIds.insert(std::make_pair(RD, LambdaIds.size()));
     return Result.first->second;
+  }
+
+  /// Return a character sequence that is (somewhat) unique to the TU suitable
+  /// for mangling anonymous namespaces.
+  StringRef getAnonymousNamespaceHash() const {
+    return AnonymousNamespaceHash;
   }
 
 private:
@@ -382,6 +389,34 @@ private:
 };
 }
 
+MicrosoftMangleContextImpl::MicrosoftMangleContextImpl(ASTContext &Context,
+                                                       DiagnosticsEngine &Diags)
+    : MicrosoftMangleContext(Context, Diags) {
+  // To mangle anonymous namespaces, hash the path to the main source file. The
+  // path should be whatever (probably relative) path was passed on the command
+  // line. The goal is for the compiler to produce the same output regardless of
+  // working directory, so use the uncanonicalized relative path.
+  //
+  // It's important to make the mangled names unique because, when CodeView
+  // debug info is in use, the debugger uses mangled type names to distinguish
+  // between otherwise identically named types in anonymous namespaces.
+  //
+  // These symbols are always internal, so there is no need for the hash to
+  // match what MSVC produces. For the same reason, clang is free to change the
+  // hash at any time without breaking compatibility with old versions of clang.
+  // The generated names are intended to look similar to what MSVC generates,
+  // which are something like "?A0x01234567@".
+  SourceManager &SM = Context.getSourceManager();
+  if (const FileEntry *FE = SM.getFileEntryForID(SM.getMainFileID())) {
+    // Truncate the hash so we get 8 characters of hexadecimal.
+    uint32_t TruncatedHash = uint32_t(xxHash64(FE->getName()));
+    AnonymousNamespaceHash = llvm::utohexstr(TruncatedHash);
+  } else {
+    // If we don't have a path to the main file, we'll just use 0.
+    AnonymousNamespaceHash = "0";
+  }
+}
+
 bool MicrosoftMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
     LanguageLinkage L = FD->getLanguageLinkage();
@@ -464,7 +499,7 @@ void MicrosoftCXXNameMangler::mangle(const NamedDecl *D, StringRef Prefix) {
     mangleFunctionEncoding(FD, Context.shouldMangleDeclName(FD));
   else if (const VarDecl *VD = dyn_cast<VarDecl>(D))
     mangleVariableEncoding(VD);
-  else
+  else if (!isa<ObjCInterfaceDecl>(D))
     llvm_unreachable("Tried to mangle unexpected NamedDecl!");
 }
 
@@ -804,7 +839,7 @@ void MicrosoftCXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
 
       if (const NamespaceDecl *NS = dyn_cast<NamespaceDecl>(ND)) {
         if (NS->isAnonymousNamespace()) {
-          Out << "?A@";
+          Out << "?A0x" << Context.getAnonymousNamespaceHash() << '@';
           break;
         }
       }
@@ -924,8 +959,14 @@ void MicrosoftCXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
 
     case DeclarationName::ObjCZeroArgSelector:
     case DeclarationName::ObjCOneArgSelector:
-    case DeclarationName::ObjCMultiArgSelector:
-      llvm_unreachable("Can't mangle Objective-C selector names here!");
+    case DeclarationName::ObjCMultiArgSelector: {
+      // This is reachable only when constructing an outlined SEH finally
+      // block.  Nothing depends on this mangling and it's used only with
+      // functinos with internal linkage.
+      llvm::SmallString<64> Name;
+      mangleSourceName(Name.str());
+      break;
+    }
 
     case DeclarationName::CXXConstructorName:
       if (isStructorDecl(ND)) {
@@ -1917,13 +1958,13 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
     llvm_unreachable("placeholder types shouldn't get to name mangling");
 
   case BuiltinType::ObjCId:
-    mangleArtificalTagType(TTK_Struct, "objc_object");
+    mangleArtificalTagType(TTK_Struct, ".objc_object");
     break;
   case BuiltinType::ObjCClass:
-    mangleArtificalTagType(TTK_Struct, "objc_class");
+    mangleArtificalTagType(TTK_Struct, ".objc_class");
     break;
   case BuiltinType::ObjCSel:
-    mangleArtificalTagType(TTK_Struct, "objc_selector");
+    mangleArtificalTagType(TTK_Struct, ".objc_selector");
     break;
 
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
@@ -2608,9 +2649,10 @@ void MicrosoftCXXNameMangler::mangleType(const DependentAddressSpaceType *T,
 
 void MicrosoftCXXNameMangler::mangleType(const ObjCInterfaceType *T, Qualifiers,
                                          SourceRange) {
-  // ObjC interfaces have structs underlying them.
+  // ObjC interfaces are mangled as if they were structs with a name that is
+  // not a valid C/C++ identifier
   mangleTagTypeKind(TTK_Struct);
-  mangleName(T->getDecl());
+  mangle(T->getDecl(), ".objc_cls_");
 }
 
 void MicrosoftCXXNameMangler::mangleType(const ObjCObjectType *T, Qualifiers,
@@ -2628,11 +2670,11 @@ void MicrosoftCXXNameMangler::mangleType(const ObjCObjectType *T, Qualifiers,
 
   Out << "?$";
   if (T->isObjCId())
-    mangleSourceName("objc_object");
+    mangleSourceName(".objc_object");
   else if (T->isObjCClass())
-    mangleSourceName("objc_class");
+    mangleSourceName(".objc_class");
   else
-    mangleSourceName(T->getInterface()->getName());
+    mangleSourceName((".objc_cls_" + T->getInterface()->getName()).str());
 
   for (const auto &Q : T->quals())
     mangleObjCProtocol(Q);

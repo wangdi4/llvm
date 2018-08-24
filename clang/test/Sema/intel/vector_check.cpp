@@ -5,7 +5,7 @@
 void foo()
 {
   int a[10];
-// expected-error@+1 {{duplicate directives '#pragma vector' and '#pragma novector'}}
+// expected-error@+2 {{duplicate directives '#pragma novector' and '#pragma vector'}}
   #pragma novector
   #pragma vector
   for (int i = 1; i <10; i++) a[i]=1;
@@ -13,7 +13,7 @@ void foo()
 void bar()
 {
   int a[10];
-// expected-error@+1 {{duplicate directives '#pragma vector' and '#pragma vector'}}
+// expected-error@+2 {{duplicate directives '#pragma vector' and '#pragma vector'}}
   #pragma vector
   #pragma vector
   for (int i = 1; i <10; i++) a[i]=1;

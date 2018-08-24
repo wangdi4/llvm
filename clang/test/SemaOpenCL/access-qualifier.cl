@@ -88,7 +88,8 @@ kernel void read_write_twice_typedef(read_write img1d_rw i){} // expected-warnin
 
 kernel void pipe_ro_twice(read_only read_only pipe int i){} // expected-warning{{duplicate 'read_only' declaration specifier}}
 // Conflicting access qualifiers
-kernel void pipe_ro_twice_tw(read_write read_only read_only pipe int i){} // expected-error{{multiple access qualifiers}} expected-warning{{duplicate 'read_only' declaration specifier}}
+kernel void pipe_ro_twice_tw(read_write read_only read_only pipe int i){} // expected-error{{access qualifier 'read_write' can not be used for 'read_only pipe int'}}
+kernel void pipe_ro_twice_tw(read_only read_only read_write pipe int i){} // expected-error{{multiple access qualifiers}} expected-warning{{duplicate 'read_only' declaration specifier}}
 kernel void pipe_ro_wo(read_only write_only pipe int i){} // expected-error{{multiple access qualifiers}}
 
 typedef read_only pipe int ROPipeInt;
@@ -97,13 +98,13 @@ kernel void pipe_ro_twice_typedef(read_only ROPipeInt i){} // expected-warning{{
 #endif
 
 kernel void read_only_twice_typedef(__read_only img1d_ro i){} // expected-warning {{duplicate '__read_only' declaration specifier}}
-// expected-note@-93 {{previously declared 'read_only' here}}
+// expected-note@-94 {{previously declared 'read_only' here}}
 
 kernel void read_only_twice_default(read_only img1d_ro_default img){} // expected-warning {{duplicate 'read_only' declaration specifier}}
-// expected-note@-99 {{previously declared 'read_only' here}}
+// expected-note@-100 {{previously declared 'read_only' here}}
 
 kernel void image_wo_twice(write_only write_only image1d_t i){} // expected-warning {{duplicate 'write_only' declaration specifier}}
 kernel void image_wo_twice_typedef(write_only img1d_wo i){} // expected-warning {{duplicate 'write_only' declaration specifier}}
-// expected-note@-101 {{previously declared 'write_only' here}}
+// expected-note@-102 {{previously declared 'write_only' here}}
 
 // endif INTEL_CUSTOMIZATION

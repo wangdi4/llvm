@@ -29,7 +29,7 @@ static Attr *handleFallThroughAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                        A.getAttributeSpellingListIndex());
   if (!isa<NullStmt>(St)) {
     S.Diag(A.getRange().getBegin(), diag::err_fallthrough_attr_wrong_target)
-        << Attr.getSpelling() << St->getLocStart();
+        << Attr.getSpelling() << St->getBeginLoc();
     if (isa<SwitchCase>(St)) {
       SourceLocation L = S.getLocForEndOfToken(Range.getEnd());
       S.Diag(L, diag::note_fallthrough_insert_semi_fixit)
@@ -56,8 +56,7 @@ static Attr *handleFallThroughAttr(Sema &S, Stmt *St, const ParsedAttr &A,
 static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                 SourceRange Range) {
   if (A.getNumArgs() < 1) {
-    S.Diag(A.getLoc(), diag::err_attribute_too_few_arguments)
-        << A.getName() << 1;
+    S.Diag(A.getLoc(), diag::err_attribute_too_few_arguments) << A << 1;
     return nullptr;
   }
 
@@ -96,9 +95,6 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
       PragmaNameLoc->Ident->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameLoc->Ident->getName() == "nofusion";
   bool PragmaFusion = PragmaNameLoc->Ident->getName() == "fusion";
-  bool PragmaNoUnrollAndJam =
-      PragmaNameLoc->Ident->getName() == "nounroll_and_jam";
-  bool PragmaUnrollAndJam = PragmaNameLoc->Ident->getName() == "unroll_and_jam";
   bool PragmaNoVector = PragmaNameLoc->Ident->getName() == "novector";
   bool PragmaVector = PragmaNameLoc->Ident->getName() == "vector";
   bool NonLoopPragmaDistributePoint =
@@ -109,6 +105,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
 #endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameLoc->Ident->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameLoc->Ident->getName() == "nounroll";
+  bool PragmaUnrollAndJam = PragmaNameLoc->Ident->getName() == "unroll_and_jam";
+  bool PragmaNoUnrollAndJam =
+      PragmaNameLoc->Ident->getName() == "nounroll_and_jam";
 #if INTEL_CUSTOMIZATION
   if (NonLoopPragmaDistributePoint) {
     bool withinLoop = false;
@@ -118,7 +117,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
         break;
       }
     if (!withinLoop) {
-      S.Diag(St->getLocStart(), diag::err_pragma_distpt_on_nonloop_stmt)
+      S.Diag(St->getBeginLoc(), diag::err_pragma_distpt_on_nonloop_stmt)
           << "#pragma distribute_point";
       return nullptr;
     }
@@ -132,6 +131,8 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
         llvm::StringSwitch<const char *>(PragmaNameLoc->Ident->getName())
             .Case("unroll", "#pragma unroll")
             .Case("nounroll", "#pragma nounroll")
+            .Case("unroll_and_jam", "#pragma unroll_and_jam")
+            .Case("nounroll_and_jam", "#pragma nounroll_and_jam")
 #if INTEL_CUSTOMIZATION
             .Case("loop_coalesce", "#pragma loop_coalesce")
             .Case("ii", "#pragma ii")
@@ -139,12 +140,10 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
             .Case("ivdep", "#pragma ivdep")
             .Case("nofusion", "#pragma nofusion")
             .Case("fusion", "#pragma fusion")
-            .Case("nounroll_and_jam", "#pragma nounroll_and_jam")
-            .Case("unroll_and_jam", "#pragma unroll_and_jam")
             .Case("novector", "#pragma novector")
 #endif // INTEL_CUSTOMIZATION
             .Default("#pragma clang loop");
-    S.Diag(St->getLocStart(), diag::err_pragma_loop_precedes_nonloop) << Pragma;
+    S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop) << Pragma;
     return nullptr;
   }
 
@@ -185,6 +184,20 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     } else {
       // #pragma unroll
       Option = LoopHintAttr::Unroll;
+      State = LoopHintAttr::Enable;
+    }
+  } else if (PragmaNoUnrollAndJam) {
+    // #pragma nounroll_and_jam
+    Option = LoopHintAttr::UnrollAndJam;
+    State = LoopHintAttr::Disable;
+  } else if (PragmaUnrollAndJam) {
+    if (ValueExpr) {
+      // #pragma unroll_and_jam N
+      Option = LoopHintAttr::UnrollAndJamCount;
+      State = LoopHintAttr::Numeric;
+    } else {
+      // #pragma unroll_and_jam
+      Option = LoopHintAttr::UnrollAndJam;
       State = LoopHintAttr::Enable;
     }
 #if INTEL_CUSTOMIZATION
@@ -238,15 +251,6 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   } else if (PragmaFusion) {
     Option = LoopHintAttr::Fusion;
     State = LoopHintAttr::Enable;
-  } else if (PragmaNoUnrollAndJam) {
-    Option = LoopHintAttr::UnrollAndJam;
-    State = LoopHintAttr::Disable;
-  } else if (PragmaUnrollAndJam) {
-    Option = LoopHintAttr::UnrollAndJam;
-    if (ValueExpr != nullptr)
-      State = LoopHintAttr::Numeric;
-    else
-      State = LoopHintAttr::Enable;
   } else if (PragmaNoVector) {
     Option = LoopHintAttr::Vectorize;
     State = LoopHintAttr::Disable;
@@ -277,7 +281,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
         Option == LoopHintAttr::InterleaveCount ||
         Option == LoopHintAttr::UnrollCount) {
       assert(ValueExpr && "Attribute must have a valid value expression.");
-      if (S.CheckLoopHintExpr(ValueExpr, St->getLocStart()))
+      if (S.CheckLoopHintExpr(ValueExpr, St->getBeginLoc()))
         return nullptr;
       State = LoopHintAttr::Numeric;
     } else if (Option == LoopHintAttr::Vectorize ||
@@ -404,7 +408,7 @@ static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
       St->getStmtClass() != Stmt::WhileStmtClass) {
-    S.Diag(St->getLocStart(), diag::err_pragma_loop_precedes_nonloop)
+    S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop)
         << "#pragma block_loop";
     return nullptr;
   }
@@ -552,29 +556,35 @@ bool Sema::CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BL) {
 static void
 CheckForIncompatibleAttributes(Sema &S,
                                const SmallVectorImpl<const Attr *> &Attrs) {
-  // There are 4 categories of loop hints attributes: vectorize, interleave,
-  // unroll and distribute. Except for distribute they come in two variants: a
-  // state form and a numeric form.  The state form selectively
-  // defaults/enables/disables the transformation for the loop (for unroll,
-  // default indicates full unrolling rather than enabling the transformation).
-  // The numeric form form provides an integer hint (for example, unroll count)
-  // to the transformer. The following array accumulates the hints encountered
-  // while iterating through the attributes to check for compatibility.
+  // There are 5 categories of loop hints attributes: vectorize, interleave,
+  // unroll, unroll_and_jam and distribute. Except for distribute they come
+  // in two variants: a state form and a numeric form.  The state form
+  // selectively defaults/enables/disables the transformation for the loop
+  // (for unroll, default indicates full unrolling rather than enabling the
+  // transformation). The numeric form form provides an integer hint (for
+  // example, unroll count) to the transformer. The following array accumulates
+  // the hints encountered while iterating through the attributes to check for
+  // compatibility.
   struct {
     const LoopHintAttr *StateAttr;
     const LoopHintAttr *NumericAttr;
   } HintAttrs[] = {{nullptr, nullptr},
 #if INTEL_CUSTOMIZATION
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
+                                       // Vectorize (above)
+                   {nullptr, nullptr}, // II
+                   {nullptr, nullptr}, // IVDep
+                   {nullptr, nullptr}, // IVDepLoop
+                   {nullptr, nullptr}, // IVDepBack
+                   {nullptr, nullptr}, // LoopCoalesce
+                   {nullptr, nullptr}, // MaxConcurrency
+                   {nullptr, nullptr}, // Fusion
+                   {nullptr, nullptr}, // VectorAlways
+                                       // Interleave (below)
+                                       // Unroll
+                                       // UnrollAndJam
+                                       // Distribute
 #endif // INTEL_CUSTOMIZATION
+                   {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr},
                    {nullptr, nullptr}};
@@ -596,12 +606,12 @@ CheckForIncompatibleAttributes(Sema &S,
       IVDepBack,
       LoopCoalesce,
       MaxConcurrency,
+      Fusion,
+      VectorAlways,
       Interleave,
       Unroll,
-      Distribute,
-      Fusion,
       UnrollAndJam,
-      VectorAlways
+      Distribute
     } Category;
 #endif // INTEL_CUSTOMIZATION
     switch (Option) {
@@ -629,9 +639,6 @@ CheckForIncompatibleAttributes(Sema &S,
     case LoopHintAttr::Fusion:
       Category = Fusion;
       break;
-    case LoopHintAttr::UnrollAndJam:
-      Category = UnrollAndJam;
-      break;
     case LoopHintAttr::VectorizeAlways:
       Category = VectorAlways;
       break;
@@ -648,12 +655,17 @@ CheckForIncompatibleAttributes(Sema &S,
     case LoopHintAttr::UnrollCount:
       Category = Unroll;
       break;
+    case LoopHintAttr::UnrollAndJam:
+    case LoopHintAttr::UnrollAndJamCount:
+      Category = UnrollAndJam;
+      break;
     case LoopHintAttr::Distribute:
       // Perform the check for duplicated 'distribute' hints.
       Category = Distribute;
       break;
     };
 
+    assert(Category < sizeof(HintAttrs) / sizeof(HintAttrs[0]));
     auto &CategoryState = HintAttrs[Category];
     const LoopHintAttr *PrevAttr;
 #if INTEL_CUSTOMIZATION
@@ -696,8 +708,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::LoopCoalesce ||
                Option == LoopHintAttr::MaxConcurrency ||
                Option == LoopHintAttr::VectorizeAlways ||
-               Option == LoopHintAttr::Fusion ||
-               Option == LoopHintAttr::UnrollAndJam) {
+               Option == LoopHintAttr::Fusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
         PrevAttr = CategoryState.NumericAttr;
@@ -722,6 +733,7 @@ CheckForIncompatibleAttributes(Sema &S,
 #endif // INTEL_CUSTOMIZATION
     if (Option == LoopHintAttr::Vectorize ||
         Option == LoopHintAttr::Interleave || Option == LoopHintAttr::Unroll ||
+        Option == LoopHintAttr::UnrollAndJam ||
         Option == LoopHintAttr::Distribute) {
       // Enable|Disable|AssumeSafety hint.  For example, vectorize(enable).
       PrevAttr = CategoryState.StateAttr;
@@ -741,7 +753,7 @@ CheckForIncompatibleAttributes(Sema &S,
           << LH->getDiagnosticName(Policy);
 
     if (CategoryState.StateAttr && CategoryState.NumericAttr &&
-        (Category == Unroll ||
+        (Category == Unroll || Category == UnrollAndJam ||
          CategoryState.StateAttr->getState() == LoopHintAttr::Disable)) {
       // Disable hints are not compatible with numeric hints of the same
       // category.  As a special case, numeric unroll hints are also not
@@ -766,8 +778,7 @@ static Attr *handleOpenCLUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
   unsigned NumArgs = A.getNumArgs();
 
   if (NumArgs > 1) {
-    S.Diag(A.getLoc(), diag::err_attribute_too_many_arguments) << A.getName()
-                                                               << 1;
+    S.Diag(A.getLoc(), diag::err_attribute_too_many_arguments) << A << 1;
     return nullptr;
   }
 
@@ -779,7 +790,7 @@ static Attr *handleOpenCLUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
 
     if (!E->isIntegerConstantExpr(ArgVal, S.Context)) {
       S.Diag(A.getLoc(), diag::err_attribute_argument_type)
-          << A.getName() << AANT_ArgumentIntegerConstant << E->getSourceRange();
+          << A << AANT_ArgumentIntegerConstant << E->getSourceRange();
       return nullptr;
     }
 
@@ -788,7 +799,7 @@ static Attr *handleOpenCLUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
     if (Val <= 0) {
       S.Diag(A.getRange().getBegin(),
              diag::err_attribute_requires_positive_integer)
-          << A.getName();
+          << A;
       return nullptr;
     }
     UnrollFactor = Val;
@@ -829,11 +840,11 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     // CQ#370092 - emit a warning, not error in IntelCompat mode
     if (S.getLangOpts().IntelCompat)
       S.Diag(A.getRange().getBegin(), diag::warn_decl_attribute_invalid_on_stmt)
-        << A.getName() << St->getLocStart();
+        << A.getName() << St->getBeginLoc();
     else
 #endif // INTEL_CUSTOMIZATION
     S.Diag(A.getRange().getBegin(), diag::err_decl_attribute_invalid_on_stmt)
-        << A.getName() << St->getLocStart();
+        << A.getName() << St->getBeginLoc();
     return nullptr;
   }
 }

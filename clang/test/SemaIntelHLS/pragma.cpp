@@ -14,12 +14,12 @@ void foo_unroll()
   #pragma unroll 4
   for (int i=0;i<32;++i) {}
 
-  #pragma unroll // expected-error {{incompatible directives}}
-  #pragma unroll 4
+  #pragma unroll
+  #pragma unroll 4 // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma unroll // expected-error {{duplicate directives}}
   #pragma unroll
+  #pragma unroll // expected-error {{duplicate directives}}
   for (int i=0;i<32;++i) {}
 }
 
@@ -37,12 +37,12 @@ void foo_coalesce()
   #pragma loop_coalesce 4
   for (int i=0;i<32;++i) {}
 
-  #pragma loop_coalesce // expected-error {{incompatible directives}}
-  #pragma loop_coalesce 4
+  #pragma loop_coalesce
+  #pragma loop_coalesce 4 // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma loop_coalesce // expected-error {{duplicate directives}}
   #pragma loop_coalesce
+  #pragma loop_coalesce // expected-error {{duplicate directives}}
   for (int i=0;i<32;++i) {}
 }
 
@@ -58,8 +58,8 @@ void foo_ii()
   #pragma ii // expected-warning {{expected value}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ii 4 // expected-error {{duplicate directives}}
-  #pragma ii 8
+  #pragma ii 4
+  #pragma ii 8 // expected-error {{duplicate directives}}
   for (int i=0;i<32;++i) {}
 }
 
@@ -75,8 +75,8 @@ void foo_max_concurrency()
   #pragma max_concurrency // expected-warning {{expected value}}
   for (int i=0;i<32;++i) {}
 
-  #pragma max_concurrency 4 // expected-error {{duplicate directives}}
-  #pragma max_concurrency 8
+  #pragma max_concurrency 4
+  #pragma max_concurrency 8 // expected-error {{duplicate directives}}
   for (int i=0;i<32;++i) {}
 }
 
@@ -151,12 +151,12 @@ void foo_ivdep()
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS LoopExpr
-  //CHECK-NEXT: NULL
-  //CHECK-NEXT: DeclRefExpr{{.*}}dArray
   //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Full
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS LoopExpr
+  //CHECK-NEXT: NULL
+  //CHECK-NEXT: DeclRefExpr{{.*}}dArray
   double dArray[42];
   #pragma ivdep safelen(4) array(myArray)
   #pragma ivdep array(dArray)
@@ -171,8 +171,8 @@ void foo_ivdep()
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep // expected-error {{duplicate directives}}
   #pragma ivdep
+  #pragma ivdep // expected-error {{duplicate directives}}
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+1{{'safelen' cannot appear multiple times}}

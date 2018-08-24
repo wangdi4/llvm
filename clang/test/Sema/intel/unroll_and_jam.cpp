@@ -18,7 +18,7 @@ void foo() {
     a[i] = b[i] = 0;
   }
   // CHECK: AttributedStmt
-  // CHECK-NEXT: LoopHintAttr{{.*}}UnrollAndJam Numeric
+  // CHECK-NEXT: LoopHintAttr{{.*}}UnrollAndJamCount Numeric
   #pragma unroll_and_jam (4)
   for (i = 0; i < 10; ++i) {  // this is OK
     a[i] = b[i] = 0;

@@ -375,6 +375,7 @@ static CodeGenOpt::Level getCGOptLevel(const CodeGenOptions &CodeGenOpts) {
 static Optional<llvm::CodeModel::Model>
 getCodeModel(const CodeGenOptions &CodeGenOpts) {
   unsigned CodeModel = llvm::StringSwitch<unsigned>(CodeGenOpts.CodeModel)
+                           .Case("tiny", llvm::CodeModel::Tiny)
                            .Case("small", llvm::CodeModel::Small)
                            .Case("kernel", llvm::CodeModel::Kernel)
                            .Case("medium", llvm::CodeModel::Medium)
@@ -668,6 +669,11 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     InstrProfOptions Options;
     Options.NoRedZone = CodeGenOpts.DisableRedZone;
     Options.InstrProfileOutput = CodeGenOpts.InstrProfileOutput;
+
+    // TODO: Surface the option to emit atomic profile counter increments at
+    // the driver level.
+    Options.Atomic = LangOpts.Sanitize.has(SanitizerKind::Thread);
+
     MPM.add(createInstrProfilingLegacyPass(Options));
   }
   if (CodeGenOpts.hasProfileIRInstr()) {

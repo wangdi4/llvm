@@ -1073,7 +1073,8 @@ namespace CGIntelOpenMP {
       addArg("QUAL.OMP.DEPEND.SINK");
       auto SavedIP = CGF.Builder.saveIP();
       setOutsideInsertPoint();
-      addArg(CGF.EmitScalarExpr(Cl->getCounterValue()));
+      for (unsigned I = 0, E = Cl->getNumLoops(); I < E; ++I)
+        addArg(CGF.EmitScalarExpr(Cl->getLoopData(I)));
       CGF.Builder.restoreIP(SavedIP);
       emitListClause();
       return;

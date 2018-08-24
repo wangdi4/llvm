@@ -793,19 +793,7 @@ void TypeLocWriter::VisitEnumTypeLoc(EnumTypeLoc TL) {
 }
 
 void TypeLocWriter::VisitAttributedTypeLoc(AttributedTypeLoc TL) {
-  Record.AddSourceLocation(TL.getAttrNameLoc());
-  if (TL.hasAttrOperand()) {
-    SourceRange range = TL.getAttrOperandParensRange();
-    Record.AddSourceLocation(range.getBegin());
-    Record.AddSourceLocation(range.getEnd());
-  }
-  if (TL.hasAttrExprOperand()) {
-    Expr *operand = TL.getAttrExprOperand();
-    Record.push_back(operand ? 1 : 0);
-    if (operand) Record.AddStmt(operand);
-  } else if (TL.hasAttrEnumOperand()) {
-    Record.AddSourceLocation(TL.getAttrEnumOperandLoc());
-  }
+  Record.AddAttr(TL.getAttr());
 }
 
 void TypeLocWriter::VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc TL) {
@@ -4001,7 +3989,8 @@ public:
 
 bool ASTWriter::isLookupResultExternal(StoredDeclsList &Result,
                                        DeclContext *DC) {
-  return Result.hasExternalDecls() && DC->NeedToReconcileExternalVisibleStorage;
+  return Result.hasExternalDecls() &&
+         DC->hasNeedToReconcileExternalVisibleStorage();
 }
 
 bool ASTWriter::isLookupResultEntirelyExternal(StoredDeclsList &Result,
@@ -4016,8 +4005,8 @@ bool ASTWriter::isLookupResultEntirelyExternal(StoredDeclsList &Result,
 void
 ASTWriter::GenerateNameLookupTable(const DeclContext *ConstDC,
                                    llvm::SmallVectorImpl<char> &LookupTable) {
-  assert(!ConstDC->HasLazyLocalLexicalLookups &&
-         !ConstDC->HasLazyExternalLexicalLookups &&
+  assert(!ConstDC->hasLazyLocalLexicalLookups() &&
+         !ConstDC->hasLazyExternalLexicalLookups() &&
          "must call buildLookups first");
 
   // FIXME: We need to build the lookups table, which is logically const.
@@ -4521,16 +4510,21 @@ void ASTWriter::WriteModuleFileExtension(Sema &SemaRef,
 // General Serialization Routines
 //===----------------------------------------------------------------------===//
 
-/// Emit the list of attributes to the specified record.
-void ASTRecordWriter::AddAttributes(ArrayRef<const Attr *> Attrs) {
+void ASTRecordWriter::AddAttr(const Attr *A) {
   auto &Record = *this;
-  Record.push_back(Attrs.size());
-  for (const auto *A : Attrs) {
-    Record.push_back(A->getKind()); // FIXME: stable encoding, target attrs
-    Record.AddSourceRange(A->getRange());
+  if (!A)
+    return Record.push_back(0);
+  Record.push_back(A->getKind() + 1); // FIXME: stable encoding, target attrs
+  Record.AddSourceRange(A->getRange());
 
 #include "clang/Serialization/AttrPCHWrite.inc"
-  }
+}
+
+/// Emit the list of attributes to the specified record.
+void ASTRecordWriter::AddAttributes(ArrayRef<const Attr *> Attrs) {
+  push_back(Attrs.size());
+  for (const auto *A : Attrs)
+    AddAttr(A);
 }
 
 void ASTWriter::AddToken(const Token &Tok, RecordDataImpl &Record) {
@@ -5295,7 +5289,7 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
         }
         Record.push_back(RD->getTagKind());
         Record.AddSourceLocation(RD->getLocation());
-        Record.AddSourceLocation(RD->getLocStart());
+        Record.AddSourceLocation(RD->getBeginLoc());
         Record.AddSourceRange(RD->getBraceRange());
 
         // Instantiation may change attributes; write them all out afresh.
@@ -5336,6 +5330,7 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
         break;
 
       case UPD_DECL_MARKED_OPENMP_DECLARETARGET:
+        Record.push_back(D->getAttr<OMPDeclareTargetDeclAttr>()->getMapType());
         Record.AddSourceRange(
             D->getAttr<OMPDeclareTargetDeclAttr>()->getRange());
         break;

@@ -197,16 +197,30 @@ void doacross_test(int (*v_ptr)[5][4])
   // CHECK: icmp sle i32 [[DAL2]], [[DAL3]]
   // CHECK: [[DAL4:%[0-9]+]] = load{{.*}}[[OMPIV]]
   // CHECK: store i32{{.*}}[[VARI]]
-  // CHECK: [[DAL5:%[0-9]+]] = load{{.*}}[[OMPIV]]
   // CHECK: store i32{{.*}}[[VARJ]]
-  // CHECK: [[DAL6:%[0-9]+]] = load{{.*}}[[OMPIV]]
-  // CHECK: [[DAS:%sub[0-9]*]] = sub nsw i32 [[DAL6]], 1
-  // CHECK: [[DAS4:%sub[0-9]+]] = sub nsw i32 [[DAS]], 2
-  // CHECK: [[DAL7:%[0-9]+]] = load{{.*}}[[OMPIV]]
-  // CHECK: [[DAS5:%sub[0-9]+]] = sub nsw i32 [[DAL7]], 2
+
+  // CHECK: [[N6:%[0-9]+]] = load{{.*}}[[VARI]]
+  // CHECK: [[S:%sub[0-9]*]] = sub nsw i32 [[N6]], 1
+  // CHECK: [[S2:%sub[0-9]+]] = sub nsw i32 [[S]], 1
+  // CHECK: [[D:%div[0-9]*]] = sdiv i32 [[S2]], 1
+
+  // CHECK: [[N7:%[0-9]+]] = load{{.*}}[[VARJ]]
+  // CHECK: [[S3:%sub[0-9]*]] = sub nsw i32 [[N7]], 1
+  // CHECK: [[S4:%sub[0-9]+]] = sub nsw i32 [[S3]], 2
+  // CHECK: [[D5:%div[0-9]+]] = sdiv i32 [[S4]], 1
+
+  // CHECK: [[N8:%[0-9]+]] = load{{.*}}[[VARI]]
+  // CHECK: [[S6:%sub[0-9]*]] = sub nsw i32 [[N8]], 1
+  // CHECK: [[D7:%div[0-9]+]] = sdiv i32 [[S6]], 1
+
+  // CHECK: [[N9:%[0-9]+]] = load{{.*}}[[VARJ]]
+  // CHECK: [[S8:%sub[0-9]*]] = sub nsw i32 [[N9]], 2
+  // CHECK: [[S9:%sub[0-9]+]] = sub nsw i32 [[S8]], 2
+  // CHECK: [[D10:%div[0-9]+]] = sdiv i32 [[S9]], 1
+
   // CHECK: region.entry{{.*}}DIR.OMP.ORDERED
-  // CHECK-SAME: "QUAL.OMP.DEPEND.SINK"(i32 [[DAS4]])
-  // CHECK-SAME: "QUAL.OMP.DEPEND.SINK"(i32 [[DAS5]])
+  // CHECK-SAME: "QUAL.OMP.DEPEND.SINK"(i32 [[D]], i32 [[D5]])
+  // CHECK-SAME: "QUAL.OMP.DEPEND.SINK"(i32 [[D7]], i32 [[D10]])
   // CHECK: region.exit{{.*}}DIR.OMP.END.ORDERED
       #pragma omp ordered depend(sink: i-1, j-1) depend(sink: i, j-2)
       (*v_ptr) [i][j] = (*v_ptr) [i-1][j - 1] + (*v_ptr) [i][j-2];
