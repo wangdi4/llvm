@@ -551,8 +551,6 @@ bool VPOParoptTransform::paroptTransforms() {
                         << " NOT transformed.\n\n");
   }
 
-  for (WRegionNode *R : WRegionList)
-    delete R;
   WRegionList.clear();
   return RoutineChanged;
 }

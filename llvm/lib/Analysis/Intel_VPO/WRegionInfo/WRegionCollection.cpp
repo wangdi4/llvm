@@ -352,18 +352,23 @@ WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
 #if INTEL_CUSTOMIZATION
                                      AliasAnalysis *AA,
                                      loopopt::HIRFramework *HIRF)
-    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
-      HIRF(HIRF) {
+    : WRGraph(nullptr), Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
+      TLI(TLI), AA(AA), HIRF(HIRF) {
 }
 #else
                                      AliasAnalysis *AA)
-    : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA) {
+    : WRGraph(nullptr), Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
+      TLI(TLI), AA(AA) {
 }
 #endif // INTEL_CUSTOMIZATION
 
 void WRegionCollection::buildWRGraph(InputIRKind IR) {
   LLVM_DEBUG(dbgs() << "\nENTER WRegionCollection::buildWRGraph(InputIR=" << IR
                     << "){\n");
+
+  // Delete any existing WRGraph if present
+  releaseMemory();
+
 #if INTEL_CUSTOMIZATION
   if (IR == HIR) {
     assert(HIRF && "HIR framework not available!");

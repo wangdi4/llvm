@@ -78,14 +78,14 @@ template <class T> bool WRStack<T>::empty() {
   return Stack_.size() == 0 ? true : false;
 }
 
-/// \brief Implementation of WRegionCollection analysis pass. This is the first
+/// Implementation of WRegionCollection analysis pass. This is the first
 /// step in building W-Region Graph. We start by collecting regions as a set of
 /// basic blocks in the incoming LLVM IR. This information is then used by
 /// WRegionInfo pass to create and populate W-Region nodes.
 class WRegionCollection {
 
 private:
-  /// WRGraph - vector of WRegionNodes.
+  /// Vector of WRegionNodes.
   WRContainerImpl *WRGraph;
 
   Function *Func;
@@ -99,6 +99,18 @@ private:
 #if INTEL_CUSTOMIZATION
   loopopt::HIRFramework *HIRF;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Delete WRGraph with all its WRegionNodes.
+  void releaseMemory() {
+    if (!WRGraph)
+      return;
+
+    for (auto *WRN : *WRGraph)
+      delete WRN;
+
+    delete WRGraph;
+    WRGraph = nullptr;
+  }
 
 public:
   enum InputIRKind{
@@ -118,6 +130,8 @@ public:
                     loopopt::HIRFramework *HIRF
 #endif // INTEL_CUSTOMIZATION
   );
+
+  ~WRegionCollection() { releaseMemory(); }
 
   void print(raw_ostream &OS) const;
 

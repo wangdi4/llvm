@@ -55,7 +55,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   if (!W->canHaveMap())
     return;
 
-  MapClause MpClause = W->getMap();
+  MapClause const &MpClause = W->getMap();
   if (MpClause.empty())
     return;
 
@@ -64,7 +64,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
       resetValueInIntelClauseGeneric(W, Item->getOrig());
     if (!Item->getIsMapChain())
       continue;
-    auto MapChain = Item->getMapChain();
+    MapChainTy const &MapChain = Item->getMapChain();
     for (unsigned I = 0; I < MapChain.size(); ++I) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
@@ -328,14 +328,14 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
 
   bool IsFirstExprFlag = true;
 
-  MapClause MpClause = W->getMap();
+  MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
     if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
         (MapI->getNew() != V || !MapI->getOrig()))
       continue;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
-      auto MapChain = MapI->getMapChain();
+      MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
@@ -428,7 +428,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   IRBuilder<> Builder(F->getEntryBlock().getFirstNonPHI());
   TgDataInfo Info;
 
-  MapClause MpClause = W->getMap();
   Info.NumberOfPtrs = Call->getNumArgOperands();
   bool hasRuntimeEvaluationCaptureSize = false;
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
@@ -582,7 +581,7 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
     SmallVectorImpl<Constant *> &ConstSizes,
     bool hasRuntimeEvaluationCaptureSize, Value *BPVal, bool &Match,
     IRBuilder<> &Builder, unsigned &Cnt) {
-  MapClause MpClause = W->getMap();
+  MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
     if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
         (MapI->getNew() != BPVal || !MapI->getOrig()))
@@ -591,7 +590,7 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
       BPVal = MapI->getOrig();
     Match = true;
     if (MapI->getIsMapChain()) {
-      auto MapChain = MapI->getMapChain();
+      MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         genOffloadArraysInitUtil(
@@ -991,7 +990,7 @@ Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
 // Replace the new generated local variables with global variables
 // in the target initialization code.
 bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
-  MapClause MpClause = W->getMap();
+  MapClause const &MpClause = W->getMap();
 
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
@@ -1013,7 +1012,7 @@ bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
 // If the incoming data is global variable, Create the stack variable and
 // replace the the global variable with the stack variable.
 bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
-  MapClause MpClause = W->getMap();
+  MapClause const &MpClause = W->getMap();
   BasicBlock *EntryBB = &(F->getEntryBlock());
   BasicBlock *ExitBB = W->getExitBBlock();
   BasicBlock *NextExitBB = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);

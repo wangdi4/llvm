@@ -826,9 +826,15 @@ template <typename ClauseItem> class Clause
   public:
     // Constructor
     Clause();
+    /// Delete all clause items for the Clause.
+    ~Clause() {
+      for (auto *CI : C)
+        delete CI;
+      C.clear();
+    }
 
   protected:
-    // Create a new item for VAR V and append it to the clause
+    /// Create a new item for VAR V and append it to the clause
     void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
     void add(ClauseItem *P) { C.push_back(P); }
 

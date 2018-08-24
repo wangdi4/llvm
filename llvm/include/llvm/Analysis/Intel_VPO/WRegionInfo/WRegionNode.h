@@ -371,12 +371,12 @@ public:
   friend class WRegionCollection;  //temporary
   friend class VPOParoptTransform;
 
-#if 1
   // WRegionNodes are destroyed in bulk using WRegionUtils::destroyAll()
-  virtual ~WRegionNode() { Children.clear(); }
-#else
-  virtual ~WRegionNode() {}
-#endif
+  virtual ~WRegionNode() {
+    for (auto *Child : Children)
+      delete Child;
+    Children.clear();
+  }
 
   // Virtual Clone Method
   // virtual WRegionNode *clone() const = 0;
