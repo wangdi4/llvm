@@ -597,6 +597,11 @@ public:
     WRNVecLoop,                       // IsOmpLoop
     WRNWksLoop,                       // IsOmpLoop
     WRNSections,                      // IsOmpLoop, IsSections
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    WRNSection,
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
     WRNAtomic,

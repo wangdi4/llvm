@@ -96,6 +96,13 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_SECTIONS:
       W = new WRNSectionsNode(EntryBB, LI);
       break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    case DIR_OMP_SECTION:
+      W = new WRNSectionNode(EntryBB);
+      break;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     case DIR_OMP_WORKSHARE:   // Fortran only
       W = new WRNWorkshareNode(EntryBB, LI);
       break;

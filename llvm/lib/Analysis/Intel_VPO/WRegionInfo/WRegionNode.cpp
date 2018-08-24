@@ -47,6 +47,11 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNVecLoop, "simd"},
     {WRegionNode::WRNWksLoop, "loop"},
     {WRegionNode::WRNSections, "sections"},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    {WRegionNode::WRNSection, "section"},
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     {WRegionNode::WRNWorkshare, "workshare"},
     {WRegionNode::WRNDistribute, "distribute"},
     {WRegionNode::WRNAtomic, "atomic"},

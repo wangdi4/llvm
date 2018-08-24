@@ -37,6 +37,11 @@
 ///   WRNVecLoopNode          | #pragma omp simd
 ///   WRNWksLoopNode          | #pragma omp for
 ///   WRNSectionsNode         | #pragma omp sections
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+///   WRNSectionNode          | #pragma omp section
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 ///   WRNWorkshareNode        | !$omp workshare
 ///   WRNDistributeNode       | #pragma omp distribute
 ///   WRNAtomicNode           | #pragma omp atomic
@@ -1006,6 +1011,24 @@ public:
     return W->getWRegionKindID() == WRegionNode::WRNSections;
   }
 };
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+/// WRN for
+/// \code
+///   #pragma omp section
+/// \endcode
+class WRNSectionNode : public WRegionNode {
+public:
+  WRNSectionNode(BasicBlock *BB);
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNSection;
+  }
+};
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 /// Fortran-only WRN for
 /// \code

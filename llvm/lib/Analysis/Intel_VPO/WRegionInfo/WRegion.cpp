@@ -495,6 +495,20 @@ void WRNSectionsNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+//
+// Methods for WRNSectionNode
+//
+
+// constructor
+WRNSectionNode::WRNSectionNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNSection, BB) {
+  LLVM_DEBUG(dbgs() << "\nCreated WRNSectionNode<" << getNumber() << ">\n");
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 //
 // Methods for WRNWorkshareNode
 //
