@@ -131,7 +131,6 @@ public:
   }
   bool isRegion() const { return TheBB == NULL; }
   const ControlDependenceNode *enclosingRegion() const;
-  // bool isLatchNode();
   bool isTrueChild(ControlDependenceNode *cnode) {
     return (TrueChildren.find(cnode) != true_end());
   }
@@ -218,8 +217,7 @@ template <> struct GraphTraits<ControlDependenceNode *> {
 };
 
 struct CDGRegion {
-  SetVector<ControlDependenceNode *> nodes;
-  unsigned NewRegion;
+  SmallVector<MachineBasicBlock *, 4> nodes;
 };
 
 class ControlDependenceGraphBase {
@@ -227,8 +225,6 @@ public:
   ControlDependenceGraphBase() : root(NULL) {
     nodes.clear();
     bb2cdg.clear();
-    cdg2bb.clear();
-    cdg2rgn.clear();
   }
   virtual ~ControlDependenceGraphBase() { releaseMemory(); }
   virtual void releaseMemory() {
@@ -236,19 +232,14 @@ public:
                                               e = nodes.end();
          n != e; ++n)
       delete *n;
-    for (unsigned i = 0; i < regions.size(); i++) {
-      CDGRegion *r = regions[i];
-      delete r;
-    }
     nodes.clear();
     bb2cdg.clear();
-    cdg2bb.clear();
-    cdg2rgn.clear();
+    RegionIndexes.clear();
+    Regions.clear();
     root = NULL;
   }
 
   void graphForFunction(MachineFunction &F, MachinePostDominatorTree &pdt);
-  void regionsForGraph(MachineFunction &F, MachinePostDominatorTree &pdt);
   void dumpRegions();
   ControlDependenceNode *getRoot() { return root; }
   const ControlDependenceNode *getRoot() const { return root; }
@@ -264,12 +255,18 @@ public:
   const ControlDependenceNode *getNode(const MachineBasicBlock *BB) const {
     return (bb2cdg.find(BB) != bb2cdg.end()) ? bb2cdg.find(BB)->second : NULL;
   }
-  CDGRegion *getRegion(ControlDependenceNode *anode) { return cdg2rgn[anode]; }
+  CDGRegion *getRegion(ControlDependenceNode *anode) {
+    return getRegion(anode->getBlock());
+  }
+  CDGRegion *getRegion(const MachineBasicBlock *MBB) {
+    return Regions[RegionIndexes[MBB->getNumber()]].get();
+  }
+  const ArrayRef<std::unique_ptr<CDGRegion>> getRegions() const {
+    return Regions;
+  }
   ControlDependenceNode::EdgeType getEdgeType(MachineBasicBlock *,
                                               MachineBasicBlock *,
                                               bool confirmAnalysiable = false);
-  // ControlDependenceNode* getNonLatchParent(ControlDependenceNode* anode, bool
-  // oneAndOnly);
   bool controls(MachineBasicBlock *A, MachineBasicBlock *B) const;
   bool influences(MachineBasicBlock *A, MachineBasicBlock *B) const;
   const ControlDependenceNode *enclosingRegion(MachineBasicBlock *BB) const;
@@ -281,12 +278,11 @@ private:
   ControlDependenceNode *root;
   std::set<ControlDependenceNode *> nodes;
   DenseMap<const MachineBasicBlock *, ControlDependenceNode *> bb2cdg;
-  DenseMap<ControlDependenceNode *, MachineBasicBlock *> cdg2bb;
-  SmallDenseMap<ControlDependenceNode *, CDGRegion *> cdg2rgn;
-  SmallVector<CDGRegion *, 64> regions;
+  std::vector<unsigned> RegionIndexes;
+  std::vector<std::unique_ptr<CDGRegion>> Regions;
 
+  void computeCDRegions(MachineFunction &F, MachinePostDominatorTree &pdt);
   void computeDependencies(MachineFunction &F, MachinePostDominatorTree &pdt);
-  void insertRegions(MachinePostDominatorTree &pdt);
 };
 
 class ControlDependenceGraph : public MachineFunctionPass,

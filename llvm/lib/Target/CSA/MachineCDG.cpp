@@ -120,17 +120,6 @@ const ControlDependenceNode *ControlDependenceNode::enclosingRegion() const {
   }
 }
 
-#if 0
-bool ControlDependenceNode::isLatchNode() {
-  if (isChild(this)) {
-    //assert a cycle is properly formed
-    assert(isParent(this));
-    return true;
-  }
-  return false;
-}
-#endif
-
 ControlDependenceNode::EdgeType ControlDependenceGraphBase::getEdgeType(
   MachineBasicBlock *A, MachineBasicBlock *B, bool confirmAnalysiable) {
   SmallVector<MachineOperand, 4> Cond; // For analyzeBranch.
@@ -181,41 +170,6 @@ ControlDependenceNode::EdgeType ControlDependenceGraphBase::getEdgeType(
   }
 }
 
-#if 0
-ControlDependenceNode* ControlDependenceGraphBase::getLatchParent(ControlDependenceNode* anode) {
-  if (anode->getNumParents() == 0) return NULL;
-  for (ControlDependenceNode::node_iterator pnode = anode->parent_begin(), pend = anode->parent_end(); pnode != pend; ++pnode) {
-    ControlDependenceNode* pcdn = *pnode;
-    if (pcdn->isLatchNode()) {
-      MachineDomTreeNode* ppdt = thisPDT->getNode(pcdn->getBlock());
-      MachineDomTreeNode* npdt = thisPDT->getNode(anode->getBlock());
-      if (npdt->getIDom() == ppdt) {
-        //parent is latch, and an immediate post dominator
-        return pcdn;
-      }
-    }
-  }
-  return NULL;
-}
-#endif
-
-#if 0
-//return the first non latch parent found or NULL
-ControlDependenceNode* ControlDependenceGraphBase::getNonLatchParent(ControlDependenceNode* anode, bool oneAndOnly=false) {
-  ControlDependenceNode* pcdn = nullptr;
-  if (anode->getNumParents() == 0) return pcdn;
-  for (ControlDependenceNode::node_iterator pnode = anode->parent_begin(), pend = anode->parent_end(); pnode != pend; ++pnode) {
-    if (!(*pnode)->isLatchNode()) {
-      if (oneAndOnly && pcdn) {
-        assert(false && "CDG node has more than one if parent");
-      }
-      pcdn = *pnode;
-    }
-  }
-  return pcdn;
-}
-#endif
-
 void ControlDependenceGraphBase::computeDependencies(
   MachineFunction &F, MachinePostDominatorTree &pdt) {
   root = new ControlDependenceNode();
@@ -225,7 +179,6 @@ void ControlDependenceGraphBase::computeDependencies(
     ControlDependenceNode *bn = new ControlDependenceNode(mbb);
     nodes.insert(bn);
     bb2cdg[mbb] = bn;
-    cdg2bb[bn]  = mbb;
   }
 
   for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
@@ -287,252 +240,109 @@ void ControlDependenceGraphBase::computeDependencies(
   }
 }
 
-void ControlDependenceGraphBase::insertRegions(MachinePostDominatorTree &pdt) {
-  typedef po_iterator<MachinePostDominatorTree *> po_pdt_iterator;
-  typedef std::pair<ControlDependenceNode::EdgeType, ControlDependenceNode *>
-    cd_type;
-  typedef std::set<cd_type> cd_set_type;
-  typedef std::map<cd_set_type, ControlDependenceNode *> cd_map_type;
-
-  cd_map_type cdMap;
-  cd_set_type initCDs;
-  initCDs.insert(std::make_pair(ControlDependenceNode::OTHER, root));
-  cdMap.insert(std::make_pair(initCDs, root));
-
-  for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt),
-                       END = po_pdt_iterator::end(&pdt);
-       DTN != END; ++DTN) {
-    if (!DTN->getBlock())
-      continue;
-
-    ControlDependenceNode *node = bb2cdg[DTN->getBlock()];
-    assert(node);
-
-    cd_set_type cds;
-    for (ControlDependenceNode::node_iterator P = node->Parents.begin(),
-                                              E = node->Parents.end();
-         P != E; ++P) {
-      ControlDependenceNode *parent = *P;
-      if (parent->TrueChildren.find(node) != parent->TrueChildren.end())
-        cds.insert(std::make_pair(ControlDependenceNode::TRUE, parent));
-      if (parent->FalseChildren.find(node) != parent->FalseChildren.end())
-        cds.insert(std::make_pair(ControlDependenceNode::FALSE, parent));
-      if (parent->OtherChildren.find(node) != parent->OtherChildren.end())
-        cds.insert(std::make_pair(ControlDependenceNode::OTHER, parent));
-    }
-
-    cd_map_type::iterator CDEntry = cdMap.find(cds);
-    ControlDependenceNode *region;
-    if (CDEntry == cdMap.end()) {
-      region = new ControlDependenceNode();
-      nodes.insert(region);
-      cdMap.insert(std::make_pair(cds, region));
-      for (cd_set_type::iterator CD = cds.begin(), CDEnd = cds.end();
-           CD != CDEnd; ++CD) {
-        switch (CD->first) {
-        case ControlDependenceNode::TRUE:
-          CD->second->addTrue(region);
-          break;
-        case ControlDependenceNode::FALSE:
-          CD->second->addFalse(region);
-          break;
-        case ControlDependenceNode::OTHER:
-          CD->second->addOther(region);
-          break;
-        }
-        region->addParent(CD->second);
-      }
-    } else {
-      region = CDEntry->second;
-    }
-    for (cd_set_type::iterator CD = cds.begin(), CDEnd = cds.end(); CD != CDEnd;
-         ++CD) {
-      switch (CD->first) {
-      case ControlDependenceNode::TRUE:
-        CD->second->removeTrue(node);
-        break;
-      case ControlDependenceNode::FALSE:
-        CD->second->removeFalse(node);
-        break;
-      case ControlDependenceNode::OTHER:
-        CD->second->removeOther(node);
-        break;
-      }
-      region->addOther(node);
-      node->addParent(region);
-      node->removeParent(CD->second);
-    }
-  }
-
-  // Make sure that each node has at most one true or false edge
-  for (std::set<ControlDependenceNode *>::iterator N = nodes.begin(),
-                                                   E = nodes.end();
-       N != E; ++N) {
-    ControlDependenceNode *node = *N;
-    assert(node);
-    if (node->isRegion())
-      continue;
-
-    // Fix too many true nodes
-    if (node->TrueChildren.size() > 1) {
-      ControlDependenceNode *region = new ControlDependenceNode();
-      nodes.insert(region);
-      ControlDependenceNode::node_iterator C  = node->true_begin(),
-                                           CE = node->true_end();
-      while (C != CE) {
-        ControlDependenceNode *child = *C;
-        ++C;
-        assert(node);
-        assert(child);
-        assert(region);
-        region->addOther(child);
-        child->addParent(region);
-        child->removeParent(node);
-        node->removeTrue(child);
-      }
-      node->addTrue(region);
-      region->addParent(node);
-    }
-
-    // Fix too many false nodes
-    if (node->FalseChildren.size() > 1) {
-      ControlDependenceNode *region = new ControlDependenceNode();
-      nodes.insert(region);
-      ControlDependenceNode::node_iterator C  = node->false_begin(),
-                                           CE = node->false_end();
-      while (C != CE) {
-        ControlDependenceNode *child = *C;
-        ++C;
-        region->addOther(child);
-        child->addParent(region);
-        child->removeParent(node);
-        node->removeFalse(child);
-      }
-      node->addFalse(region);
-      region->addParent(node);
-    }
-  }
-}
-
 void ControlDependenceGraphBase::graphForFunction(
   MachineFunction &F, MachinePostDominatorTree &pdt) {
   computeDependencies(F, pdt);
-  // insertRegions(pdt);
-  regionsForGraph(F, pdt);
+  computeCDRegions(F, pdt);
 
-  dumpRegions();
+  LLVM_DEBUG(dumpRegions());
 }
 
-// base on "compact representaions for control dependence, by Cytron, Ferrante,
-// Sarkar"  ControlDependenceNode is the link between these ADT:
-// ControlDependenceNode => MachineBasicBlock
-// ControlDependenceNode => Region
-// The original paper actually compute the week region, this algorithms enhance
-// it to compute a strong region  if the loop latch has exit edge, as most LLVM
-// loops do,or it is a while loop
-void ControlDependenceGraphBase::regionsForGraph(
-  MachineFunction &F, MachinePostDominatorTree &pdt) {
+void ControlDependenceGraphBase::computeCDRegions(MachineFunction &F,
+    MachinePostDominatorTree &PDT) {
+  // This algorithm for computing control-dependent regions is based on the one
+  // presented in section 4 of Compact Representations for Control Dependence,
+  // by Cytron, Ferrante and Sarkar.
+  //
+  // In essence, the algorithm works by initially lumping all of the nodes into
+  // one region, and then iterating through every edge in the graph, splitting
+  // regions into multiple regions if not all nodes in the region share the
+  // control-dependence on the current edge. One useful property of the regions
+  // is that every region is sorted such that the postdominators of a node
+  // follows it in the list--in other words, at the end of the algorithm, the
+  // list is sorted such that the first node dominates all other nodes and the
+  // last node postdominates all other nodes in the region.
   // reset region for each funciton
-  for (unsigned i = 0; i < regions.size(); i++) {
-    CDGRegion *r = regions[i];
-    delete r;
-  }
-  regions.clear();
+  Regions.clear();
 
-  typedef po_iterator<MachinePostDominatorTree *> po_pdt_iterator;
-  DenseMap<MachineBasicBlock *, CDGRegion *> mbb2rgn;
-  CDGRegion *rootRegion = new CDGRegion;
-  // regions[0] = rootRegion;
-  regions.push_back(rootRegion);
-  rootRegion->NewRegion = 0;
-  unsigned NumRegions   = 0;
-  // first, add all CDG nodes into region 0, by postorder traversal of the pdt,
-  // so that  RTAIL(0)==STOP; and postdominator of any node X is linked into the
-  // list somewhere AFTER X
-  for (po_pdt_iterator DTN = po_pdt_iterator::begin(&pdt),
-                       END = po_pdt_iterator::end(&pdt);
-       DTN != END; ++DTN) {
+  Regions.emplace_back(new CDGRegion);
+  RegionIndexes.clear();
+  RegionIndexes.resize(F.size(), 0);
+
+  // Insert all of the nodes into the starting region, such that the
+  // postdominators of a node follow it in the list.
+  for (auto DTN : post_order(&PDT)) {
     if (!DTN->getBlock())
       continue;
-    ControlDependenceNode *node = bb2cdg[DTN->getBlock()];
-    rootRegion->nodes.insert(node);
-    cdg2rgn[node] = rootRegion;
+    Regions[0]->nodes.push_back(DTN->getBlock());
   }
 
-  for (MachineFunction::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    MachineBasicBlock *A = &*BB;
-    for (MachineBasicBlock::succ_iterator succ = A->succ_begin(),
-                                          end  = A->succ_end();
-         succ != end; ++succ) {
-      MachineBasicBlock *B = *succ;
-      assert(A && B);
-      unsigned T = NumRegions;
-      if (A == B || !pdt.dominates(B, A)) {
-        MachineDomTreeNode *Y        = pdt.getNode(B);
-        MachineDomTreeNode *StartDN  = Y;
-        MachineBasicBlock *L         = pdt.findNearestCommonDominator(A, B);
-        MachineBasicBlock *loopLatch = NULL;
-        if (A == L) {
-          loopLatch = A;
+  std::vector<unsigned> SplitRegions{0};
+
+  // Process a chain of immediate post dominators from the start node to its
+  // ending ancestor (the end is exclusive). This chain represents a set of
+  // node that are control-dependent on some edge.
+  auto processCD = [&](const MachineDomTreeNode *Start,
+                       const MachineDomTreeNode *End) {
+    assert(PDT.dominates(End, Start));
+    unsigned T = Regions.size() - 1;
+    for (auto Node = Start; Node != End; Node = Node->getIDom()) {
+      MachineBasicBlock *Y = Node->getBlock();
+      unsigned RegionNum = RegionIndexes[Y->getNumber()];
+      CDGRegion *Region = Regions[RegionNum].get();
+      // If the following condition fails, then some node in Y's region is not
+      // control-dependent on the edge we're considering. Split this into a new
+      // region.
+      if (!PDT.dominates(PDT[Region->nodes.front()], Start) ||
+          !PDT.properlyDominates(End, PDT[Region->nodes.back()])) {
+        // If the old region for the node hasn't had a new region split to
+        // include this control dependence, then make a new region.
+        if (SplitRegions[RegionNum] <= T) {
+          SplitRegions.push_back(Regions.size());
+          SplitRegions[RegionNum] = Regions.size();
+          Regions.emplace_back(new CDGRegion);
         }
-        MachineDomTreeNode *EndDN = pdt.getNode(A)->getIDom();
-        while (Y != EndDN) {
-          MachineBasicBlock *YB = Y->getBlock();
-          CDGRegion *YR         = cdg2rgn[bb2cdg[YB]];
-          // RHEAD
-          ControlDependenceNode *YRHdr = YR->nodes[0];
-          MachineBasicBlock *YRHdrBB   = cdg2bb[YRHdr];
-          MachineDomTreeNode *YRHdrDN  = pdt.getNode(YRHdrBB);
-          // RTAIL
-          ControlDependenceNode *YRTail = YR->nodes.back();
-          MachineBasicBlock *YRTailBB   = cdg2bb[YRTail];
-          MachineDomTreeNode *YRTailDN  = pdt.getNode(YRTailBB);
-          bool isYBtwnStartEnd          = pdt.dominates(YRHdrDN, StartDN) &&
-                                 pdt.properlyDominates(EndDN, YRTailDN);
-          if (!isYBtwnStartEnd || (loopLatch && Y->getBlock() == loopLatch &&
-                                   YR->nodes.size() > 1)) {
-            // modification to the original paper: latch node need to be in a
-            // seperate region by itself
-            if (YR->NewRegion <= T ||
-                (loopLatch && Y->getBlock() == loopLatch &&
-                 YR->nodes.size() > 1)) {
-              NumRegions++;
-              CDGRegion *splitRgn = new CDGRegion();
-              // regions[NumRegions] = splitRgn;
-              regions.push_back(splitRgn);
-              // YR's splited new region has region# NumRegions in regions list
-              YR->NewRegion = NumRegions;
-              // splitRgn's new region is itself -- not splited yet
-              splitRgn->NewRegion = NumRegions;
-            }
-            ControlDependenceNode *YCN = bb2cdg[YB];
-            // delete Y from YR
-            YR->nodes.remove(YCN);
-            // add Y at tail of the new region
-            regions[YR->NewRegion]->nodes.insert(YCN);
-            // denote Y is in a new region now
-            cdg2rgn[bb2cdg[YB]] = regions[YR->NewRegion];
-          }
-          Y = Y->getIDom();
-        } // end of while
-      }   // end of if(A == B ...
-    }     // end of edge AB's end point
-  }       // end of for(A
+        Region->nodes.erase(
+            std::find(Region->nodes.begin(), Region->nodes.end(), Y));
+        Regions[SplitRegions[RegionNum]]->nodes.push_back(Y);
+        RegionIndexes[Y->getNumber()] = SplitRegions[RegionNum];
+      }
+    }
+  };
+
+  for (MachineBasicBlock &Block : F) {
+    for (MachineBasicBlock *Succ : Block.successors()) {
+      // The set of nodes from [Succ, postdom(Pred)) in the PDT are the set of
+      // nodes that are control dependent on Pred -> Succ.
+      processCD(PDT[Succ], PDT[&Block]->getIDom());
+    }
+  }
+
+  // Include the dummy edge from the entry to the exit.
+  processCD(PDT[&F.front()], PDT.getRootNode());
+
+#ifndef NDEBUG
+  // Verify that regions are defined such that every node is followed by its
+  // postdominator.
+  for (auto &Region : Regions) {
+    MachineBasicBlock *Prev = nullptr;
+    for (MachineBasicBlock *Node : Region->nodes) {
+      if (Prev) {
+        assert(PDT.dominates(Node, Prev) && "Region is not in dominator order");
+      }
+      Prev = Node;
+    }
+  }
+#endif
 }
 
 void ControlDependenceGraphBase::dumpRegions() {
-  for (unsigned i = 0; i < regions.size(); i++) {
-    CDGRegion *r = regions[i];
-    LLVM_DEBUG(errs() << "Region" << i << ": ");
-    for (SetVector<ControlDependenceNode *>::iterator N = r->nodes.begin(),
-                                                      E = r->nodes.end();
-         N != E; ++N) {
-      ControlDependenceNode *node = *N;
-      assert(node);
-      (void) node;
-      LLVM_DEBUG(errs() << "BB" << cdg2bb[node]->getNumber() << ", ");
+  for (unsigned I = 0; I < Regions.size(); I++) {
+    errs() << "Region" << I << ": ";
+    for (auto Node : Regions[I]->nodes) {
+      errs() << "BB#" << Node->getNumber() << ", ";
     }
-    LLVM_DEBUG(errs() << "\n");
+    errs() << "\n";
   }
 }
 
@@ -590,7 +400,7 @@ bool ControlDependenceGraph::runOnMachineFunction(MachineFunction &F) {
   if (pdt.getRootNode() == nullptr) {
     return false;
   }
-  
+
   thisPDT = &pdt;
   graphForFunction(F, pdt);
 
