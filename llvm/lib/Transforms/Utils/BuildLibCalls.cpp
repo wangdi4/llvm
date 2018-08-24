@@ -912,6 +912,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv:
     return Changed;
+  case LibFunc_ZNKSt9bad_alloc4whatEv:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    Changed |= setRetNonNull(F);
+    return Changed;
   case LibFunc_ZNKSt9exception4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
@@ -1042,11 +1047,17 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt8ios_baseD2Ev:
     return Changed;
+  case LibFunc_ZNSt9bad_allocD0Ev:
+    return Changed;
+  case LibFunc_ZNSt9bad_allocD1Ev:
+    return Changed;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E:
     return Changed;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate:
     return Changed;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5rdbufEPSt15basic_streambufIcS1_E:
+    return Changed;
+  case LibFunc_ZNSt9exceptionD0Ev:
     return Changed;
   case LibFunc_ZNSt9exceptionD1Ev:
     return Changed;
