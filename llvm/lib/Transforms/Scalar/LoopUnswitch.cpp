@@ -536,7 +536,7 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPM_Ref) {
 
   SanitizeMemory = F->hasFnAttribute(Attribute::SanitizeMemory);
   if (SanitizeMemory)
-    computeLoopSafetyInfo(&SafetyInfo, L);
+    SafetyInfo.computeLoopSafetyInfo(L);
 
   bool Changed = false;
   do {
@@ -1210,7 +1210,7 @@ void LoopUnswitch::SplitExitEdges(Loop *L,
 
     // Although SplitBlockPredecessors doesn't preserve loop-simplify in
     // general, if we call it on all predecessors of all exits then it does.
-    SplitBlockPredecessors(ExitBlock, Preds, ".us-lcssa", DT, LI,
+    SplitBlockPredecessors(ExitBlock, Preds, ".us-lcssa", DT, LI, nullptr,
                            /*PreserveLCSSA*/ true);
   }
 }

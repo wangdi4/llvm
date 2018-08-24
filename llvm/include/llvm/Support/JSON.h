@@ -382,16 +382,6 @@ public:
     llvm_unreachable("Unknown kind");
   }
 
-#if INTEL_CUSTOMIZATION
-  // Possibly related bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=41874
-  // Note, that the warning is emitted with GCC up to 6.4.0 from rdrive but not
-  // with 7.3.0 and not with 8.1.0.
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif // __GNUC__
-#endif // INTEL_CUSTOMIZATION
-
   // Typed accessors return None/nullptr if the Value is not of this type.
   llvm::Optional<std::nullptr_t> getAsNull() const {
     if (LLVM_LIKELY(Type == T_Null))
@@ -462,15 +452,11 @@ private:
     new (reinterpret_cast<T *>(Union.buffer)) T(std::forward<U>(V)...);
   }
   template <typename T> T &as() const {
-    return *reinterpret_cast<T *>(Union.buffer);
+    // Using this two-step static_cast via void * instead of reinterpret_cast
+    // silences a -Wstrict-aliasing false positive from GCC6 and earlier.
+    void *Storage = static_cast<void *>(Union.buffer);
+    return *static_cast<T *>(Storage);
   }
-
-#if INTEL_CUSTOMIZATION
-#ifdef __GNUC__
-  // Pop the "-Wstrict-aliasing" value.
-#pragma GCC diagnostic pop
-#endif // __GNUC__
-#endif // INTEL_CUSTOMIZATION
 
   template <typename Indenter>
   void print(llvm::raw_ostream &, const Indenter &) const;

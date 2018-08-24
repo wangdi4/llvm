@@ -175,27 +175,32 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
   Function *Caller = CS.getCaller();
   TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
 
-  if (!Callee || Callee->isDeclaration() || CS.isNoInline() ||
-      !TTI.areInlineCompatible(Caller, Callee))
-    return llvm::InlineCost::getNever();
+  if (!Callee || Callee->isDeclaration())
+    return llvm::InlineCost::getNever("undefined callee");
+
+  if (CS.isNoInline())
+    return llvm::InlineCost::getNever("noinline");
+
+  if (!TTI.areInlineCompatible(Caller, Callee))
+    return llvm::InlineCost::getNever("incompatible");
 
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     if (isInlineViable(*Callee, Reason))
-      return llvm::InlineCost::getAlways();
-    return llvm::InlineCost::getNever();
+      return llvm::InlineCost::getAlways("alwaysinline viable");
+    return llvm::InlineCost::getNever("alwaysinline unviable");
   }
   if (CS.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
     InlineReason Reason = InlrNoReason;
     if (isInlineViable(*Callee, Reason))
-      return llvm::InlineCost::getAlways();
-    return llvm::InlineCost::getNever();
+      return llvm::InlineCost::getAlways("alwaysinline recursive viable");
+    return llvm::InlineCost::getNever("alwaysinline recursive unviable");
   }
 #endif // INTEL_CUSTOMIZATION
 
   if (isWrapperOnlyCall(CS))
-    return llvm::InlineCost::getAlways();
+    return llvm::InlineCost::getAlways("wrapper-only call");
 
   InlineParams LocalParams = Params;
   LocalParams.DefaultThreshold = (int)getInlineThreshold(CS);

@@ -679,6 +679,36 @@ private:
     return (FMAControl & F) != 0;
   }
 
+  /// Extracts the load operands from the given mem operands.
+  /// This method is the exact copy of the static function extractLoadMMOs()
+  /// defined in X86InstrInfo.cpp. The more suitable way to have this
+  /// functionality would be to share the implementation from X86InstrInfo.cpp,
+  /// but it would also add more merging points and more problems during
+  /// pulldowns from llorg.
+  static SmallVector<MachineMemOperand *, 2>
+  extractLoadMMOs(ArrayRef<MachineMemOperand *> MMOs, MachineFunction &MF)  {
+    SmallVector<MachineMemOperand *, 2> LoadMMOs;
+
+    for (MachineMemOperand *MMO : MMOs) {
+      if (!MMO->isLoad())
+        continue;
+
+      if (!MMO->isStore()) {
+        // Reuse the MMO.
+        LoadMMOs.push_back(MMO);
+      } else {
+        // Clone the MMO and unset the store flag.
+        LoadMMOs.push_back(MF.getMachineMemOperand(
+            MMO->getPointerInfo(),
+            MMO->getFlags() & ~MachineMemOperand::MOStore,
+            MMO->getSize(), MMO->getBaseAlignment(), MMO->getAAInfo(), nullptr,
+            MMO->getSyncScopeID(), MMO->getOrdering(),
+            MMO->getFailureOrdering()));
+      }
+    }
+    return LoadMMOs;
+  }
+
   /// Do the FMA optimization in one basic block.
   /// Return true iff any changes in the IR were made.
   bool optBasicBlock(MachineBasicBlock &MBB);
@@ -2843,10 +2873,9 @@ MachineOperand X86GlobalFMA::generateMachineOperandForFMATerm(
     MachineOperand Op = MI->getOperand(I);
     AddrOps.push_back(Op);
   }
-  std::pair<MachineInstr::mmo_iterator, MachineInstr::mmo_iterator> MMOs =
-      MF->extractLoadMemRefs(MI->memoperands_begin(), MI->memoperands_end());
+  auto MMOs = extractLoadMMOs(MI->memoperands(), *MF);
   SmallVector<MachineInstr *, 1> NewMIs;
-  TII->loadRegFromAddr(*MF, Reg, AddrOps, RC, MMOs.first, MMOs.second, NewMIs);
+  TII->loadRegFromAddr(*MF, Reg, AddrOps, RC, MMOs, NewMIs);
 
   // In case of FMAMemoryTerm terms the new instruction must be inserted before
   // the original machine instruction performing the load from memory.
@@ -3451,9 +3480,9 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   MachineMemOperand *MMO = MF->getMachineMemOperand(
       MachinePointerInfo::getConstantPool(*MF),
       MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, Align, Align);
-  std::pair<MachineInstr::mmo_iterator, MachineInstr::mmo_iterator> MMOs =
-      MF->extractLoadMemRefs(&MMO, &MMO + 1);
-  MIB.setMemRefs(MMOs.first, MMOs.second);
+  ArrayRef<MachineMemOperand *> ARMMOs(MMO);
+  auto MMOs = extractLoadMMOs(ARMMOs, *MF);
+  MIB.setMemRefs(MMOs);
   return ResultReg;
 }
 } // End anonymous namespace.

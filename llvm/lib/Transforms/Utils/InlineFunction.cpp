@@ -94,25 +94,30 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
 
 #if INTEL_CUSTOMIZATION
 
-bool llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
-                          InlineReason* Reason,
-                          AAResults *CalleeAAR, bool InsertLifetime) {
+llvm::InlineResult llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
+                                        InlineReason* Reason,
+                                        AAResults *CalleeAAR,
+                                        bool InsertLifetime) {
   return InlineFunction(CallSite(CI), IFI, Reason, CalleeAAR, InsertLifetime);
 }
 
-bool llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-                          InlineReason* Reason,
-                          AAResults *CalleeAAR, bool InsertLifetime) {
+llvm::InlineResult llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
+                                        InlineReason* Reason,
+                                        AAResults *CalleeAAR,
+                                        bool InsertLifetime) {
   return InlineFunction(CallSite(II), IFI, Reason, CalleeAAR, InsertLifetime);
 }
 
-bool llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
-                          AAResults *CalleeAAR, bool InsertLifetime) {
+llvm::InlineResult llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
+                                        AAResults *CalleeAAR,
+                                        bool InsertLifetime) {
   InlineReason Reason = NinlrNoReason;
   return InlineFunction(CallSite(CI), IFI, &Reason, CalleeAAR, InsertLifetime);
 }
-bool llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-                          AAResults *CalleeAAR, bool InsertLifetime) {
+
+llvm::InlineResult llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
+                                        AAResults *CalleeAAR,
+                                        bool InsertLifetime) {
   InlineReason Reason = NinlrNoReason;
   return InlineFunction(CallSite(II), IFI, &Reason, CalleeAAR, InsertLifetime);
 }
@@ -1705,10 +1710,11 @@ static void updateCalleeCount(BlockFrequencyInfo *CallerBFI, BasicBlock *CallBB,
 /// INTEL The Intel version computes the principal reason the function was or
 /// INTEL was not inlined at the call site.
 ///
-bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-                          InlineReason* Reason, // INTEL
-                          AAResults *CalleeAAR, bool InsertLifetime,
-                          Function *ForwardVarArgsTo) {
+llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+                                        InlineReason* Reason, // INTEL
+                                        AAResults *CalleeAAR,
+                                        bool InsertLifetime,
+                                        Function *ForwardVarArgsTo) {
   Instruction *TheCall = CS.getInstruction();
   assert(TheCall->getParent() && TheCall->getFunction()
          && "Instruction not in function!");
@@ -1719,25 +1725,25 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   Function *CalledFunc = CS.getCalledFunction();
   if (!CalledFunc ||              // Can't inline external function or indirect
 #if INTEL_CUSTOMIZATION
-     CalledFunc->isDeclaration() ||
+      CalledFunc->isDeclaration() ||  // call
      (!ForwardVarArgsTo && CalledFunc->isVarArg())) {
     // call, or call to a vararg function
     if (!CalledFunc) {
-      // Can't inline indirect call
+      // Can't inline indirect call!
       *Reason = NinlrIndirect;
-      return false;
+      return "external or indirect";
     }
     if (CalledFunc->isDeclaration()) {
-      // Can't inline external call
+      // Can't inline external function!
       *Reason = NinlrExtern;
-      return false;
+      return "external or indirect";
     }
     assert(!ForwardVarArgsTo && CalledFunc->isVarArg());
 
     if (!TestVaArgPackAndLen(*CalledFunc)) {
       // Can't inline certain varargs calls
       *Reason = NinlrVarargs;
-      return false;
+      return "varargs";
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1754,7 +1760,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       if (Tag == LLVMContext::OB_funclet)
         continue;
       *Reason = NinlrOpBundles; // INTEL
-      return false;
+      return "unsupported operand bundle";
     }
   }
 
@@ -1774,7 +1780,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       Caller->setGC(CalledFunc->getGC());
     else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL
       *Reason = NinlrMismatchedGC; // INTEL
-      return false;
+      return "incompatible GC";
     } // INTEL
   }
 
@@ -1800,7 +1806,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     //       supersets of others and can be used in place of the other.
     else if (CalledPersonality != CallerPersonality) { // INTEL
       *Reason = NinlrMismatchedPersonality; // INTEL
-      return false;
+      return "incompatible personality";
     } // INTEL
   }
 
@@ -1827,7 +1833,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
             for (const BasicBlock &CalledBB : *CalledFunc) {
               if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL
                 *Reason = NinlrMSVCEH; // INTEL
-                return false;
+                return "catch in cleanup funclet";
               } // INTEL
             }
           }
@@ -1837,7 +1843,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
           for (const BasicBlock &CalledBB : *CalledFunc) {
             if (CalledBB.isEHPad()) { // INTEL
               *Reason = NinlrSEH; // INTEL
-              return false;
+              return "SEH in cleanup funclet";
             } // INTEL
           }
         }
@@ -2631,9 +2637,10 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
 #if INTEL_CUSTOMIZATION
 
-bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-                          AAResults *CalleeAAR, bool InsertLifetime,
-                          Function *ForwardVarArgsTo) {
+llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+                                        AAResults *CalleeAAR,
+                                        bool InsertLifetime,
+                                        Function *ForwardVarArgsTo) {
   InlineReason Reason;
   return llvm::InlineFunction(CS, IFI, &Reason, CalleeAAR, InsertLifetime,
                               ForwardVarArgsTo);

@@ -54,10 +54,11 @@ bool VarAnnotIntrinsic::hasRegisterAttributeSet() const{
 #endif  //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
-/// DbgInfoIntrinsic - This is the common base class for debug info intrinsics
+/// DbgVariableIntrinsic - This is the common base class for debug info
+/// intrinsics for variables.
 ///
 
-Value *DbgInfoIntrinsic::getVariableLocation(bool AllowNullOp) const {
+Value *DbgVariableIntrinsic::getVariableLocation(bool AllowNullOp) const {
   Value *Op = getArgOperand(0);
   if (AllowNullOp && !Op)
     return nullptr;
@@ -67,14 +68,11 @@ Value *DbgInfoIntrinsic::getVariableLocation(bool AllowNullOp) const {
     return V->getValue();
 
   // When the value goes to null, it gets replaced by an empty MDNode.
-  assert((isa<DbgLabelInst>(this)
-          || !cast<MDNode>(MD)->getNumOperands())
-	 && "DbgValueInst Expected an empty MDNode");
-
+  assert(!cast<MDNode>(MD)->getNumOperands() && "Expected an empty MDNode");
   return nullptr;
 }
 
-Optional<uint64_t> DbgInfoIntrinsic::getFragmentSizeInBits() const {
+Optional<uint64_t> DbgVariableIntrinsic::getFragmentSizeInBits() const {
   if (auto Fragment = getExpression()->getFragmentInfo())
     return Fragment->SizeInBits;
   return getVariable()->getSizeInBits();

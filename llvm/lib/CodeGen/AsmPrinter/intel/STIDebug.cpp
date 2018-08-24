@@ -11,7 +11,7 @@
 #include "STI.h"
 #include "STIIR.h"
 #include "pdbInterface.h"
-#include "../DbgValueHistoryCalculator.h"
+#include "../DbgEntityHistoryCalculator.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerUnion.h" // dyn_cast
 #include "llvm/ADT/StringRef.h"
@@ -1014,6 +1014,8 @@ private:
   AsmPrinter *_asmPrinter;
   STISymbolProcedure *_currentProcedure;
   DbgValueHistoryMap _valueHistory;
+  // FIXME: Either handle the labels somehow or move out from members.
+  DbgLabelInstrMap _labelHistory;
   FunctionMap _functionMap;
   DISubprogramMap _subprogramMap;
   STISymbolTable _symbolTable;
@@ -1342,6 +1344,7 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter) :
     _asmPrinter         (asmPrinter),
     _currentProcedure   (nullptr),
     _valueHistory       (),
+    _labelHistory       (),
     _functionMap        (),
     _subprogramMap      (),
     _symbolTable        (),
@@ -1456,7 +1459,8 @@ void STIDebugImpl::beginFunction(const MachineFunction *MF) {
   // Record this as the current procedure.
   setCurrentProcedure(procedure);
 
-  calculateDbgValueHistory(MF, getTargetRegisterInfo(), _valueHistory);
+  calculateDbgEntityHistory(MF, getTargetRegisterInfo(), _valueHistory,
+                            _labelHistory);
 }
 
 void STIDebugImpl::endFunction(const MachineFunction *MF) {
@@ -1484,7 +1488,10 @@ void STIDebugImpl::endFunction(const MachineFunction *MF) {
   clearValueHistory();
 }
 
-void STIDebugImpl::clearValueHistory() { _valueHistory.clear(); }
+void STIDebugImpl::clearValueHistory() {
+  _valueHistory.clear();
+  _labelHistory.clear();
+}
 
 void STIDebugImpl::beginInstruction(const MachineInstr *MI) {
   DebugLoc location = MI->getDebugLoc();

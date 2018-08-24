@@ -1297,6 +1297,31 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
   return setDoesNotRecurse(*F);
 }
 
+template <typename AARGetterT>
+static bool deriveAttrsInPostOrder(SCCNodeSet &SCCNodes, AARGetterT &&AARGetter,
+                                   bool HasUnknownCall) {
+  bool Changed = false;
+
+  // Bail if the SCC only contains optnone functions.
+  if (SCCNodes.empty())
+    return Changed;
+
+  Changed |= addArgumentReturnedAttrs(SCCNodes);
+  Changed |= addReadAttrs(SCCNodes, AARGetter);
+  Changed |= addArgumentAttrs(SCCNodes);
+
+  // If we have no external nodes participating in the SCC, we can deduce some
+  // more precise attributes as well.
+  if (!HasUnknownCall) {
+    Changed |= addNoAliasAttrs(SCCNodes);
+    Changed |= addNonNullAttrs(SCCNodes);
+    Changed |= inferAttrsFromFunctionBodies(SCCNodes);
+    Changed |= addNoRecurseAttrs(SCCNodes);
+  }
+
+  return Changed;
+}
+
 PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
                                                   CGSCCAnalysisManager &AM,
                                                   LazyCallGraph &CG,
@@ -1339,27 +1364,17 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     SCCNodes.insert(&F);
   }
 
-  bool Changed = false;
-  Changed |= addArgumentReturnedAttrs(SCCNodes);
-  Changed |= addReadAttrs(SCCNodes, AARGetter);
-  Changed |= addArgumentAttrs(SCCNodes);
-
-  // If we have no external nodes participating in the SCC, we can deduce some
-  // more precise attributes as well.
-  if (!HasUnknownCall) {
-    Changed |= addNoAliasAttrs(SCCNodes);
-    Changed |= addNonNullAttrs(SCCNodes);
-    Changed |= inferAttrsFromFunctionBodies(SCCNodes);
-    Changed |= addNoRecurseAttrs(SCCNodes);
+  if (deriveAttrsInPostOrder(SCCNodes, AARGetter, HasUnknownCall))
+#if INTEL_CUSTOMIZATION
+  {
+    PreservedAnalyses PA;
+    PA.preserve<WholeProgramAnalysis>();
+    PA.preserve<AndersensAA>();
+    return PA;
   }
+#endif // INTEL_CUSTOMIZATION
 
-  if (!Changed)                           // INTEL
-    return PreservedAnalyses::all();      // INTEL
-
-  PreservedAnalyses PA;                   // INTEL
-  PA.preserve<WholeProgramAnalysis>();    // INTEL
-  PA.preserve<AndersensAA>();             // INTEL
-  return PA;                              // INTEL
+  return PreservedAnalyses::all();
 }
 
 namespace {
@@ -1401,9 +1416,9 @@ Pass *llvm::createPostOrderFunctionAttrsLegacyPass() {
 }
 
 template <typename AARGetterT>
-static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter,   // INTEL
-  WholeProgramWrapperPass* WPA) {                              // INTEL
-  bool Changed = false;
+static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
+                    WholeProgramWrapperPass *WPA) {          // INTEL
+  bool Changed = false;                                      // INTEL
 
   // Fill SCCNodes with the elements of the SCC. Used for quickly looking up
   // whether a given CallGraphNode is in this SCC. Also track whether there are
@@ -1422,36 +1437,20 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter,   // INTEL
     }
 
 #if INTEL_CUSTOMIZATION
-  // Treat “main” as non-recursive function if there are no uses
-  // when whole-program-safe is true.
-  if (F->getName() == "main" && F->use_empty()) {
-    if (WPA && WPA->getResult().isWholeProgramSafe()) {
-      Changed |= setDoesNotRecurse(*F);
-    }
+    // Treat “main” as non-recursive function if there are no uses
+    // when whole-program-safe is true.
+    if (F->getName() == "main" && F->use_empty()) {
+      if (WPA && WPA->getResult().isWholeProgramSafe()) {
+        Changed |= setDoesNotRecurse(*F);
+      }
   }
 #endif // INTEL_CUSTOMIZATION
 
     SCCNodes.insert(F);
   }
 
-  // Skip it if the SCC only contains optnone functions.
-  if (SCCNodes.empty())
-    return Changed;
-
-  Changed |= addArgumentReturnedAttrs(SCCNodes);
-  Changed |= addReadAttrs(SCCNodes, AARGetter);
-  Changed |= addArgumentAttrs(SCCNodes);
-
-  // If we have no external nodes participating in the SCC, we can deduce some
-  // more precise attributes as well.
-  if (!ExternalNode) {
-    Changed |= addNoAliasAttrs(SCCNodes);
-    Changed |= addNonNullAttrs(SCCNodes);
-    Changed |= inferAttrsFromFunctionBodies(SCCNodes);
-    Changed |= addNoRecurseAttrs(SCCNodes);
-  }
-
-  return Changed;
+  return deriveAttrsInPostOrder(SCCNodes, AARGetter, ExternalNode) || // INTEL
+         Changed;                                                     // INTEL
 }
 
 bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {

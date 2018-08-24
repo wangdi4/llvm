@@ -3213,8 +3213,8 @@ bool HIRParser::parseDebugIntrinsic(HLInst *Inst) {
     return false;
   }
 
-  const DbgInfoIntrinsic *DbgIntrin =
-      dyn_cast<DbgInfoIntrinsic>(Inst->getLLVMInstruction());
+  const DbgVariableIntrinsic *DbgIntrin =
+      dyn_cast<DbgVariableIntrinsic>(Inst->getLLVMInstruction());
 
   if (!DbgIntrin) {
     return false;

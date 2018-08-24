@@ -7,20 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
-  // Microsoft issues a warning about an exception handler present
-  // in its library file <xlocale>, causing Windows build to fail.
-  // This customization is a temporary workaround to supress the
-  // warning.
-#if defined(_MSC_VER)
-#pragma warning (push)
-#pragma warning (disable:4530)
 #include "llvm/Passes/PassBuilder.h"
-#pragma warning (pop)
-#else
-#include "llvm/Passes/PassBuilder.h"
-#endif
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Passes/PassPlugin.h"
 
 #include "TestPlugin.h"
