@@ -509,15 +509,6 @@ void darwin::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles))
     getMachOToolChain().addStartObjectFileArgs(Args, CmdArgs);
 
-  // SafeStack requires its own runtime libraries
-  // These libraries should be linked first, to make sure the
-  // __safestack_init constructor executes before everything else
-  if (getToolChain().getSanitizerArgs().needsSafeStackRt()) {
-    getMachOToolChain().AddLinkRuntimeLib(Args, CmdArgs,
-                                          "libclang_rt.safestack_osx.a",
-                                          toolchains::Darwin::RLO_AlwaysLink);
-  }
-
   Args.AddAllArgs(CmdArgs, options::OPT_L);
 
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
@@ -2035,7 +2026,11 @@ bool Darwin::isAlignedAllocationUnavailable() const {
 void Darwin::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
                                    llvm::opt::ArgStringList &CC1Args,
                                    Action::OffloadKind DeviceOffloadKind) const {
-  if (isAlignedAllocationUnavailable())
+  // Pass "-faligned-alloc-unavailable" only when the user hasn't manually
+  // enabled or disabled aligned allocations.
+  if (!DriverArgs.hasArgNoClaim(options::OPT_faligned_allocation,
+                                options::OPT_fno_aligned_allocation) &&
+      isAlignedAllocationUnavailable())
     CC1Args.push_back("-faligned-alloc-unavailable");
 }
 
@@ -2293,7 +2288,6 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
   if (isTargetMacOS()) {
     if (!isMacosxVersionLT(10, 9))
       Res |= SanitizerKind::Vptr;
-    Res |= SanitizerKind::SafeStack;
     if (IsX86_64)
       Res |= SanitizerKind::Thread;
   } else if (isTargetIOSSimulator() || isTargetTvOSSimulator()) {
