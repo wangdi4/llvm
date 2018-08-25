@@ -494,6 +494,22 @@ LLVM_DUMP_METHOD void AddSubReassociatePass::Group::dump() const {
 
 // Begin of AddSubReassociatePass
 
+#ifndef NDEBUG
+// Checks if the code from the root to the leaves is in canonical form.
+void AddSubReassociatePass::checkCanonicalized(Tree &T) {
+  Value *TrunkV = T.getRoot();
+  while (isa<Instruction>(TrunkV)) {
+    Instruction *TrunkI = cast<Instruction>(TrunkV);
+    // Operand 0 of trunk should never be a leaf. It should be either another
+    // trunk node or zero.
+    assert(isAddSubInstr(TrunkI) && "Only Add/Sub instrs allowed in the trunk");
+    TrunkV = TrunkI->getOperand(0);
+  }
+  assert(isa<Constant>(TrunkV) && cast<Constant>(TrunkV)->isNullValue() &&
+         "The only non-instr trunk node allowed is the zero at the top");
+}
+#endif
+
 // Get the leaves that are common across all trees in TreeCluster insert them
 // into CommonLeaves.
 // TODO: A faster implementation of this would be nice.
@@ -636,6 +652,29 @@ void AddSubReassociatePass::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
   }
 }
 
+bool AddSubReassociatePass::canonicalizeIRForTrees(
+    const TreeArrayTy &TreeArray) const {
+  bool Changed = false;
+  for (TreePtr &Tptr : TreeArray) {
+    Changed |= canonicalizeIRForTree(*Tptr);
+#ifndef NDEBUG
+    if (EnableAddSubVerifier) {
+      LUSetTy VisitedLUs;
+      for (Instruction *TrunkI = Tptr->getRoot(); TrunkI;
+           TrunkI = dyn_cast<Instruction>(TrunkI->getOperand(0))) {
+        Value *Leaf = TrunkI->getOperand(1);
+        unsigned TrunkOpcode = TrunkI->getOpcode();
+        assert(TrunkOpcode ==
+                   Tptr->getLeafCanonOpcode(Leaf, VisitedLUs, TrunkOpcode)
+                       .getOpcode() &&
+               "Bad canonicalizeTree() OR CanonOpcode");
+      }
+    }
+#endif
+  }
+  return Changed;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void
 AddSubReassociatePass::dumpGroups(const GroupsVec &Groups) const {
@@ -734,6 +773,107 @@ void AddSubReassociatePass::clusterTrees(
       TreeClusters.push_back(Cluster);
     }
   }
+}
+
+// Remove all instructions from OldRootI all the way to the leaves.
+void AddSubReassociatePass::removeDeadTrunkInstrs(Tree *T,
+                                                  Instruction *OldRootI) const {
+  SmallVector<Instruction *, 16> POT;
+  // Walk up the instructions until the leaves are reached.
+  // Push the instructions into the POT vector.
+  std::function<void(Value *)> GetPOT = [&](Value *V) {
+    Instruction *I = dyn_cast<Instruction>(V);
+    if (!I || T->hasLeaf(V))
+      return;
+    for (int i = 0, e = I->getNumOperands(); i != e; ++i)
+      GetPOT(I->getOperand(i));
+    // Post-order
+    POT.push_back(I);
+  };
+  GetPOT(OldRootI);
+  // Erase in Reverse Post-Order Traversal.
+  for (Instruction *I : llvm::reverse(POT)) {
+    // Instructions may be shared across trees. Remove only if no uses left.
+    if (I->use_empty())
+      I->eraseFromParent();
+  }
+}
+
+// Canonicalize AddSub expression tree: All Add/Sub operations should
+// be in a single branch and all the leaf nodes should be on separate
+// branches. For example, X = A - B + C should be in this form:
+//  0 C
+//  |/
+//  + B
+//  |/
+//  - A
+//  |/
+//  +
+//  |
+//  X
+// Returns true if the code was modified
+bool AddSubReassociatePass::canonicalizeIRForTree(Tree &T) const {
+  // Now that we know all the +/- opcodes associated to each leaf, we can build
+  // the canonicalized tree.
+  Value *Undef0 = UndefValue::get(T.getRoot()->getType());
+  Instruction *LastTrunkI = nullptr;
+  Instruction *RootTrunkI = nullptr;
+  Instruction *InsertionPt = T.getRoot();
+
+  // NOTE: We iterate the leaves bottom-up because we emit their corresponding
+  // trunk instructions bottom-up.
+  for (auto &LUPair : T.getLeavesAndUsers()) {
+    Value *Leaf = LUPair.Leaf;
+    const OpcodeData &Opcode = LUPair.Opcode;
+    Instruction *OldUser = LUPair.User;
+    Instruction *TrunkI = nullptr;
+    switch (Opcode.getOpcode()) {
+    case Instruction::Add:
+      TrunkI = BinaryOperator::CreateAdd(Undef0, Leaf);
+      break;
+    case Instruction::Sub:
+      TrunkI = BinaryOperator::CreateSub(Undef0, Leaf);
+      break;
+    default:
+      llvm_unreachable("Only Add/Sub instructions are allowed in the tree");
+    }
+
+#ifndef NDEBUG
+    TrunkI->setName(Twine("Trunk_T") + Twine(T.getId()) + Twine("_"));
+#endif
+
+    TrunkI->insertBefore(InsertionPt);
+
+    // Update leaf user to TrunkI.
+    T.replaceLeafUser(Leaf, OldUser, TrunkI);
+
+    // Connect it with the last trunk instr
+    if (LastTrunkI)
+      LastTrunkI->setOperand(0, TrunkI);
+    if (!RootTrunkI)
+      RootTrunkI = TrunkI;
+    LastTrunkI = TrunkI;
+    InsertionPt = TrunkI;
+  }
+  // The topmost operand is a zero.
+  LastTrunkI->setOperand(0, ConstantInt::get(LastTrunkI->getType(), 0));
+  T.getRoot()->replaceAllUsesWith(RootTrunkI);
+  // Update the root node of the tree
+  Instruction *OldRoot = T.getRoot();
+  T.setRoot(RootTrunkI);
+
+  // Remove old internal trunk instructions that will no longer be used after
+  // canonicalization. NOTE: Associative instructions are also removed.
+  // Remove them in reverse post-order.
+  removeDeadTrunkInstrs(&T, OldRoot);
+
+#ifndef NDEBUG
+  checkCanonicalized(T);
+  if (EnableAddSubVerifier)
+    assert(!verifyFunction(*T.getRoot()->getParent()->getParent(), &dbgs()));
+#endif
+
+  return true;
 }
 
 // Try to grow the tree upwards, towards the definitions.
@@ -932,6 +1072,9 @@ bool AddSubReassociatePass::runImpl(Function *F, ScalarEvolution *Se) {
       // Check if transformation is profitable.
       if (Score <= 0)
         continue;
+
+      // 3. Canonicalize the IR into a single linearized chain.
+      Changed |= canonicalizeIRForTrees(TreeCluster);
     }
   }
   return Changed;

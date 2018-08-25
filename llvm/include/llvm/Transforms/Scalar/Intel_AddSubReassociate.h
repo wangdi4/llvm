@@ -223,6 +223,10 @@ private:
 
   using GroupsVec = SmallVector<Group, 4>;
 
+  // Checks that instructions between root and leaves are in
+  // canonical form, otherwise asserts with an error.
+  static void checkCanonicalized(Tree &T);
+
   // Find the common leaves across the trees in TreeCluster.
   void getCommonLeaves(const TreeArrayTy &TreeCluster,
                        SmallPtrSet<Value *, 8> &CommonLeaves);
@@ -232,6 +236,12 @@ private:
   // Form groups of nodes that reduce divergence across trees in TreeCluster.
   void buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
                            GroupsVec &AllBestGroups);
+  // Remove the old dead trunk instructions.
+  void removeDeadTrunkInstrs(Tree *T, Instruction *OldRootI) const;
+  // Massage the code in T to be a flat single-branch +/- expression tree.
+  bool canonicalizeIRForTree(Tree &T) const;
+  // Linearize the code that corresponds to the trees in TreeVec.
+  bool canonicalizeIRForTrees(const TreeArrayTy &TreeArray) const;
   // Returns true if T1 and T2 contain similar values.
   bool treesMatch(const Tree *T1, const Tree *T2) const;
   // Create clusters of the trees in TreeVec.
