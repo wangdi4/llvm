@@ -1,25 +1,29 @@
-;RUN: opt < %s -addsub-reassoc -S | FileCheck %s -check-prefix=CHECK_CANON_TREE
+;RUN: opt < %s -addsub-reassoc -S | FileCheck %s
 
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
 
-; CHECK_CANON_TREE:  [[Trunk_T24_120:%.*]] = add i32 0, %17
-; CHECK_CANON_TREE:  [[Trunk_T24_119:%.*]] = add i32 [[Trunk_T24_120]]
-; CHECK_CANON_TREE:  [[Trunk_T24_118:%.*]] = add i32 [[Trunk_T24_119]]
-; CHECK_CANON_TREE:  [[Trunk_T24_117:%.*]] = add i32 [[Trunk_T24_118]]
-; CHECK_CANON_TREE:  [[Trunk_T24_116:%.*]] = sub i32 [[Trunk_T24_117]]
-; CHECK_CANON_TREE:  [[Trunk_T24_115:%.*]] = sub i32 [[Trunk_T24_116]]
-; CHECK_CANON_TREE:  [[Trunk_T24_114:%.*]] = sub i32 [[Trunk_T24_115]]
-; CHECK_CANON_TREE:  [[Trunk_T24_113:%.*]] = sub i32 [[Trunk_T24_114]]
-; CHECK_CANON_TREE:  [[Trunk_T24_112:%.*]] = sub i32 [[Trunk_T24_113]]
-; CHECK_CANON_TREE:  [[Trunk_T24_111:%.*]] = sub i32 [[Trunk_T24_112]]
-; CHECK_CANON_TREE:  [[Trunk_T24_110:%.*]] = sub i32 [[Trunk_T24_111]]
-; CHECK_CANON_TREE:  [[Trunk_T24_109:%.*]] = sub i32 [[Trunk_T24_110]]
-; CHECK_CANON_TREE:  [[Trunk_T24_108:%.*]] = add i32 [[Trunk_T24_109]]
-; CHECK_CANON_TREE:  [[Trunk_T24_107:%.*]] = add i32 [[Trunk_T24_108]]
-; CHECK_CANON_TREE:  [[Trunk_T24_106:%.*]] = add i32 [[Trunk_T24_107]]
-; CHECK_CANON_TREE:  [[Trunk_T24_:%.*]] = add i32 [[Trunk_T24_106]]
-; CHECK_CANON_TREE:  store i32 [[Trunk_T24_]],
- 
+; CHECK: [[Chain1_0:%.*]] = add i32 0, [[l16:%.*]]
+; CHECK: [[Chain1_1:%.*]] = sub i32 [[Chain1_0]], [[l21:%.*]]
+; CHECK: [[Chain1_2:%.*]] = sub i32 [[Chain1_1]], [[l28:%.*]]
+; CHECK: [[Chain1_3:%.*]] = add i32 [[Chain1_2]], [[l33:%.*]]
+; CHECK: [[Chain2_0:%.*]] = sub i32 0, [[l17:%.*]]
+; CHECK: [[Chain2_1:%.*]] = add i32 [[Chain2_0]], [[l23:%.*]]
+; CHECK: [[Chain2_2:%.*]] = add i32 [[Chain2_1]], [[l29:%.*]]
+; CHECK: [[Chain2_3:%.*]] = sub i32 [[Chain2_2]], [[l35:%.*]]
+; CHECK: [[Chain3_0:%.*]] = sub i32 0, [[l18:%.*]]
+; CHECK: [[Chain3_1:%.*]] = add i32 [[Chain3_0]], [[l25:%.*]]
+; CHECK: [[Chain3_2:%.*]] = add i32 [[Chain3_1]], [[l30:%.*]]
+; CHECK: [[Chain3_3:%.*]] = sub i32 [[Chain3_2]], [[l37:%.*]]
+; CHECK: [[Chain4_0:%.*]] = add i32 0, [[l19:%.*]]
+; CHECK: [[Chain4_1:%.*]] = sub i32 [[Chain4_0]], [[l27:%.*]]
+; CHECK: [[Chain4_2:%.*]] = sub i32 [[Chain4_1]], [[l31:%.*]]
+; CHECK: [[Chain4_3:%.*]] = add i32 [[Chain4_2]], [[l39:%.*]]
+; CHECK: [[Bridge0:%.*]] = add i32 0, [[Chain4_3]]
+; CHECK: [[Bridge1:%.*]] = sub i32 [[Bridge0]], [[Chain3_3]]
+; CHECK: [[Bridge2:%.*]] = sub i32 [[Bridge1]], [[Chain2_3]]
+; CHECK: [[Bridge3:%.*]] = add i32 [[Bridge2]], [[Chain1_3]]
+; CHECK: store i32 [[Bridge3]]
+
 define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i_pix1, i8* nocapture readonly %pix2, i32 %i_pix2) #2 {
 entry:
   %idx.ext.i = sext i32 %i_pix1 to i64
@@ -346,4 +350,3 @@ afterloop.1247:                                   ; preds = %loop.1247
 !19 = !{!"pointer@_ZTSPFiPiPtiS0_PsiiE", !6, i64 0}
 !20 = !{!"pointer@_ZTSPFvPhS_PiE", !6, i64 0}
 !21 = !{!6, !6, i64 0}
-

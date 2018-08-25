@@ -1,13 +1,14 @@
-;RUN: opt < %s -addsub-reassoc -S | FileCheck %s -check-prefix=CHECK_CANON_TREE
+;RUN: opt < %s -addsub-reassoc -S | FileCheck %s
 
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
 
-; CHECK_CANON_TREE:  [[Trunk_T7_24:%.*]] = add i32 0, [[l53:%.*]]
-; CHECK_CANON_TREE:  [[Trunk_T7_23:%.*]] = add i32 [[Trunk_T7_24]]
-; CHECK_CANON_TREE:  [[Trunk_T7_22:%.*]] = sub i32 [[Trunk_T7_23]],
-; CHECK_CANON_TREE:  [[Trunk_T7_21:%.*]] = add i32 [[Trunk_T7_22]],
-; CHECK_CANON_TREE:  [[Trunk_T7_20:%.*]] = sub i32 [[Trunk_T7_21]],
-
+; CHECK:  [[Trunk0_0:%.*]] = add i32 0, [[reass_add1995:%.*]]
+; CHECK:  [[Chain0_0:%.*]] = sub i32 0, [[l65:%.*]]
+; CHECK:  [[Chain0_1:%.*]] = add i32 [[Chain0_0]], [[l57:%.*]]
+; CHECK:  [[Chain1_0:%.*]] = add i32 0, [[l64:%.*]]
+; CHECK:  [[Chain1_1:%.*]] = sub i32 [[Chain1_0]], [[l56:%.*]]
+; CHECK:  [[Bridge0_0:%.*]] = add i32 [[Trunk0_0]], [[Chain1_1]]
+; CHECK:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_1]]
 
 define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i_pix1, i8* nocapture readonly %pix2, i32 %i_pix2) #2 {
 entry:
@@ -304,4 +305,3 @@ afterloop.1247:
 !19 = !{!"pointer@_ZTSPFiPiPtiS0_PsiiE", !6, i64 0}
 !20 = !{!"pointer@_ZTSPFvPhS_PiE", !6, i64 0}
 !21 = !{!6, !6, i64 0}
-

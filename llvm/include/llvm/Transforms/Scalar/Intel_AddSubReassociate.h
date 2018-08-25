@@ -242,6 +242,10 @@ private:
   bool canonicalizeIRForTree(Tree &T) const;
   // Linearize the code that corresponds to the trees in TreeVec.
   bool canonicalizeIRForTrees(const TreeArrayTy &TreeArray) const;
+  // Applies 'G' onto 'T' and emits the code.
+  void generateCode(Group &G, Tree *T, Instruction *Chain) const;
+  // Calls generateCod(G, T) for all groups and all trees.
+  void generateCode(GroupsVec &Groups, TreeArrayTy &TreeArray) const;
   // Returns true if T1 and T2 contain similar values.
   bool treesMatch(const Tree *T1, const Tree *T2) const;
   // Create clusters of the trees in TreeVec.
