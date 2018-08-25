@@ -181,6 +181,57 @@ private:
   using TreeArrayTy = MutableArrayRef<TreePtr>;
   using WorkListTy = SmallVectorImpl<LeafUserPair>;
 
+  // Represents a group of values that should be enclosed in parentheses.
+  class Group {
+  public:
+    using ValOpTy = std::pair<Value *, OpcodeData>;
+    using ValVecTy = SmallVector<ValOpTy, 2>;
+    // Pairs of Leaves and user opcodes in bottom-up order.
+    ValVecTy Values;
+
+  public:
+    Group() {}
+    Group(Value *V, const OpcodeData &UserOpc) {
+      Values.push_back({V, UserOpc});
+    }
+    bool empty() const { return Values.empty(); }
+    // Return the vector of Leaves and user opcodes in bottom-up order.
+    const ValVecTy &getValues() const { return Values; }
+    void appendLeaf(Value *Leaf, const OpcodeData &Opcode) {
+      Values.push_back({Leaf, Opcode});
+    }
+    void pop_back() { Values.pop_back(); }
+    size_t size() const { return Values.size(); }
+    ValOpTy operator[](int idx) { return Values[idx]; }
+    OpcodeData getOpcodeFor(Value *V) const {
+      for (auto &Pair : Values) {
+        if (Pair.first == V) {
+          return Pair.second;
+        }
+      }
+      llvm_unreachable("V not found in group");
+    }
+    bool containsValue(const Value *const V) const;
+    // Return the opcode of the Idx'th trunk instruction.
+    unsigned getTrunkOpcode(int Idx) const { return Values[Idx].second.Opcode; }
+    // Change the trunk opcodes from Add to Sub and vice versa.
+    void flipOpcodes();
+    // Debug dump.
+    void dumpDepth(int Depth = 1) const;
+    void dump() const;
+  };
+
+  using GroupsVec = SmallVector<Group, 4>;
+
+  // Find the common leaves across the trees in TreeCluster.
+  void getCommonLeaves(const TreeArrayTy &TreeCluster,
+                       SmallPtrSet<Value *, 8> &CommonLeaves);
+  // Returns true if group 'G' can be legally applied to all trees in
+  // 'TreeCluster'.
+  bool isGroupLegal(Group &G, const TreeArrayTy &TreeCluster);
+  // Form groups of nodes that reduce divergence across trees in TreeCluster.
+  void buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
+                           GroupsVec &AllBestGroups);
   // Returns true if T1 and T2 contain similar values.
   bool treesMatch(const Tree *T1, const Tree *T2) const;
   // Create clusters of the trees in TreeVec.
@@ -198,6 +249,7 @@ private:
   void dumpTreeVec(const TreeVecTy &TreeVec) const;
   void dumpTreeArray(const TreeArrayTy &TreeVec) const;
   void dumpTreeArrayVec(SmallVectorImpl<TreeArrayTy> &Clusters) const;
+  void dumpGroups(const GroupsVec &Groups) const;
 
 private:
   ScalarEvolution *SE = nullptr;

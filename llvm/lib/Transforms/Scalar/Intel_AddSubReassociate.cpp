@@ -200,6 +200,10 @@ static cl::opt<unsigned> MinClusterSize(
     cl::desc(
         "A cluster has to be at least this big to be considered for reassoc."));
 
+static cl::opt<int> BestVariantScoreThreshold(
+    "addsub-reassoc-best-score-threshold", cl::init(40), cl::Hidden,
+    cl::desc("If we don't reach this % score, we don't consider the variant."));
+
 static cl::opt<unsigned>
     MaxTreeSize("addsub-reassoc-max-tree-size", cl::init(16), cl::Hidden,
                 cl::desc("Limit the size of the addsub reassoc expressions."));
@@ -439,9 +443,209 @@ LLVM_DUMP_METHOD void AddSubReassociatePass::Tree::dump() const {
 }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Begin of AddSubReassociatePass
+// Begin of AddSubReassociatePass::Group
+
+bool AddSubReassociatePass::Group::containsValue(const Value *const V) const {
+  for (auto &Pair : Values) {
+    const Value *CheckV = V;
+    if (Pair.first == CheckV)
+      return true;
+  }
+  return false;
+}
+
+void AddSubReassociatePass::Group::flipOpcodes() {
+  for (auto &Pair : Values)
+    Pair.second = Pair.second.getFlipped();
+}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Extended dump of a group. We also print the leaf operands to some depth.
+LLVM_DUMP_METHOD void
+AddSubReassociatePass::Group::dumpDepth(int Depth /* = 1 */) const {
+  // Recursive helper dump function.
+  std::function<void(Value *, int)> dumpDepth_rec = [&](Value *V, int Depth) {
+    Instruction *I = dyn_cast<Instruction>(V);
+    if (I && Depth > 0) {
+      for (int i = 0, e = I->getNumOperands(); i != e; ++i)
+        dumpDepth_rec(I->getOperand(i), Depth - 1);
+    }
+    dbgs() << *V << "\n";
+  };
+
+  dbgs() << "Top-Down Values:\n";
+  for (auto &Pair : llvm::reverse(Values)) {
+    Value *V = Pair.first;
+    const OpcodeData &Opcode = Pair.second;
+    assert(Opcode.Opcode == Instruction::Add ||
+           Opcode.Opcode == Instruction::Sub);
+    dumpDepth_rec(V, Depth);
+    dbgs() << " /\n";
+    Opcode.dump();
+    dbgs() << "\n";
+  }
+  dbgs() << "\n";
+}
+
+LLVM_DUMP_METHOD void AddSubReassociatePass::Group::dump() const {
+  dumpDepth(0);
+}
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Begin of AddSubReassociatePass
+
+// Get the leaves that are common across all trees in TreeCluster insert them
+// into CommonLeaves.
+// TODO: A faster implementation of this would be nice.
+void AddSubReassociatePass::getCommonLeaves(
+    const TreeArrayTy &TreeCluster, SmallPtrSet<Value *, 8> &CommonLeaves) {
+  const TreePtr &Tree0 = TreeCluster[0];
+  for (auto &LUPair : Tree0->getLeavesAndUsers()) {
+    Value *Leaf0 = LUPair.Leaf;
+    for (TreePtr &Tptr :
+         make_range(std::next(TreeCluster.begin()), TreeCluster.end())) {
+      if (Tptr->hasLeaf(Leaf0))
+        CommonLeaves.insert(Leaf0);
+    }
+  }
+}
+
+// Returns true if group 'G' can be applied to all trees in 'TreeCluster'.
+// This happens only if:
+//  i. All opcodes match
+// ii. Opcodes match after they are all flipped.
+//
+// For example, Group (+ A, + B)
+//
+//    B    B    B
+//  |/   |/   |/
+//  + A  - A  - A
+//  |/   |/   |/
+//  +    -    +
+//  T0   T1   T2
+//
+// - can be applied to T0 with no changes
+// - can also be applied to T1 with a single opcode flip
+// - but *cannot* be applied to T2 in any way.
+// Therefore, the group is *not* legal.
+//
+bool AddSubReassociatePass::isGroupLegal(Group &G,
+                                         const TreeArrayTy &TreeCluster) {
+  Value *Leaf0 = G.getValues()[0].first;
+  const OpcodeData &Opcode0 = G.getValues()[0].second;
+
+  // For each tree check if G can be applied.
+  for (const TreePtr &Tptr : TreeCluster) {
+    // Leaf0 not found, therefore the group is not legal.
+    if (!Tptr->hasLeaf(Leaf0))
+      return false;
+    // Use the first Leaf of G against the first tree in TreeCluster to check if
+    // opcodes should flip or not for this tree.
+    LUSetTy VisitedLUs;
+    const OpcodeData &Opcode =
+      Tptr->getLeafCanonOpcode(Leaf0, VisitedLUs, Opcode0);
+    bool MustFlipTreeOpcodes = !Opcode.hasSameAddSubOpcode(Opcode0);
+    VisitedLUs.clear();
+
+    // Check if the group can be applied either as it is or with an opcode flip.
+    // Go through all Leaves in G.
+    for (auto &Pair : G.getValues()) {
+      Value *LeafG = Pair.first;
+      if (!Tptr->hasLeaf(LeafG))
+        return false;
+      const OpcodeData &OpcodeG = Pair.second;
+      const OpcodeData &TreeOpcode =
+          Tptr->getLeafCanonOpcode(LeafG, VisitedLUs);
+      const OpcodeData &TreeOpcodeFixed =
+          (MustFlipTreeOpcodes) ? TreeOpcode.getFlipped() : TreeOpcode;
+      if (TreeOpcodeFixed != OpcodeG)
+        return false;
+    }
+  }
+  return true;
+}
+
+// Go through each tree in TreeCluster.
+// Form all possible groups of size 2 and try to see whether it increases
+// instruction reuse across all trees. If it does, keep trying to add more nodes
+// to it until it gets to a maximum size.
+// A group lists the Leaves their Add/Sub operations in a fixed ordering.
+// The group should be small enough that we can apply it across all trees.
+//
+// Group formation is quadtratic to the size of the tree, so we should keep the
+// tree size to a small number.
+// Group evaluation across trees is linear to the number of trees in TreeVec.
+// TODO: We could use sorted leaves and a search window to reduce complexity.
+void AddSubReassociatePass::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
+                                                GroupsVec &BestGroups) {
+  if (TreeCluster.empty())
+    return;
+  SmallSet<Value *, 2> AlreadyInGroup;
+
+  // Get the common leaves across the TreeCluster.
+  SmallPtrSet<Value *, 8> CommonLeaves;
+  getCommonLeaves(TreeCluster, CommonLeaves);
+  assert(!CommonLeaves.empty() && "There should be some common leaves!");
+
+  // TODO: Building the group based on the first tree is not always best.
+  //       We need a heuristic to choose which tree to use.
+  const TreePtr &Tree0 = TreeCluster[0];
+  const unsigned LeavesCount = Tree0->getLeavesCount();
+  for (unsigned I = 0; I < LeavesCount ; ++I) {
+    // Initialize group with a leaf from the Tree.
+    const auto &Pair = Tree0->getLeafUserPair(I);
+    Value *Leaf0 = Pair.Leaf;
+    const OpcodeData &CanonOpcode0 = Pair.Opcode;
+    // Skip if the leaf is not present in all trees or if already in the group.
+    if (!CommonLeaves.count(Leaf0) || AlreadyInGroup.count(Leaf0))
+      continue;
+
+    Group G(Leaf0, CanonOpcode0);
+    // Try to append as many nodes as possible to G to minimize cost.
+    for (unsigned J = I + 1; J < LeavesCount; ++J) {
+      // Extend the group with another leaf from the Tree.
+      const auto &Pair1 = Tree0->getLeafUserPair(J);
+      Value *Leaf1 = Pair1.Leaf;
+      const OpcodeData &CanonOpcode1 = Pair1.Opcode;
+      // Skip if already in a group
+      if (!CommonLeaves.count(Leaf1) || AlreadyInGroup.count(Leaf1))
+        continue;
+
+      G.appendLeaf(Leaf1, CanonOpcode1);
+
+      // Check if we can apply the group to all trees.
+      if (!isGroupLegal(G, TreeCluster)) {
+        G.pop_back();
+        continue;
+      }
+    }
+
+    // Skip single entry groups.
+    if (G.size() < 2)
+      continue;
+
+    assert(isGroupLegal(G, TreeCluster) && "Not legal?");
+
+    // At this point G is the maximum profitable group starting at Tree0[I].
+    // We save this group.
+    for (auto &Pair : G.getValues())
+      AlreadyInGroup.insert(Pair.first);
+
+    // Finally push constructed group to a list.
+    BestGroups.push_back(std::move(G));
+  }
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void
+AddSubReassociatePass::dumpGroups(const GroupsVec &Groups) const {
+  int cnt = 0;
+  for (const Group &G : Groups) {
+    dbgs() << "Group " << cnt++ << "\n";
+    G.dump();
+  }
+}
+
 LLVM_DUMP_METHOD void
 AddSubReassociatePass::dumpTreeVec(const TreeVecTy &TreeVec) const {
   int Cnt = 0;
@@ -686,6 +890,49 @@ bool AddSubReassociatePass::runImpl(Function *F, ScalarEvolution *Se) {
     SmallVector<TreeArrayTy, 8> TreeClusters;
     // 1. Build as many trees as we can find in BB.
     buildTrees(BB, TreeVec, TreeClusters);
+    // We did not collect any clusters. Continue looking for more trees.
+    if (TreeClusters.empty())
+      continue;
+
+    for (TreeArrayTy &TreeCluster : TreeClusters) {
+      // 2. Form groups of nodes that reduce divergence
+      GroupsVec BestGroups;
+      buildMaxReuseGroups(TreeCluster, BestGroups);
+      if (BestGroups.empty())
+        continue;
+
+      // The score is the instruction count savings (# before  - # after).
+      // If we apply group G, we are:
+      //  i.  introducing G.size()-1 new instructions (for the tmp value), and
+      //  ii. removing G.size()*TreeCluster.size() instructions from the trees
+      // Example:
+      //  Group: (+ A + B)
+      //     B     B           tmp = A + B
+      //   |/    |/
+      //   + A   - A        --> | tmp | tmp
+      //   |/    |/             |/    |/
+      //   +     -              +     -
+      //  Tree0  Tree1         Tree0 Tree1
+      //  total: 4 instrs      total: 3 instrs
+
+      // First take total number of cloned instructions into account.
+      int Score = 0;
+      // Compute instruction difference for each group.
+      for (auto &G : BestGroups) {
+        int OrigScore =
+            G.size() * TreeCluster.size();
+        int NewScore = (G.size() - 1 + TreeCluster.size());
+        Score += OrigScore - NewScore;
+      }
+
+      // Original tree (before canonicalization) could have one instruction
+      // less. Lets be conservative and assume this is always the case.
+      Score -= TreeCluster.size();
+
+      // Check if transformation is profitable.
+      if (Score <= 0)
+        continue;
+    }
   }
   return Changed;
 }
