@@ -348,23 +348,10 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
   // The vectorizer currently cannot handle min/max reductions, they are
   // therefore suppressed
   if (SRI) {
-    if (SRI->OpCode == Instruction::Select) {
+    if (SRI->OpCode == Instruction::Select || SRI->HasUnsafeAlgebra) {
       return false;
-    } else {
-      bool FPRedn = SrcRef->getDestType()->isFloatingPointTy();
-      auto FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
-
-      // Return unsafe to vectorize if we are dealing with a Floating
-      // point reduction, and fast flag is off. FPInst can
-      // be NULL for a copy instruction.
-      if (FPRedn && (!FPInst || !FPInst->isFast())) {
-        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                             "(FP reduction with fast flag off)\n");
-        return false;
-      }
-
-      return true;
     }
+    return true;
   }
 
   return false;
@@ -396,8 +383,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   DDRef *SinkRef = Edge->getSink();
 
-  if (Edge->isFLOWdep() &&
-      isSafeReductionFlowDep(Edge)) {
+  if (Edge->isFLOWdep() && isSafeReductionFlowDep(Edge)) {
     LLVM_DEBUG(
         dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
