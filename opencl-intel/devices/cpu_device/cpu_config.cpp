@@ -41,6 +41,16 @@ CPUDeviceConfig::~CPUDeviceConfig()
     // ~BasicCLConfigWrapper
 }
 
+int CPUDeviceConfig::GetNumDevices() const
+{
+    if (FPGA_EMU_DEVICE == this->GetDeviceMode())
+    {
+        return m_pConfigFile->
+          Read<int>(CL_CONFIG_CPU_EMULATE_DEVICES, 1);
+    }
+    return 1;
+}
+
 cl_ulong CPUDeviceConfig::GetForcedGlobalMemSize() const
 {
     std::string strForcedSize;
@@ -129,7 +139,17 @@ const char* CPUDeviceConfig::GetExtensions() const
 {
     if (m_extensions.empty())
     {
-#ifndef BUILD_FPGA_EMULATOR
+        if (FPGA_EMU_DEVICE == GetDeviceMode())
+        {
+            m_extensions =  OCL_EXT_KHR_ICD " ";
+            m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
+            m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
+            m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
+            m_extensions += OCL_EXT_ES_KHR_INT64 " ";
+
+            return m_extensions.c_str();
+        }
+
         // build the extensions list dynamically
         // common KHR extensions
         m_extensions =  OCL_EXT_KHR_ICD " ";
@@ -177,14 +197,6 @@ const char* CPUDeviceConfig::GetExtensions() const
         }
 
         m_extensions += OCL_INTEL_VEC_LEN_HINT " ";
-
-#else
-        m_extensions =  OCL_EXT_KHR_ICD " ";
-        m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
-        m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
-        m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
-        m_extensions += OCL_EXT_ES_KHR_INT64 " ";
-#endif
     }
 
     return m_extensions.c_str();

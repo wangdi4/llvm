@@ -26,6 +26,7 @@
 #include "CPUDetect.h"
 #include "BuiltinModules.h"
 #include "exceptions.h"
+#include "BackendConfiguration.h"
 #include "BuiltinModuleManager.h"
 #include "MetadataAPI.h"
 #include "BitCodeContainer.h"
@@ -142,6 +143,7 @@ static void updateGlobalVariableTotalSize(Program *pProgram, Module *pModule) {
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
+    m_targetDevice(config.TargetDevice()),
     m_forcedPrivateMemorySize(config.GetForcedPrivateMemorySize()),
     m_statFileBaseName(config.GetStatFileBaseName())
 {
@@ -242,7 +244,8 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
     }
 }
 
-cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
+cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
+    const ICLDevBackendOptions* pOptions)
 {
     assert(pProgram && "Program parameter must not be nullptr");
     ProgramBuildResult buildResult;
@@ -268,17 +271,21 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
         // Handle LLVM ERROR which can occured during build programm
         // Need to do it to eliminate RT hanging when clBuildProgramm failed
-        llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler, nullptr);
+        llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
+                                                        nullptr);
 
         pCompiler->BuildProgram( pModule, &buildResult);
-        // ObjectCodeCache structure will be filled by a callback after JIT happens.
-        std::unique_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
+        // ObjectCodeCache structure will be filled by a callback after JIT
+        // happens.
+        std::unique_ptr<ObjectCodeCache>
+          pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
         pCompiler->SetObjectCache(pObjectCodeCache.get());
 
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
         pProgram->SetBuiltinModule(pCompiler->GetBuiltinModuleList());
 
-        // init refcounted runtime service shared storage between program and kernels
+        // init refcounted runtime service shared storage between program
+        // and kernels
         RuntimeServiceSharedPtr lRuntimeService =
                           RuntimeServiceSharedPtr(new RuntimeServiceImpl);
         // set runtime service for the program
@@ -288,9 +295,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         DumpModuleStats(pModule);
 
         PostOptimizationProcessing(pProgram, pModule, pOptions);
-        if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
+        if (!(pOptions && pOptions->
+              GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
-            //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
+            // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
+            // L"Start iterating over kernels");
             KernelSet* pKernels = CreateKernels( pProgram,
                                                  pModule,
                                                  buildResult);
@@ -522,6 +531,9 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   // set isBlock property
   pProps->SetIsBlock(CompilationUtils::isBlockInvocationKernel(func));
+
+  //
+  pProps->SetTargetDevice(m_targetDevice);
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=

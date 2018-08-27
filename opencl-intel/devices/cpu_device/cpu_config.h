@@ -48,11 +48,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         cl_ulong        GetForcedGlobalMemSize() const;
         cl_ulong        GetForcedMaxMemAllocSize() const;
         cl_int          GetVectorizerMode() const;
-
-        int             GetNumDevices() const
-        {
-            return m_pConfigFile->Read<int>(CL_CONFIG_CPU_EMULATE_DEVICES, 1);
-        }
+        int             GetNumDevices() const;
 
         bool            UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
