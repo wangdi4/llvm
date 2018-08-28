@@ -37,7 +37,11 @@
 #include "Targets/WebAssembly.h"
 #include "Targets/X86.h"
 #include "Targets/XCore.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
 #include "Targets/CSA.h"
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
@@ -236,9 +240,11 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case llvm::Triple::csa:
     return new LinuxTargetInfo<CSATargetInfo>(Triple, Opts);
-#endif
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   case llvm::Triple::avr:
     return new AVRTargetInfo(Triple, Opts);

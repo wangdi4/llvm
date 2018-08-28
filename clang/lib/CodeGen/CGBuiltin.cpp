@@ -4270,9 +4270,11 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
   case llvm::Triple::x86_64:
     return CGF->EmitX86BuiltinExpr(BuiltinID, E);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case llvm::Triple::csa:
     return CGF->EmitCSABuiltinExpr(BuiltinID, E);
-#endif
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
@@ -11124,6 +11126,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return Builder.CreateMemSet(Ops[0], Ops[1], Ops[2], 1, true);
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case X86::BI__builtin_csa_parallel_region_entry:
   case X86::BI__builtin_csa_parallel_region_exit:
   case X86::BI__builtin_csa_parallel_section_entry:
@@ -11133,7 +11136,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_spmd: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case X86::BI__ud2:
     // llvm.trap makes a ud2a instruction on x86.
     return EmitTrapCall(Intrinsic::trap);
@@ -11191,6 +11195,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
 Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {
   switch (BuiltinID) {
@@ -11231,7 +11236,8 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     return nullptr;
   }
 }
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
 Value *CodeGenFunction::EmitPPCBuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {

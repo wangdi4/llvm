@@ -293,9 +293,11 @@ def mlink_builtin_bitcode : Separate<["-"], "mlink-builtin-bitcode">,
   HelpText<"Link and internalize needed symbols from the given bitcode file "
            "before performing optimizations.">;
 // INTEL_CUSTOMIZATION
+// INTEL_FEATURE_CSA
 // csa .bc file link support
 def mlink_csa_bitcode : Separate<["-"], "mlink-csa-bitcode">,
   Alias<mlink_builtin_bitcode>;
+// end INTEL_FEATURE_CSA
 // end INTEL_CUSTOMIZATION
 def mlink_cuda_bitcode : Separate<["-"], "mlink-cuda-bitcode">,
   Alias<mlink_builtin_bitcode>;

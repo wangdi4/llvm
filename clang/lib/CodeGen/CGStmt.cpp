@@ -38,8 +38,10 @@ static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
     return false;
 
   ASTContext &Ctx = CGM.getContext();
+#if INTEL_FEATURE_CSA
   if (Ctx.getTargetInfo().getTriple().getArch() == llvm::Triple::csa)
    return true;
+#endif  // INTEL_FEATURE_CSA
 
   const auto *AD = cast<OMPAtomicDirective>(S);
   if (Ctx.getTypeSize(AD->getX()->getType()) <= 64)

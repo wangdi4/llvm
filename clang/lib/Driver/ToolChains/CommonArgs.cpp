@@ -352,13 +352,15 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
     return getR600TargetGPU(Args);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case llvm::Triple::csa:
     // last of arch or cpu
     if (const Arg *A = Args.getLastArg(options::OPT_march_EQ,
                                      options::OPT_mcpu_EQ))
       return A->getValue();
     return "";
-#endif
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:

@@ -1,3 +1,28 @@
+# INTEL_CUSTOMIZATION
+# Placeholder list for INTEL_CUSTOMIZATION files.
+set(INTEL_SOURCE_FILES
+  )
+set(INTEL_CSA_SOURCE_FILES
+  ToolChains/CSA.cpp
+  )
+
+set(INTEL_SOURCE_FILES_TO_BUILD)
+if (INTEL_CUSTOMIZATION)
+  if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
+    list(APPEND INTEL_SOURCE_FILES ${INTEL_CSA_SOURCE_FILES})
+  else()
+    list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_CSA_SOURCE_FILES})
+  endif()
+
+  set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
+else()
+  list(APPEND LLVM_OPTIONAL_SOURCES
+    ${INTEL_SOURCE_FILES}
+    ${INTEL_CSA_SOURCE_FILES}
+    )
+endif()
+# end INTEL_CUSTOMIZATION
+
 set(LLVM_LINK_COMPONENTS
   BinaryFormat
   Option
@@ -38,7 +63,9 @@ add_clang_library(clangDriver
   ToolChains/CommonArgs.cpp
   ToolChains/Contiki.cpp
   ToolChains/CrossWindows.cpp
-  ToolChains/CSA.cpp
+# INTEL_CUSTOMIZATION
+  ${INTEL_SOURCE_FILES_TO_BUILD}
+# end INTEL_CUSTOMIZATION
   ToolChains/Cuda.cpp
   ToolChains/Darwin.cpp
   ToolChains/DragonFly.cpp
