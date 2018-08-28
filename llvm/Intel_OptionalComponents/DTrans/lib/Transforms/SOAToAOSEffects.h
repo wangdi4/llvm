@@ -86,6 +86,7 @@ struct ArithInstructionsTrait {
     case Instruction::Sub:
     case Instruction::Trunc:
     case Instruction::UIToFP:
+    case Instruction::Xor:
     case Instruction::ZExt:
       return true;
     default:
@@ -861,7 +862,13 @@ public:
       : DTInfo(DTInfo), DL(DL), TLI(TLI), Method(Method), ClassType(ClassType),
         DM(DM) {}
 
-  void computeDepApproximation(
+  // Returned value 'true' means that all essential instructions
+  // (store/load/ret/etc) have approximation computed (possibly Bottom in debug
+  // configuration).
+  //
+  // Returned value 'false' means that there could be some instructions without
+  // approximation.
+  bool computeDepApproximation(
       std::function<bool(const Function *)> IsKnownCallCheck);
 };
 

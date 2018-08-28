@@ -187,7 +187,7 @@ const Dep *DepCompute::computeValueDep(const Value *Val) {
   return ValRep;
 }
 
-void DepCompute::computeDepApproximation(
+bool DepCompute::computeDepApproximation(
     std::function<bool(const Function *)> IsKnownCallCheck) {
 
   assert(IsKnownCallCheck(Method) &&
@@ -362,11 +362,12 @@ void DepCompute::computeDepApproximation(
         }
 
         assert(Rep && "Invalid switch in computeDepApproximation");
-        if (Rep->isBottom() && DTransSOAToAOSComputeAllDep)
-          return;
+        if (Rep->isBottom() && !DTransSOAToAOSComputeAllDep)
+          return false;
         DM.ValDependencies[&I] = Rep;
       }
     }
+  return true;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -801,36 +801,50 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
         return std::find(AllMethods.begin(), AllMethods.end(), F) !=
                AllMethods.end();
       };
-      DC.computeDepApproximation(IsMethod);
-
+      bool Result = DC.computeDepApproximation(IsMethod);
+      LLVM_DEBUG(dbgs() << "; Dep approximation for array's method "
+                        << F->getName()
+                        << (Result ? " is successful\n" : " incomplete\n"));
       DEBUG_WITH_TYPE(DTRANS_SOADEP, {
         dbgs() << "; Dump computed dependencies ";
-
         DepMap::DepAnnotatedWriter Annotate(*this);
         F->print(dbgs(), &Annotate);
       });
+      if (!Result)
+        return FALSE();
     }
 
   for (auto *F : StructMethods) {
     DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
 
+    auto &AllMethods = StructMethods;
     std::function<bool(const Function *)> IsMethod =
-        [F](const Function *F1) -> bool { return F == F1; };
+        [&AllMethods](const Function *F) -> bool {
+      return std::find(AllMethods.begin(), AllMethods.end(), F) !=
+             AllMethods.end();
+    };
 
-    DC.computeDepApproximation(IsMethod);
-
+    bool Result = DC.computeDepApproximation(IsMethod);
+    LLVM_DEBUG(dbgs() << "; Dep approximation for struct's method "
+                      << F->getName()
+                      << (Result ? " is successful\n" : " incomplete\n"));
     DEBUG_WITH_TYPE(DTRANS_SOADEP, {
       dbgs() << "; Dump computed dependencies ";
 
       DepMap::DepAnnotatedWriter Annotate(*this);
       F->print(dbgs(), &Annotate);
     });
+
+    if (!Result)
+      return FALSE();
   }
 
   // Direct map from MK to set of methods.
   Classifications.assign(getNumArrays(),
                          ClassifyMethodsTy(MK_Last + 1, MethodKindSetTy()));
 
+  // TODO: store results somewhere for transformation.
+  ComputeArrayMethodClassification::TransformationData Data;
   for (auto Tuple :
        zip_first(methodsets(), fields(), elements(), methodbins())) {
     SmallVector<const Function *, 1> MethodsCalled;
@@ -840,8 +854,6 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       LLVM_DEBUG(dbgs() << "; Checking array's method " << F->getName()
                         << "\n");
 
-      // TODO: store results somewhere for transformation.
-      ComputeArrayMethodClassification::TransformationData Data;
       ComputeArrayMethodClassification MC(Impl.DL,
                                           // *this as DepMap to query.
                                           *this, S,
@@ -865,24 +877,21 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       }
     }
     // Simple processing of MK_Append.
-    if (MethodsCalled.size() > 1)
+    // As direct calls to MK_Realloc is not tested, forbid it, MK_Realloc is
+    // called only from MK_Append.
+    if (MethodsCalled.size() != 1)
       return FALSE();
-    else if (MethodsCalled.size() == 1) {
-      if ((*std::get<3>(Tuple))[MK_Realloc][0] != MethodsCalled[0])
-        return FALSE();
-    }
+    else if ((*std::get<3>(Tuple))[MK_Realloc][0] != MethodsCalled[0])
+      return FALSE();
   }
 
   // Check combined methods.
   auto &FirstBins = **methodbins_begin();
-  auto &FirstSet = **methodsets_begin();
-
   GlobalNumberState GNS;
   for (auto Tuple :
        zip_first(make_range(methodbins_begin() + 1, methodbins_end()),
                  make_range(methodsets_begin() + 1, methodsets_end()))) {
     auto &OtherBins = *std::get<0>(Tuple);
-    auto &OtherSet = *std::get<1>(Tuple);
     for (int i = MK_Unknown; i <= MK_Last; ++i)
       switch (static_cast<MethodKind>(i)) {
       case MK_Unknown:
@@ -913,19 +922,16 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
         FunctionComparator cmp(F, O, &GNS);
         if (cmp.compare() == 0) {
+          LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
+                            << O->getName() << " showed bit-to-bit equality\n");
           GNS.setEqual(F, O);
-          if (std::find(FirstSet.begin(), FirstSet.end(),
-                        cast<Instruction>(F->use_begin()->getUser())
-                            ->getParent()
-                            ->getParent()) == FirstSet.end() ||
-              std::find(OtherSet.begin(), OtherSet.end(),
-                        cast<Instruction>(O->use_begin()->getUser())
-                            ->getParent()
-                            ->getParent()) == OtherSet.end())
-            if (!compareCallSites(F, O, static_cast<MethodKind>(i)))
-              return FALSE();
-        } else
+        } else {
+          LLVM_DEBUG(dbgs()
+                     << "; Comparison of " << F->getName() << " and "
+                     << O->getName() << " showed some differences, "
+                     << "this situation cannot be handled in SOAToAOS\n");
           return FALSE();
+        }
         break;
       }
       // Not combined methods.
@@ -936,13 +942,52 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       }
   }
 
-  return true;
-}
+  SmallVector<StructType*, MaxNumFieldCandidates> Arrays;
+  for (auto *ArrTy : fields())
+    Arrays.push_back(ArrTy);
 
-// FIXME: Fill-in placeholder.
-// Need to compare arguments and check adjacency of calls.
-bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::compareCallSites(
-    Function *F1, Function* F2, MethodKind MK) const {
+  CallSiteComparator::CallSitesInfo CSInfo;
+  for (auto *PBin : methodbins()) {
+    auto &Bin = *PBin;
+    if (!Bin[MK_Ctor].empty())
+      CSInfo.Ctors.push_back(Bin[MK_Ctor][0]);
+    if (!Bin[MK_CCtor].empty())
+      CSInfo.CCtors.push_back(Bin[MK_CCtor][0]);
+    if (!Bin[MK_Dtor].empty())
+      CSInfo.Dtors.push_back(Bin[MK_Dtor][0]);
+    if (!Bin[MK_Append].empty())
+      CSInfo.Appends.push_back(Bin[MK_Append][0]);
+  }
+
+  for (auto *F : StructMethods) {
+    SummaryForIdiom S(Struct, MemoryInterface, F);
+
+    // TODO: store results somewhere for transformation.
+    // FIXME: Make TI per-module and not per-function.
+    StructureMethodAnalysis::TransformationData TI;
+
+    // TODO: make order of arguments consistent.
+    // TODO: add diagnostic messages.
+    CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
+                             ArrayFieldOffsets, CSInfo, BasePointerOffset, TI);
+
+    bool CheckResult = CSCmp.checkStructMethod();
+    LLVM_DEBUG(dbgs() << "; Struct's method " << F->getName()
+                      << (CheckResult ? " has only expected side-effects\n"
+                                      : " needs analysis of instructions\n"));
+    if (!CheckResult)
+      return FALSE();
+
+    bool Comparison = CSCmp.canCallSitesBeMerged();
+    LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
+                      << (Comparison
+                              ? "required call sites can be merged"
+                              : "problem with call sites required to be merged")
+                      << " in " << F->getName() << "\n");
+    if (!Comparison)
+      return FALSE();
+  }
+
   return true;
 }
 

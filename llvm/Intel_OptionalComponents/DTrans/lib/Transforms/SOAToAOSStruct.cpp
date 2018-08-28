@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements debug functionality related specifically structures
+// This file implements debug functionality related specifically to structures
 // containing arrays for SOA-to-AOS: method analysis and transformations.
 //
 //===----------------------------------------------------------------------===//
@@ -32,9 +32,30 @@ namespace dtrans {
 namespace soatoaos {
 // Array types for structure containing arrays.
 // Structure is specified in DTransSOAToAOSApproxTypename.
-cl::list<std::string> DTransSOAToAOSArrays("dtrans-soatoaos-array-type",
-                                           cl::ReallyHidden);
-std::pair<SmallVector<StructType *, 3>, SmallVector<unsigned, 3>>
+static cl::list<std::string> DTransSOAToAOSArrays("dtrans-soatoaos-array-type",
+                                                  cl::ReallyHidden);
+
+// Methods of arrays, which are append-like.
+static cl::list<std::string>
+    DTransSOAToAOSAppends("dtrans-soatoaos-array-append", cl::ReallyHidden);
+// Methods of arrays, which are copy ctors.
+static cl::list<std::string> DTransSOAToAOSCCtors("dtrans-soatoaos-array-cctor",
+                                                  cl::ReallyHidden);
+// Methods of arrays, which are regular ctors.
+static cl::list<std::string> DTransSOAToAOSCtors("dtrans-soatoaos-array-ctor",
+                                                 cl::ReallyHidden);
+// Methods of arrays, which are dtors.
+static cl::list<std::string> DTransSOAToAOSDtors("dtrans-soatoaos-array-dtor",
+                                                 cl::ReallyHidden);
+
+// CallSite comparisons to perform, requires corresponding
+// dtrans-soatoaos-arrays-* to be set.
+// Valid values are cctor, ctor, dtor, append.
+static cl::list<std::string>
+    DTransSOAToAOSComparison("dtrans-soatoaos-method-call-site-comparison",
+                             cl::ReallyHidden);
+
+static std::pair<SmallVector<StructType *, 3>, SmallVector<unsigned, 3>>
 getArrayTypesForSOAToAOSStructMethodsCheckDebug(Function &F) {
   SmallVector<StructType *, 3> ArrayTypes;
   for (auto &Name : DTransSOAToAOSArrays) {
@@ -47,6 +68,7 @@ getArrayTypesForSOAToAOSStructMethodsCheckDebug(Function &F) {
   }
 
   auto *Struct = getStructTypeOfArray(F);
+  // TODO: add diagnostic message.
   if (!Struct)
     return std::make_pair(SmallVector<StructType *, 3>(),
                           SmallVector<unsigned, 3>());
@@ -68,6 +90,57 @@ getArrayTypesForSOAToAOSStructMethodsCheckDebug(Function &F) {
                           SmallVector<unsigned, 3>());
 
   return std::make_pair(ArrayTypes, ArrayOffsets);
+}
+
+static CallSiteComparator::FunctionSet
+getSOAToAOSArrayMethods(const cl::list<std::string> &List,
+                        const SmallVector<StructType *, 3> &ArrayTypes,
+                        Function &F, bool &Failure) {
+  CallSiteComparator::FunctionSet Methods(ArrayTypes.size(), nullptr);
+  unsigned Count = 0;
+  for (auto &Name : List) {
+    auto *AF = F.getParent()->getFunction(Name);
+    // TODO: add remark.
+    if (!AF)
+      continue;
+    // TODO: add diagnostic message.
+    if (AF->arg_size() < 1) {
+      Failure = true;
+      return CallSiteComparator::FunctionSet();
+    }
+    auto *PThis = dyn_cast<PointerType>(AF->arg_begin()->getType());
+    // TODO: add diagnostic message.
+    if (!PThis) {
+      Failure = true;
+      return CallSiteComparator::FunctionSet();
+    }
+    auto *ClassType = PThis->getElementType();
+
+    auto It = std::find(ArrayTypes.begin(), ArrayTypes.end(), ClassType);
+    // TODO: add diagnostic message.
+    if (It == ArrayTypes.end()) {
+      Failure = true;
+      return CallSiteComparator::FunctionSet();
+    }
+
+    // TODO: add diagnostic message.
+    if (Methods[It - ArrayTypes.begin()]) {
+      Failure = true;
+      return CallSiteComparator::FunctionSet();
+    }
+    Count++;
+    Methods[It - ArrayTypes.begin()] = AF;
+  }
+
+  if (Count != 0 && Count != ArrayTypes.size()) {
+    Failure = true;
+    return CallSiteComparator::FunctionSet();
+  }
+
+  if (Count == 0)
+    return CallSiteComparator::FunctionSet();
+
+  return Methods;
 }
 } // namespace soatoaos
 using namespace soatoaos;
@@ -105,10 +178,50 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
   if (P.first.size() <= 1)
     return Ignore();
 
+  CallSiteComparator::CallSitesInfo CSInfo;
+  for (auto &CmpKind : DTransSOAToAOSComparison)
+    if (CmpKind == "append") {
+      bool Failure = false;
+      CSInfo.Appends =
+          getSOAToAOSArrayMethods(DTransSOAToAOSAppends, P.first, F, Failure);
+      // TODO: add diagnostic message.
+      if (Failure)
+        return Ignore();
+    } else if (CmpKind == "cctor") {
+      bool Failure = false;
+      CSInfo.CCtors =
+          getSOAToAOSArrayMethods(DTransSOAToAOSCCtors, P.first, F, Failure);
+      // TODO: add diagnostic message.
+      if (Failure)
+        return Ignore();
+    } else if (CmpKind == "ctor") {
+      bool Failure = false;
+      CSInfo.Ctors =
+          getSOAToAOSArrayMethods(DTransSOAToAOSCtors, P.first, F, Failure);
+      // TODO: add diagnostic message.
+      if (Failure)
+        return Ignore();
+    } else if (CmpKind == "dtor") {
+      bool Failure = false;
+      CSInfo.Dtors =
+          getSOAToAOSArrayMethods(DTransSOAToAOSDtors, P.first, F, Failure);
+      // TODO: add diagnostic message.
+      if (Failure)
+        return Ignore();
+    } else {
+      // TODO: add diagnostic message.
+      return Ignore();
+    }
+
+  if (DTransSOAToAOSBasePtrOff == -1U)
+    // TODO: add diagnostic message.
+    return Ignore();
+
   StructureMethodAnalysis::TransformationData TI;
-  StructureMethodAnalysis MC(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM,
-                             S, P.first, P.second, TI);
-  bool Result = MC.checkStructMethod();
+  CallSiteComparator Checks(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM,
+                            S, P.first, P.second, CSInfo,
+                            DTransSOAToAOSBasePtrOff, TI);
+  bool Result = Checks.checkStructMethod();
   (void)Result;
   LLVM_DEBUG(dbgs() << "; IR: "
                     << (Result ? "analysed completely"
@@ -117,10 +230,18 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
 
   // Dump results of analysis.
   DEBUG_WITH_TYPE(DTRANS_SOASTR, {
-    dbgs() << "; Dump instructions needing update. Total = " << MC.getTotal();
-    StructureMethodAnalysis::AnnotatedWriter Annotate(MC);
+    dbgs() << "; Dump instructions needing update. Total = "
+           << Checks.getTotal();
+    StructureMethodAnalysis::AnnotatedWriter Annotate(Checks);
     F.print(dbgs(), &Annotate);
   });
+
+  bool Comparison = Checks.canCallSitesBeMerged();
+  (void)Comparison;
+  LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
+                    << (Comparison ? "required call sites can be merged"
+                                   : "problem with call sites required to be merged")
+                    << "\n");
   return Ignore();
 }
 } // namespace dtrans

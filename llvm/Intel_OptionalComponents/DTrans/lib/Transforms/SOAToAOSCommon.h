@@ -43,8 +43,7 @@ struct SummaryForIdiom {
 struct Idioms {
 protected:
   // GEP (Arg ArgNo) FieldInd.
-  static inline bool isArgAddr(const Dep *D, unsigned &ArgNo,
-                               unsigned &FieldInd) {
+  static bool isArgAddr(const Dep *D, unsigned &ArgNo, unsigned &FieldInd) {
     if (D->Kind != Dep::DK_GEP)
       return false;
 
@@ -60,8 +59,8 @@ protected:
 
   // GEP (Arg ArgNo) FieldInd,
   // where OutType is FieldInd'th field of S.StrType.
-  static inline bool isFieldAddr(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&OutType) {
+  static bool isFieldAddr(const Dep *D, const SummaryForIdiom &S,
+                          Type *&OutType) {
     unsigned ArgNo = -1U;
     unsigned FieldInd = -1U;
     if (!isArgAddr(D, ArgNo, FieldInd))
@@ -80,7 +79,7 @@ protected:
   }
 
   // (Arg ArgNo) of integer type.
-  static inline bool isIntegerArg(const Dep *D, const SummaryForIdiom &S) {
+  static bool isIntegerArg(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Argument)
       return false;
     return (S.Method->arg_begin() + D->Const)->getType()->isIntegerTy();
@@ -88,8 +87,7 @@ protected:
 
   // GEP (Arg ArgNo) FieldInd,
   // where corresponding type is integer of S.StrType.
-  static inline bool isIntegerFieldAddr(const Dep *D,
-                                        const SummaryForIdiom &S) {
+  static bool isIntegerFieldAddr(const Dep *D, const SummaryForIdiom &S) {
     Type *Out = nullptr;
     if (!isFieldAddr(D, S, Out))
       return false;
@@ -97,8 +95,8 @@ protected:
   }
 
   // Load of some field of S.StrType.
-  static inline bool isFieldLoad(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&OutType) {
+  static bool isFieldLoad(const Dep *D, const SummaryForIdiom &S,
+                          Type *&OutType) {
     if (D->Kind != Dep::DK_Load)
       return false;
     return isFieldAddr(D->Arg1, S, OutType);
@@ -115,8 +113,8 @@ protected:
   //   MemoryInterface as 'this; pointer to virtual function call.
   //   (Func(Load(GEP(Arg 0) 4))
   //        (Load(Func(Load(Load(GEP(Arg 0) 4))))))
-  static inline bool isMemoryInterfaceFieldLoadRec(const Dep *D,
-                                                   const SummaryForIdiom &S) {
+  static bool isMemoryInterfaceFieldLoadRec(const Dep *D,
+                                            const SummaryForIdiom &S) {
     if (isMemoryInterfaceFieldLoad(D, S))
       return true;
 
@@ -137,9 +135,8 @@ protected:
   //
   // No pointers escape and relying on knowing all occurrence of structures
   // representing arrays.
-  static inline bool isExternaSideEffectRec(const Dep *D,
-                                            const SummaryForIdiom &S,
-                                            bool &SeenUnknownTerminal) {
+  static bool isExternaSideEffectRec(const Dep *D, const SummaryForIdiom &S,
+                                     bool &SeenUnknownTerminal) {
     if (D->Kind == Dep::DK_Function) {
       bool ExtSE = false;
       for (auto *A : *D->Args)
@@ -169,8 +166,8 @@ protected:
   // S.MemoryInterface to S.MemoryInterface.
   //
   // Does not depend on control flow inside S.Method.
-  static inline bool isFieldCopy(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&FieldType) {
+  static bool isFieldCopy(const Dep *D, const SummaryForIdiom &S,
+                          Type *&FieldType) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -187,8 +184,7 @@ protected:
   }
 
   // Load from integer field of S.StrType.
-  static inline bool isIntegerFieldLoad(const Dep *D,
-                                        const SummaryForIdiom &S) {
+  static bool isIntegerFieldLoad(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Load)
       return false;
     return isIntegerFieldAddr(D->Arg1, S);
@@ -202,8 +198,8 @@ protected:
   //
   // Other checks should implicitly assume this check if control flow
   // dependence is accounted for.
-  static inline bool isDependentOnIntegerFieldsOnly(const Dep *D,
-                                                    const SummaryForIdiom &S) {
+  static bool isDependentOnIntegerFieldsOnly(const Dep *D,
+                                             const SummaryForIdiom &S) {
     if (isIntegerFieldLoad(D, S) || isIntegerArg(D, S))
       return true;
 
@@ -223,8 +219,7 @@ protected:
   // to integer field. Should consider all integer fields and all arguments,
   // because conditional branches depend on integer fields and integer
   // arguments.
-  static inline bool isIntegerFieldCopyEx(const Dep *D,
-                                          const SummaryForIdiom &S) {
+  static bool isIntegerFieldCopyEx(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -240,8 +235,8 @@ protected:
 
   // Direct copy of S.MemoryInterface from one argument
   // to corresponding field of S.StrType.
-  static inline bool isMemoryInterfaceSetFromArg(const Dep *D,
-                                                 const SummaryForIdiom &S) {
+  static bool isMemoryInterfaceSetFromArg(const Dep *D,
+                                          const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -266,8 +261,7 @@ protected:
   }
 
   // Copy of MemoryInterface from one instance to another.
-  static inline bool isMemoryInterfaceCopy(const Dep *D,
-                                           const SummaryForIdiom &S) {
+  static bool isMemoryInterfaceCopy(const Dep *D, const SummaryForIdiom &S) {
     Type *F = nullptr;
     if (!isFieldCopy(D, S, F))
       return false;
@@ -279,13 +273,13 @@ protected:
   }
 
   // Whether D is represents returned pointer of Allocation.
-  static inline bool isAlloc(const Dep *D, const SummaryForIdiom &S) {
+  static bool isAlloc(const Dep *D, const SummaryForIdiom &S) {
     return D->Kind == Dep::DK_Alloc;
   }
 
   // Some allocation call, whose size argument depends on integer fields of
   // S.StrType and integer arguments.
-  static inline bool isAllocBased(const Dep *D, const SummaryForIdiom &S) {
+  static bool isAllocBased(const Dep *D, const SummaryForIdiom &S) {
     auto *Alloc = D;
 
     if (D->Kind == Dep::DK_Function)
@@ -316,7 +310,7 @@ protected:
 
   // Store of constant to newly allocated memory.
   // TODO: extend if needed to memset of base pointer.
-  static inline bool isNewMemoryInit(const Dep *D, const SummaryForIdiom &S) {
+  static bool isNewMemoryInit(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -329,11 +323,11 @@ protected:
   // Potential call to MK_Realloc method.
   // Additional checks of arguments is required.
   // See computeDepApproximation.
-  static inline bool isKnownCall(const Dep *D, const SummaryForIdiom &S) {
+  static bool isKnownCall(const Dep *D, const SummaryForIdiom &S) {
     return D->Kind == Dep::DK_Call && D->Const == 0;
   }
 
-  static inline bool isThisLikeArg(const Dep *D, const SummaryForIdiom &S) {
+  static bool isThisLikeArg(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Argument)
       return false;
 
@@ -347,8 +341,8 @@ protected:
 
   // Some function of several recursive load relative to S.MemoryInterface:
   //  access to MemoryInterface and vtable.
-  static inline bool isMemoryInterfaceFieldLoad(const Dep *D,
-                                                const SummaryForIdiom &S) {
+  static bool isMemoryInterfaceFieldLoad(const Dep *D,
+                                         const SummaryForIdiom &S) {
 
     if (D->Kind != Dep::DK_Load && D->Kind != Dep::DK_Argument)
       return false;
@@ -391,8 +385,7 @@ protected:
     return false;
   }
 
-  static inline bool isExternaSideEffect(const Dep *D,
-                                         const SummaryForIdiom &S) {
+  static bool isExternaSideEffect(const Dep *D, const SummaryForIdiom &S) {
     bool SeenUnknownTerminal = false;
     return isExternaSideEffectRec(D, S, SeenUnknownTerminal) &&
            !SeenUnknownTerminal;

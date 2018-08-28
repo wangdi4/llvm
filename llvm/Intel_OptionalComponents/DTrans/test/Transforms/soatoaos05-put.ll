@@ -14,29 +14,25 @@
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos               \
+; RUN: opt < %s -whole-program-assume -disable-output                                           \
+; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
 ; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
 ; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::indexOf(IC_Field const*) const"  \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
+; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
 ; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
 ; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
 ; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
-; RUN:       2>&1 | FileCheck --check-prefix=CHECK-IR %s
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-struct        \
-; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
-; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
-; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::indexOf(IC_Field const*) const"  \
-; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
-; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
-; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
-; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
-; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
+; RUN:          -dtrans-soatoaos-method-call-site-comparison=ctor                               \
+; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"           \
+; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<DatatypeValidator*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"  \
+; RUN:          -dtrans-soatoaos-method-call-site-comparison=append                             \
+; RUN:          -dtrans-soatoaos-array-append="ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"                      \
+; RUN:          -dtrans-soatoaos-array-append="ValueVectorOf<DatatypeValidator*>::addElement(DatatypeValidator* const&)"    \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; REQUIRES: asserts
 
@@ -50,11 +46,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-DEP-WF-NOT: ; Func(GEP
 
 ; Checks that all instructions can be dealt with.
-; CHECK-IR: ; Checking structure's method FieldValueMap::put(IC_Field*, DatatypeValidator*, unsigned short const*)
-; CHECK-IR: ; IR: analysed completely
+; CHECK-TRANS: ; Checking structure's method FieldValueMap::put(IC_Field*, DatatypeValidator*, unsigned short const*)
+; CHECK-TRANS: ; IR: analysed completely
 
 ; Checks instructions related to transformations.
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 14
+
+; Also checks that call sites to addElement methods can be merged. Same for ctor.
 
 ; inline void FieldValueMap::put(IC_Field *const key, DatatypeValidator *const dv,
 ;                                const XMLCh *const value) {
@@ -455,4 +453,5 @@ declare hidden void @"ValueVectorOf<DatatypeValidator*>::setElementAt(DatatypeVa
 declare hidden i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64, %class.XMLMsgLoader*)
 
 declare hidden void @"XMemory::operator delete(void*_ MemoryManager*)"(i8*, %class.XMLMsgLoader*)
+; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
 ; CHECK-DEP: Deps computed: 80, Queries: 270

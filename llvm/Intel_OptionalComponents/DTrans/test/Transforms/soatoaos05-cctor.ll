@@ -14,29 +14,22 @@
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos               \
+; RUN: opt < %s -whole-program-assume -disable-output                                           \
+; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
 ; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
 ; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::cleanUp()"                   \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
+; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
 ; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
 ; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
 ; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
-; RUN:       2>&1 | FileCheck --check-prefix=CHECK-IR %s
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-struct        \
-; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
-; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
-; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::cleanUp()"                   \
-; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
-; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
-; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
-; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
-; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
+; RUN:          -dtrans-soatoaos-method-call-site-comparison=cctor                              \
+; RUN:          -dtrans-soatoaos-array-cctor="ValueVectorOf<DatatypeValidator*>::ValueVectorOf(ValueVectorOf<DatatypeValidator*> const&)" \
+; RUN:          -dtrans-soatoaos-array-cctor="ValueVectorOf<IC_Field*>::ValueVectorOf(ValueVectorOf<IC_Field*> const&)"                   \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; REQUIRES: asserts
 
@@ -50,8 +43,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-DEP-WF-NOT: ; Func(GEP
 
 ; Checks that all instructions can be dealt with.
-; CHECK-IR: ; Checking structure's method FieldValueMap::FieldValueMap(FieldValueMap const&)
-; CHECK-IR: ; IR: analysed completely
+; CHECK-TRANS: ; Checking structure's method FieldValueMap::FieldValueMap(FieldValueMap const&)
+; CHECK-TRANS: ; IR: analysed completely
 
 ; Checks instructions related to transformations.
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 12
@@ -606,4 +599,5 @@ declare hidden i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64, 
 
 declare hidden void @"XMemory::operator delete(void*_ MemoryManager*)"(i8*, %class.XMLMsgLoader*)
 
+; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
 ; CHECK-DEP: Deps computed: 101, Queries: 298

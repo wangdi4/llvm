@@ -66,8 +66,7 @@ struct ArrayIdioms : public Idioms {
 protected:
   // GEP (Arg ArgNo) FieldInd,
   // where corresponding type is base pointer of S.StrType.
-  static inline bool isBasePointerAddr(const Dep *D,
-                                       const ArraySummaryForIdiom &S) {
+  static bool isBasePointerAddr(const Dep *D, const ArraySummaryForIdiom &S) {
     Type *Out = nullptr;
     if (!isFieldAddr(D, S, Out))
       return false;
@@ -77,8 +76,8 @@ protected:
   // Load from base pointer field of S.StrType.
   // Same as isBasePointerLoad, but some arithmetic function computed from
   // load's result is permitted.
-  static inline bool isBasePointerLoadBased(const Dep *D,
-                                            const ArraySummaryForIdiom &S) {
+  static bool isBasePointerLoadBased(const Dep *D,
+                                     const ArraySummaryForIdiom &S) {
 
     if (isBasePointerLoad(D, S))
       return true;
@@ -90,8 +89,7 @@ protected:
   }
 
   // Load from base pointer field of S.StrType.
-  static inline bool isBasePointerLoad(const Dep *D,
-                                       const ArraySummaryForIdiom &S) {
+  static bool isBasePointerLoad(const Dep *D, const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Load)
       return false;
     return isBasePointerAddr(D->Arg1, S);
@@ -101,8 +99,7 @@ protected:
   //  - base pointer, corresponding to argument ArgNo;
   //  - integer fields of ArrTy (given as parameter);
   //  - integer parameters.
-  static inline bool isElementAddr(const Dep *D,
-                                   const ArraySummaryForIdiom &S) {
+  static bool isElementAddr(const Dep *D, const ArraySummaryForIdiom &S) {
     bool BaseSeen = false;
     auto Addr = D;
     if (Addr->Kind == Dep::DK_Function) {
@@ -122,8 +119,7 @@ protected:
   }
 
   // Load relative to base pointer from S.StrType.
-  static inline bool isElementLoad(const Dep *D,
-                                   const ArraySummaryForIdiom &S) {
+  static bool isElementLoad(const Dep *D, const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Load)
       return false;
     return isElementAddr(D->Arg1, S);
@@ -131,8 +127,7 @@ protected:
 
   // Copy of some element in S.StrType to another element of S.StrType,
   // addresses are relative to base pointers.
-  static inline bool isElementCopy(const Dep *D,
-                                   const ArraySummaryForIdiom &S) {
+  static bool isElementCopy(const Dep *D, const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -146,8 +141,8 @@ protected:
   }
 
   // Access to S.ElementType from some argument.
-  static inline bool isElementValueFromArg(const Dep *D,
-                                           const ArraySummaryForIdiom &S) {
+  static bool isElementValueFromArg(const Dep *D,
+                                    const ArraySummaryForIdiom &S) {
     auto *A = D;
     if (A->Kind == Dep::DK_Load)
       A = A->Arg1;
@@ -166,8 +161,7 @@ protected:
 
   // Store of argument to array (address is relative to base pointer of
   // S.StrType).
-  static inline bool isElementSetFromArg(const Dep *D,
-                                         const ArraySummaryForIdiom &S) {
+  static bool isElementSetFromArg(const Dep *D, const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
     if (!isElementValueFromArg(D->Arg1, S))
@@ -178,8 +172,8 @@ protected:
   // Store some element of S.StrType to newly allocated memory.
   // Value stored is accessed relative to base pointer.
   // Store address is relative to newly allocated memory.
-  static inline bool isElementStoreToNewMemory(const Dep *D,
-                                               const ArraySummaryForIdiom &S) {
+  static bool isElementStoreToNewMemory(const Dep *D,
+                                        const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -198,8 +192,8 @@ protected:
   }
 
   // Initialize base pointer with newly allocated memory.
-  static inline bool isBasePtrInitFromNewMemory(const Dep *D,
-                                                const ArraySummaryForIdiom &S) {
+  static bool isBasePtrInitFromNewMemory(const Dep *D,
+                                         const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -217,8 +211,8 @@ protected:
   }
 
   // Initialize base pointer with constant
-  static inline bool isBasePtrInitFromConst(const Dep *D,
-                                            const ArraySummaryForIdiom &S) {
+  static bool isBasePtrInitFromConst(const Dep *D,
+                                     const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -236,8 +230,7 @@ protected:
   }
 
   // Deallocation of memory pointed to base pointer.
-  static inline bool isBasePtrFree(const Dep *D,
-                                   const ArraySummaryForIdiom &S) {
+  static bool isBasePtrFree(const Dep *D, const ArraySummaryForIdiom &S) {
     auto *Free = D;
 
     if (D->Kind == Dep::DK_Function && D->Args->size() == 1)
@@ -353,7 +346,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, MethodKind MK) {
 // methods.
 class ComputeArrayMethodClassification : public ArrayIdioms {
 public:
-  using InstContainer = SmallSet<const Instruction *, 5>;
+  using InstContainer = SmallSet<const Instruction *, 32>;
 
   struct TransformationData {
     // Loads/stores of elements, memset instructions.
@@ -564,22 +557,6 @@ private:
                                          true);
   }
 
-  ComputeArrayMethodClassification(const ComputeArrayMethodClassification &) =
-      delete;
-  ComputeArrayMethodClassification &
-  operator=(const ComputeArrayMethodClassification &) = delete;
-
-  const DataLayout &DL;
-  const DepMap &DM;
-  const ArraySummaryForIdiom &S;
-
-  // Information computed for transformation.
-  TransformationData &TI;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  mutable DenseMap<const Instruction *, std::string> InstDesc;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
   // Wrapper for checkElementAccess, stores instruction and address for
   // transformation and duplication.
   bool checkElementAccessForTransformation(const Instruction *I,
@@ -624,6 +601,22 @@ private:
     InstDesc[I] = std::string("BasePtrInst: ") + Desc;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
+
+  ComputeArrayMethodClassification(const ComputeArrayMethodClassification &) =
+      delete;
+  ComputeArrayMethodClassification &
+  operator=(const ComputeArrayMethodClassification &) = delete;
+
+  const DataLayout &DL;
+  const DepMap &DM;
+  const ArraySummaryForIdiom &S;
+
+  // Information computed for transformation.
+  TransformationData &TI;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  mutable DenseMap<const Instruction *, std::string> InstDesc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 public:
   ComputeArrayMethodClassification(const DataLayout &DL, const DepMap &DM,
@@ -868,7 +861,7 @@ public:
 class ArrayMethodTransformation {
 public:
   ArrayMethodTransformation(
-      const DataLayout &DL, DTransAnalysisInfo &DTInfo,
+      const DataLayout &DL, const DTransAnalysisInfo &DTInfo,
       const TargetLibraryInfo &TLI, ValueToValueMapTy &VMap,
       const ComputeArrayMethodClassification::TransformationData
           &InstsToTransform,
@@ -1194,7 +1187,7 @@ public:
 
 private:
   const DataLayout &DL;
-  DTransAnalysisInfo &DTInfo;
+  const DTransAnalysisInfo &DTInfo;
   const TargetLibraryInfo &TLI;
   ValueToValueMapTy &VMap;
   const ComputeArrayMethodClassification::TransformationData &InstsToTransform;
