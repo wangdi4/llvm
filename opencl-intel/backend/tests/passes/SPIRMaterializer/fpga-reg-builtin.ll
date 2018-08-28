@@ -38,7 +38,7 @@
 ; Compiled by the following command: clang -cc1 -triple spir-unknown-unknown-intelfpga %s -emit-llvm -o -
 
 ; REQUIRES: fpga-emulator
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -spir-materializer -verify -S %s | FileCheck %s
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -remove-fpga-reg -spir-materializer -verify -S %s | FileCheck %s
 
 %struct.st = type { i32, float }
 %union.un = type { i32 }
