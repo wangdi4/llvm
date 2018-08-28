@@ -88,8 +88,13 @@ StringRef dtrans::FreeKindName(FreeKind Kind) {
 AllocKind dtrans::getAllocFnKind(ImmutableCallSite CS,
                                  const TargetLibraryInfo &TLI) {
   auto *I = CS.getInstruction();
+  // Returns non-null, so C++ function.
+  if (isNewLikeFn(I, &TLI))
+    return AK_New;
   if (isMallocLikeFn(I, &TLI))
-    return isNewLikeFn(I, &TLI) ? AK_New : AK_Malloc;
+    // if C++ and could return null, then there should be more than one
+    // argument.
+    return CS.arg_size() == 1 ? AK_Malloc : AK_New;
   if (isCallocLikeFn(I, &TLI))
     return AK_Calloc;
   if (isReallocLikeFn(I, &TLI))
