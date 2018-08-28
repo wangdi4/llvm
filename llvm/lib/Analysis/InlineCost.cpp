@@ -2239,6 +2239,22 @@ static bool inSpecialFxnPtrStructAssignCluster(StoreInst *SI,
 }
 
 //
+// Return 'true' if 'F' is called by exactly two Functions
+//
+static bool isCalledByTwoFxns(Function *F)
+{
+  SmallPtrSet<Function *, 2> CallerSet;
+  for (User *U : F->users()) {
+    CallSite Site(U);
+    if (!Site || Site.getCalledFunction() != F)
+      continue;
+    if (CallerSet.insert(Site.getCaller()).second && CallerSet.size() > 2)
+      return false;
+  }
+  return CallerSet.size() == 2;
+}
+
+//
 // Return 'true' if 'CS' should not be inlined, because it would be better
 // to multiversion it. 'PrepareForLTO' is true if we are on the compile step
 // of an LTO compilation.
@@ -2254,11 +2270,10 @@ static bool preferMultiversioningToInlining(CallSite& CS,
   // be rejected quickly.
   static SmallPtrSet<Function *, 3> CalleeFxnPtrSet;
 
-  // Functions that did not have exactly 2 callsites when we first
-  // tested them. A function with more callsites can become one with
-  // only 2 callsites through inlining, but we do not want to consider
-  // such cases as candidates.
-  static SmallPtrSet<Function *, 10> NotDoubleCallsiteFxnPtrSet;
+  // Functions that were not called by exactly two functions when we first
+  // tested them. Inlining can change the number of functions which call
+  // a function, as can indirect call specialization.
+  static SmallPtrSet<Function *, 10> NotCalledByTwoFxnPtrSet;
 
   if (!DTransInlineHeuristics)
     return false;
@@ -2267,12 +2282,11 @@ static bool preferMultiversioningToInlining(CallSite& CS,
     return false;
   if (CalleeFxnPtrSet.find(Callee) != CalleeFxnPtrSet.end())
     return true;
-  // Must have exactly two callsites in the source code.
-  if (NotDoubleCallsiteFxnPtrSet.find(Callee) !=
-      NotDoubleCallsiteFxnPtrSet.end())
+  // Must be called by exactly two Functions.
+  if (NotCalledByTwoFxnPtrSet.find(Callee) != NotCalledByTwoFxnPtrSet.end())
     return false;
-  if (!isDoubleCallSite(Callee)) {
-    NotDoubleCallsiteFxnPtrSet.insert(Callee);
+  if (!isCalledByTwoFxns(Callee)) {
+    NotCalledByTwoFxnPtrSet.insert(Callee);
     return false;
   }
   // Only consider candidates that have loops, otherwise there is nothing
