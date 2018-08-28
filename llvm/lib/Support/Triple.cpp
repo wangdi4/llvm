@@ -31,8 +31,10 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case bpfeb:          return "bpfeb";
   case hexagon:        return "hexagon";
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case csa:            return "csa";
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case mips:           return "mips";
   case mipsel:         return "mipsel";
   case mips64:         return "mips64";
@@ -122,8 +124,10 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
   case systemz:     return "s390";
 
 #if INTEL_CUSTOMIZATION
-  case csa:            return "csa";
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case csa:         return "csa";
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   case x86:
   case x86_64:      return "x86";
@@ -300,8 +304,10 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("thumb", thumb)
     .Case("thumbeb", thumbeb)
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     .Case("csa", csa)
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     .Case("x86", x86)
     .Case("x86-64", x86_64)
     .Case("xcore", xcore)
@@ -397,8 +403,10 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Cases("i786", "i886", "i986", Triple::x86)
     .Cases("amd64", "x86_64", "x86_64h", Triple::x86_64)
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     .Case("csa", Triple::csa)
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     .Cases("powerpc", "ppc", "ppc32", Triple::ppc)
     .Cases("powerpc64", "ppu", "ppc64", Triple::ppc64)
     .Cases("powerpc64le", "ppc64le", Triple::ppc64le)
@@ -691,8 +699,10 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::thumbeb:
   case Triple::xcore:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case Triple::csa:
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     return Triple::ELF;
 
   case Triple::ppc:
@@ -1260,8 +1270,10 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::sparcv9:
   case llvm::Triple::systemz:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case llvm::Triple::csa:
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64:
   case llvm::Triple::amdil64:
   case llvm::Triple::hsail64:
@@ -1297,8 +1309,10 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::systemz:
   case Triple::ppc64le:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case Triple::csa:
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     T.setArch(UnknownArch);
     break;
 
@@ -1391,8 +1405,10 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::systemz:
   case Triple::x86_64:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case Triple::csa:
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case Triple::wasm64:
   case Triple::renderscript64:
     // Already 64-bit.
@@ -1452,8 +1468,10 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::x86_64:
   case Triple::xcore:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case Triple::csa:
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case Triple::renderscript32:
   case Triple::renderscript64:
 
@@ -1546,8 +1564,10 @@ bool Triple::isLittleEndian() const {
   case Triple::x86_64:
   case Triple::xcore:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   case Triple::csa:
-#endif // INTEL_CUSTOMIZATION
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case Triple::tcele:
   case Triple::renderscript32:
   case Triple::renderscript64:

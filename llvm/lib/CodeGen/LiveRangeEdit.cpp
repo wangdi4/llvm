@@ -20,6 +20,7 @@
 #include "llvm/CodeGen/VirtRegMap.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 
 using namespace llvm;
 
@@ -288,20 +289,20 @@ void LiveRangeEdit::eliminateDeadDef(MachineInstr *MI, ToShrinkSet &ToShrink,
   // Only optimize rematerialize case when the instruction has one def, since
   // otherwise we could leave some dead defs in the code.  This case is
   // extremely rare.
+  if (VRM && MI->getOperand(0).isReg() && MI->getOperand(0).isDef() &&
 #if INTEL_CUSTOMIZATION
-  // CSA EDIT:
-  // This code seems to have assumed that any defs from register spills are
-  // virtual registers that ought to be cleaned up, but this is not the case
-  // for CSA stores which are emitted with an %ign def. Therefore, an extra
-  // check has been added to make sure that defs are actually virtual registers
-  // before they are eliminated.
-  if (VRM && MI->getOperand(0).isReg() && MI->getOperand(0).isDef() &&
-      MI->getDesc().getNumDefs() == 1 &&
-      !TargetRegisterInfo::isPhysicalRegister(MI->getOperand(0).getReg())) {
-#else
-  if (VRM && MI->getOperand(0).isReg() && MI->getOperand(0).isDef() &&
+#if INTEL_FEATURE_CSA
+      // CSA EDIT:
+      // This code seems to have assumed that any defs from register spills are
+      // virtual registers that ought to be cleaned up, but this is not the case
+      // for CSA stores which are emitted with an %ign def. Therefore, an extra
+      // check has been added to make sure that defs are actually virtual
+      // registers before they are eliminated.
+      (!TargetRegisterInfo::isPhysicalRegister(MI->getOperand(0).getReg()) ||
+       MI->getMF()->getTarget().getTargetTriple().getArch() != Triple::csa) &&
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
       MI->getDesc().getNumDefs() == 1) {
-#endif
     Dest = MI->getOperand(0).getReg();
     unsigned Original = VRM->getOriginal(Dest);
     LiveInterval &OrigLI = LIS.getInterval(Original);

@@ -1,4 +1,5 @@
-//===- CSALowerParallelIntrinsics.h - Lower section intrinsics into metadata -*- C++ -*-===//
+//===- CSALowerParallelIntrinsics.h - Lower section intrinsics into metadata
+//-*- C++ -*-===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -7,15 +8,15 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
-///===----------------------------------------------------------------------===//
+///===---------------------------------------------------------------------===//
 /// \file
 ///
 /// This file provides declaration of CSALowerParallelIntrinsics.
 ///
-///===----------------------------------------------------------------------===//
+///===---------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_CSA_LOWER_PARALLEL_INTRINSICS_H
-#define LLVM_TRANSFORMS_CSA_LOWER_PARALLEL_INTRINSICS_H
+#ifndef INTEL_CSA_TRANSFORMS_SCALAR_CSA_LOWER_PARALLEL_INTRINSICS_H
+#define INTEL_CSA_TRANSFORMS_SCALAR_CSA_LOWER_PARALLEL_INTRINSICS_H
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
@@ -52,4 +53,4 @@ namespace llvm {
 
 } // namespace llvm
 
-#endif  // LLVM_TRANSFORMS_CSA_LOWER_PARALLEL_INTRINSICS_H
+#endif  // INTEL_CSA_TRANSFORMS_SCALAR_CSA_LOWER_PARALLEL_INTRINSICS_H

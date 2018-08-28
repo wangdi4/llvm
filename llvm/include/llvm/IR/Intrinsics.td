@@ -1091,8 +1091,12 @@ include "llvm/IR/IntrinsicsAMDGPU.td"
 include "llvm/IR/IntrinsicsBPF.td"
 include "llvm/IR/IntrinsicsSystemZ.td"
 include "llvm/IR/IntrinsicsWebAssembly.td"
-//if INTEL_CUSTOMIXATON
+// INTEL_CUSTOMIZATON
+// INTEL_FEATURE_CSA
+// TODO (vzakhari 8/27/2018): we need to replace this with a real preprocessing
+//       directive, when we add preprocessing support to TableGen.
 include "llvm/IR/IntrinsicsCSA.td"
-//endif
+// end INTEL_FEATURE_CSA
+// end INTEL_CUSTOMIZATON
 include "llvm/IR/IntrinsicsNios2.td" // INTEL
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL

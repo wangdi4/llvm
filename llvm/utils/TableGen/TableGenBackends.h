@@ -91,7 +91,9 @@ void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);
 void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS); //TODO: VEC to COLLAB
 void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS);
 void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);
+#if INTEL_FEATURE_CSA
 void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS);
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS);
 void EmitGlobalISel(RecordKeeper &RK, raw_ostream &OS);

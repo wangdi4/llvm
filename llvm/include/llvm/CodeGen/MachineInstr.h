@@ -100,9 +100,10 @@ public:
     FmReassoc    = 1 << 10              // Instruction supports Fast math
                                         // reassociation of operand order.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     ,
-    // CSA addition
     NonSequential = 1 << 11             // Instruction removed from sequence
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   };
 

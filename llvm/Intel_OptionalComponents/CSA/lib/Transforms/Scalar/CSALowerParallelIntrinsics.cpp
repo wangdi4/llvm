@@ -1,4 +1,5 @@
-//===- CSALowerParallelIntrinsics.cpp - Lower section intrinsics into metadata -*- C++ -*-===//
+//===- CSALowerParallelIntrinsics.cpp - Lower section intrinsics into metadata
+//-*- C++ -*-===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -29,7 +30,6 @@
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include <deque>
 #include <queue>
-#include <unordered_set>
 
 using namespace llvm;
 
@@ -483,14 +483,14 @@ void Section::collectSectionRecursively(
              "Entry: " << *EntryCall << "\n");
 
   // Use BasicBlocks set to avoid loops during the walk.
-  std::unordered_set<BasicBlock *> VisitedBlocks;
+  DenseSet<BasicBlock *> VisitedBlocks;
 
   // Working list of BasicBlocks to be walked to find
   // all instructions dominated by the EntryCall and post-dominated
   // by the ExitCall.  Note that the subsection's blocks are not
   // tracked as visited (they are tracked by the recursive subsection
   // walks themselves).
-  std::queue<BasicBlock *> BlocksToVisit; 
+  std::queue<BasicBlock *> BlocksToVisit;
 
   auto *StartBlock = EntryCall->getParent();
   bool MatchFound = false;
@@ -736,7 +736,7 @@ void Section::processSectionRecursively(
   // during processing multiple subsections.
   //
 
-  std::unordered_set<Loop *> MarkedLoops;
+  DenseSet<Loop *> MarkedLoops;
 
   for_each(EnclosedSections,
            [&MarkedLoops,&Context] (Section *SS) {

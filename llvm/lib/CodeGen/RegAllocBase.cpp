@@ -76,7 +76,9 @@ void RegAllocBase::seedLiveRegs() {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
 #if INTEL_CUSTOMIZATION
     if (MRI->reg_nodbg_empty(Reg) || MRI->getRegClass(Reg)->isVirtual())
-#endif
+#else  // !INTEL_CUSTOMIZATION
+    if (MRI->reg_nodbg_empty(Reg))
+#endif // !INTEL_CUSTOMIZATION
       continue;
     enqueue(&LIS->getInterval(Reg));
   }

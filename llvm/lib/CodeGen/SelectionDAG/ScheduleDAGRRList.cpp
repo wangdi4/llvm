@@ -1399,12 +1399,17 @@ DelayForLiveRegsBottomUp(SUnit *SU, SmallVectorImpl<unsigned> &LRegs) {
 
     const MCInstrDesc &MCID = TII->get(Node->getMachineOpcode());
 #if INTEL_CUSTOMIZATION
+    bool SkipOptionalDefs = false;
+#if INTEL_FEATURE_CSA
     // CSA EDIT: the below assumes that optional defs have DAG node result
     // values, which isn't the case on CSA. On CSA, optional defs will
     // never have a real register def at selection time, so skip this handling
     // altogether.
-    bool isCSA = MF.getTarget().getTargetTriple().getArch() == Triple::csa;
-    if (MCID.hasOptionalDef() && !isCSA) {
+    SkipOptionalDefs =
+      MF.getTarget().getTargetTriple().getArch() == Triple::csa;
+#endif  // INTEL_FEATURE_CSA
+
+    if (MCID.hasOptionalDef() && !SkipOptionalDefs) {
 #else
     if (MCID.hasOptionalDef()) {
 #endif

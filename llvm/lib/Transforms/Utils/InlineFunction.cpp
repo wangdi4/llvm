@@ -1698,13 +1698,14 @@ static void updateCalleeCount(BlockFrequencyInfo *CallerBFI, BasicBlock *CallBB,
   Callee->setEntryCount(CalleeCount);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
 /// Reassign region id numbers for CSA parallel region entries.
 ///
 /// This is a stopgap solution for fixing region id conflicts resulting from
 /// inlining until we redefine the intrinsics in icx.
-static void reassignCSAParallelRegionId(IntrinsicInst *intr) {
-  assert(intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry);
+static void reassignCSAParallelRegionId(IntrinsicInst *Intr) {
+  assert(Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry);
 
   // Use getMDKindID to generate a region id, making sure that it doesn't
   // conflict with existing values in the function. The name that's passed in is
@@ -1715,31 +1716,32 @@ static void reassignCSAParallelRegionId(IntrinsicInst *intr) {
   //    way to do this.
   //  * <original region id> - to disambiguate different regions from the
   //    original function.
-  LLVMContext &context = intr->getContext();
+  LLVMContext &Context = Intr->getContext();
 
-  int total_number_of_insts = 0;
-  for (const BasicBlock &BB : *intr->getParent()->getParent()) {
-    total_number_of_insts += BB.size();
+  int TotalNumberOfInsts = 0;
+  for (const BasicBlock &BB : *Intr->getParent()->getParent()) {
+    TotalNumberOfInsts += BB.size();
   }
 
-  assert(intr->getNumArgOperands() == 1);
-  const ConstantInt *const old_id =
-    dyn_cast<ConstantInt>(intr->getArgOperand(0));
-  if (!old_id) return;
+  assert(Intr->getNumArgOperands() == 1);
+  const ConstantInt *const OldId =
+    dyn_cast<ConstantInt>(Intr->getArgOperand(0));
+  if (!OldId) return;
 
-  const auto new_id_name = "inln_" + Twine{total_number_of_insts} + "_" +
-                           Twine{old_id->getSExtValue()};
-  const int new_id = context.getMDKindID(new_id_name.str()) + 1000;
+  const auto NewIdName =
+    "inln_" + Twine{TotalNumberOfInsts} + "_" + Twine{OldId->getSExtValue()};
+  const int NewId = Context.getMDKindID(NewIdName.str()) + 1000;
 #define DEBUG_TYPE "csa-region-id-renumberer"
-  LLVM_DEBUG(dbgs() << "Updating region id of " << intr->getName() << " from "
-             << old_id->getSExtValue() << " to " << new_id << " ("
-             << new_id_name << ")\n");
+  LLVM_DEBUG(dbgs() << "Updating region id of " << Intr->getName() << " from "
+             << OldId->getSExtValue() << " to " << NewId << " ("
+             << NewIdName << ")\n");
 #undef DEBUG_TYPE
 
-  intr->setArgOperand(
-    0, ConstantInt::get(IntegerType::get(context, 32), new_id)
+  Intr->setArgOperand(
+    0, ConstantInt::get(IntegerType::get(Context, 32), NewId)
   );
 }
+#endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
 /// This function inlines the called function into the basic block of the
@@ -2142,10 +2144,12 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
           continue;
 
 #if INTEL_CUSTOMIZATION
-        if (IntrinsicInst* intr = dyn_cast<IntrinsicInst>(&I))
-          if (intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry)
-            reassignCSAParallelRegionId(intr);
-#endif
+#if INTEL_FEATURE_CSA
+        if (IntrinsicInst* Intr = dyn_cast<IntrinsicInst>(&I))
+          if (Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry)
+            reassignCSAParallelRegionId(Intr);
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
         // Forward varargs from inlined call site to calls to the
         // ForwardVarArgsTo function, if requested, and to musttail calls.
         if (!VarArgsToForward.empty() &&

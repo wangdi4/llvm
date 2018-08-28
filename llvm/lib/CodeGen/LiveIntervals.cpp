@@ -47,6 +47,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -205,7 +206,9 @@ void LiveIntervals::computeVirtRegs() {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
 #if INTEL_CUSTOMIZATION
     if (MRI->reg_nodbg_empty(Reg) || MRI->getRegClass(Reg)->isVirtual())
-#endif
+#else  // !INTEL_CUSTOMIZATION
+    if (MRI->reg_nodbg_empty(Reg))
+#endif  // !INTEL_CUSTOMIZATION
       continue;
     createAndComputeVirtRegInterval(Reg);
   }
@@ -515,6 +518,7 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
     unsigned VReg = LI.reg;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     //
     // CMPLRS-49391:
     //
@@ -523,8 +527,10 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
     // CF-to-DF conversion.  In addition, avoid setRegisterDefReadUndef()
     // below, because a use may precede the definition in CSA DF IR.
     //
-    if (MRI->getRegClass(VReg)->isVirtual())
+    if (MF->getTarget().getTargetTriple().getArch() == Triple::csa &&
+        MRI->getRegClass(VReg)->isVirtual())
       continue;
+#endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
     if (MRI->shouldTrackSubRegLiveness(VReg)) {
@@ -708,7 +714,9 @@ void LiveIntervals::addKillFlags(const VirtRegMap *VRM) {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
 #if INTEL_CUSTOMIZATION
     if (MRI->reg_nodbg_empty(Reg) || MRI->getRegClass(Reg)->isVirtual())
-#endif
+#else  // !INTEL_CUSTOMIZATION
+    if (MRI->reg_nodbg_empty(Reg))
+#endif // !INTEL_CUSTOMIZATION
       continue;
     const LiveInterval &LI = getInterval(Reg);
     if (LI.empty())

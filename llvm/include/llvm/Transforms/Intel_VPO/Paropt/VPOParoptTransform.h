@@ -271,11 +271,14 @@ private:
     }
   };
 
- /// \brief Returns true if we are compiling for CSA target.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// \brief Returns true if we are compiling for CSA target.
   bool isTargetCSA() const {
-     return TargetTriple.getArch() == Triple::ArchType::csa;
+     return TargetTriple.getArch() == Triple::csa;
   }
-
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -702,6 +705,8 @@ private:
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   /// \brief Create a stack variable \p IsLastVal which is non-zero if the
   /// current iteration is the last one.
   bool genCSAIsLast(WRegionNode *W, AllocaInst *&IsLastVal);
@@ -718,6 +723,8 @@ private:
 
   /// \brief Print diagnostic message for the work region.
   void reportCSAWarning(WRegionNode *W, const Twine &Msg);
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Insert a flush call
   bool genFlush(WRegionNode *W);

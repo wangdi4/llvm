@@ -755,6 +755,7 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
                                    DominatorTree *DT,
                                    SmallVectorImpl<BasicBlock *> &Blocks) {
 #if !INTEL_CUSTOMIZATION
+  // INTEL_CUSTOMIZATION code below enables cloning of loops with child loops.
   assert(OrigLoop->getSubLoops().empty() &&
          "Loop to be cloned cannot have inner loop");
 #endif // !INTEL_CUSTOMIZATION

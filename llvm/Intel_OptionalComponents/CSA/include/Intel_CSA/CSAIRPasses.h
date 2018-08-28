@@ -16,8 +16,8 @@
 #error CSAIRPasses.h include in an non-INTEL_FEATURE_CSA build.
 #endif  // INTEL_FEATURE_CSA
 
-#ifndef INTEL_CSAIRPASSES_H
-#define INTEL_CSAIRPASSES_H
+#ifndef INTEL_CSA_CSAIRPASSES_H
+#define INTEL_CSA_CSAIRPASSES_H
 
 #include "llvm/PassRegistry.h"
 #include "llvm/Pass.h"
@@ -40,4 +40,4 @@ Pass *createLoopSPMDizationPass();
 Pass *createCSALowerParallelIntrinsicsWrapperPass();
 } // namespace llvm
 
-#endif  // INTEL_CSAIRPASSES_H
+#endif  // INTEL_CSA_CSAIRPASSES_H

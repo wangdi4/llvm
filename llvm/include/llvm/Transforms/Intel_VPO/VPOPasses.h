@@ -21,7 +21,6 @@ namespace llvm {
 
 class FunctionPass;
 class ModulePass;
-class Pass;
 
 #if INTEL_CUSTOMIZATION
 FunctionPass *createVPODriverPass();

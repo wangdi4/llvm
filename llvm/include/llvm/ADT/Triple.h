@@ -57,7 +57,9 @@ public:
     bpfeb,          // eBPF or extended BPF or 64-bit BPF (big endian)
     hexagon,        // Hexagon: hexagon
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     csa,            // CSA: csa
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
     mips,           // MIPS: mips, mipsallegrex
     mipsel,         // MIPSEL: mipsel, mipsallegrexel

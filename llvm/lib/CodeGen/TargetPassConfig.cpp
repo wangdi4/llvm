@@ -941,10 +941,12 @@ void TargetPassConfig::addMachinePasses() {
 void TargetPassConfig::addMachineSSAOptimization() {
   // Pre-ra tail duplication.
 #if INTEL_CUSTOMIZATION
-  //CSA EDIT: TailDuplication destroies natural loop form, don't do it for CSA
-  if (getTM<TargetMachine>().getTargetTriple().getArchName() != "csa")
-#endif
-    addPass(&EarlyTailDuplicateID);
+#if INTEL_FEATURE_CSA
+  // CSA EDIT: TailDuplication destroys natural loop form, don't do it for CSA.
+  if (getTM<TargetMachine>().getTargetTriple().getArch() != Triple::csa)
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+    addPass(&EarlyTailDuplicateID); // INTEL
 
   // Optimize PHIs before DCE: removing dead PHI cycles may make more
   // instructions dead.

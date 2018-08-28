@@ -168,7 +168,7 @@ public:
     O << "\tNode" << static_cast<const void*>(Node) << " [shape=record,";
     if (!NodeAttributes.empty()) O << NodeAttributes << ",";
     O << "label=\"{";
-
+#if INTEL_CUSTOMIZATION
     if (!DTraits.renderGraphFromBottomUp() && DTraits.hasEdgeDestLabels()) {
       O << "{";
 
@@ -183,7 +183,7 @@ public:
         O << "|<d64>truncated...";
       O << "}|";
     }
-
+#endif  // INTEL_CUSTOMIZATION
     if (!DTraits.renderGraphFromBottomUp()) {
       O << DOT::EscapeString(DTraits.getNodeLabel(Node, G));
 
@@ -222,7 +222,8 @@ public:
         O << "|" << DOT::EscapeString(NodeDesc);
     }
 
-    if (DTraits.renderGraphFromBottomUp() && DTraits.hasEdgeDestLabels()) {
+    if (DTraits.renderGraphFromBottomUp() && // INTEL
+        DTraits.hasEdgeDestLabels()) {       // INTEL
       O << "|{";
 
       unsigned i = 0, e = DTraits.numEdgeDestLabels(Node);

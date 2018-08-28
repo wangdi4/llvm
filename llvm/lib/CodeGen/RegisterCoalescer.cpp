@@ -50,6 +50,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <iterator>
@@ -345,17 +346,23 @@ static bool isMoveInstr(const TargetRegisterInfo &tri, const MachineInstr *MI,
     DstSub = MI->getOperand(0).getSubReg();
     Src = MI->getOperand(1).getReg();
 #if INTEL_CUSTOMIZATION
-		//CSA EDIT: handle copy1 %ci1_xx, %ci64_yy, generated from, %vreg1 = AND %verg2, 1
-		if (!TargetRegisterInfo::isPhysicalRegister(Dst) && !TargetRegisterInfo::isPhysicalRegister(Src)) {
-			const MachineRegisterInfo &MRI = MI->getParent()->getParent()->getRegInfo();
-			const TargetRegisterClass *SrcRC = MRI.getRegClass(Src);
-			const TargetRegisterClass *DstRC = MRI.getRegClass(Dst);
-			if (SrcRC != DstRC && tri.getRegSizeInBits(*DstRC) == 1) {
-				return false;
-			}
-		}
-
-#endif
+#if INTEL_FEATURE_CSA
+    // CSA EDIT:
+    // Handle copy1 %ci1_xx, %ci64_yy, generated from, %vreg1 = AND %verg2, 1
+    if (MI->getMF()->getTarget().getTargetTriple().getArch() ==
+        Triple::csa &&
+        !TargetRegisterInfo::isPhysicalRegister(Dst) &&
+        !TargetRegisterInfo::isPhysicalRegister(Src)) {
+      const MachineRegisterInfo &MRI =
+        MI->getParent()->getParent()->getRegInfo();
+      const TargetRegisterClass *SrcRC = MRI.getRegClass(Src);
+      const TargetRegisterClass *DstRC = MRI.getRegClass(Dst);
+      if (SrcRC != DstRC && tri.getRegSizeInBits(*DstRC) == 1) {
+        return false;
+      }
+    }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     SrcSub = MI->getOperand(1).getSubReg();
   } else if (MI->isSubregToReg()) {
     Dst = MI->getOperand(0).getReg();
@@ -2452,7 +2459,7 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
   const MachineInstr *DefMI = nullptr;
   if (VNI->isPHIDef()) {
     // Conservatively assume that all lanes in a PHI are valid.
-    LaneBitmask Lanes = SubRangeJoin ? LaneBitmask(1)
+    LaneBitmask Lanes = SubRangeJoin ? LaneBitmask::getLane(0)
                                      : TRI->getSubRegIndexLaneMask(SubIdx);
     V.ValidLanes = V.WriteLanes = Lanes;
   } else {
@@ -2460,7 +2467,7 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
     assert(DefMI != nullptr);
     if (SubRangeJoin) {
       // We don't care about the lanes when joining subregister ranges.
-      V.WriteLanes = V.ValidLanes = LaneBitmask(1);
+      V.WriteLanes = V.ValidLanes = LaneBitmask::getLane(0);
       if (DefMI->isImplicitDef()) {
         V.ValidLanes = LaneBitmask::getNone();
         V.ErasableImplicitDef = true;

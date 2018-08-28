@@ -424,11 +424,11 @@ def fneg       : SDNode<"ISD::FNEG"       , SDTFPUnaryOp>;
 def fsqrt      : SDNode<"ISD::FSQRT"      , SDTFPUnaryOp>;
 def fsin       : SDNode<"ISD::FSIN"       , SDTFPUnaryOp>;
 def fcos       : SDNode<"ISD::FCOS"       , SDTFPUnaryOp>;
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 def ftan       : SDNode<"ISD::FTAN"       , SDTFPUnaryOp>;
 def fatan      : SDNode<"ISD::FATAN"      , SDTFPUnaryOp>;
 def fatan2     : SDNode<"ISD::FATAN2"     , SDTFPBinOp>;
-// endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 def fexp2      : SDNode<"ISD::FEXP2"      , SDTFPUnaryOp>;
 def fpow       : SDNode<"ISD::FPOW"       , SDTFPBinOp>;
 def flog2      : SDNode<"ISD::FLOG2"      , SDTFPUnaryOp>;

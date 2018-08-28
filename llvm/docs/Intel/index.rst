@@ -3,6 +3,7 @@ Xmain
 =====
 
 **Intel Top Secret**
+**Intel Top Secret may be removed from this document, when CSA becomes public**
 
 .. contents::
    :local:
