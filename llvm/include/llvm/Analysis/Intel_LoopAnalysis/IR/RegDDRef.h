@@ -651,7 +651,7 @@ public:
   /// standalone blob.
   bool isStandAloneBlob(bool AllowConversion = true) const;
 
-  /// Return ture if the DDRef represents a constant 0.
+  /// Return true if the DDRef represents a constant 0.
   bool isZero() const {
     return isTerminalRef() && getSingleCanonExpr()->isZero();
   }

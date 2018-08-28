@@ -831,8 +831,7 @@ bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
     }
   }
 
-  assert((!ConstantTripLoop || (TC != 0)) &&
-         " Zero Trip Loop found!");
+  assert((!ConstantTripLoop || (TC != 0)) && " Zero Trip Loop found!");
 
   if (ConstantTripLoop && TripCnt) {
     // This signed to unsigned conversion should be safe as all the negative
@@ -1518,11 +1517,10 @@ bool HLLoop::hasVectorizeDisablingPragma() const {
 struct EarlyExitCollector final : public HLNodeVisitorBase {
   SmallVectorImpl<HLGoto *> &Gotos;
   unsigned MaxTopSortNum;
-  HLLoop *Lp;
 
 public:
   EarlyExitCollector(SmallVectorImpl<HLGoto *> &Gotos, HLLoop *Lp)
-      : Gotos(Gotos), Lp(Lp) {
+      : Gotos(Gotos) {
     assert(Lp && "Lp cannot be null\n");
     MaxTopSortNum = Lp->getMaxTopSortNum();
   }

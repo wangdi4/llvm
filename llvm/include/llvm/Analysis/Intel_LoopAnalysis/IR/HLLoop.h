@@ -956,6 +956,7 @@ public:
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
 
+  // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);
 };
 
