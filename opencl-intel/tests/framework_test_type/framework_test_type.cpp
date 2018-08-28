@@ -798,9 +798,7 @@ int main(int argc, char** argv)
 
     std::map<std::string, cl_device_type> clDeviceTypeMap;
     clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
-#ifdef BUILD_FPGA_EMULATOR
     clDeviceTypeMap["fpga_fast_emu"] = CL_DEVICE_TYPE_ACCELERATOR;
-#endif
     clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
     clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
     clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
