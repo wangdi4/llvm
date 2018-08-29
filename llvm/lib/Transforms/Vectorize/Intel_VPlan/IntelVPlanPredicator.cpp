@@ -58,6 +58,7 @@
 
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/PostOrderIterator.h"
@@ -94,7 +95,7 @@ int VPlanPredicator::countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE) {
   HasBE = false;
   int cnt = 0;
   for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-    if (!VPlanUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
+    if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
       cnt++;
     else
       HasBE = true;
@@ -107,7 +108,7 @@ int VPlanPredicator::countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE) {
 void VPlanPredicator::getSuccessorsNoBE(VPBlockBase *PredBlock,
                                         SmallVector<VPBlockBase *, 2> &Succs) {
   for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-    if (!VPlanUtils::isBackEdge(PredBlock, SuccBlock, VPLI)) {
+    if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI)) {
       Succs.push_back(SuccBlock);
     }
   }
@@ -117,8 +118,8 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
                                                       VPPredicateRecipeBase *R,
                                                       BasicBlock *From,
                                                       BasicBlock *To) {
-  VPEdgePredicateRecipe *EdgeRecipe =
-      VPlanUtils::createEdgePredicateRecipe(R, From, To);
+  VPEdgePredicateRecipe *EdgeRecipe = new VPEdgePredicateRecipe(R, From, To);
+  EdgeRecipe->setName(VPlanUtils::createUniqueName("AuxEdgeForMaskSetting"));
   PredBB->addRecipe(EdgeRecipe);
   return EdgeRecipe;
 }
@@ -135,9 +136,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   // CurrBB is the True successor of PredBB
   if (ET == TRUE_EDGE) {
     VPIfTruePredicateRecipe *IfTrueRecipe =
-        VPlanUtils::createIfTruePredicateRecipe(
-            CBV, PredBB->getPredicateRecipe(), PredBB->getCBlock(),
-            PredBB->getTBlock());
+        new VPIfTruePredicateRecipe(CBV, PredBB->getPredicateRecipe(),
+                                    PredBB->getCBlock(), PredBB->getTBlock());
+    IfTrueRecipe->setName(VPlanUtils::createUniqueName("IfT"));
     // Emit IfTrueRecipe into PredBB
     PredBB->addRecipe(IfTrueRecipe);
     return IfTrueRecipe;
@@ -145,9 +146,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   // CurrBB is the False successor of PredBB
   else if (ET == FALSE_EDGE) {
     VPIfFalsePredicateRecipe *IfFalseRecipe =
-        VPlanUtils::createIfFalsePredicateRecipe(
-            CBV, PredBB->getPredicateRecipe(), PredBB->getCBlock(),
-            PredBB->getFBlock());
+        new VPIfFalsePredicateRecipe(CBV, PredBB->getPredicateRecipe(),
+                                     PredBB->getCBlock(), PredBB->getFBlock());
+    IfFalseRecipe->setName(VPlanUtils::createUniqueName("IfF"));
     PredBB->addRecipe(IfFalseRecipe);
     return IfFalseRecipe;
   }
@@ -169,7 +170,7 @@ static void appendPredicateToBlock(VPBlockBase *Block,
            "Expected VPBlockPredicateRecipe");
     VPBlockPredicateRecipe *BP =
         cast<VPBlockPredicateRecipe>(Block->getPredicateRecipe());
-    VPlanUtils::appendIncomingToBlockPred(BP, Recipe);
+    VPValueUtils::appendIncomingToBlockPred(BP, Recipe);
   } else {
     // Regions accept any Block Predicate (not just VPBlockPredicateRecipe)
     assert(isa<VPRegionBlock>(Block) && "Expected VPRegionBlock.");
@@ -218,7 +219,7 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
   // For each predecessor, get the predicate and append it to BP
   for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
     // Skip back-edges
-    if (VPlanUtils::isBackEdge(PredBlock, CurrBlock, VPLI)) {
+    if (VPBlockUtils::isBackEdge(PredBlock, CurrBlock, VPLI)) {
       continue;
     }
 
@@ -338,7 +339,8 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
 
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      VPBlockPredicateRecipe *BP = VPlanUtils::createBlockPredicateRecipe();
+      VPBlockPredicateRecipe *BP = new VPBlockPredicateRecipe();
+      BP->setName(VPlanUtils::createUniqueName("BP"));
       VPBB->addRecipe(BP, getFirstRecipeSafe(VPBB));
       VPBB->setPredicateRecipe(BP);
     } else if (auto SubRegion = dyn_cast<VPRegionBlock>(Block)) {
@@ -361,7 +363,7 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
   VPBlockPredicateRecipe *EntryBP =
       cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
   VPPredicateRecipeBase *RegionInputPred = Region->getPredicateRecipe();
-  VPlanUtils::appendIncomingToBlockPred(EntryBP, RegionInputPred);
+  VPValueUtils::appendIncomingToBlockPred(EntryBP, RegionInputPred);
 
   // 3. Generate edge predicates and append them to the block predicate RPO is
   //    necessary since nested VPRegions' predicate is null and it has to be set
@@ -433,8 +435,8 @@ static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region) {
                        "Expected VPBlockPredicateRecipe");
                 VPBlockPredicateRecipe *ChildBBPred =
                     cast<VPBlockPredicateRecipe>(ChildBBPredBase);
-                VPlanUtils::clearIncomingsFromBlockPred(ChildBBPred);
-                VPlanUtils::appendIncomingToBlockPred(ChildBBPred, BBPred);
+                VPValueUtils::clearIncomingsFromBlockPred(ChildBBPred);
+                VPValueUtils::appendIncomingToBlockPred(ChildBBPred, BBPred);
               }
           }
       }
@@ -646,19 +648,19 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
       // latches' CBRs are preserved. For that reason, we keep intact loop
       // latches' successors or loop header's predecessors.
       // Current implementation doesn't work if a loop latch has a switch.
-      assert((!PrevBlock || !VPlanUtils::blockIsLoopLatch(PrevBlock, VPLI) ||
+      assert((!PrevBlock || !VPBlockUtils::blockIsLoopLatch(PrevBlock, VPLI) ||
               PrevBlock->getNumSuccessors() < 3) &&
              "Linearization doesn't support switches in loop latches");
 
       if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
-          !VPlanUtils::blockIsLoopLatch(PrevBlock, VPLI)) {
+          !VPBlockUtils::blockIsLoopLatch(PrevBlock, VPLI)) {
 
         LLVM_DEBUG(dbgs() << "Linearizing: " << PrevBlock->getName() << "->"
                           << CurrBlock->getName() << "\n");
 
-        VPlanUtils::clearSuccessors(PrevBlock);
-        VPlanUtils::clearPredecessors(CurrBlock);
-        VPlanUtils::connectBlocks(PrevBlock, CurrBlock);
+        PrevBlock->clearSuccessors();
+        CurrBlock->clearPredecessors();
+        VPBlockUtils::connectBlocks(PrevBlock, CurrBlock);
       }
 
       PrevBlock = CurrBlock;
@@ -682,8 +684,9 @@ void VPlanPredicator::predicate(void) {
   // TODO: We should have a better way to do this. A pointer in VPlan, for
   // example.
   assert(VPLI->size() == 1 && "more than 1 loop?");
-  VPLoopRegion *EntryLoopR =
-      cast<VPLoopRegion>((*VPLI->begin())->getLoopPreheader()->getParent());
+  VPBlockBase *PH = (*VPLI->begin())->getLoopPreheader();
+  assert(PH && "Unexpected null pre-header!");
+  VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
 
   // The plan's entry loop region must have no predicate (all-ones).
   assert(!EntryLoopR->getPredicateRecipe() &&

@@ -210,10 +210,6 @@ private:
   /// true, handle a constant FP value cast to a vector type.
   bool isFPConstantImpl(ConstantFP **Val, bool HandleSplat) const;
 
-  /// Returns true if canon expr is a constant integer splat. The constant
-  /// integer splat value is returned in \pVal.
-  bool isIntConstantSplat(int64_t *Val = nullptr) const;
-
   /// Returns true if canon expr represents a floating point constant splat. If
   /// yes, returns the underlying LLVM splat Value in \pVal.
   bool isFPConstantSplat(ConstantFP **Val = nullptr) const;
@@ -364,6 +360,10 @@ public:
   /// Returns true if canon expr is a constant integer. Integer value is
   /// returned in \p Val.
   bool isIntConstant(int64_t *Val = nullptr) const;
+
+  /// Returns true if canon expr is a constant integer splat. The constant
+  /// integer splat value is returned in \pVal.
+  bool isIntConstantSplat(int64_t *Val = nullptr) const;
 
   /// Returns true if canon expr represents a floating point constant.
   /// If yes, returns the underlying LLVM Value in \pVal.

@@ -1,3 +1,5 @@
+; This test is a copy of the test/DebugInfo/X86/dbg-value-const-byref.ll adapted for SPIRV needs.
+;
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: llvm-spirv %t.bc -o %t.spv -spirv-mem2reg=false
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
@@ -29,7 +31,7 @@
 ; CHECK-NEXT:  0x{{0*.*}}, [[C1:0x.*]]): DW_OP_consts +3
 ; CHECK-NEXT:      [[C1]], [[C2:0x.*]]): DW_OP_consts +7
 ; CHECK-NEXT:      [[C2]], [[R1:0x.*]]): DW_OP_reg0 RAX
-; CHECK-NEXT:      [[R1]], [[R2:0x.*]]): DW_OP_breg7 RSP+4, DW_OP_deref)
+; CHECK-NEXT:      [[R1]], [[R2:0x.*]]): DW_OP_breg7 RSP+4)
 ; CHECK-NOT: DW_TAG
 ; CHECK: DW_AT_name{{.*}}"i"
 

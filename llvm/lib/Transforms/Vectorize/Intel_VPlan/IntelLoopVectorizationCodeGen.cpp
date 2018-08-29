@@ -528,7 +528,8 @@ bool VPOVectorizationLegality::canVectorize() {
         return false;
       }
 
-      // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
+      // Bail out if we have an indirect function call for now. We also
+      // bail out if we need to scalarize the read/write pipe OpenCL calls. We
       // have to do this because there are no users of these calls directly
       // since the results are written through a ptr argument. Thus, the
       // vectorizer is unable to correctly materialize the necessary scalars
@@ -536,8 +537,15 @@ bool VPOVectorizationLegality::canVectorize() {
       // getOrCreateVectorValue().
       if (auto Call = dyn_cast<CallInst>(&I)) {
         Function *F = Call->getCalledFunction();
-        if (F && (isOpenCLReadChannel(F->getName()) ||
-            isOpenCLWriteChannel(F->getName())) && !UseSimdChannels)
+        if (!F) {
+          LLVM_DEBUG(dbgs()
+                     << "LV: Unsupported call instruction." << *Call << "\n");
+          return false;
+        }
+
+        if ((isOpenCLReadChannel(F->getName()) ||
+             isOpenCLWriteChannel(F->getName())) &&
+            !UseSimdChannels)
           return false;
       }
     }
@@ -666,6 +674,7 @@ void VPOCodeGen::emitResume(Value *CountRoundDown) {
           OrigLoop->getHeader()->getModule()->getDataLayout();
       PredicatedScalarEvolution &PSE = Legal->getPSE();
       EndValue = II.transform(B, CRD, PSE.getSE(), DL);
+      assert(EndValue && "Unexpected null return from transform");
       EndValue->setName("ind.end");
     }
 
@@ -959,8 +968,11 @@ void VPOCodeGen::fixReductionPhi(PHINode *Phi, Value *VectorStart) {
   Value *LoopVal = Phi->getIncomingValueForBlock(Latch);
   Value *VecLoopVal = getVectorValue(LoopVal);
   cast<PHINode>(VecRdxPhi)->addIncoming(VectorStart, LoopVectorPreHeader);
-  cast<PHINode>(VecRdxPhi)
-    ->addIncoming(VecLoopVal, LI->getLoopFor(LoopVectorBody)->getLoopLatch());
+  auto *VecLp = LI->getLoopFor(LoopVectorBody);
+  assert(VecLp && "Unexpected null vector loop");
+  auto *LoopVectorLatch = VecLp->getLoopLatch();
+  assert(LoopVectorLatch && "Unexpected null vector loop latch");
+  cast<PHINode>(VecRdxPhi)->addIncoming(VecLoopVal, LoopVectorLatch);
 }
 
 void VPOCodeGen::mergeReductionControlFlow(PHINode *Phi,
@@ -2332,7 +2344,10 @@ void VPOCodeGen::createVectorIntOrFpInductionPHI(const InductionDescriptor &ID,
 
   // Move the last step to the end of the latch block. This ensures consistent
   // placement of all induction updates.
-  auto *LoopVectorLatch = LI->getLoopFor(LoopVectorBody)->getLoopLatch();
+  auto *VecLp = LI->getLoopFor(LoopVectorBody);
+  assert(VecLp && "Unexpected null vector loop");
+  auto *LoopVectorLatch = VecLp->getLoopLatch();
+  assert(LoopVectorLatch && "Unexpected null vector loop latch");
   auto *Br = cast<BranchInst>(LoopVectorLatch->getTerminator());
   auto *ICmp = cast<Instruction>(Br->getCondition());
   LastInduction->moveBefore(ICmp);
@@ -2427,6 +2442,7 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
       : Builder.CreateCast(Instruction::SIToFP, Induction,
                            IV->getType());
     ScalarIV = ID.transform(Builder, ScalarIV, PSE.getSE(), DL);
+    assert(ScalarIV && "Unexpected null return from transform");
     ScalarIV->setName("offset.idx");
   }
 
@@ -2493,8 +2509,6 @@ Value *VPOCodeGen::getEdgeMask(BasicBlock *From, BasicBlock *To) {
 }
 
 void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
-  unsigned NumIncomingValues = Phi->getNumIncomingValues();
-  
   if (isUniformAfterVectorization(Phi, VF)) {
     Instruction *Cloned = Phi->clone();
     Cloned->setName(Phi->getName() + ".cloned");
@@ -2505,8 +2519,11 @@ void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
     return;
   }
 
-  Value *Entry;
+  Value *Entry = nullptr;
   bool ConvertablePhi = true;
+  unsigned NumIncomingValues = Phi->getNumIncomingValues();
+  assert(NumIncomingValues && "Unexpected PHI with zero values");
+
   // Generate a sequence of selects of the form:
   // SELECT(Mask3, In3,
   //      SELECT(Mask2, In2,
@@ -2539,6 +2556,7 @@ void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
     // Set incoming values later, they may be not ready yet in case of back-edges.
     OrigInductionPhisToFix.push_back(Phi);
   }
+  assert(Entry && "Unexpected null widen value for PHI");
   WidenMap[Phi] = Entry;
 }
 
@@ -2688,6 +2706,7 @@ Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(CallInst *Call,
 
   Value *VecWriteSrc = nullptr;
   Value *WriteSrc = getOpenCLReadWriteChannelAlloc(Call);
+  assert(WriteSrc && "Unexpected null write source in ReadWriteChannel call");
   unsigned NumStoresToWriteSrc = 0;
 
   // In scalar code, before the call to __write_pipe, there will be a store of
@@ -2849,8 +2868,10 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
       VecArgs.push_back(MaskValue);
       VecArgTys.push_back(MaskTy);
     } else {
+      Function *CalledFunc = Call->getCalledFunction();
+      assert(CalledFunc && "Unexpected null called function");
       Type *CharacteristicType =
-        calcCharacteristicType(*Call->getCalledFunction(), *VecVariant);
+          calcCharacteristicType(*CalledFunc, *VecVariant);
       unsigned CharacteristicTypeSize =
         CharacteristicType->getPrimitiveSizeInBits();
 
@@ -2945,6 +2966,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   SmallVector<Value *, 2> VecArgs;
   SmallVector<Type *, 2> VecArgTys;
   Function *CalledFunc = Call->getCalledFunction();
+  assert(CalledFunc && "Unexpected null called function");
   bool isMasked = (MaskValue != nullptr) ? true : false;
 
   // Don't attempt vector function matching for SVML or built-in functions.
@@ -3021,7 +3043,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     }
 
     // Create the vector GEP, keeping all constant arguments scalar.
-    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Inst);
+    GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
     if (all_of(GEP->operands(), [&](Value *Op) -> bool {
           return Legal->isLoopInvariant(Op) && !Legal->isLoopPrivate(Op);
       })) {
@@ -3059,7 +3081,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::UIToFP:
   case Instruction::Trunc:
   case Instruction::FPTrunc: {
-    CastInst *CI = dyn_cast<CastInst>(Inst);
+    CastInst *CI = cast<CastInst>(Inst);
     auto Opcode = CI->getOpcode();
 
     /// Vectorize casts.
@@ -3175,6 +3197,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     // TODO: Masked vector function call support needs to be added.
     CallInst *Call = cast<CallInst>(Inst);
     Function *F = Call->getCalledFunction();
+    assert(F && "Unexpected null called function");
     StringRef CalledFunc = F->getName();
     bool isMasked = (MaskValue != nullptr) ? true : false;
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
@@ -3220,6 +3243,7 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
   if (VectorTripCount)
     return VectorTripCount;
 
+  assert(L && "Unexpected null loop for trip count create");
   Value *TC = getOrCreateTripCount(L);
   IRBuilder<> Builder(L->getLoopPreheader()->getTerminator());
 
@@ -3752,6 +3776,7 @@ void VPOCodeGen::fixupIVUsers(PHINode *OrigPhi,
       Value *CMO = B.CreateSExtOrTrunc(CountMinusOne, II.getStep()->getType(),
                                        "cast.cmo");
       Value *Escape = II.transform(B, CMO, PSE.getSE(), DL);
+      assert(Escape && "Unexpected null return from transform");
       Escape->setName("ind.escape");
       MissingVals[UI] = Escape;
     }

@@ -18,7 +18,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/IR/Instructions.h" 
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Support/AtomicOrdering.h"
@@ -77,6 +77,12 @@ public:
       NextNumber++;
     return MapIter->second;
   }
+
+#if INTEL_CUSTOMIZATION
+  void setEqual(GlobalValue *F1, GlobalValue *F2) {
+    GlobalNumbers[F2] = getNumber(F1);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   void erase(GlobalValue *Global) {
     GlobalNumbers.erase(Global);

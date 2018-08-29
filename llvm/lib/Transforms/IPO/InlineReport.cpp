@@ -177,6 +177,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
     {InlPrtSimple, "Callsite preferred for cloning"},
     // NinlrNullPtrMismatch,
     {InlPrtSimple, "Caller/callee null pointer mismatch"},
+    // NinlrPreferMultiversioning,
+    {InlPrtSimple, "Callsite preferred for multiversioning"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 
@@ -563,8 +565,6 @@ void InlineReport::inlineCallSite(InlineFunctionInfo &InlineInfo) {
   //
   // Get the inline report for the routine being inlined.  We are going
   // to make a clone of it.
-  InlineReportFunctionMap::const_iterator MapItF =
-      IRFunctionMap.find(ActiveCallee);
   InlineReportFunction *INR = addFunction(ActiveCallee, M);
   //
   // Ensure that the report is up to date since the last call to

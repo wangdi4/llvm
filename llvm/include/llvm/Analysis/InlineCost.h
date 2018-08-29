@@ -162,6 +162,7 @@ typedef enum {
    NinlrSEH,
    NinlrPreferCloning,
    NinlrNullPtrMismatch,
+   NinlrPreferMultiversioning,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -318,7 +319,7 @@ struct InlineParams {
 #if INTEL_CUSTOMIZATION
   /// This flag indicates that it is LTO compile phase. This flag is
   /// set when PrepareForLTO flag in PassManagerBuilder is true. .
-  bool PrepareForLTO;
+  Optional<bool> PrepareForLTO;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use when the callsite is considered hot relative to function

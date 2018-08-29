@@ -22,6 +22,7 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/Type.h"
+#include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/Analysis/CFG.h"
 #include "clang/Analysis/CFGStmtMap.h"
@@ -228,6 +229,38 @@ static bool isFunctionMacroExpansion(SourceLocation Loc,
   return EInfo.isFunctionMacroExpansion();
 }
 
+/// \return Whether \c RegionOfInterest was modified at \p N,
+/// where \p ReturnState is a state associated with the return
+/// from the current frame.
+static bool wasRegionOfInterestModifiedAt(
+        const SubRegion *RegionOfInterest,
+        const ExplodedNode *N,
+        SVal ValueAfter) {
+  ProgramStateRef State = N->getState();
+  ProgramStateManager &Mgr = N->getState()->getStateManager();
+
+  if (!N->getLocationAs<PostStore>()
+      && !N->getLocationAs<PostInitializer>()
+      && !N->getLocationAs<PostStmt>())
+    return false;
+
+  // Writing into region of interest.
+  if (auto PS = N->getLocationAs<PostStmt>())
+    if (auto *BO = PS->getStmtAs<BinaryOperator>())
+      if (BO->isAssignmentOp() && RegionOfInterest->isSubRegionOf(
+            N->getSVal(BO->getLHS()).getAsRegion()))
+        return true;
+
+  // SVal after the state is possibly different.
+  SVal ValueAtN = N->getState()->getSVal(RegionOfInterest);
+  if (!Mgr.getSValBuilder().areEqual(State, ValueAtN, ValueAfter).isConstrainedTrue() &&
+      (!ValueAtN.isUndef() || !ValueAfter.isUndef()))
+    return true;
+
+  return false;
+}
+
+
 namespace {
 
 /// Put a diagnostic on return statement of all inlined functions
@@ -236,6 +269,8 @@ namespace {
 /// pointer dereference outside.
 class NoStoreFuncVisitor final : public BugReporterVisitor {
   const SubRegion *RegionOfInterest;
+  const SourceManager &SM;
+  const PrintingPolicy &PP;
   static constexpr const char *DiagnosticsMsg =
       "Returning without writing to '";
 
@@ -251,7 +286,10 @@ class NoStoreFuncVisitor final : public BugReporterVisitor {
   llvm::SmallPtrSet<const StackFrameContext *, 32> FramesModifyingCalculated;
 
 public:
-  NoStoreFuncVisitor(const SubRegion *R) : RegionOfInterest(R) {}
+  NoStoreFuncVisitor(const SubRegion *R)
+      : RegionOfInterest(R),
+        SM(R->getMemRegionManager()->getContext().getSourceManager()),
+        PP(R->getMemRegionManager()->getContext().getPrintingPolicy()) {}
 
   void Profile(llvm::FoldingSetNodeID &ID) const override {
     static int Tag = 0;
@@ -275,15 +313,22 @@ public:
     CallEventRef<> Call =
         BRC.getStateManager().getCallEventManager().getCaller(SCtx, State);
 
-    const PrintingPolicy &PP = BRC.getASTContext().getPrintingPolicy();
-    const SourceManager &SM = BRC.getSourceManager();
+    // Region of interest corresponds to an IVar, exiting a method
+    // which could have written into that IVar, but did not.
+    if (const auto *MC = dyn_cast<ObjCMethodCall>(Call))
+      if (const auto *IvarR = dyn_cast<ObjCIvarRegion>(RegionOfInterest))
+        if (potentiallyWritesIntoIvar(Call->getRuntimeDefinition().getDecl(),
+                                      IvarR->getDecl()) &&
+            !isRegionOfInterestModifiedInFrame(N))
+          return notModifiedMemberDiagnostics(
+              Ctx, *CallExitLoc, Call, MC->getReceiverSVal().getAsRegion());
+
     if (const auto *CCall = dyn_cast<CXXConstructorCall>(Call)) {
-      const MemRegion *ThisRegion = CCall->getCXXThisVal().getAsRegion();
-      if (RegionOfInterest->isSubRegionOf(ThisRegion)
+      const MemRegion *ThisR = CCall->getCXXThisVal().getAsRegion();
+      if (RegionOfInterest->isSubRegionOf(ThisR)
           && !CCall->getDecl()->isImplicit()
           && !isRegionOfInterestModifiedInFrame(N))
-        return notModifiedInConstructorDiagnostics(Ctx, SM, PP, *CallExitLoc,
-                                                   CCall, ThisRegion);
+        return notModifiedMemberDiagnostics(Ctx, *CallExitLoc, Call, ThisR);
     }
 
     ArrayRef<ParmVarDecl *> parameters = getCallParameters(Call);
@@ -299,8 +344,8 @@ public:
           if (isRegionOfInterestModifiedInFrame(N))
             return nullptr;
 
-          return notModifiedDiagnostics(
-              Ctx, SM, PP, *CallExitLoc, Call, PVD, R, IndirectionLevel);
+          return notModifiedParameterDiagnostics(
+              Ctx, *CallExitLoc, Call, PVD, R, IndirectionLevel);
         }
         QualType PT = T->getPointeeType();
         if (PT.isNull() || PT->isVoidType()) break;
@@ -314,6 +359,22 @@ public:
   }
 
 private:
+
+  /// \return Whether the method declaration \p Parent
+  /// syntactically has a binary operation writing into the ivar \p Ivar.
+  bool potentiallyWritesIntoIvar(const Decl *Parent,
+                                 const ObjCIvarDecl *Ivar) {
+    using namespace ast_matchers;
+    if (!Parent || !Parent->getBody())
+      return false;
+    StatementMatcher WriteIntoIvarM = binaryOperator(
+        hasOperatorName("="), hasLHS(ignoringParenImpCasts(objcIvarRefExpr(
+                                  hasDeclaration(equalsNode(Ivar))))));
+    StatementMatcher ParentM = stmt(hasDescendant(WriteIntoIvarM));
+    auto Matches = match(ParentM, *Parent->getBody(), Parent->getASTContext());
+    return !Matches.empty();
+  }
+
   /// Check and lazily calculate whether the region of interest is
   /// modified in the stack frame to which \p N belongs.
   /// The calculation is cached in FramesModifyingRegion.
@@ -346,7 +407,7 @@ private:
       FramesModifyingCalculated.insert(
         N->getLocationContext()->getStackFrame());
 
-      if (wasRegionOfInterestModifiedAt(N, LastReturnState, ValueAtReturn)) {
+      if (wasRegionOfInterestModifiedAt(RegionOfInterest, N, ValueAtReturn)) {
         const StackFrameContext *SCtx = N->getStackFrame();
         while (!SCtx->inTopFrame()) {
           auto p = FramesModifyingRegion.insert(SCtx);
@@ -363,33 +424,6 @@ private:
 
       N = N->getFirstPred();
     } while (N);
-  }
-
-  /// \return Whether \c RegionOfInterest was modified at \p N,
-  /// where \p ReturnState is a state associated with the return
-  /// from the current frame.
-  bool wasRegionOfInterestModifiedAt(const ExplodedNode *N,
-                                     ProgramStateRef ReturnState,
-                                     SVal ValueAtReturn) {
-    if (!N->getLocationAs<PostStore>()
-        && !N->getLocationAs<PostInitializer>()
-        && !N->getLocationAs<PostStmt>())
-      return false;
-
-    // Writing into region of interest.
-    if (auto PS = N->getLocationAs<PostStmt>())
-      if (auto *BO = PS->getStmtAs<BinaryOperator>())
-        if (BO->isAssignmentOp() && RegionOfInterest->isSubRegionOf(
-                                        N->getSVal(BO->getLHS()).getAsRegion()))
-          return true;
-
-    // SVal after the state is possibly different.
-    SVal ValueAtN = N->getState()->getSVal(RegionOfInterest);
-    if (!ReturnState->areEqual(ValueAtN, ValueAtReturn).isConstrainedTrue() &&
-        (!ValueAtN.isUndef() || !ValueAtReturn.isUndef()))
-      return true;
-
-    return false;
   }
 
   /// Get parameters associated with runtime definition in order
@@ -409,19 +443,19 @@ private:
            Ty->getPointeeType().getCanonicalType().isConstQualified();
   }
 
-  std::shared_ptr<PathDiagnosticPiece> notModifiedInConstructorDiagnostics(
+  /// \return Diagnostics piece for the member field not modified
+  /// in a given function.
+  std::shared_ptr<PathDiagnosticPiece> notModifiedMemberDiagnostics(
       const LocationContext *Ctx,
-      const SourceManager &SM,
-      const PrintingPolicy &PP,
       CallExitBegin &CallExitLoc,
-      const CXXConstructorCall *Call,
+      CallEventRef<> Call,
       const MemRegion *ArgRegion) {
+    const char *TopRegionName = isa<ObjCMethodCall>(Call) ? "self" : "this";
     SmallString<256> sbuf;
     llvm::raw_svector_ostream os(sbuf);
     os << DiagnosticsMsg;
-    bool out = prettyPrintRegionName(
-        "this", "->", /*IsReference=*/true,
-        /*IndirectionLevel=*/1, ArgRegion, os, PP);
+    bool out = prettyPrintRegionName(TopRegionName, "->", /*IsReference=*/true,
+                                     /*IndirectionLevel=*/1, ArgRegion, os, PP);
 
     // Return nothing if we have failed to pretty-print.
     if (!out)
@@ -429,16 +463,16 @@ private:
 
     os << "'";
     PathDiagnosticLocation L =
-        getPathDiagnosticLocation(nullptr, SM, Ctx, Call);
+        getPathDiagnosticLocation(CallExitLoc.getReturnStmt(), SM, Ctx, Call);
     return std::make_shared<PathDiagnosticEventPiece>(L, os.str());
   }
 
+  /// \return Diagnostics piece for the parameter \p PVD not modified
+  /// in a given function.
   /// \p IndirectionLevel How many times \c ArgRegion has to be dereferenced
   /// before we get to the super region of \c RegionOfInterest
   std::shared_ptr<PathDiagnosticPiece>
-  notModifiedDiagnostics(const LocationContext *Ctx,
-                         const SourceManager &SM,
-                         const PrintingPolicy &PP,
+  notModifiedParameterDiagnostics(const LocationContext *Ctx,
                          CallExitBegin &CallExitLoc,
                          CallEventRef<> Call,
                          const ParmVarDecl *PVD,
@@ -476,8 +510,8 @@ private:
 
   /// Pretty-print region \p ArgRegion starting from parent to \p os.
   /// \return whether printing has succeeded
-  bool prettyPrintRegionName(const char *TopRegionName,
-                             const char *Sep,
+  bool prettyPrintRegionName(StringRef TopRegionName,
+                             StringRef Sep,
                              bool IsReference,
                              int IndirectionLevel,
                              const MemRegion *ArgRegion,
@@ -486,7 +520,8 @@ private:
     SmallVector<const MemRegion *, 5> Subregions;
     const MemRegion *R = RegionOfInterest;
     while (R != ArgRegion) {
-      if (!(isa<FieldRegion>(R) || isa<CXXBaseObjectRegion>(R)))
+      if (!(isa<FieldRegion>(R) || isa<CXXBaseObjectRegion>(R) ||
+            isa<ObjCIvarRegion>(R)))
         return false; // Pattern-matching failed.
       Subregions.push_back(R);
       R = cast<SubRegion>(R)->getSuperRegion();
@@ -514,6 +549,10 @@ private:
         os << Sep;
         FR->getDecl()->getDeclName().print(os, PP);
         Sep = ".";
+      } else if (const auto *IR = dyn_cast<ObjCIvarRegion>(*I)) {
+        os << "->";
+        IR->getDecl()->getDeclName().print(os, PP);
+        Sep = ".";
       } else if (isa<CXXBaseObjectRegion>(*I)) {
         continue; // Just keep going up to the base region.
       } else {
@@ -524,25 +563,28 @@ private:
   }
 };
 
+/// Suppress null-pointer-dereference bugs where dereferenced null was returned
+/// the macro.
 class MacroNullReturnSuppressionVisitor final : public BugReporterVisitor {
   const SubRegion *RegionOfInterest;
+  const SVal ValueAtDereference;
+
+  // Do not invalidate the reports where the value was modified
+  // after it got assigned to from the macro.
+  bool WasModified = false;
 
 public:
-  MacroNullReturnSuppressionVisitor(const SubRegion *R) : RegionOfInterest(R) {}
-
-  static void *getTag() {
-    static int Tag = 0;
-    return static_cast<void *>(&Tag);
-  }
-
-  void Profile(llvm::FoldingSetNodeID &ID) const override {
-    ID.AddPointer(getTag());
-  }
+  MacroNullReturnSuppressionVisitor(const SubRegion *R,
+                                    const SVal V) : RegionOfInterest(R),
+                                                    ValueAtDereference(V) {}
 
   std::shared_ptr<PathDiagnosticPiece> VisitNode(const ExplodedNode *N,
                                                  const ExplodedNode *PrevN,
                                                  BugReporterContext &BRC,
                                                  BugReport &BR) override {
+    if (WasModified)
+      return nullptr;
+
     auto BugPoint = BR.getErrorNode()->getLocation().getAs<StmtPoint>();
     if (!BugPoint)
       return nullptr;
@@ -556,6 +598,10 @@ public:
           BR.markInvalid(getTag(), MacroName.c_str());
       }
     }
+
+    if (wasRegionOfInterestModifiedAt(RegionOfInterest, N, ValueAtDereference))
+      WasModified = true;
+
     return nullptr;
   }
 
@@ -563,12 +609,20 @@ public:
         const ExplodedNode *N, const MemRegion *R,
         bool EnableNullFPSuppression, BugReport &BR,
         const SVal V) {
-    AnalyzerOptions &Options = N->getState()->getStateManager()
-        .getOwningEngine()->getAnalysisManager().options;
+    AnalyzerOptions &Options = N->getState()->getAnalysisManager().options;
     if (EnableNullFPSuppression && Options.shouldSuppressNullReturnPaths()
           && V.getAs<Loc>())
       BR.addVisitor(llvm::make_unique<MacroNullReturnSuppressionVisitor>(
-              R->getAs<SubRegion>()));
+              R->getAs<SubRegion>(), V));
+  }
+
+  void* getTag() const {
+    static int Tag = 0;
+    return static_cast<void *>(&Tag);
+  }
+
+  void Profile(llvm::FoldingSetNodeID &ID) const override {
+    ID.AddPointer(getTag());
   }
 
 private:
@@ -682,9 +736,7 @@ public:
         RetVal = State->getSVal(*LValue);
 
     // See if the return value is NULL. If so, suppress the report.
-    SubEngine *Eng = State->getStateManager().getOwningEngine();
-    assert(Eng && "Cannot file a bug report without an owning engine");
-    AnalyzerOptions &Options = Eng->getAnalysisManager().options;
+    AnalyzerOptions &Options = State->getAnalysisManager().options;
 
     bool EnableNullFPSuppression = false;
     if (InEnableNullFPSuppression && Options.shouldSuppressNullReturnPaths())
@@ -1263,9 +1315,7 @@ SuppressInlineDefensiveChecksVisitor::
 SuppressInlineDefensiveChecksVisitor(DefinedSVal Value, const ExplodedNode *N)
     : V(Value) {
   // Check if the visitor is disabled.
-  SubEngine *Eng = N->getState()->getStateManager().getOwningEngine();
-  assert(Eng && "Cannot file a bug report without an owning engine");
-  AnalyzerOptions &Options = Eng->getAnalysisManager().options;
+  AnalyzerOptions &Options = N->getState()->getAnalysisManager().options;
   if (!Options.shouldSuppressInlinedDefensiveChecks())
     IsSatisfied = true;
 
@@ -1545,6 +1595,7 @@ bool bugreporter::trackNullOrUndefValue(const ExplodedNode *N,
         LVNode->getSVal(Inner).getAsRegion();
 
     if (R) {
+
       // Mark both the variable region and its contents as interesting.
       SVal V = LVState->getRawSVal(loc::MemRegionVal(R));
       report.addVisitor(
@@ -2349,34 +2400,6 @@ TaintBugVisitor::VisitNode(const ExplodedNode *N, const ExplodedNode *PrevN,
   return std::make_shared<PathDiagnosticEventPiece>(L, "Taint originated here");
 }
 
-static bool areConstraintsUnfeasible(BugReporterContext &BRC,
-                                     const ConstraintRangeTy &Cs) {
-  // Create a refutation manager
-  std::unique_ptr<ConstraintManager> RefutationMgr = CreateZ3ConstraintManager(
-      BRC.getStateManager(), BRC.getStateManager().getOwningEngine());
-
-  SMTConstraintManager *SMTRefutationMgr =
-      static_cast<SMTConstraintManager *>(RefutationMgr.get());
-
-  // Add constraints to the solver
-  SMTRefutationMgr->addRangeConstraints(Cs);
-
-  // And check for satisfiability
-  return SMTRefutationMgr->isModelFeasible().isConstrainedFalse();
-}
-
-static void addNewConstraints(ConstraintRangeTy &Cs,
-                              const ConstraintRangeTy &NewCs,
-                              ConstraintRangeTy::Factory &CF) {
-  // Add constraints if we don't have them yet
-  for (auto const &C : NewCs) {
-    const SymbolRef &Sym = C.first;
-    if (!Cs.contains(Sym)) {
-      Cs = CF.add(Cs, Sym, C.second);
-    }
-  }
-}
-
 FalsePositiveRefutationBRVisitor::FalsePositiveRefutationBRVisitor()
     : Constraints(ConstraintRangeTy::Factory().getEmptyMap()) {}
 
@@ -2385,8 +2408,26 @@ void FalsePositiveRefutationBRVisitor::finalizeVisitor(
   // Collect new constraints
   VisitNode(EndPathNode, nullptr, BRC, BR);
 
-  // Create a new refutation manager and check feasibility
-  if (areConstraintsUnfeasible(BRC, Constraints))
+  // Create a refutation manager
+  std::unique_ptr<SMTSolver> RefutationSolver = CreateZ3Solver();
+  ASTContext &Ctx = BRC.getASTContext();
+
+  // Add constraints to the solver
+  for (const auto &I : Constraints) {
+    SymbolRef Sym = I.first;
+
+    SMTExprRef Constraints = RefutationSolver->fromBoolean(false);
+    for (const auto &Range : I.second) {
+      Constraints = RefutationSolver->mkOr(
+          Constraints,
+          RefutationSolver->getRangeExpr(Ctx, Sym, Range.From(), Range.To(),
+                                         /*InRange=*/true));
+    }
+    RefutationSolver->addConstraint(Constraints);
+  }
+
+  // And check for satisfiability
+  if (RefutationSolver->check().isConstrainedFalse())
     BR.markInvalid("Infeasible constraints", EndPathNode->getLocationContext());
 }
 
@@ -2396,8 +2437,17 @@ FalsePositiveRefutationBRVisitor::VisitNode(const ExplodedNode *N,
                                             BugReporterContext &BRC,
                                             BugReport &BR) {
   // Collect new constraints
-  addNewConstraints(Constraints, N->getState()->get<ConstraintRange>(),
-                    N->getState()->get_context<ConstraintRange>());
+  const ConstraintRangeTy &NewCs = N->getState()->get<ConstraintRange>();
+  ConstraintRangeTy::Factory &CF =
+      N->getState()->get_context<ConstraintRange>();
+
+  // Add constraints if we don't have them yet
+  for (auto const &C : NewCs) {
+    const SymbolRef &Sym = C.first;
+    if (!Constraints.contains(Sym)) {
+      Constraints = CF.add(Constraints, Sym, C.second);
+    }
+  }
 
   return nullptr;
 }

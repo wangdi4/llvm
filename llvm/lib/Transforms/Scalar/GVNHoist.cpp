@@ -113,6 +113,14 @@ static cl::opt<int>
                    cl::desc("Maximum length of dependent chains to hoist "
                             "(default = 10, unlimited = -1)"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+LimitToImmediatePred("gvn-hoist-limit-to-immediate-pred", cl::Hidden,
+                     cl::init(false),
+                     cl::desc("Limit GVN Hoist to hoist to immediately "
+                              "preceding basic blocks only."));
+#endif // INTEL_CUSTOMIZATION
+
 namespace llvm {
 
 using BBSideEffectsSet = DenseMap<const BasicBlock *, bool>;
@@ -541,7 +549,7 @@ private:
 
     if (NewBB == DBB && !MSSA->isLiveOnEntryDef(D))
       if (auto *UD = dyn_cast<MemoryUseOrDef>(D))
-        if (firstInBB(NewPt, UD->getMemoryInst()))
+        if (!firstInBB(UD->getMemoryInst(), NewPt))
           // Cannot move the load or store to NewPt above its definition in D.
           return false;
 
@@ -622,7 +630,7 @@ private:
       }
 
       // Skip if the block hoisted to is not the immediate predecessor.
-      if (!isPred)
+      if (LimitToImmediatePred && !isPred)
         continue;
 #endif // INTEL_CUSTOMIZATION
 

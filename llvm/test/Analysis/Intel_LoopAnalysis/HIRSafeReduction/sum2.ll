@@ -6,8 +6,7 @@
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
 ; CHECK:   DO i2 = 0, %n + -1, 1  
-; CHECK:   Safe Reduction
-; CHECK:   %s1.022 = %s1.022  +  %0;
+; CHECK:   %s1.022 = %s1.022  +  %0; <Safe Reduction>
 ;
 ; ModuleID = 'sum2.c'
 source_filename = "sum2.c"

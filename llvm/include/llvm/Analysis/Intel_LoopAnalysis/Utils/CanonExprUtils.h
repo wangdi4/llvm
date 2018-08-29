@@ -260,7 +260,7 @@ public:
   /// (i1+%t) and (i1+%t+1) even if %t is non-linear and has a different value
   /// for the two CEs.
   static bool getConstDistance(const CanonExpr *CE1, const CanonExpr *CE2,
-                               int64_t *Distance);
+                               int64_t *Distance, bool RelaxedMode = false);
 
   /// Returns true if CE1 - CE2 results in a constant difference w.r.t IV at \p
   /// LoopLevel which is the distance in terms of number of loop iterations.
@@ -284,7 +284,8 @@ public:
   /// TODO: Fix for vector type CEs.
   static bool getConstIterationDistance(const CanonExpr *CE1,
                                         const CanonExpr *CE2,
-                                        unsigned LoopLevel, int64_t *Distance);
+                                        unsigned LoopLevel, int64_t *Distance,
+                                        bool RelaxedMode = false);
 
   /// Sorting comparator for two canon expressions. Returns true if \p CE1 is
   /// less then \p CE2.

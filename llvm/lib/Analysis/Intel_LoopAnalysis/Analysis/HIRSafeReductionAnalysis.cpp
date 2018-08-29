@@ -558,7 +558,6 @@ bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
 void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
                                      const HLLoop *Loop,
                                      const SafeRedChainList *SRCL) {
-
   unsigned Depth = Loop->getNestingLevel() + 1;
 
   if (SRCL->empty()) {
@@ -569,7 +568,6 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 
   for (auto &SRI : *SRCL) {
     Loop->indent(OS, Depth);
-    OS << "Safe Reduction:\n";
     printAChain(OS, Depth, SRI.Chain);
   }
 }

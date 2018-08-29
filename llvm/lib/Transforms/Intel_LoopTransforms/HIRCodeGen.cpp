@@ -262,7 +262,11 @@ private:
   AllocaInst *getLvalTerminalAlloca(RegDDRef *Ref);
   AllocaInst *getSymbaseAlloca(unsigned Symbase, Type *Ty,
                                HLRegion *Region = nullptr);
+
   AllocaInst *getLoopIVAlloca(const HLLoop *Loop);
+
+  Value *getTokenVal(unsigned Symbase) const;
+  void addTokenEntry(unsigned Symbase, Value *TokenVal);
 
   // Handles special casing for SCEVUnknowns possibly representing blobs
   // within HIR framework
@@ -340,6 +344,9 @@ private:
 
   // Set of region exit bblocks.
   SmallPtrSet<BasicBlock *, 8> ExitBBs;
+
+  // Stores mapping of symbase to token values.
+  SmallDenseMap<unsigned, Value *> TokenMap;
 };
 
 class HIRCodeGen {
@@ -749,6 +756,20 @@ AllocaInst *CGVisitor::getSymbaseAlloca(unsigned Symbase, Type *Ty,
     assert(Ty == Alloca->getAllocatedType() && "Mismatch alloca type request");
   }
   return Alloca;
+}
+
+Value *CGVisitor::getTokenVal(unsigned Symbase) const {
+  auto It = TokenMap.find(Symbase);
+
+  assert(It != TokenMap.end() && "Uninitialized token found!");
+  return It->second;
+}
+
+void CGVisitor::addTokenEntry(unsigned Symbase, Value *TokenVal) {
+  assert(TokenMap.find(Symbase) == TokenMap.end() &&
+         "Redefinition of token found!");
+  assert(TokenVal->getType()->isTokenTy() && "Token type value expected!");
+  TokenMap[Symbase] = TokenVal;
 }
 
 AllocaInst *CGVisitor::getLoopIVAlloca(const HLLoop *Loop) {
@@ -1558,6 +1579,39 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
   }
 }
 
+static void populateOperandBundles(HLInst *HInst,
+                                   SmallVectorImpl<Value *> &Operands,
+                                   SmallVectorImpl<OperandBundleDef> &Bundles) {
+  assert(HInst->isCallInst() && "Call instruction expected!");
+
+  unsigned NumOperandBundles = HInst->getNumOperandBundles();
+
+  if (NumOperandBundles == 0) {
+    return;
+  }
+
+  unsigned NumNonBundleOperands = HInst->getNumNonBundleOperands();
+  unsigned NumPrevBundleOperands = 0;
+  unsigned OpBeginIndex = NumNonBundleOperands + NumPrevBundleOperands;
+
+  for (unsigned I = 0; I < NumOperandBundles; ++I) {
+    unsigned NumCurrentBundleOperands = HInst->getNumBundleOperands(I);
+    unsigned OpEndIndex = OpBeginIndex + NumCurrentBundleOperands;
+
+    std::vector<Value *> Inputs;
+
+    for (unsigned J = OpBeginIndex; J < OpEndIndex; ++J) {
+      Inputs.push_back(Operands[J]);
+    }
+
+    Bundles.emplace_back(HInst->getOperandBundleAt(I).getTagName(), Inputs);
+    OpBeginIndex = OpEndIndex;
+  }
+
+  // Exclude bundle operands from Operands.
+  Operands.resize(NumNonBundleOperands);
+}
+
 Value *CGVisitor::visitInst(HLInst *HInst) {
   ScopeDbgLoc DbgLoc(*this, HInst->getDebugLoc());
 
@@ -1568,10 +1622,27 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   // any generated loads if the HLInst has a mask DDRef.
   Value *MaskVal = nullptr;
   RegDDRef *MaskRef = HInst->getMaskDDRef();
+  unsigned LvalTokenSymbase = InvalidSymbase;
 
   for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
        ++R) {
     auto Ref = (*R);
+
+    // We cannot load/store to token types so we will directly use the generated
+    // LLVM instructions.
+    if (Ref->getDestType()->isTokenTy()) {
+      assert(Ref->isTerminalRef() && "Non-terminal token type ref found!");
+
+      if (Ref->isLval()) {
+        LvalTokenSymbase = Ref->getSymbase();
+        // This is to keep Ops in sync with number of operands.
+        Ops.push_back(nullptr);
+      } else {
+        Ops.push_back(getTokenVal(Ref->getSymbase()));
+      }
+
+      continue;
+    }
 
     // We need to mask loads if we have a mask ddref - generate mask value
     // to be used for these loads.
@@ -1628,6 +1699,11 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     }
 
   } else if (auto Call = dyn_cast<CallInst>(Inst)) {
+
+    SmallVector<OperandBundleDef, 4> Bundles;
+
+    populateOperandBundles(HInst, Ops, Bundles);
+
     if (HInst->hasLval()) {
       // Turns Operands vector into function args vector by removing lval
       // TODO: Separate this logic from framework's implementation of putting
@@ -1642,7 +1718,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
       FuncVal = Ops.pop_back_val();
     }
 
-    CallInst *ResCall = Builder.CreateCall(FuncVal, Ops);
+    CallInst *ResCall = Builder.CreateCall(FuncVal, Ops, Bundles);
 
     // TODO: Copy parameter attributes as well.
     ResCall->setCallingConv(Call->getCallingConv());
@@ -1697,6 +1773,10 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (isa<ExtractElementInst>(Inst)) {
     StoreVal = Builder.CreateExtractElement(Ops[1], Ops[2], Inst->getName());
 
+  } else if (isa<InsertElementInst>(Inst)) {
+    StoreVal =
+        Builder.CreateInsertElement(Ops[1], Ops[2], Ops[3], Inst->getName());
+
   } else if (isa<ShuffleVectorInst>(Inst)) {
     StoreVal =
         Builder.CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());
@@ -1711,7 +1791,11 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     llvm_unreachable("Unimpl CG for inst");
   }
 
-  generateLvalStore(HInst, StorePtr, StoreVal);
+  if (LvalTokenSymbase != InvalidSymbase) {
+    addTokenEntry(LvalTokenSymbase, StoreVal);
+  } else {
+    generateLvalStore(HInst, StorePtr, StoreVal);
+  }
 
   return nullptr;
 }

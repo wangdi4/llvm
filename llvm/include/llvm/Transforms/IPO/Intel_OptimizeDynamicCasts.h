@@ -31,8 +31,8 @@ private:
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
-  PreservedAnalyses runImpl(Module &M, WholeProgramInfo *WPI,
-                            TargetLibraryInfo *TLI);
+  PreservedAnalyses runImpl(Module &M, WholeProgramInfo &WPI,
+                            TargetLibraryInfo &TLI);
 };
 
 ModulePass *createOptimizeDynamicCastsWrapperPass();

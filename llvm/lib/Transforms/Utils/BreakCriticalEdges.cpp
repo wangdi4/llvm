@@ -297,64 +297,97 @@ llvm::SplitCriticalEdge(TerminatorInst *TI, unsigned SuccNum,
 // Return the unique indirectbr predecessor of a block. This may return null
 // even if such a predecessor exists, if it's not useful for splitting.
 // If a predecessor is found, OtherPreds will contain all other (non-indirectbr)
-// predecessors of BB.
+// unique predecessors of BB. // INTEL
+#if INTEL_CUSTOMIZATION
+// If ConsiderSwitch flag is enabled, in case of absence of indirectbr
+// predecessor consider an unique switch predecessor as a candidate.
 static BasicBlock *
-findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds) {
+findIBRPredecessor(BasicBlock *BB,
+                   SmallVectorImpl<BasicBlock *> &OtherPreds,
+                   bool ConsiderSwitch) {
+#endif // INTEL_CUSTOMIZATION
   // If the block doesn't have any PHIs, we don't care about it, since there's
   // no point in splitting it.
   PHINode *PN = dyn_cast<PHINode>(BB->begin());
   if (!PN)
     return nullptr;
 
-  // Verify we have exactly one IBR predecessor.
-  // Conservatively bail out if one of the other predecessors is not a "regular"
-  // terminator (that is, not a switch or a br).
+  // Collect and classify all the unique predecessors. // INTEL
   BasicBlock *IBB = nullptr;
+  SmallSetVector<BasicBlock *, 4> UniqueSwitchPreds; // INTEL
   for (unsigned Pred = 0, E = PN->getNumIncomingValues(); Pred != E; ++Pred) {
     BasicBlock *PredBB = PN->getIncomingBlock(Pred);
     TerminatorInst *PredTerm = PredBB->getTerminator();
     switch (PredTerm->getOpcode()) {
+#if INTEL_CUSTOMIZATION
     case Instruction::IndirectBr:
+      // Conservatively bail out if we have more than one IBR predecessor.
       if (IBB)
         return nullptr;
       IBB = PredBB;
-      break;
-    case Instruction::Br:
+      continue;
     case Instruction::Switch:
+      // Collect Switch predecessors in a set to handle multi-edges cases.
+      UniqueSwitchPreds.insert(PredBB);
+      continue;
+    case Instruction::Br:
+      // Just collect all Branch predecessors since they are unique.
       OtherPreds.push_back(PredBB);
       continue;
+#endif // INTEL_CUSTOMIZATION
     default:
       return nullptr;
     }
   }
 
-  return IBB;
+#if INTEL_CUSTOMIZATION
+  // If we have exactly one IBR predecessor - return it.
+  if (IBB) {
+    // Consider all Switch predecessors as usual ones.
+    OtherPreds.append(UniqueSwitchPreds.begin(), UniqueSwitchPreds.end());
+    return IBB;
+  }
+  // If there are no IBR predecessors, but there is exactly one Switch
+  // (including multi-edges case) - return it.
+  if (ConsiderSwitch && UniqueSwitchPreds.size() == 1) {
+    return *UniqueSwitchPreds.begin();
+  }
+  // We have none or more than one predecessor to split.
+  return nullptr;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool llvm::SplitIndirectBrCriticalEdges(Function &F,
                                         BranchProbabilityInfo *BPI,
-                                        BlockFrequencyInfo *BFI) {
+                                        BlockFrequencyInfo *BFI,  // INTEL
+                                        bool ConsiderSwitch,      // INTEL
+                                        bool DontSplitColdEdge) { // INTEL
   // Check whether the function has any indirectbrs, and collect which blocks
   // they may jump to. Since most functions don't have indirect branches,
   // this lowers the common case's overhead to O(Blocks) instead of O(Edges).
   SmallSetVector<BasicBlock *, 16> Targets;
   for (auto &BB : F) {
-    auto *IBI = dyn_cast<IndirectBrInst>(BB.getTerminator());
-    if (!IBI)
+#if INTEL_CUSTOMIZATION
+    TerminatorInst *TI = dyn_cast<IndirectBrInst>(BB.getTerminator());
+    // If specified then consider switch as an alias of indirectbr instruction.
+    if (!TI && ConsiderSwitch)
+      TI = dyn_cast<SwitchInst>(BB.getTerminator());
+
+    if (!TI)
       continue;
 
-    for (unsigned Succ = 0, E = IBI->getNumSuccessors(); Succ != E; ++Succ)
-      Targets.insert(IBI->getSuccessor(Succ));
+    for (unsigned Succ = 0, E = TI->getNumSuccessors(); Succ != E; ++Succ)
+      Targets.insert(TI->getSuccessor(Succ));
+#endif // INTEL_CUSTOMIZATION
   }
-
-  if (Targets.empty())
-    return false;
 
   bool ShouldUpdateAnalysis = BPI && BFI;
   bool Changed = false;
-  for (BasicBlock *Target : Targets) {
+  while (!Targets.empty()) {                     // INTEL
+    BasicBlock *Target = Targets.pop_back_val(); // INTEL
     SmallVector<BasicBlock *, 16> OtherPreds;
-    BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds);
+    BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds, // INTEL
+                                             ConsiderSwitch);    // INTEL
     // If we did not found an indirectbr, or the indirectbr is the only
     // incoming edge, this isn't the kind of edge we're looking for.
     if (!IBRPred || OtherPreds.empty())
@@ -364,6 +397,33 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     Instruction *FirstNonPHI = Target->getFirstNonPHI();
     if (FirstNonPHI->isEHPad() || Target->isLandingPad())
       continue;
+
+#if INTEL_CUSTOMIZATION
+    bool SelfLoop = IBRPred == Target;
+
+    // To be conservative, when analysing a indirectbr/switch instruction
+    // try not to split a critical edge created by empty block merging during
+    // eliminateMostlyEmptyBlocks (CodeGenPrepare).
+    // NOTE: SplitIndirectBrCriticalEdges is used in PGO instrumentation
+    //       pass, where all the critical edges need to be split in order
+    //       to construct MST. Do not use heuristics there.
+    // Heuristics are:
+    // (a) Avoid splitting an edge on a hot path since that could introduce
+    //     a branch and computations sunk might be executed in any way with
+    //     high probability.
+    //     FIXME: Unify a heuristic with isMergingEmptyBlockProfitable from
+    //            CodeGenPrepare.
+    // (b) Split a loop to itself, the loop body can be sunk to a new block.
+    if (!SelfLoop && DontSplitColdEdge && ShouldUpdateAnalysis) {
+      BlockFrequency PredFreq = BFI->getBlockFreq(IBRPred);
+      BlockFrequency NewBBFreq =
+          PredFreq * BPI->getEdgeProbability(IBRPred, Target);
+      constexpr unsigned FreqRatioToSkipMerge = 2;
+      if (PredFreq.getFrequency() <=
+          NewBBFreq.getFrequency() * FreqRatioToSkipMerge)
+        continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     BasicBlock *BodyBlock = Target->splitBasicBlock(FirstNonPHI, ".split");
     if (ShouldUpdateAnalysis) {
@@ -376,73 +436,79 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     }
     // It's possible Target was its own successor through an indirectbr.
     // In this case, the indirectbr now comes from BodyBlock.
-    if (IBRPred == Target)
+    if (SelfLoop) // INTEL
       IBRPred = BodyBlock;
 
+#if INTEL_CUSTOMIZATION
     // At this point Target only has PHIs, and BodyBlock has the rest of the
-    // block's body. Create a copy of Target that will be used by the "direct"
-    // preds.
-    ValueToValueMapTy VMap;
-    BasicBlock *DirectSucc = CloneBasicBlock(Target, VMap, ".clone", &F);
-
+    // block's body. Redirect "other" preds to BodyBlock. Note, for correct
+    // computation of a block frequency, OtherPreds should be unique ones.
+#endif // INTEL_CUSTOMIZATION
     BlockFrequency BlockFreqForDirectSucc;
     for (BasicBlock *Pred : OtherPreds) {
       // If the target is a loop to itself, then the terminator of the split
       // block (BodyBlock) needs to be updated.
       BasicBlock *Src = Pred != Target ? Pred : BodyBlock;
-      Src->getTerminator()->replaceUsesOfWith(Target, DirectSucc);
+      Src->getTerminator()->replaceUsesOfWith(Target, BodyBlock); // INTEL
       if (ShouldUpdateAnalysis)
         BlockFreqForDirectSucc += BFI->getBlockFreq(Src) *
-            BPI->getEdgeProbability(Src, DirectSucc);
+            BPI->getEdgeProbability(Src, BodyBlock); // INTEL
     }
     if (ShouldUpdateAnalysis) {
-      BFI->setBlockFreq(DirectSucc, BlockFreqForDirectSucc.getFrequency());
       BlockFrequency NewBlockFreqForTarget =
           BFI->getBlockFreq(Target) - BlockFreqForDirectSucc;
       BFI->setBlockFreq(Target, NewBlockFreqForTarget.getFrequency());
       BPI->eraseBlock(Target);
     }
 
-    // Ok, now fix up the PHIs. We know the two blocks only have PHIs, and that
-    // they are clones, so the number of PHIs are the same.
-    // (a) Remove the edge coming from IBRPred from the "Direct" PHI
-    // (b) Leave that as the only edge in the "Indirect" PHI.
-    // (c) Merge the two in the body block.
+#if INTEL_CUSTOMIZATION
+    // Ok, now fix up the PHIs. For each PHI in Target block:
+    // (a) Create a new empty PHI in Target block.
+    // (b) Populate it by all edges coming from IBRPred.
+    // (c) Create a new PHI in body block.
+    // (d) Use it to merge an edge from Target block with all other edges
+    //     not coming from IBRPred.
+    // (e) Erase an original PHI from the Target block.
     BasicBlock::iterator Indirect = Target->begin(),
                          End = Target->getFirstNonPHI()->getIterator();
-    BasicBlock::iterator Direct = DirectSucc->begin();
     BasicBlock::iterator MergeInsert = BodyBlock->getFirstInsertionPt();
 
     assert(&*End == Target->getTerminator() &&
            "Block was expected to only contain PHIs");
 
     while (Indirect != End) {
-      PHINode *DirPHI = cast<PHINode>(Direct);
       PHINode *IndPHI = cast<PHINode>(Indirect);
-
-      // Now, clean up - the direct block shouldn't get the indirect value,
-      // and vice versa.
-      DirPHI->removeIncomingValue(IBRPred);
-      Direct++;
 
       // Advance the pointer here, to avoid invalidation issues when the old
       // PHI is erased.
       Indirect++;
 
       PHINode *NewIndPHI = PHINode::Create(IndPHI->getType(), 1, "ind", IndPHI);
-      NewIndPHI->addIncoming(IndPHI->getIncomingValueForBlock(IBRPred),
-                             IBRPred);
-
       // Create a PHI in the body block, to merge the direct and indirect
       // predecessors.
       PHINode *MergePHI =
-          PHINode::Create(IndPHI->getType(), 2, "merge", &*MergeInsert);
+          PHINode::Create(IndPHI->getType(), 0, "merge", &*MergeInsert);
       MergePHI->addIncoming(NewIndPHI, Target);
-      MergePHI->addIncoming(DirPHI, DirectSucc);
+      for (unsigned Pred = 0, E = IndPHI->getNumIncomingValues(); Pred != E;
+           ++Pred) {
+        BasicBlock *PredBB = IndPHI->getIncomingBlock(Pred);
+        if (PredBB == IBRPred) {
+          NewIndPHI->addIncoming(IndPHI->getIncomingValue(Pred), IBRPred);
+        } else {
+          MergePHI->addIncoming(IndPHI->getIncomingValue(Pred), PredBB);
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
 
       IndPHI->replaceAllUsesWith(MergePHI);
       IndPHI->eraseFromParent();
     }
+
+#if INTEL_CUSTOMIZATION
+    // A body block that has any other incoming critical edge from a Switch
+    // predecessor will be considered on the next iteration.
+    Targets.insert(BodyBlock);
+#endif // INTEL_CUSTOMIZATION
 
     Changed = true;
   }

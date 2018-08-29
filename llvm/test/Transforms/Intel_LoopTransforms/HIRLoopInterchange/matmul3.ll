@@ -1,25 +1,40 @@
-; for(k=0; k<N; k++) 
- ;    for(i=0; i<N; i++) 
-  ;       for(j=0; j<N; j++) 
-   ;          c[i][j] = c[i][j] + a[i][k] * b[k][j];
-; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -O2 -debug-only=hir-loop-interchange   < %s 2>&1 | FileCheck %s
+; for (k = 0; k < N; k++)
+; for (i = 0; i < N; i++)
+; for (j = 0; j < N; j++)
+; c[i][j] = c[i][j] + a[i][k] * b[k][j];
+
+; RUN: opt -debug-only=hir-loop-interchange -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
 ;
-; REQUIRES: asserts  
+; A perfect loop nest is forced even when all references in innermost loop are all unit strided.
+; Then interchanged for blocking. For blocking, ( 2 1 3 ) might be a better permutation. 
+
+; <37>      + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
+; <38>      |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
+; <6>       |   |   %0 = (@a)[0][i2][i1];
+; <39>      |   |
+; <39>      |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
+; <14>      |   |   |   %mul = %0  *  (@b)[0][i1][i3];
+; <15>      |   |   |   %add = (@c)[0][i2][i3]  +  %mul;
+; <16>      |   |   |   (@c)[0][i2][i3] = %add;
+; <39>      |   |   + END LOOP
+; <38>      |   + END LOOP
+; <37>      + END LOOP
+
 ;
-; Loop is not interchanged because all references in the innermost loop are all unit strided. However, for blocking transformation, (2 1 3) might be better permutation.
+; CHECK: Interchanged:
+; CHECK-SAME: ( 2 1 3 )
 ;
-;CHECK-NOT: Interchanged
-;
-; ModuleID = 'matmul3.c'
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; ModuleID = 'matmul3.c' 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128" 
 target triple = "x86_64-unknown-linux-gnu"
 
-@c = common global [1024 x [1024 x double]] zeroinitializer, align 16
-@a = common global [1024 x [1024 x double]] zeroinitializer, align 16
-@b = common global [1024 x [1024 x double]] zeroinitializer, align 16
+@c = common global[1024 x[1024 x double]] zeroinitializer, align 16
+@a = common global[1024 x[1024 x double]] zeroinitializer, align 16
+@b = common global[1024 x[1024 x double]] zeroinitializer, align 16
 
-; Function Attrs: nounwind uwtable
+; Function Attrs : nounwind uwtable
 define i32 @sub(i64 %N) #0 {
 entry:
   %cmp.42 = icmp sgt i64 %N, 0
@@ -62,12 +77,12 @@ for.end.19:                                       ; preds = %for.inc.17, %entry
   ret i32 0
 }
 
-attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = {nounwind uwtable "disable-tail-calls" = "false" "less-precise-fpmad" = "false" "no-frame-pointer-elim" = "false" "no-infs-fp-math" = "false" "no-nans-fp-math" = "false" "stack-protector-buffer-size" = "8" "target-cpu" = "x86-64" "target-features" = "+sse,+sse2" "unsafe-fp-math" = "false" "use-soft-float" = "false"}
 
-!llvm.ident = !{!0}
+!llvm.ident = !{ !0 }
 
-!0 = !{!"clang version 3.8.0 (trunk 1456) (llvm/branches/loopopt 1546)"}
-!1 = !{!2, !2, i64 0}
-!2 = !{!"double", !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}
+!0 = !{ !"clang version 3.8.0 (trunk 1456) (llvm/branches/loopopt 1546)" }
+!1 = !{ !2, !2, i64 0 }
+!2 = !{ !"double", !3, i64 0 }
+!3 = !{ !"omnipotent char", !4, i64 0 }
+!4 = !{ !"Simple C/C++ TBAA" }

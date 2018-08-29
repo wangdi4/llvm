@@ -180,7 +180,7 @@ public:
   StdContainerOpt() : FunctionPass(ID) {
     initializeStdContainerOptPass(*PassRegistry::getPassRegistry());
   }
-  bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F) override;
   void visitInstruction(Instruction &I) { return; }
   void visitIntrinsicInst(IntrinsicInst &II);
   StringRef getPassName() const override { return "StdContainerOpt"; }

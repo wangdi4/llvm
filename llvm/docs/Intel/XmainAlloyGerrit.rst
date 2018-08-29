@@ -47,6 +47,10 @@ Supported Xmain Repo
         xalloy
         icsconfig
         icsproject
+        sycl-xmain
+        llvm_opencl-icd-loader_worldread
+        opencl_headers_worldread
+        llvm_spirv_translator_worldread
 
 
 Reviewer ( ``xmain_checkin_sanity, xmain_checkin, zperf_checkin_xmain`` )
@@ -178,25 +182,30 @@ immediately post a message in Gerrit like this.
 ::
 
         xmain_alloy
-        3:26 PM
+        6:27 AM
         ↩
-        Patch Set 2:
-        !!gralloyid!!lab_icla!!2!!
-        To choose a custom load file run, Reply this gerrit post with comma sperated loadfile keyword
+        Patch Set 1:
+        !!gralloyid!!lab_icla!!1!!
+        To choose a custom load file run, Reply this gerrit post with comma separated loadfile keyword
         Example:
-        #custom#xmain_checkin,zperf_checkin_xmain#
+        #custom#xmain_checkin,zperf_checkin_xmain# OR 
+        #custom#sycl_checkin#sycl#
+
+**Generic**
 
 The user can reply to this Gerrit post with the desired alloy load file name
-( or a comma seperated list if more than one )
+( or a comma separated list if more than one )
 
 ::
 
-         > !!gralloyid!!lab_icla!!2!!
-         >
-         > To choose a custom load file run, Reply this gerrit post with comma
-         > sperated loadfile keyword
-         > Example:
-         > #custom#xmain_checkin,zperf_checkin_xmain#
+        > !!gralloyid!!lab_icla!!2!!
+        >
+        > To choose a custom load file run, Reply this gerrit post with comma
+        > separated loadfile keyword
+        > Example:
+        > #custom#xmain_checkin,zperf_checkin_xmain# OR
+        > #custom#sycl_checkin#sycl#
+
         #custom#xmain_checkin,zperf_checkin_xmain#
 
 After replying to this message, the user should expect a Gerrit post like this:
@@ -212,6 +221,75 @@ After replying to this message, the user should expect a Gerrit post like this:
         Review Log: http://dss-sc.intel.com/review/lab_icla/fresh/1187772.0/review.log
         To abort this run reply this gerrit post with #abort# keyword.
 
+The user can provide the reference workspace name as # separated third field as
+explained in the `Sycl`_ example.
+
+**Opencl**
+
+The user can reply to this Gerrit post with the desired alloy load file name
+( or a comma separated list if more than one )
+
+::
+
+        > !!gralloyid!!lab_icla!!2!!
+        > 
+        > To choose a custom load file run, Reply this gerrit post with comma
+        > separated loadfile keyword
+        > Example:
+        > #custom#xmain_checkin,zperf_checkin_xmain# OR
+        > #custom#sycl_checkin#sycl#
+
+        #custom#ocl_checkin#
+
+After replying to this message, the user should expect a Gerrit post like this:
+
+::
+
+        xmain_alloy
+        Aug 5 12:41 AM
+        ↩
+        Patch Set 2:
+        !!gralloyid!!lab_icla!!2!!
+        Alloy run -f ocl_checkin 0 started.
+        Review Log: http://dss-sc.intel.com/review/lab_icla/fresh/1422282.0/review.log
+        To abort this run reply to this gerrit post with #abort# keyword.
+
+.. _Sycl:
+
+**Sycl**
+
+The user can reply to this Gerrit post with the desired alloy load file name
+( or a comma separated list if more than one ). It also needs # separated
+worspace name as the third field ( ``#sycl#`` ). ``#sycl#`` tells the
+auto-reviewer to use the current ``sycl head`` as the reference compiler for
+alloy testing, instead of ``xmain``. The workspace to be tested will contain
+the patch, applied on top of ``sycl head``.
+
+::
+
+        > !!gralloyid!!lab_icla!!1!!
+        > 
+        > To choose a custom load file run, Reply this gerrit post with comma
+        > separated loadfile keyword
+        > Example:
+        > #custom#xmain_checkin,zperf_checkin_xmain# OR
+        > #custom#sycl_checkin#sycl#
+
+        #custom#sycl_checkin#sycl#
+
+After replying to this message, the user should expect a Gerrit post like this:
+
+::
+
+        xmain_alloy
+        6:43 AM
+        ↩
+        Patch Set 1:
+        !!gralloyid!!lab_icla!!1!!
+        Alloy run -f sycl_checkin 0 started.
+        Review Log: http://dss-sc.intel.com/review/lab_icla/fresh/1430071.0/review.log
+        To abort this run reply to this gerrit post with #abort# keyword.
+
 Rest of the functionality is same as the regular reviewer ( ``xmain_checkin``,
 ``xmain_checkin_sanity``, ``zperf_checkin_xmain`` ) discussed above.
 
@@ -219,6 +297,9 @@ Rest of the functionality is same as the regular reviewer ( ``xmain_checkin``,
 
       - DO NOT remove anything from Gerrit reply message as it contains unique
         information to identify the workspace patch-set.
+      - Sometime patch change resulting from rebase is not detected by Gerrit
+        auto reviewers. If it happens and you really want to run alloy on the
+        rebased patch, just remove and re-add Gerrit auto reviewers.
       - If Gerrit auto reviewers ( ``xmain_checkin_sanity``, ``xmain_checkin``,
         ``zperf_checkin_xmain``, ``xmain_alloy`` ) removed, it will not detect
         any new patches.
@@ -242,6 +323,10 @@ clickable for anyone to access the results inside Gerrit.
         Warning log:       http://dss-sc.intel.com/problem_dir/lab_icltI68628812lab_26809-1/warning.log
         Zperf bt rpt log:  http://dss-sc.intel.com/problem_dir/lab_icltI68628812lab_26809-1/zperf_bt_rpt.log
 
+When using this option, please add a comment indicating the patch set on which
+the tests were run, e.g. "Tests run on Patch Set 5". The information is helpful
+to the gatekeeper.
+
 Troubleshooting Tips
 --------------------
 
@@ -253,8 +338,14 @@ New patch uploaded but no Gerrit post from alloy reviewer.
 
 No update in review.log for an extended period of time.
 
-- Abort current alloy run by replying #abort#, and start from scratch by
-  replying #restartscratch#
+- Abort current alloy run by replying ``#abort#``, and start from scratch by
+  replying ``#restartscratch#``.
+
+Restart alloy gerrit run after an infrastructure failure(picl/crun/copylist etc)
+
+- Clean all alloy gerrit runs for the patch in question by replying ``#clean#``.
+  It will abort ongoing alloy run and remove workspace, recreate workspace from
+  latest head and run corresponding alloy run.
 
 To reproduce exact workspace used by Alloy Gerrit, look for reproducer link in
 Gerrit post.

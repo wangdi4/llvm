@@ -82,8 +82,6 @@ public:
                const TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo);
 
 private:
-  SafetyData ReorderFieldsSafetyConditions;
-
   // The pointers in this vector are owned by the DTransAnalysisInfo.
   SmallVector<dtrans::StructInfo *, 4> CandidateTypes;
 

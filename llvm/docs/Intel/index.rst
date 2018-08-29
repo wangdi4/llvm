@@ -13,6 +13,8 @@ Xmain
    XmainProcesses
    PulldownProcess
    JIRA
+   XmainAlloyGerrit
+   XmainGatekeeperDuties
    IRSuppression
    LoopOptReport
    LoopAnalysis/index

@@ -264,6 +264,9 @@ const SafetyData HasFnPtr = 0x0000000000008000000;
 ///     pointer to structure.
 const SafetyData HasCppHandling = 0x0000000000010000000;
 
+/// The structure contains zero-sized array as the last field.
+const SafetyData HasZeroSizedArray = 0x0000000000020000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -281,7 +284,7 @@ const SafetyData SDDeleteField =
     BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
     AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
     MemFuncPartialWrite | SystemObject | MismatchedArgUse | GlobalArray |
-    HasVTable | HasFnPtr;
+    HasVTable | HasZeroSizedArray | HasFnPtr;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -313,6 +316,9 @@ const SafetyData SDElimROFieldAccess =
     HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
     UnhandledUse;
 
+//
+// Safety conditions for a structure to be considered for the AOS-to-SOA
+// transformation.
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
@@ -321,7 +327,33 @@ const SafetyData SDAOSToSOA =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    HasCppHandling;
+    HasCppHandling | HasZeroSizedArray;
+
+//
+// Safety conditions for a structure type that contains a pointer to a
+// structure that is being considered for the AOS-to-SOA transformation.
+//
+const SafetyData SDAOSToSOADependent =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
+    UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
+    NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
+    GlobalArray | HasVTable | HasCppHandling;
+
+//
+// Safety conditions for a structure type that contains a pointer to a
+// structure that is being considered for the AOS-to-SOA transformation
+// when the peeling index is being converted to use 32-bits, causing
+// the size of the dependent structure to change.
+//
+const SafetyData SDAOSToSOADependentIndex32 =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
+    AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+    SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
+    HasZeroSizedArray;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -331,7 +363,7 @@ const SafetyData SDDynClone =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance |  MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    UnhandledUse;
+    UnhandledUse | HasZeroSizedArray;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -340,7 +372,7 @@ const SafetyData SDSOAToAOS =
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-    GlobalArray | HasFnPtr | UnhandledUse;
+    GlobalArray | HasFnPtr | HasZeroSizedArray | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -354,11 +386,13 @@ const Transform DT_FieldSingleAllocFunction = 0x0002;
 const Transform DT_ReorderFields = 0x0004;
 const Transform DT_DeleteField = 0x0008;
 const Transform DT_AOSToSOA = 0x0010;
-const Transform DT_ElimROFieldAccess = 0x0020;
-const Transform DT_DynClone = 0x0040;
-const Transform DT_SOAToAOS = 0x0080;
-const Transform DT_Last = 0x0100;
-const Transform DT_Legal = 0x00ff;
+const Transform DT_AOSToSOADependent = 0x0020;
+const Transform DT_AOSToSOADependentIndex32 = 0x0040;
+const Transform DT_ElimROFieldAccess = 0x0080;
+const Transform DT_DynClone = 0x0100;
+const Transform DT_SOAToAOS = 0x0200;
+const Transform DT_Last = 0x0400;
+const Transform DT_Legal = 0x07ff;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
@@ -398,6 +432,12 @@ public:
 
   CRuleTypeKind getCRuleTypeKind() { return CRTypeKind; }
   void setCRuleTypeKind(CRuleTypeKind K) { CRTypeKind = K; }
+
+  // Returns true if the type is a zero-sized array or it is a structure with a
+  // zero-sized array.
+  bool hasZeroSizedArrayAsLastField() {
+    return (SafetyInfo & dtrans::HasZeroSizedArray);
+  }
 
 private:
   llvm::Type *LLVMTy;
@@ -833,36 +873,37 @@ private:
 /// Determine whether the specified CallSite is a call to allocation function,
 /// and if so what kind of allocation function it is and the size of the
 /// allocation.
-AllocKind getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI);
+AllocKind getAllocFnKind(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
 
 /// Get the indices of size and count arguments for the allocation call.
 /// AllocCountInd is used for calloc allocations.  For all other allocation
 /// kinds it will be set to -1U
-void getAllocSizeArgs(AllocKind Kind, CallSite CS, unsigned &AllocSizeInd,
-                      unsigned &AllocCountInd, const TargetLibraryInfo &TLI);
+void getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
+                      unsigned &AllocSizeInd, unsigned &AllocCountInd,
+                      const TargetLibraryInfo &TLI);
 
 /// Collects all special arguments for malloc-like call.
 /// Elements are added to OutputSet.
 /// Realloc-like functions have pointer argument returned in OutputSet.
-void collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
-                             SmallPtrSet<Value *, 3> &OutputSet,
+void collectSpecialAllocArgs(AllocKind Kind, ImmutableCallSite CS,
+                             SmallPtrSet<const Value *, 3> &OutputSet,
                              const TargetLibraryInfo &TLI);
 
 /// Determine whether or not the specified CallSite is a call to the free-like
 /// library function.
-bool isFreeFn(CallSite CS, const TargetLibraryInfo &TLI);
+bool isFreeFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
 
 /// Determine whether or not the specified CallSite is a call to the
 /// delete-like library function.
-bool isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI);
+bool isDeleteFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
 
 /// Returns the index of pointer argument for CS.
-void getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
+void getFreePtrArg(FreeKind Kind, ImmutableCallSite CS, unsigned &PtrArgInd,
                    const TargetLibraryInfo &TLI);
 
 /// Collects all special arguments for free-like call.
-void collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
-                            SmallPtrSet<Value *, 3> &OutputSet,
+void collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
+                            SmallPtrSet<const Value *, 3> &OutputSet,
                             const TargetLibraryInfo &TLI);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
@@ -876,7 +917,10 @@ bool isValueEqualToSize(const Value *Val, uint64_t Size);
 /// This helper function checks \p Val to see if it is either (a) a constant
 /// whose value is a multiple of \p Size, or (b) an integer multiplication
 /// operator where either operand is a constant multiple of \p Size.
-bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
+/// TODO: eliminate ShiftLeft, when all transformations support Shl
+/// instructions in address computations.
+bool isValueMultipleOfSize(const Value *Val, uint64_t Size,
+                           bool ShiftLeft = false);
 
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The
@@ -891,6 +935,12 @@ bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
 /// type) whose element zero is i8*, if any.
 bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
 
+/// Examine the specified types to determine if a bitcast from \p SrcTy to
+/// \p DestTy could be used to convert a pointer-to-pointer to a source
+/// type to a pointer-to-pointer to element zero of that type. This is
+/// equivalent to isElementZeroAccess with an additional level of indirection.
+bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
+
 /// Check whether the specified type is the type of a known system object.
 bool isSystemObjectType(llvm::StructType *Ty);
 
@@ -904,6 +954,10 @@ StringRef getStringForTransform(dtrans::Transform Trans);
 dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans);
 
 StringRef getStructName(llvm::Type *Ty);
+
+/// Check if the last field in the struct type \p Ty is zero-sized array or the
+/// type is zero-size array itself.
+bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 } // namespace dtrans
 
 } // namespace llvm

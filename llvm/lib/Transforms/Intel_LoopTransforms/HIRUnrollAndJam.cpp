@@ -102,7 +102,7 @@ static cl::opt<unsigned> MinTripCountThreshold(
 
 // This determines the unroll factor of loops inside the loopnest.
 static cl::opt<unsigned> MaxUnrolledLoopNestCost(
-    "hir-unroll-and-jam-max-unrolled-loopnest-cost", cl::init(700), cl::Hidden,
+    "hir-unroll-and-jam-max-unrolled-loopnest-cost", cl::init(760), cl::Hidden,
     cl::desc(
         "Max allowed cost of the loopnest with the unroll factor factored in"));
 
@@ -114,14 +114,17 @@ static cl::opt<unsigned> MaxOuterLoopCost(
 typedef SmallVector<std::pair<HLLoop *, HLLoop *>, 16> LoopMapTy;
 
 // Implements unroll/unroll & jam for \p Loop.
-void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap);
+void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
+                    HLLoop **UnrolledLoop = nullptr,
+                    HLLoop **RemainderLoop = nullptr);
 
 // External interface
 namespace llvm {
 namespace loopopt {
 namespace unroll {
-void unrollLoop(HLLoop *Loop, unsigned UnrollFactor) {
-  unrollLoopImpl(Loop, UnrollFactor, nullptr);
+void unrollLoop(HLLoop *Loop, unsigned UnrollFactor, HLLoop **UnrolledLoop,
+                HLLoop **RemainderLoop) {
+  unrollLoopImpl(Loop, UnrollFactor, nullptr, UnrolledLoop, RemainderLoop);
 }
 } // namespace unroll
 } // namespace loopopt
@@ -141,10 +144,19 @@ public:
   bool run();
 
 private:
-  typedef std::pair<HLLoop *, unsigned> LoopUFPairTy;
-  typedef SmallVector<LoopUFPairTy, 6> LoopUFInfoPerLevelTy;
+  struct LoopUnrollJamInfo {
+    HLLoop *Lp;
+    unsigned UnrollFactor;
+    bool Analyzed;
+
+    LoopUnrollJamInfo(HLLoop *Lp, unsigned UnrollFactor)
+        : Lp(Lp), UnrollFactor(UnrollFactor), Analyzed(false) {}
+  };
+
+  typedef SmallVector<LoopUnrollJamInfo, 6> LoopUnrollJamInfoPerLevelTy;
   // Stores the info for each loop in the loopnest by loop level.
-  typedef std::array<LoopUFInfoPerLevelTy, MaxLoopNestLevel> LoopNestUFInfoTy;
+  typedef std::array<LoopUnrollJamInfoPerLevelTy, MaxLoopNestLevel>
+      LoopNestUnrollJamInfoTy;
 
   HIRFramework &HIRF;
   HIRLoopStatistics &HLS;
@@ -152,7 +164,7 @@ private:
   HIRLoopLocality &HLA;
   HIRDDAnalysis &DDA;
 
-  LoopNestUFInfoTy LoopNestUFInfo;
+  LoopNestUnrollJamInfoTy LoopNestUnrollJamInfo;
   bool HaveUnrollCandidates;
 
   class Analyzer;
@@ -168,8 +180,8 @@ private:
   unsigned getOrUpdateUnrollFactor(HLLoop *Lp, unsigned UnrollFactor,
                                    bool Update);
 
-  /// Replaces existing loops in LoopNestUFInfo with new loops based on \p
-  /// LoopMap.
+  /// Replaces existing loops in LoopNestUnrollJamInfo with new loops based on
+  /// \p LoopMap.
   void replaceLoops(LoopMapTy &LoopMap);
 
   /// Perform unroll & jam on all the loops with valid unroll factors in the
@@ -199,15 +211,37 @@ public:
   /// Returns true if the loop is marked unrollable.
   bool isThrottled(HLLoop *Lp);
 
+  /// Sets \p Lp as analyzed.
+  void setAnalyzed(HLLoop *Lp);
+
+  /// Returns true if \p Lp has already been analyzed.
+  bool isAnalyzed(HLLoop *Lp) const;
+
   /// Computes the cost of the loopnest represented by \p Lp by taking into
   /// account unroll factors associated with
   unsigned computeLoopNestCost(HLLoop *Lp) const;
+
+  /// Returns true if \p Lp has a non-innermost child loop.
+  bool hasNonInnermostChildrenLoop(HLLoop *Lp) const;
 };
 
 // Assigns unroll factor to outer loops using legality and profitability
 // analysis.
 class HIRUnrollAndJam::Analyzer final : public HLNodeVisitorBase {
   HIRUnrollAndJam &HUAJ;
+
+private:
+  /// Computes and returns unroll factor for the loop using cost model. Returns
+  /// 0 to indicate that unroll & jam should be throttled recursively and 1 to
+  /// indicate throttling of \p HLoop only.
+  unsigned computeUnrollFactorUsingCost(HLLoop *HLoop,
+                                        bool HasEnablingPragma) const;
+
+  /// Returns true if \p Lp can legally be unrolled & jammed.
+  bool canLegallyUnrollAndJam(HLLoop *Lp) const;
+
+  /// Refines unroll factor of \p Lp by analyzing the parent loop.
+  void refineUnrollFactorUsingParentLoop(HLLoop *Lp, unsigned &UnrollFactor);
 
 public:
   Analyzer(HIRUnrollAndJam &HUAJ) : HUAJ(HUAJ) {}
@@ -229,15 +263,6 @@ public:
   }
 
   void postVisit(HLNode *) {}
-
-  /// Computes and returns unroll factor for the loop using cost model. Returns
-  /// 0 to indicate that unroll & jam should be throttled recursively and 1 to
-  /// indicate throttling of \p HLoop only.
-  unsigned computeUnrollFactorUsingCost(HLLoop *HLoop,
-                                        bool HasEnablingPragma) const;
-
-  /// Returns true if \p Lp can legally be unrolled & jammed.
-  bool canLegallyUnrollAndJam(HLLoop *Lp) const;
 
   /// Driver function performing legality/profitability analysis on a loopnest
   /// represented by \p Lp.
@@ -397,8 +422,8 @@ void LegalityChecker::visit(const HLDDNode *Node) {
 }
 
 bool HIRUnrollAndJam::isUninitialized(HLLoop *Lp) const {
-  for (auto &LoopInfo : LoopNestUFInfo[Lp->getNestingLevel() - 1]) {
-    if (LoopInfo.first == Lp) {
+  for (auto &LoopInfo : LoopNestUnrollJamInfo[Lp->getNestingLevel() - 1]) {
+    if (LoopInfo.Lp == Lp) {
       return false;
     }
   }
@@ -408,7 +433,7 @@ bool HIRUnrollAndJam::isUninitialized(HLLoop *Lp) const {
 
 void HIRUnrollAndJam::initializeUnrollFactor(HLLoop *Lp) {
   assert(isUninitialized(Lp) && "Attempt to reinitialize loop!");
-  LoopNestUFInfo[Lp->getNestingLevel() - 1].emplace_back(
+  LoopNestUnrollJamInfo[Lp->getNestingLevel() - 1].emplace_back(
       Lp, Lp->isInnermost() ? 1 : MaxUnrollFactor);
 }
 
@@ -420,18 +445,19 @@ unsigned HIRUnrollAndJam::getOrUpdateUnrollFactor(HLLoop *Lp,
 
   auto Level = Lp->getNestingLevel();
 
-  for (auto &LoopInfo : LoopNestUFInfo[Level - 1]) {
-    if (LoopInfo.first == Lp) {
+  for (auto &LoopInfo : LoopNestUnrollJamInfo[Level - 1]) {
+    if (LoopInfo.Lp == Lp) {
       if (!Update) {
-        return LoopInfo.second;
+        return LoopInfo.UnrollFactor;
 
       } else {
-        assert(((UnrollFactor < 2) || (UnrollFactor <= LoopInfo.second)) &&
-               "Unroll factor can only be refined downwards!");
-        unsigned OldFactor = (LoopInfo.second == 0);
+        assert(
+            ((UnrollFactor < 2) || (UnrollFactor <= LoopInfo.UnrollFactor)) &&
+            "Unroll factor can only be refined downwards!");
+        unsigned OldFactor = LoopInfo.UnrollFactor;
 
-        if (!OldFactor) {
-          LoopInfo.second = UnrollFactor;
+        if (OldFactor) {
+          LoopInfo.UnrollFactor = UnrollFactor;
         }
         return OldFactor;
       }
@@ -457,6 +483,31 @@ unsigned HIRUnrollAndJam::updateUnrollFactor(HLLoop *Lp,
 bool HIRUnrollAndJam::isThrottled(HLLoop *Lp) {
   unsigned UF = getUnrollFactor(Lp);
   return (UF <= 1);
+}
+
+void HIRUnrollAndJam::setAnalyzed(HLLoop *Lp) {
+  unsigned Level = Lp->getNestingLevel();
+
+  for (auto &LoopInfo : LoopNestUnrollJamInfo[Level - 1]) {
+    if (LoopInfo.Lp == Lp) {
+      LoopInfo.Analyzed = true;
+      return;
+    }
+  }
+
+  llvm_unreachable("Loop not found in loop tree!");
+}
+
+bool HIRUnrollAndJam::isAnalyzed(HLLoop *Lp) const {
+  unsigned Level = Lp->getNestingLevel();
+
+  for (auto &LoopInfo : LoopNestUnrollJamInfo[Level - 1]) {
+    if (LoopInfo.Lp == Lp) {
+      return LoopInfo.Analyzed;
+    }
+  }
+
+  llvm_unreachable("Loop not found in loop tree!");
 }
 
 void HIRUnrollAndJam::throttle(HLLoop *Lp) { updateUnrollFactor(Lp, 1); }
@@ -567,9 +618,9 @@ unsigned HIRUnrollAndJam::computeLoopNestCost(HLLoop *Lp) const {
   bool ChildrenFound = false;
 
   // Immediate children appear in a contiguous chunk in the next level of
-  // LoopNestUFInfo.
-  for (auto &ChildLoopInfo : LoopNestUFInfo[Lp->getNestingLevel()]) {
-    auto ChildLp = ChildLoopInfo.first;
+  // LoopNestUnrollJamInfo.
+  for (auto &ChildLoopInfo : LoopNestUnrollJamInfo[Lp->getNestingLevel()]) {
+    auto ChildLp = ChildLoopInfo.Lp;
 
     if (ChildLp->getParentLoop() != Lp) {
       if (!ChildrenFound) {
@@ -581,7 +632,8 @@ unsigned HIRUnrollAndJam::computeLoopNestCost(HLLoop *Lp) const {
     }
     ChildrenFound = true;
 
-    unsigned UnrollFactor = ChildLoopInfo.second ? ChildLoopInfo.second : 1;
+    unsigned UnrollFactor =
+        ChildLoopInfo.UnrollFactor ? ChildLoopInfo.UnrollFactor : 1;
 
     Cost += (UnrollFactor * computeLoopNestCost(ChildLp));
   }
@@ -589,6 +641,35 @@ unsigned HIRUnrollAndJam::computeLoopNestCost(HLLoop *Lp) const {
   assert(ChildrenFound && "No children found for non-innermost loop!");
 
   return Cost;
+}
+
+bool HIRUnrollAndJam::hasNonInnermostChildrenLoop(HLLoop *Lp) const {
+  assert(!Lp->isInnermost() && "Innermost loop not expected!");
+
+  bool ChildrenFound = false;
+
+  // Immediate children appear in a contiguous chunk in the next level of
+  // LoopNestUnrollJamInfo.
+  for (auto &ChildLoopInfo : LoopNestUnrollJamInfo[Lp->getNestingLevel()]) {
+    auto *ChildLp = ChildLoopInfo.Lp;
+
+    if (ChildLp->getParentLoop() != Lp) {
+      if (!ChildrenFound) {
+        // Haven't encountered any children yet, keep looking.
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    ChildrenFound = true;
+
+    if (!ChildLp->isInnermost()) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
@@ -614,7 +695,8 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
 
   if (IsConstTC && (TC < 2)) {
     LLVM_DEBUG(
-        dbgs() << "Skipping unroll & jam of loop as trip count is too small!\n");
+        dbgs()
+        << "Skipping unroll & jam of loop as trip count is too small!\n");
     return 1;
   }
 
@@ -672,9 +754,90 @@ bool HIRUnrollAndJam::Analyzer::canLegallyUnrollAndJam(HLLoop *Lp) const {
   return LC.isLegal();
 }
 
+void HIRUnrollAndJam::Analyzer::refineUnrollFactorUsingParentLoop(
+    HLLoop *Lp, unsigned &UnrollFactor) {
+  // Nothing to refine.
+  if (UnrollFactor == 2) {
+    return;
+  }
+
+  auto *ParLp = Lp->getParentLoop();
+
+  if (!ParLp || HUAJ.isThrottled(ParLp) ||
+      ParLp->hasUnrollAndJamEnablingPragma()) {
+    return;
+  }
+
+  // For simplicity and accuracy of analysis, only consider perfect loopnest
+  // case. We may not have iterated over other children of ParLoop yet as we are
+  // in the postvisit() of Lp. If other children exist, they may affect
+  // legality/cost model of ParLoop later.
+  if (Lp != ParLp->getFirstChild() || Lp != ParLp->getLastChild()) {
+    return;
+  }
+
+  // For simplicity, only refine factor for loops which contain only innermost
+  // loops.
+  if (HUAJ.hasNonInnermostChildrenLoop(Lp)) {
+    return;
+  }
+
+  // Needed to compute unroll factor of ParLp using cost.
+  HUAJ.updateUnrollFactor(Lp, UnrollFactor);
+
+  unsigned ParUnrollFactor = computeUnrollFactorUsingCost(ParLp, false);
+
+  // Factor of 1 indicates failed sanity (trip count) checks.
+  if (ParUnrollFactor == 1) {
+    HUAJ.throttle(ParLp);
+    return;
+  }
+
+  // Factor of 0 indicates that cost threshold was exceeded. This is okay as we
+  // can still unroll ParLp by decreasing unroll factor of Lp.
+  if (ParUnrollFactor == 0) {
+    ParUnrollFactor = 1;
+  }
+
+  if (!HUAJ.HLA.hasTemporalLocality(ParLp, 1)) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
+                         "temporal locality!\n");
+    HUAJ.throttle(ParLp);
+    return;
+  }
+
+  if (!canLegallyUnrollAndJam(ParLp)) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll & jam for loop as it is illegal!\n");
+    HUAJ.throttle(ParLp);
+    return;
+  }
+
+  HUAJ.setAnalyzed(ParLp);
+
+  unsigned EqualizedUnrollFactor = UnrollFactor;
+  unsigned EqualizedParUnrollFactor = ParUnrollFactor;
+  unsigned TempUnrollFactor = UnrollFactor;
+
+  // Try 'equalizing' factors by increasing parent loop factor and decreasing
+  // current loop factor simultaneously. This logic assumes that factor
+  // combination of (4, 4) is better than (2, 8). This was verified on a matmul
+  // testcase on Xeon.
+  while (ParUnrollFactor <= TempUnrollFactor) {
+    EqualizedUnrollFactor = TempUnrollFactor;
+    EqualizedParUnrollFactor = ParUnrollFactor;
+
+    ParUnrollFactor *= 2;
+    TempUnrollFactor /= 2;
+  }
+
+  HUAJ.updateUnrollFactor(ParLp, EqualizedParUnrollFactor);
+
+  UnrollFactor = EqualizedUnrollFactor;
+}
+
 void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
 
-  if (Lp->isInnermost() || HUAJ.isThrottled(Lp)) {
+  if (Lp->isInnermost() || HUAJ.isThrottled(Lp) || HUAJ.isAnalyzed(Lp)) {
     return;
   }
 
@@ -708,6 +871,8 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
       HUAJ.throttle(Lp);
       return;
     }
+
+    refineUnrollFactorUsingParentLoop(Lp, UnrollFactor);
   }
 
   HUAJ.updateUnrollFactor(Lp, UnrollFactor);
@@ -739,8 +904,8 @@ void HIRUnrollAndJam::sanitizeOptions() {
 }
 
 void HIRUnrollAndJam::clearCandidates() {
-  for (auto &UFInfo : LoopNestUFInfo) {
-    UFInfo.clear();
+  for (auto &UJInfo : LoopNestUnrollJamInfo) {
+    UJInfo.clear();
   }
 
   HaveUnrollCandidates = false;
@@ -752,9 +917,9 @@ void HIRUnrollAndJam::replaceLoops(LoopMapTy &LoopMap) {
     unsigned LoopLevel = LoopPair.second->getNestingLevel();
     bool Found = false;
 
-    for (auto &UFInfo : LoopNestUFInfo[LoopLevel - 1]) {
-      if (UFInfo.first == LoopPair.first) {
-        UFInfo.first = LoopPair.second;
+    for (auto &UJInfo : LoopNestUnrollJamInfo[LoopLevel - 1]) {
+      if (UJInfo.Lp == LoopPair.first) {
+        UJInfo.Lp = LoopPair.second;
         Found = true;
         break;
       }
@@ -773,12 +938,12 @@ void HIRUnrollAndJam::unrollCandidates(HLLoop *Lp) {
   // this loopnest.
   Lp->getParentRegion()->setGenCode();
 
-  for (auto &LoopsPerLevel : LoopNestUFInfo) {
-    for (auto &LoopUFPair : LoopsPerLevel) {
-      if (LoopUFPair.second > 1) {
+  for (auto &LoopsPerLevel : LoopNestUnrollJamInfo) {
+    for (auto &LoopUJInfo : LoopsPerLevel) {
+      if (LoopUJInfo.UnrollFactor > 1) {
         LoopMapTy LoopMap;
 
-        unrollLoopImpl(LoopUFPair.first, LoopUFPair.second, &LoopMap);
+        unrollLoopImpl(LoopUJInfo.Lp, LoopUJInfo.UnrollFactor, &LoopMap);
         replaceLoops(LoopMap);
         LoopsUnrolledAndJammed++;
       }
@@ -1226,7 +1391,8 @@ static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
   HLNodeUtils::replace(MarkerNode, MainLoop);
 }
 
-void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
+void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
+                    HLLoop **UnrolledLoop, HLLoop **RemainderLoop) {
   assert(Loop && "Loop is null!");
   assert((UnrollFactor > 1) && "Invalid unroll factor!");
 
@@ -1246,6 +1412,7 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
         OptReportVerbosity::Low,
         "Unknown loop has been partially unrolled with %d factor",
         UnrollFactor);
+
   } else {
     // Create the unrolled main loop and setup remainder loop.
     MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
@@ -1262,6 +1429,14 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
     HIRInvalidationUtils::invalidateLoopNestBody(Loop);
 
     HLNodeUtils::remove(Loop);
+  }
+
+  if (UnrolledLoop) {
+    *UnrolledLoop = MainLoop;
+  }
+
+  if (RemainderLoop) {
+    *RemainderLoop = NeedRemainderLoop ? Loop : nullptr;
   }
 }
 

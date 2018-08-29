@@ -28,31 +28,7 @@ class VPLoop;
 
 class VPLoopAnalysisHIR : public VPLoopAnalysisBase {
 private:
-  void computeTripCountImpl(const VPLoopRegion *Lp) final {
-    uint64_t TripCount;
-    assert(isa<VPLoopRegionHIR>(Lp) && "Not a VPLoopRegionHIR");
-    const HLLoop *HLoop = dyn_cast<const VPLoopRegionHIR>(Lp)->getHLLoop();
-    LoopTripCounts[Lp] = TripCountInfo();
-
-    if (HLoop->isConstTripLoop(&TripCount)) {
-      setKnownTripCountFor(Lp, TripCount);
-      return;
-    }
-    // TODO: Need to get MinTC either from #pragma loop count min()
-    // or from some analysis. Right now HIR doesn't know anything about
-    // MinTC.
-    // Set MinTC to DefaultTripCount by now.
-    if ((TripCount = HLoop->getMaxTripCountEstimate())) {
-      setMaxTripCountFor(Lp, TripCount);
-      setEstimatedTripCountFor(Lp, TripCount);
-      setMinTripCountFor(Lp, 0);
-    }
-    else {
-      setMaxTripCountFor(Lp, DefaultTripCount);
-      setEstimatedTripCountFor(Lp, DefaultTripCount);
-      setMinTripCountFor(Lp, DefaultTripCount);
-    }
-  }
+  void computeTripCountImpl(const VPLoopRegion *Lp) final;
 
 public:
   explicit VPLoopAnalysisHIR(const uint64_t DefaultTripCount)

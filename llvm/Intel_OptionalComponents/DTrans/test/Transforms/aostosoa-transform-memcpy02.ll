@@ -1,5 +1,5 @@
-; RUN: opt  -whole-program-assume < %s -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
-; RUN: opt  -whole-program-assume < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt < %s -S -dtrans-aostosoa -whole-program-assume -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes=dtrans-aostosoa -whole-program-assume -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | FileCheck %s
 
 ; The test checks the transformation by the AOS-to-SOA transformation for
 ; memcpy calls when the structure contains a mix of data types.

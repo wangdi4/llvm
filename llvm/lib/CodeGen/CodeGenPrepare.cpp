@@ -221,6 +221,16 @@ static cl::opt<bool>
                          cl::init(true),
                          cl::desc("Enable splitting large offset of GEP."));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableSwitchCriticalEdgeSplit(
+    "cgp-split-switch-critical-edge", cl::Hidden, cl::init(true),
+    cl::desc("Enable splitting of a critical edge from a switch instruction."));
+
+static cl::opt<bool> DontSplitColdCriticalEdge(
+    "cgp-dont-split-cold-critical-edge", cl::Hidden, cl::init(true),
+    cl::desc("Don't split a cold critical edge from an indirectbr/switch."));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 using SetOfInstrs = SmallPtrSet<Instruction *, 16>;
@@ -321,16 +331,16 @@ class TypePromotionTransaction;
                                        bool isPreheader);
     bool optimizeBlock(BasicBlock &BB, bool &ModifiedDT);
     bool optimizeInst(Instruction *I, bool &ModifiedDT);
-    bool optimizeMemoryInst(Instruction *I, Value *Addr,
-                            Type *AccessTy, unsigned AS);
+    bool optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
+                            Type *AccessTy, unsigned AddrSpace);
     bool optimizeInlineAsmInst(CallInst *CS);
     bool optimizeCallInst(CallInst *CI, bool &ModifiedDT);
     bool optimizeExt(Instruction *&I);
     bool optimizeExtUses(Instruction *I);
-    bool optimizeLoadExt(LoadInst *I);
+    bool optimizeLoadExt(LoadInst *Load);
     bool optimizeSelectInst(SelectInst *SI);
-    bool optimizeShuffleVectorInst(ShuffleVectorInst *SI);
-    bool optimizeSwitchInst(SwitchInst *CI);
+    bool optimizeShuffleVectorInst(ShuffleVectorInst *SVI);
+    bool optimizeSwitchInst(SwitchInst *SI);
     bool optimizeExtractElementInst(Instruction *Inst);
     bool dupRetToEnableTailCallOpts(BasicBlock *BB);
     bool placeDbgValues(Function &F);
@@ -425,9 +435,12 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   if (!DisableBranchOpts)
     EverMadeChange |= splitBranchCondition(F);
 
-  // Split some critical edges where one of the sources is an indirect branch,
-  // to help generate sane code for PHIs involving such edges.
-  EverMadeChange |= SplitIndirectBrCriticalEdges(F);
+#if INTEL_CUSTOMIZATION
+  // Split some critical edges where one of the sources is an indirect branch
+  // or switch, to help generate sane code for PHIs involving such edges.
+  EverMadeChange |= SplitIndirectBrCriticalEdges(F, BPI.get(), BFI.get(),
+      EnableSwitchCriticalEdgeSplit, DontSplitColdCriticalEdge);
+#endif // INTEL_CUSTOMIZATION
 
   bool MadeChange = true;
   while (MadeChange) {
@@ -2617,8 +2630,8 @@ public:
 
 private:
   bool matchScaledValue(Value *ScaleReg, int64_t Scale, unsigned Depth);
-  bool matchAddr(Value *V, unsigned Depth);
-  bool matchOperationAddr(User *Operation, unsigned Opcode, unsigned Depth,
+  bool matchAddr(Value *Addr, unsigned Depth);
+  bool matchOperationAddr(User *AddrInst, unsigned Opcode, unsigned Depth,
                           bool *MovedAway = nullptr);
   bool isProfitableToFoldIntoAddressingMode(Instruction *I,
                                             ExtAddrMode &AMBefore,

@@ -349,7 +349,7 @@ public:
     initializeDTransEliminateROFieldAccessWrapperPass(
         *PassRegistry::getPassRegistry());
   }
-  bool runOnModule(Module &M);
+  bool runOnModule(Module &M) override;
   StringRef getPassName() const override {
     return "DTrans eliminate read only field access";
   }

@@ -64,6 +64,10 @@ static cl::opt<bool> InlineForXmain(
     "inline-for-xmain", cl::Hidden, cl::init(true),
     cl::desc("Xmain customization of inlining"));
 
+static cl::opt<bool> DTransInlineHeuristics(
+    "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
+    cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
+
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 // CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
 static cl::opt<int> OptSizeThreshold(
@@ -2130,6 +2134,166 @@ static bool preferCloningToInlining(CallSite& CS,
 }
 
 //
+// Return 'true' if 'SI' is a store of a function pointer which appears in a
+// series of 3 assignments to successive fields of a structure instance.
+// Like:
+//
+//   typedef int (*FP)();
+//
+//   typedef struct {
+//     FP field1;
+//     FP field2;
+//     FP field3;
+//   } MYSTRUCT;
+//   MYSTRUCT *ptr;
+//
+//   ptr->field1 = FunctionPtr1;
+//   ptr->field2 = FunctionPtr2;
+//   ptr->field3 = FunctionPtr3;
+//
+static bool inSpecialFxnPtrStructAssignCluster(StoreInst *SI,
+                                               SmallPtrSetImpl<Function *>
+                                                   &CalleeFxnPtrSet) {
+  static SmallPtrSet<Function *, 3> FxnPtrSet;
+    // Stores the function pointers in the series
+  static SmallPtrSet<StoreInst *, 3> StoreInstSet;
+    // Stores the StoreInsts series
+  if (!StoreInstSet.empty()) {
+    // If we have already computed the series of function pointers and
+    // stores, just query whether 'SI' is one of them.
+    return StoreInstSet.find(SI) != StoreInstSet.end();
+  }
+  // Scan for a series of GetElementPtrInsts followed by StoreInsts, like:
+  //
+  // %fp01 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 0
+  // store i32 ()* @fp1, i32 ()** %fp1, %fp01, align 8
+  // %fp02 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 1
+  // store i32 ()* @fp2, i32 ()** %fp2, %fp02, align 8
+  // %fp03 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 2
+  //  store i32 ()* @fp3, i32 ()** %fp3, %fp03, align 8
+  BasicBlock *BB = SI->getParent();
+  Value *GEPIPointerOperand = nullptr;
+  GetElementPtrInst *NGI = nullptr;
+  bool FoundStoreMatch = false;
+  int ExpectedCount = 0;
+  for (auto &I : *BB) {
+    // {NGI, NSI} will be the current GetElementPtrInst and StoreInst pair
+    if (!NGI || !NGI->hasAllConstantIndices()) {
+      NGI = dyn_cast<GetElementPtrInst>(&I);
+      continue;
+    }
+    auto NSI = dyn_cast<StoreInst>(&I);
+    if (!NSI)
+      break;
+    if (NSI == SI)
+      FoundStoreMatch = true;
+    // Ensure that NGI feeds NSI
+    if (GEPIPointerOperand == nullptr)
+      GEPIPointerOperand = NGI->getPointerOperand();
+    // Ensure that NGI has the form:
+    //   getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 X
+    // where X goes from 0 to 1 to 2
+    else if (GEPIPointerOperand != NGI->getPointerOperand())
+      break;
+    if (!cast<ConstantInt>(NGI->getOperand(1))->isZeroValue())
+      break;
+    if (cast<ConstantInt>(NGI->getOperand(2))->getSExtValue() != ExpectedCount)
+      break;
+    if (NSI->getPointerOperand() != NGI)
+      break;
+    auto F = dyn_cast<Function>(NSI->getValueOperand());
+    if (!F)
+      break;
+    // Save the candidate pair
+    StoreInstSet.insert(NSI);
+    FxnPtrSet.insert(F);
+    ++ExpectedCount;
+    if (FoundStoreMatch && (ExpectedCount == 3)) {
+      // Make each of the Functions found in the series preferred for
+      // multiversioning
+      for (auto Fxn : FxnPtrSet)
+        CalleeFxnPtrSet.insert(Fxn);
+      return true;
+    }
+    NGI = nullptr;
+  }
+  // We didn't find a full series, so clear out what we have found so far.
+  StoreInstSet.clear();
+  FxnPtrSet.clear();
+  return false;
+}
+
+//
+// Return 'true' if 'CS' should not be inlined, because it would be better
+// to multiversion it. 'PrepareForLTO' is true if we are on the compile step
+// of an LTO compilation.
+//
+static bool preferMultiversioningToInlining(CallSite& CS,
+                                            InliningLoopInfoCache& ILIC,
+                                            bool PrepareForLTO) {
+
+  // Right now, only the callee is tested for multiversioning.  We use
+  // this set to keep track of callees that have already been tested,
+  // to save compile time. We expect it to be relatively expensive to
+  // test the qualifying candidates. Those that do not qualify should
+  // be rejected quickly.
+  static SmallPtrSet<Function *, 3> CalleeFxnPtrSet;
+
+  // Functions that did not have exactly 2 callsites when we first
+  // tested them. A function with more callsites can become one with
+  // only 2 callsites through inlining, but we do not want to consider
+  // such cases as candidates.
+  static SmallPtrSet<Function *, 10> NotDoubleCallsiteFxnPtrSet;
+
+  if (!DTransInlineHeuristics)
+    return false;
+  Function* Callee = CS.getCalledFunction();
+  if (!Callee)
+    return false;
+  if (CalleeFxnPtrSet.find(Callee) != CalleeFxnPtrSet.end())
+    return true;
+  // Must have exactly two callsites in the source code.
+  if (NotDoubleCallsiteFxnPtrSet.find(Callee) !=
+      NotDoubleCallsiteFxnPtrSet.end())
+    return false;
+  if (!isDoubleCallSite(Callee)) {
+    NotDoubleCallsiteFxnPtrSet.insert(Callee);
+    return false;
+  }
+  // Only consider candidates that have loops, otherwise there is nothing
+  // to multiversion.
+  LoopInfo *CalleeLI = ILIC.getLI(Callee);
+  if (!CalleeLI || CalleeLI->empty())
+    return false;
+  // Special criteria that narrow the candidate list.
+  bool FoundNonCallUser = false;
+  for (User *U : Callee->users()) {
+    CallSite Site(U);
+    if (!Site || Site.getCalledFunction() != Callee)
+      continue;
+    Function *Caller = Site.getCaller();
+    for (User *UU : Caller->users()) {
+      // After LTO pass indirect call resolution, some candidates may
+      // appear as direct calls, and we don't want to penalize them for that.
+      if (!PrepareForLTO && (isa<CallInst>(UU) || isa<InvokeInst>(UU)))
+        continue;
+      auto SI = dyn_cast<StoreInst>(UU);
+      if (!SI)
+        return false;
+      // Look for a list of function pointers assigned to successive
+      // fields in the same structure instance.
+      if (!inSpecialFxnPtrStructAssignCluster(SI, CalleeFxnPtrSet))
+        return false;
+      FoundNonCallUser = true;
+    }
+  }
+  if (!FoundNonCallUser)
+    return false;
+  CalleeFxnPtrSet.insert(Callee);
+  return true;
+}
+
+//
 // Return 'true' if 'CS' is worth inlining due to multiple arguments being
 // pointers dereferenced in callee code.
 //
@@ -2668,6 +2832,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL
   bool FoundForgivable = false;                          // INTEL
   bool SubtractedBonus = false;                          // INTEL
+  bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false); // INTEL
 
   // Speculatively apply all possible bonuses to Threshold. If cost exceeds
   // this Threshold any time, and cost cannot decrease, we can stop processing
@@ -2675,8 +2840,13 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   Threshold += (SingleBBBonus + VectorBonus);
 #if INTEL_CUSTOMIZATION
   if (InlineForXmain &&
-      preferCloningToInlining(CS, *ILIC, Params.PrepareForLTO)) {
+      preferCloningToInlining(CS, *ILIC, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferCloning;
+    return false;
+  }
+  if (InlineForXmain &&
+      preferMultiversioningToInlining(CS, *ILIC, PrepareForLTO)) {
+    *ReasonAddr = NinlrPreferMultiversioning;
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2722,12 +2892,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
         YesReasonVector.push_back(InlrForFusion);
       }
       if (worthInliningForDeeplyNestedIfs(CS, *ILIC, IsCallerRecursive,
-                                          Params.PrepareForLTO)) {
+                                          PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrDeeplyNestedIfs);
       }
-      if (worthInliningForAddressComputations(CS, *ILIC,
-                                              Params.PrepareForLTO)) {
+      if (worthInliningForAddressComputations(CS, *ILIC, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrAddressComputations);
       }
@@ -2741,7 +2910,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   }
 
 #endif // INTEL_CUSTOMIZATION
-
+  
   // If this function uses the coldcc calling convention, prefer not to inline
   // it.
   if (F.getCallingConv() == CallingConv::Cold) { // INTEL

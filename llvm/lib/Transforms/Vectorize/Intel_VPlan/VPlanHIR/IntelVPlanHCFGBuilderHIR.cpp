@@ -50,6 +50,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanHCFGBuilderHIR.h"
+#include "IntelVPLoopRegionHIR.h"
 #include "IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -133,8 +134,9 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
   // Auxiliary function that creates an empty VPBasicBlock, set its parent to
   // TopRegion and increases TopRegion's size.
   auto createVPBB = [&]() -> VPBasicBlock * {
-    VPBasicBlock *NewVPBB = VPlanUtils::createBasicBlock();
-    VPlanUtils::setBlockParent(NewVPBB, TopRegion);
+    VPBasicBlock *NewVPBB =
+        new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+    NewVPBB->setParent(TopRegion);
     ++TopRegionSize;
 
     return NewVPBB;
@@ -169,8 +171,8 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
 void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 
   for (VPBasicBlock *Pred : Predecessors) {
-    VPlanUtils::appendBlockSuccessor(Pred, VPBB);
-    VPlanUtils::appendBlockPredecessor(VPBB, Pred);
+    Pred->appendSuccessor(VPBB);
+    VPBB->appendPredecessor(Pred);
   }
 
   Predecessors.clear();
@@ -248,8 +250,8 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Header and set Latch condition bit.
   VPValue *LatchCondBit =
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
-  VPlanUtils::connectBlocks(Latch, Header);
-  VPlanUtils::setBlockCondBit(Latch, LatchCondBit, Plan);
+  VPBlockUtils::connectBlocks(Latch, Header);
+  Latch->setCondBit(LatchCondBit, Plan);
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
@@ -288,7 +290,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // TODO: Remove "not decomposed" when decomposing HLIfs.
   VPInstruction *CondBit =
       Decomposer.createVPInstructionsForDDNode(HIf, ActiveVPBB);
-  VPlanUtils::setBlockCondBit(ConditionVPBB, CondBit, Plan);
+  ConditionVPBB->setCondBit(CondBit, Plan);
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch.
@@ -360,7 +362,7 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   // Create (or get) a new VPBB for HLLabel and connect to HLGoto's VPBB.
   HLLabel *Label = HGoto->getTargetLabel();
   VPBasicBlock *LabelVPBB = createOrGetVPBB(Label);
-  VPlanUtils::connectBlocks(ActiveVPBB, LabelVPBB);
+  VPBlockUtils::connectBlocks(ActiveVPBB, LabelVPBB);
 
   // Force the creation of a new VPBasicBlock for the next HLNode.
   ActiveVPBB = nullptr;
@@ -374,12 +376,13 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
 
 VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
   // Create new TopRegion.
-  TopRegion = VPlanUtils::createRegion(false /*isReplicator*/);
+  TopRegion = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
+                                VPlanUtils::createUniqueName("region"));
 
   // Create a dummy VPBB as TopRegion's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
   updateActiveVPBB();
-  VPlanUtils::setRegionEntry(TopRegion, ActiveVPBB);
+  TopRegion->setEntry(ActiveVPBB);
 
   // Trigger the visit of the loop nest.
   visit(TheLoop);
@@ -387,9 +390,9 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as TopRegion's Exit.
   ActiveVPBB = nullptr;
   updateActiveVPBB();
-  VPlanUtils::setRegionExit(TopRegion, ActiveVPBB);
+  TopRegion->setExit(ActiveVPBB);
 
-  VPlanUtils::setRegionSize(TopRegion, TopRegionSize);
+  TopRegion->setSize(TopRegionSize);
 
   return TopRegion;
 }
@@ -405,5 +408,8 @@ VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
          "Expected VPBasicBlock as Loop header.");
   HLLoop *HLLp = Header2HLLoop[cast<VPBasicBlock>(VPLp->getHeader())];
   assert(HLLp && "Expected HLLoop");
-  return VPlanUtils::createLoopRegionHIR(VPLp, HLLp);
+  VPLoopRegion *Loop =
+      new VPLoopRegionHIR(VPlanUtils::createUniqueName("loop"), VPLp, HLLp);
+  Loop->setReplicator(false /*IsReplicator*/);
+  return Loop;
 }

@@ -104,7 +104,7 @@ public:
   iterator operator++(int) {
     iterator retval = *this;
     ++(*this);
-    return std::move(retval);
+    return retval;
   }
   bool operator==(const gep_slice_iterator &It) const {
     return Slice.begin() == It.Slice.begin();
@@ -339,7 +339,7 @@ public:
         *PassRegistry::getPassRegistry());
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addPreserved<WholeProgramWrapperPass>();
   }

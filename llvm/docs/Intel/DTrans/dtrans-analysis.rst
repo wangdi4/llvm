@@ -332,11 +332,16 @@ This indicates that the type is a structure with at least one field that is
 a pointer to a function.
 
 HasCppHandling
-~~~~~~~~
+~~~~~~~~~~~~~~
 This indicates that the type has C++ processing:
     - there is a memory allocation and/or deallocation with C++ operators
       new/new[] and or delete/delete[];
     - there is an invoke instructions related to the type.
+
+HasZeroSizedArray
+~~~~~~~~~~~~~~~~~
+This indicates that the type is an array with zero size or the type is
+a structure with a zero-sized array member.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -426,15 +431,20 @@ and for calls to standard new and new[] operators allocating memory.
 Note, that standard placement new operators do not allocate memory.
 
 Some user functions are also handled.  Right now, we distinguish two types:
-  AK_UserMalloc0: The user function may have any number of arguments, but the
+
+  AK_UserMalloc0:
+    The user function may have any number of arguments, but the
     first (0th argument) must specify the "size" of memory to be allocated
     (the "size" argument). Each return of the user function must be post
     dominated by a call to malloc, and the return must return a pointer to
     the malloc'ed memory. (An exception is made for some returns that may
     return nullptr if the user function is passed 0 in its "size" argument,
     or if some call to malloc returns a nullptr.)
-  AK_UserMalloc: Same as AK_UserMalloc0, but there must be only 1 argument
+
+  AK_UserMalloc:
+    Same as AK_UserMalloc0, but there must be only 1 argument
     (the "size" argument).
+
 At some point this mechanism will be extended to handle additional user
 functions, including those that call calloc and realloc.
 
@@ -484,7 +494,7 @@ cannot know what the argument's original type was when we are analyzing the
 called function.
 
 Invoke
-~~~~
+~~~~~~
 Processing is the same as for call instructions. HasCppHandling is set among
 safety conditions for a type.
 
@@ -832,17 +842,21 @@ base analysis for Indirect Call Specialization.
 Query methods for Field Single Value Analysis are defined in the public
 member functions of the FieldInfo class in DTrans.h:
 
+.. code-block:: c++
+
   bool isNoValue() const
-    The field has not been assigned a value
+    // The field has not been assigned a value
   bool isSingleValue() const
-    The field has been assigned a single value
+    // The field has been assigned a single value
   bool isMultipleValue() const
-    The field has been assigned multiple values, or we have no idea what
-      value(s) the field has been assigned.
+    // The field has been assigned multiple values, or we have no idea what
+    // value(s) the field has been assigned.
 
 Only one of these three will be true for any field at any point in time.
 The represent three classic states of a lattice: Top, Middle, and Bottom.
 In the case that isSingleValue() is true, the value can be obtained with
+
+.. code-block:: c++
 
   llvm::Constant *getSingleValue()
 
@@ -855,18 +869,22 @@ a field points to memory allocated by a specific function.
 Query methods for Single Alloc Function Analysis are defined in the public
 member functions of the FieldInfo class in DTrans.h:
 
+.. code-block:: c++
+
   bool isTopAllocFunction() const
-    The field has not been assigned a value
+    // The field has not been assigned a value
   bool isSingleAllocFunction() const
-    The field is assigned either a nullptr or the return value of a specific
-    function which has returned a pointer to uniquely allocated memory.
+    // The field is assigned either a nullptr or the return value of a specific
+    // function which has returned a pointer to uniquely allocated memory.
   bool isBottomAllocFunction() const
-    Everything else
+    // Everything else
 
 Only one of these three will be true for any field at any point in time.
 The represent three classic states of a lattice: Top, Middle, and Bottom.
 In the case of isSingleAllocFunction(), the specific function allocating
 the memory can be obtained with
+
+.. code-block:: c++
 
   llvm::Function *getSingleAllocFunction()
 

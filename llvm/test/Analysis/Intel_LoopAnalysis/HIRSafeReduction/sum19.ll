@@ -14,7 +14,7 @@
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis 2>&1 | FileCheck %s
 
-; CHECK-NOT: Safe Reduction:
+; CHECK: No Safe Reduction
 
 ; ModuleID = 'sum19.cpp'
 source_filename = "sum19.cpp"

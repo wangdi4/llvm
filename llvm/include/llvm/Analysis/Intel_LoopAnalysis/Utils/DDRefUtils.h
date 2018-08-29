@@ -83,7 +83,8 @@ class DDRefUtils {
 
   /// Implements getConst*Distance() functionality.
   static bool getConstDistanceImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                                   unsigned LoopLevel, int64_t *Distance);
+                                   unsigned LoopLevel, int64_t *Distance,
+                                   bool RelaxedMode);
 
   /// Implements createMemRef()/createAddressOfRef().
   RegDDRef *createGEPRef(unsigned BasePtrBlobIndex, unsigned Level, unsigned SB,
@@ -204,7 +205,7 @@ public:
   /// A[i1+%t] and A[i1+%t+1] even if %t is non-linear and has a different value
   /// for the refs.
   static bool getConstByteDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                                   int64_t *Distance);
+                                   int64_t *Distance, bool RelaxedMode = false);
 
   /// Returns true if there is constant distance in number of iterations at \p
   /// LoopLevel between \p Ref1 and \p Ref2.
@@ -223,7 +224,8 @@ public:
   /// for the refs.
   static bool getConstIterationDistance(const RegDDRef *Ref1,
                                         const RegDDRef *Ref2,
-                                        unsigned LoopLevel, int64_t *Distance);
+                                        unsigned LoopLevel, int64_t *Distance,
+                                        bool RelaxedMode = false);
 
   /// Returns the type obtained by applying element offsets from \p Offsets to
   /// \p Ty. This is a no-op for non-struct types.

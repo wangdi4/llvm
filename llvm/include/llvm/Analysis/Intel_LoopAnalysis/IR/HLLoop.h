@@ -194,6 +194,8 @@ protected:
   void printDetails(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const;
 
+  void printDirectives(formatted_raw_ostream &OS, unsigned Depth) const;
+
   void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
 
   /// Return true if the specified directive is attached to the loop.
@@ -762,6 +764,12 @@ public:
   bool hasUnrollEnablingPragma() const {
     return hasCompleteUnrollEnablingPragma() ||
            hasGeneralUnrollEnablingPragma();
+  }
+
+  /// Returns true if loop has pragma to disable complete or general unrolling.
+  bool hasUnrollDisablingPragma() const {
+    return hasCompleteUnrollDisablingPragma() ||
+           hasGeneralUnrollDisablingPragma();
   }
 
   /// Returns true if loop has pragma to enable complete unrolling.

@@ -1369,6 +1369,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   if (PrintModuleBeforeLoopopt)
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
 
+  // Verify input LLVM IR before doing any HIR transformation.
+  if (VerifyInput)
+    PM.add(createVerifierPass());
+
   PM.add(createHIRSSADeconstructionLegacyPass());
   // This is expected to be the first pass in the HIR pipeline as it cleans up
   // unnecessary temps from the HIR and doesn't invalidate any analysis. It is
@@ -1482,6 +1486,8 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
   PerformThinLTO = true;
+  if (LibraryInfo)
+    PM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   if (VerifyInput)
     PM.add(createVerifierPass());

@@ -85,7 +85,8 @@ StringRef dtrans::FreeKindName(FreeKind Kind) {
   llvm_unreachable("Unexpected continuation past FreeKind switch.");
 }
 
-AllocKind dtrans::getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI) {
+AllocKind dtrans::getAllocFnKind(ImmutableCallSite CS,
+                                 const TargetLibraryInfo &TLI) {
   auto *I = CS.getInstruction();
   if (isMallocLikeFn(I, &TLI))
     return isNewLikeFn(I, &TLI) ? AK_New : AK_Malloc;
@@ -96,7 +97,7 @@ AllocKind dtrans::getAllocFnKind(CallSite CS, const TargetLibraryInfo &TLI) {
   return AK_NotAlloc;
 }
 
-void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
+void dtrans::getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
                               unsigned &AllocSizeInd, unsigned &AllocCountInd,
                               const TargetLibraryInfo &TLI) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
@@ -136,8 +137,8 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, CallSite CS,
 }
 
 // Should be kept in sync with DTransInstVisitor::DTanalyzeAllocationCall.
-void dtrans::collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
-                                     SmallPtrSet<Value *, 3> &OutputSet,
+void dtrans::collectSpecialAllocArgs(AllocKind Kind, ImmutableCallSite CS,
+                                     SmallPtrSet<const Value *, 3> &OutputSet,
                                      const TargetLibraryInfo &TLI) {
 
   unsigned AllocSizeInd = -1U;
@@ -152,16 +153,16 @@ void dtrans::collectSpecialAllocArgs(AllocKind Kind, CallSite CS,
     OutputSet.insert(CS.getArgument(0));
 }
 
-bool dtrans::isFreeFn(CallSite CS, const TargetLibraryInfo &TLI) {
+bool dtrans::isFreeFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
   return isFreeCall(CS.getInstruction(), &TLI);
 }
 
-bool dtrans::isDeleteFn(CallSite CS, const TargetLibraryInfo &TLI) {
+bool dtrans::isDeleteFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
   return isDeleteCall(CS.getInstruction(), &TLI);
 }
 
-void dtrans::getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
-                           const TargetLibraryInfo &TLI) {
+void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
+                           unsigned &PtrArgInd, const TargetLibraryInfo &TLI) {
   assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
 
   if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
@@ -172,8 +173,8 @@ void dtrans::getFreePtrArg(FreeKind Kind, CallSite CS, unsigned &PtrArgInd,
   PtrArgInd = 0;
 }
 
-void dtrans::collectSpecialFreeArgs(FreeKind Kind, CallSite CS,
-                                    SmallPtrSet<Value *, 3> &OutputSet,
+void dtrans::collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
+                                    SmallPtrSet<const Value *, 3> &OutputSet,
                                     const TargetLibraryInfo &TLI) {
   unsigned PtrArgInd = -1U;
   getFreePtrArg(Kind, CS, PtrArgInd, TLI);
@@ -213,13 +214,14 @@ bool dtrans::isValueEqualToSize(const Value *Val, uint64_t Size) {
 // whose value is a multiple of the specified size, or (b) an integer
 // multiplication operator where either operand is a constant multiple of the
 // specified size.
-bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
+bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size,
+                                   bool ShiftLeft) {
   if (!Val)
     return false;
 
   // If the size is zero, always return false.
   //
-  // In practice, this can happen with zero-size arrays, which could be handled
+  // In practice, this can happen with zero-sized arrays, which could be handled
   // differently. For instance, if an allocated pointer is cast as a
   // [0 x <type>]* array, we could possibly handle this case by checking that
   // the allocation size is a multiple of the size of <type> but the
@@ -244,12 +246,21 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
   if (PatternMatch::match(Val,
                           PatternMatch::m_Mul(PatternMatch::m_Value(LHS),
                                               PatternMatch::m_Value(RHS)))) {
-    return (isValueMultipleOfSize(LHS, Size) ||
-            isValueMultipleOfSize(RHS, Size));
+    return (isValueMultipleOfSize(LHS, Size, ShiftLeft) ||
+            isValueMultipleOfSize(RHS, Size, ShiftLeft));
+  } else if (ShiftLeft &&
+             PatternMatch::match(
+                 Val, PatternMatch::m_Shl(PatternMatch::m_Value(LHS),
+                                          PatternMatch::m_Value(RHS)))) {
+    uint64_t Shift = 0;
+    if (isValueConstant(RHS, &Shift))
+      return (uint64_t(1) << Shift) % Size == 0;
+    return false;
   }
   // Handle sext and zext
   if (isa<SExtInst>(Val) || isa<ZExtInst>(Val))
-    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size);
+    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size,
+                                 ShiftLeft);
   // Otherwise, it's not what we needed.
   return false;
 }
@@ -310,10 +321,29 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     if (!CompTy->indexValid(0u))
       return false;
     auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+    // If the element zero type matches the destination pointee type,
+    // this is an element zero access.
     if (DestPointeeTy == ElementZeroTy) {
       if (AccessedTy)
         *AccessedTy = SrcTy;
       return true;
+    }
+    // Handle multiple levels of indirection with i8* destinations.
+    // If the element zero type is a pointer type and the destination pointee
+    // type is a corresponding i8* at any level of indirection, this is an
+    // element zero access.
+    if (ElementZeroTy->isPointerTy()) {
+      auto *TempZeroTy = ElementZeroTy;
+      auto *TempDestTy = DestPointeeTy;
+      while (TempZeroTy->isPointerTy() && TempDestTy->isPointerTy()) {
+        TempZeroTy = TempZeroTy->getPointerElementType();
+        TempDestTy = TempDestTy->getPointerElementType();
+      }
+      if (TempDestTy == llvm::Type::getInt8Ty(SrcTy->getContext())) {
+        if (AccessedTy)
+          *AccessedTy = SrcTy;
+        return true;
+      }
     }
     // If element zero is an aggregate type, this cast might be accessing
     // element zero of the nested type.
@@ -345,6 +375,30 @@ bool dtrans::isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy) {
   return false;
 }
 
+// This function is used to recognize IR patterns like this:
+//
+//   %struct.test.a = type { i32, i32, %struct.test.b* }
+//   %struct.test.b = type { %struct.test.c, i32, i32 }
+//   %struct.test.c = type { i32, i32, i32, i32 }
+//   ...
+//   %tmp1 = getelementptr %struct.test.a, %struct.test.a* %p, i64 0, i32 2
+//   %tmp2 = bitcast %struct.test.b** %tmp1 to %struct.test.c**
+//   %tmp3 = load %struct.test.c*, %struct.test.c** %tmp2
+//
+// In this case %tmp1 is a pointer to a pointer to %struct.b and in %tmp2
+// it is being bitcast as a pointer to a pointer to %struct.c, which is
+// the first element of %struct.b.
+bool dtrans::isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy,
+                                           llvm::Type *DestTy) {
+  if (!DestTy->isPointerTy() || !SrcTy->isPointerTy())
+    return false;
+  llvm::Type *SrcPointeeTy = SrcTy->getPointerElementType();
+  llvm::Type *DestPointeeTy = DestTy->getPointerElementType();
+  if (!SrcPointeeTy->isPointerTy() || !DestPointeeTy->isPointerTy())
+    return false;
+  return isElementZeroAccess(SrcPointeeTy, DestPointeeTy);
+}
+
 static void printSafetyInfo(const SafetyData &SafetyInfo,
                             llvm::raw_ostream &ostr) {
   if (SafetyInfo == 0) {
@@ -364,7 +418,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::NestedStruct | dtrans::ContainsNestedStruct |
       dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
       dtrans::MismatchedArgUse | dtrans::GlobalArray | dtrans::HasVTable |
-      dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::UnhandledUse;
+      dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
+      dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -382,7 +437,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::ContainsNestedStruct ^ dtrans::SystemObject ^
            dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::MismatchedArgUse ^
            dtrans::GlobalArray ^ dtrans::HasVTable ^ dtrans::HasFnPtr ^
-           dtrans::HasCppHandling ^ dtrans::UnhandledUse),
+           dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
+           dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
   if (SafetyInfo & dtrans::BadCasting)
@@ -443,6 +499,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Has function ptr");
   if (SafetyInfo & dtrans::HasCppHandling)
     SafetyIssues.push_back("Has C++ handling");
+  if (SafetyInfo & dtrans::HasZeroSizedArray)
+    SafetyIssues.push_back("Has zero-sized array");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
@@ -687,6 +745,10 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "reorderfields";
   case dtrans::DT_AOSToSOA:
     return "aostosoa";
+  case dtrans::DT_AOSToSOADependent:
+    return "aostosoadependent";
+  case dtrans::DT_AOSToSOADependentIndex32:
+    return "aostosoadependentindex32";
   case dtrans::DT_ElimROFieldAccess:
     return "elimrofieldaccess";
   case dtrans::DT_DynClone:
@@ -714,6 +776,10 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
     return dtrans::SDReorderFields;
   case dtrans::DT_AOSToSOA:
     return dtrans::SDAOSToSOA;
+  case dtrans::DT_AOSToSOADependent:
+    return dtrans::SDAOSToSOADependent;
+  case dtrans::DT_AOSToSOADependentIndex32:
+    return dtrans::SDAOSToSOADependentIndex32;
   case dtrans::DT_ElimROFieldAccess:
     return dtrans::SDElimROFieldAccess;
   case dtrans::DT_DynClone:
@@ -732,3 +798,30 @@ StringRef dtrans::getStructName(llvm::Type *Ty) {
   return StructTy->hasName() ? StructTy->getStructName() : "<unnamed struct>";
 }
 
+// Check if the last field in the struct type \p Ty is zero-sized array or the
+// type is zero-sized array itself.
+bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
+  // Return true if it is an array with zero elements.
+  if (auto *ArrayTy = dyn_cast<llvm::ArrayType>(Ty)) {
+    if (ArrayTy->getArrayNumElements() == 0)
+      return true;
+  }
+
+  if (auto *StructTy = dyn_cast<llvm::StructType>(Ty)) {
+    // Return false if it is an empty structure.
+    if (StructTy->getNumElements() == 0)
+      return false;
+    // Return true if it is a structure which last field is a zero-sized array.
+    if (auto *FinalFieldTy =
+            StructTy->getElementType(StructTy->getNumElements() - 1))
+      if (auto *ArrayTy = dyn_cast<llvm::ArrayType>(FinalFieldTy))
+        if (ArrayTy->getArrayNumElements() == 0)
+          return true;
+  }
+
+  // If it is a pointer type - check the pointer element type.
+  if (auto *PointerTy = dyn_cast<llvm::PointerType>(Ty))
+    return hasZeroSizedArrayAsLastField(PointerTy->getPointerElementType());
+
+  return false;
+}

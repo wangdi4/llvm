@@ -19,6 +19,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelVPlanDominatorTree.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
 #include "VPlan.h"
@@ -40,7 +41,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-unsigned VPlanUtils::NextOrdinal = 1;
+std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
 #if INTEL_CUSTOMIZATION
 // Replace dot print output with plain print.
 static cl::opt<bool>
@@ -53,12 +54,6 @@ raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
   else
     V.dump(OS);
   return OS;
-}
-
-VPMaskGenerationRecipe *
-VPlanUtils::createMaskGenerationRecipe(const Value *Pred,
-                                            const Value *Backedge) {
-  return new VPMaskGenerationRecipe(Pred, Backedge);
 }
 #endif
 
@@ -88,12 +83,12 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 #if INTEL_CUSTOMIZATION
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
 // PostDomTree accordingly.
-VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
-                                     VPLoopInfo *VPLInfo,
-                                     VPDominatorTree &DomTree,
-                                     VPPostDominatorTree &PostDomTree,
-                                     VPlan *Plan) {
-  VPBasicBlock *NewBlock = createBasicBlock();
+VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
+                                       VPLoopInfo *VPLInfo,
+                                       VPDominatorTree &DomTree,
+                                       VPPostDominatorTree &PostDomTree,
+                                       VPlan *Plan) {
+  VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   insertBlockAfter(NewBlock, Block, Plan);
 
   // Add NewBlock to VPLoopInfo
@@ -104,6 +99,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
   // Update dom information
 
   VPDomTreeNode *BlockDT = DomTree.getNode(Block);
+  assert(BlockDT && "Expected node in dom tree!");
   SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
                                                   BlockDT->end());
   // Block is NewBlock's idom.
@@ -133,6 +129,7 @@ VPBasicBlock *VPlanUtils::splitBlock(VPBlockBase *Block,
   }
 
   VPDomTreeNode *BlockPDT = PostDomTree.getNode(Block);
+  assert(BlockPDT && "Expected node in post-dom tree!");
 
   // TODO: remove getBlock?
   if (BlockPDT->getIDom()->getBlock() == NewBlockPDT->getIDom()->getBlock()) {
@@ -232,6 +229,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         BasicBlock *FirstSuccBB;
         BasicBlock *SecondSuccBB;
 
+        assert(PredBB->getSingleSuccessor() && "Unexpected null successor");
         if (PredVPBB->getSuccessors()[0] == this) {
           FirstSuccBB = NewBB;
           SecondSuccBB = PredBB->getSingleSuccessor();
@@ -341,6 +339,7 @@ void VPBasicBlock::execute(VPTransformState *State) {
     // Register NewBB in its loop. In innermost loops its the same for all
     // BB's.
     Loop *L = State->LI->getLoopFor(State->CFG.LastBB);
+    assert(L && "Unexpected null loop for Last BasicBlock");
     L->addBasicBlockToLoop(NewBB, *State->LI);
     State->CFG.PrevBB = NewBB;
   }
@@ -406,6 +405,17 @@ void VPBasicBlock::execute(VPTransformState *State) {
     Recipe.execute(*State);
 
   LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
+#endif
+}
+
+VPRegionBlock::~VPRegionBlock() {
+  if (Entry)
+    deleteCFG(Entry);
+#if INTEL_CUSTOMIZATION
+  if (RegionDT)
+    delete RegionDT;
+  if (RegionPDT)
+    delete RegionPDT;
 #endif
 }
 
@@ -538,6 +548,18 @@ void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
   for (VPRecipeBase &Recipe : Recipes)
     Recipe.executeHIR(CG);
+}
+
+void VPRegionBlock::computeDT(void) {
+  assert(!RegionDT && "Null expected");
+  RegionDT = new VPDominatorTree();
+  RegionDT->recalculate(*this);
+}
+
+void VPRegionBlock::computePDT(void) {
+  assert(!RegionPDT && "Null expected");
+  RegionPDT = new VPPostDominatorTree();
+  RegionPDT->recalculate(*this);
 }
 
 /// Get a list of the basic blocks which make up this region.
@@ -802,6 +824,7 @@ void VPlan::execute(VPTransformState *State) {
   VectorLatchBB = VectorHeaderBB->splitBasicBlock(
       VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
   Loop *L = State->LI->getLoopFor(VectorHeaderBB);
+  assert(L && "Unexpected null loop for Vector Header");
   L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
   // Remove the edge between Header and Latch to allow other connections.
   // Temporarily terminate with unreachable until CFG is rewired.
@@ -841,6 +864,7 @@ void VPlan::execute(VPTransformState *State) {
            "One edge should be in-place");
 
     BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
+    assert(FirstSuccBB && "Unexpected null successor");
     FromBB->getTerminator()->eraseFromParent();
     VPValue *CBV = FromVPBB->getCondBit();
     assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
@@ -1238,6 +1262,7 @@ void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
 
   // Get the vector mask value of the branch condition
   RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
+  assert(VecCondMask && "ConditionValue is expected to be widened by now");
 
   // Combine with the predecessor block mask if needed - a null predecessor
   // mask implies allones(predecessor is active for all lanes).
@@ -1332,6 +1357,7 @@ void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
 
   // Get the vector mask value of the branch condition
   RegDDRef *VecCondMask = CG->getWideRefForVPVal(ConditionValue);
+  assert(VecCondMask && "ConditionValue is expected to be widened by now");
   auto Inst = VecCondMask->getHLDDNode()->getHLNodeUtils().createNot(
       VecCondMask->clone(), "IfFPred");
   CG->addInstUnmasked(Inst);
@@ -1393,10 +1419,11 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
   OS << "!";
   ConditionValue->printAsOperand(OS);
 }
+
 #if INTEL_CUSTOMIZATION
 using VPDomTree = DomTreeBase<VPBlockBase>;
-template void llvm::DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
+template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 
 using VPPostDomTree = PostDomTreeBase<VPBlockBase>;
-template void llvm::DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
+template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif

@@ -428,7 +428,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNAtomic:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
+          Changed = VPOParoptAtomics::handleAtomic(cast<WRNAtomicNode>(W),
                                                    IdentTy, TidPtrHolder);
           RemoveDirectives = true;
         }
@@ -489,7 +489,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNCritical:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
+          Changed = genCriticalCode(cast<WRNCriticalNode>(W));
           RemoveDirectives = true;
         }
         break;
@@ -559,7 +559,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
 Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
                                                   Type *Ty, bool IsMax) {
-  Value *V;
+  Value *V = nullptr;
 
   if (Ty->isIntOrIntVectorTy()) {
     LLVMContext &C = F->getContext();
@@ -583,7 +583,7 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
 // Generate the reduction intialization instructions.
 Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
                                                   Type *ScalarTy) {
-  Value *V;
+  Value *V = nullptr;
   switch (RedI->getType()) {
   case ReductionItem::WRNReductionAdd:
   case ReductionItem::WRNReductionSub:
@@ -748,7 +748,7 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
                                                   Type *ScalarTy,
                                                   IRBuilder<> &Builder,
                                                   bool IsMax) {
-  Value *IsGT; // compares Rhs1 > Rhs2
+  Value *IsGT = nullptr; // compares Rhs1 > Rhs2
 
   if (ScalarTy->isIntOrIntVectorTy())
     if(RedI->getIsUnsigned())
@@ -782,7 +782,7 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
                                                   Value *Rhs1, Value *Rhs2,
                                                   Value *Lhs, Type *ScalarTy,
                                                   IRBuilder<> &Builder) {
-  Value *Res;
+  Value *Res = nullptr;
 
   switch (RedI->getType()) {
   case ReductionItem::WRNReductionAdd:
@@ -858,7 +858,9 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
 void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
-  AllocaInst *NewAI = dyn_cast<AllocaInst>(RedI->getNew());
+  assert(isa<AllocaInst>(RedI->getNew()) &&
+         "genReductionFini: Expect non-empty alloca instruction.");
+  AllocaInst *NewAI = cast<AllocaInst>(RedI->getNew());
   Type *AllocaTy = NewAI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
@@ -1057,19 +1059,16 @@ void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
 //
 void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
                                       Instruction *InsertPt) {
-
-  AllocaInst *AI = dyn_cast<AllocaInst>(FprivI->getNew());
-  Type *AllocaTy = AI->getAllocatedType();
-  Type *ScalarTy = AllocaTy->getScalarType();
+  assert(isa<AllocaInst>(FprivI->getNew()) &&
+         "genFprivInit: Expect non-empty alloca instruction");
+  AllocaInst *AI = cast<AllocaInst>(FprivI->getNew());
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-
   IRBuilder<> Builder(InsertPt);
+
   if (Function *Cctor = FprivI->getCopyConstructor())
     VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(),
                                            FprivI->getOrig(), InsertPt);
-  else if (!AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0 || AI->isArrayAllocation())
+  else if (VPOUtils::isNotLegalSingleValueType(AI, DL))
     VPOUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
                         InsertPt->getParent());
   else {
@@ -1097,18 +1096,16 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 //
 void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
-  AllocaInst *AI = dyn_cast<AllocaInst>(NewV);
-  Type *AllocaTy = AI->getAllocatedType();
-  Type *ScalarTy = AllocaTy->getScalarType();
+  assert(isa<AllocaInst>(NewV) &&
+         "genLprivFini: Expect non-empty alloca instruction.");
+  AllocaInst *AI = cast<AllocaInst>(NewV);
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (!AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
+  if (VPOUtils::isNotLegalSingleValueType(AI, DL))
     VPOUtils::genMemcpy(OldV, AI, DL, AI->getAlignment(),
                         InsertPt->getParent());
-  } else {
+  else {
     LoadInst *Load = Builder.CreateLoad(AI);
     Builder.CreateStore(Load, OldV);
   }
@@ -1143,8 +1140,9 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
 void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
-
-  AllocaInst *AI = dyn_cast<AllocaInst>(RedI->getNew());
+  assert(isa<AllocaInst>(RedI->getNew()) &&
+         "genReductionInit: Expect non-empty alloca instruction");
+  AllocaInst *AI = cast<AllocaInst>(RedI->getNew());
   Type *AllocaTy = AI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
@@ -1186,7 +1184,7 @@ void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
       auto Pred1 = *PI++;
       auto Pred2 = *PI++;
 
-      BasicBlock *LoopExitBB;
+      BasicBlock *LoopExitBB = nullptr;
       if (Pred1 == ZttBlock && Pred2 != ZttBlock)
         LoopExitBB = Pred2;
       else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
@@ -1286,7 +1284,7 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
                                            const StringRef VarNameSuff) {
   // LLVM_DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
   // Generate a new Alloca instruction as privatization action
-  AllocaInst *NewPrivInst;
+  AllocaInst *NewPrivInst = nullptr;
 
   assert(!(W->isBBSetEmpty()) &&
          "genPrivatizationAlloca: WRN has empty BBSet");
@@ -2173,10 +2171,23 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           VPOParoptUtils::genConstructorCall(PrivI->getConstructor(),
                                              NewPrivInst, NewPrivInst);
         } else {
-          IRBuilder<> Builder(EntryBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()), NewPrivInst);
-          Builder.SetInsertPoint(ExitBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(NewPrivInst), PrivI->getNew());
+          AllocaInst *AI = dyn_cast<AllocaInst>(NewPrivInst);
+          const DataLayout &DL = AI->getModule()->getDataLayout();
+          // The compiler creates the stack space for the local vars. Thus
+          // the data needs to be copied from the thunk to the local vars.
+          if (VPOUtils::isNotLegalSingleValueType(AI, DL)) {
+              VPOUtils::genMemcpy(PrivI->getNew(), AI, DL, AI->getAlignment(),
+                                  EntryBB);
+              VPOUtils::genMemcpy(PrivI->getNew(), AI, DL, AI->getAlignment(),
+                                  ExitBB);
+          } else {
+              IRBuilder<> Builder(EntryBB->getTerminator());
+              Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()),
+                                  NewPrivInst);
+              Builder.SetInsertPoint(ExitBB->getTerminator());
+              Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
+                                  PrivI->getNew());
+          }
         }
 
         LLVM_DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig
@@ -2216,7 +2227,7 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
     PHINode *PN = dyn_cast<PHINode>(&I);
     unsigned NumPHIValues = PN->getNumIncomingValues();
     unsigned II;
-    Value *V, *OV;
+    Value *V = nullptr, *OV;
     bool Match;
     for (II = 0; II < NumPHIValues; II++) {
       V = PN->getIncomingValue(II);
@@ -2577,8 +2588,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
          "Omp loop index type width is equal or greater than 32 bit");
 
   Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
-
-  Instruction *InsertPt = dyn_cast<Instruction>(
+  assert(isa<Instruction>(L->getLoopPreheader()->getTerminator()) &&
+         "genLoopSchedulingCode: Expect non-empty instruction.");
+  Instruction *InsertPt = cast<Instruction>(
     L->getLoopPreheader()->getTerminator());
 
   LoadInst *LoadTid = new LoadInst(TidPtrHolder, "my.tid", InsertPt);
@@ -2678,6 +2690,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   Tmp0->setAlignment(4);
 
   Value *UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
+  assert(UpperBndVal &&
+         "genLoopSchedulingCode: Expect non-empty loop upper bound");
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
                               IndValTy->getIntegerBitWidth())
@@ -3473,6 +3487,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   // Get MicroTask Function for __kmpc_fork_call
   Function *MicroTaskFn = CI->getCalledFunction();
+  assert(MicroTaskFn && "genForkCallInst: Expect non-empty function.");
   FunctionType *MicroTaskFnTy = getKmpcMicroTaskPointerTy();
   //MicroTaskFn->getFunctionType();
 
@@ -4760,8 +4775,9 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   }
 
   Function *FnCopyPriv = genCopyPrivateFunc(W, KmpCopyPrivateTy);
-
-  PointerType *PtrTy = dyn_cast<PointerType>(CopyPrivateBase->getType());
+  assert(isa<PointerType>(CopyPrivateBase->getType()) &&
+           "genCopyPrivateCode: Expect non-empty pointer type");
+  PointerType *PtrTy = cast<PointerType>(CopyPrivateBase->getType());
   const DataLayout &DL = F->getParent()->getDataLayout();
   uint64_t Size = DL.getTypeAllocSize(PtrTy->getElementType());
   VPOParoptUtils::genKmpcCopyPrivate(

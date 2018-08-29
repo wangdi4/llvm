@@ -73,6 +73,8 @@ protected:
   /// for min
   bool checkMinMax(bool IsMin, bool IsMax) const;
 
+  void printReductionInfo(formatted_raw_ostream &OS) const;
+
 public:
   /// Prints HLInst.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -140,6 +142,54 @@ public:
   /// Returns the number of operands this HLInst is supposed to have.
   /// If lval is present, it becomes the 0th operand.
   unsigned getNumOperands() const override { return getNumOperandsInternal(); }
+
+  /// Returns the number of operand bundles associated with this instruction.
+  /// Returns 0 for non-call instructions.
+  unsigned getNumOperandBundles() const {
+    auto Call = dyn_cast<CallInst>(Inst);
+    return Call ? Call->getNumOperandBundles() : 0;
+  }
+
+  /// Returns the number of non-bundle operands.
+  /// It is equivalent to getNumOperands() for non-call instructions.
+  /// Note that we do not count the last function pointer operand for indirect
+  /// calls.
+  unsigned getNumNonBundleOperands() const {
+    auto Call = dyn_cast<CallInst>(Inst);
+    return Call ? (Call->getNumArgOperands() + hasLval()) : getNumOperands();
+  }
+
+  /// Returns the number of operands in the bundle \p BundleNum which is in
+  /// range [0, getNumOperandBundles()).
+  unsigned getNumBundleOperands(unsigned BundleNum) const {
+    assert(BundleNum < getNumOperandBundles() && "Invalid bundle number!");
+    return cast<CallInst>(Inst)->getOperandBundleAt(BundleNum).Inputs.size();
+  }
+
+  /// Wrapper over CallInst. Useful for getting operand bundle tag.
+  /// NOTE: This should NOT be used to retrieve operand values. Use
+  /// bundle_op_ddref_begin()/end() instead.
+  OperandBundleUse getOperandBundleAt(unsigned BundleNum) const {
+    assert(isCallInst() && "Call instruction expected!");
+    return cast<CallInst>(Inst)->getOperandBundleAt(BundleNum);
+  }
+
+  /// Useful for iterating over operand bundles
+  /// Returns the first ddref iterator belonging to operand bundle \p BundleNum
+  /// which is in range [0, getNumOperandBundles()).
+  ddref_iterator bundle_op_ddref_begin(unsigned BundleNum);
+  const_ddref_iterator bundle_op_ddref_begin(unsigned BundleNum) const {
+    return const_cast<HLInst *>(this)->bundle_op_ddref_begin(BundleNum);
+  }
+
+  /// Returns the end ddref iterator for operand bundle \p BundleNum which is in
+  /// range [0, getNumOperandBundles()).
+  ddref_iterator bundle_op_ddref_end(unsigned BundleNum) {
+    return bundle_op_ddref_begin(BundleNum) + getNumBundleOperands(BundleNum);
+  }
+  const_ddref_iterator bundle_op_ddref_end(unsigned BundleNum) const {
+    return const_cast<HLInst *>(this)->bundle_op_ddref_begin(BundleNum);
+  }
 
   /// Returns true if this is in a loop's preheader.
   bool isInPreheader() const { return isInPreheaderPostexitImpl(true); }

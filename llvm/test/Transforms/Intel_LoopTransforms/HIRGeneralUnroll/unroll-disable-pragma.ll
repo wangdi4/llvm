@@ -3,6 +3,8 @@
 
 ; Verify that unroll does not trigger loop due to presence of "llvm.loop.unroll.disable" pragma.
 ; CHECK: BEGIN REGION { }
+; CHECK: DO i1 = 0, 99, 1   <DO_LOOP> <nounroll>
+; CHECK: + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

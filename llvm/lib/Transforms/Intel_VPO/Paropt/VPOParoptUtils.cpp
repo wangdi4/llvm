@@ -866,8 +866,10 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
   Value *TaskTTyGep =
       Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast, Indices);
 
+  assert(isa<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0)) &&
+         "TaskT is not Struct Type.");
   StructType *KmpTaskTTy =
-      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
+      cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
 
   Indices.pop_back();
   Indices.push_back(Builder.getInt32(5));

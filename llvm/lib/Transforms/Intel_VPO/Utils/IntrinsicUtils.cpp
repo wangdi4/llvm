@@ -237,6 +237,18 @@ void VPOUtils::stripDebugInfoInstrinsics(Function &F)
   }
 }
 
+// Return true if the type of AI instruction is not single value type.
+bool VPOUtils::isNotLegalSingleValueType(AllocaInst *AI, const DataLayout &DL) {
+  Type *AllocaTy = AI->getAllocatedType();
+  Type *ScalarTy = AllocaTy->getScalarType();
+  if (!AllocaTy->isSingleValueType() ||
+      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
+      DL.getTypeSizeInBits(ScalarTy) % 8 != 0)
+    return true;
+  else
+    return false;
+}
+
 // Generates a memcpy call at the end of the given basic block BB.
 // The value D represents the destination while the value S represents
 // the source. The size of the memcpy is the size of destination.
@@ -443,20 +455,20 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
       return;
     LLVMContext &C = Insns[0]->getContext();
     MDBuilder MDB(C);
-    MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain();
+    MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain("OMPDomain");
 
     DenseMap<unsigned, SmallVector<MDNode *, 8>> InstrToCliqueSetMap(
         Insns.size());
 
+    StringRef Name = "OMPAliasScope";
     for (const BitVector &Bv : CliqueSet) {
-      MDNode *CliqueIdMD = MDB.createAnonymousAliasScope(NewDomain, "OMPDomain");
+      MDNode *CliqueIdMD = MDB.createAnonymousAliasScope(NewDomain, Name);
       for (unsigned I = 0; I < Bv.size(); ++I) {
         if (Bv.test(I))
           InstrToCliqueSetMap[I].push_back(CliqueIdMD);
       }
     }
 
-    StringRef Name = "OMPAliasScope";
     PtrScopeMap PointersScopes;
 
     for (unsigned I = 0; I < Insns.size(); ++I) {

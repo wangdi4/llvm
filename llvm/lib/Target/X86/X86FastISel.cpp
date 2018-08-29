@@ -1196,7 +1196,7 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
 
   if (Ret->getNumOperands() > 0) {
     SmallVector<ISD::OutputArg, 4> Outs;
-    GetReturnInfo(F.getReturnType(), F.getAttributes(), Outs, TLI, DL);
+    GetReturnInfo(CC, F.getReturnType(), F.getAttributes(), Outs, TLI, DL);
 
     // Analyze operands of the call, assigning locations to each operand.
     SmallVector<CCValAssign, 16> ValLocs;
@@ -2650,7 +2650,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
               TII.get(X86::VMOVPDI2DIrr), ResultReg)
           .addReg(InputReg, RegState::Kill);
-      
+
       // The result value is in the lower 16-bits of ResultReg.
       unsigned RegIdx = X86::sub_16bit;
       ResultReg = fastEmitInst_extractsubreg(MVT::i16, ResultReg, true, RegIdx);
@@ -3716,7 +3716,7 @@ X86FastISel::fastSelectInstruction(const Instruction *I)  {
     unsigned Reg = getRegForValue(I->getOperand(0));
     if (Reg == 0)
       return false;
-      
+
     // No instruction is needed for conversion. Reuse the register used by
     // the fist operand.
     updateValueMap(I, Reg);

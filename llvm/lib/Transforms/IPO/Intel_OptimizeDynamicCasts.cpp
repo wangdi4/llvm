@@ -245,11 +245,10 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    WholeProgramWrapperPass *WPA = &getAnalysis<WholeProgramWrapperPass>();
-    TargetLibraryInfoWrapperPass *TLI =
-        &getAnalysis<TargetLibraryInfoWrapperPass>();
-    auto PA = Impl.runImpl(M, WPA ? &WPA->getResult() : nullptr,
-                           TLI ? &TLI->getTLI() : nullptr);
+    WholeProgramWrapperPass &WPA = getAnalysis<WholeProgramWrapperPass>();
+    TargetLibraryInfoWrapperPass &TLI =
+        getAnalysis<TargetLibraryInfoWrapperPass>();
+    auto PA = Impl.runImpl(M, WPA.getResult(), TLI.getTLI());
     return !PA.areAllPreserved();
   }
 
@@ -276,14 +275,14 @@ ModulePass *llvm::createOptimizeDynamicCastsWrapperPass() {
 }
 
 PreservedAnalyses OptimizeDynamicCastsPass::runImpl(Module &M,
-                                                    WholeProgramInfo *WPI,
-                                                    TargetLibraryInfo *TLI) {
+                                                    WholeProgramInfo &WPI,
+                                                    TargetLibraryInfo &TLI) {
   // Transformation is not supported for Microsoft ABI.
   Triple T(M.getTargetTriple());
   if (T.isKnownWindowsMSVCEnvironment())
     return PreservedAnalyses::all();
 
-  if (!WPI || !WPI->isWholeProgramSafe())
+  if (!WPI.isWholeProgramSafe())
     return PreservedAnalyses::all();
 
   bool Changed = false;
@@ -301,7 +300,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(Module &M,
           continue;
 
         LibFunc Func = NumLibFuncs;
-        if (!TLI->getLibFunc(*DynCastFunc, Func) ||
+        if (!TLI.getLibFunc(*DynCastFunc, Func) ||
             Func != LibFunc::LibFunc_dynamic_cast)
           continue;
 
@@ -394,7 +393,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(Module &M,
 
 PreservedAnalyses OptimizeDynamicCastsPass::run(Module &M,
                                                 ModuleAnalysisManager &AM) {
-  auto *WPI = &AM.getResult<WholeProgramAnalysis>(M);
-  auto *TLI = &AM.getResult<TargetLibraryAnalysis>(M);
+  auto &WPI = AM.getResult<WholeProgramAnalysis>(M);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   return runImpl(M, WPI, TLI);
 }

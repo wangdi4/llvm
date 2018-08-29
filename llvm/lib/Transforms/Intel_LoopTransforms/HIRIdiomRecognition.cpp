@@ -503,6 +503,10 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
 
   RegDDRef *Size = createSizeDDRef(Loop, StoreSize);
 
+  if (!Size) {
+    return false;
+  }
+
   // Remove store
   RemovedNodes.insert(Candidate.DefInst);
   HLNodeUtils::remove(Candidate.DefInst);
@@ -575,7 +579,12 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   if (!makeStartRef(LoadRef.get(), Loop, Candidate.IsStoreNegStride)) {
     return false;
   }
+
   RegDDRef *Size = createSizeDDRef(Loop, StoreSize);
+
+  if (!Size) {
+    return false;
+  }
 
   HLInst *MemcpyInst =
       HNU.createMemcpy(StoreRef.release(), LoadRef.release(), Size);

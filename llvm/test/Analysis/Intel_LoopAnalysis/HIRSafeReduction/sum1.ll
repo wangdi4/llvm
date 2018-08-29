@@ -3,8 +3,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis  | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
-; CHECK:   Safe Reduction
-; CHECK:   %j.08 = %0  +  %j.08
+; CHECK:   %j.08 = %0  +  %j.08; <Safe Reduction>
 ; ModuleID = 'sum.c'
 source_filename = "sum.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

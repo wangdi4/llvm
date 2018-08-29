@@ -150,7 +150,7 @@ tools.extend([
     #ifdef INTEL_CUSTOMIZATION
     "llvm-spirv",
     #endif // INTEL_CUSTOMIZATION
-    'llvm-c-test', 'llvm-cxxfilt', 'llvm-xray', 'yaml2obj', 'obj2yaml',
+    'llvm-undname', 'llvm-c-test', 'llvm-cxxfilt', 'llvm-xray', 'yaml2obj', 'obj2yaml',
     'yaml-bench', 'verify-uselistorder',
     'bugpoint', 'llc', 'llvm-symbolizer', 'opt', 'sancov', 'sanstats'])
 

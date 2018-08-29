@@ -24,7 +24,7 @@ entry:
   %conv2 = sext i32 %ld2 to i64
   %mul = mul nsw i64 %conv2, 48
   call void @llvm.memset.p0i8.i64(i8* %call, i8 0, i64 %mul, i1 false)
-; CHECK:  %0 = sdiv i64 %mul, 48
+; CHECK:  %0 = sdiv exact i64 %mul, 48
 ; CHECK:  %1 = mul i64 %0, 40
 ; CHECK:  void @llvm.memset.p0i8.i64(i8* %call, i8 0, i64 %1, i1 false)
 
@@ -42,13 +42,13 @@ entry:
   %conv1 = sext i32 %ld1 to i64
   %mul1 = mul nsw i64 %conv1, 48
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p3, i8* %p2, i64 %mul1, i1 false)
-; CHECK:  %2 = sdiv i64 %mul1, 48
+; CHECK:  %2 = sdiv exact i64 %mul1, 48
 ; CHECK:  %3 = mul i64 %2, 40
 ; CHECK:  void @llvm.memcpy.p0i8.p0i8.i64(i8* %p3, i8* %p2, i64 %3, i1 false)
 
   %mul2 = mul nsw i64 %conv1, 48
   call void @llvm.memmove.p0i8.p0i8.i64(i8* %p2, i8* %p3, i64 %mul2, i1 false)
-; CHECK:  %4 = sdiv i64 %mul2, 48
+; CHECK:  %4 = sdiv exact i64 %mul2, 48
 ; CHECK:  %5 = mul i64 %4, 40
 ; CHECK:  void @llvm.memmove.p0i8.p0i8.i64(i8* %p2, i8* %p3, i64 %5, i1 false)
 

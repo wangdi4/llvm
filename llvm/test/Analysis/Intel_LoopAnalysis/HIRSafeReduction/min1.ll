@@ -7,9 +7,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-temp-cleanup -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis 2>&1 | FileCheck %s
 
-; CHECK:   Safe Reduction
-
-; CHECK:   %j.011 = (%j.011 > %0) ? %0 : %j.011;
+; CHECK:   %j.011 = (%j.011 > %0) ? %0 : %j.011; <Safe Reduction>
 
 ;Module Before HIR; ModuleID = 'min1.c'
 source_filename = "min1.c"

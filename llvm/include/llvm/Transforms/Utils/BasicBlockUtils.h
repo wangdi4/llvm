@@ -331,15 +331,28 @@ Value *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
 // the indirect branch uses. But if a block only has a single indirectbr
 // predecessor, with the others being regular branches, we can do it in a
 // different way.
+#if INTEL_CUSTOMIZATION
 // Say we have A -> D, B -> D, I -> D where only I -> D is an indirectbr.
 // We can split D into D0 and D1, where D0 contains only the PHIs from D,
-// and D1 is the D block body. We can then duplicate D0 as D0A and D0B, and
-// create the following structure:
-// A -> D0A, B -> D0A, I -> D0B, D0A -> D1, D0B -> D1
+// and D1 is the D block body. We can then redirect all edges from D0 to D1
+// except the edge from I, and create the following structure:
+// A -> D1, B -> D1, I -> D0, D0 -> D1
+// PHI nodes are modified in the following way:
+// (a) PHIs in D0 keep only edges from I (multi-edges are handled only for
+//     a switch predecessor for now).
+// (b) new PHIs are created in D1 to merge an edge from D0 with edges from
+//     all other predecessors (e.g. A and B).
+// If ConsiderSwitch flag is enabled we also split critical edges from
+// a switch instruction.
+// If DontSplitColdEdge flag is enabled heuristics are using to estimate
+// a profitability of an edge splitting.
+#endif // INTEL_CUSTOMIZATION
 // If BPI and BFI aren't non-null, BPI/BFI will be updated accordingly.
 bool SplitIndirectBrCriticalEdges(Function &F,
                                   BranchProbabilityInfo *BPI = nullptr,
-                                  BlockFrequencyInfo *BFI = nullptr);
+                                  BlockFrequencyInfo *BFI = nullptr, // INTEL
+                                  bool ConsiderSwitch = false,       // INTEL
+                                  bool DontSplitColdEdge = false);   // INTEL
 
 } // end namespace llvm
 
