@@ -765,7 +765,17 @@ TEST(FrameworkTestType, cl_device_local_mem_size_unlimited_stack_test)
 {
     EXPECT_TRUE(cl_device_local_mem_size_unlimited_stack_test());
 }
+
+TEST(FrameworkTestType, Test_TbbSetMaxThreads)
+{
+    EXPECT_TRUE(TbbSetMaxThreads(2));
+}
 #endif
+
+TEST(FrameworkTestType, cl_CheckBuildNumber)
+{
+    EXPECT_TRUE(cl_CheckBuildNumber());
+}
 
 CommandLineOption<std::string> deviceOption("--device_type");
 

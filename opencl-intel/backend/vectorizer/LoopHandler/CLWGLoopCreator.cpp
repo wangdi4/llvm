@@ -1,9 +1,17 @@
-/*=================================================================================
-Copyright (c) 2012-2018, Intel Corporation
-Subject to the terms and conditions of the Master Development License
-Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
-OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
-==================================================================================*/
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #include "CLWGLoopCreator.h"
 #include "LoopUtils/LoopUtils.h"
 #include "CLWGBoundDecoder.h"
@@ -473,7 +481,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
       m_lidCallsVec[dim][i] = inst;
     }
   }
-  m_vectorRet = dyn_cast<ReturnInst>(valueMap[m_vectorRet]);
+  m_vectorRet = cast<ReturnInst>(valueMap[m_vectorRet]);
   BasicBlock *vectorEntryBlock =
       dyn_cast<BasicBlock>(valueMap[&*(m_vectorFunc->begin())]);
   // copy stats from vector function to scalar function

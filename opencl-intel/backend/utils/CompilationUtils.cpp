@@ -1,9 +1,16 @@
-/*=================================================================================
-Copyright (c) 2012, Intel Corporation
-Subject to the terms and conditions of the Master Development License
-Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
-OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
-==================================================================================*/
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
@@ -405,7 +412,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
           {
             // Check by pointer vector passing, used in long16 and double16
-            llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(PTy->getElementType());
+            llvm::VectorType *pVector = llvm::cast<llvm::VectorType>(PTy->getElementType());
             unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
             unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
             //assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&

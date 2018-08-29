@@ -1,9 +1,16 @@
-/*=================================================================================
-Copyright (c) 2012, Intel Corporation
-Subject to the terms and conditions of the Master Development License
-Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
-OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
-==================================================================================*/
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 #include "Optimizer.h"
 #include "CPUDetect.h"
@@ -382,10 +389,10 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     //
     // std::string optionsClang = "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility";
 
-    if (getenv("VOLCANO_CLANG_OPTIONS")) {
+    if (const char* opts = getenv("VOLCANO_CLANG_OPTIONS")) {
 #ifdef NDEBUG
       // Append user options to default options.
-      optionsClang += getenv("VOLCANO_CLANG_OPTIONS");
+      optionsClang += opts;
 #else
       // Allow default to be overridden for debug purposes.
 
@@ -399,7 +406,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       //    VOLCANO_LLVM_OPTIONS. Tricky part here is whether the IR produced by
       //    the clang with -fopenmp and -fintel-openmp is compatible with our
       //    backend without VPO.
-      optionsClang = getenv("VOLCANO_CLANG_OPTIONS");
+      optionsClang = opts;
 #endif
     }
     if (!optionsClang.empty()) {
