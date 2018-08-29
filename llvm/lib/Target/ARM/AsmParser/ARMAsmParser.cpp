@@ -5626,7 +5626,8 @@ StringRef ARMAsmParser::splitMnemonic(StringRef Mnemonic,
       Mnemonic.startswith("vsel") || Mnemonic == "vins" || Mnemonic == "vmovx" ||
       Mnemonic == "bxns"  || Mnemonic == "blxns" ||
       Mnemonic == "vudot" || Mnemonic == "vsdot" ||
-      Mnemonic == "vcmla" || Mnemonic == "vcadd")
+      Mnemonic == "vcmla" || Mnemonic == "vcadd" ||
+      Mnemonic == "vfmal" || Mnemonic == "vfmsl")
     return Mnemonic;
 
   // First, split out any predication code. Ignore mnemonics we know aren't
@@ -5716,7 +5717,8 @@ void ARMAsmParser::getMnemonicAcceptInfo(StringRef Mnemonic, StringRef FullInst,
       (FullInst.startswith("vmull") && FullInst.endswith(".p64")) ||
       Mnemonic == "vmovx" || Mnemonic == "vins" ||
       Mnemonic == "vudot" || Mnemonic == "vsdot" ||
-      Mnemonic == "vcmla" || Mnemonic == "vcadd") {
+      Mnemonic == "vcmla" || Mnemonic == "vcadd" ||
+      Mnemonic == "vfmal" || Mnemonic == "vfmsl") {
     // These mnemonics are never predicable
     CanAcceptPredicationCode = false;
   } else if (!isThumb()) {
@@ -9371,6 +9373,12 @@ bool ARMAsmParser::ParseDirective(AsmToken DirectiveID) {
     return parseDirectiveAlign(DirectiveID.getLoc()); // Use Generic on failure.
   else if (IDVal == ".thumb_set")
     parseDirectiveThumbSet(DirectiveID.getLoc());
+  else if (IDVal == ".inst")
+    parseDirectiveInst(DirectiveID.getLoc());
+  else if (IDVal == ".inst.n")
+    parseDirectiveInst(DirectiveID.getLoc(), 'n');
+  else if (IDVal == ".inst.w")
+    parseDirectiveInst(DirectiveID.getLoc(), 'w');
   else if (!IsMachO && !IsCOFF) {
     if (IDVal == ".arch")
       parseDirectiveArch(DirectiveID.getLoc());
@@ -9382,12 +9390,6 @@ bool ARMAsmParser::ParseDirective(AsmToken DirectiveID) {
       parseDirectiveFPU(DirectiveID.getLoc());
     else if (IDVal == ".fnstart")
       parseDirectiveFnStart(DirectiveID.getLoc());
-    else if (IDVal == ".inst")
-      parseDirectiveInst(DirectiveID.getLoc());
-    else if (IDVal == ".inst.n")
-      parseDirectiveInst(DirectiveID.getLoc(), 'n');
-    else if (IDVal == ".inst.w")
-      parseDirectiveInst(DirectiveID.getLoc(), 'w');
     else if (IDVal == ".object_arch")
       parseDirectiveObjectArch(DirectiveID.getLoc());
     else if (IDVal == ".tlsdescseq")
@@ -10012,8 +10014,8 @@ bool ARMAsmParser::parseDirectiveInst(SMLoc Loc, char Suffix) {
     case 'w':
       break;
     default:
-      return Error(Loc, "cannot determine Thumb instruction size, "
-                        "use inst.n/inst.w instead");
+      Width = 0;
+      break;
     }
   } else {
     if (Suffix)
@@ -10029,6 +10031,7 @@ bool ARMAsmParser::parseDirectiveInst(SMLoc Loc, char Suffix) {
       return Error(Loc, "expected constant expression");
     }
 
+    char CurSuffix = Suffix;
     switch (Width) {
     case 2:
       if (Value->getValue() > 0xffff)
@@ -10039,11 +10042,21 @@ bool ARMAsmParser::parseDirectiveInst(SMLoc Loc, char Suffix) {
         return Error(Loc, StringRef(Suffix ? "inst.w" : "inst") +
                               " operand is too big");
       break;
+    case 0:
+      // Thumb mode, no width indicated. Guess from the opcode, if possible.
+      if (Value->getValue() < 0xe800)
+        CurSuffix = 'n';
+      else if (Value->getValue() >= 0xe8000000)
+        CurSuffix = 'w';
+      else
+        return Error(Loc, "cannot determine Thumb instruction size, "
+                          "use inst.n/inst.w instead");
+      break;
     default:
       llvm_unreachable("only supported widths are 2 and 4");
     }
 
-    getTargetStreamer().emitInst(Value->getValue(), Suffix);
+    getTargetStreamer().emitInst(Value->getValue(), CurSuffix);
     return false;
   };
 

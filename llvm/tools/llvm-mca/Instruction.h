@@ -107,6 +107,9 @@ class WriteState {
   // that we don't break the WAW, and the two writes can be merged together.
   const WriteState *DependentWrite;
 
+  // Number of writes that are in a WAW dependency with this write.
+  unsigned NumWriteUsers;
+
   // A list of dependent reads. Users is a set of dependent
   // reads. A dependent read is added to the set only if CyclesLeft
   // is "unknown". As soon as CyclesLeft is 'known', each user in the set
@@ -119,7 +122,8 @@ public:
   WriteState(const WriteDescriptor &Desc, unsigned RegID,
              bool clearsSuperRegs = false)
       : WD(Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(RegID),
-        ClearsSuperRegs(clearsSuperRegs), DependentWrite(nullptr) {}
+        ClearsSuperRegs(clearsSuperRegs), DependentWrite(nullptr),
+        NumWriteUsers(0U) {}
   WriteState(const WriteState &Other) = delete;
   WriteState &operator=(const WriteState &Other) = delete;
 
@@ -129,11 +133,15 @@ public:
   unsigned getLatency() const { return WD.Latency; }
 
   void addUser(ReadState *Use, int ReadAdvance);
-  unsigned getNumUsers() const { return Users.size(); }
+
+  unsigned getNumUsers() const { return Users.size() + NumWriteUsers; }
   bool clearsSuperRegisters() const { return ClearsSuperRegs; }
 
   const WriteState *getDependentWrite() const { return DependentWrite; }
-  void setDependentWrite(const WriteState *Write) { DependentWrite = Write; }
+  void setDependentWrite(WriteState *Other) {
+    DependentWrite = Other;
+    ++Other->NumWriteUsers;
+  }
 
   // On every cycle, update CyclesLeft and notify dependent users.
   void cycleEvent();
@@ -170,8 +178,6 @@ class ReadState {
   bool IsReady;
 
 public:
-  bool isReady() const { return IsReady; }
-
   ReadState(const ReadDescriptor &Desc, unsigned RegID)
       : RD(Desc), RegisterID(RegID), DependentWrites(0),
         CyclesLeft(UNKNOWN_CYCLES), TotalCycles(0), IsReady(true) {}
@@ -181,6 +187,9 @@ public:
   const ReadDescriptor &getDescriptor() const { return RD; }
   unsigned getSchedClass() const { return RD.SchedClassID; }
   unsigned getRegisterID() const { return RegisterID; }
+
+  bool isReady() const { return IsReady; }
+  bool isImplicitRead() const { return RD.isImplicitRead(); }
 
   void cycleEvent();
   void writeStartEvent(unsigned Cycles);
@@ -299,6 +308,8 @@ class Instruction {
   // Retire Unit token ID for this instruction.
   unsigned RCUTokenID;
 
+  bool IsDepBreaking;
+
   using UniqueDef = std::unique_ptr<WriteState>;
   using UniqueUse = std::unique_ptr<ReadState>;
   using VecDefs = std::vector<UniqueDef>;
@@ -314,7 +325,8 @@ class Instruction {
 
 public:
   Instruction(const InstrDesc &D)
-      : Desc(D), Stage(IS_INVALID), CyclesLeft(UNKNOWN_CYCLES) {}
+      : Desc(D), Stage(IS_INVALID), CyclesLeft(UNKNOWN_CYCLES), RCUTokenID(0),
+        IsDepBreaking(false) {}
   Instruction(const Instruction &Other) = delete;
   Instruction &operator=(const Instruction &Other) = delete;
 
@@ -325,6 +337,15 @@ public:
   const InstrDesc &getDesc() const { return Desc; }
   unsigned getRCUTokenID() const { return RCUTokenID; }
   int getCyclesLeft() const { return CyclesLeft; }
+
+  bool hasDependentUsers() const {
+    return std::any_of(Defs.begin(), Defs.end(), [](const UniqueDef &Def) {
+      return Def->getNumUsers() > 0;
+    });
+  }
+
+  bool isDependencyBreaking() const { return IsDepBreaking; }
+  void setDependencyBreaking() { IsDepBreaking = true; }
 
   unsigned getNumUsers() const {
     unsigned NumUsers = 0;
@@ -377,8 +398,11 @@ public:
   Instruction *getInstruction() { return second; }
   const Instruction *getInstruction() const { return second; }
 
-  /// Returns true if  this InstRef has been populated.
+  /// Returns true if this references a valid instruction.
   bool isValid() const { return second != nullptr; }
+
+  /// Invalidate this reference.
+  void invalidate() { second = nullptr; }
 
 #ifndef NDEBUG
   void print(llvm::raw_ostream &OS) const { OS << getSourceIndex(); }
@@ -413,9 +437,7 @@ public:
   bool isValid() const {
     return Data.first != INVALID_IID && Data.second != nullptr;
   }
-  bool operator==(const WriteRef &Other) const {
-    return Data == Other.Data;
-  }
+  bool operator==(const WriteRef &Other) const { return Data == Other.Data; }
 
 #ifndef NDEBUG
   void dump() const;
