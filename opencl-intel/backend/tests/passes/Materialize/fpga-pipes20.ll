@@ -21,7 +21,7 @@
 ; clang -cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -O0 -cl-std=CL2.0 -o - %s
 
 ; REQUIRES: fpga-emulator
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -spir-materializer -verify -S %s | FileCheck %s
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -remove-pipe-const-args -spir-materializer -verify -S %s | FileCheck %s
 
 %opencl.pipe_t = type opaque
 
