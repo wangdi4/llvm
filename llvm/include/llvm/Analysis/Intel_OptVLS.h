@@ -569,6 +569,7 @@ public:
   OVLSAddress &operator=(const OVLSOperand &Operand) {
     assert(isa<OVLSAddress>(&Operand) && "Expected An Address Operand!!!");
     const OVLSAddress *AddrOperand = cast<const OVLSAddress>(&Operand);
+    *static_cast<OVLSOperand *>(this) = Operand;
     Base = AddrOperand->Base;
     Offset = AddrOperand->Offset;
 
@@ -961,7 +962,7 @@ protected:
   LLVMContext &C;
 
 public:
-  static constexpr uint64_t UnknownCost = std::numeric_limits<uint64_t>::max();
+  static constexpr uint64_t UnknownCost = std::numeric_limits<int64_t>::max();
   explicit OVLSCostModel(const TargetTransformInfo &TargetTI, LLVMContext &Ctx)
       : TTI(TargetTI), C(Ctx) {}
 
@@ -972,13 +973,13 @@ public:
   /// Returns -1 if the cost is unknown. This function needs to be overriden by
   /// the OVLS clients to help getting the target-specific instruction cost.
   virtual uint64_t getInstructionCost(const OVLSInstruction *I) const {
-    return -1;
+    return UnknownCost;
   }
 
   /// \brief Returns target-specific cost for loading/storing \p Mrf
   /// using a gather/scatter.
   virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Mrf) const {
-    return -1;
+    return UnknownCost;
   }
 
   virtual uint64_t getShuffleCost(SmallVectorImpl<uint32_t> &Mask,

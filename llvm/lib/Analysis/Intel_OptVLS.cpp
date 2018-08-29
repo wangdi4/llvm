@@ -1426,7 +1426,7 @@ static bool isSupported(const OVLSGroup &Group) {
   // Check if the group's optimized sequence has been defined.
   // If not, the sequence should be added/generated, either added as hard-coded
   // sequences for the group, or generated using the general algorithm.
-  // This should be the same as in InterleavedAccessPass issupported function.
+  // This should be the same as in InterleavedAccessPass isSupported function.
   // Current supported groups in OptVLS are:
   // Load       - ElemSize = 64, #neighbours = 2
   // Load/Store - ElemSize = 32, #neighbours = 4
@@ -2568,9 +2568,11 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
   OVLSInstructionVector InstVector;
   if (getSequence(Group, CM, InstVector)) {
     for (OVLSInstruction *I : InstVector) {
-      OVLSdbgs() << *I;
+      //OVLSdbgs() << *I;
       int64_t C = CM.getInstructionCost(I);
       // OVLSdbgs() << "Cost = " << C << "\n";
+      if (C == OVLSCostModel::UnknownCost)
+        return OVLSCostModel::UnknownCost;
       Cost += C;
     }
   }
@@ -2598,9 +2600,8 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
   // cost. TODO: Instead, return the scalarization cost.
   // Once the cost utilities are fully implemented we don't expect to get a
   // zero cost.
-  if (Cost == 0)
-    Cost = OVLSCostModel::UnknownCost;
-  //      MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();
+  if (Cost == OVLSCostModel::UnknownCost)
+    return OVLSCostModel::UnknownCost;
 
   return Cost;
 }

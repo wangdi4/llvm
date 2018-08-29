@@ -33,6 +33,7 @@ private:
   /// it.
   const unsigned LoopLevel;
   HIRDDAnalysis *DDA;
+  const RegDDRef *Ref;
 
   unsigned getLoopLevel() const { return LoopLevel; }
   const DDGraph getDDGraph() const {
@@ -44,18 +45,15 @@ private:
     return DDG;
   }
 
-  const RegDDRef *getRegDDRef() const {
-    auto I = cast<HLInst>(Inst->HIR.getUnderlyingNode());
-    return Inst->getOpcode() == Instruction::Load ? I->getOperandDDRef(1)
-                                                  : I->getLvalDDRef();
-  }
+  const RegDDRef *getRegDDRef() const { return Ref; }
 
 public:
   explicit VPVLSClientMemrefHIR(const OVLSAccessType &AccTy, const OVLSType &Ty,
                                 const VPInstruction *Inst,
-                                const unsigned LoopLevel, HIRDDAnalysis *DDA)
+                                const unsigned LoopLevel, HIRDDAnalysis *DDA,
+                                const RegDDRef *Ref)
       : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccTy, Ty, Inst),
-        LoopLevel(LoopLevel), DDA(DDA) {}
+        LoopLevel(LoopLevel), DDA(DDA), Ref(Ref) {}
 
   virtual ~VPVLSClientMemrefHIR() {}
 
@@ -72,8 +70,8 @@ public:
   }
 
   virtual bool canMoveTo(const OVLSMemref &To) final {
-    const RegDDRef *ToRef =
-        dyn_cast<const VPVLSClientMemrefHIR>(&To)->getRegDDRef();
+    const VPVLSClientMemrefHIR *ToHIR = cast<const VPVLSClientMemrefHIR>(&To);
+    const RegDDRef *ToRef = ToHIR->getRegDDRef();
     const HLDDNode *ToDDNode = ToRef->getHLDDNode();
 
     const RegDDRef *FromRef = getRegDDRef();
@@ -139,7 +137,7 @@ public:
         continue;
       if (Edge->isINPUTdep())
         continue;
-      if (Edge->isForwardDep())
+      else
         return false;
     }
     return true;
@@ -153,6 +151,12 @@ public:
 
   static bool classof(const OVLSMemref *Memref) {
     return Memref->getKind() == VLSK_VPlanHIRVLSClientMemref;
+  }
+
+  virtual void print(raw_ostream &Os, const Twine Indent = "") const final {
+    VPVLSClientMemref::print(Os, Indent);
+    formatted_raw_ostream Fos(Os);
+    getRegDDRef()->print(Fos);
   }
 };
 

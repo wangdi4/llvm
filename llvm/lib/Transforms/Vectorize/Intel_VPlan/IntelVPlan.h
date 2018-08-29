@@ -586,6 +586,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPlanCostModelProprietary;
   friend class VPlanIdioms;
   friend class VPlanVLSAnalysis;
+  friend class VPlanVLSAnalysisHIR;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {

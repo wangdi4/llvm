@@ -40,6 +40,12 @@ protected:
     Indexed,
   };
 
+  // FIXME: With Type information this context is not needed. Moreover,
+  // it's here because it's easier to pass context downstream using
+  // this class, rather then obtain the context from deep inside of
+  // vectorizer.
+  LLVMContext &Context;
+
   /// Finds a group for a given VPInstruction.
   OVLSGroup *getGroupForInstruction(const VPlan *Plan,
                                     const VPInstruction *Inst) const {
@@ -87,7 +93,7 @@ private:
     }
 
     void erase() {
-      for (auto &X : Memrefs)
+      for (OVLSMemref *X : Memrefs)
         delete X;
       eraseGroups();
     }
@@ -96,8 +102,7 @@ private:
   SmallDenseMap<const VPlan *, VLSInfo> Plan2VLSInfo;
 
 public:
-  explicit VPlanVLSAnalysis() {}
-
+  explicit VPlanVLSAnalysis(LLVMContext &Context) : Context(Context) {}
   virtual ~VPlanVLSAnalysis() {}
   /// Collect all memrefs within given VPlan and reflect given VF in
   /// each collected memref.
@@ -114,6 +119,8 @@ public:
 
   void dump(const VPlan *Plan) const;
   void dump() const;
+
+  LLVMContext &getContext() const { return Context; }
 };
 
 } // namespace vpo

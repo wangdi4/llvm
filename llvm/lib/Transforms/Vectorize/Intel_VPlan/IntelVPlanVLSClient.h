@@ -17,7 +17,6 @@
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVLSCLIENT_H
 
 #include "Intel_VPlan/IntelVPlan.h"
-#include "Intel_VPlan/IntelVPlanCostModel.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 
 namespace llvm {
@@ -84,15 +83,17 @@ public:
   const VPInstruction *getInstruction(void) const { return Inst; }
 
   void dump() const {
-    print(errs());
-    errs() << '\n';
+    this->print(dbgs());
+    dbgs() << '\n';
   }
 
-  void print(raw_ostream &Os, const Twine Indent = "") const {
+  virtual void print(raw_ostream &Os, const Twine Indent = "") const {
     Os << Indent;
     Os << "OVLSMemref for VPInst ";
     Inst->print(Os);
-    Os << "[ AccessType: ";
+    Os << "[ ";
+    Os << "id = " << getId();
+    Os << " | AccessType: ";
     getAccessType().print(Os);
     Os << " | VLSType = ";
     getType().print(Os);
@@ -102,7 +103,6 @@ public:
       Os << Stride;
     else
       Os << "unknown";
-    Os << " ]\n";
   }
 
   static bool classof(const OVLSMemref *Memref) {

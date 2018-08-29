@@ -58,6 +58,7 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
   // we may simply change OVLSType for each collected memref.
   auto VLSInfoIt = Plan2VLSInfo.find(Plan);
   if (!Force && VLSInfoIt != Plan2VLSInfo.end()) {
+    VLSInfoIt->second.eraseGroups();
     for (auto *Memref : VLSInfoIt->second.Memrefs)
       Memref->setNumElements(VF);
     LLVM_DEBUG(
@@ -77,21 +78,37 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
           for (const VPRecipeBase &Recipe : *BasicBlock) {
             const auto Inst = dyn_cast<const VPInstruction>(&Recipe);
             // Currently process only master instruction.
-            if (!Inst || !Inst->HIR.isMaster())
+            if (!Inst)
               continue;
-            unsigned Opcode = Inst->getOpcode();
             unsigned Level = -1;
-            if (auto I = dyn_cast<HLInst>(Inst->HIR.getUnderlyingNode()))
-              Level = I->getParentLoop()->getNestingLevel();
+            const HLNode *Node =
+                Inst->HIR.isMaster()
+                    ? Inst->HIR.getUnderlyingNode()
+                    : Inst->HIR.getMaster()->HIR.getUnderlyingNode();
+            if (Node)
+              Level = Node->getParentLoop()
+                          ? Node->getParentLoop()->getNestingLevel()
+                          : 0;
             MemAccessTy AccTy = getInstructionAccessType(Inst, Level);
 
+#if 0
+            unsigned Opcode = Inst->getOpcode();
             if ((AccTy == MemAccessTy::Strided ||
                  AccTy == MemAccessTy::Indexed) &&
                 (Opcode == Instruction::Load || Opcode == Instruction::Store))
               if (OVLSMemref *Memref = createVLSMemref(Inst, AccTy, Level, VF)) {
-                Plan2VLSInfo[Plan].Memrefs.push_back(Memref);
+                VLSInfoIt->second.Memrefs.push_back(Memref);
                 LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; Inst->dump(););
               }
+#else
+            // FIXME: Decomposition doesn't create or extract RegDDRefs, so
+            // try to create memrefs unconditionally.
+            // This code is useless for LLVM-IR-based vectorizer.
+            if (OVLSMemref *Memref = createVLSMemref(Inst, AccTy, Level, VF)) {
+              VLSInfoIt->second.Memrefs.push_back(Memref);
+              LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; Inst->dump(););
+            }
+#endif
           }
         }
       }

@@ -45,12 +45,16 @@ bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
 }
 
 OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
-                                                 const MemAccessTy &AccTy,
+                                                 const MemAccessTy &AT,
                                                  const unsigned Level,
                                                  const unsigned VF) const {
-  unsigned Size =
-  // FIXME: Move getMemInstValueType into VPlanValueUitls.
-      VPlanCostModel::getMemInstValueType(Inst)->getScalarSizeInBits();
+  unsigned Size = 0;
+  if (Inst->getOpcode() == Instruction::Load ||
+      Inst->getOpcode() == Instruction::Store)
+    Size = VPlanCostModel::getMemInstValueType(Inst)->getScalarSizeInBits();
+  else if (Inst->getType())
+    Size = Inst->getType()->getScalarSizeInBits();
+
   // TODO: Shouldn't see struct types here.
   if (!Size)
     return nullptr;
@@ -58,18 +62,55 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
   OVLSType Ty = OVLSType(Size, VF);
   unsigned Opcode = Inst->getOpcode();
 
+  const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+  assert(DDNode && "HLDDNode is expected.");
+  const RegDDRef *Ref = nullptr;
+
+  // FIXME: This code is not needed with proper decomposition and DA.
+  // Assume we have original HLInst
+  //  a[i] = b[i] + (c[i] - d[i]);
+  // Currently, there's no way to understand if incoming VPInstruction was
+  // constructed for d[i] or for c[i], due to absence link to original RegDDRef.
+  // In the code we're looking for first unvisited RegDDRef and construct
+  // VPVLSClientMemrefHIR for this Ref. It's definitely not accurate, but still
+  // better than nothing.
+  for (auto I = DDNode->op_ddref_begin(), E = DDNode->op_ddref_end(); I != E;
+       ++I) {
+    Ref = *I;
+    auto DDNodeIt = DDNodeRefs.find(DDNode);
+    if (DDNodeIt == DDNodeRefs.end())
+      DDNodeIt = DDNodeRefs.insert({DDNode, {}}).first;
+
+    if (DDNodeIt != DDNodeRefs.end()) {
+      auto RefIt = DDNodeIt->second.find(Ref);
+      if (Ref->isMemRef() && !Ref->isStructurallyInvariantAtLevel(Level) &&
+          RefIt == DDNodeIt->second.end()) {
+        DDNodeIt->second.insert(Ref);
+        break;
+      }
+    }
+  }
+
+  assert(Ref && "Unvisited RegDDRef must exist.");
+
+  int64_t Stride = 0;
+  // Overrides incoming AT.
+  // TODO: remove getAccessType() from this place.
+  MemAccessTy AccTy = getAccessType(Ref, Level, &Stride);
+  Opcode = Ref->isRval() ? Instruction::Load : Instruction::Store;
+
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Load)
     return new VPVLSClientMemrefHIR(OVLSAccessType::getStridedLoadTy(), Ty,
-                                    Inst, Level, DDA);
+                                    Inst, Level, DDA, Ref);
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Store)
     return new VPVLSClientMemrefHIR(OVLSAccessType::getStridedStoreTy(), Ty,
-                                    Inst, Level, DDA);
+                                    Inst, Level, DDA, Ref);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Load)
     return new VPVLSClientMemrefHIR(OVLSAccessType::getIndexedLoadTy(), Ty,
-                                    Inst, Level, DDA);
+                                    Inst, Level, DDA, Ref);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Store)
     return new VPVLSClientMemrefHIR(OVLSAccessType::getIndexedStoreTy(), Ty,
-                                    Inst, Level, DDA);
+                                    Inst, Level, DDA, Ref);
   return nullptr;
 }
 

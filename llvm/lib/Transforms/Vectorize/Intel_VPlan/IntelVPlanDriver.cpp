@@ -547,7 +547,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       return false;
   }
 
-  VPlanVLSAnalysis VLSA;
+  VPlanVLSAnalysis VLSA(Lp->getHeader()->getContext());
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
   LVP.buildInitialVPlans();
@@ -738,6 +738,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
 
   HLLoop *HLoop = WRLp->getTheLoop<HLLoop>();
+  (void) HLoop;
   assert(HLoop && "Expected HIR Loop.");
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
 
@@ -745,7 +746,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // process for vectorization
   VPlanOptReportBuilder<HLLoop> VPORBuilder(LORBuilder);
 
-  VPlanVLSAnalysisHIR VLSA(DDA);
+  VPlanVLSAnalysisHIR VLSA(DDA, Lp->getLLVMLoop()->getHeader()->getContext());
   // TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
                                   DDA, &VLSA);

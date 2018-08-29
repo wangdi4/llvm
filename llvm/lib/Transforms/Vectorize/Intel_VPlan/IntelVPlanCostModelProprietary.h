@@ -32,6 +32,11 @@ public:
   virtual unsigned getCost(const VPInstruction *VPInst) const final;
   virtual unsigned getCost(const VPBasicBlock *VPBB) const final;
   virtual unsigned getCost() const final;
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) const {
+    return getLoadStoreCost(VPInst, false /* Don't use VLS cost by default */);
+  }
+  unsigned getLoadStoreCost(const VPInstruction *VPInst,
+                            const bool UseVLSCost) const;
 
   void print(raw_ostream &OS);
 
@@ -39,7 +44,6 @@ public:
 
 private:
   virtual unsigned getCost(const VPBlockBase *VPBlock) const final;
-  unsigned getLoadStoreCost(const VPInstruction *VPInst) const;
   static bool isUnitStrideLoadStore(const VPInstruction *VPinst);
 };
 

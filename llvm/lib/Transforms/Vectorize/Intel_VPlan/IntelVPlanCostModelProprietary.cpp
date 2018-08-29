@@ -24,6 +24,10 @@
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
+static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(false),
+                               cl::desc("Consider cost returned by OVLSCostModel "
+                                        "for optimized gathers and scatters."));
+
 using namespace llvm::loopopt;
 
 namespace llvm {
@@ -58,7 +62,8 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
 }
 
 unsigned
-VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst) const {
+VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
+                                            const bool UseVLSCost) const {
   Type *OpTy = getMemInstValueType(VPInst);
 
   // FIXME: That should be removed later.
@@ -80,10 +85,22 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst) const {
   unsigned Cost =
       IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
                                     Alignment, AddrSpace)
-             : VPlanCostModel::getCost(VPInst);
-  if (VLSA->getGroupsFor(Plan, VPInst))
-    // TODO: Reduce cost according to OVLSCostModel.
-    LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->dump(););
+             : VPlanCostModel::getLoadStoreCost(VPInst);
+
+  if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)
+    if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
+      if (Group->size() > 1) {
+        unsigned VLSCost = OptVLSInterface::getGroupCost(*Group, *VLSCM);
+        if (VLSCost < Cost) {
+          LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
+                     dbgs() << " from " << Cost << " to " << VLSCost << '\n');
+          return VLSCost;
+        }
+        else
+          LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
+                     dbgs() << " was not reduced from " << Cost << " to " << VLSCost
+                            << '\n');
+      }
   return Cost;
 }
 
@@ -92,7 +109,7 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
   switch (Opcode) {
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst);
+    return getLoadStoreCost(VPInst, true);
   // TODO: So far there's no explicit representation for reduction
   // initializations and finalizations. Need to account overhead for such
   // instructions, until VPlan is ready to have explicit representation for
