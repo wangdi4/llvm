@@ -279,6 +279,8 @@ static const Function *getLoweredFunc(const CallInst *CI, const Module &M) {
     if (F->isDeclaration()) return nullptr;
     LowerF = F;
   }
+  LLVM_DEBUG(errs() << "CI = " << *CI << " and num ops = " << CI->getNumOperands() << "\n");
+  if (CI->getNumArgOperands() == 0) return nullptr;
   bool IsFloat = (CI->getArgOperand(0)->getType()->getTypeID() == Type::FloatTyID);
   bool IsDouble = (CI->getArgOperand(0)->getType()->getTypeID() == Type::DoubleTyID);
   if (IsDouble) {
