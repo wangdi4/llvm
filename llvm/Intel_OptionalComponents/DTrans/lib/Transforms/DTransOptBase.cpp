@@ -188,6 +188,16 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
 // then invokes module/function transformation itself. See header file for
 // complete description of actions.
 bool DTransOptBase::run(Module &M) {
+  if (!DTInfo.useDTransAnalysis()) {
+    // The DTransAnalysis type info lists are used when determining dependent
+    // types to be handled by the base class. Without this the base class cannot
+    // properly remap the types.
+    LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: DTransAnalysis information is "
+                         "required to be available in order to determine type "
+                         "dependencies.\n");
+    return false;
+  }
+
   if (!prepareTypesBaseImpl(M))
     return false;
 

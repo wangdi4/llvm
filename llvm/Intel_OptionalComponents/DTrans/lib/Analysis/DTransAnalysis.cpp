@@ -6748,7 +6748,7 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 
 DTransAnalysisInfo::DTransAnalysisInfo()
     : MaxTotalFrequency(0), FunctionCount(0), CallsiteCount(0),
-      InstructionCount(0) {}
+      InstructionCount(0), DTransAnalysisRan(false) {}
 
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
@@ -6770,6 +6770,7 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
   InstructionCount = Other.InstructionCount;
+  DTransAnalysisRan = Other.DTransAnalysisRan;
 }
 
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
@@ -6791,6 +6792,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
   InstructionCount = Other.InstructionCount;
+  DTransAnalysisRan = Other.DTransAnalysisRan;
   IgnoreTypeMap = std::move(Other.IgnoreTypeMap);
   return *this;
 }
@@ -6946,9 +6948,9 @@ void DTransAnalysisInfo::setCallGraphStats(Module &M) {
                     << "  Instructions: " << InstructionCount << "\n");
 }
 
-// Return true if we should/have run DTransAnalysis.
+// Return true if we should run DTransAnalysis.
 // Right now, we just disable DTransAnalysis if the call graph is too large.
-bool DTransAnalysisInfo::useDTransAnalysis(void) {
+bool DTransAnalysisInfo::shouldComputeDTransAnalysis(void) const {
   if (CallsiteCount > DTransMaxCallsiteCount ||
       InstructionCount > DTransMaxInstructionCount) {
     LLVM_DEBUG(dbgs() << "dtrans: Call graph too large ..."
@@ -6956,6 +6958,12 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) {
     return false;
   }
   return true;
+}
+
+// Return true if DTransAnalysis has been run and can be used in
+// transformations.
+bool DTransAnalysisInfo::useDTransAnalysis(void) const {
+  return DTransAnalysisRan;
 }
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
@@ -6974,7 +6982,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   setCallGraphStats(M);
 
-  if (!useDTransAnalysis())
+  if (!shouldComputeDTransAnalysis())
     return false;
 
   DTransAllocAnalyzer DTAA(TLI, M);
@@ -7017,6 +7025,8 @@ bool DTransAnalysisInfo::analyzeModule(
           StInfo->getField(I).setBottomAllocFunction();
         }
   }
+
+  DTransAnalysisRan = true;
 
   if (DTransPrintAnalyzedTypes) {
     // This is really ugly, but it is only used during testing.

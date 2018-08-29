@@ -242,7 +242,7 @@ public:
 
   // Return true if DTransAnalysis has been run and can be used in
   // transformations.
-  bool useDTransAnalysis(void);
+  bool useDTransAnalysis(void) const;
 
   // Return the value used during analysis for the command line option
   // "dtrans-outofboundsok" which controls the assumptions regarding whether
@@ -269,6 +269,9 @@ private:
   // determine if we will turn off DTransAnalysis because the call
   // graph is too big.
   void setCallGraphStats(Module &M);
+
+  // Return true if we should run DTransAnalysis.
+  bool shouldComputeDTransAnalysis(void) const;
 
   DenseMap<dtrans::Transform, StringSet<>> IgnoreTypeMap;
   DenseMap<llvm::Type *, dtrans::TypeInfo *> TypeInfoMap;
@@ -311,6 +314,9 @@ private:
   unsigned FunctionCount;
   unsigned CallsiteCount;
   unsigned InstructionCount;
+
+  // Indicates that DTransAnalysis completely analyzed the module.
+  bool DTransAnalysisRan;
 };
 
 // Analysis pass providing a data transformation analysis result.
