@@ -158,3 +158,61 @@ find_package_handle_standard_args(
   LIBOMPTARGET_DEP_CUDA_DRIVER_LIBRARIES)
 
 mark_as_advanced(LIBOMPTARGET_DEP_CUDA_DRIVER_LIBRARIES)
+# INTEL_COLLAB
+
+################################################################################
+# Looking for OpenCL...
+################################################################################
+
+# Cmake 3.4.3 cannot find OpenCL library unless an OpenCL SDK is
+# installed as root. This workaround is a fallback to let us find the library as
+# well as includes for now.
+message(STATUS "Looking for OpenCL includes.")
+find_path(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS
+  NAMES
+    CL/cl.h OpenCL/cl.h
+  PATHS
+    ENV LIBOMPTARGET_OCL_ROOT
+    ENV CPATH
+  PATH_SUFFIXES
+    include)
+message(STATUS "OpenCL include DIR: ${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS}")
+
+if (NOT LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS)
+  set(LIBOMPTARGET_DEP_OPENCL_FOUND FALSE)
+  message(STATUS "Could NOT find OpenCL. Missing includes.")
+else()
+
+  message(STATUS "Looking for OpenCL library.")
+  find_library(LIBOMPTARGET_DEP_OPENCL_LIBRARIES
+    NAMES OpenCL
+    PATHS
+      ENV LIBOMPTARGET_OCL_ROOT
+      ENV LIBRARY_PATH
+      ENV LD_LIBRARY_PATH
+    PATH_SUFFIXES
+      lib lib64)
+  message(STATUS "OpenCL lib: ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES}")
+
+  if (NOT LIBOMPTARGET_DEP_OPENCL_LIBRARIES)
+    set(LIBOMPTARGET_DEP_OPENCL_FOUND FALSE)
+    message(STATUS "Could NOT find OpenCL. Missing libs.")
+  else()
+    set(LIBOMPTARGET_DEP_OPENCL_FOUND TRUE)
+  endif()
+
+endif()
+
+if (NOT LIBOMPTARGET_DEP_OPENCL_FOUND)
+  message(STATUS "Looking for OpenCL again.")
+  find_package(OpenCL)
+  set(LIBOMPTARGET_DEP_OPENCL_FOUND ${OPENCL_FOUND})
+  set(LIBOMPTARGET_DEP_OPENCL_LIBRARIES ${OPENCL_LIBRARIES})
+  set(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS ${OPENCL_INCLUDE_DIRS})
+endif()
+
+mark_as_advanced(
+        LIBOMPTARGET_DEP_OPENCL_FOUND
+        LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS
+        LIBOMPTARGET_DEP_OPENCL_LIBRARIES)
+# end INTEL_COLLAB

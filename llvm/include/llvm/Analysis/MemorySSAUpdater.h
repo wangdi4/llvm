@@ -60,7 +60,11 @@ class raw_ostream;
 class MemorySSAUpdater {
 private:
   MemorySSA *MSSA;
-  SmallVector<MemoryPhi *, 8> InsertedPHIs;
+
+  /// We use WeakVH rather than a costly deletion to deal with dangling pointers.
+  /// MemoryPhis are created eagerly and sometimes get zapped shortly afterwards.
+  SmallVector<WeakVH, 16> InsertedPHIs;
+
   SmallPtrSet<BasicBlock *, 8> VisitedBlocks;
   SmallSet<AssertingVH<MemoryPhi>, 8> NonOptPhis;
 
@@ -120,6 +124,14 @@ public:
   /// |------|        |------|
   void moveAllAfterMergeBlocks(BasicBlock *From, BasicBlock *To,
                                Instruction *Start);
+  /// BasicBlock Old had New, an empty BasicBlock, added directly before it,
+  /// and the predecessors in Preds that used to point to Old, now point to
+  /// New. If New is the only predecessor, move Old's Phi, if present, to New.
+  /// Otherwise, add a new Phi in New with appropriate incoming values, and
+  /// update the incoming values in Old's Phi node too, if present.
+  void
+  wireOldPredecessorsToNewImmediatePredecessor(BasicBlock *Old, BasicBlock *New,
+                                               ArrayRef<BasicBlock *> Preds);
 
   // The below are utility functions. Other than creation of accesses to pass
   // to insertDef, and removeAccess to remove accesses, you should generally
@@ -207,7 +219,7 @@ private:
   MemoryAccess *recursePhi(MemoryAccess *Phi);
   template <class RangeType>
   MemoryAccess *tryRemoveTrivialPhi(MemoryPhi *Phi, RangeType &Operands);
-  void fixupDefs(const SmallVectorImpl<MemoryAccess *> &);
+  void fixupDefs(const SmallVectorImpl<WeakVH> &);
 };
 } // end namespace llvm
 
