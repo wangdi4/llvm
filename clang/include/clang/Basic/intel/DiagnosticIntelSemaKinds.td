@@ -169,6 +169,20 @@ def warn_bad_cxx_cast_unrelated_class : Warning<
   "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
   "functional-style cast}0 from %1 to %2, which are not related by "
   "inheritance, is allowed in Intel/GCC compatibility mode only">, InGroup<IntelCompat>;
+def err_blocklevel_overlap : Error<
+  "overlapping blockloop levels between level(%0:%1) and level(%2:%3)">;
+def note_second_block_loop_level_specified_here : Note<
+  "second block_loop level is specified here">;
+def err_invalid_blocklevel : Error<
+  "invalid block level: the first parameter must be less than the second">;
+def err_invalid_blocklevel_range : Error<
+  "invalid block level: value must be %select{greater than zero|less than or equal to 8}0">;
+def err_duplicate_variable_name : Error<
+    "duplicate use of variable name \"%0\"">;
+def err_pragma_loop_invalid_argument : Error<
+  "invalid argument of type %0; expected a scalar type">;
+def err_pragma_block_loop_private_expected_var_arg : Error<
+  "only variables can be arguments to '#pragma block_loop private'">;
 }
 
 def warn_d_suffix : ExtWarn<"d-suffix in FP literal is a GNU extension">,

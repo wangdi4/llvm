@@ -434,6 +434,7 @@ KEYWORD(typeof                      , KEYGNU)
 KEYWORD(__FUNCDNAME__               , KEYMS)
 KEYWORD(__FUNCSIG__                 , KEYMS)
 KEYWORD(L__FUNCTION__               , KEYMS)
+KEYWORD(L__FUNCSIG__                , KEYMS)
 TYPE_TRAIT_1(__is_interface_class, IsInterfaceClass, KEYMS)
 TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
 #if INTEL_CUSTOMIZATION
@@ -866,6 +867,7 @@ ANNOTATION(pragma_end)
 // The lexer produces these so that they only take effect when the parser
 // handles them.
 ANNOTATION(pragma_inline)
+ANNOTATION(pragma_blockloop)
 #endif // INTEL_CUSTOMIZATION
 
 // Annotations for loop pragma directives #pragma clang loop ...

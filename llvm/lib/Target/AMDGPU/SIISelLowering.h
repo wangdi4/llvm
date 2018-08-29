@@ -25,6 +25,19 @@ class SITargetLowering final : public AMDGPUTargetLowering {
 private:
   const GCNSubtarget *Subtarget;
 
+public:
+  MVT getRegisterTypeForCallingConv(LLVMContext &Context,
+                                    CallingConv::ID CC,
+                                    EVT VT) const override;
+  unsigned getNumRegistersForCallingConv(LLVMContext &Context,
+                                         CallingConv::ID CC,
+                                         EVT VT) const override;
+
+  unsigned getVectorTypeBreakdownForCallingConv(
+    LLVMContext &Context, CallingConv::ID CC, EVT VT, EVT &IntermediateVT,
+    unsigned &NumIntermediates, MVT &RegisterVT) const override;
+
+private:
   SDValue lowerKernArgParameterPtr(SelectionDAG &DAG, const SDLoc &SL,
                                    SDValue Chain, uint64_t Offset) const;
   SDValue getImplicitArgPtr(SelectionDAG &DAG, const SDLoc &SL) const;
@@ -136,6 +149,7 @@ private:
   SDValue performSubCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performFAddCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performFSubCombine(SDNode *N, DAGCombinerInfo &DCI) const;
+  SDValue performFMACombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performSetCCCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performCvtF32UByteNCombine(SDNode *N, DAGCombinerInfo &DCI) const;
   SDValue performClampCombine(SDNode *N, DAGCombinerInfo &DCI) const;

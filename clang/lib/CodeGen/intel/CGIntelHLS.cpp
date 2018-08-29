@@ -79,6 +79,7 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
   }
 
   const auto *CIA = FD->getAttr<ComponentInterfaceAttr>();
+  assert(CIA && "Component should have a ComponentInterfaceAttr");
   StringRef CompIntString =
       ComponentInterfaceAttr::ConvertComponentInterfaceTypeToStr(
           CIA->getType());

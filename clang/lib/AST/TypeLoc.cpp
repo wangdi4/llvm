@@ -127,7 +127,7 @@ TypeLoc TypeLoc::getNextTypeLocImpl(TypeLoc TL) {
 /// Initializes a type location, and all of its children
 /// recursively, as if the entire tree had been written in the
 /// given location.
-void TypeLoc::initializeImpl(ASTContext &Context, TypeLoc TL, 
+void TypeLoc::initializeImpl(ASTContext &Context, TypeLoc TL,
                              SourceLocation Loc) {
   while (true) {
     switch (TL.getTypeLocClass()) {
@@ -254,7 +254,7 @@ SourceLocation TypeLoc::getEndLoc() const {
     case RValueReference:
     case PackExpansion:
       if (!Last)
-	Last = Cur;
+        Last = Cur;
       break;
     case Qualified:
     case Elaborated:
@@ -447,13 +447,13 @@ void ObjCTypeParamTypeLoc::initializeLocal(ASTContext &Context,
     setProtocolLoc(i, Loc);
 }
 
-void ObjCObjectTypeLoc::initializeLocal(ASTContext &Context, 
+void ObjCObjectTypeLoc::initializeLocal(ASTContext &Context,
                                         SourceLocation Loc) {
   setHasBaseTypeAsWritten(true);
   setTypeArgsLAngleLoc(Loc);
   setTypeArgsRAngleLoc(Loc);
   for (unsigned i = 0, e = getNumTypeArgs(); i != e; ++i) {
-    setTypeArgTInfo(i, 
+    setTypeArgTInfo(i,
                    Context.getTrivialTypeSourceInfo(
                      getTypePtr()->getTypeArgsAsWritten()[i], Loc));
   }
@@ -480,7 +480,7 @@ void UnaryTransformTypeLoc::initializeLocal(ASTContext &Context,
         Context.getTrivialTypeSourceInfo(getTypePtr()->getBaseType(), Loc));
 }
 
-void ElaboratedTypeLoc::initializeLocal(ASTContext &Context, 
+void ElaboratedTypeLoc::initializeLocal(ASTContext &Context,
                                         SourceLocation Loc) {
   setElaboratedKeywordLoc(Loc);
   NestedNameSpecifierLocBuilder Builder;
@@ -488,7 +488,7 @@ void ElaboratedTypeLoc::initializeLocal(ASTContext &Context,
   setQualifierLoc(Builder.getWithLocInContext(Context));
 }
 
-void DependentNameTypeLoc::initializeLocal(ASTContext &Context, 
+void DependentNameTypeLoc::initializeLocal(ASTContext &Context,
                                            SourceLocation Loc) {
   setElaboratedKeywordLoc(Loc);
   NestedNameSpecifierLocBuilder Builder;
@@ -517,14 +517,14 @@ DependentTemplateSpecializationTypeLoc::initializeLocal(ASTContext &Context,
                                                    getArgInfos(), Loc);
 }
 
-void TemplateSpecializationTypeLoc::initializeArgLocs(ASTContext &Context, 
+void TemplateSpecializationTypeLoc::initializeArgLocs(ASTContext &Context,
                                                       unsigned NumArgs,
                                                   const TemplateArgument *Args,
                                               TemplateArgumentLocInfo *ArgInfos,
                                                       SourceLocation Loc) {
   for (unsigned i = 0, e = NumArgs; i != e; ++i) {
     switch (Args[i].getKind()) {
-    case TemplateArgument::Null: 
+    case TemplateArgument::Null:
       llvm_unreachable("Impossible TemplateArgument");
 
     case TemplateArgument::Integral:
@@ -536,10 +536,10 @@ void TemplateSpecializationTypeLoc::initializeArgLocs(ASTContext &Context,
     case TemplateArgument::Expression:
       ArgInfos[i] = TemplateArgumentLocInfo(Args[i].getAsExpr());
       break;
-      
+
     case TemplateArgument::Type:
       ArgInfos[i] = TemplateArgumentLocInfo(
-                          Context.getTrivialTypeSourceInfo(Args[i].getAsType(), 
+                          Context.getTrivialTypeSourceInfo(Args[i].getAsType(),
                                                            Loc));
       break;
 

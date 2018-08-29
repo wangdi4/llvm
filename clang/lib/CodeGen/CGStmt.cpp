@@ -716,6 +716,62 @@ CodeGenFunction::DistributePointHandler::~DistributePointHandler() {
         ArrayRef<llvm::Value *>{CallEntry}, OpBundles);
   }
 }
+
+/// Handle #pragma block_loop when it contains an factor or private clause.
+CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+  decltype(Attrs)::iterator AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::IntelBlockLoop;
+      });
+
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  const IntelBlockLoopAttr *BL = cast<IntelBlockLoopAttr>(*AttrItr);
+  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.BLOCK_LOOP",
+                                             ArrayRef<llvm::Value *>{}));
+
+  for (const auto *P : BL->privates()) {
+    SmallVector<llvm::Value *, 4> BundleValues;
+    BundleValues.push_back(CGF.EmitLValue(P).getPointer());
+    OpBundles.push_back(
+        llvm::OperandBundleDef("QUAL.PRAGMA.PRIVATE", BundleValues));
+  }
+
+  IntelBlockLoopAttr::factors_iterator FI = BL->factors_begin();
+  for (const auto L : BL->levels()) {
+    llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+    OpBundles.push_back(llvm::OperandBundleDef(
+        "QUAL.PRAGMA.LEVEL", llvm::ConstantInt::get(Int32Ty, L)));
+    if (*FI)
+      OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.FACTOR",
+                                                 CGF.EmitScalarExpr(*FI)));
+    else
+      OpBundles.push_back(llvm::OperandBundleDef(
+          "QUAL.PRAGMA.FACTOR", llvm::ConstantInt::get(Int32Ty, -1)));
+    ++FI;
+  }
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+      OpBundles);
+}
+
+CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
+
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.BLOCK_LOOP",
+                             ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
@@ -723,6 +779,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   IntelPragmaInlineState PS(*this, S.getAttrs());
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
+  IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }

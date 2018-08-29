@@ -141,6 +141,13 @@ def HasFunctionProto : SubsetSubject<DeclBase,
                                        isa<BlockDecl>(S)}],
                                      "non-K&R-style functions">;
 
+// A subject that matches the implicit object parameter of a non-static member
+// function. Accepted as a function type attribute on the type of such a
+// member function.
+// FIXME: This does not actually ever match currently.
+def ImplicitObjectParameter : SubsetSubject<Function, [{false}],
+                                            "implicit object parameters">;
+
 // A single argument to an attribute
 class Argument<string name, bit optional, bit fake = 0> {
   string Name = name;
@@ -168,6 +175,7 @@ class UnsignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 class VariadicUnsignedArgument<string name> : Argument<name, 1>;
 class VariadicExprArgument<string name> : Argument<name, 1>;
 class VariadicStringArgument<string name> : Argument<name, 1>;
+class VariadicIdentifierArgument<string name> : Argument<name, 1>;
 
 // Like VariadicUnsignedArgument except values are ParamIdx.
 class VariadicParamIdxArgument<string name> : Argument<name, 1>;
@@ -313,6 +321,7 @@ def TargetAVR : TargetArch<["avr"]>;
 def TargetMips32 : TargetArch<["mips", "mipsel"]>;
 def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
+def TargetRISCV : TargetArch<["riscv32", "riscv64"]>;
 def TargetX86 : TargetArch<["x86"]>;
 def TargetAnyX86 : TargetArch<["x86", "x86_64"]>;
 def TargetWindows : TargetArch<["x86", "x86_64", "arm", "thumb", "aarch64"]> {
@@ -460,7 +469,7 @@ class Attr {
   // Set to true if all of the attribute's arguments should be parsed in an
   // unevaluated context.
   bit ParseArgumentsAsUnevaluated = 0;
-  // Set to true if this attribute meaningful when applied to or inherited 
+  // Set to true if this attribute meaningful when applied to or inherited
   // in a class template definition.
   bit MeaningfulToClassTemplateDefinition = 0;
   // Set to true if this attribute can be used with '#pragma clang attribute'.
@@ -592,7 +601,7 @@ def AlignValue : Attr {
     // the future (and a corresponding C++ attribute), but this can be done
     // later once we decide if we also want them to have slightly-different
     // semantics than Intel's align_value.
-    // 
+    //
     // Does not get a [[]] spelling because the attribute is not exposed as such
     // by Intel.
     GNU<"align_value">
@@ -854,6 +863,27 @@ def Constructor : InheritableAttr {
   let Args = [DefaultIntArgument<"Priority", 65535>];
   let Subjects = SubjectList<[Function]>;
   let Documentation = [Undocumented];
+}
+
+def CPUSpecific : InheritableAttr {
+  let Spellings = [Clang<"cpu_specific">];
+  let Args = [VariadicIdentifierArgument<"Cpus">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [CPUSpecificCPUDispatchDocs];
+  let AdditionalMembers = [{
+    unsigned ActiveArgIndex = 0;
+
+    IdentifierInfo *getCurCPUName() const {
+      return *(cpus_begin() + ActiveArgIndex);
+    }
+  }];
+}
+
+def CPUDispatch : InheritableAttr {
+  let Spellings = [Clang<"cpu_dispatch">];
+  let Args = [VariadicIdentifierArgument<"Cpus">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [CPUSpecificCPUDispatchDocs];
 }
 
 // CUDA attributes are spelled __attribute__((attr)) or __declspec(__attr__),
@@ -1200,6 +1230,13 @@ def LayoutVersion : InheritableAttr, TargetSpecificAttr<TargetMicrosoftCXXABI> {
   let Documentation = [LayoutVersionDocs];
 }
 
+def LifetimeBound : InheritableAttr {
+  let Spellings = [Clang<"lifetimebound", 0>];
+  let Subjects = SubjectList<[ParmVar, ImplicitObjectParameter], ErrorDiag>;
+  let Documentation = [LifetimeBoundDocs];
+  let LangOpts = [CPlusPlus];
+}
+
 def TrivialABI : InheritableAttr {
   // This attribute does not have a C [[]] spelling because it requires the
   // CPlusPlus language option.
@@ -1362,6 +1399,17 @@ def NoMicroMips : InheritableAttr, TargetSpecificAttr<TargetMips32> {
   let Spellings = [GCC<"nomicromips">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [MicroMipsDocs];
+}
+
+def RISCVInterrupt : InheritableAttr, TargetSpecificAttr<TargetRISCV> {
+  let Spellings = [GCC<"interrupt">];
+  let Subjects = SubjectList<[Function]>;
+  let Args = [EnumArgument<"Interrupt", "InterruptType",
+                           ["user", "supervisor", "machine"],
+                           ["user", "supervisor", "machine"],
+                           1>];
+  let ParseKind = "Interrupt";
+  let Documentation = [RISCVInterruptDocs];
 }
 
 // This is not a TargetSpecificAttr so that is silently accepted and
@@ -1681,7 +1729,7 @@ def Overloadable : Attr {
   let Documentation = [OverloadableDocs];
 }
 
-def Override : InheritableAttr { 
+def Override : InheritableAttr {
   let Spellings = [Keyword<"override">];
   let SemaHandler = 0;
   let Documentation = [Undocumented];
@@ -1760,7 +1808,7 @@ def RequireConstantInit : InheritableAttr {
 def WorkGroupSizeHint :  InheritableAttr {
   // Does not have a [[]] spelling because it is an OpenCL-related attribute.
   let Spellings = [GNU<"work_group_size_hint">];
-  let Args = [UnsignedArgument<"XDim">, 
+  let Args = [UnsignedArgument<"XDim">,
               UnsignedArgument<"YDim">,
               UnsignedArgument<"ZDim">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -1781,6 +1829,13 @@ def Section : InheritableAttr {
       SubjectList<[ Function, GlobalVar, ObjCMethod, ObjCProperty ],
       IntelWarnDiag>; // INTEL
   let Documentation = [SectionDocs];
+}
+
+def CodeSeg : InheritableAttr {
+  let Spellings = [Declspec<"code_seg">];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[Function, CXXRecord], ErrorDiag>;
+  let Documentation = [CodeSegDocs];
 }
 
 def PragmaClangBSSSection : InheritableAttr {
@@ -1938,7 +1993,7 @@ def Target : InheritableAttr {
         // overall feature validity for the function with the rest of the
         // attributes on the function.
         if (Feature.startswith("fpmath=") || Feature.startswith("tune="))
-	  continue;
+          continue;
 
         // While we're here iterating check for a different target cpu.
         if (Feature.startswith("arch=")) {

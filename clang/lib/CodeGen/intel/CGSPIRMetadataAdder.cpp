@@ -298,9 +298,9 @@ static void functionAddSPIRMetadata(Function &F, bool &UseDoubles,
 
     for (auto *Op : I.operand_values()){
       if (searchTypeInType(Op->getType(), DoubleTy, false))
-        if (!(dyn_cast<CallInst>(&I) &&
-              dyn_cast<CallInst>(&I)->getCalledFunction() &&
-              dyn_cast<CallInst>(&I)->getCalledFunction()->isVarArg()))
+        if (!(isa<CallInst>(&I) &&
+              cast<CallInst>(&I)->getCalledFunction() &&
+              cast<CallInst>(&I)->getCalledFunction()->isVarArg()))
           UseDoubles = true;
       if (searchTypeInType(Op->getType(), HalfTy, true))
         UsedExts._cl_khr_fp16 = true;

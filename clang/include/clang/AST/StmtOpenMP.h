@@ -252,7 +252,9 @@ public:
     if (!hasAssociatedStmt())
       return child_range(child_iterator(), child_iterator());
     Stmt **ChildStorage = reinterpret_cast<Stmt **>(getClauses().end());
-    return child_range(ChildStorage, ChildStorage + NumChildren);
+    /// Do not mark all the special expression/statements as children, except
+    /// for the associated statement.
+    return child_range(ChildStorage, ChildStorage + 1);
   }
 
   ArrayRef<OMPClause *> clauses() { return getClauses(); }
@@ -2351,7 +2353,7 @@ class OMPTargetDataDirective : public OMPExecutableDirective {
   ///
   OMPTargetDataDirective(SourceLocation StartLoc, SourceLocation EndLoc,
                          unsigned NumClauses)
-      : OMPExecutableDirective(this, OMPTargetDataDirectiveClass, 
+      : OMPExecutableDirective(this, OMPTargetDataDirectiveClass,
                                OMPD_target_data, StartLoc, EndLoc, NumClauses,
                                1) {}
 
@@ -2360,7 +2362,7 @@ class OMPTargetDataDirective : public OMPExecutableDirective {
   /// \param NumClauses Number of clauses.
   ///
   explicit OMPTargetDataDirective(unsigned NumClauses)
-      : OMPExecutableDirective(this, OMPTargetDataDirectiveClass, 
+      : OMPExecutableDirective(this, OMPTargetDataDirectiveClass,
                                OMPD_target_data, SourceLocation(),
                                SourceLocation(), NumClauses, 1) {}
 
@@ -3189,7 +3191,7 @@ class OMPDistributeParallelForSimdDirective final : public OMPLoopDirective {
                                         unsigned CollapsedNum,
                                         unsigned NumClauses)
       : OMPLoopDirective(this, OMPDistributeParallelForSimdDirectiveClass,
-                         OMPD_distribute_parallel_for_simd, StartLoc, 
+                         OMPD_distribute_parallel_for_simd, StartLoc,
                          EndLoc, CollapsedNum, NumClauses) {}
 
   /// Build an empty directive.
@@ -3200,7 +3202,7 @@ class OMPDistributeParallelForSimdDirective final : public OMPLoopDirective {
   explicit OMPDistributeParallelForSimdDirective(unsigned CollapsedNum,
                                                  unsigned NumClauses)
       : OMPLoopDirective(this, OMPDistributeParallelForSimdDirectiveClass,
-                         OMPD_distribute_parallel_for_simd, 
+                         OMPD_distribute_parallel_for_simd,
                          SourceLocation(), SourceLocation(), CollapsedNum,
                          NumClauses) {}
 
@@ -3264,7 +3266,7 @@ class OMPDistributeSimdDirective final : public OMPLoopDirective {
   /// \param CollapsedNum Number of collapsed nested loops.
   /// \param NumClauses Number of clauses.
   ///
-  explicit OMPDistributeSimdDirective(unsigned CollapsedNum, 
+  explicit OMPDistributeSimdDirective(unsigned CollapsedNum,
                                       unsigned NumClauses)
       : OMPLoopDirective(this, OMPDistributeSimdDirectiveClass,
                          OMPD_distribute_simd, SourceLocation(),
@@ -3401,7 +3403,7 @@ class OMPTargetSimdDirective final : public OMPLoopDirective {
   /// \param NumClauses Number of clauses.
   ///
   explicit OMPTargetSimdDirective(unsigned CollapsedNum, unsigned NumClauses)
-      : OMPLoopDirective(this, OMPTargetSimdDirectiveClass, OMPD_target_simd, 
+      : OMPLoopDirective(this, OMPTargetSimdDirectiveClass, OMPD_target_simd,
                          SourceLocation(),SourceLocation(), CollapsedNum,
                          NumClauses) {}
 
@@ -3457,8 +3459,8 @@ class OMPTeamsDistributeDirective final : public OMPLoopDirective {
   ///
   OMPTeamsDistributeDirective(SourceLocation StartLoc, SourceLocation EndLoc,
                               unsigned CollapsedNum, unsigned NumClauses)
-      : OMPLoopDirective(this, OMPTeamsDistributeDirectiveClass, 
-                         OMPD_teams_distribute, StartLoc, EndLoc, 
+      : OMPLoopDirective(this, OMPTeamsDistributeDirectiveClass,
+                         OMPD_teams_distribute, StartLoc, EndLoc,
                          CollapsedNum, NumClauses) {}
 
   /// Build an empty directive.
@@ -3599,7 +3601,7 @@ class OMPTeamsDistributeParallelForSimdDirective final
                                              unsigned CollapsedNum,
                                              unsigned NumClauses)
       : OMPLoopDirective(this, OMPTeamsDistributeParallelForSimdDirectiveClass,
-                         OMPD_teams_distribute_parallel_for_simd, StartLoc, 
+                         OMPD_teams_distribute_parallel_for_simd, StartLoc,
                          EndLoc, CollapsedNum, NumClauses) {}
 
   /// Build an empty directive.
@@ -3610,7 +3612,7 @@ class OMPTeamsDistributeParallelForSimdDirective final
   explicit OMPTeamsDistributeParallelForSimdDirective(unsigned CollapsedNum,
                                                       unsigned NumClauses)
       : OMPLoopDirective(this, OMPTeamsDistributeParallelForSimdDirectiveClass,
-                         OMPD_teams_distribute_parallel_for_simd, 
+                         OMPD_teams_distribute_parallel_for_simd,
                          SourceLocation(), SourceLocation(), CollapsedNum,
                          NumClauses) {}
 
