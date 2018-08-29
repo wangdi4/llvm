@@ -56,7 +56,7 @@ static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
 void CodeGenFunction::EmitStopPoint(const Stmt *S) {
   if (CGDebugInfo *DI = getDebugInfo()) {
     SourceLocation Loc;
-    Loc = S->getLocStart();
+    Loc = S->getBeginLoc();
     DI->EmitLocation(Builder, Loc);
 
     LastStopPoint = Loc;
@@ -735,6 +735,62 @@ CodeGenFunction::DistributePointHandler::~DistributePointHandler() {
         ArrayRef<llvm::Value *>{CallEntry}, OpBundles);
   }
 }
+
+/// Handle #pragma block_loop when it contains an factor or private clause.
+CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+  decltype(Attrs)::iterator AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::IntelBlockLoop;
+      });
+
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  const IntelBlockLoopAttr *BL = cast<IntelBlockLoopAttr>(*AttrItr);
+  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.BLOCK_LOOP",
+                                             ArrayRef<llvm::Value *>{}));
+
+  for (const auto *P : BL->privates()) {
+    SmallVector<llvm::Value *, 4> BundleValues;
+    BundleValues.push_back(CGF.EmitLValue(P).getPointer());
+    OpBundles.push_back(
+        llvm::OperandBundleDef("QUAL.PRAGMA.PRIVATE", BundleValues));
+  }
+
+  IntelBlockLoopAttr::factors_iterator FI = BL->factors_begin();
+  for (const auto L : BL->levels()) {
+    llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+    OpBundles.push_back(llvm::OperandBundleDef(
+        "QUAL.PRAGMA.LEVEL", llvm::ConstantInt::get(Int32Ty, L)));
+    if (*FI)
+      OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.FACTOR",
+                                                 CGF.EmitScalarExpr(*FI)));
+    else
+      OpBundles.push_back(llvm::OperandBundleDef(
+          "QUAL.PRAGMA.FACTOR", llvm::ConstantInt::get(Int32Ty, -1)));
+    ++FI;
+  }
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+      OpBundles);
+}
+
+CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
+
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.BLOCK_LOOP",
+                             ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
@@ -742,6 +798,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   IntelPragmaInlineState PS(*this, S.getAttrs());
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
+  IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }
@@ -1230,7 +1287,7 @@ bool CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
 /// non-void.  Fun stuff :).
 void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   if (requiresReturnValueCheck()) {
-    llvm::Constant *SLoc = EmitCheckSourceLocation(S.getLocStart());
+    llvm::Constant *SLoc = EmitCheckSourceLocation(S.getBeginLoc());
     auto *SLocPtr =
         new llvm::GlobalVariable(CGM.getModule(), SLoc->getType(), false,
                                  llvm::GlobalVariable::PrivateLinkage, SLoc);
@@ -2084,7 +2141,7 @@ static llvm::MDNode *getAsmSrcLocInfo(const StringLiteral *Str,
   SmallVector<llvm::Metadata *, 8> Locs;
   // Add the location of the first line to the MDNode.
   Locs.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
-      CGF.Int32Ty, Str->getLocStart().getRawEncoding())));
+      CGF.Int32Ty, Str->getBeginLoc().getRawEncoding())));
   StringRef StrVal = Str->getString();
   if (!StrVal.empty()) {
     const SourceManager &SM = CGF.CGM.getContext().getSourceManager();
@@ -2228,6 +2285,11 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                               diag::err_asm_invalid_type_in_input)
             << OutExpr->getType() << OutputConstraint;
       }
+
+      // Update largest vector width for any vector types.
+      if (auto *VT = dyn_cast<llvm::VectorType>(ResultRegTypes.back()))
+        LargestVectorWidth = std::max(LargestVectorWidth,
+                                      VT->getPrimitiveSizeInBits());
     } else {
       ArgTypes.push_back(Dest.getAddress().getType());
       Args.push_back(Dest.getPointer());
@@ -2249,6 +2311,10 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                                                Arg->getType()))
         Arg = Builder.CreateBitCast(Arg, AdjTy);
 
+      // Update largest vector width for any vector types.
+      if (auto *VT = dyn_cast<llvm::VectorType>(Arg->getType()))
+        LargestVectorWidth = std::max(LargestVectorWidth,
+                                      VT->getPrimitiveSizeInBits());
       if (Info.allowsRegister())
         InOutConstraints += llvm::utostr(i);
       else
@@ -2328,6 +2394,11 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     else
       CGM.getDiags().Report(S.getAsmLoc(), diag::err_asm_invalid_type_in_input)
           << InputExpr->getType() << InputConstraint;
+
+    // Update largest vector width for any vector types.
+    if (auto *VT = dyn_cast<llvm::VectorType>(Arg->getType()))
+      LargestVectorWidth = std::max(LargestVectorWidth,
+                                    VT->getPrimitiveSizeInBits());
 
     ArgTypes.push_back(Arg->getType());
     Args.push_back(Arg);
@@ -2521,7 +2592,7 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
     "CapturedStmtInfo should be set when generating the captured function");
   const CapturedDecl *CD = S.getCapturedDecl();
   const RecordDecl *RD = S.getCapturedRecordDecl();
-  SourceLocation Loc = S.getLocStart();
+  SourceLocation Loc = S.getBeginLoc();
   assert(CD->hasBody() && "missing CapturedDecl body");
 
   // Build the argument list.
@@ -2542,9 +2613,8 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
     F->addFnAttr(llvm::Attribute::NoUnwind);
 
   // Generate the function.
-  StartFunction(CD, Ctx.VoidTy, F, FuncInfo, Args,
-                CD->getLocation(),
-                CD->getBody()->getLocStart());
+  StartFunction(CD, Ctx.VoidTy, F, FuncInfo, Args, CD->getLocation(),
+                CD->getBody()->getBeginLoc());
   // Set the context parameter in CapturedStmtInfo.
   Address DeclPtr = GetAddrOfLocalVar(CD->getContextParam());
   CapturedStmtInfo->setContextValue(Builder.CreateLoad(DeclPtr));
@@ -2554,8 +2624,9 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
                                            Ctx.getTagDeclType(RD));
   for (auto *FD : RD->fields()) {
     if (FD->hasCapturedVLAType()) {
-      auto *ExprArg = EmitLoadOfLValue(EmitLValueForField(Base, FD),
-                                       S.getLocStart()).getScalarVal();
+      auto *ExprArg =
+          EmitLoadOfLValue(EmitLValueForField(Base, FD), S.getBeginLoc())
+              .getScalarVal();
       auto VAT = FD->getCapturedVLAType();
       VLASizeMap[VAT->getSizeExpr()] = ExprArg;
     }

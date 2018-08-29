@@ -19,14 +19,14 @@ int main() {
     ++i;
   }
 
-  // expected-error@+1{{duplicate directives '#pragma unroll(8)' and 'unroll_count(4)'}}
+  // expected-error@+2{{duplicate directives 'unroll_count(4)' and '#pragma unroll(8)'}}
   #pragma clang loop unroll_count (4)
   #pragma unroll(8)
   for (i = 0; i < 20; ++i)
     ++x;
 
-  #pragma unroll (4) // expected-error{{duplicate directives}}
-  #pragma unroll (8)
+  #pragma unroll (4)
+  #pragma unroll (8) // expected-error{{duplicate directives}}
   while (i < 20) {
     ++x;
     ++i;

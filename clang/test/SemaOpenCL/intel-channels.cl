@@ -33,10 +33,11 @@ __kernel void k3() __attribute__((io("tmp"))) { // expected-warning{{'io' attrib
 
 channel foo; // expected-error{{missing actual type specifier for channel}}
 
-struct incomplete;
+struct incomplete;  // expected-note{{forward declaration of 'struct incomplete'}}
 
 channel struct incomplete ch_arr[10]; // expected-error{{array has incomplete element type '__global channel struct incomplete'}}
 channel struct incomplete ch; // expected-error{{tentative definition has type '__global channel struct incomplete' that is never completed}}
+// expected-note@-4{{forward declaration of 'struct incomplete'}}
 channel struct incomplete; // expected-warning{{declaration does not declare anything}}
 channel struct st; // expected-warning{{declaration does not declare anything}}
 channel int; // expected-warning{{declaration does not declare anything}}

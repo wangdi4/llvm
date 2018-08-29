@@ -36,10 +36,10 @@ void bar(int i, int *x, int *y) {
 void zoo(int i, int *x, int *y) {
 
   // CHECK: AttributedStmt
-  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeAlways Enable
-  // CHECK-NEXT: NULL
-  // CHECK-NEXT: NULL
   // CHECK-NEXT: LoopHintAttr{{.*}}Vectorize Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeAlways Enable
   // CHECK-NEXT: NULL
   // CHECK-NEXT: NULL
   // CHECK-NEXT: ForStmt

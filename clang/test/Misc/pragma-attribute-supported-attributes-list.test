@@ -4,7 +4,7 @@
 
 // if INTEL_CUSTOMIZATION
 // NOTE: The below value is currently Community value +10.
-// CHECK: #pragma clang attribute supports 82 attributes:
+// CHECK: #pragma clang attribute supports 84 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -14,6 +14,7 @@
 // CHECK-NEXT: AbiTag (SubjectMatchRule_record_not_is_union, SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_namespace)
 // CHECK-NEXT: AlignValue (SubjectMatchRule_variable, SubjectMatchRule_type_alias)
 // CHECK-NEXT: AllocSize (SubjectMatchRule_function)
+// CHECK-NEXT: AlwaysDestroy (SubjectMatchRule_variable)
 // CHECK-NEXT: Annotate ()
 // CHECK-NEXT: AnyX86NoCfCheck (SubjectMatchRule_hasType_functionType)
 // if INTEL_CUSTOMIZATION
@@ -50,6 +51,7 @@
 // CHECK-NEXT: MipsLongCall (SubjectMatchRule_function)
 // CHECK-NEXT: MipsShortCall (SubjectMatchRule_function)
 // CHECK-NEXT: NoDebug (SubjectMatchRule_hasType_functionType, SubjectMatchRule_objc_method, SubjectMatchRule_variable_not_is_parameter)
+// CHECK-NEXT: NoDestroy (SubjectMatchRule_variable)
 // CHECK-NEXT: NoDuplicate (SubjectMatchRule_function)
 // CHECK-NEXT: NoEscape (SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: NoMicroMips (SubjectMatchRule_function)

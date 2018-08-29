@@ -27,4 +27,12 @@ class PragmaNoInlineHandler: public PragmaHandler {
     explicit PragmaNoInlineHandler() : PragmaHandler("noinline") {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
 };
+
+// #pragma block_loop
+class PragmaBlockLoopHandler : public PragmaHandler {
+  public:
+    PragmaBlockLoopHandler(const char *name) : PragmaHandler(name) {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                              Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION

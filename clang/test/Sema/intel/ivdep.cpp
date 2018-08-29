@@ -25,13 +25,15 @@ void foo() {
   #pragma ivdep loop
   #pragma ivdep
   // CHECK: AttributedStmt
-  // CHECK-NEXT: LoopHintAttr{{.*}}IVDep Enable
+  // CHECK-NEXT: LoopHintAttr{{.*}}IVDepLoop Enable
+  // CHECK: LoopHintAttr{{.*}}IVDep Enable
   for (i = 0; i < 10; ++i)
     arr[i] = arr[i + N] * 5;
   #pragma ivdep
   #pragma ivdep loop
   // CHECK: AttributedStmt
-  // CHECK-NEXT: LoopHintAttr{{.*}}IVDepLoop Enable
+  // CHECK-NEXT: LoopHintAttr{{.*}}IVDep Enable
+  // CHECK: LoopHintAttr{{.*}}IVDepLoop Enable
   for (i = 0; i < 10; ++i)
     arr[i] = arr[i + N] * 5;
 

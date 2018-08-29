@@ -10,9 +10,9 @@ void foo0(slave_arg __attribute__((memory("MLAB"))) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo0
 // CHECK: ParmVarDecl{{.*}}i_par1
-// CHECK: MemoryAttr{{.*}}MLAB{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: MemoryAttr{{.*}}MLAB{{$}}
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -20,9 +20,9 @@ void foo1(slave_arg __attribute__((memory("BLOCK_RAM"))) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo1
 // CHECK: ParmVarDecl{{.*}}i_par1
-// CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: MemoryAttr{{.*}}BlockRAM{{$}}
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -30,10 +30,10 @@ void foo2(slave_arg __attribute__((numbanks(4))) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo2
 // CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumBanks{{.*}}
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -41,10 +41,10 @@ void foo3(slave_arg __attribute__((bankwidth(4))) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo3
 // CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: BankWidthAttr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -52,9 +52,9 @@ void foo4(slave_arg __attribute__((singlepump)) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo4
 // CHECK: ParmVarDecl{{.*}}i_par1
-// CHECK: SinglePumpAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK: SinglePumpAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -62,9 +62,9 @@ void foo5(slave_arg __attribute__((doublepump)) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo5
 // CHECK: ParmVarDecl{{.*}}i_par1
-// CHECK: DoublePumpAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK: DoublePumpAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -73,12 +73,12 @@ void foo6(slave_arg __attribute__((numports_readonly_writeonly(4,4)))
 {}
 // CHECK: FunctionDecl{{.*}}foo6
 // CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumReadPortsAttr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK-NEXT: NumWritePortsAttr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -86,12 +86,12 @@ void foo7(slave_arg __attribute__((bank_bits(1,2,3))) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo7
 // CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: BankBitsAttr
 // CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
 // CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 // CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -99,10 +99,10 @@ void foo8(slave_arg __attribute__((numreadports(2))) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo8
 // CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumReadPortsAttr
 // CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -110,10 +110,10 @@ void foo9(slave_arg __attribute__((numwriteports(4))) int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo9
 // CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumWritePortsAttr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -122,10 +122,10 @@ void foo10(slave_arg __attribute__((internal_max_block_ram_depth(32)))
 {}
 // CHECK: FunctionDecl{{.*}}foo10
 // CHECK: ParmVarDecl{{.*}}i_par1
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: InternalMaxBlockRamDepthAttr
 // CHECK-NEXT: IntegerLiteral{{.*}}32{{$}}
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -134,9 +134,9 @@ void foo11(slave_arg __attribute__((optimize_fmax))
 {}
 // CHECK: FunctionDecl{{.*}}foo11
 // CHECK: ParmVarDecl{{.*}}i_par1
-// CHECK: OptimizeFMaxAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK: OptimizeFMaxAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -145,9 +145,9 @@ void foo12(slave_arg __attribute__((optimize_ram_usage))
 {}
 // CHECK: FunctionDecl{{.*}}foo12
 // CHECK: ParmVarDecl{{.*}}i_par1
-// CHECK: OptimizeRamUsageAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
+// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK: OptimizeRamUsageAttr
 // CHECK: ComponentAttr
 
 
@@ -245,10 +245,10 @@ void bar4c(
 
 __attribute__((ihc_component))
 void bar4d(
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   slave_arg __attribute__((singlepump))
             __attribute__((__doublepump__))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int *i) {}
 
 // expected-error@+3{{local or static variables or slave memory arguments}}
@@ -416,42 +416,42 @@ void baz1(
 
 void baz2(
   slave_arg
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((argument_interface("avalon_mm_slave")))
   __attribute__((internal_max_block_ram_depth(32)))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int *i0,
   slave_arg
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((internal_max_block_ram_depth(32)))
   __attribute__((argument_interface("avalon_mm_slave")))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int *ip) {}
 
 void baz3(
   slave_arg
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((argument_interface("avalon_mm_slave")))
   __attribute__((optimize_fmax))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int *i0,
   slave_arg
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((optimize_fmax))
   __attribute__((argument_interface("avalon_mm_slave")))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int *ip) {}
 
 void baz4(
   slave_arg
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((argument_interface("avalon_mm_slave")))
   __attribute__((optimize_ram_usage))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int *i0,
   slave_arg
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((optimize_ram_usage))
   __attribute__((argument_interface("avalon_mm_slave")))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int *ip) {}

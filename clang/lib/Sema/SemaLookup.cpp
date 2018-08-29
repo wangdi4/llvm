@@ -4709,7 +4709,7 @@ std::unique_ptr<TypoCorrectionConsumer> Sema::makeTypoCorrectionConsumer(
       getLangOpts().ModulesSearchAll) {
     // The following has the side effect of loading the missing module.
     getModuleLoader().lookupMissingImports(Typo->getName(),
-                                           TypoName.getLocStart());
+                                           TypoName.getBeginLoc());
   }
 
   CorrectionCandidateCallback &CCCRef = *CCC;

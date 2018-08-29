@@ -1364,7 +1364,6 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
     } else {
       switch (static_cast<BuildPreambleError>(NewPreamble.getError().value())) {
       case BuildPreambleError::CouldntCreateTempFile:
-      case BuildPreambleError::PreambleIsEmpty:
         // Try again next time.
         PreambleRebuildCounter = 1;
         return nullptr;

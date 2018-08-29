@@ -21,13 +21,13 @@ __attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_gro
 __kernel void kernel_2b() {
 }
 
-__attribute__((reqd_work_group_size(64,64,64))) //expected-error{{'reqd_work_group_size' attribute conflicts with 'max_work_group_size' attribute}}
-__attribute__((max_work_group_size(16,16,16)))
+__attribute__((reqd_work_group_size(64,64,64)))
+__attribute__((max_work_group_size(16,16,16))) //expected-error{{'max_work_group_size' attribute conflicts with 'reqd_work_group_size' attribute}}
 __kernel void kernel_3a() {
 }
 
-__attribute__((max_work_group_size(16,16,16))) //expected-error{{'max_work_group_size' attribute conflicts with 'reqd_work_group_size' attribute}}
-__attribute__((reqd_work_group_size(64,64,64)))
+__attribute__((max_work_group_size(16,16,16)))
+__attribute__((reqd_work_group_size(64,64,64))) //expected-error{{'reqd_work_group_size' attribute conflicts with 'max_work_group_size' attribute}}
 __kernel void kernel_3b() {
 }
 
@@ -45,13 +45,13 @@ __attribute__((reqd_work_group_size(16, 16, 16)))
 __kernel void kernel_4c() {
 }
 
-__attribute__((autorun))
+__attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __attribute__((reqd_work_group_size(10, 10, 10))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
 __kernel void kernel_4d() {
 }
 
 __attribute__((reqd_work_group_size(10, 10, 10))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
-__attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
+__attribute__((autorun))
 __kernel void kernel_4e() {
 }
 
@@ -156,9 +156,9 @@ __kernel void kernel_7f() {
     int __attribute__((__internal_max_block_ram_depth__("sch"))) s1; // expected-error{{expression is not an integer constant expression}}
     int __attribute__((__internal_max_block_ram_depth__(0))) s2;
     int __attribute__((__internal_max_block_ram_depth__(-64))) s3; // expected-error{{'internal_max_block_ram_depth' attribute requires integer constant between 0 and 1048576 inclusive}}
-    int __attribute__((__internal_max_block_ram_depth__(64))) __attribute__((register)) s4; // expected-error{{'__internal_max_block_ram_depth__' and 'register' attributes are not compatible}}
+    int __attribute__((__internal_max_block_ram_depth__(64))) __attribute__((register)) s4; // expected-error{{'register' and 'internal_max_block_ram_depth' attributes are not compatible}}
 // expected-note@-1{{conflicting attribute is here}}
-    int __attribute__((register)) __attribute__((__internal_max_block_ram_depth__(64))) s5; // expected-error{{'register' and 'internal_max_block_ram_depth' attributes are not compatible}}
+    int __attribute__((register)) __attribute__((__internal_max_block_ram_depth__(64))) s5; // expected-error{{'__internal_max_block_ram_depth__' and 'register' attributes are not compatible}}
 // expected-note@-1{{conflicting attribute is here}}
 }
 
@@ -167,35 +167,35 @@ __kernel void kernel_7g() {
 }
 
 __kernel void kernel_7h() {
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((optimize_fmax))
   __attribute__((register))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int stuff1[100];
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((register))
   __attribute__((optimize_fmax))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int stuff2[100];
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((optimize_ram_usage))
   __attribute__((register))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int stuff3[100];
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((register))
   __attribute__((optimize_ram_usage))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int stuff4[100];
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((optimize_fmax))
   __attribute__((optimize_ram_usage))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int stuff5[100];
-  //expected-error@+1{{attributes are not compatible}}
+  //expected-error@+2{{attributes are not compatible}}
   __attribute__((optimize_fmax))
   __attribute__((internal_max_block_ram_depth(64)))
-  //expected-note@-1 {{conflicting attribute is here}}
+  //expected-note@-2 {{conflicting attribute is here}}
   int stuff6[100];
 }
 

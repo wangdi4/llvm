@@ -411,7 +411,7 @@ void Sema::ActOnPragmaMSSeg(SourceLocation PragmaLocation,
     Diag(PragmaLocation, diag::warn_pragma_pop_failed) << PragmaName
         << "stack empty";
   if (SegmentName &&
-      !checkSectionName(SegmentName->getLocStart(), SegmentName->getString()))
+      !checkSectionName(SegmentName->getBeginLoc(), SegmentName->getString()))
     return;
   Stack->Act(PragmaLocation, Action, StackSlotLabel, SegmentName);
 }
@@ -667,7 +667,7 @@ void Sema::AddPragmaAttributes(Scope *S, Decl *D) {
     Entry.IsUsed = true;
     PragmaAttributeCurrentTargetDecl = D;
     ParsedAttributesView Attrs;
-    Attrs.addAtStart(Attribute);
+    Attrs.addAtEnd(Attribute);
     ProcessDeclAttributeList(S, D, Attrs);
     PragmaAttributeCurrentTargetDecl = nullptr;
   }
@@ -675,7 +675,7 @@ void Sema::AddPragmaAttributes(Scope *S, Decl *D) {
 
 void Sema::PrintPragmaAttributeInstantiationPoint() {
   assert(PragmaAttributeCurrentTargetDecl && "Expected an active declaration");
-  Diags.Report(PragmaAttributeCurrentTargetDecl->getLocStart(),
+  Diags.Report(PragmaAttributeCurrentTargetDecl->getBeginLoc(),
                diag::note_pragma_attribute_applied_decl_here);
 }
 
@@ -779,6 +779,18 @@ void Sema::ActOnPragmaFPContract(LangOptions::FPContractModeKind FPC) {
     break;
   }
 }
+
+void Sema::ActOnPragmaFEnvAccess(LangOptions::FEnvAccessModeKind FPC) {
+  switch (FPC) {
+  case LangOptions::FEA_On:
+    FPFeatures.setAllowFEnvAccess();
+    break;
+  case LangOptions::FEA_Off:
+    FPFeatures.setDisallowFEnvAccess();
+    break;
+  }
+}
+
 
 void Sema::PushNamespaceVisibilityAttr(const VisibilityAttr *Attr,
                                        SourceLocation Loc) {

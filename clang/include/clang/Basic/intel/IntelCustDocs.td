@@ -516,6 +516,52 @@ Metadata:
   }];
 }
 
+def PragmaBlockLoopDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let Owner = "jyu2";
+  let Content = [{
+The ``block_loop`` pragma lets you exert greater control over optimizations
+on a specific loop inside a nested loop.
+
+.. code-block:: c
+
+  #pragma block_loop [level(levels)] [private(vars)] [factor(expr)]
+
+Adding new IntelBlockLoopAttr intead using LoopHint attribute framework. No
+metadata are generated.  Directives are requested here.
+
+For:
+
+.. code-block:: c
+
+  #pragma block_loop level(1:2) factor(256) private(var)
+   for (...)
+    for (...);
+
+AST:
+
+AttributedStmt
+
+.. code-block:: c
+
+   |-IntelBlockLoopAttr 0xcf13e98 <line:5:9, col:54> Implicit 1 2
+      | |-IntegerLiteral 0xcee1508 <col:40> 'int' 256
+      | |-IntegerLiteral 0xcee1538 <col:40> 'int' 256
+      | `-DeclRefExpr 0xcee1588 <col:51> 'int' lvalue Var 0xcee1460 'var' 'int'
+
+IR:
+
+.. code-block:: llvm
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(double* %var.addr), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 16), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 16) ]
+
+  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
+
+  }];
+
+}
+
 def PragmaIVDepDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Owner = "mprice1,pmrao";

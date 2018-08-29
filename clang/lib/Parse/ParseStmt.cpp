@@ -351,6 +351,11 @@ Retry:
     ConsumeAnnotationToken();
     return StmtError();
 
+  case tok::annot_pragma_fenv_access:
+    ProhibitAttributes(Attrs);
+    HandlePragmaFEnvAccess();
+    return StmtEmpty();
+
   case tok::annot_pragma_opencl_extension:
     ProhibitAttributes(Attrs);
     HandlePragmaOpenCLExtension();
@@ -364,6 +369,10 @@ Retry:
   case tok::annot_pragma_inline:
     ProhibitAttributes(Attrs);
     return ParsePragmaInline(Stmts, Allowed, TrailingElseLoc, Attrs);
+
+  case tok::annot_pragma_blockloop:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaBlockLoop(Stmts, Allowed, TrailingElseLoc, Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_openmp:
@@ -931,6 +940,9 @@ void Parser::ParseCompoundStatementLeadingPragmas() {
       break;
     case tok::annot_pragma_fp:
       HandlePragmaFP();
+      break;
+    case tok::annot_pragma_fenv_access:
+      HandlePragmaFEnvAccess();
       break;
     case tok::annot_pragma_ms_pointers_to_members:
       HandlePragmaMSPointersToMembers();
@@ -1931,10 +1943,11 @@ StmtResult Parser::ParseReturnStatement() {
     if (Tok.is(tok::l_brace) && getLangOpts().CPlusPlus) {
       R = ParseInitializer();
       if (R.isUsable())
-        Diag(R.get()->getLocStart(), getLangOpts().CPlusPlus11 ?
-             diag::warn_cxx98_compat_generalized_initializer_lists :
-             diag::ext_generalized_initializer_lists)
-          << R.get()->getSourceRange();
+        Diag(R.get()->getBeginLoc(),
+             getLangOpts().CPlusPlus11
+                 ? diag::warn_cxx98_compat_generalized_initializer_lists
+                 : diag::ext_generalized_initializer_lists)
+            << R.get()->getSourceRange();
     } else
       R = ParseExpression();
     if (R.isInvalid()) {

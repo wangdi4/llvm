@@ -13,6 +13,7 @@ include "clang/Basic/intel/IntelAttrDocs.td"
 
 class SourceLocArgument<string name, bit opt = 0> : Argument<name, opt>;
 class CheckedExprArgument<string name> : Argument<name, 1>;
+class VariadicIntArgument<string name> : Argument<name, 1>;
 
 def AvoidFalseShare : InheritableAttr {
   let Spellings = [Declspec<"avoid_false_share">];
@@ -80,6 +81,22 @@ def IntelInline : Attr {
   }];
   let Documentation = [Undocumented];
 }
+
+// Pragma block_loop
+def IntelBlockLoop : Attr {
+  let Spellings = [Pragma<"", "block_loop">];
+  let Args = [
+    VariadicExprArgument<"Factors">, VariadicIntArgument<"Levels">,
+    VariadicExprArgument<"Privates">
+  ];
+  let AdditionalMembers = [{
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+    OS << "#pragma block_loop";
+  }
+  }];
+  let Documentation = [Undocumented];
+}
+
 
 // FPGA-specific attributes
 
