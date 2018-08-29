@@ -117,6 +117,7 @@ void CSACvtCFDFPass::releaseMemory() {
   bb2rpo.clear();
   dcgBBs.clear();
   multiInputsPick.clear();
+  loopInfo.clear();
 }
 
 void CSACvtCFDFPass::replacePhiWithPICK() {
@@ -1033,6 +1034,21 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
   }
   initInst->setFlag(MachineInstr::NonSequential);
 
+  // Set up the loop info for the current loop.
+  CSALoopInfo &DFLoop = loopInfo[mloop];
+  DFLoop.setPickBackedgeIndex(pickCtrlInverted ? 0 : 1);
+  SmallVector<MachineBasicBlock *, 2> ExitingBlocks;
+  mloop->getExitingBlocks(ExitingBlocks);
+  for (MachineBasicBlock *ExitingBlock : ExitingBlocks) {
+    unsigned Index = DFLoop.addExit(pickCtrlInverted ? 0 : 1);
+    for (auto &MI : *ExitingBlock) {
+      // XXX: assert proper switch for control block.
+      if (TII->isSwitch(&MI)) {
+        DFLoop.addExitSwitch(Index, &MI);
+      }
+    }
+  }
+
   repeatOperandInLoop(mloop, cpyReg, predReg, pickCtrlInverted);
 
   MachineBasicBlock::iterator iterI = mbb->begin();
@@ -1113,6 +1129,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
                    .add(*pickTrue);
     }
 
+    DFLoop.addHeaderPick(pickInst);
     pickInst->setFlag(MachineInstr::NonSequential);
     MI->removeFromParent();
     if (numUse > 2) {
@@ -1136,11 +1153,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock *mbb) {
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
                                                          unsigned numTokensSpecified) {
   MachineLoop *mloop = MLI->getLoopFor(mbb);
-  DebugLoc mloopLoc = mloop->getStartLoc();
-
-  assert(mloop->getHeader() == mbb);
-  if (mbb->getFirstNonPHI() == mbb->begin())
-    return;
+  MachineBasicBlock *lphdr = mloop->getHeader();
+  replaceCanonicalLoopHdrPhi(lphdr);
   assert(numTokensSpecified >= 1);
 
   // The completionN operators we will insert are limited to a maximum depth of
@@ -1152,130 +1166,30 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   // compiler output as.
   numTokens = std::min(32U, numTokens);
 
-  assert(mloop->getExitingBlock() &&
-         "can't handle multi exiting blks in this funciton");
-  MachineBasicBlock *latchBB         = mloop->getLoopLatch();
-  ControlDependenceNode *latchNode   = CDG->getNode(latchBB);
-  MachineBasicBlock *exitingBB       = mloop->getExitingBlock();
-  ControlDependenceNode *exitingNode = CDG->getNode(exitingBB);
-  MachineBasicBlock *exitBB          = mloop->getExitBlock();
-  assert(exitBB);
-  assert(latchBB && exitingBB && (latchBB == exitingBB));
-  MachineInstr *bi                = &*exitingBB->getFirstInstrTerminator();
-// RAVI  MachineBasicBlock::iterator loc = exitingBB->getFirstTerminator();
-  unsigned predReg                = bi->getOperand(0).getReg();
+  CSALoopInfo &DFLoop = loopInfo[mloop];
+  assert(DFLoop.getNumExits() == 1 &&
+    "Can only pipeline loops with single exit blocks");
+  pipelineLoop(lphdr, DFLoop, numTokens);
+}
 
-  const TargetRegisterClass *TRC = MRI->getRegClass(predReg);
-  CSAMachineFunctionInfo *LMFI   = thisMF->getInfo<CSAMachineFunctionInfo>();
-  // Look up target register class corresponding to this register.
-  const TargetRegisterClass *new_LIC_RC =
-    LMFI->licRCFromGenRC(MRI->getRegClass(predReg));
-  assert(new_LIC_RC && "Can't determine register class for register");
-  unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC, "loopCtl");
-  assert(mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode));
-  _unused(latchNode);
-  _unused(exitingNode);
-
-  MachineBasicBlock *lphdr           = mloop->getHeader();
-//  MachineBasicBlock::iterator hdrloc = lphdr->begin();
-  bool pickCtrlInverted =
-    (CDG->getEdgeType(exitingBB, exitBB, true) != ControlDependenceNode::FALSE);
+void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
+    unsigned numTokens) {
+  DebugLoc mloopLoc = MLI->getLoopFor(lphdr)->getStartLoc();
 
   SmallVector<MachineOperand *, 4> newGang, backGang;
-  repeatOperandInLoop(mloop, cpyReg, predReg, pickCtrlInverted, &newGang,
-                      &backGang);
 
-  MachineBasicBlock::iterator iterI = mbb->begin();
-  while (iterI != mbb->end()) {
-    MachineInstr *MI = &*iterI;
-    ++iterI;
-    if (!MI->isPHI())
-      continue;
-
-    unsigned numUse               = 0;
-    MachineOperand *backEdgeInput = nullptr;
-    MachineOperand *initInput     = nullptr;
-    unsigned numOpnd              = 0;
-    unsigned backEdgeIndex        = 0;
-    unsigned dst                  = MI->getOperand(0).getReg();
-
-    for (MIOperands MO(*MI); MO.isValid(); ++MO, ++numOpnd) {
-      if (!MO->isReg())
-        continue;
-      // process use at loop level
-      if (MO->isUse()) {
-        ++numUse;
-        MachineOperand &mOpnd = *MO;
-        ++MO;
-        ++numOpnd;
-        MachineBasicBlock *inBB = MO->getMBB();
-        if (inBB == latchBB) {
-          backEdgeInput = &mOpnd;
-          backEdgeIndex = numOpnd - 1;
-        } else {
-          initInput = &mOpnd;
-        }
-      }
-    } // end for MO
-    if (numUse > 2) {
-      // loop hdr phi has more than 2 init inputs,
-      // remove backedge input reduce it to if-foot phi case to be handled by
-      // if-footer phi pass
-      initInput = &MI->getOperand(0);
-      const TargetRegisterClass *TRC =
-        MRI->getRegClass(MI->getOperand(0).getReg());
-      unsigned renameReg = MRI->createVirtualRegister(TRC);
-      initInput->setReg(renameReg);
-    }
-
-    MachineOperand *pickFalse;
-    MachineOperand *pickTrue;
-    if (pickCtrlInverted) {
-      pickFalse = backEdgeInput;
-      pickTrue  = initInput;
-    } else {
-      pickFalse = initInput;
-      pickTrue  = backEdgeInput;
-    }
-    TRC                       = MRI->getRegClass(dst);
-    const unsigned pickOpcode = TII->makeOpcode(CSA::Generic::PICK, TRC);
-    // generate PICK, and insert before MI
-    MachineInstr *pickInst = nullptr;
-    if (pickFalse->isReg() && pickTrue->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst)
-                   .addReg(cpyReg)
-                   .addReg(pickFalse->getReg())
-                   .addReg(pickTrue->getReg());
-    } else if (pickFalse->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst)
-                   .addReg(cpyReg)
-                   .addReg(pickFalse->getReg())
-                   .add(*pickTrue);
-    } else if (pickTrue->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst)
-                   .addReg(cpyReg)
-                   .add(*pickFalse)
-                   .addReg(pickTrue->getReg());
-    } else {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst)
-                   .addReg(cpyReg)
-                   .add(*pickFalse)
-                   .add(*pickTrue);
-    }
-
-    newGang.push_back(&pickInst->getOperand(pickCtrlInverted ? 3 : 2));
-    backGang.push_back(&pickInst->getOperand(pickCtrlInverted ? 2 : 3));
-
-    pickInst->setFlag(MachineInstr::NonSequential);
-    MI->removeFromParent();
-    if (numUse > 2) {
-      // move phi before the pick
-      MachineBasicBlock::iterator tmpI = pickInst;
-      mbb->insert(tmpI, MI);
-      MI->RemoveOperand(backEdgeIndex);
-      MI->RemoveOperand(backEdgeIndex);
-    }
+  // Convert the 0/1 indexes of the pick to operand numbers of the pick
+  // instruction itself.
+  unsigned pickIncomingIdx = DFLoop.getPickInitialIndex() + 2;
+  unsigned pickBackedgeIdx = DFLoop.getPickBackedgeIndex() + 2;
+  unsigned switchBackedgeIdx = DFLoop.getSwitchBackedgeIndex(0);
+  for (MachineInstr *pick : DFLoop.getHeaderPicks()) {
+    newGang.push_back(&pick->getOperand(pickIncomingIdx));
+    backGang.push_back(&pick->getOperand(pickBackedgeIdx));
   }
+
+  assert(!newGang.empty() && !backGang.empty() &&
+    "We have a loop with nothing flowing around the loop?");
 
   MachineOperand *newPulse  = newGang[0];
   MachineOperand *backPulse = backGang[0];
@@ -1290,17 +1204,17 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
     LMFI->setLICName(backPulse->getReg(), "backAll");
   }
 
-  SmallVector<MachineOperand *, 4> loopOutputs;
   // Look for loop outputs.
-  for (MachineOperand *g : backGang) {
-    MachineInstr* outSwitch = MRI->getUniqueVRegDef(g->getReg());
-    MachineOperand *loopOutput = &outSwitch->getOperand(pickCtrlInverted ? 1 : 0);
-    if (loopOutput->getReg() == CSA::IGN)
+  SmallVector<MachineOperand *, 4> loopOutputs;
+  unsigned OutgoingIdx = DFLoop.getSwitchLastIndex(0);
+  for (MachineInstr *ExitSwitch : DFLoop.getExitSwitches(0)) {
+    MachineOperand *LoopOutput = &ExitSwitch->getOperand(OutgoingIdx);
+    if (LoopOutput->getReg() == CSA::IGN)
       continue;
-    if (MRI->use_nodbg_empty(loopOutput->getReg()))
+    if (MRI->use_nodbg_empty(LoopOutput->getReg()))
       continue;
 
-    loopOutputs.push_back(loopOutput);
+    loopOutputs.push_back(LoopOutput);
   }
 
   // If there were no loop outputs, conceptually create a null operand which
@@ -1313,6 +1227,9 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
   // The completion buffers' indices (indicating space available) are used to
   // control admission into the pipeline.
   SmallVector<MachineOperand*, 4> newTokens;
+  unsigned cpyReg = (*DFLoop.getHeaderPicks().begin())->getOperand(1).getReg();
+  unsigned predReg =
+    (*DFLoop.getExitSwitches(0).begin())->getOperand(2).getReg();
   for (MachineOperand *g : loopOutputs) {
     unsigned newToken = LMFI->allocateLIC(&CSA::CI8RegClass, "newToken");
     unsigned bodyToken = LMFI->allocateLIC(&CSA::CI8RegClass, "bodyToken");
@@ -1325,7 +1242,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
     // Otherwise (if g is a real operand) it needs to be reordered.
     unsigned orderedOut = g ? g->getReg() : static_cast<unsigned>(CSA::IGN);
     const TargetRegisterClass *RC = g ? MRI->getRegClass(g->getReg()) : &CSA::CI1RegClass;
-    unsigned unorderedOut = g ? LMFI->allocateLIC(RC, "unorderedOut") : 
+    unsigned unorderedOut = g ? LMFI->allocateLIC(RC, "unorderedOut") :
                                                            static_cast<unsigned>(CSA::IGN);
     if (g)
       g->setReg(unorderedOut);
@@ -1344,7 +1261,7 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
       TII->getSizeOfRegisterClass(RC) < 1 ? &CSA::CI1RegClass : RC;
 
     MachineInstrBuilder compBuffer =
-      BuildMI(*mbb, lphdr->begin(), mloopLoc,
+      BuildMI(*lphdr, lphdr->begin(), mloopLoc,
           TII->get(TII->makeOpcode(CSA::Generic::COMPLETION, compRC)))
           .addDef(newToken)
           .addDef(orderedOut)
@@ -1353,24 +1270,25 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
           .addImm(numTokens);
     newTokens.push_back(&compBuffer->getOperand(0));
 
-    MachineInstrBuilder tokPick =
-      BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::PICK8), bodyToken)
+    // Pick and switch the token around the loop.
+    MachineInstr *tokPick =
+      BuildMI(*lphdr, lphdr->begin(), mloopLoc, TII->get(CSA::PICK8), bodyToken)
           .addReg(cpyReg)
-          .addReg(pickCtrlInverted ? backToken : newToken)
-          .addReg(pickCtrlInverted ? newToken : backToken);
-    (void) tokPick;
-    MachineInstrBuilder tokSwitch =
-      BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::SWITCH8))
-          .addDef(pickCtrlInverted ? backToken : outToken)
-          .addDef(pickCtrlInverted ? outToken : backToken)
+          .addReg(DFLoop.getPickInitialIndex() == 1 ? backToken : newToken)
+          .addReg(DFLoop.getPickInitialIndex() == 1 ? newToken : backToken);
+    MachineInstr *tokSwitch =
+      BuildMI(*lphdr, lphdr->begin(), mloopLoc, TII->get(CSA::SWITCH8))
+          .addDef(switchBackedgeIdx == 0 ? backToken : outToken)
+          .addDef(switchBackedgeIdx == 0 ? outToken : backToken)
           .addReg(predReg)
           .addReg(bodyToken);
-    (void) tokSwitch;
+    DFLoop.addHeaderPick(tokPick);
+    DFLoop.addExitSwitch(0, tokSwitch);
   }
   MachineOperand *haveTokens;
   if (newTokens.size()) {
     SmallVector<MachineInstr *, 4> useTreeInstrs;
-    haveTokens = createUseTree(mbb, lphdr->begin(), CSA::ALL0, newTokens, &useTreeInstrs);
+    haveTokens = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, newTokens, &useTreeInstrs);
     for (MachineInstr *newInst : useTreeInstrs)
       LMFI->addLICAttribute(std::begin(newInst->defs())->getReg(), "csasim_ignore_on_exit");
   } else {
@@ -1385,32 +1303,48 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
     LMFI->setLICName(g->getReg(), "backEdge");
   }
 
+  // Set up the criteria for accepting new iterations. First, delete the old
+  // loop instructions.
+  SmallVector<MachineInstr*, 2> oldDefs;
+  for (auto &MI : MRI->def_instructions(cpyReg))
+    oldDefs.push_back(&MI);
+  assert(oldDefs.size() == 2 && "Should have MOV+INIT for loop");
+  for (auto MI : oldDefs)
+    MI->eraseFromParent();
+
+  // Check to see if we both have sufficient space to execute a new iteration
+  // (which comes from haveTokens) and have a new iteration that is ready to
+  // execute (newPulse).
   MachineInstrBuilder newGated =
-    BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::GATE0),
+    BuildMI(*lphdr, lphdr->begin(), mloopLoc, TII->get(CSA::GATE0),
             LMFI->allocateLIC(&CSA::CI0RegClass, "newGated"))
       .addReg(haveTokens->getReg())
       .addReg(newPulse->getReg())
       .setMIFlag(MachineInstr::NonSequential);
 
+  // Choose whether or not to accept a new iteration or to continue an earlier
+  // one. The ANY here is a priority any--we'll prefer accepting new iterations
+  // if we have a choice.
   unsigned firstPrio          = newGated->getOperand(0).getReg();
   unsigned secondPrio         = backPulse->getReg();
-  MachineInstrBuilder any = BuildMI(*mbb, lphdr->begin(), mloopLoc,
-                                        TII->get(CSA::ANY0))
-                                  .addDef(cpyReg)
-                                  .addReg(firstPrio)
-                                  .addReg(secondPrio)
-                                  .addReg(CSA::NA)
-                                  .addReg(CSA::NA)
-                                  .setMIFlag(MachineInstr::NonSequential);
+  MachineInstrBuilder any = BuildMI(*lphdr, lphdr->begin(), mloopLoc,
+      TII->get(CSA::ANY0))
+    .addDef(cpyReg)
+    .addReg(firstPrio)
+    .addReg(secondPrio)
+    .addReg(CSA::NA)
+    .addReg(CSA::NA)
+    .setMIFlag(MachineInstr::NonSequential);
 
-  if (pickCtrlInverted) {
+  // If the new iteration is selected when pick index is 1, we need to negate
+  // the result of the ANY0 to select the corresponding values on the picks.
+  if (DFLoop.getPickInitialIndex() == 1) {
     any->getOperand(0).setReg(
       LMFI->allocateLIC(&CSA::CI1RegClass, "notLoopCtl"));
-    BuildMI(*mbb, lphdr->begin(), mloopLoc, TII->get(CSA::NOT1), cpyReg)
+    BuildMI(*lphdr, lphdr->begin(), mloopLoc, TII->get(CSA::NOT1), cpyReg)
       .addReg(any->getOperand(0).getReg())
       .setMIFlag(MachineInstr::NonSequential);
   }
-
 }
 
 // Utility function to create a tree of uses. For example, it can create
@@ -2839,8 +2773,7 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop *L) {
 
 void CSACvtCFDFPass::repeatOperandInLoop(
   MachineLoop *mloop, unsigned pickCtlReg, unsigned backedgePred,
-  bool flipBackedgePred, SmallVector<MachineOperand *, 4> *repeatIn,
-  SmallVector<MachineOperand *, 4> *repeatBack) {
+  bool flipBackedgePred) {
 
   MachineBasicBlock *lphdr   = mloop->getHeader();
   //MachineBasicBlock *latchBB = mloop->getLoopLatch();
@@ -2848,6 +2781,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(
   // pick
   // switch
   std::set<MachineInstr *> repeats;
+  CSALoopInfo &DFLoop = loopInfo[mloop];
 
   for (MachineLoop::block_iterator BI = mloop->block_begin(),
                                    BE = mloop->block_end();
@@ -2897,9 +2831,6 @@ void CSACvtCFDFPass::repeatOperandInLoop(
                 name + Twine(".loop_backedge_") + lphdr->getName());
             unsigned rptOReg = LMFI->allocateLIC(TRC,
                 name + Twine(".loop_inner_") + lphdr->getName());
-            if (repeatIn) {
-              repeatIn->push_back(dMI->findRegisterDefOperand(Reg));
-            }
             unsigned pickTrue, pickFalse;
             const unsigned pickOpcode =
               TII->makeOpcode(CSA::Generic::PICK, TRC);
@@ -2918,6 +2849,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(
                 .addReg(pickTrue);
             pickInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(pickInst);
+            DFLoop.addHeaderPick(pickInst);
 
             const unsigned switchOpcode =
               TII->makeOpcode(CSA::Generic::SWITCH, TRC);
@@ -2936,12 +2868,9 @@ void CSACvtCFDFPass::repeatOperandInLoop(
                              .addReg(backedgePred)
                              .addReg(rptOReg);
             }
-            if (repeatBack) {
-              repeatBack->push_back(
-                switchInst->findRegisterDefOperand(rptIReg));
-            }
             switchInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(switchInst);
+            DFLoop.addExitSwitch(0, switchInst);
             MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
             while (UI != MRI->use_end()) {
               MachineOperand &UseMO    = *UI;

@@ -16,6 +16,7 @@
 
 #include "CSA.h"
 #include "CSAInstrInfo.h"
+#include "CSALoopInfo.h"
 #include "CSAMachineFunctionInfo.h"
 #include "MachineCDG.h"
 #include "llvm/ADT/IntEqClasses.h"
@@ -67,9 +68,7 @@ public:
   void renameOnLoopEntry();
   void renameAcrossLoopForRepeat(MachineLoop *);
   void repeatOperandInLoop(MachineLoop *mloop, unsigned pickCtrlReg,
-                           unsigned backedgePred, bool pickCtrlInverted,
-                           SmallVector<MachineOperand *, 4> *in   = nullptr,
-                           SmallVector<MachineOperand *, 4> *back = nullptr);
+                           unsigned backedgePred, bool pickCtrlInverted);
   void repeatOperandInLoopUsePred(MachineLoop *mloop, MachineInstr *initInst,
                                   unsigned backedgePred, unsigned exitPred);
   MachineBasicBlock *
@@ -237,6 +236,11 @@ private:
   DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
   /// @}
 
+  /// Given a dataflow loop, pipeline the loop using inner-loop pipelining
+  /// that supports at most the given number of concurrent iterations.
+  void pipelineLoop(MachineBasicBlock *header, CSALoopInfo &DFLoop,
+                    unsigned numTokens);
+
 private:
   MachineFunction *thisMF;
   const CSAInstrInfo *TII;
@@ -259,6 +263,7 @@ private:
   DenseMap<MachineBasicBlock *, unsigned> bbpreds;
   DenseMap<MachineBasicBlock *, MachineInstr *> bb2predmerge;
   DenseMap<MachineBasicBlock *, unsigned> bb2rpo;
+  DenseMap<MachineLoop *, CSALoopInfo> loopInfo;
   std::set<MachineBasicBlock *> dcgBBs;
 
   /// Assign a name to the LIC.
