@@ -78,9 +78,8 @@
 #ifndef INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
 #define INTEL_LOOPTRANSFORMS_HIR_LOOP_DIST_PREPROC_GRAPH
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/AllSCCIterator.h"
@@ -97,6 +96,7 @@ namespace llvm {
 namespace loopopt {
 
 class DistPPGraph;
+class HIRSparseArrayReductionAnalysis;
 
 // a distppnode[distribution preprocessing node] represents an indivisible(by
 // loop dist anyway) chunk of the program. For example, an if block cannot be
@@ -201,7 +201,9 @@ public:
 
   DenseMap<HLNode *, DistPPNode *> &getNodeMap() { return HLToDistPPNodeMap; }
 
-  DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA, bool ForceCycleForLoopIndepDep);
+  DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
+              HIRSparseArrayReductionAnalysis &SARA,
+              bool ForceCycleForLoopIndepDep);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution

@@ -1479,9 +1479,7 @@ bool PartialInlinerImpl::run(Module &M) {
     std::pair<bool, Function * > Result = unswitchFunction(CurrFunc);
     if (Result.second)
       Worklist.push_back(Result.second);
-    if (Result.first) {
-      Changed = true;
-    }
+    Changed |= Result.first;
   }
 
   return Changed;

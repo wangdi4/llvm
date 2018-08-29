@@ -263,6 +263,9 @@ public:
                                          IRBuilder<> &Builder,
                                          unsigned Alignment, Value *Mask);
 
+  /// Return true if the type of AI instruction is not single vlaue type.
+  static bool isNotLegalSingleValueType(AllocaInst *AI, const DataLayout &DL);
+
   /// @}
 };
 

@@ -131,6 +131,120 @@ HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
       *PassRegistry::getPassRegistry());
 }
 
+/// Returns true if this bblock contains simd begin/end directive. \p BeginDir
+/// flag indicates whether to look for begin or end directive.
+static bool isSIMDOrParDirective(const Instruction *Inst, bool BeginDir) {
+  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
+
+  if (!IntrinInst) {
+    return false;
+  }
+
+  // TODO: Replace old simd directives by new region entry directives once VPO
+  // support is added.
+  if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinInst->getIntrinsicID())) {
+    StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
+        const_cast<IntrinsicInst *>(IntrinInst));
+
+    int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
+
+    return BeginDir ? (DirID == DIR_OMP_SIMD) : (DirID == DIR_OMP_END_SIMD);
+
+  } else if (IntrinInst->hasOperandBundles()) {
+    StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
+
+    return BeginDir ? TagName.equals("DIR.OMP.PARALLEL.LOOP")
+                    : TagName.equals("DIR.OMP.END.PARALLEL.LOOP");
+  }
+
+  return false;
+}
+
+/// Returns true if this bblock contains simd begin/end directive. \p BeginDir
+/// flag indicates whether to look for begin or end directive.
+static bool containsSIMDOrParDirective(const BasicBlock *BB, bool BeginDir) {
+  for (auto &Inst : *BB) {
+    if (isSIMDOrParDirective(&Inst, BeginDir)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/// Traces a chain of single predecessor/successor bblocks starting from \p BB
+/// and looks for simd begin/end directive. Returns the bblock containing the
+/// directive.
+static BasicBlock *findSIMDOrParDirective(BasicBlock *BB, bool BeginDir) {
+
+  for (; BB != nullptr;) {
+    if (containsSIMDOrParDirective(BB, BeginDir)) {
+      return BB;
+    }
+    BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
+  }
+
+  return nullptr;
+}
+
+/// Inserts chain of bblocks from BeginBB to EndBB inclusive, to RegBBlocks.
+static void addBBlocks(const BasicBlock *BeginBB, const BasicBlock *EndBB,
+                       bool ShouldWalkPredecessors,
+                       IRRegion::RegionBBlocksTy &RegBBlocks) {
+
+  for (auto TempBB = BeginBB;; TempBB = ShouldWalkPredecessors
+                                            ? TempBB->getSinglePredecessor()
+                                            : TempBB->getSingleSuccessor()) {
+    RegBBlocks.push_back(TempBB);
+
+    if (TempBB == EndBB) {
+      break;
+    }
+  }
+}
+
+/// Returns true if Lp is a SIMD or parallel loop. If RegBBlocks is non-null, it
+/// adds simd loop predecess/successor bblocks to it. Entry/Exit bblocks for the
+/// simd loop region are returned via \p EntryBB and \p ExitBB.
+static bool isSIMDOrParLoop(const Loop &Lp,
+                            IRRegion::RegionBBlocksTy *RegBBlocks = nullptr,
+                            BasicBlock **RegEntryBB = nullptr,
+                            BasicBlock **RegExitBB = nullptr) {
+
+  BasicBlock *ExitBB = Lp.getExitBlock();
+
+  // TODO: Multi-exit SIMD loops
+  if (!ExitBB) {
+    return false;
+  }
+
+  BasicBlock *PreheaderBB = Lp.getLoopPreheader();
+  BasicBlock *BeginBB = findSIMDOrParDirective(PreheaderBB, true);
+
+  if (!BeginBB) {
+    return false;
+  }
+
+  BasicBlock *EndBB = findSIMDOrParDirective(ExitBB, false);
+
+  assert(EndBB && "Could not find SIMD END Directive!");
+
+  if (RegBBlocks) {
+    addBBlocks(PreheaderBB, BeginBB, true, *RegBBlocks);
+    addBBlocks(ExitBB, EndBB, false, *RegBBlocks);
+  }
+
+  if (RegEntryBB) {
+    *RegEntryBB = BeginBB;
+  }
+
+  if (RegExitBB) {
+    *RegExitBB = EndBB;
+  }
+
+  return true;
+}
+
 void HIRRegionIdentification::computeLoopSpansForFusion(
     const SmallVectorImpl<const Loop *> &Loops,
     SmallVectorImpl<LoopSpanTy> &Spans) {
@@ -154,7 +268,7 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
 
     const Loop *Lp1Parent = Lp1->getParentLoop();
 
-    if (isSIMDLoop(*Lp1)) {
+    if (isSIMDOrParLoop(*Lp1)) {
       continue;
     }
 
@@ -178,7 +292,7 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
         break;
       }
 
-      if (isSIMDLoop(*Lp2)) {
+      if (isSIMDOrParLoop(*Lp2)) {
         break;
       }
 
@@ -535,7 +649,7 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
   // SIMD loops should not be throttled.
-  if (RI.isSIMDLoop(Lp)) {
+  if (isSIMDOrParLoop(Lp)) {
     IsProfitable = true;
     return;
   }
@@ -1018,7 +1132,10 @@ static bool hasUnsupportedOperandBundle(const CallInst *CI) {
   StringRef TagName = BU.getTagName();
 
   return !TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") &&
-         !TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT");
+         !TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT") &&
+         // TODO: can we switch to TagName.startwith("DIR.OMP") later?
+         !TagName.equals("DIR.OMP.PARALLEL.LOOP") &&
+         !TagName.equals("DIR.OMP.END.PARALLEL.LOOP");
 }
 
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
@@ -1183,7 +1300,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   // Skip loops with unsupported pragmas.
   MDNode *LoopID = Lp.getLoopID();
-  if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && LoopID &&
+  if (!DisablePragmaBailOut && !isSIMDOrParLoop(Lp) && LoopID &&
       !isSupportedMetadata(LoopID)) {
     LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops has unsupported pragma.\n");
     return false;
@@ -1280,102 +1397,6 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   return true;
 }
 
-bool HIRRegionIdentification::isSIMDDirective(const Instruction *Inst,
-                                              bool BeginDir) {
-  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
-
-  if (!IntrinInst) {
-    return false;
-  }
-
-  if (!vpo::VPOAnalysisUtils::isIntelDirective(IntrinInst->getIntrinsicID())) {
-    return false;
-  }
-
-  StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
-      const_cast<IntrinsicInst *>(IntrinInst));
-
-  int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
-
-  return BeginDir ? (DirID == DIR_OMP_SIMD) : (DirID == DIR_OMP_END_SIMD);
-}
-
-bool HIRRegionIdentification::containsSIMDDirective(const BasicBlock *BB,
-                                                    bool BeginDir) {
-  for (auto &Inst : *BB) {
-    if (isSIMDDirective(&Inst, BeginDir)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-BasicBlock *HIRRegionIdentification::findSIMDDirective(BasicBlock *BB,
-                                                       bool BeginDir) {
-
-  for (; BB != nullptr;) {
-    if (containsSIMDDirective(BB, BeginDir)) {
-      return BB;
-    }
-    BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
-  }
-
-  return nullptr;
-}
-
-void HIRRegionIdentification::addBBlocks(
-    const BasicBlock *BeginBB, const BasicBlock *EndBB,
-    IRRegion::RegionBBlocksTy &RegBBlocks) const {
-
-  for (auto TempBB = BeginBB;; TempBB = TempBB->getSingleSuccessor()) {
-    RegBBlocks.push_back(TempBB);
-
-    if (TempBB == EndBB) {
-      break;
-    }
-  }
-}
-
-bool HIRRegionIdentification::isSIMDLoop(const Loop &Lp,
-                                         IRRegion::RegionBBlocksTy *RegBBlocks,
-                                         BasicBlock **RegEntryBB,
-                                         BasicBlock **RegExitBB) const {
-
-  BasicBlock *ExitBB = Lp.getExitBlock();
-
-  // TODO: Multi-exit SIMD loops
-  if (!ExitBB) {
-    return false;
-  }
-
-  BasicBlock *PreheaderBB = Lp.getLoopPreheader();
-  BasicBlock *BeginBB = findSIMDDirective(PreheaderBB, true);
-
-  if (!BeginBB) {
-    return false;
-  }
-
-  BasicBlock *EndBB = findSIMDDirective(ExitBB, false);
-
-  assert(EndBB && "Could not find SIMD END Directive!");
-
-  if (RegBBlocks) {
-    addBBlocks(BeginBB, PreheaderBB, *RegBBlocks);
-    addBBlocks(ExitBB, EndBB, *RegBBlocks);
-  }
-
-  if (RegEntryBB) {
-    *RegEntryBB = BeginBB;
-  }
-
-  if (RegExitBB) {
-    *RegExitBB = EndBB;
-  }
-
-  return true;
-}
-
 void HIRRegionIdentification::createRegion(
     const ArrayRef<const Loop *> &Loops,
     const SmallPtrSetImpl<const BasicBlock *> *IntermediateBlocks) {
@@ -1400,8 +1421,8 @@ void HIRRegionIdentification::createRegion(
     bool IsFirstLoop = (Lp == Loops.front());
     bool IsLastLoop = (Lp == Loops.back());
 
-    isSIMDLoop(*Lp, &BBlocks, IsFirstLoop ? &EntryBB : nullptr,
-               IsLastLoop ? &ExitBB : nullptr);
+    isSIMDOrParLoop(*Lp, &BBlocks, IsFirstLoop ? &EntryBB : nullptr,
+                    IsLastLoop ? &ExitBB : nullptr);
 
     BBlocks.append(Lp->getBlocks().begin(), Lp->getBlocks().end());
   }
@@ -1612,7 +1633,8 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
   // We are looking for 16, single bblock loops which have a backedge count of
   // 3.
-  if (std::distance(LI.begin(), LI.end()) != 16) {
+  if (std::distance(LI.begin(), LI.end()) != 16 &&
+      std::distance(LI.begin(), LI.end()) != 4) {
     return false;
   }
 

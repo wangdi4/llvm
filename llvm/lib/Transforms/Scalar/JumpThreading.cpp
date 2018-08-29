@@ -33,7 +33,6 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -41,6 +40,7 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DomTreeUpdater.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -68,6 +68,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -311,7 +312,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DeferredDominance DDT(*DT);
+  DomTreeUpdater DTU(*DT, DomTreeUpdater::UpdateStrategy::Lazy);
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
   bool HasProfileData = F.hasProfileData();
@@ -321,7 +322,7 @@ bool JumpThreading::runOnFunction(Function &F) {
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DDT, HasProfileData,
+  bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DTU, HasProfileData,
                               std::move(BFI), std::move(BPI));
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
@@ -338,7 +339,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
-  DeferredDominance DDT(DT);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
@@ -348,7 +349,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  bool Changed = runImpl(F, &TLI, &LVI, &AA, &DDT, HasProfileData,
+  bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, HasProfileData,
                          std::move(BFI), std::move(BPI));
 
   if (!Changed)
@@ -364,14 +365,14 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
 
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 LazyValueInfo *LVI_, AliasAnalysis *AA_,
-                                DeferredDominance *DDT_, bool HasProfileData_,
+                                DomTreeUpdater *DTU_, bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
                                 std::unique_ptr<BranchProbabilityInfo> BPI_) {
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   LVI = LVI_;
   AA = AA_;
-  DDT = DDT_;
+  DTU = DTU_;
   BFI.reset();
   BPI.reset();
   // When profile data is available, we need to update edge weights after
@@ -388,7 +389,9 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   // JumpThreading must not processes blocks unreachable from entry. It's a
   // waste of compute time and can potentially lead to hangs.
   SmallPtrSet<BasicBlock *, 16> Unreachable;
-  DominatorTree &DT = DDT->flush();
+  assert(DTU && "DTU isn't passed into JumpThreading before using it.");
+  assert(DTU->hasDomTree() && "JumpThreading relies on DomTree to proceed.");
+  DominatorTree &DT = DTU->getDomTree();
   for (auto &BB : F)
     if (!DT.isReachableFromEntry(&BB))
       Unreachable.insert(&BB);
@@ -407,7 +410,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
       // Stop processing BB if it's the entry or is now deleted. The following
       // routines attempt to eliminate BB and locating a suitable replacement
       // for the entry is non-trivial.
-      if (&BB == &F.getEntryBlock() || DDT->pendingDeletedBB(&BB))
+      if (&BB == &F.getEntryBlock() || DTU->isBBPendingDeletion(&BB))
         continue;
 
       if (pred_empty(&BB)) {
@@ -420,7 +423,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         CountableLoopLatches.erase(&BB);   // INTEL
         CountableLoopHeaders.erase(&BB);   // INTEL
         LVI->eraseBlock(&BB);
-        DeleteDeadBlock(&BB, DDT);
+        DeleteDeadBlock(&BB, DTU);
         Changed = true;
         continue;
       }
@@ -435,9 +438,9 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
           // Don't alter Loop headers and latches to ensure another pass can
           // detect and transform nested loops later.
           !LoopHeaders.count(&BB) && !LoopHeaders.count(BI->getSuccessor(0)) &&
-          TryToSimplifyUncondBranchFromEmptyBlock(&BB, DDT)) {
-        // BB is valid for cleanup here because we passed in DDT. F remains
-        // BB's parent until a DDT->flush() event.
+          TryToSimplifyUncondBranchFromEmptyBlock(&BB, DTU)) {
+        // BB is valid for cleanup here because we passed in DTU. F remains
+        // BB's parent until a DTU->getDomTree() event.
         LVI->eraseBlock(&BB);
         CountableLoopLatches.erase(&BB); // INTEL
         CountableLoopHeaders.erase(&BB); // INTEL
@@ -450,7 +453,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   LoopHeaders.clear();
   CountableLoopLatches.clear(); // INTEL
   CountableLoopHeaders.clear(); // INTEL
-  DDT->flush();
+  // Flush only the Dominator Tree.
+  DTU->getDomTree();
   LVI->enableDT();
   return EverChanged;
 }
@@ -734,7 +738,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     // "X < 4" and "X < 3" is known true but "X < 4" itself is not available.
     // Perhaps getConstantOnEdge should be smart enough to do this?
 
-    if (DDT->pending())
+    if (DTU->hasPendingDomTreeUpdates())
       LVI->disableDT();
     else
       LVI->enableDT();
@@ -761,7 +765,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
 
   /// If I is a PHI node, then we know the incoming values for any constants.
   if (PHINode *PN = dyn_cast<PHINode>(I)) {
-    if (DDT->pending())
+    if (DTU->hasPendingDomTreeUpdates())
       LVI->disableDT();
     else
       LVI->enableDT();
@@ -959,7 +963,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
       const DataLayout &DL = PN->getModule()->getDataLayout();
       // We can do this simplification if any comparisons fold to true or false.
       // See if any do.
-      if (DDT->pending())
+      if (DTU->hasPendingDomTreeUpdates())
         LVI->disableDT();
       else
         LVI->enableDT();
@@ -1033,7 +1037,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
 
       if (!isa<Instruction>(CmpLHS) ||
           cast<Instruction>(CmpLHS)->getParent() != BB) {
-        if (DDT->pending())
+        if (DTU->hasPendingDomTreeUpdates())
           LVI->disableDT();
         else
           LVI->enableDT();
@@ -1068,7 +1072,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
             match(CmpLHS, m_Add(m_Value(AddLHS), m_ConstantInt(AddConst)))) {
           if (!isa<Instruction>(AddLHS) ||
               cast<Instruction>(AddLHS)->getParent() != BB) {
-            if (DDT->pending())
+            if (DTU->hasPendingDomTreeUpdates())
               LVI->disableDT();
             else
               LVI->enableDT();
@@ -1168,7 +1172,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
   }
 
   // If all else fails, see if LVI can figure out a constant value for us.
-  if (DDT->pending())
+  if (DTU->hasPendingDomTreeUpdates())
     LVI->disableDT();
   else
     LVI->enableDT();
@@ -1222,7 +1226,7 @@ static bool hasAddressTakenAndUsed(BasicBlock *BB) {
 bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
   // If the block is trivially dead, just return and let the caller nuke it.
   // This simplifies other transformations.
-  if (DDT->pendingDeletedBB(BB) ||
+  if (DTU->isBBPendingDeletion(BB) ||
       (pred_empty(BB) && BB != &BB->getParent()->getEntryBlock()))
     return false;
 
@@ -1242,7 +1246,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       CountableLoopLatches.erase(SinglePred);   // INTEL
       CountableLoopHeaders.erase(SinglePred);   // INTEL
       LVI->eraseBlock(SinglePred);
-      MergeBasicBlockIntoOnlyPred(BB, nullptr, DDT);
+      MergeBasicBlockIntoOnlyPred(BB, DTU);
 
       // Now that BB is merged into SinglePred (i.e. SinglePred Code followed by
       // BB code within one basic block `BB`), we need to invalidate the LVI
@@ -1339,7 +1343,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
                       << "' folding undef terminator: " << *BBTerm << '\n');
     BranchInst::Create(BBTerm->getSuccessor(BestSucc), BBTerm);
     BBTerm->eraseFromParent();
-    DDT->applyUpdates(Updates);
+    DTU->applyUpdates(Updates);
     return true;
   }
 
@@ -1351,7 +1355,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
                       << "' folding terminator: " << *BB->getTerminator()
                       << '\n');
     ++NumFolds;
-    ConstantFoldTerminator(BB, true, nullptr, DDT);
+    ConstantFoldTerminator(BB, true, nullptr, DTU);
     return true;
   }
 
@@ -1378,7 +1382,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       // threading is concerned.
       assert(CondBr->isConditional() && "Threading on unconditional terminator");
 
-      if (DDT->pending())
+      if (DTU->hasPendingDomTreeUpdates())
         LVI->disableDT();
       else
         LVI->enableDT();
@@ -1407,7 +1411,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
             ConstantInt::getFalse(CondCmp->getType());
           ReplaceFoldableUses(CondCmp, CI);
         }
-        DDT->deleteEdge(BB, ToRemoveSucc);
+        DTU->deleteEdgeRelaxed(BB, ToRemoveSucc);
         return true;
       }
 
@@ -1491,7 +1495,7 @@ bool JumpThreadingPass::ProcessImpliedCondition(BasicBlock *BB) {
       RemoveSucc->removePredecessor(BB);
       BranchInst::Create(KeepSucc, BI);
       BI->eraseFromParent();
-      DDT->deleteEdge(BB, RemoveSucc);
+      DTU->deleteEdgeRelaxed(BB, RemoveSucc);
       return true;
     }
     CurrentBB = CurrentPred;
@@ -1952,7 +1956,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
       TerminatorInst *Term = BB->getTerminator();
       BranchInst::Create(OnlyDest, Term);
       Term->eraseFromParent();
-      DDT->applyUpdates(Updates);
+      DTU->applyUpdates(Updates);
 
       // If the condition is now dead due to the removal of the old terminator,
       // erase it.
@@ -2447,7 +2451,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
 #endif // INTEL_CUSTOMIZATION
 
-  if (DDT->pending())
+  if (DTU->hasPendingDomTreeUpdates())
     LVI->disableDT();
   else
     LVI->enableDT();
@@ -2553,7 +2557,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
           }
 
           if (isa<TerminatorInst>(New))
-            DDT->applyUpdates({{DominatorTree::Insert, NewBB, NewDestBB}});
+            DTU->applyUpdates({{DominatorTree::Insert, NewBB, NewDestBB}});
 
           // If we are threading across a loop header, we have to update the
           // LoopHeaders set. To do this precisely, we would need to re-run
@@ -2637,13 +2641,13 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       PredTerm->setSuccessor(i, BlockMapping[RegionTop]);
     }
 
-  DDT->applyUpdates({{DominatorTree::Insert, BlockMapping[RegionBottom],
+  DTU->applyUpdates({{DominatorTree::Insert, BlockMapping[RegionBottom],
                       SuccBB},
                      {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
                      {DominatorTree::Delete, PredBB, RegionTop}});
 
-  // Apply all updates we queued with DDT and get the updated Dominator Tree.
-  DominatorTree *DT = &DDT->flush();
+  // Apply all updates we queued with DTU and get the updated Dominator Tree.
+  DominatorTree *DT = &DTU->getDomTree();
   (void)DT;
 
 
@@ -2759,7 +2763,7 @@ BasicBlock *JumpThreadingPass::SplitBlockPreds(BasicBlock *BB,
       BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
   }
 
-  DDT->applyUpdates(Updates);
+  DTU->applyUpdates(Updates);
   return NewBBs[0];
 }
 
@@ -3128,7 +3132,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
 
   // Remove the unconditional branch at the end of the PredBB block.
   OldPredBranch->eraseFromParent();
-  DDT->applyUpdates(Updates);
+  DTU->applyUpdates(Updates);
 
   ++NumDupes;
   return true;
@@ -3171,7 +3175,7 @@ bool JumpThreadingPass::TryToUnfoldSelect(CmpInst *CondCmp, BasicBlock *BB) {
     // Now check if one of the select values would allow us to constant fold the
     // terminator in BB. We don't do the transform if both sides fold, those
     // cases will be threaded in any case.
-    if (DDT->pending())
+    if (DTU->hasPendingDomTreeUpdates())
       LVI->disableDT();
     else
       LVI->enableDT();
@@ -3205,7 +3209,7 @@ bool JumpThreadingPass::TryToUnfoldSelect(CmpInst *CondCmp, BasicBlock *BB) {
       // The select is now dead.
       SI->eraseFromParent();
 
-      DDT->applyUpdates({{DominatorTree::Insert, NewBB, BB},
+      DTU->applyUpdates({{DominatorTree::Insert, NewBB, BB},
                          {DominatorTree::Insert, Pred, NewBB}});
       // Update any other PHI nodes in BB.
       for (BasicBlock::iterator BI = BB->begin();
@@ -3298,12 +3302,12 @@ bool JumpThreadingPass::TryToUnfoldSelectInCurrBB(BasicBlock *BB) {
     Updates.push_back({DominatorTree::Insert, BB, SplitBB});
     Updates.push_back({DominatorTree::Insert, BB, NewBB});
     Updates.push_back({DominatorTree::Insert, NewBB, SplitBB});
-    // BB's successors were moved to SplitBB, update DDT accordingly.
+    // BB's successors were moved to SplitBB, update DTU accordingly.
     for (auto *Succ : successors(SplitBB)) {
       Updates.push_back({DominatorTree::Delete, BB, Succ});
       Updates.push_back({DominatorTree::Insert, SplitBB, Succ});
     }
-    DDT->applyUpdates(Updates);
+    DTU->applyUpdates(Updates);
     return true;
   }
   return false;
@@ -3417,7 +3421,7 @@ bool JumpThreadingPass::ThreadGuard(BasicBlock *BB, IntrinsicInst *Guard,
   // DuplicateInstructionsInSplitBetween inserts a new block "BB.split" between
   // PredBB and BB. We need to perform two inserts and one delete for each of
   // the above calls to update Dominators.
-  DDT->applyUpdates(
+  DTU->applyUpdates(
       {// Guarded block split.
        {DominatorTree::Delete, PredGuardedBlock, BB},
        {DominatorTree::Insert, PredGuardedBlock, GuardedBlock},

@@ -470,7 +470,7 @@ private:
 #endif // INTEL_CUSTOMIZATION
   void visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS);
   void visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI);
-  void visitDbgIntrinsic(StringRef Kind, DbgInfoIntrinsic &DII);
+  void visitDbgIntrinsic(StringRef Kind, DbgVariableIntrinsic &DII);
   void visitDbgLabelIntrinsic(StringRef Kind, DbgLabelInst &DLI);
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &CXI);
   void visitAtomicRMWInst(AtomicRMWInst &RMWI);
@@ -508,12 +508,12 @@ private:
   void verifyFrameRecoverIndices();
   void verifySiblingFuncletUnwinds();
 
-  void verifyFragmentExpression(const DbgInfoIntrinsic &I);
+  void verifyFragmentExpression(const DbgVariableIntrinsic &I);
   template <typename ValueOrMetadata>
   void verifyFragmentExpression(const DIVariable &V,
                                 DIExpression::FragmentInfo Fragment,
                                 ValueOrMetadata *Desc);
-  void verifyFnArgs(const DbgInfoIntrinsic &I);
+  void verifyFnArgs(const DbgVariableIntrinsic &I);
 
   /// Module-level debug info verification...
   void verifyCompileUnits();
@@ -893,6 +893,8 @@ void Verifier::visitDIBasicType(const DIBasicType &N) {
   AssertDI(N.getTag() == dwarf::DW_TAG_base_type ||
                N.getTag() == dwarf::DW_TAG_unspecified_type,
            "invalid tag", &N);
+  AssertDI(!(N.isBigEndian() && N.isLittleEndian()) ,
+            "has conflicting flags", &N);
 }
 
 void Verifier::visitDIDerivedType(const DIDerivedType &N) {
@@ -4088,7 +4090,7 @@ void Verifier::visitInstruction(Instruction &I) {
     visitMDNode(*N);
   }
 
-  if (auto *DII = dyn_cast<DbgInfoIntrinsic>(&I))
+  if (auto *DII = dyn_cast<DbgVariableIntrinsic>(&I))
     verifyFragmentExpression(*DII);
 
   InstsInThisBlock.insert(&I);
@@ -4194,13 +4196,13 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
   case Intrinsic::dbg_declare: // llvm.dbg.declare
     Assert(isa<MetadataAsValue>(CS.getArgOperand(0)),
            "invalid llvm.dbg.declare intrinsic call 1", CS);
-    visitDbgIntrinsic("declare", cast<DbgInfoIntrinsic>(*CS.getInstruction()));
+    visitDbgIntrinsic("declare", cast<DbgVariableIntrinsic>(*CS.getInstruction()));
     break;
   case Intrinsic::dbg_addr: // llvm.dbg.addr
-    visitDbgIntrinsic("addr", cast<DbgInfoIntrinsic>(*CS.getInstruction()));
+    visitDbgIntrinsic("addr", cast<DbgVariableIntrinsic>(*CS.getInstruction()));
     break;
   case Intrinsic::dbg_value: // llvm.dbg.value
-    visitDbgIntrinsic("value", cast<DbgInfoIntrinsic>(*CS.getInstruction()));
+    visitDbgIntrinsic("value", cast<DbgVariableIntrinsic>(*CS.getInstruction()));
     break;
   case Intrinsic::dbg_label: // llvm.dbg.label
     visitDbgLabelIntrinsic("label", cast<DbgLabelInst>(*CS.getInstruction()));
@@ -4595,7 +4597,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
          "invalid exception behavior argument", &FPI);
 }
 
-void Verifier::visitDbgIntrinsic(StringRef Kind, DbgInfoIntrinsic &DII) {
+void Verifier::visitDbgIntrinsic(StringRef Kind, DbgVariableIntrinsic &DII) {
   auto *MD = cast<MetadataAsValue>(DII.getArgOperand(0))->getMetadata();
   AssertDI(isa<ValueAsMetadata>(MD) ||
              (isa<MDNode>(MD) && !cast<MDNode>(MD)->getNumOperands()),
@@ -4635,9 +4637,9 @@ void Verifier::visitDbgIntrinsic(StringRef Kind, DbgInfoIntrinsic &DII) {
 }
 
 void Verifier::visitDbgLabelIntrinsic(StringRef Kind, DbgLabelInst &DLI) {
-  AssertDI(isa<DILabel>(DLI.getRawVariable()),
+  AssertDI(isa<DILabel>(DLI.getRawLabel()),
          "invalid llvm.dbg." + Kind + " intrinsic variable", &DLI,
-         DLI.getRawVariable());
+         DLI.getRawLabel());
 
   // Ignore broken !dbg attachments; they're checked elsewhere.
   if (MDNode *N = DLI.getDebugLoc().getAsMDNode())
@@ -4664,10 +4666,7 @@ void Verifier::visitDbgLabelIntrinsic(StringRef Kind, DbgLabelInst &DLI) {
            Loc->getScope()->getSubprogram());
 }
 
-void Verifier::verifyFragmentExpression(const DbgInfoIntrinsic &I) {
-  if (dyn_cast<DbgLabelInst>(&I))
-    return;
-
+void Verifier::verifyFragmentExpression(const DbgVariableIntrinsic &I) {
   DILocalVariable *V = dyn_cast_or_null<DILocalVariable>(I.getRawVariable());
   DIExpression *E = dyn_cast_or_null<DIExpression>(I.getRawExpression());
 
@@ -4709,7 +4708,7 @@ void Verifier::verifyFragmentExpression(const DIVariable &V,
   AssertDI(FragSize != *VarSize, "fragment covers entire variable", Desc, &V);
 }
 
-void Verifier::verifyFnArgs(const DbgInfoIntrinsic &I) {
+void Verifier::verifyFnArgs(const DbgVariableIntrinsic &I) {
   // This function does not take the scope of noninlined function arguments into
   // account. Don't run it if current function is nodebug, because it may
   // contain inlined debug intrinsics.

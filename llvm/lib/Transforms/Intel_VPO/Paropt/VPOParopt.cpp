@@ -48,6 +48,10 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+static cl::opt<bool> SwitchToOffload(
+    "switch-to-offload", cl::Hidden, cl::init(false),
+    cl::desc("switch to offload mode (default = false)"));
+
 INITIALIZE_PASS_BEGIN(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
@@ -161,7 +165,7 @@ bool VPOParoptPass::runImpl(
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                           WI.getTargetTransformInfo(), WI.getAssumptionCache(),
                           WI.getTargetLibraryInfo(), WI.getAliasAnalysis(),
-                          Mode, OffloadTargets, OptLevel);
+                          Mode, OffloadTargets, OptLevel, SwitchToOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
@@ -183,8 +187,19 @@ bool VPOParoptPass::runImpl(
     fixTidAndBidGlobals(M);
 
   genCtorList(M);
-  if (Mode & OmpOffload)
+  if (((Mode & OmpOffload) || SwitchToOffload) && (Mode & ParTrans)) {
     removeTargetUndeclaredGlobals(M);
+    if (VPOAnalysisUtils::isTargetSPIRV(&M)) {
+      // Add the metadata to indicate that the module is OpenCL C version.
+      LLVMContext &C = M.getContext();
+      SmallVector<Metadata *, 8> opSource = {
+          ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 3)),
+          ConstantAsMetadata::get(
+              ConstantInt::get(Type::getInt32Ty(C), 200000))};
+      MDNode *srcMD = MDNode::get(C, opSource);
+      M.getOrInsertNamedMetadata("spirv.Source")->addOperand(srcMD);
+    }
+  }
 
   // Thread private legacy mode implementation
   if (Mode & OmpTpv) {

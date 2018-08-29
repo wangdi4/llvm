@@ -11,8 +11,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; 1, 6 and 7 fields are selected for possible candidates.
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64, i64 }
 
-; CHECK-LABEL:    Init Routine: init
-; CHECK:    InitRoutine failed...Indirect call:   %call = call i32 %t0()
+; CHECK:    Indirect Call ... Skip DynClone
+; CHECK-NOT:    Init Routine: init
 
 ; Indirect call %t0() and direct call "proc2()" are two legality issues
 ; here to qualify  "init" routine as InitRoutine. These two calls are called

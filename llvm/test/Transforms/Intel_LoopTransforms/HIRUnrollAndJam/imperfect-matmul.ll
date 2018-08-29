@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Verify that we unroll i1 loop by 2 and i2 loop by 8.
+; Verify that we unroll i1 loop by 4 and i2 loop by 4 by 'equalizing' the unroll factors.
 
 ; + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -15,56 +15,46 @@
 ; |   + END LOOP
 ; + END LOOP
 
-; CHECK: %tgu = (%N)/u2;
+; CHECK: %tgu = (%N)/u4;
 
-; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 512>
-; CHECK: |   %tgu3 = (%N)/u8;
+; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 256>
+; CHECK: |   %tgu5 = (%N)/u4;
 ; CHECK: |
-; CHECK: |   + DO i2 = 0, %tgu3 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 128>
-; CHECK: |   |   %temp4 = (@b)[0][8 * i2][2 * i1];
-; CHECK: |   |   %temp5 = (@b)[0][8 * i2][2 * i1 + 1];
-; CHECK: |   |   %temp6 = (@b)[0][8 * i2 + 1][2 * i1];
-; CHECK: |   |   %temp7 = (@b)[0][8 * i2 + 1][2 * i1 + 1];
-; CHECK: |   |   %temp8 = (@b)[0][8 * i2 + 2][2 * i1];
-; CHECK: |   |   %temp9 = (@b)[0][8 * i2 + 2][2 * i1 + 1];
-; CHECK: |   |   %temp10 = (@b)[0][8 * i2 + 3][2 * i1];
-; CHECK: |   |   %temp11 = (@b)[0][8 * i2 + 3][2 * i1 + 1];
-; CHECK: |   |   %temp12 = (@b)[0][8 * i2 + 4][2 * i1];
-; CHECK: |   |   %temp13 = (@b)[0][8 * i2 + 4][2 * i1 + 1];
-; CHECK: |   |   %temp14 = (@b)[0][8 * i2 + 5][2 * i1];
-; CHECK: |   |   %temp15 = (@b)[0][8 * i2 + 5][2 * i1 + 1];
-; CHECK: |   |   %temp16 = (@b)[0][8 * i2 + 6][2 * i1];
-; CHECK: |   |   %temp17 = (@b)[0][8 * i2 + 6][2 * i1 + 1];
-; CHECK: |   |   %temp = (@b)[0][8 * i2 + 7][2 * i1];
-; CHECK: |   |   %0 = (@b)[0][8 * i2 + 7][2 * i1 + 1];
+; CHECK: |   + DO i2 = 0, %tgu5 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 256>
+; CHECK: |   |   %temp6 = (@b)[0][4 * i2][4 * i1];
+; CHECK: |   |   %temp7 = (@b)[0][4 * i2][4 * i1 + 1];
+; CHECK: |   |   %temp8 = (@b)[0][4 * i2][4 * i1 + 2];
+; CHECK: |   |   %temp9 = (@b)[0][4 * i2][4 * i1 + 3];
+
+; CHECK: |   |   %0 = (@b)[0][4 * i2 + 3][4 * i1 + 3];
 ; CHECK: |   |
 ; CHECK: |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; CHECK: |   |   |   %mul = (@a)[0][i3][8 * i2]  *  %temp4;
-; CHECK: |   |   |   %add = (@c)[0][i3][2 * i1]  +  %mul;
-; CHECK: |   |   |   (@c)[0][i3][2 * i1] = %add;
-; CHECK: |   |   |   %mul = (@a)[0][i3][8 * i2]  *  %temp5;
-; CHECK: |   |   |   %add = (@c)[0][i3][2 * i1 + 1]  +  %mul;
-; CHECK: |   |   |   (@c)[0][i3][2 * i1 + 1] = %add;
+; CHECK: |   |   |   %mul = (@a)[0][i3][4 * i2]  *  %temp6;
+; CHECK: |   |   |   %add = (@c)[0][i3][4 * i1]  +  %mul;
+; CHECK: |   |   |   (@c)[0][i3][4 * i1] = %add;
+; CHECK: |   |   |   %mul = (@a)[0][i3][4 * i2]  *  %temp7;
+; CHECK: |   |   |   %add = (@c)[0][i3][4 * i1 + 1]  +  %mul;
+; CHECK: |   |   |   (@c)[0][i3][4 * i1 + 1] = %add;
+
 
 ; Skipping rest of the loop body as it is too big.
 
-; CHECK: |   + DO i2 = 8 * %tgu3, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>
-; CHECK: |   |   %temp = (@b)[0][i2][2 * i1];
-; CHECK: |   |   %0 = (@b)[0][i2][2 * i1 + 1];
+; CHECK: |   + DO i2 = 4 * %tgu5, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
+; CHECK: |   |   %temp = (@b)[0][i2][4 * i1];
+; CHECK: |   |   %temp3 = (@b)[0][i2][4 * i1 + 1];
+; CHECK: |   |   %temp4 = (@b)[0][i2][4 * i1 + 2];
+; CHECK: |   |   %0 = (@b)[0][i2][4 * i1 + 3];
 ; CHECK: |   |
 ; CHECK: |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; CHECK: |   |   |   %mul = (@a)[0][i3][i2]  *  %temp;
-; CHECK: |   |   |   %add = (@c)[0][i3][2 * i1]  +  %mul;
-; CHECK: |   |   |   (@c)[0][i3][2 * i1] = %add;
-; CHECK: |   |   |   %mul = (@a)[0][i3][i2]  *  %0;
-; CHECK: |   |   |   %add = (@c)[0][i3][2 * i1 + 1]  +  %mul;
-; CHECK: |   |   |   (@c)[0][i3][2 * i1 + 1] = %add;
+; CHECK: |   |   |   %add = (@c)[0][i3][4 * i1]  +  %mul;
+; CHECK: |   |   |   (@c)[0][i3][4 * i1] = %add;
+
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-
-; CHECK: + DO i1 = 2 * %tgu, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>
+; CHECK: + DO i1 = 4 * %tgu, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK: |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; CHECK: |   |   %0 = (@b)[0][i2][i1];
 ; CHECK: |   |
@@ -75,6 +65,7 @@
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
+
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

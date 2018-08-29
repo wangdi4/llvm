@@ -1,8 +1,7 @@
 ; RUN: opt < %s  -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis  -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
-; CHECK: Safe Reduction
-; CHECK:  %hir.de.ssa.copy0.out = %15;
+; CHECK:  %hir.de.ssa.copy0.out = %15; <Safe Reduction>
 ;
 ; ModuleID = 't2278.c'
 source_filename = "t2278.c"

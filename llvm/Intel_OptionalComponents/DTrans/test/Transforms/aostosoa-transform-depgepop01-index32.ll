@@ -99,16 +99,16 @@ define internal void @test03(%struct.test01* %in) {
 define internal void @test04(%struct.test01** %in) {
 ; CHECK-LABEL: define internal void @test04
 
-  %ptrtoptr_struct = load i8**, i8***
+  %ptrtoptr_struct = load i8*, i8**
     bitcast (%struct.test01***
        getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 2)
-    to i8***)
+    to i8**)
 
 ; CHECK: [[LOADED:%[0-9]+]] = load i32*, i32** getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 2)
-; CHECK: %ptrtoptr_struct = bitcast i32* [[LOADED]] to i8**
+; CHECK: %ptrtoptr_struct = bitcast i32* [[LOADED]] to i8*
 
-  %in8 = bitcast %struct.test01** %in to i8**
-  %same = icmp eq i8** %ptrtoptr_struct, %in8
+  %in8 = bitcast %struct.test01** %in to i8*
+  %same = icmp eq i8* %ptrtoptr_struct, %in8
 
   ret void
 }
@@ -119,12 +119,12 @@ define internal void @test04(%struct.test01** %in) {
 define internal void @test05(%struct.test01** %in) {
 ; CHECK-LABEL: define internal void @test05
 
-  %in8 = bitcast %struct.test01** %in to i8**
-  store i8** %in8, i8***
+  %in8 = bitcast %struct.test01** %in to i8*
+  store i8* %in8, i8**
     bitcast (%struct.test01***
       getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 2)
-    to i8***)
-; CHECK:  [[SOA_BC:%[0-9]+]] = bitcast i8** %in8 to i32*
+    to i8**)
+; CHECK:  [[SOA_BC:%[0-9]+]] = bitcast i8* %in8 to i32*
 ; CHECK: store i32* [[SOA_BC]], i32** getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 2)
 
   ret void

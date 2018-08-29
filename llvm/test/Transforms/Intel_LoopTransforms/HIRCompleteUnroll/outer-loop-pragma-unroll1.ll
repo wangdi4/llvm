@@ -2,7 +2,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we unroll the i1 and i3 loops with unroll count metadata.
-; TODO: teach redundant node removal utility to look at ztt.
 
 ; HIR-
 ; + DO i1 = 0, 1, 1   <DO_LOOP>
@@ -19,13 +18,6 @@
 
 
 ; CHECK: + DO i1 = 0, 3, 1   <DO_LOOP>
-; CHECK: |      %1 = (%A)[0];
-; CHECK: |   + DO i2 = 0, -1, 1   <DO_LOOP>  <MAX_TC_EST = 2>
-; CHECK: |   |   %1 = %1  +  (%B)[i1 + i2];
-; CHECK: |   |   (%A)[0] = %1;
-; CHECK: |   + END LOOP
-; CHECK: |
-; CHECK: |
 ; CHECK: |      %1 = (%A)[1];
 ; CHECK: |   + DO i2 = 0, 0, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK: |   |   %1 = %1  +  (%B)[i1 + i2];

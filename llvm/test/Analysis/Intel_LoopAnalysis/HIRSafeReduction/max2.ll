@@ -8,9 +8,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-temp-cleanup -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis 2>&1 | FileCheck %s
 
-; CHECK:   Safe Reduction
-
-; CHECK:   %t2.013 = (%t2.013 > %0) ? %t2.013 : %0;
+; CHECK:   %t2.013 = (%t2.013 > %0) ? %t2.013 : %0; <Safe Reduction>
 
 ;Module Before HIR; ModuleID = 'max2.c'
 source_filename = "max2.c"

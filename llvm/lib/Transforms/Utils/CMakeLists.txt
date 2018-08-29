@@ -18,11 +18,13 @@ add_llvm_library(LLVMTransformUtils
   FunctionComparator.cpp
   FunctionImportUtils.cpp
   GlobalStatus.cpp
+  ImplicitControlFlowTracking.cpp
   InlineFunction.cpp
   ImportedFunctionsInliningStatistics.cpp
   InstructionNamer.cpp
   IntegerDivision.cpp
 # INTEL_COLLAB
+  Intel_InferAddressSpacesUtils.cpp
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
   ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils

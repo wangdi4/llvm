@@ -19,8 +19,9 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANHCFGBUILDER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANHCFGBUILDER_H
 
-#include "IntelVPlan.h"
 #include "IntelLoopVectorizationCodeGen.h" //Only for Legal.
+#include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"

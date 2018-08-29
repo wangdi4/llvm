@@ -230,7 +230,11 @@ public:
   /// all ith elements of this and the ith elements of the \p Memref are a
   /// constant distance apart. Otherwise, returns false. When true is returned
   /// the constant distance is returned in \p Dist in terms of bytes, otherwise
-  /// \p Dist is undefined.
+  /// \p Dist is undefined. \p Dist = Distance(this) - Distance(Memref). i.e.
+  /// Dist is to be added to Memref's Distance to get the Distance
+  /// of 'this'. Positive distance implies that 'this' is located
+  /// at a memory address more than that of Memref and negative distance implies
+  /// that it's memory address is lower than Memref.
   ///
   /// Please note that, VLS requires the distance that LLVM-IR maintains between
   /// the memrefs. Therefore, this distance computation in the client should
@@ -485,7 +489,7 @@ private:
   uint8_t ConstValue[BitWidth / 8];
 
 public:
-  explicit OVLSConstant(OVLSType T, int8_t *V) : OVLSOperand(OK_Constant, T) {
+  explicit OVLSConstant(OVLSType T,const int8_t *V) : OVLSOperand(OK_Constant, T) {
     assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
     memcpy(ConstValue, V, T.getSize() / BYTE);
   }
@@ -1021,6 +1025,30 @@ public:
   static bool getSequence(const OVLSGroup &Group, const OVLSCostModel &CM,
                           OVLSInstructionVector &InstVector,
                           OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
+
+private:
+  /// \brief getSequencePredefined() is called by getSequence() function.
+  /// It checks if there are any predefined sequences identified to better
+  /// optimize the set of gathers or scatters in \p Group. If they are, the
+  /// function returns true and the optimized sequences in OVLSInstruction
+  /// format in \p InstVector. Optionally it returns the mapping between the
+  /// OVLSMemrefs (of the Group) and the associated OVLSIntruction in \p
+  /// MemrefToInstMap.
+  static bool
+  getSequencePredefined(const OVLSGroup &Group,
+                        OVLSInstructionVector &InstVector,
+                        OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
+
+  /// Function that generates sequences for the following group:
+  //  Loads on arr[4*i], arr[4*i+1], arr[4*i+2], arr[4*i+3] <8 x i32>
+  //  Load.
+  //  Stride: 4bytes(i32) * 4 = 16 bytes Constant.
+  //  Packed - No gaps in the loads.
+  //  Vector Register: <8 x i32>
+  static bool
+  genSeqLoadStride16Packed8xi32(const OVLSGroup &Group,
+                                OVLSInstructionVector &InstVector,
+                                OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
 };
 }
 #endif

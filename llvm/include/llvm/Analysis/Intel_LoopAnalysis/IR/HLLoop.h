@@ -194,7 +194,9 @@ protected:
   void printDetails(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const;
 
-  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
+  void printDirectives(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef RemoveID);
 
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
@@ -405,10 +407,14 @@ public:
   RegDDRef *getTripCountDDRef(unsigned NestingLevel = (MaxLoopNestLevel +
                                                        1)) const;
 
+  // Returns true if loop has ZTT and it may be proven to always evaluate to the
+  // same result, that is stored to \p IsTrue argument.
+  // Note, this will return false if there is no ZTT.
+  bool isKnownZttPredicate(bool *IsTrue = nullptr) const;
+
   /// Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
-  bool isConstTripLoop(uint64_t *TripCnt = nullptr,
-                       bool AllowZeroTripCount = false) const;
+  bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
 
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {
@@ -459,7 +465,7 @@ public:
 
   reverse_pre_iterator pre_rbegin() { return ++ChildBegin.getReverse(); }
   const_reverse_pre_iterator pre_rbegin() const {
-    return const_cast<HLLoop*>(this)->pre_rbegin();
+    return const_cast<HLLoop *>(this)->pre_rbegin();
   }
 
   reverse_pre_iterator pre_rend() { return Children.rend(); }
@@ -746,11 +752,11 @@ public:
   ///
   /// The MDNode should have the format !{!"string-identifier", Args...}
   void addLoopMetadata(ArrayRef<MDNode *> MDs) {
-    addRemoveLoopMetadataImpl(MDs, nullptr);
+    addRemoveLoopMetadataImpl(MDs, "");
   }
 
   /// Remove !llvm.loop metadata that starts with \p ID.
-  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, &ID); }
+  void removeLoopMetadata(StringRef ID) { addRemoveLoopMetadataImpl({}, ID); }
 
   /// Returns loop metadata corresponding to \p Name. Returns null if not found.
   MDNode *getLoopStringMetadata(StringRef Name) const;
@@ -762,6 +768,12 @@ public:
   bool hasUnrollEnablingPragma() const {
     return hasCompleteUnrollEnablingPragma() ||
            hasGeneralUnrollEnablingPragma();
+  }
+
+  /// Returns true if loop has pragma to disable complete or general unrolling.
+  bool hasUnrollDisablingPragma() const {
+    return hasCompleteUnrollDisablingPragma() ||
+           hasGeneralUnrollDisablingPragma();
   }
 
   /// Returns true if loop has pragma to enable complete unrolling.
@@ -943,6 +955,8 @@ public:
 
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
+
+  void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);
 };
 
 } // End namespace loopopt

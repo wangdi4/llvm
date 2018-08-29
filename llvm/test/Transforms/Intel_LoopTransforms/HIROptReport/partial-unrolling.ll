@@ -19,12 +19,12 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
 
-; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
+; CHECK: [[M1:!.*]] = distinct !{[[M1]], {{!.*}}, [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", !"Loop has been unrolled by %d factor", {{.*}}}
-; CHECK: [[M6:!.*]] = distinct !{[[M6]], [[M7:!.*]]}
+; CHECK: [[M6:!.*]] = distinct !{[[M6]], {{!.*}}, [[M7:!.*]]}
 ; CHECK: [[M7]] = distinct !{!"llvm.loop.optreport", [[M8:!.*]]}
 ; CHECK: [[M8]] = distinct !{!"intel.loop.optreport", [[M9:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}

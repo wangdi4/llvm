@@ -268,7 +268,8 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
       return false;
     }
 
-    if (Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
+    if (!RelaxedMode &&
+        Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
       return false;
     }
 
@@ -330,14 +331,14 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
 
 bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2, unsigned LoopLevel,
-                                      int64_t *Distance) {
+                                      int64_t *Distance, bool RelaxedMode) {
 
   // Dealing with GEP refs only
   if (!Ref1->hasGEPInfo() || !Ref2->hasGEPInfo()) {
     return false;
   }
 
-  if (!haveEqualBaseAndShape(Ref1, Ref2, false)) {
+  if (!haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
     return false;
   }
 
@@ -346,7 +347,8 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   // scalar replacement which now need to handle such cases.
   // TODO: Remove this check and let the transformations decide what to do with
   // such refs.
-  if (Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
+  if (!RelaxedMode &&
+      Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
     return false;
   }
 
@@ -382,11 +384,11 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
 
     int64_t CurDelta;
 
-    bool Res =
-        NeedIterDistance
-            ? CanonExprUtils::getConstIterationDistance(Ref1CE, Ref2CE,
-                                                        LoopLevel, &CurDelta)
-            : CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, &CurDelta);
+    bool Res = NeedIterDistance
+                   ? CanonExprUtils::getConstIterationDistance(
+                         Ref1CE, Ref2CE, LoopLevel, &CurDelta, RelaxedMode)
+                   : CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, &CurDelta,
+                                                      RelaxedMode);
 
     if (!Res) {
       return false;
@@ -418,15 +420,17 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
 }
 
 bool DDRefUtils::getConstByteDistance(const RegDDRef *Ref1,
-                                      const RegDDRef *Ref2, int64_t *Distance) {
-  return getConstDistanceImpl(Ref1, Ref2, 0, Distance);
+                                      const RegDDRef *Ref2, int64_t *Distance,
+                                      bool RelaxedMode) {
+  return getConstDistanceImpl(Ref1, Ref2, 0, Distance, RelaxedMode);
 }
 
 bool DDRefUtils::getConstIterationDistance(const RegDDRef *Ref1,
                                            const RegDDRef *Ref2,
                                            unsigned LoopLevel,
-                                           int64_t *Distance) {
-  return getConstDistanceImpl(Ref1, Ref2, LoopLevel, Distance);
+                                           int64_t *Distance,
+                                           bool RelaxedMode) {
+  return getConstDistanceImpl(Ref1, Ref2, LoopLevel, Distance, RelaxedMode);
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, unsigned Level) {

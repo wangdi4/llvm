@@ -1,6 +1,6 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===- IntelVPlanDominatorTree.h---------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -8,40 +8,44 @@
 //   from the company.
 //
 //===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file implements dominator tree analysis for a single level of a VPlan's
+/// H-CFG.
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDOMINATORTREE_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDOMINATORTREE_H
 
-#include "../Intel_VPlan.h"
+#include "IntelVPlan.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/IR/Dominators.h"
 
 namespace llvm {
+namespace vpo {
 
-// ***** ATTENTION: This file is not used for now because there was a cyclic
-// dependency between this header and VPlan.h. After the last pulldown, this
-// caused some forward declaration errors on VPBlockBase depending on the order
-// in which VPlan.h or this header was included from other files. Thus, this
-// code was moved to VPlan.h.
+/// Template specialization of the standard LLVM dominator tree utility for
+/// VPBlockBases.
+using VPDominatorTree = DomTreeBase<VPBlockBase>;
 
-// class VPBlockBase;
-/// \brief Template specialization of the standard LLVM dominator tree utility
-/// for VPBlocks.
-class VPDominatorTree : public DominatorTreeBase<VPBlockBase, false> {
-public:
-  VPDominatorTree(bool isPostDom) : DominatorTreeBase<VPBlockBase, false>() {}
+using VPDomTreeNode = DomTreeNodeBase<VPBlockBase>;
 
-  virtual ~VPDominatorTree() {}
-};
+/// Template specialization of the standard LLVM post-dominator tree utility for
+/// VPBlockBases.
+using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
 
-typedef DomTreeNodeBase<VPBlockBase> VPDomTreeNode;
+} // namespace vpo
+
+/// Template specializations of GraphTraits for VPDomTreeNode.
+template <>
+struct GraphTraits<vpo::VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<vpo::VPDomTreeNode,
+                                    vpo::VPDomTreeNode::iterator> {};
 
 template <>
-struct GraphTraits<VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
-
-template <>
-struct GraphTraits<const VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
-                                    VPDomTreeNode::const_iterator> {};
+struct GraphTraits<const vpo::VPDomTreeNode *>
+    : public DomTreeGraphTraitsBase<const vpo::VPDomTreeNode,
+                                    vpo::VPDomTreeNode::const_iterator> {};
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDOMINATORTREE_H

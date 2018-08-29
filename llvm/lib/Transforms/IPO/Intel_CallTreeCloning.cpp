@@ -80,13 +80,16 @@
 
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include "llvm/IR/CallSite.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -95,6 +98,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 
+#include <bitset>
 #include <list>
 #include <map>
 #include <memory>
@@ -117,7 +121,10 @@ const char *PASS_DESC =
 #define DEBUG_TYPE PASS_NAME_STR
 
 STATISTIC(NumCTCClones, "Number of clone functions created");
-STATISTIC(NumCTCClonedCalls, "Number of call to a clone");
+STATISTIC(NumCTCClonedCalls, "Number of calls to clone");
+STATISTIC(NumPostCTCConstFolds, "Number of constants folded after CTC");
+STATISTIC(NumPostCTCCallsitesReplaced,
+          "Number of callsites replaced after CTC");
 
 #ifndef NDEBUG
 #define DBG(x) x
@@ -185,7 +192,6 @@ static ICmpInst *getLoopBottomTest(Loop *L) {
 }
 
 namespace {
-
 // Estimations:
 // - number of formal parameters in a function
 const int EST_PARAM_LIST_SIZE = 8;
@@ -230,8 +236,19 @@ public:
     return S.str();
   }
 
+  // Check: does ParamIndSet have Idx index ON?
+  bool hasIndex(const unsigned Idx) const {
+    if (Idx >= size())
+      return false;
+    return this->operator[](Idx);
+  }
+
 #ifndef NDEBUG
-  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
+  LLVM_DUMP_METHOD void dump(bool PrintNewLine = true) const {
+    llvm::dbgs() << toString() << " ";
+    if (PrintNewLine)
+      llvm::dbgs() << "\n";
+  }
 #endif // NDEBUG
 };
 
@@ -272,8 +289,8 @@ static bool checkArgOrConst(BinaryOperator *, SmallPtrSetImpl<Value *> &,
 static bool checkArgOrConst(PHINode *, SmallPtrSetImpl<Value *> &,
                             ParamIndSet &);
 
-// Check each BinaryOperator's operand is either a ConstantInt, an Argument, or
-// can be traced to either a ConstantInt or an Argument.
+// Check that each BinaryOperator's operand is either a ConstantInt, an
+// Argument, or can be traced to either a ConstantInt or an Argument.
 static bool checkArgOrConst(BinaryOperator *BO,
                             SmallPtrSetImpl<Value *> &ValuePtrSet,
                             ParamIndSet &Pset) {
@@ -286,8 +303,8 @@ static bool checkArgOrConst(BinaryOperator *BO,
   return true;
 }
 
-// Check each PHINODE's incoming value is either a ConstantInt, an Argument, or
-// can be traced to either a ConstantInt or an Argument.
+// Check that each PHINode's incoming value is either a ConstantInt, an
+// Argument, or can be traced to either a ConstantInt or an Argument.
 static bool checkArgOrConst(PHINode *Phi, SmallPtrSetImpl<Value *> &ValuePtrSet,
                             ParamIndSet &Pset) {
   assert(Phi && "Expect a valid PHINode *\n");
@@ -299,8 +316,8 @@ static bool checkArgOrConst(PHINode *Phi, SmallPtrSetImpl<Value *> &ValuePtrSet,
   return true;
 }
 
-// Expect V be a ConstantInt, or an Argument, or can ultimately trace back to
-// either a ConstantInt or an Argument.
+// Expect that V be a ConstantInt, or an Argument, or can ultimately be traced
+// back to either a ConstantInt or an Argument.
 //
 // Support the following types only:
 // - ConstantInt
@@ -378,6 +395,29 @@ static bool checkLoop(Loop *L, ParamIndSet &Pset) {
   return true;
 }
 
+static bool isLeafFunction(const Function &F) {
+  bool HasUserCall = false;
+
+  for (const auto &I : instructions(&F)) {
+    // Conservative on InvokeInst
+    if (isa<InvokeInst>(&I)) {
+      HasUserCall = true;
+      break;
+    }
+
+    // check on CallInst: callee exists and not an intrinsic
+    if (auto CI = dyn_cast<CallInst>(&I)) {
+      Function *Callee = CI->getCalledFunction();
+      if (Callee && !Callee->isIntrinsic()) {
+        HasUserCall = true;
+        break;
+      }
+    }
+  }
+
+  return !HasUserCall;
+}
+
 // Represents a set of constant values of a parameter set - basically maps
 // parameter index to its concrete value
 class ConstParamVec
@@ -402,7 +442,11 @@ public:
 #ifndef NDEBUG
   std::string toString() const;
 
-  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
+  LLVM_DUMP_METHOD void dump(bool PrintNewLine = true) const {
+    llvm::dbgs() << toString();
+    if (PrintNewLine)
+      llvm::dbgs() << "\n";
+  }
 #endif // NDEBUG
 };
 
@@ -512,6 +556,7 @@ public:
 
   LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
 #endif // NDEBUG
+
 protected:
   DCGNode(CallInst *Impl_, uint32_t Id_) : Cnt(0), Impl(Impl_), Id(Id_) {}
 
@@ -798,6 +843,14 @@ public:
     return false;
   }
 
+  // Check: any ParamIndxSet has Idx?
+  bool hasIndex(const unsigned Idx) {
+    for (auto S : *this)
+      if (S.hasIndex(Idx))
+        return true;
+    return false;
+  }
+
 #ifndef NDEBUG
   std::string toString() const;
 
@@ -842,6 +895,57 @@ private:
   bool Marked;
   bool Visited;
 };
+
+#ifndef NDEBUG
+void printSeeds(const std::string &Msg,
+                std::map<DCGNode *, SetOfParamIndSets> &Seeds) {
+  dbgs() << Msg << "\n";
+
+  for (auto &Seed : Seeds) {
+    DCGNode *Node = Seed.first;
+    const SetOfParamIndSets &Psets = Seed.second;
+
+    dbgs() << Node->toString();
+    dbgs() << "->";
+    dbgs() << Psets.toString();
+    dbgs() << "\n";
+  }
+
+  dbgs() << "\n";
+}
+
+void printSeeds(const std::string &Msg,
+                std::map<Function *, SetOfParamIndSets> &Seeds) {
+  dbgs() << Msg << "\n";
+
+  for (auto &Seed : Seeds) {
+    Function *F = Seed.first;
+    const SetOfParamIndSets &Psets = Seed.second;
+
+    dbgs() << F->getName();
+    dbgs() << "->";
+    dbgs() << Psets.toString();
+    dbgs() << "\n";
+  }
+
+  dbgs() << "\n";
+}
+
+void print_FunctionMap(const std::string &Msg, std::map<Function *, bool> &Map,
+                       bool PrintEachNewLine = true) {
+  dbgs() << Msg << "<" << Map.size() << ">:\n";
+  unsigned Count = 0;
+  for (auto &Item : Map) {
+    Function *F = Item.first;
+    dbgs() << Count++ << "  " << F->getName();
+    if (PrintEachNewLine)
+      dbgs() << "\n";
+    else
+      dbgs() << "\t";
+  }
+  dbgs() << "\n";
+}
+#endif // NDEBUG
 
 // Maps detailed call graph nodes to their parameter data flow information
 class DCGParamFlows : public std::map<const DCGNode *, DCGNodeParamFlow> {
@@ -918,15 +1022,15 @@ protected:
   /// - \p HasCalls - whether the function contains non-intrinsic calls.
   void getFunctionIRStats(const Function &F, size_t &IRSize, bool &HasCalls);
 
-  /// Looks for loops within given function and applies the overloaded function
-  /// below to each.
+  /// Looks for loops within given function and applies the overloaded
+  /// function below to each.
   void gatherParamDepsForFoldableLoopBounds(Function &F,
                                             SetOfParamIndSets &Psets);
 
   /// Checks if bounds of a given loop \p L are foldable functions of formal
   /// parameters, in which case constructs a set of the parameter indices and
-  /// adds it to the output \p Pset parameter. \p Scev is used to determine the
-  /// dependence on the formals.
+  /// adds it to the output \p Pset parameter. \p Scev is used to determine
+  /// the dependence on the formals.
   void gatherParamDepsForFoldableLoopBounds(Loop *L, SetOfParamIndSets &Psets);
 
 private:
@@ -940,6 +1044,33 @@ using Call2ClonedFunc =
 // cloning of functions with the same constant parameter sets
 using CloneRegistry = std::map<std::pair<const Function *, ConstParamVec>,
                                Function *, CloneMapKeyLess>;
+
+#ifndef NDEBUG
+void print_CloneRegistry(const std::string &Msg, CloneRegistry &Clones) {
+  dbgs() << Msg << "\n";
+  unsigned Count = 0;
+
+  for (auto &CloneItem : Clones) {
+    auto Key = CloneItem.first;
+    Function *ClonedF = CloneItem.second;
+
+    // print counter:
+    dbgs() << Count++ << "  ";
+
+    // dump key:
+    dbgs() << Key.first->getName() << " : ";
+    Key.second.dump(false);
+
+    dbgs() << " -> ";
+
+    // dump value:
+    dbgs() << ClonedF->getName();
+    dbgs() << "\n";
+  }
+
+  dbgs() << "\n";
+}
+#endif // NDEBUG
 
 // updates back-mapping result for a parameter set based on a result for a new
 // element of the set
@@ -1396,7 +1527,6 @@ void CTCLoopBasedCostModel::getFunctionIRStats(const Function &F,
   HasCalls = false;
 
   LLVM_DEBUG(errs() << "Function: " << F.getName() << "(.)\n;");
-
   for (const auto &I : instructions(&F)) {
     ++IRSize;
 
@@ -1443,13 +1573,16 @@ void CTCLoopBasedCostModel::gatherParamDepsForFoldableLoopBounds(
     Psets.insert(Pset);
 }
 
-// This class is the actual implementation of the cloner, which both
-// CallTreeCloningPass and CallTreeCloningLegacyPass delegate to.
+// This class actually implements the call-tree cloner.
+// Both CallTreeCloningPass and CallTreeCloningLegacyPass delegate to it.
 class CallTreeCloningImpl {
+  friend class PostProcessor;
+
 public:
   CallTreeCloningImpl() {}
 
-  bool run(Module &M, Analyses &Anl, PreservedAnalyses &PA);
+  bool run(Module &M, Analyses &Anl, TargetLibraryInfo *TLI,
+           PreservedAnalyses &PA);
 
 protected:
   // -count the number of CallInst(s) and InvokeInst(s)
@@ -1479,16 +1612,17 @@ protected:
   // then top-down parameter sets propagation/evaluation and function cloning.
   bool
   findAndCloneCallSubtrees(DetailedCallGraph *Cgraph,
-                           std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds);
+                           std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds,
+                           CloneRegistry &Clones);
 
-  // Clones given function 'F' replacing some of the parameters with given
+  // Clone a given function 'F' by replacing some of the parameters with given
   // constants 'ConstParams'. Non-null at position i means i'th parameter
   // is replaced by this constant. 'Call2Clone' maps all callsites within the
   // source function to <Function, <constant parameter set>> pairs. For every
   // callsite a counterpart within the clone function is found, and updated to
   // call the mapped function with constant parameter removed.
   // 'clones' keeps record of cloned functions.
-  // The clone is created only in it is not found in this map.
+  // The clone is created only if it is not found in this map.
   Function *cloneFunction(Function *F, const ConstParamVec &ConstParams,
                           const Call2ClonedFunc &Call2Clone,
                           CloneRegistry &Clones);
@@ -1510,10 +1644,104 @@ protected:
                                 const DCGParamFlows &Flows);
 };
 
+// Do post processing after the recursive Call-Tree Cloning has finished the
+// module. New opportunities are created. E.g.
+// ...
+// %10 = shl 4, 2;
+// %11 = shl 2, 2;
+// %12 = @get_ref(%10, %11) ; a call to a seed function
+// ...
+//
+// This should be turned into (1)
+// ...
+// %10 = shl 4, 2; next InstComb will clean it up
+// %11 = shl 2, 2; next InstComb will clean it up
+// %12 = @get_ref(16, 8); a call to a seed function with constant argument(s) on
+//                        desired positions
+// ...
+//
+// And should be further turned into (2)
+// ...
+// %10 = shl 4, 2; next InstComb will clean it up
+// %11 = shl 2, 2; next InstComb will clean it up
+// %12 = @get_ref|16.8() ; a call to a cloned function
+// ...
+class PostProcessor {
+public:
+  PostProcessor(Module &M, std::map<DCGNode *, SetOfParamIndSets> &Seeds,
+                std::map<Function *, SetOfParamIndSets> &LeafSeeds,
+                CloneRegistry &Clones, TargetLibraryInfo *TLI,
+                CallTreeCloningImpl *CTCI)
+      : M(M), Seeds(Seeds), LeafSeeds(LeafSeeds), Clones(Clones),
+        DL(M.getDataLayout()), TLI(TLI), CTCI(CTCI) {}
+
+  // Run post processing on the Module
+  bool run();
+
+private:
+  bool doPreliminaryTest(void);
+
+  bool collectPPCallInst(CallInst *);
+  bool doCollection(void);
+
+  bool replaceWithClone(CallInst *&, unsigned);
+  bool doTransformation(void);
+
+public:
+#ifndef NDEBUG
+  std::string toString(void) const;
+  LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
+#endif
+
+private:
+  Module &M;
+  std::map<DCGNode *, SetOfParamIndSets> &Seeds;
+  std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+  CloneRegistry &Clones;
+  const DataLayout &DL;
+  TargetLibraryInfo *TLI;
+  CallTreeCloningImpl *CTCI;
+
+  std::map<CallInst *, unsigned> PPCandidates;
+  // original and populated seed functions:
+  std::map<Function *, bool> ExtSeedFunctions;
+  std::map<Function *, bool> ClonedFunctions;
+};
+
 } // end of anonymous namespace
 
-namespace llvm {
+#ifndef NDEBUG
+std::string PostProcessor::toString() const {
+  std::ostringstream S;
 
+  // std::map<CallInst *, unsigned> PPCandidates;
+  S << "PPCandidates<" << PPCandidates.size() << ">:\n";
+  unsigned Count = 0;
+
+  for (auto &Item : PPCandidates) {
+    S << "  " << Count++ << " ";
+    CallInst *CI = Item.first;
+
+    // print CallInst info:
+    Function *Caller = CI->getParent()->getParent();
+    Function *Callee = CI->getCalledFunction();
+    S << "Caller: " << Caller->getName().str()
+      << " -> Callee: " << Callee->getName().str() << "\t";
+
+    // print Position info:
+    unsigned Pos = Item.second;
+    for (unsigned I = 0, E = sizeof(unsigned); I < E; ++I)
+      if (Pos & (I << I))
+        S << I << ",";
+
+    S << "\n";
+  }
+
+  return S.str();
+}
+#endif
+
+namespace llvm {
 // The call-tree cloning transformation ModulePass
 class CallTreeCloningLegacyPass : public ModulePass {
 public:
@@ -1532,9 +1760,8 @@ public:
 };
 } // end of namespace llvm
 
-bool CallTreeCloningImpl::run(Module &M, Analyses &Anls,
+bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
                               PreservedAnalyses &PA) {
-
   if (!checkThreshold(M)) {
     LLVM_DEBUG(
         dbgs()
@@ -1553,6 +1780,7 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls,
   // call sites with callees being functions profitable to clone
   std::map<DCGNode *, SetOfParamIndSets> AlgSeeds;
   std::unique_ptr<CTCCostModel> CM;
+  std::map<Function *, SetOfParamIndSets> LeafSeeds;
 
   if (!CCloneSeeds.empty())
     CM = llvm::make_unique<CTCDebugCostModel>(CCloneSeeds.begin(),
@@ -1585,29 +1813,48 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls,
         LLVM_DEBUG(dbgs() << "  added seed: " << N->toString() << "/"
                           << Psets.toString() << "\n");
       }
+
+      // Collect leaf seed functions
+      if (isLeafFunction(F)) {
+        LLVM_DEBUG(dbgs() << "leaf-seeds: " << F.getName() << Psets.toString()
+                          << "\n");
+        LeafSeeds[&F] = Psets;
+      }
     }
   }
-  return findAndCloneCallSubtrees(Cgraph.get(), AlgSeeds);
+
+  LLVM_DEBUG({ printSeeds("Seeds: ", AlgSeeds); });
+  LLVM_DEBUG({ printSeeds("LeafSeeds: ", LeafSeeds); });
+
+  CloneRegistry Clones; // records all clones, needed for post processing (PP)
+  if (!findAndCloneCallSubtrees(Cgraph.get(), AlgSeeds, Clones))
+    return false;
+
+  PostProcessor PostProc(M, AlgSeeds, LeafSeeds, Clones, TLI, this);
+  bool PPResult = PostProc.run();
+
+  return PPResult;
 }
 
 bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   if (skipModule(M))
     return false;
 
+  auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   Analyses Anls([&](Function &F) -> LoopInfo & {
     return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
   });
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
-  return Impl.run(M, Anls, PA);
+
+  return Impl.run(M, Anls, TLI, PA);
 }
 
 namespace {
-
 // changes the call site so that it calls a cloned version of the function
 // with reduced actual argument list
-void specializeCallSite(CallInst *Call, Function *Clone,
-                        const ParamIndSet &ConstArgs) {
+CallInst *specializeCallSite(CallInst *Call, Function *Clone,
+                             const ParamIndSet &ConstArgs) {
   unsigned NumArgs = Call->getNumArgOperands();
   unsigned NumConstArgs = ConstArgs.count();
   SmallVector<Value *, EST_PARAM_LIST_SIZE> NewArgs;
@@ -1642,6 +1889,8 @@ void specializeCallSite(CallInst *Call, Function *Clone,
   Call->dropAllReferences();
   Call->removeFromParent();
   ++NumCTCClonedCalls;
+
+  return NewCall;
 }
 
 } // end of anonymous namespace
@@ -1788,9 +2037,8 @@ void CallTreeCloningImpl::findParamDepsRec(
 // graph is DFS w/o tracking the 'visited' property
 //
 bool CallTreeCloningImpl::findAndCloneCallSubtrees(
-    DetailedCallGraph *Cgraph,
-    std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds) {
-
+    DetailedCallGraph *Cgraph, std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds,
+    CloneRegistry &Clones) {
   // parameter data-flow information for each call graph node
   DCGParamFlows Flows;
 
@@ -1841,6 +2089,7 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
     }
 
   LLVM_DEBUG(print_node_set("--- Clone roots:", CloneRoots));
+  LLVM_DEBUG({ print_CloneRegistry("Clones: ", Clones); });
 
   // At this point we have a detailed call graph annotated with:
   // - information about "clone roots" (see above) to start cloning with
@@ -1851,8 +2100,9 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
 
   // the number of functions cloned by this pass
   unsigned NumClones = 0;
+
   // records all cloned functions
-  CloneRegistry Clones;
+  // CloneRegistry Clones;
 
   LLVM_DEBUG(dbgs() << "\n--- Top-down pass\n\n");
 
@@ -1862,6 +2112,7 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   // rather than just all nodes visited
   for (auto *Root : CloneRoots) {
     DBGX(1, dbgs() << "ROOT " << Root->toString() << ": ");
+
     // fetch constant actual parameters of the call-site 'Root' represents
     ConstParamVec ConstParams;
     DCGNodeParamFlow *Flow = Flows.get(Root);
@@ -1993,7 +2244,7 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
                                              const ConstParamVec &ConstParams,
                                              const Call2ClonedFunc &Call2Clone,
                                              CloneRegistry &Clones) {
-  // check if there is already needed clone or if clone limit reached
+  // check if there is already a need to clone or if clone limit reached
   auto SearchKey = std::make_pair(F, ConstParams);
   auto It = Clones.find(SearchKey);
 
@@ -2086,6 +2337,252 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   return Clone;
 }
 
+// Collect the following items:
+// -all Function(s) appears in CloneRegistry, both the source Function(s), and
+//  their mapped Clone(s);
+// -scan the current module, see if there is any candidate(s) suitable for PP
+//
+bool PostProcessor::doPreliminaryTest(void) {
+  // Check: CloneRegistry is not empty
+  if (!Clones.size())
+    return false;
+
+  return true;
+}
+
+bool PostProcessor::collectPPCallInst(CallInst *CI) {
+  Function *Callee = CI->getCalledFunction();
+  if (!Callee || !CI->getNumArgOperands())
+    return false;
+
+  // Check: is the callee in the seed-function list?
+  if (!ExtSeedFunctions[Callee])
+    return false;
+
+  LLVM_DEBUG(dbgs() << "CI: a call to a seed function: "; CI->dump(););
+
+  SetOfParamIndSets Psets = LeafSeeds[Callee];
+
+  // Check:
+  // on the Pset position, does the callee have any constant fold-able argument,
+  // or
+  // any argument that is already constant?
+  unsigned CFArgPos = 0;
+  for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I) {
+    if (!Psets.hasIndex(I))
+      continue;
+
+    Value *arg = CI->getArgOperand(I);
+    bool IsBinOp = isa<BinaryOperator>(arg);
+    bool IsConstant = isa<ConstantInt>(arg);
+    if (!IsBinOp && !IsConstant)
+      continue;
+
+    // found a BinaryOperator or a constant on index I:
+    LLVM_DEBUG({
+      dbgs() << "arg[" << I << "]: ";
+      arg->dump();
+    });
+
+    if (IsConstant) {
+      CFArgPos |= (1 << I);
+      continue;
+    }
+
+    // BinOp case: check if the BinOp on index is subject to constant fold
+    // and record the index if it does.
+    BinaryOperator *BOp = dyn_cast<BinaryOperator>(arg);
+    if (ConstantFoldInstruction(BOp, DL, TLI)) {
+      CFArgPos |= (1 << I);
+    }
+  }
+
+  // If the CallInst has any constant-foldable argument, save this CallInst
+  if (CFArgPos) {
+    LLVM_DEBUG(
+        dbgs() << "CI: "; CI->dump();
+        dbgs()
+        << " has constant fold-able argument(s) or constant(s) \t at ArgPos: "
+        << std::bitset<32>(CFArgPos).to_string() << "  Dec: " << CFArgPos
+        << "\n");
+    PPCandidates[CI] = CFArgPos;
+  }
+
+  return CFArgPos;
+}
+
+// CloneRegistery is a map of: <Function*, ConstParamVec> -> Function *
+bool PostProcessor::doCollection(void) {
+  // -Collect all Function(s) appears in CloneRegistry, both the source
+  //  Function(s), the ConstParamvVec, and their mapped Clone(s);
+  unsigned Count = 0;
+  for (auto &CloneRegItem : Clones) {
+    Function *OrigF = const_cast<Function *>(CloneRegItem.first.first);
+    Function *ClonedF = CloneRegItem.second;
+    LLVM_DEBUG(dbgs() << Count++ << "  OrigF: " << OrigF->getName() << "\t"
+                      << "ClonedF: " << ClonedF->getName() << "\n");
+
+    // Collect relevant functions:
+    ExtSeedFunctions[OrigF] = true;
+    ClonedFunctions[ClonedF] = true;
+  }
+  (void)Count;
+
+  // - Populate Functions LeafSeeds into ExtSeedFunctions:
+  for (auto Item : LeafSeeds) {
+    Function *F = Item.first;
+    if (!ExtSeedFunctions[F])
+      ExtSeedFunctions[F] = true;
+  }
+  LLVM_DEBUG({ print_FunctionMap("ExtSeedFunction: ", ExtSeedFunctions); });
+
+  // -Scan the current module, see if there is any candidate(s) suitable for PP
+  for (auto &F : M.functions())
+    for (BasicBlock &BB : F)
+      for (Instruction &I : BB) {
+        if (isa<IntrinsicInst>(I))
+          continue;
+        if (!isa<CallInst>(I))
+          continue;
+
+        // Only interested in user-defined calls
+        collectPPCallInst(dyn_cast<CallInst>(&I));
+      }
+
+  // see what we have collected:
+  LLVM_DEBUG(dump(););
+
+  return PPCandidates.size();
+}
+
+// Actions:
+// -Fold constant, replace the respective argument with the constant value
+// -Replace the original callee with its matching cloned version
+//  . Create new clones if the to-replace call candidate has NO matching clone
+//
+bool PostProcessor::replaceWithClone(CallInst *&CI, unsigned Pos) {
+  LLVM_DEBUG(dbgs() << "CI: "; CI->dump();
+             dbgs() << "Pos<bit>: " << std::bitset<32>(Pos).to_string()
+                    << "Pos<Dec<: " << Pos << "\n");
+
+  // 1.Fold constant, replace the respective argument with the constant value
+  //   (construct a ConstParams object implicitly for 2nd-stage use)
+  unsigned NumArgs = CI->getNumArgOperands();
+  ConstParamVec ConstParams;
+  ConstParams.resize(NumArgs);
+  bool IsBinOp = false;
+  for (unsigned I = 0, E = NumArgs; I < E; ++I) {
+    if (!(Pos & (1 << I)))
+      continue;
+
+    // LLVM_DEBUG(dbgs() << "index: " << I << "\n");
+    Value *arg = CI->getArgOperand(I);
+    IsBinOp = isa<BinaryOperator>(arg);
+    bool IsConstant = isa<ConstantInt>(arg);
+    if (!IsBinOp && !IsConstant)
+      assert(
+          0 &&
+          "Expect arg be either a ConstantInt or a fold-able BinaryOperator\n");
+
+    if (IsConstant) { // constant case
+      ConstantInt *ConstInt = dyn_cast<ConstantInt>(arg);
+      assert(ConstInt && "Expect the arg be a valid ConstantInt\n");
+      ConstParams[I] = ConstInt;
+    } else { // BinOp case
+      BinaryOperator *BOp = dyn_cast<BinaryOperator>(arg);
+      assert(BOp && "Expect the arg be a valid BinaryOperator\n");
+      if (Constant *C = ConstantFoldInstruction(BOp, DL, TLI)) {
+        CI->setArgOperand(I, C);
+        ConstantInt *ConstInt = dyn_cast<ConstantInt>(C);
+        assert(ConstInt && "Expect the Constant be actually ConstantInt, not "
+                           "supporting float yet\n");
+        ConstParams[I] = ConstInt;
+        ++NumPostCTCConstFolds;
+      }
+    }
+  }
+
+  if (IsBinOp)
+    LLVM_DEBUG({
+      dbgs() << "After Constant Fold: ";
+      CI->dump();
+    });
+
+  // 2.Replace the original callee with its matching cloned version
+  // Source:
+  // - CI, with constant parameter(s) folded
+  // - ConstParams:
+  //
+  // Mapping:
+  // using CloneRegistry = std::map<std::pair<const Function *, ConstParamVec>,
+  //                                Function *, CloneMapKeyLess>;
+  Function *OrigF = CI->getCalledFunction();
+  assert(OrigF && "Expect OrigF be valid\n");
+  // Function *ClonedF = Clones[std::make_pair(OrigF, ConstParams)];
+  Call2ClonedFunc Call2Clone;
+  Function *ClonedF =
+      CTCI->cloneFunction(OrigF, ConstParams, Call2Clone, Clones);
+  assert(ClonedF && "ClonedF must be valid now\n");
+
+  LLVM_DEBUG({
+    dbgs() << OrigF->getName().str();
+    dbgs() << " : " << ConstParams.toString() << " -> ";
+    dbgs() << "\t" << ClonedF->getName().str() << "\n";
+  });
+
+  CI = specializeCallSite(CI, ClonedF, ConstParams.getParamIndSet());
+  LLVM_DEBUG({
+    dbgs() << "\nCI after Replace with Cloned callsite: \n";
+    CI->dump();
+  });
+  ++NumPostCTCCallsitesReplaced;
+
+  // Done:
+  return true;
+}
+
+// INPUT: std::map<CallInst *, unsigned> PPCandidates;
+//
+// For each collected CallInst:
+// -Fold constant, replace the respective argument with the constant value
+// -Replace the original callee with the cloned copy of the callee
+//
+bool PostProcessor::doTransformation(void) {
+  unsigned Count = 0;
+  for (auto &Item : PPCandidates) {
+    CallInst *CI = Item.first;
+    unsigned CFPos = Item.second;
+    LLVM_DEBUG(dbgs() << "CI: "; CI->dump();
+               dbgs() << " has constant fold-able argument(s)\t at ArgPos: "
+                      << std::bitset<32>(CFPos).to_string()
+                      << "  Dec: " << CFPos << "\n");
+
+    if (!replaceWithClone(CI, CFPos)) {
+      LLVM_DEBUG(dbgs() << "ReplaceWithClone(.) failed on: "; CI->dump());
+      continue;
+    }
+    ++Count;
+  }
+
+  return Count;
+}
+
+bool PostProcessor::run(void) {
+  if (!doPreliminaryTest())
+    return false;
+
+  LLVM_DEBUG({ print_CloneRegistry("Clones: ", Clones); });
+  LLVM_DEBUG({ printSeeds("LeafSeeds: ", LeafSeeds); });
+
+  if (!doCollection())
+    return false;
+
+  if (!doTransformation())
+    return false;
+
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Pass creation and registration code
 ////////////////////////////////////////////////////////////////////////////////
@@ -2102,8 +2599,8 @@ llvm::CallTreeCloningLegacyPass::CallTreeCloningLegacyPass() : ModulePass(ID) {
 }
 
 void CallTreeCloningLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  // Needed analyses
   AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
 llvm::ModulePass *llvm::createCallTreeCloningPass() {
@@ -2127,9 +2624,12 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
     return FAM.getResult<LoopAnalysis>(F);
   });
   PreservedAnalyses PA;
+  auto &TLI = MAM.getResult<TargetLibraryAnalysis>(M);
+
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
-  Impl.run(M, Anls, PA);
+  Impl.run(M, Anls, &TLI, PA);
+
   return PA;
 }
 
@@ -2144,7 +2644,7 @@ std::string ConstParamVec::toString() const {
   S << "{";
   unsigned Cnt = 0;
 
-  for (unsigned I = 0; I < size(); ++I)
+  for (unsigned I = 0, E = size(); I < E; ++I)
     if (const ConstantInt *C = this->operator[](I)) {
       if (++Cnt > 1)
         S << ",";
@@ -2173,8 +2673,22 @@ std::string DCGNode::toString(bool PrintCallAddr) const {
   if (PrintCallAddr)
     S << "/" << getCallInst();
 
-  S << "] " << getCaller()->getName().str() << "->"
-    << getCallee()->getName().str();
+  S << "] ";
+
+  // print caller, handle null case:
+  if (getCaller())
+    S << getCaller()->getName().str();
+  else
+    S << " null ";
+
+  S << "->";
+
+  // print callee, handle null case:
+  if (getCallee())
+    S << getCallee()->getName().str();
+  else
+    S << " null ";
+
   return S.str();
 }
 

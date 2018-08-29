@@ -34,6 +34,10 @@ static cl::opt<bool> WholeProgramTrace("whole-program-trace",
 static cl::opt<bool> WholeProgramTraceLibFuncs("whole-program-trace-libfuncs",
                                        cl::init(false), cl::ReallyHidden);
 
+// Flag for printing the unresolved symbols
+static cl::opt<bool> WholeProgramTraceSymbols("whole-program-trace-symbols",
+                                       cl::init(false), cl::ReallyHidden);
+
 // Flag asserts that whole program will be detected.
 static cl::opt<bool> WholeProgramAssert("whole-program-assert",
                                         cl::init(false), cl::ReallyHidden);
@@ -281,12 +285,43 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   int unresolved_aliases_count = 0;
 
   UnresolvedCallsCount = 0;
+  uint32_t ExternalFunctions = 0;
 
   // Walk through all functions to find unresolved calls.
+  LibFunc TheLibFunc;
   for (Function &F : M) {
     if (F.getName() == "main" && !F.isDeclaration()) {
       main_def_seen_in_ir = true;
     }
+
+    // First check if the current function has local linkage (IR),
+    // it is a LibFunc or an intrinsic
+    if (!AssumeWholeProgram && F.isDeclaration() && !F.hasLocalLinkage()) {
+
+      // Check if the current function is a LibFunc or an intrinsic
+      if (F.isIntrinsic() ||
+          (TLI.getLibFunc(F.getName(), TheLibFunc) &&
+          TLI.has(TheLibFunc))) {
+        if (WholeProgramTraceLibFuncs)
+          LibFuncsFound.insert(&F);
+
+      } else {
+        // If the external isn't an intrinsic or a LibFunc, then we have
+        // an symbol outside the compilation unit or LTO module
+
+        // TODO: For now, we insert the Function into ExternalSymbols
+        // rather than LibFuncsNotFound. The difference is that at this
+        // point we can't prove if the missing symbol is a LibFunc or not.
+        if (WholeProgramTraceSymbols)
+          ExternalSymbols.insert(&F);
+
+        ExternalFunctions++;
+        all_resolved &= false;
+      }
+      // We can skip because there is no IR
+      continue;
+    }
+
     all_resolved &= resolveCallsInRoutine(TLI, &F);
   }
 
@@ -316,9 +351,18 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
       for (const Function *F : LibFuncsFound)
         errs() << "      " << F->getName() << "\n";
     }
+
     errs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
     for (const Function *F : LibFuncsNotFound)
       errs() << "      " << F->getName() << "\n";
+
+    errs() << "  EXTERNAL FUNCTIONS: " << ExternalFunctions << "\n";
+    if (WholeProgramTraceSymbols) {
+      for (const Function *F : ExternalSymbols)
+        errs() << "      " << F->getName() << "\n";
+    }
+
+
   }
 
   // Print only the libfuncs
@@ -376,6 +420,13 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
         if (!IsLinkedAsExecutable())
           errs() <<  "    not linking an executable;\n";
       }
+    }
+
+    if (WholeProgramTraceSymbols && !WholeProgramTrace) {
+      errs() << "\nWHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE\n\n";
+      errs() << "  EXTERNAL FUNCTIONS: " << ExternalSymbols.size() << "\n";
+      for (const Function *F : ExternalSymbols)
+        errs() << "      " << F->getName() << "\n";
     }
 }
 

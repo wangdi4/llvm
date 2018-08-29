@@ -53,11 +53,10 @@ const std::string TempName = "mv";
 // Flag to disable the HIR Loop Pattern Match Early Optimization
 //
 // Note:
-// Per discussion on the weekly LLVM Meeting on 2017.11.09, this pass will be
-// committed into git repository while being disabled.
-//
+// The gain is still blocked by LCPT-1003 as dependency tests fail at
+// checkExclusiveEdge() function.
 static cl::opt<bool> DisableHIRSymbolicTripCountCompleteUnroll(
-    "disable-hir-pm-symbolic-tripcount-completeunroll", cl::init(true),
+    "disable-hir-pm-symbolic-tripcount-completeunroll", cl::init(false),
     cl::Hidden,
     cl::desc(
         "Disable HIR Symbolic TripCount Complete-Unroll Pattern Match Pass"));
@@ -1087,7 +1086,6 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestInnerLp(void) {
   if (InnerLpNodeVec.size() != 1) {
     return false;
   }
-
   // 0. goto if.end31.loopexit;
   HLGoto *Goto = dyn_cast<HLGoto>(InnerLpNodeVec[0]);
   if (!Goto) {
@@ -1154,22 +1152,17 @@ bool HIRSymbolicTripCountCompleteUnroll::isLegal(void) {
     LLVM_DEBUG(FOS << "Failed MParent READ-ONLY test\n";);
     return false;
   }
-
-// Check: m_parent[.] and m_libs[.] refs are not aliased to each other
-// This test is currently disabled.
-// Note:
-// - Bring it back once the missing alias analysis support is become available.
-// - more details are in the function's implementation.
-#if 0
+  // Check: m_parent[.] and m_libs[.] refs are not aliased to each other
+  // Note:
+  // - this check fails because of the missing alias analysis support.
+  // - more details are in the function's implementation.
   if (!checkMParentAndMLibs()) {
     LLVM_DEBUG(FOS << "Failed MParentAndMLibs test\n";);
     return false;
   }
-#endif
 
   return true;
 }
-
 // Check: all m_parent[.] ref is READONLY (Rval)
 bool HIRSymbolicTripCountCompleteUnroll::isMParentReadOnly(void) {
 #ifndef NDEBUG
@@ -1335,9 +1328,9 @@ bool HIRSymbolicTripCountCompleteUnroll::doTransform(HLLoop *OuterLp) {
 
   HLRegion *Region = OuterLp->getParentRegion();
   assert(Region && "Region can't be a nullptr\n");
-  LLVM_DEBUG(
-      FOS << "BEFORE SymbolicTripCountCompleteUnroll Pattern Match CodeGen:\n";
-      Region->dump(); FOS << "\n";);
+  LLVM_DEBUG(FOS << "BEFORE SymbolicTripCountCompleteUnroll Pattern Match "
+                    "CodeGen:\n";
+             Region->dump(); FOS << "\n";);
 
   // Remove HLIF0:
   HLNodeUtils::remove(HLIF0);
@@ -1786,11 +1779,12 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
       LastInstMarker = LastInst;
     }
 
-    // Do Temp-Definition Renaming over unrolled body for any non-1st iteration
+    // Do Temp-Definition Renaming over unrolled body for any non-1st
+    // iteration
     //
     // Note:
-    // No need to rename temp definition(s) for the 1st iteration, if all other
-    // iterations are renamed.
+    // No need to rename temp definition(s) for the 1st iteration, if all
+    // other iterations are renamed.
     //
     if (!IsFirstIter) {
       SmallVector<RegDDRef *, 8> TmpDefVec;    // Temp's Definitions

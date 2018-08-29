@@ -58,11 +58,12 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       HasDistributePoint(false) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
-  SmallVector<BasicBlock *, 8> Exits;
-
   initialize();
-  OrigLoop->getExitingBlocks(Exits);
-  setNumExits(Exits.size());
+
+  SmallVector<Loop::Edge, 8> ExitEdges;
+
+  OrigLoop->getExitEdges(ExitEdges);
+  setNumExits(ExitEdges.size());
   // If Lp has attached optreport metadata node - initialize HLoop
   // optreport with it. Otherwise it will initialize it with zero.
   // We also don't erase the opt report from LoopID. We only do that
@@ -293,6 +294,51 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
 #endif // INTEL_PRODUCT_RELEASE
 }
 
+void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
+  // Some of the pragma checks require trip count information,
+  // so we skip them if it isn't present yet.
+  if (!getStrideDDRef()) {
+    return;
+  }
+
+  unsigned Count = getUnrollPragmaCount();
+  if (hasUnrollEnablingPragma()) {
+    OS << " <unroll";
+    if (Count) {
+      OS << " = " << Count;
+    }
+    OS << ">";
+  } else if (hasUnrollDisablingPragma()) {
+    OS << " <nounroll>";
+  }
+
+  Count = getUnrollAndJamPragmaCount();
+  if (hasUnrollAndJamEnablingPragma()) {
+    OS << " <unroll and jam";
+    if (Count) {
+      OS << " = " << Count;
+    }
+    OS << ">";
+  } else if (hasUnrollAndJamDisablingPragma()) {
+    OS << " <nounroll and jam>";
+  }
+
+  Count = getVectorizePragmaWidth();
+  if (hasVectorizeEnablingPragma()) {
+    OS << " <vectorize";
+    if (Count) {
+      OS << " = " << Count;
+    }
+    OS << ">";
+  } else if (hasVectorizeDisablingPragma()) {
+    OS << " <novectorize>";
+  }
+
+  if (hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma()) {
+    OS << " <ivdep>";
+  }
+}
+
 void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
                          bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
@@ -343,6 +389,7 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   printDistributePoint(OS);
+  printDirectives(OS, Depth);
 
   OS << "\n";
 
@@ -743,7 +790,23 @@ bool HLLoop::isNormalized() const {
   return true;
 }
 
-bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
+bool HLLoop::isKnownZttPredicate(bool *IsTrue) const {
+  if (!hasZtt()) {
+    return false;
+  }
+
+  if (HLNodeUtils::isKnownPredicateRange(
+          ztt_pred_begin(), ztt_pred_end(),
+          std::bind(&HLLoop::getZttPredicateOperandDDRef, this,
+                    std::placeholders::_1, std::placeholders::_2),
+          IsTrue)) {
+    return true;
+  }
+
+  return false;
+}
+
+bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
   if (isUnknown()) {
     return false;
   }
@@ -768,7 +831,7 @@ bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
     }
   }
 
-  assert((AllowZeroTripCnt || !ConstantTripLoop || (TC != 0)) &&
+  assert((!ConstantTripLoop || (TC != 0)) &&
          " Zero Trip Loop found!");
 
   if (ConstantTripLoop && TripCnt) {
@@ -1043,18 +1106,26 @@ bool HLLoop::isTriangularLoop() const {
 }
 
 void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
-                                       StringRef *RemoveID) {
+                                       StringRef RemoveID) {
+  assert((MDs.empty() || RemoveID.empty()) &&
+         "Simultaneous addition and removal not expected!");
+
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
 
   // Reserve space for the unique identifier
   SmallVector<Metadata *, 4> NewMDs(1);
 
+  bool IsAddition = !MDs.empty();
+  bool FoundRemoveID = false;
+
   MDNode *ExistingLoopMD = getLoopMetadata();
+
   if (ExistingLoopMD) {
     // TODO: add tests for this part of code after enabling generation of HIR
     // for loops with pragmas.
     for (unsigned I = 1, E = ExistingLoopMD->getNumOperands(); I < E; ++I) {
       Metadata *RawMD = ExistingLoopMD->getOperand(I);
+
       MDNode *MD = dyn_cast<MDNode>(RawMD);
       if (!MD || MD->getNumOperands() == 0) {
         // Unconditionally copy unknown metadata.
@@ -1064,12 +1135,17 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
 
       const MDString *Id = dyn_cast<MDString>(MD->getOperand(0));
 
-      // Do not handle non-string identifiers. Unconditionally copy metadata.
-      if (Id) {
-        StringRef IdRef = Id->getString();
+      if (!Id) {
+        // Do not handle non-string identifiers. Unconditionally copy metadata.
+        NewMDs.push_back(MD);
+        continue;
+      }
 
+      StringRef IdRef = Id->getString();
+
+      if (IsAddition) {
         // Check if the metadata will be redefined by the new one.
-        bool DoRedefine =
+        bool IsRedefined =
             std::any_of(MDs.begin(), MDs.end(), [IdRef](MDNode *NewMD) {
               const MDString *NewId = dyn_cast<MDString>(NewMD->getOperand(0));
               assert(NewId && "Added metadata should contain string "
@@ -1083,20 +1159,23 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
             });
 
         // Do not copy redefined metadata.
-        if (DoRedefine) {
+        if (IsRedefined) {
           continue;
         }
 
-        bool DoRemove = RemoveID && IdRef.startswith(*RemoveID);
-
-        // Do not copy removed metadata.
-        if (DoRemove) {
-          continue;
-        }
+      } else if (IdRef.equals(RemoveID)) {
+        FoundRemoveID = true;
+        continue;
       }
 
       NewMDs.push_back(MD);
     }
+  }
+
+  // We were in removal node and did not find RemoveID so there is nothing to
+  // do.
+  if (!IsAddition && !FoundRemoveID) {
+    return;
   }
 
   NewMDs.append(MDs.begin(), MDs.end());
@@ -1434,6 +1513,42 @@ bool HLLoop::hasVectorizeDisablingPragma() const {
   MD = getLoopStringMetadata("llvm.loop.vectorize.enable");
 
   return MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
+}
+
+struct EarlyExitCollector final : public HLNodeVisitorBase {
+  SmallVectorImpl<HLGoto *> &Gotos;
+  unsigned MaxTopSortNum;
+  HLLoop *Lp;
+
+public:
+  EarlyExitCollector(SmallVectorImpl<HLGoto *> &Gotos, HLLoop *Lp)
+      : Gotos(Gotos), Lp(Lp) {
+    assert(Lp && "Lp cannot be null\n");
+    MaxTopSortNum = Lp->getMaxTopSortNum();
+  }
+
+  void visit(HLGoto *Goto) {
+    if (Goto->isExternal() ||
+        Goto->getTargetLabel()->getTopSortNum() > MaxTopSortNum) {
+      Gotos.push_back(Goto);
+    }
+  };
+
+  void visit(HLNode *Node){};
+  void postVisit(HLNode *Node){};
+};
+
+void HLLoop::populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos) {
+  if (getNumExits() == 1) {
+    return;
+  }
+
+  // Collect Gotos in the Loop
+  EarlyExitCollector EEC(Gotos, this);
+
+  HLNodeUtils::visitRange(EEC, getFirstChild(), getLastChild());
+
+  assert((Gotos.size() == getNumExits() - 1) && "Mismatch in number of exits!");
 }
 
 LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(

@@ -64,6 +64,10 @@ static cl::opt<bool> InlineForXmain(
     "inline-for-xmain", cl::Hidden, cl::init(true),
     cl::desc("Xmain customization of inlining"));
 
+static cl::opt<bool> DTransInlineHeuristics(
+    "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
+    cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
+
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 // CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
 static cl::opt<int> OptSizeThreshold(
@@ -303,7 +307,8 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
                                         BlockFrequencyInfo *CallerBFI);
 
   // Custom analysis routines.
-  bool analyzeBlock(BasicBlock *BB, SmallPtrSetImpl<const Value *> &EphValues);
+  InlineResult analyzeBlock(BasicBlock *BB,
+                            SmallPtrSetImpl<const Value *> &EphValues);
 
   // Disable several entry points to the visitor so we don't accidentally use
   // them by declaring but not defining them here.
@@ -373,7 +378,7 @@ public:
         NumInstructionsSimplified(0), SROACostSavings(0),
         SROACostSavingsLost(0) {}
 
-  bool analyzeCall(CallSite CS, InlineReason* Reason); // INTEL
+  InlineResult analyzeCall(CallSite CS, InlineReason* Reason); // INTEL
 
   int getThreshold() { return Threshold; }
   int getCost() { return Cost; }
@@ -1643,8 +1648,9 @@ bool CallAnalyzer::visitInstruction(Instruction &I) {
 /// aborts early if the threshold has been exceeded or an impossible to inline
 /// construct has been detected. It returns false if inlining is no longer
 /// viable, and true if inlining remains viable.
-bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
-                                SmallPtrSetImpl<const Value *> &EphValues) {
+InlineResult
+CallAnalyzer::analyzeBlock(BasicBlock *BB,
+                           SmallPtrSetImpl<const Value *> &EphValues) {
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
     // FIXME: Currently, the number of instructions in a function regardless of
     // our ability to simplify them during inline to constants or dead code,
@@ -1676,16 +1682,29 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
 
     using namespace ore;
     // If the visit this instruction detected an uninlinable pattern, abort.
-    if (IsRecursiveCall || ExposesReturnsTwice || HasDynamicAlloca ||
-        HasIndirectBr || HasUninlineableIntrinsic || UsesVarArgs) {
+    InlineResult IR;
+    if (IsRecursiveCall)
+      IR = "recursive";
+    else if (ExposesReturnsTwice)
+      IR = "exposes returns twice";
+    else if (HasDynamicAlloca)
+      IR = "dynamic alloca";
+    else if (HasIndirectBr)
+      IR = "indirect branch";
+    else if (HasUninlineableIntrinsic)
+      IR = "uninlinable intrinsic";
+    else if (UsesVarArgs)
+      IR = "varargs";
+    if (!IR) {
       if (ORE)
         ORE->emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
                                           CandidateCS.getInstruction())
-                 << NV("Callee", &F)
-                 << " has uninlinable pattern and cost is not fully computed";
+                 << NV("Callee", &F) << " has uninlinable pattern ("
+                 << NV("InlineResult", IR.message)
+                 << ") and cost is not fully computed";
         });
-      return false;
+      return IR;
     }
 
     // If the caller is a recursive function then we don't want to inline
@@ -1693,15 +1712,15 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // the caller stack usage dramatically.
     if (IsCallerRecursive &&
         AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
+      InlineResult IR = "recursive and allocates too much stack space";
       if (ORE)
         ORE->emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
                                           CandidateCS.getInstruction())
-                 << NV("Callee", &F)
-                 << " is recursive and allocates too much stack space. Cost is "
-                    "not fully computed";
+                 << NV("Callee", &F) << " is " << NV("InlineResult", IR.message)
+                 << ". Cost is not fully computed";
         });
-      return false;
+      return IR;
     }
 
     // Check if we've past the maximum possible threshold so we don't spin in
@@ -2127,6 +2146,166 @@ static bool preferCloningToInlining(CallSite& CS,
   if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CS, LI))
     return true;
   return false;
+}
+
+//
+// Return 'true' if 'SI' is a store of a function pointer which appears in a
+// series of 3 assignments to successive fields of a structure instance.
+// Like:
+//
+//   typedef int (*FP)();
+//
+//   typedef struct {
+//     FP field1;
+//     FP field2;
+//     FP field3;
+//   } MYSTRUCT;
+//   MYSTRUCT *ptr;
+//
+//   ptr->field1 = FunctionPtr1;
+//   ptr->field2 = FunctionPtr2;
+//   ptr->field3 = FunctionPtr3;
+//
+static bool inSpecialFxnPtrStructAssignCluster(StoreInst *SI,
+                                               SmallPtrSetImpl<Function *>
+                                                   &CalleeFxnPtrSet) {
+  static SmallPtrSet<Function *, 3> FxnPtrSet;
+    // Stores the function pointers in the series
+  static SmallPtrSet<StoreInst *, 3> StoreInstSet;
+    // Stores the StoreInsts series
+  if (!StoreInstSet.empty()) {
+    // If we have already computed the series of function pointers and
+    // stores, just query whether 'SI' is one of them.
+    return StoreInstSet.find(SI) != StoreInstSet.end();
+  }
+  // Scan for a series of GetElementPtrInsts followed by StoreInsts, like:
+  //
+  // %fp01 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 0
+  // store i32 ()* @fp1, i32 ()** %fp1, %fp01, align 8
+  // %fp02 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 1
+  // store i32 ()* @fp2, i32 ()** %fp2, %fp02, align 8
+  // %fp03 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 2
+  //  store i32 ()* @fp3, i32 ()** %fp3, %fp03, align 8
+  BasicBlock *BB = SI->getParent();
+  Value *GEPIPointerOperand = nullptr;
+  GetElementPtrInst *NGI = nullptr;
+  bool FoundStoreMatch = false;
+  int ExpectedCount = 0;
+  for (auto &I : *BB) {
+    // {NGI, NSI} will be the current GetElementPtrInst and StoreInst pair
+    if (!NGI || !NGI->hasAllConstantIndices()) {
+      NGI = dyn_cast<GetElementPtrInst>(&I);
+      continue;
+    }
+    auto NSI = dyn_cast<StoreInst>(&I);
+    if (!NSI)
+      break;
+    if (NSI == SI)
+      FoundStoreMatch = true;
+    // Ensure that NGI feeds NSI
+    if (GEPIPointerOperand == nullptr)
+      GEPIPointerOperand = NGI->getPointerOperand();
+    // Ensure that NGI has the form:
+    //   getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 X
+    // where X goes from 0 to 1 to 2
+    else if (GEPIPointerOperand != NGI->getPointerOperand())
+      break;
+    if (!cast<ConstantInt>(NGI->getOperand(1))->isZeroValue())
+      break;
+    if (cast<ConstantInt>(NGI->getOperand(2))->getSExtValue() != ExpectedCount)
+      break;
+    if (NSI->getPointerOperand() != NGI)
+      break;
+    auto F = dyn_cast<Function>(NSI->getValueOperand());
+    if (!F)
+      break;
+    // Save the candidate pair
+    StoreInstSet.insert(NSI);
+    FxnPtrSet.insert(F);
+    ++ExpectedCount;
+    if (FoundStoreMatch && (ExpectedCount == 3)) {
+      // Make each of the Functions found in the series preferred for
+      // multiversioning
+      for (auto Fxn : FxnPtrSet)
+        CalleeFxnPtrSet.insert(Fxn);
+      return true;
+    }
+    NGI = nullptr;
+  }
+  // We didn't find a full series, so clear out what we have found so far.
+  StoreInstSet.clear();
+  FxnPtrSet.clear();
+  return false;
+}
+
+//
+// Return 'true' if 'CS' should not be inlined, because it would be better
+// to multiversion it. 'PrepareForLTO' is true if we are on the compile step
+// of an LTO compilation.
+//
+static bool preferMultiversioningToInlining(CallSite& CS,
+                                            InliningLoopInfoCache& ILIC,
+                                            bool PrepareForLTO) {
+
+  // Right now, only the callee is tested for multiversioning.  We use
+  // this set to keep track of callees that have already been tested,
+  // to save compile time. We expect it to be relatively expensive to
+  // test the qualifying candidates. Those that do not qualify should
+  // be rejected quickly.
+  static SmallPtrSet<Function *, 3> CalleeFxnPtrSet;
+
+  // Functions that did not have exactly 2 callsites when we first
+  // tested them. A function with more callsites can become one with
+  // only 2 callsites through inlining, but we do not want to consider
+  // such cases as candidates.
+  static SmallPtrSet<Function *, 10> NotDoubleCallsiteFxnPtrSet;
+
+  if (!DTransInlineHeuristics)
+    return false;
+  Function* Callee = CS.getCalledFunction();
+  if (!Callee)
+    return false;
+  if (CalleeFxnPtrSet.find(Callee) != CalleeFxnPtrSet.end())
+    return true;
+  // Must have exactly two callsites in the source code.
+  if (NotDoubleCallsiteFxnPtrSet.find(Callee) !=
+      NotDoubleCallsiteFxnPtrSet.end())
+    return false;
+  if (!isDoubleCallSite(Callee)) {
+    NotDoubleCallsiteFxnPtrSet.insert(Callee);
+    return false;
+  }
+  // Only consider candidates that have loops, otherwise there is nothing
+  // to multiversion.
+  LoopInfo *CalleeLI = ILIC.getLI(Callee);
+  if (!CalleeLI || CalleeLI->empty())
+    return false;
+  // Special criteria that narrow the candidate list.
+  bool FoundNonCallUser = false;
+  for (User *U : Callee->users()) {
+    CallSite Site(U);
+    if (!Site || Site.getCalledFunction() != Callee)
+      continue;
+    Function *Caller = Site.getCaller();
+    for (User *UU : Caller->users()) {
+      // After LTO pass indirect call resolution, some candidates may
+      // appear as direct calls, and we don't want to penalize them for that.
+      if (!PrepareForLTO && (isa<CallInst>(UU) || isa<InvokeInst>(UU)))
+        continue;
+      auto SI = dyn_cast<StoreInst>(UU);
+      if (!SI)
+        return false;
+      // Look for a list of function pointers assigned to successive
+      // fields in the same structure instance.
+      if (!inSpecialFxnPtrStructAssignCluster(SI, CalleeFxnPtrSet))
+        return false;
+      FoundNonCallUser = true;
+    }
+  }
+  if (!FoundNonCallUser)
+    return false;
+  CalleeFxnPtrSet.insert(Callee);
+  return true;
 }
 
 //
@@ -2636,7 +2815,8 @@ void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
 /// INTEL The Intel version also sets the value of *Reason to be the principal
 /// INTEL the call site would be inlined or not inlined.
 
-bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
+InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
+                                       InlineReason* Reason) { // INTEL
   ++NumCallsAnalyzed;
   InlineReason TempReason = NinlrNoReason; // INTEL
   InlineReason* ReasonAddr = Reason == nullptr ? &TempReason : Reason; // INTEL
@@ -2678,6 +2858,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   if (InlineForXmain &&
       preferCloningToInlining(CS, *ILIC, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferCloning;
+    return "prefer cloning";
+  }
+  if (InlineForXmain &&
+      preferMultiversioningToInlining(CS, *ILIC, PrepareForLTO)) {
+    *ReasonAddr = NinlrPreferMultiversioning;
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2753,7 +2938,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   if (Cost >= Threshold) {
     if (!ComputeFullInlineCost) {
       *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
-      return false;
+      return "high cost";
     }
     if (EarlyExitCost == INT_MAX) {
       EarlyExitCost = Cost;
@@ -2837,13 +3022,14 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     // variable, inlining may lead to an invalid cross-function reference.
     if (BB->hasAddressTaken()) { // INTEL
       *ReasonAddr = NinlrBlockAddress; // INTEL
-      return false;
+      return "blockaddress";
     }
 
     // Analyze the cost of this block. If we blow through the threshold, this
     // returns false, and we can bail on out.
 #if INTEL_CUSTOMIZATION
-    if (!analyzeBlock(BB, EphValues)) {
+    InlineResult IR = analyzeBlock(BB, EphValues);
+    if (!IR) {
       *ReasonAddr = NinlrNotProfitable;
       if (IsRecursiveCall) {
         *ReasonAddr = NinlrRecursive;
@@ -2865,7 +3051,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
         *ReasonAddr = NinlrTooMuchStack;
       }
       if (!ComputeFullInlineCost || (*ReasonAddr) != NinlrNotProfitable)
-        return false;
+        return IR;
       if (EarlyExitCost == INT_MAX) {
         EarlyExitCost = Cost;
         EarlyExitThreshold = Threshold;
@@ -2954,7 +3140,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // is not actually duplicated, just moved).
   if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall) { // INTEL
     *ReasonAddr = NinlrDuplicateCall; // INTEL
-    return false;
+    return "noduplicate";
   } // INTEL
 
   // We applied the maximum possible vector bonus at the beginning. Now,
@@ -2976,7 +3162,9 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   else {
     *ReasonAddr = bestInlineReason(NoReasonVector, NinlrNotProfitable);
   }
-  return IsProfitable;
+  if (!IsProfitable)
+    return "not profitable";
+  return true;
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -3068,7 +3256,7 @@ InlineCost llvm::getInlineCost(
 
   // Cannot inline indirect calls.
   if (!Callee)
-    return llvm::InlineCost::getNever(NinlrIndirect); // INTEL
+    return llvm::InlineCost::getNever("indirect call", NinlrIndirect); // INTEL
 
   // Never inline calls with byval arguments that does not have the alloca
   // address space. Since byval arguments can be replaced with a copy to an
@@ -3080,7 +3268,8 @@ InlineCost llvm::getInlineCost(
     if (CS.isByValArgument(I)) {
       PointerType *PTy = cast<PointerType>(CS.getArgument(I)->getType());
       if (PTy->getAddressSpace() != AllocaAS)
-        return llvm::InlineCost::getNever();
+        return llvm::InlineCost::getNever("byval arguments without alloca"
+                                          " address space");
     }
 
   // Calls to functions with always-inline attributes should be inlined
@@ -3090,16 +3279,20 @@ InlineCost llvm::getInlineCost(
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     if (isInlineViable(*Callee, Reason))
-      return llvm::InlineCost::getAlways(InlrAlwaysInline);
+      return llvm::InlineCost::getAlways("always inline attribute",
+                                         InlrAlwaysInline);
     assert(IsNotInlinedReason(Reason));
-    return llvm::InlineCost::getNever(Reason);
+    return llvm::InlineCost::getNever("inapplicable always inline attribute",
+                                      Reason);
   }
   if (CS.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
     InlineReason Reason = InlrNoReason;
     if (isInlineViable(*Callee, Reason))
-      return llvm::InlineCost::getAlways(InlrAlwaysInlineRecursive);
+      return llvm::InlineCost::getAlways("always inline recursive attribute",
+                                         InlrAlwaysInlineRecursive);
     assert(IsNotInlinedReason(Reason));
-    return llvm::InlineCost::getNever(Reason);
+    return llvm::InlineCost::getNever(
+        "inapplicable always inline recursive attribute", Reason);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3107,16 +3300,19 @@ InlineCost llvm::getInlineCost(
   // always-inline attribute).
   Function *Caller = CS.getCaller();
   if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI))
-    return llvm::InlineCost::getNever(NinlrMismatchedAttributes); // INTEL
+    return llvm::InlineCost::getNever("conflicting attributes",   // INTEL
+                                      NinlrMismatchedAttributes); // INTEL
 
   // Don't inline this call if the caller has the optnone attribute.
   if (Caller->hasFnAttribute(Attribute::OptimizeNone))
-    return llvm::InlineCost::getNever(NinlrOptNone); // INTEL
+    return llvm::InlineCost::getNever("optnone attribute",  // INTEL
+                                      NinlrOptNone);        // INTEL
 
   // Don't inline a function that treats null pointer as valid into a caller
   // that does not have this attribute.
   if (!Caller->nullPointerIsDefined() && Callee->nullPointerIsDefined())
-    return llvm::InlineCost::getNever(NinlrNullPtrMismatch);
+    return llvm::InlineCost::getNever(                             // INTEL
+        "nullptr definitions incompatible", NinlrNullPtrMismatch); // INTEL
 
   // Don't inline functions which can be interposed at link-time.  Don't inline
   // functions marked noinline or call sites marked noinline.
@@ -3126,13 +3322,15 @@ InlineCost llvm::getInlineCost(
       CS.isNoInline()) { // INTEL
 #if INTEL_CUSTOMIZATION
     if (Callee->isInterposable()) {
-      return llvm::InlineCost::getNever(NinlrMayBeOverriden);
+      return llvm::InlineCost::getNever("interposable", NinlrMayBeOverriden);
     }
     if (Callee->hasFnAttribute(Attribute::NoInline)) {
-      return llvm::InlineCost::getNever(NinlrNoinlineAttribute);
+      return llvm::InlineCost::getNever("noinline function attribute",
+                                        NinlrNoinlineAttribute);
     }
     if (CS.isNoInline()) {
-      return llvm::InlineCost::getNever(NinlrNoinlineCallsite);
+      return llvm::InlineCost::getNever("noinline call site attribute",
+                                        NinlrNoinlineCallsite);
     }
 #endif // INTEL_CUSTOMIZATION
   } // INTEL
@@ -3144,7 +3342,7 @@ InlineCost llvm::getInlineCost(
                   ILIC, AI, CallSitesForFusion, Params);  // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
-  bool ShouldInline = CA.analyzeCall(CS, &Reason);
+  InlineResult ShouldInline = CA.analyzeCall(CS, &Reason);
   assert(Reason != InlrNoReason);
 #endif // INTEL_CUSTOMIZATION
 
@@ -3152,13 +3350,13 @@ InlineCost llvm::getInlineCost(
 
   // Check if there was a reason to force inlining or no inlining.
   if (!ShouldInline && CA.getCost() < CA.getThreshold())
-    return InlineCost::getNever(Reason); // INTEL
+    return InlineCost::getNever(ShouldInline.message, Reason); // INTEL
   if (ShouldInline && CA.getCost() >= CA.getThreshold())
-    return InlineCost::getAlways(Reason); // INTEL
+    return InlineCost::getAlways("empty function", Reason); // INTEL
 
-  return llvm::InlineCost::get(CA.getCost(), // INTEL
-    CA.getThreshold(), Reason, CA.getEarlyExitCost(), //INTEL
-    CA.getEarlyExitThreshold()); // INTEL
+  return llvm::InlineCost::get(CA.getCost(),            // INTEL
+    CA.getThreshold(), ShouldInline.message, Reason,    // INTEL
+    CA.getEarlyExitCost(), CA.getEarlyExitThreshold()); // INTEL
 }
 
 bool llvm::isInlineViable(Function &F, // INTEL

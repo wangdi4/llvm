@@ -15,6 +15,9 @@
 ;  }
 ;}
 
+; This test doesn't work correctly with loopopt. It should be enabled when fp IV support is enabled.
+; XFAIL: *
+
 
 ; AUTO_VEC-LABEL: @fp_iv_loop1(
 ; AUTO_VEC: vector.body

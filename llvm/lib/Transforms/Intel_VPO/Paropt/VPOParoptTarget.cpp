@@ -34,6 +34,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
 
 #include "llvm/PassAnalysisSupport.h"
 
@@ -74,6 +75,67 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
     }
   }
 }
+
+Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
+                                                     Function *Fn,
+                                                     CallInst *&Call) {
+
+  FunctionType *FnTy = Fn->getFunctionType();
+  SmallVector<Type *, 8> ParamsTy;
+
+  unsigned AddrSpaceGlobal = vpo::ADDRESS_SPACE_GLOBAL;
+  for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
+       ArgTyI != ArgTyE; ++ArgTyI) {
+    assert(isa<PointerType>(*ArgTyI) &&
+           "finalizeKernelFunction: Expect pointer type.");
+    PointerType *PtType = cast<PointerType>(*ArgTyI);
+    ParamsTy.push_back(PtType->getElementType()->getPointerTo(AddrSpaceGlobal));
+  }
+
+  Type *RetTy = FnTy->getReturnType();
+  FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
+  Function *NFn = Function::Create(NFnTy, GlobalValue::ExternalLinkage);
+  NFn->copyAttributesFrom(Fn);
+  NFn->setCallingConv(CallingConv::SPIR_KERNEL);
+  NFn->addFnAttr("target.declare", "true");
+
+  Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
+  NFn->takeName(Fn);
+  NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
+
+  IRBuilder<> Builder(NFn->getEntryBlock().getFirstNonPHI());
+  Function::arg_iterator NewArgI = NFn->arg_begin();
+  for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
+       ++I) {
+    auto ArgV = &*NewArgI;
+    unsigned NewAddressSpace =
+        cast<PointerType>(ArgV->getType())->getAddressSpace();
+    unsigned OldAddressSpace =
+        cast<PointerType>(I->getType())->getAddressSpace();
+    Value *NewArgV = ArgV;
+    if (NewAddressSpace != OldAddressSpace) {
+      NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+    }
+    I->replaceAllUsesWith(NewArgV);
+    NewArgI->takeName(&*I);
+    ++NewArgI;
+  }
+
+  DenseMap<const Function *, DISubprogram *> FunctionDIs;
+
+  auto DI = FunctionDIs.find(Fn);
+  if (DI != FunctionDIs.end()) {
+    DISubprogram *SP = DI->second;
+
+    FunctionDIs.erase(DI);
+    FunctionDIs[NFn] = SP;
+  }
+  if (VPOAnalysisUtils::isTargetSPIRV(NFn->getParent()) &&
+     ((Mode & OmpOffload) || SwitchToOffload))
+    InferAddrSpaces(*TTI, 0, *NFn);
+
+  return NFn;
+}
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -101,7 +163,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   // Set up the Calling Convention used by OpenMP Runtime Library
   CallingConv::ID CC = CallingConv::C;
-  NewF->addFnAttr("target.declare", "true");
+  if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+    NewF->addFnAttr("target.declare", "true");
 
   DT->verify(DominatorTree::VerificationLevel::Full);
 
@@ -109,16 +172,19 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   // call site.
   NewF->setCallingConv(CC);
 
-  assert(NewF->hasOneUse() && "New function should have one use");
-  User *U = NewF->user_back();
-
   // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
   // to prevent verification failures. This is due due to the
   // CodeExtractor not properly handling them at the moment.
   VPOUtils::stripDebugInfoInstrinsics(*NewF);
 
+  assert(NewF->hasOneUse() && "New function should have one use");
+  User *U = NewF->user_back();
   CallInst *NewCall = cast<CallInst>(U);
   NewCall->setCallingConv(CC);
+
+  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+     ((Mode & OmpOffload) || SwitchToOffload))
+    finalizeKernelFunction(W, NewF, NewCall);
 
   IRBuilder<> Builder(F->getEntryBlock().getTerminator());
   AllocaInst *OffloadError = Builder.CreateAlloca(
@@ -193,7 +259,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     NewCall->removeFromParent();
     NewCall->insertBefore(Term->getParent()->getTerminator());
 
-    genRegistrationFunction(W, NewF);
+    if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+      genRegistrationFunction(W, NewF);
   } else if (isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
     NewCall->removeFromParent();
     NewCall->insertAfter(Call);
@@ -458,6 +525,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     TgtCall = VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  else
+    llvm_unreachable("genTargetInitCode: Unexpected region node.");
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetInitCode\n");
   return TgtCall;
@@ -763,7 +832,7 @@ VPOParoptTransform::genOffloadEntriesAndInfoMetadata(WRegionNode *W,
   LLVMContext &C = F->getContext();
 
   M->getOrInsertNamedMetadata("omp_offload.info");
-  if (Mode & OmpOffload) {
+  if ((Mode & OmpOffload) || SwitchToOffload) {
     Constant *OutlinedFnID =
         ConstantExpr::getBitCast(OutlinedFn, Type::getInt8PtrTy(C));
     OutlinedFn->setLinkage(GlobalValue::ExternalLinkage);
@@ -775,7 +844,7 @@ VPOParoptTransform::genOffloadEntriesAndInfoMetadata(WRegionNode *W,
 // Register the offloading binary descriptors.
 void
 VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
-  if (Mode & OmpOffload)
+  if ((Mode & OmpOffload) || SwitchToOffload)
     return;
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();

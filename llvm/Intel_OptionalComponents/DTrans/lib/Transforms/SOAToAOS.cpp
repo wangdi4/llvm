@@ -23,13 +23,23 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Pass.h"
-
-using namespace llvm;
-using namespace dtrans;
+#include "llvm/Transforms/Utils/FunctionComparator.h"
 
 #define DEBUG_TYPE "dtrans-soatoaos"
+// DepCompute
+#define DTRANS_SOADEP "dtrans-soatoaos-deps"
 
+#include "SOAToAOSEffects.h"
+#include "SOAToAOSArrays.h"
+
+namespace {
+using namespace llvm;
+using namespace dtrans;
+using namespace soatoaos;
+
+// Global guard to enable/disable transformation.
 static cl::opt<bool>
     DTransSOAToAOSGlobalGuard("enable-dtrans-soatoaos", cl::init(false),
                               cl::Hidden, cl::desc("Enable DTrans SOAToAOS"));
@@ -41,7 +51,6 @@ static cl::opt<std::string> DTransSOAToAOSType("dtrans-soatoaos-typename",
                                                cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-namespace {
 class SOAToAOSTransformImpl : public DTransOptBase {
 public:
   SOAToAOSTransformImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
@@ -74,7 +83,7 @@ private:
   // }
   // %class.vector = type {
   //    i8, i32, i32,
-  //    %elem**,
+  //    %class.elem**,
   //    MemoryManager*
   // }
   // %class.vector.0 = type {
@@ -200,15 +209,6 @@ private:
 
   // Prepare CFG information and methods to analyze.
   // Cheap checks are performed.
-  //
-  // Later need to classify methods:
-  //  - append element and/or set element at index (at least one is required);
-  //  - get element at index (required);
-  //  - c-tor (required);
-  //  - d-tor (required);
-  //  - copy c-tor (optional);
-  //  - memory reallocate (optional);
-  //  - field accessors (optional).
   class CandidateCFGInfo : public CandidateLayoutInfo {
   public:
     // Returns false if idiom is not recognized.
@@ -239,19 +239,19 @@ private:
     using ArrayMethodSetTy = SmallVector<MethodSetTy, MaxNumFieldCandidates>;
 
     // Helper class for methodsets* methods.
-    template <typename IterTy>
+    template <typename IterTy, typename MethSetTy>
     class MethodsIter
         : public iterator_adaptor_base<
-              MethodsIter<IterTy>, IterTy,
+              MethodsIter<IterTy, MethSetTy>, IterTy,
               typename std::iterator_traits<IterTy>::iterator_category,
-              MethodSetTy *,
+              MethSetTy *,
               typename std::iterator_traits<IterTy>::difference_type,
-              MethodSetTy **, MethodSetTy *> {
+              MethSetTy **, MethSetTy *> {
       using BaseTy = iterator_adaptor_base<
           MethodsIter, IterTy,
           typename std::iterator_traits<IterTy>::iterator_category,
-          MethodSetTy *, typename std::iterator_traits<IterTy>::difference_type,
-          MethodSetTy **, MethodSetTy *>;
+          MethSetTy *, typename std::iterator_traits<IterTy>::difference_type,
+          MethSetTy **, MethSetTy *>;
 
     public:
       MethodsIter(IterTy It) : BaseTy(It) {}
@@ -259,12 +259,24 @@ private:
       typename BaseTy::reference operator*() const { return &*this->wrapped(); }
     };
 
-    // Accessing method sets of arrays.
-    using iterator = MethodsIter<ArrayMethodSetTy::iterator>;
+    // Updating method sets of arrays.
+    using iterator = MethodsIter<ArrayMethodSetTy::iterator, MethodSetTy>;
 
     iterator methodsets_begin() { return iterator(ArrayFieldsMethods.begin()); }
     iterator methodsets_end() { return iterator(ArrayFieldsMethods.end()); }
     iterator_range<iterator> methodsets() {
+      return make_range(methodsets_begin(), methodsets_end());
+    }
+
+    using const_iterator =
+        MethodsIter<ArrayMethodSetTy::const_iterator, const MethodSetTy>;
+    const_iterator methodsets_begin() const {
+      return const_iterator(ArrayFieldsMethods.begin());
+    }
+    const_iterator methodsets_end() const {
+      return const_iterator(ArrayFieldsMethods.end());
+    }
+    iterator_range<const_iterator> methodsets() const {
       return make_range(methodsets_begin(), methodsets_end());
     }
 
@@ -274,7 +286,89 @@ private:
     ArrayMethodSetTy ArrayFieldsMethods;
   };
 
-  class CandidateInfo : public CandidateCFGInfo {
+  // Relatively heavy weight checks to classify methods, see MethodKind.
+  // Has internal memory handling for DepMap:
+  // copying is forbidden.
+  //
+  class CandidateSideEffectsInfo : public CandidateCFGInfo, DepMap {
+  public:
+    // Computes dependencies using DepMap.
+    bool populateSideEffects(SOAToAOSTransformImpl &Impl, Module &M);
+
+  protected:
+    CandidateSideEffectsInfo() {}
+
+    // There should be at most one method for each MethodKind,
+    // which should be combined.
+    using MethodKindSetTy = SmallVector<Function *, MaxNumIntFields>;
+    // Supported only MK_Last kinds of methods.
+    using ClassifyMethodsTy = SmallVector<MethodKindSetTy, MK_Last + 1>;
+    using MethodsBinsTy = SmallVector<ClassifyMethodsTy, MaxNumFieldCandidates>;
+
+    // Helper class for methodbins* methods.
+    template <typename IterTy, typename ClassifyMethTy>
+    class MethodsKindIter
+        : public iterator_adaptor_base<
+              MethodsKindIter<IterTy, ClassifyMethTy>, IterTy,
+              typename std::iterator_traits<IterTy>::iterator_category,
+              ClassifyMethTy *,
+              typename std::iterator_traits<IterTy>::difference_type,
+              ClassifyMethTy **, ClassifyMethTy *> {
+      using BaseTy = iterator_adaptor_base<
+          MethodsKindIter<IterTy, ClassifyMethTy>, IterTy,
+          typename std::iterator_traits<IterTy>::iterator_category,
+          ClassifyMethTy *,
+          typename std::iterator_traits<IterTy>::difference_type,
+          ClassifyMethTy **, ClassifyMethTy *>;
+
+    public:
+      const CandidateSideEffectsInfo *Info;
+      MethodsKindIter(const CandidateSideEffectsInfo *Info, IterTy It)
+          : BaseTy(It), Info(Info) {}
+
+      typename BaseTy::reference operator*() const { return &*this->wrapped(); }
+    };
+
+    // Updating Classifications.
+    using iterator =
+        MethodsKindIter<MethodsBinsTy::iterator, ClassifyMethodsTy>;
+
+    iterator methodbins_begin() {
+      return iterator(this, Classifications.begin());
+    }
+    iterator methodbins_end() { return iterator(this, Classifications.end()); }
+    iterator_range<iterator> methodbins() {
+      return make_range(methodbins_begin(), methodbins_end());
+    }
+
+    // Analysis of Classifications.
+    using const_iterator =
+        MethodsKindIter<MethodsBinsTy::const_iterator, const ClassifyMethodsTy>;
+
+    const_iterator methodbins_begin() const {
+      return const_iterator(this, Classifications.begin());
+    }
+    const_iterator methodbins_end() const {
+      return const_iterator(this, Classifications.end());
+    }
+    iterator_range<const_iterator> methodbins() const {
+      return make_range(methodbins_begin(), methodbins_end());
+    }
+
+  private:
+    // Compare call sites of methods to be combined.
+    bool compareCallSites(Function *F1, Function* F2, MethodKind MK) const;
+
+    CandidateSideEffectsInfo(const CandidateSideEffectsInfo &) = delete;
+    CandidateSideEffectsInfo &
+    operator=(const CandidateSideEffectsInfo &) = delete;
+
+    // It is matched by ArrayFieldsMethods,
+    // can be iterated in parallel using zip_first.
+    MethodsBinsTy Classifications;
+  };
+
+  class CandidateInfo : public CandidateSideEffectsInfo {
   public:
     void setCandidateStructs(SOAToAOSTransformImpl &Impl,
                              dtrans::StructInfo *S) {
@@ -518,6 +612,8 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
         continue;
       }
 
+      // Only pointers as elements are permitted.
+      // This assumption simplifies allocation size computations.
       if (!ExtractPointeeTy(ExtractPointeeTy(E)))
         return FALSE();
 
@@ -552,6 +648,8 @@ bool SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation(
           if (IsPaddingFieldCandidate(E) || E->isIntegerTy())
             continue;
 
+        // Only pointers as elements are permitted.
+        // This assumption simplifies allocation size computations.
         if (!ExtractPointeeTy(ExtractPointeeTy(E)))
           return FALSE();
 
@@ -689,6 +787,165 @@ bool SOAToAOSTransformImpl::CandidateCFGInfo::populateCFGInformation(
   return true;
 }
 
+bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
+    SOAToAOSTransformImpl &Impl, Module &M) {
+  for (auto Pair : zip_first(methodsets(), fields()))
+    for (auto *F : *std::get<0>(Pair)) {
+      DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, std::get<1>(Pair),
+                    // *this as DepMap to fill.
+                    *this);
+
+      auto &AllMethods = *std::get<0>(Pair);
+
+      // Mark calls to methods as known.
+      std::function<bool(const Function *)> IsMethod =
+          [&AllMethods](const Function *F) -> bool {
+        return std::find(AllMethods.begin(), AllMethods.end(), F) !=
+               AllMethods.end();
+      };
+      DC.computeDepApproximation(IsMethod);
+
+      DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+        dbgs() << "; Dump computed dependencies ";
+
+        DepMap::DepAnnotatedWriter Annotate(*this);
+        F->print(dbgs(), &Annotate);
+      });
+    }
+
+  for (auto *F: StructMethods) {
+    DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
+
+    std::function<bool(const Function *)> IsMethod =
+        [F](const Function *F1) -> bool {
+      return F == F1;
+    };
+
+    DC.computeDepApproximation(IsMethod);
+
+    DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+      dbgs() << "; Dump computed dependencies ";
+
+      DepMap::DepAnnotatedWriter Annotate(*this);
+      F->print(dbgs(), &Annotate);
+    });
+  }
+
+  // Direct map from MK to set of methods.
+  Classifications.assign(getNumArrays(),
+                         ClassifyMethodsTy(MK_Last + 1, MethodKindSetTy()));
+
+  for (auto Tuple :
+       zip_first(methodsets(), fields(), elements(), methodbins())) {
+    SmallVector<const Function *, 1> MethodsCalled;
+    for (auto *F : *std::get<0>(Tuple)) {
+      SummaryForIdiom S(std::get<1>(Tuple), std::get<2>(Tuple), MemoryInterface,
+                        F);
+      LLVM_DEBUG(dbgs() << "; Checking array's method " << F->getName()
+                        << "\n");
+
+      ComputeArrayMethodClassification MC(Impl.DL,
+                                          // *this as DepMap to query.
+                                          *this, S);
+      auto Res = MC.classify();
+      auto Kind = Res.first;
+
+      LLVM_DEBUG(dbgs() << "; Classification: " << Kind << "\n");
+
+      if (Kind == MK_Unknown && !DTransSOAToAOSComputeAllDep)
+        return FALSE();
+
+      (*std::get<3>(Tuple))[Kind].push_back(F);
+
+      // Simple processing of MK_Append calling MK_Realloc.
+      if (Res.second) {
+        if (Kind != MK_Append)
+          return FALSE();
+        MethodsCalled.push_back(Res.second);
+      }
+    }
+    // Simple processing of MK_Append.
+    if (MethodsCalled.size() > 1)
+      return FALSE();
+    else if (MethodsCalled.size() == 1) {
+      if ((*std::get<3>(Tuple))[MK_Realloc][0] != MethodsCalled[0])
+        return FALSE();
+    }
+  }
+
+  // Check combined methods.
+  auto &FirstBins = **methodbins_begin();
+  auto &FirstSet = **methodsets_begin();
+
+  GlobalNumberState GNS;
+  for (auto Tuple :
+       zip_first(make_range(methodbins_begin() + 1, methodbins_end()),
+                 make_range(methodsets_begin() + 1, methodsets_end()))) {
+    auto &OtherBins = *std::get<0>(Tuple);
+    auto &OtherSet = *std::get<1>(Tuple);
+    for (int i = MK_Unknown; i <= MK_Last; ++i)
+      switch (static_cast<MethodKind>(i)) {
+      case MK_Unknown:
+        if (!FirstBins[i].empty() || !OtherBins[i].empty()) {
+          assert(DTransSOAToAOSComputeAllDep &&
+                 "MK_Unknown methods encountered too late");
+          return FALSE();
+        }
+        break;
+      // Combined methods.
+      case MK_Realloc:
+      case MK_Append:
+      case MK_Ctor:
+      case MK_CCtor:
+      case MK_Dtor: {
+        if (FirstBins[i].size() != 1 || OtherBins[i].size() != 1)
+          return FALSE();
+
+        if (!FirstBins[i][0]->hasOneUse() || !OtherBins[i][0]->hasOneUse())
+          return FALSE();
+
+        Function *F = FirstBins[i][0];
+        Function *O = OtherBins[i][0];
+
+        if (!ImmutableCallSite(F->use_begin()->getUser()) ||
+            !ImmutableCallSite(O->use_begin()->getUser()))
+          return FALSE();
+
+        FunctionComparator cmp(F, O, &GNS);
+        if (cmp.compare() == 0) {
+          GNS.setEqual(F, O);
+          if (std::find(FirstSet.begin(), FirstSet.end(),
+                        cast<Instruction>(F->use_begin()->getUser())
+                            ->getParent()
+                            ->getParent()) == FirstSet.end() ||
+              std::find(OtherSet.begin(), OtherSet.end(),
+                        cast<Instruction>(O->use_begin()->getUser())
+                            ->getParent()
+                            ->getParent()) == OtherSet.end())
+            if (!compareCallSites(F, O, static_cast<MethodKind>(i)))
+              return FALSE();
+        } else
+          return FALSE();
+        break;
+      }
+      // Not combined methods.
+      case MK_GetInteger:
+      case MK_Set:
+      case MK_GetElement:
+        break;
+      }
+  }
+
+  return true;
+}
+
+// FIXME: Fill-in placeholder.
+// Need to compare arguments and check adjacency of calls.
+bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::compareCallSites(
+    Function *F1, Function* F2, MethodKind MK) const {
+  return true;
+}
+
 // FIXME: make sure padding fields are dead.
 bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 
@@ -710,6 +967,15 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " because it does not look like a candidate from CFG "
                   "analysis.\n";
+      });
+      continue;
+    }
+
+    if (!Info->populateSideEffects(*this, M)) {
+      LLVM_DEBUG({
+        dbgs() << "  Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because some methods contains unknown side effect.\n";
       });
       continue;
     }

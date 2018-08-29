@@ -4,11 +4,12 @@
 ; transformation when the 'target' block is a loop to itself.
 
 ; CHECK: .split:
-; CHECK: br label %while.body.clone
+; INTEL_CUSTOMIZATION
+; Critical edges splitting algorithm is changed, clone BB isn't generated anymore.
+; CHECK: br label %.split
 ; CHECK: if.else1:
 ; CHECK: indirectbr
-; CHECK: while.body.clone:
-; CHECK: br label %.split
+; end INTEL_CUSTOMIZATION
 
 define void @test() {
 entry:

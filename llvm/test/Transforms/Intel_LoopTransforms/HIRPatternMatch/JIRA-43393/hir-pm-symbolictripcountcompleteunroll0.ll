@@ -1,4 +1,4 @@
-; RUN: opt -O3 -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-pm-symbolic-tripcount-completeunroll -print-before=hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-pm-symbolic-tripcount-completeunroll -print-before=hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; TODO: fix this test.
 ; XFAIL: *
@@ -66,7 +66,7 @@
 ; CHECK:        |   %nbr_par_cnt.060.out = %nbr_par_cnt.060;
 ; CHECK:        |   %2 = (%this)[0].12.0[i1];
 ; CHECK:        |   %3 = (%this)[0].10.0[%2 + %i];
-; CHECK:        |   (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
+; CHECK:        |   (%this)[0].10.0[%2 + %i] = %3 + trunc.i32.i16(%shl) + -256;
 ; CHECK:        |   %5 = (%this)[0].7.0[%2 + %i];
 ; CHECK:        |   if (%nbr_par_cnt.060 > 0)
 ; CHECK:        |   {
@@ -97,25 +97,25 @@
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        %2 = (%this)[0].12.0[0];
 ; CHECK:        %3 = (%this)[0].10.0[%2 + %i];
-; CHECK:        (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
+; CHECK:        (%this)[0].10.0[%2 + %i] = %3 + trunc.i32.i16(%shl) + -256;
 ; CHECK:        %5 = (%this)[0].7.0[%2 + %i];
 ; CHECK:        %8 = (%this)[0].8.0[%5];
 ;
 ; CHECK:        %mv = (%this)[0].12.0[1];
 ; CHECK:        %mv2 = (%this)[0].10.0[%i + %mv];
-; CHECK:        (%this)[0].10.0[%i + %mv] = %shl + zext.i16.i32(%mv2) + 65280;
+; CHECK:        (%this)[0].10.0[%i + %mv] = trunc.i32.i16(%shl) + %mv2 + -256;
 ; CHECK:        %mv3 = (%this)[0].7.0[%i + %mv];
 ; CHECK:        %mv4 = (%this)[0].8.0[%mv3];
 ;
 ; CHECK:        %mv5 = (%this)[0].12.0[2];
 ; CHECK:        %mv6 = (%this)[0].10.0[%i + %mv5];
-; CHECK:        (%this)[0].10.0[%i + %mv5] = %shl + zext.i16.i32(%mv6) + 65280;
+; CHECK:        (%this)[0].10.0[%i + %mv5] = trunc.i32.i16(%shl) + %mv6 + -256;
 ; CHECK:        %mv7 = (%this)[0].7.0[%i + %mv5];
 ; CHECK:        %mv8 = (%this)[0].8.0[%mv7];
 ;
 ; CHECK:        %mv9 = (%this)[0].12.0[3];
 ; CHECK:        %mv10 = (%this)[0].10.0[%i + %mv9];
-; CHECK:        (%this)[0].10.0[%i + %mv9] = %shl + zext.i16.i32(%mv10) + 65280;
+; CHECK:        (%this)[0].10.0[%i + %mv9] = trunc.i32.i16(%shl) + %mv10 + -256;
 ; CHECK:        %mv11 = (%this)[0].7.0[%i + %mv9];
 ; CHECK:        %mv12 = (%this)[0].8.0[%mv11];
 ;

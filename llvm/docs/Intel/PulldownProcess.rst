@@ -229,6 +229,55 @@ temporarily suspended by adding
 
 to `<top ws>/merge.status` and `<top ws>/build.status`.
 
+Checkin criteria for ``xmain-cand``
+-----------------------------------
+Checkin criteria for pulldown is basically the same as for any other change and
+the final decision is done by the xmain gatekeeper. The main exception is the
+process of addressing performance regressions. Unlike regular checkin requests
+we do allow the pulldown to decrease performance and do not require the
+coordinators to analyze such regression prior to promotion. Instead a JIRA
+against "LLVM Performance Analysis" component should be submitted listing the
+performance drops from the Alloy testing. Depending on the current
+organizational goals it might be preferred to split the regressions into two
+parts - important ones and those that have lower priority.
+
+However, as the scope and effect of work for the pulldown coordinator might
+differ from the usual patches he/she works on, here is a brief reference to
+judge the quality of the chosen ``xmain-cand`` regarding its stability (as
+opposite to generated code performance):
+
+* Any build/LIT-tests failure is a blocking issue.
+
+  - That probably might be weakened for Windows in some special circumstances but
+    an explicit approval from the gatekeeper is required for that.
+
+* Any failures in SPEC CPU suites block the pulldown.
+
+* For non-SPEC CPU benchmarks:
+
+  - Compfails with asserts or crashes (SEGV and similar) in the compiler block
+    the promotion.
+
+  - Compfails due to valid errors emitted by the FE (especially under `-Werror`
+    option) might be allowed by the gatekeeper but the decision will be made on
+    a case by case basis. We don't expect such situation to happen often though.
+
+  - Not analyzed runfail obviously block the pulldown. Once analyzed, decision
+    is made based on the nature of the runfail. If it's caused by the
+    miscompilation or other bug in the compiler, the promotion is blocked.
+    Otherwise (issue in the benchmark sources, e.g. due to UB in the source
+    code) it's reasonable to ask gatekeeper to approve the promotion even with
+    such a runfail.
+
+* Other failures reported/found by the Alloy testing usually do not block the
+  promotion unless they're massive. In such cases it's required to create bug
+  reports against suspected components and include them into the checkin
+  questionnaire.
+
+  Some deeper initial analysis is welcome as it will ease the gatekeeper's work
+  on assessing the severeness of the fails and will allow to get an approve for
+  the pulldown faster, so such analysis is worth doing.
+
 Xmain Pulldown History
 ======================
 

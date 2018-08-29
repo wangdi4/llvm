@@ -33,6 +33,7 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/DebugInfo.h"
@@ -53,9 +54,9 @@ using namespace llvm;
 // instructions needed in the cold region to be worth splitting
 // into a new function.
 static cl::opt<unsigned> FunctionSplittingMinSize(
-  "function-splitting-min-size", cl::init(25), cl::Hidden,
-  cl::desc("Minimum number of instructions in a splinter region to be "
-    "considered worthy of function splitting"));
+    "function-splitting-min-size", cl::init(25), cl::Hidden,
+    cl::desc("Minimum number of instructions in a splinter region to be "
+             "considered worthy of function splitting"));
 
 // Command line option to control how cold a region needs to be for
 // consideration of splitting. This value represents a percentage of
@@ -64,25 +65,25 @@ static cl::opt<unsigned> FunctionSplittingMinSize(
 // which executes less than 1% of the times the function is invoked
 // will be considered a candidate for splitting.
 static cl::opt<unsigned> FunctionSplittingColdThresholdPercentage(
-  "function-splitting-cold-threshold-percentage", cl::init(1), cl::Hidden,
-  cl::desc("Blocks with execution frequency below this percentage are "
-    "considered as candidates for function splitting."));
+    "function-splitting-cold-threshold-percentage", cl::init(1), cl::Hidden,
+    cl::desc("Blocks with execution frequency below this percentage are "
+             "considered as candidates for function splitting."));
 
 // Command line option to control which functions are considered for splitting.
 // When 'true', only functions that are in 'text.hot' are considered for
 // splitting. When 'false', any function with an execution count will be
 // considered.
 static cl::opt<bool> FunctionSplittingOnlyHot(
-  "function-splitting-only-hot", cl::init(true), cl::Hidden,
-  cl::desc("Only apply function splitting for functions in text.hot"));
+    "function-splitting-only-hot", cl::init(true), cl::Hidden,
+    cl::desc("Only apply function splitting for functions in text.hot"));
 
 // Command line option that enables .dot graph files of the CFG to be emitted
 // for each function that gets split, prior to the splitting. The graph
 // will color code the blocks that were chosen to be split, and which
 // were rejected.
 static cl::opt<bool> FunctionSplittingEmitDebugGraphs(
-  "function-splitting-emit-graphs", cl::init(false), cl::ReallyHidden,
-  cl::desc("Emit graphs of function splitting for debugging"));
+    "function-splitting-emit-graphs", cl::init(false), cl::ReallyHidden,
+    cl::desc("Emit graphs of function splitting for debugging"));
 
 namespace {
 
@@ -97,20 +98,18 @@ using CandidateBlocksT = SmallPtrSet<BasicBlock *, 16>;
 // blocks when the function is split.
 using SplinterRegionT = SmallSetVector<BasicBlock *, 16>;
 
-
 // Forward declarations
 class FunctionSplitter;
 
 static void collectColdBlocks(Function &F, BlockFrequencyInfo &BFI,
-  CandidateBlocksT *ColdBlocks);
+                              CandidateBlocksT *ColdBlocks);
 
 static void writeGraph(const Function *F, FunctionSplitter *FS);
 
 // Print the names of the blocks contained in the splinter region or
 // candidate region
 template <typename ContainerT>
-void printNames(raw_ostream &OS, const ContainerT &Container)
-{
+void printNames(raw_ostream &OS, const ContainerT &Container) {
   unsigned Col = 0;
   OS << "Region Blocks:\n";
   for (auto BB : Container) {
@@ -124,8 +123,7 @@ void printNames(raw_ostream &OS, const ContainerT &Container)
 }
 
 #ifndef NDEBUG
-raw_ostream &operator<<(raw_ostream &OS, const SplinterRegionT &Region)
-{
+raw_ostream &operator<<(raw_ostream &OS, const SplinterRegionT &Region) {
   printNames(OS, Region);
   return OS;
 }
@@ -135,10 +133,9 @@ raw_ostream &operator<<(raw_ostream &OS, const SplinterRegionT &Region)
 // SplinterRegion out of the Function.
 class RegionSplitter {
 public:
-  RegionSplitter(DominatorTree &DT, BlockFrequencyInfo &BFI)
-    : DT(DT), BFI(BFI)
-  {
-  }
+  RegionSplitter(DominatorTree &DT, BlockFrequencyInfo &BFI,
+                 BranchProbabilityInfo &BPI)
+      : DT(DT), BFI(BFI), BPI(BPI) {}
 
   // Split the function, and return a pointer to the newly created Function.
   Function *splitRegion(const SplinterRegionT &Region);
@@ -151,19 +148,19 @@ private:
   // Do the actual split.
   Function *doSplit(const SplinterRegionT &Region);
 
-  // Handles to the DominatorTree and BlockFrequencyInfo analysis
-  // for the function are needed for calls to the CodeExtractor
-  // class.
+  // Handles to the DominatorTree, BlockFrequencyInfo, and
+  // BranchProbabilityInfo analysis for the function are needed for calls to
+  // the CodeExtractor class.
   DominatorTree &DT;
   BlockFrequencyInfo &BFI;
+  BranchProbabilityInfo &BPI;
 };
 
 // Public interface routine that performs all the steps required
 // to split the 'Region' into a new function. Returns a pointer
 // to the newly created function.
 //
-Function *RegionSplitter::splitRegion(const SplinterRegionT &Region)
-{
+Function *RegionSplitter::splitRegion(const SplinterRegionT &Region) {
   prepareRegionForSplit(Region);
   Function *NewF = doSplit(Region);
 
@@ -175,8 +172,7 @@ Function *RegionSplitter::splitRegion(const SplinterRegionT &Region)
 // class may be updated to handle these cases, but for now handle them
 // here.
 //
-bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region)
-{
+bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region) {
   // Some edges that exit the region need to be split so that each path that
   // exits the splinter region and returns to the original function will be
   // uniquely identifiable. This is necessary to handle the case where 2 or
@@ -204,7 +200,7 @@ bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region)
 
   // Collect the set of edges which exit the splinter region, and execute
   // a PHINode instruction.
-  SetVector<std::pair<BasicBlock*, BasicBlock*>> SplitEdges;
+  SetVector<std::pair<BasicBlock *, BasicBlock *>> SplitEdges;
 
   for (BasicBlock *BB : Region.getArrayRef()) {
     for (auto SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI) {
@@ -227,13 +223,11 @@ bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region)
 
 // Do the steps to extract the 'Region' to a new function.
 // Returns the new function, if successful, otherwise nullptr.
-Function *RegionSplitter::doSplit(const SplinterRegionT &Region)
-{
-  CodeExtractor Extractor(Region.getArrayRef(), &DT, &BFI);
+Function *RegionSplitter::doSplit(const SplinterRegionT &Region) {
+  CodeExtractor Extractor(Region.getArrayRef(), &DT, false, &BFI, &BPI);
   Function *NewF = Extractor.extractCodeRegion();
-  if (NewF == nullptr) {
+  if (NewF == nullptr)
     return nullptr;
-  }
 
   // Mark the function to be kept in a cold segment.
   NewF->setSectionPrefix(getUnlikelySectionPrefix());
@@ -255,14 +249,11 @@ Function *RegionSplitter::doSplit(const SplinterRegionT &Region)
 // perform the actual split.
 class FunctionSplitter {
 public:
-  FunctionSplitter(
-    Function &F,
-    BlockFrequencyInfo &BFI,
-    DominatorTree &DT,
-    PostDominatorTree  &PDT,
-    CandidateBlocksT &Candidates) :
-    F(F), BFI(BFI), DT(DT), PDT(PDT), CandidateBlocks(Candidates)
-  { }
+  FunctionSplitter(Function &F, BlockFrequencyInfo &BFI,
+                   BranchProbabilityInfo &BPI, DominatorTree &DT,
+                   PostDominatorTree &PDT, CandidateBlocksT &Candidates)
+      : F(F), BFI(BFI), BPI(BPI), DT(DT), PDT(PDT),
+        CandidateBlocks(Candidates) {}
 
   bool runOnFunction();
 
@@ -271,10 +262,10 @@ private:
   // suitability of splitting, and given one of the following reasons.
   typedef enum {
     NotEvaluated,
-    RegionIneligible,   // Code extractor does not support splitting
-    RegionNotSESE,      // Region is not Single-Entry/Single-Exit
-    RegionSmall,        // Region does not meet size limit
-    RegionOk            // Region selected for splitting.
+    RegionIneligible, // Code extractor does not support splitting
+    RegionNotSESE,    // Region is not Single-Entry/Single-Exit
+    RegionSmall,      // Region does not meet size limit
+    RegionOk          // Region selected for splitting.
   } RegionDecisionT;
 
   // A decision, and a region size for debugging.
@@ -286,7 +277,7 @@ private:
 
   void identifySplinterRegions();
   void populateCandidateRegion(const DomTreeNode *Node,
-    SplinterRegionT &Region);
+                               SplinterRegionT &Region);
 
   EvaluationT evaluateCandidateRegion(SplinterRegionT &Region);
   bool isSingleEntrySingleExit(const SplinterRegionT &Region) const;
@@ -303,14 +294,13 @@ private:
   // routines to expose the internal state of the class to the traits classes
   // used there.
   //===------------------------------------------------------------------===//
-  friend GraphTraits<FunctionSplitter*>;
-  friend DOTGraphTraits<FunctionSplitter*>;
+  friend GraphTraits<FunctionSplitter *>;
+  friend DOTGraphTraits<FunctionSplitter *>;
+
 private:
   // Get a handle to the function. This is just used for the graphing helper
   // class to draw the CFG.
-  Function *getFunction() const {
-    return &F;
-  }
+  Function *getFunction() const { return &F; }
 
   // If the basic block is part of a region to be split from the function,
   // return an index (1..N) to identify the region. Otherwise, return 0.
@@ -347,8 +337,9 @@ private:
 
   // Handles to the analysis structures needed to process the function.
   BlockFrequencyInfo &BFI;
+  BranchProbabilityInfo &BPI;
   DominatorTree &DT;
-  PostDominatorTree  &PDT;
+  PostDominatorTree &PDT;
 
   // List of blocks that may be used to start a region to be split out of the
   // function. Typically, this will be a set of blocks that have been
@@ -374,8 +365,7 @@ private:
 };
 
 // Process the function for splitting.
-bool FunctionSplitter::runOnFunction()
-{
+bool FunctionSplitter::runOnFunction() {
   identifySplinterRegions();
 
   if (FunctionSplittingEmitDebugGraphs)
@@ -391,8 +381,7 @@ bool FunctionSplitter::runOnFunction()
 // Collect code regions that start from a block in the block
 // candidate list, and for the ones that are valid and worth splitting
 // put them into RegionsToSplit collection.
-void FunctionSplitter::identifySplinterRegions()
-{
+void FunctionSplitter::identifySplinterRegions() {
   // Each region begins with a dominating node. Walk the DomTree from
   // top to bottom to identify the regions to be split.
   DomTreeNode *Root = DT.getRootNode();
@@ -458,8 +447,7 @@ void FunctionSplitter::identifySplinterRegions()
         BlockToEvaluationMapping.insert(std::make_pair(BB, Eval));
         if (Eval.first == RegionOk) {
           addRegionToSplitList(Candidate);
-        }
-        else {
+        } else {
           tryPruneRejectedRegion(Candidate, Eval);
         }
       }
@@ -471,8 +459,7 @@ void FunctionSplitter::identifySplinterRegions()
 
 // Add the block, and all blocks dominated by it to the 'Region'
 void FunctionSplitter::populateCandidateRegion(const DomTreeNode *Node,
-  SplinterRegionT &Region)
-{
+                                               SplinterRegionT &Region) {
   BasicBlock *BB = Node->getBlock();
 
   Region.insert(BB);
@@ -490,9 +477,8 @@ void FunctionSplitter::populateCandidateRegion(const DomTreeNode *Node,
 // The worthiness tests check that the size of the region is large enough
 // to be worth splitting.
 //
-FunctionSplitter::EvaluationT FunctionSplitter::evaluateCandidateRegion(
-  SplinterRegionT &Region)
-{
+FunctionSplitter::EvaluationT
+FunctionSplitter::evaluateCandidateRegion(SplinterRegionT &Region) {
   if (!isSingleEntrySingleExit(Region)) {
     LLVM_DEBUG(dbgs() << "Region has paths into it besides entry block: "
                       << Region << "\n");
@@ -534,8 +520,7 @@ FunctionSplitter::EvaluationT FunctionSplitter::evaluateCandidateRegion(
 // region, and all exits from the region go to the same basic block outside of
 // the region (or all paths out of the region return from the function).
 bool FunctionSplitter::isSingleEntrySingleExit(
-  const SplinterRegionT &Region) const
-{
+    const SplinterRegionT &Region) const {
   assert(!Region.empty());
 
   const BasicBlock *EntryBlock = Region.front();
@@ -566,7 +551,7 @@ bool FunctionSplitter::isSingleEntrySingleExit(
     for (auto Succ : successors(BB)) {
       if (!Region.count(Succ)) {
         if ((RegionSuccessorBlock && RegionSuccessorBlock != Succ) ||
-          RegionExitsFunction) {
+            RegionExitsFunction) {
           return false;
         }
 
@@ -584,9 +569,8 @@ bool FunctionSplitter::isSingleEntrySingleExit(
 // differently. Another option would be to use the TargetLibraryInfo cost to
 // get a cost, but that is modeling execution cycles, and we care more about
 // size for this.
-unsigned FunctionSplitter::estimateRegionSize(
-  const SplinterRegionT &Region) const
-{
+unsigned
+FunctionSplitter::estimateRegionSize(const SplinterRegionT &Region) const {
   unsigned Size = 0;
   for (auto &BB : Region.getArrayRef()) {
     Size += std::distance(BB->begin(), BB->end());
@@ -594,8 +578,7 @@ unsigned FunctionSplitter::estimateRegionSize(
 
   return Size;
 }
-void FunctionSplitter::addRegionToSplitList(SplinterRegionT &Region)
-{
+void FunctionSplitter::addRegionToSplitList(SplinterRegionT &Region) {
   unsigned int Num = RegionsToSplit.size() + 1;
 
   for (auto BB : Region.getArrayRef()) {
@@ -606,8 +589,7 @@ void FunctionSplitter::addRegionToSplitList(SplinterRegionT &Region)
 }
 
 void FunctionSplitter::tryPruneRejectedRegion(SplinterRegionT &Region,
-  EvaluationT &Eval)
-{
+                                              EvaluationT &Eval) {
   // If the region was rejected as being too small, then mark all basic
   // blocks of the region as having been visited. A region begins with a
   // dominant basic block and contains all blocks dominated by it. If
@@ -617,7 +599,7 @@ void FunctionSplitter::tryPruneRejectedRegion(SplinterRegionT &Region,
     for (auto &BB : Region.getArrayRef()) {
       BlockToRegionMapping.insert(std::make_pair(BB, 0));
       BlockToEvaluationMapping.insert(
-        std::make_pair(BB, std::make_pair(RegionSmall, 0)));
+          std::make_pair(BB, std::make_pair(RegionSmall, 0)));
     }
   }
 
@@ -626,9 +608,7 @@ void FunctionSplitter::tryPruneRejectedRegion(SplinterRegionT &Region,
   // re-evaluating, but that is not currently implemented.
 }
 
-
-bool FunctionSplitter::splitRegions()
-{
+bool FunctionSplitter::splitRegions() {
   bool Changed = false;
   // TODO: Currently, if there are "llvm.dbg.declare" statements in the
   // function, then splitting the function can result in these statements
@@ -637,7 +617,7 @@ bool FunctionSplitter::splitRegions()
   // of these to avoid verification errors.
   stripDebugInfoIntrinsics(F);
 
-  RegionSplitter Splitter(DT, BFI);
+  RegionSplitter Splitter(DT, BFI, BPI);
 
   for (auto &R : RegionsToSplit) {
     LLVM_DEBUG(dbgs() << F.getName() << ": Extracting " << R.size()
@@ -645,8 +625,7 @@ bool FunctionSplitter::splitRegions()
     Function *ColdF = Splitter.splitRegion(R);
     if (ColdF) {
       Changed = true;
-    }
-    else {
+    } else {
       LLVM_DEBUG(dbgs() << "Function split of " << F.getName() << " @ "
                         << R.front()->getName() << " was unsuccessful\n");
     }
@@ -655,15 +634,13 @@ bool FunctionSplitter::splitRegions()
   return Changed;
 }
 
-void FunctionSplitter::stripDebugInfoIntrinsics(Function &F)
-{
+void FunctionSplitter::stripDebugInfoIntrinsics(Function &F) {
   for (auto &BB : F) {
     for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
       Instruction *Insn = &*BI++;
       if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(Insn)) {
         DVI->eraseFromParent();
-      }
-      else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
+      } else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
         DDI->eraseFromParent();
       }
     }
@@ -673,8 +650,7 @@ void FunctionSplitter::stripDebugInfoIntrinsics(Function &F)
 // Populate the 'ColdBlocks' set with the blocks that should be considered
 // as candidates for being split from the function.
 static void collectColdBlocks(Function &F, BlockFrequencyInfo &BFI,
-  CandidateBlocksT *ColdBlocks)
-{
+                              CandidateBlocksT *ColdBlocks) {
   // Consider the block cold, if the execution count is less than
   // some percentage of the entry block's frequency.
   BlockFrequency EntryFreq = BFI.getBlockFreq(&F.front());
@@ -682,8 +658,9 @@ static void collectColdBlocks(Function &F, BlockFrequencyInfo &BFI,
     return;
   }
 
-  BlockFrequency ColdFreq = EntryFreq * BranchProbability(
-    FunctionSplittingColdThresholdPercentage, 100);
+  BlockFrequency ColdFreq =
+      EntryFreq *
+      BranchProbability(FunctionSplittingColdThresholdPercentage, 100);
 
   for (auto &BB : F)
     if (BFI.getBlockFreq(&BB) <= ColdFreq)
@@ -692,180 +669,171 @@ static void collectColdBlocks(Function &F, BlockFrequencyInfo &BFI,
 
 } // namespace
 
-  //===------------------------------------------------------------------===//
-  // Helpers to generate DOT graphs that show the CFG annotated with the
-  // FunctionSplitting state. Specifically, blocks that candidates for
-  // function splitting have their text in a different color from
-  //non-candidate blocks. Blocks that are chosen for splitting are filled
-  // with a background color.
+//===------------------------------------------------------------------===//
+// Helpers to generate DOT graphs that show the CFG annotated with the
+// FunctionSplitting state. Specifically, blocks that candidates for
+// function splitting have their text in a different color from
+// non-candidate blocks. Blocks that are chosen for splitting are filled
+// with a background color.
 
 namespace llvm {
 
-  // Iteration of the FunctionSplitter for graph drawing will iterate over
-  // the BasicBlocks pointers that make up the function.
+// Iteration of the FunctionSplitter for graph drawing will iterate over
+// the BasicBlocks pointers that make up the function.
+//
+template <> struct GraphTraits<FunctionSplitter *> {
+  using NodeRef = const BasicBlock *;
+  using ChildIteratorType = succ_const_iterator;
+  using nodes_iterator = pointer_iterator<Function::const_iterator>;
+
+  static NodeRef getEntryNode(const FunctionSplitter *G) {
+    return &G->getFunction()->front();
+  }
+
+  static ChildIteratorType child_begin(const NodeRef N) {
+    return succ_begin(N);
+  }
+
+  static ChildIteratorType child_end(const NodeRef N) { return succ_end(N); }
+
+  static nodes_iterator nodes_begin(const FunctionSplitter *G) {
+    return nodes_iterator(G->getFunction()->begin());
+  }
+
+  static nodes_iterator nodes_end(const FunctionSplitter *G) {
+    return nodes_iterator(G->getFunction()->end());
+  }
+};
+
+// List of colors to use for shading the regions selected for extraction.
+// If there are more regions than colors, we will just cycle through the
+// colors again.
+static const char *Colors[] = {
+    "LightSkyBlue", "DeepSkyBlue", "CornflowerBlue", "Aquamarine",
+    "SteelBlue",    "Cyan",        "LightBlue",      "LightSteelBlue"};
+
+template <>
+struct DOTGraphTraits<FunctionSplitter *> : public DefaultDOTGraphTraits {
+  using GTraits = GraphTraits<FunctionSplitter *>;
+  using NodeRef = typename GTraits::NodeRef;
+  using EdgeIter = typename GTraits::ChildIteratorType;
+  using NodeIter = typename GTraits::nodes_iterator;
+
+  explicit DOTGraphTraits(bool isSimple = false)
+      : DefaultDOTGraphTraits(isSimple) {}
+
+  // For the BasicBlocks, highlight the graph as follows:
+  //  - Blocks were candidates according the hotness criteria. -> Blue text
+  //  - Blocks that were dominant nodes that were tested for validity and
+  //    size, but were rejected. -> gray background
+  //  - Blocks were chosen for extraction. -> Color background to show
+  //    all blocks of the region in the same color.
   //
-  template<>
-  struct GraphTraits<FunctionSplitter*> {
-    using NodeRef = const BasicBlock *;
-    using ChildIteratorType = succ_const_iterator;
-    using nodes_iterator = pointer_iterator<Function::const_iterator>;
+  std::string getNodeAttributes(const BasicBlock *N,
+                                FunctionSplitter *const &G) {
+    std::string Result;
+    raw_string_ostream OS(Result);
+    bool NeedComma = false;
 
-    static NodeRef getEntryNode(const FunctionSplitter *G) {
-      return &G->getFunction()->front();
+    if (G->isCandidateBlock(N)) {
+      OS << "fontcolor=blue";
+      NeedComma = true;
     }
 
-    static ChildIteratorType child_begin(const NodeRef N) {
-      return succ_begin(N);
-    }
-
-    static ChildIteratorType child_end(const NodeRef N) {
-      return succ_end(N);
-    }
-
-    static nodes_iterator nodes_begin(const FunctionSplitter *G) {
-      return nodes_iterator(G->getFunction()->begin());
-    }
-
-    static nodes_iterator nodes_end(const FunctionSplitter *G) {
-      return nodes_iterator(G->getFunction()->end());
-    }
-  };
-
-  // List of colors to use for shading the regions selected for extraction.
-  // If there are more regions than colors, we will just cycle through the
-  // colors again.
-  static const char *Colors[] = {
-    "LightSkyBlue", "DeepSkyBlue", "CornflowerBlue",
-    "Aquamarine", "SteelBlue", "Cyan", "LightBlue",
-    "LightSteelBlue"
-  };
-
-  template<>
-  struct DOTGraphTraits<FunctionSplitter*> : public DefaultDOTGraphTraits {
-    using GTraits = GraphTraits<FunctionSplitter*>;
-    using NodeRef = typename GTraits::NodeRef;
-    using EdgeIter = typename GTraits::ChildIteratorType;
-    using NodeIter = typename GTraits::nodes_iterator;
-
-    explicit DOTGraphTraits(bool isSimple = false)
-      : DefaultDOTGraphTraits(isSimple)
-    { }
-
-    // For the BasicBlocks, highlight the graph as follows:
-    //  - Blocks were candidates according the hotness criteria. -> Blue text
-    //  - Blocks that were dominant nodes that were tested for validity and
-    //    size, but were rejected. -> gray background
-    //  - Blocks were chosen for extraction. -> Color background to show
-    //    all blocks of the region in the same color.
-    //
-    std::string getNodeAttributes(const BasicBlock *N,
-      FunctionSplitter* const &G) {
-      std::string Result;
-      raw_string_ostream OS(Result);
-      bool NeedComma = false;
-
-      if (G->isCandidateBlock(N)) {
-        OS << "fontcolor=blue";
-        NeedComma = true;
-      }
-
-      unsigned RegionNum = G->getSplinterRegionNumber(N);
-      if (RegionNum != 0) {
+    unsigned RegionNum = G->getSplinterRegionNumber(N);
+    if (RegionNum != 0) {
+      if (NeedComma)
+        OS << ",";
+      OS << "style=filled, fillcolor="
+         << Colors[(RegionNum - 1) % (sizeof(Colors) / sizeof(char *))];
+    } else {
+      FunctionSplitter::RegionDecisionT Res = G->getRegionDecision(N);
+      if (Res != FunctionSplitter::NotEvaluated) {
         if (NeedComma)
           OS << ",";
-        OS << "style=filled, fillcolor=" << Colors[(RegionNum - 1) %
-          (sizeof(Colors) / sizeof(char*))];
+        OS << "style=filled, fillcolor=gray";
       }
-      else {
-        FunctionSplitter::RegionDecisionT Res = G->getRegionDecision(N);
-        if (Res != FunctionSplitter::NotEvaluated) {
-          if (NeedComma)
-            OS << ",";
-          OS << "style=filled, fillcolor=gray";
-        }
-      }
-
-      OS.flush();
-      return Result;
     }
 
-    // For the BasicBlocks, label the graph with the names of the blocks.
-    // Additionally, annotate the blocks which were evaluated for extraction.
-    //
-    std::string getNodeLabel(const BasicBlock *N,
-      FunctionSplitter* const &G) {
-      std::string Result;
-      raw_string_ostream OS(Result);
+    OS.flush();
+    return Result;
+  }
 
-      FunctionSplitter::RegionDecisionT Res = G->getRegionDecision(N);
-      switch (Res) {
-      case FunctionSplitter::NotEvaluated:
-        break;
-      case FunctionSplitter::RegionOk:
-        OS << "Size = " << G->getRegionSize(N) << "\\l\\l";
-        break;
-      case FunctionSplitter::RegionNotSESE:
-        OS << "[Not SESE]\\l\\l";
-        break;
-      case FunctionSplitter::RegionIneligible:
-        OS << "[Ineligible]\\l\\l";
-        break;
-      case FunctionSplitter::RegionSmall:
-        OS << "[Too small. Size = " << G->getRegionSize(N) << "]\\l\\l";
-        break;
-      }
+  // For the BasicBlocks, label the graph with the names of the blocks.
+  // Additionally, annotate the blocks which were evaluated for extraction.
+  //
+  std::string getNodeLabel(const BasicBlock *N, FunctionSplitter *const &G) {
+    std::string Result;
+    raw_string_ostream OS(Result);
 
-      OS << N->getName();
-
-      OS.flush();
-      return Result;
-
+    FunctionSplitter::RegionDecisionT Res = G->getRegionDecision(N);
+    switch (Res) {
+    case FunctionSplitter::NotEvaluated:
+      break;
+    case FunctionSplitter::RegionOk:
+      OS << "Size = " << G->getRegionSize(N) << "\\l\\l";
+      break;
+    case FunctionSplitter::RegionNotSESE:
+      OS << "[Not SESE]\\l\\l";
+      break;
+    case FunctionSplitter::RegionIneligible:
+      OS << "[Ineligible]\\l\\l";
+      break;
+    case FunctionSplitter::RegionSmall:
+      OS << "[Too small. Size = " << G->getRegionSize(N) << "]\\l\\l";
+      break;
     }
 
-    // Label the exits from the block.
-    std::string getEdgeSourceLabel(const BasicBlock *Node,
-      succ_const_iterator I) {
-      // Label source of conditional branches with "T" or "F"
-      if (const BranchInst *BI = dyn_cast<BranchInst>(Node->getTerminator()))
-        if (BI->isConditional())
-          return (I == succ_begin(Node)) ? "T" : "F";
+    OS << N->getName();
 
-      // Label source of switch edges with the associated value.
-      if (const SwitchInst *SI = dyn_cast<SwitchInst>(Node->getTerminator())) {
-        unsigned SuccNo = I.getSuccessorIndex();
+    OS.flush();
+    return Result;
+  }
 
-        if (SuccNo == 0) return "def";
+  // Label the exits from the block.
+  std::string getEdgeSourceLabel(const BasicBlock *Node,
+                                 succ_const_iterator I) {
+    // Label source of conditional branches with "T" or "F"
+    if (const BranchInst *BI = dyn_cast<BranchInst>(Node->getTerminator()))
+      if (BI->isConditional())
+        return (I == succ_begin(Node)) ? "T" : "F";
 
-        std::string Str;
-        raw_string_ostream OS(Str);
-        auto Case = *SwitchInst::ConstCaseIt::fromSuccessorIndex(SI, SuccNo);
-        OS << Case.getCaseValue()->getValue();
-        return OS.str();
-      }
-      return "";
+    // Label source of switch edges with the associated value.
+    if (const SwitchInst *SI = dyn_cast<SwitchInst>(Node->getTerminator())) {
+      unsigned SuccNo = I.getSuccessorIndex();
+
+      if (SuccNo == 0)
+        return "def";
+
+      std::string Str;
+      raw_string_ostream OS(Str);
+      auto Case = *SwitchInst::ConstCaseIt::fromSuccessorIndex(SI, SuccNo);
+      OS << Case.getCaseValue()->getValue();
+      return OS.str();
     }
-  };
+    return "";
+  }
+};
 
 } // namespace llvm
 
 namespace {
-  // Generate a .dot file for the function with the CFG annotated with
-  // information from the FunctionSplitter analysis.
-  //
-  static void writeGraph(const Function *F, FunctionSplitter *FS)
-  {
-    std::string Filename = ("func_split." + F->getName() + ".dot").str();
-    errs() << "Writing '" << Filename << "'...";
+// Generate a .dot file for the function with the CFG annotated with
+// information from the FunctionSplitter analysis.
+//
+static void writeGraph(const Function *F, FunctionSplitter *FS) {
+  std::string Filename = ("func_split." + F->getName() + ".dot").str();
+  errs() << "Writing '" << Filename << "'...";
 
-    std::error_code EC;
-    raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
+  std::error_code EC;
+  raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
 
-    if (!EC)
-      WriteGraph(File, FS, false);
-    else
-      errs() << "  error opening file for writing!";
-    errs() << "\n";
-  }
+  if (!EC)
+    WriteGraph(File, FS, false);
+  else
+    errs() << "  error opening file for writing!";
+  errs() << "\n";
+}
 } // namespace
 
 //===--------------------------------------------------------------------===//
@@ -874,53 +842,53 @@ namespace {
 // the old or new pass manager.
 class FunctionSplittingImpl {
 public:
-  bool runOnModule(
-    Module &M,
-    ProfileSummaryInfo *PSI,
-    std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-    std::function<DominatorTree &(Function &)> *GetDT,
-    std::function<PostDominatorTree &(Function &)> *GetPDT);
+  bool runOnModule(Module &M, ProfileSummaryInfo *PSI,
+                   std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+                   std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+                   std::function<DominatorTree &(Function &)> *GetDT,
+                   std::function<PostDominatorTree &(Function &)> *GetPDT);
 
 private:
-
-  bool processFunction(Function &F,
-    std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-    std::function<DominatorTree &(Function &)> *GetDT,
-    std::function<PostDominatorTree &(Function &)> *GetPDT);
+  bool
+  processFunction(Function &F,
+                  std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+                  std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+                  std::function<DominatorTree &(Function &)> *GetDT,
+                  std::function<PostDominatorTree &(Function &)> *GetPDT);
 };
 
-bool FunctionSplittingImpl::runOnModule(Module &M,
-  ProfileSummaryInfo *PSI,
-  std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-  std::function<DominatorTree &(Function &)> *GetDT,
-  std::function<PostDominatorTree &(Function &)> *GetPDT)
-{
+bool FunctionSplittingImpl::runOnModule(
+    Module &M, ProfileSummaryInfo *PSI,
+    std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+    std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+    std::function<DominatorTree &(Function &)> *GetDT,
+    std::function<PostDominatorTree &(Function &)> *GetPDT) {
   bool Changed = false;
 
   std::vector<Function *> Worklist;
   Worklist.reserve(M.size());
   for (Function &F : M)
     if (!F.isDeclaration() &&
-       (!FunctionSplittingOnlyHot ||
-        PSI->isFunctionHotInCallGraph(&F, (*GetBFI)(F)))) {
+        (!FunctionSplittingOnlyHot ||
+         PSI->isFunctionHotInCallGraph(&F, (*GetBFI)(F)))) {
       Worklist.push_back(&F);
     }
 
   for (Function *F : Worklist)
-    Changed |= processFunction(*F, GetBFI, GetDT, GetPDT);
+    Changed |= processFunction(*F, GetBFI, GetBPI, GetDT, GetPDT);
 
   return Changed;
 }
 
 bool FunctionSplittingImpl::processFunction(
-  Function &F,
-  std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-  std::function<DominatorTree &(Function &)> *GetDT,
-  std::function<PostDominatorTree &(Function &)> *GetPDT)
-{
+    Function &F, std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+    std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+    std::function<DominatorTree &(Function &)> *GetDT,
+    std::function<PostDominatorTree &(Function &)> *GetPDT) {
   // Collect a list of blocks based on the PGO data that a candidates
   // to split out of the function.
   BlockFrequencyInfo &BFI = (*GetBFI)(F);
+  BranchProbabilityInfo &BPI = (*GetBPI)(F);
 
   CandidateBlocksT ColdBlocks;
   collectColdBlocks(F, BFI, &ColdBlocks);
@@ -929,35 +897,39 @@ bool FunctionSplittingImpl::processFunction(
 
   DominatorTree &DT = (*GetDT)(F);
   PostDominatorTree &PDT = (*GetPDT)(F);
-  FunctionSplitter Splitter(F, BFI, DT, PDT, ColdBlocks);
+  FunctionSplitter Splitter(F, BFI, BPI, DT, PDT, ColdBlocks);
 
   return Splitter.runOnFunction();
 }
 
 // New pass manager version
 PreservedAnalyses FunctionSplittingPass::run(Module &M,
-  ModuleAnalysisManager &AM)
-{
+                                             ModuleAnalysisManager &AM) {
   ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
   std::function<BlockFrequencyInfo &(Function &)> GetBFI =
-    [&FAM](Function &F) -> BlockFrequencyInfo & {
+      [&FAM](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
   };
 
+  std::function<BranchProbabilityInfo &(Function &)> GetBPI =
+      [&FAM](Function &F) -> BranchProbabilityInfo & {
+    return FAM.getResult<BranchProbabilityAnalysis>(F);
+  };
+
   std::function<DominatorTree &(Function &)> GetDT =
-    [&FAM](Function &F) -> DominatorTree & {
-    return  FAM.getResult<DominatorTreeAnalysis>(F);
+      [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
   };
 
   std::function<PostDominatorTree &(Function &)> GetPDT =
-    [&FAM](Function &F) -> PostDominatorTree & {
-    return  FAM.getResult<PostDominatorTreeAnalysis>(F);
+      [&FAM](Function &F) -> PostDominatorTree & {
+    return FAM.getResult<PostDominatorTreeAnalysis>(F);
   };
 
   FunctionSplittingImpl Impl;
-  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetDT, &GetPDT);
+  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetBPI, &GetDT, &GetPDT);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -984,43 +956,45 @@ public:
   }
 };
 
-bool FunctionSplittingWrapper::runOnModule(Module &M)
-{
+bool FunctionSplittingWrapper::runOnModule(Module &M) {
   ProfileSummaryInfo *PSI =
-    getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+      getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
 
   std::function<BlockFrequencyInfo &(Function &)> GetBFI =
-    [this](Function &F) -> BlockFrequencyInfo & {
+      [this](Function &F) -> BlockFrequencyInfo & {
     return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
   };
 
+  std::function<BranchProbabilityInfo &(Function &)> GetBPI =
+      [this](Function &F) -> BranchProbabilityInfo & {
+    return this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
+  };
+
   std::function<DominatorTree &(Function &)> GetDT =
-    [this](Function &F) -> DominatorTree & {
+      [this](Function &F) -> DominatorTree & {
     return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
   };
 
   std::function<PostDominatorTree &(Function &)> GetPDT =
-    [this](Function &F) -> PostDominatorTree & {
+      [this](Function &F) -> PostDominatorTree & {
     return this->getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
   };
 
   FunctionSplittingImpl Impl;
-  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetDT, &GetPDT);
+  bool Changed = Impl.runOnModule(M, PSI, &GetBFI, &GetBPI, &GetDT, &GetPDT);
 
   return Changed;
 }
 
 char FunctionSplittingWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(FunctionSplittingWrapper, "function-splitting",
-  "Split cold code regions out of functions",
-  false, false)
+                      "Split cold code regions out of functions", false, false)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_END(FunctionSplittingWrapper, "function-splitting",
-    "Split cold code regions out of functions",
-    false, false)
+                    "Split cold code regions out of functions", false, false)
 
 ModulePass *llvm::createFunctionSplittingWrapperPass() {
   return new FunctionSplittingWrapper();

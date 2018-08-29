@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; This test verifies that "init" routine is not qualified as InitRoutine
-; DynClone transformation due to no direct call to it.
+; DynClone transformation due to AddressTaken attribute.
 
 ;  RUN: opt < %s -whole-program-assume -dtrans-dynclone -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
 ;  RUN: opt < %s -whole-program-assume -passes=dtrans-dynclone -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64, i64 }
 
 ; CHECK-LABEL:    Init Routine: init
-; CHECK:    InitRoutine failed...No direct call
+; CHECK:    InitRoutine failed...AddressTaken
 
 ; "init" routine is not qualified as InitRoutine since it is not
 ; called directly.
@@ -38,10 +38,6 @@ define void @init() {
   ret void
 }
 
-define void @proc2(void ()*  %t4) {
-  call void %t4()
-  ret void
-}
-
 ; Function Attrs: nounwind
 declare dso_local noalias i8* @calloc(i64, i64)
+declare void @proc2(void ()*)

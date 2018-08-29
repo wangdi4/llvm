@@ -315,8 +315,11 @@ bool CanonExpr::isMetadata(MetadataAsValue **Val) const {
     return false;
   }
 
-  return BlobUtils::isMetadataBlob(getBlobUtils().getBlob(getSingleBlobIndex()),
-                                   Val);
+  bool IsMetadata = BlobUtils::isMetadataBlob(
+      getBlobUtils().getBlob(getSingleBlobIndex()), Val);
+  assert((!IsMetadata || getDestType()->isMetadataTy()) &&
+         "Expected metadata type for CanonExpr representing a metadata!");
+  return IsMetadata;
 }
 
 bool CanonExpr::isConstantVectorImpl(Constant **Val) const {

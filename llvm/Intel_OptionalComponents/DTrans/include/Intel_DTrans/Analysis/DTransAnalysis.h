@@ -147,7 +147,7 @@ public:
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
-  dtrans::CallInfo *getCallInfo(Instruction *I) const;
+  dtrans::CallInfo *getCallInfo(const Instruction *I) const;
 
   // Create an entry in the CallInfoMap about a memory allocation call.
   dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
@@ -243,6 +243,12 @@ public:
   // Return true if DTransAnalysis has been run and can be used in
   // transformations.
   bool useDTransAnalysis(void);
+
+  // Return the value used during analysis for the command line option
+  // "dtrans-outofboundsok" which controls the assumptions regarding whether
+  // taking the address of a structure field is allowed to access other fields
+  // of the structure.
+  static bool getDTransOutOfBoundsOK();
 
 private:
   void printStructInfo(dtrans::StructInfo *AI);

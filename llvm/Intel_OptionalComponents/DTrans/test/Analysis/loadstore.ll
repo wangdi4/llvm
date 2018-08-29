@@ -232,7 +232,7 @@ define void @test15(%struct.test15* %pS, i64* %pUnknown) {
 }
 
 ; CHECK: LLVMType: %struct.test15 = type { i32, i32 }
-; CHECK: Safety data: Unsafe pointer store
+; CHECK: Safety data: Address taken
 
 ; Store of an element within an aggregate.
 %struct.test16 = type { i32, i32 }
@@ -362,5 +362,20 @@ define void @test26(%struct.test26*** %pIn) {
 
 ; CHECK: LLVMType: %struct.test26 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
+
+; Store a pointer to struct to an array of pointers to that type of struct.
+%struct.test27 = type { i32, [50 x %struct.test27*] }
+define void @test27( %struct.test27* %p) {
+  %p8 = bitcast %struct.test27* %p to i8*
+  %pArr = getelementptr %struct.test27, %struct.test27* %p, i64 0, i32 1
+  %pp = bitcast [50 x %struct.test27*]* %pArr to i8**
+  store i8* %p8, i8** %pp
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test27 = type { i32, [50 x %struct.test27*] }
+; CHECK: Safety data: No issues found
+; This is here to make sure the test above finds the right safety data.
+; CHECK-LABEL: DTRANS_ArrayInfo
 
 declare noalias i8* @malloc(i64)

@@ -11,7 +11,7 @@
 #include "STI.h"
 #include "STIIR.h"
 #include "pdbInterface.h"
-#include "../DbgValueHistoryCalculator.h"
+#include "../DbgEntityHistoryCalculator.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerUnion.h" // dyn_cast
 #include "llvm/ADT/StringRef.h"
@@ -916,9 +916,8 @@ void STIPdbWriter::idEnd(const STIType* type) {
   // Buffer must minimally contain a type length.
   assert(_buffer.size() > 2);
 
-  pdb_write_id(_buffer.data(), &index);
-
-  const_cast<STIType *>(type)->setIndex(index);
+  if (pdb_write_id(_buffer.data(), &index))
+    const_cast<STIType *>(type)->setIndex(index);
 
   _buffer.clear();
 }
@@ -933,9 +932,8 @@ void STIPdbWriter::typeEnd(const STIType* type) {
   // Buffer must minimally contain a type length.
   assert(_buffer.size() > 2);
 
-  pdb_write_type(_buffer.data(), &index);
-
-  const_cast<STIType *>(type)->setIndex(index);
+  if (pdb_write_type(_buffer.data(), &index))
+    const_cast<STIType *>(type)->setIndex(index);
 
   _buffer.clear();
 }
@@ -1016,6 +1014,8 @@ private:
   AsmPrinter *_asmPrinter;
   STISymbolProcedure *_currentProcedure;
   DbgValueHistoryMap _valueHistory;
+  // FIXME: Either handle the labels somehow or move out from members.
+  DbgLabelInstrMap _labelHistory;
   FunctionMap _functionMap;
   DISubprogramMap _subprogramMap;
   STISymbolTable _symbolTable;
@@ -1344,6 +1344,7 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter) :
     _asmPrinter         (asmPrinter),
     _currentProcedure   (nullptr),
     _valueHistory       (),
+    _labelHistory       (),
     _functionMap        (),
     _subprogramMap      (),
     _symbolTable        (),
@@ -1458,7 +1459,8 @@ void STIDebugImpl::beginFunction(const MachineFunction *MF) {
   // Record this as the current procedure.
   setCurrentProcedure(procedure);
 
-  calculateDbgValueHistory(MF, getTargetRegisterInfo(), _valueHistory);
+  calculateDbgEntityHistory(MF, getTargetRegisterInfo(), _valueHistory,
+                            _labelHistory);
 }
 
 void STIDebugImpl::endFunction(const MachineFunction *MF) {
@@ -1486,7 +1488,10 @@ void STIDebugImpl::endFunction(const MachineFunction *MF) {
   clearValueHistory();
 }
 
-void STIDebugImpl::clearValueHistory() { _valueHistory.clear(); }
+void STIDebugImpl::clearValueHistory() {
+  _valueHistory.clear();
+  _labelHistory.clear();
+}
 
 void STIDebugImpl::beginInstruction(const MachineInstr *MI) {
   DebugLoc location = MI->getDebugLoc();
@@ -2191,7 +2196,7 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
       bool found = false;
       for (unsigned j = 0, Nj = vMethodsDst.size(); j < Nj; ++j) {
         if (isEqualVMethodPrototype(
-            dyn_cast<const DISubroutineType>(vMethodsDst[j]),
+            cast<const DISubroutineType>(vMethodsDst[j]),
             SPTy)) {
           // virtual method is not introduced.
           found = true;
@@ -2337,7 +2342,7 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
 
       for (unsigned j = 0, Nj = vMethods.size(); j < Nj; ++j) {
         if (isEqualVMethodPrototype(
-            dyn_cast<DISubroutineType>(vMethods[j]),
+            cast<const DISubroutineType>(vMethods[j]),
             SPTy)) {
           // virtual method is not introduced.
           methodInfo.second = false;
@@ -3219,6 +3224,7 @@ STIType *STIDebugImpl::lowerTypeArray(const DICompositeType *llvmType) {
   // Add subranges to array type.
   //
   DINodeArray elements = llvmType->getElements();
+  assert(!elements.empty() && "Array type without subranges!");
   for (int i = elements.size() - 1; i >= 0; --i) {
     DINode *element = elements[i];
 

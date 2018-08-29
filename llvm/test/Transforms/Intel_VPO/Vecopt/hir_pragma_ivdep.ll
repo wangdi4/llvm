@@ -11,8 +11,13 @@
 ; }
 ; ModuleID = 'tivdep.c'
 ; Check that the loop is vectorized
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR  < %s 2>&1 | FileCheck %s
-; CHECK: DO i1 = 0, 1023, 4
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-before=VPlanDriverHIR -print-after=VPlanDriverHIR  < %s 2>&1 | FileCheck %s
+; CHECK: + DO i1 = 0, 1023, 1   <DO_LOOP> <ivdep>
+; CHECK: + END LOOP
+
+; CHECK: + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize> <ivdep>
+; CHECK: + END LOOP
+
 ; Test fails pending on DD analysis changes to consume ivdep information.
 ;
 source_filename = "tivdep.c"

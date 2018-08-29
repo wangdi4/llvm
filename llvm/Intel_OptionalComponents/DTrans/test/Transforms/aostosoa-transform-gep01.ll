@@ -1,19 +1,19 @@
 ; Legacy pass manager runs:
 ; RUN: sed -e s/.T1:// %s | \
-; RUN:   opt -whole-program-assume -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN:   opt -whole-program-assume -S -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST1 %s
 
 ; RUN: sed -e s/.T2:// %s | \
-; RUN:   opt -whole-program-assume -S -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN:   opt -whole-program-assume -S -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck %s --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST2
 
 ; New pass manager runs:
 ; RUN: sed -e s/.T1:// %s | \
-; RUN: opt -whole-program-assume -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN: opt -whole-program-assume -S -passes=dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck %s --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST1
 
 ; RUN: sed -e s/.T2:// %s | \
-; RUN: opt -whole-program-assume -S -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
+; RUN: opt -whole-program-assume -S -passes=dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 2>&1 | \
 ; RUN:   FileCheck %s --check-prefix=CHECK-ALWAYS --check-prefix=CHECK-TEST2
 
 

@@ -16,7 +16,10 @@ entry:
   br label %for.cond2
 
 for.cond2:                                        ; preds = %if.end, %for.cond2, %entry
-; CHECK: for.cond2:                                        ; preds = %.split1
+; INTEL_CUSTOMIZATION
+; BB processing order is reversed, so newly created BB numbering is changed.
+; CHECK: for.cond2:                                        ; preds = %.split
+; end INTEL_CUSTOMIZATION
   %p.addr.0 = phi i8* [ %p, %entry ], [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %for.cond2 ]
   %incdec.ptr = getelementptr inbounds i8, i8* %p.addr.0, i64 1
   %0 = load i8, i8* %p.addr.0, align 1
@@ -27,7 +30,10 @@ if.end.preheader:                                 ; preds = %for.cond2
   br label %if.end
 
 if.end:                                           ; preds = %if.end.preheader, %if.end
-; CHECK: if.end:                                           ; preds = %.split1
+; INTEL_CUSTOMIZATION
+; BB processing order is reversed, so newly created BB numbering is changed.
+; CHECK: if.end:                                           ; preds = %.split
+; end INTEL_CUSTOMIZATION
   %p.addr.1 = phi i8* [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %if.end.preheader ]
   %incdec.ptr5 = getelementptr inbounds i8, i8* %p.addr.1, i64 1
   %1 = load i8, i8* %p.addr.1, align 1

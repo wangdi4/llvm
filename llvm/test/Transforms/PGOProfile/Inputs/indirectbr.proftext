@@ -2,11 +2,17 @@
 :ir
 foo
 # Func Hash:
-47485104005
+# INTEL_CUSTOMIZATION
+# CFG is changed.
+43592973625
+# end INTEL_CUSTOMIZATION
 # Num Counters:
 4
 # Counter Values:
-139
+# INTEL_CUSTOMIZATION
+# Another MST edge is annotated after CFG change.
+202
+# end INTEL_CUSTOMIZATION
 20
 5
 63

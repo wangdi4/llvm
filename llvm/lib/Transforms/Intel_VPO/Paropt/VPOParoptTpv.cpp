@@ -203,7 +203,9 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
     LastInstIt = InstIt;
     ++InstIt;
   }
-  Instruction* LastI = dyn_cast<Instruction>(&*LastInstIt);
+  assert(isa<Instruction>(&*LastInstIt) &&
+         "genTpvRef: Expect non-empty instruction.");
+  Instruction* LastI = cast<Instruction>(&*LastInstIt);
 
 
   IRBuilder<> Builder(B);

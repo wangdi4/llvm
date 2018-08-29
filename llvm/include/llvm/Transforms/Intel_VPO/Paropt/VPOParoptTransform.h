@@ -68,6 +68,15 @@ namespace llvm {
 
 namespace vpo {
 
+/// \brief opencl address space.
+enum AddressSpace {
+  ADDRESS_SPACE_PRIVATE = 0,
+  ADDRESS_SPACE_GLOBAL = 1,
+  ADDRESS_SPACE_CONSTANT = 2,
+  ADDRESS_SPACE_LOCAL = 3,
+  ADDRESS_SPACE_GENERIC = 4
+};
+
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 
 /// \brief Provide all functionalities to perform paropt threadization
@@ -82,10 +91,10 @@ public:
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
                      const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
                      const SmallVectorImpl<Triple> &OffloadTargets,
-                     unsigned OptLevel = 2)
+                     unsigned OptLevel = 2, bool SwitchToOffload = false)
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
-        AA(AA), Mode(Mode),
-        TargetTriple(F->getParent()->getTargetTriple()), OptLevel(OptLevel),
+        AA(AA), Mode(Mode), TargetTriple(F->getParent()->getTargetTriple()),
+        OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
         OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
@@ -132,6 +141,9 @@ private:
 
   /// \brief Optimization level.
   unsigned OptLevel;
+
+  /// \brief Offload compilation mode.
+  bool SwitchToOffload;
 
   /// \brief List of target triples for offloading.
   SmallVector<Triple, 16> OffloadTargets;
@@ -1027,6 +1039,11 @@ private:
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
 
+  /// \brief Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
+  /// Propagate the address space from the arguments to the usage of the
+  /// arguments.
+  Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
+                                   CallInst *&Call);
 };
 } /// namespace vpo
 } /// namespace llvm

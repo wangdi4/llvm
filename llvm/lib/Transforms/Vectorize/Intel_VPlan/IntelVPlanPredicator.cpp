@@ -58,6 +58,7 @@
 
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/PostOrderIterator.h"
@@ -94,7 +95,7 @@ int VPlanPredicator::countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE) {
   HasBE = false;
   int cnt = 0;
   for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-    if (!VPlanUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
+    if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
       cnt++;
     else
       HasBE = true;
@@ -107,7 +108,7 @@ int VPlanPredicator::countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE) {
 void VPlanPredicator::getSuccessorsNoBE(VPBlockBase *PredBlock,
                                         SmallVector<VPBlockBase *, 2> &Succs) {
   for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-    if (!VPlanUtils::isBackEdge(PredBlock, SuccBlock, VPLI)) {
+    if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI)) {
       Succs.push_back(SuccBlock);
     }
   }
@@ -169,7 +170,7 @@ static void appendPredicateToBlock(VPBlockBase *Block,
            "Expected VPBlockPredicateRecipe");
     VPBlockPredicateRecipe *BP =
         cast<VPBlockPredicateRecipe>(Block->getPredicateRecipe());
-    VPlanUtils::appendIncomingToBlockPred(BP, Recipe);
+    VPValueUtils::appendIncomingToBlockPred(BP, Recipe);
   } else {
     // Regions accept any Block Predicate (not just VPBlockPredicateRecipe)
     assert(isa<VPRegionBlock>(Block) && "Expected VPRegionBlock.");
@@ -218,7 +219,7 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
   // For each predecessor, get the predicate and append it to BP
   for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
     // Skip back-edges
-    if (VPlanUtils::isBackEdge(PredBlock, CurrBlock, VPLI)) {
+    if (VPBlockUtils::isBackEdge(PredBlock, CurrBlock, VPLI)) {
       continue;
     }
 
@@ -362,7 +363,7 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
   VPBlockPredicateRecipe *EntryBP =
       cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
   VPPredicateRecipeBase *RegionInputPred = Region->getPredicateRecipe();
-  VPlanUtils::appendIncomingToBlockPred(EntryBP, RegionInputPred);
+  VPValueUtils::appendIncomingToBlockPred(EntryBP, RegionInputPred);
 
   // 3. Generate edge predicates and append them to the block predicate RPO is
   //    necessary since nested VPRegions' predicate is null and it has to be set
@@ -434,8 +435,8 @@ static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region) {
                        "Expected VPBlockPredicateRecipe");
                 VPBlockPredicateRecipe *ChildBBPred =
                     cast<VPBlockPredicateRecipe>(ChildBBPredBase);
-                VPlanUtils::clearIncomingsFromBlockPred(ChildBBPred);
-                VPlanUtils::appendIncomingToBlockPred(ChildBBPred, BBPred);
+                VPValueUtils::clearIncomingsFromBlockPred(ChildBBPred);
+                VPValueUtils::appendIncomingToBlockPred(ChildBBPred, BBPred);
               }
           }
       }
@@ -647,19 +648,19 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
       // latches' CBRs are preserved. For that reason, we keep intact loop
       // latches' successors or loop header's predecessors.
       // Current implementation doesn't work if a loop latch has a switch.
-      assert((!PrevBlock || !VPlanUtils::blockIsLoopLatch(PrevBlock, VPLI) ||
+      assert((!PrevBlock || !VPBlockUtils::blockIsLoopLatch(PrevBlock, VPLI) ||
               PrevBlock->getNumSuccessors() < 3) &&
              "Linearization doesn't support switches in loop latches");
 
       if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
-          !VPlanUtils::blockIsLoopLatch(PrevBlock, VPLI)) {
+          !VPBlockUtils::blockIsLoopLatch(PrevBlock, VPLI)) {
 
         LLVM_DEBUG(dbgs() << "Linearizing: " << PrevBlock->getName() << "->"
                           << CurrBlock->getName() << "\n");
 
-        VPlanUtils::clearSuccessors(PrevBlock);
-        VPlanUtils::clearPredecessors(CurrBlock);
-        VPlanUtils::connectBlocks(PrevBlock, CurrBlock);
+        PrevBlock->clearSuccessors();
+        CurrBlock->clearPredecessors();
+        VPBlockUtils::connectBlocks(PrevBlock, CurrBlock);
       }
 
       PrevBlock = CurrBlock;

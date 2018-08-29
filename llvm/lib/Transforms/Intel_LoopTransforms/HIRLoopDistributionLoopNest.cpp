@@ -37,6 +37,7 @@ HIRLoopDistributionForLoopNestPass::run(llvm::Function &F,
   HIRLoopDistribution(
       AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
       AM.getResult<HIRSafeReductionAnalysisPass>(F),
+      AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
       AM.getResult<HIRLoopResourceAnalysis>(F), DistHeuristics::NestFormation)
       .run();
 
@@ -77,6 +78,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSparseArrayReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopDistributionForLoopNestLegacyPass,
                     "hir-loop-distribute-loopnest",
                     "HIR Loop Distribution LoopNest", false, false)

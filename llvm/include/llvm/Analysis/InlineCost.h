@@ -162,6 +162,7 @@ typedef enum {
    NinlrSEH,
    NinlrPreferCloning,
    NinlrNullPtrMismatch,
+   NinlrPreferMultiversioning,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -195,7 +196,10 @@ class InlineCost {
   /// The adjusted threshold against which this cost was computed.
   const int Threshold;
 
-  InlineReportTypes::InlineReason Reason; // INTEL
+  /// Must be set for Always and Never instances.
+  const char *Reason = nullptr;
+
+  InlineReportTypes::InlineReason IntelReason; // INTEL
 
 #if INTEL_CUSTOMIZATION
   /// \brief The cost and the threshold used for early exit from usual inlining
@@ -209,12 +213,15 @@ class InlineCost {
   // Trivial constructor, interesting logic in the factory functions below.
 
 #if INTEL_CUSTOMIZATION
-  InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason
+  InlineCost(int Cost, int Threshold, const char* Reason = nullptr,
+    InlineReportTypes::InlineReason IntelReason
     = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
     int EarlyExitThreshold = INT_MAX) :
-    Cost(Cost), Threshold(Threshold), Reason(Reason),
-    EarlyExitCost(EarlyExitCost),
-    EarlyExitThreshold(EarlyExitThreshold) {}
+    Cost(Cost), Threshold(Threshold), Reason(Reason), IntelReason(IntelReason),
+    EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold) {
+    assert((isVariable() || Reason) &&
+            "Reason must be provided for Never or Always");
+  }
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -224,26 +231,29 @@ public:
     return InlineCost(Cost, Threshold);
   }
 #if INTEL_CUSTOMIZATION
-  static InlineCost get(int Cost, int Threshold,
-    InlineReportTypes::InlineReason Reason, int EarlyExitCost,
+  static InlineCost get(int Cost, int Threshold, const char* Reason,
+    InlineReportTypes::InlineReason IntelReason, int EarlyExitCost,
     int EarlyExitThreshold) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold, Reason, EarlyExitCost, EarlyExitThreshold);
+    return InlineCost(Cost, Threshold, Reason, IntelReason, EarlyExitCost,
+        EarlyExitThreshold);
   }
 #endif // INTEL_CUSTOMIZATION
-  static InlineCost getAlways() {
-    return InlineCost(AlwaysInlineCost, 0);
-  }
-  static InlineCost getNever() {
-    return InlineCost(NeverInlineCost, 0);
-  }
-#if INTEL_CUSTOMIZATION
-  static InlineCost getAlways(InlineReportTypes::InlineReason Reason) {
+  static InlineCost getAlways(const char *Reason) {
     return InlineCost(AlwaysInlineCost, 0, Reason);
   }
-  static InlineCost getNever(InlineReportTypes::InlineReason Reason) {
+  static InlineCost getNever(const char *Reason) {
     return InlineCost(NeverInlineCost, 0, Reason);
+  }
+#if INTEL_CUSTOMIZATION
+  static InlineCost getAlways(const char* Reason,
+                              InlineReportTypes::InlineReason IntelReason) {
+    return InlineCost(AlwaysInlineCost, 0, Reason, IntelReason);
+  }
+  static InlineCost getNever(const char* Reason,
+                             InlineReportTypes::InlineReason IntelReason) {
+    return InlineCost(NeverInlineCost, 0, Reason, IntelReason);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -269,6 +279,13 @@ public:
     return Threshold;
   }
 
+  /// Get the reason of Always or Never.
+  const char *getReason() const {
+    assert((Reason || isVariable()) &&
+           "InlineCost reason must be set for Always or Never");
+    return Reason;
+  }
+
   /// Get the cost delta from the threshold for inlining.
   /// Only valid if the cost is of the variable kind. Returns a negative
   /// value if the cost is too high to inline.
@@ -276,15 +293,26 @@ public:
 
 #if INTEL_CUSTOMIZATION
   InlineReportTypes::InlineReason getInlineReason() const
-    { return Reason; }
+    { return IntelReason; }
   void setInlineReason(InlineReportTypes::InlineReason MyReason)
-    { Reason = MyReason; }
+    { IntelReason = MyReason; }
   int getEarlyExitCost() const
     { return EarlyExitCost; }
   int getEarlyExitThreshold() const
     { return EarlyExitThreshold; }
 #endif // INTEL_CUSTOMIZATION
 
+};
+
+/// InlineResult is basically true or false. For false results the message
+/// describes a reason why it is decided not to inline.
+struct InlineResult {
+  const char *message = nullptr;
+  InlineResult(bool result, const char *message = nullptr)
+      : message(result ? nullptr : (message ? message : "cost > threshold")) {}
+  InlineResult(const char *message = nullptr) : message(message) {}
+  operator bool() const { return !message; }
+  operator const char *() const { return message; }
 };
 
 /// Thresholds to tune inline cost analysis. The inline cost analysis decides

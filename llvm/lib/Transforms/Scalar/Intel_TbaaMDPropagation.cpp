@@ -201,7 +201,7 @@ public:
   TbaaMDPropagationLegacyPass() : FunctionPass(ID) {
     initializeTbaaMDPropagationLegacyPassPass(*PassRegistry::getPassRegistry());
   }
-  bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F) override;
   StringRef getPassName() const override { return "TBAAPROP"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
@@ -276,7 +276,7 @@ public:
   CleanupFakeLoadsLegacyPass() : FunctionPass(ID) {
     initializeCleanupFakeLoadsLegacyPassPass(*PassRegistry::getPassRegistry());
   }
-  bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F) override;
   StringRef getPassName() const override { return "Cleanup fake loads"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();

@@ -7,6 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 //
+#if INTEL_COLLAB
+// This file implements the generic address space propagation. It can be applied
+// to CUDA as well as OpenCL programs.
+#else
 // CUDA C/C++ includes memory space designation as variable type qualifers (such
 // as __global__ and __shared__). Knowing the space of a memory access allows
 // CUDA compilers to emit faster PTX loads and stores. For example, a load from
@@ -86,6 +90,7 @@
 //   %y2' = getelementptr %y', 1
 // Finally, it fixes the undef in %y' so that
 //   %y' = phi float addrspace(3)* [ %input, %y2' ]
+#endif // INTEL_COLLAB
 //
 //===----------------------------------------------------------------------===//
 
@@ -97,7 +102,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -122,6 +126,10 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#if INTEL_COLLAB
+#include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
+#endif // INTEL_COLLAB
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <cassert>
 #include <iterator>
@@ -132,7 +140,51 @@
 #define DEBUG_TYPE "infer-address-spaces"
 
 using namespace llvm;
+#if INTEL_COLLAB
+namespace {
 
+/// InferAddressSpaces
+class InferAddressSpacesLegacyPass : public FunctionPass {
+
+public:
+  static char ID;
+
+  InferAddressSpacesLegacyPass() : FunctionPass(ID) {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
+  }
+
+  bool runOnFunction(Function &F) override;
+};
+
+} // end anonymous namespace
+
+char InferAddressSpacesLegacyPass::ID = 0;
+
+namespace llvm {
+
+void initializeInferAddressSpacesLegacyPassPass(PassRegistry &);
+
+} // end namespace llvm
+
+INITIALIZE_PASS(InferAddressSpacesLegacyPass, DEBUG_TYPE,
+                "Infer address spaces", false, false)
+
+bool InferAddressSpacesLegacyPass::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
+  const TargetTransformInfo &TTI =
+      getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  return InferAddrSpaces(TTI, TTI.getFlatAddressSpace(), F);
+}
+
+FunctionPass *llvm::createInferAddressSpacesPass() {
+  return new InferAddressSpacesLegacyPass();
+}
+#else
 static const unsigned UninitializedAddressSpace =
     std::numeric_limits<unsigned>::max();
 
@@ -1018,3 +1070,4 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
 FunctionPass *llvm::createInferAddressSpacesPass() {
   return new InferAddressSpaces();
 }
+#endif // INTEL_COLLAB

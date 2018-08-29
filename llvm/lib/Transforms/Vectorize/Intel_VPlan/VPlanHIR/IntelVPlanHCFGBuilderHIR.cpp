@@ -50,6 +50,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanHCFGBuilderHIR.h"
+#include "IntelVPLoopRegionHIR.h"
 #include "IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -170,8 +171,8 @@ VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
 void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 
   for (VPBasicBlock *Pred : Predecessors) {
-    VPlanUtils::appendBlockSuccessor(Pred, VPBB);
-    VPlanUtils::appendBlockPredecessor(VPBB, Pred);
+    Pred->appendSuccessor(VPBB);
+    VPBB->appendPredecessor(Pred);
   }
 
   Predecessors.clear();
@@ -249,7 +250,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Header and set Latch condition bit.
   VPValue *LatchCondBit =
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
-  VPlanUtils::connectBlocks(Latch, Header);
+  VPBlockUtils::connectBlocks(Latch, Header);
   Latch->setCondBit(LatchCondBit, Plan);
 
   // - Loop Exits -
@@ -361,7 +362,7 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   // Create (or get) a new VPBB for HLLabel and connect to HLGoto's VPBB.
   HLLabel *Label = HGoto->getTargetLabel();
   VPBasicBlock *LabelVPBB = createOrGetVPBB(Label);
-  VPlanUtils::connectBlocks(ActiveVPBB, LabelVPBB);
+  VPBlockUtils::connectBlocks(ActiveVPBB, LabelVPBB);
 
   // Force the creation of a new VPBasicBlock for the next HLNode.
   ActiveVPBB = nullptr;

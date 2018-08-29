@@ -17,7 +17,7 @@ entry:
   %conv = sext i32 %ld to i64
   %mul = mul nsw i64 %conv, 48
   %call = tail call noalias i8* @malloc(i64 %mul)
-; CHECK:   %0 = sdiv i64 %mul, 48
+; CHECK:   %0 = sdiv exact i64 %mul, 48
 ; CHECK:   %1 = mul i64 %0, 40
 ; CHECK:   %call = tail call noalias i8* @malloc(i64 %1)
 ; CHECK-NOT: malloc(i64 %mul)
@@ -36,13 +36,13 @@ entry:
 
   %m = bitcast i8* %call3 to %struct.test*
   %call4 = tail call noalias i8* @calloc(i64 %mul, i64 20)
-; CHECK:   %2 = sdiv i64 %mul, 48
+; CHECK:   %2 = sdiv exact i64 %mul, 48
 ; CHECK:   %3 = mul i64 %2, 40
 ; CHECK:   %call4 = tail call noalias i8* @calloc(i64 %3, i64 20)
 
   %n = bitcast i8* %call4 to %struct.test*
   %call5 = tail call noalias i8* @calloc(i64 10, i64 %mul)
-; CHECK:   %4 = sdiv i64 %mul, 48
+; CHECK:   %4 = sdiv exact i64 %mul, 48
 ; CHECK:   %5 = mul i64 %4, 40
 ; CHECK:   %call5 = tail call noalias i8* @calloc(i64 10, i64 %5)
 

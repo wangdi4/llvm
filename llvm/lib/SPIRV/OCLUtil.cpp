@@ -113,6 +113,7 @@ BarrierLiterals getBarrierLiterals(CallInst* CI){
   assert (N == 1 || N == 2);
 
   std::string DemangledName;
+  assert(CI->getCalledFunction() && "Unexpected indirect call");
   if (!oclIsBuiltin(CI->getCalledFunction()->getName(), &DemangledName)) {
     assert(0 && "call must a builtin (work_group_barrier or sub_group_barrier)");
   }
@@ -251,6 +252,7 @@ encodeVecTypeHint(Type *Ty){
     return Size << 16 | encodeVecTypeHint(EleTy);
   }
   llvm_unreachable("invalid type");
+  return ~0U;
 }
 
 Type *
@@ -276,6 +278,7 @@ decodeVecTypeHint(LLVMContext &C, unsigned code) {
     break;
   default:
     llvm_unreachable("Invalid vec type hint");
+    return nullptr;
   }
   if (VecWidth < 1)
     return ST;
@@ -327,6 +330,7 @@ mapAddrSpaceEnums(SPIRAddressSpace addrspace)
   default:
     llvm_unreachable("Invalid addrspace enum member");
   }
+  return SPIR::ATTR_NONE;
 }
 
 SPIR::TypeAttributeEnum
@@ -359,6 +363,7 @@ getOCLOpaqueTypeAddrSpace(SPIR::TypePrimitiveEnum prim) {
   default:
     llvm_unreachable("No address space is determined for a SPIR primitive");
   }
+  return SPIR::ATTR_NONE;
 }
 
 // Fetch type of invoke function passed to device execution built-ins

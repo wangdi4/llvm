@@ -484,14 +484,6 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
   return true;
 }
 
-bool RegDDRef::isStandAloneIV(bool AllowConversion) const {
-  if (isTerminalRef()) {
-    return getSingleCanonExpr()->isStandAloneIV(AllowConversion);
-  }
-
-  return false;
-}
-
 bool RegDDRef::isSelfBlob() const {
   if (!isTerminalRef()) {
     return false;
@@ -716,7 +708,8 @@ const BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) const {
   return const_cast<RegDDRef *>(this)->getBlobDDRef(Index);
 }
 
-bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob) const {
+bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob,
+                            bool AssumeLvalIfDetached) const {
 
   if (IsSelfBlob) {
     *IsSelfBlob = false;
@@ -736,7 +729,21 @@ bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob) const {
     return true;
   }
 
-  return getBlobDDRef(Index);
+  if (getBlobDDRef(Index)) {
+    return true;
+  }
+
+  bool IsLval = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
+  // Index may refer to the symbase of a terminal lval ref having a canonical
+  // expression. For example, in the instruction below Index may refer to 't'
+  // which has a canonical form of i1 + 1. Although, the temp does not occur
+  // anywhere as a blob, ref is still using it via symbase. t = i1 + 1
+  if (IsLval && isTerminalRef() &&
+      (getSymbase() == getBlobUtils().getTempBlobSymbase(Index))) {
+    return true;
+  }
+
+  return false;
 }
 
 RegDDRef::blob_iterator
@@ -758,13 +765,23 @@ BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
   return BRef;
 }
 
-bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex) {
+bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
+                               bool AssumeLvalIfDetached) {
   if (!usesTempBlob(OldIndex)) {
     return false;
   }
 
   if (isSelfBlob()) {
     replaceSelfBlobIndex(NewIndex);
+    return true;
+  }
+
+  bool IsLval = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
+  // Need to handle lval terminal refs having a canonical expr form as a special
+  // case. See comment inside usesTempBlob().
+  if (IsLval && isTerminalRef() &&
+      (getSymbase() == getBlobUtils().getTempBlobSymbase(OldIndex))) {
+    setSymbase(getBlobUtils().getTempBlobSymbase(NewIndex));
     return true;
   }
 
@@ -790,11 +807,12 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex) {
 }
 
 bool RegDDRef::replaceTempBlobs(
-    SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap) {
+    SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
+    bool AssumeLvalIfDetached) {
   bool Res = false;
 
   for (auto &Pair : BlobMap) {
-    Res = replaceTempBlob(Pair.first, Pair.second) || Res;
+    Res = replaceTempBlob(Pair.first, Pair.second, AssumeLvalIfDetached) || Res;
   }
 
   return Res;

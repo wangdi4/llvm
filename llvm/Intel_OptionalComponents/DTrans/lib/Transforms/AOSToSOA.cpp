@@ -68,7 +68,7 @@ static cl::opt<unsigned>
 // checks of dependent structures may prevent the index from being 32-bits, if
 // it is determined that those structures cannot have their sizes changed.
 static cl::opt<bool> DTransAOSToSOAIndex32("dtrans-aostosoa-index32",
-                                           cl::init(false), cl::ReallyHidden);
+                                           cl::init(true), cl::ReallyHidden);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // This class is a helper that can be passed to an output stream operator for
@@ -191,20 +191,33 @@ public:
 
       bool DepQualified = true;
       for (auto *DepTy : It->second) {
-        // Don't check dependent types that are being directly transformed by
-        // AOS-to-SOA.
-        if (std::find(TypesToTransform.begin(), TypesToTransform.end(),
-                      DTInfo.getTypeInfo(DepTy)) != TypesToTransform.end())
-          continue;
-
         // TODO: This can be improved to ignore cases that do not contain a
         // pointer to the type being transformed. Such as structures containing
         // a pointer-to-pointer of the type being converted, or a containing a
         // function pointer that refers to a type being converted.
 
+        // We only need to consider safety information for dependent types that
+        // are structures, because arrays of types being transformed have
+        // already prevented transforming a type within an array. However, we
+        // may encounter an array here because we are not currently filtering
+        // the dependent types that contains arrays of ptr-to-ptr for the type,
+        // but those do not affect our ability to transform a structure.
+        if (!isa<llvm::StructType>(DepTy))
+          continue;
+
+        // Don't check dependent types that are directly being transformed by
+        // AOS-to-SOA.
+        if (std::find(TypesToTransform.begin(), TypesToTransform.end(),
+                      DTInfo.getTypeInfo(DepTy)) != TypesToTransform.end())
+          continue;
+
         // Verify whether it is going to be safe to change a pointer type within
         // a type that refers to a type to be converted into an integer type.
         if (!checkDependentTypeSafety(DepTy)) {
+          LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Disqualifying type: "
+                            << StructNamePrintHelper(OrigTy)
+                            << " based on safety conditions of dependent type: "
+                            << StructNamePrintHelper(DepTy) << "\n");
           DepQualified = false;
           break;
         }
@@ -212,7 +225,10 @@ public:
         // Verify whether it is going to be safe to use a 32-bit integer type
         // within a dependent type.
         if (PointerShrinkingEnabled &&
-            !checkDependentTypeSafeForShrinking(DepTy)) {
+            !checkDependentTypeSafeForShrinking(M, DepTy)) {
+          LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: Peeling index shrinking "
+                               "inhibited due to safety checks on: "
+                            << StructNamePrintHelper(DepTy) << "\n");
           PointerShrinkingEnabled = false;
           continue;
         }
@@ -227,9 +243,6 @@ public:
 
       if (DepQualified)
         Qualified.push_back(StInfo);
-      else
-        LLVM_DEBUG(dbgs() << "Disqualifying type based on dependencies: "
-                          << StructNamePrintHelper(OrigTy));
     }
 
     std::swap(Qualified, TypesToTransform);
@@ -1324,18 +1337,119 @@ public:
   }
 
 private:
+  // Return 'true' if there are no safety issues with a dependent type \p Ty
+  // that prevent transforming a type.
   bool checkDependentTypeSafety(llvm::Type *Ty) {
-    // TODO: Check if the dependent type is safe to have a pointer type within
-    // it change to be an index value.
+    auto *TI = DTInfo.getTypeInfo(Ty);
+    if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOADependent))
+      return false;
 
+    if (TI->testSafetyData(dtrans::FieldAddressTaken)) {
+      // We know there is no direct address taken for any fields for the type
+      // being transformed because that structure was not marked as "Address
+      // Taken". However, if the analysis is assuming the address of one field
+      // can be used to access another field, then any time the field address
+      // taken is set for the dependent type, it will be unknown whether it
+      // affects a field member that is a pointer to a type being transformed,
+      // so check whether the code is allowing memory outside the boundaries of
+      // a specific field to be accessed when taking the address.
+      if (DTInfo.getDTransOutOfBoundsOK())
+        return false;
+    }
+
+    // No issues were found on this dependent type that prevent the AOS to SOA
+    // transformation.
     return true;
   }
 
-  bool checkDependentTypeSafeForShrinking(llvm::Type *Ty) {
-    // TODO: Analyze the dependent types to determine whether the peeling
-    // index can be safely converted to 32-bits.
+  // Return 'true' if there are no safety issues on a dependent type \Ty that
+  // prevent shrinking the peeling index to 32-bits.
+  bool checkDependentTypeSafeForShrinking(Module &M, llvm::Type *Ty) {
+    auto *TI = DTInfo.getTypeInfo(Ty);
+    if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOADependentIndex32))
+      return false;
 
+    // If there is a global instance of the type, then we need to check for
+    // constant operators that directly address a field via a byte offset,
+    // rather than a field index because we are not converting that form of
+    // addressing on the dependent types when changing the size of those
+    // structures. If there are no global instances, we're done.
+    if (!TI->testSafetyData(dtrans::GlobalInstance))
+      return true;
+
+    // Look for a load or store that uses a pointer address of the form:
+    //    getelementptr (bitcast @global to i8*) i64 <const>)
+    //
+
+    // Check for a bitcast to an i8*
+    auto IsBCOpToInt8Ptr = [this](Value *V) -> bool {
+      if (auto *BC = dyn_cast<BitCastOperator>(V))
+        if (BC->getType() == getInt8PtrType())
+          return true;
+      return false;
+    };
+
+    // Empty lambda to end the recursion.
+    auto NopOnMatch = [](Value *) -> bool { return true; };
+
+    // Check for Value \p V getting used in a load/store, possibly
+    // with some intervening bitcast and GEP operators.
+    std::function<bool(Value *)> UsedInLoadStore;
+    UsedInLoadStore = [&UsedInLoadStore, &NopOnMatch](Value *V) -> bool {
+      // Recurse past any additional Bitcast or GEPOperators
+      if (hasUseOfType(V, isType<BitCastOperator>, UsedInLoadStore) ||
+          hasUseOfType(V, isType<GEPOperator>, UsedInLoadStore))
+        return true;
+
+      // Check if this value is used for a load/store instruction
+      bool isLS = hasUseOfType(V, isType<LoadInst>, NopOnMatch) ||
+                  hasUseOfType(V, isType<StoreInst>, NopOnMatch);
+      LLVM_DEBUG({
+        if (isLS)
+          dbgs() << "Load/Store of dependent in Byte-GEP form: " << *V << "\n";
+      });
+      return isLS;
+    };
+
+    // Check whether the bitcast value \p V is used for a GEPOperator that
+    // leads to a load/store instruction.
+    auto OnBCOp = [&UsedInLoadStore](Value *V) -> bool {
+      assert(isa<BitCastOperator>(V) && "Expected bitcast operator");
+      return hasUseOfType(V, isType<GEPOperator>, UsedInLoadStore);
+    };
+
+    // Check all uses of global variables of the dependent type.
+    for (auto &GV : M.globals()) {
+      if (GV.getType()->getPointerElementType() != Ty)
+        continue;
+
+      if (hasUseOfType(&GV, IsBCOpToInt8Ptr, OnBCOp))
+        return false;
+    }
+
+    // No issue found on this dependent type to prevent converting the peeling
+    // index to 32-bits.
     return true;
+  }
+
+  // Helper function for checking uses of \p V.
+  // For each use of \p V, if the test function, \p Test, returns true, then the
+  // \p OnMatch function will be executed for the Value.
+  template <typename IsACallable, typename DoOnMatch>
+  static bool hasUseOfType(Value *V, IsACallable Test, DoOnMatch OnMatch) {
+    for (auto *U : V->users()) {
+      if (Test(U)) {
+        return OnMatch(U);
+      }
+    }
+
+    return false;
+  }
+
+  // Helper function for use in lambda expression to check if Value of a
+  // specific type
+  template <typename ValueType> static bool isType(Value *V) {
+    return isa<ValueType>(V);
   }
 
   // The allocation call for a type being transformed into a structure of arrays

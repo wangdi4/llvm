@@ -13,6 +13,7 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/IntelLoopVectorizationCodeGen.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
   Intel_VPlan/IntelVPlan.cpp
+  Intel_VPlan/IntelVPlanBranchDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
   Intel_VPlan/IntelVPlanDriver.cpp
@@ -24,6 +25,7 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPLoopAnalysisHIR.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

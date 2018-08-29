@@ -1,17 +1,14 @@
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
-; Check that we see "Bad casting | Mismatched element access |
-; Unsafe pointer store" due to unrecognized equivalency of i8** and
-; [50 x %structx264_t*]* but that we don't see 'Address Taken'; due
-; to x264_free.
+; Check that we don't see 'Address Taken' due to x264_free.
 ; Bit cast after call to @x264_malloc in @main is essentially unused.
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK:  LLVMType: %struct.x264_t = type { i32, [50 x %struct.x264_t*], float }
-; CHECK:  Safety data: Bad casting | Mismatched element access | Unsafe pointer store
+; CHECK:  Safety data: No issues found
 ; CHECK: DTRANS_ArrayInfo:
 ; CHECK:   LLVMType: [50 x %struct.x264_t*]
-; CHECK:  Safety data: Bad casting | Mismatched element access | Unsafe pointer store
+; CHECK:  Safety data: No issues found
 
 @.str.288 = private unnamed_addr constant [6 x i8] c"Hello\0A"
 

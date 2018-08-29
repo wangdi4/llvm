@@ -496,7 +496,7 @@ public:
 
   /// Returns true if this RegDDRef represents a metadata.
   /// If true, metadata is returned in Val.
-  bool isMetadata(MetadataAsValue **Val = nullptr) const {
+  bool isMetadata(MetadataAsValue **Val = nullptr) const override {
     return isTerminalRef() && getSingleCanonExpr()->isMetadata(Val);
   }
 
@@ -621,8 +621,12 @@ public:
   /// i3).
   /// If \p AllowConversion is true, conversions are allowed to be part of a
   /// standalone IV.
-  /// Otherwise, an IV with a conversion is not considered a standalone IV.
-  bool isStandAloneIV(bool AllowConversion = true) const;
+  /// Returns the level of the IV in \p Level.
+  bool isStandAloneIV(bool AllowConversion = true,
+                      unsigned *Level = nullptr) const {
+    return isTerminalRef() &&
+           getSingleCanonExpr()->isStandAloneIV(AllowConversion, Level);
+  }
 
   /// Returns true if the DDRef represents a self-blob like (1 * %t). In
   /// addition DDRef's symbase should be the same as %t's symbase. This is so
@@ -646,6 +650,11 @@ public:
   /// standalone blob. Otherwise, a blob with a conversion is not considered a
   /// standalone blob.
   bool isStandAloneBlob(bool AllowConversion = true) const;
+
+  /// Return ture if the DDRef represents a constant 0.
+  bool isZero() const {
+    return isTerminalRef() && getSingleCanonExpr()->isZero();
+  }
 
   /// Returns true if this DDRef contains undefined canon expressions.
   bool containsUndef() const override;
@@ -771,19 +780,27 @@ public:
 
   /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
   /// it exists in DDRef. Returns true if it is replaced.
-  bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex);
+  /// If the ref is a terminal lval ref and \p OldIndex corresponds to the
+  /// symbase of the Ref, it is assumed as a use of the temp. This is relavant
+  /// for instructions such as: t = i1 + 1, where 't' has a linear form.
+  bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
+                       bool AssumeLvalIfDetached = false);
 
   /// Replaces temp blobs using pairs (OldIndex, NewIndex) in \p BlobMap.
   /// Returns true if any blob is replaced.
-  bool
-  replaceTempBlobs(SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap);
+  bool replaceTempBlobs(SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
+                        bool AssumeLvalIfDetached = false);
 
   /// Removes all blob DDRefs attached to this DDRef.
   void removeAllBlobDDRefs();
 
   /// Returns true if there is a use of temp blob with \p Index in the DDRef.
   /// IsSelfBlob is set to true if the DDRef is a self blob.
-  bool usesTempBlob(unsigned Index, bool *IsSelfBlob = nullptr) const;
+  /// If the ref is a terminal lval ref and \p Index corresponds to the symbase
+  /// of the Ref, it is assumed as a use of the temp. This is relavant for
+  /// instructions such as: t = i1 + 1, where 't' has a linear form.
+  bool usesTempBlob(unsigned Index, bool *IsSelfBlob = nullptr,
+                    bool AssumeLvalIfDetached = false) const;
 
   /// Collects all the unique temp blobs present in the DDRef by visiting
   /// all the contained canon exprs.

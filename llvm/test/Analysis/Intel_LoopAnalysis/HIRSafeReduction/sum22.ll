@@ -4,7 +4,7 @@
 ; RUN: opt < %s  -hir-ssa-deconstruction   -analyze  -hir-temp-cleanup   -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis 2>&1 | FileCheck %s
 
-; CHECK:   Safe Reduction
+; CHECK:   <Safe Reduction>
 ; ModuleID = 'sum22.c'
 source_filename = "sum22.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

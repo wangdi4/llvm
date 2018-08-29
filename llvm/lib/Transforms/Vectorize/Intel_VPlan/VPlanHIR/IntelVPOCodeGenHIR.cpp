@@ -478,7 +478,16 @@ void HandledCheck::visit(HLDDNode *Node) {
 
     if (Inst->isCallInst()) {
       const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
-      StringRef CalledFunc = Call->getCalledFunction()->getName();
+      Function *Fn = Call->getCalledFunction();
+      if (!Fn) {
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(
+            dbgs() << "VPLAN_OPTREPORT: Loop not handled - indirect call\n");
+        IsHandled = false;
+        return;
+      }
+
+      StringRef CalledFunc = Fn->getName();
 
       if (Inst->getParent() != OrigLoop &&
           (VF > 1 && !TLI->isFunctionVectorizable(CalledFunc, VF))) {
@@ -950,6 +959,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
   const CallInst *Call = cast<CallInst>(HInst->getLLVMInstruction());
   Function *F = Call->getCalledFunction();
+  assert(F && "Unexpected null called function");
   StringRef FnName = F->getName();
 
   // Check to see if the call was vectorized in the main loop.
@@ -1419,7 +1429,7 @@ void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
       // TODO - Matt, please look into using
       //    Args[I]->getConstStrideAtLevel(LoopLevel, &ByteStride)
       // to avoid creation of a canon expression.
-      if (CE->isLinearAtLevel() && CE->isIntConstant(&ByteStride)) {
+      if (CE && CE->isLinearAtLevel() && CE->isIntConstant(&ByteStride)) {
         // Type of the argument will be something like <4 x double*>
         // The following code will yield a type of double. This type is used
         // to determine the stride in elements.
@@ -1457,6 +1467,7 @@ HLInst *VPOCodeGenHIR::widenIfPred(const HLIf *HIf, RegDDRef *Mask) {
   WOp0 = widenRef(Op0);
   WOp1 = widenRef(Op1);
 
+  assert((WOp0 && WOp1) && "Unexpected null widened IF predicate operand(s)");
   auto WideInst =
       HIf->getHLNodeUtils().createCmp(*FirstPred, WOp0, WOp1, "wide.cmp.");
   addInst(WideInst, Mask);
@@ -1529,6 +1540,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   } else if (const CallInst *Call = dyn_cast<CallInst>(CurInst)) {
 
     Function *Fn = Call->getCalledFunction();
+    assert(Fn && "Unexpected null called function");
     StringRef FnName = Fn->getName();
 
     // Default to svml. If svml is not available, try the intrinsic.
@@ -1591,6 +1603,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
     llvm_unreachable("Unimplemented widening for inst");
   }
 
+  assert(WideInst && "Expected non-null widened instruction");
   // Add to WidenMap and handle generating code for any liveouts
   if (InsertInMap) {
     addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst, MainLoop);

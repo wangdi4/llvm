@@ -3,17 +3,15 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -tbaa -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="basic-aa,type-based-aa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
-; Verify that we have GEP savings of 34 composed of the following-
+; Verify that we have GEP savings of 42 composed of the following-
 ; Savings of 4 (1 * 4) due to address simplification in parameter load (%arg)[i1][%tmp211].
 ; Savings of 4 (1 * 4) due to address simplification in parameter load (%arg)[i1 + 1][%tmp211].
 ; Savings of 4 (1 * 4) due to address simplification in parameter load (%arg)[i1 + -2][%tmp211].
 ; Savings of 4 (1 * 4) due to address simplification in parameter load (%arg)[i1 + -1][%tmp211].
 ; Savings of 8 (2 * 4) due to address simplification in alloca load (%tmp4)[0][i1][%tmp211].
+; Savings of 6 (2 * 3) due to reuse from (%arg)[i1 + 1][%tmp211] to (%arg)[i1][%tmp211].
+; Savings of 6 (2 * 3) due to reuse from (%arg)[i1][%tmp211] to (%arg)[i1 + -1][%tmp211].
 ; Savings of 6 (2 * 3) due to reuse from (%arg)[i1 + -1][%tmp211] to (%arg)[i1 + -2][%tmp211].
-; Savings of 4 (2 * 2) due to reuse from (%arg)[i1 + 1][%tmp211] to (%arg)[i1 + -1][%tmp211].
-
-; NOTE: There is no recognized reuse between (%arg)[i1][%tmp211] and other %arg based loads because others have a hidden zext.i2.i64() on the IV.
-; This zext() results in wraparound loads which means that the actual reuse is much higher.
 
 ; + DO i1 = 0, 3, 1   <DO_LOOP>
 ; |   %tmp215 = (%arg)[i1][%tmp211];
@@ -36,7 +34,7 @@
 ; |   (%tmp4)[0][i1][%tmp211] = %tmp256;
 ; + END LOOP
 
-; CHECK: GEPSavings: 34
+; CHECK: GEPSavings: 42
 
 @Logtable = external dso_local hidden unnamed_addr constant [256 x i8], align 16
 @Alogtable = external dso_local hidden unnamed_addr constant [256 x i8], align 16

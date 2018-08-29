@@ -31,9 +31,15 @@
 // <62>      |   %14 = (@f)[0][%div + %foff];
 // <63>      |   %add46 = %14  +  %mul42;
 // <64>      |   (@f)[0][%div + %foff] = %add46;
+
+// After temp cleanup instead of <62> and <63> we can get instructions like-
+// <63>      |   %add46 = (@f)[0][%div + %foff]  +  %mul42;
+// which is also recognized as sparse array reduction
+
 // TODO: Closed form is generated for integer arrays and will not match the
 // above pattern. We could improve this to support integer arrays in addition
 // to floating point arrays.
+
 // TODO: For long chains in sparse array reduction as those in gromacs,
 // special replacement of the arrays are needed before building the pi-groups.
 // Ex. tempx below will be scalar expanded.
@@ -45,6 +51,7 @@
 //   ...
 //   tempx =  tx12 + t30
 //   faction(j) += tempx
+
 // TODO: Extend recognition for chains more than 3 statement. Example-
 //   jx1 = pos(j3)
 //   dx21 = ix2 - jx1
@@ -180,7 +187,8 @@ void HIRSparseArrayReductionAnalysis::identifySparseArrayReductionChains(
   DDRefGrouping::groupVec(RefVecGroups, RefVecUniqueSB,
                           std::bind(DDRefUtils::areEqual, std::placeholders::_1,
                                     std::placeholders::_2, false));
-  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); DDRefGrouping::dump(RefVecGroups));
+  LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+             DDRefGrouping::dump(RefVecGroups));
 
   // Process each group and identify reduction chains.
   for (auto &RefVec : RefVecGroups) {
@@ -304,7 +312,7 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
     // STEP 2: Check number of incoming flow edges
     unsigned NumIncomingFlowEdges = DDG.getNumIncomingFlowEdges(RRef);
     LLVM_DEBUG(dbgs() << "Number of incoming edge to the rval operand: "
-                 << NumIncomingFlowEdges << "\n");
+                      << NumIncomingFlowEdges << "\n");
 
     // No edge to process, continue to the next operand.
     if (NumIncomingFlowEdges == 0) {
@@ -402,6 +410,14 @@ bool HIRSparseArrayReductionAnalysis::isReductionStmt(const HLInst *Inst,
     }
 
     const RegDDRef *RRef = *I;
+
+    // The rval can be a memref (without separate load instruction)
+    // After temp cleanup we get instructions like-
+    // <63>      |   %add46 = (@f)[0][%div + %foff]  +  %mul42;
+    if (RRef == LoadRef) {
+      return true;
+    }
+
     // There should be only one incoming flow edge to rval operand %14.
     if (DDG.getNumIncomingFlowEdges(RRef) != 1) {
       continue;
@@ -640,7 +656,7 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
                                      StoreRef->getSymbase(), ReductionOpCode);
     LLVM_DEBUG(dbgs() << "Sparse Array Reduction Chain:\n");
     LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
-          printAChain(FOS, 1, ReductionInsts));
+               printAChain(FOS, 1, ReductionInsts));
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
@@ -689,7 +705,6 @@ void HIRSparseArrayReductionAnalysis::print(
 
   for (auto &SARI : *SARCL) {
     Loop->indent(OS, Depth);
-    OS << "Sparse Array Reduction:\n";
     printAChain(OS, Depth, SARI.Chain);
   }
 }
