@@ -101,6 +101,12 @@ class WriteState {
   // super-registers.
   bool ClearsSuperRegs;
 
+  // This field is set if this is a partial register write, and it has a false
+  // dependency on any previous write of the same register (or a portion of it).
+  // DependentWrite must be able to complete before this write completes, so
+  // that we don't break the WAW, and the two writes can be merged together.
+  const WriteState *DependentWrite;
+
   // A list of dependent reads. Users is a set of dependent
   // reads. A dependent read is added to the set only if CyclesLeft
   // is "unknown". As soon as CyclesLeft is 'known', each user in the set
@@ -113,7 +119,7 @@ public:
   WriteState(const WriteDescriptor &Desc, unsigned RegID,
              bool clearsSuperRegs = false)
       : WD(Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(RegID),
-        ClearsSuperRegs(clearsSuperRegs) {}
+        ClearsSuperRegs(clearsSuperRegs), DependentWrite(nullptr) {}
   WriteState(const WriteState &Other) = delete;
   WriteState &operator=(const WriteState &Other) = delete;
 
@@ -125,6 +131,9 @@ public:
   void addUser(ReadState *Use, int ReadAdvance);
   unsigned getNumUsers() const { return Users.size(); }
   bool clearsSuperRegisters() const { return ClearsSuperRegs; }
+
+  const WriteState *getDependentWrite() const { return DependentWrite; }
+  void setDependentWrite(const WriteState *Write) { DependentWrite = Write; }
 
   // On every cycle, update CyclesLeft and notify dependent users.
   void cycleEvent();
@@ -161,8 +170,6 @@ class ReadState {
   bool IsReady;
 
 public:
-  bool isReady() const { return IsReady; }
-
   ReadState(const ReadDescriptor &Desc, unsigned RegID)
       : RD(Desc), RegisterID(RegID), DependentWrites(0),
         CyclesLeft(UNKNOWN_CYCLES), TotalCycles(0), IsReady(true) {}
@@ -172,6 +179,9 @@ public:
   const ReadDescriptor &getDescriptor() const { return RD; }
   unsigned getSchedClass() const { return RD.SchedClassID; }
   unsigned getRegisterID() const { return RegisterID; }
+
+  bool isReady() const { return IsReady; }
+  bool isImplicitRead() const { return RD.isImplicitRead(); }
 
   void cycleEvent();
   void writeStartEvent(unsigned Cycles);
@@ -290,6 +300,8 @@ class Instruction {
   // Retire Unit token ID for this instruction.
   unsigned RCUTokenID;
 
+  bool IsDepBreaking;
+
   using UniqueDef = std::unique_ptr<WriteState>;
   using UniqueUse = std::unique_ptr<ReadState>;
   using VecDefs = std::vector<UniqueDef>;
@@ -305,7 +317,8 @@ class Instruction {
 
 public:
   Instruction(const InstrDesc &D)
-      : Desc(D), Stage(IS_INVALID), CyclesLeft(UNKNOWN_CYCLES) {}
+      : Desc(D), Stage(IS_INVALID), CyclesLeft(UNKNOWN_CYCLES), RCUTokenID(0),
+        IsDepBreaking(false) {}
   Instruction(const Instruction &Other) = delete;
   Instruction &operator=(const Instruction &Other) = delete;
 
@@ -315,6 +328,10 @@ public:
   const VecUses &getUses() const { return Uses; }
   const InstrDesc &getDesc() const { return Desc; }
   unsigned getRCUTokenID() const { return RCUTokenID; }
+  int getCyclesLeft() const { return CyclesLeft; }
+
+  bool isDependencyBreaking() const { return IsDepBreaking; }
+  void setDependencyBreaking() { IsDepBreaking = true; }
 
   unsigned getNumUsers() const {
     unsigned NumUsers = 0;
