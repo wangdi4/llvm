@@ -37,6 +37,7 @@
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
@@ -117,7 +118,7 @@ public:
   }
 
   CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, LoopOptReportBuilder &LORB)
-      : F(HIRF.getFunction()), HIRF(HIRF), CurRegion(nullptr),
+      : F(HIRF.getFunction()), HIRF(HIRF), SE(SE), CurRegion(nullptr),
         CurLoopIsNSW(false), Builder(HIRF.getContext()),
         Expander(SE, HIRF.getDataLayout(), "i", *this), LORBuilder(LORB) {}
 
@@ -195,20 +196,20 @@ private:
   Value *createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
                        const Twine &Name);
 
-  // Return a value for blob corresponding to BlobIdx
+  // Return a value for blob corresponding to BlobIdx multiplied by Coeff.
   // We normally expect Blob type to match CE type. The only exception is
   // ptr blobs. Ptrs are converted to int of argument type, which should be
   // CE src type
-  Value *getBlobValue(int BlobIdx, Type *Ty);
+  Value *getBlobValue(int64_t Coeff, unsigned BlobIdx, Type *Ty);
 
   // TODO blobs are reprsented by scev with some caveats
-  SCEV *getBlobSCEV(int BlobIdx) {
-    return const_cast<SCEV *>(HIRF.getBlobUtils().getBlob(BlobIdx));
+  const SCEV *getBlobSCEV(unsigned BlobIdx) {
+    return HIRF.getBlobUtils().getBlob(BlobIdx);
   }
 
   Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
-    return CoefCG(CE->getIVConstCoeff(IVIt),
-                  getBlobValue(CE->getIVBlobCoeff(IVIt), CE->getSrcType()));
+    return getBlobValue(CE->getIVConstCoeff(IVIt), CE->getIVBlobCoeff(IVIt),
+                        CE->getSrcType());
   }
 
   // Return value for blobCoeff * constCoeff * iv with IV at level
@@ -219,9 +220,8 @@ private:
 
   // Returns value for blobCoeff*blob in <blobidx,coeff> pair
   Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt) {
-    auto BlobVal =
-        CoefCG(CE->getBlobCoeff(BlobIt),
-               getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
+    auto BlobVal = getBlobValue(CE->getBlobCoeff(BlobIt),
+                                CE->getBlobIndex(BlobIt), CE->getSrcType());
     return BlobVal;
   }
 
@@ -319,6 +319,7 @@ private:
 
   Function &F;
   HIRFramework &HIRF;
+  ScalarEvolution &SE;
   HLRegion *CurRegion;
   bool CurLoopIsNSW;
   IRBuilder<> Builder;
@@ -600,19 +601,46 @@ Value *CGVisitor::createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
   return CmpInst;
 }
 
-Value *CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
+Value *CGVisitor::getBlobValue(int64_t Coeff, unsigned BlobIdx, Type *Ty) {
+
+  auto *BlobSCEV = getBlobSCEV(BlobIdx);
+  bool Negate = false;
+  bool IsIntTy = BlobSCEV->getType()->isIntegerTy();
+
+  if (IsIntTy && (Coeff != 1)) {
+    // For negative power of 2 coefficients, reassociate (-Coeff * Blob) to
+    // -(Coeff * Blob) so we generate a (shift + sub) instead of a mul. Ideally,
+    // this reassociation should be done by the regular reassociation pass but
+    // adding it to the cleanup pipeline degrades some benchmarks.
+    if ((Coeff < 0) && (Coeff != LLONG_MIN) && isPowerOf2_64(-Coeff)) {
+      Coeff = -Coeff;
+      Negate = true;
+    }
+
+    auto *Const = SE.getConstant(BlobSCEV->getType(), Coeff, true);
+    BlobSCEV = SE.getMulExpr(Const, BlobSCEV);
+  }
+
+  // TODO: Rather than creating unreachable for each blob, create once per basic
+  // block or once per function which gets reused for each basic block.
+  //
   // SCEVExpander instruction generator references the insertion point's
   // parent.
   // If the IP is bblock.end(), undefined behavior results because the
   // parent of that "instruction" is invalid. We work around this by
   // adding temporary instruction to use as our IP, and remove it after
   Instruction *TmpIP = Builder.CreateUnreachable();
-  Value *Blob = Expander.expandCodeFor(getBlobSCEV(BlobIdx), nullptr, TmpIP);
+  Value *Blob = Expander.expandCodeFor(BlobSCEV, nullptr, TmpIP);
 
   // Expander shouldnt create new Bblocks, new IP is end of current bblock
   Builder.SetInsertPoint(TmpIP->getParent());
   TmpIP->eraseFromParent();
   Type *BType = Blob->getType();
+
+  if (Negate) {
+    Blob = Builder.CreateNeg(Blob);
+  }
+
   if (BType->isPointerTy() && BType != Ty) {
     // A version of this should be in verifier, but we want to test CG'd
     // type.
@@ -626,7 +654,8 @@ Value *CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
       Blob = Builder.CreatePtrToInt(Blob, ScalarTy);
     }
   }
-  return Blob;
+
+  return IsIntTy ? Blob : CoefCG(Coeff, Blob);
 }
 
 Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
