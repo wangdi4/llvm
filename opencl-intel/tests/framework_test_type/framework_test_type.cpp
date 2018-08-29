@@ -439,7 +439,8 @@ TEST(FrameworkTestType, Test_PredictablePartition)
     EXPECT_TRUE(predictable_partition_test());
 }
 
-TEST(FrameworkTestType, Test_clMultipleExecutionTest)
+// [CORC-3234] Disable the test as it is very compute-intensive and should be moved to Nightly.
+TEST(FrameworkTestType, DISABLED_Test_clMultipleExecutionTest)
 {
     EXPECT_TRUE(clMultipleExecutionTest());
 }
@@ -764,7 +765,17 @@ TEST(FrameworkTestType, cl_device_local_mem_size_unlimited_stack_test)
 {
     EXPECT_TRUE(cl_device_local_mem_size_unlimited_stack_test());
 }
+
+TEST(FrameworkTestType, Test_TbbSetMaxThreads)
+{
+    EXPECT_TRUE(TbbSetMaxThreads(2));
+}
 #endif
+
+TEST(FrameworkTestType, cl_CheckBuildNumber)
+{
+    EXPECT_TRUE(cl_CheckBuildNumber());
+}
 
 CommandLineOption<std::string> deviceOption("--device_type");
 

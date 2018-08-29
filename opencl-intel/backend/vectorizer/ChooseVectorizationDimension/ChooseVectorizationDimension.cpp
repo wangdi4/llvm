@@ -1,9 +1,17 @@
-/*=================================================================================
-Copyright (c) 2012, Intel Corporation
-Subject to the terms and conditions of the Master Development License
-Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
-OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
-==================================================================================*/
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #define DEBUG_TYPE "Vectorizer"
 
 #include "ChooseVectorizationDimension.h"
@@ -248,8 +256,8 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   WIAnalysis* wi[MAX_WORK_DIM] = {nullptr}; // WI for each dimension.
   bool dimExist[MAX_WORK_DIM];  // whether the dimension exists.
   bool dimValid[MAX_WORK_DIM]; // whether the dimension is a valid possibility.
-  int goodLoadStores[MAX_WORK_DIM]; // will be used to store number of good store/load per dimension.
-  int badLoadStores[MAX_WORK_DIM]; // will be used to store number of bad store/load per dimension.
+  int goodLoadStores[MAX_WORK_DIM] = {}; // will be used to store number of good store/load per dimension.
+  int badLoadStores[MAX_WORK_DIM] = {}; // will be used to store number of bad store/load per dimension.
   bool switchMotivation[MAX_WORK_DIM]; // true if there is at least one block that prefers dimension x over 0.
   int preferredDim[MAX_WORK_DIM]; // how many BB's perfer dimension 1/2
 

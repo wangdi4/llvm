@@ -151,6 +151,18 @@ bool clCreateKernelTest(openBcFunc pFunc)
 		return bResult;
 	}
 
+	// Try to create kernel before building the program.
+	// According to the spec it is invalid: From OpenCL API spec ver 2.0 rev 31:
+	// section 5.8.2, clBuildProgram:
+	// clBuildProgram must be called for program created using either
+	// clCreateProgramWithSource or clCreateProgramWithBinary to build the
+	// program executable for one or more devices associated with program.
+
+	cl_kernel invalid_kernel = clCreateKernel(program, "dot_product", &iRet);
+	bResult &= Check("clCreateKernel(not-built program) - dot_product",
+		CL_INVALID_PROGRAM_EXECUTABLE, iRet);
+	(void)invalid_kernel;
+
 	g_bBuildFinished = false;
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, pfn_notify, NULL);
 	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);

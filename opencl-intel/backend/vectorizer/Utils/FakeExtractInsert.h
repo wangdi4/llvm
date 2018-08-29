@@ -1,9 +1,17 @@
-/*********************************************************************************************
- * Copyright © 2010, Intel Corporation
- * Subject to the terms and conditions of the Master Development License
- * Agreement between Intel and Apple dated August 26, 2005; under the Intel
- * CPU Vectorizer for OpenCL Category 2 PA License dated January 2010; and RS-NDA #58744
- *********************************************************************************************/
+// INTEL CONFIDENTIAL
+//
+// Copyright 2010-2018 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #ifndef __FAKE_INSERT_H__
 #define __FAKE_INSERT_H__
 #include "Mangler.h"
@@ -89,7 +97,10 @@ class FakeInsert : public FakeVectorOp {
   Value* getNewEltArg()             { return Call.getArgOperand(1); }
   const Value* getNewEltArg() const { return Call.getArgOperand(1); }
   /// Returns true if call is a call to a fake insert
-  static bool isFakeInsert(const CallInst &call) { return Mangler::isFakeInsert(call.getCalledFunction()->getName()); }
+  static bool isFakeInsert(const CallInst &call) {
+    assert(call.getCalledFunction() && "Unexpected indirect call");
+    return Mangler::isFakeInsert(call.getCalledFunction()->getName());
+  }
   /// Factory method
   /// vec - the base vector to insert element into.
   /// indConst - the constant index to mimic extract for.
