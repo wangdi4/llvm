@@ -36,7 +36,7 @@ typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
 typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
 
 const unsigned ExpectedNumberOfTests = 16;
-const unsigned SmallTripCountTest = 4;
+const unsigned SmallTripCountTest = 10;
 
 enum RuntimeDDResult {
   OK,

@@ -874,6 +874,7 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
     HLLoop *OrigLoop = LoopMapper.getMapped(Loop);
     OrigLoop->setMVTag(MVTag);
     OrigLoop->markDoNotVectorize();
+    OrigLoop->markDoNotUnroll();
 
     if (Loop->isInnermost()) {
       HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);

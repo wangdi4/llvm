@@ -917,6 +917,9 @@ public:
   /// Marks loop to do not vectorize.
   void markDoNotVectorize();
 
+  /// Marks loop to do not unroll.
+  void markDoNotUnroll();
+
   /// Supply Loop Lower Bound CanonExpr when normalization is using
   /// that instead of the one in the Loop
   bool canNormalize(const CanonExpr *LowerCE = nullptr) const;

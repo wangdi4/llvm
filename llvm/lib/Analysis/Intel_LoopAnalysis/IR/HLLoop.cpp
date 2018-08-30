@@ -1190,6 +1190,12 @@ void HLLoop::markDoNotVectorize() {
   addLoopMetadata(MDs);
 }
 
+void HLLoop::markDoNotUnroll() {
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
+  addLoopMetadata(
+      MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
+}
+
 bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
 
   if (isUnknown()) {
