@@ -151,13 +151,7 @@ foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIRS} )
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
 endforeach( LLVM_INCLUDE_DIR_ITEM)
 
-set (CLANG_OCL_20_COMPILER_FLAGS
-  -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200
-  )
-
-set (CLANG_OCL_12_COMPILER_FLAGS
-  -cl-std=CL1.2 -D __OPENCL_C_VERSION__=120
-  )
+# options for clang to compile OpenCL 2.0 code
 
 # -ffp-contract=off is added to avoid the following bug:
 # Assume that user disabled fp contractions, so there is no
@@ -169,6 +163,7 @@ set (CLANG_OCL_12_COMPILER_FLAGS
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
+  -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=off
   -cl-ext=+cl_khr_fp16
   )
@@ -181,10 +176,15 @@ set (CLANG_C_COMPILER_PARAMS
   -flto
   )
 
-# options for clang to compile OpenCL 1.2 & 2.0 code
-set (CLANG_CL20_COMPILER_PARAMS
-  ${CLANG_CL_COMMON_COMPILER_FLAGS} ${CLANG_OCL_20_COMPILER_FLAGS}
-  )
+# options for clang to compile OpenCL 2.0 image callbacks
+
+# -stack-protector is enabled only on Linux since it is no possible to do so on
+# Windows w/o linking to MS VS runtime (see, __security_check_cookie)
+if (WIN32)
+  set (CLANG_CL_CBK_COMPILER_FLAGS ${CLANG_CL_COMMON_COMPILER_FLAGS})
+else (WIN32)
+  set (CLANG_CL_CBK_COMPILER_FLAGS ${CLANG_CL_COMMON_COMPILER_FLAGS} -stack-protector 2)
+endif (WIN32)
 
 # llvm-opt
 set (LLVM_OPT_PARAMS -verify -sroa -functionattrs)
@@ -244,6 +244,7 @@ endfunction( compile )
 #
 #   OUTPUT_FILE_VAR             - output, contains generated library (rtl file)
 #   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
+#   CLANG_COMPILE_FLAGS         - compiler flags
 #   TARGET_NAME                 - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
 #   TARGET_DIR                  - directory of target-*.td file
 #   ARCH                        - target SIMD arch type
@@ -255,7 +256,7 @@ endfunction( compile )
 #   FILES                       - input file list to compile as OpenCL C 2.0
 #
 
-function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR C_FILES )
+function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMPILE_FLAGS TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR C_FILES )
 
   if (${ARGC} LESS 10)
     message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
@@ -268,8 +269,9 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   set (PRECOMPILED_OUTPUT_FILE ${TARGET_NAME}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
+
   foreach (FILE ${ARGN})
-    compile( "${CLANG_CL20_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+    compile( "${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
 
@@ -408,10 +410,10 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
-  add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})
+  add_ocl_library( OUTPUT_OCL_LIB IGNORE "${CLANG_CL_COMMON_COMPILER_FLAGS}" ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})
 
   # build .rtl (and .o) files out of OCL image callbacks (by clang) and copy to install directory
-  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
+  add_ocl_library( OUTPUT_OCL_IMAGE_CALLBACK_LIB OUTPUT_OCL_IMAGE_CALLBACK_OBJ "${CLANG_CL_CBK_COMPILER_FLAGS}" ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
   install_svml( ${ARCH} )
@@ -541,10 +543,10 @@ add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS pipes.cl pipes-info.cl pipes.h pipes-internal.h pipes-defines.h
 
   # Use host triple to let llc produce object file in a native format.
-  COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS} -triple ${HOST_TRIPLE}
+  COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/pipes.cl -o pipes1.bc
 
-  COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS} -triple ${HOST_TRIPLE}
+  COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes2.bc
 
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
@@ -581,7 +583,7 @@ add_custom_command(OUTPUT clbltpipeinfo.obj
   DEPENDS pipes-info.cl pipes.h pipes-internal.h pipes-defines.h
 
   # Use host triple to let llc produce object file in a native format.
-  COMMAND ${CLANG} ${CLANG_CL20_COMPILER_PARAMS} -triple ${HOST_TRIPLE}
+  COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes-info.bc
 
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-info.bc
