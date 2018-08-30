@@ -492,8 +492,10 @@ StructType *getStructTypeOfArray(Function &F) {
     return nullptr;
   return dyn_cast<StructType>(ThisType->getPointerElementType());
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace soatoaos
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 using namespace soatoaos;
 
 char SOAToAOSApproximationDebug::PassID;
@@ -551,6 +553,6 @@ SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
   });
   return Ignore(Result.release());
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace dtrans
 } // namespace llvm
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
