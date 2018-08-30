@@ -43,8 +43,10 @@
 #include "Intel_VPlan/IntelVPlanLoopInfo.h"
 #include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Support/FormattedStream.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -61,6 +63,7 @@ class LoopInfo;
 namespace loopopt {
 class RegDDRef;
 class HLLoop;
+class OptReportDiag;
 } // namespace loopopt
 
 namespace vpo {
@@ -2471,6 +2474,33 @@ public:
     return RSO.str();
   }
 };
+
+/// A wrapper class to add VPlan related remarks for opt-report. Currently
+/// the implementation is naive with a single method to add a remark for
+/// a given LoopType loop.
+//  TODO:
+/// In the future this will be extended to record all vectorization related
+/// remarks emitted by VPlan by mapping the remarks to underlying VPlan data
+/// structures that represent a loop. For example:
+///
+/// VPLoopRegion MainLoop --> {"LOOP WAS VECTORIZED", "vector length: 4"}
+/// VPLoopRegion RemainderLoop --> {"remainder loop was not vectorized"}
+template <class LoopType> class VPlanOptReportBuilder {
+  LoopOptReportBuilder &LORBuilder;
+
+public:
+  VPlanOptReportBuilder(LoopOptReportBuilder &LORB) : LORBuilder(LORB) {}
+
+  /// Add a vectorization related remark for \p Lp. The remark message is
+  /// identified by \p MsgID.
+  template <typename... Args>
+  void addRemark(LoopType *Lp, OptReportVerbosity::Level Verbosity,
+                 unsigned MsgID, Args &&... args) {
+    LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
+                              std::forward<Args>(args)...);
+  }
+};
+
 } // namespace vpo
 
 //===----------------------------------------------------------------------===//

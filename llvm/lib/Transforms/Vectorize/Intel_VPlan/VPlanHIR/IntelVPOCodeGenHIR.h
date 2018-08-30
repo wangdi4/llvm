@@ -66,6 +66,8 @@ public:
   Function &getFunction() const { return Fn; }
   HLLoop *getMainLoop() const { return MainLoop; }
   int getVF() const { return VF; };
+  bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
+  HLLoop *getRemainderLoop() const { return OrigLoop; }
 
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);

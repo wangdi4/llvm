@@ -24,7 +24,8 @@
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     Remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: Loop has been vectorized with vector {{.*}} factor
+; OPTREPORT-NEXT:         Remark: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:         Remark: vectorization support: vector length {{.*}}
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>

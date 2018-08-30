@@ -269,20 +269,18 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   // NewLoop is the main loop now and hence, we want to associate all the opt
   // report with it.
   LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
-  if (OptTy == OptimizationType::Vectorizer) {
-    LORBuilder(*NewLoop).addRemark(
-        OptReportVerbosity::Low,
-        "Loop has been vectorized with vector %d factor", UnrollOrVecFactor);
-  } else if (OptTy == OptimizationType::Unroll) {
+  if (OptTy == OptimizationType::Unroll) {
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled by %d factor",
                                    UnrollOrVecFactor);
-  } else {
-    assert(OptTy == OptimizationType::UnrollAndJam &&
-           "Invalid optimization type!");
+  } else if (OptTy == OptimizationType::UnrollAndJam) {
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Loop has been unrolled and jammed by %d",
                                    UnrollOrVecFactor);
+  } else {
+    assert(OptTy == OptimizationType::Vectorizer &&
+           "Invalid optimization type!");
+    // Do nothing, Vectorizer will add remarks about vectorized loops
   }
 
   return NewLoop;

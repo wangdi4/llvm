@@ -14,40 +14,29 @@
 ;  return sum;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-optreport-emitter -hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
+; TODO: Currently VPlanDriverHIR does not vectorize this loop since code gen does not support uniform stores (Jira CMPLRS-52346)
+
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-optreport-emitter -hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: Loop has been vectorized with vector {{.*}} factor{{[[:space:]]}}
+; OPTREPORT-NEXT:     LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN
 ; OPTREPORT-NEXT:             Remark: Loop completely unrolled
 ; OPTREPORT-NEXT:         LOOP END
-; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         <Remainder loop for vectorization>
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]], [[M9:!.*]]}
+; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.first_child", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
 ; CHECK: [[M8]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
-; CHECK: [[M9]] = !{!"intel.optreport.remarks", [[M10:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", !"Loop has been vectorized with vector %d factor",{{.*}}}
-; CHECK: [[M11:!.*]] = distinct !{[[M11]]{{.*}}[[M12:!.*]]{{.*}}}
-; CHECK: [[M12]] = distinct !{!"llvm.loop.optreport", [[M13:!.*]]}
-; CHECK: [[M13]] = distinct !{!"intel.loop.optreport", [[M14:!.*]]}
-; CHECK: [[M14]] = !{!"intel.optreport.origin", [[M15:!.*]]}
-; CHECK: [[M15]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

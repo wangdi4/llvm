@@ -1,4 +1,4 @@
-; Check that proper optreport (structure and metadata) is emitted for Vectorization with Remainder.
+; Check that proper optreport (structure and metadata) is emitted for Vectorization with Remainder when verbosity level is set to medium.
 
 ;void foo(int *restrict A, int* G, int N) {
 ;
@@ -10,8 +10,8 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-optreport-emitter -hir-cg -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -intel-loop-optreport=medium -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-optreport-emitter -hir-cg -intel-loop-optreport=medium %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
@@ -20,10 +20,11 @@
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>
+; OPTREPORT-NEXT:         Remark: remainder loop was not vectorized:
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -intel-loop-optreport=medium < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{!"llvm.loop.optreport", [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"intel.loop.optreport", [[M3:!.*]]}
@@ -32,9 +33,11 @@
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
 ; CHECK: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
 ; CHECK: [[M7]] = distinct !{!"llvm.loop.optreport", [[M8:!.*]]}
-; CHECK: [[M8]] = distinct !{!"intel.loop.optreport", [[M9:!.*]]}
+; CHECK: [[M8]] = distinct !{!"intel.loop.optreport", [[M9:!.*]], [[M11:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
+; CHECK: [[M11]] = !{!"intel.optreport.remarks", [[M12:!.*]]}
+; CHECK: [[M12]] = !{!"intel.optreport.remark", !"remainder loop was not vectorized: %s ", {{.*}}}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

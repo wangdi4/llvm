@@ -138,6 +138,11 @@ protected:
   bool runCGStressTestMode(Function &Fn);
   bool runConstructStressTestMode(Function &Fn);
 
+  // Add remarks to the VPlan loop opt-report for loops created by codegen
+  template <class VPOCodeGenType>
+  void addOptReportRemarks(VPlanOptReportBuilder<LoopType> &VPORBuilder,
+                           VPOCodeGenType *VCodeGen);
+
   // TODO: Move isSupported to Legality class.
   virtual bool isSupported(LoopType *Lp) = 0;
   virtual void collectAllLoops(SmallVectorImpl<LoopType *> &Loops) = 0;
@@ -334,6 +339,9 @@ bool VPlanDriverBase<LoopType>::processFunction(
            "VPlan Construction stress testing can't modify Function!");
   }
 
+  // TODO: Traverse through all non-vectorized loops and emit corresponding
+  // remark.
+
   return ModifiedFunc;
 }
 
@@ -421,6 +429,29 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
   }
 
   return ModifiedFunc;
+}
+
+/// Function to add vectorization related remarks for loops created by given
+/// codegen object \p VCodeGen
+template <class LoopType>
+template <class VPOCodeGenType>
+void VPlanDriverBase<LoopType>::addOptReportRemarks(
+    VPlanOptReportBuilder<LoopType> &VPORBuilder, VPOCodeGenType *VCodeGen) {
+  // The new vectorized loop is stored in MainLoop
+  LoopType *MainLoop = VCodeGen->getMainLoop();
+
+  // Adds remark LOOP WAS VECTORIZED
+  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
+  // Add remark about VF
+  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
+                        Twine(VCodeGen->getVF()).str());
+
+  // If remainder loop was generated for MainLoop, report that it is currently
+  // not vectorized
+  if (VCodeGen->getNeedRemainderLoop()) {
+    LoopType *RemLoop = VCodeGen->getRemainderLoop();
+    VPORBuilder.addRemark(RemLoop, OptReportVerbosity::Medium, 15441, "");
+  }
 }
 
 INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
@@ -706,6 +737,10 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   const DDGraph &DDG = DDA->getGraph(HLoop);
 
+  // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
+  // process for vectorization
+  VPlanOptReportBuilder<HLLoop> VPORBuilder(LORBuilder);
+
   // TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
                                   DDG);
@@ -760,8 +795,15 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
       CandLoopsVectorized++;
       LVP.executeBestPlan(&VCodeGen);
       ModifiedLoop = true;
+      addOptReportRemarks<VPOCodeGenHIR>(VPORBuilder, &VCodeGen);
     }
   }
+
+  // Emit opt report remark if a VPlan candidate loop was not vectorized
+  // TODO: Emit reason for not vectorizing too, check
+  // VPOCodeGenHIR::loopIsHandled
+  if (!ModifiedLoop)
+    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
 
   return ModifiedLoop;
 }
