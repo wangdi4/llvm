@@ -1,6 +1,4 @@
 ; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -S | FileCheck %s -check-prefix=16WIDE
-; This test checks that we don't crash because of not unique values and still vectorize part of the tree.
-; Full support for this case requires "head duplication".
 
 source_filename = "x264_pixel_satd_16x16.ll"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -320,7 +318,8 @@ loop.1452:                                        ; preds = %loop.1452, %entry
   %Bridge_T802_2932 = sub nsw i32 %Bridge_T802_29242941, %Chain_T802_2936
   store i32 %Bridge_T802_2932, i32* %arrayIdx1226, align 4
   %arrayIdx1244 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %alloca, i64 0, i64 %85, i64 2
-  %Bridge_T801_2893 = sub nsw i32 %Bridge_T802_29162940, %Chain_T802_2928
+  %Bridge_T802_29162940_1 = add nsw i32 %Chain_T802_29102912, %Chain_T802_29182920
+  %Bridge_T801_2893 = sub nsw i32 %Bridge_T802_29162940_1, %Chain_T802_2928
   %Bridge_T801_2901 = sub nsw i32 %Bridge_T801_2893, %Chain_T802_2936
   store i32 %Bridge_T801_2901, i32* %arrayIdx1244, align 4
   %arrayIdx1262 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %alloca, i64 0, i64 %85, i64 1
@@ -470,10 +469,21 @@ attributes #9 = { nounwind }
 ; There should be 16 in total 4-wide loads (without load coalescing).
 ; Just check for a few of them.
 
-
-; 16WIDE: sub nsw <16 x i32>
-; 16WIDE: add nsw <16 x i32>
-; 16WIDE: add nsw <16 x i32>
-; 16WIDE: sub nsw <16 x i32>
+; 16WIDE: [[L1:%.*]] = load <4 x i8>, <4 x i8>* 
+; 16WIDE: [[L2:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L3:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L4:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L5:%.*]] = load <4 x i8>, <4 x i8>* 
+; 16WIDE: [[L6:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L7:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L8:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L9:%.*]] = load <4 x i8>, <4 x i8>* 
+; 16WIDE: [[L10:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L11:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L12:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L13:%.*]] = load <4 x i8>, <4 x i8>* 
+; 16WIDE: [[L14:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L15:%.*]] = load <4 x i8>, <4 x i8>*
+; 16WIDE: [[L16:%.*]] = load <4 x i8>, <4 x i8>*
 ; 16WIDE: store <16 x i32> [[SEL1:%.*]], <16 x i32>*
 
