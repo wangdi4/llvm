@@ -409,8 +409,28 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   // of routines where the candidate struct is accessed.
   auto UpdateTypeAccessInfo = [&](Instruction *I, Function *F) {
     Type *StTy = nullptr;
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(I))
-      StTy = getGEPStructType(GEP);
+    // Treat a struct as accessed if the struct is referenced by
+    // any of these instructions.
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+      if (GEP->getNumIndices() == 1) {
+        auto BPair = DTInfo.getByteFlattenedGEPElement(GEP);
+        StTy = BPair.first;
+      }
+      if (!StTy)
+        StTy = getGEPStructType(GEP);
+    } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
+      if (BinOp->getOpcode() == Instruction::Sub)
+        StTy = DTInfo.getResolvedPtrSubType(BinOp);
+    } else if (auto *LI = dyn_cast<LoadInst>(I)) {
+      auto LdElem = DTInfo.getLoadElement(LI);
+      StTy = LdElem.first;
+    } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+      auto StElem = DTInfo.getStoreElement(SI);
+      StTy = StElem.first;
+    } else if (isa<CallInst>(I)) {
+      auto *CInfo = DTInfo.getCallInfo(I);
+      StTy = getCallInfoElemTy(CInfo);
+    }
 
     if (!StTy)
       return;
