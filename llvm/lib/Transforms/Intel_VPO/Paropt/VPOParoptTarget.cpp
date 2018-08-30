@@ -131,7 +131,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs[NFn] = SP;
   }
   if (VPOAnalysisUtils::isTargetSPIRV(NFn->getParent()) &&
-     ((Mode & OmpOffload) || SwitchToOffload))
+      hasOffloadCompilation())
     InferAddrSpaces(*TTI, 0, *NFn);
 
   return NFn;
@@ -183,7 +183,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   NewCall->setCallingConv(CC);
 
   if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-     ((Mode & OmpOffload) || SwitchToOffload))
+      hasOffloadCompilation())
     finalizeKernelFunction(W, NewF, NewCall);
 
   IRBuilder<> Builder(F->getEntryBlock().getTerminator());
@@ -831,7 +831,7 @@ VPOParoptTransform::genOffloadEntriesAndInfoMetadata(WRegionNode *W,
   LLVMContext &C = F->getContext();
 
   M->getOrInsertNamedMetadata("omp_offload.info");
-  if ((Mode & OmpOffload) || SwitchToOffload) {
+  if (hasOffloadCompilation()) {
     Constant *OutlinedFnID =
         ConstantExpr::getBitCast(OutlinedFn, Type::getInt8PtrTy(C));
     OutlinedFn->setLinkage(GlobalValue::ExternalLinkage);
@@ -843,7 +843,7 @@ VPOParoptTransform::genOffloadEntriesAndInfoMetadata(WRegionNode *W,
 // Register the offloading binary descriptors.
 void
 VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
-  if ((Mode & OmpOffload) || SwitchToOffload)
+  if (hasOffloadCompilation())
     return;
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();

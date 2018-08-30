@@ -865,6 +865,14 @@ public:
   static CallInst *genKmpcEndTaskgroupCall(WRegionNode *W, StructType *IdentTy,
                                            Value *Tid, Instruction *InsertPt);
 
+  /// Generate a generic call to `get_global_id, get_local_id...`. Example:
+  /// \code
+  //    %11 = call i64 @_Z14get_local_sizej(i32 0)
+  ///      where the value 0 is the dimension number.
+  //  \endcode
+  static CallInst *genOCLGenericCall(StringRef FnName, ArrayRef<Value *> FnArgs,
+                                     Instruction *InsertPt);
+
 private:
   /// \name Private constructor and destructor to disable instantiation.
   /// @{

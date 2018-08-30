@@ -143,6 +143,9 @@ public:
   static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                              unsigned Align, BasicBlock *BB);
 
+  /// Return true if the type of AI instruction is not single vlaue type.
+  static bool isNotLegalSingleValueType(AllocaInst *AI);
+
   /// \name MultiVersioning Transformation
   /// @{
 
@@ -262,9 +265,6 @@ public:
   static CallInst *createMaskedStoreCall(Value *VecPtr, Value *VecData,
                                          IRBuilder<> &Builder,
                                          unsigned Alignment, Value *Mask);
-
-  /// Return true if the type of AI instruction is not single vlaue type.
-  static bool isNotLegalSingleValueType(AllocaInst *AI, const DataLayout &DL);
 
   /// @}
 };
