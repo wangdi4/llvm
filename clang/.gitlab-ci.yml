@@ -1,4 +1,5 @@
 stages:
+    - prepare
     - build
     - cleanup_build
 
@@ -10,10 +11,17 @@ before_script:
     - set WS_NAME=xmain1
     - set CURRENT_RUN_RESULTS=%ICS_WSROOT%\%WS_NAME%\alloy\results
     
+prepare_job:
+    stage: prepare
+    script:
+        - "if exist %CURRENT_RUN_RESULTS% (rmdir %CURRENT_RUN_RESULTS% /S /Q)"
+    retry: 2
+    only:
+        - xmain
+
 build_job:
     stage: build
     script:
-        - "if exist %CURRENT_RUN_RESULTS% (rmdir %CURRENT_RUN_RESULTS% /S /Q)"
         - call R:\u4win\setenv.bat
         - call R:\ics\itools\win\bin\icssetup.bat
         - call cd %ICS_WSROOT%
