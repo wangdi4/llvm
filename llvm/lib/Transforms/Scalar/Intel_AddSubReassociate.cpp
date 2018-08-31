@@ -167,6 +167,14 @@ static cl::opt<bool>
     AddSubReassocEnable("addsub-reassoc-enable", cl::init(true), cl::Hidden,
                         cl::desc("Enable addsub reassociation."));
 
+static cl::opt<bool>
+    SimplifyTrunks("addsub-reassoc-simplify-trunks", cl::init(true), cl::Hidden,
+                   cl::desc("Enable simplification of trunks."));
+
+static cl::opt<bool>
+    SimplifyChains("addsub-reassoc-simplify-chains", cl::init(true), cl::Hidden,
+                   cl::desc("Enable simplification of chains."));
+
 static cl::opt<bool> EnableAddSubVerifier("addsub-reassoc-verifier",
                                           cl::init(false), cl::Hidden,
                                           cl::desc("Enable addsub verifier."));
@@ -938,12 +946,91 @@ void AddSubReassociatePass::generateCode(Group &G, Tree *T,
 
   Bridge->setOperand(1, BottomChainI);
 
+  // 6. As a final step simplify the instruction chains to get rid of
+  // redundancies like '0 + Val' from the top of the chain.
+  if (!GroupChain && SimplifyChains)
+    T->setRoot(simplifyTree(Bridge, false));
+
 #ifndef NDEBUG
   if (EnableAddSubVerifier)
     assert(!verifyFunction(*Bridge->getParent()->getParent(), &dbgs()));
 #endif
 }
 
+// Fix the '0' at the top of the trunk/chain. Returns possibly updated bridge
+// instruction.
+Instruction *AddSubReassociatePass::simplifyTree(Instruction *Bridge,
+                                                 bool OptTrunk) const {
+  Instruction *TopI = Bridge;
+  Instruction *AddI = nullptr;
+
+  // Step1. Scan through the tree and find top most instruction and last ADD
+  // instruction if any.
+  for (Value *CurVal = Bridge->getOperand(OptTrunk ? 0 : 1);
+       !isa<Constant>(CurVal); CurVal = TopI->getOperand(0)) {
+    TopI = cast<Instruction>(CurVal);
+    assert(TopI->hasOneUse() && "Canonical tree should have one use only");
+    if (TopI->getOpcode() == Instruction::Add)
+      AddI = TopI;
+  }
+
+  // Step2. Switch 'top' and 'add' instructions if both exists.
+  if (AddI != nullptr && AddI != TopI) {
+    Instruction *TopUserI = TopI->user_back();
+    if (TopUserI == AddI) {
+      TopUserI = TopI;
+    }
+    TopI->setOperand(0, AddI->getOperand(0));
+    AddI->replaceAllUsesWith(TopI);
+    TopUserI->setOperand(0, AddI);
+    TopI->moveAfter(AddI);
+    TopI = AddI;
+  }
+
+  // If we still don't have an add instruction at the top that means all
+  // instructions are SUBs and we need to flip sign of a bridge.
+  bool NeedToFlip = (TopI->getOpcode() != Instruction::Add);
+
+  // Can't do anything useful if we optimize trunk and all instructions are
+  // SUBs.
+  if (NeedToFlip && OptTrunk && Bridge->getOpcode() != Instruction::Add)
+    return Bridge;
+
+  // Step3. Handle convoluted case of 0 instructions in the tree separately.
+  if (TopI == Bridge) {
+    if (!OptTrunk || Bridge->getOpcode() == Instruction::Add) {
+      Bridge->replaceAllUsesWith(Bridge->getOperand(OptTrunk ? 1 : 0));
+      Bridge->dropAllReferences();
+      Bridge->eraseFromParent();
+    }
+    return Bridge;
+  }
+
+  // Step4. Remove 'top' instruction.
+  assert(TopI->hasOneUse() && "Top instruction is expected to have one use");
+  Instruction *NewTopI = TopI->user_back();
+  TopI->replaceAllUsesWith(TopI->getOperand(1));
+  TopI->dropAllReferences();
+  TopI->removeFromParent();
+  TopI = NewTopI;
+
+  // Step5. Flip the tree if necessary.
+  if (NeedToFlip) {
+    // All instruction in the trunk/chain are SUBs. Replace all of them
+    // with ADDs.
+    for (Instruction *CurI = TopI; CurI != Bridge; CurI = CurI->user_back()) {
+      CurI = flipInstruction(CurI);
+    }
+    Bridge = flipInstruction(Bridge, OptTrunk);
+  }
+
+#ifndef NDEBUG
+  if (EnableAddSubVerifier)
+    assert(!verifyFunction(*Bridge->getParent()->getParent(), &dbgs()));
+#endif
+
+  return Bridge;
+}
 // Apply all groups in 'Groups' onto each tree in 'TreeCluster'.
 void AddSubReassociatePass::generateCode(GroupsVec &Groups,
                                          TreeArrayTy &TreeCluster) const {
@@ -955,6 +1042,12 @@ void AddSubReassociatePass::generateCode(GroupsVec &Groups,
     for (auto Titr = TreeCluster.rbegin(); Titr != TreeCluster.rend(); ++Titr) {
       Tree *T = Titr->get();
       generateCode(G, T, GroupChain);
+    }
+  }
+  // Optimization: Remove the top zero constants.
+  if (SimplifyTrunks) {
+    for (const TreePtr &Tptr : TreeCluster) {
+      simplifyTree(Tptr.get()->getRoot(), true);
     }
   }
 }

@@ -244,6 +244,8 @@ private:
   bool canonicalizeIRForTrees(const TreeArrayTy &TreeArray) const;
   // Applies 'G' onto 'T' and emits the code.
   void generateCode(Group &G, Tree *T, Instruction *Chain) const;
+  // Simplifies the top instructions of the tree by removing the '0'.
+  Instruction *simplifyTree(Instruction *Bridge, bool OptTrunk) const;
   // Calls generateCod(G, T) for all groups and all trees.
   void generateCode(GroupsVec &Groups, TreeArrayTy &TreeArray) const;
   // Returns true if T1 and T2 contain similar values.

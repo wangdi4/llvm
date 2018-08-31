@@ -1,6 +1,24 @@
-;RUN: opt < %s -addsub-reassoc -S | FileCheck %s
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -S | FileCheck %s -check-prefix=CHECK_SIMP
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -S | FileCheck %s -check-prefix=CHECK
 
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
+
+; CHECK_SIMP: [[Chain1_1:%.*]] = sub i32 [[l16:%.*]], [[l24:%.*]]
+; CHECK_SIMP: [[Chain1_2:%.*]] = sub i32 [[Chain1_1]], [[l35:%.*]]
+; CHECK_SIMP: [[Chain1_3:%.*]] = add i32 [[Chain1_2]], [[l44:%.*]]
+; CHECK_SIMP: [[Chain2_1:%.*]] = sub i32 [[l27:%.*]], [[l17:%.*]]
+; CHECK_SIMP: [[Chain2_2:%.*]] = add i32 [[Chain2_1]], [[l29:%.*]]
+; CHECK_SIMP: [[Chain2_3:%.*]] = sub i32 [[Chain2_2]], [[l35:%.*]]
+; CHECK_SIMP: [[Chain3_1:%.*]] = sub i32 [[l30:%.*]], [[l19:%.*]]
+; CHECK_SIMP: [[Chain3_2:%.*]] = add i32 [[Chain3_1]], [[l30:%.*]]
+; CHECK_SIMP: [[Chain3_3:%.*]] = sub i32 [[Chain3_2]], [[l37:%.*]]
+; CHECK_SIMP: [[Chain4_1:%.*]] = sub i32 [[l21:%.*]], [[l33:%.*]]
+; CHECK_SIMP: [[Chain4_2:%.*]] = sub i32 [[Chain4_1]], [[l31:%.*]]
+; CHECK_SIMP: [[Chain4_3:%.*]] = add i32 [[Chain4_2]], [[l39:%.*]]
+; CHECK_SIMP: [[Bridge1:%.*]] = sub i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK_SIMP: [[Bridge2:%.*]] = sub i32 [[Bridge1]], [[Chain2_3]]
+; CHECK_SIMP: [[Bridge3:%.*]] = add i32 [[Bridge2]], [[Chain1_3]]
+; CHECK_SIMP: store i32 [[Bridge3]]
 
 ; CHECK: [[Chain1_0:%.*]] = add i32 0, [[l16:%.*]]
 ; CHECK: [[Chain1_1:%.*]] = sub i32 [[Chain1_0]], [[l21:%.*]]
