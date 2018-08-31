@@ -19,12 +19,16 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
   set(CMAKE_SKIP_RPATH TRUE)
 
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
+    # TODO: libcsaumr.so does not have dependency on libcsasim.so, so temporary
+    # link plugin with libcsasim.so as workaround for this problem. It should
+    # be removed from link once the problem is fixed.
+    find_library(LibCSAUMR csaumr PATHS $ENV{CSABASE_ROOT}/lib NO_DEFAULT_PATH)
     find_library(LibCSASIM csasim PATHS $ENV{CSABASE_ROOT}/lib NO_DEFAULT_PATH)
-    if(LibCSASIM)
+    if(LibCSAUMR AND LibCSASIM)
       libomptarget_say("Building ${tmachine_name} offloading plugin.")
 
       include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
-      include_directories($ENV{CSABASE_ROOT}/include)
+      include_directories($ENV{CSABASE_ROOT}/include/csa)
 
       add_library("omptarget.rtl.${tmachine_libname}" SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/src/rtl.cpp)
@@ -35,6 +39,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 
       target_link_libraries(
         "omptarget.rtl.${tmachine_libname}"
+        ${LibCSAUMR}
         ${LibCSASIM}
         dl
         rt
@@ -43,9 +48,9 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
       # Report to the parent scope that we are building a plugin.
       set(LIBOMPTARGET_SYSTEM_TARGETS
         "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple}" PARENT_SCOPE)
-    else(LibCSASIM)
-      libomptarget_say("Not building ${tmachine_name} offloading plugin: libcsasim.so dependency not found.")
-    endif(LibCSASIM)
+    else(LibCSAUMR AND LibCSASIM)
+      libomptarget_say("Not building ${tmachine_name} offloading plugin: libcsaumr.so or libcsasim.so dependency not found.")
+    endif(LibCSAUMR AND LibCSASIM)
   else()
     libomptarget_say("Not building ${tmachine_name} offloading plugin: machine not found in the system.")
   endif()

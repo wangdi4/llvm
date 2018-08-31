@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// RTL for CSA simulator
+// RTL for CSA UMR.
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,13 +25,18 @@
 #include <sstream>
 #include <link.h>
 #include <thread>
-#include <tuple>
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "omptargetplugin.h"
-#include "csa_invoke.h"
+
+// TODO: prevent csa/arch_value.h from being included because it causes build
+// problem due to compilation warnings which are treated as errors. This
+// workaround should be removed once this problem is fixed.
+#define CSA_ARCH_VALUE_H_
+class CsaArchValue64;
+#include "umr.h"
 #include "elf.h"
 
 #ifdef OMPTARGET_DEBUG
@@ -50,7 +55,7 @@ static int DebugLevel = 0;
   {}
 #endif
 
-#define NUMBER_OF_DEVICES 4
+#define NUMBER_OF_DEVICES 1
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
 #define CSA_CODE_SECTION ".csa.code"
 
@@ -100,30 +105,6 @@ static bool SaveTemps;
 // not defined
 #define ENV_TEMP_PREFIX "CSA_TEMP_PREFIX"
 static std::string TempPrefix;
-
-// If defined specifies the value to initialize the floating point flags
-// to before an offloaded function, and that the floating point flags be
-// reported after the offloaded funciton returns
-#define ENV_FP_FLAGS "CSA_FP_FLAGS"
-static int FPFlags = -1;
-
-// Environment variable the FP flags will be saved in
-#define ENV_RUN_FP_FLAGS "CSA_RUN_FP_FLAGS"
-
-namespace {
-
-// Bitcode bounds struct built by the compiler. WARNING! This struct MUST
-// match the struct written to the .csa.bc.bounds section in CSAAsmPrinter.cpp!
-struct BitcodeBounds {
-  uint64_t start;
-  uint64_t end;
-
-  uint64_t length() const {
-    return end - start;
-  }
-};
-
-} // anonymous namespace
 
 // Create temporary file. Returns file name if successfull or empty string
 // otherwise.
@@ -245,6 +226,70 @@ std::string get_process_name() {
   }
 }
 #endif
+
+#ifdef OMPTARGET_DEBUG
+// Return string describing UMR error.
+static const char* getUmrErrorStr(CsaUmrErrors E) {
+  switch (E) {
+    case kCsaUmrOK:
+      return "no error";
+    case kCsaUmrErrorContextBusy:
+      return "UMR context is being used by another thread";
+    case kCsaUmrErrorContextGroupLimit:
+      return "too many UMR contexts in a group";
+    case kCsaUmrErrorNotContextGroup:
+      return "call to UMR contexts from different groups";
+    default:
+      break;
+  }
+  return "unknown UMR error";
+}
+#endif // OMPTARGET_DEBUG
+
+// Error checking wrapper for the CsaUmrCreateContext API. In case of error,
+// prints debugging message and returns nullptr. Otherwise returns created
+// context.
+static CsaUmrContext* createContext(const CsaUmrContextAttributes *Attrs,
+                                    CsaUmrHandler *Handler) {
+  CsaUmrContext *Ctxt = nullptr;
+  auto E = CsaUmrCreateContext(Attrs, Handler, &Ctxt);
+  if (E) {
+    DP(1, "Error creating UMR context - %s\n", getUmrErrorStr(E));
+    return nullptr;
+  }
+  return Ctxt;
+}
+
+// Error checking wrapper for the CsaUmrBindGraphFromFile API. In case of error
+// prints debugging message and returns nullptr. Otherwise returns binded graph.
+static CsaUmrBoundGraph* bindGraph(CsaUmrContext *Ctxt, const char *Path) {
+  CsaUmrBoundGraph *Graph = nullptr;
+  auto E = CsaUmrBindGraphFromFile(Ctxt, Path, &Graph);
+  if (E) {
+    DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
+    return nullptr;
+  }
+  return Graph;
+}
+
+// Error checking wrapper for the CsaUmrCall API. In case of error prints
+// debugging message and returns false. Otherwise returns true.
+static bool callGraph(CsaUmrBoundGraph *Graph, const char *Entry,
+                      const std::vector<void*> &Args) {
+  CsaUmrCallInfo CI = { 0 };
+  CI.flags = kCsaUmrCallEntryByName;
+  CI.graph = Graph;
+  CI.entry_name = Entry;
+  CI.num_inputs = Args.size();
+  CI.inputs = reinterpret_cast<const CsaArchValue64*>(Args.data());
+
+  auto E = CsaUmrCall(&CI, 0);
+  if (E) {
+    DP(1, "Error calling CSA graph - %s\n", getUmrErrorStr(E));
+    return false;
+  }
+  return true;
+}
 
 namespace {
 
@@ -467,35 +512,33 @@ public:
     }
 
   public:
-    // Simulator data which is associated with offload entry - CSA processor,
-    // module and entry.
-    using CSAEntry = std::tuple<csa_processor*, csa_module*, csa_entry*>;
+    // Data associated with each offload entry - UMR context and a graph.
+    using CSAEntry = std::pair<CsaUmrContext*, CsaUmrBoundGraph*>;
 
     // Maps offload entry to a CSA entry for a thread. No synchronization is
     // necessary for this object because it is accessed and/or modified by one
     // thread only.
     class CSAEntryMap : public std::unordered_map<const EntryAddr*, CSAEntry> {
-      csa_processor *SingleProc = nullptr;
+      CsaUmrContext *Context = nullptr;
 
     public:
-      csa_processor* getSingleProc() const {
-        return SingleProc;
+      CsaUmrContext* getContext() const {
+        return Context;
       }
 
     private:
-      // Allocates CSA processor. The way how we do it depends on the
-      // MergeStats setting. If MergeStats is on then we are using single CSA
-      // processor for all entries. Otherwise each entry gets its own processor
-      // instance.
-      csa_processor* allocProc() {
+      // Creates CSA UMR context. The way how we do it depends on the MergeStats
+      // setting. If MergeStats is on then we are using single context for all
+      // entries. Otherwise each entry gets its own context.
+      CsaUmrContext* getOrCreateContext() {
         if (!MergeStats)
-          return csa_alloc("autounit");
+          return createContext(nullptr, nullptr);
 
         // When MergeStats is on thread is supposed to run all entries in
-        // a single CSA processor instance.
-        if (!SingleProc)
-          SingleProc = csa_alloc("autounit");
-        return SingleProc;
+        // a single context.
+        if (!Context)
+          Context = createContext(nullptr, nullptr);
+        return Context;
       }
 
     public:
@@ -504,34 +547,24 @@ public:
         if (It != end())
           return &It->second;
 
-        auto *Proc = allocProc();
-        if (!Proc) {
-          DP(1, "Failed to allocate CSA processor\n");
+        auto *Ctxt = getOrCreateContext();
+        if (!Ctxt)
           return nullptr;
-        }
 
         DP(5, "Using assembly from \"%s\" for entry \"%s\"\n",
            Addr->second, Addr->first);
-        auto *Mod = csa_assemble(Addr->second, Proc);
-        if (!Mod) {
-          DP(1, "Failed to assemble entry\n");
-          return nullptr;
-        }
 
-        auto *Entry = csa_lookup(Mod, Addr->first);
-        if (!Entry) {
-          DP(1, "Failed to find \"%s\"\n", Addr->first);
+        auto *Graph = bindGraph(Ctxt, Addr->second);
+        if (!Graph)
           return nullptr;
-        }
 
-        auto Res = this->emplace(Addr, std::make_tuple(Proc, Mod, Entry));
+        auto Res = this->emplace(Addr, std::make_pair(Ctxt, Graph));
         assert(Res.second && "entry is already in the map");
         return &Res.first->second;
       }
     };
 
-    // CSA simulator is not thread safe so we need to keep own CSAEntry map for
-    // each thread.
+    // Per thread map of CSA entries.
     class ThreadEntryMap :
         public std::unordered_map<std::thread::id, CSAEntryMap> {
       std::mutex Mutex;
@@ -559,42 +592,36 @@ public:
         return false;
       }
 
-      // Run function counter.
-      static std::atomic<unsigned int> RunCount;
-      unsigned int RunNumber = RunCount++;
-
       auto *Name = Addr->first;
-      auto *Proc = std::get<0>(*Info);
-      auto *Entry = std::get<2>(*Info);
+      auto *Ctxt = Info->first;
+      auto *Graph = Info->second;
 
       DP(2, "Running function %s with %lu argument(s)\n", Name, Args.size());
       for (size_t I = 0u; I < Args.size(); ++I)
         DP(2, "\tArg[%lu] = %p\n", I, Args[I]);
 
-      if (FPFlags >= 0)
-        csa_set_fp_flags(Proc, FPFlags);
+      unsigned RunNumber;
+      int64_t StartCycles;
+      if (Verbosity) {
+        // Run function counter.
+        static std::atomic<unsigned> RunCount;
 
-      if (Verbosity)
-        fprintf(stderr, "\nRun %u: Running %s on the CSA simulator..\n",
+        RunNumber = RunCount++;
+        StartCycles = CsaUmrSimulatorGetCycles(Ctxt);
+
+        fprintf(stderr, "\nRun %u: Running %s on the CSA ..\n",
                 RunNumber, Name);
-
-      auto Start = csa_cycle_counter(Proc);
-      csa_call(Entry, Args.size(), reinterpret_cast<csa_arg*>(Args.data()));
-      auto Cycles = csa_cycle_counter(Proc) - Start;
-
-      if (Verbosity)
-        fprintf(stderr,
-                "\nRun %u: %s ran on the CSA simulator in %llu cycles\n\n",
-                RunNumber, Name, Cycles);
-
-      if (FPFlags >= 0) {
-        auto Flags = csa_get_fp_flags(Proc);
-        fprintf(stderr, "FP Flags at completion of %s : 0x%02x\n", Name, Flags);
-        std::stringstream SS;
-        SS << Flags;
-        setenv(ENV_RUN_FP_FLAGS, SS.str().c_str(), true);
       }
 
+      if (!callGraph(Graph, Name, Args))
+        return false;
+
+      if (Verbosity) {
+        auto Cycles = CsaUmrSimulatorGetCycles(Ctxt) - StartCycles;
+        fprintf(stderr,
+                "\nRun %u: %s ran on the CSA in %ld cycles\n\n",
+                RunNumber, Name, Cycles);
+      }
       return true;
     }
   };
@@ -647,20 +674,20 @@ public:
     // Finish up - Dump the stats, release the CSA instances
     for (int I = 0; I < getNumDevices(); ++I)
       for (auto &Thr : getDevice(I).getThreadEntries()) {
-        auto cleanup = [&](csa_processor *Proc, const std::string &Entry) {
+        auto cleanup = [&](CsaUmrContext *C, const std::string &Entry) {
           if (DumpStats) {
             // Compose a file name using the following template
             // <exe name>-<entry name>-dev<device num>-thr<thread num>
             std::stringstream SS;
             SS << ProcessName << "-" << Entry << "-dev" << I << "-thd"
                << std::setfill('0') << std::setw(Width) << TID2Num[Thr.first];
-            csa_dump_statistics(Proc, SS.str().c_str());
+            CsaUmrSimulatorDumpStatistics(C, SS.str().c_str());
           }
-          csa_free(Proc);
+          CsaUmrDeleteContext(C);
         };
 
-        if (auto *SingleProc = Thr.second.getSingleProc())
-          cleanup(SingleProc, "*");
+        if (auto *C = Thr.second.getContext())
+          cleanup(C, "*");
         else
           for (auto &Entry : Thr.second)
             cleanup(std::get<0>(Entry.second), Entry.first->first);
@@ -723,13 +750,6 @@ static RTLDeviceInfoTy& getDeviceInfo() {
         Entry2AsmFile = nullptr;
       }
     }
-    if (const auto *Str = getenv(ENV_FP_FLAGS)) {
-      int Flags = std::stoi(Str);
-      if (Flags < 0)
-        fprintf(stderr, "invalid initial FP flags value %d ignored\n", Flags);
-      else
-        FPFlags = Flags;
-    }
   });
   return DeviceInfo;
 }
@@ -775,13 +795,15 @@ void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HPtr) {
   return getDeviceInfo().getDevice(ID).alloc(Size);
 }
 
-int32_t __tgt_rtl_data_submit(int32_t ID, void *TPtr, void *HPtr, int64_t Size) {
+int32_t __tgt_rtl_data_submit(int32_t ID, void *TPtr, void *HPtr,
+                              int64_t Size) {
   if (TPtr != HPtr)
     memcpy(TPtr, HPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_data_retrieve(int32_t ID, void *HPtr, void *TPtr, int64_t Size) {
+int32_t __tgt_rtl_data_retrieve(int32_t ID, void *HPtr, void *TPtr,
+                                int64_t Size) {
   if (HPtr != TPtr)
     memcpy(HPtr, TPtr, Size);
   return OFFLOAD_SUCCESS;
@@ -805,7 +827,8 @@ int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry,
 }
 
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
-                                    void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num) {
+                                    void **tgt_args, ptrdiff_t *tgt_offsets,
+                                    int32_t arg_num) {
   // use one team and one thread.
   return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
                                           tgt_offsets, arg_num, 1, 1, 0);
