@@ -3936,7 +3936,7 @@ public:
     // Module's should already be materialized by the time this pass is run.
     assert(M.isMaterialized());
 
-    // Analyze the structure types declared in the module.
+    // Add the structure types declared in the module to the type info list.
     for (StructType *Ty : M.getIdentifiedStructTypes())
       (void)DTInfo.getOrCreateTypeInfo(Ty);
 

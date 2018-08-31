@@ -22,12 +22,14 @@
 ; CHECK: Running analysis: AssumptionAnalysis
 ; CHECK: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
-; CHECK-NEXT: Running analysis: WholeProgramAnalysis
-; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
-; CHECK-NEXT: Running analysis: DTransAnalysis
-; CHECK-NEXT: Running analysis: BlockFrequencyAnalysis on foo
-; CHECK-NOT: Running analysis: DTransAnalysis
-; CHECK: Running pass: dtrans::ReorderFieldsPass
+; CHECK: Running analysis: DTransAnalysis
+; The ordering of the analysis passes seems not to be deterministic so we
+; don't check them all here. The check below guarantees that DeleteFieldPass
+; is the next non-analysis pass to run.
+; CHECK: Running pass:
+; CHECK-SAME: dtrans::DeleteFieldPass
+; Now we switch to CHECK-NEXT to make sure the analysis passes aren't re-run.
+; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass

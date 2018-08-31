@@ -77,7 +77,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(early))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
-  // This must run before any pass that depends on DTransAnalysis.
+  // This must run before any other pass that depends on DTransAnalysis.
   MPM.addPass(dtrans::ResolveTypesPass());
 
   MPM.addPass(dtrans::DeleteFieldPass());
@@ -92,7 +92,7 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   if (hasDumpModuleBeforeDTransValue(early))
     PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
-  // This must run before any pass that depends on DTransAnalysis.
+  // This must run before any other pass that depends on DTransAnalysis.
   PM.add(createDTransResolveTypesWrapperPass());
 
   PM.add(createDTransDeleteFieldWrapperPass());
