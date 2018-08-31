@@ -7027,11 +7027,11 @@ void DTransAnalysisInfo::reset() {
 
 // Parse 'dtrans-nosafetychecks-list' option and collect a map of
 // transformations to the list of type names to be ignored.
-// Syntax: -dtrans-ignore-list="record(;record)*"
+// Syntax: -dtrans-nosafetychecks-list="record(;record)*"
 //                     record := transform_name:type_name(,type_name)*
 void DTransAnalysisInfo::parseIgnoreList() {
   if (!DTransNoSafetyChecksList.empty()) {
-    LLVM_DEBUG(dbgs() << "\ndtrans-ignore-list: ");
+    LLVM_DEBUG(dbgs() << "\ndtrans-nosafetychecks-list: ");
     for (auto &List : DTransNoSafetyChecksList) {
       StringRef IgnoreList(List);
       if (IgnoreList.empty()) {
@@ -7103,9 +7103,10 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
     if (llvm::Type *Ty = TyInfo->getLLVMType())
       if (Ty->isStructTy()) {
         StringRef Name = dtrans::getStructName(Ty);
-        // Cut the "struct." from the LLVM type name.
-        if (Name.consume_front("struct.") || Name.consume_front("class."))
-          if (IgnoreTypeMap[Transform].find(Name) !=
+        // Cut the "{dtrans_opt_prefix}struct." from the LLVM type name.
+        std::pair<StringRef, StringRef> StructPrefixAndName = Name.split('.');
+        if (!StructPrefixAndName.second.empty())
+          if (IgnoreTypeMap[Transform].find(StructPrefixAndName.second) !=
               IgnoreTypeMap[Transform].end())
             if (checkFailed) {
               // The type is in the ignore list and indeed violated safety
@@ -7496,13 +7497,15 @@ void DTransAnalysisInfo::printIgnoreTransListForStructure(
     dtrans::StructInfo *SI) {
   std::string Output;
   StringRef Name = dtrans::getStructName(SI->getLLVMType());
-  // Cut the "struct." from the LLVM type name.
-  if (!Name.consume_front("struct."))
+  // Cut the "{dtrans_opt_prefix}struct." from the LLVM type name.
+  std::pair<StringRef, StringRef> StructPrefixAndName = Name.split('.');
+  if (StructPrefixAndName.second.empty())
     return;
 
   for (dtrans::Transform Tr = dtrans::DT_First; Tr < dtrans::DT_Last;
        Tr <<= 1) {
-    if (IgnoreTypeMap[Tr].find(Name) != IgnoreTypeMap[Tr].end()) {
+    if (IgnoreTypeMap[Tr].find(StructPrefixAndName.second) !=
+        IgnoreTypeMap[Tr].end()) {
       Output += " ";
       Output += dtrans::getStringForTransform(Tr);
     }
