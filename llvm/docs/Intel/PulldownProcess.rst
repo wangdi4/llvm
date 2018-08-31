@@ -145,11 +145,13 @@ review. However there are several exceptions when you can review after a commit:
 #. Trivial merge conflict - when a conflict could be resolved by deleting git
    merge support messages and/or line reordering:
 
-   \<\<\<\<\<\<\< HEAD
+   ::
 
-   \=\=\=\=\=\=\=
+     <<<<<<< HEAD
 
-   >>>>>>> [commit id]
+     =======
+
+     >>>>>>> [commit id]
 
 #. Merge conflict caused by reverted commit (the merge conflict of which was
    previously resolved).

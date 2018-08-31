@@ -3392,6 +3392,13 @@ void AssemblyWriter::printFunction(const Function *F) {
   StringRef UA = getUnnamedAddrEncoding(F->getUnnamedAddr());
   if (!UA.empty())
     Out << ' ' << UA;
+  // We print the function address space if it is non-zero or if we are writing
+  // a module with a non-zero program address space or if there is no valid
+  // Module* so that the file can be parsed without the datalayout string.
+  const Module *Mod = F->getParent();
+  if (F->getAddressSpace() != 0 || !Mod ||
+      Mod->getDataLayout().getProgramAddressSpace() != 0)
+    Out << " addrspace(" << F->getAddressSpace() << ")";
   if (Attrs.hasAttributes(AttributeList::FunctionIndex))
     Out << " #" << Machine.getAttributeGroupSlot(Attrs.getFnAttributes());
   if (F->hasSection()) {
@@ -3527,6 +3534,23 @@ void AssemblyWriter::printInfoComment(const Value &V) {
 
   if (AnnotationWriter)
     AnnotationWriter->printInfoComment(V, Out);
+}
+
+static void maybePrintCallAddrSpace(const Value *Operand, const Instruction *I,
+                                    raw_ostream &Out) {
+  // We print the address space of the call if it is non-zero.
+  unsigned CallAddrSpace = Operand->getType()->getPointerAddressSpace();
+  bool PrintAddrSpace = CallAddrSpace != 0;
+  if (!PrintAddrSpace) {
+    const Module *Mod = getModuleFromVal(I);
+    // We also print it if it is zero but not equal to the program address space
+    // or if we can't find a valid Module* to make it possible to parse
+    // the resulting file even without a datalayout string.
+    if (!Mod || Mod->getDataLayout().getProgramAddressSpace() != 0)
+      PrintAddrSpace = true;
+  }
+  if (PrintAddrSpace)
+    Out << " addrspace(" << CallAddrSpace << ")";
 }
 
 // This member is called for each Instruction in a function..
@@ -3726,6 +3750,9 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
     if (PAL.hasAttributes(AttributeList::ReturnIndex))
       Out << ' ' << PAL.getAsString(AttributeList::ReturnIndex);
 
+    // Only print addrspace(N) if necessary:
+    maybePrintCallAddrSpace(Operand, &I, Out);
+
     // If possible, print out the short form of the call instruction.  We can
     // only do this if the first argument is a pointer to a nonvararg function,
     // and if the return type is not a pointer to a function.
@@ -3767,6 +3794,9 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
 
     if (PAL.hasAttributes(AttributeList::ReturnIndex))
       Out << ' ' << PAL.getAsString(AttributeList::ReturnIndex);
+
+    // Only print addrspace(N) if necessary:
+    maybePrintCallAddrSpace(Operand, &I, Out);
 
     // If possible, print out the short form of the invoke instruction. We can
     // only do this if the first argument is a pointer to a nonvararg function,

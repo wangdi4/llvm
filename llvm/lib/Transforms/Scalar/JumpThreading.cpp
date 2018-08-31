@@ -1236,7 +1236,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
   // predecessors of our predecessor block.
   if (BasicBlock *SinglePred = BB->getSinglePredecessor()) {
     const TerminatorInst *TI = SinglePred->getTerminator();
-    if (!TI->isExceptional() && TI->getNumSuccessors() == 1 &&
+    if (!TI->isExceptionalTerminator() && TI->getNumSuccessors() == 1 &&
         DoCFGSimplifications &&                                         // INTEL
         SinglePred != BB && !hasAddressTakenAndUsed(BB)) {
       // If SinglePred was a loop header, BB becomes one.
@@ -1551,7 +1551,7 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
 
     if (IsLoadCSE) {
       LoadInst *NLoadI = cast<LoadInst>(AvailableVal);
-      combineMetadataForCSE(NLoadI, LoadI);
+      combineMetadataForCSE(NLoadI, LoadI, false);
     };
 
     // If the returned value is the load itself, replace with an undef. This can
@@ -1741,7 +1741,7 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
   }
 
   for (LoadInst *PredLoadI : CSELoads) {
-    combineMetadataForCSE(PredLoadI, LoadI);
+    combineMetadataForCSE(PredLoadI, LoadI, true);
   }
 
   LoadI->replaceAllUsesWith(PN);
@@ -2556,7 +2556,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
             New.setOperand(i, NewDestBB);
           }
 
-          if (isa<TerminatorInst>(New))
+          if (New.isTerminator())
             DTU->applyUpdates({{DominatorTree::Insert, NewBB, NewDestBB}});
 
           // If we are threading across a loop header, we have to update the

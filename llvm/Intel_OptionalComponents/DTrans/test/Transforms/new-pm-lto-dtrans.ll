@@ -16,11 +16,11 @@
 
 ; CHECK: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}Function{{.*}}>
-; CHECK: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
 ; CHECK: Running analysis: DominatorTreeAnalysis
 ; CHECK: Running analysis: AssumptionAnalysis
-; CHECK: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
+; CHECK: Running analysis: CallGraphAnalysis
+; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
+; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
 ; CHECK-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
