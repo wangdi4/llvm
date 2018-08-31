@@ -451,16 +451,14 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
 
   // Skip Args[0] as it's the clause name metadata; hence the -1 below
   unsigned NumArgs = Call->getNumArgOperands() - 1;
-  LLVMContext &C = Call->getParent()->getParent()->getContext();
 
-  parseClause(ClauseInfo, &Args[1], NumArgs, C);
+  parseClause(ClauseInfo, &Args[1], NumArgs);
 }
 
 // Common code to parse the clause. This routine is used for both
 // representations: llvm.intel.directive.qual* and directive.region.entry/exit.
 void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
-                              const Use *Args, unsigned NumArgs,
-                              LLVMContext &C) {
+                              const Use *Args, unsigned NumArgs) {
   int ClauseID = ClauseInfo.getId();
 
   // Classify the clause based on the number of arguments allowed by the
@@ -479,17 +477,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
     Value *V = (Value*)(Args[0]);
-
-    // The compiler does not set the value in the clause if the value
-    // is NULL pointer. The fix is to force the routine regularizeOMPLoop
-    // to bail out early since the %.omp.iv in OMP.NORMALIZED.IV is null after
-    // %.omp.iv is promoted into the register.
-    if (V != ConstantPointerNull::get(Type::getInt8PtrTy(C)))
-      handleQualOpnd(ClauseID, V);
-    else
-      assert((ClauseID == QUAL_OMP_NORMALIZED_IV ||
-              ClauseID == QUAL_OMP_NORMALIZED_UB) &&
-              "Expect QUAL_OMP_NORMALIZED_IV or QUAL_OMP_NORMALIZED_UB");
+    handleQualOpnd(ClauseID, V);
   } else {
     // The clause takes a list of arguments
     assert(NumArgs >= 1 && "This clause takes one or more arguments.");
@@ -659,12 +647,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     break;
   case QUAL_OMP_DEVICE:
     setDevice(V);
-    break;
-  case QUAL_OMP_NORMALIZED_IV:
-    getWRNLoopInfo().setNormIV(V);
-    break;
-  case QUAL_OMP_NORMALIZED_UB:
-    getWRNLoopInfo().setNormUB(V);
     break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
@@ -1114,7 +1096,6 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_INREDUCTION_UDR:
     IsInReduction = true;
     // FALLTHROUGH
-//JJJ
   case QUAL_OMP_REDUCTION_ADD:
   case QUAL_OMP_REDUCTION_SUB:
   case QUAL_OMP_REDUCTION_MUL:
@@ -1136,6 +1117,33 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                              getRed(), ReductionKind, false);
     break;
   }
+  case QUAL_OMP_NORMALIZED_IV:
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      Constant *C = dyn_cast<Constant>(V);
+      if (C && C->isNullValue()) {
+        // After promoting %.omp.iv into a register, we change all pointers in
+        // OMP.NORMALIZED.IV to "i8* null". In this case, do not populate
+        // WRNLoopInfo's NormIV vector. This forces regularizeOMPLoop to bail
+        // out early on subsequent calls.
+        assert(I==0 && "malformed NORMALIZED_IV clause");
+        // IVs are all null or nonnull; cannot have some null and some nonnull
+        break;
+      }
+      getWRNLoopInfo().addNormIV(V);
+    }
+    break;
+  case QUAL_OMP_NORMALIZED_UB:
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = (Value*) Args[I];
+      Constant *C = dyn_cast<Constant>(V);
+      if (C && C->isNullValue()) {
+        assert(I==0 && "malformed NORMALIZED_UB clause");
+        break;
+      }
+      getWRNLoopInfo().addNormUB(V);
+    }
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -1154,7 +1162,6 @@ void WRegionNode::getClausesFromOperandBundles() {
 
   IntrinsicInst *Call = cast<IntrinsicInst>(I);
   unsigned i, NumOB = Call->getNumOperandBundles();
-  LLVMContext &C = Call->getParent()->getParent()->getContext();
 
   // Index i start from 1 (not 0) because we want to skip the first
   // OperandBundle, which is the directive name.
@@ -1175,7 +1182,7 @@ void WRegionNode::getClausesFromOperandBundles() {
     const Use *ArgList = NumArgs == 0 ? nullptr : &Args[0];
 
     // Parse the clause and update the WRN
-    parseClause(ClauseInfo, ArgList, NumArgs, C);
+    parseClause(ClauseInfo, ArgList, NumArgs);
   }
 }
 

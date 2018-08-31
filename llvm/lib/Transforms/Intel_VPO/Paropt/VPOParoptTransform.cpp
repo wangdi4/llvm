@@ -2029,8 +2029,10 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
   if (!First) {
     // For the case of #pragma omp parallel for simd, the clang only
     // needs to generate the bundle omp.iv for the parallel region.
-    if (!W->getWRNLoopInfo().getNormIV())
+    if (W->getWRNLoopInfo().getNormIVSize()==0) {
+      W->resetBBSet();
       return false;
+    }
     Loop *L = W->getWRNLoopInfo().getLoop();
     const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
     const SimplifyQuery SQ = {DL, TLI, DT, AC};

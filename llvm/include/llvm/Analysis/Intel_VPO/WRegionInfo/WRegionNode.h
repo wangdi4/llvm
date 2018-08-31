@@ -166,7 +166,7 @@ protected:
   /// \brief Common code to parse a clause, used for both representations:
   /// llvm.intel.directive.qual* and directive.region.entry/exit.
   void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args,
-                   unsigned NumArgs, LLVMContext &C);
+                   unsigned NumArgs);
 
   /// \brief Update WRN for clauses with no operands.
   void handleQual(int ClauseID);
