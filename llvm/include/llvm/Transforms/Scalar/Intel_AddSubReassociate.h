@@ -50,19 +50,56 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
 private:
-  class OpcodeData {
-    friend class Group;
+  // This represents the associative instruction that applies to this leaf.
+  class AssocOpcodeData {
+    friend class OpcodeData;
 
   private:
     unsigned Opcode;
+    Constant *Const;
+
+  public:
+    AssocOpcodeData(const Instruction *I);
+    AssocOpcodeData(unsigned AddSubOpcode) {
+      assert((AddSubOpcode == Instruction::Add ||
+              AddSubOpcode == Instruction::Sub) &&
+             "Expected Add or Sub.");
+      Opcode = AddSubOpcode;
+      Const = nullptr;
+    }
+    unsigned getOpcode() const { return Opcode; }
+    Constant *getConst() const { return Const; }
+    hash_code getHash() const { return hash_combine(Opcode, Const); }
+    bool operator==(const AssocOpcodeData &Data2) const {
+      return Opcode == Data2.Opcode && Const == Data2.Const;
+    }
+    bool operator!=(const AssocOpcodeData &Data2) const {
+      return !(*this == Data2);
+    }
+    // For debugging.
+    void dump() const;
+  };
+
+  class OpcodeData {
+    friend class Group;
+    using AssocDataTy = SmallVector<AssocOpcodeData, 1>;
+
+  private:
+    unsigned Opcode;
+    // The Unary associative opcodes that apply to the leaf.
+    AssocDataTy AssocOpcodeVec;
 
   public:
     OpcodeData() : Opcode(0) {}
     OpcodeData(unsigned Opcode) : Opcode(Opcode) {}
     // The Add/Sub opcode of the leaf.
     unsigned getOpcode() const { return Opcode; }
+    AssocDataTy::const_iterator begin() const { return AssocOpcodeVec.begin(); }
+    AssocDataTy::const_iterator end() const { return AssocOpcodeVec.end(); }
     hash_code getHash() const {
       hash_code Hash = hash_combine(Opcode);
+      for (const auto &Data : AssocOpcodeVec)
+        Hash = hash_combine(Hash, Data.getHash());
       return Hash;
     }
     bool isUndef() const { return Opcode == 0; }
@@ -72,10 +109,13 @@ private:
     }
     // Compare the whole opcode.
     bool operator==(const OpcodeData &OD2) const {
-      return Opcode == OD2.Opcode;
+      return Opcode == OD2.Opcode && AssocOpcodeVec == OD2.AssocOpcodeVec;
     }
     bool operator!=(const OpcodeData &OD2) const { return !(*this == OD2); }
     OpcodeData getFlipped() const;
+    void appendAssocInstr(Instruction *I) {
+      AssocOpcodeVec.push_back(AssocOpcodeData(I));
+    }
     // For debugging.
     void dump() const;
   };
@@ -113,6 +153,8 @@ private:
     }
   };
   using LUSetTy = std::unordered_set<LeafUserPair, HashIt<LeafUserPair>>;
+  using AssocDataSetTy =
+      std::unordered_set<AssocOpcodeData, HashIt<AssocOpcodeData>>;
   using LUPairVecTy = SmallVector<LeafUserPair, 16>;
 
   // The expression tree.
@@ -167,7 +209,7 @@ private:
     // 'U' is set as the user of 'Leaf'.
     bool replaceLeafUser(Value *Leaf, Instruction *OldU, Instruction *NewU);
     // Returns true if 'Leaf' is a leaf of this tree.
-    bool hasLeaf(const Value *Leaf) const;
+    bool hasLeaf(Value *Leaf) const;
     // Returns true if this tree is larger than 'T2'.
     bool operator<(const Tree &T2) const {
       return getLeavesCount() > T2.getLeavesCount();
@@ -202,6 +244,19 @@ private:
     }
     void pop_back() { Values.pop_back(); }
     size_t size() const { return Values.size(); }
+    // Returns a pair of unique and total number of associative instructions in
+    // the group.
+    std::pair<unsigned, unsigned> geAssocInstrCnt() const {
+      AssocDataSetTy Set;
+
+      unsigned Total = 0;
+      for (auto &Pair : Values) {
+        Total += Pair.second.AssocOpcodeVec.size();
+        for (const auto &AOD : Pair.second.AssocOpcodeVec)
+          Set.insert(AOD);
+      }
+      return {Set.size(), Total};
+    }
     ValOpTy operator[](int idx) { return Values[idx]; }
     OpcodeData getOpcodeFor(Value *V) const {
       for (auto &Pair : Values) {
@@ -211,7 +266,7 @@ private:
       }
       llvm_unreachable("V not found in group");
     }
-    bool containsValue(const Value *const V) const;
+    bool containsValue(Value *V) const;
     // Return the opcode of the Idx'th trunk instruction.
     unsigned getTrunkOpcode(int Idx) const { return Values[Idx].second.Opcode; }
     // Change the trunk opcodes from Add to Sub and vice versa.
@@ -226,6 +281,7 @@ private:
   // Checks that instructions between root and leaves are in
   // canonical form, otherwise asserts with an error.
   static void checkCanonicalized(Tree &T);
+  static Value *skipAssocs(const OpcodeData &OD, Value *Leaf);
 
   // Find the common leaves across the trees in TreeCluster.
   void getCommonLeaves(const TreeArrayTy &TreeCluster,
@@ -246,6 +302,8 @@ private:
   void generateCode(Group &G, Tree *T, Instruction *Chain) const;
   // Simplifies the top instructions of the tree by removing the '0'.
   Instruction *simplifyTree(Instruction *Bridge, bool OptTrunk) const;
+  // Emit Assoc Instructions for T.
+  void emitAssocInstrs(Tree *T) const;
   // Calls generateCod(G, T) for all groups and all trees.
   void generateCode(GroupsVec &Groups, TreeArrayTy &TreeArray) const;
   // Returns true if T1 and T2 contain similar values.

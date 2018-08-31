@@ -1,8 +1,19 @@
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -S | FileCheck %s -check-prefix=CHECK_CHAIN_REUSE
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=false -S | FileCheck %s -check-prefix=CHECK_SIMP
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -addsub-reassoc-reuse-chain=false -S | FileCheck %s -check-prefix=CHECK
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=true -S | FileCheck %s -check-prefix=CHECK_UNARY_ASSOC
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=false -S | FileCheck %s -check-prefix=CHECK_CHAIN_REUSE
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -S | FileCheck %s -check-prefix=CHECK_SIMP
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -S | FileCheck %s -check-prefix=CHECK
 
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
+
+; CHECK_UNARY_ASSOC:  [[Chain0_1:%.*]] = sub i32 [[l27:%27]], [[l19:%.*]]
+; CHECK_UNARY_ASSOC:  [[Chain0_2:%.*]] = sub i32 [[Chain0_1]], [[l35:%.*]]
+; CHECK_UNARY_ASSOC:  [[Chain0_3:%.*]] = add i32 [[Chain0_2]], [[l37:%.*]]
+; CHECK_UNARY_ASSOC:  [[Chain1_1:%.*]] = sub i32 [[l18:%.*]], [[l26:%.*]]
+; CHECK_UNARY_ASSOC:  [[Chain1_2:%.*]] = add i32 [[Chain1_1]], [[l38:%.*]]
+; CHECK_UNARY_ASSOC:  [[Chain1_3:%.*]] = sub i32 [[Chain1_2]], [[l39:%.*]]
+; CHECK_UNARY_ASSOC:  [[Bridge0_0:%.*]] = add i32 [[Trunk0_1:%.*]], [[Chain1_3]]
+; CHECK_UNARY_ASSOC:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_3]]
+; CHECK_UNARY_ASSOC: store i32 [[Bridge0_1]]
 
 ; CHECK_CHAIN_REUSE:  [[Chain0_1:%.*]] = sub i32 [[l57:%.*]], [[l65:%.*]]
 ; CHECK_CHAIN_REUSE:  [[Chain1_1:%.*]] = sub i32 [[l64:%.*]], [[l56:%.*]]
