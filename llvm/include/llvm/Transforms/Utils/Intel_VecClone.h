@@ -14,11 +14,12 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 
 #ifndef LLVM_TRANSFORMS_VPO_VECCLONE_H
 #define LLVM_TRANSFORMS_VPO_VECCLONE_H
@@ -48,8 +49,8 @@ struct ParmRef {
 };
 
 class VecClone : public ModulePass {
-
-  private:
+  // INTEL_CUSTOMIZATION
+  protected:
     /// Set of allocas to mark private for the SIMD loop
     SmallSet<Value*, 4> PrivateAllocas;
 
@@ -204,8 +205,19 @@ class VecClone : public ModulePass {
 
     bool runOnModule(Module &M) override;
 
-  public:
+#if INTEL_CUSTOMIZATION
+    /// Languages like OpenCL override this method to perform some
+    /// pre-processing for enabling VecClone pass.
+    virtual void languageSpecificInitializations(Module &M);
 
+    /// Languages like OpenCL override this method. It is called after
+    /// the for-loop is created.
+    virtual void handleLanguageSpecifics(Function &F, PHINode *Phi,
+                                         Function *Clone,
+                                         BasicBlock *EntryBlock);
+#endif // INTEL_CUSTOMIZATION
+
+  public:
     static char ID;
     VecClone();
     void print(raw_ostream &OS, const Module * = nullptr) const override;
