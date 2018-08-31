@@ -1,9 +1,39 @@
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=true -S | FileCheck %s -check-prefix=CHECK_UNARY_ASSOC
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=false -S | FileCheck %s -check-prefix=CHECK_CHAIN_REUSE
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -S | FileCheck %s -check-prefix=CHECK_SIMP
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -S | FileCheck %s -check-prefix=CHECK
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=true -S | FileCheck %s -check-prefix=CHECK_UNSHARE
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=false -S | FileCheck %s -check-prefix=CHECK_UNARY_ASSOC
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -S | FileCheck %s -check-prefix=CHECK_CHAIN_REUSE
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -S | FileCheck %s -check-prefix=CHECK_SIMP
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -S | FileCheck %s -check-prefix=CHECK
 
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
+
+; CHECK_UNSHARE: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l40:%.*]]
+; CHECK_UNSHARE: [[Chain_T24_185:%.*]] = add i32 [[Chain_T24_187]], [[l16:%.*]]
+; CHECK_UNSHARE: [[Chain1_3:%.*]] = sub i32 [[Chain_T24_185]], [[l28:%.*]]
+; CHECK_UNSHARE: [[Chain_T24_174178:%.*]] = sub i32 [[l41:%.*]], [[l45:%.*]]
+; CHECK_UNSHARE: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]], [[l17:%.*]]
+; CHECK_UNSHARE: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]], [[l29:%.*]]
+; CHECK_UNSHARE: [[Chain_T24_162166:%.*]] = sub i32 [[l42:%.*]], [[l46:%.*]]
+; CHECK_UNSHARE: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]], [[l18:%.*]]
+; CHECK_UNSHARE: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]], [[l30:%.*]]
+; CHECK_UNSHARE: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l43:%.*]]
+; CHECK_UNSHARE: [[Chain_T24_156:%.*]] = add i32 [[Chain_T24_158]], [[l19:%.*]]
+; CHECK_UNSHARE: [[Chain4_3:%.*]] = sub i32 [[Chain_T24_156]], [[l31:%.*]]
+; CHECK_UNSHARE: [[Bridge1_1:%.*]] = sub i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK_UNSHARE: [[Bridge1_2:%.*]] = sub i32 [[Bridge1_1]], [[Chain2_3]]
+; CHECK_UNSHARE: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
+; CHECK_UNSHARE: store i32 [[Bridge1_3]]
+; CHECK_UNSHARE: [[Bridge2_1:%.*]] = sub i32 [[Chain3_3]], [[Chain4_3]]
+; CHECK_UNSHARE: [[Bridge2_2:%.*]] = sub i32 [[Bridge2_1]], [[Chain2_3]]
+; CHECK_UNSHARE: [[Bridge2_3:%.*]] = add i32 [[Bridge2_2]], [[Chain1_3]]
+; CHECK_UNSHARE: store i32 [[Bridge2_3]]
+; CHECK_UNSHARE: [[Bridge3_1:%.*]] = sub i32 [[Chain2_3]], [[Chain3_3]]
+; CHECK_UNSHARE: [[Bridge3_2:%.*]] = sub i32 [[Bridge3_1]], [[Chain4_3]]
+; CHECK_UNSHARE: [[Bridge3_3:%.*]] = add i32 [[Bridge3_2]], [[Chain1_3]]
+; CHECK_UNSHARE: store i32 [[Bridge3_3]]
+; CHECK_UNSHARE: [[Bridge4_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK_UNSHARE: [[Bridge4_2:%.*]] = add i32 [[Bridge4_1]], [[Chain2_3]]
+; CHECK_UNSHARE: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
+; CHECK_UNSHARE: store i32 [[Bridge4_3]]
 
 ; CHECK_UNARY_ASSOC:  [[Chain0_1:%.*]] = sub i32 [[l27:%27]], [[l19:%.*]]
 ; CHECK_UNARY_ASSOC:  [[Chain0_2:%.*]] = sub i32 [[Chain0_1]], [[l35:%.*]]

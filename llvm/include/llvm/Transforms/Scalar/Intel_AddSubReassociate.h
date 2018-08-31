@@ -168,6 +168,12 @@ private:
     // NOTE: Multiple identical leaves are allowed.
     // Main data structure for leaves and their users.
     LUPairVecTy LUVec;
+    // Set to true if this tree contains shared leaves candidates.
+    // This is used to avoid searching through the leaves of a tree.
+    bool HasSharedLeafCandidate = false;
+    // Number of shared leaves became part of a trunk. In other words,
+    // that many leaves have been unshared during tree constructions.
+    int SharedLeavesCount = 0;
 
   public:
     Tree() : Root(nullptr) {
@@ -210,6 +216,14 @@ private:
     bool replaceLeafUser(Value *Leaf, Instruction *OldU, Instruction *NewU);
     // Returns true if 'Leaf' is a leaf of this tree.
     bool hasLeaf(Value *Leaf) const;
+    // Returns number of shared leaves that are part of the trunk.
+    int getSharedLeavesCount() const { return SharedLeavesCount; }
+    // Increases/decreases number of shared leaves.
+    void adjustSharedLeavesCount(int Count) { SharedLeavesCount += Count; }
+    // Return true if this tree contains shared leaf candidate nodes.
+    bool hasSharedLeafCandidate() const { return HasSharedLeafCandidate; }
+    // Set the shared leaf candidate flag.
+    void setSharedLeafCandidate(bool Flag) { HasSharedLeafCandidate = Flag; }
     // Returns true if this tree is larger than 'T2'.
     bool operator<(const Tree &T2) const {
       return getLeavesCount() > T2.getLeavesCount();
@@ -312,7 +326,20 @@ private:
   void clusterTrees(TreeVecTy &TreeVec,
                     SmallVectorImpl<TreeArrayTy> &TreeClusters);
   // Grow the tree upwards, towards the definitions.
-  bool growTree(Tree *T, WorkListTy &WorkList);
+  bool growTree(Tree *T, WorkListTy &&WorkList);
+  // Returns true if all uses of a \p Leaf are from one of a tree in \p TreeVec,
+  // false otherwise. Additionally for each such use a Tree * and Leaf index
+  // pair is put to \p WorkList.
+  bool areAllUsesInsideTreeCluster(
+      TreeArrayTy &TreeVec, const Value *Leaf,
+      SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList) const;
+  // Returns true if we were able to find a leaf with multiple uses from trees
+  // in \p TreeVec only, false otherwise. Each found use is pushed to a \p
+  // WorkList as a Tree* and Leaf index pair.
+  bool getSharedLeave(TreeArrayTy &TreeVec,
+                      SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList);
+  // Enlarge trees by growing them towards shared leaves.
+  void extendTrees(TreeArrayTy &Trees);
   // Build Add/Sub trees from code in BB.
   void buildInitialTrees(BasicBlock *BB, TreeVecTy &TreeVec);
   // Build all trees within BB.

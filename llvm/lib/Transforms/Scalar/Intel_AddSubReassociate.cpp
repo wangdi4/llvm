@@ -189,6 +189,7 @@ static cl::opt<unsigned> MaxUnaryAssociations(
 static cl::opt<bool> OptimizeUnaryAssociations(
     "addsub-reassoc-optimize-unary-associations", cl::init(false), cl::Hidden,
     cl::desc("Optimize code generation for the associative instructions."));
+
 static cl::opt<bool> EnableSharedLeaves(
     "addsub-reassoc-unshare-leaves", cl::init(true), cl::Hidden,
     cl::desc("Enable growing the trees towards shared leaves"));
@@ -196,6 +197,12 @@ static cl::opt<bool> EnableSharedLeaves(
 static cl::opt<bool> EnableAddSubVerifier("addsub-reassoc-verifier",
                                           cl::init(false), cl::Hidden,
                                           cl::desc("Enable addsub verifier."));
+
+static cl::opt<int>
+    MaxSharedNodesIterations("addsub-reassoc-max-unshared-leaves", cl::init(8),
+                             cl::Hidden,
+                             cl::desc("The maximum number of attempts for "
+                                      "adding shared nodes to the trees."));
 
 // The maximum size difference allowed for trees within a cluster.
 static cl::opt<unsigned>
@@ -1395,7 +1402,7 @@ bool AddSubReassociatePass::canonicalizeIRForTree(Tree &T) const {
 
 // Try to grow the tree upwards, towards the definitions.
 // Returns true if new nodes have been added to the tree.
-bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &WorkList) {
+bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &&WorkList) {
   unsigned SizeBefore = T->getLeavesCount();
   unsigned CntAssociations = 0;
 
@@ -1458,11 +1465,93 @@ bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &WorkList) {
       } else {
         // 'Op' is a leaf node, so stop growing and add it into T's leaves.
         T->appendLeaf(I, Op, OpCanonOpcode);
+        // If 'Op' is an add/sub and it is shared (maybe across trees maybe
+        // not),
+        // then this tree is a candidate for growing towards the shared leaves.
+        // This is performed by 'extendTrees()'.
+        if (isAllowedTrunkInstr(Op) && Op->getNumUses() > 1)
+          T->setSharedLeafCandidate(true);
       }
     }
   }
   bool Changed = SizeBefore != T->getLeavesCount();
   return Changed;
+}
+
+bool AddSubReassociatePass::areAllUsesInsideTreeCluster(
+    TreeArrayTy &TreeVec, const Value *Leaf,
+    SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList) const {
+  for (auto *U : Leaf->users()) {
+    bool Found = false;
+    for (TreePtr &Tptr : TreeVec) {
+      auto *ATree = Tptr.get();
+      auto LUVec = ATree->getLeavesAndUsers();
+      for (unsigned I = 0; I < ATree->getLeavesCount(); ++I) {
+        auto &LUPair = LUVec[I];
+        if (LUPair.Leaf == Leaf && LUPair.User == U) {
+          WorkList.push_back(std::make_pair(ATree, I));
+          Found = true;
+          break;
+        }
+      }
+      if (Found)
+        break;
+    }
+    // Check if the use is inside any tree.
+    if (!Found)
+      return false;
+  }
+  return true;
+}
+
+bool AddSubReassociatePass::getSharedLeave(
+    TreeArrayTy &TreeVec,
+    SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList) {
+  WorkList.clear();
+
+  for (auto &Tptr : TreeVec) {
+    Tree *ATree = Tptr.get();
+
+    if (!ATree->hasSharedLeafCandidate())
+      continue;
+
+    for (auto &LUPair : ATree->getLeavesAndUsers()) {
+      Value *LeafV = LUPair.Leaf;
+      Instruction *SharedLeaf = dyn_cast<Instruction>(LeafV);
+
+      // Need to clear WorkList since it may be polluted with data from previous
+      // iteration.
+      WorkList.clear();
+
+      // Only Add/Sub leaves can become parts of trees once replicated.
+      if (SharedLeaf && isAllowedTrunkInstr(SharedLeaf) &&
+          SharedLeaf->getNumUses() > 1 &&
+          arePredsInSameBB(SharedLeaf, ATree->getRoot()) &&
+          areAllUsesInsideTreeCluster(TreeVec, SharedLeaf, WorkList)) {
+        return true;
+      }
+    }
+    ATree->setSharedLeafCandidate(false);
+  }
+  return false;
+}
+
+void AddSubReassociatePass::extendTrees(TreeArrayTy &Trees) {
+  int MaxAttempts = MaxSharedNodesIterations;
+
+  SmallVector<std::pair<Tree *, unsigned>, 8> SharedUsers;
+  while (--MaxAttempts >= 0 && getSharedLeave(Trees, SharedUsers)) {
+    for (auto &SharedUser : SharedUsers) {
+      Tree *ATree = SharedUser.first;
+      LeafUserPair LUPair = ATree->getLeafUserPair(SharedUser.second);
+      ATree->removeLeaf(SharedUser.second);
+      growTree(ATree, SmallVector<LeafUserPair, 8>({LUPair}));
+      ATree->adjustSharedLeavesCount(1);
+    }
+    // In fact we don't need to clone a leaf for the first tree and may use
+    // original instance. Adjust a counter by one.
+    SharedUsers[0].first->adjustSharedLeavesCount(-1);
+  }
 }
 
 void AddSubReassociatePass::buildInitialTrees(BasicBlock *BB,
@@ -1493,8 +1582,6 @@ void AddSubReassociatePass::buildInitialTrees(BasicBlock *BB,
 
   // Scan the BB in reverse and build a tree.
   for (Instruction &I : make_range(BB->rbegin(), BB->rend())) {
-    SmallVector<LeafUserPair, 8> WorkList;
-
     // Check that number of built trees doesn't exceed specified limits.
     // '0' means "unlimited" unless it is set by the user.
     if ((MaxTreeCount.getNumOccurrences() > 0 || MaxTreeCount > 0) &&
@@ -1507,9 +1594,9 @@ void AddSubReassociatePass::buildInitialTrees(BasicBlock *BB,
 
     TreePtr UTree = llvm::make_unique<Tree>();
     Tree *T = UTree.get();
-    WorkList.push_back(LeafUserPair(&I, nullptr, Instruction::Add));
     T->setRoot(&I);
-    growTree(T, WorkList);
+    growTree(T, SmallVector<LeafUserPair, 8>(
+                    {LeafUserPair(&I, nullptr, Instruction::Add)}));
 
     assert(1 <= T->getLeavesCount() && T->getLeavesCount() <= MaxTreeSize + 2 &&
            "Tree size should be capped");
@@ -1543,6 +1630,13 @@ void AddSubReassociatePass::buildTrees(BasicBlock *BB, TreeVecTy &TreeVec,
   //
   // NOTE: This reorders the elements in TreeVec.
   clusterTrees(TreeVec, Clusters);
+
+  // 3. Try to extend the trees by including leaves with multiple uses across
+  // multiple trees.
+  if (EnableSharedLeaves) {
+    for (TreeArrayTy &Cluster : Clusters)
+      extendTrees(Cluster);
+  }
 }
 
 // Entry point for AddSub reassociation.
@@ -1590,11 +1684,13 @@ bool AddSubReassociatePass::runImpl(Function *F, ScalarEvolution *Se) {
 
       // First take total number of cloned instructions into account.
       int Score = 0;
+      for (auto &UTree : TreeCluster)
+        Score -= UTree.get()->getSharedLeavesCount();
+
       // Compute instruction difference for each group.
       for (auto &G : BestGroups) {
         auto AssocInstCnt = G.geAssocInstrCnt();
-        int OrigScore =
-            (G.size() + AssocInstCnt.first) * TreeCluster.size();
+        int OrigScore = (G.size() + AssocInstCnt.first) * TreeCluster.size();
         int NewScore =
             (G.size() - 1 + AssocInstCnt.second + TreeCluster.size());
         Score += OrigScore - NewScore;
