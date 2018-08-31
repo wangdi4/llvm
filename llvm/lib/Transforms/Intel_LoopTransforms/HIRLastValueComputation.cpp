@@ -41,13 +41,14 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 
 static cl::opt<unsigned> NumOperationsThreshold(
     OPT_SWITCH "-num-operations-threshold", cl::init(5), cl::Hidden,
-    cl::desc("Minimum number of operations in the loop upperbound triggers "
-             "last value computation pass"));
+    cl::desc("Threshold for number of operations in upper bound above which "
+             "code generation is not triggered."));
 
-static cl::opt<unsigned> TripCountThreshold(
-    OPT_SWITCH "-trip-count-threshold", cl::init(10), cl::Hidden,
-    cl::desc(
-        "Minimum trip count of the loop triggers last value computation pass"));
+static cl::opt<unsigned>
+    TripCountThreshold(OPT_SWITCH "-trip-count-threshold", cl::init(10),
+                       cl::Hidden,
+                       cl::desc("Minimum trip count of the multi exit loop "
+                                "which triggers code generation"));
 
 // Returns true if the number of arithmetic operations in \p UBCE is greater
 // than the threshold.

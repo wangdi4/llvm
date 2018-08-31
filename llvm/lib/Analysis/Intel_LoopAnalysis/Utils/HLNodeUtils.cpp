@@ -3173,7 +3173,7 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
 
       unsigned Level = Lp->getNodeLevel();
       unsigned Index;
-      int64_t Coeff, BlobVal = 1, IVMax = 0;
+      int64_t Coeff, BlobVal = 1;
 
       CE->getIVCoeff(Level, &Index, &Coeff);
 
@@ -3190,36 +3190,35 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
         continue;
       }
 
-      bool IsPositive =
+      bool HasPositiveCoeff =
           ((Coeff > 0) && (BlobVal > 0)) || ((Coeff < 0) && (BlobVal < 0));
 
-      // Ignoring is equivalent to subtituting IV by zero (initial value of IV
-      // in normalized loops).
-      if ((IsMin && IsPositive) || (!IsMin && !IsPositive)) {
+      bool UseLowerBound =
+          ((IsMin && HasPositiveCoeff) || (!IsMin && !HasPositiveCoeff));
 
-        if (!Lp->isNormalized()) {
-          return false;
-        } else {
-          continue;
+      int64_t BoundVal;
+
+      // We should be using min value of lower bound and max value of upper
+      // bound to compute min/max.
+      if (UseLowerBound) {
+        if (!Lp->getLowerCanonExpr()->isIntConstant(&BoundVal)) {
+          if (IsExact) {
+            return false;
+          }
+          // The minimum value of lower bound of loops in HIR is 0.
+          BoundVal = 0;
         }
-      }
-
-      auto UpperCE = Lp->getUpperCanonExpr();
-      int64_t UpperVal;
-
-      if (UpperCE->isIntConstant(&UpperVal)) {
-        // Conservatively return false if upper is too big.
-        if ((UpperVal < 0) || (UpperVal > UINT32_MAX)) {
-          return false;
-        }
-
-        IVMax = UpperVal;
-
-      } else if (!getMaxValue(UpperCE, Lp, IVMax)) {
+      } else if (!getMinMaxValueImpl(Lp->getUpperCanonExpr(), Lp, false,
+                                     IsExact, BoundVal)) {
         return false;
       }
 
-      MinOrMax += (Coeff * BlobVal * IVMax);
+      // Conservatively return false if bound is too big.
+      if ((BoundVal < 0) || (BoundVal > UINT32_MAX)) {
+        return false;
+      }
+
+      MinOrMax += (Coeff * BlobVal * BoundVal);
     }
   }
 
@@ -3315,6 +3314,60 @@ bool HLNodeUtils::isKnownPositiveOrNegative(const CanonExpr *CE,
 bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
                                  const HLNode *ParentNode) {
   return isKnownPositiveOrNegative(CE, ParentNode);
+}
+
+bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
+                                const HLNode *ParentNode) {
+  assert(CE->getSrcType()->isIntegerTy() &&
+         "CE does not have an integer type!");
+
+  if (!CE->hasIV(Level)) {
+    return false;
+  }
+
+  // Need a test case for truncation without wraparound.
+  if (CE->isTrunc()) {
+    return true;
+  }
+
+  // We only handle zext for now as we have real test cases for it.
+  // sext is problematic because no-wrap info is easily lost before loopopt so
+  // we will become too conservative. Handling sext is left as a TODO
+  // until we have a real test case.
+  if (!CE->isZExt()) {
+    return false;
+  }
+
+  // Check whether the CE is in the range of its src type.
+
+  // Negative values indicate wraparound for zext.
+  if (!isKnownNonNegative(CE, ParentNode)) {
+    return true;
+  }
+
+  auto *IntTy = cast<IntegerType>(CE->getSrcType());
+  unsigned Size = IntTy->getPrimitiveSizeInBits();
+
+  int64_t MaxValForSrcType = APInt::getMaxValue(Size).getZExtValue();
+
+  int64_t MaxVal;
+  // Returns true only if we can prove it goes out of range.
+  // Instcombine turns some sexts into zexts. Because of information loss, we
+  // will become too conservative if we indicate wraparound when max value is
+  // unknown.
+  if (getMaxValue(CE, ParentNode, MaxVal)) {
+    if (MaxVal > MaxValForSrcType) {
+      return true;
+    }
+  } else if (Size < 32) {
+    // Assuming wraparound for size less than 32 bits. Usually, the IV is 32
+    // bits in source, hence there is higher likelyhood of a zext/sext to 64
+    // bits. Returning the conservative answer can lead to performance
+    // regressions. Can we do better?
+    return true;
+  }
+
+  return false;
 }
 
 bool HLNodeUtils::getPredicateResult(APInt &LHS, PredicateTy Pred, APInt &RHS) {

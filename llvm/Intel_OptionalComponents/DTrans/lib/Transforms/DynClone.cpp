@@ -87,6 +87,27 @@ namespace llvm {
 
 namespace dtrans {
 
+// This class is used to reorder fields after shrinking fields to
+// eliminate gaps due to shrinking.
+class FieldData {
+public:
+  uint64_t Align;
+  uint64_t Size;
+  unsigned Index;
+
+  FieldData(uint64_t Align, uint64_t Size, unsigned Index)
+      : Align(Align), Size(Size), Index(Index) {}
+
+  // Sort fields based on below compare function to avoid gaps between fields.
+  //    Ascending order based on Alignment, then
+  //    Ascending order based on Size, then
+  //    Descending order based on Index.
+  bool operator<(const FieldData &RHS) const {
+    return std::make_tuple(RHS.Align, RHS.Size, -(RHS.Index + 1)) <
+           std::make_tuple(Align, Size, -(Index + 1));
+  }
+};
+
 class DynCloneImpl {
   using DynField = std::pair<llvm::Type *, size_t>;
   using DynFieldList = SmallVector<DynField, 16>;
@@ -100,7 +121,7 @@ public:
   DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
                LoopInfoFuncType &GetLI)
       : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI),
-        ShrinkedIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr),
+        ShrunkenIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr),
         ShrinkHappenedVar(nullptr){};
   bool run(void);
 
@@ -111,7 +132,7 @@ private:
   LoopInfoFuncType &GetLI;
 
   // Holds result Type after shrinking 64-bit to 32-bit integer values.
-  llvm::Type *ShrinkedIntTy;
+  llvm::Type *ShrunkenIntTy;
 
   // List of candidate fields which are represented as <Type of struct,
   // field_index>.
@@ -134,6 +155,19 @@ private:
   // List of cloned routines.
   FunctionSet ClonedFunctionList;
 
+  // List of allocation calls for candidate structs in InitRoutine.
+  SmallVector<std::pair<AllocCallInfo *, Type *>, 4> AllocCalls;
+
+  // Map of original and cloned routines.
+  DenseMap<Function *, Function *> CloningMap;
+
+  // Map of <Original struct, Vector of new indexes to indicate new
+  // locations in shrunken struct>
+  DenseMap<StructType *, std::vector<uint32_t>> TransformedIndexes;
+
+  // Map of <Original Struct, Shrunken Struct>
+  DenseMap<StructType *, StructType *> TransformedTypeMap;
+
   // For each candidate type, it collects all routines where the type is
   // accessed. This set is used to decide which routines need to be
   // cloned during transformation.
@@ -145,10 +179,13 @@ private:
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyLegalityChecksForInitRoutine(void);
-  bool transformInitRoutine(void);
+  void createShrunkenTypes(void);
+  void transformInitRoutine(void);
   bool createCallGraphClone(void);
   bool isCandidateField(DynField &DField) const;
+  bool isCandidateStruct(Type *Ty);
   Type *getGEPStructType(GetElementPtrInst *GEP) const;
+  Type *getCallInfoElemTy(CallInfo *CInfo) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
 };
@@ -211,6 +248,17 @@ bool DynCloneImpl::isCandidateField(DynField &DField) const {
   return false;
 }
 
+// Returns true if \p Ty is a struct that has candidate fields for
+// shrinking.
+bool DynCloneImpl::isCandidateStruct(Type *Ty) {
+  if (!Ty->isStructTy())
+    return false;
+  for (auto &CPair : CandidateFields)
+    if (CPair.first == Ty)
+      return true;
+  return false;
+}
+
 // Returns Type of struct accessed in GEP if the GEP is in allowed format
 // to enable DynClone for the struct. Otherwise, returns nullptr.
 Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
@@ -222,6 +270,25 @@ Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
     return FPair.first;
   }
   auto ElemTy = GEP->getSourceElementType();
+  if (!isa<StructType>(ElemTy))
+    return nullptr;
+  return ElemTy;
+}
+
+// Returns struct type associated with \p CInfo of either Alloc/Memfunc.
+Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
+  if (!CInfo)
+    return nullptr;
+  if (CInfo->getCallInfoKind() != CallInfo::CIK_Alloc &&
+      CInfo->getCallInfoKind() != CallInfo::CIK_Memfunc)
+    return nullptr;
+  auto &CallTypes = CInfo->getPointerTypeInfoRef().getTypes();
+  if (CallTypes.size() != 1)
+    return nullptr;
+  Type *PtrTy = *CallTypes.begin();
+  if (!PtrTy->isPointerTy())
+    return nullptr;
+  Type *ElemTy = PtrTy->getPointerElementType();
   if (!isa<StructType>(ElemTy))
     return nullptr;
   return ElemTy;
@@ -270,7 +337,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     assert(isa<ConstantInt>(V) && "Expected ConstantInt");
     auto *CInt = cast<ConstantInt>(V);
 
-    if (!ConstantInt::isValueValidForType(ShrinkedIntTy,
+    if (!ConstantInt::isValueValidForType(ShrunkenIntTy,
                                           CInt->getValue().getLimitedValue())) {
       InvalidFields.insert(StElem);
       LLVM_DEBUG(dbgs() << "    Large constant... Added to Invalid Field:";
@@ -342,16 +409,33 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   // of routines where the candidate struct is accessed.
   auto UpdateTypeAccessInfo = [&](Instruction *I, Function *F) {
     Type *StTy = nullptr;
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(I))
-      StTy = getGEPStructType(GEP);
+    // Treat a struct as accessed if the struct is referenced by
+    // any of these instructions.
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+      if (GEP->getNumIndices() == 1) {
+        auto BPair = DTInfo.getByteFlattenedGEPElement(GEP);
+        StTy = BPair.first;
+      }
+      if (!StTy)
+        StTy = getGEPStructType(GEP);
+    } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
+      if (BinOp->getOpcode() == Instruction::Sub)
+        StTy = DTInfo.getResolvedPtrSubType(BinOp);
+    } else if (auto *LI = dyn_cast<LoadInst>(I)) {
+      auto LdElem = DTInfo.getLoadElement(LI);
+      StTy = LdElem.first;
+    } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+      auto StElem = DTInfo.getStoreElement(SI);
+      StTy = StElem.first;
+    } else if (isa<CallInst>(I)) {
+      auto *CInfo = DTInfo.getCallInfo(I);
+      StTy = getCallInfoElemTy(CInfo);
+    }
 
     if (!StTy)
       return;
-    for (auto &CandidatePair : CandidateFields)
-      if (CandidatePair.first == StTy) {
-        TypeAccessedInFunctions[StTy].insert(F);
-        return;
-      }
+    if (isCandidateStruct(StTy))
+      TypeAccessedInFunctions[StTy].insert(F);
   };
 
   // Returns false if \p I is not supported instruction.
@@ -364,7 +448,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
 
   // Returns true if \p CalledValue is a BitCast to convert a function
   // to the FunctionType of \p CI.
-  auto IsSimpleFPtrBitCast = [&](Value *CalledValue, CallInst*  CI) {
+  auto IsSimpleFPtrBitCast = [&](Value *CalledValue, CallInst *CI) {
     if (CalledValue->getType() != CI->getFunctionType())
       return false;
     if (auto *BC = dyn_cast<BitCastOperator>(CalledValue))
@@ -390,7 +474,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
         // Calls using aliases are treated as indirect calls.
         if (!isa<Function>(CalledValue) &&
             !IsSimpleFPtrBitCast(CalledValue, CI)) {
-          LLVM_DEBUG(dbgs() << "    Indirect Call ... Skip DynClone\n");
+          LLVM_DEBUG(dbgs()
+                     << "    Indirect Call ... Skip DynClone :" << *CI << "\n");
           return false;
         }
         Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
@@ -624,24 +709,135 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
   BasicBlock *StartBB = &Caller->getEntryBlock();
   if (!CandidateFieldAccessAfterBB(StartBB, Visited, CS.getInstruction()))
     return false;
+
+  int32_t BBCount = 0;
+  // Collect Alloc calls related to candidate structs and count return
+  // stmts.
+  for (BasicBlock &BB : *InitRoutine) {
+    if (isa<ReturnInst>(BB.getTerminator()))
+      BBCount++;
+    for (Instruction &II : BB)
+      if (isa<CallInst>(&II)) {
+        auto *CInfo = DTInfo.getCallInfo(&II);
+        Type *StTy = getCallInfoElemTy(CInfo);
+        if (!StTy || !isCandidateStruct(StTy) ||
+            CInfo->getCallInfoKind() != CallInfo::CIK_Alloc)
+          continue;
+        AllocCalls.push_back(std::make_pair(cast<AllocCallInfo>(CInfo), StTy));
+      }
+  }
+
+  // Allow only single Return for now.
+  if (BBCount != 1) {
+    LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than one Return\n");
+    return false;
+  }
   return true;
+}
+
+// Create new shrunken structs for all candidate structs and maintain
+// mapping between old and new layouts.
+//
+// New shrunken type is created using the following steps:
+//  1. Reduce size of shrunken fields (ex: i64 to i32)
+//  2. Reorder fields to eliminate padding created due to shrinking.
+//     This step is really not needed since "isPacked" is applied for
+//     entire new struct.
+//  3. Eliminate padding by applying "isPacked" attribute.
+//
+void DynCloneImpl::createShrunkenTypes(void) {
+
+  // Return shrunken type for given struct and field index.
+  auto GetShrunkenType = [&](StructType *StTy, unsigned Idx) {
+    Type *Ty = StTy->getElementType(Idx);
+    // Only i64 is supported for now.
+    if (Ty->isIntegerTy(64)) {
+      return ShrunkenIntTy;
+    }
+    llvm_unreachable("Unexpected type for shrinking");
+  };
+
+  // For given Struct type and field index, returns type of the field
+  // in shrunken record.
+  auto GetTypeInShrunkenStruct = [&, GetShrunkenType](StructType *StTy,
+                                                      unsigned Idx) {
+    DynField Field(std::make_pair(StTy, Idx));
+    Type *ShrunkenTy;
+    // Get shrunken field type if it is candidate field.
+    if (isCandidateField(Field))
+      ShrunkenTy = GetShrunkenType(StTy, Idx);
+    else
+      ShrunkenTy = StTy->getElementType(Idx);
+    return ShrunkenTy;
+  };
+
+  // First, create new struct types without any fields for each
+  // candidate struct.
+  // No need to fix types of pointer fields that point to their own
+  // struct or any other candidate struct since it will be type-casted
+  // to original struct types before accessing from memory.
+  for (auto &CandidatePair : CandidateFields) {
+    StructType *StructT = cast<StructType>(CandidatePair.first);
+    if (TransformedTypeMap[StructT])
+      continue;
+    StructType *NewSt = StructType::create(StructT->getContext(),
+                                           "__DYN_" + StructT->getName().str());
+    TransformedTypeMap[StructT] = NewSt;
+  }
+
+  SmallVector<FieldData, 8> Fields;
+  for (auto &CPair : TransformedTypeMap) {
+    Fields.clear();
+    StructType *StructT = CPair.first;
+    StructType *NewSt = CPair.second;
+    // Shrink candidate fields and then apply reordering.
+    for (unsigned I = 0; I < StructT->getNumElements(); ++I) {
+      Type *ShrunkenTy = GetTypeInShrunkenStruct(StructT, I);
+      FieldData FD(DL.getABITypeAlignment(ShrunkenTy),
+                   DL.getTypeStoreSize(ShrunkenTy), I);
+      Fields.push_back(FD);
+    }
+    llvm::sort(Fields.begin(), Fields.end());
+
+    // Create new layout of fields and maintain mapping of old and new
+    // layouts.
+    std::vector<Type *> EltTys(StructT->getNumElements());
+    unsigned Index = 0;
+    std::vector<unsigned> NewIdxVec(Fields.size());
+    for (FieldData &FD : Fields) {
+      unsigned NewIdx = FD.Index;
+      EltTys[Index] = GetTypeInShrunkenStruct(StructT, NewIdx);
+      NewIdxVec[NewIdx] = Index++;
+    }
+    TransformedIndexes[StructT] = NewIdxVec;
+
+    // Set body of new struct and set isPacked to true.
+    NewSt->setBody(EltTys, true);
+
+    LLVM_DEBUG(dbgs() << "After dynamic shrinking " << getStructName(StructT)
+                      << " :" << *NewSt << "\n");
+  }
 }
 
 // Transform InitRoutine:
 //
 //   1. Generates Runtime checks to detect whether all values assigned
-//      to candidate fields fit in shrinked type. "__Shrink__Happened__"
+//      to candidate fields fit in shrunken type. "__Shrink__Happened__"
 //      new GlobalVariable is created to indicate if sizes of candidate
 //      fields are reduced. "__Shrink__Happened__" flag is used by other
-//      routines to decide whether to use original data-layout or shrinked
+//      routines to decide whether to use original data-layout or shrunken
 //      data-layout. "__Shrink__Happened__" is set to zero when it is
 //      created. This flag is set to 1 if all assigned values of candidate
-//      fields fit in shrinked type. Collects min and max values that are
+//      fields fit in shrunken type. Collects min and max values that are
 //      assigned to candidate fields and then decides at the end of routine
-//      if the min and max values fits in shrinked types.
+//      if the min and max values fits in shrunken types.
+//
+//   2. Copy Contents from old layout to new layout before ReturnInst
+//
 //      Ex:
 //      Before:
 //              InitRoutine() {
+//                  ptr = calloc(); // Memory allocation for candidate struct
 //                  ...
 //                  stp->candidate1 = value1;
 //                  ...
@@ -656,6 +852,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
 //              InitRoutine() {
 //                  L_i64_Max = 0xffffffff80000000;
 //                  L_i64_Min = 0x000000007fffffff;
+//                  ptr = calloc();
 //                  ...
 //                  stp->candidate1 = value1;
 //                  L_i64_Max = (L_i64_Max < value1) ? value1 : L_i64_Max;
@@ -667,34 +864,42 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
 //                  ...
 //                  if (L_i64_Max > 0x000000007fffffff ||
 //                      L_i64_Min < 0xffffffff80000000) {
+//                    // TODO: Fix pointers of shrunken records if needed
+//                    OldType* SPtr = ptr;
+//                    NewType* DPtr = ptr;
+//                    for (i = 0; i < alloc_size_of_calloc; i++) {
+//                      t0 = (SPtr + i)->field0;
+//                      t1 = (SPtr + i)->field1;
+//                      ...
+//                      (DPtr + i)->new_field0 = t0;
+//                      (DPtr + i)->new_field1 = t1;
+//                      ...
+//                    }
 //                    __Shrink__Happened__ = 1;
-//                    // TODO: Copy contents from old layout to new layout
-//                    // here.
 //                  }
 //                  return;
 //              }
 //
-//   2. Copy Contents from old layout to new layout before ReturnInst
 //
-bool DynCloneImpl::transformInitRoutine(void) {
+void DynCloneImpl::transformInitRoutine(void) {
 
-  // Returns ConstantInt of max value that fits in shrinked type for
+  // Returns ConstantInt of max value that fits in shrunken type for
   // the given Ty.
   //    i64  ==>  Max value that fits in int32_t
-  auto GetShrinkedMaxValue = [&](Type *Ty) -> Value * {
+  auto GetShrunkenMaxValue = [&](Type *Ty) -> Value * {
     if (Ty->isIntegerTy(64)) {
       return ConstantInt::get(Ty, std::numeric_limits<int32_t>::max());
     }
-    llvm_unreachable("Unexpected shrinked type for Max Value");
+    llvm_unreachable("Unexpected shrunken type for Max Value");
   };
 
-  // Returns ConstantInt of min value that fits in shrinked type for
+  // Returns ConstantInt of min value that fits in shrunken type for
   // the given Ty.
   //    i64  ==>  Max value that fits in int32_t
-  auto GetShrinkedMinValue = [&](Type *Ty) -> Value * {
+  auto GetShrunkenMinValue = [&](Type *Ty) -> Value * {
     if (Ty->isIntegerTy(64))
       return ConstantInt::get(Ty, std::numeric_limits<int32_t>::min());
-    llvm_unreachable("Unexpected shrinked type for Min Value");
+    llvm_unreachable("Unexpected shrunken type for Min Value");
   };
 
   // Generates instructions to find  min / max values.
@@ -737,6 +942,141 @@ bool DynCloneImpl::transformInitRoutine(void) {
     return FinalCond;
   };
 
+  // Creates GEP instruction like below using \p IRB and returns it.
+  //   getelementptr inbounds  %StructTy, %StructTy* %BPtr, %AIdx, FieldIdx
+  //
+  auto CreateFieldAccessGEP = [&](Type *StructTy, Value *BPtr, PHINode *AIdx,
+                                  unsigned FieldIdx,
+                                  IRBuilder<> &IRB) -> Value * {
+    SmallVector<Value *, 2> Indices;
+    Indices.push_back(AIdx);
+    Value *Op2 = ConstantInt::get(Type::getInt32Ty(M.getContext()), FieldIdx);
+    Indices.push_back(Op2);
+    Value *GEP = IRB.CreateInBoundsGEP(StructTy, BPtr, Indices);
+    LLVM_DEBUG(dbgs() << "  " << *GEP << "\n");
+    return GEP;
+  };
+
+  // \p CI is expected to be calloc instruction. Computes Allocation
+  // size of \p CI using IRB and returns it.
+  //
+  // For "calloc(arg1, arg2)", it computes allocation size like
+  //
+  //    %t1 = mul i64 %arg1, %arg2
+  //    %t2 = sdiv %t1, size_of_StTy
+  //
+  auto ComputeAllocCount = [&](CallInst *CI, Type *StTy,
+                               IRBuilder<> &IRB) -> Value * {
+    Value *Arg1 = CI->getArgOperand(0);
+    Value *Arg2 = CI->getArgOperand(1);
+    Value *TSize = IRB.CreateMul(Arg1, Arg2);
+    Value *SSize =
+        ConstantInt::get(TSize->getType(), DL.getTypeAllocSize(StTy));
+    Value *ACount = IRB.CreateSDiv(TSize, SSize);
+    LLVM_DEBUG(dbgs() << "  " << *TSize << "\n"
+                      << "  " << *ACount << "\n");
+    return ACount;
+  };
+
+  // Copy data from old layout to new layout for shrunken record by
+  // generating loop. \p CI is expected to be calloc instruction.
+  // \p Memory is allocated for OrigTy with the calloc instruction.
+  // Copy loop is generated before \p InsertBefore.
+  //
+  // Ex:   %ptr = calloc(asize, ssize)
+  //
+  // Assume NewTy is new shrunken record type for OrigTy.
+  //
+  // PreLoop:
+  //  LCount = (asize * ssize) / size_of_OrigTy;
+  //  LoopIdx = 0;
+  //  SrcPtr = (OrigTy*) %ptr;
+  //  DstPtr = (NewTy*) %ptr;
+  //  Goto Loop:
+  // Loop:
+  //   SGEP0 = getelementptr inbounds %OrigTy, %SrcPtr, LoopIdx, 0
+  //   L0 = Load %SGEP0
+  //   SGEP1 = getelementptr inbounds %OrigTy, %SrcPtr, LoopIdx, 1
+  //   L1 = Load %SGEP1
+  //   ...
+  //
+  //   DGEP0 = getelementptr inbounds %NewTy, %DstPtr, LoopIdx, new_idx_of_0
+  //   %t1 = Trunk %L0
+  //   Store %t1, %DGEP0
+  //   DGEP1 = getelementptr inbounds %NewTy, %DstPtr, LoopIdx, new_idx_of_1
+  //   Store %L1, %DGEP1
+  //   ...
+  //   LoopIdx++
+  //   if (LoopIdx < LCount) goto Loop:
+  // PostLoop:
+  //   __Shrink__Happened__ = 1;
+  //
+  auto CopyDataFromOrigLayoutToNewLayout = [this, &CreateFieldAccessGEP,
+                                            &ComputeAllocCount](
+                                               CallInst *CI, Type *OrigTy,
+                                               Instruction *InsertBefore) {
+    // Get shrunken type.
+    Type *NewTy = TransformedTypeMap[cast<StructType>(OrigTy)];
+    LLVM_DEBUG(dbgs() << "Copy data for " << getStructName(OrigTy) << "  at "
+                      << *CI << "\n");
+
+    // Create blocks for PreLoop, Loop and PostLoop and fix CFG.
+    BasicBlock *PreLoopBB = InsertBefore->getParent();
+    BasicBlock *PostLoopBB =
+        PreLoopBB->splitBasicBlock(InsertBefore, "postloop");
+    BasicBlock *LoopBB = BasicBlock::Create(PreLoopBB->getContext(), "copydata",
+                                            InitRoutine, PostLoopBB);
+
+    IRBuilder<> PLB(PreLoopBB->getTerminator());
+
+    Value *LCount = ComputeAllocCount(CI, OrigTy, PLB);
+    Value *SrcPtr = PLB.CreateBitCast(CI, OrigTy->getPointerTo());
+    Value *DstPtr = PLB.CreateBitCast(CI, NewTy->getPointerTo());
+    PLB.CreateBr(LoopBB);
+    PreLoopBB->getTerminator()->eraseFromParent();
+    LLVM_DEBUG(dbgs() << "  " << *SrcPtr << "\n"
+                      << "  " << *DstPtr << "\n");
+
+    // Create loop index.
+    IRBuilder<> LB(LoopBB);
+    Type *IdxTy = LCount->getType();
+    PHINode *LoopIdx = LB.CreatePHI(IdxTy, 2, "lindex");
+    LoopIdx->addIncoming(ConstantInt::get(IdxTy, 0U), PreLoopBB);
+
+    SmallVector<LoadInst *, 8> LoadVec;
+    StructType *OrigSt = cast<StructType>(OrigTy);
+    StructType *NewSt = cast<StructType>(NewTy);
+    // Generate Loads for all element of OrigTy at LoopIdx location.
+    for (unsigned I = 0; I < OrigSt->getNumElements(); ++I) {
+      Value *SrcGEP = CreateFieldAccessGEP(OrigTy, SrcPtr, LoopIdx, I, LB);
+      LoadInst *LI = LB.CreateLoad(SrcGEP);
+      LoadVec.push_back(LI);
+      LLVM_DEBUG(dbgs() << "  " << *LI << "\n");
+    }
+    // Generate Stores for all element of NewTy at LoopIdx location.
+    for (unsigned I = 0; I < OrigSt->getNumElements(); ++I) {
+      unsigned NewI = TransformedIndexes[OrigSt][I];
+      Value *DstGEP = CreateFieldAccessGEP(NewTy, DstPtr, LoopIdx, NewI, LB);
+      Type *NewElemTy = NewSt->getElementType(NewI);
+      Value *LI = LoadVec[I];
+      if (LI->getType() != NewElemTy) {
+        LI = LB.CreateTruncOrBitCast(LI, NewElemTy);
+        LLVM_DEBUG(dbgs() << "  " << *LI << "\n");
+      }
+      StoreInst *SI = LB.CreateStore(LI, DstGEP);
+      LLVM_DEBUG(dbgs() << "  " << *SI << "\n");
+      (void)SI;
+    }
+    // Increment LoopIdx.
+    Value *NewIdx = LB.CreateAdd(LoopIdx, ConstantInt::get(IdxTy, 1U));
+    LoopIdx->addIncoming(NewIdx, LoopBB);
+    auto *Br =
+        LB.CreateCondBr(LB.CreateICmpULT(NewIdx, LCount), LoopBB, PostLoopBB);
+    LLVM_DEBUG(dbgs() << "  " << *NewIdx << "\n");
+    LLVM_DEBUG(dbgs() << "  " << *Br << "\n");
+    (void)Br;
+  };
+
   SmallVector<BasicBlock *, 2> RetBBs;
   SmallVector<StoreInst *, 16> RuntimeCheckStores;
 
@@ -765,11 +1105,7 @@ bool DynCloneImpl::transformInitRoutine(void) {
     }
   }
 
-  // Allow only single Return for now.
-  if (RetBBs.size() != 1) {
-    LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than one Returns\n");
-    return false;
-  }
+  assert(RetBBs.size() == 1 && "Expected only one Return");
 
   // Create GlobalVariable to indicate whether DynClone occurred or not.
   Type *FlagType = Type::getInt8Ty(M.getContext());
@@ -808,14 +1144,14 @@ bool DynCloneImpl::transformInitRoutine(void) {
                        &InitRoutine->getEntryBlock().front());
     TypeMaxAllocIMap[Ty] = AI;
     StoreInst *SI =
-        new StoreInst(GetShrinkedMinValue(Ty), AI, AI->getNextNode());
+        new StoreInst(GetShrunkenMinValue(Ty), AI, AI->getNextNode());
     LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
     LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
 
     AI = new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr, "d.min",
                         SI->getNextNode());
     TypeMinAllocIMap[Ty] = AI;
-    SI = new StoreInst(GetShrinkedMaxValue(Ty), AI, AI->getNextNode());
+    SI = new StoreInst(GetShrunkenMaxValue(Ty), AI, AI->getNextNode());
     (void)SI;
     LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
     LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
@@ -844,7 +1180,7 @@ bool DynCloneImpl::transformInitRoutine(void) {
   }
 
   // Generates instructions to compute final condition to detect
-  // whether the assigned values fit in shrinked types like below.
+  // whether the assigned values fit in shrunken types like below.
   //
   //   %d.ld16 = load i64, i64* %d.min
   //   %d.cmp17 = icmp slt i64 %d.ld16, -2147483648
@@ -857,10 +1193,10 @@ bool DynCloneImpl::transformInitRoutine(void) {
   ReturnInst *RetI = cast<ReturnInst>(OrigBB->getTerminator());
   Value *FinalCond = nullptr;
   for (auto &Pair : TypeMinAllocIMap)
-    FinalCond = GenerateFinalCond(Pair.second, GetShrinkedMinValue(Pair.first),
+    FinalCond = GenerateFinalCond(Pair.second, GetShrunkenMinValue(Pair.first),
                                   ICmpInst::ICMP_SLT, FinalCond, RetI);
   for (auto &Pair : TypeMaxAllocIMap)
-    FinalCond = GenerateFinalCond(Pair.second, GetShrinkedMaxValue(Pair.first),
+    FinalCond = GenerateFinalCond(Pair.second, GetShrunkenMaxValue(Pair.first),
                                   ICmpInst::ICMP_SGT, FinalCond, RetI);
 
   // TODO: It is better not to set __Shrink__Happened__ when none of
@@ -902,8 +1238,13 @@ bool DynCloneImpl::transformInitRoutine(void) {
   LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
   BranchInst::Create(LastBB, NewBB);
   (void)BI;
-  (void)SI;
-  return true;
+  // Copy data from old layout to new layout.
+  for (auto &AllocPair : AllocCalls) {
+    auto *AInfo = AllocPair.first;
+    assert(AInfo->getAllocKind() == AK_Calloc && " Unexpected alloc kind");
+    CallInst *CI = cast<CallInst>(AInfo->getInstruction());
+    CopyDataFromOrigLayoutToNewLayout(CI, AllocPair.second, SI);
+  }
 }
 
 //  Before:
@@ -921,16 +1262,16 @@ bool DynCloneImpl::transformInitRoutine(void) {
 //        ...
 //        baz();
 //      }
-//      bar() { // Assume no accesses to shrinked structs
+//      bar() { // Assume no accesses to shrunken structs
 //        ...
 //      }
-//      baz() { // Assume shrinked structs are accessed in this routine.
+//      baz() { // Assume shrunken structs are accessed in this routine.
 //        ...
 //        baz();
 //      }
 //
 // No user call is allowed before calling InitRoutine. Except InitRoutine,
-// all other routines, which have accesses to shrinked structs,  are called
+// all other routines, which have accesses to shrunken structs,  are called
 // from main are call-graph cloned. Calls to those routines in main are
 // specialized with "__Shrink__Happened__ == 0" check.
 //
@@ -972,7 +1313,7 @@ bool DynCloneImpl::transformInitRoutine(void) {
 //        baz.1();
 //      }
 //
-// TODO: Main restriction for the above solution is that shrinked structs
+// TODO: Main restriction for the above solution is that shrunken structs
 // shouldn't be accessed in main routine directly. We could use
 // CodeExtractor class to create a new function, which will be cloned
 // and controlled under __Shrink__Happened__, for all BasicBlocks that can
@@ -984,55 +1325,48 @@ bool DynCloneImpl::createCallGraphClone(void) {
                      CallInstSet & SpecializedCallsInMain)>
       FindCloningCallChains;
 
-  auto IsCandidateStruct = [&](Type *Ty) {
-    for (auto &CPair : CandidateFields)
-      if (CPair.first == Ty)
-        return true;
-    return false;
-  };
-
   // We can't set NoInline for all cloned routines due to performance reasons.
   // That means, we need to clone callers of cloned routines also to generate
   // correct code. This recursive lambda function finds all call-chains of
   // cloned routines till "main" is reached. NoInline attribute is set for
   // calls of cloned routines in "main" later.
-  FindCloningCallChains = [this, &FindCloningCallChains](
-                              Function *F, Function *CallerMain,
-                              CallInstSet &SpecializedCallsInMain) {
-    LLVM_DEBUG(dbgs() << "    Finding cloning call-chain..." << F->getName()
-                      << "\n");
-    // Add to the list of cloned routines.
-    if (!ClonedFunctionList.insert(F).second) {
-      LLVM_DEBUG(dbgs() << "    Already processed ... \n");
-      return;
-    }
+  FindCloningCallChains =
+      [this, &FindCloningCallChains](Function *F, Function *CallerMain,
+                                     CallInstSet &SpecializedCallsInMain) {
+        LLVM_DEBUG(dbgs() << "    Finding cloning call-chain..." << F->getName()
+                          << "\n");
+        // Add to the list of cloned routines.
+        if (!ClonedFunctionList.insert(F).second) {
+          LLVM_DEBUG(dbgs() << "    Already processed ... \n");
+          return;
+        }
 
-    if (F->hasAddressTaken()) {
-      for (CallInst *CI : FunctionCallInsts[F]) {
-        LLVM_DEBUG(dbgs() << "    Processing CallSite1: " << *CI << "\n");
-        Function *CalledF = CI->getFunction();
-        if (CalledF == CallerMain) {
-          // Specialize these calls later.
-          SpecializedCallsInMain.insert(CI);
-          continue;
+        if (F->hasAddressTaken()) {
+          for (CallInst *CI : FunctionCallInsts[F]) {
+            LLVM_DEBUG(dbgs() << "    Processing CallSite1: " << *CI << "\n");
+            Function *CalledF = CI->getFunction();
+            if (CalledF == CallerMain) {
+              // Specialize these calls later.
+              SpecializedCallsInMain.insert(CI);
+              continue;
+            }
+            FindCloningCallChains(CalledF, CallerMain, SpecializedCallsInMain);
+          }
+        } else {
+          for (auto *U : F->users()) {
+            assert(isa<CallInst>(U) && "Expected CallInst");
+            CallInst *CI = cast<CallInst>(U);
+            LLVM_DEBUG(dbgs() << "    Processing CallSite2: " << *CI << "\n");
+            Function *CalledF = CI->getFunction();
+            if (CalledF == CallerMain) {
+              // Specialize these calls later.
+              SpecializedCallsInMain.insert(CI);
+              continue;
+            }
+            FindCloningCallChains(CalledF, CallerMain, SpecializedCallsInMain);
+          }
         }
-        FindCloningCallChains(CalledF, CallerMain, SpecializedCallsInMain);
-      }
-    } else {
-      for (auto *U : F->users()) {
-        assert(isa<CallInst>(U) && "Expected CallInst");
-        CallInst *CI = cast<CallInst>(U);
-        LLVM_DEBUG(dbgs() << "    Processing CallSite2: " << *CI << "\n");
-        Function *CalledF = CI->getFunction();
-        if (CalledF == CallerMain) {
-          // Specialize these calls later.
-          SpecializedCallsInMain.insert(CI);
-          continue;
-        }
-        FindCloningCallChains(CalledF, CallerMain, SpecializedCallsInMain);
-      }
-    }
-  };
+      };
 
   // Specialize CallInstruction:
   //
@@ -1109,7 +1443,7 @@ bool DynCloneImpl::createCallGraphClone(void) {
   FunctionSet CandidateAccessRoutines;
   // TODO: Move the below checks before generating any runtime checks.
   for (auto TPair : TypeAccessedInFunctions) {
-    if (!IsCandidateStruct(TPair.first))
+    if (!isCandidateStruct(TPair.first))
       continue;
     FunctionSet FSet = TPair.second;
     // 1. Candidate struct should be accessed in at least two
@@ -1139,8 +1473,6 @@ bool DynCloneImpl::createCallGraphClone(void) {
     FindCloningCallChains(F, CallerMain, SpecializedCallsInMain);
   }
 
-  // Map of original and cloned routines.
-  DenseMap<Function *, Function *> CloningMap;
   // Create cloned routines
   for (auto *F : ClonedFunctionList) {
     ValueToValueMapTy VMap;
@@ -1151,8 +1483,9 @@ bool DynCloneImpl::createCallGraphClone(void) {
   }
 
   for (auto *F : ClonedFunctionList) {
-    Function* NewF = CloningMap[F];
-    for (inst_iterator II = inst_begin(NewF), E = inst_end(NewF); II != E; ++II) {
+    Function *NewF = CloningMap[F];
+    for (inst_iterator II = inst_begin(NewF), E = inst_end(NewF); II != E;
+         ++II) {
       Instruction &Inst = *II;
       if (!isa<CallInst>(&Inst))
         continue;
@@ -1207,8 +1540,9 @@ bool DynCloneImpl::run(void) {
   // struct pointers after shrining the struct. These checks will be
   // implemented later.
 
-  if (!transformInitRoutine())
-    return false;
+  createShrunkenTypes();
+
+  transformInitRoutine();
 
   LLVM_DEBUG(dbgs() << "    Generated Runtime checks in InitRoutine ... \n");
 

@@ -25,20 +25,15 @@ using namespace llvm::loopopt;
 // TODO: Replace this function with a call to divergence analysis when it is
 // ready.
 static bool isUnitStride(const RegDDRef *Ref, unsigned NestingLevel) {
-  int64_t ConstStride;
 
   if (!Ref->isMemRef())
     return false;
 
-  if (!Ref->getConstStrideAtLevel(NestingLevel, &ConstStride) || !ConstStride)
+  bool IsNegStride;
+  if (!Ref->isUnitStride(NestingLevel, IsNegStride) || IsNegStride)
     return false;
 
-  // Compute stride in terms of number of elements
-  auto DL = Ref->getDDRefUtils().getDataLayout();
-  auto RefSizeInBytes = DL.getTypeSizeInBits(Ref->getDestType()) >> 3;
-  ConstStride /= RefSizeInBytes;
-
-  return ConstStride == 1;
+  return true;
 }
 
 namespace llvm {

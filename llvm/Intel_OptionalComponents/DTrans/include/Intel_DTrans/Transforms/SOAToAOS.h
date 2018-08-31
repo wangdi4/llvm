@@ -17,7 +17,7 @@
 #define INTEL_DTRANS_TRANSFORMS_SOATOAOS_H
 
 #if !INTEL_INCLUDE_DTRANS
-#error DTrans.h include in an non-INTEL_INCLUDE_DTRANS build.
+#error SOAToAOS.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
@@ -38,7 +38,6 @@ public:
   bool runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                const TargetLibraryInfo &TLI);
 };
-} // namespace dtrans
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Debugging pass to check computation of approximate IR.
@@ -67,6 +66,7 @@ public:
 };
 
 // Debugging pass to check method classification.
+struct SOAToAOSMethodsCheckDebugResult;
 class SOAToAOSMethodsCheckDebug
     : public AnalysisInfoMixin<SOAToAOSMethodsCheckDebug> {
   static AnalysisKey Key;
@@ -75,12 +75,29 @@ class SOAToAOSMethodsCheckDebug
 
 public:
   // Called from lit-tests, result is ignored and not consumed ever.
-  class Ignore {};
+  class Ignore {
+    std::unique_ptr<SOAToAOSMethodsCheckDebugResult> Ptr;
+
+  public:
+    Ignore(SOAToAOSMethodsCheckDebugResult *Ptr);
+    Ignore(Ignore &&Other);
+    const SOAToAOSMethodsCheckDebugResult *get() const;
+    // Prevent default dtor creation while type is incomplete.
+    ~Ignore();
+  };
   typedef Ignore Result;
 
   Result run(Function &F, FunctionAnalysisManager &AM);
 };
+
+// This class is used for testing transformations of arrays' methods.
+class SOAToAOSArrayMethodsTransformDebug
+    : public PassInfoMixin<SOAToAOSArrayMethodsTransformDebug> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+};
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // namespace dtrans
 
 ModulePass *createDTransSOAToAOSWrapperPass();
 

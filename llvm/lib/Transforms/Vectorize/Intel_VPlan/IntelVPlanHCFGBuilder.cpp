@@ -18,7 +18,9 @@
 
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelLoopCFU.h"
+#include "IntelVPlanBranchDependenceAnalysis.h"
 #include "IntelVPlanBuilder.h"
+#include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -50,6 +52,10 @@ static cl::opt<bool> DisableUniformRegions(
              "set as divergent."));
 
 #if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    DisableVPlanDA("disable-vplan-da", cl::init(true), cl::Hidden,
+                   cl::desc("Disable VPlan divergence analysis"));
+
 static cl::opt<bool>
     VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
                           cl::desc("Print plain dump after VPlan simplify "
@@ -657,6 +663,37 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   VPPostDomTree.recalculate(*TopRegion);
   LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
              VPPostDomTree.print(dbgs()));
+
+#if INTEL_CUSTOMIZATION
+  // simplifyPlainCFG inserts empty blocks with CondBit recipes. This messes up
+  // determining the influence region of a branch instruction. i.e., the
+  // immediate post-dominator becomes this empty block instead of the actual
+  // convergence point containing the phi. Running DA here allows reuse of the
+  // current Dominator Trees and results in fewer modifications to the DA
+  // algorithm since it was designed to run over a plain CFG. We should also
+  // be able to leverage DA for use in the inner loop control flow uniformity
+  // massaging for outer loop vectorization (done in simplifyPlainCFG). That
+  // way, we only have to transform the CFG for inner loops known to be non-
+  // uniform.
+  // TODO: Right now DA is computed per VPlan for the outermost loop of the
+  // VPlan region. We will need additional information provided to DA if we wish
+  // to vectorize more than one loop, or vectorize a specific loop within the
+  // VPlan that is not the outermost one.
+  // TODO: Check to see how this ordering impacts loops with multiple exits in
+  // mergeLoopExits(). It's possible that we may want to delay DA from running
+  // until after loops with multiple exits are canonicalized to a single loop
+  // exit. But, this means that the DA algorithm will have to be changed to have
+  // to deal with empty loop pre-header blocks unless we can run mergeLoopExits
+  // before the empty pre-header blocks are inserted.
+  if (!DisableVPlanDA) {
+    // TODO: Determine if we want to have a separate DA instance for each VF.
+    // Currently, there is only one instance and no distinction between VFs.
+    // i.e., values are either uniform or divergent for all VFs.
+    auto *VPDA = new VPlanDivergenceAnalysis();
+    VPDA->compute(*(VPLInfo->begin()), VPLInfo, &VPDomTree, &VPPostDomTree);
+    Plan->setVPlanDA(VPDA);
+  }
+#endif /* INTEL_CUSTOMIZATION */
 
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();

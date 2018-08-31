@@ -43,6 +43,7 @@ char AVRGenerate::ID = 0;
 INITIALIZE_PASS_BEGIN(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
                       false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass);
 INITIALIZE_PASS_END(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
                     false, true)
 
@@ -1334,10 +1335,12 @@ void AVRGenerateHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequired<WRegionInfoWrapperPass>();
 }
 
 bool AVRGenerateHIR::runOnFunction(Function &F) {
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
   return AVRGenerateBase::runOnFunction(F);
 }
 
@@ -1345,7 +1348,9 @@ void AVRGenerateHIR::buildAbstractLayer() {
   AVRGenerateVisitor AG(AvrLabelsHIR);
 
   // Walk the HIR and build WRGraph based on HIR
-  WRContainerImpl *WRGraph = WRegionUtils::buildWRGraphFromHIR(*HIRF);
+  WR->buildWRGraph(WRegionCollection::HIR);
+  WRContainerImpl *WRGraph = WR->getWRGraph();
+  assert(WRGraph && "Failed to build WRGraph for HIR");
   LLVM_DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
   for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
     LLVM_DEBUG((*I)->dump());

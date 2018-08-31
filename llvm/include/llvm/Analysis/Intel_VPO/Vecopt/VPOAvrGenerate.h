@@ -220,6 +220,9 @@ private:
   /// HIRP - HIR Parser
   HIRFramework *HIRF;
 
+  /// WR - WorkRegionInfo Pass
+  WRegionInfo *WR;
+
   class AVRGenerateVisitor : public HIRVisitor<AVRGenerateVisitor, AVR *> {
 
     SmallDenseMap<HLLabel *, AVRLabelHIR *, 64> &AvrLabels;

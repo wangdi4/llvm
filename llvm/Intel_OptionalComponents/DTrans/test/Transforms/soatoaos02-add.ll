@@ -1,15 +1,12 @@
-; RUN: opt -S < %s -whole-program-assume -disable-output \
+; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
-; RUN:      -dtrans-soatoaos-approx-typename=struct.Arr          \
 ; RUN:      -dtrans-soatoaos-approx-known-func=_ZN3ArrIPiE7reallocEi 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.Arr = type <{ %struct.Mem*, i32, [4 x i8], i32**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
-
-$_ZN3ArrIPiE3addERKS0_ = comdat any
 
 ; This test checks various approximations for side effects in append-like function.
 ; in SOA-to-AOS.
@@ -18,7 +15,7 @@ $_ZN3ArrIPiE3addERKS0_ = comdat any
 ;   base[size] = e;
 ;   ++size;
 ; }
-define void @_ZN3ArrIPiE3addERKS0_(%struct.Arr* nocapture %this, i32** nocapture readonly dereferenceable(8) %e) #0 comdat align 2 {
+define void @_ZN3ArrIPiE3addERKS0_(%struct.Arr* %this, i32** %e) {
 entry:
 ; CHECK:      Known call (Func(Arg 0))
 ; CHECK-NEXT: call void @_ZN3ArrIPiE7reallocEi(%struct.Arr* %this, i32 1)
@@ -51,9 +48,7 @@ entry:
   ret void
 }
 
-declare void @_ZN3ArrIPiE7reallocEi(%struct.Arr* nocapture, i32) #0 align 2
-
-attributes #0 = { noinline uwtable }
+declare void @_ZN3ArrIPiE7reallocEi(%struct.Arr* nocapture, i32)
 
 ; CHECK: Deps computed: 14, Queries: 19
 ; CHECK-NOT: Unknown Dep

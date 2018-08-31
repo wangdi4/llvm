@@ -218,16 +218,16 @@ bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
     return false;
   }
 
-  if (!ScalSrcTy->isIntegerTy()) {
+  if (!ScalSrcTy->isIntegerTy() || !ScalDestTy->isIntegerTy()) {
     return false;
   }
 
   if (ScalSrcTy->getPrimitiveSizeInBits() >
       ScalDestTy->getPrimitiveSizeInBits()) {
-    if (IsTrunc) {
-      return true;
-    }
+    return IsTrunc;
+  }
 
+  if (IsTrunc) {
     return false;
   }
 

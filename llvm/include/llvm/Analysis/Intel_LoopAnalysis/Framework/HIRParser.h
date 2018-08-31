@@ -53,6 +53,7 @@ class ConstantFP;
 class Loop;
 class LoopInfo;
 class DominatorTree;
+class IntrinsicInst;
 
 namespace loopopt {
 
@@ -337,7 +338,10 @@ class HIRParser {
   static FastMathFlags parseFMF(const CmpInst *Cmp);
 
   /// Parses llvm.dbg.* intrinsic and store info in the parent HLRegion.
-  bool parseDebugIntrinsic(HLInst *HInst);
+  bool parsedDebugIntrinsic(const IntrinsicInst *Intrin);
+
+  /// Returns true if \p HInst was processed as a removable intrinsic for HIR.
+  bool processedRemovableIntrinsic(HLInst *HInst);
 
   /// Parses LLVM metadata and updates RegDDRef \p Ref.
   static void parseMetadata(const Instruction *Inst, RegDDRef *Ref);

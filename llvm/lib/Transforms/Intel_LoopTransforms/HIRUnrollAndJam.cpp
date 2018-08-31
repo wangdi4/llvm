@@ -440,7 +440,8 @@ void HIRUnrollAndJam::initializeUnrollFactor(HLLoop *Lp) {
 unsigned HIRUnrollAndJam::getOrUpdateUnrollFactor(HLLoop *Lp,
                                                   unsigned UnrollFactor,
                                                   bool Update) {
-  assert((!Update || (UnrollFactor <= MaxUnrollFactor)) &&
+  assert((!Update || (UnrollFactor <= MaxUnrollFactor) ||
+          (UnrollFactor == Lp->getUnrollAndJamPragmaCount())) &&
          "Invalid unroll factor!");
 
   auto Level = Lp->getNestingLevel();
@@ -451,9 +452,9 @@ unsigned HIRUnrollAndJam::getOrUpdateUnrollFactor(HLLoop *Lp,
         return LoopInfo.UnrollFactor;
 
       } else {
-        assert(
-            ((UnrollFactor < 2) || (UnrollFactor <= LoopInfo.UnrollFactor)) &&
-            "Unroll factor can only be refined downwards!");
+        assert(((UnrollFactor < 2) || (UnrollFactor <= LoopInfo.UnrollFactor) ||
+                (UnrollFactor == Lp->getUnrollAndJamPragmaCount())) &&
+               "Unroll factor can only be refined downwards!");
         unsigned OldFactor = LoopInfo.UnrollFactor;
 
         if (OldFactor) {

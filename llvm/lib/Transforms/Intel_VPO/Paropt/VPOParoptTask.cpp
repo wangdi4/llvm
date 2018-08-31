@@ -958,7 +958,7 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
 
   SmallVector<Type *, 4> KmpTaskTDependVecTyArgs;
 
-  DependClause DepClause = W->getDepend();
+  DependClause const &DepClause = W->getDepend();
   if (DepClause.empty())
     return nullptr;
 
@@ -1101,7 +1101,7 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
   if (!W->canHaveDepend())
     return;
 
-  DependClause DepClause = W->getDepend();
+  DependClause const &DepClause = W->getDepend();
   if (DepClause.empty())
     return;
   for (DependItem *DepI : DepClause.items()) {
@@ -1121,12 +1121,14 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
       {Builder.getInt32(0), Builder.getInt32(0)});
   LLVMContext &C = F->getContext();
   Value *Dep = Builder.CreateBitCast(BaseTaskTDependGep, Type::getInt8PtrTy(C));
+  DependClause const &DepClause = W->getDepend();
+
   if (!IsTaskWait)
     VPOParoptUtils::genKmpcTaskWithDeps(W, IdentTy, TidPtr, TaskAlloc, Dep,
-                                        W->getDepend().size(), InsertPt);
+                                        DepClause.size(), InsertPt);
   else
     VPOParoptUtils::genKmpcTaskWaitDeps(W, IdentTy, TidPtr, Dep,
-                                        W->getDepend().size(), InsertPt);
+                                        DepClause.size(), InsertPt);
 }
 
 // Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop or

@@ -787,6 +787,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_cxa_rethrow:
     return Changed;
+  case LibFunc_cxa_pure_virtual:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
   case LibFunc_cxa_throw:
     Changed |= setDoesNotReturn(F);
     return Changed;
@@ -804,6 +807,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_fxstat64:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_gxx_personality_v0:
     return Changed;
   case LibFunc_isinf:
     Changed |= setDoesNotAccessMemory(F);
@@ -907,6 +912,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv:
     return Changed;
+  case LibFunc_ZNKSt9bad_alloc4whatEv:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    Changed |= setRetNonNull(F);
+    return Changed;
   case LibFunc_ZNKSt9exception4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
@@ -994,13 +1004,27 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt13runtime_errorC2ERKSs:
     return Changed;
+  case LibFunc_ZNSt13runtime_errorD0Ev:
+    return Changed;
   case LibFunc_ZNSt13runtime_errorD1Ev:
     return Changed;
   case LibFunc_ZNSt13runtime_errorD2Ev:
     return Changed;
+  case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl:
+    return Changed;
   case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsputnEPKcl:
     return Changed;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
+    return Changed;
+  case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode:
+    return Changed;
+  case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode:
+    return Changed;
+  case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE8overflowEi:
+    return Changed;
+  case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE9pbackfailEi:
+    return Changed;
+  case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv:
     return Changed;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode:
     return Changed;
@@ -1023,11 +1047,17 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt8ios_baseD2Ev:
     return Changed;
+  case LibFunc_ZNSt9bad_allocD0Ev:
+    return Changed;
+  case LibFunc_ZNSt9bad_allocD1Ev:
+    return Changed;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E:
     return Changed;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate:
     return Changed;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5rdbufEPSt15basic_streambufIcS1_E:
+    return Changed;
+  case LibFunc_ZNSt9exceptionD0Ev:
     return Changed;
   case LibFunc_ZNSt9exceptionD1Ev:
     return Changed;
@@ -1317,6 +1347,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_pipe:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_pthread_key_create:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_pthread_self:

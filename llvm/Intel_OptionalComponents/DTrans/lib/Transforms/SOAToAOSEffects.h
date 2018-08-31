@@ -9,27 +9,41 @@
 //===----------------------------------------------------------------------===//
 //
 // This file implements iterators and other helper classes for
-// SOAToAOSTransformImpl::CandidateSideEffectsInfo included to SOAToAOSPass.cpp
-// only.
+// SOAToAOSTransformImpl::CandidateSideEffectsInfo related for analysis of
+// side-effects.
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef INTEL_DTRANS_TRANSFORMS_SOATOAOSEFFECTS_H
+#define INTEL_DTRANS_TRANSFORMS_SOATOAOSEFFECTS_H
+
+#if !INTEL_INCLUDE_DTRANS
+#error SOAToAOSEffects.h include in an non-INTEL_INCLUDE_DTRANS build.
+#endif
+
+#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+
+#include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/iterator.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-namespace {
-using namespace llvm;
-using namespace dtrans;
+// DepCompute
+#define DTRANS_SOADEP "dtrans-soatoaos-deps"
 
-// Complete some analysis in CandidateSideEffectsInfo::populateSideEffects
-// without early exit, try to comparison in FunctionComparator.
-static cl::opt<bool>
-    DTransSOAToAOSComputeAllDep("enable-dtrans-soatoaos-alldeps",
-                                cl::init(false), cl::Hidden,
-                                cl::desc("Enable DTrans SOAToAOS"));
+namespace llvm {
+namespace dtrans {
+namespace soatoaos {
 
 // Checking if iterator is dereferenceable.
 template <typename WrappedIteratorTy, typename PredicateTy>
@@ -46,35 +60,8 @@ public:
   bool isEnd() const { return this->wrapped() == this->End; }
 };
 
-// OpIterTy is a derivative of op_iterator/const_op_iterator.
-//
-// 1. De-referencing returns Value&;
-// 2. Only Instruction and Argument are processed.
-template <typename OpIterTy, typename ValueTy, bool AllInstructions>
-class value_op_iterator
-    : public filter_iterator_with_check<
-          OpIterTy, std::function<bool(
-                        typename std::iterator_traits<OpIterTy>::reference)>> {
-
-  static_assert(
-      std::is_same<Value, typename std::remove_cv<ValueTy>::type>::value,
-      "ValueTy must be a CV-qualified Value");
-
-  using OpRefTy = typename std::iterator_traits<OpIterTy>::reference;
-  using OpFilterIterTy =
-      filter_iterator_with_check<OpIterTy, std::function<bool(OpRefTy)>>;
-
-public:
-  using value_type = ValueTy;
-  using reference = ValueTy &;
-  using pointer = ValueTy *;
-  reference operator*() const { return *OpFilterIterTy::operator*().get(); }
-  pointer operator->() const { return &operator*(); }
-
-  // TODO: separate into 'trait'-like structure.
+struct ArithInstructionsTrait {
   static inline bool isSupportedOpcode(unsigned OpCode) {
-    if (AllInstructions)
-      return true;
     // FIXME: FP exception handling.
     switch (OpCode) {
     case Instruction::Add:
@@ -106,6 +93,63 @@ public:
     }
     return false;
   }
+  static inline bool shouldBeAnalyzed(const Use &U) {
+    return !isa<Constant>(U.get());
+  }
+};
+
+// This class is used in value_op_iterator and in GEPDepGraph to compute SCC
+// containing GEPs, their base pointers and connected with PHIs.
+struct GEPInstructionsTrait {
+  static inline bool isSupportedOpcode(unsigned OpCode) {
+    switch (OpCode) {
+    case Instruction::GetElementPtr:
+    case Instruction::PHI:
+      return true;
+    default:
+      break;
+    }
+    return false;
+  }
+  static inline bool shouldBeAnalyzed(const Use &U) {
+    auto *GEP = dyn_cast<GetElementPtrInst>(U.getUser());
+    return GEP ? U.get() == GEP->getPointerOperand()
+               : isa<PHINode>(U.getUser());
+  }
+};
+
+struct AllInstructionsTrait {
+  static inline bool isSupportedOpcode(unsigned OpCode) { return true; }
+  static inline bool shouldBeAnalyzed(const Use &U) {
+    return !isa<Constant>(U.get()) && !isa<BasicBlock>(U.get());
+  }
+};
+
+// OpIterTy is a derivative of op_iterator/const_op_iterator.
+//
+// 1. De-referencing returns Value&;
+// 2. Only Instruction and Argument are processed.
+template <typename OpIterTy, typename ValueTy, typename FilterTrait>
+class value_op_iterator
+    : public filter_iterator_with_check<
+          OpIterTy, std::function<bool(
+                        typename std::iterator_traits<OpIterTy>::reference)>>,
+      public FilterTrait {
+
+  static_assert(
+      std::is_same<Value, typename std::remove_cv<ValueTy>::type>::value,
+      "ValueTy must be a CV-qualified Value");
+
+  using OpRefTy = typename std::iterator_traits<OpIterTy>::reference;
+  using OpFilterIterTy =
+      filter_iterator_with_check<OpIterTy, std::function<bool(OpRefTy)>>;
+
+public:
+  using value_type = ValueTy;
+  using reference = ValueTy &;
+  using pointer = ValueTy *;
+  reference operator*() const { return *OpFilterIterTy::operator*().get(); }
+  pointer operator->() const { return &operator*(); }
 
   value_op_iterator() : OpFilterIterTy(mkDefault()) {}
   value_op_iterator(reference Val, bool EndOfRange)
@@ -122,15 +166,13 @@ private:
 
     OpIterTy Begin, End;
 
-    if (!isSupportedOpcode(Inst->getOpcode()))
+    if (!FilterTrait::isSupportedOpcode(Inst->getOpcode()))
       return mkDefault();
 
     End = Inst->op_end();
     Begin = EndOfRange ? End : Inst->op_begin();
     return OpFilterIterTy(Begin, End, [](OpRefTy Use) -> bool {
-      // BasicBlock check is needed when AllInstructions is true.
-      return !isa<Constant>(Use.get()) &&
-             (!AllInstructions || !isa<BasicBlock>(Use.get()));
+      return FilterTrait::shouldBeAnalyzed(Use);
     });
   }
   static inline OpFilterIterTy mkDefault() {
@@ -138,11 +180,6 @@ private:
                           [](OpRefTy Use) -> bool { return false; });
   }
 };
-// There are only 4 instances of the template above.
-template class value_op_iterator<User::op_iterator, Value, false>;
-template class value_op_iterator<User::const_op_iterator, const Value, false>;
-template class value_op_iterator<User::op_iterator, Value, true>;
-template class value_op_iterator<User::const_op_iterator, const Value, true>;
 
 // Returns Value* instead of Value& from operator*().
 // operator->() is hidden.
@@ -184,23 +221,24 @@ public:
   ptr_iter(value_type ValPtr, bool EndOfRange)
       : BaseTy(IterTy(*ValPtr, EndOfRange)) {}
 };
-// There are only 4 instances of the template above.
-template class ptr_iter<value_op_iterator<User::op_iterator, Value, false>>;
-template class ptr_iter<
-    value_op_iterator<User::const_op_iterator, const Value, false>>;
-template class ptr_iter<value_op_iterator<User::op_iterator, Value, true>>;
-template class ptr_iter<
-    value_op_iterator<User::const_op_iterator, const Value, true>>;
 
-using arith_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::op_iterator, Value, false>>;
+using arith_inst_dep_iterator = ptr_iter<
+    value_op_iterator<User::op_iterator, Value, ArithInstructionsTrait>>;
 using const_arith_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::const_op_iterator, const Value, false>>;
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                               ArithInstructionsTrait>>;
 
 using all_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::op_iterator, Value, true>>;
+    ptr_iter<value_op_iterator<User::op_iterator, Value, AllInstructionsTrait>>;
 using const_all_inst_dep_iterator =
-    ptr_iter<value_op_iterator<User::const_op_iterator, const Value, true>>;
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                               AllInstructionsTrait>>;
+
+using gep_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::op_iterator, Value, GEPInstructionsTrait>>;
+using const_gep_inst_dep_iterator =
+    ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
+                               GEPInstructionsTrait>>;
 
 // Specialization to use *arith_inst_dep_iterator.
 template <typename ValuePtrTy> struct ArithDepGraph {
@@ -213,12 +251,20 @@ template <typename ValuePtrTy> struct AllDepGraph {
   ValuePtrTy ValuePtr;
   AllDepGraph(ValuePtrTy V) : ValuePtr(V) {}
 };
-} // namespace
+
+// Specialization to use *gep_inst_dep_iterator.
+template <typename ValuePtrTy> struct GEPDepGraph {
+  ValuePtrTy ValuePtr;
+  GEPDepGraph(ValuePtrTy V) : ValuePtr(V) {}
+};
+} // namespace soatoaos
+} // namespace dtrans
+
+using namespace dtrans::soatoaos;
 
 // GraphTraits to compute closures using scc_iterator
 // and children enumeration using arith_inst_dep_iterator and
 // all_inst_dep_iterator.
-namespace llvm {
 template <> struct GraphTraits<ArithDepGraph<Value *>> {
   using NodeRef = Value *;
   using ChildIteratorType = arith_inst_dep_iterator;
@@ -278,9 +324,41 @@ template <> struct GraphTraits<AllDepGraph<const Value *>> {
     return const_all_inst_dep_iterator::end(N);
   }
 };
+
+template <> struct GraphTraits<GEPDepGraph<Value *>> {
+  using NodeRef = Value *;
+  using ChildIteratorType = gep_inst_dep_iterator;
+
+  static inline NodeRef getEntryNode(GEPDepGraph<Value *> G) {
+    return G.ValuePtr;
+  }
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return gep_inst_dep_iterator::begin(N);
+  }
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return gep_inst_dep_iterator::end(N);
+  }
+};
+
+template <> struct GraphTraits<GEPDepGraph<const Value *>> {
+  using NodeRef = const Value *;
+  using ChildIteratorType = const_gep_inst_dep_iterator;
+
+  static inline NodeRef getEntryNode(GEPDepGraph<const Value *> G) {
+    return G.ValuePtr;
+  }
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return const_gep_inst_dep_iterator::begin(N);
+  }
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return const_gep_inst_dep_iterator::end(N);
+  }
+};
 } // namespace llvm
 
-namespace {
+namespace llvm {
+namespace dtrans {
+namespace soatoaos {
 template <typename DepIterTy, typename ContainerTy> class base_scc_iterator {
   // Not going to modify ContainerTy.
   using SCCIterTy = typename ContainerTy::const_iterator;
@@ -390,11 +468,7 @@ using scc_arith_inst_dep_iterator =
 using const_scc_arith_inst_dep_iterator = base_scc_iterator<
     GraphTraits<ArithDepGraph<const Value *>>::ChildIteratorType,
     scc_iterator<ArithDepGraph<const Value *>>::value_type>;
-} // namespace
 
-namespace llvm {
-namespace dtrans {
-namespace soatoaos {
 struct ArrayIdioms;
 struct DepCmp;
 // The following class is owned by class DepManager.
@@ -426,8 +500,8 @@ class DepManager {
   unsigned Queries = 0;
 
 public:
-  inline const Dep *intern(Dep &&Tmp);
-  inline ~DepManager();
+  const Dep *intern(Dep &&Tmp);
+  ~DepManager();
 };
 
 // Array object interacts with remaining program:
@@ -710,37 +784,6 @@ private:
   static Dep Tombstone;
 };
 
-// Empty.Id == 0;
-Dep Dep::Empty(DK_Empty);
-// Tombstone.Id == 0;
-Dep Dep::Tombstone(DK_Tomb);
-
-const Dep *DepManager::intern(Dep &&Tmp) {
-  assert(DepId == Deps.size() && "Inconsistent state of DepManager::Deps");
-  ++Queries;
-  Tmp.Id = ++DepId;
-  auto It = Deps.find(&Tmp);
-  if (It != Deps.end()) {
-    --DepId;
-    return *It;
-  }
-  return *Deps.insert(new Dep(std::move(Tmp))).first;
-}
-
-DepManager::~DepManager() {
-  DEBUG_WITH_TYPE(DTRANS_SOADEP, dbgs() << "; Deps computed: " << DepId
-                                        << ", Queries: " << Queries << "\n");
-  DepId -= Deps.size();
-  assert(DepId == 0 && "Inconsistent state of DepManager::Deps");
-
-  // Deps checks Dep's internal while removing elements.
-  std::vector<const Dep *> Temp;
-  Temp.insert(Temp.end(), Deps.begin(), Deps.end());
-  Deps.clear();
-  for (auto *Ptr : Temp)
-    delete Ptr;
-}
-
 // Class performing actual computations of Dep.
 class DepCompute;
 
@@ -776,35 +819,92 @@ public:
   };
 #endif
 };
-} // namespace soatoaos
-} // namespace dtrans
-} // namespace llvm
 
-namespace {
+// Class performing actual computations of Dep.
+// Suitable for analysis of methods (Method field) of
+// class (ClassType field).
+//
+// Exposes memory accesses and calls with emphasis on accesses to ClassType
+// fields.
+//
+// Encapsulates short-living state.
+//
+// Lit-tests can be written with SOAToAOSApproximationDebug pass.
+class DepCompute {
+  const DTransAnalysisInfo &DTInfo;
+  const DataLayout &DL;
+  const TargetLibraryInfo &TLI;
+  const Function *Method;
+  const StructType *ClassType;
+
+  // Output of computeDepApproximation.
+  DepMap &DM;
+
+  const Dep *computeValueDep(const Value *Val);
+
+public:
+  DepCompute(const DTransAnalysisInfo &DTInfo,
+             // Need to compare pointers and integers of pointer size
+             const DataLayout &DL,
+             // Need to check free/malloc
+             const TargetLibraryInfo &TLI,
+             // Method to analyse.
+             const Function *Method,
+             // Class type of Method.
+             const StructType *ClassType, DepMap &DM)
+      : DTInfo(DTInfo), DL(DL), TLI(TLI), Method(Method), ClassType(ClassType),
+        DM(DM) {}
+
+  void computeDepApproximation(
+      std::function<bool(const Function *)> IsKnownCallCheck);
+};
+
+extern cl::opt<bool> DTransSOAToAOSComputeAllDep;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Structure name to use in SOAToAOSApproximationDebug.
+extern cl::opt<std::string> DTransSOAToAOSApproxTypename;
+
+// Calls to mark as known in SOAToAOSApproximationDebug.
+extern cl::list<std::string> DTransSOAToAOSApproxKnown;
+
+StructType *getStructTypeOfArray(Function &F);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // namespace soatoaos
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+struct SOAToAOSApproximationDebugResult : public DepMap {};
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Special LLVM-type inconsistencies, which need to be processed in SOAToAOS.
+namespace soatoaos {
 // Check if bitcast can be ignored, because its consumers are load/stores
 // and the size of accessed memory does not change due to bitcast.
 //
 // "load (bitcast(ptr))" is ok if load produces the same
 // value as "load ptr". Similarly for store.
-bool isSafeBitCast(const DataLayout &DL, const Value *V) {
-  if (!isa<BitCastInst>(V))
+inline bool isSafeBitCast(const DataLayout &DL, const Value *V) {
+  auto *BC = dyn_cast<BitCastInst>(V);
+  if (!BC)
     return false;
 
   // Dereferenced value is the same.
-  Type *STy = cast<BitCastInst>(V)->getOperand(0)->getType();
-  if (!isa<PointerType>(STy))
+  Type *STy = BC->getOperand(0)->getType();
+  Type *DTy = BC->getType();
+  if (!isa<PointerType>(STy) || !isa<PointerType>(DTy))
     return false;
 
-  if (DL.getTypeStoreSize(V->getType()->getPointerElementType()) !=
-      DL.getTypeStoreSize(STy->getPointerElementType()))
+  auto *D = DTy->getPointerElementType();
+  auto *S = STy->getPointerElementType();
+  if (!D->isSized() || !S->isSized() ||
+      DL.getTypeStoreSize(D) != DL.getTypeStoreSize(S))
     return false;
 
   // Value is dereferenced.
-  for (auto &U : cast<BitCastInst>(V)->uses()) {
+  for (auto &U : BC->uses()) {
     if (isa<LoadInst>(U.getUser()))
       continue;
     else if (auto *S = dyn_cast<StoreInst>(U.getUser()))
-      if (V == S->getPointerOperand())
+      if (BC == S->getPointerOperand())
         continue;
     return false;
   }
@@ -817,7 +917,7 @@ bool isSafeBitCast(const DataLayout &DL, const Value *V) {
 //    %ptr  = bitcast <type>** %0 to intptr_t*
 //    %ival = load %ptr
 //    %val  = inttoptr %ival to <type>*
-bool isSafeIntToPtr(const DataLayout &DL, const Value *V) {
+inline bool isSafeIntToPtr(const DataLayout &DL, const Value *V) {
   auto *I2P = dyn_cast<IntToPtrInst>(V);
   if (!I2P || I2P->getAddressSpace())
     return false;
@@ -847,7 +947,7 @@ bool isSafeIntToPtr(const DataLayout &DL, const Value *V) {
 //  %ptr = bitcast %base* to <some type>*
 //  store <val> %ptr,
 // where <val> has size of first field.
-bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
+inline bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
   if (!isa<BitCastInst>(V))
     return false;
 
@@ -879,321 +979,10 @@ bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
 
   return true;
 }
-} // namespace
-
-namespace llvm {
-namespace dtrans {
-namespace soatoaos {
-// Class performing actual computations of Dep.
-// Suitable for analysis of methods (Method field) of
-// class (ClassType field).
-//
-// Exposes memory accesses and calls with emphasis on accesses to ClassType
-// fields.
-//
-// Encapsulates short-living state.
-//
-// Lit-tests can be written with SOAToAOSApproximationDebug pass.
-class DepCompute {
-  const DTransAnalysisInfo &DTInfo;
-  const DataLayout &DL;
-  const TargetLibraryInfo &TLI;
-  const Function *Method;
-  const StructType *ClassType;
-
-  // Output of computeDepApproximation.
-  DepMap &DM;
-
-  const Dep *computeValueDep(const Value *Val) {
-    auto DIt = DM.ValDependencies.find(Val);
-    if (DIt != DM.ValDependencies.end())
-      return DIt->second;
-
-    if (isa<Constant>(Val))
-      return Dep::mkConst(DM);
-
-    if (!isa<Instruction>(Val))
-      return Dep::mkBottom(DM);
-
-    if (!arith_inst_dep_iterator::isSupportedOpcode(
-            cast<Instruction>(Val)->getOpcode()))
-      return Dep::mkBottom(DM);
-
-    auto ClassTy = ClassType;
-    auto IsFieldAccessGEP = [ClassTy](const Value *V) -> unsigned {
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
-        if (GEP->getPointerOperand()->getType()->getPointerElementType() ==
-            ClassTy)
-          if (GEP->hasAllConstantIndices() && GEP->getNumIndices() == 2 &&
-              cast<Constant>(*GEP->idx_begin())->isZeroValue())
-            return cast<Constant>(*(GEP->idx_begin() + 1))
-                ->getUniqueInteger()
-                .getLimitedValue();
-      return -1U;
-    };
-
-    const Dep *ValRep = nullptr;
-    // Find closure for dependencies. SCC returned in post order.
-    for (auto SCCIt = scc_begin(ArithDepGraph<const Value *>(Val));
-         !SCCIt.isAtEnd(); ++SCCIt) {
-
-      // Get first instruction in SCC.
-      auto DIt = DM.ValDependencies.find(*SCCIt->begin());
-      if (DIt != DM.ValDependencies.end()) {
-        ValRep = DIt->second;
-        assert(all_of(*SCCIt,
-                      [this, ValRep](const Value *V) -> bool {
-                        return DM.ValDependencies.find(V)->second == ValRep;
-                      }) &&
-               "Incorrect SCC traversal");
-        continue;
-      } else if (!arith_inst_dep_iterator::isSupportedOpcode(
-                     cast<Instruction>(*SCCIt->begin())->getOpcode()))
-        return Dep::mkBottom(DM);
-
-      Dep::Container Args;
-      for (auto *Inst : const_scc_arith_inst_dep_iterator::deps(*SCCIt)) {
-        auto DIt = DM.ValDependencies.find(Inst);
-        if (DIt == DM.ValDependencies.end()) {
-          Args.clear();
-          Args.insert(Dep::mkBottom(DM));
-          break;
-        }
-        Args.insert(DIt->second);
-      }
-
-      const Dep *ThisRep = nullptr;
-      if ((*SCCIt).size() > 1) {
-        if (Args.size() == 0)
-          Args.insert(Dep::mkConst(DM));
-        ThisRep = Dep::mkFunction(DM, Args);
-      } else {
-        unsigned FieldInd = IsFieldAccessGEP(*(*SCCIt).begin());
-
-        auto *V = *(*SCCIt).begin();
-        if (isSafeBitCast(DL, V) || isSafeIntToPtr(DL, V))
-          ThisRep = Dep::mkArgList(DM, Args);
-        else if (isBitCastLikeGep(DL, V))
-          ThisRep = Dep::mkGEP(DM, Dep::mkNonEmptyArgList(DM, Args), 0);
-        else if (FieldInd != -1U && Args.size() != 0)
-          ThisRep = Dep::mkGEP(DM, Dep::mkNonEmptyArgList(DM, Args), FieldInd);
-        else if (Args.size() == 0)
-          ThisRep = Dep::mkConst(DM);
-        else
-          ThisRep = Dep::mkFunction(DM, Args);
-      }
-
-      for (auto *V : *SCCIt)
-        DM.ValDependencies[V] = ThisRep;
-
-      // Last SCC corresponds to Val.
-      ValRep = ThisRep;
-    }
-    assert(ValRep && "Invalid logic of computeValueDep");
-    return ValRep;
-  }
-
-public:
-  DepCompute(const DTransAnalysisInfo &DTInfo,
-             // Need to compare pointers and integers of pointer size
-             const DataLayout &DL,
-             // Need to check free/malloc
-             const TargetLibraryInfo &TLI,
-             // Method to analyse.
-             const Function *Method,
-             // Class type of Method.
-             const StructType *ClassType, DepMap &DM)
-      : DTInfo(DTInfo), DL(DL), TLI(TLI), Method(Method), ClassType(ClassType),
-        DM(DM) {}
-
-  void computeDepApproximation(
-      std::function<bool(const Function *)> IsKnownCallCheck) {
-
-    assert(IsKnownCallCheck(Method) &&
-           "Unexpected predicate passed to computeDepApproximation");
-
-    SmallVector<const Instruction *, 32> Sinks;
-    // This set is needed, because there could be multiple traversals starting
-    // from different Sinks.
-    SmallPtrSet<const Value *, 32> Visited;
-
-    for (auto &Arg : Method->args())
-      DM.ValDependencies[&Arg] = Dep::mkArg(DM, &Arg);
-
-    for (auto &I : instructions(*Method))
-      if (I.hasNUses(0))
-        Sinks.push_back(&I);
-
-    for (auto *S : Sinks)
-      // SCCs are returned in post-order, for example, first instruction is
-      // processed first. Graph of SCC is a tree with multiple edges between 2
-      // SCC nodes.
-      //
-      // It is expected that there is no cyclic dependencies involving
-      // instructions processed in the switch below, for example,
-      // pointer-chasing is prohibited:
-      //  t = A[0]
-      //  for ()
-      //    t = A[t]
-      //
-      // Restriction is related to use of scc_arith_inst_dep_iterator in
-      // computeValueDep: operands inside SCC are ignored.
-      for (auto SCCIt = scc_begin(AllDepGraph<const Value *>(S));
-           !SCCIt.isAtEnd(); ++SCCIt) {
-
-        // SCC should is processed in all-or-nothing way.
-        if (Visited.find(*SCCIt->begin()) != Visited.end())
-          continue;
-
-        for (auto *I : *SCCIt) {
-          assert(Visited.find(I) == Visited.end() &&
-                 "Traversal logic is broken");
-          Visited.insert(I);
-        }
-
-        for (auto *PtrI : *SCCIt) {
-          if (isa<Argument>(PtrI))
-            continue;
-          auto &I = cast<Instruction>(*PtrI);
-          // Value dependencies involving pure arithmetic are computed on
-          // demand.
-          if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode())) {
-            continue;
-          }
-
-          const Dep *Rep = nullptr;
-          switch (I.getOpcode()) {
-          case Instruction::Load:
-            if (cast<LoadInst>(I).isVolatile()) {
-              Rep = Dep::mkBottom(DM);
-              break;
-            }
-            Rep = Dep::mkLoad(
-                DM, computeValueDep(cast<LoadInst>(I).getPointerOperand()));
-            break;
-          case Instruction::Store:
-            if (cast<StoreInst>(I).isVolatile()) {
-              Rep = Dep::mkBottom(DM);
-              break;
-            }
-            Rep = Dep::mkStore(
-                DM, computeValueDep(cast<StoreInst>(I).getValueOperand()),
-                computeValueDep(cast<StoreInst>(I).getPointerOperand()));
-            break;
-          case Instruction::Unreachable:
-            Rep = Dep::mkConst(DM);
-            break;
-          case Instruction::Ret:
-            if (I.getNumOperands() == 0)
-              Rep = Dep::mkConst(DM);
-            else
-              // Did not introduce Ret special kind.
-              Rep = computeValueDep(I.getOperand(0));
-            break;
-          case Instruction::Resume:
-            Rep = computeValueDep(I.getOperand(0));
-            break;
-          case Instruction::LandingPad: {
-            auto &LP = cast<LandingPadInst>(I);
-            bool Supported = true;
-            for (unsigned I = 0, E = LP.getNumClauses(); I != E; ++I)
-              if (LP.isFilter(I)) {
-                Supported = false;
-                break;
-              }
-
-            if (!Supported) {
-              Rep = Dep::mkBottom(DM);
-              break;
-            }
-            // Explicitly embedded CFG.
-            Dep::Container Preds;
-            for (auto *BB : predecessors(I.getParent()))
-              Preds.insert(computeValueDep(BB->getTerminator()));
-
-            Rep = Dep::mkNonEmptyArgList(DM, Preds);
-            break;
-          }
-          case Instruction::Br: {
-            if (cast<BranchInst>(I).isConditional())
-              Rep = computeValueDep(cast<BranchInst>(I).getCondition());
-            else
-              Rep = Dep::mkConst(DM);
-            break;
-          }
-          case Instruction::Invoke:
-          case Instruction::Call: {
-            if (auto *M = dyn_cast<MemSetInst>(&I)) {
-              Dep::Container Special;
-              Special.insert(computeValueDep(M->getRawDest()));
-              Special.insert(computeValueDep(M->getLength()));
-              Rep = Dep::mkStore(DM, computeValueDep(M->getValue()),
-                                 Dep::mkNonEmptyArgList(DM, Special));
-              break;
-            }
-
-            SmallPtrSet<const Value *, 3> Args;
-            auto *Info = DTInfo.getCallInfo(&I);
-            if (Info) {
-              if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
-                auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
-                collectSpecialAllocArgs(AK, ImmutableCallSite(&I), Args, TLI);
-              } else if (Info->getCallInfoKind() ==
-                         dtrans::CallInfo::CIK_Free) {
-                auto FK = cast<FreeCallInfo>(Info)->getFreeKind();
-                collectSpecialFreeArgs(FK, ImmutableCallSite(&I), Args, TLI);
-              } else {
-                Rep = Dep::mkBottom(DM);
-                break;
-              }
-            }
-
-            Dep::Container Special;
-            Dep::Container Remaining;
-            for (auto &Op : I.operands()) {
-              // CFG is processed separately.
-              if (isa<BasicBlock>(Op.get()))
-                continue;
-              if (Args.count(Op.get()))
-                Special.insert(computeValueDep(Op.get()));
-              else
-                Remaining.insert(computeValueDep(Op.get()));
-            }
-
-            auto *F =
-                dyn_cast<Function>(ImmutableCallSite(&I).getCalledValue());
-
-            if (Info)
-              // Relying on check that Realloc is forbidden.
-              Rep = Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc
-                        ? Dep::mkAlloc(DM, Dep::mkNonEmptyArgList(DM, Special),
-                                       Dep::mkArgList(DM, Remaining))
-                        : Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
-                                      Dep::mkArgList(DM, Remaining));
-            else
-              Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
-                                F && IsKnownCallCheck(F));
-            break;
-          }
-          default:
-            Rep = Dep::mkBottom(DM);
-            break;
-          }
-
-          assert(Rep && "Invalid switch in computeDepApproximation");
-          if (Rep->isBottom() && DTransSOAToAOSComputeAllDep)
-            return;
-          DM.ValDependencies[&I] = Rep;
-        }
-      }
-  }
-};
 } // namespace soatoaos
 } // namespace dtrans
-} // namespace llvm
 
 // DenseMapInfo<Dep *> specialization.
-namespace llvm {
 Dep *DenseMapInfo<Dep *>::getEmptyKey() { return &Dep::Empty; }
 Dep *DenseMapInfo<Dep *>::getTombstoneKey() { return &Dep::Tombstone; }
 unsigned DenseMapInfo<Dep *>::getHashValue(CPtr Ptr) {
@@ -1204,339 +993,4 @@ bool DenseMapInfo<Dep *>::isEqual(CPtr LHS, CPtr RHS) {
 }
 } // namespace llvm
 
-namespace llvm {
-namespace dtrans {
-namespace soatoaos {
-
-// Various idioms relying on checks of Dep.
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Deterministic order for "const Dep *"
-struct DepCmp {
-  bool operator()(const Dep *A, const Dep *B) const {
-    assert((A != B) == (A->Id != B->Id) &&
-           "Dep's in DepManager should be comparable by Id");
-    return A->Id < B->Id;
-  }
-};
-
-void Dep::print(raw_ostream &OS, unsigned Indent, unsigned ClosingParen) const {
-  auto EOL = [&OS](unsigned ClosingParen) -> void {
-    for (unsigned I = 0; I < ClosingParen; ++I)
-      OS << ")";
-    OS << "\n";
-  };
-  switch (Kind) {
-  case DK_Bottom:
-    OS << "Unknown Dep";
-    EOL(ClosingParen);
-    break;
-  case DK_Argument:
-    OS << "Arg " << Const;
-    EOL(ClosingParen);
-    break;
-  case DK_Const:
-    OS << "Const";
-    EOL(ClosingParen);
-    break;
-  case DK_Store:
-    OS << "Store(";
-    Arg1->print(OS, Indent + 6, 1);
-    OS << "; ";
-    OS.indent(Indent + 5);
-    OS << "(";
-    Arg2->print(OS, Indent + 6, ClosingParen + 1);
-    break;
-  case DK_Load:
-    OS << "Load(";
-    Arg1->print(OS, Indent + 5, ClosingParen + 1);
-    break;
-  case DK_GEP:
-    OS << "GEP(";
-    Arg2->print(OS, Indent + 4, 1);
-    OS << "; ";
-    OS.indent(Indent + 4);
-    OS << Const;
-    EOL(ClosingParen);
-    break;
-  case DK_Alloc:
-    OS << "Alloc size(";
-    Arg1->print(OS, Indent + 11, 1);
-    OS << "; ";
-    OS.indent(Indent + 10);
-    OS << "(";
-    Arg2->print(OS, Indent + 11, ClosingParen + 1);
-    break;
-  case DK_Free:
-    OS << "Free ptr(";
-    Arg1->print(OS, Indent + 9, 1);
-    OS << "; ";
-    OS.indent(Indent + 8);
-    OS << "(";
-    Arg2->print(OS, Indent + 9, ClosingParen + 1);
-    break;
-  case DK_Call:
-    if (Const) {
-      OS << "Unknown call (";
-      Arg2->print(OS, Indent + 14, ClosingParen + 1);
-    } else {
-      OS << "Known call (";
-      Arg2->print(OS, Indent + 12, ClosingParen + 1);
-    }
-    break;
-  case DK_Function: {
-    OS << "Func(";
-
-    std::set<const Dep *, DepCmp> Print;
-    Print.insert(Args->begin(), Args->end());
-
-    for (auto I = Print.begin(), E = Print.end(); I != E; ++I) {
-      if (I != Print.begin()) {
-        OS << "; ";
-        OS.indent(Indent + 4);
-        OS << "(";
-      }
-      auto T = I;
-      ++T;
-      if (T == Print.end())
-        (*I)->print(OS, Indent + 5, ClosingParen + 1);
-      else
-        (*I)->print(OS, Indent + 5, 1);
-    }
-    break;
-  }
-  case DK_Empty:
-  case DK_Tomb: {
-    OS << "\n ERROR: Special Kind encountered\n";
-    break;
-  }
-  }
-}
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-} // namespace soatoaos
-} // namespace dtrans
-} // namespace llvm
-
-namespace {
-// Utility class, see comments for static methods.
-//
-// We are relying that memory is not initialized before ctor, and all stores to
-// fields are observed in methods.
-class CtorDtorCheck {
-public:
-  // Checks whether 'this' argument of F points to non-initialized memory
-  // from memory allocation routine.
-  //
-  // Implementation: checks that 'this' is returned from malloc.
-  static inline bool isThisArgNonInitialized(const DTransAnalysisInfo &DTInfo,
-                                             const Function *F);
-  // Checks that 'this' argument is dead after a call to F,
-  // because it is passed to deallocation routine immediately after call to F.
-  //
-  // Implementation: checks that 'this' is used in free.
-  static inline bool isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
-                                     const TargetLibraryInfo &TLI,
-                                     const Function *F);
-
-  // Returns true if U is a pointer to memory passed to deallocation routine.
-  static inline bool isFreedPtr(const DTransAnalysisInfo &DTInfo,
-                                const TargetLibraryInfo &TLI, const Use &U) {
-
-    ImmutableCallSite CS(U.getUser());
-    if (!CS)
-      return false;
-
-    auto *Info = DTInfo.getCallInfo(CS.getInstruction());
-    if (!Info || Info->getCallInfoKind() != dtrans::CallInfo::CIK_Free)
-      return false;
-
-    SmallPtrSet<const Value *, 3> Args;
-    collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), CS, Args,
-                           TLI);
-    if (Args.size() != 1 || *Args.begin() != U.get())
-      return false;
-
-    return true;
-  }
-};
-
-bool CtorDtorCheck::isThisArgNonInitialized(const DTransAnalysisInfo &DTInfo,
-                                            const Function *F) {
-  // Simple wrappers only.
-  if (!F->hasOneUse())
-    return false;
-
-  ImmutableCallSite CS(F->use_begin()->getUser());
-  if (!CS)
-    return false;
-
-  auto *This = dyn_cast<Instruction>(CS.getArgument(0));
-  if (!This)
-    return false;
-
-  // Extract 'this' actual argument.
-  auto *Info = DTInfo.getCallInfo(cast<Instruction>(This->stripPointerCasts()));
-  if (!Info)
-    return false;
-
-  if (Info->getCallInfoKind() != dtrans::CallInfo::CIK_Alloc)
-    return false;
-
-  auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
-
-  // Malloc, New, UserMalloc are OK: they return non-initialized memory.
-  if (AK == AK_Calloc || AK == AK_Realloc || AK == AK_UserMalloc0)
-    return false;
-
-  return true;
-}
-
-bool CtorDtorCheck::isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
-                                    const TargetLibraryInfo &TLI,
-                                    const Function *F) {
-  // Simple wrappers only.
-  if (!F->hasOneUse())
-    return false;
-
-  ImmutableCallSite CS(F->use_begin()->getUser());
-  if (!CS)
-    return false;
-
-  auto *ThisArg = dyn_cast<Instruction>(CS.getArgument(0));
-  if (!ThisArg)
-    return false;
-
-  SmallPtrSet<const BasicBlock *, 2> DeleteBB;
-
-  bool HasSameBBDelete = false;
-  auto *BB = CS.getInstruction()->getParent();
-  for (auto &U : ThisArg->uses()) {
-    auto *V = &U;
-
-    // stripPointerCasts from def to single use.
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(V->getUser())) {
-      if (GEP->hasAllZeroIndices()) {
-        if (!GEP->hasOneUse())
-          return false;
-        V = &*GEP->use_begin();
-      }
-    } else if (auto *BC = dyn_cast<BitCastInst>(V->getUser())) {
-      if (!BC->hasOneUse())
-        return false;
-      V = &*BC->use_begin();
-    }
-
-    if (!isa<Instruction>(V->getUser()))
-      return false;
-
-    if (V->getUser() == CS.getInstruction())
-      continue;
-
-    auto *Inst = cast<Instruction>(V->getUser());
-    bool IsSameBB = Inst->getParent() == BB;
-    // If V follows CS in the same BB.
-    bool IsBBSucc = false;
-    if (IsSameBB) {
-      IsBBSucc = std::find_if(CS.getInstruction()->getIterator(), BB->end(),
-                              [Inst](const Instruction &I) -> bool {
-                                return &I == Inst;
-                              }) != BB->end();
-      // Uses before F's call are not relevant.
-      if (!IsBBSucc)
-        continue;
-    }
-
-    if (isFreedPtr(DTInfo, TLI, *V)) {
-      if (IsSameBB && IsBBSucc) {
-        HasSameBBDelete = true;
-        continue;
-      }
-      DeleteBB.insert(Inst->getParent());
-    }
-    // Do not complicate analysis of successors.
-    else if (find(successors(BB), Inst->getParent()) != succ_end(BB))
-      return false;
-  }
-
-  // Simple CFG handling: all successors should contain delete.
-  if (!HasSameBBDelete && !all_of(successors(CS.getInstruction()->getParent()),
-                                  [&DeleteBB](const BasicBlock *BB) -> bool {
-                                    return DeleteBB.find(BB) != DeleteBB.end();
-                                  }))
-    return false;
-
-  return true;
-}
-} // namespace
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-namespace {
-// Structure name to use in SOAToAOSApproximationDebug.
-static cl::opt<std::string> DTransSOAToAOSApproxTypename(
-    "dtrans-soatoaos-approx-typename", cl::init(""), cl::ReallyHidden,
-    cl::desc("Structure name for SOAToAOSApproximationDebug"));
-
-// Calls to mark as known in SOAToAOSApproximationDebug.
-static cl::list<std::string>
-    DTransSOAToAOSApproxKnown("dtrans-soatoaos-approx-known-func",
-                              cl::ReallyHidden);
-} // namespace
-
-namespace llvm {
-using namespace dtrans::soatoaos;
-
-char SOAToAOSApproximationDebug::PassID;
-
-// Provide a definition for the static class member used to identify passes.
-AnalysisKey SOAToAOSApproximationDebug::Key;
-
-struct SOAToAOSApproximationDebugResult : public DepMap {};
-
-SOAToAOSApproximationDebug::Ignore::Ignore(
-    SOAToAOSApproximationDebugResult *Ptr)
-    : Ptr(Ptr) {}
-SOAToAOSApproximationDebug::Ignore::Ignore(Ignore &&Other)
-    : Ptr(std::move(Other.Ptr)) {}
-const SOAToAOSApproximationDebugResult *
-SOAToAOSApproximationDebug::Ignore::get() const {
-  return Ptr.get();
-}
-SOAToAOSApproximationDebug::Ignore::~Ignore() {}
-
-SOAToAOSApproximationDebug::Ignore
-SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
-  const ModuleAnalysisManager &MAM =
-      AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
-  auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
-  auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
-
-  std::unique_ptr<SOAToAOSApproximationDebugResult> Result(
-      new SOAToAOSApproximationDebugResult());
-  StructType *ClassType =
-      F.getParent()->getTypeByName(DTransSOAToAOSApproxTypename);
-
-  if (!ClassType)
-    return Ignore(Result.release());
-
-  std::function<bool(const Function *)> IsKnown =
-      [&F](const Function *Func) -> bool {
-    return Func == &F || find(DTransSOAToAOSApproxKnown, Func->getName()) !=
-                             DTransSOAToAOSApproxKnown.end();
-  };
-
-  // Do analysis.
-  DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), *TLI, &F, ClassType,
-                // *Result is filled-in.
-                *Result);
-  DC.computeDepApproximation(IsKnown);
-
-  // Dump results of analysis.
-  DEBUG_WITH_TYPE(DTRANS_SOADEP, {
-    dbgs() << "; Dump computed dependencies ";
-    DepMap::DepAnnotatedWriter Annotate(*Result);
-    F.print(dbgs(), &Annotate);
-  });
-  return Ignore(Result.release());
-}
-} // namespace llvm
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_DTRANS_TRANSFORMS_SOATOAOSEFFECTS_H

@@ -1776,8 +1776,8 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   Constant *StructInit = ConstantStruct::get(
       IdentTy, {ValueZero, ValueFlags, ValueZero, ValueZero, LocStringPtr});
   GlobalVariable *KmpcLoc = new GlobalVariable(
-      *M, IdentTy, true, GlobalValue::PrivateLinkage, StructInit,
-      ".kmpc_loc." + Twine(SLine) + "." + Twine(ELine));
+      *M, IdentTy, /*isConstant=*/false, GlobalValue::PrivateLinkage,
+      StructInit, ".kmpc_loc." + Twine(SLine) + "." + Twine(ELine));
   // Allows merging of variables with same content.
   KmpcLoc->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 

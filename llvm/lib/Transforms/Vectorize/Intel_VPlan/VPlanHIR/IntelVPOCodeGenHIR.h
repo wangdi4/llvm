@@ -63,14 +63,6 @@ public:
   // count loops
   uint64_t getTripCount() const { return TripCount; }
 
-  // Return true if \p Ref is a constant stride reference at loop
-  // nesting level \p Level. Return stride coefficient in \p CoeffPtr
-  // if not null.
-  static bool isConstStrideRef(const RegDDRef *Ref, unsigned Level,
-                               int64_t *CoeffPtr = nullptr);
-
-  static bool refIsUnit(const HLLoop *HLoop, const RegDDRef *Ref);
-
   Function &getFunction() const { return Fn; }
   HLLoop *getMainLoop() const { return MainLoop; }
   int getVF() const { return VF; };
@@ -149,6 +141,12 @@ public:
       return nullptr;
   }
 
+  void addUnitStrideRef(const RegDDRef *Ref) { UnitStrideRefSet.insert(Ref); }
+
+  bool isUnitStrideRef(const RegDDRef *Ref) {
+    return UnitStrideRefSet.count(Ref);
+  }
+
   // Widen Ref if needed and return the widened ref.
   RegDDRef *widenRef(const RegDDRef *Ref);
 
@@ -200,6 +198,9 @@ private:
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
+
+  // Set of unit-stride Refs
+  SmallPtrSet<const RegDDRef *, 4> UnitStrideRefSet;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }

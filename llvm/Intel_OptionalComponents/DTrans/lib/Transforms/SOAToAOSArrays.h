@@ -1,4 +1,4 @@
-//===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass ------------===//
+//===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -8,12 +8,31 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements iterators and other helper classes for
-// SOAToAOSTransformImpl::CandidateSideEffectsInfo included to SOAToAOSPass.cpp
-// only. This file is for analysis of arrays' methods and transformation of
-// those.
+// This file implements functionality related specifically to array structures
+// for SOA-to-AOS: method analysis and transformations.
 //
 //===----------------------------------------------------------------------===//
+
+#ifndef INTEL_DTRANS_TRANSFORMS_SOATOAOSARRAYS_H
+#define INTEL_DTRANS_TRANSFORMS_SOATOAOSARRAYS_H
+
+#if !INTEL_INCLUDE_DTRANS
+#error SOAToAOSArrays.h include in an non-INTEL_INCLUDE_DTRANS build.
+#endif
+
+#include "SOAToAOSEffects.h"
+
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/Support/FormattedStream.h"
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// ComputeArrayMethodClassification
+#define DTRANS_SOAARR "dtrans-soatoaos-arrays"
 
 namespace llvm {
 namespace dtrans {
@@ -633,7 +652,7 @@ enum MethodKind {
   MK_GetInteger,
   // Parameters are 'this' and integer index
   // Returns pointer to some element. Need to check for immediate
-  // dereference.
+  // dereference. Or returns element by value.
   // Should NOT be combined.
   MK_GetElement,
 
@@ -641,7 +660,7 @@ enum MethodKind {
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-raw_ostream &operator<<(raw_ostream &OS, MethodKind MK) {
+inline raw_ostream &operator<<(raw_ostream &OS, MethodKind MK) {
   switch (MK) {
   case MK_Unknown:
     OS << "Unknown kind";
@@ -675,12 +694,34 @@ raw_ostream &operator<<(raw_ostream &OS, MethodKind MK) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-
+// It is expected that array do not change layout, only base pointers are
+// adjusted.
+// See comments for ArrayIdioms for details regarding analysis of arrays'
+// methods.
 class ComputeArrayMethodClassification : public ArrayIdioms {
+public:
+  using InstContainer = SmallSet<const Instruction *, 5>;
+
+  struct TransformationData {
+    // Loads/stores of elements, memset instructions.
+    // These are instructions, which need address update and possibly
+    // duplication.
+    InstContainer ElementInstToTransform;
+    // Load of elements from arg.
+    // These are instructions, which may require duplication in combined
+    // methods.
+    InstContainer ElementFromArg;
+    // Base pointer manipulations. Loads/stores, allocation calls.
+    InstContainer BasePtrInst;
+    // GEP and Phi instructions to modify for store/loads/ret instructions in
+    // ElementInstToTransform.
+    InstContainer ElementPtrGEP;
+  };
+
+private:
   // Derivation of MethodKind from analysis in checkMethod.
   struct MethodClassification {
     // MK_Append only.
-    bool HasMethodCall = false;
     // Call to method, should be classified as MK_Realloc
     const Function *CalledMethod = nullptr;
     // MK_Get* cannot have stores to any instances of ArrType.
@@ -694,7 +735,8 @@ class ComputeArrayMethodClassification : public ArrayIdioms {
     // ArrayIdioms::isBasePtrInitFromNewMemory
     bool HasBasePtrInitFromNewMemory = false;
     // MK_GetElement
-    bool ReturnsElementAddr = false;
+    // Address to element or element value is returned.
+    bool ReturnsElement = false;
     // MK_Append
     // MK_Set
     // ArrayIdioms::isElementValueFromArg
@@ -719,7 +761,7 @@ class ComputeArrayMethodClassification : public ArrayIdioms {
       if (!HasStores && !HasBasePtrFree && !HasBasePtrInitFromNewMemory) {
         if (ReturnsIntField)
           return MK_GetInteger;
-        if (ReturnsElementAddr)
+        if (ReturnsElement)
           return MK_GetElement;
         return MK_Unknown;
       }
@@ -782,27 +824,63 @@ class ComputeArrayMethodClassification : public ArrayIdioms {
   // The check is needed for transformation:
   //  base pointers for arrays are merged to single one and elements are
   //  interleaved.
-  bool checkElementAccess(const Value *Address) const {
-    if (isSafeBitCast(DL, Address)) {
+  bool checkElementAccess(const Value *Address, const char *Desc) const {
+    if (isSafeBitCast(DL, Address))
       Address = cast<BitCastInst>(Address)->getOperand(0);
-    }
 
     Type *PTy = Address->getType();
 
     if (!isa<PointerType>(PTy) || PTy->getPointerElementType() != S.ElementType)
       return false;
 
-    auto *GEP = dyn_cast<GetElementPtrInst>(Address);
-    // Access should be structured.
-    if (!GEP || GEP->getNumIndices() != 1)
+    if (!isa<Instruction>(Address))
       return false;
 
-    const Dep *DO =
-        DM.getApproximation(GEP->getPointerOperand()->stripPointerCasts());
+    auto *IAddr = cast<Instruction>(Address);
+    if (!all_inst_dep_iterator::isSupportedOpcode(IAddr->getOpcode()))
+      return false;
 
-    // Base is direct access of base pointer in array structure,
-    // or value returned from allocation.
-    return ArrayIdioms::isBasePointerLoad(DO, S) || ArrayIdioms::isAlloc(DO, S);
+    SmallSet<const Value *, 10> GEPs;
+
+    // Check SCC containing GEPs and PHIs only.
+    // For practical purpose po-traversal is sufficient here.
+    //
+    // Sources of the traversed graphs are loads of base pointers and
+    // newly allocated memory.
+    for (auto SCCIt = scc_begin(GEPDepGraph<const Value *>(IAddr));
+         !SCCIt.isAtEnd(); ++SCCIt) {
+
+      for (auto *V : *SCCIt) {
+        auto *I = dyn_cast<Instruction>(V);
+        if (!I)
+          return false;
+
+        if (!gep_inst_dep_iterator::isSupportedOpcode(
+                cast<Instruction>(I)->getOpcode())) {
+          const Dep *DO = DM.getApproximation(V->stripPointerCasts());
+          // Base is direct access of base pointer in array structure,
+          // or value returned from allocation.
+          if (!ArrayIdioms::isBasePointerLoad(DO, S) &&
+              !ArrayIdioms::isAlloc(DO, S))
+            return false;
+        } else {
+          TI.ElementPtrGEP.insert(I);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+          InstDesc[I] = std::string("MemInstGEP: ") + Desc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+          auto *GEP = dyn_cast<GetElementPtrInst>(V);
+          if (!GEP) {
+            assert(isa<PHINode>(V) && "Check GEPInstructionsTrait");
+            continue;
+          }
+          // Access should be structured.
+          if (GEP->getNumIndices() != 1)
+            return false;
+        }
+      }
+    }
+    return true;
   }
 
   // Checks for structured memset.
@@ -842,270 +920,615 @@ class ComputeArrayMethodClassification : public ArrayIdioms {
   const DepMap &DM;
   const SummaryForIdiom &S;
 
+  // Information computed for transformation.
+  TransformationData &TI;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  mutable DenseMap<const Instruction *, std::string> InstDesc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  // Wrapper for checkElementAccess, stores instruction and address for
+  // transformation and duplication.
+  bool checkElementAccessForTransformation(const Instruction *I,
+                                           const char *Desc) const {
+    assert((isa<LoadInst>(I) || isa<StoreInst>(I) || isa<MemSetInst>(I)) &&
+           "Only loads/stores supported");
+
+    const Value *Address = nullptr;
+    if (auto *L = dyn_cast<LoadInst>(I))
+      Address = L->getPointerOperand();
+    else if (auto *S = dyn_cast<StoreInst>(I))
+      Address = S->getPointerOperand();
+
+    if (Address) {
+      if (checkElementAccess(Address, Desc)) {
+        TI.ElementInstToTransform.insert(I);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        InstDesc[I] = std::string("MemInst: ") + Desc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        return true;
+      }
+    } else if (checkMemset(I)) {
+      TI.ElementInstToTransform.insert(I);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      InstDesc[I] = std::string("MemInst: ") + Desc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      return true;
+    }
+    return false;
+  }
+
+  void insertElementFromArg(const Instruction *I, const char *Desc) {
+    TI.ElementFromArg.insert(I);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    InstDesc[I] = std::string("Arg: ") + Desc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  }
+
+  void insertBasePtrInst(const Instruction *I, const char *Desc) {
+    TI.BasePtrInst.insert(I);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    InstDesc[I] = std::string("BasePtrInst: ") + Desc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  }
+
 public:
   ComputeArrayMethodClassification(const DataLayout &DL, const DepMap &DM,
-                                   const SummaryForIdiom &S)
-      : DL(DL), DM(DM), S(S) {}
+                                   const SummaryForIdiom &S,
+                                   // Results of analysis.
+                                   TransformationData &TI)
+      : DL(DL), DM(DM), S(S), TI(TI) {}
 
-  std::pair<MethodKind, const Function *> classify() const {
+  unsigned getTotal() const {
+    return TI.ElementInstToTransform.size() + TI.ElementFromArg.size() +
+           TI.BasePtrInst.size() + TI.ElementPtrGEP.size();
+  }
+
+  std::pair<MethodKind, const Function *> classify() {
     MethodClassification MC;
     bool Invalid = false;
 
-    for (auto &BB : *S.Method)
-      for (auto &I : BB) {
-        if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode()))
-          continue;
+    for (auto &I : instructions(*S.Method)) {
+      if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode()))
+        continue;
 
-        const Dep *D = DM.getApproximation(&I);
-        if (!D) {
-          assert(
-              !DTransSOAToAOSComputeAllDep &&
-              "Not synchronized ComputeArrayMethodClassification::classify and "
-              "DepCompute::computeDepApproximation");
-          return std::make_pair(MK_Unknown, nullptr);
-        }
-
-        if (D->isBottom() && !DTransSOAToAOSComputeAllDep)
-          Invalid = true;
-
-        if (Invalid && !DTransSOAToAOSComputeAllDep)
-          return std::make_pair(MK_Unknown, nullptr);
-
-        // Synchronized with DepCompute::computeDepApproximation
-        // For each opcode, there are different cases processed,
-        // if instruction is classified, then switch statement is exited,
-        // otherwise Handled is set and diagnostic printed.
-        bool Handled = true;
-        switch (I.getOpcode()) {
-
-        // Moved as first case for emphasis.
-
-        // Checking that all all DK_Function's control-flow-depend on integer
-        // fields and integer arguments.
-        case Instruction::Br:
-          if (!cast<BranchInst>(I).isConditional())
-            break;
-
-          // TODO: Extension: it is possible to have conditions to depend on
-          // element values if method is not combined.
-          if (ArrayIdioms::isDependentOnIntegerFieldsOnly(D, S))
-            break;
-          Handled = false;
-          break;
-
-        // Checking for loads are needed only to check
-        // valid accesses to elements. Otherwise, they are checked when
-        // stores/calls/returns/branches are checked
-        case Instruction::Load:
-          if (ArrayIdioms::isIntegerFieldLoad(D, S))
-            break;
-          else if (ArrayIdioms::isBasePointerLoad(D, S))
-            break;
-          else if (ArrayIdioms::isElementLoad(D, S)) {
-            if (checkElementAccess(cast<LoadInst>(I).getPointerOperand()))
-              break;
-            DEBUG_WITH_TYPE(DTRANS_SOADEP,
-                            dbgs() << "; Unsupported address computations\n");
-          } else if (ArrayIdioms::isMemoryInterfaceFieldLoad(D, S))
-            break;
-          else if (ArrayIdioms::isElementValueFromArg(D, S))
-            break;
-
-          Handled = false;
-          break;
-        case Instruction::Store:
-          MC.HasStores = true;
-
-          if (ArrayIdioms::isIntegerFieldCopyEx(D, S)) {
-            MC.HasFieldUpdate = true;
-            break;
-          } else if (ArrayIdioms::isElementCopy(D, S)) {
-            if (checkElementAccess(cast<StoreInst>(I).getPointerOperand()))
-              break;
-            DEBUG_WITH_TYPE(DTRANS_SOADEP,
-                            dbgs() << "; Unsupported address computations\n");
-          } else if (ArrayIdioms::isElementStoreToNewMemory(D, S)) {
-            if (checkElementAccess(cast<StoreInst>(I).getPointerOperand()))
-              break;
-            DEBUG_WITH_TYPE(DTRANS_SOADEP,
-                            dbgs() << "; Unsupported address computations\n");
-          } else if (ArrayIdioms::isElementSetFromArg(D, S)) {
-            if (checkElementAccess(cast<StoreInst>(I).getPointerOperand())) {
-              MC.HasElementSetFromArg = true;
-              break;
-            }
-            DEBUG_WITH_TYPE(DTRANS_SOADEP,
-                            dbgs() << "; Unsupported address computations\n");
-          } else if (ArrayIdioms::isBasePtrInitFromNewMemory(D, S)) {
-            MC.HasBasePtrInitFromNewMemory = true;
-            MC.HasFieldUpdate = true;
-
-            auto *VDep = DM.getApproximation(
-                cast<StoreInst>(I).getValueOperand()->stripPointerCasts());
-            if (ArrayIdioms::isAlloc(VDep, S))
-              break;
-            DEBUG_WITH_TYPE(
-                DTRANS_SOADEP,
-                dbgs() << "; Unsupported base pointer initialization\n");
-          } else if (ArrayIdioms::isMemoryInterfaceCopy(D, S) ||
-                     ArrayIdioms::isMemoryInterfaceSetFromArg(D, S)) {
-            MC.HasFieldUpdate = true;
-            break;
-          } else if (ArrayIdioms::isBasePtrInitFromConst(D, S)) {
-            if (auto *C =
-                    dyn_cast<Constant>(cast<StoreInst>(I).getValueOperand()))
-              if (C->isZeroValue()) {
-                MC.HasFieldUpdate = true;
-                break;
-              }
-          }
-          Handled = false;
-          break;
-        case Instruction::Unreachable:
-          break;
-        case Instruction::Ret:
-          if (I.getNumOperands() == 0)
-            break;
-
-          if (ArrayIdioms::isIntegerFieldLoad(D, S)) {
-            MC.ReturnsIntField = true;
-            break;
-          } else if (ArrayIdioms::isElementAddr(D, S)) {
-            MC.ReturnsElementAddr = true;
-            break;
-          }
-          Handled = false;
-          break;
-        case Instruction::LandingPad:
-          if (ArrayIdioms::isExternaSideEffect(D, S)) {
-            MC.HasExternalSideEffect = true;
-            break;
-          }
-          Handled = false;
-          break;
-        case Instruction::Resume:
-          if (ArrayIdioms::isExternaSideEffect(D, S)) {
-            MC.HasExternalSideEffect = true;
-            break;
-          }
-          Handled = false;
-          break;
-        case Instruction::Call:
-        case Instruction::Invoke:
-          if (ArrayIdioms::isKnownCall(D, S)) {
-            auto CS = ImmutableCallSite(&I);
-            if (checkMethodCall(CS)) {
-              MC.CalledMethod = cast<Function>(CS.getCalledValue());
-              break;
-            }
-          } else if (ArrayIdioms::isAlloc(D, S))
-            break;
-          else if (ArrayIdioms::isBasePtrFree(D, S)) {
-            // May want to check that pointer to deallocate is exactly
-            // load of base pointer.
-            MC.HasBasePtrFree = true;
-            break;
-          } else if (ArrayIdioms::isNewMemoryInit(D,
-                                                  S)) { // Corresponds to memset
-            if (checkMemset(&I))
-              break;
-            DEBUG_WITH_TYPE(DTRANS_SOADEP,
-                            dbgs() << "; Unsupported memory initialization\n");
-          } else if (ArrayIdioms::isExternaSideEffect(D, S)) {
-            MC.HasExternalSideEffect = true;
-            break;
-          }
-          Handled = false;
-          break;
-        default:
-          Handled = false;
-          break;
-        }
-
-        if (!Handled) {
-          DEBUG_WITH_TYPE(DTRANS_SOADEP, {
-            dbgs() << "; Unhandled " << I << "\n";
-            D->dump();
-          });
-          Invalid = true;
-        }
+      const Dep *D = DM.getApproximation(&I);
+      if (!D) {
+        assert(
+            !DTransSOAToAOSComputeAllDep &&
+            "Not synchronized ComputeArrayMethodClassification::classify and "
+            "DepCompute::computeDepApproximation");
+        return std::make_pair(MK_Unknown, nullptr);
       }
+
+      if (D->isBottom() && !DTransSOAToAOSComputeAllDep)
+        Invalid = true;
+
+      if (Invalid && !DTransSOAToAOSComputeAllDep)
+        return std::make_pair(MK_Unknown, nullptr);
+
+      // Synchronized with DepCompute::computeDepApproximation
+      // For each opcode, there are different cases processed,
+      // if instruction is classified, then switch statement is exited,
+      // otherwise Handled is set and diagnostic printed.
+      bool Handled = true;
+      switch (I.getOpcode()) {
+
+      // Moved as the first case for emphasis.
+
+      // Checking that all all DK_Function's control-flow-depend on integer
+      // fields and integer arguments.
+      case Instruction::Br:
+        if (!cast<BranchInst>(I).isConditional())
+          break;
+
+        if (ArrayIdioms::isDependentOnIntegerFieldsOnly(D, S))
+          break;
+        // No need to perform accurate check is done for load instruction
+        else if (ArrayIdioms::isElementLoad(D, S)) {
+          MC.HasExternalSideEffect = true;
+          break;
+        }
+        Handled = false;
+        break;
+
+      // Checking for loads are needed only to check
+      // valid accesses to elements. Otherwise, they are checked when
+      // stores/calls/returns/branches are checked
+      case Instruction::Load:
+        if (ArrayIdioms::isIntegerFieldLoad(D, S))
+          break;
+        else if (ArrayIdioms::isBasePointerLoad(D, S)) {
+          insertBasePtrInst(&I, "Load of base pointer");
+          break;
+        } else if (ArrayIdioms::isElementLoad(D, S)) {
+          if (checkElementAccessForTransformation(&I, "Element load"))
+            break;
+          DEBUG_WITH_TYPE(DTRANS_SOAARR,
+                          dbgs() << "; Unsupported address computations\n");
+        } else if (ArrayIdioms::isMemoryInterfaceFieldLoad(D, S))
+          break;
+        else if (ArrayIdioms::isElementValueFromArg(D, S)) {
+          insertElementFromArg(&I, "Load from arg");
+          break;
+        }
+
+        Handled = false;
+        break;
+      case Instruction::Store:
+        MC.HasStores = true;
+
+        if (ArrayIdioms::isIntegerFieldCopyEx(D, S)) {
+          MC.HasFieldUpdate = true;
+          break;
+        } else if (ArrayIdioms::isElementCopy(D, S)) {
+          if (checkElementAccessForTransformation(&I, "Element copy"))
+            break;
+          DEBUG_WITH_TYPE(DTRANS_SOAARR,
+                          dbgs() << "; Unsupported address computations\n");
+        } else if (ArrayIdioms::isElementStoreToNewMemory(D, S)) {
+          if (checkElementAccessForTransformation(&I,
+                                                  "Element store to new mem"))
+            break;
+          DEBUG_WITH_TYPE(DTRANS_SOAARR,
+                          dbgs() << "; Unsupported address computations\n");
+        } else if (ArrayIdioms::isElementSetFromArg(D, S)) {
+          if (checkElementAccessForTransformation(&I, "Element set from arg")) {
+            MC.HasElementSetFromArg = true;
+            break;
+          }
+          DEBUG_WITH_TYPE(DTRANS_SOAARR,
+                          dbgs() << "; Unsupported address computations\n");
+        } else if (ArrayIdioms::isBasePtrInitFromNewMemory(D, S)) {
+          MC.HasBasePtrInitFromNewMemory = true;
+          MC.HasFieldUpdate = true;
+
+          auto *VDep = DM.getApproximation(
+              cast<StoreInst>(I).getValueOperand()->stripPointerCasts());
+          if (ArrayIdioms::isAlloc(VDep, S)) {
+            insertBasePtrInst(&I, "Init base pointer with allocated memory");
+            break;
+          }
+          DEBUG_WITH_TYPE(DTRANS_SOAARR,
+                          dbgs()
+                              << "; Unsupported base pointer initialization\n");
+        } else if (ArrayIdioms::isMemoryInterfaceCopy(D, S) ||
+                   ArrayIdioms::isMemoryInterfaceSetFromArg(D, S)) {
+          MC.HasFieldUpdate = true;
+          break;
+        } else if (ArrayIdioms::isBasePtrInitFromConst(D, S)) {
+          if (auto *C =
+                  dyn_cast<Constant>(cast<StoreInst>(I).getValueOperand()))
+            if (C->isZeroValue()) {
+              MC.HasFieldUpdate = true;
+              insertBasePtrInst(&I, "Nullify base pointer");
+              break;
+            }
+        }
+        Handled = false;
+        break;
+      case Instruction::Unreachable:
+        break;
+      case Instruction::Ret:
+        if (I.getNumOperands() == 0)
+          break;
+
+        if (ArrayIdioms::isIntegerFieldLoad(D, S)) {
+          MC.ReturnsIntField = true;
+          break;
+        } else if (ArrayIdioms::isElementAddr(D, S)) {
+          MC.ReturnsElement = true;
+          if (checkElementAccess(I.getOperand(0), "Address in ret"))
+            break;
+        }
+        // Accurate check is done for load instruction
+        else if (ArrayIdioms::isElementLoad(D, S)) {
+          MC.ReturnsElement = true;
+          break;
+        }
+        Handled = false;
+        break;
+      case Instruction::LandingPad:
+        if (ArrayIdioms::isExternaSideEffect(D, S)) {
+          MC.HasExternalSideEffect = true;
+          break;
+        }
+        Handled = false;
+        break;
+      case Instruction::Resume:
+        if (ArrayIdioms::isExternaSideEffect(D, S)) {
+          MC.HasExternalSideEffect = true;
+          break;
+        }
+        Handled = false;
+        break;
+      case Instruction::Call:
+      case Instruction::Invoke:
+        if (ArrayIdioms::isKnownCall(D, S)) {
+          auto CS = ImmutableCallSite(&I);
+          if (checkMethodCall(CS)) {
+            MC.CalledMethod = cast<Function>(CS.getCalledValue());
+            break;
+          }
+        } else if (ArrayIdioms::isAlloc(D, S)) {
+          insertBasePtrInst(&I, "Allocation call");
+          break;
+        } else if (ArrayIdioms::isBasePtrFree(D, S)) {
+          // May want to check that pointer to deallocate is exactly
+          // load of base pointer.
+          MC.HasBasePtrFree = true;
+          break;
+        } else if (ArrayIdioms::isNewMemoryInit(D,
+                                                S)) { // Corresponds to memset
+          if (checkElementAccessForTransformation(&I, "Memset of elements"))
+            break;
+          DEBUG_WITH_TYPE(DTRANS_SOAARR,
+                          dbgs() << "; Unsupported memory initialization\n");
+        } else if (ArrayIdioms::isExternaSideEffect(D, S)) {
+          MC.HasExternalSideEffect = true;
+          break;
+        }
+        Handled = false;
+        break;
+      default:
+        Handled = false;
+        break;
+      }
+
+      if (!Handled) {
+        DEBUG_WITH_TYPE(DTRANS_SOAARR, {
+          dbgs() << "; Unhandled " << I << "\n";
+          D->dump();
+        });
+        Invalid = true;
+      }
+    }
     return std::make_pair(MC.classifyMethod(S.Method), MC.CalledMethod);
   }
-};
-} // namespace soatoaos
-} // namespace dtrans
-} // namespace llvm
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-namespace {
-// Offset of base pointer in DTransSOAToAOSApproxTypename.
-static cl::opt<unsigned> DTransSOAToAOSBasePtrOff(
-    "dtrans-soatoaos-base-ptr-off", cl::init(-1U), cl::ReallyHidden,
-    cl::desc("Base pointer offset in dtrans-soatoaos-approx-typename"));
+  class AnnotatedWriter : public AssemblyAnnotationWriter {
+    const ComputeArrayMethodClassification &MC;
 
-// Offset of memory interface in DTransSOAToAOSApproxTypename.
-static cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff(
-    "dtrans-soatoaos-mem-off", cl::init(-1U), cl::ReallyHidden,
-    cl::desc("Memory interface offset in dtrans-soatoaos-approx-typename"));
+  public:
+    AnnotatedWriter(const ComputeArrayMethodClassification &MC) : MC(MC) {
+      assert(MC.InstDesc.size() == MC.TI.ElementInstToTransform.size() +
+                                       MC.TI.ElementFromArg.size() +
+                                       MC.TI.BasePtrInst.size() +
+                                       MC.TI.ElementPtrGEP.size() &&
+             "Inconsistent descriptions");
+    }
 
-SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F) {
-  StructType *ClassType =
-      F.getParent()->getTypeByName(DTransSOAToAOSApproxTypename);
+    void emitInstructionAnnot(const Instruction *I,
+                              formatted_raw_ostream &OS) override {
+      auto It = MC.InstDesc.find(I);
+      if (It != MC.InstDesc.end())
+        OS << "; " << It->second << "\n";
+    }
+  };
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+};
 
-  SummaryForIdiom Failure(nullptr, nullptr, nullptr, nullptr);
+class ArrayMethodTransformation {
+public:
+  ArrayMethodTransformation(
+      const DataLayout &DL, DTransAnalysisInfo &DTInfo,
+      const TargetLibraryInfo &TLI, ValueToValueMapTy &VMap,
+      const ComputeArrayMethodClassification::TransformationData
+          &InstsToTransform,
+      LLVMContext &Context)
+      : DL(DL), DTInfo(DTInfo), TLI(TLI), VMap(VMap),
+        InstsToTransform(InstsToTransform), Context(Context) {}
 
-  if (!ClassType)
-    return Failure;
 
-  if (ClassType->getNumElements() <= DTransSOAToAOSBasePtrOff)
-    return Failure;
+  using OrigToCopyTy = DenseMap<Instruction *, Instruction *>;
 
-  auto *PBase = dyn_cast<PointerType>(
-      ClassType->getTypeAtIndex(DTransSOAToAOSBasePtrOff));
+  // Update instructions related to base pointer manipulations.
+  // There are several kind of instructions:
+  //  - load of base pointer;
+  //  - store of pointer allocated to base pointer field;
+  //  - zero initialization of base pointer;
+  //  - memory allocation for array.
+  //
+  // isSafeBitCast-idiom is processed for loads and stores.
+  void updateBasePointerInsts(bool IsCombined, int NumArrays,
+                              PointerType *NewBaseType) {
+    IRBuilder<> Builder(Context);
+    auto *PNewBaseType = PointerType::get(NewBaseType, 0);
 
-  if (!PBase)
-    return Failure;
+    auto &LDL = DL;
+    auto GetGEP = [&LDL](Value *V, bool &BC) -> GetElementPtrInst * {
+      BC = false;
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
+        return GEP;
+      if (isSafeBitCast(LDL, V)) {
+        BC = true;
+        return cast<GetElementPtrInst>(cast<BitCastInst>(V)->getOperand(0));
+      }
+      llvm_unreachable("Check DepCompute/ComputeArrayMethodClassification for "
+                       "counter peep-hole analysis");
+    };
 
-  StructType *MemoryInterface = nullptr;
-  if (ClassType->getNumElements() > DTransSOAToAOSMemoryInterfaceOff) {
-    auto *PMemInt = dyn_cast<PointerType>(
-      ClassType->getTypeAtIndex(DTransSOAToAOSMemoryInterfaceOff));
-    if (!PMemInt)
-      return Failure;
-    MemoryInterface = dyn_cast<StructType>(PMemInt->getPointerElementType());
+    for (auto *I : InstsToTransform.BasePtrInst) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base = laad %pelem*, %pelem** %base_off
+        //
+        // Special base with safe bitcast (to pass to deallocation function):
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %i8ptr = bitcast %pelem** %base_off to i8**
+        // %i8base = load i8*, i8** %i8ptr
+        bool BC = false;
+        auto *Addr = GetGEP(NewLoad->getPointerOperand(), BC);
+        Addr->mutateType(PNewBaseType);
+        Addr->setResultElementType(NewBaseType);
+        // No need to make type consistent if load has non-specific type.
+        if (!BC)
+          NewLoad->mutateType(NewBaseType);
+      } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
+        // Zero initialization of base pointer:
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // store %pelem* null, %pelem** %base_off
+        //
+        // Store of pointer to newly allocated memory to base pointer
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %new_mem  = bitbast %i8 %alloc to %pelem*
+        // store %pelem* %newmem, %pelem** %base_off
+        bool BC = false;
+        auto *Addr = GetGEP(NewStore->getPointerOperand(), BC);
+        Addr->mutateType(PNewBaseType);
+        Addr->setResultElementType(NewBaseType);
+        // No need to make type consistent if load has non-specific type.
+        if (!BC) {
+          auto *Val = NewStore->getValueOperand();
+          if (auto *C = dyn_cast<Constant>(Val)) {
+            assert(C->isZeroValue() && "Incorrect analysis");
+            NewStore->replaceUsesOfWith(C,
+                                        ConstantPointerNull::get(NewBaseType));
+          } else
+            Val->mutateType(NewBaseType);
+        }
+      } else if (auto CS = CallSite(NewI)) {
+        auto *Info = DTInfo.getCallInfo(NewI);
+        assert(Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc &&
+               "Incorrect analysis");
+
+        assert(IsCombined && "Incorrect analysis");
+        unsigned S1 = -1U;
+        unsigned S2 = -1U;
+        getAllocSizeArgs(cast<AllocCallInfo>(Info)->getAllocKind(), CS, S1, S2,
+                         TLI);
+        assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
+        auto *OldSize = S1 == -1U ? CS.getArgument(S2) : CS.getArgument(S1);
+        Builder.SetInsertPoint(NewI);
+        // Allocation size is multiplied by NumArrays to reserve sufficient
+        // space in AOS.
+        auto *NewSize = Builder.CreateTruncOrBitCast(
+            Builder.CreateNUWMul(
+                Builder.CreateZExtOrBitCast(OldSize, Builder.getIntPtrTy(DL, 0),
+                                            "nsz"),
+                ConstantInt::get(Builder.getIntPtrTy(DL, 0), NumArrays), "nsz"),
+            OldSize->getType(), "nsz");
+        CS.getInstruction()->replaceUsesOfWith(OldSize, NewSize);
+      } else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
   }
 
-  return SummaryForIdiom(ClassType, PBase->getPointerElementType(),
-                         MemoryInterface, &F);
-}
-} // namespace
+  // Copy and link def-use chains of instructions related to element accesses
+  // in combined methods.
+  //
+  // ElementPtrGEP and ElementInstToTransform are processed.
+  // TODO: process ElementFromArg
+  //
+  // ElementPtrGEP: addresses of loads/stores are processed (GEPs and PHIs).
+  // ElementInstToTransform: loads/stores/memsets.
+  //  - memset is not duplicated (UniqueInsts specified the moment of
+  //  transformation), but size argument is multiplied.
+  //  - addresses of loads/stores may be adjusted from ElementPtrGEP with
+  //  safe bitcast (see checkElementAccess).
+  //
+  // In checkElementAccess the following sequences are permitted:
+  // %base = load %pelem*, %pelem** %base_off
+  // %base1 = load %pelem*, %pelem** %base_off1
+  // %arrayidx = getelementptr inbounds %pelem, %pelem* %base, i64 %iv
+  // %arrayidx1 = getelementptr inbounds %pelem, %pelem* %base1, i64 %iv1
+  // %tmp = bitcast %pelem* %arrayidx to i64*    <== safe bitcast
+  // %tmp1 = bitcast %pelem* %arrayidx1 to i64*  <== safe bitcast
+  // %val = load i64, i64* %tmp1
+  // store i64 %tmp12, i64* %tmp
+  void rawCopyAndRelink(OrigToCopyTy &OrigToCopy, bool UniqueInsts,
+                        unsigned NumArrays) {
+    IRBuilder<> Builder(Context);
 
-namespace llvm {
-using namespace dtrans::soatoaos;
+    auto ProcessSafeBitCast = [&](const Value *Old,
+                                  BitCastInst *NewBC) -> void {
+      assert(isSafeBitCast(DL, Old) && "Some peephole idiom is not processed");
+      assert(isa<GetElementPtrInst>(NewBC->getOperand(0)) &&
+             "Some peephole idiom is not processed");
+      auto It = OrigToCopy.find(NewBC);
+      if (It == OrigToCopy.end()) {
+        Builder.SetInsertPoint(NewBC);
+        auto *CopyBC = cast<Instruction>(Builder.CreateBitCast(
+            // Assumed all pointer types have same alignment.
+            NewBC->getOperand(0), NewBC->getType(), "copy"));
+        OrigToCopy[NewBC] = CopyBC;
+      }
+    };
 
-char SOAToAOSMethodsCheckDebug::PassID;
+    // TODO: Loads from args and direct access to args should be added for
+    // append-like methods.
 
-// Provide a definition for the static class member used to identify passes.
-AnalysisKey SOAToAOSMethodsCheckDebug::Key;
+    for (auto *I : InstsToTransform.ElementInstToTransform) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
+        auto *NewPtr = cast<Instruction>(NewLoad->getPointerOperand());
+        Builder.SetInsertPoint(NewLoad);
+        auto *CopyLoad = Builder.CreateAlignedLoad(
+            // Assumed all pointer types have same alignment.
+            NewPtr, NewLoad->getAlignment(), false, "copy");
+        OrigToCopy[NewLoad] = CopyLoad;
+        if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))
+          ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
+        else {
+          assert(isa<GetElementPtrInst>(NewPtr) &&
+                 "Some peephole idiom is not processed");
+          CopyLoad->mutateType(PointerType::get(Type::getFloatTy(Context), 0));
+        }
+      } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
+        Builder.SetInsertPoint(NewStore);
+        auto *NewPtr = cast<Instruction>(NewStore->getPointerOperand());
+        auto *CopyStore = Builder.CreateAlignedStore(
+            NewStore->getValueOperand(), NewPtr,
+            // Assumed all pointer types have same alignment.
+            NewStore->getAlignment(), false);
+        OrigToCopy[NewStore] = CopyStore;
 
-SOAToAOSMethodsCheckDebug::Ignore
-SOAToAOSMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
+        if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))
+          ProcessSafeBitCast(cast<StoreInst>(I)->getPointerOperand(), NewBC);
+        else
+          assert(isa<GetElementPtrInst>(NewPtr) &&
+                 "Some peephole idiom is not processed");
+      } else if (auto MS = dyn_cast<MemSetInst>(NewI)) {
+        if (!UniqueInsts)
+          continue;
 
-  const DepMap *DM = AM.getCachedResult<SOAToAOSApproximationDebug>(F)->get();
+        Builder.SetInsertPoint(MS);
+        auto *OldSize = MS->getLength();
+        auto *NewSize = Builder.CreateTruncOrBitCast(
+            Builder.CreateNUWMul(
+                Builder.CreateZExtOrBitCast(OldSize, Builder.getIntPtrTy(DL, 0),
+                                            "nsz"),
+                ConstantInt::get(Builder.getIntPtrTy(DL, 0), NumArrays), "nsz"),
+            OldSize->getType(), "nsz");
+        MS->replaceUsesOfWith(OldSize, NewSize);
+      } else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
 
-  SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
-  if (!S.ArrType)
-    return Ignore();
+    // Relink copies.
+    for (auto P : OrigToCopy) {
+      auto *NewI = P.first;
+      auto *CopyI = P.second;
+      if (auto *CopyLoad = dyn_cast<LoadInst>(CopyI)) {
+        auto It =
+            OrigToCopy.find(cast<Instruction>(CopyLoad->getPointerOperand()));
+        if (It != OrigToCopy.end())
+          CopyLoad->setOperand(0, It->second);
+      } else if (auto *CopyStore = dyn_cast<StoreInst>(CopyI)) {
+        auto It =
+            OrigToCopy.find(cast<Instruction>(CopyStore->getPointerOperand()));
+        if (It != OrigToCopy.end())
+          CopyStore->setOperand(1, It->second);
+        if (auto *CopyVal =
+                dyn_cast<Instruction>(CopyStore->getValueOperand())) {
+          auto It = OrigToCopy.find(CopyVal);
+          if (It != OrigToCopy.end())
+            CopyStore->setOperand(0, It->second);
+        }
+      } else if (auto *CopyBC = dyn_cast<BitCastInst>(CopyI)) {
+        auto It = OrigToCopy.find(cast<Instruction>(CopyBC->getOperand(0)));
+        if (It != OrigToCopy.end())
+          CopyBC->setOperand(0, It->second);
+      } else if (isa<MemSetInst>(NewI))
+        continue;
+      else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
+  }
 
-  LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
+  // Updating GEPs, whose base pointer is result of allocation or load from
+  // base pointer. Coupled with checkElementAccess.
+  //
+  // Uses outside SCC should be updated.
+  //
+  // From:
+  //  %base = load %pelem*, %pelem** %base_off
+  //  %arrayidx = getelementptr inbounds %pelem, %pelem* %base, i64 %iv
+  //  %arrayidx1 = getelementptr inbounds %pelem, %pelem* %arrayidx, i64 %iv1
+  //  load %pelem, %pelem* %arrayidx1
+  // To:
+  //  %base = load %new_elem**, %new_elem*** %base_off
+  //  %arrayidx = getelementptr inbounds %new_elem*, %pelem* %base, i64 %iv
+  //  %arrayidx1 = getelementptr inbounds %new_elem*, %pelem* %arrayidx,
+  //              i64 %iv1, 0
+  //  load %pelem, %pelem* %arrayidx1
+  void gepRAUW(bool Copy, const OrigToCopyTy &OrigToCopy, unsigned Offset,
+               PointerType *NewBaseType) {
+    IRBuilder<> Builder(Context);
 
-  ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(),
-                                      *DM, S);
-  LLVM_DEBUG(dbgs() << "; Classification: " << MC.classify().first << "\n");
-  return Ignore();
-}
-} // namespace llvm
+    auto &ElementPtrGEP = InstsToTransform.ElementPtrGEP;
+    for (auto *I : ElementPtrGEP) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *NewGEP = dyn_cast<GetElementPtrInst>(NewI)) {
+        NewGEP->mutateType(NewBaseType);
+        NewGEP->getPointerOperand()->mutateType(NewBaseType);
+        NewGEP->setResultElementType(NewBaseType->getPointerElementType());
+        NewGEP->setSourceElementType(NewBaseType->getPointerElementType());
+      } else if (auto *NewPHI = dyn_cast<PHINode>(NewI)) {
+        NewPHI->mutateType(NewBaseType);
+      } else
+        llvm_unreachable("Unexpected instruction encountered");
+    }
+
+    for (auto *I : ElementPtrGEP) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      Value *ReplGEP = nullptr;
+      for (auto &U : I->uses()) {
+        if (ElementPtrGEP.count(cast<Instruction>(U.getUser())))
+          continue;
+        assert(!isa<PHINode>(U.getUser()) &&
+               "PHINode should be element of ElementPtrGEP");
+
+        auto *NewU = cast<Instruction>((Value *)VMap[U.getUser()]);
+
+        if (Copy)
+          NewU = cast<Instruction>(OrigToCopy.find(NewU)->second);
+
+        if (!ReplGEP) {
+          assert(NewI->getParent()->getTerminator() != NewI &&
+                 "Unexpected use of for element access");
+          Builder.SetInsertPoint(
+              isa<PHINode>(NewI) ? &*NewI->getParent()->getFirstInsertionPt()
+                                 : NewI->getNextNonDebugInstruction());
+
+          Value *Idx[] = {
+              ConstantInt::get(Context, APInt(DL.getPointerSizeInBits(0), 0)),
+              ConstantInt::get(Context, APInt(32, Offset))};
+
+          ReplGEP =
+              Builder.CreateInBoundsGEP(NewI, ArrayRef<Value *>(Idx), "elem");
+        }
+        NewU->replaceUsesOfWith(NewI, ReplGEP);
+      }
+    }
+  }
+
+private:
+  const DataLayout &DL;
+  DTransAnalysisInfo &DTInfo;
+  const TargetLibraryInfo &TLI;
+  ValueToValueMapTy &VMap;
+  const ComputeArrayMethodClassification::TransformationData &InstsToTransform;
+  LLVMContext &Context;
+};
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Offset of base pointer in DTransSOAToAOSApproxTypename.
+extern cl::opt<unsigned> DTransSOAToAOSBasePtrOff;
+// Offset of memory interface in DTransSOAToAOSApproxTypename.
+extern cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff;
+SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // namespace soatoaos
 
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Instructions to transform.
+struct SOAToAOSMethodsCheckDebugResult
+    : public ComputeArrayMethodClassification::TransformationData {
+  MethodKind MK = MK_Unknown;
+};
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+} // namespace dtrans
+} // namespace llvm
+#endif // INTEL_DTRANS_TRANSFORMS_SOATOAOSARRAYS_H

@@ -831,8 +831,7 @@ bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
     }
   }
 
-  assert((!ConstantTripLoop || (TC != 0)) &&
-         " Zero Trip Loop found!");
+  assert((!ConstantTripLoop || (TC != 0)) && " Zero Trip Loop found!");
 
   if (ConstantTripLoop && TripCnt) {
     // This signed to unsigned conversion should be safe as all the negative
@@ -851,15 +850,7 @@ void HLLoop::createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,
   assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
 
   // Don't generate Ztt for Const trip loops.
-  // TODO: improve zero/negative trip count loop recognition. A cheaper check is
-  // LHS->isConstant() and RHS->isConstant(). Even though it doesn't catch cases
-  // like  i1 = t, t+1 they are rare enough in HIR due to normalized loops that
-  // the client may be able to handle them on its side. See also the same check
-  // below.
-  std::unique_ptr<CanonExpr> TripCE(getTripCountCanonExpr());
-  assert(TripCE && " Trip Count CE is null.");
-
-  if (TripCE->isIntConstant()) {
+  if (isConstTripLoop()) {
     return;
   }
 
@@ -876,10 +867,7 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
   }
 
   // Don't generate Ztt for Const trip loops.
-  std::unique_ptr<CanonExpr> TripCE(getTripCountCanonExpr());
-  assert(TripCE && " Trip Count CE is null.");
-
-  if (TripCE->isIntConstant()) {
+  if (isConstTripLoop()) {
     return;
   }
 
@@ -1518,11 +1506,10 @@ bool HLLoop::hasVectorizeDisablingPragma() const {
 struct EarlyExitCollector final : public HLNodeVisitorBase {
   SmallVectorImpl<HLGoto *> &Gotos;
   unsigned MaxTopSortNum;
-  HLLoop *Lp;
 
 public:
   EarlyExitCollector(SmallVectorImpl<HLGoto *> &Gotos, HLLoop *Lp)
-      : Gotos(Gotos), Lp(Lp) {
+      : Gotos(Gotos) {
     assert(Lp && "Lp cannot be null\n");
     MaxTopSortNum = Lp->getMaxTopSortNum();
   }

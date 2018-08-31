@@ -17,7 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #if !INTEL_INCLUDE_DTRANS
-#error DTrans.h include in an non-INTEL_INCLUDE_DTRANS build.
+#error DTransOptBase.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
 #ifndef INTEL_OPTIONALCOMPONENTS_INTEL_DTRANS_TRANSFORMS_DTRANSOPTBASE_H

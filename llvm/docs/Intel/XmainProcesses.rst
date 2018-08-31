@@ -309,6 +309,8 @@ To guard Intel secret features in C/C++ files use feature checks in addition to
   #endif // INTEL_FEATURE_AVX3_2
   #endif // INTEL_CUSTOMIZATION
 
+.. note:: The compiler must build with and without any of INTEL_FEATURE_XXX defined.
+
 To completely exclude a C/C++ file from compilation, when some feature is not
 enabled, we can use conditional processing of CMake files.  In the following
 example in `llvm/lib/CodeGen/CMakeLists.txt` we conditionally add `Intel_Avx3_2.cpp`
@@ -430,7 +432,9 @@ the compiler team is developing a secret feature, which cannot be exposed
 in any way to other teams that have access to xmain repository.
 The approved solution for this is to put such source code into a subdirectory
 of `llvm/Intel_OptionalComponents` and plug in things from this subdirectory
-during the compiler build using LLVM_INTEL_FEATURES controls.
+during the compiler build using LLVM_INTEL_FEATURES controls.  Each subdirectory
+of `llvm/Intel_OptionalComponents` may be put into a separate repository
+providing a way for access control.
 
 If implementation of a feature may done as a LLVM component library, then
 this library must be declared as :ref:`optional <optional-lib>` and it may

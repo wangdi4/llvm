@@ -59,13 +59,13 @@ define i32 @main() {
 ; CHECK-NEXT:  Field LLVM Type: i32
 ; CHECK-NEXT:    Field info:
 ; CHECK-NEXT:    Frequency: 0
-; CHECK-NEXT:    Multiple Value: [ 0 ] <incomplete>
-; CHECK-NEXT:    Bottom Alloc Function (ignored)
+; CHECK-NEXT:    Single Value: i32 0
+; CHECK-NEXT:    Bottom Alloc Function
 ; CHECK-NEXT:  Field LLVM Type: i32
 ; CHECK-NEXT:    Field info:
 ; CHECK-NEXT:    Frequency: 0
-; CHECK-NEXT:    Multiple Value: [ 0 ] <incomplete>
-; CHECK-NEXT:    Bottom Alloc Function (ignored)
+; CHECK-NEXT:    Single Value: i32 0
+; CHECK-NEXT:    Bottom Alloc Function
 ; CHECK-NEXT:  Total Frequency: 0
 ; CHECK-NEXT:  Call graph:
-; CHECK-NEXT:  Safety data: Global instance | Unhandled use
+; CHECK-NEXT:  Safety data: Global instance

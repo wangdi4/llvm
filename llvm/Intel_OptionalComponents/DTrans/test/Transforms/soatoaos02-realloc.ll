@@ -1,7 +1,6 @@
-; RUN: opt -S < %s -whole-program-assume -disable-output \
+; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
-; RUN:      -dtrans-soatoaos-approx-typename=struct.Arr          \
 ; RUN:      -dtrans-malloc-functions=struct.Mem,0 -dtrans-free-functions=struct.Mem,1 \
 ; RUN:      2>&1 | FileCheck %s
 ; REQUIRES: asserts
@@ -9,8 +8,6 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.Arr = type <{ %struct.Mem*, i32, [4 x i8], i32**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
-
-$_ZN3ArrIPiE7reallocEi = comdat any
 
 ; This test checks various approximations for side effects in realloc-like function
 ; in SOA-to-AOS.
@@ -26,7 +23,7 @@ $_ZN3ArrIPiE7reallocEi = comdat any
 ;     mem->deallocate(base);
 ;     base = new_base;
 ;   }
-define void @_ZN3ArrIPiE7reallocEi(%struct.Arr* nocapture %this, i32 %inc) #0 comdat align 2 {
+define void @_ZN3ArrIPiE7reallocEi(%struct.Arr* %this, i32 %inc) {
 entry:
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 4
   %tmp = load i32, i32* %size, align 8
@@ -133,8 +130,6 @@ for.end:                                          ; preds = %for.cond
 return:                                           ; preds = %for.end, %if.then
   ret void
 }
-
-attributes #0 = { noinline uwtable }
 
 ; CHECK: Deps computed: 26, Queries: 58
 ; CHECK-NOT: Unknown Dep

@@ -23,6 +23,8 @@ add_llvm_library(LLVMIntel_DTransOpt
   DTransPaddedMalloc.cpp
   PaddedPtrPropagation.cpp
   SOAToAOS.cpp
+  SOAToAOSArrays.cpp
+  SOAToAOSEffects.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Transforms

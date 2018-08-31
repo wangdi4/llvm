@@ -1,7 +1,6 @@
-; RUN: opt -S < %s -whole-program-assume -disable-output \
+; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
-; RUN:      -dtrans-soatoaos-approx-typename=struct.Arr.0        \
 ; RUN:      -dtrans-malloc-functions=struct.Mem,0 -dtrans-free-functions=struct.Mem,1 \
 ; RUN:      2>&1 | FileCheck %s
 ; REQUIRES: asserts
@@ -9,8 +8,6 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], i8**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
-
-$_ZN3ArrIPvEC2ERKS1_ = comdat any
 
 ; This test checks various approximations for side effects in copy-ctor-like function.
 ;   Arr(const Arr &A) {
@@ -21,7 +18,7 @@ $_ZN3ArrIPvEC2ERKS1_ = comdat any
 ;     for (int i = 0; i < size; ++i)
 ;       base[size + i] = A.base[i];
 ;   }
-define void @_ZN3ArrIPvEC2ERKS1_(%struct.Arr.0* nocapture %this, %struct.Arr.0* nocapture readonly dereferenceable(32) %A) unnamed_addr #0 comdat align 2 {
+define void @_ZN3ArrIPvEC2ERKS1_(%struct.Arr.0* %this, %struct.Arr.0* %A) {
 entry:
   %mem = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i32 0, i32 0
   %tmp = load %struct.Mem*, %struct.Mem** %mem, align 8
@@ -107,8 +104,6 @@ for.inc:                                          ; preds = %for.body
 for.end:                                          ; preds = %for.cond
   ret void
 }
-
-attributes #0 = { noinline uwtable }
 
 ; CHECK: Deps computed: 36, Queries: 55
 ; CHECK-NOT: Unknown Dep
