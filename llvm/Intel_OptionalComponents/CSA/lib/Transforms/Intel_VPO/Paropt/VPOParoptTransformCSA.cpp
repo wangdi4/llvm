@@ -48,10 +48,51 @@ public:
 
 bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
   switch (W->getWRegionKindID()) {
+    case WRegionNode::WRNParallelSections:
+      // num_threads
+      if (W->getNumThreads())
+        reportCSAWarning(W, "ignoring unsupported num_threads clause");
+
+      // [first|last]private
+      if (!W->getPriv().empty())
+        reportCSAWarning(W, "ignoring unsupported private clause");
+      if (!W->getFpriv().empty())
+        reportCSAWarning(W, "ignoring unsupported firstprivate clause");
+      if (!W->getLpriv().empty())
+        reportCSAWarning(W, "ignoring unsupported lastprivate clause");
+
+      // reduction
+      if (!W->getRed().empty())
+        reportCSAWarning(W, "ignoring unsupported reduction clause");
+
+      // fallthru
+
     case WRegionNode::WRNParallelLoop:
+      // copyin
+      if (!W->getCopyin().empty())
+        reportCSAWarning(W, "ignoring unsupported copyin clause");
+
+      // proc_bind
+      if (W->getProcBind() != WRNProcBindAbsent)
+        reportCSAWarning(W, "ignoring unsupported proc_bind clause");
+
+      // Loop clauses.
+      if (W->getWRegionKindID() == WRegionNode::WRNParallelLoop) {
+        // linear
+        if (!W->getLinear().empty())
+          reportCSAWarning(W, "ignoring unsupported linear clause");
+
+        // ordered
+        if (W->getOrdered() >= 0)
+          reportCSAWarning(W, "ignoring unsupported ordered clause");
+      }
+      return true;
+
     case WRegionNode::WRNAtomic:	// not fully supported, but may work
+    case WRegionNode::WRNSection:
       return true;
   }
+  reportCSAWarning(W, "ignoring unsupported \"omp " + W->getName() + "\"");
   return false;
 }
 
@@ -246,5 +287,39 @@ bool VPOParoptTransform::genCSAIsLast(WRegionNode *W, AllocaInst *&IsLastVal) {
   auto *Store = new StoreInst(Select, IsLastVal);
   Store->insertAfter(Select);
 
+  return true;
+}
+
+bool VPOParoptTransform::genCSAParallelSections(WRegionNode *W) {
+  assert(isTargetCSA() && "unexpected target");
+
+  auto *M = F->getParent();
+
+  // Insert parallel region entry/exit calls
+  auto *RID = genCSAParallelRegion(W);
+
+  // CSA parallel section entry/exit intrinsics
+  auto *SEntry = Intrinsic::getDeclaration(M,
+    Intrinsic::csa_parallel_section_entry);
+
+  auto *SExit = Intrinsic::getDeclaration(M,
+    Intrinsic::csa_parallel_section_exit);
+
+  // Insert section entry/exit calls in child work regions which all are
+  // supposed to be sections.
+  for (auto *WSec : W->getChildren()) {
+    assert(WSec->getWRegionKindID() == WRegionNode::WRNSection &&
+           "Unexpected work region kind");
+
+    // Add section entry/exit calls
+    IRBuilder<> Builder(WSec->getEntryBBlock()->getTerminator());
+    auto *SID = Builder.CreateCall(SEntry, { RID }, "section");
+
+    Builder.SetInsertPoint(WSec->getExitBBlock()->getFirstNonPHI());
+    Builder.CreateCall(SExit, { SID }, {});
+
+    // Remove directives from section
+    VPOUtils::stripDirectives(WSec);
+  }
   return true;
 }

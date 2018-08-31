@@ -171,3 +171,31 @@ DIR.OMP.END.PARALLEL.LOOP.4:
   ret void
 }
 
+define void @f6(i32 %a, i32 %b, i32 %c, i32 %d) {
+entry:
+  br label %DIR.OMP.PARALLEL.SECTIONS.1
+
+DIR.OMP.PARALLEL.SECTIONS.1:
+; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported num_threads clause
+; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported private clause
+; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported firstprivate clause
+; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported lastprivate clause
+; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported reduction clause
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.SECTIONS"(), "QUAL.OMP.NUM_THREADS"(i32 2), "QUAL.OMP.FIRSTPRIVATE"(i32 %a), "QUAL.OMP.PRIVATE"(i32 %b), "QUAL.OMP.LASTPRIVATE"(i32 %c), "QUAL.OMP.REDUCTION.ADD"(i32 %d) ]
+  br label %DIR.OMP.PARALLEL.SECTIONS.2
+
+DIR.OMP.PARALLEL.SECTIONS.2:
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SECTION"() ]
+  br label %DIR.OMP.SECTION.3
+
+DIR.OMP.SECTION.3:
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SECTION"() ]
+  br label %DIR.OMP.END.SECTION.4
+
+DIR.OMP.END.SECTION.4:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL.SECTIONS"() ]
+  br label %DIR.OMP.END.PARALLEL.SECTIONS.1
+
+DIR.OMP.END.PARALLEL.SECTIONS.1:
+  ret void
+}

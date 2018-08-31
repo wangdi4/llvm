@@ -242,10 +242,8 @@ bool VPOParoptTransform::paroptTransforms() {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-    if (isTargetCSA() && !isSupportedOnCSA(W)) {
-      reportCSAWarning(W, "ignoring unsupported \"omp " + W->getName() + "\"");
+    if (isTargetCSA() && !isSupportedOnCSA(W))
       RemoveDirectives = true;
-    }
     else
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
@@ -304,13 +302,18 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
-            Changed |= genCSAParallelLoop(W);
-            Changed |= genCSAIsLast(W, IsLastVal);
-            Changed |= genPrivatizationCode(W);
-            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
-            Changed |= genLastPrivatizationCode(W, IfLastIterBB);
-            Changed |= genFirstPrivatizationCode(W);
-            Changed |= genDestructorCode(W);
+            if (W->getWRegionKindID() == WRegionNode::WRNParallelSections) {
+              Changed |= genCSAParallelSections(W);
+            }
+            else {
+              Changed |= genCSAParallelLoop(W);
+              Changed |= genCSAIsLast(W, IsLastVal);
+              Changed |= genPrivatizationCode(W);
+              Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+              Changed |= genLastPrivatizationCode(W, IfLastIterBB);
+              Changed |= genFirstPrivatizationCode(W);
+              Changed |= genDestructorCode(W);
+            }
             RemoveDirectives = true;
             break;
           }

@@ -718,6 +718,9 @@ private:
   /// \brief Transform "omp parallel for" work region for CSA target.
   bool genCSAParallelLoop(WRegionNode *W);
 
+  /// \brief Transform "omp parallel sections" work region for CSA target.
+  bool genCSAParallelSections(WRegionNode *W);
+
   /// \brief Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
 
