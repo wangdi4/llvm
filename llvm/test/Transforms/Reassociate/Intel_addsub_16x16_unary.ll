@@ -1,7 +1,13 @@
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -S | FileCheck %s -check-prefix=CHECK_SIMP
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -S | FileCheck %s -check-prefix=CHECK
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -S | FileCheck %s -check-prefix=CHECK_CHAIN_REUSE
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=false -S | FileCheck %s -check-prefix=CHECK_SIMP
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -addsub-reassoc-reuse-chain=false -S | FileCheck %s -check-prefix=CHECK
 
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
+
+; CHECK_CHAIN_REUSE:  [[Chain0_1:%.*]] = sub i32 [[l57:%.*]], [[l65:%.*]]
+; CHECK_CHAIN_REUSE:  [[Chain1_1:%.*]] = sub i32 [[l64:%.*]], [[l56:%.*]]
+; CHECK_CHAIN_REUSE:  [[Bridge0_0:%.*]] = add i32 [[reass_add1995:%.*]], [[Chain1_1]]
+; CHECK_CHAIN_REUSE:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_1]]
 
 ; CHECK_SIMP:  [[Chain0_1:%.*]] = sub i32 [[l57:%.*]], [[l65:%.*]]
 ; CHECK_SIMP:  [[Chain1_1:%.*]] = sub i32 [[l64:%.*]], [[l56:%.*]]

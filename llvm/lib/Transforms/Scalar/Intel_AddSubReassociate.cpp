@@ -220,6 +220,10 @@ static cl::opt<unsigned> MaxTreeCount("addsub-reassoc-max-tree-count", cl::init(
                                  cl::Hidden,
                                  cl::desc("Maximum number of trees to build."));
 
+static cl::opt<bool>
+    ReuseChain("addsub-reassoc-reuse-chain", cl::init(true), cl::Hidden,
+               cl::desc("Enables chains reuse during code generation."));
+
 static inline bool isAddSubInstr(const Instruction *I) {
   switch (I->getOpcode()) {
   case Instruction::Add:
@@ -1042,8 +1046,12 @@ void AddSubReassociatePass::generateCode(GroupsVec &Groups,
     for (auto Titr = TreeCluster.rbegin(); Titr != TreeCluster.rend(); ++Titr) {
       Tree *T = Titr->get();
       generateCode(G, T, GroupChain);
+      if (ReuseChain && !GroupChain) {
+        GroupChain = cast<Instruction>(T->getRoot()->getOperand(1));
+      }
     }
   }
+
   // Optimization: Remove the top zero constants.
   if (SimplifyTrunks) {
     for (const TreePtr &Tptr : TreeCluster) {
