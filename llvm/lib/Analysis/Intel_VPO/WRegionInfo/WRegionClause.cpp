@@ -139,6 +139,41 @@ bool ScheduleClause::print(formatted_raw_ostream &OS, unsigned Depth,
   return true;
 }
 
+void ArraySectionInfo::print(formatted_raw_ostream &OS, bool PrintType) const {
+  if (ArraySectionDims.empty())
+    return;
+
+  OS << "ARRAY SECTION INFO: (";
+  if (Offset) {
+    OS << " Offset: ";
+    Offset->printAsOperand(OS, PrintType);
+  };
+  if (Size) {
+    OS << " Size: ";
+    Size->printAsOperand(OS, PrintType);
+  };
+  if (ElementType) {
+    OS << " ElementType: ";
+    ElementType->print(OS, PrintType);
+  };
+  OS << " Dims:";
+  for (const auto &Dim : ArraySectionDims) {
+    OS << " ( ";
+    std::get<0>(Dim)->printAsOperand(OS, PrintType);
+    OS << ", ";
+    std::get<1>(Dim)->printAsOperand(OS, PrintType);
+    OS << ", ";
+    std::get<2>(Dim)->printAsOperand(OS, PrintType);
+    OS << " )";
+  }
+  OS << ")";
+}
+
+void ArraySectionInfo::print(raw_ostream &OS, bool PrintType) const {
+  formatted_raw_ostream FOS(OS);
+  print(FOS, PrintType);
+}
+
 void printFnPtr(Function *Fn, formatted_raw_ostream &OS, bool PrintType) {
   if (Fn==nullptr)
     OS << "UNSPECIFIED";

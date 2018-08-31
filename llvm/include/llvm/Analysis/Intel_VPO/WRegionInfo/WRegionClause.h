@@ -17,12 +17,13 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 #define LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 
-#include <vector>
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include <tuple>
+#include <vector>
 
 namespace llvm {
 
@@ -302,13 +303,68 @@ class LastprivateItem : public Item
     }
 };
 
+/// Contains information about an array section operand. Example:
+///
+/// \code
+///   int x[10], (*yarrptr)[20];
+///   #pragma omp for reduction (+: x[1:5], yarrptr[1][2:7])
+/// \endcode
+///
+/// The incoming IR will look like:
+///
+/// \code
+///   call llvm.region.entry() [ ... "QUAL.OMP.REDUCTION.ADD:ARRSECT"([10 x
+///   i32]* x, 1, 1, 5, 1), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([20 x i32]**
+///   yarrptr, 2, 1, 1, 1, 2, 7, 1) ...]
+/// \endcode
+///
+class ArraySectionInfo {
+private:
+  // This Vector is populated during WRegionCollection analysis.
+  SmallVector<std::tuple<Value *, Value *, Value *>, 2>
+      ArraySectionDims; ///< Vector of tuples of {LowerBound, Size, Stride}
+                        ///< from higher to lower dimensions.
+                        ///< (`x: {{1,5,1}}, yarrptr: {{1,1,1}, {2,7,1}}`)
+
+  // The following fields are populated during the actual transformation, and
+  // not WRegionCollection, because they may need Insertion of Instructions.
+  Value *Size;        ///< Size (`x: 5, yarrptr: 7`).
+  Value *Offset;      ///< Starting offset (`x: 1, yarrptr: 22`).
+  Type *ElementType;  ///< Type of one element (`x: i32, yarrptr: i32`).
+  bool BaseIsPointer; ///< Is base a pointer (`x: false, yarrptr: true`).
+
+public:
+  ArraySectionInfo()
+      : Size(nullptr), Offset(nullptr), ElementType(nullptr),
+        BaseIsPointer(false) {}
+
+  void addDimension(const std::tuple<Value *, Value *, Value *> &Dim) {
+    ArraySectionDims.push_back(Dim);
+  }
+
+  const SmallVectorImpl<std::tuple<Value *, Value *, Value *>> &
+  getArraySectionDims() const {
+    return ArraySectionDims;
+  }
+
+  Value *getSize() const { return Size; }
+  void setSize(Value *Sz) { Size = Sz; }
+  Value *getOffset() const { return Offset; }
+  void setOffset(Value *Off) { Offset = Off; }
+  Type *getElementType() const { return ElementType; }
+  void setElementType(Type *Ty) { ElementType = Ty; }
+  bool getBaseIsPointer() const { return BaseIsPointer; }
+  void setBaseIsPointer(bool IsPtr) { BaseIsPointer = IsPtr; }
+
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const;
+  void print(raw_ostream &OS, bool PrintType = true) const;
+};
 
 //
 //   ReductionItem: OMP REDUCTION clause item
 //   (cf PAROPT_OMP_REDUCTION_NODE)
 //
-class ReductionItem : public Item
-{
+class ReductionItem : public Item {
 public:
   typedef enum WRNReductionKind {
     WRNReductionError = 0,
@@ -339,6 +395,7 @@ public:
     // we can change Value* to Function* below.
     Value *Combiner;
     Value *Initializer;
+    ArraySectionInfo ArrSecInfo;
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
@@ -428,6 +485,11 @@ public:
     bool getIsInReduction()    const { return IsInReduction; }
     Value *getCombiner()       const { return Combiner;      }
     Value *getInitializer()    const { return Initializer;   }
+    ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
+    const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
+    bool getIsArraySection() const {
+      return !ArrSecInfo.getArraySectionDims().empty();
+    };
 
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {
@@ -437,13 +499,16 @@ public:
 
     // Don't use the default print() from the base class "Item", because
     // we need to print the Reduction operation too.
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       OS << "(" << getOpName() << ": ";
       getOrig()->printAsOperand(OS, PrintType);
+      if (getIsArraySection()) {
+        OS << " ";
+        ArrSecInfo.print(OS, PrintType);
+      }
       OS << ") ";
     }
 };
-
 
 //
 //   CopyinItem: OMP COPYIN clausclause item

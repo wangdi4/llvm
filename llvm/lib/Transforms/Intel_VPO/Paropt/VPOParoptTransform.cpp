@@ -1048,7 +1048,7 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (!AllocaTy->isSingleValueType() ||
+  if (RedI->getIsArraySection() || !AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
     genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false, DT);
@@ -1146,26 +1146,22 @@ void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
   auto EntryBB = Builder.GetInsertBlock();
 
   Type *DestElementTy = nullptr;
-  Value *DestArrayBegin = nullptr;
+  Value *DestBegin = nullptr;
+  Value *SrcBegin = nullptr;
+  Value *NumElements = nullptr;
 
-  auto NumElements = VPOParoptUtils::genArrayLength(
-      AI, IsInit ? AI : OldV, InsertPt, Builder, DestElementTy, DestArrayBegin);
-  auto DestAddr = Builder.CreateBitCast(DestArrayBegin,
-                                        PointerType::getUnqual(DestElementTy));
+  if (IsInit)
+    genAggrReductionInitDstInfo(*RedI, AI, InsertPt, Builder, NumElements,
+                                DestBegin, DestElementTy);
+  else
+    genAggrReductionFiniSrcDstInfo(*RedI, AI, OldV, InsertPt, Builder,
+                                   NumElements, SrcBegin, DestBegin,
+                                   DestElementTy);
 
-  Type *SrcElementTy = nullptr;
-  Value *SrcArrayBegin = nullptr;
-  Value *SrcAddr = nullptr;
-
-  if (!IsInit) {
-    VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder, SrcElementTy,
-                                   SrcArrayBegin);
-    SrcAddr = Builder.CreateBitCast(SrcArrayBegin,
-                                    PointerType::getUnqual(SrcElementTy));
-  }
-
-  auto DestBegin = DestAddr;
-  auto SrcBegin = SrcAddr;
+  assert(DestBegin && "Null destination address for reduction init/fini.");
+  assert(DestElementTy && "Null element type for reduction init/fini.");
+  assert(NumElements && "Null number of elements for reduction init/fini.");
+  assert((IsInit || SrcBegin) && "Null source address for reduction fini.");
 
   auto DestEnd = Builder.CreateGEP(DestBegin, NumElements);
   auto IsEmpty = Builder.CreateICmpEQ(
@@ -1330,7 +1326,7 @@ void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (!AllocaTy->isSingleValueType() ||
+  if (RedI->getIsArraySection() || !AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
     genRedAggregateInitOrFini(RedI, AI, nullptr, InsertPt, true, DT);
@@ -1409,14 +1405,27 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
              "genReductionCode: Unexpected reduction variable");
 */
-      NewRedInst = genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".red");
-      genPrivatizationReplacement(W, Orig, NewRedInst, RedI);
+
+      Instruction *InsertPt = &EntryBB->front();
+
+      computeArraySecReductionTypeOffsetSize(*RedI, InsertPt);
+
+      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+      NewRedInst = genPrivatizationAlloca(W, Orig, InsertPt, ".red",
+                                          ArrSecInfo.getElementType(),
+                                          ArrSecInfo.getSize());
       RedI->setNew(NewRedInst);
+
+      Value *ReplacementVal = getReductionItemReplacementValue(*RedI, InsertPt);
+      genPrivatizationReplacement(W, Orig, ReplacementVal, RedI);
+
       createEmptyPrvInitBB(W, RedInitEntryBB);
       genReductionInit(RedI, RedInitEntryBB->getTerminator(), DT);
+
       BasicBlock *BeginBB;
       createEmptyPrivFiniBB(W, BeginBB);
       genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator(), DT);
+
       LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
@@ -1442,6 +1451,258 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   }
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genReductionCode\n");
   return Changed;
+}
+
+// For array [section] reduction init loop, compute the base address of the
+// destination array, number of elements, and destination element type.
+void VPOParoptTransform::genAggrReductionInitDstInfo(
+    const ReductionItem &RedI, AllocaInst *AI, Instruction *InsertPt,
+    IRBuilder<> &Builder, Value *&NumElements, Value *&DestArrayBegin,
+    Type *&DestElementTy) {
+
+  bool IsArraySection = RedI.getIsArraySection();
+
+  if (IsArraySection) {
+    const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
+    NumElements = ArrSecInfo.getSize();
+    DestElementTy = ArrSecInfo.getElementType();
+    DestArrayBegin = RedI.getNew();
+  } else
+    NumElements = VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder,
+                                                 DestElementTy, DestArrayBegin);
+
+  DestArrayBegin = Builder.CreateBitCast(DestArrayBegin,
+                                         PointerType::getUnqual(DestElementTy));
+}
+
+// For array [section] reduction finalization loop, compute the base address
+// of the source and destination arrays, number of elements, and the type of
+// destination array elements.
+void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
+    const ReductionItem &RedI, AllocaInst *AI, Value *OldV,
+    Instruction *InsertPt, IRBuilder<> &Builder, Value *&NumElements,
+    Value *&SrcArrayBegin, Value *&DestArrayBegin, Type *&DestElementTy) {
+
+  bool IsArraySection = RedI.getIsArraySection();
+  Type *SrcElementTy = nullptr;
+
+  if (!IsArraySection) {
+    NumElements = VPOParoptUtils::genArrayLength(AI, OldV, InsertPt, Builder,
+                                                 DestElementTy, DestArrayBegin);
+    DestArrayBegin = Builder.CreateBitCast(
+        DestArrayBegin, PointerType::getUnqual(DestElementTy));
+
+    VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder, SrcElementTy,
+                                   SrcArrayBegin);
+    SrcArrayBegin = Builder.CreateBitCast(SrcArrayBegin,
+                                          PointerType::getUnqual(SrcElementTy));
+    return;
+  }
+
+  // Example for an array section on a pointer to an array:
+  //
+  //   static int (*yarrptr)[3][4][5];
+  //   #pragma omp parallel for reduction(+:yarrptr[3][1][2:2][1:3])
+  //
+  const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
+  NumElements = ArrSecInfo.getSize();          // 6 for the above example
+  DestElementTy = ArrSecInfo.getElementType(); // i32 for the above example
+
+  SrcElementTy = DestElementTy;
+  SrcArrayBegin = RedI.getNew();
+  SrcArrayBegin = Builder.CreateBitCast(SrcArrayBegin,
+                                        PointerType::getUnqual(SrcElementTy));
+
+  // Generated IR for destination starting address for the above example:
+  //
+  //   %_yarrptr.load = load [3 x [4 x [5 x i32]]]*, @_yarrptr          ; (1)
+  //   %_yarrptr.load.cast = bitcast %_yarrptr.load to i32*             ; (2)
+  //   %_yarrptr.load.cast.plus.offset = gep %_yarrptr.load.cast, 211   ; (3)
+  //
+  //   %_yarrptr.load.cast.plus.offset is the final DestArrayBegin.
+
+  DestArrayBegin = RedI.getOrig();
+  bool ArraySectionBaseIsPtr = ArrSecInfo.getBaseIsPointer();
+  if (ArraySectionBaseIsPtr)
+    DestArrayBegin = Builder.CreateLoad(
+        DestArrayBegin, DestArrayBegin->getName() + ".load"); //          (1)
+
+  assert(DestArrayBegin && isa<PointerType>(DestArrayBegin->getType()) &&
+         "Illegal Destination Array for reduction fini.");
+
+  DestArrayBegin = Builder.CreateBitCast(
+      DestArrayBegin, PointerType::getUnqual(DestElementTy),
+      DestArrayBegin->getName() + ".cast"); //                            (2)
+  DestArrayBegin =
+      Builder.CreateGEP(DestArrayBegin, ArrSecInfo.getOffset(),
+                        DestArrayBegin->getName() + ".plus.offset"); //   (3)
+}
+
+void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
+    ReductionItem &RI, Instruction *InsertPt) {
+
+  if (!RI.getIsArraySection())
+    return;
+
+  IRBuilder<> Builder(InsertPt);
+
+  Value *Orig = RI.getOrig();
+  Type *RITy = Orig->getType();
+  Type *ElemTy = cast<PointerType>(RITy)->getElementType();
+
+  bool BaseIsPointer = false;
+  if (isa<PointerType>(ElemTy)) {
+    // It is possible to have an array section on a pointer. Examples:
+    //
+    // int *yptr, (*yarrptr)[10];
+    // reduction(+:yptr[1:4], yarrptr[1][2:5])
+    //
+    // In these cases, the IR will have the type of the operands as `**`:
+    //
+    // "...REDUCTION.ADD:ARRSECT"(i32** @yptr, 1, 1, 4, 1)
+    // "...REDUCTION.ADD:ARRSECT"([10 x i32]** @yarrptr, 2, 1, 1, 1, 2, 5, 1)
+    //
+    // In these cases, the we need to get the pointee type one extra time to
+    // reach the base element type (i32 for yptr) or the array type ([10 x i32]
+    // for yarrptr).
+    BaseIsPointer = true;
+    ElemTy = cast<PointerType>(ElemTy)->getElementType();
+  }
+
+  // At this point, ElemTy is the base element type for 1D array sections. For
+  // sections with 2 or more dimensions, it should have the underlying array
+  // type. If so, we need to extract the size of each dimension of that array.
+  // We do that next. At the end of the following loop, ArrayDims should have
+  // the size of each dimension of the underlying array from higher to lower.
+  // For example, it should contain {3, 4, 5} for `[3 x [4 x [5 x i32]]]`. We
+  // will use this to compute the offset in terms of an equivalent 1D array.
+  Type *CurElementTy = ElemTy;
+  SmallVector<uint64_t, 4> ArrayDims;
+  while (auto *ArrayTy = dyn_cast<ArrayType>(CurElementTy)) {
+    ArrayDims.push_back(ArrayTy->getNumElements());
+    CurElementTy = ArrayTy->getElementType();
+  }
+
+  // This is the number to be multiplied to a dimension's lower bound during
+  // offset computation.
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  const unsigned PtrSz = DL.getPointerSizeInBits();
+
+  uint64_t ArraySizeTillDim = 1;
+  Value *ArrSecSize = Builder.getIntN(PtrSz, 1);
+  Value *ArrSecOff = Builder.getIntN(PtrSz, 0);
+  ArraySectionInfo &ArrSecInfo = RI.getArraySectionInfo();
+  const auto &ArraySectionDims = ArrSecInfo.getArraySectionDims();
+  const int NumDims = ArraySectionDims.size();
+
+  // We go through the array section dims in the reverse order to go from lower
+  // to higher dimensions. For example, in case of:
+  //
+  //   int (*zarrptr)[3][4][5];
+  //   #pragma omp for reduction (+:zarrptr[3][1][2:2][1:3]).
+  //
+  // Array section size is a simple multiplication of the size of each
+  // dimension, ie. 3*2*1*1 = 6. The offset and element type are computed in the
+  // loop below. At the beginning of each iteration, the values will look like
+  // this (note that `BaseIsPointer` is true for this case):
+  //
+  //  I | LB | ArraySizeTillDim | ArrSecOff | ArrayDims | ElemTy
+  // ---+----+------------------+-----------+-----------+-----------------------
+  //  3 | 1  | 1                | 0         | {3,4,5}   | [3 x [4 x [5 x i32 ]]]
+  //  2 | 2  | 5                | 1         | {3,4}     | [4 x [5 x i32 ]]
+  //  1 | 1  | 20               | 11        | {3}       | [5 x i32 ]
+  //  0 | 3  | 60               | 31        | {}        | i32
+  // --------+------------------+-----------+-----------+-----------------------
+  // final   | 60               | 221       | {}        | i32
+  //
+  for (int I = NumDims - 1; I >= 0; --I) {
+    auto const &Dim = ArraySectionDims[I];
+
+    Value *DimLB = std::get<0>(Dim);
+    Value *SectionDimSize = std::get<1>(Dim);
+
+    ConstantInt *ArraySizeTillDimVal = Builder.getIntN(PtrSz, ArraySizeTillDim);
+
+    Value *SizeXLB = Builder.CreateMul(ArraySizeTillDimVal, DimLB);
+    ArrSecOff = Builder.CreateAdd(SizeXLB, ArrSecOff, "offset");
+    ArrSecSize = Builder.CreateMul(ArrSecSize, SectionDimSize, "size");
+
+    if (I == 0 && BaseIsPointer)
+      continue; // If `BaseIsPointer`, getElmentType() has already been called
+                // onece, so we skip it in the last iteration.
+
+    ArraySizeTillDim *= ArrayDims.pop_back_val();
+    ElemTy = cast<ArrayType>(ElemTy)->getElementType();
+  }
+
+  // TODO: This assert needs to be updated when UDR support is added.
+  assert(!isa<PointerType>(ElemTy) && !isa<ArrayType>(ElemTy) &&
+         "Unexpected array section element type.");
+
+  ArrSecInfo.setSize(ArrSecSize);
+  ArrSecInfo.setOffset(ArrSecOff);
+  ArrSecInfo.setElementType(ElemTy);
+  ArrSecInfo.setBaseIsPointer(BaseIsPointer);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Operand '";
+             Orig->printAsOperand(dbgs()); dbgs() << "':: ";
+             ArrSecInfo.print(dbgs(), false); dbgs() << "\n");
+}
+
+Value *
+VPOParoptTransform::getReductionItemReplacementValue(ReductionItem const &RedI,
+                                                     Instruction *InsertPt) {
+
+  Value *NewRedInst = RedI.getNew();
+  if (!RedI.getIsArraySection())
+    return NewRedInst;
+
+  // For array section reduction, such as:
+  //
+  //   int y[10];
+  //   #pragma omp for reduction(+: y[offset:5])
+  //
+  // The local copy of the operand is a VLA of size 5: `y.new = alloca i32, 5`
+  // Accesses to `y[offset]` should point to `y.new[0]`. So, the uses of `y`
+  // need to be replaced with `y.new - offset` inside the region:
+  //   %y.new.minus.offset = getelementptr %y.new, -offset              ; (1)
+
+  IRBuilder<> Builder(InsertPt);
+  const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
+  Value *Offset = ArrSecInfo.getOffset();
+  Value *NegOffset = Builder.CreateNeg(Offset, "neg.offset");
+  Value *NewMinusOffset = Builder.CreateGEP(
+      NewRedInst, NegOffset, NewRedInst->getName() + ".minus.offset"); // (1)
+
+  if (!ArrSecInfo.getBaseIsPointer())
+    return NewMinusOffset;
+
+  // In case of array section on a pointer, like:
+  //
+  //   int *x;
+  //   #pragma omp for reduction(+:x[1:5])
+  //
+  // The type of `x` in IR is `i32**`. So an access to x[1] in the IR will look
+  // like:
+  //
+  //   %1 = load i32* %x
+  //   %2 = getelementpointer %1, 1
+  //
+  // However, the type of the local copy `x.new` is i32*. So x needs to be
+  // replaced with address of 'x.new - offset':
+  //
+  //   %x.new = alloca i32, 5
+  //   %x.new.minus.offset = getelementpointer %x.new, -1               ; (1)
+  //   %x.new.minus.offset.addr = alloca i32*                           ; (2)
+  //   store %x.new.minus.offset, %x.new.minus.offset.addr              ; (3)
+  //
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  AllocaInst *NewMinusOffsetAddr = Builder.CreateAlloca(
+      PointerType::get(ArrSecInfo.getElementType(), DL.getAllocaAddrSpace()),
+      nullptr, NewMinusOffset->getName() + ".addr");       //             (2)
+  Builder.CreateStore(NewMinusOffset, NewMinusOffsetAddr); //             (3)
+
+  return NewMinusOffsetAddr;
 }
 
 // A utility to privatize the variables within the region.
@@ -1483,6 +1744,25 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
   return NewPrivInst;
 }
 
+// A utility to privatize the variables within the region.
+AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
+    WRegionNode *W, Value *PrivValue, Instruction *InsertPt,
+    const StringRef VarNameSuff, Type *ArrSecElementType, Value *ArrSecSize) {
+
+  if (!ArrSecSize)
+    return genPrivatizationAlloca(W, PrivValue, InsertPt, VarNameSuff);
+
+  Function *F = InsertPt->getParent()->getParent();
+  const DataLayout &DL = F->getParent()->getDataLayout();
+  IRBuilder<> Builder(InsertPt);
+
+  assert(ArrSecElementType && "Null array section element type.");
+  auto *NewPrivInst =
+      Builder.CreateAlloca(ArrSecElementType, DL.getAllocaAddrSpace(),
+                           ArrSecSize, PrivValue->getName() + VarNameSuff);
+  return NewPrivInst;
+}
+
 // Replace the variable with the privatized variable
 void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *PrivValue,
@@ -1510,8 +1790,9 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
     }
   }
 
-  LLVM_DEBUG(dbgs() << "Replaced uses of " << *PrivValue << "With "
-                    << *NewPrivValue << "\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replaced uses of '";
+             PrivValue->printAsOperand(dbgs()); dbgs() << "' with '";
+             NewPrivValue->printAsOperand(dbgs()); dbgs() << "'\n");
 }
 
 // Generates code for linear variables for the WRegion W.
