@@ -175,6 +175,25 @@ static cl::opt<bool>
     SimplifyChains("addsub-reassoc-simplify-chains", cl::init(true), cl::Hidden,
                    cl::desc("Enable simplification of chains."));
 
+static cl::opt<bool>
+    EnableGroupCanonicalization("addsub-reassoc-canonicalize-group",
+                                cl::init(true), cl::Hidden,
+                                cl::desc("Enable canonicalization of groups."));
+
+static cl::opt<bool> EnableMemCanonicalization(
+    "addsub-reassoc-canonicalize-mem", cl::init(true), cl::Hidden,
+    cl::desc(
+        "Enable canonicalization of groups based on the memory accesses."));
+
+static cl::opt<unsigned> MemCanonicalizationMaxGroupSize(
+    "addsub-reassoc-memcan-max-group-size", cl::init(8), cl::Hidden,
+    cl::desc(
+        "The maximum group size to be considered for mem canonicalization."));
+
+static cl::opt<int> MemCanonicalizationMaxLookupDepth(
+    "addsub-reassoc-memcan-max-lookup-depth", cl::init(4), cl::Hidden,
+    cl::desc("The maximum distance we are going to search for matching groups "
+             "within BestGroups."));
 
 static cl::opt<bool> EnableUnaryAssociations(
     "addsub-reassoc-memcan-enable-unary-associations", cl::init(true),
@@ -557,6 +576,45 @@ bool AddSubReassociatePass::Group::containsValue(Value *V) const {
   return false;
 }
 
+bool AddSubReassociatePass::Group::isSimilar(const Group &G2) {
+  // Sizes should match.
+  if (G2.size() != size())
+    return false;
+  SmallSet<unsigned, 8> G2Opcodes;
+  for (size_t I = 0, e = G2.size(); I != e; ++I)
+    G2Opcodes.insert(G2.getTrunkOpcode(I));
+
+  for (size_t I = 0, e = size(); I != e; ++I)
+    if (!G2Opcodes.count(getTrunkOpcode(I)))
+      return false;
+  return true;
+}
+
+void AddSubReassociatePass::Group::sort() {
+  auto valuesCmp = [](const ValOpTy &VO1, const ValOpTy &VO2) -> bool {
+    Value *V1 = VO1.first;
+    const OpcodeData &OD1 = VO1.second;
+    Value *V2 = VO2.first;
+    const OpcodeData &OD2 = VO2.second;
+
+    Instruction *I1 = dyn_cast<Instruction>(V1);
+    Instruction *I2 = dyn_cast<Instruction>(V2);
+    if (I1 && I2) {
+      // If instr opcodes differ, sort by their opcode.
+      if (I1->getOpcode() != I2->getOpcode())
+        return I1->getOpcode() < I2->getOpcode();
+      // If the trunk opcodes differ, sort by them.
+      if (OD1 != OD2)
+        return OD1 < OD2;
+      return false;
+    }
+    if ((I1 && !I2) || (I1 && !I2))
+      return (bool)I1 < (bool)I2;
+    return false;
+  };
+  std::sort(Values.begin(), Values.end(), valuesCmp);
+}
+
 void AddSubReassociatePass::Group::flipOpcodes() {
   for (auto &Pair : Values)
     Pair.second = Pair.second.getFlipped();
@@ -629,6 +687,180 @@ Value *AddSubReassociatePass::skipAssocs(const OpcodeData &OD,
     }
   }
   return Leaf;
+}
+
+// Returns true if we were able to compute distance of V1 and V2 or one of their
+// operands, false otherwise.
+bool AddSubReassociatePass::getValDistance(Value *V1, Value *V2, int MaxDepth,
+                                           int64_t &Distance) {
+  if (MaxDepth == 0)
+    return false;
+  Instruction *I1 = dyn_cast<Instruction>(V1);
+  Instruction *I2 = dyn_cast<Instruction>(V2);
+  if ((I1 && !I2) || (!I1 && I2))
+    return false;
+  if (I1 && I2) {
+    if (I1->getOpcode() != I2->getOpcode())
+      return false;
+
+    LoadInst *LI1 = dyn_cast<LoadInst>(I1);
+    LoadInst *LI2 = dyn_cast<LoadInst>(I2);
+    if (LI1 && LI2) {
+      if (LI1->getPointerAddressSpace() != LI2->getPointerAddressSpace())
+        return false;
+      // Check pointers
+      Value *Ptr1 = LI1->getPointerOperand();
+      Value *Ptr2 = LI2->getPointerOperand();
+      const SCEV *Scev1 = SE->getSCEV(Ptr1);
+      const SCEV *Scev2 = SE->getSCEV(Ptr2);
+      const SCEV *Diff = SE->getMinusSCEV(Scev1, Scev2);
+      if (const SCEVConstant *DiffConst = dyn_cast<SCEVConstant>(Diff)) {
+        Distance = DiffConst->getAPInt().getSExtValue();
+        return true;
+      }
+    }
+    for (unsigned I = 0, e = I1->getNumOperands(); I != e; ++I) {
+      if (getValDistance(I1->getOperand(I), I2->getOperand(I), MaxDepth - 1,
+                         Distance))
+        return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+// Returns the sum of the absolute distances of SortedLeaves and G2.
+int64_t AddSubReassociatePass::getSumAbsDistances(Group::ValVecTy &G1Leaves,
+                                                  const Group &G2) {
+  assert(G1Leaves.size() == G2.size() && "Expected same size");
+  int64_t Sum = 0;
+  for (size_t I = 0, e = G2.size(); I != e; ++I) {
+    Value *V1 = G1Leaves[I].first;
+    Value *V2 = G2.getValues()[I].first;
+    int64_t AbsDist = 0;
+    if (getValDistance(V1, V2, 2, AbsDist))
+      Sum += std::abs(AbsDist);
+    else
+      return MAX_DISTANCE;
+  }
+  return Sum;
+}
+
+// Recursively calls itself to explore the different orderings of G1's leaves in
+// order to match them best against G2.
+// Upon each run, we extend LastSortedG1Leaves by one of the unused leaves of G1
+// (by checking the remaining leaves in G1Leaves), and we try to match it
+// against the first leaf in G2Leaves. The best ordering is held in
+// BestSortedG1Leaves and the best score in BestScore.
+// It returns the best score in post-order.
+int64_t AddSubReassociatePass::getBestSortedScoreRec(
+    const Group &G1, const Group &G2, Group::ValVecTy G1Leaves,
+    Group::ValVecTy G2Leaves, Group::ValVecTy &LastSortedG1Leaves,
+    Group::ValVecTy &BestSortedG1Leaves, int64_t &BestScore) {
+  // If we reached the bottom, return the total distance.
+  if (G2Leaves.empty()) {
+    assert(G1Leaves.empty() && "G1Leaves and G2Leaves out of sync.");
+    // Now get the sum of the absolute distances between SortedLeaves and G2.
+    return getSumAbsDistances(LastSortedG1Leaves, G2);
+  }
+  // Let's try to match G2's G2LeafIdx'th leaf.
+  Value *G2LeafV = G2Leaves.front().first;
+  G2Leaves.erase(G2Leaves.begin());
+
+  // Go through the remaining G1 leaves looking for matches with G2LeafV.
+  SmallVector<Group::ValOpTy, 4> Matches;
+  int64_t Distance = 0;
+  for (auto &G1Leaf : G1Leaves)
+    if (getValDistance(G2LeafV, G1Leaf.first, 2, Distance))
+      Matches.push_back(G1Leaf);
+  // Early exit if no match.
+  if (Matches.empty())
+    return MAX_DISTANCE;
+
+  // Recursively try all matches to find the one that leads to the best score.
+  for (auto &G1Leaf : Matches) {
+    // Create copies, one for each of the matched leaves.
+    Group::ValVecTy SortedG1LeavesCopy = LastSortedG1Leaves;
+    SortedG1LeavesCopy.push_back(G1Leaf);
+    Group::ValVecTy G1LeavesCopy = G1Leaves;
+    G1LeavesCopy.erase(
+        std::find(G1LeavesCopy.begin(), G1LeavesCopy.end(), G1Leaf));
+    // Get the score by recursively calling self.
+    int64_t Score = getBestSortedScoreRec(G1, G2, G1LeavesCopy, G2Leaves,
+                                           SortedG1LeavesCopy,
+                                           BestSortedG1Leaves, BestScore);
+    // Keep the best scores.
+    if (Score < BestScore) {
+      BestScore = Score;
+      if (SortedG1LeavesCopy.size() == G1.size())
+        BestSortedG1Leaves = SortedG1LeavesCopy;
+    }
+  }
+  // Post-order
+  return BestScore;
+}
+
+// Entry point for getBestSortedScoreRec().
+// Returns false if we did not manage to get a good ordering that matches G2.
+bool AddSubReassociatePass::getBestSortedLeaves(
+    const Group &G1, const Group &G2, Group::ValVecTy &BestSortedG1Leaves) {
+  int64_t BestScore = MAX_DISTANCE;
+  Group::ValVecTy DummyG1SortedLeaves;
+  getBestSortedScoreRec(G1, G2, G1.getValues(), G2.getValues(),
+                         DummyG1SortedLeaves, BestSortedG1Leaves, BestScore);
+  if (BestSortedG1Leaves.size() != G1.size())
+    return false;
+  assert(std::is_permutation(BestSortedG1Leaves.begin(),
+                             BestSortedG1Leaves.end(),
+                             G1.getValues().begin()) &&
+         "The sorted vector should be a permutation of current G1 leaves.");
+  return true;
+}
+
+// Canonicalize: (i) the order of the values in the group, (ii) the trunk
+// opcodes, to match the ones in G2. This value ordering takes into account the
+// memory accesses primarily.
+// Returns true on success.
+bool AddSubReassociatePass::memCanonicalizeGroupBasedOn(Group &G1,
+                                                        const Group &G2,
+                                                        ScalarEvolution *SE) {
+  AddSubReassociatePass::Group::ValVecTy SortedG1Leaves;
+  if (!getBestSortedLeaves(G1, G2, SortedG1Leaves))
+    return false;
+  // Update the current group.
+  G1.setValues(std::move(SortedG1Leaves));
+
+  // (ii) Fix the opcodes.
+  // If the majority of the opcodes don't match, flip opcodes.
+  // This is legal because codegen will emit a flipped bridge.
+  unsigned CntOpcodeMatches = 0;
+  for (size_t I = 0, e = G1.getValues().size(); I != e; ++I)
+    CntOpcodeMatches += (G1.getTrunkOpcode(I) == G2.getTrunkOpcode(I)) ? 1 : 0;
+  if (CntOpcodeMatches < G1.getValues().size() / 2)
+    G1.flipOpcodes();
+  return true;
+}
+
+// Massage 'G' into a form that matches a similar group in 'BestGroups'.
+// Returns true on success.
+bool AddSubReassociatePass::memCanonicalizeGroup(Group &G,
+                                                 GroupsVec &BestGroups) {
+  // This is an expensive canonicalization, so limit the group size.
+  if (G.size() > MemCanonicalizationMaxGroupSize)
+    return false;
+  // Find a similar group in BestGroups.
+  Group *SimilarG = nullptr;
+  int LookupDepth = 0;
+  for (Group &BG : llvm::reverse(BestGroups)) {
+    if (BG.isSimilar(G))
+      SimilarG = &BG;
+    if (LookupDepth++ >= MemCanonicalizationMaxLookupDepth)
+      break;
+  }
+  if (!SimilarG)
+    return false;
+  // Canonicalize G based on SimilarG.
+  return memCanonicalizeGroupBasedOn(G, *SimilarG, SE);
 }
 
 // Get the leaves that are common across all trees in TreeCluster insert them
@@ -762,6 +994,11 @@ void AddSubReassociatePass::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
       continue;
 
     assert(isGroupLegal(G, TreeCluster) && "Not legal?");
+
+    if (EnableGroupCanonicalization) {
+      if (!EnableMemCanonicalization || !memCanonicalizeGroup(G, BestGroups))
+        G.sort();
+    }
 
     // At this point G is the maximum profitable group starting at Tree0[I].
     // We save this group.

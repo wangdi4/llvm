@@ -50,6 +50,10 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
 private:
+  // Maximum distance between two Values.
+  enum {
+      MAX_DISTANCE = LONG_MAX
+  };
   // This represents the associative instruction that applies to this leaf.
   class AssocOpcodeData {
     friend class OpcodeData;
@@ -75,6 +79,14 @@ private:
     }
     bool operator!=(const AssocOpcodeData &Data2) const {
       return !(*this == Data2);
+    }
+    // Comparator used for sorting.
+    bool operator<(const AssocOpcodeData &Data2) const {
+      if (Opcode != Data2.Opcode)
+        return Opcode < Data2.Opcode;
+      if (Const != Data2.Const)
+        return Const < Data2.Const;
+      return false;
     }
     // For debugging.
     void dump() const;
@@ -112,6 +124,17 @@ private:
       return Opcode == OD2.Opcode && AssocOpcodeVec == OD2.AssocOpcodeVec;
     }
     bool operator!=(const OpcodeData &OD2) const { return !(*this == OD2); }
+    // Comparator used for sorting.
+    bool operator<(const OpcodeData &OD2) const {
+      if (Opcode != OD2.Opcode)
+        return Opcode < OD2.Opcode;
+      if (AssocOpcodeVec.size() != OD2.AssocOpcodeVec.size())
+        return AssocOpcodeVec.size() < OD2.AssocOpcodeVec.size();
+      for (size_t I = 0, e = AssocOpcodeVec.size(); I != e; ++I)
+        if (AssocOpcodeVec[I] != OD2.AssocOpcodeVec[I])
+          return AssocOpcodeVec[I] < OD2.AssocOpcodeVec[I];
+      return false;
+    }
     OpcodeData getFlipped() const;
     void appendAssocInstr(Instruction *I) {
       AssocOpcodeVec.push_back(AssocOpcodeData(I));
@@ -253,6 +276,10 @@ private:
     bool empty() const { return Values.empty(); }
     // Return the vector of Leaves and user opcodes in bottom-up order.
     const ValVecTy &getValues() const { return Values; }
+    void setValues(const ValVecTy &&ValuesNew) {
+      assert(Values.size() == ValuesNew.size() && "Expected same size.");
+      Values = std::move(ValuesNew);
+    }
     void appendLeaf(Value *Leaf, const OpcodeData &Opcode) {
       Values.push_back({Leaf, Opcode});
     }
@@ -281,6 +308,10 @@ private:
       llvm_unreachable("V not found in group");
     }
     bool containsValue(Value *V) const;
+    // Returns true if the opcodes/reverse-opcodes and instruction types match.
+    bool isSimilar(const Group &G2);
+    // Canonicalize the values in the group by sorting them.
+    void sort();
     // Return the opcode of the Idx'th trunk instruction.
     unsigned getTrunkOpcode(int Idx) const { return Values[Idx].second.Opcode; }
     // Change the trunk opcodes from Add to Sub and vice versa.
@@ -297,6 +328,28 @@ private:
   static void checkCanonicalized(Tree &T);
   static Value *skipAssocs(const OpcodeData &OD, Value *Leaf);
 
+  // Returns true if we were able to compute distance of V1 and V2 or one of their
+  // operands, false otherwise.
+  bool getValDistance(Value *V1, Value *V2, int MaxDepth, int64_t &Distance);
+  // Returns the sum of the absolute distances of SortedLeaves and G2.
+  int64_t getSumAbsDistances(Group::ValVecTy &SortedLeaves, const Group &G2);
+  // Recursively calls itself to explore the different orderings of G1's leaves
+  // in order to match them best against G2.
+  int64_t getBestSortedScoreRec(const Group &G1, const Group &G2,
+                                 Group::ValVecTy G1Leaves,
+                                 Group::ValVecTy G2Leaves,
+                                 Group::ValVecTy &SortedG1Leaves,
+                                 Group::ValVecTy &BestSortedG1Leaves,
+                                 int64_t &BestScore);
+  // Returns false if we did not manage to get a good ordering that matches G2.
+  bool getBestSortedLeaves(const Group &G1, const Group &G2,
+                           Group::ValVecTy &BestSortedG1Leaves);
+  // Canonicalize: (i) the order of the values in G1, (ii) the trunk opcodes, to
+  // match the ones in G2.
+  bool memCanonicalizeGroupBasedOn(Group &G1, const Group &G2,
+                                   ScalarEvolution *SE);
+  // Canonicalize 'G' based on 'BestGroups' memory accesses and opcodes.
+  bool memCanonicalizeGroup(Group &G, GroupsVec &BestGroups);
   // Find the common leaves across the trees in TreeCluster.
   void getCommonLeaves(const TreeArrayTy &TreeCluster,
                        SmallPtrSet<Value *, 8> &CommonLeaves);
