@@ -16,6 +16,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenTBAA.h"
+#if INTEL_CUSTOMIZATION
+#include "CGRecordLayout.h"
+#include "CodeGenModule.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
@@ -365,11 +369,32 @@ CodeGenTBAA::getTBAAStructInfo(QualType QTy) {
 
 llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
   if (auto *TTy = dyn_cast<RecordType>(Ty)) {
+    assert(CGM && "Module is null!"); // INTEL
     const RecordDecl *RD = TTy->getDecl()->getDefinition();
+    const CGRecordLayout &RL = CGM->getTypes().getCGRecordLayout(RD); // INTEL
     const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
     SmallVector<llvm::MDBuilder::TBAAStructField, 4> Fields;
     for (FieldDecl *Field : RD->fields()) {
       QualType FieldQTy = Field->getType();
+#if INTEL_CUSTOMIZATION
+      if (CGM->getLangOpts().isIntelCompat(LangOptions::IntelTBAABF) &&
+          Field->isBitField() && Field->getBitWidthValue(Context) > 0) {
+        const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
+        FieldQTy = Context.getIntTypeForBitwidth(Info.StorageSize, 0);
+        if (FieldQTy.isNull())
+          /* If the Info.StorageSize is irregular, say 48, then there
+             is no corresponding int type: return nullptr */
+          /* Andrei suggested, "Depending on the guarantees language provides
+             we might want to *always* create special types for the bitfields,
+             something like:
+             !bit_field_type_of_N_bytes =
+                 !{!"bitfield_type_N", !"omnipotent char", i64 0}
+           */
+          return BaseTypeMetadataCache[Ty] = nullptr;
+      } else {
+        FieldQTy = Field->getType();
+      }
+#endif // INTEL_CUSTOMIZATION
       llvm::MDNode *TypeNode = isValidBaseType(FieldQTy) ?
           getBaseTypeInfo(FieldQTy) : getTypeInfo(FieldQTy);
       if (!TypeNode)

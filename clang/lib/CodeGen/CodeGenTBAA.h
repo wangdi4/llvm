@@ -32,6 +32,7 @@ namespace clang {
 
 namespace CodeGen {
 class CGRecordLayout;
+class CodeGenModule; // INTEL
 
 // TBAAAccessKind - A kind of TBAA memory access descriptor.
 enum class TBAAAccessKind : unsigned {
@@ -122,6 +123,7 @@ class CodeGenTBAA {
   const CodeGenOptions &CodeGenOpts;
   const LangOptions &Features;
   MangleContext &MContext;
+  CodeGenModule *CGM = nullptr; // INTEL
 
   // MDHelper - Helper for creating metadata.
   llvm::MDBuilder MDHelper;
@@ -223,6 +225,11 @@ public:
   /// purpose of memory transfer calls.
   TBAAAccessInfo mergeTBAAInfoForMemoryTransfer(TBAAAccessInfo DestInfo,
                                                 TBAAAccessInfo SrcInfo);
+#if INTEL_CUSTOMIZATION
+  void set_CGM(CodeGenModule *cgm) {
+    CGM = cgm;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 }  // end namespace CodeGen

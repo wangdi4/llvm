@@ -99,6 +99,58 @@ Microsoft allows you to catch a string literal with catch(char \*).
 
   }];
 }
+def IntelTBAABFDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-2066";
+  let RegressionTest = "test/CodeGen/intel/bitfield-tbaa1.c";
+  let Content = [{
+Adds tbaa metadata to improve alias analysis for bitfields.
+Optimizer team identified a problem with leela benchmark due to missing
+TBAA metadata for bitfield load.  When you pick up (or store) a storage
+location which holds a bitfield, there are other bitfields which may share
+that location.  Optimizer team wants there to be metadata on the bitfield
+access, and it should be identical for all bitfields that share the same
+storage location. CJ suggested that essentially there is a hidden field
+in the struct, matching the size of the storage location loaded, that is
+accessed.
+
+With the option disabled, there is no tbaa on the bitfield load or store.
+
+In this example, xage and zage2 are in the same storage location so they
+use the same tbaa node.
+
+.. code-block:: c
+
+  struct in_t {
+      int x,y,w;
+      unsigned char  xage : 2;
+      unsigned char  yage1 : 2;
+      unsigned int  zage2 : 12;
+  };
+  struct in_t *sp
+  sp->xage = 2;  sp->zage2 = 2;
+
+.. code-block:: llvm
+
+  %xage = getelementptr ...
+  %bf.load = load i16, i16* %xage, align 4, !tbaa !6
+  %zage2 = getelementptr ...
+  %bf.load1 = load i16, i16* %zage2, align 4, !tbaa !6
+
+Note: 12 is the byte offset of the (short) storage location holding
+xage and zage2.
+
+.. code-block:: llvm
+
+  !4 = !{!"omnipotent char", !5, i64 0}
+  !5 = !{!"Simple C/C++ TBAA"}
+  !6 = !{!7, !9, i64 12}
+  !7 = !{!"struct@in_t", ... }
+  !9 = !{!"short", !4, i64 0}
+
+  }];
+}
 
 // Intel Compatibility
 
@@ -962,6 +1014,7 @@ controlled by -fintel-compatibility, retains volatile.
     ret void
   }];
 }
+
 
 def GlobalDocumentation {
   code Intro =[{..
