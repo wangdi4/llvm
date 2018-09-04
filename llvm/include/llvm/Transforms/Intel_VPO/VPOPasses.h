@@ -23,8 +23,6 @@ class FunctionPass;
 class ModulePass;
 
 #if INTEL_CUSTOMIZATION
-FunctionPass *createVPODriverPass();
-FunctionPass *createVPODriverHIRPass();
 FunctionPass *createVPODirectiveCleanupPass();
 #endif // INTEL_CUSTOMIZATION
 

@@ -34,7 +34,7 @@
 ; CHECK-EMITTER-NEXT:     LOOP END
 ; CHECK-EMITTER-NEXT: LOOP END
 
-; RUN: opt -loop-unswitch -intel-loop-optreport=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPODriverHIR -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
+; RUN: opt -loop-unswitch -intel-loop-optreport=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
 
 ; CHECK-HIR: LOOP BEGIN
 ; CHECK-HIR-NEXT:     Remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}

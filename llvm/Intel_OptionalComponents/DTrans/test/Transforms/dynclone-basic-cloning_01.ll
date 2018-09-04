@@ -14,16 +14,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Calls to @proc1 and @proc3 are cloned.
 define i32 @main() {
 entry:
-  %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
-  %j = bitcast i8* %call1 to %struct.test.01*
-  call void @init(%struct.test.01* %j);
+  %j = call %struct.test.01* @init();
 
   %r1 = call i32 @proc1(%struct.test.01* %j);
 
 ; @proc1 routine is cloned as @proc1.* since %struct.test.01 is accessed
 ; in the routine. @proc1 call is specialized and fixed return values.
 
-; CHECK-LABEL: call void @init(%struct.test.01* %j)
+; CHECK-LABEL: call %struct.test.01* @init()
 ; CHECK:   [[LD1:%d.gld[0-9]*]] = load i8, i8* @__Shrink__Happened__
 ; CHECK-NEXT:  [[CMP1:%d.gc[0-9]*]] = icmp eq i8 [[LD1]], 0
 ; CHECK: br i1 [[CMP1]], label %d.t{{.*}}, label %d.f{{.*}}
@@ -108,14 +106,16 @@ define internal void @proc4(%struct.test.01* %p40) {
 ; CHECK:  call void @proc3.{{.*}}(%struct.test.01* %p30)
 
 ; This routine is selected as InitRoutine.
-define internal void @init(%struct.test.01* %tp1) {
+define internal %struct.test.01* @init() {
+  %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
+  %tp1 = bitcast i8* %call1 to %struct.test.01*
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
   store i64 %g1, i64* %F1, align 8
   %F6 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 6
   %g2 = select i1 undef, i64 -5000, i64 20000
   store i64 %g2, i64* %F6, align 8
-  ret void
+  ret %struct.test.01* %tp1
 }
 
 ; Function Attrs: nounwind

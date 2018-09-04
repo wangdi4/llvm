@@ -933,7 +933,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZNKSt9exception4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetDoesNotAlias(F);
     Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_ZNSi10_M_extractIdEERSiRT_:

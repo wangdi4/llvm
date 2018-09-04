@@ -25,38 +25,6 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   WRegionInfo/WRegionInfo.cpp
   WRegionInfo/WRegionUtils.cpp
   WRegionInfo/WRegionInfoAnalysis.cpp
-
-# INTEL_CUSTOMIZATION
-  Vecopt/VPOAvrGenerate.cpp
-  Vecopt/VPOAvrDecomposeHIR.cpp
-  Vecopt/VPOAvr.cpp
-  Vecopt/VPOAvrFunction.cpp
-  Vecopt/VPOAvrLoop.cpp
-  Vecopt/VPOAvrLoopIR.cpp
-  Vecopt/VPOAvrLoopHIR.cpp
-  Vecopt/VPOAvrStmt.cpp
-  Vecopt/VPOAvrStmtIR.cpp
-  Vecopt/VPOAvrStmtHIR.cpp
-  Vecopt/VPOAvrSwitch.cpp
-  Vecopt/VPOAvrSwitchIR.cpp
-  Vecopt/VPOAvrSwitchHIR.cpp
-  Vecopt/VPOAvrIf.cpp
-  Vecopt/VPOAvrIfIR.cpp
-  Vecopt/VPOAvrIfHIR.cpp
-  Vecopt/VPOAvrUtils.cpp
-  Vecopt/VPOAvrUtilsIR.cpp
-  Vecopt/VPOAvrUtilsHIR.cpp
-  Vecopt/VPODefUse.cpp
-  Vecopt/VPOCFG.cpp
-  Vecopt/VPOSIMDLaneEvolution.cpp
-  Vecopt/VPOPredicator.cpp
-  Vecopt/VPOScenarioEvaluation.cpp
-
-  Vecopt/VectorGraph.cpp
-  Vecopt/VectorGraphUtils.cpp
-  Vecopt/VectorGraphInfo.cpp
-  Vecopt/VectorGraphPredicator.cpp
-# end INTEL_CUSTOMIZATION
 )
 
 add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen intel_directives_gen)

@@ -60,8 +60,8 @@
 
 %"struct.std::nothrow_t" = type { i8 }
 
-@al = global i64 0, align 8
-@nt = global %"struct.std::nothrow_t" zeroinitializer, align 1
+@al = global i64 0
+@nt = global %"struct.std::nothrow_t" zeroinitializer
 
 define i32 @doSomething(%struct.test* %p_test) {
   ; Get pointers to each field
@@ -83,34 +83,34 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ;new64: %p = call i8* @_Znwm(i64 16)
 ;newa64: %p = call i8* @_Znam(i64 16)
-;new64nt: %p = call i8* @_ZnwmRKSt9nothrow_t(i64 16, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-;newa64nt: %p = call i8* @_ZnamRKSt9nothrow_t(i64 16, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-;new64al: %a = load i64, i64* @al, align 8
+;new64nt: %p = call i8* @_ZnwmRKSt9nothrow_t(i64 16, %"struct.std::nothrow_t"* @nt)
+;newa64nt: %p = call i8* @_ZnamRKSt9nothrow_t(i64 16, %"struct.std::nothrow_t"* @nt)
+;new64al: %a = load i64, i64* @al
 ;new64al: %p = call i8* @_ZnwmSt11align_val_t(i64 16, i64 %a)
-;newa64al: %a = load i64, i64* @al, align 8
+;newa64al: %a = load i64, i64* @al
 ;newa64al: %p = call i8* @_ZnamSt11align_val_t(i64 16, i64 %a)
-;new64alnt: %a = load i64, i64* @al, align 8
-;new64alnt: %p = call i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64 16, i64 %a, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-;newa64alnt: %a = load i64, i64* @al, align 8
-;newa64alnt: %p = call i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64 16, i64 %a, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
+;new64alnt: %a = load i64, i64* @al
+;new64alnt: %p = call i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64 16, i64 %a, %"struct.std::nothrow_t"* @nt)
+;newa64alnt: %a = load i64, i64* @al
+;newa64alnt: %p = call i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64 16, i64 %a, %"struct.std::nothrow_t"* @nt)
   %p_test = bitcast i8* %p to %struct.test*
 
   ; Call a function to do something.
   %val = call i32 @doSomething(%struct.test* %p_test)
 
   ; Free the structure
-;new64: call void @_ZdlPv(i8* %p) #0
-;newa64: call void @_ZdaPv(i8* %p) #0
-;new64nt: call void @_ZdlPvRKSt9nothrow_t(i8* %p, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-;newa64nt: call void @_ZdaPvRKSt9nothrow_t(i8* %p, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-;new64al: %a1 = load i64, i64* @al, align 8
+;new64: call void @_ZdlPv(i8* %p)
+;newa64: call void @_ZdaPv(i8* %p)
+;new64nt: call void @_ZdlPvRKSt9nothrow_t(i8* %p, %"struct.std::nothrow_t"* @nt)
+;newa64nt: call void @_ZdaPvRKSt9nothrow_t(i8* %p, %"struct.std::nothrow_t"* @nt)
+;new64al: %a1 = load i64, i64* @al
 ;new64al: call void @_ZdlPvSt11align_val_t(i8* %p, i64 %a1)
-;newa64al: %a1 = load i64, i64* @al, align 8
+;newa64al: %a1 = load i64, i64* @al
 ;newa64al: call void @_ZdaPvSt11align_val_t(i8* %p, i64 %a1)
-;new64alnt: %a1 = load i64, i64* @al, align 8
-;new64alnt:  call void @_ZdlPvSt11align_val_tRKSt9nothrow_t(i8* %p, i64 %a1, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-;newa64alnt: %a1 = load i64, i64* @al, align 8
-;newa64alnt:  call void @_ZdaPvSt11align_val_tRKSt9nothrow_t(i8* %p, i64 %a1, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
+;new64alnt: %a1 = load i64, i64* @al
+;new64alnt:  call void @_ZdlPvSt11align_val_tRKSt9nothrow_t(i8* %p, i64 %a1, %"struct.std::nothrow_t"* @nt)
+;newa64alnt: %a1 = load i64, i64* @al
+;newa64alnt:  call void @_ZdaPvSt11align_val_tRKSt9nothrow_t(i8* %p, i64 %a1, %"struct.std::nothrow_t"* @nt)
   ret i32 %val
 }
 
@@ -120,12 +120,12 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; CHECK-new64: %p = call i8* @_Znwm(i64 8)
 ; CHECK-newa64: %p = call i8* @_Znam(i64 8)
-; CHECK-new64nt: %p = call i8* @_ZnwmRKSt9nothrow_t(i64 8, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-; CHECK-newa64nt: %p = call i8* @_ZnamRKSt9nothrow_t(i64 8, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
+; CHECK-new64nt: %p = call i8* @_ZnwmRKSt9nothrow_t(i64 8, %"struct.std::nothrow_t"* @nt)
+; CHECK-newa64nt: %p = call i8* @_ZnamRKSt9nothrow_t(i64 8, %"struct.std::nothrow_t"* @nt)
 ; CHECK-new64al: %p = call i8* @_ZnwmSt11align_val_t(i64 8, i64 %a)
 ; CHECK-newa64al: %p = call i8* @_ZnamSt11align_val_t(i64 8, i64 %a)
-; CHECK-new64alnt: %p = call i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64 8, i64 %a, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
-; CHECK-newa64alnt: %p = call i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64 8, i64 %a, %"struct.std::nothrow_t"* dereferenceable(1) @nt)
+; CHECK-new64alnt: %p = call i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64 8, i64 %a, %"struct.std::nothrow_t"* @nt)
+; CHECK-newa64alnt: %p = call i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64 8, i64 %a, %"struct.std::nothrow_t"* @nt)
 
 ; CMPLRS-51358
 ; CHECK-types64nt-LABEL: LLVMType: %"struct.std::nothrow_t" = type { i8 }
@@ -134,23 +134,21 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-types64alnt: Safety data: {{.*}}Address taken
 
 
-declare void @_ZdlPv(i8*) #0
-declare void @_ZdaPv(i8*) #0
-declare void @_ZdlPvRKSt9nothrow_t(i8*, %"struct.std::nothrow_t"* dereferenceable(1)) #0
-declare void @_ZdaPvRKSt9nothrow_t(i8*, %"struct.std::nothrow_t"* dereferenceable(1)) #0
-declare void @_ZdlPvSt11align_val_t(i8*, i64) #0
-declare void @_ZdaPvSt11align_val_t(i8*, i64) #0
-declare void @_ZdlPvSt11align_val_tRKSt9nothrow_t(i8*, i64, %"struct.std::nothrow_t"* dereferenceable(1)) #0
-declare void @_ZdaPvSt11align_val_tRKSt9nothrow_t(i8*, i64, %"struct.std::nothrow_t"* dereferenceable(1)) #0
+declare void @_ZdlPv(i8*)
+declare void @_ZdaPv(i8*)
+declare void @_ZdlPvRKSt9nothrow_t(i8*, %"struct.std::nothrow_t"*)
+declare void @_ZdaPvRKSt9nothrow_t(i8*, %"struct.std::nothrow_t"*)
+declare void @_ZdlPvSt11align_val_t(i8*, i64)
+declare void @_ZdaPvSt11align_val_t(i8*, i64)
+declare void @_ZdlPvSt11align_val_tRKSt9nothrow_t(i8*, i64, %"struct.std::nothrow_t"*)
+declare void @_ZdaPvSt11align_val_tRKSt9nothrow_t(i8*, i64, %"struct.std::nothrow_t"*)
 
 declare noalias i8* @_Znwm(i64)
 declare noalias i8* @_Znam(i64)
-declare noalias i8* @_ZnwmRKSt9nothrow_t(i64, %"struct.std::nothrow_t"* dereferenceable(1)) #0
-declare noalias i8* @_ZnamRKSt9nothrow_t(i64, %"struct.std::nothrow_t"* dereferenceable(1)) #0
+declare noalias i8* @_ZnwmRKSt9nothrow_t(i64, %"struct.std::nothrow_t"*)
+declare noalias i8* @_ZnamRKSt9nothrow_t(i64, %"struct.std::nothrow_t"*)
 declare noalias i8* @_ZnwmSt11align_val_t(i64, i64)
 declare noalias i8* @_ZnamSt11align_val_t(i64, i64)
-declare noalias i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64, i64, %"struct.std::nothrow_t"* dereferenceable(1)) #0
-declare noalias i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64, i64, %"struct.std::nothrow_t"* dereferenceable(1)) #0
-
-attributes #0 = { nounwind }
+declare noalias i8* @_ZnwmSt11align_val_tRKSt9nothrow_t(i64, i64, %"struct.std::nothrow_t"*)
+declare noalias i8* @_ZnamSt11align_val_tRKSt9nothrow_t(i64, i64, %"struct.std::nothrow_t"*)
 

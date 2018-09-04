@@ -21,22 +21,5 @@ using namespace llvm;
 void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
   initializeWRegionCollectionWrapperPassPass(Registry);
   initializeWRegionInfoWrapperPassPass(Registry);
-
-#if INTEL_CUSTOMIZATION
-  initializeAVRGeneratePass(Registry);
-  initializeAVRGenerateHIRPass(Registry);
-  initializeAVRDecomposeHIRPass(Registry);
-  initializeVPOPredicatorPass(Registry);
-  initializeVPOPredicatorHIRPass(Registry);
-
-  initializeAvrDefUsePass(Registry);
-  initializeAvrDefUseHIRPass(Registry);
-  initializeAvrCFGPass(Registry);
-  initializeAvrCFGHIRPass(Registry);
-  initializeSIMDLaneEvolutionPass(Registry);
-  initializeSIMDLaneEvolutionHIRPass(Registry);
-  initializeVectorGraphInfoPass(Registry);
-  initializeVectorGraphPredicatorPass(Registry); 
-#endif // INTEL_CUSTOMIZATION
 }
 #endif // INTEL_COLLAB

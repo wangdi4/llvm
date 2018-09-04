@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
 
 ; Verify that vectorizer handles memref with null base pointer successfully.
 
