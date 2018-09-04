@@ -32,6 +32,10 @@ static cl::opt<bool> DisableMultiSeq(
   "csa-disable-multiseq", cl::Hidden,
   cl::desc("CSA Specific: Disable multiple sequence conversion"));
 
+static cl::opt<bool> EnableBuffer(
+  "csa-enable-buffer", cl::Hidden, cl::init(false),
+  cl::desc("CSA Specific: Add buffering to loop LICs"));
+
 CSASeqOpt::CSASeqOpt(MachineFunction *F, MachineOptimizationRemarkEmitter &ORE,
                      const char *PassName) :
   ORE(ORE), PassName(PassName) {
@@ -847,6 +851,9 @@ void CSASeqOpt::PrepRepeat() {
 
 
 void CSASeqOpt::SetSeqLicDepth(unsigned lic, unsigned newDepth) {
+  if (!EnableBuffer)
+    return;
+
   newDepth = newDepth > SimLicMaxDepth ? SimLicMaxDepth : newDepth;
   int depth = LMFI->getLICDepth(lic);
   if (depth >=0 && (unsigned int)(depth) < newDepth)
