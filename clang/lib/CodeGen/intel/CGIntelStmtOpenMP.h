@@ -117,9 +117,9 @@ class OpenMPCodeOutliner {
 
   const OMPExecutableDirective &Directive;
 
-  ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E);
-  Address emitOMPArraySectionExpr(const OMPArraySectionExpr *E,
-                                  ArraySectionTy &AS);
+  const Expr *getArraySectionBase(const Expr *E, ArraySectionTy *AS);
+  ArraySectionDataTy emitArraySectionData(const Expr *E);
+  Address emitOMPArraySectionExpr(const Expr *E, ArraySectionTy *AS);
 
   void addArg(llvm::Value *Val);
   void addArg(StringRef Str);

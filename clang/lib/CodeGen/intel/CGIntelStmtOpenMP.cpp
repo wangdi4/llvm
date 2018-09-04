@@ -267,22 +267,50 @@ llvm::Value *OpenMPCodeOutliner::emitIntelOpenMPCopyAssign(QualType Ty,
 }
 
 namespace CGIntelOpenMP {
-  /*--- Process array section expression ---*/
-  /// Emit an address of the base of OMPArraySectionExpr and fills data for
-  /// array sections.
+  /// Returns the base expression for an array section or an array subscript
+  /// used where an array section is expected.  Optionally (if AS is not
+  /// a nullptr) fills in the array section data for each dimension.
+  const Expr *OpenMPCodeOutliner::getArraySectionBase(const Expr *E,
+                                                      ArraySectionTy *AS) {
+    const Expr *Base = E->IgnoreParenImpCasts();
+    while (const auto *TempOASE = dyn_cast<OMPArraySectionExpr>(Base)) {
+      if (AS)
+        AS->insert(AS->begin(), emitArraySectionData(Base));
+      Base = TempOASE->getBase()->IgnoreParenImpCasts();
+    }
+    while (const auto *TempASE = dyn_cast<ArraySubscriptExpr>(Base)) {
+      if (AS)
+        AS->insert(AS->begin(), emitArraySectionData(Base));
+      Base = TempASE->getBase()->IgnoreParenImpCasts();
+    }
+    return Base;
+  }
+
   OpenMPCodeOutliner::ArraySectionDataTy
-  OpenMPCodeOutliner::emitArraySectionData(const OMPArraySectionExpr *E) {
+  OpenMPCodeOutliner::emitArraySectionData(const Expr *E) {
     ArraySectionDataTy Data;
     auto &C = CGF.getContext();
-    if (auto *LowerBound = E->getLowerBound()) {
+
+    if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E)) {
+      auto *Index = ASE->getIdx();
+      Data.LowerBound = CGF.EmitScalarConversion(
+          CGF.EmitScalarExpr(Index), Index->getType(),
+          C.getSizeType(), Index->getExprLoc());
+      Data.Length = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
+      Data.Stride = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
+      return Data;
+    }
+
+    auto *OASE = cast<OMPArraySectionExpr>(E);
+    if (auto *LowerBound = OASE->getLowerBound()) {
       Data.LowerBound = CGF.EmitScalarConversion(
           CGF.EmitScalarExpr(LowerBound), LowerBound->getType(),
           C.getSizeType(), LowerBound->getExprLoc());
     } else
       Data.LowerBound = llvm::ConstantInt::getNullValue(CGF.SizeTy);
     QualType BaseTy = OMPArraySectionExpr::getBaseOriginalType(
-        E->getBase()->IgnoreParenImpCasts());
-    if (auto *Length = E->getLength()) {
+        OASE->getBase()->IgnoreParenImpCasts());
+    if (auto *Length = OASE->getLength()) {
       Data.Length = CGF.EmitScalarConversion(CGF.EmitScalarExpr(Length),
                                              Length->getType(), C.getSizeType(),
                                              Length->getExprLoc());
@@ -310,20 +338,17 @@ namespace CGIntelOpenMP {
     Data.Stride = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
     return Data;
   }
-  Address OpenMPCodeOutliner::emitOMPArraySectionExpr(
-                                  const OMPArraySectionExpr *E,
-                                  ArraySectionTy &AS) {
-    const Expr *Base = E->getBase()->IgnoreParenImpCasts();
-    AS.push_back(emitArraySectionData(E));
-    while (auto *ASE = dyn_cast<OMPArraySectionExpr>(Base)) {
-      E = ASE;
-      Base = E->getBase()->IgnoreParenImpCasts();
-      AS.insert(AS.begin(), emitArraySectionData(E));
-    }
+
+  /// Emit an address of the base of OMPArraySectionExpr and fills data for
+  /// array sections.
+  Address
+  OpenMPCodeOutliner::emitOMPArraySectionExpr(const Expr *E,
+                                              ArraySectionTy *AS) {
+    const Expr *Base = getArraySectionBase(E, AS);
     QualType BaseTy = Base->getType();
     Address BaseAddr = CGF.EmitLValue(Base).getAddress();
     if (BaseTy->isVariablyModifiedType()) {
-      for (unsigned I = 0, E = AS.size(); I < E; ++I) {
+      for (auto &ASD : *AS) {
         if (const ArrayType *AT = BaseTy->getAsArrayTypeUnsafe()) {
           BaseTy = AT->getElementType();
           llvm::Value *Size = nullptr;
@@ -336,17 +361,16 @@ namespace CGIntelOpenMP {
             Size = llvm::ConstantInt::get(CGF.SizeTy, CAT->getSize());
           else
             Size = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
-          AS[I].VLASize = Size;
+          ASD.VLASize = Size;
         } else {
           assert((BaseTy->isPointerType()));
           BaseTy = BaseTy->getPointeeType();
-          AS[I].VLASize = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+          ASD.VLASize = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
         }
       }
     }
     return BaseAddr;
   }
-  /*--- Process array section expression ---*/
 
   void OpenMPCodeOutliner::addArg(llvm::Value *Val) {
     BundleValues.push_back(Val);
@@ -359,21 +383,12 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::addArg(const Expr *E) {
     auto SavedIP = CGF.Builder.saveIP();
     setOutsideInsertPoint();
-    if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       ArraySectionTy AS;
-      Address Base = emitOMPArraySectionExpr(
-          cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts()), AS);
+      Address Base = emitOMPArraySectionExpr(E, &AS);
       addArg(Base.getPointer());
       addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
-      // If VLASize of the first element is not nullptr, we have sizes for all
-      // dimensions of variably modified type.
-      if (0 && AS.begin()->VLASize) {
-        addArg("QUAL.OPND.ARRSIZE");
-        for (auto &V : AS) {
-          assert(V.VLASize);
-          addArg(V.VLASize);
-        }
-      }
       for (auto &V : AS) {
         assert(V.LowerBound);
         addArg(V.LowerBound);
@@ -594,17 +609,10 @@ namespace CGIntelOpenMP {
   }
 
   void OpenMPCodeOutliner::addExplicit(const Expr *E) {
-    if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
-      auto AE = cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts());
-      const Expr *Base = AE->getBase()->IgnoreParenImpCasts();
-      while (auto *ASE = dyn_cast<OMPArraySectionExpr>(Base)) {
-        AE = ASE;
-        Base = AE->getBase()->IgnoreParenImpCasts();
-      }
-      E = Base;
-    }
-    auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-    addExplicit(PVD);
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      E = getArraySectionBase(E, /*AS=*/nullptr);
+    addExplicit(cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl()));
   }
 
   void OpenMPCodeOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
@@ -773,7 +781,8 @@ namespace CGIntelOpenMP {
         }
         break;
       }
-      if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+          E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
         Op += ":ARRSECT";
       addArg(Op);
       addArg(E);
