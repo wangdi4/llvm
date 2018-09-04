@@ -3422,12 +3422,19 @@ public:
   getParentStructType(std::pair<llvm::Type *, size_t> &PointeePair,
                       Value *ValOp) {
     llvm::Type *ParentTy  = PointeePair.first;
-    unsigned Idx = PointeePair.second;
+    size_t Idx = PointeePair.second;
     if (PointeePair.first->isArrayTy() && PointeePair.second == 0) {
       // Storing the address of zero array element is the same as saving
       // array address. So find a structure type containing the array.
       if (auto *GEP = dyn_cast<GEPOperator>(ValOp)) {
-        if (GEP->getNumIndices() <= 2) {
+        if (GEP->getNumIndices() == 1) {
+          if (auto *LastArg = dyn_cast<ConstantInt>(
+                  GEP->getOperand(GEP->getNumOperands() - 1))) {
+            // TODO: add multiple array access case here after fixing Pointee
+            // index info.
+            (void)LastArg;
+          }
+        } else if (GEP->getNumIndices() == 2) {
           if (auto *LastArg = dyn_cast<ConstantInt>(
                   GEP->getOperand(GEP->getNumOperands() - 1))) {
             Idx = LastArg->getLimitedValue();
