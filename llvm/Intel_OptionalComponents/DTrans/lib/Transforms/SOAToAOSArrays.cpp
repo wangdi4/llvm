@@ -136,11 +136,41 @@ public:
         Context, (Twine(DepTypePrefix) + "EL_" + S.StrType->getName()).str());
 
     TypeRemapper->addTypeMapping(S.StrType, NewArray);
+
+    // For testing purposes assume that the second element type is simply
+    // float*.
+    PFloat = PointerType::get(Type::getFloatTy(Context), 0);
+
+    if (InstsToTransform.MK == MK_Append) {
+      // Processing single function in this debug pass.
+      auto *FunctionTy = S.Method->getFunctionType();
+      SmallVector<Type *, 5> Params;
+
+      for (auto *P : FunctionTy->params()) {
+        if (P == S.ElementType) {
+          Params.push_back(P);
+          Params.push_back(PFloat);
+          NewParamOffset = Params.size() - 1;
+        }
+        if (auto *Ptr = dyn_cast<PointerType>(P)) {
+          if (Ptr->getElementType() == S.StrType)
+            Params.push_back(NewArray->getPointerTo());
+          if (Ptr->getElementType() == S.ElementType) {
+            Params.push_back(P);
+            Params.push_back(PFloat->getPointerTo());
+            NewParamOffset = Params.size() - 1;
+          }
+        }
+      }
+      auto *NewFunctionTy =
+          FunctionType::get(FunctionTy->getReturnType(), Params, false);
+
+      TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
+    }
     return true;
   }
 
   void populateTypes(Module &M) override {
-    PFloat = PointerType::get(Type::getFloatTy(Context), 0);
 
     // S.ElementType is pointer type too.
     // For testing purposes assume that the second element type is simply
@@ -170,14 +200,15 @@ public:
                                   Context);
 
     bool CopyElemInsts = InstsToTransform.MK == MK_Realloc ||
+                         InstsToTransform.MK == MK_Append ||
                          InstsToTransform.MK == MK_Ctor ||
                          InstsToTransform.MK == MK_CCtor;
 
-    DenseMap<Instruction *, Instruction *> OrigToCopy;
+    ArrayMethodTransformation::OrigToCopyTy OrigToCopy;
 
     AMT.updateBasePointerInsts(CopyElemInsts, 2, NewElement->getPointerTo(0));
     if (CopyElemInsts) {
-      AMT.rawCopyAndRelink(OrigToCopy, true, 2);
+      AMT.rawCopyAndRelink(OrigToCopy, true, 2, PFloat, NewParamOffset);
       AMT.gepRAUW(true, OrigToCopy, 0, NewElement->getPointerTo(0));
     }
     // Original instructions from cloned function should be replaced as a last
@@ -197,6 +228,8 @@ private:
   PointerType *PNewElement = nullptr;
   // float*
   PointerType *PFloat = nullptr;
+  // Offset of new parameter for MK_Append method.
+  unsigned NewParamOffset = -1U;
 };
 } // namespace
 

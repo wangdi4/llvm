@@ -27,6 +27,14 @@ using namespace llvm;
 #define DEBUG_TYPE "dtrans-optbase"
 
 namespace {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// This option is used during testing to allow changes of types for
+// function declarations.
+static cl::opt<bool>
+    DTransOptBaseProcessFuncDecl("dtrans-optbase-process-function-declaration",
+                                 cl::init(false), cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 //===----------------------------------------------------------------------===//
 // Utility functions for llvm:Type objects
 //===----------------------------------------------------------------------===//
@@ -647,6 +655,10 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
   for (auto &F : M) {
     if (!F.isDeclaration())
       WL.push_back(&F);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    else if (DTransOptBaseProcessFuncDecl)
+      WL.push_back(&F);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
 
   for (auto *F : WL) {

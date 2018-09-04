@@ -25,7 +25,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; The following method should be classified as append-like.
 ; Instructions to transform are shown.
-;   void add(const S &e) {
+;   void add(S e) {
 ;     realloc(1);
 ;
 ;     base[size] = e;
@@ -34,16 +34,11 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK:      Checking array's method _ZN3ArrIPiE3addERKS0_
 ; CHECK-NEXT: Classification: Append element method
 
-; CHECK-TRANS: ; Dump instructions needing update. Total = 4
-; CHECK-MOD: @_ZN3ArrIPiE3addERKS0_.1(%__SOA_struct.Arr* %this, i32** %e, float**)
-define void @_ZN3ArrIPiE3addERKS0_(%struct.Arr* %this, i32** %e) {
+; CHECK-TRANS: ; Dump instructions needing update. Total = 3
+; CHECK-MOD: @_ZN3ArrIPiE3addERKS0_.1(%__SOA_struct.Arr* %this, i32* %e, float*)
+define void @_ZN3ArrIPiE3addERKS0_(%struct.Arr* %this, i32* %e) {
 entry:
   call void @_ZN3ArrIPiE7reallocEi(%struct.Arr* %this, i32 1)
-; CHECK-TRANS:      ; Arg: Load from arg
-; CHECK-TRANS-NEXT: %tmp = load i32*, i32** %e, align 8
-; CHECK-MOD:        %copy = load float*, float** %0, align 8
-; CHECK-MOD-NEXT:   %tmp = load i32*, i32** %e, align 8
-  %tmp = load i32*, i32** %e, align 8
   %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3
 ; CHECK-TRANS:      ; BasePtrInst: Load of base pointer
 ; CHECK-TRANS-NEXT: %tmp1 = load i32**, i32*** %base, align 8
@@ -54,15 +49,15 @@ entry:
   %idxprom = sext i32 %tmp2 to i64
 ; CHECK-TRANS:      ; MemInstGEP: Element set from arg
 ; CHECK-TRANS-NEXT: %arrayidx = getelementptr inbounds i32*, i32** %tmp1, i64 %idxprom
-; CHECK-MOD:        %arrayidx = getelementptr inbounds %__SOA_EL_struct.Arr, %__SOA_EL_struct.Arr* %tmp1, i64 %idxprom
+; CHECK-MOD:         %arrayidx = getelementptr inbounds %__SOA_EL_struct.Arr, %__SOA_EL_struct.Arr* %tmp1, i64 %idxprom
   %arrayidx = getelementptr inbounds i32*, i32** %tmp1, i64 %idxprom
-; CHECK-MOD-NEXT:   %elem1 = getelementptr inbounds %__SOA_EL_struct.Arr, %__SOA_EL_struct.Arr* %arrayidx, i64 0, i32 1
-; CHECK-MOD-NEXT:   %elem = getelementptr inbounds %__SOA_EL_struct.Arr, %__SOA_EL_struct.Arr* %arrayidx, i64 0, i32 0
+; CHECK-MOD-NEXT:    %elem1 = getelementptr inbounds %__SOA_EL_struct.Arr, %__SOA_EL_struct.Arr* %arrayidx, i64 0, i32 1
+; CHECK-MOD-NEXT:    %elem = getelementptr inbounds %__SOA_EL_struct.Arr, %__SOA_EL_struct.Arr* %arrayidx, i64 0, i32 0
 ; CHECK-TRANS:      ; MemInst: Element set from arg
-; CHECK-TRANS-NEXT: store i32* %tmp, i32** %arrayidx, align 8
-; CHECK-MOD-NEXT:   store float* %copy, float** %elem, align 8
-; CHECK-MOD-NEXT:   store i32* %tmp, i32** %elem1, align 8
-  store i32* %tmp, i32** %arrayidx, align 8
+; CHECK-TRANS-NEXT: store i32* %e, i32** %arrayidx, align 8
+; CHECK-MOD-NEXT:    store float* %0, float** %elem, align 8
+; CHECK-MOD-NEXT:    store i32* %e, i32** %elem1, align 8
+  store i32* %e, i32** %arrayidx, align 8
   %size2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 4
   %tmp3 = load i32, i32* %size2, align 8
   %inc = add nsw i32 %tmp3, 1

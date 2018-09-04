@@ -876,8 +876,7 @@ public:
       : DL(DL), DTInfo(DTInfo), TLI(TLI), VMap(VMap),
         InstsToTransform(InstsToTransform), Context(Context) {}
 
-
-  using OrigToCopyTy = DenseMap<Instruction *, Instruction *>;
+  using OrigToCopyTy = DenseMap<Value *, Value *>;
 
   // Update instructions related to base pointer manipulations.
   // There are several kind of instructions:
@@ -975,8 +974,7 @@ public:
   // Copy and link def-use chains of instructions related to element accesses
   // in combined methods.
   //
-  // ElementPtrGEP and ElementInstToTransform are processed.
-  // TODO: process ElementFromArg
+  // ElementFromArg, ElementPtrGEP and ElementInstToTransform are processed.
   //
   // ElementPtrGEP: addresses of loads/stores are processed (GEPs and PHIs).
   // ElementInstToTransform: loads/stores/memsets.
@@ -995,29 +993,53 @@ public:
   // %val = load i64, i64* %tmp1
   // store i64 %tmp12, i64* %tmp
   void rawCopyAndRelink(OrigToCopyTy &OrigToCopy, bool UniqueInsts,
-                        unsigned NumArrays) {
+                        unsigned NumArrays, Type *OtherElemType,
+                        unsigned NewParamOffset) {
     IRBuilder<> Builder(Context);
 
     auto ProcessSafeBitCast = [&](const Value *Old,
                                   BitCastInst *NewBC) -> void {
       assert(isSafeBitCast(DL, Old) && "Some peephole idiom is not processed");
-      assert(isa<GetElementPtrInst>(NewBC->getOperand(0)) &&
+      assert((isa<GetElementPtrInst>(NewBC->getOperand(0)) ||
+              isa<Argument>(NewBC->getOperand(0))) &&
              "Some peephole idiom is not processed");
       auto It = OrigToCopy.find(NewBC);
       if (It == OrigToCopy.end()) {
         Builder.SetInsertPoint(NewBC);
-        auto *CopyBC = cast<Instruction>(Builder.CreateBitCast(
+        auto *CopyBC = Builder.CreateBitCast(
             // Assumed all pointer types have same alignment.
-            NewBC->getOperand(0), NewBC->getType(), "copy"));
+            NewBC->getOperand(0), NewBC->getType(), "copy");
         OrigToCopy[NewBC] = CopyBC;
+        return;
       }
     };
 
-    // TODO: Loads from args and direct access to args should be added for
-    // append-like methods.
+    for (auto *I : InstsToTransform.ElementFromArg) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      auto *NewLoad = cast<LoadInst>(NewI);
+      auto *NewPtr = NewLoad->getPointerOperand();
+      auto *F = NewI->getParent()->getParent();
+
+      Builder.SetInsertPoint(NewLoad);
+      auto *CopyLoad = Builder.CreateAlignedLoad(
+          // Assumed all pointer types have same alignment.
+          NewPtr, NewLoad->getAlignment(), false, "copy");
+
+      if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr)) {
+        ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
+        OrigToCopy[NewBC->getOperand(0)] = F->arg_begin() + NewParamOffset;
+      } else {
+        assert(isa<Argument>(NewPtr) && "Some peephole idiom is not processed");
+        OrigToCopy[NewPtr] = F->arg_begin() + NewParamOffset;
+        CopyLoad->mutateType(OtherElemType);
+      }
+
+      OrigToCopy[NewLoad] = CopyLoad;
+    }
 
     for (auto *I : InstsToTransform.ElementInstToTransform) {
       auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      auto *F = NewI->getParent()->getParent();
       if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
         auto *NewPtr = cast<Instruction>(NewLoad->getPointerOperand());
         Builder.SetInsertPoint(NewLoad);
@@ -1030,7 +1052,7 @@ public:
         else {
           assert(isa<GetElementPtrInst>(NewPtr) &&
                  "Some peephole idiom is not processed");
-          CopyLoad->mutateType(PointerType::get(Type::getFloatTy(Context), 0));
+          CopyLoad->mutateType(OtherElemType);
         }
       } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
         Builder.SetInsertPoint(NewStore);
@@ -1046,6 +1068,11 @@ public:
         else
           assert(isa<GetElementPtrInst>(NewPtr) &&
                  "Some peephole idiom is not processed");
+
+        // Element set from arg.
+        if (isa<Argument>(NewStore->getValueOperand()))
+          OrigToCopy[NewStore->getValueOperand()] =
+              F->arg_begin() + NewParamOffset;
       } else if (auto MS = dyn_cast<MemSetInst>(NewI)) {
         if (!UniqueInsts)
           continue;
@@ -1069,25 +1096,29 @@ public:
       auto *CopyI = P.second;
       if (auto *CopyLoad = dyn_cast<LoadInst>(CopyI)) {
         auto It =
-            OrigToCopy.find(cast<Instruction>(CopyLoad->getPointerOperand()));
+            OrigToCopy.find(CopyLoad->getPointerOperand());
         if (It != OrigToCopy.end())
           CopyLoad->setOperand(0, It->second);
       } else if (auto *CopyStore = dyn_cast<StoreInst>(CopyI)) {
         auto It =
-            OrigToCopy.find(cast<Instruction>(CopyStore->getPointerOperand()));
+            OrigToCopy.find(CopyStore->getPointerOperand());
         if (It != OrigToCopy.end())
           CopyStore->setOperand(1, It->second);
-        if (auto *CopyVal =
-                dyn_cast<Instruction>(CopyStore->getValueOperand())) {
+        auto *CopyVal = CopyStore->getValueOperand();
+        if (!isa<Constant>(CopyVal)) {
+          assert((isa<Instruction>(CopyVal) || isa<Argument>(CopyVal)) &&
+                 "Unexpected value of StoreInst");
           auto It = OrigToCopy.find(CopyVal);
           if (It != OrigToCopy.end())
             CopyStore->setOperand(0, It->second);
         }
       } else if (auto *CopyBC = dyn_cast<BitCastInst>(CopyI)) {
-        auto It = OrigToCopy.find(cast<Instruction>(CopyBC->getOperand(0)));
+        auto It = OrigToCopy.find(CopyBC->getOperand(0));
         if (It != OrigToCopy.end())
           CopyBC->setOperand(0, It->second);
       } else if (isa<MemSetInst>(NewI))
+        continue;
+      else if (isa<Argument>(NewI))
         continue;
       else
         llvm_unreachable("Unexpected instruction encountered");
