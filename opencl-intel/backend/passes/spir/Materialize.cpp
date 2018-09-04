@@ -39,6 +39,14 @@
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
+static cl::opt<bool> RemoveFPGAReg("remove-fpga-reg",
+    cl::init(false), cl::Hidden,
+    cl::desc("Remove __builtin_fpga_reg built-in calls."));
+
+static cl::opt<bool> RemovePipeConstArgs("remove-pipe-const-args",
+    cl::init(false), cl::Hidden,
+    cl::desc("Remove packet size and alignment arguments from pipe built-ins"));
+
 namespace intel {
 
 // Basic block functors, to be applied on each block in the module.
@@ -51,10 +59,14 @@ public:
     for (llvm::BasicBlock::iterator b = BB.begin(), e = BB.end(); e != b; ++b) {
       if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&*b)) {
         m_isChanged |= changeCallingConv(CI);
-#ifdef BUILD_FPGA_EMULATOR
-        m_isChanged |= changePipeCall(CI, InstToRemove);
-        m_isChanged |= removeFPGARegInst(CI, InstToRemove);
-#endif
+
+        if (RemoveFPGAReg) {
+          m_isChanged |= removeFPGARegInst(CI, InstToRemove);
+        }
+
+        if (RemovePipeConstArgs) {
+          m_isChanged |= changePipeCall(CI, InstToRemove);
+        }
       }
     }
 

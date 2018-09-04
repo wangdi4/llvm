@@ -108,6 +108,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         (int)CHANNEL_DEPTH_MODE_STRICT);
     m_LLVMOptions += " --channel-depth-emulation-mode="
         + std::to_string(channelDepthEmulationMode);
+    m_LLVMOptions += " --remove-fpga-reg --remove-pipe-const-args";
     if (channelDepthEmulationMode != CHANNEL_DEPTH_MODE_IGNORE_DEPTH)
     {
         m_LLVMOptions += " --use-simd-channels=0 ";
