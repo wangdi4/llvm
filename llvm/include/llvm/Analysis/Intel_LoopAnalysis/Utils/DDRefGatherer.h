@@ -280,12 +280,12 @@ struct DDRefGathererLambda : public DDRefGathererUtils {
     HLNodeUtils::visit<Recursive>(VImpl, Node);
   }
 
-  template <bool Recursive = true, typename It, typename Predicate,
-            typename ContainerTy>
+  template <bool Recursive = true, bool RecurseInsideLoops = true, typename It,
+            typename Predicate, typename ContainerTy>
   static void gatherRange(It Begin, It End, ContainerTy &Container,
                           Predicate Pred) {
     DDRefGathererVisitor<RefTy, ContainerTy, Predicate> VImpl(Container, Pred);
-    HLNodeUtils::visitRange<Recursive>(VImpl, Begin, End);
+    HLNodeUtils::visitRange<Recursive, RecurseInsideLoops>(VImpl, Begin, End);
   }
 };
 
@@ -332,10 +332,12 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
                                        ModeSelectorPredicate());
   }
 
-  template <typename It, typename ContainerTy>
+  template <typename It, typename ContainerTy, bool Recursive = true,
+            bool RecurseInsideLoops = true>
   static void gatherRange(It Begin, It End, ContainerTy &Container) {
-    DDRefGathererLambda<RefTy>::gatherRange(Begin, End, Container,
-                                            ModeSelectorPredicate());
+    DDRefGathererLambda<RefTy>::template gatherRange<
+        Recursive, RecurseInsideLoops, It, ModeSelectorPredicate, ContainerTy>(
+        Begin, End, Container, ModeSelectorPredicate());
   }
 };
 

@@ -308,12 +308,12 @@ public:
 
   /// Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel() const { return !isNonLinear(); }
+  bool isLinearAtLevel(unsigned Level) const { return DefinedAtLevel < Level; }
 
   /// Returns true if the canon expr is linear at level and does not have IV at
   /// given level.
   bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerLoops = true) const {
-    if (!isLinearAtLevel() || DefinedAtLevel >= Level) {
+    if (isNonLinear() || DefinedAtLevel >= Level) {
       return false;
     }
 

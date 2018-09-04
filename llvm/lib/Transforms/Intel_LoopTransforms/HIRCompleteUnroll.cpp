@@ -2173,7 +2173,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
     const CanonExpr *CE, const RegDDRef *ParentRef) {
 
   CanonExprInfo CEInfo;
-  bool IsLinear = CE->isLinearAtLevel();
+  bool IsLinear = !CE->isNonLinear();
 
   if (CE->isConstantData()) {
     return true;
@@ -2248,7 +2248,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
 
   bool CanSimplifyIVs = true;
   unsigned OuterLevel = OuterLoop->getNestingLevel();
-  bool IsLinear = CE->isLinearAtLevel();
+  bool IsLinear = !CE->isNonLinear();
   SmallSet<unsigned, 4> CurrentUnrollableIVBlobs;
 
   for (unsigned Level = 1; Level <= CurLevel; ++Level) {
@@ -2324,7 +2324,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlobs(
     const CanonExpr *CE, const RegDDRef *ParentRef,
     unsigned &NumSimplifiedTerms, unsigned &NumNonLinearTerms) {
   bool CanSimplifyBlobs = true;
-  bool IsLinear = CE->isLinearAtLevel();
+  bool IsLinear = !CE->isNonLinear();
   bool HasVisitedNonLinearTerms = false;
 
   for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {

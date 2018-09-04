@@ -1295,14 +1295,8 @@ public:
                                 bool AllowTriangularLoop = false,
                                 bool *IsNearPerfect = nullptr);
 
-  /// Any memref with non-unit stride at TargetLevel?
-  /// Used mostly for blocking/interchange.
-  /// (non-innermost loop, innermostLevel) will examine
-  /// the benefit of
-  /// enabling a perfect loopnest for a near perfect loopnest.
-  /// If no TargetLevel is given, the nesting level of the given loop
-  /// is used.
-  static bool hasNonUnitStrideRefs(const HLLoop *Loop, unsigned TargetLevel);
+  /// Any memref with non-unit stride?
+  /// Will take innermost for now.
   static bool hasNonUnitStrideRefs(const HLLoop *Loop);
 
   /// Returns the lowest common ancestor loop of Lp1 and Lp2. Returns null if

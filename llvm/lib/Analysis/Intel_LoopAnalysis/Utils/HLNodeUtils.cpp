@@ -3638,8 +3638,9 @@ private:
 
 public:
   bool HasNonUnitStride;
-  NonUnitStrideMemRefs(const HLLoop *Loop, unsigned TargetLevel)
-      : NumNonLinearLRefs(0), LoopLevel(TargetLevel), HasNonUnitStride(false) {}
+  NonUnitStrideMemRefs(const HLLoop *Loop)
+      : NumNonLinearLRefs(0), LoopLevel(Loop->getNestingLevel()),
+        HasNonUnitStride(false) {}
   void visit(const HLNode *Node) {}
   void visit(const HLDDNode *Node);
   void postVisit(const HLNode *Node) {}
@@ -3699,17 +3700,7 @@ bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop) {
   assert(Loop && "InnermostLoop must not be nullptr");
   assert(Loop->isInnermost() && "Loop must be innermost Loop");
 
-  return hasNonUnitStrideRefs(Loop, Loop->getNestingLevel());
-}
-
-bool HLNodeUtils::hasNonUnitStrideRefs(const HLLoop *Loop,
-                                       unsigned TargetLevel) {
-
-  if (!Loop) {
-    return false;
-  }
-
-  NonUnitStrideMemRefs NUS(Loop, TargetLevel);
+  NonUnitStrideMemRefs NUS(Loop);
   HLNodeUtils::visit(NUS, Loop);
   return NUS.HasNonUnitStride;
 }

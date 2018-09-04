@@ -80,6 +80,7 @@ static cl::opt<unsigned> NearPerfectLoopProfitablityTCThreshold(
              " for near-perfect loopnests"));
 namespace {
 typedef std::pair<HLLoop *, HLLoop *> CandidateLoopPair;
+typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
 class HIRLoopInterchange {
 public:
@@ -129,13 +130,117 @@ private:
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 
+// Returns true if a ref in a shape of
+//
+// DO i1
+//    DO i2
+//         A[i2][i1]  // 1st dimension = outer dimension
+//
+// The loop may benefit from interchanging i1 and i2 loops.
+// If this function returns true, we may try interchange.
+//
+// E.g.:
+//  A[i2][i1]           returns true  // IVs increases at the outer dimension.
+//  A[i3][i2][i1]       returns true
+//  A[i2][i1][i3]       returns true
+//  A[i3][i1][i2]       returns true
+//  A[i1][i2][i3]       returns false
+//  A[i2][i1 + 7]       returns true  // no special handling for const
+//  A[5*i2][3*i1]       returns true  // no special handling for const coef
+//  A[5*i2 + 2][3*i1]   returns true
+//  A[i1][i1]           returns false // not increasing at outer dimensions
+//  A[i1][i2]           returns false // not increasing at outer dimensions
+//  A[b2*i2][b1*i1]     returns false // bails out with blob coeffs
+//  A[i1 + i3][i2]      returns false // bails out with more than one IVs
+//                                    // in one dimension
+//  A[b*i2][i3][i1]     returns true  // due to "[i3][i1]"
+//  A[i3][b*i1][i2]     returns true  // due to "[i3]..[i2]"
+//
+// TODO: Handling of more than one IVs in one dimension.
+// E.g.
+//   DO i1
+//    DO i2
+//       A[i1 + 2*i2]
+//    END DO
+//   END DO
+// Interchanging i1 and i2 is useful.
+bool areIVsIncreasingWithOuterDimensions(RegDDRef &Ref) {
+  unsigned NodeLevel = Ref.getNodeLevel();
+  unsigned MinLevelSoFar = MaxLoopNestLevel + 1;
+
+  // Scan from the innermost dimension
+  for (int I = 1, E = Ref.getNumDimensions(); I <= E; I++) {
+    const CanonExpr *CE = Ref.getDimensionIndex(I);
+    // Inspecting IVs in one dimension.
+
+    // Upto one IVs with a constant coef.
+    if (!CE->isLinearAtLevel(NodeLevel)) {
+      continue;
+    }
+    // See if zero or 1(constant coeff only) IV's contained.
+    // If only one IV with constant coeff exists, make sure
+    // the level is larger than that of IV of previous dimension.
+    // Currently, non-1 constant coeff of IV is not specially treated.
+    unsigned LevelFound = 0;
+    for (unsigned Level = 1; Level <= NodeLevel; Level++) {
+      unsigned Index = 0;
+      int64_t Coeff = 0;
+      CE->getIVCoeff(Level, &Index, &Coeff);
+
+      if (!Coeff) {
+        continue;
+      }
+
+      if (Index != InvalidBlobIndex || LevelFound != 0) {
+        LevelFound = 0;
+        break;
+      }
+
+      LevelFound = Level;
+    }
+
+    // LevelFound = 0 if any of the following conditions is true.
+    // 1. no IV is found in this dim.
+    // 2. more than one IV is found.
+    // 3. At least one IV has blob coeff.
+    // In those cases, we never return true
+    // at this moment but defer decision to next dimension.
+    if (LevelFound > MinLevelSoFar) {
+      // One IV with a const coef found
+      return true; // may interchange
+    } else if (LevelFound > 0) {
+      // In case LevelFound == 0, we keep previously set MinLevelSoFar.
+      MinLevelSoFar = LevelFound;
+    }
+  }
+
+  return false; // do not try interchange
+}
+
 bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
                                           const HLLoop *InnermostLoop) {
+  // Same as the existing logic.
+  // TODO: Consider replacing the following logic with
+  //       areIVsIncreasingWithOuterDimensions(RegDDRef &Ref)
+  //       This replacement should be done with the study of the
+  //       logic's interaction with locality util and/or its usage within
+  //       HIRLoopInterchange. Also, consider working with fixing matmul6.ll.
+  // E.G.
+  //   DO i1
+  //     DO i2
+  //       DO i3
+  //          a[i2][i1][i3]
+  //  Intention is to interchange ( 1 2 3 ) --> ( 2 1 3 ).
+  if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
+    return true;
+  }
+
   // If a constant TC is too small,
   // avoid aggressive interchange.
   // Scan TC from innermost's parent loop to outermost loop.
-  for (const HLLoop *Lp = InnermostLoop->getParentLoop();
-       Lp != OutermostLoop->getParentLoop(); Lp = Lp->getParentLoop()) {
+  const HLLoop *ParentLp = InnermostLoop->getParentLoop();
+  for (const HLLoop *Lp = ParentLp; Lp != OutermostLoop->getParentLoop();
+       Lp = Lp->getParentLoop()) {
     uint64_t TripCount = -1;
     if (Lp->isConstTripLoop(&TripCount) &&
         TripCount < NearPerfectLoopProfitablityTCThreshold) {
@@ -143,10 +248,24 @@ bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
     }
   }
 
-  // Memory references in Pre/postloop or prehead/postexit
-  // may does not have iv in the deepest dimision
-  return HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop->getParentLoop(),
-                                           InnermostLoop->getNestingLevel());
+  // Examine MemRefs in Pre/postloop or prehead/postexit of the innermost.
+  // Recursive = true (pre/postexit), RecursiveInsidedLoop = false (no child)
+  MemRefGatherer::VectorTy Refs;
+  MemRefGatherer::gatherRange<HLContainerTy::const_iterator,
+                              MemRefGatherer::VectorTy, true, false>(
+      ParentLp->child_begin(), ParentLp->child_end(), Refs);
+  bool MayInterchange = false;
+  for (RegDDRef *Ref : Refs) {
+    LLVM_DEBUG(Ref->dump());
+    MayInterchange = areIVsIncreasingWithOuterDimensions(*Ref);
+    if (MayInterchange) {
+      break;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "MayInterchange: " << MayInterchange << "\n";);
+
+  return MayInterchange;
 }
 
 } // namespace

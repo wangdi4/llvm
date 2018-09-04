@@ -3,16 +3,17 @@
 ; for (j = 0; j < N; j++)
 ; c[i][j] = c[i][j] + a[i][k] * b[k][j];
 
-; RUN: opt -debug-only=hir-loop-interchange -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
-; A perfect loop nest is forced even when all references in innermost loop are all unit strided.
-; Then interchanged. ( 2 1 3 ) might be a better permutation. 
-
+; No refs either in pre/post loop of the innermost or in the innermost loop itself
+; suggests interchange of loops may help. Subscripts in all dimesions are 
+; well aligned with loopnest. Compare against matmul3.ll.
+; 
 ; <37>      + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; <38>      |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
-; <6>       |   |   %0 = (@a)[0][i2][i1];
+; <6>       |   |   %0 = (@a)[0][i1][i2];
 ; <39>      |   |
 ; <39>      |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; <14>      |   |   |   %mul = %0  *  (@b)[0][i1][i3];
@@ -22,9 +23,8 @@
 ; <38>      |   + END LOOP
 ; <37>      + END LOOP
 
-; CHECK: MayInterchange: 1
-; CHECK: Interchanged:
-; CHECK-SAME: ( 2 1 3 )
+; CHECK: MayInterchange: 0
+; CHECK-NOT: Interchanged:
 ;
 ; ModuleID = 'matmul3.c' 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128" 
@@ -46,7 +46,7 @@ for.cond.4.preheader.preheader:                   ; preds = %entry, %for.inc.17
 
 for.body.6.lr.ph:                                 ; preds = %for.inc.14, %for.cond.4.preheader.preheader
   %i.040 = phi i64 [ %inc15, %for.inc.14 ], [ 0, %for.cond.4.preheader.preheader ]
-  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %i.040, i64 %k.043
+  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %k.043, i64 %i.040
   %0 = load double, double* %arrayidx9, align 8, !tbaa !1
   br label %for.body.6
 

@@ -170,7 +170,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       OS << ")";
     }
 
-    if (isLinearAtLevel() && getDefinedAtLevel() > 0) {
+    if (!isNonLinear() && getDefinedAtLevel() > 0) {
       OS << "{def@" << getDefinedAtLevel() << "}";
     }
   }
@@ -1524,7 +1524,7 @@ bool CanonExpr::verifyIVs(unsigned NestingLevel) const {
 }
 
 bool CanonExpr::verifyNestingLevel(unsigned NestingLevel) const {
-  assert((!isLinearAtLevel() ||
+  assert((isNonLinear() ||
           (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
          "CE is undefined at the attached level or should be non-linear.");
 
