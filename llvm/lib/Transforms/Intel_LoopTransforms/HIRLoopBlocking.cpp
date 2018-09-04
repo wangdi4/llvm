@@ -30,8 +30,12 @@
 //
 //   Which loops are stripmined is determined by blocking algorithm.
 //   1. Kennedy and Allen's algorithm in Optimizing Compilers for Modern
-//   Architectures.
+//   Architectures. Inner two loops of typical matrix multiplications are
+//   blocked.
 //   2. Outer two loops of typical matrix multiplication are blocked.
+//   3. All three loops of typical matrix multiplication are blocked. This
+//   was backed by performance experiments in skylake machines.
+//
 //   Actual transformation is done by two utils: stripmine and permute
 //   (a.k.a stripmine and interchange)
 
@@ -94,39 +98,54 @@ static cl::opt<bool> LoopBlockingNearPerfectLoopNest(
     OPT_SWITCH "-near-perfect-loop-nest", cl::init(false), cl::Hidden,
     cl::desc(OPT_DESC " pass try to work on near perfect loop nests as well."));
 
-// matmul: default algorithm, blocks outer two loops of daxpy form of matmul.
+// matmul: block as many loops as possible. Will block all 3 levels
+//         for typical matrix multiplications. Showed the best performance
+//         for skx performance machines with following options:
+//            -O3 -xCORE-AVX512 -Ofast -mfpmath=sse -march=core-avx512
 // kandr: Algorithm from the book by Ken Kennedy and Randy Allen,
 //         blocks the inner two loops.
-// All: block as many loops as possible regardless of profitability.
-enum BlockingAlgo { MatMul, KAndR, All };
+// outer: Blocks outer two loops of daxpy form of matmul. Once showed
+//        best performance with ICC on many machines.
+enum BlockingAlgo { MatMul, KAndR, Outer };
 
 static cl::opt<BlockingAlgo> LoopBlockingAlgorithm(
     OPT_SWITCH "-algo", cl::Hidden, cl::desc("Choose blocking algorithm:"),
     cl::values(
-        clEnumValN(MatMul, "matmul",
-                   "default blocking algorithm (block outer two levels)"),
+        clEnumValN(
+            MatMul, "matmul",
+            "default blocking algorithm (block as many loops as profitable)"),
         clEnumValN(KAndR, "kandr", "algorithm from K&R book"),
-        clEnumValN(All, "all", "block as many loops as possible")));
+        clEnumValN(Outer, "outer", "block outer two levels")));
 
 // Knobs for tuning parameters for blocking - block size
-static cl::opt<int> LoopBlockingBlockSize(OPT_SWITCH "-blocksize",
-                                          cl::init(128), // 4 was tested
-                                          cl::Hidden,
-                                          cl::desc("Size of Block in " OPT_DESC
-                                                   " pass"));
+// If a value other than 0 is given, the value is used as the block size
+// (i.e. stripmine size for stripmine() utility) for all loop levels
+// blocked. Thus, logic for block sizes is ignored.
+static cl::opt<int>
+    CommandLineBlockSize(OPT_SWITCH "-blocksize", cl::init(0), cl::Hidden,
+                         cl::desc("Size of Block in " OPT_DESC " pass"));
 
-// Trip count
+// Lower bound of trip counts where blocking is attempted.
+// Default value is tuned by experiments on skylake machines:
+// 512 is the first power of 2 TC value showed performance gain
+// via loop blocking for two 512 by 512 square matrices multiplication.
+// 384 = (256 + 512) / 2 gained some performance through loop blocking.
 static cl::opt<int> LoopBlockingTCThreshold(
-    OPT_SWITCH "-tc-threshold",
-    cl::init(1028), // 16 was tested
-    cl::Hidden, cl::desc("Threshold of trip counts in " OPT_DESC " pass"));
+    OPT_SWITCH "-tc-threshold", cl::init(384), cl::Hidden,
+    cl::desc("Threshold of trip counts in " OPT_DESC " pass"));
 
 // Upperbound for small stride in bytes.
+// This knob is mainly for KAndR algorithm.
+// Does not greatly affect global behavior of hir loop blocking.
 static cl::opt<int> LoopBlockingStrideThreshold(OPT_SWITCH "-stride-threshold",
                                                 cl::init(32), cl::Hidden,
                                                 cl::desc(" " OPT_DESC " pass"));
-
 namespace {
+
+// Following blocksize worked best in most of pow-2 and non-pow-2
+// square matrix multiplications. Compile options used are
+// marked in the beginning part of this file.
+const unsigned DefaultBlockSize = 64;
 
 typedef std::pair<HLLoop *, HLLoop *> OutermostInnermostLoopPairTy;
 
@@ -175,6 +194,43 @@ FunctionPass *llvm::createHIRLoopBlockingPass() {
 
 namespace {
 
+// Based on experiments on skx performance machines with
+// -O3 -xCORE-AVX512 -Ofast -mfpmath=sse -march=core-avx512
+// In most cases, block size (i.e. stripmine size for stripmine() utility)
+// 64 or 128 gave the best performance.
+// When TC, also the width of square matrix, is large pow-2 numbers, e.g. 2048
+// and 4096, block size(BS) 16 gave the best performance.
+// This behavior grealtly relies on
+// complete unroll of the innermost loop after vectorization.
+// For that effect, it is assumed
+// complete unroll before vectorization does not happen.
+// Non pow-2 TC larger than 4096, still showed the best performance
+// with BS = 64.
+unsigned adjustBlockSize(const HLLoop *Lp, uint64_t TC) {
+  if (CommandLineBlockSize) {
+    return CommandLineBlockSize;
+  }
+  if (TC == 2048 || TC == 4096) {
+    return 16;
+  }
+  return DefaultBlockSize;
+}
+
+unsigned adjustBlockSize(const HLLoop *Lp) {
+
+  uint64_t ConstantTrip = 0;
+  Lp->isConstTripLoop(&ConstantTrip);
+  // If non-zero ConstantTrip found, pass that value, otherwise 0
+  return adjustBlockSize(Lp, ConstantTrip);
+}
+
+void adjustBlockSize(const DenseMap<const HLLoop *, uint64_t> &LoopToTC,
+                     DenseMap<const HLLoop *, unsigned> &LoopToBS) {
+  for (auto I : LoopToTC) {
+    LoopToBS[I.first] = adjustBlockSize(I.first, I.second);
+  }
+}
+
 // Stripmine the loops found in LoopsToStripmine,
 // and record the resulting by-strip loops into ByStripLoops
 // Returns the outermost loop. This can be different from the input
@@ -208,7 +264,8 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 
     // Stripmine as much as possible
     // Add some heuristic for stripmining
-    HIRTransformUtils::stripmine(CurLoop, CurLoop, LoopBlockingBlockSize);
+    unsigned BlockSize = adjustBlockSize(CurLoop);
+    HIRTransformUtils::stripmine(CurLoop, CurLoop, BlockSize);
 
     HLLoop *ByStripLoop = CurLoop->getParentLoop();
     ByStripLoops.insert(ByStripLoop);
@@ -309,21 +366,36 @@ unsigned calcMaxVariantDimension(MemRefGatherer::VectorTy &Refs,
   return Max;
 }
 
+void populateTCs(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
+                 DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
+
+  for (const HLLoop *Lp = InnermostLoop, *ELp = OutermostLoop->getParentLoop();
+       Lp != ELp; Lp = Lp->getParentLoop()) {
+    uint64_t ConstantTrip = 0;
+    if (Lp->isConstTripLoop(&ConstantTrip)) {
+      LoopToTC[Lp] = ConstantTrip;
+    } else {
+      LoopToTC[Lp] = 0;
+    }
+  }
+}
+
 // From InnermostLoop to OutermostLoop, return the consecutive depth
 // where TC is at least a certain threshold.
 // NewOutermost will be updated if the given OutermostLoop's TC
 // is smaller then the threshold.
-unsigned calcConsecutiveDepthOverTCThreshold(const HLLoop *InnermostLoop,
-                                             const HLLoop *OutermostLoop,
-                                             HLLoop *&NewOutermost) {
+unsigned calcConsecutiveDepthOverTCThreshold(
+    const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
+    HLLoop *&NewOutermost, const DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
+
   // Scan from Innermost outerward
   // See if TC is constant and over a certain threshold
   unsigned ConsecutiveDepth = 0;
   for (const HLLoop *Lp = InnermostLoop, *ELp = OutermostLoop->getParentLoop();
        Lp != ELp; Lp = Lp->getParentLoop()) {
-    uint64_t ConstantTrip = 0;
-    if (!Lp->isConstTripLoop(&ConstantTrip) ||
-        ConstantTrip < (uint64_t)LoopBlockingTCThreshold) {
+    if (!DisableTCCheck &&
+        LoopToTC.find(Lp)->second < (uint64_t)LoopBlockingTCThreshold) {
+      // LoopToTC[Lp] < (uint64_t)LoopBlockingTCThreshold) {
       break;
     }
     ConsecutiveDepth++;
@@ -351,11 +423,15 @@ unsigned calcConsecutiveDepthOverTCThreshold(const HLLoop *InnermostLoop,
 // Direct application of the algorithm is done by
 // BlockingAlgorithm = kandr
 //
-// In measurement, blocking K-loop, not its inner loop performs better.
+// Experiments showed blocking K-loop, not its inner loop
+// performs better (outer).
+// Furthermore, blocking all 3 loops for matrix multiplication performs
+// best in skx performance machine (1 copy).
 // Default algorithm is by setting  BlockingAlgorithm = matmul.
 bool determineProfitableStripmineLoop(
     const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
     const MemRefGatherer::VectorTy &Refs, LoopSetTy &LoopsToStripmine,
+    const DenseMap<const HLLoop *, unsigned> &LoopToBS,
     SmallVectorImpl<unsigned> &ToStripLevels) {
 
   unsigned OuterLevel = OutermostLoop->getNestingLevel();
@@ -413,53 +489,37 @@ bool determineProfitableStripmineLoop(
     }
     if ((NumRefsMissingAtLevel[Level] > 0 ||
          NumRefsWithSmallStrides[Level] > 0) &&
-        Lp->canStripmine(LoopBlockingBlockSize, NotRequired)) {
+        Lp->canStripmine(LoopToBS.find(Lp)->second, NotRequired) &&
+        !NotRequired) {
 
       NumTotalLoops++;
 
-      if (LoopBlockingAlgorithm == KAndR) {
-        // If so, block it innerloop
-        LLVM_DEBUG(dbgs() << "Loop at Level " << InnerLp->getNestingLevel()
-                          << " will be stripmined\n");
-        LoopsToStripmine.insert(const_cast<HLLoop *>(InnerLp));
-        ToStripLevels.push_back(InnerLp->getNestingLevel());
-      } else if (LoopBlockingAlgorithm == MatMul) {
-        // default behavior
-        LLVM_DEBUG(dbgs() << "Loop at Level " << Lp->getNestingLevel()
-                          << " will be stripmined\n");
-        LoopsToStripmine.insert(const_cast<HLLoop *>(Lp));
-        ToStripLevels.push_back(Lp->getNestingLevel());
-      }
+      // KAndR blocks its inner loop. Otherwise, the loop.
+      HLLoop *ToStripmine = LoopBlockingAlgorithm == KAndR
+                                ? const_cast<HLLoop *>(InnerLp)
+                                : const_cast<HLLoop *>(Lp);
+
+      LLVM_DEBUG(dbgs() << "Loop at Level " << ToStripmine->getNestingLevel()
+                        << " will be stripmined\n");
+      LoopsToStripmine.insert(ToStripmine);
+      ToStripLevels.push_back(ToStripmine->getNestingLevel());
     }
   }
 
-  LLVM_DEBUG(dbgs() << "determineProfitableStipmineLoop result: "
-                    << !LoopsToStripmine.empty() << "\n");
-  return !LoopsToStripmine.empty();
-}
-
-// Block as many loops as possible starting from the innermost
-// Mainly for performance testing.
-bool blockLoopsMaximally(const HLLoop *InnermostLoop,
-                         const HLLoop *OutermostLoop,
-                         LoopSetTy &LoopsToStripmine,
-                         SmallVectorImpl<unsigned> &ToStripLevels) {
-
-  unsigned NumTotalLoops = InnermostLoop->getNestingLevel();
-  for (const HLLoop *Lp = InnermostLoop, *ELp = OutermostLoop->getParentLoop();
-       Lp != ELp; Lp = Lp->getParentLoop()) {
+  // Look into the innermost loop again for blocking when algo is MatMul.
+  // Experiments in skx showed blocking all three levels of matrix
+  // multiplication gives best performance.
+  if (LoopBlockingAlgorithm == MatMul) {
     bool NotRequired = false;
-    if (NumTotalLoops >= MaxLoopNestLevel) {
-      break;
-    }
-    if (Lp->canStripmine(LoopBlockingBlockSize, NotRequired)) {
-
-      NumTotalLoops++;
-
-      LLVM_DEBUG(dbgs() << "Loop at Level " << Lp->getNestingLevel()
+    if (InnermostLoop->canStripmine(LoopToBS.find(InnermostLoop)->second,
+                                    NotRequired) &&
+        !NotRequired) {
+      // calcConsecutiveDepthOverTCThreshold already checked TC
+      // of the innermost Loop.
+      LLVM_DEBUG(dbgs() << "Loop at Level " << InnermostLoop->getNestingLevel()
                         << " will be stripmined\n");
-      LoopsToStripmine.insert(const_cast<HLLoop *>(Lp));
-      ToStripLevels.push_back(Lp->getNestingLevel());
+      LoopsToStripmine.insert(const_cast<HLLoop *>(InnermostLoop));
+      ToStripLevels.push_back(InnermostLoop->getNestingLevel());
     }
   }
 
@@ -619,40 +679,41 @@ public:
 
     // Now scan through loop nest's TC
     HLLoop *NewOutermost = Loop;
-    if (!DisableTCCheck) {
-      // DisableTCCheck is false by default.
-      // A heuristic choice potentially to be changed:
-      // For example, in a typical matrix multiplication,
-      // loop depth is 3 (i, j, k loops) and maximum number of dimensions
-      // is 2 ([i][j], [i][k], [k][j]).
-      // The loop depth is refined so that TC of a participating loop
-      // is at least a TCThreshold.
-      unsigned ConsecutiveDepth = calcConsecutiveDepthOverTCThreshold(
-          InnermostLoop, Loop, NewOutermost);
+    DenseMap<const HLLoop *, uint64_t> LoopToTC;
+    populateTCs(InnermostLoop, Loop, LoopToTC);
+    unsigned ConsecutiveDepth = calcConsecutiveDepthOverTCThreshold(
+        InnermostLoop, Loop, NewOutermost, LoopToTC);
 
-      if (ConsecutiveDepth <= MaxDimension) {
-        LLVM_DEBUG(dbgs() << "Failed MaxDimension >= ConsecutiveDepth "
-                          << MaxDimension << "," << ConsecutiveDepth << "\n");
-        // Choose not to block. Stop here.
-        SkipNode = Loop;
-        return;
-      }
+    // A heuristic choice potentially to be changed:
+    // For example, in a typical matrix multiplication,
+    // loop depth is 3 (i, j, k loops) and maximum number of dimensions
+    // is 2 ([i][j], [i][k], [k][j]).
+    // The loop depth is refined so that TC of a participating loop
+    // is at least a TCThreshold.
+    if (ConsecutiveDepth <= MaxDimension) {
+      LLVM_DEBUG(dbgs() << "Failed MaxDimension >= ConsecutiveDepth "
+                        << MaxDimension << "," << ConsecutiveDepth << "\n");
+      // Choose not to block. Stop here.
+      SkipNode = Loop;
+      return;
     }
+
+    // Adjust BlockSize (a.k.a stripmine size) depending on TC
+    DenseMap<const HLLoop *, unsigned> LoopToBS;
+    adjustBlockSize(LoopToTC, LoopToBS);
 
     LoopSetTy ToStripmines;
+    // TODO: CMPLRS-52317 still do not know why alloy fails without this clear
+    //       and following assertions.
     ToStripmines.clear();
+
     // SmallSet does not allow iteration, auxiliary data structure
     SmallVector<unsigned, MaxLoopNestLevel> ToStripLevels;
-
     bool IsToStripmine = false;
-    if (LoopBlockingAlgorithm == All) {
-      IsToStripmine = blockLoopsMaximally(InnermostLoop, NewOutermost,
-                                          ToStripmines, ToStripLevels);
-    } else {
-      IsToStripmine = determineProfitableStripmineLoop(
-          InnermostLoop, NewOutermost, Refs, ToStripmines, ToStripLevels);
-      assert((IsToStripmine != (ToStripmines.empty())) && "Empty!!");
-    }
+    IsToStripmine =
+        determineProfitableStripmineLoop(InnermostLoop, NewOutermost, Refs,
+                                         ToStripmines, LoopToBS, ToStripLevels);
+    assert((IsToStripmine != (ToStripmines.empty())) && "Empty!!");
 
     if (!IsToStripmine) {
       LLVM_DEBUG(dbgs() << "Failed determineProfitableStipmineLoop\n";);
