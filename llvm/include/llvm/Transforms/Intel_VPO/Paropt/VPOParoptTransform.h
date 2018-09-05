@@ -1002,13 +1002,6 @@ private:
   /// #pragma omp taskgroup
   bool genTaskgroupRegion(WRegionNode *W);
 
-  /// \brief Collect the instructions of global variable uses recursively to
-  /// handle the case of nested constant expressions.
-  void
-  collectGlobalUseInsnsRecursively(WRegionNode *W,
-                                   SmallVectorImpl<Instruction *> &RewriteCons,
-                                   ConstantExpr *CE);
-
   /// \brief Add alias_scope and no_alias metadata to improve the alias
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);

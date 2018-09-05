@@ -1442,21 +1442,6 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   return Changed;
 }
 
-// Collect the instructions of global variable uses recursively to
-// handle the case of nested constant expressions.
-void VPOParoptTransform::collectGlobalUseInsnsRecursively(
-    WRegionNode *W, SmallVectorImpl<Instruction *> &RewriteCons,
-    ConstantExpr *CE) {
-  for (Use &U : CE->uses()) {
-    User *UR = U.getUser();
-    if (Instruction *I = dyn_cast<Instruction>(UR)) {
-      if (W->contains(I->getParent()))
-       RewriteCons.push_back(I);
-    } else if (ConstantExpr *C = dyn_cast<ConstantExpr>(UR))
-    collectGlobalUseInsnsRecursively(W, RewriteCons, C);
-  }
-}
-
 // A utility to privatize the variables within the region.
 AllocaInst *
 VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
@@ -1483,15 +1468,6 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
     NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
                                  GV->getName());
     NewPrivInst->insertBefore(InsertPt);
-    SmallVector<Instruction *, 8> RewriteCons;
-    for (auto IB = GV->user_begin(), IE = GV->user_end(); IB != IE; ++IB) {
-      if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*IB))
-        collectGlobalUseInsnsRecursively(W, RewriteCons, CE);
-    }
-    while (!RewriteCons.empty()) {
-      Instruction *I = RewriteCons.pop_back_val();
-      IntelGeneralUtils::breakExpressions(I);
-    }
   } else {
     assert((isa<Argument>(PrivValue) || isa<GetElementPtrInst>(PrivValue)) &&
            "genPrivatizationAlloca: unsupported private item");
@@ -1508,22 +1484,32 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
 // Replace the variable with the privatized variable
 void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *PrivValue,
-                                                     Value *NewPrivInst,
+                                                     Value *NewPrivValue,
                                                      Item *IT) {
+
+  // Find instructions in W that use V
   SmallVector<Instruction *, 8> PrivUses;
-  for (auto IB = PrivValue->user_begin(), IE = PrivValue->user_end(); IB != IE;
-       ++IB) {
-    if (Instruction *User = dyn_cast<Instruction>(*IB))
-      if (W->contains(User->getParent()))
-        PrivUses.push_back(User);
-  }
-  // Replace all USEs of each PrivItem with its new PrivItem in the
+  if (!WRegionUtils::findUsersInRegion(W, PrivValue, &PrivUses, false))
+    return; // Found no applicable uses of PrivValue in W's body
+
+  // Replace all USEs of each PrivValue with its NewPrivValue in the
   // W-Region (parallel loop/region/section ... etc.)
   while (!PrivUses.empty()) {
     Instruction *UI = PrivUses.pop_back_val();
-    UI->replaceUsesOfWith(PrivValue, NewPrivInst);
-    // LLVM_DEBUG(dbgs() << "New Instruction uses PrivItem: " << *UI << "\n");
+    UI->replaceUsesOfWith(PrivValue, NewPrivValue);
+
+    if (isa<GlobalVariable>(PrivValue)) {
+      // If PrivValue is a global, its uses could be in ConstantExprs
+      SmallVector<Instruction *, 2> NewInstArr;
+      IntelGeneralUtils::breakExpressions(UI, &NewInstArr);
+      for (Instruction *NewInstr : NewInstArr) {
+        NewInstr->replaceUsesOfWith(PrivValue, NewPrivValue);
+      }
+    }
   }
+
+  LLVM_DEBUG(dbgs() << "Replaced uses of " << *PrivValue << "With "
+                    << *NewPrivValue << "\n");
 }
 
 // Generates code for linear variables for the WRegion W.
