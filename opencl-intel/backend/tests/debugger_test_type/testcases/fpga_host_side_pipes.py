@@ -10,11 +10,14 @@
 # The test checks that
 # * debugger stops on read_pipe() call
 # * debugger can print data which has been read from a pipe
+# Note: the test isn't supported by Windows debugger simulator
 
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, skipNotGDB
 
 class FPGAHostSidePipes(DebuggerTestCase):
     CLNAME = 'fpga_host_side_pipes.cl'
+
+    @skipNotGDB
     def test_breakpoints(self):
         self.client.execute_debuggee(
             hostprog_name='fpga_host_side_pipes',

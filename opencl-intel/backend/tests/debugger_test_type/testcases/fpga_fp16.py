@@ -8,11 +8,14 @@
 #
 # ===---------------------------------------------------------------------=== //
 
-from testlib.debuggertestcase import DebuggerTestCase
+# Note: the test isn't supported by Windows debugger simulator
+
+from testlib.debuggertestcase import DebuggerTestCase, skipNotGDB
 
 class FP16(DebuggerTestCase):
     CLNAME = 'fpga_fp16.cl'
 
+    @skipNotGDB
     # Test that fp16 variables can be printed and set from GDB.
     def test_fp16(self):
         self.client.execute_debuggee(

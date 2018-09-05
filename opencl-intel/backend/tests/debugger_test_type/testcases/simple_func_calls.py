@@ -23,11 +23,14 @@ class SimpleFuncCalls(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_in(), (self.CLNAME, 3))
 
         # step out of the first foo() call
-        # Note: step_out works incorrectly in some cases.
-        # See test_steps.py tests for details.
         location = self.client.debug_step_out()
-        self.assertEqual(location, (self.CLNAME, 12))
-        self.client.debug_step_over()
+        if self.use_gdb:
+          # Note: step_out works incorrectly with GDB.
+          # See test_steps.py tests for details.
+          self.assertEqual(location, (self.CLNAME, 12))
+          self.client.debug_step_over()
+        else:
+          self.assertEqual(location, (self.CLNAME, 13))
 
         # step over to the second call
         self.assertEqual(self.client.debug_step_over(), (self.CLNAME, 14))
@@ -73,11 +76,15 @@ class SimpleFuncCalls(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_over(), bps[0])
 
         # get to the next call to foo and step in, get to line 3
-        # Note: step_out works incorrectly in some cases.
-        # See test_steps.py tests for details.
         location = self.client.debug_step_out()
-        self.assertEqual(location, (self.CLNAME, 12))
-        self.client.debug_step_over()
+        if self.use_gdb:
+          # Note: step_out works incorrectly with GDB.
+          # See test_steps.py tests for details.
+          self.assertEqual(location, (self.CLNAME, 12))
+          self.client.debug_step_over()
+        else:
+          self.assertEqual(location, (self.CLNAME, 13))
+
         self.client.debug_step_over()
 
         location = self.client.debug_step_in()
@@ -92,9 +99,12 @@ class SimpleFuncCalls(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 4))
 
         # stepping out again now takes us back to main_kernel
-        # Note: step_out works incorrectly in some cases.
-        # See test_steps.py tests for details.
-        self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 14))
+        if self.use_gdb:
+          # Note: step_out works incorrectly with GDB.
+          # See test_steps.py tests for details.
+          self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 14))
+        else:
+          self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 15))
 
         self.assertEqual(self.client.debug_run(bps), bps[0])
         self.client.debug_run_finish()
