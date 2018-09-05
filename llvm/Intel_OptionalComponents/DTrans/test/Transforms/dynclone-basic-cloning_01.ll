@@ -115,7 +115,7 @@ define internal %struct.test.01* @init() {
   %F6 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 6
   %g2 = select i1 undef, i64 -5000, i64 20000
   store i64 %g2, i64* %F6, align 8
-  ret %struct.test.01* %tp1
+  ret %struct.test.01* null
 }
 
 ; Function Attrs: nounwind
