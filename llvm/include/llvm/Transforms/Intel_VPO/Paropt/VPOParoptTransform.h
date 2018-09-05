@@ -617,6 +617,11 @@ private:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
 
+  /// \brief Return true if the program is compiled at the offload mode.
+  bool hasOffloadCompilation() {
+    return ((Mode & OmpOffload) || SwitchToOffload);
+  }
+
   /// \brief Finds the alloc stack variables where the tid stores.
   void getAllocFromTid(CallInst *Tid);
 
@@ -1018,6 +1023,34 @@ private:
   /// arguments.
   Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
                                    CallInst *&Call);
+
+  ///  Generate the iteration space partitioning code based on OpenCL.
+  ///  Given a loop as follows.
+  ///  \code
+  ///    for (i = 0; i <= ub; i++)
+  ///  \endcode
+  ///  The output of partitioning as below.
+  ///  \code
+  ///    chunk_size = (ub + get_local_size()) / get_local_size();
+  ///    new_lb = get_local_id * chunk_size;
+  ///    new_ub = min(chunk_size - 1, ub);
+  ///    for (i = new_lb; i <= new_ub; i++)
+  ///  \endcode
+  ///  Here we assume the global_size is equal to local_size, which means
+  ///  there is only one workgroup.
+  bool genOCLParallelLoop(WRegionNode *W);
+
+  /// \brief Generate the placeholders for the loop lower bound and upper bound.
+  void genLoopBoundUpdatePrep(WRegionNode *W, AllocaInst *&LowerBnd,
+                              AllocaInst *&UpperBnd);
+
+  /// \brief Generate the OCL loop update code.
+  void genOCLLoopBoundUpdateCode(WRegionNode *W, AllocaInst *LowerBnd,
+                                 AllocaInst *UpperBnd);
+
+  /// \breif Generate the OCL loop scheduling code.
+  void genOCLLoopPartitionCode(WRegionNode *W, AllocaInst *LowerBnd,
+                               AllocaInst *UpperBnd);
 };
 } /// namespace vpo
 } /// namespace llvm

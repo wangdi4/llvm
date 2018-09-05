@@ -461,9 +461,12 @@ public:
 
   OVLSOperand() {}
 
+  explicit OVLSOperand(OVLSType T) : Kind(OK_Undef), Type(T) {}
+
   virtual ~OVLSOperand() {}
 
   OperandKind getKind() const { return Kind; }
+  bool IsKindUndefined() const { return Kind == OK_Undef; }
   OVLSType getType() const { return Type; }
   void setType(OVLSType T) { Type = T; }
   virtual uint64_t getId() const { return -1; }
@@ -685,6 +688,9 @@ public:
 
   /// \brief Return the Address (Dst) member of the store.
   OVLSAddress getDst() const { return Dst; }
+
+  /// \brief Return the OVLSOperand (Value) member of the store.
+  const OVLSOperand *getSrc() const { return Value; }
 
   static bool classof(const OVLSInstruction *I) {
     return I->getKind() == OC_Store;
@@ -1049,6 +1055,16 @@ private:
   genSeqLoadStride16Packed8xi32(const OVLSGroup &Group,
                                 OVLSInstructionVector &InstVector,
                                 OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
+
+  /// Function that generates sequences for the following group:
+  //  Stores on arr[4*i], arr[4*i+1], arr[4*i+2], arr[4*i+3] <8 x i32>
+  //  Store.
+  //  Stride: 4bytes(i32) * 4 = 16 bytes Constant.
+  //  Packed - No gaps in the loads.
+  //  Vector Register: <8 x i32>
+  static bool genSeqStoreStride16Packed8xi32(
+      const OVLSGroup &Group, OVLSInstructionVector &InstVector,
+      OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
 };
-}
+} // namespace llvm
 #endif

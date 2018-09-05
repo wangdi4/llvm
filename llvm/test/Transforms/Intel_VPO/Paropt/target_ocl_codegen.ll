@@ -79,5 +79,5 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !6 = !{!"omnipotent char", !7, i64 0}
 !7 = !{!"Simple C/C++ TBAA"}
 
-; CHECK:  %{{.*}} = addrspacecast i32 addrspace(1)* %y to i32*
+; CHECK: store i32 %{{.*}}, i32 addrspace(1)* %{{.*}}
 ; CHECK:  !spirv.Source = !{!{{.*}}}

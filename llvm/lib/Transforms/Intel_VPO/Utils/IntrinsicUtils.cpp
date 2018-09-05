@@ -238,7 +238,8 @@ void VPOUtils::stripDebugInfoInstrinsics(Function &F)
 }
 
 // Return true if the type of AI instruction is not single value type.
-bool VPOUtils::isNotLegalSingleValueType(AllocaInst *AI, const DataLayout &DL) {
+bool VPOUtils::isNotLegalSingleValueType(AllocaInst *AI) {
+  const DataLayout &DL = AI->getModule()->getDataLayout();
   Type *AllocaTy = AI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
   if (!AllocaTy->isSingleValueType() ||

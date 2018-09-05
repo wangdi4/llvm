@@ -35,13 +35,14 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/Utils/Local.h"
 #define DEBUG_TYPE "VPOParopt"
 
 
@@ -191,13 +192,15 @@ bool VPOParoptPass::runImpl(
     removeTargetUndeclaredGlobals(M);
     if (VPOAnalysisUtils::isTargetSPIRV(&M)) {
       // Add the metadata to indicate that the module is OpenCL C version.
-      LLVMContext &C = M.getContext();
-      SmallVector<Metadata *, 8> opSource = {
-          ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 3)),
-          ConstantAsMetadata::get(
-              ConstantInt::get(Type::getInt32Ty(C), 200000))};
-      MDNode *srcMD = MDNode::get(C, opSource);
-      M.getOrInsertNamedMetadata("spirv.Source")->addOperand(srcMD);
+      if (!M.getNamedMetadata("spirv.Source")) {
+        LLVMContext &C = M.getContext();
+        SmallVector<Metadata *, 8> opSource = {
+            ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 3)),
+            ConstantAsMetadata::get(
+                ConstantInt::get(Type::getInt32Ty(C), 200000))};
+        MDNode *srcMD = MDNode::get(C, opSource);
+        M.getOrInsertNamedMetadata("spirv.Source")->addOperand(srcMD);
+      }
     }
   }
 
@@ -336,6 +339,21 @@ void VPOParoptPass::removeTargetUndeclaredGlobals(Module &M) {
       DeadFunctions.push_back(&F);
       if (!F.isDeclaration())
         F.deleteBody();
+    } else {
+#if INTEL_CUSTOMIZATION
+      // This is a workaround for resolving the incompatibility issue
+      // between the xmain compiler and IGC compiler. The IGC compiler
+      // cannot accept the following instruction, which is generated
+      // at compile time for helping infering the address space.
+      //   %4 = bitcast [10000 x i32] addrspace(1)* %B to i8*
+      // The instruction becomes dead after the inferring is done.
+#endif // INTEL_CUSTOMIZATION
+      for (BasicBlock &BB : F)
+        for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E;) {
+          Instruction *Inst = &*I++;
+          if (isInstructionTriviallyDead(Inst))
+            BB.getInstList().erase(Inst);
+        }
     }
   }
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {

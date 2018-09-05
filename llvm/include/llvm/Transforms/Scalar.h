@@ -238,13 +238,24 @@ extern char &DemoteRegisterToMemoryID;
 //
 FunctionPass *createReassociatePass();
 
+#if INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+//
+// SmartReassociate - Targeted reassociation that increases reuse across
+// statements containing Adds and Subs.
+//
+// For example:  X = A - B - C  -> X = A - (B + C)
+//               Y = A + B + C     X = A + (B + C)
+//
+FunctionPass *createAddSubReassociatePass();
+
 //===----------------------------------------------------------------------===//
 //
 // JumpThreading - Thread control through mult-pred/multi-succ blocks where some
 // preds always go to some succ. Thresholds other than minus one override the
 // internal BB duplication default threshold.
 //
-#if INTEL_CUSTOMIZATION
+
 // AllowCFGSimps is an Intel-specific argument that specifies whether the jump
 // threading pass may perform simple CFG simplifications other than jump
 // threading. CFGSimplification does a more thorough job of exploring the

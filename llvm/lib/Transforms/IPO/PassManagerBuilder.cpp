@@ -1346,6 +1346,11 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   PM.add(createSROAPass());
   addInstructionCombiningPass(PM);
   PM.add(createDeadStoreEliminationPass());
+
+  if (OptLevel > 2) {
+    // Cleanup code with AddSub reassociation.
+    PM.add(createAddSubReassociatePass());
+  }
 }
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {

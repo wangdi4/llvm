@@ -1368,6 +1368,9 @@ void FuseGraph::topologicalSort(
 
   SortedFuseNodes.reserve(Stack.size());
   while (!Stack.empty()) {
-    SortedFuseNodes.push_back(&Vertex[Stack.pop_back_val()]);
+    auto *Node = &Vertex[Stack.pop_back_val()];
+    if (!Node->isRemoved()) {
+      SortedFuseNodes.push_back(Node);
+    }
   }
 }

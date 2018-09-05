@@ -600,8 +600,6 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_NUM_TEAMS:
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
-    case QUAL_OMP_NORMALIZED_IV:
-    case QUAL_OMP_NORMALIZED_UB:
       return 1;
   }
   return 2; //everything else

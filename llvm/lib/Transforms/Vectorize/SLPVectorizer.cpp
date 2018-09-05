@@ -139,6 +139,19 @@ static cl::opt<bool>
                           cl::Hidden,
                           cl::desc("Reverse the order in which the operands "
                                    "are visited while building the tree"));
+
+// Split-loads is a simplified form of Variable-Width SLP.
+// It allows shorter vector-lengths for the loads compared to the rest of the
+// SLP tree
+static cl::opt<bool>
+    EnableSplitLoad("enable-split-load", cl::init(true), cl::Hidden,
+                    cl::desc("Enable Vectorizing Split Loads."));
+// The maximum number of smaller loads per TreeEntry.
+// TODO: This value may need tuning.
+static cl::opt<unsigned>
+    MaxSplitLoadGroups("max-split-load", cl::init(4), cl::Hidden,
+                       cl::desc("Max number of split-load groups."));
+
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -820,6 +833,19 @@ private:
   void reorderInputsAccordingToOpcode(unsigned Opcode, ArrayRef<Value *> VL,
                                       SmallVectorImpl<Value *> &Left,
                                       SmallVectorImpl<Value *> &Right);
+#if INTEL_CUSTOMIZATION
+  /// This represents a group of consecutive loads (the indices within
+  /// TE.Scalars). It is used for split-load.
+  struct LoadGroup {
+    int From;
+    int To;
+    LoadGroup(int F, int T) : From(F), To(T) {
+      assert(F <= T && "Bad From/To");
+    }
+    size_t size() const { return (unsigned)(To + 1 - From); }
+  };
+#endif // INTEL_CUSTOMIZATION
+
   struct TreeEntry {
     TreeEntry(std::vector<TreeEntry> &Container) : Container(Container) {}
 
@@ -867,6 +893,9 @@ private:
     /// The vectorization cost.
     int cost = 0;
 
+    /// Groups of consecutive loads for split-load support.
+    SmallVector<LoadGroup, 1> ConsecutiveLoadGroups;
+
     /// Debug print of the TreeEntry.
     void dump(void) {
       dbgs() << idx << ".\n";
@@ -886,6 +915,17 @@ private:
       dbgs() << "\n";
       dbgs() << "Cost: " << cost << "\n";
       dbgs() << "\n";
+
+      if (!ConsecutiveLoadGroups.empty()) {
+        dbgs() << "ConsecutiveLoadGroups (split groups): "
+               << ConsecutiveLoadGroups.size() << "\n";
+        int Cnt = 0;
+        for (const auto &Group : ConsecutiveLoadGroups) {
+          dbgs() << "Split Group " << Cnt++ << ".\n";
+          for (int i = Group.From; i <= Group.To; ++i)
+            dbgs() << *Scalars[i] << "\n";
+        }
+      }
     }
 #endif // INTEL_CUSTOMIZATION
   };
@@ -2243,9 +2283,70 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                          ReuseShuffleIndicies, I->getFirst());
             LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
           }
+#if INTEL_CUSTOMIZATION
+          // Use the split-load support in codegen for the consecutive loads.
+          VectorizableTree.back().ConsecutiveLoadGroups.push_back(
+              LoadGroup(0, VL.size() - 1));
+#endif // INTEL_CUSTOMIZATION
           return;
         }
       }
+
+#if INTEL_CUSTOMIZATION
+      // Check if we can issue smaller loads in smaller-wide groups
+      // (split-load).
+      if (EnableSplitLoad) {
+        // Each consecutive group is represented by a pair of indices into VL.
+        // We go through all elements in order. We create a group once we
+        // encounter non-consecutive accesses.
+        SmallVector<LoadGroup, 1> ConsecutiveGroups;
+        for (int To = 0, From = 0, E = (int)VL.size(); To < E; ++To) {
+          // Build group [From, To] as it contains consecutive loads.
+          if (To == E - 1 ||
+              !isConsecutiveAccess(VL[To], VL[To + 1], *DL, *SE)) {
+            assert(To >= From && "To is expected to follow From");
+            uint32_t GroupSize = To - From + 1;
+            // Only allow groups of sizes that are power of 2.
+            if (GroupSize > 1 && isPowerOf2_32(GroupSize))
+              ConsecutiveGroups.push_back(LoadGroup(From, To));
+            From = To + 1;
+          }
+        }
+
+        // Check if the group contains enough loads.
+        auto isFullGroupLoad = [&]() {
+          unsigned NumGroups = ConsecutiveGroups.size();
+
+          if (// No groups.
+              NumGroups == 0 ||
+              // Too many small groups.
+              (NumGroups > MaxSplitLoadGroups) ||
+              // For now only allow power of 2 number of groups.
+              // TODO: We should relax this and fix codegen.
+              !isPowerOf2_32(NumGroups))
+            return false;
+
+          for (const LoadGroup &Group : ConsecutiveGroups) {
+            // All groups should be of equal size and should cover the whole
+            // VL.
+            // TODO: We should allow groups of various sizes.
+            if (Group.size() != VL.size() / ConsecutiveGroups.size())
+              return false;
+          }
+          return true;
+        };
+
+        if (isFullGroupLoad()) {
+          ++NumOpsWantToKeepOriginalOrder;
+          newTreeEntry(VL, true, UserTreeIdx);
+          assert(!ConsecutiveGroups.empty() && "No groups!");
+          VectorizableTree.back().ConsecutiveLoadGroups = ConsecutiveGroups;
+          LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
+          return;
+        }
+        // Fall-thru
+      }
+#endif // INTEL_CUSTOMIZATION
 
       LLVM_DEBUG(dbgs() << "SLP: Gathering non-consecutive loads.\n");
       BS.cancelScheduling(VL, VL0);
@@ -3971,6 +4072,15 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       return V;
     }
     case Instruction::Load: {
+#if INTEL_CUSTOMIZATION
+      // We encapsulate the load code generation code in a lambda function so
+      // that we can call it for each of the split loads.
+      auto createVecLoad = [&](TreeEntry *E, ArrayRef<Value *> Scalars) {
+        Value *VL0 = Scalars[0];
+        // Loads are inserted at the head of the tree because we don't want to
+        // sink them all the way down past store instructions.
+        VectorType *VecTy = VectorType::get(VL0->getType(), Scalars.size());
+#endif // INTEL_CUSTOMIZATION
       // Loads are inserted at the head of the tree because we don't want to
       // sink them all the way down past store instructions.
       bool IsReorder = !E->ReorderIndices.empty();
@@ -3978,8 +4088,13 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         S = getSameOpcode(E->Scalars, E->ReorderIndices.front());
         VL0 = cast<Instruction>(S.OpValue);
       }
+#if INTEL_CUSTOMIZATION
+      // Split-loads need both vector loads and shuffles. We should emit them
+      // one by one in a sequence. So don't touch the insertion point again as
+      // it has already been set at the beginning.
+#else
       setInsertPointAfterBundle(E->Scalars, S);
-
+#endif // INTEL_CUSTOMIZATION
       LoadInst *LI = cast<LoadInst>(VL0);
       Type *ScalarLoadTy = LI->getType();
       unsigned AS = LI->getPointerAddressSpace();
@@ -4015,6 +4130,57 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       E->VectorizedValue = V;
       ++NumVectorInstructions;
       return V;
+#if INTEL_CUSTOMIZATION
+      };
+
+      Instruction *RetValue = nullptr;
+      std::list<Value *> WorkList;
+
+      // Set insertion point once per load. This is done outside of 'createLoad'
+      // lambda.
+      setInsertPointAfterBundle(E->Scalars, S);
+
+      // Go through all split groups and emit the vector loads.
+      for (const LoadGroup &Group : E->ConsecutiveLoadGroups) {
+        assert(Group.size() > 1 && isPowerOf2_32(Group.size()) && "Bad Group");
+        const auto &ScalarsGroup =
+            ArrayRef<Value *>(&E->Scalars[Group.From], Group.size());
+        RetValue = cast<Instruction>(createVecLoad(E, ScalarsGroup));
+        WorkList.push_front(RetValue);
+      }
+
+      // Emit the pair-wise shuffles.
+      while (WorkList.size() >= 2) {
+        // We build a tree of shuffles:
+        //
+        //  Load Load Load Load
+        //   \    /    \    /
+        //  Shuffle    Shuffle
+        //      \       /
+        //       Shuffle
+        //
+
+        // Pop front a pair of loads from the worklist, create a shuffle, and
+        // push it back into the worklist.
+        Value *VecLoad0 = WorkList.back();
+        WorkList.pop_back();
+        Value *VecLoad1 = WorkList.back();
+        WorkList.pop_back();
+
+        SmallVector<Constant *, 8> MaskVec;
+        assert(isa<VectorType>(VecLoad0->getType()) && "Vector expected.");
+        size_t LoadElements =
+            cast<VectorType>(VecLoad0->getType())->getNumElements();
+        for (int i = 0, e = 2 * LoadElements; i != e; ++i)
+          MaskVec.push_back(Builder.getInt32(i));
+        Value *ShuffleMask = ConstantVector::get(MaskVec);
+        RetValue = cast<Instruction>(Builder.CreateShuffleVector(
+            VecLoad0, VecLoad1, ShuffleMask, "SplitLoadShuffle"));
+        WorkList.push_front(RetValue);
+      }
+      E->VectorizedValue = RetValue;
+      return RetValue;
+#endif // INTEL_CUSTOMIZATION
     }
     case Instruction::Store: {
       StoreInst *SI = cast<StoreInst>(VL0);
