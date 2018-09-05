@@ -10,7 +10,7 @@
 ;     arr[i] = sarr[(i + 1) & 3];
 ; }
 ;   
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -S -vplan-force-vf=4 < %s | FileCheck %s
 ; CHECK: llvm.masked.gather.v4i32
 ; CHECK-NEXT: store <4 x i32>
 ; 
