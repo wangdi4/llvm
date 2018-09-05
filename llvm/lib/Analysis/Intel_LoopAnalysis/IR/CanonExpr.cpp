@@ -1598,3 +1598,52 @@ bool CanonExpr::containsUndef() const {
         return BlobUtils::containsUndef(getBlobUtils().getBlob(BlobIndex));
       });
 }
+
+bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex,
+                                       bool AllowConversion) const {
+  if (getDenominator() != 1 ||
+      !(AllowConversion || (getSrcType() == getDestType()))) {
+    return false;
+  }
+
+  auto &BU = getBlobUtils();
+  auto StandAloneBlob = BU.getBlob(BlobIndex);
+
+  for (auto I = iv_begin(), E = iv_end(); I != E; ++I) {
+    unsigned BlobIdx = getIVBlobCoeff(I);
+
+    if (BlobIdx == InvalidBlobIndex) {
+      continue;
+    }
+
+    auto Blob = BU.getBlob(BlobIdx);
+
+    if (BU.contains(Blob, StandAloneBlob)) {
+      return false;
+    }
+  }
+
+  bool Found = false;
+
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
+    unsigned BlobIdx = getBlobIndex(I);
+
+    if (BlobIdx == BlobIndex) {
+
+      if (getBlobCoeff(I) != 1) {
+        return false;
+      }
+
+      Found = true;
+      continue;
+    }
+
+    auto Blob = BU.getBlob(BlobIdx);
+
+    if (BU.contains(Blob, StandAloneBlob)) {
+      return false;
+    }
+  }
+
+  return Found;
+}

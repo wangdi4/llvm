@@ -220,6 +220,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"

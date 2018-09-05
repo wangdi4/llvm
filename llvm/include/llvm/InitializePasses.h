@@ -504,6 +504,7 @@ void initializeHIRArrayTransposeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopFusionLegacyPassPass(PassRegistry&);
 void initializeHIRDeadStoreEliminationPass(PassRegistry&);
 void initializeHIRLastValueComputationLegacyPassPass(PassRegistry&);
+void initializeHIRPropagateCastedIVLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);

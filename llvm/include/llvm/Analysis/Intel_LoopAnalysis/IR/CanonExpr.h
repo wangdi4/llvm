@@ -19,8 +19,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 #include <iterator>
 #include <set>
@@ -421,6 +421,11 @@ public:
             !getConstant() && (getDenominator() == 1) && (numBlobs() == 1) &&
             (getSingleBlobCoeff() == 1) && !hasIV());
   }
+
+  /// Returns true if \p BlobIndex is a standalone blob (ex- 1 * %t) in the
+  /// canon expr.
+  bool containsStandAloneBlob(unsigned BlobIndex,
+                              bool AllowConversion = true) const;
 
   // Returns true if the CanonExpr is a unitary blob. A unitary blob is a single
   // (non-nested) standalone blob.

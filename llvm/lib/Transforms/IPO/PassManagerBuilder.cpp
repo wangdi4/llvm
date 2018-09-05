@@ -1372,6 +1372,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
+    PM.add(createHIRPropagateCastedIVPass());
     if (OptLevel > 2) {
       PM.add(createHIRLoopConcatenationPass());
       PM.add(createHIRSymbolicTripCountCompleteUnrollPass());
