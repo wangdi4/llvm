@@ -578,23 +578,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__clang__"); // Clang Frontend
 #define TOSTR2(X) #X
 #define TOSTR(X) TOSTR2(X)
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ408071: driver in MacOS redefines some macros.
-  if (!LangOpts.IntelCompat || !TI.getTriple().isOSDarwin())
-#endif
   Builder.defineMacro("__clang_major__", TOSTR(CLANG_VERSION_MAJOR));
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ408071: driver in MacOS redefines some macros.
-  if (!LangOpts.IntelCompat || !TI.getTriple().isOSDarwin())
-#endif
   Builder.defineMacro("__clang_minor__", TOSTR(CLANG_VERSION_MINOR));
   Builder.defineMacro("__clang_patchlevel__", TOSTR(CLANG_VERSION_PATCHLEVEL));
 #undef TOSTR
 #undef TOSTR2
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ408071: driver in MacOS redefines some macros.
-  if (!LangOpts.IntelCompat || !TI.getTriple().isOSDarwin())
-#endif
   Builder.defineMacro("__clang_version__",
                       "\"" CLANG_VERSION_STRING " "
                       + getClangFullRepositoryVersion() + "\"");
