@@ -3510,7 +3510,9 @@ SDValue TargetLowering::BuildSDIV(SDNode *N, SelectionDAG &DAG,
                                   SmallVectorImpl<SDNode *> &Created) const {
   SDLoc dl(N);
   EVT VT = N->getValueType(0);
+  EVT SVT = VT.getScalarType();
   EVT ShVT = getShiftAmountTy(VT, DAG.getDataLayout());
+  EVT ShSVT = ShVT.getScalarType();
   unsigned EltBits = VT.getScalarSizeInBits();
 
   // Check to see if we can do this.
@@ -3522,51 +3524,88 @@ SDValue TargetLowering::BuildSDIV(SDNode *N, SelectionDAG &DAG,
   if (N->getFlags().hasExact())
     return BuildExactSDIV(*this, N, dl, DAG, Created);
 
+  SmallVector<SDValue, 16> MagicFactors, Factors, Shifts, ShiftMasks;
+
+  auto BuildSDIVPattern = [&](ConstantSDNode *C) {
+    if (C->isNullValue())
+      return false;
+
+    const APInt &Divisor = C->getAPIntValue();
+    APInt::ms magics = Divisor.magic();
+    int NumeratorFactor = 0;
+    int ShiftMask = -1;
+
+    if (Divisor.isOneValue() || Divisor.isAllOnesValue()) {
+      // If d is +1/-1, we just multiply the numerator by +1/-1.
+      NumeratorFactor = Divisor.getSExtValue();
+      magics.m = 0;
+      magics.s = 0;
+      ShiftMask = 0;
+    } else if (Divisor.isStrictlyPositive() && magics.m.isNegative()) {
+      // If d > 0 and m < 0, add the numerator.
+      NumeratorFactor = 1;
+    } else if (Divisor.isNegative() && magics.m.isStrictlyPositive()) {
+      // If d < 0 and m > 0, subtract the numerator.
+      NumeratorFactor = -1;
+    }
+
+    MagicFactors.push_back(DAG.getConstant(magics.m, dl, SVT));
+    Factors.push_back(DAG.getConstant(NumeratorFactor, dl, SVT));
+    Shifts.push_back(DAG.getConstant(magics.s, dl, ShSVT));
+    ShiftMasks.push_back(DAG.getConstant(ShiftMask, dl, SVT));
+    return true;
+  };
+
   SDValue N0 = N->getOperand(0);
   SDValue N1 = N->getOperand(1);
 
-  // TODO: Add non-uniform constant support.
-  ConstantSDNode *C = isConstOrConstSplat(N1);
-  if (!C || C->isNullValue())
+  // Collect the shifts / magic values from each element.
+  if (!ISD::matchUnaryPredicate(N1, BuildSDIVPattern))
     return SDValue();
-  const APInt &Divisor = C->getAPIntValue();
 
-  APInt::ms magics = Divisor.magic();
+  SDValue MagicFactor, Factor, Shift, ShiftMask;
+  if (VT.isVector()) {
+    MagicFactor = DAG.getBuildVector(VT, dl, MagicFactors);
+    Factor = DAG.getBuildVector(VT, dl, Factors);
+    Shift = DAG.getBuildVector(ShVT, dl, Shifts);
+    ShiftMask = DAG.getBuildVector(VT, dl, ShiftMasks);
+  } else {
+    MagicFactor = MagicFactors[0];
+    Factor = Factors[0];
+    Shift = Shifts[0];
+    ShiftMask = ShiftMasks[0];
+  }
 
-  // Multiply the numerator (operand 0) by the magic value
-  // FIXME: We should support doing a MUL in a wider type
+  // Multiply the numerator (operand 0) by the magic value.
+  // FIXME: We should support doing a MUL in a wider type.
   SDValue Q;
   if (IsAfterLegalization ? isOperationLegal(ISD::MULHS, VT)
                           : isOperationLegalOrCustom(ISD::MULHS, VT))
-    Q = DAG.getNode(ISD::MULHS, dl, VT, N0, DAG.getConstant(magics.m, dl, VT));
+    Q = DAG.getNode(ISD::MULHS, dl, VT, N0, MagicFactor);
   else if (IsAfterLegalization ? isOperationLegal(ISD::SMUL_LOHI, VT)
-                               : isOperationLegalOrCustom(ISD::SMUL_LOHI, VT))
-    Q = SDValue(DAG.getNode(ISD::SMUL_LOHI, dl, DAG.getVTList(VT, VT), N0,
-                            DAG.getConstant(magics.m, dl, VT))
-                    .getNode(), 1);
-  else
-    return SDValue(); // No mulhs or equvialent
-
+                               : isOperationLegalOrCustom(ISD::SMUL_LOHI, VT)) {
+    SDValue LoHi =
+        DAG.getNode(ISD::SMUL_LOHI, dl, DAG.getVTList(VT, VT), N0, MagicFactor);
+    Q = SDValue(LoHi.getNode(), 1);
+  } else
+    return SDValue(); // No mulhs or equivalent.
   Created.push_back(Q.getNode());
 
-  // If d > 0 and m < 0, add the numerator
-  if (Divisor.isStrictlyPositive() && magics.m.isNegative()) {
-    Q = DAG.getNode(ISD::ADD, dl, VT, Q, N0);
-    Created.push_back(Q.getNode());
-  }
-  // If d < 0 and m > 0, subtract the numerator.
-  if (Divisor.isNegative() && magics.m.isStrictlyPositive()) {
-    Q = DAG.getNode(ISD::SUB, dl, VT, Q, N0);
-    Created.push_back(Q.getNode());
-  }
-  // Shift right algebraic if shift value is nonzero
-  if (magics.s > 0) {
-    Q = DAG.getNode(ISD::SRA, dl, VT, Q, DAG.getConstant(magics.s, dl, ShVT));
-    Created.push_back(Q.getNode());
-  }
-  // Extract the sign bit and add it to the quotient
-  SDValue T =
-      DAG.getNode(ISD::SRL, dl, VT, Q, DAG.getConstant(EltBits - 1, dl, ShVT));
+  // (Optionally) Add/subtract the numerator using Factor.
+  Factor = DAG.getNode(ISD::MUL, dl, VT, N0, Factor);
+  Created.push_back(Factor.getNode());
+  Q = DAG.getNode(ISD::ADD, dl, VT, Q, Factor);
+  Created.push_back(Q.getNode());
+
+  // Shift right algebraic by shift value.
+  Q = DAG.getNode(ISD::SRA, dl, VT, Q, Shift);
+  Created.push_back(Q.getNode());
+
+  // Extract the sign bit, mask it and add it to the quotient.
+  SDValue SignShift = DAG.getConstant(EltBits - 1, dl, ShVT);
+  SDValue T = DAG.getNode(ISD::SRL, dl, VT, Q, SignShift);
+  Created.push_back(T.getNode());
+  T = DAG.getNode(ISD::AND, dl, VT, T, ShiftMask);
   Created.push_back(T.getNode());
   return DAG.getNode(ISD::ADD, dl, VT, Q, T);
 }
@@ -3984,8 +4023,6 @@ SDValue TargetLowering::scalarizeVectorLoad(LoadSDNode *LD,
   unsigned Stride = SrcEltVT.getSizeInBits() / 8;
   assert(SrcEltVT.isByteSized());
 
-  EVT PtrVT = BasePTR.getValueType();
-
   SmallVector<SDValue, 8> Vals;
   SmallVector<SDValue, 8> LoadChains;
 
@@ -3996,8 +4033,7 @@ SDValue TargetLowering::scalarizeVectorLoad(LoadSDNode *LD,
                        SrcEltVT, MinAlign(LD->getAlignment(), Idx * Stride),
                        LD->getMemOperand()->getFlags(), LD->getAAInfo());
 
-    BasePTR = DAG.getNode(ISD::ADD, SL, PtrVT, BasePTR,
-                          DAG.getConstant(Stride, SL, PtrVT));
+    BasePTR = DAG.getObjectPtrOffset(SL, BasePTR, Stride);
 
     Vals.push_back(ScalarLoad.getValue(0));
     LoadChains.push_back(ScalarLoad.getValue(1));
