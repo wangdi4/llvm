@@ -667,15 +667,24 @@ public:
 
   bool isPtrToCharArray() {
     llvm::Type *DomTy = getDominantAggregateTy();
-    if (!DomTy)
+    if (!DomTy) {
+      if (pointsToSomeElement())
+        for (auto &PointeePair : getElementPointeeSet()) {
+          if (auto *ArrayTy = dyn_cast<ArrayType>(PointeePair.first)) {
+            llvm::Type *Int8Ty =
+                llvm::Type::getIntNTy(ArrayTy->getContext(), 8);
+            if (ArrayTy->getArrayElementType() == Int8Ty)
+              return true;
+          }
+        }
       return false;
+    }
     if (!DomTy->isPointerTy())
       return false;
     if (auto *ArrayTy = dyn_cast<ArrayType>(DomTy->getPointerElementType())) {
       llvm::Type *Int8Ty = llvm::Type::getIntNTy(DomTy->getContext(), 8);
-      if (ArrayTy->getArrayElementType() == Int8Ty) {
+      if (ArrayTy->getArrayElementType() == Int8Ty)
         return true;
-      }
     }
     return false;
   }
