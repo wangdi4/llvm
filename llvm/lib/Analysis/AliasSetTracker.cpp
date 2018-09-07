@@ -252,6 +252,18 @@ bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
   return false;
 }
 
+Instruction* AliasSet::getUniqueInstruction() {
+  if (AliasAny)
+    // May have collapses alias set
+    return nullptr;
+  if (size() != 0)
+    // Can't track source of pointer, might be many instruction
+    return nullptr;
+  if (1 != UnknownInsts.size())
+    return nullptr;
+  return cast<Instruction>(UnknownInsts[0]);
+}
+
 void AliasSetTracker::clear() {
   // Delete all the PointerRec entries.
   for (PointerMapType::iterator I = PointerMap.begin(), E = PointerMap.end();
@@ -362,14 +374,14 @@ void AliasSetTracker::add(Value *Ptr, LocationSize Size,
 }
 
 void AliasSetTracker::add(LoadInst *LI) {
-  if (isStrongerThanMonotonic(LI->getOrdering())) return addUnknown(LI);
-
+  if (isStrongerThanMonotonic(LI->getOrdering()))
+    return addUnknown(LI);
   addPointer(MemoryLocation::get(LI), AliasSet::RefAccess);
 }
 
 void AliasSetTracker::add(StoreInst *SI) {
-  if (isStrongerThanMonotonic(SI->getOrdering())) return addUnknown(SI);
-
+  if (isStrongerThanMonotonic(SI->getOrdering()))
+    return addUnknown(SI);
   addPointer(MemoryLocation::get(SI), AliasSet::ModAccess);
 }
 
@@ -378,16 +390,12 @@ void AliasSetTracker::add(VAArgInst *VAAI) {
 }
 
 void AliasSetTracker::add(AnyMemSetInst *MSI) {
-  auto MemLoc = MemoryLocation::getForDest(MSI);
-  addPointer(MemLoc, AliasSet::ModAccess);
+  addPointer(MemoryLocation::getForDest(MSI), AliasSet::ModAccess);
 }
 
 void AliasSetTracker::add(AnyMemTransferInst *MTI) {
-  auto SrcLoc = MemoryLocation::getForSource(MTI);
-  addPointer(SrcLoc, AliasSet::RefAccess);
-
-  auto DestLoc = MemoryLocation::getForDest(MTI);
-  addPointer(DestLoc, AliasSet::ModAccess);
+  addPointer(MemoryLocation::getForSource(MTI), AliasSet::RefAccess);
+  addPointer(MemoryLocation::getForDest(MTI), AliasSet::ModAccess);
 }
 
 void AliasSetTracker::addUnknown(Instruction *Inst) {
