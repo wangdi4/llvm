@@ -29,6 +29,14 @@ namespace clangd {
 namespace dex {
 namespace {
 
+std::vector<DocID> consumeIDs(Iterator &It) {
+  auto IDAndScore = consume(It);
+  std::vector<DocID> IDs(IDAndScore.size());
+  for (size_t I = 0; I < IDAndScore.size(); ++I)
+    IDs[I] = IDAndScore[I].first;
+  return IDs;
+}
+
 TEST(DexIndexIterators, DocumentIterator) {
   const PostingList L = {4, 7, 8, 20, 42, 100};
   auto DocIterator = create(L);
@@ -62,7 +70,7 @@ TEST(DexIndexIterators, AndWithEmpty) {
   auto AndWithEmpty = createAnd(create(L0), create(L1));
   EXPECT_TRUE(AndWithEmpty->reachedEnd());
 
-  EXPECT_THAT(consume(*AndWithEmpty), ElementsAre());
+  EXPECT_THAT(consumeIDs(*AndWithEmpty), ElementsAre());
 }
 
 TEST(DexIndexIterators, AndTwoLists) {
@@ -72,7 +80,7 @@ TEST(DexIndexIterators, AndTwoLists) {
   auto And = createAnd(create(L1), create(L0));
 
   EXPECT_FALSE(And->reachedEnd());
-  EXPECT_THAT(consume(*And), ElementsAre(0U, 7U, 10U, 320U, 9000U));
+  EXPECT_THAT(consumeIDs(*And), ElementsAre(0U, 7U, 10U, 320U, 9000U));
 
   And = createAnd(create(L0), create(L1));
 
@@ -113,7 +121,7 @@ TEST(DexIndexIterators, OrWithEmpty) {
   auto OrWithEmpty = createOr(create(L0), create(L1));
   EXPECT_FALSE(OrWithEmpty->reachedEnd());
 
-  EXPECT_THAT(consume(*OrWithEmpty),
+  EXPECT_THAT(consumeIDs(*OrWithEmpty),
               ElementsAre(0U, 5U, 7U, 10U, 42U, 320U, 9000U));
 }
 
@@ -146,7 +154,7 @@ TEST(DexIndexIterators, OrTwoLists) {
 
   Or = createOr(create(L0), create(L1));
 
-  EXPECT_THAT(consume(*Or),
+  EXPECT_THAT(consumeIDs(*Or),
               ElementsAre(0U, 4U, 5U, 7U, 10U, 30U, 42U, 60U, 320U, 9000U));
 }
 
@@ -178,41 +186,45 @@ TEST(DexIndexIterators, OrThreeLists) {
 // FIXME(kbobyrev): The testcase below is similar to what is expected in real
 // queries. It should be updated once new iterators (such as boosting, limiting,
 // etc iterators) appear. However, it is not exhaustive and it would be
-// beneficial to implement automatic generation of query trees for more
-// comprehensive testing.
+// beneficial to implement automatic generation (e.g. fuzzing) of query trees
+// for more comprehensive testing.
 TEST(DexIndexIterators, QueryTree) {
-  // An example of more complicated query
   //
   //                      +-----------------+
   //                      |And Iterator:1, 5|
   //                      +--------+--------+
   //                               |
   //                               |
-  //                 +------------------------------------+
+  //                 +-------------+----------------------+
   //                 |                                    |
   //                 |                                    |
-  //      +----------v----------+              +----------v---------+
-  //      |And Iterator: 1, 5, 9|              |Or Iterator: 0, 1, 5|
-  //      +----------+----------+              +----------+---------+
+  //      +----------v----------+              +----------v------------+
+  //      |And Iterator: 1, 5, 9|              |Or Iterator: 0, 1, 3, 5|
+  //      +----------+----------+              +----------+------------+
   //                 |                                    |
-  //          +------+-----+                    +---------+-----------+
+  //          +------+-----+                    +---------------------+
   //          |            |                    |         |           |
-  //  +-------v-----+ +----v-----+           +--v--+    +-V--+    +---v---+
-  //  |1, 3, 5, 8, 9| |1, 5, 7, 9|           |Empty|    |0, 5|    |0, 1, 5|
-  //  +-------------+ +----------+           +-----+    +----+    +-------+
-
+  //  +-------v-----+ +----+---+             +--v--+  +---v----+ +----v---+
+  //  |1, 3, 5, 8, 9| |Boost: 2|             |Empty|  |Boost: 3| |Boost: 4|
+  //  +-------------+ +----+---+             +-----+  +---+----+ +----+---+
+  //                       |                              |           |
+  //                  +----v-----+                      +-v--+    +---v---+
+  //                  |1, 5, 7, 9|                      |1, 5|    |0, 3, 5|
+  //                  +----------+                      +----+    +-------+
+  //
   const PostingList L0 = {1, 3, 5, 8, 9};
   const PostingList L1 = {1, 5, 7, 9};
-  const PostingList L2 = {0, 5};
-  const PostingList L3 = {0, 1, 5};
-  const PostingList L4;
+  const PostingList L3;
+  const PostingList L4 = {1, 5};
+  const PostingList L5 = {0, 3, 5};
 
   // Root of the query tree: [1, 5]
   auto Root = createAnd(
       // Lower And Iterator: [1, 5, 9]
-      createAnd(create(L0), create(L1)),
+      createAnd(create(L0), createBoost(create(L1), 2U)),
       // Lower Or Iterator: [0, 1, 5]
-      createOr(create(L2), create(L3), create(L4)));
+      createOr(create(L3), createBoost(create(L4), 3U),
+               createBoost(create(L5), 4U)));
 
   EXPECT_FALSE(Root->reachedEnd());
   EXPECT_EQ(Root->peek(), 1U);
@@ -221,10 +233,14 @@ TEST(DexIndexIterators, QueryTree) {
   Root->advanceTo(1);
   Root->advanceTo(0);
   EXPECT_EQ(Root->peek(), 1U);
+  auto ElementBoost = Root->consume();
+  EXPECT_THAT(ElementBoost, 6);
   Root->advance();
   EXPECT_EQ(Root->peek(), 5U);
   Root->advanceTo(5);
   EXPECT_EQ(Root->peek(), 5U);
+  ElementBoost = Root->consume();
+  EXPECT_THAT(ElementBoost, 8);
   Root->advanceTo(9000);
   EXPECT_TRUE(Root->reachedEnd());
 }
@@ -248,37 +264,64 @@ TEST(DexIndexIterators, StringRepresentation) {
 }
 
 TEST(DexIndexIterators, Limit) {
-  const PostingList L0 = {4, 7, 8, 20, 42, 100};
-  const PostingList L1 = {1, 3, 5, 8, 9};
-  const PostingList L2 = {1, 5, 7, 9};
-  const PostingList L3 = {0, 5};
-  const PostingList L4 = {0, 1, 5};
-  const PostingList L5;
+  const PostingList L0 = {3, 6, 7, 20, 42, 100};
+  const PostingList L1 = {1, 3, 5, 6, 7, 30, 100};
+  const PostingList L2 = {0, 3, 5, 7, 8, 100};
 
-  auto DocIterator = create(L0);
-  EXPECT_THAT(consume(*DocIterator, 42), ElementsAre(4, 7, 8, 20, 42, 100));
+  auto DocIterator = createLimit(create(L0), 42);
+  EXPECT_THAT(consumeIDs(*DocIterator), ElementsAre(3, 6, 7, 20, 42, 100));
 
-  DocIterator = create(L0);
-  EXPECT_THAT(consume(*DocIterator), ElementsAre(4, 7, 8, 20, 42, 100));
+  DocIterator = createLimit(create(L0), 3);
+  EXPECT_THAT(consumeIDs(*DocIterator), ElementsAre(3, 6, 7));
 
-  DocIterator = create(L0);
-  EXPECT_THAT(consume(*DocIterator, 3), ElementsAre(4, 7, 8));
+  DocIterator = createLimit(create(L0), 0);
+  EXPECT_THAT(consumeIDs(*DocIterator), ElementsAre());
 
-  DocIterator = create(L0);
-  EXPECT_THAT(consume(*DocIterator, 0), ElementsAre());
+  auto AndIterator =
+      createAnd(createLimit(createTrue(9000), 343), createLimit(create(L0), 2),
+                createLimit(create(L1), 3), createLimit(create(L2), 42));
+  EXPECT_THAT(consumeIDs(*AndIterator), ElementsAre(3, 7));
 }
 
 TEST(DexIndexIterators, True) {
   auto TrueIterator = createTrue(0U);
   EXPECT_TRUE(TrueIterator->reachedEnd());
-  EXPECT_THAT(consume(*TrueIterator), ElementsAre());
+  EXPECT_THAT(consumeIDs(*TrueIterator), ElementsAre());
 
   PostingList L0 = {1, 2, 5, 7};
   TrueIterator = createTrue(7U);
   EXPECT_THAT(TrueIterator->peek(), 0);
   auto AndIterator = createAnd(create(L0), move(TrueIterator));
   EXPECT_FALSE(AndIterator->reachedEnd());
-  EXPECT_THAT(consume(*AndIterator), ElementsAre(1, 2, 5));
+  EXPECT_THAT(consumeIDs(*AndIterator), ElementsAre(1, 2, 5));
+}
+
+TEST(DexIndexIterators, Boost) {
+  auto BoostIterator = createBoost(createTrue(5U), 42U);
+  EXPECT_FALSE(BoostIterator->reachedEnd());
+  auto ElementBoost = BoostIterator->consume();
+  EXPECT_THAT(ElementBoost, 42U);
+
+  const PostingList L0 = {2, 4};
+  const PostingList L1 = {1, 4};
+  auto Root = createOr(createTrue(5U), createBoost(create(L0), 2U),
+                       createBoost(create(L1), 3U));
+
+  ElementBoost = Root->consume();
+  EXPECT_THAT(ElementBoost, Iterator::DEFAULT_BOOST_SCORE);
+  Root->advance();
+  EXPECT_THAT(Root->peek(), 1U);
+  ElementBoost = Root->consume();
+  EXPECT_THAT(ElementBoost, 3);
+
+  Root->advance();
+  EXPECT_THAT(Root->peek(), 2U);
+  ElementBoost = Root->consume();
+  EXPECT_THAT(ElementBoost, 2);
+
+  Root->advanceTo(4);
+  ElementBoost = Root->consume();
+  EXPECT_THAT(ElementBoost, 3);
 }
 
 testing::Matcher<std::vector<Token>>
@@ -292,35 +335,34 @@ trigramsAre(std::initializer_list<std::string> Trigrams) {
 
 TEST(DexIndexTrigrams, IdentifierTrigrams) {
   EXPECT_THAT(generateIdentifierTrigrams("X86"),
-              trigramsAre({"x86", "x$$", "x8$", "$$$"}));
+              trigramsAre({"x86", "x$$", "x8$"}));
 
-  EXPECT_THAT(generateIdentifierTrigrams("nl"),
-              trigramsAre({"nl$", "n$$", "$$$"}));
+  EXPECT_THAT(generateIdentifierTrigrams("nl"), trigramsAre({"nl$", "n$$"}));
 
-  EXPECT_THAT(generateIdentifierTrigrams("n"), trigramsAre({"n$$", "$$$"}));
+  EXPECT_THAT(generateIdentifierTrigrams("n"), trigramsAre({"n$$"}));
 
   EXPECT_THAT(generateIdentifierTrigrams("clangd"),
-              trigramsAre({"c$$", "cl$", "cla", "lan", "ang", "ngd", "$$$"}));
+              trigramsAre({"c$$", "cl$", "cla", "lan", "ang", "ngd"}));
 
   EXPECT_THAT(generateIdentifierTrigrams("abc_def"),
               trigramsAre({"a$$", "abc", "abd", "ade", "bcd", "bde", "cde",
-                           "def", "ab$", "ad$", "$$$"}));
+                           "def", "ab$", "ad$"}));
 
   EXPECT_THAT(generateIdentifierTrigrams("a_b_c_d_e_"),
               trigramsAre({"a$$", "a_$", "a_b", "abc", "abd", "acd", "ace",
-                           "bcd", "bce", "bde", "cde", "ab$", "$$$"}));
+                           "bcd", "bce", "bde", "cde", "ab$"}));
 
   EXPECT_THAT(generateIdentifierTrigrams("unique_ptr"),
               trigramsAre({"u$$", "uni", "unp", "upt", "niq", "nip", "npt",
                            "iqu", "iqp", "ipt", "que", "qup", "qpt", "uep",
-                           "ept", "ptr", "un$", "up$", "$$$"}));
+                           "ept", "ptr", "un$", "up$"}));
 
-  EXPECT_THAT(generateIdentifierTrigrams("TUDecl"),
-              trigramsAre({"t$$", "tud", "tde", "ude", "dec", "ecl", "tu$",
-                           "td$", "$$$"}));
+  EXPECT_THAT(
+      generateIdentifierTrigrams("TUDecl"),
+      trigramsAre({"t$$", "tud", "tde", "ude", "dec", "ecl", "tu$", "td$"}));
 
   EXPECT_THAT(generateIdentifierTrigrams("IsOK"),
-              trigramsAre({"i$$", "iso", "iok", "sok", "is$", "io$", "$$$"}));
+              trigramsAre({"i$$", "iso", "iok", "sok", "is$", "io$"}));
 
   EXPECT_THAT(
       generateIdentifierTrigrams("abc_defGhij__klm"),
@@ -329,7 +371,7 @@ TEST(DexIndexTrigrams, IdentifierTrigrams) {
                    "cde", "cdg", "cdk", "cgh", "cgk", "def", "deg", "dek",
                    "dgh", "dgk", "dkl", "efg", "efk", "egh", "egk", "ekl",
                    "fgh", "fgk", "fkl", "ghi", "ghk", "gkl", "hij", "hik",
-                   "hkl", "ijk", "ikl", "jkl", "klm", "ab$", "ad$", "$$$"}));
+                   "hkl", "ijk", "ikl", "jkl", "klm", "ab$", "ad$"}));
 }
 
 TEST(DexIndexTrigrams, QueryTrigrams) {
