@@ -45,7 +45,7 @@ protected:
     if (D->Kind != Dep::DK_Argument)
       return false;
 
-    auto *Ty = (S.Method->arg_begin() + D->Const)->getType();
+    auto *Ty = S.Method->getFunctionType()->getParamType(D->Const);
     // Simple check that Ty is not related to S.S
     if (isa<PointerType>(Ty))
       Ty = Ty->getPointerElementType();
@@ -367,6 +367,11 @@ protected:
     if (It == Fields.end())
       return true;
 
+    // Transformation restriction:
+    // isSafeBitCast/isBitCastLikeGep/isSafeIntToPtr are not permitted.
+    if (!isa<GetElementPtrInst>(L.getPointerOperand()))
+      return false;
+
     // Check that all uses are related to array method calls,
     // to null-check or to call to deallocation.
     bool FreeUseSeen = false;
@@ -402,19 +407,14 @@ protected:
           if (auto *C = dyn_cast<Constant>(Op.get()))
             if (C->isZeroValue())
               IsNull = true;
-        if (IsNull) {
-          // insert optimistically
-          insertArrayInst(Cmp, "Null check");
+        if (IsNull)
           continue;
-        }
         return false;
       }
       // Free-call
       else if (auto *GEP = dyn_cast<GetElementPtrInst>(U.getUser())) {
         if (GEP->hasAllZeroIndices() && GEP->hasOneUse() &&
             CtorDtorCheck::isFreedPtr(DTInfo, TLI, *GEP->use_begin())) {
-          // insert optimistically
-          insertArrayInst(GEP, "cast to call deallocate");
           FreeUseSeen = true;
           continue;
         }
@@ -424,8 +424,6 @@ protected:
       else if (auto *BC = dyn_cast<BitCastInst>(U.getUser())) {
         if (BC->hasOneUse() &&
             CtorDtorCheck::isFreedPtr(DTInfo, TLI, *BC->use_begin())) {
-          // insert optimistically
-          insertArrayInst(BC, "cast to call deallocate");
           FreeUseSeen = true;
           continue;
         }
@@ -433,13 +431,16 @@ protected:
       } else
         return false;
 
-    if (Dtors && FreeUseSeen)
+    if (Dtors && FreeUseSeen) {
+      if (MethodsCalled.size() != 1)
+        return false;
       for (auto FCalled : MethodsCalled)
         if (std::find_if(Dtors->begin(), Dtors->end(),
                          [FCalled](const Function *FCtor) -> bool {
                            return FCalled == FCtor;
                          }) == Dtors->end())
           return false;
+    }
 
     insertArrayInst(&L, "Load of array");
 
@@ -467,6 +468,13 @@ protected:
 
     // Stores to memory interface should be only 'copy'-like.
     if (FPointeeTy == S.MemoryInterface)
+      return false;
+
+    // Transformation restriction:
+    // isSafeIntToPtr are not permitted.
+    if (!isa<GetElementPtrInst>(SI.getPointerOperand()) &&
+        !isBitCastLikeGep(DL, SI.getPointerOperand()) &&
+        !isSafeBitCast(DL, SI.getPointerOperand()))
       return false;
 
     // Layout restriction.
@@ -538,11 +546,9 @@ protected:
       }
       else if (U.getUser() == &SI)
         continue;
-      else if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U)) {
-        // insert optimistically
-        insertArrayInst(cast<Instruction>(U.getUser()), "Deallocate");
+      else if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U))
         continue;
-      } else
+      else
         return false;
 
     // All stored should be associated with call to ctor-only.
@@ -860,7 +866,9 @@ private:
     if (CSs.size() == 0)
       return true;
 
-    // There could be one call for each field or none at all.
+    // There could be one call for each field or none at all. Do not permit
+    // multiple groups of append methods in a single Struct's method. It
+    // simplifies transformation.
     if (CSs.size() != Fields.size())
       return false;
 
@@ -954,6 +962,11 @@ private:
   bool compareCtorDtorCleanupBBs(const BasicBlock *BB1, const BasicBlock *BB2,
                                  const Value *FreePtr1,
                                  const Value *FreePtr2) const {
+    if (pred_size(BB1) != 1)
+      return false;
+
+    if (pred_size(BB2) != 1)
+      return false;
 
     if (succ_size(BB1) != 2)
       return false;
@@ -988,6 +1001,7 @@ private:
 
       if (I1.getOpcode() != I2.getOpcode())
         return false;
+
       switch (I1.getOpcode()) {
       case Instruction::LandingPad:
       case Instruction::ExtractValue:
@@ -1106,8 +1120,8 @@ private:
 
     auto *CleanBB1 = Inv1->getUnwindDest();
     auto *CleanBB2 = Inv2->getUnwindDest();
-    auto *FreePtr1 = CS1.arg_begin()->get()->stripPointerCasts();
-    auto *FreePtr2 = CS2.arg_begin()->get()->stripPointerCasts();
+    auto *FreePtr1 = CS1.getArgOperand(0)->stripPointerCasts();
+    auto *FreePtr2 = CS2.getArgOperand(0)->stripPointerCasts();
     if (!compareCtorDtorCleanupBBs(CleanBB1, CleanBB2, FreePtr1, FreePtr2))
       return false;
 
@@ -1175,8 +1189,8 @@ private:
 
     // Compare second argument.
     {
-      auto *A1 = (CS1.arg_begin() + 1)->get();
-      auto *A2 = (CS2.arg_begin() + 1)->get();
+      auto *A1 = CS1.getArgOperand(1);
+      auto *A2 = CS2.getArgOperand(1);
       auto *D1 = DM.getApproximation(A1);
       auto *D2 = DM.getApproximation(A2);
 
@@ -1200,8 +1214,8 @@ private:
 
     auto *CleanBB1 = Inv1->getUnwindDest();
     auto *CleanBB2 = Inv2->getUnwindDest();
-    auto *FreePtr1 = CS1.arg_begin()->get()->stripPointerCasts();
-    auto *FreePtr2 = CS2.arg_begin()->get()->stripPointerCasts();
+    auto *FreePtr1 = CS1.getArgOperand(0)->stripPointerCasts();
+    auto *FreePtr2 = CS2.getArgOperand(0)->stripPointerCasts();
     if (!compareCtorDtorCleanupBBs(CleanBB1, CleanBB2, FreePtr1, FreePtr2))
       return false;
 
@@ -1262,8 +1276,8 @@ private:
 
     // Compare argument.
     {
-      auto *A1 = CS1.arg_begin()->get();
-      auto *A2 = CS2.arg_begin()->get();
+      auto *A1 = CS1.getArgOperand(0);
+      auto *A2 = CS2.getArgOperand(0);
       auto *D1 = DM.getApproximation(A1);
       auto *D2 = DM.getApproximation(A2);
 
@@ -1287,8 +1301,8 @@ private:
 
     auto *CleanBB1 = Inv1->getUnwindDest();
     auto *CleanBB2 = Inv2->getUnwindDest();
-    auto *FreePtr1 = CS1.arg_begin()->get()->stripPointerCasts();
-    auto *FreePtr2 = CS2.arg_begin()->get()->stripPointerCasts();
+    auto *FreePtr1 = CS1.getArgOperand(0)->stripPointerCasts();
+    auto *FreePtr2 = CS2.getArgOperand(0)->stripPointerCasts();
     if (!compareCtorDtorCleanupBBs(CleanBB1, CleanBB2, FreePtr1, FreePtr2))
       return false;
 
@@ -1393,7 +1407,7 @@ private:
       BBs.insert(CS.getInstruction()->getParent());
       // Relying on CtorDtorCheck::isThisArgNonInitialized
       auto *AllocCall =
-          cast<Instruction>((*CS.arg_begin())->stripPointerCasts());
+          cast<Instruction>(CS.getArgOperand(0)->stripPointerCasts());
       NewCalls.push_back(ImmutableCallSite(AllocCall));
       if (auto *Inv = dyn_cast<InvokeInst>(AllocCall)) {
         if (!AllocLandingPad)
@@ -1621,7 +1635,7 @@ public:
       } else if (auto CS = ImmutableCallSite(I)) {
         if (CS.arg_size() == 0)
           continue;
-        auto ThisType = dyn_cast<PointerType>(CS.arg_begin()->get()->getType());
+        auto ThisType = dyn_cast<PointerType>(CS.getArgOperand(0)->getType());
         if (!ThisType)
           continue;
         auto *StrType = dyn_cast<StructType>(ThisType->getElementType());
@@ -1656,7 +1670,297 @@ public:
     return true;
   }
 };
+
+class StructMethodTransformation {
+public:
+  StructMethodTransformation(
+      const DataLayout &DL, DTransAnalysisInfo &DTInfo,
+      const TargetLibraryInfo &TLI, ValueToValueMapTy &VMap,
+      const CallSiteComparator::CallSitesInfo &CSInfo,
+      const StructureMethodAnalysis::TransformationData &InstsToTransform,
+      LLVMContext &Context)
+      : DL(DL), DTInfo(DTInfo), TLI(TLI), VMap(VMap), CSInfo(CSInfo),
+        InstsToTransform(InstsToTransform), Context(Context) {}
+
+  void updateReferences(StructType *OldStruct, StructType *NewArray,
+                        const SmallVectorImpl<StructType *> &Fields,
+                        unsigned AOSOff, unsigned ElemOffset) const {
+    IRBuilder<> Builder(Context);
+
+    for (auto *I : InstsToTransform.ArrayInstToTransform) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *L = dyn_cast<LoadInst>(NewI)) {
+        auto *Ptr = L->getPointerOperand();
+        if (auto *BC = dyn_cast<BitCastInst>(Ptr))
+          Ptr = BC->getOperand(0);
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+          assert(GEP->getNumIndices() == 2 &&
+                 "Unexpected pointer to array load");
+          unsigned Off = cast<Constant>(GEP->getOperand(2)) // 2nd index
+                             ->getUniqueInteger()
+                             .getLimitedValue();
+          // Nothing to change
+          if (Off == AOSOff)
+            continue;
+          // 32-bit offset in struct corresponding to pointer to AOS.
+          GEP->setOperand(2, Builder.getIntN(32, AOSOff));
+        } else
+          llvm_unreachable("Unexpected address");
+      }
+      else if (auto *SI = dyn_cast<StoreInst>(NewI)) {
+        auto *Ptr = SI->getPointerOperand();
+        auto *OldPtr = cast<StoreInst>(I)->getPointerOperand();
+        if (isBitCastLikeGep(DL, OldPtr)) {
+          assert(AOSOff == 0 && "Unexpected store address");
+          continue;
+        }
+        if (auto *BC = dyn_cast<BitCastInst>(Ptr)) {
+          assert(isSafeBitCast(DL, OldPtr) && "Unexpected store address");
+          Ptr = BC->getOperand(0);
+        }
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+          assert(GEP->getNumIndices() == 2 &&
+                 "Unexpected pointer to array store");
+          unsigned Off = cast<Constant>(GEP->getOperand(2)) // 2nd index
+                             ->getUniqueInteger()
+                             .getLimitedValue();
+          // Nothing to change
+          if (Off == AOSOff)
+            continue;
+        } else
+          llvm_unreachable("Unexpected address");
+
+        // See checkStoreToField: it is store of allocated memory.
+        Ptr = SI->getPointerOperand();
+        SI->eraseFromParent();
+        assert(Ptr->hasNUses(0) && "Inconsistent logic");
+        if (auto *BC = dyn_cast<BitCastInst>(Ptr)) {
+          Ptr = BC->getOperand(0);
+          BC->eraseFromParent();
+          assert(Ptr->hasNUses(0) && "Inconsistent logic");
+        }
+        cast<Instruction>(Ptr)->eraseFromParent();
+      } else if (isa<ICmpInst>(NewI))
+        continue;
+      else if (CallSite(NewI)) {
+        continue;
+      } else
+        llvm_unreachable("Unexpected instruction to transform");
+    }
+
+    // Deal with combined call sites.
+    SmallVector<const CallInst*, 3> OldAppends;
+    for (auto *I : InstsToTransform.ArrayInstToTransform) {
+      auto *NewI = cast_or_null<Instruction>((Value *)VMap[I]);
+      if (!NewI)
+        continue;
+      if (auto CS = CallSite(NewI)) {
+        auto OldCS = ImmutableCallSite(I);
+        // CS can only be array method call.
+        assert(CS.getCalledFunction() && "Inconsistent logic");
+        auto *Fld = OldCS.getArgOperand(0)->getType();
+        // 'this' argument has the same type as pointer to arrays in S.StrType.
+        bool ToRemove = Fld != OldStruct->getTypeAtIndex(AOSOff);
+
+        if (std::find(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
+                      OldCS.getCalledFunction()) != CSInfo.Ctors.end())
+          updateCtor(CS, ToRemove);
+        else if (std::find(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
+                           OldCS.getCalledFunction()) != CSInfo.CCtors.end())
+          updateCtor(CS, ToRemove);
+        else if (std::find(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
+                           OldCS.getCalledFunction()) != CSInfo.Dtors.end())
+          updateDtor(CS, ToRemove);
+        else if (std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
+                           OldCS.getCalledFunction()) != CSInfo.Appends.end()) {
+          // See compareAllAppendCallSites, appends should be in a single
+          // BasicBlock and CallInst.
+          OldAppends.push_back(cast<CallInst>(I));
+        }
+      }
+    }
+    updateAppends(OldAppends, Fields, ElemOffset);
+  }
+
+private:
+  void updateCtor(CallSite CS, bool ToRemove) const {
+    if (!ToRemove) {
+      return;
+    }
+
+    IRBuilder<> Builder(Context);
+    auto Alloc =
+        CallSite(cast<Instruction>(CS.getArgOperand(0)->stripPointerCasts()));
+
+    auto *This = CS.getArgOperand(0);
+    if (auto *Inv = dyn_cast<InvokeInst>(CS.getInstruction())) {
+      Builder.SetInsertPoint(Inv);
+      Builder.CreateBr(Inv->getNormalDest());
+    }
+    CS.getInstruction()->eraseFromParent();
+    for (auto *BC = dyn_cast<BitCastInst>(This); BC;) {
+      auto *I = BC;
+      BC = dyn_cast<BitCastInst>(BC->getOperand(0));
+      I->eraseFromParent();
+    }
+
+    SmallSet<User*, 6> Users;
+    for (auto &U : Alloc.getInstruction()->uses())
+      Users.insert(U.getUser());
+
+    for (auto *User : Users)
+      if (auto CS = CallSite(User)) {
+        if (auto *Inv = dyn_cast<InvokeInst>(User)) {
+          Builder.SetInsertPoint(Inv);
+          Builder.CreateBr(Inv->getNormalDest());
+        }
+        DTInfo.deleteCallInfo(CS.getInstruction());
+        CS.getInstruction()->eraseFromParent();
+      } else if (auto *SI = dyn_cast<StoreInst>(User))
+        SI->eraseFromParent();
+      else
+        llvm_unreachable("Inconsistency with checkStoreToField");
+
+    if (auto *Inv = dyn_cast<InvokeInst>(Alloc.getInstruction())) {
+      Builder.SetInsertPoint(Inv);
+      Builder.CreateBr(Inv->getNormalDest());
+    }
+    DTInfo.deleteCallInfo(Alloc.getInstruction());
+    Alloc.getInstruction()->eraseFromParent();
+  }
+
+  void updateDtor(CallSite CS, bool ToRemove) const {
+    if (!ToRemove)
+      return;
+
+    auto *This = CS.getArgOperand(0);
+    assert(
+        isa<LoadInst>(This) &&
+        "Inconsistency with checkLoadOfStructField and canCallSitesBeMerged");
+
+    IRBuilder<> Builder(Context);
+    if (auto *Inv = dyn_cast<InvokeInst>(CS.getInstruction())) {
+      Builder.SetInsertPoint(Inv);
+      Builder.CreateBr(Inv->getNormalDest());
+    }
+    CS.getInstruction()->eraseFromParent();
+
+    SmallSet<User *, 6> Users;
+    for (auto &U : This->uses())
+      Users.insert(U.getUser());
+
+    for (auto *User : Users) {
+      Value *FreeCall = nullptr;
+      Instruction *Cast = nullptr;
+      // See checkLoadOfStructField
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(User)) {
+        assert(GEP->hasAllZeroIndices() && GEP->hasOneUse() &&
+               "Inconsistency with checkLoadOfStructField");
+        FreeCall = GEP->use_begin()->getUser();
+        Cast = GEP;
+      }
+      // See checkLoadOfStructField
+      else if (auto *BC = dyn_cast<BitCastInst>(User)) {
+        assert(BC->hasOneUse() && "Inconsistency with checkLoadOfStructField");
+        FreeCall = BC->use_begin()->getUser();
+        Cast = BC;
+      } else
+        continue;
+
+      assert(CallSite(FreeCall) && "Inconsistency with checkLoadOfStructField");
+
+      if (auto *Inv = dyn_cast<InvokeInst>(FreeCall)) {
+        Builder.SetInsertPoint(Inv);
+        Builder.CreateBr(Inv->getNormalDest());
+      }
+      DTInfo.deleteCallInfo(cast<Instruction>(FreeCall));
+      cast<Instruction>(FreeCall)->eraseFromParent();
+      Cast->eraseFromParent();
+    }
+  }
+
+  // See compareAllAppendCallSites, appends should be in a single
+  // BasicBlock and CallInst. Final instruction can be inserted before
+  // terminator.
+  //
+  // Coupled with FunctionType updates.
+  void updateAppends(const SmallVectorImpl<const CallInst *> &OldAppends,
+                     const SmallVectorImpl<StructType *> &Fields,
+                     unsigned ElemOffset) const {
+    if (OldAppends.empty())
+      return;
+
+    assert(OldAppends.size() == Fields.size() &&
+           "Inconsistency with compareAllAppendCallSites");
+
+    // Array to hold call OldAppends in order consistent with Fields.
+    SmallVector<const CallInst *, 6> SortedAppends(Fields.size(), nullptr);
+    for (auto *CI: OldAppends) {
+      auto *ArrayTy =
+          CI->getArgOperand(0)->getType()->getPointerElementType();
+
+      auto It = std::find(Fields.begin(), Fields.end(), ArrayTy);
+      assert(It != Fields.end() && "Incorrect append method");
+      SortedAppends[It - Fields.begin()] = CI;
+    }
+
+    auto *NewAppend = cast<CallInst>((Value *)VMap[SortedAppends[0]]);
+    auto *OldFunctionTy = SortedAppends[0]->getFunctionType();
+    auto *ElementType =
+        cast<StructType>(
+            OldFunctionTy->getParamType(0)->getPointerElementType())
+            ->getTypeAtIndex(ElemOffset)
+            ->getPointerElementType();
+
+    unsigned Offset = -1U;
+    SmallVector<const Value *, 6> Args;
+    for (auto *Param : OldFunctionTy->params()) {
+      ++Offset;
+      if (Param == ElementType) {
+        for (auto *CI : SortedAppends)
+          Args.push_back(CI->getArgOperand(Offset));
+        continue;
+      }
+
+      if (auto *Ptr = dyn_cast<PointerType>(Param))
+        if (Ptr->getElementType() == ElementType) {
+          for (auto *CI : SortedAppends)
+            Args.push_back(CI->getArgOperand(Offset));
+          continue;
+        }
+      Args.push_back(SortedAppends[0]->getArgOperand(Offset));
+    }
+
+    SmallVector<Value *, 6> NewArgs;
+    for (auto *V : Args)
+      NewArgs.push_back((Value *)VMap[V]);
+
+    IRBuilder<> Builder(Context);
+    // Insert at the end of BasicBlock.
+    Builder.SetInsertPoint(NewAppend->getParent()->getTerminator());
+    Builder.CreateCall(NewAppend->getCalledValue(), NewArgs);
+
+    for (auto *CI: OldAppends) {
+      auto *NewI = (Value *)VMap[CI];
+      cast<CallInst>(NewI)->eraseFromParent();
+    }
+  }
+
+  const DataLayout &DL;
+  DTransAnalysisInfo &DTInfo;
+  const TargetLibraryInfo &TLI;
+  ValueToValueMapTy &VMap;
+  const CallSiteComparator::CallSitesInfo &CSInfo;
+  const StructureMethodAnalysis::TransformationData &InstsToTransform;
+  LLVMContext &Context;
+};
 } // namespace soatoaos
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Instructions to transform.
+struct SOAToAOSStructMethodsCheckDebugResult
+    : public StructureMethodAnalysis::TransformationData,
+      public CallSiteComparator::CallSitesInfo {};
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace dtrans
 } // namespace llvm
 #endif // INTEL_DTRANS_TRANSFORMS_SOATOAOSSTRUCT_H

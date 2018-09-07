@@ -139,7 +139,7 @@ public:
 
     // For testing purposes assume that the second element type is simply
     // float*.
-    PFloat = PointerType::get(Type::getFloatTy(Context), 0);
+    PFloat = Type::getFloatTy(Context)->getPointerTo(0);
 
     if (InstsToTransform.MK == MK_Append) {
       // Processing single function in this debug pass.

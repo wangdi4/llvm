@@ -22,8 +22,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %class.ValueVectorOf = type { i8, i32, i32, %"class.IC_Field"**, %"class.XMLMsgLoader"* }
 %class.XMLMsgLoader = type { i32 (...)** }
 %class.IC_Field = type opaque
-; CHECK-MOD: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
-; CHECK-MOD: %__SOA_EL_class.ValueVectorOf = type { float*, %class.IC_Field* }
+; CHECK-MOD-DAG: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
+; CHECK-MOD-DAG: %__SOA_EL_class.ValueVectorOf = type { float*, %class.IC_Field* }
 
 ; The following method should be classified as append-like.
 ; Instructions to transform are shown.
@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  }
 ; CHECK: ; Classification: Append element method
 ; CHECK: ; Dump instructions needing update. Total = 4
-; CHECK-MOD: @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&).1"(%__SOA_class.ValueVectorOf* %this, %class.IC_Field** %toAdd, float**)
+; CHECK-MOD: @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&){{.*}}"(%__SOA_class.ValueVectorOf* %this, %class.IC_Field** %toAdd, float**)
 define void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%"class.ValueVectorOf"* %this, %"class.IC_Field"** %toAdd) {
 entry:
   tail call void @"ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)"(%"class.ValueVectorOf"* %this, i32 1)

@@ -18,8 +18,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %class.XMLPlatformUtilsException = type opaque
 %class.XMLMsgLoader = type { i32 (...)** }
 %class.ValueVectorOf = type { i8, i32, i32, %class.DatatypeValidator**, %class.XMLMsgLoader* }
-; CHECK-MOD: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
-; CHECK-MOD: %__SOA_EL_class.ValueVectorOf = type { float*, %class.DatatypeValidator* }
+; CHECK-MOD-DAG: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
+; CHECK-MOD-DAG: %__SOA_EL_class.ValueVectorOf = type { float*, %class.DatatypeValidator* }
 %class.DatatypeValidator = type opaque
 %class.XMLException = type opaque
 

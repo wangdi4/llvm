@@ -150,7 +150,7 @@ protected:
     if (A->Kind != Dep::DK_Argument)
       return false;
 
-    auto *ATy = (S.Method->arg_begin() + A->Const)->getType();
+    auto *ATy = S.Method->getFunctionType()->getParamType(A->Const);
 
     if (D->Kind == Dep::DK_Load)
       return isa<PointerType>(ATy) &&
@@ -396,11 +396,12 @@ private:
     bool HasExternalSideEffect = false;
 
     MethodKind classifyMethod(const Function *F) const {
+      bool HasVoidRes = F->getReturnType()->isVoidTy();
       if (HasElementSetFromArg) {
         if (CalledMethod)
-          return HasExternalSideEffect ? MK_Unknown : MK_Append;
+          return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Append;
         if (HasBasePtrFree && HasBasePtrInitFromNewMemory)
-          return HasExternalSideEffect ? MK_Unknown : MK_Append;
+          return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Append;
         return HasFieldUpdate ? MK_Unknown : MK_Set;
       }
 
@@ -419,9 +420,10 @@ private:
         return HasExternalSideEffect ? MK_Unknown : MK_Dtor;
 
       if (HasBasePtrInitFromNewMemory && !HasExternalSideEffect) {
+        auto *FuncTy = F->getFunctionType();
         bool IsCopyCtor =
             F->arg_size() == 2 &&
-            (F->arg_begin() + 1)->getType() == F->arg_begin()->getType();
+            FuncTy->getParamType(1) == FuncTy->getParamType(0);
 
         return IsCopyCtor ? MK_CCtor : MK_Ctor;
       }
@@ -1020,10 +1022,10 @@ public:
 
       if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr)) {
         ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
-        OrigToCopy[NewBC->getOperand(0)] = F->arg_begin() + NewParamOffset;
+        OrigToCopy[NewBC->getOperand(0)] = &F->arg_begin()[NewParamOffset];
       } else {
         assert(isa<Argument>(NewPtr) && "Some peephole idiom is not processed");
-        OrigToCopy[NewPtr] = F->arg_begin() + NewParamOffset;
+        OrigToCopy[NewPtr] = &F->arg_begin()[NewParamOffset];
         CopyLoad->mutateType(OtherElemType);
       }
 
@@ -1065,7 +1067,7 @@ public:
         // Element set from arg.
         if (isa<Argument>(NewStore->getValueOperand()))
           OrigToCopy[NewStore->getValueOperand()] =
-              F->arg_begin() + NewParamOffset;
+              &F->arg_begin()[NewParamOffset];
       } else if (auto MS = dyn_cast<MemSetInst>(NewI)) {
         if (!UniqueInsts)
           continue;

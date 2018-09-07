@@ -14,8 +14,8 @@
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
-; CHECK-MOD: %__SOA_struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], %__SOA_EL_struct.Arr.0*, i32, [4 x i8] }>
-; CHECK-MOD: %__SOA_EL_struct.Arr.0 = type { float*, i8* }
+; CHECK-MOD-DAG: %__SOA_struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], %__SOA_EL_struct.Arr.0*, i32, [4 x i8] }>
+; CHECK-MOD-DAG: %__SOA_EL_struct.Arr.0 = type { float*, i8* }
 %struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], i8**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
 

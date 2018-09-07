@@ -66,6 +66,8 @@ MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
             dtrans::SOAToAOSArrayMethodsTransformDebug())        // INTEL
+MODULE_PASS("soatoaos-struct-methods-transform",                 // INTEL
+            dtrans::SOAToAOSStructMethodsTransformDebug())       // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())

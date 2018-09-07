@@ -67,7 +67,7 @@ protected:
       return false;
 
     auto *ATy =
-        dyn_cast<PointerType>((S.Method->arg_begin() + ArgNo)->getType());
+        dyn_cast<PointerType>(S.Method->getFunctionType()->getParamType(ArgNo));
     if (!ATy || ATy->getPointerElementType() != S.StrType)
       return false;
 
@@ -82,7 +82,7 @@ protected:
   static bool isIntegerArg(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Argument)
       return false;
-    return (S.Method->arg_begin() + D->Const)->getType()->isIntegerTy();
+    return S.Method->getFunctionType()->getParamType(D->Const)->isIntegerTy();
   }
 
   // GEP (Arg ArgNo) FieldInd,
@@ -251,8 +251,8 @@ protected:
       return false;
 
     if (D->Arg1->Kind == Dep::DK_Argument) {
-      assert((S.Method->arg_begin() + D->Arg1->Const)
-                     ->getType()
+      assert(S.Method->getFunctionType()
+                     ->getParamType(D->Arg1->Const)
                      ->getPointerElementType() == S.MemoryInterface &&
              "Unexpected type cast");
       return true;
@@ -331,8 +331,8 @@ protected:
     if (D->Kind != Dep::DK_Argument)
       return false;
 
-    auto *ATy =
-        dyn_cast<PointerType>((S.Method->arg_begin() + D->Const)->getType());
+    auto *ATy = dyn_cast<PointerType>(
+        S.Method->getFunctionType()->getParamType(D->Const));
     if (!ATy)
       return false;
 
@@ -378,7 +378,7 @@ protected:
       return false;
 
     if (auto *Out = dyn_cast<PointerType>(
-            (S.Method->arg_begin() + A->Const)->getType()))
+            S.Method->getFunctionType()->getParamType(A->Const)))
       if (Deref <= 2 && Out->getPointerElementType() == S.MemoryInterface)
         return true;
 
