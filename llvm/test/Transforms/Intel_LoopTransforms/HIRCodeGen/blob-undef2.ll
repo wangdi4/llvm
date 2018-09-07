@@ -11,7 +11,7 @@
 
 ;Verify undef * i1 + 2 * %0 + 1;
 ;CHECK: [[BLOB_LOAD:%t[0-9]+.*]] = load i32, i32*
-;CHECK: [[BLOB_MUL:%.*]] = mul i32 2, [[BLOB_LOAD]]
+;CHECK: [[BLOB_MUL:%.*]] = shl i32 [[BLOB_LOAD]], 1
 
 ;and that its added to undef 5*i
 ;CHECK: [[IV_LOAD:%.*]] = load i32, i32* %i1.i32

@@ -37,6 +37,7 @@
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
@@ -99,8 +100,9 @@ public:
   Value *visitLoop(HLLoop *L);
   // IVAdd and IVAlloca are passed to generate store for the iv update inside
   // the bottom test of unknown loops.
+  // LoopID is passed so it can be attached to bottom test of unknown loops.
   Value *visitIf(HLIf *I, Value *IVAdd = nullptr,
-                 AllocaInst *IVAlloca = nullptr);
+                 AllocaInst *IVAlloca = nullptr, MDNode *LoopID = nullptr);
 
   Value *visitSwitch(HLSwitch *S);
 
@@ -117,7 +119,7 @@ public:
   }
 
   CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, LoopOptReportBuilder &LORB)
-      : F(HIRF.getFunction()), HIRF(HIRF), CurRegion(nullptr),
+      : F(HIRF.getFunction()), HIRF(HIRF), SE(SE), CurRegion(nullptr),
         CurLoopIsNSW(false), Builder(HIRF.getContext()),
         Expander(SE, HIRF.getDataLayout(), "i", *this), LORBuilder(LORB) {}
 
@@ -195,20 +197,20 @@ private:
   Value *createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
                        const Twine &Name);
 
-  // Return a value for blob corresponding to BlobIdx
+  // Return a value for blob corresponding to BlobIdx multiplied by Coeff.
   // We normally expect Blob type to match CE type. The only exception is
   // ptr blobs. Ptrs are converted to int of argument type, which should be
   // CE src type
-  Value *getBlobValue(int BlobIdx, Type *Ty);
+  Value *getBlobValue(int64_t Coeff, unsigned BlobIdx, Type *Ty);
 
   // TODO blobs are reprsented by scev with some caveats
-  SCEV *getBlobSCEV(int BlobIdx) {
-    return const_cast<SCEV *>(HIRF.getBlobUtils().getBlob(BlobIdx));
+  const SCEV *getBlobSCEV(unsigned BlobIdx) {
+    return HIRF.getBlobUtils().getBlob(BlobIdx);
   }
 
   Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
-    return CoefCG(CE->getIVConstCoeff(IVIt),
-                  getBlobValue(CE->getIVBlobCoeff(IVIt), CE->getSrcType()));
+    return getBlobValue(CE->getIVConstCoeff(IVIt), CE->getIVBlobCoeff(IVIt),
+                        CE->getSrcType());
   }
 
   // Return value for blobCoeff * constCoeff * iv with IV at level
@@ -219,9 +221,8 @@ private:
 
   // Returns value for blobCoeff*blob in <blobidx,coeff> pair
   Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt) {
-    auto BlobVal =
-        CoefCG(CE->getBlobCoeff(BlobIt),
-               getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
+    auto BlobVal = getBlobValue(CE->getBlobCoeff(BlobIt),
+                                CE->getBlobIndex(BlobIt), CE->getSrcType());
     return BlobVal;
   }
 
@@ -319,6 +320,7 @@ private:
 
   Function &F;
   HIRFramework &HIRF;
+  ScalarEvolution &SE;
   HLRegion *CurRegion;
   bool CurLoopIsNSW;
   IRBuilder<> Builder;
@@ -600,19 +602,46 @@ Value *CGVisitor::createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
   return CmpInst;
 }
 
-Value *CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
+Value *CGVisitor::getBlobValue(int64_t Coeff, unsigned BlobIdx, Type *Ty) {
+
+  auto *BlobSCEV = getBlobSCEV(BlobIdx);
+  bool Negate = false;
+  bool IsIntTy = BlobSCEV->getType()->isIntegerTy();
+
+  if (IsIntTy && (Coeff != 1)) {
+    // For negative power of 2 coefficients, reassociate (-Coeff * Blob) to
+    // -(Coeff * Blob) so we generate a (shift + sub) instead of a mul. Ideally,
+    // this reassociation should be done by the regular reassociation pass but
+    // adding it to the cleanup pipeline degrades some benchmarks.
+    if ((Coeff < 0) && (Coeff != LLONG_MIN) && isPowerOf2_64(-Coeff)) {
+      Coeff = -Coeff;
+      Negate = true;
+    }
+
+    auto *Const = SE.getConstant(BlobSCEV->getType(), Coeff, true);
+    BlobSCEV = SE.getMulExpr(Const, BlobSCEV);
+  }
+
+  // TODO: Rather than creating unreachable for each blob, create once per basic
+  // block or once per function which gets reused for each basic block.
+  //
   // SCEVExpander instruction generator references the insertion point's
   // parent.
   // If the IP is bblock.end(), undefined behavior results because the
   // parent of that "instruction" is invalid. We work around this by
   // adding temporary instruction to use as our IP, and remove it after
   Instruction *TmpIP = Builder.CreateUnreachable();
-  Value *Blob = Expander.expandCodeFor(getBlobSCEV(BlobIdx), nullptr, TmpIP);
+  Value *Blob = Expander.expandCodeFor(BlobSCEV, nullptr, TmpIP);
 
   // Expander shouldnt create new Bblocks, new IP is end of current bblock
   Builder.SetInsertPoint(TmpIP->getParent());
   TmpIP->eraseFromParent();
   Type *BType = Blob->getType();
+
+  if (Negate) {
+    Blob = Builder.CreateNeg(Blob);
+  }
+
   if (BType->isPointerTy() && BType != Ty) {
     // A version of this should be in verifier, but we want to test CG'd
     // type.
@@ -626,7 +655,8 @@ Value *CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
       Blob = Builder.CreatePtrToInt(Blob, ScalarTy);
     }
   }
-  return Blob;
+
+  return IsIntTy ? Blob : CoefCG(Coeff, Blob);
 }
 
 Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
@@ -1244,7 +1274,8 @@ void CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
   }
 }
 
-Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca) {
+Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
+                          MDNode *LoopID) {
   ScopeDbgLoc DbgLoc(*this, HIf->getDebugLoc());
 
   Value *CondV = generateAllPredicates(HIf);
@@ -1275,8 +1306,15 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca) {
       Builder.CreateStore(IVAdd, IVAlloca);
     }
 
+    Value *LastChildVal = nullptr;
     for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
-      visit(*It);
+      LastChildVal = visit(*It);
+    }
+
+    // If this HLIf is the bottom test of the unknown loop, the last then child
+    // is the backedge. We add loop metadata to it.
+    if (LoopID) {
+      cast<BranchInst>(LastChildVal)->setMetadata(LLVMContext::MD_loop, LoopID);
     }
 
     generateBranchIfRequired(MergeBB);
@@ -1375,10 +1413,21 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
   Value *NextVar = Builder.CreateAdd(CurVar, StepVal, "nextiv" + LName,
                                      (IsNSW || !IsUnknownLoop), IsNSW);
 
+  // Attach metadata to the resulting loop; Exclude opt report field
+  // if there was any.
+  MDNode *LoopID = LoopOptReport::eraseOptReportFromLoopID(
+      Lp->getLoopMetadata(), F.getContext());
+
+  if (LoopOptReport OptReport = Lp->getOptReport()) {
+    LoopID =
+        LoopOptReport::addOptReportToLoopID(LoopID, OptReport, F.getContext());
+  }
+
   if (IsUnknownLoop) {
     // visit bottom test of unknown loop and pass in information to generate
-    // IV store inside it.
-    visitIf(cast<HLIf>(&*LastIt), NextVar, Alloca);
+    // IV store and attach loop metadata.
+    visitIf(cast<HLIf>(&*LastIt), NextVar, Alloca, LoopID);
+
   } else {
     // Create store to IV.
     Builder.CreateStore(NextVar, Alloca);
@@ -1396,17 +1445,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // latch
     BranchInst *Br = Builder.CreateCondBr(EndCond, LoopBB, AfterBB);
 
-    // Attach metadata to the resulting loop; Exclude opt report field
-    // if there was any.
-    MDNode *LoopID = LoopOptReport::eraseOptReportFromLoopID(
-        Lp->getLoopMetadata(), F.getContext());
-    LoopOptReport OptReport = Lp->getOptReport();
-    if (OptReport)
-      LoopID = LoopOptReport::addOptReportToLoopID(LoopID, OptReport,
-                                                   F.getContext());
-
-    if (LoopID)
+    if (LoopID) {
       Br->setMetadata(LLVMContext::MD_loop, LoopID);
+    }
 
     // new code goes after loop
     Builder.SetInsertPoint(AfterBB);
@@ -1453,9 +1494,9 @@ Value *CGVisitor::visitGoto(HLGoto *Goto) {
 
   assert(TargetBBlock && "No bblock target for goto");
   // create a br to target, ending this block
-  Builder.CreateBr(TargetBBlock);
+  auto *Br = Builder.CreateBr(TargetBBlock);
 
-  return nullptr;
+  return Br;
 }
 
 Value *CGVisitor::visitSwitch(HLSwitch *S) {

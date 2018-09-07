@@ -69,3 +69,20 @@ define i32 @main() {
 ; CHECK-NEXT:  Total Frequency: 0
 ; CHECK-NEXT:  Call graph:
 ; CHECK-NEXT:  Safety data: Global instance
+
+; CHECK-LABEL:  LLVMType: %struct.str2 = type { i32, i32 }
+; CHECK-NEXT:  Name: struct.str2
+; CHECK-NEXT:  Number of fields: 2
+; CHECK-NEXT:  Field LLVM Type: i32
+; CHECK-NEXT:    Field info:
+; CHECK-NEXT:    Frequency: 0
+; CHECK-NEXT:    Multiple Value: [  ] <incomplete>
+; CHECK-NEXT:    Bottom Alloc Function
+; CHECK-NEXT:  Field LLVM Type: i32
+; CHECK-NEXT:    Field info:
+; CHECK-NEXT:    Frequency: 0
+; CHECK-NEXT:    Multiple Value: [  ] <incomplete>
+; CHECK-NEXT:    Bottom Alloc Function
+; CHECK-NEXT:  Total Frequency: 0
+; CHECK-NEXT:  Call graph:
+; CHECK-NEXT:  Safety data: Bad casting

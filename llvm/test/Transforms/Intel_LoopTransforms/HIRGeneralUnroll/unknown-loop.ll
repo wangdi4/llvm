@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-general-unroll,print<hir>,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -intel-loop-optreport=low < %s 2>&1 | FileCheck %s
 
 ; Check unrolling of profitable unknown loop.
 
@@ -49,6 +49,13 @@
 ; CHECK-NEXT: |   }
 ; CHECK-NEXT: + END LOOP
 ; CHECK:      [[LOOPEXIT]]:
+
+
+; Check opt-report
+
+; CHECK: LOOP BEGIN
+; CHECK:    Remark: Unknown loop has been partially unrolled with 8 factor
+; CHECK: LOOP END
 
 
 %struct.trie_node = type { i64, i64, %struct.trie_node*, %struct.trie_node* }
