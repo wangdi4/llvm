@@ -689,10 +689,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   if (!CodeGenOpts.SampleProfileFile.empty())
     PMBuilder.PGOSampleUse = CodeGenOpts.SampleProfileFile;
 
-#if INTEL_CUSTOMIZATION
-  PMBuilder.OffloadTargets = CodeGenOpts.OffloadTargets;
-#endif // INTEL_CUSTOMIZATION
-
   PMBuilder.populateFunctionPassManager(FPM);
   PMBuilder.populateModulePassManager(MPM);
 }

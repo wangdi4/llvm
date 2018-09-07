@@ -282,10 +282,6 @@ public:
   std::vector<std::string> NoBuiltinFuncs;
 
   std::vector<std::string> Reciprocals;
-#if INTEL_CUSTOMIZATION
-  // List of target triples for offloading.
-  std::vector<std::string> OffloadTargets;
-#endif // INTEL_CUSTOMIZATION
 
   /// The preferred width for auto-vectorization transforms. This is intended to
   /// override default transforms based on the width of the architected vector
