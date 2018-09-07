@@ -56,24 +56,19 @@ INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
 
 char VPOParoptPrepare::ID = 0;
 
-FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode,
-    const std::vector<std::string> &OffloadTargets) {
-  return new VPOParoptPrepare(Mode & ParPrepare, OffloadTargets);
+FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode) {
+  return new VPOParoptPrepare(Mode & ParPrepare);
 }
 
-VPOParoptPrepare::VPOParoptPrepare(
-    unsigned MyMode, const std::vector<std::string> &MyOffloadTargets)
-    : FunctionPass(ID), Impl(MyMode, MyOffloadTargets) {
+VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode)
+    : FunctionPass(ID), Impl(MyMode) {
   LLVM_DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare ======\n\n");
   initializeVPOParoptPreparePass(*PassRegistry::getPassRegistry());
 }
 
-VPOParoptPreparePass::VPOParoptPreparePass(
-    unsigned MyMode, const std::vector<std::string> &MyOffloadTargets)
+VPOParoptPreparePass::VPOParoptPreparePass(unsigned MyMode)
     : Mode(MyMode) {
   LLVM_DEBUG(dbgs() << "\n\n====== Enter VPO Paropt Prepare Pass ======\n\n");
-  for (const auto &T : MyOffloadTargets)
-    OffloadTargets.emplace_back(Triple{T});
 }
 
 void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -140,8 +135,7 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                         WI.getTargetTransformInfo(), WI.getAssumptionCache(),
-                        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode,
-                        OffloadTargets);
+                        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(

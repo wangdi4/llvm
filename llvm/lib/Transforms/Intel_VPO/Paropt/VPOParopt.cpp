@@ -62,28 +62,20 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 
 char VPOParopt::ID = 0;
 
-ModulePass *llvm::createVPOParoptPass(unsigned Mode,
-    const std::vector<std::string> &OffloadTargets,
-    unsigned OptLevel) {
+ModulePass *llvm::createVPOParoptPass(unsigned Mode, unsigned OptLevel) {
   return new VPOParopt(
       (ParTrans | OmpPar | OmpVec | OmpTpv | OmpOffload | OmpTbb) & Mode,
-      OffloadTargets, OptLevel);
+      OptLevel);
 }
 
-VPOParopt::VPOParopt(unsigned MyMode,
-                     const std::vector<std::string> &MyOffloadTargets,
-                     unsigned OptLevel)
-    : ModulePass(ID), Impl(MyMode, MyOffloadTargets, OptLevel) {
+VPOParopt::VPOParopt(unsigned MyMode, unsigned OptLevel)
+    : ModulePass(ID), Impl(MyMode, OptLevel) {
   initializeVPOParoptPass(*PassRegistry::getPassRegistry());
 }
 
-VPOParoptPass::VPOParoptPass(unsigned MyMode,
-                             const std::vector<std::string> &MyOffloadTargets,
-                             unsigned OptLevel)
+VPOParoptPass::VPOParoptPass(unsigned MyMode, unsigned OptLevel)
     : Mode(MyMode), OptLevel(OptLevel) {
   LLVM_DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
-  for (const auto &T : MyOffloadTargets)
-    OffloadTargets.emplace_back(Triple{T});
 }
 
 void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -166,7 +158,7 @@ bool VPOParoptPass::runImpl(
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                           WI.getTargetTransformInfo(), WI.getAssumptionCache(),
                           WI.getTargetLibraryInfo(), WI.getAliasAnalysis(),
-                          Mode, OffloadTargets, OptLevel, SwitchToOffload);
+                          Mode, OptLevel, SwitchToOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");

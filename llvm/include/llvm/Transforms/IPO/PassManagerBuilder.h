@@ -171,11 +171,6 @@ public:
   /// Path of the sample Profile data file.
   std::string PGOSampleUse;
 
-#if INTEL_COLLAB
-  // List of target triples for offloading.
-  std::vector<std::string> OffloadTargets;
-#endif // INTEL_COLLAB
-
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
   std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
