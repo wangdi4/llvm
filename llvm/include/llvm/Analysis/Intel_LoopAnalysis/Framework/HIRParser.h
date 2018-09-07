@@ -627,6 +627,17 @@ class HIRParser {
   /// Returns true if this is a temp blob.
   static bool isTempBlob(BlobTy Blob);
 
+  /// Returns true if \p Blob is a umin blob.
+  /// Please note that umin is represented as -1 + -1 * umax() but we only match
+  /// -1 * umax() part of it.
+  static bool isUMinBlob(BlobTy Blob);
+
+  /// Returns true if minimum value of blob is known and sets it in \p Val.
+  bool getMinBlobValue(BlobTy Blob, int64_t &Val) const;
+
+  /// Returns true if maximum value of blob is known and sets it in \p Val.
+  bool getMaxBlobValue(BlobTy Blob, int64_t &Val) const;
+
   /// Returns true if \p HInst is a livein copy.
   bool isLiveinCopy(const HLInst *HInst);
 

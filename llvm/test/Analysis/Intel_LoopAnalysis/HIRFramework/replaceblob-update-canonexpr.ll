@@ -4,14 +4,14 @@
 
 ; CHECK:             if (%9 == 0)
 ; CHECK:             {
-; CHECK:               + DO i1 = 0, -1 * zext.i32.i64(%5) + %indvars.iv307 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 192>
+; CHECK:               + DO i1 = 0, -1 * zext.i32.i64(%5) + %indvars.iv307 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 42>
 ; CHECK:               |   %11 = (@a1_w)[0][i1 + -1 * %indvars.iv307 + 186];
 ; CHECK:               |   (@a1_w)[0][i1 + -1 * %indvars.iv307 + 186] = %11 + trunc.i64.i32(%indvars.iv310);
 ; CHECK:               + END LOOP
 ; CHECK:             }
 ; CHECK:             else
 ; CHECK:             {
-; CHECK:               + DO i1 = 0, -1 * zext.i32.i64(%5) + %indvars.iv307 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 192>
+; CHECK:               + DO i1 = 0, -1 * zext.i32.i64(%5) + %indvars.iv307 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 42>
 ; CHECK:                |   %10 = (@a1_w)[0][%indvars.iv310];
 ; CHECK:                |   %xor83.us = %10  ^  6;
 ; CHECK:                |   (@a1_w)[0][%indvars.iv310] = %xor83.us;

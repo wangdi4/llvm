@@ -2837,38 +2837,6 @@ bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
   return false;
 }
 
-bool HLNodeUtils::isMinValue(VALType ValType) {
-  return ((ValType == VALType::IsMin) || (ValType == VALType::IsConstant));
-}
-
-bool HLNodeUtils::isMaxValue(VALType ValType) {
-  return (ValType == VALType::IsMax || ValType == VALType::IsConstant);
-}
-
-bool HLNodeUtils::isKnownPositive(VALType ValType, int64_t Val) {
-  return (isMinValue(ValType) && (Val > 0));
-}
-
-bool HLNodeUtils::isKnownNonNegative(VALType ValType, int64_t Val) {
-  return (isMinValue(ValType) && (Val >= 0));
-}
-
-bool HLNodeUtils::isKnownNegative(VALType ValType, int64_t Val) {
-  return (isMaxValue(ValType) && (Val < 0));
-}
-
-bool HLNodeUtils::isKnownNonPositive(VALType ValType, int64_t Val) {
-  return (isMaxValue(ValType) && (Val <= 0));
-}
-
-bool HLNodeUtils::isKnownPositiveOrNegative(VALType ValType, int64_t Val) {
-  return isKnownPositive(ValType, Val) || isKnownNegative(ValType, Val);
-}
-
-bool HLNodeUtils::isKnownNonZero(VALType ValType, int64_t Val) {
-  return isKnownPositiveOrNegative(ValType, Val);
-}
-
 // Useful to detect if A(2 * N *I) will not be A(0) based on symbolic in UB.
 // CE = c*b + c0
 // BoundCE = c`*b` + c0` | where BoundCE >= 0
@@ -2913,61 +2881,133 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
   return (BoundCoeff > 0) ? VALType::IsMin : VALType::IsMax;
 }
 
+class LiveInBlobChecker {
+private:
+  HLRegion *Reg;
+  BlobUtils &BU;
+  bool IsLiveIn;
+
+public:
+  LiveInBlobChecker(HLRegion *Reg, BlobUtils &BU)
+      : Reg(Reg), BU(BU), IsLiveIn(true) {}
+
+  bool follow(const SCEV *SC) {
+    if (BU.isTempBlob(SC)) {
+      unsigned Symbase = BU.findTempBlobSymbase(SC);
+
+      if (!Reg->isLiveIn(Symbase)) {
+        IsLiveIn = false;
+      }
+
+      return false;
+    }
+
+    return !isDone();
+  }
+
+  bool isDone() const { return !IsLiveIn; }
+  bool isLiveInBlob() const { return IsLiveIn; }
+};
+
+static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx) {
+  LiveInBlobChecker LBC(Reg, BU);
+  SCEVTraversal<LiveInBlobChecker> Checker(LBC);
+  Checker.visitAll(BU.getBlob(BlobIdx));
+
+  return LBC.isLiveInBlob();
+}
+
 bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
                                   int64_t &Val) {
   VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, Val);
 
-  return isMinValue(ValType);
+  if (isMinValue(ValType)) {
+    return true;
+  }
+
+  auto &BU = ParentNode->getBlobUtils();
+
+  if (isRegionLiveIn(ParentNode->getParentRegion(), BU, BlobIdx)) {
+    return BU.getMinBlobValue(BlobIdx, Val);
+  }
+
+  if (BU.isUMaxBlob(BlobIdx)) {
+    Val = 0;
+    return true;
+  }
+
+  if (BU.isUMinBlob(BlobIdx)) {
+    // Refer to description of function to see why value is set to 1.
+    Val = 1;
+    return true;
+  }
+
+  return false;
 }
 
 bool HLNodeUtils::getMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
                                   int64_t &Val) {
   VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, Val);
 
-  return isMaxValue(ValType);
-}
+  if (isMaxValue(ValType)) {
+    return true;
+  }
 
-bool HLNodeUtils::isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode) {
-  int64_t Val;
-  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, Val);
+  auto &BU = ParentNode->getBlobUtils();
+  if (isRegionLiveIn(ParentNode->getParentRegion(), BU, BlobIdx) &&
+      BU.getMaxBlobValue(BlobIdx, Val)) {
+    return true;
+  }
 
-  return isKnownNonZero(ValType, Val);
+  return false;
 }
 
 bool HLNodeUtils::isKnownNonPositive(unsigned BlobIdx, const HLNode *ParentNode,
                                      int64_t &MaxVal) {
-  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MaxVal);
+  if (!getMaxBlobValue(BlobIdx, ParentNode, MaxVal)) {
+    return false;
+  }
 
-  return isKnownNonPositive(ValType, MaxVal);
+  return MaxVal <= 0;
 }
 
 bool HLNodeUtils::isKnownNegative(unsigned BlobIdx, const HLNode *ParentNode,
                                   int64_t &MaxVal) {
-  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MaxVal);
+  if (!getMaxBlobValue(BlobIdx, ParentNode, MaxVal)) {
+    return false;
+  }
 
-  return isKnownNegative(ValType, MaxVal);
+  return MaxVal < 0;
 }
 
 bool HLNodeUtils::isKnownPositive(unsigned BlobIdx, const HLNode *ParentNode,
                                   int64_t &MinVal) {
-  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MinVal);
+  if (!getMinBlobValue(BlobIdx, ParentNode, MinVal)) {
+    return false;
+  }
 
-  return isKnownPositive(ValType, MinVal);
+  return MinVal > 0;
 }
 
 bool HLNodeUtils::isKnownNonNegative(unsigned BlobIdx, const HLNode *ParentNode,
                                      int64_t &MinVal) {
-  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MinVal);
+  if (!getMinBlobValue(BlobIdx, ParentNode, MinVal)) {
+    return false;
+  }
 
-  return isKnownNonNegative(ValType, MinVal);
+  return MinVal >= 0;
 }
 
 bool HLNodeUtils::isKnownPositiveOrNegative(unsigned BlobIdx,
                                             const HLNode *ParentNode,
                                             int64_t &MinMaxVal) {
-  VALType ValType = getMinMaxBlobValue(BlobIdx, ParentNode, MinMaxVal);
+  return isKnownPositive(BlobIdx, ParentNode, MinMaxVal) ||
+         isKnownNegative(BlobIdx, ParentNode, MinMaxVal);
+}
 
-  return isKnownPositiveOrNegative(ValType, MinMaxVal);
+bool HLNodeUtils::isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode) {
+  int64_t MinMaxVal;
+  return isKnownPositiveOrNegative(BlobIdx, ParentNode, MinMaxVal);
 }
 
 ///  Check if Loop has perfect/near-perfect loop properties
@@ -3116,17 +3156,21 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
   return Ret;
 }
 
-bool HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx, int64_t Coeff,
-                                     const HLNode *ParentNode, bool IsMin,
-                                     int64_t &BlobVal) {
+static bool getMinMaxBlobVal(unsigned BlobIdx, int64_t Coeff,
+                             const HLNode *ParentNode, bool IsMin,
+                             int64_t &BlobVal) {
 
-  auto ValType = getMinMaxBlobValue(BlobIdx, ParentNode, BlobVal);
+  bool GetMinBlobVal = (Coeff > 0 && IsMin) || (Coeff < 0 && !IsMin);
 
-  if (Coeff > 0) {
-    return IsMin ? isMinValue(ValType) : isMaxValue(ValType);
-  } else {
-    return IsMin ? isMaxValue(ValType) : isMinValue(ValType);
+  if (GetMinBlobVal) {
+    if (!HLNodeUtils::getMinBlobValue(BlobIdx, ParentNode, BlobVal)) {
+      return false;
+    }
+  } else if (!HLNodeUtils::getMaxBlobValue(BlobIdx, ParentNode, BlobVal)) {
+    return false;
   }
+
+  return true;
 }
 
 bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
@@ -3158,7 +3202,7 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
     int64_t Coeff = CE->getBlobCoeff(Blob);
     int64_t BlobVal;
 
-    if (!getMinMaxBlobValue(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+    if (!getMinMaxBlobVal(Index, Coeff, ParentNode, IsMin, BlobVal)) {
       return false;
     }
 
@@ -3169,9 +3213,12 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
     auto ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
                                               : ParentNode->getParentLoop();
 
-    for (auto Lp = ParentLoop; Lp != nullptr; Lp = Lp->getParentLoop()) {
+    assert(ParentLoop && "Parent loop of CE containing IV not found!");
 
-      unsigned Level = Lp->getNodeLevel();
+    auto *Lp = ParentLoop;
+    for (unsigned Level = Lp->getNestingLevel(); Level > 0;
+         --Level, Lp = Lp->getParentLoop()) {
+
       unsigned Index;
       int64_t Coeff, BlobVal = 1;
 
@@ -3181,8 +3228,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
         continue;
       }
 
-      if ((Index != InvalidBlobIndex) &&
-          !getMinMaxBlobValue(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+      if (Index != InvalidBlobIndex &&
+          !getMinMaxBlobVal(Index, Coeff, ParentNode, IsMin, BlobVal)) {
         return false;
       }
 
