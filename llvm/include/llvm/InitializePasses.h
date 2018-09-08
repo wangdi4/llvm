@@ -557,6 +557,9 @@ void initializeVPOParoptPass(PassRegistry&);
 void initializeVPOParoptTpvPass(PassRegistry&);
 #endif // INTEL_COLLAB
 
+#if INTEL_CUSTOMIZATION
+void initializeLoadCoalescingLegacyPassPass(PassRegistry &);
+#endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm
 

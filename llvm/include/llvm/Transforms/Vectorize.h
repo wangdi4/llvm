@@ -140,6 +140,14 @@ bool vectorizeBasicBlock(Pass *P, BasicBlock &BB,
 Pass *createLoadStoreVectorizerPass();
 
 #if INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+//
+// LoadCoalescing - Combine consecutive loads into wider loads and emit shuffles
+// operations.
+//
+Pass *createLoadCoalescingPass();
+
 //===----------------------------------------------------------------------===//
 //
 // VPlan LLVM-IR Vectorizer - Create a VPlan Driver pass for LLVM-IR.

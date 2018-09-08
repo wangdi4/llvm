@@ -5367,6 +5367,21 @@ inline unsigned getLoadStoreAddressSpace(Value *I) {
   return cast<StoreInst>(I)->getPointerAddressSpace();
 }
 
+
+#if INTEL_CUSTOMIZATION
+/// \returns the correct type of the operand based on whether it is a Load
+/// or Store Instruction.
+inline Type *getLoadStoreType(Instruction *I) {
+  if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
+    return LI->getType();
+  } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+    return SI->getValueOperand()->getType();
+  }
+  llvm_unreachable("Expected a Load or a Store in getMemType()");
+}
+
+#endif //INTEL_CUSTOMIZATION
+
 } // end namespace llvm
 
 #endif // LLVM_IR_INSTRUCTIONS_H

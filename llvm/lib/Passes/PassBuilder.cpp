@@ -180,6 +180,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
+#include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 
 // Intel Loop Optimization framework
 // Framework passes

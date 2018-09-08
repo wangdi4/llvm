@@ -83,8 +83,12 @@ EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
 static cl::opt<bool>
 EnableLV("enable-lv", cl::init(false), cl::Hidden,
          cl::desc("Enable community loop vectorizer"));
-#endif // INTEL_CUSTOMIZATION
 
+static cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing",
+                                          cl::init(true), cl::Hidden,
+                                          cl::ZeroOrMore,
+                                          cl::desc("Enable load coalescing"));
+#endif // INTEL_CUSTOMIZATION
 static cl::opt<bool>
     RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
                        cl::ZeroOrMore, cl::desc("Run Partial inlinining pass"));
@@ -147,7 +151,6 @@ static cl::opt<bool> EnableLoopInterchange(
 static cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam",
                                         cl::init(false), cl::Hidden,
                                         cl::desc("Enable Unroll And Jam Pass"));
-
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
@@ -969,6 +972,10 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (RunSLPAfterLoopVectorization && SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+#if INTEL_CUSTOMIZATION
+    if (EnableLoadCoalescing)
+      MPM.add(createLoadCoalescingPass());
+#endif // INTEL_CUSTOMIZATION
     if (OptLevel > 1 && ExtraVectorizerPasses) {
       MPM.add(createEarlyCSEPass());
     }
@@ -1277,6 +1284,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (RunSLPAfterLoopVectorization)
     if (SLPVectorize)
       PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+#if INTEL_CUSTOMIZATION
+  if (RunSLPAfterLoopVectorization && SLPVectorize && EnableLoadCoalescing)
+    PM.add(createLoadCoalescingPass());
+#endif // INTEL_CUSTOMIZATION
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.

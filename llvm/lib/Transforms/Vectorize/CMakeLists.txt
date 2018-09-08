@@ -9,6 +9,7 @@ add_llvm_library(LLVMVectorize
   VPlanHCFGTransforms.cpp
   VPlanVerifier.cpp
 # INTEL_CUSTOMIZATION
+  Intel_LoadCoalescing.cpp
   Intel_VPlan/IntelLoopCFU.cpp
   Intel_VPlan/IntelLoopVectorizationCodeGen.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp

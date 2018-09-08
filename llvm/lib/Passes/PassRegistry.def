@@ -294,6 +294,7 @@ FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
 
 #if INTEL_CUSTOMIZATION
+FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
 FUNCTION_PASS("hir-ssa-deconstruction", loopopt::HIRSSADeconstructionPass())
 FUNCTION_PASS("print<hir-region-identification>", loopopt::HIRRegionIdentificationPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-scc-formation>", loopopt::HIRSCCFormationPrinterPass(dbgs()))

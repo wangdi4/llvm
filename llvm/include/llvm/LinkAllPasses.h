@@ -279,7 +279,8 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+      (void)llvm::createLoadCoalescingPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       // HIR passes
