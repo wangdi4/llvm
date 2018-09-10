@@ -29,14 +29,13 @@ define internal void @test01() {
     bitcast (%struct.test01**
       getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1)
     to i8**) unordered, align 8
-; CHECK:  load atomic i32, i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1) unordered, align 4
+; CHECK:  [[LOADED:%[0-9]+]] = load atomic i32, i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1) unordered, align 4
 
   store atomic i8* %test_struct, i8**
     bitcast (%struct.test01**
       getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1)
     to i8**) monotonic, align 8
-; CHECK:  [[SOA_BC:%[0-9]+]] = ptrtoint i8* %test_struct to i32
-; CHECK:  store atomic i32 [[SOA_BC]], i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1) monotonic, align 4
+; CHECK:  store atomic i32 [[LOADED]], i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1) monotonic, align 4
 
   %cmp = icmp eq i8* %test_struct, null
   ret void

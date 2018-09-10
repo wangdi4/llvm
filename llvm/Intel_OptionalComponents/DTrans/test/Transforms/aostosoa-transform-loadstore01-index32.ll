@@ -28,21 +28,21 @@ define internal void @test01(%struct.test01* %st) {
 
   ; Use the result of the bitcast to load a value. Because the transformation
   ; is using a 32-bit value for the index, the load needs to be transformed to
-  ; avoid exceeding the element. The result of the load needs to be extended
-  ; to be compatible with the uses, since the uses will stay as 64-bit operations.
+  ; avoid exceeding the element. Once the structure is transformed, %field will
+  ; be an i32*, so that address should be used directly, rather than casting it
+  ; to an i64* and back to an i32*. The result of the load may need to be extended
+  ; to be compatible with the uses when the uses will stay as 64-bit operations.
+  ; In this case, the icmp will use the 64-bit value, but the store needs to
+  ; use the 32-bit result.
   %val_i64 = load i64, i64* %p_i64
-; CHECK: [[BC1:%[0-9]+]] = bitcast i64* %p_i64 to i32
-; CHECK:  [[LOADED:%[0-9]+]] = load i32, i32* [[BC1]]
+  %cmp = icmp eq i64 %val_i64, 0
+; CHECK:  [[LOADED:%[0-9]+]] = load i32, i32* %field
 ; CHECK:  %val_i64 = zext i32 [[LOADED]] to i64
 
   ; Use the result of the bitcast to store a value. In this case, the store
-  ; needs to only write 32-bits into the peeling index field. The value being
-  ; written will be truncated, however when using 32-bit indexing the user is
-  ; guaranteeing it fits within 32-bits.
+  ; needs to only write 32-bits into the peeling index field.
   store i64 %val_i64, i64* %p_i64
-; CHECK: [[TRUNC:%[0-9]+]] = trunc i64 %val_i64 to i32
-; CHECK: [[PTR_CAST:%[0-9]+]] = bitcast i64* %p_i64 to i32*
-; CHECK: store i32 [[TRUNC]], i32* [[PTR_CAST]]
+; CHECK: store i32 [[LOADED]], i32* %field
 
   ret void
 }

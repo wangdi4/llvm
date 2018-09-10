@@ -29,22 +29,16 @@ define internal void @test01(%struct.test01* %st) {
 
   ; Use the result of the bitcast to load a value. Because the transformation
   ; is using a 32-bit value for the index, the load needs to be transformed to
-  ; avoid exceeding the memory of the element. The result of the load needs to
-  ; be converted to be compatible with the uses, since the uses will stay as
-  ; i8* operations.
+  ; avoid exceeding the memory of the element.
   %val = load i8*, i8** %p_i8
-; CHECK: [[BC1:%[0-9]+]] = bitcast i8** %p_i8 to i32*
-; CHECK:  [[LOADED:%[0-9]+]] = load i32, i32* [[BC1]]
-; CHECK:  %val = inttoptr i32 [[LOADED]] to i8*
+; CHECK:  [[LOADED:%[0-9]+]] = load i32, i32* %field
 
   ; Use the result of the bitcast to store a value. In this case, the store
   ; needs to only write 32-bits into the peeling index field. The value being
   ; written will be truncated, however when using 32-bit indexing the user is
   ; guaranteeing it fits within 32-bits.
   store i8* %val, i8** %p_i8
-; CHECK: [[TRUNC:%[0-9]+]] = ptrtoint i8* %val to i32
-; CHECK: [[PTR_CAST:%[0-9]+]] = bitcast i8** %p_i8 to i32*
-; CHECK: store i32 [[TRUNC]], i32* [[PTR_CAST]]
+; CHECK: store i32 [[LOADED]], i32* %field
 
   ret void
 }
