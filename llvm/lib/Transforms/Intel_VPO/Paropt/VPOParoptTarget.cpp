@@ -277,6 +277,20 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   return Changed;
 }
 
+// Set the value in num_teams and thread_limit clause to be empty.
+void VPOParoptTransform::resetValueInNumTeamsAndThreadsClause(WRegionNode *W) {
+  if (!W->getIsTeams())
+    return;
+
+  Value *NumTeamsPtr = W->getNumTeams();
+  if (NumTeamsPtr)
+    resetValueInIntelClauseGeneric(W, NumTeamsPtr);
+
+  Value *ThreadLimitPtr = W->getThreadLimit();
+  if (ThreadLimitPtr)
+    resetValueInIntelClauseGeneric(W, ThreadLimitPtr);
+}
+
 // Reset the expression value in IsDevicePtr clause to be empty.
 void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
   if (!W->canHaveIsDevicePtr())
@@ -500,11 +514,18 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
   CallInst *TgtCall;
-  if (isa<WRNTargetNode>(W))
-    TgtCall = VPOParoptUtils::genTgtTarget(
-        W, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
-        Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-  else if (isa<WRNTargetDataNode>(W)) {
+  if (isa<WRNTargetNode>(W)) {
+    auto *IT = W->wrn_child_begin();
+    if (IT != W->wrn_child_end() && isa<WRNTeamsNode>(*IT)) {
+      WRNTeamsNode *TW = cast<WRNTeamsNode>(*IT);
+      TgtCall = VPOParoptUtils::genTgtTargetTeams(
+          TW, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+    } else
+      TgtCall = VPOParoptUtils::genTgtTarget(
+          W, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  } else if (isa<WRNTargetDataNode>(W)) {
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);

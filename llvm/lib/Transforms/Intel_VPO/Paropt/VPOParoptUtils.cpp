@@ -257,16 +257,68 @@ WRNScheduleKind VPOParoptUtils::getDistLoopScheduleKind(WRegionNode *W)
   return WRNScheduleDistributeStaticEven;
 }
 
+// Generate a call to set `num_teams` for the `teams` region. Example:
+// \code
+//  call void @__kmpc_push_num_teams(%ident_t* %loc, i32 %tid, i32 %ntms,
+//                                   i32 %nths)
+// \endcode
+CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
+                                              StructType *IdentTy, Value *Tid,
+                                              Value *NumTeams,
+                                              Value *NumThreads,
+                                              Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Module *M = F->getParent();
+
+  StringRef FnName;
+
+  FnName = "__kmpc_push_num_teams";
+
+  int Flags = KMP_IDENT_KMPC;
+
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Value *Zero = ConstantInt::get(Int32Ty, 0);
+
+  SmallVector<Value *, 3> FnArgs;
+  FnArgs.push_back(Loc);
+  FnArgs.push_back(Tid);
+  if (NumTeams)
+    FnArgs.push_back(NumTeams);
+  else
+    FnArgs.push_back(Zero);
+
+  if (NumThreads)
+    FnArgs.push_back(NumThreads);
+  else
+    FnArgs.push_back(Zero);
+
+  Type *RetTy = Type::getVoidTy(C);
+
+  // Generate __kmpc_push_num_teams(loc, tid, num_teams, num_threads) in IR
+  CallInst *PushNumTeams = genCall(M, FnName, RetTy, FnArgs);
+  PushNumTeams->insertBefore(InsertPt);
+
+  return PushNumTeams;
+}
 
 // This function generates a call to set num_threads for the parallel
 // region and parallel loop/sections
 //
 // call void @__kmpc_push_num_threads(%ident_t* %loc, i32
 // Builder.CreateBitCast(SharedGep, PointerType::getUnqual(%tid, i32 %nths)
-void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
-                                           StructType *IdentTy,
-                                           Value *Tid, Value *NumThreads,
-                                           Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
+                                                StructType *IdentTy, Value *Tid,
+                                                Value *NumThreads,
+                                                Instruction *InsertPt) {
   BasicBlock  *B = W->getEntryBBlock();
   BasicBlock  *E = W->getExitBBlock();
 
@@ -294,7 +346,7 @@ void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   CallInst *PushNumThreads = genCall(M, FnName, RetTy, FnArgs);
   PushNumThreads->insertBefore(InsertPt);
 
-  return;
+  return PushNumThreads;
 }
 
 // This function generates a call as follows.
@@ -548,12 +600,14 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
       if (NumTeamsPtr == nullptr)
         NumTeams = Builder.getInt32(0);
       else
-        NumTeams = new LoadInst(NumTeamsPtr, "numTeams", InsertPt);
+        NumTeams =
+            Builder.CreateSExtOrTrunc(Builder.CreateLoad(NumTeamsPtr), Int32Ty);
 
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
-        ThreadLimit = new LoadInst(ThreadLimitPtr, "threadLimit", InsertPt);
+        ThreadLimit = Builder.CreateSExtOrTrunc(
+            Builder.CreateLoad(ThreadLimitPtr), Int32Ty);
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams

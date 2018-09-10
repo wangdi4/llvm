@@ -561,10 +561,10 @@ public:
 
   /// \brief Routine to check if the WRN needs the BID during codegen.
   /// The BID is the second parameter in a parallel entry, so this routine
-  /// is equivalent to getIsPar(). In other words, it is true only for PARALLEL
-  /// directives and combined/composite directives that have the PARALLEL
-  /// keyword.
-  bool needsBID()          const { return getIsPar(); }
+  /// is equivalent to getIsPar() or getIsTeams(). In other words, it is
+  /// true only for PARALLEL or TEAMS directives and combined/composite
+  /// directives that have the PARALLEL or TEAMS keyword.
+  bool needsBID() const { return getIsPar() || getIsTeams(); }
 
   /// \brief Routines to set/get DirID
   void setDirID(int ID)          { DirID = ID; }

@@ -421,6 +421,8 @@ bool VPOParoptTransform::paroptTransforms() {
       //      Parallel [for|sections], task, taskloop, etc.
 
       case WRegionNode::WRNTeams:
+        if ((Mode & OmpPar) && (Mode & ParTrans))
+          resetValueInNumTeamsAndThreadsClause(W);
       case WRegionNode::WRNParallel:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
@@ -3586,7 +3588,10 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     TerminatorInst *TermInst = ForkTestBB->getTerminator();
 
-    Value* IfClauseValue = W->getIf();
+    Value *IfClauseValue = nullptr;
+
+    if (!W->getIsTeams())
+      IfClauseValue = W->getIf();
 
     ICmpInst* CondInst = nullptr;
 
@@ -3616,13 +3621,23 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
                                  ForkTestCI->getParent());
 
     // Generate __kmpc_push_num_threads(...) Call Instruction
-    Value *NumThreads = W->getNumThreads();
+    Value *NumThreads = nullptr;
+    Value *NumTeams = nullptr;
+    if (W->getIsTeams()) {
+      NumTeams = W->getNumTeams();
+      NumThreads = W->getThreadLimit();
+    } else
+      NumThreads = W->getNumThreads();
 
-    if (NumThreads) {
+    if (NumThreads || NumTeams) {
       LoadInst *Tid = new LoadInst(TidPtrHolder, "my.tid", ForkCI);
       Tid->setAlignment(4);
-      VPOParoptUtils::genKmpcPushNumThreads(W,
-                                            IdentTy, Tid, NumThreads, ForkCI);
+      if (W->getIsTeams())
+        VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
+                                            NumThreads, ForkCI);
+      else
+        VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
+                                              ForkCI);
     }
 
     // Remove the serial call to MTFn function from the program, reducing

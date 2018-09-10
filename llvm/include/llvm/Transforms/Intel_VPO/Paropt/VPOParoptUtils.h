@@ -151,9 +151,19 @@ public:
   /// \code
   ///  call void @__kmpc_push_num_threads(%ident_t* %loc, i32 %tid, i32 %nths)
   /// \endcode
-  static void genKmpcPushNumThreads(WRegionNode *W, StructType *IdentTy,
-                                    Value *Tid, Value *NumThreads,
-                                    Instruction *InsertPt);
+  static CallInst *genKmpcPushNumThreads(WRegionNode *W, StructType *IdentTy,
+                                         Value *Tid, Value *NumThreads,
+                                         Instruction *InsertPt);
+
+  /// Generate a call to set `num_teams` for the `teams` region. Example:
+  /// \code
+  ///  call void @__kmpc_push_num_teams(%ident_t* %loc, i32 %tid, i32 %ntms,
+  ///                                   i32 %nths)
+  /// \endcode
+  static CallInst *genKmpcPushNumTeams(WRegionNode *W, StructType *IdentTy,
+                                       Value *Tid, Value *NumTeams,
+                                       Value *NumThreads,
+                                       Instruction *InsertPt);
 
   /// Generate a call to notify the runtime system that the team
   /// level static loop scheduling is started.

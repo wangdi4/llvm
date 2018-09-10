@@ -171,7 +171,7 @@ WRNTeamsNode::WRNTeamsNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTeams, BB) {
   setIsTeams();
   setThreadLimit(nullptr);
-  setNumThreads(nullptr);
+  setNumTeams(nullptr);
   setDefault(WRNDefaultAbsent);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTeamsNode<" << getNumber() << ">\n");
