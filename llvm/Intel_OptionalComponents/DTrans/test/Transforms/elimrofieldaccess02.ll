@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -dtrans-print-types -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -dtrans-print-types -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck --check-prefix=DBG %s
+; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -dtrans-print-types -disable-output 2>&1 | FileCheck --check-prefix=SAFETY %s
+; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck --check-prefix=DBG %s
+; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -dtrans-print-types -disable-output 2>&1 | FileCheck --check-prefix=SAFETY %s
 
 ; This test verifies the dtrans eliminate read-only field access pass.
 ; lzma_allocator type has safety check violations due to bad casting.
@@ -40,6 +42,8 @@ if.end6:                                          ; preds = %if.else, %if.then3
 
 declare i8* @malloc(i64)
 
-; CHECK: DTRANS-ELIM-RO-FIELD-ACCESS: Safety check failed - skipping.
-; CHECK: Safety data: Bad casting
-; CHECK: Safety data: Bad casting
+; On Windows the stdout and stderr streams don't mix cleanly, so we check them
+; separately.
+; DBG: DTRANS-ELIM-RO-FIELD-ACCESS: Safety check failed - skipping.
+; SAFETY: Safety data: Bad casting
+; SAFETY: Safety data: Bad casting
