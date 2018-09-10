@@ -633,7 +633,7 @@ Instruction* VecClone::expandVectorParameters(
           // invalidate the iterator. We also map the parameter directly to the
           // vector bitcast so that we can later update any users of the
           // parameter.
-          Value *ArgValue = dyn_cast<Value>(ArgIt);
+          Value *ArgValue = cast<Value>(ArgIt);
           StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
           StoresToInsert.push_back(Store);
           PRef->VectorParm = ArgValue;
@@ -669,7 +669,7 @@ Instruction* VecClone::createExpandedReturn(Function *Clone,
 {
   // Expand the return temp to a vector.
 
-  VectorType *AllocaType = dyn_cast<VectorType>(Clone->getReturnType());
+  VectorType *AllocaType = cast<VectorType>(Clone->getReturnType());
 
   const DataLayout &DL = Clone->getParent()->getDataLayout();
   AllocaInst *VecAlloca = new AllocaInst(AllocaType, DL.getAllocaAddrSpace(), 
@@ -759,7 +759,7 @@ Instruction* VecClone::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   // just created as vector.
 
   Instruction *VecReturn = NULL;
-  VectorType *ReturnType = dyn_cast<VectorType>(Clone->getReturnType());
+  VectorType *ReturnType = cast<VectorType>(Clone->getReturnType());
 
   if (!LoadFromAlloca) {
 
@@ -900,7 +900,7 @@ bool VecClone::typesAreCompatibleForLoad(Type *GepType, Type *LoadType)
 {
   // GepType will always be a pointer since this refers to an alloca for a
   // vector.
-  PointerType *GepPtrTy = dyn_cast<PointerType>(GepType);
+  PointerType *GepPtrTy = cast<PointerType>(GepType);
   Type *LoadFromTy = GepPtrTy->getElementType();
   Type *LoadToTy = LoadType;
 
@@ -992,8 +992,8 @@ void VecClone::updateScalarMemRefsWithVector(
       Instruction *User = InstsToUpdate[I];
       if (!(dyn_cast<StoreInst>(User) && User->getParent() == EntryBlock)) {
 
-        BitCastInst *BitCast = dyn_cast<BitCastInst>(Cast);
-        PointerType *BitCastType = dyn_cast<PointerType>(BitCast->getType());
+        BitCastInst *BitCast = cast<BitCastInst>(Cast);
+        PointerType *BitCastType = cast<PointerType>(BitCast->getType());
         Type *PointeeType = BitCastType->getElementType();
 
         GetElementPtrInst *VecGep =
@@ -1074,7 +1074,7 @@ Instruction* VecClone::generateStrideForParameter(
     // use gep. To properly update linear pointers we only need to multiply the
     // loop index and stride since gep is indexed starting at 0 from the base
     // address passed to the vector function.
-    PointerType *ParmPtrType = dyn_cast<PointerType>(Arg->getType());
+    PointerType *ParmPtrType = cast<PointerType>(Arg->getType());
 
     // The base address used for linear gep computations.
     Value *BaseAddr = nullptr;
@@ -1380,7 +1380,7 @@ void VecClone::updateReturnBlockInstructions(
   Instruction *Return;
   if (dyn_cast<BitCastInst>(ExpandedReturn)) {
       // Operand 0 is the actual alloc reference in the bitcast.
-      AllocaInst *Alloca = dyn_cast<AllocaInst>(ExpandedReturn->getOperand(0));
+      AllocaInst *Alloca = cast<AllocaInst>(ExpandedReturn->getOperand(0));
       PointerType *PtrVecType =
           PointerType::get(Clone->getReturnType(),
                            Alloca->getType()->getAddressSpace());
@@ -1571,8 +1571,8 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
 
   BranchInst::Create(LoopExitBlock, LoopElseBlock);
 
-  BitCastInst *BitCast = dyn_cast<BitCastInst>(Mask);
-  PointerType *BitCastType = dyn_cast<PointerType>(BitCast->getType());
+  BitCastInst *BitCast = cast<BitCastInst>(Mask);
+  PointerType *BitCastType = cast<PointerType>(BitCast->getType());
   Type *PointeeType = BitCastType->getElementType();
 
   GetElementPtrInst *MaskGep =
