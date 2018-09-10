@@ -9,18 +9,11 @@
 ; safely remapped or attempt to remap them, so the test is instead checking
 ; debug output for the identification.
 
-; The IR below is from a case where the LLVM IR linker mismatched types.
-; In the first input module, %struct.outer was defined but %struct.middle
-; was declared as opaque. The first module also defined @f1 as seen below
-; but had only a declaration of @use_outer. In the second input module,
-; %struct.middle was defined as it is seen below and the function @use_middle
-; was defined. In the third input module, %struct.outer was defined as
-; %struct.outer.0 is seen below and %struct.middle was defined as
-; %struct.middle.1 is seen below. The third module provided the definition of
-; @use_outer.
-;
-; This is an example of a kind of mismapping in the LLVM IR linker that is
-; very common when using LTO with source code that uses templates.
+; This case differs from resolve-types02.ll in that the %struct.middle*
+; member of %struct.outer is accessed. In this case, remapping %struct.outer
+; to %struct.outer.0 would eliminate the function bitcast in the call to
+; @use_outer in @f1 but it would introduce a function bitcast in the call to
+; @use_middle.
 
 %struct.outer = type { i32, i32, %struct.middle* }
 %struct.middle = type { i32, i32, %struct.bar }
@@ -30,6 +23,9 @@
 %struct.foo = type { i16, i16, i32 }
 
 define void @f1(%struct.outer* %o) {
+  %ppmiddle = getelementptr %struct.outer, %struct.outer* %o, i64 0, i32 2
+  %pmiddle = load %struct.middle*, %struct.middle** %ppmiddle
+  call void @use_middle(%struct.middle* %pmiddle)
   call void bitcast (void (%struct.outer.0*)* @use_outer to void (%struct.outer*)*)(%struct.outer* %o)
   ret void
 }
@@ -45,6 +41,13 @@ define void @use_bar(%struct.bar* %b) {
 }
 
 define void @use_outer(%struct.outer.0* %o) {
+  %ppmiddle = getelementptr %struct.outer.0, %struct.outer.0* %o, i64 0, i32 2
+  %pmiddle = load %struct.middle.1*, %struct.middle.1** %ppmiddle
+  call void @use_other_middle(%struct.middle.1* %pmiddle)
+  ret void
+}
+
+define void @use_other_middle(%struct.middle.1* %m) {
   ret void
 }
 
@@ -67,16 +70,16 @@ define void @use_outer(%struct.outer.0* %o) {
 ; CHECK-LABEL: DTRT-compat: Type data
 ; CHECK: ===== Group =====
 ; CHECK: %struct.outer = type { i32, i32, %struct.middle* }
-; CHECK:   Leader non-scalar fields accessed: None
+; CHECK:   Leader non-scalar fields accessed: 2
 
 ; CHECK: struct.outer
 ; CHECK-NEXT:  Bitcast to:
 ; CHECK-NEXT:    struct.outer.0
-; CHECK-NEXT:  Bitcast from:
+; CHECK-NEXT:  Bitcast from: None
 ;
 ; CHECK: struct.outer.0
 ; CHECK-NEXT: %struct.outer.0 = type { i32, i32, %struct.middle.1* }
-; CHECK-NEXT:  Conflicting fields accessed: None
+; CHECK-NEXT:  Conflicting fields accessed: 2
 ; CHECK-NEXT:  Bitcast to: None
 ; CHECK-NEXT:  Bitcast from:
 ; CHECK-NEXT:    struct.outer

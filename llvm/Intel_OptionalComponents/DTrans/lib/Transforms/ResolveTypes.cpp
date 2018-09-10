@@ -48,9 +48,10 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/EquivalenceClasses.h"
+#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
@@ -60,6 +61,9 @@ using namespace llvm;
 #define DEBUG_TYPE "dtrans-resolvetypes"
 
 #define DTRT_VERBOSE "dtrans-resolvetypes-verbose"
+
+#define DTRT_COMPAT "dtrans-resolvetypes-compat"
+#define DTRT_COMPAT_VERBOSE "dtrans-resolvetypes-compat-verbose"
 
 namespace {
 
@@ -124,6 +128,489 @@ private:
   void addTypeMapping(StructType *SrcTy, StructType *DestTy);
   bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB);
   StringRef getTypeBaseName(StringRef TyName);
+};
+
+// This class analyzes all globals and functions in the module to see if any
+// types in the CompatibleTypes EquivalenceClasses can be remapped cleanly to
+// one another. Compatible types can be remapped cleanly if the mismatched
+// elements are never accessed in one of the types.
+//
+// As a rule, pointer types have no semantic meaning in LLVM IR. If we remap
+// a structure type to a different structure type that is equivalent except
+// for the types of pointer elements, the IR will still be semantically
+// correct no matter how the structure is used. If the mismatched pointer
+// is accessed, the type mapped will insert a bitcast to correct the
+// accessed type. However, the purpose of this pass is to clean up situations
+// where types were incorrectly mapped and extra bitcasts have been inserted.
+// Therefore, we'd like to avoid adding any incorrect mappings of our own.
+// The CompatibleTypeAnalyzer attempts to identify cases where remapping
+// will result in clean IR.
+//
+// For example, consider the following types:
+//
+//   %A = type { i32, i32, %B*, %C* }
+//   %A.1 = type { i32, i32, %B.1*, %C.1* }
+//   %A.2 = type { i32, i32, %B.1*, %C* }
+//   %B = type { i64, i64 }
+//   %B.1 = type { i32, i32 }
+//   %C = type { [8 x i8] }
+//   %C.1 = type { i32*, i32* }
+//
+// If the %B.1* and %C.1* members of %A.1 are never accessed through a
+// value that has the %A.1 type, then %A.1 can be remapped to %A without
+// complications. If the %B.1* member is accessed but the %C.1* member is not,
+// then %A.1 should not be mapped to %A but it could still be remapped to %A.2.
+class CompatibleTypeAnalyzer : public InstVisitor<CompatibleTypeAnalyzer> {
+public:
+  CompatibleTypeAnalyzer(Module &M,
+                         EquivalenceClasses<StructType *> &CompatibleTypes)
+      : M(M), CompatibleTypes(CompatibleTypes) {}
+
+  // This is the main entry point called by the client of this class.
+  void run() {
+    visitModule(M);
+    DEBUG_WITH_TYPE(DTRT_COMPAT, dumpCollectedData());
+  }
+
+  // Here we look at the global variables and aliases in the module to
+  // find an GEPOperators that would otherwise have been missed while
+  // visiting instructions. Then we visit each function to return control
+  // to the InstVisitor base class which will in turn call our instruction
+  // visitors.
+  void visitModule(Module &M) {
+    for (auto &GV : M.globals())
+      visitGlobalValueUsers(&GV);
+    for (auto &A : M.aliases())
+      visitGlobalValueUsers(&A);
+
+    // Visit each function.
+    visit(M.begin(), M.end());
+  }
+
+  // Here we defer to a helper function so that GEP operators accessing
+  // globals directly as inline operands of other instructions can be
+  // handled by the same code that analyzes GEP instructions.
+  void visitGetElementPtrInst(GetElementPtrInst &GEP) {
+    visitGEPOperator(cast<GEPOperator>(&GEP));
+  }
+
+  // Here we defer to a helper function so bitcast operators acting on
+  // globals directly as inline operands of other instructions can be
+  // handled by the same code that analyzes bitcast instructions.
+  void visitBitCastInst(BitCastInst &Cast) {
+    visitBitCastOperator(cast<BitCastOperator>(&Cast));
+  }
+
+  // Call sites are the primary point of interest for fixing linker mistakes.
+  // When the IR linker resolves a type from one input module differently than
+  // what should be a matching type in another input module, calls of functions
+  // that were defined in one module to functions that we defined in the other
+  // module will require a bitcast of the function pointer type.
+  //
+  // Here we look for bitcasts of the called value and attempt to record any
+  // implicit casts between types, either the return type or a parameter type,
+  // that results from this function bitcast.
+  void visitCallSite(CallSite CS) {
+    if (auto *Cast = dyn_cast<BitCastOperator>(CS.getCalledValue())) {
+      auto referencesTypeOfInterest = [&](Type *Ty) {
+        auto *BaseTy = Ty;
+        while (BaseTy->isPointerTy())
+          BaseTy = BaseTy->getPointerElementType();
+        if (isTypeOfInterest(BaseTy))
+          return true;
+        return false;
+      };
+
+      auto fnTyReferencesTypeOfInterest = [&](FunctionType *FnTy) {
+        auto *RetTy = FnTy->getReturnType();
+        if (referencesTypeOfInterest(RetTy))
+          return true;
+        for (auto *ParamTy : FnTy->params())
+          if (referencesTypeOfInterest(ParamTy))
+            return true;
+        return false;
+      };
+
+      auto *SrcTy = Cast->getSrcTy()->getPointerElementType();
+      auto *DestTy = Cast->getDestTy()->getPointerElementType();
+
+      // It's possible that the source type was not a function type pointer.
+      // In that case, we can't really deduce anything from the call site.
+      if (auto *SrcFnTy = dyn_cast<FunctionType>(SrcTy)) {
+        bool ReferencesTypeOfInterest = false;
+        if (fnTyReferencesTypeOfInterest(SrcFnTy))
+          ReferencesTypeOfInterest = true;
+        auto *DestFnTy = cast<FunctionType>(DestTy);
+        if (fnTyReferencesTypeOfInterest(DestFnTy))
+          ReferencesTypeOfInterest = true;
+
+        if (ReferencesTypeOfInterest) {
+          // If the source was a function pointer type, this effectively
+          // bitcasts the return type and every argument type.
+          //
+          // A typical call site will look like this:
+          //
+          //   call void bitcast (void (%struct.A*)* @useA
+          //                   to void (%struct.A.1*)*)(%struct.A.1* %a)
+          //
+          // In this case, a function which has a %struct.A* parameter is
+          // being called with a %struct.A.1* value. Although the DestTy
+          // in the call site bitcast is a pointer to the function type
+          // with a %struct.A.1* parameter, this has the effect of casting
+          // the %struct.A.1* value to %struct.A*, so the SrcTy and DestTy
+          // are mapped here in the opposite way of what their names
+          // might suggest.
+          recordTypeCasting(DestFnTy->getReturnType(),
+                            SrcFnTy->getReturnType());
+          // Don't assume that both function types have the same number of
+          // parameters.
+          unsigned MinArgs =
+              std::min(DestFnTy->getNumParams(), SrcFnTy->getNumParams());
+          for (unsigned Idx = 0; Idx < MinArgs; ++Idx)
+            recordTypeCasting(DestFnTy->getParamType(Idx),
+                              SrcFnTy->getParamType(Idx));
+          DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                          dbgs() << "DTRT-compt: visiting call with bitcast"
+                                 << *(CS.getInstruction()) << "\n");
+        }
+      }
+    }
+  }
+
+private:
+  Module &M;
+  const EquivalenceClasses<StructType *> &CompatibleTypes;
+
+  // This structure is used to hold information collected about the field
+  // accesses and bitcasts involving types in the CompatibleTypes container.
+  class TypeUseInfo {
+  public:
+    // Each bit in this vector, if set, corresponds to a pointer element
+    // in the structure that was accessed via a GEP.
+    SmallBitVector NonScalarFieldsUsed;
+
+    // Each type in this set is a type that was seen as the destination of
+    // a bitcast (or implicit conversion in a bitcast call) from the type
+    // tracked by this TypeUseInfo object.
+    //
+    // i.e. We saw a bitcast from the TypeUseInfoType *to* the set entry type.
+    SmallPtrSet<Type *, 4> BitcastToSet;
+
+    // Each type in this set is a type that was seen as the source of
+    // a bitcast (or implicit conversion in a bitcast call) to the type
+    // tracked by this TypeUseInfo object.
+    //
+    // i.e. We saw a bitcast *from* the set entry type to the TypeUseInfo type.
+    SmallPtrSet<Type *, 4> BitcastFromSet;
+
+    // This value indicates whether or not we saw a GEP access to the type
+    // using a non-constant index.
+    bool HasNonConstantIndexAccess = false;
+
+    // This value indicates that the return type of some GEP involved the type.
+    bool ReturnedByGEP = false;
+  };
+
+  // A map from entries in the CompatibleTypes container to a object describing
+  // data we recorded for that type.
+  DenseMap<Type *, TypeUseInfo> TypeUseInfoMap;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // This is a diagnostic function that will only be used for debugging and
+  // testing.
+  LLVM_DUMP_METHOD
+  void dumpCollectedData() {
+    dbgs() << "\n========================\n";
+    dbgs() << " DTRT-compat: Type data\n";
+    dbgs() << "========================\n\n";
+    // Iterate over all of the equivalence sets.
+    for (EquivalenceClasses<StructType *>::iterator I = CompatibleTypes.begin(),
+                                                    E = CompatibleTypes.end();
+         I != E; ++I) {
+      // A "Leader" in an EquivalenceClasses set is just the first entry
+      // in a group of entries that have been marked as belonging together.
+      // It serves as the head of a linked list.
+      if (!I->isLeader())
+        continue; // Skip over non-leader sets.
+      dbgs() << "    ===== Group =====\n\n";
+      auto MI = CompatibleTypes.member_begin(I);
+      auto ME = CompatibleTypes.member_end();
+      StructType *LeaderTy = *MI;
+      unsigned NumElements = LeaderTy->getNumElements();
+      dbgs() << "\n" << LeaderTy->getName() << "\n";
+      dbgs() << *LeaderTy << "\n";
+      SmallBitVector &LdrNonScalarFieldsUsed =
+          TypeUseInfoMap[LeaderTy].NonScalarFieldsUsed;
+      dbgs() << "  Leader non-scalar fields accessed:";
+      if (LdrNonScalarFieldsUsed.none()) {
+        dbgs() << " None\n\n";
+      } else {
+        for (unsigned BI : LdrNonScalarFieldsUsed.set_bits())
+          dbgs() << " " << BI;
+        dbgs() << "\n\n";
+      }
+
+      // Loop over members in this set.
+      SmallBitVector ConflictingFields;
+      while (MI != ME) {
+        StructType *Ty = *MI;
+        dbgs() << Ty->getName() << "\n";
+
+        TypeUseInfo &UseInfo = TypeUseInfoMap[Ty];
+
+        ConflictingFields.clear();
+        ConflictingFields.resize(NumElements);
+
+        if (UseInfo.HasNonConstantIndexAccess)
+          dbgs() << "  Has non-constant field access\n";
+
+        if (UseInfo.ReturnedByGEP)
+          dbgs() << "  Returned by GEP\n";
+
+        if (Ty != LeaderTy) {
+          dbgs() << *Ty << "\n";
+          assert((Ty->getNumElements() == NumElements) &&
+                 "Compatible types found with mismatch element count!");
+          // TODO: We should be checking for remapped equivalent types here.
+          for (unsigned Idx = 0; Idx < NumElements; ++Idx)
+            if (Ty->getElementType(Idx) != LeaderTy->getElementType(Idx))
+              ConflictingFields.set(Idx);
+
+          SmallBitVector &FieldsUsed = UseInfo.NonScalarFieldsUsed;
+
+          if (ConflictingFields.none())
+            dbgs() << "UNEXPECTED: No conflicting fields in compatible type!\n";
+          dbgs() << "  Conflicting fields accessed:";
+          if (!ConflictingFields.anyCommon(FieldsUsed)) {
+            dbgs() << " None\n";
+          } else {
+            FieldsUsed.resize(NumElements);
+            for (unsigned BI : ConflictingFields.set_bits())
+              if (FieldsUsed.test(BI))
+                dbgs() << " " << BI;
+            dbgs() << "\n";
+          }
+        }
+
+        dbgs() << "  Bitcast to:";
+        SmallPtrSetImpl<Type *> &CastTo = UseInfo.BitcastToSet;
+        if (CastTo.empty()) {
+          dbgs() << " None\n";
+        } else {
+          dbgs() << "\n";
+          for (auto *DestTy : CastTo) {
+            auto *DST = dyn_cast<StructType>(DestTy);
+            if (DST && DST->hasName())
+              dbgs() << "    " << DST->getName() << "\n";
+            else
+              dbgs() << "    " << *DestTy << "\n";
+          }
+        }
+
+        dbgs() << "  Bitcast from:";
+        SmallPtrSetImpl<Type *> &CastFrom = UseInfo.BitcastFromSet;
+        if (CastFrom.empty()) {
+          dbgs() << " None\n";
+        } else {
+          dbgs() << "\n";
+          for (auto *SrcTy : CastFrom) {
+            auto *SST = dyn_cast<StructType>(SrcTy);
+            if (SST && SST->hasName())
+              dbgs() << "    " << SST->getName() << "\n";
+            else
+              dbgs() << "    " << *SrcTy << "\n";
+          }
+        }
+
+        dbgs() << "\n";
+        ++MI;
+      }
+      dbgs() << "\n    =================\n\n";
+    }
+  }
+#endif
+
+  // This function follows the chain of users of global variables and aliases
+  // to see if these values are used by GEP or bitcast operators as direct
+  // operands of instructions. If these are found, we call helper functions
+  // that analyzer these operators in the same way that the corresponding
+  // instruction would be used. Because these operators (as well as other
+  // operators such as extract value) can be chained together, we continue to
+  // follow the uses of any users that are constant expressions. It isn't
+  // possible for these uses to form a cycle, so no recursion guard is needed.
+  void visitGlobalValueUsers(Constant *C) {
+    auto *Ty = C->getType();
+    if (!Ty->isPointerTy() || !isTypeOfInterest(Ty->getPointerElementType()))
+      return;
+    for (auto *U : C->users()) {
+      if (auto *GEP = dyn_cast<GEPOperator>(U))
+        visitGEPOperator(GEP);
+      else if (auto *BC = dyn_cast<BitCastOperator>(U))
+        visitBitCastOperator(BC);
+      // If we still haven't reached an instruction user, keep following uses.
+      if (auto *CE = dyn_cast<ConstantExpr>(U))
+        visitGlobalValueUsers(CE);
+    }
+  }
+
+  // For GEP instructions and operators, we want to know which elements
+  // within a structure are being accessed. For the purposes of compatibility
+  // analysis, we are only interested in accessed to elements that are in
+  // conflict between two types that were judged to be compatible. These
+  // conflicting members are necessarily pointers so we can ignore intermediate
+  // accesses and any access that isn't referring to a structure pointer member.
+  void visitGEPOperator(GEPOperator *GEP) {
+    // If the GEP has fewer than 2 index operands, it isn't accessing a
+    // structure element. For the purposes of remapping types we don't need
+    // to consider byte-flattened GEPs. We'll see those cases as bitcasts.
+    if (GEP->getNumIndices() < 2)
+      return;
+
+    // If the pointer returned references one of the structures we're
+    // working with, that type cannot be remapped without re-working the GEP.
+    // Record the fact that it was returned here.
+    auto *ResultTy = GEP->getResultElementType();
+    if (auto *ResultST = dyn_cast<StructType>(dtrans::unwrapType(ResultTy)))
+      if (isTypeOfInterest(ResultST))
+        TypeUseInfoMap[ResultST].ReturnedByGEP = true;
+
+    // The result element type is the type of the structure element being
+    // accessed (in the case where the GEP is indexing into a structure).
+    // If this element's type isn't a pointer type then this element can't be
+    // a conflicting element between compatible types.
+    if (!ResultTy->isPointerTy() && !ResultTy->isStructTy())
+      return;
+
+    // Find the types being indexed by this GEP.
+    SmallVector<Value *, 4> Ops(GEP->idx_begin(), GEP->idx_end());
+    while (Ops.size() > 1) {
+      Value *IdxArg = Ops.back();
+      Ops.pop_back();
+      Type *IndexedTy =
+          GetElementPtrInst::getIndexedType(GEP->getSourceElementType(), Ops);
+
+      // If the GEP isn't indexing a structure, we don't need to track it.
+      auto *IndexedStTy = dyn_cast<StructType>(IndexedTy);
+      if (!IndexedStTy)
+        continue;
+
+      // If the last element isn't a constant int, we can't do anything with it.
+      auto *Idx = dyn_cast<ConstantInt>(IdxArg);
+      if (!Idx) {
+        TypeUseInfoMap[IndexedTy].HasNonConstantIndexAccess = true;
+        continue;
+      }
+      // If we can't get a value for this constant or it exceeeds the capacity
+      // of an unsigned value, we can't track it.
+      uint64_t IdxVal = Idx->getLimitedValue();
+      if (IdxVal > std::numeric_limits<unsigned>::max()) {
+        TypeUseInfoMap[IndexedTy].HasNonConstantIndexAccess = true;
+        continue;
+      }
+      // If we get here, this is a potentially interesting element access.
+      // Set a bit in the type field use map entry for this type to record it.
+      SmallBitVector &Bits = TypeUseInfoMap[IndexedTy].NonScalarFieldsUsed;
+      if (Bits.size() <= IdxVal)
+        Bits.resize(IdxVal + 1);
+      Bits.set((unsigned)IdxVal);
+      DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                      dbgs() << "DTRT-compat: GEP accesses type:\n    "
+                             << *IndexedTy << "\n  At index: " << IdxVal
+                             << "\n  GEP:\n    " << *GEP << "\n");
+    }
+  }
+
+  // For bitcast instructions or operators, we want to examine the source
+  // and destination types to see if they involve one of the types in our
+  // compatible types container. The types being cast will always be pointers
+  // but they may be pointers-to-pointers, pointers-to-arrays, or
+  // pointers-to-vectors. We'll peel through array and vector wrappers types
+  // when we call recordTypeCasting(), but here we need to look through any
+  // pointers to skip over element zero access casts.
+  void visitBitCastOperator(BitCastOperator *Cast) {
+    auto *SrcTy = Cast->getSrcTy();
+    auto *DestTy = Cast->getDestTy();
+    while (SrcTy->isPointerTy() && DestTy->isPointerTy()) {
+      if (dtrans::isElementZeroAccess(SrcTy, DestTy))
+        return;
+      if (isVTableCast(SrcTy, DestTy))
+        return;
+      SrcTy = SrcTy->getPointerElementType();
+      DestTy = DestTy->getPointerElementType();
+    }
+    recordTypeCasting(SrcTy, DestTy);
+    DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                    dbgs() << "DTRT-compt: visiting bitcast" << Cast << "\n");
+  }
+
+  // This function records type casts that result either from a bitcast
+  // instruction, a bitcast operator acting on a global variable, or a
+  // bitcast operator at a call site.
+  void recordTypeCasting(Type *SrcTy, Type *DestTy) {
+    // Function bitcasts will often involve identical types at one or more
+    // position. We can safely ignore those.
+    if (SrcTy == DestTy)
+      return;
+
+    // We're only interested in conversions of structure types in our
+    // CompatibleTypes container, so here we peel off any pointer, array,
+    // vector types that may be wrapping the structure types.
+    auto *SrcBaseTy = SrcTy;
+    auto *DestBaseTy = DestTy;
+    while ((SrcBaseTy->isPointerTy() && DestBaseTy->isPointerTy()) ||
+           (SrcBaseTy->isArrayTy() && DestBaseTy->isArrayTy()) ||
+           (SrcBaseTy->isVectorTy() && DestBaseTy->isVectorTy())) {
+      if (SrcBaseTy->isPointerTy()) {
+        SrcBaseTy = SrcBaseTy->getPointerElementType();
+        DestBaseTy = DestBaseTy->getPointerElementType();
+      } else {
+        SrcBaseTy = SrcBaseTy->getSequentialElementType();
+        DestBaseTy = DestBaseTy->getSequentialElementType();
+      }
+    }
+
+    // A cast from a structure pointer to an i8* or vice versa isn't
+    // interesting. We've already peeled the pointers, so here we just
+    // look for i8.
+    auto *Int8Ty = Type::getInt8Ty(SrcTy->getContext());
+    if (SrcBaseTy == Int8Ty || DestBaseTy == Int8Ty)
+      return;
+
+    DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE, {
+      if (isTypeOfInterest(SrcBaseTy) || isTypeOfInterest(DestBaseTy))
+        dbgs() << "\nDTRT-compt: recording type cast\n"
+               << "    From: " << *SrcBaseTy << "\n"
+               << "    To  : " << *DestBaseTy << "\n";
+    });
+    if (isTypeOfInterest(SrcBaseTy))
+      TypeUseInfoMap[SrcBaseTy].BitcastToSet.insert(DestBaseTy);
+    if (isTypeOfInterest(DestBaseTy))
+      TypeUseInfoMap[DestBaseTy].BitcastFromSet.insert(SrcBaseTy);
+  }
+
+  // This function looks at the SrcTy and DestTy to see if DestTy matches
+  // the idiom for a VTable pointer.  VTable pointers have the form
+  // i32 (<Ty>*)**.
+  bool isVTableCast(Type *SrcTy, Type *DestTy) {
+    auto *ST = dyn_cast<StructType>(SrcTy);
+    if (!ST)
+      return false;
+    LLVMContext &Context = ST->getContext();
+    auto *VTableTy =
+        FunctionType::get(Type::getInt32Ty(Context), {ST->getPointerTo()},
+                          false)
+            ->getPointerTo()
+            ->getPointerTo();
+    return (DestTy == VTableTy);
+  }
+
+  // The caller of this function should peel off wrapping pointer, array,
+  // and vector types.
+  bool isTypeOfInterest(Type *Ty) {
+    if (auto *ST = dyn_cast_or_null<StructType>(Ty))
+      return CompatibleTypes.findValue(ST) != CompatibleTypes.end();
+    return false;
+  }
 };
 
 } // end anonymous namespace
@@ -371,11 +858,17 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     }
   }
 
-  // TODO: Use the CompatibleTypes data.
+  if (CompatibleTypes.getNumClasses()) {
+    CompatibleTypeAnalyzer CTA(M, CompatibleTypes);
+    CTA.run();
+    // TODO: Use the CompatibleTypeAnalyzer data to select types to map.
+  }
 
   return DuplicateTypeFound;
 }
 
+// This function fills in the body of types that we previously created for
+// remapping. The base class populates any dependent types that were found.
 void ResolveTypesImpl::populateTypes(Module &M) {
   // We will have multiple original types mapped to the same replacement
   // type, so we need to check as we process this map to see if the type

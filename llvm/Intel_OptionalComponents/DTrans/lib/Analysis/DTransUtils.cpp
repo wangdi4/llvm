@@ -406,6 +406,16 @@ bool dtrans::isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy,
   return isElementZeroAccess(SrcPointeeTy, DestPointeeTy);
 }
 
+Type *dtrans::unwrapType(Type *Ty) {
+  Type *BaseTy = Ty;
+  while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy())
+    if (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+    else
+      BaseTy = BaseTy->getSequentialElementType();
+  return BaseTy;
+}
+
 static void printSafetyInfo(const SafetyData &SafetyInfo,
                             llvm::raw_ostream &ostr) {
   if (SafetyInfo == 0) {

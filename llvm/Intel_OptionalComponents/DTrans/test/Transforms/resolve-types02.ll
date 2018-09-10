@@ -1,45 +1,59 @@
-; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes \
+; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
 
-; This test verifies that the dtrans::ResolveTypes correctly combines
-; types that are nested within other structures.
+; This test is here to verify that compatible but not equivalent types are
+; handled correctly. When that transformation is fully implemented this
+; will be converted to test the type mapping. For now, ResolveTypes only
+; identifies compatible types but does not check to see if they can be
+; safely remapped or attempt to remap them, so the test is instead checking
+; debug output for the identification.
 
-; These types should all be combined.
-%A = type { i32, %B* }
-%B = type { i32, i32 }
-%B.1 = type { i32, i32 }
+; The IR below is from a case where the LLVM IR linker mismatched types.
+; In the first input module, %struct.outer was defined but %struct.middle
+; was declared as opaque. The first module also defined @f1 as seen below
+; but had only a declaration of @use_outer. In the second input module,
+; %struct.middle was defined as it is seen below and the function @use_middle
+; was defined. In the third input module, %struct.outer was defined as
+; %struct.outer.0 is seen below and %struct.middle was defined as
+; %struct.middle.1 is seen below. The third module provided the definition of
+; @use_outer.
+;
+; This is an example of a kind of mismapping in the LLVM IR linker that is
+; very common when using LTO with source code that uses templates.
 
-; CHECK-DAG: %__DTRT_A = type { i32, %__DTRT_B* }
-; CHECK-DAG: %__DTRT_B = type { i32, i32 }
-; CHECK-NOT: %B = type { i32, i32 }
-; CHECK-NOT: %B.1 = type { i32, i32 }
+%struct.outer = type { i32, i32, %struct.middle* }
+%struct.middle = type { i32, i32, %struct.bar }
+%struct.bar = type { i32, i32 }
+%struct.outer.0 = type { i32, i32, %struct.middle.1 }
+%struct.middle.1 = type { i32, i32, %struct.foo* }
+%struct.foo = type { i16, i16, i32 }
 
-; The call interfaces are the important thing in the tests. We don't actually
-; need to do anything with the elements.
-
-define void @useB(%B* %p) {
+define void @f1(%struct.outer* %o) {
+  call void bitcast (void (%struct.outer.0*)* @use_outer to void (%struct.outer*)*)(%struct.outer* %o)
   ret void
 }
-; CHECK-NOT: void @useB(%B* %p)
 
-define void @useB1(%B.1* %p) {
-  ret void
-}
-; CHECK-NOT: void @useB1(%B.1* %p)
-
-define void @test(%A* %a) {
-  %pb = getelementptr %A, %A* %a, i64 0, i32 1
-  %b = load %B*, %B** %pb
-  call void @useB(%B* %b)
-  call void bitcast (void (%B.1*)* @useB1 to void (%B*)*) (%B* %b)
+define void @use_middle(%struct.middle* %m) {
+  %pbar = getelementptr %struct.middle, %struct.middle* %m, i64 0, i32 2
+  call void @use_bar(%struct.bar* %pbar)
   ret void
 }
 
-; CHECK-LABEL: void @useB.1(%__DTRT_B* %p)
+define void @use_bar(%struct.bar* %b) {
+  ret void
+}
 
-; CHECK-LABEL: void @useB1.2(%__DTRT_B* %p)
+define void @use_outer(%struct.outer.0* %o) {
+  ret void
+}
 
-; CHECK-LABEL: void @test.3(%__DTRT_A* %a)
-; CHECK:  %pb = getelementptr %__DTRT_A, %__DTRT_A* %a, i64 0, i32 1
-; CHECK:  %b = load %__DTRT_B*, %__DTRT_B** %pb
-; CHECK:  call void @useB.1(%__DTRT_B* %b)
-; CHECK:  call void @useB1.2(%__DTRT_B* %b)
+; FIXME: The checks below are verifying debug output. When the transformation
+;        is fully implemented these should be replaced with checks of the
+;        actually corrected IR.
+
+; CHECK-LABEL: compareTypeMembers(struct.outer, struct.outer.0)
+; CHECK-NEXT: Indirection level mismatch @ 2
+; CHECK-NEXT: resolve-types: Types are not equivalent.
+; CHECK-NEXT:    Base: %struct.outer = type { i32, i32, %struct.middle* }
+; CHECK-NEXT:    Cand: %struct.outer.0 = type { i32, i32, %struct.middle.1 }

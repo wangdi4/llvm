@@ -945,6 +945,10 @@ bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
 /// equivalent to isElementZeroAccess with an additional level of indirection.
 bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
 
+/// Remove pointer, vector, and array types to uncover the base type which
+/// the contain.
+Type *unwrapType(Type *Ty);
+
 /// Check whether the specified type is the type of a known system object.
 bool isSystemObjectType(llvm::StructType *Ty);
 

@@ -35,23 +35,6 @@ static cl::opt<bool>
     DTransOptBaseProcessFuncDecl("dtrans-optbase-process-function-declaration",
                                  cl::init(false), cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-//===----------------------------------------------------------------------===//
-// Utility functions for llvm:Type objects
-//===----------------------------------------------------------------------===//
-
-// Helper method to dereference through all the pointer or array levels to get
-// to a non-pointer/non-array type for the input type.
-Type *unwrapType(Type *Ty) {
-  Type *BaseTy = Ty;
-  while (BaseTy->isPointerTy() || BaseTy->isArrayTy())
-    if (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
-    else
-      BaseTy = BaseTy->getArrayElementType();
-
-  return BaseTy;
-}
 } // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
@@ -380,7 +363,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
 
   if (auto *StructTy = dyn_cast<StructType>(Ty)) {
     for (auto *MemberType : StructTy->elements()) {
-      Type *BaseTy = unwrapType(MemberType);
+      Type *BaseTy = dtrans::unwrapType(MemberType);
       if (auto *FunctionTy = dyn_cast<FunctionType>(BaseTy))
         collectDependenciesForTypeRecurse(Dependee, FunctionTy);
       else
@@ -390,7 +373,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
   }
 
   if (auto *ArrayTy = dyn_cast<ArrayType>(Ty)) {
-    Type *BaseTy = unwrapType(ArrayTy->getElementType());
+    Type *BaseTy = dtrans::unwrapType(ArrayTy->getElementType());
     if (auto *FunctionTy = dyn_cast<FunctionType>(BaseTy))
       collectDependenciesForTypeRecurse(Dependee, FunctionTy);
     else
@@ -401,13 +384,13 @@ void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
 
   if (auto *FuncTy = dyn_cast<FunctionType>(Ty)) {
     Type *RetTy = FuncTy->getReturnType();
-    Type *BaseTy = unwrapType(RetTy);
+    Type *BaseTy = dtrans::unwrapType(RetTy);
     UpdateTypeToDependentTypeMap(BaseTy, Dependee);
 
     unsigned Total = FuncTy->getNumParams();
     for (unsigned Idx = 0; Idx < Total; ++Idx) {
       Type *ParmTy = FuncTy->getParamType(Idx);
-      Type *BaseTy = unwrapType(ParmTy);
+      Type *BaseTy = dtrans::unwrapType(ParmTy);
       if (auto *BaseFuncTy = dyn_cast<FunctionType>(BaseTy))
         collectDependenciesForTypeRecurse(Dependee, BaseFuncTy);
       else
