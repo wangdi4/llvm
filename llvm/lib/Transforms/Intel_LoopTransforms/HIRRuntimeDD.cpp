@@ -195,18 +195,10 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
 
 #ifndef NDEBUG
   int64_t DiffValue;
-  CanonExpr *LowerCE = *Lower->canon_begin();
-  CanonExpr *UpperCE = *Upper->canon_begin();
-  auto DiffCE =
-      UpperCE->getCanonExprUtils().cloneAndSubtract(UpperCE, LowerCE, true);
-  assert(DiffCE && " CanonExpr difference failed.");
-  DiffCE->simplify(true);
-  if (DiffCE->isIntConstant(&DiffValue)) {
-    assert(DiffValue >= 0 && "Segment wrong direction");
-  } else {
-    llvm_unreachable("Non-integer non-constant segment length");
-  }
-  UpperCE->getCanonExprUtils().destroy(DiffCE);
+  bool IsConst =
+      DDRefUtils::getConstByteDistance(Upper, Lower, &DiffValue, false, true);
+  assert(IsConst && " CanonExpr difference failed.");
+  assert(DiffValue >= 0 && "Segment wrong direction");
 #endif
 }
 
@@ -528,66 +520,7 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
     return true;
   }
 
-  if (Ref1->getSymbase() != Ref2->getSymbase()) {
-    return false;
-  }
-
-  // Separate struct accesses earlier.
-  if (Ref1->accessesStruct() != Ref2->accessesStruct()) {
-    return false;
-  }
-
-  if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
-    return false;
-  }
-
-  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
-    return false;
-  }
-
-  auto I = Ref1->canon_begin();
-  auto J = Ref2->canon_begin();
-
-  auto *Offsets = Ref1->getTrailingStructOffsets(1);
-
-  // Regular refs should have constant distance in a last dimension.
-  if (!Offsets) {
-    if (!CanonExprUtils::getConstDistance(*I, *J, nullptr)) {
-      return false;
-    }
-
-    ++I;
-    ++J;
-  }
-
-  // For struct access refs, all CEs should be equal.
-  for (auto E = Ref1->canon_end(); I != E; ++I, ++J) {
-    if (!CanonExprUtils::areEqual(*I, *J)) {
-      return false;
-    }
-  }
-
-  for (int I = 1, E = Ref1->getNumDimensions(); I < E; ++I) {
-    auto StructOffsets1 = Ref1->getTrailingStructOffsets(I);
-    auto StructOffsets2 = Ref2->getTrailingStructOffsets(I);
-
-    if (StructOffsets1 == StructOffsets2) {
-      assert(StructOffsets1 == nullptr && "Expected to be nullptr");
-      continue;
-    }
-
-    if ((StructOffsets1 == nullptr && StructOffsets2 != nullptr) ||
-        (StructOffsets2 == nullptr && StructOffsets1 != nullptr)) {
-      // StructOffsets1 is nullptr if and only if StructOffset2 is nullptr.
-      return false;
-    }
-
-    if (StructOffsets1->size() != StructOffsets2->size()) {
-      return false;
-    }
-  }
-
-  return true;
+  return DDRefUtils::getConstByteDistance(Ref1, Ref2, nullptr, false, true);
 }
 
 unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref) {
@@ -714,7 +647,15 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   for (RefGroupTy &Group : Groups) {
-    std::sort(Group.begin(), Group.end(), DDRefUtils::compareMemRef);
+    std::sort(Group.begin(), Group.end(),
+              [](const RegDDRef *Ref1, const RegDDRef *Ref2) {
+                int64_t Distance = 0;
+                bool IsConst = DDRefUtils::getConstByteDistance(
+                    Ref1, Ref2, &Distance, false, true);
+                assert(IsConst && "Non-const distance ref pair found");
+                (void)IsConst;
+                return Distance < 0;
+              });
   }
 
   LLVM_DEBUG(DDRefGrouping::dump(Groups));
@@ -747,9 +688,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     IVSegment &S1 = IVSegments[I];
     IVSegment &S2 = IVSegments[J];
-
-    assert(S1.getLower()->getSymbase() == S2.getLower()->getSymbase() &&
-           "Segment symbases should be equal");
 
     // Skip Read-Read segments
     assert((S1.isWrite() || S2.isWrite()) &&
