@@ -859,6 +859,65 @@ intrinsic returns true:
   }];
 }
 
+def IntelTBAADocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker = "LCPT-1003";
+  let Content = [{
+This implements alias analysis improvements for LCPT-1003. It helps in the case
+where an array is nested in a struct. Previously we tried to add an "assume
+index < upper bound" node on top of the index expression but that was not
+successful.  Instead we introduce metadata to do the annotation on the GEP. And
+we give that metadata such meaning that combining the GEPs would be valid.
+There was a long email discussion between C++ experts on the cfe and the
+codegen teams. We determined that if the address of a struct member is taken,
+it is valid to do arithmetic which yields addresses to other fields within the
+struct. Therefore this patch doesn't allow propagation of array decay
+expressions.
+
+For example in this test case showing treatment of array decay:
+
+.. code-block:: c++
+
+  typedef struct S {
+    int a[10], b[10]
+  } s_type;
+
+  void foo(void) {
+    S s;
+    int *p1 = s.a;
+    int *p2 = s.b;
+    int *p3 = (int *) ((char *)p1 - __builtin_offsetof(s_type,a) +
+                                __builtin_offsetof(s_type,b));
+    // at this point, p2 and p3 are equivalent
+  }
+
+The output tbaa generated for the field reference s.a is intel-tbaa and is
+unique from the intel-tbaa generated for s.b
+
+.. code-block:: llvm
+
+ %a = getelementptr inbounds %struct.S, %struct.S* %s, i32 0, i32 0, !intel-tbaa !2
+ %b = getelementptr inbounds %struct.S, %struct.S* %s, i32 0, i32 1, !intel-tbaa !10
+
+However, the output tbaa generated for the array decay into p1 and p2 is unchanged and represents an undistinguished pointer into the struct object:
+
+.. code-block:: llvm
+
+  %arraydecay = getelementptr inbounds [10 x i32], [10 x i32]* %a, i32 0, i32 0
+  store i32* %arraydecay, i32** %p1, align 8, !tbaa !8
+  %arraydecay1 = getelementptr inbounds [10 x i32], [10 x i32]* %b, i32 0, i32 0
+  store i32* %arraydecay1, i32** %p2, align 8, !tbaa !8
+
+Where:
+
+.. code-block:: llvm
+
+ !8 = !{!9, !9, i64 0}
+ !9 = !{!"pointer@_ZTSPi", !6, i64 0}
+
+  }];
+}
 
 def GlobalDocumentation {
   code Intro =[{..

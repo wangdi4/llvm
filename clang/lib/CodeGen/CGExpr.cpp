@@ -3538,6 +3538,16 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
       if (!EltTBAAInfo.BaseType)
         EltTBAAInfo.BaseType = CGM.getTBAATypeInfo(Array->getType());
       EltTBAAInfo.AccessType = CGM.getTBAAAccessInfo(E->getType()).AccessType;
+      if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+        auto *I = dyn_cast<llvm::Instruction>(Addr.getPointer());
+        if (I && !EltTBAAInfo.isMayAlias()) {
+          TBAAAccessInfo AI(EltTBAAInfo);
+          AI.BaseType = CGM.getTBAATypeInfo(Array->getType());
+          AI.Offset = 0;
+          llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
+          I->setMetadata("intel-tbaa", N);
+        }
+      }
     } else
 #endif // INTEL_CUSTOMIZATION
     EltTBAAInfo = CGM.getTBAAInfoForSubobject(ArrayLV, E->getType());
@@ -3999,6 +4009,39 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   } else {
     // For structs, we GEP to the field that the record layout suggests.
     addr = emitAddrOfFieldStorage(*this, addr, field);
+
+#if INTEL_CUSTOMIZATION
+    // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
+    // handled by the AA even without TBAA.
+    if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+      auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
+      if (GEP && !FieldTBAAInfo.isMayAlias()) {
+        // HACK: If the base didn't have a base type we created the base type
+        // for the field access exclusively above. In such case, we need to
+        // re-use that newly created BaseType. Otherwise, we already have a
+        // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
+        // to use the "base" of the last field access.
+        auto BaseType = base.getTBAAInfo().BaseType
+                            ? base.getTBAAInfo().AccessType
+                            : FieldTBAAInfo.BaseType;
+        // FIXME: isValidBaseType returns false for the structs with flexible
+        // array members. For some reason, for such structs TBAA access tags are
+        // completely disabled (even in LLORG), so we don't have a valid
+        // BaseType available. Don't emit anything in such case.
+        //
+        // Note: I'd expect that only annotation of the flexible array member
+        // itself should not contain the access path. Not sure why it affects
+        // other fields of the structs.
+        if (BaseType) {
+          TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
+                            FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
+                            FieldTBAAInfo.Size);
+          llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
+          GEP->setMetadata("intel-tbaa", N);
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // If this is a reference field, load the reference right now.
     if (FieldType->isReferenceType()) {
