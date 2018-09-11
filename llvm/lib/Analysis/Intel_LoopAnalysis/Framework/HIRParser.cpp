@@ -3177,12 +3177,48 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   return Ref;
 }
 
+// Returns true if lval ref of \p Inst contains a blob and rval doesn't. This
+// usually happens when the rvals have a linear form but the combination
+// doesn't. For example- t1 = i1 * i2 linear form of t1 is t2 * i2 where t2 is
+// the underlying LLVM value representing i1.
+//
+static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
+                                    const RegDDRef *LvalRef) {
+
+  for (auto BlobIt = LvalRef->blob_cbegin(), EIt = LvalRef->blob_cend();
+       BlobIt != EIt; ++BlobIt) {
+    unsigned BlobIndex = (*BlobIt)->getBlobIndex();
+
+    bool FoundBlob = false;
+    for (auto RefIt = HInst->rval_op_ddref_begin(),
+              E = HInst->rval_op_ddref_end();
+         RefIt != E; ++RefIt) {
+      auto *Ref = *RefIt;
+
+      assert(Ref->isTerminalRef() &&
+             "unexpected rval ref for non self blob lval!");
+
+      if (Ref->usesTempBlob(BlobIndex)) {
+        FoundBlob = true;
+        break;
+      }
+    }
+
+    if (!FoundBlob) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
-                                       bool IsLval) {
+                                       HLInst *LvalInst) {
   CanonExpr *CE;
 
   clearTempBlobLevelMap();
 
+  bool IsLval = (LvalInst != nullptr);
   ParsingScalarLval = IsLval;
 
   auto Symbase = getOrAssignSymbase(Val);
@@ -3192,7 +3228,9 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
 
   Ref->setSingleCanonExpr(CE);
 
-  if (CE->isSelfBlob()) {
+  bool IsSelfBlob = CE->isSelfBlob();
+
+  if (IsSelfBlob) {
     unsigned SB = getTempBlobSymbase(CE->getSingleBlobIndex());
 
     // Update rval DDRef's symbase to blob's symbase for self-blob DDRefs.
@@ -3217,6 +3255,10 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
       Ref->setSymbase(GenericRvalSymbase);
     }
     populateBlobDDRefs(Ref, Level);
+  }
+
+  if (IsLval && !IsSelfBlob && hasLvalRvalBlobMismatch(LvalInst, Ref)) {
+    Ref->makeSelfBlob(true);
   }
 
   ParsingScalarLval = false;
@@ -3260,8 +3302,9 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   return Ref;
 }
 
-RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
+RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   RegDDRef *Ref;
+  auto *Inst = HInst->getLLVMInstruction();
 
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
@@ -3272,7 +3315,7 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
     parseMetadata(Inst, Ref);
 
   } else {
-    Ref = createScalarDDRef(Inst, Level, true);
+    Ref = createScalarDDRef(Inst, Level, HInst);
   }
 
   return Ref;
@@ -3427,7 +3470,6 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
 }
 
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
-  bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
   unsigned Level;
 
@@ -3448,20 +3490,14 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     CurOutermostLoop = OuterLoop ? OuterLoop->getLLVMLoop() : nullptr;
   }
 
-  // Process lval
-  if (HInst->hasLval()) {
-    HasLval = true;
-
-    if (IsPhase1 && !isEssential(Inst)) {
-      // Postpone the processing of this instruction to Phase2.
-      auto Symbase = getOrAssignSymbase(Inst);
-      UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
-      return;
-    }
-
-    HInst->setLvalDDRef(createLvalDDRef(Inst, Level));
+  if (IsPhase1 && !isEssential(Inst)) {
+    // Postpone the processing of this instruction to Phase2.
+    auto Symbase = getOrAssignSymbase(Inst);
+    UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
+    return;
   }
 
+  bool HasLval = HInst->hasLval();
   unsigned NumRvalOp = getNumRvalOperands(Inst);
   auto Call = dyn_cast<CallInst>(Inst);
 
@@ -3470,6 +3506,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
       (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
 
   unsigned NumArgOperands = Call ? Call->getNumArgOperands() : 0;
+
   // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
 
@@ -3502,6 +3539,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
                  (!IsBundleOperand &&
                   (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly))));
     }
+  }
+
+  // Process lval
+  if (HasLval) {
+    HInst->setLvalDDRef(createLvalDDRef(HInst, Level));
   }
 
   // For indirect calls, set the function pointer as the last operand.

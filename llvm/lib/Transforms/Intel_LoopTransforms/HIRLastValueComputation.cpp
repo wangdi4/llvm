@@ -78,8 +78,7 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
 
   RegDDRef *LRef = HInst->getLvalDDRef();
 
-  if (!LRef || !LRef->isTerminalRef() ||
-      (!LRef->isSelfBlob() && LRef->isNonLinear())) {
+  if (!LRef || !LRef->isTerminalRef()) {
     return false;
   }
 

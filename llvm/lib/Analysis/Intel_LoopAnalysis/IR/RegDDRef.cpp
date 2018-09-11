@@ -536,8 +536,11 @@ void RegDDRef::replaceSelfBlobIndex(unsigned NewIndex) {
   setSymbase(getBlobUtils().getTempBlobSymbase(NewIndex));
 }
 
-void RegDDRef::makeSelfBlob() {
-  assert(isLval() && "DDRef is expected to be an lval ref!");
+void RegDDRef::makeSelfBlob(bool AssumeLvalIfDetached) {
+  bool IsLval = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
+  (void)IsLval;
+
+  assert(IsLval && "DDRef is expected to be an lval ref!");
   assert(isTerminalRef() && "DDRef is expected to be a terminal ref!");
 
   unsigned Index = getBlobUtils().findOrInsertTempBlobIndex(getSymbase());

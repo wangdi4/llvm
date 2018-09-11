@@ -44,7 +44,7 @@
 ; Check that ll.addr.034 becomes livein to inner loop after subtitution.
 ; CHECK: LiveIn symbases:
 ; CHECK-SAME: [[NEWLIVEINSYM]]
-; CHECK-NOT: [[OLDLIVEINSYM]]
+; CHECK-NOT: [[OLDLIVEINSYM]],
 ; CHECK: LiveOut symbases
 
 ; CHECK: |      + DO i64 i2 = 0, -1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + smax(-2, (-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))), 1   <DO_LOOP>

@@ -772,7 +772,9 @@ public:
   /// Converts a terminal lval ref into a self blob ref using its symbase.
   /// For example, if we have t1 = t2 + t3, where t1's canonical form is (1 * t2
   /// + 1 * t3), it will be converted to 1 * t1.
-  void makeSelfBlob();
+  /// The ref is asserted as an lval unless it is detached and
+  /// AssumeLvalIfDetached is set to true.
+  void makeSelfBlob(bool AssumeLvalIfDetached = false);
 
   /// Adds a blob DDRef to this DDRef.
   void addBlobDDRef(BlobDDRef *BlobRef);

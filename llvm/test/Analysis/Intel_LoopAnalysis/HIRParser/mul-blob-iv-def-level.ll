@@ -16,8 +16,8 @@
 ; Verify that the rval ref is marked as non-linear because it contains non-linear blob %2.
 
 ; CHECK: |   |   if (%2 * i1 + %2 != 0)
-; CHECK: |   |   <RVAL-REG> NON-LINEAR i32 %2 * i1 + %2 {sb:2}
-; CHECK: |   |      <BLOB> NON-LINEAR i32 %2 {sb:8}
+; CHECK: |   |   <RVAL-REG> NON-LINEAR i32 %2 * i1 + %2
+; CHECK: |   |      <BLOB> NON-LINEAR i32 %2
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
