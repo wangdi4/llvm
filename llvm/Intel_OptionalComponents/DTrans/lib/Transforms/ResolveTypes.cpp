@@ -151,27 +151,26 @@ ModulePass *llvm::createDTransResolveTypesWrapperPass() {
 //   %struct.A = type {...}
 //   %struct.A.123 = type {...}
 //   %struct.A.456 = type {...}
+//   %struct.A.2.789 = type {...}
 //
-// However, we want to avoid trimming too much in cases like this:
-//
-//   %struct.B.5.789 = type {...}
-//
-// And we don't want to attempt to match types like this:
+// However, we don't want to attempt to match types like this:
 //
 //   %struct.CO = type {...}
 //   %struct.CO2 = type {...}
 //
 // So we start by trimming trailing numbers, then look for and trim a
-// single '.', and finally check to see if the base name constructed this
-// way names a type. If it does, it's a candidate for our transformation.
+// single '.', and repeat this as long as we trimmed something and found
+// a trailing '.'.
 StringRef ResolveTypesImpl::getTypeBaseName(StringRef TyName) {
+  StringRef RefName = TyName;
   StringRef BaseName = TyName.rtrim("0123456789");
-  // If no suffix was found, the size will be unchanged.
-  if (TyName.size() == BaseName.size())
-    return TyName;
-  if (!BaseName.endswith("."))
-    return TyName;
-  return BaseName.drop_back(1);
+  while (RefName.size() != BaseName.size()) {
+    if (!BaseName.endswith("."))
+      return RefName;
+    RefName = BaseName.drop_back(1);
+    BaseName = RefName.rtrim("0123456789");
+  }
+  return RefName;
 }
 
 // This function walks over the structure types in the specified module and
@@ -222,8 +221,44 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
             return false;
           };
 
-  DenseMap<StructType *, SetVector<StructType *>> CandidateTypeSets;
+  // Sometimes previous optimizations will have left types that are not
+  // used in a way that allows Module::getIndentifiedStructTypes() to find
+  // them. This can confuse our mapping algorithm, so here we check for
+  // missing types and add them to the set we're looking at.
+  std::vector<StructType*> StTypes = M.getIdentifiedStructTypes();
+  SmallPtrSet<StructType*, 32> SeenTypes;
+  std::function<void(StructType*)> findMissedNestedTypes = [&](StructType *Ty) {
+    for (Type *ElemTy : Ty->elements()) {
+      // Look past pointer, array, and vector wrappers.
+      // If the element is a structure, add it to the SeenTypes set.
+      // If it wasn't already there, check for nested types.
+      if (StructType* ElemStTy = getContainedStructTy(ElemTy))
+        if (SeenTypes.insert(ElemStTy).second)
+          findMissedNestedTypes(ElemStTy);
+    }
+    if (!Ty->hasName())
+      return;
+    StringRef TyName = Ty->getName();
+    StringRef BaseName = getTypeBaseName(TyName);
+    // If the type name didn't have a suffix, TyName and BaseName will be
+    // the same. Checking the size is sufficient.
+    if (TyName.size() == BaseName.size())
+      return;
+    // Add the base type now. This might be the only way it is found.
+    StructType *BaseTy = M.getTypeByName(BaseName);
+    if (!BaseTy || !SeenTypes.insert(BaseTy).second)
+      return;
+    findMissedNestedTypes(BaseTy);
+  };
   for (StructType *Ty : M.getIdentifiedStructTypes()) {
+    // If we've seen this type already, skip it.
+    if (!SeenTypes.insert(Ty).second)
+      continue;
+    findMissedNestedTypes(Ty);
+  }
+
+  DenseMap<StructType *, SetVector<StructType *>> CandidateTypeSets;
+  for (StructType *Ty : SeenTypes) {
     // Ignore unnamed types.
     if (!Ty->hasName())
       continue;
@@ -236,10 +271,16 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     if (TyName.size() == BaseName.size())
       continue;
 
-    // Check to see if BaseName is a known type.
+    // If BaseName is a not a known type, claim the name for this type.
+    // This will potentially allow us to remap other types with the same
+    // base name to this type.
     StructType *BaseTy = M.getTypeByName(BaseName);
-    if (!BaseTy)
+    if (!BaseTy) {
+      LLVM_DEBUG(dbgs() << "resolve-types: Renaming " << TyName << " -> "
+                    << BaseName << "\n");
+      Ty->setName(BaseName);
       continue;
+    }
 
     // Don't try to remap types with external uses.
     SmallPtrSet<StructType *, 4> VisitedTypes;
@@ -347,9 +388,18 @@ void ResolveTypesImpl::populateTypes(Module &M) {
     if (!ReplTy->isOpaque())
       continue;
 
+    DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                    dbgs() << "Populating type: " << *ReplTy << "\n  OrigTy: "
+                            << *OrigTy << "\n");
+
     SmallVector<Type *, 8> DataTypes;
-    for (auto *MemberTy : OrigTy->elements())
+    for (auto *MemberTy : OrigTy->elements()) {
       DataTypes.push_back(TypeRemapper->remapType(MemberTy));
+      DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                      dbgs() << "MemberTy mapping: " << *MemberTy << " -> "
+                             << *(TypeRemapper->remapType(MemberTy)) << "\n");
+
+    }
 
     ReplTy->setBody(DataTypes, OrigTy->isPacked());
     LLVM_DEBUG(dbgs() << "resolve-types: New structure body: " << *ReplTy
@@ -377,7 +427,7 @@ void ResolveTypesImpl::addTypeMapping(StructType *SrcTy, StructType *DestTy) {
   }
   LLVM_DEBUG(dbgs() << "resolve-types: Mapping " << SrcTy->getName() << " -> "
                     << ActualDestTy->getName() << "\n    " << *SrcTy << "\n    "
-                    << *DestTy << "\n");
+                    << *ActualDestTy << "\n");
   TypeRemapper->addTypeMapping(SrcTy, ActualDestTy);
   OrigToNewTypeMapping[SrcTy] = ActualDestTy;
 }

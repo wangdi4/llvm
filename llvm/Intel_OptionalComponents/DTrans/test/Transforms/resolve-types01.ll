@@ -83,8 +83,9 @@
 
 ; CHECK-LABEL: %struct.test07.a = type { i32, %struct.test07.b* }
 ; CHECK: %struct.test07.b = type { i32, i32 }
-; CHECK: %struct.test07.a.55 = type { i32, %struct.test07.b2.66* }
-; CHECK: %struct.test07.b2.66 = type { i32, i32 }
+; Note that %struct.test07.b2.66 gets renamed. That's OK.
+; CHECK: %struct.test07.a.55 = type { i32, %struct.test07.b2* }
+; CHECK: %struct.test07.b2 = type { i32, i32 }
 
 ; The second and third types here should be combined with one another but
 ; not with the first type.
