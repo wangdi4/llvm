@@ -21,38 +21,38 @@ namespace llvm {
 
 // Forward declarations
 namespace loopopt {
-class HLDDNode;
+class HLNode;
 }
 namespace vpo {
 
-/// Class to hold the underlying HLDDNode of a master VPInstruction and its
+/// Class to hold the underlying HLNode of a master VPInstruction and its
 /// validity. This information will also be accessible from the decomposed
 /// VPInstructions of the master VPInstruction, if any.
 class MasterVPInstData {
 private:
-  /// Contain the pointer to the underlying HLDDNode for a master VPInstruction
-  /// and its validity flag. This flag states whether the underlying HLDDNode is
+  /// Contain the pointer to the underlying HLNode for a master VPInstruction
+  /// and its validity flag. This flag states whether the underlying HLNode is
   /// still valid to be reused during codegen. This applies to the master
   /// VPInstruction holding a pointer to this objets and all the decomposed
   /// VPInstructions pointing to such master VPInstruction.
-  PointerIntPair<loopopt::HLDDNode *, 1, bool> UnderlyingDDN;
+  PointerIntPair<loopopt::HLNode *, 1, bool> UnderlyingNode;
 
 public:
-  MasterVPInstData(loopopt::HLDDNode *DDN) : UnderlyingDDN(DDN, false) {
-    assert(DDN && "MasterVPInstData must hold a valid HLDDNode.");
+  MasterVPInstData(loopopt::HLNode *Node) : UnderlyingNode(Node, false) {
+    assert(Node && "MasterVPInstData must hold a valid HLNode.");
   }
 
-  /// Return the underlying HLDDNode.
-  loopopt::HLDDNode *getNode() { return UnderlyingDDN.getPointer(); }
+  /// Return the underlying HLNode.
+  loopopt::HLNode *getNode() { return UnderlyingNode.getPointer(); }
 
-  /// Return true if the underlying HLDDNode is still valid.
-  bool isValid() const { return UnderlyingDDN.getInt(); }
+  /// Return true if the underlying HLNode is still valid.
+  bool isValid() const { return UnderlyingNode.getInt(); }
 
   /// Set valididity flag to true.
-  void setValid() { UnderlyingDDN.setInt(true);}
+  void setValid() { UnderlyingNode.setInt(true);}
 
   /// Set validity flag to false.
-  void setInvalid() { UnderlyingDDN.setInt(false);}
+  void setInvalid() { UnderlyingNode.setInt(false);}
 };
 
 } // namespace vpo

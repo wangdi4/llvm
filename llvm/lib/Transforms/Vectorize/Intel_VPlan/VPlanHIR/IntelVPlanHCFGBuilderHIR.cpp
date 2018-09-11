@@ -103,7 +103,7 @@ private:
   /// Map between HLNode's that open a VPBasicBlock and such VPBasicBlock's.
   DenseMap<HLNode *, VPBasicBlock *> HLN2VPBB;
 
-  /// Utility to create VPInstructions out of a HLDDNode.
+  /// Utility to create VPInstructions out of a HLNode.
   VPDecomposerHIR Decomposer;
 
   VPBasicBlock *createOrGetVPBB(HLNode *HNode = nullptr);
@@ -321,7 +321,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // it as condition bit of the active VPBasicBlock.
   // TODO: Remove "not decomposed" when decomposing HLIfs.
   VPInstruction *CondBit =
-      Decomposer.createVPInstructionsForDDNode(HIf, ActiveVPBB);
+      Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
   ConditionVPBB->setCondBit(CondBit, Plan);
 
   // - Then branch -
@@ -370,7 +370,7 @@ void PlainCFGBuilderHIR::visit(HLInst *HInst) {
   updateActiveVPBB(HInst);
 
   // Create VPInstructions for HInst.
-  Decomposer.createVPInstructionsForDDNode(HInst, ActiveVPBB);
+  Decomposer.createVPInstructionsForNode(HInst, ActiveVPBB);
 }
 
 void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
@@ -402,6 +402,8 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
     // the exiting gotos would go to the landing pad.
     assert(CurrentHLp->isDoMultiExit() && "Expected multi-exit loop!");
     assert(MultiExitLandingPad && "Expected landing pad for multi-exit loop!");
+
+    Decomposer.createVPInstructionsForNode(HGoto, ActiveVPBB);
     LabelVPBB = MultiExitLandingPad;
   } else {
     assert(Label && "Label can't be null!");

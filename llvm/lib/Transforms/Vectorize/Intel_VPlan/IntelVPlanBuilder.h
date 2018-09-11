@@ -173,6 +173,14 @@ public:
     return VPCI;
   }
 
+  // Create dummy VPBranchInst instruction.
+  VPBranchInst *createBr() {
+    VPBranchInst *Instr = new VPBranchInst();
+    if (BB)
+      BB->insert(Instr, InsertPt);
+    return Instr;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//
