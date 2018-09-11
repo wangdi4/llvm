@@ -19,6 +19,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -552,6 +553,29 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   // Set up the mapping of Functions to CallInfo objects that need to
   // be processed as each function is transformed.
   initializeFunctionCallInfoMapping();
+
+  // Check for debug information that we do not want to be cloned when
+  // cloning/remapping functions, and set those objects to map to themselves
+  // within the metadata portion of the Value-to-Value map. Specifically, we
+  // need to do this for all DISubprogram metadata objects. Otherwise the calls
+  // to CloneFucntionInto and remapFunction will create new versions of these
+  // objects. Multiple llvm.debug.value intrinsic calls can point to the same
+  // metadata object when the DILocalVariable comes from an inlined routine.
+  // This leads to consistency problems because there would be two DISubprogram
+  // scopes for the routine if we allowed the metadata to be cloned (the
+  // variable would point to one scope, but the debug line location would point
+  // to the other due to the way cloneFunctionInto operates.)
+  // We delete the original function after a cloned function is created, so in
+  // the end there will only be one DISubprogram object needed anyway.
+  //
+  // Note: we need to do this for all the DISubprograms that exist in the
+  // metadata, not just the functions that exist in the module because some
+  // inlined function bodies may have already been removed.
+  DebugInfoFinder DIFinder;
+  DIFinder.processModule(M);
+  auto &MD = VMap.MD();
+  for (DISubprogram *SP : DIFinder.subprograms())
+    MD[SP].reset(SP);
 
   for (auto &F : M) {
     if (F.isDeclaration())
