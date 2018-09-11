@@ -212,6 +212,13 @@ static cl::opt<unsigned> MVDesiredArgNum(
     cl::desc("A function must have exactly this number of arguments to be a "
              "candidate for multiversioning"));
 
+static cl::opt<bool> MVBypassCollectionForLITTestOnly(
+    PASS_NAME_STR "-mv-bypass-coll-for-littest", cl::init(false),
+    cl::ReallyHidden,
+    cl::desc("Allow to bypass collection in MultiVersion (MV) transformation."
+             "This is specifically designed to demonstrate a LIT test case. "
+             "This flag should be off at all other times."));
+
 #define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
 
 // Get a loop's bottom-test: an ICmpInst in form of: ICmp IV op UB
@@ -2893,16 +2900,25 @@ bool MultiVersionImpl::doCollection(void) {
     return IRSize;
   };
 
-  for (auto &LeafSeed : LeafSeeds) {
-    Function *F = LeafSeed.first;
-    if (!isLeafFunction(*F) || (F->arg_size() != MVDesiredArgNum))
-      continue;
-
-    unsigned FSize = countIR(*F);
-    // LLVM_DEBUG(dbgs() << F->getName() << "(), size: " << FSize << "\n");
-
-    if (FSize < MVMax2VarInstNum)
+  // Allow Functions to be collected by bypassing collection testing.
+  if (MVBypassCollectionForLITTestOnly) {
+    for (auto &LeafSeed : LeafSeeds) {
+      Function *F = LeafSeed.first;
       MVSeeds[F] = LeafSeed.second;
+    }
+  } else {
+    // Normal collection process: with testing
+    for (auto &LeafSeed : LeafSeeds) {
+      Function *F = LeafSeed.first;
+      if (!isLeafFunction(*F) || (F->arg_size() != MVDesiredArgNum))
+        continue;
+
+      unsigned FSize = countIR(*F);
+      // LLVM_DEBUG(dbgs() << F->getName() << "(), size: " << FSize << "\n");
+
+      if (FSize < MVMax2VarInstNum)
+        MVSeeds[F] = LeafSeed.second;
+    }
   }
 
   // See what we have collected in MVSeeds:
