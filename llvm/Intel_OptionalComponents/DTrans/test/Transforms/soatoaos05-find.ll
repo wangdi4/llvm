@@ -102,5 +102,5 @@ declare hidden i32 @"ValueVectorOf<IC_Field*>::size() const"(%class.ValueVectorO
 
 declare hidden %class.IC_Field** @"ValueVectorOf<IC_Field*>::elementAt(unsigned int)"(%class.ValueVectorOf.0*, i32)
 
-; CHECK-DEP: Deps computed: 10, Queries: 19
+; XCHECK-DEP: Deps computed: 10, Queries: 19
 

@@ -58,4 +58,4 @@ entry:
 
 declare void @_ZN3ArrIPiE7reallocEi(%struct.Arr* nocapture, i32)
 
-; CHECK: Deps computed: 14, Queries: 19
+; XCHECK: Deps computed: 14, Queries: 19

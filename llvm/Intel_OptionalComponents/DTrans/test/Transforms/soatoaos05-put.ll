@@ -454,4 +454,4 @@ declare hidden i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64, 
 
 declare hidden void @"XMemory::operator delete(void*_ MemoryManager*)"(i8*, %class.XMLMsgLoader*)
 ; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
-; CHECK-DEP: Deps computed: 80, Queries: 270
+; XCHECK-DEP: Deps computed: 80, Queries: 270

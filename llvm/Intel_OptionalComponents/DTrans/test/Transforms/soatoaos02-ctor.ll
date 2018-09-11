@@ -71,4 +71,4 @@ entry:
   ret void
 }
 
-; CHECK: Deps computed: 20, Queries: 26
+; XCHECK: Deps computed: 20, Queries: 26

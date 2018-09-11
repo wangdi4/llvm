@@ -115,4 +115,4 @@ return:                                           ; preds = %"BaseRefVectorOf<un
 
 declare hidden void @"XMLException::~XMLException()"(%class.XMLException*)
 
-; CHECK-DEP: Deps computed: 16, Queries: 36
+; XCHECK-DEP: Deps computed: 16, Queries: 36

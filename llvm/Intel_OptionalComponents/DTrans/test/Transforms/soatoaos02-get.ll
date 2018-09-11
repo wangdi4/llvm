@@ -37,4 +37,4 @@ entry:
   ret i8* %get
 }
 
-; CHECK: Deps computed: 7, Queries: 7
+; XCHECK: Deps computed: 7, Queries: 7
