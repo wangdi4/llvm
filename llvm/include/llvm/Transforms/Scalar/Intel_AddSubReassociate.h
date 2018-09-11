@@ -323,10 +323,15 @@ private:
 
   using GroupsVec = SmallVector<Group, 4>;
 
+  static Value *skipAssocs(const OpcodeData &OD, Value *Leaf);
+
   // Checks that instructions between root and leaves are in
   // canonical form, otherwise asserts with an error.
-  static void checkCanonicalized(Tree &T);
-  static Value *skipAssocs(const OpcodeData &OD, Value *Leaf);
+  void checkCanonicalized(Tree &T) const;
+
+  bool isAddSubInstr(const Instruction *I) const;
+  bool isAddSubInstr(const Value *V) const;
+  bool isAllowedTrunkInstr(const Value *V) const;
 
   // Returns true if we were able to compute distance of V1 and V2 or one of their
   // operands, false otherwise.
@@ -406,6 +411,7 @@ private:
   void dumpGroups(const GroupsVec &Groups) const;
 
 private:
+  const DataLayout *DL = nullptr;
   ScalarEvolution *SE = nullptr;
 };
 

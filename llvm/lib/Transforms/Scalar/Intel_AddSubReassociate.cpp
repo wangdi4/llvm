@@ -268,21 +268,6 @@ static cl::opt<bool>
     ReuseChain("addsub-reassoc-reuse-chain", cl::init(true), cl::Hidden,
                cl::desc("Enables chains reuse during code generation."));
 
-static inline bool isAddSubInstr(const Instruction *I) {
-  switch (I->getOpcode()) {
-  case Instruction::Add:
-  case Instruction::Sub:
-    return true;
-  default:
-    return false;
-  }
-}
-
-// Returns true only if 'V' is an Add or a Sub.
-static inline bool isAddSubInstr(const Value *V) {
-  return isa<Instruction>(V) && isAddSubInstr(cast<Instruction>(V));
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Helper to print out opcode symbol.
 LLVM_DUMP_METHOD static const char *getOpcodeSymbol(unsigned Opcode) {
@@ -318,10 +303,6 @@ static inline bool isAllowedAssocInstr(const Instruction *I) {
 // Returns true if 'V' is an Associative instruction.
 static inline bool isAllowedAssocInstr(const Value *V) {
   return isa<Instruction>(V) && isAllowedAssocInstr(cast<Instruction>(V));
-}
-
-static inline bool isAllowedTrunkInstr(const Value *V) {
-  return isAddSubInstr(V) || isAllowedAssocInstr(V);
 }
 
 // Returns true if 'V1' and 'I2' are in the same BB, or if V1 not an instr.
@@ -423,7 +404,6 @@ LLVM_DUMP_METHOD void AddSubReassociatePass::OpcodeData::dump() const {
 // Begin of AddSubReassociatePass::Tree
 
 void AddSubReassociatePass::Tree::setRoot(Instruction *R) {
-  assert(isAddSubInstr(R) && "The tree should contain only Add/Sub.");
   Root = R;
 }
 
@@ -657,7 +637,7 @@ LLVM_DUMP_METHOD void AddSubReassociatePass::Group::dump() const {
 
 #ifndef NDEBUG
 // Checks if the code from the root to the leaves is in canonical form.
-void AddSubReassociatePass::checkCanonicalized(Tree &T) {
+void AddSubReassociatePass::checkCanonicalized(Tree &T) const {
   Value *TrunkV = T.getRoot();
   while (isa<Instruction>(TrunkV)) {
     Instruction *TrunkI = cast<Instruction>(TrunkV);
@@ -687,6 +667,28 @@ Value *AddSubReassociatePass::skipAssocs(const OpcodeData &OD,
     }
   }
   return Leaf;
+}
+
+bool AddSubReassociatePass::isAddSubInstr(const Instruction *I) const {
+  switch (I->getOpcode()) {
+  case Instruction::Add:
+  case Instruction::Sub:
+    return true;
+  case Instruction::Or:
+    return haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1), *DL);
+  default:
+    return false;
+  }
+}
+
+// Returns true only if 'V' is an Add or a Sub.
+bool AddSubReassociatePass::isAddSubInstr(const Value *V) const {
+  return isa<Instruction>(V) && isAddSubInstr(cast<Instruction>(V));
+}
+
+
+bool AddSubReassociatePass::isAllowedTrunkInstr(const Value *V) const {
+  return isAddSubInstr(V) || isAllowedAssocInstr(V);
 }
 
 // Returns true if we were able to compute distance of V1 and V2 or one of their
@@ -1886,6 +1888,7 @@ bool AddSubReassociatePass::runImpl(Function *F, ScalarEvolution *Se) {
     return false;
 
   // TODO: Is there a better way of doing this?
+  DL = &F->getParent()->getDataLayout();
   SE = Se;
 
   // Make a "pairmap" of how often each operand pair occurs.
