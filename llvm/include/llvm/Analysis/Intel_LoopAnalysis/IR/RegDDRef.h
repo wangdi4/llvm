@@ -934,6 +934,11 @@ public:
   /// Replace any loop-level IV by a given constant integer.
   void replaceIVByConstant(unsigned LoopLevel, int64_t Val);
 
+  /// A RegDDRef is linear if all of the following is true:
+  /// - its baseCE (if available) is linear
+  /// - any CE is linear
+  bool isLinear(void) const { return !isNonLinear(); }
+
   /// A RegDDRef is nonlinear if any of the following is true:
   /// - its baseCE (if available) is nonlinear
   /// - any CE is nonlinear

@@ -153,7 +153,8 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
         // No support for assignment to live-out terminals or when memory
         // speculation is not allowed.
         if (!AllowSpeculation &&
-            ((LvalRef->isTerminalRef() && LvalRef->isLiveOutOfParentLoop()) ||
+            ((LvalRef->isTerminalRef() && LvalRef->isLiveOutOfParentLoop() &&
+              !RvalRef->isMemRef()) ||
              (!canSpeculate(LvalRef) || !canSpeculate(RvalRef)))) {
           LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
                      dbgs() << " is unmasked, thus it's unsafe.\n");

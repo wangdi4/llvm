@@ -18,6 +18,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLabel.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 using namespace llvm;
@@ -34,6 +35,13 @@ HLGoto::HLGoto(HLNodeUtils &HNU, HLLabel *TargetL)
 HLGoto::HLGoto(const HLGoto &HLGotoObj)
     : HLNode(HLGotoObj), SrcBBlock(HLGotoObj.SrcBBlock),
       TargetBBlock(HLGotoObj.TargetBBlock), TargetLabel(HLGotoObj.TargetLabel) {
+}
+
+bool HLGoto::isEarlyExit(HLLoop *Loop) const {
+  assert(getHLNodeUtils().contains(Loop, this) && "Loop must contain goto!");
+  return isExternal() ||
+         // Check if label is outside of the loop.
+         getTargetLabel()->getTopSortNum() > Loop->getMaxTopSortNum();
 }
 
 HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,

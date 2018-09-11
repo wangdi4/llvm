@@ -18,6 +18,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
@@ -1534,6 +1535,108 @@ HLInst *VPOCodeGenHIR::handleLiveOutLinearInEarlyExit(HLInst *INode,
   return INode;
 }
 
+// This visitor collects the reaching definitions of live-outs reaching a given
+// HLIf. This is an ad-hoc implementation for search loop vectorization, where
+// we need  to collect the reaching definitions of live-outs that are before an
+// HLIf with an early exit.
+class LiveOutReachDefsVisitor : public HLNodeVisitorBase {
+private:
+  // The original loop we are vectorizing.
+  HLLoop *OrigLoop;
+
+  // The HLIf with an early exit goto. The traversak is done once we reach this
+  // node.
+  HLIf *EarlyExitIf;
+
+  // Flag to signal that we have hit the target EarlyExitIf during the
+  // traversal.
+  bool IsDone = false;
+
+  // Map from live-out symbases to live-out reaching definitions. If multiple
+  // definitions for the same symbase happen, only the last one will prevail
+  // (the new definition kills the old one).
+  SmallMapVector<unsigned, HLInst *, 4> &LiveOutReachDefs;
+
+public:
+  LiveOutReachDefsVisitor(HLLoop *OrigLp, HLIf *EEIf,
+                          SmallMapVector<unsigned, HLInst *, 4> &LO)
+      : OrigLoop(OrigLp), EarlyExitIf(EEIf), LiveOutReachDefs(LO) {
+    assert(OrigLoop->getNumExits() == 2 && "Expected only two exits!");
+  }
+
+  // Return true if the traversal is done, i.e., we have reached EarlyExitIf.
+  bool isDone() { return IsDone; }
+
+  // Catch-all methods.
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+
+  void visit(HLInst *Inst) {
+    // We are just looking for live-out HLInst like t1 = ...
+    if (!Inst->hasLval())
+      return;
+
+    RegDDRef *LDDRef = Inst->getLvalDDRef();
+    if (!LDDRef->isTerminalRef() || !OrigLoop->isLiveOut(LDDRef->getSymbase()))
+      return;
+
+    // HLInst is a live out terminal ref.
+    // For current search loops, we should only visit plain HLInsts without any
+    // other complex HLNode before the early exit HLIf.
+    assert(Inst->getParent() == OrigLoop && "Expected loop as parent!");
+    LiveOutReachDefs[LDDRef->getSymbase()] = Inst;
+  }
+
+  void visit(HLIf *If) { IsDone = If == EarlyExitIf; }
+
+  // For now, we only support search loops idioms with live-outs in the loop
+  // header so we shouldn't try to collect live-outs inside HLIf's or nested
+  // HLLoops.
+  void postvisit(HLIf *If) {
+    assert(false && "Unexpected HLIf in search loop idiom!");
+  }
+
+  void postvisit(HLLoop *Lp) {
+    assert(false && "Unexpected HLLoop in search loop idiom!");
+  }
+};
+
+void VPOCodeGenHIR::handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto) {
+  assert(isSearchLoop() && "Expected search loop!");
+  assert(Goto->isEarlyExit(OrigLoop) && "Expected early exit goto!");
+
+  // Collect live-out definitions reaching Goto's (early exit) parent.
+  // FIXME: Current implementation will work only for simple search loops with
+  // single early exit HLIfs.
+  HLNode *Parent = Goto->getParent();
+  assert(isa<HLIf>(Parent) && "Expected HLIf as HLGoto's parent!");
+  SmallMapVector<unsigned, HLInst *, 4> LiveOutReachDefs;
+  LiveOutReachDefsVisitor LOVisitor(OrigLoop, cast<HLIf>(Parent),
+                                    LiveOutReachDefs);
+  Goto->getHLNodeUtils().visit(LOVisitor, OrigLoop);
+
+  // Insert new live-out definitions in early exit branch, modifying linear
+  // variables according to the first lane taking the early exit.
+  for (auto &LiveOutPair : LiveOutReachDefs) {
+    HLInst *LOInst = LiveOutPair.second;
+    HLInst *NewLOInst = LOInst->clone();
+    // Check in the live-out is supported by createLiveOutLinearForEE. At this
+    // point, current support is limited to very specific simple live-outs in
+    // search loops.
+    RegDDRef *RvalRef = NewLOInst->getRvalDDRef();
+    assert(RvalRef && "Unsupported live-out: expected a single RvalDDRef!");
+    assert(RvalRef->isLinear() &&
+           "Unsupported live-out: expected linear RvalDDRef!");
+    (void)RvalRef;
+    RegDDRef *LvalRef = NewLOInst->getLvalDDRef();
+    assert(LvalRef && "Unsupported live-out: expected a single LvalDDRef!");
+    assert(LvalRef->isNonLinear() &&
+           "Unsupported live-out: expected non-linear LvalDDRef!");
+    (void)LvalRef;
+    handleLiveOutLinearInEarlyExit(NewLOInst, CurMaskValue);
+  }
+}
+
 HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   const HLInst *Node = INode;
   auto CurInst = INode->getLLVMInstruction();
@@ -1558,6 +1661,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   bool InsertInMap = true;
 
   if (isSearchLoop() && INode->hasLval() &&
+      !INode->getRvalDDRef()->isMemRef() &&
       INode->getLvalDDRef()->isTerminalRef() &&
       INode->getLvalDDRef()->isLiveOutOfParentLoop() && INode->hasRval() &&
       !INode->getRvalDDRef()->isNonLinear()) {
