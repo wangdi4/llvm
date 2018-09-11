@@ -272,10 +272,10 @@ public:
     HLRegionVal,
     HLLoopVal,
     HLIfVal,
+    HLSwitchVal,
     HLInstVal,
     HLLabelVal,
-    HLGotoVal,
-    HLSwitchVal
+    HLGotoVal
   };
 
   /// \brief Verifies HLNode integrity.
@@ -283,6 +283,13 @@ public:
 
   // Returns current node debug location.
   virtual const DebugLoc getDebugLoc() const { return DebugLoc(); }
+
+  // Returns true if the node is a parent node type like HLLoop and HLIf which
+  // can contain children nodes.
+  bool isParentNode() const {
+    return SubClassID == HLRegionVal || SubClassID == HLLoopVal ||
+           SubClassID == HLIfVal || SubClassID == HLSwitchVal;
+  }
 };
 
 // See specialization in ADT/DenseMapInfo.h for pointers.
@@ -312,7 +319,7 @@ template <typename Node> struct DenseHLNodeMapInfo {
   static bool isEqual(const T *LHS, const T *RHS) { return LHS == RHS; }
 };
 
-} // End loopopt namespace
+} // namespace loopopt
 
 template <>
 struct DenseMapInfo<loopopt::HLNode *>
@@ -322,6 +329,6 @@ template <>
 struct DenseMapInfo<const loopopt::HLNode *>
     : public loopopt::DenseHLNodeMapInfo<const loopopt::HLNode> {};
 
-} // End llvm namespace
+} // namespace llvm
 
 #endif

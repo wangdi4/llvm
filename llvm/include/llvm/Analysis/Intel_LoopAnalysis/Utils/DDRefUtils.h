@@ -146,6 +146,9 @@ public:
   /// metadata and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(Value *Val);
 
+  /// Creates a ref representing '0' for \p Ty wich may be int, ptr, fp etc.
+  RegDDRef *createNullDDRef(Type *Ty);
+
   /// Returns a RegDDRef representing an undef value with type \p Type.
   RegDDRef *createUndefDDRef(Type *Type);
 

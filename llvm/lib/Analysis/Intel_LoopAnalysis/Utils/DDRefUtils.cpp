@@ -99,6 +99,14 @@ RegDDRef *DDRefUtils::createConstDDRef(Value *Val) {
   return NewRegDD;
 }
 
+RegDDRef *DDRefUtils::createNullDDRef(Type *Ty) {
+  if (Ty->isIntOrPtrTy()) {
+    return createConstDDRef(Ty, 0);
+  }
+
+  return createConstDDRef(Constant::getNullValue(Ty));
+}
+
 RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
 

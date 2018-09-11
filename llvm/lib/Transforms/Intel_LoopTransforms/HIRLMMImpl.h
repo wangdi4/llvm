@@ -212,7 +212,9 @@ private:
 
   // *** Utility functions ***
   HLInst *createLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const;
-  void createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef) const;
+
+  void createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
+                             bool NeedLoadInPrehdr) const;
 };
 
 //

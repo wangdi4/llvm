@@ -2525,16 +2525,19 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   if (UpwardTraversal) {
     FirstNode = isa<HLLoop>(Parent) ? getFirstLexicalChild(Parent)
                                     : getFirstLexicalChild(Parent, Node);
-    LastNode = Node;
+
+    LastNode = Node ? Node : getLastLexicalChild(Parent);
+
   } else {
-    FirstNode = Node;
+    FirstNode = Node ? Node : getFirstLexicalChild(Parent);
+
     LastNode = isa<HLLoop>(Parent) ? getLastLexicalChild(Parent)
                                    : getLastLexicalChild(Parent, Node);
   }
 
   assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
 
-  if (FirstNode == LastNode) {
+  if (Node && (FirstNode == LastNode)) {
     // Both are set to 'Node' which we don't need to check.
     return true;
   }
@@ -2546,14 +2549,19 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   // TODO: We probably need to enhance it to recurse into multi-exit loops.
   if (UpwardTraversal) {
     // We want to traverse the range [FirstNode, LastNode) in the backward
-    // direction. LastNode is the incoming 'Node' and should be skipped.
-    visitRange<true, false, false>(SFC, FirstNode->getIterator(),
-                                   LastNode->getIterator());
+    // direction. If Node is same as LastNode we skip it.
+    auto EndIt = (Node == LastNode) ? LastNode->getIterator()
+                                    : ++(LastNode->getIterator());
+
+    visitRange<true, false, false>(SFC, FirstNode->getIterator(), EndIt);
+
   } else {
     // We want to traverse the range (FirstNode, LastNode] in the forward
-    // direction. FirstNode is the incoming 'Node' and should be skipped.
-    visitRange<true, false, true>(SFC, ++(FirstNode->getIterator()),
-                                  ++(LastNode->getIterator()));
+    // direction. If Node is same as FirstNode we skip it.
+    auto BeginIt = (Node != FirstNode) ? FirstNode->getIterator()
+                                       : ++(FirstNode->getIterator());
+
+    visitRange<true, false, true>(SFC, BeginIt, ++(LastNode->getIterator()));
   }
 
   return SFC.isStructured();
@@ -2620,8 +2628,26 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
 const HLNode *HLNodeUtils::getCommonDominatingParent(
     const HLNode *Parent1, const HLNode *LastParent1, const HLNode *Node2,
     bool PostDomination, HIRLoopStatistics *HLS, const HLNode **LastParent2) {
-  const HLNode *CommonParent = Node2->getParent();
-  *LastParent2 = Node2;
+
+  // For post-domination, Node2 itself needs to be checked in case it is a
+  // parent node type like if/switch as they can contain gotos. In the example
+  // below, Node1 does not post-dominate Node2 due to the goto.
+  //
+  // if (t > 0) { // Node2
+  //   goto exit;
+  // }
+  // t2 = 0;      // Node1
+  bool CheckNode2 = (PostDomination && Node2->isParentNode());
+
+  // If Node2 itself is parent of Node1 then Node1 cannot post-dominate it if
+  // Node2 is an If or Switch but it can post-dominate loop.
+  if (CheckNode2 && (Node2 == Parent1) &&
+      (isa<HLIf>(Node2) || isa<HLSwitch>(Node2))) {
+    return nullptr;
+  }
+
+  const HLNode *CommonParent = CheckNode2 ? Node2 : Node2->getParent();
+  *LastParent2 = CheckNode2 ? nullptr : Node2;
 
   // Trace back Node2 to Parent1.
   while (CommonParent) {
