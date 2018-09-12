@@ -18,6 +18,7 @@
 #include "IntelVPOLoopAdapters.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanCostModelProprietary.h"
+#include "IntelVPlanIdioms.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVolcanoOpenCL.h"
 #include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"

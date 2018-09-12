@@ -580,6 +580,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   // To get underlying HIRData until we have proper VPType.
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
+  friend class VPlanIdioms;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {

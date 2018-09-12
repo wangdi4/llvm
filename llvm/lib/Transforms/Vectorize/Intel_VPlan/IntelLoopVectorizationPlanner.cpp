@@ -24,6 +24,7 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanCostModelProprietary.h"
+#include "IntelVPlanIdioms.h"
 #endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
