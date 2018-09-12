@@ -34,9 +34,7 @@ add_llvm_library(LLVMIntel_VPOTransforms
 
 # INTEL_CUSTOMIZATION
   Vecopt/VPODriver.cpp
-  Vecopt/VPOAvrLLVMCodeGen.cpp
-  Vecopt/VPOAvrHIRCodeGen.cpp
-# end INTEL_CUSTOMIZATION
+#end INTEL_CUSTOMIZATION
 
   Paropt/VPOParopt.cpp
   Paropt/VPOParoptAtomics.cpp

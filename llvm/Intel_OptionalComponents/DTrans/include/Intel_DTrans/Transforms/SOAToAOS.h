@@ -65,26 +65,40 @@ public:
   Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
-// Debugging pass to check method classification.
-struct SOAToAOSMethodsCheckDebugResult;
-class SOAToAOSMethodsCheckDebug
-    : public AnalysisInfoMixin<SOAToAOSMethodsCheckDebug> {
+// Debugging pass to check array method classification.
+struct SOAToAOSArrayMethodsCheckDebugResult;
+class SOAToAOSArrayMethodsCheckDebug
+    : public AnalysisInfoMixin<SOAToAOSArrayMethodsCheckDebug> {
   static AnalysisKey Key;
-  friend AnalysisInfoMixin<SOAToAOSMethodsCheckDebug>;
+  friend AnalysisInfoMixin<SOAToAOSArrayMethodsCheckDebug>;
+  static char PassID;
+
+public:
+  // Called from lit-tests, result is consumed only by lit-tests.
+  class Ignore {
+    std::unique_ptr<SOAToAOSArrayMethodsCheckDebugResult> Ptr;
+
+  public:
+    Ignore(SOAToAOSArrayMethodsCheckDebugResult *Ptr);
+    Ignore(Ignore &&Other);
+    const SOAToAOSArrayMethodsCheckDebugResult *get() const;
+    // Prevent default dtor creation while type is incomplete.
+    ~Ignore();
+  };
+  typedef Ignore Result;
+
+  Result run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class SOAToAOSStructMethodsCheckDebug
+    : public AnalysisInfoMixin<SOAToAOSStructMethodsCheckDebug> {
+  static AnalysisKey Key;
+  friend AnalysisInfoMixin<SOAToAOSStructMethodsCheckDebug>;
   static char PassID;
 
 public:
   // Called from lit-tests, result is ignored and not consumed ever.
-  class Ignore {
-    std::unique_ptr<SOAToAOSMethodsCheckDebugResult> Ptr;
-
-  public:
-    Ignore(SOAToAOSMethodsCheckDebugResult *Ptr);
-    Ignore(Ignore &&Other);
-    const SOAToAOSMethodsCheckDebugResult *get() const;
-    // Prevent default dtor creation while type is incomplete.
-    ~Ignore();
-  };
+  class Ignore {};
   typedef Ignore Result;
 
   Result run(Function &F, FunctionAnalysisManager &AM);

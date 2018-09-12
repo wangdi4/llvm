@@ -1274,8 +1274,6 @@ public:
   SmallVectorImpl<VPBlockBase *> &getPredecessors() { return Predecessors; }
 
 #if INTEL_CUSTOMIZATION
-  bool isInsideLoop();
-
   VPBlockBase *getSingleSuccessor() {
     if (Successors.size() != 1)
       return nullptr;
@@ -2131,24 +2129,6 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
 }
 
 #if INTEL_CUSTOMIZATION
-inline bool VPBlockBase::isInsideLoop() {
-  if (auto *ParentRegion = getParent()) {
-    // TODO: Use VPLoopRegion
-    if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
-      if (/*ParentRegion->getEntry() != this &&*/
-          ParentRegion->getExit() != this)
-        return true;
-    }
-    if (ParentRegion->getVPBlockID() == VPLoopRegionHIRSC) {
-      if (ParentRegion->getEntry() != this &&
-          ParentRegion->getExit() != this)
-        return true;
-    }
-    return ParentRegion->isInsideLoop();
-  }
-  return false;
-}
-
 // Set of print functions
 inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
   I.dump(OS);

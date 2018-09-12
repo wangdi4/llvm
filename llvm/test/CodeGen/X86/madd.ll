@@ -2664,7 +2664,6 @@ define <4 x i32> @pmaddwd_bad_indices(<8 x i16>* %Aptr, <8 x i16>* %Bptr) {
   ret <4 x i32> %add
 }
 
-; INTEL_CUSTOMIZATION
 ; This test contains two multiplies joined by an add. The result of that add is then reduced to a single element.
 ; SelectionDAGBuilder should tag the joining add as a vector reduction. We need to recognize that both sides can use pmaddwd
 define i32 @madd_double_reduction(<8 x i16>* %arg, <8 x i16>* %arg1, <8 x i16>* %arg2, <8 x i16>* %arg3) {
@@ -2732,4 +2731,3 @@ define i32 @madd_double_reduction(<8 x i16>* %arg, <8 x i16>* %arg1, <8 x i16>* 
   %tmp35 = extractelement <8 x i32> %tmp34, i64 0
   ret i32 %tmp35
 }
-; endif INTEL_CUSTOMIZATION

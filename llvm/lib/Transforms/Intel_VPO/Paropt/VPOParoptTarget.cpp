@@ -131,7 +131,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs[NFn] = SP;
   }
   if (VPOAnalysisUtils::isTargetSPIRV(NFn->getParent()) &&
-     ((Mode & OmpOffload) || SwitchToOffload))
+      hasOffloadCompilation())
     InferAddrSpaces(*TTI, 0, *NFn);
 
   return NFn;
@@ -183,7 +183,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   NewCall->setCallingConv(CC);
 
   if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-     ((Mode & OmpOffload) || SwitchToOffload))
+      hasOffloadCompilation())
     finalizeKernelFunction(W, NewF, NewCall);
 
   IRBuilder<> Builder(F->getEntryBlock().getTerminator());
@@ -275,6 +275,20 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetOffloadingCode\n");
   return Changed;
+}
+
+// Set the value in num_teams and thread_limit clause to be empty.
+void VPOParoptTransform::resetValueInNumTeamsAndThreadsClause(WRegionNode *W) {
+  if (!W->getIsTeams())
+    return;
+
+  Value *NumTeamsPtr = W->getNumTeams();
+  if (NumTeamsPtr)
+    resetValueInIntelClauseGeneric(W, NumTeamsPtr);
+
+  Value *ThreadLimitPtr = W->getThreadLimit();
+  if (ThreadLimitPtr)
+    resetValueInIntelClauseGeneric(W, ThreadLimitPtr);
 }
 
 // Reset the expression value in IsDevicePtr clause to be empty.
@@ -500,11 +514,18 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   GlobalVariable *OffloadRegionId = getOMPOffloadRegionId();
 
   CallInst *TgtCall;
-  if (isa<WRNTargetNode>(W))
-    TgtCall = VPOParoptUtils::genTgtTarget(
-        W, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
-        Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-  else if (isa<WRNTargetDataNode>(W)) {
+  if (isa<WRNTargetNode>(W)) {
+    auto *IT = W->wrn_child_begin();
+    if (IT != W->wrn_child_end() && isa<WRNTeamsNode>(*IT)) {
+      WRNTeamsNode *TW = cast<WRNTeamsNode>(*IT);
+      TgtCall = VPOParoptUtils::genTgtTargetTeams(
+          TW, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+    } else
+      TgtCall = VPOParoptUtils::genTgtTarget(
+          W, OffloadRegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  } else if (isa<WRNTargetDataNode>(W)) {
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
@@ -831,7 +852,7 @@ VPOParoptTransform::genOffloadEntriesAndInfoMetadata(WRegionNode *W,
   LLVMContext &C = F->getContext();
 
   M->getOrInsertNamedMetadata("omp_offload.info");
-  if ((Mode & OmpOffload) || SwitchToOffload) {
+  if (hasOffloadCompilation()) {
     Constant *OutlinedFnID =
         ConstantExpr::getBitCast(OutlinedFn, Type::getInt8PtrTy(C));
     OutlinedFn->setLinkage(GlobalValue::ExternalLinkage);
@@ -843,7 +864,7 @@ VPOParoptTransform::genOffloadEntriesAndInfoMetadata(WRegionNode *W,
 // Register the offloading binary descriptors.
 void
 VPOParoptTransform::genOffloadingBinaryDescriptorRegistration(WRegionNode *W) {
-  if ((Mode & OmpOffload) || SwitchToOffload)
+  if (hasOffloadCompilation())
     return;
   Module *M = F->getParent();
   LLVMContext &C = F->getContext();

@@ -35,13 +35,14 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/Utils/Local.h"
 #define DEBUG_TYPE "VPOParopt"
 
 
@@ -61,28 +62,20 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 
 char VPOParopt::ID = 0;
 
-ModulePass *llvm::createVPOParoptPass(unsigned Mode,
-    const std::vector<std::string> &OffloadTargets,
-    unsigned OptLevel) {
+ModulePass *llvm::createVPOParoptPass(unsigned Mode, unsigned OptLevel) {
   return new VPOParopt(
       (ParTrans | OmpPar | OmpVec | OmpTpv | OmpOffload | OmpTbb) & Mode,
-      OffloadTargets, OptLevel);
+      OptLevel);
 }
 
-VPOParopt::VPOParopt(unsigned MyMode,
-                     const std::vector<std::string> &MyOffloadTargets,
-                     unsigned OptLevel)
-    : ModulePass(ID), Impl(MyMode, MyOffloadTargets, OptLevel) {
+VPOParopt::VPOParopt(unsigned MyMode, unsigned OptLevel)
+    : ModulePass(ID), Impl(MyMode, OptLevel) {
   initializeVPOParoptPass(*PassRegistry::getPassRegistry());
 }
 
-VPOParoptPass::VPOParoptPass(unsigned MyMode,
-                             const std::vector<std::string> &MyOffloadTargets,
-                             unsigned OptLevel)
+VPOParoptPass::VPOParoptPass(unsigned MyMode, unsigned OptLevel)
     : Mode(MyMode), OptLevel(OptLevel) {
   LLVM_DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
-  for (const auto &T : MyOffloadTargets)
-    OffloadTargets.emplace_back(Triple{T});
 }
 
 void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -165,7 +158,7 @@ bool VPOParoptPass::runImpl(
     VPOParoptTransform VP(F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
                           WI.getTargetTransformInfo(), WI.getAssumptionCache(),
                           WI.getTargetLibraryInfo(), WI.getAliasAnalysis(),
-                          Mode, OffloadTargets, OptLevel, SwitchToOffload);
+                          Mode, OptLevel, SwitchToOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
@@ -191,13 +184,15 @@ bool VPOParoptPass::runImpl(
     removeTargetUndeclaredGlobals(M);
     if (VPOAnalysisUtils::isTargetSPIRV(&M)) {
       // Add the metadata to indicate that the module is OpenCL C version.
-      LLVMContext &C = M.getContext();
-      SmallVector<Metadata *, 8> opSource = {
-          ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 3)),
-          ConstantAsMetadata::get(
-              ConstantInt::get(Type::getInt32Ty(C), 200000))};
-      MDNode *srcMD = MDNode::get(C, opSource);
-      M.getOrInsertNamedMetadata("spirv.Source")->addOperand(srcMD);
+      if (!M.getNamedMetadata("spirv.Source")) {
+        LLVMContext &C = M.getContext();
+        SmallVector<Metadata *, 8> opSource = {
+            ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 3)),
+            ConstantAsMetadata::get(
+                ConstantInt::get(Type::getInt32Ty(C), 200000))};
+        MDNode *srcMD = MDNode::get(C, opSource);
+        M.getOrInsertNamedMetadata("spirv.Source")->addOperand(srcMD);
+      }
     }
   }
 
@@ -336,6 +331,21 @@ void VPOParoptPass::removeTargetUndeclaredGlobals(Module &M) {
       DeadFunctions.push_back(&F);
       if (!F.isDeclaration())
         F.deleteBody();
+    } else {
+#if INTEL_CUSTOMIZATION
+      // This is a workaround for resolving the incompatibility issue
+      // between the xmain compiler and IGC compiler. The IGC compiler
+      // cannot accept the following instruction, which is generated
+      // at compile time for helping infering the address space.
+      //   %4 = bitcast [10000 x i32] addrspace(1)* %B to i8*
+      // The instruction becomes dead after the inferring is done.
+#endif // INTEL_CUSTOMIZATION
+      for (BasicBlock &BB : F)
+        for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E;) {
+          Instruction *Inst = &*I++;
+          if (isInstructionTriviallyDead(Inst))
+            BB.getInstList().erase(Inst);
+        }
     }
   }
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {

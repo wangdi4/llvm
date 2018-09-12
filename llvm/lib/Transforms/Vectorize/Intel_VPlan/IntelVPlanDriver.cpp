@@ -274,7 +274,7 @@ static bool isIrreducibleCFG(Loop *Lp, LoopInfo *LI) {
 
   for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO())) {
     VisitedBB.insert(BB);
-    for (BasicBlock *SuccBB : BB->getTerminator()->successors()) {
+    for (BasicBlock *SuccBB : successors(BB)) {
       // SuccBB hasn't been visited yet
       if (!VisitedBB.count(SuccBB))
         continue;

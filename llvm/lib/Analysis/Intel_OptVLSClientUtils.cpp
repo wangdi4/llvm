@@ -122,8 +122,9 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
 
 DenseMap<uint64_t, Value *>
 OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
-                         const OVLSInstructionVector &InstVec, Value *Addr,
-                         Type *ElemTy, unsigned Alignment) {
+                         const OVLSInstructionVector &InstVec,
+                         ShuffleVectorInst *InterleavingShuffleInst,
+                         Value *Addr, Type *ElemTy, unsigned Alignment) {
   DenseMap<uint64_t, Value *> InstMap;
   for (auto &OInst : InstVec)
     if (const OVLSLoad *const OLI = dyn_cast<const OVLSLoad>(OInst)) {
@@ -145,14 +146,53 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       InstMap[OInst->getId()] = NewLoad;
     } else if (const OVLSShuffle *const OSI =
                    dyn_cast<const OVLSShuffle>(OInst)) {
-      Value *Op1 = InstMap[OSI->getOperand(0)->getId()];
-      Value *Op2 = InstMap[OSI->getOperand(1)->getId()];
+      // Check if the operand is a OVLSInstruction or an undefined OVLSOperand.
+      // In case of stores, it may come from a dummy OVLSOperand, which is an
+      // indication that it needs to have the same arguments as the
+      // InterleavingShuffleVector instruction.
+      const OVLSOperand *OVLSOp1 = OSI->getOperand(0);
+      const OVLSOperand *OVLSOp2 = OSI->getOperand(1);
+      Value *Op1, *Op2;
+
+      // OVLSAddress debug1 = dyn_cast<OVLSAddress> (*OVLSOp1);
+      // OVLSAddress debug2 = dyn_cast<OVLSAddress> (*OVLSOp2);
+
+      if (isa<OVLSInstruction>(OVLSOp1) && isa<OVLSInstruction>(OVLSOp2)) {
+        Op1 = InstMap[OVLSOp1->getId()];
+        Op2 = InstMap[OVLSOp2->getId()];
+      } else if (OVLSOp1->IsKindUndefined() && OVLSOp2->IsKindUndefined()) {
+        Op1 = InterleavingShuffleInst->getOperand(0);
+        Op2 = InterleavingShuffleInst->getOperand(1);
+      } else
+        assert("Unexpected Operand for OVLSShuffle Instruction.");
+
       SmallVector<uint32_t, 4> Mask;
       OSI->getShuffleMask(Mask);
       ArrayRef<uint32_t> AMask = makeArrayRef(Mask);
       Value *Shuffle = Builder.CreateShuffleVector(Op1, Op2, AMask);
       InstMap[OInst->getId()] = Shuffle;
+    } else if (const OVLSStore *const OStI = dyn_cast<const OVLSStore>(OInst)) {
+      // Bitcast Addr to OStI's type
+      OVLSType Ty = OInst->getType();
+      unsigned TySize = Ty.getSize() / 8;
+      VectorType *VecTy = VectorType::get(ElemTy, Ty.getNumElements());
+      Type *BasePtrTy = VecTy->getPointerTo();
+      Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
+
+      // Create GEP instruction
+      OVLSAddress OffsetAddr = OStI->getDst(); // Dst->destination operand.
+      int64_t Offset = OffsetAddr.getOffset();
+      assert((Offset % TySize == 0) && "Unexpected Offset for OVLSStore.");
+      unsigned GEPIndex = Offset == 0 ? 0 : Offset / TySize;
+      Value *NewBasePtr =
+          Builder.CreateInBoundsGEP(VecBasePtr, Builder.getInt32(GEPIndex));
+
+      // Generate the store
+      Value *SrcReg = InstMap[OStI->getSrc()->getId()];
+      Instruction *NewStore =
+          Builder.CreateAlignedStore(SrcReg, NewBasePtr, Alignment);
+      InstMap[OInst->getId()] = NewStore;
     } else
-      assert("Unexpected OVLSInstruction!!!");
+      assert("Unexpected OVLSInstruction.");
   return InstMap;
 }

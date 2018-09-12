@@ -41,9 +41,12 @@ struct SafeRedInfo {
   SafeRedChain Chain;
   unsigned Symbase;
   unsigned OpCode;
+  bool HasUnsafeAlgebra;
 
-  SafeRedInfo(SafeRedChain &RedInsts, unsigned Symbase, unsigned RedOpCode)
-      : Chain(RedInsts), Symbase(Symbase), OpCode(RedOpCode) {}
+  SafeRedInfo(SafeRedChain &RedInsts, unsigned Symbase, unsigned RedOpCode,
+              bool HasUnsafeAlgebra)
+      : Chain(RedInsts), Symbase(Symbase), OpCode(RedOpCode),
+        HasUnsafeAlgebra(HasUnsafeAlgebra) {}
 };
 
 typedef SmallVector<SafeRedInfo, 4> SafeRedChainList;

@@ -93,21 +93,22 @@ class WRNLoopInfo {
 private:
   LoopInfo   *LI;
   Loop       *Lp;
-  Value      *NormIV; // normalized iv created by FE
-  Value      *NormUB; // normalized ub (currently for loops from SECTIONS only)
+  SmallVector<Value *, 2> NormIV; // normalized IV's created by FE
+  SmallVector<Value *, 2> NormUB; // normalized UB's
   BasicBlock *ZTTBB;  // bblock with the zero-trip test
 public:
-  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr), NormIV(nullptr),
-                             NormUB(nullptr), ZTTBB(nullptr){}
+  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr), ZTTBB(nullptr){}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
-  void setNormIV(Value *IV) { NormIV = IV; }
-  void setNormUB(Value *UB) { NormUB = UB; }
+  void addNormIV(Value *IV) { NormIV.push_back(IV); }
+  void addNormUB(Value *UB) { NormUB.push_back(UB); }
   void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
-  Value *getNormIV() const { return NormIV; }
-  Value *getNormUB() const { return NormUB; }
+  Value *getNormIV(unsigned I=0) const;
+  Value *getNormUB(unsigned I=0) const;
+  unsigned getNormIVSize() const { return NormIV.size(); }
+  unsigned getNormUBSize() const { return NormUB.size(); }
   BasicBlock *getZTTBB() const { return ZTTBB; }
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;

@@ -104,6 +104,11 @@ void LLVMAddPartiallyInlineLibCallsPass(LLVMPassManagerRef PM);
 /** See llvm::createReassociatePass function. */
 void LLVMAddReassociatePass(LLVMPassManagerRef PM);
 
+#if INTEL_CUSTOMIZATION
+/** See llvm::createAddSubReassociatePass function. */
+void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM);
+#endif // INTEL_CUSTOMIZATION
+
 /** See llvm::createSCCPPass function. */
 void LLVMAddSCCPPass(LLVMPassManagerRef PM);
 

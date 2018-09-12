@@ -113,6 +113,11 @@ static cl::opt<bool> DisableRuntimeDD("disable-" OPT_SWITCH, cl::init(false),
                                       cl::Hidden,
                                       cl::desc("Disable " OPT_DESCR "."));
 
+static cl::opt<bool> EnableStructSupport("enable-" OPT_SWITCH "-structs",
+                                         cl::init(true), cl::Hidden,
+                                         cl::desc("Enable " OPT_DESCR
+                                                  " struct support."));
+
 static cl::opt<bool>
     DisableCostModel("disable-" OPT_SWITCH "-cost-model", cl::init(false),
                      cl::Hidden, cl::desc("Disable " OPT_DESCR " cost model."));
@@ -523,9 +528,12 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
     return true;
   }
 
-  // TODO: Temporary workaround to make it easier to bail out on loops with
-  // structure access.
-  if (Ref1->accessesStruct() || Ref2->accessesStruct()) {
+  if (Ref1->getSymbase() != Ref2->getSymbase()) {
+    return false;
+  }
+
+  // Separate struct accesses earlier.
+  if (Ref1->accessesStruct() != Ref2->accessesStruct()) {
     return false;
   }
 
@@ -540,21 +548,41 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
   auto I = Ref1->canon_begin();
   auto J = Ref2->canon_begin();
 
-  const CanonExpr *Result =
-      Ref1->getCanonExprUtils().cloneAndSubtract(*I, *J, true);
-  if (!Result) {
-    return false;
+  auto *Offsets = Ref1->getTrailingStructOffsets(1);
+
+  // Regular refs should have constant distance in a last dimension.
+  if (!Offsets) {
+    if (!CanonExprUtils::getConstDistance(*I, *J, nullptr)) {
+      return false;
+    }
+
+    ++I;
+    ++J;
   }
 
-  if (Result->hasBlob() || Result->hasIV()) {
-    return false;
-  }
-
-  ++I;
-  ++J;
-
+  // For struct access refs, all CEs should be equal.
   for (auto E = Ref1->canon_end(); I != E; ++I, ++J) {
     if (!CanonExprUtils::areEqual(*I, *J)) {
+      return false;
+    }
+  }
+
+  for (int I = 1, E = Ref1->getNumDimensions(); I < E; ++I) {
+    auto StructOffsets1 = Ref1->getTrailingStructOffsets(I);
+    auto StructOffsets2 = Ref2->getTrailingStructOffsets(I);
+
+    if (StructOffsets1 == StructOffsets2) {
+      assert(StructOffsets1 == nullptr && "Expected to be nullptr");
+      continue;
+    }
+
+    if ((StructOffsets1 == nullptr && StructOffsets2 != nullptr) ||
+        (StructOffsets2 == nullptr && StructOffsets1 != nullptr)) {
+      // StructOffsets1 is nullptr if and only if StructOffset2 is nullptr.
+      return false;
+    }
+
+    if (StructOffsets1->size() != StructOffsets2->size()) {
       return false;
     }
   }
@@ -695,7 +723,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
   for (unsigned I = 0; I < GroupSize; ++I) {
-    if (Groups[I].front()->accessesStruct()) {
+    if (!EnableStructSupport && Groups[I].front()->accessesStruct()) {
       return STRUCT_ACCESS;
     }
 

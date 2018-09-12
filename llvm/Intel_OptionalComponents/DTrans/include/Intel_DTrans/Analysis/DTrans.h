@@ -64,14 +64,15 @@ enum SingleAllocFunctionKind { SAFK_Top, SAFK_Single, SAFK_Bottom };
 class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
-      : LLVMType(Ty), Read(false), Written(false), ComplexUse(false),
-        AddressTaken(false), SVKind(SVK_Complete), SAFKind(SAFK_Top),
-        SingleAllocFunction(nullptr), Frequency(0) {}
+      : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
+        ComplexUse(false), AddressTaken(false), SVKind(SVK_Complete),
+        SAFKind(SAFK_Top), SingleAllocFunction(nullptr), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
   bool isRead() const { return Read; }
   bool isWritten() const { return Written; }
+  bool isValueUnused() const { return UnusedValue && isRead(); }
   bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
   bool isNoValue() const {
@@ -94,6 +95,9 @@ public:
   }
   void setRead(bool b) { Read = b; }
   void setWritten(bool b) { Written = b; }
+  void setValueUnused(bool b) {
+    UnusedValue = b;
+  }
   void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
   void setSingleAllocFunction(llvm::Function *F) {
@@ -131,6 +135,7 @@ private:
   llvm::Type *LLVMType;
   bool Read;
   bool Written;
+  bool UnusedValue;
   bool ComplexUse;
   bool AddressTaken;
   SingleValueKind SVKind;
@@ -282,9 +287,8 @@ const SafetyData SDDeleteField =
     VolatileData | MismatchedElementAccess | WholeStructureReference |
     UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
-    AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-    MemFuncPartialWrite | SystemObject | MismatchedArgUse | GlobalArray |
-    HasVTable | HasZeroSizedArray | HasFnPtr;
+    AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
+    HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -958,6 +962,7 @@ StringRef getStructName(llvm::Type *Ty);
 /// Check if the last field in the struct type \p Ty is zero-sized array or the
 /// type is zero-size array itself.
 bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
+
 } // namespace dtrans
 
 } // namespace llvm

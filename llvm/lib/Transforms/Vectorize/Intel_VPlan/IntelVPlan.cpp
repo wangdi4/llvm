@@ -288,13 +288,6 @@ void VPBasicBlock::execute(VPTransformState *State) {
   // code and make the code unreadable, we decided to seperate both the
   // versions with a single INTEL_CUSTOMIZATION
 
-  // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
-  // actually ouside of the loop and they shouldn't be vectorized. We decided to
-  // vectorize Loop PH, so this function is only returning false for Loop Exit.
-  // TODO: Use a better name for this function.
-  if (!isInsideLoop())
-    return;
-
   bool Replica = State->Instance &&
                  !(State->Instance->Part == 0 && State->Instance->Lane == 0);
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
@@ -538,13 +531,6 @@ void VPBasicBlock::dump() const {
 }
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
-  // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
-  // actually ouside of the loop and they shouldn't be vectorized. For the LLVM
-  // IR path we specifically vectorize the PH, for now this is not needed for
-  // the HIR path - this may be revisited later if needed.
-  if (!isInsideLoop())
-    return;
-
   CG->setCurMaskValue(nullptr);
   for (VPRecipeBase &Recipe : Recipes)
     Recipe.executeHIR(CG);
@@ -607,8 +593,7 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
   }
   if (const VPBlockBase *Successor = getSingleSuccessor())
     OS << StrIndent << "SUCCESSORS(1):" << Successor->getName() << "\n";
-  else
-    OS << StrIndent << "END Region(" << getName() << ")\n";
+  OS << StrIndent << "END Region(" << getName() << ")\n";
   OS << "\n";
 }
 
@@ -818,6 +803,11 @@ void VPlan::execute(VPTransformState *State) {
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
   BasicBlock *VectorLatchBB = VectorHeaderBB;
+  auto *HTerm = VectorHeaderBB->getTerminator();
+  assert(HTerm->getNumSuccessors() == 2 &&
+         "Unexpected vector loop header successors");
+  unsigned MidBlockSuccNum = HTerm->getSuccessor(0) == VectorHeaderBB ? 1 : 0;
+  BasicBlock *MiddleBlock = HTerm->getSuccessor(MidBlockSuccNum);
   auto CurrIP = State->Builder.saveIP();
 
   // 1. Make room to generate basic blocks inside loop body if needed.
@@ -875,18 +865,32 @@ void VPlan::execute(VPTransformState *State) {
 
   // 4. Merge the temporary latch created with the last basic block filled.
   BasicBlock *LastBB = State->CFG.PrevBB;
-
-  // Connect LastBB to VectorLatchBB to facilitate their merge.
   assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
          "Expected VPlan CFG to terminate with unreachable");
-  LastBB->getTerminator()->eraseFromParent();
-  BranchInst::Create(VectorLatchBB, LastBB);
 
-  // Merge LastBB with Latch.
+  // LastBB will be the outermost loop exit block. Get the latch BB.
+  BasicBlock *LatchBB = LastBB->getSinglePredecessor();
+  assert(LatchBB && "Unexpected null latch BB");
+
+  // Merge LatchBB with Latch.
+  LatchBB->getTerminator()->eraseFromParent();
+  BranchInst::Create(VectorLatchBB, LatchBB);
+
   bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
   assert(merged && "Could not merge last basic block with latch.");
   (void) merged;
-  VectorLatchBB = LastBB;
+  VectorLatchBB = LatchBB;
+
+  // Insert LastBB between LatchBB and MiddleBlock. TODO - currently we
+  // assume MiddleBlock and LastBB do not have any PHIs. This will need
+  // to be addressed if this changes.
+  assert(!isa<PHINode>(MiddleBlock->begin()) &&
+         "Middle block starts with a PHI");
+  assert(!isa<PHINode>(LastBB->begin()) && "LastBB starts with a PHI");
+
+  LatchBB->getTerminator()->setSuccessor(MidBlockSuccNum, LastBB);
+  LastBB->getTerminator()->eraseFromParent();
+  BranchInst::Create(MiddleBlock, LastBB);
 
   // Do no try to update dominator tree as we may be generating vector loops
   // with inner loops. Right now we are not marking any analyses as

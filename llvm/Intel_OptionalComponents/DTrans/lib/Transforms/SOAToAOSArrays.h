@@ -20,6 +20,7 @@
 #error SOAToAOSArrays.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
+#include "SOAToAOSCommon.h"
 #include "SOAToAOSEffects.h"
 
 #include "llvm/IR/IRBuilder.h"
@@ -37,17 +38,18 @@
 namespace llvm {
 namespace dtrans {
 namespace soatoaos {
+
 // Represents structure, which is array, see CandidateLayoutInfo.
-struct SummaryForIdiom {
-  StructType *ArrType;
+struct ArraySummaryForIdiom : public SummaryForIdiom {
   Type *ElementType;
-  StructType *MemoryInterface;
-  const Function *Method;
-  SummaryForIdiom(StructType *A, Type *E, StructType *MI, const Function *F)
-      : ArrType(A), ElementType(E), MemoryInterface(MI), Method(F) {}
+  ArraySummaryForIdiom(StructType *A, Type *E, StructType *MI,
+                       const Function *F)
+      : SummaryForIdiom(A, MI, F), ElementType(E) {}
+  ArraySummaryForIdiom(const SummaryForIdiom &S, Type *E)
+      : SummaryForIdiom(S), ElementType(E) {}
 };
 
-// Number of idioms related analysis of structures representing arrays.
+// Number of idioms related to analysis of structures representing arrays.
 // Such structures contain only base pointer, integer fields and
 // MemoryInterface optionally.
 //
@@ -60,140 +62,23 @@ struct SummaryForIdiom {
 //
 // Element accesses need to be checked for wellformedness
 // if one is going to combine base pointers to single one.
-struct ArrayIdioms {
+struct ArrayIdioms : public Idioms {
 protected:
-  // GEP (Arg ArgNo) FieldInd.
-  static inline bool isArgAddr(const Dep *D, unsigned &ArgNo,
-                               unsigned &FieldInd) {
-    if (D->Kind != Dep::DK_GEP)
-      return false;
-
-    FieldInd = D->Const;
-    auto *Addr = D->Arg2;
-
-    if (Addr->Kind != Dep::DK_Argument)
-      return false;
-
-    ArgNo = Addr->Const;
-    return true;
-  }
-
   // GEP (Arg ArgNo) FieldInd,
-  // where OutType is FieldInd'th field of S.ArrType.
-  static inline bool isFieldAddr(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&OutType) {
-    unsigned ArgNo = -1U;
-    unsigned FieldInd = -1U;
-    if (!isArgAddr(D, ArgNo, FieldInd))
-      return false;
-
-    auto *ATy =
-        dyn_cast<PointerType>((S.Method->arg_begin() + ArgNo)->getType());
-    if (!ATy || ATy->getPointerElementType() != S.ArrType)
-      return false;
-
-    if (FieldInd >= S.ArrType->getNumElements())
-      return false;
-
-    OutType = S.ArrType->getElementType(FieldInd);
-    return true;
-  }
-
-  // (Arg ArgNo) of integer type.
-  static inline bool isIntegerArg(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Argument)
-      return false;
-    return (S.Method->arg_begin() + D->Const)->getType()->isIntegerTy();
-  }
-
-  // GEP (Arg ArgNo) FieldInd,
-  // where corresponding type is integer of S.ArrType.
-  static inline bool isIntegerFieldAddr(const Dep *D,
-                                        const SummaryForIdiom &S) {
-    Type *Out = nullptr;
-    if (!isFieldAddr(D, S, Out))
-      return false;
-    return Out->isIntegerTy();
-  }
-
-  // GEP (Arg ArgNo) FieldInd,
-  // where corresponding type is base pointer of S.ArrType.
-  static inline bool isBasePointerAddr(const Dep *D, const SummaryForIdiom &S) {
+  // where corresponding type is base pointer of S.StrType.
+  static inline bool isBasePointerAddr(const Dep *D,
+                                       const ArraySummaryForIdiom &S) {
     Type *Out = nullptr;
     if (!isFieldAddr(D, S, Out))
       return false;
     return Out->isPointerTy() && Out->getPointerElementType() == S.ElementType;
   }
 
-  // Load of some field of S.ArrType.
-  static inline bool isFieldLoad(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&OutType) {
-    if (D->Kind != Dep::DK_Load)
-      return false;
-    return isFieldAddr(D->Arg1, S, OutType);
-  }
-
-  // Some function of several recursive load relative to S.MemoryInterface.
-  //
-  // Used in parameters check of Alloc/Free,
-  //  which are related to access to MemoryInterface and
-  //  vtable in MemoryInterface.
-  //
-  // Alloc size(..)
-  //   Remaining operands, 4th field is MemoryInterface:
-  //   MemoryInterface as 'this; pointer to virtual function call.
-  //   (Func(Load(GEP(Arg 0) 4))
-  //        (Load(Func(Load(Load(GEP(Arg 0) 4))))))
-  static inline bool isMemoryInterfaceFieldLoadRec(const Dep *D,
-                                                   const SummaryForIdiom &S) {
-    if (isMemoryInterfaceFieldLoad(D, S))
-      return true;
-
-    if (D->Kind != Dep::DK_Function)
-      return false;
-
-    for (auto *A : *D->Args)
-      // No need to check recursively.
-      if (!isMemoryInterfaceFieldLoad(A, S))
-        return false;
-
-    return true;
-  }
-
-  // Some external side effect not updating fields, because:
-  //  terminal nodes are DK_Const and isMemoryInterfaceFieldLoad,
-  //  which is assumed to be accessed only for memory allocation/deallocation.
-  //
-  // No pointers escape and relying on knowing all occurrence of structures
-  // representing arrays.
-  static inline bool isExternaSideEffectRec(const Dep *D,
-                                            const SummaryForIdiom &S,
-                                            bool &SeenUnknownTerminal) {
-    if (D->Kind == Dep::DK_Function) {
-      bool ExtSE = false;
-      for (auto *A : *D->Args)
-        if (A->Kind == Dep::DK_Const || isMemoryInterfaceFieldLoad(A, S))
-          continue;
-        else if (isExternaSideEffectRec(A, S, SeenUnknownTerminal))
-          ExtSE = true;
-        else {
-          SeenUnknownTerminal = true;
-          return false;
-        }
-      return ExtSE;
-    }
-
-    if (D->Kind == Dep::DK_Call && D->Const != 0) {
-      isExternaSideEffectRec(D->Arg2, S, SeenUnknownTerminal);
-      return !SeenUnknownTerminal;
-    }
-
-    return false;
-  }
-
-  // Load from base pointer field of S.ArrType.
+  // Load from base pointer field of S.StrType.
+  // Same as isBasePointerLoad, but some arithmetic function computed from
+  // load's result is permitted.
   static inline bool isBasePointerLoadBased(const Dep *D,
-                                            const SummaryForIdiom &S) {
+                                            const ArraySummaryForIdiom &S) {
 
     if (isBasePointerLoad(D, S))
       return true;
@@ -204,135 +89,20 @@ protected:
     return isBasePointerLoad(*D->Args->begin(), S);
   }
 
-  // Direct copy of some field to the field of same type,
-  //  from one argument to another.
-  //
-  // Base pointers to base pointers.
-  // S.MemoryInterface to S.MemoryInterface.
-  //
-  // Does not depend on control flow inside S.Method.
-  static inline bool isFieldCopy(const Dep *D, const SummaryForIdiom &S,
-                                 Type *&FieldType) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    Type *ValType = nullptr;
-    if (!isFieldLoad(D->Arg1, S, ValType))
-      return false;
-
-    Type *AddrType = nullptr;
-    if (!isFieldAddr(D->Arg2, S, AddrType))
-      return false;
-
-    FieldType = AddrType;
-    return AddrType == ValType;
-  }
-
-protected:
-  // Load from base pointer field of S.ArrType.
-  static inline bool isBasePointerLoad(const Dep *D, const SummaryForIdiom &S) {
+  // Load from base pointer field of S.StrType.
+  static inline bool isBasePointerLoad(const Dep *D,
+                                       const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Load)
       return false;
     return isBasePointerAddr(D->Arg1, S);
-  }
-
-  // Load from integer field of S.ArrType.
-  static inline bool isIntegerFieldLoad(const Dep *D,
-                                        const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Load)
-      return false;
-    return isIntegerFieldAddr(D->Arg1, S);
-  }
-
-  // Some arithmetic function on integer argument and integer fields of
-  // S.ArrType.
-  //
-  // It should be satisfied for conditions in conditional branches and
-  // updates of integer fields of S.ArrType.
-  //
-  // Other checks should implicitly assume this check if control flow
-  // dependence is accounted for.
-  static inline bool isDependentOnIntegerFieldsOnly(const Dep *D,
-                                                    const SummaryForIdiom &S) {
-    if (isIntegerFieldLoad(D, S) || isIntegerArg(D, S))
-      return true;
-
-    if (D->Kind == Dep::DK_Const)
-      return true;
-
-    if (D->Kind != Dep::DK_Function)
-      return false;
-
-    for (auto *A : *D->Args)
-      if (!isIntegerFieldLoad(A, S) && !isIntegerArg(A, S))
-        return false;
-    return true;
-  }
-
-  // Store of some value dependent on other integer field and integer arguments
-  // to integer field. Should consider all integer fields and all arguments,
-  // because conditional branches depend on integer fields and integer
-  // arguments.
-  static inline bool isIntegerFieldCopyEx(const Dep *D,
-                                          const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (!isIntegerFieldAddr(D->Arg2, S))
-      return false;
-
-    if (D->Arg1->Kind != Dep::DK_Const &&
-        !isDependentOnIntegerFieldsOnly(D->Arg1, S))
-      return false;
-
-    return true;
-  }
-
-  // Direct copy of S.MemoryInterface from one argument
-  // to corresponding field of S.ArrType.
-  static inline bool isMemoryInterfaceSetFromArg(const Dep *D,
-                                                 const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    Type *Out = nullptr;
-    if (!isFieldAddr(D->Arg2, S, Out))
-      return false;
-
-    if (!isa<PointerType>(Out))
-      return false;
-
-    if (Out->getPointerElementType() != S.MemoryInterface)
-      return false;
-
-    if (D->Arg1->Kind == Dep::DK_Argument) {
-      assert((S.Method->arg_begin() + D->Arg1->Const)
-                     ->getType()
-                     ->getPointerElementType() == S.MemoryInterface &&
-             "Unexpected type cast");
-      return true;
-    }
-    return false;
-  }
-
-  // Copy of MemoryInterface from one instance to another.
-  static inline bool isMemoryInterfaceCopy(const Dep *D,
-                                           const SummaryForIdiom &S) {
-    Type *F = nullptr;
-    if (!isFieldCopy(D, S, F))
-      return false;
-
-    if (!isa<PointerType>(F))
-      return false;
-
-    return F->getPointerElementType() == S.MemoryInterface;
   }
 
   // Some function of
   //  - base pointer, corresponding to argument ArgNo;
   //  - integer fields of ArrTy (given as parameter);
   //  - integer parameters.
-  static inline bool isElementAddr(const Dep *D, const SummaryForIdiom &S) {
+  static inline bool isElementAddr(const Dep *D,
+                                   const ArraySummaryForIdiom &S) {
     bool BaseSeen = false;
     auto Addr = D;
     if (Addr->Kind == Dep::DK_Function) {
@@ -351,16 +121,18 @@ protected:
     return false;
   }
 
-  // Load relative to base pointer from S.ArrType.
-  static inline bool isElementLoad(const Dep *D, const SummaryForIdiom &S) {
+  // Load relative to base pointer from S.StrType.
+  static inline bool isElementLoad(const Dep *D,
+                                   const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Load)
       return false;
     return isElementAddr(D->Arg1, S);
   }
 
-  // Copy of some element in S.ArrType to another element of S.ArrType,
+  // Copy of some element in S.StrType to another element of S.StrType,
   // addresses are relative to base pointers.
-  static inline bool isElementCopy(const Dep *D, const SummaryForIdiom &S) {
+  static inline bool isElementCopy(const Dep *D,
+                                   const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -375,7 +147,7 @@ protected:
 
   // Access to S.ElementType from some argument.
   static inline bool isElementValueFromArg(const Dep *D,
-                                           const SummaryForIdiom &S) {
+                                           const ArraySummaryForIdiom &S) {
     auto *A = D;
     if (A->Kind == Dep::DK_Load)
       A = A->Arg1;
@@ -393,9 +165,9 @@ protected:
   }
 
   // Store of argument to array (address is relative to base pointer of
-  // S.ArrType).
+  // S.StrType).
   static inline bool isElementSetFromArg(const Dep *D,
-                                         const SummaryForIdiom &S) {
+                                         const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
     if (!isElementValueFromArg(D->Arg1, S))
@@ -403,47 +175,11 @@ protected:
     return isElementAddr(D->Arg2, S);
   }
 
-  // Whether D is represents returned pointer of Allocation.
-  static inline bool isAlloc(const Dep *D, const SummaryForIdiom &S) {
-    return D->Kind == Dep::DK_Alloc;
-  }
-
-  // Some allocation call, whose size argument depends on integer fields of
-  // S.ArrType and integer arguments.
-  static inline bool isAllocBased(const Dep *D, const SummaryForIdiom &S) {
-    auto *Alloc = D;
-
-    if (D->Kind == Dep::DK_Function)
-      for (auto *A : *D->Args)
-        if (A->Kind == Dep::DK_Alloc) {
-          // Single alloc is permitted.
-          if (Alloc->Kind == Dep::DK_Alloc)
-            return false;
-          Alloc = A;
-        } else if (!isDependentOnIntegerFieldsOnly(A, S))
-          return false;
-
-    if (Alloc->Kind != Dep::DK_Alloc)
-      return false;
-
-    if (!isDependentOnIntegerFieldsOnly(Alloc->Arg1, S) &&
-        Alloc->Arg1->Kind != Dep::DK_Const)
-      return false;
-
-    if (Alloc->Arg2->Kind == Dep::DK_Const)
-      return true;
-
-    if (!isMemoryInterfaceFieldLoadRec(Alloc->Arg2, S))
-      return false;
-
-    return true;
-  }
-
-  // Store some element of S.ArrType to newly allocated memory.
+  // Store some element of S.StrType to newly allocated memory.
   // Value stored is accessed relative to base pointer.
   // Store address is relative to newly allocated memory.
   static inline bool isElementStoreToNewMemory(const Dep *D,
-                                               const SummaryForIdiom &S) {
+                                               const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -461,21 +197,9 @@ protected:
     return isAllocBased(Addr, S);
   }
 
-  // Store of constant to newly allocated memory.
-  // TODO: extend if needed to memset of base pointer.
-  static inline bool isNewMemoryInit(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (D->Arg1->Kind != Dep::DK_Const)
-      return false;
-
-    return isAllocBased(D->Arg2, S);
-  }
-
   // Initialize base pointer with newly allocated memory.
   static inline bool isBasePtrInitFromNewMemory(const Dep *D,
-                                                const SummaryForIdiom &S) {
+                                                const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -494,7 +218,7 @@ protected:
 
   // Initialize base pointer with constant
   static inline bool isBasePtrInitFromConst(const Dep *D,
-                                            const SummaryForIdiom &S) {
+                                            const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
       return false;
 
@@ -512,7 +236,8 @@ protected:
   }
 
   // Deallocation of memory pointed to base pointer.
-  static inline bool isBasePtrFree(const Dep *D, const SummaryForIdiom &S) {
+  static inline bool isBasePtrFree(const Dep *D,
+                                   const ArraySummaryForIdiom &S) {
     auto *Free = D;
 
     if (D->Kind == Dep::DK_Function && D->Args->size() == 1)
@@ -528,78 +253,6 @@ protected:
       return false;
 
     return true;
-  }
-
-  // Potential call to MK_Realloc method.
-  // Additional checks of arguments is required.
-  // See computeDepApproximation.
-  static inline bool isKnownCall(const Dep *D, const SummaryForIdiom &S) {
-    return D->Kind == Dep::DK_Call && D->Const == 0;
-  }
-
-  static inline bool isThisLikeArg(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Argument)
-      return false;
-
-    auto *ATy =
-        dyn_cast<PointerType>((S.Method->arg_begin() + D->Const)->getType());
-    if (!ATy)
-      return false;
-
-    return ATy->getPointerElementType() == S.ArrType;
-  }
-
-  // Some function of several recursive load relative to S.MemoryInterface:
-  //  access to MemoryInterface and vtable.
-  static inline bool isMemoryInterfaceFieldLoad(const Dep *D,
-                                                const SummaryForIdiom &S) {
-
-    if (D->Kind != Dep::DK_Load && D->Kind != Dep::DK_Argument)
-      return false;
-
-    auto *A = D;
-    int Deref = 0;
-    do {
-      if (A->Kind == Dep::DK_Function) {
-        if (A->Args->size() != 1)
-          return false;
-        A = *A->Args->begin();
-      } else if (A->Kind == Dep::DK_Load) {
-        A = A->Arg1;
-        ++Deref;
-      } else if (A->Kind == Dep::DK_Argument || A->Kind == Dep::DK_GEP)
-        break;
-      else
-        return false;
-    } while (true);
-
-    {
-      Type *Out = nullptr;
-      // 1. Access pointer field in outer structure.
-      // 2. Access pointer to vtable
-      // 3. Access pointer to function
-      if (Deref <= 3 && isFieldAddr(A, S, Out) && Out->isPointerTy() &&
-          Out->getPointerElementType() == S.MemoryInterface) {
-        return true;
-      }
-    }
-
-    if (A->Kind != Dep::DK_Argument)
-      return false;
-
-    if (auto *Out = dyn_cast<PointerType>(
-            (S.Method->arg_begin() + A->Const)->getType()))
-      if (Deref <= 2 && Out->getPointerElementType() == S.MemoryInterface)
-        return true;
-
-    return false;
-  }
-
-  static inline bool isExternaSideEffect(const Dep *D,
-                                         const SummaryForIdiom &S) {
-    bool SeenUnknownTerminal = false;
-    return isExternaSideEffectRec(D, S, SeenUnknownTerminal) &&
-           !SeenUnknownTerminal;
   }
 };
 
@@ -724,7 +377,7 @@ private:
     // MK_Append only.
     // Call to method, should be classified as MK_Realloc
     const Function *CalledMethod = nullptr;
-    // MK_Get* cannot have stores to any instances of ArrType.
+    // MK_Get* cannot have stores to any instances of StrType.
     bool HasStores = false;
     // MK_GetInteger.
     bool ReturnsIntField = false;
@@ -785,7 +438,7 @@ private:
 
   // Additional check of method call parameters.
   // Complements approximate dependency checks from DepCompute.
-  // Helper method for checkMethod.
+  // Helper method for classify.
   //
   // Call to method should have argument dependent on integer fields or integer
   // arguments or be 'this' like arguments.
@@ -918,7 +571,7 @@ private:
 
   const DataLayout &DL;
   const DepMap &DM;
-  const SummaryForIdiom &S;
+  const ArraySummaryForIdiom &S;
 
   // Information computed for transformation.
   TransformationData &TI;
@@ -958,14 +611,14 @@ private:
     return false;
   }
 
-  void insertElementFromArg(const Instruction *I, const char *Desc) {
+  void insertElementFromArg(const Instruction *I, const char *Desc) const {
     TI.ElementFromArg.insert(I);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     InstDesc[I] = std::string("Arg: ") + Desc;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
 
-  void insertBasePtrInst(const Instruction *I, const char *Desc) {
+  void insertBasePtrInst(const Instruction *I, const char *Desc) const {
     TI.BasePtrInst.insert(I);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     InstDesc[I] = std::string("BasePtrInst: ") + Desc;
@@ -974,7 +627,7 @@ private:
 
 public:
   ComputeArrayMethodClassification(const DataLayout &DL, const DepMap &DM,
-                                   const SummaryForIdiom &S,
+                                   const ArraySummaryForIdiom &S,
                                    // Results of analysis.
                                    TransformationData &TI)
       : DL(DL), DM(DM), S(S), TI(TI) {}
@@ -984,7 +637,7 @@ public:
            TI.BasePtrInst.size() + TI.ElementPtrGEP.size();
   }
 
-  std::pair<MethodKind, const Function *> classify() {
+  std::pair<MethodKind, const Function *> classify() const {
     MethodClassification MC;
     bool Invalid = false;
 
@@ -1005,7 +658,7 @@ public:
         Invalid = true;
 
       if (Invalid && !DTransSOAToAOSComputeAllDep)
-        return std::make_pair(MK_Unknown, nullptr);
+        break;
 
       // Synchronized with DepCompute::computeDepApproximation
       // For each opcode, there are different cases processed,
@@ -1170,6 +823,7 @@ public:
         }
         Handled = false;
         break;
+      case Instruction::Alloca: // Not handled here
       default:
         Handled = false;
         break;
@@ -1183,7 +837,10 @@ public:
         Invalid = true;
       }
     }
-    return std::make_pair(MC.classifyMethod(S.Method), MC.CalledMethod);
+
+    return Invalid
+               ? std::make_pair(MK_Unknown, nullptr)
+               : std::make_pair(MC.classifyMethod(S.Method), MC.CalledMethod);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   class AnnotatedWriter : public AssemblyAnnotationWriter {
@@ -1219,8 +876,7 @@ public:
       : DL(DL), DTInfo(DTInfo), TLI(TLI), VMap(VMap),
         InstsToTransform(InstsToTransform), Context(Context) {}
 
-
-  using OrigToCopyTy = DenseMap<Instruction *, Instruction *>;
+  using OrigToCopyTy = DenseMap<Value *, Value *>;
 
   // Update instructions related to base pointer manipulations.
   // There are several kind of instructions:
@@ -1318,8 +974,7 @@ public:
   // Copy and link def-use chains of instructions related to element accesses
   // in combined methods.
   //
-  // ElementPtrGEP and ElementInstToTransform are processed.
-  // TODO: process ElementFromArg
+  // ElementFromArg, ElementPtrGEP and ElementInstToTransform are processed.
   //
   // ElementPtrGEP: addresses of loads/stores are processed (GEPs and PHIs).
   // ElementInstToTransform: loads/stores/memsets.
@@ -1338,29 +993,53 @@ public:
   // %val = load i64, i64* %tmp1
   // store i64 %tmp12, i64* %tmp
   void rawCopyAndRelink(OrigToCopyTy &OrigToCopy, bool UniqueInsts,
-                        unsigned NumArrays) {
+                        unsigned NumArrays, Type *OtherElemType,
+                        unsigned NewParamOffset) {
     IRBuilder<> Builder(Context);
 
     auto ProcessSafeBitCast = [&](const Value *Old,
                                   BitCastInst *NewBC) -> void {
       assert(isSafeBitCast(DL, Old) && "Some peephole idiom is not processed");
-      assert(isa<GetElementPtrInst>(NewBC->getOperand(0)) &&
+      assert((isa<GetElementPtrInst>(NewBC->getOperand(0)) ||
+              isa<Argument>(NewBC->getOperand(0))) &&
              "Some peephole idiom is not processed");
       auto It = OrigToCopy.find(NewBC);
       if (It == OrigToCopy.end()) {
         Builder.SetInsertPoint(NewBC);
-        auto *CopyBC = cast<Instruction>(Builder.CreateBitCast(
+        auto *CopyBC = Builder.CreateBitCast(
             // Assumed all pointer types have same alignment.
-            NewBC->getOperand(0), NewBC->getType(), "copy"));
+            NewBC->getOperand(0), NewBC->getType(), "copy");
         OrigToCopy[NewBC] = CopyBC;
+        return;
       }
     };
 
-    // TODO: Loads from args and direct access to args should be added for
-    // append-like methods.
+    for (auto *I : InstsToTransform.ElementFromArg) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      auto *NewLoad = cast<LoadInst>(NewI);
+      auto *NewPtr = NewLoad->getPointerOperand();
+      auto *F = NewI->getParent()->getParent();
+
+      Builder.SetInsertPoint(NewLoad);
+      auto *CopyLoad = Builder.CreateAlignedLoad(
+          // Assumed all pointer types have same alignment.
+          NewPtr, NewLoad->getAlignment(), false, "copy");
+
+      if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr)) {
+        ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
+        OrigToCopy[NewBC->getOperand(0)] = F->arg_begin() + NewParamOffset;
+      } else {
+        assert(isa<Argument>(NewPtr) && "Some peephole idiom is not processed");
+        OrigToCopy[NewPtr] = F->arg_begin() + NewParamOffset;
+        CopyLoad->mutateType(OtherElemType);
+      }
+
+      OrigToCopy[NewLoad] = CopyLoad;
+    }
 
     for (auto *I : InstsToTransform.ElementInstToTransform) {
       auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      auto *F = NewI->getParent()->getParent();
       if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
         auto *NewPtr = cast<Instruction>(NewLoad->getPointerOperand());
         Builder.SetInsertPoint(NewLoad);
@@ -1373,7 +1052,7 @@ public:
         else {
           assert(isa<GetElementPtrInst>(NewPtr) &&
                  "Some peephole idiom is not processed");
-          CopyLoad->mutateType(PointerType::get(Type::getFloatTy(Context), 0));
+          CopyLoad->mutateType(OtherElemType);
         }
       } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
         Builder.SetInsertPoint(NewStore);
@@ -1389,6 +1068,11 @@ public:
         else
           assert(isa<GetElementPtrInst>(NewPtr) &&
                  "Some peephole idiom is not processed");
+
+        // Element set from arg.
+        if (isa<Argument>(NewStore->getValueOperand()))
+          OrigToCopy[NewStore->getValueOperand()] =
+              F->arg_begin() + NewParamOffset;
       } else if (auto MS = dyn_cast<MemSetInst>(NewI)) {
         if (!UniqueInsts)
           continue;
@@ -1412,25 +1096,29 @@ public:
       auto *CopyI = P.second;
       if (auto *CopyLoad = dyn_cast<LoadInst>(CopyI)) {
         auto It =
-            OrigToCopy.find(cast<Instruction>(CopyLoad->getPointerOperand()));
+            OrigToCopy.find(CopyLoad->getPointerOperand());
         if (It != OrigToCopy.end())
           CopyLoad->setOperand(0, It->second);
       } else if (auto *CopyStore = dyn_cast<StoreInst>(CopyI)) {
         auto It =
-            OrigToCopy.find(cast<Instruction>(CopyStore->getPointerOperand()));
+            OrigToCopy.find(CopyStore->getPointerOperand());
         if (It != OrigToCopy.end())
           CopyStore->setOperand(1, It->second);
-        if (auto *CopyVal =
-                dyn_cast<Instruction>(CopyStore->getValueOperand())) {
+        auto *CopyVal = CopyStore->getValueOperand();
+        if (!isa<Constant>(CopyVal)) {
+          assert((isa<Instruction>(CopyVal) || isa<Argument>(CopyVal)) &&
+                 "Unexpected value of StoreInst");
           auto It = OrigToCopy.find(CopyVal);
           if (It != OrigToCopy.end())
             CopyStore->setOperand(0, It->second);
         }
       } else if (auto *CopyBC = dyn_cast<BitCastInst>(CopyI)) {
-        auto It = OrigToCopy.find(cast<Instruction>(CopyBC->getOperand(0)));
+        auto It = OrigToCopy.find(CopyBC->getOperand(0));
         if (It != OrigToCopy.end())
           CopyBC->setOperand(0, It->second);
       } else if (isa<MemSetInst>(NewI))
+        continue;
+      else if (isa<Argument>(NewI))
         continue;
       else
         llvm_unreachable("Unexpected instruction encountered");
@@ -1516,15 +1204,14 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Offset of base pointer in DTransSOAToAOSApproxTypename.
 extern cl::opt<unsigned> DTransSOAToAOSBasePtrOff;
-// Offset of memory interface in DTransSOAToAOSApproxTypename.
-extern cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff;
-SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F);
+ArraySummaryForIdiom
+getParametersForSOAToAOSArrayMethodsCheckDebug(Function &F);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace soatoaos
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Instructions to transform.
-struct SOAToAOSMethodsCheckDebugResult
+struct SOAToAOSArrayMethodsCheckDebugResult
     : public ComputeArrayMethodClassification::TransformationData {
   MethodKind MK = MK_Unknown;
 };

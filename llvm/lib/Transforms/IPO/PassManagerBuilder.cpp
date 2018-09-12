@@ -52,7 +52,6 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
@@ -152,11 +151,6 @@ static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
 static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));
-
-static cl::list<std::string> VPOOffloadTargets("offload-targets",
-  cl::value_desc("target triples"),
-  cl::desc("Comma-separated list of target triples for offloading."),
-  cl::CommaSeparated, cl::Hidden);
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
@@ -325,9 +319,6 @@ PassManagerBuilder::PassManagerBuilder() {
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-    OffloadTargets = VPOOffloadTargets;
-#endif // INTEL_COLLAB
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -431,7 +422,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 #if INTEL_COLLAB
   if (RunVPOOpt && RunVPOParopt) {
     FPM.add(createVPOCFGRestructuringPass());
-    FPM.add(createVPOParoptPreparePass(RunVPOParopt, OffloadTargets));
+    FPM.add(createVPOParoptPreparePass(RunVPOParopt));
     if (OptLevel == 0) {
       // OpenMP also needs CFGSimplify at -O0. For some loops which are proven
       // to have only one iteration the FE may skip the BB doing loop increment
@@ -1318,17 +1309,13 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                       bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPOParoptPass(RunVPOParopt, OffloadTargets, OptLevel));
+    PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
   }
   #if INTEL_CUSTOMIZATION
   // TODO: Temporary hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
-  }
-  if (RunVPOVecopt && RunVec) {
-    PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPODriverPass());
   }
   #endif // INTEL_CUSTOMIZATION
 }
@@ -1374,6 +1361,11 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   PM.add(createSROAPass());
   addInstructionCombiningPass(PM);
   PM.add(createDeadStoreEliminationPass());
+
+  if (OptLevel > 2) {
+    // Cleanup code with AddSub reassociation.
+    PM.add(createAddSubReassociatePass());
+  }
 }
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
@@ -1449,9 +1441,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
         if (EnableVPlanDriverHIR) {
           // Enable VPlan HIR Vectorizer
           PM.add(createVPlanDriverHIRPass());
-        } else {
-          // Enable AVR HIR Vectorizer
-          PM.add(createVPODriverHIRPass());
         }
       }
       PM.add(createHIRPostVecCompleteUnrollPass(OptLevel));

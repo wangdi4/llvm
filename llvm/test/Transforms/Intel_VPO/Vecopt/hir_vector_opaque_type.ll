@@ -1,6 +1,6 @@
 ; The test verifies that vec codegen does not convert 0 index of opaque references into a vector type. 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -print-after=VPODriverHIR -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; BEGIN REGION { }

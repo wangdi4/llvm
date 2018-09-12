@@ -8,35 +8,35 @@
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -dtrans-deletefield | FileCheck --check-prefix=CHECK-REPLACED %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -dtrans-deletefield | FileCheck %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=struct.A,0 \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -dtrans-deletefield | FileCheck %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=struct.A,0 \
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -dtrans-deletefield | FileCheck %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=struct.A,0 \
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -dtrans-deletefield | FileCheck %s
 
 ; RUN: opt -S < %s \
@@ -44,35 +44,35 @@
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -passes=dtrans-deletefield | FileCheck --check-prefix=CHECK-REPLACED %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -passes=dtrans-deletefield | FileCheck %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=struct.A,0 \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -passes=dtrans-deletefield | FileCheck %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=struct.A,0 \
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=_ZN4testdlEPv \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -passes=dtrans-deletefield | FileCheck %s
 
 ; RUN: opt -S < %s \
 ; RUN:     -dtrans-malloc-functions=struct.A,0 \
 ; RUN:     -dtrans-malloc-functions=_ZN4testnwEm \
 ; RUN:     -dtrans-free-functions=struct.A,1 \
-; RUN:     -whole-program-assume=true \
+; RUN:     -whole-program-assume -dtrans-identify-unused-values=false \
 ; RUN:     -passes=dtrans-deletefield | FileCheck %s
 
 ; CHECK-NOT:  %__DFT_struct.test = type {}

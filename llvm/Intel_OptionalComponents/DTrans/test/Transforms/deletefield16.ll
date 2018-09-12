@@ -1,5 +1,5 @@
-; RUN: opt  -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt  -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies the case of a byte-flattened GEPs accessing a deleted
 ; field which is written after a bitcast.

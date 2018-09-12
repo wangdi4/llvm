@@ -80,7 +80,8 @@ bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                     bool LookThroughBitCast = false);
 
-/// Tests if a value is a call or invoke to a library C++ function new/new[].
+/// Tests if a value is a call or invoke to a library function that returns
+/// non-null result
 bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                  bool LookThroughBitCast = false);
 #endif // INTEL_CUSTOMIZATION

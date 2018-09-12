@@ -523,18 +523,45 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
   return false;
 }
 
+static bool anyUnsafeAlgebraInChain(SafeRedChain &RedInsts) {
+  bool IsFP = RedInsts[0]->getLvalDDRef()->getDestType()->isFPOrFPVectorTy();
+  if (!IsFP) {
+    return false;
+  }
+
+  for (auto *Inst : RedInsts) {
+    auto *FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
+
+    // FPInst can be NULL for a copy instruction.
+    if (!FPInst) {
+      continue;
+    }
+
+    // Return unsafe to vectorize if we are dealing with a Floating
+    // point reduction and fast flag is off.
+    if (!FPInst->isFast()) {
+      LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                           "(FP reduction with fast flag off)\n");
+      return true;
+    }
+  }
+  return false;
+}
+
 void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
                                                    const HLLoop *Loop,
                                                    unsigned RedSymbase,
                                                    unsigned RedOpCode) {
 
   SafeRedChainList &SRCL = SafeReductionMap[Loop];
-  SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode);
+  SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode,
+                    anyUnsafeAlgebraInChain(RedInsts));
   unsigned SRIIndex = SRCL.size() - 1;
 
   // We should use []operator instead of insert() to overwrite the previous
-  // entry for the instruction. SafeReductionMap and SafeReductionInstMap can go
-  // out of sync due to deleted loops. Refer to comment in getSafeRedInfo().
+  // entry for the instruction. SafeReductionMap and SafeReductionInstMap can
+  // go out of sync due to deleted loops. Refer to comment in
+  // getSafeRedInfo().
   for (auto &Inst : RedInsts) {
     SafeReductionInstMap[Inst] = SRIIndex;
   }

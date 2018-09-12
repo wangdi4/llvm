@@ -2,6 +2,10 @@
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
 ; RUN:      2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -disable-output \
+; RUN:      -debug-only=dtrans-soatoaos-deps \
+; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
+; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
@@ -10,6 +14,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test checks various approximations for side effects in get-like function.
 ;   S get(int i) { return base[i]; }
+; Check that approximations work as expected.
+; CHECK-WF-NOT: ; {{.*}}Unknown{{.*}}Dep
+; There should be no unknown GEP
+; CHECK-WF-NOT: ; Func(GEP
 define i8* @_ZN3ArrIPvE3getEi(%struct.Arr.0* %this, i32 %i) {
 entry:
   %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
@@ -30,4 +38,3 @@ entry:
 }
 
 ; CHECK: Deps computed: 7, Queries: 7
-; CHECK-NOT: Unknown Dep

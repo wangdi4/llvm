@@ -3,6 +3,11 @@
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
 ; RUN:      -dtrans-malloc-functions=struct.Mem,0 \
 ; RUN:      2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -disable-output \
+; RUN:      -debug-only=dtrans-soatoaos-deps \
+; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
+; RUN:      -dtrans-malloc-functions=struct.Mem,0 \
+; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
@@ -14,6 +19,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ;     : mem(mem), capacity(c), size(0), base(nullptr) {
 ;   base = (S *)mem->allocate(capacity * sizeof(S));
 ; }
+; Check that approximations work as expected.
+; CHECK-WF-NOT: ; {{.*}}Unknown{{.*}}Dep
+; There should be no unknown GEP
+; CHECK-WF-NOT: ; Func(GEP
 define void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %this, i32 %c, %struct.Mem* %mem) {
 entry:
   %mem2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0
@@ -63,4 +72,3 @@ entry:
 }
 
 ; CHECK: Deps computed: 20, Queries: 26
-; CHECK-NOT: Unknown Dep

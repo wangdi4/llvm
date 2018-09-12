@@ -94,3 +94,68 @@ define <8 x i32> @interleaved_load_vf8_i32_stride4(<32 x i32>* %ptr){
   %add3 = add <8 x i32> %add1, %add2
   ret <8 x i32> %add3
 }
+
+define void @interleaved_store_vf8_i32_stride4(<8 x i32> %a0,<8 x i32> %b0,<8 x i32> %c0,<8 x i32> %d0,<32 x i32>* %ptr){
+; AVX2-LABEL: @interleaved_store_vf8_i32_stride4(
+
+; AVX2: [[STOREDATA0:%.*]] = shufflevector <8 x i32> [[DATA0:%.*]], <8 x i32> [[DATA1:%.*]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT: [[STOREDATA1:%.*]] = shufflevector <8 x i32> [[DATA2:%.*]], <8 x i32> [[DATA3:%.*]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+
+; AVX2: [[TEMP0:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; AVX2-NEXT: [[TEMP1:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT: [[TEMP2:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23>
+; AVX2-NEXT: [[TEMP3:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+
+; AVX2-NEXT: [[TEMP4:%.*]] = shufflevector <8 x i32> [[TEMP0]], <8 x i32> [[TEMP1]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
+; AVX2-NEXT: [[TEMP5:%.*]] = shufflevector <8 x i32> [[TEMP2]], <8 x i32> [[TEMP3]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
+; AVX2-NEXT: [[RES0:%.*]] = shufflevector <8 x i32> [[TEMP4]], <8 x i32> [[TEMP5]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 12, i32 13>
+; AVX2-NEXT: [[RES1:%.*]] = shufflevector <8 x i32> [[TEMP4]], <8 x i32> [[TEMP5]], <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
+
+; AVX2-NEXT: [[TEMP8:%.*]] = shufflevector <8 x i32> [[TEMP0]], <8 x i32> [[TEMP1]], <8 x i32> <i32 2, i32 10, i32 3, i32 11, i32 6, i32 14, i32 7, i32 15>
+; AVX2-NEXT: [[TEMP9:%.*]] = shufflevector <8 x i32> [[TEMP2]], <8 x i32> [[TEMP3]], <8 x i32> <i32 2, i32 10, i32 3, i32 11, i32 6, i32 14, i32 7, i32 15>
+; AVX2-NEXT: [[RES2:%.*]] = shufflevector <8 x i32> [[TEMP8]], <8 x i32> [[TEMP9]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 12, i32 13>
+; AVX2-NEXT: [[RES3:%.*]] = shufflevector <8 x i32> [[TEMP8]], <8 x i32> [[TEMP9]], <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
+
+; AVX2-NEXT: [[STORE0:%.*]] = shufflevector <8 x i32> [[RES0]], <8 x i32> [[RES0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; AVX2-NEXT: [[STORE1:%.*]] = shufflevector <8 x i32> [[RES1]], <8 x i32> [[RES1]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; AVX2-NEXT: [[STORE2:%.*]] = shufflevector <8 x i32> [[RES2]], <8 x i32> [[RES2]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; AVX2-NEXT: [[STORE3:%.*]] = shufflevector <8 x i32> [[RES3]], <8 x i32> [[RES3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; AVX2-NEXT: [[STORE4:%.*]] = shufflevector <8 x i32> [[RES0]], <8 x i32> [[RES0]], <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; AVX2-NEXT: [[STORE5:%.*]] = shufflevector <8 x i32> [[RES1]], <8 x i32> [[RES1]], <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; AVX2-NEXT: [[STORE6:%.*]] = shufflevector <8 x i32> [[RES2]], <8 x i32> [[RES2]], <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; AVX2-NEXT: [[STORE7:%.*]] = shufflevector <8 x i32> [[RES3]], <8 x i32> [[RES3]], <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR:%.*]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 0
+; AVX2-NEXT: store <4 x i32> [[STORE0]], <4 x i32>* [[GEP]], align 16
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 1
+; AVX2-NEXT: store <4 x i32> [[STORE1]], <4 x i32>* [[GEP]], align 16
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 2
+; AVX2-NEXT: store <4 x i32> [[STORE2]], <4 x i32>* [[GEP]], align 16
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 3
+; AVX2-NEXT: store <4 x i32> [[STORE3]], <4 x i32>* [[GEP]], align 16
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 4
+; AVX2-NEXT: store <4 x i32> [[STORE4]], <4 x i32>* [[GEP]], align 16
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 5
+; AVX2-NEXT: store <4 x i32> [[STORE5]], <4 x i32>* [[GEP]], align 16
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 6
+; AVX2-NEXT: store <4 x i32> [[STORE6]], <4 x i32>* [[GEP]], align 16
+; AVX2:      [[BITCAST:%.*]] = bitcast <32 x i32>* [[PTR]] to <4 x i32>*
+; AVX2-NEXT: [[GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[BITCAST]], i32 7
+; AVX2-NEXT: store <4 x i32> [[STORE7]], <4 x i32>* [[GEP]], align 16
+; AVX2-NEXT: ret void
+
+  %store.data0 = shufflevector <8 x i32> %a0, <8 x i32> %b0, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %store.data1 = shufflevector <8 x i32> %c0, <8 x i32> %d0, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %interleave.vec = shufflevector <16 x i32> %store.data0, <16 x i32> %store.data1, <32 x i32> <i32 0, i32 8, i32 16, i32 24, i32 1, i32 9, i32 17, i32 25, i32 2, i32 10, i32 18, i32 26, i32 3, i32 11, i32 19, i32 27, i32 4, i32 12, i32 20, i32 28, i32 5, i32 13, i32 21, i32 29, i32 6, i32 14, i32 22, i32 30, i32 7, i32 15, i32 23, i32 31>
+  store <32 x i32> %interleave.vec, <32 x i32>* %ptr, align 16
+  ret void
+}
+
+

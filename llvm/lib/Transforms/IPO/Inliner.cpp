@@ -677,8 +677,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // infinitely inline.
         InlineHistoryID = CallSites[CSi].second;
         if (InlineHistoryID != -1 &&
-            InlineHistoryIncludes(Callee, InlineHistoryID, // INTEL
-                                  InlineHistory)) {        // INTEL
+            InlineHistoryIncludes(Callee,                  // INTEL
+                InlineHistoryID, InlineHistory)) {         // INTEL
           IR.setReasonNotInlined(CS, NinlrRecursive);      // INTEL
           continue;
         }                                                  // INTEL

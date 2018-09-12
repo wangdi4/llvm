@@ -1,5 +1,5 @@
-; RUN: opt  -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt  -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the size argument of a malloc call is correctly
 ; updated when it is a variable multiple of the structure size where the

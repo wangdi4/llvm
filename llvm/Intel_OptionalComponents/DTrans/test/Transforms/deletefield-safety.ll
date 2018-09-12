@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt  -whole-program-assume -dtrans-deletefield < %s -debug-only=dtrans-deletefield \
+; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield < %s -debug-only=dtrans-deletefield \
 ; RUN:     -disable-output 2>&1 | FileCheck %s
-; RUN: opt  -whole-program-assume -disable-output -passes=dtrans-deletefield \
+; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -disable-output -passes=dtrans-deletefield \
 ; RUN:     -debug-only=dtrans-deletefield %s 2>&1 | FileCheck %s
 
 ; This test verifies that the dtrans delete pass does not try to transform
@@ -37,12 +37,12 @@ define i32 @main(i32 %argc, i8** %argv) {
 }
 
 ; CHECK: Delete field: looking for candidate structures.
-; CHECK-DAG: Found unread field: %struct.test @ 1
+; CHECK-DAG: Can delete field: %struct.test @ 1
 ; CHECK-DAG: Rejecting %struct.test based on safety data.
-; CHECK-DAG: Found unread field: %struct.other @ 0
-; CHECK-DAG: Found unread field: %struct.other @ 1
-; CHECK-DAG: Found unread field: %struct.other @ 2
-; CHECK-DAG: Found unread field: %struct.other @ 3
+; CHECK-DAG: Can delete field: %struct.other @ 0
+; CHECK-DAG: Can delete field: %struct.other @ 1
+; CHECK-DAG: Can delete field: %struct.other @ 2
+; CHECK-DAG: Can delete field: %struct.other @ 3
 ; CHECK-DAG: Rejecting %struct.other based on safety data.
 ; CHECK-NOT: Selected for deletion:
 ; CHECK: No candidates found.

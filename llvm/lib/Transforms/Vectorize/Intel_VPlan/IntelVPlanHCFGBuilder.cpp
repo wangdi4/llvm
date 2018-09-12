@@ -953,18 +953,20 @@ VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
   return VPBB;
 }
 
-// Return true if \p Val is considered an external definition. An external
-// definition is either:
+// Return true if \p Val is considered an external definition in the context of
+// the plain CFG construction.
+//
+// An external definition is either:
 #if INTEL_CUSTOMIZATION
 // 1. A Value that is neither a Constant nor an Instruction.
 #else
 // 1. A Value that is not an Instruction. This will be refined in the future.
 #endif
-// 2. An Instruction that is outside of the CFG snippet represented in VPlan,
-// i.e., is not part of: a) the loop nest, b) outermost loop PH and, c)
-// outermost loop exits.
+// 2. An Instruction that is outside of the CFG snippet represented in VPlan.
+// However, since we don't represent loop Instructions in loop PH/Exit as
+// VPInstructions during plain CFG construction, those are also considered
+// external definitions in this particular context.
 bool PlainCFGBuilder::isExternalDef(Value *Val) {
-
 #if INTEL_CUSTOMIZATION
   assert(!isa<Constant>(Val) &&
          "Constants should have been processed separately.");
@@ -975,25 +977,7 @@ bool PlainCFGBuilder::isExternalDef(Value *Val) {
   if (!Inst)
     return true;
 
-  BasicBlock *InstParent = Inst->getParent();
-  assert(InstParent && "Expected instruction parent.");
-
-  // Check whether Instruction definition is in loop PH.
-  BasicBlock *PH = TheLoop->getLoopPreheader();
-  assert(PH && "Expected loop pre-header.");
-
-  if (InstParent == PH)
-    // Instruction definition is in outermost loop PH.
-    return false;
-
-  // Check whether Instruction definition is in the loop exit.
-  BasicBlock *Exit = TheLoop->getUniqueExitBlock();
-  assert(Exit && "Expected loop with single exit.");
-  if (InstParent == Exit)
-    // Instruction definition is in outermost loop exit.
-    return false;
-
-  // Check whether Instruction definition is in loop body.
+  // Check whether Instruction definition is within the loop nest.
   return !TheLoop->contains(Inst);
 }
 
@@ -1105,14 +1089,17 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
   // Otherwise, there might be problems with existing phi nodes and algorithms
   // based on predecessors traversal.
 
-  // Loop PH needs to be explicitly visited since it's not taken into account by
-  // LoopBlocksDFS.
+  // Create loop PH. PH needs to be explicitly processed since it's not taken
+  // into account by LoopBlocksDFS below. Since the loop PH may contain any
+  // Instruction, related or not to the loop nest, we do not create
+  // VPInstructions for them. Those Instructions used within the loop nest will
+  // be modeled as external definitions.
   BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
   assert((PreheaderBB->getTerminator()->getNumSuccessors() == 1) &&
          "Unexpected loop preheader");
   VPBasicBlock *PreheaderVPBB = createOrGetVPBB(PreheaderBB);
-  createVPInstructionsForVPBB(PreheaderVPBB, PreheaderBB);
-  // Create empty VPBB for Loop H so that we can link PH->H.
+  // Create empty VPBB for Loop H so that we can link PH->H. H's VPInstructions
+  // will be created during RPO traversal.
   VPBlockBase *HeaderVPBB = createOrGetVPBB(TheLoop->getHeader());
   // Preheader's predecessors will be set during the loop RPO traversal below.
   PreheaderVPBB->setOneSuccessor(HeaderVPBB);
@@ -1168,15 +1155,14 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
     setVPBBPredsFromBB(VPBB, BB);
   }
 
-  // 3. Process outermost loop exits. They weren't visited during the RPO
-  // traversal of the loop body. We created an empty VPBB for the loop single
-  // exit BB during the RPO traversal of the loop body but Instructions weren't
-  // visited because it's not part of the the loop.
+  // 3. Process outermost loop exit. We created an empty VPBB for the loop
+  // exit BBs during the RPO traversal of the loop nest but their predecessors
+  // have to be properly set. Since a loop exit may contain any Instruction,
+  // related or not to the loop nest, we do not create VPInstructions for them.
   SmallVector<BasicBlock *, 2> LoopExits;
   TheLoop->getUniqueExitBlocks(LoopExits);
   for (BasicBlock *BB : LoopExits) {
     VPBasicBlock *VPBB = BB2VPBB[BB];
-    createVPInstructionsForVPBB(VPBB, BB);
     // Loop exit was already set as successor of the loop exiting BB.
     // We only set its predecessor VPBB now.
     setVPBBPredsFromBB(VPBB, BB);

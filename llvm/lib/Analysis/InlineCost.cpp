@@ -2696,9 +2696,8 @@ static int calculateMaxIfDepth(BasicBlock *Node, DominatorTree *DT,
 
   Map.insert(std::make_pair(Node, CurrIfDepth));
 
-  TerminatorInst *TermInst = Node->getTerminator();
   int CurrMaxIfDepth = CurrIfDepth;
-  for (auto *NextNode : TermInst->successors()) {
+  for (auto *NextNode : successors(Node)) {
     if (NextNode != Node)
       CurrMaxIfDepth =
           std::max(CurrMaxIfDepth, calculateMaxIfDepth(NextNode, DT, Map));

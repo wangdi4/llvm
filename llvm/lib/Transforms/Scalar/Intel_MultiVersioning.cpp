@@ -33,10 +33,10 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -47,7 +47,8 @@ using namespace llvm;
 // Defines the lowest number of conditional uses for bool closure in order to
 // apply function multiversioning.
 static cl::opt<uint32_t> MultiVersioningThreshold("multiversioning-threshold",
-  cl::init(20u), cl::ReallyHidden);
+                                                  cl::init(20u),
+                                                  cl::ReallyHidden);
 
 STATISTIC(NumMultiVersionedFunctions, "Number of multi-versioned functions");
 
@@ -72,7 +73,7 @@ class BoolMultiVersioningImpl {
   // the same constant offset and have the same result type. Load result is
   // a scalar integer. All loads in closure have the same result type. Load
   // results are compared for EQ/NE with zero. Compare results are used as
-  // condition in ocnditional branches and select instructions. Instructions
+  // condition in conditional branches and select instructions. Instructions
   // included into closure may have other uses outside of the closure.
   //
   // An example of such use-def chain
@@ -102,8 +103,8 @@ class BoolMultiVersioningImpl {
     // load integer from the address returned by the GEP.
     using GEPList = std::list<std::pair<GetElementPtrInst *, LoadList>>;
 
-    GEPList& getGEPs() { return GEPs; }
-    const GEPList& getGEPs() const { return GEPs; }
+    GEPList &getGEPs() { return GEPs; }
+    const GEPList &getGEPs() const { return GEPs; }
 
     // Returns the total number of uses which use compares from this closure as
     // condition.
@@ -119,7 +120,7 @@ class BoolMultiVersioningImpl {
     bool validate(AAResults &AAR) {
       // Do early checks before engaging expensive alias analysis
       // 1. Check the number of conditional uses. If it is below threshold
-      //    do not even bother with futher validation.
+      //    do not even bother with further validation.
       // 2. Check type consistency. All GEPs and loads are supposed to have
       //    matching types.
       if (getNumUses() < MultiVersioningThreshold) {
@@ -173,7 +174,7 @@ class BoolMultiVersioningImpl {
       }
 
       // After removing unsafe loads check again if the number of conditional
-      // uses is still sufficient for the transfromation.
+      // uses is still sufficient for the transformation.
       if (getNumUses() < MultiVersioningThreshold) {
         LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Not enough uses (post-check) - "
                           << getNumUses() << "\n");
@@ -215,16 +216,14 @@ class BoolMultiVersioningImpl {
                       << " argument " << Arg << " ...\n");
 
     struct APIntCompare {
-      bool operator()(const APInt &L, const APInt &R) const {
-        return L.ult(R);
-      }
+      bool operator()(const APInt &L, const APInt &R) const { return L.ult(R); }
     };
     std::map<APInt, BoolClosure, APIntCompare> Fields;
 
     // Iterate argument uses and build use chains which match the pattern
     // we are looking for.
     for (const auto &ArgU : Arg.uses()) {
-      LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Checking argument use\n"
+      LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Checking argument use:\n"
                         << *ArgU.getUser() << "\n");
 
       auto *GEP = dyn_cast<GetElementPtrInst>(ArgU.getUser());
@@ -237,7 +236,7 @@ class BoolMultiVersioningImpl {
       const auto &DL = Arg.getParent()->getParent()->getDataLayout();
       APInt Offset(DL.getPointerSizeInBits(GEP->getPointerAddressSpace()), 0u);
       if (!GEP->accumulateConstantOffset(DL, Offset)) {
-        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Nonconstant GEP offset\n");
+        LLVM_DEBUG(dbgs() << DEBUG_PREFIX "(Skip) Non constant GEP offset\n");
         continue;
       }
 
@@ -301,7 +300,7 @@ class BoolMultiVersioningImpl {
       }
     }
 
-    // Validation part. Check if it safe to do function multi-versioning for
+    // Validation part. Check if it is safe to do function multi-versioning for
     // all collected closures. If true, move closure to the list of candidates
     // for multi-versioning.
     for (auto &Field : Fields) {
@@ -322,8 +321,7 @@ class BoolMultiVersioningImpl {
   // (added template to cast cloned value to the original value type). Defining
   // it here because function-level templates are not allowed.
   struct Value2CloneMapTy : public ValueToValueMapTy {
-    template<typename T>
-    T* getClone(const T* V) const {
+    template <typename T> T *getClone(const T *V) const {
       auto It = this->find(V);
       assert(It != this->end() && "no clone for the given value");
       return cast<T>(It->second);
@@ -414,9 +412,7 @@ private:
   AAResults &AAR;
 
 public:
-  BoolMultiVersioningImpl(Function &F, AAResults &AAR)
-    : F(F), AAR(AAR)
-  {}
+  BoolMultiVersioningImpl(Function &F, AAResults &AAR) : F(F), AAR(AAR) {}
 
   bool run() const {
     // Build closures for all function arguments.
@@ -428,7 +424,7 @@ public:
 
     // Select the largest closure for multi-versioning.
     // TODO: we can do multi-versioning more than once if we have multiple
-    // closures. Add suport for than in future.
+    // closures. Add support for this in future.
     size_t Idx = 0u;
     for (size_t I = 1u; I < Closures.size(); ++I)
       if (Closures[Idx].getNumUses() < Closures[I].getNumUses())
@@ -454,7 +450,6 @@ PreservedAnalyses MultiVersioningPass::run(Function &F,
   PA.preserve<GlobalsAA>();
   PA.preserve<AndersensAA>();
   PA.preserve<InlineAggAnalysis>();
-
 
   return PA;
 }

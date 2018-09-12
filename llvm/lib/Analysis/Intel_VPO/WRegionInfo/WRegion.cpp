@@ -28,6 +28,19 @@ using namespace llvm::vpo;
 //
 // Methods for WRNLoopInfo
 //
+//
+Value* WRNLoopInfo::getNormIV(unsigned I) const {
+  assert (NormIV.size() > 0 && "getNormIV: empty vector");
+  assert (I < NormIV.size() && "getNormIV: bad idx");
+  return NormIV[I];
+}
+
+Value* WRNLoopInfo::getNormUB(unsigned I) const {
+  assert (NormUB.size() > 0 && "getNormUB: empty vector");
+  assert (I < NormUB.size() && "getNormUB: bad idx");
+  return NormUB[I];
+}
+
 void WRNLoopInfo::print(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity) const {
   int Ind = 2*Depth;
@@ -158,7 +171,7 @@ WRNTeamsNode::WRNTeamsNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTeams, BB) {
   setIsTeams();
   setThreadLimit(nullptr);
-  setNumThreads(nullptr);
+  setNumTeams(nullptr);
   setDefault(WRNDefaultAbsent);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTeamsNode<" << getNumber() << ">\n");

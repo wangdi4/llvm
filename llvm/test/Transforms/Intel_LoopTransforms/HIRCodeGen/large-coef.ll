@@ -15,7 +15,8 @@
 ; as 4294967296 * %ret.011 in HIR
 ; Ensure we cg such large coeffs correctly
 ; CHECK: region.0:
-; CHECK: mul i64 4294967296
+; CHECK: shl i64 {{%.*}}, 32
+
 ; ModuleID = 'encdec/crypto/bn/bn_word.c'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"

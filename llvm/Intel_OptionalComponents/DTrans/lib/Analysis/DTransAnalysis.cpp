@@ -27,6 +27,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
@@ -110,6 +111,12 @@ static cl::list<std::string> DTransFreeFunctions("dtrans-free-functions",
 //  See DTransAll::analyzeForIndirectStatus
 static cl::list<std::string> DTransMallocFunctions("dtrans-malloc-functions",
                                                    cl::ReallyHidden);
+
+// Enables identification of values that are loaded but never used.
+// See LocalPointerAnalyzer::identifyUnusedValue
+static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
+                                                cl::init(true),
+                                                cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //
@@ -156,6 +163,7 @@ static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok", cl::init(true),
 //
 static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
                                           cl::init(false), cl::ReallyHidden);
+
 namespace {
 
 // FIXME: Find a better home for this very generic utility function.
@@ -659,15 +667,24 @@ public:
 
   bool isPtrToCharArray() {
     llvm::Type *DomTy = getDominantAggregateTy();
-    if (!DomTy)
+    if (!DomTy) {
+      if (pointsToSomeElement())
+        for (auto &PointeePair : getElementPointeeSet()) {
+          if (auto *ArrayTy = dyn_cast<ArrayType>(PointeePair.first)) {
+            llvm::Type *Int8Ty =
+                llvm::Type::getIntNTy(ArrayTy->getContext(), 8);
+            if (ArrayTy->getArrayElementType() == Int8Ty)
+              return true;
+          }
+        }
       return false;
+    }
     if (!DomTy->isPointerTy())
       return false;
     if (auto *ArrayTy = dyn_cast<ArrayType>(DomTy->getPointerElementType())) {
       llvm::Type *Int8Ty = llvm::Type::getIntNTy(DomTy->getContext(), 8);
-      if (ArrayTy->getArrayElementType() == Int8Ty) {
+      if (ArrayTy->getArrayElementType() == Int8Ty)
         return true;
-      }
     }
     return false;
   }
@@ -3422,12 +3439,19 @@ public:
   getParentStructType(std::pair<llvm::Type *, size_t> &PointeePair,
                       Value *ValOp) {
     llvm::Type *ParentTy  = PointeePair.first;
-    unsigned Idx = PointeePair.second;
+    size_t Idx = PointeePair.second;
     if (PointeePair.first->isArrayTy() && PointeePair.second == 0) {
       // Storing the address of zero array element is the same as saving
       // array address. So find a structure type containing the array.
       if (auto *GEP = dyn_cast<GEPOperator>(ValOp)) {
-        if (GEP->getNumIndices() <= 2) {
+        if (GEP->getNumIndices() == 1) {
+          if (auto *LastArg = dyn_cast<ConstantInt>(
+                  GEP->getOperand(GEP->getNumOperands() - 1))) {
+            // TODO: add multiple array access case here after fixing Pointee
+            // index info.
+            (void)LastArg;
+          }
+        } else if (GEP->getNumIndices() == 2) {
           if (auto *LastArg = dyn_cast<ConstantInt>(
                   GEP->getOperand(GEP->getNumOperands() - 1))) {
             Idx = LastArg->getLimitedValue();
@@ -3929,7 +3953,7 @@ public:
     // Module's should already be materialized by the time this pass is run.
     assert(M.isMaterialized());
 
-    // Analyze the structure types declared in the module.
+    // Add the structure types declared in the module to the type info list.
     for (StructType *Ty : M.getIdentifiedStructTypes())
       (void)DTInfo.getOrCreateTypeInfo(Ty);
 
@@ -4843,6 +4867,59 @@ private:
     return Kind != dtrans::AK_NotAlloc;
   }
 
+  static bool isLoadedValueUnused(Value *V, Value *LoadAddr,
+                                  SmallPtrSetImpl<Value *> &UsedValues) {
+    for (auto U : V->users()) {
+      // If we've seen this user before, assume its path is OK.
+      if (!UsedValues.insert(U).second)
+        continue;
+
+      // If the user is a call or invoke, the value escapes.
+      // If needed this can be extended for pure functions.
+      if (CallSite(U))
+        return false;
+
+      // If the value is used by a terminator, it's used.
+      if (isa<TerminatorInst>(U))
+        return false;
+
+      // If the user is a store, check the target address.
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        // If it is volatile or it doesn't match the load address, the value is
+        // used.
+        if (SI->isVolatile() || SI->getPointerOperand() != LoadAddr)
+          return false;
+
+        continue;
+      }
+
+      // If load is volatile, the value is used.
+      if (auto *LI = dyn_cast<LoadInst>(U)) {
+        if (LI->isVolatile())
+          return false;
+      }
+
+      // Follow the users of any other user
+      if (!isLoadedValueUnused(U, LoadAddr, UsedValues))
+        return false;
+    }
+
+    // If the value has no users, this path is unused.
+    return true;
+  }
+
+  // Returns true if the loaded value is stored to the same address from which
+  // it was loaded and does not escape.
+  bool identifyUnusedValue(LoadInst &LI) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (!DTransIdentifyUnusedValues)
+      return false;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+    SmallPtrSet<Value *, 4> UsedValues;
+    return isLoadedValueUnused(&LI, LI.getPointerOperand(), UsedValues);
+  }
+
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
   // For both loads and stores the PtrInfo argument refers to the address that
@@ -4928,6 +5005,8 @@ private:
           dtrans::FieldInfo &FI = ParentStInfo->getField(PointeePair.second);
           if (IsLoad) {
             FI.setRead(true);
+            if (!identifyUnusedValue(cast<LoadInst>(I)))
+              FI.setValueUnused(false);
             accumulateFrequency(FI, I);
             if (!isSafeLoadForSingleAllocFunction(&I)) {
               DEBUG_WITH_TYPE(DTRANS_FSAF, {
@@ -5500,7 +5579,7 @@ private:
 
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
-      createMemsetCallInfo(I, DestParentTy, RegionDesc);
+      createMemsetCallInfo(I, cast<PointerType>(DestParentTy), RegionDesc);
 
       return;
     }
@@ -5640,9 +5719,48 @@ private:
     // any transforms will have to deal the complexity of the types when
     // memcpy/memmove calls have to be modified.
     if (DstPtrToMember != SrcPtrToMember) {
+      // Conservatively set destination pointer to unknown value.
+      markPointerWrittenWithMultipleValue(DstLPI, SetSize);
+
+      // Do not set safety issue if the memfunc call affects only one field.
+      StructType *StructType;
+      size_t FieldNum;
+      uint64_t AccessSize;
+      bool IsConstantSize = dtrans::isValueConstant(SetSize, &AccessSize);
+      bool IsSimple = isSimpleStructureMember(DstPtrToMember ? DstLPI : SrcLPI,
+                                              &StructType, &FieldNum);
+
+      if (IsConstantSize && IsSimple &&
+          (DL.getTypeStoreSize(StructType->getElementType(FieldNum)) ==
+           AccessSize)) {
+
+        // If write to a structure field.
+        dtrans::MemfuncRegion RegionDesc;
+        RegionDesc.IsCompleteAggregate = false;
+        RegionDesc.FirstField = FieldNum;
+        RegionDesc.LastField = FieldNum;
+
+        // Create memfunc info for a single field access.
+        createMemcpyOrMemmoveCallInfo(
+            I, (DstPtrToMember ? DestParentTy : SrcParentTy)->getPointerTo(),
+            Kind, RegionDesc, RegionDesc);
+
+        auto *StructInfo =
+            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructType));
+        auto &FieldInfo = StructInfo->getField(FieldNum);
+
+        if (DstPtrToMember) {
+          FieldInfo.setWritten(true);
+        } else {
+          assert(SrcPtrToMember);
+          FieldInfo.setRead(true);
+        }
+
+        return;
+      }
+
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
-      markPointerWrittenWithMultipleValue(DstLPI, SetSize);
       return;
     }
 
@@ -5773,8 +5891,8 @@ private:
       // which are the same types/
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
-      createMemcpyOrMemmoveCallInfo(I, DestParentTy, Kind, RegionDesc,
-                                    RegionDesc);
+      createMemcpyOrMemmoveCallInfo(I, cast<PointerType>(DestParentTy), Kind,
+                                    RegionDesc, RegionDesc);
 
       return;
     }
@@ -5818,20 +5936,31 @@ private:
     }
   }
 
+  void markFieldsComplexUse(llvm::Type *Ty, unsigned First, unsigned Last) {
+    if (auto *StInfo =
+            dyn_cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(Ty)))
+      for (auto I = First, E = Last + 1; I != E; ++I)
+        StInfo->getField(I).setComplexUse(true);
+  }
+
   // Create a MemfuncCallInfo object that will store the details about a safe
   // memset call.
-  void createMemsetCallInfo(Instruction &I, llvm::Type *Ty,
+  void createMemsetCallInfo(Instruction &I, llvm::PointerType *Ty,
                             dtrans::MemfuncRegion &RegionDesc) {
     dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
         &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
     MCI->setAliasesToAggregatePointer(true);
     MCI->setAnalyzed(true);
     MCI->addType(Ty);
+
+    if (!RegionDesc.IsCompleteAggregate)
+      markFieldsComplexUse(Ty->getElementType(), RegionDesc.FirstField,
+                           RegionDesc.LastField);
   }
 
   // Create a MemfuncCallInfo object that will store the details about a safe
   // memcpy/memmove call.
-  void createMemcpyOrMemmoveCallInfo(Instruction &I, llvm::Type *Ty,
+  void createMemcpyOrMemmoveCallInfo(Instruction &I, llvm::PointerType *Ty,
                                      dtrans::MemfuncCallInfo::MemfuncKind Kind,
                                      dtrans::MemfuncRegion &RegionDescDest,
                                      dtrans::MemfuncRegion &RegionDescSrc) {
@@ -5840,6 +5969,10 @@ private:
     MCI->setAliasesToAggregatePointer(true);
     MCI->setAnalyzed(true);
     MCI->addType(Ty);
+
+    if (!RegionDescDest.IsCompleteAggregate)
+      markFieldsComplexUse(Ty->getElementType(), RegionDescDest.FirstField,
+                           RegionDescDest.LastField);
   }
 
   // Helper function for retrieving information when the \p LPI argument refers
@@ -6903,11 +7036,11 @@ void DTransAnalysisInfo::reset() {
 
 // Parse 'dtrans-nosafetychecks-list' option and collect a map of
 // transformations to the list of type names to be ignored.
-// Syntax: -dtrans-ignore-list="record(;record)*"
+// Syntax: -dtrans-nosafetychecks-list="record(;record)*"
 //                     record := transform_name:type_name(,type_name)*
 void DTransAnalysisInfo::parseIgnoreList() {
   if (!DTransNoSafetyChecksList.empty()) {
-    LLVM_DEBUG(dbgs() << "\ndtrans-ignore-list: ");
+    LLVM_DEBUG(dbgs() << "\ndtrans-nosafetychecks-list: ");
     for (auto &List : DTransNoSafetyChecksList) {
       StringRef IgnoreList(List);
       if (IgnoreList.empty()) {
@@ -6961,7 +7094,8 @@ void DTransAnalysisInfo::parseIgnoreList() {
   }
 }
 
-// Returns true if type has no safety violations or if it is in the ignore list.
+// Returns true if type has a safety violation and it's not in the ignore
+// list.
 bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
                                         dtrans::Transform Transform) {
   assert(!(Transform & ~dtrans::DT_Legal) && "Illegal transform");
@@ -6978,9 +7112,10 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
     if (llvm::Type *Ty = TyInfo->getLLVMType())
       if (Ty->isStructTy()) {
         StringRef Name = dtrans::getStructName(Ty);
-        // Cut the "struct." from the LLVM type name.
-        if (Name.consume_front("struct.") || Name.consume_front("class."))
-          if (IgnoreTypeMap[Transform].find(Name) !=
+        // Cut the "{dtrans_opt_prefix}struct." from the LLVM type name.
+        std::pair<StringRef, StringRef> StructPrefixAndName = Name.split('.');
+        if (!StructPrefixAndName.second.empty())
+          if (IgnoreTypeMap[Transform].find(StructPrefixAndName.second) !=
               IgnoreTypeMap[Transform].end())
             if (checkFailed) {
               // The type is in the ignore list and indeed violated safety
@@ -7155,7 +7290,9 @@ void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
   }
   printIgnoreTransListForStructure(SI);
   outs() << "  Number of fields: " << SI->getNumFields() << "\n";
+  unsigned Number = 0;
   for (auto &Field : SI->getFields()) {
+    outs() << format_decimal(Number++, 3) << ")";
     printFieldInfo(Field, SI->getIgnoredFor());
   }
   outs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
@@ -7184,7 +7321,7 @@ void DTransAnalysisInfo::printArrayInfo(dtrans::ArrayInfo *AI) {
 
 void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
                                         dtrans::Transform IgnoredInTransform) {
-  outs() << "  Field LLVM Type: " << *(Field.getLLVMType()) << "\n";
+  outs() << "Field LLVM Type: " << *(Field.getLLVMType()) << "\n";
   outs() << "    Field info:";
 
   if (Field.isRead())
@@ -7192,6 +7329,9 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
 
   if (Field.isWritten())
     outs() << " Written";
+
+  if (Field.isValueUnused())
+    outs() << " UnusedValue";
 
   if (Field.hasComplexUse())
     outs() << " ComplexUse";
@@ -7366,13 +7506,15 @@ void DTransAnalysisInfo::printIgnoreTransListForStructure(
     dtrans::StructInfo *SI) {
   std::string Output;
   StringRef Name = dtrans::getStructName(SI->getLLVMType());
-  // Cut the "struct." from the LLVM type name.
-  if (!Name.consume_front("struct."))
+  // Cut the "{dtrans_opt_prefix}struct." from the LLVM type name.
+  std::pair<StringRef, StringRef> StructPrefixAndName = Name.split('.');
+  if (StructPrefixAndName.second.empty())
     return;
 
   for (dtrans::Transform Tr = dtrans::DT_First; Tr < dtrans::DT_Last;
        Tr <<= 1) {
-    if (IgnoreTypeMap[Tr].find(Name) != IgnoreTypeMap[Tr].end()) {
+    if (IgnoreTypeMap[Tr].find(StructPrefixAndName.second) !=
+        IgnoreTypeMap[Tr].end()) {
       Output += " ";
       Output += dtrans::getStringForTransform(Tr);
     }

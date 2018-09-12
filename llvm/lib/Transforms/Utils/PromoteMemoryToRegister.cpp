@@ -954,7 +954,7 @@ NextIteration:
   if (!Visited.insert(BB).second)
     return;
 
-  for (BasicBlock::iterator II = BB->begin(); !isa<TerminatorInst>(II);) {
+  for (BasicBlock::iterator II = BB->begin(); !II->isTerminator();) {
     Instruction *I = &*II++; // get the instruction, increment iterator
 
     if (LoadInst *LI = dyn_cast<LoadInst>(I)) {

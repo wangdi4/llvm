@@ -20,11 +20,8 @@ using namespace llvm;
 
 void llvm::initializeIntel_VPOTransforms(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
-  initializeVPODriverPass(Registry);
-  initializeVPODriverHIRPass(Registry);
   initializeVPODirectiveCleanupPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-
   initializeVPOParoptPreparePass(Registry);
   initializeVPOParoptPass(Registry);
   initializeVPOParoptTpvPass(Registry);

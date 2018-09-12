@@ -979,11 +979,13 @@ public:
 
     llvm::Type *RemapTy = TypeRemapper->remapType(ActualTy);
     Value *NewPtrOp = nullptr;
-    if (auto *C = dyn_cast<Constant>(PtrOp))
+    if (auto *C = dyn_cast<Constant>(PtrOp)) {
       NewPtrOp = ConstantExpr::getBitCast(C, RemapTy->getPointerTo());
-    else
+    } else {
       NewPtrOp = CastInst::CreateBitOrPointerCast(
           PtrOp, RemapTy->getPointerTo(), "", LI);
+      IntermediateConverts.push_back(cast<CastInst>(NewPtrOp));
+    }
 
     // Create a new load with the same attributes as the original instruction,
     // except for the alignment field. Because pointers to the structure are
@@ -1016,6 +1018,7 @@ public:
     Value *Repl = CastInst::Create(CastType, NewLI, LI->getType(), "", LI);
     LI->replaceAllUsesWith(Repl);
     Repl->takeName(LI);
+    IntermediateConverts.push_back(cast<CastInst>(Repl));
     InstructionsToDelete.insert(LI);
 
     LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewPtrOp << "\n  " << *NewLI
@@ -1084,14 +1087,16 @@ public:
     }
 
     Value *NewValOp = CastInst::Create(CastType, ValOp, RemapTy, "", SI);
+    IntermediateConverts.push_back(cast<CastInst>(NewValOp));
     Value *PtrOp = SI->getPointerOperand();
     Value *NewPtrOp = nullptr;
-    if (auto *C = dyn_cast<Constant>(PtrOp))
+    if (auto *C = dyn_cast<Constant>(PtrOp)) {
       NewPtrOp = ConstantExpr::getBitCast(C, RemapTy->getPointerTo());
-    else
+    } else {
       NewPtrOp = CastInst::CreateBitOrPointerCast(
           PtrOp, RemapTy->getPointerTo(), "", SI);
-
+      IntermediateConverts.push_back(cast<CastInst>(NewPtrOp));
+    }
     // Create a new store with the same attributes as the original instruction,
     // except for the alignment field. Because the field type in the structure
     // is changing, the original alignment may no longer be valid, so set it
@@ -1249,6 +1254,25 @@ public:
     llvm_unreachable("Not handled");
   }
 
+  // Return 'true' if Instruction \p I is a conversion instruction of the type
+  // UseConv, and the operand being converted is from an instruction of type
+  // DefConv, and the operand into the DefConv instruction is the same type that
+  // is being created by the UseConv instruction.
+  //
+  // For example:
+  //      %val = inttoptr i32 %4 to i8*
+  //      %5 = ptrtoint i8* %val to i32
+  //
+  template <typename DefConv, typename UseConv>
+  static bool isCancellingConvert(Instruction *I) {
+    if (auto *Conv = dyn_cast<UseConv>(I))
+      if (auto *SrcConv = dyn_cast<DefConv>(Conv->getOperand(0)))
+        if (SrcConv->getSrcTy() == Conv->getType())
+          return true;
+
+    return false;
+  }
+
   // Update the signature of the function's clone and any instructions that need
   // to be modified after the type remapping of data types has taken place.
   virtual void postprocessFunction(Function &OrigFunc, bool isCloned) override {
@@ -1330,6 +1354,42 @@ public:
     }
 
     PtrConverts.clear();
+
+    // Check for cast instructions generated that cancel out another cast.
+    // These instructions would have eventually been removed by the instcombine
+    // pass, but we cannot run instcombine between transformations now because
+    // it would produce other IR instruction patterns that are not currently
+    // recognized by DTransAnalysis, such as shift instructions.
+    SmallVector<Instruction *, 4> DeadInsn;
+    for (auto *Conv : IntermediateConverts) {
+      if (isCloned)
+        Conv = cast<Instruction>(VMap[Conv]);
+
+      LLVM_DEBUG(dbgs() << "Post process checking for canceling conversion: "
+                        << *Conv << "\n");
+
+      bool NotNeeded = isCancellingConvert<BitCastInst, BitCastInst>(Conv) ||
+                       isCancellingConvert<IntToPtrInst, PtrToIntInst>(Conv) ||
+                       isCancellingConvert<PtrToIntInst, IntToPtrInst>(Conv) ||
+                       isCancellingConvert<ZExtInst, TruncInst>(Conv);
+
+      if (NotNeeded) {
+        Instruction *SrcOperand = cast<Instruction>(Conv->getOperand(0));
+        Conv->replaceAllUsesWith(SrcOperand->getOperand(0));
+        Conv->eraseFromParent();
+
+        // Check if the source is now dead, but defer deletion
+        // until processing all the elements of this loop, in case
+        // the instruction is contained in the vector being iterated.
+        if (SrcOperand->user_empty())
+          DeadInsn.push_back(SrcOperand);
+      }
+    }
+
+    for (auto *I : DeadInsn)
+      I->eraseFromParent();
+
+    IntermediateConverts.clear();
 
     DEBUG_WITH_TYPE(AOSTOSOA_IR,
                     dbgs() << "\nDTRANS-AOSTOSOA: After postProcessFunction:\n"
@@ -2258,6 +2318,20 @@ private:
   // and destination types, and are to be removed during function post
   // processing. This list is reset for each function processed.
   SmallVector<CastInst *, 16> PtrConverts;
+
+  // When Load/Store instructions are converted for shrinking the index to
+  // 32-bits, cast instructions are generated during processFunction around
+  // the replacement load/store instruction to convert the original type to an
+  // element/pointer of the shrunken index size/type that will be loaded/stored.
+  // During post-processing, it may be possible to remove these casts because
+  // the type remapping has modified operand types to make the casts cancel out.
+  // This is necessary to avoid casts forms that would appear to be bad casting
+  // for subsequent runs of the DTransAnalysis. For example:
+  //    %53 = bitcast i32* %52 to i64*
+  //    %54 = bitcast i64* %53 to i32*
+  //
+  // This list needs be cleared after processing each function.
+  SmallVector<Instruction *, 16> IntermediateConverts;
 
   // When processing byte-flattened GEPs and memfuncs some instructions may be
   // processed to get the peeling index. This cache is used to get the

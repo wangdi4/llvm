@@ -47,8 +47,7 @@ public:
 
   /// \brief ParoptPrepare object constructor
   /// \brief 0x5 is equivalent to ParPrepare | OmpPar
-  explicit VPOParoptPreparePass(unsigned MyMode = 0x5u,
-    const std::vector<std::string> &OffloadTargets = {});
+  explicit VPOParoptPreparePass(unsigned MyMode = 0x5u);
   ~VPOParoptPreparePass() {};
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
@@ -59,9 +58,6 @@ private:
 
   // VPO-mode
   unsigned Mode;
-
-  // List of target triples for offloading.
-  SmallVector<Triple, 16> OffloadTargets;
 };
 
 namespace vpo {
@@ -75,8 +71,7 @@ public:
 
   /// \brief ParoptPrepare object constructor
   /// \brief 0x5 is equivalent to ParPrepare | OmpPar
-  explicit VPOParoptPrepare(unsigned MyMode = 0x5u,
-    const std::vector<std::string> &OffloadTargets = {});
+  explicit VPOParoptPrepare(unsigned MyMode = 0x5u);
   ~VPOParoptPrepare() {};
 
   StringRef getPassName() const override { return "VPO Paropt Prepare"; }

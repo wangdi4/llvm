@@ -116,6 +116,8 @@ class DynCloneImpl {
   using DynFieldSet = std::set<DynField>;
   using FunctionSet = SmallPtrSet<Function *, 16>;
   using CallInstSet = SmallPtrSet<CallInst *, 8>;
+  using StoreInstSet = SmallPtrSet<StoreInst *, 4>;
+  using PHIInstSet = SmallPtrSet<PHINode *, 4>;
 
 public:
   DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
@@ -176,10 +178,19 @@ private:
   // List of CallSites for AddressTaken routines.
   DenseMap<Function *, CallInstSet> FunctionCallInsts;
 
+  // This is used to maintain stored locations where allocation pointers
+  // are saved. For each AllocCall, it provides set of simple store
+  // instructions which save alloc pointers to global variable.
+  DenseMap<AllocCallInfo *, StoreInstSet> AllocSimplePtrStores;
+
+  // List of modified allocation calls
+  CallInstSet ModifiedAllocs;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyLegalityChecksForInitRoutine(void);
   void createShrunkenTypes(void);
+  bool trackPointersOfAllocCalls(void);
   void transformInitRoutine(void);
   bool createCallGraphClone(void);
   bool isCandidateField(DynField &DField) const;
@@ -735,6 +746,233 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
   return true;
 }
 
+// Tracks uses of all allocated calls and collects all locations
+// where alloc pointers are saved if possible. Otherwise, returns
+// false. These locations will be used during transformation.
+bool DynCloneImpl::trackPointersOfAllocCalls(void) {
+
+  std::function<bool(PHINode *, unsigned, bool &, StoreInstSet &,
+                     StoreInstSet &, PHIInstSet &)>
+      TrackPHI;
+  std::function<bool(GetElementPtrInst *, bool &, StoreInstSet &,
+                     StoreInstSet &)>
+      TrackGEP;
+  std::function<bool(Value *, bool &, StoreInstSet &, StoreInstSet &,
+                     PHIInstSet &)>
+      TrackUsesOfCall;
+
+  // Returns true if \p Val is a GEP that accesses any field from
+  // a GlobalVariable at index zero.
+  //  Ex:
+  //  getelementptr (%struct.network, %struct.network* @net, i64 0, i32 3)
+  //
+  auto IsSimpleFieldInGlobalStructVar = [&](Value *Val) {
+    auto *GEPO = dyn_cast<GEPOperator>(Val);
+    if (!GEPO || GEPO->getNumIndices() != 2 ||
+        !isa<GlobalVariable>(GEPO->getOperand(0)) ||
+        !cast<GlobalVariable>(GEPO->getOperand(0))
+             ->getInitializer()
+             ->isNullValue() ||
+        !isa<StructType>(GEPO->getSourceElementType()) ||
+        !isa<ConstantInt>(GEPO->getOperand(1)) ||
+        !cast<ConstantInt>(GEPO->getOperand(1))->isZero() ||
+        !isa<ConstantInt>(GEPO->getOperand(2)))
+      return false;
+    return true;
+  };
+
+  // Store instructions, which save alloc pointers, are divided into
+  // groups. If alloc pointer is saved in global struct, it is considered
+  // as SimplePtrStore. Otherwise, considered as ComplexPtrStore.
+  auto ProcessStoreInst = [&](StoreInst *SI, StoreInstSet &SimplePtrStoreSet,
+                              StoreInstSet &ComplexPtrStoreSet) {
+    if (IsSimpleFieldInGlobalStructVar(SI->getPointerOperand()))
+      SimplePtrStoreSet.insert(SI);
+    else
+      ComplexPtrStoreSet.insert(SI);
+  };
+
+  // This function tracks uses of \p GEPI. It allows only two types of uses:
+  // GEP or Store. This function is called recursively in case of GEP. Store
+  // instructions will be added to either \p SimplePtrStoreSet or
+  // \p ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set
+  // to true if allocated memory is modified.
+  TrackGEP = [this, &IsSimpleFieldInGlobalStructVar, &TrackGEP,
+              &ProcessStoreInst](GetElementPtrInst *GEPI, bool &ModifiedMem,
+                                 StoreInstSet &SimplePtrStoreSet,
+                                 StoreInstSet &ComplexPtrStoreSet) {
+    unsigned NumIndices = GEPI->getNumIndices();
+    Type *ElemTy = GEPI->getSourceElementType();
+    if (NumIndices > 2 || !isa<StructType>(ElemTy))
+      return false;
+
+    // We are handling two cases when a pointer, which is being tracked,
+    // is used in GEP.
+    // Case 1: Pointer is used in GEP to get address of a field.
+    // Case 2: Pointer is used in GEP to get address of Nth element in array.
+
+    if (NumIndices == 2) {
+      // Case 1:
+      // This is basically address of a field if NumIndices == 2. We are not
+      // interested to collet uses of the GEP. Instead, we prove that the
+      // address is not escaped by checking all uses of it are used in StoreInst
+      // as PointerOperand. Set ModifiedMem flag to indicate allocated memory is
+      // modified.
+      ModifiedMem = true;
+      for (auto *GUSE : GEPI->users()) {
+        if (!isa<StoreInst>(GUSE))
+          return false;
+        StoreInst *SI = cast<StoreInst>(GUSE);
+        if (SI->getPointerOperand() != GEPI)
+          return false;
+      }
+      return true;
+    }
+
+    // Case 2: Treat the result of the GEP as pointer of some element and track
+    // uses of this GEP to collect the locations where it is saved. Allowed only
+    // either GEP or Store.
+    for (auto *GUSE : GEPI->users()) {
+      if (auto *GEPUU = dyn_cast<GetElementPtrInst>(GUSE)) {
+        if (!TrackGEP(GEPUU, ModifiedMem, SimplePtrStoreSet,
+                      ComplexPtrStoreSet))
+          return false;
+      } else if (auto *St = dyn_cast<StoreInst>(GUSE))
+        ProcessStoreInst(St, SimplePtrStoreSet, ComplexPtrStoreSet);
+      else
+        return false;
+    }
+    return true;
+  };
+
+  // This function tracks uses of \p PHI. It allows only 3 types of uses:
+  // PHI/GEP/Store. This function is called recursively only in case of GEP.
+  // Store instructions will be added to either \p SimplePtrStoreSet or
+  // \p ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set
+  // to true if allocated memory is modified. All processed PHIs are added
+  // to \p ProcessedPHI for further processing later.
+  TrackPHI = [this, &TrackPHI, &TrackGEP, &ProcessStoreInst](
+                 PHINode *PHI, unsigned Depth, bool &ModifiedMem,
+                 StoreInstSet &SimplePtrStoreSet,
+                 StoreInstSet &ComplexPtrStoreSet, PHIInstSet &ProcessedPHI) {
+    // Limit recursion.
+    if (Depth > 3)
+      return false;
+
+    ProcessedPHI.insert(PHI);
+    // Allows only PHI/GEP/Store
+    for (auto *PUSE : PHI->users()) {
+      if (!isa<Instruction>(PUSE))
+        return false;
+
+      if (auto *PHI2 = dyn_cast<PHINode>(PUSE)) {
+        if (!TrackPHI(PHI2, ++Depth, ModifiedMem, SimplePtrStoreSet,
+                      ComplexPtrStoreSet, ProcessedPHI))
+          return false;
+      } else if (auto *GEPI = dyn_cast<GetElementPtrInst>(PUSE)) {
+        if (!TrackGEP(GEPI, ModifiedMem, SimplePtrStoreSet, ComplexPtrStoreSet))
+          return false;
+      } else if (auto *St = dyn_cast<StoreInst>(PUSE))
+        ProcessStoreInst(St, SimplePtrStoreSet, ComplexPtrStoreSet);
+      else
+        return false;
+    }
+    return true;
+  };
+
+  // This function tracks uses of \p Val. It allows only 5 types of uses:
+  // ICMP/BitCast/PHI/GEP/Store. This function is called recursively only
+  // in case of BitCast. Store instructions will be added to either
+  // \p SimplePtrStoreSet or  \p ComplexPtrStoreSet depending
+  // PointerOperand. \p ModifiedMem is set to true if allocated memory
+  // is modified. All processed PHI are added to ProcessedPHI for further
+  // processing.
+  TrackUsesOfCall = [this, &TrackUsesOfCall, &TrackPHI, &TrackGEP,
+                     &IsSimpleFieldInGlobalStructVar,
+                     &ProcessStoreInst](Value *Val, bool &ModifiedMem,
+                                        StoreInstSet &SimplePtrStoreSet,
+                                        StoreInstSet &ComplexPtrStoreSet,
+                                        PHIInstSet &ProcessedPHI) {
+    for (User *U : Val->users()) {
+      if (!isa<Instruction>(U))
+        return false;
+      Instruction *I = cast<Instruction>(U);
+      // Ignore uses in ICmp.
+      if (I->getOpcode() == Instruction::ICmp)
+        continue;
+
+      if (auto *BC = dyn_cast<BitCastInst>(I)) {
+        // No need to check for Safe BitCast as safety checks are already
+        // passed.
+        if (!TrackUsesOfCall(BC, ModifiedMem, SimplePtrStoreSet,
+                             ComplexPtrStoreSet, ProcessedPHI))
+          return false;
+      } else if (auto *St = dyn_cast<StoreInst>(I))
+        ProcessStoreInst(St, SimplePtrStoreSet, ComplexPtrStoreSet);
+      else if (auto *GEPI = dyn_cast<GetElementPtrInst>(I)) {
+        if (!TrackGEP(GEPI, ModifiedMem, SimplePtrStoreSet, ComplexPtrStoreSet))
+          return false;
+      } else if (auto *PHI = dyn_cast<PHINode>(I)) {
+        if (!TrackPHI(PHI, 1, ModifiedMem, SimplePtrStoreSet,
+                      ComplexPtrStoreSet, ProcessedPHI))
+          return false;
+      } else
+        return false;
+    }
+    return true;
+  };
+
+  StoreInstSet SimplePtrStoreSet;
+  StoreInstSet ComplexPtrStoreSet;
+  PHIInstSet ProcessedPHI;
+  for (auto &AllocPair : AllocCalls) {
+    SimplePtrStoreSet.clear();
+    ComplexPtrStoreSet.clear();
+    ProcessedPHI.clear();
+    auto *AInfo = AllocPair.first;
+    assert(AInfo->getAllocKind() == AK_Calloc && " Unexpected alloc kind");
+    CallInst *CI = cast<CallInst>(AInfo->getInstruction());
+    LLVM_DEBUG(dbgs() << "Tracking uses of  " << *CI << "\n");
+    bool ModifiedMem = false;
+    if (!TrackUsesOfCall(CI, ModifiedMem, SimplePtrStoreSet, ComplexPtrStoreSet,
+                         ProcessedPHI))
+      return false;
+
+    // Collect modified allocations to avoid coping data from old layout
+    // to new layout if there are no modifications.
+    if (ModifiedMem)
+      ModifiedAllocs.insert(CI);
+
+    // TODO:
+    // ProcessedPHI: Make sure all operands of PHI are pointing to the
+    // same memory allocation.
+    // SimplePtrStoreSet: Check if there are any loads from the locations
+    // where alloc pointers are saved and track uses of those loads.
+    // Make sure pointers of same alloc call are assigned to any location.
+    // ComplexPtrStoreSet: Analyze these stores further to prove that
+    // they are saved into array fields of a struct, which is transformed
+    // by AOS2SOA. Also, prove that there are no loads from those array
+    // fields of the struct.
+    // free/user_calls: Make sure allocations are not freed before copying/
+    // fixing.
+    AllocSimplePtrStores[AInfo] = SimplePtrStoreSet;
+
+    LLVM_DEBUG({
+      dbgs() << "        SimplePtrStoreInsts: \n";
+      for (auto *SI : SimplePtrStoreSet) {
+        dbgs() << "            " << *SI << "\n";
+      }
+      dbgs() << "\n";
+      dbgs() << "        ComplexPtrStoreInsts: \n";
+      for (auto *SI : ComplexPtrStoreSet) {
+        dbgs() << "            " << *SI << "\n";
+      }
+      dbgs() << "\n";
+    });
+  }
+  return true;
+}
+
 // Create new shrunken structs for all candidate structs and maintain
 // mapping between old and new layouts.
 //
@@ -836,8 +1074,14 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //
 //      Ex:
 //      Before:
+//              struct netw { ...} net;
+//
 //              InitRoutine() {
 //                  ptr = calloc(); // Memory allocation for candidate struct
+//                  ...
+//                  net->field1 = ptr;
+//                  ...
+//                  net->field2 = ptr + index;
 //                  ...
 //                  stp->candidate1 = value1;
 //                  ...
@@ -864,7 +1108,6 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                  ...
 //                  if (L_i64_Max > 0x000000007fffffff ||
 //                      L_i64_Min < 0xffffffff80000000) {
-//                    // TODO: Fix pointers of shrunken records if needed
 //                    OldType* SPtr = ptr;
 //                    NewType* DPtr = ptr;
 //                    for (i = 0; i < alloc_size_of_calloc; i++) {
@@ -875,6 +1118,18 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                      (DPtr + i)->new_field1 = t1;
 //                      ...
 //                    }
+//                    // Rematerialize saved pointers
+//                    if (net->field1) {
+//                      net->field1 = ptr + ((((char*)net->field1) -
+//                         ((char*)ptr)) / sizeof(OldType)) * sizeof(NewType);
+//                    }
+//                    if (net->field2) {
+//                      net->field2 = ptr + ((((char*)net->field2) -
+//                         ((char*)ptr)) / sizeof(OldType)) * sizeof(NewType);
+//                    }
+//
+//                    // TODO: Fix more pointers of shrunken records if needed
+//
 //                    __Shrink__Happened__ = 1;
 //                  }
 //                  return;
@@ -1077,6 +1332,76 @@ void DynCloneImpl::transformInitRoutine(void) {
     (void)Br;
   };
 
+  // Pointer to shrunken struct is fixed in this routine.
+  //    Before:
+  //          CI:  p = calloc(sizeof(StTy) * N);
+  //               ...
+  //               net->field = p + some_index;
+  //               ...
+  //               return;
+  //    After:
+  //          CI:  p = calloc(sizeof(StTy) * N);
+  //               ...
+  //               net->field = p + some_index;
+  //               ...
+  //               if (net->field) {
+  //                 Ptr1 = (int64) net->field;
+  //                 Ptr2 = (int64) p;
+  //                 PtrDiff = Ptr1 - Ptr2;
+  //                 Index = PtrDiff / sizeof(StTy);
+  //                 NewPtr = p + Index * sizeof(new layout of StTy); // use GEP
+  //                 net->field = NewPtr;
+  //               }
+  //               return;
+  //
+  // \p Ptr represents address location where alloc pointer is saved.
+  //
+  auto RematerializePtr = [&](Value *Ptr, CallInst *CI, Type *StTy,
+                              Instruction *InsertBefore) {
+    Type *IntPtrTy = Type::getIntNTy(M.getContext(), DL.getPointerSizeInBits());
+    IRBuilder<> PIRB(InsertBefore);
+    Value *LdPtr = PIRB.CreateLoad(Ptr);
+    Value *Cond =
+        PIRB.CreateICmpNE(LdPtr, Constant::getNullValue(LdPtr->getType()));
+    BasicBlock *CondBB = InsertBefore->getParent();
+    BasicBlock *MergeBB = CondBB->splitBasicBlock(InsertBefore);
+    BasicBlock *RematBB =
+        BasicBlock::Create(CondBB->getContext(), "remat", InitRoutine, MergeBB);
+    IRBuilder<> CIR(CondBB->getTerminator());
+    auto *Br = CIR.CreateCondBr(Cond, RematBB, MergeBB);
+    CondBB->getTerminator()->eraseFromParent();
+    (void)Br;
+    IRBuilder<> IRB(RematBB);
+
+    // Convert both pointers to IntTy.
+    Value *Ptr1 = IRB.CreatePtrToInt(LdPtr, IntPtrTy);
+    Value *Ptr2 = IRB.CreatePtrToInt(CI, IntPtrTy);
+    // Compute index of the pointer in original layout.
+    Value *PtrDiff = IRB.CreateSub(Ptr1, Ptr2);
+    Value *SSize = ConstantInt::get(IntPtrTy, DL.getTypeAllocSize(StTy));
+    Value *Index = IRB.CreateSDiv(PtrDiff, SSize);
+    // Use Index to get position of the pointer in new layout.
+    Type *NewTy = TransformedTypeMap[cast<StructType>(StTy)];
+    Value *BC = IRB.CreateBitCast(CI, NewTy->getPointerTo());
+    Value *NewPtr = IRB.CreateInBoundsGEP(NewTy, BC, makeArrayRef(Index));
+    Value *NewBCPtr = IRB.CreateBitCast(NewPtr, StTy->getPointerTo());
+    auto *UBI = IRB.CreateBr(MergeBB);
+    (void)UBI;
+
+    LLVM_DEBUG(dbgs() << "  " << *LdPtr << "  \n"
+                      << *Cond << "  \n"
+                      << *Br << "  \n"
+                      << *Ptr1 << "  \n"
+                      << *Ptr2 << "  \n"
+                      << *PtrDiff << "  \n"
+                      << *BC << "  \n"
+                      << *Index << "  \n"
+                      << *NewPtr << "\n"
+                      << *NewBCPtr << "\n"
+                      << *UBI << "\n");
+    return NewBCPtr;
+  };
+
   SmallVector<BasicBlock *, 2> RetBBs;
   SmallVector<StoreInst *, 16> RuntimeCheckStores;
 
@@ -1244,6 +1569,23 @@ void DynCloneImpl::transformInitRoutine(void) {
     assert(AInfo->getAllocKind() == AK_Calloc && " Unexpected alloc kind");
     CallInst *CI = cast<CallInst>(AInfo->getInstruction());
     CopyDataFromOrigLayoutToNewLayout(CI, AllocPair.second, SI);
+  }
+
+  // Rematerialize pointers of AllocCalls that are saved in GlobalVariables.
+  for (auto &AllocPair : AllocCalls) {
+    auto *AInfo = AllocPair.first;
+    StoreInstSet &SISet = AllocSimplePtrStores[AInfo];
+    CallInst *CI = cast<CallInst>(AInfo->getInstruction());
+    LLVM_DEBUG(dbgs() << "      Rematerialize ptrs of :" << *CI << "\n");
+    for (auto *St : SISet) {
+      LLVM_DEBUG(dbgs() << "      Before Rematerialize:" << *St << "\n");
+      Value *NewPtr =
+          RematerializePtr(St->getPointerOperand(), CI, AllocPair.second, SI);
+      IRBuilder<> IRB(cast<Instruction>(NewPtr)->getParent()->getTerminator());
+      Instruction *NewSt = IRB.Insert(St->clone());
+      NewSt->setOperand(0, NewPtr);
+      LLVM_DEBUG(dbgs() << "      After Rematerialize:" << *NewSt << "\n");
+    }
   }
 }
 
@@ -1532,6 +1874,11 @@ bool DynCloneImpl::run(void) {
 
   if (!verifyLegalityChecksForInitRoutine())
     return false;
+
+  if (!trackPointersOfAllocCalls()) {
+    LLVM_DEBUG(dbgs() << "Track uses of AllocCalls Failed... \n");
+    return false;
+  }
 
   LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
 

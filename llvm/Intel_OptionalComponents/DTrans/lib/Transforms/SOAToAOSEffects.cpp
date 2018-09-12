@@ -353,6 +353,9 @@ void DepCompute::computeDepApproximation(
                               F && IsKnownCallCheck(F));
           break;
         }
+        case Instruction::Alloca:
+          Rep = Dep::mkAlloc(DM, Dep::mkConst(DM), Dep::mkConst(DM));
+          break;
         default:
           Rep = Dep::mkBottom(DM);
           break;

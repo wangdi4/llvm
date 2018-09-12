@@ -178,6 +178,41 @@ class X86InterleavedAccessGroup {
 #ifdef INTEL_CUSTOMIZATION
   const TargetTransformInfo &TTI;
 
+  // Store candidates include only one interleaved shuffle instruction. To make
+  // a group, we need to decompose it into shuffle instructions to represent the
+  // strided accesses. Store_shuffles is a temporary SmallVector to hold them.
+  SmallVector<ShuffleVectorInst *, 8> StoreShuffles;
+
+  // The function essentially does what decompose function does for
+  // shufflevectorInstruction, except that it does not create the LLVM
+  // Instructions using Builder for each decomposed instructions. With VLS, we
+  // only need them temporarily, since the shuffles instructions will be
+  // required in getSequence. Use of this avoids creation of redundant shuffles
+  // in the pass, and generates a cleaner IR.
+  void decomposeInterleavedShuffle(
+      Instruction *VecInst, unsigned NumSubVectors, VectorType *SubVecTy,
+      SmallVectorImpl<ShuffleVectorInst *> &DecomposedVectors) {
+    assert(isa<ShuffleVectorInst>(VecInst) && "Expected Shuffle Instruction");
+
+    Type *VecWidth = VecInst->getType();
+    (void)VecWidth;
+    assert(VecWidth->isVectorTy() &&
+           DL.getTypeSizeInBits(VecWidth) >=
+               DL.getTypeSizeInBits(SubVecTy) * NumSubVectors &&
+           "Invalid Inst-size!!!");
+
+    auto *SVI = dyn_cast<ShuffleVectorInst>(VecInst);
+    Value *Op0 = SVI->getOperand(0);
+    Value *Op1 = SVI->getOperand(1);
+
+    // Generate NumSubVectors shuffles of  SubVecTy type.
+    for (unsigned i = 0; i < NumSubVectors; ++i)
+      DecomposedVectors.push_back(new ShuffleVectorInst(
+          Op0, Op1,
+          createSequentialMask(Builder, Indices[i],
+                               SubVecTy->getVectorNumElements(), 0)));
+  }
+
   /// Keeps mapping of a shufflevector to its OVLSMemref which ultimately helps
   /// mapping a shufflevector to an optimized LLVM-IR instruction.
   /// The detailed chain: shufflevector is mapped with an OVLSMemref; an
@@ -188,15 +223,41 @@ class X86InterleavedAccessGroup {
   /// Creates an OVLSMemref for each shuffle in the Shuffles and returns
   /// the memrefs in \p Memrefs.
   void createOVLSMemrefs(OVLSMemrefVector &Memrefs) {
+    // For Loads, Shuffles points to a vector of ShuffleVectorInst , which
+    // represent the strided accesses; so OVLSMemrefs can be directly generated.
+    // For Stores, the ShuffleVectorInst consists of the reinterleaved accesses,
+    // we need to decompose the instruction to extract the strided accesses.
+    // decomposeInterleavedShuffle() essentially breaks the vector into smaller
+    // vectors of strided elements.
+    //
+    if (isa<StoreInst>(Inst)) {
+      assert(Shuffles.size() == 1 && "Unexpected Shuffle Instruction.");
+      SmallVector<Instruction *, 4> DecomposedVectors;
+      VectorType *VecTy = Shuffles[0]->getType();
+      Type *ShuffleEltTy = VecTy->getVectorElementType();
+      unsigned NumSubVecElems = VecTy->getVectorNumElements() / Factor;
+      decomposeInterleavedShuffle(Shuffles[0], Factor,
+                                  VectorType::get(ShuffleEltTy, NumSubVecElems),
+                                  StoreShuffles);
+      // Makes Shuffles point to the new set of Decomposed ShuffleVectorInsts.
+      Shuffles = makeArrayRef(StoreShuffles);
+    }
+
     // Create OVLSMemref for each shuffle.
     for (unsigned i = 0; i < Shuffles.size(); ++i) {
       VectorType *VecTy = Shuffles[i]->getType();
       Type *ShuffleEltTy = VecTy->getVectorElementType();
       unsigned EltSizeInByte = DL.getTypeSizeInBits(ShuffleEltTy) / 8;
-      int Dist = Indices[i] * EltSizeInByte;
+      unsigned NumElements = VecTy->getVectorNumElements();
+      int Dist = isa<StoreInst>(Inst)
+                     ? ((Indices[i] / NumElements) * EltSizeInByte)
+                     : Indices[i] * EltSizeInByte;
+      OVLSAccessType AType = isa<StoreInst>(Inst)
+                                 ? OVLSAccessType::getStridedStoreTy()
+                                 : OVLSAccessType::getStridedLoadTy();
       OVLSMemref *Mrf = new X86InterleavedClientMemref(
-          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(),
-          OVLSAccessType::getStridedLoadTy(), true, Factor * EltSizeInByte);
+          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(), AType, true,
+          Factor * EltSizeInByte);
       Memrefs.push_back(Mrf);
       ShuffleToMemrefMap.insert(
           std::pair<ShuffleVectorInst *, OVLSMemref *>(Shuffles[i], Mrf));
@@ -252,7 +313,37 @@ public:
 
     // Create OVLSGroups for the shuffles.
     OVLSGroupVector Grps;
-    unsigned ShuffleVecSize = DL.getTypeSizeInBits(VecTy);
+
+    // ShuffleVecSize is used to indicate the maximum vector register size to
+    // choose during grouping.
+    // Here the size is chosen as the Vector length the vectorizer chose to
+    // vectorize profitably for a platform. For loads, this is the size of the
+    // ShuffleVectorInst. For stores, this is the size of the
+    // ShuffleVectorInst/Factor.
+    // Eg:
+    // Load:
+    // %wide.vec = load <8 x double>, <8 x double>* %ptr, align 16
+    // %strided.v1 = shufflevector <8 x double> %wide.vec, <8 x double> undef,
+    // <4 x i32> <i32 0, i32 2, i32 4, i32 6>
+    // ...
+    // ShuffleVecSize = 512
+    //
+    // Store:
+    // ...
+    // %interleave.vec = shufflevector <16 x i32> %store.data0, <16 x i32>
+    // %store.data1, <32 x i32> <i32 0, i32 8, i32 16, i32 24, i32 1, i32 9, i32
+    // 17, i32 25, i32 2, i32 10, i32 18, i32 26, i32 3, i32 11, i32 19, i32 27,
+    // i32 4, i32 12, i32 20, i32 28, i32 5, i32 13, i32 21, i32 29, i32 6, i32
+    // 14, i32 22, i32 30, i32 7, i32 15, i32 23, i32 31>
+    // store <32 x i32> %interleave.vec, <32 x i32>* %ptr, align 16
+    // ShuffleVecSize = 1024/4 = 256
+    //
+    unsigned ShuffleVecSize = 0;
+    if (dyn_cast<LoadInst>(Inst))
+      ShuffleVecSize = DL.getTypeSizeInBits(VecTy);
+    else
+      ShuffleVecSize = DL.getTypeSizeInBits(VecTy) / Factor;
+
     // Let's send the vector length computed by the vectorizer. It
     // might change in the future based on some other situations.
     OptVLSInterface::getGroups(Mrfs, Grps, ShuffleVecSize / BYTE);
@@ -276,36 +367,50 @@ public:
       // Get the optimized-sequence computed by OptVLS.
       if (OptVLSInterface::getSequence(*Grp, CM, InstVec, &MemrefToInstMap)) {
         Value *Addr;
-        if (auto *LI = dyn_cast<LoadInst>(Inst))
+        Type *ElemTy;
+        unsigned Alignment = 0;
+        if (auto *LI = dyn_cast<LoadInst>(Inst)) {
           Addr = LI->getPointerOperand();
-        else
-          Addr = (cast<StoreInst>(Inst))->getPointerOperand();
-
+          ElemTy = LI->getType()->getVectorElementType();
+          Alignment = LI->getAlignment();
+        } else {
+          auto *SI = cast<StoreInst>(Inst);
+          Addr = SI->getPointerOperand();
+          ElemTy = SI->getValueOperand()->getType()->getVectorElementType();
+          Alignment = SI->getAlignment();
+        }
         // Translate the optimized-sequence(from OVLS-pseudo instruction type )
         // to LLVM-IR instruction type.
-        // Alignment is hard-coded as 16 here. It can be extracted from the
-        // memory access instruction using getAlignment().
-        InstMap = OVLSConverter::genLLVMIR(
-            Builder, InstVec, Addr, Inst->getType()->getVectorElementType(),
-            16);
+        InstMap = OVLSConverter::genLLVMIR(Builder, InstVec, Shuffles[0], Addr,
+                                           ElemTy, Alignment);
       } else
         return false;
     }
 
     // Now replace the unoptimized-interleaved-vectors with the
     // transposed-interleaved vectors.
-    for (unsigned i = 0; i < Shuffles.size(); ++i) {
-      It = ShuffleToMemrefMap.find(Shuffles[i]);
-      assert(It != ShuffleToMemrefMap.end() && "Memref not found!!!");
-      It1 = MemrefToInstMap.find(It->second);
-      assert(It1 != MemrefToInstMap.end() && "OVLSInstrcution not found!!!");
-      OVLSInstruction *ORInst = It1->second;
-      Value *RInst = InstMap[ORInst->getId()];
-      Shuffles[i]->replaceAllUsesWith(RInst);
+    // Required only for Load Instruction Shuffles;
+    // For stores, the use of the shuffle is only in the Store Instruction.
+    if (isa<LoadInst>(Inst)) {
+      for (unsigned i = 0; i < Shuffles.size(); ++i) {
+        It = ShuffleToMemrefMap.find(Shuffles[i]);
+        assert(It != ShuffleToMemrefMap.end() && "Memref not found!!!");
+        It1 = MemrefToInstMap.find(It->second);
+        assert(It1 != MemrefToInstMap.end() && "OVLSInstrcution not found!!!");
+        OVLSInstruction *ORInst = It1->second;
+        Value *RInst = InstMap[ORInst->getId()];
+        Shuffles[i]->replaceAllUsesWith(RInst);
+      }
     }
-
     return true;
   }    // end of lowerIntoOptimizedSequenceByOptVLS.
+
+  ~X86InterleavedAccessGroup() {
+    // Clear the intermediate StoreShuffles generated.
+    for (auto *I : StoreShuffles)
+      delete (I);
+  }
+
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -1022,6 +1127,17 @@ bool X86TargetLowering::lowerInterleavedStore(StoreInst *SI,
 
   assert(SVI->getType()->getVectorNumElements() % Factor == 0 &&
          "Invalid interleaved store");
+#if INTEL_CUSTOMIZATION
+  // The condition here checks for simple cases where Factor is found to be the
+  // same as the number of elements in mask/result vector. Eg:
+  // result = shufflevector <4 x i64> %1, <4 x i64> undef, <4 x i32> <i32 0,i32
+  //            0,i32 0,i32 0>
+  // Factor = 4.
+  // This is not a valid candidate for InterleavedAccessPass.
+  // This should be recognized in function isReInterleaveMask().
+  if (SVI->getType()->getVectorNumElements() == Factor)
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Holds the indices of SVI that correspond to the starting index of each
   // interleaved shuffle.
@@ -1041,7 +1157,9 @@ bool X86TargetLowering::lowerInterleavedStore(StoreInst *SI,
       TargetTransformInfo(X86TTIImpl(X86TM, *(SI->getFunction())));
   X86InterleavedAccessGroup Grp(SI, Shuffles, Indices, Factor, Subtarget,
                                 Builder, TTI);
-#endif // INTEL_CUSTOMIZATION
+  if (Grp.isSupported() && Grp.lowerIntoOptimizedSequence())
+    return true;
 
-  return Grp.isSupported() && Grp.lowerIntoOptimizedSequence();
+  return Grp.lowerIntoOptimizedSequenceByOptVLS();
+#endif // INTEL_CUSTOMIZATION
 }

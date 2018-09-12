@@ -1505,7 +1505,6 @@ bb:
   ret i32 %tmp29
 }
 
-; INTEL_CUSTOMIZATION
 ; This test contains two absolute difference patterns joined by an add. The result of that add is then reduced to a single element.
 ; SelectionDAGBuilder should tag the joining add as a vector reduction. We neeed to recognize that both sides can use psadbw.
 define i32 @sad_double_reduction(<16 x i8>* %arg, <16 x i8>* %arg1, <16 x i8>* %arg2, <16 x i8>* %arg3) {
@@ -1601,4 +1600,3 @@ bb:
   %tmp28 = extractelement <16 x i32> %tmp27, i64 0
   ret i32 %tmp28
 }
-; endif INTEL_CUSTOMIZATION

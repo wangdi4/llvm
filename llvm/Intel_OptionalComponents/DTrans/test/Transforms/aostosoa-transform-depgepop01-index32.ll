@@ -75,8 +75,7 @@ define internal void @test03(%struct.test01* %in) {
     bitcast (%struct.test01**
       getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1)
     to i8**)
-; CHECK: [[INDEX32_1:%[0-9]+]] = ptrtoint i8* %val_i8 to i32
-; CHECK: store i32 [[INDEX32_1]], i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1)
+; CHECK: store i32 %val, i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1)
 
   ; Do another store using the same bitcast gep. The bitcast and gep
   ; operators are constants within LLVM internally, so the pointer operand for
@@ -87,8 +86,7 @@ define internal void @test03(%struct.test01* %in) {
     bitcast (%struct.test01**
       getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1)
     to i8**)
-; CHECK: [[INDEX32_2:%[0-9]+]] = ptrtoint i8* %in_i8 to i32
-; CHECK: store i32 [[INDEX32_2]], i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1)
+; CHECK: store i32 %in, i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 1)
 
   ret void
 }
@@ -124,8 +122,7 @@ define internal void @test05(%struct.test01** %in) {
     bitcast (%struct.test01***
       getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 2)
     to i8**)
-; CHECK:  [[SOA_BC:%[0-9]+]] = bitcast i8* %in8 to i32*
-; CHECK: store i32* [[SOA_BC]], i32** getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 2)
+; CHECK: store i32* %in, i32** getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 2)
 
   ret void
 }

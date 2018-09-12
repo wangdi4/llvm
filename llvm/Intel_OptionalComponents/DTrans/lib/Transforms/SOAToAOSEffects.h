@@ -469,7 +469,9 @@ using const_scc_arith_inst_dep_iterator = base_scc_iterator<
     GraphTraits<ArithDepGraph<const Value *>>::ChildIteratorType,
     scc_iterator<ArithDepGraph<const Value *>>::value_type>;
 
+struct Idioms;
 struct ArrayIdioms;
+struct StructIdioms;
 struct DepCmp;
 // The following class is owned by class DepManager.
 // It is declared at top level for DenseMapInfo specialization.
@@ -555,6 +557,10 @@ private:
 
   // Analysis of computed approximations for array's methods.
   friend struct ArrayIdioms;
+  // Analysis of computed approximations for struct's methods.
+  friend struct StructIdioms;
+  // Analysis of fields common to ArrayIdioms and StructIdioms.
+  friend struct Idioms;
   // Deterministic order in debug printing.
   friend struct DepCmp;
 

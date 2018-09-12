@@ -79,7 +79,6 @@ class VPOParoptPass : public PassInfoMixin<VPOParoptPass> {
 public:
   explicit VPOParoptPass(unsigned MyMode = vpo::ParTrans | vpo::OmpPar |
                                            vpo::OmpVec,
-                         const std::vector<std::string> &OffloadTargets = {},
                          unsigned OptLevel = 2);
   ~VPOParoptPass(){};
 
@@ -116,9 +115,6 @@ private:
 
   // Optimization level.
   unsigned OptLevel;
-
-  // List of target triples for offloading.
-  SmallVector<Triple, 16> OffloadTargets;
 };
 
 namespace vpo {
@@ -131,7 +127,6 @@ public:
   static char ID;
 
   explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
-                     const std::vector<std::string> &OffloadTargets = {},
                      unsigned OptLevel = 2);
   ~VPOParopt(){};
 

@@ -271,10 +271,14 @@ bool llvm::isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
   return getAllocationData(V, ReallocLike, TLI, LookThroughBitCast).hasValue();
 }
 
-/// Tests if a value is a call or invoke to a library C++ function new/new[].
+/// Tests if a value is a call or invoke to a library function that returns
+/// non-null result
 bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                        bool LookThroughBitCast) {
-  return getAllocationData(V, OpNewLike, TLI, LookThroughBitCast).hasValue();
+  auto Data = getAllocationData(V, OpNewLike, TLI, LookThroughBitCast);
+  if (!Data)
+    return false;
+  return Data.getValue().AllocTy == OpNewLike;
 }
 #endif // INTEL_CUSTOMIZATION
 

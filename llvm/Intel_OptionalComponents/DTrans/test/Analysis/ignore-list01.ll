@@ -22,7 +22,7 @@ define dso_local i32 @main() {
   ret i32 0
 }
 
-; CHECK: dtrans-ignore-list:
+; CHECK: dtrans-nosafetychecks-list:
 ; CHECK-NEXT:        Skipping 'first': transform name or types list is missing
 ; CHECK-NEXT:        Skipping 'deletefields:one,two': bad transformation name
 ; CHECK-NEXT:        Adding   'aostosoa:three'

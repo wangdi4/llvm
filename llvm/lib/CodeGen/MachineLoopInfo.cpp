@@ -188,7 +188,7 @@ MDNode *MachineLoop::getLoopID() const {
         MDNode *MD = nullptr;
 
         // Check if this terminating instruction jumps to the loop header.
-        for (const auto *S : TI->successors()) {
+        for (const auto *S : successors(TI)) {
           if (S == H) {
             // This is a jump to the header - gather the metadata from it.
             MD = TI->getMetadata(LLVMContext::MD_loop);

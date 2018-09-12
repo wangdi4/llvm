@@ -90,12 +90,10 @@ public:
                      LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
                      const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
-                     const SmallVectorImpl<Triple> &OffloadTargets,
                      unsigned OptLevel = 2, bool SwitchToOffload = false)
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
         AA(AA), Mode(Mode), TargetTriple(F->getParent()->getTargetTriple()),
         OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
-        OffloadTargets(OffloadTargets.begin(), OffloadTargets.end()),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
@@ -144,9 +142,6 @@ private:
 
   /// \brief Offload compilation mode.
   bool SwitchToOffload;
-
-  /// \brief List of target triples for offloading.
-  SmallVector<Triple, 16> OffloadTargets;
 
   /// \brief Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;
@@ -515,6 +510,9 @@ private:
   /// \brief Reset the expression value in IsDevicePtr clause to be empty.
   void resetValueInIsDevicePtrClause(WRegionNode *W);
 
+  /// Set the value in num_teams and thread_limit clause to be empty.
+  void resetValueInNumTeamsAndThreadsClause(WRegionNode *W);
+
   /// \brief Reset the value in the Map clause to be empty.
   void resetValueInMapClause(WRegionNode *W);
 
@@ -628,6 +626,11 @@ private:
   /// \brief Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
+
+  /// \brief Return true if the program is compiled at the offload mode.
+  bool hasOffloadCompilation() {
+    return ((Mode & OmpOffload) || SwitchToOffload);
+  }
 
   /// \brief Finds the alloc stack variables where the tid stores.
   void getAllocFromTid(CallInst *Tid);
@@ -1038,13 +1041,6 @@ private:
   /// #pragma omp taskgroup
   bool genTaskgroupRegion(WRegionNode *W);
 
-  /// \brief Collect the instructions of global variable uses recursively to
-  /// handle the case of nested constant expressions.
-  void
-  collectGlobalUseInsnsRecursively(WRegionNode *W,
-                                   SmallVectorImpl<Instruction *> &RewriteCons,
-                                   ConstantExpr *CE);
-
   /// \brief Add alias_scope and no_alias metadata to improve the alias
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
@@ -1054,6 +1050,34 @@ private:
   /// arguments.
   Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
                                    CallInst *&Call);
+
+  ///  Generate the iteration space partitioning code based on OpenCL.
+  ///  Given a loop as follows.
+  ///  \code
+  ///    for (i = 0; i <= ub; i++)
+  ///  \endcode
+  ///  The output of partitioning as below.
+  ///  \code
+  ///    chunk_size = (ub + get_local_size()) / get_local_size();
+  ///    new_lb = get_local_id * chunk_size;
+  ///    new_ub = min(chunk_size - 1, ub);
+  ///    for (i = new_lb; i <= new_ub; i++)
+  ///  \endcode
+  ///  Here we assume the global_size is equal to local_size, which means
+  ///  there is only one workgroup.
+  bool genOCLParallelLoop(WRegionNode *W);
+
+  /// \brief Generate the placeholders for the loop lower bound and upper bound.
+  void genLoopBoundUpdatePrep(WRegionNode *W, AllocaInst *&LowerBnd,
+                              AllocaInst *&UpperBnd);
+
+  /// \brief Generate the OCL loop update code.
+  void genOCLLoopBoundUpdateCode(WRegionNode *W, AllocaInst *LowerBnd,
+                                 AllocaInst *UpperBnd);
+
+  /// \breif Generate the OCL loop scheduling code.
+  void genOCLLoopPartitionCode(WRegionNode *W, AllocaInst *LowerBnd,
+                               AllocaInst *UpperBnd);
 };
 } /// namespace vpo
 } /// namespace llvm
