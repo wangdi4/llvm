@@ -494,8 +494,10 @@ private:
     void initializeTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
                                          StringRef ParentName, unsigned LineNum,
                                          unsigned Order);
-    /// Register target region entry.
-    void registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+#if INTEL_CUSTOMIZATION
+    /// Register target region entry. Return the entry's order in the table.
+    int registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+#endif // INTEL_CUSTOMIZATION
                                        StringRef ParentName, unsigned LineNum,
                                        llvm::Constant *Addr, llvm::Constant *ID,
                                        OMPTargetRegionEntryKind Flags);
@@ -627,7 +629,11 @@ private:
   /// found along the way.
   /// \param S Starting statement.
   /// \param ParentName Name of the function declaration that is being scanned.
-  void scanForTargetRegionsFunctions(const Stmt *S, StringRef ParentName);
+#if INTEL_CUSTOMIZATION
+  /// \return True if scan has found target regions in the statement and false
+  /// otherwise.
+  bool scanForTargetRegionsFunctions(const Stmt *S, StringRef ParentName);
+#endif // INTEL_CUSTOMIZATION
 
   /// Build type kmp_routine_entry_t (if not built yet).
   void emitKmpRoutineEntryT(QualType KmpInt32Ty);
@@ -1310,6 +1316,13 @@ public:
   virtual void emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
                               const Expr *IfCond,
                               OpenMPDirectiveKind CancelRegion);
+
+
+#if INTEL_CUSTOMIZATION
+  /// Register target region in the offload entry manager. Return entry's index.
+  virtual int registerTargetRegion(const OMPExecutableDirective &D,
+                                   StringRef ParentName);
+#endif // INTEL_CUSTOMIZATION
 
   /// Emit outilined function for 'target' directive.
   /// \param D Directive to emit.

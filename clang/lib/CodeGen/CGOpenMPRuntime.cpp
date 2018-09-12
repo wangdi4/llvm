@@ -3581,7 +3581,7 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
   ++OffloadingEntriesNum;
 }
 
-void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+int CGOpenMPRuntime::OffloadEntriesInfoManagerTy:: // INTEL
     registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
                                   StringRef ParentName, unsigned LineNum,
                                   llvm::Constant *Addr, llvm::Constant *ID,
@@ -3594,7 +3594,7 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
           DiagnosticsEngine::Error,
           "Unable to find target region on line '%0' in the device code.");
       CGM.getDiags().Report(DiagID) << LineNum;
-      return;
+      return -1; // INTEL
     }
     auto &Entry =
         OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
@@ -3607,6 +3607,10 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
     OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
     ++OffloadingEntriesNum;
   }
+#if INTEL_CUSTOMIZATION
+  auto &E = OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+  return E.getOrder();
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool CGOpenMPRuntime::OffloadEntriesInfoManagerTy::hasTargetRegionEntryInfo(
@@ -3952,6 +3956,11 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   OffloadEntriesInfoManager.actOnDeviceGlobalVarEntriesInfo(
       DeviceGlobalVarMetadataEmitter);
+
+#if INTEL_CUSTOMIZATION
+  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   for (const auto *E : OrderedEntries) {
     assert(E && "All ordered entries must exist!");
@@ -6241,6 +6250,23 @@ void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
+                                          StringRef ParentName) {
+
+  unsigned DeviceID;
+  unsigned FileID;
+  unsigned Line;
+  getTargetEntryUniqueInfo(CGM.getContext(), D.getBeginLoc(), DeviceID, FileID,
+                           Line);
+
+  // Register the information for the entry associated with this target region.
+  return OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+      DeviceID, FileID, ParentName, Line, nullptr, nullptr,
+      OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CGOpenMPRuntime::emitTargetOutlinedFunction(
     const OMPExecutableDirective &D, StringRef ParentName,
     llvm::Function *&OutlinedFn, llvm::Constant *&OutlinedFnID,
@@ -8272,10 +8298,10 @@ void CGOpenMPRuntime::emitTargetCall(CodeGenFunction &CGF,
   }
 }
 
-void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
+bool CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S, // INTEL
                                                     StringRef ParentName) {
   if (!S)
-    return;
+    return false; // INTEL
 
   // Codegen OMP target directives that offload compute to the device.
   bool RequiresDeviceCodegen =
@@ -8295,7 +8321,12 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     // so just signal we are done with this target region.
     if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(DeviceID, FileID,
                                                             ParentName, Line))
-      return;
+      return false; // INTEL
+
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+      return true;
+#endif // INTEL_CUSTOMIZATION
 
     switch (E.getDirectiveKind()) {
     case OMPD_target:
@@ -8387,16 +8418,15 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_unknown:
       llvm_unreachable("Unknown target directive for OpenMP device codegen.");
     }
-    return;
+    return true; // INTEL
   }
 
   if (const auto *E = dyn_cast<OMPExecutableDirective>(S)) {
     if (!E->hasAssociatedStmt() || !E->getAssociatedStmt())
-      return;
+      return false; // INTEL
 
-    scanForTargetRegionsFunctions(
+    return scanForTargetRegionsFunctions( // INTEL
         E->getInnermostCapturedStmt()->getCapturedStmt(), ParentName);
-    return;
   }
 
   // If this is a lambda function, look into its body.
@@ -8404,8 +8434,12 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     S = L->getBody();
 
   // Keep looking for target regions recursively.
+#if INTEL_CUSTOMIZATION
+  bool HasTargetRegions = false;
   for (const Stmt *II : S->children())
-    scanForTargetRegionsFunctions(II, ParentName);
+    HasTargetRegions |= scanForTargetRegionsFunctions(II, ParentName);
+  return HasTargetRegions;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
@@ -8416,8 +8450,17 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
 
   // Try to detect target regions in the function.
   const ValueDecl *VD = cast<ValueDecl>(GD.getDecl());
-  if (const auto *FD = dyn_cast<FunctionDecl>(VD))
-    scanForTargetRegionsFunctions(FD->getBody(), CGM.getMangledName(GD));
+  if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {  // INTEL
+#if INTEL_CUSTOMIZATION
+    bool HasTargetRegions =
+        scanForTargetRegionsFunctions(FD->getBody(), CGM.getMangledName(GD));
+
+    // Emit functions with target regions if doing BE outlining.
+    if (HasTargetRegions &&
+        CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Do not to emit function if it is not marked as declare target.
   return !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&
@@ -8571,6 +8614,12 @@ llvm::Function *CGOpenMPRuntime::emitRegistrationFunction() {
   // If we have offloading in the current module, we need to emit the entries
   // now and register the offloading descriptor.
   createOffloadEntriesAndInfoMetadata();
+
+#if INTEL_CUSTOMIZATION
+  // Offload registration is created by BE with late outlining.
+  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   // Create and register the offloading binary descriptors. This is the main
   // entity that captures all the information about offloading in the current

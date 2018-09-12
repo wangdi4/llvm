@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGIntelStmtOpenMP.h"
+#include "CGOpenMPRuntime.h"
 using namespace clang;
 using namespace CodeGen;
 using namespace CGIntelOpenMP;
@@ -1301,6 +1302,8 @@ namespace CGIntelOpenMP {
     for (auto &D : Directives) {
       D.CallEntry =
           CGF.Builder.CreateCall(RegionEntryDirective, {}, D.OpBundles);
+      for (auto &MD : MDNodes)
+        D.CallEntry->setMetadata(MD.first(), MD.second);
       D.clear();
       // Place the end directive in place of the start.
       emitDirective(D, D.End);
@@ -1602,11 +1605,35 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_ordered:
     Outliner.emitOMPOrderedDirective();
     break;
-  case OMPD_target:
+  case OMPD_target: {
     HasExtraCaptureStmt = true;
     CGM.setHasTargetCode();
+
+    // Register target region in the entry manager.
+    assert(CurFuncDecl && "No parent declaration for target region!");
+    StringRef ParentName;
+    // In case we have Ctors/Dtors we use the complete type variant to produce
+    // the mangling of the device outlined kernel.
+    if (const auto *D = dyn_cast<CXXConstructorDecl>(CurFuncDecl))
+      ParentName = CGM.getMangledName(GlobalDecl(D, Ctor_Complete));
+    else if (const auto *D = dyn_cast<CXXDestructorDecl>(CurFuncDecl))
+      ParentName = CGM.getMangledName(GlobalDecl(D, Dtor_Complete));
+    else
+      ParentName =
+          CGM.getMangledName(GlobalDecl(cast<FunctionDecl>(CurFuncDecl)));
+
+    int Order = CGM.getOpenMPRuntime().registerTargetRegion(S, ParentName);
+    assert(Order >= 0 && "No entry for the target region");
+
+    // Attach entry's index to the directive as metadata.
+    llvm::Metadata *MD = llvm::ConstantAsMetadata::get(
+        llvm::ConstantInt::get(CGM.Int32Ty, Order));
+    Outliner.addMetadata("omp_offload.entry",
+        llvm::MDNode::getDistinct(CGM.getLLVMContext(), { MD }));
+
     Outliner.emitOMPTargetDirective();
     break;
+  }
   case OMPD_target_data:
     CGM.setHasTargetCode();
     Outliner.emitOMPTargetDataDirective();
