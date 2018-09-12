@@ -48,13 +48,15 @@ using namespace llvm;
 namespace {
 
 //>>>>>> THE INTRINSIC MAPPING TABLE <<<<<<
-// add entries for any more intrinsics that need to be converted:
-// intrinsic_table[i].first:  the generated name of the Fortran function to
-// convert intrinsic_table[i].second: the ID of the intrinsic to convert it to
+// Add entries for any more intrinsics that need to be converted:
 //
-// note the underscore at the end of the Fortran function names - that seems to
-// be  added by the compiler, so if this table has an entry for "builtin_thing_"
-// it  will correspond to a call that looks like this in Fortran:
+//  intrinsic_table[i].first:  The generated name of the Fortran function to
+//                             convert.
+//  intrinsic_table[i].second: The ID of the intrinsic to convert it to.
+//
+// Note the underscore at the end of the Fortran function names - that seems to
+// be added by the compiler, so if this table has an entry for "builtin_thing_"
+// it will correspond to a call that looks like this in Fortran:
 //
 //  call builtin_thing()
 //

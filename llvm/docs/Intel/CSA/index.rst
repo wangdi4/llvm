@@ -11,6 +11,7 @@ CSA
    :hidden:
 
    DataflowConversion
+   PathfindingBuiltins
 
 Introduction
 ============
@@ -27,11 +28,12 @@ The following is an overview of CSA-specific passes and where they fit into the
 general compilation flow:
 
 - Frontend
-- CSA Builtin Lowering (CSAFortranIntrinsics, CSALoopIntrinsicExpander) - Lowers
+- :doc:`CSA Builtin Lowering <PathfindingBuiltins>`
+  (:ref:`CSAFortranIntrinsics`, :ref:`CSALoopIntrinsicExpander`) - Lowers
   user-facing pathfinding builtins into common/internal forms.
 - Generic IR optimizations + LoopSPMDization
 - Late CSA IR passes (CSAIRReductionOpt, StructurizeCFG, CSAInnerLoopPrep,
-  CSAStreamingMemoryPrep, CSAIntrinsicCleaner) - These perform extra
+  CSAStreamingMemoryPrep, :ref:`CSAIntrinsicCleaner`) - These perform extra
   CSA-advantaged optimizations and prepare the code for instruction selection.
 - Instruction Selection + CSAExpandInlineAsm
 - CSA Memory Operation Ordering (CSAMemopOrdering) - Inserts ordering edges
@@ -102,5 +104,10 @@ Topics
 
 The following is a full list of CSA compilation topics documented here:
 
-- :doc:`Dataflow conversion <DataflowConversion>` - The dataflow conversion pass
-  of CSA.
+.. NOTE: These should be in alphabetical order.
+
+:doc:`Dataflow Conversion <DataflowConversion>`
+  The dataflow conversion pass of CSA.
+:doc:`Pathfinding Builtins <PathfindingBuiltins>`
+  The set of intrinsics added to annotate code in the pathfinding compiler and
+  related passes.
