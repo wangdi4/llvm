@@ -480,10 +480,7 @@ bool CSAInstrInfo::isStore(const MachineInstr *MI) const {
 }
 
 bool CSAInstrInfo::isMOV(const MachineInstr *MI) const {
-  // TODO: There is a pass that fails if we mark MOV0 as a MOV. This is a bug in
-  // that pass, but we disable it here for now.
-  return getGenericOpcode(MI->getOpcode()) == CSA::Generic::MOV &&
-         MI->getOpcode() != CSA::MOV0;
+  return getGenericOpcode(MI->getOpcode()) == CSA::Generic::MOV;
 }
 
 bool CSAInstrInfo::isAtomic(const MachineInstr *MI) const {

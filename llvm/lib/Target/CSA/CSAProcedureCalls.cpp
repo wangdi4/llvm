@@ -194,7 +194,7 @@ unsigned CSAProcCallsPass::getParamReg(const std::string &caller_func, const std
 
 void CSAProcCallsPass::getCallSiteArgs(CALL_SITE_INFO &csi, MachineInstr *entryMI, bool isDeclared) {
   csi.call_site_args.push_back(getParamReg(csi.caller_func, "caller_out_mem_ord_", csi.call_site_index, 0,
-                                            &CSA::CI1RegClass, isDeclared, true));
+                                            &CSA::CI0RegClass, isDeclared, true));
   for (unsigned int i = 1; i < entryMI->getNumOperands(); ++i) {
     csi.call_site_args.push_back(getParamReg(csi.caller_func, "param_", csi.call_site_index, i,
                                             &CSA::CI64RegClass, isDeclared, true));
@@ -203,7 +203,7 @@ void CSAProcCallsPass::getCallSiteArgs(CALL_SITE_INFO &csi, MachineInstr *entryM
 
 void CSAProcCallsPass::getReturnArgs(CALL_SITE_INFO &csi, MachineInstr *returnMI, bool isDeclared) {
   csi.return_args.push_back(getParamReg(csi.caller_func, "caller_in_mem_ord_", csi.call_site_index, 0,
-                                            &CSA::CI1RegClass, isDeclared, true));
+                                            &CSA::CI0RegClass, isDeclared, true));
   for (unsigned int i = 1; i < returnMI->getNumOperands(); ++i) {
     csi.return_args.push_back(getParamReg(csi.caller_func, "result_", csi.call_site_index, i,
                                             &CSA::CI64RegClass, isDeclared, true));
@@ -416,7 +416,7 @@ static MachineInstr *getFirstMI(MachineFunction *MF) {
 // Input code:
 // Function Live Ins: %P64_2 in %vreg0
 // BB#0: derived from LLVM BB %entry
-// %vreg4<def> = MOV0 %RA; CI1:%vreg4 (will be deleted)
+// %vreg4<def> = MOV0 %RA; CI0:%vreg4 (will be deleted)
 // %vreg0<def> = COPY %P64_2; CI32:%vreg0 (will be deleted)
 // ------->
 // Output code:
@@ -427,7 +427,7 @@ static MachineInstr *getFirstMI(MachineFunction *MF) {
 // vreg0 is the input parameter
 MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
   MachineInstr *copyMI;
-  unsigned reg1 = LMFI->allocateLIC(&CSA::CI1RegClass, Twine("callee_in_caller_mem_ord"));
+  unsigned reg1 = LMFI->allocateLIC(&CSA::CI0RegClass, Twine("callee_in_caller_mem_ord"));
   MachineInstr *firstMI = getFirstMI(thisMF);
   MachineInstrBuilder MIB = BuildMI(*(firstMI->getParent()), firstMI, firstMI->getDebugLoc(), TII->get(CSA::CSA_ENTRY))
                                     .addReg(reg1,RegState::Define);
@@ -514,7 +514,7 @@ MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
   MachineInstr *lastMI = getLastMI(thisMF);
   if (!lastMI || !lastMI->isReturn()) return nullptr;
   unsigned reg;
-  unsigned reg1 = LMFI->allocateLIC(&CSA::CI1RegClass, Twine("callee_out_caller_mem_ord"));
+  unsigned reg1 = LMFI->allocateLIC(&CSA::CI0RegClass, Twine("callee_out_caller_mem_ord"));
   MachineInstrBuilder MIB = BuildMI(*(lastMI->getParent()), lastMI, lastMI->getDebugLoc(), TII->get(CSA::CSA_RETURN))
                                     .addReg(reg1);
   MachineInstr *MI = &*MIB;
@@ -673,7 +673,7 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
       int caller_id = get_func_order(name,M);
       bool isDeclared = (callee_id > caller_id);
       unsigned reg1 = getParamReg(name, "caller_out_mem_ord_", CallSiteIndex, 0,
-                                            &CSA::CI1RegClass, isDeclared, true);
+                                            &CSA::CI0RegClass, isDeclared, true);
       MachineInstrBuilder Call_MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::CSA_CALL))
                                         .add(MI->getOperand(0))
                                         .addImm(CallSiteIndex)
@@ -701,7 +701,7 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
         }
       }
       reg1 = getParamReg(name, "caller_in_mem_ord_", CallSiteIndex, 0,
-                                            &CSA::CI1RegClass, isDeclared, true);
+                                            &CSA::CI0RegClass, isDeclared, true);
       MachineInstrBuilder Cont_MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::CSA_CONTINUE))
                                             .addReg(reg1, RegState::Define);
       // Get to the instruction after JSR
