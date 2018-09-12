@@ -39,7 +39,7 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TOFROM"(i32* @x) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TOFROM"(i32* @x) ], !omp_offload.entry !6
   %3 = load i32, i32* @x, align 4, !tbaa !1
   %add = add nsw i32 %3, 1
   store i32 %add, i32* @x, align 4, !tbaa !1
@@ -79,6 +79,7 @@ attributes #1 = { argmemonly nounwind }
 attributes #2 = { nounwind }
 attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
+!omp_offload.info = !{!5}
 !llvm.ident = !{!0}
 
 !0 = !{!"clang version 5.0.0 (cfe/trunk)"}
@@ -86,6 +87,8 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !2 = !{!"int", !3, i64 0}
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
+!5 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 42, i32 0}
+!6 = distinct !{i32 0}
 
 ; CHECK:  @.omp_offloading.img_start.x86_64-mic
 ; CHECK:  @.omp_offloading.img_end.x86_64-mic

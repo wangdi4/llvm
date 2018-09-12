@@ -36,6 +36,10 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParopt"
 
+static cl::opt<bool> UseOffloadMetadata(
+  "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
+  cl::desc("Use offload metadata created by clang in paropt lowering."));
+
 // Perform paropt transformations for the module. Each module's function is
 // transformed by a separate VPOParoptTransform instance which performs
 // paropt transformations on a function level. Then, after tranforming all
@@ -48,6 +52,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   bool Changed = false;
 
   processDeviceTriples();
+  loadOffloadMetadata();
 
   /// As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -124,7 +129,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     genOffloadEntries();
   }
 
-  if (((Mode & OmpOffload) || SwitchToOffload) && (Mode & ParTrans)) {
+  if (hasOffloadCompilation() && (Mode & ParTrans)) {
     removeTargetUndeclaredGlobals();
     if (VPOAnalysisUtils::isTargetSPIRV(&M)) {
       // Add the metadata to indicate that the module is OpenCL C version.
@@ -411,7 +416,7 @@ GlobalVariable *VPOParoptModuleTransform::getDsoHandle() {
 
 // Register the offloading binary descriptors.
 void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
-  if (hasOffloadCompilation() || TargetRegions.empty())
+  if (hasOffloadCompilation() || OffloadEntries.empty())
     return;
 
   auto OffloadEntryTy = getTgOffloadEntryTy();
@@ -554,8 +559,104 @@ Function *VPOParoptModuleTransform::createTgDescRegisterLib(
   return Fn;
 }
 
+void VPOParoptModuleTransform::loadOffloadMetadata() {
+  if (!UseOffloadMetadata)
+    return;
+
+  auto *MD = M.getNamedMetadata("omp_offload.info");
+  if (!MD)
+    return;
+
+  // Helper for adding offload entries - resizes entries containter as needed.
+  auto && addEntry = [&](OffloadEntry *E, size_t Idx) {
+    auto NewSize = Idx + 1u;
+    if (OffloadEntries.size() < NewSize)
+      OffloadEntries.resize(NewSize);
+    assert(!OffloadEntries[Idx] && "more than one entry with the same index");
+    OffloadEntries[Idx] = E;
+  };
+
+  // Populate offload entries using information from the offload metadata.
+  for (auto *Node : MD->operands()) {
+    auto && getMDInt = [Node](unsigned I) {
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<ConstantInt>(V->getValue())->getZExtValue();
+    };
+
+    auto && getMDString = [Node](unsigned I) {
+      auto *V = cast<MDString>(Node->getOperand(I));
+      return V->getString();
+    };
+
+    switch (getMDInt(0)) {
+      case OffloadEntry::EntryKind::RegionKind: {
+        auto Device = getMDInt(1u);
+        auto File = getMDInt(2u);
+        auto Parent = getMDString(3u);
+        auto Line = getMDInt(4u);
+        auto Idx = getMDInt(5u);
+
+        // Compose name.
+        SmallString<64u> Name;
+        llvm::raw_svector_ostream(Name) << "__omp_offloading"
+          << llvm::format("_%x", Device) << llvm::format("_%x_", File)
+          << Parent << "_l" << Line;
+
+        addEntry(new RegionEntry(Name, RegionEntry::Region), Idx);
+        break;
+      }
+      case OffloadEntry::EntryKind::VarKind: {
+        auto Name = getMDString(1u);
+        auto Flags = getMDInt(2u);
+        auto Idx = getMDInt(3u);
+
+        auto *Var = M.getGlobalVariable(Name, true);
+        assert(Var && "no global variable with given name");
+        assert(Var->isTargetDeclare() && "must be a target declare variable");
+
+        addEntry(new VarEntry(Var, Flags), Idx);
+        break;
+      }
+      default:
+        llvm_unreachable("unexpected metadata!");
+    }
+  }
+}
+
 Constant* VPOParoptModuleTransform::registerTargetRegion(WRegionNode *W,
                                                          Constant *Func) {
+  auto && getOffloadEntry = [&]() -> OffloadEntry* {
+    if (!UseOffloadMetadata) {
+      // Old behavior where offload entries are created on the fly.
+      auto *Entry = new RegionEntry(Func->getName(), RegionEntry::Region);
+      OffloadEntries.push_back(Entry);
+      return Entry;
+    }
+
+    // Find existing entry in the table.
+    int Idx = W->getOffloadEntryIdx();
+    assert(Idx >= 0 && "target region with no entry index");
+    auto *Entry = OffloadEntries[Idx];
+    assert(Entry && "entry index with no entry");
+
+    // Update outlined function name.
+    Func->setName(Entry->getName());
+    return Entry;
+  };
+
+  auto && genRegionID = [&]() {
+    return new GlobalVariable(M, Type::getInt8Ty(C), true,
+                              GlobalValue::WeakAnyLinkage,
+                              Constant::getNullValue(Type::getInt8Ty(C)),
+                              Func->getName() + ".region_id");
+  };
+
+  if (VPOAnalysisUtils::isTargetSPIRV(&M))
+    return genRegionID();
+
+  // Get offload entry for this target region.
+  auto *Entry = getOffloadEntry();
+
   // Offload runtime needs an address which uniquely identifies the target
   // region. On the device side it has to be an address of the outlined
   // target region, but on the host side it can be anything which can uniquely
@@ -563,30 +664,34 @@ Constant* VPOParoptModuleTransform::registerTargetRegion(WRegionNode *W,
   // create a variable which would serve as target region ID. Since we are not
   // taking address of the outlined function on the host side it can still be
   // inlined.
-  Constant *ID = Func;
-  if (!hasOffloadCompilation())
-    ID = new GlobalVariable(M, Type::getInt8Ty(C), true,
-                            GlobalValue::WeakAnyLinkage,
-                            Constant::getNullValue(Type::getInt8Ty(C)),
-                            Func->getName() + ".region_id");
-  TargetRegions.push_back(std::make_pair(Func, ID));
+  if (hasOffloadCompilation()) {
+    Entry->setAddress(Func);
+    return Func;
+  }
+
+  // We can see the same target region in host compilation multiple times
+  // because of inlining. Do not create new region ID if it has already been
+  // created earlier.
+  if (auto *ID = Entry->getAddress())
+    return ID;
+  auto *ID = genRegionID();
+  Entry->setAddress(ID);
   return ID;
 }
 
 // Create offloading entry for the provided entry ID and address.
 void VPOParoptModuleTransform::genOffloadEntries() {
-  if (TargetRegions.empty())
+  if (OffloadEntries.empty())
     return;
 
   Type *VoidStarTy = Type::getInt8PtrTy(C);
   Type *SizeTy = IntelGeneralUtils::getSizeTTy(&M);
   Type *Int32Ty = Type::getInt32Ty(C);
 
-  for (auto &E : TargetRegions) {
-    auto *Func = E.first;
-    auto *ID = E.second;
+  for (auto *E : OffloadEntries) {
+    assert(E && E->getAddress() && "uninitialized offload entry");
 
-    StringRef Name = Func->getName();
+    StringRef Name = E->getName();
 
     Constant *StrInit = ConstantDataArray::getString(C, Name);
 
@@ -597,10 +702,11 @@ void VPOParoptModuleTransform::genOffloadEntries() {
     Str->setTargetDeclare(true);
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
-    EntryInitBuffer.push_back(ConstantExpr::getBitCast(ID, VoidStarTy));
+    EntryInitBuffer.push_back(
+        ConstantExpr::getBitCast(E->getAddress(), VoidStarTy));
     EntryInitBuffer.push_back(ConstantExpr::getBitCast(Str, VoidStarTy));
-    EntryInitBuffer.push_back(ConstantInt::get(SizeTy, 0));
-    EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, 0));
+    EntryInitBuffer.push_back(ConstantInt::get(SizeTy, E->getSize()));
+    EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, E->getFlags()));
     EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, 0));
 
     Constant *EntryInit =

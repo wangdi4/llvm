@@ -28,7 +28,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.MAP.FROM"(double* @gg), "QUAL.OMP.IS_DEVICE_PTR"(i32** @a), "QUAL.OMP.FIRSTPRIVATE"(double* @hh), "QUAL.OMP.PRIVATE"(i32* %i) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.MAP.FROM"(double* @gg), "QUAL.OMP.IS_DEVICE_PTR"(i32** @a), "QUAL.OMP.FIRSTPRIVATE"(double* @hh), "QUAL.OMP.PRIVATE"(i32* %i) ], !omp_offload.entry !11
   %1 = bitcast i32* %i to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #1
   store i32 0, i32* %i, align 4, !tbaa !2
@@ -79,6 +79,7 @@ attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 attributes #1 = { nounwind }
 attributes #2 = { argmemonly nounwind }
 
+!omp_offload.info = !{!10}
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}
 
@@ -92,7 +93,8 @@ attributes #2 = { argmemonly nounwind }
 !7 = !{!"double", !4, i64 0}
 !8 = !{!9, !9, i64 0}
 !9 = !{!"pointer@_ZTSPi", !4, i64 0}
-
+!10 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 31, i32 0}
+!11 = distinct !{i32 0}
 
 ; CHECK: [[DEVICE1:%[0-9]+]] = load i32*, i32** @a
 ; CHECK: [[DEVICE2:%[0-9]+]] = bitcast i32* [[DEVICE1]] to i8*

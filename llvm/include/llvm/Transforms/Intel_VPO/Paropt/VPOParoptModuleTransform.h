@@ -57,6 +57,10 @@ public:
       TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr)
   {}
 
+  ~VPOParoptModuleTransform() {
+    DeleteContainerPointers(OffloadEntries);
+  }
+
   /// Perform paropt transformation on a module.
   bool doParoptTransforms(
       std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
@@ -137,8 +141,91 @@ private:
   /// Create a variable that binds the atexit to this shared object.
   GlobalVariable *DsoHandle;
 
-  /// Information about outlined target regions.
-  SmallVector<std::pair<Constant*, Constant*>, 8u> TargetRegions;
+  /// Base class for offload entries. It is not supposed to be instantiated.
+  class OffloadEntry {
+  public:
+    enum EntryKind : unsigned {
+      RegionKind = 0,
+      VarKind    = 1u
+    };
+
+  protected:
+    explicit OffloadEntry(EntryKind Kind, StringRef Name, uint32_t Flags)
+      : Kind(Kind), Name(Name), Flags(Flags)
+    {}
+
+  public:
+    virtual ~OffloadEntry() = default;
+
+    EntryKind getKind() const { return Kind; }
+
+    StringRef getName() const { return Name; }
+
+    Constant *getAddress() const { return Addr; }
+
+    void setAddress(Constant *NewAddr) {
+      assert(!Addr && "Address has been set before!");
+      Addr = NewAddr;
+    }
+
+    uint32_t getFlags() const { return Flags; }
+    void setFlags(uint32_t NewFlags) { Flags = NewFlags; }
+
+    virtual size_t getSize() const = 0;
+
+  private:
+    EntryKind Kind;
+    SmallString<64u> Name;
+    Constant* Addr = nullptr;
+    uint32_t Flags = 0;
+  };
+
+  /// Target region entry.
+  class RegionEntry final : public OffloadEntry {
+  public:
+    enum : uint32_t {
+      Region = 0x00,
+      Ctor   = 0x02,
+      Dtor   = 0x04
+    };
+
+  public:
+    explicit RegionEntry(StringRef Name, uint32_t Flags)
+      : OffloadEntry(OffloadEntry::EntryKind::RegionKind, Name, Flags) {}
+
+    size_t getSize() const override { return 0; }
+
+    static bool classof(const OffloadEntry *E) {
+      return E->getKind() == OffloadEntry::EntryKind::RegionKind;
+    }
+  };
+
+  /// Global variable entry.
+  class VarEntry final : public OffloadEntry {
+  public:
+    enum : uint32_t {
+      DeclareTargetTo = 0x00,
+      DeclareTargetLink = 0x01
+    };
+
+  public:
+    explicit VarEntry(GlobalVariable *Var, uint32_t Flags)
+      : OffloadEntry(OffloadEntry::EntryKind::VarKind, Var->getName(), Flags) {
+      setAddress(Var);
+    }
+
+    size_t getSize() const override {
+      const auto *Var = cast<GlobalVariable>(getAddress());
+      return Var->getParent()->getDataLayout().getTypeAllocSize(Var->getType());
+    }
+
+    static bool classof(const OffloadEntry *E) {
+      return E->getKind() == OffloadEntry::EntryKind::VarKind;
+    }
+  };
+
+  /// Offload entries.
+  SmallVector<OffloadEntry*, 8u> OffloadEntries;
 
   /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
@@ -166,7 +253,12 @@ private:
   /// Process the device information into the triples.
   void processDeviceTriples();
 
-  /// Generate offload entry table.
+  /// Load offload metadata from the module and create offload entries that
+  /// need to be emitted after lowering all target constructs.
+  void loadOffloadMetadata();
+
+  /// Generate offload entry table. It should be done after completing all
+  /// transformations.
   void genOffloadEntries();
 
   /// Register the offloading binary descriptors.

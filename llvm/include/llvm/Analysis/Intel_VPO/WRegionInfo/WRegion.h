@@ -487,6 +487,9 @@ private:
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
   bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
+#if INTEL_CUSTOMIZATION
+  int OffloadEntryIdx;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -496,6 +499,9 @@ protected:
   void setDevice(EXPR E) { Device = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
   void setDefaultmapTofromScalar(bool Flag) { DefaultmapTofromScalar = Flag; }
+#if INTEL_CUSTOMIZATION
+  void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
@@ -512,6 +518,9 @@ public:
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
   bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
+#if INTEL_CUSTOMIZATION
+  int getOffloadEntryIdx() const { return OffloadEntryIdx; }
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;

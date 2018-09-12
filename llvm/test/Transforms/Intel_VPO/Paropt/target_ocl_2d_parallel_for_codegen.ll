@@ -47,7 +47,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @A), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @B), "QUAL.OMP.MAP.TOFROM"([100 x [100 x i32]]* @C), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last), "QUAL.OMP.PRIVATE"(i32* %.omp.lb3), "QUAL.OMP.PRIVATE"(i32* %.omp.stride5), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last6), "QUAL.OMP.PRIVATE"(i32* %k) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @A), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @B), "QUAL.OMP.MAP.TOFROM"([100 x [100 x i32]]* @C), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last), "QUAL.OMP.PRIVATE"(i32* %.omp.lb3), "QUAL.OMP.PRIVATE"(i32* %.omp.stride5), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last6), "QUAL.OMP.PRIVATE"(i32* %k) ], !omp_offload.entry !10
   %1 = bitcast i32* %.omp.iv to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #1
   %2 = bitcast i32* %.omp.lb to i8*
@@ -262,6 +262,7 @@ attributes #3 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 attributes #4 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #5 = { inaccessiblememonly nounwind speculatable }
 
+!omp_offload.info = !{!9}
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}
 
@@ -274,6 +275,8 @@ attributes #5 = { inaccessiblememonly nounwind speculatable }
 !6 = !{!7, !3, i64 0}
 !7 = !{!"array@_ZTSA100_A100_i", !8, i64 0}
 !8 = !{!"array@_ZTSA100_i", !3, i64 0}
+!9 = !{i32 0, i32 54, i32 -698850821, !"Compute", i32 50, i32 0}
+!10 = distinct !{i32 0}
 
 ; CHECK: [[LEVEL:%[0-9]+]] = getelementptr inbounds { i64, i64, i64, i64, i64, i64, i64 }, { i64, i64, i64, i64, i64, i64, i64 }* %loop.parameter.rec, i32 0, i32 0
 ; CHECK: store i64 2, i64* [[LEVEL]]

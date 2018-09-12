@@ -30,7 +30,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr) ], !omp_offload.entry !7
   br label %DIR.OMP.TEAMS.3
 
 DIR.OMP.TEAMS.3:                                  ; preds = %DIR.OMP.TARGET.1
@@ -57,6 +57,7 @@ attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 attributes #1 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { nounwind }
 
+!omp_offload.info = !{!6}
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}
 
@@ -66,5 +67,7 @@ attributes #2 = { nounwind }
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C++ TBAA"}
+!6 = !{i32 0, i32 54, i32 -698850821, !"_Z3fooi", i32 33, i32 0}
+!7 = distinct !{i32 0}
 
 ; CHECK:  call i32 @__tgt_target_teams({{.*}})
