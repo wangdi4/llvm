@@ -1082,7 +1082,7 @@ void DependenceAnalysis::unifySubscriptType(Subscript *Pair) {
 // the actual analysis.
 void DDTest::removeMatchingExtensions(Subscript *Pair) {
 
-  // TODO:  will handle this later
+// TODO:  will handle this later
 
 #if 0
   const CanonExpr *Src = Pair->Src;
@@ -4232,62 +4232,35 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   //     Need some work for refs outside loop - should always has a DV
   //     instead of  empty
 
-  bool IsSrcRval = false;
-  bool IsDstRval = false;
-
   bool EqualBaseAndShape = false;
 
   LLVM_DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   LLVM_DEBUG(dbgs() << ",  "; DstDDRef->dump());
-  LLVM_DEBUG(dbgs() << "\n"
-                    << SrcDDRef->getHLDDNode()->getNumber() << ":"
+  LLVM_DEBUG(dbgs() << "\n" << SrcDDRef->getHLDDNode()->getNumber() << ":"
                     << DstDDRef->getHLDDNode()->getNumber());
 
   LLVM_DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs(), MaxLoopNestLevel));
 
   assert(SrcDDRef->getSymbase() == DstDDRef->getSymbase() &&
          "Asking DDA for distinct references is useless");
-
-  // Normally it should not be called here. but check anyway
-  //	if (isa<ConstDDRef>(SrcDDRef) ||  isa<ConstDDRef>(DstDDRef)) {
-  //    return nullptr;
-  //	}
+  assert((SrcDDRef->isLval() || DstDDRef->isLval()) &&
+         "DDA is not handling input dependencies");
 
   RegDDRef *SrcRegDDRef = dyn_cast<RegDDRef>(SrcDDRef);
-  if (SrcRegDDRef) {
-    if (!SrcRegDDRef->isLval()) {
-      IsSrcRval = true;
-    }
-  } else {
-    IsSrcRval = true;
-  }
-
   RegDDRef *DstRegDDRef = dyn_cast<RegDDRef>(DstDDRef);
-  if (DstRegDDRef) {
-    if (!DstRegDDRef->isLval()) {
-      IsDstRval = true;
-    }
-  } else {
-    IsDstRval = true;
-  }
-
-  LLVM_DEBUG(dbgs() << "\nSrc/Dst Blob?  " << (SrcRegDDRef == nullptr) << " "
-                    << (DstRegDDRef == nullptr) << "\n");
-
-  if ((IsSrcRval && IsDstRval)) {
-    // if both instructions don't reference memory, there's no dependence
-    // TODO: need to handle input DEP when sc_repl is ready
-    // okay to skip input dep now
-    // We only need to generate input dep when there is no dd_ref with lval
-    // so it requires a scan first
-    return nullptr;
-  }
 
   // If both are memory refs
-  bool TestingMemRefs = SrcRegDDRef && DstRegDDRef && SrcRegDDRef->isMemRef() &&
-                        DstRegDDRef->isMemRef();
+  bool TestingMemRefs = SrcRegDDRef && SrcRegDDRef->isMemRef();
 
   if (TestingMemRefs) {
+    assert(DstRegDDRef && DstRegDDRef->isMemRef() &&
+           "Only one of the refs is a memref");
+    // We can skip creating edges for constant memory
+    if (SrcRegDDRef->accessesConstantArray() ||
+        DstRegDDRef->accessesConstantArray()) {
+      return nullptr;
+    }
+
     // Inquire disam util to get INDEP based on type/scope based analysis.
     LLVM_DEBUG(dbgs() << "AA query: ");
     if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
@@ -4772,7 +4745,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       switch (Result.getDirection(II)) {
       case DVKind::GT:
       case DVKind::GE:
-        // ALL does not need reversal. The  check is in the caller
+      // ALL does not need reversal. The  check is in the caller
       case DVKind::ALL:
         NeedReversal = true;
         Done = true;
