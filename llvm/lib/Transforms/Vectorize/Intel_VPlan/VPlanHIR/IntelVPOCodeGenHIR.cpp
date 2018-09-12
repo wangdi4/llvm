@@ -105,7 +105,22 @@ private:
   void addInst(HLInst *Inst) {
     if (MaskDDRef)
       Inst->setMaskDDRef(MaskDDRef->clone());
-    HLNodeUtils::insertAsLastChild(ACG->getMainLoop(), Inst);
+    if (auto InsertRegion = dyn_cast<HLLoop>(ACG->getInsertRegion()))
+      HLNodeUtils::insertAsLastChild(InsertRegion, Inst);
+    else
+      addInst(Inst, true);
+  }
+
+  // Insert instruction into HLIf region.
+  void addInst(HLInst *Inst, const bool IsThenChild) {
+    // Simply put MaskDDRef on each instruction under if. For innermost uniform
+    // predicates it's responsibility of predicator to remove unnecessary
+    // predicates.
+    if (MaskDDRef)
+      Inst->setMaskDDRef(MaskDDRef->clone());
+    auto InsertRegion = dyn_cast<HLIf>(ACG->getInsertRegion());
+    assert(InsertRegion && "HLIf is expected as insert region.");
+    HLNodeUtils::insertAsLastChild(InsertRegion, Inst, IsThenChild);
   }
 
   RegDDRef *codegenStandAloneBlob(const SCEV *SC);
@@ -343,9 +358,13 @@ public:
   void visit(HLDDNode *Node);
 
   void visit(HLNode *Node) {
-    LLVM_DEBUG(
-        dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
-    IsHandled = false;
+    // Current CG uses VPlan to generate the code, so Gotos should be ok to
+    // support in CG.
+    if (!CG->isSearchLoop()) {
+      LLVM_DEBUG(
+          dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
+      IsHandled = false;
+    }
   }
 
   void postVisit(HLNode *Node) {}
@@ -412,7 +431,7 @@ void HandledCheck::visit(HLDDNode *Node) {
 
     auto TLval = Inst->getLvalDDRef();
 
-    if (TLval && TLval->isTerminalRef() &&
+    if (!CG->isSearchLoop() && TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase()) &&
         Inst->getParent() != OrigLoop) {
       LLVM_DEBUG(Inst->dump());
@@ -723,6 +742,7 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);
   setMainLoop(MainLoop);
+  addInsertRegion(MainLoop);
 
   // Disable further vectorization attempts on main and remainder loops
   MainLoop->markDoNotVectorize();
@@ -1394,7 +1414,87 @@ HLInst *VPOCodeGenHIR::widenIfPred(const HLIf *HIf, RegDDRef *Mask) {
   auto WideInst =
       HIf->getHLNodeUtils().createCmp(*FirstPred, WOp0, WOp1, "wide.cmp.");
   addInst(WideInst, Mask);
+  // For the search loop simply generate HLIf instruction and move
+  // InsertionPoint into then-branch of that HLIf.
+  // Blindly assume that this if is for exit block.
+  // TODO: For general case of early exit vectorization, this code is not
+  // correct for all ifs and it has to be changed.
+  if (isSearchLoop()) {
+    RegDDRef *Ref = WideInst->getLvalDDRef();
+    Type *Ty = Ref->getDestType();
+    LLVMContext &Context = Ty->getContext();
+    Type *IntTy = IntegerType::get(Context, Ty->getPrimitiveSizeInBits());
+    HLInst *BitCastInst = createBitCast(IntTy, Ref, "intmask");
+    createHLIf(PredicateTy::ICMP_NE, BitCastInst->getLvalDDRef()->clone(),
+               WideInst->getDDRefUtils().createConstDDRef(IntTy, 0));
+  }
   return WideInst;
+}
+
+// Generate cttz(bsf) call for a given Ref.
+//    %intmask = bitcast.i32(Ref);
+//    %bsf = call intrinsic.cttz.i32(Ref);
+HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, const Twine &Name) {
+  assert(Ref && "Ref is expected for this assignment.");
+
+  HLNodeUtils &HNU = Ref->getHLDDNode()->getHLNodeUtils();
+  DDRefUtils &DDRU = Ref->getHLDDNode()->getDDRefUtils();
+  // It's necessary to bitcast mask to integer, otherwise it's not possible to
+  // use it in cttz instruction.
+  Type *RefTy = Ref->getDestType();
+  LLVMContext &Context = RefTy->getContext();
+  Type *IntTy = IntegerType::get(Context, RefTy->getPrimitiveSizeInBits());
+  HLInst *BitCastInst = createBitCast(IntTy, Ref, Name + "intmask");
+
+  RegDDRef *IntRef = BitCastInst->getLvalDDRef();
+  // As soon as this code has to be under if condition, return value from cttz
+  // can be undefined if mask is zero.
+  Type *BoolTy = IntegerType::get(Context, 1);
+  Function *BsfFunc =
+      Intrinsic::getDeclaration(&HNU.getModule(), Intrinsic::cttz, {IntTy});
+  SmallVector<RegDDRef *, 1> Args = {IntRef->clone(),
+                                     DDRU.createConstDDRef(BoolTy, 0)};
+  HLInst *BsfCall = HNU.createCall(BsfFunc, Args, Name);
+  addInstUnmasked(BsfCall);
+  return BsfCall;
+}
+
+// Generate correct last value computation of the linear variable for early exit
+// loops:
+//    %intmask = bitcast.i32(mask);
+//    %bsf = call intrinsic.cttz.i32(mask);
+//    %live-out-value = %i1 + %bsf * %linear-stride;
+//
+HLInst *VPOCodeGenHIR::handleLiveOutLinearInEarlyExit(HLInst *INode,
+                                                      RegDDRef *Mask) {
+  HLInst *BsfCall = createCTTZCall(Mask);
+
+  // Finally update linear reference by number of executed iterations.
+  RegDDRef *LinRef = INode->getRvalDDRef();
+  assert(!LinRef->isNonLinear() && "Linear RegDDRef is expected.");
+
+  CanonExpr *CE = LinRef->getSingleCanonExpr();
+  unsigned Level = MainLoop->getNestingLevel();
+
+  RegDDRef *ZExtRef;
+  if (CE->getSrcType() != BsfCall->getLvalDDRef()->getDestType())
+    ZExtRef =
+        createZExt(CE->getSrcType(), BsfCall->getLvalDDRef())->getLvalDDRef();
+  else
+    ZExtRef = BsfCall->getLvalDDRef();
+
+  unsigned Index = ZExtRef->getSingleCanonExpr()->getSingleBlobIndex();
+  if (CE->hasIVBlobCoeff(Level)) {
+    BlobUtils *BU = &CE->getBlobUtils();
+    BU->createMulBlob(BU->getBlob(CE->getIVBlobCoeff(Level)),
+                      BU->getBlob(Index), true, &Index);
+  }
+  CE->addBlob(Index, CE->getIVConstCoeff(Level), true);
+
+  addInstUnmasked(INode);
+  SmallVector<const RegDDRef *, 1> AuxRefs = {ZExtRef};
+  INode->getRvalDDRef()->makeConsistent(&AuxRefs, Level);
+  return INode;
 }
 
 HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
@@ -1419,6 +1519,13 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
 
   LLVM_DEBUG(INode->dump(true));
   bool InsertInMap = true;
+
+  if (isSearchLoop() && INode->hasLval() &&
+      INode->getLvalDDRef()->isTerminalRef() &&
+      INode->getLvalDDRef()->isLiveOutOfParentLoop() && INode->hasRval() &&
+      !INode->getRvalDDRef()->isNonLinear()) {
+    return handleLiveOutLinearInEarlyExit(INode->clone(), Mask);
+  }
 
   // Widen instruction operands
   for (auto Iter = (INode)->op_ddref_begin(), End = (INode)->op_ddref_end();

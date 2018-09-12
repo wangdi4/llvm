@@ -681,6 +681,11 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
     return;
   }
 
+  if (auto Branch = dyn_cast<VPBranchInst>(this)) {
+    assert(Branch->getHLGoto() && "For HIR VPBranchInst must have HLGoto.");
+    CG->addInst(Branch->getHLGoto()->clone(), nullptr);
+    return;
+  }
   if (HIR.isValid()) {
     // Master VPInstruction with valid HIR.
     assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "

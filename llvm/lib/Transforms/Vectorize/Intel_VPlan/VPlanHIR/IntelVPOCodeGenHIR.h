@@ -42,10 +42,10 @@ class VPOCodeGenHIR {
 public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
                 Function &Fn, HLLoop *Loop, LoopOptReportBuilder &LORB,
-                WRNVecLoopNode *WRLp)
+                WRNVecLoopNode *WRLp, const bool IsSearchLoop)
       : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), MainLoop(nullptr),
         CurMaskValue(nullptr), NeedRemainderLoop(false), TripCount(0), VF(0),
-        LORBuilder(LORB), WVecNode(WRLp) {}
+        LORBuilder(LORB), WVecNode(WRLp), IsSearchLoop(IsSearchLoop) {}
 
   ~VPOCodeGenHIR() {}
 
@@ -79,6 +79,26 @@ public:
   // as the vector length. The given Mask value overrides the
   // current mask value if non-null.
   HLInst *widenNode(const HLInst *Inst, RegDDRef *Mask = nullptr);
+
+  HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask);
+
+  HLInst *createBitCast(Type *Ty, RegDDRef *Ref,
+                        const Twine &Name = "cast") {
+    HLInst *BitCastInst =
+        MainLoop->getHLNodeUtils().createBitCast(Ty, Ref->clone(), Name);
+    addInstUnmasked(BitCastInst);
+    return BitCastInst;
+  }
+
+  HLInst *createZExt(Type *Ty, RegDDRef *Ref,
+                     const Twine &Name = "cast") {
+    HLInst *ZExtInst =
+        MainLoop->getHLNodeUtils().createZExt(Ty, Ref->clone(), Name);
+    addInstUnmasked(ZExtInst);
+    return ZExtInst;
+  }
+
+  HLInst *createCTTZCall(RegDDRef *Ref, const Twine &Name = "bsf");
 
   // Generate a wide compare using VF as the vector length. Only
   // single if predicates are currently handled. The given Mask value
@@ -118,15 +138,41 @@ public:
   // Add the given instruction at the end of the main loop unmasked.
   // Currently used for predicate computation.
   void addInstUnmasked(HLInst *Inst) {
-    HLNodeUtils::insertAsLastChild(MainLoop, Inst);
+    addInst(Inst, nullptr);
+  }
+
+  void addInstUnmasked(HLInst *Inst, const bool IsThenChild) {
+    addInst(Inst, nullptr, IsThenChild);
   }
 
   // Add the given instruction at the end of the main loop and mask
   // it with the provided mask value if non-null.
-  void addInst(HLInst *Inst, RegDDRef *Mask) {
-    if (Mask)
+  void addInst(HLNode *Node, RegDDRef *Mask) {
+    if (Mask) {
+      HLInst *Inst = dyn_cast<HLInst>(Node);
+      assert(Inst && "Only HLInst can have a mask.");
       Inst->setMaskDDRef(Mask->clone());
-    HLNodeUtils::insertAsLastChild(MainLoop, Inst);
+    }
+
+    if (auto InsertRegion = dyn_cast<HLLoop>(getInsertRegion()))
+      HLNodeUtils::insertAsLastChild(InsertRegion, Node);
+    else if (isa<HLIf>(getInsertRegion()))
+      addInst(Node, Mask, true);
+  }
+
+  // Insert instruction into HLIf region.
+  void addInst(HLNode *Node, RegDDRef *Mask, const bool IsThenChild) {
+    // Simply put MaskDDRef on each instruction under if. For innermost uniform
+    // predicates it's responsibility of predicator to remove unnecessary
+    // predicates.
+    if (Mask) {
+      HLInst *Inst = dyn_cast<HLInst>(Node);
+      assert(Inst && "Only HLInst can have a mask.");
+      Inst->setMaskDDRef(Mask->clone());
+    }
+    auto InsertRegion = dyn_cast<HLIf>(getInsertRegion());
+    assert(InsertRegion && "HLIf is expected as insert region.");
+    HLNodeUtils::insertAsLastChild(InsertRegion, Node, IsThenChild);
   }
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }
@@ -152,6 +198,19 @@ public:
 
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
+
+  bool isSearchLoop() const { return IsSearchLoop; }
+
+  HLDDNode *getInsertRegion() const { return InsertRegionsStack.back(); }
+  void addInsertRegion(HLDDNode *Node) { InsertRegionsStack.push_back(Node); }
+  void popInsertRegion() { InsertRegionsStack.pop_back(); }
+
+  void createHLIf(const CmpInst::Predicate Pred, RegDDRef *LhsRef,
+                  RegDDRef *RhsRef) {
+    HLDDNode *If = MainLoop->getHLNodeUtils().createHLIf(Pred, LhsRef, RhsRef);
+    addInst(If, nullptr);
+    addInsertRegion(If);
+  }
 
 private:
   // Target Library Info is used to check for svml.
@@ -201,6 +260,9 @@ private:
 
   // Set of unit-stride Refs
   SmallPtrSet<const RegDDRef *, 4> UnitStrideRefSet;
+  // The loop meets search loop idiom criteria.
+  bool IsSearchLoop;
+  SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
