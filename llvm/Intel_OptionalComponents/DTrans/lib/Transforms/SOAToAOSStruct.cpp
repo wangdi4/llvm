@@ -31,7 +31,6 @@ namespace llvm {
 namespace dtrans {
 namespace soatoaos {
 // Array types for structure containing arrays.
-// Structure is specified in DTransSOAToAOSApproxTypename.
 static cl::list<std::string> DTransSOAToAOSArrays("dtrans-soatoaos-array-type",
                                                   cl::ReallyHidden);
 
@@ -60,18 +59,18 @@ getArrayTypesForSOAToAOSStructMethodsCheckDebug(Function &F) {
   SmallVector<StructType *, 3> ArrayTypes;
   for (auto &Name : DTransSOAToAOSArrays) {
     auto *ArrayType = F.getParent()->getTypeByName(Name);
-    // TODO: add diagnostic message.
     if (!ArrayType)
-      return std::make_pair(SmallVector<StructType *, 3>(),
-                            SmallVector<unsigned, 3>());
+      report_fatal_error(Twine("Cannot find struct/class type ") + Name + ".");
     ArrayTypes.push_back(ArrayType);
   }
 
-  auto *Struct = getStructTypeOfArray(F);
-  // TODO: add diagnostic message.
+  if (ArrayTypes.size() <= 1)
+    report_fatal_error("0 or 1 array types were provided, need 2 or more.");
+
+  auto *Struct = getStructTypeOfMethod(F);
   if (!Struct)
-    return std::make_pair(SmallVector<StructType *, 3>(),
-                          SmallVector<unsigned, 3>());
+    report_fatal_error(Twine("Cannot extract struct/class type from ") +
+                       F.getName() + ".");
 
   SmallVector<unsigned, 3> ArrayOffsets;
   for (unsigned I = 0, E = Struct->getNumElements(); I != E; ++I) {
@@ -95,7 +94,7 @@ getArrayTypesForSOAToAOSStructMethodsCheckDebug(Function &F) {
 static CallSiteComparator::FunctionSet
 getSOAToAOSArrayMethods(const cl::list<std::string> &List,
                         const SmallVector<StructType *, 3> &ArrayTypes,
-                        Function &F, bool &Failure) {
+                        Function &F) {
   CallSiteComparator::FunctionSet Methods(ArrayTypes.size(), nullptr);
   unsigned Count = 0;
   for (auto &Name : List) {
@@ -103,39 +102,29 @@ getSOAToAOSArrayMethods(const cl::list<std::string> &List,
     // TODO: add remark.
     if (!AF)
       continue;
-    // TODO: add diagnostic message.
-    if (AF->arg_size() < 1) {
-      Failure = true;
-      return CallSiteComparator::FunctionSet();
-    }
-    auto *PThis = dyn_cast<PointerType>(AF->arg_begin()->getType());
-    // TODO: add diagnostic message.
-    if (!PThis) {
-      Failure = true;
-      return CallSiteComparator::FunctionSet();
-    }
-    auto *ClassType = PThis->getElementType();
+
+    auto *ClassType = getStructTypeOfMethod(*AF);
+    if (!ClassType)
+      report_fatal_error(Twine("Cannot extract struct/class type from ") +
+                         Name + ".");
 
     auto It = std::find(ArrayTypes.begin(), ArrayTypes.end(), ClassType);
-    // TODO: add diagnostic message.
-    if (It == ArrayTypes.end()) {
-      Failure = true;
-      return CallSiteComparator::FunctionSet();
-    }
+    if (It == ArrayTypes.end())
+      report_fatal_error(
+          Twine("Function ") + Name +
+          " is not related to array types from dtrans-soatoaos-array-type.");
 
-    // TODO: add diagnostic message.
-    if (Methods[It - ArrayTypes.begin()]) {
-      Failure = true;
-      return CallSiteComparator::FunctionSet();
-    }
+    if (Methods[It - ArrayTypes.begin()])
+      report_fatal_error(Twine("Function ") + Name +
+                         " has the same kind (append/ctor/cctor/dtor) as "
+                         "another function for the same array type. Methods to "
+                         "combine should be unique.");
     Count++;
     Methods[It - ArrayTypes.begin()] = AF;
   }
 
-  if (Count != 0 && Count != ArrayTypes.size()) {
-    Failure = true;
-    return CallSiteComparator::FunctionSet();
-  }
+  if (Count != 0 && Count != ArrayTypes.size())
+    report_fatal_error("There should be none or 1 method to combine for each array type.");
 
   if (Count == 0)
     return CallSiteComparator::FunctionSet();
@@ -166,75 +155,52 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
       AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
   auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
   auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
-  // TODO: add diagnostic message.
   if (!DTInfo || !TLI)
-    return Ignore(nullptr);
+    report_fatal_error("DTransAnalysis was not run before "
+                       "SOAToAOSStructMethodsCheckDebug.");
 
   auto *Res = AM.getCachedResult<SOAToAOSApproximationDebug>(F);
   if (!Res)
-    return Ignore(nullptr);
+    report_fatal_error("SOAToAOSApproximationDebug was not run before "
+                       "SOAToAOSStructMethodsCheckDebug.");
   const DepMap *DM = Res->get();
-  // TODO: add diagnostic message.
   if (!DM)
-    return Ignore(nullptr);
+    report_fatal_error("Missing SOAToAOSApproximationDebug results before "
+                       "SOAToAOSStructMethodsCheckDebug.");
 
   SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
-  // TODO: add diagnostic message.
-  if (!S.StrType)
-    return Ignore(nullptr);
 
   LLVM_DEBUG(dbgs() << "; Checking structure's method " << F.getName() << "\n");
 
   auto P = getArrayTypesForSOAToAOSStructMethodsCheckDebug(F);
-  if (P.first.size() <= 1)
-    return Ignore(nullptr);
 
   std::unique_ptr<SOAToAOSStructMethodsCheckDebugResult> Result(
       new SOAToAOSStructMethodsCheckDebugResult());
 
   for (auto &CmpKind : DTransSOAToAOSComparison)
-    if (CmpKind == "append") {
-      bool Failure = false;
+    if (CmpKind == "append")
       Result->Appends =
-          getSOAToAOSArrayMethods(DTransSOAToAOSAppends, P.first, F, Failure);
-      // TODO: add diagnostic message.
-      if (Failure)
-        return Ignore(nullptr);
-    } else if (CmpKind == "cctor") {
-      bool Failure = false;
+          getSOAToAOSArrayMethods(DTransSOAToAOSAppends, P.first, F);
+    else if (CmpKind == "cctor")
       Result->CCtors =
-          getSOAToAOSArrayMethods(DTransSOAToAOSCCtors, P.first, F, Failure);
-      // TODO: add diagnostic message.
-      if (Failure)
-        return Ignore(nullptr);
-    } else if (CmpKind == "ctor") {
-      bool Failure = false;
+          getSOAToAOSArrayMethods(DTransSOAToAOSCCtors, P.first, F);
+    else if (CmpKind == "ctor")
       Result->Ctors =
-          getSOAToAOSArrayMethods(DTransSOAToAOSCtors, P.first, F, Failure);
-      // TODO: add diagnostic message.
-      if (Failure)
-        return Ignore(nullptr);
-    } else if (CmpKind == "dtor") {
-      bool Failure = false;
+          getSOAToAOSArrayMethods(DTransSOAToAOSCtors, P.first, F);
+    else if (CmpKind == "dtor")
       Result->Dtors =
-          getSOAToAOSArrayMethods(DTransSOAToAOSDtors, P.first, F, Failure);
-      // TODO: add diagnostic message.
-      if (Failure)
-        return Ignore(nullptr);
-    } else {
-      // TODO: add diagnostic message.
-      return Ignore(nullptr);
-    }
+          getSOAToAOSArrayMethods(DTransSOAToAOSDtors, P.first, F);
+    else
+      report_fatal_error("Incorrect value in dtrans-soatoaos-method-call-site-comparison."
+                         "append/cctor/ctor/dtor are allowed.");
 
   if (DTransSOAToAOSBasePtrOff == -1U)
-    // TODO: add diagnostic message.
-    return Ignore(nullptr);
+    report_fatal_error("dtrans-soatoaos-base-ptr-off was not provided.");
 
-  StructureMethodAnalysis::TransformationData TI;
-  CallSiteComparator Checks(
-      F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM, S, P.first, P.second,
-      *Result, /* CsllSiteComparator */
-      DTransSOAToAOSBasePtrOff, *Result /*TransformationData*/);
+  StructureMethodAnalysis Checks(F.getParent()->getDataLayout(), *DTInfo, *TLI,
+                                 *DM, S, P.first, P.second,
+                                 *Result /*TransformationData*/);
+
   bool CheckedAll = Checks.checkStructMethod();
   (void)CheckedAll;
   LLVM_DEBUG(dbgs() << "; IR: "
@@ -250,7 +216,12 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
     F.print(dbgs(), &Annotate);
   });
 
-  bool Comparison = Checks.canCallSitesBeMerged();
+  CallSiteComparator Cmp(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM, S,
+                         P.first, P.second, *Result, /* CsllSiteComparator */
+                         *Result,                    /*TransformationData*/
+                         DTransSOAToAOSBasePtrOff);
+
+  bool Comparison = Cmp.canCallSitesBeMerged();
   (void)Comparison;
   LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
                     << (Comparison ? "required call sites can be merged"
@@ -284,7 +255,7 @@ public:
     NewElement = StructType::create(
         Context, (Twine(DepTypePrefix) + "EL_" + S.StrType->getName()).str());
 
-    for (auto &Fld: Fields)
+    for (auto *Fld: Fields)
       TypeRemapper->addTypeMapping(Fld, NewArray);
 
     FunctionType *NewFunctionTy = nullptr;
@@ -407,31 +378,23 @@ SOAToAOSStructMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   Function *MethodToTest = nullptr;
   for (auto &F : M)
     if (!F.isDeclaration()) {
-      if (!MethodToTest)
-        MethodToTest = &F;
-      else
-        // TODO: add diagnostic.
-        return PreservedAnalyses::all();
+      if (MethodToTest)
+        report_fatal_error("Single function definition per compilation unit is "
+                           "allowed in SOAToAOSStructMethodsTransformDebug.");
+      MethodToTest = &F;
     }
 
-  // TODO: add diagnostic.
   if (!MethodToTest)
-    return PreservedAnalyses::all();
+    report_fatal_error(
+        "Exactly one function definition per compilation unit is "
+        "required in SOAToAOSStructMethodsTransformDebug.");
 
   SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(*MethodToTest);
-  // TODO: add diagnostic message.
-  if (!S.StrType)
-    // TODO: add diagnostic.
-    return PreservedAnalyses::all();
 
   auto P = getArrayTypesForSOAToAOSStructMethodsCheckDebug(*MethodToTest);
-  if (P.first.size() <= 1)
-    // TODO: add diagnostic.
-    return PreservedAnalyses::all();
 
   if (DTransSOAToAOSBasePtrOff == -1U)
-    // TODO: add diagnostic message.
-    return PreservedAnalyses::all();
+    report_fatal_error("dtrans-soatoaos-base-ptr-off was not provided.");
 
   auto &DTInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);

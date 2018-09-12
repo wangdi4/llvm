@@ -18,22 +18,38 @@
 #include "SOAToAOSCommon.h"
 #include "SOAToAOSEffects.h"
 
+#include "llvm/Support/Error.h"
+
 namespace llvm {
 namespace dtrans {
 namespace soatoaos {
-SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F) {
-  StructType *ClassType = getStructTypeOfArray(F);
-  SummaryForIdiom Failure(nullptr, nullptr, nullptr);
+
+// Offset of memory interface in structure type.
+cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff(
+    "dtrans-soatoaos-mem-off", cl::init(-1U), cl::ReallyHidden,
+    cl::desc("Memory interface offset in struct/class type"));
+
+SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(const Function &F) {
+  StructType *ClassType = getStructTypeOfMethod(F);
+
   if (!ClassType)
-    return Failure;
+    report_fatal_error(Twine("Cannot extract struct/class type from ") +
+                       F.getName() + ".");
 
   StructType *MemoryInterface = nullptr;
   if (ClassType->getNumElements() > DTransSOAToAOSMemoryInterfaceOff) {
     auto *PMemInt = dyn_cast<PointerType>(
         ClassType->getTypeAtIndex(DTransSOAToAOSMemoryInterfaceOff));
     if (!PMemInt)
-      return Failure;
-    MemoryInterface = dyn_cast<StructType>(PMemInt->getPointerElementType());
+      report_fatal_error(
+          "Incorrect memory interface specification: type at offset "
+          "dtrans-soatoaos-mem-off is not pointer to struct/class.");
+
+    MemoryInterface = dyn_cast<StructType>(PMemInt->getElementType());
+    if (!MemoryInterface)
+      report_fatal_error(
+          "Incorrect memory interface specification: type at offset "
+          "dtrans-soatoaos-mem-off is not pointer to struct/class.");
   }
 
   return SummaryForIdiom(ClassType, MemoryInterface, &F);

@@ -61,8 +61,7 @@ public:
 };
 
 struct ArithInstructionsTrait {
-  static inline bool isSupportedOpcode(unsigned OpCode) {
-    // FIXME: FP exception handling.
+  static bool isSupportedOpcode(unsigned OpCode) {
     switch (OpCode) {
     case Instruction::Add:
     case Instruction::And:
@@ -94,7 +93,7 @@ struct ArithInstructionsTrait {
     }
     return false;
   }
-  static inline bool shouldBeAnalyzed(const Use &U) {
+  static bool shouldBeAnalyzed(const Use &U) {
     return !isa<Constant>(U.get());
   }
 };
@@ -102,7 +101,7 @@ struct ArithInstructionsTrait {
 // This class is used in value_op_iterator and in GEPDepGraph to compute SCC
 // containing GEPs, their base pointers and connected with PHIs.
 struct GEPInstructionsTrait {
-  static inline bool isSupportedOpcode(unsigned OpCode) {
+  static bool isSupportedOpcode(unsigned OpCode) {
     switch (OpCode) {
     case Instruction::GetElementPtr:
     case Instruction::PHI:
@@ -112,7 +111,7 @@ struct GEPInstructionsTrait {
     }
     return false;
   }
-  static inline bool shouldBeAnalyzed(const Use &U) {
+  static bool shouldBeAnalyzed(const Use &U) {
     auto *GEP = dyn_cast<GetElementPtrInst>(U.getUser());
     return GEP ? U.get() == GEP->getPointerOperand()
                : isa<PHINode>(U.getUser());
@@ -120,8 +119,8 @@ struct GEPInstructionsTrait {
 };
 
 struct AllInstructionsTrait {
-  static inline bool isSupportedOpcode(unsigned OpCode) { return true; }
-  static inline bool shouldBeAnalyzed(const Use &U) {
+  static bool isSupportedOpcode(unsigned OpCode) { return true; }
+  static bool shouldBeAnalyzed(const Use &U) {
     return !isa<Constant>(U.get()) && !isa<BasicBlock>(U.get());
   }
 };
@@ -157,7 +156,7 @@ public:
       : OpFilterIterTy(setupOpIterators(Val, EndOfRange)) {}
 
 private:
-  static inline OpFilterIterTy setupOpIterators(reference Val,
+  static OpFilterIterTy setupOpIterators(reference Val,
                                                 bool EndOfRange) {
 
     if (!isa<Instruction>(Val))
@@ -176,7 +175,7 @@ private:
       return FilterTrait::shouldBeAnalyzed(Use);
     });
   }
-  static inline OpFilterIterTy mkDefault() {
+  static OpFilterIterTy mkDefault() {
     return OpFilterIterTy(OpIterTy(), OpIterTy(),
                           [](OpRefTy Use) -> bool { return false; });
   }
@@ -204,15 +203,15 @@ class ptr_iter : public iterator_adaptor_base<
 public:
   using value_type = typename BaseTy::value_type;
 
-  static inline ptr_iter begin(value_type Val) { return ptr_iter(Val, false); }
-  static inline ptr_iter end(value_type Val) { return ptr_iter(Val, true); }
-  static inline iterator_range<ptr_iter> deps(value_type Val) {
+  static ptr_iter begin(value_type Val) { return ptr_iter(Val, false); }
+  static ptr_iter end(value_type Val) { return ptr_iter(Val, true); }
+  static iterator_range<ptr_iter> deps(value_type Val) {
     return make_range(begin(Val), end(Val));
   }
 
   value_type operator*() const { return &this->wrapped().operator*(); }
 
-  static inline bool isSupportedOpcode(unsigned OpCode) {
+  static bool isSupportedOpcode(unsigned OpCode) {
     return IterTy::isSupportedOpcode(OpCode);
   }
 
@@ -270,13 +269,13 @@ template <> struct GraphTraits<ArithDepGraph<Value *>> {
   using NodeRef = Value *;
   using ChildIteratorType = arith_inst_dep_iterator;
 
-  static inline NodeRef getEntryNode(ArithDepGraph<Value *> G) {
+  static NodeRef getEntryNode(ArithDepGraph<Value *> G) {
     return G.ValuePtr;
   }
-  static inline ChildIteratorType child_begin(NodeRef N) {
+  static ChildIteratorType child_begin(NodeRef N) {
     return arith_inst_dep_iterator::begin(N);
   }
-  static inline ChildIteratorType child_end(NodeRef N) {
+  static ChildIteratorType child_end(NodeRef N) {
     return arith_inst_dep_iterator::end(N);
   }
 };
@@ -285,13 +284,13 @@ template <> struct GraphTraits<ArithDepGraph<const Value *>> {
   using NodeRef = const Value *;
   using ChildIteratorType = const_arith_inst_dep_iterator;
 
-  static inline NodeRef getEntryNode(ArithDepGraph<const Value *> G) {
+  static NodeRef getEntryNode(ArithDepGraph<const Value *> G) {
     return G.ValuePtr;
   }
-  static inline ChildIteratorType child_begin(NodeRef N) {
+  static ChildIteratorType child_begin(NodeRef N) {
     return const_arith_inst_dep_iterator::begin(N);
   }
-  static inline ChildIteratorType child_end(NodeRef N) {
+  static ChildIteratorType child_end(NodeRef N) {
     return const_arith_inst_dep_iterator::end(N);
   }
 };
@@ -300,13 +299,13 @@ template <> struct GraphTraits<AllDepGraph<Value *>> {
   using NodeRef = Value *;
   using ChildIteratorType = all_inst_dep_iterator;
 
-  static inline NodeRef getEntryNode(AllDepGraph<Value *> G) {
+  static NodeRef getEntryNode(AllDepGraph<Value *> G) {
     return G.ValuePtr;
   }
-  static inline ChildIteratorType child_begin(NodeRef N) {
+  static ChildIteratorType child_begin(NodeRef N) {
     return all_inst_dep_iterator::begin(N);
   }
-  static inline ChildIteratorType child_end(NodeRef N) {
+  static ChildIteratorType child_end(NodeRef N) {
     return all_inst_dep_iterator::end(N);
   }
 };
@@ -315,13 +314,13 @@ template <> struct GraphTraits<AllDepGraph<const Value *>> {
   using NodeRef = const Value *;
   using ChildIteratorType = const_all_inst_dep_iterator;
 
-  static inline NodeRef getEntryNode(AllDepGraph<const Value *> G) {
+  static NodeRef getEntryNode(AllDepGraph<const Value *> G) {
     return G.ValuePtr;
   }
-  static inline ChildIteratorType child_begin(NodeRef N) {
+  static ChildIteratorType child_begin(NodeRef N) {
     return const_all_inst_dep_iterator::begin(N);
   }
-  static inline ChildIteratorType child_end(NodeRef N) {
+  static ChildIteratorType child_end(NodeRef N) {
     return const_all_inst_dep_iterator::end(N);
   }
 };
@@ -330,13 +329,13 @@ template <> struct GraphTraits<GEPDepGraph<Value *>> {
   using NodeRef = Value *;
   using ChildIteratorType = gep_inst_dep_iterator;
 
-  static inline NodeRef getEntryNode(GEPDepGraph<Value *> G) {
+  static NodeRef getEntryNode(GEPDepGraph<Value *> G) {
     return G.ValuePtr;
   }
-  static inline ChildIteratorType child_begin(NodeRef N) {
+  static ChildIteratorType child_begin(NodeRef N) {
     return gep_inst_dep_iterator::begin(N);
   }
-  static inline ChildIteratorType child_end(NodeRef N) {
+  static ChildIteratorType child_end(NodeRef N) {
     return gep_inst_dep_iterator::end(N);
   }
 };
@@ -345,13 +344,13 @@ template <> struct GraphTraits<GEPDepGraph<const Value *>> {
   using NodeRef = const Value *;
   using ChildIteratorType = const_gep_inst_dep_iterator;
 
-  static inline NodeRef getEntryNode(GEPDepGraph<const Value *> G) {
+  static NodeRef getEntryNode(GEPDepGraph<const Value *> G) {
     return G.ValuePtr;
   }
-  static inline ChildIteratorType child_begin(NodeRef N) {
+  static ChildIteratorType child_begin(NodeRef N) {
     return const_gep_inst_dep_iterator::begin(N);
   }
-  static inline ChildIteratorType child_end(NodeRef N) {
+  static ChildIteratorType child_end(NodeRef N) {
     return const_gep_inst_dep_iterator::end(N);
   }
 };
@@ -413,13 +412,13 @@ public:
     return !(operator==(It));
   }
 
-  static inline base_scc_iterator begin(const ContainerTy &C) {
+  static base_scc_iterator begin(const ContainerTy &C) {
     return base_scc_iterator(C.begin(), C.end());
   }
-  static inline base_scc_iterator end(const ContainerTy &C) {
+  static base_scc_iterator end(const ContainerTy &C) {
     return base_scc_iterator(C.end(), C.end());
   }
-  static inline iterator_range<base_scc_iterator> deps(const ContainerTy &C) {
+  static iterator_range<base_scc_iterator> deps(const ContainerTy &C) {
     return make_range(begin(C), end(C));
   }
 
@@ -525,11 +524,11 @@ private:
     DK_Bottom,
     DK_Argument, // Function's Argument access.
     DK_Const,    // Some constant.
-    DK_Store,    // Store val base
-    DK_Load,     // Load base
-    DK_GEP,      // Single index to access field: GEP base, 0, const
-    DK_Alloc,    // alloc (size) remaining args
-    DK_Free,     // free (ptr) remaining args
+    DK_Store,    // Store Arg1 Arg2
+    DK_Load,     // Load Arg1
+    DK_GEP,      // Single index to access field: 'GEP Arg2, 0, Const'
+    DK_Alloc,    // alloc (Arg1 = size) (Arg2 = remaining args)
+    DK_Free,     // free (Arg1 = ptr) (Arg2 = remaining args)
     DK_Function, // Unknown function depending only on its Args from union
                  // below. It represents arithmetic-related function
                  // depending on operands only. Resulting value is completely
@@ -538,9 +537,16 @@ private:
                  // functions implicitly depends on conditional branch, so
                  // control flow dependence is handled separately as data
                  // dependence for conditional branch.
-    DK_Call,     // known call if Const is 0 and
-                 // unknown if Const is non-0.
-    // There are Kinds for DenseMapInfo.
+                 //
+                 // See ComputeArrayMethodClassification::classify()
+                 // for example re. BranchInst handling.
+                 //
+    DK_Call,     // Call (Const ? unknown : known) (Arg2 = remaining args)
+                 //
+                 // Known calls are methods of the same class as determined by
+                 // 'this' parameter. It is coupled with method collection in
+                 // populateCFGInformation in SOAToAOS.cpp.
+    // These are Kinds for DenseMapInfo. Only set for 2 global instances.
     DK_Empty,
     DK_Tomb
   };
@@ -566,19 +572,19 @@ private:
   friend struct DepCmp;
 
 public:
-  static inline const Dep *mkBottom(DepManager &M) { return M.intern(Dep()); }
-  static inline const Dep *mkArg(DepManager &M, const Argument *Arg) {
+  static const Dep *mkBottom(DepManager &M) { return M.intern(Dep()); }
+  static const Dep *mkArg(DepManager &M, const Argument *Arg) {
     Dep Tmp;
     Tmp.Kind = DK_Argument;
     Tmp.Const = Arg->getArgNo();
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkConst(DepManager &M) {
+  static const Dep *mkConst(DepManager &M) {
     Dep Tmp;
     Tmp.Kind = DK_Const;
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkStore(DepManager &M, const Dep *Val,
+  static const Dep *mkStore(DepManager &M, const Dep *Val,
                                    const Dep *Addr) {
     if (Val->Kind == DK_Bottom)
       return Val;
@@ -590,7 +596,7 @@ public:
     Tmp.Arg2 = Addr;
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkLoad(DepManager &M, const Dep *Addr) {
+  static const Dep *mkLoad(DepManager &M, const Dep *Addr) {
     if (Addr->Kind == DK_Bottom)
       return Addr;
     Dep Tmp;
@@ -598,7 +604,7 @@ public:
     Tmp.Arg1 = Addr;
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkGEP(DepManager &M, const Dep *Addr,
+  static const Dep *mkGEP(DepManager &M, const Dep *Addr,
                                  unsigned Index) {
     if (Addr->Kind == DK_Bottom)
       return Addr;
@@ -609,7 +615,7 @@ public:
     Tmp.Arg2 = Addr;
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkAlloc(DepManager &M, const Dep *Size,
+  static const Dep *mkAlloc(DepManager &M, const Dep *Size,
                                    const Dep *OtherArgs) {
     if (Size->Kind == DK_Bottom)
       return Size;
@@ -621,7 +627,7 @@ public:
     Tmp.Arg2 = OtherArgs;
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkFree(DepManager &M, const Dep *Ptr,
+  static const Dep *mkFree(DepManager &M, const Dep *Ptr,
                                   const Dep *OtherArgs) {
     if (Ptr->Kind == DK_Bottom)
       return Ptr;
@@ -633,7 +639,7 @@ public:
     Tmp.Arg2 = OtherArgs;
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkFunction(DepManager &M, const Container &Args) {
+  static const Dep *mkFunction(DepManager &M, const Container &Args) {
     Dep Tmp;
     Tmp.Kind = DK_Function;
     auto *C = new Container();
@@ -653,19 +659,19 @@ public:
       return mkConst(M);
     return M.intern(std::move(Tmp));
   }
-  static inline const Dep *mkNonEmptyArgList(DepManager &M,
+  static const Dep *mkNonEmptyArgList(DepManager &M,
                                              const Container &Args) {
     assert(Args.size() != 0 && "Empty argument list in mkNonEmptyArgList");
     if (Args.size() == 1)
       return *Args.begin();
     return mkFunction(M, Args);
   }
-  static inline const Dep *mkArgList(DepManager &M, const Container &Args) {
+  static const Dep *mkArgList(DepManager &M, const Container &Args) {
     if (Args.size() == 0)
       return mkConst(M);
     return mkNonEmptyArgList(M, Args);
   }
-  static inline const Dep *mkCall(DepManager &M, const Dep *OtherArgs,
+  static const Dep *mkCall(DepManager &M, const Dep *OtherArgs,
                                   bool IsKnown) {
     if (OtherArgs->Kind == DK_Bottom)
       return OtherArgs;
@@ -837,17 +843,30 @@ public:
 // Encapsulates short-living state.
 //
 // Lit-tests can be written with SOAToAOSApproximationDebug pass.
+//
+// Essentially class encapsulates parameters and result (DM) for
+// computeDepApproximation.
 class DepCompute {
+  // allocation/deallocation recognition.
   const DTransAnalysisInfo &DTInfo;
+  // Layout information, like pointer-sized integer, etc.
+  // See isSafeBitCast, isSafeIntToPtr, isBitCastLikeGep.
   const DataLayout &DL;
+  // allocation/deallocation recognition.
   const TargetLibraryInfo &TLI;
+
+  // Method to analyse.
   const Function *Method;
+  // Structured accesses are computed with respect to ClassType.
+  // See computeDepApproximation::IsFieldAccessGEP.
   const StructType *ClassType;
 
   // Output of computeDepApproximation.
   DepMap &DM;
 
-  const Dep *computeValueDep(const Value *Val);
+  // Compute IR approximation for Value, which obtained through arithmetic
+  // instruction.
+  const Dep *computeValueDep(const Value *Val) const;
 
 public:
   DepCompute(const DTransAnalysisInfo &DTInfo,
@@ -862,26 +881,24 @@ public:
       : DTInfo(DTInfo), DL(DL), TLI(TLI), Method(Method), ClassType(ClassType),
         DM(DM) {}
 
+  // Compute IR approximation using Dep:
+  //  - loads/stores/arguments/allocation and deallocation calls are
+  //  explicitly presented;
+  //  - structured addresses, i.e. GEPs to fields are attempted to be
+  //  preserved;
+  //  - arithmetic instructions are abstracted away as much as possible using
+  //  DK_Function.
+  //
   // Returned value 'true' means that all essential instructions
   // (store/load/ret/etc) have approximation computed (possibly Bottom in debug
   // configuration).
   //
   // Returned value 'false' means that there could be some instructions without
   // approximation.
-  bool computeDepApproximation(
-      std::function<bool(const Function *)> IsKnownCallCheck);
+  bool computeDepApproximation() const;
 };
 
 extern cl::opt<bool> DTransSOAToAOSComputeAllDep;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Structure name to use in SOAToAOSApproximationDebug.
-extern cl::opt<std::string> DTransSOAToAOSApproxTypename;
-
-// Calls to mark as known in SOAToAOSApproximationDebug.
-extern cl::list<std::string> DTransSOAToAOSApproxKnown;
-
-StructType *getStructTypeOfArray(Function &F);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace soatoaos
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -901,13 +918,13 @@ inline bool isSafeBitCast(const DataLayout &DL, const Value *V) {
     return false;
 
   // Dereferenced value is the same.
-  Type *STy = BC->getOperand(0)->getType();
-  Type *DTy = BC->getType();
-  if (!isa<PointerType>(STy) || !isa<PointerType>(DTy))
+  PointerType *STy = dyn_cast<PointerType>(BC->getOperand(0)->getType());
+  PointerType *DTy = dyn_cast<PointerType>(BC->getType());
+  if (!STy || !DTy)
     return false;
 
-  auto *D = DTy->getPointerElementType();
-  auto *S = STy->getPointerElementType();
+  auto *D = DTy->getElementType();
+  auto *S = STy->getElementType();
   if (!D->isSized() || !S->isSized() ||
       DL.getTypeStoreSize(D) != DL.getTypeStoreSize(S))
     return false;
@@ -965,16 +982,17 @@ inline bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
     return false;
 
   auto *BC = cast<BitCastInst>(V);
-  auto *FromTy = BC->getOperand(0)->getType();
-  auto *ToTy = BC->getType();
-  if (!isa<PointerType>(ToTy) || !BC->hasOneUse() || !isa<PointerType>(FromTy))
+  auto *FromTy = dyn_cast<PointerType>(BC->getOperand(0)->getType());
+  auto *ToTy   = dyn_cast<PointerType>(BC->getType());
+  if (!ToTy || !FromTy || !BC->hasOneUse())
     return false;
 
-  auto *FromPointeeTy = dyn_cast<StructType>(FromTy->getPointerElementType());
-  auto *ToPointeeTy = ToTy->getPointerElementType();
+  auto *FromPointeeTy = dyn_cast<StructType>(FromTy->getElementType());
+  auto *ToPointeeTy = ToTy->getElementType();
 
   if (!FromPointeeTy || FromPointeeTy->isOpaque() ||
-      !FromPointeeTy->isSized() || FromPointeeTy->getNumElements() == 0)
+      !FromPointeeTy->isSized() || FromPointeeTy->getNumElements() == 0 ||
+      !ToTy->isSized())
     return false;
 
   if (DL.getTypeStoreSize(FromPointeeTy->getElementType(0)) !=
@@ -991,6 +1009,19 @@ inline bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
     return false;
 
   return true;
+}
+
+// Extract 'this` parameter and pointed-to type of 'this'.
+inline StructType *getStructTypeOfMethod(const Function &F) {
+  FunctionType *FTy = F.getFunctionType();
+  if (FTy->getNumParams() < 1)
+    return nullptr;
+
+  if (auto *PTy = dyn_cast<PointerType>(FTy->getParamType(0)))
+    if (auto *STy = dyn_cast<StructType>(PTy->getElementType()))
+      return STy;
+
+  return nullptr;
 }
 } // namespace soatoaos
 } // namespace dtrans

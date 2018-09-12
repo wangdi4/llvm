@@ -2,7 +2,7 @@
 ; RUN: opt -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test currently fails because we don't recognize the element reads.
-; CMPLRS-51700 
+; CMPLRS-51700
 ; XFAIL: *
 
 ; Test access of struct.test.b element zero via a bitcast and load of

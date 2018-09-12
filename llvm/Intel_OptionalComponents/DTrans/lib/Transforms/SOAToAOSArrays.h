@@ -41,11 +41,14 @@ namespace soatoaos {
 
 // Represents structure, which is array, see CandidateLayoutInfo.
 struct ArraySummaryForIdiom : public SummaryForIdiom {
-  Type *ElementType;
-  ArraySummaryForIdiom(StructType *A, Type *E, StructType *MI,
+  // Additional information needed to analyze array method:
+  //  type of elements stored in array.
+  // Type of elements is always a pointer.
+  PointerType *ElementType;
+  ArraySummaryForIdiom(StructType *A, PointerType *E, StructType *MI,
                        const Function *F)
       : SummaryForIdiom(A, MI, F), ElementType(E) {}
-  ArraySummaryForIdiom(const SummaryForIdiom &S, Type *E)
+  ArraySummaryForIdiom(const SummaryForIdiom &S, PointerType *E)
       : SummaryForIdiom(S), ElementType(E) {}
 };
 
@@ -54,23 +57,63 @@ struct ArraySummaryForIdiom : public SummaryForIdiom {
 // MemoryInterface optionally.
 //
 // Given these checks one can analyze evolution of
-// integer fields.
+// integer fields, base pointer and MemoryInterface.
 //
 // These checks (in addition to callsite analysis of methods)
 // permit to create single structure, which has one copy of
 // integer fields and MemoryInterface field.
 //
-// Element accesses need to be checked for wellformedness
+// Element accesses need to be checked separately for wellformedness
 // if one is going to combine base pointers to single one.
+//
+// Idioms are used in ComputeArrayMethodClassification::classify()
+// to do preliminary classification of all instructions in array method:
+//  - there can be accesses to integer fields;
+//  - there can be manipulations of base pointer;
+//  - there can be accesses to elements (using base pointer).
 struct ArrayIdioms : public Idioms {
 protected:
-  // GEP (Arg ArgNo) FieldInd,
-  // where corresponding type is base pointer of S.StrType.
-  static bool isBasePointerAddr(const Dep *D, const ArraySummaryForIdiom &S) {
-    Type *Out = nullptr;
-    if (!isFieldAddr(D, S, Out))
+  // Some arithmetic function on integer argument and integer fields of
+  // S.StrType.
+  //
+  // It should be satisfied for conditions in conditional branches and
+  // updates of integer fields of S.StrType.
+  //
+  // Other checks should implicitly assume this check when control flow
+  // dependence is accounted for.
+  static bool isDependentOnIntegerFieldsOnly(const Dep *D,
+                                             const SummaryForIdiom &S) {
+    if (isIntegerFieldLoad(D, S) || isIntegerArg(D, S))
+      return true;
+
+    if (D->Kind == Dep::DK_Const)
+      return true;
+
+    if (D->Kind != Dep::DK_Function)
       return false;
-    return Out->isPointerTy() && Out->getPointerElementType() == S.ElementType;
+
+    for (auto *A : *D->Args)
+      if (!isIntegerFieldLoad(A, S) && !isIntegerArg(A, S))
+        return false;
+    return true;
+  }
+
+  // Store of some value dependent on other integer field and integer arguments
+  // to integer field. Should consider all integer fields and all arguments,
+  // because conditional branches depend on integer fields and integer
+  // arguments.
+  static bool isIntegerFieldCopyEx(const Dep *D, const SummaryForIdiom &S) {
+    if (D->Kind != Dep::DK_Store)
+      return false;
+
+    if (!isIntegerFieldAddr(D->Arg2, S))
+      return false;
+
+    if (D->Arg1->Kind != Dep::DK_Const &&
+        !isDependentOnIntegerFieldsOnly(D->Arg1, S))
+      return false;
+
+    return true;
   }
 
   // Load from base pointer field of S.StrType.
@@ -78,7 +121,6 @@ protected:
   // load's result is permitted.
   static bool isBasePointerLoadBased(const Dep *D,
                                      const ArraySummaryForIdiom &S) {
-
     if (isBasePointerLoad(D, S))
       return true;
 
@@ -197,6 +239,8 @@ protected:
     if (D->Kind != Dep::DK_Store)
       return false;
 
+    // Additional accurate check is perfomed in
+    // ComputeArrayMethodClassification::classify().
     if (!isAllocBased(D->Arg1, S))
       return false;
 
@@ -210,7 +254,7 @@ protected:
     return S.ElementType == Out->getPointerElementType();
   }
 
-  // Initialize base pointer with constant
+  // Initialize base pointer with constant.
   static bool isBasePtrInitFromConst(const Dep *D,
                                      const ArraySummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Store)
@@ -239,6 +283,12 @@ protected:
     if (Free->Kind != Dep::DK_Free)
       return false;
 
+    // As only results from allocation (no adjustments are allowed) is stored
+    // to base pointer, then adjustments before passing to deallocation
+    // function can be ignored.
+    //
+    // Restriction can be removed if accompanied by accurate check in
+    // ComputeArrayMethodClassification::classify().
     if (!isBasePointerLoadBased(Free->Arg1, S))
       return false;
 
@@ -247,40 +297,121 @@ protected:
 
     return true;
   }
+
+  // Load from integer field of S.StrType.
+  static bool isIntegerFieldLoad(const Dep *D, const SummaryForIdiom &S) {
+    if (D->Kind != Dep::DK_Load)
+      return false;
+    return isIntegerFieldAddr(D->Arg1, S);
+  }
+
+  // Store of constant to newly allocated memory.
+  // TODO: extend if needed to memset of base pointer.
+  static bool isNewMemoryInit(const Dep *D, const SummaryForIdiom &S) {
+    if (D->Kind != Dep::DK_Store)
+      return false;
+
+    if (D->Arg1->Kind != Dep::DK_Const)
+      return false;
+
+    return isAllocBased(D->Arg2, S);
+  }
+
+private:
+  // GEP (Arg ArgNo) FieldInd,
+  // where corresponding type is base pointer of S.StrType.
+  static bool isBasePointerAddr(const Dep *D, const ArraySummaryForIdiom &S) {
+    Type *Out = nullptr;
+    if (!isFieldAddr(D, S, Out))
+      return false;
+    return Out->isPointerTy() && Out->getPointerElementType() == S.ElementType;
+  }
+
+  // (Arg ArgNo) of integer type.
+  static bool isIntegerArg(const Dep *D, const SummaryForIdiom &S) {
+    if (D->Kind != Dep::DK_Argument)
+      return false;
+    return S.Method->getFunctionType()->getParamType(D->Const)->isIntegerTy();
+  }
+
+  // GEP (Arg ArgNo) FieldInd,
+  // where corresponding type is integer of S.StrType.
+  static bool isIntegerFieldAddr(const Dep *D, const SummaryForIdiom &S) {
+    Type *Out = nullptr;
+    if (!isFieldAddr(D, S, Out))
+      return false;
+    return Out->isIntegerTy();
+  }
+
+  // Some allocation call, whose size argument depends on integer fields of
+  // S.StrType and integer arguments.
+  static bool isAllocBased(const Dep *D, const SummaryForIdiom &S) {
+    auto *Alloc = D;
+
+    if (D->Kind == Dep::DK_Function)
+      for (auto *A : *D->Args)
+        if (A->Kind == Dep::DK_Alloc) {
+          // Single alloc is permitted.
+          if (Alloc->Kind == Dep::DK_Alloc)
+            return false;
+          Alloc = A;
+        } else if (!isDependentOnIntegerFieldsOnly(A, S))
+          return false;
+
+    if (Alloc->Kind != Dep::DK_Alloc)
+      return false;
+
+    if (!isDependentOnIntegerFieldsOnly(Alloc->Arg1, S) &&
+        Alloc->Arg1->Kind != Dep::DK_Const)
+      return false;
+
+    if (Alloc->Arg2->Kind == Dep::DK_Const)
+      return true;
+
+    if (!isMemoryInterfaceFieldLoadRec(Alloc->Arg2, S))
+      return false;
+
+    return true;
+  }
 };
 
 // It is a detailed classification need for guided comparison using
-// FunctionComparator in populateSideEffects.
+// FunctionComparator.
 //
 // One needs to separate methods updating fields, which are combined later,
 // and non-updating fields, which may contain other side effects not
-// interfere with array.
+// interfering with array.
 //
 // Checks in checkMethod does not check all properties in explanations,
 // only essential ones, related to combining/not combining methods.
+//
+// Integer fields refer to fields of array struct, although different instances
+// may be involved, like in copy constructor.
 enum MethodKind {
   MK_Unknown,
   // Parameters are 'this' and integer arguments:
   //  - may update integer fields and base_pointer;
+  //  - integer fields get value from integer arguments and/or integer fields;
+  //  - new base pointer is allocated/old base pointer deallocated;
+  //  - allocation size depends on integer fields arguments;
   //  - copy elements from base_pointer to newly allocated memory.
   // Should be combined.
   MK_Realloc,
   // Parameters are 'this', some element and integer arguments:
-  //  - may call to realloc-like;
-  //  - may update integer fields and base_pointer.
+  //  - calls to realloc-like method;
+  //  - restriction are similar to MK_Realloc.
   // Should be combined.
   MK_Append,
   // Parameters are 'this', maybe integer and MemoryInterface:
-  //  - integer fields can only be set from argument or constants;
+  //  - integer fields can only be set from argument or other
   //  - MemoryInterface can only be set from argument;
   //  - base pointer can only be allocated.
   // Should be combined.
   MK_Ctor,
   // Parameters are 'this' and 'other' instance.
-  //  - integer field comes depends on integer fields from 'other'
-  //  instance;
+  //  - integer field depends on integer fields of 'this' or 'other' instances;
   //  - base pointer can only be allocated;
-  //  - elements can only be copied from 'other' elements.
+  //  - elements can only be copied from 'this' or 'other' elements.
   // Should be combined.
   MK_CCtor,
   // Single 'this' parameter
@@ -288,18 +419,18 @@ enum MethodKind {
   // Should be combined.
   MK_Dtor,
   // Parameters are 'this', element and integer candidate for index.
-  // Does not update fields.
-  //
-  // Should NOT be combined.
+  // Does not update fields, only store element to array.
+  // No need to combine.
   MK_Set,
   // Single 'this' parameter
   // Returns value of some integer field.
-  // Should NOT be combined.
+  // No need to combine.
   MK_GetInteger,
   // Parameters are 'this' and integer index
   // Returns pointer to some element. Need to check for immediate
-  // dereference. Or returns element by value.
-  // Should NOT be combined.
+  // dereference.
+  // Or returns element by value.
+  // No need to combine.
   MK_GetElement,
 
   MK_Last = MK_GetElement
@@ -340,10 +471,13 @@ inline raw_ostream &operator<<(raw_ostream &OS, MethodKind MK) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// It is expected that array do not change layout, only base pointers are
-// adjusted.
 // See comments for ArrayIdioms for details regarding analysis of arrays'
 // methods.
+//
+// Class uses approximations from ArrayIdioms to classify instructions in
+// array method. Additional checks performed to complete analysis.
+//
+// Restrictions from final IR transformations are imposed.
 class ComputeArrayMethodClassification : public ArrayIdioms {
 public:
   using InstContainer = SmallSet<const Instruction *, 32>;
@@ -378,7 +512,6 @@ private:
     // MK_Ctor
     // MK_Realloc
     // MK_Append
-    // ArrayIdioms::isBasePtrInitFromNewMemory
     bool HasBasePtrInitFromNewMemory = false;
     // MK_GetElement
     // Address to element or element value is returned.
@@ -390,21 +523,41 @@ private:
     // MK_Dtor/MK_Realloc.
     bool HasBasePtrFree = false;
     // Not MK_Set and MKF_Get*.
-    // Should be false to methods not combined.
+    // Should be false if methods are not combined later.
     bool HasFieldUpdate = false;
-    // Should be false to methods not combined.
+    // Should be false if methods are not combined later.
     bool HasExternalSideEffect = false;
 
-    MethodKind classifyMethod(const Function *F) const {
-      bool HasVoidRes = F->getReturnType()->isVoidTy();
+    MethodKind classifyMethod(const ArraySummaryForIdiom &S) const {
+      // Some calls to combined methods are removed.
+      // Avoid complications with returned value in IR transformation.
+      bool HasVoidRes = S.Method->getReturnType()->isVoidTy();
+
+      // MK_Append/MK_Set
       if (HasElementSetFromArg) {
+
+        // Avoid complications in IR transformation for multiple
+        // element-related arguments in combined MK_Append methods.
+        int NumElementArgs = 0;
+        for (auto *P : S.Method->getFunctionType()->params())
+          if (P == S.ElementType)
+            NumElementArgs++;
+          else if (auto *Ptr = dyn_cast<PointerType>(P))
+            if (Ptr->getElementType() == S.ElementType)
+              NumElementArgs++;
+
         if (CalledMethod)
-          return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Append;
+          return HasExternalSideEffect || !HasVoidRes || NumElementArgs != 1
+                     ? MK_Unknown
+                     : MK_Append;
         if (HasBasePtrFree && HasBasePtrInitFromNewMemory)
-          return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Append;
+          return HasExternalSideEffect || !HasVoidRes || NumElementArgs != 1
+                     ? MK_Unknown
+                     : MK_Append;
         return HasFieldUpdate ? MK_Unknown : MK_Set;
       }
 
+      // Methods not combined: MK_Get*
       if (!HasStores && !HasBasePtrFree && !HasBasePtrInitFromNewMemory) {
         if (ReturnsIntField)
           return MK_GetInteger;
@@ -413,26 +566,29 @@ private:
         return MK_Unknown;
       }
 
+      // MK_Realloc
       if (HasBasePtrInitFromNewMemory && HasBasePtrFree)
-        return HasExternalSideEffect ? MK_Unknown : MK_Realloc;
+        return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Realloc;
 
+      // MK_Dtor
       if (HasBasePtrFree)
-        return HasExternalSideEffect ? MK_Unknown : MK_Dtor;
+        return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Dtor;
 
-      if (HasBasePtrInitFromNewMemory && !HasExternalSideEffect) {
-        auto *FuncTy = F->getFunctionType();
+      // MK_CCtor/MK_Ctor
+      if (HasBasePtrInitFromNewMemory && !HasExternalSideEffect && HasVoidRes) {
+        auto *FuncTy = S.Method->getFunctionType();
         bool IsCopyCtor =
-            F->arg_size() == 2 &&
+            S.Method->arg_size() == 2 &&
             FuncTy->getParamType(1) == FuncTy->getParamType(0);
 
         return IsCopyCtor ? MK_CCtor : MK_Ctor;
       }
       return MK_Unknown;
     }
-  };
+  }; // struct MethodClassification
 
-  // Additional check of method call parameters.
-  // Complements approximate dependency checks from DepCompute.
+  // Additional check of method call parameters to complete analysis from
+  // DepCompute.
   // Helper method for classify.
   //
   // Call to method should have argument dependent on integer fields or integer
@@ -456,8 +612,8 @@ private:
   }
 
   // Checks for structured access to elements.
-  // Complements approximate dependency checks from DepCompute.
-  // Helper method for checkMethod.
+  // Completes checks from DepCompute.
+  // Helper method for classify.
   //
   // Check address of element access: it should be equivalent to GEP relative
   // to base pointer or newly allocated pointer to permit address adjustment
@@ -476,16 +632,16 @@ private:
     if (isSafeBitCast(DL, Address))
       Address = cast<BitCastInst>(Address)->getOperand(0);
 
-    Type *PTy = Address->getType();
+    auto *PTy = dyn_cast<PointerType>(Address->getType());
 
-    if (!isa<PointerType>(PTy) || PTy->getPointerElementType() != S.ElementType)
+    if (!PTy || PTy->getElementType() != S.ElementType)
       return false;
 
     if (!isa<Instruction>(Address))
       return false;
 
     auto *IAddr = cast<Instruction>(Address);
-    if (!all_inst_dep_iterator::isSupportedOpcode(IAddr->getOpcode()))
+    if (!gep_inst_dep_iterator::isSupportedOpcode(IAddr->getOpcode()))
       return false;
 
     SmallSet<const Value *, 10> GEPs;
@@ -532,8 +688,8 @@ private:
   }
 
   // Checks for structured memset.
-  // Complements approximate dependency checks from DepCompute.
-  // Helper method for checkMethod.
+  // Completes checks from DepCompute.
+  // Helper method for classify.
   //
   // Checks that elements are cleared by memset using structured
   // memory access, i.e. memset should be equivalent to stores with
@@ -542,10 +698,9 @@ private:
   // Base address is a result of allocation functions and size is divisible by
   // element size.
   bool checkMemset(const Value *Call) const {
-    if (!isa<MemSetInst>(Call))
+    auto *MS = dyn_cast<MemSetInst>(Call);
+    if (!MS)
       return false;
-
-    auto *MS = cast<MemSetInst>(Call);
 
     const Dep *DO = DM.getApproximation(MS->getDest());
     // Base is direct access of base pointer in array structure,
@@ -590,18 +745,69 @@ private:
     return false;
   }
 
-  void insertElementFromArg(const Instruction *I, const char *Desc) const {
-    TI.ElementFromArg.insert(I);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    InstDesc[I] = std::string("Arg: ") + Desc;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Only 'isSafeBitCast' BitCastInst as part of address computation is
+  // supported.
+  //
+  // Ultimately there should be GEP to compute address.
+  //
+  // Only used in checkBasePointerInst.
+  bool checkLoadStoreAddress(const Instruction *I) const {
+    const Value *Address = nullptr;
+    if (auto *L = dyn_cast<LoadInst>(I))
+      Address = L->getPointerOperand();
+    else if (auto *SI = dyn_cast<StoreInst>(I))
+      Address = SI->getPointerOperand();
+    else
+      llvm_unreachable("Incorrect argument.");
+
+    if (auto *BC = dyn_cast<BitCastInst>(Address)) {
+      if (!isSafeBitCast(DL, BC))
+        return false;
+      Address = BC->getOperand(0);
+    }
+    if (!isa<GetElementPtrInst>(Address))
+      return false;
+    return true;
   }
 
-  void insertBasePtrInst(const Instruction *I, const char *Desc) const {
+  // Restriction from transformation.
+  // Address of load instruction should be manageable in IR transformation.
+  // DepCompute tolerates a few idioms, which are helpful during analysis,
+  // but not supported in transformation.
+  bool checkBasePointerInst(const Instruction *I, const char *Desc) const {
+    if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
+      if (!checkLoadStoreAddress(I))
+        return false;
+    } else if (!ImmutableCallSite(I)) // Allocation instruction.
+      llvm_unreachable(
+          "Unexpected instruction related to base pointer manipulations.");
+
     TI.BasePtrInst.insert(I);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     InstDesc[I] = std::string("BasePtrInst: ") + Desc;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    return true;
+  }
+
+  // Restriction from transformation.
+  // Address of load instruction should be manageable in IR transformation.
+  // DepCompute tolerates a few idioms, which are helpful during analysis,
+  // but not supported in transformation.
+  bool checkElementLoadFromArg(const Instruction *I, const char *Desc) const {
+    auto *Address = cast<LoadInst>(I)->getPointerOperand();
+    if (auto *BC = dyn_cast<BitCastInst>(Address)) {
+      if (!isSafeBitCast(DL, BC))
+        return false;
+      Address = BC->getOperand(0);
+    }
+    if (!isa<Argument>(Address))
+      return false;
+
+    TI.ElementFromArg.insert(I);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    InstDesc[I] = std::string("Arg: ") + Desc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    return true;
   }
 
   ComputeArrayMethodClassification(const ComputeArrayMethodClassification &) =
@@ -610,6 +816,7 @@ private:
   operator=(const ComputeArrayMethodClassification &) = delete;
 
   const DataLayout &DL;
+  // Approximate IR.
   const DepMap &DM;
   const ArraySummaryForIdiom &S;
 
@@ -632,6 +839,11 @@ public:
            TI.BasePtrInst.size() + TI.ElementPtrGEP.size();
   }
 
+  // Returns the <classification of S.Method, called method>.
+  // Called method is needed for MK_Append methods, which are allowed to call
+  // MK_Realloc method.
+  //
+  // Check for returned Function should be done separately,
   std::pair<MethodKind, const Function *> classify() const {
     MethodClassification MC;
     bool Invalid = false;
@@ -649,16 +861,17 @@ public:
         return std::make_pair(MK_Unknown, nullptr);
       }
 
-      if (D->isBottom() && !DTransSOAToAOSComputeAllDep)
+      if (D->isBottom())
         Invalid = true;
 
       if (Invalid && !DTransSOAToAOSComputeAllDep)
         break;
 
       // Synchronized with DepCompute::computeDepApproximation
+      //
       // For each opcode, there are different cases processed,
       // if instruction is classified, then switch statement is exited,
-      // otherwise Handled is set and diagnostic printed.
+      // otherwise Handled is cleared and diagnostic is printed.
       bool Handled = true;
       switch (I.getOpcode()) {
 
@@ -687,8 +900,8 @@ public:
         if (ArrayIdioms::isIntegerFieldLoad(D, S))
           break;
         else if (ArrayIdioms::isBasePointerLoad(D, S)) {
-          insertBasePtrInst(&I, "Load of base pointer");
-          break;
+          if (checkBasePointerInst(&I, "Load of base pointer"))
+            break;
         } else if (ArrayIdioms::isElementLoad(D, S)) {
           if (checkElementAccessForTransformation(&I, "Element load"))
             break;
@@ -696,10 +909,9 @@ public:
                           dbgs() << "; Unsupported address computations\n");
         } else if (ArrayIdioms::isMemoryInterfaceFieldLoad(D, S))
           break;
-        else if (ArrayIdioms::isElementValueFromArg(D, S)) {
-          insertElementFromArg(&I, "Load from arg");
-          break;
-        }
+        else if (ArrayIdioms::isElementValueFromArg(D, S))
+          if (checkElementLoadFromArg(&I, "Load from arg"))
+            break;
 
         Handled = false;
         break;
@@ -731,11 +943,15 @@ public:
           MC.HasBasePtrInitFromNewMemory = true;
           MC.HasFieldUpdate = true;
 
-          auto *VDep = DM.getApproximation(
-              cast<StoreInst>(I).getValueOperand()->stripPointerCasts());
+          auto *StoreVal =
+              cast<StoreInst>(I).getValueOperand()->stripPointerCasts();
+          auto *VDep = DM.getApproximation(StoreVal);
           if (ArrayIdioms::isAlloc(VDep, S)) {
-            insertBasePtrInst(&I, "Init base pointer with allocated memory");
-            break;
+            if (checkBasePointerInst(cast<Instruction>(StoreVal),
+                                     "Allocation call") &&
+                checkBasePointerInst(&I,
+                                     "Init base pointer with allocated memory"))
+              break;
           }
           DEBUG_WITH_TYPE(DTRANS_SOAARR,
                           dbgs()
@@ -749,8 +965,8 @@ public:
                   dyn_cast<Constant>(cast<StoreInst>(I).getValueOperand()))
             if (C->isZeroValue()) {
               MC.HasFieldUpdate = true;
-              insertBasePtrInst(&I, "Nullify base pointer");
-              break;
+              if (checkBasePointerInst(&I, "Nullify base pointer"))
+                break;
             }
         }
         Handled = false;
@@ -777,6 +993,8 @@ public:
         Handled = false;
         break;
       case Instruction::LandingPad:
+        // Checking that external side effect is not related to updates of
+        // fields. Loads of MemoryInterface is allowed.
         if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
@@ -784,6 +1002,8 @@ public:
         Handled = false;
         break;
       case Instruction::Resume:
+        // Checking that external side effect is not related to updates of
+        // fields. Loads of MemoryInterface is allowed.
         if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
@@ -794,25 +1014,33 @@ public:
       case Instruction::Invoke:
         if (ArrayIdioms::isKnownCall(D, S)) {
           auto CS = ImmutableCallSite(&I);
+          // Permit only one call to other method.
           if (checkMethodCall(CS)) {
             MC.CalledMethod = cast<Function>(CS.getCalledValue());
             break;
           }
-        } else if (ArrayIdioms::isAlloc(D, S)) {
-          insertBasePtrInst(&I, "Allocation call");
+        }
+        // Allocation calls in combined methods are OK if nothing is stored
+        // into new memory. Allocation related to stores are processed in
+        // Instruction::Store case.
+        else if (ArrayIdioms::isAlloc(D, S))
           break;
-        } else if (ArrayIdioms::isBasePtrFree(D, S)) {
+        else if (ArrayIdioms::isBasePtrFree(D, S)) {
           // May want to check that pointer to deallocate is exactly
           // load of base pointer.
           MC.HasBasePtrFree = true;
           break;
-        } else if (ArrayIdioms::isNewMemoryInit(D,
-                                                S)) { // Corresponds to memset
+        }
+        // Corresponds to memset of elements
+        else if (ArrayIdioms::isNewMemoryInit(D, S)) {
           if (checkElementAccessForTransformation(&I, "Memset of elements"))
             break;
           DEBUG_WITH_TYPE(DTRANS_SOAARR,
                           dbgs() << "; Unsupported memory initialization\n");
-        } else if (ArrayIdioms::isExternaSideEffect(D, S)) {
+        }
+        // Checking that external side effect is not related to updates of
+        // fields. Loads of MemoryInterface is allowed.
+        else if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
         }
@@ -835,7 +1063,7 @@ public:
 
     return Invalid
                ? std::make_pair(MK_Unknown, nullptr)
-               : std::make_pair(MC.classifyMethod(S.Method), MC.CalledMethod);
+               : std::make_pair(MC.classifyMethod(S), MC.CalledMethod);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   class AnnotatedWriter : public AssemblyAnnotationWriter {
@@ -884,7 +1112,7 @@ public:
   void updateBasePointerInsts(bool IsCombined, int NumArrays,
                               PointerType *NewBaseType) {
     IRBuilder<> Builder(Context);
-    auto *PNewBaseType = PointerType::get(NewBaseType, 0);
+    auto *PNewBaseType = NewBaseType->getPointerTo(0);
 
     auto &LDL = DL;
     auto GetGEP = [&LDL](Value *V, bool &BC) -> GetElementPtrInst * {
@@ -896,7 +1124,7 @@ public:
         return cast<GetElementPtrInst>(cast<BitCastInst>(V)->getOperand(0));
       }
       llvm_unreachable("Check DepCompute/ComputeArrayMethodClassification for "
-                       "counter peep-hole analysis");
+                       "counter peep-hole analysis.");
     };
 
     for (auto *I : InstsToTransform.BasePtrInst) {
@@ -962,7 +1190,7 @@ public:
             OldSize->getType(), "nsz");
         CS.getInstruction()->replaceUsesOfWith(OldSize, NewSize);
       } else
-        llvm_unreachable("Unexpected instruction encountered");
+        llvm_unreachable("Unexpected instruction encountered.");
     }
   }
 
@@ -1082,7 +1310,7 @@ public:
             OldSize->getType(), "nsz");
         MS->replaceUsesOfWith(OldSize, NewSize);
       } else
-        llvm_unreachable("Unexpected instruction encountered");
+        llvm_unreachable("Unexpected instruction encountered.");
     }
 
     // Relink copies.
@@ -1116,7 +1344,7 @@ public:
       else if (isa<Argument>(NewI))
         continue;
       else
-        llvm_unreachable("Unexpected instruction encountered");
+        llvm_unreachable("Unexpected instruction encountered.");
     }
   }
 
@@ -1151,7 +1379,7 @@ public:
       } else if (auto *NewPHI = dyn_cast<PHINode>(NewI)) {
         NewPHI->mutateType(NewBaseType);
       } else
-        llvm_unreachable("Unexpected instruction encountered");
+        llvm_unreachable("Unexpected instruction encountered.");
     }
 
     for (auto *I : ElementPtrGEP) {
@@ -1197,7 +1425,7 @@ private:
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Offset of base pointer in DTransSOAToAOSApproxTypename.
+// Offset of base pointer in array structure.
 extern cl::opt<unsigned> DTransSOAToAOSBasePtrOff;
 ArraySummaryForIdiom
 getParametersForSOAToAOSArrayMethodsCheckDebug(Function &F);

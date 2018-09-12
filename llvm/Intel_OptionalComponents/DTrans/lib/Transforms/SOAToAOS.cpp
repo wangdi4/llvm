@@ -134,14 +134,15 @@ private:
     class ElementIter
         : public iterator_adaptor_base<
               ElementIter<IterTy>, IterTy,
-              typename std::iterator_traits<IterTy>::iterator_category, Type *,
-              typename std::iterator_traits<IterTy>::difference_type, Type **,
-              Type *> {
+              typename std::iterator_traits<IterTy>::iterator_category,
+              PointerType *,
+              typename std::iterator_traits<IterTy>::difference_type,
+              PointerType **, PointerType *> {
       using BaseTy = iterator_adaptor_base<
           ElementIter, OffsetsTy::const_iterator,
-          typename std::iterator_traits<IterTy>::iterator_category, Type *,
-          typename std::iterator_traits<IterTy>::difference_type, Type **,
-          Type *>;
+          typename std::iterator_traits<IterTy>::iterator_category,
+          PointerType *, typename std::iterator_traits<IterTy>::difference_type,
+          PointerType **, PointerType *>;
 
     public:
       const CandidateLayoutInfo *Info;
@@ -198,10 +199,10 @@ private:
           Struct->getElementType(Off)->getPointerElementType());
     }
     // Off is some element of ArrayFieldOffsets.
-    Type *getSOAElementType(unsigned Off) const {
-      return getSOAArrayType(Off)
-          ->getElementType(BasePointerOffset)
-          ->getPointerElementType();
+    PointerType *getSOAElementType(unsigned Off) const {
+      return cast<PointerType>(getSOAArrayType(Off)
+                                   ->getElementType(BasePointerOffset)
+                                   ->getPointerElementType());
     }
   };
 
@@ -669,8 +670,8 @@ bool SOAToAOSTransformImpl::CandidateCFGInfo::populateCFGInformation(
     if (FTy->getNumParams() < 1)
       return nullptr;
 
-    if (auto *PTy = dyn_cast<PointerType>(*FTy->param_begin()))
-      if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+    if (auto *PTy = dyn_cast<PointerType>(FTy->getParamType(0)))
+      if (auto *STy = dyn_cast<StructType>(PTy->getElementType()))
         return STy;
 
     return nullptr;
@@ -793,15 +794,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
                     // *this as DepMap to fill.
                     *this);
 
-      auto &AllMethods = *std::get<0>(Pair);
-
-      // Mark calls to methods as known.
-      std::function<bool(const Function *)> IsMethod =
-          [&AllMethods](const Function *F) -> bool {
-        return std::find(AllMethods.begin(), AllMethods.end(), F) !=
-               AllMethods.end();
-      };
-      bool Result = DC.computeDepApproximation(IsMethod);
+      bool Result = DC.computeDepApproximation();
       LLVM_DEBUG(dbgs() << "; Dep approximation for array's method "
                         << F->getName()
                         << (Result ? " is successful\n" : " incomplete\n"));
@@ -817,14 +810,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
   for (auto *F : StructMethods) {
     DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
 
-    auto &AllMethods = StructMethods;
-    std::function<bool(const Function *)> IsMethod =
-        [&AllMethods](const Function *F) -> bool {
-      return std::find(AllMethods.begin(), AllMethods.end(), F) !=
-             AllMethods.end();
-    };
-
-    bool Result = DC.computeDepApproximation(IsMethod);
+    bool Result = DC.computeDepApproximation();
     LLVM_DEBUG(dbgs() << "; Dep approximation for struct's method "
                       << F->getName()
                       << (Result ? " is successful\n" : " incomplete\n"));
@@ -965,19 +951,20 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     // TODO: store results somewhere for transformation.
     // FIXME: Make TI per-module and not per-function.
     StructureMethodAnalysis::TransformationData TI;
-
     // TODO: make order of arguments consistent.
     // TODO: add diagnostic messages.
-    CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
-                             ArrayFieldOffsets, CSInfo, BasePointerOffset, TI);
-
-    bool CheckResult = CSCmp.checkStructMethod();
+    StructureMethodAnalysis MChecker(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S,
+                                     Arrays, ArrayFieldOffsets, TI);
+    bool CheckResult = MChecker.checkStructMethod();
     LLVM_DEBUG(dbgs() << "; Struct's method " << F->getName()
                       << (CheckResult ? " has only expected side-effects\n"
                                       : " needs analysis of instructions\n"));
     if (!CheckResult)
       return FALSE();
 
+    CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
+                             ArrayFieldOffsets, TI, CSInfo,
+                             BasePointerOffset);
     bool Comparison = CSCmp.canCallSitesBeMerged();
     LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
                       << (Comparison

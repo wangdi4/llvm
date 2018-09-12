@@ -27,6 +27,7 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/PatternMatch.h"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -39,24 +40,15 @@ namespace llvm {
 namespace dtrans {
 namespace soatoaos {
 
+// Structure's methods in SOA can have different side-effects.
+//
+// Preliminary checks filter out not relevant side-effects from accesses to
+// pointers to arrays.
+//
+// Details are in comment for isStructuredLoad.
+// Non-nested load/stores are processed in StructureMethodAnalysis.
 struct StructIdioms : protected Idioms {
 protected:
-  static bool isNonStructArg(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Argument)
-      return false;
-
-    auto *Ty = S.Method->getFunctionType()->getParamType(D->Const);
-    // Simple check that Ty is not related to S.S
-    if (isa<PointerType>(Ty))
-      Ty = Ty->getPointerElementType();
-
-    // Actually, only elements of array and integers are permitted.  Make sure
-    // pointers to array of interest (only accessible through S.StrType) are
-    // not forbidden.
-    return isa<IntegerType>(Ty) || (isa<StructType>(Ty) && Ty != S.StrType);
-  }
-
-public:
   // All addresses to S.StrType should be dereferenced.
   static bool isStructuredExpr(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind == Dep::DK_Function) {
@@ -99,7 +91,7 @@ public:
   // Load (GEP(..)).
   //
   // For arrays of interest there are only non-nested loads (uses are checked
-  // in checkLoadOfStructField.
+  // in checkArrPtrLoadUses.
   //
   // Load (Load(Func(GEP))) are eventually permitted for accesses to fields not
   // related to transformed arrays, for example, to inlined non-transformed
@@ -159,7 +151,23 @@ public:
     return OffOut == Off;
   }
 
-  using Idioms::isFieldLoad;
+private:
+  static bool isNonStructArg(const Dep *D, const SummaryForIdiom &S) {
+    if (D->Kind != Dep::DK_Argument)
+      return false;
+
+    auto *Ty = S.Method->getFunctionType()->getParamType(D->Const);
+    // Simple check that Ty is not related to S.S
+    if (isa<PointerType>(Ty))
+      Ty = Ty->getPointerElementType();
+
+    // For transformation, it is sufficient that only elements
+    // of array and integers are permitted.
+    //
+    // For legality, it is necessary to prevent unchecked accesses
+    // to pointers to arrays (only accessible through S.StrType).
+    return isa<IntegerType>(Ty) || (isa<StructType>(Ty) && Ty != S.StrType);
+  }
 };
 
 // Utility class, see comments for static methods.
@@ -175,8 +183,7 @@ public:
   // argument.
   static bool isThisArgNonInitialized(const DTransAnalysisInfo &DTInfo,
                                       const TargetLibraryInfo &TLI,
-                                      const Function *F,
-                                      unsigned Size) {
+                                      const Function *F, unsigned Size) {
     // Simple wrappers only.
     if (!F->hasOneUse())
       return false;
@@ -191,8 +198,7 @@ public:
 
     // Extract 'this' actual argument.
     auto *AllocCall = cast<Instruction>(This->stripPointerCasts());
-    auto *Info =
-        DTInfo.getCallInfo(AllocCall);
+    auto *Info = DTInfo.getCallInfo(AllocCall);
     if (!Info)
       return false;
 
@@ -216,6 +222,27 @@ public:
     return false;
   }
 
+  // stripPointerCasts from def to single use.
+  static const Use &skipPointerCasts(const Use &U) {
+    auto *V = &U;
+    while (true)
+      // stripPointerCasts from def to single use.
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(V->getUser())) {
+        if (!GEP->hasAllZeroIndices())
+          return *V;
+        if (!GEP->hasOneUse())
+          return *V;
+        V = &*GEP->use_begin();
+      } else if (auto *BC = dyn_cast<BitCastInst>(V->getUser())) {
+        if (!BC->hasOneUse())
+          return *V;
+        V = &*BC->use_begin();
+      } else
+        return *V;
+
+    llvm_unreachable("Incorrect logic.");
+  }
+
   // Checks that 'this' argument is dead after a call to CS,
   // because it is passed to deallocation routine immediately after call to CS.
   //
@@ -237,31 +264,18 @@ public:
 
     bool HasSameBBDelete = false;
     auto *BB = CS.getInstruction()->getParent();
-    for (auto &U : ThisArg->uses()) {
-      auto *V = &U;
+    for (auto &TU : ThisArg->uses()) {
+      auto &U = skipPointerCasts(TU);
 
-      // stripPointerCasts from def to single use.
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(V->getUser())) {
-        if (GEP->hasAllZeroIndices()) {
-          if (!GEP->hasOneUse())
-            return false;
-          V = &*GEP->use_begin();
-        }
-      } else if (auto *BC = dyn_cast<BitCastInst>(V->getUser())) {
-        if (!BC->hasOneUse())
-          return false;
-        V = &*BC->use_begin();
-      }
-
-      if (!isa<Instruction>(V->getUser()))
+      if (!isa<Instruction>(U.getUser()))
         return false;
 
-      if (V->getUser() == CS.getInstruction())
+      if (U.getUser() == CS.getInstruction())
         continue;
 
-      auto *Inst = cast<Instruction>(V->getUser());
+      auto *Inst = cast<Instruction>(U.getUser());
       bool IsSameBB = Inst->getParent() == BB;
-      // If V follows CS in the same BB.
+      // If U follows CS in the same BB.
       bool IsBBSucc = false;
       if (IsSameBB) {
         IsBBSucc = std::find_if(CS.getInstruction()->getIterator(), BB->end(),
@@ -273,7 +287,7 @@ public:
           continue;
       }
 
-      if (isFreedPtr(DTInfo, TLI, *V)) {
+      if (isFreedPtr(DTInfo, TLI, U)) {
         if (IsSameBB && IsBBSucc) {
           HasSameBBDelete = true;
           continue;
@@ -316,21 +330,78 @@ public:
 
     return true;
   }
+
+  // Returns
+  //  - first  - true if there is a use in dellocation, false otherwise.
+  //  - second - single use in method candidate, nullptr otherwise.
+  static std::pair<bool, const ImmutableCallSite>
+  isThereUseInFree(const DTransAnalysisInfo &DTInfo,
+                   const TargetLibraryInfo &TLI, const Value *V) {
+    bool FreeUseSeen = false;
+    ImmutableCallSite SingleMethod;
+
+    for (auto &TU : V->uses()) {
+      auto &U = skipPointerCasts(TU);
+      if (auto CS = ImmutableCallSite(U.getUser())) {
+        if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U))
+          FreeUseSeen = true;
+        // Direct call.
+        else if (CS.getCalledFunction()) {
+          if (SingleMethod)
+            return std::make_pair(FreeUseSeen, ImmutableCallSite());
+          SingleMethod = CS;
+        }
+      }
+    }
+    return std::make_pair(FreeUseSeen, SingleMethod);
+  }
+
+  // Given V, returns single using method call (deallocation functions are
+  // ignored), returns nullptr otherwise.
+  static ImmutableCallSite getSingleMethodCall(const DTransAnalysisInfo &DTInfo,
+                                               const TargetLibraryInfo &TLI,
+                                               const Value *V) {
+    return isThereUseInFree(DTInfo, TLI, V).second;
+  }
+
+  // Checks if V is a check for equality to null.
+  // Non-constant operand returned.
+  static const Value *isNullCheck(const Value *V) {
+    Value *Other = nullptr;
+    ICmpInst::Predicate Pred = CmpInst::ICMP_NE;
+    // Unordered capture.
+    if (PatternMatch::match(
+            V, PatternMatch::m_c_ICmp(Pred, PatternMatch::m_Zero(),
+                                      PatternMatch::m_Value(Other))) &&
+        Pred == CmpInst::ICMP_EQ)
+      return Other;
+    return nullptr;
+  }
 };
 
 // Check properties of structure's method to SOA-to-AOS
 // transformation.
+//
+// Analyses load/stores to fields, which are pointers to arrays.
+//  checkArrPtrLoadUses and checkArrPtrStoreUses are of main interest.
+// Uses of loads and uses of stored value are analyzed.
+//  In summary, uses are allowed in
+//    1. method calls;
+//    2. deallocation functions;
+//    3. null checks.
+//
+// Analysis of relation of load/stores with respect to special array's method
+// (ctors/etc) calls is completed in CallSiteComparator.
 class StructureMethodAnalysis : public StructIdioms {
 public:
   using InstContainer = SmallSet<const Instruction *, 32>;
-  using FunctionSet = SmallVector<const Function *, 3>;
 
   struct TransformationData {
     // Loads/stores of pointers to elements.
     InstContainer ArrayInstToTransform;
   };
 
-protected:
+private:
   void insertArrayInst(const Instruction *I, const char *Desc) const {
     TI.ArrayInstToTransform.insert(I);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -338,34 +409,55 @@ protected:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
 
-  // Explicitly check non-nested load, i.e. direct loads of
-  // pointer to arrays.
-  //
-  // If Dtors is non-null, then additional checks are performed,
-  // when L is used in deallocation function.
-  // In that L should be used as 'this' argument of dtor.
-  bool checkLoadOfStructField(const LoadInst &L,
-                              const FunctionSet *Dtors) const {
+  // Returns type array type accessed.
+  // Returns nullptr if load is not related to array transformed.
+  StructType *isLoadOrStoreOfArrayPtr(const Instruction &I) const {
+    const Value *Address = nullptr;
+    if (auto *L = dyn_cast<LoadInst>(&I))
+      Address = L->getPointerOperand();
+    else if (auto *SI = dyn_cast<StoreInst>(&I))
+      Address = SI->getPointerOperand();
+    else
+      llvm_unreachable("Incorrect call of isLoadOrStoreOfArrayPtr.");
 
-    auto *D = DM.getApproximation(&L);
+    auto *D = DM.getApproximation(Address);
     Type *FieldType = nullptr;
-    // Not a direct load, but is structured
-    if (!StructIdioms::isFieldLoad(D, S, FieldType))
-      return true;
+    // Unstructured store.
+    if (!StructIdioms::isFieldAddr(D, S, FieldType))
+      return nullptr;
 
     // Not a pointer to array.
     if (!isa<PointerType>(FieldType))
-      return true;
+      return nullptr;
+
+    auto *FPointeeTy = FieldType->getPointerElementType();
 
     // Layout restriction.
     // See
     // SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation.
-    auto *StrType = cast<StructType>(FieldType->getPointerElementType());
-
-    auto It = std::find(Fields.begin(), Fields.end(), StrType);
+    auto *ArrStrType = cast<StructType>(FPointeeTy);
+    auto It = std::find(Fields.begin(), Fields.end(), ArrStrType);
     // Access to non-interesting field.
     if (It == Fields.end())
-      return true;
+      return nullptr;
+
+    return ArrStrType;
+  }
+
+  // Explicitly check non-nested load, i.e. direct loads of
+  // pointer to arrays.
+  //
+  // Restrictions for load of pointer to transformed array:
+  //  1. At least 1 use as 'this' argument of array's method.
+  //  2. At most 1 use as 'this' argument if used in deallocation.
+  //     Done in CallSiteComparator.
+  //  3. If used in deallocation, then called method should be dtor.
+  //  4. There could be check for nullptr.
+  //
+  // for transformed array should be used in array's method:
+  //  (MethodCalled).
+  bool checkArrPtrLoadUses(const LoadInst &L, StructType *StrType) const {
+    assert(StrType && "Incorrect parameter");
 
     // Transformation restriction:
     // isSafeBitCast/isBitCastLikeGep/isSafeIntToPtr are not permitted.
@@ -376,121 +468,63 @@ protected:
     // to null-check or to call to deallocation.
     bool FreeUseSeen = false;
     SmallPtrSet<const Function *, 3> MethodsCalled;
-    for (auto &U : L.uses())
-      // Method call.
+    for (auto &LU : L.uses()) {
+      auto &U = CtorDtorCheck::skipPointerCasts(LU);
       if (auto CS = ImmutableCallSite(U.getUser())) {
-        // CFG restriction, use can be only for 'this' argument.
-        //
-        // Safety check of CFG based on the 'this' argument.
-        // See dtrans::StructInfo::CallSubGraph.
-        //
-        // Also see
-        // SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation.
-        if (auto FCalled = CS.getCalledFunction()) {
-          if (Dtors)
+        if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U)) {
+          FreeUseSeen = true;
+          continue;
+        }
+        // Direct call.
+        else if (auto FCalled = CS.getCalledFunction()) {
+          // CFG restriction, use can be only for 'this' argument.
+          //
+          // Safety check of CFG based on the 'this' argument.
+          // See dtrans::StructInfo::CallSubGraph.
+          //
+          // Also see populateLayoutInformation.
+          //
+          // No cast from load to method call.
+          if (&U == &LU) {
             MethodsCalled.insert(FCalled);
-          // insert optimistically
-          insertArrayInst(CS.getInstruction(), "Array method call");
-          continue;
-        }
-        return false;
-      }
-      // Null check.
-      else if (auto *Cmp = dyn_cast<ICmpInst>(U.getUser())) {
-        // nullptr check is not pointer escape,
-        // see checkZeroInit also.
-        if (!Cmp->isEquality())
+            // insert optimistically
+            insertArrayInst(CS.getInstruction(), "Array method call");
+            continue;
+          }
+        } else
           return false;
-
-        bool IsNull = false;
-        for (auto &Op : Cmp->operands())
-          if (auto *C = dyn_cast<Constant>(Op.get()))
-            if (C->isZeroValue())
-              IsNull = true;
-        if (IsNull)
-          continue;
+      } else if (CtorDtorCheck::isNullCheck(U.getUser()))
+        continue;
+      else
         return false;
-      }
-      // Free-call
-      else if (auto *GEP = dyn_cast<GetElementPtrInst>(U.getUser())) {
-        if (GEP->hasAllZeroIndices() && GEP->hasOneUse() &&
-            CtorDtorCheck::isFreedPtr(DTInfo, TLI, *GEP->use_begin())) {
-          FreeUseSeen = true;
-          continue;
-        }
-        return false;
-      }
-      // Free-call
-      else if (auto *BC = dyn_cast<BitCastInst>(U.getUser())) {
-        if (BC->hasOneUse() &&
-            CtorDtorCheck::isFreedPtr(DTInfo, TLI, *BC->use_begin())) {
-          FreeUseSeen = true;
-          continue;
-        }
-        return false;
-      } else
-        return false;
-
-    if (Dtors && FreeUseSeen) {
-      if (MethodsCalled.size() != 1)
-        return false;
-      for (auto FCalled : MethodsCalled)
-        if (std::find_if(Dtors->begin(), Dtors->end(),
-                         [FCalled](const Function *FCtor) -> bool {
-                           return FCalled == FCtor;
-                         }) == Dtors->end())
-          return false;
     }
 
-    insertArrayInst(&L, "Load of array");
+    if (FreeUseSeen)
+      if (MethodsCalled.size() != 1)
+        return false;
 
+    insertArrayInst(&L, "Load of array");
     return true;
   }
 
   // Function checks that pointer to newly allocated memory is stored to
-  // pointer to array field.
+  // pointer to array field. Uses of stored value is checked.
   //
-  // If Ctors is non-null, then additional checks is performed.
-  // Method called for allocated memory (storage for array class) should be
-  // ctor or cctor as specified in Ctors.
-  bool checkStoreToField(const StoreInst &SI, const FunctionSet *Ctors) const {
-    auto *D = DM.getApproximation(SI.getPointerOperand());
-    Type *FieldType = nullptr;
-    // Unstructured store.
-    if (!StructIdioms::isFieldAddr(D, S, FieldType))
-      return false;
+  // Use of stored value in ctor is checked in CallSiteComparator.
+  bool checkArrPtrStoreUses(const StoreInst &SI, StructType *StrType) const {
+    assert(StrType && "Incorrect parameter");
 
-    // Not a pointer to array.
-    if (!isa<PointerType>(FieldType))
-      return true;
-
-    auto *FPointeeTy = FieldType->getPointerElementType();
-
-    // Stores to memory interface should be only 'copy'-like.
-    if (FPointeeTy == S.MemoryInterface)
-      return false;
-
+    auto *Address = SI.getPointerOperand();
     // Transformation restriction:
     // isSafeIntToPtr are not permitted.
-    if (!isa<GetElementPtrInst>(SI.getPointerOperand()) &&
-        !isBitCastLikeGep(DL, SI.getPointerOperand()) &&
-        !isSafeBitCast(DL, SI.getPointerOperand()))
+    if (!isa<GetElementPtrInst>(Address) && !isBitCastLikeGep(DL, Address) &&
+        !isSafeBitCast(DL, Address))
       return false;
-
-    // Layout restriction.
-    // See
-    // SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation.
-    auto *StrType = cast<StructType>(FPointeeTy);
-
-    auto It = std::find(Fields.begin(), Fields.end(), StrType);
-    // Access to non-interesting field.
-    if (It == Fields.end())
-      return true;
 
     // Check that value operand is associated with method allocation call:
     //  - value is from allocation call;
     //  - stored only to field;
-    //  - method of array is called.
+    //  - single method of array is called (should be ctor).
     //
     // There are other patterns with different bitcast placements possible.
     //
@@ -517,39 +551,28 @@ protected:
       return false;
 
     bool MethodSeen = false;
-    for (auto &U : IVal->uses())
-      if (auto *BC = dyn_cast<BitCastInst>(U.getUser())) {
-        if (!BC->hasNUses(1))
+    for (auto &VU : IVal->uses()) {
+      auto &U = CtorDtorCheck::skipPointerCasts(VU);
+      if (auto CS = ImmutableCallSite(U.getUser())) {
+        if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U))
+          continue;
+        // Use of stored value in ctor is checked in CallSiteComparator.
+        else if (CS.getCalledFunction()) {
+          // Store should be associated with single method, i.e. with ctor.
+          // Called value is checked in CallSiteComparator.
+          if (MethodSeen)
+            return false;
+          // insert optimistically
+          insertArrayInst(CS.getInstruction(), "Array method call");
+          MethodSeen = true;
+          continue;
+        } else
           return false;
-        if (BC->getType() != StrType->getPointerTo())
-          return false;
-
-        if (auto CS = ImmutableCallSite(BC->use_begin()->getUser()))
-          // Safety check of CFG based on the 'this' argument.
-          // See dtrans::StructInfo::CallSubGraph.
-          if (auto FCalled = CS.getCalledFunction()) {
-            // Not ctor call, hence cannot merge.
-            if (Ctors && std::find_if(Ctors->begin(), Ctors->end(),
-                                      [FCalled](const Function *FCtor) -> bool {
-                                        return FCalled == FCtor;
-                                      }) == Ctors->end())
-              return false;
-            // Store should be associated with single method, i.e. with ctor.
-            if (MethodSeen)
-              return false;
-            // insert optimistically
-            insertArrayInst(CS.getInstruction(), "Array method call");
-            MethodSeen = true;
-            continue;
-          }
-        return false;
-      }
-      else if (U.getUser() == &SI)
-        continue;
-      else if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U))
+      } else if (U.getUser() == &SI)
         continue;
       else
         return false;
+    }
 
     // All stored should be associated with call to ctor-only.
     // Check is completed in canCallSitesBeMerged below.
@@ -571,7 +594,6 @@ protected:
     auto *SL = DL.getStructLayout(S.StrType);
 
     // Check that all pointers to arrays of interest are zeroed.
-    // TODO:
     for (auto Off : Offsets)
       if (SL->getElementOffset(Off) + DL.getPointerSize(0) > MaxOffset)
         return false;
@@ -601,24 +623,6 @@ protected:
     return true;
   }
 
-  const DataLayout &DL;
-  const DTransAnalysisInfo &DTInfo;
-  const TargetLibraryInfo &TLI;
-  const DepMap &DM;
-  const SummaryForIdiom &S;
-
-  // Array types
-  const SmallVectorImpl<StructType *> &Fields;
-  // Offsets of pointers to array types in S.StrType;
-  const SmallVectorImpl<unsigned> &Offsets;
-
-  // Information computed for transformation.
-  TransformationData &TI;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  mutable DenseMap<const Instruction *, std::string> InstDesc;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
   StructureMethodAnalysis(const StructureMethodAnalysis &) = delete;
   StructureMethodAnalysis &operator=(const StructureMethodAnalysis &) = delete;
 
@@ -628,6 +632,7 @@ public:
                           const TargetLibraryInfo &TLI, const DepMap &DM,
                           const SummaryForIdiom &S,
                           const SmallVectorImpl<StructType *> &Fields,
+                          // Needed for MemSetInst check.
                           const SmallVectorImpl<unsigned> &Offsets,
                           TransformationData &TI)
       : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Fields(Fields),
@@ -650,16 +655,17 @@ public:
         return false;
       }
 
-      if (D->isBottom() && !DTransSOAToAOSComputeAllDep)
+      if (D->isBottom())
         Invalid = true;
 
       if (Invalid && !DTransSOAToAOSComputeAllDep)
         break;
 
       // Synchronized with DepCompute::computeDepApproximation
+      //
       // For each opcode, there are different cases processed,
       // if instruction is classified, then switch statement is exited,
-      // otherwise Handled is set and diagnostic printed.
+      // otherwise Handled is cleared and diagnostic is printed.
       bool Handled = true;
       switch (I.getOpcode()) {
       // Manipulations of pointer to arrays in Struct is processed
@@ -675,11 +681,20 @@ public:
       case Instruction::Load:
         // All loads should be structured here to avoid
         // expensive recursion in isStructuredLoad/isStructuredCall
-        if (StructIdioms::isStructuredLoad(D, S) &&
-            // Explicitly check non-nested load, i.e. direct loads of
-            // pointers to arrays.
-            checkLoadOfStructField(cast<LoadInst>(I), nullptr))
-          break;
+        if (StructIdioms::isStructuredLoad(D, S)) {
+          // Explicitly check non-nested load, i.e. direct loads of
+          // pointers to arrays.
+          if (auto *StrType = isLoadOrStoreOfArrayPtr(I)) {
+            // Related to arrays of interest, limited kinds of uses
+            // permitted. In particular, analysis of uses prevents nested loads
+            // with respect to arrays of interest.
+            if (checkArrPtrLoadUses(cast<LoadInst>(I), StrType))
+              break;
+          } else
+            // Not related to arrays of interest of interest and not setting
+            // Handled = false here.
+            break;
+        }
         Handled = false;
         break;
       case Instruction::Store:
@@ -693,9 +708,18 @@ public:
                  StructIdioms::isMemoryInterfaceCopy(D, S))
           break;
         // Explicitly check for Struct's field update.
-        // Without check for usage in ctor.
-        else if (checkStoreToField(cast<StoreInst>(I), nullptr))
+        else if (auto *StrType = isLoadOrStoreOfArrayPtr(I)) {
+          // Related to arrays of interest, limited kinds of uses
+          // permitted.
+          //
+          // Check for usage in ctor is completed in CallSiteComparator.
+          if (checkArrPtrStoreUses(cast<StoreInst>(I), StrType))
+            break;
+        } else
+          // Not related to arrays of interest of interest and not setting
+          // Handled = false here.
           break;
+
         Handled = false;
         break;
       case Instruction::Unreachable:
@@ -715,8 +739,12 @@ public:
           if (auto CS = ImmutableCallSite(&I))
             if (checkMethodCall(CS))
               break;
-        } else if (StructIdioms::isStructuredStore(D, S))
+        }
+        // memset of memory pointed-to by some field,
+        // For example, memset of elements of array, which is not transformed.
+        else if (StructIdioms::isStructuredStore(D, S))
           break;
+        // Memset of structure itself.
         else if (auto *MI = dyn_cast<MemSetInst>(&I))
           if (checkZeroInit(*MI))
             break;
@@ -740,6 +768,7 @@ public:
 
     return !Invalid;
   }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   class AnnotatedWriter : public AssemblyAnnotationWriter {
     const StructureMethodAnalysis &MC;
@@ -758,10 +787,37 @@ public:
     }
   };
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private:
+  const DataLayout &DL;
+  const DTransAnalysisInfo &DTInfo;
+  const TargetLibraryInfo &TLI;
+  const DepMap &DM;
+
+  // Summary for StructIdioms checks.
+  const SummaryForIdiom &S;
+
+  // Array types
+  const SmallVectorImpl<StructType *> &Fields;
+  // Offsets of pointers to array types in S.StrType;
+  const SmallVectorImpl<unsigned> &Offsets;
+
+  // Information computed for transformation.
+  TransformationData &TI;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  mutable DenseMap<const Instruction *, std::string> InstDesc;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
 
-class CallSiteComparator : public StructureMethodAnalysis {
+// Completes analysis of structure's methods:
+//  - makes sure that combined array's combined methods have calls amenable to
+//    combining;
+//  - completes checks of load/stores with respect to special array's methods;
+//  - checks that pointers to elements do not escape.
+class CallSiteComparator : public StructIdioms {
 public:
+  using FunctionSet = SmallVector<const Function *, 3>;
   struct CallSitesInfo {
     FunctionSet Ctors;
     FunctionSet CCtors;
@@ -1432,6 +1488,7 @@ private:
         case Instruction::BitCast:
         case Instruction::GetElementPtr:
         case Instruction::Load:
+        case Instruction::Store:
           continue;
         case Instruction::Invoke:
           // No control flow cycles are possible.
@@ -1454,11 +1511,6 @@ private:
             continue;
           }
           return false;
-        case Instruction::Store:
-          // Check for use in ctor already done in canCallSitesBeMerged.
-          if (!checkStoreToField(cast<StoreInst>(I), nullptr))
-            return false;
-          continue;
         default:
           return false;
         }
@@ -1472,7 +1524,7 @@ private:
     //  - ctors
     //
     // 1-1 correspondence between ctor and stores is checked in
-    // checkStoreToField.
+    // checkArrPtrStoreUses.
     if (NumAllocCalls != NewCalls.size() || NumCtorCalls != CtorCSs.size())
       return false;
 
@@ -1516,34 +1568,30 @@ private:
         case Instruction::GetElementPtr:
           continue;
         case Instruction::Load:
-          // Check for use in dtor already done in canCallSitesBeMerged/
-          if (!checkLoadOfStructField(cast<LoadInst>(I), nullptr))
-            return false;
           continue;
-        case Instruction::ICmp: {
-          // TODO: unify with checkLoadOfStructField
-          auto &Cmp = cast<ICmpInst>(I);
-          // Simplify check successor check below Br case.
-          if (Cmp.getPredicate() != CmpInst::ICMP_EQ)
-            return false;
+        case Instruction::ICmp:
+          if (auto *Other = CtorDtorCheck::isNullCheck(&I)) {
+            auto &Cmp = cast<ICmpInst>(I);
 
-          bool IsNull = false;
-          for (auto &Op : Cmp.operands())
-            if (auto *C = dyn_cast<Constant>(Op.get()))
-              if (C->isZeroValue())
-                IsNull = true;
-          if (!IsNull)
-            return false;
+            if (!Cmp.hasOneUse())
+              return false;
 
-          if (!Cmp.hasOneUse())
-            return false;
+            auto *Br = dyn_cast<BranchInst>(Cmp.use_begin()->getUser());
+            if (!Br || Br->getParent() != BB)
+              return false;
 
-          auto *Br = dyn_cast<BranchInst>(Cmp.use_begin()->getUser());
-          if (!Br || Br->getParent() != BB)
-            return false;
+            // Check that Other is related to dtor call.
+            // Simple check, no reloads.
+            auto MethodCS = CtorDtorCheck::getSingleMethodCall(DTInfo, TLI, Other);
 
-          continue;
-        }
+            if (std::find_if(DtorCSs.begin(), DtorCSs.end(),
+                             [MethodCS](ImmutableCallSite CS) -> bool {
+                               return MethodCS.getInstruction() ==
+                                      CS.getInstruction();
+                             }) != DtorCSs.end())
+              continue;
+          }
+          return false;
         case Instruction::Br: {
           auto &Br = cast<BranchInst>(I);
           if (!Br.isConditional()) {
@@ -1558,7 +1606,7 @@ private:
             return false;
 
           // FL.first already calls dtor.
-          // From checkZeroInit() and checkStoreToField,
+          // From checkZeroInit() and checkArrPtrStoreUses,
           // we may deduce that null-checks are redundant.
           //
           // Relying on ICMP_EQ predicate.
@@ -1608,6 +1656,20 @@ private:
   CallSiteComparator(const CallSiteComparator &) = delete;
   CallSiteComparator &operator=(const CallSiteComparator &) = delete;
 
+  const DataLayout &DL;
+  const DTransAnalysisInfo &DTInfo;
+  const TargetLibraryInfo &TLI;
+  const DepMap &DM;
+  const SummaryForIdiom &S;
+
+  // Array types
+  const SmallVectorImpl<StructType *> &Fields;
+  // Offsets of pointers to array types in S.StrType;
+  const SmallVectorImpl<unsigned> &Offsets;
+
+  // Information computed for transformation.
+  const StructureMethodAnalysis::TransformationData &TI;
+
   const CallSitesInfo &CSInfo;
   unsigned BasePtrOffset;
 
@@ -1617,34 +1679,47 @@ public:
                      const SummaryForIdiom &S,
                      const SmallVectorImpl<StructType *> &Fields,
                      const SmallVectorImpl<unsigned> &Offsets,
-                     const CallSitesInfo &CSInfo, unsigned BasePtrOffset,
-                     TransformationData &TI)
-      : StructureMethodAnalysis(DL, DTInfo, TLI, DM, S, Fields, Offsets, TI),
-        CSInfo(CSInfo), BasePtrOffset(BasePtrOffset) {}
+                     const StructureMethodAnalysis::TransformationData &TI,
+                     const CallSitesInfo &CSInfo, unsigned BasePtrOffset)
+      : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Fields(Fields),
+        Offsets(Offsets), TI(TI), CSInfo(CSInfo), BasePtrOffset(BasePtrOffset) {
+  }
 
   bool canCallSitesBeMerged() const {
-
+    // Check categories of methods called, finalizing uses checks of
+    // loads/stores in StructureMethodAnalysis.
     for (auto *I : TI.ArrayInstToTransform)
       if (auto *SI = dyn_cast<StoreInst>(I)) {
-        if (!checkStoreToField(*SI, &CSInfo.Ctors) &&
-            !checkStoreToField(*SI, &CSInfo.CCtors))
+        // Store should be processed checkArrPtrStoreUses
+        auto *FCalled = CtorDtorCheck::getSingleMethodCall(
+            DTInfo, TLI, SI->getValueOperand()).getCalledFunction();
+        // Not ctor call, hence cannot merge.
+        if (std::find_if(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
+                         [FCalled](const Function *FCtor) -> bool {
+                           return FCalled == FCtor;
+                         }) == CSInfo.Ctors.end() &&
+            std::find_if(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
+                         [FCalled](const Function *FCtor) -> bool {
+                           return FCalled == FCtor;
+                         }) == CSInfo.CCtors.end())
           return false;
       } else if (auto *L = dyn_cast<LoadInst>(I)) {
-        if (!checkLoadOfStructField(*L, &CSInfo.Dtors))
-          return false;
+        auto IsUsed = CtorDtorCheck::isThereUseInFree(DTInfo, TLI, L);
+        // Load is used in deallocation
+        if (IsUsed.first) {
+          assert(IsUsed.second && "StructureMethodAnalysis was not run");
+          auto FCalled = IsUsed.second.getCalledFunction();
+          if (std::find_if(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
+                           [FCalled](const Function *FCtor) -> bool {
+                             return FCalled == FCtor;
+                           }) == CSInfo.Dtors.end())
+            return false;
+        }
       } else if (auto CS = ImmutableCallSite(I)) {
-        if (CS.arg_size() == 0)
-          continue;
-        auto ThisType = dyn_cast<PointerType>(CS.getArgOperand(0)->getType());
-        if (!ThisType)
-          continue;
-        auto *StrType = dyn_cast<StructType>(ThisType->getElementType());
-        if (!StrType)
-          continue;
-        auto It = std::find(Fields.begin(), Fields.end(), StrType);
-        // Access to non-interesting field.
-        if (It == Fields.end())
-          continue;
+        auto *StrType = getStructTypeOfMethod(*CS.getCalledFunction());
+        assert(std::find(Fields.begin(), Fields.end(), StrType) !=
+                   Fields.end() &&
+               "Unexpected instruction");
         auto *BasePtrType = StrType->getTypeAtIndex(BasePtrOffset);
         if (BasePtrType != CS.getType())
           continue;
@@ -1705,7 +1780,7 @@ public:
           // 32-bit offset in struct corresponding to pointer to AOS.
           GEP->setOperand(2, Builder.getIntN(32, AOSOff));
         } else
-          llvm_unreachable("Unexpected address");
+          llvm_unreachable("Unexpected address.");
       }
       else if (auto *SI = dyn_cast<StoreInst>(NewI)) {
         auto *Ptr = SI->getPointerOperand();
@@ -1728,9 +1803,9 @@ public:
           if (Off == AOSOff)
             continue;
         } else
-          llvm_unreachable("Unexpected address");
+          llvm_unreachable("Unexpected address.");
 
-        // See checkStoreToField: it is store of allocated memory.
+        // See checkArrPtrStoreUses: it is store of allocated memory.
         Ptr = SI->getPointerOperand();
         SI->eraseFromParent();
         assert(Ptr->hasNUses(0) && "Inconsistent logic");
@@ -1745,7 +1820,7 @@ public:
       else if (CallSite(NewI)) {
         continue;
       } else
-        llvm_unreachable("Unexpected instruction to transform");
+        llvm_unreachable("Unexpected instruction to transform.");
     }
 
     // Deal with combined call sites.
@@ -1819,7 +1894,7 @@ private:
       } else if (auto *SI = dyn_cast<StoreInst>(User))
         SI->eraseFromParent();
       else
-        llvm_unreachable("Inconsistency with checkStoreToField");
+        llvm_unreachable("Inconsistency with checkArrPtrStoreUses.");
 
     if (auto *Inv = dyn_cast<InvokeInst>(Alloc.getInstruction())) {
       Builder.SetInsertPoint(Inv);
@@ -1836,7 +1911,7 @@ private:
     auto *This = CS.getArgOperand(0);
     assert(
         isa<LoadInst>(This) &&
-        "Inconsistency with checkLoadOfStructField and canCallSitesBeMerged");
+        "Inconsistency with checkArrPtrLoadUses and canCallSitesBeMerged");
 
     IRBuilder<> Builder(Context);
     if (auto *Inv = dyn_cast<InvokeInst>(CS.getInstruction())) {
@@ -1852,22 +1927,22 @@ private:
     for (auto *User : Users) {
       Value *FreeCall = nullptr;
       Instruction *Cast = nullptr;
-      // See checkLoadOfStructField
+      // See checkArrPtrLoadUses
       if (auto *GEP = dyn_cast<GetElementPtrInst>(User)) {
         assert(GEP->hasAllZeroIndices() && GEP->hasOneUse() &&
-               "Inconsistency with checkLoadOfStructField");
+               "Inconsistency with checkArrPtrLoadUses");
         FreeCall = GEP->use_begin()->getUser();
         Cast = GEP;
       }
-      // See checkLoadOfStructField
+      // See checkArrPtrLoadUses
       else if (auto *BC = dyn_cast<BitCastInst>(User)) {
-        assert(BC->hasOneUse() && "Inconsistency with checkLoadOfStructField");
+        assert(BC->hasOneUse() && "Inconsistency with checkArrPtrLoadUses");
         FreeCall = BC->use_begin()->getUser();
         Cast = BC;
       } else
         continue;
 
-      assert(CallSite(FreeCall) && "Inconsistency with checkLoadOfStructField");
+      assert(CallSite(FreeCall) && "Inconsistency with checkArrPtrLoadUses");
 
       if (auto *Inv = dyn_cast<InvokeInst>(FreeCall)) {
         Builder.SetInsertPoint(Inv);

@@ -595,7 +595,7 @@ exit_B:
 exit:
   ret void
 }
-  
+
 ; CHECK-LABEL: LLVMType: %struct.test37.a = type { i32, i32 }
 ; CHECK: Safety data: Bad casting | Unsafe pointer merge
 ; CHECK: LLVMType: %struct.test37.b = type { i16, i16, i16, i16 }

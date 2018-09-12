@@ -1,16 +1,15 @@
 ; RUN: opt < %s -whole-program-assume -disable-output                                                           \
 ; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
-; RUN:    -dtrans-soatoaos-approx-known-func=_ZN3ArrIPiE7reallocEi  -dtrans-soatoaos-base-ptr-off=3             \
+; RUN:    -dtrans-soatoaos-base-ptr-off=3                                                                       \
 ; RUN:    -debug-only=dtrans-soatoaos                                                                           \
 ; RUN:  2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:    -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)'  \
-; RUN:    -dtrans-soatoaos-approx-known-func=_ZN3ArrIPiE7reallocEi  -dtrans-soatoaos-base-ptr-off=3             \
+; RUN:    -dtrans-soatoaos-base-ptr-off=3                                                                       \
 ; RUN:    -debug-only=dtrans-soatoaos-arrays                                                                    \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; RUN: opt -S < %s -whole-program-assume                                                                        \
 ; RUN:    -passes=soatoaos-arrays-methods-transform                                                             \
-; RUN:    -dtrans-soatoaos-approx-known-func=_ZN3ArrIPiE7reallocEi                                              \
 ; RUN:    -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=0                                            \
 ; RUN:    -dtrans-malloc-functions=struct.Mem,0                                                                 \
 ; RUN:    -dtrans-optbase-process-function-declaration                                                          \

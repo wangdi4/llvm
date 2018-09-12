@@ -4,13 +4,11 @@
 ; RUN:        -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays                                            \
 ; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
 ; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
-; RUN:        -dtrans-soatoaos-approx-known-func='ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)' \
 ; RUN:        2>&1 | FileCheck %s
 ; RUN: opt -S < %s -whole-program-assume                                                                    \
 ; RUN:        -passes=soatoaos-arrays-methods-transform                                                     \
 ; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
 ; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
-; RUN:        -dtrans-soatoaos-approx-known-func='ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)' \
 ; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
 ; RUN:        -dtrans-optbase-process-function-declaration                                                  \
 ; RUN:        | FileCheck --check-prefix=CHECK-MOD %s

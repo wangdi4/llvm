@@ -10,7 +10,6 @@
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
 ; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
-; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::cleanUp()"                   \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
 ; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
@@ -26,7 +25,6 @@
 ; RUN: opt -S < %s -whole-program-assume                                                        \
 ; RUN:          -passes=soatoaos-struct-methods-transform                                       \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
-; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::cleanUp()"                   \
 ; RUN:          -dtrans-optbase-process-function-declaration                                    \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \

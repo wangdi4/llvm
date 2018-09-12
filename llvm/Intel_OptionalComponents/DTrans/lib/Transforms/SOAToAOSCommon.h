@@ -28,8 +28,14 @@ namespace soatoaos {
 
 // Represents minimal information for Idioms class
 struct SummaryForIdiom {
+  // Struct type provided as DepCompute::ClassType during Dep
+  // computations.
   StructType *StrType;
+  // Special type responsible for allocation/deallocation.
+  // May be null if allocation/deallocation is performed using library
+  // functions.
   StructType *MemoryInterface;
+  // Function being analyzed, it is needed to access arguments of function.
   const Function *Method;
   SummaryForIdiom(StructType *S, StructType *MI, const Function *F)
       : StrType(S), MemoryInterface(MI), Method(F) {}
@@ -38,8 +44,7 @@ struct SummaryForIdiom {
 // Number of idioms shared by analysis of of structures representing arrays,
 // and structure containing arrays.
 //
-// See comment for ArrayIdioms. Every check which does not analyse element type
-// of array is put here.
+// It is a part of checks related side-effect analysis.
 struct Idioms {
 protected:
   // GEP (Arg ArgNo) FieldInd.
@@ -68,7 +73,7 @@ protected:
 
     auto *ATy =
         dyn_cast<PointerType>(S.Method->getFunctionType()->getParamType(ArgNo));
-    if (!ATy || ATy->getPointerElementType() != S.StrType)
+    if (!ATy || ATy->getElementType() != S.StrType)
       return false;
 
     if (FieldInd >= S.StrType->getNumElements())
@@ -76,22 +81,6 @@ protected:
 
     OutType = S.StrType->getElementType(FieldInd);
     return true;
-  }
-
-  // (Arg ArgNo) of integer type.
-  static bool isIntegerArg(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Argument)
-      return false;
-    return S.Method->getFunctionType()->getParamType(D->Const)->isIntegerTy();
-  }
-
-  // GEP (Arg ArgNo) FieldInd,
-  // where corresponding type is integer of S.StrType.
-  static bool isIntegerFieldAddr(const Dep *D, const SummaryForIdiom &S) {
-    Type *Out = nullptr;
-    if (!isFieldAddr(D, S, Out))
-      return false;
-    return Out->isIntegerTy();
   }
 
   // Load of some field of S.StrType.
@@ -125,110 +114,6 @@ protected:
       // No need to check recursively.
       if (!isMemoryInterfaceFieldLoad(A, S))
         return false;
-
-    return true;
-  }
-
-  // Some external side effect not updating fields, because:
-  //  terminal nodes are DK_Const and isMemoryInterfaceFieldLoad,
-  //  which is assumed to be accessed only for memory allocation/deallocation.
-  //
-  // No pointers escape and relying on knowing all occurrence of structures
-  // representing arrays.
-  static bool isExternaSideEffectRec(const Dep *D, const SummaryForIdiom &S,
-                                     bool &SeenUnknownTerminal) {
-    if (D->Kind == Dep::DK_Function) {
-      bool ExtSE = false;
-      for (auto *A : *D->Args)
-        if (A->Kind == Dep::DK_Const || isMemoryInterfaceFieldLoad(A, S))
-          continue;
-        else if (isExternaSideEffectRec(A, S, SeenUnknownTerminal))
-          ExtSE = true;
-        else {
-          SeenUnknownTerminal = true;
-          return false;
-        }
-      return ExtSE;
-    }
-
-    if (D->Kind == Dep::DK_Call && D->Const != 0) {
-      isExternaSideEffectRec(D->Arg2, S, SeenUnknownTerminal);
-      return !SeenUnknownTerminal;
-    }
-
-    return false;
-  }
-
-  // Direct copy of some field to the field of same type,
-  //  from one argument to another.
-  //
-  // Base pointers to base pointers.
-  // S.MemoryInterface to S.MemoryInterface.
-  //
-  // Does not depend on control flow inside S.Method.
-  static bool isFieldCopy(const Dep *D, const SummaryForIdiom &S,
-                          Type *&FieldType) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    Type *ValType = nullptr;
-    if (!isFieldLoad(D->Arg1, S, ValType))
-      return false;
-
-    Type *AddrType = nullptr;
-    if (!isFieldAddr(D->Arg2, S, AddrType))
-      return false;
-
-    FieldType = AddrType;
-    return AddrType == ValType;
-  }
-
-  // Load from integer field of S.StrType.
-  static bool isIntegerFieldLoad(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Load)
-      return false;
-    return isIntegerFieldAddr(D->Arg1, S);
-  }
-
-  // Some arithmetic function on integer argument and integer fields of
-  // S.StrType.
-  //
-  // It should be satisfied for conditions in conditional branches and
-  // updates of integer fields of S.StrType.
-  //
-  // Other checks should implicitly assume this check if control flow
-  // dependence is accounted for.
-  static bool isDependentOnIntegerFieldsOnly(const Dep *D,
-                                             const SummaryForIdiom &S) {
-    if (isIntegerFieldLoad(D, S) || isIntegerArg(D, S))
-      return true;
-
-    if (D->Kind == Dep::DK_Const)
-      return true;
-
-    if (D->Kind != Dep::DK_Function)
-      return false;
-
-    for (auto *A : *D->Args)
-      if (!isIntegerFieldLoad(A, S) && !isIntegerArg(A, S))
-        return false;
-    return true;
-  }
-
-  // Store of some value dependent on other integer field and integer arguments
-  // to integer field. Should consider all integer fields and all arguments,
-  // because conditional branches depend on integer fields and integer
-  // arguments.
-  static bool isIntegerFieldCopyEx(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (!isIntegerFieldAddr(D->Arg2, S))
-      return false;
-
-    if (D->Arg1->Kind != Dep::DK_Const &&
-        !isDependentOnIntegerFieldsOnly(D->Arg1, S))
-      return false;
 
     return true;
   }
@@ -277,56 +162,16 @@ protected:
     return D->Kind == Dep::DK_Alloc;
   }
 
-  // Some allocation call, whose size argument depends on integer fields of
-  // S.StrType and integer arguments.
-  static bool isAllocBased(const Dep *D, const SummaryForIdiom &S) {
-    auto *Alloc = D;
-
-    if (D->Kind == Dep::DK_Function)
-      for (auto *A : *D->Args)
-        if (A->Kind == Dep::DK_Alloc) {
-          // Single alloc is permitted.
-          if (Alloc->Kind == Dep::DK_Alloc)
-            return false;
-          Alloc = A;
-        } else if (!isDependentOnIntegerFieldsOnly(A, S))
-          return false;
-
-    if (Alloc->Kind != Dep::DK_Alloc)
-      return false;
-
-    if (!isDependentOnIntegerFieldsOnly(Alloc->Arg1, S) &&
-        Alloc->Arg1->Kind != Dep::DK_Const)
-      return false;
-
-    if (Alloc->Arg2->Kind == Dep::DK_Const)
-      return true;
-
-    if (!isMemoryInterfaceFieldLoadRec(Alloc->Arg2, S))
-      return false;
-
-    return true;
-  }
-
-  // Store of constant to newly allocated memory.
-  // TODO: extend if needed to memset of base pointer.
-  static bool isNewMemoryInit(const Dep *D, const SummaryForIdiom &S) {
-    if (D->Kind != Dep::DK_Store)
-      return false;
-
-    if (D->Arg1->Kind != Dep::DK_Const)
-      return false;
-
-    return isAllocBased(D->Arg2, S);
-  }
-
-  // Potential call to MK_Realloc method.
+  // Call to method, i.e. to method of S.StrType,
+  // see getStructTypeOfMethod().
+  //
   // Additional checks of arguments is required.
   // See computeDepApproximation.
   static bool isKnownCall(const Dep *D, const SummaryForIdiom &S) {
     return D->Kind == Dep::DK_Call && D->Const == 0;
   }
 
+  // Checks if Dep is DK_Argument representing pointer to S.StrType.
   static bool isThisLikeArg(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Argument)
       return false;
@@ -390,11 +235,66 @@ protected:
     return isExternaSideEffectRec(D, S, SeenUnknownTerminal) &&
            !SeenUnknownTerminal;
   }
+
+private:
+  // Direct copy of some field to the field of same type:
+  //  - S.MemoryInterface to S.MemoryInterface.
+  //
+  // Does not depend on control flow inside S.Method.
+  static bool isFieldCopy(const Dep *D, const SummaryForIdiom &S,
+                          Type *&FieldType) {
+    if (D->Kind != Dep::DK_Store)
+      return false;
+
+    Type *ValType = nullptr;
+    if (!isFieldLoad(D->Arg1, S, ValType))
+      return false;
+
+    Type *AddrType = nullptr;
+    if (!isFieldAddr(D->Arg2, S, AddrType))
+      return false;
+
+    FieldType = AddrType;
+    return AddrType == ValType;
+  }
+
+  // Some external side effect not updating fields, because:
+  //  terminal nodes are DK_Const and isMemoryInterfaceFieldLoad,
+  //  which is assumed to be accessed only for memory allocation/deallocation.
+  //
+  // No pointers escape and relying on knowing all occurrence of structures
+  // representing arrays.
+  //
+  // SeenUnknownTerminal implies returned value is false, but not the opposite.
+  static bool isExternaSideEffectRec(const Dep *D, const SummaryForIdiom &S,
+                                     bool &SeenUnknownTerminal) {
+    if (D->Kind == Dep::DK_Function) {
+      bool ExtSE = false;
+      for (auto *A : *D->Args)
+        if (A->Kind == Dep::DK_Const || isMemoryInterfaceFieldLoad(A, S))
+          continue;
+        else if (isExternaSideEffectRec(A, S, SeenUnknownTerminal))
+          ExtSE = true;
+        else {
+          SeenUnknownTerminal = true;
+          return false;
+        }
+      return ExtSE;
+    }
+
+    if (D->Kind == Dep::DK_Call && D->Const != 0) {
+      isExternaSideEffectRec(D->Arg2, S, SeenUnknownTerminal);
+      return !SeenUnknownTerminal;
+    }
+
+    return false;
+  }
 };
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Offset of memory interface in DTransSOAToAOSApproxTypename.
+// Offset of memory interface in structure.
 extern cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff;
-SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(Function &F);
+SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(const Function &F);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace soatoaos
 } // namespace dtrans

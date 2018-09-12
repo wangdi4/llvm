@@ -1,11 +1,11 @@
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
-; RUN:      -dtrans-soatoaos-approx-known-func=_ZN3ArrIPiE7reallocEi 2>&1 | FileCheck %s
+; RUN:      2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
 ; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
-; RUN:      -dtrans-soatoaos-approx-known-func=_ZN3ArrIPiE7reallocEi 2>&1 | FileCheck --check-prefix=CHECK-WF %s
+; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
