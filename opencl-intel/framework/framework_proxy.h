@@ -127,20 +127,30 @@ namespace Intel { namespace OpenCL { namespace Framework {
            /******************************************************************************************
         * Function:     CancelAllTasks()
         * Description:    Simple TaskExecutor Interface for Framework
-        * Arguments:        
-        * Return value:    
-        * Author:        
-        * Date:            
+        * Arguments:
+        * Return value:
+        * Author:
+        * Date:
         ******************************************************************************************/
         void            CancelAllTasks(bool wait_for_finish) const;
 
         /******************************************************************************************
+        * Function:     NeedToDisableAPIsAtShutdown
+        * Description:    Considers if necessary to disable API at shutdown
+        * Arguments:
+        * Return value:    true for WIN32 and FPGA, false for Linux
+        * Author:
+        * Date:
+        ******************************************************************************************/
+        bool            NeedToDisableAPIsAtShutdown() const;
+
+           /******************************************************************************************
         * Function:     Execute task on TaskExecutor
         * Description:    Simple TaskExecutor Interface for Framework
-        * Arguments:        
+        * Arguments:
         * Return value:    false on error
-        * Author:        
-        * Date:            
+        * Author:
+        * Date:
         ******************************************************************************************/
         bool            Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const;
 

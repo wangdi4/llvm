@@ -259,15 +259,13 @@ TaskDispatcher::~TaskDispatcher()
 cl_dev_err_code TaskDispatcher::init()
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
-
-#ifdef BUILD_FPGA_EMULATOR
-    // disable masters joining because kernels can contain infinite loops
-    auto TaskExecutorMastersJoinMode = TE_DISABLE_MASTERS_JOIN;
-#else
     // create root device in flat mode with maximum threads, support for
     // masters joining and one reserved position for master in device
     auto TaskExecutorMastersJoinMode = TE_ENABLE_MASTERS_JOIN;
-#endif
+
+    // disable masters joining because kernels can contain infinite loops
+    if (FPGA_EMU_DEVICE == m_pCPUDeviceConfig->GetDeviceMode())
+        TaskExecutorMastersJoinMode = TE_DISABLE_MASTERS_JOIN;
 
     const size_t numMasters = 1;
     m_pRootDevice = m_pTaskExecutor->CreateRootDevice(

@@ -31,25 +31,6 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
 
-#if defined(_WIN32) || defined(BUILD_FPGA_EMULATOR)
-    // On Windows OS kills all threads at shutdown except of one that is used to call atexit() and DllMain()
-    // As all thread killing is done when threads are in an arbitrary state we cannot assume that they are not
-    // owning some lock or that they freed their per-thread resources. As our OpenCL implementation objects lifetime
-    // is based on reference counted objects we cannot assume that performing normal shutdown will not block or will
-    // free resources. So on Windows we should just block our external APIs to avoid global object destructors from
-    // DLLs to enter our OpenCL DLLs
-    //
-
-    // On FPGA emulator we should not kill contexts, execution modules, etc.
-    // because program can contain `while (true)` kernels which can not be
-    // finished using regular finish operation on command queue
-    #define JUST_DISABLE_APIS_AT_SHUTDOWN
-#else
-    // On Linux all threads are alive and fully functional at atexit() time - do the full shutdown
-    // #define JUST_DISABLE_APIS_AT_SHUTDOWN
-#endif
-
-
 // no local atexit handler - only global
 USE_SHUTDOWN_HANDLER(nullptr);
 
@@ -79,9 +60,10 @@ FrameworkProxy::FrameworkProxy()
     m_pFileLogHandler = nullptr;
     m_pConfig = nullptr;
     m_pLoggerClient = nullptr;
-	m_pTaskExecutor = nullptr;
-	m_pTaskList     = nullptr;
-	m_uiTEActivationCount = 0;
+    m_pTaskExecutor = nullptr;
+    m_pTaskList     = nullptr;
+    m_uiTEActivationCount = 0;
+
     
     RegisterGlobalAtExitNotification        ( this );
 #ifndef _WIN32
@@ -448,6 +430,35 @@ void FrameworkProxy::Initialize()
     m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 }
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::NeedToDisableAPIsAtShutdown()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const
+{
+#if defined (_WIN32)
+    // On Windows OS kills all threads at shutdown except of one that is used to
+    // call atexit() and DllMain(). As all thread killing is done when threads
+    // are in an arbitrary state we cannot assume that they are not owning some
+    // lock or that they freed their per-thread resources. As our OpenCL
+    // implementation objects lifetime is based on reference counted objects we
+    // cannot assume that performing normal shutdown will not block or will free
+    // resources. So on Windows we should just block our external APIs to avoid
+    // global object destructors from DLLs to enter our OpenCL DLLs.
+    return true;
+#endif
+    // On FPGA emulator we should not kill contexts, execution modules, etc.
+    // because program can contain `while (true)` kernels which can not be
+    // finished using regular finish operation on command queue.
+    if (FPGA_EMU_DEVICE == m_pConfig->GetDeviceMode())
+    {
+        return true;
+    }
+    // On Linux all threads are alive and fully functional at atexit() time - do
+    // the full shutdown.
+    return false;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -455,17 +466,22 @@ void FrameworkProxy::Destroy()
 {
     if (nullptr != m_pInstance)
     {
-#ifdef JUST_DISABLE_APIS_AT_SHUTDOWN
-        // If this function is called during process shutdown AND we should just disable external APIs
-        // do not delete and release anything as it meay deadlock
-        if (TERMINATED != gGlobalState)
+        if (m_pInstance->NeedToDisableAPIsAtShutdown())
         {
-#endif
+            // If this function is being called during process shutdown AND we
+            // should just disable external APIs. Do not delete or release
+            // anything as it may cause a deadlock.
+            if (TERMINATED != gGlobalState)
+            {
+                m_pInstance->Release(true);
+                delete m_pInstance;
+            }
+        }
+        else
+        {
             m_pInstance->Release(true);
             delete m_pInstance;
-#ifdef JUST_DISABLE_APIS_AT_SHUTDOWN
         }
-#endif
         m_pInstance = nullptr;
     }
 }
@@ -554,8 +570,10 @@ void FrameworkProxy::AtExitTrigger( at_exit_dll_callback_fn cb )
     if (isDllUnloadingState())
     {
         UnregisterDllCallback( cb );
-        cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE);
-        cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE);
+        cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE,
+            m_pInstance->NeedToDisableAPIsAtShutdown());
+        cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE,
+            m_pInstance->NeedToDisableAPIsAtShutdown());
     }
     else
     {
@@ -585,19 +603,21 @@ void FrameworkProxy::TerminateProcess()
 #ifndef _WIN32
         OclAutoMutex cs(&m_initializationMutex);
 #endif // _WIN32
-        for (std::set<at_exit_dll_callback_fn>::iterator it = m_at_exit_cbs.begin(); it != m_at_exit_cbs.end(); ++it)
+        for (auto it : m_at_exit_cbs)
         {
             at_exit_dll_callback_fn cb = *it;
-            cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_PROCESS_UNLOADING_MODE);
+            cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_PROCESS_UNLOADING_MODE,
+               m_pInstance->NeedToDisableAPIsAtShutdown());
         }
     }
 
-#ifndef JUST_DISABLE_APIS_AT_SHUTDOWN
     if (nullptr != m_pInstance)
     {
-        m_pInstance->m_pContextModule->ShutDown(true);
+        if (!m_pInstance->NeedToDisableAPIsAtShutdown())
+        {
+            m_pInstance->m_pContextModule->ShutDown(true);
+        }
     }
-#endif
 
     gGlobalState = TERMINATED;
 
@@ -606,16 +626,20 @@ void FrameworkProxy::TerminateProcess()
 #ifndef _WIN32
         OclAutoMutex cs(&m_initializationMutex);
 #endif // _WIN32
-        for (std::set<at_exit_dll_callback_fn>::iterator it = m_at_exit_cbs.begin(); it != m_at_exit_cbs.end(); ++it)
+        for (auto it : m_at_exit_cbs)
         {
             at_exit_dll_callback_fn cb = *it;
-            cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_PROCESS_UNLOADING_MODE);
+            cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_PROCESS_UNLOADING_MODE,
+               m_pInstance->NeedToDisableAPIsAtShutdown());
         }
         m_at_exit_cbs.clear();
     }
-    
-#if defined(_DEBUG) && !defined(JUST_DISABLE_APIS_AT_SHUTDOWN)    
-    DumpSharedPts("TerminateProcess - only SharedPtrs local to intelocl DLL", true);    
+
+#if defined(_DEBUG)
+    if (!m_pInstance->NeedToDisableAPIsAtShutdown())
+    {
+        DumpSharedPts("TerminateProcess - only SharedPtrs local to intelocl DLL", true);
+    }
 #endif
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
