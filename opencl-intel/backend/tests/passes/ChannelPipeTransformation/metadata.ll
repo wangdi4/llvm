@@ -1,6 +1,6 @@
 ; Compiled from:
 ; ----------------------------------------------------
-; #pragma OPENCL EXTENSION cl_altera_channels : enable
+; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ;
 ; struct  __attribute__((packed, aligned(16))) st {
 ;   int i1;

@@ -3,7 +3,7 @@
 ; ----------------------------------------------------
 ; Compiled from:
 ; ----------------------------------------------------
-; #pragma OPENCL EXTENSION cl_altera_channels : enable
+; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ;
 ; struct ST
 ; {
