@@ -1933,7 +1933,7 @@ bool GVN::processInstruction(Instruction *I) {
 
   // Allocations are always uniquely numbered, so we can save time and memory
   // by fast failing them.
-  if (isa<AllocaInst>(I) || isa<TerminatorInst>(I) || isa<PHINode>(I)) {
+  if (isa<AllocaInst>(I) || I->isTerminator() || isa<PHINode>(I)) {
     addToLeaderTable(Num, I, I->getParent());
     return false;
   }
@@ -1992,7 +1992,7 @@ bool GVN::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ) {
     BasicBlock *BB = &*FI++;
 
-    bool removedBlock = MergeBlockIntoPredecessor(BB, &DTU, LI, MD);
+    bool removedBlock = MergeBlockIntoPredecessor(BB, &DTU, LI, nullptr, MD);
     if (removedBlock)
       ++NumGVNBlocks;
 
@@ -2139,7 +2139,7 @@ bool GVN::performScalarPREInsertion(Instruction *Instr, BasicBlock *Pred,
 }
 
 bool GVN::performScalarPRE(Instruction *CurInst) {
-  if (isa<AllocaInst>(CurInst) || isa<TerminatorInst>(CurInst) ||
+  if (isa<AllocaInst>(CurInst) || CurInst->isTerminator() ||
       isa<PHINode>(CurInst) || CurInst->getType()->isVoidTy() ||
       CurInst->mayReadFromMemory() || CurInst->mayHaveSideEffects() ||
       isa<DbgInfoIntrinsic>(CurInst))
@@ -2457,6 +2457,8 @@ void GVN::addDeadBlock(BasicBlock *BB) {
         PHINode &Phi = cast<PHINode>(*II);
         Phi.setIncomingValue(Phi.getBasicBlockIndex(P),
                              UndefValue::get(Phi.getType()));
+        if (MD)
+          MD->invalidateCachedPointerInfo(&Phi);
       }
     }
   }

@@ -1053,6 +1053,9 @@ static uint8_t getBitcodeMachineKind(StringRef Path, const Triple &T) {
   switch (T.getArch()) {
   case Triple::aarch64:
     return EM_AARCH64;
+  case Triple::amdgcn:
+  case Triple::r600:
+    return EM_AMDGPU;
   case Triple::arm:
   case Triple::thumb:
     return EM_ARM;
@@ -1290,12 +1293,9 @@ std::string elf::replaceThinLTOSuffix(StringRef Path) {
   StringRef Suffix = Config->ThinLTOObjectSuffixReplace.first;
   StringRef Repl = Config->ThinLTOObjectSuffixReplace.second;
 
-  if (!Path.endswith(Suffix)) {
-    error("-thinlto-object-suffix-replace=" + Suffix + ";" + Repl +
-          " was given, but " + Path + " does not end with the suffix");
-    return "";
-  }
-  return (Path.drop_back(Suffix.size()) + Repl).str();
+  if (Path.consume_back(Suffix))
+    return (Path + Repl).str();
+  return Path;
 }
 
 template void ArchiveFile::parse<ELF32LE>();
