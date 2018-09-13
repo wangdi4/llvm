@@ -16,33 +16,39 @@
 #include "test_utils.h"
 #include <stdexcept>
 
-#define CHECK_ERROR(error, message)                           \
-    if (error != CL_SUCCESS) {                                \
-      throw runtime_error(message);                           \
-      return;                                                 \
-    }                                                         \
-    error = !CL_SUCCESS;                                      \
+#define CHECK(success, message)                 \
+    if (!(success)) {                           \
+      throw runtime_error(message);             \
+      return;                                   \
+    }
+
+#define CHECK_ERROR(error, message)             \
+    CHECK(error == CL_SUCCESS, message);        \
+    error = !CL_SUCCESS;
 
 using namespace std;
 
-cl_int readPipe(cl_mem pipe, void* mem)
+typedef cl_int (*read_pipe_fn)(cl_mem, void*);
+typedef cl_int (*write_pipe_fn)(cl_mem, const void*);
+
+cl_int readPipe(read_pipe_fn readFun, cl_mem pipe, void* mem)
 {
     cl_int error = CL_SUCCESS;
     do
     {
-        error = clReadPipeIntelFPGA(pipe, mem);
+        error = readFun(pipe, mem);
     }
     while (error == CL_PIPE_EMPTY);
 
     return error;
 }
 
-cl_int writePipe(cl_mem pipe, const void* mem)
+cl_int writePipe(write_pipe_fn writeFun, cl_mem pipe, const void* mem)
 {
     cl_int error = CL_SUCCESS;
     do
     {
-        error = clWritePipeIntelFPGA(pipe, mem);
+        error = writeFun(pipe, mem);
     }
     while (error == CL_PIPE_FULL);
 
@@ -58,6 +64,18 @@ static void host_fpga_host_side_pipes_internal(
     cl::CommandQueue queue(context, device);
 
     cl_int iRet = !CL_SUCCESS;
+
+    read_pipe_fn readFun =
+        (read_pipe_fn)(uintptr_t)clGetExtensionFunctionAddress(
+            "clReadPipeIntelFPGA");
+    CHECK(readFun,
+          "clGetExtensionFunctionAddress(clReadPipeIntelFPGA) failed");
+
+    write_pipe_fn writeFun =
+        (write_pipe_fn)(uintptr_t)clGetExtensionFunctionAddress(
+            "clWritePipeIntelFPGA");
+    CHECK(writeFun,
+          "clGetExtensionFunctionAddress(clWritePipeIntelFPGA) failed");
 
     // TODO: Enable cl2.cpp to avoid using OpenCL C API for 2.0 features
     cl_mem pipeRead = clCreatePipe(context(), CL_MEM_HOST_READ_ONLY,
@@ -81,14 +99,14 @@ static void host_fpga_host_side_pipes_internal(
 
     for (cl_int i = 0; i < (cl_int)maxBufferSize; ++i)
     {
-        iRet = writePipe(pipeWrite, &i);
+        iRet = writePipe(writeFun, pipeWrite, &i);
         CHECK_ERROR(iRet, "Failed to write to a pipe!");
     }
 
     for (cl_int i = 0; i < (cl_int)maxBufferSize; ++i)
     {
         cl_int got = -1;
-        iRet = readPipe(pipeRead, &got);
+        iRet = readPipe(readFun, pipeRead, &got);
         CHECK_ERROR(iRet, "Failed to read to a pipe!");
         if (i != got) {
           throw runtime_error("Verification failed");
