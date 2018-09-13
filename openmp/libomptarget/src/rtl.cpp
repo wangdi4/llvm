@@ -54,18 +54,10 @@ void RTLsTy::LoadRTLs() {
 #endif // OMPTARGET_DEBUG
 
   // Parse environment variable OMP_TARGET_OFFLOAD (if set)
-  char *envStr = getenv("OMP_TARGET_OFFLOAD");
-  if (envStr && !strcmp(envStr, "DISABLED")) {
-    DP("Target offloading disabled by environment\n");
+  TargetOffloadPolicy = (kmp_target_offload_kind_t) __kmpc_get_target_offload();
+  if (TargetOffloadPolicy == tgt_disabled) {
     return;
   }
-
-#if INTEL_CUSTOMIZATION
-  // Save if OMP_TARGET_OFFLOAD is set to MANDATORY
-  if (envStr && !strcmp(envStr, "MANDATORY")) {
-     offload_is_mandatory = true;
-  }
-#endif
 
   DP("Loading RTLs...\n");
 
@@ -231,7 +223,6 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
       if (!R.isUsed) {
         // Initialize the device information for the RTL we are about to use.
         DeviceTy device(&R);
-
         size_t start = Devices.size();
         Devices.resize(start + R.NumberOfDevices, device);
         for (int32_t device_id = 0; device_id < R.NumberOfDevices;
@@ -286,12 +277,6 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
 
     if (!FoundRTL) {
       DP("No RTL found for image " DPxMOD "!\n", DPxPTR(img->ImageStart));
-#ifdef INTEL_CUSTOMIZATION
-      // Currently spelling out the missing csa library to convey meaning info
-      // to users.
-      CheckMandatoryIsOffload("libomptarget.rtl.csa.so not found");
-#endif
-
     }
   }
   RTLsMtx.unlock();
