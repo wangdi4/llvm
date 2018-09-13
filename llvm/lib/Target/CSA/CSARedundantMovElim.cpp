@@ -616,6 +616,8 @@ bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
     AnyChanges = AnyChanges || LocalChanges;
   } // end for each basic block
 
+  assert(not AnyChanges);
+
   LLVM_DEBUG(errs() << "Redundant MOV: eliminated " << num_removed
              << " MOV instructions\n");
   return AnyChanges;

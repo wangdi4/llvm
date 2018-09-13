@@ -1170,8 +1170,8 @@ MachineFunctionPass *llvm::createCSAMemopOrderingPass() {
 
 bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   // Query the command line to check if this should be set.
-  MemopRC = csa_utils::isAlwaysDataFlowLinkageSet() ? &CSA::CI1RegClass :
-    &CSA::I1RegClass;
+  MemopRC = csa_utils::isAlwaysDataFlowLinkageSet() ? &CSA::CI0RegClass :
+    &CSA::I0RegClass;
   MRI = &MF.getRegInfo();
   AA  = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   DT  = &getAnalysis<MachineDominatorTree>();
@@ -2571,7 +2571,7 @@ unsigned MemopCFG::Node::get_none_init_mov_virtreg() {
 
   // Otherwise, a new mov will need to be added.
   none_init_mov = LMFI->allocateLIC(MemopRC, "memop.none");
-  BuildMI(*BB, BB->getFirstNonPHI(), DebugLoc{}, TII->get(CSA::MOV1),
+  BuildMI(*BB, BB->getFirstNonPHI(), DebugLoc{}, TII->get(CSA::MOV0),
           none_init_mov)
     .addImm(0);
   return none_init_mov;

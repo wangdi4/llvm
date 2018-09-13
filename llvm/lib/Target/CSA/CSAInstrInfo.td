@@ -149,11 +149,11 @@ def OptionalRegAsmOperand : AsmOperandClass {
   let Name = "OptionalReg";
   let IsOptional = 1;
 }
-def MemOrdDef : OptionalDefOperand<i1, (ops I1), (ops (i1 IGN))> {
+def MemOrdDef : OptionalDefOperand<i1, (ops I0), (ops (i1 IGN))> {
   let ParserMatchClass = OptionalRegAsmOperand;
 }
 def MemOrdUse : OperandWithDefaultOps<i1, (ops (i1 IGN))> {
-  let MIOperandInfo = (ops I1);
+  let MIOperandInfo = (ops I0);
   let ParserMatchClass = OptionalRegAsmOperand;
 }
 

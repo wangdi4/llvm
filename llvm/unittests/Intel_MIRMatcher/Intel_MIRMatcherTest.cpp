@@ -21,16 +21,25 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "../lib/Target/CSA/CSA.h"
-#include "../lib/Target/CSA/CSARegisterInfo.h"
-#include "../lib/Target/CSA/CSAMatcher.h"
+
+#include "llvm/CodeGen/Intel_MIRMatcher.h"
+
+// Target-specific includes
+#include "../lib/Target/X86/X86.h"
+#include "../lib/Target/X86/X86RegisterInfo.h"
+#include "../lib/Target/X86/X86InstrInfo.h"
+
 #include "gtest/gtest.h"
 
 #include <iostream>
+#include <cstring> // std::strncmp
+#include <cstdlib> // std::atoi
 
 using namespace llvm;
 
 namespace {
+
+int verbose = 0;
 
 LLVMContext context{};
 Module IRModule("TestModule", context);
@@ -41,13 +50,13 @@ MachineModuleInfo* MMI     = nullptr;
 // Initialize the target machine and create a machine module.
 // Note that these are never cleaned up.
 bool initTargetMachine() {
-  auto TT(Triple::normalize("csa"));
+  auto TT(Triple::normalize("x86_64"));
   std::string CPU("");
   std::string FS("");
 
-  LLVMInitializeCSATargetInfo();
-  LLVMInitializeCSATarget();
-  LLVMInitializeCSATargetMC();
+  LLVMInitializeX86TargetInfo();
+  LLVMInitializeX86Target();
+  LLVMInitializeX86TargetMC();
 
   std::string Error;
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
@@ -66,7 +75,7 @@ bool initTargetMachine() {
   return true;
 }
 
-// Construct a MachineFunction containing a basic block. Instructions
+// Construct a MachineFunction containing one basic block. Instructions
 // are added to the end of the block.
 class MIFuncBuilder {
 
@@ -114,6 +123,8 @@ public:
   Function& func()             const { return *m_func; }
   MachineFunction& MIFunc()    const { return m_MIFunc; }
   TargetInstrInfo const* TII() const { return m_TII; }
+  TargetRegisterInfo const* TRI() const {
+    return m_MIFunc.getSubtarget().getRegisterInfo(); }
   MachineBasicBlock* BB()      const { return m_BB; }
   MachineRegisterInfo& MRI()   const { return m_MIFunc.getRegInfo(); }
   void dump()                  const { return m_BB->dump(); }
@@ -135,78 +146,242 @@ public:
 // printing `T` in the error message.
 template <class T> struct PrintType;
 
+// Declare opcode matches used for pattern matches
+constexpr mirmatch::Opcode<X86::PHI>            PHI{};
+constexpr mirmatch::Opcode<X86::G_ADD>          G_ADD{};
+constexpr mirmatch::Opcode<X86::ADD32ri8>       ADD32ri8{};
+constexpr mirmatch::OpcodeGroup<X86::MULSDrm,
+                                X86::MULSDrr,
+                                X86::MULSSrm,
+                                X86::MULSSrr>   MULS{};
+constexpr mirmatch::OpcodeGroup<X86::ADDSDrm,
+                                X86::ADDSDrr,
+                                X86::ADDSSrm,
+                                X86::ADDSSrr>   ADDS{};
+
 } // Close anonymous namespace
 
-MIRMATCHER_REGS(LICx_A, LIC1_B, LICx_C, X, LIC1_D, LICx_IN, LICx_OUT, Q1, Q2);
-constexpr mirmatch::LiteralMatcher<bool, true>              TRUE_OPND{};
-constexpr mirmatch::LiteralMatcher<bool, false>             FALSE_OPND{};
-
-using namespace CSAMatch;
-
-constexpr auto pat =
-  mirmatch::graph(LICx_A      = csa_parallel_memdep(LICx_OUT)    ,
-                  LIC1_D      = mov1(LIC1_B)                     ,
-                  (LICx_C, X) = switch_N(LIC1_B, LICx_A)         ,
-                  LIC1_D      = init1(TRUE_OPND)                 ,
-                  LICx_IN     = pick_N(LIC1_D, LICx_C, X));
-
-TEST(Intel_MIRMatcher, ComplexPattern) {
-  using namespace llvm;
-
-  MIFuncBuilder builder("foo");
-
+// This tests a simple pattern match, whereby the results of a multiply
+// instruction feed into an add instruction. (In real life, detecting this
+// pattern would allow the compiler to replace both instructions with a single
+// FMA instruction.)
+TEST(Intel_MIRMatcher, FMAPattern) {
   using MO = MachineOperand;
 
-  const int ra   = builder.createVirtualRegister(&CSA::CI0RegClass);
-  const int rc   = builder.createVirtualRegister(&CSA::CI0RegClass);
-  const int rin  = builder.createVirtualRegister(&CSA::CI0RegClass);
-  const int rout = builder.createVirtualRegister(&CSA::CI0RegClass);
-  const int rx   = builder.createVirtualRegister(&CSA::CI0RegClass);
-  const int rz   = builder.createVirtualRegister(&CSA::CI0RegClass);
+  // Construct function using X86 opcodes
+  MIFuncBuilder builder("FMAPattern");
 
-  const int rb   = builder.createVirtualRegister(&CSA::CI1RegClass);
-  const int rd   = builder.createVirtualRegister(&CSA::CI1RegClass);
+  const unsigned p    = builder.createVirtualRegister(&X86::GR64RegClass);
+  const unsigned a    = builder.createVirtualRegister(&X86::FR64RegClass);
+  const unsigned x    = builder.createVirtualRegister(&X86::FR64RegClass);
+  const unsigned y    = builder.createVirtualRegister(&X86::FR64RegClass);
+  const unsigned ax   = builder.createVirtualRegister(&X86::FR64RegClass);
+  const unsigned axpy = builder.createVirtualRegister(&X86::FR64RegClass);
 
-  MachineInstr* cpm = builder.addInstr(CSA::CSA_PARALLEL_MEMDEP, ra, rout);
-  MachineInstr* swx = builder.addInstr(CSA::SWITCH0, rc, rx, rb, ra);
-  MachineInstr* swz = builder.addInstr(CSA::SWITCH0, rc, rx, rb, rz);
-  MachineInstr* mv1 = builder.addInstr(CSA::MOV1, rd, rb);
-  MachineInstr* ini = builder.addInstr(CSA::INIT1, rd, MO::CreateImm(1));
-  MachineInstr* pkx = builder.addInstr(CSA::PICK0, rin, rd, rc, rx);
-//  builder.dump();
+  // The following copies are scaffolding that appear in real code. They are
+  // not technically neccessary for this test, but it is good to be both
+  // realistic and to make sure that the pattern matcher is robust in the
+  // presence of irrelevent instructions.
+  MachineInstr* cpy = builder.addInstr(X86::COPY, y, X86::XMM2);
+  MachineInstr* cpx = builder.addInstr(X86::COPY, x, X86::XMM1);
+  MachineInstr* cpa = builder.addInstr(X86::COPY, a, X86::XMM0);
+  MachineInstr* cpp = builder.addInstr(X86::COPY, p, X86::RDI);
 
-  auto result = mirmatch::match(pat, cpm);
+  // Here is the heart of the code we are matching. It consists of a multiply
+  // followed by an irrelevent instruction (which happens to be an add),
+  // followed by an add that takes one of its inputs from the multiply.
+  MachineInstr* mul = builder.addInstr(X86::MULSDrr, ax, a, x);
+  MachineInstr* inc = builder.addInstr(X86::ADD32mi8, p,
+                                       MO::CreateImm(1), X86::NoRegister,
+                                       MO::CreateImm(0), X86::NoRegister,
+                                       MO::CreateImm(1));
+  MachineInstr* add = builder.addInstr(X86::ADDSDrr, axpy, ax, y);
+
+  // The following return sequence appears in real code. It are not
+  // technically neccessary for this test, but it is good to be both realistic
+  // and to make sure that the pattern matcher is robust in the presence of
+  // irrelevent instructions.
+  MachineInstr* cpr = builder.addInstr(X86::COPY, X86::XMM0, axpy);
+  MachineInstr* ret = builder.addInstr(X86::RET, MO::CreateImm(0), X86::XMM0);
+
+  (void) cpy;
+  (void) cpx;
+  (void) cpa;
+  (void) cpp;
+  (void) mul;
+  (void) inc;
+  (void) add;
+  (void) cpr;
+  (void) ret;
+
+  if (verbose)
+    builder.dump();
+
+  using namespace mirmatch;
+
+  MIRMATCHER_REGS(REG_X, REG_Y, REG_AX, REG_AXPY);
+
+  // Match pattern 'y = a*x + y'
+  // Note that the output of the multiply (REG_AX) is used as input to the add.
+  constexpr auto fmapattern =
+    mirmatch::graph(REG_AX   = MULS(AnyOperand, REG_X),
+                    REG_AXPY = ADDS(REG_AX, REG_Y));
+
+  auto result = mirmatch::match(fmapattern, mul);
   ASSERT_TRUE(result);
-  EXPECT_EQ(result.reg(LICx_A), ra);
-  EXPECT_EQ(result.reg(LICx_OUT), rout);
-  EXPECT_EQ(result.reg(LICx_C), rc);
-  EXPECT_EQ(result.reg(LIC1_D), rd);
-  EXPECT_EQ(result.reg(X), rx);
-  EXPECT_EQ(result.reg(LICx_IN), rin);
-  EXPECT_EQ(result.reg(LICx_OUT), rout);
+  EXPECT_EQ(result.reg(REG_X), x);
+  EXPECT_EQ(result.reg(REG_Y), y);
+  EXPECT_EQ(result.reg(REG_AX), ax);
+  EXPECT_EQ(result.reg(REG_AXPY), axpy);
 
-  EXPECT_EQ(cpm, result.instr(LICx_A      = csa_parallel_memdep(LICx_OUT)));
-  EXPECT_EQ(mv1, result.instr(LIC1_D      = mov1(LIC1_B)                 ));
-  EXPECT_EQ(swx, result.instr((LICx_C, X) = switch_N(LIC1_B, LICx_A)     ));
-  EXPECT_NE(swz, result.instr((LICx_C, X) = switch_N(LIC1_B, LICx_A)     ));
-  EXPECT_EQ(ini, result.instr(LIC1_D      = init1(TRUE_OPND)             ));
-  EXPECT_EQ(pkx, result.instr(LICx_IN     = pick_N(LIC1_D, LICx_C, X)    ));
+  EXPECT_EQ(mul, result.instr(REG_AX   = MULS(AnyOperand, REG_X) ));
+  EXPECT_EQ(add, result.instr(REG_AXPY = ADDS(REG_AX, REG_Y)));
 }
 
+// Simply test that if pattern is not found, then pattern match will fail.
 TEST(Intel_MIRMatcher, FailMatch) {
-  using namespace llvm;
-
-  MIFuncBuilder builder("bar");
-
   using MO = MachineOperand;
-  const int r = builder.createVirtualRegister(&CSA::CI1RegClass);
-  MachineInstr* init = builder.addInstr(CSA::INIT1, r, MO::CreateImm(0));
-  auto result = mirmatch::match(pat, init);
+
+  // Construct function using X86 opcodes.
+  // Function does not match pattern because the two add instructions are not
+  // related to each other.
+  MIFuncBuilder builder("FailMatch");
+  const unsigned r0 = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned v0 = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned r1 = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned v1 = builder.createVirtualRegister(&X86::GR32RegClass);
+  MachineInstr* add0 = builder.addInstr(X86::G_ADD, r0, v0, MO::CreateImm(0));
+  MachineInstr* add1 = builder.addInstr(X86::G_ADD, r1, v1, MO::CreateImm(4));
+  (void) add1;
+
+  if (verbose)
+    builder.dump();
+
+  using namespace mirmatch;
+
+  MIRMATCHER_REGS(REG_AB);
+
+  // Match pattern 'r = a + b + c'
+  // Note that the output of the multiply (REG_AX) is used as input to the add.
+  constexpr auto pat =
+    mirmatch::graph(REG_AB      = G_ADD(AnyOperand, AnyOperand),
+                    AnyRegister = G_ADD(REG_AB, AnyOperand));
+
+  auto result = mirmatch::match(pat, add0);
   ASSERT_FALSE(result);  // Won't match
 }
 
+// Find induction variables. This test demonstrates the ability to match
+// cycles. An induction variable is a value that has an initial value that
+// flows into a loop and is incremented within the loop body.
+TEST(Intel_MIRMatcher, FindInductionVar) {
+  using MO = MachineOperand;
+
+  // Construct function using X86 opcodes.
+  // Code corresponds to the loop body and increments of this C code:
+  //
+  // void InductionVars(int s, int n)
+  // {
+  //   int a = s;
+  //   for (int b = 0; b < n; ++b, a += 2)
+  //     foo(a, b);
+  // }
+
+  MIFuncBuilder builder("InductionVars");
+
+  const unsigned a      = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned a_init = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned a_incr = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned b      = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned b_init = builder.createVirtualRegister(&X86::GR32RegClass);
+  const unsigned b_incr = builder.createVirtualRegister(&X86::GR32RegClass);
+
+  builder.addInstr(X86::COPY, a, X86::ESI);
+  builder.addInstr(X86::COPY, b, MO::CreateImm(0));
+  MachineInstr* phi_a = builder.addInstr(X86::PHI, a, a_init, a_incr);
+  MachineInstr* phi_b = builder.addInstr(X86::PHI, b, b_init, b_incr);
+  builder.addInstr(X86::ADJCALLSTACKDOWN64,
+                   MO::CreateImm(0), MO::CreateImm(0), MO::CreateImm(0));
+  builder.addInstr(X86::COPY, X86::EDI, b);
+  builder.addInstr(X86::COPY, X86::ESI, a);
+  builder.addInstr(X86::CALL64pcrel32, MO::CreateES("foo"),
+                   MO::CreateRegMask(
+                     builder.TRI()->getCallPreservedMask(builder.MIFunc(),
+                                                         CallingConv::C)));
+  builder.addInstr(X86::ADJCALLSTACKUP64,
+                   MO::CreateImm(0), MO::CreateImm(0));
+  MachineInstr* inc_a = builder.addInstr(X86::ADD32ri8, a_incr,
+                                         a, MO::CreateImm(1));
+  MachineInstr* inc_b = builder.addInstr(X86::ADD32ri8, b_incr,
+                                         b, MO::CreateImm(2));
+
+  if (verbose)
+    builder.dump();
+
+  using namespace mirmatch;
+
+  MIRMATCHER_REGS(IVAR, IVAR_INIT, IVAR_INCR);
+
+  // Match pattern values that are incremented from within a loop.
+  // The pattern contains a cycle whereby the induction variable is indirectly
+  // dependent on itself (flowing from iteration to iteration).
+  constexpr auto ivpattern =
+    mirmatch::graph(IVAR      = PHI(IVAR_INIT, IVAR_INCR),
+                    IVAR_INCR = ADD32ri8(IVAR, AnyLiteral));
+
+  bool matched_a = false, matched_b = false;
+
+  MachineBasicBlock* BB = builder.BB();
+  for (auto &Instr : *BB) {
+    auto result = mirmatch::match(ivpattern, &Instr);
+    if (! result)
+      continue;
+
+    if (verbose) {
+      auto incrInstr = result.instr(IVAR_INCR = ADD32ri8(IVAR, AnyLiteral));
+      auto increment = incrInstr->getOperand(2).getImm();
+      std::cout << "Found induction variable " << result.reg(IVAR)
+                << ", initialization reg " <<  result.reg(IVAR_INIT)
+                << ", increment " << increment << std::endl;
+    }
+
+    if (&Instr == phi_a) {
+      matched_a = true;
+
+      EXPECT_EQ(result.reg(IVAR), a);
+      EXPECT_EQ(result.reg(IVAR_INIT), a_init);
+      EXPECT_EQ(result.reg(IVAR_INCR), a_incr);
+
+      EXPECT_EQ(phi_a, result.instr(IVAR      = PHI(IVAR_INIT, IVAR_INCR)));
+      EXPECT_EQ(inc_a, result.instr(IVAR_INCR = ADD32ri8(IVAR, AnyLiteral)));
+    }
+    else if (&Instr == phi_b) {
+      matched_b = true;
+
+      EXPECT_EQ(result.reg(IVAR), b);
+      EXPECT_EQ(result.reg(IVAR_INIT), b_init);
+      EXPECT_EQ(result.reg(IVAR_INCR), b_incr);
+
+      EXPECT_EQ(phi_b, result.instr(IVAR      = PHI(IVAR_INIT, IVAR_INCR)));
+      EXPECT_EQ(inc_b, result.instr(IVAR_INCR = ADD32ri8(IVAR, AnyLiteral)));
+    }
+    else
+      EXPECT_TRUE(false && "Unexpected match");
+  }
+
+  EXPECT_TRUE(matched_a);
+  EXPECT_TRUE(matched_b);
+}
+
 int main(int argc, char *argv[]) {
+
   ::testing::InitGoogleTest(&argc, argv);
+
+  for (int i = 0; i < argc; ++i) {
+    if (std::strcmp(argv[i], "-verbose") == 0)
+      ++verbose;
+  }
+
   if (initTargetMachine())
     return RUN_ALL_TESTS();
   else
