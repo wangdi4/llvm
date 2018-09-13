@@ -1079,11 +1079,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
   // CQ#369692 - support for '-fargument-noalias' option.
   Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
-
-  // Offload target triples for back-end outlining.
-  if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ))
-    for (const char *Arg : A->getValues())
-      Opts.OffloadTargets.push_back(Arg);
 #endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
@@ -1198,6 +1193,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Diags.Report(diag::err_drv_invalid_value)
           << A->getAsString(Args) << A->getValue();
   }
+
+  Opts.KeepStaticConsts = Args.hasArg(OPT_fkeep_static_consts);
 
   return Success;
 }

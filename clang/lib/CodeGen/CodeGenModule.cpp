@@ -1438,6 +1438,12 @@ void CodeGenModule::SetCommonAttributes(GlobalDecl GD, llvm::GlobalValue *GV) {
 
   if (D && D->hasAttr<UsedAttr>())
     addUsedGlobal(GV);
+
+  if (CodeGenOpts.KeepStaticConsts && D && isa<VarDecl>(D)) {
+    const auto *VD = cast<VarDecl>(D);
+    if (VD->getType().isConstQualified() && VD->getStorageClass() == SC_Static)
+      addUsedGlobal(GV);
+  }
 }
 
 bool CodeGenModule::GetCPUAndFeaturesAttributes(const Decl *D,
@@ -2072,6 +2078,13 @@ bool CodeGenModule::MustBeEmitted(const ValueDecl *Global) {
   // Never defer when EmitAllDecls is specified.
   if (LangOpts.EmitAllDecls)
     return true;
+
+  if (CodeGenOpts.KeepStaticConsts) {
+    const auto *VD = dyn_cast<VarDecl>(Global);
+    if (VD && VD->getType().isConstQualified() &&
+        VD->getStorageClass() == SC_Static)
+      return true;
+  }
 
   return getContext().DeclMustBeEmitted(Global);
 }
