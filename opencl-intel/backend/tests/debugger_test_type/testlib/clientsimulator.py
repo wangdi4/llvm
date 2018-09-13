@@ -26,6 +26,7 @@ class ClientSimulator(TestClient):
     """
     def __init__(self,
                  debuggee_exe_path,
+                 device_type,
                  cl_dir_path,
                  logfile,
                  server_port=56203):

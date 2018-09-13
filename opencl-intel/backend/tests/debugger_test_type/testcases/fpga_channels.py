@@ -10,11 +10,14 @@
 # The test check that
 # * compilation of a kernel with channels and debug info is successful,
 # * debugger stops on read_channel() / write_channel() calls
+# Note: the test isn't supported by Windows debugger simulator
 
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, skipNotGDB
 
 class FPGAChannels(DebuggerTestCase):
     CLNAME = 'fpga_channels.cl'
+
+    @skipNotGDB
     def test_breakpoints(self):
         self.client.execute_debuggee(
             hostprog_name='fpga_channels',
