@@ -538,20 +538,26 @@ private:
 
         // Avoid complications in IR transformation for multiple
         // element-related arguments in combined MK_Append methods.
-        int NumElementArgs = 0;
-        for (auto *P : S.Method->getFunctionType()->params())
-          if (P == S.ElementType)
+        unsigned NumElementArgs = 0;
+        // Also avoid complication due accessing arguments after
+        // element-related arguments.
+        unsigned ElemArgOff     = 0;
+        auto *FuncTy = S.Method->getFunctionType();
+        for (unsigned I = 0, E = FuncTy->getNumParams(); I != E; ++I) {
+          auto *P = FuncTy->getParamType(I);
+          if (P == S.ElementType) {
             NumElementArgs++;
-          else if (auto *Ptr = dyn_cast<PointerType>(P))
-            if (Ptr->getElementType() == S.ElementType)
+            ElemArgOff = I;
+          } else if (auto *Ptr = dyn_cast<PointerType>(P))
+            if (Ptr->getElementType() == S.ElementType) {
               NumElementArgs++;
+              ElemArgOff = I;
+            }
+        }
 
         if (CalledMethod)
-          return HasExternalSideEffect || !HasVoidRes || NumElementArgs != 1
-                     ? MK_Unknown
-                     : MK_Append;
-        if (HasBasePtrFree && HasBasePtrInitFromNewMemory)
-          return HasExternalSideEffect || !HasVoidRes || NumElementArgs != 1
+          return HasExternalSideEffect || !HasVoidRes || NumElementArgs != 1 ||
+                         ElemArgOff != FuncTy->getNumParams() - 1
                      ? MK_Unknown
                      : MK_Append;
         return HasFieldUpdate ? MK_Unknown : MK_Set;
@@ -1101,6 +1107,14 @@ public:
 
   using OrigToCopyTy = DenseMap<Value *, Value *>;
 
+  static void copyArgAttrs(Argument* From, Argument *To) {
+    auto *F = To->getParent();
+    AttrBuilder AB(F->getAttributes(), To->getArgNo());
+    AB.merge(AttrBuilder(F->getAttributes(), From->getArgNo()));
+    if (AB.hasAttributes())
+      To->addAttrs(AB);
+  }
+
   // Update instructions related to base pointer manipulations.
   // There are several kind of instructions:
   //  - load of base pointer;
@@ -1215,6 +1229,7 @@ public:
   // %tmp1 = bitcast %pelem* %arrayidx1 to i64*  <== safe bitcast
   // %val = load i64, i64* %tmp1
   // store i64 %tmp12, i64* %tmp
+
   void rawCopyAndRelink(OrigToCopyTy &OrigToCopy, bool UniqueInsts,
                         unsigned NumArrays, Type *OtherElemType,
                         unsigned NewParamOffset) {
@@ -1251,9 +1266,11 @@ public:
       if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr)) {
         ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
         OrigToCopy[NewBC->getOperand(0)] = &F->arg_begin()[NewParamOffset];
+        copyArgAttrs(cast<Argument>(NewBC->getOperand(0)),
+                     &F->arg_begin()[NewParamOffset]);
       } else {
-        assert(isa<Argument>(NewPtr) && "Some peephole idiom is not processed");
         OrigToCopy[NewPtr] = &F->arg_begin()[NewParamOffset];
+        copyArgAttrs(cast<Argument>(NewPtr), &F->arg_begin()[NewParamOffset]);
         CopyLoad->mutateType(OtherElemType);
       }
 
@@ -1293,9 +1310,12 @@ public:
                  "Some peephole idiom is not processed");
 
         // Element set from arg.
-        if (isa<Argument>(NewStore->getValueOperand()))
+        if (isa<Argument>(NewStore->getValueOperand())) {
           OrigToCopy[NewStore->getValueOperand()] =
               &F->arg_begin()[NewParamOffset];
+          copyArgAttrs(cast<Argument>(NewStore->getValueOperand()),
+                       &F->arg_begin()[NewParamOffset]);
+        }
       } else if (auto MS = dyn_cast<MemSetInst>(NewI)) {
         if (!UniqueInsts)
           continue;

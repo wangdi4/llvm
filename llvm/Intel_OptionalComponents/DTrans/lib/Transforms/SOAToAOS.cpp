@@ -125,7 +125,7 @@ private:
           : BaseTy(It), Info(Info) {}
 
       typename BaseTy::reference operator*() const {
-        return Info->getSOAArrayType(*this->wrapped());
+        return getSOAArrayType(Info->Struct, *this->wrapped());
       }
     };
 
@@ -150,7 +150,9 @@ private:
           : BaseTy(It), Info(Info) {}
 
       typename BaseTy::reference operator*() const {
-        return Info->getSOAElementType(*this->wrapped());
+        return getSOAElementType(
+            getSOAArrayType(Info->Struct, *this->wrapped()),
+            Info->BasePointerOffset);
       }
     };
 
@@ -191,19 +193,6 @@ private:
     // Offset inside _arrays_' elements(), which represent base pointers to
     // allocated memory.
     unsigned BasePointerOffset = -1U;
-
-  private:
-    // Off is some element of ArrayFieldOffsets.
-    StructType *getSOAArrayType(unsigned Off) const {
-      return cast<StructType>(
-          Struct->getElementType(Off)->getPointerElementType());
-    }
-    // Off is some element of ArrayFieldOffsets.
-    PointerType *getSOAElementType(unsigned Off) const {
-      return cast<PointerType>(getSOAArrayType(Off)
-                                   ->getElementType(BasePointerOffset)
-                                   ->getPointerElementType());
-    }
   };
 
   // Prepare CFG information and methods to analyze.
@@ -754,6 +743,11 @@ bool SOAToAOSTransformImpl::CandidateCFGInfo::populateCFGInformation(
         if (Pointee == MemoryInterface)
           continue;
 
+        // FIXME: only these are allowed.
+        // Attribute::AttrKind Known[] = {
+        //   Attribute::NonNull,         Attribute::NoCapture,
+        //   Attribute::ReadOnly,        Attribute::ReadNone,
+        //   Attribute::Dereferenceable, Attribute::DereferenceableOrNull};
         // Only MemoryInterface and by-value argument of element type can be
         // captured.
         if (!Arg.hasNoCaptureAttr())
@@ -954,7 +948,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     // TODO: make order of arguments consistent.
     // TODO: add diagnostic messages.
     StructureMethodAnalysis MChecker(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S,
-                                     Arrays, ArrayFieldOffsets, TI);
+                                     Arrays, TI);
     bool CheckResult = MChecker.checkStructMethod();
     LLVM_DEBUG(dbgs() << "; Struct's method " << F->getName()
                       << (CheckResult ? " has only expected side-effects\n"

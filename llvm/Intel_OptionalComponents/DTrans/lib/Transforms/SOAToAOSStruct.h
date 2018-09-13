@@ -151,6 +151,63 @@ protected:
     return OffOut == Off;
   }
 
+  static bool isDirectMemoryInterfaceLoad(const Dep *D,
+                                          const SummaryForIdiom &S,
+                                          unsigned &ArgNo) {
+    if (D->Kind != Dep::DK_Load)
+      return false;
+
+    Type* OutType = nullptr;
+    if (!Idioms::isFieldAddr(D->Arg1, S, ArgNo, OutType))
+      return false;
+
+    return isa<PointerType>(OutType) &&
+           OutType->getPointerElementType() == S.MemoryInterface;
+  }
+
+  // Returns type array type accessed.
+  // Returns nullptr if load is not related to array transformed.
+  static StructType *
+  isLoadOrStoreOfArrayPtr(const DepMap &DM,
+                          // Types of interest
+                          const SmallVectorImpl<StructType *> &Arrays,
+                          const SummaryForIdiom &S, const Instruction &I) {
+    const Value *Address = nullptr;
+    if (auto *L = dyn_cast<LoadInst>(&I))
+      Address = L->getPointerOperand();
+    else if (auto *SI = dyn_cast<StoreInst>(&I))
+      Address = SI->getPointerOperand();
+    else
+      llvm_unreachable("Incorrect call of isLoadOrStoreOfArrayPtr.");
+
+    // Safety checks guarantee (CFG + legality) that constant address does not
+    // refer to array of interest.
+    if (isa<Constant>(Address))
+      return nullptr;
+
+    Type *FieldType = nullptr;
+    // Unstructured store.
+    if (!StructIdioms::isFieldAddr(DM.getApproximation(Address), S, FieldType))
+      return nullptr;
+
+    // Not a pointer to array.
+    if (!isa<PointerType>(FieldType))
+      return nullptr;
+
+    auto *FPointeeTy = FieldType->getPointerElementType();
+
+    // Layout restriction.
+    // See
+    // SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation.
+    auto *ArrStrType = cast<StructType>(FPointeeTy);
+    auto It = std::find(Arrays.begin(), Arrays.end(), ArrStrType);
+    // Access to non-interesting field.
+    if (It == Arrays.end())
+      return nullptr;
+
+    return ArrStrType;
+  }
+
 private:
   static bool isNonStructArg(const Dep *D, const SummaryForIdiom &S) {
     if (D->Kind != Dep::DK_Argument)
@@ -222,31 +279,11 @@ public:
     return false;
   }
 
-  // stripPointerCasts from def to single use.
-  static const Use &skipPointerCasts(const Use &U) {
-    auto *V = &U;
-    while (true)
-      // stripPointerCasts from def to single use.
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(V->getUser())) {
-        if (!GEP->hasAllZeroIndices())
-          return *V;
-        if (!GEP->hasOneUse())
-          return *V;
-        V = &*GEP->use_begin();
-      } else if (auto *BC = dyn_cast<BitCastInst>(V->getUser())) {
-        if (!BC->hasOneUse())
-          return *V;
-        V = &*BC->use_begin();
-      } else
-        return *V;
-
-    llvm_unreachable("Incorrect logic.");
-  }
-
   // Checks that 'this' argument is dead after a call to CS,
   // because it is passed to deallocation routine immediately after call to CS.
   //
   // Implementation: checks that 'this' is used in free.
+  // free should be in successors BasicBlocks, see compareDtorCalls below.
   static bool isThisArgIsDead(const DTransAnalysisInfo &DTInfo,
                               const TargetLibraryInfo &TLI,
                               ImmutableCallSite CS) {
@@ -262,46 +299,35 @@ public:
 
     SmallPtrSet<const BasicBlock *, 2> DeleteBB;
 
-    bool HasSameBBDelete = false;
     auto *BB = CS.getInstruction()->getParent();
-    for (auto &TU : ThisArg->uses()) {
-      auto &U = skipPointerCasts(TU);
 
-      if (!isa<Instruction>(U.getUser()))
-        return false;
-
-      if (U.getUser() == CS.getInstruction())
-        continue;
-
-      auto *Inst = cast<Instruction>(U.getUser());
-      bool IsSameBB = Inst->getParent() == BB;
-      // If U follows CS in the same BB.
-      bool IsBBSucc = false;
-      if (IsSameBB) {
-        IsBBSucc = std::find_if(CS.getInstruction()->getIterator(), BB->end(),
-                                [Inst](const Instruction &I) -> bool {
-                                  return &I == Inst;
-                                }) != BB->end();
-        // Uses before F's call are not relevant.
-        if (!IsBBSucc)
+    for (auto *User : post_order(CastDepGraph<const Value *>(ThisArg)))
+      for (auto &U : User->uses()) {
+        if (isCastUse(U))
           continue;
-      }
 
-      if (isFreedPtr(DTInfo, TLI, U)) {
-        if (IsSameBB && IsBBSucc) {
-          HasSameBBDelete = true;
+        if (!isa<Instruction>(U.getUser()))
+          return false;
+
+        if (U.getUser() == CS.getInstruction())
           continue;
-        }
-        DeleteBB.insert(Inst->getParent());
+
+        auto *Inst = cast<Instruction>(U.getUser());
+        if (isFreedPtr(DTInfo, TLI, U))
+          DeleteBB.insert(Inst->getParent());
+        // Other uses in successors are forbidden.
+        else if (find(successors(BB), Inst->getParent()) != succ_end(BB))
+          return false;
+
+        // Check same BB.
+        if (BB == Inst->getParent())
+          for (auto *I = CS.getInstruction(); I; I = I->getNextNode())
+            if (I == Inst)
+              return true;
       }
-      // Do not complicate analysis of successors.
-      else if (find(successors(BB), Inst->getParent()) != succ_end(BB))
-        return false;
-    }
 
     // Simple CFG handling: all successors should contain delete.
-    if (!HasSameBBDelete &&
-        !all_of(successors(CS.getInstruction()->getParent()),
+    if (!all_of(successors(CS.getInstruction()->getParent()),
                 [&DeleteBB](const BasicBlock *BB) -> bool {
                   return DeleteBB.find(BB) != DeleteBB.end();
                 }))
@@ -336,23 +362,24 @@ public:
   //  - second - single use in method candidate, nullptr otherwise.
   static std::pair<bool, const ImmutableCallSite>
   isThereUseInFree(const DTransAnalysisInfo &DTInfo,
-                   const TargetLibraryInfo &TLI, const Value *V) {
+                   const TargetLibraryInfo &TLI, const Value *V,
+                   StructType *ArrType) {
     bool FreeUseSeen = false;
     ImmutableCallSite SingleMethod;
-
-    for (auto &TU : V->uses()) {
-      auto &U = skipPointerCasts(TU);
-      if (auto CS = ImmutableCallSite(U.getUser())) {
-        if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U))
-          FreeUseSeen = true;
-        // Direct call.
-        else if (CS.getCalledFunction()) {
-          if (SingleMethod)
-            return std::make_pair(FreeUseSeen, ImmutableCallSite());
-          SingleMethod = CS;
+    for (auto *User : post_order(CastDepGraph<const Value *>(V)))
+      for (auto &U : User->uses())
+        if (auto CS = ImmutableCallSite(U.getUser())) {
+          // Direct call.
+          if (auto *F = CS.getCalledFunction())
+            if (getStructTypeOfMethod(*F) == ArrType) {
+              if (SingleMethod)
+                return std::make_pair(FreeUseSeen, ImmutableCallSite());
+              SingleMethod = CS;
+              continue;
+            }
+          if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U))
+            FreeUseSeen = true;
         }
-      }
-    }
     return std::make_pair(FreeUseSeen, SingleMethod);
   }
 
@@ -360,8 +387,9 @@ public:
   // ignored), returns nullptr otherwise.
   static ImmutableCallSite getSingleMethodCall(const DTransAnalysisInfo &DTInfo,
                                                const TargetLibraryInfo &TLI,
-                                               const Value *V) {
-    return isThereUseInFree(DTInfo, TLI, V).second;
+                                               const Value *V,
+                                               StructType *ArrType) {
+    return isThereUseInFree(DTInfo, TLI, V, ArrType).second;
   }
 
   // Checks if V is a check for equality to null.
@@ -376,6 +404,17 @@ public:
         Pred == CmpInst::ICMP_EQ)
       return Other;
     return nullptr;
+  }
+
+  // Argument should be call to ctor.
+  // See StructureMethodAnalysis::checkArrPtrStoreUses
+  static const StoreInst& getStoreOfPointer(ImmutableCallSite CS) {
+    auto *Alloc = CS.getArgOperand(0)->stripPointerCasts();
+    for (auto *User : post_order(CastDepGraph<const Value *>(Alloc)))
+      for (auto &U : User->uses())
+        if (auto *SI = dyn_cast<StoreInst>(U.getUser()))
+          return *SI;
+    llvm_unreachable("Incorrect CS provided in getStoreOfPointer.");
   }
 };
 
@@ -394,7 +433,7 @@ public:
 // (ctors/etc) calls is completed in CallSiteComparator.
 class StructureMethodAnalysis : public StructIdioms {
 public:
-  using InstContainer = SmallSet<const Instruction *, 32>;
+  using InstContainer = SmallPtrSet<const Instruction *, 32>;
 
   struct TransformationData {
     // Loads/stores of pointers to elements.
@@ -409,41 +448,6 @@ private:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
 
-  // Returns type array type accessed.
-  // Returns nullptr if load is not related to array transformed.
-  StructType *isLoadOrStoreOfArrayPtr(const Instruction &I) const {
-    const Value *Address = nullptr;
-    if (auto *L = dyn_cast<LoadInst>(&I))
-      Address = L->getPointerOperand();
-    else if (auto *SI = dyn_cast<StoreInst>(&I))
-      Address = SI->getPointerOperand();
-    else
-      llvm_unreachable("Incorrect call of isLoadOrStoreOfArrayPtr.");
-
-    auto *D = DM.getApproximation(Address);
-    Type *FieldType = nullptr;
-    // Unstructured store.
-    if (!StructIdioms::isFieldAddr(D, S, FieldType))
-      return nullptr;
-
-    // Not a pointer to array.
-    if (!isa<PointerType>(FieldType))
-      return nullptr;
-
-    auto *FPointeeTy = FieldType->getPointerElementType();
-
-    // Layout restriction.
-    // See
-    // SOAToAOSTransformImpl::CandidateLayoutInfo::populateLayoutInformation.
-    auto *ArrStrType = cast<StructType>(FPointeeTy);
-    auto It = std::find(Fields.begin(), Fields.end(), ArrStrType);
-    // Access to non-interesting field.
-    if (It == Fields.end())
-      return nullptr;
-
-    return ArrStrType;
-  }
-
   // Explicitly check non-nested load, i.e. direct loads of
   // pointer to arrays.
   //
@@ -456,9 +460,7 @@ private:
   //
   // for transformed array should be used in array's method:
   //  (MethodCalled).
-  bool checkArrPtrLoadUses(const LoadInst &L, StructType *StrType) const {
-    assert(StrType && "Incorrect parameter");
-
+  bool checkArrPtrLoadUses(const LoadInst &L, StructType *ArrType) const {
     // Transformation restriction:
     // isSafeBitCast/isBitCastLikeGep/isSafeIntToPtr are not permitted.
     if (!isa<GetElementPtrInst>(L.getPointerOperand()))
@@ -467,41 +469,45 @@ private:
     // Check that all uses are related to array method calls,
     // to null-check or to call to deallocation.
     bool FreeUseSeen = false;
-    SmallPtrSet<const Function *, 3> MethodsCalled;
-    for (auto &LU : L.uses()) {
-      auto &U = CtorDtorCheck::skipPointerCasts(LU);
-      if (auto CS = ImmutableCallSite(U.getUser())) {
-        if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U)) {
-          FreeUseSeen = true;
+    unsigned NumMethodsCalled = 0;
+
+    // MS compiler complains for missing braces.
+    for (auto *User : post_order(CastDepGraph<const Value *>(&L))) {
+      for (auto &U : User->uses()) {
+        if (isCastUse(U)) {
           continue;
-        }
-        // Direct call.
-        else if (auto FCalled = CS.getCalledFunction()) {
-          // CFG restriction, use can be only for 'this' argument.
-          //
-          // Safety check of CFG based on the 'this' argument.
-          // See dtrans::StructInfo::CallSubGraph.
-          //
-          // Also see populateLayoutInformation.
-          //
-          // No cast from load to method call.
-          if (&U == &LU) {
-            MethodsCalled.insert(FCalled);
-            // insert optimistically
-            insertArrayInst(CS.getInstruction(), "Array method call");
+        } else if (auto CS = ImmutableCallSite(U.getUser())) {
+          if (auto *F = CS.getCalledFunction()) {
+            // CFG restriction, use can be only for 'this' argument.
+            //
+            // Safety check of CFG based on the 'this' argument.
+            // See dtrans::StructInfo::CallSubGraph.
+            //
+            // Also see populateLayoutInformation.
+            //
+            // Method call.
+            if (ArrType == getStructTypeOfMethod(*F)) {
+              ++NumMethodsCalled;
+              // insert optimistically
+              insertArrayInst(CS.getInstruction(), "Array method call");
+              continue;
+            }
+          }
+          if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U)) {
+            FreeUseSeen = true;
             continue;
           }
-        } else
           return false;
-      } else if (CtorDtorCheck::isNullCheck(U.getUser()))
-        continue;
-      else
-        return false;
+        } else if (CtorDtorCheck::isNullCheck(U.getUser())) {
+          continue;
+        } else {
+          return false;
+        }
+      }
     }
 
-    if (FreeUseSeen)
-      if (MethodsCalled.size() != 1)
-        return false;
+    if (FreeUseSeen && NumMethodsCalled != 1)
+      return false;
 
     insertArrayInst(&L, "Load of array");
     return true;
@@ -511,9 +517,7 @@ private:
   // pointer to array field. Uses of stored value is checked.
   //
   // Use of stored value in ctor is checked in CallSiteComparator.
-  bool checkArrPtrStoreUses(const StoreInst &SI, StructType *StrType) const {
-    assert(StrType && "Incorrect parameter");
-
+  bool checkArrPtrStoreUses(const StoreInst &SI, StructType *ArrType) const {
     auto *Address = SI.getPointerOperand();
     // Transformation restriction:
     // isSafeIntToPtr are not permitted.
@@ -539,64 +543,61 @@ private:
     //
     // 1-1 correspondence between alloc and call %field is checked in
     // checkCtorsCallsAreAdjacent.
-    auto *Val = SI.getValueOperand();
+    auto *Val = SI.getValueOperand()->stripPointerCasts();
     if (!isa<Instruction>(Val))
       return false;
 
     if (!StructIdioms::isAlloc(DM.getApproximation(Val), S))
       return false;
 
-    auto *IVal = cast<Instruction>(Val);
-    if (!IVal->hasNUsesOrMore(2))
-      return false;
-
     bool MethodSeen = false;
-    for (auto &VU : IVal->uses()) {
-      auto &U = CtorDtorCheck::skipPointerCasts(VU);
-      if (auto CS = ImmutableCallSite(U.getUser())) {
-        if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U))
+    // MS compiler complains for missing braces.
+    for (auto *User : post_order(CastDepGraph<const Value *>(Val))) {
+      for (auto &U : User->uses()) {
+        if (isCastUse(U)) {
           continue;
-        // Use of stored value in ctor is checked in CallSiteComparator.
-        else if (CS.getCalledFunction()) {
-          // Store should be associated with single method, i.e. with ctor.
-          // Called value is checked in CallSiteComparator.
-          if (MethodSeen)
-            return false;
-          // insert optimistically
-          insertArrayInst(CS.getInstruction(), "Array method call");
-          MethodSeen = true;
-          continue;
-        } else
+        } else if (auto CS = ImmutableCallSite(U.getUser())) {
+          // Use of stored value in ctor is checked in CallSiteComparator.
+          if (auto *F = CS.getCalledFunction())
+            if (ArrType == getStructTypeOfMethod(*F)) {
+              // Store should be associated with single method, i.e. with ctor.
+              // Called value is checked in CallSiteComparator.
+              if (MethodSeen) {
+                return false;
+              }
+              // insert optimistically
+              insertArrayInst(CS.getInstruction(), "Array method call");
+              MethodSeen = true;
+              continue;
+            }
+          if (CtorDtorCheck::isFreedPtr(DTInfo, TLI, U)) {
+            continue;
+          }
           return false;
-      } else if (U.getUser() == &SI)
-        continue;
-      else
-        return false;
+        }
+        // MethodSeen and this check guarantees 1-1 correspondence.
+        else if (U.getUser() == &SI) {
+          continue;
+        } else {
+          return false;
+        }
+      }
     }
 
-    // All stored should be associated with call to ctor-only.
+    // Non-null stores should be associated with call to ctor-only.
     // Check is completed in canCallSitesBeMerged below.
     insertArrayInst(&SI, "Init ptr to array");
     return MethodSeen;
   }
 
-  // Checks that memset with 0 nullifies pointers to arrays.
+  // Checks that memset with 0 nullifies some pointers.
+  // Nullptr initialization is checked in CallSiteComparator.
   bool checkZeroInit(const MemSetInst &MI) const {
-    Constant *L = dyn_cast<Constant>(MI.getLength());
-    if (!L)
-      return false;
-
     Constant *V = dyn_cast<Constant>(MI.getValue());
     if (!V || !V->isZeroValue())
       return false;
 
-    uint64_t MaxOffset = L->getUniqueInteger().getLimitedValue();
-    auto *SL = DL.getStructLayout(S.StrType);
-
-    // Check that all pointers to arrays of interest are zeroed.
-    for (auto Off : Offsets)
-      if (SL->getElementOffset(Off) + DL.getPointerSize(0) > MaxOffset)
-        return false;
+    insertArrayInst(&MI, "Nullptr with memset of array");
     return StructIdioms::isThisLikeArg(DM.getApproximation(MI.getDest()), S);
   }
 
@@ -631,15 +632,16 @@ public:
                           const DTransAnalysisInfo &DTInfo,
                           const TargetLibraryInfo &TLI, const DepMap &DM,
                           const SummaryForIdiom &S,
-                          const SmallVectorImpl<StructType *> &Fields,
-                          // Needed for MemSetInst check.
-                          const SmallVectorImpl<unsigned> &Offsets,
+                          const SmallVectorImpl<StructType *> &Arrays,
                           TransformationData &TI)
-      : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Fields(Fields),
-        Offsets(Offsets), TI(TI) {}
+      : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Arrays(Arrays),
+        TI(TI) {}
 
   unsigned getTotal() const { return TI.ArrayInstToTransform.size(); }
 
+  // TODO: there is no need to check all methods of struct,
+  // only methods accessing arrays, i.e. isLoadOrStoreOfArrayPtr and memset of
+  // structure.
   bool checkStructMethod() const {
     bool Invalid = false;
 
@@ -648,12 +650,9 @@ public:
         continue;
 
       auto *D = DM.getApproximation(&I);
-      if (!D) {
-        assert(
-            !DTransSOAToAOSComputeAllDep &&
+      if (!D)
+        llvm_unreachable(
             "Not synchronized checkStructMethod and computeDepApproximation");
-        return false;
-      }
 
       if (D->isBottom())
         Invalid = true;
@@ -684,12 +683,14 @@ public:
         if (StructIdioms::isStructuredLoad(D, S)) {
           // Explicitly check non-nested load, i.e. direct loads of
           // pointers to arrays.
-          if (auto *StrType = isLoadOrStoreOfArrayPtr(I)) {
+          if (auto *ArrType =
+                  StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I)) {
             // Related to arrays of interest, limited kinds of uses
             // permitted. In particular, analysis of uses prevents nested loads
             // with respect to arrays of interest.
-            if (checkArrPtrLoadUses(cast<LoadInst>(I), StrType))
+            if (checkArrPtrLoadUses(cast<LoadInst>(I), ArrType))
               break;
+            // Fall through to Handled = false.
           } else
             // Not related to arrays of interest of interest and not setting
             // Handled = false here.
@@ -705,15 +706,27 @@ public:
         if (StructIdioms::isStructuredStore(D, S))
           break;
         else if (StructIdioms::isMemoryInterfaceSetFromArg(D, S) ||
-                 StructIdioms::isMemoryInterfaceCopy(D, S))
-          break;
+                 StructIdioms::isMemoryInterfaceCopy(D, S)) {
+          // Avoid checking conflicts of load/stores to MemoryInterface.
+          if (I.getParent() == &S.Method->getEntryBlock())
+            break;
+        }
         // Explicitly check for Struct's field update.
-        else if (auto *StrType = isLoadOrStoreOfArrayPtr(I)) {
+        else if (auto *ArrType =
+                     StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I)) {
+          if (auto *C = dyn_cast<Constant>(
+                  cast<StoreInst>(I).getValueOperand()->stripPointerCasts())) {
+            if (C->isZeroValue()) {
+              insertArrayInst(&I, "Nullptr of array");
+              break;
+            }
+            // Fall through to Handled = false.
+          }
           // Related to arrays of interest, limited kinds of uses
           // permitted.
           //
           // Check for usage in ctor is completed in CallSiteComparator.
-          if (checkArrPtrStoreUses(cast<StoreInst>(I), StrType))
+          else if (checkArrPtrStoreUses(cast<StoreInst>(I), ArrType))
             break;
         } else
           // Not related to arrays of interest of interest and not setting
@@ -739,15 +752,23 @@ public:
           if (auto CS = ImmutableCallSite(&I))
             if (checkMethodCall(CS))
               break;
+          // Fall through to Handled = false.
         }
         // memset of memory pointed-to by some field,
         // For example, memset of elements of array, which is not transformed.
         else if (StructIdioms::isStructuredStore(D, S))
           break;
         // Memset of structure itself.
-        else if (auto *MI = dyn_cast<MemSetInst>(&I))
+        else if (auto *MI = dyn_cast<MemSetInst>(&I)) {
+          // Safety checks guarantee (CFG + legality) that constant address does not
+          // refer to array of interest.
+          if (isa<Constant>(MI->getDest()))
+            // Not related to arrays of interest of interest and not setting
+            // Handled = false here.
+            break;
           if (checkZeroInit(*MI))
             break;
+        }
         Handled = false;
         break;
       case Instruction::Resume:
@@ -758,7 +779,7 @@ public:
       }
 
       if (!Handled) {
-        DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+        DEBUG_WITH_TYPE(DTRANS_SOASTR, {
           dbgs() << "; Unhandled " << I << "\n";
           D->dump();
         });
@@ -798,9 +819,7 @@ private:
   const SummaryForIdiom &S;
 
   // Array types
-  const SmallVectorImpl<StructType *> &Fields;
-  // Offsets of pointers to array types in S.StrType;
-  const SmallVectorImpl<unsigned> &Offsets;
+  const SmallVectorImpl<StructType *> &Arrays;
 
   // Information computed for transformation.
   TransformationData &TI;
@@ -817,6 +836,7 @@ private:
 //  - checks that pointers to elements do not escape.
 class CallSiteComparator : public StructIdioms {
 public:
+  constexpr static int MaxNumFieldCandidates = 2;
   using FunctionSet = SmallVector<const Function *, 3>;
   struct CallSitesInfo {
     FunctionSet Ctors;
@@ -836,21 +856,10 @@ private:
   bool compareAppendCallSites(ImmutableCallSite CS1, ImmutableCallSite CS2,
                               unsigned Off1, unsigned Off2) const {
 
-    // Relying on layout checks in SOAToAOS.cpp.
-    // TODO: avoid explicit computation here.
-    StructType *Arr1 = cast<StructType>(
-        S.StrType->getTypeAtIndex(Off1)->getPointerElementType());
-    StructType *Arr2 = cast<StructType>(
-        S.StrType->getTypeAtIndex(Off2)->getPointerElementType());
-
-    assert(Arr1->indexValid(BasePtrOffset) && Arr2->indexValid(BasePtrOffset) &&
-           "Incorrect base pointer for array types");
-
-    Type *ElementType1 =
-        Arr1->getTypeAtIndex(BasePtrOffset)->getPointerElementType();
-
-    Type *ElementType2 =
-        Arr2->getTypeAtIndex(BasePtrOffset)->getPointerElementType();
+    auto *ElementType1 =
+        getSOAElementType(getSOAArrayType(S.StrType, Off1), BasePointerOffset);
+    auto *ElementType2 =
+        getSOAElementType(getSOAArrayType(S.StrType, Off2), BasePointerOffset);
 
     // Same BasicBlock for combining.
     if (CS1.getInstruction()->getParent() != CS2.getInstruction()->getParent())
@@ -861,46 +870,38 @@ private:
       auto *A2 = std::get<1>(P).get();
       if (A1 == A2)
         continue;
-      bool IsElemA1 = A1->getType() == ElementType1;
-      bool IsElemA2 = A2->getType() == ElementType2;
-      if (IsElemA1 != IsElemA2)
-        return false;
-      if (IsElemA1)
-        continue;
-      if (!isa<PointerType>(A1->getType()) || !isa<PointerType>(A2->getType()))
-        return false;
 
-      auto *PTy1 = A1->getType()->getPointerElementType();
-      auto *PTy2 = A2->getType()->getPointerElementType();
-      IsElemA1 = PTy1 == ElementType1;
-      IsElemA2 = PTy2 == ElementType2;
+      auto *T1 = A1->getType();
+      auto *T2 = A2->getType();
+
+      bool IsElemA1 = T1 == ElementType1;
+      bool IsElemA2 = T2 == ElementType2;
       if (IsElemA1 != IsElemA2)
         return false;
       if (IsElemA1)
         continue;
 
-      auto *D1 = DM.getApproximation(A1);
-      auto *D2 = DM.getApproximation(A2);
-      assert(D1 && D2 && "Approximation was not computed completely");
+      if (!isa<PointerType>(T1) || !isa<PointerType>(T2))
+        return false;
+
+      IsElemA1 = T1->getPointerElementType() == ElementType1;
+      IsElemA2 = T2->getPointerElementType() == ElementType2;
+      if (IsElemA1 != IsElemA2)
+        return false;
+      if (IsElemA1)
+        continue;
+
       unsigned ArgNo1 = -1U;
       unsigned ArgNo2 = -1U;
-      if (!StructIdioms::isFieldLoad(D1, Off1, ArgNo1) ||
-          !StructIdioms::isFieldLoad(D2, Off2, ArgNo2) ||
+      if (!StructIdioms::isFieldLoad(DM.getApproximation(A1), Off1, ArgNo1) ||
+          !StructIdioms::isFieldLoad(DM.getApproximation(A2), Off2, ArgNo2) ||
           // Expect 'this' parameter in usual place.
           ArgNo1 != 0 || ArgNo2 != 0)
         return false;
 
-      auto *L1 = dyn_cast<LoadInst>(A1);
-      auto *L2 = dyn_cast<LoadInst>(A2);
-      if (!L1 || !L2)
-        return false;
-
-      if (CS1.getInstruction()->getParent() != L1->getParent())
-        return false;
-
-      if (CS2.getInstruction()->getParent() != L2->getParent())
-        return false;
-
+      // Potentially conflicting stores to fields containing pointers to arrays
+      // are excluded by checking stores associated with ctors.
+      // Stores are associated with ctors by check in canCallSitesBeMerged.
     }
     return true;
   }
@@ -910,99 +911,112 @@ private:
   //  call append(this1, elem1)
   //  this2 = str->arr2
   //  call append(this2, elem2)
-  bool compareAllAppendCallSites() const {
-    SmallVector<ImmutableCallSite, 3> CSs;
-    for (auto *F : CSInfo.Appends) {
-      if (F->hasOneUse() && F == S.Method)
-        CSs.push_back(ImmutableCallSite(F->use_begin()->getUser()));
-      else if (F->hasNUsesOrMore(2))
-        return false;
-    }
-
-    if (CSs.size() == 0)
-      return true;
-
+  bool compareAllAppendCallSites(
+      const SmallVectorImpl<ImmutableCallSite> &CSs) const {
     // There could be one call for each field or none at all. Do not permit
     // multiple groups of append methods in a single Struct's method. It
     // simplifies transformation.
-    if (CSs.size() != Fields.size())
+    if (CSs.size() != Arrays.size())
       return false;
 
     auto CSPivot = CSs[0];
     auto OffPivot = Offsets[0];
-
     for (auto P : zip(make_range(CSs.begin() + 1, CSs.end()),
-                      make_range(Offsets.begin() + 1, Offsets.end()))) {
-      auto CS = std::get<0>(P);
-      auto Off = std::get<1>(P);
-      if (!compareAppendCallSites(CSPivot, CS, OffPivot, Off))
+                      make_range(Offsets.begin() + 1, Offsets.end())))
+      if (!compareAppendCallSites(CSPivot, std::get<0>(P), OffPivot,
+                                  std::get<1>(P)))
         return false;
-    }
 
-    // There should be no stores in common basic block.
+    // See note about conflicting stores in compareAppendCallSites.
+    // Start checking when first load/call/invoke is encountered.
+    bool StartCmp = false;
     for (auto &I : *CSPivot.getInstruction()->getParent())
       switch (I.getOpcode()) {
       case Instruction::Load:
-      case Instruction::GetElementPtr:
-      case Instruction::BitCast:
-      case Instruction::ICmp:
-      case Instruction::Br:
+        StartCmp = true;
         continue;
       case Instruction::Call:
+        StartCmp = true;
         if (std::find_if(CSs.begin(), CSs.end(),
                          [&I](ImmutableCallSite CS) -> bool {
                            return &I == CS.getInstruction();
                          }) == CSs.end())
           return false;
         continue;
+      case Instruction::BitCast:
+      case Instruction::Br:
+      case Instruction::GetElementPtr:
+      case Instruction::ICmp:
+      case Instruction::Ret:
+        continue;
       default:
-        return false;
+        if (StartCmp)
+          return false;
+        continue;
       }
     return true;
   }
 
-  // Compare calls to deallocation function.
+  // Compare calls to allocation/deallocation function.
   //
-  // FreePtr1 and FreePtr2 are pointers to memory to deallacate (difference
-  // ignored).
+  // FreePtr1 and FreePtr2 are pointers to memory to deallocated (difference
+  // ignored). Ignored for allocation function.
   //
   // Remaining arguments are equal or loads of MemoryInterface.
-  bool compareDeleteCalls(ImmutableCallSite CS1, ImmutableCallSite CS2,
-                          const Value *FreePtr1, const Value *FreePtr2) const {
-
-    auto *Info = DTInfo.getCallInfo(CS1.getInstruction());
-    if (!Info || Info->getCallInfoKind() != dtrans::CallInfo::CIK_Free)
-      return false;
+  bool compareAllocDeallocCalls(ImmutableCallSite CS1, ImmutableCallSite CS2,
+                                const Value *FreePtr1,
+                                const Value *FreePtr2) const {
 
     if (CS1.getCalledValue() != CS2.getCalledValue())
       return false;
 
-    SmallPtrSet<const Value *, 3> Args;
-    collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), CS1, Args,
-                           TLI);
+    auto *Info = DTInfo.getCallInfo(CS1.getInstruction());
 
-    assert(Args.size() == 1 && "Unexpected deallocation function");
+    SmallPtrSet<const Value *, 3> Args;
+    bool Alloc = false;
+    if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
+      collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), CS1, Args,
+                             TLI);
+      assert(Args.size() == 1 && "Unexpected deallocation function");
+
+      Alloc = false;
+    } else if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
+      collectSpecialAllocArgs(cast<AllocCallInfo>(Info)->getAllocKind(), CS1,
+                              Args, TLI);
+
+      assert(Args.size() == 1 && "Unexpected allocation function");
+      Alloc = true;
+    } else
+      return false;
 
     for (auto PA : zip_first(CS1.args(), CS2.args())) {
       auto *A1 = std::get<0>(PA).get();
       auto *A2 = std::get<1>(PA).get();
       if (Args.count(A1)) {
-        if (A1 != FreePtr1 || A2 != FreePtr2)
+        if (Alloc) {
+          if (A1 != A2)
+            return false;
+          continue;
+        }
+
+        if (A1->stripPointerCasts() != FreePtr1->stripPointerCasts() ||
+            A2->stripPointerCasts() != FreePtr2->stripPointerCasts())
           return false;
       } else if (A1 != A2) {
-        auto *D1 = DM.getApproximation(A1);
-        auto *D2 = DM.getApproximation(A2);
-        // TODO: may want to check that loads are from the same instance of
-        // struct.
-        if (!D1 || !D2 || !StructIdioms::isMemoryInterfaceFieldLoad(D1, S) ||
-            !StructIdioms::isMemoryInterfaceFieldLoad(D2, S))
+        unsigned ArgNo1 = -1U;
+        unsigned ArgNo2 = -1U;
+        // TODO: check ArgNos
+        if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1),
+                                                       S, ArgNo1) ||
+            !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2),
+                                                       S, ArgNo2))
           return false;
       }
     }
     return true;
   }
 
-  // BasicBlock in clean up may contain:
+  // BasicBlock in cleanup successor of ctor/dtor may contain:
   //    - landing pad, processing simple processing of caught exception
   //    - (extractvalue) and
   //    - invoke of 'delete' function.
@@ -1011,31 +1025,40 @@ private:
   //          cleanup
   //  %tmp8 = extractvalue { i8*, i32 } %tmp7, 0
   //  %tmp9 = extractvalue { i8*, i32 } %tmp7, 1
-  //  ; Special type of bitcast.
-  //  %ptr = getelementptr inbounds %class, %class* %this, i64 0, i32 0
+  //  ; bitcasts and geps
   //  invoke void @"XMemory::operator delete(void*)"(i8* %ptr)
   //          to label %resume unwind label %terminate
-  bool compareCtorDtorCleanupBBs(const BasicBlock *BB1, const BasicBlock *BB2,
-                                 const Value *FreePtr1,
-                                 const Value *FreePtr2) const {
-    if (pred_size(BB1) != 1)
-      return false;
+  //
+  // BasicBlocks in normal successor of dtor have subset of instructions above.
+  bool compareCtorDtorBBs(ImmutableCallSite CS1, ImmutableCallSite CS2) const {
 
-    if (pred_size(BB2) != 1)
-      return false;
+    assert(CS1.isInvoke() && CS1.isInvoke() && "Incorrect arguments");
+    auto *FreePtr1 = CS1.getArgOperand(0)->stripPointerCasts();
+    auto *FreePtr2 = CS2.getArgOperand(0)->stripPointerCasts();
 
-    if (succ_size(BB1) != 2)
-      return false;
+    const BasicBlock *BB1 = nullptr;
+    const BasicBlock *BB2 = nullptr;
 
-    if (succ_size(BB2) != 2)
-      return false;
+    BB1 = cast<InvokeInst>(CS1.getInstruction())->getUnwindDest();
+    BB2 = cast<InvokeInst>(CS2.getInstruction())->getUnwindDest();
 
     if (BB1->size() != BB2->size())
       return false;
 
+    if (pred_size(BB1) != 1 || pred_size(BB2) != 1)
+      return false;
+
+    if (succ_size(BB1) != succ_size(BB2))
+      return false;
+
+    // See switch below for instructions in BB1 and BB2.
+    if (succ_size(BB1) > 2)
+      return false;
+
+    // Exception paths have the same common successor blocks,
+    // which results in immediate return from dtors caller.
     for (auto P : zip_first(successors(BB1), successors(BB2))) {
-      // Exception paths have the same common successor blocks,
-      // which results in immediate return from dtors caller.
+      // Exception paths should be confluent.
       if (std::get<0>(P) != std::get<1>(P))
         return false;
       // Exception path ends in returns from dtors caller.
@@ -1043,6 +1066,7 @@ private:
       if (succ_empty(std::get<0>(P)))
         continue;
       // Successors should only lead to function exits.
+      // No need to check second BB, because control flow is confluent.
       for (auto *S : post_order(std::get<0>(P)))
         if (S == BB1 || S == BB2)
           return false;
@@ -1059,43 +1083,32 @@ private:
         return false;
 
       switch (I1.getOpcode()) {
-      case Instruction::LandingPad:
+      case Instruction::BitCast:
+      case Instruction::Br:
+      case Instruction::Call:
       case Instruction::ExtractValue:
       case Instruction::GetElementPtr:
       case Instruction::Invoke:
+      case Instruction::LandingPad:
         break;
       default:
         return false;
       }
 
-      bool Done = false;
-      if (auto GEP1 = dyn_cast<GetElementPtrInst>(&I1)) {
-        auto GEP2 = cast<GetElementPtrInst>(&I2);
-        if (GEP1->hasAllZeroIndices() && GEP2->hasAllZeroIndices() &&
-            GEP1->getPointerOperand() == FreePtr1 &&
-            GEP2->getPointerOperand() == FreePtr2) {
-          FreePtr1 = GEP1;
-          FreePtr2 = GEP2;
-          Done = true;
-        }
-      }
-
       // Delete invocations are processed completely.
       if (auto CS1 = ImmutableCallSite(&I1)) {
-        if (!compareDeleteCalls(CS1, ImmutableCallSite(&I2), FreePtr1,
-                                FreePtr2))
+        if (!compareAllocDeallocCalls(CS1, ImmutableCallSite(&I2), FreePtr1,
+                                      FreePtr2))
           return false;
-        Done = true;
+        continue;
       }
 
-      if (!Done)
-        for (auto PO :
-             zip_first(I1.operands(), I2.operands())) {
-          auto *Op1 = std::get<0>(PO).get();
-          auto *Op2 = std::get<1>(PO).get();
-          if (Op1 != Op2 && ValueRemapper[Op1] != Op2)
-            return false;
-        }
+      for (auto PO : zip_first(I1.operands(), I2.operands())) {
+        auto *Op1 = std::get<0>(PO).get();
+        auto *Op2 = std::get<1>(PO).get();
+        if (Op1 != Op2 && ValueRemapper[Op1] != Op2)
+          return false;
+      }
 
       if (I1.getNumUses() != I2.getNumUses())
         return false;
@@ -1122,83 +1135,77 @@ private:
   // 'this' parameters are from allocation function and non-initialized.
   // Remaining arguments are equal or loads of MemoryInterface.
   //
-  // Cleanup BasicBlock should be equal as in compareCtorDtorCleanupBBs.
+  // Cleanup BasicBlock should be equal as in compareCtorDtorBBs.
   bool compareCtorCalls(ImmutableCallSite CS1, ImmutableCallSite CS2,
-                        unsigned Off1, unsigned Off2) const {
-    // Relying on layout checks in SOAToAOS.cpp.
-    // TODO: avoid explicit computation here.
-    StructType *Arr1 = cast<StructType>(
-        S.StrType->getTypeAtIndex(Off1)->getPointerElementType());
-    StructType *Arr2 = cast<StructType>(
-        S.StrType->getTypeAtIndex(Off2)->getPointerElementType());
+                        unsigned Off1, unsigned Off2, bool Copy) const {
+
     if (!CtorDtorCheck::isThisArgNonInitialized(
             DTInfo, TLI, dyn_cast<Function>(CS1.getCalledValue()),
-            DL.getTypeAllocSize(Arr1)))
-      return false;
-    if (!CtorDtorCheck::isThisArgNonInitialized(
+            DL.getTypeAllocSize(getSOAArrayType(S.StrType, Off1))) ||
+        !CtorDtorCheck::isThisArgNonInitialized(
             DTInfo, TLI, dyn_cast<Function>(CS2.getCalledValue()),
-            DL.getTypeAllocSize(Arr2)))
+            DL.getTypeAllocSize(getSOAArrayType(S.StrType, Off2))))
       return false;
 
-    // Paramters should be equal as Values with 2 exceptions:
+    // Parameters should be equal as Values with 3 exceptions:
     //  - 'this' parameter (checked above);
-    //  - memory interface access (relying on fact it is only copied around).
+    //  - memory interface access (relying on fact it is only copied around);
+    //  - second parameter in copy-ctor should be derived from 2nd argument.
     bool ThisArg = true;
     for (auto P : zip_first(CS1.args(), CS2.args())) {
+      auto *A1 = std::get<0>(P).get()->stripPointerCasts();
+      auto *A2 = std::get<1>(P).get()->stripPointerCasts();
+
       if (ThisArg) {
         ThisArg = false;
+        if (!compareAllocDeallocCalls(ImmutableCallSite(A1),
+                                      ImmutableCallSite(A2), nullptr, nullptr))
+          return false;
         continue;
       }
 
-      auto *A1 = std::get<0>(P).get();
-      auto *A2 = std::get<1>(P).get();
+      if (Copy) {
+        unsigned ArgNo1 = -1U;
+        unsigned ArgNo2 = -1U;
+        if (!StructIdioms::isFieldLoad(
+                DM.getApproximation(A1), Off1, ArgNo1) ||
+            !StructIdioms::isFieldLoad(
+                DM.getApproximation(A2), Off2, ArgNo2) ||
+            ArgNo1 != 1 || ArgNo2 != 1)
+          return false;
+
+        // Potentially conflicting stores to fields containing pointers to
+        // arrays are excluded by checking stores associated with ctors. Stores
+        // are associated with ctors by check in canCallSitesBeMerged.
+        continue;
+      }
 
       if (A1 == A2)
         continue;
 
-      auto *D1 = DM.getApproximation(A1);
-      auto *D2 = DM.getApproximation(A2);
-      // TODO: may want to check that loads are from the same instance of
-      // struct.
-      if (!D1 || !D2 || !StructIdioms::isMemoryInterfaceFieldLoad(D1, S) ||
-          !StructIdioms::isMemoryInterfaceFieldLoad(D2, S))
+      unsigned ArgNo1 = -1U;
+      unsigned ArgNo2 = -1U;
+      // See isMemoryInterface* checks in checkStructMethod.
+      // TODO: check ArgNos
+      if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1), S,
+                                                     ArgNo1) ||
+          !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2), S,
+                                                     ArgNo2))
         return false;
     }
 
-    auto *Inv1 = dyn_cast<InvokeInst>(CS1.getInstruction());
-    auto *Inv2 = dyn_cast<InvokeInst>(CS2.getInstruction());
-
-    if ((Inv1 != nullptr) != (Inv2 != nullptr))
-      return false;
-
-    if (!Inv1)
-      return true;
-
-    auto *CleanBB1 = Inv1->getUnwindDest();
-    auto *CleanBB2 = Inv2->getUnwindDest();
-    auto *FreePtr1 = CS1.getArgOperand(0)->stripPointerCasts();
-    auto *FreePtr2 = CS2.getArgOperand(0)->stripPointerCasts();
-    if (!compareCtorDtorCleanupBBs(CleanBB1, CleanBB2, FreePtr1, FreePtr2))
+    if (CS1.isInvoke() != CS2.isInvoke() ||
+        (CS1.isInvoke() && !compareCtorDtorBBs(CS1, CS2)))
       return false;
 
     return true;
   }
 
   // Compare invokes of ctors and checks adjacency of invokes.
-  bool compareAllCtorCallSites() const {
-    SmallVector<ImmutableCallSite, 3> CtorCSs;
-    for (auto *F : CSInfo.Ctors) {
-      if (F->hasOneUse() && F == S.Method)
-        CtorCSs.push_back(ImmutableCallSite(F->use_begin()->getUser()));
-      else if (F->hasNUsesOrMore(2))
-        return false;
-    }
-
-    if (CtorCSs.size() == 0)
-      return true;
-
+  bool compareAllCtorCallSites(
+      const SmallVectorImpl<ImmutableCallSite> &CtorCSs) const {
     // There could be one call for each field or none at all.
-    if (CtorCSs.size() != Fields.size())
+    if (CtorCSs.size() != Arrays.size())
       return false;
 
     auto CSPivot = CtorCSs[0];
@@ -1208,7 +1215,7 @@ private:
                       make_range(Offsets.begin() + 1, Offsets.end()))) {
       auto CS = std::get<0>(P);
       auto Off = std::get<1>(P);
-      if (!compareCtorCalls(CSPivot, CS, OffPivot, Off))
+      if (!compareCtorCalls(CSPivot, CS, OffPivot, Off, false))
         return false;
     }
 
@@ -1217,92 +1224,24 @@ private:
     return true;
   }
 
-  // Compare 2 invokes of copy ctors.
-  //
-  // 'this' parameters are from allocation function and non-initialized.
-  // Second arguments are loads from instance of struct (argument #1).
-  //
-  // Cleanup BasicBlock should be equal as in compareCtorDtorCleanupBBs.
-  bool compareCCtorCalls(ImmutableCallSite CS1, ImmutableCallSite CS2,
-                         unsigned Off1, unsigned Off2) const {
-    // Relying on layout checks in SOAToAOS.cpp.
-    // TODO: avoid explicit computation here.
-    StructType *Arr1 = cast<StructType>(
-        S.StrType->getTypeAtIndex(Off1)->getPointerElementType());
-    StructType *Arr2 = cast<StructType>(
-        S.StrType->getTypeAtIndex(Off2)->getPointerElementType());
-    if (!CtorDtorCheck::isThisArgNonInitialized(
-            DTInfo, TLI, dyn_cast<Function>(CS1.getCalledValue()),
-            DL.getTypeAllocSize(Arr1)))
-      return false;
-    if (!CtorDtorCheck::isThisArgNonInitialized(
-            DTInfo, TLI, dyn_cast<Function>(CS2.getCalledValue()),
-            DL.getTypeAllocSize(Arr2)))
-      return false;
-
-    if (CS1.arg_size() != 2 || CS2.arg_size() != 2)
-      return false;
-
-    // Compare second argument.
-    {
-      auto *A1 = CS1.getArgOperand(1);
-      auto *A2 = CS2.getArgOperand(1);
-      auto *D1 = DM.getApproximation(A1);
-      auto *D2 = DM.getApproximation(A2);
-
-      assert(D1 && D2 && "Approximation was not computed completely");
-      unsigned ArgNo1 = -1U;
-      unsigned ArgNo2 = -1U;
-      if (!StructIdioms::isFieldLoad(D1, Off1, ArgNo1) ||
-          !StructIdioms::isFieldLoad(D2, Off2, ArgNo2) ||
-          ArgNo1 != 1 || ArgNo2 != 1)
-        return false;
-    }
-
-    auto *Inv1 = dyn_cast<InvokeInst>(CS1.getInstruction());
-    auto *Inv2 = dyn_cast<InvokeInst>(CS2.getInstruction());
-
-    if ((Inv1 != nullptr) != (Inv2 != nullptr))
-      return false;
-
-    if (!Inv1)
-      return true;
-
-    auto *CleanBB1 = Inv1->getUnwindDest();
-    auto *CleanBB2 = Inv2->getUnwindDest();
-    auto *FreePtr1 = CS1.getArgOperand(0)->stripPointerCasts();
-    auto *FreePtr2 = CS2.getArgOperand(0)->stripPointerCasts();
-    if (!compareCtorDtorCleanupBBs(CleanBB1, CleanBB2, FreePtr1, FreePtr2))
-      return false;
-
-    return true;
-  }
-
   // Compare invokes of copy ctors and checks adjacency of invokes.
-  bool compareAllCCtorCallSites() const {
-    SmallVector<ImmutableCallSite, 3> CCtorCSs;
-    for (auto *F : CSInfo.CCtors) {
-      if (F->hasOneUse() && F == S.Method)
-        CCtorCSs.push_back(ImmutableCallSite(F->use_begin()->getUser()));
-      else if (F->hasNUsesOrMore(2))
-        return false;
-    }
-
-    if (CCtorCSs.size() == 0)
-      return true;
-
+  bool compareAllCCtorCallSites(
+      const SmallVectorImpl<ImmutableCallSite> &CCtorCSs) const {
     // There could be one call for each field or none at all.
-    if (CCtorCSs.size() != Fields.size())
+    if (CCtorCSs.size() != Arrays.size())
       return false;
 
     auto CSPivot = CCtorCSs[0];
     auto OffPivot = Offsets[0];
 
+    if (CSPivot.arg_size() != 2)
+      return false;
+
     for (auto P : zip(make_range(CCtorCSs.begin() + 1, CCtorCSs.end()),
                       make_range(Offsets.begin() + 1, Offsets.end()))) {
       auto CS = std::get<0>(P);
       auto Off = std::get<1>(P);
-      if (!compareCCtorCalls(CSPivot, CS, OffPivot, Off))
+      if (!compareCtorCalls(CSPivot, CS, OffPivot, Off, true))
         return false;
     }
 
@@ -1312,19 +1251,19 @@ private:
     return true;
   }
 
-  // Compare 2 invokes of copy ctors.
+  // Compare 2 invokes of dtors
   //
   // 'this' parameters is dead in all paths after invoke (passed to
   // deallocation function).
   //
   // Arguments are from the same instance of struct.
   //
-  // Cleanup BasicBlock should be equal as in compareCtorDtorCleanupBBs.
+  // Cleanup BasicBlock should be equal as in compareCtorDtorBBs.
   bool compareDtorCalls(ImmutableCallSite CS1, ImmutableCallSite CS2,
-                         unsigned Off1, unsigned Off2) const {
-    if (!CtorDtorCheck::isThisArgIsDead(DTInfo, TLI, CS1))
-      return false;
-    if (!CtorDtorCheck::isThisArgIsDead(DTInfo, TLI, CS2))
+                        unsigned Off1, unsigned Off2) const {
+
+    if (!CtorDtorCheck::isThisArgIsDead(DTInfo, TLI, CS1) ||
+        !CtorDtorCheck::isThisArgIsDead(DTInfo, TLI, CS2))
       return false;
 
     if (CS1.arg_size() != 1 || CS2.arg_size() != 1)
@@ -1332,34 +1271,23 @@ private:
 
     // Compare argument.
     {
-      auto *A1 = CS1.getArgOperand(0);
-      auto *A2 = CS2.getArgOperand(0);
-      auto *D1 = DM.getApproximation(A1);
-      auto *D2 = DM.getApproximation(A2);
-
-      assert(D1 && D2 && "Approximation was not computed completely");
       unsigned ArgNo1 = -1U;
       unsigned ArgNo2 = -1U;
-      if (!StructIdioms::isFieldLoad(D1, Off1, ArgNo1) ||
-          !StructIdioms::isFieldLoad(D2, Off2, ArgNo2) ||
+      if (!StructIdioms::isFieldLoad(
+              DM.getApproximation(CS1.getArgOperand(0)), Off1, ArgNo1) ||
+          !StructIdioms::isFieldLoad(
+              DM.getApproximation(CS2.getArgOperand(0)), Off2, ArgNo2) ||
           ArgNo1 != 0 || ArgNo2 != 0)
         return false;
+
+      // Potentially conflicting stores to fields containing pointers to arrays
+      // are excluded by checking stores associated with ctors.
+      // Stores are associated with ctors by check in canCallSitesBeMerged.
     }
 
-    auto *Inv1 = dyn_cast<InvokeInst>(CS1.getInstruction());
-    auto *Inv2 = dyn_cast<InvokeInst>(CS2.getInstruction());
-
-    if ((Inv1 != nullptr) != (Inv2 != nullptr))
-      return false;
-
-    if (!Inv1)
-      return true;
-
-    auto *CleanBB1 = Inv1->getUnwindDest();
-    auto *CleanBB2 = Inv2->getUnwindDest();
-    auto *FreePtr1 = CS1.getArgOperand(0)->stripPointerCasts();
-    auto *FreePtr2 = CS2.getArgOperand(0)->stripPointerCasts();
-    if (!compareCtorDtorCleanupBBs(CleanBB1, CleanBB2, FreePtr1, FreePtr2))
+    // Deallocation on normal path is checked in checkDtorsCallsAreAdjacent.
+    if (CS1.isInvoke() != CS2.isInvoke() ||
+        (CS1.isInvoke() && !compareCtorDtorBBs(CS1, CS2)))
       return false;
 
     return true;
@@ -1389,21 +1317,11 @@ private:
   //  ; producing the values for resume and terminate blocks
   //  invoke delete ptr2
   //    resume, terminate
-  bool compareAllDtorCallSites() const {
-    SmallVector<ImmutableCallSite, 3> DtorCSs;
-    for (auto *F : CSInfo.Dtors) {
-      if (F->hasOneUse() && F == S.Method)
-        DtorCSs.push_back(ImmutableCallSite(F->use_begin()->getUser()));
-      else if (F->hasNUsesOrMore(2))
-        return false;
-    }
-
+  bool compareAllDtorCallSites(
+      const SmallVectorImpl<ImmutableCallSite> &DtorCSs) const {
     // There could be one call for each field or none at all.
-    if (DtorCSs.size() != 0 && DtorCSs.size() != Fields.size())
+    if (DtorCSs.size() != Arrays.size())
       return false;
-
-    if (DtorCSs.size() == 0)
-      return true;
 
     auto CSPivot = DtorCSs[0];
     auto OffPivot = Offsets[0];
@@ -1423,11 +1341,13 @@ private:
   }
 
   // Topologically first/last under assumption that there are no cycles in BBs
-  // (to be checked separately afterward).
+  // (to be checked separately afterward or implied by traversal from first to
+  // last).
   static std::pair<const BasicBlock *, const BasicBlock *>
   getTopSortFirstLastBB(SmallPtrSetImpl<const BasicBlock *> &BBs) {
     if (BBs.empty())
-      return std::pair<const BasicBlock *, const BasicBlock *>(nullptr, nullptr);
+      return std::pair<const BasicBlock *, const BasicBlock *>(nullptr,
+                                                               nullptr);
 
     unsigned Curr = 0;
     const BasicBlock *First = nullptr;
@@ -1452,11 +1372,13 @@ private:
   // Find first and last basic block in sequence and check all instructions on
   // intermediate BasicBlock during normal execution.
   //
-  // Exception handling of ctors is checked in compareCtorDtorCleanupBBs.
+  // Exception handling of ctors is checked in compareCtorDtorBBs.
   bool checkCtorsCallsAreAdjacent(
-      const SmallVector<ImmutableCallSite, 3> CtorCSs) const {
-    SmallPtrSet<const BasicBlock *, 6> BBs;
-    SmallVector<ImmutableCallSite, 3> NewCalls;
+      const SmallVectorImpl<ImmutableCallSite> &CtorCSs) const {
+
+    SmallPtrSet<const BasicBlock *, 2 * MaxNumFieldCandidates> BBs;
+    SmallPtrSet<StructType*, MaxNumFieldCandidates> ArrayTypes;
+    SmallVector<ImmutableCallSite, MaxNumFieldCandidates> NewCalls;
     const BasicBlock *AllocLandingPad = nullptr;
     // BasicBlock with allocation calls
     for (auto CS : CtorCSs) {
@@ -1464,7 +1386,11 @@ private:
       // Relying on CtorDtorCheck::isThisArgNonInitialized
       auto *AllocCall =
           cast<Instruction>(CS.getArgOperand(0)->stripPointerCasts());
+
+      auto *SI = &CtorDtorCheck::getStoreOfPointer(CS);
+      ArrayTypes.insert(getArrayType(SI));
       NewCalls.push_back(ImmutableCallSite(AllocCall));
+      // Simple check of exception path of allocation function
       if (auto *Inv = dyn_cast<InvokeInst>(AllocCall)) {
         if (!AllocLandingPad)
           AllocLandingPad = Inv->getUnwindDest();
@@ -1479,6 +1405,8 @@ private:
 
     unsigned NumAllocCalls = 0;
     unsigned NumCtorCalls = 0;
+    // One of the stores can be next basic block.
+    const BasicBlock *LastStoreBB = nullptr;
     for (auto *BB = FL.first, *NextBB = BB /*Initial value ignored*/; BB;
          BB = NextBB /*See body of loop, Invoke case*/) {
       NextBB = nullptr;
@@ -1487,9 +1415,25 @@ private:
         switch (I.getOpcode()) {
         case Instruction::BitCast:
         case Instruction::GetElementPtr:
-        case Instruction::Load:
-        case Instruction::Store:
           continue;
+        case Instruction::Store:
+          if (auto *ArrType =
+                  StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I))
+            ArrayTypes.erase(ArrType);
+          continue;
+        // Only need to make sure that load is not related to potential store
+        // of newly allocated memory to fields, which are pointers to
+        // transformed arrays.
+        //
+        // Checking that all loads are before aliasing stores.
+        case Instruction::Load: {
+          if (auto *ArrType =
+                  StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I))
+            // Load after store
+            if (ArrayTypes.find(ArrType) == ArrayTypes.end())
+              return false;
+          continue;
+        }
         case Instruction::Invoke:
           // No control flow cycles are possible.
           NextBB = cast<InvokeInst>(&I)->getNormalDest();
@@ -1515,9 +1459,30 @@ private:
           return false;
         }
 
-      if (BB == FL.second)
+      if (BB == FL.second) {
+        LastStoreBB = NextBB;
         NextBB = nullptr;
+      }
     }
+
+    if (!ArrayTypes.empty() && LastStoreBB)
+      for (auto &I : *LastStoreBB) {
+        if (ArrayTypes.empty())
+          break;
+
+        switch (I.getOpcode()) {
+        case Instruction::BitCast:
+        case Instruction::GetElementPtr:
+          continue;
+        case Instruction::Store:
+          if (auto *ArrType =
+                  StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I))
+            ArrayTypes.erase(ArrType);
+          continue;
+        default:
+          return false;
+        }
+      }
 
     // Make sure there is 1-1 correspondence between
     //  - allocation calls,
@@ -1525,7 +1490,8 @@ private:
     //
     // 1-1 correspondence between ctor and stores is checked in
     // checkArrPtrStoreUses.
-    if (NumAllocCalls != NewCalls.size() || NumCtorCalls != CtorCSs.size())
+    if (NumAllocCalls != NewCalls.size() || NumCtorCalls != CtorCSs.size() ||
+        !ArrayTypes.empty())
       return false;
 
     return true;
@@ -1538,17 +1504,17 @@ private:
   //
   // Checks for null are also handled.
   //
-  // Exception handling of dtors is checked in compareCtorDtorCleanupBBs.
+  // Exception handling of dtors is checked in compareCtorDtorBBs.
   bool checkDtorsCallsAreAdjacent(
-      const SmallVector<ImmutableCallSite, 3> DtorCSs) const {
+      const SmallVectorImpl<ImmutableCallSite> &DtorCSs) const {
 
-    SmallPtrSet<const BasicBlock *, 6> BBs;
-    SmallPtrSet<const BasicBlock *, 3> DtorCalls;
+    SmallPtrSet<const BasicBlock *, 2 * MaxNumFieldCandidates> BBs;
+    SmallPtrSet<const BasicBlock *, MaxNumFieldCandidates> DtorCalls;
     for (auto CS : DtorCSs) {
       auto *ParentBB = CS.getInstruction()->getParent();
       BBs.insert(ParentBB);
       DtorCalls.insert(ParentBB);
-      auto *DeleteBB  = ParentBB;
+      auto *DeleteBB = ParentBB;
       if (auto *Inv = dyn_cast<InvokeInst>(CS.getInstruction())) {
         // Expect normal delete call in next BB.
         DeleteBB = Inv->getNormalDest();
@@ -1558,15 +1524,17 @@ private:
 
     auto FL = getTopSortFirstLastBB(BBs);
     unsigned NumDtorCalls = 0;
-    unsigned NumDeleteCalls = 0;
+    unsigned FreePtrInd = -1U;
+    SmallVector<ImmutableCallSite, MaxNumFieldCandidates> RegDeleteCSs;
+    SmallPtrSet<const Value *, MaxNumFieldCandidates> ThisArgs;
     for (auto *BB = FL.first, *NextBB = BB /*Initial value ignored*/; BB;
          BB = NextBB /*See body of loop, Invoke/Br case*/) {
       NextBB = nullptr;
       // Ignore additional instructions in first and last BB.
       for (auto &I : *BB)
         switch (I.getOpcode()) {
+        case Instruction::BitCast:
         case Instruction::GetElementPtr:
-          continue;
         case Instruction::Load:
           continue;
         case Instruction::ICmp:
@@ -1580,9 +1548,14 @@ private:
             if (!Br || Br->getParent() != BB)
               return false;
 
+            auto *L = dyn_cast<LoadInst>(Other->stripPointerCasts());
+            if (!L)
+              return false;
+
             // Check that Other is related to dtor call.
             // Simple check, no reloads.
-            auto MethodCS = CtorDtorCheck::getSingleMethodCall(DTInfo, TLI, Other);
+            auto MethodCS = CtorDtorCheck::getSingleMethodCall(
+                DTInfo, TLI, Other, getArrayType(Other->stripPointerCasts()));
 
             if (std::find_if(DtorCSs.begin(), DtorCSs.end(),
                              [MethodCS](ImmutableCallSite CS) -> bool {
@@ -1628,13 +1601,26 @@ private:
                              return &I == CS.getInstruction();
                            }) != DtorCSs.end()) {
             ++NumDtorCalls;
+            ThisArgs.insert(
+                ImmutableCallSite(&I).getArgOperand(0)->stripPointerCasts());
             continue;
           }
 
           {
             auto *Info = DTInfo.getCallInfo(&I);
             if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
-              ++NumDeleteCalls;
+              unsigned PtrArgInd = -1U;
+              getFreePtrArg(cast<FreeCallInfo>(Info)->getFreeKind(),
+                            ImmutableCallSite(&I), PtrArgInd, TLI);
+
+              if (FreePtrInd == -1U)
+                FreePtrInd = PtrArgInd;
+
+              // Do not postpone till full comparison.
+              if (FreePtrInd != PtrArgInd)
+                return false;
+
+              RegDeleteCSs.push_back(ImmutableCallSite(&I));
               continue;
             }
           }
@@ -1648,9 +1634,93 @@ private:
 
     // One delete for each dtor call.
     // And following regular path we should encounter all dtors.
-    if (NumDtorCalls != DtorCSs.size() || NumDeleteCalls != DtorCSs.size())
+    if (NumDtorCalls != DtorCSs.size() || RegDeleteCSs.size() != DtorCSs.size())
       return false;
+
+    auto Pivot = RegDeleteCSs[0];
+    auto PivotFreeArg = Pivot.getArgOperand(FreePtrInd)->stripPointerCasts();
+    // Checking that deallocation is associated with dtor.
+    if (ThisArgs.find(PivotFreeArg) == ThisArgs.end())
+      return false;
+
+    for (auto Del : make_range(RegDeleteCSs.begin() + 1, RegDeleteCSs.end())) {
+      auto FreeArg = Del.getArgOperand(FreePtrInd)->stripPointerCasts();
+      // Checking that deallocation is associated with dtor.
+      if (ThisArgs.find(FreeArg) == ThisArgs.end())
+        return false;
+      if (!compareAllocDeallocCalls(Pivot, Del, PivotFreeArg, FreeArg))
+        return false;
+    }
     return true;
+  }
+
+  // See checkZeroInit.
+  bool checkNullptrInits(const MemSetInst &MI) const {
+
+    Constant *L = dyn_cast<Constant>(MI.getLength());
+    if (!L)
+      return false;
+    uint64_t MaxOffset = L->getUniqueInteger().getLimitedValue();
+    auto *SL = DL.getStructLayout(S.StrType);
+
+
+    // Check that all pointers to arrays of interest are zeroed.
+    for (auto Off : Offsets)
+      if (SL->getElementOffset(Off) + DL.getPointerSize(0) > MaxOffset)
+        return false;
+    return true;
+  }
+
+  // Checks that initialization of pointers to arrays with nullptr are
+  // adjacent.
+  bool
+  checkNullptrInits(const SmallVectorImpl<const StoreInst *> &Inits) const {
+    if (Inits.size() != Arrays.size())
+      return false;
+
+    auto *PivotBB = Inits[0]->getParent();
+    for (auto *NI : make_range(Inits.begin() + 1, Inits.end()))
+      if (NI->getParent() != PivotBB)
+        return false;
+
+    SmallPtrSet<const StoreInst *, MaxNumFieldCandidates> InitSet(Inits.begin(),
+                                                                  Inits.end());
+
+    for (auto &I : *PivotBB) {
+      if (InitSet.empty())
+        break;
+      switch (I.getOpcode()) {
+      case Instruction::GetElementPtr:
+        continue;
+      case Instruction::Store:
+        InitSet.erase(cast<StoreInst>(&I));
+        continue;
+      default:
+        return false;
+      }
+    }
+    return InitSet.empty();
+  }
+
+  // Extract array type from load or store,
+  // ignoring some idioms related to bitcasts.
+  StructType *getArrayType(const Value *I) const {
+    const Value *Address = nullptr;
+
+    if (auto *SI = dyn_cast<StoreInst>(I))
+      Address = SI->getPointerOperand();
+    else if (auto *L = dyn_cast<LoadInst>(I))
+      Address = L->getPointerOperand();
+    else
+      return nullptr;
+
+    Type *PArray = nullptr;
+    if (!StructIdioms::isFieldAddr(DM.getApproximation(Address), S, PArray))
+      return nullptr;
+    if (auto *Ptr = dyn_cast<PointerType>(PArray))
+      return dyn_cast<StructType>(Ptr->getElementType());
+
+    return nullptr;
   }
 
   CallSiteComparator(const CallSiteComparator &) = delete;
@@ -1663,7 +1733,7 @@ private:
   const SummaryForIdiom &S;
 
   // Array types
-  const SmallVectorImpl<StructType *> &Fields;
+  const SmallVectorImpl<StructType *> &Arrays;
   // Offsets of pointers to array types in S.StrType;
   const SmallVectorImpl<unsigned> &Offsets;
 
@@ -1671,56 +1741,95 @@ private:
   const StructureMethodAnalysis::TransformationData &TI;
 
   const CallSitesInfo &CSInfo;
-  unsigned BasePtrOffset;
+  unsigned BasePointerOffset;
 
 public:
   CallSiteComparator(const DataLayout &DL, const DTransAnalysisInfo &DTInfo,
                      const TargetLibraryInfo &TLI, const DepMap &DM,
                      const SummaryForIdiom &S,
-                     const SmallVectorImpl<StructType *> &Fields,
+                     const SmallVectorImpl<StructType *> &Arrays,
                      const SmallVectorImpl<unsigned> &Offsets,
                      const StructureMethodAnalysis::TransformationData &TI,
-                     const CallSitesInfo &CSInfo, unsigned BasePtrOffset)
-      : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Fields(Fields),
-        Offsets(Offsets), TI(TI), CSInfo(CSInfo), BasePtrOffset(BasePtrOffset) {
-  }
+                     const CallSitesInfo &CSInfo, unsigned BasePointerOffset)
+      : DL(DL), DTInfo(DTInfo), TLI(TLI), DM(DM), S(S), Arrays(Arrays),
+        Offsets(Offsets), TI(TI), CSInfo(CSInfo),
+        BasePointerOffset(BasePointerOffset) {}
 
   bool canCallSitesBeMerged() const {
     // Check categories of methods called, finalizing uses checks of
     // loads/stores in StructureMethodAnalysis.
+    SmallVector<const StoreInst *, MaxNumFieldCandidates> NullptrInits;
+    SmallVector<ImmutableCallSite, MaxNumFieldCandidates> CCtors;
+    SmallVector<ImmutableCallSite, MaxNumFieldCandidates> Ctors;
+    SmallVector<ImmutableCallSite, MaxNumFieldCandidates> Dtors;
+    SmallVector<ImmutableCallSite, MaxNumFieldCandidates> Appends;
+    const MemSetInst *MI = nullptr;
     for (auto *I : TI.ArrayInstToTransform)
       if (auto *SI = dyn_cast<StoreInst>(I)) {
-        // Store should be processed checkArrPtrStoreUses
-        auto *FCalled = CtorDtorCheck::getSingleMethodCall(
-            DTInfo, TLI, SI->getValueOperand()).getCalledFunction();
+
+        // 1st kind of store: nullptr initialization.
+        if (auto *C = dyn_cast<Constant>(SI->getValueOperand())) {
+          if (C->isZeroValue()) {
+            // Checking that null-ptr initializations are adjacent later.
+            NullptrInits.push_back(SI);
+            continue;
+          } else
+            return false;
+        }
+
+        // 2nd kind of store: newly allocated memory initialization.
+        // Store should be processed checkArrPtrStoreUses.
+        auto CS = CtorDtorCheck::getSingleMethodCall(
+            DTInfo, TLI, SI->getValueOperand(), getArrayType(I));
+        auto *FCalled = CS.getCalledFunction();
         // Not ctor call, hence cannot merge.
         if (std::find_if(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
                          [FCalled](const Function *FCtor) -> bool {
                            return FCalled == FCtor;
-                         }) == CSInfo.Ctors.end() &&
-            std::find_if(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
-                         [FCalled](const Function *FCtor) -> bool {
-                           return FCalled == FCtor;
-                         }) == CSInfo.CCtors.end())
+                         }) != CSInfo.Ctors.end())
+          Ctors.push_back(CS);
+        else if (std::find_if(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
+                         [FCalled](const Function *FCCtor) -> bool {
+                           return FCalled == FCCtor;
+                         }) != CSInfo.CCtors.end())
+          CCtors.push_back(CS);
+        else
           return false;
       } else if (auto *L = dyn_cast<LoadInst>(I)) {
-        auto IsUsed = CtorDtorCheck::isThereUseInFree(DTInfo, TLI, L);
+        auto IsUsed =
+            CtorDtorCheck::isThereUseInFree(DTInfo, TLI, L, getArrayType(I));
         // Load is used in deallocation
         if (IsUsed.first) {
           assert(IsUsed.second && "StructureMethodAnalysis was not run");
-          auto FCalled = IsUsed.second.getCalledFunction();
+          auto CS = IsUsed.second;
+          auto FCalled = CS.getCalledFunction();
           if (std::find_if(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
-                           [FCalled](const Function *FCtor) -> bool {
-                             return FCalled == FCtor;
-                           }) == CSInfo.Dtors.end())
+                           [FCalled](const Function *FDtor) -> bool {
+                             return FCalled == FDtor;
+                           }) != CSInfo.Dtors.end())
+            Dtors.push_back(CS);
+          else
             return false;
         }
+      } else if (auto *MS = dyn_cast<MemSetInst>(I)) {
+        // Support only one memset, may extend analysis.
+        if (MI)
+          return false;
+        MI = MS;
       } else if (auto CS = ImmutableCallSite(I)) {
-        auto *StrType = getStructTypeOfMethod(*CS.getCalledFunction());
-        assert(std::find(Fields.begin(), Fields.end(), StrType) !=
-                   Fields.end() &&
+        auto *FCalled = CS.getCalledFunction();
+        auto *StrType = getStructTypeOfMethod(*FCalled);
+        assert(std::find(Arrays.begin(), Arrays.end(), StrType) !=
+                   Arrays.end() &&
                "Unexpected instruction");
-        auto *BasePtrType = StrType->getTypeAtIndex(BasePtrOffset);
+
+        if (std::find_if(CSInfo.Appends.begin(), CSInfo.Appends.end(),
+                         [FCalled](const Function *FAppend) -> bool {
+                           return FCalled == FAppend;
+                         }) != CSInfo.Appends.end())
+          Appends.push_back(CS);
+
+        auto *BasePtrType = StrType->getTypeAtIndex(BasePointerOffset);
         if (BasePtrType != CS.getType())
           continue;
 
@@ -1730,23 +1839,45 @@ public:
             return false;
       }
 
-    if (!CSInfo.Appends.empty())
-      if (!compareAllAppendCallSites())
+    if (!NullptrInits.empty()) {
+      // Support only one memset, may extend analysis.
+      if (MI)
         return false;
-    if (!CSInfo.Ctors.empty())
-      if (!compareAllCtorCallSites())
+      DEBUG_WITH_TYPE(DTRANS_SOASTR, dbgs() << "; Seen nullptr init.\n");
+      if (!checkNullptrInits(NullptrInits))
         return false;
-    if (!CSInfo.CCtors.empty())
-      if (!compareAllCCtorCallSites())
+    }
+    if (MI) {
+      DEBUG_WITH_TYPE(DTRANS_SOASTR, dbgs() << "; Seen nullptr init with memset.\n");
+      if (!checkNullptrInits(*MI))
         return false;
-    if (!CSInfo.Dtors.empty())
-      if (!compareAllDtorCallSites())
+    }
+    if (!Appends.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_SOASTR, dbgs() << "; Seen appends.\n");
+      if (!compareAllAppendCallSites(Appends))
         return false;
+    }
+    if (!Ctors.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_SOASTR, dbgs() << "; Seen ctor.\n");
+      if (!compareAllCtorCallSites(Ctors))
+        return false;
+    }
+    if (!CCtors.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_SOASTR, dbgs() << "; Seen cctor.\n");
+      if (!compareAllCCtorCallSites(CCtors))
+        return false;
+    }
+    if (!Dtors.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_SOASTR, dbgs() << "; Seen dtor.\n");
+      if (!compareAllDtorCallSites(Dtors))
+        return false;
+    }
     return true;
   }
 };
 
 class StructMethodTransformation {
+  constexpr static int MaxNumFieldCandidates = 2;
 public:
   StructMethodTransformation(
       const DataLayout &DL, DTransAnalysisInfo &DTInfo,
@@ -1758,16 +1889,29 @@ public:
         InstsToTransform(InstsToTransform), Context(Context) {}
 
   void updateReferences(StructType *OldStruct, StructType *NewArray,
-                        const SmallVectorImpl<StructType *> &Fields,
+                        const SmallVectorImpl<StructType *> &Arrays,
                         unsigned AOSOff, unsigned ElemOffset) const {
     IRBuilder<> Builder(Context);
 
-    for (auto *I : InstsToTransform.ArrayInstToTransform) {
-      auto *NewI = cast<Instruction>((Value *)VMap[I]);
-      if (auto *L = dyn_cast<LoadInst>(NewI)) {
-        auto *Ptr = L->getPointerOperand();
-        if (auto *BC = dyn_cast<BitCastInst>(Ptr))
-          Ptr = BC->getOperand(0);
+    // Process load/stores first to adjust GEPs.
+    // No instruction removed.
+    for (auto *I : InstsToTransform.ArrayInstToTransform)
+      if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
+        const Value *OldPtr = nullptr;
+        if (auto *L = dyn_cast<LoadInst>(I))
+          OldPtr = L->getPointerOperand();
+        else if (auto *SI = dyn_cast<StoreInst>(I))
+          OldPtr = SI->getPointerOperand();
+
+        if (isBitCastLikeGep(DL, OldPtr))
+          continue;
+
+        if (auto *BC = dyn_cast<BitCastInst>(OldPtr)) {
+          assert(isSafeBitCast(DL, OldPtr) && "Unexpected store address");
+          OldPtr = BC->getOperand(0);
+        }
+
+        auto *Ptr = cast<Instruction>((Value *)VMap[OldPtr]);
         if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
           assert(GEP->getNumIndices() == 2 &&
                  "Unexpected pointer to array load");
@@ -1781,176 +1925,78 @@ public:
           GEP->setOperand(2, Builder.getIntN(32, AOSOff));
         } else
           llvm_unreachable("Unexpected address.");
-      }
-      else if (auto *SI = dyn_cast<StoreInst>(NewI)) {
-        auto *Ptr = SI->getPointerOperand();
-        auto *OldPtr = cast<StoreInst>(I)->getPointerOperand();
-        if (isBitCastLikeGep(DL, OldPtr)) {
-          assert(AOSOff == 0 && "Unexpected store address");
-          continue;
-        }
-        if (auto *BC = dyn_cast<BitCastInst>(Ptr)) {
-          assert(isSafeBitCast(DL, OldPtr) && "Unexpected store address");
-          Ptr = BC->getOperand(0);
-        }
-        if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
-          assert(GEP->getNumIndices() == 2 &&
-                 "Unexpected pointer to array store");
-          unsigned Off = cast<Constant>(GEP->getOperand(2)) // 2nd index
-                             ->getUniqueInteger()
-                             .getLimitedValue();
-          // Nothing to change
-          if (Off == AOSOff)
-            continue;
-        } else
-          llvm_unreachable("Unexpected address.");
-
-        // See checkArrPtrStoreUses: it is store of allocated memory.
-        Ptr = SI->getPointerOperand();
-        SI->eraseFromParent();
-        assert(Ptr->hasNUses(0) && "Inconsistent logic");
-        if (auto *BC = dyn_cast<BitCastInst>(Ptr)) {
-          Ptr = BC->getOperand(0);
-          BC->eraseFromParent();
-          assert(Ptr->hasNUses(0) && "Inconsistent logic");
-        }
-        cast<Instruction>(Ptr)->eraseFromParent();
-      } else if (isa<ICmpInst>(NewI))
+      } else if (isa<ICmpInst>(I))
         continue;
-      else if (CallSite(NewI)) {
+      else if (ImmutableCallSite(I))
         continue;
-      } else
+      else
         llvm_unreachable("Unexpected instruction to transform.");
-    }
 
     // Deal with combined call sites.
-    SmallVector<const CallInst*, 3> OldAppends;
+    SmallVector<const CallInst*, MaxNumFieldCandidates> OldAppends;
     for (auto *I : InstsToTransform.ArrayInstToTransform) {
       auto *NewI = cast_or_null<Instruction>((Value *)VMap[I]);
+      // Removed instructions.
       if (!NewI)
         continue;
       if (auto CS = CallSite(NewI)) {
         auto OldCS = ImmutableCallSite(I);
-        // CS can only be array method call.
-        assert(CS.getCalledFunction() && "Inconsistent logic");
-        auto *Fld = OldCS.getArgOperand(0)->getType();
         // 'this' argument has the same type as pointer to arrays in S.StrType.
-        bool ToRemove = Fld != OldStruct->getTypeAtIndex(AOSOff);
+        bool ToRemove = getStructTypeOfMethod(*OldCS.getCalledFunction()) !=
+                        getSOAArrayType(OldStruct, AOSOff);
 
-        if (std::find(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
-                      OldCS.getCalledFunction()) != CSInfo.Ctors.end())
-          updateCtor(CS, ToRemove);
-        else if (std::find(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
-                           OldCS.getCalledFunction()) != CSInfo.CCtors.end())
-          updateCtor(CS, ToRemove);
-        else if (std::find(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
-                           OldCS.getCalledFunction()) != CSInfo.Dtors.end())
-          updateDtor(CS, ToRemove);
-        else if (std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
-                           OldCS.getCalledFunction()) != CSInfo.Appends.end()) {
+        if (std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
+                      OldCS.getCalledFunction()) != CSInfo.Appends.end())
           // See compareAllAppendCallSites, appends should be in a single
           // BasicBlock and CallInst.
           OldAppends.push_back(cast<CallInst>(I));
-        }
+        else if (ToRemove)
+          if (std::find(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),
+                        OldCS.getCalledFunction()) != CSInfo.Ctors.end() ||
+              std::find(CSInfo.CCtors.begin(), CSInfo.CCtors.end(),
+                        OldCS.getCalledFunction()) != CSInfo.CCtors.end() ||
+              std::find(CSInfo.Dtors.begin(), CSInfo.Dtors.end(),
+                        OldCS.getCalledFunction()) != CSInfo.Dtors.end())
+            removeCtorDtor(CS);
       }
     }
-    updateAppends(OldAppends, Fields, ElemOffset);
+    updateAppends(OldAppends, Arrays, ElemOffset);
   }
 
 private:
-  void updateCtor(CallSite CS, bool ToRemove) const {
-    if (!ToRemove) {
-      return;
-    }
-
+  // Coupled with checkArrPtrStoreUses, checkArrPtrLoadUses.
+  void removeCtorDtor(CallSite CS) const {
     IRBuilder<> Builder(Context);
-    auto Alloc =
-        CallSite(cast<Instruction>(CS.getArgOperand(0)->stripPointerCasts()));
+    // Alloc or load of a pointer.
+    auto *This = cast<Instruction>(CS.getArgOperand(0)->stripPointerCasts());
 
-    auto *This = CS.getArgOperand(0);
-    if (auto *Inv = dyn_cast<InvokeInst>(CS.getInstruction())) {
-      Builder.SetInsertPoint(Inv);
-      Builder.CreateBr(Inv->getNormalDest());
-    }
-    CS.getInstruction()->eraseFromParent();
-    for (auto *BC = dyn_cast<BitCastInst>(This); BC;) {
-      auto *I = BC;
-      BC = dyn_cast<BitCastInst>(BC->getOperand(0));
-      I->eraseFromParent();
+    SmallVector<Value*, 16> Insts;
+    for (auto *User : post_order(CastDepGraph<Value *>(This))) {
+      for (auto &U : User->uses())
+        if (!isCastUse(U) && !CtorDtorCheck::isNullCheck(U.getUser()))
+          Insts.push_back(U.getUser());
+      if (!CtorDtorCheck::isNullCheck(User))
+        Insts.push_back(User);
     }
 
-    SmallSet<User*, 6> Users;
-    for (auto &U : Alloc.getInstruction()->uses())
-      Users.insert(U.getUser());
-
-    for (auto *User : Users)
-      if (auto CS = CallSite(User)) {
-        if (auto *Inv = dyn_cast<InvokeInst>(User)) {
+    for (auto *V : Insts) {
+      if (auto CS = CallSite(V)) {
+        if (auto *Inv = dyn_cast<InvokeInst>(V)) {
           Builder.SetInsertPoint(Inv);
           Builder.CreateBr(Inv->getNormalDest());
         }
         DTInfo.deleteCallInfo(CS.getInstruction());
         CS.getInstruction()->eraseFromParent();
-      } else if (auto *SI = dyn_cast<StoreInst>(User))
-        SI->eraseFromParent();
-      else
-        llvm_unreachable("Inconsistency with checkArrPtrStoreUses.");
-
-    if (auto *Inv = dyn_cast<InvokeInst>(Alloc.getInstruction())) {
-      Builder.SetInsertPoint(Inv);
-      Builder.CreateBr(Inv->getNormalDest());
-    }
-    DTInfo.deleteCallInfo(Alloc.getInstruction());
-    Alloc.getInstruction()->eraseFromParent();
-  }
-
-  void updateDtor(CallSite CS, bool ToRemove) const {
-    if (!ToRemove)
-      return;
-
-    auto *This = CS.getArgOperand(0);
-    assert(
-        isa<LoadInst>(This) &&
-        "Inconsistency with checkArrPtrLoadUses and canCallSitesBeMerged");
-
-    IRBuilder<> Builder(Context);
-    if (auto *Inv = dyn_cast<InvokeInst>(CS.getInstruction())) {
-      Builder.SetInsertPoint(Inv);
-      Builder.CreateBr(Inv->getNormalDest());
-    }
-    CS.getInstruction()->eraseFromParent();
-
-    SmallSet<User *, 6> Users;
-    for (auto &U : This->uses())
-      Users.insert(U.getUser());
-
-    for (auto *User : Users) {
-      Value *FreeCall = nullptr;
-      Instruction *Cast = nullptr;
-      // See checkArrPtrLoadUses
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(User)) {
-        assert(GEP->hasAllZeroIndices() && GEP->hasOneUse() &&
-               "Inconsistency with checkArrPtrLoadUses");
-        FreeCall = GEP->use_begin()->getUser();
-        Cast = GEP;
       }
-      // See checkArrPtrLoadUses
-      else if (auto *BC = dyn_cast<BitCastInst>(User)) {
-        assert(BC->hasOneUse() && "Inconsistency with checkArrPtrLoadUses");
-        FreeCall = BC->use_begin()->getUser();
-        Cast = BC;
-      } else
-        continue;
-
-      assert(CallSite(FreeCall) && "Inconsistency with checkArrPtrLoadUses");
-
-      if (auto *Inv = dyn_cast<InvokeInst>(FreeCall)) {
-        Builder.SetInsertPoint(Inv);
-        Builder.CreateBr(Inv->getNormalDest());
-      }
-      DTInfo.deleteCallInfo(cast<Instruction>(FreeCall));
-      cast<Instruction>(FreeCall)->eraseFromParent();
-      Cast->eraseFromParent();
+      // Some instructions may point to null checks in ICmpInst.
+      // Redundant null-checks can be removed if their users (conditional
+      // branches are removed as well).
+      //
+      // Essential instructions (allocation/deallocation/methods) should be
+      // removed here due to checkArrPtrLoadUses/checkArrPtrStoreUses.
+      else if (V->hasNUses(0))
+        // Unused addresses of stores can be removed here.
+        cast<Instruction>(V)->eraseFromParent();
     }
   }
 
@@ -1960,32 +2006,30 @@ private:
   //
   // Coupled with FunctionType updates.
   void updateAppends(const SmallVectorImpl<const CallInst *> &OldAppends,
-                     const SmallVectorImpl<StructType *> &Fields,
+                     const SmallVectorImpl<StructType *> &Arrays,
                      unsigned ElemOffset) const {
     if (OldAppends.empty())
       return;
 
-    assert(OldAppends.size() == Fields.size() &&
+    assert(OldAppends.size() == Arrays.size() &&
            "Inconsistency with compareAllAppendCallSites");
 
-    // Array to hold call OldAppends in order consistent with Fields.
-    SmallVector<const CallInst *, 6> SortedAppends(Fields.size(), nullptr);
-    for (auto *CI: OldAppends) {
-      auto *ArrayTy =
-          CI->getArgOperand(0)->getType()->getPointerElementType();
+    // Array to hold call OldAppends in order consistent with Arrays.
+    SmallVector<const CallInst *, MaxNumFieldCandidates> SortedAppends(
+        Arrays.size(), nullptr);
+    for (auto *CI : OldAppends) {
+      auto *ArrayTy = getStructTypeOfMethod(*CI->getCalledFunction());
 
-      auto It = std::find(Fields.begin(), Fields.end(), ArrayTy);
-      assert(It != Fields.end() && "Incorrect append method");
-      SortedAppends[It - Fields.begin()] = CI;
+      auto It = std::find(Arrays.begin(), Arrays.end(), ArrayTy);
+      assert(It != Arrays.end() && "Incorrect append method");
+      SortedAppends[It - Arrays.begin()] = CI;
     }
 
     auto *NewAppend = cast<CallInst>((Value *)VMap[SortedAppends[0]]);
     auto *OldFunctionTy = SortedAppends[0]->getFunctionType();
-    auto *ElementType =
-        cast<StructType>(
-            OldFunctionTy->getParamType(0)->getPointerElementType())
-            ->getTypeAtIndex(ElemOffset)
-            ->getPointerElementType();
+    auto *ArrType =
+        getStructTypeOfMethod(*SortedAppends[0]->getCalledFunction());
+    auto *ElementType = getSOAElementType(ArrType, ElemOffset);
 
     unsigned Offset = -1U;
     SmallVector<const Value *, 6> Args;

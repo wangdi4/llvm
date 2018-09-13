@@ -176,6 +176,8 @@ invoke.cont:                                      ; preds = %if.then
 invoke.cont9:                                     ; preds = %invoke.cont
   %fValidators = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
   %tmp8 = bitcast %class.ValueVectorOf.1** %fValidators to i8**
+; Dead value
+; CHECK-MOD:          %tmp8 = bitcast %__SOA_AR_class.ValueVectorOf.0** %fValidators to i8**
 ; CHECK-TRANS:      ; ArrayInst: Init ptr to array
 ; CHECK-TRANS-NEXT:   store i8* %call6, i8** %tmp8
   store i8* %call6, i8** %tmp8
@@ -495,5 +497,7 @@ declare hidden void @"ValueVectorOf<DatatypeValidator*>::setElementAt(DatatypeVa
 declare hidden i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64, %class.XMLMsgLoader*)
 
 declare hidden void @"XMemory::operator delete(void*_ MemoryManager*)"(i8*, %class.XMLMsgLoader*)
+; CHECK-TRANS: ; Seen appends.
+; CHECK-TRANS: ; Seen ctor.
 ; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
 ; XCHECK-DEP: Deps computed: 80, Queries: 270

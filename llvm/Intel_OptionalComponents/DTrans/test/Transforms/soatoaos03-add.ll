@@ -34,8 +34,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-NEXT: Classification: Append element method
 
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 4
-; CHECK-MOD: @_ZN3ArrIPiE3addERKS0_{{.*}}(%__SOA_struct.Arr* %this, i32** %e, float**)
-define void @_ZN3ArrIPiE3addERKS0_(%struct.Arr* %this, i32** %e) {
+; Argument's name reused.
+; CHECK-MOD: @_ZN3ArrIPiE3addERKS0_{{.*}}(%__SOA_struct.Arr* %this, i32** nocapture readonly dereferenceable(8) %e, float** nocapture readonly dereferenceable(8))
+define void @_ZN3ArrIPiE3addERKS0_(%struct.Arr* %this, i32** nocapture readonly dereferenceable(8) %e) {
 entry:
   call void @_ZN3ArrIPiE7reallocEi(%struct.Arr* %this, i32 1)
 ; CHECK-TRANS:      ; Arg: Load from arg
