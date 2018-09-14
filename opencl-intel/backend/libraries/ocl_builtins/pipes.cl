@@ -354,38 +354,6 @@ int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void* src,
   return 0;
 }
 
-int __read_pipe_2_bl_io_fpga(read_only pipe uchar pp, void* dst,
-                             const char* dstName, uint size, uint align) {
-  __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
-  if (p->io == NULL)
-    p->io = fopen(dstName, "rb");
-  if (p->io == NULL)
-    return -2;
-
-  ASSERT(size == p->packet_size && "Runtime and compiler sizes are different.");
-  while (!fread(dst, size, 1, p->io))
-  {}
-
-  return 0;
-}
-
-int __write_pipe_2_bl_io_fpga(write_only pipe uchar pp, const void* src,
-                              const char* srcName, uint size, uint align) {
-  __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
-  if (p->io == NULL)
-    p->io = fopen(srcName, "wb");
-  if (p->io == NULL)
-    return -2;
-
-  ASSERT(size == p->packet_size && "Runtime and compiler sizes are different.");
-  while (!fwrite(src, size, 1, p->io))
-  {}
-
-  fflush(p->io);
-
-  return 0;
-}
-
 void __store_write_pipe_use(__global void* __private* __private arr,
                             __private int* size, write_only pipe uchar pp) {
   __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);

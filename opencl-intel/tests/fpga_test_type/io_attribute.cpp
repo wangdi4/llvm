@@ -58,16 +58,66 @@ protected:
   std::vector<cl_int> m_reference;
 };
 
-TEST_F(TestIOAttribute, Pipes) {
+TEST_F(TestIOAttribute, PipesBlocking) {
+  const std::string programSource = "                                        \n\
+    __kernel void test_io(                                                   \n\
+        read_only pipe int p1 __attribute__((io(\"test_pipes_bl_in\")))      \n\
+        __attribute__((blocking)),                                           \n\
+        write_only pipe int p2 __attribute__((io(\"test_pipes_bl_out\")))    \n\
+        __attribute__((blocking))) {                                         \n\
+      for (int i = 0; i < 10; ++i) {                                         \n\
+        int data;                                                            \n\
+        read_pipe(p1, &data);                                                \n\
+        write_pipe(p2, &data);                                               \n\
+      }                                                                      \n\
+    }                                                                        \n\
+    ";
+
+  ASSERT_NO_FATAL_FAILURE(fillInput("test_pipes_bl_in"));
+  ASSERT_TRUE(createAndBuildProgram(programSource))
+      << "createAndBuildProgram failed";
+  cl_mem readPipe = createPipe<cl_int>(SIZE);
+  ASSERT_NE(nullptr, readPipe) << "createPipe failed";
+  cl_mem writePipe = createPipe<cl_int>(SIZE);
+  ASSERT_NE(nullptr, writePipe) << "createPipe failed";
+  ASSERT_TRUE(enqueueTask("test_io", readPipe, writePipe))
+      << "enqueueTask failed";
+  finish("test_io");
+  ASSERT_NO_FATAL_FAILURE(validateOutput("test_pipes_bl_out"));
+}
+
+TEST_F(TestIOAttribute, ChannelsBlocking) {
+  const std::string programSource = "                                        \n\
+      #pragma OPENCL EXTENSION cl_intel_channels : enable                    \n\
+                                                                             \n\
+      channel int ichIn __attribute__((io(\"test_channels_bl_in\")));        \n\
+      channel int ichOut __attribute__((io(\"test_channels_bl_out\")));      \n\
+                                                                             \n\
+      __kernel void test_io() {                                              \n\
+        for (int i = 0; i < 10; ++i) {                                       \n\
+          int data = read_channel_intel(ichIn);                              \n\
+          write_channel_intel(ichOut, data);                                 \n\
+        }                                                                    \n\
+      }                                                                      \n\
+      ";
+
+  ASSERT_NO_FATAL_FAILURE(fillInput("test_channels_bl_in"));
+  ASSERT_TRUE(createAndBuildProgram(programSource))
+      << "createAndBuildProgram failed";
+  ASSERT_TRUE(enqueueTask("test_io")) << "enqueueTask failed";
+  finish("test_io");
+  ASSERT_NO_FATAL_FAILURE(validateOutput("test_channels_bl_out"));
+}
+
+TEST_F(TestIOAttribute, PipesNonBlocking) {
   const std::string programSource = "                                        \n\
     __kernel void test_io(                                                   \n\
         read_only pipe int p1 __attribute__((io(\"test_pipes_in\"))),        \n\
         write_only pipe int p2 __attribute__((io(\"test_pipes_out\")))) {    \n\
       for (int i = 0; i < 10; ++i) {                                         \n\
         int data;                                                            \n\
-        int ret = read_pipe(p1, &data);                                      \n\
-        if (ret > 0)                                                         \n\
-          write_pipe(p2, &data);                                             \n\
+        while(read_pipe(p1, &data)) {};                                      \n\
+        while(write_pipe(p2, &data)) {};                                     \n\
       }                                                                      \n\
     }                                                                        \n\
     ";
@@ -82,12 +132,10 @@ TEST_F(TestIOAttribute, Pipes) {
   ASSERT_TRUE(enqueueTask("test_io", readPipe, writePipe))
       << "enqueueTask failed";
   finish("test_io");
-  // FIXME: looks like we need to release writePipe first to get access to
-  // the output file
   ASSERT_NO_FATAL_FAILURE(validateOutput("test_pipes_out"));
 }
 
-TEST_F(TestIOAttribute, Channels) {
+TEST_F(TestIOAttribute, ChannelsNonBlocking) {
   const std::string programSource = "                                        \n\
       #pragma OPENCL EXTENSION cl_intel_channels : enable                    \n\
                                                                              \n\
@@ -96,8 +144,14 @@ TEST_F(TestIOAttribute, Channels) {
                                                                              \n\
       __kernel void test_io() {                                              \n\
         for (int i = 0; i < 10; ++i) {                                       \n\
-          int data = read_channel_intel(ichIn);                              \n\
-          write_channel_intel(ichOut, data);                                 \n\
+          bool valid = false;                                                \n\
+          int data;                                                          \n\
+          do {                                                               \n\
+            data = read_channel_nb_intel(ichIn, &valid);                     \n\
+          } while (!valid);                                                  \n\
+          do {                                                               \n\
+            valid = write_channel_nb_intel(ichOut, data);                    \n\
+          } while (!valid);                                                  \n\
         }                                                                    \n\
       }                                                                      \n\
       ";
