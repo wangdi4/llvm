@@ -202,13 +202,13 @@ bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
       Intrinsic::csa_spmdization_exit);
 
     // Determine SPMDization mode, it depends on a schedule clause.
-    //   No schedule    => cyclic SPMD          (1)
-    //   schedule(auto) => cyclic SPMD          (1)
-    //   schedule(static) => blocked SPMD       (0)
-    //     (chunksize > 1) => hybrid SPMD       (chunksize)
+    //   No schedule, schedule(auto) or
+    //   schedule(static)                 => blocked SPMD (0)
+    //   schedule(static, chunksize)
+    //     (chunksize == 1)               => cyclic SPMD  (1)
+    //     (chunksize > 1)                => hybrid SPMD  (chunksize)
     Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
-      !Sched || Sched->getKind() != WRNScheduleStatic ? 1u :
-        Sched->getChunk() <= 1 ? 0u : Sched->getChunk());
+      !Sched || !Sched->getChunk() ? 0 : Sched->getChunk());
 
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
     auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");
