@@ -150,11 +150,7 @@ Branches to or from an OpenMP structured block are illegal
 
 )help";
       return false;
-    }
-    ORE.emit(
-        OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
-        << "Performed loop SPMDization as directed by the pragma.");
-
+    } 
     // Fix me: We assume a maximum of 16 reductions in the loop
     std::vector<Value *> ReduceVarExitOrig(16);
     std::vector<Instruction *> ReduceVarOrig(16);
@@ -314,15 +310,16 @@ try a different SPMDization strategy instead.
         }
       }
     }
+    ORE.emit(
+        OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
+        << "Performed loop SPMDization as directed by the pragma.");
     return true;
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // getLoopAnalysisUsage(AU);
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<AAResultsWrapperPass>();
     AU.addRequiredID(LoopSimplifyID);
