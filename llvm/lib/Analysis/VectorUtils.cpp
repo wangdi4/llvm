@@ -623,11 +623,11 @@ void llvm::getFunctionsToVectorize(
 }
 
 bool llvm::isOpenCLReadChannel(StringRef FnName) {
-  return (FnName == "__read_pipe_2_bl_intel");
+  return (FnName == "__read_pipe_2_bl_fpga");
 }
 
 bool llvm::isOpenCLWriteChannel(StringRef FnName) {
-  return (FnName == "__write_pipe_2_bl_intel");
+  return (FnName == "__write_pipe_2_bl_fpga");
 }
 
 bool llvm::isOpenCLReadChannelDest(StringRef FnName, unsigned i) {
