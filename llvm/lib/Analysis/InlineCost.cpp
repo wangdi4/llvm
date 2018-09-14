@@ -364,7 +364,7 @@ public:
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
-                                       Params.ComputeFullInlineCost || ORE),
+            Params.ComputeFullInlineCost.getValueOr(false) || ORE),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
 #endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
@@ -3368,7 +3368,7 @@ InlineCost llvm::getInlineCost(
     return InlineCost::getAlways("empty function", Reason); // INTEL
 
   return llvm::InlineCost::get(CA.getCost(),            // INTEL
-    CA.getThreshold(), ShouldInline.message, Reason,    // INTEL
+    CA.getThreshold(), nullptr, Reason,                 // INTEL
     CA.getEarlyExitCost(), CA.getEarlyExitThreshold()); // INTEL
 }
 

@@ -362,6 +362,14 @@ Instruction *InstCombiner::foldSelectOpOp(SelectInst &SI, Instruction *TI,
     return nullptr;
   }
 
+  // If the select condition is a vector, the operands of the original select's
+  // operands also must be vectors. This may not be the case for getelementptr
+  // for example.
+  if (SI.getCondition()->getType()->isVectorTy() &&
+      (!OtherOpT->getType()->isVectorTy() ||
+       !OtherOpF->getType()->isVectorTy()))
+    return nullptr;
+
   // If we reach here, they do have operations in common.
   Value *NewSI = Builder.CreateSelect(SI.getCondition(), OtherOpT, OtherOpF,
                                       SI.getName() + ".v", &SI);
@@ -1892,7 +1900,7 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
       // MIN(~a, ~b) -> ~MAX(a, b)
       Value *A, *B;
       if (match(LHS, m_Not(m_Value(A))) && match(RHS, m_Not(m_Value(B))) &&
-          (LHS->getNumUses() <= 2 || RHS->getNumUses() <= 2)) {
+          (!LHS->hasNUsesOrMore(3) || !RHS->hasNUsesOrMore(3))) {
         CmpInst::Predicate InvertedPred = getInverseMinMaxPred(SPF);
         Value *InvertedCmp = Builder.CreateICmp(InvertedPred, A, B);
         Value *NewSel = Builder.CreateSelect(InvertedCmp, A, B);

@@ -22,6 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
 #include "llvm/Analysis/MemorySSA.h"
@@ -55,6 +56,7 @@
 #include "llvm/Support/RecyclingAllocator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/GuardUtils.h"
 #include <cassert>
 #include <deque>
 #include <memory>
@@ -864,7 +866,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
       continue;
     }
 
-    if (match(Inst, m_Intrinsic<Intrinsic::experimental_guard>())) {
+    if (isGuard(Inst)) {
       if (auto *CondI =
               dyn_cast<Instruction>(cast<CallInst>(Inst)->getArgOperand(0))) {
         if (SimpleValue::canHandle(CondI)) {

@@ -517,7 +517,7 @@ uint16_t MachineInstr::mergeFlagsWith(const MachineInstr &Other) const {
   return getFlags() | Other.getFlags();
 }
 
-bool MachineInstr::hasPropertyInBundle(unsigned Mask, QueryType Type) const {
+bool MachineInstr::hasPropertyInBundle(uint64_t Mask, QueryType Type) const {
   assert(!isBundledWithPred() && "Must be called on bundle header");
   for (MachineBasicBlock::const_instr_iterator MII = getIterator();; ++MII) {
     if (MII->getDesc().getFlags() & Mask) {
@@ -1760,7 +1760,12 @@ bool MachineInstr::addRegisterKilled(unsigned IncomingReg,
   // Trim unneeded kill operands.
   while (!DeadOps.empty()) {
     unsigned OpIdx = DeadOps.back();
-    if (getOperand(OpIdx).isImplicit())
+#if INTEL_CUSTOMIZATION
+    // This was taken from D51829 in community to unblock a pulldown. This
+    // should be removed if that patch is eventually committed.
+    if (getOperand(OpIdx).isImplicit() &&
+        (!isInlineAsm() || findInlineAsmFlagIdx(OpIdx) < 0))
+#endif
       RemoveOperand(OpIdx);
     else
       getOperand(OpIdx).setIsKill(false);
@@ -1824,7 +1829,12 @@ bool MachineInstr::addRegisterDead(unsigned Reg,
   // Trim unneeded dead operands.
   while (!DeadOps.empty()) {
     unsigned OpIdx = DeadOps.back();
-    if (getOperand(OpIdx).isImplicit())
+#if INTEL_CUSTOMIZATION
+    // This was taken from D51829 in community to unblock a pulldown. This
+    // should be removed if that patch is eventually committed.
+    if (getOperand(OpIdx).isImplicit() &&
+        (!isInlineAsm() || findInlineAsmFlagIdx(OpIdx) < 0))
+#endif
       RemoveOperand(OpIdx);
     else
       getOperand(OpIdx).setIsDead(false);
@@ -2030,4 +2040,21 @@ void llvm::updateDbgValueForSpill(MachineInstr &Orig, int FrameIndex) {
   Orig.getOperand(0).ChangeToFrameIndex(FrameIndex);
   Orig.getOperand(1).ChangeToImmediate(0U);
   Orig.getOperand(3).setMetadata(Expr);
+}
+
+void MachineInstr::collectDebugValues(
+                                SmallVectorImpl<MachineInstr *> &DbgValues) {
+  MachineInstr &MI = *this;
+  if (!MI.getOperand(0).isReg())
+    return;
+
+  MachineBasicBlock::iterator DI = MI; ++DI;
+  for (MachineBasicBlock::iterator DE = MI.getParent()->end();
+       DI != DE; ++DI) {
+    if (!DI->isDebugValue())
+      return;
+    if (DI->getOperand(0).isReg() &&
+        DI->getOperand(0).getReg() == MI.getOperand(0).getReg())
+      DbgValues.push_back(&*DI);
+  }
 }
