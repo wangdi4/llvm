@@ -187,7 +187,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
     // For now we can enable FPGA emulation only for the whole OpenCL context.
     // It is deemed that a better approach would be to have FPGA emulator as
-    // another device. Then cl_altera_channels extension should be in
+    // another device. Then cl_intel_channels extension should be in
     // m_sDeviceInfo.sExtensionStrings and can be handled uniformly with other
     // extensions supported by the device. But according to Andrew Savonichev,
     // the device based approach has several flaws:
