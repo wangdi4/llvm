@@ -222,6 +222,7 @@ set( BACKEND_PASSES
     AddImplicitArgs
     AutorunReplicator
     ChannelPipeTransformation
+    ChannelsUsageAnalysis
     PipeIOTransformation
     CleanupWrappedKernels
     PipeOrdering

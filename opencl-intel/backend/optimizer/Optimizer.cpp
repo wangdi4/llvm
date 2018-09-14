@@ -138,6 +138,7 @@ llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
+llvm::ModulePass *createChannelsUsageAnalysisPass();
 }
 
 using namespace intel;
@@ -342,6 +343,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingPass());
       PM.add(createAutorunReplicatorPass());
+      PM.add(createChannelsUsageAnalysisPass());
   }
 
   // Adding module passes.
