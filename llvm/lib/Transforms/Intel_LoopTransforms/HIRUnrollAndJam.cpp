@@ -1150,6 +1150,16 @@ void UnrollHelper::createLvalTempMapping(RegDDRef *Ref) {
           ? Ref->getSelfBlobIndex()
           : Ref->getBlobUtils().findTempBlobIndex(Ref->getSymbase());
 
+  // The temps is liveout of region with no uses inside it. It is fine to not
+  // rename it from stability point of view. It might impact performance due to
+  // unnecessary edges between multiple definitions. This can be resolved in
+  // different ways including only relying on symbases instead of blob indices
+  // to rename temps or not replicating such temps. Leaving that as a TODO until
+  // we have a test case.
+  if (OldTempIndex == InvalidBlobIndex) {
+    return;
+  }
+
   auto TempIt = TempRenamingMap.end();
 
   for (auto It = TempRenamingMap.begin(), E = TempRenamingMap.end(); It != E;
@@ -1257,6 +1267,9 @@ static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
   unsigned UnrollFactor = UHelper.getUnrollFactor();
   unsigned UnrollTrip =
       UHelper.needRemainderLoop() ? UnrollFactor : UnrollFactor - 1;
+
+  // TODO: Consider not replicating node range which is invariant w.r.t loop
+  // like t = 0.
 
   for (unsigned UnrollIter = 0; UnrollIter < UnrollTrip; ++UnrollIter) {
     HLNodeUtils::cloneSequence(&NodeRange, FirstNode, LastNode);
