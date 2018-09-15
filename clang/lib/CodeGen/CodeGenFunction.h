@@ -3425,8 +3425,8 @@ private:
       const OMPDistributeParallelForSimdDirective &S);
 
 public:
-  void RemapInlinedPrivates(const OMPExecutableDirective &D,
-                            OMPPrivateScope &PrivScope);
+  void RemapForLateOutlining(const OMPExecutableDirective &D,
+                             OMPPrivateScope &PrivScope);
 #endif // INTEL_CUSTOMIZATION
 public:
 

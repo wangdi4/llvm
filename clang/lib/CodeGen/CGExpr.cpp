@@ -2506,7 +2506,13 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     }
 
     // Check for captured variables.
-    if (E->refersToEnclosingVariableOrCapture()) {
+#if INTEL_CUSTOMIZATION
+    bool GeneratingLateOutlineOpenMP =
+        getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion;
+    if ((!GeneratingLateOutlineOpenMP ||
+         OMPLateOutlineLexicalScope::isCapturedVar(*this, VD)) &&
+        E->refersToEnclosingVariableOrCapture()) {
+#endif // INTEL_CUSTOMIZATION
       VD = VD->getCanonicalDecl();
       if (auto *FD = LambdaCaptureFields.lookup(VD))
         return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
@@ -2527,15 +2533,9 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
             CapLVal.getTBAAInfo());
       }
 
-#if INTEL_CUSTOMIZATION
-      if (isa<BlockDecl>(CurCodeDecl) || LocalDeclMap.count(VD) == 0) {
-#endif  // INTEL_CUSTOMIZATION
       assert(isa<BlockDecl>(CurCodeDecl));
       Address addr = GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>());
       return MakeAddrLValue(addr, T, AlignmentSource::Decl);
-#if INTEL_CUSTOMIZATION
-      }
-#endif  // INTEL_CUSTOMIZATION
     }
   }
 

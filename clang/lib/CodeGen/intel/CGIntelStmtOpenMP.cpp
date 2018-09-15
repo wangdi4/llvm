@@ -1627,9 +1627,6 @@ namespace CGIntelOpenMP {
         return CGF.EmitLValue(&DRE).getAddress();
       });
     }
-    // 'private' clause must be handled separately.
-    CGF.RemapInlinedPrivates(D, PrivScope);
-    (void)PrivScope.Privatize();
     CGF.EmitStmt(CS->getCapturedStmt());
   }
 
@@ -1684,6 +1681,7 @@ void emitPreInitStmt(CodeGenFunction &CGF, const OMPExecutableDirective &S) {
 
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
+  OMPLateOutlineLexicalScope Scope(*this, S);
   OpenMPCodeOutliner Outliner(*this, S);
 
   // We don't want to emit private clauses for counters in regular loops.
