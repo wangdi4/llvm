@@ -33,6 +33,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -269,8 +270,8 @@ static void deleteCSAMemoryFunctions(Function *CSAMalloc,
 // Given a CallInst. this function returns a handle to the callee function
 // This function is duplicated in CSAProcedureCalls pass
 // Changes will need to be synchronized
-static const Function *getLoweredFunc(const CallInst *CI, const Module &M) {
-  const Function *LowerF = nullptr;
+static Function *getLoweredFunc(CallInst *CI, const Module &M) {
+  Function *LowerF = nullptr;
   if (!CI->getCalledFunction()) return nullptr;
   auto F = CI->getCalledFunction();
   auto IID = F->getIntrinsicID();
@@ -334,8 +335,8 @@ static void deleteUnusedMathFunctions(Module &M, Function *CSAMalloc,
       for (auto II = std::begin(BB), E = std::end(BB); II != E;) {
         Instruction *I = &*II;
         ++II;
-        const Function *LowerF;
-        if (const CallInst *CI = dyn_cast<const CallInst>(I)) {
+        Function *LowerF;
+        if (CallInst *CI = dyn_cast<CallInst>(I)) {
           LLVM_DEBUG(errs() << "CI = " << *CI << "\n");
           LowerF = getLoweredFunc(CI,M);
           // if this function is marked with llvm.used, add to FuncsMarkedAsUsed set
@@ -396,6 +397,30 @@ static void deleteUnusedMathFunctions(Module &M, Function *CSAMalloc,
   }
 }
 
+// This function looks at all math library related llvm intrinsics and replaces them with a
+// call to the appropriate math library function, if one is available
+static void processIntrinsicMathFunctionCalls(Module &M, const CSASubtarget &ST) {
+  if (ST.hasMath0()) return; // No need to process intrinsics when Math0 support is turned on
+  for (auto &F : M) {
+    for (BasicBlock &BB : F) {
+      for (auto II = std::begin(BB), E = std::end(BB); II != E;) {
+        Instruction *I = &*II;
+        ++II;
+        Function *LowerF;
+        if (CallInst *CI = dyn_cast<CallInst>(I)) {
+          LLVM_DEBUG(errs() << "Old CI = " << *CI << "\n");
+          LowerF = getLoweredFunc(CI,M);
+          // if this function is marked with llvm.used, add to FuncsMarkedAsUsed set
+          if (LowerF != nullptr) {
+            CI->setCalledFunction(LowerF);
+            LLVM_DEBUG(errs() << "New CI = " << *CI << "\n");
+          }
+        }
+      }
+    }
+  }
+}
+
 bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
   const DataLayout &DL = M.getDataLayout();
   LLVMContext &Context = M.getContext();
@@ -410,6 +435,7 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
   // delete only unused math functions from llvm.used if Math0 is disabled
   deleteUnusedMathFunctions(M,CSAMalloc,CSAFree,CSAInitialize,ST);
 
+  processIntrinsicMathFunctionCalls(M,ST);
   // Delete csa_mem* functions if SXU linkage selected or if there is no stack required
   if (!csa_utils::isAlwaysDataFlowLinkageSet()) {
     LLVM_DEBUG(errs() << "Data flow linkage not set\n");
