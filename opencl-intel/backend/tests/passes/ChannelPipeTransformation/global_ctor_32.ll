@@ -1,6 +1,6 @@
 ; Compiled from:
 ; ----------------------------------------------------
-; #pragma OPENCL EXTENSION cl_altera_channels : enable
+; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ; channel int bar __attribute__((depth(0)));
 ; channel float far __attribute__((depth(3)));
 ;
