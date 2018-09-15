@@ -695,11 +695,15 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
     assert(VPDefs.size() == 1 && "Expected single definition.");
     return VPDefs.front();
-  } else
+  } else {
     // The operands of the semi-phi are not set right now since some of them
     // might not have been created yet. They will be set by fixPhiNodes.
-    return cast<VPInstruction>(
+    // Add the corresponding Instruction and DDRef to PhisToFix.
+    auto *SemiPhi = cast<VPInstruction>(
         Decomposer.Builder.createSemiPhiOp({} /*No operands*/));
+    Decomposer.PhisToFix.push_back(std::make_pair(SemiPhi, DDR));
+    return SemiPhi;
+  }
 }
 
 // Helper function to decomposed an SCEVNAryExpr using the same \p OpCode to
