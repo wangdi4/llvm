@@ -73,6 +73,10 @@
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
+static cl::opt<bool> ConvertToSubs(
+    "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
+    cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
+
 static cl::opt<bool>
 EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
                    cl::desc("Run the early jump threading pass"));
@@ -1381,6 +1385,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   // Verify input LLVM IR before doing any HIR transformation.
   if (VerifyInput)
     PM.add(createVerifierPass());
+
+  if (ConvertToSubs)
+    PM.add(createConvertGEPToSubscriptIntrinsicLegacyPass());
 
   PM.add(createHIRSSADeconstructionLegacyPass());
   // This is expected to be the first pass in the HIR pipeline as it cleans up
