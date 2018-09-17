@@ -38,6 +38,13 @@ Error LLJIT::addIRModule(JITDylib &JD, std::unique_ptr<Module> M) {
   return CompileLayer.add(JD, K, std::move(M));
 }
 
+Error LLJIT::addObjectFile(JITDylib &JD, std::unique_ptr<MemoryBuffer> Obj) {
+  assert(Obj && "Can not add null object");
+
+  auto K = ES->allocateVModule();
+  return ObjLinkingLayer.add(JD, K, std::move(Obj));
+}
+
 Expected<JITEvaluatedSymbol> LLJIT::lookupLinkerMangled(JITDylib &JD,
                                                         StringRef Name) {
   return llvm::orc::lookup({&JD}, ES->getSymbolStringPool().intern(Name));
@@ -52,7 +59,7 @@ LLJIT::LLJIT(std::unique_ptr<ExecutionSession> ES,
       CompileLayer(*this->ES, ObjLinkingLayer, SimpleCompiler(*this->TM)),
       CtorRunner(Main), DtorRunner(Main) {}
 
-std::shared_ptr<RuntimeDyld::MemoryManager>
+std::unique_ptr<RuntimeDyld::MemoryManager>
 LLJIT::getMemoryManager(VModuleKey K) {
   return llvm::make_unique<SectionMemoryManager>();
 }
