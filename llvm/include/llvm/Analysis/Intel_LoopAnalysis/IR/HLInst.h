@@ -308,6 +308,68 @@ public:
   void setDebugLoc(const DebugLoc &Loc);
 };
 
+/// Wraps around a HIR instruction which is an OpenMP region entry intrinsic and
+/// provides access to objects and characteristics representing OpenMP semantics.
+/// OpenMP clause 0 corresponds to operand bundle 1. 0'th bundle represents the
+/// region directive.
+class OMPRegionProxy {
+public:
+  /// Creates a proxy for the HIR instruction \p I.
+  /// OMPRegionProxy::isOmpRegionEntry() must return \c true for this
+  /// instruction.
+  OMPRegionProxy(const HLInst *I) {
+    Impl = (OmpDir = getOmpRegionEntryDir(I)) >= 0 ? I : nullptr;
+  }
+
+  /// \return Whether this proxy represents an OpenMP region entry.
+  bool isValid() const { return Impl != nullptr; }
+
+  /// \return The OpenMP directive describing the region kind.
+  int getOmpDir() const {
+    assert(isValid());
+    return OmpDir;
+  }
+
+  /// \return OpenMP clause ID at 0-based index \p I.
+  int getOmpClauseID(unsigned I) const;
+
+  /// Asserts that the clause at index I has a single operand and returns the
+  /// DDRef representing its value.
+  const RegDDRef* getOmpClauseSingleOpnd(unsigned I) const {
+    assert(Impl->getNumBundleOperands(I + 1) == 1 && "single operand expected");
+    const RegDDRef* const *OpndBegI = Impl->bundle_op_ddref_begin(I + 1);
+    return *OpndBegI;
+  }
+
+  /// \return The name of the \p I 'th OpenMP clause.
+  StringRef getOmpClauseName(unsigned I) const {
+    return Impl->getOperandBundleAt(I + 1).getTagName();
+  }
+
+  /// \return The number of OpenMP clauses this region defines
+  unsigned getNumOmpClauses() const { return Impl->getNumOperandBundles() - 1; }
+
+  /// Checks if \p I instruction is an OpenMP region entry intrinsic.
+  /// \return
+  ///   \c corresponding OpenMP directive ID if yes, \c -1 otherwise
+  static int getOmpRegionEntryDir(const HLInst *I);
+
+  /// Checks if \p Exit instruction is an OpenMP region exit intrinsic.
+  /// If \p Entry is not \c nullptr, then additionally checks if the entry and
+  /// the exit match
+  /// \return
+  ///   corresponding OpenMP directive ID if the check(s) are successful,
+  ///   \c -1 otherwise
+  static int getOmpRegionExitDir(const HLInst *Exit, const HLInst *Entry = nullptr);
+
+private:
+  /// The HIR instruction this proxy works for.
+  const HLInst *Impl;
+
+  /// Cached OpenMP directive found in the region this proxy represents.
+  int OmpDir;
+};
+
 } // End namespace loopopt
 
 template <>

@@ -38,21 +38,24 @@ bool VPOAnalysisUtils::isRegionDirective(Intrinsic::ID Id) {
           Id == Intrinsic::directive_region_exit;
 }
 
-bool VPOAnalysisUtils::isRegionDirective(Instruction *I) {
+bool VPOAnalysisUtils::isRegionDirective(const Instruction *I, bool *IsEntry) {
   if (I) {
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    const IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       Intrinsic::ID Id = Call->getIntrinsicID();
+      if (IsEntry)
+        *IsEntry = Id == Intrinsic::directive_region_entry;
       return VPOAnalysisUtils::isRegionDirective(Id);
     }
   }
   return false;
 }
 
-StringRef VPOAnalysisUtils::getRegionDirectiveString(Instruction *I) {
+StringRef VPOAnalysisUtils::getRegionDirectiveString(const Instruction *I,
+                                                     bool *IsEntry) {
   StringRef DirString;  // ctor initializes its data to nullptr
-  if (VPOAnalysisUtils::isRegionDirective(I)) {
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+  if (VPOAnalysisUtils::isRegionDirective(I, IsEntry)) {
+    const IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call->getNumOperandBundles() > 0) {
       // First operand bundle has the directive name
       OperandBundleUse BU = Call->getOperandBundleAt(0);
@@ -62,8 +65,9 @@ StringRef VPOAnalysisUtils::getRegionDirectiveString(Instruction *I) {
   return DirString;
 }
 
-int VPOAnalysisUtils::getRegionDirectiveID(Instruction *I) {
-  StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
+int VPOAnalysisUtils::getRegionDirectiveID(const Instruction *I,
+                                           bool *IsEntry) {
+  StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I, IsEntry);
   return VPOAnalysisUtils::getDirectiveID(DirString);
 }
 

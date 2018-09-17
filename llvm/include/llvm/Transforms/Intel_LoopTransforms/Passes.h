@@ -135,6 +135,9 @@ FunctionPass *createHIRDeadStoreEliminationPass();
 
 /// Create pass that computes last value of a temp.
 FunctionPass *createHIRLastValueComputationPass();
+
+/// Creates a pass that recognizes loops marked with OpenMP region intrinsics
+FunctionPass *createHIRRecognizeOmpLoopPass();
 }
 
 #endif

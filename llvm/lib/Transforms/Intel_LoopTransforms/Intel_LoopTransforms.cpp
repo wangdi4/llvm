@@ -45,4 +45,5 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRLoopFusionLegacyPassPass(Registry);
   initializeHIRDeadStoreEliminationPass(Registry);
   initializeHIRLastValueComputationLegacyPassPass(Registry);
+  initializeHIRRecognizeOmpLoopPass(Registry);
 }

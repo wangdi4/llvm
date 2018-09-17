@@ -296,6 +296,7 @@ FUNCTION_PASS("print<hir-locality-analysis>", loopopt::HIRLoopLocalityPrinterPas
 FUNCTION_PASS("print<hir-dd-analysis>", loopopt::HIRDDAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-safe-reduction-analysis>", loopopt::HIRSafeReductionAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-sparse-array-reduction-analysis>", loopopt::HIRSparseArrayReductionAnalysisPrinterPass(dbgs()))
+FUNCTION_PASS("hir-rec-omp-loop", loopopt::HIRRecognizeOmpLoopPass())
 FUNCTION_PASS("hir-dead-store-elimination", loopopt::HIRDeadStoreEliminationPass())
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())
 FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
