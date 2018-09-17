@@ -44,11 +44,6 @@ The conversion algorithm consists of several phases:
      about helper code inserted by dataflow conversion.
 
 3. Insert switches where necessary.
-
-   - Values defined within a loop used outside of it.
-   - Values used in a different control dependence region than its definition.
-   - Loop-carried dependencies.
-
 4. Convert phi instructions to picks. There are two mechanisms to generate this
    logic, and they are each defined on a loop basis. At present, we only switch
    between these mechanisms on a per-function basis.
@@ -86,7 +81,33 @@ The conversion algorithm consists of several phases:
 Switch generation
 =================
 
-To be written.
+The switch generation logic is based off of a custom liveness tracking for
+registers. For each register, we track liveness by walking the predecessor paths
+of every basic block with a use until we hit the definition, keeping track of
+every basic block where the value is live at the start of the basic block
+(excluding PHIs).
+
+After the live basic blocks are computed, PHIs are inserted to represent values
+that will need to eventually be derived from picks. The destination registers
+for these PHIs are saved in an array that maps basic blocks to which switched
+value is appropriate for the block. The live blocks are then traversed in
+reverse postorder, filling in missing values with switches as necessary. The
+actual legs of the earlier generated PHIs are filled with values from their
+predecessor blocks. Finally, every use is rewritten with the appropriate
+mapping.
+
+A modification to the above algorithm is made to reduce the number of picks and
+switches that are inserted. Instead of tracking based on basic blocks, the
+information is tracked using control-dependent regions. Since control-dependent
+regions have the same execution counts, it is safe to reuse values generated in
+one basic block of a region in any other basic block of that region, without any
+intervening switches or picks (although this may require increased buffering for
+performance).
+
+The use of live variable tracking means that this single algorithm can handle
+all of the different cases of switch generation: whether it is tracking values
+through statements, handling uses of variables outside of loops, or even the
+need to repeat values in irreducible loops.
 
 Pick generation
 ===============
@@ -257,3 +278,36 @@ Dynamic predication
 
 To be written.
 
+Debugging
+=========
+
+Dataflow conversion is necessarily one of the most complex passes in the CSA
+compilation flow, and as such, it has a propensity for generating complex bugs.
+Facilities are added to make it easier to debug.
+
+The control flow and control-dependence graphs, as well as the dominator and
+postdominator trees, of a function immediately before dataflow conversion can
+be dumped using ``-csa-view-machine-{cfg,cdg,dt,pdt}`` command line options.
+This is the best way to view graphs, since no control-flow graph modifications
+are done between this point and dataflow conversion.
+
+Using ``-debug-only=csa-cvt-cf-df-pass`` outputs a verbose debugging output for
+dataflow conversion. First, the output of the first phase of LIC grouping is
+dumped, which shows in which basic blocks every variable is defined (and is
+often easier to track than the full machine IR dump, since it doesn't muddy the
+output with uses).
+
+Switch generation causes a dump of every switch and every PHI added, broken
+down by the register being switched. The basic blocks they correspond to are
+also displayed. After switch generation, the machine IR is dumped.
+
+The generation of picks dumps first the PHI being processed, and then the
+ultimate sources of those picks from various branches. The generated pick tree
+before patching is also dumped.
+
+After pick generation is completed, the machine IR is dumped, showing the
+complete IR before basic blocks are removed. LIC grouping runs again, this time
+mapping every register to a LIC frequency, and printing out any registers that
+have yet to had frequency assigned to them. Should the frequency information
+be inconsistent (usually meaning that values failed to be picked or switched
+correctly), an assertion fires at this point.

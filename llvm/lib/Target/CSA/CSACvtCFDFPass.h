@@ -20,6 +20,7 @@
 #include "CSAMachineFunctionInfo.h"
 #include "MachineCDG.h"
 #include "llvm/ADT/IntEqClasses.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
@@ -33,13 +34,6 @@
 namespace llvm {
 class CSACvtCFDFPass : public MachineFunctionPass {
 public:
-  struct CmpFcn {
-    CmpFcn(const DenseMap<MachineBasicBlock *, unsigned> &m) : mbb2rpo(m){};
-    DenseMap<MachineBasicBlock *, unsigned> mbb2rpo;
-    bool operator()(MachineBasicBlock *A, MachineBasicBlock *B) {
-      return mbb2rpo[A] < mbb2rpo[B];
-    }
-  };
   static char ID;
   CSACvtCFDFPass();
 
@@ -48,8 +42,6 @@ public:
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
-  MachineInstr *insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB);
-  MachineInstr *getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgBB);
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineLoopInfo>();
     AU.addRequired<ControlDependenceGraph>();
@@ -61,29 +53,10 @@ public:
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
-  void insertSWITCHForConstant(MachineInstr *MI, MachineBasicBlock *mbb);
-  void insertSWITCHForOperand(MachineOperand &MO, MachineBasicBlock *mbb,
-                              MachineInstr *phiIn = nullptr);
-  void insertSWITCHForIf();
-  void renameOnLoopEntry();
-  void renameAcrossLoopForRepeat(MachineLoop *);
   void repeatOperandInLoop(MachineLoop *mloop, unsigned pickCtrlReg,
                            unsigned backedgePred, bool pickCtrlInverted);
   void repeatOperandInLoopUsePred(MachineLoop *mloop, MachineInstr *initInst,
                                   unsigned backedgePred, unsigned exitPred);
-  MachineBasicBlock *
-  getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock *> &exitingBlks,
-                         MachineInstr *UseMI, unsigned Reg);
-  void insertSWITCHForLoopExit();
-  void insertSWITCHForLoopExit(
-    MachineLoop *L,
-    DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch);
-  unsigned SwitchOutExitingBlk(MachineBasicBlock *exitingBlk, unsigned Reg,
-                               MachineLoop *mloop);
-  void SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock *mbb,
-                            MachineLoop *mloop, MachineOperand &UseMO);
-  void SwitchDefAcrossLoops(unsigned Reg, MachineBasicBlock *mbb,
-                            MachineLoop *mloop);
   void replacePhiWithPICK();
   void replaceLoopHdrPhi();
   void replaceLoopHdrPhi(MachineLoop *L);
@@ -144,6 +117,45 @@ public:
   bool replaceUndefWithIgn();
 
 private:
+  /// \defgroup Switch generation
+  /// This set of functions implements the generation of switch instructions
+  /// from branch instructions.
+  /// @{
+
+  /// Insert all of the necessary switches for a function.
+  void switchNormalRegisters();
+
+  /// Insert switches for all of the branches that the register is alive across.
+  ///
+  /// There are two modes to this function, which can be controlled by the
+  /// StrictLive parameter. The default, when it is false, is to only consider
+  /// control-dependent regions as the basis for liveness. This means that a
+  /// variable does not need to be switched into an if-statement if it is not
+  /// used on either leg, even if it is, strictly speaking, live across the if.
+  /// The other mode uses the strict definition of liveness that considers only
+  /// basic blocks, and would insert switch statements for that scenario.
+  void switchRegister(unsigned Reg, bool StrictLive = false);
+
+  /// Switch the register across the branch at the end of MBB, reusing a switch
+  /// that was generated earlier if present.
+  MachineInstr *getOrInsertSWITCHForReg(unsigned Reg, MachineBasicBlock *MBB);
+
+  /// Insert, without trying to reuse other switches, a switch for a register
+  /// across the branch at the end of MBB.
+  MachineInstr *insertSWITCHForReg(unsigned Reg, MachineBasicBlock *MBB);
+
+  /// Get the index of the output of a switch that would correspond to the edge
+  /// from the parent to the child. The parent must have two successors (as
+  /// otherwise, it would not have a switch).
+  unsigned getSwitchIndexForEdge(MachineBasicBlock *Parent,
+      MachineBasicBlock *Child);
+
+  /// A map of basic block => (register => switch) instructions that were
+  /// generated.
+  DenseMap<MachineBasicBlock *,
+    std::unique_ptr<DenseMap<unsigned, MachineInstr *>>> GenSwitches;
+  /// @}
+
   /// \defgroup Structured phi generation
   /// This set of functions implements the generation of picks for structured
   /// code. The general overview of how this code works is documented elsewhere.
@@ -241,8 +253,14 @@ private:
   void pipelineLoop(MachineBasicBlock *header, CSALoopInfo &DFLoop,
                     unsigned numTokens);
 
+  /// Map all loops to CSALoopInfo. This does not enter any of the pick or
+  /// switch information.
+  void prefillLoopInfo(MachineLoop *Loop);
+
 private:
   MachineFunction *thisMF;
+  /// An iterator over basic blocks in RPO.
+  ReversePostOrderTraversal<MachineFunction *> *RPOT;
   const CSAInstrInfo *TII;
   MachineRegisterInfo *MRI;
   const TargetRegisterInfo *TRI;
@@ -254,8 +272,6 @@ private:
   AliasAnalysis *AA;
   AliasSetTracker *AS;
   MachineBasicBlock *entryBB;
-  DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *>
-    bb2switch; // switch for Reg added in bb
   DenseMap<MachineBasicBlock *, unsigned> bb2predcpy;
   DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *>
     bb2pick; // switch for Reg added in bb
