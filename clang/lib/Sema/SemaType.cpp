@@ -3025,6 +3025,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
     // class template argument deduction)?
     bool IsCXXAutoType =
         (Auto && Auto->getKeyword() != AutoTypeKeyword::GNUAutoType);
+    bool IsDeducedReturnType = false;
 
     switch (D.getContext()) {
     case DeclaratorContext::LambdaExprContext:
@@ -3116,10 +3117,12 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
     case DeclaratorContext::TrailingReturnVarContext:
       if (!SemaRef.getLangOpts().CPlusPlus14 || !IsCXXAutoType)
         Error = 13; // Function return type
+      IsDeducedReturnType = true;
       break;
     case DeclaratorContext::ConversionIdContext:
       if (!SemaRef.getLangOpts().CPlusPlus14 || !IsCXXAutoType)
         Error = 14; // conversion-type-id
+      IsDeducedReturnType = true;
       break;
     case DeclaratorContext::FunctionalCastContext:
       if (isa<DeducedTemplateSpecializationType>(Deduced))
@@ -3204,10 +3207,14 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
                D.getContext() != DeclaratorContext::LambdaExprContext) {
       // If there was a trailing return type, we already got
       // warn_cxx98_compat_trailing_return_type in the parser.
-      // If this was a lambda, we already warned on that too.
       SemaRef.Diag(AutoRange.getBegin(),
-                   diag::warn_cxx98_compat_auto_type_specifier)
-        << AutoRange;
+                   D.getContext() ==
+                           DeclaratorContext::LambdaExprParameterContext
+                       ? diag::warn_cxx11_compat_generic_lambda
+                       : IsDeducedReturnType
+                             ? diag::warn_cxx11_compat_deduced_return_type
+                             : diag::warn_cxx98_compat_auto_type_specifier)
+          << AutoRange;
     }
   }
 
@@ -4596,14 +4603,18 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         // trailing-return-type is only required if we're declaring a function,
         // and not, for instance, a pointer to a function.
         if (D.getDeclSpec().hasAutoTypeSpec() &&
-            !FTI.hasTrailingReturnType() && chunkIndex == 0 &&
-            !S.getLangOpts().CPlusPlus14) {
-          S.Diag(D.getDeclSpec().getTypeSpecTypeLoc(),
-                 D.getDeclSpec().getTypeSpecType() == DeclSpec::TST_auto
-                     ? diag::err_auto_missing_trailing_return
-                     : diag::err_deduced_return_type);
-          T = Context.IntTy;
-          D.setInvalidType(true);
+            !FTI.hasTrailingReturnType() && chunkIndex == 0) {
+          if (!S.getLangOpts().CPlusPlus14) {
+            S.Diag(D.getDeclSpec().getTypeSpecTypeLoc(),
+                   D.getDeclSpec().getTypeSpecType() == DeclSpec::TST_auto
+                       ? diag::err_auto_missing_trailing_return
+                       : diag::err_deduced_return_type);
+            T = Context.IntTy;
+            D.setInvalidType(true);
+          } else {
+            S.Diag(D.getDeclSpec().getTypeSpecTypeLoc(),
+                   diag::warn_cxx11_compat_deduced_return_type);
+          }
         } else if (FTI.hasTrailingReturnType()) {
           // T must be exactly 'auto' at this point. See CWG issue 681.
           if (isa<ParenType>(T)) {
@@ -4633,6 +4644,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
             T = Context.IntTy;
             D.setInvalidType(true);
           }
+        } else {
+          // This function type is not the type of the entity being declared,
+          // so checking the 'auto' is not the responsibility of this chunk.
         }
       }
 
@@ -6568,7 +6582,7 @@ static NullabilityKind mapNullabilityAttrKind(ParsedAttr::Kind kind) {
 ///
 /// \param attr The attribute as written on the type.
 ///
-/// \param allowArrayTypes Whether to accept nullability specifiers on an
+/// \param allowOnArrayType Whether to accept nullability specifiers on an
 /// array type (e.g., because it will decay to a pointer).
 ///
 /// \returns true if a problem has been diagnosed, false on success.
@@ -7330,9 +7344,6 @@ static void HandleOpenCLAccessAttr(QualType &CurType, const ParsedAttr &Attr,
   }
 
   if (const TypedefType* TypedefTy = CurType->getAs<TypedefType>()) {
-#if INTEL_CUSTOMIZATION
-    // TODO: upstream to llvm.org together with changes
-    // in SemaDeclAttr.cpp and test/SemaOpenCL/access-qualifier.cl
     QualType BaseTy = TypedefTy->desugar();
 
     std::string PrevAccessQual;
@@ -7353,7 +7364,7 @@ static void HandleOpenCLAccessAttr(QualType &CurType, const ParsedAttr &Attr,
         break;
         #include "clang/Basic/OpenCLImageTypes.def"
       default:
-        assert(0 && "Unable to find corresponding image type.");
+        llvm_unreachable("Unable to find corresponding image type.");
       }
     } else {
       llvm_unreachable("unexpected type");
@@ -7370,7 +7381,6 @@ static void HandleOpenCLAccessAttr(QualType &CurType, const ParsedAttr &Attr,
 
     S.Diag(TypedefTy->getDecl()->getBeginLoc(),
            diag::note_opencl_typedef_access_qualifier) << PrevAccessQual;
-#endif // INTEL_CUSTOMIZATION
   } else if (CurType->isPipeType()) {
     if (Attr.getSemanticSpelling() == OpenCLAccessAttr::Keyword_write_only) {
       QualType ElemType = CurType->getAs<PipeType>()->getElementType();

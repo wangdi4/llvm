@@ -415,11 +415,15 @@ void Parser::ParseOpenMPReductionInitializerForDecl(VarDecl *OmpPrivParm) {
     ExprVector Exprs;
     CommaLocsTy CommaLocs;
 
-    if (ParseExpressionList(Exprs, CommaLocs, [this, OmpPrivParm, &Exprs] {
-          Actions.CodeCompleteConstructor(
-              getCurScope(), OmpPrivParm->getType()->getCanonicalTypeInternal(),
-              OmpPrivParm->getLocation(), Exprs);
-        })) {
+    SourceLocation LParLoc = T.getOpenLocation();
+    if (ParseExpressionList(
+            Exprs, CommaLocs, [this, OmpPrivParm, LParLoc, &Exprs] {
+              QualType PreferredType = Actions.ProduceConstructorSignatureHelp(
+                  getCurScope(),
+                  OmpPrivParm->getType()->getCanonicalTypeInternal(),
+                  OmpPrivParm->getLocation(), Exprs, LParLoc);
+              Actions.CodeCompleteExpression(getCurScope(), PreferredType);
+            })) {
       Actions.ActOnInitializerError(OmpPrivParm);
       SkipUntil(tok::r_paren, tok::annot_pragma_openmp_end, StopBeforeMatch);
     } else {

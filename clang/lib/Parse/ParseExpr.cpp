@@ -1705,15 +1705,19 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       CommaLocsTy CommaLocs;
 
       if (Tok.is(tok::code_completion)) {
-        Actions.CodeCompleteCall(getCurScope(), LHS.get(), None);
+        QualType PreferredType = Actions.ProduceCallSignatureHelp(
+            getCurScope(), LHS.get(), None, PT.getOpenLocation());
+        Actions.CodeCompleteExpression(getCurScope(), PreferredType);
         cutOffParsing();
         return ExprError();
       }
       if (OpKind == tok::l_paren || !LHS.isInvalid()) {
         if (Tok.isNot(tok::r_paren)) {
           if (ParseExpressionList(ArgExprs, CommaLocs, [&] {
-                Actions.CodeCompleteCall(getCurScope(), LHS.get(), ArgExprs);
-             })) {
+                QualType PreferredType = Actions.ProduceCallSignatureHelp(
+                    getCurScope(), LHS.get(), ArgExprs, PT.getOpenLocation());
+                Actions.CodeCompleteExpression(getCurScope(), PreferredType);
+              })) {
             (void)Actions.CorrectDelayedTyposInExpr(LHS);
             LHS = ExprError();
           } else if (LHS.isInvalid()) {
