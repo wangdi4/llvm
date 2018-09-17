@@ -59,4 +59,4 @@ entry:
   ret void
 }
 
-; CHECK-DEP: Deps computed: 4, Queries: 5
+; XCHECK-DEP: Deps computed: 4, Queries: 5

@@ -76,4 +76,4 @@ return:                                           ; preds = %if.then, %entry
   %retval.0 = phi i32 [ %call, %if.then ], [ 0, %entry ]
   ret i32 %retval.0
 }
-; CHECK-DEP: Deps computed: 7, Queries: 9
+; XCHECK-DEP: Deps computed: 7, Queries: 9

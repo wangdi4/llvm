@@ -78,4 +78,4 @@ return:                                           ; preds = %if.then, %entry
 }
 
 declare hidden %class.DatatypeValidator** @"ValueVectorOf<DatatypeValidator*>::elementAt(unsigned int)"(%class.ValueVectorOf.1*, i32)
-; CHECK-DEP: Deps computed: 10, Queries: 11
+; XCHECK-DEP: Deps computed: 10, Queries: 11

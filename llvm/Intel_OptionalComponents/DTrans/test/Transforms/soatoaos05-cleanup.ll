@@ -169,4 +169,4 @@ declare hidden void @"ValueVectorOf<DatatypeValidator*>::~ValueVectorOf()"(%clas
 declare hidden void @"XMemory::operator delete(void*)"(i8*)
 
 ; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
-; CHECK-DEP: Deps computed: 25, Queries: 52
+; XCHECK-DEP: Deps computed: 25, Queries: 52

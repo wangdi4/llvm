@@ -114,4 +114,4 @@ for.end:                                          ; preds = %for.cond
   ret void
 }
 
-; CHECK: Deps computed: 36, Queries: 55
+; XCHECK: Deps computed: 36, Queries: 55
