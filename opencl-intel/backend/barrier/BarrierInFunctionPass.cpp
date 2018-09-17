@@ -76,14 +76,11 @@ namespace intel {
         pDummyBarrierCall->insertAfter(pCallInst);
 
         Function *pCallerFunc = pCallInst->getParent()->getParent();
-        if ( functionsAddedToHandle.count(pCallerFunc) ) {
-          // Caller function already handled just continue
-          continue;
-        }
 
         // Add caller function to toHandle and AddedToHandle containers
-        functionsToHandle.push_back(pCallerFunc);
-        functionsAddedToHandle.insert(pCallerFunc);
+        bool Inserted = functionsAddedToHandle.insert(pCallerFunc);
+        if (Inserted)
+          functionsToHandle.push_back(pCallerFunc);
       }
     }
 

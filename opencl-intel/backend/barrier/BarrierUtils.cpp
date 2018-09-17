@@ -455,9 +455,7 @@ namespace intel {
                 continue;
               }
               Function *pCallingFunc = pCallInst->getParent()->getParent();
-              if ( !m_functionsWithNonInlinedCalls.count(pCallingFunc) ) {
-                m_functionsWithNonInlinedCalls.insert(pCallingFunc);
-              }
+              m_functionsWithNonInlinedCalls.insert(pCallingFunc);
           }
       }
       m_bNonInlinedCallsInitialized = true;

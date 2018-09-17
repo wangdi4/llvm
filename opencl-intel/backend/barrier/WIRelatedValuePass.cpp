@@ -69,10 +69,8 @@ namespace intel {
   void WIRelatedValue::updateDeps() {
     //As lonst as we have values to update
     while(!m_changed.empty()) {
-      //copy the list aside
-      std::vector<Value*> changed(m_changed.begin(), m_changed.end());
-      //clear the original list, for next iteration
-      m_changed.clear();
+      //move the list aside and clear original list for next iteration
+      std::vector<Value*> changed = m_changed.takeVector();
       //update all changed values
       for ( std::vector<Value*>::iterator vi = changed.begin(), ve = changed.end();
           vi != ve; ++vi) {
