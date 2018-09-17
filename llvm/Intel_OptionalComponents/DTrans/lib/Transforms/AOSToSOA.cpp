@@ -1744,6 +1744,13 @@ private:
       //   %BlockAddr = getelementptr i8, i8* %AllocCallInst, i64/i32 %Offset
       Value *BlockAddr = IRB.CreateGEP(AllocCallInst, AddrOffset);
 
+      // Annotate the GEP into the allocated block to allow subsequent runs
+      // of DTransAnalysis to resolve the type as a pointer to an array of
+      // elements. This is necessary because the allocated memory block is
+      // being partitioned into multiple arrays.
+      dtrans::createDTransTypeAnnotation(cast<Instruction>(BlockAddr),
+                                         PeelFieldType);
+
       // Cast to the pointer type that will be stored:
       //   %CastToMemberTy = bitcast i8* %BlockAddr to %PeelFieldType
       Value *CastToMemberTy = IRB.CreateBitCast(BlockAddr, PeelFieldType);

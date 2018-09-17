@@ -5,14 +5,6 @@
 ; AOS-to-SOA transformation. Specifically, this is to check the safety data
 ; on structure types that are referenced by the type being transformed.
 
-; This test is currently marked as XFAIL because AOS-to-SAO creates bitcasts
-; from an offset of the allocated memory pointer to %__SOADT_struct.test01dep**,
-; which triggers a bad casting safety bit on that type. Additional changes are
-; needed to handle this.
-;
-; XFAIL: *
-
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.test01 = type { i32, i32, i32, %struct.test01*, %struct.test01dep*, i8* }
@@ -56,6 +48,7 @@ declare i8* @calloc(i64, i64)
 ; CHECK-LABEL: LLVMType: %__SOADT_struct.test01dep = type { i16, i32, i32 }
 ; CHECK: Safety data:
 ; CHECK-NOT: Bad casting
+; CHECK-NOT: Unsafe pointer store
 
 ; CHECK-LABEL: LLVMType: %__SOA_struct.test01 = type { i32*, i32*, i32*, i32*, %__SOADT_struct.test01dep**, i8** }
 ; CHECK: Safety data: Global instance

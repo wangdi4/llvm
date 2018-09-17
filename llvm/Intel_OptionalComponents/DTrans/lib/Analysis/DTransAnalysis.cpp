@@ -1598,6 +1598,12 @@ private:
       return;
     }
 
+    // Check for metadata used to annotate the type from one of the
+    // transformations to apply to the type.
+    if (auto *I = dyn_cast<Instruction>(V))
+      if (auto *TyFromMD = dtrans::lookupDTransTypeAnnotation(I))
+        Info.addPointerTypeAlias(TyFromMD);
+
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
     SmallVector<Value *, 16> DependentVals;
