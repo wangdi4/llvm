@@ -743,7 +743,9 @@ class CSAMemopOrdering : public MachineFunctionPass {
 
 public:
   static char ID;
-  CSAMemopOrdering() : MachineFunctionPass(ID) {}
+  CSAMemopOrdering() : MachineFunctionPass(ID) {
+    initializeCSAMemopOrderingPass(*PassRegistry::getPassRegistry());
+  }
   StringRef getPassName() const override {
     return PASS_NAME;
   }

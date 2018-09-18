@@ -29,6 +29,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-normalize-debug"
+#define PASS_NAME "CSA: Debug normalization."
 
 STATISTIC(NumDbgValueMovs,
           "Number of MOVs added to connect LICs named by DBG_VALUEs");
@@ -52,10 +53,12 @@ class CSANormalizeDebug : public MachineFunctionPass {
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  CSANormalizeDebug() : MachineFunctionPass(ID) {}
+  CSANormalizeDebug() : MachineFunctionPass(ID) {
+    initializeCSANormalizeDebugPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override {
-    return "CSA: Debug normalization.";
+    return PASS_NAME;
   }
 
 };
@@ -67,6 +70,8 @@ MachineFunctionPass *llvm::createCSANormalizeDebugPass() {
 }
 
 char CSANormalizeDebug::ID = 0;
+
+INITIALIZE_PASS(CSANormalizeDebug, DEBUG_TYPE, PASS_NAME, false, false)
 
 bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
 

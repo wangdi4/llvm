@@ -64,14 +64,14 @@ static cl::opt<bool> ILPLWaitForAllBack(
 char CSACvtCFDFPass::ID = 0;
 // declare CSACvtCFDFPass Pass
 INITIALIZE_PASS_BEGIN(CSACvtCFDFPass, "csa-cvt-cfdf",
-                      "CSA Convert Control Flow to Data Flow", true, true)
+                      "CSA Convert Control Flow to Data Flow", true, false)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_DEPENDENCY(ControlDependenceGraph)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachinePostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf",
-                    "CSA Convert Control Flow to Data Flow", true, true)
+                    "CSA Convert Control Flow to Data Flow", true, false)
 
 CSACvtCFDFPass::CSACvtCFDFPass() : MachineFunctionPass(ID) {
   initializeCSACvtCFDFPassPass(*PassRegistry::getPassRegistry());
@@ -180,8 +180,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
       return false;
   }
 
-  bool Modified = false;
-
   // Move reads of index references, which turn into invariant uses of
   // implicitly live-in registers, into the function entry. This is done so
   // that dataflow conversion recognizes these non-loop value defs as ones
@@ -252,7 +250,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   RunSXU = false;
 
-  return Modified;
+  return true;
 }
 
 static unsigned getLoopExitNumber(MachineLoop *Loop,

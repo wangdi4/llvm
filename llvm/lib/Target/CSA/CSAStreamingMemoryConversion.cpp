@@ -31,7 +31,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-streamem"
-#define PASS_NAME "CSA: Streaming memory conversion pass"
+#define PASS_NAME "CSA: Streaming memory conversion pass."
 
 static cl::opt<bool> DisableMemoryConversion(
   "csa-disable-streammem", cl::Hidden,
@@ -44,7 +44,7 @@ public:
   CSAStreamingMemoryConversionPass();
 
   StringRef getPassName() const override {
-    return "CSA: Streaming memory conversion pass.";
+    return PASS_NAME;
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -79,9 +79,16 @@ void initializeCSAStreamingMemoryConversionPassPass(PassRegistry &);
 
 char CSAStreamingMemoryConversionPass::ID = 0;
 
+INITIALIZE_PASS_BEGIN(CSAStreamingMemoryConversionPass, DEBUG_TYPE, PASS_NAME,
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
+INITIALIZE_PASS_END(CSAStreamingMemoryConversionPass, DEBUG_TYPE, PASS_NAME,
+                    false, false)
+
 CSAStreamingMemoryConversionPass::CSAStreamingMemoryConversionPass()
     : MachineFunctionPass(ID) {
-  initializeCSAStreamingMemoryConversionPassPass(*PassRegistry::getPassRegistry());
+  initializeCSAStreamingMemoryConversionPassPass(
+      *PassRegistry::getPassRegistry());
 }
 
 MachineFunctionPass *llvm::createCSAStreamingMemoryConversionPass() {
@@ -722,9 +729,3 @@ void CSAStreamingMemoryConversionPass::formWideOps(
     }
   }
 }
-
-INITIALIZE_PASS_BEGIN(CSAStreamingMemoryConversionPass, DEBUG_TYPE, PASS_NAME, false, false)
-INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
-INITIALIZE_PASS_END(CSAStreamingMemoryConversionPass, DEBUG_TYPE, PASS_NAME, false, false)
-
-

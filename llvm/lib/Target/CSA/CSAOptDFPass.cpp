@@ -133,7 +133,10 @@ namespace llvm {
 class CSAOptDFPass : public MachineFunctionPass {
 public:
   static char ID;
-  CSAOptDFPass() : MachineFunctionPass(ID) { thisMF = nullptr; }
+  CSAOptDFPass() : MachineFunctionPass(ID) {
+    initializeCSAOptDFPassPass(*PassRegistry::getPassRegistry());
+    thisMF = nullptr;
+  }
 
   StringRef getPassName() const override {
     return PASS_NAME;

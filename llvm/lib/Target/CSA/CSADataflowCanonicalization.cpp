@@ -31,6 +31,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-dfcanon"
+#define PASS_NAME "CSA: Dataflow simplification pass"
 
 STATISTIC(NumSwitchesAdded, "Number of switches added due to inversion");
 
@@ -49,7 +50,7 @@ public:
   CSADataflowCanonicalizationPass();
 
   StringRef getPassName() const override {
-    return "CSA: Dataflow simplification pass";
+    return PASS_NAME;
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -101,9 +102,13 @@ void initializeCSADataflowCanonicalizationPassPass(PassRegistry &);
 
 char CSADataflowCanonicalizationPass::ID = 0;
 
+INITIALIZE_PASS(CSADataflowCanonicalizationPass, DEBUG_TYPE, PASS_NAME,
+                false, false)
+
 CSADataflowCanonicalizationPass::CSADataflowCanonicalizationPass()
     : MachineFunctionPass(ID) {
-  initializeCSADataflowCanonicalizationPassPass(*PassRegistry::getPassRegistry());
+  initializeCSADataflowCanonicalizationPassPass(
+      *PassRegistry::getPassRegistry());
 }
 
 MachineFunctionPass *llvm::createCSADataflowCanonicalizationPass() {
@@ -147,7 +152,7 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(
   }
 
   this->MF = nullptr;
-  return changed;
+  return changed || true;
 }
 
 MachineInstr *
@@ -477,6 +482,3 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   to_delete.push_back(MI);
   return true;
 }
-
-INITIALIZE_PASS_BEGIN(CSADataflowCanonicalizationPass, DEBUG_TYPE, DEBUG_TYPE, false, false)
-INITIALIZE_PASS_END(CSADataflowCanonicalizationPass, DEBUG_TYPE, DEBUG_TYPE, false, false)

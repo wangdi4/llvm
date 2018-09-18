@@ -23,6 +23,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CSATargetMachine.h"
 #include "Intel_CSA/Transforms/Scalar/CSALowerParallelIntrinsics.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -80,11 +81,6 @@ static cl::opt<int> DefaultDegreeOfPipeliningParallelism(
   cl::desc(
     "CSA Specific: degree of concurrency allowed by inner loop pipelining"),
   cl::init(32));
-
-namespace llvm {
-void initializeCSAInnerLoopPrepPass(PassRegistry &);
-Pass *createCSAInnerLoopPrepPass();
-} // namespace llvm
 
 namespace {
 struct CSAInnerLoopPrep : public FunctionPass {

@@ -20,6 +20,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSALowerAggrCopies.h"
+#include "CSATargetMachine.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -43,7 +44,9 @@ namespace {
 struct CSALowerAggrCopies : public FunctionPass {
   static char ID;
 
-  CSALowerAggrCopies() : FunctionPass(ID) {}
+  CSALowerAggrCopies() : FunctionPass(ID) {
+    initializeCSALowerAggrCopiesPass(*PassRegistry::getPassRegistry());
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<StackProtector>();
@@ -340,10 +343,6 @@ bool CSALowerAggrCopies::runOnFunction(Function &F) {
 }
 
 } // namespace
-
-namespace llvm {
-void initializeCSALowerAggrCopiesPass(PassRegistry &);
-}
 
 INITIALIZE_PASS(CSALowerAggrCopies, "csa-lower-aggr-copies",
                 "Lower aggregate copies, and llvm.mem* intrinsics into loops",

@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSA.h"
+#include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -48,6 +49,7 @@ static cl::opt<int> SXUMovConstantProp(
   cl::init(0));
 
 #define DEBUG_TYPE "csa-redundant-mov-elim"
+#define PASS_NAME "CSA: Redundant move elimination."
 
 namespace {
 class CSARedundantMovElim : public MachineFunctionPass {
@@ -62,10 +64,12 @@ class CSARedundantMovElim : public MachineFunctionPass {
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  CSARedundantMovElim() : MachineFunctionPass(ID) {}
+  CSARedundantMovElim() : MachineFunctionPass(ID) {
+    initializeCSARedundantMovElimPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override {
-    return "CSA: Redundant move elimination.";
+    return PASS_NAME;
   }
 
 private:
@@ -167,6 +171,8 @@ MachineFunctionPass *llvm::createCSARedundantMovElimPass() {
 }
 
 char CSARedundantMovElim::ID = 0;
+
+INITIALIZE_PASS(CSARedundantMovElim, DEBUG_TYPE, PASS_NAME, false, false)
 
 MachineInstr *
 CSARedundantMovElim::getSingleDef(unsigned Reg,

@@ -21,10 +21,21 @@
 
 namespace llvm {
 
-void initializeCSAOptDFPassPass(PassRegistry &);
+void initializeCSAAllocUnitPassPass(PassRegistry &);
+void initializeCSACvtCFDFPassPass(PassRegistry &);
+void initializeCSADataflowCanonicalizationPassPass(PassRegistry &);
+void initializeCSADeadInstructionElimPass(PassRegistry &);
+void initializeCSAExpandInlineAsmPass(PassRegistry &);
+void initializeCSAFortranIntrinsicsPass(PassRegistry &);
+void initializeCSAInnerLoopPrepPass(PassRegistry &);
+void initializeCSALowerAggrCopiesPass(PassRegistry &);
 void initializeCSAMemopOrderingPass(PassRegistry &);
-void initializeControlDependenceGraphPass(PassRegistry&);
-void initializeCSACvtCFDFPassPass(PassRegistry&);
+void initializeCSANameLICsPassPass(PassRegistry &);
+void initializeCSANormalizeDebugPass(PassRegistry &);
+void initializeCSAOptDFPassPass(PassRegistry &);
+void initializeCSARedundantMovElimPass(PassRegistry &);
+void initializeCSAStreamingMemoryConversionPassPass(PassRegistry &);
+void initializeControlDependenceGraphPass(PassRegistry &);
 
 class CSATargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;

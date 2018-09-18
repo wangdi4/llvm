@@ -21,6 +21,7 @@
 
 #include "CSA.h"
 #include "CSAInstrInfo.h"
+#include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -34,6 +35,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-dead-instruction"
+#define PASS_NAME "CSA: Dead instructions elimination."
 
 STATISTIC(NumDeletes, "Number of dead instructions deleted");
 
@@ -73,10 +75,12 @@ class CSADeadInstructionElim : public MachineFunctionPass {
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  CSADeadInstructionElim() : MachineFunctionPass(ID) {}
+  CSADeadInstructionElim() : MachineFunctionPass(ID) {
+    initializeCSADeadInstructionElimPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override {
-    return "CSA: Dead instructions elimination.";
+    return PASS_NAME;
   }
 
 private:
@@ -92,10 +96,7 @@ MachineFunctionPass *llvm::createCSADeadInstructionElimPass() {
 
 char CSADeadInstructionElim::ID = 0;
 
-// char &llvm::CSADeadInstructionElimID = CSADeadInstructionElim::ID;
-
-// INITIALIZE_PASS(CSADeadInstructionElim, "CSA-dead-elimination",
-//                 "Remove dead CSA instructions", false, false)
+INITIALIZE_PASS(CSADeadInstructionElim, DEBUG_TYPE, PASS_NAME, false, false)
 
 bool CSADeadInstructionElim::isLIC(unsigned Reg) const {
   // Return true if `Reg` refers to a LIC.

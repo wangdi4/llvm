@@ -74,9 +74,6 @@ static cl::opt<int>
 static std::string computeDataLayout() { return "e-m:e-i64:64-n32:64"; }
 
 namespace llvm {
-void initializeCSALowerAggrCopiesPass(PassRegistry &);
-void initializeCSAFortranIntrinsicsPass(PassRegistry &);
-void initializeCSAInnerLoopPrepPass(PassRegistry &);
 } // namespace llvm
 
 extern "C" void LLVMInitializeCSATarget() {
@@ -86,10 +83,21 @@ extern "C" void LLVMInitializeCSATarget() {
   // The original comment in the CSA target says this optimization
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
-  initializeCSAOptDFPassPass(PR);
+  initializeCSAAllocUnitPassPass(PR);
+  initializeCSACvtCFDFPassPass(PR);
+  initializeCSADataflowCanonicalizationPassPass(PR);
+  initializeCSADeadInstructionElimPass(PR);
+  initializeCSAExpandInlineAsmPass(PR);
+  initializeCSAFortranIntrinsicsPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
   initializeCSALowerAggrCopiesPass(PR);
-  initializeCSAFortranIntrinsicsPass(PR);
+  initializeCSAMemopOrderingPass(PR);
+  initializeCSANameLICsPassPass(PR);
+  initializeCSANormalizeDebugPass(PR);
+  initializeCSAOptDFPassPass(PR);
+  initializeCSARedundantMovElimPass(PR);
+  initializeCSAStreamingMemoryConversionPassPass(PR);
+  initializeControlDependenceGraphPass(PR);
 }
 
 static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
@@ -134,10 +142,24 @@ class CSAPassConfig : public TargetPassConfig {
 public:
   CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
       : TargetPassConfig(TM, PM) {
+    // disablePass() must be run before anybody adds the pass
+    // to the pass manager, so disable all the passes early.
     disablePass(&MachineLICMID);
     disablePass(&MachineCopyPropagationID);
     // TailDuplication destroys natural loop form, don't do it for CSA.
     disablePass(&EarlyTailDuplicateID);
+
+    // These passes don't like vregs.
+    disablePass(&ShrinkWrapID);
+    disablePass(&PostRASchedulerID);
+    disablePass(&FuncletLayoutID);
+    disablePass(&StackMapLivenessID);
+    disablePass(&LiveDebugValuesID);
+    disablePass(&PatchableFunctionID);
+
+    // Register coalescing causes issues with our def-after-use nature of
+    // dataflow.
+    disablePass(&RegisterCoalescerID);
   }
 
   CSATargetMachine &getCSATargetMachine() const {
@@ -191,17 +213,8 @@ public:
     return false;
   }
 
-#define DEBUG_TYPE "csa-convert-control"
   void addPreRegAlloc() override {
-    std::string Banner;
-    Banner = std::string("Before Machine CDG Pass");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createControlDepenceGraph(), false);
-    Banner = std::string("After Machine CDG Pass");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
 
     if (getOptLevel() != CodeGenOpt::None) {
       //
@@ -212,23 +225,13 @@ public:
       //       conversion (which would introduce CI).
       //
       addPass(createCSAMemopOrderingPass());
-      Banner = std::string("After CSAMemopOrderingPass");
-      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                         false));
     }
 
     addPass(createCSARASReplayableLoadsDetectionPass(), false);
-    Banner = std::string("After CSARASReplayableLoadsDetection");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createCSANameLICsPass(), false);
 
     if (getOptLevel() != CodeGenOpt::None) {
       addPass(createCSACvtCFDFPass(), false);
-      Banner = std::string("After CSACvtCFDFPass");
-      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                         false));
     }
 
     if (RunCSAStatistics) {
@@ -236,71 +239,24 @@ public:
     }
 
     addPass(createCSAOptDFPass(), false);
-    Banner = std::string("After CSAOptDFPass");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createCSADataflowCanonicalizationPass(), false);
-    Banner = std::string("After CSADataflowCanonicalizationPass");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createCSAStreamingMemoryConversionPass(), false);
-    Banner = std::string("After CSAStreamingMemoryConversionPass");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createCSAMultiSeqPass(), false);
-    Banner = std::string("After CSAMultiSeqPass");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
-    
     addPass(createCSARedundantMovElimPass(), false);
-    Banner = std::string("After CSARedundantMovElim");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createCSADeadInstructionElimPass(), false);
-    Banner = std::string("After CSADeadInstructionElim");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createCSAReassocReducPass(), false);
-    Banner = std::string("After CSAReassocReducPass");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
     addPass(createCSANormalizeDebugPass(), false);
-    Banner = std::string("After CSANormalizeDebug");
-    LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner),
-                       false));
-
-    // Register coalescing causes issues with our def-after-use nature of
-    // dataflow.
-    disablePass(&RegisterCoalescerID);
   }
 
 // Last call in TargetPassConfig.cpp to disable passes.  
 // If we don't disable here some other passes may add after disable
   void addPostRegAlloc() override {
     addPass(createCSAAllocUnitPass(), false);
-
-    // These functions don't like vregs.
-    disablePass(&ShrinkWrapID);
-//RAVI    disablePass(&MachineCopyPropagationID);
-    disablePass(&PostRASchedulerID);
-    disablePass(&FuncletLayoutID);
-    disablePass(&StackMapLivenessID);
-    disablePass(&LiveDebugValuesID);
-    disablePass(&PatchableFunctionID);
   }
 
   void addPreEmitPass2() override {
     if (csa_utils::isAlwaysDataFlowLinkageSet()) {
       addPass(createCSAProcCallsPass(), false);
-      std::string Banner = std::string("After CSAProcCallsPass");
-      LLVM_DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
     }
 
   }

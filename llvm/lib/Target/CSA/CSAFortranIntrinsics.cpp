@@ -19,7 +19,7 @@
 //===----------------------------------------------------------------===//
 
 #include "CSAFortranIntrinsics.h"
-
+#include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/IR/Constants.h"
@@ -68,7 +68,9 @@ constexpr std::pair<const char *, Intrinsic::ID> intrinsic_table[] = {
 struct CSAFortranIntrinsics : FunctionPass {
   static char ID;
 
-  CSAFortranIntrinsics() : FunctionPass{ID} {}
+  CSAFortranIntrinsics() : FunctionPass{ID} {
+    initializeCSAFortranIntrinsicsPass(*PassRegistry::getPassRegistry());
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<StackProtector>();
@@ -184,10 +186,6 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
 }
 
 } // namespace
-
-namespace llvm {
-void initializeCSAFortranIntrinsicsPass(PassRegistry &);
-}
 
 INITIALIZE_PASS(CSAFortranIntrinsics, "csa-fortran-intrinsics",
                 "Convert particular Fortran function calls to intrinsics",

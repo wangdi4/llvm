@@ -27,6 +27,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 
+#define DEBUG_TYPE "csa-name-lics"
+#define PASS_NAME "CSA: Name LICs pass"
+
 using namespace llvm;
 
 namespace llvm {
@@ -36,7 +39,7 @@ namespace llvm {
     CSANameLICsPass();
 
     StringRef getPassName() const override {
-      return "CSA: Name LICs pass";
+      return PASS_NAME;
     }
 
     bool runOnMachineFunction(MachineFunction &MF) override;
@@ -59,7 +62,10 @@ namespace llvm {
 
 char CSANameLICsPass::ID = 0;
 
+INITIALIZE_PASS(CSANameLICsPass, DEBUG_TYPE, PASS_NAME, false, false)
+
 CSANameLICsPass::CSANameLICsPass() : MachineFunctionPass(ID) {
+  initializeCSANameLICsPassPass(*PassRegistry::getPassRegistry());
 }
 
 

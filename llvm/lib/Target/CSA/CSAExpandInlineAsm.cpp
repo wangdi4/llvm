@@ -34,12 +34,13 @@
 
 using namespace llvm;
 
+#define DEBUG_TYPE "csa-expand-asm"
+#define PASS_NAME "CSA: Inline Assembly Expansion"
+
 static cl::opt<bool> EnableExpandInlineAsm(
   "csa-expand-asm", cl::Hidden,
   cl::desc("CSA Specific: Parse and expand inline assembly into MachineInstrs"),
   cl::init(true));
-
-#define DEBUG_TYPE "csa-expand-asm"
 
 STATISTIC(NumInlineAsmExpansions, "Number of asm()s expanded into MIs");
 STATISTIC(NumInlineAsmInstrs,
@@ -90,9 +91,11 @@ class CSAExpandInlineAsm : public MachineFunctionPass {
 
 public:
   static char ID;
-  CSAExpandInlineAsm() : MachineFunctionPass(ID) {}
+  CSAExpandInlineAsm() : MachineFunctionPass(ID) {
+    initializeCSAExpandInlineAsmPass(*PassRegistry::getPassRegistry());
+  }
   StringRef getPassName() const override {
-    return "CSA: Inline Assembly Expansion";
+    return PASS_NAME;
   }
 
 private:
@@ -105,6 +108,8 @@ private:
 } // namespace
 
 char CSAExpandInlineAsm::ID = 0;
+
+INITIALIZE_PASS(CSAExpandInlineAsm, DEBUG_TYPE, PASS_NAME, false, false)
 
 MachineFunctionPass *llvm::createCSAExpandInlineAsmPass() {
   return new CSAExpandInlineAsm();

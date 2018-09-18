@@ -45,6 +45,7 @@ static cl::opt<bool> UseAutounit(
   cl::init(true));
 
 #define DEBUG_TYPE "csa-unit-alloc"
+#define PASS_NAME "CSA: Allocate Unit Pass"
 
 namespace {
 class CSAAllocUnitPass : public MachineFunctionPass {
@@ -53,6 +54,7 @@ class CSAAllocUnitPass : public MachineFunctionPass {
 public:
   static char ID;
   CSAAllocUnitPass() : MachineFunctionPass(ID) {
+    initializeCSAAllocUnitPassPass(*PassRegistry::getPassRegistry());
     // TBD(jsukha): Special case: unknown schedule class causes
     // problems.  Currently, LLVM "COPY" statements introduced by
     // other phases fall into this category.
@@ -99,7 +101,7 @@ public:
     IIToFU[CSA::Sched::IICtl] = CSA::FUNCUNIT::SXU;
   }
 
-  StringRef getPassName() const override { return "CSA: Allocate Unit Pass"; }
+  StringRef getPassName() const override { return PASS_NAME; }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 };
@@ -110,6 +112,8 @@ MachineFunctionPass *llvm::createCSAAllocUnitPass() {
 }
 
 char CSAAllocUnitPass::ID = 0;
+
+INITIALIZE_PASS(CSAAllocUnitPass, DEBUG_TYPE, PASS_NAME, false, false)
 
 bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
 
