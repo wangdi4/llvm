@@ -1,140 +1,163 @@
-; RUN: %oclopt -B-DuplicateCalledKernels -verify -S < %s | FileCheck %s
+; Compiled from:
+; ----------------------------------------------------
+; __kernel void bar(__global float* a, __global float* b) {
+;   int x = get_local_id(0);
+;   a[x] = b[x];
+; }
+;
+; __kernel void foo(__global float* a, __global float* b) {
+;   bar(a, b);
+; }
+; ----------------------------------------------------
+; Compile options:
+;   -cc1 -cl-std=CL2.0 -x cl -emit-llvm -debug-info-kind=limited -dwarf-version=4 -O2 -disable-llvm-passes -finclude-default-header %s
+; Optimizer options:
+;   %oclopt -spir-materializer -verify %s -S
+; ----------------------------------------------------
+; RUN: %oclopt -B-DuplicateCalledKernels -verify %s -S | FileCheck %s
 
-;;*****************************************************************************
-;; This test checks the the DuplicateCalledKernels pass clone a called kernel.
-;; The case: kernel "bar" called from kernel "foo". Module contains debug info
-;; The expected result:
-;;      1. Kernel bar is cloned into a new function "__internal.bar"
-;;      2. "__internal.bar" is called from "foo" instead of "bar"
-;;      3. Metadata was not changed.
-;;*****************************************************************************
-
-;; This test was generated using the following cl code with this command:
-;; clang -cc1 -cl-std=CL2.0 -x cl -emit-llvm -debug-info-kind=limited -dwarf-version=4 -O0 -include opencl-c.h -include opencl-c-intel.h -o -
-;;
-;;__kernel void bar(__global float* a, __global float* b) {
-;;  int x = get_local_id(0);
-;;  a[x] = b[x];
-;;}
-;;
-;;__kernel void foo(__global float* a, __global float* b) {
-;;  bar(a, b);
-;;}
-
-; ModuleID = ''
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+;
+; This test checks the the DuplicateCalledKernels pass clone a called kernel.
+; The case: kernel "bar" called from kernel "foo". Module contains debug info
+; The expected result:
+;      1. Kernel bar is cloned into a new function "__internal.bar"
+;      2. "__internal.bar" is called from "foo" instead of "bar"
+;      3. Metadata was not changed.
+;
 
 ; CHECK: define void @bar
-; Function Attrs: nounwind
-define void @bar(float* %a, float* %b) #0 !dbg !4 {
-entry:
-  %a.addr = alloca float*, align 8
-  %b.addr = alloca float*, align 8
-  %x = alloca i32, align 4
-  store float* %a, float** %a.addr, align 8
-  call void @llvm.dbg.declare(metadata float** %a.addr, metadata !18, metadata !19), !dbg !20
-  store float* %b, float** %b.addr, align 8
-  call void @llvm.dbg.declare(metadata float** %b.addr, metadata !21, metadata !19), !dbg !20
-  call void @llvm.dbg.declare(metadata i32* %x, metadata !22, metadata !19), !dbg !24
-  %call = call i64 @_Z12get_local_idj(i32 0) #1, !dbg !24
-  %conv = trunc i64 %call to i32, !dbg !24
-  store i32 %conv, i32* %x, align 4, !dbg !24
-  %0 = load i32, i32* %x, align 4, !dbg !25
-  %idxprom = sext i32 %0 to i64, !dbg !25
-  %1 = load float*, float** %b.addr, align 8, !dbg !25
-  %arrayidx = getelementptr inbounds float, float* %1, i64 %idxprom, !dbg !25
-  %2 = load float, float* %arrayidx, align 4, !dbg !25
-  %3 = load i32, i32* %x, align 4, !dbg !25
-  %idxprom1 = sext i32 %3 to i64, !dbg !25
-  %4 = load float*, float** %a.addr, align 8, !dbg !25
-  %arrayidx2 = getelementptr inbounds float, float* %4, i64 %idxprom1, !dbg !25
-  store float %2, float* %arrayidx2, align 4, !dbg !25
-  ret void, !dbg !26
-}
-
-; Function Attrs: nounwind readnone
-declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
-
-; Function Attrs: nounwind readnone
-declare i64 @_Z12get_local_idj(i32) #2
-
 ; CHECK: define void @foo
-; Function Attrs: nounwind
-define void @foo(float* %a, float* %b) #0 !dbg !10 {
-entry:
-  %a.addr = alloca float*, align 8
-  %b.addr = alloca float*, align 8
-  store float* %a, float** %a.addr, align 8
-  call void @llvm.dbg.declare(metadata float** %a.addr, metadata !27, metadata !19), !dbg !28
-  store float* %b, float** %b.addr, align 8
-  call void @llvm.dbg.declare(metadata float** %b.addr, metadata !29, metadata !19), !dbg !28
-  %0 = load float*, float** %a.addr, align 8, !dbg !30
-  %1 = load float*, float** %b.addr, align 8, !dbg !30
-  call void @bar(float* %0, float* %1), !dbg !30
-  ret void, !dbg !31
 ; CHECK-NOT: call void @bar
 ; CHECK: call void @__internal.bar
 ; CHECK-NOT: call void @bar
+; CHECK: define void @__internal.bar
+;
+; The following checks that @bar is still a kernel.
+; CHECK-DAG: !opencl.kernels = !{![[OCL_KERNELS:[0-9]+]]}
+; CHECK-DAG: ![[OCL_KERNELS]] = !{{{.*}}void (float addrspace(1)*, float addrspace(1)*)* @bar{{.*}}}
+
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target triple = "spir64-unknown-unknown"
+
+; Function Attrs: convergent nounwind
+define void @bar(float addrspace(1)* %a, float addrspace(1)* %b) #0 !dbg !9 !kernel_arg_addr_space !20 !kernel_arg_access_qual !21 !kernel_arg_type !22 !kernel_arg_base_type !22 !kernel_arg_type_qual !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !23 !kernel_arg_buffer_location !23 {
+entry:
+  %a.addr = alloca float addrspace(1)*, align 8
+  %b.addr = alloca float addrspace(1)*, align 8
+  %x = alloca i32, align 4
+  store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata float addrspace(1)** %a.addr, metadata !16, metadata !DIExpression()), !dbg !30
+  store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata float addrspace(1)** %b.addr, metadata !17, metadata !DIExpression()), !dbg !30
+  %0 = bitcast i32* %x to i8*, !dbg !31
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #4, !dbg !31
+  call void @llvm.dbg.declare(metadata i32* %x, metadata !18, metadata !DIExpression()), !dbg !31
+  %call = call i64 @_Z12get_local_idj(i32 0) #5, !dbg !31
+  %conv = trunc i64 %call to i32, !dbg !31
+  store i32 %conv, i32* %x, align 4, !dbg !31, !tbaa !32
+  %1 = load float addrspace(1)*, float addrspace(1)** %b.addr, align 8, !dbg !34, !tbaa !26
+  %2 = load i32, i32* %x, align 4, !dbg !34, !tbaa !32
+  %idxprom = sext i32 %2 to i64, !dbg !34
+  %arrayidx = getelementptr inbounds float, float addrspace(1)* %1, i64 %idxprom, !dbg !34
+  %3 = load float, float addrspace(1)* %arrayidx, align 4, !dbg !34, !tbaa !35
+  %4 = load float addrspace(1)*, float addrspace(1)** %a.addr, align 8, !dbg !34, !tbaa !26
+  %5 = load i32, i32* %x, align 4, !dbg !34, !tbaa !32
+  %idxprom1 = sext i32 %5 to i64, !dbg !34
+  %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %4, i64 %idxprom1, !dbg !34
+  store float %3, float addrspace(1)* %arrayidx2, align 4, !dbg !34, !tbaa !35
+  %6 = bitcast i32* %x to i8*, !dbg !37
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %6) #4, !dbg !37
+  ret void, !dbg !37
 }
 
-attributes #0 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-features"="+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind readnone }
-attributes #2 = { nounwind readnone "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-features"="+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+; Function Attrs: nounwind readnone speculatable
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-; CHECK: define void @__internal.bar
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #2
 
-; CHECK: !llvm.dbg.cu = !{!0}
+; Function Attrs: convergent nounwind readnone
+declare i64 @_Z12get_local_idj(i32) #3
 
-;;; Check that that debug info metadata for the old function was changed to the
-;;; new function, but that there's a new debug metadata for the old function.
-; CHECK-DAG: [[SrcMD:![0-9]+]] = distinct !DISubprogram(name: "bar", scope: !10, file: !10, line: 1, type: !11, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
-; CHECK-DAG: [[NewMD:![0-9]+]] = distinct !DISubprogram(name: "bar", scope: !10, file: !10, line: 1, type: !11, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #2
 
-;;; The following checks that @bar is still a kernel.
-; CHECK-DAG: !{{{.*}}void (float*, float*)* @bar{{.*}}}
+; Function Attrs: convergent nounwind
+define void @foo(float addrspace(1)* %a, float addrspace(1)* %b) #0 !dbg !38 !kernel_arg_addr_space !20 !kernel_arg_access_qual !21 !kernel_arg_type !22 !kernel_arg_base_type !22 !kernel_arg_type_qual !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !23 !kernel_arg_buffer_location !23 {
+entry:
+  %a.addr = alloca float addrspace(1)*, align 8
+  %b.addr = alloca float addrspace(1)*, align 8
+  store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata float addrspace(1)** %a.addr, metadata !40, metadata !DIExpression()), !dbg !42
+  store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8, !tbaa !26
+  call void @llvm.dbg.declare(metadata float addrspace(1)** %b.addr, metadata !41, metadata !DIExpression()), !dbg !42
+  %0 = load float addrspace(1)*, float addrspace(1)** %a.addr, align 8, !dbg !43, !tbaa !26
+  %1 = load float addrspace(1)*, float addrspace(1)** %b.addr, align 8, !dbg !43, !tbaa !26
+  call void @bar(float addrspace(1)* %0, float addrspace(1)* %1) #6, !dbg !43
+  ret void, !dbg !44
+}
 
-;;; The following checks that all (include global) metadata was copy correctly.
-; CHECK-DAG: !DILocation(line: [[SrcL1:[0-9]+]], scope: [[SrcMD]])
-; CHECK-DAG: !DILocation(line: [[SrcL1]], scope: [[NewMD]])
+attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { nounwind readnone speculatable }
+attributes #2 = { argmemonly nounwind }
+attributes #3 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #4 = { nounwind }
+attributes #5 = { convergent nounwind readnone }
+attributes #6 = { convergent "uniform-work-group-size"="false" }
 
 !llvm.dbg.cu = !{!0}
-!opencl.kernels = !{!11}
-!llvm.module.flags = !{!13, !14}
-!opencl.compiler.options = !{!15}
+!llvm.module.flags = !{!3, !4, !5}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!16}
-!opencl.spir.version = !{!16}
-!llvm.ident = !{!17}
+!opencl.ocl.version = !{!6}
+!opencl.spir.version = !{!6}
+!opencl.used.extensions = !{!2}
+!opencl.used.optional.core.features = !{!2}
+!opencl.compiler.options = !{!2}
+!llvm.ident = !{!7}
+!opencl.kernels = !{!8}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 ", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2)
-!1 = !DIFile(filename: "../<stdin>", directory: "/home/chbessonova/repos_llvm")
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 8.0.0 ", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
+!1 = !DIFile(filename: "/tmp/<stdin>", directory: "/tmp/tests")
 !2 = !{}
-!3 = !{!4, !10}
-!4 = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
-!5 = !DIFile(filename: "../kernelBarrier.cl", directory: "/home/chbessonova/repos_llvm")
-!6 = !DISubroutineType(types: !7)
-!7 = !{null, !8, !8}
-!8 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !9, size: 64, align: 64)
-!9 = !DIBasicType(name: "float", size: 32, align: 32, encoding: DW_ATE_float)
-!10 = distinct !DISubprogram(name: "foo", scope: !5, file: !5, line: 6, type: !6, isLocal: false, isDefinition: true, scopeLine: 6, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
-!11 = !{void (float*, float*)* @bar, void (float*, float*)* @foo}
-!13 = !{i32 2, !"Dwarf Version", i32 4}
-!14 = !{i32 2, !"Debug Info Version", i32 3}
-!15 = !{!"-g", !"-cl-std=CL2.0"}
-!16 = !{i32 2, i32 0}
-!17 = !{!"clang version 3.8.1 "}
-!18 = !DILocalVariable(name: "a", arg: 1, scope: !4, file: !5, line: 1, type: !8)
-!19 = !DIExpression()
-!20 = !DILocation(line: 1, scope: !4)
-!21 = !DILocalVariable(name: "b", arg: 2, scope: !4, file: !5, line: 1, type: !8)
-!22 = !DILocalVariable(name: "x", scope: !4, file: !5, line: 2, type: !23)
-!23 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
-!24 = !DILocation(line: 2, scope: !4)
-!25 = !DILocation(line: 3, scope: !4)
-!26 = !DILocation(line: 4, scope: !4)
-!27 = !DILocalVariable(name: "a", arg: 1, scope: !10, file: !5, line: 6, type: !8)
-!28 = !DILocation(line: 6, scope: !10)
-!29 = !DILocalVariable(name: "b", arg: 2, scope: !10, file: !5, line: 6, type: !8)
-!30 = !DILocation(line: 7, scope: !10)
-!31 = !DILocation(line: 8, scope: !10)
+!3 = !{i32 2, !"Dwarf Version", i32 4}
+!4 = !{i32 2, !"Debug Info Version", i32 3}
+!5 = !{i32 1, !"wchar_size", i32 4}
+!6 = !{i32 2, i32 0}
+!7 = !{!"clang version 8.0.0 "}
+!8 = !{void (float addrspace(1)*, float addrspace(1)*)* @bar, void (float addrspace(1)*, float addrspace(1)*)* @foo}
+!9 = distinct !DISubprogram(name: "bar", scope: !10, file: !10, line: 1, type: !11, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: true, unit: !0, retainedNodes: !15)
+!10 = !DIFile(filename: "/tmp/1.cl", directory: "/tmp/tests")
+!11 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !12)
+!12 = !{null, !13, !13}
+!13 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !14, size: 64)
+!14 = !DIBasicType(name: "float", size: 32, encoding: DW_ATE_float)
+!15 = !{!16, !17, !18}
+!16 = !DILocalVariable(name: "a", arg: 1, scope: !9, file: !10, line: 1, type: !13)
+!17 = !DILocalVariable(name: "b", arg: 2, scope: !9, file: !10, line: 1, type: !13)
+!18 = !DILocalVariable(name: "x", scope: !9, file: !10, line: 2, type: !19)
+!19 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
+!20 = !{i32 1, i32 1}
+!21 = !{!"none", !"none"}
+!22 = !{!"float*", !"float*"}
+!23 = !{!"", !""}
+!24 = !{i1 false, i1 false}
+!25 = !{i32 0, i32 0}
+!26 = !{!27, !27, i64 0}
+!27 = !{!"any pointer", !28, i64 0}
+!28 = !{!"omnipotent char", !29, i64 0}
+!29 = !{!"Simple C/C++ TBAA"}
+!30 = !DILocation(line: 1, scope: !9)
+!31 = !DILocation(line: 2, scope: !9)
+!32 = !{!33, !33, i64 0}
+!33 = !{!"int", !28, i64 0}
+!34 = !DILocation(line: 3, scope: !9)
+!35 = !{!36, !36, i64 0}
+!36 = !{!"float", !28, i64 0}
+!37 = !DILocation(line: 4, scope: !9)
+!38 = distinct !DISubprogram(name: "foo", scope: !10, file: !10, line: 6, type: !11, isLocal: false, isDefinition: true, scopeLine: 6, flags: DIFlagPrototyped, isOptimized: true, unit: !0, retainedNodes: !39)
+!39 = !{!40, !41}
+!40 = !DILocalVariable(name: "a", arg: 1, scope: !38, file: !10, line: 6, type: !13)
+!41 = !DILocalVariable(name: "b", arg: 2, scope: !38, file: !10, line: 6, type: !13)
+!42 = !DILocation(line: 6, scope: !38)
+!43 = !DILocation(line: 7, scope: !38)
+!44 = !DILocation(line: 8, scope: !38)

@@ -34,9 +34,6 @@ namespace intel {
   bool DuplicateCalledKernels::runOnModule(Module &M) {
     using namespace Intel::MetadataAPI;
 
-    DebugInfoFinder finder;
-    finder.processModule(M);
-
     bool changed = false;
     for(auto pFunc : KernelList(&M)) {
       bool isCalledKernel = false;
