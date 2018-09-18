@@ -432,14 +432,17 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
-          improveAliasForOutlinedFunc(W);
-          // Privatization is enabled for both Prepare and Transform passes
-          Changed |= genPrivatizationCode(W);
-          Changed |= genFirstPrivatizationCode(W);
-          Changed |= genReductionCode(W);
-          Changed |= genCancellationBranchingCode(W);
-          Changed |= genDestructorCode(W);
-          Changed |= genMultiThreadedCode(W);
+          if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()) ||
+              !hasOffloadCompilation()) {
+            improveAliasForOutlinedFunc(W);
+            // Privatization is enabled for both Prepare and Transform passes
+            Changed |= genPrivatizationCode(W);
+            Changed |= genFirstPrivatizationCode(W);
+            Changed |= genReductionCode(W);
+            Changed |= genCancellationBranchingCode(W);
+            Changed |= genDestructorCode(W);
+            Changed |= genMultiThreadedCode(W);
+          }
           RemoveDirectives = true;
         }
         break;
@@ -1043,18 +1046,19 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
   assert(isa<AllocaInst>(RedI->getNew()) &&
          "genReductionFini: Expect non-empty alloca instruction.");
   AllocaInst *NewAI = cast<AllocaInst>(RedI->getNew());
-  Type *AllocaTy = NewAI->getAllocatedType();
-  Type *ScalarTy = AllocaTy->getScalarType();
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (RedI->getIsArraySection() || !AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
+  if (RedI->getIsArraySection() ||
+      NewAI->getAllocatedType()->isArrayTy())
     genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false, DT);
-  } else {
+  else {
+    assert(VPOUtils::canBeRegisterized(NewAI->getAllocatedType(),
+                                       NewAI->getModule()->getDataLayout()) &&
+           "genReductionFini: Expect incoming scalar type.");
     LoadInst *OldLoad = Builder.CreateLoad(OldV);
     LoadInst *NewLoad = Builder.CreateLoad(NewAI);
+    Type *ScalarTy = NewAI->getAllocatedType()->getScalarType();
+
     genReductionScalarFini(RedI, OldLoad, NewLoad, OldV, ScalarTy, Builder);
   }
 }
@@ -1246,7 +1250,7 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   if (Function *Cctor = FprivI->getCopyConstructor())
     VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(),
                                            FprivI->getOrig(), InsertPt);
-  else if (VPOUtils::isNotLegalSingleValueType(AI))
+  else if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL))
     VPOUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
                         InsertPt->getParent());
   else {
@@ -1280,7 +1284,7 @@ void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (VPOUtils::isNotLegalSingleValueType(AI))
+  if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL))
     VPOUtils::genMemcpy(OldV, AI, DL, AI->getAlignment(),
                         InsertPt->getParent());
   else {
@@ -1323,14 +1327,15 @@ void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
   AllocaInst *AI = cast<AllocaInst>(RedI->getNew());
   Type *AllocaTy = AI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
-  if (RedI->getIsArraySection() || !AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
+  if (RedI->getIsArraySection() ||
+      AI->getAllocatedType()->isArrayTy())
     genRedAggregateInitOrFini(RedI, AI, nullptr, InsertPt, true, DT);
-  } else {
+  else {
+    assert(VPOUtils::canBeRegisterized(AI->getAllocatedType(),
+           InsertPt->getModule()->getDataLayout()) &&
+           "genReductionInit: Expect incoming scalar type.");
     Value *V = genReductionScalarInit(RedI, ScalarTy);
     Builder.CreateStore(V, AI);
   }
@@ -2626,7 +2631,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           const DataLayout &DL = AI->getModule()->getDataLayout();
           // The compiler creates the stack space for the local vars. Thus
           // the data needs to be copied from the thunk to the local vars.
-          if (VPOUtils::isNotLegalSingleValueType(AI)) {
+          if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL)) {
             VPOUtils::genMemcpy(AI, PrivI->getNew(), DL, AI->getAlignment(),
                                 EntryBB);
             VPOUtils::genMemcpy(PrivI->getNew(), AI, DL, AI->getAlignment(),

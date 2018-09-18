@@ -996,15 +996,24 @@ Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
                                                       BasicBlock *NextExitBB,
                                                       Item *IT) {
   G->setTargetDeclare(true);
-  auto NewPrivInst =
-      genPrivatizationAlloca(W, G, EntryBB->getFirstNonPHI(), ".priv.mp");
+  Instruction *InsertPt = EntryBB->getFirstNonPHI();
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  auto NewPrivInst = genPrivatizationAlloca(W, G, InsertPt, ".priv.mp");
   genPrivatizationReplacement(W, G, NewPrivInst, IT);
-  LoadInst *Load = new LoadInst(G);
-  Load->insertAfter(cast<Instruction>(NewPrivInst));
-  StoreInst *Store = new StoreInst(Load, NewPrivInst);
-  Store->insertAfter(Load);
-  IRBuilder<> Builder(NextExitBB->getTerminator());
-  Builder.CreateStore(Builder.CreateLoad(NewPrivInst), G);
+
+  if (!VPOUtils::canBeRegisterized(NewPrivInst->getAllocatedType(), DL)) {
+    VPOUtils::genMemcpy(NewPrivInst, G, DL, NewPrivInst->getAlignment(),
+                        InsertPt->getParent());
+    VPOUtils::genMemcpy(G, NewPrivInst, DL, NewPrivInst->getAlignment(),
+                        NextExitBB);
+  } else {
+    LoadInst *Load = new LoadInst(G);
+    Load->insertAfter(cast<Instruction>(NewPrivInst));
+    StoreInst *Store = new StoreInst(Load, NewPrivInst);
+    Store->insertAfter(Load);
+    IRBuilder<> Builder(NextExitBB->getTerminator());
+    Builder.CreateStore(Builder.CreateLoad(NewPrivInst), G);
+  }
   return NewPrivInst;
 }
 

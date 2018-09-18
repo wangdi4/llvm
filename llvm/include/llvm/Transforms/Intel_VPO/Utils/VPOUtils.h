@@ -122,10 +122,9 @@ public:
   static void stripDebugInfoInstrinsics(Function &F);
 
   /// Copy data from the \p Source to the \p Destination.
-  static void genCopyFromSrcToDst(Type *AllocaTy, const DataLayout &DL,
-                                  IRBuilder<> &Builder, AllocaInst *NewPrivInst,
-                                  Value *Source, Value *Destination,
-                                  BasicBlock *InsertBB);
+  static void genCopyFromSrcToDst(AllocaInst *AI, IRBuilder<> &Builder,
+                                  AllocaInst *NewPrivInst, Value *Source,
+                                  Value *Destination, BasicBlock *InsertBB);
 
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
   static void genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
@@ -143,8 +142,8 @@ public:
   static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                              unsigned Align, BasicBlock *BB);
 
-  /// Return true if the type of AI instruction is not single vlaue type.
-  static bool isNotLegalSingleValueType(AllocaInst *AI);
+  /// Return true if the type can be registerized.
+  static bool canBeRegisterized(Type *ScalarTy, const DataLayout &DL);
 
   /// \name MultiVersioning Transformation
   /// @{
