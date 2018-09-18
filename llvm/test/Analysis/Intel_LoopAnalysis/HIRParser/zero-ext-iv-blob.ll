@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the zero extended IV of outer non-generable loop (%idxprom15) is parsed correctly.
-; CHECK: DO i1 = 0, sext.i32.i64((-1 + %N))
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %N))
 ; CHECK-NEXT: %0 = (%B)[%indvars.iv47][i1]
 ; CHECK-NEXT: %1 = (%C)[%indvars.iv47][i1]
 ; CHECK-NEXT: (%A)[%indvars.iv47][i1] = %0 + %1

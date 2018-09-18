@@ -12,11 +12,11 @@
 ; CHECK: |   {
 ; CHECK: |      (%ka)[0] = -1 * i1 + 80;
 ; CHECK: |
-; CHECK: |      + DO i2 = 0, i1 + -42, 1   <DO_LOOP>
+; CHECK: |      + DO i2 = 0, i1 + -42, 1   <DO_LOOP>  <MAX_TC_EST = 37>
 ; CHECK: |      |   %13 = zext.i32.i64(i2 + -1);
 ; CHECK: |      |   %inc.lcssa80 = -1 * i1 + 80;
 ; CHECK: |      |
-; CHECK: |      |   + DO i3 = 0, i2 + -1, 1   <DO_LOOP>
+; CHECK: |      |   + DO i3 = 0, %13, 1   <DO_LOOP>
 ; CHECK: |      |   |   (%qu)[0][-1 * i1 + i3 + 81] = -1 * i1 + i2 + 80;
 ; CHECK: |      |   |   %16 = (%qu)[0][-1 * i1 + i3 + 80];
 ; CHECK: |      |   |   %17 = (%qu)[0][-1 * i1 + i3 + 79];

@@ -11,7 +11,7 @@
 ; CHECK: |   %13 = (%12)[i1 + %input_row];
 ; CHECK: |
 ; CHECK: |      %14 = (%output_buf)[i1];
-; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %2)), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %2)), 1   <DO_LOOP>
 ; CHECK: |   |   %15 = (%9)[i2];
 ; CHECK: |   |   %16 = (%11)[i2];
 ; CHECK: |   |   %17 = (%13)[i2];

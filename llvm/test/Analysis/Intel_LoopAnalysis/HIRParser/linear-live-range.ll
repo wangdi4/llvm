@@ -16,32 +16,34 @@
 ;    }
 ;  }
 
-; CHECK:      + DO i1 = 0, 56, 1   <DO_LOOP>
-; CHECK-NEXT: |      %fs.promoted = (%fs)[0];
-; CHECK-NEXT: |      %add21136 = %fs.promoted;
-; CHECK-NEXT: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>
-; CHECK-NEXT: |   |   %5 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
-; CHECK-NEXT: |   |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %5;
-; CHECK-NEXT: |   |   %6 = (%n)[0][-1 * i1 + i2 + 58];
-; CHECK-NEXT: |   |   %add21136 = -1 * i1 + i2 + %6 + 58  +  %add21136;
-; CHECK-NEXT: |   + END LOOP
-; CHECK-NEXT: |      (%fs)[0] = %add21136;
-; CHECK-NEXT: |
-; CHECK-NEXT: |
-; CHECK-NEXT: |      %arrayidx35.promoted = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57];
-; CHECK-NEXT: |      %n1.promoted = (%n1)[0];
-; CHECK-NEXT: |      %8 = %arrayidx35.promoted;
-; CHECK-NEXT: |   + DO i2 = 0, i1 + -54, 1   <DO_LOOP>
-; CHECK-NEXT: |   |   %10 = (%ep)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 57];
-; CHECK-NEXT: |   |   %8 = %8  +  %10;
-; CHECK-NEXT: |   |   (%a)[0][-1 * i1 + i2 + 58] = -1 * i2 + %n1.promoted;
-; CHECK-NEXT: |   |   %11 = (%x)[0][-1 * i1 + i2 + 58];
-; CHECK-NEXT: |   |   %12 = (%s7)[0][-1 * i1 + i2 + 57];
-; CHECK-NEXT: |   |   (%s7)[0][-1 * i1 + i2 + 57] = -1 * %11 + %12;
-; CHECK-NEXT: |   + END LOOP
-; CHECK-NEXT: |      (%ti)[0][-1 * i1 + 57][-1 * i1 + 57] = %8;
-; CHECK-NEXT: |      (%n1)[0] = -1 * i1 + %n1.promoted + 53;
-; CHECK-NEXT: + END LOOP
+; CHECK: + DO i1 = 0, 56, 1   <DO_LOOP>
+; CHECK: |   %1 = zext.i32.i64(i1 + -54);
+; CHECK: |
+; CHECK: |      %fs.promoted = (%fs)[0];
+; CHECK: |      %add21136 = %fs.promoted;
+; CHECK: |   + DO i2 = 0, %1, 1   <DO_LOOP>
+; CHECK: |   |   %5 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57];
+; CHECK: |   |   (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %5;
+; CHECK: |   |   %6 = (%n)[0][-1 * i1 + i2 + 58];
+; CHECK: |   |   %add21136 = -1 * i1 + i2 + %6 + 58  +  %add21136;
+; CHECK: |   + END LOOP
+; CHECK: |      (%fs)[0] = %add21136;
+; CHECK: |
+; CHECK: |
+; CHECK: |      %arrayidx35.promoted = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57];
+; CHECK: |      %n1.promoted = (%n1)[0];
+; CHECK: |      %8 = %arrayidx35.promoted;
+; CHECK: |   + DO i2 = 0, %1, 1   <DO_LOOP>
+; CHECK: |   |   %10 = (%ep)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 57];
+; CHECK: |   |   %8 = %8  +  %10;
+; CHECK: |   |   (%a)[0][-1 * i1 + i2 + 58] = -1 * i2 + %n1.promoted;
+; CHECK: |   |   %11 = (%x)[0][-1 * i1 + i2 + 58];
+; CHECK: |   |   %12 = (%s7)[0][-1 * i1 + i2 + 57];
+; CHECK: |   |   (%s7)[0][-1 * i1 + i2 + 57] = -1 * %11 + %12;
+; CHECK: |   + END LOOP
+; CHECK: |      (%ti)[0][-1 * i1 + 57][-1 * i1 + 57] = %8;
+; CHECK: |      (%n1)[0] = -1 * i1 + %n1.promoted + 53;
+; CHECK: + END LOOP
 
 
 ; ModuleID = 't47.c'

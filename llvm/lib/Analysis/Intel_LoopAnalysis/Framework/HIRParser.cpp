@@ -2242,8 +2242,18 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref, unsigned Level) {
   }
 }
 
+static bool isKnownNonNegativeForLoop(ScalarEvolution &SE, const Loop *Lp,
+                                      const SCEV *SC) {
+  if (SE.isKnownNonNegative(SC)) {
+    return true;
+  }
+
+  return SE.isLoopEntryGuardedByCond(Lp, ICmpInst::ICMP_SGE, SC,
+                                     SE.getZero(SC->getType()));
+}
+
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
-                                      Type *IVType, bool IsNSW) {
+                                      Type *IVType, const Loop *Lp) {
   const Value *Val;
   unsigned Symbase = 0;
   clearTempBlobLevelMap();
@@ -2270,8 +2280,16 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   if (!BETCType->isPointerTy() && (BETCType != IVType)) {
 
     if (IVType->getPrimitiveSizeInBits() > BETCType->getPrimitiveSizeInBits()) {
-      BETC = IsNSW ? SE.getSignExtendExpr(BETC, IVType)
-                   : SE.getZeroExtendExpr(BETC, IVType);
+      // isKnownNonNegativeForLoop() check is not powerful enought to work for
+      // triangular loops where backedge depends on outer loop IV but this
+      // should not be a problem because induction variable simplification pass
+      // seems to extend the loop upper along with the IV. Previously, it was
+      // truncating the extended IV to compare it with the loop upper. Some of
+      // the lit tests using the old setup needed to be changed. Since zperf run
+      // showed no degradations I am leaving this as a TODO.
+      BETC = isKnownNonNegativeForLoop(SE, Lp, BETC)
+                 ? SE.getSignExtendExpr(BETC, IVType)
+                 : SE.getZeroExtendExpr(BETC, IVType);
     } else {
       BETC = SE.getTruncateExpr(BETC, IVType);
     }
@@ -2337,7 +2355,7 @@ void HIRParser::parse(HLLoop *HLoop) {
   bool IsUnknown = isa<SCEVCouldNotCompute>(BETC);
 
   if (!IsUnknown) {
-    auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType, HLoop->isNSW());
+    auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType, Lp);
 
     if (!UpperRef) {
       // Parsing for upper failed. Treat loop as unknown as a backup option.
