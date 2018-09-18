@@ -67,6 +67,47 @@ using namespace llvm;
 
 namespace {
 
+// Check to see if the specified name ends with a suffix consisting of a '.'
+// and one or more digits. If it does, return the name without the suffix.
+// If not, return the name as is.
+//
+// We're looking for types that have the same name except for an appended
+// suffix, like this:
+//
+//   %struct.A = type {...}
+//   %struct.A.123 = type {...}
+//   %struct.A.456 = type {...}
+//   %struct.A.2.789 = type {...}
+//
+// However, we don't want to attempt to match types like this:
+//
+//   %struct.CO = type {...}
+//   %struct.CO2 = type {...}
+//
+// So we start by trimming trailing numbers, then look for and trim a
+// single '.', and repeat this as long as we trimmed something and found
+// a trailing '.'.
+StringRef getTypeBaseName(StringRef TyName) {
+  StringRef RefName = TyName;
+  StringRef BaseName = TyName.rtrim("0123456789");
+  while (RefName.size() != BaseName.size()) {
+    if (!BaseName.endswith("."))
+      return RefName;
+    RefName = BaseName.drop_back(1);
+    BaseName = RefName.rtrim("0123456789");
+  }
+  return RefName;
+}
+
+bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB) {
+  if (!StTyA->hasName() && !StTyB->hasName())
+    return true;
+  if (!StTyA->hasName() || !StTyB->hasName())
+    return false;
+  return getTypeBaseName(StTyA->getName())
+      .equals(getTypeBaseName(StTyB->getName()));
+}
+
 class DTransResolveTypesWrapper : public ModulePass {
 private:
   dtrans::ResolveTypesPass Impl;
@@ -113,6 +154,11 @@ private:
   // A mapping from the original structure type to the new structure type
   DenseMap<StructType *, StructType *> OrigToNewTypeMapping;
 
+  // A second mapping that lets us distinguish between types that we remapped
+  // because another type was mapped to them and types that are being
+  // remapped because we are merging them with another type.
+  DenseMap<StructType *, StructType *> IdentityDestMapping;
+
   enum CompareResult {
     Equivalent, // The types have equivalent members in every field
     Compatible, // The types are equivalent except for pointer types of members
@@ -125,9 +171,11 @@ private:
                      DenseSet<std::pair<Type *, Type *>> &TypesSeen);
   bool tryToMapTypes(StructType *TyA, StructType *TyB,
                      EquivalenceClasses<StructType *> &CompatSets);
+  void collectDependentTypeMappings(
+      StructType *SrcTy, StructType *DestTy,
+      DenseSet<std::pair<StructType *, StructType *>> &DependentMappings);
   void addTypeMapping(StructType *SrcTy, StructType *DestTy);
-  bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB);
-  StringRef getTypeBaseName(StringRef TyName);
+  bool hasBeenRemapped(StructType *Ty);
 };
 
 // This class analyzes all globals and functions in the module to see if any
@@ -170,6 +218,82 @@ public:
   void run() {
     visitModule(M);
     DEBUG_WITH_TYPE(DTRT_COMPAT, dumpCollectedData());
+  }
+
+  // Apply a heuristic to determine what type the specified type should be
+  // remapped to and return a pointer to that type. If the heuristic determines
+  // that the type should not be remapped, this function will return a pointer
+  // to the original type.
+  //
+  // The heuristic is basically this: if a type was seen to be implicitly
+  // bitcast to another structure type via a bitcast at a function call site
+  // and there are no conflicting fields between the two types that are
+  // accessed by the source type then the source type should be remapped to the
+  // destination type.
+  //
+  // In some cases there may be a bitcast chain, where A is cast to B and B is
+  // cast to C. In those cases we will continue to follow the bitcast chain
+  // as long as the conditions above are met.
+  StructType *getRemapCandidate(StructType *Ty) {
+    unsigned NumElements = Ty->getNumElements();
+    const TypeUseInfo &CurUseInfo = TypeUseInfoMap[Ty];
+    SmallPtrSet<StructType *, 4> VisitedTypes;
+
+    // If the type is accessed by a non-constant GEP, don't remap it.
+    if (CurUseInfo.HasNonConstantIndexAccess)
+      return Ty;
+
+    // Follow the chain of function bitcasts as long as there is
+    // only one destination and the destination doesn't have an access
+    // that conflicts with any fields that have been accessed by any
+    // type that previously appeared in the chain.
+    auto *MapToTy = Ty;
+    VisitedTypes.insert(Ty);
+    SmallBitVector FieldsUsed(CurUseInfo.NonScalarFieldsUsed); // Copy
+    auto *FnBitcastToSet = &(TypeUseInfoMap[MapToTy].FnBitcastToSet);
+    while (FnBitcastToSet->size() == 1) {
+      auto *MaybeTy = dyn_cast<StructType>(*(FnBitcastToSet->begin()));
+      if (!MaybeTy)
+        break;
+
+      if (!VisitedTypes.insert(MaybeTy).second) {
+        DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                        dbgs() << "DTRT-compat: Rejecting mapping of "
+                               << Ty->getName()
+                               << " because of a circular bitcast chain.\n");
+        return Ty;
+      }
+
+      const TypeUseInfo &MaybeUseInfo = TypeUseInfoMap[MaybeTy];
+
+      assert((NumElements == MaybeTy->getNumElements()) &&
+             "Compatible types found with mismatch element count!");
+      SmallBitVector ConflictingFields(NumElements);
+      // TODO: We should be checking for remapped equivalent types here.
+      for (unsigned Idx = 0; Idx < NumElements; ++Idx)
+        if (MaybeTy->getElementType(Idx) != Ty->getElementType(Idx))
+          ConflictingFields.set(Idx);
+
+      // If any of the previous types in the chain were used to access any
+      // of the fields that are in conflict, we can't use this mapping.
+      if (FieldsUsed.anyCommon(ConflictingFields)) {
+        DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                        dbgs() << "DTRT-compat: Rejecting mapping ("
+                               << Ty->getName() << " -> " << MaybeTy->getName()
+                               << " because of conflicting field access.\n");
+        break;
+      }
+
+      // If the type is accessed by a non-constant GEP, don't remap past it.
+      if (MaybeUseInfo.HasNonConstantIndexAccess)
+        break;
+
+      MapToTy = MaybeTy;
+      FieldsUsed |= MaybeUseInfo.NonScalarFieldsUsed;
+      FnBitcastToSet = &(TypeUseInfoMap[MapToTy].FnBitcastToSet);
+    }
+
+    return MapToTy;
   }
 
   // Here we look at the global variables and aliases in the module to
@@ -260,15 +384,15 @@ public:
           // the %struct.A.1* value to %struct.A*, so the SrcTy and DestTy
           // are mapped here in the opposite way of what their names
           // might suggest.
-          recordTypeCasting(DestFnTy->getReturnType(),
-                            SrcFnTy->getReturnType());
+          recordTypeCasting(DestFnTy->getReturnType(), SrcFnTy->getReturnType(),
+                            /*IsCall*/ true);
           // Don't assume that both function types have the same number of
           // parameters.
           unsigned MinArgs =
               std::min(DestFnTy->getNumParams(), SrcFnTy->getNumParams());
           for (unsigned Idx = 0; Idx < MinArgs; ++Idx)
             recordTypeCasting(DestFnTy->getParamType(Idx),
-                              SrcFnTy->getParamType(Idx));
+                              SrcFnTy->getParamType(Idx), /*IsCall=*/true);
           DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
                           dbgs() << "DTRT-compt: visiting call with bitcast"
                                  << *(CS.getInstruction()) << "\n");
@@ -295,6 +419,7 @@ private:
     //
     // i.e. We saw a bitcast from the TypeUseInfoType *to* the set entry type.
     SmallPtrSet<Type *, 4> BitcastToSet;
+    SmallPtrSet<Type *, 4> FnBitcastToSet;
 
     // Each type in this set is a type that was seen as the source of
     // a bitcast (or implicit conversion in a bitcast call) to the type
@@ -302,6 +427,7 @@ private:
     //
     // i.e. We saw a bitcast *from* the set entry type to the TypeUseInfo type.
     SmallPtrSet<Type *, 4> BitcastFromSet;
+    SmallPtrSet<Type *, 4> FnBitcastFromSet;
 
     // This value indicates whether or not we saw a GEP access to the type
     // using a non-constant index.
@@ -422,6 +548,43 @@ private:
           }
         }
 
+        dbgs() << "  Fn Bitcast to:";
+        SmallPtrSetImpl<Type *> &FnCastTo = UseInfo.FnBitcastToSet;
+        if (FnCastTo.empty()) {
+          dbgs() << " None\n";
+        } else {
+          dbgs() << "\n";
+          for (auto *DestTy : FnCastTo) {
+            auto *DST = dyn_cast<StructType>(DestTy);
+            if (DST && DST->hasName())
+              dbgs() << "    " << DST->getName() << "\n";
+            else
+              dbgs() << "    " << *DestTy << "\n";
+          }
+        }
+
+        dbgs() << "  Fn Bitcast from:";
+        SmallPtrSetImpl<Type *> &FnCastFrom = UseInfo.FnBitcastFromSet;
+        if (FnCastFrom.empty()) {
+          dbgs() << " None\n";
+        } else {
+          dbgs() << "\n";
+          for (auto *SrcTy : FnCastFrom) {
+            auto *SST = dyn_cast<StructType>(SrcTy);
+            if (SST && SST->hasName())
+              dbgs() << "    " << SST->getName() << "\n";
+            else
+              dbgs() << "    " << *SrcTy << "\n";
+          }
+        }
+
+        StructType *RemapCandidateTy = getRemapCandidate(Ty);
+        if (RemapCandidateTy == Ty)
+          dbgs() << "  Type cannot be remapped.\n";
+        else
+          dbgs() << "  Type can be remapped to " << RemapCandidateTy->getName()
+                 << "\n";
+
         dbgs() << "\n";
         ++MI;
       }
@@ -538,7 +701,7 @@ private:
       SrcTy = SrcTy->getPointerElementType();
       DestTy = DestTy->getPointerElementType();
     }
-    recordTypeCasting(SrcTy, DestTy);
+    recordTypeCasting(SrcTy, DestTy, /*IsCall=*/false);
     DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
                     dbgs() << "DTRT-compt: visiting bitcast" << Cast << "\n");
   }
@@ -546,7 +709,7 @@ private:
   // This function records type casts that result either from a bitcast
   // instruction, a bitcast operator acting on a global variable, or a
   // bitcast operator at a call site.
-  void recordTypeCasting(Type *SrcTy, Type *DestTy) {
+  void recordTypeCasting(Type *SrcTy, Type *DestTy, bool IsCall) {
     // Function bitcasts will often involve identical types at one or more
     // position. We can safely ignore those.
     if (SrcTy == DestTy)
@@ -569,6 +732,9 @@ private:
       }
     }
 
+    // If SrcTy != DestTy, how could the code above get us here?
+    assert(SrcBaseTy != DestBaseTy);
+
     // A cast from a structure pointer to an i8* or vice versa isn't
     // interesting. We've already peeled the pointers, so here we just
     // look for i8.
@@ -582,10 +748,20 @@ private:
                << "    From: " << *SrcBaseTy << "\n"
                << "    To  : " << *DestBaseTy << "\n";
     });
-    if (isTypeOfInterest(SrcBaseTy))
-      TypeUseInfoMap[SrcBaseTy].BitcastToSet.insert(DestBaseTy);
-    if (isTypeOfInterest(DestBaseTy))
-      TypeUseInfoMap[DestBaseTy].BitcastFromSet.insert(SrcBaseTy);
+    if (isTypeOfInterest(SrcBaseTy)) {
+      if (IsCall) {
+        TypeUseInfoMap[SrcBaseTy].FnBitcastToSet.insert(DestBaseTy);
+      } else {
+        TypeUseInfoMap[SrcBaseTy].BitcastToSet.insert(DestBaseTy);
+      }
+    }
+    if (isTypeOfInterest(DestBaseTy)) {
+      if (IsCall) {
+        TypeUseInfoMap[DestBaseTy].FnBitcastFromSet.insert(SrcBaseTy);
+      } else {
+        TypeUseInfoMap[DestBaseTy].BitcastFromSet.insert(SrcBaseTy);
+      }
+    }
   }
 
   // This function looks at the SrcTy and DestTy to see if DestTy matches
@@ -628,37 +804,6 @@ ModulePass *llvm::createDTransResolveTypesWrapperPass() {
   return new DTransResolveTypesWrapper();
 }
 
-// Check to see if the specified name ends with a suffix consisting of a '.'
-// and one or more digits. If it does, return the name without the suffix.
-// If not, return the name as is.
-//
-// We're looking for types that have the same name except for an appended
-// suffix, like this:
-//
-//   %struct.A = type {...}
-//   %struct.A.123 = type {...}
-//   %struct.A.456 = type {...}
-//   %struct.A.2.789 = type {...}
-//
-// However, we don't want to attempt to match types like this:
-//
-//   %struct.CO = type {...}
-//   %struct.CO2 = type {...}
-//
-// So we start by trimming trailing numbers, then look for and trim a
-// single '.', and repeat this as long as we trimmed something and found
-// a trailing '.'.
-StringRef ResolveTypesImpl::getTypeBaseName(StringRef TyName) {
-  StringRef RefName = TyName;
-  StringRef BaseName = TyName.rtrim("0123456789");
-  while (RefName.size() != BaseName.size()) {
-    if (!BaseName.endswith("."))
-      return RefName;
-    RefName = BaseName.drop_back(1);
-    BaseName = RefName.rtrim("0123456789");
-  }
-  return RefName;
-}
 
 // This function walks over the structure types in the specified module and
 // identifies types which we would like to remap to one another. At this point
@@ -811,7 +956,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
   // the base type or any other type from the set we have previously considered.
   // If it is not equivalent to any of these, it will be added to the set of
   // alternatives.
-  bool DuplicateTypeFound = false;
+  bool TypesRemapped = false;
   EquivalenceClasses<StructType *> CompatibleTypes;
   for (auto Entry : CandidateTypeSets) {
     StructType *BaseTy = Entry.first;
@@ -828,7 +973,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     SmallVector<StructType *, 4> Alternates;
     for (auto *CandTy : CandTypes) {
       if (tryToMapTypes(BaseTy, CandTy, CompatibleTypes)) {
-        DuplicateTypeFound = true;
+        TypesRemapped = true;
         continue;
       }
       DEBUG_WITH_TYPE(DTRT_VERBOSE,
@@ -846,7 +991,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
                                  << "    Base: " << *AltTy << "\n"
                                  << "    Cand: " << *CandTy << "\n");
           AltMatchFound = true;
-          DuplicateTypeFound = true;
+          TypesRemapped = true;
           break;
         }
       }
@@ -861,10 +1006,133 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
   if (CompatibleTypes.getNumClasses()) {
     CompatibleTypeAnalyzer CTA(M, CompatibleTypes);
     CTA.run();
+
+    for (EquivalenceClasses<StructType *>::iterator I = CompatibleTypes.begin(),
+                                                    E = CompatibleTypes.end();
+         I != E; ++I) {
+      if (!I->isLeader())
+        continue; // Skip over non-leader sets.
+      for (auto MI = CompatibleTypes.member_begin(I),
+                ME = CompatibleTypes.member_end();
+           MI != ME; ++MI) {
+        auto *Ty = *MI;
+
+        // If we've already mapped this type, don't try to map it to something
+        // different.
+        if (OrigToNewTypeMapping.count(Ty)) {
+          DEBUG_WITH_TYPE(DTRT_COMPAT, {
+            auto *RemapTy = CTA.getRemapCandidate(Ty);
+            if (Ty != RemapTy)
+              dbgs() << "Not remapping " << Ty->getName() << " -> "
+                     << RemapTy->getName()
+                     << " because the source was previously remapped to:\n"
+                     << "   " << OrigToNewTypeMapping[Ty]->getName() << "\n";
+          });
+          continue;
+        }
+
+        // Try a heuristic to see if we think this type should be remapped.
+        auto *RemapTy = CTA.getRemapCandidate(Ty);
+        if (Ty == RemapTy)
+          continue;
+
+        // In order to remap these types, we need to perform the same
+        // direction remapping of all nested types. Make sure that's possible
+        // before we start.
+
+        // If the candidate type has been remapped, don't use it because the
+        // heuristic only verifies this one type.
+        if (hasBeenRemapped(RemapTy)) {
+          DEBUG_WITH_TYPE(DTRT_COMPAT,
+                          dbgs() << "Not remapping " << Ty->getName() << " -> "
+                                 << RemapTy->getName() << " because the "
+                                 << "destination was previously remapped.\n");
+          continue;
+        }
+
+        // If the source type has been mapped, don't map it again.
+        if (OrigToNewTypeMapping.count(Ty))
+          continue;
+
+        // Otherwise, try to apply the mapping.
+        addTypeMapping(Ty, RemapTy);
+        TypesRemapped = true;
+      }
+    }
     // TODO: Use the CompatibleTypeAnalyzer data to select types to map.
   }
 
-  return DuplicateTypeFound;
+  return TypesRemapped;
+}
+
+// This function walks the members of two types that we would like to remap
+// and collects the other mappings that would need to occur to make this
+// possible.
+//
+// TODO: Combine this with other functions that have very similar logic.
+void ResolveTypesImpl::collectDependentTypeMappings(
+    StructType *SrcTy, StructType *DestTy,
+    DenseSet<std::pair<StructType *, StructType *>> &DependentMappings) {
+  if (SrcTy == DestTy)
+    return;
+
+  assert(SrcTy && DestTy &&
+         "collectDependentTypeMappings() called with nullptr!");
+
+  // If we've seen this pair before, don't continue collecting.
+  if (!DependentMappings.insert(std::make_pair(SrcTy, DestTy)).second)
+    return;
+
+  // llvm::Type provides a check for trivial equivalence. Test that.
+  // If the layouts are identical, there will be nothing more to remap.
+  if (SrcTy->isLayoutIdentical(DestTy))
+    return;
+
+  // If the source type has already been remapped, we can stop here.
+  // If it was remapped to something other than DestTy, we'll detect that
+  // before we try to remap and the remapping will be blocked.
+  if (OrigToNewTypeMapping.count(SrcTy))
+    return;
+
+  // Otherwise, look at the members.
+  unsigned NumElements = SrcTy->getNumElements();
+  assert(DestTy->getNumElements() == NumElements &&
+         "collectDependentTypeMappings() called with different size types!");
+  for (unsigned i = 0; i < NumElements; ++i) {
+    Type *SrcElemTy = SrcTy->getElementType(i);
+    Type *DestElemTy = DestTy->getElementType(i);
+
+    // If the elements are the same type, they won't be changed by remapping.
+    if (SrcElemTy == DestElemTy)
+      continue;
+
+    // Unwrap pointer, vector and array types. We aren't using unwrapType()
+    // here because we need to be sure the elements have the same level of
+    // pointer/vector/array nesting.
+    Type *SrcBaseTy = SrcElemTy;
+    Type *DestBaseTy = DestElemTy;
+    while ((SrcBaseTy->isPointerTy() && DestBaseTy->isPointerTy()) ||
+           (SrcBaseTy->isArrayTy() && DestBaseTy->isArrayTy()) ||
+           (SrcBaseTy->isVectorTy() && DestBaseTy->isVectorTy())) {
+      if (SrcBaseTy->isPointerTy()) {
+        SrcBaseTy = SrcBaseTy->getPointerElementType();
+        DestBaseTy = DestBaseTy->getPointerElementType();
+      } else {
+        SrcBaseTy = SrcBaseTy->getSequentialElementType();
+        DestBaseTy = DestBaseTy->getSequentialElementType();
+      }
+    }
+    assert(SrcBaseTy != DestBaseTy &&
+           "Distinct types unwrapped to the same base type??");
+
+    // These must be structs or we wouldn't have attempted the mapping.
+    auto *SrcElemST = cast<StructType>(SrcBaseTy);
+    auto *DestElemST = cast<StructType>(DestBaseTy);
+
+    // Otherwise, collect mappings from the elements of these types.
+    return collectDependentTypeMappings(SrcElemST, DestElemST,
+                                        DependentMappings);
+  }
 }
 
 // This function fills in the body of types that we previously created for
@@ -873,7 +1141,7 @@ void ResolveTypesImpl::populateTypes(Module &M) {
   // We will have multiple original types mapped to the same replacement
   // type, so we need to check as we process this map to see if the type
   // already has a body.
-  for (auto &ONPair : OrigToNewTypeMapping) {
+  for (auto &ONPair : IdentityDestMapping) {
     StructType *OrigTy = ONPair.first;
     StructType *ReplTy = ONPair.second;
 
@@ -900,6 +1168,18 @@ void ResolveTypesImpl::populateTypes(Module &M) {
   }
 }
 
+// This function determines whether or not a type has been remapped to
+// a substantively different type. When a type is used as the destination of
+// a mapping, we create a new opaque type to replace the original destination
+// since it might require updates because of type dependencies. However, this
+// function distinguishes between a type that has been remapped for that reason
+// and a type that was actually remapped to a different type.
+bool ResolveTypesImpl::hasBeenRemapped(StructType *Ty) {
+  if (IdentityDestMapping.count(Ty))
+    return (IdentityDestMapping[Ty] != OrigToNewTypeMapping[Ty]);
+  return OrigToNewTypeMapping.count(Ty);
+}
+
 // This function wraps our TypeRemapper's addTypeMapping function so that we
 // can provide a remapping of both SrcTy and DestTy.
 void ResolveTypesImpl::addTypeMapping(StructType *SrcTy, StructType *DestTy) {
@@ -917,11 +1197,14 @@ void ResolveTypesImpl::addTypeMapping(StructType *SrcTy, StructType *DestTy) {
         Context, (Twine("__DTRT_" + DestTy->getName()).str()));
     TypeRemapper->addTypeMapping(DestTy, ActualDestTy);
     OrigToNewTypeMapping[DestTy] = ActualDestTy;
+    IdentityDestMapping[DestTy] = ActualDestTy;
   }
   LLVM_DEBUG(dbgs() << "resolve-types: Mapping " << SrcTy->getName() << " -> "
                     << ActualDestTy->getName() << "\n    " << *SrcTy << "\n    "
                     << *ActualDestTy << "\n");
   TypeRemapper->addTypeMapping(SrcTy, ActualDestTy);
+  assert(!OrigToNewTypeMapping.count(SrcTy) &&
+         "Type mapping unexpectedly replaced!");
   OrigToNewTypeMapping[SrcTy] = ActualDestTy;
 }
 
@@ -1151,16 +1434,6 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
   if (ProvenNotEquivalent)
     return CompareResult::Compatible;
   return CompareResult::Equivalent;
-}
-
-bool ResolveTypesImpl::typesHaveSameBaseName(StructType *StTyA,
-                                             StructType *StTyB) {
-  if (!StTyA->hasName() && !StTyB->hasName())
-    return true;
-  if (!StTyA->hasName() || !StTyB->hasName())
-    return false;
-  return getTypeBaseName(StTyA->getName())
-      .equals(getTypeBaseName(StTyB->getName()));
 }
 
 bool dtrans::ResolveTypesPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,

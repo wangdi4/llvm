@@ -98,6 +98,16 @@
 ; CHECK-NOT: %struct.test08.77 = type { i32, i64, i32 }
 ; CHECK-NOT: %struct.test08.88 = type { i32, i64, i32 }
 
+; These types should all be combined.
+%struct.test09 = type { i32, i64, i32 }
+%struct.test09.1 = type { i32, i64, i32 }
+%struct.test09.2.3 = type { i32, i64, i32 }
+
+; CHECK-LABEL: %__DTRT_struct.test09 = type { i32, i64, i32 }
+; CHECK-NOT: %struct.test09 = type { i32, i64, i32 }
+; CHECK-NOT: %struct.test09.1 = type { i32, i64, i32 }
+; CHECK-NOT: %struct.test09.2.3 = type { i32, i64, i32 }
+
 ; The call interfaces are the important thing in the tests. We don't actually
 ; need to do anything with the elements.
 
@@ -376,6 +386,41 @@ define void @test08() {
 ; CHECK:  call void @test08_c.13(%__DTRT_struct.test08.77* %p2)
 ; CHECK:  call void @free(i8* %buf2)
 
+define void @test09_a(%struct.test09* %p) {
+  ret void
+}
+; CHECK-NOT: void @test09_a(%struct.test09* %p)
+
+define void @test09_b(%struct.test09.1* %p) {
+  ret void
+}
+; CHECK-NOT: void @test09_b(%struct.test09.1* %p)
+
+define void @test09_c(%struct.test09.2.3* %p) {
+  ret void
+}
+; CHECK-NOT: void @test09_c(%struct.test09.2.3* %p)
+
+define void @test09() {
+  %buf = call i8* @malloc(i32 16)
+  %p = bitcast i8* %buf to %struct.test09*
+  call void @test09_a(%struct.test09* %p)
+  call void bitcast (void (%struct.test09.1*)* @test09_b
+              to void (%struct.test09*)*) (%struct.test09* %p)
+  call void bitcast (void (%struct.test09.2.3*)* @test09_c
+              to void (%struct.test09*)*) (%struct.test09* %p)
+  call void @free(i8* %buf)
+  ret void
+}
+
+; CHECK-LABEL: void @test09()
+; CHECK:  %buf = call i8* @malloc(i32 16)
+; CHECK:  %p = bitcast i8* %buf to %__DTRT_struct.test09*
+; CHECK:  call void @test09_a.14(%__DTRT_struct.test09* %p)
+; CHECK:  call void @test09_b.15(%__DTRT_struct.test09* %p)
+; CHECK:  call void @test09_c.16(%__DTRT_struct.test09* %p)
+; CHECK:  call void @free(i8* %buf)
+
 define i32 @main(i32 %argc, i8** %argv) {
   call void @test01()
   call void @test02()
@@ -385,6 +430,7 @@ define i32 @main(i32 %argc, i8** %argv) {
   call void @test06()
   call void @test07()
   call void @test08()
+  call void @test09()
   ret i32 0
 }
 
@@ -418,3 +464,7 @@ declare void @free(i8*)
 
 ; CHECK-LABEL: void @test08_b.12(%__DTRT_struct.test08.77* %p)
 ; CHECK: void @test08_c.13(%__DTRT_struct.test08.77* %p)
+
+; CHECK-LABEL: void @test09_a.14(%__DTRT_struct.test09* %p)
+; CHECK: void @test09_b.15(%__DTRT_struct.test09* %p)
+; CHECK: void @test09_c.16(%__DTRT_struct.test09* %p)

@@ -1,6 +1,4 @@
-; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes \
-; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
-; REQUIRES: asserts
+; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
 
 ; This test is here to verify that compatible but not equivalent types are
 ; handled correctly. When that transformation is fully implemented this
@@ -29,6 +27,13 @@
 %struct.middle.1 = type { i32, i32, %struct.foo* }
 %struct.foo = type { i16, i16, i32 }
 
+; CHECK-NOT: %struct.outer
+; CHECK-DAG: %__DTRT_struct.outer.0 = type { i32, i32, %struct.middle.1* }
+; CHECK-DAG: %struct.middle = type { i32, i32, %struct.bar }
+; CHECK-DAG: %struct.bar = type { i32, i32 }
+; CHECK-DAG: %struct.middle.1 = type { i32, i32, %struct.foo* }
+; CHECK-DAG: %struct.foo = type { i16, i16, i32 }
+
 define void @f1(%struct.outer* %o) {
   call void bitcast (void (%struct.outer.0*)* @use_outer to void (%struct.outer*)*)(%struct.outer* %o)
   ret void
@@ -48,35 +53,16 @@ define void @use_outer(%struct.outer.0* %o) {
   ret void
 }
 
-; FIXME: The checks below are verifying debug output. When the transformation
-;        is fully implemented these should be replaced with checks of the
-;        actually corrected IR.
 
-; CHECK-LABEL: compareTypeMembers(struct.outer, struct.outer.0)
-; CHECK-NEXT: compareTypeMembers(struct.middle, struct.middle.1)
-; CHECK-NEXT: Element mismatch @ 2
-; CHECK-NEXT: Element member mismatch @ 2
-; CHECK-NEXT: All members equivalent or compatible.
-; CHECK-NEXT: resolve-types: Types are compatible.
-; CHECK-NEXT:    Base: %struct.outer = type { i32, i32, %struct.middle* }
-; CHECK-NEXT:    Cand: %struct.outer.0 = type { i32, i32, %struct.middle.1* }
-; CHECK-NEXT: resolve-types: Types are not equivalent.
-; CHECK-NEXT:    Base: %struct.outer = type { i32, i32, %struct.middle* }
-; CHECK-NEXT:    Cand: %struct.outer.0 = type { i32, i32, %struct.middle.1* }
+; These functions shouldn't be modified and will appear first.
 
-; CHECK-LABEL: DTRT-compat: Type data
-; CHECK: ===== Group =====
-; CHECK: %struct.outer = type { i32, i32, %struct.middle* }
-; CHECK:   Leader non-scalar fields accessed: None
+; CHECK-LABEL: define{{.+}}void @use_middle(%struct.middle* %m)
+; CHECK-LABEL: define{{.+}}void @use_bar(%struct.bar* %b)
 
-; CHECK: struct.outer
-; CHECK-NEXT:  Bitcast to:
-; CHECK-NEXT:    struct.outer.0
-; CHECK-NEXT:  Bitcast from:
-;
-; CHECK: struct.outer.0
-; CHECK-NEXT: %struct.outer.0 = type { i32, i32, %struct.middle.1* }
-; CHECK-NEXT:  Conflicting fields accessed: None
-; CHECK-NEXT:  Bitcast to: None
-; CHECK-NEXT:  Bitcast from:
-; CHECK-NEXT:    struct.outer
+
+; These functions will be cloned and appear at the end.
+
+; CHECK-LABEL: define{{.+}}void @f1.1(%__DTRT_struct.outer.0* %o)
+; CHECK: call void @use_outer.2(%__DTRT_struct.outer.0* %o)
+
+; CHECK-LABEL: define{{.+}}void @use_outer.2(%__DTRT_struct.outer.0* %o)
