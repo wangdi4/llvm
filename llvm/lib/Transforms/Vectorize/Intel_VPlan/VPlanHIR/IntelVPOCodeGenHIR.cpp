@@ -469,14 +469,6 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
-    // FIXME: With proper support from CG this bail-out is not needed.
-    if (TLval && TLval->isMemRef() && isUniform(TLval)) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Uniform store is not handled\n");
-      IsHandled = false;
-      return;
-    }
-
     if (const CallInst *Call = Inst->getCallInst()) {
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
@@ -1988,6 +1980,51 @@ void VPOCodeGenHIR::handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto) {
   }
 }
 
+HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
+  auto CurInst = INode->getLLVMInstruction();
+  const RegDDRef *Lval = INode->getLvalDDRef();
+  const RegDDRef *Rval = INode->getRvalDDRef();
+
+  assert(Lval && Rval && "Operand of store is null.");
+
+  LLVM_DEBUG(dbgs() << "VPCodegen: Lval : "; Lval->dump(); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "VPCodegen: Rval : "; Rval->dump(); dbgs() << "\n");
+
+  // If Rval is not loop invariant, then we widen it and generate an
+  // extractelement instruction
+  // TODO: extractelement may not be efficient if the Rval is not a memory
+  // reference. For example:
+  //    DO i1 = 0, N, 1 <DO_LOOP>
+  //      (%array)[0] = i1;
+  //    END LOOP
+  //
+  // can be directly changed to
+  //    DO i1 = 0, N, VF <DO_LOOP>
+  //      (%array)[0] = i1 + VF -1;
+  //    END LOOP
+  //
+  unsigned NestingLevel = OrigLoop->getNestingLevel();
+  if (!Rval->isStructurallyInvariantAtLevel(NestingLevel)) {
+    RegDDRef *WideRef = widenRef(Rval, getVF());
+    // create an extractelement instruction to get last element of vector
+    auto Extract = INode->getHLNodeUtils().createExtractElementInst(
+        WideRef, VF - 1, "last");
+    addInst(Extract, nullptr);
+    // overwrite Rval for store with Lval of extractelement instruction
+    Rval = Extract->getLvalDDRef();
+    LLVM_DEBUG(dbgs() << "VPCodegen: widened Rval : "; Rval->dump();
+               dbgs() << "\n");
+  }
+
+  HLInst *WideInst = INode->getHLNodeUtils().createStore(
+      Rval->clone(), CurInst->getName() + ".uniform.store", Lval->clone());
+  LLVM_DEBUG(dbgs() << "VPCodegen: WideInst : "; WideInst->dump();
+             dbgs() << "\n");
+  addInst(WideInst, nullptr);
+
+  return WideInst;
+}
+
 HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
                                  const OVLSGroup *Grp, int64_t InterleaveFactor,
                                  int64_t InterleaveIndex,
@@ -2049,6 +2086,17 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
       INode->getLvalDDRef()->isLiveOutOfParentLoop() && INode->hasRval() &&
       !INode->getRvalDDRef()->isNonLinear()) {
     return handleLiveOutLinearInEarlyExit(INode->clone(), Mask);
+  }
+
+  // Check for non-masked uniform stores and handle codegen for them
+  // separately
+  if (isa<StoreInst>(CurInst) && !Mask) {
+    // NOTE: isUniform is private to HandledCheck, so we have to use
+    // isStructurallyInvariantAtLevel here in VPOCodeGenHIR
+    auto TLval = INode->getLvalDDRef();
+    unsigned NestingLevel = OrigLoop->getNestingLevel();
+    if (TLval->isStructurallyInvariantAtLevel(NestingLevel))
+      return widenNonMaskedUniformStore(INode);
   }
 
   // Widen instruction operands

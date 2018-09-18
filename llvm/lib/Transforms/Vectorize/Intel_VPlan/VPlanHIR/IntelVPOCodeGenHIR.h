@@ -202,6 +202,11 @@ public:
   // generated for this HLIf node is returned.
   HLInst *widenIfNode(const HLIf *HIf, RegDDRef *Mask = nullptr);
 
+  // Handle vector code generation when given Inst is a non-masked uniform
+  // store. If the Rval of Inst is invariant then only a scalar store is
+  // generated, else an extractelement operation is performed before the store
+  HLInst *widenNonMaskedUniformStore(const HLInst *Inst);
+
   // Add WideVal as the widened vector value corresponding  to VPVal
   void addVPValueWideRefMapping(VPValue *VPVal, RegDDRef *WideVal) {
     VPValWideRefMap[VPVal] = WideVal;

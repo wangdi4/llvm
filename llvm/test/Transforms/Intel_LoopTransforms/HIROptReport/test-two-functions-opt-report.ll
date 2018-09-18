@@ -28,24 +28,37 @@
 ;  return sum;
 ;}
 
-; TODO: Currently VPlanDriverHIR does not vectorize this loop since code gen does not support uniform stores (Jira CMPLRS-52346)
+; TODO: Currently we are forcing a VF=4 for vectorization, hence the check statements are hard-coded with this VF
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
+; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]], [[M9:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.first_child", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
 ; CHECK: [[M8]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+; CHECK: [[M9:!.*]] = !{!"intel.optreport.remarks", [[M10:!.*]], [[M11:!.*]]}
+; CHECK: [[M10]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
+; CHECK: [[M11]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", !"4"}
+; CHECK: [[M12:!.*]] = distinct !{[[M12]]{{.*}}[[M13:!.*]]{{.*}}}
+; CHECK: [[M13]] = distinct !{!"llvm.loop.optreport", [[M14:!.*]]}
+; CHECK: [[M14]] = distinct !{!"intel.loop.optreport", [[M15:!.*]]}
+; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
+; CHECK: [[M16]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
+
 ; CHECK: [[F1:!.*]] = distinct !{[[F1]]{{.*}}[[F2:!.*]]{{.*}}}
 ; CHECK: [[F2]] = distinct !{!"llvm.loop.optreport", [[F3:!.*]]}
-; CHECK: [[F3]] = distinct !{!"intel.loop.optreport", [[F4:!.*]]}
+; CHECK: [[F3]] = distinct !{!"intel.loop.optreport", [[F4:!.*]], [[M9]]}
 ; CHECK: [[F4]] = !{!"intel.optreport.first_child", [[F5:!.*]]}
 ; CHECK: [[F5]] = distinct !{!"llvm.loop.optreport", [[F6:!.*]]}
-; CHECK: [[F6]] = distinct !{!"intel.loop.optreport", [[M5:!.*]]}
+; CHECK: [[F6]] = distinct !{!"intel.loop.optreport", [[M7]]}
+; CHECK: [[F7:!.*]] = distinct !{[[F7]]{{.*}}[[F8:!.*]]{{.*}}}
+; CHECK: [[F8]] = distinct !{!"llvm.loop.optreport", [[F9:!.*]]}
+; CHECK: [[F9]] = distinct !{!"intel.loop.optreport", [[M15]]}
+
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
