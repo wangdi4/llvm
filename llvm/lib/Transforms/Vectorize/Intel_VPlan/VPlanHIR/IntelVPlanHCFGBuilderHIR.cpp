@@ -237,7 +237,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   // - Loop Body -
   if (HLp->isMultiExit()) {
-    // FIXME: In outer loop vectorizatio scenarios, more than one loop can be a
+    // FIXME: In outer loop vectorization scenarios, more than one loop can be a
     // multi-exit loop. We need to use a stack to store the landing pad of each
     // multi-exit loop in the loop nest.
     assert(!MultiExitLandingPad && "Only one multi-exit loops is supported!");
