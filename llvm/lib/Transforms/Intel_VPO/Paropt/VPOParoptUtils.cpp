@@ -600,14 +600,12 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
       if (NumTeamsPtr == nullptr)
         NumTeams = Builder.getInt32(0);
       else
-        NumTeams =
-            Builder.CreateSExtOrTrunc(Builder.CreateLoad(NumTeamsPtr), Int32Ty);
+        NumTeams = Builder.CreateSExtOrTrunc(NumTeamsPtr, Int32Ty);
 
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
-        ThreadLimit = Builder.CreateSExtOrTrunc(
-            Builder.CreateLoad(ThreadLimitPtr), Int32Ty);
+        ThreadLimit = Builder.CreateSExtOrTrunc(ThreadLimitPtr, Int32Ty);
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
