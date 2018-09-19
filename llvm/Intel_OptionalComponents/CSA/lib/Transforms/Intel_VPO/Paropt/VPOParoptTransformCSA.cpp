@@ -46,54 +46,350 @@ public:
 
 } // anonymous namespace
 
+// Helper class which performs CSA specific privatization transformation for
+// a work region.
+class VPOParoptTransform::CSAPrivatizer {
+protected:
+  VPOParoptTransform &PT;
+
+  // Work region which is being transformed.
+  WRegionNode *W = nullptr;
+
+  // Shortcuts to VPOParoptTransform's DT, LI and SE members.
+  DominatorTree *DT = nullptr;
+  LoopInfo *LI = nullptr;
+  ScalarEvolution *SE = nullptr;
+
+  // Init, fini and last iteration basic blocks. Alloca instructions for all
+  // private flavors as well as the intialization for for first private and
+  // reduction variables is inserted into InitBB. Destructors for all types
+  // of privates are inserted into the FiniBB as well as reduction updates.
+  // Copyout code for lastprivate variables is inserted into the LastIterBB.
+  BasicBlock *InitBB = nullptr;
+  BasicBlock *FiniBB = nullptr;
+  BasicBlock *LastIterBB = nullptr;
+
+private:
+  // Creates alloca instruction for the given item, inserts it to the InitBB and
+  // replaces all uses of the original variable within work region with a
+  // private instance.
+  void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) {
+    auto *Old = I->getOrig();
+    auto *New = PT.genPrivatizationAlloca(W, Old, getInitBB()->getTerminator(),
+                                          Suffix);
+    I->setNew(New);
+    PT.genPrivatizationReplacement(W, Old, New, I);
+  }
+
+protected:
+  BasicBlock* getInitBB() {
+    if (InitBB)
+      return InitBB;
+    auto *EntryBB = W->getEntryBBlock();
+    InitBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
+    InitBB->setName("omp.priv.init");
+    return InitBB;
+  }
+
+  BasicBlock* getFiniBB() {
+    if (FiniBB)
+      return FiniBB;
+    FiniBB = W->getExitBBlock();
+    auto *New = SplitBlock(FiniBB, FiniBB->getFirstNonPHI(), DT, LI);
+    W->setExitBBlock(New);
+    FiniBB->setName(".omp.priv.fini");
+    return FiniBB;
+  }
+
+  virtual BasicBlock* getLastIterBB() {
+    llvm_unreachable("unexpected work region kind");
+    return nullptr;
+  }
+
+  // Creates privatization code for the given private var.
+  void genPrivVar(PrivateItem *I, WRegionNode *W) {
+    genPrivItem(I, W, ".priv");
+    if (auto *C = I->getConstructor())
+      VPOParoptUtils::genConstructorCall(C, I->getNew(), I->getNew());
+    if (auto *D = I->getDestructor())
+      VPOParoptUtils::genDestructorCall(D, I->getNew(),
+          getFiniBB()->getFirstNonPHI());
+  }
+
+  // Creates privatization code for the given firstprivate var.
+  void genFPrivVar(FirstprivateItem *I, WRegionNode *W) {
+    if (auto *LP = I->getInLastprivate())
+      if (auto *NewLP = LP->getNew()) {
+        I->setNew(NewLP);
+        return;
+      }
+    genPrivItem(I, W, ".fpriv");
+    PT.genFprivInit(I, getInitBB()->getTerminator());
+    if (auto *D = I->getDestructor())
+      VPOParoptUtils::genDestructorCall(D, I->getNew(),
+          getFiniBB()->getFirstNonPHI());
+  }
+
+  // Creates privatization code for the given lastprivate var, except the
+  // copyout code which is created by genLPrivVarCopyout().
+  void genLPrivVar(LastprivateItem *I, WRegionNode *W) {
+    if (auto *FP = I->getInFirstprivate())
+      if (auto *NewFP = FP->getNew()) {
+        I->setNew(NewFP);
+        return;
+      }
+
+    genPrivItem(I, W, ".lpriv");
+    if (auto *C = I->getConstructor())
+      VPOParoptUtils::genConstructorCall(C, I->getNew(), I->getNew());
+    if (auto *D = I->getDestructor())
+      VPOParoptUtils::genDestructorCall(D, I->getNew(),
+          getFiniBB()->getFirstNonPHI());
+  }
+
+  // Creates copyout code for the given lastprivate var.
+  void genLPrivVarCopyout(LastprivateItem *I) {
+    PT.genLprivFini(I, getLastIterBB()->getTerminator());
+  }
+
+  // Creates reduction code for the given var.
+  void genRedVar(ReductionItem *I, WRegionNode *W) {
+    genPrivItem(I, W, ".red");
+    PT.genReductionInit(I, getInitBB()->getTerminator(), DT);
+    PT.genReductionFini(I, I->getOrig(), getFiniBB()->getTerminator(), DT);
+  }
+
+public:
+  CSAPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
+    : PT(PT), W(W), DT(PT.DT), LI(PT.LI), SE(PT.SE) {}
+
+  virtual bool run() {
+    bool Changed = false;
+
+    assert(W->isBBSetEmpty() &&
+           "CSAPrivatizer: BBSET should start empty");
+
+    W->populateBBSet();
+
+    // Generate privatization code for all flavors of private variables.
+    if (W->canHavePrivate() && !W->getPriv().empty()) {
+      for (auto *I : W->getPriv().items())
+        genPrivVar(I, W);
+      Changed = true;
+    }
+    if (W->canHaveFirstprivate() && !W->getFpriv().empty()) {
+      for (auto *I : W->getFpriv().items())
+        genFPrivVar(I, W);
+      Changed = true;
+    }
+    if (W->canHaveLastprivate() && !W->getLpriv().empty()) {
+      for (auto *I : W->getLpriv().items()) {
+        genLPrivVar(I, W);
+        genLPrivVarCopyout(I);
+      }
+      Changed = true;
+    }
+    if (W->canHaveReduction() && !!W->getFpriv().empty()) {
+      for (auto *I : W->getRed().items())
+        genRedVar(I, W);
+      Changed = true;
+    }
+
+    // Invalidate BBSet after transformation
+    W->resetBBSet();
+
+    // SCEV should be regenerated after privatization.
+    if (Changed && W->getIsOmpLoop() && SE)
+      SE->forgetLoop(W->getWRNLoopInfo().getLoop());
+
+    return Changed;
+  }
+};
+
+// CSA privatizer customization for the loop construct.
+// TODO: Need to be updated once (and if) we start creating workers in paropt.
+class VPOParoptTransform::CSALoopPrivatizer final :
+    public VPOParoptTransform::CSAPrivatizer {
+  // Last iteration block is inserted into the loop body under if which
+  // compares induction variable with the loop's upper bound.
+  virtual BasicBlock* getLastIterBB() override {
+    if (LastIterBB)
+      return LastIterBB;
+
+    auto *L = W->getWRNLoopInfo().getLoop();
+    assert(L->isLoopSimplifyForm());
+
+    // Get loop's induction variable and upper bound.
+    auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(L);
+    auto *UB = WRegionUtils::getOmpLoopUpperBound(L);
+
+    // Induction variable value will match upper bound on the last
+    // iteration of the loop.
+    auto *IsLast = new ICmpInst(L->getHeader()->getFirstNonPHI(),
+        ICmpInst::ICMP_EQ, IV, UB, "is.last");
+
+    // Insert if-then blocks at the end of the latch block. Copyout code
+    // for last private variables will be emitted to this block.
+    auto *Term = SplitBlockAndInsertIfThen(IsLast,
+        L->getLoopLatch()->getTerminator(), false, nullptr, DT, LI);
+    LastIterBB = Term->getParent();
+    LastIterBB->getSingleSuccessor()->setName("omp.lpriv.end");
+    LastIterBB->setName("omp.lpriv.copyout");
+    return LastIterBB;
+  }
+
+public:
+  CSALoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
+    : CSAPrivatizer(PT, W) {
+    assert(W->getIsOmpLoop() && "loop construct is expected");
+  }
+};
+
+// CSA privatizer customization for the sections construct. Each section
+// is treated as an idependent worker, so privatization is done for each
+// section.
+class VPOParoptTransform::CSASectionsPrivatizer final :
+    public VPOParoptTransform::CSAPrivatizer {
+private:
+  // Last iteration block for sections goes to the end of the last section.
+  virtual BasicBlock* getLastIterBB() override {
+    if (LastIterBB)
+      return LastIterBB;
+
+    auto *LastSecW = W->getChildren().front();
+    LastIterBB = LastSecW->getExitBBlock();
+    auto *New = SplitBlock(LastIterBB, LastIterBB->getFirstNonPHI(), DT, LI);
+    LastSecW->setExitBBlock(New);
+    LastIterBB->setName("omp.lpriv.copyout");
+    return LastIterBB;
+  }
+
+public:
+  CSASectionsPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
+    : CSAPrivatizer(PT, W) {
+    assert(W->getIsSections() && "sections construct is expected");
+  }
+
+  virtual bool run() override {
+    bool Changed = false;
+
+    assert(W->isBBSetEmpty() &&
+           "CSASectionsPrivatizer: BBSET should start empty");
+
+    W->populateBBSet();
+
+    // For sections construct we need to privatizations for each section.
+    for (auto SecW : reverse(W->getChildren())) {
+      assert(SecW->isBBSetEmpty() &&
+             "CSASectionsPrivatizer: BBSET should start empty");
+      SecW->populateBBSet();
+      if (!W->getPriv().empty()) {
+        for (auto *I : W->getPriv().items())
+          genPrivVar(I, SecW);
+        Changed = true;
+      }
+      if (!W->getFpriv().empty()) {
+        for (auto *I : W->getFpriv().items())
+          genFPrivVar(I, SecW);
+        Changed = true;
+      }
+      if (!W->getLpriv().empty()) {
+        for (auto *I : W->getLpriv().items())
+          genLPrivVar(I, SecW);
+        Changed = true;
+      }
+      if (!W->getRed().empty()) {
+        for (auto *I : W->getRed().items())
+          genRedVar(I, SecW);
+        Changed = true;
+      }
+      SecW->resetBBSet();
+    }
+
+    // Gen copyout code for lastprivate variables.
+    if (!W->getLpriv().empty())
+      for (auto *I : W->getLpriv().items())
+        genLPrivVarCopyout(I);
+
+    // Invalidate BBSet after transformations
+    W->resetBBSet();
+
+    return Changed;
+  }
+};
+
+static WRegionNode* findEnclosingParRegion(WRegionNode *W) {
+  while (W && !W->getIsPar())
+    W = W->getParent();
+  return W;
+}
+
 bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
   switch (W->getWRegionKindID()) {
+    case WRegionNode::WRNParallel:
     case WRegionNode::WRNParallelSections:
-      // num_threads
-      if (W->getNumThreads())
-        reportCSAWarning(W, "ignoring unsupported num_threads clause");
-
-      // [first|last]private
-      if (!W->getPriv().empty())
-        reportCSAWarning(W, "ignoring unsupported private clause");
-      if (!W->getFpriv().empty())
-        reportCSAWarning(W, "ignoring unsupported firstprivate clause");
-      if (!W->getLpriv().empty())
-        reportCSAWarning(W, "ignoring unsupported lastprivate clause");
-
-      // reduction
-      if (!W->getRed().empty())
-        reportCSAWarning(W, "ignoring unsupported reduction clause");
-
-      // fallthru
-
     case WRegionNode::WRNParallelLoop:
-      // copyin
-      if (!W->getCopyin().empty())
-        reportCSAWarning(W, "ignoring unsupported copyin clause");
-
-      // proc_bind
-      if (W->getProcBind() != WRNProcBindAbsent)
-        reportCSAWarning(W, "ignoring unsupported proc_bind clause");
-
-      // Loop clauses.
-      if (W->getWRegionKindID() == WRegionNode::WRNParallelLoop) {
-        // linear
-        if (!W->getLinear().empty())
-          reportCSAWarning(W, "ignoring unsupported linear clause");
-
-        // ordered
-        if (W->getOrdered() >= 0)
-          reportCSAWarning(W, "ignoring unsupported ordered clause");
-      }
-      return true;
-
+    case WRegionNode::WRNWksLoop:
+    case WRegionNode::WRNSections:
     case WRegionNode::WRNAtomic:	// not fully supported, but may work
     case WRegionNode::WRNSection:
-      return true;
+    case WRegionNode::WRNMaster:
+    case WRegionNode::WRNSingle:
+    case WRegionNode::WRNBarrier:
+      break;
+    default:
+      reportCSAWarning(W, "ignoring unsupported \"omp " + W->getName() + "\"");
+      return false;
   }
-  reportCSAWarning(W, "ignoring unsupported \"omp " + W->getName() + "\"");
-  return false;
+
+  auto && warnUnsupportedClause = [=](StringRef Name) {
+    reportCSAWarning(W, "ignoring unsupported " + Name + " clause");
+  };
+
+  // num_threads
+  if (W->getIsParLoop())
+    if (auto *NumThreads = W->getNumThreads())
+      if (!dyn_cast<ConstantInt>(NumThreads)) {
+        reportCSAWarning(W, "num_threads must be a compile time constant");
+        W->setNumThreads(nullptr);
+      }
+
+  // copyin
+  if (W->canHaveCopyin() && !W->getCopyin().empty())
+    warnUnsupportedClause("copyin");
+
+  // proc_bind
+  if (W->getIsPar() && W->getProcBind() != WRNProcBindAbsent)
+    warnUnsupportedClause("proc_bind");
+
+  // schedule
+  if (W->canHaveSchedule()) {
+    // Check schedule clause of there is one.
+    auto &Sched = W->getSchedule();
+    if (Sched.getChunkExpr()) {
+      // So far we support only static and auto schedule types.
+      if (Sched.getKind() != WRNScheduleStatic &&
+          Sched.getKind() != WRNScheduleAuto) {
+        reportCSAWarning(W, "ignoring unsupported schedule type");
+        Sched.setChunkExpr(nullptr);
+      }
+      // Three options for the chunk size
+      //   Sched->getChunk() == 0 => chunk was not specified
+      //   Sched->getChunk() > 0  => chunk is a compile time constant
+      //   Sched->getChunk() < 0  => chunk is an expression (unsupported)
+      else if (Sched.getChunk() < 0) {
+        reportCSAWarning(W, "schedule chunk must be a compile time constant");
+        Sched.setChunkExpr(nullptr);
+      }
+    }
+  }
+
+  if (!W->getIsPar() && !findEnclosingParRegion(W)) {
+    reportCSAWarning(W, "construct must be lexically nested in a parallel "
+                        "region");
+    return false;
+  }
+  return true;
 }
 
 void VPOParoptTransform::reportCSAWarning(WRegionNode *W, const Twine &Msg) {
@@ -114,15 +410,20 @@ void VPOParoptTransform::reportCSAWarning(WRegionNode *W, const Twine &Msg) {
 //
 Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
+  assert(W->getIsPar() && "parallel region is expected");
 
-  auto *Module = F->getParent();
+  auto &Region = CSAParallelRegions[W];
+  if (Region)
+    return Region;
+
+  auto *M = F->getParent();
 
   // CSA parallel region entry/exit intrinsics
-  auto *RegionEntry = Intrinsic::getDeclaration(Module,
-    Intrinsic::csa_parallel_region_entry);
+  auto *RegionEntry = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_region_entry);
 
-  auto *RegionExit = Intrinsic::getDeclaration(Module,
-    Intrinsic::csa_parallel_region_exit);
+  auto *RegionExit = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_region_exit);
 
   // Insert a "entry" call into the work region's entry bblock. The argument
   // is a unique ID which is a work region's unique number plus 2000 (using
@@ -130,13 +431,38 @@ Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
   // loop intrinsics lowering pass which uses IDs starting from 1000).
   IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
   auto *UniqueID = Builder.getInt32(2000u + W->getNumber());
-  auto *RegionID = Builder.CreateCall(RegionEntry, { UniqueID }, "region");
+  Region = Builder.CreateCall(RegionEntry, { UniqueID }, "region");
 
   // And an "exit" call into the work region's exit bblock.
   Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
-  Builder.CreateCall(RegionExit, { RegionID }, {});
+  Builder.CreateCall(RegionExit, { Region }, {});
 
-  return RegionID;
+  return Region;
+}
+
+// Insert a pair of CSA parallel section entry/exit calls before given
+// instructions.
+void VPOParoptTransform::genCSAParallelSection(Value *Region,
+                                               Instruction *EntryPt,
+                                               Instruction *ExitPt) {
+  assert(isTargetCSA() && "unexpected target");
+
+  auto *M = F->getParent();
+
+  // CSA parallel section entry/exit intrinsics
+  auto *SectionEntry = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_section_entry);
+
+  auto *SectionExit = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_section_exit);
+
+  // Insert section entry call into the beginning of the loop header.
+  IRBuilder<> Builder(EntryPt);
+  auto *Section = Builder.CreateCall(SectionEntry, { Region }, "section");
+
+  // And section exit call before the the loop latch terminator.
+  Builder.SetInsertPoint(ExitPt);
+  Builder.CreateCall(SectionExit, { Section }, {});
 }
 
 // Transform "omp parallel for" construct for CSA by inserting CSA builtins
@@ -156,154 +482,71 @@ Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
 // *Optional spmdization entry/exit calls are inserted only if parallel for
 // has num_threads clause.
 //
-bool VPOParoptTransform::genCSAParallelLoop(WRegionNode *W) {
+bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
-
-  auto *Module = F->getParent();
 
   auto *Loop = W->getWRNLoopInfo().getLoop();
   assert(Loop->isLoopSimplifyForm());
 
-  // Check schedule clause of there is one.
-  const auto *Sched = &W->getSchedule();
-  if (!Sched->getChunkExpr())
-    Sched = nullptr;
-
-  // So far we support only static and auto schedule types.
-  if (Sched && Sched->getKind() != WRNScheduleStatic &&
-      Sched->getKind() != WRNScheduleAuto) {
-    reportCSAWarning(W, "ignoring unsupported schedule type");
-    Sched = nullptr;
-  }
-
-  // Three options for the chunk size
-  //   Sched->getChunk() == 0 => chunk was not specified
-  //   Sched->getChunk() > 0  => chunk is a compile time constant
-  //   Sched->getChunk() < 0  => chunk is an expression (unsupported)
-  if (Sched && Sched->getChunk() < 0) {
-    reportCSAWarning(W, "schedule chunk must be a compile time constant");
-    Sched = nullptr;
-  }
-
-  // Validate num_threads if it was specified.
-  auto *NumThreads = W->getNumThreads();
-  if (NumThreads && !dyn_cast<ConstantInt>(NumThreads)) {
-    reportCSAWarning(W, "num_threads must be a compile time constant");
-    NumThreads = nullptr;
-  }
-
-  // Annotating loop with spmdization entry/exit intrinsic calls if parallel
-  // region has num_threads clause.
-  if (NumThreads) {
-    auto *Entry = Intrinsic::getDeclaration(Module,
-      Intrinsic::csa_spmdization_entry);
-
-    auto *Exit = Intrinsic::getDeclaration(Module,
-      Intrinsic::csa_spmdization_exit);
-
-    // Determine SPMDization mode, it depends on a schedule clause.
-    //   No schedule, schedule(auto) or
-    //   schedule(static)                 => blocked SPMD (0)
-    //   schedule(static, chunksize)
-    //     (chunksize == 1)               => cyclic SPMD  (1)
-    //     (chunksize > 1)                => hybrid SPMD  (chunksize)
-    Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
-      !Sched || !Sched->getChunk() ? 0 : Sched->getChunk());
-
-    IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
-    auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");
-
-    Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
-    Builder.CreateCall(Exit, { SpmdID }, {});
-  }
-
-  // Insert parallel region entry/exit calls
-  auto *RegionID = genCSAParallelRegion(W);
-
-  // CSA parallel section entry/exit intrinsics
-  auto *SectionEntry = Intrinsic::getDeclaration(Module,
-    Intrinsic::csa_parallel_section_entry);
-
-  auto *SectionExit = Intrinsic::getDeclaration(Module,
-    Intrinsic::csa_parallel_section_exit);
-
-  // Insert section entry call into the beginning of the loop header.
-  IRBuilder<> Builder(&*Loop->getHeader()->getFirstInsertionPt());
-  auto *SectionID = Builder.CreateCall(SectionEntry, { RegionID }, "section");
-
-  // Section exit call should be inserted right before the induction
-  // variable increment in the loop latch.
-  auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(Loop);
-  assert(IV && "no induction variable");
-
-  // The value comming from the latch block is the increment instruction.
-  auto *IVLatch = IV->getIncomingValueForBlock(Loop->getLoopLatch());
-  assert(IVLatch && "no incomming value from the loop latch");
-
-  auto *IVInc = dyn_cast<Instruction>(IVLatch);
-  assert(IVInc && "no increment instruction for induction variable");
-
-  // Insert a "csa.parallel.section.exit" before the increment instruction.
-  Builder.SetInsertPoint(IVInc);
-  Builder.CreateCall(SectionExit, { SectionID }, {});
-
-  return true;
-}
-
-bool VPOParoptTransform::genCSAIsLast(WRegionNode *W, AllocaInst *&IsLastVal) {
-  // No need to do aynthing if W doesn't have any lastprivate var.
-  if (!W->canHaveLastprivate() || W->getLpriv().empty())
+  auto *ParW = findEnclosingParRegion(W);
+  if (!ParW)
     return false;
 
-  Loop *Loop = W->getWRNLoopInfo().getLoop();
-  assert(Loop->isLoopSimplifyForm());
+  // Generate privatization code.
+  CSALoopPrivatizer(*this, W).run();
 
-  LLVMContext &C = F->getContext();
-  IntegerType *Int32Ty = Type::getInt32Ty(C);
-  const DataLayout &DL = F->getParent()->getDataLayout();
+  // Annotating loop with spmdization entry/exit intrinsic calls if parallel
+  // region has num_threads clause and the number of threads > 1.
+  if (W->getIsPar())
+    if (auto *NumThreads = W->getNumThreads())
+      if (cast<ConstantInt>(NumThreads)->getZExtValue() > 1u) {
+        auto *M = F->getParent();
 
-  ConstantInt *Zero = ConstantInt::getSigned(Int32Ty, 0u);
-  ConstantInt *One = ConstantInt::getSigned(Int32Ty, 1u);
+        auto *Entry = Intrinsic::getDeclaration(M,
+          Intrinsic::csa_spmdization_entry);
 
-  // Create %is.last and initialize it with zero.
-  IsLastVal = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "is.last",
-                             &(W->getEntryBBlock()->front()));
-  auto *Init = new StoreInst(Zero, IsLastVal);
-  Init->insertAfter(IsLastVal);
+        auto *Exit = Intrinsic::getDeclaration(M,
+          Intrinsic::csa_spmdization_exit);
 
-  // Compare IV with the upper bound and store result to %is.last
-  auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(Loop);
-  assert(IV && "no induction variable");
+        // Determine SPMDization mode, it depends on a schedule clause.
+        //   No schedule, schedule(auto) or
+        //   schedule(static)                 => blocked SPMD (0)
+        //   schedule(static, chunksize)
+        //     (chunksize == 1)               => cyclic SPMD  (1)
+        //     (chunksize > 1)                => hybrid SPMD  (chunksize)
+        const auto &Sched = W->getSchedule();
+        Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
+            !Sched.getChunkExpr() || !Sched.getChunk() ? 0 : Sched.getChunk());
 
-  auto *UB = WRegionUtils::getOmpLoopUpperBound(Loop);
-  assert(UB && "no upper bound for the loop");
+        IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
+        auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");
 
-  auto *Cmp = new ICmpInst(ICmpInst::ICMP_EQ, IV, UB);
-  Cmp->insertAfter(IV);
+        Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
+        Builder.CreateCall(Exit, { SpmdID }, {});
+      }
 
-  auto *Select = SelectInst::Create(Cmp, One, Zero);
-  Select->insertAfter(Cmp);
+  // Insert parallel region entry/exit calls
+  auto *Region = genCSAParallelRegion(ParW);
 
-  auto *Store = new StoreInst(Select, IsLastVal);
-  Store->insertAfter(Select);
-
+  // and CSA parallel section entry/exit intrinsics
+  genCSAParallelSection(Region,
+                        Loop->getHeader()->getFirstNonPHI(),
+                        Loop->getLoopLatch()->getTerminator());
   return true;
 }
 
-bool VPOParoptTransform::genCSAParallelSections(WRegionNode *W) {
+bool VPOParoptTransform::genCSASections(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
 
-  auto *M = F->getParent();
+  auto *ParW = findEnclosingParRegion(W);
+  if (!ParW)
+    return false;
+
+  // Generate privatization code for the sections construct.
+  CSASectionsPrivatizer(*this, W).run();
 
   // Insert parallel region entry/exit calls
-  auto *RID = genCSAParallelRegion(W);
-
-  // CSA parallel section entry/exit intrinsics
-  auto *SEntry = Intrinsic::getDeclaration(M,
-    Intrinsic::csa_parallel_section_entry);
-
-  auto *SExit = Intrinsic::getDeclaration(M,
-    Intrinsic::csa_parallel_section_exit);
+  auto *Region = genCSAParallelRegion(ParW);
 
   // Insert section entry/exit calls in child work regions which all are
   // supposed to be sections.
@@ -311,15 +554,24 @@ bool VPOParoptTransform::genCSAParallelSections(WRegionNode *W) {
     assert(WSec->getWRegionKindID() == WRegionNode::WRNSection &&
            "Unexpected work region kind");
 
-    // Add section entry/exit calls
-    IRBuilder<> Builder(WSec->getEntryBBlock()->getTerminator());
-    auto *SID = Builder.CreateCall(SEntry, { RID }, "section");
-
-    Builder.SetInsertPoint(WSec->getExitBBlock()->getFirstNonPHI());
-    Builder.CreateCall(SExit, { SID }, {});
+    genCSAParallelSection(Region,
+                          WSec->getEntryBBlock()->getTerminator(),
+                          WSec->getExitBBlock()->getFirstNonPHI());
 
     // Remove directives from section
     VPOUtils::stripDirectives(WSec);
   }
   return true;
+}
+
+bool VPOParoptTransform::genCSAParallel(WRegionNode *W) {
+  assert(isTargetCSA() && "unexpected target");
+  CSAPrivatizer(*this, W).run();
+  genCSAParallelRegion(W);
+  return true;
+}
+
+bool VPOParoptTransform::genCSASingle(WRegionNode *W) {
+  assert(isTargetCSA() && "unexpected target");
+  return CSAPrivatizer(*this, W).run();
 }

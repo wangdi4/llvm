@@ -223,3 +223,55 @@ DIR.OMP.END.PARALLEL.LOOP.310:
 DIR.OMP.END.PARALLEL.LOOP.4:
   ret void
 }
+
+; CHECK-LABEL: @foo.par.and.loop
+define void @foo.par.and.loop() {
+entry:
+  %.omp.lb = alloca i32, align 4
+  %.omp.ub = alloca i32, align 4
+  %i = alloca i32, align 4
+  %0 = bitcast i32* %.omp.lb to i8*
+  store i32 0, i32* %.omp.lb, align 4
+  %1 = bitcast i32* %.omp.ub to i8*
+  store i32 0, i32* %.omp.ub, align 4
+  br label %DIR.OMP.PARALLEL
+
+DIR.OMP.PARALLEL:
+; CHECK: [[REGION:%.*]] = call i32 @llvm.csa.parallel.region.entry(i32 {{[0-9]+}})
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+  br label %DIR.OMP.LOOP
+
+DIR.OMP.LOOP:
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"() ]
+  br label %DIR.OMP.LOOP.1
+
+DIR.OMP.LOOP.1:
+  %4 = load i32, i32* %.omp.lb, align 4
+  %5 = load i32, i32* %.omp.ub, align 4
+  %cmp7 = icmp sle i32 %4, %5
+  br i1 %cmp7, label %omp.inner.for.body.lr.ph, label %DIR.OMP.END.LOOP
+
+omp.inner.for.body.lr.ph:
+  br label %omp.inner.for.body
+
+omp.inner.for.body:
+  %.omp.iv.08 = phi i32 [ %4, %omp.inner.for.body.lr.ph ], [ %add1, %omp.inner.for.body ]
+; CHECK: [[SECTION:%.*]] = call i32 @llvm.csa.parallel.section.entry(i32 [[REGION]])
+  store i32 %.omp.iv.08, i32* %i, align 4
+  %add1 = add nsw i32 %.omp.iv.08, 1
+  %cmp = icmp sle i32 %add1, %5
+; CHECK: call void @llvm.csa.parallel.section.exit(i32 [[SECTION]])
+  br i1 %cmp, label %omp.inner.for.body, label %DIR.OMP.END.LOOP
+
+DIR.OMP.END.LOOP:
+  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.LOOP"() ]
+  br label %DIR.OMP.END.PARALLEL
+
+DIR.OMP.END.PARALLEL:
+; CHECK: call void @llvm.csa.parallel.region.exit(i32 [[REGION]])
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.PARALLEL"() ]
+  br label %exit
+
+exit:
+  ret void
+}

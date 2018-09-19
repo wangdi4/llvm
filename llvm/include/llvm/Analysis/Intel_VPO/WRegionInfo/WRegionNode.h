@@ -551,6 +551,7 @@ public:
 
   /// \brief Routines to get WRN derived attributes
   bool getIsParLoop()      const { return  getIsPar()  && getIsOmpLoop(); }
+  bool getIsParSections()  const { return  getIsPar()  && getIsSections(); }
   bool getIsTaskloop()     const { return  getIsTask() && getIsOmpLoop(); }
   bool getIsWksLoop()      const { return !getIsTask() && getIsOmpLoop(); }
 

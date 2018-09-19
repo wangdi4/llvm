@@ -259,8 +259,17 @@ bool VPOUtils::isNotLegalSingleValueType(AllocaInst *AI) {
 //   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
 CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
                               unsigned Align, BasicBlock *BB) {
-  IRBuilder<> MemcpyBuilder(BB);
-  MemcpyBuilder.SetInsertPoint(BB->getTerminator());
+  return genMemcpy(D, S, DL, Align, BB->getTerminator());
+}
+
+// Generates a memcpy call before the given instruction InsertPt.
+// The value D represents the destination while the value S represents
+// the source. The size of the memcpy is the size of destination.
+// The compiler will insert the typecast if the type of source or destination
+// does not match with the type i8.
+CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
+                              unsigned Align, Instruction *InsertPt) {
+  IRBuilder<> MemcpyBuilder(InsertPt);
 
   Value *Dest, *Src, *Size;
 
@@ -268,7 +277,7 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
   // The instruction bitcast is introduced if the incoming src or dest
   // operand in not in i8 type.
   if (D->getType() !=
-      Type::getInt8PtrTy(BB->getParent()->getContext())) {
+      Type::getInt8PtrTy(InsertPt->getContext())) {
     Dest = MemcpyBuilder.CreatePointerCast(D, MemcpyBuilder.getInt8PtrTy());
     Src = MemcpyBuilder.CreatePointerCast(S, MemcpyBuilder.getInt8PtrTy());
   }

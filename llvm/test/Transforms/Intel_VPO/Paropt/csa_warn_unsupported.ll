@@ -173,29 +173,60 @@ DIR.OMP.END.PARALLEL.LOOP.4:
 
 define void @f6(i32 %a, i32 %b, i32 %c, i32 %d) {
 entry:
-  br label %DIR.OMP.PARALLEL.SECTIONS.1
+  br label %DIR.OMP.PARALLEL.LOOP.19
 
-DIR.OMP.PARALLEL.SECTIONS.1:
-; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported num_threads clause
-; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported private clause
-; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported firstprivate clause
-; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported lastprivate clause
-; CHECK-DAG: warning:{{.*}}CSA - ignoring unsupported reduction clause
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.SECTIONS"(), "QUAL.OMP.NUM_THREADS"(i32 2), "QUAL.OMP.FIRSTPRIVATE"(i32 %a), "QUAL.OMP.PRIVATE"(i32 %b), "QUAL.OMP.LASTPRIVATE"(i32 %c), "QUAL.OMP.REDUCTION.ADD"(i32 %d) ]
-  br label %DIR.OMP.PARALLEL.SECTIONS.2
+DIR.OMP.PARALLEL.LOOP.19:
+; "omp for" outside of the parallel construct
+; CHECK: warning:{{.*}}CSA - construct must be lexically nested in a parallel region
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"() ]
+  br label %DIR.OMP.PARALLEL.LOOP.2
 
-DIR.OMP.PARALLEL.SECTIONS.2:
+DIR.OMP.PARALLEL.LOOP.2:
+  %cmp7 = icmp sle i32 0, 0
+  br i1 %cmp7, label %omp.inner.for.body.lr.ph, label %DIR.OMP.END.PARALLEL.LOOP.3
+
+omp.inner.for.body.lr.ph:
+  br label %omp.inner.for.body
+
+omp.inner.for.body:
+  %.omp.iv.08 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add1, %omp.inner.for.body ]
+  %add1 = add nsw i32 %.omp.iv.08, 1
+  %cmp = icmp sle i32 %add1, 0
+  br i1 %cmp, label %omp.inner.for.body, label %DIR.OMP.END.PARALLEL.LOOP.3
+
+DIR.OMP.END.PARALLEL.LOOP.3:
+  br label %DIR.OMP.END.PARALLEL.LOOP.310
+
+DIR.OMP.END.PARALLEL.LOOP.310:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.LOOP"() ]
+  br label %DIR.OMP.END.PARALLEL.LOOP.4
+
+DIR.OMP.END.PARALLEL.LOOP.4:
+  ret void
+}
+
+define void @f7() {
+entry:
+  br label %DIR.OMP.SECTIONS
+
+DIR.OMP.SECTIONS:
+; "omp sections" outside of the parallel construct
+; CHECK: warning:{{.*}}CSA - construct must be lexically nested in a parallel region
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SECTIONS"() ]
+  br label %DIR.OMP.SECTION.1
+
+DIR.OMP.SECTION.1:
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SECTION"() ]
-  br label %DIR.OMP.SECTION.3
+  br label %DIR.OMP.END.SECTION.1
 
-DIR.OMP.SECTION.3:
+DIR.OMP.END.SECTION.1:
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SECTION"() ]
-  br label %DIR.OMP.END.SECTION.4
+  br label %DIR.OMP.END.SECTIONS
 
-DIR.OMP.END.SECTION.4:
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL.SECTIONS"() ]
-  br label %DIR.OMP.END.PARALLEL.SECTIONS.1
+DIR.OMP.END.SECTIONS:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SECTIONS"() ]
+  br label %exit
 
-DIR.OMP.END.PARALLEL.SECTIONS.1:
+exit:
   ret void
 }

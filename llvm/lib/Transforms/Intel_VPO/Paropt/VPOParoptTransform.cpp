@@ -449,6 +449,18 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           improveAliasForOutlinedFunc(W);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            if (W->getIsPar())
+              Changed |= genCSAParallel(W);
+            else
+              llvm_unreachable("Unexpected work region kind");
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
@@ -479,18 +491,12 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
-            if (W->getWRegionKindID() == WRegionNode::WRNParallelSections) {
-              Changed |= genCSAParallelSections(W);
-            }
-            else {
-              Changed |= genCSAParallelLoop(W);
-              Changed |= genCSAIsLast(W, IsLastVal);
-              Changed |= genPrivatizationCode(W);
-              Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
-              Changed |= genLastPrivatizationCode(W, IfLastIterBB);
-              Changed |= genFirstPrivatizationCode(W);
-              Changed |= genDestructorCode(W);
-            }
+            if (W->getIsParSections())
+              Changed |= genCSASections(W);
+            else if (W->getIsParLoop())
+              Changed |= genCSALoop(W);
+            else
+              llvm_unreachable("Unexpected work region kind");
             RemoveDirectives = true;
             break;
           }
@@ -669,6 +675,20 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            if (W->getIsSections())
+              Changed |= genCSASections(W);
+            else if (W->getIsOmpLoop())
+              Changed |= genCSALoop(W);
+            else
+              llvm_unreachable("Unexpected work region kind");
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           Changed |= genLoopSchedulingCode(W, IsLastVal);
           Changed |= genPrivatizationCode(W);
           Changed |= genBarrierForFpLpAndLinears(W);
@@ -691,6 +711,15 @@ bool VPOParoptTransform::paroptTransforms() {
           debugPrintHeader(W, true);
           // Changed = genPrivatizationCode(W);
           // Changed |= genFirstPrivatizationCode(W);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            Changed |= genCSASingle(W);
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           AllocaInst *IsSingleThread = nullptr;
           Changed = genSingleThreadCode(W, IsSingleThread);
           Changed |= genCopyPrivateCode(W, IsSingleThread);
@@ -703,6 +732,15 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNMaster:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            // This is a NOP on CSA.
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           Changed = genMasterThreadCode(W);
           RemoveDirectives = true;
         }
@@ -729,6 +767,15 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNBarrier:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            // This is a NOP on CSA.
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           Changed = genBarrier(W, true);
           RemoveDirectives = true;
         }
@@ -1289,7 +1336,7 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
                                            FprivI->getOrig(), InsertPt);
   else if (VPOUtils::isNotLegalSingleValueType(AI))
     VPOUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
-                        InsertPt->getParent());
+                        InsertPt);
   else {
     LoadInst *Load = Builder.CreateLoad(FprivI->getOrig());
     Builder.CreateStore(Load, AI);

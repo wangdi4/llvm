@@ -710,19 +710,36 @@ private:
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  /// \brief Create a stack variable \p IsLastVal which is non-zero if the
-  /// current iteration is the last one.
-  bool genCSAIsLast(WRegionNode *W, AllocaInst *&IsLastVal);
+  /// \brief Forward declarations for helper classes which implement CSA
+  ///  specific privatization for OpenMP constructs.
+  class CSAPrivatizer;
+  class CSALoopPrivatizer;
+  class CSASectionsPrivatizer;
+  friend CSAPrivatizer;
+
+  /// \brief Map work region to its region ID.
+  SmallDenseMap<WRegionNode*, Value*, 8u> CSAParallelRegions;
 
   /// \brief Insert CSA parallel region entry/exit calls to the work region
   /// and return region id.
   Value* genCSAParallelRegion(WRegionNode *W);
 
-  /// \brief Transform "omp parallel for" work region for CSA target.
-  bool genCSAParallelLoop(WRegionNode *W);
+  /// \brief Insert a pair of CSA parallel section entry/exit calls before given
+  /// instructions.
+  void genCSAParallelSection(Value *RegionID, Instruction *EntryPt,
+                             Instruction *ExitPt);
 
-  /// \brief Transform "omp parallel sections" work region for CSA target.
-  bool genCSAParallelSections(WRegionNode *W);
+  /// \brief Transform "omp parallel" work region for CSA target.
+  bool genCSAParallel(WRegionNode *W);
+
+  /// \brief Transform "omp [parallel] for" work region for CSA target.
+  bool genCSALoop(WRegionNode *W);
+
+  /// \brief Transform "omp [parallel] sections" work region for CSA target.
+  bool genCSASections(WRegionNode *W);
+
+  /// \brief Transform "omp single" work region for CSA target.
+  bool genCSASingle(WRegionNode *W);
 
   /// \brief Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
