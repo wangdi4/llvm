@@ -91,9 +91,9 @@ public:
 
   /// Construct a UnitaryBlobOrIV for a unitary DDRef \p Unitary.
   UnitaryBlobOrIV(loopopt::DDRef *Unitary) : UnitaryBlob(Unitary), IVLevel(0) {
-    assert(Unitary->isUnitaryBlob() &&
-           "Expected BlobDDRef or unitary blob RegDDRef!");
-    assert(!Unitary->isMetadata() && "Unexpected metadata!");;
+    assert(Unitary->isNonDecomposable() && "Expected non-decomposable DDRef!");
+    assert(!Unitary->isMetadata() && "Unexpected metadata!");
+    ;
   }
 
   /// Construct an UnitaryBlobOrIV for an induction variable given its \p

@@ -47,6 +47,7 @@ class VPIfTruePredicateRecipe;
 class VPIfFalsePredicateRecipe;
 class VPlanPredicator;
 class VPlan;
+class VPExternalUse;
 #endif
 
 // This is the base class of the VPlan Def/Use graph, used for modeling the data
@@ -102,7 +103,7 @@ protected:
   // back-end and analysis information for the new IR.
 
   /// Return the underlying Value attached to this VPValue.
-  Value *getUnderlyingValue() { return UnderlyingVal; }
+  Value *getUnderlyingValue() const { return UnderlyingVal; }
 
   // Set \p Val as the underlying Value of this VPValue.
   void setUnderlyingValue(Value *Val) {
@@ -122,7 +123,8 @@ public:
     VPInstructionSC,
     VPConstantSC,
     VPExternalDefSC,
-    VPMetadataAsValueSC
+    VPMetadataAsValueSC,
+    VPExternalUseSC,
   };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
@@ -176,6 +178,13 @@ void printAsOperand(raw_ostream &OS) const {
   int getNumUsersTo(const VPUser *U) const {
     return std::count(Users.begin(), Users.end(), U);
   }
+
+  bool hasExternalUse() const {
+    return std::any_of(Users.begin(), Users.end(), [](const VPUser *U) {
+             return isa<VPExternalUse>(U);
+           });
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
@@ -455,6 +464,47 @@ public:
     return V->getVPValueID() == VPMetadataAsValueSC;
   }
 };
+/// Concrete class for an external use.
+class VPExternalUse : public VPUser {
+private:
+  friend class VPlan;
+
+  // Hold the HIR information related to this external definition operand (DDRef
+  // or IV).
+  UnitaryBlobOrIV HIROperand;
+
+  // Construct a VPExternalUse given a Value \p ExtVal.
+  VPExternalUse(Value *ExtVal)
+      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
+    setUnderlyingValue(ExtVal);
+  }
+  // Construct a VPExternalUse given an underlying DDRef \p DDR.
+  VPExternalUse(loopopt::DDRef *DDR)
+      : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()), HIROperand(DDR) {}
+  // Construct a VPExternalUse given an underlying IV level \p IVLevel.
+  VPExternalUse(unsigned IVLevel, Type *BaseTy)
+      : VPUser(VPValue::VPExternalUseSC, BaseTy), HIROperand(IVLevel) {}
+
+  // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
+  // the front-end and back-end of VPlan so that the middle-end is as
+  // independent as possible of the underlying IR. We grant access to the
+  // underlying IR using friendship.
+
+  /// Return the underlying HIR information for this VPExternalDef.
+  const UnitaryBlobOrIV &getUnitaryBlobOrIV() { return HIROperand; };
+
+public:
+  VPExternalUse() = delete;
+  VPExternalUse(const VPExternalUse &) = delete;
+  VPExternalUse &operator=(const VPExternalUse &) = delete;
+
+  /// \brief Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPExternalUseSC;
+  }
+};
+
 } // namespace vpo
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm

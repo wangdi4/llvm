@@ -25,6 +25,7 @@
 namespace llvm {
 namespace vpo {
 class VPBlockBase;
+class VPValue;
 
 /// A VPLoop holds analysis information for every loop detected by VPLoopInfo.
 /// It is an instantiation of LoopBase.
@@ -32,6 +33,10 @@ class VPLoop : public LoopBase<VPBlockBase, VPLoop> {
 private:
   friend class LoopInfoBase<VPBlockBase, VPLoop>;
   explicit VPLoop(VPBlockBase *VPB) : LoopBase<VPBlockBase, VPLoop>(VPB) {}
+
+public:
+  bool isLiveIn(const VPValue* VPVal) const;
+  bool isLiveOut(const VPValue* VPVal) const;
 };
 
 /// VPLoopInfo provides analysis of natural loop for VPBlockBase-based

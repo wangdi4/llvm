@@ -766,13 +766,14 @@ void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
              Phi->getParent()->getNumPredecessors() &&
          "Number of incoming values doesn't match with number of preds");
 
-  const auto &Preds = Phi->getParent()->getPredecessors();
-  for (auto &Block : Phi->blocks()) {
-    assert(llvm::find(Preds, Block) != Preds.end() &&
-           "Incoming VPBB for VPPHINode is not a predecessor");
+  const auto &PBlocks = Phi->blocks();
+  for (auto *Block : Phi->getParent()->getPredecessors()) {
+    // A VPRegion can be set as a predecessor thus we use getExitBasicBlock().
+    assert(llvm::find(PBlocks, Block->getExitBasicBlock())!= PBlocks.end() &&
+           "A predecessor is not incoming VPBB for VPPHINode");
     (void)Block;
   }
-  (void)Preds;
+  (void)PBlocks;
 }
 
 // Verify operand types of the \p GEP instruction. Also check that the

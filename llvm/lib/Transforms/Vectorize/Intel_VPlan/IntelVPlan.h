@@ -2214,7 +2214,20 @@ protected:
            SymbaseIVLevelMapInfo>
       VPExternalDefsHIR;
 
+  /// Holds all the external uses in this VPlan representing an underlying
+  /// Value. The key is the underlying Value that uniquely identifies each
+  /// external use.
+  DenseMap<Value *, std::unique_ptr<VPExternalUse>> VPExternalUses;
+
+  /// Holds all the external uses representing an HIR underlying entity
+  /// in this VPlan. The key is the underlying HIR information that uniquely
+  /// identifies each external use.
+  DenseMap<UnitaryBlobOrIV, std::unique_ptr<VPExternalUse>,
+           SymbaseIVLevelMapInfo>
+      VPExternalUsesHIR;
+
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
+
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2259,6 +2272,7 @@ public:
   void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 
   void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
+
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
@@ -2294,6 +2308,8 @@ public:
   /// Print (in text format) VPlan blocks in order based on dominator tree.
   void dump(raw_ostream &OS) const;
   void dump() const;
+  void dumpLivenessInfo(raw_ostream &OS) const;
+
 #endif // INTEL_CUSTOMIZATION
 
   void addVF(unsigned VF) { VFs.insert(VF); }
@@ -2316,37 +2332,36 @@ public:
     return UPtr.get();
   }
 
-  // Create or retrieve a VPExternalDef for a given Value \p ExtVal.
+  /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.
   VPExternalDef *getVPExternalDef(Value *ExtDef) {
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefs[ExtDef];
-    if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(ExtDef));
-
-    return UPtr.get();
+    return getExternalItem(VPExternalDefs, ExtDef);
   }
 
   /// Create or retrieve a VPExternalDef for a given HIR unitary DDRef \p DDR.
   VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
-    UnitaryBlobOrIV ExtDef(DDR);
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
-    if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(DDR));
-
-    return UPtr.get();
+    return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
   /// Create or retrieve a VPExternalDef for an HIR IV identified by its \p
   /// IVLevel.
   VPExternalDef *getVPExternalDefForIV(unsigned IVLevel, Type *BaseTy) {
-    UnitaryBlobOrIV ExtDef(IVLevel);
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
-    if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(IVLevel, BaseTy));
+    return getExternalItemForIV(VPExternalDefsHIR, IVLevel, BaseTy);
+  }
 
-    return UPtr.get();
+  /// Create or retrieve a VPExternalUse for a given Value \p ExtVal.
+  VPExternalUse *getVPExternalUse(Value *ExtDef) {
+    return getExternalItem(VPExternalUses, ExtDef);
+  }
+
+  /// Create or retrieve a VPExternalUse for a given HIR unitary DDRef \p DDR.
+  VPExternalUse *getVPExternalUseForDDRef(loopopt::DDRef *DDR) {
+    return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
+  }
+
+  /// Create or retrieve a VPExternalUse for an HIR IV identified by its \p
+  /// IVLevel.
+  VPExternalUse *getVPExternalUseForIV(unsigned IVLevel, Type *BaseTy) {
+    return getExternalItemForIV(VPExternalUsesHIR, IVLevel, BaseTy);
   }
 
   /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
@@ -2398,6 +2413,47 @@ private:
   static void updateDominatorTree(class DominatorTree *DT,
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
+
+  // Create or retrieve an external item from \p Table for a given Value \p
+  // ExtVal.
+  template <typename T>
+  typename T::mapped_type::element_type *getExternalItem(T &Table,
+                                                         Value *ExtVal) {
+    using Def = typename T::mapped_type::element_type;
+    typename T::mapped_type &UPtr = Table[ExtVal];
+    if (!UPtr)
+      // Def is a new external item to be inserted in the map.
+      UPtr.reset(new Def(ExtVal));
+    return UPtr.get();
+  }
+
+  // Create or retrieve an external item from \p Table for given HIR unitary
+  // DDRef \p DDR.
+  template <typename T>
+  typename T::mapped_type::element_type *
+  getExternalItemForDDRef(T &Table, loopopt::DDRef *DDR) {
+    using Def = typename T::mapped_type::element_type;
+    UnitaryBlobOrIV ExtDef(DDR);
+    typename T::mapped_type &UPtr = Table[ExtDef];
+    if (!UPtr)
+      // Def is a new external item to be inserted in the map.
+      UPtr.reset(new Def(DDR));
+    return UPtr.get();
+  }
+
+  // Create or retrieve an external item from \p Table for an HIR IV identified
+  // by its \p IVLevel.
+  template <typename T>
+  typename T::mapped_type::element_type *
+  getExternalItemForIV(T &Table, unsigned IVLevel, Type *BaseTy) {
+    using Def = typename T::mapped_type::element_type;
+    UnitaryBlobOrIV ExtDef(IVLevel);
+    typename T::mapped_type &UPtr = Table[ExtDef];
+    if (!UPtr)
+      // Def is a new external item to be inserted in the map.
+      UPtr.reset(new Def(IVLevel, BaseTy));
+    return UPtr.get();
+  }
 };
 
 #if INTEL_CUSTOMIZATION

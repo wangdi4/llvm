@@ -679,9 +679,10 @@ public:
   /// DDRef for %t2 to the DDRef.
   bool isSelfBlob() const override;
 
-  /// Returns true if the DDRef is a unitary blob. A unitary blob is a single
-  /// (non-nested) standalone blob.
-  bool isUnitaryBlob() const override;
+  /// Returns true if the DDRef cannot be decomposed further into simpler
+  /// operations. Non-decomposable refs include LHS terminal refs and RHS
+  /// unitary blobs.
+  bool isNonDecomposable() const override;
 
   /// Returns true if this ref looks like 1 * undef.
   bool isStandAloneUndefBlob() const override;

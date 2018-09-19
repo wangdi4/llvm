@@ -126,9 +126,10 @@ public:
   /// DDRef for %t2 to the DDRef.
   virtual bool isSelfBlob() const = 0;
 
-  /// Returns true if the DDRef is a unitary blob. A unitary blob is a single
-  /// (non-nested) standalone blob.
-  virtual bool isUnitaryBlob() const = 0;
+  /// Returns true if the DDRef cannot be decomposed further into simpler
+  /// operations. Non-decomposable refs include LHS terminal refs and RHS
+  /// unitary blobs.
+  virtual bool isNonDecomposable() const = 0;
 
   /// Returns true if DDRef corresponds to terminal ref.
   /// BlobDDRef is always terminal

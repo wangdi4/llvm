@@ -605,6 +605,14 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
         HInst->getLLVMInstruction()->getType(), DDNode));
   }
 
+  if (HInst && HInst->hasLval()) {
+    RegDDRef *DDRef = HInst->getLvalDDRef();
+    if (OutermostHLp->isLiveOut(DDRef->getSymbase())) {
+      VPExternalUse* User = Plan->getVPExternalUseForDDRef(DDRef);
+      User->addOperand(NewVPInst);
+    }
+  }
+
   HLDef2VPValue[DDNode] = NewVPInst;
   return NewVPInst;
 }
@@ -937,7 +945,7 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   // RegDDRef directly in the following steps since there is no BlobDDRef
   // associated to this Blob. Otherwise, we retrieve and use the BlobDDRef.
   DDRef *DDR;
-  if (RDDR.isUnitaryBlob())
+  if (RDDR.isNonDecomposable())
     DDR = &RDDR;
   else {
     unsigned BlobIndex = RDDR.getBlobUtils().findBlob(Blob);

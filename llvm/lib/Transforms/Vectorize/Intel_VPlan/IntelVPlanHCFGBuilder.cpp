@@ -802,6 +802,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     errs() << "Print after building H-CFG:\n";
     Plan->dump(errs());
   }
+  LLVM_DEBUG(Plan->dumpLivenessInfo(dbgs()));
 
   LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
              Verifier->verifyHierarchicalCFG(Plan, TopRegion));
@@ -961,7 +962,10 @@ private:
   void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
   void fixPhiNodes();
   VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
-  bool isExternalDef(Value *Val);
+  bool isExternalDef(Value *Val) const;
+  // Check whether Val has uses outside the vectorized loop and create
+  // VPExternalUse-s for NewVPInst accordingly.
+  void addExternalUses(Value *Val, VPValue *NewVPInst);
   VPValue *createOrGetVPOperand(Value *IROp);
   void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
 
@@ -1048,7 +1052,7 @@ VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
 // However, since we don't represent loop Instructions in loop PH/Exit as
 // VPInstructions during plain CFG construction, those are also considered
 // external definitions in this particular context.
-bool PlainCFGBuilder::isExternalDef(Value *Val) {
+bool PlainCFGBuilder::isExternalDef(Value *Val) const {
 #if INTEL_CUSTOMIZATION
   assert(!isa<Constant>(Val) &&
          "Constants should have been processed separately.");
@@ -1063,6 +1067,16 @@ bool PlainCFGBuilder::isExternalDef(Value *Val) {
 
   // Check whether Instruction definition is within the loop nest.
   return !TheLoop->contains(Inst);
+}
+
+// Check whether any use of Val is outside
+void PlainCFGBuilder::addExternalUses(Value *Val, VPValue *NewVPInst) {
+  for (User *U : Val->users())
+    if (auto Inst = dyn_cast<Instruction>(U))
+      if (!TheLoop->contains(Inst)) {
+        VPExternalUse *User = Plan->getVPExternalUse(Inst);
+        User->addOperand(NewVPInst);
+      }
 }
 
 // Create a new VPValue or retrieve an existing one for the Instruction's
@@ -1170,6 +1184,8 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
           Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
     }
+    if (TheLoop->contains(Inst))
+      addExternalUses(Inst, NewVPInst);
     IRDef2VPValue[Inst] = NewVPInst;
   }
 }

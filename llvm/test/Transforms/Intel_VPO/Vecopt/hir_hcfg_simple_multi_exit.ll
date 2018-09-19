@@ -85,7 +85,7 @@
 
 ; Landing pad.
 ; CHECK: [[LANDING_PAD]] (BP: NULL)
-; CHECK: END Block - no SUCCESSORS
+; CHECK: no SUCCESSORS
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture readonly %cur) local_unnamed_addr #0 {

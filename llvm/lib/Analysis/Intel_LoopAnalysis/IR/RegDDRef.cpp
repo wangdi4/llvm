@@ -512,9 +512,13 @@ bool RegDDRef::isSelfBlob() const {
   return (getSymbase() == SB);
 }
 
-bool RegDDRef::isUnitaryBlob() const {
+bool RegDDRef::isNonDecomposable() const {
   if (!isTerminalRef()) {
     return false;
+  }
+
+  if (isLval()) {
+    return true;
   }
 
   return getSingleCanonExpr()->isUnitaryBlob();
