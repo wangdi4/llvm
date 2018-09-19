@@ -963,9 +963,6 @@ void PassManagerBuilder::populateModulePassManager(
   addInstructionCombiningPass(MPM);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  MPM.add(createLoopSPMDizationPass());
-#endif  // INTEL_FEATURE_CSA
   // Disable unroll in LTO mode if loopopt is enabled so it only gets triggered
   // in link phase after loopopt.
   if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) {
