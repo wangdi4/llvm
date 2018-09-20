@@ -230,7 +230,8 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         m_mapDevices.ReleaseAllObjects(false);
         return;
     }
-    GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_szArraySize, &m_sz1dImgBufSize);
+    GetMaxImageDimensions(m_sz2dWidth, m_sz2dHeight, m_sz3dWidth, m_sz3dHeight,
+        m_sz3dDepth, m_szArraySize, m_sz1dImgBufSize);
 
     // calculate m_bSupportsSvmSystem
     const tSetOfDevices* pDevices = GetAllRootDevices();
@@ -1119,16 +1120,14 @@ cl_ulong Context::GetMaxMemAllocSize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::GetMaxImageDimensions
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth, 
-                                           size_t * psz2dHeight,
-                                           size_t * psz3dWidth,
-                                           size_t * psz3dHeight,
-                                           size_t * psz3dDepth,
-                                           size_t * pszArraySize,
-                                           size_t * psz1dImgBufSize)
+cl_err_code Context::GetMaxImageDimensions(size_t &psz2dWidth,
+                                           size_t &psz2dHeight,
+                                           size_t &psz3dWidth,
+                                           size_t &psz3dHeight,
+                                           size_t &psz3dDepth,
+                                           size_t &pszArraySize,
+                                           size_t &psz1dImgBufSize)
 {
-    assert ( "wrong input params" && ((psz2dWidth != nullptr) || (psz2dHeight != nullptr) || (psz3dWidth != nullptr) || (psz3dHeight != nullptr) || (psz3dDepth != nullptr)) );
-
     LOG_DEBUG(TEXT("%s"), TEXT("Enter GetMaxAllowedImageWidth"));
 
     size_t sz2dWith = 0, sz2dHeight = 0, szMax2dWith = 0, szMax2dHeight = 0;
@@ -1144,92 +1143,50 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
         {
             continue;
         }
-        if (nullptr != psz2dWidth)
+        clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &sz2dWith, nullptr);
+        if (CL_SUCCEEDED(clErr))
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &sz2dWith, nullptr);
-            if (CL_SUCCEEDED(clErr))
-            {
-                szMax2dWith = ((0 == ui) || (sz2dWith < szMax2dWith)) ? sz2dWith : szMax2dWith;
-            }
+            szMax2dWith = ((0 == ui) || (sz2dWith < szMax2dWith)) ? sz2dWith : szMax2dWith;
         }
-        if (nullptr != psz2dHeight)
+        clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t), &sz2dHeight, nullptr);
+        if (CL_SUCCEEDED(clErr))
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t), &sz2dHeight, nullptr);
-            if (CL_SUCCEEDED(clErr))
-            {
-                szMax2dHeight = ((0 == ui) || (sz2dHeight < szMax2dHeight)) ? sz2dHeight : szMax2dHeight;
-            }
+            szMax2dHeight = ((0 == ui) || (sz2dHeight < szMax2dHeight)) ? sz2dHeight : szMax2dHeight;
         }
-        if (nullptr != psz3dWidth)
+        clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t), &sz3dWith, nullptr);
+        if (CL_SUCCEEDED(clErr))
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t), &sz3dWith, nullptr);
-            if (CL_SUCCEEDED(clErr))
-            {
-                szMax3dWith = ((0 == ui) || (sz3dWith < szMax3dWith)) ? sz3dWith : szMax3dWith;
-            }
+            szMax3dWith = ((0 == ui) || (sz3dWith < szMax3dWith)) ? sz3dWith : szMax3dWith;
         }
-        if (nullptr != psz3dHeight)
+        clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t), &sz3dHeight, nullptr);
+        if (CL_SUCCEEDED(clErr))
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t), &sz3dHeight, nullptr);
-            if (CL_SUCCEEDED(clErr))
-            {
-                szMax3dHeight = ((0 == ui) || (sz3dHeight < szMax3dHeight)) ? sz3dHeight : szMax3dHeight;
-            }
+            szMax3dHeight = ((0 == ui) || (sz3dHeight < szMax3dHeight)) ? sz3dHeight : szMax3dHeight;
         }
-        if (nullptr != psz3dDepth)
+        clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t), &sz3dDepth, nullptr);
+        if (CL_SUCCEEDED(clErr))
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t), &sz3dDepth, nullptr);
-            if (CL_SUCCEEDED(clErr))
-            {
-                szMax3dDepth = ((0 == ui) || (sz3dDepth < szMax3dDepth)) ? sz3dDepth : szMax3dDepth;
-            }
+            szMax3dDepth = ((0 == ui) || (sz3dDepth < szMax3dDepth)) ? sz3dDepth : szMax3dDepth;
         }
-        if (nullptr != pszArraySize)
+        clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &szArraySize, nullptr);
+        if (CL_SUCCEEDED(clErr))
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &szArraySize, nullptr);
-            if (CL_SUCCEEDED(clErr))
-            {
-                szMaxArraySize = ((0 == ui) || (szArraySize < szMaxArraySize)) ? szArraySize : szMaxArraySize;
-            }
+            szMaxArraySize = ((0 == ui) || (szArraySize < szMaxArraySize)) ? szArraySize : szMaxArraySize;
         }
-        if (nullptr != psz1dImgBufSize)
+        clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz1dImgBufSize, nullptr);
+        if (CL_SUCCEEDED(clErr))
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz1dImgBufSize, nullptr);
-            if (CL_SUCCEEDED(clErr))
-            {
-                szMax1dImgBufSize = 0 == ui || sz1dImgBufSize < szMax1dImgBufSize ? sz1dImgBufSize : szMax1dImgBufSize;
-            }
+            szMax1dImgBufSize = 0 == ui || sz1dImgBufSize < szMax1dImgBufSize ? sz1dImgBufSize : szMax1dImgBufSize;
         }
     }
 
-    if (nullptr != psz2dWidth)
-    {
-        *psz2dWidth = szMax2dWith;
-    }
-    if (nullptr != psz2dHeight)
-    {
-        *psz2dHeight = szMax2dHeight;
-    }
-    if (nullptr != psz3dWidth)
-    {
-        *psz3dWidth = szMax3dWith;
-    }
-    if (nullptr != psz3dHeight)
-    {
-        *psz3dHeight = szMax3dHeight;
-    }
-    if (nullptr != psz3dDepth)
-    {
-        *psz3dDepth = szMax3dDepth;
-    }
-    if (nullptr != pszArraySize)
-    {
-        *pszArraySize = szMaxArraySize;
-    }
-    if (nullptr != psz1dImgBufSize)
-    {
-        *psz1dImgBufSize = szMax1dImgBufSize;
-    }
+    psz2dWidth = szMax2dWith;
+    psz2dHeight = szMax2dHeight;
+    psz3dWidth = szMax3dWith;
+    psz3dHeight = szMax3dHeight;
+    psz3dDepth = szMax3dDepth;
+    pszArraySize = szMaxArraySize;
+    psz1dImgBufSize = szMax1dImgBufSize;
     return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
