@@ -475,11 +475,11 @@ void VecClone::updateReturnPredecessors(Function *Clone,
   // unconditional branches because we loop through all successors of the
   // branch to see if any of them point to the ReturnBlock.
   for (unsigned I = 0; I < BranchesToUpdate.size(); ++I) {
-    unsigned int NumOps = BranchesToUpdate[I]->getNumSuccessors();
-    for (unsigned Idx = 0; Idx < NumOps; ++Idx) {
-      BasicBlock *Successor = BranchesToUpdate[I]->getSuccessor(Idx);
+    unsigned int NumSuccs = BranchesToUpdate[I]->getNumSuccessors();
+    for (unsigned Succ = 0; Succ < NumSuccs; ++Succ) {
+      BasicBlock *Successor = BranchesToUpdate[I]->getSuccessor(Succ);
       if (Successor == ReturnBlock) {
-        BranchesToUpdate[I]->setOperand(Idx, LoopExitBlock);
+        BranchesToUpdate[I]->setSuccessor(Succ, LoopExitBlock);
       }
     }
   }
