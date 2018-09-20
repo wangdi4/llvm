@@ -764,6 +764,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
 HLInst *HIRRuntimeDD::createUGECompare(HLNodeUtils &HNU, HLContainerTy &Nodes,
                                        RegDDRef *Ref1, RegDDRef *Ref2) {
+  auto &DL = HNU.getDataLayout();
+
   Type *T1 = Ref1->getDestType();
   Type *T2 = Ref2->getDestType();
 
@@ -772,23 +774,52 @@ HLInst *HIRRuntimeDD::createUGECompare(HLNodeUtils &HNU, HLContainerTy &Nodes,
   if (T1 != T2) {
     Type *SmallerType;
     RegDDRef **LargerTypeRefPtr;
+    unsigned LargerTypeSize;
+    unsigned SmallerTypeSize;
 
-    if (HNU.getDataLayout().getTypeSizeInBits(T1->getPointerElementType()) >
-        HNU.getDataLayout().getTypeSizeInBits(T2->getPointerElementType())) {
+    auto T1Size = DL.getTypeSizeInBits(T1->getPointerElementType());
+    auto T2Size = DL.getTypeSizeInBits(T2->getPointerElementType());
+
+    if (T1Size > T2Size) {
       SmallerType = T2;
+      SmallerTypeSize = T2Size;
       LargerTypeRefPtr = &Ref1;
+      LargerTypeSize = T1Size;
     } else {
       SmallerType = T1;
+      SmallerTypeSize = T1Size;
       LargerTypeRefPtr = &Ref2;
+      LargerTypeSize = T2Size;
     }
 
-    // Cast larger ref to smaller type.
-    HLInst *CastInst =
-        HNU.createBitCast(SmallerType, *LargerTypeRefPtr, "mv.cast");
-    Nodes.push_back(*CastInst);
+    (*LargerTypeRefPtr)->setBitCastDestType(SmallerType);
 
-    // Replace larger reference with a cast instruction.
-    *LargerTypeRefPtr = CastInst->getLvalDDRef()->clone();
+    auto Ceil = [](unsigned A, unsigned B) { return (A + B - 1) / B; };
+    unsigned Offset = Ceil(LargerTypeSize, SmallerTypeSize) - 1;
+
+    // If offset needed and the LargestType Ref is an upper reference.
+    if (Offset && *LargerTypeRefPtr == Ref1) {
+      // %offset_base = (i8*)&(%A)[0]
+      // Upper ref will be replaced with &(%offset_base)[<Offset>]
+
+      Type *OffsetTy =
+          DL.getIntPtrType(HNU.getContext(), Ref1->getPointerAddressSpace());
+
+      auto *BaseInst = HNU.createCopyInst(*LargerTypeRefPtr, "mv.upper.base");
+      Nodes.push_back(*BaseInst);
+
+      auto *BaseDDRef = BaseInst->getLvalDDRef();
+
+      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(
+          BaseDDRef->getSelfBlobIndex(), NonLinearLevel,
+          (*LargerTypeRefPtr)->getSymbase(), true);
+
+      OffsetDDRef->addDimension(
+          HNU.getCanonExprUtils().createCanonExpr(OffsetTy, 0, Offset));
+
+      // Replace larger reference with a cast instruction.
+      *LargerTypeRefPtr = OffsetDDRef;
+    }
   }
 
   return HNU.createCmp(PredicateTy::ICMP_UGE, Ref1, Ref2, "mv.test");

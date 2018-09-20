@@ -39,15 +39,13 @@
 ; %v %pDst1 %pSrc1
 
 ; CHECK: Function
-; CHECK: %mv.cast = bitcast.float*.i32*(&((%v)[0]));
 ; CHECK: %mv.test = &((%v)[2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
-; CHECK: %mv.test5 = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u %mv.cast;
+; CHECK: %mv.test5 = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((i32*)(%v)[0]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test5;
-; CHECK: %mv.cast6 = bitcast.float*.i32*(&((%pSrc1)[sext.i32.i64(%div) * i1]));
-; CHECK: %mv.test7 = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u %mv.cast6;
-; CHECK: %mv.test8 = &((%pSrc1)[sext.i32.i64(%div) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
-; CHECK: %mv.and9 = %mv.test7  &&  %mv.test8;
-; CHECK: if (%mv.and == 0 && %mv.and9 == 0)
+; CHECK: %mv.test6 = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((i32*)(%pSrc1)[sext.i32.i64(%div) * i1]);
+; CHECK: %mv.test7 = &((%pSrc1)[sext.i32.i64(%div) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
+; CHECK: %mv.and8 = %mv.test6  &&  %mv.test7;
+; CHECK: if (%mv.and == 0 && %mv.and8 == 0)
 
 ; ModuleID = 'func.bc'
 source_filename = "cq91196.cpp"
