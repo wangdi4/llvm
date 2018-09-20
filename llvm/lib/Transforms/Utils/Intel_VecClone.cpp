@@ -428,8 +428,9 @@ BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
     ReturnBlock = LoopBlock->splitBasicBlock(SplitPt, "return");
   } else {
     for (auto &BB : *Clone) {
-      if (isa<ReturnInst>(BB.getTerminator())) {
-        ReturnBlock = &BB;
+      Instruction *RetInst = BB.getTerminator();
+      if (isa<ReturnInst>(RetInst)) {
+        ReturnBlock = BB.splitBasicBlock(RetInst, "return");
         break;
       }
     }
