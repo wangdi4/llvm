@@ -4,8 +4,8 @@
 ;			s1  += a[i];
 ;			s1  += a[i+1] +1;
 ; REQUIRES: asserts
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis   | FileCheck %s
-; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-safe-reduction-analysis   | FileCheck %s
+; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK:  %s2.019 = %s2.019  +  %0; <Safe Reduction>
 ; CHECK:  %add2 = %s1.018  +  %1; <Safe Reduction>
 ; CHECK:  %s1.018 = %add2  +  %add5; <Safe Reduction>

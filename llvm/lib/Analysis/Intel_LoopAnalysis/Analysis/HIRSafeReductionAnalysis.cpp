@@ -38,9 +38,6 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-safe-reduction-analysis"
-static cl::opt<bool>
-    ForceSRA("force-hir-safe-reduction-analysis", cl::init(false), cl::Hidden,
-             cl::desc("forces safe reduction analysis by request"));
 
 AnalysisKey HIRSafeReductionAnalysisPass::Key;
 HIRSafeReductionAnalysis
@@ -105,19 +102,7 @@ void HIRSafeReductionAnalysisWrapperPass::releaseMemory() { HSR.reset(); }
 
 HIRSafeReductionAnalysis::HIRSafeReductionAnalysis(HIRFramework &HIRF,
                                                    HIRDDAnalysis &DDA)
-    : HIRAnalysis(HIRF), DDA(DDA) {
-  if (!ForceSRA) {
-    return;
-  }
-
-  // Gather the innermost loops as candidates.
-  SmallVector<HLLoop *, 32> CandidateLoops;
-  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
-
-  for (auto &Loop : CandidateLoops) {
-    identifySafeReduction(Loop);
-  }
-}
+    : HIRAnalysis(HIRF), DDA(DDA) {}
 
 namespace {
 void printAChain(formatted_raw_ostream &OS, unsigned Indented,
@@ -199,6 +184,10 @@ HIRSafeReductionAnalysis::getSafeReductionChain(const HLLoop *Loop) {
 //     t1 = t2
 //     t3 = t1 +
 //     t2 = t3 +
+// c.
+//     t1 = t1 +
+//     t1 = t1 +
+//     t1 = t1 +
 bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
                                          const HLLoop *Loop, HLInst **SinkInst,
                                          DDRef **SinkDDRef,
@@ -214,17 +203,32 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
   }
 
   HLNode *UseNode = nullptr;
+  HLInst *SingleOutputDepInst = nullptr;
+  bool FlowEdgeFound = false;
 
   for (; I != E; ++I) {
     const DDEdge *Edge = *I;
-    if (!Edge->isFLOWdep()) {
-      return false;
+    if (Edge->isOUTPUTdep()) {
+      // Allow only one output edge for case 'c' mentioned above in the
+      // comments.
+      if (SingleOutputDepInst) {
+        return false;
+      }
+
+      // Capture the destination instruction of the single output edge
+      SingleOutputDepInst = dyn_cast<HLInst>(Edge->getSink()->getHLDDNode());
+      continue;
     }
+    assert(Edge->isFLOWdep() && "Outgoing edges from lval has to be either an "
+                                "OUTPUT or a FLOW edge.");
+    FlowEdgeFound = true;
+
     *SinkDDRef = Edge->getSink();
     HLNode *SinkNode = (*SinkDDRef)->getHLDDNode();
     if (!HLNodeUtils::postDominates(SinkNode, FirstChild)) {
       return false;
     }
+
     *SinkInst = dyn_cast<HLInst>(SinkNode);
     if (!(*SinkInst)) {
       return false;
@@ -277,6 +281,14 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       return false;
     }
   }
+
+  // The destination of that single output edge should be same as the flow edge
+  // destination
+  if (!FlowEdgeFound ||
+      (SingleOutputDepInst && (*SinkInst != SingleOutputDepInst))) {
+    return false;
+  }
+
   return true;
 }
 
@@ -330,6 +342,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
     SafeRedChain RedInsts;
     bool SingleStmtReduction;
     const HLNode *NodeI = &(*It);
+    const HLInst *FirstInstOfChain = nullptr;
 
     const HLInst *Inst = dyn_cast<HLInst>(NodeI);
     if (!Inst) {
@@ -341,6 +354,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
       continue;
     }
 
+    // If already marked as part of some reduction chain, skip to the next
     if (isSafeReduction(Inst)) {
       continue;
     }
@@ -351,6 +365,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
     }
 
     RedInsts.push_back(Inst);
+    FirstInstOfChain = Inst;
 
     HLInst *SinkInst = nullptr;
     DDRef *SinkDDRef = nullptr;
@@ -362,14 +377,14 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
     //       - sink stmt postdom FirstChild
     //       - reduction Op matches
     //       - single use
-
     while (true) {
 
       const RegDDRef *LRef = Inst->getLvalDDRef();
       if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode, DDG)) {
         break;
       }
-      if (FirstRvalSB == SinkDDRef->getSymbase()) {
+      if (FirstRvalSB == SinkDDRef->getSymbase() &&
+          SinkInst == FirstInstOfChain) {
         if (SingleStmtReduction) {
           LLVM_DEBUG(dbgs() << "\nSelf-reduction found\n");
         } else {
@@ -381,17 +396,11 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
         break;
       }
 
-      if (Inst == SinkInst) {
+      // We only expect to go lexically forward starting from FirstInstOfChain
+      if (SinkInst->getTopSortNum() <= Inst->getTopSortNum()) {
         break;
       }
-      // if SinkInst (s3) strictly dominates Inst(s4),
-      // then s2 is no longer a valid 1st stmt of the cycle.
-      // e.g.    s2:   x = y
-      //         s3:   z = w
-      //         s4:   w = x + z
-      if (HLNodeUtils::strictlyDominates(SinkInst, Inst)) {
-        break;
-      }
+
       RedInsts.push_back(SinkInst);
       Inst = SinkInst;
     }
@@ -580,6 +589,34 @@ bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
   }
 
   return true;
+}
+
+void HIRSafeReductionAnalysis::printAnalysis(raw_ostream &OS) const {
+  // Need a non-const pointer to force SRA for opt -analyze mode.
+  auto NonConstSRA = const_cast<HIRSafeReductionAnalysis *>(this);
+  formatted_raw_ostream FOS(OS);
+
+  // Gather the innermost loops as candidates.
+  SmallVector<const HLLoop *, 32> CandidateLoops;
+  HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
+
+  for (auto &Loop : CandidateLoops) {
+    NonConstSRA->identifySafeReduction(Loop);
+    unsigned Depth = Loop->getNestingLevel() + 1;
+
+    Loop->printHeader(FOS, Depth - 1, false);
+
+    auto &SRCL = NonConstSRA->SafeReductionMap[Loop];
+    if (SRCL.empty()) {
+      FOS << "No Safe Reduction\n";
+    } else {
+      for (auto &SRI : SRCL) {
+        printAChain(FOS, Depth, SRI.Chain);
+      }
+    }
+
+    Loop->printFooter(FOS, Depth - 1);
+  }
 }
 
 void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
