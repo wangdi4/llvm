@@ -204,7 +204,8 @@ void doacross_test(int (*v_ptr)[5][4])
   // CHECK: [[OMPLB:%.omp.lb.*]] = alloca i32,
   // CHECK: [[OMPUB:%.omp.ub.*]] = alloca i32,
   int i, j;
-  // CHECK: region.entry{{.*}}OMP.PARALLEL.LOOP{{.*}}ORDERED"(i32 2)
+  // CHECK: region.entry{{.*}}OMP.PARALLEL.LOOP
+  // CHECK-SAME: ORDERED"(i32 2, i32 4, i32 2)
   #pragma omp parallel for ordered (2) private (j)
   for (i = 1; i < M; i++) {
     for (j = 2; j < N; j++) {
@@ -243,13 +244,40 @@ void doacross_test(int (*v_ptr)[5][4])
       #pragma omp ordered depend(sink: i-1, j-1) depend(sink: i, j-2)
       (*v_ptr) [i][j] = (*v_ptr) [i-1][j - 1] + (*v_ptr) [i][j-2];
 
+  //CHECK: call {{.*}}bar
+  bar(0);
+  //CHECK: [[N22:%[0-9]+]] = load i32, i32* [[VARI]], align 4
+  //CHECK: [[SUB25:%sub[0-9]+]] = sub nsw i32 [[N22]], 1
+  //CHECK: [[DIV26:%div[0-9]+]] = sdiv i32 [[SUB25]], 1
+  //CHECK: [[N23:%[0-9]+]] = load i32, i32* [[VARJ]], align 4
+  //CHECK: [[SUB27:%sub[0-9]+]] = sub nsw i32 [[N23]], 2
+  //CHECK: [[DIV28:%div[0-9]+]] = sdiv i32 [[SUB27]], 1
+
   // CHECK: region.entry{{.*}}DIR.OMP.ORDERED
   // CHECK-SAME: "QUAL.OMP.DEPEND.SOURCE"
+  // CHECK-SAME: (i32 [[DIV26]], i32 [[DIV28]])
   // CHECK: region.exit{{.*}}DIR.OMP.END.ORDERED
       #pragma omp ordered depend(source)
     }
   }
   // CHECK: region.exit{{.*}}OMP.END.PARALLEL.LOOP
+}
+
+// CHECK: doacross_test_two
+void doacross_test_two(int (*v_ptr)[5][4])
+{
+// CHECK: [[I:%i.*]] = alloca i32,
+// CHECK: [[J:%j.*]] = alloca i32,
+  int i, j;
+  // CHECK: region.entry{{.*}}OMP.PARALLEL.LOOP
+  // CHECK-SAME: ORDERED"(i32 2, i32 4, i32 2)
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J]])
+  #pragma omp parallel for ordered (2)
+  for (i = 1; i < M; i++) {
+    for (j = 2; j < N; j++) {
+    }
+  }
 }
 
 // CHECK: define {{.*}}multiloop

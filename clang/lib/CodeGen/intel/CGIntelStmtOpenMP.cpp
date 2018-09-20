@@ -824,6 +824,8 @@ namespace CGIntelOpenMP {
       addArg(CGF.EmitScalarExpr(E));
     else
       addArg(CGF.Builder.getInt32(0));
+    for (auto *LNI : C->getLoopNumIterations())
+      addArg(CGF.EmitScalarExpr(LNI));
   }
 
   void OpenMPCodeOutliner::emitOMPScheduleClause(const OMPScheduleClause *C) {
@@ -1048,15 +1050,12 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
     auto DepKind = Cl->getDependencyKind();
 
-    if (DepKind == OMPC_DEPEND_source) {
+    if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
       ClauseEmissionHelper CEH(*this);
-      addArg("QUAL.OMP.DEPEND.SOURCE");
-      return;
-    }
-
-    if (DepKind == OMPC_DEPEND_sink) {
-      ClauseEmissionHelper CEH(*this);
-      addArg("QUAL.OMP.DEPEND.SINK");
+      if (DepKind == OMPC_DEPEND_source)
+        addArg("QUAL.OMP.DEPEND.SOURCE");
+      else
+        addArg("QUAL.OMP.DEPEND.SINK");
       for (unsigned I = 0, E = Cl->getNumLoops(); I < E; ++I)
         addArg(CGF.EmitScalarExpr(Cl->getLoopData(I)));
       return;
@@ -1289,6 +1288,19 @@ namespace CGIntelOpenMP {
           ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
         else
           ImplicitMap.insert(std::make_pair(PVD, ICK_private));
+      }
+      for (const auto *C : LoopDir->getClausesOfKind<OMPOrderedClause>()) {
+        if (!C->getNumForLoops())
+          continue;
+        for (unsigned I = LoopDir->getCollapsedNumber(),
+                      E = C->getLoopNumIterations().size(); I < E; ++I) {
+          const auto *DRE = cast<DeclRefExpr>(C->getLoopCounter(I));
+          const auto *PVD = cast<VarDecl>(DRE->getDecl());
+          if (isOpenMPSimdDirective(CurrentDirectiveKind))
+            ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
+          else
+            ImplicitMap.insert(std::make_pair(PVD, ICK_private));
+        }
       }
       auto IVExpr = cast<DeclRefExpr>(LoopDir->getIterationVariable());
       auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
