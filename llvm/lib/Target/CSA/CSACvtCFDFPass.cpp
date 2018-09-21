@@ -1565,6 +1565,7 @@ unsigned CSACvtCFDFPass::generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
   unsigned landSrc                      = 0;
   MachineInstr *landInstr;
   unsigned i = 0;
+  assert(landOpnds.size() > 0 && "Invalid number of operands.");
   for (; i < landOpnds.size(); i++) {
     if (!landSrc) {
       landSrc = landOpnds[i];
@@ -1603,7 +1604,11 @@ unsigned CSACvtCFDFPass::generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
   // we have already encoded one with the other LAND being its
   // first source operand - we need to fill up to 3 source
   // operands in this case.
-  if (i < 4 && (i % 4) != 0) {
+  if (i == 1) {
+    // CMPLRLLVM-5595: one operand is possible.
+    return landSrc;
+  }
+  else if (i < 4 && (i % 4) != 0) {
     for (unsigned j = i % 4; j < 4; j++)
       landInstr->addOperand(MachineOperand::CreateImm(1));
   } else if (i > 4 && ((i - 4) % 3) != 0) {

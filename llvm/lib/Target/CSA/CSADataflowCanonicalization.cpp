@@ -186,7 +186,12 @@ bool CSADataflowCanonicalizationPass::eliminateNotPicks(MachineInstr *MI) {
   }
 
   if (MachineInstr *selector = getDefinition(MI->getOperand(select_op))) {
-    if (selector->getOpcode() == CSA::NOT1) {
+    if (selector->getOpcode() == CSA::NOT1 &&
+        // TODO (vzakhari 9/21/2018): CMPLRLLVM-5595 - fix the code
+        //       to support immediate operands.
+        MI->getOperand(low_op).isReg() &&
+        MI->getOperand(high_op).isReg() &&
+        MI->getOperand(select_op).isReg()) {
       // This means the selector is a NOT. Swap the two definitions on the
       // output, and change the selector to be the NOT's inverse.
       int reg_tmp = MI->getOperand(low_op).getReg();

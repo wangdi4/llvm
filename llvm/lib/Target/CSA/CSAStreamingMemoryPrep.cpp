@@ -19,6 +19,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -27,6 +28,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 
@@ -52,13 +55,18 @@ struct CSAStreamingMemoryPrep : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequiredID(LCSSAID);
     AU.setPreservesAll();
   }
 
   bool runOnFunction(Function &F) override;
   bool runOnLoop(Loop *L);
 
+  LoopInfo *LI;
+  DominatorTree *DT;
+  bool PreserveLCSSA;
   ScalarEvolution *SE;
 };
 } // namespace
@@ -85,8 +93,10 @@ bool CSAStreamingMemoryPrep::runOnFunction(Function &F) {
   if (!EnableStreamingMemoryPrep)
     return Changed;
 
-  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE           = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  LI            = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  DT            = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  SE            = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  PreserveLCSSA = mustPreserveAnalysisID(LCSSAID);
 
   for (auto &L : LI->getLoopsInPreorder()) {
     Changed |= runOnLoop(L);
@@ -97,6 +107,15 @@ bool CSAStreamingMemoryPrep::runOnFunction(Function &F) {
 
 bool CSAStreamingMemoryPrep::runOnLoop(Loop *L) {
   bool Changed = false;
+
+  // CMPLRLLVM-5595: SCEV asserts that the loop has a preheader,
+  //                 which is where it inserts initializaton for
+  //                 loop recurrences.
+  auto *Preheader = L->getLoopPreheader();
+  if (!Preheader)
+    Preheader = InsertPreheaderForLoop(L, DT, LI, PreserveLCSSA);
+  if (!Preheader)
+    return Changed;
 
   SmallPtrSet<Instruction *, 8> loop_indexes;
   for (auto &BB : L->blocks()) {
