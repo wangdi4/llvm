@@ -221,7 +221,10 @@ TBBTaskExecutor::~TBBTaskExecutor()
     // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
 }
 
-int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData, size_t ulAdditionalRequiredStackSize)
+int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
+                          unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData,
+                          size_t ulAdditionalRequiredStackSize,
+                          DeviceMode deviceMode)
 {    
     g_pUserLogger = pUserLogger;    
     INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_INFO);
@@ -268,55 +271,55 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
                                 tbb::global_control::max_allowed_parallelism));
     }
 
-#ifdef BUILD_FPGA_EMULATOR
-    int hardwareThreads =
-      std::min(gWorker_threads,
-               (unsigned) Intel::OpenCL::Utils::GetNumberOfProcessors());
-
-    // TBB restrictions. Magic number 256 is obtained form TBB team. It means
-    // that TBB can create at least 256 workers, even on machines with small
-    // number of hardware threads.
-    int maxThreads = std::max(4 * hardwareThreads, 256);
-    int minThreads = 2; // 1 main thread + 1 tbb worker
-
-    // TODO: replace this variable with a variable from cl.cfg.
-    std::string env_num_workers;
-    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(
-        env_num_workers, "OCL_TBB_NUM_WORKERS");
-    if (!CL_FAILED(err))
+    if (FPGA_EMU_DEVICE == deviceMode)
     {
-        int envNumThreads = std::stoi(env_num_workers);
-        if (envNumThreads < minThreads)
+        int hardwareThreads =
+          std::min(gWorker_threads,
+                   (unsigned) Intel::OpenCL::Utils::GetNumberOfProcessors());
+
+        // TBB restrictions. Magic number 256 is obtained form TBB team. It
+        // means that TBB can create at least 256 workers, even on machines
+        // with small number of hardware threads.
+        int maxThreads = std::max(4 * hardwareThreads, 256);
+        int minThreads = 2; // 1 main thread + 1 tbb worker
+
+        // TODO: replace this variable with a variable from cl.cfg.
+        std::string env_num_workers;
+        cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(
+            env_num_workers, "OCL_TBB_NUM_WORKERS");
+        if (!CL_FAILED(err))
         {
-            LOG_ERROR(TEXT(
-                "TBBTaskExecutor cannot be constructed with %d threads. "
-                "Setting num threads to %d"), envNumThreads, minThreads);
-            gWorker_threads = minThreads;
-        }
-        else if (envNumThreads > maxThreads)
-        {
-            LOG_ERROR(TEXT(
-                "TBBTaskExecutor cannot be constructed with %d threads. "
-                "Setting num threads to %d"), envNumThreads, maxThreads);
-            gWorker_threads = maxThreads;
+            int envNumThreads = std::stoi(env_num_workers);
+            if (envNumThreads < minThreads)
+            {
+                LOG_ERROR(TEXT(
+                    "TBBTaskExecutor cannot be constructed with %d threads. "
+                    "Setting num threads to %d"), envNumThreads, minThreads);
+                gWorker_threads = minThreads;
+            }
+            else if (envNumThreads > maxThreads)
+            {
+                LOG_ERROR(TEXT(
+                    "TBBTaskExecutor cannot be constructed with %d threads. "
+                    "Setting num threads to %d"), envNumThreads, maxThreads);
+                gWorker_threads = maxThreads;
+            }
+            else
+            {
+                gWorker_threads = envNumThreads;
+            }
         }
         else
         {
-            gWorker_threads = envNumThreads;
+            // Adjust number of threads required for an 'average' FPGA program
+            int averageThreads = 32;
+
+            if (hardwareThreads < averageThreads)
+            {
+                gWorker_threads = min(averageThreads, maxThreads);
+            }
         }
     }
-    else
-    {
-        // Adjust number of threads required for an 'average' FPGA program
-
-        int averageThreads = 32;
-
-        if (hardwareThreads < averageThreads)
-        {
-            gWorker_threads = min(averageThreads, maxThreads);
-        }
-    }
-#endif
 
     if (ulAdditionalRequiredStackSize == 0)
     {
