@@ -219,9 +219,6 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
   // to be deleted, then the above algorithm has a complexity of approximately
   // O(N + D) and a space bound of O(D) for Q.
 
-  if (skipFunction(MF.getFunction()))
-    return false;
-
   bool AnyChanges = false;
   MRI             = &MF.getRegInfo();
   TRI             = MF.getSubtarget().getRegisterInfo();

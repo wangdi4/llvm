@@ -1083,6 +1083,12 @@ void PassManagerBuilder::populateModulePassManager(
   // Rename anon globals to be able to handle them in the summary
   if (PrepareForLTO)
     MPM.add(createNameAnonGlobalPass());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  MPM.add(createPromoteMemoryToRegisterPass(true, true));
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {

@@ -37,12 +37,16 @@ using namespace llvm;
 
 STATISTIC(NumPromoted, "Number of alloca's promoted");
 
-static bool promoteMemoryToRegister(Function &F, DominatorTree &DT,
-                                    AssumptionCache &AC) {
+#if INTEL_CUSTOMIZATION
+static bool promoteMemoryToRegisterForBB(Function &F, DominatorTree &DT,
+                                         AssumptionCache &AC, BasicBlock &BB)
+#endif // INTEL_CUSTOMIZATION
+{
   std::vector<AllocaInst *> Allocas;
+#if !INTEL_CUSTOMIZATION
   BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
+#endif // INTEL_CUSTOMIZATION
   bool Changed = false;
-
   while (true) {
     Allocas.clear();
 
@@ -63,11 +67,33 @@ static bool promoteMemoryToRegister(Function &F, DominatorTree &DT,
   return Changed;
 }
 
-PreservedAnalyses PromotePass::run(Function &F, FunctionAnalysisManager &AM) {
+#if INTEL_CUSTOMIZATION
+static bool promoteMemoryToRegister(Function &F, DominatorTree &DT,
+                                    AssumptionCache &AC, bool AllBBs) {
+  if (!AllBBs) {
+    BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
+    return promoteMemoryToRegisterForBB(F, DT, AC, BB);
+  }
+
+  bool Changed = false;
+  for (auto &BB : F) {
+    Changed = promoteMemoryToRegisterForBB(F, DT, AC, BB) || Changed;
+  }
+  return Changed;
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+PreservedAnalyses PromotePass::run(Function &F, FunctionAnalysisManager &AM,
+                                   bool AllBBs)
+#endif // INTEL_CUSTOMIZATION
+{
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
-  if (!promoteMemoryToRegister(F, DT, AC))
+#if INTEL_CUSTOMIZATION
+  if (!promoteMemoryToRegister(F, DT, AC, AllBBs))
     return PreservedAnalyses::all();
+#endif // INTEL_CUSTOMIZATION
 
   auto PA = PreservedAnalyses();        // INTEL
   PA.preserve<WholeProgramAnalysis>();  // INTEL
@@ -84,20 +110,30 @@ struct PromoteLegacyPass : public FunctionPass {
   // Pass identification, replacement for typeid
   static char ID;
 
-  PromoteLegacyPass() : FunctionPass(ID) {
+#if INTEL_CUSTOMIZATION
+  bool Unskippable;
+  bool AllBBs;
+  PromoteLegacyPass(bool Unskippable = false, bool AllBBs = false)
+      : FunctionPass(ID), Unskippable(Unskippable), AllBBs(AllBBs) {
     initializePromoteLegacyPassPass(*PassRegistry::getPassRegistry());
   }
+#endif // INTEL_CUSTOMIZATION
 
   // runOnFunction - To run this pass, first we calculate the alloca
   // instructions that are safe for promotion, then we promote each one.
   bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
+
+#if INTEL_CUSTOMIZATION
+    if (!Unskippable && skipFunction(F))
       return false;
+#endif // INTEL_CUSTOMIZATION
 
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache &AC =
         getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-    return promoteMemoryToRegister(F, DT, AC);
+#if INTEL_CUSTOMIZATION
+    return promoteMemoryToRegister(F, DT, AC, AllBBs);
+#endif // INTEL_CUSTOMIZATION
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -105,7 +141,7 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.setPreservesCFG();
 #if INTEL_CUSTOMIZATION
-    AU.addPreserved<AndersensAAWrapperPass>();   
+    AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
 #endif // INTEL_CUSTOMIZATION
     AU.addPreserved<GlobalsAAWrapperPass>();       // INTEL
@@ -127,6 +163,9 @@ INITIALIZE_PASS_END(PromoteLegacyPass, "mem2reg", "Promote Memory to Register",
                     false, false)
 
 // createPromoteMemoryToRegister - Provide an entry point to create this pass.
-FunctionPass *llvm::createPromoteMemoryToRegisterPass() {
-  return new PromoteLegacyPass();
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createPromoteMemoryToRegisterPass(bool Unskippable,
+                                                      bool AllBBs) {
+  return new PromoteLegacyPass(Unskippable, AllBBs);
 }
+#endif // INTEL_CUSTOMIZATION

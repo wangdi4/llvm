@@ -65,6 +65,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Utils.h"
 
 #include <cstdlib>
 #include <functional>
@@ -80,10 +81,6 @@
 using namespace llvm;
 using namespace SPIRV;
 using namespace OCLUtil;
-
-namespace llvm {
-FunctionPass *createPromoteMemoryToRegisterPass();
-}
 
 namespace SPIRV {
 
