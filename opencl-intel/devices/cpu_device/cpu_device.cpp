@@ -1329,15 +1329,20 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_NAME):
         {
-#ifdef BUILD_FPGA_EMULATOR
-            const char* name = "Intel(R) FPGA Emulation Device (preview)";
-#else
-            const char* name = CPUDetect::GetInstance()->GetCPUBrandString();
-            if (!strcmp("", name))
+            const char* name;
+            if (isCPUDeviceMode)
             {
-                name = "Unknown CPU";
+                name = CPUDetect::GetInstance()->GetCPUBrandString();
+                if (!strcmp("", name))
+                {
+                    name = "Unknown CPU";
+                }
             }
-#endif
+            else
+            {
+                name = "Intel(R) FPGA Emulation Device (preview)";
+            }
+
             *pinternalRetunedValueSize = strlen(name) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1367,11 +1372,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_PROFILE):
         {
-#ifdef BUILD_FPGA_EMULATOR
-            const char* profile = "EMBEDDED_PROFILE";
-#else
-            const char* profile = "FULL_PROFILE";
-#endif
+            const char* profile = isCPUDeviceMode ? "FULL_PROFILE"
+                                                  : "EMBEDDED_PROFILE";
             *pinternalRetunedValueSize = strlen(profile) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1434,14 +1436,15 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 default:
                     assert("Unknown OpenCL version.");
             }
-#ifdef BUILD_FPGA_EMULATOR
+
+            const char* buildVersionStr = "";
+            if (isCPUDeviceMode)
+            {
+                buildVersionStr = BUILDVERSIONSTR;
+            }
             *pinternalRetunedValueSize =
-                strlen(openclVerStr) + 1 /*for null-terminator*/;
-#else
-            *pinternalRetunedValueSize =
-                strlen(openclVerStr) + strlen(BUILDVERSIONSTR)
+                strlen(openclVerStr) + strlen(buildVersionStr)
                 + 1 /*for null-terminator*/;
-#endif
 
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1450,11 +1453,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-#ifdef BUILD_FPGA_EMULATOR
-                SPRINTF_S((char*)paramVal, valSize, "%s", openclVerStr);
-#else
-                SPRINTF_S((char*)paramVal, valSize, "%s%s", openclVerStr, BUILDVERSIONSTR);
-#endif
+                SPRINTF_S((char*)paramVal, valSize, "%s%s", openclVerStr,
+                          buildVersionStr);
             }
 
             return CL_DEV_SUCCESS;
@@ -1476,11 +1476,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DRIVER_VERSION ):
         {
-#ifdef BUILD_FPGA_EMULATOR
-            std::string driverVer = "18.1";
-#else
-            std::string driverVer = GetModuleProductVersion();
-#endif
+            std::string driverVer = isCPUDeviceMode ? GetModuleProductVersion()
+                                                    : "18.1";
             *pinternalRetunedValueSize = driverVer.length() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
