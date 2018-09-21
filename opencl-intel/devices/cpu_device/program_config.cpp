@@ -21,6 +21,7 @@
 #include "program_config.h"
 #include "cpu_config.h"
 
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::CPUDevice;
 
 void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
@@ -29,6 +30,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_vectorizerMode = cpuConfig.GetVectorizerMode();
     m_rtLoopUnrollFactor   = cpuConfig.GetRTLoopUnrollFactor();
     m_useVTune       = cpuConfig.UseVTune();
+    m_targetDevice   = cpuConfig.GetDeviceMode();
     m_forcedPrivateMemorySize = cpuConfig.GetForcedPrivateMemSize();
     m_channelDepthEmulationMode = cpuConfig.GetChannelDepthEmulationMode();
 }

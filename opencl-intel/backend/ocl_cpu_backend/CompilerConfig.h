@@ -36,12 +36,14 @@ public:
     bool DisableStackDump() const { return m_disableStackDump; }
     std::string InfoOutputFile() const { return m_infoOutputFile; }
     std::string LLVMOptions() const { return m_LLVMOptions; }
+    DeviceMode TargetDevice() const override { return m_targetDevice; }
 
 private:
     bool m_enableTiming;
     bool m_disableStackDump;
     std::string m_infoOutputFile;
     std::string m_LLVMOptions;
+    DeviceMode  m_targetDevice;
 };
 
 
@@ -105,6 +107,8 @@ public:
 
     const std::string &GetStatFileBaseName() const { return m_statFileBaseName;}
 
+    DeviceMode TargetDevice() const override { return m_targetDevice; }
+
 protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
@@ -118,6 +122,7 @@ protected:
     bool m_dumpHeuristicIR;
     std::string m_statFileBaseName;
     int m_forcedPrivateMemorySize;
+    DeviceMode  m_targetDevice;
 };
 
 }}}
