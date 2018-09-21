@@ -101,6 +101,7 @@ protected:
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory;
     bool m_useVTune;
+    DeviceMode m_targetDevice;
     int m_forcedPrivateMemorySize;
 
 private:

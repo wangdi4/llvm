@@ -728,9 +728,20 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         //       But take it into account if the available stack frame size is known at RT. I.e.:
         //          GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
         {
-            size_t maxPrivateMemSize = (m_pCPUConfig->GetForcedPrivateMemSize() > 0) ?
-                m_pCPUConfig->GetForcedPrivateMemSize() : CPU_DEV_MAX_WG_PRIVATE_SIZE;
-            ullValue = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+            size_t maxPrivateMemSize =
+              (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
+              ? m_pCPUConfig->GetForcedPrivateMemSize()
+              : CPU_DEV_MAX_WG_PRIVATE_SIZE;
+            if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
+            {
+                ullValue = pKernelProps->GetMaxWorkGroupSize(
+                    FPGA_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+            }
+            else
+            {
+                ullValue = pKernelProps->GetMaxWorkGroupSize(
+                    CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+            }
             stValSize = sizeof(size_t);
         }
         break;
@@ -800,9 +811,20 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             pValue = &vValues[0];
             if(1 == desiredSGCount)
             {
-                size_t maxPrivateMemSize = (m_pCPUConfig->GetForcedPrivateMemSize() > 0) ?
-                    m_pCPUConfig->GetForcedPrivateMemSize() : CPU_DEV_MAX_WG_PRIVATE_SIZE;
-                vValues[0] = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+                size_t maxPrivateMemSize =
+                  (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
+                  ? m_pCPUConfig->GetForcedPrivateMemSize()
+                  : CPU_DEV_MAX_WG_PRIVATE_SIZE;
+                if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
+                {
+                    vValues[0] = pKernelProps->GetMaxWorkGroupSize(
+                        FPGA_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+                }
+                else
+                {
+                    vValues[0] = pKernelProps->GetMaxWorkGroupSize(
+                        CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+                }
                 for(size_t i = 1; i < dim; ++i)
                     vValues[i] = 1;
             }

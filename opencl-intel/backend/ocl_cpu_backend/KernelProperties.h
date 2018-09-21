@@ -22,6 +22,7 @@
 #include "ICLDevBackendKernel.h"
 #include "TargetArch.h"
 #include "Serializer.h"
+#include "ICompilerConfig.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -170,6 +171,11 @@ public:
     virtual bool IsAutorun() const;
 
     /**
+     * @returns target device for the platform
+     */
+    virtual bool TargetDevice() const;
+
+    /**
      * @returns true if the specified kernel is a single-work item kernel
      *  false otherwise
      */
@@ -209,6 +215,7 @@ public:
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
     void SetIsBlock(const bool value) { m_bIsBlock = value; }
     void SetIsAutorun(const bool value) { m_bIsAutorun = value; }
+    void SetTargetDevice(const DeviceMode value) { m_targetDevice = value; }
     void SetNeedSerializeWGs(const bool value) { m_bNeedSerializeWGs = value; }
     void SetIsTask(const bool value) { m_bIsTask = value; }
     void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
@@ -260,6 +267,7 @@ protected:
     bool m_canUniteWG;
     unsigned int m_verctorizeOnDimention;
     bool m_debugInfo;
+    DeviceMode m_targetDevice;
 };
 
 }}}

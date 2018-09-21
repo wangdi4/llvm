@@ -276,6 +276,11 @@ bool KernelProperties::IsAutorun() const
     return m_bIsAutorun;
 }
 
+bool KernelProperties::TargetDevice() const
+{
+    return m_targetDevice;
+}
+
 bool KernelProperties::IsTask() const
 {
     return m_bIsTask;

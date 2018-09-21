@@ -67,7 +67,6 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
 volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
-
 cl_ulong GetGlobalMemorySize(const CPUDeviceConfig &config, bool* isForced = nullptr)
 {
     static bool forced = true;
@@ -96,11 +95,18 @@ cl_ulong GetLocalMemorySize(const CPUDeviceConfig &config)
     if (0 == localMemSize)
     {
         // check config for forced local mem size
-        localMemSize = (config.GetForcedLocalMemSize() != 0)
-                       ? config.GetForcedLocalMemSize()
-                       : CPU_DEV_LCL_MEM_SIZE; // fallback to default local memory size
+        if (config.GetForcedLocalMemSize() != 0)
+        {
+            localMemSize =  config.GetForcedLocalMemSize();
+        }
+        // fallback to default local memory size
+        else
+        {
+            localMemSize = (CPU_DEVICE == config.GetDeviceMode())
+                            ? CPU_DEV_LCL_MEM_SIZE
+                            : FPGA_DEV_LCL_MEM_SIZE;
+        }
     }
-
     return localMemSize;
 }
 cl_ulong GetMaxMemAllocSize(const CPUDeviceConfig &config, bool* isForced = nullptr)
@@ -147,9 +153,16 @@ template class Intel::OpenCL::Utils::SharedPtrBase<ITaskGroup>;
 
 static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     {
-    CPU_MAX_WORK_GROUP_SIZE,
-    CPU_MAX_WORK_GROUP_SIZE,
-    CPU_MAX_WORK_GROUP_SIZE
+        CPU_MAX_WORK_GROUP_SIZE,
+        CPU_MAX_WORK_GROUP_SIZE,
+        CPU_MAX_WORK_GROUP_SIZE
+    };
+
+static const size_t FPGA_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
+    {
+        FPGA_MAX_WORK_GROUP_SIZE,
+        FPGA_MAX_WORK_GROUP_SIZE,
+        FPGA_MAX_WORK_GROUP_SIZE
     };
 
 static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] =
@@ -420,17 +433,15 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
 {
     Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 
-#ifdef BUILD_FPGA_EMULATOR
     // For FPGA emulation we allow to have more TBB workers than a
     // number of CPU cores. This function wasn't written with this
     // possibility in mind (we have an assert), so let's just leave
     // extra workers without affinity settings.
-    if (core_index >= m_numCores)
+    if ((FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
+        && core_index >= m_numCores)
     {
         return;
     }
-#endif
-
     assert(core_index < m_numCores && "Access outside core map size");
 
     threadid_t   other_tid        = m_pCoreToThread[core_index];
@@ -617,6 +628,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                       sOpenCLC12Str[] = "OpenCL C 1.2 ",
                       sOpenCLC20Str[] = "OpenCL C 2.0 ";
 
+    static bool isCPUDeviceMode =
+      CPU_DEVICE == m_CPUDeviceConfig.GetDeviceMode();
+
     switch (param)
     {
         case( CL_DEVICE_TYPE):
@@ -629,12 +643,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-#ifdef BUILD_FPGA_EMULATOR
-                *(cl_device_type*)paramVal =
-                    (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
-#else
-                *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
-#endif
+                *(cl_device_type*)paramVal = isCPUDeviceMode
+                    ? (cl_device_type)CL_DEVICE_TYPE_CPU
+                    : (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
             }
             return CL_DEV_SUCCESS;
         }
@@ -649,11 +660,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-#ifdef BUILD_FPGA_EMULATOR
-                *(cl_uint*)paramVal = 4466;
-#else
-                *(cl_uint*)paramVal = 0x8086;
-#endif
+                *(cl_uint*)paramVal = isCPUDeviceMode ? 0x8086 : 4466;
             }
             return CL_DEV_SUCCESS;
         }
@@ -1020,7 +1027,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                *(size_t*)paramVal = CPU_MAX_WORK_GROUP_SIZE;
+                *(size_t*)paramVal = isCPUDeviceMode ? CPU_MAX_WORK_GROUP_SIZE
+                                                     : FPGA_MAX_WORK_GROUP_SIZE;
             }
             return CL_DEV_SUCCESS;
         }
@@ -1034,12 +1042,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES, *pinternalRetunedValueSize);
+                if (isCPUDeviceMode)
+                {
+                    MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
+                             *pinternalRetunedValueSize);
+                }
+                else
+                {
+                    MEMCPY_S(paramVal, valSize, FPGA_MAX_WORK_ITEM_SIZES,
+                             *pinternalRetunedValueSize);
+                }
             }
             return CL_DEV_SUCCESS;
         }
 
-        case( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE):
+        case CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE:
         case CL_DEVICE_IMAGE_PITCH_ALIGNMENT:    // BE recommends that these two queries will also return cache line size
         case CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT:
         case CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: // Anat says that performance-wise the preferred alignment is cache line size
@@ -1077,7 +1094,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
-        case( CL_DEVICE_LOCAL_MEM_SIZE):                // Consider local memory size is 24Kbyte LCL_MEM_SIZE constant
+        case( CL_DEVICE_LOCAL_MEM_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1609,14 +1626,19 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (nullptr != paramVal)
             {
-#ifdef BUILD_FPGA_EMULATOR
-                // FPGA emulator does not support pipe reservation.
-                *(cl_uint*)paramVal = 0;
-#else
-                // this value depends on pipe algorithm limitations, max. compute units and max. work-group size.
-                cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
-                *(cl_uint*)paramVal = totalPerPipeReservationsLimit / (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
-#endif
+                if (isCPUDeviceMode)
+                {
+                    // This value depends on pipe algorithm limitations,
+                    // max. compute units and max. work-group size.
+                    cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
+                    *(cl_uint*)paramVal = totalPerPipeReservationsLimit /
+                      (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
+                }
+                else
+                {
+                    // FPGA emulator does not support pipe reservation.
+                    *(cl_uint*)paramVal = 0;
+                }
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_PACKET_SIZE:
@@ -1706,9 +1728,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 return CL_DEV_SUCCESS;
             }
-#ifdef BUILD_FPGA_EMULATOR
         case(CL_DEVICE_HALF_FP_CONFIG):
         {
+            if (isCPUDeviceMode)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
             cl_device_fp_config fpConfig = 0;
             fpConfig = CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST;
             *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
@@ -1725,6 +1750,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case CL_DEVICE_MAX_HOST_READ_PIPES_INTEL: // FALL THROUGH
         case CL_DEVICE_MAX_HOST_WRITE_PIPES_INTEL:
+            if (isCPUDeviceMode)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
             *pinternalRetunedValueSize = sizeof(size_t);
             if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1735,7 +1764,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(size_t*)paramVal = 64;
             }
             return CL_DEV_SUCCESS;
-#endif
         default:
             return CL_DEV_INVALID_VALUE;
     };
@@ -1756,18 +1784,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 */
 cl_dev_err_code CPUDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet)
 {
-    size_t numDevices = 1;
     if (!m_CPUDeviceConfig.IsInitialized())
     {
         m_CPUDeviceConfig.Initialize(GetConfigFilePath());
     }
-#ifdef BUILD_FPGA_EMULATOR
-    int envNumDevices = m_CPUDeviceConfig.GetNumDevices();
-    if (envNumDevices > 1)
-    {
-        numDevices = envNumDevices;
-    }
-#endif // BUILD_FPGA_EMULATOR
+    size_t numDevices = m_CPUDeviceConfig.GetNumDevices();
 
     if (((nullptr != deviceIdsList) &&
          (deviceListSize < numDevices)) ||
