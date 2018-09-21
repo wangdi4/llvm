@@ -2463,13 +2463,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   const NamedDecl *ND = E->getDecl();
   QualType T = E->getType();
 
-#if INTEL_CUSTOMIZATION
-  if (CapturedStmtInfo) {
-    if (const auto *VD = dyn_cast<VarDecl>(ND))
-      CapturedStmtInfo->recordVariableReference(VD);
-  }
-#endif // INTEL_CUSTOMIZATION
-
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Global Named registers access via intrinsics only
     if (VD->getStorageClass() == SC_Register &&
@@ -2505,14 +2498,29 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       return MakeAddrLValue(Address(Val, Alignment), T, AlignmentSource::Decl);
     }
 
-    // Check for captured variables.
 #if INTEL_CUSTOMIZATION
-    bool GeneratingLateOutlineOpenMP =
-        getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion;
-    if ((!GeneratingLateOutlineOpenMP ||
-         OMPLateOutlineLexicalScope::isCapturedVar(*this, VD)) &&
-        E->refersToEnclosingVariableOrCapture()) {
+    if (getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion) {
+      if (CapturedStmtInfo)
+        CapturedStmtInfo->recordVariableReference(VD);
+      if (isa<OMPCapturedExprDecl>(VD)) {
+        // All OMPCapturedExprDecls are remapped in OMPLateOutlineLexicalScope.
+        auto I = LocalDeclMap.find(VD);
+        assert(I != LocalDeclMap.end() && "OMPCapturedExprDecl not remapped.");
+        return MakeAddrLValue(I->second, T, AlignmentSource::Decl);
+      }
+      if (E->refersToEnclosingVariableOrCapture() &&
+          OMPLateOutlineLexicalScope::isCapturedVar(*this, VD)) {
+        VD = VD->getCanonicalDecl();
+        if (auto *FD = LambdaCaptureFields.lookup(VD)) {
+          if (CapturedStmtInfo)
+            CapturedStmtInfo->recordThisPointerReference(CXXABIThisValue);
+          return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
+        }
+      }
+    } else
 #endif // INTEL_CUSTOMIZATION
+    // Check for captured variables.
+    if (E->refersToEnclosingVariableOrCapture()) {
       VD = VD->getCanonicalDecl();
       if (auto *FD = LambdaCaptureFields.lookup(VD))
         return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);

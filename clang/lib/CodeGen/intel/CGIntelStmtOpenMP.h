@@ -27,12 +27,8 @@ class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
 public:
   OMPLateOutlineLexicalScope(
       CodeGenFunction &CGF, const OMPExecutableDirective &S,
-      const llvm::Optional<OpenMPDirectiveKind> CapturedRegion = llvm::None)
+      OpenMPDirectiveKind CapturedRegion = OMPD_unknown)
       : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()), Remaps(CGF) {
-    if (!CapturedRegion.hasValue())
-      return;
-    assert(S.hasAssociatedStmt() &&
-           "Expected associated statement for inlined directive.");
 
     for (const auto *C : S.clauses()) {
       if (const auto *CPI = OMPClauseWithPreInit::get(C)) {
@@ -216,6 +212,7 @@ class OpenMPCodeOutliner {
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
+  llvm::Value *ThisPointerValue = nullptr;
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D);
@@ -257,6 +254,10 @@ public:
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void setThisPointerValue(llvm::Value *ThisValue) {
+    ThisPointerValue = ThisValue;
+  }
+  llvm::Value *getThisPointerValue() { return ThisPointerValue; }
   void addExplicit(const Expr *E);
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
   void setOutsideInsertPoint() {
@@ -293,6 +294,9 @@ public:
   }
   void recordVariableReference(const VarDecl *VD) {
     Outliner.addVariableRef(VD);
+  }
+  void recordThisPointerReference(llvm::Value *ThisValue) {
+    Outliner.setThisPointerValue(ThisValue);
   }
 
 private:

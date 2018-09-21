@@ -1312,7 +1312,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
     for (auto *E : D.counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
       // Emit var without initialization.
-      if (!LocalDeclMap.count(VD)) {
+      if (VD->isLocalVarDecl() && !LocalDeclMap.count(VD)) {
         auto VarEmission = EmitAutoVarAlloca(*VD);
         EmitAutoVarCleanups(VarEmission);
       }
@@ -4989,20 +4989,26 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 #if INTEL_CUSTOMIZATION
 void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
                                             OMPPrivateScope &PrivScope) {
-  assert(CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion);
-  for (const auto *C : D.getClausesOfKind<OMPPrivateClause>()) {
-    for (auto *Ref : C->varlists()) {
-      if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
-        if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-          if (VD->isLocalVarDeclOrParm())
-            continue;
+  SmallVector<const Expr *, 5> RemapVars;
+  for (const auto *C : D.getClausesOfKind<OMPPrivateClause>())
+     for (const auto *Ref : C->varlists())
+       RemapVars.push_back(Ref);
+  for (const auto *C : D.getClausesOfKind<OMPFirstprivateClause>())
+     for (const auto *Ref : C->varlists())
+       RemapVars.push_back(Ref);
+  for (const auto *C : D.getClausesOfKind<OMPLastprivateClause>())
+     for (const auto *Ref : C->varlists())
+       RemapVars.push_back(Ref);
+  for (const auto *C : D.getClausesOfKind<OMPReductionClause>())
+     for (const auto *Ref : C->varlists())
+       RemapVars.push_back(Ref);
 
-          DeclRefExpr DRE(const_cast<VarDecl *>(VD),
-                          /*RefersToEnclosingVariableOrCapture=*/false,
-                          VD->getType().getNonReferenceType(), VK_LValue,
-                          SourceLocation());
-          PrivScope.addPrivate(VD, [this, &DRE]() -> Address {
-            return EmitLValue(&DRE).getAddress();
+  for (const auto *Ref : RemapVars) {
+    if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
+      if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+        if (isa<OMPCapturedExprDecl>(VD)) {
+          PrivScope.addPrivateNoTemps(VD, [this, VD]() -> Address {
+            return EmitLValue(VD->getAnyInitializer()).getAddress();
           });
         }
       }
