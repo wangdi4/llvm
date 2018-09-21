@@ -19,13 +19,6 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-// Backend Operation Modes enumeration
-// TODO: we support nothing but CPU, so refactor this redundant enumeration
-enum DEVICE_TYPE
-{
-    CPU_MODE = 0,
-};
-
 class ICLDebuggingService;
 
 // Internal backend service factory interface. Adds another method on top of
