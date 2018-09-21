@@ -26,6 +26,10 @@ void checkFPGAExtensionNEGATIVE()
     ASSERT_EQ(CL_SUCCESS, iRet)
         << " clGetDeviceIDs failed on trying to obtain "
         << gDeviceType << " device type.";
+    if(gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+    {
+        return;
+    }
 
     //Create context.
     const cl_context_properties prop[5] = { CL_CONTEXT_PLATFORM,
@@ -86,9 +90,7 @@ void checkFPGAExtensionNEGATIVE()
     clReleaseDevice(device);
 }
 
-#ifndef BUILD_FPGA_EMULATOR
 TEST(FrameworkTestType, Test_FPGAExtensionsNegative)
 {
     ASSERT_NO_FATAL_FAILURE(checkFPGAExtensionNEGATIVE());
 }
-#endif // BUILD_FPGA_EMULATOR

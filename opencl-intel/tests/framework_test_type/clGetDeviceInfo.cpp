@@ -19,6 +19,12 @@ bool clGetDeviceInfoTest()
 	cl_uint uiMaxComputeUnits;
 	size_t size_ret = 0;
 
+  const char * desiredDriverVerStr = "7.6.0.0";
+  if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+  {
+    desiredDriverVerStr = "18.1";
+  }
+
 	cl_platform_id platform = 0;
 
 	iRes = clGetPlatformIDs(1, &platform, NULL);
@@ -52,16 +58,16 @@ bool clGetDeviceInfoTest()
 		bResult &= CheckSize("check value", sizeof(cl_device_type), size_ret);
 	}
 
-    // CL_DRIVER_VERSION
-    // return driver version
-    // it's hardcoded "7.6.0.0", shall be fixed when it's changed
-    char buffer[1024];
-    iRes = clGetDeviceInfo(devices[0], CL_DRIVER_VERSION, sizeof(buffer), buffer, nullptr);
-    bResult &= Check("CL_DRIVER_VERSION, all OK", CL_SUCCESS, iRes);
-    if (CL_SUCCEEDED(iRes))
-    {
-        bResult &= CheckStr("CL_DRIVER_VERSION", "7.6.0.0", buffer);
-    }
+  // CL_DRIVER_VERSION
+  // return driver version
+  // it's hardcoded "7.6.0.0", shall be fixed when it's changed
+  char buffer[1024];
+  iRes = clGetDeviceInfo(devices[0], CL_DRIVER_VERSION, sizeof(buffer), buffer, nullptr);
+  bResult &= Check("CL_DRIVER_VERSION, all OK", CL_SUCCESS, iRes);
+  if (CL_SUCCEEDED(iRes))
+  {
+    bResult &= CheckStr("CL_DRIVER_VERSION", desiredDriverVerStr, buffer);
+  }
 
 	// CL_DEVICE_TYPE
 	// all OK

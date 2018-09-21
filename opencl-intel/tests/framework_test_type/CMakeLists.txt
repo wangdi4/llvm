@@ -25,11 +25,11 @@ if (WIN32)
   set( TARGET_LIBS ${TARGET_LIBS} delayimp )
 endif (WIN32)
 
-if (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+if (NOT WIN32)
   set( TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
-else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+else (NOT WIN32)
   set( TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM} )
-endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+endif (NOT WIN32)
 
 # In test with local memory we allocate 7MB for array. And allocate additional stack size with size 8MB = 8388608
 set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
