@@ -254,6 +254,79 @@ static unsigned getMaxLoadIndex(const RefGroupTy &Group, unsigned LoopLevel,
   return MaxIndexIsRVal ? MaxLoadIdx : -1;
 }
 
+/// Returns true if the first iteration value of the MemRef (substituting IV by
+/// lower bound) can be deduced to be safe using the dimension info.
+static bool isMinIndexWithinBounds(const RegDDRef *MemRef, const HLLoop *Lp) {
+  unsigned LoopLevel = Lp->getNestingLevel();
+
+  for (unsigned I = 1, Num = MemRef->getNumDimensions(); I <= Num; ++I) {
+    auto *CE = MemRef->getDimensionIndex(I);
+
+    if (!CE->hasIV(LoopLevel)) {
+      continue;
+    }
+
+    uint64_t NumElements = MemRef->getNumDimensionElements(I);
+
+    // Give up if we do not have dimension info.
+    if (NumElements == 0) {
+      return false;
+    }
+
+    std::unique_ptr<CanonExpr> CEClone(CE->clone());
+
+    if (!CanonExprUtils::replaceIVByCanonExpr(
+            CEClone.get(), LoopLevel, Lp->getLowerCanonExpr(), Lp->isNSW())) {
+      return false;
+    }
+
+    int64_t ConstVal;
+
+    // Can be extended by checking for min/max val.
+    if (!CEClone->isIntConstant(&ConstVal)) {
+      return false;
+    }
+
+    if ((ConstVal >= 0) && ((uint64_t)ConstVal < NumElements)) {
+      return true;
+    }
+
+    break;
+  }
+
+  return false;
+}
+
+/// Returns true if the min index load can be safely hoisted to the preheader.
+static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp,
+                                 bool HasForwardGotos) {
+  unsigned LoopLevel = Lp->getNestingLevel();
+
+  int64_t DepDist = 0;
+  auto *FirstRef = Group[0];
+
+  // Any min index memref which is unconditionally executed within the loop does
+  // the job.
+  for (auto *MemRef : Group) {
+    bool Res = DDRefUtils::getConstIterationDistance(MemRef, FirstRef,
+                                                     LoopLevel, &DepDist);
+    (void)Res;
+    assert(Res && "Const distance expected between refs!");
+
+    if (DepDist != 0) {
+      break;
+    }
+
+    // This is a cheaper post-domination check.
+    // TODO: replace by HLNodeUtils::postDominates()
+    if (!HasForwardGotos && isa<HLLoop>(MemRef->getHLDDNode()->getParent())) {
+      return true;
+    }
+  }
+
+  return isMinIndexWithinBounds(FirstRef, Lp);
+}
+
 bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
 
   bool IsUnknown = Lp->isUnknown();
@@ -278,6 +351,10 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
     } else {
       ++NumLoads;
     }
+  }
+
+  if (!canHoistMinLoadIndex(Group, Lp, HasForwardGotos)) {
+    return false;
   }
 
   MaxDepDist = getMaxDepDist(Group, LoopLevel);
