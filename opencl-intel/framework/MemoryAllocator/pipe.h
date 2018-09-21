@@ -33,30 +33,34 @@ class Pipe : public GenericMemObject
 		return new Pipe(pContext, clObjType);
 	}
 
-#ifdef BUILD_FPGA_EMULATOR
-    long Release(void) override
+  /**
+   *  For FPGA Emulator
+   */
+  long Release(void) override
+  {
+    if (this->GetContext()->IsFPGAEmulator())
     {
-        void* pPipe = GetBackingStoreData();
-        __pipe_release_intel(pPipe);
-        return 0;
+      void* pPipe = GetBackingStoreData();
+      __pipe_release_intel(pPipe);
     }
-#endif // BUILD_FPGA_EMULATOR
+    return 0;
+  }
 
-    /**
-     * @param uiPacketSize the size in byte of this Pipe's packet
-     * @param uiMaxPackets the maximum number of packets this Pipe can hold
-     * @return the pipe's size
-     */
-    static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets)
+  /**
+   * @param uiPacketSize the size in byte of this Pipe's packet
+   * @param uiMaxPackets the maximum number of packets this Pipe can hold
+   * @return the pipe's size
+   */
+  static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets)
+  {
+    const OCLConfig* pOclConfig = FrameworkProxy::Instance()->GetOCLConfig();
+    if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
     {
-#ifdef BUILD_FPGA_EMULATOR
-        int mode = FrameworkProxy::Instance()->GetOCLConfig()
-            ->GetChannelDepthEmulationMode();
-        return __pipe_get_total_size(uiPacketSize, uiMaxPackets, mode);
-#else // BUILD_FPGA_EMULATOR
-        return pipe_get_total_size(uiPacketSize, uiMaxPackets);
-#endif // BUILD_FPGA_EMULATOR
+      int mode = pOclConfig->GetChannelDepthEmulationMode();
+      return __pipe_get_total_size(uiPacketSize, uiMaxPackets, mode);
     }
+    return pipe_get_total_size(uiPacketSize, uiMaxPackets);
+  }
 
 	/**
 	 * Initialize this Pipe

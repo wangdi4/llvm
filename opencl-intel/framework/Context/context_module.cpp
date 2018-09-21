@@ -318,12 +318,9 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
                 }
                 return CL_INVALID_HANDLE;
             }
-            
-            static const cl_context_properties legalProperties[] = {
+
+            static std::vector<cl_context_properties> legalProperties = {
                 CL_CONTEXT_PLATFORM,
-#ifdef BUILD_FPGA_EMULATOR
-                CL_CONTEXT_FPGA_EMULATOR_INTEL,
-#endif //BUILD_FPGA_EMULATOR
                 CL_CONTEXT_INTEROP_USER_SYNC
 #if defined (_WIN32)
                 ,
@@ -341,8 +338,20 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
 #endif
 #endif
             };
-            const cl_context_properties* const pEndLegalProperties = &legalProperties[sizeof(legalProperties)/sizeof(legalProperties[0])];
-            if (std::find(legalProperties, pEndLegalProperties, clProperties[i]) == pEndLegalProperties)
+
+            const OCLConfig* pOclConfig =
+              FrameworkProxy::Instance()->GetOCLConfig();
+            if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
+            {
+                legalProperties.push_back(CL_CONTEXT_FPGA_EMULATOR_INTEL);
+            }
+
+            cl_context_properties currentProperty = clProperties[i];
+            if (std::none_of(legalProperties.begin(), legalProperties.end(),
+                             [currentProperty](
+                                 const cl_context_properties& prop) {
+                               return prop == currentProperty;
+                  }))
             {
                 LOG_ERROR(TEXT("%s"), TEXT("context property name in properties is not a supported property name"));
                 delete[] ppDevices;

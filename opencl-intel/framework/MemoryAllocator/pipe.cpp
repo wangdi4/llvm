@@ -52,17 +52,21 @@ cl_err_code Pipe::Initialize(cl_mem_flags flags, cl_uint uiPacketSize,
     err = GetBackingStore(CL_DEV_BS_GET_ALWAYS, &pBS);
     assert(CL_SUCCEEDED(err) && "GetBackingStore failed");
 
-#ifdef BUILD_FPGA_EMULATOR
-    int mode = FrameworkProxy::Instance()->GetOCLConfig()
-        ->GetChannelDepthEmulationMode();
-    __pipe_init_intel(pBS->GetRawData(), uiPacketSize, uiMaxPackets, mode);
-    m_mapBuffer.reserve(uiPacketSize * uiMaxPackets);
-#else
-    pipe_control_intel_t* pipeCtrl = (pipe_control_intel_t*)pBS->GetRawData();
-    memset(pipeCtrl, 0, INTEL_PIPE_HEADER_RESERVED_SPACE);
-    // one extra packet is required by the pipe implementation
-    pipeCtrl->pipe_max_packets_plus_one = uiMaxPackets + 1;
-#endif
+    if (this->GetContext()->IsFPGAEmulator())
+    {
+        int mode = FrameworkProxy::Instance()->GetOCLConfig()
+            ->GetChannelDepthEmulationMode();
+        __pipe_init_intel(pBS->GetRawData(), uiPacketSize, uiMaxPackets, mode);
+        m_mapBuffer.reserve(uiPacketSize * uiMaxPackets);
+    }
+    else
+    {
+        pipe_control_intel_t* pipeCtrl =
+          (pipe_control_intel_t*)pBS->GetRawData();
+        memset(pipeCtrl, 0, INTEL_PIPE_HEADER_RESERVED_SPACE);
+       // one extra packet is required by the pipe implementation
+       pipeCtrl->pipe_max_packets_plus_one = uiMaxPackets + 1;
+    }
 
     return CL_SUCCESS;
 }

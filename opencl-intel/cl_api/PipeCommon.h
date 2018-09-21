@@ -16,8 +16,6 @@
 
 #include "../backend/libraries/ocl_builtins/pipes.h"
 
-#ifndef BUILD_FPGA_EMULATOR
-
 #define CACHE_LINE 64
 #define INTEL_PIPE_HEADER_RESERVED_SPACE CACHE_LINE * 2
 
@@ -62,7 +60,5 @@ ATTRIBUTE_UNUSED
 static size_t pipe_get_total_size(cl_uint uiPacketSize, cl_uint uiMaxPackets) {
   return INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets;
 }
-
-#endif // BUILD_FPGA_EMULATOR
 
 #endif // __PIPE_COMMON_H__

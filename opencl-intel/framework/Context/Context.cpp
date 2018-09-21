@@ -194,14 +194,11 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         }
     }
 
-    cl_context_properties* pEnd = m_pclContextProperties + m_uiContextPropCount;
-    cl_context_properties* ext = std::find(m_pclContextProperties, pEnd,
-                                           CL_CONTEXT_FPGA_EMULATOR_INTEL);
-    m_fpgaEmulator = ext != pEnd && CL_TRUE == *(ext + 1);
-
-#ifdef BUILD_FPGA_EMULATOR
-    m_fpgaEmulator = true;
-#endif
+    const OCLConfig* pOclConfig = FrameworkProxy::Instance()->GetOCLConfig();
+    if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
+    {
+        m_fpgaEmulator = true;
+    }
 
     m_pfnNotify = pfnNotify;
     m_pUserData = pUserData;
