@@ -7148,6 +7148,9 @@ void DTransAnalysisInfo::setCallGraphStats(Module &M) {
     FunctionCount++;
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
+        if (isa<DbgInfoIntrinsic>(I) || isa<FakeloadInst>(I) ||
+            isa<VarAnnotIntrinsic>(I))
+          continue;
         InstructionCount++;
         if (isa<CallInst>(&I) || isa<InvokeInst>(&I))
           CallsiteCount++;
