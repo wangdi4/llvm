@@ -222,6 +222,11 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
         m_pBuiltinModule = new BuiltinModules(bltnFuncList);
     }
 
+    if (FPGA_EMU_DEVICE == config.TargetDevice())
+    {
+        BuiltinModuleManager::GetInstance()->LoadFPGALibraries();
+    }
+
     // Create the listener that allows Amplifier to profile OpenCL kernels
     if(config.GetUseVTune())
     {

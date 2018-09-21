@@ -58,6 +58,8 @@ public:
      */
     BuiltinModules*  CreateBuiltinModule(int cpuId, llvm::LLVMContext* pContext);
 
+    void LoadFPGALibraries();
+
 private:
     typedef std::pair<int, CPUId> DevIdCpuId;
     typedef std::map<DevIdCpuId, BuiltinLibrary*> BuiltinsMap;

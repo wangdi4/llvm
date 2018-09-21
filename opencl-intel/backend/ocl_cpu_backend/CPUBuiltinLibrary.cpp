@@ -90,45 +90,6 @@ void CPUBuiltinLibrary::Load() {
           std::string("Failed to load the shared builtins rtl library"));
   }
   m_pRtlBufferSvmlShared = RTLBufferSharedOrErr.get().release();
-
-// INTEL VPO BEGIN
-#ifdef BUILD_FPGA_EMULATOR
-  // Load OpenMP library
-#if defined (_WIN32)
-  std::string RTLibOmpName = "libiomp5md.dll";
-#else
-  std::string RTLibOmpName =  "libomp.so";
-#endif
-
-  // We have 2 places where OpenMP Runtime library can be located:
-  //   - in the same directory as libOclCpuBackend.so
-  //   - in the ICC redistributable directory
-  //
-  // First try to load it from the Backend directory:
-  if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(
-          (PathStr + RTLibOmpName).c_str(), &Err)) {
-    // Apparently it is not there. Let's try to find it by name only
-    // (lookup in library path)
-    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(
-          RTLibOmpName.c_str(), &Err)) {
-      throw Exceptions::DeviceBackendExceptionBase(
-          std::string("Failed to load OMP library ") + Err);
-    }
-  }
-
-    // Load OpenMP library's "taskloop" subset implemented with TBB (Linux only)
-    // Windows support is on the way:
-    // https://jira01.devtools.intel.com/browse/CORC-2258
-#if !defined (_WIN32)
-    std::string RTLibOmpTbbName =  PathStr + "libomptbb.so";
-    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(
-            RTLibOmpTbbName.c_str(), &Err)) {
-        throw Exceptions::DeviceBackendExceptionBase(
-            std::string("Failed to load OMP-TBB library ") + Err);
-    }
-#endif
-#endif // BUILD_FPGA_EMULATOR
-// INTEL VPO END
 }
 
 }}} // namespace
