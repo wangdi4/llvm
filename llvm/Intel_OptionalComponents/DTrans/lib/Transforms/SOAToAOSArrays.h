@@ -23,6 +23,8 @@
 #include "SOAToAOSCommon.h"
 #include "SOAToAOSEffects.h"
 
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -156,7 +158,7 @@ protected:
           return false;
       return BaseSeen;
     } else if (Addr->Kind == Dep::DK_Load)
-      return isBasePointerLoad(Addr->Arg1, S);
+      return isBasePointerLoad(Addr, S);
     return false;
   }
 
@@ -292,7 +294,8 @@ protected:
     if (!isBasePointerLoadBased(Free->Arg1, S))
       return false;
 
-    if (!isMemoryInterfaceFieldLoadRec(Free->Arg2, S))
+    if (Free->Arg2->Kind != Dep::DK_Const &&
+        !isMemoryInterfaceFieldLoadRec(Free->Arg2, S))
       return false;
 
     return true;
@@ -368,7 +371,8 @@ private:
     if (Alloc->Arg2->Kind == Dep::DK_Const)
       return true;
 
-    if (!isMemoryInterfaceFieldLoadRec(Alloc->Arg2, S))
+    if (Alloc->Arg2->Kind != Dep::DK_Const &&
+        !isMemoryInterfaceFieldLoadRec(Alloc->Arg2, S))
       return false;
 
     return true;
@@ -529,35 +533,12 @@ private:
     bool HasExternalSideEffect = false;
 
     MethodKind classifyMethod(const ArraySummaryForIdiom &S) const {
-      // Some calls to combined methods are removed.
-      // Avoid complications with returned value in IR transformation.
-      bool HasVoidRes = S.Method->getReturnType()->isVoidTy();
-
       // MK_Append/MK_Set
       if (HasElementSetFromArg) {
 
-        // Avoid complications in IR transformation for multiple
-        // element-related arguments in combined MK_Append methods.
-        unsigned NumElementArgs = 0;
-        // Also avoid complication due accessing arguments after
-        // element-related arguments.
-        unsigned ElemArgOff     = 0;
-        auto *FuncTy = S.Method->getFunctionType();
-        for (unsigned I = 0, E = FuncTy->getNumParams(); I != E; ++I) {
-          auto *P = FuncTy->getParamType(I);
-          if (P == S.ElementType) {
-            NumElementArgs++;
-            ElemArgOff = I;
-          } else if (auto *Ptr = dyn_cast<PointerType>(P))
-            if (Ptr->getElementType() == S.ElementType) {
-              NumElementArgs++;
-              ElemArgOff = I;
-            }
-        }
-
         if (CalledMethod)
-          return HasExternalSideEffect || !HasVoidRes || NumElementArgs != 1 ||
-                         ElemArgOff != FuncTy->getNumParams() - 1
+          return HasExternalSideEffect ||
+                         !checkTransformRestriction(S, MK_Append)
                      ? MK_Unknown
                      : MK_Append;
         return HasFieldUpdate ? MK_Unknown : MK_Set;
@@ -574,23 +555,90 @@ private:
 
       // MK_Realloc
       if (HasBasePtrInitFromNewMemory && HasBasePtrFree)
-        return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Realloc;
+        return HasExternalSideEffect ||
+                       !checkTransformRestriction(S, MK_Realloc)
+                   ? MK_Unknown
+                   : MK_Realloc;
 
       // MK_Dtor
       if (HasBasePtrFree)
-        return HasExternalSideEffect || !HasVoidRes ? MK_Unknown : MK_Dtor;
+        return HasExternalSideEffect || !checkTransformRestriction(S, MK_Dtor)
+                   ? MK_Unknown
+                   : MK_Dtor;
 
       // MK_CCtor/MK_Ctor
-      if (HasBasePtrInitFromNewMemory && !HasExternalSideEffect && HasVoidRes) {
+      if (HasBasePtrInitFromNewMemory && !HasExternalSideEffect) {
         auto *FuncTy = S.Method->getFunctionType();
-        bool IsCopyCtor =
-            S.Method->arg_size() == 2 &&
-            FuncTy->getParamType(1) == FuncTy->getParamType(0);
+        bool IsCopyCtor = S.Method->arg_size() == 2 &&
+                          FuncTy->getParamType(1) == FuncTy->getParamType(0);
 
-        return IsCopyCtor ? MK_CCtor : MK_Ctor;
+        if (IsCopyCtor && checkTransformRestriction(S, MK_CCtor))
+          return MK_CCtor;
+
+        return checkTransformRestriction(S, MK_Ctor) ? MK_Ctor : MK_Unknown;
       }
       return MK_Unknown;
     }
+
+  private:
+    static bool checkTransformRestriction(const ArraySummaryForIdiom &S,
+                                          MethodKind Kind) {
+      // Some calls to combined methods are removed.
+      // Avoid complications with returned value in IR transformation.
+      bool HasVoidRes = S.Method->getReturnType()->isVoidTy();
+
+      switch (Kind) {
+      case MK_Unknown:
+        return true;
+      case MK_Realloc:
+        return HasVoidRes;
+      case MK_Append:
+        if (!HasVoidRes)
+          return false;
+        break;
+      case MK_Ctor:
+      case MK_CCtor:
+      case MK_Dtor:
+        return HasVoidRes;
+      case MK_Set:
+      case MK_GetInteger:
+      case MK_GetElement:
+        return true;
+      }
+
+      // Avoid complications in IR transformation for multiple
+      // element-related arguments in combined MK_Append methods.
+      // Also avoid complication due to accessing arguments after
+      // element-related arguments.
+      unsigned ElemArgOff = 0;
+      bool UnknownArg = false;
+      auto *FuncTy = S.Method->getFunctionType();
+      for (unsigned I = 0, E = FuncTy->getNumParams(); I != E; ++I) {
+        auto *P = FuncTy->getParamType(I);
+        if (P->isIntegerTy())
+          continue;
+        if (P == S.ElementType) {
+          ElemArgOff = I;
+          break;
+        } else if (auto *Ptr = dyn_cast<PointerType>(P)) {
+          auto *Pointee = Ptr->getElementType();
+          if (Pointee == S.ElementType) {
+            ElemArgOff = I;
+            break;
+          } else if (Pointee == S.StrType) {
+            continue;
+          } else {
+            UnknownArg = true;
+            break;
+          }
+        } else {
+          UnknownArg = true;
+          break;
+        }
+      }
+      return !(UnknownArg || ElemArgOff != FuncTy->getNumParams() - 1);
+    }
+
   }; // struct MethodClassification
 
   // Additional check of method call parameters to complete analysis from
@@ -647,11 +695,8 @@ private:
       return false;
 
     auto *IAddr = cast<Instruction>(Address);
-    if (!gep_inst_dep_iterator::isSupportedOpcode(IAddr->getOpcode()))
-      return false;
 
     SmallSet<const Value *, 10> GEPs;
-
     // Check SCC containing GEPs and PHIs only.
     // For practical purpose po-traversal is sufficient here.
     //
@@ -724,14 +769,13 @@ private:
   // transformation and duplication.
   bool checkElementAccessForTransformation(const Instruction *I,
                                            const char *Desc) const {
-    assert((isa<LoadInst>(I) || isa<StoreInst>(I) || isa<MemSetInst>(I)) &&
-           "Only loads/stores supported");
-
     const Value *Address = nullptr;
     if (auto *L = dyn_cast<LoadInst>(I))
       Address = L->getPointerOperand();
     else if (auto *S = dyn_cast<StoreInst>(I))
       Address = S->getPointerOperand();
+    else if (auto *R = dyn_cast<ReturnInst>(I))
+      Address = R->getOperand(0);
 
     if (Address) {
       if (checkElementAccess(Address, Desc)) {
@@ -747,7 +791,9 @@ private:
       InstDesc[I] = std::string("MemInst: ") + Desc;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       return true;
-    }
+    } else
+      llvm_unreachable("Unexpected instruction.");
+
     return false;
   }
 
@@ -859,13 +905,9 @@ public:
         continue;
 
       const Dep *D = DM.getApproximation(&I);
-      if (!D) {
-        assert(
-            !DTransSOAToAOSComputeAllDep &&
-            "Not synchronized ComputeArrayMethodClassification::classify and "
-            "DepCompute::computeDepApproximation");
-        return std::make_pair(MK_Unknown, nullptr);
-      }
+      if (!D)
+        llvm_unreachable(
+            "Not synchronized classify and computeDepApproximation");
 
       if (D->isBottom())
         Invalid = true;
@@ -988,7 +1030,7 @@ public:
           break;
         } else if (ArrayIdioms::isElementAddr(D, S)) {
           MC.ReturnsElement = true;
-          if (checkElementAccess(I.getOperand(0), "Address in ret"))
+          if (checkElementAccessForTransformation(&I, "Address in ret"))
             break;
         }
         // Accurate check is done for load instruction
@@ -1021,7 +1063,7 @@ public:
         if (ArrayIdioms::isKnownCall(D, S)) {
           auto CS = ImmutableCallSite(&I);
           // Permit only one call to other method.
-          if (checkMethodCall(CS)) {
+          if (!MC.CalledMethod && checkMethodCall(CS)) {
             MC.CalledMethod = cast<Function>(CS.getCalledValue());
             break;
           }
@@ -1229,7 +1271,6 @@ public:
   // %tmp1 = bitcast %pelem* %arrayidx1 to i64*  <== safe bitcast
   // %val = load i64, i64* %tmp1
   // store i64 %tmp12, i64* %tmp
-
   void rawCopyAndRelink(OrigToCopyTy &OrigToCopy, bool UniqueInsts,
                         unsigned NumArrays, Type *OtherElemType,
                         unsigned NewParamOffset) {
@@ -1329,6 +1370,8 @@ public:
                 ConstantInt::get(Builder.getIntPtrTy(DL, 0), NumArrays), "nsz"),
             OldSize->getType(), "nsz");
         MS->replaceUsesOfWith(OldSize, NewSize);
+      } else if (isa<ReturnInst>(NewI)) {
+        continue;
       } else
         llvm_unreachable("Unexpected instruction encountered.");
     }
@@ -1386,7 +1429,6 @@ public:
   //  load %pelem, %pelem* %arrayidx1
   void gepRAUW(bool Copy, const OrigToCopyTy &OrigToCopy, unsigned Offset,
                PointerType *NewBaseType) {
-    IRBuilder<> Builder(Context);
 
     auto &ElementPtrGEP = InstsToTransform.ElementPtrGEP;
     for (auto *I : ElementPtrGEP) {
@@ -1412,30 +1454,136 @@ public:
                "PHINode should be element of ElementPtrGEP");
 
         auto *NewU = cast<Instruction>((Value *)VMap[U.getUser()]);
-
         if (Copy)
           NewU = cast<Instruction>(OrigToCopy.find(NewU)->second);
-
-        if (!ReplGEP) {
-          assert(NewI->getParent()->getTerminator() != NewI &&
-                 "Unexpected use of for element access");
-          Builder.SetInsertPoint(
-              isa<PHINode>(NewI) ? &*NewI->getParent()->getFirstInsertionPt()
-                                 : NewI->getNextNonDebugInstruction());
-
-          Value *Idx[] = {
-              ConstantInt::get(Context, APInt(DL.getPointerSizeInBits(0), 0)),
-              ConstantInt::get(Context, APInt(32, Offset))};
-
-          ReplGEP =
-              Builder.CreateInBoundsGEP(NewI, ArrayRef<Value *>(Idx), "elem");
-        }
+        if (!ReplGEP)
+          ReplGEP = insertElemGEP(NewI, Offset);
         NewU->replaceUsesOfWith(NewI, ReplGEP);
       }
     }
+
+    // See checkElementAccessForTransformation, checkElementAccess.
+    // Treat 0th access without GEP.
+    for (auto *I : InstsToTransform.ElementInstToTransform) {
+      const Value *Address = nullptr;
+      if (auto *L = dyn_cast<LoadInst>(I))
+        Address = L->getPointerOperand();
+      else if (auto *SI = dyn_cast<StoreInst>(I))
+        Address = SI->getPointerOperand();
+      else if (isa<MemSetInst>(I))
+        continue;
+      else if (auto *R = dyn_cast<ReturnInst>(I))
+        Address = R->getOperand(0);
+      else
+        llvm_unreachable("Unexpected instruction encountered.");
+
+      if (isSafeBitCast(DL, Address))
+        Address = cast<BitCastInst>(Address)->getOperand(0);
+
+      // Already transformed in loop above.
+      if (InstsToTransform.ElementPtrGEP.count(cast<Instruction>(Address)))
+        continue;
+
+      if (!InstsToTransform.BasePtrInst.count(
+              cast<Instruction>(Address->stripPointerCasts())))
+        llvm_unreachable("Inconsistency between analysis and transformation.");
+
+      auto *NewAddress = cast<Instruction>((Value *)VMap[Address]);
+      if (Copy)
+        NewAddress = cast<Instruction>(OrigToCopy.find(NewAddress)->second);
+
+      if (auto *BC = dyn_cast<BitCastInst>(NewAddress))
+        BC->mutateType(NewBaseType);
+      // After bitcast strip there should be allocation call or load of base
+      // pointer. Allocation call should have bitcast.
+      else if (!isa<LoadInst>(NewAddress))
+        llvm_unreachable("Inconsistency between analysis and transformation.");
+
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (Copy)
+        NewI = cast<Instruction>(OrigToCopy.find(NewI)->second);
+      NewI->replaceUsesOfWith(NewAddress, insertElemGEP(NewAddress, Offset));
+    }
+  }
+
+  // Add new FunctionType for Method to TypeRemapper, which is append-like
+  // method of transformed array.
+  //
+  // Example:
+  //  from type (ElementType should be the last):
+  //   void (%ArrType*, %ElementType*)
+  //  to type:
+  //   void (%ArrType*, %Elements[0]*, %Elements[1]*, ..)
+  static FunctionType *
+  mapNewAppendType(const Function &Method,
+                   // Element type of Method's array type.
+                   PointerType *ElementType,
+                   // Element types before transformation.
+                   const SmallVectorImpl<PointerType *> &Elements,
+                   // Updated mapper
+                   DTransTypeRemapper *TypeRemapper,
+                   // start of a group of parameters related in input element.
+                   unsigned &ElemOffset) {
+
+    auto *FuncTy = Method.getFunctionType();
+    auto *ArrType = getStructTypeOfMethod(Method);
+    auto *NewArray = cast<StructType>(TypeRemapper->lookupTypeMapping(ArrType));
+    SmallVector<Type *, 5> Params;
+    for (unsigned I = 0, E = FuncTy->getNumParams(); I != E; ++I) {
+      auto *Param = FuncTy->getParamType(I);
+      if (Param == ElementType) {
+        if (I != FuncTy->getNumParams() - 1)
+          llvm_unreachable(
+              "Inconsistency with MethodClassification::classifyMethod.");
+
+        ElemOffset = Params.size();
+        for (auto *Fld : Elements)
+          Params.push_back(Fld);
+        continue;
+      }
+
+      if (auto *Ptr = dyn_cast<PointerType>(Param)) {
+        if (Ptr->getElementType() == ArrType) {
+          Params.push_back(NewArray->getPointerTo(0));
+          continue;
+        }
+
+        if (Ptr->getElementType() == ElementType) {
+          if (I != FuncTy->getNumParams() - 1)
+            llvm_unreachable(
+                "Inconsistency with MethodClassification::classifyMethod.");
+
+          ElemOffset = Params.size();
+          for (auto *Fld : Elements)
+            Params.push_back(Fld->getPointerTo(0));
+          continue;
+        }
+      }
+      Params.push_back(Param);
+    }
+
+    auto *NewFuncTy = FunctionType::get(FuncTy->getReturnType(), Params, false);
+    TypeRemapper->addTypeMapping(FuncTy, NewFuncTy);
+    return NewFuncTy;
   }
 
 private:
+  Value *insertElemGEP(Instruction *Base, unsigned Offset) {
+    IRBuilder<> Builder(Context);
+
+    assert(Base->getParent()->getTerminator() != Base &&
+           "Unexpected use of for element access");
+    Builder.SetInsertPoint(isa<PHINode>(Base)
+                               ? &*Base->getParent()->getFirstInsertionPt()
+                               : Base->getNextNonDebugInstruction());
+
+    Value *Idx[] = {
+        ConstantInt::get(Context, APInt(DL.getPointerSizeInBits(0), 0)),
+        ConstantInt::get(Context, APInt(32, Offset))};
+
+    return Builder.CreateInBoundsGEP(Base, ArrayRef<Value *>(Idx), "elem");
+  }
+
   const DataLayout &DL;
   const DTransAnalysisInfo &DTInfo;
   const TargetLibraryInfo &TLI;

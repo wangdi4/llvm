@@ -907,7 +907,7 @@ void getFreePtrArg(FreeKind Kind, ImmutableCallSite CS, unsigned &PtrArgInd,
 
 /// Collects all special arguments for free-like call.
 void collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
-                            SmallPtrSet<const Value *, 3> &OutputSet,
+                            SmallPtrSetImpl<const Value *> &OutputSet,
                             const TargetLibraryInfo &TLI);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.

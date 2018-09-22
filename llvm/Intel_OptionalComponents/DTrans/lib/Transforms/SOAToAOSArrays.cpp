@@ -136,42 +136,18 @@ public:
     PFloat = Type::getFloatTy(Context)->getPointerTo(0);
 
     if (InstsToTransform.MK == MK_Append) {
-      // Processing single function in this debug pass.
-      auto *FunctionTy = S.Method->getFunctionType();
-      SmallVector<Type *, 5> Params;
+      SmallVector<PointerType *, 2> Elems;
+      Elems.push_back(S.ElementType);
+      Elems.push_back(PFloat);
 
-      for (auto *P : FunctionTy->params()) {
-        if (P == S.ElementType) {
-          Params.push_back(P);
-          Params.push_back(PFloat);
-          NewParamOffset = Params.size() - 1;
-          continue;
-        }
-        if (auto *Ptr = dyn_cast<PointerType>(P)) {
-          if (Ptr->getElementType() == S.StrType) {
-            Params.push_back(NewArray->getPointerTo());
-            continue;
-          }
-
-          if (Ptr->getElementType() == S.ElementType) {
-            Params.push_back(P);
-            Params.push_back(PFloat->getPointerTo());
-            NewParamOffset = Params.size() - 1;
-            continue;
-          }
-        }
-        Params.push_back(P);
-      }
-      auto *NewFunctionTy =
-          FunctionType::get(FunctionTy->getReturnType(), Params, false);
-
-      TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
+      ArrayMethodTransformation::mapNewAppendType(
+          *S.Method, S.ElementType, Elems, TypeRemapper,
+          AppendMethodElemParamOffset);
     }
     return true;
   }
 
   void populateTypes(Module &M) override {
-
     // S.ElementType is pointer type too.
     // For testing purposes assume that the second element type is simply
     // float*.
@@ -204,16 +180,24 @@ public:
                          InstsToTransform.MK == MK_Ctor ||
                          InstsToTransform.MK == MK_CCtor;
 
-
-    AMT.updateBasePointerInsts(CopyElemInsts, 2, NewElement->getPointerTo(0));
+    AMT.updateBasePointerInsts(CopyElemInsts, 2/*Number of arrays*/,
+                               NewElement->getPointerTo(0));
     if (CopyElemInsts) {
       ArrayMethodTransformation::OrigToCopyTy OrigToCopy;
-      AMT.rawCopyAndRelink(OrigToCopy, true, 2, PFloat, NewParamOffset);
-      AMT.gepRAUW(true, OrigToCopy, 0, NewElement->getPointerTo(0));
+      AMT.rawCopyAndRelink(OrigToCopy,
+                           true /* Update unique instructions like memset*/,
+                           2 /*Number of arrays*/, PFloat /*New element type*/,
+                           AppendMethodElemParamOffset +
+                               1 /* Offset in argument list of new element*/);
+      AMT.gepRAUW(true /*Do copy*/, OrigToCopy,
+                  0 /*PFloat's offset in NewElement*/,
+                  NewElement->getPointerTo(0));
     }
     // Original instructions from cloned function should be replaced as a last
     // step to keep OrigToCopy valid.
-    AMT.gepRAUW(false, ArrayMethodTransformation::OrigToCopyTy(), 1,
+    AMT.gepRAUW(false /*Only update existing insts*/,
+                ArrayMethodTransformation::OrigToCopyTy(),
+                1 /*S.ElementType's offset in NewElement*/,
                 NewElement->getPointerTo(0));
   }
 
@@ -221,16 +205,16 @@ private:
   const ArraySummaryForIdiom &S;
   const SOAToAOSArrayMethodsCheckDebugResult &InstsToTransform;
 
+  // Structure containing one element per each transformed array.
   StructType *NewElement = nullptr;
+  // New array of structures, structure is NewElement.
   StructType *NewArray = nullptr;
 
-  // Cached types for transformation.
-  // NewElement*
-  PointerType *PNewElement = nullptr;
-  // float*
+  // float*, arbitrary 2nd type in NewElement
   PointerType *PFloat = nullptr;
-  // Offset of new parameter for MK_Append method.
-  unsigned NewParamOffset = -1U;
+  // Offset of the first element parameter for MK_Append method.
+  // Element parameters are arranged in order of NewElement.
+  unsigned AppendMethodElemParamOffset = -1U;
 };
 } // namespace
 

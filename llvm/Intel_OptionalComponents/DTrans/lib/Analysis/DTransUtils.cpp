@@ -183,7 +183,7 @@ void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
 }
 
 void dtrans::collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
-                                    SmallPtrSet<const Value *, 3> &OutputSet,
+                                    SmallPtrSetImpl<const Value *> &OutputSet,
                                     const TargetLibraryInfo &TLI) {
   unsigned PtrArgInd = -1U;
   getFreePtrArg(Kind, CS, PtrArgInd, TLI);
