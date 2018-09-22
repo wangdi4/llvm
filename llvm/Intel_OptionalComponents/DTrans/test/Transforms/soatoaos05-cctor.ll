@@ -138,9 +138,13 @@ declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
 
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 
+declare void @llvm.dbg.value(metadata, metadata, metadata)
+
 ; CHECK-MOD:       @"FieldValueMap::FieldValueMap(FieldValueMap const&){{.*}}"(%__SOA_class.FieldValueMap* %this, %__SOA_class.FieldValueMap* %other) personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
 define hidden void @"FieldValueMap::FieldValueMap(FieldValueMap const&)"(%class.FieldValueMap* %this, %class.FieldValueMap* %other) personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
+; CHECK-MOD:    call void @llvm.dbg.value(metadata %__SOA_class.FieldValueMap* %this
+  call void @llvm.dbg.value(metadata %class.FieldValueMap* %this, metadata !13, metadata !DIExpression()), !dbg !14
 ; Dead value.
   %fValidators = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
 ; CHECK-MOD:        %fValues = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 2
@@ -649,3 +653,27 @@ declare hidden void @"XMemory::operator delete(void*_ MemoryManager*)"(i8*, %cla
 ; CHECK-TRANS: ; Seen cctor.
 ; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
 ; XCHECK-DEP: Deps computed: 101, Queries: 298
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!3, !4, !5}
+!llvm.dbg.intel.emit_class_debug_always = !{!6}
+!llvm.ident = !{!7}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
+!1 = !DIFile(filename: "test", directory: ".")
+!2 = !{}
+!3 = !{i32 2, !"Dwarf Version", i32 4}
+!4 = !{i32 2, !"Debug Info Version", i32 3}
+!5 = !{i32 1, !"wchar_size", i32 4}
+!6 = !{!"true"}
+!7 = !{!""}
+!8 = distinct !DISubprogram(name: "na", linkageName: "na", scope: !1, file: !1, line: 1, type: !9, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, retainedNodes: !2)
+; int(void*) type.
+!9 = !DISubroutineType(types: !10)
+!10 = !{!11, !12}
+!11 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
+!12 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: null, size: 64)
+!13 = !DILocalVariable(name: "na", arg: 1, scope: !8, file: !1, line: 1, type: !12)
+!14 = !DILocation(line: 1, column: 1, scope: !8)
+!15 = !DILocation(line: 1, column: 1, scope: !8)
+!16 = !DILocation(line: 1, column: 1, scope: !8)

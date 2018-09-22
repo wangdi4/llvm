@@ -1022,6 +1022,9 @@ class DepCompute {
   // instruction.
   const Dep *computeValueDep(const Value *Val) const;
 
+  // Compute IR approximation for Instruction.
+  // Helper function for computeDepApproximation.
+  const Dep *computeInstDep(const Instruction *I) const;
 public:
   DepCompute(const DTransAnalysisInfo &DTInfo,
              // Need to compare pointers and integers of pointer size

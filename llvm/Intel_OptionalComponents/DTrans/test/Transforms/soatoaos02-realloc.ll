@@ -34,6 +34,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-WF-NOT: ; Func(GEP
 define void @_ZN3ArrIPiE7reallocEi(%struct.Arr* %this, i32 %inc) {
 entry:
+  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !13, metadata !DIExpression()), !dbg !14
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 4
   %tmp = load i32, i32* %size, align 8
   %add = add nsw i32 %tmp, %inc
@@ -141,3 +142,29 @@ return:                                           ; preds = %for.end, %if.then
 }
 
 ; XCHECK: Deps computed: 26, Queries: 58
+
+declare void @llvm.dbg.value(metadata, metadata, metadata)
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!3, !4, !5}
+!llvm.dbg.intel.emit_class_debug_always = !{!6}
+!llvm.ident = !{!7}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
+!1 = !DIFile(filename: "test", directory: ".")
+!2 = !{}
+!3 = !{i32 2, !"Dwarf Version", i32 4}
+!4 = !{i32 2, !"Debug Info Version", i32 3}
+!5 = !{i32 1, !"wchar_size", i32 4}
+!6 = !{!"true"}
+!7 = !{!""}
+!8 = distinct !DISubprogram(name: "na", linkageName: "na", scope: !1, file: !1, line: 1, type: !9, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, retainedNodes: !2)
+; int(void*) type.
+!9 = !DISubroutineType(types: !10)
+!10 = !{!11, !12}
+!11 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
+!12 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: null, size: 64)
+!13 = !DILocalVariable(name: "na", arg: 1, scope: !8, file: !1, line: 1, type: !12)
+!14 = !DILocation(line: 1, column: 1, scope: !8)
+!15 = !DILocation(line: 1, column: 1, scope: !8)
+!16 = !DILocation(line: 1, column: 1, scope: !8)

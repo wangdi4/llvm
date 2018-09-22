@@ -1060,7 +1060,9 @@ public:
         break;
       case Instruction::Call:
       case Instruction::Invoke:
-        if (ArrayIdioms::isKnownCall(D, S)) {
+        if (isa<DbgInfoIntrinsic>(I))
+          break;
+        else if (ArrayIdioms::isKnownCall(D, S)) {
           auto CS = ImmutableCallSite(&I);
           // Permit only one call to other method.
           if (!MC.CalledMethod && checkMethodCall(CS)) {

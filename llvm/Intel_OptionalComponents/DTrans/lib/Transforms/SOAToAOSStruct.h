@@ -743,9 +743,11 @@ public:
       case Instruction::Call:
       case Instruction::Invoke:
       case Instruction::Alloca:
+        if (isa<DbgInfoIntrinsic>(I))
+          break;
         // All calls should be structured here to avoid
         // expensive recursion in isStructuredLoad/isStructuredCall
-        if (StructIdioms::isStructuredCall(D, S))
+        else if (StructIdioms::isStructuredCall(D, S))
           break;
         else if (StructIdioms::isKnownCall(D, S)) {
           // Check if calls to Struct's method is structured.
@@ -936,6 +938,9 @@ private:
         StartCmp = true;
         continue;
       case Instruction::Call:
+        if (isa<DbgInfoIntrinsic>(I))
+          break;
+
         StartCmp = true;
         if (std::find_if(CSs.begin(), CSs.end(),
                          [&I](ImmutableCallSite CS) -> bool {
@@ -1097,6 +1102,9 @@ private:
 
       // Delete invocations are processed completely.
       if (auto CS1 = ImmutableCallSite(&I1)) {
+        if (isa<DbgInfoIntrinsic>(I1))
+          continue;
+
         if (!compareAllocDeallocCalls(CS1, ImmutableCallSite(&I2), FreePtr1,
                                       FreePtr2))
           return false;
@@ -1440,6 +1448,9 @@ private:
 
           LLVM_FALLTHROUGH;
         case Instruction::Call:
+          if (isa<DbgInfoIntrinsic>(I))
+            continue;
+
           if (std::find_if(CtorCSs.begin(), CtorCSs.end(),
                            [&I](ImmutableCallSite CS) -> bool {
                              return &I == CS.getInstruction();
@@ -1479,6 +1490,10 @@ private:
                   StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I))
             ArrayTypes.erase(ArrType);
           continue;
+        case Instruction::Call:
+          if (isa<DbgInfoIntrinsic>(I))
+            continue;
+          return false;
         default:
           return false;
         }
@@ -1596,6 +1611,9 @@ private:
 
           LLVM_FALLTHROUGH;
         case Instruction::Call:
+          if (isa<DbgInfoIntrinsic>(I))
+            continue;
+
           if (std::find_if(DtorCSs.begin(), DtorCSs.end(),
                            [&I](ImmutableCallSite CS) -> bool {
                              return &I == CS.getInstruction();
@@ -1695,6 +1713,10 @@ private:
       case Instruction::Store:
         InitSet.erase(cast<StoreInst>(&I));
         continue;
+      case Instruction::Call:
+        if (isa<DbgInfoIntrinsic>(I))
+          continue;
+        return false;
       default:
         return false;
       }
