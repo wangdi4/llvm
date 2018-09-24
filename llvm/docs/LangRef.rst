@@ -16150,4 +16150,81 @@ Independence cannot be proved without additional analysis,
 because one cannot tell that ``j`` and/or ``k`` are related to rightmost
 indexes.
 
+
+'``llvm.intel.wholeprogramsafe``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i1 @llvm.intel.wholeprogramsafe()
+
+Overview:
+"""""""""
+
+The intrinsic ``llvm.intel.wholeprogramsafe`` is used to identify which
+branch destination should be taken depending on the result of the whole
+program analysis. The whole program analysis will determine if whole
+program safe was achieved and convert the calls to this intrinsic
+into ``true`` or ``false``. A program is considered whole program safe
+when the following conditions are fulfilled:
+
+- Whole program read: The linker finds a resolution for each symbol
+- Whole program seen: If there is no IR for a function, then it should
+  be an intrinsic function or a library function (LibFunc)
+- The linker is generating an executable.
+
+Arguments:
+""""""""""
+
+None.
+
+Semantics:
+""""""""""
+
+The intrinsic ``llvm.intel.wholeprogramsafe`` is used by the optimizer to
+identify which path in a branch will be taken after the whole program analysis
+converts the call into ``true`` or ``false``. This analysis is done during the
+Link Time Optimization (LTO) process.
+
+.. code-block:: llvm
+
+    %x = alloca i32, align 4
+    store i32 0, i32* %x, align 4
+    %whprsafe = call i1 @llvm.intel.wholeprogramsafe()
+    br i1 %whprsafe, label %if.whpr, label %if.nowhpr
+
+    if.whpr:
+      store i32 1, i32* %x
+      br label %if.end
+
+    if.nowhpr:
+      store i32 2, i32* %x
+      br label %if.end
+
+    if.end:
+    %retval = load i32, i32* %x, align 4
+
+In the previous example, if the optimizer finds that whole program is safe,
+then the conditional in the branch instruction will be replaced with a
+``true``.
+
+.. code-block:: llvm
+
+    %x = alloca i32, align 4
+    store i32 0, i32* %x, align 4
+    br i1 true, label %if.whpr, label %if.nowhpr
+
+Else, if the analysis detects that whole program is not safe, then the
+conditional will be replaced with a ``false``. Other optimizations will
+take care of cleaning up the basic blocks that won't be traversed.
+
+The intrinsic ``llvm.intel.wholeprogramsafe`` should be emitted if the
+Link Time Optimization (LTO) process is enabled. The reason is because
+the whole program analysis run if LTO is available. If LTO is not used,
+then it will be considered that whole program safe wasn't achieved and
+the intrinsic will be lowered as ``false``.
+
 .. END INTEL_CUSTOMIZATION

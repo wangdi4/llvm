@@ -52,6 +52,10 @@ public:
                                         const TargetLibraryInfo &TLI,
                                         CallGraph *CG);
 
+  // Fold the intrinsic llvm.intel.wholeprogramsafe
+  // into true or false depending on the result of the analysis
+  void foldIntrinsicWholeProgramSafe(Module &M);
+
   bool isWholeProgramSafe();
   bool isWholeProgramSeen();
 
