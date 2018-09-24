@@ -143,7 +143,6 @@ const char* CPUDeviceConfig::GetExtensions() const
         {
             m_extensions =  OCL_EXT_KHR_ICD " ";
             m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
-            m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
             m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
             m_extensions += OCL_EXT_ES_KHR_INT64 " ";
 
