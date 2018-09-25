@@ -28,7 +28,8 @@ class IRMover {
     struct KeyTy {
       ArrayRef<Type *> ETypes;
       bool IsPacked;
-      KeyTy(ArrayRef<Type *> E, bool P);
+      StringRef Name;                                 // INTEL
+      KeyTy(ArrayRef<Type *> E, bool P, StringRef N); // INTEL
       KeyTy(const StructType *ST);
       bool operator==(const KeyTy &that) const;
       bool operator!=(const KeyTy &that) const;
@@ -56,7 +57,8 @@ public:
     void addNonOpaque(StructType *Ty);
     void switchToNonOpaque(StructType *Ty);
     void addOpaque(StructType *Ty);
-    StructType *findNonOpaque(ArrayRef<Type *> ETypes, bool IsPacked);
+    StructType *findNonOpaque(ArrayRef<Type *> ETypes, bool IsPacked, // INTEL
+                              StringRef Name);                        // INTEL
     bool hasType(StructType *Ty);
   };
 

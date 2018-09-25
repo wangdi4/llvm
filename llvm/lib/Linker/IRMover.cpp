@@ -28,6 +28,16 @@ using namespace llvm;
 //===----------------------------------------------------------------------===//
 
 namespace {
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> TypeMerging(
+    "irmover-type-merging", cl::Hidden, cl::init(true),
+    cl::desc("enable type merge in irmover for smaller IR"));
+
+// Normalizes struct name for type merging.
+static StringRef getStructName(const StructType *S);
+#endif // INTEL_CUSTOMIZATION
+
 class TypeMapTy : public ValueMapTypeRemapper {
   /// This is a mapping from a source type to a destination type to use.
   DenseMap<Type *, Type *> MappedTypes;
@@ -326,11 +336,14 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
       return *Entry = Ty;
     }
 
-    if (StructType *OldT =
-            DstStructTypesSet.findNonOpaque(ElementTypes, IsPacked)) {
+#if INTEL_CUSTOMIZATION
+    // Provide name of a struct.
+    if (StructType *OldT = DstStructTypesSet.findNonOpaque(
+            ElementTypes, IsPacked, getStructName(STy))) {
       STy->setName("");
       return *Entry = OldT;
     }
+#endif // INTEL_CUSTOMIZATION
 
     if (!AnyChange) {
       DstStructTypesSet.addNonOpaque(STy);
@@ -697,6 +710,19 @@ static StringRef getTypeNamePrefix(StringRef Name) {
              ? Name
              : Name.substr(0, DotPos);
 }
+
+
+#if INTEL_CUSTOMIZATION
+namespace {
+// Normalizes struct name for type merging.
+static StringRef getStructName(const StructType *S) {
+  if (TypeMerging || !S->hasName())
+    return "";
+
+  return getTypeNamePrefix(S->getName());
+}
+} // namespace
+#endif // INTEL_CUSTOMIZATION
 
 /// Loop over all of the linked values to compute type mappings.  For example,
 /// if we link "extern Foo *x" and "Foo *x = NULL", then we have two struct
@@ -1374,15 +1400,23 @@ Error IRLinker::run() {
   return linkModuleFlagsMetadata();
 }
 
-IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, bool P)
-    : ETypes(E), IsPacked(P) {}
+#if INTEL_CUSTOMIZATION
+// Provide name of a struct.
+IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, bool P,
+                                         StringRef Name)
+    : ETypes(E), IsPacked(P), Name(Name) {}
 
+// Provide name of a struct.
 IRMover::StructTypeKeyInfo::KeyTy::KeyTy(const StructType *ST)
-    : ETypes(ST->elements()), IsPacked(ST->isPacked()) {}
+    : ETypes(ST->elements()), IsPacked(ST->isPacked()),
+      Name(getStructName(ST)) {}
 
+// Account for name of a struct.
 bool IRMover::StructTypeKeyInfo::KeyTy::operator==(const KeyTy &That) const {
-  return IsPacked == That.IsPacked && ETypes == That.ETypes;
+  return IsPacked == That.IsPacked && ETypes == That.ETypes &&
+         Name == That.Name;
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool IRMover::StructTypeKeyInfo::KeyTy::operator!=(const KeyTy &That) const {
   return !this->operator==(That);
@@ -1398,7 +1432,7 @@ StructType *IRMover::StructTypeKeyInfo::getTombstoneKey() {
 
 unsigned IRMover::StructTypeKeyInfo::getHashValue(const KeyTy &Key) {
   return hash_combine(hash_combine_range(Key.ETypes.begin(), Key.ETypes.end()),
-                      Key.IsPacked);
+                      Key.IsPacked, Key.Name); // INTEL
 }
 
 unsigned IRMover::StructTypeKeyInfo::getHashValue(const StructType *ST) {
@@ -1437,10 +1471,9 @@ void IRMover::IdentifiedStructTypeSet::addOpaque(StructType *Ty) {
   OpaqueStructTypes.insert(Ty);
 }
 
-StructType *
-IRMover::IdentifiedStructTypeSet::findNonOpaque(ArrayRef<Type *> ETypes,
-                                                bool IsPacked) {
-  IRMover::StructTypeKeyInfo::KeyTy Key(ETypes, IsPacked);
+StructType *IRMover::IdentifiedStructTypeSet::findNonOpaque(     // INTEL
+    ArrayRef<Type *> ETypes, bool IsPacked, StringRef Name) {    // INTEL
+  IRMover::StructTypeKeyInfo::KeyTy Key(ETypes, IsPacked, Name); // INTEL
   auto I = NonOpaqueStructTypes.find_as(Key);
   return I == NonOpaqueStructTypes.end() ? nullptr : *I;
 }

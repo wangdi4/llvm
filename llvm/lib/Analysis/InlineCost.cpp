@@ -355,7 +355,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool visitCatchReturnInst(CatchReturnInst &RI);
   bool visitUnreachableInst(UnreachableInst &I);
 #if INTEL_CUSTOMIZATION
-  bool preferDtransToInlining(CallSite &CS, bool PrepareForLTO) const;
+  bool preferDTransToInlining(CallSite &CS, bool PrepareForLTO) const;
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -2794,7 +2794,7 @@ static bool worthInliningForDeeplyNestedIfs(CallSite &CS,
 // to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile step
 // of an LTO compilation.
 //
-bool CallAnalyzer::preferDtransToInlining(CallSite &CS,
+bool CallAnalyzer::preferDTransToInlining(CallSite &CS,
                                           bool PrepareForLTO) const {
   if (!PrepareForLTO)
     return false;
@@ -2916,7 +2916,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     return false;
   }
   if (InlineForXmain &&
-      preferDtransToInlining(CS, PrepareForLTO)) {
+      preferDTransToInlining(CS, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferSOAToAOS;
     return false;
   }
