@@ -2367,7 +2367,7 @@ CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
 //             %omp.iv = phi(%omp.lb, %omp.inc)
 //             ...
 //             %omp.inc = %omp.iv + 1;
-//          }while (%omp.ub > %omp.inc)
+//          }while (%omp.ub + 1 > %omp.inc)
 void VPOParoptTransform::fixOmpBottomTestExpr(Loop *L) {
   BasicBlock *Backedge = L->getLoopLatch();
   TerminatorInst *TermInst = Backedge->getTerminator();
@@ -2378,6 +2378,12 @@ void VPOParoptTransform::fixOmpBottomTestExpr(Loop *L) {
          "Expect incoming loop predicate is SLE or ULE");
   ICmpInst::Predicate NewPred = CondInst->getInversePredicate();
   CondInst->swapOperands();
+  Value *Ub = CondInst->getOperand(0);
+  IntegerType *UpperBoundTy = cast<IntegerType>(Ub->getType());
+  ConstantInt *ValueOne  = ConstantInt::get(UpperBoundTy, 1);
+  IRBuilder<> Builder(CondInst);
+  Value* NewUb = Builder.CreateAdd(Ub, ValueOne);
+  CondInst->replaceUsesOfWith(Ub, NewUb);
   CondInst->setPredicate(NewPred);
 }
 
