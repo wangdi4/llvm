@@ -772,11 +772,10 @@ private:
     if (!ST)
       return false;
     LLVMContext &Context = ST->getContext();
-    auto *VTableTy =
-        FunctionType::get(Type::getInt32Ty(Context), {ST->getPointerTo()},
-                          false)
-            ->getPointerTo()
-            ->getPointerTo();
+    auto *VTableTy = FunctionType::get(Type::getInt32Ty(Context),
+                                       {ST->getPointerTo()}, false)
+                         ->getPointerTo()
+                         ->getPointerTo();
     return (DestTy == VTableTy);
   }
 
@@ -804,7 +803,6 @@ ModulePass *llvm::createDTransResolveTypesWrapperPass() {
   return new DTransResolveTypesWrapper();
 }
 
-
 // This function walks over the structure types in the specified module and
 // identifies types which we would like to remap to one another. At this point
 // we will only create opaque replacement types for the types to be remapped.
@@ -823,65 +821,112 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     return dyn_cast<StructType>(BaseTy);
   };
 
-  SmallPtrSet<StructType *, 32> ExternTypes;
+  // This map records the result of whether or not a structure type has
+  // external dependencies for any type we've checked. If a type is in the
+  // map, we know whether or not it has a dependency on any type that is
+  // referenced by an extern function. If a type is not in the map, we will
+  // need to check and then add the result to the map.
+  DenseMap<StructType *, bool> ExternDependencyCache;
+
+  // Start by priming the map with the types that are directly used by
+  // external functions.
   for (Function &F : M) {
     if (F.isDeclaration()) {
       auto *FnTy = F.getFunctionType();
       if (auto *RetST = getContainedStructTy(FnTy->getReturnType()))
-        ExternTypes.insert(RetST);
+        ExternDependencyCache[RetST] = true;
       for (auto *ParamTy : FnTy->params())
         if (auto *ParamST = getContainedStructTy(ParamTy))
-          ExternTypes.insert(ParamST);
+          ExternDependencyCache[ParamST] = true;
     }
   }
 
-  std::function<bool(StructType *, SmallPtrSetImpl<StructType *> &)>
-      hasExternDependency =
-          [&](StructType *Ty, SmallPtrSetImpl<StructType *> &VisitedTypes) {
-            if (!VisitedTypes.insert(Ty).second)
-              return false;
-            if (ExternTypes.count(Ty))
+  std::function<bool(StructType *, SmallPtrSetImpl<StructType *> &, bool &)>
+      hasExternDependencyImpl = [&](StructType *Ty,
+                                    SmallPtrSetImpl<StructType *> &VisitedTypes,
+                                    bool &IncompleteResult) {
+        // This function does a lot of recursing. Make sure we aren't
+        // looking for a result we've already computed. VisitedTypes
+        // keeps the recursion in check, but ExternDependencyCache
+        // provides results we computed on previous calls.
+        auto CachedResult = ExternDependencyCache.find(Ty);
+        if (CachedResult != ExternDependencyCache.end())
+          return CachedResult->second;
+        // This happens when we're still in the process of figuring
+        // out the result for the given type.
+        if (!VisitedTypes.insert(Ty).second) {
+          IncompleteResult = true;
+          return false;
+        }
+        // Check the types which this type contains.
+        for (auto *MemberType : Ty->elements()) {
+          if (auto *ElemStTy = getContainedStructTy(MemberType)) {
+            if (hasExternDependencyImpl(ElemStTy, VisitedTypes,
+                                        IncompleteResult)) {
+              ExternDependencyCache[Ty] = true;
               return true;
-            for (auto *DepTy : TypeToDependentTypes[Ty]) {
-              if (auto *ST = dyn_cast<StructType>(DepTy)) {
-                if (ExternTypes.count(ST))
-                  return true;
-                if (hasExternDependency(ST, VisitedTypes))
-                  return true;
-              }
             }
-            return false;
-          };
+          }
+        }
+        // Also, check the types which contain this type.
+        for (auto *DepTy : TypeToDependentTypes[Ty]) {
+          if (auto *ST = dyn_cast<StructType>(DepTy)) {
+            if (hasExternDependencyImpl(ST, VisitedTypes, IncompleteResult)) {
+              ExternDependencyCache[Ty] = true;
+              return true;
+            }
+          }
+        }
+        // If we get here, the type has no extern dependency was found,
+        // but that may be because some types were unresolved. The
+        // result is not cached here in that case.
+        if (!IncompleteResult)
+          ExternDependencyCache[Ty] = false;
+        return false;
+      };
+
+  std::function<bool(StructType *)> hasExternDependency = [&](StructType *Ty) {
+    SmallPtrSet<StructType *, 16> VisitedTypes;
+    bool IncompleteResult = false;
+    bool Result = hasExternDependencyImpl(Ty, VisitedTypes, IncompleteResult);
+    // By the time we get here, we will have visited all of the dependencies
+    // and the IncompleteResult flag only indicates that intermediate
+    // type dependencies were possibly unknown. The result at this point can
+    // be cached.
+    ExternDependencyCache[Ty] = Result;
+    return Result;
+  };
 
   // Sometimes previous optimizations will have left types that are not
   // used in a way that allows Module::getIndentifiedStructTypes() to find
   // them. This can confuse our mapping algorithm, so here we check for
   // missing types and add them to the set we're looking at.
-  std::vector<StructType*> StTypes = M.getIdentifiedStructTypes();
-  SmallPtrSet<StructType*, 32> SeenTypes;
-  std::function<void(StructType*)> findMissedNestedTypes = [&](StructType *Ty) {
-    for (Type *ElemTy : Ty->elements()) {
-      // Look past pointer, array, and vector wrappers.
-      // If the element is a structure, add it to the SeenTypes set.
-      // If it wasn't already there, check for nested types.
-      if (StructType* ElemStTy = getContainedStructTy(ElemTy))
-        if (SeenTypes.insert(ElemStTy).second)
-          findMissedNestedTypes(ElemStTy);
-    }
-    if (!Ty->hasName())
-      return;
-    StringRef TyName = Ty->getName();
-    StringRef BaseName = getTypeBaseName(TyName);
-    // If the type name didn't have a suffix, TyName and BaseName will be
-    // the same. Checking the size is sufficient.
-    if (TyName.size() == BaseName.size())
-      return;
-    // Add the base type now. This might be the only way it is found.
-    StructType *BaseTy = M.getTypeByName(BaseName);
-    if (!BaseTy || !SeenTypes.insert(BaseTy).second)
-      return;
-    findMissedNestedTypes(BaseTy);
-  };
+  std::vector<StructType *> StTypes = M.getIdentifiedStructTypes();
+  SmallPtrSet<StructType *, 32> SeenTypes;
+  std::function<void(StructType *)> findMissedNestedTypes =
+      [&](StructType *Ty) {
+        for (Type *ElemTy : Ty->elements()) {
+          // Look past pointer, array, and vector wrappers.
+          // If the element is a structure, add it to the SeenTypes set.
+          // If it wasn't already there, check for nested types.
+          if (StructType *ElemStTy = getContainedStructTy(ElemTy))
+            if (SeenTypes.insert(ElemStTy).second)
+              findMissedNestedTypes(ElemStTy);
+        }
+        if (!Ty->hasName())
+          return;
+        StringRef TyName = Ty->getName();
+        StringRef BaseName = getTypeBaseName(TyName);
+        // If the type name didn't have a suffix, TyName and BaseName will be
+        // the same. Checking the size is sufficient.
+        if (TyName.size() == BaseName.size())
+          return;
+        // Add the base type now. This might be the only way it is found.
+        StructType *BaseTy = M.getTypeByName(BaseName);
+        if (!BaseTy || !SeenTypes.insert(BaseTy).second)
+          return;
+        findMissedNestedTypes(BaseTy);
+      };
   for (StructType *Ty : M.getIdentifiedStructTypes()) {
     // If we've seen this type already, skip it.
     if (!SeenTypes.insert(Ty).second)
@@ -909,14 +954,13 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     StructType *BaseTy = M.getTypeByName(BaseName);
     if (!BaseTy) {
       LLVM_DEBUG(dbgs() << "resolve-types: Renaming " << TyName << " -> "
-                    << BaseName << "\n");
+                        << BaseName << "\n");
       Ty->setName(BaseName);
       continue;
     }
 
     // Don't try to remap types with external uses.
-    SmallPtrSet<StructType *, 4> VisitedTypes;
-    if (hasExternDependency(Ty, VisitedTypes))
+    if (hasExternDependency(Ty))
       continue;
 
     DEBUG_WITH_TYPE(DTRT_VERBOSE,
@@ -964,8 +1008,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     // Don't try to remap types with external uses. We didn't check the base
     // type above because we would have needed to check it for each possible
     // variant there whereas here we can check it just once.
-    SmallPtrSet<StructType *, 4> VisitedTypes;
-    if (hasExternDependency(BaseTy, VisitedTypes))
+    if (hasExternDependency(BaseTy))
       continue;
 
     const SetVector<StructType *> &CandTypes = Entry.second;
@@ -1149,9 +1192,8 @@ void ResolveTypesImpl::populateTypes(Module &M) {
     if (!ReplTy->isOpaque())
       continue;
 
-    DEBUG_WITH_TYPE(DTRT_VERBOSE,
-                    dbgs() << "Populating type: " << *ReplTy << "\n  OrigTy: "
-                            << *OrigTy << "\n");
+    DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Populating type: " << *ReplTy
+                                         << "\n  OrigTy: " << *OrigTy << "\n");
 
     SmallVector<Type *, 8> DataTypes;
     for (auto *MemberTy : OrigTy->elements()) {
@@ -1159,7 +1201,6 @@ void ResolveTypesImpl::populateTypes(Module &M) {
       DEBUG_WITH_TYPE(DTRT_VERBOSE,
                       dbgs() << "MemberTy mapping: " << *MemberTy << " -> "
                              << *(TypeRemapper->remapType(MemberTy)) << "\n");
-
     }
 
     ReplTy->setBody(DataTypes, OrigTy->isPacked());
