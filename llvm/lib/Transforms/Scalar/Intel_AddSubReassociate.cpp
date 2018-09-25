@@ -228,7 +228,7 @@ static cl::opt<unsigned>
     MaxTreeSizeDiffForCluster("addsub-reassoc-max-tree-size-diff", cl::init(1),
                               cl::Hidden,
                               cl::desc("The maximum tree size difference "
-                                       "allowed within a cluster of TreeVec."));
+                                       "allowed within a cluster of trees."));
 
 // The maximum size of clusters formed. This reduces the complexity of tree
 // extension towards shared leaves.
@@ -303,6 +303,24 @@ static inline bool isAllowedAssocInstr(const Instruction *I) {
 // Returns true if 'V' is an Associative instruction.
 static inline bool isAllowedAssocInstr(const Value *V) {
   return isa<Instruction>(V) && isAllowedAssocInstr(cast<Instruction>(V));
+}
+
+static bool isAddSubInstr(const Instruction *I, const DataLayout &DL) {
+  switch (I->getOpcode()) {
+  case Instruction::Add:
+  case Instruction::Sub:
+    return true;
+  case Instruction::Or:
+    return haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1), DL);
+  default:
+    return false;
+  }
+}
+
+static bool isAllowedTrunkInstr(const Value *V, const DataLayout &DL) {
+  auto *I = dyn_cast<Instruction>(V);
+  return (I != nullptr) ? isAddSubInstr(I, DL) || isAllowedAssocInstr(I)
+                        : false;
 }
 
 // Returns true if 'V1' and 'I2' are in the same BB, or if V1 not an instr.
@@ -504,6 +522,33 @@ bool AddSubReassociatePass::Tree::hasLeaf(Value *Leaf) const {
   return false;
 }
 
+bool AddSubReassociatePass::Tree::hasTrunkInstruction(
+    const Instruction *I) const {
+  // Note: Currently maximum tree size is limited to 16. That's why we are doing
+  // full traversal instead of using set. Please consider changing this as
+  // needed.
+  std::function<bool(Instruction *)> visitTreeRec =
+      [&](Instruction *TreeI) -> bool {
+    if (I == TreeI)
+      return true;
+    for (int i = 0, e = TreeI->getNumOperands(); i != e; ++i) {
+      Instruction *Op = dyn_cast<Instruction>(TreeI->getOperand(i));
+      if (Op != nullptr && isAllowedTrunkInstr(Op, *DL) && !hasLeaf(Op) &&
+          visitTreeRec((Op)))
+        return true;
+    }
+    return false;
+  };
+  return getRoot() != nullptr && visitTreeRec(getRoot());
+}
+
+void AddSubReassociatePass::Tree::clear() {
+  LUVec.clear();
+  Root = nullptr;
+  HasSharedLeafCandidate = false;
+  SharedLeavesCount = 0;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void AddSubReassociatePass::Tree::dump() const {
   const unsigned Padding = 2;
@@ -643,7 +688,8 @@ void AddSubReassociatePass::checkCanonicalized(Tree &T) const {
     Instruction *TrunkI = cast<Instruction>(TrunkV);
     // Operand 0 of trunk should never be a leaf. It should be either another
     // trunk node or zero.
-    assert(isAddSubInstr(TrunkI) && "Only Add/Sub instrs allowed in the trunk");
+    assert(isAddSubInstr(TrunkI, *DL) &&
+           "Only Add/Sub instrs allowed in the trunk");
     TrunkV = TrunkI->getOperand(0);
   }
   assert(isa<Constant>(TrunkV) && cast<Constant>(TrunkV)->isNullValue() &&
@@ -669,26 +715,21 @@ Value *AddSubReassociatePass::skipAssocs(const OpcodeData &OD,
   return Leaf;
 }
 
-bool AddSubReassociatePass::isAddSubInstr(const Instruction *I) const {
-  switch (I->getOpcode()) {
-  case Instruction::Add:
-  case Instruction::Sub:
-    return true;
-  case Instruction::Or:
-    return haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1), *DL);
-  default:
-    return false;
-  }
+AddSubReassociatePass::Tree *
+AddSubReassociatePass::findEnclosingTree(TreeVecTy &AllTrees,
+                                         const Instruction *I) {
+  for (auto &TreePtr : AllTrees)
+    if (TreePtr->hasTrunkInstruction(I))
+      return TreePtr.get();
+  return nullptr;
 }
 
-// Returns true only if 'V' is an Add or a Sub.
-bool AddSubReassociatePass::isAddSubInstr(const Value *V) const {
-  return isa<Instruction>(V) && isAddSubInstr(cast<Instruction>(V));
-}
-
-
-bool AddSubReassociatePass::isAllowedTrunkInstr(const Value *V) const {
-  return isAddSubInstr(V) || isAllowedAssocInstr(V);
+AddSubReassociatePass::Tree *AddSubReassociatePass::findTreeWithRoot(
+    TreeVecTy &AllTrees, const Instruction *Root, const Tree *skipTree) {
+  for (auto &TreePtr : AllTrees)
+    if (TreePtr.get() != skipTree && TreePtr->getRoot() == Root)
+      return TreePtr.get();
+  return nullptr;
 }
 
 // Returns true if we were able to compute distance of V1 and V2 or one of their
@@ -945,7 +986,7 @@ bool AddSubReassociatePass::isGroupLegal(Group &G,
 //
 // Group formation is quadtratic to the size of the tree, so we should keep the
 // tree size to a small number.
-// Group evaluation across trees is linear to the number of trees in TreeVec.
+// Group evaluation across trees is linear to the number of trees.
 // TODO: We could use sorted leaves and a search window to reduce complexity.
 void AddSubReassociatePass::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
                                                 GroupsVec &BestGroups) {
@@ -956,7 +997,11 @@ void AddSubReassociatePass::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
   // Get the common leaves across the TreeCluster.
   SmallPtrSet<Value *, 8> CommonLeaves;
   getCommonLeaves(TreeCluster, CommonLeaves);
-  assert(!CommonLeaves.empty() && "There should be some common leaves!");
+
+  if (CommonLeaves.empty()) {
+    // Trees may become redundant (merged to another tree) during build process.
+    return;
+  }
 
   // TODO: Building the group based on the first tree is not always best.
   //       We need a heuristic to choose which tree to use.
@@ -1013,9 +1058,9 @@ void AddSubReassociatePass::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
 }
 
 bool AddSubReassociatePass::canonicalizeIRForTrees(
-    const TreeArrayTy &TreeArray) const {
+    const TreeArrayTy &TreeCluster) const {
   bool Changed = false;
-  for (TreePtr &Tptr : TreeArray) {
+  for (TreePtr &Tptr : TreeCluster) {
     Changed |= canonicalizeIRForTree(*Tptr);
 #ifndef NDEBUG
     if (EnableAddSubVerifier) {
@@ -1499,21 +1544,21 @@ bool AddSubReassociatePass::treesMatch(const Tree *T1, const Tree *T2) const {
 }
 
 // Form clusters of Trees with similar i) size, ii) values.
-// This is currently quadratic to TreeVec size.
+// This is currently quadratic to AllTrees size.
 // TODO: Tune the clustering heuristics.
 // TODO: Reduce complexity by sorting based on size?
 void AddSubReassociatePass::clusterTrees(
-    TreeVecTy &TreeVec, SmallVectorImpl<TreeArrayTy> &TreeClusters) {
-  TreeArrayTy TreeVecArray(TreeVec);
+    TreeVecTy &AllTrees, SmallVectorImpl<TreeArrayTy> &TreeClusters) {
+  TreeArrayTy TreeVecArray(AllTrees);
   unsigned ClusterSize = 1;
-  for (size_t i = 0, e = TreeVec.size(); i != e; i += ClusterSize) {
-    const Tree *T1 = TreeVec[i].get();
-    // Now look for other trees within TreeVec.
+  for (size_t i = 0, e = AllTrees.size(); i != e; i += ClusterSize) {
+    const Tree *T1 = AllTrees[i].get();
+    // Now look for other trees within AllTrees.
     ClusterSize = 1;
     // Break quadratic complexity by reducing the maximum search.
     int EndOfSearch = std::min(e, i + 1 + MaxClusterSearch);
     for (int j = i + 1; j != EndOfSearch; ++j) {
-      Tree *T2 = TreeVec[j].get();
+      Tree *T2 = AllTrees[j].get();
       // If i)  size difference is within limits.
       //    ii) the trees share a min number of values.
       if ((std::abs((int64_t)T2->getLeavesCount() -
@@ -1521,8 +1566,8 @@ void AddSubReassociatePass::clusterTrees(
            MaxTreeSizeDiffForCluster) &&
           treesMatch(T2, T1)) {
         // Move this element next to the last member of the cluster.
-        auto First = TreeVec.begin() + i + ClusterSize;
-        auto Middle = TreeVec.begin() + j;
+        auto First = AllTrees.begin() + i + ClusterSize;
+        auto Middle = AllTrees.begin() + j;
         auto Last = Middle + 1;
         std::rotate(First,  Middle, Last);
         // Reduce complexity by placing a cap on the size of the cluster
@@ -1641,7 +1686,8 @@ bool AddSubReassociatePass::canonicalizeIRForTree(Tree &T) const {
 
 // Try to grow the tree upwards, towards the definitions.
 // Returns true if new nodes have been added to the tree.
-bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &&WorkList) {
+bool AddSubReassociatePass::growTree(TreeVecTy &AllTrees, Tree *T,
+                                     WorkListTy &&WorkList) {
   unsigned SizeBefore = T->getLeavesCount();
   unsigned CntAssociations = 0;
 
@@ -1649,11 +1695,17 @@ bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &&WorkList) {
   while (!WorkList.empty()) {
     auto LastOp = WorkList.pop_back_val();
 
-    assert(isAllowedTrunkInstr(LastOp.Leaf) &&
+    assert(isAllowedTrunkInstr(LastOp.Leaf, *DL) &&
            "Work list item can't be trunk instruction.");
     Instruction *I = cast<Instruction>(LastOp.Leaf);
-    bool IsAllowedAssocInstrI = isAllowedAssocInstr(I);
 
+    // If current instruction starts another tree then just clear that tree
+    // since it will become part of the growing tree.
+    if (Tree *ATree = findTreeWithRoot(AllTrees, I, T)) {
+      ATree->clear();
+    }
+
+    bool IsAllowedAssocInstrI = isAllowedAssocInstr(I);
     if (IsAllowedAssocInstrI) {
       // Collect the unary associative instructions that apply for 'I'.
       LastOp.Opcode.appendAssocInstr(I);
@@ -1695,8 +1747,8 @@ bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &&WorkList) {
       if ( // Keep the size of a tree below a maximum value.
           T->getLeavesCount() + 2 * WorkList.size() < MaxTreeSize &&
           Op->hasOneUse() && arePredsInSameBB(Op, I) &&
-          (isAddSubInstr(Op) ||
-           (isAllowedAssocInstr(Op) &&
+          (isAllowedTrunkInstr(Op, *DL) &&
+           (!isAllowedAssocInstr(Op) ||
             // Check number of allowed assoc instruction.
             (++CntAssociations <= MaxUnaryAssociations)))) {
         // Push the operand to the WorkList to continue the walk up the code.
@@ -1708,7 +1760,7 @@ bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &&WorkList) {
         // not),
         // then this tree is a candidate for growing towards the shared leaves.
         // This is performed by 'extendTrees()'.
-        if (isAllowedTrunkInstr(Op) && Op->getNumUses() > 1)
+        if (isAllowedTrunkInstr(Op, *DL) && Op->getNumUses() > 1)
           T->setSharedLeafCandidate(true);
       }
     }
@@ -1718,11 +1770,11 @@ bool AddSubReassociatePass::growTree(Tree *T, WorkListTy &&WorkList) {
 }
 
 bool AddSubReassociatePass::areAllUsesInsideTreeCluster(
-    TreeArrayTy &TreeVec, const Value *Leaf,
+    TreeArrayTy &TreeCluster, const Value *Leaf,
     SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList) const {
   for (auto *U : Leaf->users()) {
     bool Found = false;
-    for (TreePtr &Tptr : TreeVec) {
+    for (TreePtr &Tptr : TreeCluster) {
       auto *ATree = Tptr.get();
       auto LUVec = ATree->getLeavesAndUsers();
       for (unsigned I = 0; I < ATree->getLeavesCount(); ++I) {
@@ -1744,11 +1796,11 @@ bool AddSubReassociatePass::areAllUsesInsideTreeCluster(
 }
 
 bool AddSubReassociatePass::getSharedLeave(
-    TreeArrayTy &TreeVec,
+    TreeArrayTy &TreeCluster,
     SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList) {
   WorkList.clear();
 
-  for (auto &Tptr : TreeVec) {
+  for (auto &Tptr : TreeCluster) {
     Tree *ATree = Tptr.get();
 
     if (!ATree->hasSharedLeafCandidate())
@@ -1763,28 +1815,28 @@ bool AddSubReassociatePass::getSharedLeave(
       WorkList.clear();
 
       // Only Add/Sub leaves can become parts of trees once replicated.
-      if (SharedLeaf && isAllowedTrunkInstr(SharedLeaf) &&
+      if (SharedLeaf && isAllowedTrunkInstr(SharedLeaf, *DL) &&
           SharedLeaf->getNumUses() > 1 &&
           arePredsInSameBB(SharedLeaf, ATree->getRoot()) &&
-          areAllUsesInsideTreeCluster(TreeVec, SharedLeaf, WorkList)) {
+          areAllUsesInsideTreeCluster(TreeCluster, SharedLeaf, WorkList))
         return true;
-      }
     }
     ATree->setSharedLeafCandidate(false);
   }
   return false;
 }
 
-void AddSubReassociatePass::extendTrees(TreeArrayTy &Trees) {
+void AddSubReassociatePass::extendTrees(TreeVecTy &AllTrees,
+                                        TreeArrayTy &TreeCluster) {
   int MaxAttempts = MaxSharedNodesIterations;
 
   SmallVector<std::pair<Tree *, unsigned>, 8> SharedUsers;
-  while (--MaxAttempts >= 0 && getSharedLeave(Trees, SharedUsers)) {
+  while (--MaxAttempts >= 0 && getSharedLeave(TreeCluster, SharedUsers)) {
     for (auto &SharedUser : SharedUsers) {
       Tree *ATree = SharedUser.first;
       LeafUserPair LUPair = ATree->getLeafUserPair(SharedUser.second);
       ATree->removeLeaf(SharedUser.second);
-      growTree(ATree, SmallVector<LeafUserPair, 8>({LUPair}));
+      growTree(AllTrees, ATree, SmallVector<LeafUserPair, 8>({LUPair}));
       ATree->adjustSharedLeavesCount(1);
     }
     // In fact we don't need to clone a leaf for the first tree and may use
@@ -1793,30 +1845,13 @@ void AddSubReassociatePass::extendTrees(TreeArrayTy &Trees) {
   }
 }
 
-void AddSubReassociatePass::buildInitialTrees(BasicBlock *BB,
-                                              TreeVecTy &TreeVec) {
+void AddSubReassociatePass::buildInitialTrees(
+    BasicBlock *BB, TreeVecTy &AllTrees) {
   // Returns true if 'I' is a candidate for a tree root.
-  // We don't need to check whether 'I' is in other trees, because if it is
-  // considered as a rootCandidate, it must have more than one uses,
-  // therefore it is not part of a tree.
-  // NOTE: This will miss out root nodes in case of trees that have been
-  // truncated because of their size.
-  auto isRootCandidate = [&](const Instruction *I) {
+  auto isRootCandidate = [&](const Instruction *I) -> bool {
     // Conditions: i.  Add/Sub opcode,
-    //             ii. Multiple users, or single user that is not an Add/Sub
-    //                 or a candidate AssocInstr.
-    if (!isAddSubInstr(I))
-      return false;
-
-    for (auto *U : I->users()) {
-      const Instruction *UI = dyn_cast<const Instruction>(U);
-      if (!isAllowedTrunkInstr(UI)) {
-        // This instruction is a good root candidate since it is Add/Sub and
-        // can't be part of another tree.
-        return true;
-      }
-    }
-    return false;
+    //             ii. Doesn't belong to any tree.
+    return isAddSubInstr(I, *DL) && !findEnclosingTree(AllTrees, I);
   };
 
   // Scan the BB in reverse and build a tree.
@@ -1824,37 +1859,38 @@ void AddSubReassociatePass::buildInitialTrees(BasicBlock *BB,
     // Check that number of built trees doesn't exceed specified limits.
     // '0' means "unlimited" unless it is set by the user.
     if ((MaxTreeCount.getNumOccurrences() > 0 || MaxTreeCount > 0) &&
-        TreeVec.size() >= (unsigned)MaxTreeCount)
+        AllTrees.size() >= (unsigned)MaxTreeCount)
       break;
 
     // A tree is rooted at an Add/Sub instruction that is not already in a tree.
     if (!isRootCandidate(&I))
       continue;
 
-    TreePtr UTree = llvm::make_unique<Tree>();
+    TreePtr UTree = llvm::make_unique<Tree>(DL);
     Tree *T = UTree.get();
     T->setRoot(&I);
-    growTree(T, SmallVector<LeafUserPair, 8>(
-                    {LeafUserPair(&I, nullptr, Instruction::Add)}));
+    growTree(AllTrees, T,
+             SmallVector<LeafUserPair, 8>(
+                 {LeafUserPair(&I, nullptr, Instruction::Add)}));
 
     assert(1 <= T->getLeavesCount() && T->getLeavesCount() <= MaxTreeSize + 2 &&
            "Tree size should be capped");
 
     // Skip trivial trees.
     if (T->getLeavesCount() > 1)
-      TreeVec.push_back(std::move(UTree));
+      AllTrees.push_back(std::move(UTree));
   }
 }
 
 // Build Add/Sub trees with instructions from BB.
-void AddSubReassociatePass::buildTrees(BasicBlock *BB, TreeVecTy &TreeVec,
-                                       SmallVector<TreeArrayTy, 8> &Clusters) {
+void AddSubReassociatePass::buildTrees(
+    BasicBlock *BB, TreeVecTy &AllTrees, SmallVector<TreeArrayTy, 8> &Clusters) {
   // 1. Scan the code in BB and build initial trees.
-  buildInitialTrees(BB, TreeVec);
-  if (TreeVec.empty())
+  buildInitialTrees(BB, AllTrees);
+  if (AllTrees.empty())
     return;
 
-  // 2. Create clusters of trees out of the trees in TreeVec. Each cluster
+  // 2. Create clusters of trees out of the trees in AllTrees. Each cluster
   // contains trees that: i.  share leaf nodes, and ii. have similar sizes.
   // The trees in a cluster are good candidates for AddSub reassociation.
   //
@@ -1867,14 +1903,14 @@ void AddSubReassociatePass::buildTrees(BasicBlock *BB, TreeVecTy &TreeVec,
   // and one before the group formation with different heuristics/parameters
   // each.
   //
-  // NOTE: This reorders the elements in TreeVec.
-  clusterTrees(TreeVec, Clusters);
+  // NOTE: This reorders the elements in AllTrees.
+  clusterTrees(AllTrees, Clusters);
 
   // 3. Try to extend the trees by including leaves with multiple uses across
   // multiple trees.
   if (EnableSharedLeaves) {
     for (TreeArrayTy &Cluster : Clusters)
-      extendTrees(Cluster);
+      extendTrees(AllTrees, Cluster);
   }
 }
 
@@ -1893,10 +1929,11 @@ bool AddSubReassociatePass::runImpl(Function *F, ScalarEvolution *Se) {
 
   // Make a "pairmap" of how often each operand pair occurs.
   for (BasicBlock *BB : RPOT) {
-    TreeVecTy TreeVec;
+    TreeVecTy AllTrees;
     SmallVector<TreeArrayTy, 8> TreeClusters;
+
     // 1. Build as many trees as we can find in BB.
-    buildTrees(BB, TreeVec, TreeClusters);
+    buildTrees(BB, AllTrees, TreeClusters);
     // We did not collect any clusters. Continue looking for more trees.
     if (TreeClusters.empty())
       continue;
