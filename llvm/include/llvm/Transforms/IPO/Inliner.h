@@ -80,11 +80,15 @@ private:
   InlineReport Report; // INTEL
 
 protected:
+#if INTEL_CUSTOMIZATION
+  virtual const InlineParams *getInlineParams() const { return nullptr; }
+#endif // INTEL_CUSTOMIZATION
   AssumptionCacheTracker *ACT;
   InliningLoopInfoCache *ILIC; // INTEL
   ProfileSummaryInfo *PSI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
   SmallSet<CallSite, 20> CallSitesForFusion; // INTEL
+  SmallSet<CallSite, 20> CallSitesForDTrans; // INTEL
 };
 
 /// The inliner pass for the new pass manager.

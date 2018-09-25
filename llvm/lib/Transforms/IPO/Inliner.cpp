@@ -62,6 +62,9 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/SOAToAOSExternal.h" // INTEL
+#endif // INTEL_INCLUDE_DTRANS
 #include <algorithm>
 #include <cassert>
 #include <functional>
@@ -522,9 +525,68 @@ static bool InlineHistoryIncludes(
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+static void collectDtransCallSites(Module &M,
+                                   SmallSet<CallSite, 20> *CallSitesForDTrans) {
+#if INTEL_INCLUDE_DTRANS
+  assert(CallSitesForDTrans && CallSitesForDTrans->empty() &&
+         "Inconsistent state of LegacyInlinerBase");
+  // Suppress inlining for SOAToAOS candidates.
+  SmallSet<CallSite, 20> LocalCallSitesForSOAToAOS;
+  for (auto *Str : M.getIdentifiedStructTypes()) {
+    dtrans::soatoaos::SOAToAOSCFGInfo Info;
+    if (!Info.populateLayoutInformation(Str)) {
+      DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE, {
+        dbgs() << "  ; Not candidate ";
+        Str->print(dbgs(), true, true);
+        dbgs() << " because it does not look like a candidate structurally.\n";
+      });
+      continue;
+    }
+    if (!Info.populateCFGInformation(
+            M, true /* Respect size restrictions */,
+            false /* Do not respect param attribute restrictions */)) {
+      DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE, {
+        dbgs() << "  ; Not candidate ";
+        Str->print(dbgs(), true, true);
+        dbgs() << " because it does not look like a candidate from CFG "
+                  "analysis.\n";
+      });
+      continue;
+    }
+
+    // Not more than 1 candidate.
+    if (!LocalCallSitesForSOAToAOS.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE,
+                      dbgs() << "  ; Too many candidates found\n");
+      LocalCallSitesForSOAToAOS.clear();
+      break;
+    }
+
+    DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE, {
+      dbgs() << "  ; ";
+      Str->print(dbgs(), true, true);
+      dbgs() << " looks like SOAToAOS candidate.\n";
+    });
+
+    Info.collectCallSites(&LocalCallSitesForSOAToAOS);
+  }
+  CallSitesForDTrans->insert(LocalCallSitesForSOAToAOS.begin(),
+                             LocalCallSitesForSOAToAOS.end());
+#endif // INTEL_INCLUDE_DTRANS
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool LegacyInlinerBase::doInitialization(CallGraph &CG) {
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
     ImportedFunctionsStats.setModuleInfo(CG.getModule());
+
+#if INTEL_CUSTOMIZATION
+  // SimpleInliner provides InlineParams.
+  if (auto *Params = getInlineParams())
+    if (Params->PrepareForLTO.getValueOr(false))
+      collectDtransCallSites(CG.getModule(), &CallSitesForDTrans);
+#endif // INTEL_CUSTOMIZATION
   return false; // No changes to CallGraph.
 }
 
@@ -564,7 +626,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
                 InliningLoopInfoCache *ILIC, // INTEL
                 InlineReport& IR,            // INTEL
-                SmallSet<CallSite, 20> *CallSitesForFusion) { // INTEL
+                SmallSet<CallSite, 20> *CallSitesForFusion,   // INTEL
+                SmallSet<CallSite, 20> *CallSitesForDTrans) { // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   LLVM_DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -857,7 +920,8 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
                             [this](CallSite CS) { return getInlineCost(CS); },
                             LegacyAARGetter(*this), // INTEL
                             ImportedFunctionsStats, // INTEL
-                            ILIC, getReport(), &CallSitesForFusion); // INTEL
+                            ILIC, getReport(), &CallSitesForFusion, // INTEL
+                            &CallSitesForDTrans);                   // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -870,6 +934,8 @@ bool LegacyInlinerBase::doFinalization(CallGraph &CG) {
     ImportedFunctionsStats.dump(InlinerFunctionImportStats ==
                                 InlinerFunctionImportStatsOpts::Verbose);
 #if INTEL_CUSTOMIZATION
+  CallSitesForDTrans.clear();
+
   bool ReturnValue = removeDeadFunctions(CG);
   getReport().print();
   return ReturnValue;
@@ -981,7 +1047,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   bool Changed = false;
   InliningLoopInfoCache* ILIC = new InliningLoopInfoCache(); // INTEL
 
-  SmallSet<CallSite, 20> CallSitesForFusion;
+  SmallSet<CallSite, 20> CallSitesForFusion;  // INTEL
+  SmallSet<CallSite, 20> CallSitesForDTrans;  // INTEL
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
   InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
@@ -997,9 +1064,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
 #if INTEL_CUSTOMIZATION
   Report.beginSCC(CG, InitialC);
-  if (!CallSitesForFusion.empty()) {
-    CallSitesForFusion.clear();
-  }
+  if (Params.PrepareForLTO.getValueOr(false))
+    collectDtransCallSites(CG.getModule(), &CallSitesForDTrans);
 #endif // INTEL_CUSTOMIZATION
 
   // We use a single common worklist for calls across the entire SCC. We
@@ -1069,7 +1135,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
             });
           }
         }
-     }
+     } // INTEL
   }
 #if INTEL_CUSTOMIZATION
   if (Calls.empty()) {
@@ -1141,7 +1207,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Function &Callee = *CS.getCalledFunction();
       auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
       return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                           ILIC, AggI, &CallSitesForFusion, PSI, &ORE); // INTEL
+                           ILIC, AggI, &CallSitesForFusion, // INTEL
+                           &CallSitesForDTrans, PSI, &ORE); // INTEL
     };
 
     // Now process as many calls as we have within this caller in the sequnece.

@@ -1,6 +1,34 @@
-; RUN: opt < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
-; REQUIRES: asserts
+; RUN: opt < %s -disable-output -inline -inline-report=7                        \
+; RUN:       -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost   \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK-SUPP  %s
+
+; All options
+;   -dtrans-inline-heuristics
+;   -inline-for-xmain
+;   -pre-lto-inline-cost
+;   are required
+; RUN: opt < %s -disable-output -inline -inline-report=7                        \
+; RUN:       -dtrans-inline-heuristics -inline-for-xmain                        \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK-NINL  %s
+; RUN: opt < %s -disable-output -passes='cgscc(inline)' -inline-report=7        \
+; RUN:       -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost   \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK-SUPP %s
+; RUN: opt < %s -disable-output -passes='cgscc(inline)' -inline-report=7        \
+; RUN:       -dtrans-inline-heuristics -inline-for-xmain                        \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK-NINL %s
+
+; CHECK-SUPP: _ZN3ArrIPiEC2EiP3Mem {{.*}}preferred for
+; CHECK-SUPP: _ZN3ArrIPvEC2EiP3Mem {{.*}}preferred for
+; CHECK-SUPP: _ZN3ArrIPiE3setEiS0_ {{.*}}preferred for
+; CHECK-SUPP: _ZN3ArrIPvE3getEi {{.*}}preferred for
+; CHECK-SUPP: _ZN1FC2Ev{{.*}}preferred for
+
+; CHECK-NINL: INLINE{{.*}}_ZN3ArrIPiEC2EiP3Mem
+; CHECK-NINL: INLINE{{.*}}_ZN3ArrIPvEC2EiP3Mem
+; CHECK-NINL: INLINE{{.*}}_ZN3ArrIPiE3setEiS0_
+; CHECK-NINL: INLINE{{.*}}_ZN3ArrIPvE3getEi
+; CHECK-NINL: INLINE{{.*}}_ZN1FC2Ev
+
 
 ; This test check essential layout requirements and simple CFG properties. See comments inlined.
 

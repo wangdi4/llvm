@@ -773,7 +773,8 @@ bool PartialInlinerImpl::shouldPartialInline(
   auto &CalleeTTI = (*GetTTI)(*Callee);
   InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,
                                 *GetAssumptionCache, GetBFI, ILIC,  // INTEL
-                                nullptr, nullptr, PSI, &ORE);       // INTEL
+                                nullptr, nullptr, nullptr,          // INTEL
+                                PSI, &ORE);                         // INTEL
 
   if (IC.isAlways()) {
     ORE.emit([&]() {

@@ -68,7 +68,7 @@ typedef struct {
 ///
 /// \brief A table of entries, one for each possible (non-)inlining reason
 ///
-const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
+const static InlPrtRecord InlineReasonText[] = {
     // InlrFirst,
     {InlPrtNone, nullptr},
     // InlrNoReason,
@@ -179,8 +179,14 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
     {InlPrtSimple, "Caller/callee null pointer mismatch"},
     // NinlrPreferMultiversioning,
     {InlPrtSimple, "Callsite preferred for multiversioning"},
+    // NinlrPreferSOAToAOS,
+    {InlPrtSimple, "Callsite preferred for SOA-to-AOS"},
     // NinlrLast
     {InlPrtNone, nullptr}};
+
+static_assert(sizeof(InlineReasonText) ==
+                  sizeof(InlPrtRecord) * (NinlrLast + 1),
+              "Missing report message");
 
 //
 // Member functions for class InlineReportCallSite

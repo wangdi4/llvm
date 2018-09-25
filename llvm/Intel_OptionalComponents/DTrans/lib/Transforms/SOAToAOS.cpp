@@ -42,6 +42,16 @@ static cl::opt<bool>
     DTransSOAToAOSGlobalGuard("enable-dtrans-soatoaos", cl::init(false),
                               cl::Hidden, cl::desc("Enable DTrans SOAToAOS"));
 
+// This options makes populateCFGInformation to ignore
+// number of uses and number of BasicBlocks in struct's and arrays' methods.
+//
+// It helps to debug issues in transformed code with debug prints, for
+// example.
+static cl::opt<bool> DTransSOAToAOSSizeHeuristic(
+    "dtrans-soatoaos-size-heuristic", cl::init(true), cl::Hidden,
+    cl::desc("Respect size heuristic in DTrans SOAToAOS"));
+
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<std::string> DTransSOAToAOSType("dtrans-soatoaos-typename",
                                                cl::ReallyHidden);
@@ -77,6 +87,23 @@ private:
   public:
     // Computes dependencies using DepMap.
     bool populateSideEffects(SOAToAOSTransformImpl &Impl, Module &M);
+
+    // Checks that all field arrays' methods are called from structure's
+    // methods; Necessary check for legality analysis.
+    bool checkCFG(const DTransAnalysisInfo &DTInfo) const {
+      for (auto *ArrTy : fields()) {
+        auto *FI = cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(ArrTy));
+
+        if (!FI)
+          return FALSE("array type has no DTrans info.");
+
+        // May restrict analysis to Struct's methods.
+        auto &CG = FI->getCallSubGraph();
+        if (CG.isTop() || CG.isBottom() || CG.getEnclosingType() != Struct)
+          return FALSE("array type has unsupported CFG.");
+      }
+      return true;
+    }
 
   protected:
     CandidateSideEffectsInfo() {}
@@ -378,7 +405,17 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
     }
 
     // FIXME: FP exception handling.
-    if (!Info->checkCFG(this->DTInfo) || !Info->populateCFGInformation(M)) {
+    if (!Info->populateCFGInformation(M, DTransSOAToAOSSizeHeuristic, true)) {
+      LLVM_DEBUG({
+        dbgs() << "  ; Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because it does not look like a candidate from CFG "
+                  "analysis.\n";
+      });
+      continue;
+    }
+
+    if (!Info->checkCFG(this->DTInfo)) {
       LLVM_DEBUG({
         dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
