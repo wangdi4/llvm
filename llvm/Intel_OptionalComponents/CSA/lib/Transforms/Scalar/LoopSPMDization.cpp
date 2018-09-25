@@ -70,6 +70,7 @@ private:
   void AddUnrollDisableMetadata(Loop *L);
   bool FindReductionVariables(Loop *L, std::vector<Value *> *ReduceVarExitOrig,
                               std::vector<Instruction *> *ReduceVarOrig);
+  unsigned FindReductionVectorsSize(Loop *L);
   PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
   bool TransformLoopInitandStep(Loop *L, ScalarEvolution *SE, int PE, int NPEs,
                                 int Chunk_Size);
@@ -150,12 +151,12 @@ Branches to or from an OpenMP structured block are illegal
 
 )help";
       return false;
-    } 
-    // Fix me: We assume a maximum of 16 reductions in the loop
-    std::vector<Value *> ReduceVarExitOrig(16);
-    std::vector<Instruction *> ReduceVarOrig(16);
+    }
+    unsigned r = FindReductionVectorsSize(L);
+    std::vector<Value *> ReduceVarExitOrig(r);
+    std::vector<Instruction *> ReduceVarOrig(r);
     // there is OldInst foreach reduction variable
-    std::vector<Instruction *> OldInsts(16);
+    std::vector<Instruction *> OldInsts(r);
     FindReductionVariables(L, &ReduceVarExitOrig, &ReduceVarOrig);
     if (spmd_approach == SPMD_CYCLIC) {
       if (!TransformLoopInitandStep(L, SE, 0, NPEs, Chunk_Size)) {
@@ -387,6 +388,15 @@ void LoopSPMDization::AddUnrollDisableMetadata(Loop *L) {
   NewLoopID->replaceOperandWith(0, NewLoopID);
   L->setLoopID(NewLoopID);
   return;
+}
+
+unsigned LoopSPMDization:: FindReductionVectorsSize(Loop *L) {
+  unsigned r = 0;
+  for (Instruction &I : *L->getHeader()) {
+    if(isa<PHINode>(&I))
+      r++;
+  }
+  return r;
 }
 
 bool LoopSPMDization::FindReductionVariables(
