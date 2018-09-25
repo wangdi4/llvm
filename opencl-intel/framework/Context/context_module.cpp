@@ -339,13 +339,6 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
 #endif
             };
 
-            const OCLConfig* pOclConfig =
-              FrameworkProxy::Instance()->GetOCLConfig();
-            if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
-            {
-                legalProperties.push_back(CL_CONTEXT_FPGA_EMULATOR_INTEL);
-            }
-
             cl_context_properties currentProperty = clProperties[i];
             if (std::none_of(legalProperties.begin(), legalProperties.end(),
                              [currentProperty](
