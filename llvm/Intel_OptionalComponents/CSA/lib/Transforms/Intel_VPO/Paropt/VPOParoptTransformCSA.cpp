@@ -22,6 +22,11 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform-csa"
 
+static cl::opt<unsigned> LoopWorkersDefault(
+  "csa-omp-loop-workers-default", cl::init(1), cl::ReallyHidden,
+  cl::desc("Defines default number of workers for OpenMP loops with no "
+           "num_threads clause."));
+
 namespace {
 
 class CSADiagInfo : public DiagnosticInfoWithLocationBase {
@@ -481,35 +486,43 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   // Generate privatization code.
   CSALoopPrivatizer(*this, W).run();
 
-  // Annotating loop with spmdization entry/exit intrinsic calls if parallel
-  // region has num_threads clause and the number of threads > 1.
+  // Determine the number of workers to use for this loop.
+  unsigned NumWorkers = 0;
   if (W->getIsPar())
     if (auto *NumThreads = W->getNumThreads())
-      if (cast<ConstantInt>(NumThreads)->getZExtValue() > 1u) {
-        auto *M = F->getParent();
+      NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
+  if (!NumWorkers)
+    NumWorkers = LoopWorkersDefault;
 
-        auto *Entry = Intrinsic::getDeclaration(M,
-          Intrinsic::csa_spmdization_entry);
+  // Annotating loop with spmdization entry/exit intrinsic calls if parallel
+  // region has num_threads clause and the number of threads > 1.
+  if (NumWorkers > 1u) {
+    auto *M = F->getParent();
 
-        auto *Exit = Intrinsic::getDeclaration(M,
-          Intrinsic::csa_spmdization_exit);
+    auto *Entry = Intrinsic::getDeclaration(M,
+        Intrinsic::csa_spmdization_entry);
 
-        // Determine SPMDization mode, it depends on a schedule clause.
-        //   No schedule, schedule(auto) or
-        //   schedule(static)                 => blocked SPMD (0)
-        //   schedule(static, chunksize)
-        //     (chunksize == 1)               => cyclic SPMD  (1)
-        //     (chunksize > 1)                => hybrid SPMD  (chunksize)
-        const auto &Sched = W->getSchedule();
-        Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
-            !Sched.getChunkExpr() || !Sched.getChunk() ? 0 : Sched.getChunk());
+    auto *Exit = Intrinsic::getDeclaration(M,
+        Intrinsic::csa_spmdization_exit);
 
-        IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
-        auto *SpmdID = Builder.CreateCall(Entry, { NumThreads, Mode }, "spmd");
+    // Determine SPMDization mode, it depends on a schedule clause.
+    //   No schedule, schedule(auto) or
+    //   schedule(static)                 => blocked SPMD (0)
+    //   schedule(static, chunksize)
+    //     (chunksize == 1)               => cyclic SPMD  (1)
+    //     (chunksize > 1)                => hybrid SPMD  (chunksize)
+    const auto &Sched = W->getSchedule();
+    Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
+        !Sched.getChunkExpr() || !Sched.getChunk() ? 0 : Sched.getChunk());
 
-        Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
-        Builder.CreateCall(Exit, { SpmdID }, {});
-      }
+    IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
+    auto *SpmdID = Builder.CreateCall(Entry,
+                                      { Builder.getInt32(NumWorkers), Mode },
+                                      "spmd");
+
+    Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
+    Builder.CreateCall(Exit, { SpmdID }, {});
+  }
 
   // Insert parallel region entry/exit calls
   auto *Region = genCSAParallelRegion(W);
