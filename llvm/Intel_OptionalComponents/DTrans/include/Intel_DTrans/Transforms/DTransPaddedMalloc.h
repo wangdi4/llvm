@@ -45,6 +45,11 @@ public:
   // Build the global counter and interface that will be used in Padded Malloc
   void buildGlobalsInfo(Module &M);
 
+  // Build the runtime bad cast validation for a \p Func. \p ArgumentIndex and
+  // \p StructIndex indicate what argument to validate.
+  bool buildFuncBadCastValidation(Function *Func, unsigned ArgumentIndex,
+                                  unsigned StructIndex);
+
   // Destroy the global counter and interface that were generated
   void destroyGlobalsInfo(Module &M);
 
@@ -68,6 +73,9 @@ private:
   // Build a new boolean function in the module M that checks if
   // global counter has reached the limit or not.
   void buildInterfaceFunction(Module &M);
+
+private:
+  SmallVector<Function *, 8> BadCastValidatedFuncs;
 };
 
 /// Pass to perform DTrans padded malloc.

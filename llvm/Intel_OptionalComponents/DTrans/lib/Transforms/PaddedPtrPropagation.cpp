@@ -775,9 +775,6 @@ bool PaddedPtrPropImpl::emit() {
     }
   }
 
-  if (!Modified)
-    PaddedMallocData.destroyGlobalsInfo(M);
-
   return Modified;
 }
 
@@ -904,7 +901,7 @@ bool PaddedPtrPropImpl::transform(WholeProgramInfo &WPInfo) {
 
   LLVM_DEBUG(dbgs() << "\n---- PADDED MALLOC TRANSFORM START ----\n\n");
 
-  placeInitialAnnotations();
+  bool Modified = placeInitialAnnotations();
 
   SmallDenseSet<Function *> WorkSet;
 
@@ -958,7 +955,12 @@ bool PaddedPtrPropImpl::transform(WholeProgramInfo &WPInfo) {
   dump("TRANSFORMED FUNCTION SET", dbgs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  return emit();
+  Modified = emit() || Modified;
+
+  if (!Modified)
+    PaddedMallocData.destroyGlobalsInfo(M);
+
+  return Modified;
 }
 
 //===----------------------------------------------------------------------===//

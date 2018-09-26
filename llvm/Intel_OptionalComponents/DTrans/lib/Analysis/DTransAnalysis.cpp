@@ -2753,21 +2753,24 @@ public:
   void setSawBadCastBitCast(BitCastOperator *BCI);
   void setSawUnsafePointerStore(StoreInst *SI, llvm::Type *AliasType);
 
+public:
+  // Constants
+  // The candidate field. This is a void* (i8* in LLVM IR) field to which
+  // can be assigned pointers to various types of structures, which this
+  // analysis attempts to disambiguate.
+  static const unsigned CandidateVoidField = 0;
+
+  // Argument position of functions to which the field referred to above
+  // may be assigned.
+  static const unsigned VoidArgumentIndex = 0;
+
 private:
   // Accessed class objects
   DTransAnalysisInfo &DTInfo;
   DTransAllocAnalyzer &DTAA;
   const TargetLibraryInfo &TLI;
   const Module &M;
-  // Constants
-  //
-  // The candidate field. This is a void* (i8* in LLVM IR) field to which
-  // can be assigned pointers to various types of structures, which this
-  // analysis attempts to disambiguate.
-  const unsigned CandidateVoidField = 0;
-  // Argument position of functions to which the field referred to above
-  // may be assigned.
-  const unsigned VoidArgumentIndex = 0;
+
   // A lattice which indicates:
   //   BCCondTop: a store is unconditionally assigned
   //   BCCondSpecial: a store is conditionally assigned
@@ -2836,6 +2839,9 @@ private:
   void applySafetyCheckToCandidate(dtrans::SafetyData FindCondition,
                                    dtrans::SafetyData RemoveCondition,
                                    dtrans::SafetyData ReplaceByCondition);
+
+public:
+  void getConditionalFunctions(std::set<Function *> &Funcs) const;
 };
 
 //
@@ -4180,6 +4186,22 @@ void DTransBadCastingAnalyzer::setSawBadCastBitCast(BitCastOperator *I) {
 void DTransBadCastingAnalyzer::setSawUnsafePointerStore(StoreInst *SI,
                                                         llvm::Type *AliasType) {
   UnsafePtrStores.insert(std::make_pair(SI, AliasType));
+}
+
+void DTransBadCastingAnalyzer::getConditionalFunctions(
+    std::set<Function *> &Funcs) const {
+  Funcs.clear();
+
+  for (auto *F : CondLoadFunctions) {
+    Funcs.insert(F);
+  }
+
+  for (auto &Entry : AllocStores) {
+    // If store is conditional, it requires a value validation (should be NULL).
+    if (Entry.second.first) {
+      Funcs.insert(Entry.first->getParent()->getParent());
+    }
+  }
 }
 
 // End of member functions for class DTransBadCastingAnalyzer
@@ -8797,6 +8819,19 @@ bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
   return DTransOutOfBoundsOK;
 }
 
+bool DTransAnalysisInfo::requiresBadCastValidation(
+    SmallPtrSetImpl<Function *> &Func, unsigned &ArgumentIndex,
+    unsigned &StructIndex) const {
+  Func.clear();
+  Func.insert(FunctionsRequireBadCastValidation.begin(),
+              FunctionsRequireBadCastValidation.end());
+
+  ArgumentIndex = DTransBadCastingAnalyzer::VoidArgumentIndex;
+  StructIndex = DTransBadCastingAnalyzer::CandidateVoidField;
+
+  return !Func.empty();
+}
+
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
@@ -8823,6 +8858,9 @@ bool DTransAnalysisInfo::analyzeModule(
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
   DTBCA.analyzeAfterVisit();
+
+  // Record functions require bad cast validation.
+  DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
 
   // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
   uint64_t MaxTFrequency = 0;
