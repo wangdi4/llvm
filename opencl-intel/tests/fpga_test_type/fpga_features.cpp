@@ -10,9 +10,8 @@
 //
 // Internal tests for basic fpga features
 //
-// The test checks that if we pass CL_CONTEXT_FPGA_EMULATOR_INTEL to context
-// properties we are able to compile program with FPGA stuff(channels, attrs),
-// to create buffer with CL_CHANNEL_5_INTELFPGA flag.
+// The test checks that we are able to compile program with FPGA stuff(channels,
+// attrs), to create buffer with CL_CHANNEL_5_INTELFPGA flag.
 //
 // ===--------------------------------------------------------------------=== //
 
@@ -26,13 +25,7 @@
 class TestFPGABasic : public OCLFPGABaseFixture {};
 
 TEST_F(TestFPGABasic, ContextProperties) {
-  const cl_context_properties prop[] = {
-      CL_CONTEXT_FPGA_EMULATOR_INTEL,
-      CL_TRUE,
-      0
-  };
-
-  cl_context context = createContext(prop, devices());
+  cl_context context = createContext(devices());
   ASSERT_NE(nullptr, context) << "createContext failed";
 }
 
