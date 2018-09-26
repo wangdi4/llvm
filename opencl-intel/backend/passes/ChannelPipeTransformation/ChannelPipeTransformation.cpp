@@ -79,7 +79,7 @@ typedef std::stack<ValueValuePair, std::vector<ValueValuePair>> WorkListType;
 
 namespace intel {
 
-static Function *getPipeBuiltin(OCLBuiltins &Builtins, PipeKind &Kind) {
+static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
   if (Kind.Blocking) {
     // There are no declarations and definitions of blocking pipe built-ins in
     // RTL's.
@@ -147,7 +147,7 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
   Module *M = GV->getParent();
   Type *Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
-  size_t BSSize = __pipe_get_total_size(MD.PacketSize, MD.Depth,
+  size_t BSSize = __pipe_get_total_size_fpga(MD.PacketSize, MD.Depth,
       ChannelDepthEmulationMode);
   if (auto *PipePtrArrayTy =
           dyn_cast<ArrayType>(GV->getType()->getElementType())) {
@@ -270,7 +270,7 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
   SmallVector<size_t, 8> IndicesListForPipeElem(DimensionsNum, 0);
   SmallVector<Value *, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
 
-  size_t BSItemSize = __pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth,
+  size_t BSItemSize = __pipe_get_total_size_fpga(PipeMD.PacketSize, PipeMD.Depth,
                                             ChannelDepthEmulationMode);
   size_t BSItemsCount = CompilationUtils::getArrayNumElements(PipePtrArrayTy);
 
@@ -374,12 +374,12 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
                                      ChannelGV.getName() + ".pipe");
 
       initializeGlobalPipeArray(PipeGV, MD, GlobalCtor,
-                                Builtins.get("__pipe_init_array_intel"));
+                                Builtins.get("__pipe_init_array_fpga"));
     } else {
       PipeGV = createGlobalPipeScalar(M, PipeTy, ChannelGV.getName() + ".pipe");
 
       initializeGlobalPipeScalar(PipeGV, MD, GlobalCtor,
-                                 Builtins.get("__pipe_init_intel"));
+                                 Builtins.get("__pipe_init_fpga"));
     }
 
     auto ChannelMD = GlobalVariableMetadataAPI(&ChannelGV);
@@ -590,6 +590,7 @@ static void replaceChannelBuiltinCall(CallInst *ChannelCall, Value *GlobalPipe,
   PK.Scope = PipeKind::WORK_ITEM;
   PK.Access = CK.Access == ChannelKind::READ ? PipeKind::READ : PipeKind::WRITE;
   PK.Blocking = CK.Blocking;
+  PK.FPGA = true;
 
   Value *PacketPtr = getPacketPtr(ChannelCall, CK, AllocaMap);
   Function *Builtin = getPipeBuiltin(Builtins, PK);

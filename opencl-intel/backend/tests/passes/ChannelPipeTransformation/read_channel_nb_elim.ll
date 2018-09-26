@@ -67,7 +67,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
 ; CHECK: %[[VALID:.*]] = addrspacecast {{.*}} %valid
 ; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE]] to %opencl.pipe_ro_t
-; CHECK: %[[CALL_BAR_PIPE:.*]] = call i32 @__read_pipe_2_intel({{.*}} %[[CAST_BAR_PIPE]], {{.*}}, i32 4, i32 4)
+; CHECK: %[[CALL_BAR_PIPE:.*]] = call i32 @__read_pipe_2_fpga({{.*}} %[[CAST_BAR_PIPE]], {{.*}}, i32 4, i32 4)
 ; CHECK: %[[BOOL_CALL_BAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_BAR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_BAR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_BAR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_BAR_PIPE]], {{.*}}* %[[VALID]]
@@ -76,7 +76,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
 ; CHECK: %[[LOAD_P_TO_VALID:.*]] = load {{.*}} %p_to_valid
 ; CHECK: %[[CAST_FAR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_FAR_PIPE]] to %opencl.pipe_ro_t
-; CHECK: %[[CALL_FAR_PIPE:.*]] = call i32 @__read_pipe_2_intel({{.*}} %[[CAST_FAR_PIPE]], {{.*}}, i32 1, i32 1)
+; CHECK: %[[CALL_FAR_PIPE:.*]] = call i32 @__read_pipe_2_fpga({{.*}} %[[CAST_FAR_PIPE]], {{.*}}, i32 1, i32 1)
 ; CHECK: %[[BOOL_CALL_FAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_FAR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_FAR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_FAR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_FAR_PIPE]], {{.*}}* %[[LOAD_P_TO_VALID]]
@@ -85,7 +85,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[LOAD_P_TO_G_VALID:.*]] = load {{.*}} %p_to_g_valid
 ; CHECK: %[[P_TO_G_VALID:.*]] = addrspacecast {{.*}} %[[LOAD_P_TO_G_VALID]]
 ; CHECK: %[[CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE]] to %opencl.pipe_ro_t
-; CHECK: %[[CALL_STAR_PIPE:.*]] = call i32 @__read_pipe_2_intel({{.*}} %[[CAST_STAR_PIPE]], {{.*}}, i32 16, i32 8)
+; CHECK: %[[CALL_STAR_PIPE:.*]] = call i32 @__read_pipe_2_fpga({{.*}} %[[CAST_STAR_PIPE]], {{.*}}, i32 16, i32 8)
 ; CHECK: %[[BOOL_CALL_STAR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_STAR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_STAR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_STAR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_STAR_PIPE]], {{.*}}* %[[P_TO_G_VALID]]
@@ -94,7 +94,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[LOAD_P_TO_L_VALID:.*]] = load {{.*}} %p_to_l_valid
 ; CHECK: %[[P_TO_L_VALID:.*]] = addrspacecast {{.*}} %[[LOAD_P_TO_L_VALID]]
 ; CHECK: %[[CAST_BAR_ARR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_ARR_PIPE]] to %opencl.pipe_ro_t
-; CHECK: %[[CALL_BAR_ARR_PIPE:.*]] = call i32 @__read_pipe_2_intel({{.*}} %[[CAST_BAR_ARR_PIPE]], {{.*}}, i32 4, i32 4)
+; CHECK: %[[CALL_BAR_ARR_PIPE:.*]] = call i32 @__read_pipe_2_fpga({{.*}} %[[CAST_BAR_ARR_PIPE]], {{.*}}, i32 4, i32 4)
 ; CHECK: %[[BOOL_CALL_BAR_ARR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_BAR_ARR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_BAR_ARR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_BAR_ARR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_BAR_ARR_PIPE]], {{.*}}* %[[P_TO_L_VALID]]
@@ -103,7 +103,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[LOAD_P_TO_P_VALID:.*]] = load {{.*}} %p_to_p_valid
 ; CHECK: %[[P_TO_P_VALID:.*]] = addrspacecast {{.*}} %[[LOAD_P_TO_P_VALID]]
 ; CHECK: %[[CAST_FAR_ARR_PIPE:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_FAR_ARR_PIPE]] to %opencl.pipe_ro_t
-; CHECK: %[[CALL_FAR_ARR_PIPE:.*]] = call i32 @__read_pipe_2_intel({{.*}} %[[CAST_FAR_ARR_PIPE]], {{.*}}, i32 1, i32 1)
+; CHECK: %[[CALL_FAR_ARR_PIPE:.*]] = call i32 @__read_pipe_2_fpga({{.*}} %[[CAST_FAR_ARR_PIPE]], {{.*}}, i32 1, i32 1)
 ; CHECK: %[[BOOL_CALL_FAR_ARR_PIPE:.*]] = icmp eq {{.*}} %[[CALL_FAR_ARR_PIPE]], 0
 ; CHECK: %[[ZEXT_BOOL_CALL_FAR_ARR_PIPE:.*]] = zext {{.*}} %[[BOOL_CALL_FAR_ARR_PIPE]]
 ; CHECK: store {{.*}} %[[ZEXT_BOOL_CALL_FAR_ARR_PIPE]], {{.*}}* %[[P_TO_P_VALID]]

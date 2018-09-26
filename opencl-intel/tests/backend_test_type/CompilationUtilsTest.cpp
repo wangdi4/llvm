@@ -19,33 +19,21 @@ class CompilationUtilsTest : public ::testing::Test {
 TEST_F(CompilationUtilsTest, PipeKindReadWrite) {
   PipeKind Kind;
 
-#ifndef BUILD_FPGA_EMULATOR
   Kind = CompilationUtils::getPipeKind("__read_pipe_2");
-#else
-  Kind = CompilationUtils::getPipeKind("__read_pipe_2_intel");
-#endif
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::READ,        Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_FALSE(Kind.Blocking);
 
-#ifndef BUILD_FPGA_EMULATOR
   Kind = CompilationUtils::getPipeKind("__write_pipe_2");
-#else
-  Kind = CompilationUtils::getPipeKind("__write_pipe_2_intel");
-#endif
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,       Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_FALSE(Kind.Blocking);
 
-#ifndef BUILD_FPGA_EMULATOR
   Kind = CompilationUtils::getPipeKind("__write_pipe_4");
-#else
-  Kind = CompilationUtils::getPipeKind("__write_pipe_4_intel");
-#endif
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE_RESERVE, Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,             Kind.Access);
@@ -56,33 +44,21 @@ TEST_F(CompilationUtilsTest, PipeKindReadWrite) {
 TEST_F(CompilationUtilsTest, PipeKindReadWriteBlocking) {
   PipeKind Kind;
 
-#ifndef BUILD_FPGA_EMULATOR
   Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl");
-#else
-  Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl_intel");
-#endif
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::READ,        Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_TRUE(Kind.Blocking);
 
-#ifndef BUILD_FPGA_EMULATOR
   Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl");
-#else
-  Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl_intel");
-#endif
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,       Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_TRUE(Kind.Blocking);
 
-#ifndef BUILD_FPGA_EMULATOR
   Kind = CompilationUtils::getPipeKind("__write_pipe_4_bl");
-#else
-  Kind = CompilationUtils::getPipeKind("__write_pipe_4_bl_intel");
-#endif
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE_RESERVE, Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,             Kind.Access);
@@ -93,35 +69,25 @@ TEST_F(CompilationUtilsTest, PipeKindReadWriteBlocking) {
 TEST_F(CompilationUtilsTest, PipeKindReadWriteSimd) {
   PipeKind Kind;
 
-#ifndef BUILD_FPGA_EMULATOR
-  Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl_v16f32");
-#else
-  Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl_intel_v16f32");
-#endif
+  Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl_fpga_v16f32");
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::READ,        Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_EQ("v16f32", Kind.SimdSuffix);
   ASSERT_TRUE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
 
-#ifndef BUILD_FPGA_EMULATOR
-  Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl_v8i32");
-#else
-  Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl_intel_v8i32");
-#endif
+  Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl_fpga_v8i32");
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,       Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_EQ("v8i32", Kind.SimdSuffix);
   ASSERT_TRUE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
 
-#ifndef BUILD_FPGA_EMULATOR
   Kind = CompilationUtils::getPipeKind("__write_pipe_4_bl");
-#else
-  Kind = CompilationUtils::getPipeKind("__write_pipe_4_bl_intel");
-#endif
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE_RESERVE, Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,             Kind.Access);
@@ -196,45 +162,86 @@ TEST_F(CompilationUtilsTest, PipeKindInternal) {
   ASSERT_FALSE(Kind);
 }
 
-#ifdef BUILD_FPGA_EMULATOR
 TEST_F(CompilationUtilsTest, PipeKindReadWriteIO) {
   PipeKind Kind;
 
-  Kind = CompilationUtils::getPipeKind("__read_pipe_2_io_intel");
+  Kind = CompilationUtils::getPipeKind("__read_pipe_2_io_fpga");
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::READ,        Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_TRUE(Kind.IO);
   ASSERT_FALSE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
 
-  Kind = CompilationUtils::getPipeKind("__write_pipe_2_io_intel");
+  Kind = CompilationUtils::getPipeKind("__write_pipe_2_io_fpga");
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,       Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_TRUE(Kind.IO);
   ASSERT_FALSE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
 }
 
 TEST_F(CompilationUtilsTest, PipeKindReadWriteBlockingIO) {
   PipeKind Kind;
 
-  Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl_io_intel");
+  Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl_io_fpga");
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::READ,        Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_TRUE(Kind.IO);
   ASSERT_TRUE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
 
-  Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl_io_intel");
+  Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl_io_fpga");
   ASSERT_TRUE(Kind);
   ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
   ASSERT_EQ(PipeKind::WRITE,       Kind.Access);
   ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
   ASSERT_TRUE(Kind.IO);
   ASSERT_TRUE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
 }
-#endif
 
+TEST_F(CompilationUtilsTest, PipeKindReadWriteFPGA) {
+  PipeKind Kind;
+
+  Kind = CompilationUtils::getPipeKind("__read_pipe_2_fpga");
+  ASSERT_TRUE(Kind);
+  ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
+  ASSERT_EQ(PipeKind::READ,        Kind.Access);
+  ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
+  ASSERT_FALSE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
+
+  Kind = CompilationUtils::getPipeKind("__write_pipe_2_fpga");
+  ASSERT_TRUE(Kind);
+  ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
+  ASSERT_EQ(PipeKind::WRITE,       Kind.Access);
+  ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
+  ASSERT_FALSE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
+}
+
+TEST_F(CompilationUtilsTest, PipeKindReadWriteBlockingFPGA) {
+  PipeKind Kind;
+
+  Kind = CompilationUtils::getPipeKind("__read_pipe_2_bl_fpga");
+  ASSERT_TRUE(Kind);
+  ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
+  ASSERT_EQ(PipeKind::READ,        Kind.Access);
+  ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
+  ASSERT_TRUE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
+
+  Kind = CompilationUtils::getPipeKind("__write_pipe_2_bl_fpga");
+  ASSERT_TRUE(Kind);
+  ASSERT_EQ(PipeKind::READWRITE,   Kind.Op);
+  ASSERT_EQ(PipeKind::WRITE,       Kind.Access);
+  ASSERT_EQ(PipeKind::WORK_ITEM,   Kind.Scope);
+  ASSERT_TRUE(Kind.Blocking);
+  ASSERT_TRUE(Kind.FPGA);
+}

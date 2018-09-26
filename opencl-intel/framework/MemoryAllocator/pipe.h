@@ -41,7 +41,7 @@ class Pipe : public GenericMemObject
     if (this->GetContext()->IsFPGAEmulator())
     {
       void* pPipe = GetBackingStoreData();
-      __pipe_release_intel(pPipe);
+      __pipe_release_fpga(pPipe);
     }
     return 0;
   }
@@ -57,7 +57,7 @@ class Pipe : public GenericMemObject
     if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
     {
       int mode = pOclConfig->GetChannelDepthEmulationMode();
-      return __pipe_get_total_size(uiPacketSize, uiMaxPackets, mode);
+      return __pipe_get_total_size_fpga(uiPacketSize, uiMaxPackets, mode);
     }
     return pipe_get_total_size(uiPacketSize, uiMaxPackets);
   }

@@ -64,36 +64,6 @@ struct PipeCallInfo {
   PipeKind Kind;
 };
 
-struct PipeTypesHelper {
-  Type *PipeRWTy = nullptr;
-  Type *PipeROTy = nullptr;
-  Type *PipeWOTy = nullptr;
-
-  PipeTypesHelper(Type *PipeRWTy, Type *PipeROTy, Type *PipeWOTy)
-      : PipeRWTy(PipeRWTy ? PointerType::get(PipeRWTy,
-                                             Utils::OCLAddressSpace::Global)
-                          : nullptr),
-        PipeROTy(PipeROTy ? PointerType::get(PipeROTy,
-                                             Utils::OCLAddressSpace::Global)
-                          : nullptr),
-        PipeWOTy(PipeWOTy ? PointerType::get(PipeWOTy,
-                                             Utils::OCLAddressSpace::Global)
-                          : nullptr) {}
-
-  bool isLocalPipeType(Type *Ty) const {
-    return (PipeROTy && CompilationUtils::isSameStructPtrType(Ty, PipeROTy)) ||
-           (PipeWOTy && CompilationUtils::isSameStructPtrType(Ty, PipeWOTy));
-  }
-
-  bool isGlobalPipeType(Type *Ty) const {
-    return PipeRWTy && CompilationUtils::isSameStructPtrType(Ty, PipeRWTy);
-  }
-
-  bool isPipeType(Type *Ty) const {
-    return isLocalPipeType(Ty) || isGlobalPipeType(Ty);
-  }
-};
-
 } // namespace
 
 namespace intel {
@@ -345,13 +315,9 @@ static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
 bool PipeSupport::runOnModule(Module &M) {
   bool Changed = false;
 
-  auto *PipeRWTy = M.getTypeByName("opencl.pipe_rw_t");
-  auto *PipeROTy = M.getTypeByName("opencl.pipe_ro_t");
-  auto *PipeWOTy = M.getTypeByName("opencl.pipe_wo_t");
-  if (!PipeRWTy && !PipeROTy && !PipeWOTy)
+  PipeTypesHelper PipeTypes(M);
+  if (!PipeTypes.hasPipeTypes())
     return false; // no pipes in the module, nothing to do
-
-  PipeTypesHelper PipeTypes(PipeRWTy, PipeROTy, PipeWOTy);
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());

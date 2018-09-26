@@ -455,16 +455,15 @@ list (APPEND OCL_20_SOURCE_FILES
   extended_execution_functions.cpp
   )
 
+list (APPEND OCL_20_SOURCE_FILES
+  pipes.cl
+  pipes-info.cl
+  pipe_functions.c
+)
+
 if( BUILD_FPGA_EMULATOR )
     list (APPEND OCL_20_SOURCE_FILES
-      pipes.cl
-      pipes-info.cl
       half.cl
-    )
-else( BUILD_FPGA_EMULATOR )
-    # Use old pipe implementation for no-fpga build
-    list (APPEND OCL_20_SOURCE_FILES
-      pipe_functions.c
     )
 endif( BUILD_FPGA_EMULATOR )
 

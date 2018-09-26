@@ -45,11 +45,11 @@ entry:
   %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @cin, align 4, !tbaa !6
   %3 = bitcast %opencl.pipe_rw_t addrspace(1)* %1 to %opencl.pipe_ro_t addrspace(1)*
   %4 = addrspacecast i32* %write.src to i8 addrspace(4)*
-  %call1 = call i32 @__read_pipe_2_bl_intel(%opencl.pipe_ro_t addrspace(1)* %3, i8 addrspace(4)* %4, i32 4, i32 4)
+  %call1 = call i32 @__read_pipe_2_bl_fpga(%opencl.pipe_ro_t addrspace(1)* %3, i8 addrspace(4)* %4, i32 4, i32 4)
   ; CHECK:      call void @__store_read_pipe_use
   ; CHECK: br label %[[BR0:.*]]
   ; CHECK: [[BR0]]
-  ; CHECK-NEXT: call i32 @__read_pipe_2
+  ; CHECK-NEXT: call i32 @__read_pipe_2_fpga
   ; CHECK:      call void @__flush_pipe_read_array
   ; CHECK-NEXT: call void @__flush_pipe_write_array
   ; CHECK-NEXT: br label %[[BR0]]
@@ -62,11 +62,11 @@ entry:
   store i32 %8, i32* %write.src
   %9 = bitcast %opencl.pipe_rw_t addrspace(1)* %6 to %opencl.pipe_wo_t addrspace(1)*
   %10 = addrspacecast i32* %write.src to i8 addrspace(4)*
-  %11 = call i32 @__write_pipe_2_bl_intel(%opencl.pipe_wo_t addrspace(1)* %9, i8 addrspace(4)* %10, i32 4, i32 4)
+  %11 = call i32 @__write_pipe_2_bl_fpga(%opencl.pipe_wo_t addrspace(1)* %9, i8 addrspace(4)* %10, i32 4, i32 4)
   ; CHECK:      call void @__store_write_pipe_use
   ; CHECK: br label %[[BR1:.*]]
   ; CHECK: [[BR1]]
-  ; CHECK-NEXT: call i32 @__write_pipe_2
+  ; CHECK-NEXT: call i32 @__write_pipe_2_fpga
   ; CHECK:      call void @__flush_pipe_read_array
   ; CHECK-NEXT: call void @__flush_pipe_write_array
   ; CHECK-NEXT: br label %[[BR1]]
@@ -84,25 +84,25 @@ declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
 define void @__pipe_global_ctor() {
 entry:
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @cin.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
+  call void @__pipe_init_fpga(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @cin.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
   store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @cin.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @cin.pipe
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @cout.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
+  call void @__pipe_init_fpga(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @cout.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
   store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @cout.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @cout.pipe
   ret void
 }
 
 ; Function Attrs: nounwind readnone
-declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #2
+declare void @__pipe_init_fpga(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #2
 
 ; Function Attrs: nounwind readnone
-declare i32 @__write_pipe_2_intel(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #2
+declare i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #2
 
-declare i32 @__write_pipe_2_bl_intel(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
+declare i32 @__write_pipe_2_bl_fpga(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
 
 ; Function Attrs: nounwind readnone
-declare i32 @__read_pipe_2_intel(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)* nocapture, i32, i32) #2
+declare i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)* nocapture, i32, i32) #2
 
-declare i32 @__read_pipe_2_bl_intel(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
+declare i32 @__read_pipe_2_bl_fpga(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

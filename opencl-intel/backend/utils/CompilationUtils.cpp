@@ -1255,14 +1255,10 @@ PipeKind CompilationUtils::getPipeKind(const std::string &Name) {
     Kind.IO = false;
   }
 
-#ifdef BUILD_FPGA_EMULATOR
-  // TODO: drop this case when built-ins would be aligned b/w fpga
-  // and non-fpga.
-  if (!N.consume_front("_intel")) {
-    Kind.Op = PipeKind::NONE;
-    return Kind;
+  if (N.consume_front("_fpga")) {
+    Kind.FPGA = true;
   }
-#endif
+
   if (N.consume_front("_") && N.startswith("v")) {
     Kind.SimdSuffix = N;
   }
@@ -1321,11 +1317,9 @@ std::string CompilationUtils::getPipeName(PipeKind Kind) {
      Name += "_io";
   }
 
-#ifdef BUILD_FPGA_EMULATOR
-  // TODO: drop this case when built-ins would be aligned b/w fpga
-  // and non-fpga.
-  Name += "_intel";
-#endif
+  if (Kind.FPGA) {
+    Name += "_fpga";
+  }
 
   if (!Kind.SimdSuffix.empty()) {
     Name += "_";

@@ -217,10 +217,10 @@ int get_write_capacity(__global struct __pipe_t* p) {
   return result;
 }
 
-void __pipe_init_intel(__global struct __pipe_t* p, int packet_size, int depth,
-                       int mode) {
+void __pipe_init_fpga(__global struct __pipe_t* p, int packet_size, int depth,
+                      int mode) {
   p->packet_size = packet_size;
-  p->max_packets = __pipe_get_max_packets(depth, mode);
+  p->max_packets = __pipe_get_max_packets_fpga(depth, mode);
   p->io = NULL;
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
@@ -249,16 +249,16 @@ void __pipe_init_intel(__global struct __pipe_t* p, int packet_size, int depth,
   }
 }
 
-void __pipe_release_intel(__global struct __pipe_t* p) {
+void __pipe_release_fpga(__global struct __pipe_t* p) {
   if (p->io != NULL)
     fclose(p->io);
 }
 
-void __pipe_init_array_intel(__global struct __pipe_t* __global* p,
-                             int array_size, int packet_size, int depth,
-                             int mode) {
+void __pipe_init_array_fpga(__global struct __pipe_t* __global* p,
+                            int array_size, int packet_size, int depth,
+                            int mode) {
   for (int i = 0; i < array_size; ++i) {
-    __pipe_init_intel(p[i], packet_size, depth, mode);
+    __pipe_init_fpga(p[i], packet_size, depth, mode);
   }
 }
 
@@ -274,8 +274,8 @@ void __flush_write_pipe(__global void* pp) {
   atomic_store_explicit(&p->tail, p->write_buf.end, memory_order_release);
 }
 
-int __read_pipe_2_intel(read_only pipe uchar pp, void *dst, uint size,
-                        uint align) {
+int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
+                       uint align) {
   __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
   __global struct __pipe_internal_buf* buf = &p->read_buf;
 
@@ -298,8 +298,8 @@ int __read_pipe_2_intel(read_only pipe uchar pp, void *dst, uint size,
   return 0;
 }
 
-int __write_pipe_2_intel(write_only pipe uchar pp, const void *src, uint size,
-                         uint align) {
+int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
+                        uint align) {
   __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
   __global struct __pipe_internal_buf* buf = &p->write_buf;
 
@@ -322,8 +322,8 @@ int __write_pipe_2_intel(write_only pipe uchar pp, const void *src, uint size,
   return 0;
 }
 
-int __read_pipe_2_io_intel(read_only pipe uchar pp, void *dst,
-                           const char *dstName, uint size, uint align) {
+int __read_pipe_2_io_fpga(read_only pipe uchar pp, void* dst,
+                          const char* dstName, uint size, uint align) {
   __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(dstName, "rb");
@@ -337,8 +337,8 @@ int __read_pipe_2_io_intel(read_only pipe uchar pp, void *dst,
   return 0;
 }
 
-int __write_pipe_2_io_intel(write_only pipe uchar pp, const void *src,
-                            const char *srcName, uint size, uint align) {
+int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void* src,
+                           const char* srcName, uint size, uint align) {
   __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(srcName, "wb");
@@ -354,8 +354,8 @@ int __write_pipe_2_io_intel(write_only pipe uchar pp, const void *src,
   return 0;
 }
 
-int __read_pipe_2_bl_io_intel(read_only pipe uchar pp, void *dst,
-                              const char *dstName, uint size, uint align) {
+int __read_pipe_2_bl_io_fpga(read_only pipe uchar pp, void* dst,
+                             const char* dstName, uint size, uint align) {
   __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(dstName, "rb");
@@ -369,8 +369,8 @@ int __read_pipe_2_bl_io_intel(read_only pipe uchar pp, void *dst,
   return 0;
 }
 
-int __write_pipe_2_bl_io_intel(write_only pipe uchar pp, const void *src,
-                               const char *srcName, uint size, uint align) {
+int __write_pipe_2_bl_io_fpga(write_only pipe uchar pp, const void* src,
+                              const char* srcName, uint size, uint align) {
   __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(srcName, "wb");
@@ -419,3 +419,4 @@ void __flush_pipe_write_array(__global void* __private* arr,
   for (int i = 0; i < *size; ++i)
     __flush_write_pipe(arr[i]);
 }
+

@@ -96,6 +96,10 @@ public:
     StringRef FName = F->getName();
 
     bool PipeBI = StringSwitch<bool>(FName)
+      .Case("__read_pipe_2", true)
+      .Case("__write_pipe_2", true)
+      .Case("__read_pipe_2_bl", true)
+      .Case("__write_pipe_2_bl", true)
       .Case("__read_pipe_2_AS0", true)
       .Case("__read_pipe_2_AS1", true)
       .Case("__read_pipe_2_AS3", true)
@@ -128,28 +132,34 @@ public:
     SmallVector<Value *, 4> NewArgs;
     NewArgs.push_back(CI->getArgOperand(0)); // pipe argument
 
-    auto *Int8Ty = IntegerType::getInt8Ty(PipesModule->getContext());
-    // We need to do a cast from global/local/private address spaces to
-    // generic due to in backend we have pipe built-ins only with generic
-    // address space.
-    llvm::Type *I8PTy = llvm::PointerType::get(
-        Int8Ty, Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic);
-    auto ResArg = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
-        CI->getArgOperand(1), I8PTy, "", CI);
-    NewArgs.push_back(ResArg);
+    if (FName.contains("_AS")) {
+      FName = FName.drop_back(4);
+      auto *Int8Ty = IntegerType::getInt8Ty(PipesModule->getContext());
+      // We need to do a cast from global/local/private address spaces to
+      // generic due to in backend we have pipe built-ins only with generic
+      // address space.
+      llvm::Type *I8PTy = llvm::PointerType::get(Int8Ty,
+          Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic);
+      auto ResArg = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
+          CI->getArgOperand(1), I8PTy, "", CI);
+      NewArgs.push_back(ResArg);
+    } else {
+      // copy packet argument as-is
+      NewArgs.push_back(CI->getArgOperand(1));
+    }
 
     // copy rest arguments
     for (size_t i = 2; i < CI->getNumArgOperands(); ++i)
       NewArgs.push_back(CI->getArgOperand(i));
 
-    llvm::SmallString<256> NewFName(FName.drop_back(4)); // drop _AS* suffix
-    NewFName.append("_intel");
+    // Add _fpga suffix to pipe built-ins
+    PipeKind Kind = CompilationUtils::getPipeKind(FName.str());
+    Kind.FPGA = true;
+    auto NewFName = CompilationUtils::getPipeName(Kind);
 
     llvm::Module *M = CI->getModule();
-
     llvm::Function *NewF = M->getFunction(NewFName);
     if (!NewF) {
-      PipeKind Kind = CompilationUtils::getPipeKind(NewFName.str());
       if (Kind.Blocking) {
         // Blocking built-ins are not declared in RTL, they are resolved
         // in PipeSupport instead.

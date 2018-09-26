@@ -15,7 +15,7 @@
 #include "pipes-defines.h"
 #include "pipes-internal.h"
 
-int __pipe_get_max_packets(int depth, int mode) {
+int __pipe_get_max_packets_fpga(int depth, int mode) {
   // STRICT mode:
   //   if user specifies the depth -> the exact depth the user asked for is used
   //   if user doesn't specify the depth -> use depth = 1
@@ -66,8 +66,8 @@ int __pipe_get_max_packets(int depth, int mode) {
   return max_packets;
 }
 
-int __pipe_get_total_size(int packet_size, int depth, int mode) {
+int __pipe_get_total_size_fpga(int packet_size, int depth, int mode) {
   size_t total = sizeof(struct __pipe_t)       // header
-    + packet_size * __pipe_get_max_packets(depth, mode);
+    + packet_size * __pipe_get_max_packets_fpga(depth, mode);
   return total;
 }
