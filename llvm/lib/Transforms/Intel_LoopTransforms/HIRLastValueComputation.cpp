@@ -208,13 +208,14 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
 
   if (IsMultiExit) {
     uint64_t TripCount = 0;
+    Lp->populateEarlyExits(Gotos);
 
     // We want to have a conservative heuristic on code generation because last
     // value computation is not profitable enough
-    if (!Lp->isConstTripLoop(&TripCount) || TripCount <= TripCountThreshold) {
+    if (!Lp->isConstTripLoop(&TripCount) || TripCount <= TripCountThreshold ||
+        Gotos.size() > 1) {
       ShouldGenCode = false;
     }
-    Lp->populateEarlyExits(Gotos);
   }
 
   const SmallVector<const RegDDRef *, 1> Aux = {Lp->getUpperDDRef()};
