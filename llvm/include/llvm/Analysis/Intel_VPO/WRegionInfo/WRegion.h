@@ -467,6 +467,7 @@ private:
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
+  AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
   bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
 
@@ -486,6 +487,10 @@ public:
   DEFINE_GETTER(DependClause,       getDepend,      Depend)
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr, IsDevicePtr)
 
+  // ParLoopNdInfoAlloca is set by transformation rather than parsing, so
+  // setter is public instead of protected
+  void setParLoopNdInfoAlloca(AllocaInst *AI) { ParLoopNdInfoAlloca = AI; }
+  AllocaInst *getParLoopNdInfoAlloca() const { return ParLoopNdInfoAlloca; }
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }

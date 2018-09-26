@@ -229,6 +229,7 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setDevice(nullptr);
   setNowait(false);
   setDefaultmapTofromScalar(false);
+  setParLoopNdInfoAlloca(nullptr);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }
