@@ -49,6 +49,25 @@ typedef SmallVector<CallInst *, 4> PipesBuiltinsVector;
 
 namespace intel {
 
+static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
+  if (Kind.Blocking) {
+    // There are no declarations and definitions of blocking pipe built-ins in
+    // RTL's.
+    // Calls to blocking pipe built-ins will be resolved later in PipeSupport,
+    // so we just need to insert declarations here.
+    PipeKind NonBlockingKind = Kind;
+    NonBlockingKind.Blocking = false;
+
+    Function *NonBlockingBuiltin =
+        Builtins.get(CompilationUtils::getPipeName(NonBlockingKind));
+    return cast<Function>(Builtins.getTargetModule().getOrInsertFunction(
+        CompilationUtils::getPipeName(Kind),
+        NonBlockingBuiltin->getFunctionType()));
+  }
+
+  return Builtins.get(CompilationUtils::getPipeName(Kind));
+}
+
 static bool isPipe(const GlobalValue *GV, const PipeTypesHelper &PipeTypes) {
   auto *GVValueTy = GV->getType()->getElementType();
 
@@ -179,8 +198,9 @@ static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
   assert(CF && "Indirect function call");
   PipeKind PK = CompilationUtils::getPipeKind(CF->getName());
   PK.IO = true;
+  PK.FPGA = true;
 
-  Function *Builtin = Builtins.get(CompilationUtils::getPipeName(PK));
+  Function *Builtin = getPipeBuiltin(Builtins, PK);
   FunctionType *FTy = Builtin->getFunctionType();
   Value *Args[] = {
       PipeCall->getArgOperand(0), PipeCall->getArgOperand(1),
