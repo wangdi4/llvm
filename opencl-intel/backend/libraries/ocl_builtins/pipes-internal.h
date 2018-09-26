@@ -70,6 +70,9 @@ struct __pipe_t {
   // char buffer[max_packets * packet_size];
 } ATTR_ALIGN(64);
 
+//
+// Internal helper functions
+//
 int get_buffer_capacity(__global const struct __pipe_internal_buf* b);
 __global void* get_packet_ptr(__global struct __pipe_t* p, int index);
 bool reserve_write_buffer(__global struct __pipe_internal_buf* b, int capacity);
@@ -77,12 +80,44 @@ bool reserve_read_buffer(__global struct __pipe_internal_buf* b, int capacity);
 int advance(__global const struct __pipe_t* p, int index, int offset);
 int get_read_capacity(__global struct __pipe_t* p);
 int get_write_capacity(__global struct __pipe_t* p);
+// Defined in LLVM IR, because OpenCL standard does not allow cast from pipe
+// (opaque pointer) to other pointer type.
+__global struct __pipe_t* __ocl_wpipe2ptr(write_only pipe uchar p);
+__global struct __pipe_t* __ocl_rpipe2ptr(read_only pipe uchar p);
 
-void __store_pipe_use(__global struct __pipe_t* __private* c,
-                      __private int* size, __global struct __pipe_t* p);
-void __flush_pipe_read_array(__global struct __pipe_t* __private* arr,
+//
+// Flush mechanism support
+//
+void __store_write_pipe_use(__global void* __private* __private arr,
+                            __private int* size, write_only pipe uchar pp);
+void __store_read_pipe_use(__global void* __private* __private arr,
+                           __private int* size, read_only pipe uchar pp);
+void __flush_pipe_read_array(__global void* __private* arr,
                              __private int* size);
-void __flush_pipe_write_array(__global struct __pipe_t* __private* arr,
+void __flush_pipe_write_array(__global void* __private* arr,
                               __private int* size);
+void __flush_read_pipe(__global void* p);
+void __flush_write_pipe(__global void* p);
+
+//
+// Global constructor and desctructor
+//
+void __pipe_init_intel(__global struct __pipe_t *p, int packet_size,
+                       int max_packets, int mode);
+void __pipe_release_intel(__global struct __pipe_t* p);
+
+//
+// Main read/write built-ins
+//
+int __read_pipe_2_intel(read_only pipe uchar p, void *dst, uint size,
+                        uint align);
+int __write_pipe_2_intel(write_only pipe uchar p, const void *src, uint size,
+                         uint align);
+
+//
+// Info queries
+//
+int __pipe_get_max_packets(int depth, int mode);
+int __pipe_get_total_size(int packet_size, int depth, int mode);
 
 #endif // __PIPES_INTERNAL_H__

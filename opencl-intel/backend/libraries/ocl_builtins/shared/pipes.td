@@ -2,19 +2,20 @@
 
 /* Vector pipe built-ins */
 code ReadPipe = [{
-    __global struct __pipe_internal_buf* buf = &$Arg0VarName->read_buf;
+    __global struct __pipe_t* p = __ocl_rpipe2ptr($Arg0VarName);
+    __global struct __pipe_internal_buf* buf = &p->read_buf;
 
     $ReturnType $ReturnVarName;
 
     // Buffer exists but it doesn't have enough space to read a full
     // vector
     if (buf->size > 0 && get_buffer_capacity(buf) < $VecLength)
-      __flush_read_pipe($Arg0VarName);
+      __flush_read_pipe(p);
 
     // Buffer doesn't exist, try to reserve it
     if (buf->size < 0) {
       // Ensure that the reserved buffer is a multiple of a vector length
-      if (!reserve_read_buffer(buf, get_read_capacity($Arg0VarName) & (- $VecLength))) {
+      if (!reserve_read_buffer(buf, get_read_capacity(p) & (- $VecLength))) {
         *$Arg1VarName = -1;
         return $ReturnVarName;
       }
@@ -22,18 +23,18 @@ code ReadPipe = [{
 
     // Handle cases when vector of elements is non-contiguous in memory
     // (e.g. in the end/beginning of circular buffer)
-    if ((buf->end + $VecLength) > $Arg0VarName->max_packets) {
-      int elem_till_end = $Arg0VarName->max_packets - buf->end;
+    if ((buf->end + $VecLength) > p->max_packets) {
+      int elem_till_end = p->max_packets - buf->end;
       // Copy elements till end of pipe
-      __builtin_memcpy((void*)(&$ReturnVarName), get_packet_ptr($Arg0VarName, buf->end),
-                       $Arg0VarName->packet_size * elem_till_end);
+      __builtin_memcpy((void*)(&$ReturnVarName), get_packet_ptr(p, buf->end),
+                       p->packet_size * elem_till_end);
       // Copy elements are left in the vector to the beginning of pipe
-      __builtin_memcpy((void*)((char*)(&$ReturnVarName) +  elem_till_end * $Arg0VarName->packet_size),
-                       get_packet_ptr($Arg0VarName, 0), $Arg0VarName->packet_size * ($VecLength - elem_till_end));
+      __builtin_memcpy((void*)((char*)(&$ReturnVarName) +  elem_till_end * p->packet_size),
+                       get_packet_ptr(p, 0), p->packet_size * ($VecLength - elem_till_end));
     } else {
-      $ReturnVarName = vload$Suffix(0, (__global const $ReturnBaseType *)get_packet_ptr($Arg0VarName, buf->end));
+      $ReturnVarName = vload$Suffix(0, (__global const $ReturnBaseType *)get_packet_ptr(p, buf->end));
     }
-    buf->end = advance($Arg0VarName, buf->end, $VecLength);
+    buf->end = advance(p, buf->end, $VecLength);
     buf->size += $VecLength;
 
     *$Arg1VarName = 0;
@@ -41,35 +42,36 @@ code ReadPipe = [{
   }];
 
 code WritePipe = [{
-    __global struct __pipe_internal_buf* buf = &$Arg0VarName->write_buf;
+    __global struct __pipe_t* p = __ocl_wpipe2ptr($Arg0VarName);
+    __global struct __pipe_internal_buf* buf = &p->write_buf;
 
     // Buffer exists but it doesn't have enough space to write a full
     // vector
     if (buf->size > 0 && get_buffer_capacity(buf) < $VecLength)
-      __flush_write_pipe($Arg0VarName);
+      __flush_write_pipe(p);
 
     // Buffer doesn't exist, try to reserve it
     if (buf->size < 0) {
-      if (!reserve_write_buffer(buf, get_write_capacity($Arg0VarName)))
+      if (!reserve_write_buffer(buf, get_write_capacity(p)))
         return -1;
     }
 
     // Handle cases when vector of elements is non-contiguous in memory
     // (e.g. in the end/beginning of circular buffer)
-    if ((buf->end + $VecLength) > $Arg0VarName->max_packets) {
-      int elem_till_end = $Arg0VarName->max_packets - buf->end;
+    if ((buf->end + $VecLength) > p->max_packets) {
+      int elem_till_end = p->max_packets - buf->end;
       // Copy elements till end of pipe
-      __builtin_memcpy(get_packet_ptr($Arg0VarName, buf->end), (void*)(&$Arg1VarName),
-                       $Arg0VarName->packet_size * elem_till_end);
+      __builtin_memcpy(get_packet_ptr(p, buf->end), (void*)(&$Arg1VarName),
+                       p->packet_size * elem_till_end);
       // Copy elements are left in the vector to the beginning of pipe
       __builtin_memcpy(get_packet_ptr(p, 0),
-                       (void*)((char*)(&$Arg1VarName) + elem_till_end * $Arg0VarName->packet_size),
-                       $Arg0VarName->packet_size * ($VecLength - elem_till_end));
+                       (void*)((char*)(&$Arg1VarName) + elem_till_end * p->packet_size),
+                       p->packet_size * ($VecLength - elem_till_end));
     } else {
-      vstore$Suffix($Arg1VarName, 0, (__global $Arg1BaseType *)get_packet_ptr($Arg0VarName, buf->end));
+      vstore$Suffix($Arg1VarName, 0, (__global $Arg1BaseType *)get_packet_ptr(p, buf->end));
     }
 
-    buf->end = advance($Arg0VarName, buf->end, $VecLength);
+    buf->end = advance(p, buf->end, $VecLength);
     buf->size += $VecLength;
 
     return 0;

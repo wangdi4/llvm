@@ -44,13 +44,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[BAR_PIPE_LOAD:.*]] = load {{.*}} @bar.pipe
 ; CHECK: %[[BAR_PIPE:.*]] = bitcast {{.*}} %[[BAR_PIPE_LOAD]]
 ; CHECK: %[[READ_DST:.*]] = addrspacecast {{.*}} %[[READ_DST_ALLOCA]]
-; CHECK: call i32 @__read_pipe_2{{.*}}({{.*}} %[[BAR_PIPE]], {{.*}} %[[READ_DST]])
+; CHECK: call i32 @__read_pipe_2{{.*}}({{.*}} %[[BAR_PIPE]], {{.*}} %[[READ_DST]]
 ; CHECK: load {{.*}} %[[READ_DST_ALLOCA]]
 ;
 ; CHECK: %[[FAR_PIPE_LOAD:.*]] = load {{.*}} @far.pipe
 ; CHECK: %[[FAR_PIPE:.*]] = bitcast {{.*}} %[[FAR_PIPE_LOAD]]
 ; CHECK: %[[READ_DST1:.*]] = addrspacecast {{.*}} %[[READ_DST_ALLOCA]]
-; CHECK: call i32 @__read_pipe_2{{.*}}({{.*}} %[[FAR_PIPE]], {{.*}} %[[READ_DST1]])
+; CHECK: call i32 @__read_pipe_2{{.*}}({{.*}} %[[FAR_PIPE]], {{.*}} %[[READ_DST1]]
 ; CHECK: load {{.*}} %[[READ_DST_ALLOCA]]
 ;
 ; CHECK: define {{.*}} @foobar
@@ -59,13 +59,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: store {{.*}} %[[WRITE_SRC_ALLOCA]]
 ; CHECK: %[[A_PIPE:.*]] = bitcast {{.*}} %[[A_PIPE_LOAD]]
 ; CHECK: %[[WRITE_SRC:.*]] = addrspacecast {{.*}} %[[WRITE_SRC_ALLOCA]]
-; CHECK: call i32 @__write_pipe_2{{.*}}({{.*}} %[[A_PIPE]], {{.*}} %[[WRITE_SRC]])
+; CHECK: call i32 @__write_pipe_2{{.*}}({{.*}} %[[A_PIPE]], {{.*}} %[[WRITE_SRC]]
 ;
 ; CHECK: %[[B_PIPE_LOAD:.*]] = load {{.*}} @b.pipe
 ; CHECK: store {{.*}} %[[WRITE_SRC_ALLOCA]]
 ; CHECK: %[[B_PIPE:.*]] = bitcast {{.*}} %[[B_PIPE_LOAD]]
 ; CHECK: %[[WRITE_SRC1:.*]] = addrspacecast {{.*}} %[[WRITE_SRC_ALLOCA]]
-; CHECK: call i32 @__write_pipe_2{{.*}}({{.*}} %[[B_PIPE]], {{.*}} %[[WRITE_SRC1]])
+; CHECK: call i32 @__write_pipe_2{{.*}}({{.*}} %[[B_PIPE]], {{.*}} %[[WRITE_SRC1]]
 
 ; Function Attrs: convergent nounwind
 define spir_kernel void @foo(i32 addrspace(1)* %data) #0 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_base_type !12 !kernel_arg_type_qual !13 !kernel_arg_host_accessible !14 {

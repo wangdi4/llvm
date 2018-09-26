@@ -540,7 +540,7 @@ add_custom_target(clbltpipe_target
 
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
-  DEPENDS pipes.cl pipes-info.cl pipes.h pipes-internal.h pipes-defines.h
+  DEPENDS pipes.cl pipes-info.cl pipes-internal.h pipes-defines.h
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
@@ -580,7 +580,7 @@ add_custom_target(clbltpipeinfo_target
   DEPENDS clbltpipeinfo.obj)
 
 add_custom_command(OUTPUT clbltpipeinfo.obj
-  DEPENDS pipes-info.cl pipes.h pipes-internal.h pipes-defines.h
+  DEPENDS pipes-info.cl pipes-internal.h pipes-defines.h
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}

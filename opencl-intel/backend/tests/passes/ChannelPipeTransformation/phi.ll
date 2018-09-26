@@ -11,15 +11,15 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @ch1 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 @ch2 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 
-; CHECK: @[[PIPE1:.*]] = addrspace(1) global %opencl.pipe_t addrspace(1)*
-; CHECK: @[[PIPE2:.*]] = addrspace(1) global %opencl.pipe_t addrspace(1)*
+; CHECK: @[[PIPE1:.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
+; CHECK: @[[PIPE2:.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
 
-; CHECK: %[[PIPE1VAL:.*]] = load %opencl.pipe_t addrspace(1)*{{.*}} @[[PIPE1]]
-; CHECK: %[[PIPE2VAL:.*]] = load %opencl.pipe_t addrspace(1)*{{.*}} @[[PIPE2]]
+; CHECK: %[[PIPE1VAL:.*]] = load %opencl.pipe_rw_t addrspace(1)*{{.*}} @[[PIPE1]]
+; CHECK: %[[PIPE2VAL:.*]] = load %opencl.pipe_rw_t addrspace(1)*{{.*}} @[[PIPE2]]
 
-; CHECK: %[[PHI:.*]] = phi %opencl.pipe_t addrspace(1)* [ %[[PIPE1VAL]], %if.then ], [ %[[PIPE2VAL]], %if.else ], [ %[[PHI]], %if.end ]
-; CHECK: %[[PHICAST:.*]] = bitcast %opencl.pipe_t addrspace(1)* %[[PHI]]
-; CALL: call i32 @__read_pipe_2_bl_intel(%struct.__pipe_t addrspace(1)* %[[PHICAST]]
+; CHECK: %[[PHI:.*]] = phi %opencl.pipe_rw_t addrspace(1)* [ %[[PIPE1VAL]], %if.then ], [ %[[PIPE2VAL]], %if.else ], [ %[[PHI]], %if.end ]
+; CHECK: %[[PHICAST:.*]] = bitcast %opencl.pipe_rw_t addrspace(1)* %[[PHI]] to %opencl.pipe_ro_t
+; CALL: call i32 @__read_pipe_2_bl_intel(%opencl.pipe_ro_t addrspace(1)* %[[PHICAST]]
 
 ; Function Attrs: nounwind
 define spir_kernel void @k(i32 addrspace(1)* %cond, i32 addrspace(1)* %res) #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 {

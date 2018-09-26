@@ -1,14 +1,18 @@
-//==--- pipes-info.cl - auxiliary functions for pipe built-ins -*- C++ -*---==//
+// INTEL CONFIDENTIAL
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright 2018 Intel Corporation.
 //
-// The information and source code contained herein is the exclusive property
-// of Intel Corporation and may not be disclosed, examined or reproduced in
-// whole or in part without explicit written authorization from the company.
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
 //
-// ===--------------------------------------------------------------------=== //
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
-#include "pipes.h"
+#include "pipes-defines.h"
 #include "pipes-internal.h"
 
 int __pipe_get_max_packets(int depth, int mode) {

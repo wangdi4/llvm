@@ -217,7 +217,8 @@ defm atom_flag  : _OCLTYPE1_<"atom_flag", 1, 32, "atomic_flag">;
 def memory_order : OclType<"memory_order", "memory_order", 1, 32, 0>;
 def memory_scope : OclType<"memory_scope", "memory_scope", 1, 32, 0>;
 def bool : OclType<"bool", "bool", 1, 32, 0>;
-def global_struct_pipe_ptr : OclType<"global_struct_pipe_ptr", "__global struct __pipe_t", 1, 0, 1>;
+def write_only_pipe : OclType<" write_only_pipe", "write_only pipe uchar", 1, 0, 0>;
+def read_only_pipe : OclType<" read_only_pipe", "read_only pipe uchar", 1, 0, 0>;
 
 // Custom types
 def char32 : OclType<"char32", "__v32qi", 1, 0, 0>;

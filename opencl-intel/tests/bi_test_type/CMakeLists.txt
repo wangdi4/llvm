@@ -8,4 +8,4 @@ add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
   LINK_LIBRARIES ${TARGET_LIBS} )
 
 add_ocl_unittest_artifacts( FILES pipe_tests.cl
-    ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/pipes.h)
+    ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/pipes-internal.h)

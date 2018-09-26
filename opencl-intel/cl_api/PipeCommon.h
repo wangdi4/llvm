@@ -14,7 +14,7 @@
 #ifndef __PIPE_COMMON_H__
 #define __PIPE_COMMON_H__
 
-#include "../backend/libraries/ocl_builtins/pipes.h"
+#include "../backend/libraries/ocl_builtins/pipes-native.h"
 
 #define CACHE_LINE 64
 #define INTEL_PIPE_HEADER_RESERVED_SPACE CACHE_LINE * 2
