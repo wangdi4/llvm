@@ -60,13 +60,14 @@ bool clGetDeviceInfoTest()
 
   // CL_DRIVER_VERSION
   // return driver version
-  // it's hardcoded "7.6.0.0", shall be fixed when it's changed
+  // it's set as hardcoded "7.6.0.0" plus a build date,
+  // shall be fixed when it's changed
   char buffer[1024];
   iRes = clGetDeviceInfo(devices[0], CL_DRIVER_VERSION, sizeof(buffer), buffer, nullptr);
   bResult &= Check("CL_DRIVER_VERSION, all OK", CL_SUCCESS, iRes);
   if (CL_SUCCEEDED(iRes))
   {
-    bResult &= CheckStr("CL_DRIVER_VERSION", desiredDriverVerStr, buffer);
+    bResult &= (0 == strstr("CL_DRIVER_VERSION", desiredDriverVerStr));
   }
 
 	// CL_DEVICE_TYPE
