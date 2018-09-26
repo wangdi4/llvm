@@ -26,6 +26,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-optbase"
+#define DEBUG_DTRANS_VERIFICATION "dtrans-verification"
 
 namespace {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -237,7 +238,7 @@ bool DTransOptBase::run(Module &M) {
   // code may be removed later after DTrans is stable. verifyModule returns
   // 'true' if errors are found.
   if (verifyModule(M, &dbgs())) {
-    LLVM_DEBUG(dbgs() << M);
+    DEBUG_WITH_TYPE(DEBUG_DTRANS_VERIFICATION, dbgs() << M);
     report_fatal_error(
         "Module verifier found errors following a DTrans optimization");
   }

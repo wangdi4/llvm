@@ -5,8 +5,10 @@
 ; to exclude the use of the dtrans option for builds that exclude dtrans, the
 ; test must be separate.
 
-; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume \
-; RUN:     -passes='lto<O2>' -S  %s -enable-npm-dtrans -enable-resolve-types \
+; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
+; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield           \
+; RUN:     -enable-resolve-types                                        \
+; RUN:     -passes='lto<O2>' -S  %s -enable-npm-dtrans                  \
 ; RUN:     2>&1 \
 ; RUN:     | FileCheck %s
 
@@ -28,13 +30,13 @@
 ; don't check them all here. The check below guarantees that DeleteFieldPass
 ; is the next non-analysis pass to run.
 ; CHECK: Running pass:
-; CHECK-SAME: dtrans::DeleteFieldPass
+; CHECK-SAME: dtrans::SOAToAOSPass
 ; Now we switch to CHECK-NEXT to make sure the analysis passes aren't re-run.
+; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass
-; CHECK-NEXT: Running pass: dtrans::SOAToAOSPass
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.

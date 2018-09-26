@@ -37,11 +37,6 @@ using namespace llvm;
 using namespace dtrans;
 using namespace soatoaos;
 
-// Global guard to enable/disable transformation.
-static cl::opt<bool>
-    DTransSOAToAOSGlobalGuard("enable-dtrans-soatoaos", cl::init(false),
-                              cl::Hidden, cl::desc("Enable DTrans SOAToAOS"));
-
 // This options makes populateCFGInformation to ignore
 // number of uses and number of BasicBlocks in struct's and arrays' methods.
 //
@@ -485,9 +480,6 @@ bool SOAToAOSPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 }
 
 PreservedAnalyses SOAToAOSPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (!DTransSOAToAOSGlobalGuard)
-    return PreservedAnalyses::all();
-
   auto &WP = AM.getResult<WholeProgramAnalysis>(M);
   if (!WP.isWholeProgramSafe())
     return PreservedAnalyses::all();
@@ -521,7 +513,7 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    if (skipModule(M) || !DTransSOAToAOSGlobalGuard)
+    if (skipModule(M))
       return false;
 
     auto &WP = getAnalysis<WholeProgramWrapperPass>().getResult();

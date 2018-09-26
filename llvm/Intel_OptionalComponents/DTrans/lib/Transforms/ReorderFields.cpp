@@ -145,7 +145,7 @@ private:
   void transformDivOp(BinaryOperator &I);
   void processGetElementPtrInst(GetElementPtrInst &GEP);
   void processByteFlattenedGetElementPtrInst(GetElementPtrInst &GEP);
-  void transformAllocCall(CallInst &CI, StructType *Ty);
+  void transformAllocCall(CallInst &CI, StructType *Ty, AllocCallInfo *CInfo);
   void transformMemfunc(CallInst &CI, StructType *Ty);
   bool replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize, uint64_t NewSize,
                                  Instruction *I, uint32_t APos);
@@ -263,10 +263,9 @@ void ReorderFieldsImpl::transformMemfunc(CallInst &CI, StructType *Ty) {
 }
 
 // Fix size argument of calloc/malloc/realloc
-void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty) {
-  AllocKind Kind = getAllocFnKind(&CI, TLI);
-  assert((Kind == AK_Calloc || Kind == AK_Malloc || Kind == AK_Realloc) &&
-         "Unexpected alloc call");
+void ReorderFieldsImpl::transformAllocCall(CallInst &CI, StructType *Ty,
+                                           AllocCallInfo *CInfo) {
+  AllocKind Kind = CInfo->getAllocKind();
   LLVM_DEBUG(dbgs() << "Alloc Before:" << CI << "\n");
 
   unsigned SizeArgPos = 0;
@@ -432,7 +431,7 @@ void ReorderFieldsImpl::processCallInst(CallInst &CI) {
     return;
   switch (CInfo->getCallInfoKind()) {
   case CallInfo::CIK_Alloc: {
-    transformAllocCall(CI, StrTy);
+    transformAllocCall(CI, StrTy, cast<AllocCallInfo>(CInfo));
     break;
   }
 
