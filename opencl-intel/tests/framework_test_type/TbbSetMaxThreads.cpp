@@ -12,6 +12,7 @@
 #include <cassert>
 #include <iostream>
 #include <string>
+#include "common_utils.h"
 #define TBB_PREVIEW_GLOBAL_CONTROL 1
 #include <tbb/global_control.h>
 
@@ -65,7 +66,15 @@ bool TbbSetMaxThreads(int NumThreads)
     }
     else
     {
-        const size_t nthreads = NumThreads;
+        size_t nthreads = NumThreads;
+
+        // W/O for FPGA: Set OCL_TBB_NUM_WORKERS to default test's
+        // number of threads
+        const std::string dname{ device.getInfo<CL_DEVICE_NAME>() };
+        if (dname.find("FPGA") < std::string::npos)
+        {
+            SETENV("OCL_TBB_NUM_WORKERS", std::to_string(nthreads).c_str());
+        }
         std::cout << "Setting max threads to " << nthreads << "\n";
         static auto controller = tbb::global_control{ tbb::global_control::max_allowed_parallelism, nthreads };
     }
