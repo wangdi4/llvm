@@ -342,10 +342,6 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
       return false;
   }
 
-  auto && warnUnsupportedClause = [=](StringRef Name) {
-    reportCSAWarning(W, "ignoring unsupported " + Name + " clause");
-  };
-
   // num_threads
   if (W->getIsParLoop())
     if (auto *NumThreads = W->getNumThreads())
@@ -354,13 +350,9 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
         W->setNumThreads(nullptr);
       }
 
-  // copyin
-  if (W->canHaveCopyin() && !W->getCopyin().empty())
-    warnUnsupportedClause("copyin");
-
   // proc_bind
   if (W->getIsPar() && W->getProcBind() != WRNProcBindAbsent)
-    warnUnsupportedClause("proc_bind");
+    reportCSAWarning(W, "ignoring unsupported proc_bind clause");
 
   // schedule
   if (W->canHaveSchedule()) {
@@ -383,12 +375,6 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
       }
     }
   }
-
-  if (!W->getIsPar() && !findEnclosingParRegion(W)) {
-    reportCSAWarning(W, "construct must be lexically nested in a parallel "
-                        "region");
-    return false;
-  }
   return true;
 }
 
@@ -410,7 +396,11 @@ void VPOParoptTransform::reportCSAWarning(WRegionNode *W, const Twine &Msg) {
 //
 Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
-  assert(W->getIsPar() && "parallel region is expected");
+
+  // CSA parallel region entry/exit calls will be inserted into the closest
+  // enclosing omp parallel region if such region exists.
+  if (auto *ParW = findEnclosingParRegion(W))
+    W = ParW;
 
   auto &Region = CSAParallelRegions[W];
   if (Region)
@@ -488,10 +478,6 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   auto *Loop = W->getWRNLoopInfo().getLoop();
   assert(Loop->isLoopSimplifyForm());
 
-  auto *ParW = findEnclosingParRegion(W);
-  if (!ParW)
-    return false;
-
   // Generate privatization code.
   CSALoopPrivatizer(*this, W).run();
 
@@ -526,7 +512,7 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
       }
 
   // Insert parallel region entry/exit calls
-  auto *Region = genCSAParallelRegion(ParW);
+  auto *Region = genCSAParallelRegion(W);
 
   // and CSA parallel section entry/exit intrinsics
   genCSAParallelSection(Region,
@@ -538,15 +524,11 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
 bool VPOParoptTransform::genCSASections(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
 
-  auto *ParW = findEnclosingParRegion(W);
-  if (!ParW)
-    return false;
-
   // Generate privatization code for the sections construct.
   CSASectionsPrivatizer(*this, W).run();
 
   // Insert parallel region entry/exit calls
-  auto *Region = genCSAParallelRegion(ParW);
+  auto *Region = genCSAParallelRegion(W);
 
   // Insert section entry/exit calls in child work regions which all are
   // supposed to be sections.
@@ -575,3 +557,4 @@ bool VPOParoptTransform::genCSASingle(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
   return CSAPrivatizer(*this, W).run();
 }
+
