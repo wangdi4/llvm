@@ -107,6 +107,13 @@ void __ovld atomic_store_explicit(__global volatile atomic_int *object,
                                   int desired, memory_order order);
 // Debug switches
 #define DEBUG_ASSERTS 0
+#define NOINLINE_SWITCH 0
+
+#if NOINLINE_SWITCH
+#define DEBUG_NOINLINE __attribute__((noinline))
+#else
+#define DEBUG_NOINLINE
+#endif
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
@@ -274,6 +281,7 @@ void __flush_write_pipe(__global void* pp) {
   atomic_store_explicit(&p->tail, p->write_buf.end, memory_order_release);
 }
 
+DEBUG_NOINLINE
 int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
                        uint align) {
   __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
@@ -298,6 +306,7 @@ int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
   return 0;
 }
 
+DEBUG_NOINLINE
 int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
                         uint align) {
   __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
@@ -322,6 +331,7 @@ int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
   return 0;
 }
 
+DEBUG_NOINLINE
 int __read_pipe_2_io_fpga(read_only pipe uchar pp, void* dst,
                           const char* dstName, uint size, uint align) {
   __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
@@ -337,6 +347,7 @@ int __read_pipe_2_io_fpga(read_only pipe uchar pp, void* dst,
   return 0;
 }
 
+DEBUG_NOINLINE
 int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void* src,
                            const char* srcName, uint size, uint align) {
   __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
@@ -354,6 +365,7 @@ int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void* src,
   return 0;
 }
 
+DEBUG_NOINLINE
 void __store_write_pipe_use(__global void* __private* __private arr,
                             __private int* size, write_only pipe uchar pp) {
   __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
@@ -365,6 +377,7 @@ void __store_write_pipe_use(__global void* __private* __private arr,
   ++(*size);
 }
 
+DEBUG_NOINLINE
 void __store_read_pipe_use(__global void* __private* __private arr,
                            __private int* size, read_only pipe uchar pp) {
   __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
@@ -376,12 +389,14 @@ void __store_read_pipe_use(__global void* __private* __private arr,
   ++(*size);
 }
 
+DEBUG_NOINLINE
 void __flush_pipe_read_array(__global void* __private* arr,
                              __private int* size) {
   for (int i = 0; i < *size; ++i)
     __flush_read_pipe(arr[i]);
 }
 
+DEBUG_NOINLINE
 void __flush_pipe_write_array(__global void* __private* arr,
                               __private int* size) {
   for (int i = 0; i < *size; ++i)
