@@ -229,8 +229,6 @@ public:
 
 // Traits of HLRegion for LoopOptReportBuilder.
 template <> struct LoopOptReportTraits<loopopt::HLRegion> {
-  using ObjectHandleTy = loopopt::HLRegion &;
-
   static LoopOptReport getOptReport(const loopopt::HLRegion &R) {
     return R.getOptReport();
   }

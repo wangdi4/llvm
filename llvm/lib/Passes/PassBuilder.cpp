@@ -465,8 +465,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   FPM.addPass(TbaaMDPropagationPass());
-  // Run OptReportOptionsPass early so that it is available to all users.
-  FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
 
   // Form SSA out of local memory accesses after breaking apart aggregates into

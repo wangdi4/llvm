@@ -350,17 +350,6 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool CreateRemainderLoop,
         NewIdx->addIncoming(NewIter, InsertTop);
         NewIdx->addIncoming(IdxSub, NewBB);
       }
-#if INTEL_CUSTOMIZATION
-      // Remove Loop metadata from the loop branch instruction
-      // to avoid failing the check of LoopOptReport metadata
-      // being dropped accidentally.
-      //
-      // If the caller of this method is going to reinstantiate
-      // the back branch for the cloned loop (e.g. in case of
-      // CreateRemainderLoop), then it has to set the LoopOptReport
-      // metadata properly.
-      LatchBR->setMetadata(LLVMContext::MD_loop, nullptr);
-#endif  // INTEL_CUSTOMIZATION
       LatchBR->eraseFromParent();
     }
   }
@@ -539,7 +528,6 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                                       bool UnrollRemainder,
                                       LoopInfo *LI, ScalarEvolution *SE,
                                       DominatorTree *DT, AssumptionCache *AC,
-                                      const LoopOptReportBuilder &LORB, // INTEL
                                       bool PreserveLCSSA) {
   LLVM_DEBUG(dbgs() << "Trying runtime unrolling on Loop: \n");
   LLVM_DEBUG(L->dump());
@@ -909,17 +897,6 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
       formDedicatedExitBlocks(remainderLoop, DT, LI, PreserveLCSSA);
   }
 
-#if INTEL_CUSTOMIZATION
-  if (remainderLoop) {
-    // The remainder Loop becomes lexicographically next to the original
-    // Loop, so we move all the next siblings (if there are any)
-    // to the remainder Loop.
-    LORB(*L, *LI).moveSiblingsTo(*remainderLoop, *LI);
-    LORB(*remainderLoop, *LI).addOrigin("LLorg: Remainder loop for partial "
-                                        "unrolling");
-  }
-#endif  // INTEL_CUSTOMIZATION
-
   if (remainderLoop && UnrollRemainder) {
     LLVM_DEBUG(dbgs() << "Unrolling remainder loop\n");
     UnrollLoop(remainderLoop, /*Count*/ Count - 1, /*TripCount*/ Count - 1,
@@ -927,7 +904,6 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                /*AllowExpensiveTripCount*/ false, /*PreserveCondBr*/ true,
                /*PreserveOnlyFirst*/ false, /*TripMultiple*/ 1,
                /*PeelCount*/ 0, /*UnrollRemainder*/ false, LI, SE, DT, AC,
-               LORB, // INTEL
                /*ORE*/ nullptr, PreserveLCSSA);
   }
 

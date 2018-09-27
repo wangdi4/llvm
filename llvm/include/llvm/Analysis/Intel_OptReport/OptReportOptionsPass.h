@@ -34,18 +34,6 @@ public:
 
   bool isLoopOptReportOn() const { return Verbosity > 0; }
   OptReportVerbosity::Level getVerbosity() const { return Verbosity; }
-
-  /// Handle invalidation from the pass manager.
-  ///
-  /// This analysis result remains valid always.
-  bool invalidate(Module &, const PreservedAnalyses &,
-                  ModuleAnalysisManager::Invalidator &) {
-    return false;
-  }
-  bool invalidate(Function &, const PreservedAnalyses &,
-                  FunctionAnalysisManager::Invalidator &) {
-    return false;
-  }
 };
 
 extern OptReportOptions::LoopOptReportEmitterKind IntelOptReportEmitter;

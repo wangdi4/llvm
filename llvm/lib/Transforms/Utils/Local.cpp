@@ -126,20 +126,6 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
 
       // Replace the conditional branch with an unconditional one.
       Builder.CreateBr(Destination);
-#if INTEL_CUSTOMIZATION
-      // Remove Loop metadata from the loop branch instruction
-      // to avoid failing the check of LoopOptReport metadata
-      // being dropped accidentally.
-      //
-      // TODO (vzakhari 5/22/2018): there is no good solution for reattaching
-      //       the opt-report metadata currently.  LoopInfo is not available
-      //       and not preserved in this pass, so we can only attach it
-      //       to the Function.  Moreover, we have to be careful in cases,
-      //       where a loop has multiple back edges some of which are being
-      //       constant folded - we can get duplicate opt-reports attached
-      //       to the Function, as a result of the re-attachment.
-      BI->setMetadata(LLVMContext::MD_loop, nullptr);
-#endif  // INTEL_CUSTOMIZATION
       BI->eraseFromParent();
       if (DTU)
         DTU->deleteEdgeRelaxed(BB, OldDest);
