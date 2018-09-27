@@ -719,6 +719,13 @@ public:
   /// Negates canon expr.
   void negate() { multiplyNumeratorByConstant(-1, true); }
 
+  /// Returns true if the CE looks like this: -1 * blob + -1.
+  /// ~x is represented as -1 + -1 * x.
+  bool isNotOperation() const {
+    return (getConstant() == -1) && (getDenominator() == 1) && !hasIV() &&
+           (numBlobs() == 1) && (getSingleBlobCoeff() == -1);
+  }
+
   /// Verifies that all IVs contained in CE are valid, asserts otherwise.
   bool verifyIVs(unsigned NestingLevel) const;
 
