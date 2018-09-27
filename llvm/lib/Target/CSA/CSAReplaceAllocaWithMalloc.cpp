@@ -142,9 +142,8 @@ void CSAReplaceAllocaWithMalloc::coalesceMallocs(Function &F, Function *CSAMallo
 
   // Modify the first csa_malloc to allocate totalSize bytes
   LLVMContext &Context = F.getContext();
-  Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(32, Size, true));
-  if (SizeV->getType() != CSAMalloc->arg_begin()->getType())
-    SizeV = new BitCastInst(SizeV, CSAMalloc->arg_begin()->getType(), "tmp", &*FirstCSAMallocInst);
+  int BitWidth = CSAMalloc->arg_begin()->getType()->getIntegerBitWidth();
+  Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(BitWidth, Size, true));
   FirstCSAMallocInst->setOperand(0, SizeV);
 
   // Replace other csa_alloc's with GEP with proper offsets
@@ -451,9 +450,8 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
           LLVM_DEBUG(errs() << "Alloca Inst found; AI = " << *AI << "\n");
           Type *ty = AI->getAllocatedType();
           uint64_t Size = DL.getTypeAllocSize(ty);
-          Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(32, Size, true));
-          if (SizeV->getType() != CSAMalloc->arg_begin()->getType())
-            SizeV = new BitCastInst(SizeV, CSAMalloc->arg_begin()->getType(), "tmp", &*AI);
+          int BitWidth = CSAMalloc->arg_begin()->getType()->getIntegerBitWidth();
+          Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(BitWidth, Size, true));
           CallInst *NewMallocCI = IRBuilder<>{AI}.CreateCall(CSAMalloc,SizeV,"tmp");
           BitCastInst *NewBCI = new BitCastInst(NewMallocCI,AI->getType(), "tmp", &*AI);
           IRBuilder<>{RI}.CreateCall(CSAFree,NewMallocCI);
