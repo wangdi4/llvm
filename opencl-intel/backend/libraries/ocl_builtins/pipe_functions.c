@@ -28,6 +28,8 @@
 
 #if __OPENCL_C_VERSION__ >= 200
 
+#define __PIPE_RESERVE_ID_VALID_BIT (1U << 30)
+
 #define ALWAYS_INLINE __attribute__((always_inline))
 #define OVERLOADABLE __attribute__((overloadable))
 
