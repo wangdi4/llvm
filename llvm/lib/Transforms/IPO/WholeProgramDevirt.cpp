@@ -47,7 +47,7 @@
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/Analysis/Intel_WP.h"      // INTEL
+#include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -72,6 +72,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndexYAML.h"
+#include "llvm/IR/Verifier.h" // INTEL
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/PassSupport.h"
@@ -118,6 +119,24 @@ static cl::opt<unsigned>
                 cl::init(10), cl::ZeroOrMore,
                 cl::desc("Maximum number of call targets per "
                          "call site to enable branch funnels"));
+
+#if INTEL_CUSTOMIZATION
+// Set the threshold for the maximum targets we can devirtualize using
+// the multiversioning
+static cl::opt<unsigned>
+    WPDevirtMaxBranchTargets("wholeprogramdevirt-max-branch-targets",
+                             cl::init(4), cl::ReallyHidden);
+
+// Allows us to perform the multiversioning for the devirtualization
+// as opposed to generating the branch funnels
+static cl::opt<bool> WPDevirtMultiversion("wholeprogramdevirt-multiversion",
+                                          cl::init(false), cl::ReallyHidden);
+
+// Run the verifier to check if the multiversion generated something wrong
+static cl::opt<bool> WPDevirtMultiversionVerify(
+    "wholeprogramdevirt-multiversion-verify", cl::init(false),
+    cl::ReallyHidden);
+#endif // INTEL_CUSTOMIZATION
 
 // Find the minimum offset that we may store a value of size Size bits at. If
 // IsAfter is set, look for an offset before the object, otherwise look for an
@@ -475,6 +494,55 @@ struct DevirtModule {
   void tryICallBranchFunnel(MutableArrayRef<VirtualCallTarget> TargetsForSlot,
                             VTableSlotInfo &SlotInfo,
                             WholeProgramDevirtResolution *Res, VTableSlot Slot);
+
+#if INTEL_CUSTOMIZATION
+
+  // Structure that contains the information related to a target
+  // of a virtual call
+  struct TargetData {
+    Value *FunctionAddress;           // Address of the target function
+    BasicBlock *TargetBasicBlock;     // Basic block of the target's call site
+    Instruction *CallInstruction;     // Target's call instruction
+    std::string TargetName;           // Basic Block's name
+  };
+
+  // Build the basic block of the default case
+  TargetData* buildDefaultCase(Module &M, std::string VCallStamp,
+      VirtualCallSite VCallSite);
+
+  // Create the call sites and basic blocks for each target
+  void createCallSiteBasicBlocks(Module &M,
+      std::vector<TargetData *> &TargetVector, std::string &VCallStamp,
+      VirtualCallSite &VCallSite,
+      MutableArrayRef<VirtualCallTarget> TargetsForSlot);
+
+  // Fix the PHINodes in the unwind destinations
+  void fixUnwindPhiNodes(VirtualCallSite &VCallSite, BasicBlock *MergePointBB,
+      std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget);
+
+  // Compute the basic block where all targets will jump after executing
+  // the call instruction
+  BasicBlock* getMergePoint(Module &M, std::string &VCallStamp,
+      VirtualCallSite &VCallSite);
+
+  // Connect all targets with the if/else instructions
+  void generateBranching(Module &M, std::string &VCallStamp,
+      BasicBlock *MainBB, BasicBlock *MergePointBB, bool IsCallInst,
+      std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget);
+
+  // Replace the Users of the virtual call with a PHINode
+  void generatePhiNodes(Module &M, BasicBlock *MergePointBB,
+      std::vector<TargetData *> TargetsVector,
+      TargetData *DefaultTarget);
+
+  // Try to generate multiple targets with if and else instructions
+  // rather than a branch funnel
+  bool tryPartialDevirt(MutableArrayRef<VirtualCallTarget> TargetsForSlot,
+                        VTableSlotInfo &SlotInfo, unsigned int CallSlotI);
+
+  // Verify that the transformation was done correctly
+  void runDevirtVerifier(Module &M);
+#endif
 
   bool tryEvaluateFunctionsWithArgs(
       MutableArrayRef<VirtualCallTarget> TargetsForSlot,
@@ -971,6 +1039,529 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
   for (auto &P : SlotInfo.ConstCSInfo)
     Apply(P.second);
 }
+
+#if INTEL_CUSTOMIZATION
+
+// Create the BasicBlocks with the direct call sites.
+//   TargetVector: a TargetData vector that will be used to store the
+//                 information related to the targets
+//   VCallStamp: stamp generated for the current virtual call
+//   VCallSite: callsite of the virtual call
+//   TargetsForSlot: possible targets to the current virtual callsite
+void DevirtModule::createCallSiteBasicBlocks(Module &M,
+    std::vector<TargetData *> &TargetVector, std::string &VCallStamp,
+    VirtualCallSite &VCallSite,
+    MutableArrayRef<VirtualCallTarget> TargetsForSlot) {
+
+  IRBuilder<> Builder(M.getContext());
+  StringRef BaseName = StringRef("BBDevirt_");
+  Instruction *CSInst = VCallSite.CS.getInstruction();
+  Function *Func = CSInst->getFunction();
+
+  // Add all the function addresses and create the BasicBlocks
+  // with the direct calls
+  for (auto &&Target : TargetsForSlot) {
+    Builder.SetInsertPoint(CSInst);
+
+    TargetData *NewTarget = new TargetData();
+
+
+    // Create the BitCast of the function's address
+    Value *FuncAddr = Builder.CreateBitCast(Target.Fn, Int8PtrTy);
+    NewTarget->FunctionAddress = FuncAddr;
+
+    // Create a new BasicBlock with the name
+    // BBDevirt_TARGETNAME_CallSlotI_VCallI
+    std::string FuncName =
+                Twine(Target.Fn->getName(), VCallStamp.c_str()).str();
+
+    NewTarget->TargetName = FuncName;
+
+    std::string BBName = Twine(BaseName, FuncName.c_str()).str();
+    NewTarget->TargetBasicBlock =
+        BasicBlock::Create(M.getContext(), BBName.c_str(), Func);
+
+    // Clone the call instruction
+    Instruction *CloneCS = CSInst->clone();
+
+    // Change the builder inside the basic block created
+    // and insert the cloned function
+    Builder.SetInsertPoint(NewTarget->TargetBasicBlock);
+    Builder.Insert(CloneCS);
+
+    // Replace the called function with the direct call
+    CallSite NewCS = CallSite(CloneCS);
+    NewCS.setCalledFunction(ConstantExpr::getBitCast(
+        Target.Fn, VCallSite.CS.getCalledValue()->getType()));
+
+    // Save the new instruction for PHINode
+    NewTarget->CallInstruction = NewCS.getInstruction();
+
+    TargetVector.push_back(NewTarget);
+  }
+}
+
+// Create a BasicBlock that will be the merge point for all targets.
+// Also, collect the BasicBlock that will continue the function
+//   M:          current module
+//   VCallStamp: stamp created for the current virtual call site
+//   VCallSite:  data structure holding the information related to the current
+//               virtual call site
+// This function returns the BasicBlock that all call sites will jump to.
+BasicBlock* DevirtModule::getMergePoint(Module &M, std::string &VCallStamp,
+    VirtualCallSite &VCallSite) {
+
+  BasicBlock *EndPointBB = nullptr;
+  BasicBlock *MergePointBB = nullptr;
+  IRBuilder<> Builder(M.getContext());
+  StringRef MergePointName = StringRef("MergeBB");
+  Instruction *CSInst = VCallSite.CS.getInstruction();
+  Function *Func = CSInst->getFunction();
+  BasicBlock *BB = CSInst->getParent();
+
+  // Build the merge point with the following name
+  // MergeBB_CallSlotI_VCallI
+  std::string MergeBBNameNum =
+      Twine(MergePointName, VCallStamp.c_str()).str();
+  MergePointBB =
+      BasicBlock::Create(M.getContext(), MergeBBNameNum.c_str(), Func);
+
+  // Split the main BasicBlock in case the call instruction
+  // is a CallInst
+  //   BB: everything before the virtual function call
+  //   BBEndPoint: Everything from the virtual function call until the end
+  if (VCallSite.CS.isCall()) {
+    EndPointBB = BB->splitBasicBlock(CSInst->getNextNode());
+    // The current terminator branch is not needed since is going to be
+    // replaced with an if/else
+    BB->getTerminator()->eraseFromParent();
+    // NOTE: The PHINodes that are pointing to the main BasicBlock
+    // aren't replaced in this path since the splitting operation
+    // will take care of fixing them.
+  }
+  // Else, InvokeInst, collect the destination
+  else if (VCallSite.CS.isInvoke()) {
+    // Replace the PHINodes that are pointing to the main BasicBlock
+    // with the merge point. The PHINodes that are in the unwind
+    // destinations will be fixed later.
+    BB->replaceSuccessorsPhiUsesWith(MergePointBB);
+    EndPointBB = cast<InvokeInst>(CSInst)->getNormalDest();
+  }
+  else {
+    llvm_unreachable("wholeprogramdevirt-multiversion:"
+                     " Branch end point not found");
+  }
+
+  // Create a branch in the merge point that will jump into the end point
+  Builder.SetInsertPoint(MergePointBB);
+  Builder.CreateBr(EndPointBB);
+
+  return MergePointBB;
+}
+
+// Build the default case that will call the virtual call in case
+// the address doesn't match.
+//   M:          current module
+//   VCallStamp: stamp used to identify the virtual call site
+//   VCallSite:  information related to the virtual call site
+// This function returns a new TargetData object with the information
+// needed to call the virtual instruction.
+DevirtModule::TargetData* DevirtModule::buildDefaultCase(Module &M,
+    std::string VCallStamp, VirtualCallSite VCallSite) {
+
+  Instruction *CSInst = VCallSite.CS.getInstruction();
+  Value *CalledVal = VCallSite.CS.getCalledValue();
+  Function *Func = CSInst->getFunction();
+  IRBuilder<> Builder(M.getContext());
+  StringRef DefaultBBName = StringRef("DefaultBB");
+
+  // Build the Basic Block for the default case with the name
+  // DefaultBB_CallSlotI_VCallI
+  std::string DefaultBBNameNum =
+      Twine(DefaultBBName, VCallStamp.c_str()).str();
+  BasicBlock *DefaultBB =
+      BasicBlock::Create(M.getContext(), DefaultBBNameNum.c_str(), Func);
+  Builder.SetInsertPoint(DefaultBB);
+  CSInst->removeFromParent();
+  Builder.Insert(CSInst);
+
+  TargetData *DefaultTarget = new TargetData();
+
+  DefaultTarget->FunctionAddress =
+      Builder.CreateBitCast(CalledVal, Int8PtrTy);
+  DefaultTarget->TargetBasicBlock = DefaultBB;
+  DefaultTarget->CallInstruction = CSInst;
+  DefaultTarget->TargetName = DefaultBBNameNum;
+
+  return DefaultTarget;
+}
+
+// If we are multiversioning an Invoke instruction, there is a chance
+// that replacing the PHINodes with the merge point can damage the
+// the unwind destinations. This function will remove the merge
+// point from those PHINodes in the unwind destinations and replace them
+// with the BasicBlocks where the targets are called from.
+//   VCallSite:     Information related to the actual virtual call
+//   MergePointBB:  BasicBlock that where all targets will branch into
+//   TargetsVector: Vector containing all the targets for the virtual call
+//   DefaultTarget: TargetData generated that contains the call to
+//                  the virtual function
+void DevirtModule::fixUnwindPhiNodes(VirtualCallSite &VCallSite,
+    BasicBlock *MergePointBB, std::vector<TargetData *> &TargetsVector,
+    TargetData *DefaultTarget) {
+
+  if (!VCallSite.CS.isInvoke())
+    return;
+
+  InvokeInst *InvokeI = cast<InvokeInst>(VCallSite.CS.getInstruction());
+  BasicBlock *UnwindBB = InvokeI->getUnwindDest();
+
+  // Traverse through each PHINode in the unwind destination
+  for (PHINode &PhiNode : UnwindBB->phis()) {
+
+    // If the MergePoint is not found, then the result will be -1
+    int BBIdx = PhiNode.getBasicBlockIndex(MergePointBB);
+    if (BBIdx < 0)
+      continue;
+
+    // Collect the value that is used by the merge point
+    Value *Val = PhiNode.getIncomingValue(BBIdx);
+
+    // Check if the Value is produced by the return of the InvokeInst.
+    // If so, then it means that we need to replace the Value and the
+    // BasicBlock.
+    Value *DefaultCall = cast<Instruction>(DefaultTarget->CallInstruction);
+    bool SameCall = Val == DefaultCall;
+
+    // Remove the merge point from the current PHINode
+    PhiNode.removeIncomingValue(BBIdx);
+
+    // Add the targets into the PHINode
+    for (TargetData *Target : TargetsVector) {
+      if (SameCall) {
+        Value *TargetCall = cast<Value>(Target->CallInstruction);
+        PhiNode.addIncoming(TargetCall, Target->TargetBasicBlock);
+      }
+      else
+        PhiNode.addIncoming(Val, Target->TargetBasicBlock);
+    }
+
+    // Add the default case into the PHINode
+    PhiNode.addIncoming(Val, DefaultTarget->TargetBasicBlock);
+  }
+}
+
+// Generate the branching that will do the multiversioning. Each compare
+// instruction will check if the address of the virtual call matches with
+// the address of a target function.
+//   M:             current module
+//   VCallStamp:    stamp for current virtual call instruction
+//   MainBB:        BasicBlock where the virtual call instruction
+//                    originally came from
+//   IsCallInst:    true if the virtual call site is a CallInst,
+//                    false if it is an InvokeInst
+//   TargetsVector: vector with all target functions and the information
+//                  needed to generate the branching
+//   DefaultTaregt: TargetData with the information related to the virtual
+//                  call site, this is used to generate the default case
+void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
+    BasicBlock *MainBB, BasicBlock *MergePointBB, bool IsCallInst,
+    std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget) {
+
+  unsigned int TargetI = 0;
+  unsigned int NumTargets = TargetsVector.size();
+  StringRef ElseBaseName = StringRef("ElseDevirt_");
+  Function *Func = DefaultTarget->CallInstruction->getFunction();
+  IRBuilder<> Builder(M.getContext());
+
+  Builder.SetInsertPoint(MainBB);
+  Instruction *DefaultAddress =
+      cast<Instruction>(DefaultTarget->FunctionAddress);
+  DefaultAddress->removeFromParent();
+  Builder.Insert(DefaultAddress);
+
+  BasicBlock *InsertPointBB = MainBB;
+
+  // Create the branching and connect the whole structure
+  for (TargetData *Target : TargetsVector) {
+
+    // Build the else BasicBlock
+    BasicBlock *ElseBB;
+    if (TargetI == NumTargets - 1)
+      ElseBB = DefaultTarget->TargetBasicBlock;
+    else {
+      // Create the name ElseDevirt_TARGETNAME_CallSlotI_VCallI
+      std::string TargetName = Target->TargetName;
+      std::string ElseBBName =
+           Twine(ElseBaseName, TargetName.c_str()).str();
+      ElseBB =
+           BasicBlock::Create(M.getContext(), ElseBBName.c_str(), Func);
+    }
+
+    BasicBlock *IfBB = Target->TargetBasicBlock;
+
+    // Create the condition and branching
+    Builder.SetInsertPoint(InsertPointBB);
+
+    Value *Cond = Builder.CreateICmpEQ(DefaultTarget->FunctionAddress,
+                                       Target->FunctionAddress);
+    Builder.CreateCondBr(Cond, IfBB, ElseBB);
+
+    // Insert the branch to merge point in case of CallInst
+    if (IsCallInst) {
+      Builder.SetInsertPoint(IfBB);
+      Builder.CreateBr(MergePointBB);
+    }
+    else {
+      InvokeInst *InvInst =
+                 cast<InvokeInst>(&(IfBB->front()));
+      InvInst->setNormalDest(MergePointBB);
+    }
+
+    IfBB->moveAfter(InsertPointBB);
+    ElseBB->moveAfter(IfBB);
+    // The next insert point will be the else branch
+    InsertPointBB = ElseBB;
+    TargetI++;
+  }
+
+  // Fix the destination of the default case
+  if (IsCallInst) {
+    Builder.SetInsertPoint(DefaultTarget->TargetBasicBlock);
+    Builder.CreateBr(MergePointBB);
+  }
+  else {
+    InvokeInst *InvInst =
+                 cast<InvokeInst>(DefaultTarget->CallInstruction);
+    InvInst->setNormalDest(MergePointBB);
+  }
+
+  // Rearrange the basic blocks
+  DefaultTarget->TargetBasicBlock->moveAfter(InsertPointBB);
+  MergePointBB->moveAfter(DefaultTarget->TargetBasicBlock);
+}
+
+// Generate a PHINode that will replace all the Users of the virtual
+// call site. This PHINode will be added to the merge BasicBlock.
+//   M:             current module
+//   MergePointBB:  BasicBlock that where all targets will branch into
+//   TargetsVector: vector with all target functions and the information
+//                  needed to generate the branching
+//   DefaultTaregt: TargetData with the information related to the virtual
+//                  call site, this is used to generate the default case
+void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
+    std::vector<TargetData *> TargetsVector, TargetData *DefaultTarget) {
+
+  Instruction *CSInst = DefaultTarget->CallInstruction;
+
+  if (CSInst->user_empty())
+    return;
+
+  IRBuilder<> Builder(M.getContext());
+
+  // Compute the number of incoming values
+  // (number of targets plus default case)
+  unsigned int NumTargets = TargetsVector.size() + 1;
+
+  // Insert in the merge point
+  Builder.SetInsertPoint(&(MergePointBB->front()));
+
+  // Create the new PHINode
+  PHINode *Phi = Builder.CreatePHI(CSInst->getType(), NumTargets);
+
+  // Replace all users of the virtual call instruction with the new PHINode
+  CSInst->replaceAllUsesWith(Phi);
+
+  // Insert the incoming Values from each target into the new PHINode
+  for (TargetData *Target : TargetsVector) {
+    Phi->addIncoming(Target->CallInstruction,
+                     Target->TargetBasicBlock);
+  }
+
+  // Insert the incoming Value from the default case
+  Phi->addIncoming(CSInst, DefaultTarget->TargetBasicBlock);
+}
+
+
+// This function will go through each virtual function call site and
+// multiversion it. For example, consider that there is a base class
+// called Base with a pure virtual function foo. Also, consider that
+// there are 2 derived classes: Derived and Derived2, and both classes
+// have a definition for foo. The IR first looks as follows:
+//
+//  %. = select i1 %cmp,
+//       i1 (%class.Base*, i32)*** bitcast (%class.Derived* @d
+//          to i1 (%class.Base*, i32)***),
+//       i1 (%class.Base*, i32)*** bitcast (%class.Derived2* @d2
+//          to i1 (%class.Base*, i32)***)
+//  %.4 = select i1 %cmp,
+//        %class.Base* getelementptr inbounds (%class.Derived,
+//          %class.Derived* @d, i64 0, i32 0),
+//        %class.Base* getelementptr inbounds (%class.Derived2,
+//          %class.Derived2* @d2, i64 0, i32 0)
+//  store i1 (%class.Base*, i32)*** %., i1 (%class.Base*, i32)****
+//     bitcast (%class.Base** @b to i1 (%class.Base*, i32)****),
+//     align 8, !tbaa !8
+//  %vtable = load i1 (%class.Base*, i32)**, i1 (%class.Base*, i32)*** %.,
+//            align 8, !tbaa !12
+//  %0 = bitcast i1 (%class.Base*, i32)** %vtable to i8*
+//  %1 = tail call i1 @llvm.type.test(i8* %0, metadata !"_ZTS4Base")
+//  tail call void @llvm.assume(i1 %1)
+//  %2 = load i1 (%class.Base*, i32)*, i1 (%class.Base*, i32)** %vtable,
+//       align 8
+//  %call = tail call zeroext i1 %2(%class.Base* %.4, i32 %argc)
+//  %call.i = tail call dereferenceable(272)
+//              %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(
+//                %"class.std::basic_ostream"* nonnull @_ZSt4cout,
+//                i1 zeroext %call)
+//
+// The %vtable is collected from %. and the actual function is in %2. The
+// values %0 and %1 are related to the metadata added by the CFE. The call
+// to the virtual function happens in %call. The multiversioning will transform
+// the IR as follows:
+//
+//  %2 = bitcast i1 (%class.Base*, i32)* %1 to i8*
+//  %3 = icmp eq i8* %2, bitcast (i1 (%class.Derived*, i32)*
+//       @_ZN7Derived3fooEi to i8*)
+//  br i1 %3, label %BBDevirt__ZN7Derived3fooEi_0_0,
+//            label %ElseDevirt__ZN7Derived3fooEi_0_0
+//
+// BBDevirt__ZN7Derived3fooEi_0_0:
+//  %4 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)*
+//       @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)
+//       (%class.Base* %.4, i32 %argc)
+//  br label %MergeBB_0_0
+//
+// ElseDevirt__ZN7Derived3fooEi_0_0:
+//  %5 = icmp eq i8* %2, bitcast (i1 (%class.Derived2*, i32)*
+//       @_ZN8Derived23fooEi to i8*)
+//  br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
+//
+// BBDevirt__ZN8Derived23fooEi_0_0:
+//  %6 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)*
+//       @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)
+//       (%class.Base* %.4, i32 %argc)
+//  br label %MergeBB_0_0
+//
+// DefaultBB_0_0:
+//  %7 = tail call zeroext i1 %1(%class.Base* %.4, i32 %argc)
+//  br label %MergeBB_0_0
+//
+// MergeBB_0_0:
+//  %8 = phi i1 [ %4, %BBDevirt__ZN7Derived3fooEi_0_0 ],
+//              [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ],
+//              [ %7, %DefaultBB_0_0]
+//  br label %9
+//
+// <label>:9:
+//  %call.i = tail call dereferenceable(272)
+//            %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(
+//              %"class.std::basic_ostream"* nonnull @_ZSt4cout,
+//              i1 zeroext %8)
+//
+// The address of the virtual function will be compared with the address
+// of each of the targets. If an address matches, then call the direct
+// target, else call the virtual function.
+// Parameters:
+//   TargetsForSlot: An array containing all the targets that are related
+//                   to the virtual call sites stored in SlotInfo
+//   SlotInfo:       All virtual call sites that will use the same set of
+//                   targets
+//   CallSlotI:      Number of SlotInfo in the CallSlots vector
+bool DevirtModule::tryPartialDevirt(
+    MutableArrayRef<VirtualCallTarget> TargetsForSlot,
+    VTableSlotInfo &SlotInfo, unsigned int CallSlotI) {
+
+  // Check if multi-version flag is available
+  if (!WPDevirtMultiversion)
+    return false;
+
+  // If there is no target or the size is larger than the threshold
+  // then don't do the partial devirtualization
+  if (TargetsForSlot.size() == 0)
+    return false;
+
+  if (TargetsForSlot.size() > WPDevirtMaxBranchTargets)
+    return false;
+
+  IRBuilder<> Builder(M.getContext());
+
+  // Generate the stamp _CallSlotI_
+  std::string CallSlotNum =
+            Twine(StringRef(std::to_string(CallSlotI)), "_").str();
+  std::string CallSlotStamp = Twine(StringRef("_"), CallSlotNum.c_str()).str();
+
+  unsigned int VCallI = 0;
+  std::vector<TargetData *> TargetsVector;
+
+  // Lambda function that will go through each call site
+  // of a virtual function and replace it with the branching
+  auto PartialDevirt = [&](CallSiteInfo &CSInfo,
+                           MutableArrayRef<VirtualCallTarget> TargetsForSlot) {
+
+    for (auto &&VCallSite : CSInfo.CallSites) {
+      BasicBlock *MainBB = VCallSite.CS.getParent();
+
+      // Generate the number stamp _CallSlotI_VCallI
+      std::string VCallNum = std::to_string(VCallI);
+      std::string VCallStamp =
+                  Twine(StringRef(CallSlotStamp), VCallNum.c_str()).str();
+
+      TargetsVector.clear();
+
+      // Generate the BasicBlocks that contain the direct call sites
+      createCallSiteBasicBlocks(M, TargetsVector, VCallStamp, VCallSite,
+                                TargetsForSlot);
+
+      // Compute the merge point
+      BasicBlock *MergePoint = getMergePoint(M, VCallStamp, VCallSite);
+
+      // Create the default target
+      TargetData *DefaultTarget = buildDefaultCase(M, VCallStamp, VCallSite);
+
+      // Fix the PHINodes in the unwind destinations
+      fixUnwindPhiNodes(VCallSite, MergePoint, TargetsVector, DefaultTarget);
+
+      // Build the branches that will do the multiversioning
+      generateBranching(M, VCallStamp, MainBB, MergePoint,
+                        VCallSite.CS.isCall(), TargetsVector, DefaultTarget);
+
+      // Build the PHINode and the replacement in case there is any use
+      generatePhiNodes(M, MergePoint, TargetsVector, DefaultTarget);
+
+      VCallI++;
+    }
+  };
+
+  // The virtual call sites related to TargetsForSlot are in SlotInfo.
+  // Traverse through each of them and apply the partial devirtualization.
+  //
+  // CSInfo:      A structure that contains all the call sites in which the
+  //              arguments aren't constant integers.
+  // ConstCSInfo: A map that handles all the call sites which have constant
+  //              integers as arguments. It maps a vector that represents the
+  //              arguments with a CSInfo.
+  PartialDevirt(SlotInfo.CSInfo, TargetsForSlot);
+  for (auto &P : SlotInfo.ConstCSInfo)
+    PartialDevirt(P.second, TargetsForSlot);
+
+  return true;
+}
+
+// Run the verifier if the user requested it. For now, the verifier
+// is run if requested since it will be a very expensive operation.
+void DevirtModule::runDevirtVerifier(Module &M) {
+  if (WPDevirtMultiversion && WPDevirtMultiversionVerify) {
+    for (Function &F : M) {
+      if (verifyFunction(F)) {
+        report_fatal_error("Whole Program Devirtualization: Fails in"
+                           " function: " + F.getName() + "()\n");
+      }
+    }
+  }
+}
+
+#endif // INTEL_CUSTOMIZATION
 
 bool DevirtModule::tryEvaluateFunctionsWithArgs(
     MutableArrayRef<VirtualCallTarget> TargetsForSlot,
@@ -1648,6 +2239,8 @@ bool DevirtModule::run() {
   // For each (type, offset) pair:
   bool DidVirtualConstProp = false;
   std::map<std::string, Function*> DevirtTargets;
+  unsigned int CallSlotI = 0;                // INTEL
+
   for (auto &S : CallSlots) {
     // Search each of the members of the type identifier for the virtual
     // function implementation at offset S.first.ByteOffset, and add to
@@ -1663,10 +2256,20 @@ bool DevirtModule::run() {
                    .WPDRes[S.first.ByteOffset];
 
       if (!trySingleImplDevirt(TargetsForSlot, S.second, Res)) {
+
+#if INTEL_CUSTOMIZATION
+        if (!tryPartialDevirt(TargetsForSlot, S.second, CallSlotI)) {
+#endif // INTEL_CUSTOMIZATION
+
         DidVirtualConstProp |=
             tryVirtualConstProp(TargetsForSlot, S.second, Res, S.first);
 
         tryICallBranchFunnel(TargetsForSlot, S.second, Res, S.first);
+
+#if INTEL_CUSTOMIZATION
+        }
+        CallSlotI++;
+#endif // INTEL_CUSTOMIZATION
       }
 
       // Collect functions devirtualized at least for one call site for stats.
@@ -1710,6 +2313,8 @@ bool DevirtModule::run() {
   if (DidVirtualConstProp)
     for (VTableBits &B : Bits)
       rebuildGlobal(B);
+
+  runDevirtVerifier(M);  // INTEL
 
   return true;
 }
