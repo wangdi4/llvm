@@ -107,6 +107,17 @@ include(itt)
 add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
 
+    LINK_LIBS
+      Context
+      Execution
+      Platform
+      MemoryAllocator
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+      cl_sys_utils
+      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+      CLElfLib
+      ${LINK_LIBS}
+
     RC_TEMPLATE DEFAULT)
 
 copy_to (${CONFIG_FILES} DESTINATION lib)
@@ -119,15 +130,5 @@ if (WIN32)
 else (WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
 endif (WIN32)
-
-target_link_libraries( ${TARGET_NAME} Context
-                                      Execution
-                                      Platform
-                                      MemoryAllocator
-                                      cl_logger${OPENCL_BINARIES_POSTFIX}
-                                      cl_sys_utils
-                                      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-                                      CLElfLib
-                                      ${LINK_LIBS} )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )
