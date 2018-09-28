@@ -841,6 +841,7 @@ public:
   }
   bool isMallocPostDom(CallSite CS);
   bool isFreePostDom(CallSite CS);
+  void populateAllocDeallocTable(const Module &M);
 
 private:
   typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
@@ -857,7 +858,7 @@ private:
     AKS_NotMallocFree
   };
   // Mapping for the AllocStatus of each Function we have queried.
-  std::map<Function *, AllocStatus> LocalMap;
+  std::map<const Function *, AllocStatus> LocalMap;
   // Offsets inside vtable.
   // Key is (pointer to some type, true = allocation/false = deallocation).
   std::map<PtrBoolPair, int32_t> VTableOffs;
@@ -889,7 +890,7 @@ private:
   bool analyzeForMallocStatus(Function *F);
 
   bool hasFreeCall(BasicBlock *BB) const;
-  bool isPostDominatedByFreeCall(BasicBlock *BB);
+  bool isPostDominatedByFreeCall(BasicBlock *BB, bool &IsFreeSeen);
   bool analyzeForFreeStatus(Function *F);
 
   bool analyzeForIndirectStatus(CallSite CS, bool Alloc);
@@ -940,6 +941,7 @@ bool DTransAllocAnalyzer::isMallocPostDom(CallSite CS) {
     return false;
   case AKS_NotFree:
     if (analyzeForMallocStatus(F)) {
+      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
       LocalMap[F] = AKS_Malloc;
       return true;
     }
@@ -947,6 +949,7 @@ bool DTransAllocAnalyzer::isMallocPostDom(CallSite CS) {
     return false;
   case AKS_Unknown:
     if (analyzeForMallocStatus(F)) {
+      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
       LocalMap[F] = AKS_Malloc;
       return true;
     }
@@ -982,6 +985,7 @@ bool DTransAllocAnalyzer::isFreePostDom(CallSite CS) {
     return false;
   case AKS_NotMalloc:
     if (analyzeForFreeStatus(F)) {
+      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
       LocalMap[F] = AKS_Free;
       return true;
     }
@@ -989,6 +993,7 @@ bool DTransAllocAnalyzer::isFreePostDom(CallSite CS) {
     return false;
   case AKS_Unknown:
     if (analyzeForFreeStatus(F)) {
+      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
       LocalMap[F] = AKS_Free;
       return true;
     }
@@ -1320,7 +1325,7 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   // after visitNullPtrBlocks() is run.
   VisitedBlocks.clear();
   SkipTestBlocks.clear();
-  if (std::distance(F->arg_begin(), F->arg_end()) != 1 ||
+  if (F->arg_size() != 1 ||
       !F->arg_begin()->getType()->isIntegerTy()) {
     return false;
   }
@@ -1439,19 +1444,80 @@ bool DTransAllocAnalyzer::hasFreeCall(BasicBlock *BB) const {
 }
 
 //
+// Checks all uses of 'free' and 'malloc' functions.
+// Only uses in InvokeInst and CallInst are checked.
+//
+// This approach allows to classify all functions, which call system memory
+// management routines, in advance and to avoid on-demand classification.
+//
+// TODO: Later it will be possible to classify user memory management functions
+// calling other user management functions.
+//
+void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
+  // TODO: compute closure.
+  for (auto &F : M.getFunctionList()) {
+    // Find some call/invoke of F.
+    ImmutableCallSite CS;
+    for (auto &U : F.uses())
+      if (auto Tmp = ImmutableCallSite(U.getUser())) {
+        CS = Tmp;
+        break;
+      }
+
+    // No calls/invokes.
+    if (!CS)
+      continue;
+
+    // Deal with free.
+    if (dtrans::isFreeFn(CS, TLI)) {
+      // Check all functions, calling free function F.
+      for (auto &U : F.uses())
+        if (ImmutableCallSite(U.getUser())) {
+          // Function calling F.
+          auto *FreeCand =
+              cast<Instruction>(U.getUser())->getParent()->getParent();
+          if (analyzeForFreeStatus(FreeCand))
+            LocalMap[FreeCand] = AKS_Free;
+        }
+      continue;
+    }
+
+    // Deal with malloc/new
+    auto Kind = dtrans::getAllocFnKind(CS, TLI);
+    if (Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New) {
+      // Check all functions, calling malloc/new function F.
+      for (auto &U : F.uses())
+        if (ImmutableCallSite(U.getUser())) {
+          // Function calling F.
+          auto *MallocCand =
+              cast<Instruction>(U.getUser())->getParent()->getParent();
+          if (analyzeForMallocStatus(MallocCand))
+            LocalMap[MallocCand] = AKS_Malloc;
+        }
+      continue;
+    }
+  }
+}
+
+//
 // Return true if 'BB' contains or is dominated by a call to free()
 // on all predecessors.
 //
-bool DTransAllocAnalyzer::isPostDominatedByFreeCall(BasicBlock *BB) {
+bool DTransAllocAnalyzer::isPostDominatedByFreeCall(BasicBlock *BB,
+                                                    bool &SeenFree) {
   bool rv = false;
   if (isVisitedBlock(BB))
     return false;
   VisitedBlocks.insert(BB);
   bool IsSkipTestBlock = isSkipTestBlock(BB);
-  if (IsSkipTestBlock || hasFreeCall(BB))
+  if (IsSkipTestBlock)
     return true;
+  if (hasFreeCall(BB)) {
+    SeenFree = true;
+    return true;
+  }
   for (BasicBlock *PB : predecessors(BB)) {
-    if (!isPostDominatedByFreeCall(PB))
+    if (!isPostDominatedByFreeCall(PB, SeenFree))
       return false;
     rv = true;
   }
@@ -1484,12 +1550,13 @@ bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
                           << " Return is not nullptr\n");
         return false;
       }
-      if (!isPostDominatedByFreeCall(&BB)) {
+      bool SeenFree = false;
+      if (!isPostDominatedByFreeCall(&BB, SeenFree)) {
         LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
                           << " Return is not post-dominated by call to free\n");
         return false;
       }
-      rv = true;
+      rv = SeenFree;
     }
   if (rv)
     LLVM_DEBUG(dbgs() << "Is FreePostDom " << F->getName() << "\n");
@@ -7275,6 +7342,8 @@ bool DTransAnalysisInfo::analyzeModule(
     return false;
 
   DTransAllocAnalyzer DTAA(TLI, M);
+  DTAA.populateAllocDeallocTable(M);
+
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
                             GetBFI);
   parseIgnoreList();
