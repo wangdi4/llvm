@@ -136,6 +136,34 @@ CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
 
 CSATargetMachine::~CSATargetMachine() {}
 
+const CSASubtarget *
+CSATargetMachine::getSubtargetImpl(const Function &F) const {
+  Attribute CPUAttr = F.getFnAttribute("target-cpu");
+  Attribute FSAttr = F.getFnAttribute("target-features");
+
+  StringRef CPU = !CPUAttr.hasAttribute(Attribute::None)
+                      ? CPUAttr.getValueAsString()
+                      : (StringRef)TargetCPU;
+  StringRef FS = !FSAttr.hasAttribute(Attribute::None)
+                      ? FSAttr.getValueAsString()
+                      : (StringRef)TargetFS;
+
+  SmallString<512> Key;
+  Key.reserve(CPU.size() + FS.size());
+  Key += CPU;
+  Key += FS;
+
+  auto &I = SubtargetMap[Key];
+  if (!I) {
+    // This needs to be done before we create a new subtarget since any
+    // creation will depend on the TM and the code generation flags on the
+    // function that reside in TargetOptions.
+    resetTargetOptions(F);
+    I = llvm::make_unique<CSASubtarget>(TargetTriple, CPU, FS, *this);
+  }
+  return I.get();
+}
+
 namespace {
 /// CSA Code Generator Pass Configuration Options.
 class CSAPassConfig : public TargetPassConfig {
@@ -434,4 +462,8 @@ bool CSATargetMachine::addPassesToEmitFile(
 
   PM.add(createFreeMachineFunctionPass());
   return false;
+}
+
+bool llvm::shouldRunDataflowPass(const MachineFunction &MF) {
+  return !MF.getSubtarget<CSASubtarget>().isSequential();
 }

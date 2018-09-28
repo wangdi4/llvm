@@ -372,6 +372,9 @@ INITIALIZE_PASS_END(CSAOptDFPass, DEBUG_TYPE, PASS_NAME, false, false)
 
 
 bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
 
   if (OptDFPass == 0)
     return false;

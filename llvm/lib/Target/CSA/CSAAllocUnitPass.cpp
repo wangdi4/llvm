@@ -124,7 +124,8 @@ bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
 
   // Code starts out on the sequential unit
-  bool isSequential = !(csa_utils::isAlwaysDataFlowLinkageSet());
+  bool isDataflowFunc = !MF.getSubtarget<CSASubtarget>().isSequential();
+  bool isSequential = !isDataflowFunc;
 
   for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
     //    DEBUG(errs() << "Basic block (name=" << BB->getName() << ") has "
@@ -132,7 +133,9 @@ bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
 
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr *MI = &*I;
-      // DEBUG(errs() << *I << "\n");
+      // Ignore debug values for unit allocation.
+      if (MI->isDebugValue())
+        continue;
 
       if (UseAutounit) {
 
@@ -203,7 +206,7 @@ bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
     // the block) will be on the sxu, even if later instructions are not.
     // (Basically, block boundaries represent flow control, and flow control
     // MUST be on the sequential unit...)
-    if (!isSequential && !(csa_utils::isAlwaysDataFlowLinkageSet())) {
+    if (!isSequential && !isDataflowFunc) {
       BuildMI(*BB, BB->end(), DebugLoc(), TII.get(CSA::UNIT))
         .addImm(CSA::FUNCUNIT::SXU);
       isSequential = true;

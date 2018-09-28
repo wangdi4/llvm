@@ -435,8 +435,6 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
    */
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const CSATargetMachine *CSATM = static_cast<const CSATargetMachine *>(&TM);
-  assert(CSATM && CSATM->getSubtargetImpl());
   if (CSAInstPrinter::WrapCsaAsm()) {
     EmitCsaCodeSection();
 
@@ -458,8 +456,6 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
     startCSAAsmString(*OutStreamer);
     O << "\t.text\n";
   }
-  O << "\t# .processor "; // note - commented out...
-  O << CSATM->getSubtargetImpl()->csaName() << "\n";
   O << "\t.version 0,6,0\n";
   // This should probably be replaced by code to handle externs
   O << "\t.set implicitextern\n";

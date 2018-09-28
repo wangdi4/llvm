@@ -1176,6 +1176,9 @@ MachineFunctionPass *llvm::createCSAMemopOrderingPass() {
 }
 
 bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
   // Query the command line to check if this should be set.
   MemopRC = csa_utils::isAlwaysDataFlowLinkageSet() ? &CSA::CI0RegClass :
     &CSA::I0RegClass;

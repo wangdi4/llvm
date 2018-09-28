@@ -117,6 +117,9 @@ MachineFunctionPass *llvm::createCSADataflowCanonicalizationPass() {
 
 bool CSADataflowCanonicalizationPass::runOnMachineFunction(
   MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
   this->MF = &MF;
   MRI      = &MF.getRegInfo();
   LMFI     = MF.getInfo<CSAMachineFunctionInfo>();

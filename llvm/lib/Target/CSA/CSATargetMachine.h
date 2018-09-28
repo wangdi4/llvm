@@ -39,6 +39,7 @@ void initializeControlDependenceGraphPass(PassRegistry &);
 
 class CSATargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
+  mutable StringMap<std::unique_ptr<CSASubtarget>> SubtargetMap;
   CSASubtarget Subtarget;
 
   bool addAsmPrinterWithAsmWrapping(PassManagerBase &PM, raw_pwrite_stream &Out,
@@ -53,10 +54,8 @@ public:
                    CodeGenOpt::Level OL, bool JIT);
   ~CSATargetMachine() override;
 
-  const CSASubtarget *getSubtargetImpl(const Function &) const override {
-    return &Subtarget;
-  }
-  const CSASubtarget *getSubtargetImpl() const { return &Subtarget; }
+  const CSASubtarget *getSubtargetImpl(const Function &) const override;
+  const CSASubtarget *getSubtargetImpl() const = delete;
 
   TargetPassConfig *createPassConfig(legacy::PassManagerBase &PM) override;
 

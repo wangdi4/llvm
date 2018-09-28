@@ -30,29 +30,31 @@ include "CSAInstrFormats.td"
 // CSA Instruction Predicate Definitions
 //===----------------------------------------------------------------------===//
 
-def IsOrdered    : Predicate<"Subtarget.isOrdered()">;
-def HasI0        : Predicate<"Subtarget.hasI0()">;
-def HasI1        : Predicate<"Subtarget.hasI1()">;
-def HasI8        : Predicate<"Subtarget.hasI8()">;
-def HasI16       : Predicate<"Subtarget.hasI16()">;
-def HasI32       : Predicate<"Subtarget.hasI32()">;
-def HasI64       : Predicate<"Subtarget.hasI64()">;
-def HasF16       : Predicate<"Subtarget.hasF16()">;
-def HasF32       : Predicate<"Subtarget.hasF32()">;
-def HasF64       : Predicate<"Subtarget.hasF64()">;
-def HasSextL     : Predicate<"Subtarget.hasSextL()">;
-def HasDispl     : Predicate<"Subtarget.hasDispl()">;
-def HasIndex     : Predicate<"Subtarget.hasIndex()">;
-def HasShAdd     : Predicate<"Subtarget.hasShAdd()">;
-def HasBitOp     : Predicate<"Subtarget.hasBitOp()">;
-def HasIDiv      : Predicate<"Subtarget.hasIDiv()">;
-def HasFDiv      : Predicate<"Subtarget.hasFDiv()">;
-def HasFMA       : Predicate<"Subtarget.hasFMA()">;
-def HasRcpA      : Predicate<"Subtarget.hasRcpA()">;
-def HasRSqrtA    : Predicate<"Subtarget.hasRSqrtA()">;
-def HasSqrt      : Predicate<"Subtarget.hasSqrt()">;
-def HasMath0     : Predicate<"Subtarget.hasMath0()">;
-def HasRMWAtomic : Predicate<"Subtarget.hasRMWAtomic()">;
+def IsOrdered    : Predicate<"Subtarget->isOrdered()">;
+def HasI0        : Predicate<"Subtarget->hasI0()">;
+def HasI1        : Predicate<"Subtarget->hasI1()">;
+def HasI8        : Predicate<"Subtarget->hasI8()">;
+def HasI16       : Predicate<"Subtarget->hasI16()">;
+def HasI32       : Predicate<"Subtarget->hasI32()">;
+def HasI64       : Predicate<"Subtarget->hasI64()">;
+def HasF16       : Predicate<"Subtarget->hasF16()">;
+def HasF32       : Predicate<"Subtarget->hasF32()">;
+def HasF64       : Predicate<"Subtarget->hasF64()">;
+def HasSextL     : Predicate<"Subtarget->hasSextL()">;
+def HasDispl     : Predicate<"Subtarget->hasDispl()">;
+def HasIndex     : Predicate<"Subtarget->hasIndex()">;
+def HasShAdd     : Predicate<"Subtarget->hasShAdd()">;
+def HasBitOp     : Predicate<"Subtarget->hasBitOp()">;
+def HasIDiv      : Predicate<"Subtarget->hasIDiv()">;
+def HasFDiv      : Predicate<"Subtarget->hasFDiv()">;
+def HasFMA       : Predicate<"Subtarget->hasFMA()">;
+def HasRcpA      : Predicate<"Subtarget->hasRcpA()">;
+def HasRSqrtA    : Predicate<"Subtarget->hasRSqrtA()">;
+def HasSqrt      : Predicate<"Subtarget->hasSqrt()">;
+def HasMath0     : Predicate<"Subtarget->hasMath0()">;
+def HasRMWAtomic : Predicate<"Subtarget->hasRMWAtomic()">;
+def IsSequential : Predicate<"Subtarget->isSequential()">;
+def IsDataflow   : Predicate<"!Subtarget->isSequential()">;
 
 //===----------------------------------------------------------------------===//
 // CSA Operand Definitions.

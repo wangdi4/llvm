@@ -29,6 +29,12 @@ def FeatureSpec    : SubtargetFeature<"speculation", "CanSpeculate", "true",
                             "ordering edges, so ordering by data dependencies "
                             "is not sufficient.">;
 
+// This controls whether code is run on the SXU or on the dataflow array. It is
+// meant to be applied on a per-function level rather than a global basis.
+def FeatureSXU     : SubtargetFeature<"sequential", "IsSequential", "true",
+                            "Instructions run on a sequential unit instead of "
+                            "on a dataflow execution array.">;
+
 // Operation type features
 // Not all of these can reasonably be disabled currently.   The intent
 // is to have infrastructure allow selective control for experimentation

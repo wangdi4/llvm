@@ -793,6 +793,9 @@ void CSAProcCallsPass::changeMovConstToGate(unsigned entry_mem_ord_lic) {
 }
 
 bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
   thisMF = &MF;
   LLVM_DEBUG(errs() << "Entering into CSA Procedure Calls Pass for " << MF.getFunction().getName() << "\n");
   if (ProcCallsPass == 0) return false;

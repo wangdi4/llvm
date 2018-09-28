@@ -90,6 +90,9 @@ CSAMultiSeq::CSAMultiSeq() : MachineFunctionPass(ID) {
 MachineFunctionPass *llvm::createCSAMultiSeqPass() { return new CSAMultiSeq(); }
 
 bool CSAMultiSeq::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
   if (CSAMultiSeqPass == 0)
     return false;
   auto &ORE = getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();

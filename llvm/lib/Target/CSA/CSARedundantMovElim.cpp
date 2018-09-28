@@ -552,6 +552,9 @@ void CSARedundantMovElim::disconnectMovInstr(MachineInstr &MI) {
 }
 
 bool CSARedundantMovElim::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
   // Eliminate redundant MOV instructions in the specified machine
   // function.  Return true if any changes were made.
 

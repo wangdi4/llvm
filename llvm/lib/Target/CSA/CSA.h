@@ -53,6 +53,8 @@ Pass *createCSAInnerLoopPrepPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);
 Pass *createCSAStreamingMemoryPrepPass();
 
+bool shouldRunDataflowPass(const MachineFunction &MF);
+
 } // namespace llvm
 
 #endif

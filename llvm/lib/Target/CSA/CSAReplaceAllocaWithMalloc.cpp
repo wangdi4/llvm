@@ -74,7 +74,7 @@ struct CSAReplaceAllocaWithMalloc : public ModulePass {
   static char ID;
 
   explicit CSAReplaceAllocaWithMalloc(CSATargetMachine &TM) : ModulePass(ID),
-                                                              ST(*TM.getSubtargetImpl()) {}
+                                                              TM(TM) {}
   StringRef getPassName() const override { return PASS_DESC; }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -84,7 +84,7 @@ struct CSAReplaceAllocaWithMalloc : public ModulePass {
   bool runOnModule(Module &M) override;
 private:
   std::set<Instruction *> ToDelete;
-  const CSASubtarget &ST;
+  const CSATargetMachine &TM;
   void coalesceMallocs(Function &F, Function *CSAMalloc, Function *CSAFree, ReturnInst *RI);
   void addToDelete(Instruction *I) { ToDelete.insert(I); }
   void deleteInstructions(void) {
@@ -321,7 +321,7 @@ static Function *getLoweredFunc(CallInst *CI, const Module &M) {
 
 // This deletes all unused math library functions
 static void deleteUnusedMathFunctions(Module &M, Function *CSAMalloc,
-                                     Function *CSAFree, Function *CSAInitialize, const CSASubtarget &ST) {
+                                     Function *CSAFree, Function *CSAInitialize, const CSATargetMachine &TM) {
   SmallSet<Constant *, 32> FuncsMarkedAsUsed;
   SmallVector<Constant *, 32> FuncsMarkedAsUsed_V;
   SmallVector<Function *, 32> FuncsToDelete;
@@ -360,7 +360,7 @@ static void deleteUnusedMathFunctions(Module &M, Function *CSAMalloc,
     if (Function *F = dyn_cast<Function>(UsedList->getOperand(i)->stripPointerCasts())) {
       // The function will be marked for deletion if it is not any of the csa_mem* functions
       // and (if it is not called anywhere or if the Math0 option for CSA subtarget is turned on)
-      if (F != CSAMalloc && F != CSAFree && F != CSAInitialize && (FuncsMarkedAsUsed.count(UsedList->getOperand(i)) == 0 || ST.hasMath0())) {
+      if (F != CSAMalloc && F != CSAFree && F != CSAInitialize && (FuncsMarkedAsUsed.count(UsedList->getOperand(i)) == 0 || TM.getSubtargetImpl(*F)->hasMath0())) {
         FuncsToDelete.push_back(F);
       } else {
         FuncsMarkedAsUsed_V.push_back(UsedList->getOperand(i));
@@ -399,9 +399,10 @@ static void deleteUnusedMathFunctions(Module &M, Function *CSAMalloc,
 
 // This function looks at all math library related llvm intrinsics and replaces them with a
 // call to the appropriate math library function, if one is available
-static void processIntrinsicMathFunctionCalls(Module &M, const CSASubtarget &ST) {
-  if (ST.hasMath0()) return; // No need to process intrinsics when Math0 support is turned on
+static void processIntrinsicMathFunctionCalls(Module &M, const CSATargetMachine &TM) {
   for (auto &F : M) {
+    if (TM.getSubtargetImpl(F)->hasMath0())
+      continue;
     for (BasicBlock &BB : F) {
       for (auto II = std::begin(BB), E = std::end(BB); II != E;) {
         Instruction *I = &*II;
@@ -433,9 +434,9 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
 
   // delete all math functions from llvm.used if Math0 is enabled
   // delete only unused math functions from llvm.used if Math0 is disabled
-  deleteUnusedMathFunctions(M,CSAMalloc,CSAFree,CSAInitialize,ST);
+  deleteUnusedMathFunctions(M,CSAMalloc,CSAFree,CSAInitialize, TM);
 
-  processIntrinsicMathFunctionCalls(M,ST);
+  processIntrinsicMathFunctionCalls(M, TM);
   // Delete csa_mem* functions if SXU linkage selected or if there is no stack required
   if (!csa_utils::isAlwaysDataFlowLinkageSet()) {
     LLVM_DEBUG(errs() << "Data flow linkage not set\n");

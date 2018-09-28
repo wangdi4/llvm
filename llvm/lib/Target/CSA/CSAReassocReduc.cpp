@@ -116,6 +116,9 @@ MachineFunctionPass *llvm::createCSAReassocReducPass() {
 }
 
 bool CSAReassocReduc::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
   TII  = static_cast<const CSAInstrInfo *>(MF.getSubtarget().getInstrInfo());
   LMFI = MF.getInfo<CSAMachineFunctionInfo>();
   MRI  = &MF.getRegInfo();

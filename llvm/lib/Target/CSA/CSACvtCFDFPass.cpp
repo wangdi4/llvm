@@ -109,6 +109,9 @@ void CSACvtCFDFPass::replacePhiWithPICK() {
 
 
 bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
 
   if (CvtCFDFPass == 0)
     return false;

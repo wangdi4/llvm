@@ -74,6 +74,8 @@ char CSANormalizeDebug::ID = 0;
 INITIALIZE_PASS(CSANormalizeDebug, DEBUG_TYPE, PASS_NAME, false, false)
 
 bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
 
   if (skipFunction(MF.getFunction()))
     return false;

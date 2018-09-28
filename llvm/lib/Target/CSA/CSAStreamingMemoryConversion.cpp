@@ -97,6 +97,9 @@ MachineFunctionPass *llvm::createCSAStreamingMemoryConversionPass() {
 
 bool CSAStreamingMemoryConversionPass::runOnMachineFunction(
   MachineFunction &MF) {
+  if (!shouldRunDataflowPass(MF))
+    return false;
+
   if (DisableMemoryConversion)
     return false;
 
