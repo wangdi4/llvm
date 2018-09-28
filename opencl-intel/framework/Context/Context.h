@@ -412,13 +412,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~Context();
 
         cl_ulong    GetMaxMemAllocSize();
-        cl_err_code GetMaxImageDimensions(  size_t * psz2dWidth, 
-                                            size_t * psz2dHeight, 
-                                            size_t * psz3dWidth, 
-                                            size_t * psz3dHeight, 
-                                            size_t * psz3dDepth,
-                                            size_t * pszArraySize,
-                                            size_t * psz1dImgBufSize);
+        cl_err_code GetMaxImageDimensions(  size_t &psz2dWidth,
+                                            size_t &psz2dHeight,
+                                            size_t &psz3dWidth,
+                                            size_t &psz3dHeight,
+                                            size_t &psz3dDepth,
+                                            size_t &pszArraySize,
+                                            size_t &psz1dImgBufSize);
 
         /**
          * Compate against UNION of all device capabilities in the context (see clGetSupportedImageFormats).
