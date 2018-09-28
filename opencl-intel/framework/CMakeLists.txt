@@ -127,8 +127,8 @@ if (WIN32)
     set_target_properties (${TARGET_NAME} PROPERTIES
         LINK_FLAGS_DEBUG  "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
     list( APPEND LINK_LIBS delayimp.lib )
-else (WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
 endif (WIN32)
+
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

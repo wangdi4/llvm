@@ -76,6 +76,6 @@ if (WIN32)
             LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} ocltbbmalloc32_debug.lib ocltbb32_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc32_debug.dll /DELAYLOAD:ocltbb32_debug${TBB_BINARIES_POSTFIX}.dll"
             LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} ocltbbmalloc32.lib ocltbb32${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc32.dll  /DELAYLOAD:ocltbb32${TBB_BINARIES_POSTFIX}.dll")
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-else ()
-    SET_LINUX_EXPORTS_FILE (${TARGET_NAME} task_executor_linux_exports.txt)
 endif(WIN32)
+
+SET_LINUX_EXPORTS_FILE (${TARGET_NAME} task_executor_linux_exports.txt)
