@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===-- VPO/Paropt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -79,6 +79,8 @@ enum AddressSpace {
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 
+class VPOParoptModuleTransform;
+
 /// \brief Provide all functionalities to perform paropt threadization
 /// such as outlining, privatization, loop partitioning, multithreaded
 /// code generation.
@@ -86,13 +88,14 @@ class VPOParoptTransform {
 
 public:
   /// \brief ParoptTransform object constructor
-  VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
+  VPOParoptTransform(VPOParoptModuleTransform *MT,
+                     Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
                      const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
                      unsigned OptLevel = 2, bool SwitchToOffload = false)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
-        AA(AA), Mode(Mode), OptLevel(OptLevel),
+      : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
+        TLI(TLI), AA(AA), Mode(Mode), OptLevel(OptLevel),
         SwitchToOffload(SwitchToOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
@@ -105,6 +108,10 @@ public:
   bool paroptTransforms();
 
 private:
+  /// A reference to the parent module transform object. It can be NULL if
+  /// paropt transform is construted from a function pass.
+  VPOParoptModuleTransform *MT;
+
   /// \brief The W-regions in the function F are to be transformed
   Function *F;
 
