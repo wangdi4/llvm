@@ -772,9 +772,15 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
         } else {
           // handle calls to user-functions here
           assert(Call->getCalledFunction() && "Indirect function call?");
-          Value *&FuncReplacement = VMap[Call->getCalledFunction()];
+          Value *&FuncReplacementIt = VMap[Call->getCalledFunction()];
+          // FuncReplacementIt must be used only to save result of
+          // createUserFunctionStub. Further usages may result in segfaults due
+          // to invalid value of FuncReplacement. This may occur if VMap is
+          // re-allocated: all references to it's keys is going to be
+          // invalidated.
+          Value *FuncReplacement = FuncReplacementIt;
           if (!FuncReplacement)
-            FuncReplacement =
+            FuncReplacement = FuncReplacementIt =
                 createUserFunctionStub(Call, ChannelTy, Pipe->getType());
 
           replaceLocalChannelUses(cast<Function>(FuncReplacement), ChannelTy,
