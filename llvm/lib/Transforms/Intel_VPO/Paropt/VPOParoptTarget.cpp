@@ -296,7 +296,7 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
   if (!W->canHaveIsDevicePtr())
     return;
 
-  IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+  IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
   if (IDevicePtrClause.empty())
     return;
 
@@ -386,7 +386,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
   }
 
   if (W->canHaveIsDevicePtr()) {
-    IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+    IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getNew() != V)
         continue;
@@ -1111,7 +1111,7 @@ bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
   bool Changed = false;
   if (!W->canHaveIsDevicePtr())
     return Changed;
-  IsDevicePtrClause IDevicePtrClause = W->getIsDevicePtr();
+  IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
   if (!IDevicePtrClause.empty()) {
     W->populateBBSet();
     BasicBlock *EntryBB = W->getEntryBBlock();
