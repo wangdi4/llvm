@@ -241,6 +241,7 @@ def XPHI : Instruction {
 
 // These are target-independent nodes, but have target-specific formats.
 def SDT_CSACall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_CSAReturn       : SDTypeProfile<0, -1, []>;
 def SDT_CSACallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 def SDT_CSACallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 
@@ -251,7 +252,8 @@ def SDT_CSAMinMax       : SDTypeProfile<
   2, 2, [SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisVT<1, i1>]
 >;
 
-def CSARet : SDNode<"CSAISD::Ret", SDTNone,
+
+def CSARet : SDNode<"CSAISD::Ret", SDT_CSAReturn,
     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 // Call
@@ -314,11 +316,12 @@ def CSA_CONTINUE : PseudoInstCSA<
     "csa_continue",
     []>;
 
+let isReturn=1, isTerminator=1, isBarrier=1, Itinerary=IICtl in
 def CSA_RETURN : PseudoInstCSA<
     (outs),
-    (ins calltarget:$caller_cont_point, I64:$context, MemOrdUse:$mem_ord, variable_ops),
+    (ins CI0:$mem_ord, variable_ops),
     "csa_return",
-    []>;
+    [(CSARet CI0:$mem_ord)], [IsDataflow]>;
     
 class MovOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
@@ -837,7 +840,7 @@ def RET : FMTGEN<?, ?,
     (outs),
     (ins),
     "ret\t%ra",         // implicit use of RA
-    [(CSARet)]>;
+    [(CSARet)], [/*IsSequential*/]>;
 
 let isBranch=1, isTerminator=1, isBarrier=1, Itinerary = IICtl in
 def JMP : FMTGEN<?, ?,

@@ -1484,6 +1484,20 @@ CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                const SmallVectorImpl<ISD::OutputArg> &Outs,
                                const SmallVectorImpl<SDValue> &OutVals,
                                const SDLoc &dl, SelectionDAG &DAG) const {
+  // If we are lowering for a dataflow function, pass the output values to the
+  // return value directly.
+  MachineFunction &MF = DAG.getMachineFunction();
+  // FIXME: Until we implement proper sequential/dataflow lowering, use the
+  // -csa-df-calls=0 gate here.
+  if (!MF.getSubtarget<CSASubtarget>().isSequential() &&
+      csa_utils::isAlwaysDataFlowLinkageSet()) {
+    CSAMachineFunctionInfo *LMFI = MF.getInfo<CSAMachineFunctionInfo>();
+    unsigned outputMemoryLic = LMFI->getOutMemoryLic();
+    SmallVector<SDValue, 4> RetOps(1, Chain);
+    RetOps.push_back(DAG.getCopyFromReg(Chain, dl, outputMemoryLic, MVT::i1));
+    RetOps.append(OutVals.begin(), OutVals.end());
+    return DAG.getNode(CSAISD::Ret, dl, MVT::Other, RetOps);
+  }
 
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
@@ -1493,9 +1507,6 @@ CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                  *DAG.getContext());
 
   // Analize return values.
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-	  CCInfo.AnalyzeReturn(Outs, RetCC_LIC_CSA);
-  else
   CCInfo.AnalyzeReturn(Outs, RetCC_Reg_CSA);
   SDValue Flag;
   SmallVector<SDValue, 4> RetOps(1, Chain);

@@ -27,7 +27,8 @@ CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
       nameCounter(0),
       FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
   InMemoryLic = allocateLIC(&CSA::CI0RegClass, "in_ctl");
-  OutMemoryLic = allocateLIC(&CSA::RI1RegClass, "out_ctl");
+  OutMemoryLic = allocateLIC(csa_utils::isAlwaysDataFlowLinkageSet() ?
+      &CSA::CI0RegClass : &CSA::RI1RegClass, "out_ctl");
 }
 
 CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {}

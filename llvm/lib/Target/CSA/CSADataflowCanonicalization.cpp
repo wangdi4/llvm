@@ -414,6 +414,11 @@ bool CSADataflowCanonicalizationPass::stopPipingLiterals(MachineInstr *MI) {
   };
 
   auto safeToUseLiteral = [=](const MachineInstr &use) {
+    // These pseudo-instructions do not accept literals for obvious reasons.
+    if (use.getOpcode() == CSA::CSA_RETURN ||
+        use.getOpcode() == CSA::CSA_CALL)
+      return false;
+
     switch (TII->getGenericOpcode(use.getOpcode())) {
     case CSA::Generic::ANY:
     case CSA::Generic::PICKANY:

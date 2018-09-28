@@ -510,108 +510,28 @@ static MachineInstr *getLastMI(MachineFunction *MF) {
 }
 
 MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
-  MachineInstr *copyMI;
   MachineInstr *lastMI = getLastMI(thisMF);
   if (!lastMI || !lastMI->isReturn()) return nullptr;
-  unsigned reg;
-  unsigned reg1 = LMFI->allocateLIC(&CSA::CI0RegClass, Twine("callee_out_caller_mem_ord"));
-  MachineInstrBuilder MIB = BuildMI(*(lastMI->getParent()), lastMI, lastMI->getDebugLoc(), TII->get(CSA::CSA_RETURN))
-                                    .addReg(reg1);
-  MachineInstr *MI = &*MIB;
-  // Looking at implicit operands of RETURN instruction
-  // THese are values being returned
-  for (auto op : lastMI->implicit_operands()) {
-    reg = op.getReg();
-    bool outerLoop = true;
-    // Find the copy instruction that defines this operand in the RETURN instruction
-    for (MachineFunction::reverse_iterator MBB = thisMF->rbegin(), E = thisMF->rend(); (MBB != E) && outerLoop; ++MBB) {
-      for (MachineBasicBlock::reverse_iterator I = MBB->rbegin(); (I != MBB->rend()) && outerLoop; ++I) {
-        MachineInstr *currMI = &*I;
-        // if result of callee code is directly returned by the RET instruction
-        // i.e 
-        // JSRi @tan,<parameter list>
-        // (..no def or use of p64_0...)
-        // RET p64_0
-        // Since this code relies on separate LICs 
-        // for caller RET values and Callee RET values
-        // We need to introduce copies
-        // All these changes should be replaced by performing call
-        // lowering to the correct DF instruction at ISelLowering
-        if ((currMI->getOpcode() == CSA::JSR) || (currMI->getOpcode() == CSA::JSRi)) {
-          unsigned newCallReturnReg = LMFI->allocateLIC(&CSA::CI64RegClass, "call_to_ret_tmp");
-          MachineInstrBuilder MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
-                                      .addReg(reg,RegState::Define)
-                                      .addReg(newCallReturnReg)
-                                      .setMIFlag(MachineInstr::NonSequential);
-          copyMI = &*MIB;
-          MIB = BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
-                                      .addReg(newCallReturnReg,RegState::Define)
-                                      .addReg(reg)
-                                      .setMIFlag(MachineInstr::NonSequential);
-          outerLoop = false;
-          break;
-        } else {
-          for (unsigned i = 0; i < currMI->getNumOperands(); ++i) {
-            MachineOperand &top = currMI->getOperand(i);
-            if (top.isReg()) {
-              if (top.isDef() && top.getReg() == reg) {
-                copyMI = currMI;
-                outerLoop = false;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-    unsigned returnReg;
-    if (copyMI->getOpcode() != CSA::RET) {
-      returnReg = copyMI->getOperand(1).getReg();
-      assert(copyMI && copyMI->getOpcode() == CSA::MOV64);
-      // Sometimes return reg is one of the parameters. We need to handle this
-      bool isParam = false;
-      for (unsigned i = 0; i < entryMI->getNumOperands(); ++i) {
-        unsigned reg = entryMI->getOperand(i).getReg();
-        if (reg == returnReg) { isParam = true; break; }
-      }
-      if (isParam) {
-        StringRef name = thisMF->getFunction().getName();
-        const TargetRegisterClass *TRC = MRI->getRegClass(returnReg);
-        unsigned newReturnReg = LMFI->allocateLIC(TRC, "ret_val", Twine(name), true /*isDeclared*/, false/*isGloballyVisible*/);
-        BuildMI(*(MI->getParent()), MI, MI->getDebugLoc(), TII->get(CSA::MOV64))
-                                      .addReg(newReturnReg,RegState::Define)
-                                      .addReg(returnReg)
-                                      .setMIFlag(MachineInstr::NonSequential);
-        MIB.addReg(newReturnReg);
-      }
-      else
-        MIB.addReg(returnReg);
-    }
-    copyMI->eraseFromParent();
-  }
+  assert(lastMI->getOpcode() == CSA::CSA_RETURN &&
+      "Instruction selection did not use the right function lowering");
+  LMFI->setReturnMI(lastMI);
 
-  if (lastMI) lastMI->eraseFromParent();
-  MI->setFlag(MachineInstr::NonSequential);
-  LLVM_DEBUG(errs() << "Return instruction = " << *MI << "\n");
-
-  // Deal with input memory ordering edge also being used as returning memory ordering edge
-  MachineBasicBlock::reverse_iterator RI_BEGIN(MI);
-  for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != (MI->getParent())->rend(); I1++) {
-    copyMI = &*I1;
-    if (copyMI->getOpcode() != CSA::MOV0) continue;
-    if (!copyMI->getOperand(0).isReg()) continue;
-    if (copyMI->getOperand(0).getReg() != CSA::R0) continue;
-    if (copyMI->getOperand(1).getReg() == entryMI->getOperand(0).getReg()) {
-      copyMI->getOperand(0).setReg(MI->getOperand(0).getReg());
-      copyMI->setFlag(MachineInstr::NonSequential);
-    } else {
-      MRI->replaceRegWith(copyMI->getOperand(1).getReg(), MI->getOperand(0).getReg());
-      copyMI->eraseFromParent();
+  // Check to make sure we don't have any use from the entry instruction.
+  for (auto &Op : lastMI->operands()) {
+    assert(Op.isReg() && "CSA_RETURN must have register operands");
+    unsigned Reg = Op.getReg();
+    if (MRI->getUniqueVRegDef(Reg) == entryMI) {
+      unsigned NewReg = LMFI->allocateLIC(MRI->getRegClass(Reg));
+      // Insert a move.
+      BuildMI(*lastMI->getParent(), lastMI, lastMI->getDebugLoc(),
+          TII->get(TII->makeOpcode(CSA::Generic::MOV, MRI->getRegClass(Reg))),
+          NewReg)
+        .addReg(Reg)
+        .setMIFlag(MachineInstr::NonSequential);
+      Op.setReg(NewReg);
     }
-    break;
   }
-  LMFI->setReturnMI(MI);
-  return MI;
+  return lastMI;
 }
 
 void CSAProcCallsPass::addCallAndContinueInstructions(void) {
