@@ -348,7 +348,7 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
       case LDPO_EXEC: // .exe
         IsExecutable = true;
 #if INTEL_CUSTOMIZATION
-        SetLinkingExecutable(true);
+        setLinkingExecutable(true);
 #endif // INTEL_CUSTOMIZATION
         RelocationModel = Reloc::Static;
         break;

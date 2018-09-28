@@ -22,8 +22,12 @@
 
 namespace llvm {
 
-void SetWholeProgramRead(bool ProgramRead);
-void SetLinkingExecutable(bool LinikingExe);
+void setWholeProgramRead(bool ProgramRead);
+void setLinkingExecutable(bool LinikingExe);
+
+// Set if the LTO process found that all symbols
+// have hidden visibility
+void setVisibilityHidden(bool AllSymbolsHidden);
 
 // It handles actual analysis and results of whole program analysis.
 class WholeProgramInfo {
@@ -42,6 +46,10 @@ private:
   SetVector<const Function *> LibFuncsFound;
   SetVector<const Function *> LibFuncsNotFound;
   SetVector<const Function *> ExternalSymbols;
+
+  // Return true if all symbols have hidden visibility, else
+  // return false.
+  bool isWholeProgramHidden();
 
 public:
   WholeProgramInfo();

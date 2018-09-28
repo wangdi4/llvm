@@ -319,9 +319,31 @@ private:
     std::string IRName;
 
 #if INTEL_CUSTOMIZATION
+
+    // Indentify is the current global is available in the library function
+    // or runtime library call tables.
+    enum LibcallKind {
+      // Initial value since the global haven't been checked
+      UnknownLibcall = 0,
+
+      // The global will be treated as library function (LibFunc)
+      LibFunc,
+
+      // The global will be considered as runtime library call
+      RuntimeLibcall,
+
+      // The current global is not a library function neither a
+      // runtime library call (e.g. user defined function).
+      NotLibcall,
+    };
+
     /// True if linker resolved the definition i.e. the definition is somewhere
     /// either in one of linked modules or one of linked libraries.
     bool ResolvedByLinker = false;
+
+    // True if the symbol is identified as a runtime library call or a
+    // function library call
+    unsigned Libcall = LibcallKind::UnknownLibcall;
 #endif // INTEL_CUSTOMIZATION
 
     /// Keep track if the symbol is visible outside of a module with a summary

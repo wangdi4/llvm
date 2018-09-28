@@ -1,7 +1,7 @@
 ; This test checks if whole program is seen when indirect calls are present.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-assume-executable -whole-program-assume-read -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-assume-executable -whole-program-assume-read -whole-program-assume-hidden -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:   FUNCTIONS UNRESOLVED: 0
 ; CHECK:   WHOLE PROGRAM DETECTED
