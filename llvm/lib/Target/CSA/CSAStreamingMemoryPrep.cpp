@@ -55,9 +55,13 @@ struct CSAStreamingMemoryPrep : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequiredID(LCSSAID);
+
+    // This pass does not strictly require neither dominator nor
+    // LCSSA analysis.  If they are available, though, then the pass
+    // preserves them.
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreservedID(LCSSAID);
     AU.setPreservesAll();
   }
 
@@ -74,7 +78,6 @@ struct CSAStreamingMemoryPrep : public FunctionPass {
 char CSAStreamingMemoryPrep::ID = 0;
 INITIALIZE_PASS_BEGIN(CSAStreamingMemoryPrep, "csa-streammem-prep", PASS_DESC,
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(CSAStreamingMemoryPrep, "csa-streammem-prep", PASS_DESC,
@@ -94,7 +97,8 @@ bool CSAStreamingMemoryPrep::runOnFunction(Function &F) {
     return Changed;
 
   LI            = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  DT            = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto *DTWP    = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
+  DT            = DTWP ? &DTWP->getDomTree() : nullptr;
   SE            = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   PreserveLCSSA = mustPreserveAnalysisID(LCSSAID);
 
