@@ -958,10 +958,17 @@ HLNodeUtils::createCallImpl(Function *Func,
   SmallVector<Value *, 8> Args;
 
   for (unsigned I = 0; I < NumArgs; I++) {
-    MetadataAsValue *Val = nullptr;
-    Args.push_back(CallArgs[I]->isMetadata(&Val)
-                       ? cast<Value>(Val)
-                       : UndefValue::get(CallArgs[I]->getDestType()));
+    MetadataAsValue *MVal = nullptr;
+    int64_t IVal = 0;
+
+    Value *Val = nullptr;
+    RegDDRef *Arg = CallArgs[I];
+    if (Arg->isMetadata(&MVal))
+      Val = MVal;
+    else if (Arg->isIntConstant(&IVal))
+      Val = cast<Value>(ConstantInt::getSigned(Arg->getSrcType(), IVal));
+
+    Args.push_back(Val ? Val : UndefValue::get(CallArgs[I]->getDestType()));
   }
   auto InstVal = DummyIRBuilder->CreateCall(
       Func, Args, HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");

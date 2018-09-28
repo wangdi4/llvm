@@ -1,5 +1,5 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation -hir-cg \
+; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation \
 ; RUN:     2>&1 | FileCheck %s
 ;
 ; Check that search loop idiom was vectorized.
