@@ -54,9 +54,7 @@ typedef enum memory_order
 #define CLK_ABGR              0x10C3
 
 // OpenCL v2.0 s6.13.16 - Pipe Functions
-// The most significant bit of valid reserve_id must be set to one.
-#define __PIPE_RESERVE_ID_VALID_BIT ((size_t)1 << (sizeof(size_t) * 8 - 1))
-#define CLK_NULL_RESERVE_ID (__builtin_astype((void *)0, reserve_id_t))
+#define CLK_NULL_RESERVE_ID (__builtin_astype((void *)__SIZE_MAX__, reserve_id_t))
 
 // OpenCL v2.0 s6.13.17 - Enqueue Kernels
 #define CL_COMPLETE                                 0x0
