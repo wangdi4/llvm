@@ -821,81 +821,34 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     return dyn_cast<StructType>(BaseTy);
   };
 
-  // This map records the result of whether or not a structure type has
-  // external dependencies for any type we've checked. If a type is in the
-  // map, we know whether or not it has a dependency on any type that is
-  // referenced by an extern function. If a type is not in the map, we will
-  // need to check and then add the result to the map.
-  DenseMap<StructType *, bool> ExternDependencyCache;
+  SmallPtrSet<StructType *, 32> ExternTypes;
 
-  // Start by priming the map with the types that are directly used by
-  // external functions.
+  std::function<void(StructType *)> addExternalType = [&](StructType *Ty) {
+    // If this type was already in the set, don't bother with its dependencies.
+    if (!ExternTypes.insert(Ty).second)
+      return;
+    // Add any structure types this type contains.
+    for (auto *MemberType : Ty->elements())
+      if (auto *ElemStTy = getContainedStructTy(MemberType))
+        addExternalType(ElemStTy);
+    // Add any types that depend on this type.
+    for (auto *DepTy : TypeToDependentTypes[Ty])
+      if (auto *DepStTy = dyn_cast<StructType>(DepTy))
+        addExternalType(DepStTy);
+  };
+
+  // Collect the types that are used by external functions and any types
+  // that depend on those types.
   for (Function &F : M) {
     if (F.isDeclaration()) {
       auto *FnTy = F.getFunctionType();
       if (auto *RetST = getContainedStructTy(FnTy->getReturnType()))
-        ExternDependencyCache[RetST] = true;
+        addExternalType(RetST);
       for (auto *ParamTy : FnTy->params())
         if (auto *ParamST = getContainedStructTy(ParamTy))
-          ExternDependencyCache[ParamST] = true;
+          addExternalType(ParamST);
     }
   }
-
-  std::function<bool(StructType *, SmallPtrSetImpl<StructType *> &, bool &)>
-      hasExternDependencyImpl = [&](StructType *Ty,
-                                    SmallPtrSetImpl<StructType *> &VisitedTypes,
-                                    bool &IncompleteResult) {
-        // This function does a lot of recursing. Make sure we aren't
-        // looking for a result we've already computed. VisitedTypes
-        // keeps the recursion in check, but ExternDependencyCache
-        // provides results we computed on previous calls.
-        auto CachedResult = ExternDependencyCache.find(Ty);
-        if (CachedResult != ExternDependencyCache.end())
-          return CachedResult->second;
-        // This happens when we're still in the process of figuring
-        // out the result for the given type.
-        if (!VisitedTypes.insert(Ty).second) {
-          IncompleteResult = true;
-          return false;
-        }
-        // Check the types which this type contains.
-        for (auto *MemberType : Ty->elements()) {
-          if (auto *ElemStTy = getContainedStructTy(MemberType)) {
-            if (hasExternDependencyImpl(ElemStTy, VisitedTypes,
-                                        IncompleteResult)) {
-              ExternDependencyCache[Ty] = true;
-              return true;
-            }
-          }
-        }
-        // Also, check the types which contain this type.
-        for (auto *DepTy : TypeToDependentTypes[Ty]) {
-          if (auto *ST = dyn_cast<StructType>(DepTy)) {
-            if (hasExternDependencyImpl(ST, VisitedTypes, IncompleteResult)) {
-              ExternDependencyCache[Ty] = true;
-              return true;
-            }
-          }
-        }
-        // If we get here, the type has no extern dependency was found,
-        // but that may be because some types were unresolved. The
-        // result is not cached here in that case.
-        if (!IncompleteResult)
-          ExternDependencyCache[Ty] = false;
-        return false;
-      };
-
-  std::function<bool(StructType *)> hasExternDependency = [&](StructType *Ty) {
-    SmallPtrSet<StructType *, 16> VisitedTypes;
-    bool IncompleteResult = false;
-    bool Result = hasExternDependencyImpl(Ty, VisitedTypes, IncompleteResult);
-    // By the time we get here, we will have visited all of the dependencies
-    // and the IncompleteResult flag only indicates that intermediate
-    // type dependencies were possibly unknown. The result at this point can
-    // be cached.
-    ExternDependencyCache[Ty] = Result;
-    return Result;
-  };
 
   // Sometimes previous optimizations will have left types that are not
   // used in a way that allows Module::getIndentifiedStructTypes() to find
@@ -960,7 +913,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     }
 
     // Don't try to remap types with external uses.
-    if (hasExternDependency(Ty))
+    if (ExternTypes.count(Ty))
       continue;
 
     DEBUG_WITH_TYPE(DTRT_VERBOSE,
@@ -1008,7 +961,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     // Don't try to remap types with external uses. We didn't check the base
     // type above because we would have needed to check it for each possible
     // variant there whereas here we can check it just once.
-    if (hasExternDependency(BaseTy))
+    if (ExternTypes.count(BaseTy))
       continue;
 
     const SetVector<StructType *> &CandTypes = Entry.second;
