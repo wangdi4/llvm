@@ -1,0 +1,1378 @@
+# RUN: llc -run-pass=csa-opt-seqot-to-seq -debug-only=csa-opt-seqot-to-seq -o /dev/null %s 2>&1 | FileCheck %s
+# vgh_inner kernel from QMCPack compiled with duplicated loop and -mllvm -csa-enable-streammem-prep,
+# which causes the zero-trip check to be used by two SEQOTs, and also generates STRIDEs
+# Manually modified MIR to introduce (optional-1) uses of the SEQOTs' upper bound value
+# (look for %70* definitions).
+
+# NOTE: register class of the return value %78 in MIR was adjusted manually
+#       from ri1 to ci0 to make the MachineVerifier happy.
+
+# NOTE: FileCheck rules must be commented with # to make llc happy.
+#; CHECK: BEGIN: SEQOT->SEQ opt.
+#; CHECK: Initial candidate for SEQOT->SEQ opt:
+#; CHECK: Adding optional-1 REPEATO for optimization:
+#; CHECK: Adding optional-1 REPEATO for optimization:
+#; CHECK: Adding optional-1 REPEATO for optimization:
+#; CHECK: Adding optional-1 REPEATO for optimization:
+#; CHECK: Adding SEQOT for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-2 STRIDE for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: Adding optional-3 REPEATO for optimization:
+#; CHECK: SUCCESS: the pattern has been recognized.
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming REPEATO:
+#; CHECK: Transforming SEQOT:
+#; CHECK: Transforming SEQOT:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: Replacing 'base' operand of STRIDE:
+#; CHECK: END: SEQOT->SEQ opt.
+
+--- |
+  ; ModuleID = 'inner_loop.cpp'
+  source_filename = "inner_loop.cpp"
+  target datalayout = "e-m:e-i64:64-n32:64"
+  target triple = "csa"
+  
+  ; Function Attrs: nounwind uwtable
+  define dso_local void @_Z9vgh_inneriddddddPdS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_S_(i32 %num_splines, double %pre20, double %pre10, double %pre00, double %pre11, double %pre01, double %pre02, double* noalias nocapture readonly %coefs, double* noalias nocapture readonly %coefszs, double* noalias nocapture readonly %coefs2zs, double* noalias nocapture readonly %coefs3zs, double* noalias nocapture readonly %c, double* noalias nocapture readonly %dc, double* noalias nocapture readonly %d2c, double* noalias nocapture %hxx, double* noalias nocapture %hxy, double* noalias nocapture %hxz, double* noalias nocapture %hyy, double* noalias nocapture %hyz, double* noalias nocapture %hzz, double* noalias nocapture %gx, double* noalias nocapture %gy, double* noalias nocapture %gz, double* noalias nocapture %vals) local_unnamed_addr #0 {
+  entry:
+    %clie_pre301 = tail call i32 @llvm.csa.parallel.region.entry(i32 1033)
+    %cmp305 = icmp sgt i32 %num_splines, 0
+    br i1 %cmp305, label %for.body.preheader, label %for.cond.cleanup.thread
+  
+  for.cond.cleanup.thread:                          ; preds = %entry
+    tail call void @llvm.csa.parallel.region.exit(i32 %clie_pre301)
+    %clie_pre311 = tail call i32 @llvm.csa.parallel.region.entry(i32 1032)
+    br label %for.cond.cleanup81
+  
+  for.body.preheader:                               ; preds = %entry
+    %arrayidx35 = getelementptr inbounds double, double* %d2c, i64 3
+    %arrayidx32 = getelementptr inbounds double, double* %d2c, i64 2
+    %arrayidx29 = getelementptr inbounds double, double* %d2c, i64 1
+    %arrayidx24 = getelementptr inbounds double, double* %dc, i64 3
+    %arrayidx21 = getelementptr inbounds double, double* %dc, i64 2
+    %arrayidx18 = getelementptr inbounds double, double* %dc, i64 1
+    %arrayidx13 = getelementptr inbounds double, double* %c, i64 3
+    %arrayidx10 = getelementptr inbounds double, double* %c, i64 2
+    %arrayidx8 = getelementptr inbounds double, double* %c, i64 1
+    %wide.trip.count309 = sext i32 %num_splines to i64
+    %gepload = load double, double* %c, align 8, !tbaa !3
+    %gepload336 = load double, double* %arrayidx8, align 8, !tbaa !3
+    %gepload338 = load double, double* %arrayidx10, align 8, !tbaa !3
+    %gepload340 = load double, double* %arrayidx13, align 8, !tbaa !3
+    %gepload341 = load double, double* %dc, align 8, !tbaa !3
+    %gepload343 = load double, double* %arrayidx18, align 8, !tbaa !3
+    %gepload345 = load double, double* %arrayidx21, align 8, !tbaa !3
+    %gepload347 = load double, double* %arrayidx24, align 8, !tbaa !3
+    %gepload348 = load double, double* %d2c, align 8, !tbaa !3
+    %gepload350 = load double, double* %arrayidx29, align 8, !tbaa !3
+    %gepload352 = load double, double* %arrayidx32, align 8, !tbaa !3
+    %gepload354 = load double, double* %arrayidx35, align 8, !tbaa !3
+    %0 = add nsw i64 %wide.trip.count309, -1
+    br label %loop.202
+  
+  for.cond.cleanup81.loopexit:                      ; preds = %loop.203
+    br label %for.cond.cleanup81
+  
+  for.cond.cleanup81:                               ; preds = %for.cond.cleanup81.loopexit, %for.cond.cleanup.thread
+    %clie_pre312 = phi i32 [ %clie_pre311, %for.cond.cleanup.thread ], [ %clie_pre, %for.cond.cleanup81.loopexit ]
+    tail call void @llvm.csa.parallel.region.exit(i32 %clie_pre312)
+    ret void
+  
+  loop.202:                                         ; preds = %loop.202, %for.body.preheader
+    %streammemprep.iv613 = phi double* [ %scevgep614, %loop.202 ], [ %hzz, %for.body.preheader ]
+    %streammemprep.iv611 = phi double* [ %scevgep612, %loop.202 ], [ %coefs3zs, %for.body.preheader ]
+    %streammemprep.iv609 = phi double* [ %scevgep610, %loop.202 ], [ %coefs, %for.body.preheader ]
+    %streammemprep.iv607 = phi double* [ %scevgep608, %loop.202 ], [ %gx, %for.body.preheader ]
+    %streammemprep.iv605 = phi double* [ %scevgep606, %loop.202 ], [ %gz, %for.body.preheader ]
+    %streammemprep.iv603 = phi double* [ %scevgep604, %loop.202 ], [ %coefszs, %for.body.preheader ]
+    %streammemprep.iv601 = phi double* [ %scevgep602, %loop.202 ], [ %hxz, %for.body.preheader ]
+    %streammemprep.iv599 = phi double* [ %scevgep600, %loop.202 ], [ %gy, %for.body.preheader ]
+    %streammemprep.iv597 = phi double* [ %scevgep598, %loop.202 ], [ %hyy, %for.body.preheader ]
+    %streammemprep.iv595 = phi double* [ %scevgep596, %loop.202 ], [ %hyz, %for.body.preheader ]
+    %streammemprep.iv593 = phi double* [ %scevgep594, %loop.202 ], [ %hxx, %for.body.preheader ]
+    %streammemprep.iv591 = phi double* [ %scevgep592, %loop.202 ], [ %coefs2zs, %for.body.preheader ]
+    %streammemprep.iv589 = phi double* [ %scevgep590, %loop.202 ], [ %hxy, %for.body.preheader ]
+    %streammemprep.iv = phi double* [ %scevgep588, %loop.202 ], [ %vals, %for.body.preheader ]
+    %lsr.iv558 = phi i64 [ %lsr.iv.next559, %loop.202 ], [ -1, %for.body.preheader ]
+    %1 = tail call i32 @llvm.csa.parallel.section.entry(i32 %clie_pre301)
+    %scevgep586 = getelementptr double, double* %coefs, i64 1
+    %gepload356 = load double, double* %streammemprep.iv609, align 8, !tbaa !3
+    %scevgep584 = getelementptr double, double* %coefszs, i64 1
+    %gepload358 = load double, double* %streammemprep.iv603, align 8, !tbaa !3
+    %scevgep582 = getelementptr double, double* %coefs2zs, i64 1
+    %gepload360 = load double, double* %streammemprep.iv591, align 8, !tbaa !3
+    %scevgep580 = getelementptr double, double* %coefs3zs, i64 1
+    %gepload362 = load double, double* %streammemprep.iv611, align 8, !tbaa !3
+    %2 = fmul contract double %gepload356, %gepload
+    %3 = fmul contract double %gepload358, %gepload336
+    %4 = fadd contract double %2, %3
+    %5 = fmul contract double %gepload360, %gepload338
+    %6 = fadd contract double %4, %5
+    %7 = fmul contract double %gepload362, %gepload340
+    %8 = fadd contract double %6, %7
+    %9 = fmul contract double %gepload356, %gepload341
+    %10 = fmul contract double %gepload358, %gepload343
+    %11 = fadd contract double %9, %10
+    %12 = fmul contract double %gepload360, %gepload345
+    %13 = fadd contract double %11, %12
+    %14 = fmul contract double %gepload362, %gepload347
+    %15 = fadd contract double %13, %14
+    %16 = fmul contract double %gepload356, %gepload348
+    %17 = fmul contract double %gepload358, %gepload350
+    %18 = fadd contract double %16, %17
+    %19 = fmul contract double %gepload360, %gepload352
+    %20 = fadd contract double %18, %19
+    %21 = fmul contract double %gepload362, %gepload354
+    %22 = fadd contract double %20, %21
+    %23 = fmul contract double %8, %pre20
+    %scevgep578 = getelementptr double, double* %hxx, i64 1
+    %gepload372 = load double, double* %streammemprep.iv593, align 8, !tbaa !3
+    %24 = fadd contract double %23, %gepload372
+    store double %24, double* %streammemprep.iv593, align 8, !tbaa !3
+    %25 = fmul contract double %8, %pre11
+    %scevgep576 = getelementptr double, double* %hxy, i64 1
+    %gepload376 = load double, double* %streammemprep.iv589, align 8, !tbaa !3
+    %26 = fadd contract double %25, %gepload376
+    store double %26, double* %streammemprep.iv589, align 8, !tbaa !3
+    %27 = fmul contract double %15, %pre10
+    %scevgep574 = getelementptr double, double* %hxz, i64 1
+    %gepload379 = load double, double* %streammemprep.iv601, align 8, !tbaa !3
+    %28 = fadd contract double %27, %gepload379
+    store double %28, double* %streammemprep.iv601, align 8, !tbaa !3
+    %29 = fmul contract double %8, %pre02
+    %scevgep572 = getelementptr double, double* %hyy, i64 1
+    %gepload383 = load double, double* %streammemprep.iv597, align 8, !tbaa !3
+    %30 = fadd contract double %29, %gepload383
+    store double %30, double* %streammemprep.iv597, align 8, !tbaa !3
+    %31 = fmul contract double %15, %pre01
+    %scevgep570 = getelementptr double, double* %hyz, i64 1
+    %gepload387 = load double, double* %streammemprep.iv595, align 8, !tbaa !3
+    %32 = fadd contract double %31, %gepload387
+    store double %32, double* %streammemprep.iv595, align 8, !tbaa !3
+    %33 = fmul contract double %22, %pre00
+    %scevgep568 = getelementptr double, double* %hzz, i64 1
+    %gepload390 = load double, double* %streammemprep.iv613, align 8, !tbaa !3
+    %34 = fadd contract double %33, %gepload390
+    store double %34, double* %streammemprep.iv613, align 8, !tbaa !3
+    %35 = fmul contract double %8, %pre10
+    %scevgep566 = getelementptr double, double* %gx, i64 1
+    %gepload394 = load double, double* %streammemprep.iv607, align 8, !tbaa !3
+    %36 = fadd contract double %35, %gepload394
+    store double %36, double* %streammemprep.iv607, align 8, !tbaa !3
+    %37 = fmul contract double %8, %pre01
+    %scevgep564 = getelementptr double, double* %gy, i64 1
+    %gepload398 = load double, double* %streammemprep.iv599, align 8, !tbaa !3
+    %38 = fadd contract double %37, %gepload398
+    store double %38, double* %streammemprep.iv599, align 8, !tbaa !3
+    %39 = fmul contract double %15, %pre00
+    %scevgep562 = getelementptr double, double* %gz, i64 1
+    %gepload402 = load double, double* %streammemprep.iv605, align 8, !tbaa !3
+    %40 = fadd contract double %39, %gepload402
+    store double %40, double* %streammemprep.iv605, align 8, !tbaa !3
+    %41 = fmul contract double %8, %pre00
+    %scevgep560 = getelementptr double, double* %vals, i64 1
+    %gepload406 = load double, double* %streammemprep.iv, align 8, !tbaa !3
+    %42 = fadd contract double %41, %gepload406
+    store double %42, double* %streammemprep.iv, align 8, !tbaa !3
+    tail call void @llvm.csa.parallel.section.exit(i32 %1)
+    %lsr.iv.next559 = add nsw i64 %lsr.iv558, 1
+    %condloop.202 = icmp slt i64 %lsr.iv.next559, %0
+    %scevgep588 = getelementptr double, double* %streammemprep.iv, i64 1
+    %scevgep590 = getelementptr double, double* %streammemprep.iv589, i64 1
+    %scevgep592 = getelementptr double, double* %streammemprep.iv591, i64 1
+    %scevgep594 = getelementptr double, double* %streammemprep.iv593, i64 1
+    %scevgep596 = getelementptr double, double* %streammemprep.iv595, i64 1
+    %scevgep598 = getelementptr double, double* %streammemprep.iv597, i64 1
+    %scevgep600 = getelementptr double, double* %streammemprep.iv599, i64 1
+    %scevgep602 = getelementptr double, double* %streammemprep.iv601, i64 1
+    %scevgep604 = getelementptr double, double* %streammemprep.iv603, i64 1
+    %scevgep606 = getelementptr double, double* %streammemprep.iv605, i64 1
+    %scevgep608 = getelementptr double, double* %streammemprep.iv607, i64 1
+    %scevgep610 = getelementptr double, double* %streammemprep.iv609, i64 1
+    %scevgep612 = getelementptr double, double* %streammemprep.iv611, i64 1
+    %scevgep614 = getelementptr double, double* %streammemprep.iv613, i64 1
+    br i1 %condloop.202, label %loop.202, label %afterloop.202
+  
+  afterloop.202:                                    ; preds = %loop.202
+    tail call void @llvm.csa.parallel.region.exit(i32 %clie_pre301)
+    %clie_pre = tail call i32 @llvm.csa.parallel.region.entry(i32 1032)
+    br label %loop.203
+  
+  loop.203:                                         ; preds = %loop.203, %afterloop.202
+    %streammemprep.iv641 = phi double* [ %scevgep642, %loop.203 ], [ %coefszs, %afterloop.202 ]
+    %streammemprep.iv639 = phi double* [ %scevgep640, %loop.203 ], [ %coefs3zs, %afterloop.202 ]
+    %streammemprep.iv637 = phi double* [ %scevgep638, %loop.203 ], [ %hyz, %afterloop.202 ]
+    %streammemprep.iv635 = phi double* [ %scevgep636, %loop.203 ], [ %hyy, %afterloop.202 ]
+    %streammemprep.iv633 = phi double* [ %scevgep634, %loop.203 ], [ %coefs, %afterloop.202 ]
+    %streammemprep.iv631 = phi double* [ %scevgep632, %loop.203 ], [ %gy, %afterloop.202 ]
+    %streammemprep.iv629 = phi double* [ %scevgep630, %loop.203 ], [ %hxx, %afterloop.202 ]
+    %streammemprep.iv627 = phi double* [ %scevgep628, %loop.203 ], [ %coefs2zs, %afterloop.202 ]
+    %streammemprep.iv625 = phi double* [ %scevgep626, %loop.203 ], [ %vals, %afterloop.202 ]
+    %streammemprep.iv623 = phi double* [ %scevgep624, %loop.203 ], [ %hxy, %afterloop.202 ]
+    %streammemprep.iv621 = phi double* [ %scevgep622, %loop.203 ], [ %gz, %afterloop.202 ]
+    %streammemprep.iv619 = phi double* [ %scevgep620, %loop.203 ], [ %gx, %afterloop.202 ]
+    %streammemprep.iv617 = phi double* [ %scevgep618, %loop.203 ], [ %hxz, %afterloop.202 ]
+    %streammemprep.iv615 = phi double* [ %scevgep616, %loop.203 ], [ %hzz, %afterloop.202 ]
+    %lsr.iv = phi i64 [ %lsr.iv.next, %loop.203 ], [ -1, %afterloop.202 ]
+    %43 = tail call i32 @llvm.csa.parallel.section.entry(i32 %clie_pre)
+    %scevgep556 = getelementptr double, double* %coefs, i64 1
+    %gepload431 = load double, double* %streammemprep.iv633, align 8, !tbaa !3
+    %scevgep554 = getelementptr double, double* %coefszs, i64 1
+    %gepload433 = load double, double* %streammemprep.iv641, align 8, !tbaa !3
+    %scevgep552 = getelementptr double, double* %coefs2zs, i64 1
+    %gepload435 = load double, double* %streammemprep.iv627, align 8, !tbaa !3
+    %scevgep550 = getelementptr double, double* %coefs3zs, i64 1
+    %gepload437 = load double, double* %streammemprep.iv639, align 8, !tbaa !3
+    %44 = fmul contract double %gepload431, %gepload
+    %45 = fmul contract double %gepload433, %gepload336
+    %46 = fadd contract double %44, %45
+    %47 = fmul contract double %gepload435, %gepload338
+    %48 = fadd contract double %46, %47
+    %49 = fmul contract double %gepload437, %gepload340
+    %50 = fadd contract double %48, %49
+    %51 = fmul contract double %gepload431, %gepload341
+    %52 = fmul contract double %gepload433, %gepload343
+    %53 = fadd contract double %51, %52
+    %54 = fmul contract double %gepload435, %gepload345
+    %55 = fadd contract double %53, %54
+    %56 = fmul contract double %gepload437, %gepload347
+    %57 = fadd contract double %55, %56
+    %58 = fmul contract double %gepload431, %gepload348
+    %59 = fmul contract double %gepload433, %gepload350
+    %60 = fadd contract double %58, %59
+    %61 = fmul contract double %gepload435, %gepload352
+    %62 = fadd contract double %60, %61
+    %63 = fmul contract double %gepload437, %gepload354
+    %64 = fadd contract double %62, %63
+    %65 = fmul contract double %50, %pre20
+    %scevgep548 = getelementptr double, double* %hxx, i64 1
+    %gepload447 = load double, double* %streammemprep.iv629, align 8, !tbaa !3
+    %66 = fadd contract double %65, %gepload447
+    store double %66, double* %streammemprep.iv629, align 8, !tbaa !3
+    %67 = fmul contract double %50, %pre11
+    %scevgep546 = getelementptr double, double* %hxy, i64 1
+    %gepload451 = load double, double* %streammemprep.iv623, align 8, !tbaa !3
+    %68 = fadd contract double %67, %gepload451
+    store double %68, double* %streammemprep.iv623, align 8, !tbaa !3
+    %69 = fmul contract double %57, %pre10
+    %scevgep544 = getelementptr double, double* %hxz, i64 1
+    %gepload454 = load double, double* %streammemprep.iv617, align 8, !tbaa !3
+    %70 = fadd contract double %69, %gepload454
+    store double %70, double* %streammemprep.iv617, align 8, !tbaa !3
+    %71 = fmul contract double %50, %pre02
+    %scevgep542 = getelementptr double, double* %hyy, i64 1
+    %gepload458 = load double, double* %streammemprep.iv635, align 8, !tbaa !3
+    %72 = fadd contract double %71, %gepload458
+    store double %72, double* %streammemprep.iv635, align 8, !tbaa !3
+    %73 = fmul contract double %57, %pre01
+    %scevgep540 = getelementptr double, double* %hyz, i64 1
+    %gepload462 = load double, double* %streammemprep.iv637, align 8, !tbaa !3
+    %74 = fadd contract double %73, %gepload462
+    store double %74, double* %streammemprep.iv637, align 8, !tbaa !3
+    %75 = fmul contract double %64, %pre00
+    %scevgep538 = getelementptr double, double* %hzz, i64 1
+    %gepload465 = load double, double* %streammemprep.iv615, align 8, !tbaa !3
+    %76 = fadd contract double %75, %gepload465
+    store double %76, double* %streammemprep.iv615, align 8, !tbaa !3
+    %77 = fmul contract double %50, %pre10
+    %scevgep536 = getelementptr double, double* %gx, i64 1
+    %gepload469 = load double, double* %streammemprep.iv619, align 8, !tbaa !3
+    %78 = fadd contract double %77, %gepload469
+    store double %78, double* %streammemprep.iv619, align 8, !tbaa !3
+    %79 = fmul contract double %50, %pre01
+    %scevgep534 = getelementptr double, double* %gy, i64 1
+    %gepload473 = load double, double* %streammemprep.iv631, align 8, !tbaa !3
+    %80 = fadd contract double %79, %gepload473
+    store double %80, double* %streammemprep.iv631, align 8, !tbaa !3
+    %81 = fmul contract double %57, %pre00
+    %scevgep532 = getelementptr double, double* %gz, i64 1
+    %gepload477 = load double, double* %streammemprep.iv621, align 8, !tbaa !3
+    %82 = fadd contract double %81, %gepload477
+    store double %82, double* %streammemprep.iv621, align 8, !tbaa !3
+    %83 = fmul contract double %50, %pre00
+    %scevgep = getelementptr double, double* %vals, i64 1
+    %gepload481 = load double, double* %streammemprep.iv625, align 8, !tbaa !3
+    %84 = fadd contract double %83, %gepload481
+    store double %84, double* %streammemprep.iv625, align 8, !tbaa !3
+    tail call void @llvm.csa.parallel.section.exit(i32 %43)
+    %lsr.iv.next = add nsw i64 %lsr.iv, 1
+    %condloop.203 = icmp slt i64 %lsr.iv.next, %0
+    %scevgep616 = getelementptr double, double* %streammemprep.iv615, i64 1
+    %scevgep618 = getelementptr double, double* %streammemprep.iv617, i64 1
+    %scevgep620 = getelementptr double, double* %streammemprep.iv619, i64 1
+    %scevgep622 = getelementptr double, double* %streammemprep.iv621, i64 1
+    %scevgep624 = getelementptr double, double* %streammemprep.iv623, i64 1
+    %scevgep626 = getelementptr double, double* %streammemprep.iv625, i64 1
+    %scevgep628 = getelementptr double, double* %streammemprep.iv627, i64 1
+    %scevgep630 = getelementptr double, double* %streammemprep.iv629, i64 1
+    %scevgep632 = getelementptr double, double* %streammemprep.iv631, i64 1
+    %scevgep634 = getelementptr double, double* %streammemprep.iv633, i64 1
+    %scevgep636 = getelementptr double, double* %streammemprep.iv635, i64 1
+    %scevgep638 = getelementptr double, double* %streammemprep.iv637, i64 1
+    %scevgep640 = getelementptr double, double* %streammemprep.iv639, i64 1
+    %scevgep642 = getelementptr double, double* %streammemprep.iv641, i64 1
+    br i1 %condloop.203, label %loop.203, label %for.cond.cleanup81.loopexit
+  }
+  
+  ; Function Attrs: inaccessiblemem_or_argmemonly nounwind
+  declare i32 @llvm.csa.parallel.region.entry(i32) #1
+  
+  ; Function Attrs: inaccessiblemem_or_argmemonly nounwind
+  declare void @llvm.csa.parallel.region.exit(i32) #1
+  
+  ; Function Attrs: inaccessiblemem_or_argmemonly nounwind
+  declare i32 @llvm.csa.parallel.section.entry(i32) #1
+  
+  ; Function Attrs: inaccessiblemem_or_argmemonly nounwind
+  declare void @llvm.csa.parallel.section.exit(i32) #1
+  
+  ; Function Attrs: nounwind
+  declare void @llvm.stackprotector(i8*, i8**) #2
+  
+  attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+  attributes #1 = { inaccessiblemem_or_argmemonly nounwind }
+  attributes #2 = { nounwind }
+  
+  !llvm.module.flags = !{!0}
+  !llvm.ident = !{!1, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2, !2}
+  
+  !0 = !{i32 1, !"wchar_size", i32 4}
+  !1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 53ef909f6145cef0d136b38ab35f7f0bd8cb7078) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 910a0ae26f4da5a36bc27231c3f363d205a2daaf)"}
+  !2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 53ef909f6145cef0d136b38ab35f7f0bd8cb7078) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm d26bb6e3270385a47365721fcd88679b193b71e6)"}
+  !3 = !{!4, !4, i64 0}
+  !4 = !{!"double", !5, i64 0}
+  !5 = !{!"omnipotent char", !6, i64 0}
+  !6 = !{!"Simple C++ TBAA"}
+
+...
+---
+name:            _Z9vgh_inneriddddddPdS_S_S_S_S_S_S_S_S_S_S_S_S_S_S_S_
+alignment:       0
+exposesReturnsTwice: false
+legalized:       false
+regBankSelected: false
+selected:        false
+failedISel:      false
+tracksRegLiveness: true
+registers:       
+  - { id: 0, class: i32, preferred-register: '' }
+  - { id: 1, class: i32, preferred-register: '' }
+  - { id: 2, class: i64, preferred-register: '' }
+  - { id: 3, class: i64, preferred-register: '' }
+  - { id: 4, class: i64, preferred-register: '' }
+  - { id: 5, class: i64, preferred-register: '' }
+  - { id: 6, class: i64, preferred-register: '' }
+  - { id: 7, class: i64, preferred-register: '' }
+  - { id: 8, class: i64, preferred-register: '' }
+  - { id: 9, class: i64, preferred-register: '' }
+  - { id: 10, class: i64, preferred-register: '' }
+  - { id: 11, class: i64, preferred-register: '' }
+  - { id: 12, class: i64, preferred-register: '' }
+  - { id: 13, class: i64, preferred-register: '' }
+  - { id: 14, class: ci64, preferred-register: '' }
+  - { id: 15, class: i32, preferred-register: '' }
+  - { id: 16, class: ci64, preferred-register: '' }
+  - { id: 17, class: ci64, preferred-register: '' }
+  - { id: 18, class: ci64, preferred-register: '' }
+  - { id: 19, class: ci64, preferred-register: '' }
+  - { id: 20, class: ci64, preferred-register: '' }
+  - { id: 21, class: ci64, preferred-register: '' }
+  - { id: 22, class: ci64, preferred-register: '' }
+  - { id: 23, class: ci64, preferred-register: '' }
+  - { id: 24, class: ci64, preferred-register: '' }
+  - { id: 25, class: ci64, preferred-register: '' }
+  - { id: 26, class: ci64, preferred-register: '' }
+  - { id: 27, class: ci64, preferred-register: '' }
+  - { id: 28, class: ci64, preferred-register: '' }
+  - { id: 29, class: ci64, preferred-register: '' }
+  - { id: 30, class: ci64, preferred-register: '' }
+  - { id: 31, class: ci64, preferred-register: '' }
+  - { id: 32, class: ci64, preferred-register: '' }
+  - { id: 33, class: ci64, preferred-register: '' }
+  - { id: 34, class: ci64, preferred-register: '' }
+  - { id: 35, class: ci64, preferred-register: '' }
+  - { id: 36, class: ci64, preferred-register: '' }
+  - { id: 37, class: ci64, preferred-register: '' }
+  - { id: 38, class: ci64, preferred-register: '' }
+  - { id: 39, class: ci64, preferred-register: '' }
+  - { id: 40, class: ci64, preferred-register: '' }
+  - { id: 41, class: ci64, preferred-register: '' }
+  - { id: 42, class: ci64, preferred-register: '' }
+  - { id: 43, class: ci64, preferred-register: '' }
+  - { id: 44, class: ci64, preferred-register: '' }
+  - { id: 45, class: ci64, preferred-register: '' }
+  - { id: 46, class: i32, preferred-register: '' }
+  - { id: 47, class: ci64, preferred-register: '' }
+  - { id: 48, class: ci64, preferred-register: '' }
+  - { id: 49, class: ci64, preferred-register: '' }
+  - { id: 50, class: ci64, preferred-register: '' }
+  - { id: 51, class: ci64, preferred-register: '' }
+  - { id: 52, class: ci64, preferred-register: '' }
+  - { id: 53, class: ci64, preferred-register: '' }
+  - { id: 54, class: ci64, preferred-register: '' }
+  - { id: 55, class: ci64, preferred-register: '' }
+  - { id: 56, class: ci64, preferred-register: '' }
+  - { id: 57, class: ci64, preferred-register: '' }
+  - { id: 58, class: ci64, preferred-register: '' }
+  - { id: 59, class: ci64, preferred-register: '' }
+  - { id: 60, class: ci64, preferred-register: '' }
+  - { id: 61, class: ci64, preferred-register: '' }
+  - { id: 62, class: ci64, preferred-register: '' }
+  - { id: 63, class: ci64, preferred-register: '' }
+  - { id: 64, class: ci64, preferred-register: '' }
+  - { id: 65, class: ci64, preferred-register: '' }
+  - { id: 66, class: ci64, preferred-register: '' }
+  - { id: 67, class: ci64, preferred-register: '' }
+  - { id: 68, class: ci64, preferred-register: '' }
+  - { id: 69, class: ci64, preferred-register: '' }
+  - { id: 70, class: ci64, preferred-register: '' }
+  - { id: 71, class: ci64, preferred-register: '' }
+  - { id: 72, class: ci64, preferred-register: '' }
+  - { id: 73, class: ci64, preferred-register: '' }
+  - { id: 74, class: ci64, preferred-register: '' }
+  - { id: 75, class: ci64, preferred-register: '' }
+  - { id: 76, class: ci64, preferred-register: '' }
+  - { id: 77, class: ci0, preferred-register: '' }
+  - { id: 78, class: ci0, preferred-register: '' }
+  - { id: 79, class: ci64, preferred-register: '' }
+  - { id: 80, class: ci64, preferred-register: '' }
+  - { id: 81, class: ci64, preferred-register: '' }
+  - { id: 82, class: ci64, preferred-register: '' }
+  - { id: 83, class: ci64, preferred-register: '' }
+  - { id: 84, class: ci64, preferred-register: '' }
+  - { id: 85, class: ci64, preferred-register: '' }
+  - { id: 86, class: ci64, preferred-register: '' }
+  - { id: 87, class: ci64, preferred-register: '' }
+  - { id: 88, class: ci64, preferred-register: '' }
+  - { id: 89, class: ci64, preferred-register: '' }
+  - { id: 90, class: ci64, preferred-register: '' }
+  - { id: 91, class: ci64, preferred-register: '' }
+  - { id: 92, class: ci64, preferred-register: '' }
+  - { id: 93, class: ci64, preferred-register: '' }
+  - { id: 94, class: ci64, preferred-register: '' }
+  - { id: 95, class: ci64, preferred-register: '' }
+  - { id: 96, class: ci64, preferred-register: '' }
+  - { id: 97, class: ci64, preferred-register: '' }
+  - { id: 98, class: ci64, preferred-register: '' }
+  - { id: 99, class: ci64, preferred-register: '' }
+  - { id: 100, class: ci64, preferred-register: '' }
+  - { id: 101, class: ci64, preferred-register: '' }
+  - { id: 102, class: ci64, preferred-register: '' }
+  - { id: 103, class: ci1, preferred-register: '' }
+  - { id: 104, class: ci64, preferred-register: '' }
+  - { id: 105, class: ci64, preferred-register: '' }
+  - { id: 106, class: ci64, preferred-register: '' }
+  - { id: 107, class: ci64, preferred-register: '' }
+  - { id: 108, class: ci64, preferred-register: '' }
+  - { id: 109, class: ci64, preferred-register: '' }
+  - { id: 110, class: ci64, preferred-register: '' }
+  - { id: 111, class: ci64, preferred-register: '' }
+  - { id: 112, class: ci64, preferred-register: '' }
+  - { id: 113, class: ci64, preferred-register: '' }
+  - { id: 114, class: ci64, preferred-register: '' }
+  - { id: 115, class: ci64, preferred-register: '' }
+  - { id: 116, class: ci64, preferred-register: '' }
+  - { id: 117, class: ci64, preferred-register: '' }
+  - { id: 118, class: ci64, preferred-register: '' }
+  - { id: 119, class: ci64, preferred-register: '' }
+  - { id: 120, class: ci64, preferred-register: '' }
+  - { id: 121, class: ci64, preferred-register: '' }
+  - { id: 122, class: ci64, preferred-register: '' }
+  - { id: 123, class: ci64, preferred-register: '' }
+  - { id: 124, class: ci64, preferred-register: '' }
+  - { id: 125, class: ci64, preferred-register: '' }
+  - { id: 126, class: ci64, preferred-register: '' }
+  - { id: 127, class: ci64, preferred-register: '' }
+  - { id: 128, class: ci64, preferred-register: '' }
+  - { id: 129, class: i64, preferred-register: '' }
+  - { id: 130, class: ci64, preferred-register: '' }
+  - { id: 131, class: ci1, preferred-register: '' }
+  - { id: 132, class: i32, preferred-register: '' }
+  - { id: 133, class: ci64, preferred-register: '' }
+  - { id: 134, class: i64, preferred-register: '' }
+  - { id: 135, class: ci64, preferred-register: '' }
+  - { id: 136, class: i64, preferred-register: '' }
+  - { id: 137, class: ci64, preferred-register: '' }
+  - { id: 138, class: i64, preferred-register: '' }
+  - { id: 139, class: ci64, preferred-register: '' }
+  - { id: 140, class: i64, preferred-register: '' }
+  - { id: 141, class: ci64, preferred-register: '' }
+  - { id: 142, class: ci64, preferred-register: '' }
+  - { id: 143, class: ci64, preferred-register: '' }
+  - { id: 144, class: ci64, preferred-register: '' }
+  - { id: 145, class: ci64, preferred-register: '' }
+  - { id: 146, class: ci64, preferred-register: '' }
+  - { id: 147, class: ci64, preferred-register: '' }
+  - { id: 148, class: ci64, preferred-register: '' }
+  - { id: 149, class: ci64, preferred-register: '' }
+  - { id: 150, class: ci64, preferred-register: '' }
+  - { id: 151, class: ci64, preferred-register: '' }
+  - { id: 152, class: ci64, preferred-register: '' }
+  - { id: 153, class: ci64, preferred-register: '' }
+  - { id: 154, class: i64, preferred-register: '' }
+  - { id: 155, class: ci64, preferred-register: '' }
+  - { id: 156, class: i64, preferred-register: '' }
+  - { id: 157, class: ci64, preferred-register: '' }
+  - { id: 158, class: i64, preferred-register: '' }
+  - { id: 159, class: ci64, preferred-register: '' }
+  - { id: 160, class: i64, preferred-register: '' }
+  - { id: 161, class: ci64, preferred-register: '' }
+  - { id: 162, class: i64, preferred-register: '' }
+  - { id: 163, class: ci64, preferred-register: '' }
+  - { id: 164, class: i64, preferred-register: '' }
+  - { id: 165, class: ci64, preferred-register: '' }
+  - { id: 166, class: i64, preferred-register: '' }
+  - { id: 167, class: ci64, preferred-register: '' }
+  - { id: 168, class: i64, preferred-register: '' }
+  - { id: 169, class: ci64, preferred-register: '' }
+  - { id: 170, class: i64, preferred-register: '' }
+  - { id: 171, class: ci64, preferred-register: '' }
+  - { id: 172, class: i64, preferred-register: '' }
+  - { id: 173, class: ci64, preferred-register: '' }
+  - { id: 174, class: i64, preferred-register: '' }
+  - { id: 175, class: ci64, preferred-register: '' }
+  - { id: 176, class: i64, preferred-register: '' }
+  - { id: 177, class: ci64, preferred-register: '' }
+  - { id: 178, class: i64, preferred-register: '' }
+  - { id: 179, class: ci64, preferred-register: '' }
+  - { id: 180, class: i64, preferred-register: '' }
+  - { id: 181, class: ci64, preferred-register: '' }
+  - { id: 182, class: i64, preferred-register: '' }
+  - { id: 183, class: ci64, preferred-register: '' }
+  - { id: 184, class: i64, preferred-register: '' }
+  - { id: 185, class: ci64, preferred-register: '' }
+  - { id: 186, class: i64, preferred-register: '' }
+  - { id: 187, class: ci64, preferred-register: '' }
+  - { id: 188, class: i64, preferred-register: '' }
+  - { id: 189, class: ci64, preferred-register: '' }
+  - { id: 190, class: i64, preferred-register: '' }
+  - { id: 191, class: ci64, preferred-register: '' }
+  - { id: 192, class: i64, preferred-register: '' }
+  - { id: 193, class: ci64, preferred-register: '' }
+  - { id: 194, class: ci1, preferred-register: '' }
+  - { id: 195, class: i32, preferred-register: '' }
+  - { id: 196, class: ci64, preferred-register: '' }
+  - { id: 197, class: i64, preferred-register: '' }
+  - { id: 198, class: ci64, preferred-register: '' }
+  - { id: 199, class: i64, preferred-register: '' }
+  - { id: 200, class: ci64, preferred-register: '' }
+  - { id: 201, class: i64, preferred-register: '' }
+  - { id: 202, class: ci64, preferred-register: '' }
+  - { id: 203, class: i64, preferred-register: '' }
+  - { id: 204, class: ci64, preferred-register: '' }
+  - { id: 205, class: ci64, preferred-register: '' }
+  - { id: 206, class: ci64, preferred-register: '' }
+  - { id: 207, class: ci64, preferred-register: '' }
+  - { id: 208, class: ci64, preferred-register: '' }
+  - { id: 209, class: ci64, preferred-register: '' }
+  - { id: 210, class: ci64, preferred-register: '' }
+  - { id: 211, class: ci64, preferred-register: '' }
+  - { id: 212, class: ci64, preferred-register: '' }
+  - { id: 213, class: ci64, preferred-register: '' }
+  - { id: 214, class: ci64, preferred-register: '' }
+  - { id: 215, class: ci64, preferred-register: '' }
+  - { id: 216, class: ci64, preferred-register: '' }
+  - { id: 217, class: i64, preferred-register: '' }
+  - { id: 218, class: ci64, preferred-register: '' }
+  - { id: 219, class: i64, preferred-register: '' }
+  - { id: 220, class: ci64, preferred-register: '' }
+  - { id: 221, class: i64, preferred-register: '' }
+  - { id: 222, class: ci64, preferred-register: '' }
+  - { id: 223, class: i64, preferred-register: '' }
+  - { id: 224, class: ci64, preferred-register: '' }
+  - { id: 225, class: i64, preferred-register: '' }
+  - { id: 226, class: ci64, preferred-register: '' }
+  - { id: 227, class: i64, preferred-register: '' }
+  - { id: 228, class: ci64, preferred-register: '' }
+  - { id: 229, class: i64, preferred-register: '' }
+  - { id: 230, class: ci64, preferred-register: '' }
+  - { id: 231, class: i64, preferred-register: '' }
+  - { id: 232, class: ci64, preferred-register: '' }
+  - { id: 233, class: i64, preferred-register: '' }
+  - { id: 234, class: ci64, preferred-register: '' }
+  - { id: 235, class: i64, preferred-register: '' }
+  - { id: 236, class: ci64, preferred-register: '' }
+  - { id: 237, class: i64, preferred-register: '' }
+  - { id: 238, class: ci64, preferred-register: '' }
+  - { id: 239, class: i64, preferred-register: '' }
+  - { id: 240, class: ci64, preferred-register: '' }
+  - { id: 241, class: i64, preferred-register: '' }
+  - { id: 242, class: ci64, preferred-register: '' }
+  - { id: 243, class: i64, preferred-register: '' }
+  - { id: 244, class: ci64, preferred-register: '' }
+  - { id: 245, class: i64, preferred-register: '' }
+  - { id: 246, class: ci64, preferred-register: '' }
+  - { id: 247, class: i64, preferred-register: '' }
+  - { id: 248, class: ci64, preferred-register: '' }
+  - { id: 249, class: i64, preferred-register: '' }
+  - { id: 250, class: ci64, preferred-register: '' }
+  - { id: 251, class: i64, preferred-register: '' }
+  - { id: 252, class: ci64, preferred-register: '' }
+  - { id: 253, class: i64, preferred-register: '' }
+  - { id: 254, class: ci64, preferred-register: '' }
+  - { id: 255, class: i64, preferred-register: '' }
+  - { id: 256, class: ci0, preferred-register: '' }
+  - { id: 257, class: ci0, preferred-register: '' }
+  - { id: 258, class: ci0, preferred-register: '' }
+  - { id: 259, class: ci0, preferred-register: '' }
+  - { id: 260, class: ci0, preferred-register: '' }
+  - { id: 261, class: ci0, preferred-register: '' }
+  - { id: 262, class: ci0, preferred-register: '' }
+  - { id: 263, class: ci0, preferred-register: '' }
+  - { id: 264, class: ci0, preferred-register: '' }
+  - { id: 265, class: ci0, preferred-register: '' }
+  - { id: 266, class: ci0, preferred-register: '' }
+  - { id: 267, class: ci0, preferred-register: '' }
+  - { id: 268, class: ci0, preferred-register: '' }
+  - { id: 269, class: ci0, preferred-register: '' }
+  - { id: 270, class: ci0, preferred-register: '' }
+  - { id: 271, class: ci0, preferred-register: '' }
+  - { id: 272, class: ci0, preferred-register: '' }
+  - { id: 273, class: ci0, preferred-register: '' }
+  - { id: 274, class: ci0, preferred-register: '' }
+  - { id: 275, class: ci0, preferred-register: '' }
+  - { id: 276, class: ci0, preferred-register: '' }
+  - { id: 277, class: ci0, preferred-register: '' }
+  - { id: 278, class: ci0, preferred-register: '' }
+  - { id: 279, class: ci0, preferred-register: '' }
+  - { id: 280, class: ci0, preferred-register: '' }
+  - { id: 281, class: ci0, preferred-register: '' }
+  - { id: 282, class: ci0, preferred-register: '' }
+  - { id: 283, class: ci0, preferred-register: '' }
+  - { id: 284, class: ci0, preferred-register: '' }
+  - { id: 285, class: ci0, preferred-register: '' }
+  - { id: 286, class: ci0, preferred-register: '' }
+  - { id: 287, class: ci0, preferred-register: '' }
+  - { id: 288, class: ci0, preferred-register: '' }
+  - { id: 289, class: ci0, preferred-register: '' }
+  - { id: 290, class: ci0, preferred-register: '' }
+  - { id: 291, class: ci0, preferred-register: '' }
+  - { id: 292, class: ci0, preferred-register: '' }
+  - { id: 293, class: ci0, preferred-register: '' }
+  - { id: 294, class: ci0, preferred-register: '' }
+  - { id: 295, class: ci0, preferred-register: '' }
+  - { id: 296, class: ci0, preferred-register: '' }
+  - { id: 297, class: ci0, preferred-register: '' }
+  - { id: 298, class: ci0, preferred-register: '' }
+  - { id: 299, class: ci0, preferred-register: '' }
+  - { id: 300, class: ci0, preferred-register: '' }
+  - { id: 301, class: ci0, preferred-register: '' }
+  - { id: 302, class: ci0, preferred-register: '' }
+  - { id: 303, class: ci0, preferred-register: '' }
+  - { id: 304, class: ci0, preferred-register: '' }
+  - { id: 305, class: ci0, preferred-register: '' }
+  - { id: 306, class: ci0, preferred-register: '' }
+  - { id: 307, class: ci0, preferred-register: '' }
+  - { id: 308, class: ci0, preferred-register: '' }
+  - { id: 309, class: ci0, preferred-register: '' }
+  - { id: 310, class: ci0, preferred-register: '' }
+  - { id: 311, class: ci0, preferred-register: '' }
+  - { id: 312, class: ci0, preferred-register: '' }
+  - { id: 313, class: ci0, preferred-register: '' }
+  - { id: 314, class: ci0, preferred-register: '' }
+  - { id: 315, class: ci0, preferred-register: '' }
+  - { id: 316, class: ci0, preferred-register: '' }
+  - { id: 317, class: ci0, preferred-register: '' }
+  - { id: 318, class: ci0, preferred-register: '' }
+  - { id: 319, class: ci0, preferred-register: '' }
+  - { id: 320, class: ci0, preferred-register: '' }
+  - { id: 321, class: ci0, preferred-register: '' }
+  - { id: 322, class: ci0, preferred-register: '' }
+  - { id: 323, class: ci0, preferred-register: '' }
+  - { id: 324, class: ci0, preferred-register: '' }
+  - { id: 325, class: ci0, preferred-register: '' }
+  - { id: 326, class: ci0, preferred-register: '' }
+  - { id: 327, class: ci0, preferred-register: '' }
+  - { id: 328, class: ci0, preferred-register: '' }
+  - { id: 329, class: ci64, preferred-register: '' }
+  - { id: 330, class: ci64, preferred-register: '' }
+  - { id: 331, class: i64, preferred-register: '' }
+  - { id: 332, class: ci64, preferred-register: '' }
+  - { id: 333, class: i64, preferred-register: '' }
+  - { id: 334, class: ci64, preferred-register: '' }
+  - { id: 335, class: i64, preferred-register: '' }
+  - { id: 336, class: ci64, preferred-register: '' }
+  - { id: 337, class: i64, preferred-register: '' }
+  - { id: 338, class: ci64, preferred-register: '' }
+  - { id: 339, class: i64, preferred-register: '' }
+  - { id: 340, class: ci64, preferred-register: '' }
+  - { id: 341, class: i64, preferred-register: '' }
+  - { id: 342, class: ci64, preferred-register: '' }
+  - { id: 343, class: i64, preferred-register: '' }
+  - { id: 344, class: ci64, preferred-register: '' }
+  - { id: 345, class: i64, preferred-register: '' }
+  - { id: 346, class: ci64, preferred-register: '' }
+  - { id: 347, class: i64, preferred-register: '' }
+  - { id: 348, class: ci64, preferred-register: '' }
+  - { id: 349, class: i64, preferred-register: '' }
+  - { id: 350, class: ci64, preferred-register: '' }
+  - { id: 351, class: i64, preferred-register: '' }
+  - { id: 352, class: ci64, preferred-register: '' }
+  - { id: 353, class: i64, preferred-register: '' }
+  - { id: 354, class: ci64, preferred-register: '' }
+  - { id: 355, class: i64, preferred-register: '' }
+  - { id: 356, class: ci64, preferred-register: '' }
+  - { id: 357, class: i64, preferred-register: '' }
+  - { id: 358, class: ci64, preferred-register: '' }
+  - { id: 359, class: i64, preferred-register: '' }
+  - { id: 360, class: ci64, preferred-register: '' }
+  - { id: 361, class: i64, preferred-register: '' }
+  - { id: 362, class: ci64, preferred-register: '' }
+  - { id: 363, class: i64, preferred-register: '' }
+  - { id: 364, class: ci64, preferred-register: '' }
+  - { id: 365, class: i64, preferred-register: '' }
+  - { id: 366, class: ci64, preferred-register: '' }
+  - { id: 367, class: i64, preferred-register: '' }
+  - { id: 368, class: ci64, preferred-register: '' }
+  - { id: 369, class: i64, preferred-register: '' }
+  - { id: 370, class: ci64, preferred-register: '' }
+  - { id: 371, class: i64, preferred-register: '' }
+  - { id: 372, class: ci64, preferred-register: '' }
+  - { id: 373, class: i64, preferred-register: '' }
+  - { id: 374, class: ci64, preferred-register: '' }
+  - { id: 375, class: i64, preferred-register: '' }
+  - { id: 376, class: ci64, preferred-register: '' }
+  - { id: 377, class: i64, preferred-register: '' }
+  - { id: 378, class: ci64, preferred-register: '' }
+  - { id: 379, class: i64, preferred-register: '' }
+  - { id: 380, class: ci64, preferred-register: '' }
+  - { id: 381, class: i64, preferred-register: '' }
+  - { id: 382, class: ci64, preferred-register: '' }
+  - { id: 383, class: i64, preferred-register: '' }
+  - { id: 384, class: ci64, preferred-register: '' }
+  - { id: 385, class: i64, preferred-register: '' }
+  - { id: 386, class: ci64, preferred-register: '' }
+  - { id: 387, class: i64, preferred-register: '' }
+  - { id: 388, class: ci64, preferred-register: '' }
+  - { id: 389, class: i64, preferred-register: '' }
+  - { id: 390, class: ci64, preferred-register: '' }
+  - { id: 391, class: i64, preferred-register: '' }
+  - { id: 392, class: ci64, preferred-register: '' }
+  - { id: 393, class: i64, preferred-register: '' }
+  - { id: 394, class: ci64, preferred-register: '' }
+  - { id: 395, class: ci0, preferred-register: '' }
+  - { id: 396, class: ci0, preferred-register: '' }
+  - { id: 397, class: ci0, preferred-register: '' }
+  - { id: 398, class: ci0, preferred-register: '' }
+  - { id: 399, class: ci0, preferred-register: '' }
+  - { id: 400, class: ci64, preferred-register: '' }
+  - { id: 401, class: ci64, preferred-register: '' }
+  - { id: 402, class: ci64, preferred-register: '' }
+  - { id: 403, class: ci64, preferred-register: '' }
+  - { id: 404, class: ci64, preferred-register: '' }
+  - { id: 405, class: ci64, preferred-register: '' }
+  - { id: 406, class: ci64, preferred-register: '' }
+  - { id: 407, class: ci64, preferred-register: '' }
+  - { id: 408, class: ci64, preferred-register: '' }
+  - { id: 409, class: ci64, preferred-register: '' }
+  - { id: 410, class: ci64, preferred-register: '' }
+  - { id: 411, class: ci64, preferred-register: '' }
+  - { id: 412, class: ci64, preferred-register: '' }
+  - { id: 413, class: ci64, preferred-register: '' }
+  - { id: 414, class: ci64, preferred-register: '' }
+  - { id: 415, class: ci64, preferred-register: '' }
+  - { id: 416, class: ci64, preferred-register: '' }
+  - { id: 417, class: ci64, preferred-register: '' }
+  - { id: 418, class: ci64, preferred-register: '' }
+  - { id: 419, class: ci64, preferred-register: '' }
+  - { id: 420, class: ci64, preferred-register: '' }
+  - { id: 421, class: ci64, preferred-register: '' }
+  - { id: 422, class: ci64, preferred-register: '' }
+  - { id: 423, class: ci64, preferred-register: '' }
+  - { id: 424, class: ci64, preferred-register: '' }
+  - { id: 425, class: ci64, preferred-register: '' }
+  - { id: 426, class: ci64, preferred-register: '' }
+  - { id: 427, class: ci64, preferred-register: '' }
+  - { id: 428, class: ci64, preferred-register: '' }
+  - { id: 429, class: ci64, preferred-register: '' }
+  - { id: 430, class: ci64, preferred-register: '' }
+  - { id: 431, class: ci64, preferred-register: '' }
+  - { id: 432, class: ci64, preferred-register: '' }
+  - { id: 433, class: ci64, preferred-register: '' }
+  - { id: 434, class: ci64, preferred-register: '' }
+  - { id: 435, class: ci64, preferred-register: '' }
+  - { id: 436, class: ci64, preferred-register: '' }
+  - { id: 437, class: ci64, preferred-register: '' }
+  - { id: 438, class: ci64, preferred-register: '' }
+  - { id: 439, class: ci64, preferred-register: '' }
+  - { id: 440, class: ci64, preferred-register: '' }
+  - { id: 441, class: ci64, preferred-register: '' }
+  - { id: 442, class: ci64, preferred-register: '' }
+  - { id: 443, class: ci64, preferred-register: '' }
+  - { id: 444, class: ci64, preferred-register: '' }
+  - { id: 445, class: ci64, preferred-register: '' }
+  - { id: 446, class: ci64, preferred-register: '' }
+  - { id: 447, class: ci64, preferred-register: '' }
+  - { id: 448, class: ci64, preferred-register: '' }
+  - { id: 449, class: ci64, preferred-register: '' }
+  - { id: 450, class: ci64, preferred-register: '' }
+  - { id: 451, class: ci64, preferred-register: '' }
+  - { id: 452, class: ci64, preferred-register: '' }
+  - { id: 453, class: ci64, preferred-register: '' }
+  - { id: 454, class: ci64, preferred-register: '' }
+  - { id: 455, class: ci64, preferred-register: '' }
+  - { id: 456, class: ci64, preferred-register: '' }
+  - { id: 457, class: ci64, preferred-register: '' }
+  - { id: 458, class: ci64, preferred-register: '' }
+  - { id: 459, class: ci64, preferred-register: '' }
+  - { id: 460, class: ci64, preferred-register: '' }
+  - { id: 461, class: ci64, preferred-register: '' }
+  - { id: 462, class: ci64, preferred-register: '' }
+  - { id: 463, class: ci64, preferred-register: '' }
+  - { id: 464, class: ci64, preferred-register: '' }
+  - { id: 465, class: ci64, preferred-register: '' }
+  - { id: 466, class: ci64, preferred-register: '' }
+  - { id: 467, class: ci64, preferred-register: '' }
+  - { id: 468, class: ci64, preferred-register: '' }
+  - { id: 469, class: ci64, preferred-register: '' }
+  - { id: 470, class: ci64, preferred-register: '' }
+  - { id: 471, class: ci64, preferred-register: '' }
+  - { id: 472, class: ci64, preferred-register: '' }
+  - { id: 473, class: ci64, preferred-register: '' }
+  - { id: 474, class: ci64, preferred-register: '' }
+  - { id: 475, class: ci64, preferred-register: '' }
+  - { id: 476, class: ci64, preferred-register: '' }
+  - { id: 477, class: ci64, preferred-register: '' }
+  - { id: 478, class: ci64, preferred-register: '' }
+  - { id: 479, class: ci64, preferred-register: '' }
+  - { id: 480, class: ci64, preferred-register: '' }
+  - { id: 481, class: ci64, preferred-register: '' }
+  - { id: 482, class: ci64, preferred-register: '' }
+  - { id: 483, class: ci64, preferred-register: '' }
+  - { id: 484, class: i64, preferred-register: '' }
+  - { id: 485, class: ci64, preferred-register: '' }
+  - { id: 486, class: ci64, preferred-register: '' }
+  - { id: 487, class: ci64, preferred-register: '' }
+  - { id: 488, class: i64, preferred-register: '' }
+  - { id: 489, class: ci64, preferred-register: '' }
+  - { id: 490, class: i64, preferred-register: '' }
+  - { id: 491, class: ci64, preferred-register: '' }
+  - { id: 492, class: ci64, preferred-register: '' }
+  - { id: 493, class: ci64, preferred-register: '' }
+  - { id: 494, class: i64, preferred-register: '' }
+  - { id: 495, class: ci64, preferred-register: '' }
+  - { id: 496, class: i64, preferred-register: '' }
+  - { id: 497, class: ci64, preferred-register: '' }
+  - { id: 498, class: ci64, preferred-register: '' }
+  - { id: 499, class: ci64, preferred-register: '' }
+  - { id: 500, class: i64, preferred-register: '' }
+  - { id: 501, class: ci64, preferred-register: '' }
+  - { id: 502, class: i64, preferred-register: '' }
+  - { id: 503, class: ci64, preferred-register: '' }
+  - { id: 504, class: ci64, preferred-register: '' }
+  - { id: 505, class: ci64, preferred-register: '' }
+  - { id: 506, class: i64, preferred-register: '' }
+  - { id: 507, class: ci64, preferred-register: '' }
+  - { id: 508, class: i64, preferred-register: '' }
+  - { id: 509, class: ci64, preferred-register: '' }
+  - { id: 510, class: ci64, preferred-register: '' }
+  - { id: 511, class: ci64, preferred-register: '' }
+  - { id: 512, class: i64, preferred-register: '' }
+  - { id: 513, class: ci64, preferred-register: '' }
+  - { id: 514, class: i64, preferred-register: '' }
+  - { id: 515, class: ci64, preferred-register: '' }
+  - { id: 516, class: ci64, preferred-register: '' }
+  - { id: 517, class: ci64, preferred-register: '' }
+  - { id: 518, class: i64, preferred-register: '' }
+  - { id: 519, class: ci64, preferred-register: '' }
+  - { id: 520, class: i64, preferred-register: '' }
+  - { id: 521, class: ci64, preferred-register: '' }
+  - { id: 522, class: ci64, preferred-register: '' }
+  - { id: 523, class: ci64, preferred-register: '' }
+  - { id: 524, class: i64, preferred-register: '' }
+  - { id: 525, class: ci64, preferred-register: '' }
+  - { id: 526, class: i64, preferred-register: '' }
+  - { id: 527, class: ci64, preferred-register: '' }
+  - { id: 528, class: ci64, preferred-register: '' }
+  - { id: 529, class: ci64, preferred-register: '' }
+  - { id: 530, class: i64, preferred-register: '' }
+  - { id: 531, class: ci64, preferred-register: '' }
+  - { id: 532, class: i64, preferred-register: '' }
+  - { id: 533, class: ci64, preferred-register: '' }
+  - { id: 534, class: ci64, preferred-register: '' }
+  - { id: 535, class: ci64, preferred-register: '' }
+  - { id: 536, class: i64, preferred-register: '' }
+  - { id: 537, class: ci64, preferred-register: '' }
+  - { id: 538, class: i64, preferred-register: '' }
+  - { id: 539, class: ci64, preferred-register: '' }
+  - { id: 540, class: ci64, preferred-register: '' }
+  - { id: 541, class: ci64, preferred-register: '' }
+  - { id: 542, class: i64, preferred-register: '' }
+  - { id: 543, class: ci64, preferred-register: '' }
+  - { id: 544, class: i64, preferred-register: '' }
+  - { id: 545, class: ci64, preferred-register: '' }
+  - { id: 546, class: ci64, preferred-register: '' }
+  - { id: 547, class: ci64, preferred-register: '' }
+  - { id: 548, class: i64, preferred-register: '' }
+  - { id: 549, class: ci64, preferred-register: '' }
+  - { id: 550, class: i64, preferred-register: '' }
+  - { id: 551, class: ci64, preferred-register: '' }
+  - { id: 552, class: ci64, preferred-register: '' }
+  - { id: 553, class: ci64, preferred-register: '' }
+  - { id: 554, class: i64, preferred-register: '' }
+  - { id: 555, class: ci64, preferred-register: '' }
+  - { id: 556, class: i64, preferred-register: '' }
+  - { id: 557, class: ci64, preferred-register: '' }
+  - { id: 558, class: i64, preferred-register: '' }
+  - { id: 559, class: ci64, preferred-register: '' }
+  - { id: 560, class: ci0, preferred-register: '' }
+  - { id: 561, class: ci0, preferred-register: '' }
+  - { id: 562, class: ci0, preferred-register: '' }
+  - { id: 563, class: ci0, preferred-register: '' }
+  - { id: 564, class: ci0, preferred-register: '' }
+  - { id: 565, class: ci0, preferred-register: '' }
+  - { id: 566, class: ci0, preferred-register: '' }
+  - { id: 567, class: ci0, preferred-register: '' }
+  - { id: 568, class: ci0, preferred-register: '' }
+  - { id: 569, class: ci0, preferred-register: '' }
+  - { id: 570, class: ci0, preferred-register: '' }
+  - { id: 571, class: ci0, preferred-register: '' }
+  - { id: 572, class: ci0, preferred-register: '' }
+  - { id: 573, class: ci0, preferred-register: '' }
+  - { id: 574, class: ci0, preferred-register: '' }
+  - { id: 575, class: ci0, preferred-register: '' }
+  - { id: 576, class: ci0, preferred-register: '' }
+  - { id: 577, class: ci0, preferred-register: '' }
+  - { id: 578, class: ci0, preferred-register: '' }
+  - { id: 579, class: ci0, preferred-register: '' }
+  - { id: 580, class: ci0, preferred-register: '' }
+  - { id: 581, class: ci0, preferred-register: '' }
+  - { id: 582, class: ci0, preferred-register: '' }
+  - { id: 583, class: ci0, preferred-register: '' }
+  - { id: 584, class: ci0, preferred-register: '' }
+  - { id: 585, class: ci0, preferred-register: '' }
+  - { id: 586, class: ci0, preferred-register: '' }
+  - { id: 587, class: ci0, preferred-register: '' }
+  - { id: 588, class: ci0, preferred-register: '' }
+  - { id: 589, class: ci0, preferred-register: '' }
+  - { id: 590, class: ci0, preferred-register: '' }
+  - { id: 591, class: ci0, preferred-register: '' }
+  - { id: 592, class: ci0, preferred-register: '' }
+  - { id: 593, class: ci0, preferred-register: '' }
+  - { id: 594, class: ci0, preferred-register: '' }
+  - { id: 595, class: ci0, preferred-register: '' }
+  - { id: 596, class: ci0, preferred-register: '' }
+  - { id: 597, class: ci0, preferred-register: '' }
+  - { id: 598, class: ci0, preferred-register: '' }
+  - { id: 599, class: ci0, preferred-register: '' }
+  - { id: 600, class: ci0, preferred-register: '' }
+  - { id: 601, class: ci0, preferred-register: '' }
+  - { id: 602, class: ci0, preferred-register: '' }
+  - { id: 603, class: ci0, preferred-register: '' }
+  - { id: 604, class: ci0, preferred-register: '' }
+  - { id: 605, class: ci0, preferred-register: '' }
+  - { id: 606, class: ci0, preferred-register: '' }
+  - { id: 607, class: ci0, preferred-register: '' }
+  - { id: 608, class: ci1, preferred-register: '' }
+  - { id: 609, class: ci1, preferred-register: '' }
+  - { id: 610, class: ci1, preferred-register: '' }
+  - { id: 611, class: ci1, preferred-register: '' }
+  - { id: 612, class: ci1, preferred-register: '' }
+  - { id: 613, class: ci64, preferred-register: '' }
+  - { id: 614, class: ci1, preferred-register: '' }
+  - { id: 615, class: ci1, preferred-register: '' }
+  - { id: 616, class: ci1, preferred-register: '' }
+  - { id: 617, class: ci64, preferred-register: '' }
+  - { id: 618, class: ci1, preferred-register: '' }
+  - { id: 700, class: ci0, preferred-register: '' }
+  - { id: 701, class: ci1, preferred-register: '' }
+  - { id: 702, class: ci32, preferred-register: '' }
+  - { id: 703, class: ci64, preferred-register: '' }
+liveins:         
+  - { reg: '$p64_2', virtual-reg: '%79' }
+  - { reg: '$p64_3', virtual-reg: '%80' }
+  - { reg: '$p64_4', virtual-reg: '%81' }
+  - { reg: '$p64_5', virtual-reg: '%82' }
+  - { reg: '$p64_6', virtual-reg: '%83' }
+  - { reg: '$p64_7', virtual-reg: '%84' }
+  - { reg: '$p64_8', virtual-reg: '%85' }
+  - { reg: '$p64_9', virtual-reg: '%86' }
+  - { reg: '$p64_10', virtual-reg: '%87' }
+  - { reg: '$p64_11', virtual-reg: '%88' }
+  - { reg: '$p64_12', virtual-reg: '%89' }
+  - { reg: '$p64_13', virtual-reg: '%90' }
+  - { reg: '$p64_14', virtual-reg: '%91' }
+  - { reg: '$p64_15', virtual-reg: '%92' }
+  - { reg: '$p64_16', virtual-reg: '%93' }
+  - { reg: '$p64_17', virtual-reg: '%94' }
+  - { reg: '$p64_18', virtual-reg: '%95' }
+  - { reg: '$p64_19', virtual-reg: '%96' }
+  - { reg: '$p64_20', virtual-reg: '%97' }
+  - { reg: '$p64_21', virtual-reg: '%98' }
+  - { reg: '$p64_22', virtual-reg: '%99' }
+  - { reg: '$p64_23', virtual-reg: '%100' }
+  - { reg: '$p64_24', virtual-reg: '%101' }
+  - { reg: '$p64_25', virtual-reg: '%102' }
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+  stackProtector:  ''
+  maxCallFrameSize: 4294967295
+  hasOpaqueSPAdjustment: false
+  hasVAStart:      false
+  hasMustTailInVarArgFunc: false
+  localFrameSize:  0
+  savePoint:       ''
+  restorePoint:    ''
+fixedStack:      
+stack:           
+constants:       
+body:             |
+  bb.0.entry:
+    liveins: $p64_2, $p64_3, $p64_4, $p64_5, $p64_6, $p64_7, $p64_8, $p64_9, $p64_10, $p64_11, $p64_12, $p64_13, $p64_14, $p64_15, $p64_16, $p64_17, $p64_18, $p64_19, $p64_20, $p64_21, $p64_22, $p64_23, $p64_24, $p64_25
+  
+    %77:ci0 = MOV0 $ra
+    %102:ci64 = COPY $p64_25
+    %101:ci64 = COPY $p64_24
+    %100:ci64 = COPY $p64_23
+    %99:ci64 = COPY $p64_22
+    %98:ci64 = COPY $p64_21
+    %97:ci64 = COPY $p64_20
+    %96:ci64 = COPY $p64_19
+    %95:ci64 = COPY $p64_18
+    %94:ci64 = COPY $p64_17
+    %93:ci64 = COPY $p64_16
+    %92:ci64 = COPY $p64_15
+    %91:ci64 = COPY $p64_14
+    %90:ci64 = COPY $p64_13
+    %89:ci64 = COPY $p64_12
+    %88:ci64 = COPY $p64_11
+    %87:ci64 = COPY $p64_10
+    %86:ci64 = COPY $p64_9
+    %85:ci64 = COPY $p64_8
+    %84:ci64 = COPY $p64_7
+    %83:ci64 = COPY $p64_6
+    %82:ci64 = COPY $p64_5
+    %81:ci64 = COPY $p64_4
+    %80:ci64 = COPY $p64_3
+    %79:ci64 = COPY $p64_2
+    %103:ci1 = CMPGTS32 %79, 0
+    %396:ci0 = FILTER0 %103, %77
+    %401:ci64 = FILTER64 %103, %79
+    %403:ci64 = FILTER64 %103, %80
+    %411:ci64 = FILTER64 %103, %81
+    %419:ci64 = FILTER64 %103, %82
+    %427:ci64 = FILTER64 %103, %83
+    %435:ci64 = FILTER64 %103, %84
+    %443:ci64 = FILTER64 %103, %85
+    %451:ci64 = FILTER64 %103, %86
+    %453:ci64 = FILTER64 %103, %87
+    %455:ci64 = FILTER64 %103, %88
+    %457:ci64 = FILTER64 %103, %89
+    %459:ci64 = FILTER64 %103, %90
+    %461:ci64 = FILTER64 %103, %91
+    %463:ci64 = FILTER64 %103, %92
+    %465:ci64 = FILTER64 %103, %93
+    %467:ci64 = FILTER64 %103, %94
+    %469:ci64 = FILTER64 %103, %95
+    %471:ci64 = FILTER64 %103, %96
+    %473:ci64 = FILTER64 %103, %97
+    %475:ci64 = FILTER64 %103, %98
+    %477:ci64 = FILTER64 %103, %99
+    %479:ci64 = FILTER64 %103, %100
+    %481:ci64 = FILTER64 %103, %101
+    %483:ci64 = FILTER64 %103, %102
+    %618:ci1 = NOT1 %103
+    %105:ci64, %256:ci0 = LD64 %459, 3, %396 :: (load 8 from %ir.c, !tbaa !3)
+    %107:ci64, %257:ci0 = LD64D %459, 8, 3, %396 :: (load 8 from %ir.arrayidx8, !tbaa !3)
+    %109:ci64, %258:ci0 = LD64D %459, 16, 3, %396 :: (load 8 from %ir.arrayidx10, !tbaa !3)
+    %111:ci64, %259:ci0 = LD64D %459, 24, 3, %396 :: (load 8 from %ir.arrayidx13, !tbaa !3)
+    %113:ci64, %260:ci0 = LD64 %461, 3, %396 :: (load 8 from %ir.dc, !tbaa !3)
+    %115:ci64, %261:ci0 = LD64D %461, 8, 3, %396 :: (load 8 from %ir.arrayidx18, !tbaa !3)
+    %117:ci64, %262:ci0 = LD64D %461, 16, 3, %396 :: (load 8 from %ir.arrayidx21, !tbaa !3)
+    %119:ci64, %263:ci0 = LD64D %461, 24, 3, %396 :: (load 8 from %ir.arrayidx24, !tbaa !3)
+    %121:ci64, %264:ci0 = LD64 %463, 3, %396 :: (load 8 from %ir.d2c, !tbaa !3)
+    %123:ci64, %265:ci0 = LD64D %463, 8, 3, %396 :: (load 8 from %ir.arrayidx29, !tbaa !3)
+    %125:ci64, %266:ci0 = LD64D %463, 16, 3, %396 :: (load 8 from %ir.arrayidx32, !tbaa !3)
+    %127:ci64, %267:ci0 = LD64D %463, 24, 3, %396 :: (load 8 from %ir.arrayidx35, !tbaa !3)
+    %130:ci64 = SEXT64 %401, 32
+    %14:ci64 = ADD64 killed %130, -1
+    %269:ci0 = ALL0 %256, %257, %258, %259
+    %270:ci0 = ALL0 %260, %261, %262, %263
+    %271:ci0 = ALL0 %264, %265, %266, $ign
+    %268:ci0 = ALL0 %269, %270, %271, %267
+    %16:ci64 = STRIDE64 %612, %475, 8
+    %17:ci64 = STRIDE64 %612, %457, 8
+    %18:ci64 = STRIDE64 %612, %451, 8
+    %19:ci64 = STRIDE64 %612, %477, 8
+    %20:ci64 = STRIDE64 %612, %481, 8
+    %21:ci64 = STRIDE64 %612, %453, 8
+    %22:ci64 = STRIDE64 %612, %469, 8
+    %23:ci64 = STRIDE64 %612, %479, 8
+    %24:ci64 = STRIDE64 %612, %471, 8
+    %25:ci64 = STRIDE64 %612, %473, 8
+    %26:ci64 = STRIDE64 %612, %465, 8
+    %27:ci64 = STRIDE64 %612, %455, 8
+    %28:ci64 = STRIDE64 %612, %467, 8
+    %29:ci64 = STRIDE64 %612, %483, 8
+    $ign, %612:ci1, $ign, %611:ci1 = SEQOTLTS64 -1, %14, 1
+    %131:ci1 = NOT1 %611
+    %700:ci0 = REPEATO0 %131, %14
+    %701:ci1 = REPEATO1 %131, %14
+    %702:ci32 = REPEATO32 %131, %14
+    %703:ci64 = REPEATO64 %131, %14
+    %397:ci0 = REPEATO0 %131, %396
+    %404:ci64 = REPEATO64 %131, %403
+    %412:ci64 = REPEATO64 %131, %411
+    %420:ci64 = REPEATO64 %131, %419
+    %428:ci64 = REPEATO64 %131, %427
+    %436:ci64 = REPEATO64 %131, %435
+    %444:ci64 = REPEATO64 %131, %443
+    %486:ci64 = REPEATO64 %131, %105
+    %492:ci64 = REPEATO64 %131, %107
+    %498:ci64 = REPEATO64 %131, %109
+    %504:ci64 = REPEATO64 %131, %111
+    %510:ci64 = REPEATO64 %131, %113
+    %516:ci64 = REPEATO64 %131, %115
+    %522:ci64 = REPEATO64 %131, %117
+    %528:ci64 = REPEATO64 %131, %119
+    %534:ci64 = REPEATO64 %131, %121
+    %540:ci64 = REPEATO64 %131, %123
+    %546:ci64 = REPEATO64 %131, %125
+    %552:ci64 = REPEATO64 %131, %127
+    %560:ci0 = REPEATO0 %131, %268
+    %133:ci64, $ign = LD64 %17, 3, %397 :: (load 8 from %ir.streammemprep.iv611, !tbaa !3)
+    %135:ci64, $ign = LD64 %27, 3, %397 :: (load 8 from %ir.streammemprep.iv591, !tbaa !3)
+    %137:ci64, $ign = LD64 %18, 3, %397 :: (load 8 from %ir.streammemprep.iv609, !tbaa !3)
+    %139:ci64, $ign = LD64 %21, 3, %397 :: (load 8 from %ir.streammemprep.iv603, !tbaa !3)
+    %141:ci64 = contract MULF64 %139, %492, 0
+    %142:ci64 = contract FMAF64 %137, %486, killed %141, 0
+    %143:ci64 = contract FMAF64 %135, %498, killed %142, 0
+    %144:ci64 = contract FMAF64 %133, %504, killed %143, 0
+    %145:ci64 = contract MULF64 %139, %516, 0
+    %146:ci64 = contract FMAF64 %137, %510, killed %145, 0
+    %147:ci64 = contract FMAF64 %135, %522, killed %146, 0
+    %148:ci64 = contract FMAF64 %133, %528, killed %147, 0
+    %149:ci64 = contract MULF64 %139, %540, 0
+    %150:ci64 = contract FMAF64 %137, %534, killed %149, 0
+    %151:ci64 = contract FMAF64 %135, %546, killed %150, 0
+    %152:ci64 = contract FMAF64 %133, %552, killed %151, 0
+    %153:ci64, $ign = LD64 %26, 3, %397 :: (load 8 from %ir.streammemprep.iv593, !tbaa !3)
+    %155:ci64 = contract FMAF64 %144, %404, %153, 0
+    %277:ci0 = ST64 %26, %155, 3, %560 :: (store 8 into %ir.streammemprep.iv593, !tbaa !3)
+    %157:ci64, $ign = LD64 %28, 3, %397 :: (load 8 from %ir.streammemprep.iv589, !tbaa !3)
+    %159:ci64 = contract FMAF64 %144, %428, %157, 0
+    %279:ci0 = ST64 %28, %159, 3, %560 :: (store 8 into %ir.streammemprep.iv589, !tbaa !3)
+    %161:ci64, $ign = LD64 %22, 3, %397 :: (load 8 from %ir.streammemprep.iv601, !tbaa !3)
+    %163:ci64 = contract FMAF64 %148, %412, %161, 0
+    %281:ci0 = ST64 %22, %163, 3, %560 :: (store 8 into %ir.streammemprep.iv601, !tbaa !3)
+    %165:ci64, $ign = LD64 %24, 3, %397 :: (load 8 from %ir.streammemprep.iv597, !tbaa !3)
+    %167:ci64 = contract FMAF64 %144, %444, %165, 0
+    %283:ci0 = ST64 %24, %167, 3, %560 :: (store 8 into %ir.streammemprep.iv597, !tbaa !3)
+    %169:ci64, $ign = LD64 %25, 3, %397 :: (load 8 from %ir.streammemprep.iv595, !tbaa !3)
+    %171:ci64 = contract FMAF64 %148, %436, %169, 0
+    %285:ci0 = ST64 %25, %171, 3, %560 :: (store 8 into %ir.streammemprep.iv595, !tbaa !3)
+    %173:ci64, $ign = LD64 %16, 3, %397 :: (load 8 from %ir.streammemprep.iv613, !tbaa !3)
+    %175:ci64 = contract FMAF64 killed %152, %420, %173, 0
+    %287:ci0 = ST64 %16, %175, 3, %560 :: (store 8 into %ir.streammemprep.iv613, !tbaa !3)
+    %177:ci64, $ign = LD64 %19, 3, %397 :: (load 8 from %ir.streammemprep.iv607, !tbaa !3)
+    %179:ci64 = contract FMAF64 %144, %412, %177, 0
+    %289:ci0 = ST64 %19, %179, 3, %560 :: (store 8 into %ir.streammemprep.iv607, !tbaa !3)
+    %181:ci64, $ign = LD64 %23, 3, %397 :: (load 8 from %ir.streammemprep.iv599, !tbaa !3)
+    %183:ci64 = contract FMAF64 %144, %436, %181, 0
+    %291:ci0 = ST64 %23, %183, 3, %560 :: (store 8 into %ir.streammemprep.iv599, !tbaa !3)
+    %185:ci64, $ign = LD64 %20, 3, %397 :: (load 8 from %ir.streammemprep.iv605, !tbaa !3)
+    %187:ci64 = contract FMAF64 %148, %420, %185, 0
+    %293:ci0 = ST64 %20, %187, 3, %560 :: (store 8 into %ir.streammemprep.iv605, !tbaa !3)
+    %189:ci64, $ign = LD64 %29, 3, %397 :: (load 8 from %ir.streammemprep.iv, !tbaa !3)
+    %191:ci64 = contract FMAF64 %144, %420, %189, 0
+    %295:ci0 = ST64 %29, %191, 3, %560 :: (store 8 into %ir.streammemprep.iv, !tbaa !3)
+    %563:ci0 = FILTER0 %611, %277
+    %565:ci0 = FILTER0 %611, %279
+    %567:ci0 = FILTER0 %611, %281
+    %569:ci0 = FILTER0 %611, %283
+    %571:ci0 = FILTER0 %611, %285
+    %573:ci0 = FILTER0 %611, %287
+    %575:ci0 = FILTER0 %611, %289
+    %577:ci0 = FILTER0 %611, %291
+    %579:ci0 = FILTER0 %611, %293
+    %581:ci0 = FILTER0 %611, %295
+    %297:ci0 = ALL0 %563, %565, %567, %569
+    %298:ci0 = ALL0 %571, %573, %575, %577
+    %296:ci0 = ALL0 %297, %298, %579, %581
+    %47:ci64 = STRIDE64 %616, %453, 8
+    %48:ci64 = STRIDE64 %616, %457, 8
+    %49:ci64 = STRIDE64 %616, %473, 8
+    %50:ci64 = STRIDE64 %616, %471, 8
+    %51:ci64 = STRIDE64 %616, %451, 8
+    %52:ci64 = STRIDE64 %616, %479, 8
+    %53:ci64 = STRIDE64 %616, %465, 8
+    %54:ci64 = STRIDE64 %616, %455, 8
+    %55:ci64 = STRIDE64 %616, %483, 8
+    %56:ci64 = STRIDE64 %616, %467, 8
+    %57:ci64 = STRIDE64 %616, %481, 8
+    %58:ci64 = STRIDE64 %616, %477, 8
+    %59:ci64 = STRIDE64 %616, %469, 8
+    %60:ci64 = STRIDE64 %616, %475, 8
+    $ign, %616:ci1, $ign, %615:ci1 = SEQOTLTS64 -1, %14, 1
+    %194:ci1 = NOT1 %615
+    %405:ci64 = REPEATO64 %194, %403
+    %413:ci64 = REPEATO64 %194, %411
+    %421:ci64 = REPEATO64 %194, %419
+    %429:ci64 = REPEATO64 %194, %427
+    %437:ci64 = REPEATO64 %194, %435
+    %445:ci64 = REPEATO64 %194, %443
+    %487:ci64 = REPEATO64 %194, %105
+    %493:ci64 = REPEATO64 %194, %107
+    %499:ci64 = REPEATO64 %194, %109
+    %505:ci64 = REPEATO64 %194, %111
+    %511:ci64 = REPEATO64 %194, %113
+    %517:ci64 = REPEATO64 %194, %115
+    %523:ci64 = REPEATO64 %194, %117
+    %529:ci64 = REPEATO64 %194, %119
+    %535:ci64 = REPEATO64 %194, %121
+    %541:ci64 = REPEATO64 %194, %123
+    %547:ci64 = REPEATO64 %194, %125
+    %553:ci64 = REPEATO64 %194, %127
+    %583:ci0 = REPEATO0 %194, %296
+    %196:ci64, $ign = LD64 %48, 3, %583 :: (load 8 from %ir.streammemprep.iv639, !tbaa !3)
+    %198:ci64, $ign = LD64 %54, 3, %583 :: (load 8 from %ir.streammemprep.iv627, !tbaa !3)
+    %200:ci64, $ign = LD64 %51, 3, %583 :: (load 8 from %ir.streammemprep.iv633, !tbaa !3)
+    %202:ci64, $ign = LD64 %47, 3, %583 :: (load 8 from %ir.streammemprep.iv641, !tbaa !3)
+    %204:ci64 = contract MULF64 %202, %493, 0
+    %205:ci64 = contract FMAF64 %200, %487, killed %204, 0
+    %206:ci64 = contract FMAF64 %198, %499, killed %205, 0
+    %207:ci64 = contract FMAF64 %196, %505, killed %206, 0
+    %208:ci64 = contract MULF64 %202, %517, 0
+    %209:ci64 = contract FMAF64 %200, %511, killed %208, 0
+    %210:ci64 = contract FMAF64 %198, %523, killed %209, 0
+    %211:ci64 = contract FMAF64 %196, %529, killed %210, 0
+    %212:ci64 = contract MULF64 %202, %541, 0
+    %213:ci64 = contract FMAF64 %200, %535, killed %212, 0
+    %214:ci64 = contract FMAF64 %198, %547, killed %213, 0
+    %215:ci64 = contract FMAF64 %196, %553, killed %214, 0
+    %216:ci64, $ign = LD64 %53, 3, %583 :: (load 8 from %ir.streammemprep.iv629, !tbaa !3)
+    %218:ci64 = contract FMAF64 %207, %405, %216, 0
+    %304:ci0 = ST64 %53, %218, 3, $ign :: (store 8 into %ir.streammemprep.iv629, !tbaa !3)
+    %220:ci64, $ign = LD64 %56, 3, %583 :: (load 8 from %ir.streammemprep.iv623, !tbaa !3)
+    %222:ci64 = contract FMAF64 %207, %429, %220, 0
+    %306:ci0 = ST64 %56, %222, 3, $ign :: (store 8 into %ir.streammemprep.iv623, !tbaa !3)
+    %224:ci64, $ign = LD64 %59, 3, %583 :: (load 8 from %ir.streammemprep.iv617, !tbaa !3)
+    %226:ci64 = contract FMAF64 %211, %413, %224, 0
+    %308:ci0 = ST64 %59, %226, 3, $ign :: (store 8 into %ir.streammemprep.iv617, !tbaa !3)
+    %228:ci64, $ign = LD64 %50, 3, %583 :: (load 8 from %ir.streammemprep.iv635, !tbaa !3)
+    %230:ci64 = contract FMAF64 %207, %445, %228, 0
+    %310:ci0 = ST64 %50, %230, 3, $ign :: (store 8 into %ir.streammemprep.iv635, !tbaa !3)
+    %232:ci64, $ign = LD64 %49, 3, %583 :: (load 8 from %ir.streammemprep.iv637, !tbaa !3)
+    %234:ci64 = contract FMAF64 %211, %437, %232, 0
+    %312:ci0 = ST64 %49, %234, 3, $ign :: (store 8 into %ir.streammemprep.iv637, !tbaa !3)
+    %236:ci64, $ign = LD64 %60, 3, %583 :: (load 8 from %ir.streammemprep.iv615, !tbaa !3)
+    %238:ci64 = contract FMAF64 killed %215, %421, %236, 0
+    %314:ci0 = ST64 %60, %238, 3, $ign :: (store 8 into %ir.streammemprep.iv615, !tbaa !3)
+    %240:ci64, $ign = LD64 %58, 3, %583 :: (load 8 from %ir.streammemprep.iv619, !tbaa !3)
+    %242:ci64 = contract FMAF64 %207, %413, %240, 0
+    %316:ci0 = ST64 %58, %242, 3, $ign :: (store 8 into %ir.streammemprep.iv619, !tbaa !3)
+    %244:ci64, $ign = LD64 %52, 3, %583 :: (load 8 from %ir.streammemprep.iv631, !tbaa !3)
+    %246:ci64 = contract FMAF64 %207, %437, %244, 0
+    %318:ci0 = ST64 %52, %246, 3, $ign :: (store 8 into %ir.streammemprep.iv631, !tbaa !3)
+    %248:ci64, $ign = LD64 %57, 3, %583 :: (load 8 from %ir.streammemprep.iv621, !tbaa !3)
+    %250:ci64 = contract FMAF64 %211, %421, %248, 0
+    %320:ci0 = ST64 %57, %250, 3, $ign :: (store 8 into %ir.streammemprep.iv621, !tbaa !3)
+    %252:ci64, $ign = LD64 %55, 3, %583 :: (load 8 from %ir.streammemprep.iv625, !tbaa !3)
+    %254:ci64 = contract FMAF64 %207, %421, %252, 0
+    %322:ci0 = ST64 %55, %254, 3, $ign :: (store 8 into %ir.streammemprep.iv625, !tbaa !3)
+    %586:ci0 = FILTER0 %615, %304
+    %588:ci0 = FILTER0 %615, %306
+    %590:ci0 = FILTER0 %615, %308
+    %592:ci0 = FILTER0 %615, %310
+    %594:ci0 = FILTER0 %615, %312
+    %596:ci0 = FILTER0 %615, %314
+    %598:ci0 = FILTER0 %615, %316
+    %600:ci0 = FILTER0 %615, %318
+    %602:ci0 = FILTER0 %615, %320
+    %604:ci0 = FILTER0 %615, %322
+    %324:ci0 = ALL0 %586, %588, %590, %592
+    %325:ci0 = ALL0 %594, %596, %598, %600
+    %323:ci0 = ALL0 %324, %325, %602, %604
+    %326:ci0 = PICK0 %103, 0, %323
+    %327:ci0 = ALL0 %77, %326, $ign, $ign
+    %78:ci0 = MOV0 %327
+    RET
+
+...

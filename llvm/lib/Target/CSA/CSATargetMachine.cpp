@@ -96,6 +96,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSANormalizeDebugPass(PR);
   initializeCSAOptDFPassPass(PR);
   initializeCSARedundantMovElimPass(PR);
+  initializeCSASeqotToSeqOptimizationPass(PR);
   initializeCSAStreamingMemoryConversionPassPass(PR);
   initializeControlDependenceGraphPass(PR);
 }
@@ -272,7 +273,16 @@ public:
     }
 
     addPass(createCSAOptDFPass(), false);
+    // Run dead instructions elimination, because CSAOptDFPass
+    // is not careful about creating new instructions.
+    // This extra uses may break SEQOT->SEQ idiom recognition.
+    //
+    // TODO (vzakhari 9/25/2018): look for CSASeqOpt.cpp:getTripCntForSeq
+    //       usage and figure out how to clean up the tripcount computation,
+    //       if it is never used (e.g. DisableMultiSeq is true).
+    addPass(createCSADeadInstructionElimPass(), false);
     addPass(createCSADataflowCanonicalizationPass(), false);
+    addPass(createCSASeqotToSeqOptimizationPass(), false);
     addPass(createCSAStreamingMemoryConversionPass(), false);
     addPass(createCSAMultiSeqPass(), false);
     addPass(createCSARedundantMovElimPass(), false);
@@ -281,7 +291,7 @@ public:
     addPass(createCSANormalizeDebugPass(), false);
   }
 
-// Last call in TargetPassConfig.cpp to disable passes.  
+// Last call in TargetPassConfig.cpp to disable passes.
 // If we don't disable here some other passes may add after disable
   void addPostRegAlloc() override {
     addPass(createCSAAllocUnitPass(), false);

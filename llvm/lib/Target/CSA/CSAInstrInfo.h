@@ -257,8 +257,27 @@ public:
            opcode == CSA::Generic::SRA;
   }
   bool isCmp(const MachineInstr *MI) const { return MI->isCompare(); }
+  bool isRepeatO(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::REPEATO;
+  }
+  bool isSext(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::SEXT;
+  }
+  bool isNot(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::NOT;
+  }
+  bool isStride(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::STRIDE;
+  }
+  bool isFilter(const MachineInstr *MI) const {
+    return getGenericOpcode(MI->getOpcode()) == CSA::Generic::FILTER;
+  }
   bool isAtomic(const MachineInstr *) const;
-  bool isSeqOT(const MachineInstr *) const;
+  bool isSeqOT(const MachineInstr *MI) const;
+  bool isSeqZT(const MachineInstr *MI) const;
+  bool isSeq(const MachineInstr *MI) const {
+    return isSeqOT(MI) || isSeqZT(MI);
+  }
   bool isReduction(const MachineInstr *) const;
 
   /// Returns true if the machine operation is multi-triggered.
@@ -329,6 +348,15 @@ public:
   //  CMPGE maps to SEQOTGE
   //    etc...
   unsigned convertCompareOpToSeqOTOp(unsigned cmp_opcode) const;
+
+  // Takes in an opcode for a SEQOT operation, and returns the
+  // opcode for a zero-trip sequence instruction corresponding to that op.
+  //
+  //
+  //  SEQOTGT maps to SEQGT
+  //  SEQOTGE maps to SEQGE
+  //    etc...
+  unsigned convertSeqOTToSeqOp(unsigned seqot_opcode) const;
 
   // Takes in a sequence opcode, and a bitwidth, and returns a
   // corresponding sequence opcode whose bitwidth size is

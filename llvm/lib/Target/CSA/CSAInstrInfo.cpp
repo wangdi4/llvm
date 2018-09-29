@@ -492,6 +492,11 @@ bool CSAInstrInfo::isSeqOT(const MachineInstr *MI) const {
           (MI->getOpcode() <= CSA::SEQOTNE8));
 }
 
+bool CSAInstrInfo::isSeqZT(const MachineInstr *MI) const {
+  return ((MI->getOpcode() >= CSA::SEQGES16) &&
+          (MI->getOpcode() <= CSA::SEQNE8));
+}
+
 bool CSAInstrInfo::isReduction(const MachineInstr *MI) const {
   switch (getGenericOpcode(MI->getOpcode())) {
   case CSA::Generic::SREDOR:
@@ -591,6 +596,30 @@ unsigned CSAInstrInfo::convertCompareOpToSeqOTOp(unsigned cmp_opcode) const {
     return CSA::INVALID_OPCODE;
   }
   return adjustOpcode(cmp_opcode, seq_opcode);
+}
+
+unsigned CSAInstrInfo::convertSeqOTToSeqOp(unsigned seqot_opcode) const {
+  CSA::Generic seq_opcode;
+  switch (getGenericOpcode(seqot_opcode)) {
+  case CSA::Generic::SEQOTGE:
+    seq_opcode = CSA::Generic::SEQGE;
+    break;
+  case CSA::Generic::SEQOTGT:
+    seq_opcode = CSA::Generic::SEQGT;
+    break;
+  case CSA::Generic::SEQOTLE:
+    seq_opcode = CSA::Generic::SEQLE;
+    break;
+  case CSA::Generic::SEQOTLT:
+    seq_opcode = CSA::Generic::SEQLT;
+    break;
+  case CSA::Generic::SEQOTNE:
+    seq_opcode = CSA::Generic::SEQNE;
+    break;
+  default:
+    return CSA::INVALID_OPCODE;
+  }
+  return adjustOpcode(seqot_opcode, seq_opcode);
 }
 
 unsigned CSAInstrInfo::promoteSeqOTOpBitwidth(unsigned seq_opcode,

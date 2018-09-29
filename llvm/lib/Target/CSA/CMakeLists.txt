@@ -53,6 +53,7 @@ add_llvm_target(CSACodeGen
   CSAUtils.cpp
   CSAProcedureCalls.cpp
   CSARASReplayableLoads.cpp
+  CSASeqotToSeqOptimization.cpp
   )
 
 add_subdirectory(AsmParser)
