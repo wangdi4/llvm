@@ -196,7 +196,7 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
 #ifndef NDEBUG
   int64_t DiffValue;
   bool IsConst =
-      DDRefUtils::getConstByteDistance(Upper, Lower, &DiffValue, false, true);
+      DDRefUtils::getConstByteDistance(Upper, Lower, &DiffValue, false);
   assert(IsConst && " CanonExpr difference failed.");
   assert(DiffValue >= 0 && "Segment wrong direction");
 #endif
@@ -520,7 +520,7 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
     return true;
   }
 
-  return DDRefUtils::getConstByteDistance(Ref1, Ref2, nullptr, false, true);
+  return DDRefUtils::getConstByteDistance(Ref1, Ref2, nullptr, false);
 }
 
 unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref) {
@@ -651,7 +651,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
               [](const RegDDRef *Ref1, const RegDDRef *Ref2) {
                 int64_t Distance = 0;
                 bool IsConst = DDRefUtils::getConstByteDistance(
-                    Ref1, Ref2, &Distance, false, true);
+                    Ref1, Ref2, &Distance, false);
                 assert(IsConst && "Non-const distance ref pair found");
                 (void)IsConst;
                 return Distance < 0;

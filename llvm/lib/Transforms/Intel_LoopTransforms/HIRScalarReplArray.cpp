@@ -1141,6 +1141,17 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
     return false;
   }
 
+  // Bail out if group has references like A[i1] and (i32*)A[i1] as we cannot
+  // generate temp rotation code for different types. NOTE: we should move
+  // FloatToInt pass after LoopOpt to minimize such cases.
+  auto *BitCastTy = FirstRef->getBitCastDestType();
+
+  for (auto *Ref : Group) {
+    if (BitCastTy != Ref->getBitCastDestType()) {
+      return false;
+    }
+  }
+
   // Reverse the group if it has any negative IVCoeff
   if (HasNegIVCoeff) {
     std::reverse(Group.begin(), Group.end());
