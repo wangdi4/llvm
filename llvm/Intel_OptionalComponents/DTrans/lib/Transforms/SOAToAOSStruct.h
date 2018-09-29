@@ -25,9 +25,11 @@
 #include "SOAToAOSEffects.h"
 
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -904,9 +906,17 @@ private:
           ArgNo1 != 0 || ArgNo2 != 0)
         return false;
 
+      auto *L1 = dyn_cast<LoadInst>(A1);
+      auto *L2 = dyn_cast<LoadInst>(A2);
+      if (!L1 || !L2)
+        return false;
+
+      if (CS1.getInstruction()->getParent() != L1->getParent() ||
+          CS2.getInstruction()->getParent() != L2->getParent())
+        return false;
+
       // Potentially conflicting stores to fields containing pointers to arrays
-      // are excluded by checking stores associated with ctors.
-      // Stores are associated with ctors by check in canCallSitesBeMerged.
+      // are excluded by checks in compareAllAppendCallSites.
     }
     return true;
   }
@@ -965,6 +975,57 @@ private:
     return true;
   }
 
+  // Checks that loads of MemoryInterface result in the same value.
+  //
+  // One needs only to check conflict with stores.
+  // checkStructMethod guarantees that stores are only in entry block,
+  // see isMemoryInterfaceSetFromArg and isMemoryInterfaceCopy calls.
+  //
+  // Load of MemoryInterface are essentially before all stores:
+  //  - not in entry block (no stores after entry block);
+  //  - after all stores in entry block;
+  //  - before some store in entry block, but stored value is from load being
+  //  checked.
+  bool checkDirectMemoryInterfaceLoads(const Value *A1, const Value *A2) const {
+    unsigned ArgNo1 = -1U;
+    unsigned ArgNo2 = -1U;
+    if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1),
+                                                   S, ArgNo1) ||
+        !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2),
+                                                   S, ArgNo2))
+      return false;
+
+    A1 = A1->stripPointerCasts();
+    A2 = A2->stripPointerCasts();
+    if (auto *I1 = dyn_cast<IntToPtrInst>(A1))
+      A1 = I1->getOperand(0);
+    if (auto *I2 = dyn_cast<IntToPtrInst>(A2))
+      A2 = I2->getOperand(0);
+
+    auto *L1 = dyn_cast<LoadInst>(A1);
+    auto *L2 = dyn_cast<LoadInst>(A2);
+
+    if (!L1 || !L2)
+      return false;
+
+    if (ArgNo1 != ArgNo2) {
+      const Instruction* Loads[] = {L1, L2};
+      for (auto *Load : Loads)
+        if (Load->getParent() == &S.Method->getEntryBlock())
+          // See isMemoryInterfaceSetFromArg/isMemoryInterfaceCopy check in
+          // checkStructMethod.
+          for (auto *I = Load; I; I = I->getNextNode())
+            if (auto *SI = dyn_cast<StoreInst>(I))
+              // If store is of the form:
+              //  store %Load, %Addr
+              // then it does not conflict with load.
+              if (SI->getValueOperand() != Load)
+                return false;
+    }
+
+    return true;
+  }
+
   // Compare calls to allocation/deallocation function.
   //
   // FreePtr1 and FreePtr2 are pointers to memory to deallocated (difference
@@ -1010,16 +1071,8 @@ private:
         if (A1->stripPointerCasts() != FreePtr1->stripPointerCasts() ||
             A2->stripPointerCasts() != FreePtr2->stripPointerCasts())
           return false;
-      } else if (A1 != A2) {
-        unsigned ArgNo1 = -1U;
-        unsigned ArgNo2 = -1U;
-        // TODO: check ArgNos
-        if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1),
-                                                       S, ArgNo1) ||
-            !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2),
-                                                       S, ArgNo2))
-          return false;
-      }
+      } else if (A1 != A2 && !checkDirectMemoryInterfaceLoads(A1, A2))
+        return false;
     }
     return true;
   }
@@ -1191,17 +1244,7 @@ private:
         continue;
       }
 
-      if (A1 == A2)
-        continue;
-
-      unsigned ArgNo1 = -1U;
-      unsigned ArgNo2 = -1U;
-      // See isMemoryInterface* checks in checkStructMethod.
-      // TODO: check ArgNos
-      if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1), S,
-                                                     ArgNo1) ||
-          !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2), S,
-                                                     ArgNo2))
+      if (A1 != A2 && !checkDirectMemoryInterfaceLoads(A1, A2))
         return false;
     }
 
@@ -1995,23 +2038,31 @@ private:
     // Alloc or load of a pointer.
     auto *This = cast<Instruction>(CS.getArgOperand(0)->stripPointerCasts());
 
-    SmallVector<Value*, 16> Insts;
+    SmallSetVector<Instruction *, 16> Insts;
+    // Trivial uses are removed in RecursivelyDeleteTriviallyDeadInstructions.
     for (auto *User : post_order(CastDepGraph<Value *>(This))) {
       for (auto &U : User->uses())
-        if (!isCastUse(U) && !CtorDtorCheck::isNullCheck(U.getUser()))
-          Insts.push_back(U.getUser());
-      if (!CtorDtorCheck::isNullCheck(User))
-        Insts.push_back(User);
+        if (auto *I = dyn_cast<Instruction>(U.getUser()))
+          // Avoid potential double removal.
+          if (!wouldInstructionBeTriviallyDead(I) &&
+              !CtorDtorCheck::isNullCheck(I))
+            Insts.insert(I);
+      if (auto *I = dyn_cast<Instruction>(User))
+        // Avoid potential double removal.
+        if (!wouldInstructionBeTriviallyDead(I) &&
+            !CtorDtorCheck::isNullCheck(I))
+          Insts.insert(I);
     }
 
-    for (auto *V : Insts) {
-      if (auto CS = CallSite(V)) {
-        if (auto *Inv = dyn_cast<InvokeInst>(V)) {
+    for (auto *Inst : Insts) {
+      bool ToRemove = false;
+      if (auto CS = CallSite(Inst)) {
+        if (auto *Inv = dyn_cast<InvokeInst>(Inst)) {
           Builder.SetInsertPoint(Inv);
           Builder.CreateBr(Inv->getNormalDest());
         }
         DTInfo.deleteCallInfo(CS.getInstruction());
-        CS.getInstruction()->eraseFromParent();
+        ToRemove = true;
       }
       // Some instructions may point to null checks in ICmpInst.
       // Redundant null-checks can be removed if their users (conditional
@@ -2019,9 +2070,22 @@ private:
       //
       // Essential instructions (allocation/deallocation/methods) should be
       // removed here due to checkArrPtrLoadUses/checkArrPtrStoreUses.
-      else if (V->hasNUses(0))
-        // Unused addresses of stores can be removed here.
-        cast<Instruction>(V)->eraseFromParent();
+      else if (Inst->hasNUses(0))
+        ToRemove = true;
+
+      if (ToRemove) {
+        auto *I = cast<Instruction>(Inst);
+
+        SmallPtrSet<Instruction *, 5> Ops;
+        for (auto &Op : I->operands())
+          if (auto *OpI = dyn_cast<Instruction>(Op.get()))
+            Ops.insert(OpI);
+
+        salvageDebugInfo(*I);
+        I->eraseFromParent();
+        for (auto *OpI : Ops)
+          RecursivelyDeleteTriviallyDeadInstructions(OpI);
+      }
     }
   }
 
@@ -2085,8 +2149,16 @@ private:
     Builder.CreateCall(NewAppend->getCalledValue(), NewArgs);
 
     for (auto *CI: OldAppends) {
-      auto *NewI = (Value *)VMap[CI];
-      cast<CallInst>(NewI)->eraseFromParent();
+      auto *NewCI = cast<CallInst>((Value *)VMap[CI]);
+
+      SmallPtrSet<Instruction *, 5> Ops;
+      for (auto &Op : NewCI->operands())
+        if (auto *OpI = dyn_cast<Instruction>(Op.get()))
+          Ops.insert(OpI);
+      salvageDebugInfo(*NewCI);
+      NewCI->eraseFromParent();
+      for (auto *OpI: Ops)
+        RecursivelyDeleteTriviallyDeadInstructions(OpI);
     }
   }
 

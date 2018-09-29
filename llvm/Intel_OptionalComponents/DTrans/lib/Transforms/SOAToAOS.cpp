@@ -437,13 +437,13 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " based on dtrans-soatoaos-typename option.\n";
       });
-      return false;
+      return FALSE();
     }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     if (Candidates.size() > MaxNumStructCandidates) {
       LLVM_DEBUG(dbgs() << "  Too many candidates found. Give-up.\n");
-      return false;
+      return FALSE();
     }
 
     Info->setCandidateStructs(*this, cast<dtrans::StructInfo>(TI));

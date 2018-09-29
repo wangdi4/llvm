@@ -1188,11 +1188,13 @@ public:
     for (auto *I : InstsToTransform.BasePtrInst) {
       auto *NewI = cast<Instruction>((Value *)VMap[I]);
       if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // %base = laad %pelem*, %pelem** %base_off
         //
         // Special base with safe bitcast (to pass to deallocation function):
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // %i8ptr = bitcast %pelem** %base_off to i8**
         // %i8base = load i8*, i8** %i8ptr
         bool BC = false;
@@ -1204,11 +1206,13 @@ public:
           NewLoad->mutateType(NewBaseType);
       } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
         // Zero initialization of base pointer:
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // store %pelem* null, %pelem** %base_off
         //
         // Store of pointer to newly allocated memory to base pointer
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // %new_mem  = bitbast %i8 %alloc to %pelem*
         // store %pelem* %newmem, %pelem** %base_off
         bool BC = false;

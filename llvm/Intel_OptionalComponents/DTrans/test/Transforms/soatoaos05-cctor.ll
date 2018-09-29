@@ -145,9 +145,9 @@ define hidden void @"FieldValueMap::FieldValueMap(FieldValueMap const&)"(%class.
 entry:
 ; CHECK-MOD:    call void @llvm.dbg.value(metadata %__SOA_class.FieldValueMap* %this
   call void @llvm.dbg.value(metadata %class.FieldValueMap* %this, metadata !13, metadata !DIExpression()), !dbg !14
-; Dead value.
+; next getelementptr is removed
   %fValidators = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
-; CHECK-MOD:        %fValues = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 2
+; CHECK-MOD-NEXT:   %fValues = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 2
   %fValues = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 2
   %fMemoryManager = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 3
   %fMemoryManager2 = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %other, i64 0, i32 3
@@ -229,7 +229,6 @@ invoke.cont10:                                    ; preds = %invoke.cont6
 ; CHECK-TRANS-NEXT:   store i8* %call7, i8** %tmp11
 ; CHECK-MOD:          store i8* %call7, i8** %tmp11
   store i8* %call7, i8** %tmp11
-; CHECK-MOD-NEXT:     %tmp12 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
   %tmp12 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
 ; Call removed
 ; CHECK-MOD-NEXT:     br label %invoke.cont14
@@ -254,8 +253,7 @@ invoke.cont18:                                    ; preds = %invoke.cont14
 ; CHECK-DEP:      ; GEP(Arg 0)
 ; CHECK-DEP-NEXT: ;     1
 ; CHECK-DEP-NEXT:   %tmp15 = bitcast %class.ValueVectorOf.1** %fValidators to i8**
-; Dead value.
-; CHECK-MOD:        %tmp15 = bitcast %__SOA_AR_class.ValueVectorOf.0** %fValidators to i8**
+; bitcast is removed
   %tmp15 = bitcast %class.ValueVectorOf.1** %fValidators to i8**
 ; CHECK-TRANS:      ; ArrayInst: Init ptr to array
 ; CHECK-TRANS-NEXT:   store i8* %call15, i8** %tmp15
