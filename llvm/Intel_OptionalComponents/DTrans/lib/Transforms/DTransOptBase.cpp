@@ -578,9 +578,9 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   // inlined function bodies may have already been removed.
   DebugInfoFinder DIFinder;
   DIFinder.processModule(M);
-  auto &MD = VMap.MD();
+  auto &MDVMap = VMap.MD();
   for (DISubprogram *SP : DIFinder.subprograms())
-    MD[SP].reset(SP);
+    MDVMap[SP].reset(SP);
 
   for (auto &F : M) {
     if (F.isDeclaration())
@@ -628,6 +628,52 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       // Let the derived class perform any additional actions needed on the
       // remapped function.
       postprocessFunction(F, /*is_clone=*/false);
+    }
+  }
+
+  // After cloning or remapping functions, it may be necessary to update debug
+  // information for the local variables being used by each function. The
+  // metadata nodes for a DILocalVariable may have been cloned because the
+  // DILocation or DICompositeType object references were cloned. The IR will
+  // have been updated to reference the cloned instance within the
+  // llvm.debug.declare intrinsic calls. However, the DISubprogram nodes are not
+  // being cloned, causing the DISubprogram to still be referring to the
+  // original DILocalVariable object. This will result in two variable instances
+  // that have same name belonging to the same scope which will result in errors
+  // when processing the debug information later. To resolve this, walk the
+  // retained nodes element of the subprogram, and update the references for any
+  // variable that has been remapped. This needs to be done for all subprograms
+  // found by the DIFinder to handle the case of a function that has been
+  // optimized away after being inlined.
+  //
+  // Alternatively, we could just prevent cloning of the DILocalVariables by
+  // setting up the metadata remap table with self references to them, like
+  // was done for the DISubprograms above. However, this would cause issues
+  // with being able to update the structure type descriptions in the debug
+  // information if we get to a point where we want the debug info to describe
+  // the new types that DTrans is creating with DICompositeType entries.
+  for (DISubprogram *SP : DIFinder.subprograms()) {
+    if (auto *RawNode = SP->getRawRetainedNodes()) {
+      auto *Node = dyn_cast<MDTuple>(RawNode);
+      unsigned NumOperands = Node->getNumOperands();
+      LLVM_DEBUG({
+        if (NumOperands)
+          dbgs() << "Updating local variable references for DISubprogram:\n"
+                 << *SP << "\n";
+      });
+
+      for (unsigned i = 0; i < NumOperands; ++i) {
+        auto &Op = Node->getOperand(i);
+        Metadata *MDOp = *&Op;
+
+        auto MappedTo = MDVMap.find(MDOp);
+        if (MappedTo != MDVMap.end() && MDOp != MappedTo->second) {
+          Node->replaceOperandWith(i, MappedTo->second);
+          LLVM_DEBUG(dbgs() << "replacing retained node:\n"
+                            << "  Was: " << *MDOp << "\n"
+                            << "  Now: " << *MappedTo->second << "\n");
+        }
+      }
     }
   }
 
