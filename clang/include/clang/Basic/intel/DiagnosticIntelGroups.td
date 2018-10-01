@@ -1,6 +1,6 @@
 //===--- DiagnosticIntelGroups.td - Intel Diagnostic Group Definitions ----===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -22,3 +22,6 @@ def IntelMSCompat : DiagGroup<"intel-ms-compat">;
 // Warning group for err_access_dtor_vbase error that we converted to a warning.
 // CQ#376362.
 def PrivateVBaseDtor : DiagGroup<"private-vbase-dtor">;
+
+// Error/warning messages about inappropriate usage of OpenCL FPGA Channels
+def FPGAChannelsUsage : DiagGroup<"analyze-channels-usage">;

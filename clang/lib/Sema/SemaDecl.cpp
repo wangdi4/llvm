@@ -3740,6 +3740,52 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+static void MergeOCLFPGACallGraphsInformation(
+    FunctionDecl *New, FunctionDecl *Old,
+    Sema::OCLFPGACallGraphType &OCLFPGACallGraph,
+    Sema::OCLFPGACallGraphType &OCLFPGAReverseCallGraph) {
+  if (OCLFPGACallGraph.count(Old)) {
+    // Order of lookups is important here, because all iterators to DenseMap are
+    // invalidated whenever an insertion occurs.
+    Sema::FunctionDeclToCallSitesMap &DeclsCalledByNewDecl =
+        OCLFPGACallGraph[New];
+    // We already checked that Old is already exists in a map and
+    // DeclsCalledByNewDecl will not be invalidated here
+    Sema::FunctionDeclToCallSitesMap &DeclsCalledByOldDecl =
+        OCLFPGACallGraph[Old];
+    for (const Sema::FunctionDeclAndCallSitesPair &It : DeclsCalledByOldDecl)
+      DeclsCalledByNewDecl.insert(It);
+
+    OCLFPGACallGraph.erase(Old);
+  }
+
+  if (OCLFPGAReverseCallGraph.count(Old)) {
+    // Order of lookups is important here, because all iterators to DenseMap are
+    // invalidated whenever an insertion occurs.
+    Sema::FunctionDeclToCallSitesMap &DeclsThatCalledNewDecl =
+        OCLFPGAReverseCallGraph[New];
+    // We already checked that Old is already exists in a map and
+    // DeclsThatCalledNewDecl will not be invalidated here
+    Sema::FunctionDeclToCallSitesMap &DeclsThatCalledOldDecl =
+        OCLFPGAReverseCallGraph[Old];
+
+    for (const Sema::FunctionDeclAndCallSitesPair &It :
+         DeclsThatCalledOldDecl) {
+      // Copy existing reverse call graph
+      DeclsThatCalledNewDecl.insert(It);
+      // And fix the rest of call graph
+      Sema::FunctionDeclToCallSitesMap &DeclsThatCalledByCaller =
+          OCLFPGACallGraph[It.first];
+      DeclsThatCalledByCaller.erase(Old);
+      DeclsThatCalledByCaller.insert(std::make_pair(New, It.second));
+    }
+
+    OCLFPGAReverseCallGraph.erase(Old);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Completes the merge of two function declarations that are
 /// known to be compatible.
 ///
@@ -3781,6 +3827,13 @@ bool Sema::MergeCompatibleFunctionDecls(FunctionDecl *New, FunctionDecl *Old,
   QualType Merged = Context.mergeTypes(Old->getType(), New->getType());
   if (!Merged.isNull() && MergeTypeWithOld)
     New->setType(Merged);
+
+#if INTEL_CUSTOMIZATION
+  if (Context.getLangOpts().OpenCL &&
+      Context.getTargetInfo().getTriple().isINTELFPGAEnvironment())
+    MergeOCLFPGACallGraphsInformation(New, Old, OCLFPGACallGraph,
+                                      OCLFPGAReverseCallGraph);
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }

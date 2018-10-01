@@ -58,6 +58,10 @@ add_clang_library(clangSema
   SemaType.cpp
   TypeLocBuilder.cpp
 
+  # INTEL_CUSTOMIZATION
+  intel/FPGAAnalyzeChannelsUsage.cpp
+  # end INTEL_CUSTOMIZATION
+
   LINK_LIBS
   clangAST
   clangAnalysis

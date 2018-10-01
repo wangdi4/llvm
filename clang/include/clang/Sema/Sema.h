@@ -60,12 +60,61 @@
 #include <string>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+namespace clang {
+enum class FPGAChannelAccessKind : unsigned {
+  // Must be listed in the same order as in corresponding channel
+  // diagnostics, see DiagnosticIntelSemaKinds
+  Read = 0,
+  Write = 1,
+  Undefined = 2
+};
+
+struct FPGAChannelDescriptor {
+  const ValueDecl *ChannelDecl = nullptr;
+  FPGAChannelAccessKind Kind = FPGAChannelAccessKind::Undefined;
+  std::string Name;
+
+  FPGAChannelDescriptor() = default;
+  FPGAChannelDescriptor(StringRef Name) : Name(Name) {}
+
+  inline bool operator==(const FPGAChannelDescriptor &RHS) const {
+    return Kind == RHS.Kind && Name == RHS.Name;
+  }
+
+  inline bool operator!=(const FPGAChannelDescriptor &RHS) const {
+    return !(*this == RHS);
+  }
+};
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace llvm {
   class APSInt;
   template <typename ValueT> struct DenseMapInfo;
   template <typename ValueT, typename ValueInfoT> class DenseSet;
   class SmallBitVector;
   struct InlineAsmIdentifierInfo;
+#if INTEL_CUSTOMIZATION
+  using clang::FPGAChannelDescriptor;
+  // Provide DenseMapInfo for ChannelDesciptor.
+  template <> struct DenseMapInfo<FPGAChannelDescriptor> {
+    static inline FPGAChannelDescriptor getEmptyKey() {
+      return FPGAChannelDescriptor();
+    }
+    static inline FPGAChannelDescriptor getTombstoneKey() {
+      return FPGAChannelDescriptor("~");
+    }
+    static inline unsigned
+    getHashValue(const FPGAChannelDescriptor &Val) {
+      return DenseMapInfo<StringRef>::getHashValue(Val.Name);
+    }
+    static inline bool isEqual(const FPGAChannelDescriptor &LHS,
+                               const FPGAChannelDescriptor &RHS) {
+      return LHS == RHS;
+    }
+  };
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace clang {
@@ -308,6 +357,46 @@ class Sema {
   bool shouldLinkPossiblyHiddenDecl(LookupResult &Old, const NamedDecl *New);
 
 public:
+#if INTEL_CUSTOMIZATION
+  friend void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S);
+
+  using FunctionDeclToCallSitesMap =
+      llvm::MapVector<const FunctionDecl *,
+                      llvm::SmallVector<const CallExpr *, 4>>;
+  using FunctionDeclAndCallSitesPair = FunctionDeclToCallSitesMap::value_type;
+
+  using OCLFPGACallGraphType = llvm::DenseMap<
+      /* Caller = */ const FunctionDecl *,
+      /* Callees = */ FunctionDeclToCallSitesMap>;
+
+  /// Call graph which is used to find indirect uses of channels
+  OCLFPGACallGraphType OCLFPGACallGraph;
+
+  /// Inverted call graph which is used to effectively walk up from callee to
+  /// callers
+  OCLFPGACallGraphType OCLFPGAReverseCallGraph;
+
+  using ChannelToFunctionMapType =
+      llvm::DenseMap<FPGAChannelDescriptor, const FunctionDecl *>;
+
+  using ChannelDescSet =
+      llvm::SetVector<FPGAChannelDescriptor,
+                      llvm::SmallVector<FPGAChannelDescriptor, 16>,
+                      llvm::SmallDenseSet<FPGAChannelDescriptor, 16>>;
+
+  using FunctionToChannelMapType =
+      llvm::DenseMap<const FunctionDecl *, ChannelDescSet>;
+
+  /// Mapping from channel to a kernel which uses this channel. Used to
+  /// determine should we or not emit diagnostic message about inappropriate
+  /// usage of channel.
+  ChannelToFunctionMapType ChannelToKernelMap;
+
+  /// Mapping from function to set of channels used in this function. Used to
+  /// collect all channels used directly or indirectly in each function.
+  FunctionToChannelMapType FunctionToChannelMap;
+#endif // INTEL_CUSTOMIZATION
+
   typedef OpaquePtr<DeclGroupRef> DeclGroupPtrTy;
   typedef OpaquePtr<TemplateName> TemplateTy;
   typedef OpaquePtr<QualType> TypeTy;
