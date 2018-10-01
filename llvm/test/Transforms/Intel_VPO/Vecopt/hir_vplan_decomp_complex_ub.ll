@@ -19,9 +19,9 @@
 ;   }
 ; }
 
-; CHECK: [[Max:%.*]] = smax {{%.*}} i32 1600
-; CHECK-NEXT: [[Zext:%.*]] = zext [[Max]]
-; CHECK-NEXT: [[Add:%.*]] = add [[Zext]] i64 -1
+; CHECK: [[Max:%.*]] = smax i32 {{%.*}} i32 1600
+; CHECK-NEXT: [[Zext:%.*]] = zext i32 [[Max]]
+; CHECK-NEXT: [[Add:%.*]] = add i32 [[Zext]] i64 -1
 ; CHECK-NEXT: SUCCESSORS(1):[[H:BB.*]]
 ; CHECK: [[H]] {{.*}}:
 ; CHECK-NEXT: [[IVPhi:%.*]] = semi-phi

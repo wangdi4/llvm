@@ -72,8 +72,8 @@ define i32 @foo() local_unnamed_addr #0 {
 ; NOOPT-NEXT:  [[REGION0]]:
 ; NOOPT-NEXT:    [[BB4:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP4:BP[0-9]+]] = [[BP1]]
-; NOOPT-NEXT:      [[IFF0:IfF[0-9]+]] = [[BP4]] && ![[VP0:%.*]]
-; NOOPT-NEXT:      [[IFT1:IfT[0-9]+]] = [[BP4]] && [[VP0]]
+; NOOPT-NEXT:      [[IFF0:IfF[0-9]+]] = [[BP4]] && !i1 [[VP0:%.*]]
+; NOOPT-NEXT:      [[IFT1:IfT[0-9]+]] = [[BP4]] && i1 [[VP0]]
 ; NOOPT-NEXT:    [[BB5:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP5:BP[0-9]+]] = [[IFF0]]
 ; NOOPT-NEXT:    [[BB6:BB[0-9]+]]:
@@ -83,8 +83,8 @@ define i32 @foo() local_unnamed_addr #0 {
 ; OPT-LABEL:  Predicator report
 ; OPT-NEXT:  [[REGION0:region[0-9]+]]:
 ; OPT-NEXT:    [[BB0:BB[0-9]+]]:
-; OPT-NEXT:      [[IFF0:IfF[0-9]+]] = ![[VP0:%.*]]
-; OPT-NEXT:      [[IFT1:IfT[0-9]+]] = [[VP0]]
+; OPT-NEXT:      [[IFF0:IfF[0-9]+]] = !i1 [[VP0:%.*]]
+; OPT-NEXT:      [[IFT1:IfT[0-9]+]] = i1 [[VP0]]
 ; OPT-NEXT:    [[BB1:BB[0-9]+]]:
 ; OPT-NEXT:      [[BP0:BP[0-9]+]] = [[IFF0]]
 ; OPT-NEXT:    [[BB2:BB[0-9]+]]:

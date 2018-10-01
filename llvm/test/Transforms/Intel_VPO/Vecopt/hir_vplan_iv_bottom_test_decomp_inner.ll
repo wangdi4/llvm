@@ -3,9 +3,9 @@
 ; Verify that decomposer properly materializes the IV semi-phi, IV Next and
 ; bottom test condition.
 
-; CHECK: [[IVPhi:%.*]] = semi-phi i64 0 [[IVNext:%.*]]
-; CHECK: [[IVNext]] = add [[IVPhi]] i64 1
-; CHECK: {{%.*}} = icmp [[IVNext]] i64 1599
+; CHECK: [[IVPhi:%.*]] = semi-phi i64 0 i64 [[IVNext:%.*]]
+; CHECK: [[IVNext]] = add i64 [[IVPhi]] i64 1
+; CHECK: {{%.*}} = icmp i64 [[IVNext]] i64 1599
 
 target triple = "x86_64-unknown-linux-gnu"
 

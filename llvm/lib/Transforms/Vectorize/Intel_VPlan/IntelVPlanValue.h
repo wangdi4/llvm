@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -68,12 +69,29 @@ class VPValue {
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
 
+#if INTEL_CUSTOMIZATION
+  // TODO: This will probably be replaced by a VPType that would additionally
+  // keep the number of vector elements in the resulting type as a symbolic
+  // expression with VF/UF as parameters to it.
+
+  /// Represents the "base" type of the value, i.e. without VF/UF applied.
+  Type *BaseTy;
+#endif // INTEL_CUSTOMIZATION
+
   SmallVector<VPUser *, 1> Users;
 
 protected:
   // Hold the underlying Val, if any, attached to this VPValue.
   Value *UnderlyingVal;
 
+#if INTEL_CUSTOMIZATION
+  // TODO: Prohibit nullptr in BaseTy. It is nullptr for the defs external to
+  // VPlan.
+  VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
+      : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV) {
+    assert(BaseTy && "BaseTy can't be null!");
+  }
+#endif // INTEL_CUSTOMIZATION
   VPValue(const unsigned char SC, Value *UV = nullptr)
       : SubclassID(SC), UnderlyingVal(UV) {}
 
@@ -102,17 +120,23 @@ public:
   enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
-#endif
+#endif // INTEL_CUSTOMIZATION
 
-  VPValue(Value *UV = nullptr) : VPValue(VPValueSC, UV) {}
+#if INTEL_CUSTOMIZATION
+  VPValue(Type *BaseTy, Value *UV = nullptr)
+      : SubclassID(VPValueSC), BaseTy(BaseTy), UnderlyingVal(UV) {
+    assert(BaseTy && "BaseTy can't be null!");
+  }
+#endif // INTEL_CUSTOMIZATION
   VPValue(const VPValue &) = delete;
   VPValue &operator=(const VPValue &) = delete;
+
 #if INTEL_CUSTOMIZATION
   virtual ~VPValue() {}
   // FIXME: To be replaced by a proper VPType.
-  virtual Type *getType() const {
-    return nullptr;
-  }
+  virtual Type *getType() const { return nullptr; }
+
+  Type *getBaseType() const { return BaseTy; }
 #endif
 
   /// \return an ID for the concrete type of this object.
@@ -124,9 +148,10 @@ public:
   virtual void dump() const { dump(errs()); }
   virtual
 #endif
-  void printAsOperand(raw_ostream &OS) const {
-    OS << "%vp" << (unsigned short)(unsigned long long)this;
-  }
+void printAsOperand(raw_ostream &OS) const {
+      OS << *getBaseType() << " %vp"
+         << (unsigned short)(unsigned long long)this;
+}
 
   unsigned getNumUsers() const { return Users.size(); }
   void addUser(VPUser &User) { Users.push_back(&User); }
@@ -170,20 +195,20 @@ private:
   SmallVector<VPValue *, 2> Operands;
 
 protected:
-  VPUser(const unsigned char SC) : VPValue(SC) {}
 #if INTEL_CUSTOMIZATION
-  VPUser(const unsigned char SC, ArrayRef<VPValue *> Operands) : VPValue(SC) {
+  VPUser(const unsigned char SC, Type *BaseTy) : VPValue(SC, BaseTy) {}
+  VPUser(const unsigned char SC, ArrayRef<VPValue *> Operands, Type *BaseTy)
+      : VPValue(SC, BaseTy) {
     for (VPValue *Operand : Operands)
       addOperand(Operand);
   }
-#endif
-  VPUser(const unsigned char SC,
-         std::initializer_list<VPValue *> Operands) : VPValue(SC) {
+  VPUser(const unsigned char SC, std::initializer_list<VPValue *> Operands,
+         Type *BaseTy)
+      : VPValue(SC, BaseTy) {
     for (VPValue *Operand : Operands)
       addOperand(Operand);
   }
 
-#if INTEL_CUSTOMIZATION
   virtual void invalidateHIR() {
     // Do nothing for VPUsers without underlying HIR. Unfortunately, this method
     // is also invoked when VPUser ctor is invoked for the construction of a
@@ -194,6 +219,13 @@ protected:
 #endif
 
 public:
+  VPUser(const unsigned char SC) : VPValue(SC) {}
+  VPUser(const unsigned char SC, std::initializer_list<VPValue *> Operands)
+      : VPValue(SC) {
+    for (VPValue *Operand : Operands)
+      addOperand(Operand);
+  }
+
   VPUser() : VPValue(VPValue::VPUserSC) {}
   VPUser(ArrayRef<VPValue *> Operands) : VPValue(VPValue::VPUserSC) {
     for (VPValue *Operand : Operands)
@@ -279,7 +311,7 @@ class VPConstant : public VPValue {
 
 protected:
   VPConstant(Constant *Const)
-      : VPValue(VPValue::VPConstantSC, Const) {}
+      : VPValue(VPValue::VPConstantSC, Const->getType(), Const) {}
 
   /// Return the underlying Constant attached to this VPConstant. This interface
   /// is similar to getValue() but hides the cast when we are working with

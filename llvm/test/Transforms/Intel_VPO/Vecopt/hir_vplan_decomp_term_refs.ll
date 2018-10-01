@@ -20,15 +20,15 @@
 ; }
 
 ; CHECK: [[IVPhi:%.*]] = semi-phi
-; CHECK: [[ALoad:%.*]] = load
-; CHECK-NEXT: [[MulAF:%.*]] = mul [[ALoad]] {{%.*}}
-; CHECK-NEXT: [[AddM6:%.*]] = add [[MulAF]] i32 6
-; CHECK-NEXT: [[Div7:%.*]] = sdiv [[AddM6]] i32 7
-; CHECK: [[Mul15F:%.*]] = mul i32 15 {{%.*}}
-; CHECK-NEXT: [[MulMIV:%.*]] = mul [[Mul15F]] [[IVPhi]]
-; CHECK-NEXT: [[Div2:%.*]] = sdiv [[MulMIV]] i32 2
-; CHECK-NEXT: [[FinalAdd:%.*]] = add [[Div7]] [[Div2]]
-; CHECK: store [[FinalAdd]]
+; CHECK: [[ALoad:%.*]] = load i32
+; CHECK-NEXT: [[MulAF:%.*]] = mul i32 [[ALoad]] i32 {{%.*}}
+; CHECK-NEXT: [[AddM6:%.*]] = add i32 [[MulAF]] i32 6
+; CHECK-NEXT: [[Div7:%.*]] = sdiv i32 [[AddM6]] i32 7
+; CHECK: [[Mul15F:%.*]] = mul i32 15 i32 {{%.*}}
+; CHECK-NEXT: [[MulMIV:%.*]] = mul i32 [[Mul15F]] i64 [[IVPhi]]
+; CHECK-NEXT: [[Div2:%.*]] = sdiv i32 [[MulMIV]] i32 2
+; CHECK-NEXT: [[FinalAdd:%.*]] = add i32 [[Div7]] i32 [[Div2]]
+; CHECK: store i32 [[FinalAdd]]
 
 
 target triple = "x86_64-unknown-linux-gnu"

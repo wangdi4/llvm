@@ -3,9 +3,9 @@
 ; Verify that decomposer is able to handle metadata.
 ; IR generated from IR in hir_vplan_decomp_term_refs.ll.
 
-; CHECK: %vp{{[0-9]+}} = load %vp{{[0-9]+}}
-; CHECK-NEXT: %vp{{[0-9]+}} = call %vp{{[0-9]+}}
-; CHECK-NEXT: store %vp{{[0-9]+}} %vp{{[0-9]+}}
+; CHECK: %vp{{[0-9]+}} = load i32 %vp{{[0-9]+}}
+; CHECK-NEXT: void %vp{{[0-9]+}} = call metadata %vp{{[0-9]+}}
+; CHECK-NEXT: store i32 %vp{{[0-9]+}} i32 %vp{{[0-9]+}}
 
 target triple = "x86_64-unknown-linux-gnu"
 

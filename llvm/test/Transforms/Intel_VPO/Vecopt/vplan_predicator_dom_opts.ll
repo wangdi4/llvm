@@ -94,10 +94,10 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; NOOPT-NEXT:  [[REGION0]]:
 ; NOOPT-NEXT:    [[BB4:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP4:BP[0-9]+]] = [[BP1]]
-; NOOPT-NEXT:      [[IFT0:IfT[0-9]+]] = [[BP4]] && [[VP0:%.*]]
-; NOOPT-NEXT:      [[IFF1:IfF[0-9]+]] = [[BP4]] && ![[VP0]]
+; NOOPT-NEXT:      [[IFT0:IfT[0-9]+]] = [[BP4]] && i1 [[VP0:%.*]]
+; NOOPT-NEXT:      [[IFF1:IfF[0-9]+]] = [[BP4]] && !i1 [[VP0]]
 ; NOOPT-NEXT:    [[REGION1:region[0-9]+]]:
-; NOOPT-NEXT:      [[IFT0]] = [[BP4]] && [[VP0]]
+; NOOPT-NEXT:      [[IFT0]] = [[BP4]] && i1 [[VP0]]
 ; NOOPT-NEXT:    [[BB5:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP5:BP[0-9]+]] = [[IFT0]]
 ; NOOPT-NEXT:    [[REGION2:region[0-9]+]]:
@@ -109,8 +109,8 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; NOOPT-NEXT:  [[REGION1]]:
 ; NOOPT-NEXT:    [[BB7:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP7:BP[0-9]+]] = [[IFT0]]
-; NOOPT-NEXT:      [[IFF2:IfF[0-9]+]] = [[BP7]] && ![[VP1:%.*]]
-; NOOPT-NEXT:      [[IFT3:IfT[0-9]+]] = [[BP7]] && [[VP1]]
+; NOOPT-NEXT:      [[IFF2:IfF[0-9]+]] = [[BP7]] && !i1 [[VP1:%.*]]
+; NOOPT-NEXT:      [[IFT3:IfT[0-9]+]] = [[BP7]] && i1 [[VP1]]
 ; NOOPT-NEXT:    [[BB8:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP8:BP[0-9]+]] = [[IFF2]]
 ; NOOPT-NEXT:    [[BB9:BB[0-9]+]]:
@@ -122,8 +122,8 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; NOOPT-NEXT:  [[REGION2]]:
 ; NOOPT-NEXT:    [[BB11:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP11:BP[0-9]+]] = [[BP5]]
-; NOOPT-NEXT:      [[IFF4:IfF[0-9]+]] = [[BP11]] && ![[VP2:%.*]]
-; NOOPT-NEXT:      [[IFT5:IfT[0-9]+]] = [[BP11]] && [[VP2]]
+; NOOPT-NEXT:      [[IFF4:IfF[0-9]+]] = [[BP11]] && !i1 [[VP2:%.*]]
+; NOOPT-NEXT:      [[IFT5:IfT[0-9]+]] = [[BP11]] && i1 [[VP2]]
 ; NOOPT-NEXT:    [[BB12:BB[0-9]+]]:
 ; NOOPT-NEXT:      [[BP12:BP[0-9]+]] = [[IFF4]]
 ; NOOPT-NEXT:    [[BB13:BB[0-9]+]]:
@@ -136,8 +136,8 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; OPT-NEXT:  [[REGION0:region[0-9]+]]:
 ; OPT-NEXT:    [[BB0:BB[0-9]+]]:
 ; OPT-NEXT:      [[BP0:BP[0-9]+]] = [[IFT0:IfT[0-9]+]]
-; OPT-NEXT:      [[IFF1:IfF[0-9]+]] = [[BP0]] && ![[VP0:%.*]]
-; OPT-NEXT:      [[IFT2:IfT[0-9]+]] = [[BP0]] && [[VP0]]
+; OPT-NEXT:      [[IFF1:IfF[0-9]+]] = [[BP0]] && !i1 [[VP0:%.*]]
+; OPT-NEXT:      [[IFT2:IfT[0-9]+]] = [[BP0]] && i1 [[VP0]]
 ; OPT-NEXT:    [[BB1:BB[0-9]+]]:
 ; OPT-NEXT:      [[BP1:BP[0-9]+]] = [[IFF1]]
 ; OPT-NEXT:    [[BB2:BB[0-9]+]]:
@@ -149,8 +149,8 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; OPT-NEXT:  [[REGION1:region[0-9]+]]:
 ; OPT-NEXT:    [[BB4:BB[0-9]+]]:
 ; OPT-NEXT:      [[BP4:BP[0-9]+]] = [[BP5:BP[0-9]+]]
-; OPT-NEXT:      [[IFF3:IfF[0-9]+]] = [[BP4]] && ![[VP1:%.*]]
-; OPT-NEXT:      [[IFT4:IfT[0-9]+]] = [[BP4]] && [[VP1]]
+; OPT-NEXT:      [[IFF3:IfF[0-9]+]] = [[BP4]] && !i1 [[VP1:%.*]]
+; OPT-NEXT:      [[IFT4:IfT[0-9]+]] = [[BP4]] && i1 [[VP1]]
 ; OPT-NEXT:    [[BB5:BB[0-9]+]]:
 ; OPT-NEXT:      [[BP6:BP[0-9]+]] = [[IFF3]]
 ; OPT-NEXT:    [[BB6:BB[0-9]+]]:
@@ -161,10 +161,10 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; OPT-NEXT:  Predicator report
 ; OPT-NEXT:  [[REGION2:region[0-9]+]]:
 ; OPT-NEXT:    [[BB8:BB[0-9]+]]:
-; OPT-NEXT:      [[IFT0]] = [[VP2:%.*]]
-; OPT-NEXT:      [[IFF5:IfF[0-9]+]] = ![[VP2]]
+; OPT-NEXT:      [[IFT0]] = i1 [[VP2:%.*]]
+; OPT-NEXT:      [[IFF5:IfF[0-9]+]] = !i1 [[VP2]]
 ; OPT-NEXT:    [[REGION0]]:
-; OPT-NEXT:      [[IFT0]] = [[VP2]]
+; OPT-NEXT:      [[IFT0]] = i1 [[VP2]]
 ; OPT-NEXT:    [[BB9:BB[0-9]+]]:
 ; OPT-NEXT:      [[BP5]] = [[IFT0]]
 ; OPT-NEXT:    [[REGION1]]:

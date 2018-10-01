@@ -1072,7 +1072,7 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
 
   // A and B: Create VPValue and add it to the pool of external definitions and
   // to the Value->VPValue map.
-  VPValue *NewVPVal = new VPValue(IROp);
+  VPValue *NewVPVal = new VPValue(IROp->getType(), IROp);
   Plan->addExternalDef(NewVPVal);
   IRDef2VPValue[IROp] = NewVPVal;
   return NewVPVal;
@@ -1112,7 +1112,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
 #else
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), {} /*No operands*/, Inst));
+          Inst->getOpcode(), Inst->getType(), {} /*No operands*/, Inst));
 #endif // INTEL_CUSTOMIZATION
       PhisToFix.push_back(Phi);
     } else {
@@ -1130,8 +1130,8 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
 #endif
       // Build VPInstruction for any arbitraty Instruction without specific
       // representation in VPlan.
-      NewVPInst = cast<VPInstruction>(
-          VPIRBuilder.createNaryOp(Inst->getOpcode(), VPOperands, Inst));
+      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+          Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
     }
     IRDef2VPValue[Inst] = NewVPInst;
   }

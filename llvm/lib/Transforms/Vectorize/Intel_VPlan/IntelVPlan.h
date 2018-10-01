@@ -771,12 +771,22 @@ protected:
 
 public:
 #if INTEL_CUSTOMIZATION
-  VPInstruction(unsigned Opcode, ArrayRef<VPValue *> Operands)
+  VPInstruction(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy),
+        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {
+    assert(BaseTy && "BaseTy can't be null!");
+  }
+  VPInstruction(unsigned Opcode, Type *BaseTy,
+                std::initializer_list<VPValue *> Operands)
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy),
+        VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {
+    assert(BaseTy && "BaseTy can't be null!");
+  }
+#else
+  VPInstruction(unsigned Opcode, std::initializer_list<VPValue *> Operands)
       : VPUser(VPValue::VPInstructionSC, Operands),
         VPRecipeBase(VPRecipeBase::VPInstructionSC), Opcode(Opcode) {}
-#endif
-  VPInstruction(unsigned Opcode, std::initializer_list<VPValue *> Operands)
-      : VPInstruction(Opcode, ArrayRef<VPValue *>(Operands)) {}
+#endif // INTEL_CUSTOMIZATION
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
@@ -837,15 +847,13 @@ public:
 class VPCmpInst : public VPInstruction {
 public:
   typedef CmpInst::Predicate Predicate;
-  /// \brief Create VPCmpInst with its two operands
+  /// \brief Create VPCmpInst with its two operands, a pred and a BaseType.
+  /// Operands \p LHS and \p RHS must not have conflicting base types.
   VPCmpInst(VPValue *LHS, VPValue *RHS, Predicate Pred)
       : VPInstruction(inferOpcodeFromPredicate(Pred),
-                      ((LHS || RHS) ? ArrayRef<VPValue *>({LHS, RHS})
-                                    : ArrayRef<VPValue *>({}))),
-        Pred(Pred) {
-    // TODO: Enable assert after fixing VPlanHCFGBuilderHIR.
-    // assert(LHS && RHS && "VPCmpInst's operands can't be null!");
-  }
+                      CmpInst::makeCmpResultType(LHS->getBaseType()),
+                      ArrayRef<VPValue *>({LHS, RHS})),
+        Pred(Pred) {}
 
   /// \brief Return the predicate for this instruction
   Predicate getPredicate() const { return Pred; }
@@ -877,7 +885,8 @@ private:
 /// Concrete class to represent branch instruction in VPlan.
 class VPBranchInst : public VPInstruction {
 public:
-  explicit VPBranchInst() : VPInstruction(Instruction::Br, {}) {}
+  explicit VPBranchInst(Type *BaseTy)
+      : VPInstruction(Instruction::Br, BaseTy, {}) {}
 
   const loopopt::HLGoto *getHLGoto() const {
     return cast<loopopt::HLGoto>(HIR.getUnderlyingNode());
@@ -907,8 +916,8 @@ public:
   using const_vpblock_iterator =
       SmallVectorImpl<VPBasicBlock *>::const_iterator;
 
-  explicit VPPHINode(void) : VPInstruction(Instruction::PHI,
-                                           ArrayRef<VPValue *>()) {}
+  explicit VPPHINode(Type *BaseTy)
+      : VPInstruction(Instruction::PHI, BaseTy, ArrayRef<VPValue *>()) {}
 
   vpblock_iterator block_begin(void) { return VPBBUsers.begin(); }
 
