@@ -127,10 +127,10 @@ static void debugPrintHeader(WRegionNode *W, bool IsPrepare) {
 }
 
 // Generate the placeholders for the loop lower bound and upper bound.
-void VPOParoptTransform::genLoopBoundUpdatePrep(WRegionNode *W,
+void VPOParoptTransform::genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
                                                 AllocaInst *&LowerBnd,
                                                 AllocaInst *&UpperBnd) {
-  Loop *L = W->getWRNLoopInfo().getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L->isLoopSimplifyForm() &&
          "genLoopBoundUpdatePrep: Expect the loop is in SimplifyForm.");
   ICmpInst *CmpI = WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
@@ -171,10 +171,10 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(WRegionNode *W,
 }
 
 // Generate the OCL loop update code.
-void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W,
+void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                                    AllocaInst *LowerBnd,
                                                    AllocaInst *UpperBnd) {
-  Loop *L = W->getWRNLoopInfo().getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
   LLVMContext &C = F->getContext();
@@ -222,11 +222,11 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W,
 }
 
 // Generate the OCL loop scheduling code.
-void VPOParoptTransform::genOCLLoopPartitionCode(WRegionNode *W,
+void VPOParoptTransform::genOCLLoopPartitionCode(WRegionNode *W, unsigned Idx,
                                                  AllocaInst *LowerBnd,
                                                  AllocaInst *UpperBnd) {
 
-  Loop *L = W->getWRNLoopInfo().getLoop();
+  Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
   SmallSetVector<Instruction *, 8> LiveOutVals;
   EquivalenceClasses<Value *> ECs;
@@ -292,11 +292,13 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
   AllocaInst *LowerBnd, *UpperBnd;
 
-  genLoopBoundUpdatePrep(W, LowerBnd, UpperBnd);
+  for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
+    genLoopBoundUpdatePrep(W, I - 1, LowerBnd, UpperBnd);
 
-  genOCLLoopBoundUpdateCode(W, LowerBnd, UpperBnd);
+    genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd);
 
-  genOCLLoopPartitionCode(W, LowerBnd, UpperBnd);
+    genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd);
+  }
 
   return true;
 }
@@ -460,14 +462,24 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
           improveAliasForOutlinedFunc(W);
+
+          // For the case of target parallel for (OpenCL), the compiler
+          // constructs a loop parameter before the target region.
+          if (deviceTriplesHasSPIRV()) {
+            if (WRegionNode *WT =
+                    WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
+              WT->setParLoopNdInfoAlloca(genTgtLoopParameter(WT, W));
+          }
+
           AllocaInst *IsLastVal = nullptr;
           BasicBlock *IfLastIterBB = nullptr;
           // The compiler does not need to generate the outlined function
           // for omp parallel for loop.
           if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-              hasOffloadCompilation())
-            Changed = genOCLParallelLoop(W);
-          else {
+              hasOffloadCompilation()) {
+            Changed |= genOCLParallelLoop(W);
+            Changed |= genPrivatizationCode(W);
+          } else {
             Changed |= genLoopSchedulingCode(W, IsLastVal);
             // Privatization is enabled for both Prepare and Transform passes
             Changed |= genPrivatizationCode(W);
@@ -2394,9 +2406,7 @@ void VPOParoptTransform::fixOmpBottomTestExpr(Loop *L) {
 //             %omp.inc = %omp.iv + 1;
 //          }while (%omp.inc <= %omp.ub)
 //
-void VPOParoptTransform::fixOMPDoWhileLoop(WRegionNode *W) {
-
-  Loop *L = W->getWRNLoopInfo().getLoop();
+void VPOParoptTransform::fixOMPDoWhileLoop(WRegionNode *W, Loop *L) {
 
   if (WRegionUtils::isDoWhileLoop(L)) {
     fixOmpDoWhileLoopImpl(L);
@@ -2479,6 +2489,38 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
   llvm_unreachable("cannot fix omp do-while loop");
 }
 
+// Transform the Ith level of the loop in the region W into the
+// OMP canonical loop form.
+void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
+  Loop *L = W->getWRNLoopInfo().getLoop(Index);
+  const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
+  const SimplifyQuery SQ = {DL, TLI, DT, AC};
+  LoopRotation(L, LI, TTI, AC, DT, SE, SQ, true, unsigned(-1), true);
+  std::vector<AllocaInst *> Allocas;
+  SmallVector<Value *, 2> LoopEssentialValues;
+  if (Index < W->getWRNLoopInfo().getNormIVSize())
+    LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormIV(Index));
+
+  if (Index < W->getWRNLoopInfo().getNormUBSize())
+    LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormUB(Index));
+
+  for (auto V : LoopEssentialValues) {
+    AllocaInst *AI = dyn_cast<AllocaInst>(V);
+    assert(AI && "Expect alloca instruction for omp_iv or omp_ub");
+    for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
+      if (LoadInst *LdInst = dyn_cast<LoadInst>(*IB))
+        LdInst->setVolatile(false);
+      if (StoreInst *StInst = dyn_cast<StoreInst>(*IB))
+        StInst->setVolatile(false);
+    }
+    resetValueInIntelClauseGeneric(W, V);
+    Allocas.push_back(AI);
+  }
+
+  PromoteMemToReg(Allocas, *DT, AC);
+  fixOMPDoWhileLoop(W, L);
+}
+
 // The OMP loop is converted into bottom test loop to facilitate the
 // code generation of VPOParopt transform and vectorization. This
 // regularization is required for the program which is compiled at -O0
@@ -2491,45 +2533,22 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
   if (!First) {
     // For the case of #pragma omp parallel for simd, the clang only
     // needs to generate the bundle omp.iv for the parallel region.
-    if (W->getWRNLoopInfo().getNormIVSize()==0) {
+    if (W->getWRNLoopInfo().getNormIVSize() == 0) {
       W->resetBBSet();
       return false;
     }
-    Loop *L = W->getWRNLoopInfo().getLoop();
-    const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
-    const SimplifyQuery SQ = {DL, TLI, DT, AC};
-    LoopRotation(L, LI, TTI, AC, DT, SE, SQ, true, unsigned(-1), true);
-    std::vector<AllocaInst *> Allocas;
-    SmallVector<Value *, 2> LoopEssentialValues;
-    if (W->getWRNLoopInfo().getNormIV())
-      LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormIV());
-
-    if (W->getWRNLoopInfo().getNormUB())
-      LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormUB());
-
-    for (auto V : LoopEssentialValues) {
-      AllocaInst *AI = dyn_cast<AllocaInst>(V);
-      assert(AI && "Expect alloca instruction for omp_iv or omp_ub");
-      for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
-        if (LoadInst *LdInst = dyn_cast<LoadInst>(*IB))
-          LdInst->setVolatile(false);
-        if (StoreInst *StInst = dyn_cast<StoreInst>(*IB))
-          StInst->setVolatile(false);
-      }
-      resetValueInIntelClauseGeneric(W, V);
-      Allocas.push_back(AI);
-    }
-
-    PromoteMemToReg(Allocas, *DT, AC);
-    fixOMPDoWhileLoop(W);
+    for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I)
+      regularizeOMPLoopImpl(W, I - 1);
   } else {
     std::vector<AllocaInst *> Allocas;
     SmallVector<Value *, 2> LoopEssentialValues;
     if (W->getWRNLoopInfo().getNormIV())
-      LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormIV());
+      for (unsigned I = 0; I < W->getWRNLoopInfo().getNormIVSize(); ++I)
+        LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormIV(I));
 
     if (W->getWRNLoopInfo().getNormUB())
-      LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormUB());
+      for (unsigned I = 0; I < W->getWRNLoopInfo().getNormUBSize(); ++I)
+        LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormUB(I));
 
     for (auto V : LoopEssentialValues) {
       assert(dyn_cast<AllocaInst>(V) &&
