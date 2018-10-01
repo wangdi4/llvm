@@ -58,10 +58,10 @@ static std::pair<SmallVector<StructType *, 3>, SmallVector<unsigned, 3>>
 getArrayTypesForSOAToAOSStructMethodsCheckDebug(Function &F) {
   SmallVector<StructType *, 3> ArrayTypes;
   for (auto &Name : DTransSOAToAOSArrays) {
-    auto *ArrayType = F.getParent()->getTypeByName(Name);
-    if (!ArrayType)
+    auto *ArrType = F.getParent()->getTypeByName(Name);
+    if (!ArrType)
       report_fatal_error(Twine("Cannot find struct/class type ") + Name + ".");
-    ArrayTypes.push_back(ArrayType);
+    ArrayTypes.push_back(ArrType);
   }
 
   if (ArrayTypes.size() <= 1)
@@ -198,7 +198,7 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
     report_fatal_error("dtrans-soatoaos-base-ptr-off was not provided.");
 
   StructureMethodAnalysis Checks(F.getParent()->getDataLayout(), *DTInfo, *TLI,
-                                 *DM, S, P.first, P.second,
+                                 *DM, S, P.first,
                                  *Result /*TransformationData*/);
 
   bool CheckedAll = Checks.checkStructMethod();

@@ -669,7 +669,9 @@ bool HIRLoopConcatenation::isValidAllocaReadLoop(HLLoop *Loop) {
 
     auto Inst = HInst->getLLVMInstruction();
 
-    if (isa<LoadInst>(Inst)) {
+    bool IsLastInst = (std::next(It) == End);
+
+    if (!IsLastInst && isa<LoadInst>(Inst)) {
       if (!isValidAllocaLoad(HInst, ConstantSubs)) {
         return false;
       }
@@ -677,7 +679,7 @@ bool HIRLoopConcatenation::isValidAllocaReadLoop(HLLoop *Loop) {
       AllocaLoadNodeOffset.push_back(NodeCount);
 
     } else if (isa<BinaryOperator>(Inst)) {
-      if (!isValidBinaryInst(HInst, (std::next(It) == End))) {
+      if (!isValidBinaryInst(HInst, IsLastInst)) {
         return false;
       }
     } else {
@@ -750,20 +752,24 @@ bool HIRLoopConcatenation::isValidBinaryInst(HLInst *HInst,
     return false;
   }
 
+  auto OpRef2 = *(HInst->rval_op_ddref_begin() + 1);
+
+  if (!OpRef2->isTerminalRef() || OpRef2->hasIV(1)) {
+    return false;
+  }
+
   if (CheckAddRedn) {
     // We are looking for something like t1 = (t1 + t2 + ...)  +  t3;
     // Verifying the exact structure of the CE (like t1 should have a coeff of
     // 1) is not required for legality so we skip it.
-    if (!OpRef1->usesTempBlob(LvalBlobIndex)) {
+    bool FoundUseInOp1 = OpRef1->usesTempBlob(LvalBlobIndex);
+    bool FoundUseInOp2 = OpRef2->usesTempBlob(LvalBlobIndex);
+
+    // Only allow use in one of the rval refs.
+    if ((!FoundUseInOp1 && !FoundUseInOp2) ||
+        (FoundUseInOp1 && FoundUseInOp2)) {
       return false;
     }
-  }
-
-  auto OpRef2 = *(HInst->rval_op_ddref_begin() + 1);
-
-  if (!OpRef2->isTerminalRef() || OpRef2->hasIV(1) ||
-      (CheckAddRedn && OpRef2->usesTempBlob(LvalBlobIndex))) {
-    return false;
   }
 
   return true;
@@ -1231,13 +1237,18 @@ void HIRLoopConcatenation::replaceReductionTempWithAlloca(HLLoop *Lp,
 
   auto LvalRef = LastInst->getLvalDDRef();
   unsigned LvalBlobIndex = LvalRef->getSelfBlobIndex();
+  unsigned LoadLvalBlobIndex = LoadInst->getLvalDDRef()->getSelfBlobIndex();
 
   LastInst->replaceOperandDDRef(LvalRef, AllocaRef->clone());
 
-  auto OpRef1 = *LastInst->rval_op_ddref_begin();
+  // Reduction temp may be in either of the two rval operands.
+  auto *OpRef1 = *LastInst->rval_op_ddref_begin();
 
-  OpRef1->replaceTempBlob(LvalBlobIndex,
-                          LoadInst->getLvalDDRef()->getSelfBlobIndex());
+  OpRef1->replaceTempBlob(LvalBlobIndex, LoadLvalBlobIndex);
+
+  auto *OpRef2 = *(LastInst->rval_op_ddref_begin() + 1);
+
+  OpRef2->replaceTempBlob(LvalBlobIndex, LoadLvalBlobIndex);
 
   Lp->addLiveInTemp(AllocaRef->getBasePtrSymbase());
   Lp->removeLiveOutTemp(LvalRef->getSymbase());

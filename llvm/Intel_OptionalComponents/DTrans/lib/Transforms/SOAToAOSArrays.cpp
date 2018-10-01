@@ -145,16 +145,22 @@ public:
           Params.push_back(P);
           Params.push_back(PFloat);
           NewParamOffset = Params.size() - 1;
+          continue;
         }
         if (auto *Ptr = dyn_cast<PointerType>(P)) {
-          if (Ptr->getElementType() == S.StrType)
+          if (Ptr->getElementType() == S.StrType) {
             Params.push_back(NewArray->getPointerTo());
+            continue;
+          }
+
           if (Ptr->getElementType() == S.ElementType) {
             Params.push_back(P);
             Params.push_back(PFloat->getPointerTo());
             NewParamOffset = Params.size() - 1;
+            continue;
           }
         }
+        Params.push_back(P);
       }
       auto *NewFunctionTy =
           FunctionType::get(FunctionTy->getReturnType(), Params, false);

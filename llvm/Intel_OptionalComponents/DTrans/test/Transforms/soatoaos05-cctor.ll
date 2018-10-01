@@ -62,7 +62,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-TRANS: ; IR: analysed completely
 
 ; Checks instructions related to transformations.
-; CHECK-TRANS: ; Dump instructions needing update. Total = 9
+; CHECK-TRANS: ; Dump instructions needing update. Total = 10
 
 ; Also checks that call sites to cctor can be combined.
 
@@ -140,11 +140,10 @@ declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 
 ; CHECK-MOD:       @"FieldValueMap::FieldValueMap(FieldValueMap const&){{.*}}"(%__SOA_class.FieldValueMap* %this, %__SOA_class.FieldValueMap* %other) personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
 define hidden void @"FieldValueMap::FieldValueMap(FieldValueMap const&)"(%class.FieldValueMap* %this, %class.FieldValueMap* %other) personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
-; CHECK-MOD-NEXT:  entry:
 entry:
+; Dead value.
   %fValidators = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
-; %fValidators is removed as not used.
-; CHECK-MOD-NEXT:   %fValues = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 2
+; CHECK-MOD:        %fValues = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 2
   %fValues = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 2
   %fMemoryManager = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 3
   %fMemoryManager2 = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %other, i64 0, i32 3
@@ -158,6 +157,8 @@ entry:
 ; CHECK-DEP-NEXT:   %tmp1 = bitcast %class.FieldValueMap* %this to i8*
 ; CHECK-MOD:        %tmp1 = bitcast %__SOA_class.FieldValueMap* %this to i8*
   %tmp1 = bitcast %class.FieldValueMap* %this to i8*
+; CHECK-TRANS:      ; ArrayInst: Nullptr with memset of array
+; CHECK-TRANS-NEXT:   tail call void @llvm.memset.p0i8.i64(i8* %tmp1, i8 0, i64 24, i1 false)
 ; Layout of struct did not change.
 ; CHECK-MOD-NEXT:   tail call void @llvm.memset.p0i8.i64(i8* %tmp1, i8 0, i64 24, i1 false)
   tail call void @llvm.memset.p0i8.i64(i8* %tmp1, i8 0, i64 24, i1 false)
@@ -249,6 +250,8 @@ invoke.cont18:                                    ; preds = %invoke.cont14
 ; CHECK-DEP:      ; GEP(Arg 0)
 ; CHECK-DEP-NEXT: ;     1
 ; CHECK-DEP-NEXT:   %tmp15 = bitcast %class.ValueVectorOf.1** %fValidators to i8**
+; Dead value.
+; CHECK-MOD:        %tmp15 = bitcast %__SOA_AR_class.ValueVectorOf.0** %fValidators to i8**
   %tmp15 = bitcast %class.ValueVectorOf.1** %fValidators to i8**
 ; CHECK-TRANS:      ; ArrayInst: Init ptr to array
 ; CHECK-TRANS-NEXT:   store i8* %call15, i8** %tmp15
@@ -642,5 +645,7 @@ declare hidden i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64, 
 
 declare hidden void @"XMemory::operator delete(void*_ MemoryManager*)"(i8*, %class.XMLMsgLoader*)
 
+; CHECK-TRANS: ; Seen nullptr init with memset.
+; CHECK-TRANS: ; Seen cctor.
 ; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
 ; XCHECK-DEP: Deps computed: 101, Queries: 298

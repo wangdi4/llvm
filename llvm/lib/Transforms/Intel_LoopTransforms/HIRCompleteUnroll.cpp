@@ -151,7 +151,7 @@ static cl::opt<unsigned>
                                      "(higher probability of unrolling)"));
 
 static cl::opt<unsigned> SmallLoopAdditionalSavingsThreshold(
-    "hir-complete-unroll-extra-savings-threshold", cl::init(5), cl::Hidden,
+    "hir-complete-unroll-extra-savings-threshold", cl::init(8), cl::Hidden,
     cl::desc("Threshold for extra savings added to small loops to give them "
              "higher probability of unrolling)"));
 
@@ -2210,7 +2210,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
   if (CE->getConstant()) {
     if (CEInfo.NumSimplifiedTerms) {
       ++Savings;
-    } else if (!IsLinear) {
+    } else if (!IsLinear && !CE->isNotOperation()) {
+      // We ignore the constant if CE represents 'not' operation.
+      // Not operation is represented as (-1*x + -1) but it can be optimized as
+      // an xor with -1.
       ++Cost;
     }
   } else if ((CEInfo.NumSimplifiedTerms == 1) &&

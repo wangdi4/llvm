@@ -156,21 +156,18 @@ public:
       : OpFilterIterTy(setupOpIterators(Val, EndOfRange)) {}
 
 private:
-  static OpFilterIterTy setupOpIterators(reference Val,
-                                                bool EndOfRange) {
+  static OpFilterIterTy setupOpIterators(reference Val, bool EndOfRange) {
 
     if (!isa<Instruction>(Val))
       return mkDefault();
 
     auto *Inst = cast<Instruction>(&Val);
 
-    OpIterTy Begin, End;
-
     if (!FilterTrait::isSupportedOpcode(Inst->getOpcode()))
       return mkDefault();
 
-    End = Inst->op_end();
-    Begin = EndOfRange ? End : Inst->op_begin();
+    OpIterTy End = Inst->op_end();
+    OpIterTy Begin = EndOfRange ? End : Inst->op_begin();
     return OpFilterIterTy(Begin, End, [](OpRefTy Use) -> bool {
       return FilterTrait::shouldBeAnalyzed(Use);
     });
@@ -179,6 +176,119 @@ private:
     return OpFilterIterTy(OpIterTy(), OpIterTy(),
                           [](OpRefTy Use) -> bool { return false; });
   }
+};
+
+// Allows to traverse from def to use to counter stripPointerCasts.
+// See cast_use_iterator.
+inline bool isCastUse(const Use& Use) {
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(Use.getUser()))
+    if (Use.get() == GEP->getPointerOperand() && GEP->hasAllZeroIndices())
+      return true;
+
+  return isa<BitCastInst>(Use.getUser());
+}
+
+// Fix mess with value_type/reference/pointer in *use_iterator.
+template<typename UseIterTy, typename UseTy>
+struct ValIterTy : public UseIterTy {
+  // Override typedefs.
+  using value_type = UseTy;
+  using reference = UseTy &;
+  using pointer = UseTy *;
+
+  reference operator*() const {
+    return this->UseIterTy::operator*();
+  }
+
+  pointer operator->() const {
+    return &this->UseIterTy::operator*();
+  }
+
+  ValIterTy() {}
+  ValIterTy(const UseIterTy &B) : UseIterTy(B) {}
+};
+
+// UseIterTy is a derivative of use_iterator/const_use_iterator through
+// ValIterTy.
+//
+// 1. De-referencing returns Value* (more accurately User*);
+// 2. Only Instruction and Argument are processed.
+// 3. Allows to revert stripPointerCasts.
+template <typename UseIterTy, typename ValueTy, typename UseTy>
+class cast_use_iterator
+    : public filter_iterator<UseIterTy, std::function<bool(UseTy &)>> {
+
+  static_assert(std::is_same<Use, typename std::remove_cv<UseTy>::type>::value,
+                "UseTy must be a CV-qualified Value");
+
+  static_assert(
+      std::is_same<Value, typename std::remove_cv<ValueTy>::type>::value,
+      "ValueTy must be a CV-qualified Value");
+
+  using UseFilterIterTy =
+      filter_iterator<UseIterTy, std::function<bool(UseTy &)>>;
+
+  using UseFilterIterTy::operator->;
+
+public:
+  using value_type = UseTy;
+  using reference = UseTy &;
+  using pointer = UseTy *;
+  using iterator_category = typename UseFilterIterTy::iterator_category;
+
+  cast_use_iterator() : UseFilterIterTy(mkDefault()) {}
+  cast_use_iterator(ValueTy *Val, bool EndOfRange)
+      : UseFilterIterTy(setupUseIterators(Val, EndOfRange)) {}
+
+private:
+  static UseFilterIterTy setupUseIterators(ValueTy *Val, bool EndOfRange) {
+
+    if (!isa<Instruction>(Val) && !isa<Argument>(Val))
+      return mkDefault();
+
+    UseIterTy End = Val->use_end();
+    UseIterTy Begin = EndOfRange ? End : Val->use_begin();
+    return UseFilterIterTy(
+        Begin, End, [](reference Use) -> bool { return isCastUse(Use); });
+  }
+  static UseFilterIterTy mkDefault() {
+    return UseFilterIterTy(UseIterTy(), UseIterTy(),
+                           [](reference Use) -> bool { return false; });
+  }
+};
+
+// From Use to Value using getUser().
+template <typename IterTy, typename ValueTy>
+class UserDerefIter
+    : public iterator_adaptor_base<
+          UserDerefIter<IterTy, ValueTy>, IterTy,
+          typename std::iterator_traits<IterTy>::iterator_category, ValueTy *,
+          typename std::iterator_traits<IterTy>::difference_type, ValueTy *,
+          ValueTy *> {
+
+  static_assert(
+      std::is_same<Value, typename std::remove_cv<ValueTy>::type>::value,
+      "ValueTy must be a CV-qualified Value");
+
+  using BaseTy = iterator_adaptor_base<
+      UserDerefIter<IterTy, ValueTy>, IterTy,
+      typename std::iterator_traits<IterTy>::iterator_category, ValueTy *,
+      typename std::iterator_traits<IterTy>::difference_type, ValueTy *,
+      ValueTy *>;
+
+  using BaseTy::operator->;
+
+public:
+  using pointer = typename BaseTy::pointer;
+
+  static UserDerefIter begin(pointer Val) { return UserDerefIter(Val, false); }
+  static UserDerefIter end(pointer Val) { return UserDerefIter(Val, true); }
+
+  pointer operator*() const { return this->wrapped().operator*().getUser(); }
+
+  UserDerefIter() : BaseTy() {}
+  UserDerefIter(pointer ValPtr, bool EndOfRange)
+      : BaseTy(IterTy(ValPtr, EndOfRange)) {}
 };
 
 // Returns Value* instead of Value& from operator*().
@@ -240,6 +350,13 @@ using const_gep_inst_dep_iterator =
     ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
                                GEPInstructionsTrait>>;
 
+using cast_dep_iterator = UserDerefIter<
+    cast_use_iterator<ValIterTy<Value::use_iterator, Use>, Value, Use>, Value>;
+using const_cast_dep_iterator = UserDerefIter<
+    cast_use_iterator<ValIterTy<Value::const_use_iterator, const Use>,
+                      const Value, const Use>,
+    const Value>;
+
 // Specialization to use *arith_inst_dep_iterator.
 template <typename ValuePtrTy> struct ArithDepGraph {
   ValuePtrTy ValuePtr;
@@ -256,6 +373,12 @@ template <typename ValuePtrTy> struct AllDepGraph {
 template <typename ValuePtrTy> struct GEPDepGraph {
   ValuePtrTy ValuePtr;
   GEPDepGraph(ValuePtrTy V) : ValuePtr(V) {}
+};
+
+// Specialization to use *cast_use_iterator.
+template <typename ValuePtrTy> struct CastDepGraph {
+  ValuePtrTy ValuePtr;
+  CastDepGraph(ValuePtrTy V) : ValuePtr(V) {}
 };
 } // namespace soatoaos
 } // namespace dtrans
@@ -352,6 +475,37 @@ template <> struct GraphTraits<GEPDepGraph<const Value *>> {
   }
   static ChildIteratorType child_end(NodeRef N) {
     return const_gep_inst_dep_iterator::end(N);
+  }
+};
+
+
+template <> struct GraphTraits<CastDepGraph<Value *>> {
+  using NodeRef = Value *;
+  using ChildIteratorType = cast_dep_iterator;
+
+  static NodeRef getEntryNode(CastDepGraph<Value *> G) {
+    return G.ValuePtr;
+  }
+  static ChildIteratorType child_begin(NodeRef N) {
+    return cast_dep_iterator::begin(N);
+  }
+  static ChildIteratorType child_end(NodeRef N) {
+    return cast_dep_iterator::end(N);
+  }
+};
+
+template <> struct GraphTraits<CastDepGraph<const Value *>> {
+  using NodeRef = const Value *;
+  using ChildIteratorType = const_cast_dep_iterator;
+
+  static NodeRef getEntryNode(CastDepGraph<const Value *> G) {
+    return G.ValuePtr;
+  }
+  static ChildIteratorType child_begin(NodeRef N) {
+    return const_cast_dep_iterator::begin(N);
+  }
+  static ChildIteratorType child_end(NodeRef N) {
+    return const_cast_dep_iterator::end(N);
   }
 };
 } // namespace llvm

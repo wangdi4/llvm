@@ -49,7 +49,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Checks instructions related to transformations:
 ; FieldValueMap is not changed: one pointer is not used.
-; CHECK-TRANS: ; Dump instructions needing update. Total = 0
+; CHECK-TRANS: ; Dump instructions needing update. Total = 1
 
 ; Checks transformation. Only types change.
 
@@ -77,6 +77,8 @@ entry:
 ; CHECK-MOD:  %fMemoryManager = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 3
   %fMemoryManager = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 3
   %tmp = bitcast %class.FieldValueMap* %this to i8*
+; CHECK-TRANS:      ; ArrayInst: Nullptr with memset of array
+; CHECK-TRANS-NEXT:   call void @llvm.memset.p0i8.i64(i8* %tmp, i8 0, i64 24, i1 false)
 ; Layout did not change, no changes in size argument of memset.
 ; CHECK-MOD:  call void @llvm.memset.p0i8.i64(i8* %tmp, i8 0, i64 24, i1 false)
   call void @llvm.memset.p0i8.i64(i8* %tmp, i8 0, i64 24, i1 false)
@@ -84,5 +86,6 @@ entry:
   ret void
 }
 
+; CHECK-TRANS: ; Seen nullptr init with memset.
 ; XCHECK-DEP: Deps computed: 7, Queries: 10
 

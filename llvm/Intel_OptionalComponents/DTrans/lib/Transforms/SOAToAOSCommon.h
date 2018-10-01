@@ -11,6 +11,8 @@
 // This file implements functionality shared by analysis in SOAToAOSArrays.h
 // and SOAToAOSStruct.h
 //
+// Assorted utilities for SOA-to-AOS transformation.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef INTEL_DTRANS_TRANSFORMS_SOATOAOSCOMMON_H
@@ -65,8 +67,8 @@ protected:
   // GEP (Arg ArgNo) FieldInd,
   // where OutType is FieldInd'th field of S.StrType.
   static bool isFieldAddr(const Dep *D, const SummaryForIdiom &S,
-                          Type *&OutType) {
-    unsigned ArgNo = -1U;
+                          unsigned &ArgNo, Type *&OutType) {
+    ArgNo = -1U;
     unsigned FieldInd = -1U;
     if (!isArgAddr(D, ArgNo, FieldInd))
       return false;
@@ -81,6 +83,13 @@ protected:
 
     OutType = S.StrType->getElementType(FieldInd);
     return true;
+  }
+
+  // Wrapper for isFieldAddr above.
+  static bool isFieldAddr(const Dep *D, const SummaryForIdiom &S,
+                          Type *&OutType) {
+    unsigned ArgNo = -1U;
+    return isFieldAddr(D, S, ArgNo, OutType);
   }
 
   // Load of some field of S.StrType.
@@ -290,6 +299,21 @@ private:
     return false;
   }
 };
+
+// Utility to extract array type at offset Off from Struct,
+// given Struct is a candidate for SOA-to-AOS.
+inline StructType *getSOAArrayType(StructType *Struct, unsigned Off) {
+  return cast<StructType>(
+      Struct->getElementType(Off)->getPointerElementType());
+}
+
+// Utility to extract array type's element,
+// given struct representing array.
+inline PointerType *getSOAElementType(StructType *ArrType,
+                                      unsigned BasePointerOffset) {
+  return cast<PointerType>(
+      ArrType->getElementType(BasePointerOffset)->getPointerElementType());
+}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Offset of memory interface in structure.
