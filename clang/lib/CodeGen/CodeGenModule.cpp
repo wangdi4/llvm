@@ -48,6 +48,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallVector.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallSite.h"
@@ -57,6 +58,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ProfileData/InstrProfReader.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MD5.h"
@@ -615,6 +617,20 @@ void CodeGenModule::Release() {
     getModule().setPICLevel(static_cast<llvm::PICLevel::Level>(PLevel));
     if (Context.getLangOpts().PIE)
       getModule().setPIELevel(static_cast<llvm::PIELevel::Level>(PLevel));
+  }
+
+  if (getCodeGenOpts().CodeModel.size() > 0) {
+    unsigned CM = llvm::StringSwitch<unsigned>(getCodeGenOpts().CodeModel)
+                  .Case("tiny", llvm::CodeModel::Tiny)
+                  .Case("small", llvm::CodeModel::Small)
+                  .Case("kernel", llvm::CodeModel::Kernel)
+                  .Case("medium", llvm::CodeModel::Medium)
+                  .Case("large", llvm::CodeModel::Large)
+                  .Default(~0u);
+    if (CM != ~0u) {
+      llvm::CodeModel::Model codeModel = static_cast<llvm::CodeModel::Model>(CM);
+      getModule().setCodeModel(codeModel);
+    }
   }
 
   if (CodeGenOpts.NoPLT)
@@ -1495,7 +1511,7 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(const Decl *D,
     AddedAttr = true;
   }
   if (!Features.empty()) {
-    llvm::sort(Features.begin(), Features.end());
+    llvm::sort(Features);
     Attrs.addAttribute("target-features", llvm::join(Features, ","));
     AddedAttr = true;
   }
@@ -2055,9 +2071,6 @@ bool CodeGenModule::isInSanitizerBlacklist(llvm::GlobalVariable *GV,
 
 bool CodeGenModule::imbueXRayAttrs(llvm::Function *Fn, SourceLocation Loc,
                                    StringRef Category) const {
-  if (!LangOpts.XRayInstrument)
-    return false;
-
   const auto &XRayFilter = getContext().getXRayFilter();
   using ImbueAttr = XRayFunctionFilter::ImbueAttribute;
   auto Attr = ImbueAttr::NONE;
@@ -2534,9 +2547,22 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
 static void ReplaceUsesOfNonProtoTypeWithRealFunction(llvm::GlobalValue *Old,
                                                       llvm::Function *NewFn);
 
+static unsigned
+TargetMVPriority(const TargetInfo &TI,
+                 const CodeGenFunction::MultiVersionResolverOption &RO) {
+  unsigned Priority = 0;
+  for (StringRef Feat : RO.Conditions.Features)
+    Priority = std::max(Priority, TI.multiVersionSortPriority(Feat));
+
+  if (!RO.Conditions.Architecture.empty())
+    Priority = std::max(
+        Priority, TI.multiVersionSortPriority(RO.Conditions.Architecture));
+  return Priority;
+}
+
 void CodeGenModule::emitMultiVersionFunctions() {
   for (GlobalDecl GD : MultiVersionFuncs) {
-    SmallVector<CodeGenFunction::TargetMultiVersionResolverOption, 10> Options;
+    SmallVector<CodeGenFunction::MultiVersionResolverOption, 10> Options;
     const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
     getContext().forEachMultiversionedFunctionVersion(
         FD, [this, &GD, &Options](const FunctionDecl *CurFD) {
@@ -2557,8 +2583,13 @@ void CodeGenModule::emitMultiVersionFunctions() {
             }
             assert(Func && "This should have just been created");
           }
-          Options.emplace_back(getTarget(), cast<llvm::Function>(Func),
-                               CurFD->getAttr<TargetAttr>()->parse());
+
+          const auto *TA = CurFD->getAttr<TargetAttr>();
+          llvm::SmallVector<StringRef, 8> Feats;
+          TA->getAddedFeatures(Feats);
+
+          Options.emplace_back(cast<llvm::Function>(Func),
+                               TA->getArchitecture(), Feats);
         });
 
     llvm::Function *ResolverFunc = cast<llvm::Function>(
@@ -2566,11 +2597,16 @@ void CodeGenModule::emitMultiVersionFunctions() {
     if (supportsCOMDAT())
       ResolverFunc->setComdat(
           getModule().getOrInsertComdat(ResolverFunc->getName()));
+
+    const TargetInfo &TI = getTarget();
     std::stable_sort(
         Options.begin(), Options.end(),
-        std::greater<CodeGenFunction::TargetMultiVersionResolverOption>());
+        [&TI](const CodeGenFunction::MultiVersionResolverOption &LHS,
+              const CodeGenFunction::MultiVersionResolverOption &RHS) {
+          return TargetMVPriority(TI, LHS) > TargetMVPriority(TI, RHS);
+        });
     CodeGenFunction CGF(*this);
-    CGF.EmitTargetMultiVersionResolver(ResolverFunc, Options);
+    CGF.EmitMultiVersionResolver(ResolverFunc, Options);
   }
 }
 
@@ -2590,8 +2626,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
       GetOrCreateLLVMFunction(ResolverName, ResolverType, GlobalDecl{},
                               /*ForVTable=*/false));
 
-  SmallVector<CodeGenFunction::CPUDispatchMultiVersionResolverOption, 10>
-      Options;
+  SmallVector<CodeGenFunction::MultiVersionResolverOption, 10> Options;
   const TargetInfo &Target = getTarget();
   for (const IdentifierInfo *II : DD->cpus()) {
     // Get the name of the target function so we can look it up/create it.
@@ -2608,15 +2643,18 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
         Features.begin(), Features.end(), [&Target](StringRef Feat) {
           return !Target.validateCpuSupports(Feat);
         }), Features.end());
-    Options.emplace_back(cast<llvm::Function>(Func),
-                         CodeGenFunction::GetX86CpuSupportsMask(Features));
+    Options.emplace_back(cast<llvm::Function>(Func), StringRef{}, Features);
   }
 
   llvm::sort(
       Options.begin(), Options.end(),
-      std::greater<CodeGenFunction::CPUDispatchMultiVersionResolverOption>());
+      [](const CodeGenFunction::MultiVersionResolverOption &LHS,
+         const CodeGenFunction::MultiVersionResolverOption &RHS) {
+        return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
+               CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
+      });
   CodeGenFunction CGF(*this);
-  CGF.EmitCPUDispatchMultiVersionResolver(ResolverFunc, Options);
+  CGF.EmitMultiVersionResolver(ResolverFunc, Options);
 }
 
 /// If an ifunc for the specified mangled name is not in the module, create and
@@ -3199,10 +3237,9 @@ CodeGenModule::GetAddrOfGlobal(GlobalDecl GD,
                               IsForDefinition);
 }
 
-llvm::GlobalVariable *
-CodeGenModule::CreateOrReplaceCXXRuntimeVariable(StringRef Name,
-                                      llvm::Type *Ty,
-                                      llvm::GlobalValue::LinkageTypes Linkage) {
+llvm::GlobalVariable *CodeGenModule::CreateOrReplaceCXXRuntimeVariable(
+    StringRef Name, llvm::Type *Ty, llvm::GlobalValue::LinkageTypes Linkage,
+    unsigned Alignment) {
   llvm::GlobalVariable *GV = getModule().getNamedGlobal(Name);
   llvm::GlobalVariable *OldGV = nullptr;
 
@@ -3237,6 +3274,8 @@ CodeGenModule::CreateOrReplaceCXXRuntimeVariable(StringRef Name,
   if (supportsCOMDAT() && GV->isWeakForLinker() &&
       !GV->hasAvailableExternallyLinkage())
     GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
+
+  GV->setAlignment(Alignment);
 
   return GV;
 }
@@ -4388,37 +4427,48 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
 
   llvm::Constant *Zero = llvm::Constant::getNullValue(Int32Ty);
   llvm::Constant *Zeros[] = { Zero, Zero };
-
+  
   // If we don't already have it, get __CFConstantStringClassReference.
   if (!CFConstantStringClassRef) {
     llvm::Type *Ty = getTypes().ConvertType(getContext().IntTy);
     Ty = llvm::ArrayType::get(Ty, 0);
-    llvm::GlobalValue *GV = cast<llvm::GlobalValue>(
-        CreateRuntimeVariable(Ty, "__CFConstantStringClassReference"));
+    llvm::Constant *C =
+        CreateRuntimeVariable(Ty, "__CFConstantStringClassReference");
+    
+    if (getTriple().isOSBinFormatELF() || getTriple().isOSBinFormatCOFF()) {
+      llvm::GlobalValue *GV = nullptr;
+      
+      if ((GV = dyn_cast<llvm::GlobalValue>(C))) {
+        IdentifierInfo &II = getContext().Idents.get(GV->getName());
+        TranslationUnitDecl *TUDecl = getContext().getTranslationUnitDecl();
+        DeclContext *DC = TranslationUnitDecl::castToDeclContext(TUDecl);
 
-    if (getTriple().isOSBinFormatCOFF()) {
-      IdentifierInfo &II = getContext().Idents.get(GV->getName());
-      TranslationUnitDecl *TUDecl = getContext().getTranslationUnitDecl();
-      DeclContext *DC = TranslationUnitDecl::castToDeclContext(TUDecl);
-
-      const VarDecl *VD = nullptr;
-      for (const auto &Result : DC->lookup(&II))
-        if ((VD = dyn_cast<VarDecl>(Result)))
-          break;
-
-      if (!VD || !VD->hasAttr<DLLExportAttr>()) {
-        GV->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
-        GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
-      } else {
-        GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
-        GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        const VarDecl *VD = nullptr;
+        for (const auto &Result : DC->lookup(&II))
+          if ((VD = dyn_cast<VarDecl>(Result)))
+            break;
+          
+        if (getTriple().isOSBinFormatELF()) {
+          if (!VD)
+            GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        }
+        else {
+          if (!VD || !VD->hasAttr<DLLExportAttr>()) {
+            GV->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+            GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
+          } else {
+            GV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+            GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
+          }
+        }
+        
+        setDSOLocal(GV);
       }
     }
-    setDSOLocal(GV);
-
+  
     // Decay array -> ptr
     CFConstantStringClassRef =
-        llvm::ConstantExpr::getGetElementPtr(Ty, GV, Zeros);
+        llvm::ConstantExpr::getGetElementPtr(Ty, C, Zeros);
   }
 
   QualType CFTy = getContext().getCFConstantStringType();
@@ -4464,7 +4514,11 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   if (getTriple().isOSBinFormatMachO())
     GV->setSection(isUTF16 ? "__TEXT,__ustring"
                            : "__TEXT,__cstring,cstring_literals");
-
+  // Make sure the literal ends up in .rodata to allow for safe ICF and for
+  // the static linker to adjust permissions to read-only later on.
+  else if (getTriple().isOSBinFormatELF())
+    GV->setSection(".rodata");
+  
   // String.
   llvm::Constant *Str =
       llvm::ConstantExpr::getGetElementPtr(GV->getValueType(), GV, Zeros);
@@ -5142,6 +5196,10 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
 
   case Decl::OMPDeclareReduction:
     EmitOMPDeclareReduction(cast<OMPDeclareReductionDecl>(D));
+    break;
+ 
+  case Decl::OMPRequires:
+    EmitOMPRequiresDecl(cast<OMPRequiresDecl>(D));
     break;
 
   default:

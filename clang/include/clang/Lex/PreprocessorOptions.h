@@ -54,6 +54,16 @@ public:
   /// definitions and expansions.
   bool DetailedRecord = false;
 
+  /// When true, we are creating or using a PCH where a #pragma hdrstop is
+  /// expected to indicate the beginning or end of the PCH.
+  bool PCHWithHdrStop = false;
+
+  /// When true, we are creating a PCH or creating the PCH object while
+  /// expecting a #pragma hdrstop to separate the two.  Allow for a
+  /// missing #pragma hdrstop, which generates a PCH for the whole file,
+  /// and creates an empty PCH object.
+  bool PCHWithHdrStopCreate = false;
+
 #if INTEL_CUSTOMIZATION
   // The output file specified so #import processing can find output directory
   StringRef OutputFile;

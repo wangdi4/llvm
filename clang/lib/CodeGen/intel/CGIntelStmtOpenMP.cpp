@@ -1271,6 +1271,8 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
+  void OpenMPCodeOutliner::emitOMPUnifiedAddressClause(
+      const OMPUnifiedAddressClause *) {}
 
   void OpenMPCodeOutliner::addFenceCalls(bool IsBegin) {
     switch (Directive.getDirectiveKind()) {
@@ -1818,6 +1820,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_distribute_parallel_for:
   case OMPD_distribute_parallel_for_simd:
   case OMPD_distribute_simd:
+  case OMPD_requires:
     break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:

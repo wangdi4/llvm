@@ -37,6 +37,6 @@ void foo() {
   int b = __builtin_fpga_reg(a);
   // expected-error@-1{{'__builtin_fpga_reg' is only available in OpenCL FPGA}}
   int c = __fpga_reg(a);
-  // expected-warning@-1{{implicit declaration of function '__fpga_reg' is invalid in OpenCL}}
+  // expected-error@-1{{implicit declaration of function '__fpga_reg' is invalid in OpenCL}}
 #endif
 }

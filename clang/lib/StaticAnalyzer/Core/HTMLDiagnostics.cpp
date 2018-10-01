@@ -112,15 +112,24 @@ public:
                     FileID FID, const FileEntry *Entry, const char *declName);
 
   // Rewrite the file specified by FID with HTML formatting.
-  void RewriteFile(Rewriter &R, const SourceManager& SMgr,
-                   const PathPieces& path, FileID FID);
+  void RewriteFile(Rewriter &R, const PathPieces& path, FileID FID);
 
-  /// \return Javascript for navigating the HTML report using j/k keys.
-  std::string generateKeyboardNavigationJavascript();
 
 private:
   /// \return Javascript for displaying shortcuts help;
-  std::string showHelpJavascript();
+  StringRef showHelpJavascript();
+
+  /// \return Javascript for navigating the HTML report using j/k keys.
+  StringRef generateKeyboardNavigationJavascript();
+
+  /// \return JavaScript for an option to only show relevant lines.
+  std::string showRelevantLinesJavascript(
+    const PathDiagnostic &D, const PathPieces &path);
+
+  /// Write executed lines from \p D in JSON format into \p os.
+  void dumpCoverageData(const PathDiagnostic &D,
+                        const PathPieces &path,
+                        llvm::raw_string_ostream &os);
 };
 
 } // namespace
@@ -269,7 +278,7 @@ std::string HTMLDiagnostics::GenerateHTML(const PathDiagnostic& D, Rewriter &R,
       continue;
 
     FileIDs.push_back(FID);
-    RewriteFile(R, SMgr, path, FID);
+    RewriteFile(R, path, FID);
   }
 
   if (SupportsCrossFileDiagnostics && FileIDs.size() > 1) {
@@ -332,8 +341,7 @@ std::string HTMLDiagnostics::GenerateHTML(const PathDiagnostic& D, Rewriter &R,
   return os.str();
 }
 
-/// Write executed lines from \p D in JSON format into \p os.
-static void serializeExecutedLines(
+void HTMLDiagnostics::dumpCoverageData(
     const PathDiagnostic &D,
     const PathPieces &path,
     llvm::raw_string_ostream &os) {
@@ -359,13 +367,12 @@ static void serializeExecutedLines(
   os << "};";
 }
 
-/// \return JavaScript for an option to only show relevant lines.
-static std::string showRelevantLinesJavascript(
+std::string HTMLDiagnostics::showRelevantLinesJavascript(
       const PathDiagnostic &D, const PathPieces &path) {
   std::string s;
   llvm::raw_string_ostream os(s);
   os << "<script type='text/javascript'>\n";
-  serializeExecutedLines(D, path, os);
+  dumpCoverageData(D, path, os);
   os << R"<<<(
 
 var filterCounterexample = function (hide) {
@@ -571,7 +578,7 @@ void HTMLDiagnostics::FinalizeHTML(const PathDiagnostic& D, Rewriter &R,
   html::AddHeaderFooterInternalBuiltinCSS(R, FID, Entry->getName());
 }
 
-std::string HTMLDiagnostics::showHelpJavascript() {
+StringRef HTMLDiagnostics::showHelpJavascript() {
   return R"<<<(
 <script type='text/javascript'>
 
@@ -599,8 +606,8 @@ window.addEventListener("keydown", function (event) {
 )<<<";
 }
 
-void HTMLDiagnostics::RewriteFile(Rewriter &R, const SourceManager& SMgr,
-    const PathPieces& path, FileID FID) {
+void HTMLDiagnostics::RewriteFile(Rewriter &R,
+                                  const PathPieces& path, FileID FID) {
   // Process the path.
   // Maintain the counts of extra note pieces separately.
   unsigned TotalPieces = path.size();
@@ -929,7 +936,7 @@ void HTMLDiagnostics::HighlightRange(Rewriter& R, FileID BugFileID,
   html::HighlightRange(R, InstantiationStart, E, HighlightStart, HighlightEnd);
 }
 
-std::string HTMLDiagnostics::generateKeyboardNavigationJavascript() {
+StringRef HTMLDiagnostics::generateKeyboardNavigationJavascript() {
   return R"<<<(
 <script type='text/javascript'>
 var digitMatcher = new RegExp("[0-9]+");

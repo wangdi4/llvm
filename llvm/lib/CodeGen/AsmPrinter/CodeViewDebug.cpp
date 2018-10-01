@@ -1034,19 +1034,6 @@ CodeViewDebug::createDefRangeMem(uint16_t CVRegister, int Offset) {
   return DR;
 }
 
-CodeViewDebug::LocalVarDefRange
-CodeViewDebug::createDefRangeGeneral(uint16_t CVRegister, bool InMemory,
-                                     int Offset, bool IsSubfield,
-                                     uint16_t StructOffset) {
-  LocalVarDefRange DR;
-  DR.InMemory = InMemory;
-  DR.DataOffset = Offset;
-  DR.IsSubfield = IsSubfield;
-  DR.StructOffset = StructOffset;
-  DR.CVRegister = CVRegister;
-  return DR;
-}
-
 void CodeViewDebug::collectVariableInfoFromMFTable(
     DenseSet<InlinedEntity> &Processed) {
   const MachineFunction &MF = *Asm->MF;
@@ -2366,10 +2353,9 @@ void CodeViewDebug::emitLocalVariableList(ArrayRef<LocalVariable> Locals) {
   for (const LocalVariable &L : Locals)
     if (L.DIVar->isParameter())
       Params.push_back(&L);
-  llvm::sort(Params.begin(), Params.end(),
-             [](const LocalVariable *L, const LocalVariable *R) {
-               return L->DIVar->getArg() < R->DIVar->getArg();
-             });
+  llvm::sort(Params, [](const LocalVariable *L, const LocalVariable *R) {
+    return L->DIVar->getArg() < R->DIVar->getArg();
+  });
   for (const LocalVariable *L : Params)
     emitLocalVariable(*L);
 
