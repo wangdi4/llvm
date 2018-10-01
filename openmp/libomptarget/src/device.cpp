@@ -332,7 +332,14 @@ int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
   return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
       TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount);
 }
-
+#if INTEL_COLLAB
+int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
+    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
+    int32_t ThreadLimit, void *TgtNDLoopDesc) {
+  return RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
+      TgtVarsSize, NumTeams, ThreadLimit, TgtNDLoopDesc);
+}
+#endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.
 bool device_is_ready(int device_num) {

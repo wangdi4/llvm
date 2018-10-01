@@ -37,6 +37,10 @@ struct RTLInfoTy {
                                  int32_t);
   typedef int32_t(run_team_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                       int32_t, int32_t, int32_t, uint64_t);
+#if INTEL_COLLAB
+  typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
+                                      int32_t, int32_t, int32_t, void *);
+#endif // INTEL_COLLAB
 
   int32_t Idx;                     // RTL index, index is the number of devices
                                    // of other RTLs that were registered before,
@@ -61,6 +65,9 @@ struct RTLInfoTy {
   data_delete_ty *data_delete;
   run_region_ty *run_region;
   run_team_region_ty *run_team_region;
+#if INTEL_COLLAB
+  run_team_nd_region_ty *run_team_nd_region;
+#endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
   bool isUsed;
