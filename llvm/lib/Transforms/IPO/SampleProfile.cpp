@@ -681,13 +681,12 @@ SampleProfileLoader::findIndirectCallFunctionSamples(
       Sum += NameFS.second.getEntrySamples();
       R.push_back(&NameFS.second);
     }
-    llvm::sort(R.begin(), R.end(),
-               [](const FunctionSamples *L, const FunctionSamples *R) {
-                 if (L->getEntrySamples() != R->getEntrySamples())
-                   return L->getEntrySamples() > R->getEntrySamples();
-                 return FunctionSamples::getGUID(L->getName()) <
-                        FunctionSamples::getGUID(R->getName());
-               });
+    llvm::sort(R, [](const FunctionSamples *L, const FunctionSamples *R) {
+      if (L->getEntrySamples() != R->getEntrySamples())
+        return L->getEntrySamples() > R->getEntrySamples();
+      return FunctionSamples::getGUID(L->getName()) <
+             FunctionSamples::getGUID(R->getName());
+    });
   }
   return R;
 }
@@ -1179,13 +1178,12 @@ static SmallVector<InstrProfValueData, 2> SortCallTargets(
   SmallVector<InstrProfValueData, 2> R;
   for (auto I = M.begin(); I != M.end(); ++I)
     R.push_back({FunctionSamples::getGUID(I->getKey()), I->getValue()});
-  llvm::sort(R.begin(), R.end(),
-             [](const InstrProfValueData &L, const InstrProfValueData &R) {
-               if (L.Count == R.Count)
-                 return L.Value > R.Value;
-               else
-                 return L.Count > R.Count;
-             });
+  llvm::sort(R, [](const InstrProfValueData &L, const InstrProfValueData &R) {
+    if (L.Count == R.Count)
+      return L.Value > R.Value;
+    else
+      return L.Count > R.Count;
+  });
   return R;
 }
 
@@ -1520,6 +1518,7 @@ bool SampleProfileLoader::doInitialization(Module &M) {
     return false;
   }
   Reader = std::move(ReaderOrErr.get());
+  Reader->collectFuncsToUse(M);
   ProfileIsValid = (Reader->read() == sampleprof_error::success);
   return true;
 }

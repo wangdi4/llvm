@@ -220,9 +220,11 @@ namespace CallingConv {
     /// shader if tessellation is in use, or otherwise the vertex shader.
     AMDGPU_ES = 96,
 
+    // Calling convention between AArch64 Advanced SIMD functions
+    AArch64_VectorCall = 97,
 #if INTEL_CUSTOMIZATION
     /// \brief SVML for intel compiler
-    SVML = 97,
+    SVML = 98,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

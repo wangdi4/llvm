@@ -722,8 +722,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
   int BlockNumber = -1;
   (void)BlockNumber;
   bool MatchFilterBB = false; (void)MatchFilterBB;
+#ifndef NDEBUG
   TargetTransformInfo &TTI =
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(*FuncInfo->Fn);
+#endif
 
   // Pre-type legalization allow creation of any node types.
   CurDAG->NewNodesMustHaveLegalTypes = false;
@@ -758,8 +760,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     CurDAG->Combine(BeforeLegalizeTypes, AA, OptLevel);
   }
 
+#ifndef NDEBUG
   if (TTI.hasBranchDivergence())
     CurDAG->VerifyDAGDiverence();
+#endif
 
   LLVM_DEBUG(dbgs() << "Optimized lowered selection DAG: "
                     << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
@@ -778,8 +782,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     Changed = CurDAG->LegalizeTypes();
   }
 
+#ifndef NDEBUG
   if (TTI.hasBranchDivergence())
     CurDAG->VerifyDAGDiverence();
+#endif
 
   LLVM_DEBUG(dbgs() << "Type-legalized selection DAG: "
                     << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
@@ -800,8 +806,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
       CurDAG->Combine(AfterLegalizeTypes, AA, OptLevel);
     }
 
+#ifndef NDEBUG
     if (TTI.hasBranchDivergence())
       CurDAG->VerifyDAGDiverence();
+#endif
 
     LLVM_DEBUG(dbgs() << "Optimized type-legalized selection DAG: "
                       << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
@@ -847,8 +855,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
                       << "'\n";
                CurDAG->dump());
 
+#ifndef NDEBUG
     if (TTI.hasBranchDivergence())
       CurDAG->VerifyDAGDiverence();
+#endif
   }
 
   if (ViewLegalizeDAGs && MatchFilterBB)
@@ -860,8 +870,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     CurDAG->Legalize();
   }
 
+#ifndef NDEBUG
   if (TTI.hasBranchDivergence())
     CurDAG->VerifyDAGDiverence();
+#endif
 
   LLVM_DEBUG(dbgs() << "Legalized selection DAG: "
                     << printMBBReference(*FuncInfo->MBB) << " '" << BlockName
@@ -878,8 +890,10 @@ void SelectionDAGISel::CodeGenAndEmitDAG() {
     CurDAG->Combine(AfterLegalizeDAG, AA, OptLevel);
   }
 
+#ifndef NDEBUG
   if (TTI.hasBranchDivergence())
     CurDAG->VerifyDAGDiverence();
+#endif
 
   LLVM_DEBUG(dbgs() << "Optimized legalized selection DAG: "
                     << printMBBReference(*FuncInfo->MBB) << " '" << BlockName

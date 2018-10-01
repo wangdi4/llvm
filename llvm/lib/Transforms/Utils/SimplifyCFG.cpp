@@ -2458,16 +2458,20 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // Move all 'aggressive' instructions, which are defined in the
     // conditional parts of the if's to the conditional block.
     if (IfBlock1) {
-      for (auto &I : *IfBlock1)
+      for (auto &I : *IfBlock1) {
         I.dropUnknownNonDebugMetadata();
+        dropDebugUsers(I);
+      }
       CondBlock->getInstList().splice(InsertPt->getIterator(),
                                       IfBlock1->getInstList(),
                                       IfBlock1->begin(),
                                       IfBlock1->getTerminator()->getIterator());
     }
     if (IfBlock2) {
-      for (auto &I : *IfBlock2)
+      for (auto &I : *IfBlock2) {
         I.dropUnknownNonDebugMetadata();
+        dropDebugUsers(I);
+      }
       CondBlock->getInstList().splice(InsertPt->getIterator(),
                                       IfBlock2->getInstList(),
                                       IfBlock2->begin(),
@@ -2484,7 +2488,12 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
         Value *Select =
             Builder.CreateSelect(IfCond, TrueVal, FalseVal, "", InsertPt);
         SelectInst *NV = cast<SelectInst>(Select);
-        // Select->takeName(PN);
+        // The community code calls Select->takeName(PN) here and removes the
+        // PHI node. We cannot do that, because the PHI might still be needed
+        // after our transform. (For example, we might be folding 2 entries
+        // of a 3-entry PHI node into a select. In that case, we will end up
+        // with a select and a 2-entry PHI node, one operand of which is the
+        // new select.
 
         for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
           if (PN->getIncomingBlock(i) == IfTrue ||
@@ -5277,6 +5286,9 @@ SwitchLookupTable::SwitchLookupTable(
                              GlobalVariable::PrivateLinkage, Initializer,
                              "switch.table." + FuncName);
   Array->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+  // Set the alignment to that of an array items. We will be only loading one
+  // value out of it.
+  Array->setAlignment(DL.getPrefTypeAlignment(ValueType));
   Kind = ArrayKind;
 }
 
@@ -5755,7 +5767,7 @@ static bool ReduceSwitchRange(SwitchInst *SI, IRBuilder<> &Builder,
   SmallVector<int64_t,4> Values;
   for (auto &C : SI->cases())
     Values.push_back(C.getCaseValue()->getValue().getSExtValue());
-  llvm::sort(Values.begin(), Values.end());
+  llvm::sort(Values);
 
   // If the switch is already dense, there's nothing useful to do here.
   if (isSwitchDense(Values))

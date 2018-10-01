@@ -1480,6 +1480,8 @@ bool llvm::hasUnaryFloatFn(const TargetLibraryInfo *TLI, Type *Ty,
                            LibFunc DoubleFn, LibFunc FloatFn,
                            LibFunc LongDoubleFn) {
   switch (Ty->getTypeID()) {
+  case Type::HalfTyID:
+    return false;
   case Type::FloatTyID:
     return TLI->has(FloatFn);
   case Type::DoubleTyID:

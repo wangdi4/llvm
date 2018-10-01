@@ -90,11 +90,16 @@ if (BENCHMARK_BUILD_32_BITS)
   add_required_cxx_compiler_flag(-m32)
 endif()
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if (MSVC)
   # Turn compiler warnings up to 11
   string(REGEX REPLACE "[-/]W[1-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
+  if (INTEL_CUSTOMIZATION)
+  # This is required to ignore warnings thrown by Microsoft Standard Libraries
+  add_definitions(-D_HAS_EXCEPTIONS=0)
+  endif (INTEL_CUSTOMIZATION)
 
   if (NOT BENCHMARK_ENABLE_EXCEPTIONS)
     add_cxx_compiler_flag(-EHs-)

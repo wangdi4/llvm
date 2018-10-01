@@ -27,6 +27,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
 
@@ -212,6 +213,10 @@ void LLVMAddLoopUnswitchPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnswitchPass());
 }
 
+void LLVMAddLowerAtomicPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLowerAtomicPass());
+}
+
 void LLVMAddMemCpyOptPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createMemCpyOptPass());
 }
@@ -314,3 +319,7 @@ void LLVMAddConvertGEPToSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createConvertGEPToSubscriptIntrinsicLegacyPass());
 }
 #endif // INTEL_CUSTOMIZATION
+
+void LLVMAddUnifyFunctionExitNodesPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createUnifyFunctionExitNodesPass());
+}

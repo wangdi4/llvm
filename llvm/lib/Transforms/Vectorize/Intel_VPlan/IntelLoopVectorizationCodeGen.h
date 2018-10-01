@@ -397,6 +397,16 @@ private:
   /// execute one vector loop.
   void  emitMinimumIterationCountCheck(Loop *L, Value *Count);
 
+  /// Compute the transformed value of Index at offset StartValue using step
+  /// StepValue.
+  /// For integer induction, returns StartValue + Index * StepValue.
+  /// For pointer induction, returns StartValue[Index * StepValue].
+  /// FIXME: The newly created binary instructions should contain nsw/nuw
+  /// flags, which can be found from the original scalar operations.
+  Value *emitTransformedIndex(IRBuilder<> &B, Value *Index, ScalarEvolution *SE,
+                              const DataLayout &DL,
+                              const InductionDescriptor &ID) const;
+
   /// Emit a bypass check to see if the vector trip count is nonzero.
   void  emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass);
 

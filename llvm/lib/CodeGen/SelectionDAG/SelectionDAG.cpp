@@ -7822,7 +7822,7 @@ void SelectionDAG::ReplaceAllUsesWith(SDNode *From, const SDValue *To) {
 
   // Preserve Debug Info.
   for (unsigned i = 0, e = From->getNumValues(); i != e; ++i)
-    transferDbgValues(SDValue(From, i), *To);
+    transferDbgValues(SDValue(From, i), To[i]);
 
   // Iterate over just the existing users of From. See the comments in
   // the ReplaceAllUsesWith above.
@@ -7980,6 +7980,7 @@ void SelectionDAG::CreateTopologicalOrder(std::vector<SDNode*>& Order) {
   }
 }
 
+#ifndef NDEBUG
 void SelectionDAG::VerifyDAGDiverence()
 {
   std::vector<SDNode*> TopoOrder;
@@ -8006,6 +8007,7 @@ void SelectionDAG::VerifyDAGDiverence()
            "Divergence bit inconsistency detected\n");
   }
 }
+#endif
 
 
 /// ReplaceAllUsesOfValuesWith - Replace any uses of From with To, leaving
@@ -8039,7 +8041,7 @@ void SelectionDAG::ReplaceAllUsesOfValuesWith(const SDValue *From,
   }
 
   // Sort the uses, so that all the uses from a given User are together.
-  llvm::sort(Uses.begin(), Uses.end());
+  llvm::sort(Uses);
 
   for (unsigned UseIndex = 0, UseIndexEnd = Uses.size();
        UseIndex != UseIndexEnd; ) {
@@ -8215,8 +8217,23 @@ bool llvm::isOneConstant(SDValue V) {
   return Const != nullptr && Const->isOne();
 }
 
+SDValue llvm::peekThroughBitcasts(SDValue V) {
+  while (V.getOpcode() == ISD::BITCAST)
+    V = V.getOperand(0);
+  return V;
+}
+
+SDValue llvm::peekThroughOneUseBitcasts(SDValue V) {
+  while (V.getOpcode() == ISD::BITCAST && V.getOperand(0).hasOneUse())
+    V = V.getOperand(0);
+  return V;
+}
+
 bool llvm::isBitwiseNot(SDValue V) {
-  return V.getOpcode() == ISD::XOR && isAllOnesConstant(V.getOperand(1));
+  if (V.getOpcode() != ISD::XOR)
+    return false;
+  ConstantSDNode *C = isConstOrConstSplat(peekThroughBitcasts(V.getOperand(1)));
+  return C && C->isAllOnesValue();
 }
 
 ConstantSDNode *llvm::isConstOrConstSplat(SDValue N) {
