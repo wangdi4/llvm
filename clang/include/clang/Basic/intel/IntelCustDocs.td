@@ -729,6 +729,60 @@ is created and emitted during EmitFunctionEpilog.
   }];
 }
 
+def WholeProgramVTableWrapDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-5603";
+  let RegressionTest = "CodeGenCXX/intel/whole-prog-vtable-wrap.cpp";
+  let Owner = "mprice1";
+  let Content = [{
+Community clang/llvm supports whole program devirtualization when the
+``-fwhole-program-vtables`` option is used and the class has hidden
+`LTO Visibility <https://clang.llvm.org/docs/LTOVisibility.html>`_
+
+This optimization enables devirtualization with whole program analysis instead
+of relying on hidden LTO visibility.
+
+Example:
+
+.. code-block:: c++
+
+  struct A { A(); virtual void f(); };
+  struct B : virtual A { B(); virtual void g(); virtual void h(); };
+
+  A::A() {}
+  B::B() {}
+  void A::f() { }
+  void B::g() { }
+
+  void af(A *a) { a->f(); }
+
+Compiled with:
+
+.. code-block:: bash
+
+  clang -cc1 -fintel-compatibility w.cpp -flto -flto-unit -fwhole-program-vtables -emit-llvm -o -
+
+The compiler only calls type.test and assume when the wholeprogramsafe
+intrinsic returns true:
+
+.. code-block:: llvm
+
+    %vtable = load void (%struct.A*)**, void (%struct.A*)*** %1, align 8
+    %2 = call i1 @llvm.intel.wholeprogramsafe()
+    br i1 %2, label %whpr.wrap, label %whpr.continue
+
+  whpr.wrap:                                        ; preds = %entry
+    %3 = bitcast void (%struct.A*)** %vtable to i8*
+    %4 = call i1 @llvm.type.test(i8* %3, metadata !"_ZTS1A")
+    call void @llvm.assume(i1 %4)
+    br label %whpr.continue
+
+  whpr.continue:                                    ; preds = %whpr.wrap, %entry
+    %vfn = getelementptr inbounds void (%struct.A*)*, void (%struct.A*)** %vtable, i64 0
+  }];
+}
+
 
 def GlobalDocumentation {
   code Intro =[{..

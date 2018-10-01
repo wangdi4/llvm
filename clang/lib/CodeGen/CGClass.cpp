@@ -2606,10 +2606,31 @@ LeastDerivedClassWithSameLayout(const CXXRecordDecl *RD) {
 void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
                                                    llvm::Value *VTable,
                                                    SourceLocation Loc) {
+#if INTEL_CUSTOMIZATION
+  bool WrappingNeeded =
+      getLangOpts().isIntelCompat(LangOptions::WholeProgramVTableWrap) &&
+      CGM.getCodeGenOpts().WholeProgramVTables &&
+      CGM.getCodeGenOpts().PrepareForLTO &&
+      CGM.getCodeGenOpts().LTOUnit;
+#endif // INTEL_CUSTOMIZATION
+
   if (SanOpts.has(SanitizerKind::CFIVCall))
     EmitVTablePtrCheckForCall(RD, VTable, CodeGenFunction::CFITCK_VCall, Loc);
-  else if (CGM.getCodeGenOpts().WholeProgramVTables &&
-           CGM.HasHiddenLTOVisibility(RD)) {
+#if INTEL_CUSTOMIZATION
+  else if (WrappingNeeded || (CGM.getCodeGenOpts().WholeProgramVTables &&
+                              CGM.HasHiddenLTOVisibility(RD))) {
+
+    llvm::BasicBlock *ContinueBB;
+    if (WrappingNeeded) {
+      llvm::Value *Check = Builder.CreateCall(
+          CGM.getIntrinsic(llvm::Intrinsic::intel_wholeprogramsafe));
+
+      llvm::BasicBlock *WrapBB = createBasicBlock("whpr.wrap");
+      ContinueBB = createBasicBlock("whpr.continue");
+      Builder.CreateCondBr(Check, WrapBB, ContinueBB);
+      EmitBlock(WrapBB);
+    }
+#endif // INTEL_CUSTOMIZATION
     llvm::Metadata *MD =
         CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
     llvm::Value *TypeId =
@@ -2620,6 +2641,10 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
         Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::type_test),
                            {CastedVTable, TypeId});
     Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::assume), TypeTest);
+#if INTEL_CUSTOMIZATION
+    if (WrappingNeeded)
+      EmitBlock(ContinueBB);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
