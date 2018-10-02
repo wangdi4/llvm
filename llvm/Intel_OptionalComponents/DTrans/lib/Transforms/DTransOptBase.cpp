@@ -163,9 +163,32 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     }
   }
 
-  // Note: We do not look for 'struct' types directly in the above loop
-  // because those should have been directly added to the type mapping
-  // via AddTypeMapping by the transformation.
+  if (auto *StructTy = dyn_cast<StructType>(SrcTy)) {
+    if (StructTy->isLiteral()) {
+      bool NeedsReplaced = false;
+
+      SmallVector<Type *, 8> DataTypes;
+      for (auto *MemberTy : StructTy->elements()) {
+        Type *ReplMemTy = MemberTy;
+        Type *ReplTy = computeReplacementType(MemberTy);
+        if (ReplTy) {
+          ReplMemTy = ReplTy;
+          NeedsReplaced = true;
+        }
+
+        DataTypes.push_back(ReplMemTy);
+      }
+
+      if (NeedsReplaced) {
+        return StructType::get(StructTy->getContext(), DataTypes,
+                               StructTy->isPacked());
+      }
+    }
+  }
+
+  // Note: We do not look for named 'struct' types directly in the above tests
+  // because those should have been directly added to the type mapping via
+  // AddTypeMapping by the transformation.
 
   // Type does not need type replacement.
   return nullptr;
@@ -493,12 +516,11 @@ void DTransOptBase::prepareDependentTypes(
     // been determined. For other types, such as arrays, we don't need to do
     // anything here, the replacements for them will be computed on demand.
     if (auto *StructTy = dyn_cast<StructType>(Ty)) {
-      // If StructTy is literal, don't give the replacement a name.
-      Type *ReplacementTy;
+      // If StructTy is literal, defer creation until it is used.
       if (StructTy->isLiteral())
-        ReplacementTy = StructType::create(Context);
-      else
-        ReplacementTy = StructType::create(
+        continue;
+
+      Type *ReplacementTy = StructType::create(
           Context, Twine(DepTypePrefix + StructTy->getStructName()).str());
       TypeRemapper->addTypeMapping(Ty, ReplacementTy);
       OrigToNewTypeReplacement[Ty] = ReplacementTy;
