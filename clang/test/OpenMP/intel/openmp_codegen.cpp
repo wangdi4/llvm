@@ -433,7 +433,7 @@ int main(int argc, char **argv) {
   }
   {
     int local_int = 1;
-// CHECK-REG: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}IS_DEVICE_PTR{{.*}}glob_ptr{{.*}}FIRSTPRIVATE{{.*}}glob_int{{.*}}FIRSTPRIVATE{{.*}}local_int
+// CHECK-REG: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}IS_DEVICE_PTR{{.*}}glob_ptr{{.*}}FIRSTPRIVATE{{.*}}local_int{{.*}}FIRSTPRIVATE{{.*}}glob_int
 // CHECK-REG: region.exit(token [[TARG2_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
     #pragma omp target is_device_ptr(glob_ptr)
     {

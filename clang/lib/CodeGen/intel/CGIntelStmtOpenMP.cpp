@@ -510,18 +510,20 @@ namespace CGIntelOpenMP {
     if (K == ICK_unknown)
       return;
 
-    // We don't want this DeclRefExpr to generate entries in the Def/Ref lists,
-    // so temporarily save and null the CapturedStmtInfo.
-    auto savedCSI = CGF.CapturedStmtInfo;
-    CGF.CapturedStmtInfo = nullptr;
+    if (!OMPLateOutlineLexicalScope::isCapturedVar(CGF, VD)) {
+      // We don't want this DeclRefExpr to generate entries in the Def/Ref
+      // lists, so temporarily save and null the CapturedStmtInfo.
+      auto savedCSI = CGF.CapturedStmtInfo;
+      CGF.CapturedStmtInfo = nullptr;
 
-    DeclRefExpr DRE(const_cast<VarDecl *>(VD),
-                    /*RefersToEnclosingVariableOrCapture=*/false,
-                    VD->getType().getNonReferenceType(), VK_LValue,
-                    SourceLocation());
-    emitImplicit(&DRE, K);
+      DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+                      /*RefersToEnclosingVariableOrCapture=*/false,
+                      VD->getType().getNonReferenceType(), VK_LValue,
+                      SourceLocation());
+      emitImplicit(&DRE, K);
 
-    CGF.CapturedStmtInfo = savedCSI;
+      CGF.CapturedStmtInfo = savedCSI;
+    }
   }
 
   bool OpenMPCodeOutliner::isUnspecifiedImplicit(const VarDecl *V) {
@@ -547,6 +549,14 @@ namespace CGIntelOpenMP {
     // Add clause for implicit use of the 'this' pointer.
     if (Directive.hasAssociatedStmt() &&
         isAllowedClauseForDirective(DKind, OMPC_shared)) {
+      // Catch the use of the this pointer for a captured lambda field.
+      if (llvm::Value *TPV = getThisPointerValue()) {
+          CurrentClauseKind = OMPC_shared;
+          addArg("QUAL.OMP.SHARED");
+          addArg(TPV);
+          emitListClause();
+          CurrentClauseKind = OMPC_unknown;
+      }
       if (const Stmt *AS = Directive.getAssociatedStmt()) {
         auto CS = cast<CapturedStmt>(AS);
         for (auto &C : CS->captures()) {
@@ -616,13 +626,23 @@ namespace CGIntelOpenMP {
   }
 
   void OpenMPCodeOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
-    addArg("QUAL.OMP.SHARED");
     for (auto *E : Cl->varlists()) {
+      // Shared fields (or fields generated for lambda captures) are not
+      // emitted since they are correctly handled through the shared this
+      // pointer.
+      if (const auto *ME = dyn_cast<MemberExpr>(E)) {
+        if (isa<CXXThisExpr>(ME->getBase()))
+          continue;
+      } else if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+        if (DRE->refersToEnclosingVariableOrCapture())
+          continue;
+      }
+      addArg("QUAL.OMP.SHARED");
       auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
       addExplicit(PVD);
       addArg(E);
+      emitListClause();
     }
-    emitListClause();
   }
 
   void OpenMPCodeOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
@@ -1617,27 +1637,7 @@ namespace CGIntelOpenMP {
   void CGOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) {
     if (!CGF.HaveInsertPoint())
       return;
-    CodeGenFunction::OMPPrivateScope PrivScope(CGF);
     auto *CS = cast<CapturedStmt>(S);
-    // Make sure the globals captured in the provided statement are local by
-    // using the privatization logic. We assume the same variable is not
-    // captured more than once.
-    for (auto &C : CS->captures()) {
-      if (!C.capturesVariable() && !C.capturesVariableByCopy())
-        continue;
-
-      const VarDecl *VD = C.getCapturedVar();
-      if (VD->isLocalVarDeclOrParm())
-        continue;
-
-      DeclRefExpr DRE(const_cast<VarDecl *>(VD),
-                      /*RefersToEnclosingVariableOrCapture=*/false,
-                      VD->getType().getNonReferenceType(), VK_LValue,
-                      SourceLocation());
-      PrivScope.addPrivate(VD, [&CGF, &DRE]() -> Address {
-        return CGF.EmitLValue(&DRE).getAddress();
-      });
-    }
     CGF.EmitStmt(CS->getCapturedStmt());
   }
 
@@ -1671,25 +1671,6 @@ namespace CGIntelOpenMP {
 
 } // namespace
 
-static
-void emitPreInitStmt(CodeGenFunction &CGF, const OMPExecutableDirective &S) {
-  for (const auto *C : S.clauses()) {
-    if (auto *CPI = OMPClauseWithPreInit::get(C)) {
-      if (auto *PreInit = cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
-        for (const auto *I : PreInit->decls()) {
-          if (!I->hasAttr<OMPCaptureNoInitAttr>())
-            CGF.EmitVarDecl(cast<VarDecl>(*I));
-          else {
-            CodeGenFunction::AutoVarEmission Emission =
-                CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
-            CGF.EmitAutoVarCleanups(Emission);
-          }
-        }
-      }
-    }
-  }
-}
-
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
   OMPLateOutlineLexicalScope Scope(*this, S);
@@ -1705,7 +1686,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   }
   auto SavedIP = Builder.saveIP();
   Outliner.setOutsideInsertPoint();
-  emitPreInitStmt(*this, S);
   Builder.restoreIP(SavedIP);
 
   // Some constructs have an extra captured OMPD_task pushed which causes
