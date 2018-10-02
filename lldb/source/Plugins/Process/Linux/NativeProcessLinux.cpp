@@ -1553,17 +1553,18 @@ Status NativeProcessLinux::RemoveBreakpoint(lldb::addr_t addr, bool hardware) {
 
 llvm::Expected<llvm::ArrayRef<uint8_t>>
 NativeProcessLinux::GetSoftwareBreakpointTrapOpcode(size_t size_hint) {
-  using ArrayRef = llvm::ArrayRef<uint8_t>;
+  // The ARM reference recommends the use of 0xe7fddefe and 0xdefe but the
+  // linux kernel does otherwise.
+  static const uint8_t g_arm_opcode[] = {0xf0, 0x01, 0xf0, 0xe7};
+  static const uint8_t g_thumb_opcode[] = {0x01, 0xde};
 
   switch (GetArchitecture().GetMachine()) {
   case llvm::Triple::arm:
-    // The ARM reference recommends the use of 0xe7fddefe and 0xdefe but the
-    // linux kernel does otherwise.
     switch (size_hint) {
     case 2:
-      return ArrayRef{0x01, 0xde};
+      return llvm::makeArrayRef(g_thumb_opcode);
     case 4:
-      return ArrayRef{0xf0, 0x01, 0xf0, 0xe7};
+      return llvm::makeArrayRef(g_arm_opcode);
     default:
       return llvm::createStringError(llvm::inconvertibleErrorCode(),
                                      "Unrecognised trap opcode size hint!");
@@ -1626,15 +1627,6 @@ Status NativeProcessLinux::ReadMemory(lldb::addr_t addr, void *buf, size_t size,
     dst += k_ptrace_word_size;
   }
   return Status();
-}
-
-Status NativeProcessLinux::ReadMemoryWithoutTrap(lldb::addr_t addr, void *buf,
-                                                 size_t size,
-                                                 size_t &bytes_read) {
-  Status error = ReadMemory(addr, buf, size, bytes_read);
-  if (error.Fail())
-    return error;
-  return m_breakpoint_list.RemoveTrapsFromBuffer(addr, buf, size);
 }
 
 Status NativeProcessLinux::WriteMemory(lldb::addr_t addr, const void *buf,

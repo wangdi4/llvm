@@ -189,7 +189,7 @@ ExprEngine::ExprEngine(cross_tu::CrossTranslationUnitContext &CTU,
                this),
       SymMgr(StateMgr.getSymbolManager()),
       svalBuilder(StateMgr.getSValBuilder()), ObjCNoRet(mgr.getASTContext()),
-      ObjCGCEnabled(gcEnabled), BR(mgr, *this),
+      BR(mgr, *this),
       VisitedCallees(VisitedCalleesIn), HowToInline(HowToInlineIn) {
   unsigned TrimInterval = mgr.options.getGraphTrimInterval();
   if (TrimInterval != 0) {
@@ -2947,237 +2947,108 @@ void ExprEngine::VisitMSAsmStmt(const MSAsmStmt *A, ExplodedNode *Pred,
 //===----------------------------------------------------------------------===//
 
 #ifndef NDEBUG
-static ExprEngine* GraphPrintCheckerState;
-static SourceManager* GraphPrintSourceManager;
-
 namespace llvm {
 
 template<>
-struct DOTGraphTraits<ExplodedNode*> : public DefaultDOTGraphTraits {
+struct DOTGraphTraits<ExplodedGraph*> : public DefaultDOTGraphTraits {
   DOTGraphTraits (bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
-  // FIXME: Since we do not cache error nodes in ExprEngine now, this does not
-  // work.
-  static std::string getNodeAttributes(const ExplodedNode *N, void*) {
-    return {};
+  static bool nodeHasBugReport(const ExplodedNode *N) {
+    BugReporter &BR = static_cast<ExprEngine *>(
+      N->getState()->getStateManager().getOwningEngine())->getBugReporter();
+
+    const auto EQClasses =
+        llvm::make_range(BR.EQClasses_begin(), BR.EQClasses_end());
+
+    for (const auto &EQ : EQClasses) {
+      for (const BugReport &Report : EQ) {
+        if (Report.getErrorNode() == N)
+          return true;
+      }
+    }
+    return false;
   }
 
-  // De-duplicate some source location pretty-printing.
-  static void printLocation(raw_ostream &Out, SourceLocation SLoc) {
-    if (SLoc.isFileID()) {
-      Out << "\\lline="
-        << GraphPrintSourceManager->getExpansionLineNumber(SLoc)
-        << " col="
-        << GraphPrintSourceManager->getExpansionColumnNumber(SLoc)
-        << "\\l";
+  /// \p PreCallback: callback before break.
+  /// \p PostCallback: callback after break.
+  /// \p Stop: stop iteration if returns {@code true}
+  /// \return Whether {@code Stop} ever returned {@code true}.
+  static bool traverseHiddenNodes(
+      const ExplodedNode *N,
+      llvm::function_ref<void(const ExplodedNode *)> PreCallback,
+      llvm::function_ref<void(const ExplodedNode *)> PostCallback,
+      llvm::function_ref<bool(const ExplodedNode *)> Stop) {
+    const ExplodedNode *FirstHiddenNode = N;
+    while (FirstHiddenNode->pred_size() == 1 &&
+           isNodeHidden(*FirstHiddenNode->pred_begin())) {
+      FirstHiddenNode = *FirstHiddenNode->pred_begin();
     }
+    const ExplodedNode *OtherNode = FirstHiddenNode;
+    while (true) {
+      PreCallback(OtherNode);
+      if (Stop(OtherNode))
+        return true;
+
+      if (OtherNode == N)
+        break;
+      PostCallback(OtherNode);
+
+      OtherNode = *OtherNode->succ_begin();
+    }
+    return false;
   }
 
-  static void dumpProgramPoint(ProgramPoint Loc,
-                               const PrintingPolicy &PP,
-                               llvm::raw_string_ostream &Out) {
-    switch (Loc.getKind()) {
-    case ProgramPoint::BlockEntranceKind:
-      Out << "Block Entrance: B"
-          << Loc.castAs<BlockEntrance>().getBlock()->getBlockID();
-      break;
-
-    case ProgramPoint::BlockExitKind:
-      assert(false);
-      break;
-
-    case ProgramPoint::CallEnterKind:
-      Out << "CallEnter";
-      break;
-
-    case ProgramPoint::CallExitBeginKind:
-      Out << "CallExitBegin";
-      break;
-
-    case ProgramPoint::CallExitEndKind:
-      Out << "CallExitEnd";
-      break;
-
-    case ProgramPoint::PostStmtPurgeDeadSymbolsKind:
-      Out << "PostStmtPurgeDeadSymbols";
-      break;
-
-    case ProgramPoint::PreStmtPurgeDeadSymbolsKind:
-      Out << "PreStmtPurgeDeadSymbols";
-      break;
-
-    case ProgramPoint::EpsilonKind:
-      Out << "Epsilon Point";
-      break;
-
-    case ProgramPoint::LoopExitKind: {
-      LoopExit LE = Loc.castAs<LoopExit>();
-      Out << "LoopExit: " << LE.getLoopStmt()->getStmtClassName();
-      break;
+  static std::string getNodeAttributes(const ExplodedNode *N,
+                                       ExplodedGraph *G) {
+    SmallVector<StringRef, 10> Out;
+    auto Noop = [](const ExplodedNode*){};
+    if (traverseHiddenNodes(N, Noop, Noop, &nodeHasBugReport)) {
+      Out.push_back("style=filled");
+      Out.push_back("fillcolor=red");
     }
 
-    case ProgramPoint::PreImplicitCallKind: {
-      ImplicitCallPoint PC = Loc.castAs<ImplicitCallPoint>();
-      Out << "PreCall: ";
-
-      // FIXME: Get proper printing options.
-      PC.getDecl()->print(Out, LangOptions());
-      printLocation(Out, PC.getLocation());
-      break;
-    }
-
-    case ProgramPoint::PostImplicitCallKind: {
-      ImplicitCallPoint PC = Loc.castAs<ImplicitCallPoint>();
-      Out << "PostCall: ";
-
-      // FIXME: Get proper printing options.
-      PC.getDecl()->print(Out, LangOptions());
-      printLocation(Out, PC.getLocation());
-      break;
-    }
-
-    case ProgramPoint::PostInitializerKind: {
-      Out << "PostInitializer: ";
-      const CXXCtorInitializer *Init =
-          Loc.castAs<PostInitializer>().getInitializer();
-      if (const FieldDecl *FD = Init->getAnyMember())
-        Out << *FD;
-      else {
-        QualType Ty = Init->getTypeSourceInfo()->getType();
-        Ty = Ty.getLocalUnqualifiedType();
-        LangOptions LO; // FIXME.
-        Ty.print(Out, LO);
-      }
-      break;
-    }
-
-    case ProgramPoint::BlockEdgeKind: {
-      const BlockEdge &E = Loc.castAs<BlockEdge>();
-      Out << "Edge: (B" << E.getSrc()->getBlockID() << ", B"
-          << E.getDst()->getBlockID() << ')';
-
-      if (const Stmt *T = E.getSrc()->getTerminator()) {
-        SourceLocation SLoc = T->getBeginLoc();
-
-        Out << "\\|Terminator: ";
-        LangOptions LO; // FIXME.
-        E.getSrc()->printTerminator(Out, LO);
-
-        if (SLoc.isFileID()) {
-          Out << "\\lline="
-              << GraphPrintSourceManager->getExpansionLineNumber(SLoc)
-              << " col="
-              << GraphPrintSourceManager->getExpansionColumnNumber(SLoc);
-        }
-
-        if (isa<SwitchStmt>(T)) {
-          const Stmt *Label = E.getDst()->getLabel();
-
-          if (Label) {
-            if (const auto *C = dyn_cast<CaseStmt>(Label)) {
-              Out << "\\lcase ";
-              LangOptions LO; // FIXME.
-              if (C->getLHS())
-                C->getLHS()->printPretty(Out, nullptr, PrintingPolicy(LO));
-
-              if (const Stmt *RHS = C->getRHS()) {
-                Out << " .. ";
-                RHS->printPretty(Out, nullptr, PrintingPolicy(LO));
-              }
-
-              Out << ":";
-            } else {
-              assert(isa<DefaultStmt>(Label));
-              Out << "\\ldefault:";
-            }
-          } else
-            Out << "\\l(implicit) default:";
-        } else if (isa<IndirectGotoStmt>(T)) {
-          // FIXME
-        } else {
-          Out << "\\lCondition: ";
-          if (*E.getSrc()->succ_begin() == E.getDst())
-            Out << "true";
-          else
-            Out << "false";
-        }
-
-        Out << "\\l";
-      }
-
-      break;
-    }
-
-    default: {
-      const Stmt *S = Loc.castAs<StmtPoint>().getStmt();
-      assert(S != nullptr && "Expecting non-null Stmt");
-
-      Out << S->getStmtClassName() << ' ' << (const void *)S << ' ';
-      S->printPretty(Out, nullptr, PP);
-      printLocation(Out, S->getBeginLoc());
-
-      if (Loc.getAs<PreStmt>())
-        Out << "\\lPreStmt\\l;";
-      else if (Loc.getAs<PostLoad>())
-        Out << "\\lPostLoad\\l;";
-      else if (Loc.getAs<PostStore>())
-        Out << "\\lPostStore\\l";
-      else if (Loc.getAs<PostLValue>())
-        Out << "\\lPostLValue\\l";
-      else if (Loc.getAs<PostAllocatorCall>())
-        Out << "\\lPostAllocatorCall\\l";
-
-      break;
-    }
-    }
+    if (traverseHiddenNodes(N, Noop, Noop,
+                            [](const ExplodedNode *C) { return C->isSink(); }))
+      Out.push_back("color=blue");
+    return llvm::join(Out, ",");
   }
 
   static bool isNodeHidden(const ExplodedNode *N) {
     return N->isTrivial();
   }
 
-  static std::string getNodeLabel(const ExplodedNode *N, void*){
+  static std::string getNodeLabel(const ExplodedNode *N, ExplodedGraph *G){
     std::string sbuf;
     llvm::raw_string_ostream Out(sbuf);
 
-    // Find the first node which program point and tag has to be included in
-    // the output.
-    const ExplodedNode *FirstHiddenNode = N;
-    while (FirstHiddenNode->pred_size() == 1 &&
-           isNodeHidden(*FirstHiddenNode->pred_begin())) {
-      FirstHiddenNode = *FirstHiddenNode->pred_begin();
-    }
-
     ProgramStateRef State = N->getState();
-    const auto &PP = State->getStateManager().getContext().getPrintingPolicy();
 
     // Dump program point for all the previously skipped nodes.
-    const ExplodedNode *OtherNode = FirstHiddenNode;
-    while (true) {
-      dumpProgramPoint(OtherNode->getLocation(), PP, Out);
-
-      if (const ProgramPointTag *Tag = OtherNode->getLocation().getTag())
-        Out << "\\lTag:" << Tag->getTagDescription();
-
-      if (OtherNode == N)
-        break;
-
-      OtherNode = *OtherNode->succ_begin();
-
-      Out << "\\l--------\\l";
-    }
+    traverseHiddenNodes(
+        N,
+        [&](const ExplodedNode *OtherNode) {
+          OtherNode->getLocation().print(/*CR=*/"\\l", Out);
+          if (const ProgramPointTag *Tag = OtherNode->getLocation().getTag())
+            Out << "\\lTag:" << Tag->getTagDescription();
+          if (N->isSink())
+            Out << "\\lNode is sink\\l";
+          if (nodeHasBugReport(N))
+            Out << "\\lBug report attached\\l";
+        },
+        [&](const ExplodedNode *OtherNode) { Out << "\\l--------\\l"; },
+        [&](const ExplodedNode *N) { return false; });
 
     Out << "\\l\\|";
 
-    ExplodedGraph &Graph =
-        static_cast<ExprEngine *>(State->getStateManager().getOwningEngine())
-            ->getGraph();
+    Out << "StateID: ST" << State->getID() << ", NodeID: N" << N->getID(G)
+        << " <" << (const void *)N << ">\\|";
 
-    Out << "StateID: " << State->getID() << " (" << (const void *)State.get()
-        << ")"
-        << " NodeID: " << N->getID(&Graph) << " (" << (const void *)N << ")\\|";
-
-    State->printDOT(Out, N->getLocationContext());
+    bool SameAsAllPredecessors =
+        std::all_of(N->pred_begin(), N->pred_end(), [&](const ExplodedNode *P) {
+          return P->getState() == State;
+        });
+    if (!SameAsAllPredecessors)
+      State->printDOT(Out, N->getLocationContext());
     return Out.str();
   }
 };
@@ -3190,11 +3061,6 @@ void ExprEngine::ViewGraph(bool trim) {
   if (trim) {
     std::vector<const ExplodedNode *> Src;
 
-    // Flush any outstanding reports to make sure we cover all the nodes.
-    // This does not cause them to get displayed.
-    for (const auto I : BR)
-      const_cast<BugType *>(I)->FlushReports(BR);
-
     // Iterate through the reports and get their nodes.
     for (BugReporter::EQClasses_iterator
            EI = BR.EQClasses_begin(), EE = BR.EQClasses_end(); EI != EE; ++EI) {
@@ -3203,32 +3069,20 @@ void ExprEngine::ViewGraph(bool trim) {
     }
 
     ViewGraph(Src);
-  }
-  else {
-    GraphPrintCheckerState = this;
-    GraphPrintSourceManager = &getContext().getSourceManager();
-
-    llvm::ViewGraph(*G.roots_begin(), "ExprEngine");
-
-    GraphPrintCheckerState = nullptr;
-    GraphPrintSourceManager = nullptr;
+  } else {
+    llvm::ViewGraph(&G, "ExprEngine");
   }
 #endif
 }
 
 void ExprEngine::ViewGraph(ArrayRef<const ExplodedNode*> Nodes) {
 #ifndef NDEBUG
-  GraphPrintCheckerState = this;
-  GraphPrintSourceManager = &getContext().getSourceManager();
-
   std::unique_ptr<ExplodedGraph> TrimmedG(G.trim(Nodes));
 
-  if (!TrimmedG.get())
+  if (!TrimmedG.get()) {
     llvm::errs() << "warning: Trimmed ExplodedGraph is empty.\n";
-  else
-    llvm::ViewGraph(*TrimmedG->roots_begin(), "TrimmedExprEngine");
-
-  GraphPrintCheckerState = nullptr;
-  GraphPrintSourceManager = nullptr;
+  } else {
+    llvm::ViewGraph(TrimmedG.get(), "TrimmedExprEngine");
+  }
 #endif
 }
