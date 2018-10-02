@@ -1708,6 +1708,15 @@ bool HCE::replaceInstrExpr(const ExtDesc &ED, const ExtenderInit &ExtI,
 
     // Clamp Diff to the 16 bit range.
     int32_t D = isInt<16>(Diff) ? Diff : (Diff > 0 ? 32767 : -32768);
+    if (Diff > 32767) {
+      // Split Diff into two values: one that is close to min/max int16,
+      // and the other being the rest, and such that both have the same
+      // "alignment" as Diff.
+      uint32_t UD = Diff;
+      OffsetRange R = getOffsetRange(MI.getOperand(0));
+      uint32_t A = std::min<uint32_t>(R.Align, 1u << countTrailingZeros(UD));
+      D &= ~(A-1);
+    }
     BuildMI(MBB, At, dl, HII->get(IdxOpc))
       .add(MI.getOperand(0))
       .add(MachineOperand(ExtR))
@@ -1924,6 +1933,11 @@ const MachineOperand &HCE::getStoredValueOp(const MachineInstr &MI) const {
 bool HCE::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
+  if (MF.getFunction().hasPersonalityFn()) {
+    LLVM_DEBUG(dbgs() << getPassName() << ": skipping " << MF.getName()
+                      << " due to exception handling\n");
+    return false;
+  }
   LLVM_DEBUG(MF.print(dbgs() << "Before " << getPassName() << '\n', nullptr));
 
   HII = MF.getSubtarget<HexagonSubtarget>().getInstrInfo();
@@ -1933,10 +1947,9 @@ bool HCE::runOnMachineFunction(MachineFunction &MF) {
   AssignmentMap IMap;
 
   collect(MF);
-  llvm::sort(Extenders.begin(), Extenders.end(),
-    [](const ExtDesc &A, const ExtDesc &B) {
-      return ExtValue(A) < ExtValue(B);
-    });
+  llvm::sort(Extenders, [](const ExtDesc &A, const ExtDesc &B) {
+    return ExtValue(A) < ExtValue(B);
+  });
 
   bool Changed = false;
   LLVM_DEBUG(dbgs() << "Collected " << Extenders.size() << " extenders\n");
