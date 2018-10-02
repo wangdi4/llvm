@@ -194,10 +194,12 @@ public:
 
   HLInst *createCTTZCall(RegDDRef *Ref, const Twine &Name = "bsf");
 
-  // Generate a wide compare using VF as the vector length. Only
-  // single if predicates are currently handled. The given Mask value
-  // overrides the current mask value if non-null.
-  HLInst *widenIfPred(const HLIf *HIf, RegDDRef *Mask = nullptr);
+  // Generates wide compares using VF as the vector length. Multiple
+  // predicates are handled by conjoining the results of generated
+  // wide compares with an implicit wide AND. The given Mask value
+  // overrides the current mask value if non-null. The last HLInst
+  // generated for this HLIf node is returned.
+  HLInst *widenIfNode(const HLIf *HIf, RegDDRef *Mask = nullptr);
 
   // Add WideVal as the widened vector value corresponding  to VPVal
   void addVPValueWideRefMapping(VPValue *VPVal, RegDDRef *WideVal) {
@@ -422,6 +424,11 @@ private:
   // Replace math library calls in the remainder loop with the vectorized one
   // used in the main vector loop.
   void replaceLibCallsInRemainderLoop(HLInst *HInst);
+
+  // Helper function to generate a wide Cmp HLInst for given predicate
+  // PredIt found in the HLIf node. VF is used as vector length.
+  HLInst *widenPred(const HLIf *HIf, HLIf::const_pred_iterator PredIt,
+                    RegDDRef *Mask);
 
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to

@@ -1456,38 +1456,65 @@ void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
   }
 }
 
-HLInst *VPOCodeGenHIR::widenIfPred(const HLIf *HIf, RegDDRef *Mask) {
-  RegDDRef *WOp0, *WOp1;
+HLInst *VPOCodeGenHIR::widenPred(const HLIf *HIf,
+                                 HLIf::const_pred_iterator PredIt,
+                                 RegDDRef *Mask) {
 
+  auto PredLHS = HIf->getPredicateOperandDDRef(PredIt, true);
+  auto PredRHS = HIf->getPredicateOperandDDRef(PredIt, false);
+  RegDDRef *WideLHS = widenRef(PredLHS, getVF());
+  RegDDRef *WideRHS = widenRef(PredRHS, getVF());
+
+  assert((WideLHS && WideRHS) &&
+         "Unexpected null widened IF predicate operand(s)");
+  auto WideCmpInst =
+      HIf->getHLNodeUtils().createCmp(*PredIt, WideLHS, WideRHS, "wide.cmp.");
+  // Add the new wide compare instruction
+  addInst(WideCmpInst, Mask);
+  return WideCmpInst;
+}
+
+HLInst *VPOCodeGenHIR::widenIfNode(const HLIf *HIf, RegDDRef *Mask) {
   if (!Mask)
     Mask = CurMaskValue;
 
-  // TODO - supports only single if predicate for now
   auto FirstPred = HIf->pred_begin();
-  auto Op0 = HIf->getOperandDDRef(0);
-  auto Op1 = HIf->getOperandDDRef(1);
-  WOp0 = widenRef(Op0, getVF());
-  WOp1 = widenRef(Op1, getVF());
+  HLInst *CurWideInst = widenPred(HIf, FirstPred, Mask);
+  LLVM_DEBUG(dbgs() << "VPCodegen: First Pred WideInst: "; CurWideInst->dump());
 
-  assert((WOp0 && WOp1) && "Unexpected null widened IF predicate operand(s)");
-  auto WideInst =
-      HIf->getHLNodeUtils().createCmp(*FirstPred, WOp0, WOp1, "wide.cmp.");
-  addInst(WideInst, Mask);
+  // Create Cmp HLInsts for remaining predicates in the HLIf
+  for (auto It = HIf->pred_begin() + 1, E = HIf->pred_end(); It != E; ++It) {
+    HLInst *NewWideInst = widenPred(HIf, It, Mask);
+    LLVM_DEBUG(dbgs() << "VPCodegen: NewWideInst: "; NewWideInst->dump());
+    // Conjoin the new wideInst with the current wideInst using implicit AND
+    CurWideInst = HIf->getHLNodeUtils().createAnd(
+        CurWideInst->getLvalDDRef()->clone(),
+        NewWideInst->getLvalDDRef()->clone(), "wide.and.");
+    LLVM_DEBUG(dbgs() << "VPCodegen: CurWideInst: "; CurWideInst->dump());
+    addInst(CurWideInst, Mask);
+  }
+
+  assert(CurWideInst && "No HLInst generated for HLIf?");
+
   // For the search loop simply generate HLIf instruction and move
   // InsertionPoint into then-branch of that HLIf.
   // Blindly assume that this if is for exit block.
   // TODO: For general case of early exit vectorization, this code is not
   // correct for all ifs and it has to be changed.
   if (isSearchLoop()) {
-    RegDDRef *Ref = WideInst->getLvalDDRef();
+    assert(
+        HIf->getNumPredicates() == 1 &&
+        "Search loop vectorization handles HLIfs with single predicate only.");
+    RegDDRef *Ref = CurWideInst->getLvalDDRef();
     Type *Ty = Ref->getDestType();
     LLVMContext &Context = Ty->getContext();
     Type *IntTy = IntegerType::get(Context, Ty->getPrimitiveSizeInBits());
     HLInst *BitCastInst = createBitCast(IntTy, Ref, "intmask");
     createHLIf(PredicateTy::ICMP_NE, BitCastInst->getLvalDDRef()->clone(),
-               WideInst->getDDRefUtils().createConstDDRef(IntTy, 0));
+               CurWideInst->getDDRefUtils().createConstDDRef(IntTy, 0));
   }
-  return WideInst;
+
+  return CurWideInst;
 }
 
 /// Create an interleave shuffle mask. This function mimics the interface in

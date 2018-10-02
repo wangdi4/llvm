@@ -59,6 +59,18 @@ public:
     return NewVPCmp;
   }
 
+  /// Create a VPCmpInst with \p LHS and \p RHS as operands, \p Pred as
+  /// predicate. This function provides a public wrapper interface to
+  /// VPBuilder::createCmpInst in the derived class.
+  /// NOTE: The base class versions of createCmpInst are hidden here so
+  /// function overloading cannot be used.
+  /// Reference:
+  /// https://isocpp.org/wiki/faq/strange-inheritance#overload-derived
+  VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LHS,
+                           VPValue *RHS) {
+    return VPBuilder::createCmpInst(Pred, LHS, RHS);
+  }
+
   /// Create a semi-phi operation with \p Operands as reaching definitions.
   VPValue *createSemiPhiOp(Type *BaseTy, ArrayRef<VPValue *> Operands,
                            loopopt::HLDDNode *DDNode = nullptr) {

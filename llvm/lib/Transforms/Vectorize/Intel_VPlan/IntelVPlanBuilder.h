@@ -153,6 +153,12 @@ public:
     return createInstruction(Instruction::BinaryOps::Add, LHS->getBaseType(),
                              {LHS, RHS});
   }
+
+  VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
+    return createInstruction(Instruction::BinaryOps::And, LHS->getBaseType(),
+                             {LHS, RHS});
+  }
+
 #else
 
   VPValue *createNot(VPValue *Operand) {
