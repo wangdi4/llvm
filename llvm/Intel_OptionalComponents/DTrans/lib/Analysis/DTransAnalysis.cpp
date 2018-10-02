@@ -275,9 +275,10 @@ bool isPartialPtrLoad(LoadInst *Load) {
     }
     ICmpInst::Predicate Pred;
     Instruction *Base;
+    const APInt *Count;
     // The condition should be a comparison based on a PHI node.
     if (!match(Condition,
-               m_ICmp(Pred, m_Instruction(Base), m_SpecificInt(1)))) {
+               m_ICmp(Pred, m_Instruction(Base), m_APInt(Count)))) {
       DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
                       dbgs() << "Not matched. icmp not using constant int!\n");
       return false;
@@ -287,26 +288,76 @@ bool isPartialPtrLoad(LoadInst *Load) {
                       dbgs() << "Not matched. icmp predicate isn't sgt!\n");
       return false;
     }
-    auto *BasePHI = dyn_cast<PHINode>(Base);
-    if (!BasePHI || BasePHI->getParent() != LoopBB) {
-      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
-                      dbgs() << "Not matched. Branch condition isn't PHI!\n");
-      return false;
+
+    // The loop count can be represented in various ways. The two handled here
+    // are:
+    //
+    //   %Count = phi i64 [ %InitCount, %Block1 ], [ %NextCount, %Block2 ]
+    //   ...
+    //   %NextCount = add nsw i64 %Count, -1
+    //   %Cmp = icmp sgt i64 %Count, 1
+    //
+    // and
+    //
+    //   %Count = phi i64 [ %InitCount, %Block1 ], [ %NextCount, %Block2 ]
+    //   ...
+    //   %NextCount = add nsw i64 %Count, -1
+    //   %Cmp = icmp sgt i64 %NextCount, 0
+    if (Count->isOneValue()) {
+      auto *BasePHI = dyn_cast<PHINode>(Base);
+      if (!BasePHI || BasePHI->getParent() != LoopBB) {
+        DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                        dbgs() << "Not matched. Branch condition isn't PHI!\n");
+        return false;
+      }
+      // The incoming value from the loop block must be a decrement of the
+      // count PHI.
+      Value *LoopInVal;
+      if (BasePHI->getIncomingBlock(0) == LoopBB)
+        LoopInVal = BasePHI->getIncomingValue(0);
+      else
+        LoopInVal = BasePHI->getIncomingValue(1);
+      if (!(match(LoopInVal, m_Add(m_Specific(BasePHI), m_SpecificInt(-1))) ||
+            match(LoopInVal, m_Add(m_SpecificInt(-1), m_Specific(BasePHI))))) {
+        DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                        dbgs() << "Not matched. PHI decrement not matched!\n");
+        return false;
+      }
+    } else {
+      if (!Count->isNullValue()) {
+        DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                        dbgs() << "Not matched. icmp not using 0 or 1!\n");
+        return false;
+      }
+
+      // If the comparison is against zero, we expect the value being
+      // compared to be a decrement of the PHI value.
+      Instruction *DecBase;
+      if (!(match(Base, m_Add(m_Instruction(DecBase), m_SpecificInt(-1))) ||
+            match(Base, m_Add(m_SpecificInt(-1), m_Instruction(DecBase))))) {
+        DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                        dbgs() << "Not matched. PHI decrement not matched!\n");
+        return false;
+      }
+      auto *BasePHI = dyn_cast<PHINode>(DecBase);
+      if (!BasePHI || BasePHI->getParent() != LoopBB) {
+        DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                        dbgs() << "Not matched. Decrement input isn't PHI!\n");
+        return false;
+      }
+      // The incoming value from the loop block must be the decrement result.
+      Value *LoopInVal;
+      if (BasePHI->getIncomingBlock(0) == LoopBB)
+        LoopInVal = BasePHI->getIncomingValue(0);
+      else
+        LoopInVal = BasePHI->getIncomingValue(1);
+      if (LoopInVal != Base) {
+        DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
+                        dbgs() << "Not matched. PHI decrement not matched!\n");
+        return false;
+      }
     }
-    // The incoming value from the root block must be constant.
-    Value *OtherInVal;
-    if (BasePHI->getIncomingBlock(0) == LoopBB)
-      OtherInVal = BasePHI->getIncomingValue(0);
-    else
-      OtherInVal = BasePHI->getIncomingValue(1);
-    // The other incoming (from the loop block) must be a decrement of
-    // the BasePHI.
-    if (!(match(OtherInVal, m_Add(m_Specific(BasePHI), m_SpecificInt(-1))) ||
-          match(OtherInVal, m_Add(m_SpecificInt(-1), m_Specific(BasePHI))))) {
-      DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
-                      dbgs() << "Not matched. PHI decrement not matched!\n");
-      return false;
-    }
+
     return true;
   };
 
