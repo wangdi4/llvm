@@ -1728,6 +1728,7 @@ static unsigned &getEdge(std::pair<unsigned, unsigned> &Pair,
   default:
     assert(false && "Illegal edge type");
   }
+  return Pair.first;
 }
 
 unsigned
