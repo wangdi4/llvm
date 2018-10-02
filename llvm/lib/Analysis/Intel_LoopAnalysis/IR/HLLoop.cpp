@@ -1190,6 +1190,12 @@ void HLLoop::markDoNotVectorize() {
   addLoopMetadata(MDs);
 }
 
+void HLLoop::markDoNotUnroll() {
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
+  addLoopMetadata(
+      MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
+}
+
 bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
 
   if (isUnknown()) {
@@ -1524,6 +1530,46 @@ public:
   void visit(HLNode *Node){};
   void postVisit(HLNode *Node){};
 };
+
+void HLLoop::shiftLoopBodyRegDDRefs(int64_t Amount) {
+  const unsigned LoopLevel = getNestingLevel();
+
+  ForEach<HLDDNode>::visitRange(
+      child_begin(), child_end(), [LoopLevel, Amount](HLDDNode *Node) {
+        for (RegDDRef *Ref :
+             llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
+          Ref->shift(LoopLevel, Amount);
+        }
+      });
+}
+
+HLLoop *HLLoop::peelFirstIteration() {
+  assert(!isUnknown() && isNormalized() &&
+         "Unsupported loop in 1st iteration peeling!");
+
+  // Extract Ztt, preheader and postexit from this loop before cloning it so
+  // that the peel loop doesn't include them.
+  extractZtt();
+  extractPreheaderAndPostexit();
+
+  HLLoop *PeelLoop = clone();
+  getHLNodeUtils().insertBefore(this, PeelLoop);
+
+  // Since the loop is normalized, set peel loop UB to 0 so that it executes
+  // just one iteration.
+  PeelLoop->getUpperDDRef()->clear();
+
+  // Update this loop's UB and loop body DDRefs so that it doesn't execute
+  // iterations now executed by the peel loop.
+  getUpperCanonExpr()->addConstant(-1, true /*IsMath*/);
+  shiftLoopBodyRegDDRefs(1);
+
+  // Original loop requires a new ztt because the it may only have a single
+  // iteration, now executed by the peel loop.
+  createZtt(false /*IsOverWrite*/, isNSW());
+
+  return PeelLoop;
+}
 
 void HLLoop::populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos) {
   if (getNumExits() == 1) {

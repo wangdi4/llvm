@@ -852,7 +852,32 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
             "The UNSIGNED modifier is for MIN/MAX reduction only");
 
   if (ClauseInfo.getIsArraySection()) {
-    //TODO: Parse array section arguments.
+
+    Value *V = cast<Value>(Args[0]);
+    C.add(V);
+
+    assert(isa<ConstantInt>(Args[1]) &&
+           "Non-constant Value for number of array section dimensions.");
+    ConstantInt *CI = cast<ConstantInt>(Args[1]);
+    unsigned NumDims = *((CI->getValue()).getRawData());
+
+    assert(NumArgs == 3 * NumDims + 2 &&
+           "Unexpected number of args for array section operand.");
+
+    ReductionItem *RI = C.back();
+    RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
+    RI->setIsUnsigned(IsUnsigned);
+    RI->setIsInReduction(IsInReduction);
+
+    ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
+
+    for (unsigned I = 0; I < NumDims; ++I) {
+      Value *LB = cast<Value>(Args[3 * I + 2]);
+      Value *SZ = cast<Value>(Args[3 * I + 3]);
+      Value *ST = cast<Value>(Args[3 * I + 4]);
+
+      ArrSecInfo.addDimension(std::make_tuple(LB, SZ, ST));
+    }
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {

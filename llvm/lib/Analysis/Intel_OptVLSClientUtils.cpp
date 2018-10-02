@@ -126,7 +126,10 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
                          ShuffleVectorInst *InterleavingShuffleInst,
                          Value *Addr, Type *ElemTy, unsigned Alignment) {
   DenseMap<uint64_t, Value *> InstMap;
-  for (auto &OInst : InstVec)
+  // Only used when a shuffle instruction needs to be generated for an
+  // OVLSMemref.
+  DenseMap<const OVLSMemref *, Value *> MemrefShuffleMap;
+  for (auto &OInst : InstVec) {
     if (const OVLSLoad *const OLI = dyn_cast<const OVLSLoad>(OInst)) {
       // Bitcast Addr to OLI's type
       OVLSType Ty = OInst->getType();
@@ -146,30 +149,81 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       InstMap[OInst->getId()] = NewLoad;
     } else if (const OVLSShuffle *const OSI =
                    dyn_cast<const OVLSShuffle>(OInst)) {
-      // Check if the operand is a OVLSInstruction or an undefined OVLSOperand.
-      // In case of stores, it may come from a dummy OVLSOperand, which is an
-      // indication that it needs to have the same arguments as the
-      // InterleavingShuffleVector instruction.
-      const OVLSOperand *OVLSOp1 = OSI->getOperand(0);
-      const OVLSOperand *OVLSOp2 = OSI->getOperand(1);
-      Value *Op1, *Op2;
+      const OVLSOperand *OVLSOp[2];
+      OVLSOp[0] = OSI->getOperand(0);
+      OVLSOp[1] = OSI->getOperand(1);
+      Value *Op[2];
 
-      // OVLSAddress debug1 = dyn_cast<OVLSAddress> (*OVLSOp1);
-      // OVLSAddress debug2 = dyn_cast<OVLSAddress> (*OVLSOp2);
-
-      if (isa<OVLSInstruction>(OVLSOp1) && isa<OVLSInstruction>(OVLSOp2)) {
-        Op1 = InstMap[OVLSOp1->getId()];
-        Op2 = InstMap[OVLSOp2->getId()];
-      } else if (OVLSOp1->IsKindUndefined() && OVLSOp2->IsKindUndefined()) {
-        Op1 = InterleavingShuffleInst->getOperand(0);
-        Op2 = InterleavingShuffleInst->getOperand(1);
-      } else
-        assert("Unexpected Operand for OVLSShuffle Instruction.");
+      // In case of optimization of Interleaving Loads, the Shuffles will have
+      // the operands corresponding to OVLSInstruction. In case of optimization
+      // of Interleaving Stores, the Shuffles can have operands as undef,
+      // results of other Load/Shuffle Instructions or OVLSAddress/OVLSMemrefs.
+      // In case, it is OVLSAddress, the Memrefs need to be generated using
+      // Shuffles with the same operands as InterleavingShuffleVector
+      // Instruction.
+      //
+      bool InvalidOperands = false;
+      for (int i = 0; i < 2; i++) {
+        switch (OVLSOp[i]->getKind()) {
+        case OVLSOperand::OK_Undef:
+          if (OVLSOp[(i + 1) % 2]->IsKindUndefined())
+            InvalidOperands = true;
+          // else {the processing of an undef operand is taken care of during
+          // the other operand's processing, since we need the other operand's
+          // type.}
+          break;
+        case OVLSOperand::OK_Instruction:
+          Op[i] = InstMap[OVLSOp[i]->getId()];
+          if (OVLSOp[(i + 1) % 2]->IsKindUndefined())
+            Op[(i + 1) % 2] = UndefValue::get(Op[i]->getType());
+          break;
+        case OVLSOperand::OK_Constant:
+          // Not supported yet.
+          InvalidOperands = true;
+          break;
+        case OVLSOperand::OK_Address: {
+          const OVLSMemref *TempBase =
+              cast<const OVLSAddress>(OVLSOp[i])->getBase();
+          auto FindExistingSh = MemrefShuffleMap.find(TempBase);
+          if (FindExistingSh != MemrefShuffleMap.end())
+            Op[i] = FindExistingSh->getSecond();
+          else {
+            // Create and add the corresponding needed shuffle in the
+            // MemrefShuffleMap. In case of InterleavedAccessPass, we only see
+            // this case when we are optimizing Interleaving Stores.
+            Value *Op1 = InterleavingShuffleInst->getOperand(0);
+            Value *Op2 = InterleavingShuffleInst->getOperand(1);
+            int64_t StartIndex =
+                cast<const OVLSAddress>(OVLSOp[i])->getOffset();
+            SmallVector<uint32_t, 4> Mask;
+            uint32_t ElemSize = TempBase->getType().getElementSize();
+            uint32_t NumElements = TempBase->getType().getNumElements();
+            // StartIndex, represents the offset from the base,
+            // when taking the data from the InterleavingShuffleInst, it
+            // resolves to the following starting value for ShuffleMask
+            // computation.
+            StartIndex = ((StartIndex * 8) / ElemSize) * NumElements;
+            // Sequential mask from StartIndex to StartIndex + NumElements.
+            for (int i = StartIndex; i < (StartIndex + NumElements); i++)
+              Mask.push_back(i);
+            Op[i] = Builder.CreateShuffleVector(Op1, Op2, Mask);
+            MemrefShuffleMap[TempBase] = Op[i];
+          }
+          if (OVLSOp[(i + 1) % 2]->IsKindUndefined())
+            Op[(i + 1) % 2] = UndefValue::get(Op[i]->getType());
+        } break;
+        default:
+          InvalidOperands = true;
+          break;
+        }
+      }
+      (void)InvalidOperands;
+      assert((InvalidOperands == false) &&
+             "Unexpected Operand for OVLSShuffle Instruction.");
 
       SmallVector<uint32_t, 4> Mask;
       OSI->getShuffleMask(Mask);
-      ArrayRef<uint32_t> AMask = makeArrayRef(Mask);
-      Value *Shuffle = Builder.CreateShuffleVector(Op1, Op2, AMask);
+      Value *Shuffle = Builder.CreateShuffleVector(Op[0], Op[1], Mask);
       InstMap[OInst->getId()] = Shuffle;
     } else if (const OVLSStore *const OStI = dyn_cast<const OVLSStore>(OInst)) {
       // Bitcast Addr to OStI's type
@@ -193,6 +247,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
           Builder.CreateAlignedStore(SrcReg, NewBasePtr, Alignment);
       InstMap[OInst->getId()] = NewStore;
     } else
-      assert("Unexpected OVLSInstruction.");
+      assert(false && "Unexpected OVLSInstruction.");
+  }
   return InstMap;
 }

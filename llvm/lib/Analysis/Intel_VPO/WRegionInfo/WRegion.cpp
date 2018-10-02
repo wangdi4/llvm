@@ -28,16 +28,17 @@ using namespace llvm::vpo;
 //
 // Methods for WRNLoopInfo
 //
-//
-Value* WRNLoopInfo::getNormIV(unsigned I) const {
-  assert (NormIV.size() > 0 && "getNormIV: empty vector");
-  assert (I < NormIV.size() && "getNormIV: bad idx");
+Value *WRNLoopInfo::getNormIV(unsigned I) const {
+  if (NormIV.size() == 0)
+    return nullptr;
+  assert(I < NormIV.size() && "getNormIV: bad idx");
   return NormIV[I];
 }
 
-Value* WRNLoopInfo::getNormUB(unsigned I) const {
-  assert (NormUB.size() > 0 && "getNormUB: empty vector");
-  assert (I < NormUB.size() && "getNormUB: bad idx");
+Value *WRNLoopInfo::getNormUB(unsigned I) const {
+  if (NormUB.size() == 0)
+    return nullptr;
+  assert(I < NormUB.size() && "getNormUB: bad idx");
   return NormUB[I];
 }
 
@@ -233,6 +234,7 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setDevice(nullptr);
   setNowait(false);
   setDefaultmapTofromScalar(false);
+  setParLoopNdInfoAlloca(nullptr);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }

@@ -36,7 +36,6 @@
 ; OPTREPORT-NEXT:     LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:             LOOP BEGIN
-; OPTREPORT-NEXT:                 Remark: Loop completely unrolled
 ; OPTREPORT-NEXT:             LOOP END
 ; OPTREPORT-NEXT:         LOOP END
 ; OPTREPORT-NEXT:     LOOP END

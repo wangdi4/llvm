@@ -406,28 +406,44 @@ private:
   enum VALType : unsigned { IsUnknown, IsConstant, IsMax, IsMin };
 
   /// Returns true if \p ValType can represent a minimum value type.
-  static bool isMinValue(VALType ValType);
+  static bool isMinValue(VALType ValType) {
+    return (ValType == VALType::IsMin || ValType == VALType::IsConstant);
+  }
 
   /// Returns true if \p ValType can represent a maximum value type.
-  static bool isMaxValue(VALType ValType);
+  static bool isMaxValue(VALType ValType) {
+    return (ValType == VALType::IsMax || ValType == VALType::IsConstant);
+  }
 
   /// Returns true if the value in question is known to be positive.
-  static bool isKnownPositive(VALType ValType, int64_t Val);
+  static bool isKnownPositive(VALType ValType, int64_t Val) {
+    return (isMinValue(ValType) && (Val > 0));
+  }
 
   /// Returns true if the value in question is known to be non-negative.
-  static bool isKnownNonNegative(VALType ValType, int64_t Val);
+  static bool isKnownNonNegative(VALType ValType, int64_t Val) {
+    return (isMinValue(ValType) && (Val >= 0));
+  }
 
   /// Returns true if the value in question is known to be negative.
-  static bool isKnownNegative(VALType ValType, int64_t Val);
+  static bool isKnownNegative(VALType ValType, int64_t Val) {
+    return (isMaxValue(ValType) && (Val < 0));
+  }
 
   /// Returns true if the value in question is known to be non-positive.
-  static bool isKnownNonPositive(VALType ValType, int64_t Val);
+  static bool isKnownNonPositive(VALType ValType, int64_t Val) {
+    return (isMaxValue(ValType) && (Val <= 0));
+  }
 
   /// Returns true if the value in question is known to be non-zero.
-  static bool isKnownNonZero(VALType ValType, int64_t Val);
+  static bool isKnownNonZero(VALType ValType, int64_t Val) {
+    return isKnownPositiveOrNegative(ValType, Val);
+  }
 
   /// Returns true if the value in question is known to be positive or negative.
-  static bool isKnownPositiveOrNegative(VALType ValType, int64_t Val);
+  static bool isKnownPositiveOrNegative(VALType ValType, int64_t Val)  {
+    return isKnownPositive(ValType, Val) || isKnownNegative(ValType, Val);
+  }
 
   // Get possible Minimum/Maximum value of canon.
   // If known, return ValueType and Value.
@@ -447,10 +463,6 @@ private:
 
   static VALType getMinMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
                                     int64_t &Val);
-
-  static bool getMinMaxBlobValue(unsigned BlobIdx, int64_t Coeff,
-                                 const HLNode *ParentNode, bool IsMin,
-                                 int64_t &BlobVal);
 
   /// Returns constant min or max value of CE based on its context (ParentNode)
   /// and IsMin paramter. \p IsExact specifies whether we can calculate inexact
@@ -1283,14 +1295,8 @@ public:
                                 bool AllowTriangularLoop = false,
                                 bool *IsNearPerfect = nullptr);
 
-  /// Any memref with non-unit stride at TargetLevel?
-  /// Used mostly for blocking/interchange.
-  /// (non-innermost loop, innermostLevel) will examine
-  /// the benefit of
-  /// enabling a perfect loopnest for a near perfect loopnest.
-  /// If no TargetLevel is given, the nesting level of the given loop
-  /// is used.
-  static bool hasNonUnitStrideRefs(const HLLoop *Loop, unsigned TargetLevel);
+  /// Any memref with non-unit stride?
+  /// Will take innermost for now.
   static bool hasNonUnitStrideRefs(const HLLoop *Loop);
 
   /// Returns the lowest common ancestor loop of Lp1 and Lp2. Returns null if

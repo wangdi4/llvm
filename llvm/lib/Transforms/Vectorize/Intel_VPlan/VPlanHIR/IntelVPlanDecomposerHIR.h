@@ -28,7 +28,7 @@ class DDRef;
 
 namespace vpo {
 
-// Main class to create VPInstructions out of HLDDNodes during the VPlan plain
+// Main class to create VPInstructions out of HLNodes during the VPlan plain
 // CFG construction.
 class VPDecomposerHIR {
 private:
@@ -55,15 +55,15 @@ private:
   // VPPhis.
   SmallVector<std::pair<VPInstruction *, loopopt::DDRef *>, 8> PhisToFix;
 
-  // Methods to create VPInstructions out of an HLDDNode.
+  // Methods to create VPInstructions out of an HLNode.
   bool isExternalDef(loopopt::DDRef *UseDDR);
   unsigned getNumReachingDefinitions(loopopt::DDRef *UseDDR);
   void setMasterForDecomposedVPIs(VPInstruction *MasterVPI,
                                   VPInstruction *LastVPIBeforeDec,
                                   VPBasicBlock *VPBB);
-  VPInstruction *createVPInstruction(loopopt::HLDDNode *DDNode,
+  VPInstruction *createVPInstruction(loopopt::HLNode *Node,
                                      ArrayRef<VPValue *> VPOperands);
-  void createVPOperandsForMasterVPInst(loopopt::HLDDNode *DDNode,
+  void createVPOperandsForMasterVPInst(loopopt::HLNode *Node,
                                        SmallVectorImpl<VPValue *> &VPOperands);
   void createOrGetVPDefsForUse(loopopt::DDRef *UseDDR,
                                SmallVectorImpl<VPValue *> &VPDefs);
@@ -125,12 +125,12 @@ public:
                   const loopopt::DDGraph &DDG)
       : Plan(P), OutermostHLp(OHLp), DDG(DDG){};
 
-  /// Create VPInstructions for the incoming \p DDNode and insert them into \p
-  /// InsPointVPBB. \p DDNode will be decomposed into several VPInstructions if
+  /// Create VPInstructions for the incoming \p Node and insert them into \p
+  /// InsPointVPBB. \p Node will be decomposed into several VPInstructions if
   /// it's too complex to be represented using a single VPInstruction. Return
   /// the last VPInstruction of the Def/Use chain created.
-  VPInstruction *createVPInstructionsForDDNode(loopopt::HLDDNode *DDNode,
-                                               VPBasicBlock *InsPointVPBB);
+  VPInstruction *createVPInstructionsForNode(loopopt::HLNode *Node,
+                                             VPBasicBlock *InsPointVPBB);
 
   /// Create a semi-phi VPInstruction representing the \p HLp IV and a VPValue
   /// for the IV Start. The semi-phi is inserted in the loop header VPBasicBlock

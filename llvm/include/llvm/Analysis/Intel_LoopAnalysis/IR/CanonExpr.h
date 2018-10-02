@@ -19,8 +19,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 #include <iterator>
 #include <set>
@@ -308,12 +308,12 @@ public:
 
   /// Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel() const { return !isNonLinear(); }
+  bool isLinearAtLevel(unsigned Level) const { return DefinedAtLevel < Level; }
 
   /// Returns true if the canon expr is linear at level and does not have IV at
   /// given level.
   bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerLoops = true) const {
-    if (!isLinearAtLevel() || DefinedAtLevel >= Level) {
+    if (isNonLinear() || DefinedAtLevel >= Level) {
       return false;
     }
 
@@ -421,6 +421,11 @@ public:
             !getConstant() && (getDenominator() == 1) && (numBlobs() == 1) &&
             (getSingleBlobCoeff() == 1) && !hasIV());
   }
+
+  /// Returns true if \p BlobIndex is a standalone blob (ex- 1 * %t) in the
+  /// canon expr.
+  bool containsStandAloneBlob(unsigned BlobIndex,
+                              bool AllowConversion = true) const;
 
   // Returns true if the CanonExpr is a unitary blob. A unitary blob is a single
   // (non-nested) standalone blob.
@@ -661,7 +666,8 @@ public:
   /// Replaces the blob with \p OldTempIndex by the \p Constant value.
   bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant);
 
-  /// Clears everything from the CanonExpr except Type. Denominator is set to 1.
+  /// Clears everything from the CanonExpr except Type so it represents constant
+  /// 0 or null. Denominator is set to 1.
   void clear();
 
   /// Clears all the IV coefficients from the CanonExpr.
@@ -713,6 +719,13 @@ public:
 
   /// Negates canon expr.
   void negate() { multiplyNumeratorByConstant(-1, true); }
+
+  /// Returns true if the CE looks like this: -1 * blob + -1.
+  /// ~x is represented as -1 + -1 * x.
+  bool isNotOperation() const {
+    return (getConstant() == -1) && (getDenominator() == 1) && !hasIV() &&
+           (numBlobs() == 1) && (getSingleBlobCoeff() == -1);
+  }
 
   /// Verifies that all IVs contained in CE are valid, asserts otherwise.
   bool verifyIVs(unsigned NestingLevel) const;

@@ -1383,6 +1383,8 @@ operator<< (spv_ostream &O, const TopologicalSort &S) {
 spv_ostream &
 operator<< (spv_ostream &O, SPIRVModule &M) {
   SPIRVModuleImpl &MI = *static_cast<SPIRVModuleImpl*>(&M);
+  // Start tracking of the current line with no line
+  MI.CurrentLine.reset();
 
   SPIRVEncoder Encoder(O);
   Encoder << MagicNumber

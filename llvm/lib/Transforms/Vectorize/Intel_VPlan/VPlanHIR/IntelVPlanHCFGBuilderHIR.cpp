@@ -88,14 +88,22 @@ private:
   /// VPBasicBlock.
   std::deque<VPBasicBlock *> Predecessors;
 
+  /// Hold a pointer to the current HLLoop being processed.
+  HLLoop *CurrentHLp = nullptr;
+
   /// Hold the VPBasicBlock that is being populated with instructions. Null
   /// value indicates that a new active VPBasicBlock has to be created.
   VPBasicBlock *ActiveVPBB = nullptr;
 
+  /// Hold the VPBasicBlock that will be used as a landing pad for loops with
+  /// multiple exits. If the loop is a single-exit loop, no landing pad
+  /// VPBasicBlock is created.
+  VPBasicBlock *MultiExitLandingPad = nullptr;
+
   /// Map between HLNode's that open a VPBasicBlock and such VPBasicBlock's.
   DenseMap<HLNode *, VPBasicBlock *> HLN2VPBB;
 
-  /// Utility to create VPInstructions out of a HLDDNode.
+  /// Utility to create VPInstructions out of a HLNode.
   VPDecomposerHIR Decomposer;
 
   VPBasicBlock *createOrGetVPBB(HLNode *HNode = nullptr);
@@ -193,7 +201,11 @@ void PlainCFGBuilderHIR::updateActiveVPBB(HLNode *HNode, bool IsPredecessor) {
 }
 
 void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
-  assert(HLp->isDo() && HLp->isNormalized() && "Unsupported HLLoop type.");
+  assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
+         "Unsupported HLLoop type.");
+  // Set HLp as current loop before we visit its children.
+  HLLoop *PrevCurrentHLp = CurrentHLp;
+  CurrentHLp = HLp;
 
   // TODO: Print something more useful.
   LLVM_DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
@@ -224,6 +236,15 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   VPBasicBlock *Preheader = ActiveVPBB;
 
   // - Loop Body -
+  if (HLp->isMultiExit()) {
+    // FIXME: In outer loop vectorization scenarios, more than one loop can be a
+    // multi-exit loop. We need to use a stack to store the landing pad of each
+    // multi-exit loop in the loop nest.
+    assert(!MultiExitLandingPad && "Only one multi-exit loops is supported!");
+    // Create a new landing pad for all the multiple exits.
+    MultiExitLandingPad = createOrGetVPBB();
+  }
+
   // Force creation of a new VPBB for loop H.
   ActiveVPBB = nullptr;
   updateActiveVPBB();
@@ -271,10 +292,21 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // dummy PH).
   updateActiveVPBB();
 
+  if (HLp->isMultiExit()) {
+    // Connect loop's regular exit to multi-exit landing pad and set landing pad
+    // as new predecessor for subsequent VPBBs.
+    connectVPBBtoPreds(MultiExitLandingPad);
+    Predecessors.push_back(MultiExitLandingPad);
+    ActiveVPBB = MultiExitLandingPad;
+  }
+
   // At this point, all the VPBasicBlocks have been built and all the
   // VPInstructions have been created for this loop. It's time to fix
   // VPInstructions representing a semi-phi operation.
   Decomposer.fixPhiNodes();
+
+  // Restore previous current HLLoop.
+  CurrentHLp = PrevCurrentHLp;
 }
 
 void PlainCFGBuilderHIR::visit(HLIf *HIf) {
@@ -289,7 +321,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // it as condition bit of the active VPBasicBlock.
   // TODO: Remove "not decomposed" when decomposing HLIfs.
   VPInstruction *CondBit =
-      Decomposer.createVPInstructionsForDDNode(HIf, ActiveVPBB);
+      Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
   ConditionVPBB->setCondBit(CondBit, Plan);
 
   // - Then branch -
@@ -338,7 +370,7 @@ void PlainCFGBuilderHIR::visit(HLInst *HInst) {
   updateActiveVPBB(HInst);
 
   // Create VPInstructions for HInst.
-  Decomposer.createVPInstructionsForDDNode(HInst, ActiveVPBB);
+  Decomposer.createVPInstructionsForNode(HInst, ActiveVPBB);
 }
 
 void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
@@ -359,9 +391,27 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   // is created, do not add it to Predecessors (see previous comment).
   updateActiveVPBB(HGoto, false /*IsPredecessor*/);
 
-  // Create (or get) a new VPBB for HLLabel and connect to HLGoto's VPBB.
   HLLabel *Label = HGoto->getTargetLabel();
-  VPBasicBlock *LabelVPBB = createOrGetVPBB(Label);
+  VPBasicBlock *LabelVPBB;
+  if (HGoto->isExternal() || !HLNodeUtils::contains(CurrentHLp, Label)) {
+    // Exiting goto in multi-exit loop. Use multi-exit landing pad as successor
+    // of the goto VPBB.
+    // TODO: When dealing with multi-loop H-CFGs, landing pad needs to properly
+    // dispatch exiting gotos when labels have representation in VPlan. That
+    // massaging should happen as a separate simplification step. Currently, all
+    // the exiting gotos would go to the landing pad.
+    assert(CurrentHLp->isDoMultiExit() && "Expected multi-exit loop!");
+    assert(MultiExitLandingPad && "Expected landing pad for multi-exit loop!");
+
+    Decomposer.createVPInstructionsForNode(HGoto, ActiveVPBB);
+    LabelVPBB = MultiExitLandingPad;
+  } else {
+    assert(Label && "Label can't be null!");
+    // Goto inside the loop. Create (or get) a new VPBB for HLLabel
+    LabelVPBB = createOrGetVPBB(Label);
+  }
+
+  // Connect to HLGoto's VPBB to HLLabel's VPBB.
   VPBlockUtils::connectBlocks(ActiveVPBB, LabelVPBB);
 
   // Force the creation of a new VPBasicBlock for the next HLNode.

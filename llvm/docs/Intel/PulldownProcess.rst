@@ -138,8 +138,32 @@ review.
 
 Commits to ``xmain-web``
 ------------------------
+It was found useful to include the abbreviated hash *and* the title of the
+commit that caused the conflict into the title of the resolution commit. This is
+especially convenient if the commit gets reverted/recommitted multiple times -
+it's easy for the pulldown coordinators to find the previous resolution in the
+"recently closed" list in gerrit under "My Changes" tab. One can get the
+required string for copy-paste like this:
+
+.. code-block:: bash
+
+  $ git --no-pager log --oneline --abbrev -1 5eb83c58cd54e69e13eb3ed969879a0daa440536
+  5eb83c58cd5 [IR] Begin removal of TerminatorInst by removing successor manipulation.
+
+And the final message should look like this
+
+::
+
+   Resolve conflicts after <abbreviated hash> <title of the commit>
+
+or like this for build failures
+
+::
+
+   Resolve build failures after <abbreviated hash> <title of the commit>
+
 Once you have a patch to resolve a conflict or fix a build you should pass a
-component ownwer(s) review. Normally you'll be allowed to commit only after a
+component owner(s) review. Normally you'll be allowed to commit only after a
 review. However there are several exceptions when you can review after a commit:
 
 #. Trivial merge conflict - when a conflict could be resolved by deleting git
@@ -178,6 +202,17 @@ requirements via alloy, using xmain at the most recent nightly tag as a referenc
 The results are sent via email to the pulldown coordinator, who can work with
 the development teams to analyze and fix any problems.
 
+Please note that we purposely turned "-Werror" (-DCMAKE_ENABLE_WERROR) *off* in
+our ``xmain-web`` nightly alloy testing (it's still enabled in ``xmain-cand``
+though) - see `CMPLRS-51401 <https://jira01.devtools.intel.com/browse/CMPLRS-51401>`_.
+The reason is simple - fixing the warnings is relatively simple and does not
+really affect the candidate selection. On the other hand, fixing failures on
+different tests from Alloy runs (and especially runfails) is much more difficult
+and we probably don't want to start a candidate from a revision with such
+failures. Ability to proceed with the Alloy testing even in the presense of
+warnings in the build (which are often in the upstream, even though don't
+usually exist for a long time) is very helpful for choosing a good candidate.
+
 If you want to check on the status of in-progress ``xmain-web`` testing, you
 can use the ``amt`` tool on Windows and search for jobs with owner
 ``sys_iclsrc`` that are testing ``xmain-web``.
@@ -205,6 +240,17 @@ updated to that revision using the following process.
      <copy the heads.txt attachment from the alloy results to $ICS_WSDIR>
      $ sh update-xmain-cand.sh
 
+Alternatively, the following command will create the heads.txt file with the
+current state of the repository:
+
+   .. code-block:: bash
+
+     $ repo forall -c 'echo $REPO_PATH:`git rev-list -1 HEAD`'  > heads.txt
+
+This is especially useful if all the remaining issues were just fixed in the
+current ``xmain-web`` and we want to start our ``xmain-cand`` right from it.
+
+
 Stabilizing and Promoting ``xmain-cand``
 ----------------------------------------
 Fixes for test failures are committed to the ``xmain-cand`` branch. Once all
@@ -215,11 +261,13 @@ the normal branch promotion process, e.g.
 
      $ ics mk xmain-promo-ws xmain head -git
      $ ics merge xmain-cand head
-     <Run xmain_checkin_pulldown testing>
+     $ alloy -file xmain_checkin_pulldown -file zperf_checkin_xmain -ref_comp ws -notify
      <Request gatekeeper approval>
      $ ics merge -push
 
-For checkin testing requirements, see :ref:`testing-requirements`.
+Note the difference from regular checkin :ref:`testing-requirements`.
+`xmain_checkin_pulldown` required for promotion contains some additional testing
+that we don't run for ordinary commits.
 
 Once promotion is complete, pulldown automation in ``xmain-cand`` (both
 auto-merging from ``xmain`` to ``xmain-cand`` and nightly testing) should be

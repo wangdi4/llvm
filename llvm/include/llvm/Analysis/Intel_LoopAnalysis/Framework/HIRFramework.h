@@ -22,6 +22,7 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/IR/IRPrintingPasses.h"
 
 namespace llvm {
 

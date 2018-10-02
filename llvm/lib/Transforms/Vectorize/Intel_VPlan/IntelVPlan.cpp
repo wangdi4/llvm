@@ -681,11 +681,26 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
     return;
   }
 
+  if (auto Branch = dyn_cast<VPBranchInst>(this)) {
+    assert(Branch->getHLGoto() && "For HIR VPBranchInst must have HLGoto.");
+    const HLGoto *HGoto = Branch->getHLGoto();
+    assert(CG->isSearchLoop() && HGoto->isEarlyExit(CG->getOrigLoop()) &&
+           "Only early exit gotos expected!");
+    // FIXME: Temporary support for last value computation of live-outs in the
+    // early exit branch. 'createNonLinearLiveOutsForEE' introduces the last
+    // value computation instructions before the goto instruction for the
+    // reaching definitions of the live-outs.
+    CG->handleNonLinearEarlyExitLiveOuts(HGoto);
+
+    CG->addInst(HGoto->clone(), nullptr);
+    return;
+  }
+
   if (HIR.isValid()) {
     // Master VPInstruction with valid HIR.
     assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "
                              "VPInstruction at this point.");
-    HLDDNode *HNode = HIR.getUnderlyingDDN();
+    HLNode *HNode = HIR.getUnderlyingNode();
     if (auto *Inst = dyn_cast<HLInst>(HNode)) {
       CG->widenNode(Inst, nullptr);
       return;
@@ -755,7 +770,7 @@ void VPInstruction::dump(raw_ostream &O) const {
 
 void VPInstruction::print(raw_ostream &O) const {
 #if INTEL_CUSTOMIZATION
-  if (getOpcode() != Instruction::Store) {
+  if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
     printAsOperand(O);
     O << " = ";
   }
@@ -778,6 +793,9 @@ void VPInstruction::print(raw_ostream &O) const {
   case VPInstruction::UMax:
     O << "umax";
     break;
+  case Instruction::Br:
+    cast<VPBranchInst>(this)->print(O);
+    return;
 #endif
   default:
     O << Instruction::getOpcodeName(getOpcode());
@@ -1423,6 +1441,18 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
   OS << "!";
   ConditionValue->printAsOperand(OS);
 }
+
+#if INTEL_CUSTOMIZATION
+void VPBranchInst::print(raw_ostream &O) const {
+  O << "br ";
+  const BasicBlock *BB = getTargetBlock();
+  if (BB)
+    O << BB->getName();
+  else
+    // FIXME: Call HGoto print.
+    O << "<External Basic Block>";
+}
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 using VPDomTree = DomTreeBase<VPBlockBase>;

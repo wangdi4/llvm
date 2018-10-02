@@ -3,7 +3,9 @@
 
 ; Test AOS-to-SOA transformation for a malloc call with a non-constant size
 ; that is a multiple of the structure size, when using a structure that has
-; padding between elements, and contains remapped types.
+; padding between elements, and contains remapped types. This will also
+; check for metadata data attachments that are used to allow dtrans analysis
+; to recognize the types stored in the store instruction for safety checks.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
@@ -25,6 +27,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; Test malloc with non-const size that is some multiple of the structure
 ; size.
 define void @test01(i64 %num) {
+; CHECK-LABEL: void @test01
+
   ; Allocate %num elements. (structure size = 32)
   %size = mul nsw i64 %num, 32
   %mem = call i8* @malloc(i64 %size)
@@ -37,7 +41,7 @@ define void @test01(i64 %num) {
 
 ; Verify the array elements of the peeled structure are initialized
 ; to point to the expected addresses within the allocated block.
-; CHECK:  [[ADDR1:%[0-9]+]] = getelementptr i8, i8* %mem, i64 0
+; CHECK:  [[ADDR1:%[0-9]+]] = getelementptr i8, i8* %mem, i64 0, !dtrans-type !0
 ; CHECK:  [[CAST1:%[0-9]+]] = bitcast i8* [[ADDR1]] to i16*
 ; CHECK:  store i16* [[CAST1]], i16** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 0)
 
@@ -48,14 +52,14 @@ define void @test01(i64 %num) {
 ; CHECK:  [[PAD2_TMP1:%[0-9]+]] = add i64 [[SIZE2]], 7
 ; CHECK:  [[PAD2_TMP2:%[0-9]+]] = sdiv i64 [[PAD2_TMP1]], 8
 ; CHECK:  [[OFFSET2:%[0-9]+]] = mul i64 [[PAD2_TMP2]], 8
-; CHECK:  [[ADDR2:%[0-9]+]] = getelementptr i8, i8* %mem, i64 [[OFFSET2]]
+; CHECK:  [[ADDR2:%[0-9]+]] = getelementptr i8, i8* %mem, i64 [[OFFSET2]], !dtrans-type !1
 ; CHECK:  [[CAST2:%[0-9]+]] = bitcast i8* [[ADDR2]] to i64*
 ; CHECK:  store i64* [[CAST2]], i64** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 1)
 
 ; Increment the offset by: NumAllocated * sizeof(i64*). No padding required.
 ; CHECK:  [[SIZE3:%[0-9]+]] = mul i64 [[NUM_ALLOC]], 8
 ; CHECK:  [[OFFSET3:%[0-9]+]] = add i64 [[OFFSET2]], [[SIZE3]]
-; CHECK:  [[ADDR3:%[0-9]+]] = getelementptr i8, i8* %mem, i64 [[OFFSET3]]
+; CHECK:  [[ADDR3:%[0-9]+]] = getelementptr i8, i8* %mem, i64 [[OFFSET3]], !dtrans-type !2
 ; CHECK:  [[CAST3:%[0-9]+]] = bitcast i8* [[ADDR3]] to i32*
 ; CHECK:  store i32* [[CAST3]], i32** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 2)
 
@@ -65,12 +69,17 @@ define void @test01(i64 %num) {
 ; CHECK:  [[PAD4_TMP1:%[0-9]+]] = add i64 [[OFFSET4]], 7
 ; CHECK:  [[PAD4_TMP2:%[0-9]+]] = sdiv i64 [[PAD4_TMP1]], 8
 ; CHECK:  [[PAD_OFFSET4:%[0-9]+]] = mul i64 [[PAD4_TMP2]], 8
-; CHECK:  [[ADDR4:%[0-9]+]] = getelementptr i8, i8* %mem, i64 [[PAD_OFFSET4]]
+; CHECK:  [[ADDR4:%[0-9]+]] = getelementptr i8, i8* %mem, i64 [[PAD_OFFSET4]], !dtrans-type !3
 ; CHECK:  [[CAST4:%[0-9]+]] = bitcast i8* [[ADDR4]] to %__SOADT_struct.test01dep**
 ; CHECK:  store %__SOADT_struct.test01dep** [[CAST4]], %__SOADT_struct.test01dep*** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 3)
 
   store i8* %mem, i8** bitcast (%struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1)  to i8**)
   ret void
 }
+
+; CHECK:  !0 = !{i16* null}
+; CHECK:  !1 = !{i64* null}
+; CHECK:  !2 = !{i32* null}
+; CHECK:  !3 = !{%__SOADT_struct.test01dep** null}
 
 declare i8* @malloc(i64)

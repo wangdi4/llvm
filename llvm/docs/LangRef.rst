@@ -1690,6 +1690,28 @@ example:
     This attribute indicates that HWAddressSanitizer checks
     (dynamic address safety analysis based on tagged pointers) are enabled for
     this function.
+``speculative_load_hardening``
+    This attribute indicates that
+    `Speculative Load Hardening <https://llvm.org/docs/SpeculativeLoadHardening.html>`_
+    should be enabled for the function body. This is a best-effort attempt to
+    mitigate all known speculative execution information leak vulnerabilities
+    that are based on the fundamental principles of modern processors'
+    speculative execution. These vulnerabilities are classified as "Spectre
+    variant #1" vulnerabilities typically. Notably, this does not attempt to
+    mitigate any vulnerabilities where the speculative execution and/or
+    prediction devices of specific processors can be *completely* undermined
+    (such as "Branch Target Injection", a.k.a, "Spectre variant #2"). Instead,
+    this is a target-independent request to harden against the completely
+    generic risk posed by speculative execution to incorrectly load secret data,
+    making it available to some micro-architectural side-channel for information
+    leak. For a processor without any speculative execution or predictors, this
+    is expected to be a no-op.
+
+    When inlining, the attribute is sticky. Inlining a function that carries
+    this attribute will cause the caller to gain the attribute. This is intended
+    to provide a maximally conservative model where the code in a function
+    annotated with this attribute will always (even after inlining) end up
+    hardened.
 ``speculatable``
     This function attribute indicates that the function does not have any
     effects besides calculating its result and does not have undefined behavior.
@@ -6148,19 +6170,19 @@ causes the building of a compact summary of the module that is emitted into
 the bitcode. The summary is emitted into the LLVM assembly and identified
 in syntax by a caret ('``^``').
 
-*Note that temporarily the summary entries are skipped when parsing the
-assembly, although the parsing support is actively being implemented. The
-following describes when the summary entries will be parsed once implemented.*
-The summary will be parsed into a ModuleSummaryIndex object under the
-same conditions where summary index is currently built from bitcode.
-Specifically, tools that test the Thin Link portion of a ThinLTO compile
-(i.e. llvm-lto and llvm-lto2), or when parsing a combined index
-for a distributed ThinLTO backend via clang's "``-fthinlto-index=<>``" flag.
-Additionally, it will be parsed into a bitcode output, along with the Module
+The summary is parsed into a bitcode output, along with the Module
 IR, via the "``llvm-as``" tool. Tools that parse the Module IR for the purposes
 of optimization (e.g. "``clang -x ir``" and "``opt``"), will ignore the
 summary entries (just as they currently ignore summary entries in a bitcode
 input file).
+
+Eventually, the summary will be parsed into a ModuleSummaryIndex object under
+the same conditions where summary index is currently built from bitcode.
+Specifically, tools that test the Thin Link portion of a ThinLTO compile
+(i.e. llvm-lto and llvm-lto2), or when parsing a combined index
+for a distributed ThinLTO backend via clang's "``-fthinlto-index=<>``" flag
+(this part is not yet implemented, use llvm-as to create a bitcode object
+before feeding into thin link tools for now).
 
 There are currently 3 types of summary entries in the LLVM assembly:
 :ref:`module paths<module_path_summary>`,
@@ -6372,7 +6394,7 @@ Where each ConstVCall has the format:
 
 .. code-block:: text
 
-    VFuncId, args: (Arg[, Arg]*)
+    (VFuncId, args: (Arg[, Arg]*))
 
 and where each VFuncId has the format described for ``TypeTestAssumeVCalls``,
 and each Arg is an integer argument number.
@@ -16127,5 +16149,82 @@ and the second has linearised address ``&a + (64 + 8) * i + k``.
 Independence cannot be proved without additional analysis,
 because one cannot tell that ``j`` and/or ``k`` are related to rightmost
 indexes.
+
+
+'``llvm.intel.wholeprogramsafe``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i1 @llvm.intel.wholeprogramsafe()
+
+Overview:
+"""""""""
+
+The intrinsic ``llvm.intel.wholeprogramsafe`` is used to identify which
+branch destination should be taken depending on the result of the whole
+program analysis. The whole program analysis will determine if whole
+program safe was achieved and convert the calls to this intrinsic
+into ``true`` or ``false``. A program is considered whole program safe
+when the following conditions are fulfilled:
+
+- Whole program read: The linker finds a resolution for each symbol
+- Whole program seen: If there is no IR for a function, then it should
+  be an intrinsic function or a library function (LibFunc)
+- The linker is generating an executable.
+
+Arguments:
+""""""""""
+
+None.
+
+Semantics:
+""""""""""
+
+The intrinsic ``llvm.intel.wholeprogramsafe`` is used by the optimizer to
+identify which path in a branch will be taken after the whole program analysis
+converts the call into ``true`` or ``false``. This analysis is done during the
+Link Time Optimization (LTO) process.
+
+.. code-block:: llvm
+
+    %x = alloca i32, align 4
+    store i32 0, i32* %x, align 4
+    %whprsafe = call i1 @llvm.intel.wholeprogramsafe()
+    br i1 %whprsafe, label %if.whpr, label %if.nowhpr
+
+    if.whpr:
+      store i32 1, i32* %x
+      br label %if.end
+
+    if.nowhpr:
+      store i32 2, i32* %x
+      br label %if.end
+
+    if.end:
+    %retval = load i32, i32* %x, align 4
+
+In the previous example, if the optimizer finds that whole program is safe,
+then the conditional in the branch instruction will be replaced with a
+``true``.
+
+.. code-block:: llvm
+
+    %x = alloca i32, align 4
+    store i32 0, i32* %x, align 4
+    br i1 true, label %if.whpr, label %if.nowhpr
+
+Else, if the analysis detects that whole program is not safe, then the
+conditional will be replaced with a ``false``. Other optimizations will
+take care of cleaning up the basic blocks that won't be traversed.
+
+The intrinsic ``llvm.intel.wholeprogramsafe`` should be emitted if the
+Link Time Optimization (LTO) process is enabled. The reason is because
+the whole program analysis run if LTO is available. If LTO is not used,
+then it will be considered that whole program safe wasn't achieved and
+the intrinsic will be lowered as ``false``.
 
 .. END INTEL_CUSTOMIZATION

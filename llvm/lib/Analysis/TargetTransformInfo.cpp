@@ -564,7 +564,7 @@ bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
 }
 
 bool TargetTransformInfo::isTargetSpecificShuffleMask(
-    SmallVectorImpl<int> &Mask) const {
+    ArrayRef<uint32_t> Mask) const {
   return TTIImpl->isTargetSpecificShuffleMask(Mask);
 }
 

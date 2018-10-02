@@ -49,7 +49,7 @@ class SOAToAOSApproximationDebug
   static char PassID;
 
 public:
-  // Called from lit-tests, result is ignored and not consumed ever.
+  // Called from lit-tests, result is consumed only by lit-tests.
   class Ignore {
     std::unique_ptr<SOAToAOSApproximationDebugResult> Ptr;
 
@@ -90,6 +90,7 @@ public:
   Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
+struct SOAToAOSStructMethodsCheckDebugResult;
 class SOAToAOSStructMethodsCheckDebug
     : public AnalysisInfoMixin<SOAToAOSStructMethodsCheckDebug> {
   static AnalysisKey Key;
@@ -97,8 +98,17 @@ class SOAToAOSStructMethodsCheckDebug
   static char PassID;
 
 public:
-  // Called from lit-tests, result is ignored and not consumed ever.
-  class Ignore {};
+  // Called from lit-tests, result is consumed only by lit-tests.
+  class Ignore {
+    std::unique_ptr<SOAToAOSStructMethodsCheckDebugResult> Ptr;
+
+  public:
+    Ignore(SOAToAOSStructMethodsCheckDebugResult *Ptr);
+    Ignore(Ignore &&Other);
+    const SOAToAOSStructMethodsCheckDebugResult *get() const;
+    // Prevent default dtor creation while type is incomplete.
+    ~Ignore();
+  };
   typedef Ignore Result;
 
   Result run(Function &F, FunctionAnalysisManager &AM);
@@ -107,6 +117,13 @@ public:
 // This class is used for testing transformations of arrays' methods.
 class SOAToAOSArrayMethodsTransformDebug
     : public PassInfoMixin<SOAToAOSArrayMethodsTransformDebug> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+};
+
+// This class is used for testing transformations of structure's methods.
+class SOAToAOSStructMethodsTransformDebug
+    : public PassInfoMixin<SOAToAOSStructMethodsTransformDebug> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };

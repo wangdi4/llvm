@@ -14,30 +14,44 @@
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos               \
+; RUN: opt < %s -whole-program-assume -disable-output                                           \
+; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
 ; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
-; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::indexOf(IC_Field const*) const"  \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
+; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
 ; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
 ; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
 ; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
-; RUN:       2>&1 | FileCheck --check-prefix=CHECK-IR %s
-; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-struct        \
-; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
-; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
-; RUN:          -dtrans-soatoaos-approx-known-func="FieldValueMap::indexOf(IC_Field const*) const"  \
-; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
-; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
-; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
-; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
-; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
+; RUN:          -dtrans-soatoaos-method-call-site-comparison=ctor                               \
+; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"           \
+; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<DatatypeValidator*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"  \
+; RUN:          -dtrans-soatoaos-method-call-site-comparison=append                             \
+; RUN:          -dtrans-soatoaos-array-append="ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"                      \
+; RUN:          -dtrans-soatoaos-array-append="ValueVectorOf<DatatypeValidator*>::addElement(DatatypeValidator* const&)"    \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
+; RUN: opt -S < %s -whole-program-assume                                                        \
+; RUN:          -passes=soatoaos-struct-methods-transform                                       \
+; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
+; RUN:          -dtrans-optbase-process-function-declaration                                    \
+; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
+; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
+; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
+; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
+; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
+; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
+; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
+; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
+; RUN:          -dtrans-soatoaos-method-call-site-comparison=ctor                               \
+; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"           \
+; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<DatatypeValidator*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"  \
+; RUN:          -dtrans-soatoaos-method-call-site-comparison=append                             \
+; RUN:          -dtrans-soatoaos-array-append="ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"                      \
+; RUN:          -dtrans-soatoaos-array-append="ValueVectorOf<DatatypeValidator*>::addElement(DatatypeValidator* const&)"    \
+; RUN:       | FileCheck --check-prefix=CHECK-MOD %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -50,11 +64,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-DEP-WF-NOT: ; Func(GEP
 
 ; Checks that all instructions can be dealt with.
-; CHECK-IR: ; Checking structure's method FieldValueMap::put(IC_Field*, DatatypeValidator*, unsigned short const*)
-; CHECK-IR: ; IR: analysed completely
+; CHECK-TRANS: ; Checking structure's method FieldValueMap::put(IC_Field*, DatatypeValidator*, unsigned short const*)
+; CHECK-TRANS: ; IR: analysed completely
 
 ; Checks instructions related to transformations.
-; CHECK-TRANS: ; Dump instructions needing update. Total = 14
+; CHECK-TRANS: ; Dump instructions needing update. Total = 11
+
+; Also checks that call sites to addElement methods can be merged. Same for ctor.
+
+; Checks transformation. Types change and combined methods removed.
 
 ; inline void FieldValueMap::put(IC_Field *const key, DatatypeValidator *const dv,
 ;                                const XMLCh *const value) {
@@ -79,12 +97,16 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %class.FieldValueMap = type { %class.ValueVectorOf.0*, %class.ValueVectorOf.1*, %class.RefArrayVectorOf*, %class.XMLMsgLoader* }
 %class.ValueVectorOf.0 = type { i8, i32, i32, %class.IC_Field**, %class.XMLMsgLoader* }
+; CHECK-MOD-DAG: %__SOA_class.FieldValueMap = type { %__SOA_AR_class.ValueVectorOf.0*, float*, %class.RefArrayVectorOf*, %class.XMLMsgLoader* }
+; CHECK-MOD-DAG: %__SOA_AR_class.ValueVectorOf.0 = type { i8, i32, i32, %__SOA_EL_class.FieldValueMap*, %class.XMLMsgLoader* }
+; CHECK-MOD-DAG: %__SOA_EL_class.FieldValueMap = type { %class.IC_Field*, %class.DatatypeValidator* }
+; CHECK-MOD-NOT: ValueVectorOf.1
 %class.ValueVectorOf.1 = type { i8, i32, i32, %class.DatatypeValidator**, %class.XMLMsgLoader* }
 %class.DatatypeValidator = type opaque
+%class.IC_Field = type opaque
 %class.RefArrayVectorOf = type { %class.BaseRefVectorOf }
 %class.BaseRefVectorOf = type { i32 (...)**, i8, i32, i32, i16**, %class.XMLMsgLoader* }
 %class.XMLMsgLoader = type { i32 (...)** }
-%class.IC_Field = type opaque
 
 @"vtable for BaseRefVectorOf<unsigned short>" = external hidden constant { [9 x i8*] }
 @"vtable for RefArrayVectorOf<unsigned short>" = external hidden constant { [9 x i8*] }
@@ -108,47 +130,59 @@ entry:
   %fFields = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 0
 ; CHECK-TRANS:      ; ArrayInst: Load of array
 ; CHECK-TRANS-NEXT:   %tmp = load %class.ValueVectorOf.0*, %class.ValueVectorOf.0** %fFields
+; CHECK-MOD:          %tmp = load %__SOA_AR_class.ValueVectorOf.0*, %__SOA_AR_class.ValueVectorOf.0** %fFields
   %tmp = load %class.ValueVectorOf.0*, %class.ValueVectorOf.0** %fFields
-; CHECK-TRANS:      ; ArrayInst: Null check
-; CHECK-TRANS-NEXT:   %tobool = icmp eq %class.ValueVectorOf.0* %tmp, null
+; CHECK-MOD-NEXT:     %tobool = icmp eq %__SOA_AR_class.ValueVectorOf.0* %tmp, null
   %tobool = icmp eq %class.ValueVectorOf.0* %tmp, null
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
   %fMemoryManager = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 3
   %tmp1 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
+; New array type has the same size as an old one.
+; CHECK-MOD:          %call = tail call i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64 32, %class.XMLMsgLoader* %tmp1)
   %call = tail call i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64 32, %class.XMLMsgLoader* %tmp1)
   %tmp2 = bitcast i8* %call to %class.ValueVectorOf.0*
   %tmp3 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
 ; CHECK-TRANS:      ; ArrayInst: Array method call
 ; CHECK-TRANS-NEXT:   invoke void @"ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"(%class.ValueVectorOf.0* %tmp2, i32 4, %class.XMLMsgLoader* %tmp3, i1 zeroext false)
+; CHECK-MOD:          invoke void @"ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool){{.*}}"(%__SOA_AR_class.ValueVectorOf.0* %tmp2, i32 4, %class.XMLMsgLoader* %tmp3, i1 zeroext false)
   invoke void @"ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"(%class.ValueVectorOf.0* %tmp2, i32 4, %class.XMLMsgLoader* %tmp3, i1 zeroext false)
           to label %invoke.cont unwind label %lpad
 
 invoke.cont:                                      ; preds = %if.then
-;CHECK-DEP:      invoke.cont:                                      ; preds = %if.then
-;CHECK-DEP-NEXT: ; GEP(Arg 0)
-;CHECK-DEP-NEXT: ;     0
-;CHECK-DEP-NEXT:   %tmp4 = bitcast %class.FieldValueMap* %this to i8**
+; CHECK-DEP:      invoke.cont:                                      ; preds = %if.then
+; CHECK-DEP-NEXT: ; GEP(Arg 0)
+; CHECK-DEP-NEXT: ;     0
+; CHECK-DEP-NEXT:   %tmp4 = bitcast %class.FieldValueMap* %this to i8**
+; CHECK-MOD:        %tmp4 = bitcast %__SOA_class.FieldValueMap* %this to i8**
   %tmp4 = bitcast %class.FieldValueMap* %this to i8**
 ; CHECK-TRANS:      ; ArrayInst: Init ptr to array
 ; CHECK-TRANS-NEXT:   store i8* %call, i8** %tmp4
+; CHECK-MOD-NEXT:     store i8* %call, i8** %tmp4
   store i8* %call, i8** %tmp4
   %tmp5 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
+; CHECK-MOD-NOT:   XMemory::operator new
   %call6 = tail call i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64 32, %class.XMLMsgLoader* %tmp5)
   %tmp6 = bitcast i8* %call6 to %class.ValueVectorOf.1*
   %tmp7 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
 ; CHECK-TRANS:      ; ArrayInst: Array method call
 ; CHECK-TRANS-NEXT:   invoke void @"ValueVectorOf<DatatypeValidator*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"(%class.ValueVectorOf.1* %tmp6, i32 4, %class.XMLMsgLoader* %tmp7, i1 zeroext false)
+; CHECK-MOD:          br label %invoke.cont9
   invoke void @"ValueVectorOf<DatatypeValidator*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"(%class.ValueVectorOf.1* %tmp6, i32 4, %class.XMLMsgLoader* %tmp7, i1 zeroext false)
           to label %invoke.cont9 unwind label %lpad8
 
+; CHECK-MOD:        invoke.cont9:
 invoke.cont9:                                     ; preds = %invoke.cont
   %fValidators = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
   %tmp8 = bitcast %class.ValueVectorOf.1** %fValidators to i8**
+; Dead value
+; CHECK-MOD:          %tmp8 = bitcast %__SOA_AR_class.ValueVectorOf.0** %fValidators to i8**
 ; CHECK-TRANS:      ; ArrayInst: Init ptr to array
 ; CHECK-TRANS-NEXT:   store i8* %call6, i8** %tmp8
   store i8* %call6, i8** %tmp8
+; Store removed.
+; CHECK-MOD-NEXT:     %tmp9 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
   %tmp9 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
   %call12 = tail call i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64 40, %class.XMLMsgLoader* %tmp9)
   %tmp10 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager
@@ -191,8 +225,6 @@ lpad:                                             ; preds = %if.then
           cleanup
   %tmp22 = extractvalue { i8*, i32 } %tmp21, 0
   %tmp23 = extractvalue { i8*, i32 } %tmp21, 1
-; CHECK-TRANS:      ; ArrayInst: Deallocate
-; CHECK-TRANS-NEXT:   invoke void @"XMemory::operator delete(void*_ MemoryManager*)"(i8* %call, %class.XMLMsgLoader* %tmp1)
   invoke void @"XMemory::operator delete(void*_ MemoryManager*)"(i8* %call, %class.XMLMsgLoader* %tmp1)
           to label %eh.resume unwind label %terminate.lpad
 
@@ -201,8 +233,7 @@ lpad8:                                            ; preds = %invoke.cont
           cleanup
   %tmp25 = extractvalue { i8*, i32 } %tmp24, 0
   %tmp26 = extractvalue { i8*, i32 } %tmp24, 1
-; CHECK-TRANS:      ; ArrayInst: Deallocate
-; CHECK-TRANS-NEXT:   invoke void @"XMemory::operator delete(void*_ MemoryManager*)"(i8* %call6, %class.XMLMsgLoader* %tmp5)
+; CHECK-MOD:  br label %eh.resume
   invoke void @"XMemory::operator delete(void*_ MemoryManager*)"(i8* %call6, %class.XMLMsgLoader* %tmp5)
           to label %eh.resume unwind label %terminate.lpad
 
@@ -216,6 +247,7 @@ lpad14:                                           ; preds = %invoke.cont9
 
 if.end:                                           ; preds = %invoke.cont15, %entry
   %tmp30 = phi %class.IC_Field* [ %key, %entry ], [ %.pre, %invoke.cont15 ]
+; CHECK-MOD:     %call17 = tail call i32 @"FieldValueMap::indexOf(IC_Field const*) const{{.*}}"(%__SOA_class.FieldValueMap* %this, %class.IC_Field* %tmp30)
   %call17 = tail call i32 @"FieldValueMap::indexOf(IC_Field const*) const"(%class.FieldValueMap* %this, %class.IC_Field* %tmp30)
   %cmp = icmp eq i32 %call17, -1
   br i1 %cmp, label %if.then18, label %if.else
@@ -223,23 +255,32 @@ if.end:                                           ; preds = %invoke.cont15, %ent
 if.then18:                                        ; preds = %if.end
 ; CHECK-TRANS:      ; ArrayInst: Load of array
 ; CHECK-TRANS-NEXT:   %tmp31 = load %class.ValueVectorOf.0*, %class.ValueVectorOf.0** %fFields
+; CHECK-MOD:          %tmp31 = load %__SOA_AR_class.ValueVectorOf.0*, %__SOA_AR_class.ValueVectorOf.0** %fFields
   %tmp31 = load %class.ValueVectorOf.0*, %class.ValueVectorOf.0** %fFields
 ; CHECK-TRANS:      ; ArrayInst: Array method call
 ; CHECK-TRANS-NEXT:   call void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%class.ValueVectorOf.0* %tmp31, %class.IC_Field** %key.addr)
   call void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%class.ValueVectorOf.0* %tmp31, %class.IC_Field** %key.addr)
+; Call removed.
+; CHECK-MOD-NEXT:     %fValidators20 = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 0
   %fValidators20 = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
 ; CHECK-TRANS:      ; ArrayInst: Load of array
 ; CHECK-TRANS-NEXT:   %tmp32 = load %class.ValueVectorOf.1*, %class.ValueVectorOf.1** %fValidators20
+; CHECK-MOD-NEXT:     %tmp32 = load %__SOA_AR_class.ValueVectorOf.0*, %__SOA_AR_class.ValueVectorOf.0** %fValidators20
   %tmp32 = load %class.ValueVectorOf.1*, %class.ValueVectorOf.1** %fValidators20
 ; CHECK-TRANS:      ; ArrayInst: Array method call
 ; CHECK-TRANS-NEXT:   call void @"ValueVectorOf<DatatypeValidator*>::addElement(DatatypeValidator* const&)"(%class.ValueVectorOf.1* %tmp32, %class.DatatypeValidator** %dv.addr)
   call void @"ValueVectorOf<DatatypeValidator*>::addElement(DatatypeValidator* const&)"(%class.ValueVectorOf.1* %tmp32, %class.DatatypeValidator** %dv.addr)
+; Call removed.
+; CHECK-MOD-NEXT:     %fValues21 = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 2
   %fValues21 = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 2
   %tmp33 = bitcast %class.RefArrayVectorOf** %fValues21 to %class.BaseRefVectorOf**
   %tmp34 = load %class.BaseRefVectorOf*, %class.BaseRefVectorOf** %tmp33
   %fMemoryManager22 = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 3
   %tmp35 = load %class.XMLMsgLoader*, %class.XMLMsgLoader** %fMemoryManager22
+; CHECK-MOD:        %tobool.i = icmp eq i16* %value, null
   %tobool.i = icmp eq i16* %value, null
+; Replacement of 2 addElement at the end of basic block.
+; CHECK-MOD-NEXT:   call void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&){{.*}}"(%__SOA_AR_class.ValueVectorOf.0* %tmp31, %class.IC_Field** %key.addr, %class.DatatypeValidator** %dv.addr)
   br i1 %tobool.i, label %"XMLString::replicate(unsigned short const*, MemoryManager*) [clone .exit]", label %lor.lhs.false.i.i
 
 lor.lhs.false.i.i:                                ; preds = %if.then18
@@ -375,6 +416,7 @@ if.else:                                          ; preds = %if.end
   %tmp69 = load %class.ValueVectorOf.1*, %class.ValueVectorOf.1** %fValidators24
 ; CHECK-TRANS:      ; ArrayInst: Array method call
 ; CHECK-TRANS-NEXT:   call void @"ValueVectorOf<DatatypeValidator*>::setElementAt(DatatypeValidator* const&, unsigned int)"(%class.ValueVectorOf.1* %tmp69, %class.DatatypeValidator** %dv.addr, i32 %call17)
+; CHECK-MOD:         call void @"ValueVectorOf<DatatypeValidator*>::setElementAt(DatatypeValidator* const&, unsigned int){{.*}}"(%__SOA_AR_class.ValueVectorOf.0* %tmp69, %class.DatatypeValidator** %dv.addr, i32 %call17)
   call void @"ValueVectorOf<DatatypeValidator*>::setElementAt(DatatypeValidator* const&, unsigned int)"(%class.ValueVectorOf.1* %tmp69, %class.DatatypeValidator** %dv.addr, i32 %call17)
   %fValues25 = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 2
   %tmp70 = load %class.RefArrayVectorOf*, %class.RefArrayVectorOf** %fValues25
@@ -455,4 +497,7 @@ declare hidden void @"ValueVectorOf<DatatypeValidator*>::setElementAt(DatatypeVa
 declare hidden i8* @"XMemory::operator new(unsigned long_ MemoryManager*)"(i64, %class.XMLMsgLoader*)
 
 declare hidden void @"XMemory::operator delete(void*_ MemoryManager*)"(i8*, %class.XMLMsgLoader*)
-; CHECK-DEP: Deps computed: 80, Queries: 270
+; CHECK-TRANS: ; Seen appends.
+; CHECK-TRANS: ; Seen ctor.
+; CHECK-TRANS: ; Array call sites analysis result: required call sites can be merged
+; XCHECK-DEP: Deps computed: 80, Queries: 270

@@ -17,6 +17,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 
 using namespace llvm;
@@ -193,6 +194,45 @@ void WholeProgramInfo::makeAllLocalToCompilationUnit(Module &M,
   }
 }
 
+// Traverse through the IR and replace the calls to the intrinsic
+// llvm.intel.wholeprogramsafe with true if whole program safe was
+// detected. Else, replace the calls with a false. The intrinsic
+// llvm.intel.wholeprogramsafe should be removed completely after
+// this process since it won't be lowered. See the language reference
+// manual for more information.
+void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
+
+  Function *WhPrIntrin = M.getFunction("llvm.intel.wholeprogramsafe");
+
+  if (!WhPrIntrin)
+    return;
+
+  LLVMContext &Context = M.getContext();
+
+  ConstantInt *InitVal = (isWholeProgramSafe()?
+                          ConstantInt::getTrue(Context) :
+                          ConstantInt::getFalse(Context));
+
+  while (!WhPrIntrin->use_empty()){
+    // The intrinsic llvm.intel.wholeprogramsafe is only supported for
+    // CallInst instructions. The only intrinsics that are allowed in
+    // InvokeInst are: donothing, patchpoint, statepoint, coro_resume
+    // and coro_destroy.
+    CallInst *IntrinCall = cast<CallInst>(WhPrIntrin->user_back());
+    IntrinCall->replaceAllUsesWith(InitVal);
+    IntrinCall->eraseFromParent();
+  }
+
+  assert(WhPrIntrin->use_empty() && "Whole Program Analysis: intrinsic"
+          " llvm.intel.wholeprogramsafe wasn't removed correctly.");
+
+  WhPrIntrin->eraseFromParent();
+
+  assert(!M.getFunction("llvm.intel.wholeprogramsafe") &&
+          "Whole Program Analysis: intrinsic llvm.intel.wholeprogramsafe"
+          " wasn't removed correctly.");
+}
+
 WholeProgramInfo
 WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
                                 CallGraph *CG) {
@@ -202,11 +242,15 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 
   if (AssumeWholeProgram) {
     if (WholeProgramTrace)
-      errs() << "whole-progran-assume is enabled ... \n";
+      errs() << "whole-program-assume is enabled ... \n";
 
     Result.WholeProgramSeen = true;
     Result.makeAllLocalToCompilationUnit(M, CG);
   }
+
+  // Remove the uses of the intrinsic
+  // llvm.intel.wholeprogramsafe
+  Result.foldIntrinsicWholeProgramSafe(M);
 
   return Result;
 }

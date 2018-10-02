@@ -84,6 +84,9 @@ public:
   /// Returns true if this goto jumps outside the region.
   bool isExternal() const { return (TargetLabel == nullptr); }
 
+  /// Returns true if this goto is an early exit of \p Loop.
+  bool isEarlyExit(HLLoop *Loop) const;
+
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeClassID() == HLNode::HLGotoVal;

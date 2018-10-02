@@ -1,18 +1,5 @@
 ; RUN: opt < %s -early-cse-memssa -gvn-hoist -S | FileCheck %s
 
-; INTEL
-; CMPLRS-50169: Enable GVN Hoist for the case in cpu2017/525.
-; As of now GVN Hoist is not enabled by default in the community due to compile time issues.
-; Option gvn-hoist-limit-to-immediate-pred was added to narrow the applicability
-; of the optimization to simple cases only that allows us to target the desired
-; benchmarks even before the optimization is polished in the community.
-;
-; FIXME: Remove when the GVNHoist is enabled by default in the community.
-;
-; RUN: opt < %s -early-cse-memssa -gvn-hoist -gvn-hoist-limit-to-immediate-pred -S \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-INTEL-IMM-ONLY
-; end INTEL
-
 ; Make sure opt won't crash and that this pair of
 ; instructions (load, icmp) is hoisted successfully
 ; from bb45 and bb58 to bb41.
@@ -24,7 +11,6 @@
 @g_1276 = external global i32**, align 8
 
 ;CHECK-LABEL: @func_22
-;CHECK-INTEL-IMM-ONLY: @func_22
 
 define void @func_22(i32* %arg, i32* %arg1) {
 bb:
@@ -74,10 +60,6 @@ bb41:
 ;CHECK-NOT:   %tmp47 = load i32, i32* %arg1, align 4
 ;CHECK-NOT:   %tmp48 = icmp eq i32 %tmp47, 0
 
-;CHECK-INTEL-IMM-ONLY:      bb45:
-;CHECK-INTEL-IMM-ONLY-NEXT:   %tmp47 = load i32, i32* %arg1, align 4
-;CHECK-INTEL-IMM-ONLY-NEXT:   %tmp48 = icmp eq i32 %tmp47, 0
-
 bb45:
   %tmp47 = load i32, i32* %arg1, align 4
   %tmp48 = icmp eq i32 %tmp47, 0
@@ -99,10 +81,6 @@ bb55:
 ;CHECK:     bb58:
 ;CHECK-NOT:   %tmp60 = load i32, i32* %arg1, align 4
 ;CHECK-NOT:   %tmp61 = icmp eq i32 %tmp60, 0
-
-;CHECK-INTEL-IMM-ONLY:      bb58:
-;CHECK-INTEL-IMM-ONLY-NEXT:   %tmp60 = load i32, i32* %arg1, align 4
-;CHECK-INTEL-IMM-ONLY-NEXT:   %tmp61 = icmp eq i32 %tmp60, 0
 
 bb58:
   %tmp60 = load i32, i32* %arg1, align 4

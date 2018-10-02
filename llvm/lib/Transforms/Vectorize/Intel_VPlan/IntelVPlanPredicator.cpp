@@ -704,6 +704,13 @@ void VPlanPredicator::predicate(void) {
     optimizeRegionRec(EntryLoopR, nullptr /* IncomingAllOnesPred */);
     dumpVplanDot(Plan, "/tmp/vplan.optimized.dot"); // For debugging
   }
+  const VPLoop *VPL = EntryLoopR->getVPLoop();
+  SmallVector<VPBlockBase *, 8> Exits;
+  VPL->getExitBlocks(Exits);
+  // FIXME: Current linearization doesn't work correctly for multi exit loops,
+  // thus disable it by now.
+  if (Exits.size() > 1)
+    return;
 
   linearizeRegionRec(EntryLoopR);
 

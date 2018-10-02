@@ -22,18 +22,22 @@
 ; CHECK: if (%mv.and == 0)
 
 ; CHECK: Loop metadata: No
+; CHECK: DO
 
 ; CHECK: <RVAL-REG> {{.*}} %q)[{{.*}}]{{.*}} !alias.scope [[SCOPE1:.*]] !noalias [[SCOPE2:.*]] {
 ; CHECK: <LVAL-REG> {{.*}} %p)[{{.*}}]{{.*}} !alias.scope [[SCOPE2]] !noalias [[SCOPE1]] {
 
 ; CHECK: Loop metadata: !llvm.loop
+; CHECK: DO
+; CHECK: <nounroll> <novectorize>
 
 ; Check after HIR CG
 ; CG-CHECK: ModuleID
 ; CG-CHECK: !llvm.loop ![[MD:[0-9]+]]
-; CG-CHECK: ![[MD]] = distinct !{![[MD]], ![[MD1:[0-9]+]], ![[MD2:[0-9]+]]}
+; CG-CHECK: ![[MD]] = distinct !{![[MD]], ![[MD1:[0-9]+]], ![[MD2:[0-9]+]], ![[MD3:[0-9]+]]}
 ; CG-CHECK: ![[MD1]] = !{!"llvm.loop.vectorize.width", i32 1}
 ; CG-CHECK: ![[MD2]] = !{!"llvm.loop.interleave.count", i32 1}
+; CG-CHECK: ![[MD3]] = !{!"llvm.loop.unroll.disable"}
 
 ; ModuleID = 'ptrs.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

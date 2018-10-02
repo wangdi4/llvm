@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/AliasAnalysisEvaluator.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"   // INTEL
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
@@ -29,6 +30,7 @@ protected:
   LLVMContext C;
   Module M;
   MDBuilder MD;
+  TypeBasedAAResult TBAA;   // INTEL
 };
 
 static StoreInst *getFunctionWithSingleStore(Module *M, StringRef Name) {
@@ -44,6 +46,28 @@ static StoreInst *getFunctionWithSingleStore(Module *M, StringRef Name) {
 
   return SI;
 }
+
+#if INTEL_CUSTOMIZATION
+static std::pair <StoreInst*, LoadInst*> getFunctionWithLoadStore(Module *M, StringRef Name) {
+  auto &C = M->getContext();
+  FunctionType *FTy = FunctionType::get(Type::getVoidTy(C), {});
+  auto *F = cast<Function>(M->getOrInsertFunction(Name, FTy));
+  auto *BB = BasicBlock::Create(C, "entry", F);
+
+  auto *CharType = Type::getInt8Ty(C);
+  auto *CharGlobal = new GlobalVariable(*M, CharType, false,
+                                    GlobalValue::ExternalLinkage, nullptr);
+  auto *SI = new StoreInst(ConstantInt::get(CharType, 10),
+                           dyn_cast<Value>(CharGlobal), BB);
+
+  auto *IntPtrType = Type::getInt32PtrTy(C);
+  auto *LI = new LoadInst(ConstantPointerNull::get(IntPtrType), "load", BB);
+
+  ReturnInst::Create(C, nullptr, BB);
+
+  return std::make_pair(SI, LI);
+}
+#endif // INTEL_CUSTOMIZATION
 
 TEST_F(TBAATest, checkVerifierBehaviorForOldTBAA) {
   auto *SI = getFunctionWithSingleStore(&M, "f1");
@@ -86,6 +110,43 @@ TEST_F(TBAATest, checkTBAAMerging) {
 
   EXPECT_TRUE(!verifyFunction(*F));
 }
+
+#if INTEL_CUSTOMIZATION
+// If one of the references is global Char type, it cannot be
+// aliased by an access to an enclosing (descendant) type. This test checks
+// if TBAA applies this rule commutatively i.e., it returns the same no alias
+// results for the same pair of values even if their ordering is different.
+// JIRA: LCPT-1366
+TEST_F(TBAATest, checkTBAACommutativity) {
+  std::pair <StoreInst*, LoadInst*> LoadStore = getFunctionWithLoadStore(&M, "f3");
+  StoreInst *SI = LoadStore.first;
+  LoadInst *LI = LoadStore.second;
+
+  auto *RootMD = MD.createTBAARoot("tbaa-root");
+  auto *MDChar = MD.createTBAANode("omnipotent char", RootMD);
+  auto *CharAccessTag = MD.createTBAAStructTagNode(MDChar, MDChar, 0);
+  auto *MDInt = MD.createTBAANode("int", MDChar);
+  auto *IntAccessTag = MD.createTBAAStructTagNode(MDInt, MDInt, 0);
+
+  SI->setMetadata(LLVMContext::MD_tbaa, CharAccessTag);
+  LI->setMetadata(LLVMContext::MD_tbaa, IntAccessTag);
+
+  Value *GlobalVal = SI->getPointerOperand();
+  Type *CharType = GlobalVal->getType()->getPointerElementType();
+  assert((isa<GlobalValue>(GlobalVal) &&
+          CharType->getPrimitiveSizeInBits() == 8) &&
+          "Variable should be a Global char!");
+
+  const MemoryLocation Loc1 = MemoryLocation::get(SI);
+  const MemoryLocation Loc2 = MemoryLocation::get(LI);
+
+  auto AliasResult1 = TBAA.alias(Loc1, Loc2);
+  auto AliasResult2 = TBAA.alias(Loc2, Loc1);
+
+  EXPECT_EQ(AliasResult1, MayAlias);
+  EXPECT_EQ(AliasResult2, MayAlias);
+}
+#endif // INTEL_CUSTOMIZATION
 
 } // end anonymous namspace
 } // end llvm namespace

@@ -19,6 +19,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -34,23 +35,6 @@ static cl::opt<bool>
     DTransOptBaseProcessFuncDecl("dtrans-optbase-process-function-declaration",
                                  cl::init(false), cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-//===----------------------------------------------------------------------===//
-// Utility functions for llvm:Type objects
-//===----------------------------------------------------------------------===//
-
-// Helper method to dereference through all the pointer or array levels to get
-// to a non-pointer/non-array type for the input type.
-Type *unwrapType(Type *Ty) {
-  Type *BaseTy = Ty;
-  while (BaseTy->isPointerTy() || BaseTy->isArrayTy())
-    if (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
-    else
-      BaseTy = BaseTy->getArrayElementType();
-
-  return BaseTy;
-}
 } // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
@@ -379,7 +363,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
 
   if (auto *StructTy = dyn_cast<StructType>(Ty)) {
     for (auto *MemberType : StructTy->elements()) {
-      Type *BaseTy = unwrapType(MemberType);
+      Type *BaseTy = dtrans::unwrapType(MemberType);
       if (auto *FunctionTy = dyn_cast<FunctionType>(BaseTy))
         collectDependenciesForTypeRecurse(Dependee, FunctionTy);
       else
@@ -389,7 +373,7 @@ void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
   }
 
   if (auto *ArrayTy = dyn_cast<ArrayType>(Ty)) {
-    Type *BaseTy = unwrapType(ArrayTy->getElementType());
+    Type *BaseTy = dtrans::unwrapType(ArrayTy->getElementType());
     if (auto *FunctionTy = dyn_cast<FunctionType>(BaseTy))
       collectDependenciesForTypeRecurse(Dependee, FunctionTy);
     else
@@ -400,13 +384,13 @@ void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
 
   if (auto *FuncTy = dyn_cast<FunctionType>(Ty)) {
     Type *RetTy = FuncTy->getReturnType();
-    Type *BaseTy = unwrapType(RetTy);
+    Type *BaseTy = dtrans::unwrapType(RetTy);
     UpdateTypeToDependentTypeMap(BaseTy, Dependee);
 
     unsigned Total = FuncTy->getNumParams();
     for (unsigned Idx = 0; Idx < Total; ++Idx) {
       Type *ParmTy = FuncTy->getParamType(Idx);
-      Type *BaseTy = unwrapType(ParmTy);
+      Type *BaseTy = dtrans::unwrapType(ParmTy);
       if (auto *BaseFuncTy = dyn_cast<FunctionType>(BaseTy))
         collectDependenciesForTypeRecurse(Dependee, BaseFuncTy);
       else
@@ -552,6 +536,29 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   // Set up the mapping of Functions to CallInfo objects that need to
   // be processed as each function is transformed.
   initializeFunctionCallInfoMapping();
+
+  // Check for debug information that we do not want to be cloned when
+  // cloning/remapping functions, and set those objects to map to themselves
+  // within the metadata portion of the Value-to-Value map. Specifically, we
+  // need to do this for all DISubprogram metadata objects. Otherwise the calls
+  // to CloneFucntionInto and remapFunction will create new versions of these
+  // objects. Multiple llvm.debug.value intrinsic calls can point to the same
+  // metadata object when the DILocalVariable comes from an inlined routine.
+  // This leads to consistency problems because there would be two DISubprogram
+  // scopes for the routine if we allowed the metadata to be cloned (the
+  // variable would point to one scope, but the debug line location would point
+  // to the other due to the way cloneFunctionInto operates.)
+  // We delete the original function after a cloned function is created, so in
+  // the end there will only be one DISubprogram object needed anyway.
+  //
+  // Note: we need to do this for all the DISubprograms that exist in the
+  // metadata, not just the functions that exist in the module because some
+  // inlined function bodies may have already been removed.
+  DebugInfoFinder DIFinder;
+  DIFinder.processModule(M);
+  auto &MD = VMap.MD();
+  for (DISubprogram *SP : DIFinder.subprograms())
+    MD[SP].reset(SP);
 
   for (auto &F : M) {
     if (F.isDeclaration())

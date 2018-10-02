@@ -125,7 +125,7 @@ private:
           : BaseTy(It), Info(Info) {}
 
       typename BaseTy::reference operator*() const {
-        return Info->getSOAArrayType(*this->wrapped());
+        return getSOAArrayType(Info->Struct, *this->wrapped());
       }
     };
 
@@ -134,14 +134,15 @@ private:
     class ElementIter
         : public iterator_adaptor_base<
               ElementIter<IterTy>, IterTy,
-              typename std::iterator_traits<IterTy>::iterator_category, Type *,
-              typename std::iterator_traits<IterTy>::difference_type, Type **,
-              Type *> {
+              typename std::iterator_traits<IterTy>::iterator_category,
+              PointerType *,
+              typename std::iterator_traits<IterTy>::difference_type,
+              PointerType **, PointerType *> {
       using BaseTy = iterator_adaptor_base<
           ElementIter, OffsetsTy::const_iterator,
-          typename std::iterator_traits<IterTy>::iterator_category, Type *,
-          typename std::iterator_traits<IterTy>::difference_type, Type **,
-          Type *>;
+          typename std::iterator_traits<IterTy>::iterator_category,
+          PointerType *, typename std::iterator_traits<IterTy>::difference_type,
+          PointerType **, PointerType *>;
 
     public:
       const CandidateLayoutInfo *Info;
@@ -149,7 +150,9 @@ private:
           : BaseTy(It), Info(Info) {}
 
       typename BaseTy::reference operator*() const {
-        return Info->getSOAElementType(*this->wrapped());
+        return getSOAElementType(
+            getSOAArrayType(Info->Struct, *this->wrapped()),
+            Info->BasePointerOffset);
       }
     };
 
@@ -190,19 +193,6 @@ private:
     // Offset inside _arrays_' elements(), which represent base pointers to
     // allocated memory.
     unsigned BasePointerOffset = -1U;
-
-  private:
-    // Off is some element of ArrayFieldOffsets.
-    StructType *getSOAArrayType(unsigned Off) const {
-      return cast<StructType>(
-          Struct->getElementType(Off)->getPointerElementType());
-    }
-    // Off is some element of ArrayFieldOffsets.
-    Type *getSOAElementType(unsigned Off) const {
-      return getSOAArrayType(Off)
-          ->getElementType(BasePointerOffset)
-          ->getPointerElementType();
-    }
   };
 
   // Prepare CFG information and methods to analyze.
@@ -669,8 +659,8 @@ bool SOAToAOSTransformImpl::CandidateCFGInfo::populateCFGInformation(
     if (FTy->getNumParams() < 1)
       return nullptr;
 
-    if (auto *PTy = dyn_cast<PointerType>(*FTy->param_begin()))
-      if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+    if (auto *PTy = dyn_cast<PointerType>(FTy->getParamType(0)))
+      if (auto *STy = dyn_cast<StructType>(PTy->getElementType()))
         return STy;
 
     return nullptr;
@@ -753,6 +743,11 @@ bool SOAToAOSTransformImpl::CandidateCFGInfo::populateCFGInformation(
         if (Pointee == MemoryInterface)
           continue;
 
+        // FIXME: only these are allowed.
+        // Attribute::AttrKind Known[] = {
+        //   Attribute::NonNull,         Attribute::NoCapture,
+        //   Attribute::ReadOnly,        Attribute::ReadNone,
+        //   Attribute::Dereferenceable, Attribute::DereferenceableOrNull};
         // Only MemoryInterface and by-value argument of element type can be
         // captured.
         if (!Arg.hasNoCaptureAttr())
@@ -793,44 +788,43 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
                     // *this as DepMap to fill.
                     *this);
 
-      auto &AllMethods = *std::get<0>(Pair);
-
-      // Mark calls to methods as known.
-      std::function<bool(const Function *)> IsMethod =
-          [&AllMethods](const Function *F) -> bool {
-        return std::find(AllMethods.begin(), AllMethods.end(), F) !=
-               AllMethods.end();
-      };
-      DC.computeDepApproximation(IsMethod);
-
+      bool Result = DC.computeDepApproximation();
+      LLVM_DEBUG(dbgs() << "; Dep approximation for array's method "
+                        << F->getName()
+                        << (Result ? " is successful\n" : " incomplete\n"));
       DEBUG_WITH_TYPE(DTRANS_SOADEP, {
         dbgs() << "; Dump computed dependencies ";
-
         DepMap::DepAnnotatedWriter Annotate(*this);
         F->print(dbgs(), &Annotate);
       });
+      if (!Result)
+        return FALSE();
     }
 
   for (auto *F : StructMethods) {
     DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
 
-    std::function<bool(const Function *)> IsMethod =
-        [F](const Function *F1) -> bool { return F == F1; };
-
-    DC.computeDepApproximation(IsMethod);
-
+    bool Result = DC.computeDepApproximation();
+    LLVM_DEBUG(dbgs() << "; Dep approximation for struct's method "
+                      << F->getName()
+                      << (Result ? " is successful\n" : " incomplete\n"));
     DEBUG_WITH_TYPE(DTRANS_SOADEP, {
       dbgs() << "; Dump computed dependencies ";
 
       DepMap::DepAnnotatedWriter Annotate(*this);
       F->print(dbgs(), &Annotate);
     });
+
+    if (!Result)
+      return FALSE();
   }
 
   // Direct map from MK to set of methods.
   Classifications.assign(getNumArrays(),
                          ClassifyMethodsTy(MK_Last + 1, MethodKindSetTy()));
 
+  // TODO: store results somewhere for transformation.
+  ComputeArrayMethodClassification::TransformationData Data;
   for (auto Tuple :
        zip_first(methodsets(), fields(), elements(), methodbins())) {
     SmallVector<const Function *, 1> MethodsCalled;
@@ -840,8 +834,6 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       LLVM_DEBUG(dbgs() << "; Checking array's method " << F->getName()
                         << "\n");
 
-      // TODO: store results somewhere for transformation.
-      ComputeArrayMethodClassification::TransformationData Data;
       ComputeArrayMethodClassification MC(Impl.DL,
                                           // *this as DepMap to query.
                                           *this, S,
@@ -865,24 +857,21 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       }
     }
     // Simple processing of MK_Append.
-    if (MethodsCalled.size() > 1)
+    // As direct calls to MK_Realloc is not tested, forbid it, MK_Realloc is
+    // called only from MK_Append.
+    if (MethodsCalled.size() != 1)
       return FALSE();
-    else if (MethodsCalled.size() == 1) {
-      if ((*std::get<3>(Tuple))[MK_Realloc][0] != MethodsCalled[0])
-        return FALSE();
-    }
+    else if ((*std::get<3>(Tuple))[MK_Realloc][0] != MethodsCalled[0])
+      return FALSE();
   }
 
   // Check combined methods.
   auto &FirstBins = **methodbins_begin();
-  auto &FirstSet = **methodsets_begin();
-
   GlobalNumberState GNS;
   for (auto Tuple :
        zip_first(make_range(methodbins_begin() + 1, methodbins_end()),
                  make_range(methodsets_begin() + 1, methodsets_end()))) {
     auto &OtherBins = *std::get<0>(Tuple);
-    auto &OtherSet = *std::get<1>(Tuple);
     for (int i = MK_Unknown; i <= MK_Last; ++i)
       switch (static_cast<MethodKind>(i)) {
       case MK_Unknown:
@@ -913,19 +902,16 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
         FunctionComparator cmp(F, O, &GNS);
         if (cmp.compare() == 0) {
+          LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
+                            << O->getName() << " showed bit-to-bit equality\n");
           GNS.setEqual(F, O);
-          if (std::find(FirstSet.begin(), FirstSet.end(),
-                        cast<Instruction>(F->use_begin()->getUser())
-                            ->getParent()
-                            ->getParent()) == FirstSet.end() ||
-              std::find(OtherSet.begin(), OtherSet.end(),
-                        cast<Instruction>(O->use_begin()->getUser())
-                            ->getParent()
-                            ->getParent()) == OtherSet.end())
-            if (!compareCallSites(F, O, static_cast<MethodKind>(i)))
-              return FALSE();
-        } else
+        } else {
+          LLVM_DEBUG(dbgs()
+                     << "; Comparison of " << F->getName() << " and "
+                     << O->getName() << " showed some differences, "
+                     << "this situation cannot be handled in SOAToAOS\n");
           return FALSE();
+        }
         break;
       }
       // Not combined methods.
@@ -936,13 +922,53 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       }
   }
 
-  return true;
-}
+  SmallVector<StructType*, MaxNumFieldCandidates> Arrays;
+  for (auto *ArrTy : fields())
+    Arrays.push_back(ArrTy);
 
-// FIXME: Fill-in placeholder.
-// Need to compare arguments and check adjacency of calls.
-bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::compareCallSites(
-    Function *F1, Function* F2, MethodKind MK) const {
+  CallSiteComparator::CallSitesInfo CSInfo;
+  for (auto *PBin : methodbins()) {
+    auto &Bin = *PBin;
+    if (!Bin[MK_Ctor].empty())
+      CSInfo.Ctors.push_back(Bin[MK_Ctor][0]);
+    if (!Bin[MK_CCtor].empty())
+      CSInfo.CCtors.push_back(Bin[MK_CCtor][0]);
+    if (!Bin[MK_Dtor].empty())
+      CSInfo.Dtors.push_back(Bin[MK_Dtor][0]);
+    if (!Bin[MK_Append].empty())
+      CSInfo.Appends.push_back(Bin[MK_Append][0]);
+  }
+
+  for (auto *F : StructMethods) {
+    SummaryForIdiom S(Struct, MemoryInterface, F);
+
+    // TODO: store results somewhere for transformation.
+    // FIXME: Make TI per-module and not per-function.
+    StructureMethodAnalysis::TransformationData TI;
+    // TODO: make order of arguments consistent.
+    // TODO: add diagnostic messages.
+    StructureMethodAnalysis MChecker(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S,
+                                     Arrays, TI);
+    bool CheckResult = MChecker.checkStructMethod();
+    LLVM_DEBUG(dbgs() << "; Struct's method " << F->getName()
+                      << (CheckResult ? " has only expected side-effects\n"
+                                      : " needs analysis of instructions\n"));
+    if (!CheckResult)
+      return FALSE();
+
+    CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
+                             ArrayFieldOffsets, TI, CSInfo,
+                             BasePointerOffset);
+    bool Comparison = CSCmp.canCallSitesBeMerged();
+    LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
+                      << (Comparison
+                              ? "required call sites can be merged"
+                              : "problem with call sites required to be merged")
+                      << " in " << F->getName() << "\n");
+    if (!Comparison)
+      return FALSE();
+  }
+
   return true;
 }
 

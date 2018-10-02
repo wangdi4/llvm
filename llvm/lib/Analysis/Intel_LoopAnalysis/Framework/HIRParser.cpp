@@ -517,6 +517,113 @@ bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
                          SimplifiedConstant);
 }
 
+static bool isUMaxBlob(BlobTy Blob) { return isa<SCEVUMaxExpr>(Blob); }
+
+static bool isAddWithNegativeOne(BlobTy Blob) {
+  auto *Add = dyn_cast<SCEVAddExpr>(Blob);
+
+  if (!Add) {
+    return false;
+  }
+
+  auto *Offset = dyn_cast<SCEVConstant>(Add->getOperand(0));
+
+  return Offset && (Offset->getAPInt().getSExtValue() == -1);
+}
+
+bool HIRParser::isUMinBlob(BlobTy Blob) {
+  // umin(x, y) is represented as !umax(!x, !y)
+  // !x is represented as -1 + -1*x
+  //
+  // which means-
+  // umin(x, y) = -1 + -1*umax(-1 + -1*x, -1 + -1*y)
+  //
+  // We just look for -1*umax(-1 + -1*x, -1 + -1*y) as -1 can easily get folded.
+
+  auto Mul = dyn_cast<SCEVMulExpr>(Blob);
+
+  if (!Mul || (Mul->getNumOperands() != 2)) {
+    return false;
+  }
+
+  // First operand of multiply should be -1.
+  auto *Multiplier = dyn_cast<SCEVConstant>(Mul->getOperand(0));
+
+  if (!Multiplier || (Multiplier->getAPInt().getSExtValue() != -1)) {
+    return false;
+  }
+
+  auto *UMax = dyn_cast<SCEVUMaxExpr>(Mul->getOperand(1));
+
+  if (!UMax) {
+    return false;
+  }
+
+  // We are looking for constant operands or operands of type (-1 + x).
+  // We do not check for multiplication with -1 as it can get folded into a
+  // complicated operand. For example -1 * (t1 - t2) will be folded to
+  // (t2 - t1).
+  for (unsigned I = 0, E = UMax->getNumOperands(); I < E; ++I) {
+    auto *Op = UMax->getOperand(I);
+
+    if (!isa<SCEVConstant>(Op) && !isAddWithNegativeOne(Op)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool HIRParser::getMinBlobValue(BlobTy Blob, int64_t &Val) const {
+  auto Range = SE.getSignedRange(Blob);
+
+  if (!Range.isFullSet()) {
+    Val = Range.getSignedMin().getSExtValue();
+
+    // Conservatively return false for large values to prevent overflow in
+    // client side computation as well as to prevent use of overly conservative
+    // values like INT_MIN/INT_MAX.
+    if (Val < SHRT_MIN || Val > SHRT_MAX) {
+      return false;
+    }
+
+    return true;
+  }
+
+  if (isUMinBlob(Blob)) {
+    // Minimum is one because umin() = -1 + -1 * umax() but we only match
+    // -1 * umax() part of it.
+    Val = 1;
+    return true;
+  }
+
+  if (isUMaxBlob(Blob)) {
+    Val = 0;
+    return true;
+  }
+
+  return false;
+}
+
+bool HIRParser::getMaxBlobValue(BlobTy Blob, int64_t &Val) const {
+  auto Range = SE.getSignedRange(Blob);
+
+  if (Range.isFullSet()) {
+    return false;
+  }
+
+  Val = Range.getSignedMax().getSExtValue();
+
+  // Conservatively return false for large values to prevent overflow in client
+  // side computation as well as to prevent use of overly conservative values
+  // like INT_MIN/INT_MAX.
+  if (Val < SHRT_MIN || Val > SHRT_MAX) {
+    return false;
+  }
+
+  return true;
+}
+
 struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
   HIRParser *HIRP;
 
@@ -1570,7 +1677,11 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
 void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
                                             BlobTy *NewBlob) {
 
-  if (auto MulSCEV = dyn_cast<SCEVMulExpr>(Blob)) {
+  auto *MulSCEV = dyn_cast<SCEVMulExpr>(Blob);
+
+  // We want to keep UMin blob so it can be recognized by HIR analyses and
+  // transformations.
+  if (MulSCEV && !isUMinBlob(Blob)) {
 
     if (auto ConstSCEV = dyn_cast<SCEVConstant>(MulSCEV->getOperand(0))) {
       SmallVector<const SCEV *, 4> Ops;
@@ -3066,12 +3177,48 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   return Ref;
 }
 
+// Returns true if lval ref of \p Inst contains a blob and rval doesn't. This
+// usually happens when the rvals have a linear form but the combination
+// doesn't. For example- t1 = i1 * i2 linear form of t1 is t2 * i2 where t2 is
+// the underlying LLVM value representing i1.
+//
+static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
+                                    const RegDDRef *LvalRef) {
+
+  for (auto BlobIt = LvalRef->blob_cbegin(), EIt = LvalRef->blob_cend();
+       BlobIt != EIt; ++BlobIt) {
+    unsigned BlobIndex = (*BlobIt)->getBlobIndex();
+
+    bool FoundBlob = false;
+    for (auto RefIt = HInst->rval_op_ddref_begin(),
+              E = HInst->rval_op_ddref_end();
+         RefIt != E; ++RefIt) {
+      auto *Ref = *RefIt;
+
+      assert(Ref->isTerminalRef() &&
+             "unexpected rval ref for non self blob lval!");
+
+      if (Ref->usesTempBlob(BlobIndex)) {
+        FoundBlob = true;
+        break;
+      }
+    }
+
+    if (!FoundBlob) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
-                                       bool IsLval) {
+                                       HLInst *LvalInst) {
   CanonExpr *CE;
 
   clearTempBlobLevelMap();
 
+  bool IsLval = (LvalInst != nullptr);
   ParsingScalarLval = IsLval;
 
   auto Symbase = getOrAssignSymbase(Val);
@@ -3081,7 +3228,9 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
 
   Ref->setSingleCanonExpr(CE);
 
-  if (CE->isSelfBlob()) {
+  bool IsSelfBlob = CE->isSelfBlob();
+
+  if (IsSelfBlob) {
     unsigned SB = getTempBlobSymbase(CE->getSingleBlobIndex());
 
     // Update rval DDRef's symbase to blob's symbase for self-blob DDRefs.
@@ -3106,6 +3255,10 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
       Ref->setSymbase(GenericRvalSymbase);
     }
     populateBlobDDRefs(Ref, Level);
+  }
+
+  if (IsLval && !IsSelfBlob && hasLvalRvalBlobMismatch(LvalInst, Ref)) {
+    Ref->makeSelfBlob(true);
   }
 
   ParsingScalarLval = false;
@@ -3149,8 +3302,9 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   return Ref;
 }
 
-RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
+RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   RegDDRef *Ref;
+  auto *Inst = HInst->getLLVMInstruction();
 
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
@@ -3161,7 +3315,7 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
     parseMetadata(Inst, Ref);
 
   } else {
-    Ref = createScalarDDRef(Inst, Level, true);
+    Ref = createScalarDDRef(Inst, Level, HInst);
   }
 
   return Ref;
@@ -3316,7 +3470,6 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
 }
 
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
-  bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
   unsigned Level;
 
@@ -3337,20 +3490,14 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     CurOutermostLoop = OuterLoop ? OuterLoop->getLLVMLoop() : nullptr;
   }
 
-  // Process lval
-  if (HInst->hasLval()) {
-    HasLval = true;
-
-    if (IsPhase1 && !isEssential(Inst)) {
-      // Postpone the processing of this instruction to Phase2.
-      auto Symbase = getOrAssignSymbase(Inst);
-      UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
-      return;
-    }
-
-    HInst->setLvalDDRef(createLvalDDRef(Inst, Level));
+  if (IsPhase1 && !isEssential(Inst)) {
+    // Postpone the processing of this instruction to Phase2.
+    auto Symbase = getOrAssignSymbase(Inst);
+    UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
+    return;
   }
 
+  bool HasLval = HInst->hasLval();
   unsigned NumRvalOp = getNumRvalOperands(Inst);
   auto Call = dyn_cast<CallInst>(Inst);
 
@@ -3359,6 +3506,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
       (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
 
   unsigned NumArgOperands = Call ? Call->getNumArgOperands() : 0;
+
   // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
 
@@ -3391,6 +3539,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
                  (!IsBundleOperand &&
                   (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly))));
     }
+  }
+
+  // Process lval
+  if (HasLval) {
+    HInst->setLvalDDRef(createLvalDDRef(HInst, Level));
   }
 
   // For indirect calls, set the function pointer as the last operand.

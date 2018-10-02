@@ -140,4 +140,4 @@ return:                                           ; preds = %for.end, %if.then
   ret void
 }
 
-; CHECK: Deps computed: 26, Queries: 58
+; XCHECK: Deps computed: 26, Queries: 58

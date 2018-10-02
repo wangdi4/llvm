@@ -536,3 +536,19 @@ bool BlobUtils::getTempBlobMostProbableConstValue(unsigned BlobIndex,
 bool BlobUtils::isInstBlob(BlobTy Blob) {
   return isa<Instruction>(cast<SCEVUnknown>(Blob)->getValue());
 }
+
+bool BlobUtils::isUMinBlob(BlobTy Blob) {
+  return HIRParser::isUMinBlob(Blob);
+}
+
+bool BlobUtils::isUMaxBlob(BlobTy Blob) {
+  return isa<SCEVUMaxExpr>(Blob);
+}
+
+bool BlobUtils::getMinBlobValue(BlobTy Blob, int64_t &Val) const {
+  return getHIRParser().getMinBlobValue(Blob, Val);
+}
+
+bool BlobUtils::getMaxBlobValue(BlobTy Blob, int64_t &Val) const {
+  return getHIRParser().getMaxBlobValue(Blob, Val);
+}

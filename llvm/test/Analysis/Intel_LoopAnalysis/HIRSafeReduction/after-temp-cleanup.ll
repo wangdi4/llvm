@@ -4,7 +4,7 @@
 ; Check safe reduction is identified after temp cleanup.
 ;
 ;
-; CHECK: %t.08 = %t.08 + %k  +  (%A)[i1]; <Safe Reduction>
+; CHECK: %t.08 = %k + %t.08  +  (%A)[i1]; <Safe Reduction>
 ;
 ; 
 ; Source looks like:

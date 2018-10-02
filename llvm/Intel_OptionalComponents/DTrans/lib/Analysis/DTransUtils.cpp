@@ -29,6 +29,10 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+// Name used for metadata attachment that associates an instruction as
+// being a specific type.
+const char *DTransOpMetadataName = "dtrans-type";
+
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
   if (!Ty->hasName())
     return false;
@@ -179,7 +183,7 @@ void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
 }
 
 void dtrans::collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
-                                    SmallPtrSet<const Value *, 3> &OutputSet,
+                                    SmallPtrSetImpl<const Value *> &OutputSet,
                                     const TargetLibraryInfo &TLI) {
   unsigned PtrArgInd = -1U;
   getFreePtrArg(Kind, CS, PtrArgInd, TLI);
@@ -404,6 +408,16 @@ bool dtrans::isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy,
   if (!SrcPointeeTy->isPointerTy() || !DestPointeeTy->isPointerTy())
     return false;
   return isElementZeroAccess(SrcPointeeTy, DestPointeeTy);
+}
+
+Type *dtrans::unwrapType(Type *Ty) {
+  Type *BaseTy = Ty;
+  while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy())
+    if (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+    else
+      BaseTy = BaseTy->getSequentialElementType();
+  return BaseTy;
 }
 
 static void printSafetyInfo(const SafetyData &SafetyInfo,
@@ -831,4 +845,44 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
     return hasZeroSizedArrayAsLastField(PointerTy->getPointerElementType());
 
   return false;
+}
+
+// Annotate an instruction to indicate that the value should be treated as a
+// specific type for DTrans. Currently, this attaches metadata to the
+// instruction, but could be changed to insert an intrinsic in the IR in the
+// future. We currently limit this to holding a single type.
+//
+// The format of the metadata is to store a null value of the specified type
+// as follows:
+//   { Ty null }
+//
+// The use of a null value of the type enables the type to be kept up-to-date
+// when DTrans transformations run because when the instruction referencing the
+// metadata is remapped, the type within the metadata will be remapped as well,
+// if the type changes.
+void dtrans::createDTransTypeAnnotation(Instruction *I, llvm::Type *Ty) {
+  assert(Ty->isPointerTy() && "Annotation type must be pointer type");
+  assert(I->getMetadata(DTransOpMetadataName) == nullptr &&
+         "Only a single dtrans type metadata attachment allowed.");
+
+  LLVMContext &Ctx = I->getContext();
+  MDNode *MD =
+      MDNode::get(Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty))});
+  I->setMetadata(DTransOpMetadataName, MD);
+}
+
+// Get the type that exists in an annotation, if one exists, for the
+// instruction.
+llvm::Type *dtrans::lookupDTransTypeAnnotation(Instruction *I) {
+  auto *MD = I->getMetadata(DTransOpMetadataName);
+  if (!MD)
+    return nullptr;
+
+  assert(MD->getNumOperands() == 1 && "Unexpected metadata operand count");
+  auto &MDOpp1 = MD->getOperand(0);
+  auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
+  if (!TyMD)
+    return nullptr;
+
+  return TyMD->getType();
 }

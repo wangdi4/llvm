@@ -135,6 +135,9 @@ FunctionPass *createHIRDeadStoreEliminationPass();
 
 /// Create pass that computes last value of a temp.
 FunctionPass *createHIRLastValueComputationPass();
+
+/// Create pass that propagate casted IV for memory references.
+FunctionPass *createHIRPropagateCastedIVPass();
 }
 
 #endif

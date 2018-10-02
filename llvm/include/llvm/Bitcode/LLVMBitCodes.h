@@ -596,6 +596,7 @@ enum AttributeKindCodes {
   ATTR_KIND_NOCF_CHECK = 56,
   ATTR_KIND_OPT_FOR_FUZZING = 57,
   ATTR_KIND_SHADOWCALLSTACK = 58,
+  ATTR_KIND_SPECULATIVE_LOAD_HARDENING = 59,
 
 #if INTEL_CUSTOMIZATION
   // Note: Anything 63/over causes an issue with shifting later on.  The

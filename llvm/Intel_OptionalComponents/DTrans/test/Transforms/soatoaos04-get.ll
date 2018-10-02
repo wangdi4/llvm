@@ -20,8 +20,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %class.DatatypeValidator = type opaque
 %class.ValueVectorOf = type { i8, i32, i32, %class.DatatypeValidator**, %class.XMLMsgLoader* }
 %class.XMLException = type { i32 (...)**, i32, i8*, i32, i16*, %class.XMLMsgLoader* }
-; CHECK-MOD: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
-; CHECK-MOD: %__SOA_EL_class.ValueVectorOf = type { float*, %class.DatatypeValidator* }
+; CHECK-MOD-DAG: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
+; CHECK-MOD-DAG: %__SOA_EL_class.ValueVectorOf = type { float*, %class.DatatypeValidator* }
 
 @"typeinfo for ArrayIndexOutOfBoundsException" = external constant { i8*, i8*, i8* }
 @.str.1.2092 = external constant [31 x i8]
@@ -47,7 +47,7 @@ declare void @"ArrayIndexOutOfBoundsException::ArrayIndexOutOfBoundsException(ch
 ;    return fElemList[getAt];
 ;  }
 ; CHECK:; Classification: Get pointer to element method
-; CHECK:; Dump instructions needing update. Total = 2
+; CHECK:; Dump instructions needing update. Total = 3
 define %class.DatatypeValidator** @"ValueVectorOf<DatatypeValidator*>::elementAt(unsigned int)"(%class.ValueVectorOf* %this, i32 %getAt) personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   %fCurCount = getelementptr inbounds %class.ValueVectorOf, %class.ValueVectorOf* %this, i64 0, i32 1
@@ -87,6 +87,8 @@ if.end:                                           ; preds = %entry
   %arrayidx = getelementptr inbounds %class.DatatypeValidator*, %class.DatatypeValidator** %tmp4, i64 %idxprom
 ; CHECK-MOD-NEXT:  %elem = getelementptr inbounds %__SOA_EL_class.ValueVectorOf, %__SOA_EL_class.ValueVectorOf* %arrayidx, i64 0, i32 1
 ; CHECK-MOD-NEXT:  ret %class.DatatypeValidator** %elem
+; CHECK:     ; MemInst: Address in ret
+; CHECK-NEXT:  ret %class.DatatypeValidator** %arrayidx
   ret %class.DatatypeValidator** %arrayidx
 }
 

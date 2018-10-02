@@ -38,34 +38,6 @@ cl::opt<bool>
                                 cl::init(false), cl::Hidden,
                                 cl::desc("Enable DTrans SOAToAOS"));
 
-// There are only 6 instances of the corresponding template.
-template class value_op_iterator<User::op_iterator, Value,
-                                 ArithInstructionsTrait>;
-template class value_op_iterator<User::const_op_iterator, const Value,
-                                 ArithInstructionsTrait>;
-template class value_op_iterator<User::op_iterator, Value,
-                                 AllInstructionsTrait>;
-template class value_op_iterator<User::const_op_iterator, const Value,
-                                 AllInstructionsTrait>;
-template class value_op_iterator<User::op_iterator, Value,
-                                 GEPInstructionsTrait>;
-template class value_op_iterator<User::const_op_iterator, const Value,
-                                 GEPInstructionsTrait>;
-
-// There are only 6 instances of the corresponding template.
-template class ptr_iter<
-    value_op_iterator<User::op_iterator, Value, ArithInstructionsTrait>>;
-template class ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
-                                          ArithInstructionsTrait>>;
-template class ptr_iter<
-    value_op_iterator<User::op_iterator, Value, AllInstructionsTrait>>;
-template class ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
-                                          AllInstructionsTrait>>;
-template class ptr_iter<
-    value_op_iterator<User::op_iterator, Value, GEPInstructionsTrait>>;
-template class ptr_iter<value_op_iterator<User::const_op_iterator, const Value,
-                                          GEPInstructionsTrait>>;
-
 // Empty.Id == 0;
 Dep Dep::Empty(DK_Empty);
 // Tombstone.Id == 0;
@@ -97,7 +69,9 @@ DepManager::~DepManager() {
     delete Ptr;
 }
 
-const Dep *DepCompute::computeValueDep(const Value *Val) {
+// Compute approximation of arithmetic computations
+// in post-order of SCCs according to ArithDepGraph.
+const Dep *DepCompute::computeValueDep(const Value *Val) const {
   auto DIt = DM.ValDependencies.find(Val);
   if (DIt != DM.ValDependencies.end())
     return DIt->second;
@@ -118,8 +92,8 @@ const Dep *DepCompute::computeValueDep(const Value *Val) {
       if (GEP->getPointerOperand()->getType()->getPointerElementType() ==
           ClassTy)
         if (GEP->hasAllConstantIndices() && GEP->getNumIndices() == 2 &&
-            cast<Constant>(*GEP->idx_begin())->isZeroValue())
-          return cast<Constant>(*(GEP->idx_begin() + 1))
+            cast<Constant>(GEP->getOperand(1))->isZeroValue()) // 1st index
+          return cast<Constant>(GEP->getOperand(2)) // 2nd index
               ->getUniqueInteger()
               .getLimitedValue();
     return -1U;
@@ -187,20 +161,22 @@ const Dep *DepCompute::computeValueDep(const Value *Val) {
   return ValRep;
 }
 
-void DepCompute::computeDepApproximation(
-    std::function<bool(const Function *)> IsKnownCallCheck) {
+// Compute approximation of arithmetic computations
+// in post-order of SCCs according to AllDepGraph.
+bool DepCompute::computeDepApproximation() const {
 
-  assert(IsKnownCallCheck(Method) &&
+  assert(getStructTypeOfMethod(*Method) == ClassType &&
          "Unexpected predicate passed to computeDepApproximation");
 
-  SmallVector<const Instruction *, 32> Sinks;
   // This set is needed, because there could be multiple traversals starting
-  // from different Sinks.
+  // from different sinks of DAG formed by SCCs.
   SmallPtrSet<const Value *, 32> Visited;
 
+  // Known sources of DAG.
   for (auto &Arg : Method->args())
     DM.ValDependencies[&Arg] = Dep::mkArg(DM, &Arg);
 
+  SmallVector<const Instruction *, 32> Sinks;
   for (auto &I : instructions(*Method))
     if (I.hasNUses(0))
       Sinks.push_back(&I);
@@ -244,7 +220,7 @@ void DepCompute::computeDepApproximation(
         const Dep *Rep = nullptr;
         switch (I.getOpcode()) {
         case Instruction::Load:
-          if (cast<LoadInst>(I).isVolatile()) {
+          if (!cast<LoadInst>(I).isSimple()) {
             Rep = Dep::mkBottom(DM);
             break;
           }
@@ -252,7 +228,7 @@ void DepCompute::computeDepApproximation(
               DM, computeValueDep(cast<LoadInst>(I).getPointerOperand()));
           break;
         case Instruction::Store:
-          if (cast<StoreInst>(I).isVolatile()) {
+          if (!cast<StoreInst>(I).isSimple()) {
             Rep = Dep::mkBottom(DM);
             break;
           }
@@ -350,7 +326,7 @@ void DepCompute::computeDepApproximation(
                                     Dep::mkArgList(DM, Remaining));
           else
             Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
-                              F && IsKnownCallCheck(F));
+                              F && getStructTypeOfMethod(*F) == ClassType);
           break;
         }
         case Instruction::Alloca:
@@ -362,11 +338,12 @@ void DepCompute::computeDepApproximation(
         }
 
         assert(Rep && "Invalid switch in computeDepApproximation");
-        if (Rep->isBottom() && DTransSOAToAOSComputeAllDep)
-          return;
+        if (Rep->isBottom() && !DTransSOAToAOSComputeAllDep)
+          return false;
         DM.ValDependencies[&I] = Rep;
       }
     }
+  return true;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -471,30 +448,6 @@ void Dep::print(raw_ostream &OS, unsigned Indent, unsigned ClosingParen) const {
   }
   }
 }
-
-// Structure name to use in SOAToAOSApproximationDebug.
-cl::opt<std::string> DTransSOAToAOSApproxTypename(
-    "dtrans-soatoaos-approx-typename", cl::init(""), cl::ReallyHidden,
-    cl::desc("Structure name for SOAToAOSApproximationDebug"));
-
-// Calls to mark as known in SOAToAOSApproximationDebug.
-cl::list<std::string>
-    DTransSOAToAOSApproxKnown("dtrans-soatoaos-approx-known-func",
-                              cl::ReallyHidden);
-
-// Get StructType from command-line or from 'this' argument.
-StructType *getStructTypeOfArray(Function &F) {
-  auto *ClassType = F.getParent()->getTypeByName(DTransSOAToAOSApproxTypename);
-  if (ClassType)
-    return ClassType;
-  if (F.arg_size() == 0)
-    return nullptr;
-
-  auto *ThisType = dyn_cast<PointerType>(F.arg_begin()->getType());
-  if (!ThisType)
-    return nullptr;
-  return dyn_cast<StructType>(ThisType->getPointerElementType());
-}
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 } // namespace soatoaos
 
@@ -524,29 +477,23 @@ SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
   auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
   auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
 
-  // TODO: add diagnostic message.
   if (!DTInfo || !TLI)
-    return Ignore(nullptr);
+    report_fatal_error("DTransAnalysis was not run before "
+                       "SOAToAOSApproximationDebug.");
 
   std::unique_ptr<SOAToAOSApproximationDebugResult> Result(
       new SOAToAOSApproximationDebugResult());
-  StructType *ClassType = getStructTypeOfArray(F);
 
-  // TODO: add diagnostic message.
+  StructType *ClassType = getStructTypeOfMethod(F);
   if (!ClassType)
-    return Ignore(nullptr);
-
-  std::function<bool(const Function *)> IsKnown =
-      [&F](const Function *Func) -> bool {
-    return Func == &F || find(DTransSOAToAOSApproxKnown, Func->getName()) !=
-                             DTransSOAToAOSApproxKnown.end();
-  };
+    report_fatal_error(Twine("Cannot extract struct/class type from ") +
+                       F.getName() + ".");
 
   // Do analysis.
   DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), *TLI, &F, ClassType,
                 // *Result is filled-in.
                 *Result);
-  DC.computeDepApproximation(IsKnown);
+  DC.computeDepApproximation();
 
   // Dump results of analysis.
   DEBUG_WITH_TYPE(DTRANS_SOADEP, {

@@ -30,7 +30,7 @@ public:
     VPInstruction *NewVPInst =
         cast<VPInstruction>(VPBuilder::createNaryOp(Opcode, Operands));
     if (DDNode)
-      NewVPInst->HIR.setUnderlyingDDN(DDNode);
+      NewVPInst->HIR.setUnderlyingNode(DDNode);
     return NewVPInst;
   }
   VPValue *createNaryOp(unsigned Opcode,
@@ -44,7 +44,7 @@ public:
   VPValue *createAdd(VPValue *LHS, VPValue *RHS, loopopt::HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
     auto *NewAdd = cast<VPInstruction>(VPBuilder::createAdd(LHS, RHS));
-    NewAdd->HIR.setUnderlyingDDN(DDNode);
+    NewAdd->HIR.setUnderlyingNode(DDNode);
     return NewAdd;
   }
 
@@ -55,7 +55,7 @@ public:
     assert(DDNode && "DDNode can't be null.");
     assert(LHS && RHS && "VPCmpInst's operands can't be null!");
     VPCmpInst *NewVPCmp = VPBuilder::createCmpInst(LHS, RHS, Pred);
-    NewVPCmp->HIR.setUnderlyingDDN(DDNode);
+    NewVPCmp->HIR.setUnderlyingNode(DDNode);
     return NewVPCmp;
   }
 
@@ -68,7 +68,7 @@ public:
     VPInstruction *NewSemiPhi =
         createInstruction(VPInstruction::SemiPhi, Operands);
     if (DDNode)
-      NewSemiPhi->HIR.setUnderlyingDDN(DDNode);
+      NewSemiPhi->HIR.setUnderlyingNode(DDNode);
     return NewSemiPhi;
   }
 
@@ -76,6 +76,16 @@ public:
                            loopopt::HLDDNode *DDNode) {
     return createSemiPhiOp(ArrayRef<VPValue *>(Operands), DDNode);
   }
+
+  // Construct VPBranchInst instruction from a \p Goto.
+  VPBranchInst *createBr(loopopt::HLGoto *Goto) {
+    assert(Goto && "HLGoto must be passed to construct VPBranchInst.");
+    VPBranchInst *BranchInst = VPBuilder::createBr();
+    BranchInst->HIR.setUnderlyingNode(Goto);
+    BranchInst->HIR.setValid();
+    return BranchInst;
+  }
+
 };
 
 } // namespace vpo

@@ -868,6 +868,13 @@ namespace llvm {
                                              const SelectionDAG &DAG,
                                              unsigned Depth) const override;
 
+    bool SimplifyDemandedVectorEltsForTargetNode(SDValue Op,
+                                                 const APInt &DemandedElts,
+                                                 APInt &KnownUndef,
+                                                 APInt &KnownZero,
+                                                 TargetLoweringOpt &TLO,
+                                                 unsigned Depth) const override;
+
     SDValue unwrapAddress(SDValue N) const override;
 
     bool isGAPlusOffset(SDNode *N, const GlobalValue* &GA,
@@ -1034,6 +1041,8 @@ namespace llvm {
 
     bool convertSelectOfConstantsToMath(EVT VT) const override;
 
+    bool decomposeMulByConstant(EVT VT, SDValue C) const override;
+
     /// Return true if EXTRACT_SUBVECTOR is cheap for this result type
     /// with this index.
     bool isExtractSubvectorCheap(EVT ResVT, EVT SrcVT,
@@ -1114,7 +1123,9 @@ namespace llvm {
 
     bool hasVectorBlend() const override { return true; }
 
-    unsigned getMaxSupportedInterleaveFactor() const override { return 4; }
+#if INTEL_CUSTOMIZATION
+    unsigned getMaxSupportedInterleaveFactor() const override { return 8; }
+#endif // INTEL_CUSTOMIZATION
 
     /// Lower interleaved load(s) into target specific
     /// instructions/intrinsics.

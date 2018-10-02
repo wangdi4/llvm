@@ -381,6 +381,10 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   }
 }
 
+bool isInRange(int64_t Val, int64_t LowerBound, int64_t UpperBound) {
+  return (Val >= LowerBound) && (Val <= UpperBound);
+}
+
 void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
                                                 unsigned NumElements,
                                                 HLDDNode *Node) {
@@ -405,7 +409,7 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
       continue;
     }
 
-    unsigned Level = Lp->getNodeLevel();
+    unsigned Level = Lp->getNestingLevel();
     CE->getIVCoeff(Level, &Index, &Coeff);
 
     if (!Coeff) {
@@ -433,13 +437,13 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
     // trip count so we check max value first. For example, A[i + j] will
     // give a tighter bound on j for max value of i. Similarly, for A[i - j]
     // max value of i gives max estimate for j.
-    if (!HLNodeUtils::getMaxValue(CE, Node, NonIVVal) &&
-        !HLNodeUtils::getMinValue(CE, Node, NonIVVal)) {
+    // Ignore non-sensical values of NonIVVal. These are the result of
+    // overly-conservative blob/upper bound values.
+    if ((!HLNodeUtils::getMaxValue(CE, Node, NonIVVal) ||
+         !isInRange(NonIVVal, 0, NumElements)) &&
+        (!HLNodeUtils::getMinValue(CE, Node, NonIVVal) ||
+         !isInRange(NonIVVal, 0, NumElements))) {
       // This gets us the most conservative estimate.
-      NonIVVal = 0;
-    }
-
-    if (NonIVVal < 0) {
       NonIVVal = 0;
     }
 

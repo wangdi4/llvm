@@ -4,13 +4,11 @@
 ; RUN:        -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays                                            \
 ; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
 ; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
-; RUN:        -dtrans-soatoaos-approx-known-func='ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)' \
 ; RUN:        2>&1 | FileCheck %s
 ; RUN: opt -S < %s -whole-program-assume                                                                    \
 ; RUN:        -passes=soatoaos-arrays-methods-transform                                                     \
 ; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
 ; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
-; RUN:        -dtrans-soatoaos-approx-known-func='ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)' \
 ; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
 ; RUN:        -dtrans-optbase-process-function-declaration                                                  \
 ; RUN:        | FileCheck --check-prefix=CHECK-MOD %s
@@ -22,8 +20,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %class.ValueVectorOf = type { i8, i32, i32, %"class.IC_Field"**, %"class.XMLMsgLoader"* }
 %class.XMLMsgLoader = type { i32 (...)** }
 %class.IC_Field = type opaque
-; CHECK-MOD: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
-; CHECK-MOD: %__SOA_EL_class.ValueVectorOf = type { float*, %class.IC_Field* }
+; CHECK-MOD-DAG: %__SOA_class.ValueVectorOf = type { i8, i32, i32, %__SOA_EL_class.ValueVectorOf*, %class.XMLMsgLoader* }
+; CHECK-MOD-DAG: %__SOA_EL_class.ValueVectorOf = type { float*, %class.IC_Field* }
 
 ; The following method should be classified as append-like.
 ; Instructions to transform are shown.
@@ -35,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  }
 ; CHECK: ; Classification: Append element method
 ; CHECK: ; Dump instructions needing update. Total = 4
-; CHECK-MOD: @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&).1"(%__SOA_class.ValueVectorOf* %this, %class.IC_Field** %toAdd, float**)
+; CHECK-MOD: @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&){{.*}}"(%__SOA_class.ValueVectorOf* %this, %class.IC_Field** %toAdd, float**)
 define void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%"class.ValueVectorOf"* %this, %"class.IC_Field"** %toAdd) {
 entry:
   tail call void @"ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)"(%"class.ValueVectorOf"* %this, i32 1)

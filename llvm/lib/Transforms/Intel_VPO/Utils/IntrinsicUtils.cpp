@@ -237,17 +237,13 @@ void VPOUtils::stripDebugInfoInstrinsics(Function &F)
   }
 }
 
-// Return true if the type of AI instruction is not single value type.
-bool VPOUtils::isNotLegalSingleValueType(AllocaInst *AI) {
-  const DataLayout &DL = AI->getModule()->getDataLayout();
-  Type *AllocaTy = AI->getAllocatedType();
+// Return true if the given type can be registerized.
+bool VPOUtils::canBeRegisterized(Type *AllocaTy, const DataLayout &DL) {
   Type *ScalarTy = AllocaTy->getScalarType();
   if (!AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0)
-    return true;
-  else
     return false;
+  return true;
 }
 
 // Generates a memcpy call at the end of the given basic block BB.
@@ -303,16 +299,12 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
 }
 
 // Utility to copy the data from the source to the destination.
-void VPOUtils::genCopyFromSrcToDst(Type *AllocaTy, const DataLayout &DL,
-                                   IRBuilder<> &Builder,
-                                   AllocaInst *NewPrivInst,
-                                   Value *Source, Value *Destination,
-                                   BasicBlock *InsertBB) {
-  Type *ScalarTy = AllocaTy->getScalarType();
+void VPOUtils::genCopyFromSrcToDst(AllocaInst *AI, IRBuilder<> &Builder,
+                                   AllocaInst *NewPrivInst, Value *Source,
+                                   Value *Destination, BasicBlock *InsertBB) {
+  const DataLayout &DL = AI->getModule()->getDataLayout();
 
-  if (!AllocaTy->isSingleValueType() ||
-      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
-      DL.getTypeSizeInBits(ScalarTy) % 8 != 0 ||
+  if (!canBeRegisterized(AI->getAllocatedType(), DL) ||
       NewPrivInst->isArrayAllocation())
     genMemcpy(Destination, Source, DL,
               NewPrivInst->getAlignment(), InsertBB);

@@ -4776,12 +4776,12 @@ void STIDebugImpl::collectModuleInfo() {
 void STIDebugImpl::collectRoutineInfo() {
   typedef MachineFunction::VariableDbgInfo VariableDbgInfo;
   typedef DbgValueHistoryMap::InstrRanges InstrRanges;
-  typedef DbgValueHistoryMap::InlinedVariable InlinedVariable;
-  typedef std::pair<InlinedVariable, InstrRanges> VariableHistoryInfo;
+  typedef DbgValueHistoryMap::InlinedEntity InlinedEntity;
+  typedef std::pair<InlinedEntity, InstrRanges> VariableHistoryInfo;
 
   STISymbolVariable *variable;
 
-  DenseSet<InlinedVariable> processed;
+  DenseSet<InlinedEntity> processed;
 
   for (const VariableDbgInfo &info : ASM()->MF->getVariableDbgInfo()) {
     const DILocalVariable *llvmVar = info.Var;
@@ -4789,7 +4789,7 @@ void STIDebugImpl::collectRoutineInfo() {
     if (!llvmVar)
       continue;
 
-    InlinedVariable IV (llvmVar, info.Loc->getInlinedAt());
+    InlinedEntity IV (llvmVar, info.Loc->getInlinedAt());
 
     if (processed.count(IV))
       continue;
@@ -4815,7 +4815,7 @@ void STIDebugImpl::collectRoutineInfo() {
   }
 
   for (const VariableHistoryInfo &info : _valueHistory) {
-    InlinedVariable                        IV     = info.first;
+    InlinedEntity                          IV     = info.first;
     const DbgValueHistoryMap::InstrRanges &Ranges = info.second;
 
     // FIXME: We do not know how to emit inlined variables.
@@ -4833,15 +4833,16 @@ void STIDebugImpl::collectRoutineInfo() {
     // This prevents us from crashing later when we try to insert the variable
     // into the scope.
     //
-    STIScope *scope = getOrCreateScope(IV.first->getScope());
+    const DILocalVariable *Var = cast<DILocalVariable>(IV.first);
+    STIScope *scope = getOrCreateScope(Var->getScope());
     if (!scope)
       continue;
 
     const MachineInstr *MInsn = Ranges.front().first;
-    variable = createSymbolVariableFromDbgValue(IV.first, MInsn);
+    variable = createSymbolVariableFromDbgValue(Var, MInsn);
     if (!variable)
       continue;
-    scope->add(variable, IV.first->getArg());
+    scope->add(variable, Var->getArg());
 
     processed.insert(IV);
   }

@@ -1,6 +1,6 @@
 //===--- LoopOptReport.h ----------------------------------------*- C++ -*-===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -14,8 +14,8 @@
 // Detailed description is located at: docs/Intel/OptReport.rst
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_IR_MDVECTOR_H
-#define LLVM_IR_MDVECTOR_H
+#ifndef LLVM_ANALYSIS_LOOPOPTREPORT_H
+#define LLVM_ANALYSIS_LOOPOPTREPORT_H
 
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Constants.h"
@@ -149,7 +149,21 @@ public:
   /// \brief Checks if metadata is an instance of LoopOptReport.
   ///
   /// Checks if metadata \M is a tuple tagged with LoopOptReportTag::Root.
-  static bool isOptReportMetadata(const Metadata *M);
+  static bool isOptReportMetadata(const Metadata *M) {
+    const MDTuple *T = dyn_cast<MDTuple>(M);
+    if (!T)
+      return false;
+
+    if (T->getNumOperands() == 0)
+      return false;
+
+    MDString *S = dyn_cast<MDString>(T->getOperand(0));
+    if (!S)
+      return false;
+
+    return S->getString() == LoopOptReportTag::Root;
+  }
+
 
   /// \brief Construct LoopOptReport object from LoopID.
   ///
@@ -175,4 +189,4 @@ public:
 
 } // namespace llvm
 
-#endif // LLVM_IR_MDVECTOR_H
+#endif // LLVM_ANALYSIS_LOOPOPTREPORT_H

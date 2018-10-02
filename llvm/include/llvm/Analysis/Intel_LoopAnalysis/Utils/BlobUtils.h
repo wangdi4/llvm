@@ -297,6 +297,32 @@ public:
   bool isInstBlob(unsigned BlobIndex) const {
     return isInstBlob(getBlob(BlobIndex));
   }
+
+  /// Returns true if blob is a umin blob.
+  /// Please note that umin is represented as -1 + -1 * umax() but we only match
+  /// -1 * umax() part of it.
+  static bool isUMinBlob(BlobTy Blob);
+  bool isUMinBlob(unsigned BlobIndex) const {
+    return isUMinBlob(getBlob(BlobIndex));
+  }
+
+  /// Returns true if blob is a umax blob.
+  static bool isUMaxBlob(BlobTy Blob);
+  bool isUMaxBlob(unsigned BlobIndex) const {
+    return isUMaxBlob(getBlob(BlobIndex));
+  }
+
+  /// Returns true if minimum value of blob is known and sets it in \p Val.
+  bool getMinBlobValue(BlobTy Blob, int64_t &Val) const;
+  bool getMinBlobValue(unsigned BlobIndex, int64_t &Val) const {
+    return getMinBlobValue(getBlob(BlobIndex), Val);
+  }
+
+  /// Returns true if maximum value of blob is known and sets it in \p Val.
+  bool getMaxBlobValue(BlobTy Blob, int64_t &Val) const;
+  bool getMaxBlobValue(unsigned BlobIndex, int64_t &Val) const {
+    return getMaxBlobValue(getBlob(BlobIndex), Val);
+  }
 };
 
 } // End namespace loopopt

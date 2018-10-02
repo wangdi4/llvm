@@ -15,6 +15,7 @@
 
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanIdioms.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
@@ -51,7 +52,7 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
   if (!VPInst->HIR.isMaster())
     return false; // CHECKME: Is that correct?
 
-  if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingDDN())) {
+  if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
 
     return Opcode == Instruction::Load
@@ -114,7 +115,26 @@ unsigned VPlanCostModelProprietary::getCost(const VPBlockBase *VPBlock) const {
 }
 
 unsigned VPlanCostModelProprietary::getCost() const {
-  return VPlanCostModel::getCost();
+  unsigned Cost = VPlanCostModel::getCost();
+
+  switch (VPlanIdioms::isSearchLoop(Plan, VF, true)) {
+  case VPlanIdioms::Unsafe:
+    return UnknownCost;
+  case VPlanIdioms::SearchLoopStrEq:
+    // Without proper type information, cost model cannot properly compute the
+    // cost, thus hard code VF.
+    if (VF != 32)
+      // Return some huge value, so that VectorCost still could be computed.
+      return 10000000;
+    break;
+  default:
+    // FIXME: Keep VF = 32 as unsupported right now due to huge perf
+    // regressions.
+    if (VF == 32)
+      return UnknownCost;
+  }
+
+  return Cost;
 }
 
 void VPlanCostModelProprietary::print(raw_ostream &OS) {

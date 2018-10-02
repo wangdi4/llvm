@@ -14,8 +14,8 @@
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
-; CHECK-MOD: %__SOA_struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], %__SOA_EL_struct.Arr.0*, i32, [4 x i8] }>
-; CHECK-MOD: %__SOA_EL_struct.Arr.0 = type { float*, i8* }
+; CHECK-MOD-DAG: %__SOA_struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], %__SOA_EL_struct.Arr.0*, i32, [4 x i8] }>
+; CHECK-MOD-DAG: %__SOA_EL_struct.Arr.0 = type { float*, i8* }
 %struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], i8**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
 
@@ -29,7 +29,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ;   }
 ; CHECK:      Checking array's method _ZN3ArrIPvE3getEi
 ; CHECK-NEXT: Classification: Get pointer to element method
-; CHECK-TRANS:; Dump instructions needing update. Total = 6
+; CHECK-TRANS:; Dump instructions needing update. Total = 7
 define i8** @_ZN3ArrIPvE3getEi(%struct.Arr.0* %this, i32 %i) {
 entry:
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 4
@@ -74,5 +74,7 @@ return:                                           ; preds = %if.end, %if.then
 ; CHECK-MOD:         %retval.0 = phi %__SOA_EL_struct.Arr.0* [ %add.ptr2, %if.then ], [ %add.ptr5, %if.end ]
 ; CHECK-MOD-NEXT:    %elem = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %retval.0, i64 0, i32 1
   %retval.0 = phi i8** [ %add.ptr2, %if.then ], [ %add.ptr5, %if.end ]
+; CHECK-TRANS:     ; MemInst: Address in ret
+; CHECK-TRANS-NEXT:  ret i8** %retval.0
   ret i8** %retval.0
 }

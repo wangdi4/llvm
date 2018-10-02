@@ -521,7 +521,7 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
     return;
   }
 
-  if (!Loop->isDo()) {
+  if (!Loop->isDo() && !Loop->isDoMultiExit()) {
     setVecType(NON_DO_LOOP);
     emitDiag();
     return;

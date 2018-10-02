@@ -485,7 +485,7 @@ void MapIntrinToIml::generateSinCosStore(CallInst *VectorCall,
     ShuffleInst->insertAfter(*InsertPt);
     *InsertPt = ShuffleInst;
 
-    VectorType *ShuffleType = dyn_cast<VectorType>(ShuffleInst->getType());
+    VectorType *ShuffleType = cast<VectorType>(ShuffleInst->getType());
     unsigned NumElems = ShuffleType->getNumElements();
 
     StringRef StrideValStr;
@@ -593,11 +593,11 @@ void MapIntrinToIml::generateNewArgsFromPartialVectors(
     // Type of the parameter on the math lib call, which can be driven by the
     // user specifying an explicit vectorlength.
     Value *NewArg = CI->getArgOperand(I);
-    VectorType *VecArgType = dyn_cast<VectorType>(NewArg->getType());
+    VectorType *VecArgType = cast<VectorType>(NewArg->getType());
 
     // The type of the parameter if using the full register specified through
     // legalization.
-    VectorType *LegalVecArgType = dyn_cast<VectorType>(FT->getParamType(I));
+    VectorType *LegalVecArgType = cast<VectorType>(FT->getParamType(I));
 
     unsigned NumElems = VecArgType->getNumElements();
     unsigned LegalNumElems = LegalVecArgType->getNumElements();
@@ -643,7 +643,7 @@ Instruction *MapIntrinToIml::extractElemsFromVector(Value *Reg,
   Type *RegType = Reg->getType();
   assert(RegType->isVectorTy() && "Expected vector register type for extract");
 
-  VectorType *VecRegType = dyn_cast<VectorType>(RegType);
+  VectorType *VecRegType = cast<VectorType>(RegType);
 
   SmallVector<Constant *, 4> Splat;
 

@@ -64,17 +64,15 @@ typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
 struct MemRefGroup {
   SmallVector<RefTuple, 8> RefTupleVec;
   SmallVector<RegDDRef *, 8> TmpV;
+  HIRScalarReplArray &HSRA;
+  HLLoop *Lp;
+  const CanonExpr *BaseCE;
 
-  bool HasRWGap;
-
-  HIRScalarReplArray *HSRA = nullptr;
   unsigned Symbase;
-  const CanonExpr *BaseCE = nullptr;
 
-  HLLoop *Lp = nullptr;
   unsigned MaxDepDist, NumLoads, NumStores, LoopLevel;
-  bool IsLegal, IsProfitable, IsPostChecksOk, IsSuitable;
-  unsigned MaxIdxLoadRT, MinIdxStoreRT; // index to RefTupleVec
+  bool IsValid, HasRWGap;
+  unsigned MaxLoadIndex, MinStoreIndex; // index to RefTupleVec
 
   unsigned MaxStoreDist; // Max Store distance among all stores in group
                          // e.g.  ( r,  w,   g,     w,   g,   w )
@@ -82,13 +80,10 @@ struct MemRefGroup {
                          //             ^StLB                 ^StUB
                          // MaxStoreDist is 5-1 = 4
 
-  MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA);
+  MemRefGroup(HIRScalarReplArray &HSR, HLLoop *Lp, const RefGroupTy &Group);
 
   // Getters + Setters
-  bool isSuitable(void) const { return IsSuitable; }
-  void setSuitable(bool NewFlag) { IsSuitable = NewFlag; }
-
-  unsigned getMaxDepDist(void) const { return MaxDepDist; }
+  bool isValid() const { return IsValid; }
 
   unsigned getNumTemps(void) const { return MaxDepDist + 1; }
 
@@ -101,30 +96,30 @@ struct MemRefGroup {
   // Identify the store bounds using MaxStoreDist
   void markMaxStoreDist(void);
 
-  // Create a partial RefTuple, e.g. (A[i], -1, nullptr), and save it into
-  // RefTupleVec
-  void insert(RegDDRef *Ref) { RefTupleVec.push_back(RefTuple(Ref)); }
-
   unsigned getSize(void) const { return RefTupleVec.size(); }
 
   SmallVector<RefTuple, 8> &getRefTupleVec(void) { return RefTupleVec; }
   SmallVector<RegDDRef *, 8> &getTmpV(void) { return TmpV; };
 
-  bool hasMaxIdxLoadRT(void) const { return MaxIdxLoadRT != unsigned(-1); }
+  bool hasMaxLoadIndex(void) const { return MaxLoadIndex != unsigned(-1); }
 
-  const RefTuple *getMaxIdxLoadRT(void) const {
-    assert((MaxIdxLoadRT != unsigned(-1)) &&
-           "must call markMaxLoad() to set MaxIdxLoadRT first\n");
-    return &RefTupleVec[MaxIdxLoadRT];
+  const RefTuple *getMaxLoadRefTuple(void) const {
+    assert((MaxLoadIndex != unsigned(-1)) &&
+           "must call markMaxLoad() to set MaxLoadIndex first\n");
+    return &RefTupleVec[MaxLoadIndex];
   }
 
-  bool hasMinIdxStoreRT(void) const { return MinIdxStoreRT != unsigned(-1); }
+  bool hasMinStoreIndex(void) const { return MinStoreIndex != unsigned(-1); }
 
-  const RefTuple *getMinIdxStoreRT(void) const {
-    assert((MinIdxStoreRT != unsigned(-1)) &&
-           "must call markMinStore() to set MinIdxStoreRT first\n");
-    return &RefTupleVec[MinIdxStoreRT];
+  const RefTuple *getMinStoreRefTuple(void) const {
+    assert((MinStoreIndex != unsigned(-1)) &&
+           "must call markMinStore() to set MinStoreIndex first\n");
+    return &RefTupleVec[MinStoreIndex];
   }
+
+  // Converts RefGroup into RefTuple after doing sanity checks on the group.
+  // Returns true if it is successful.
+  bool createRefTuple(const RefGroupTy &Group);
 
   // Obtain the 1st available RefTuple * by distance
   const RefTuple *getByDist(unsigned Dist) const;
@@ -132,19 +127,6 @@ struct MemRefGroup {
   // Does a given RegDDRef* physically belong to MRG?
   // (use direct pointer comparison)
   bool belongs(RegDDRef *Ref) const;
-
-  // Inside the loop's body, within the MRG, mark if there is 1 MemRef(R) that
-  // needs to generate a load right before the MemRef (MaxIndexLoad).
-  //
-  // Mark the Max-index load with MIN TOPO#: may find if #Loads >0
-  // E.g. .., A[i+3](.), A[i+4](R) .. A[i+4](R) ...
-  //                     ^max_index load with MinTOPO#
-  //
-  // - examine all MemRef(s)(R) whose DepDist is MaxDepDist
-  // - if not empty:
-  //   . mark the one with MIN TOPO# as MaxLoad
-  //
-  void markMaxLoad(void);
 
   // Check if CodeGen for load(s) is required in the loop's preheader:
   // - MaxDepDist >0 (or MaxDepDist >=1)
@@ -196,7 +178,7 @@ struct MemRefGroup {
   // Since MinStore exists with 1 store, no need to check it.
   //
   bool isProfitable(void) const {
-    return !((NumLoads == 1) && (NumStores == 1) && hasMaxIdxLoadRT()) &&
+    return !((NumLoads == 1) && (NumStores == 1) && hasMaxLoadIndex()) &&
            hasReuse();
   }
 
@@ -357,8 +339,6 @@ class HIRScalarReplArray {
   DDRefUtils &DDRU;
   CanonExprUtils &CEU;
 
-  unsigned LoopLevel;
-
   SmallVector<MemRefGroup, 8> MRGVec;
 
 public:
@@ -366,8 +346,6 @@ public:
                      HIRLoopLocality &HLA, HIRLoopStatistics &HLS);
 
   bool run();
-
-  void setupEnvForLoop(const HLLoop *Lp);
 
   // return true if there is at least 1 MRG suitable for scalar repl.
   bool doAnalysis(HLLoop *Lp);
@@ -381,35 +359,6 @@ public:
   // Collect relevant MemRefs with the same Symbase and BaseCE
   // by calling HIRLoopLocality::populateTemporalLocalityGroups(.)
   bool doCollection(HLLoop *Lp);
-
-  // Check if a group formed by HIRLoopLocality is valid:
-  //
-  // the group:
-  // - is not a single-entry group;
-  //
-  // Check only 1 occurrence: a group is suitable
-  // - if it has a loop-level IV
-  // - unless %blob is NonLinear
-  // - negative IVCoeff is ok (we will just reverse the order in the group)
-  // - check Blob: reject any Ref with a valid IVBlob
-  //  (TODO: allow a group if the IVBlob is known to be positive or negative.
-  //         need to adjust HasNegIVCoeff in such case.)
-  //
-  // Check each occurrence (of MemRef):
-  // - has no volatile
-  // - not inside any HLIf/HLSwitch/.
-  //
-  bool isValid(RefGroupTy &Group, bool &HasNegIVCoeff);
-
-  // Check the given RegDDRef*, on any loop-level matching CE:
-  // - any negative IvCoeff?
-  // - any valid IvBlob?
-  //
-  // - TODO:
-  //   if the IvBlob is known to be positive or negative, combine it with the
-  //   sign on IvCoeff to decide whether the CE has overall negative factor.
-  //
-  bool checkIV(const RegDDRef *MemRef, bool &HasNegIVCoeff) const;
 
   void doTransform(HLLoop *Lp);
 
@@ -476,8 +425,8 @@ public:
   void doPostLoopProc(HLLoop *Lp, MemRefGroup &MRG);
 
   // In-loop process: handle each relevant MemRef:
-  //  . generate a load HLInst if MaxIdxLoadRT is available;
-  //  . generate store HLInst if MinIdxStoreRT is available;
+  //  . generate a load HLInst if MaxLoadIndex is available;
+  //  . generate store HLInst if MinStoreIndex is available;
   //  . do replacement of each relevant MemRef with its matching temp;
   //- generate temp rotation code;
   //
@@ -499,8 +448,8 @@ public:
   void printRefGroupTy(RefGroupTy &Group, bool PrintNewLine = true);
 #endif
 };
-}
-}
-}
+} // namespace scalarreplarray
+} // namespace loopopt
+} // namespace llvm
 
 #endif

@@ -917,6 +917,9 @@ public:
   /// Marks loop to do not vectorize.
   void markDoNotVectorize();
 
+  /// Marks loop to do not unroll.
+  void markDoNotUnroll();
+
   /// Supply Loop Lower Bound CanonExpr when normalization is using
   /// that instead of the one in the Loop
   bool canNormalize(const CanonExpr *LowerCE = nullptr) const;
@@ -955,6 +958,14 @@ public:
 
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
+
+  /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
+  void shiftLoopBodyRegDDRefs(int64_t Amount);
+
+  /// Peels the first iteration of the loop and inserts the peel loop before
+  /// this loop. Ztt, loop preheader and postexit are extracted before cloning
+  /// this loop to generate the peel loop.
+  HLLoop *peelFirstIteration();
 
   // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);

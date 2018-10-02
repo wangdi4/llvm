@@ -151,7 +151,7 @@ static cl::opt<unsigned>
                                      "(higher probability of unrolling)"));
 
 static cl::opt<unsigned> SmallLoopAdditionalSavingsThreshold(
-    "hir-complete-unroll-extra-savings-threshold", cl::init(5), cl::Hidden,
+    "hir-complete-unroll-extra-savings-threshold", cl::init(8), cl::Hidden,
     cl::desc("Threshold for extra savings added to small loops to give them "
              "higher probability of unrolling)"));
 
@@ -2173,7 +2173,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
     const CanonExpr *CE, const RegDDRef *ParentRef) {
 
   CanonExprInfo CEInfo;
-  bool IsLinear = CE->isLinearAtLevel();
+  bool IsLinear = !CE->isNonLinear();
 
   if (CE->isConstantData()) {
     return true;
@@ -2210,7 +2210,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
   if (CE->getConstant()) {
     if (CEInfo.NumSimplifiedTerms) {
       ++Savings;
-    } else if (!IsLinear) {
+    } else if (!IsLinear && !CE->isNotOperation()) {
+      // We ignore the constant if CE represents 'not' operation.
+      // Not operation is represented as (-1*x + -1) but it can be optimized as
+      // an xor with -1.
       ++Cost;
     }
   } else if ((CEInfo.NumSimplifiedTerms == 1) &&
@@ -2248,7 +2251,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
 
   bool CanSimplifyIVs = true;
   unsigned OuterLevel = OuterLoop->getNestingLevel();
-  bool IsLinear = CE->isLinearAtLevel();
+  bool IsLinear = !CE->isNonLinear();
   SmallSet<unsigned, 4> CurrentUnrollableIVBlobs;
 
   for (unsigned Level = 1; Level <= CurLevel; ++Level) {
@@ -2324,7 +2327,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlobs(
     const CanonExpr *CE, const RegDDRef *ParentRef,
     unsigned &NumSimplifiedTerms, unsigned &NumNonLinearTerms) {
   bool CanSimplifyBlobs = true;
-  bool IsLinear = CE->isLinearAtLevel();
+  bool IsLinear = !CE->isNonLinear();
   bool HasVisitedNonLinearTerms = false;
 
   for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {

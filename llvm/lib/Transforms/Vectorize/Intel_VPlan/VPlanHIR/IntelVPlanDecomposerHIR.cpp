@@ -292,7 +292,7 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 
   // Get the predicate for the HLLoop bottom test condition.
   auto *HLp = cast<HLLoop>(DDNode);
-  assert(HLp->isDo() && HLp->isNormalized() &&
+  assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
          "Expected single-exit normalized DO HLLoop.");
   assert(HLp->getLowerCanonExpr()->getDestType()->isIntegerTy() &&
          HLp->getUpperCanonExpr()->getDestType()->isIntegerTy() &&
@@ -378,22 +378,32 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
   }
 }
 
-// Create VPInstruction for \p DDNode and insert it in VPBuilder's insertion
-// point. If \p DDNode is an HLIf, create a VPCmpInst representing the
+// Create VPInstruction for \p Node and insert it in VPBuilder's insertion
+// point. If \p Node is an HLIf, create a VPCmpInst representing the
 // (multi-)predicate comparisons. HLLoop are not expected.
 VPInstruction *
-VPDecomposerHIR::createVPInstruction(HLDDNode *DDNode,
+VPDecomposerHIR::createVPInstruction(HLNode *Node,
                                      ArrayRef<VPValue *> VPOperands) {
-  assert(DDNode && "Expected DDNode to create a VPInstruction.");
-  assert(!isa<HLLoop>(DDNode) && "HLLoop shouldn't be processed here!");
-  HLInst *HInst = dyn_cast<HLInst>(DDNode);
+  assert(Node && "Expected Node to create a VPInstruction.");
+  assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
+
+  if (isa<HLGoto>(Node))
+    return Builder.createBr(cast<HLGoto>(Node));
+
+  auto *HInst = dyn_cast<HLInst>(Node);
   assert((!HInst || HInst->getLLVMInstruction()) &&
          "Missing LLVM Instruction for HLInst.");
 
   // Create VPCmpInst for HLInst representing a CmpInst or HLIf.
   VPInstruction *NewVPInst;
+  auto DDNode = cast<HLDDNode>(Node);
+
+  // There should't be any VPValue for Node at this point. Otherwise, we
+  // visited Node when we shouldn't, breaking the RPO traversal order.
+  assert(!HLDef2VPValue.count(DDNode) && "Node shouldn't have been visited.");
+
   if ((HInst && isa<CmpInst>(HInst->getLLVMInstruction())) ||
-      isa<HLIf>(DDNode)) {
+      isa<HLIf>(Node)) {
     assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
     NewVPInst = Builder.createCmpInst(VPOperands[0], VPOperands[1],
                                       getPredicateFromHIR(DDNode), DDNode);
@@ -409,15 +419,20 @@ VPDecomposerHIR::createVPInstruction(HLDDNode *DDNode,
   return NewVPInst;
 }
 
-// Return a sequence of VPValues (VPOperands) that represents DDNode's operands
+// Return a sequence of VPValues (VPOperands) that represents Node's operands
 // in VPlan. In addition to the RegDDRef to VPValue translation, operands are
 // sorted in the way VPlan expects them. Some operands, such as the LHS operand
 // in some HIR instructions, are ignored because they are not explicitly
 // represented as an operand in VPlan.
 void VPDecomposerHIR::createVPOperandsForMasterVPInst(
-    HLDDNode *DDNode, SmallVectorImpl<VPValue *> &VPOperands) {
+    HLNode *Node, SmallVectorImpl<VPValue *> &VPOperands) {
+  auto DDNode = dyn_cast<HLDDNode>(Node);
+  // Nothing to create for non-HLDDNode.
+  if (!DDNode)
+    return;
 
-  auto *HInst = dyn_cast<HLInst>(DDNode);
+  auto *HInst = dyn_cast<HLInst>(Node);
+
   bool IsStore =
       HInst && HInst->getLLVMInstruction()->getOpcode() == Instruction::Store;
 
@@ -476,7 +491,7 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
 }
 
 void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
-  assert(HLp->isDo() && HLp->isNormalized() &&
+  assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
          "Only normalized single-exit DO loops are supported for now.");
   assert(LpPH->getSingleSuccessor() &&
          isa<VPBasicBlock>(LpPH->getSingleSuccessor()) &&
@@ -568,7 +583,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {
     // #3. Turn last decomposed VPInstruction of UB as master VPInstruction of
     // the decomposed group.
-    DecompUBVPI->HIR.setUnderlyingDDN(HLp);
+    DecompUBVPI->HIR.setUnderlyingNode(HLp);
 
     // Set DecompUBVPI as master VPInstruction of any other decomposed
     // VPInstruction of UB.
@@ -608,17 +623,17 @@ void VPDecomposerHIR::fixPhiNodes() {
 }
 
 VPInstruction *
-VPDecomposerHIR::createVPInstructionsForDDNode(HLDDNode *DDNode,
-                                               VPBasicBlock *InsPointVPBB) {
-  LLVM_DEBUG(dbgs() << "Generating VPInstructions for "; DDNode->dump();
+VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
+                                             VPBasicBlock *InsPointVPBB) {
+  LLVM_DEBUG(dbgs() << "Generating VPInstructions for "; Node->dump();
              dbgs() << "\n");
-
-  // There should't be any VPValue for DDNode at this point. Otherwise, we
-  // visited DDNode when we shouldn't, breaking the RPO traversal order.
-  assert(!HLDef2VPValue.count(DDNode) && "DDNode shouldn't have been visited.");
+  // There should't be any VPValue for Node at this point. Otherwise, we
+  // visited Node when we shouldn't, breaking the RPO traversal order.
+  assert((isa<HLGoto>(Node) || !HLDef2VPValue.count(cast<HLDDNode>(Node))) &&
+         "Node shouldn't have been visited.");
 
   // Set the insertion point in the builder for the VPInstructions that we are
-  // going to create for this DDNode.
+  // going to create for this Node.
   Builder.setInsertPoint(InsPointVPBB);
   // Keep last instruction before decomposition. We will need it to set the
   // master VPInstruction of all the decomposed VPInstructions created.
@@ -627,10 +642,10 @@ VPDecomposerHIR::createVPInstructionsForDDNode(HLDDNode *DDNode,
   // Create and decompose the operands of the future new VPInstruction.
   // They will be inserted (obviously) before the new VPInstruction.
   SmallVector<VPValue *, 4> VPOperands;
-  createVPOperandsForMasterVPInst(DDNode, VPOperands);
+  createVPOperandsForMasterVPInst(Node, VPOperands);
 
   // Create new VPInstruction with previous operands.
-  VPInstruction *NewVPInst = createVPInstruction(DDNode, VPOperands);
+  VPInstruction *NewVPInst = createVPInstruction(Node, VPOperands);
 
   // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
   // resulting from decomposing its operands.
@@ -695,11 +710,15 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
     assert(VPDefs.size() == 1 && "Expected single definition.");
     return VPDefs.front();
-  } else
+  } else {
     // The operands of the semi-phi are not set right now since some of them
     // might not have been created yet. They will be set by fixPhiNodes.
-    return cast<VPInstruction>(
+    // Add the corresponding Instruction and DDRef to PhisToFix.
+    auto *SemiPhi = cast<VPInstruction>(
         Decomposer.Builder.createSemiPhiOp({} /*No operands*/));
+    Decomposer.PhisToFix.push_back(std::make_pair(SemiPhi, DDR));
+    return SemiPhi;
+  }
 }
 
 // Helper function to decomposed an SCEVNAryExpr using the same \p OpCode to

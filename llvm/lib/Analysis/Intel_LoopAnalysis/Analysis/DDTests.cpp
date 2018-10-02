@@ -5191,12 +5191,10 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
     bool IsFlow = false;
     bool IsAnti = false;
 
-    if (SrcDDRef == DstDDRef) {
-      // Skip self output dep for temp for now.
-      // In theory, it's needed. but for analysis, we can just rely on flow &
-      // anti alone
-      return false;
-    }
+    // Skip self output dep for temp for now.
+    // In theory, it's needed. but for analysis, we can just rely on flow &
+    // anti alone
+    assert(SrcDDRef != DstDDRef && "DD does not creat self output edges.");
 
     //  Make SrcDDRef to be one that comes first in lexical order
     //  and switch DVs when reversed.

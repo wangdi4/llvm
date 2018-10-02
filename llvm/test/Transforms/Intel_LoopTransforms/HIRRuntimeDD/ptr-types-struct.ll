@@ -8,8 +8,8 @@
 ; + END LOOP
 ; END REGION
 
-; CHECK: %mv.cast = bitcast.%struct.T1**.i32*(&((%p)[sext.i32.i64(%n) + -1].1));
-; CHECK: %mv.test = %mv.cast >=u &((%q)[0]);
+; CHECK: %mv.upper.base = &((i32*)(%p)[sext.i32.i64(%n) + -1].1);
+; CHECK: %mv.test = &((%mv.upper.base)[1]) >=u &((%q)[0]);
 ; CHECK: %mv.test1 = &((%q)[sext.i32.i64(%n) + -1]) >=u &((%p)[0].0);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test1;
 ; CHECK: if (%mv.and == 0)

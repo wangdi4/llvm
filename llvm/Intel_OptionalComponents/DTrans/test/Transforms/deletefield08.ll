@@ -210,7 +210,7 @@ define i32 @main(i32 %argc, i8** %argv) {
   call void @test7()
   call void @test8(i64 %val)
   call void @test9(i64 %val)
-  ret i32 0 
+  ret i32 0
 }
 
 

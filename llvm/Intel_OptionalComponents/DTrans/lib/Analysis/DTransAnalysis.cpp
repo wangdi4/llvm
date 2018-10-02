@@ -1598,6 +1598,12 @@ private:
       return;
     }
 
+    // Check for metadata used to annotate the type from one of the
+    // transformations to apply to the type.
+    if (auto *I = dyn_cast<Instruction>(V))
+      if (auto *TyFromMD = dtrans::lookupDTransTypeAnnotation(I))
+        Info.addPointerTypeAlias(TyFromMD);
+
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
     SmallVector<Value *, 16> DependentVals;
@@ -1685,6 +1691,8 @@ private:
       // we need to look for bitcast users so that we can proactively assign
       // the type to which the value will be cast as an alias.
       analyzeAllocationCallAliases(CS, Info);
+    } else if (auto *II = dyn_cast<IntrinsicInst>(V)) {
+      analyzeIntrinsic(II, Info);
     } else if (auto *GEP = dyn_cast<GEPOperator>(V)) {
       // If this is a GetElementPtr, figure out what element it is
       // accessing.
@@ -2283,6 +2291,25 @@ private:
     return analyzePossibleOffsetAggregateAccess(GEP, ElemTy, NewOffset, Info);
   }
 
+  void analyzeIntrinsic(IntrinsicInst *II, LocalPointerInfo &Info) {
+    // The llvm.ptr.annotation intrinsic returns the value of the first
+    // argument. We need to propagate the type information from that argument
+    // into the result of this intrinsic call.
+    if (II->getIntrinsicID() != Intrinsic::ptr_annotation)
+      return;
+
+    Value *Src = II->getOperand(0);
+    LocalPointerInfo &SrcLPI = LocalMap[Src];
+    if (!SrcLPI.getAnalyzed()) {
+      Info.setPartialAnalysis(true);
+      DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
+                      dbgs() << "Incomplete analysis derived from " << *Src
+                             << "\n");
+    }
+
+    Info.merge(SrcLPI);
+  }
+
   void analyzeLoadInstruction(LoadInst *Load, LocalPointerInfo &Info) {
     // If the pointer operand aliases any pointers-to-pointers, the loaded
     // value will be considered to alias to the pointed-to pointer type.
@@ -2634,6 +2661,8 @@ public:
     case Intrinsic::dbg_value:
     case Intrinsic::lifetime_end:
     case Intrinsic::lifetime_start:
+    case Intrinsic::ptr_annotation:
+    case Intrinsic::var_annotation:
       return;
 
     case Intrinsic::memset:
@@ -7142,6 +7171,9 @@ void DTransAnalysisInfo::setCallGraphStats(Module &M) {
     FunctionCount++;
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
+        if (isa<DbgInfoIntrinsic>(I) || isa<FakeloadInst>(I) ||
+            isa<VarAnnotIntrinsic>(I))
+          continue;
         InstructionCount++;
         if (isa<CallInst>(&I) || isa<InvokeInst>(&I))
           CallsiteCount++;

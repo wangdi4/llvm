@@ -471,22 +471,17 @@ MCDwarfLineTableHeader::Emit(MCStreamer *MCOS, MCDwarfLineTableParams Params,
   emitAbsValue(*MCOS,
                MakeStartMinusEndExpr(*MCOS, *LineStartSym, *LineEndSym, 4), 4);
 
+  // Next 2 bytes is the Version.
   unsigned LineTableVersion = context.getDwarfVersion();
-
-  // On Darwin we default to v2 for anything before DWARF v5.
-  if (context.getObjectFileInfo()->getTargetTriple().isOSDarwin() &&
-      LineTableVersion < 5)
-    LineTableVersion = 2;
-
 #if INTEL_CUSTOMIZATION
   // The Gold linker prior to version 2.31 does not support DWARF version 4
   // line tables.  To support this, we accept a debug_line table version which
   // defaults to version 2 which using the icx driver.
+  // Older versions of dsymutil will not support line table versions greater
+  // than 2 so the line table version may need to be adjusted there too.
   if (DebugLineTableVersion != 0)
     LineTableVersion = DebugLineTableVersion;
 #endif // INTEL_CUSTOMIZATION
-
-  // Next 2 bytes is the Version.
   MCOS->EmitIntValue(LineTableVersion, 2);
 
   // Keep track of the bytes between the very start and where the header length

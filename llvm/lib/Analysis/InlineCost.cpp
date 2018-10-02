@@ -216,7 +216,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool HasReturn;
   bool HasIndirectBr;
   bool HasUninlineableIntrinsic;
-  bool UsesVarArgs;
+  bool InitsVargArgs;
 
   /// Number of bytes allocated statically by the callee.
   uint64_t AllocatedSize;
@@ -364,13 +364,13 @@ public:
         CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
-                                       Params.ComputeFullInlineCost || ORE),
+            Params.ComputeFullInlineCost.getValueOr(false) || ORE),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
 #endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
-        HasUninlineableIntrinsic(false), UsesVarArgs(false), AllocatedSize(0),
+        HasUninlineableIntrinsic(false), InitsVargArgs(false), AllocatedSize(0),
         NumInstructions(0), NumVectorInstructions(0), VectorBonus(0),
         SingleBBBonus(0), EnableLoadElimination(true), LoadEliminationCost(0),
         NumConstantArgs(0), NumConstantOffsetPtrArgs(0), NumAllocaArgs(0),
@@ -1337,8 +1337,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
         HasUninlineableIntrinsic = true;
         return false;
       case Intrinsic::vastart:
-      case Intrinsic::vaend:
-        UsesVarArgs = true;
+        InitsVargArgs = true;
         return false;
       }
     }
@@ -1693,7 +1692,7 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
       IR = "indirect branch";
     else if (HasUninlineableIntrinsic)
       IR = "uninlinable intrinsic";
-    else if (UsesVarArgs)
+    else if (InitsVargArgs)
       IR = "varargs";
     if (!IR) {
       if (ORE)
@@ -3368,7 +3367,7 @@ InlineCost llvm::getInlineCost(
     return InlineCost::getAlways("empty function", Reason); // INTEL
 
   return llvm::InlineCost::get(CA.getCost(),            // INTEL
-    CA.getThreshold(), ShouldInline.message, Reason,    // INTEL
+    CA.getThreshold(), nullptr, Reason,                 // INTEL
     CA.getEarlyExitCost(), CA.getEarlyExitThreshold()); // INTEL
 }
 
@@ -3423,9 +3422,8 @@ bool llvm::isInlineViable(Function &F, // INTEL
         case llvm::Intrinsic::localescape:
           Reason = NinlrCallsLocalEscape; // INTEL
           return false; // INTEL
-        // Disallow inlining of functions that access VarArgs.
+        // Disallow inlining of functions that initialize VarArgs with va_start.
         case llvm::Intrinsic::vastart:
-        case llvm::Intrinsic::vaend:
           Reason = NinlrVarargs; // INTEL
           return false;
         }

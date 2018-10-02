@@ -11,7 +11,7 @@
 ; Verify that %A, %B and %n are marked as livein to region and loop.
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s --check-prefix=LIVEIN
 
-; LIVEIN: LiveIns: %A(%A), %B(%B), %n(%n)
+; LIVEIN: LiveIns: %n(%n), %A(%A), %B(%B)
 
 ; LIVEIN: LiveIn symbases: [[NSYM:.*]], [[BSYM:.*]], [[ASYM:.*]]
 

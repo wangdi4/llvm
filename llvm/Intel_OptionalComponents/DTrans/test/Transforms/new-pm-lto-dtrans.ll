@@ -6,7 +6,8 @@
 ; test must be separate.
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume \
-; RUN:     -passes='lto<O2>' -S  %s -enable-npm-dtrans 2>&1 \
+; RUN:     -passes='lto<O2>' -S  %s -enable-npm-dtrans -enable-resolve-types \
+; RUN:     2>&1 \
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.

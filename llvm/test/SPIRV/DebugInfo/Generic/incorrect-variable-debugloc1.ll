@@ -30,8 +30,8 @@
 ; CHECK: DW_TAG_variable
 ; CHECK: DW_AT_location
 ; CHECK-NOT: DW_AT
-; DWARF23: DW_OP_constu 0xd{{$}}
-; DWARF4: DW_OP_constu 0xd, DW_OP_stack_value{{$}}
+; DWARF23: DW_OP_lit13{{$}}
+; DWARF4: DW_OP_lit13, DW_OP_stack_value{{$}}
 
 ; Function Attrs: uwtable
 define i32 @main() #0 !dbg !4 {

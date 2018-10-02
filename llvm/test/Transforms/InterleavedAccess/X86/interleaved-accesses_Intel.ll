@@ -103,11 +103,12 @@ define void @interleaved_store_vf8_i32_stride4(<8 x i32> %a0,<8 x i32> %b0,<8 x 
 
 ; AVX2: [[TEMP0:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; AVX2-NEXT: [[TEMP1:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT: [[TEMP4:%.*]] = shufflevector <8 x i32> [[TEMP0]], <8 x i32> [[TEMP1]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
+
 ; AVX2-NEXT: [[TEMP2:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23>
 ; AVX2-NEXT: [[TEMP3:%.*]] = shufflevector <16 x i32> [[STOREDATA0]], <16 x i32> [[STOREDATA1]], <8 x i32> <i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
-
-; AVX2-NEXT: [[TEMP4:%.*]] = shufflevector <8 x i32> [[TEMP0]], <8 x i32> [[TEMP1]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
 ; AVX2-NEXT: [[TEMP5:%.*]] = shufflevector <8 x i32> [[TEMP2]], <8 x i32> [[TEMP3]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 4, i32 12, i32 5, i32 13>
+
 ; AVX2-NEXT: [[RES0:%.*]] = shufflevector <8 x i32> [[TEMP4]], <8 x i32> [[TEMP5]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 12, i32 13>
 ; AVX2-NEXT: [[RES1:%.*]] = shufflevector <8 x i32> [[TEMP4]], <8 x i32> [[TEMP5]], <8 x i32> <i32 2, i32 3, i32 10, i32 11, i32 6, i32 7, i32 14, i32 15>
 
@@ -156,6 +157,85 @@ define void @interleaved_store_vf8_i32_stride4(<8 x i32> %a0,<8 x i32> %b0,<8 x 
   %interleave.vec = shufflevector <16 x i32> %store.data0, <16 x i32> %store.data1, <32 x i32> <i32 0, i32 8, i32 16, i32 24, i32 1, i32 9, i32 17, i32 25, i32 2, i32 10, i32 18, i32 26, i32 3, i32 11, i32 19, i32 27, i32 4, i32 12, i32 20, i32 28, i32 5, i32 13, i32 21, i32 29, i32 6, i32 14, i32 22, i32 30, i32 7, i32 15, i32 23, i32 31>
   store <32 x i32> %interleave.vec, <32 x i32>* %ptr, align 16
   ret void
+}
+
+define <8 x i16> @interleaved_load_vf8_i16_stride8(<64 x i16>* %ptr){
+; AVX2-LABEL: @interleaved_load_vf8_i16_stride8(
+; AVX2-NEXT:    [[TMP1:%.*]] = bitcast <64 x i16>* [[PTR:%.*]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP2:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP1]], i32 0
+; AVX2-NEXT:    [[TMP3:%.*]] = load <8 x i16>, <8 x i16>* [[TMP2]], align 16
+; AVX2-NEXT:    [[TMP4:%.*]] = bitcast <64 x i16>* [[PTR]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP4]], i32 1
+; AVX2-NEXT:    [[TMP6:%.*]] = load <8 x i16>, <8 x i16>* [[TMP5]], align 16
+; AVX2-NEXT:    [[TMP7:%.*]] = bitcast <64 x i16>* [[PTR]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP8:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP7]], i32 2
+; AVX2-NEXT:    [[TMP9:%.*]] = load <8 x i16>, <8 x i16>* [[TMP8]], align 16
+; AVX2-NEXT:    [[TMP10:%.*]] = bitcast <64 x i16>* [[PTR]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP11:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP10]], i32 3
+; AVX2-NEXT:    [[TMP12:%.*]] = load <8 x i16>, <8 x i16>* [[TMP11]], align 16
+; AVX2-NEXT:    [[TMP13:%.*]] = bitcast <64 x i16>* [[PTR]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP14:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP13]], i32 4
+; AVX2-NEXT:    [[TMP15:%.*]] = load <8 x i16>, <8 x i16>* [[TMP14]], align 16
+; AVX2-NEXT:    [[TMP16:%.*]] = bitcast <64 x i16>* [[PTR]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP17:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP16]], i32 5
+; AVX2-NEXT:    [[TMP18:%.*]] = load <8 x i16>, <8 x i16>* [[TMP17]], align 16
+; AVX2-NEXT:    [[TMP19:%.*]] = bitcast <64 x i16>* [[PTR]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP20:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP19]], i32 6
+; AVX2-NEXT:    [[TMP21:%.*]] = load <8 x i16>, <8 x i16>* [[TMP20]], align 16
+; AVX2-NEXT:    [[TMP22:%.*]] = bitcast <64 x i16>* [[PTR]] to <8 x i16>*
+; AVX2-NEXT:    [[TMP23:%.*]] = getelementptr inbounds <8 x i16>, <8 x i16>* [[TMP22]], i32 7
+; AVX2-NEXT:    [[TMP24:%.*]] = load <8 x i16>, <8 x i16>* [[TMP23]], align 16
+; AVX2-NEXT:    [[TMP25:%.*]] = shufflevector <8 x i16> [[TMP3]], <8 x i16> [[TMP6]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 2, i32 10, i32 3, i32 11>
+; AVX2-NEXT:    [[TMP26:%.*]] = shufflevector <8 x i16> [[TMP3]], <8 x i16> [[TMP6]], <8 x i32> <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+; AVX2-NEXT:    [[TMP27:%.*]] = shufflevector <8 x i16> [[TMP9]], <8 x i16> [[TMP12]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 2, i32 10, i32 3, i32 11>
+; AVX2-NEXT:    [[TMP28:%.*]] = shufflevector <8 x i16> [[TMP9]], <8 x i16> [[TMP12]], <8 x i32> <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+; AVX2-NEXT:    [[TMP29:%.*]] = shufflevector <8 x i16> [[TMP15]], <8 x i16> [[TMP18]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 2, i32 10, i32 3, i32 11>
+; AVX2-NEXT:    [[TMP30:%.*]] = shufflevector <8 x i16> [[TMP15]], <8 x i16> [[TMP18]], <8 x i32> <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+; AVX2-NEXT:    [[TMP31:%.*]] = shufflevector <8 x i16> [[TMP21]], <8 x i16> [[TMP24]], <8 x i32> <i32 0, i32 8, i32 1, i32 9, i32 2, i32 10, i32 3, i32 11>
+; AVX2-NEXT:    [[TMP32:%.*]] = shufflevector <8 x i16> [[TMP21]], <8 x i16> [[TMP24]], <8 x i32> <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
+; AVX2-NEXT:    [[TMP33:%.*]] = shufflevector <8 x i16> [[TMP25]], <8 x i16> [[TMP27]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 2, i32 3, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP34:%.*]] = shufflevector <8 x i16> [[TMP25]], <8 x i16> [[TMP27]], <8 x i32> <i32 4, i32 5, i32 12, i32 13, i32 6, i32 7, i32 14, i32 15>
+; AVX2-NEXT:    [[TMP35:%.*]] = shufflevector <8 x i16> [[TMP29]], <8 x i16> [[TMP31]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 2, i32 3, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP36:%.*]] = shufflevector <8 x i16> [[TMP29]], <8 x i16> [[TMP31]], <8 x i32> <i32 4, i32 5, i32 12, i32 13, i32 6, i32 7, i32 14, i32 15>
+; AVX2-NEXT:    [[TMP37:%.*]] = shufflevector <8 x i16> [[TMP26]], <8 x i16> [[TMP28]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 2, i32 3, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP38:%.*]] = shufflevector <8 x i16> [[TMP26]], <8 x i16> [[TMP28]], <8 x i32> <i32 4, i32 5, i32 12, i32 13, i32 6, i32 7, i32 14, i32 15>
+; AVX2-NEXT:    [[TMP39:%.*]] = shufflevector <8 x i16> [[TMP30]], <8 x i16> [[TMP32]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 2, i32 3, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP40:%.*]] = shufflevector <8 x i16> [[TMP30]], <8 x i16> [[TMP32]], <8 x i32> <i32 4, i32 5, i32 12, i32 13, i32 6, i32 7, i32 14, i32 15>
+; AVX2-NEXT:    [[TMP41:%.*]] = shufflevector <8 x i16> [[TMP33]], <8 x i16> [[TMP35]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP42:%.*]] = shufflevector <8 x i16> [[TMP33]], <8 x i16> [[TMP35]], <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT:    [[TMP43:%.*]] = shufflevector <8 x i16> [[TMP34]], <8 x i16> [[TMP36]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP44:%.*]] = shufflevector <8 x i16> [[TMP34]], <8 x i16> [[TMP36]], <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT:    [[TMP45:%.*]] = shufflevector <8 x i16> [[TMP37]], <8 x i16> [[TMP39]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP46:%.*]] = shufflevector <8 x i16> [[TMP37]], <8 x i16> [[TMP39]], <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT:    [[TMP47:%.*]] = shufflevector <8 x i16> [[TMP38]], <8 x i16> [[TMP40]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; AVX2-NEXT:    [[TMP48:%.*]] = shufflevector <8 x i16> [[TMP38]], <8 x i16> [[TMP40]], <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 12, i32 13, i32 14, i32 15>
+; AVX2-NEXT:    [[ADD1:%.*]] = add <8 x i16> [[TMP41]], [[TMP42]]
+; AVX2-NEXT:    [[ADD2:%.*]] = add <8 x i16> [[TMP43]], [[TMP44]]
+; AVX2-NEXT:    [[ADD3:%.*]] = add <8 x i16> [[TMP45]], [[TMP46]]
+; AVX2-NEXT:    [[ADD4:%.*]] = add <8 x i16> [[TMP47]], [[TMP48]]
+; AVX2-NEXT:    [[ADD5:%.*]] = add <8 x i16> [[ADD1]], [[ADD2]]
+; AVX2-NEXT:    [[ADD6:%.*]] = add <8 x i16> [[ADD3]], [[ADD4]]
+; AVX2-NEXT:    [[ADD7:%.*]] = add <8 x i16> [[ADD5]], [[ADD6]]
+; AVX2-NEXT:    ret <8 x i16> [[ADD7]]
+;
+  %wide.vec = load <64 x i16>, <64 x i16>* %ptr, align 16
+  %v0 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 0, i32 8, i32 16, i32 24, i32 32, i32 40, i32 48, i32 56>
+  %v7 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 7, i32 15, i32 23, i32 31, i32 39, i32 47, i32 55, i32 63>
+  %v1 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 1, i32 9, i32 17, i32 25, i32 33, i32 41, i32 49, i32 57>
+  %v6 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 6, i32 14, i32 22, i32 30, i32 38, i32 46, i32 54, i32 62>
+  %v2 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 2, i32 10, i32 18, i32 26, i32 34, i32 42, i32 50, i32 58>
+  %v5 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 5, i32 13, i32 21, i32 29, i32 37, i32 45, i32 53, i32 61>
+  %v3 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 3, i32 11, i32 19, i32 27, i32 35, i32 43, i32 51, i32 59>
+  %v4 = shufflevector <64 x i16> %wide.vec, <64 x i16> undef, <8 x i32> <i32 4, i32 12, i32 20, i32 28, i32 36, i32 44, i32 52, i32 60>
+
+  %add1 = add <8 x i16> %v0, %v1
+  %add2 = add <8 x i16> %v2, %v3
+  %add3 = add <8 x i16> %v4, %v5
+  %add4 = add <8 x i16> %v6, %v7
+  %add5 = add <8 x i16> %add1, %add2
+  %add6 = add <8 x i16> %add3, %add4
+  %add7 = add <8 x i16> %add5, %add6
+  ret <8 x i16> %add7
 }
 
 

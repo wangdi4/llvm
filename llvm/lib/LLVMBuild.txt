@@ -47,6 +47,7 @@ subdirectories =
  ToolDrivers
  Transforms
  WindowsManifest
+ XRay
 
 [component_0]
 type = Group

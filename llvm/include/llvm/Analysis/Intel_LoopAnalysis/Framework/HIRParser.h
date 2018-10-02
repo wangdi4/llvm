@@ -463,15 +463,16 @@ class HIRParser {
   RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
 
   /// Returns a RegDDRef representing this scalar value.
+  /// \p LvalInst is non-null if this value represents an Lval.
   RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
-                              bool IsLval = false);
+                              HLInst *LvalInst = nullptr);
 
   /// Returns an rval DDRef created from Val.
   RegDDRef *createRvalDDRef(const Instruction *Inst, unsigned OpNum,
                             unsigned Level);
 
-  /// Returns an lval DDRef created from Inst.
-  RegDDRef *createLvalDDRef(const Instruction *Inst, unsigned Level);
+  /// Returns an lval DDRef created from HInst.
+  RegDDRef *createLvalDDRef(HLInst *HInst, unsigned Level);
 
   /// Helper to insert newly created blobs.
   void insertBlobHelper(BlobTy Blob, unsigned Symbase, bool Insert,
@@ -626,6 +627,17 @@ class HIRParser {
 
   /// Returns true if this is a temp blob.
   static bool isTempBlob(BlobTy Blob);
+
+  /// Returns true if \p Blob is a umin blob.
+  /// Please note that umin is represented as -1 + -1 * umax() but we only match
+  /// -1 * umax() part of it.
+  static bool isUMinBlob(BlobTy Blob);
+
+  /// Returns true if minimum value of blob is known and sets it in \p Val.
+  bool getMinBlobValue(BlobTy Blob, int64_t &Val) const;
+
+  /// Returns true if maximum value of blob is known and sets it in \p Val.
+  bool getMaxBlobValue(BlobTy Blob, int64_t &Val) const;
 
   /// Returns true if \p HInst is a livein copy.
   bool isLiveinCopy(const HLInst *HInst);

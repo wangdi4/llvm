@@ -23,6 +23,7 @@
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Error.h"
 
 // Same as in SOAToAOS.cpp.
 #define DEBUG_TYPE "dtrans-soatoaos"
@@ -31,36 +32,30 @@ namespace llvm {
 namespace dtrans {
 namespace soatoaos {
 
-// Offset of base pointer in DTransSOAToAOSApproxTypename.
+// Offset of base pointer in array type.
 cl::opt<unsigned> DTransSOAToAOSBasePtrOff(
     "dtrans-soatoaos-base-ptr-off", cl::init(-1U), cl::ReallyHidden,
-    cl::desc("Base pointer offset in dtrans-soatoaos-approx-typename"));
-
-// Offset of memory interface in DTransSOAToAOSApproxTypename.
-cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff(
-    "dtrans-soatoaos-mem-off", cl::init(-1U), cl::ReallyHidden,
-    cl::desc("Memory interface offset in dtrans-soatoaos-approx-typename"));
+    cl::desc("Base pointer offset in array structure"));
 
 ArraySummaryForIdiom
 getParametersForSOAToAOSArrayMethodsCheckDebug(Function &F) {
 
   SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
-  ArraySummaryForIdiom Failure(nullptr, nullptr, nullptr, nullptr);
-
-  if (!S.StrType)
-    return Failure;
 
   if (S.StrType->getNumElements() <= DTransSOAToAOSBasePtrOff)
-    return Failure;
+    report_fatal_error("Incorrect base pointer specification: "
+                       "dtrans-soatoaos-base-ptr-off points beyond last "
+                       "element of array structure.");
 
   auto *PBase = dyn_cast<PointerType>(
       S.StrType->getTypeAtIndex(DTransSOAToAOSBasePtrOff));
 
-  if (!PBase)
-    return Failure;
+  if (!PBase || !isa<PointerType>(PBase->getElementType()))
+    report_fatal_error(
+        "Incorrect base pointer specification: "
+        "type at dtrans-soatoaos-base-ptr-off offset is not pointer to pointer.");
 
-
-  return ArraySummaryForIdiom(S, PBase->getPointerElementType());
+  return ArraySummaryForIdiom(S, cast<PointerType>(PBase->getElementType()));
 }
 } // namespace soatoaos
 
@@ -87,16 +82,15 @@ SOAToAOSArrayMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
 
   auto *Res = AM.getCachedResult<SOAToAOSApproximationDebug>(F);
   if (!Res)
-    return Ignore(nullptr);
+    report_fatal_error("SOAToAOSApproximationDebug was not run before "
+                       "SOAToAOSArrayMethodsCheckDebug.");
+
   const DepMap *DM = Res->get();
-  // TODO: add diagnostic message.
   if (!DM)
-    return Ignore(nullptr);
+    report_fatal_error("Missing SOAToAOSApproximationDebug results before "
+                       "SOAToAOSArrayMethodsCheckDebug.");
 
   ArraySummaryForIdiom S = getParametersForSOAToAOSArrayMethodsCheckDebug(F);
-  // TODO: add diagnostic message.
-  if (!S.StrType)
-    return Ignore(nullptr);
 
   LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
 
@@ -139,39 +133,21 @@ public:
 
     // For testing purposes assume that the second element type is simply
     // float*.
-    PFloat = PointerType::get(Type::getFloatTy(Context), 0);
+    PFloat = Type::getFloatTy(Context)->getPointerTo(0);
 
     if (InstsToTransform.MK == MK_Append) {
-      // Processing single function in this debug pass.
-      auto *FunctionTy = S.Method->getFunctionType();
-      SmallVector<Type *, 5> Params;
+      SmallVector<PointerType *, 2> Elems;
+      Elems.push_back(S.ElementType);
+      Elems.push_back(PFloat);
 
-      for (auto *P : FunctionTy->params()) {
-        if (P == S.ElementType) {
-          Params.push_back(P);
-          Params.push_back(PFloat);
-          NewParamOffset = Params.size() - 1;
-        }
-        if (auto *Ptr = dyn_cast<PointerType>(P)) {
-          if (Ptr->getElementType() == S.StrType)
-            Params.push_back(NewArray->getPointerTo());
-          if (Ptr->getElementType() == S.ElementType) {
-            Params.push_back(P);
-            Params.push_back(PFloat->getPointerTo());
-            NewParamOffset = Params.size() - 1;
-          }
-        }
-      }
-      auto *NewFunctionTy =
-          FunctionType::get(FunctionTy->getReturnType(), Params, false);
-
-      TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
+      ArrayMethodTransformation::mapNewAppendType(
+          *S.Method, S.ElementType, Elems, TypeRemapper,
+          AppendMethodElemParamOffset);
     }
     return true;
   }
 
   void populateTypes(Module &M) override {
-
     // S.ElementType is pointer type too.
     // For testing purposes assume that the second element type is simply
     // float*.
@@ -204,32 +180,41 @@ public:
                          InstsToTransform.MK == MK_Ctor ||
                          InstsToTransform.MK == MK_CCtor;
 
-    ArrayMethodTransformation::OrigToCopyTy OrigToCopy;
-
-    AMT.updateBasePointerInsts(CopyElemInsts, 2, NewElement->getPointerTo(0));
+    AMT.updateBasePointerInsts(CopyElemInsts, 2/*Number of arrays*/,
+                               NewElement->getPointerTo(0));
     if (CopyElemInsts) {
-      AMT.rawCopyAndRelink(OrigToCopy, true, 2, PFloat, NewParamOffset);
-      AMT.gepRAUW(true, OrigToCopy, 0, NewElement->getPointerTo(0));
+      ArrayMethodTransformation::OrigToCopyTy OrigToCopy;
+      AMT.rawCopyAndRelink(OrigToCopy,
+                           true /* Update unique instructions like memset*/,
+                           2 /*Number of arrays*/, PFloat /*New element type*/,
+                           AppendMethodElemParamOffset +
+                               1 /* Offset in argument list of new element*/);
+      AMT.gepRAUW(true /*Do copy*/, OrigToCopy,
+                  0 /*PFloat's offset in NewElement*/,
+                  NewElement->getPointerTo(0));
     }
     // Original instructions from cloned function should be replaced as a last
     // step to keep OrigToCopy valid.
-    AMT.gepRAUW(false, OrigToCopy, 1, NewElement->getPointerTo(0));
+    AMT.gepRAUW(false /*Only update existing insts*/,
+                ArrayMethodTransformation::OrigToCopyTy(),
+                1 /*S.ElementType's offset in NewElement*/,
+                NewElement->getPointerTo(0));
   }
 
 private:
   const ArraySummaryForIdiom &S;
   const SOAToAOSArrayMethodsCheckDebugResult &InstsToTransform;
 
+  // Structure containing one element per each transformed array.
   StructType *NewElement = nullptr;
+  // New array of structures, structure is NewElement.
   StructType *NewArray = nullptr;
 
-  // Cached types for transformation.
-  // NewElement*
-  PointerType *PNewElement = nullptr;
-  // float*
+  // float*, arbitrary 2nd type in NewElement
   PointerType *PFloat = nullptr;
-  // Offset of new parameter for MK_Append method.
-  unsigned NewParamOffset = -1U;
+  // Offset of the first element parameter for MK_Append method.
+  // Element parameters are arranged in order of NewElement.
+  unsigned AppendMethodElemParamOffset = -1U;
 };
 } // namespace
 
@@ -240,22 +225,19 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   Function *MethodToTest = nullptr;
   for (auto &F : M)
     if (!F.isDeclaration()) {
-      if (!MethodToTest)
-        MethodToTest = &F;
-      else
-        // TODO: add diagnostic.
-        return PreservedAnalyses::all();
+      if (MethodToTest)
+        report_fatal_error("Single function definition per compilation unit is "
+                           "allowed in SOAToAOSArrayMethodsTransformDebug.");
+      MethodToTest = &F;
     }
 
-  // TODO: add diagnostic.
   if (!MethodToTest)
-    return PreservedAnalyses::all();
+    report_fatal_error(
+        "Exactly one function definition per compilation unit is "
+        "required in SOAToAOSArrayMethodsTransformDebug.");
 
   ArraySummaryForIdiom S =
       getParametersForSOAToAOSArrayMethodsCheckDebug(*MethodToTest);
-  // TODO: add diagnostic.
-  if (!S.StrType)
-    return PreservedAnalyses::all();
 
   auto &DTInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
@@ -265,9 +247,9 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   auto &InstsToTransformPtr =
       FAM.getResult<SOAToAOSArrayMethodsCheckDebug>(*MethodToTest);
 
-  // TODO: add diagnostic.
   if (InstsToTransformPtr.get()->MK == MK_Unknown)
-    return PreservedAnalyses::all();
+    report_fatal_error("Please debug array method's classification before "
+                       "attempting to transform it.");
 
   DTransTypeRemapper TypeRemapper;
 

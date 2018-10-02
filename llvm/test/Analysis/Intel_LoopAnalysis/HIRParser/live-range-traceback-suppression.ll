@@ -9,7 +9,7 @@
 ; CHECK: |   if (%0 != 0)
 ; CHECK: |   {
 ; CHECK: |      %1 = (%huffcode)[0][%index.4184.out];
-; CHECK: |      (%q)[i1 + 1] = -1 * %1 + %index.4184.out;
+; CHECK: |      (%q)[i1 + 1] = %index.4184.out + -1 * %1;
 ; CHECK: |      %2 = (%p)[i1 + 1];
 ; CHECK: |      %index.4184 = %2  +  %index.4184;
 ; CHECK: |      %3 = (%huffcode)[0][%index.4184 + -1];

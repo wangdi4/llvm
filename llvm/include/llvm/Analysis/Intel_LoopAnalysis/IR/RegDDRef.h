@@ -389,6 +389,10 @@ public:
     getGEPInfo()->BaseCE = BaseCE;
   }
 
+  /// Removes all the blob ddrefs and clears the canonical form of this RegDDRef
+  /// so it represents constant 0 or null. RegDDRef must be a terminal ref.
+  void clear(bool AssumeLvalIfDetached = false);
+
   /// Returns true if the inbounds attribute is set for this access.
   bool isInBounds() const { return getGEPInfo()->InBounds; }
 
@@ -772,7 +776,9 @@ public:
   /// Converts a terminal lval ref into a self blob ref using its symbase.
   /// For example, if we have t1 = t2 + t3, where t1's canonical form is (1 * t2
   /// + 1 * t3), it will be converted to 1 * t1.
-  void makeSelfBlob();
+  /// The ref is asserted as an lval unless it is detached and
+  /// AssumeLvalIfDetached is set to true.
+  void makeSelfBlob(bool AssumeLvalIfDetached = false);
 
   /// Adds a blob DDRef to this DDRef.
   void addBlobDDRef(BlobDDRef *BlobRef);
@@ -927,6 +933,11 @@ public:
 
   /// Replace any loop-level IV by a given constant integer.
   void replaceIVByConstant(unsigned LoopLevel, int64_t Val);
+
+  /// A RegDDRef is linear if all of the following is true:
+  /// - its baseCE (if available) is linear
+  /// - any CE is linear
+  bool isLinear(void) const { return !isNonLinear(); }
 
   /// A RegDDRef is nonlinear if any of the following is true:
   /// - its baseCE (if available) is nonlinear

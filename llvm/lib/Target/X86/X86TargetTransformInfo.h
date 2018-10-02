@@ -129,7 +129,7 @@ public:
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptimEnabled() const;
   bool adjustCallArgs(CallInst* CI);
-  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
+  bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);

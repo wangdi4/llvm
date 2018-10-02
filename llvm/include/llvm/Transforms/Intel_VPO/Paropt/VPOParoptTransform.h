@@ -313,9 +313,68 @@ private:
                                      Instruction *InsertPt,
                                      const StringRef VarNameSuff);
 
+  /// Creates and return an AllocaInst for the local copy of \p PrivValue within
+  /// \p W. If \p ArrSecSize is provided, the local copy is a VLA of type \p
+  /// ArrSecType and size \p ArrSecSize. Otherwise, the type and length are same
+  /// as \p PrivValue.
+  AllocaInst *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
+                                     Instruction *InsertPt,
+                                     const StringRef VarNameSuff,
+                                     Type *ArrSecType, Value *ArrSecSize);
+
   /// \brief Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
                                    Value *NewPrivInst, Item *IT);
+
+  /// \name Reduction Specific Functions
+  /// {@
+
+  /// For array [section] reduction init loop, get the base address of
+  /// the destination array, number of elements, and destination element type.
+  /// \param [in] ReductionItem Reduction Item.
+  /// \param [in] AI Local Value for the reduction operand.
+  /// \param [in] OldV Original reduction operand Value.
+  /// \param [in] InsertPt Insert point for any Instructions to be inserted.
+  /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
+  /// \param [out] NumElements Number of elements in the array [section].
+  /// \param [out] DestArrayBegin Base address of the local reduction array.
+  /// \param [out] DestElementTy Type of each element of the array [section].
+  void genAggrReductionInitDstInfo(const ReductionItem &RedI, AllocaInst *AI,
+                                   Instruction *InsertPt, IRBuilder<> &Builder,
+                                   Value *&NumElements, Value *&DestArrayBegin,
+                                   Type *&DestElementTy);
+
+  /// For array [section] reduction finalization loop, compute the base address
+  /// of the source and destination arrays, number of elements, and the type of
+  /// destination array elements.
+  /// \param [in] ReductionItem Reduction Item.
+  /// \param [in] AI Local Value for the reduction operand.
+  /// \param [in] OldV Original reduction operand Value.
+  /// \param [in] InsertPt Insert point for any Instructions to be inserted.
+  /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
+  /// \param [out] NumElements Number of elements in the array [section].
+  /// \param [out] SrcArrayBegin Base address of the local reduction array.
+  /// \param [out] DestArrayBegin Starting address of the original reduction
+  /// array [section].
+  /// \param [out] DestElementTy Type of each element of the array [section].
+  void genAggrReductionFiniSrcDstInfo(const ReductionItem &RedI, AllocaInst *AI,
+                                      Value *OldV, Instruction *InsertPt,
+                                      IRBuilder<> &Builder, Value *&NumElements,
+                                      Value *&SrcArrayBegin,
+                                      Value *&DestArrayBegin,
+                                      Type *&DestElementTy);
+
+  /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
+  /// ArraySectionInfo of the reduction item \p RI. It may need to emit some
+  /// Instructions, which is done \b before \p InsertPt.
+  void computeArraySecReductionTypeOffsetSize(ReductionItem &RI,
+                                              Instruction *InsertPt);
+
+  /// Return the Value to replace the occurrences of the original Reduction
+  /// operand inside the body of the associated WRegion. It may need to emit
+  /// some Instructions, which is done \b before \p InsertPt.
+  Value *getReductionItemReplacementValue(ReductionItem const &RedI,
+                                          Instruction *InsertPt);
 
   /// \brief Generate the reduction initialization code.
   void genReductionInit(ReductionItem *RedI, Instruction *InsertPt,
@@ -360,6 +419,7 @@ private:
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
                                     Value *Rhs2, Type *ScalarTy,
                                     IRBuilder<> &Builder, bool IsAnd);
+  /// @}
 
   /// \brief Generate the firstprivate initialization code.
   void genFprivInit(FirstprivateItem *FprivI, Instruction *InsertPt);

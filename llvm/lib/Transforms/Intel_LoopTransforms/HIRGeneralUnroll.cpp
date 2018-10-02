@@ -298,69 +298,63 @@ void HIRGeneralUnroll::processGeneralUnroll(
 unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
                                                bool HasEnablingPragma) const {
 
+  unsigned UnrollFactor;
+  uint64_t TripCount;
+  bool IsConstTripLoop = HLoop->isConstTripLoop(&TripCount);
+
+  if (HasEnablingPragma && (UnrollFactor = HLoop->getUnrollPragmaCount())) {
+    assert(UnrollFactor != 1 && "pragma unroll count of 1 not expected!");
+
+    if (IsConstTripLoop && (TripCount < UnrollFactor)) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll of pragma enabled loop as trip "
+                           "count is too small!\n");
+      return 0;
+    }
+
+    return UnrollFactor;
+  }
+
+  if (IsConstTripLoop && (TripCount < 2)) {
+    LLVM_DEBUG(
+        dbgs() << "Skipping unroll of loop as trip count is too small!\n");
+    return 0;
+  }
+
   unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
 
-  // Exit if loop exceeds threshold.
   if (SelfCost > MaxLoopCost) {
-    LLVM_DEBUG(
-        dbgs()
-        << "Skipping unroll of loop as loop body cost exceeds threshold!\n");
-    return 0;
+    if (HasEnablingPragma) {
+      return 2;
+    } else {
+      LLVM_DEBUG(
+          dbgs()
+          << "Skipping unroll of loop as loop body cost exceeds threshold!\n");
+      return 0;
+    }
   }
 
   // Exit if loop with minimum unroll factor of 2 exceeds threshold.
   if ((2 * SelfCost) > MaxUnrolledLoopCost) {
-    LLVM_DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
-                         "exceeds threshold!\n");
+    if (HasEnablingPragma) {
+      return 2;
+    } else {
+      LLVM_DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
+                           "exceeds threshold!\n");
+      return 0;
+    }
+  }
+
+  if (!HasEnablingPragma &&
+      (IsConstTripLoop || (TripCount = HLoop->getMaxTripCountEstimate())) &&
+      (TripCount < MinTripCountThreshold)) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
     return 0;
   }
 
-  uint64_t TripCount;
-  bool IsConstTripLoop = HLoop->isConstTripLoop(&TripCount);
-
-  unsigned UnrollFactor;
-
-  if (HasEnablingPragma) {
-    // Pragma related sanity checks...
-    UnrollFactor = HLoop->getUnrollPragmaCount();
-    assert(UnrollFactor != 1 && "pragma unroll count of 1 not expected!");
-
-    if (!UnrollFactor) {
-      UnrollFactor = MaxUnrollFactor;
-    }
-
-    if (IsConstTripLoop) {
-      if (TripCount < 3) {
-        LLVM_DEBUG(
-            dbgs() << "Skipping unroll of loop with unroll pragma as trip "
-                      "count is too small!\n");
-        return 0;
-      }
-
-      if (TripCount <= UnrollFactor) {
-        UnrollFactor = TripCount / 2;
-      }
-    }
-
-    if ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
-      // This it to avoid encountering unroll factor of 1 in the while loop
-      // below when using pragma count. For example if the pragma unroll factor
-      // is 3, we get 1 on dividing by 2.
-      UnrollFactor = PowerOf2Floor(UnrollFactor);
-    }
-
-  } else {
-    if ((IsConstTripLoop || (TripCount = HLoop->getMaxTripCountEstimate())) &&
-        (TripCount < MinTripCountThreshold)) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
-      return 0;
-    }
-
-    // Multi-exit loops have a higher chance of having a low trip count as they
-    // can take early exits. We may cause degradations in those cases by
-    // increasing code size. Unroll factor of 2 is the safest bet.
-    UnrollFactor = (HLoop->getNumExits() > 1) ? 2 : MaxUnrollFactor;
-  }
+  // Multi-exit loops have a higher chance of having a low trip count as they
+  // can take early exits. We may cause degradations in those cases by
+  // increasing code size. Unroll factor of 2 is the safest bet.
+  UnrollFactor = (HLoop->getNumExits() > 1) ? 2 : MaxUnrollFactor;
 
   while ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
     UnrollFactor /= 2;

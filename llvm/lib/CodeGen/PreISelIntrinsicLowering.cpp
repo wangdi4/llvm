@@ -103,6 +103,30 @@ static bool lowerFakeload(Function &F) {
   }
   return Changed;
 }
+
+static bool lowerWholeProgramSafe(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+
+  LLVMContext &Context = F.getContext();
+  ConstantInt *InitVal = ConstantInt::getFalse(Context);
+
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    CallInst *CI = dyn_cast<CallInst>(I->getUser());
+    ++I;
+    if (!CI || CI->getCalledValue() != &F)
+      continue;
+
+    CI->replaceAllUsesWith(InitVal);
+    salvageDebugInfo(*CI);
+    CI->eraseFromParent();
+
+    Changed = true;
+  }
+  return Changed;
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool lowerIntrinsics(Module &M) {
@@ -116,6 +140,9 @@ static bool lowerIntrinsics(Module &M) {
 
     if (F.getIntrinsicID() == Intrinsic::intel_fakeload)  // INTEL
       Changed |= lowerFakeload(F);                        // INTEL
+
+    if (F.getIntrinsicID() == Intrinsic::intel_wholeprogramsafe)  // INTEL
+      Changed |= lowerWholeProgramSafe(F);                        // INTEL
   }
   return Changed;
 }

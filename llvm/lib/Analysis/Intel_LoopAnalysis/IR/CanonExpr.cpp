@@ -170,7 +170,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       OS << ")";
     }
 
-    if (isLinearAtLevel() && getDefinedAtLevel() > 0) {
+    if (!isNonLinear() && getDefinedAtLevel() > 0) {
       OS << "{def@" << getDefinedAtLevel() << "}";
     }
   }
@@ -1524,7 +1524,7 @@ bool CanonExpr::verifyIVs(unsigned NestingLevel) const {
 }
 
 bool CanonExpr::verifyNestingLevel(unsigned NestingLevel) const {
-  assert((!isLinearAtLevel() ||
+  assert((isNonLinear() ||
           (getDefinedAtLevel() < NestingLevel || isProperLinear())) &&
          "CE is undefined at the attached level or should be non-linear.");
 
@@ -1597,4 +1597,53 @@ bool CanonExpr::containsUndef() const {
       Indices.begin(), Indices.end(), [this](unsigned BlobIndex) {
         return BlobUtils::containsUndef(getBlobUtils().getBlob(BlobIndex));
       });
+}
+
+bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex,
+                                       bool AllowConversion) const {
+  if (getDenominator() != 1 ||
+      !(AllowConversion || (getSrcType() == getDestType()))) {
+    return false;
+  }
+
+  auto &BU = getBlobUtils();
+  auto StandAloneBlob = BU.getBlob(BlobIndex);
+
+  for (auto I = iv_begin(), E = iv_end(); I != E; ++I) {
+    unsigned BlobIdx = getIVBlobCoeff(I);
+
+    if (BlobIdx == InvalidBlobIndex) {
+      continue;
+    }
+
+    auto Blob = BU.getBlob(BlobIdx);
+
+    if (BU.contains(Blob, StandAloneBlob)) {
+      return false;
+    }
+  }
+
+  bool Found = false;
+
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
+    unsigned BlobIdx = getBlobIndex(I);
+
+    if (BlobIdx == BlobIndex) {
+
+      if (getBlobCoeff(I) != 1) {
+        return false;
+      }
+
+      Found = true;
+      continue;
+    }
+
+    auto Blob = BU.getBlob(BlobIdx);
+
+    if (BU.contains(Blob, StandAloneBlob)) {
+      return false;
+    }
+  }
+
+  return Found;
 }

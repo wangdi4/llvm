@@ -17,7 +17,6 @@ entry:
 ;	CHECK-NOT: imul 
 ;   CHECK: shll 
 ;   CHECK-NEXT: sub
-;   CHECK-NEXT: movl
 ;   CHECK-NEXT: ret
 	ret i32 %tmp3
 }
@@ -61,7 +60,6 @@ entry:
 ;	CHECK-NOT: imul 
 ;   CHECK: shlq 
 ;   CHECK-NEXT: sub
-;   CHECK-NEXT: movq
 ;   CHECK-NEXT: ret
 	ret i64 %tmp3
 }

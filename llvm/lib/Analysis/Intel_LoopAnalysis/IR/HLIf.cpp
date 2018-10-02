@@ -167,6 +167,20 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
   indent(OS, Depth);
   OS << "{\n";
 
+  // Print IV update for the unknown loop which will be generated during code
+  // gen.
+  // ddref_begin() check is a workaround to skip the backedge check until we
+  // form ddrefs in the framework otherwise we encounter an assert for null
+  // stride ref.
+  if (*ddref_begin() && isUnknownLoopBottomTest()) {
+    auto Level = getParentLoop()->getNestingLevel();
+    indent(OS, Depth);
+    // Extra indentation needed to print iv update child.
+    OS.indent(IndentWidth);
+    OS << "<i" << Level << " = "
+       << "i" << Level << " + 1>\n";
+  }
+
   /// Print then children
   for (auto I = then_begin(), E = then_end(); I != E; ++I) {
     I->print(OS, Depth + 1, Detailed);
@@ -364,18 +378,13 @@ void HLIf::verify() const {
          "empty HLIfs");
 
   if (isUnknownLoopBottomTest()) {
-    if (auto Child = getFirstThenChild()) {
-      assert(isa<HLGoto>(Child) && "Unexpected bottom test structure!");
-      assert((Child == getLastThenChild()) &&
-             "Unexpected bottom test structure!");
-      assert(!hasElseChildren() && "Unexpected bottom test structure!");
-    } else {
-      Child = getFirstElseChild();
-      assert((Child && isa<HLGoto>(Child)) &&
-             "Unexpected bottom test structure!");
-      assert((Child == getLastElseChild()) &&
-             "Unexpected bottom test structure!");
-    }
+    auto *Backedge = getLastThenChild();
+    (void)Backedge;
+    assert(isa<HLGoto>(Backedge) && "Could not find unknown loop's backedge!");
+    assert(cast<HLGoto>(Backedge)->getTargetLabel() ==
+               getParentLoop()->getFirstChild() &&
+           "Could not find unknown loop's backedge!");
+    assert(!hasElseChildren() && "Unexpected bottom test structure!");
   }
 
   HLDDNode::verify();

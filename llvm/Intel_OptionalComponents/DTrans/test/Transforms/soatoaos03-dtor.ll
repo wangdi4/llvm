@@ -19,8 +19,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.Arr = type <{ %struct.Mem*, i32, [4 x i8], i32**, i32, [4 x i8] }>
 %struct.Mem = type { i32 (...)** }
-; CHECK-MOD: %__SOA_struct.Arr = type <{ %struct.Mem*, i32, [4 x i8], %__SOA_EL_struct.Arr*, i32, [4 x i8] }>
-; CHECK-MOD: %__SOA_EL_struct.Arr = type { float*, i32* }
+; CHECK-MOD-DAG: %__SOA_struct.Arr = type <{ %struct.Mem*, i32, [4 x i8], %__SOA_EL_struct.Arr*, i32, [4 x i8] }>
+; CHECK-MOD-DAG: %__SOA_EL_struct.Arr = type { float*, i32* }
 
 ; The following method should be classified as dtor.
 ; Instructions to transform are shown.

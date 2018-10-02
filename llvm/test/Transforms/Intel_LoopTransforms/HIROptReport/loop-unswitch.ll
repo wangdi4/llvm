@@ -39,7 +39,8 @@
 ; CHECK-HIR: LOOP BEGIN
 ; CHECK-HIR-NEXT:     Remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
-; CHECK-HIR-NEXT:         Remark: Loop has been vectorized with vector {{.*}} factor
+; CHECK-HIR-NEXT:         Remark: LOOP WAS VECTORIZED
+; CHECK-HIR-NEXT:         Remark: vectorization support: vector length {{.*}}
 ; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
 ; CHECK-HIR-NEXT:         <Remainder loop for vectorization>

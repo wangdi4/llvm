@@ -50,19 +50,68 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
 private:
-  class OpcodeData {
-    friend class Group;
+  // Maximum distance between two Values.
+  enum {
+      MAX_DISTANCE = LONG_MAX
+  };
+  // This represents the associative instruction that applies to this leaf.
+  class AssocOpcodeData {
+    friend class OpcodeData;
 
   private:
     unsigned Opcode;
+    Constant *Const;
+
+  public:
+    AssocOpcodeData(const Instruction *I);
+    AssocOpcodeData(unsigned AddSubOpcode) {
+      assert((AddSubOpcode == Instruction::Add ||
+              AddSubOpcode == Instruction::Sub) &&
+             "Expected Add or Sub.");
+      Opcode = AddSubOpcode;
+      Const = nullptr;
+    }
+    unsigned getOpcode() const { return Opcode; }
+    Constant *getConst() const { return Const; }
+    hash_code getHash() const { return hash_combine(Opcode, Const); }
+    bool operator==(const AssocOpcodeData &Data2) const {
+      return Opcode == Data2.Opcode && Const == Data2.Const;
+    }
+    bool operator!=(const AssocOpcodeData &Data2) const {
+      return !(*this == Data2);
+    }
+    // Comparator used for sorting.
+    bool operator<(const AssocOpcodeData &Data2) const {
+      if (Opcode != Data2.Opcode)
+        return Opcode < Data2.Opcode;
+      if (Const != Data2.Const)
+        return Const < Data2.Const;
+      return false;
+    }
+    // For debugging.
+    void dump() const;
+  };
+
+  class OpcodeData {
+    friend class Group;
+    using AssocDataTy = SmallVector<AssocOpcodeData, 1>;
+
+  private:
+    unsigned Opcode;
+    // The Unary associative opcodes that apply to the leaf.
+    AssocDataTy AssocOpcodeVec;
 
   public:
     OpcodeData() : Opcode(0) {}
     OpcodeData(unsigned Opcode) : Opcode(Opcode) {}
     // The Add/Sub opcode of the leaf.
     unsigned getOpcode() const { return Opcode; }
+    AssocDataTy::const_iterator begin() const { return AssocOpcodeVec.begin(); }
+    AssocDataTy::const_iterator end() const { return AssocOpcodeVec.end(); }
     hash_code getHash() const {
       hash_code Hash = hash_combine(Opcode);
+      for (const auto &Data : AssocOpcodeVec)
+        Hash = hash_combine(Hash, Data.getHash());
       return Hash;
     }
     bool isUndef() const { return Opcode == 0; }
@@ -72,10 +121,24 @@ private:
     }
     // Compare the whole opcode.
     bool operator==(const OpcodeData &OD2) const {
-      return Opcode == OD2.Opcode;
+      return Opcode == OD2.Opcode && AssocOpcodeVec == OD2.AssocOpcodeVec;
     }
     bool operator!=(const OpcodeData &OD2) const { return !(*this == OD2); }
+    // Comparator used for sorting.
+    bool operator<(const OpcodeData &OD2) const {
+      if (Opcode != OD2.Opcode)
+        return Opcode < OD2.Opcode;
+      if (AssocOpcodeVec.size() != OD2.AssocOpcodeVec.size())
+        return AssocOpcodeVec.size() < OD2.AssocOpcodeVec.size();
+      for (size_t I = 0, e = AssocOpcodeVec.size(); I != e; ++I)
+        if (AssocOpcodeVec[I] != OD2.AssocOpcodeVec[I])
+          return AssocOpcodeVec[I] < OD2.AssocOpcodeVec[I];
+      return false;
+    }
     OpcodeData getFlipped() const;
+    void appendAssocInstr(Instruction *I) {
+      AssocOpcodeVec.push_back(AssocOpcodeData(I));
+    }
     // For debugging.
     void dump() const;
   };
@@ -113,6 +176,8 @@ private:
     }
   };
   using LUSetTy = std::unordered_set<LeafUserPair, HashIt<LeafUserPair>>;
+  using AssocDataSetTy =
+      std::unordered_set<AssocOpcodeData, HashIt<AssocOpcodeData>>;
   using LUPairVecTy = SmallVector<LeafUserPair, 16>;
 
   // The expression tree.
@@ -126,6 +191,12 @@ private:
     // NOTE: Multiple identical leaves are allowed.
     // Main data structure for leaves and their users.
     LUPairVecTy LUVec;
+    // Set to true if this tree contains shared leaves candidates.
+    // This is used to avoid searching through the leaves of a tree.
+    bool HasSharedLeafCandidate = false;
+    // Number of shared leaves became part of a trunk. In other words,
+    // that many leaves have been unshared during tree constructions.
+    int SharedLeavesCount = 0;
 
   public:
     Tree() : Root(nullptr) {
@@ -167,7 +238,15 @@ private:
     // 'U' is set as the user of 'Leaf'.
     bool replaceLeafUser(Value *Leaf, Instruction *OldU, Instruction *NewU);
     // Returns true if 'Leaf' is a leaf of this tree.
-    bool hasLeaf(const Value *Leaf) const;
+    bool hasLeaf(Value *Leaf) const;
+    // Returns number of shared leaves that are part of the trunk.
+    int getSharedLeavesCount() const { return SharedLeavesCount; }
+    // Increases/decreases number of shared leaves.
+    void adjustSharedLeavesCount(int Count) { SharedLeavesCount += Count; }
+    // Return true if this tree contains shared leaf candidate nodes.
+    bool hasSharedLeafCandidate() const { return HasSharedLeafCandidate; }
+    // Set the shared leaf candidate flag.
+    void setSharedLeafCandidate(bool Flag) { HasSharedLeafCandidate = Flag; }
     // Returns true if this tree is larger than 'T2'.
     bool operator<(const Tree &T2) const {
       return getLeavesCount() > T2.getLeavesCount();
@@ -197,11 +276,28 @@ private:
     bool empty() const { return Values.empty(); }
     // Return the vector of Leaves and user opcodes in bottom-up order.
     const ValVecTy &getValues() const { return Values; }
+    void setValues(const ValVecTy &&ValuesNew) {
+      assert(Values.size() == ValuesNew.size() && "Expected same size.");
+      Values = std::move(ValuesNew);
+    }
     void appendLeaf(Value *Leaf, const OpcodeData &Opcode) {
       Values.push_back({Leaf, Opcode});
     }
     void pop_back() { Values.pop_back(); }
     size_t size() const { return Values.size(); }
+    // Returns a pair of unique and total number of associative instructions in
+    // the group.
+    std::pair<unsigned, unsigned> geAssocInstrCnt() const {
+      AssocDataSetTy Set;
+
+      unsigned Total = 0;
+      for (auto &Pair : Values) {
+        Total += Pair.second.AssocOpcodeVec.size();
+        for (const auto &AOD : Pair.second.AssocOpcodeVec)
+          Set.insert(AOD);
+      }
+      return {Set.size(), Total};
+    }
     ValOpTy operator[](int idx) { return Values[idx]; }
     OpcodeData getOpcodeFor(Value *V) const {
       for (auto &Pair : Values) {
@@ -211,7 +307,11 @@ private:
       }
       llvm_unreachable("V not found in group");
     }
-    bool containsValue(const Value *const V) const;
+    bool containsValue(Value *V) const;
+    // Returns true if the opcodes/reverse-opcodes and instruction types match.
+    bool isSimilar(const Group &G2);
+    // Canonicalize the values in the group by sorting them.
+    void sort();
     // Return the opcode of the Idx'th trunk instruction.
     unsigned getTrunkOpcode(int Idx) const { return Values[Idx].second.Opcode; }
     // Change the trunk opcodes from Add to Sub and vice versa.
@@ -223,6 +323,38 @@ private:
 
   using GroupsVec = SmallVector<Group, 4>;
 
+  static Value *skipAssocs(const OpcodeData &OD, Value *Leaf);
+
+  // Checks that instructions between root and leaves are in
+  // canonical form, otherwise asserts with an error.
+  void checkCanonicalized(Tree &T) const;
+
+  bool isAddSubInstr(const Instruction *I) const;
+  bool isAddSubInstr(const Value *V) const;
+  bool isAllowedTrunkInstr(const Value *V) const;
+
+  // Returns true if we were able to compute distance of V1 and V2 or one of their
+  // operands, false otherwise.
+  bool getValDistance(Value *V1, Value *V2, int MaxDepth, int64_t &Distance);
+  // Returns the sum of the absolute distances of SortedLeaves and G2.
+  int64_t getSumAbsDistances(Group::ValVecTy &SortedLeaves, const Group &G2);
+  // Recursively calls itself to explore the different orderings of G1's leaves
+  // in order to match them best against G2.
+  int64_t getBestSortedScoreRec(const Group &G1, const Group &G2,
+                                 Group::ValVecTy G1Leaves,
+                                 Group::ValVecTy G2Leaves,
+                                 Group::ValVecTy &SortedG1Leaves,
+                                 Group::ValVecTy &BestSortedG1Leaves,
+                                 int64_t &BestScore);
+  // Returns false if we did not manage to get a good ordering that matches G2.
+  bool getBestSortedLeaves(const Group &G1, const Group &G2,
+                           Group::ValVecTy &BestSortedG1Leaves);
+  // Canonicalize: (i) the order of the values in G1, (ii) the trunk opcodes, to
+  // match the ones in G2.
+  bool memCanonicalizeGroupBasedOn(Group &G1, const Group &G2,
+                                   ScalarEvolution *SE);
+  // Canonicalize 'G' based on 'BestGroups' memory accesses and opcodes.
+  bool memCanonicalizeGroup(Group &G, GroupsVec &BestGroups);
   // Find the common leaves across the trees in TreeCluster.
   void getCommonLeaves(const TreeArrayTy &TreeCluster,
                        SmallPtrSet<Value *, 8> &CommonLeaves);
@@ -232,13 +364,40 @@ private:
   // Form groups of nodes that reduce divergence across trees in TreeCluster.
   void buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
                            GroupsVec &AllBestGroups);
+  // Remove the old dead trunk instructions.
+  void removeDeadTrunkInstrs(Tree *T, Instruction *OldRootI) const;
+  // Massage the code in T to be a flat single-branch +/- expression tree.
+  bool canonicalizeIRForTree(Tree &T) const;
+  // Linearize the code that corresponds to the trees in TreeVec.
+  bool canonicalizeIRForTrees(const TreeArrayTy &TreeArray) const;
+  // Applies 'G' onto 'T' and emits the code.
+  void generateCode(Group &G, Tree *T, Instruction *Chain) const;
+  // Simplifies the top instructions of the tree by removing the '0'.
+  Instruction *simplifyTree(Instruction *Bridge, bool OptTrunk) const;
+  // Emit Assoc Instructions for T.
+  void emitAssocInstrs(Tree *T) const;
+  // Calls generateCod(G, T) for all groups and all trees.
+  void generateCode(GroupsVec &Groups, TreeArrayTy &TreeArray) const;
   // Returns true if T1 and T2 contain similar values.
   bool treesMatch(const Tree *T1, const Tree *T2) const;
   // Create clusters of the trees in TreeVec.
   void clusterTrees(TreeVecTy &TreeVec,
                     SmallVectorImpl<TreeArrayTy> &TreeClusters);
   // Grow the tree upwards, towards the definitions.
-  bool growTree(Tree *T, WorkListTy &WorkList);
+  bool growTree(Tree *T, WorkListTy &&WorkList);
+  // Returns true if all uses of a \p Leaf are from one of a tree in \p TreeVec,
+  // false otherwise. Additionally for each such use a Tree * and Leaf index
+  // pair is put to \p WorkList.
+  bool areAllUsesInsideTreeCluster(
+      TreeArrayTy &TreeVec, const Value *Leaf,
+      SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList) const;
+  // Returns true if we were able to find a leaf with multiple uses from trees
+  // in \p TreeVec only, false otherwise. Each found use is pushed to a \p
+  // WorkList as a Tree* and Leaf index pair.
+  bool getSharedLeave(TreeArrayTy &TreeVec,
+                      SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList);
+  // Enlarge trees by growing them towards shared leaves.
+  void extendTrees(TreeArrayTy &Trees);
   // Build Add/Sub trees from code in BB.
   void buildInitialTrees(BasicBlock *BB, TreeVecTy &TreeVec);
   // Build all trees within BB.
@@ -252,6 +411,7 @@ private:
   void dumpGroups(const GroupsVec &Groups) const;
 
 private:
+  const DataLayout *DL = nullptr;
   ScalarEvolution *SE = nullptr;
 };
 

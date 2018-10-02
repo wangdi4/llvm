@@ -907,7 +907,7 @@ void getFreePtrArg(FreeKind Kind, ImmutableCallSite CS, unsigned &PtrArgInd,
 
 /// Collects all special arguments for free-like call.
 void collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
-                            SmallPtrSet<const Value *, 3> &OutputSet,
+                            SmallPtrSetImpl<const Value *> &OutputSet,
                             const TargetLibraryInfo &TLI);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
@@ -945,6 +945,10 @@ bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
 /// equivalent to isElementZeroAccess with an additional level of indirection.
 bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
 
+/// Remove pointer, vector, and array types to uncover the base type which
+/// the contain.
+Type *unwrapType(Type *Ty);
+
 /// Check whether the specified type is the type of a known system object.
 bool isSystemObjectType(llvm::StructType *Ty);
 
@@ -963,6 +967,15 @@ StringRef getStructName(llvm::Type *Ty);
 /// type is zero-size array itself.
 bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 
+// Annotate an instruction to provide a pointer type that the result of the
+// instruction aliases. This method can be used by a DTrans transformation for
+// cases where the generated IR is unable to be analyzed directly by the
+// DTransAnalysis.
+void createDTransTypeAnnotation(Instruction *I, llvm::Type *Ty);
+
+// Get the type that exists in an annotation, if one exists, for the
+// instruction.
+llvm::Type *lookupDTransTypeAnnotation(Instruction *I);
 } // namespace dtrans
 
 } // namespace llvm

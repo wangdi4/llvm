@@ -282,7 +282,6 @@ private:
 
   void buildGraph(const HLNode *Node, bool BuildInputEdges);
 
-  bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
   void setInputDV(DirectionVector &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
 };
 
@@ -305,8 +304,7 @@ public:
   const HIRDDAnalysis &getDDA() const { return *DDA; }
 };
 
-class HIRDDAnalysisPass
-    : public AnalysisInfoMixin<HIRDDAnalysisPass> {
+class HIRDDAnalysisPass : public AnalysisInfoMixin<HIRDDAnalysisPass> {
   friend struct AnalysisInfoMixin<HIRDDAnalysisPass>;
 
   static AnalysisKey Key;

@@ -119,8 +119,6 @@ unsigned AMDGPUInliner::getInlineThreshold(CallSite CS) const {
   if (!Callee)
     return (unsigned)Thres;
 
-  const AMDGPUAS AS = AMDGPU::getAMDGPUAS(*Caller->getParent());
-
   // If we have a pointer to private array passed into a function
   // it will not be optimized out, leaving scratch usage.
   // Increase the inline threshold to allow inliniting in this case.
@@ -129,7 +127,7 @@ unsigned AMDGPUInliner::getInlineThreshold(CallSite CS) const {
   for (Value *PtrArg : CS.args()) {
     Type *Ty = PtrArg->getType();
     if (!Ty->isPointerTy() ||
-        Ty->getPointerAddressSpace() != AS.PRIVATE_ADDRESS)
+        Ty->getPointerAddressSpace() != AMDGPUAS::PRIVATE_ADDRESS)
       continue;
     PtrArg = GetUnderlyingObject(PtrArg, DL);
     if (const AllocaInst *AI = dyn_cast<AllocaInst>(PtrArg)) {

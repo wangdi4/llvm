@@ -1077,6 +1077,12 @@ def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
                                  [LLVMMatchType<0>, llvm_metadata_ty],
                                  [IntrSpeculatable, IntrNoMem]>;
+
+// Intrinsic generated to detect if the whole program analysis
+// achieved whole program safe. This intrinsic won't be lowered,
+// it will be removed by the whole program analysis. See the
+// language reference manual for more information.
+def int_intel_wholeprogramsafe   : Intrinsic<[llvm_i1_ty], [], []>;
 // end INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"
@@ -1098,5 +1104,6 @@ include "llvm/IR/IntrinsicsWebAssembly.td"
 include "llvm/IR/IntrinsicsCSA.td"
 // end INTEL_FEATURE_CSA
 // end INTEL_CUSTOMIZATON
+include "llvm/IR/IntrinsicsRISCV.td"
 include "llvm/IR/IntrinsicsNios2.td" // INTEL
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL

@@ -40,8 +40,9 @@ private:
 
   // Auxiliary functions for loop verification.
   void verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const;
-  void verifyContainerLoop(const VPBlockBase *Block,
-                           const VPLoopRegion *ParentLoopR) const;
+  void verifyContainerLoop(
+      const VPBlockBase *Block, const VPLoopRegion *ParentLoopR,
+      const SmallPtrSetImpl<const VPBlockBase *> &ExternalBlocks) const;
   void verifyLoopRegions(const VPRegionBlock *TopRegion) const;
   void verifyNumLoops(const VPRegionBlock *TopRegion) const;
 

@@ -43,7 +43,10 @@
 #include "Intel_VPlan/IntelVPlanLoopInfo.h"
 #include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Support/FormattedStream.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -60,6 +63,7 @@ class LoopInfo;
 namespace loopopt {
 class RegDDRef;
 class HLLoop;
+class OptReportDiag;
 } // namespace loopopt
 
 namespace vpo {
@@ -573,11 +577,13 @@ class VPInstruction : public VPUser, public VPRecipeBase {
 #if INTEL_CUSTOMIZATION
   friend class HIRSpecifics;
   friend class VPBuilder;
+  friend class VPBranchInst;
   friend class VPBuilderHIR;
   friend class VPDecomposerHIR;
   // To get underlying HIRData until we have proper VPType.
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
+  friend class VPlanIdioms;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
@@ -645,20 +651,20 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     }
 
     /// Return the underlying HIR attached to this master VPInstruction.
-    loopopt::HLDDNode *getUnderlyingDDN() {
-      loopopt::HLDDNode *DDNode = getVPInstData()->getNode();
-      assert(DDNode && "Underlying HIR cannot be null!");
-      return DDNode;
+    loopopt::HLNode *getUnderlyingNode() {
+      loopopt::HLNode *Node = getVPInstData()->getNode();
+      assert(Node && "Underlying HIR cannot be null!");
+      return Node;
     }
-    const loopopt::HLDDNode *getUnderlyingDDN() const {
-      return const_cast<HIRSpecifics *>(this)->getUnderlyingDDN();
+    const loopopt::HLNode *getUnderlyingNode() const {
+      return const_cast<HIRSpecifics *>(this)->getUnderlyingNode();
     }
 
-    /// Attach \p UnderlyingDDN to this VPInstruction and turn it into a master
+    /// Attach \p UnderlyingNode to this VPInstruction and turn it into a master
     /// VPInstruction.
-    void setUnderlyingDDN(loopopt::HLDDNode *UnderlyingDDN) {
+    void setUnderlyingNode(loopopt::HLNode *UnderlyingNode) {
       assert(!isSet() && "MasterData is already set!");
-      MasterData = new MasterVPInstData(UnderlyingDDN);
+      MasterData = new MasterVPInstData(UnderlyingNode);
     }
 
     /// Return the master VPInstruction attached to a decomposed VPInstruction.
@@ -724,7 +730,7 @@ public:
   // proper Phi nodes. At this point, we can find semi-phis at any point of the
   // VPBasicBlock and even redundant semi-phis blending exactly the same
   // definitions.
-  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi, SMax, UMax };
+  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi, SMax, UMax, };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
 #endif
@@ -789,7 +795,7 @@ public:
     if (!HIR.isMaster())
       return nullptr;
 
-    const loopopt::HLDDNode *Node = HIR.getUnderlyingDDN();
+    const loopopt::HLNode *Node = HIR.getUnderlyingNode();
     const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
 
     if (!Inst)
@@ -862,6 +868,29 @@ private:
     if (CmpInst::isFPPredicate(Pred))
       return Instruction::FCmp;
     llvm_unreachable("Integer/Float predicate expected");
+  }
+};
+
+/// Concrete class to represent branch instruction in VPlan.
+class VPBranchInst : public VPInstruction {
+public:
+  explicit VPBranchInst() : VPInstruction(Instruction::Br, {}) {}
+
+  const loopopt::HLGoto *getHLGoto() const {
+    return cast<loopopt::HLGoto>(HIR.getUnderlyingNode());
+  }
+
+  const BasicBlock *getTargetBlock() const {
+    if (getHLGoto())
+      return getHLGoto()->getTargetBBlock();
+    // TODO: LLVM-IR implementation is needed.
+    return nullptr;
+  }
+
+  void print(raw_ostream &O) const;
+
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == Instruction::Br;
   }
 };
 #endif
@@ -2445,6 +2474,33 @@ public:
     return RSO.str();
   }
 };
+
+/// A wrapper class to add VPlan related remarks for opt-report. Currently
+/// the implementation is naive with a single method to add a remark for
+/// a given LoopType loop.
+//  TODO:
+/// In the future this will be extended to record all vectorization related
+/// remarks emitted by VPlan by mapping the remarks to underlying VPlan data
+/// structures that represent a loop. For example:
+///
+/// VPLoopRegion MainLoop --> {"LOOP WAS VECTORIZED", "vector length: 4"}
+/// VPLoopRegion RemainderLoop --> {"remainder loop was not vectorized"}
+template <class LoopType> class VPlanOptReportBuilder {
+  LoopOptReportBuilder &LORBuilder;
+
+public:
+  VPlanOptReportBuilder(LoopOptReportBuilder &LORB) : LORBuilder(LORB) {}
+
+  /// Add a vectorization related remark for \p Lp. The remark message is
+  /// identified by \p MsgID.
+  template <typename... Args>
+  void addRemark(LoopType *Lp, OptReportVerbosity::Level Verbosity,
+                 unsigned MsgID, Args &&... args) {
+    LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
+                              std::forward<Args>(args)...);
+  }
+};
+
 } // namespace vpo
 
 //===----------------------------------------------------------------------===//

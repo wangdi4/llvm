@@ -13,11 +13,10 @@
 ; + END LOOP
 ; END REGION
 
-; CHECK: %mv.cast = bitcast.i32*.i8*(&((%weight)[0].0));
-; CHECK: %mv.cast2 = bitcast.i32*.i8*(&((%weight)[0].2));
-; CHECK: %mv.test = &((%src)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src_stride))) + -1]) >=u %mv.cast;
-; CHECK: %mv.test3 = %mv.cast2 >=u &((%src)[(sext.i32.i64((-1 + %i_height)) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%i_src_stride))))))) + -1]);
-; CHECK: %mv.and = %mv.test  &&  %mv.test3;
+; CHECK: %mv.upper.base = &((i8*)(%weight)[0].2);
+; CHECK: %mv.test = &((%src)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src_stride))) + -1]) >=u &((i8*)(%weight)[0].0);
+; CHECK: %mv.test2 = &((%mv.upper.base)[3]) >=u &((%src)[(sext.i32.i64((-1 + %i_height)) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%i_src_stride))))))) + -1]);
+; CHECK: %mv.and = %mv.test  &&  %mv.test2;
 ; CHECK: if (%mv.and == 0)
 
 ;Module Before HIR; ModuleID = 'mc_weight.c'

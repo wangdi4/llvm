@@ -91,11 +91,11 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
     return nullptr;
-  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
-  if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
+  const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
+  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
     return ::getMemInstValueType(Inst);
 
-  const RegDDRef *LvalDDRef = Node->getLvalDDRef();
+  const RegDDRef *LvalDDRef = DDNode->getLvalDDRef();
   // FIXME: Is that correct?
   return LvalDDRef->getDestType();
 #endif // INTEL_CUSTOMIZATION
@@ -117,8 +117,8 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
-  const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
-  if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
+  const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
+  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
     return ::getMemInstAddressSpace(Inst);
 #endif // INTEL_CUSTOMIZATION
 
@@ -141,7 +141,7 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
     return nullptr;
-  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingDDN());
+  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
   auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
                                            : HInst->getLvalDDRef();
 
@@ -166,8 +166,8 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
 
 #if INTEL_CUSTOMIZATION
   if (VPInst->HIR.isMaster()) {
-    const HLDDNode *Node = VPInst->HIR.getUnderlyingDDN();
-    if (const Instruction *Inst = getLLVMInstFromDDNode(Node))
+    const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
+    if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
       if (unsigned Align = ::getMemInstAlignment(Inst))
         return Align;
   }

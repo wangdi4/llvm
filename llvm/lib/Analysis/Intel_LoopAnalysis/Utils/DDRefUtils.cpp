@@ -331,7 +331,8 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
 
 bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2, unsigned LoopLevel,
-                                      int64_t *Distance, bool RelaxedMode) {
+                                      int64_t *Distance, bool RelaxedMode,
+                                      bool IgnoreBitcastDestType) {
 
   // Dealing with GEP refs only
   if (!Ref1->hasGEPInfo() || !Ref2->hasGEPInfo()) {
@@ -347,7 +348,7 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   // scalar replacement which now need to handle such cases.
   // TODO: Remove this check and let the transformations decide what to do with
   // such refs.
-  if (!RelaxedMode &&
+  if (!(RelaxedMode || IgnoreBitcastDestType) &&
       Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
     return false;
   }
@@ -421,16 +422,19 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
 
 bool DDRefUtils::getConstByteDistance(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2, int64_t *Distance,
-                                      bool RelaxedMode) {
-  return getConstDistanceImpl(Ref1, Ref2, 0, Distance, RelaxedMode);
+                                      bool RelaxedMode,
+                                      bool IgnoreBitcastDestType) {
+  return getConstDistanceImpl(Ref1, Ref2, 0, Distance, RelaxedMode,
+                              IgnoreBitcastDestType);
 }
 
 bool DDRefUtils::getConstIterationDistance(const RegDDRef *Ref1,
                                            const RegDDRef *Ref2,
                                            unsigned LoopLevel,
-                                           int64_t *Distance,
-                                           bool RelaxedMode) {
-  return getConstDistanceImpl(Ref1, Ref2, LoopLevel, Distance, RelaxedMode);
+                                           int64_t *Distance, bool RelaxedMode,
+                                           bool IgnoreBitcastDestType) {
+  return getConstDistanceImpl(Ref1, Ref2, LoopLevel, Distance, RelaxedMode,
+                              IgnoreBitcastDestType);
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, unsigned Level) {

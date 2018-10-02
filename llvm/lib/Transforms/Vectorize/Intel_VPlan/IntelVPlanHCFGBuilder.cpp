@@ -60,6 +60,10 @@ static cl::opt<bool>
     VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
                           cl::desc("Print plain dump after VPlan simplify "
                                    "plain CFG"));
+
+static cl::opt<bool>
+    VPlanPrintHCFG("vplan-print-after-hcfg", cl::init(false),
+                   cl::desc("Print plain dump after build VPlan H-CFG."));
 #endif
 
 // Split loops' preheader block that are not in canonical form
@@ -283,23 +287,53 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   FixDominance(CascadedExit);
 }
 
+#if INTEL_CUSTOMIZATION
+// Return the nearest common post dominator of all the VPBlockBases in \p
+// InputVPBlocks.
+static VPBlockBase *getNearestCommonPostDom(
+    const VPPostDominatorTree &VPPostDomTree,
+    const SmallVectorImpl<VPBlockBase *> &InputVPBlocks) {
+  assert(InputVPBlocks.size() > 0 && "Expected at least one input block!");
+  VPBlockBase *NearestDom = *InputVPBlocks.begin();
+
+  if (InputVPBlocks.size() == 1)
+    return NearestDom;
+
+  for (auto *InputVPB : InputVPBlocks) {
+    NearestDom = VPPostDomTree.findNearestCommonDominator(InputVPB, NearestDom);
+    assert(NearestDom && "Nearest post dominator can't be null!");
+  }
+
+  return NearestDom;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Split loops' exit block that are not in canonical form
 void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
 
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<VPBlockBase *, 4> LoopExits;
+  VPL->getUniqueExitBlocks(LoopExits);
+  // If loop has single exit, the actual block to be potentially split is the
+  // single exit. If loop has multiple exits, the actual block to be potentially
+  // split is the common landing pad (nearest post dom) of all the exits.
+  // TODO: If the CFG after the loop exits gets more complicated, we can get
+  // the common post-dom block of all the exits.
+  VPBlockBase *Exit = getNearestCommonPostDom(VPPostDomTree, LoopExits);
+#else
   VPBlockBase *Exit = VPL->getUniqueExitBlock();
   assert(Exit && "Only single-exit loops expected");
+#endif // INTEL_CUSTOMIZATION
 
   // Split loop exit with multiple successors or that is preheader of another
   // loop
   VPBlockBase *PotentialH = Exit->getSingleSuccessor();
   if (!PotentialH ||
       (VPLInfo->isLoopHeader(PotentialH) &&
-       VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit)) {
-
+       VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit))
     VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree, Plan);
-  }
 
   // Apply simplification to subloops
   for (auto VPSL : VPL->getSubLoops()) {
@@ -468,11 +502,21 @@ void VPlanHCFGBuilder::buildLoopRegions() {
 
     // Set VPLoop's entry and exit.
     // Entry = loop preheader, Exit = loop single exit
+#if INTEL_CUSTOMIZATION
+    // (or nearest common post dom for multi-exit loops).
+#endif
     VPBlockBase *RegionEntry = VPL->getLoopPreheader();
     assert(RegionEntry && isa<VPBasicBlock>(RegionEntry) &&
            "Unexpected loop preheader");
+#if INTEL_CUSTOMIZATION
+    SmallVector<VPBlockBase *, 4> LoopExits;
+    VPL->getUniqueExitBlocks(LoopExits);
+    VPBasicBlock *RegionExit =
+        cast<VPBasicBlock>(getNearestCommonPostDom(VPPostDomTree, LoopExits));
+#else
     assert(VPL->getUniqueExitBlock() && "Only single-exit loops expected");
     VPBasicBlock *RegionExit = cast<VPBasicBlock>(VPL->getUniqueExitBlock());
+#endif // INTEL_CUSTOMIZATION
 
     LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName() << "\n"
                       << "   Entry: " << RegionEntry->getName() << "\n"
@@ -732,6 +776,13 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   LLVM_DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n");
              dbgs() << *Plan;);
 
+#if INTEL_CUSTOMIZATION
+  if (VPlanPrintHCFG) {
+    errs() << "Print after building H-CFG:\n";
+    Plan->dump(errs());
+  }
+#endif
+
   LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
              Verifier->verifyHierarchicalCFG(TopRegion));
 }
@@ -787,7 +838,6 @@ bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
   // Expensive check: check if loop header is inside the region
   VPLoop *ParentLoop = cast<VPLoopRegion>(ParentRegion)->getVPLoop();
   VPBlockBase *LoopHeader = ParentLoop->getHeader();
-  assert(ParentLoop->getUniqueExitBlock() && "Only single-exit loops expected");
   assert(ParentLoop->contains(Entry) &&
          "Potential entry blocks should be inside the loop");
   assert(ParentLoop->contains(Exit) &&

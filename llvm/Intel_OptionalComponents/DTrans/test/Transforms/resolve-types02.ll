@@ -1,45 +1,48 @@
-; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes \
+; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
 
-; This test verifies that the dtrans::ResolveTypes correctly combines
-; types that are nested within other structures.
+; Verify that types which are similar but not compatible or equivalent are
+; not incorrectly merged.
 
-; These types should all be combined.
-%A = type { i32, %B* }
-%B = type { i32, i32 }
-%B.1 = type { i32, i32 }
+; Because the last elements of %struct.outer and %struct.outer.0 have different
+; levels of indirection they cannot be combined.
 
-; CHECK-DAG: %__DTRT_A = type { i32, %__DTRT_B* }
-; CHECK-DAG: %__DTRT_B = type { i32, i32 }
-; CHECK-NOT: %B = type { i32, i32 }
-; CHECK-NOT: %B.1 = type { i32, i32 }
+%struct.outer = type { i32, i32, %struct.middle* }
+%struct.middle = type { i32, i32, %struct.bar }
+%struct.bar = type { i32, i32 }
+%struct.outer.0 = type { i32, i32, %struct.middle.1 }
+%struct.middle.1 = type { i32, i32, %struct.foo* }
+%struct.foo = type { i16, i16, i32 }
 
-; The call interfaces are the important thing in the tests. We don't actually
-; need to do anything with the elements.
+; CHECK-DAG: %struct.outer = type { i32, i32, %struct.middle* }
+; CHECK-DAG: %struct.middle = type { i32, i32, %struct.bar }
+; CHECK-DAG: %struct.bar = type { i32, i32 }
+; CHECK-DAG: %struct.outer.0 = type { i32, i32, %struct.middle.1 }
+; CHECK-DAG: %struct.middle.1 = type { i32, i32, %struct.foo* }
+; CHECK-DAG: %struct.foo = type { i16, i16, i32 }
 
-define void @useB(%B* %p) {
-  ret void
-}
-; CHECK-NOT: void @useB(%B* %p)
-
-define void @useB1(%B.1* %p) {
-  ret void
-}
-; CHECK-NOT: void @useB1(%B.1* %p)
-
-define void @test(%A* %a) {
-  %pb = getelementptr %A, %A* %a, i64 0, i32 1
-  %b = load %B*, %B** %pb
-  call void @useB(%B* %b)
-  call void bitcast (void (%B.1*)* @useB1 to void (%B*)*) (%B* %b)
+define void @f1(%struct.outer* %o) {
+  call void bitcast (void (%struct.outer.0*)* @use_outer to void (%struct.outer*)*)(%struct.outer* %o)
   ret void
 }
 
-; CHECK-LABEL: void @useB.1(%__DTRT_B* %p)
+; CHECK-LABEL: define{{.+}}void @f1(%struct.outer* %o) {
+; CHECK: call void bitcast (void (%struct.outer.0*)* @use_outer to
+; CHECK-SAME:               void (%struct.outer*)*)(%struct.outer* %o)
 
-; CHECK-LABEL: void @useB1.2(%__DTRT_B* %p)
+define void @use_middle(%struct.middle* %m) {
+  %pbar = getelementptr %struct.middle, %struct.middle* %m, i64 0, i32 2
+  call void @use_bar(%struct.bar* %pbar)
+  ret void
+}
 
-; CHECK-LABEL: void @test.3(%__DTRT_A* %a)
-; CHECK:  %pb = getelementptr %__DTRT_A, %__DTRT_A* %a, i64 0, i32 1
-; CHECK:  %b = load %__DTRT_B*, %__DTRT_B** %pb
-; CHECK:  call void @useB.1(%__DTRT_B* %b)
-; CHECK:  call void @useB1.2(%__DTRT_B* %b)
+define void @use_bar(%struct.bar* %b) {
+  ret void
+}
+
+define void @use_outer(%struct.outer.0* %o) {
+  ret void
+}
+
+; CHECK-LABEL: define{{.+}}void @use_outer(%struct.outer.0* %o)

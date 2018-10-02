@@ -8,7 +8,7 @@
 ; REQUIRES: asserts
 ;
 ; A perfect loop nest is forced even when all references in innermost loop are all unit strided.
-; Then interchanged for blocking. For blocking, ( 2 1 3 ) might be a better permutation. 
+; Then interchanged. ( 2 1 3 ) might be a better permutation. 
 
 ; <37>      + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; <38>      |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -22,7 +22,7 @@
 ; <38>      |   + END LOOP
 ; <37>      + END LOOP
 
-;
+; CHECK: MayInterchange: 1
 ; CHECK: Interchanged:
 ; CHECK-SAME: ( 2 1 3 )
 ;

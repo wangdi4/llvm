@@ -25,7 +25,7 @@ define void @test(%struct.test.a* %p) {
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test.b = type { %struct.test.c, i32, i32 }
-; CHECK: Safety data: Contains nested structure 
+; CHECK: Safety data: Contains nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test.c = type { i32, i32, i32, i32 }

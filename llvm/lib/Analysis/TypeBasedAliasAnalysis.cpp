@@ -372,35 +372,8 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
   if (!EnableTBAA)
     return AAResultBase::alias(LocA, LocB);
 
-#if INTEL_CUSTOMIZATION
-  bool DirectRefA, DirectRefB;
-  DirectRefA = DirectRefB = false;
-  const Value *Ptr1 = LocA.Ptr;
-  const Value *Ptr2 = LocB.Ptr;
-
-  // Consider ptr as a direct reference if ptr is a Select node and one of the
-  // arms of it is a global Scalar value.
-  if (Ptr1) {
-    Type *Ptr1ElementType = Ptr1->getType()->getPointerElementType();
-    if (isa<GlobalValue>(Ptr1) && !(Ptr1ElementType->isAggregateType()))
-      DirectRefA = true;
-    else if (const SelectInst *S1 = dyn_cast<SelectInst>(Ptr1))
-      if (isa<GlobalValue>(S1->getTrueValue()) ||
-          isa<GlobalValue>(S1->getFalseValue()))
-        DirectRefA = true;
-  }
-  if (Ptr2) {
-    Type *Ptr2ElementType = Ptr2->getType()->getPointerElementType();
-    if (isa<GlobalValue>(Ptr2) && !(Ptr2ElementType->isAggregateType()))
-      DirectRefB = true;
-    else if (const SelectInst *S2 = dyn_cast<SelectInst>(Ptr2))
-      if (isa<GlobalValue>(S2->getTrueValue()) ||
-          isa<GlobalValue>(S2->getFalseValue()))
-        DirectRefB = true;
-  }
   // If accesses may alias, chain to the next AliasAnalysis.
-  if (Aliases(LocA.AATags.TBAA, LocB.AATags.TBAA, DirectRefA, DirectRefB))
-#endif // INTEL_CUSTOMIZATION
+  if (Aliases(LocA.AATags.TBAA, LocB.AATags.TBAA))
     return AAResultBase::alias(LocA, LocB);
 
   // Otherwise return a definitive result.
@@ -497,12 +470,11 @@ bool MDNode::isTBAAVtableAccess() const {
 }
 
 static bool matchAccessTags(const MDNode *A, const MDNode *B,
-                            bool MaskCheckA, bool MaskCheckB,      // INTEL
                             const MDNode **GenericTag = nullptr);
 
 MDNode *MDNode::getMostGenericTBAA(MDNode *A, MDNode *B) {
   const MDNode *GenericTag;
-  matchAccessTags(A, B, true, true, &GenericTag); // INTEL
+  matchAccessTags(A, B, &GenericTag);
   return const_cast<MDNode*>(GenericTag);
 }
 
@@ -619,7 +591,6 @@ static bool hasField(TBAAStructTypeNode BaseType,
 /// tag for the given two.
 static bool mayBeAccessToSubobjectOf(TBAAStructTagNode BaseTag,
                                      TBAAStructTagNode SubobjectTag,
-                                     bool BaseGlobalScalar,  // INTEL
                                      const MDNode *CommonType,
                                      const MDNode **GenericTag,
                                      bool &MayAlias) {
@@ -627,15 +598,6 @@ static bool mayBeAccessToSubobjectOf(TBAAStructTagNode BaseTag,
   // to its subobject.
   if (BaseTag.getAccessType() == BaseTag.getBaseType() &&
       BaseTag.getAccessType() == CommonType) {
-#if INTEL_CUSTOMIZATION
-    // If the base object is of the least common type and a global scalar
-    // whereas subobject is not, then base object cannot be aliased with the
-    // subobject and we can return early.
-    if (BaseGlobalScalar) {
-      MayAlias = false;
-      return true;
-    }
-#endif // INTEL_CUSTOMIZATION
     if (GenericTag)
       *GenericTag = createAccessTag(CommonType);
     MayAlias = true;
@@ -699,7 +661,6 @@ static bool mayBeAccessToSubobjectOf(TBAAStructTagNode BaseTag,
 /// overlap. If \arg GenericTag is not null, then on return it points to the
 /// most generic access descriptor for the given two.
 static bool matchAccessTags(const MDNode *A, const MDNode *B,
-                            bool MaskCheckA, bool MaskCheckB,      // INTEL
                             const MDNode **GenericTag) {
   if (A == B) {
     if (GenericTag)
@@ -735,10 +696,8 @@ static bool matchAccessTags(const MDNode *A, const MDNode *B,
   // accesses may alias.
   bool MayAlias;
   if (mayBeAccessToSubobjectOf(/* BaseTag= */ TagA, /* SubobjectTag= */ TagB,
-                               MaskCheckA && !MaskCheckB, // INTEL
                                CommonType, GenericTag, MayAlias) ||
       mayBeAccessToSubobjectOf(/* BaseTag= */ TagB, /* SubobjectTag= */ TagA,
-                               MaskCheckB && !MaskCheckA, // INTEL
                                CommonType, GenericTag, MayAlias))
     return MayAlias;
 
@@ -750,67 +709,8 @@ static bool matchAccessTags(const MDNode *A, const MDNode *B,
 
 /// Aliases - Test whether the access represented by tag A may alias the
 /// access represented by tag B.
-#if INTEL_CUSTOMIZATION
-bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
-                                bool DirectRefA, bool DirectRefB) const {
-  //
-  // Given two memory references a and b, the type aliaser before the
-  // following fix checks the following cases:
-  //  1) whether a's type can be descendants of b's type
-  //  2) whether b's type can be descendants of a's type in the type tree.
-  //
-  // The fix refines the rules as follows.
-  //   If one of the references is global scalar variable, the compiler only
-  //   needs to check one case, since the global scalar variable cannot be
-  //   aliased by an access to an enclosing (descendant) type.
-  //
-  // Here is one running example.
-
-  // char a;
-  // int foo(int *s) {
-  //   *s=10;
-  //   a = 12;
-  //   return *s;
-  // }
-  //
-  // LLVM TBAA
-  //
-  //  store i8 12, i8* @a, align 1, !tbaa !5
-  //  %0 = load i32, i32* %s, align 4, !tbaa !1
-  //
-  // !0 = !{!"clang version 3.8.0 (trunk 1684)"}
-  // !1 = !{!2, !2, i64 0}
-  // !2 = !{!"int", !3, i64 0}
-  // !3 = !{!"omnipotent char", !4, i64 0}
-  // !4 = !{!"Simple C/C++ TBAA"}
-  // !5 = !{!3, !3, i64 0}
-  //
-  // The type based alias analysis before the fix for !5 and !1
-  // Step 1: (!5,0,!1,0)
-  // Step 2: (!3, 0, !2, 0)
-  // Step 3: (!4,0, !2,0) match fails
-  // Step 4: (!3, 0, !2, 0)
-  // Step 5: (!3,0, !3,0) match successful means that they are aliased.
-  //
-  //
-  // With the fix, the compiler can skip step 4 and 5 since the type of store
-  // for global variable a can not be descendant of another type tree
-  // unless they are annotated with the same metadata.
-  //
-  // Proposed type based alias analysis for !5 and !1
-  // Step 1: (!5,0,!1,0)
-  // Step 2: (!3, 0, !2, 0)
-  // Step 3: (!4,0, !2,0) match fails
-
-  CheckKind Mask;
-  if (DirectRefA && !DirectRefB)
-    Mask = CheckA;
-  else if (!DirectRefA && DirectRefB)
-    Mask = CheckB;
-  else Mask = CheckBoth;
-  return matchAccessTags(A, B, (Mask & CheckA) == CheckA,
-                         (Mask & CheckB) == CheckB);
-#endif // INTEL_CUSTOMIZATION
+bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B) const {
+  return matchAccessTags(A, B);
 }
 
 AnalysisKey TypeBasedAA::Key;
@@ -902,8 +802,7 @@ MDNode *llvm::getMostSpecificTBAA(MDNode *GepNode, MDNode *MemOpNode) {
   bool MayAlias;
 
   if (mayBeAccessToSubobjectOf(/* BaseTag */ GepTag,
-                               /* SubobjectTag */ MemOpTag,
-                               /* BaseGlobalScalar */ false, CommonType,
+                               /* SubobjectTag */ MemOpTag, CommonType,
                                /* GenericTag */ nullptr, MayAlias))
     return GepNode;
 

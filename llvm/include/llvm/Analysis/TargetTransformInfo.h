@@ -289,7 +289,7 @@ public:
   /// Returns whether V is a source of divergence.
   ///
   /// This function provides the target-dependent information for
-  /// the target-independent DivergenceAnalysis. DivergenceAnalysis first
+  /// the target-independent LegacyDivergenceAnalysis. LegacyDivergenceAnalysis first
   /// builds the dependency graph, and then runs the reachability algorithm
   /// starting with the sources of divergence.
   bool isSourceOfDivergence(const Value *V) const;
@@ -905,7 +905,7 @@ public:
 
   /// \return true if 'Mask' requires a target-specific shuffle
   /// instruction, return false otherwise.
-  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
+  bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -1170,7 +1170,7 @@ public:
   virtual bool adjustCallArgs(CallInst *) = 0;
 
   virtual bool
-  isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const = 0;
+  isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                           unsigned SrcAlign,
@@ -1548,7 +1548,8 @@ public:
     return Impl.adjustCallArgs(CI);
   }
 
-  bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const override {
+  bool
+  isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const override {
     return Impl.isTargetSpecificShuffleMask(Mask);
   }
 #endif // INTEL_CUSTOMIZATION

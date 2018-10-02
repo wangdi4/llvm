@@ -31,6 +31,7 @@ MODULE_ANALYSIS("profile-summary", ProfileSummaryAnalysis())
 MODULE_ANALYSIS("targetlibinfo", TargetLibraryAnalysis())
 MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis())     // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
+MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 
 #ifndef MODULE_ALIAS_ANALYSIS
 #define MODULE_ALIAS_ANALYSIS(NAME, CREATE_PASS)                               \
@@ -66,6 +67,8 @@ MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
             dtrans::SOAToAOSArrayMethodsTransformDebug())        // INTEL
+MODULE_PASS("soatoaos-struct-methods-transform",                 // INTEL
+            dtrans::SOAToAOSStructMethodsTransformDebug())       // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
@@ -116,6 +119,7 @@ MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass()) // INTEL
 #endif
 CGSCC_ANALYSIS("no-op-cgscc", NoOpCGSCCAnalysis())
 CGSCC_ANALYSIS("fam-proxy", FunctionAnalysisManagerCGSCCProxy())
+CGSCC_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 #undef CGSCC_ANALYSIS
 
 #ifndef CGSCC_PASS
@@ -153,6 +157,7 @@ FUNCTION_ANALYSIS("targetlibinfo", TargetLibraryAnalysis())
 FUNCTION_ANALYSIS("targetir",
                   TM ? TM->getTargetIRAnalysis() : TargetIRAnalysis())
 FUNCTION_ANALYSIS("verify", VerifierAnalysis())
+FUNCTION_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 
 #if INTEL_INCLUDE_DTRANS
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -207,6 +212,7 @@ FUNCTION_PASS("callsite-splitting", CallSiteSplittingPass())
 FUNCTION_PASS("tbaa-prop", TbaaMDPropagationPass())        // INTEL
 FUNCTION_PASS("cleanup-fakeloads", CleanupFakeLoadsPass()) // INTEL
 FUNCTION_PASS("consthoist", ConstantHoistingPass())
+FUNCTION_PASS("chr", ControlHeightReductionPass())
 FUNCTION_PASS("convert-to-subscript", ConvertGEPToSubscriptIntrinsicPass()) // INTEL
 FUNCTION_PASS("correlated-propagation", CorrelatedValuePropagationPass())
 FUNCTION_PASS("dce", DCEPass())
@@ -300,6 +306,7 @@ FUNCTION_PASS("hir-dead-store-elimination", loopopt::HIRDeadStoreEliminationPass
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())
 FUNCTION_PASS("hir-cg", loopopt::HIRCodeGenPass())
 FUNCTION_PASS("hir-temp-cleanup", loopopt::HIRTempCleanupPass())
+FUNCTION_PASS("hir-propagate-casted-iv", loopopt::HIRPropagateCastedIVPass())
 FUNCTION_PASS("hir-array-transpose", loopopt::HIRArrayTransposePass())
 FUNCTION_PASS("hir-general-unroll", loopopt::HIRGeneralUnrollPass())
 FUNCTION_PASS("hir-idiom", loopopt::HIRIdiomRecognitionPass())
@@ -335,6 +342,7 @@ FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())
 LOOP_ANALYSIS("no-op-loop", NoOpLoopAnalysis())
 LOOP_ANALYSIS("access-info", LoopAccessAnalysis())
 LOOP_ANALYSIS("ivusers", IVUsersAnalysis())
+LOOP_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 #undef LOOP_ANALYSIS
 
 #ifndef LOOP_PASS

@@ -49,10 +49,16 @@ static cl::opt<bool>
     EnablePaddedPtrProp("enable-padded-ptr-propagation", cl::init(true),
                         cl::Hidden,
                         cl::desc("Enable padded pointer property propagation"));
+
+static cl::opt<bool>
+    EnableResolveTypes("enable-resolve-types", cl::init(true),
+                        cl::Hidden,
+                        cl::desc("Enable pre-dtrans type resolution"));
 #else
 
 #define hasDumpModuleBeforeDTransValue(x) (false)
 constexpr bool EnablePaddedPtrProp = false;
+constexpr bool EnableResolveTypes = false;
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -78,7 +84,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
   // This must run before any other pass that depends on DTransAnalysis.
-  MPM.addPass(dtrans::ResolveTypesPass());
+  if (EnableResolveTypes)
+    MPM.addPass(dtrans::ResolveTypesPass());
 
   MPM.addPass(dtrans::DeleteFieldPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
@@ -93,7 +100,8 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
     PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
   // This must run before any other pass that depends on DTransAnalysis.
-  PM.add(createDTransResolveTypesWrapperPass());
+  if (EnableResolveTypes)
+    PM.add(createDTransResolveTypesWrapperPass());
 
   PM.add(createDTransDeleteFieldWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());

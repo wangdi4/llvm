@@ -601,6 +601,38 @@ if.then5:                                         ; preds = %if.then2, %if.end
   ret void
 }
 
+define i32 @phi_align(i32* %z) {
+; CHECK-LABEL: @phi_align(
+entry:
+  %a = alloca [8 x i8], align 8
+; CHECK: alloca [7 x i8]
+
+  %a0x = getelementptr [8 x i8], [8 x i8]* %a, i64 0, i32 1
+  %a0 = bitcast i8* %a0x to i32*
+  %a1x = getelementptr [8 x i8], [8 x i8]* %a, i64 0, i32 4
+  %a1 = bitcast i8* %a1x to i32*
+; CHECK: store i32 0, {{.*}}, align 1
+  store i32 0, i32* %a0, align 1
+; CHECK: store i32 1, {{.*}}, align 1
+  store i32 1, i32* %a1, align 4
+; CHECK: load {{.*}}, align 1
+  %v0 = load i32, i32* %a0, align 1
+; CHECK: load {{.*}}, align 1
+  %v1 = load i32, i32* %a1, align 4
+  %cond = icmp sle i32 %v0, %v1
+  br i1 %cond, label %then, label %exit
+
+then:
+  br label %exit
+
+exit:
+; CHECK: %phi = phi i32* [ {{.*}}, %then ], [ %z, %entry ]
+; CHECK-NEXT: %result = load i32, i32* %phi, align 1
+  %phi = phi i32* [ %a1, %then ], [ %z, %entry ]
+  %result = load i32, i32* %phi, align 4
+  ret i32 %result
+}
+
 ; verifies whether if the load (after PHI) following a GEP gets promoted by SROA.
 define i32 @intel_testGEP() {
 ; CHECK-LABEL: @intel_testGEP(
@@ -632,4 +664,3 @@ exit:
 ; CHECK-NOT: load
 	ret i32 %result
 }
-
