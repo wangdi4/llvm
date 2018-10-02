@@ -224,9 +224,9 @@ unsigned CSADataflowCanonicalizationPass::getNotReg(MachineInstr *MI,
   unsigned InvertedReg = LMFI->allocateLIC(&CSA::CI1RegClass);
   BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::NOT1),
           InvertedReg)
-    .addReg(MI->getOperand(1).getReg())
+    .addReg(InputReg)
     ->setFlag(MachineInstr::NonSequential);
-  LMFI->setLICGroup(InvertedReg, LMFI->getLICGroup(MI->getOperand(1).getReg()));
+  LMFI->setLICGroup(InvertedReg, LMFI->getLICGroup(InputReg));
   return InvertedReg;
 }
 
@@ -417,6 +417,10 @@ bool CSADataflowCanonicalizationPass::stopPipingLiterals(MachineInstr *MI) {
     case CSA::Generic::SWITCHANY:
       // These values depend on LIC availability for consistency. Replacing with
       // a literal changes semantic meaning.
+      return false;
+    case CSA::Generic::LAND:
+    case CSA::Generic::LOR:
+      // This helps to suppress warnings.
       return false;
     case CSA::Generic::PICK:
       // Don't drop into picks if the control value has an init value.
