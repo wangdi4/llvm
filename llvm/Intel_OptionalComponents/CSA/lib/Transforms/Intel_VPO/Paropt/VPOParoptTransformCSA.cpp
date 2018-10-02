@@ -27,6 +27,10 @@ static cl::opt<unsigned> LoopWorkersDefault(
   cl::desc("Defines default number of workers for OpenMP loops with no "
            "num_threads clause."));
 
+static cl::opt<bool> UseExpLoopPrivatizer(
+  "csa-omp-exp-loop-privatizer", cl::init(false), cl::ReallyHidden,
+  cl::desc("Use experimental privatizer for OpenMP loops."));
+
 namespace {
 
 class CSADiagInfo : public DiagnosticInfoWithLocationBase {
@@ -78,7 +82,7 @@ private:
   // Creates alloca instruction for the given item, inserts it to the InitBB and
   // replaces all uses of the original variable within work region with a
   // private instance.
-  void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) {
+  virtual void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) {
     auto *Old = I->getOrig();
     auto *New = PT.genPrivatizationAlloca(W, Old, getInitBB()->getTerminator(),
                                           Suffix);
@@ -87,7 +91,7 @@ private:
   }
 
 protected:
-  BasicBlock* getInitBB() {
+  virtual BasicBlock* getInitBB() {
     if (InitBB)
       return InitBB;
     auto *EntryBB = W->getEntryBBlock();
@@ -96,7 +100,7 @@ protected:
     return InitBB;
   }
 
-  BasicBlock* getFiniBB() {
+  virtual BasicBlock* getFiniBB() {
     if (FiniBB)
       return FiniBB;
     FiniBB = W->getExitBBlock();
@@ -129,7 +133,7 @@ protected:
         return;
       }
     genPrivItem(I, W, ".fpriv");
-    PT.genFprivInit(I, getInitBB()->getTerminator());
+    PT.genFprivInit(I, cast<Instruction>(I->getNew())->getNextNode());
     if (auto *D = I->getDestructor())
       VPOParoptUtils::genDestructorCall(D, I->getNew(),
           getFiniBB()->getFirstNonPHI());
@@ -160,7 +164,7 @@ protected:
   // Creates reduction code for the given var.
   void genRedVar(ReductionItem *I, WRegionNode *W) {
     genPrivItem(I, W, ".red");
-    PT.genReductionInit(I, getInitBB()->getTerminator(), DT);
+    PT.genReductionInit(I, cast<Instruction>(I->getNew())->getNextNode(), DT);
     PT.genReductionFini(I, I->getOrig(), getFiniBB()->getTerminator(), DT);
   }
 
@@ -194,7 +198,7 @@ public:
       }
       Changed = true;
     }
-    if (W->canHaveReduction() && !!W->getFpriv().empty()) {
+    if (W->canHaveReduction() && !W->getRed().empty()) {
       for (auto *I : W->getRed().items())
         genRedVar(I, W);
       Changed = true;
@@ -213,16 +217,18 @@ public:
 
 // CSA privatizer customization for the loop construct.
 // TODO: Need to be updated once (and if) we start creating workers in paropt.
-class VPOParoptTransform::CSALoopPrivatizer final :
+class VPOParoptTransform::CSALoopPrivatizer :
     public VPOParoptTransform::CSAPrivatizer {
+protected:
+  // Work region's loop.
+  Loop *L = nullptr;
+
+protected:
   // Last iteration block is inserted into the loop body under if which
   // compares induction variable with the loop's upper bound.
-  virtual BasicBlock* getLastIterBB() override {
+  BasicBlock* getLastIterBB() override {
     if (LastIterBB)
       return LastIterBB;
-
-    auto *L = W->getWRNLoopInfo().getLoop();
-    assert(L->isLoopSimplifyForm());
 
     // Get loop's induction variable and upper bound.
     auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(L);
@@ -245,8 +251,112 @@ class VPOParoptTransform::CSALoopPrivatizer final :
 
 public:
   CSALoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
-    : CSAPrivatizer(PT, W) {
+    : CSAPrivatizer(PT, W), L(W->getWRNLoopInfo().getLoop()) {
     assert(W->getIsOmpLoop() && "loop construct is expected");
+    assert(L->isLoopSimplifyForm());
+  }
+};
+
+// Recursively visit users of value V and check if any def-use chain reaches any
+// block in the given set of Blocks. If yes then the def-use chain is added to
+// the Defs list and true is returned.
+static bool findDefs(const WRegionNode *W, Value *V,
+                     const SmallVectorImpl<BasicBlock*> &Blocks,
+                     SmallSetVector<Value*, 8u> &Defs) {
+  bool IsDef = false;
+  for (auto *U : V->users()) {
+    if (auto *I = dyn_cast<Instruction>(U)) {
+      auto *BB = I->getParent();
+      if (!W->contains(BB))
+        continue;
+      if (find(Blocks, BB) != Blocks.end() || findDefs(W, I, Blocks, Defs))
+        IsDef = true;
+    }
+  }
+  if (IsDef)
+    Defs.insert(V);
+  return IsDef;
+}
+
+// Experimental variant of CSA loop privatizer which uses loop preheader as
+// initialization block (where alloca instructions for private instances are
+// inserted).
+class VPOParoptTransform::CSAExpLoopPrivatizer final :
+    public VPOParoptTransform::CSALoopPrivatizer {
+private:
+  // List of blocks that require replacing of original variable references
+  // with private instances.
+  SmallVector<BasicBlock*, 8u> Blocks;
+
+private:
+  BasicBlock* getInitBB() override {
+    if (InitBB)
+      return InitBB;
+    InitBB = L->getLoopPreheader();
+    return InitBB;
+  }
+
+  BasicBlock* getFiniBB() override {
+    if (FiniBB)
+      return FiniBB;
+    FiniBB = WRegionUtils::getOmpExitBlock(L);
+    SplitBlock(FiniBB, FiniBB->getFirstNonPHI(), DT, LI);
+    FiniBB->setName(".omp.priv.fini");
+    return FiniBB;
+  }
+
+  void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) override {
+    auto *Old = I->getOrig();
+
+    // Find all instructions depending on the private variable which need to be
+    // replicated in the loop preheader.
+    SmallSetVector<Value*, 8u> Defs;
+    findDefs(W, Old, Blocks, Defs);
+
+    // Insertion point for alloca.
+    auto *InsPt = getInitBB()->getFirstNonPHI();
+
+    // Create alloca for the private variable.
+    auto *New = PT.genPrivatizationAlloca(W, Old, InsPt, Suffix);
+    I->setNew(New);
+
+    // Create clones of all collected defs at the beginning of the loop
+    // preheader.
+    ValueToValueMapTy VMap;
+    VMap[Old] = New;
+    for (const auto *I : reverse(Defs)) {
+      if (VMap[I])
+        continue;
+      auto *C = cast<Instruction>(I)->clone();
+      C->insertBefore(InsPt);
+      VMap[I] = C;
+    }
+
+    // Replace uses of defs within the loop with clones.
+    for (auto *V : Defs) {
+      SmallVector<Value*, 8u> Uses;
+      copy_if(V->users(), std::back_inserter(Uses), [&](const Value *V) {
+        if (auto *I = dyn_cast<Instruction>(V))
+          return find(Blocks, I->getParent()) != Blocks.end();
+        return false;
+      });
+      for (auto *U : Uses)
+        cast<Instruction>(U)->replaceUsesOfWith(V, VMap[V]);
+
+      // Defs with no uses can be safely deleted.
+      if (auto *I = dyn_cast<Instruction>(V))
+        if (I->user_empty())
+          I->eraseFromParent();
+    }
+  }
+
+public:
+  CSAExpLoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
+    : CSALoopPrivatizer(PT, W) {
+    // Initialize blocks list where private variable references will be replaced
+    // with private instances. It includes loop preheader and all loop blocks.
+    Blocks.push_back(L->getLoopPreheader());
+    copy(L->blocks(), std::back_inserter(Blocks));
   }
 };
 
@@ -257,7 +367,7 @@ class VPOParoptTransform::CSASectionsPrivatizer final :
     public VPOParoptTransform::CSAPrivatizer {
 private:
   // Last iteration block for sections goes to the end of the last section.
-  virtual BasicBlock* getLastIterBB() override {
+  BasicBlock* getLastIterBB() override {
     if (LastIterBB)
       return LastIterBB;
 
@@ -275,7 +385,7 @@ public:
     assert(W->getIsSections() && "sections construct is expected");
   }
 
-  virtual bool run() override {
+  bool run() override {
     bool Changed = false;
 
     assert(W->isBBSetEmpty() &&
@@ -484,7 +594,10 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   assert(Loop->isLoopSimplifyForm());
 
   // Generate privatization code.
-  CSALoopPrivatizer(*this, W).run();
+  if (UseExpLoopPrivatizer)
+    CSAExpLoopPrivatizer(*this, W).run();
+  else
+    CSALoopPrivatizer(*this, W).run();
 
   // Determine the number of workers to use for this loop.
   unsigned NumWorkers = 0;
@@ -570,4 +683,3 @@ bool VPOParoptTransform::genCSASingle(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
   return CSAPrivatizer(*this, W).run();
 }
-
