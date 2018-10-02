@@ -211,7 +211,7 @@ void CSAOpSizes::emitMIRMatcher(raw_ostream &OS, const ReverseMapTy &ReverseMap,
     if (II->Namespace == "TargetOpcode")
       continue;
     StringRef Name = II->TheDef->getName();
-    OS << "  constexpr mirmatch::Opcode<" << II->Namespace << "::"
+    OS << "  constexpr mirmatch::OpcodeMatcher<" << II->Namespace << "::"
       << Name << "> " << Name.lower() << "{};\n";
   }
 
@@ -226,7 +226,7 @@ void CSAOpSizes::emitMIRMatcher(raw_ostream &OS, const ReverseMapTy &ReverseMap,
       if (NeedToClose) {
         OS << "> " << GenericOps[Expected]->getName().lower() << "_N{};\n";
       }
-      OS << "  constexpr mirmatch::OpcodeGroup<";
+      OS << "  constexpr mirmatch::OpcodeGroupMatcher<";
       NeedToClose = true;
       NeedComma = false;
     }

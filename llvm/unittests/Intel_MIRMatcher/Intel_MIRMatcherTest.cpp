@@ -108,6 +108,9 @@ class MIFuncBuilder {
   }
 
 public:
+  MIFuncBuilder(const MIFuncBuilder&) = delete;
+  MIFuncBuilder operator=(const MIFuncBuilder&) = delete;
+
   MIFuncBuilder(const char* name)
     : m_func(cast<Function>(
                IRModule.getOrInsertFunction(name,
@@ -127,7 +130,8 @@ public:
     return m_MIFunc.getSubtarget().getRegisterInfo(); }
   MachineBasicBlock* BB()      const { return m_BB; }
   MachineRegisterInfo& MRI()   const { return m_MIFunc.getRegInfo(); }
-  void dump()                  const { return m_BB->dump(); }
+  void dump()                  const { m_BB->dump(); }
+  void dump(StringRef s)       const { dbgs() << '\n' << s << '\n'; m_BB->dump(); }
 
   int createVirtualRegister(const TargetRegisterClass *regClass) {
     return MRI().createVirtualRegister(regClass);
@@ -147,17 +151,13 @@ public:
 template <class T> struct PrintType;
 
 // Declare opcode matches used for pattern matches
-constexpr mirmatch::Opcode<X86::PHI>            PHI{};
-constexpr mirmatch::Opcode<X86::G_ADD>          G_ADD{};
-constexpr mirmatch::Opcode<X86::ADD32ri8>       ADD32ri8{};
-constexpr mirmatch::OpcodeGroup<X86::MULSDrm,
-                                X86::MULSDrr,
-                                X86::MULSSrm,
-                                X86::MULSSrr>   MULS{};
-constexpr mirmatch::OpcodeGroup<X86::ADDSDrm,
-                                X86::ADDSDrr,
-                                X86::ADDSSrm,
-                                X86::ADDSSrr>   ADDS{};
+constexpr mirmatch::OpcodeMatcher<X86::PHI>                         PHI{};
+constexpr mirmatch::OpcodeMatcher<X86::G_ADD>                       G_ADD{};
+constexpr mirmatch::OpcodeMatcher<X86::ADD32ri8>                    ADD32ri8{};
+constexpr mirmatch::OpcodeGroupMatcher<X86::MULSDrm, X86::MULSDrr,
+                                       X86::MULSSrm, X86::MULSSrr>  MULS{};
+constexpr mirmatch::OpcodeGroupMatcher<X86::ADDSDrm, X86::ADDSDrr,
+                                       X86::ADDSSrm, X86::ADDSSrr>  ADDS{};
 
 } // Close anonymous namespace
 
@@ -215,9 +215,58 @@ TEST(Intel_MIRMatcher, FMAPattern) {
   (void) ret;
 
   if (verbose)
-    builder.dump();
+    builder.dump("Before FMA Transformation");
 
+  /////////// Find the match the hard way: without MIRMatcher ///////////////
+  bool hardwayMatch = [=,&builder](MachineInstr* pi){
+    MachineRegisterInfo& MRI = builder.MRI();
+
+    // Variables to capture match results.
+    unsigned rX, rY, rAX, rAXPY;  // Registers
+    const MachineInstr *iADD, *iMUL;    // Instruction
+    if (pi->getOpcode() == X86::MULSDrm || pi->getOpcode() == X86::MULSDrr ||
+        pi->getOpcode() == X86::MULSSrm || pi->getOpcode() == X86::MULSSrr) {
+      iMUL = pi;  // Found the multiply instruction
+      if (! iMUL->getOperand(0).isReg() || ! iMUL->getOperand(2).isReg())
+        return false;
+      auto& oA = iMUL->getOperand(1);
+      rX  = iMUL->getOperand(2).getReg(); rAX = iMUL->getOperand(0).getReg();
+
+      // Find add instruction
+      for (const MachineInstr& instr : MRI.use_instructions(rAX)) {
+        if (instr.getOpcode() == X86::ADDSDrm || instr.getOpcode() == X86::ADDSDrr ||
+            instr.getOpcode() == X86::ADDSSrm || instr.getOpcode() == X86::ADDSSrr) {
+          if (! instr.getOperand(0).isReg() ||
+              ! instr.getOperand(1).isReg() || ! instr.getOperand(2).isReg())
+            continue;  // Backtrack and check next instruction
+          if (instr.getOperand(1).getReg() != rAX)
+            continue;  // Backtrack and check next instruction
+
+          // Found add instruction. Success! Set match results.
+          rY    = instr.getOperand(2).getReg();
+          rAXPY = instr.getOperand(0).getReg();
+          iADD  = &instr;
+
+          // Check that everything is as expected.
+          (void) oA;
+          EXPECT_EQ(rX, x);
+          EXPECT_EQ(rY, y);
+          EXPECT_EQ(rAX, ax);
+          EXPECT_EQ(rAXPY, axpy);
+          EXPECT_EQ(iMUL, mul);
+          EXPECT_EQ(iADD, add);
+
+          return true; // Found match
+        }
+      }
+    }
+    return false; // Match failed
+  }(mul);
+  EXPECT_TRUE(hardwayMatch);
+
+  /////////// Find the match the easy way: with MIRMatcher ///////////////
   using namespace mirmatch;
+  mirmatch::MatchResult result;
 
   MIRMATCHER_REGS(REG_X, REG_Y, REG_AX, REG_AXPY);
 
@@ -227,7 +276,8 @@ TEST(Intel_MIRMatcher, FMAPattern) {
     mirmatch::graph(REG_AX   = MULS(AnyOperand, REG_X),
                     REG_AXPY = ADDS(REG_AX, REG_Y));
 
-  auto result = mirmatch::match(fmapattern, mul);
+  bool matched = mirmatch::match(result, fmapattern, mul);
+  ASSERT_TRUE(matched);
   ASSERT_TRUE(result);
   EXPECT_EQ(result.reg(REG_X), x);
   EXPECT_EQ(result.reg(REG_Y), y);
@@ -235,7 +285,29 @@ TEST(Intel_MIRMatcher, FMAPattern) {
   EXPECT_EQ(result.reg(REG_AXPY), axpy);
 
   EXPECT_EQ(mul, result.instr(REG_AX   = MULS(AnyOperand, REG_X) ));
-  EXPECT_EQ(add, result.instr(REG_AXPY = ADDS(REG_AX, REG_Y)));
+  EXPECT_EQ(add, result.instr(REG_AXPY = ADDS(REG_AX, REG_Y)     ));
+
+  // Perform FMA transformation
+  {
+    TargetInstrInfo const* TII = builder.TII();
+    MachineRegisterInfo& MRI = builder.MRI();
+
+    if (MRI.hasOneUse(result.reg(REG_AX))) {
+      MachineInstr* mul = result.instr(REG_AX   = MULS(AnyOperand, REG_X) );
+      MachineInstr* add = result.instr(REG_AXPY = ADDS(REG_AX, REG_Y)     );
+      MachineBasicBlock& BB = *add->getParent();
+      BuildMI(BB, add, mul->getDebugLoc(), TII->get(X86::VFMADD213SDr))
+        .addDef(result.reg(REG_AXPY))
+        .addUse(result.reg(REG_X))
+        .add   (mul->getOperand(1))
+        .addUse(result.reg(REG_Y));
+      mul->eraseFromParent();
+      add->eraseFromParent();
+
+      if (verbose)
+        builder.dump("After FMA Transformation");
+    }
+  }
 }
 
 // Simply test that if pattern is not found, then pattern match will fail.
@@ -255,7 +327,7 @@ TEST(Intel_MIRMatcher, FailMatch) {
   (void) add1;
 
   if (verbose)
-    builder.dump();
+    builder.dump("Add + Add");
 
   using namespace mirmatch;
 
@@ -316,7 +388,7 @@ TEST(Intel_MIRMatcher, FindInductionVar) {
                                          b, MO::CreateImm(2));
 
   if (verbose)
-    builder.dump();
+    builder.dump("Loop");
 
   using namespace mirmatch;
 

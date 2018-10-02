@@ -47,7 +47,7 @@ namespace internal {
 // first element, and concatenation of type lists as well as concatenation of
 // types into a typelist. The derived class template must be a variadic
 // template where the template paramters are a list of types.
-template <template <class...> class TypeList, template <class> class Pred,
+template <template <class...> class TypeList, template <class, class...> class Pred,
           class... Types>
 struct TypeListBase {
   // Base template is instantiated only when `Types` is empty.
@@ -61,7 +61,7 @@ struct TypeListBase {
   static constexpr bool hasValidTypes = true;
 };
 
-template <template <class...> class TypeList, template <class> class Pred,
+template <template <class...> class TypeList, template <class, class...> class Pred,
           class Type1, class... Types>
 struct TypeListBase<TypeList, Pred, Type1, Types...> {
   // Specialization for at least one parameter
@@ -90,7 +90,7 @@ struct IsTypeList<T, enable_if_t<sizeof(typename T::EmptyListType)>>
 
 // Metafunction to determine if `T` is an instantiation of `TypeList`.
 // This metafunction is more specific than `IsTypeList` because it not only
-// checks if `T` is a type list, but checks if it is an instanciation of a
+// checks if `T` is a type list, but checks if it is an instantiation of a
 // *specific kind* of type list.
 template <template <class...> class TypeList, class T,
           bool = IsTypeList<T>::value>
@@ -103,32 +103,33 @@ struct IsTypeListInstantiation<TypeList, T, true>
 // Concatenate one or more type lists. All type lists must be instantiations
 // of the specified `TypeList` template.
 template <template <class...> class TypeList, class List1, class... Lists>
-struct TypeListCat; // Primary template is not defined
+struct TypeListCatImp; // Primary template is not defined
 
-// Specializaton of `TypeListCat` for a single type list.
-template <template <class...> class TypeList, class... ListT>
-struct TypeListCat<TypeList, TypeList<ListT...>> {
-  using type = TypeList<ListT...>;
+// Specializaton of `TypeListCatImp` for a single type list.
+template <template <class...> class TypeList, class... ElemT>
+struct TypeListCatImp<TypeList, TypeList<ElemT...>> {
+  using type = TypeList<ElemT...>;
 };
 
-// Specializaton of `TypeListCat` for two or more type lists.
+// Specializaton of `TypeListCatImp` for two or more type lists.
 template <template <class...> class TypeList,
-          class... ListT1, class... ListT2, class... Others>
-struct TypeListCat<TypeList, TypeList<ListT1...>, TypeList<ListT2...>,
+          class... ElemT1, class... ElemT2, class... Others>
+struct TypeListCatImp<TypeList, TypeList<ElemT1...>, TypeList<ElemT2...>,
                        Others...> {
   using type =
-    typename TypeListCat<TypeList,
-                            TypeList<ListT1..., ListT2...>, Others...>::type;
+    typename TypeListCatImp<TypeList,
+                             TypeList<ElemT1..., ElemT2...>, Others...>::type;
 };
 
-// Helper metafunction transforms `T` for appending to a type list:
-//  * If `T` is an instantiation of `TypeList`, `type` is `TypeList`;
-//  * otherwise, if `T` the predicate for `TypeList`, `type` is `TypeList<T>`;
+// Helper metafunction transforms `T` to a type list:
+//  * If `T` is already an instantiation of `TypeList`, `type` is simply `T`;
+//  * otherwise, if the predicate for `TypeList` applies to `T`, `type`
+//    is `TypeList<T>`;
 //  * otherwise, `type` is not defined (useful for SFINAE).
 template <template <class...> class TypeList, class T,
           bool = (IsTypeListInstantiation<TypeList, T>::value ||
                   TypeList<>::template Predicate<T>::value)>
-struct TypeListAppender
+struct AsTypeList
 {
   using type = typename
     std::conditional<IsTypeListInstantiation<TypeList, T>::value,
@@ -137,15 +138,15 @@ struct TypeListAppender
 
 // Specialization for `T` that is not compatible with `TypeList`
 template <template <class...> class TypeList, class T>
-struct TypeListAppender<TypeList, T, false>
+struct AsTypeList<TypeList, T, false>
 {
 };
 
 // Concatenate arguments into a type list of the specified kind.
 template <template <class...> class TypeList, class... Arg>
 using MakeTypeList = typename
-  TypeListCat<TypeList, TypeList<>,
-              typename TypeListAppender<TypeList, Arg>::type...>::type;
+  TypeListCatImp<TypeList, TypeList<>,
+                  typename AsTypeList<TypeList, Arg>::type...>::type;
 
 } // Close namespace mismatch::internal
 
@@ -154,7 +155,7 @@ template <unsigned LocalId = 0>
 struct RegisterMatcher;
 
 // Forward declaration
-template <class OpcodeMatcher, class DefMatchers, class UseMatchers>
+template <class OpMatcher, class DefMatchers, class UseMatchers>
 struct InstructionMatcher;
 
 class MatchResult
@@ -198,8 +199,8 @@ public:
   template <unsigned LocalId>
   unsigned reg(RegisterMatcher<LocalId>) const { return reg(LocalId); }
 
-  template <class OpcodeMatcher, class DefMatchers, class UseMatchers>
-  void setInstrMapping(InstructionMatcher<OpcodeMatcher,
+  template <class OpMatcher, class DefMatchers, class UseMatchers>
+  void setInstrMapping(InstructionMatcher<OpMatcher,
                                           DefMatchers, UseMatchers> matcher,
                        MachineInstr* mi) {
     const void* instrId = matcher.instrId();
@@ -207,8 +208,8 @@ public:
     m_instrMap.push_back(entry);
   }
 
-  template <class OpcodeMatcher, class DefMatchers, class UseMatchers>
-  MachineInstr* instr(InstructionMatcher<OpcodeMatcher,
+  template <class OpMatcher, class DefMatchers, class UseMatchers>
+  MachineInstr* instr(InstructionMatcher<OpMatcher,
                       DefMatchers, UseMatchers> matcher) const {
     return instr(matcher.instrId());
   }
@@ -282,9 +283,9 @@ template <typename OperandMatcher>
 struct IsOperandMatcher<const OperandMatcher>
   : IsOperandMatcher<OperandMatcher> { };
 
-// InstrMatcher Concept:
+// PatternMatcher Concept:
 //
-// A class C models this concept if `IsInstrMatcher<C>::value` is true and
+// A class C models this concept if `IsPatternMatcher<C>::value` is true and
 // it has the following static member type:
 //
 //    Registers
@@ -292,28 +293,34 @@ struct IsOperandMatcher<const OperandMatcher>
 //       in the local pattern that are defined or used by the code being
 //       matched.
 //
-// and the following static member function:
+//    SubMatchRange
 //
+// and the following static member functions:
+//
+//    static SubMatchRange subMatches(Registers, MRI, result);
+//
+//    static bool tryMatch(SubMatch, Registers, MRI, result);
+
 //    static bool matchInstr(MatchResult& rslt, MachineInstr* mi);
 //        Match the specified `MachineInstr` against the code pattern encoded
-//        in this `InstrMatcher`. Return true on a succesful match and false
+//        in this `PatternMatcher`. Return true on a successful match and false
 //        otherwise.  The `rslt` object is updated to reflect attributes
 //        of the match.  The `rslt` may contain useless state on failure.
 
-// Metafunction to check for types that model the `InstrMatcher` concept.
-template <typename InstrMatcher>
-struct IsInstrMatcher : std::false_type { };
+// Metafunction to check for types that model the `PatternMatcher` concept.
+template <typename PatternMatcher>
+struct IsPatternMatcher : std::false_type { };
 
-// Remove const before testing of a type models the `InstrMatcher` concept.
-template <typename InstrMatcher>
-struct IsInstrMatcher<const InstrMatcher> : IsInstrMatcher<InstrMatcher> { };
+// Remove const before testing of a type models the `PatternMatcher` concept.
+template <typename PatternMatcher>
+struct IsPatternMatcher<const PatternMatcher> : IsPatternMatcher<PatternMatcher> { };
 
 // A list of zero or more operand matchers.
 template <class... Operands>
 struct OperandMatcherList
   : internal::TypeListBase<OperandMatcherList, IsOperandMatcher, Operands...>
 {
-  using ThisType = OperandMatcherList;
+  using ThisType  = OperandMatcherList;
   using First     = typename ThisType::First;
   using Rest      = typename ThisType::Rest;
 
@@ -526,7 +533,7 @@ constexpr AnyLiteralMatcher AnyLiteral{};
 template <>
 struct IsOperandMatcher<AnyLiteralMatcher> : std::true_type { };
 
-template <class OpcodeMatcher, class DefMatchers, class UseMatchers>
+template <class OpMatcher, class DefMatchers, class UseMatchers>
 struct InstructionMatcher
 {
   // Match an instruction and its operands. `DefMatchers` and `UseMatchers`
@@ -540,16 +547,16 @@ struct InstructionMatcher
 
   CONSTEXPR_DEFAULT_CTOR(InstructionMatcher)
 
-  // Match the specified `MachineInstr` against the code pattern encoded
-  // in this `InstrMatcher`. Return true on a succesful match and false
-  // otherwise.  The match context may be updated to reflect attributes
-  // of the match.  The context shall remain unchnaged on failure.
+  // Match the specified `MachineInstr` against the code opcode and operands
+  // encoded in this `InstructionMatcher`. Return true on a successful match
+  // and false otherwise.  The match context may be updated to reflect
+  // attributes of the match.  The context shall remain unchanged on failure.
   static bool matchInstr(MachineRegisterInfo& MRI,
                          MatchResult& rslt, MachineInstr* mi);
 
-  // Return a pointer that uniquely identifies this instantiation.
-  // Creating a unique ID relative to a specific pattern could be done at
-  // compile time, instead.  Maybe later.
+  // Return a pointer that uniquely identifies this instantiation.  It would
+  // be nice if we could create a unique ID relative to a specific pattern at
+  // compile time, instead.
   static void const* instrId() {
     static const char uniqueness = '\0';
     return &uniqueness;
@@ -557,27 +564,29 @@ struct InstructionMatcher
 };
 
 template <class Op, class Defs, class Uses>
-struct IsInstrMatcher<InstructionMatcher<Op, Defs, Uses>>
+struct IsPatternMatcher<InstructionMatcher<Op, Defs, Uses>>
   : std::true_type { };
 
 // Matches a graph of instructions connected through registers.
-template <class... InstrMatchers>
-struct InstrGraphMatcher
-  : internal::TypeListBase<InstrGraphMatcher, IsInstrMatcher, InstrMatchers...>
+template <class... PatternMatchers>
+struct GraphMatcher
+  : internal::TypeListBase<GraphMatcher, IsPatternMatcher, PatternMatchers...>
 {
   // Combines zero or more code matchers such that, if ALL match, then this
   // matches.
 
-  using ThisType  = InstrGraphMatcher;
-  using First     = typename ThisType::First;
-  using Rest      = typename ThisType::Rest;
+  using ThisType  = GraphMatcher;
+  using Base      =
+    internal::TypeListBase<GraphMatcher, IsPatternMatcher, PatternMatchers...>;
+  using First     = typename Base::First;
+  using Rest      = typename Base::Rest;
 
   static_assert(ThisType::hasValidTypes,
                 "All parameters must be instruction matchers");
 
   static constexpr auto registers = (First::registers | Rest::registers);
 
-  CONSTEXPR_DEFAULT_CTOR(InstrGraphMatcher)
+  CONSTEXPR_DEFAULT_CTOR(GraphMatcher)
 
   // Match the graph if `mi` matches the first instruction listed in the graph
   // and if, by traversing register edges, every other instruction in the
@@ -587,29 +596,29 @@ struct InstrGraphMatcher
 };
 
 template <>
-struct InstrGraphMatcher<>
-   : internal::TypeListBase<InstrGraphMatcher, IsInstrMatcher>
+struct GraphMatcher<>
+   : internal::TypeListBase<GraphMatcher, IsPatternMatcher>
 {
   // Specialization for an empty graph.
 
-  using ThisType  = InstrGraphMatcher;
+  using ThisType  = GraphMatcher;
 
   static constexpr RegisterSet<> registers{};
 
-  CONSTEXPR_DEFAULT_CTOR(InstrGraphMatcher)
+  CONSTEXPR_DEFAULT_CTOR(GraphMatcher)
 
   static constexpr bool matchInstr(MachineRegisterInfo& MRI,
                                    MatchResult& rslt, MachineInstr* mi)
     { return false; }
 };
 
-template <class... InstrMatchers>
-struct IsInstrMatcher<InstrGraphMatcher<InstrMatchers...>> : std::true_type { };
+template <class... PatternMatchers>
+struct IsPatternMatcher<GraphMatcher<PatternMatchers...>> : std::true_type { };
 
 // Concatenate instructions into lists
-template <class... InstrMatcher>
+template <class... PatternMatcher>
 using ConcatInstr =
-  typename internal::MakeTypeList<InstrGraphMatcher, InstrMatcher...>;
+  typename internal::MakeTypeList<GraphMatcher, PatternMatcher...>;
 
 // Create a graph matcher from a collection of instruction matchers.  Note
 // that the first instruction matcher in the parameter list is special in that
@@ -617,47 +626,30 @@ using ConcatInstr =
 // that first paramter. It it is usually most efficient to choose the rarest
 // instruction in the graph for the first instruction, so that failing matches
 // will fail quickly.
-template <class... InstrMatchers>
-constexpr InstrGraphMatcher<InstrMatchers...>
-graph(InstrMatchers...) { return EMPTY_CLASS_INITIALIZER; }
+template <class... PatternMatchers>
+constexpr GraphMatcher<PatternMatchers...>
+graph(PatternMatchers...) { return EMPTY_CLASS_INITIALIZER; }
 
-template <class... InstrMatchers>
-struct InstrAlternativeMatcher
-  : internal::TypeListBase<InstrAlternativeMatcher, IsInstrMatcher,
-                           InstrMatchers...> {
-  // Combines zero or more code matchers such that, if ANY match, then this
-  // matches. This primary template is used for an empty list of matchers.
-
-  using ThisType = InstrAlternativeMatcher;
-
-  static constexpr RegisterSet<> registers{};
-
-  CONSTEXPR_DEFAULT_CTOR(InstrAlternativeMatcher)
-
-  static constexpr bool matchInstr(MachineRegisterInfo& MRI,
-                                   MatchResult& rslt, MachineInstr* mi)
-    { return false; }
-};
-
-template <class InstrMatcher1, class... InstrMatchers>
-struct InstrAlternativeMatcher<InstrMatcher1, InstrMatchers...>
-  : internal::TypeListBase<InstrAlternativeMatcher, IsInstrMatcher,
-                           InstrMatcher1, InstrMatchers...>
+template <class... PatternMatchers>
+struct AlternativeMatcher
+  : internal::TypeListBase<AlternativeMatcher, IsPatternMatcher, PatternMatchers...>
 {
   // Combines zero or more code matchers such that, if ANY match, then this
-  // matches. This specialization is used for a list of matchers of length
+  // matches. This primary template is used for a list of alternatives of length
   // greather than zero.
 
-  using ThisType = InstrAlternativeMatcher;
-  using First    = typename ThisType::First;
-  using Rest     = typename ThisType::Rest;
+  using ThisType = AlternativeMatcher;
+  using Base     =
+    internal::TypeListBase<AlternativeMatcher, IsPatternMatcher, PatternMatchers...>;
+  using First    = typename Base::First;
+  using Rest     = typename Base::Rest;
 
   static_assert(ThisType::hasValidTypes,
                 "All parameters must be instruction matchers");
 
   static constexpr auto registers = (First::registers & Rest::registers);
 
-  CONSTEXPR_DEFAULT_CTOR(InstrAlternativeMatcher)
+  CONSTEXPR_DEFAULT_CTOR(AlternativeMatcher)
 
   static bool matchInstr(MachineRegisterInfo& MRI,
                          MatchResult& rslt, MachineInstr* mi) {
@@ -666,66 +658,84 @@ struct InstrAlternativeMatcher<InstrMatcher1, InstrMatchers...>
   }
 };
 
-template <class InstrMatcher1>
-struct InstrAlternativeMatcher<InstrMatcher1> : InstrMatcher1
+template <>
+struct AlternativeMatcher<>
+   : internal::TypeListBase<AlternativeMatcher, IsPatternMatcher>
 {
-  // Specialization of `InstrAlternativeMatcher` for only one InstrMatcher
-  CONSTEXPR_DEFAULT_CTOR(InstrAlternativeMatcher)
+  // Combines zero or more code matchers such that, if ANY match, then this
+  // matches. This specialization template is used for an empty list of alternatives.
+
+  using ThisType = AlternativeMatcher;
+
+  static constexpr RegisterSet<~0UL> registers{};
+
+  CONSTEXPR_DEFAULT_CTOR(AlternativeMatcher)
+
+  static constexpr bool matchInstr(MachineRegisterInfo& MRI,
+                                   MatchResult& rslt, MachineInstr* mi)
+    { return false; }
 };
 
-template <class... InstrMatchers>
-struct IsInstrMatcher<InstrAlternativeMatcher<InstrMatchers...>>
+template <class PatternMatcher1>
+struct AlternativeMatcher<PatternMatcher1> : PatternMatcher1
+{
+  // Specialization of `AlternativeMatcher` for only one PatternMatcher
+  CONSTEXPR_DEFAULT_CTOR(AlternativeMatcher)
+};
+
+template <class... PatternMatchers>
+struct IsPatternMatcher<AlternativeMatcher<PatternMatchers...>>
   : std::true_type { };
 
-template <class InstrMatcher1, class InstrMatcher2>
+template <class PatternMatcher1, class PatternMatcher2>
 constexpr
-internal::MakeTypeList<InstrAlternativeMatcher, InstrMatcher1, InstrMatcher2>
-operator||(InstrMatcher1, InstrMatcher2) { return EMPTY_CLASS_INITIALIZER; }
+internal::MakeTypeList<AlternativeMatcher, PatternMatcher1, PatternMatcher2>
+operator||(PatternMatcher1, PatternMatcher2) { return EMPTY_CLASS_INITIALIZER; }
 
-// OpcodeMatcher Concept:
+// OpMatcher Concept:
 //
-// A class C models this concept if it has the following member functions:
+// A class `C` models this concept if it has the following member functions:
 //
 //    static constexpr bool match(unsigned v);
 //        Returns true if `v` is an opcode matched by this class.
 //
 //    template <typename... UseMatcher>
-//    InstrMatcher operator()(UseMatcher...) const;
+//    InstructionMatcher operator()(UseMatcher...) const;
 //        Given a list of objects modeling the `OperandMatcher` concept,
-//        returns a value modeling the `InstrMatcher` concept.
+//        returns a specialization of the `Instruction` class template.
 //
-// Note that this concept differes from the `InstrMatcher` interface in that it
+// Note that this concept differs from the `PatternMatcher` interface in that it
 // matches (integer) opcodes, not entire instructions or executable blocks.
-// The `IsOpcodeMatcher<C>::value` should be defined as true for any type `C`
+// `IsOpMatcher<C>::value` should be defined as true for any type `C`
 // modeling this concept.
 
-// This class provides two conveniences to creators of `OpcodeMatcher`
+// This class provides two conveniences to creators of `OpMatcher`
 // classes: it provides `operator()` to generate an `InstructionMatcher` and
-// it declares the `IsOpcodeMatcher` trait. Any class `C` derived from
-// `OpcodeMatcherBase<C>` (using the curiously recurring template pattern)
+// it declares the `IsOpMatcher` trait. Any class `C` derived from
+// `OpMatcherBase<C>` (using the curiously recurring template pattern)
 // needs only define the `match` method.
-template <class OpcodeMatcher>
-struct OpcodeMatcherBase {
-  CONSTEXPR_DEFAULT_CTOR(OpcodeMatcherBase)
+template <class OpMatcher>
+struct OpMatcherBase {
+  CONSTEXPR_DEFAULT_CTOR(OpMatcherBase)
 
   // Matcher for a group of zero or more opcodes.
   template <typename... UseMatcher>
-  constexpr InstructionMatcher<OpcodeMatcher, OperandMatcherList<>,
+  constexpr InstructionMatcher<OpMatcher, OperandMatcherList<>,
                                OperandMatcherList<UseMatcher...>>
   operator()(UseMatcher...) const { return EMPTY_CLASS_INITIALIZER; }
 };
 
-// Trait to detect whether `T` is an `OpcodeMatcher`.
+// Trait to detect whether `T` is an `OpMatcher`.
 template <typename T>
-struct IsOpcodeMatcher : std::is_base_of<OpcodeMatcherBase<T>, T> {};
+struct IsOpMatcher : std::is_base_of<OpMatcherBase<T>, T> {};
 
 template <typename T>
-struct IsOpcodeMatcher<const T> : IsOpcodeMatcher<T>::type {};
+struct IsOpMatcher<const T> : IsOpMatcher<T>::type {};
 
-template <class... OpcodeMatchers>
+template <class... OpMatchers>
 struct OpcodeMatcherList :
-  OpcodeMatcherBase<OpcodeMatcherList<OpcodeMatchers...>>,
-  internal::TypeListBase<OpcodeMatcherList, IsOpcodeMatcher, OpcodeMatchers...>
+  OpMatcherBase<OpcodeMatcherList<OpMatchers...>>,
+  internal::TypeListBase<OpcodeMatcherList, IsOpMatcher, OpMatchers...>
 {
   static_assert(OpcodeMatcherList::hasValidTypes,
                 "All parameters must be opcode matchers");
@@ -740,50 +750,41 @@ struct OpcodeMatcherList :
 
 template <>
 struct OpcodeMatcherList<> :
-  OpcodeMatcherBase<OpcodeMatcherList<>>,
-  internal::TypeListBase<OpcodeMatcherList, IsOpcodeMatcher>
+  OpMatcherBase<OpcodeMatcherList<>>,
+  internal::TypeListBase<OpcodeMatcherList, IsOpMatcher>
 {
 	CONSTEXPR_DEFAULT_CTOR(OpcodeMatcherList)
 
 	static constexpr bool match(unsigned v) { return false; }
 };
 
-template <class OpcodeMatcher1, class OpcodeMatcher2>
-constexpr internal::MakeTypeList<OpcodeMatcherList,
-                                 OpcodeMatcher1, OpcodeMatcher2>
-operator|(OpcodeMatcher1, OpcodeMatcher2) { return EMPTY_CLASS_INITIALIZER; }
+template <class OpMatcher1, class OpMatcher2>
+constexpr internal::MakeTypeList<OpcodeMatcherList, OpMatcher1, OpMatcher2>
+operator|(OpMatcher1, OpMatcher2) { return EMPTY_CLASS_INITIALIZER; }
 
-template <unsigned Opcode1, unsigned... Opcodes>
-struct OpcodeGroup : OpcodeMatcherBase<OpcodeGroup<Opcode1, Opcodes...>>
-{
-  CONSTEXPR_DEFAULT_CTOR(OpcodeGroup)
-
-  static constexpr bool match(unsigned v)
-    { return Opcode1 == v || OpcodeGroup<Opcodes...>::match(v); }
-};
-
+// Match a single opcode
 template <unsigned Opcode>
-struct OpcodeGroup<Opcode> : OpcodeMatcherBase<OpcodeGroup<Opcode>>
+struct OpcodeMatcher : OpMatcherBase<OpcodeMatcher<Opcode>>
 {
-  CONSTEXPR_DEFAULT_CTOR(OpcodeGroup)
+  CONSTEXPR_DEFAULT_CTOR(OpcodeMatcher)
 
-  static constexpr bool match(unsigned v)
-    { return Opcode == v; }
+  static constexpr bool match(unsigned v) { return Opcode == v; }
 };
-
-// Special case of an OpcodeGroup containing exactly one opcode.
-template <unsigned Code>
-using Opcode = OpcodeGroup<Code>;
 
 // Match a range of opcodes
 template <unsigned OpcodeFirst, unsigned OpcodeLast>
-struct OpcodeRange : OpcodeMatcherBase<OpcodeRange<OpcodeFirst, OpcodeLast>>
+struct OpcodeRangeMatcher : OpMatcherBase<OpcodeRangeMatcher<OpcodeFirst, OpcodeLast>>
 {
-  CONSTEXPR_DEFAULT_CTOR(OpcodeRange)
+  CONSTEXPR_DEFAULT_CTOR(OpcodeRangeMatcher)
 
   static constexpr bool match(unsigned v)
     { return OpcodeFirst <= v && v <= OpcodeLast; }
 };
+
+// Match a list of opcodes
+template <unsigned Opcode1, unsigned... Opcodes>
+using OpcodeGroupMatcher = OpcodeMatcherList<OpcodeMatcher<Opcode1>,
+                                             OpcodeMatcher<Opcodes>...>;
 
 //////////////// Non-trivial function implementations //////////////////
 
@@ -841,17 +842,17 @@ RegisterMatcher<LocalId>::matchOperand(MatchResult&                   rslt,
     return op_end;   // FAIL: LocalId is already mapped to a different reg.
 }
 
-template <class OpcodeMatcher, class DefMatchers, class UseMatchers>
-bool InstructionMatcher<OpcodeMatcher,
+template <class OpMatcher, class DefMatchers, class UseMatchers>
+bool InstructionMatcher<OpMatcher,
                         DefMatchers,
                         UseMatchers>::matchInstr(MachineRegisterInfo& MRI,
                                                  MatchResult&         rslt,
                                                  MachineInstr*        mi) {
 
-  using ThisInstrMatcher =
-    InstructionMatcher<OpcodeMatcher, DefMatchers, UseMatchers>;
+  using ThisPatternMatcher =
+    InstructionMatcher<OpMatcher, DefMatchers, UseMatchers>;
 
-  if (! OpcodeMatcher::match(mi->getOpcode()))
+  if (! OpMatcher::match(mi->getOpcode()))
     return false;  // FAIL: opcode doesn't match
 
   // For some reason, there exists `explicit_operands` and `explicit_uses`
@@ -866,7 +867,7 @@ bool InstructionMatcher<OpcodeMatcher,
   if (! UseMatchers::matchOperandRange(rslt, uses.begin(), uses.end()))
     return false;  // FAIL: Use operands do not match
 
-  rslt.setInstrMapping(ThisInstrMatcher{}, mi);
+  rslt.setInstrMapping(ThisPatternMatcher{}, mi);
   return true; // MATCHED
 }
 
@@ -878,8 +879,8 @@ namespace internal {
 //
 // Parameters:
 //   Registers:   A `RegisterSet<>` containing the registers in question
-//   ToBeMatched: A `InstrGraphMatcher` of instructions to search
-//   FailedMatch: A `InstrGraphMatcher` of instructions known not to define or
+//   ToBeMatched: A `GraphMatcher` of instructions to search
+//   FailedMatch: A `GraphMatcher` of instructions known not to define or
 //                use one of the registers in `Registers`.
 //
 // Results:
@@ -888,7 +889,7 @@ namespace internal {
 //   Rest:        A concatonation of `FailedMatch` and `ToBeMatched` with
 //                `Next` removed.
 template <class Registers, class ToBeMatched,
-          class FailedMatch = InstrGraphMatcher<>,
+          class FailedMatch = GraphMatcher<>,
           bool = (Registers{} & ToBeMatched::First::registers)>
 struct TopoSortFindNext
 {
@@ -927,28 +928,34 @@ struct TopoSortFindNext<Registers, ToBeMatched, FailedMatch, true>
 // definitions or both be uses; for our purposes, they are connected by an
 // edge.
 //
-// Parameters (both must be specializations of `InstrGraphMatcher<>`):
+// The sorting algorithm is similar to a selection sort. However, because we
+// don't care about an absolute sort order, each search for the next element in
+// the list will terminate on *the first* instruction that meets the criteria,
+// rather than *the lowest* instruction in an absolute sort order.
+//
+// Parameters (both must be specializations of `GraphMatcher<>`):
 //   PreSorted:  List of instructions that have already been sorted
 //   Unsorted:   List of instructions that have not yet been sorted
 //
 // Result:
-//   type:   A `InstrGraphMatcher` instantiated with the sorted list
-template <class PreSorted, class Unsorted>
+//   type:   A `GraphMatcher` instantiated with the sorted list
+template <class Registers, class PreSorted, class Unsorted>
 struct TopoSort {
   static_assert(PreSorted::registers & Unsorted::registers,
                 "Instruction list must comprise a connected graph");
-  using FindNext = TopoSortFindNext<decltype(PreSorted::registers), Unsorted>;
+  using FindNext = TopoSortFindNext<decltype(Registers{} | PreSorted::registers),
+                                    Unsorted>;
 
   using Next = typename FindNext::Next;
   using Rest = typename FindNext::Rest;
 
-  using type = typename TopoSort<ConcatInstr<PreSorted, Next>, Rest>::type;
+  using type = typename TopoSort<Registers, ConcatInstr<PreSorted, Next>, Rest>::type;
 };
 
 // Specialization of `TopoSort` for when the entire list has been sorted
 // (i.e., the Unsorted list is empty).
-template <class PreSorted>
-struct TopoSort<PreSorted, InstrGraphMatcher<>> {
+template <class Registers, class PreSorted>
+struct TopoSort<Registers, PreSorted, GraphMatcher<>> {
   // Recursion stop
   using type = PreSorted;
 };
@@ -982,8 +989,8 @@ instructionsForReg(MachineRegisterInfo& MRI, unsigned reg,
 }
 
 template <class InstrList, class MatchedRegisters>
-bool recursiveMatch(InstrList, MachineRegisterInfo& MRI, MatchResult& rslt,
-                    MatchedRegisters mregs)
+bool recursiveMatch(InstrList, MatchedRegisters mregs, MachineRegisterInfo& MRI,
+                    MatchResult& rslt)
 {
   /////////// The following computations occur at compile time /////////
   using FirstInstr = typename InstrList::First;
@@ -1019,7 +1026,7 @@ bool recursiveMatch(InstrList, MachineRegisterInfo& MRI, MatchResult& rslt,
   for (MachineInstr& instr : instructionsForReg(MRI, reg, isDef{})) {
     MatchResult localRslt = rslt;  // Changes are made to local copy of `rslt`
     if (FirstInstr::matchInstr(MRI, localRslt, &instr) &&
-        recursiveMatch(Rest{}, MRI, localRslt, mregs | FirstInstr::registers))
+        recursiveMatch(Rest{}, mregs | FirstInstr::registers, MRI, localRslt))
     {
       rslt = std::move(localRslt); // Commit changes to `rslt` on success.
       return true;
@@ -1033,19 +1040,18 @@ bool recursiveMatch(InstrList, MachineRegisterInfo& MRI, MatchResult& rslt,
 }
 
 template <class MatchedRegisters>
-bool recursiveMatch(InstrGraphMatcher<>,
-                    MachineRegisterInfo& MRI, MatchResult& rslt,
-                    MatchedRegisters mregs)
+bool recursiveMatch(GraphMatcher<>, MatchedRegisters mregs,
+                    MachineRegisterInfo& MRI, MatchResult& rslt)
 {
   return true;
 }
 
 } // Close namespace mirmatch::internal
 
-template <class... InstrMatchers>
-bool InstrGraphMatcher<InstrMatchers...>::matchInstr(MachineRegisterInfo& MRI,
-                                                     MatchResult&         rslt,
-                                                     MachineInstr*        mi)
+template <class... PatternMatchers>
+bool GraphMatcher<PatternMatchers...>::matchInstr(MachineRegisterInfo& MRI,
+                                                  MatchResult&         rslt,
+                                                  MachineInstr*        mi)
 {
   using namespace internal;
 
@@ -1053,16 +1059,17 @@ bool InstrGraphMatcher<InstrMatchers...>::matchInstr(MachineRegisterInfo& MRI,
   // connected to the first, the third instruction is connected to one of the
   // first two, etc., so that by matching them in order, we end up traversing
   // the graph.
-  using SortedInstr = typename TopoSort<InstrGraphMatcher<First>, Rest>::type;
+  using SortedInstr = typename TopoSort<RegisterSet<>,
+                                        GraphMatcher<First>, Rest>::type;
 
   if (! SortedInstr::First::matchInstr(MRI, rslt, mi))
     return false;
 
-  return recursiveMatch(typename SortedInstr::Rest{}, MRI, rslt,
-                        SortedInstr::First::registers);
+  return recursiveMatch(typename SortedInstr::Rest{}, SortedInstr::First::registers,
+                        MRI, rslt);
 }
 
-template <typename Pattern, class = enable_if_t<IsInstrMatcher<Pattern>::value>>
+template <typename Pattern, class = enable_if_t<IsPatternMatcher<Pattern>::value>>
 inline bool match(MatchResult& result, Pattern pat, MachineInstr* mi)
 {
   MachineRegisterInfo& MRI = mi->getParent()->getParent()->getRegInfo();
@@ -1071,7 +1078,7 @@ inline bool match(MatchResult& result, Pattern pat, MachineInstr* mi)
   return matched;
 }
 
-template <typename Pattern, class = enable_if_t<IsInstrMatcher<Pattern>::value>>
+template <typename Pattern, class = enable_if_t<IsPatternMatcher<Pattern>::value>>
 inline MatchResult match(Pattern pat, MachineInstr* mi)
 {
   MatchResult result;

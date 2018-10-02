@@ -92,8 +92,8 @@ constexpr mirmatch::LiteralMatcher<int, 1> litOne{};
 
 namespace llvm {
 namespace CSAMatch {
-constexpr mirmatch::OpcodeRange<CSA::SEQOTGES16, CSA::SEQOTNE8> seqot{};
-constexpr mirmatch::OpcodeRange<CSA::SEQGES16, CSA::SEQOTNE8> seqozt{};
+constexpr mirmatch::OpcodeRangeMatcher<CSA::SEQOTGES16, CSA::SEQOTNE8> seqot{};
+constexpr mirmatch::OpcodeRangeMatcher<CSA::SEQGES16, CSA::SEQOTNE8> seqozt{};
 } // namespace CSAMatch
 } // namespace llvm
 

@@ -570,7 +570,7 @@ bool CSAOptDFPass::seq_is_picker_mov_inst(MachineRegisterInfo *MRI,
 }
 
 // Match any comparison opcode
-constexpr mirmatch::OpcodeRange<CSA::CMPEQ16, CSA::CMPUOF64> cmpany{};
+constexpr mirmatch::OpcodeRangeMatcher<CSA::CMPEQ16, CSA::CMPUOF64> cmpany{};
 
 bool CSAOptDFPass::seq_identify_header(MachineInstr *MI, CSASeqHeader *header) {
   using namespace CSAMatch;
