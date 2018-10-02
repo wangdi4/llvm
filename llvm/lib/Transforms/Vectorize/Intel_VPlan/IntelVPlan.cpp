@@ -683,9 +683,19 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 
   if (auto Branch = dyn_cast<VPBranchInst>(this)) {
     assert(Branch->getHLGoto() && "For HIR VPBranchInst must have HLGoto.");
-    CG->addInst(Branch->getHLGoto()->clone(), nullptr);
+    const HLGoto *HGoto = Branch->getHLGoto();
+    assert(CG->isSearchLoop() && HGoto->isEarlyExit(CG->getOrigLoop()) &&
+           "Only early exit gotos expected!");
+    // FIXME: Temporary support for last value computation of live-outs in the
+    // early exit branch. 'createNonLinearLiveOutsForEE' introduces the last
+    // value computation instructions before the goto instruction for the
+    // reaching definitions of the live-outs.
+    CG->handleNonLinearEarlyExitLiveOuts(HGoto);
+
+    CG->addInst(HGoto->clone(), nullptr);
     return;
   }
+
   if (HIR.isValid()) {
     // Master VPInstruction with valid HIR.
     assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "

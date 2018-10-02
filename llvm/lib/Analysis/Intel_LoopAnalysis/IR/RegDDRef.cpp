@@ -1351,3 +1351,13 @@ unsigned RegDDRef::getBasePtrSymbase() const {
 
   return getBlobUtils().getTempBlobSymbase(Index);
 }
+
+void RegDDRef::clear(bool AssumeLvalIfDetached) {
+  assert(isTerminalRef() && "Only terminal refs expected!");
+  getSingleCanonExpr()->clear();
+  removeAllBlobDDRefs();
+  bool IsLval = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
+  if (!IsLval) {
+    setSymbase(ConstantSymbase);
+  }
+}

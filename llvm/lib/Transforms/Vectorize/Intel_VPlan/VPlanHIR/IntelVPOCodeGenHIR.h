@@ -18,6 +18,7 @@
 
 #include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
@@ -43,9 +44,10 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
                 Function &Fn, HLLoop *Loop, LoopOptReportBuilder &LORB,
                 WRNVecLoopNode *WRLp, const bool IsSearchLoop)
-      : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), MainLoop(nullptr),
-        CurMaskValue(nullptr), NeedRemainderLoop(false), TripCount(0), VF(0),
-        LORBuilder(LORB), WVecNode(WRLp), IsSearchLoop(IsSearchLoop) {}
+      : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), PeelLoop(nullptr),
+        MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
+        TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
+        IsSearchLoop(IsSearchLoop) {}
 
   ~VPOCodeGenHIR() {}
 
@@ -64,6 +66,7 @@ public:
   uint64_t getTripCount() const { return TripCount; }
 
   Function &getFunction() const { return Fn; }
+  HLLoop *getOrigLoop() const { return OrigLoop; }
   HLLoop *getMainLoop() const { return MainLoop; }
   int getVF() const { return VF; };
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
@@ -83,6 +86,13 @@ public:
   HLInst *widenNode(const HLInst *Inst, RegDDRef *Mask = nullptr);
 
   HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask);
+
+  /// Collect live-out definitions reaching \p Goto's parent and insert a copy
+  /// of them in the current insertion point of the main vector loop. Linear
+  /// references in the live-out copies are shifted by an offset corresponding
+  /// to the first vector lane taking the early exit. \p Goto must be an early
+  /// exit of the loop we are vectorizing. \p Goto's parent must be an HLIf.
+  void handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto);
 
   HLInst *createBitCast(Type *Ty, RegDDRef *Ref,
                         const Twine &Name = "cast") {
@@ -228,11 +238,17 @@ private:
   // loop after updating loop bounds.
   HLLoop *OrigLoop;
 
+  // Peel loop
+  HLLoop *PeelLoop;
+
   // Main vector loop
   HLLoop *MainLoop;
 
   // Mask value to add for instructions being added to MainLoop
   RegDDRef *CurMaskValue;
+
+  // Is first iteration peel loop needed?
+  bool NeedFirstItPeelLoop = false;
 
   // Is a remainder loop needed?
   bool NeedRemainderLoop;
@@ -267,7 +283,11 @@ private:
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
+  void setPeelLoop(HLLoop *L) { PeelLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
+  void setNeedFirstItPeelLoop(bool NeedFirstItPeel) {
+    NeedFirstItPeelLoop = NeedFirstItPeel;
+  }
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVF(unsigned V) { VF = V; }
@@ -320,7 +340,6 @@ private:
     void replaceCalls();
   };
 };
-
 } // namespace vpo
 } // namespace llvm
 

@@ -408,14 +408,27 @@ void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
   }
 }
 
-HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
+HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy) {
-  // Extract Ztt and add it outside the loop.
-  OrigLoop->extractZtt();
+    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
+    bool PeelFirstIteration) {
+  if (PeelFirstIteration) {
+    // Peel first iteration of the loop. Ztt, preheader and postexit are
+    // extracted as part of the peeling utility.
+    LLVM_DEBUG(dbgs() << "Peeling first iteration of the loop!\n");
+    HLLoop *PeelLp = OrigLoop->peelFirstIteration();
+    if (PeelLoop)
+      *PeelLoop = PeelLp;
 
-  // Extract preheader and postexit
-  OrigLoop->extractPreheaderAndPostexit();
+    // Extract the new Ztt that was created for OrigLoop after peeling.
+    OrigLoop->extractZtt();
+  } else {
+    // Extract Ztt and add it outside the loop.
+    OrigLoop->extractZtt();
+
+    // Extract preheader and postexit.
+    OrigLoop->extractPreheaderAndPostexit();
+  }
 
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollOrVecFactor)'
   // for non-constant trip loops. For const trip loops calculate the bound.
