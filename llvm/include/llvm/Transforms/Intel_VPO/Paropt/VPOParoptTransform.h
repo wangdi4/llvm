@@ -100,9 +100,7 @@ public:
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
-        KmpTaskDependInfoTy(nullptr), TgOffloadRegionId(nullptr),
-        TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
-        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr) {}
+        KmpTaskDependInfoTy(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -184,59 +182,6 @@ private:
   ///              char   depend_type;
   ///           };
   StructType *KmpTaskDependInfoTy;
-
-  /// The target region ID is an unique global varialble used by the runtime
-  /// libarary.
-  GlobalVariable *TgOffloadRegionId;
-
-  /// \brief Hold the struct type as follows.
-  ///    struct __tgt_offload_entry {
-  ///      void      *addr;       // The address of a global variable
-  ///                             // or entry point in the host.
-  ///      char      *name;       // Name of the symbol referring to the
-  ///                             // global variable or entry point.
-  ///      size_t     size;       // Size in bytes of the global variable or
-  ///                             // zero if it is entry point.
-  ///      int32_t    flags;      // Flags of the entry.
-  ///      int32_t    reserved;   // Reserved by the runtime library.
-  /// };
-  StructType *TgOffloadEntryTy;
-
-  /// \brief Hold the struct type as follows.
-  /// struct __tgt_device_image{
-  ///   void   *ImageStart;       // The address of the beginning of the
-  ///                             // target code.
-  ///   void   *ImageEnd;         // The address of the end of the target
-  ///                             // code.
-  ///   __tgt_offload_entry  *EntriesBegin;  // The first element of an array
-  ///                                        // containing the globals and
-  ///                                        // target entry points.
-  ///   __tgt_offload_entry  *EntriesEnd;    // The last element of an array
-  ///                                        // containing the globals and
-  ///                                        // target entry points.
-  /// };
-  StructType *TgDeviceImageTy;
-
-  /// \brief Hold the struct type as follows.
-  /// struct __tgt_bin_desc{
-  ///   uint32_t              NumDevices;     // Number of device types i
-  ///                                         // supported.
-  ///   __tgt_device_image   *DeviceImages;   // A pointer to an array of
-  ///                                         // NumDevices elements.
-  ///   __tgt_offload_entry  *EntriesBegin;   // The first element of an array
-  ///                                         // containing the globals and
-  ///                                         // target entry points.
-  ///   __tgt_offload_entry  *EntriesEnd;     // The last element of an array
-  ///                                         // containing the globals and
-  ///                                         // target entry points.
-  /// };
-  StructType *TgBinaryDescriptorTy;
-
-  /// \brief Create a variable that binds the atexit to this shared object.
-  GlobalVariable *DsoHandle;
-
-  /// \brief A string to describe the device information.
-  SmallVector<Triple, 16> TgtDeviceTriples;
 
   /// \brief Struct that keeps all the information needed to pass to
   /// the runtime library.
@@ -578,7 +523,7 @@ private:
   bool genTargetOffloadingCode(WRegionNode *W);
 
   /// \brief Generate the initialization code for the directive omp target
-  CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call,
+  CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call, Value *RegionId,
                               Instruction *InsertPt);
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
@@ -603,43 +548,6 @@ private:
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 unsigned &Cnt,
                                 bool hasRuntimeEvaluationCaptureSize);
-
-  /// \brief Register the offloading descriptors as well the offloading binary
-  /// descriptors.
-  void genRegistrationFunction(WRegionNode *W, Function *Fn);
-
-  /// \brief Register the offloading descriptors.
-  void genOffloadEntriesAndInfoMetadata(WRegionNode *W, Function *Fn);
-
-  /// \brief Register the offloading binary descriptors.
-  void genOffloadingBinaryDescriptorRegistration(WRegionNode *W);
-
-  /// \brief Create offloading entry for the provided entry ID and address.
-  void genOffloadEntry(Constant *ID, Constant *Addr);
-
-  /// \brief Return/Create the target region ID used by the runtime library to
-  /// identify the current target region.
-  GlobalVariable *getOMPOffloadRegionId();
-
-  /// \brief Return/Create a variable that binds the atexit to this shared
-  /// object.
-  GlobalVariable *getDsoHandle();
-
-  /// \brief Return/Create the struct type __tgt_offload_entry.
-  StructType *getTgOffloadEntryTy();
-
-  /// \brief Return/Create the struct type __tgt_device_image.
-  StructType *getTgDeviceImageTy();
-
-  /// \brief Return/Create the struct type __tgt_bin_desc.
-  StructType *getTgBinaryDescriptorTy();
-
-  /// \brief Create the function .omp_offloading.descriptor_reg
-  Function *createTgDescRegisterLib(WRegionNode *W, Function *TgDescUnregFn,
-                                    GlobalVariable *Desc);
-
-  /// \brief Create the function .omp_offloading.descriptor_unreg
-  Function *createTgDescUnregisterLib(WRegionNode *W, GlobalVariable *Desc);
 
   /// \brief If the incoming data is global variable, create the stack variable
   /// and replace the the global variable with the stack variable.
@@ -683,7 +591,7 @@ private:
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
 
   /// \brief Return true if the program is compiled at the offload mode.
-  bool hasOffloadCompilation() {
+  bool hasOffloadCompilation() const {
     return ((Mode & OmpOffload) || SwitchToOffload);
   }
 
@@ -960,9 +868,6 @@ private:
 
   /// \brief Generate the helper function for copying the copyprivate data.
   Function *genCopyPrivateFunc(WRegionNode *W, StructType *KmpCopyPrivateTy);
-
-  /// \brief Process the device information into the triples.
-  void processDeviceTriples();
 
   /// Return true if the device triple contains spir64 or spir.
   bool deviceTriplesHasSPIRV();

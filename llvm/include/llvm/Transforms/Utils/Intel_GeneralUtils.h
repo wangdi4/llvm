@@ -36,6 +36,7 @@ class ConstantExpr;
 class Value;
 class Function;
 class DominatorTree;
+class Module;
 
 /// \brief This class provides a set of general utility functions that can be
 /// used for a variety of purposes.
@@ -87,6 +88,7 @@ public:
 
   /// \brief Return the size_t type for 32/64 bit architecture
   static Type *getSizeTTy(Function *F);
+  static Type *getSizeTTy(Module *M);
 };
 
 } // end llvm namespace
