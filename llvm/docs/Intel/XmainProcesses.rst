@@ -59,10 +59,13 @@ this checklist when evaluating change sets.
    from someone who has taken the time to thoroughly understand your changes.
 #. Run an appropriate amount of
    :ref:`pre-commit testing <testing-requirements>`, and attach the test
-   results to the Gerrit review. We recommend that you use the integrated alloy
-   testing feature of Gerrit to do this. Any expected failures must be captured
-   in JIRA, and the Gerrit review must contain a clear explanation for why the
-   change should be approved for xmain in spite of the failures.
+   results to the Gerrit review. We recommend that you use the integrated
+   :doc:`alloy testing feature of Gerrit <XmainAlloyGerrit>` to do this.
+   Alternatively, please copy the contents of gerrit.log into the Gerrit review
+   as described :ref:`here <gerrit-alloy-fallback>`. Any expected failures
+   must be captured in JIRA, and the Gerrit review must contain a clear
+   explanation for why the change should be approved for xmain in spite of the
+   failures.
 
 The next step depends on whether you are submitting an individual change set or
 a branch promotion.
@@ -596,7 +599,13 @@ testing. The following alloy command is suitable.
 
 Of course, good judgment should always prevail. The gatekeeper may choose to
 permit less testing for low risk change sets and may choose to require extra
-testing for high risk change sets.
+testing for high risk change sets. In particular, for change sets that only
+modify LIT tests, running only the alloy LIT tasks is both sufficient and more
+efficient, i.e.
+
+::
+
+    alloy run -file xmain_lit -notify
 
 Developers can also take advantage of integrated
 :doc:`AlloyGerrit <XmainAlloyGerrit>` testing infrastructure.
@@ -637,3 +646,10 @@ regressions, but there may be exceptions in some cases.
 
 The developer must submit a JIRA report for any performance regression that
 requires follow-up work before the gatekeeper will approve the checkin request.
+
+Expectations Regarding Compile Time Regressions
+-----------------------------------------------
+
+All compile time regressions need to be approved by the architecture team
+prior to checkin. In general, compile time regressions will require
+improvements in generated code performance to justify the cost.
