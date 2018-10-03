@@ -792,8 +792,6 @@ def no_friend_injection : Flag<["--"], "no_friend_injection">,
   HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // IMF attributes support (CQ381541)
 def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
-def fintel_openmp : Flag<["-"], "fintel-openmp">,
-  HelpText<"Enable emitting of Intel specific OpenMP code">;
 def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
   HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
 def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,

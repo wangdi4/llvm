@@ -1,4 +1,6 @@
-// RUN: %clang_cc1 -emit-llvm -verify -o - %s -fopenmp -fintel-compatibility -fintel-openmp -fintel-driver-tempfile-name=%t -triple x86_64-unknown-linux-gnu
+// RUN: %clang_cc1 -emit-llvm -verify -o - %s -fopenmp -fintel-compatibility \
+// RUN:  -fintel-openmp-region -fintel-driver-tempfile-name=%t \
+// RUN:  -triple x86_64-unknown-linux-gnu
 // RUN: grep -q $'^\xEF\xBB\xBF' %t
 // RUN: FileCheck %s < %t
 // expected-no-diagnostics

@@ -2499,7 +2499,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     }
 
 #if INTEL_CUSTOMIZATION
-    if (getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion) {
+    if (getLangOpts().IntelOpenMP) {
       if (CapturedStmtInfo)
         CapturedStmtInfo->recordVariableReference(VD);
       if (isa<OMPCapturedExprDecl>(VD)) {

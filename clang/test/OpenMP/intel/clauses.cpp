@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - %s -fexceptions -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 int foo();
 
@@ -27,54 +27,54 @@ void bar(int if_val, int num_threads_val) {
   int df2 = 2;
 
   // if
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[IF1_ADDR]])
-  // CHECK-NEXT: opnd.i1(metadata !"QUAL.OMP.IF", i1 true)
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[IF1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.IF"(i1 true)
   #pragma omp parallel private(if1) if(1)
   { foo(); }
 
   // CHECK: [[ILOAD1:%.+]] = load i32, i32* [[IF_VAL_ADDR]]
   // CHECK-NEXT: [[TOBOOL:%.+]] = icmp ne i32 [[ILOAD1]], 0
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[IF2_ADDR]])
-  // CHECK-NEXT: opnd.i1(metadata !"QUAL.OMP.IF", i1 [[TOBOOL]])
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[IF2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.IF"(i1 [[TOBOOL]])
   #pragma omp parallel private(if2) if(if_val)
   { foo(); }
 
   // proc_bind
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[PB1_ADDR]])
-  // CHECK-NEXT: qual(metadata !"QUAL.OMP.PROCBIND.MASTER")
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[PB1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PROCBIND.MASTER"
   #pragma omp parallel private(pb1) proc_bind(master)
   { foo(); }
 
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[PB2_ADDR]])
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[PB2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PROCBIND.CLOSE"
   #pragma omp parallel private(pb2) proc_bind(close)
-  // CHECK-NEXT: qual(metadata !"QUAL.OMP.PROCBIND.CLOSE")
   { foo(); }
 
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[PB3_ADDR]])
-  // CHECK-NEXT: qual(metadata !"QUAL.OMP.PROCBIND.SPREAD")
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[PB3_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PROCBIND.SPREAD"
   #pragma omp parallel private(pb3) proc_bind(spread)
   { foo(); }
 
   // num_threads
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[NT1_ADDR]])
-  // CHECK-NEXT: opnd.i32(metadata !"QUAL.OMP.NUM_THREADS", i32 8)
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[NT1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.NUM_THREADS"(i32 8)
   #pragma omp parallel private(nt1) num_threads(8)
   { foo(); }
 
   // CHECK: [[ILOAD2:%.*]] = load i32, i32* [[NUM_THREADS_VAL_ADDR]]
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[NT2_ADDR]])
-  // CHECK-NEXT: opnd.i32(metadata !"QUAL.OMP.NUM_THREADS", i32 [[ILOAD2]])
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[NT2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.NUM_THREADS"(i32 [[ILOAD2]])
   #pragma omp parallel private(nt2) num_threads(num_threads_val)
   { foo(); }
 
   // default
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[DF1_ADDR]])
-  // CHECK-NEXT: qual(metadata !"QUAL.OMP.DEFAULT.NONE")
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[DF1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.DEFAULT.NONE"
   #pragma omp parallel private(df1) default(none)
   { foo(); }
 
-  // CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* [[DF2_ADDR]])
-  // CHECK-NEXT: qual(metadata !"QUAL.OMP.DEFAULT.SHARED")
+  // CHECK: "QUAL.OMP.PRIVATE"(i32* [[DF2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.DEFAULT.SHARED"
   #pragma omp parallel private(df2) default(shared)
   { foo(); }
 }

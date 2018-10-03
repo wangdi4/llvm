@@ -2456,8 +2456,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       }
     }
   }
-  Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
-  Opts.IntelOpenMPRegion = Args.hasArg(OPT_fintel_openmp_region);
+  Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
@@ -2933,7 +2932,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OpenMPSimdDisabled = false;
   Opts.OpenMPTBBOnly = false;
   Opts.OpenMPTBBDisabled = false;
-  if (Opts.IntelOpenMP || Opts.IntelOpenMPRegion) {
+  if (Opts.IntelOpenMP) {
     if (Opts.OpenMP) {
       // OpenMP is enabled but we want to disable OpenMP subset
       Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fno_openmp_simd);

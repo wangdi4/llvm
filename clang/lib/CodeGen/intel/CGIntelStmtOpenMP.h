@@ -1,6 +1,6 @@
 //===--- CGIntelStmtOpenMP.h - Emit Intel Code from OpenMP Directives   ---===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -81,7 +81,7 @@ class OpenMPCodeOutliner {
   };
   typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
 
-  // Used temporarily to build a bundle
+  // Used temporarily to build a bundle.
   OpenMPClauseKind CurrentClauseKind;
   StringRef BundleString;
   SmallVector<llvm::Value*, 8> BundleValues;
@@ -108,9 +108,26 @@ class OpenMPCodeOutliner {
   llvm::Function *RegionEntryDirective = nullptr;
   llvm::Function *RegionExitDirective = nullptr;
 
-  // Used to insert instructions outside the region
-  llvm::Instruction *OutsideInsertInstruction = nullptr;
+  // Used to insert instructions outside the region.
+  llvm::Instruction *MarkerInstruction = nullptr;
 
+  class ClauseEmissionHelper final {
+    llvm::IRBuilderBase::InsertPoint SavedIP;
+    OpenMPCodeOutliner &O;
+    bool EmitClause;
+
+  public:
+    ClauseEmissionHelper(OpenMPCodeOutliner &O, bool EmitClause = true)
+        : O(O), EmitClause(EmitClause) {
+      SavedIP = O.CGF.Builder.saveIP();
+      O.setInsertPoint();
+    }
+    ~ClauseEmissionHelper() {
+      O.CGF.Builder.restoreIP(SavedIP);
+      if (EmitClause)
+        O.emitClause();
+    }
+  };
   const OMPExecutableDirective &Directive;
 
   const Expr *getArraySectionBase(const Expr *E, ArraySectionTy *AS);
@@ -122,15 +139,11 @@ class OpenMPCodeOutliner {
   void addArg(const Expr *E);
 
   void addFenceCalls(bool IsBegin);
-  void getLegalDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
+  void getApplicableDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
   void startDirectiveIntrinsicSet(StringRef B, StringRef E,
                                   OpenMPDirectiveKind K = OMPD_unknown);
   void emitDirective(DirectiveIntrinsicSet &D, StringRef Name);
-  void emitMultipleDirectives(DirectiveIntrinsicSet &D);
-  void emitClause(llvm::Intrinsic::ID IID);
-  void emitSimpleClause();
-  void emitOpndClause();
-  void emitListClause();
+  void emitClause();
   void emitOMPSharedClause(const OMPSharedClause *Cl);
   void emitOMPPrivateClause(const OMPPrivateClause *Cl);
   void emitOMPLastprivateClause(const OMPLastprivateClause *Cl);
@@ -261,9 +274,7 @@ public:
   llvm::Value *getThisPointerValue() { return ThisPointerValue; }
   void addExplicit(const Expr *E);
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
-  void setOutsideInsertPoint() {
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
-  }
+  void setInsertPoint() { CGF.Builder.SetInsertPoint(MarkerInstruction); }
 };
 
 /// Base class for handling code generation inside OpenMP regions.

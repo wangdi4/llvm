@@ -5452,7 +5452,7 @@ void CodeGenModule::EmitMSDebugInfoMetadata() {
 void CodeGenModule::EmitIntelDriverTempfile() {
   // Communication file should be generated only during host complication.
   if (!getLangOpts().IntelCompat ||
-      (!getLangOpts().IntelOpenMP && !getLangOpts().IntelOpenMPRegion) ||
+      !getLangOpts().IntelOpenMP ||
       getLangOpts().IntelDriverTempfileName.empty() ||
       getLangOpts().OpenMPIsDevice)
     return;

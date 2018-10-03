@@ -1,6 +1,5 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECKOLD
-// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - %s -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 struct AFoo {
   AFoo();
@@ -26,14 +25,6 @@ int main() {
   {
 // CHECK: [[TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.SINGLE{{.*}}"QUAL.OMP.COPYPRIVATE"{{.*}}_ZZ4mainE1a{{.*}}"QUAL.OMP.COPYPRIVATE"{{.*}}b{{.*}}"QUAL.OMP.COPYPRIVATE:NONPOD"{{.*}}cfoo{{.*}}_ZTS4AFoo.omp.copy_assign
 // CHECK: region.exit(token [[TOKENVAL]]) [ "DIR.OMP.END.SINGLE"() ]
-
-// CHECKOLD: llvm.intel.directive{{.*}}DIR.OMP.SINGLE
-// CHECKOLD-NEXT: directive.qual.opndlist{{.*}}"QUAL.OMP.COPYPRIVATE"{{.*}}_ZZ4mainE1a
-// CHECKOLD-NEXT: directive.qual.opndlist{{.*}}"QUAL.OMP.COPYPRIVATE"{{.*}}b
-// CHECKOLD-NEXT: directive.qual.opndlist{{.*}}"QUAL.OMP.COPYPRIVATE:NONPOD"{{.*}}cfoo{{.*}}_ZTS4AFoo.omp.copy_assign
-// CHECKOLD-NEXT: llvm.intel.directive{{.*}}DIR.QUAL.LIST.END
-// CHECKOLD: llvm.intel.directive{{.*}}DIR.OMP.END.SINGLE
-// CHECKOLD-NEXT: llvm.intel.directive{{.*}}DIR.QUAL.LIST.END
     #pragma omp single copyprivate(a, b, cfoo)
     {
       a = 9;

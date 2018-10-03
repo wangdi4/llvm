@@ -7958,7 +7958,7 @@ void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *C) {
   MappableExprsHandler MEHandler(Directive, CGF);
 
   auto SavedIP = CGF.Builder.saveIP();
-  setOutsideInsertPoint();
+  setInsertPoint();
 
   for (auto *E : C->varlists()) {
     bool IsFirstComponentList = true;
@@ -7992,7 +7992,7 @@ void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *C) {
         getQualString(Op, C);
         addArg(Op);
         addArg(VBP);
-        emitListClause();
+        emitClause();
         continue;
       }
     }
@@ -8004,7 +8004,7 @@ void OpenMPCodeOutliner::emitOMPMapClause(const OMPMapClause *C) {
       addArg(*BasePointers[I]);
       addArg(Pointers[I]);
       addArg(Sizes[I]);
-      emitListClause();
+      emitClause();
     }
   }
   CGF.Builder.restoreIP(SavedIP);

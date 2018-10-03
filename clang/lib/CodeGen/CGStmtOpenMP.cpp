@@ -64,7 +64,7 @@ public:
       : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()),
         InlinedShareds(CGF) {
 #if INTEL_CUSTOMIZATION
-    if (CGF.getLangOpts().IntelOpenMP || CGF.getLangOpts().IntelOpenMPRegion)
+    if (CGF.getLangOpts().IntelOpenMP)
       llvm_unreachable("Should be using OMPLateOutlineScope");
 #endif // INTEL_CUSTOMIZATION
     if (EmitPreInitStmt)
@@ -1307,7 +1307,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
+  if (CGM.getLangOpts().IntelOpenMP) {
     // Emit variables for orignal loop controls
     for (auto *E : D.counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
@@ -1326,7 +1326,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   // In distribute directives only loop counters may be marked as linear, no
   // need to generate the code for them.
 #if INTEL_CUSTOMIZATION
-  if (!CGM.getLangOpts().IntelOpenMP && !CGM.getLangOpts().IntelOpenMPRegion)
+  if (!CGM.getLangOpts().IntelOpenMP)
 #endif // INTEL_CUSTOMIZATION
   if (!isOpenMPDistributeDirective(D.getDirectiveKind())) {
     for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
@@ -1362,7 +1362,7 @@ void CodeGenFunction::EmitOMPInnerLoop(
   EmitBlock(CondBlock);
   const SourceRange R = S.getSourceRange();
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
+  if (CGM.getLangOpts().IntelOpenMP) {
     llvm::SmallVector<const clang::Attr *, 4> Attrs;
     llvm::ArrayRef<const clang::Attr *> AttrRef = Attrs;
     if (auto *LD = dyn_cast<OMPLoopDirective>(&S)) {

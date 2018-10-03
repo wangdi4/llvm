@@ -9942,8 +9942,7 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
 
 #if INTEL_CUSTOMIZATION
     if (IsConditional) {
-      bool VectorTypeAllowed =
-          (getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion);
+      bool VectorTypeAllowed = getLangOpts().IntelOpenMP;
 
       if (!Type->isScalarType() &&
           (!VectorTypeAllowed || !Type->isVectorType())) {
@@ -10652,8 +10651,7 @@ static bool actOnOMPReductionKindClause(
       Type = Context.getBaseElementType(D->getType().getNonReferenceType());
     }
 #if INTEL_CUSTOMIZATION
-    if ((S.getLangOpts().IntelOpenMP || S.getLangOpts().IntelOpenMPRegion) &&
-        Type->isVectorType())
+    if (S.getLangOpts().IntelOpenMP && Type->isVectorType())
       Type = Type->getAs<VectorType>()->getElementType();
 #endif  // INTEL_CUSTOMIZATION
     auto *VD = dyn_cast<VarDecl>(D);
