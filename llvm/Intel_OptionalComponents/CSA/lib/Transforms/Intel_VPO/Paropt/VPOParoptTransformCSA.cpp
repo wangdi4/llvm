@@ -27,6 +27,11 @@ static cl::opt<unsigned> LoopWorkersDefault(
   cl::desc("Defines default number of workers for OpenMP loops with no "
            "num_threads clause."));
 
+static cl::opt<unsigned> LoopSpmdModeDefault(
+  "csa-omp-loop-spmd-mode-default", cl::init(0), cl::ReallyHidden,
+  cl::desc("Defines default SPMDization mode for OpenMP loops with no "
+           "schedule clause"));
+
 static cl::opt<bool> UseExpLoopPrivatizer(
   "csa-omp-exp-loop-privatizer", cl::init(false), cl::ReallyHidden,
   cl::desc("Use experimental privatizer for OpenMP loops."));
@@ -626,7 +631,7 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
     //     (chunksize > 1)                => hybrid SPMD  (chunksize)
     const auto &Sched = W->getSchedule();
     Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
-        !Sched.getChunkExpr() || !Sched.getChunk() ? 0 : Sched.getChunk());
+        Sched.getChunkExpr() ? Sched.getChunk() : LoopSpmdModeDefault);
 
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
     auto *SpmdID = Builder.CreateCall(Entry,
