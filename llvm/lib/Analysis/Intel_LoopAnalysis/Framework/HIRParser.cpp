@@ -1667,9 +1667,6 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   // RegDDRef.
   cacheTempBlobLevel(Index, NestingLevel, DefLevel);
 
-  // Add blob symbase as required.
-  RequiredSymbases.insert(Symbase);
-
   // Return base temp.
   return BaseTempBlob;
 }
@@ -2326,6 +2323,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   } else {
     populateBlobDDRefs(Ref, Level);
   }
+
+  populateRequiredSymbases(Ref);
 
   return Ref;
 }
@@ -3186,6 +3185,8 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   populateBlobDDRefs(Ref, Level);
 
+  populateRequiredSymbases(Ref);
+
   restructureOnePastTheEndRef(Ref);
 
   // Add a mapping for getting the original pointer value for the Ref.
@@ -3279,9 +3280,23 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     Ref->makeSelfBlob(true);
   }
 
+  populateRequiredSymbases(Ref);
+
   ParsingScalarLval = false;
 
   return Ref;
+}
+
+void HIRParser::populateRequiredSymbases(const RegDDRef *Ref) {
+
+  if (Ref->isSelfBlob()) {
+    RequiredSymbases.insert(Ref->getSymbase());
+
+  } else {
+    for (auto BIt = Ref->blob_cbegin(), E = Ref->blob_cend(); BIt != E; ++BIt) {
+      RequiredSymbases.insert((*BIt)->getSymbase());
+    }
+  }
 }
 
 RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,

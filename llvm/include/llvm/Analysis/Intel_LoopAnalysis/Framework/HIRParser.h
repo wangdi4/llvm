@@ -467,6 +467,10 @@ class HIRParser {
   RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
                               HLInst *LvalInst = nullptr);
 
+  /// Populates all symbases which are required to be kept in HIR based on the
+  /// parsing for \p Ref. These are basically temp blobs contained in \p Ref.
+  void populateRequiredSymbases(const RegDDRef *Ref);
+
   /// Returns an rval DDRef created from Val.
   RegDDRef *createRvalDDRef(const Instruction *Inst, unsigned OpNum,
                             unsigned Level);
