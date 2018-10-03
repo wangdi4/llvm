@@ -201,12 +201,21 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
                                  *DM, S, P.first,
                                  *Result /*TransformationData*/);
 
-  bool CheckedAll = Checks.checkStructMethod();
+  bool SeenArrays = false;
+  bool CheckedAll = Checks.checkStructMethod(SeenArrays);
   (void)CheckedAll;
-  LLVM_DEBUG(dbgs() << "; IR: "
-                    << (CheckedAll ? "analysed completely"
-                                   : "has some side-effect to analyse")
-                    << "\n");
+  LLVM_DEBUG(
+      dbgs() << "; IR: "
+             << (CheckedAll && SeenArrays
+                     ? " has only expected side-effects\n"
+                     : (SeenArrays
+                            ? " needs analysis of instructions)\n"
+                            : " no need to analyze: no accesses to arrays\n")));
+
+  // If there are no accesses to array, then there should be no instructions to
+  // update.
+  assert((SeenArrays || Checks.getTotal() == 0) &&
+         "Inconsistent checkStructMethod");
 
   // Dump results of analysis.
   DEBUG_WITH_TYPE(DTRANS_SOASTR, {
@@ -216,17 +225,21 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
     F.print(dbgs(), &Annotate);
   });
 
-  CallSiteComparator Cmp(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM, S,
-                         P.first, P.second, *Result, /* CsllSiteComparator */
-                         *Result,                    /*TransformationData*/
-                         DTransSOAToAOSBasePtrOff);
+  if (SeenArrays) {
+    CallSiteComparator Cmp(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM,
+                           S, P.first, P.second,
+                           *Result, /* CsllSiteComparator */
+                           *Result, /*TransformationData*/
+                           DTransSOAToAOSBasePtrOff);
 
-  bool Comparison = Cmp.canCallSitesBeMerged();
-  (void)Comparison;
-  LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
-                    << (Comparison ? "required call sites can be merged"
-                                   : "problem with call sites required to be merged")
-                    << "\n");
+    bool Comparison = Cmp.canCallSitesBeMerged();
+    (void)Comparison;
+    LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
+                      << (Comparison
+                              ? "required call sites can be merged"
+                              : "problem with call sites required to be merged")
+                      << "\n");
+  }
   return Ignore(Result.release());
 }
 

@@ -45,7 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Checks that all instructions can be dealt with.
 ; CHECK-TRANS: ; Checking structure's method FieldValueMap::getDatatypeValidatorAt(unsigned int) const
-; CHECK-TRANS: ; IR: analysed completely
+; CHECK-TRANS: ; IR: has only expected side-effects
 
 ; Checks instructions related to transformations:
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 2
@@ -102,4 +102,5 @@ return:                                           ; preds = %if.then, %entry
 
 ; CHECK-MOD: @"ValueVectorOf<DatatypeValidator*>::elementAt(unsigned int).2"(%__SOA_AR_class.ValueVectorOf.0*, i32)
 declare hidden %class.DatatypeValidator** @"ValueVectorOf<DatatypeValidator*>::elementAt(unsigned int)"(%class.ValueVectorOf.1*, i32)
+; CHECK-TRANS: ; Seen pointer to element returned.
 ; XCHECK-DEP: Deps computed: 10, Queries: 11

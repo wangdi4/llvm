@@ -524,34 +524,42 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
     StructureMethodAnalysis MChecker(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S,
                                      Arrays, *Data);
-    bool CheckResult = MChecker.checkStructMethod();
+    bool SeenArrays = false;
+    bool CheckResult = MChecker.checkStructMethod(SeenArrays);
     LLVM_DEBUG({
       dbgs() << "; Struct's method " << F->getName()
-             << (CheckResult ? " has only expected side-effects\n"
-                             : " needs analysis of instructions\n");
-      if (!CheckResult)
+             << (CheckResult && SeenArrays
+                     ? " has only expected side-effects\n"
+                     : (SeenArrays ?  " needs analysis of instructions)\n":
+                        " no need to analyze: no accesses to arrays\n"));
+      if (!CheckResult && SeenArrays)
         dbgs() << "; See -debug-only=" << DTRANS_SOASTR
                << " RUN-lines in soatoaos05*.ll on debugging.\n";
     });
 
-    if (!CheckResult)
+    if (!CheckResult && SeenArrays)
       return FALSE("cannot process all side-effects in struct method.");
 
-    CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
-                             ArrayFieldOffsets, *Data, CSInfo,
-                             BasePointerOffset);
-    bool Comparison = CSCmp.canCallSitesBeMerged();
-    LLVM_DEBUG({
-      dbgs() << "; Array call sites analysis result: "
-             << (Comparison ? "required call sites can be merged"
-                            : "problem with call sites required to be merged")
-             << " in " << F->getName() << "\n";
+    if (!SeenArrays && MChecker.getTotal() != 0)
+      llvm_unreachable("inconsistent logic in checkStructMethod.");
+
+    if (SeenArrays) {
+      CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
+                               ArrayFieldOffsets, *Data, CSInfo,
+                               BasePointerOffset);
+      bool Comparison = CSCmp.canCallSitesBeMerged();
+      LLVM_DEBUG({
+        dbgs() << "; Array call sites analysis result: "
+               << (Comparison ? "required call sites can be merged"
+                              : "problem with call sites required to be merged")
+               << " in " << F->getName() << "\n";
+        if (!Comparison)
+          dbgs() << "; See -debug-only=" << DTRANS_SOASTR
+                 << " RUN-lines in soatoaos05*.ll on debugging.\n";
+      });
       if (!Comparison)
-        dbgs() << "; See -debug-only=" << DTRANS_SOASTR
-               << " RUN-lines in soatoaos05*.ll on debugging.\n";
-    });
-    if (!Comparison)
-      return FALSE("cannot compare call sites of array methods to combine.");
+        return FALSE("cannot compare call sites of array methods to combine.");
+    }
 
     // Pass ownership to StructTransInfo.
     StructTransInfo[F] = decltype(Data)(Data.release());

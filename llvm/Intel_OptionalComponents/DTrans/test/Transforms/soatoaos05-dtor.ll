@@ -45,7 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Checks that all instructions can be dealt with.
 ; CHECK-TRANS: ; Checking structure's method FieldValueMap::~FieldValueMap()
-; CHECK-TRANS: ; IR: analysed completely
+; CHECK-TRANS: ; IR: no need to analyze: no accesses to arrays
 
 ; Checks instructions related to transformations:
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 0

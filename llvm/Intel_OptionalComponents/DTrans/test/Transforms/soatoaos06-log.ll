@@ -103,11 +103,12 @@
 ; CHECK-NEXT: ; Comparison of Arr<int*>::Arr(int) and Arr<float*>::Arr(int) showed bit-to-bit equality.
 ; CHECK-NEXT: ; Comparison of Arr<int*>::~Arr() and Arr<float*>::~Arr() showed bit-to-bit equality.
 ; CHECK-NEXT: ; Comparison of Arr<int*>::add(int* const&) and Arr<float*>::add(float* const&) showed bit-to-bit equality.
-; CHECK-NEXT: ; Struct's method check1(F*) has only expected side-effects
-; CHECK-NEXT: ; Array call sites analysis result: required call sites can be merged in check1(F*)
+; CHECK-NEXT: ; Struct's method check1(F*) no need to analyze: no accesses to arrays
 ; CHECK-NEXT: ; Struct's method F::get1(int) has only expected side-effects
+; CHECK-NEXT: ; Seen pointer to element returned.
 ; CHECK-NEXT: ; Array call sites analysis result: required call sites can be merged in F::get1(int)
 ; CHECK-NEXT: ; Struct's method F::get2(int) has only expected side-effects
+; CHECK-NEXT: ; Seen pointer to element returned.
 ; CHECK-NEXT: ; Array call sites analysis result: required call sites can be merged in F::get2(int)
 ; CHECK-NEXT: ; Struct's method F::F() has only expected side-effects
 ; CHECK-NEXT: ; Seen ctor.

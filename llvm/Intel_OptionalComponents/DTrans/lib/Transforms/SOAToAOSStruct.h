@@ -642,11 +642,10 @@ public:
 
   unsigned getTotal() const { return TI.ArrayInstToTransform.size(); }
 
-  // TODO: there is no need to check all methods of struct,
-  // only methods accessing arrays, i.e. isLoadOrStoreOfArrayPtr and memset of
-  // structure.
-  bool checkStructMethod() const {
+  bool checkStructMethod(bool &SeenArrays) const {
     bool Invalid = false;
+
+    SeenArrays = false;
 
     for (auto &I : instructions(*S.Method)) {
       if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode()))
@@ -688,6 +687,7 @@ public:
           // pointers to arrays.
           if (auto *ArrType =
                   StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I)) {
+            SeenArrays = true;
             // Related to arrays of interest, limited kinds of uses
             // permitted. In particular, analysis of uses prevents nested loads
             // with respect to arrays of interest.
@@ -717,6 +717,7 @@ public:
         // Explicitly check for Struct's field update.
         else if (auto *ArrType =
                      StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I)) {
+          SeenArrays = true;
           if (auto *C = dyn_cast<Constant>(
                   cast<StoreInst>(I).getValueOperand()->stripPointerCasts())) {
             if (C->isZeroValue()) {
@@ -765,6 +766,7 @@ public:
           break;
         // Memset of structure itself.
         else if (auto *MI = dyn_cast<MemSetInst>(&I)) {
+          SeenArrays = true;
           // Safety checks guarantee (CFG + legality) that constant address does not
           // refer to array of interest.
           if (isa<Constant>(MI->getDest()))
@@ -1900,6 +1902,9 @@ public:
         auto *BasePtrType = StrType->getTypeAtIndex(BasePointerOffset);
         if (BasePtrType != CS.getType())
           continue;
+
+        DEBUG_WITH_TYPE(DTRANS_SOASTR,
+                        dbgs() << "; Seen pointer to element returned.\n");
 
         // Check that methods returning pointers to elements are dereferenced.
         for (auto &U : CS.getInstruction()->uses())

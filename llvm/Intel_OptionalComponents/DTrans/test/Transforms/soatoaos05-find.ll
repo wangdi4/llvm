@@ -45,7 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Checks that all instructions can be dealt with.
 ; CHECK-TRANS: ; Checking structure's method FieldValueMap::indexOf(IC_Field const*) const
-; CHECK-TRANS: ; IR: analysed completely
+; CHECK-TRANS: ; IR: has only expected side-effects
 
 ; Checks instructions related to transformations.
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 4
