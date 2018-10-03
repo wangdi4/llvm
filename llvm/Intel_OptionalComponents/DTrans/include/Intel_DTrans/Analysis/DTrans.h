@@ -967,15 +967,6 @@ StringRef getStructName(llvm::Type *Ty);
 /// type is zero-size array itself.
 bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 
-// Annotate an instruction to provide a pointer type that the result of the
-// instruction aliases. This method can be used by a DTrans transformation for
-// cases where the generated IR is unable to be analyzed directly by the
-// DTransAnalysis.
-void createDTransTypeAnnotation(Instruction *I, llvm::Type *Ty);
-
-// Get the type that exists in an annotation, if one exists, for the
-// instruction.
-llvm::Type *lookupDTransTypeAnnotation(Instruction *I);
 } // namespace dtrans
 
 } // namespace llvm

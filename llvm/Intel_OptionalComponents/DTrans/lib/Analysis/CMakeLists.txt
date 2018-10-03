@@ -14,6 +14,7 @@
 add_llvm_library(LLVMIntel_DTransAnalysis
   DTransUtils.cpp
   DTransAnalysis.cpp
+  DTransAnnotator.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Analysis

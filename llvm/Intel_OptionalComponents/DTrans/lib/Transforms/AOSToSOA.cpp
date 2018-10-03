@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/StringExtras.h"
@@ -1748,8 +1749,8 @@ private:
       // of DTransAnalysis to resolve the type as a pointer to an array of
       // elements. This is necessary because the allocated memory block is
       // being partitioned into multiple arrays.
-      dtrans::createDTransTypeAnnotation(cast<Instruction>(BlockAddr),
-                                         PeelFieldType);
+      DTransAnnotator::createDTransTypeAnnotation(cast<Instruction>(BlockAddr),
+                                                  PeelFieldType);
 
       // Cast to the pointer type that will be stored:
       //   %CastToMemberTy = bitcast i8* %BlockAddr to %PeelFieldType

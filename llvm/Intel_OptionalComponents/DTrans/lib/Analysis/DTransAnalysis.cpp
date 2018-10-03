@@ -12,6 +12,7 @@
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -1680,7 +1681,8 @@ private:
     // Check for metadata used to annotate the type from one of the
     // transformations to apply to the type.
     if (auto *I = dyn_cast<Instruction>(V))
-      if (auto *TyFromMD = dtrans::lookupDTransTypeAnnotation(I))
+      if (auto *TyFromMD =
+              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(I))
         Info.addPointerTypeAlias(TyFromMD);
 
     // Build a stack of unresolved dependent values that must be analyzed
