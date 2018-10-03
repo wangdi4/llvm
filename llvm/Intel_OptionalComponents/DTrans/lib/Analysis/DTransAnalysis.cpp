@@ -845,17 +845,12 @@ public:
 
 private:
   typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
-  // An enum recording the current status of a function. The status is
-  // updated each time we need to know if the function is isMallocPostDom()
-  // or isFreePostDom(), until the function is determined to be one or
-  // the other or neither.
+  // An enum recording the status of a function. The status is
+  // updated in populateAllocDeallocTable.
   enum AllocStatus {
     AKS_Unknown,
     AKS_Malloc,
-    AKS_Free,
-    AKS_NotMalloc,
-    AKS_NotFree,
-    AKS_NotMallocFree
+    AKS_Free
   };
   // Mapping for the AllocStatus of each Function we have queried.
   std::map<const Function *, AllocStatus> LocalMap;
@@ -936,24 +931,7 @@ bool DTransAllocAnalyzer::isMallocPostDom(CallSite CS) {
   case AKS_Malloc:
     return true;
   case AKS_Free:
-  case AKS_NotMalloc:
-  case AKS_NotMallocFree:
-    return false;
-  case AKS_NotFree:
-    if (analyzeForMallocStatus(F)) {
-      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
-      LocalMap[F] = AKS_Malloc;
-      return true;
-    }
-    LocalMap[F] = AKS_NotMallocFree;
-    return false;
   case AKS_Unknown:
-    if (analyzeForMallocStatus(F)) {
-      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
-      LocalMap[F] = AKS_Malloc;
-      return true;
-    }
-    LocalMap[F] = AKS_NotMalloc;
     return false;
   }
   return false;
@@ -980,24 +958,7 @@ bool DTransAllocAnalyzer::isFreePostDom(CallSite CS) {
   case AKS_Free:
     return true;
   case AKS_Malloc:
-  case AKS_NotFree:
-  case AKS_NotMallocFree:
-    return false;
-  case AKS_NotMalloc:
-    if (analyzeForFreeStatus(F)) {
-      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
-      LocalMap[F] = AKS_Free;
-      return true;
-    }
-    LocalMap[F] = AKS_NotMallocFree;
-    return false;
   case AKS_Unknown:
-    if (analyzeForFreeStatus(F)) {
-      llvm_unreachable("populateAllocDeallocTable analysis was incomplete");
-      LocalMap[F] = AKS_Free;
-      return true;
-    }
-    LocalMap[F] = AKS_NotFree;
     return false;
   }
   return false;
