@@ -1,7 +1,6 @@
 ; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 
-
 ; This test verifies that shrinking the peeling index to 32-bits gets inhibited
 ; if there is a byte-flattened GEP form of a field access in a dependent global
 ; variable.

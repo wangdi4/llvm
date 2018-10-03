@@ -36,7 +36,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK: Field info:
 ; CHECK: Multiple Value
 ; CHECK: Field LLVM Type: %struct.INNERSTRUCT = type { i32, i32 }
-; CHECK: Field info: AddressTaken
+; CHECK: Field info: ComplexUse AddressTaken
 ; CHECK: Multiple Value
 ; CHECK: Safety data: Field address taken | Global instance | Has initializer list | Contains nested structure
 

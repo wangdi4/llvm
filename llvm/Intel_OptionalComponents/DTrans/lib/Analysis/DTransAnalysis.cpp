@@ -3317,8 +3317,12 @@ public:
   }
 
   void visitBitCastInst(BitCastInst &I) {
-    llvm::Type *DestTy = I.getDestTy();
-    llvm::Value *SrcVal = I.getOperand(0);
+    visitBitCastOperator(cast<BitCastOperator>(&I));
+  }
+
+  void visitBitCastOperator(BitCastOperator *I) {
+    llvm::Type *DestTy = I->getDestTy();
+    llvm::Value *SrcVal = I->getOperand(0);
 
     // If the source operand is not a value of interest, we only need to
     // consider the destination type.
@@ -3328,8 +3332,8 @@ public:
       if (DTInfo.isTypeOfInterest(DestTy)) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                           << "unknown pointer cast to type of interest:\n"
-                          << "  " << I << "\n");
-        setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
+                          << "  " << *I << "\n");
+        setValueTypeInfoSafetyData(I, dtrans::BadCasting);
       }
       return;
     }
@@ -3344,8 +3348,8 @@ public:
                              /*AllowElementZeroAccess=*/true)) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                         << "cast of ambiguous pointer:\n"
-                        << "  " << I << "\n");
-      setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
+                        << "  " << *I << "\n");
+      setValueTypeInfoSafetyData(I, dtrans::BadCasting);
       setValueTypeInfoSafetyData(SrcVal, dtrans::BadCasting);
       return;
     }
@@ -3385,7 +3389,7 @@ public:
 
     // If this is the start of a partial pointer load/store idiom, don't
     // report it as a safety violation.
-    LocalPointerInfo &SelfLPI = LPA.getLocalPointerInfo(&I);
+    LocalPointerInfo &SelfLPI = LPA.getLocalPointerInfo(I);
     if (SelfLPI.isPartialPtrLoadStore())
       return;
 
@@ -3721,9 +3725,13 @@ public:
   }
 
   void visitGetElementPtrInst(GetElementPtrInst &I) {
+    visitGetElementPtrOperator(cast<GEPOperator>(&I));
+  }
+
+  void visitGetElementPtrOperator(GEPOperator *I) {
     // TODO: Associate the parent type of the pointer so we can properly
     //       evaluate the uses.
-    Value *Src = I.getPointerOperand();
+    Value *Src = I->getPointerOperand();
     if (!isValueOfInterest(Src))
       return;
 
@@ -3731,12 +3739,12 @@ public:
     // possible to see a GEP chain which calculates final address. For safety
     // checks we need the condition to be set for all levels of nested
     // structures containing current address.
-    GetElementPtrInst *GEPI = nullptr;
-    if (GetElementPtrInst *CurrInst = dyn_cast<GetElementPtrInst>(Src)) {
+    GEPOperator *GEPO = nullptr;
+    if (GEPOperator *CurrOp = dyn_cast<GEPOperator>(Src)) {
       while (auto *PrevGEP =
-                 dyn_cast<GetElementPtrInst>(CurrInst->getPointerOperand()))
-        CurrInst = PrevGEP;
-      GEPI = CurrInst;
+                 dyn_cast<GEPOperator>(CurrOp->getPointerOperand()))
+        CurrOp = PrevGEP;
+      GEPO = CurrOp;
     }
 
     // If a GetElementPtr instruction is used for a pointer, which aliases
@@ -3746,14 +3754,14 @@ public:
     LocalPointerInfo &SrcLPI = LPA.getLocalPointerInfo(Src);
     if (SrcLPI.pointsToMultipleAggregateTypes()) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Ambiguous GEP:\n"
-                        << "  " << I << "\n");
+                        << "  " << *I << "\n");
       LLVM_DEBUG(SrcLPI.dump());
       setAllAliasedTypeSafetyData(SrcLPI, dtrans::AmbiguousGEP);
       // We set safety data on the first GEP. It will be naturally promoted to
       // subtypes.
-      if (GEPI) {
+      if (GEPO) {
         LocalPointerInfo &DeepestLPI =
-            LPA.getLocalPointerInfo(GEPI->getPointerOperand());
+            LPA.getLocalPointerInfo(GEPO->getPointerOperand());
         setAllAliasedTypeSafetyData(DeepestLPI, dtrans::AmbiguousGEP);
       }
     }
@@ -3765,7 +3773,7 @@ public:
     // source pointer type indicating that bad element access occurred.
     // (Note: It is intentional that we are setting safety data for the source
     //        value rather than the GEP value.)
-    LocalPointerInfo &GEPLPI = LPA.getLocalPointerInfo(&I);
+    LocalPointerInfo &GEPLPI = LPA.getLocalPointerInfo(I);
     if (!GEPLPI.pointsToSomeElement()) {
       // If the source is an i8* value, this is a byte-flattened GEP access
       // and we should have been able to figure out the field being accessed.
@@ -3773,15 +3781,15 @@ public:
       // as an array.
       if ((isInt8Ptr(Src) &&
            !(SrcLPI.isPtrToPtr() || SrcLPI.isPtrToCharArray())) ||
-          I.getNumIndices() != 1) {
+          I->getNumIndices() != 1) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
-                          << "  " << I << "\n");
+                          << "  " << *I << "\n");
         setAllAliasedTypeSafetyData(SrcLPI, dtrans::BadPtrManipulation);
         // We set safety data on the first GEP. It will be naturally promoted to
         // subtypes.
-        if (GEPI) {
+        if (GEPO) {
           LocalPointerInfo &DeepestLPI =
-              LPA.getLocalPointerInfo(GEPI->getPointerOperand());
+              LPA.getLocalPointerInfo(GEPO->getPointerOperand());
           setAllAliasedTypeSafetyData(DeepestLPI, dtrans::BadPtrManipulation);
         }
       }
@@ -3790,7 +3798,7 @@ public:
       if (PointeeSet.size() == 1 && isInt8Ptr(Src)) {
         // If the GEP is pointing to some element and it is in the
         // byte-flattened form, store this information for later reference.
-        DTInfo.addByteFlattenedGEPMapping(&I, *PointeeSet.begin());
+        DTInfo.addByteFlattenedGEPMapping(I, *PointeeSet.begin());
       }
 
       // Check the uses of this GEP element. If it is used by anything other
@@ -3816,7 +3824,7 @@ public:
             return false;
           };
 
-      if (hasNonCastLoadStoreUses(&I)) {
+      if (hasNonCastLoadStoreUses(I)) {
         for (auto PointeePair : PointeeSet) {
           llvm::Type *ParentTy = PointeePair.first;
           if (ParentTy->isStructTy()) {
@@ -3847,6 +3855,10 @@ public:
   }
 
   void visitPtrToIntInst(PtrToIntInst &I) {
+    visitPtrToIntOperator(cast<PtrToIntOperator>(&I));
+  }
+
+  void visitPtrToIntOperator(PtrToIntOperator *I) {
     // If the source value is of interest, check to see if it is being cast
     // as a pointer-sized integer. If this is anything other than a
     // pointer being cast to a pointer-sized integer, it is a bad cast.
@@ -3859,13 +3871,13 @@ public:
     //   store i64 %ps.as.i, i64* %pps.as.pi
     //
     // We will check this more closely when we visit the store instruction.
-    Value *Src = I.getPointerOperand();
+    Value *Src = I->getPointerOperand();
     if (!isValueOfInterest(Src))
       return;
-    if (I.getDestTy() != PtrSizeIntTy) {
+    if (I->getType() != PtrSizeIntTy) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                         << "Ptr to aggregate cast to a non-ptr-sized integer:\n"
-                        << "  " << I << "\n");
+                        << "  " << *I << "\n");
       setValueTypeInfoSafetyData(Src, dtrans::BadCasting);
     }
 
@@ -4161,6 +4173,7 @@ public:
                      << "  " << GV << "\n");
           setBaseTypeCallGraph(GV.getType(), nullptr);
         }
+        analyzeGlobalVariableUses(GV);
       }
     }
     // Analyze definitions of all structures in type info list.
@@ -4621,6 +4634,44 @@ private:
            ElementTy->getPointerElementType();
   }
 
+  // When a global variable is used in a ConstantExpr, the resulting value
+  // appears directly as an operand to instructions and is never seen by
+  // the instruction visitor. To handle these uses, we need to visit them
+  // from the GlobalVariable's users list. Because ConstantExprs can be
+  // chained, we call a helper function to do the analysis.
+  void analyzeGlobalVariableUses(GlobalVariable &GV) {
+    for (auto *U : GV.users())
+      if (auto *CE = dyn_cast<ConstantExpr>(U))
+       analyzeConstantExpr(CE);
+  }
+
+  // Determine the type of operation being performed by a ConstantExpr and
+  // dispatch it appropriately. Currently only BitCast, GEP and PtrToInt are
+  // handled. Other possibilities are marked as unhandled uses. This can be
+  // updated as needed.
+  void analyzeConstantExpr(ConstantExpr *CE) {
+    if (auto *BOp = dyn_cast<BitCastOperator>(CE)) {
+      visitBitCastOperator(BOp);
+    } else if (auto *GEPOp = dyn_cast<GEPOperator>(CE)) {
+      visitGetElementPtrOperator(GEPOp);
+    } else if (auto *PtrToIntOp = dyn_cast<PtrToIntOperator>(CE)) {
+      visitPtrToIntOperator(PtrToIntOp);
+    } else {
+      LLVM_DEBUG(
+          dbgs() << "dtrans-safety: Unhandled use -- constant expr\n  "
+                 << *CE << "\n");
+      (void)setValueTypeInfoSafetyDataBase(CE, dtrans::UnhandledUse);
+      for (Value *Op : CE->operands())
+        (void)setValueTypeInfoSafetyDataBase(Op, dtrans::UnhandledUse);
+    }
+
+    // All cases above fall through to continue following the chain of
+    // ConstantExprs.
+    for (auto *U : CE->users())
+      if (auto *UCE = dyn_cast<ConstantExpr>(U))
+       analyzeConstantExpr(UCE);
+  }
+
   // Analyze a structure definition, independent of its use in any
   // instruction. This checks for basic issues like structure nesting
   // and empty structures.
@@ -4724,7 +4775,7 @@ private:
   // types need to be considered. These may not be the actual types used
   // by the bitcast instruction, but the source operand will be known to
   // be an instance of SrcTy in some way.
-  void verifyBitCastSafety(BitCastInst &I, llvm::Type *SrcTy,
+  void verifyBitCastSafety(BitCastOperator *I, llvm::Type *SrcTy,
                            llvm::Type *DestTy) {
     // If the types are the same, it's a safe cast.
     if (SrcTy == DestTy)
@@ -4751,27 +4802,28 @@ private:
         dtrans::isElementZeroI8Ptr(SrcTy->getPointerElementType())) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                         << "unsafe cast of i8* element to specific type:\n"
-                        << "  " << I << "\n");
+                        << "  " << *I << "\n");
       // In this case we always want to avoid setting the element pointee
       // safety data, regardless of the state of DTransOutOfBoundsOK.
-      (void)setValueTypeInfoSafetyDataBase(&I, dtrans::BadCasting);
+      (void)setValueTypeInfoSafetyDataBase(I, dtrans::BadCasting);
       return;
     }
 
     // Otherwise, it's not safe.
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "unsafe cast of aliased pointer:\n"
-                      << "  " << I << "\n");
+                      << "  " << *I << "\n");
     if (DTransOutOfBoundsOK)
-      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::BadCasting);
+      setValueTypeInfoSafetyData(I->getOperand(0), dtrans::BadCasting);
     else
-      (void)setValueTypeInfoSafetyDataBase(I.getOperand(0), dtrans::BadCasting);
+      (void)setValueTypeInfoSafetyDataBase(I->getOperand(0),
+                                           dtrans::BadCasting);
 
     if (DTInfo.isTypeOfInterest(DestTy)) {
       if (DTransOutOfBoundsOK)
-        setValueTypeInfoSafetyData(&I, dtrans::BadCasting);
+        setValueTypeInfoSafetyData(I, dtrans::BadCasting);
       else
-        (void)setValueTypeInfoSafetyDataBase(&I, dtrans::BadCasting);
+        (void)setValueTypeInfoSafetyDataBase(I, dtrans::BadCasting);
     }
   }
 
@@ -6918,7 +6970,7 @@ llvm::Type *DTransAnalysisInfo::getResolvedPtrSubType(BinaryOperator *BinOp) {
 }
 
 void DTransAnalysisInfo::addByteFlattenedGEPMapping(
-    GetElementPtrInst *GEP, std::pair<llvm::Type *, size_t> Pointee) {
+    GEPOperator *GEP, std::pair<llvm::Type *, size_t> Pointee) {
   ByteFlattenedGEPInfoMap[GEP] = Pointee;
 }
 
@@ -6971,7 +7023,7 @@ llvm::Type *DTransAnalysisInfo::getGenericStoreType(StoreInst *SI) {
 }
 
 std::pair<llvm::Type *, size_t>
-DTransAnalysisInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
+DTransAnalysisInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
   auto It = ByteFlattenedGEPInfoMap.find(GEP);
   if (It == ByteFlattenedGEPInfoMap.end())
     return std::make_pair(nullptr, 0);
@@ -7514,11 +7566,7 @@ DTransAnalysisInfo::getStructField(GEPOperator *GEP) {
     return std::make_pair(nullptr, 0);
 
   if (GEP->getNumIndices() == 1) {
-    auto *GEPI = dyn_cast<GetElementPtrInst>(GEP);
-    if (!GEPI)
-      return std::make_pair(nullptr, 0);
-
-    auto StructField = getByteFlattenedGEPElement(GEPI);
+    auto StructField = getByteFlattenedGEPElement(GEP);
     auto StructTy = dyn_cast_or_null<StructType>(StructField.first);
     if (!StructTy)
       std::make_pair(nullptr, 0);

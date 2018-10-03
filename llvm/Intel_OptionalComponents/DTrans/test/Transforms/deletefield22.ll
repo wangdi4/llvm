@@ -22,9 +22,8 @@ define i32 @main(i32 %argc, i8** %argv) {
                                                  i64 0, i32 2)
 
   ; write B
-  store i64 3, i64* bitcast (i8* bitcast (i64* getelementptr
-                                           (%struct.test, %struct.test* @g_test,
-                                            i64 0, i32 1) to i8*) to i64*)
+  store i64 3, i64* getelementptr (%struct.test, %struct.test* @g_test,
+                                   i64 0, i32 1)
 
   ret i32 %valA
 }
