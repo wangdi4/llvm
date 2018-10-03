@@ -191,3 +191,61 @@ if (NOT CMAKE_CONFIGURATION_TYPES) # don't add this for IDE's.
                            DEPENDS clang-headers
                            COMPONENT clang-headers)
 endif()
+
+# INTEL_CUSTOMIZATION
+# TODO: we eventually should get rid of this list and associated install target.
+# The list added to make smooth transition from using copylist tool to using make
+# when we changed the way install directory is populated.
+# Some of these headers are not harmful and were added because copylist
+# did not install them and since they are not harmful we let them be installed.
+
+set(intel_exclude_files
+#  __clang_cuda_builtin_vars.h
+#  __clang_cuda_cmath.h
+#  __clang_cuda_complex_builtins.h
+#  __clang_cuda_device_functions.h
+#  __clang_cuda_intrinsics.h
+#  __clang_cuda_libdevice_declares.h
+#  __clang_cuda_math_forward_declares.h
+#  __clang_cuda_runtime_wrapper.h
+#  __stddef_max_align_t.h
+#  altivec.h
+#  arm_acle.h
+  arm_fp16.h
+  arm_neon.h
+#  arm64intr.h
+#  armintr.h
+  float.h
+#  htmintrin.h
+#  htmxlintrin.h
+  inttypes.h
+  iso646.h
+  limits.h
+  module.modulemap
+#  msa.h
+#  s390intrin.h
+  stdalign.h
+  stdarg.h
+  stdatomic.h
+  stdbool.h
+  stddef.h
+  stdint.h
+  stdnoreturn.h
+# tgmath.h
+  unwind.h
+  varargs.h
+# vecintrin.h
+  )
+
+list(REMOVE_ITEM files ${intel_exclude_files})
+install(
+  FILES ${files}
+  COMPONENT icx-headers
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  DESTINATION compiler/include/icx)
+
+# Add convenience install target
+add_llvm_install_targets(install-icx-headers
+                         DEPENDS clang-headers
+                         COMPONENT clang-headers-icx)
+# end INTEL_CUSTOMIZATION
