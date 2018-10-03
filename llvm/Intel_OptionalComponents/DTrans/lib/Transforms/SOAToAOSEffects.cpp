@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "SOAToAOSEffects.h"
+#include "SOAToAOSCommon.h"
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
@@ -335,7 +336,7 @@ bool DepCompute::computeDepApproximation() const {
         continue;
 
       for (auto *I : *SCCIt) {
-        assert(Visited.find(I) == Visited.end() && "Traversal logic is broken");
+        assert(Visited.count(I) == 0 && "Traversal logic is broken");
         Visited.insert(I);
       }
 

@@ -592,7 +592,7 @@ private:
         if (SCCIt != SCCEnd)
           DCFIt = DepIterTy::begin(*SCCIt);
       }
-      if (DCFIt.isEnd() || Visited.find(*DCFIt) == Visited.end())
+      if (DCFIt.isEnd() || Visited.count(*DCFIt) == 0)
         break;
 
       ++DCFIt;
@@ -914,7 +914,7 @@ private:
       if (Args->size() != Other.Args->size())
         return false;
       for (auto A : *Args)
-        if (Other.Args->find(A) == Other.Args->end())
+        if (Other.Args->count(A) == 0)
           return false;
       return true;
     default:
@@ -1166,19 +1166,6 @@ inline bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
     return false;
 
   return true;
-}
-
-// Extract 'this` parameter and pointed-to type of 'this'.
-inline StructType *getStructTypeOfMethod(const Function &F) {
-  FunctionType *FTy = F.getFunctionType();
-  if (FTy->getNumParams() < 1)
-    return nullptr;
-
-  if (auto *PTy = dyn_cast<PointerType>(FTy->getParamType(0)))
-    if (auto *STy = dyn_cast<StructType>(PTy->getElementType()))
-      return STy;
-
-  return nullptr;
 }
 } // namespace soatoaos
 } // namespace dtrans

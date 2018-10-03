@@ -315,6 +315,229 @@ inline PointerType *getSOAElementType(StructType *ArrType,
       ArrType->getElementType(BasePointerOffset)->getPointerElementType());
 }
 
+// Extract 'this` parameter and pointed-to type of 'this'.
+inline StructType *getStructTypeOfMethod(const Function &F) {
+  FunctionType *FTy = F.getFunctionType();
+  if (FTy->getNumParams() < 1)
+    return nullptr;
+
+  if (auto *PTy = dyn_cast<PointerType>(FTy->getParamType(0)))
+    if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+      return STy;
+
+  return nullptr;
+}
+
+// Prepare layout information for candidates.
+//
+// %class.FieldValueMap = type {
+//    %class.vector*,
+//    %class.vector.0*,
+//    %class.refvector*,
+//    MemoryManager*
+// }
+//
+// Only pointers as elements are allowed.
+// %class.vector = type {
+//    i8, i32, i32,
+//    %class.elem**,
+//    MemoryManager*
+// }
+//
+// Only pointers as elements are allowed.
+// %class.vector.0 = type {
+//    i8, i32, i32,
+//    %class.elem0**,
+//    MemoryManager*
+// }
+class SOAToAOSLayoutInfo {
+public:
+  // Returns false if idiom is not recognized.
+  // Single out-of-line method with lambdas.
+  bool populateLayoutInformation(Type *Ty);
+
+  constexpr static int MaxNumFieldTotalCandidates = 3;
+  constexpr static int MaxNumFieldCandidates = 2;
+  // There should be at least 'capacity' and 'size' fields.
+  // Also permit auxiliary field.
+  constexpr static int MaxNumIntFields = 3;
+
+  using OffsetsTy = SmallVector<unsigned, MaxNumFieldCandidates>;
+
+  // Helper class for fields* methods.
+  template <typename IterTy>
+  class ArrayIter
+      : public iterator_adaptor_base<
+            ArrayIter<IterTy>, IterTy,
+            typename std::iterator_traits<IterTy>::iterator_category,
+            StructType *,
+            typename std::iterator_traits<IterTy>::difference_type,
+            StructType **, StructType *> {
+    using BaseTy = iterator_adaptor_base<
+        ArrayIter, IterTy,
+        typename std::iterator_traits<IterTy>::iterator_category, StructType *,
+        typename std::iterator_traits<IterTy>::difference_type, StructType **,
+        StructType *>;
+
+  public:
+    const SOAToAOSLayoutInfo *Info;
+    ArrayIter(const SOAToAOSLayoutInfo *Info, IterTy It)
+        : BaseTy(It), Info(Info) {}
+
+    typename BaseTy::reference operator*() const {
+      return getSOAArrayType(Info->Struct, *this->wrapped());
+    }
+  };
+
+  // Accessing structures representing arrays.
+  using const_iterator = ArrayIter<OffsetsTy::const_iterator>;
+
+  const_iterator fields_begin() const {
+    return const_iterator(this, ArrayFieldOffsets.begin());
+  }
+  const_iterator fields_end() const {
+    return const_iterator(this, ArrayFieldOffsets.end());
+  }
+  iterator_range<const_iterator> fields() const {
+    return make_range(fields_begin(), fields_end());
+  }
+
+protected:
+  // Helper class for elements* methods.
+  template <typename IterTy>
+  class ElementIter
+      : public iterator_adaptor_base<
+            ElementIter<IterTy>, IterTy,
+            typename std::iterator_traits<IterTy>::iterator_category,
+            PointerType *,
+            typename std::iterator_traits<IterTy>::difference_type,
+            PointerType **, PointerType *> {
+    using BaseTy = iterator_adaptor_base<
+        ElementIter, OffsetsTy::const_iterator,
+        typename std::iterator_traits<IterTy>::iterator_category, PointerType *,
+        typename std::iterator_traits<IterTy>::difference_type, PointerType **,
+        PointerType *>;
+
+  public:
+    const SOAToAOSLayoutInfo *Info;
+    ElementIter(const SOAToAOSLayoutInfo *Info, IterTy It)
+        : BaseTy(It), Info(Info) {}
+
+    typename BaseTy::reference operator*() const {
+      return getSOAElementType(getSOAArrayType(Info->Struct, *this->wrapped()),
+                               Info->BasePointerOffset);
+    }
+  };
+
+  // Accessing types of elements stored in arrays.
+  using const_elem_iterator = ElementIter<OffsetsTy::const_iterator>;
+
+  const_elem_iterator elements_begin() const {
+    return const_elem_iterator(this, ArrayFieldOffsets.begin());
+  }
+  const_elem_iterator elements_end() const {
+    return const_elem_iterator(this, ArrayFieldOffsets.end());
+  }
+  iterator_range<const_elem_iterator> elements() const {
+    return make_range(elements_begin(), elements_end());
+  }
+
+  unsigned getNumArrays() const { return ArrayFieldOffsets.size(); }
+
+  StructType *Struct = nullptr;
+  // Memory management pointer.
+  StructType *MemoryInterface = nullptr;
+  // Offsets in Struct's elements() to represent pointers to candidate
+  // _arrays_. _Arrays_ are represented as some classes.
+  OffsetsTy ArrayFieldOffsets;
+  // Offset inside _arrays_' elements(), which represent base pointers to
+  // allocated memory.
+  unsigned BasePointerOffset = -1U;
+};
+
+// Prepare CFG information and methods to analyze.
+// Cheap checks are performed.
+class SOAToAOSCFGInfo : public SOAToAOSLayoutInfo {
+public:
+  // Checks that
+  // all field arrays' methods are called from structure's methods;
+  // Necessary check for legality analysis.
+  bool checkCFG(const DTransAnalysisInfo &DTInfo) const;
+
+  // Returns false if idiom is not recognized.
+  // Single out-of-line method with lambdas.
+  //
+  // Checks that
+  // 1. arrays' methods are small and have at most MaxNumFieldMethodUses call
+  //    sites;
+  // 2. arguments of arrays' methods are 'this' pointers (not captured),
+  //    elements of array (not captured if passed by reference),
+  //    integers and MemoryInterface.
+  //
+  // Suitable for heuristic.
+  bool populateCFGInformation(Module &M);
+
+  constexpr static int NumRequiredMethods = 4;
+  // Specific methods (3) and integer fields accessors (3).
+  constexpr static int NumSupportedMethods = 3 + 3;
+  constexpr static int MaxNumMethods = NumRequiredMethods + NumSupportedMethods;
+  constexpr static int MaxMethodBBCount = 10;
+
+  // Field methods are used only in Struct's methods,
+  // it should not be too big.
+  constexpr static int MaxNumFieldMethodUses = 2;
+
+protected:
+  using MethodSetTy = SmallVector<Function *, MaxNumMethods>;
+  using ArrayMethodSetTy = SmallVector<MethodSetTy, MaxNumFieldCandidates>;
+
+  // Helper class for methodsets* methods.
+  template <typename IterTy, typename MethSetTy>
+  class MethodsIter
+      : public iterator_adaptor_base<
+            MethodsIter<IterTy, MethSetTy>, IterTy,
+            typename std::iterator_traits<IterTy>::iterator_category,
+            MethSetTy *, typename std::iterator_traits<IterTy>::difference_type,
+            MethSetTy **, MethSetTy *> {
+    using BaseTy = iterator_adaptor_base<
+        MethodsIter, IterTy,
+        typename std::iterator_traits<IterTy>::iterator_category, MethSetTy *,
+        typename std::iterator_traits<IterTy>::difference_type, MethSetTy **,
+        MethSetTy *>;
+
+  public:
+    MethodsIter(IterTy It) : BaseTy(It) {}
+
+    typename BaseTy::reference operator*() const { return &*this->wrapped(); }
+  };
+
+  // Updating method sets of arrays.
+  using iterator = MethodsIter<ArrayMethodSetTy::iterator, MethodSetTy>;
+
+  iterator methodsets_begin() { return iterator(ArrayFieldsMethods.begin()); }
+  iterator methodsets_end() { return iterator(ArrayFieldsMethods.end()); }
+  iterator_range<iterator> methodsets() {
+    return make_range(methodsets_begin(), methodsets_end());
+  }
+
+  using const_iterator =
+      MethodsIter<ArrayMethodSetTy::const_iterator, const MethodSetTy>;
+  const_iterator methodsets_begin() const {
+    return const_iterator(ArrayFieldsMethods.begin());
+  }
+  const_iterator methodsets_end() const {
+    return const_iterator(ArrayFieldsMethods.end());
+  }
+  iterator_range<const_iterator> methodsets() const {
+    return make_range(methodsets_begin(), methodsets_end());
+  }
+
+  MethodSetTy StructMethods;
+  // It is matched by ArrayFieldsMethods,
+  // can be iterated in parallel using zip_first.
+  ArrayMethodSetTy ArrayFieldsMethods;
+};
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Offset of memory interface in structure.
 extern cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff;

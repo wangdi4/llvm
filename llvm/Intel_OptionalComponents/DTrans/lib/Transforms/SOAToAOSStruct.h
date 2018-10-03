@@ -837,9 +837,12 @@ private:
 //  - completes checks of load/stores with respect to special array's methods;
 //  - checks that pointers to elements do not escape.
 class CallSiteComparator : public StructIdioms {
+  constexpr static int MaxNumFieldCandidates =
+      SOAToAOSLayoutInfo::MaxNumFieldCandidates;
+
 public:
-  constexpr static int MaxNumFieldCandidates = 2;
-  using FunctionSet = SmallVector<const Function *, 3>;
+  using FunctionSet =
+      SmallVector<const Function *, MaxNumFieldCandidates>;
   struct CallSitesInfo {
     FunctionSet Ctors;
     FunctionSet CCtors;
@@ -1362,8 +1365,7 @@ private:
     const BasicBlock *Last = nullptr;
 
     for (auto *S : post_order(&(*BBs.begin())->getParent()->getEntryBlock())) {
-      auto It = BBs.find(S);
-      if (It == BBs.end())
+      if (BBs.count(S) == 0)
         continue;
       if (Curr == 0)
         Last = S;
@@ -1438,7 +1440,7 @@ private:
           if (auto *ArrType =
                   StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I))
             // Load after store
-            if (ArrayTypes.find(ArrType) == ArrayTypes.end())
+            if (ArrayTypes.count(ArrType) == 0)
               return false;
           continue;
         }
@@ -1658,13 +1660,13 @@ private:
     auto Pivot = RegDeleteCSs[0];
     auto PivotFreeArg = Pivot.getArgOperand(FreePtrInd)->stripPointerCasts();
     // Checking that deallocation is associated with dtor.
-    if (ThisArgs.find(PivotFreeArg) == ThisArgs.end())
+    if (ThisArgs.count(PivotFreeArg) == 0)
       return false;
 
     for (auto Del : make_range(RegDeleteCSs.begin() + 1, RegDeleteCSs.end())) {
       auto FreeArg = Del.getArgOperand(FreePtrInd)->stripPointerCasts();
       // Checking that deallocation is associated with dtor.
-      if (ThisArgs.find(FreeArg) == ThisArgs.end())
+      if (ThisArgs.count(FreeArg) == 0)
         return false;
       if (!compareAllocDeallocCalls(Pivot, Del, PivotFreeArg, FreeArg))
         return false;
@@ -1899,7 +1901,8 @@ public:
 };
 
 class StructMethodTransformation {
-  constexpr static int MaxNumFieldCandidates = 2;
+  constexpr static int MaxNumFieldCandidates =
+      SOAToAOSLayoutInfo::MaxNumFieldCandidates;
 public:
   StructMethodTransformation(
       const DataLayout &DL, DTransAnalysisInfo &DTInfo,

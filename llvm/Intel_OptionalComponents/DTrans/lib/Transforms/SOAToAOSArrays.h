@@ -1284,8 +1284,7 @@ public:
       assert((isa<GetElementPtrInst>(NewBC->getOperand(0)) ||
               isa<Argument>(NewBC->getOperand(0))) &&
              "Some peephole idiom is not processed");
-      auto It = OrigToCopy.find(NewBC);
-      if (It == OrigToCopy.end()) {
+      if (OrigToCopy.count(NewBC) == 0) {
         Builder.SetInsertPoint(NewBC);
         auto *CopyBC = Builder.CreateBitCast(
             // Assumed all pointer types have same alignment.
