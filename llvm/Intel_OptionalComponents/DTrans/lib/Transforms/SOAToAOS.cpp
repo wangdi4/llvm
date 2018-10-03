@@ -81,62 +81,13 @@ private:
   protected:
     CandidateSideEffectsInfo() {}
 
-    // There should be at most one method for each MethodKind,
-    // which should be combined.
-    using MethodKindSetTy = SmallVector<Function *, MaxNumIntFields>;
-    // Supported only MK_Last kinds of methods.
-    using ClassifyMethodsTy = SmallVector<MethodKindSetTy, MK_Last + 1>;
-    using MethodsBinsTy = SmallVector<ClassifyMethodsTy, MaxNumFieldCandidates>;
-
-    // Helper class for methodbins* methods.
-    template <typename IterTy, typename ClassifyMethTy>
-    class MethodsKindIter
-        : public iterator_adaptor_base<
-              MethodsKindIter<IterTy, ClassifyMethTy>, IterTy,
-              typename std::iterator_traits<IterTy>::iterator_category,
-              ClassifyMethTy *,
-              typename std::iterator_traits<IterTy>::difference_type,
-              ClassifyMethTy **, ClassifyMethTy *> {
-      using BaseTy = iterator_adaptor_base<
-          MethodsKindIter<IterTy, ClassifyMethTy>, IterTy,
-          typename std::iterator_traits<IterTy>::iterator_category,
-          ClassifyMethTy *,
-          typename std::iterator_traits<IterTy>::difference_type,
-          ClassifyMethTy **, ClassifyMethTy *>;
-
-    public:
-      const CandidateSideEffectsInfo *Info;
-      MethodsKindIter(const CandidateSideEffectsInfo *Info, IterTy It)
-          : BaseTy(It), Info(Info) {}
-
-      typename BaseTy::reference operator*() const { return &*this->wrapped(); }
+    struct CombinedCallSiteInfo : public CallSiteComparator::CallSitesInfo {
+      // Calls are from append-like method, no need for special processing.
+      // Comparison is done using FunctionComparator.
+      CallSiteComparator::FunctionSet Reallocs;
     };
+    CombinedCallSiteInfo CSInfo;
 
-    // Updating Classifications.
-    using iterator =
-        MethodsKindIter<MethodsBinsTy::iterator, ClassifyMethodsTy>;
-
-    iterator methodbins_begin() {
-      return iterator(this, Classifications.begin());
-    }
-    iterator methodbins_end() { return iterator(this, Classifications.end()); }
-    iterator_range<iterator> methodbins() {
-      return make_range(methodbins_begin(), methodbins_end());
-    }
-
-    // Analysis of Classifications.
-    using const_iterator =
-        MethodsKindIter<MethodsBinsTy::const_iterator, const ClassifyMethodsTy>;
-
-    const_iterator methodbins_begin() const {
-      return const_iterator(this, Classifications.begin());
-    }
-    const_iterator methodbins_end() const {
-      return const_iterator(this, Classifications.end());
-    }
-    iterator_range<const_iterator> methodbins() const {
-      return make_range(methodbins_begin(), methodbins_end());
-    }
 
   private:
     // Compare call sites of methods to be combined.
@@ -146,9 +97,6 @@ private:
     CandidateSideEffectsInfo &
     operator=(const CandidateSideEffectsInfo &) = delete;
 
-    // It is matched by ArrayFieldsMethods,
-    // can be iterated in parallel using zip_first.
-    MethodsBinsTy Classifications;
   };
 
   class CandidateInfo : public CandidateSideEffectsInfo {
@@ -253,15 +201,15 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       return FALSE();
   }
 
-  // Direct map from MK to set of methods.
-  Classifications.assign(getNumArrays(),
-                         ClassifyMethodsTy(MK_Last + 1, MethodKindSetTy()));
-
   // TODO: store results somewhere for transformation.
   ComputeArrayMethodClassification::TransformationData Data;
+  unsigned Cnt = 0;
+  bool UnknownSeen = false;
   for (auto Tuple :
-       zip_first(methodsets(), fields(), elements(), methodbins())) {
-    SmallVector<const Function *, 1> MethodsCalled;
+       zip_first(methodsets(), fields(), elements(), ArrayFieldOffsets)) {
+    ++Cnt;
+
+    const Function *MethodsCalled = nullptr;
     for (auto *F : *std::get<0>(Tuple)) {
       ArraySummaryForIdiom S(std::get<1>(Tuple), std::get<2>(Tuple),
                              MemoryInterface, F);
@@ -278,100 +226,108 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
       LLVM_DEBUG(dbgs() << "; Classification: " << Kind << "\n");
 
-      if (Kind == MK_Unknown && !DTransSOAToAOSComputeAllDep)
+      if (Kind == MK_Unknown)
+        UnknownSeen = true;
+
+      if (UnknownSeen && !DTransSOAToAOSComputeAllDep)
         return FALSE();
 
-      (*std::get<3>(Tuple))[Kind].push_back(F);
+      bool ToCombine = true;
+      if (Kind == MK_Ctor)
+        CSInfo.Ctors.push_back(F);
+      else if (Kind == MK_CCtor)
+        CSInfo.CCtors.push_back(F);
+      else if (Kind == MK_Dtor)
+        CSInfo.Dtors.push_back(F);
+      else if (Kind == MK_Append)
+        CSInfo.Appends.push_back(F);
+      else if (Kind == MK_Realloc)
+        CSInfo.Reallocs.push_back(F);
+      else
+        ToCombine = false;
+
+      if (ToCombine) {
+        if (!F->hasOneUse())
+          return FALSE();
+        if (!ImmutableCallSite(F->use_begin()->getUser()))
+          return FALSE();
+      }
 
       // Simple processing of MK_Append calling MK_Realloc.
       if (Res.second) {
         if (Kind != MK_Append)
           return FALSE();
-        MethodsCalled.push_back(Res.second);
+        if (MethodsCalled)
+          return FALSE();
+        MethodsCalled = Res.second;
       }
     }
+
+    if (!Cnt)
+      return FALSE();
+
+    if (CSInfo.Ctors.size() != Cnt || CSInfo.CCtors.size() != Cnt ||
+        CSInfo.Dtors.size() != Cnt || CSInfo.Appends.size() != Cnt ||
+        CSInfo.Reallocs.size() != Cnt)
+      return FALSE();
+
     // Simple processing of MK_Append.
     // As direct calls to MK_Realloc is not tested, forbid it, MK_Realloc is
     // called only from MK_Append.
-    if (MethodsCalled.size() != 1)
+    if (CSInfo.Reallocs.back() != MethodsCalled)
       return FALSE();
-    else if ((*std::get<3>(Tuple))[MK_Realloc][0] != MethodsCalled[0])
-      return FALSE();
+  }
+
+  if (UnknownSeen) {
+    assert(DTransSOAToAOSComputeAllDep &&
+           "MK_Unknown methods encountered too late");
+    return FALSE();
   }
 
   // Check combined methods.
-  auto &FirstBins = **methodbins_begin();
-  GlobalNumberState GNS;
-  for (auto Tuple :
-       zip_first(make_range(methodbins_begin() + 1, methodbins_end()),
-                 make_range(methodsets_begin() + 1, methodsets_end()))) {
-    auto &OtherBins = *std::get<0>(Tuple);
-    for (int i = MK_Unknown; i <= MK_Last; ++i)
-      switch (static_cast<MethodKind>(i)) {
-      case MK_Unknown:
-        if (!FirstBins[i].empty() || !OtherBins[i].empty()) {
-          assert(DTransSOAToAOSComputeAllDep &&
-                 "MK_Unknown methods encountered too late");
-          return FALSE();
-        }
-        break;
-      // Combined methods.
-      case MK_Realloc:
-      case MK_Append:
-      case MK_Ctor:
-      case MK_CCtor:
-      case MK_Dtor: {
-        if (FirstBins[i].size() != 1 || OtherBins[i].size() != 1)
-          return FALSE();
+  SmallVector<const Function *, 5> Pivot;
+  // realloc-like should be compared first.
+  Pivot.push_back(CSInfo.Reallocs[0]);
+  Pivot.push_back(CSInfo.CCtors[0]);
+  Pivot.push_back(CSInfo.Ctors[0]);
+  Pivot.push_back(CSInfo.Dtors[0]);
+  Pivot.push_back(CSInfo.Appends[0]);
 
-        if (!FirstBins[i][0]->hasOneUse() || !OtherBins[i][0]->hasOneUse())
-          return FALSE();
+  assert(CSInfo.Reallocs.size() == ArrayFieldOffsets.size() &&
+         "There should be as many realloc-like methods as array structs");
 
-        Function *F = FirstBins[i][0];
-        Function *O = OtherBins[i][0];
+  for (unsigned I = 1, E = CSInfo.Reallocs.size(); I != E; ++I) {
+    SmallVector<const Function *, 5> Running;
+    Running.push_back(CSInfo.Reallocs[I]);
+    Running.push_back(CSInfo.CCtors[I]);
+    Running.push_back(CSInfo.Ctors[I]);
+    Running.push_back(CSInfo.Dtors[I]);
+    Running.push_back(CSInfo.Appends[I]);
+    assert(Running.size() == Pivot.size() &&
+           "Missing checks in array method classification");
 
-        if (!ImmutableCallSite(F->use_begin()->getUser()) ||
-            !ImmutableCallSite(O->use_begin()->getUser()))
-          return FALSE();
-
-        FunctionComparator cmp(F, O, &GNS);
-        if (cmp.compare() == 0) {
-          LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
-                            << O->getName() << " showed bit-to-bit equality\n");
-          GNS.setEqual(F, O);
-        } else {
-          LLVM_DEBUG(dbgs()
-                     << "; Comparison of " << F->getName() << " and "
-                     << O->getName() << " showed some differences, "
-                     << "this situation cannot be handled in SOAToAOS\n");
-          return FALSE();
-        }
-        break;
+    GlobalNumberState GNS;
+    for (auto Pair : zip(Pivot, Running)) {
+      auto *F = std::get<0>(Pair);
+      auto *O = std::get<1>(Pair);
+      FunctionComparator CmpFunc(F, O, &GNS);
+      if (CmpFunc.compare() == 0) {
+        LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
+                          << O->getName() << " showed bit-to-bit equality.\n");
+        // GNS keeps pointers to modifiable values in a map.
+        GNS.setEqual(const_cast<Function *>(F), const_cast<Function *>(O));
+      } else {
+        LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
+                          << O->getName() << " showed some differences, "
+                          << "this situation cannot be handled in SOAToAOS.\n");
+        return FALSE();
       }
-      // Not combined methods.
-      case MK_GetInteger:
-      case MK_Set:
-      case MK_GetElement:
-        break;
-      }
+    }
   }
 
-  SmallVector<StructType*, MaxNumFieldCandidates> Arrays;
+  SmallVector<StructType *, MaxNumFieldCandidates> Arrays;
   for (auto *ArrTy : fields())
     Arrays.push_back(ArrTy);
-
-  CallSiteComparator::CallSitesInfo CSInfo;
-  for (auto *PBin : methodbins()) {
-    auto &Bin = *PBin;
-    if (!Bin[MK_Ctor].empty())
-      CSInfo.Ctors.push_back(Bin[MK_Ctor][0]);
-    if (!Bin[MK_CCtor].empty())
-      CSInfo.CCtors.push_back(Bin[MK_CCtor][0]);
-    if (!Bin[MK_Dtor].empty())
-      CSInfo.Dtors.push_back(Bin[MK_Dtor][0]);
-    if (!Bin[MK_Append].empty())
-      CSInfo.Appends.push_back(Bin[MK_Append][0]);
-  }
 
   for (auto *F : StructMethods) {
     SummaryForIdiom S(Struct, MemoryInterface, F);
@@ -414,16 +370,17 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 
     if (!Info->populateLayoutInformation(TI->getLLVMType())) {
       LLVM_DEBUG({
-        dbgs() << "  Rejecting ";
+        dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " because it does not look like a candidate structurally.\n";
       });
       continue;
     }
 
+    // FIXME: FP exception handling.
     if (!Info->checkCFG(this->DTInfo) || !Info->populateCFGInformation(M)) {
       LLVM_DEBUG({
-        dbgs() << "  Rejecting ";
+        dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " because it does not look like a candidate from CFG "
                   "analysis.\n";
@@ -433,7 +390,7 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 
     if (!Info->populateSideEffects(*this, M)) {
       LLVM_DEBUG({
-        dbgs() << "  Rejecting ";
+        dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " because some methods contains unknown side effect.\n";
       });
@@ -444,13 +401,13 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
     if (!DTransSOAToAOSType.empty() &&
         DTransSOAToAOSType != cast<StructType>(TI->getLLVMType())->getName()) {
       LLVM_DEBUG({
-        dbgs() << "  Rejecting ";
+        dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " based on dtrans-soatoaos-typename option.\n";
       });
       return false;
     }
-#endif
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     if (Candidates.size() > MaxNumStructCandidates) {
       LLVM_DEBUG(dbgs() << "  Too many candidates found. Give-up.\n");
