@@ -605,6 +605,82 @@ and intrinsic directives.  The table below shows how they relate.
   }];
 }
 
+def HLSPragmaDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let BugTracker = "Cmplrllvm-5584";
+  let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
+  let Owner = "jyu2";
+  let Content = [{
+The ``ii, ii_at_most, ...`` pragmas are FPGA loop pragmas
+
+The HLS form (enabled with -fhls) is:
+
+.. code-block:: c
+
+  #pragma ii <4>
+  #pragma ii_at_most <4>
+  #pragma ii_at_least <4>
+  #pragma speculated_iterations <4>
+  #pragma max_concurrency <4>
+  #pragma min_ii_at_target_fmax
+  #pragma disable_loop_pipelining
+
+The implementation uses the existing clang LoopHint attribute framework to
+produce LoopHint metadata.  The table below shows the Options, States, and the
+Metadata produced.
+
+
+.. csv-table::
+  :header: Syntax, Option, State, Metadata
+  :widths: 24,13,13,25
+
+  #pragma ii 4, II, Numeric, llvm.loop.ii.count(4)
+  #pragma max_concurrency 4, MaxConcurrency, Numeric, llvm.loop.max_concurrency.count(4)
+  #pragma ii_at_most 4, IIAtMost, Numeric, llvm.loop.intel.ii.at.most.count(4)
+  #pragma ii_at_least 4, IIAtLeast, Numeric, llvm.loop.intel.ii.at.least.count(4)
+  #pragma speculated_iterations 4, SpeculatedIterations, Numeric, llvm.loop.intel.speculated.iterations.count(4)
+  #pragma min_ii_at_target_fmax, MinIIAtFmax, Enable, llvm.loop.intel.min.ii.at.target.fmax
+  #pragma disable_loop_pipelining, DisableLoopPipelining, Enable, llvm.loop.intel.pipelining.disable
+
+for example:
+using command line:
+
+.. code-block:: bash
+
+  $ clang -cc1 -fhls -ast-dump -o - t.c
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
+
+.. code-block:: c
+
+  void foo() {
+    int var = 0;
+    #pragma max_concurrency  4
+    #pragma ii_at_least 4
+    for (int i = 0; i < 10; ++i) var = var+1;
+  }
+
+AST:
+
+AttributedStmt
+
+.. code-block:: c
+
+    `-AttributedStmt 0xd2b86c0 <<invalid sloc>, line:21:18>
+      |-LoopHintAttr 0xd2b8670 <line:15:11, col:30> Implicit max_concurrency MaxConcurrency Numeric
+      | |-IntegerLiteral 0xd2b83a0 <col:28> 'int' 4
+      | `-<<<NULL>>>
+      |-LoopHintAttr 0xd2b8698 <line:16:11, col:26> Implicit ii_at_least IIAtLeast Numeric
+      | |-IntegerLiteral 0xd2b83e0 <col:24> 'int' 4
+      | `-<<<NULL>>>
+
+.. code-block:: llvm
+
+  !3 = !{!"llvm.loop.max_concurrency.count", i32 4}
+  !4 = !{!"llvm.loop.intel.ii.at.least.count", i32 100}
+
+  }];
+}
+
 def RotateIntrinsicsDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "";

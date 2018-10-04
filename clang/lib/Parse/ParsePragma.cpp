@@ -242,6 +242,16 @@ struct PragmaIVDepHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok);
 };
+struct PragmaHLSConstArgHandler : public PragmaHandler {
+  PragmaHLSConstArgHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
+struct PragmaHLSNoArgHandler : public PragmaHandler {
+  PragmaHLSNoArgHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
 struct PragmaDistributePointHandler : public PragmaHandler {
   PragmaDistributePointHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
@@ -417,6 +427,19 @@ void Parser::initializePragmaHandlers() {
     MaxConcurrencyHandler.reset(
         new PragmaMaxConcurrencyHandler("max_concurrency"));
     PP.AddPragmaHandler(MaxConcurrencyHandler.get());
+    IIAtMostHandler.reset(new PragmaHLSConstArgHandler("ii_at_most"));
+    PP.AddPragmaHandler(IIAtMostHandler.get());
+    IIAtLeastHandler.reset(new PragmaHLSConstArgHandler("ii_at_least"));
+    PP.AddPragmaHandler(IIAtLeastHandler.get());
+    MinIIAtTargetFmaxHandler.reset(
+             new PragmaHLSNoArgHandler("min_ii_at_target_fmax"));
+    PP.AddPragmaHandler(MinIIAtTargetFmaxHandler.get());
+    SpeculatedIterationsHandler.reset(
+                new PragmaHLSConstArgHandler("speculated_iterations"));
+    PP.AddPragmaHandler(SpeculatedIterationsHandler.get());
+    DisableLoopPipeliningHandler.reset(
+                new PragmaHLSNoArgHandler("disable_loop_pipelining"));
+    PP.AddPragmaHandler(DisableLoopPipeliningHandler.get());
   }
   bool IntelCompat = getLangOpts().IntelCompat;
   if (IntelCompat) {
@@ -559,6 +582,16 @@ void Parser::resetPragmaHandlers() {
     IIHandler.reset();
     PP.RemovePragmaHandler(MaxConcurrencyHandler.get());
     MaxConcurrencyHandler.reset();
+    PP.RemovePragmaHandler(IIAtMostHandler.get());
+    IIAtMostHandler.reset();
+    PP.RemovePragmaHandler(IIAtLeastHandler.get());
+    IIAtLeastHandler.reset();
+    PP.RemovePragmaHandler(MinIIAtTargetFmaxHandler.get());
+    MinIIAtTargetFmaxHandler.reset();
+    PP.RemovePragmaHandler(SpeculatedIterationsHandler.get());
+    SpeculatedIterationsHandler.reset();
+    PP.RemovePragmaHandler(DisableLoopPipeliningHandler.get());
+    DisableLoopPipeliningHandler.reset();
   }
   bool IntelCompat = getLangOpts().IntelCompat;
   if (IntelCompat) {
@@ -1157,6 +1190,10 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 #if INTEL_CUSTOMIZATION
   bool PragmaLoopCoalesce = PragmaNameInfo->getName() == "loop_coalesce";
   bool PragmaIVDep = PragmaNameInfo->getName() == "ivdep";
+  bool PragmaMinIIAtTargetFmax =
+        PragmaNameInfo->getName() == "min_ii_at_target_fmax";
+  bool PragmaDisableLoopPipelining =
+          PragmaNameInfo->getName() == "disable_loop_pipelining";
   bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameInfo->getName() == "nofusion";
   bool PragmaFusion = PragmaNameInfo->getName() == "fusion";
@@ -1171,6 +1208,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   if (Toks.empty() && Info->ArrayToks.empty() &&
                       (PragmaUnroll || PragmaNoUnroll || PragmaUnrollAndJam ||
                        PragmaLoopCoalesce || PragmaIVDep ||
+                       PragmaDisableLoopPipelining || PragmaMinIIAtTargetFmax ||
                        PragmaDistributePoint || PragmaNoFusion ||
                        PragmaFusion || PragmaNoVector || PragmaVector ||
 #endif // INTEL_CUSTOMIZATION
@@ -3441,6 +3479,70 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+void PragmaHLSConstArgHandler::HandlePragma(
+    Preprocessor &PP, PragmaIntroducerKind Introducer, Token &Tok) {
+
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_value)
+        << PragmaName.getIdentifierInfo()->getName();
+    return;
+  }
+
+  bool ValueInParens = Tok.is(tok::l_paren);
+  if (ValueInParens)
+    PP.Lex(Tok);
+
+  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Token Option;
+  Option.startToken();
+  if (ParseLoopHintValue(PP, Tok, PragmaName, Option, ValueInParens, *Info))
+    return;
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << PragmaName.getIdentifierInfo()->getName();
+    return;
+  }
+
+  // Generate the hint token.
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+void PragmaHLSNoArgHandler::HandlePragma(Preprocessor &PP,
+                                                PragmaIntroducerKind Introducer,
+                                                Token &Tok) {
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << PragmaName.getIdentifierInfo()->getName();
+    return;
+  }
+
+  // Generate the hint token.
+  PragmaLoopHintInfo *Info = new (PP.getPreprocessorAllocator())
+                                 PragmaLoopHintInfo;
+  Info->PragmaName = PragmaName;
+  Info->Option.startToken();
   auto TokenArray = llvm::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);

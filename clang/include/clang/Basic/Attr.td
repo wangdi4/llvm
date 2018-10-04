@@ -2834,6 +2834,10 @@ def LoopHint : Attr {
                    Pragma<"", "nounroll_and_jam">,
                    Pragma<"", "ii">, Pragma<"", "ivdep">,
                    Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
+                   Pragma<"", "ii_at_most">,Pragma<"", "ii_at_least">,
+                   Pragma<"", "min_ii_at_target_fmax">,
+                   Pragma<"", "speculated_iterations">,
+                   Pragma<"", "disable_loop_pipelining">,
                    Pragma<"", "distribute_point">,
                    Pragma<"", "nofusion">,
                    Pragma<"", "fusion">,
@@ -2849,6 +2853,9 @@ def LoopHint : Attr {
                            "ii", "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
                            "loop_coalesce", "max_concurrency",
+                           "ii_at_most", "ii_at_least",
+                           "min_ii_at_target_fmax", "speculated_iterations",
+                           "disable_loop_pipelining",
                            "distribute_point", "fusion",
                            "novector", "always"],
 //endif INTEL_CUSTOMIZATION
@@ -2859,6 +2866,8 @@ def LoopHint : Attr {
                            "II", "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
                            "LoopCoalesce", "MaxConcurrency",
+                           "IIAtMost", "IIAtLeast", "MinIIAtFmax",
+                           "SpeculatedIterations", "DisableLoopPipelining",
                            "Distribute", "Fusion", "Vectorize",
                            "VectorizeAlways"]>,
 //endif INTEL_CUSTOMIZATION
@@ -2956,6 +2965,16 @@ def LoopHint : Attr {
       return "#pragma loop_coalesce";
     else if (SpellingIndex == Pragma_max_concurrency)
       return "#pragma max_concurrency";
+    else if (SpellingIndex == Pragma_ii_at_most)
+      return "#pragma ii_at_most";
+    else if (SpellingIndex == Pragma_ii_at_least)
+      return "#pragma ii_at_least";
+    else if (SpellingIndex == Pragma_min_ii_at_target_fmax)
+      return "#pragma min_ii_at_target_fmax";
+    else if (SpellingIndex == Pragma_speculated_iterations)
+      return "#pragma speculated_iterations";
+    else if (SpellingIndex == Pragma_disable_loop_pipelining)
+      return "#pragma disable_loop_pipelining";
     else if (SpellingIndex == Pragma_distribute_point)
       return "#pragma distribute_point";
     else if (SpellingIndex == Pragma_nofusion)
