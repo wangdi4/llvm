@@ -118,6 +118,7 @@ public:
   bool isIndexedAccess() const { return AccType == ILoad || AccType == IStore; }
 
   bool isGather() const { return AccType == ILoad || AccType == SLoad; }
+  bool isScatter() const { return AccType == IStore || AccType == SStore; }
 };
 
 /// Defines OVLS data type which is a vector type, representing a vector of
@@ -370,6 +371,9 @@ public:
 
   // Gathers collectively refers to both indexed and strided loads.
   bool hasGathers() const { return AccType.isGather(); }
+
+  // Scatters collectively refers to both indexed and strided stores.
+  bool hasScatters() const { return AccType.isScatter(); }
 
   // Returns the total number of memrefs that this group contains.
   uint32_t size() const { return MemrefVec.size(); }
@@ -1068,9 +1072,8 @@ private:
   //  Stride: 4bytes(i32) * 4 = 16 bytes Constant.
   //  Packed - No gaps in the loads.
   //  Vector Register: <8 x i32>
-  static bool genSeqStoreStride16Packed8xi32(
-      const OVLSGroup &Group, OVLSInstructionVector &InstVector,
-      OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
+  static bool genSeqStoreStride16Packed8xi32(const OVLSGroup &Group,
+                                             OVLSInstructionVector &InstVector);
 
   /// Function that generates sequences for the following group:
   //  Loads on arr[8*i], arr[8*i+1], arr[8*i+2], arr[8*i+3] arr[8*i+4]

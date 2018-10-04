@@ -302,6 +302,11 @@ public:
       return false;
 
     // FIXME: Support all other types.
+    // To Do: Remove this condition.
+    // This is currently added to filter in advance the unsupported groups in
+    // getSequence(). The ideal flow should be that we form the groups and at
+    // getSequence() we return false for unsupported Groups. This requires
+    // maintaining two places to check the supported Groups/types.
     if (!((VecTy->getScalarSizeInBits() == 64 && Factor == 2) ||
           (VecTy->getScalarSizeInBits() == 32 && Factor == 4) ||
           (VecTy->getScalarSizeInBits() == 16 && Factor == 8)))
