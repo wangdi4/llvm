@@ -131,6 +131,23 @@ void MCStreamer::EmitULEB128IntValue(uint64_t Value) {
   EmitBytes(OSE.str());
 }
 
+#if INTEL_CUSTOMIZATION
+/// EmitULEB128Buffer - Special case of EmitULEB128Value that works
+/// for an arbitrary number of bytes in the input \p Buffer represented
+/// as StringRef.
+/// Returns the length in bytes of ULEB128 representation of the input buffer.
+unsigned MCStreamer::EmitULEB128Buffer(StringRef Buffer) {
+  SmallString<128> Tmp;
+  raw_svector_ostream OSE(Tmp);
+  unsigned Count = encodeULEB128Buffer(
+                       reinterpret_cast<const uint8_t *>(Buffer.data()),
+                       Buffer.size(), OSE);
+  EmitBytes(OSE.str());
+
+  return Count;
+}
+#endif  // INTEL_CUSTOMIZATION
+
 /// EmitSLEB128IntValue - Special case of EmitSLEB128Value that avoids the
 /// client having to pass in a MCExpr for constant integers.
 void MCStreamer::EmitSLEB128IntValue(int64_t Value) {

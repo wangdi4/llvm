@@ -207,6 +207,9 @@ protected:
   MCSection *SXDataSection;
   MCSection *GFIDsSection;
 
+#if INTEL_CUSTOMIZATION
+  MCSection *OptReportSection = nullptr;
+#endif  // INTEL_CUSTOMIZATION
 public:
   void InitMCObjectFileInfo(const Triple &TT, bool PIC, MCContext &ctx,
                             bool LargeCodeModel = false);
@@ -371,6 +374,10 @@ public:
   MCSection *getEHFrameSection() {
     return EHFrameSection;
   }
+
+#if INTEL_CUSTOMIZATION
+  MCSection *getOptReportSection() const { return OptReportSection; }
+#endif  // INTEL_CUSTOMIZATION
 
   enum Environment { IsMachO, IsELF, IsCOFF, IsWasm };
   Environment getObjectFileType() const { return Env; }

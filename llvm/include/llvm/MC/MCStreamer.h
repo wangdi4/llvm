@@ -628,6 +628,14 @@ public:
   /// pass in a MCExpr for constant integers.
   void EmitULEB128IntValue(uint64_t Value);
 
+#if INTEL_CUSTOMIZATION
+  /// EmitULEB128Buffer - Special case of EmitULEB128Value that works
+  /// for an arbitrary number of bytes in the input \p Buffer represented
+  /// as StringRef.
+  /// Returns the length in bytes of ULEB128 representation of the input buffer.
+  unsigned EmitULEB128Buffer(StringRef Buffer);
+#endif  // INTEL_CUSTOMIZATION
+
   /// Special case of EmitSLEB128Value that avoids the client having to
   /// pass in a MCExpr for constant integers.
   void EmitSLEB128IntValue(int64_t Value);

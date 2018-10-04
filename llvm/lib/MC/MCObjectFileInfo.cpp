@@ -178,6 +178,11 @@ void MCObjectFileInfo::initMachOMCObjectFileInfo(const Triple &T) {
                            MachO::S_THREAD_LOCAL_VARIABLE_POINTERS,
                            SectionKind::getMetadata());
 
+#if INTEL_CUSTOMIZATION
+  OptReportSection = Ctx->getMachOSection("__DATA", "__debug_opt_rpt", 0,
+                                          SectionKind::getReadOnlyWithRel());
+#endif  // INTEL_CUSTOMIZATION
+
   // Exception Handling.
   LSDASection = Ctx->getMachOSection("__TEXT", "__gcc_except_tab", 0,
                                      SectionKind::getReadOnlyWithRel());
@@ -385,6 +390,11 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
   if (T.isMIPS())
     DebugSecType = ELF::SHT_MIPS_DWARF;
 
+#if INTEL_CUSTOMIZATION
+  OptReportSection =
+      Ctx->getELFSection(".debug_opt_report", ELF::SHT_PROGBITS, 0);
+#endif  // INTEL_CUSTOMIZATION
+
   // Debug Info Sections.
   DwarfAbbrevSection =
       Ctx->getELFSection(".debug_abbrev", DebugSecType, 0);
@@ -515,6 +525,14 @@ void MCObjectFileInfo::initCOFFMCObjectFileInfo(const Triple &T) {
                                           COFF::IMAGE_SCN_MEM_READ,
                                       SectionKind::getReadOnly());
   }
+
+#if INTEL_CUSTOMIZATION
+  OptReportSection = Ctx->getCOFFSection(
+      ".debug_opt_report",
+      COFF::IMAGE_SCN_MEM_DISCARDABLE | COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+          COFF::IMAGE_SCN_MEM_READ,
+      SectionKind::getMetadata());
+#endif  // INTEL_CUSTOMIZATION
 
   // Debug info.
   COFFDebugSymbolsSection =

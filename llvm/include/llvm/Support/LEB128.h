@@ -125,6 +125,62 @@ inline unsigned encodeULEB128(uint64_t Value, uint8_t *p,
   return (unsigned)(p - orig_p);
 }
 
+#if INTEL_CUSTOMIZATION
+/// Utility function to encode the bytes from the \p Input buffer
+/// of size \p Length using ULEB128 into the output stream \p OS.
+/// \p PadTo specifies the minimal number of bytes to be encoded,
+/// i.e. if the output encoding is shorter than \p PadTo, then
+/// the encoded bytes are padded with 0x80/0x00 bytes as necessary.
+/// Returns the length in bytes of the encoded values.
+inline unsigned encodeULEB128Buffer(const uint8_t *Input, unsigned Length,
+                                    raw_ostream &OS, unsigned PadTo = 0) {
+  // Throw away any leading zero bytes.
+  while (Length > 0 && Input[Length - 1] == 0)
+    --Length;
+
+  unsigned Count = 0;
+
+  // A fragment currently being encoded.  The lower 7 bits specify
+  // the value to be encoded, the rest specifies bits for the next
+  // iteration.  Only the lower 14 bits of the variable are used
+  // during the encoding.
+  unsigned Fragment = 0;
+  // Number of bits remaining in the Fragment from the previous iteration.
+  unsigned BitsNum = 0;
+  do {
+    if (Length > 0 && BitsNum < 7) {
+      // Read the next 8-bit chunk from the buffer,
+      // because we need at least 7 bits to proceed
+      // with the encoding.
+      uint8_t ReadByte = *Input++;
+      Fragment = (ReadByte << BitsNum) | Fragment;
+      BitsNum += 8;
+      --Length;
+    }
+
+    assert((Fragment & ~0x3FFF) == 0 && "Invalid fragment initialization.");
+
+    uint8_t Byte = Fragment & 0x7f;
+    Fragment >>= 7;
+    BitsNum -= 7;
+
+    Count++;
+    if (Fragment != 0 || Length != 0 || Count < PadTo)
+      Byte |= 0x80; // Mark this byte to show that more bytes will follow.
+    OS << char(Byte);
+  } while (Length != 0 || Fragment != 0);
+
+  // Pad with 0x80 and emit a null byte at the end.
+  if (Count < PadTo) {
+    for (; Count < PadTo - 1; ++Count)
+      OS << '\x80';
+    OS << '\x00';
+    Count++;
+  }
+  return Count;
+}
+#endif  // INTEL_CUSTOMIZATION
+
 /// Utility function to decode a ULEB128 value.
 inline uint64_t decodeULEB128(const uint8_t *p, unsigned *n = nullptr,
                               const uint8_t *end = nullptr,

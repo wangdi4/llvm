@@ -16,7 +16,11 @@
 #include "CodeViewDebug.h"
 #include "DwarfDebug.h"
 #include "DwarfException.h"
-#include "intel/STIDebug.h"    // INTEL
+#if INTEL_CUSTOMIZATION
+#include "intel/Intel_AsmOptReport.h"
+#include "intel/STIDebug.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif  // INTEL_CUSTOMIZATION
 #include "WinCFGuard.h"
 #include "WinException.h"
 #include "llvm/ADT/APFloat.h"
@@ -143,6 +147,8 @@ static const char *const CodeViewLineTablesGroupDescription =
 #if INTEL_CUSTOMIZATION
 static const char *const STIDebugGroupName = "sti_info";
 static const char *const STIDebugGroupDescription = "STI Debug Info Emission";
+static const char *const OptReportGroupName = "optreport_info";
+static const char *const OptReportGroupDescription = "OptReport Info Emission";
 #endif // INTEL_CUSTOMIZATION
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
@@ -249,6 +255,19 @@ void AsmPrinter::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<GCModuleInfo>();
 }
 
+#if INTEL_CUSTOMIZATION
+namespace {
+// Return true, if the optimization reports verbosity is not None.
+static bool needsBinaryOptReport() {
+  OptReportOptionsPass ORO;
+  // TODO (vzakhari 10/8/2018): encode binary opt-report always,
+  //       when opt-report verbosity is not None.  We probably
+  //       need to additionally control this under another option.
+  return (ORO.getVerbosity() != OptReportVerbosity::None);
+}
+} // end anonymous namespace
+#endif  // INTEL_CUSTOMIZATION
+
 bool AsmPrinter::doInitialization(Module &M) {
   MMI = getAnalysisIfAvailable<MachineModuleInfo>();
 
@@ -300,6 +319,15 @@ bool AsmPrinter::doInitialization(Module &M) {
     OutStreamer->AddComment("End of file scope inline assembly");
     OutStreamer->AddBlankLine();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (needsBinaryOptReport()) {
+    Handlers.push_back(HandlerInfo(new OptReportAsmPrinterHandler(this),
+                                   DbgTimerName, DbgTimerDescription,
+                                   OptReportGroupName,
+                                   OptReportGroupDescription));
+  }
+#endif  // INTEL_CUSTOMIZATION
 
   if (MAI->doesSupportDebugInformation()) {
     bool EmitCodeView = MMI->getModule()->getCodeViewFlag();
@@ -1062,7 +1090,7 @@ void AsmPrinter::EmitFunctionBody() {
 
   bool ShouldPrintDebugScopes = MMI->hasDebugInfo();
 
-  if (isVerbose()) {
+  if (isVerbose() || needsBinaryOptReport()) { // INTEL
     // Get MachineDominatorTree or compute it on the fly if it's unavailable
     MDT = getAnalysisIfAvailable<MachineDominatorTree>();
     if (!MDT) {
