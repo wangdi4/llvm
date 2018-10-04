@@ -17,15 +17,19 @@ define i32 @main(i32 %argc, i8** %argv) {
   %struct01_mem = bitcast i8* %alloc01 to %struct.test01*
   store %struct.test01* %struct01_mem, %struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 1)
 
-  ; Access of field of the dependent structure using a byte flattened GEP form that
-  ; is a constant operator of the global variable. This is not currently supported
-  ; by the transformation code.
-  store i32 0, i32*
+  ; Access of field of the dependent structure using a byte flattened GEP form
+  ; that is a constant operator of the global variable. The computing of the
+  ; new offset is not currently supported for the constant operator by the
+  ; transformation code, so will prevent the index shrinking portion of the
+  ; transformation, while allowing the AOS-to-SOA conversion to happen on
+  ; %struct.test01 since that does not change the size of the dependent
+  ; structure.
+  store i64 0, i64*
     bitcast (i8*
       getelementptr (i8, i8*
         bitcast (%struct.test01dep* @g_test01depptr to i8*),
-      i64 32)
-  to i32*)
+      i64 24)
+  to i64*)
 
   ret i32 0
 }
