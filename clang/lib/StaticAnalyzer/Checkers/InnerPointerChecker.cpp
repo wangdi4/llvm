@@ -25,23 +25,10 @@
 using namespace clang;
 using namespace ento;
 
-using PtrSet = llvm::ImmutableSet<SymbolRef>;
-
 // Associate container objects with a set of raw pointer symbols.
+REGISTER_SET_FACTORY_WITH_PROGRAMSTATE(PtrSet, SymbolRef)
 REGISTER_MAP_WITH_PROGRAMSTATE(RawPtrMap, const MemRegion *, PtrSet)
 
-// This is a trick to gain access to PtrSet's Factory.
-namespace clang {
-namespace ento {
-template <>
-struct ProgramStateTrait<PtrSet> : public ProgramStatePartialTrait<PtrSet> {
-  static void *GDMIndex() {
-    static int Index = 0;
-    return &Index;
-  }
-};
-} // end namespace ento
-} // end namespace clang
 
 namespace {
 
@@ -211,8 +198,11 @@ void InnerPointerChecker::checkPostCall(const CallEvent &Call,
   ProgramStateRef State = C.getState();
 
   if (const auto *ICall = dyn_cast<CXXInstanceCall>(&Call)) {
+    // TODO: Do we need these to be typed?
     const auto *ObjRegion = dyn_cast_or_null<TypedValueRegion>(
         ICall->getCXXThisVal().getAsRegion());
+    if (!ObjRegion)
+      return;
 
     if (Call.isCalled(CStrFn) || Call.isCalled(DataFn)) {
       SVal RawPtr = Call.getReturnValue();

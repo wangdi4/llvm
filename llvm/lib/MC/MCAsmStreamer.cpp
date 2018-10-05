@@ -285,6 +285,7 @@ public:
   void EmitCFIUndefined(int64_t Register) override;
   void EmitCFIRegister(int64_t Register1, int64_t Register2) override;
   void EmitCFIWindowSave() override;
+  void EmitCFINegateRAState() override;
   void EmitCFIReturnColumn(int64_t Register) override;
 
   void EmitWinCFIStartProc(const MCSymbol *Symbol, SMLoc Loc) override;
@@ -1298,20 +1299,17 @@ void MCAsmStreamer::EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
                                        unsigned Line, unsigned Column,
                                        bool PrologueEnd, bool IsStmt,
                                        StringRef FileName, SMLoc Loc) {
+  // Validate the directive.
+  if (!checkCVLocSection(FunctionId, FileNo, Loc))
+    return;
+
   OS << "\t.cv_loc\t" << FunctionId << " " << FileNo << " " << Line << " "
      << Column;
   if (PrologueEnd)
     OS << " prologue_end";
 
-  unsigned OldIsStmt = getContext().getCVContext().getCurrentCVLoc().isStmt();
-  if (IsStmt != OldIsStmt) {
-    OS << " is_stmt ";
-
-    if (IsStmt)
-      OS << "1";
-    else
-      OS << "0";
-  }
+  if (IsStmt)
+    OS << " is_stmt 1";
 
   if (IsVerboseAsm) {
     OS.PadToColumn(MAI->getCommentColumn());
@@ -1319,8 +1317,6 @@ void MCAsmStreamer::EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
        << Column;
   }
   EmitEOL();
-  this->MCStreamer::EmitCVLocDirective(FunctionId, FileNo, Line, Column,
-                                       PrologueEnd, IsStmt, FileName, Loc);
 }
 
 void MCAsmStreamer::EmitCVLinetableDirective(unsigned FunctionId,
@@ -1566,6 +1562,12 @@ void MCAsmStreamer::EmitCFIRegister(int64_t Register1, int64_t Register2) {
 void MCAsmStreamer::EmitCFIWindowSave() {
   MCStreamer::EmitCFIWindowSave();
   OS << "\t.cfi_window_save";
+  EmitEOL();
+}
+
+void MCAsmStreamer::EmitCFINegateRAState() {
+  MCStreamer::EmitCFINegateRAState();
+  OS << "\t.cfi_negate_ra_state";
   EmitEOL();
 }
 

@@ -141,9 +141,6 @@ private:
   /// implicitly never returns.
   ObjCNoReturn ObjCNoRet;
 
-  /// Whether or not GC is enabled in this analysis.
-  bool ObjCGCEnabled;
-
   /// The BugReporter associated with this engine.  It is important that
   ///  this object be placed at the very end of member variables so that its
   ///  destructor is called before the rest of the ExprEngine is destroyed.
@@ -200,8 +197,6 @@ public:
     assert(currBldrCtx);
     return *currBldrCtx;
   }
-
-  bool isObjCGCEnabled() { return ObjCGCEnabled; }
 
   const Stmt *getStmt() const;
 
@@ -734,10 +729,14 @@ private:
   ///
   /// If \p Result is provided, the new region will be bound to this expression
   /// instead of \p InitWithAdjustments.
-  ProgramStateRef createTemporaryRegionIfNeeded(ProgramStateRef State,
-                                                const LocationContext *LC,
-                                                const Expr *InitWithAdjustments,
-                                                const Expr *Result = nullptr);
+  ///
+  /// Returns the temporary region with adjustments into the optional
+  /// OutRegionWithAdjustments out-parameter if a new region was indeed needed,
+  /// otherwise sets it to nullptr.
+  ProgramStateRef createTemporaryRegionIfNeeded(
+      ProgramStateRef State, const LocationContext *LC,
+      const Expr *InitWithAdjustments, const Expr *Result = nullptr,
+      const SubRegion **OutRegionWithAdjustments = nullptr);
 
   /// Returns a region representing the first element of a (possibly
   /// multi-dimensional) array, for the purposes of element construction or
