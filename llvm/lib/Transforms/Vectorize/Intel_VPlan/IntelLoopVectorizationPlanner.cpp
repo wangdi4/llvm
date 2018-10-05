@@ -154,7 +154,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
   // buildInitialVPlan.
   // TODO: Add options to set MinVF and MaxVF.
-  const unsigned MaxVF = 16;
+  const unsigned MaxVF = 32;
   VPlan *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
@@ -209,6 +209,8 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     CostModelTy VectorCM(Plan, VF, TTI, DL);
 #endif // INTEL_CUSTOMIZATION
     unsigned VectorIterationCost = VectorCM.getCost();
+    if (VectorIterationCost == CostModelTy::UnknownCost)
+      continue;
     // TODO: Take into account overhead for some instructions until explicit
     // representation of peel/remainder not ready.
     unsigned VectorCost = VectorIterationCost * (TripCount / VF) +

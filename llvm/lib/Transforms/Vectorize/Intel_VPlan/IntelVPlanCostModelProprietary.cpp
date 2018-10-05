@@ -140,9 +140,11 @@ unsigned VPlanCostModelProprietary::getCost() const {
   case VPlanIdioms::SearchLoopStrEq:
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
+    if (VF == 1)
+      return 1000;
     if (VF != 32)
       // Return some huge value, so that VectorCost still could be computed.
-      return 10000000;
+      return UnknownCost;
     break;
   default:
     // FIXME: Keep VF = 32 as unsupported right now due to huge perf

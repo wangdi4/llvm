@@ -85,6 +85,8 @@ public:
   void print(raw_ostream &OS) const;
   virtual ~VPlanCostModel() {}
 
+  static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
+
 protected:
   const VPlan *Plan;
   unsigned VF;
@@ -94,8 +96,6 @@ protected:
   VPlanVLSAnalysis *VLSA;
   std::shared_ptr<VPlanVLSCostModel> VLSCM;
 #endif // INTEL_CUSTOMIZATION
-
-  static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
 
   void printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPBlock) const;
   virtual unsigned getCost(const VPBlockBase *VPBlock) const;

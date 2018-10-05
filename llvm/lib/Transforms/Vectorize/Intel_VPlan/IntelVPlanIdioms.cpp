@@ -106,9 +106,17 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
   return NumAdds == 1;
 }
 
+/// Recognize following pattern in the Header:
+///   %1 = i1 + ...;    // rhs is a linear RegDDRef. This instruction is
+///                     // optional.
+///   < set of similar instructions >
+///   if (a[i1] != b[i1])   // a[i1] and b[i1] can be executed speculatively.
+///
 VPlanIdioms::Opcode
 VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
                                const bool AllowSpeculation) {
+  bool HasIf = false;
+
   for (const VPRecipeBase &Recipe : Block->getRecipes()) {
     if (!isa<const VPInstruction>(&Recipe))
       continue;
@@ -128,6 +136,8 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
     if (const auto If = dyn_cast<const HLIf>(DDNode)) {
       unsigned NumPredicates = 0;
+      HasIf = true;
+
       for (auto I = If->pred_begin(), E = If->pred_end(); I != E; ++I) {
         const RegDDRef *LhsRef = If->getPredicateOperandDDRef(I, true);
         const RegDDRef *RhsRef = If->getPredicateOperandDDRef(I, false);
@@ -168,9 +178,9 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
       // FIXME: Ideally we have to dig into RvalRef and analyse each RegDDRef
       // there.
       // Currently limits this only for single linear or memref in rhs.
-      if (!RvalRef) {
+      if (!RvalRef)
         return VPlanIdioms::Unsafe;
-      }
+
       if (RvalRef->isTerminalRef() && RvalRef->isNonLinear()) {
         LLVM_DEBUG(dbgs() << "        RegDDRef "; RvalRef->dump();
                    dbgs() << " is unsafe.\n");
@@ -199,7 +209,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
         }
     }
   }
-  return VPlanIdioms::SearchLoopStrEq;
+  return HasIf ? VPlanIdioms::SearchLoopStrEq : VPlanIdioms::Unknown;
 }
 
 // In some cases vectorizer creates additional basic block with mask
@@ -246,7 +256,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
 
 VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
                                               const unsigned VF,
-                                              const bool CheckSafity) {
+                                              const bool CheckSafety) {
   const VPRegionBlock *Entry = dyn_cast<const VPRegionBlock>(Plan->getEntry());
   assert(Entry && "RegionBlock is expected.");
   // TODO: With explicit representation of peel loop, next code is not valid
@@ -290,7 +300,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   }
 
   const auto Header =
-      dyn_cast<const VPBasicBlock>(MELoop->getVPLoop()->getHeader());
+      cast<const VPBasicBlock>(MELoop->getVPLoop()->getHeader());
   // Recognize specific patterns only for the header of the loop. All other
   // blocks will (except Exit block) will be treated unsafe.
   VPlanIdioms::Opcode Opcode = isStrEqSearchLoop(Header, false);
@@ -333,9 +343,9 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
 }
 
 bool VPlanIdioms::isAnySearchLoop(const VPlan *Plan, const unsigned VF,
-                                  const bool CheckSafity) {
+                                  const bool CheckSafety) {
 
-  return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafity));
+  return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafety));
 }
 
 } // namespace vpo

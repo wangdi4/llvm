@@ -1564,9 +1564,7 @@ void VPBranchInst::print(raw_ostream &O) const {
     // FIXME: Call HGoto print.
     O << "<External Basic Block>";
 }
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 using VPDomTree = DomTreeBase<VPBlockBase>;
 template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 

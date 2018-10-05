@@ -1,18 +1,12 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation \
-; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_RECOGNIZED-CHECK %s
-;
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -vplan-use-padding-info=false \
-; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s
+; RUN:     -debug -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck --check-prefix=HLGOTO-CHECK %s
 ;
 ; REQUIRES: asserts
 
 ; Check that search loop idiom was recognized by vectorizer
 
-; WAS_RECOGNIZED-CHECK: Search loop was recognized.
-
-; WAS_NOT_RECOGNIZED-CHECK: StrEq loop was not recognized.
+; HLGOTO-CHECK: "EMIT br cleanup.loopexit.split.loop.exit\l"
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
