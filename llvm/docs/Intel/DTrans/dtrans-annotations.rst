@@ -29,12 +29,12 @@ immediately following the DTrans passes that will recognize and remove the
 metadata and annotation intrinsic calls that are no longer necessary.
 
 One of the considerations between whether an annotation is done using metadata
-or an intrinsic call is the need to keep the annotation up-to-date when the DTrans
-base class or other transformation changes the name of a type. The base class
-currently has no knowledge of specific annotations, and is unlikely to have this
-knowledge in the future, Similarly, DTrans transformations should be able to
-be run in a different order without breaking annotations inserted by another
-DTrans transformation.
+or an intrinsic call is the need to keep the annotation up-to-date when the
+DTrans base class or other transformation changes the name of a type. The base
+class currently has no knowledge of specific annotations, and is unlikely to
+have this knowledge in the future, Similarly, DTrans transformations should be
+able to be run in a different order without breaking annotations inserted by
+another DTrans transformation.
 
 Metadata
 ========
@@ -47,10 +47,10 @@ This metadata tag can be placed on an instruction to provide a hint to the
 DTrans local pointer analyzer regarding a pointer type that should be
 associated with the result of the instruction. This is only a hint to
 DTransAnalysis, in that it will add the specified type contained within the
-metadata to the list of types produced by an instruction, but it will not bypass
-the analysis of the instruction arguments normally done to identify types.
-This can be useful for a case where the pointer type is an i8*, but is a known
-type created by one of the DTrans Transformations that is not directly
+metadata to the list of types produced by an instruction, but it will not
+bypass the analysis of the instruction arguments normally done to identify
+types. This can be useful for a case where the pointer type is an i8*, but is
+a known type created by one of the DTrans Transformations that is not directly
 analyzable due to pointer arithmetic.
 
 This is currently limited to allowing a single type per instruction.
@@ -61,11 +61,13 @@ The following helper function can be used to create this metadata annotation.
 
   // Metadata will be added to the instruction.
   // The Type parameter must be a pointer type.
-  void DTransAnnotator::createDTransTypeAnnotation(Instruction *I, llvm::Type *Ty)
+  void DTransAnnotator::createDTransTypeAnnotation(
+      Instruction *I,
+      llvm::Type *Ty);
 
 
-The format of the generated metadata is simply a null value for the pointer type.
-This enables the type information in the metadata to stay up-to-date when
+The format of the generated metadata is simply a null value for the pointer
+type. This enables the type information in the metadata to stay up-to-date when
 a DTrans transformation pass remaps the type to a new type.
 
 .. code-block:: llvm
@@ -85,8 +87,8 @@ instruction.
 
 Pointer Annotations
 ===================
-Pointer annotations may be used to communicate information from one
-DTrans pass to another DTrans pass.
+Pointer annotations may be used to communicate information from one DTrans pass
+to another DTrans pass.
 
 Creating annotations
 --------------------
@@ -99,57 +101,75 @@ the annotation.
 
 .. code-block:: c++
 
-  GlobalVariable &DTransAnnotator::getAnnotationVariable(Module &M,
-                                                         DTransAnnotator::DPA_AnnotKind Type,
-                                                         StringRef AnnotString,
-                                                         const Twine &Extension = "")
+  GlobalVariable &DTransAnnotator::getAnnotationVariable(
+    Module &M,
+    DTransAnnotator::DPA_AnnotKind Type,
+    StringRef AnnotContent,
+    StringRef Extension = "");
 
-This function takes an enumeration value defined within the DTransAnnotator class that
-will control the naming of the global variable, a string to hold the content of the annotation
-and an optional extension to append to the default global variable name used for this type
-of annotation.
+This function takes an enumeration value defined within the DTransAnnotator
+class that will control the naming of the global variable, a string to hold the
+content of the annotation and an optional extension to append to the default
+global variable name used for this type of annotation.
 
 2. Create a llvm.ptr.annotation intrinsic instruction.
 
 .. code-block:: c++
 
-  Value *DTransAnnotator::createPtrAnnotation(Module &M,
-                                              Value &Ptr,
-                                              GlobalVariable &AnnotVar,
-                                              StringRef FileName,
-                                              unsigned Line,
-                                              const Twine &NameStr = "",
-                                              Instruction *InsertBefore = nullptr)
+  Instruction *DTransAnnotator::createPtrAnnotation(
+    Module &M,
+    Value &Ptr,
+    Value &AnnotVal,
+    Value &FileNameVa,
+    unsigned LineNum,
+    const Twine &NameStr = "",
+    Instruction *InsertBefore = nullptr);
 
-This function will create a llvm.ptr.annotation intrinsic call, using 'Ptr' as the pointer
-to be annotated, and 'AnnotVar' , and optionally insert it
-into the IR.
+This function will create a llvm.ptr.annotation intrinsic call, using 'Ptr' as
+the pointer to be annotated, and 'AnnotVar' , and optionally insert it into the
+IR.
 
 Querying annotations
 --------------------
 
 Check whether a Value is a DTrans annotation intrinsic.
 
-.. code-block:: llvm
+.. code-block:: c++
 
-  bool DTransAnnotator::isDTransPtrAnnotation(Value *V)
+  bool DTransAnnotator::isDTransPtrAnnotation(Instruction &I);
 
 
 Check whether a Value is a DTrans annotation intrinsic of a specific kind.
 
-.. code-block:: llvm
+.. code-block:: c++
 
-  bool DTransAnnotator::isDTransAnnotationOfType(Value *V,
-                                                 DPA_AnnotKind DPAType)
+  bool DTransAnnotator::isDTransAnnotationOfType(Instruction &I,
+                                                 DPA_AnnotKind DPAType);
 
 Get the DTrans annotation kind for an annotation intrinsic.
 
-.. code-block:: llvm
+.. code-block:: c++
 
-  DTransAnnotator::DPA_AnnotKind DTransAnnotator::getDTransPtrAnnotationKind(Value *V);
+  DTransAnnotator::DPA_AnnotKind DTransAnnotator::getDTransPtrAnnotationKind(
+      Instruction &I);
 
 Description of annotations
 --------------------------
+
+[DTransAnnotator::DPA_AOSToSOAAllocation] AOS-to-SOA Allocation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This annotation marks a pointer as being the block of memory created to the
+structure of arrays.
+
+.. code-block:: llvm
+
+  %mem = call i8* @malloc(i64 %3)
+  %4 = call i8* @llvm.ptr.annotation.p0i8(
+                  i8* %mem,
+                  i8* getelementptr inbounds ([31 x i8], [31 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0),
+                  i8* getelementptr inbounds ([13 x i8], [13 x i8]* @0, i32 0, i32 0), i32 0)
+
 
 [DTransAnnotator::DPA_AOSToSOAIndexField] AOS-to-SOA Peeling Index
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -173,7 +193,8 @@ to
   %__SOADT_struct.test01dep = type { i16, i32, i32 }
 
 
-In this case, a reference to load the first field of %struct.test01dep such as the following:
+In this case, a reference to load the first field of %struct.test01dep such as
+the following:
 
 .. code-block:: llvm
 
@@ -185,10 +206,11 @@ would get transformed and annotated as:
 .. code-block:: llvm
 
   %field1_addr = getelementptr inbounds %__SOADT_struct.test01dep,
-                               %__SOADT_struct.test01dep* %struct_addr, i64 0, i32 1
-  %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %field1_addr,
-                  i8* getelementptr ([26 x i8], [26 x i8]* @__DTransAOSToSOAIndexFieldName, i32 0, i32 0),
-                  i8* getelementptr ([13 x i8], [13 x i8]* @0, i32 0, i32 0), i32 0)
+                   %__SOADT_struct.test01dep* %struct_addr, i64 0, i32 1
+  %1 = call i32* @llvm.ptr.annotation.p0i32(
+                   i32* %field1_addr,
+                   i8* getelementptr ([26 x i8], [26 x i8]* @__DTransAOSToSOAIndexFieldName, i32 0, i32 0),
+                   i8* getelementptr ([13 x i8], [13 x i8]* @0, i32 0, i32 0), i32 0)
   %field1_val = load i32, i32* %field1_addr
 
 In this case, the annotation needs to be placed on a pointer within the IR
