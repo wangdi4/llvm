@@ -420,8 +420,10 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     if (PeelLoop)
       *PeelLoop = PeelLp;
 
-    // Extract the new Ztt that was created for OrigLoop after peeling.
-    OrigLoop->extractZtt();
+    // After peeling, we don't need a Ztt that covers both the main
+    // vector/unrolled loop and remainder loop. The individual Ztts for the
+    // vector/unroll loop and remainder are sufficient to guarantee safety.
+    OrigLoop->removeZtt();
   } else {
     // Extract Ztt and add it outside the loop.
     OrigLoop->extractZtt();

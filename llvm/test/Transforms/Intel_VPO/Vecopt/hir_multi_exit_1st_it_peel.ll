@@ -34,34 +34,31 @@
 ; <26>            |   }
 ; <25>            + END LOOP
 ; <25>
-; <29>            if (0 <u %len_limit + -2)
-; <29>            {
-; <30>               %tgu = (%len_limit + -2)/u16;
-; <32>               if (0 <u 16 * %tgu)
-; <32>               {
-; <31>                  + DO i1 = 0, 16 * %tgu + -1, 16   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 268435455> <nounroll>
-; <34>                  |   %wide.cmp. = (<16 x i32>*)(%cur)[i1 + -1 * zext.i32.i64(%delta2) + 2] != (<16 x i32>*)(%cur)[i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 2];
-; <35>                  |   %intmask = bitcast.<16 x i1>.i16(%wide.cmp.);
-; <36>                  |   if (%intmask != 0)
-; <36>                  |   {
-; <37>                  |      %IfFPred = %wide.cmp.  ^  -1;
-; <39>                  |      %intmask1 = bitcast.<16 x i1>.i16(%wide.cmp.);
-; <40>                  |      %bsf = @llvm.cttz.i16(%intmask1,  0);
-; <41>                  |      %cast = zext.i16.i32(%bsf);
-; <38>                  |      %len_best.011.out = i1 + %cast + 2;
-; <42>                  |      goto for.end.loopexit;
-; <36>                  |   }
-; <31>                  + END LOOP
-; <32>               }
+; <30>            %tgu = (%len_limit + -2)/u16;
+; <32>            if (0 <u 16 * %tgu)
+; <32>            {
+; <31>               + DO i1 = 0, 16 * %tgu + -1, 16   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 268435455> <nounroll>
+; <34>               |   %wide.cmp. = (<16 x i32>*)(%cur)[i1 + -1 * zext.i32.i64(%delta2) + 2] != (<16 x i32>*)(%cur)[i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 2];
+; <35>               |   %intmask = bitcast.<16 x i1>.i16(%wide.cmp.);
+; <36>               |   if (%intmask != 0)
+; <36>               |   {
+; <37>               |      %IfFPred = %wide.cmp.  ^  -1;
+; <39>               |      %intmask1 = bitcast.<16 x i1>.i16(%wide.cmp.);
+; <40>               |      %bsf = @llvm.cttz.i16(%intmask1,  0);
+; <41>               |      %cast = zext.i16.i32(%bsf);
+; <38>               |      %len_best.011.out = i1 + %cast + 2;
+; <42>               |      goto for.end.loopexit;
+; <36>               |   }
+; <31>               + END LOOP
+; <32>            }
 ; <19>
-; <19>               + DO i1 = 16 * %tgu, %len_limit + -3, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 15> <novectorize>
-; <9>                |   if ((%cur)[i1 + -1 * zext.i32.i64(%delta2) + 2] != (%cur)[i1 + 2])
-; <9>                |   {
-; <20>               |      %len_best.011.out = i1 + 2;
-; <11>               |      goto for.end.loopexit;
-; <9>                |   }
-; <19>               + END LOOP
-; <29>            }
+; <19>            + DO i1 = 16 * %tgu, %len_limit + -3, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 15> <novectorize>
+; <9>             |   if ((%cur)[i1 + -1 * zext.i32.i64(%delta2) + 2] != (%cur)[i1 + 2])
+; <9>             |   {
+; <20>            |      %len_best.011.out = i1 + 2;
+; <11>            |      goto for.end.loopexit;
+; <9>             |   }
+; <19>            + END LOOP
 ; <2>             %len_best.011.out = %len_limit + -1;
 ; <0>       END REGION
 
@@ -71,7 +68,6 @@
 ; CHECK-NEXT: + DO i1 = 0, 0, 1
 
 ; Ztts
-; CHECK: if (0 <u %len_limit + -2)
 ; CHECK: %tgu = (%len_limit + -2)/u16;
 ; CHECK: if (0 <u 16 * %tgu)
 
