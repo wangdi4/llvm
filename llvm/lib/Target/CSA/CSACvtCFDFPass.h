@@ -121,6 +121,11 @@ public:
   bool replaceUndefWithIgn();
 
 private:
+  /// If a function does not have exactly one return instruction, create a
+  /// single return instruction, either by generating a PHI for the return, or
+  /// by generating a dummy return value instead.
+  void generateSingleReturn();
+
   /// \defgroup Switch generation
   /// This set of functions implements the generation of switch instructions
   /// from branch instructions.

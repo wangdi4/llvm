@@ -498,20 +498,9 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
   return MI;
 }
 
-static MachineInstr *getLastMI(MachineFunction *MF) {
-  for (MachineFunction::reverse_iterator MBB = MF->rbegin(); MBB != MF->rend(); MBB++) {
-    for (MachineBasicBlock::reverse_iterator I = MBB->rbegin(); I != MBB->rend(); I++) {
-      MachineInstr *MI = &*I;
-      if (MI->isDebugValue()) continue;
-      return MI;
-    }
-  }
-  return nullptr;
-}
-
 MachineInstr* CSAProcCallsPass::addReturnInstruction(MachineInstr *entryMI) {
-  MachineInstr *lastMI = getLastMI(thisMF);
-  if (!lastMI || !lastMI->isReturn()) return nullptr;
+  MachineInstr *lastMI = LMFI->getReturnMI();
+  assert(lastMI && "Dataflow conversion did not set the return instruction");
   assert(lastMI->getOpcode() == CSA::CSA_RETURN &&
       "Instruction selection did not use the right function lowering");
   LMFI->setReturnMI(lastMI);

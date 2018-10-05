@@ -386,6 +386,24 @@ ControlDependenceGraphBase::enclosingRegion(MachineBasicBlock *BB) const {
   }
 }
 
+void ControlDependenceGraphBase::addNewBlock(MachineBasicBlock *NewBB,
+    CDGRegion *NewRegion) {
+  // Add a new node, and insert it into the list of nodes.
+  ControlDependenceNode *NewCDGNode = new ControlDependenceNode(NewBB);
+  nodes.insert(NewCDGNode);
+  bb2cdg[NewBB] = NewCDGNode;
+
+  // Add the new node to the region listing.
+  assert(NewRegion != nullptr &&
+      "Not handling the update case where a new region needs to be created");
+  NewRegion->nodes.push_back(NewBB);
+
+  // Insert the correct information for parents and children.
+  NewCDGNode->Parents = getNode(NewRegion->nodes[0])->Parents;
+  assert(NewBB->succ_empty() &&
+      "Not handling the update case where a block has successors");
+}
+
 ControlDependenceGraph::ControlDependenceGraph()
     : MachineFunctionPass(ID), ControlDependenceGraphBase() {
   initializeControlDependenceGraphPass(*PassRegistry::getPassRegistry());

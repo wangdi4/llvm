@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/PassSupport.h"
@@ -125,41 +126,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   DT  = &getAnalysis<MachineDominatorTree>();
   PDT = &getAnalysis<MachinePostDominatorTree>();
-  if (PDT->getRootNode() == nullptr)
-    return false;
-  else {
-    //
-    // CMPLRS-48822: workaround for infinite loops.
-    //
-    // Look for children of the PDT's root node and bail
-    // out if any of them is not a normal exit (i.e. have
-    // a CF successor).
-    //
-    bool normalExitBlockSeen = false;
-    for (auto &child : children<MachineDomTreeNode *>(PDT->getRootNode())) {
-      auto *MBB = child->getBlock();
-      if (MBB->succ_empty()) {
-        // Bail out on functions with multiple exits.
-        //
-        // TODO (vzakhari 2/21/2018): figure out, why this is needed.
-        if (normalExitBlockSeen) {
-          if (csa_utils::isAlwaysDataFlowLinkageSet())
-            report_fatal_error("Function with multiple exits!!\n");
-          else
-            return false;
-        }
-
-        normalExitBlockSeen = true;
-        continue;
-      }
-      else {
-        if (csa_utils::isAlwaysDataFlowLinkageSet())
-          report_fatal_error("Function with multiple exits!!\n");
-        else
-          return false;
-      }
-    }
-  }
   CDG = &getAnalysis<ControlDependenceGraph>();
   MLI = &getAnalysis<MachineLoopInfo>();
 
@@ -180,6 +146,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   // which need to be flowed in.
   createFIEntryDefs();
 
+  generateSingleReturn();
   replaceUndefWithIgn();
   handleAllConstantInputs();
 
@@ -198,6 +165,13 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   unsigned i = 0;
   for (MachineBasicBlock *MBB : *RPOT) {
     bb2rpo[MBB] = i++;
+  }
+
+  // Until we support pickany-based PHI conversion, we cannot support
+  // irreducible graphs.
+  if (containsIrreducibleCFG<MachineBasicBlock *, decltype(*RPOT),
+      MachineLoopInfo>(*RPOT, *MLI)) {
+    report_fatal_error("Cannot compile irreducible CFGs for CSA");
   }
 
   // Insert switches.
@@ -248,6 +222,108 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   RunSXU = false;
 
   return true;
+}
+
+void CSACvtCFDFPass::generateSingleReturn() {
+  // Gather all return instructions in the function. Note that a block
+  // immediately postdominated by the exit pseudonode might not correspond to a
+  // return node. Calls to noreturn functions or infinite loops will generate
+  // fake edges to this node for the purposes of postdomination, and we can
+  // ignore those situations.
+  SmallVector<MachineInstr *, 4> ReturnInsts;
+  bool SeenSXURet = false;
+  for (auto ChildNode : PDT->getRootNode()->getChildren()) {
+    MachineBasicBlock *ChildBB = ChildNode->getBlock();
+    auto Terminator = ChildBB->getFirstInstrTerminator();
+    if (Terminator == ChildBB->end())
+      continue;
+    if (Terminator->getOpcode() == CSA::CSA_RETURN)
+      ReturnInsts.push_back(&*Terminator);
+    else if (!csa_utils::isAlwaysDataFlowLinkageSet() &&
+        Terminator->getOpcode() == CSA::RET) {
+      if (SeenSXURet) {
+        report_fatal_error("Cannot handle multiple returns with legacy RET");
+      }
+      SeenSXURet = true;
+    }
+  }
+
+  if (SeenSXURet)
+    return;
+
+  if (ReturnInsts.empty()) {
+    // We have no return instructions. Our function ought to be noreturn.
+    //report_fatal_error("Need clarification on how to handle noreturn");
+    // TODO: Handle return more cleanly?
+    MachineBasicBlock &MBB = *thisMF->begin();
+    unsigned DummyOutReg = LMFI->allocateLIC(&CSA::CI0RegClass);
+    BuildMI(MBB, MBB.end(), DebugLoc{}, TII->get(CSA::MOV0), DummyOutReg)
+      .addUse(CSA::NA);
+    MachineInstr *RetInstr = BuildMI(MBB, MBB.end(), DebugLoc{},
+        TII->get(CSA::CSA_RETURN))
+      .addUse(DummyOutReg);
+    LMFI->setReturnMI(RetInstr);
+  } else if (ReturnInsts.size() > 1) {
+    // We have multiple return instructions. Make a basic block that generates
+    // a PHI of all of the used values.
+    LLVM_DEBUG(dbgs() << "Inserting new basic block to merge returns.");
+    MachineBasicBlock *RetBB = thisMF->CreateMachineBasicBlock();
+    thisMF->insert(thisMF->end(), RetBB);
+    for (MachineInstr *RetInstr : ReturnInsts) {
+      RetInstr->getParent()->addSuccessor(RetBB);
+    }
+
+    // Collect PHIs for all of the operands.
+    auto NewRet = BuildMI(*RetBB, RetBB->end(), ReturnInsts[0]->getDebugLoc(),
+        TII->get(CSA::CSA_RETURN));
+
+    unsigned NumOperands = ReturnInsts[0]->getNumOperands();
+    for (unsigned i = 0; i < NumOperands; i++) {
+      const MachineOperand &Op = ReturnInsts[0]->getOperand(i);
+      assert(Op.getReg() && "CSA_RETURN needs register operands");
+      unsigned Reg = Op.getReg();
+      assert(TargetRegisterInfo::isVirtualRegister(Reg) &&
+        "CSA_RETURN should not have physical registers");
+
+      // Add the result register for the PHI.
+      unsigned ResultReg = MRI->createVirtualRegister(MRI->getRegClass(Reg));
+      NewRet.addReg(ResultReg);
+
+      // Create a PHI using all of the input instructions.
+      auto NewPHI = BuildMI(*RetBB, NewRet.getInstr(), DebugLoc{},
+          TII->get(CSA::PHI), ResultReg);
+      for (MachineInstr *MI : ReturnInsts) {
+        NewPHI.add(MI->getOperand(i));
+        NewPHI.add(MachineOperand::CreateMBB(MI->getParent()));
+      }
+    }
+
+    // Replace all of the return instructions with branches.
+    for (MachineInstr *RetInstr : ReturnInsts) {
+      RetInstr->setDesc(TII->get(CSA::BR));
+      for (unsigned i = 0; i < NumOperands; i++)
+        RetInstr->RemoveOperand(0);
+      RetInstr->addOperand(MachineOperand::CreateMBB(RetBB));
+    }
+
+    // Update our datastructures with the new basic block. The immediate post
+    // dominator is the pseudo exit node; the immediate dominator is the mutual
+    // post dominator of the control-dependence region of the entry node.
+    CDGRegion *EntryRegion = CDG->getRegion(DT->getRoot());
+    // PDT->addNewBlock(RetBB, PDT->getRoot()); -- this isn't exposed?
+    DT->addNewBlock(RetBB, EntryRegion->nodes.back());
+    CDG->addNewBlock(RetBB, EntryRegion);
+
+    // Recalculate the frequency information.
+    getAnalysis<MachineBlockFrequencyInfo>().calculate(*thisMF,
+        getAnalysis<MachineBranchProbabilityInfo>(), *MLI);
+
+    // Set the LMFI information for the return instruction.
+    LMFI->setReturnMI(NewRet);
+  } else {
+    // We have just one return instruction. Tell LMFI about it.
+    LMFI->setReturnMI(ReturnInsts[0]);
+  }
 }
 
 static unsigned getLoopExitNumber(MachineLoop *Loop,
@@ -1204,6 +1280,13 @@ void CSACvtCFDFPass::linearizeCFG() {
     mbbStack.pop();
     root->splice(root->end(), mbb, mbb->begin(), mbb->end());
     mbb->eraseFromParent();
+  }
+
+  // Move the return instruction to the end.
+  MachineInstr *ReturnMI = LMFI->getReturnMI();
+  if (ReturnMI) {
+    ReturnMI->removeFromParent();
+    root->insert(root->end(), ReturnMI);
   }
 }
 

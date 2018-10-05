@@ -53,8 +53,8 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   MachineFunction &MF;
   MachineRegisterInfo &MRI;
   const CSAInstrInfo *TII;
-  MachineInstr *entryMI;
-  MachineInstr *returnMI;
+  MachineInstr *entryMI = nullptr;
+  MachineInstr *returnMI = nullptr;
   int num_call_sites;
   mutable StringSet<> namedLICs;
   mutable unsigned nameCounter;

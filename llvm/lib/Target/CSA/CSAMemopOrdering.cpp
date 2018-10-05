@@ -2701,14 +2701,23 @@ void MemopCFG::Node::emit_memops() {
             .getInstr();
       }
 
-      // Otherwise, it goes at the end or before the call.
-      else {
-        const MachineBasicBlock::iterator where =
-          memop.call_mi ? memop.call_mi : BB->getFirstTerminator();
+      // Otherwise, if it's a call, it goes before the call.
+      else if (!csa_utils::isAlwaysDataFlowLinkageSet() || memop.call_mi) {
+        const MachineBasicBlock::iterator where = memop.call_mi ?
+          memop.call_mi : BB->getFirstTerminator();
         memop.MI =
           BuildMI(*BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no)
             .addUse(memop.ready ? memop.ready.reg_no() : unsigned(CSA::IGN))
             .getInstr();
+      }
+
+      // Otherwise, replace the CSA_RETURN memory operand with the result.
+      else {
+        MachineInstr *term = &*BB->getFirstTerminator();
+        assert(term->getOpcode() == CSA::CSA_RETURN &&
+            "Should be a CSA_RETURN instruction");
+        term->getOperand(0).setReg(
+            memop.ready ? memop.ready.reg_no() : unsigned(CSA::IGN));
       }
     }
   }

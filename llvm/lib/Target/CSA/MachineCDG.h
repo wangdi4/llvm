@@ -274,6 +274,8 @@ public:
   const TargetInstrInfo *TII;
   MachinePostDominatorTree *thisPDT;
 
+  void addNewBlock(MachineBasicBlock *NewBB, CDGRegion *Region);
+
 private:
   ControlDependenceNode *root;
   std::set<ControlDependenceNode *> nodes;
