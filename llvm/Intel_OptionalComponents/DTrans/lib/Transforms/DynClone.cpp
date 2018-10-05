@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -121,8 +122,8 @@ class DynCloneImpl {
 
 public:
   DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
-               LoopInfoFuncType &GetLI)
-      : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI),
+               LoopInfoFuncType &GetLI, TargetLibraryInfo &TLI)
+      : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI), TLI(TLI),
         ShrunkenIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr),
         ShrinkHappenedVar(nullptr){};
   bool run(void);
@@ -132,6 +133,7 @@ private:
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
   LoopInfoFuncType &GetLI;
+  TargetLibraryInfo &TLI;
 
   // Holds result Type after shrinking 64-bit to 32-bit integer values.
   llvm::Type *ShrunkenIntTy;
@@ -193,6 +195,7 @@ private:
   bool trackPointersOfAllocCalls(void);
   void transformInitRoutine(void);
   bool createCallGraphClone(void);
+  void transformIR(void);
   bool isCandidateField(DynField &DField) const;
   bool isCandidateStruct(Type *Ty);
   Type *getGEPStructType(GetElementPtrInst *GEP) const;
@@ -278,7 +281,8 @@ Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
     return nullptr;
   if (NumIndices == 1) {
     auto FPair = DTInfo.getByteFlattenedGEPElement(GEP);
-    return FPair.first;
+    if (FPair.first)
+      return FPair.first;
   }
   auto ElemTy = GEP->getSourceElementType();
   if (!isa<StructType>(ElemTy))
@@ -423,12 +427,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     // Treat a struct as accessed if the struct is referenced by
     // any of these instructions.
     if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
-      if (GEP->getNumIndices() == 1) {
-        auto BPair = DTInfo.getByteFlattenedGEPElement(GEP);
-        StTy = BPair.first;
-      }
-      if (!StTy)
-        StTy = getGEPStructType(GEP);
+      StTy = getGEPStructType(GEP);
     } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
       if (BinOp->getOpcode() == Instruction::Sub)
         StTy = DTInfo.getResolvedPtrSubType(BinOp);
@@ -1859,6 +1858,330 @@ bool DynCloneImpl::createCallGraphClone(void) {
   return true;
 }
 
+// This routine handles basic IR transformations required to
+// access fields of shrunken structs in routines related to new layout.
+// GEP/ByteGEP/Load/Store/SDiv/UDiv/MemFunc instructions related to
+// shrunken structs are transformed.
+void DynCloneImpl::transformIR(void) {
+
+  auto IsGEP = [&](GetElementPtrInst *GEP) {
+    if (GEP->getNumIndices() > 2)
+      return false;
+
+    Type *ElementTy = GEP->getSourceElementType();
+    return isCandidateStruct(ElementTy);
+  };
+
+  auto IsByteGEP = [&](GetElementPtrInst *GEP) {
+    if (GEP->getNumIndices() != 1)
+      return false;
+    auto BPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    if (!BPair.first)
+      return false;
+    return isCandidateStruct(BPair.first);
+  };
+
+  auto IsBinOp = [&](BinaryOperator *BinOp) {
+    if (BinOp->getOpcode() != Instruction::Sub)
+      return false;
+
+    Type *SubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    if (!SubTy)
+      return false;
+
+    return isCandidateStruct(SubTy);
+  };
+
+  auto IsLoad = [&](LoadInst *LI) {
+    auto LdElem = DTInfo.getLoadElement(LI);
+    if (!LdElem.first || !isCandidateField(LdElem))
+      return false;
+    return true;
+  };
+
+  auto IsStore = [&](StoreInst *SI) {
+    auto StElem = DTInfo.getStoreElement(SI);
+    if (!StElem.first || !isCandidateField(StElem))
+      return false;
+    return true;
+  };
+
+  // The basic idea is to use shruken struct for all address computations
+  // instead of original struct.
+  // Note that index of a field in shrunken structure may not be the same
+  // as index of the field in original structure since fields will be
+  // reordered in shrunken structure after size of some fields are
+  // reduced.
+  //
+  // Before:
+  //  %50 = getelementptr %struct.ar, %struct.ar* %48, i64 %49
+  //
+  // After:
+  //  %50 = bitcast %struct.ar* %48 to %__DYN_struct.ar*
+  //  %51 = getelementptr %__DYN_struct.ar, %__DYN_struct.ar* %50, i64 %49
+  //  %52 = bitcast %__DYN_struct.ar* %51 to %struct.ar*
+  //
+  //
+  // Before:
+  //  %37 = getelementptr %struct.ar, %struct.ar* %31, i64 0, i32 0
+  //
+  // After:
+  //  %37 = bitcast %struct.ar* %31 to %__DYN_struct.ar*
+  //  %38 = getelementptr %__DYN_struct.ar, %__DYN_struct.ar* %37, i64 0, i32 1
+  //  %39 = bitcast i32* %38 to i64*
+  //
+  auto ProcessGEP = [&](GetElementPtrInst *GEP) {
+    unsigned NumIndices = GEP->getNumIndices();
+    assert(NumIndices < 3 && "Unexpected indices for GEP");
+
+    LLVM_DEBUG(dbgs() << "GEP Before:" << *GEP << "\n");
+    StructType *OldStTy = cast<StructType>(GEP->getSourceElementType());
+    Type *NewStTy = TransformedTypeMap[OldStTy];
+    assert(NewStTy && "Expected transformed type");
+    Type *DstTy = NewStTy->getPointerTo();
+    Value *Src = GEP->getPointerOperand();
+    CastInst *BC = CastInst::CreateBitOrPointerCast(Src, DstTy, "", GEP);
+
+    SmallVector<Value *, 2> Indices;
+    Indices.push_back(GEP->getOperand(1));
+    if (NumIndices == 2) {
+      Value *Op = GEP->getOperand(2);
+      auto *FIdx = cast<ConstantInt>(Op);
+      unsigned NewIdx = TransformedIndexes[OldStTy][FIdx->getLimitedValue()];
+      Value *NewOp = ConstantInt::get(Op->getType(), NewIdx);
+      Indices.push_back(NewOp);
+    }
+    GetElementPtrInst *NGEP =
+        GetElementPtrInst::Create(NewStTy, BC, Indices, "", GEP);
+    NGEP->setIsInBounds(GEP->isInBounds());
+    Instruction *Res = NGEP;
+    if (NGEP->getType() != GEP->getType())
+      Res = CastInst::CreateBitOrPointerCast(Res, GEP->getType(), "", GEP);
+
+    GEP->replaceAllUsesWith(Res);
+    Res->takeName(GEP);
+
+    LLVM_DEBUG(dbgs() << "GEP After:" << *BC << "\n" << *NGEP << "\n");
+    if (Res != NGEP)
+      LLVM_DEBUG(dbgs() << *Res << "\n");
+  };
+
+  // Fix offset in ByteGEP. No need to change anything else since
+  // return type of GEP is i8*.
+  //
+  // Before:
+  //     %F = getelementptr i8, i8* %bp2, i64 40
+  //
+  // After:
+  //     %F = getelementptr i8, i8* %bp2, i64 24
+  //
+  auto ProcessByteGEP = [&](GetElementPtrInst *GEP) {
+    LLVM_DEBUG(dbgs() << "ByteGEP Before:" << *GEP << "\n");
+    auto GEPInfo = DTInfo.getByteFlattenedGEPElement(GEP);
+
+    StructType *OldTy = cast<StructType>(GEPInfo.first);
+    unsigned NewIdx = TransformedIndexes[OldTy][GEPInfo.second];
+    auto *SL = DL.getStructLayout(TransformedTypeMap[OldTy]);
+    uint64_t NewOffset = SL->getElementOffset(NewIdx);
+    GEP->setOperand(1,
+                    ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
+    LLVM_DEBUG(dbgs() << "ByteGEP After:" << GEP << "\n");
+  };
+
+  // Fix size operand in pointers subtract.
+  //
+  //   Before:
+  //       %47 = sdiv exact i64 %46, 40
+  //
+  //   After:
+  //       %47 = sdiv exact i64 %46, 26
+  //
+  auto ProcessBinOp = [&](BinaryOperator *BinOp) {
+    LLVM_DEBUG({
+      dbgs() << "SDiv/UDiv  Before: \n";
+      for (auto *U : BinOp->users()) {
+        dbgs() << "    " << *cast<Instruction>(U) << "\n";
+      }
+    });
+
+    Type *SubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    Type *NewTy = TransformedTypeMap[cast<StructType>(SubTy)];
+    updatePtrSubDivUserSizeOperand(BinOp, SubTy, NewTy, DL);
+
+    LLVM_DEBUG({
+      dbgs() << "SDiv/UDiv  After: \n";
+      for (auto *U : BinOp->users()) {
+        dbgs() << "    " << *cast<Instruction>(U) << "\n";
+      }
+    });
+  };
+
+  // This is invoked for only LoadInsts of shrunken fields.
+  //   Before:
+  //       %40 = load i64, i64* %39, align 8
+  //
+  //   After:
+  //       %40 = bitcast i64* %39 to i32*
+  //       %41 = load i32, i32* %40, align 4
+  //       %42 = sext i32 %41 to i64
+  //
+  auto ProcessLoad = [&](LoadInst *LI) {
+    LLVM_DEBUG(dbgs() << "Load before convert: " << *LI << "\n");
+    auto LdElem = DTInfo.getLoadElement(LI);
+    StructType *OldTy = cast<StructType>(LdElem.first);
+    StructType *NewSt = TransformedTypeMap[OldTy];
+    unsigned NewIdx = TransformedIndexes[OldTy][LdElem.second];
+    Value *SrcOp = LI->getPointerOperand();
+    Type *NewTy = NewSt->getElementType(NewIdx);
+    Type *PNewTy = NewTy->getPointerTo();
+    Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
+    Instruction *NewLI = new LoadInst(
+        NewSrcOp, "", LI->isVolatile(), DL.getABITypeAlignment(NewTy),
+        LI->getOrdering(), LI->getSyncScopeID(), LI);
+
+    Value *Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
+    LI->replaceAllUsesWith(Res);
+    Res->takeName(LI);
+
+    // TODO: Need to fix metadata.
+
+    LLVM_DEBUG(dbgs() << "Load after convert: " << *NewSrcOp << "\n"
+                      << *NewLI << "\n"
+                      << *Res << "\n");
+  };
+
+  // This is invoked for only StoreInsts of shrunken fields.
+  //   Before:
+  //       store i64 30, i64* %266, align 8
+  //
+  //   After:
+  //       %268 = bitcast i64* %266 to i32*
+  //       %267 = trunc i64 30 to i32
+  //       store i32 %267, i32* %268, align 4
+  //
+  auto ProcessStore = [&](StoreInst *SI) {
+    LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
+    auto StElem = DTInfo.getStoreElement(SI);
+    StructType *OldTy = cast<StructType>(StElem.first);
+    StructType *NewSt = TransformedTypeMap[OldTy];
+    unsigned NewIdx = TransformedIndexes[OldTy][StElem.second];
+    Type *NewTy = NewSt->getElementType(NewIdx);
+    Type *PNewTy = NewTy->getPointerTo();
+    Value *ValOp = SI->getValueOperand();
+    Value *NewVal = CastInst::CreateTruncOrBitCast(ValOp, NewTy, "", SI);
+    Value *SrcOp = SI->getPointerOperand();
+    Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
+    Instruction *NewSI = new StoreInst(
+        NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlignment(NewTy),
+        SI->getOrdering(), SI->getSyncScopeID(), SI);
+    (void)NewSI;
+
+    // TODO: Need to fix metadata.
+
+    LLVM_DEBUG(dbgs() << "Store after convert: " << *NewSrcOp << "\n"
+                      << *NewVal << "\n"
+                      << *NewSI << "\n");
+  };
+
+  // Fix size in MemFuncs like memcpy/realloc etc
+  //
+  //  Before:
+  //      @llvm.memcpy.p0i8.p0i8.i64(i8* %361, i8* %86, i64 40, i1 false)
+  //
+  //  After:
+  //      @llvm.memcpy.p0i8.p0i8.i64(i8* %361, i8* %86, i64 26, i1 false)
+  //
+  auto ProcessMemFunc = [&](std::pair<CallInfo *, Type *> &MPair) {
+    CallInfo *CInfo = MPair.first;
+    StructType *OrigTy = cast<StructType>(MPair.second);
+    StructType *NewTy = TransformedTypeMap[OrigTy];
+    Instruction *I = CInfo->getInstruction();
+    LLVM_DEBUG(dbgs() << "MemFunc before convert: " << *I << "\n");
+    updateCallSizeOperand(I, CInfo, OrigTy, NewTy, TLI);
+    LLVM_DEBUG(dbgs() << "MemFunc after convert: " << *I << "\n");
+  };
+
+  SmallVector<GetElementPtrInst *, 16> GEPsToProcess;
+  SmallVector<BinaryOperator *, 16> BinOpsToProcess;
+  SmallVector<LoadInst *, 16> LoadsToProcess;
+  SmallVector<StoreInst *, 16> StoresToProcess;
+  SmallVector<GetElementPtrInst *, 16> ByteGEPsToProcess;
+  SmallVector<std::pair<CallInfo *, Type *>, 4> CallsToProcess;
+  SmallVector<Instruction *, 32> InstsToRemove;
+
+  // Cloned routines are used for original layout shrukun struct. That means,
+  // there will no changes to cloned routine. Original routines will be modified
+  // to use shrunken layout. Here, it walks through all original routines, which
+  // are cloned, and fix all accesses to structs that are shrunkun.
+  for (auto &CPair : CloningMap) {
+
+    Function *F = CPair.first;
+    GEPsToProcess.clear();
+    BinOpsToProcess.clear();
+    LoadsToProcess.clear();
+    StoresToProcess.clear();
+    ByteGEPsToProcess.clear();
+    CallsToProcess.clear();
+    InstsToRemove.clear();
+
+    LLVM_DEBUG(dbgs() << "\n Transforming IR for : " << F->getName() << "\n");
+
+    // Collect all instructions that need to be fixed.
+    for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
+      Instruction *I = &*It;
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+        if (IsGEP(GEP))
+          GEPsToProcess.push_back(GEP);
+        else if (IsByteGEP(GEP))
+          ByteGEPsToProcess.push_back(GEP);
+      } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
+        if (IsBinOp(BinOp))
+          BinOpsToProcess.push_back(BinOp);
+      } else if (auto *LI = dyn_cast<LoadInst>(I)) {
+        if (IsLoad(LI))
+          LoadsToProcess.push_back(LI);
+      } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+        if (IsStore(SI))
+          StoresToProcess.push_back(SI);
+      } else if (isa<CallInst>(I)) {
+        auto *CInfo = DTInfo.getCallInfo(I);
+        Type *ElemTy = getCallInfoElemTy(CInfo);
+        if (!ElemTy)
+          continue;
+        if (isCandidateStruct(ElemTy))
+          CallsToProcess.push_back(std::make_pair(CInfo, ElemTy));
+      }
+    }
+
+    for (auto *GEP : GEPsToProcess) {
+      ProcessGEP(GEP);
+      InstsToRemove.push_back(cast<Instruction>(GEP));
+    }
+
+    for (auto *GEP : ByteGEPsToProcess)
+      ProcessByteGEP(GEP);
+
+    for (auto *BinOp : BinOpsToProcess)
+      ProcessBinOp(BinOp);
+
+    for (auto *LI : LoadsToProcess) {
+      ProcessLoad(LI);
+      InstsToRemove.push_back(cast<Instruction>(LI));
+    }
+
+    for (auto *SI : StoresToProcess) {
+      ProcessStore(SI);
+      InstsToRemove.push_back(cast<Instruction>(SI));
+    }
+
+    for (auto &CallPair : CallsToProcess)
+      ProcessMemFunc(CallPair);
+
+    for (auto *DI : InstsToRemove)
+      DI->eraseFromParent();
+  }
+}
+
 bool DynCloneImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
@@ -1898,7 +2221,7 @@ bool DynCloneImpl::run(void) {
 
   if (!createCallGraphClone())
     return false;
-
+  transformIR();
   return true;
 }
 
@@ -1914,7 +2237,7 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   auto &DL = M.getDataLayout();
 
-  DynCloneImpl DynCloneI(M, DL, DTInfo, GetLI);
+  DynCloneImpl DynCloneI(M, DL, DTInfo, GetLI, TLI);
   return DynCloneI.run();
 }
 

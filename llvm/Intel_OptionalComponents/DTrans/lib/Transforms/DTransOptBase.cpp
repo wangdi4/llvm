@@ -915,102 +915,25 @@ void DTransOptBase::removeDeadValues() {
   GlobalsForRemoval.clear();
 }
 
-void DTransOptBase::updateCallSizeOperand(Instruction *I,
-                                          dtrans::CallInfo *CInfo,
-                                          llvm::Type *OrigTy,
-                                          llvm::Type *ReplTy) {
-  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
-  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+void DTransOptBase::deleteCallInfo(dtrans::CallInfo *CInfo) {
+  Instruction *I = CInfo->getInstruction();
+  Function *F = I->getParent()->getParent();
+  auto &InfoVec = FunctionToCallInfoVec[F];
 
-  updateCallSizeOperand(I, CInfo, OrigSize, ReplSize);
+  auto It = std::find(InfoVec.begin(), InfoVec.end(), CInfo);
+  InfoVec.erase(It);
+  DTInfo.deleteCallInfo(I);
 }
 
-// This function performs the actual replacement for the size parameter
-// of a function call, by finding the original constant that is a
-// multiple of \p OrigSize, and replacing that value with a multiple
-// of \p ReplSize.
-void DTransOptBase::updateCallSizeOperand(Instruction *I,
-                                          dtrans::CallInfo *CInfo,
-                                          uint64_t OrigSize,
-                                          uint64_t ReplSize) {
-  // Find the User value that has a constant integer multiple of the original
-  // structure size as an operand.
-  bool Found = false;
-  SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
-  if (auto *AInfo = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
-    dtrans::AllocKind AK = AInfo->getAllocKind();
-    switch (AK) {
-    case dtrans::AK_NotAlloc:
-      llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
-    case dtrans::AK_UserMalloc0:
-      llvm_unreachable("AK_UserMalloc0 not yet supported!");
-    case dtrans::AK_New:
-    case dtrans::AK_Malloc:
-    case dtrans::AK_Realloc:
-    case dtrans::AK_Calloc:
-    case dtrans::AK_UserMalloc: {
-      unsigned SizeArgPos = 0;
-      unsigned CountArgPos = 0;
-      getAllocSizeArgs(AK, CallSite(I), SizeArgPos, CountArgPos, TLI);
-      if (AK == dtrans::AK_Calloc) {
-        Found =
-            findValueMultipleOfSizeInst(I, CountArgPos, OrigSize, SizeUseStack);
-        assert((Found || SizeUseStack.empty()) &&
-               "SizeUseStack not empty after failed value search!");
-        if (!Found)
-          Found = findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize,
-                                              SizeUseStack);
-      } else {
-        Found =
-            findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize, SizeUseStack);
-      }
-      break;
-    }
-    }
-  } else {
-    // This asserts because we only expect alloc info or memfunc info.
-    assert(isa<dtrans::MemfuncCallInfo>(CInfo) &&
-           "Expected either alloc or memfunc!");
-    // All memfunc calls have the size as operand 2.
-    Found = findValueMultipleOfSizeInst(I, 2, OrigSize, SizeUseStack);
-  }
+using namespace llvm;
+using namespace dtrans;
 
-  // The safety conditions should guarantee that we can find this constant.
-  assert(Found && "Constant multiple of size not found!");
-
-  replaceSizeValue(I, SizeUseStack, OrigSize, ReplSize);
-}
-
-void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
-                                                   llvm::Type *OrigTy,
-                                                   llvm::Type *ReplTy) {
-  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
-  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
-
-  updatePtrSubDivUserSizeOperand(Sub, OrigSize, ReplSize);
-}
-
-void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
-                                                   uint64_t OrigSize,
-                                                   uint64_t ReplSize) {
-  for (auto *U : Sub->users()) {
-    auto *BinOp = cast<BinaryOperator>(U);
-    assert((BinOp->getOpcode() == Instruction::SDiv ||
-            BinOp->getOpcode() == Instruction::UDiv) &&
-           "Unexpected user in updatePtrSubDivUserSizeOperand!");
-    // The sub instruction must be operand zero.
-    assert(BinOp->getOperand(0) == Sub &&
-           "Unexpected operand use for ptr sub!");
-    // Look for the size in operand 1.
-    SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
-    bool Found = findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack);
-    assert(Found && "Couldn't find size div for ptr sub!");
-    if (Found)
-      replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
-  }
-}
-
-void DTransOptBase::replaceSizeValue(
+// Given a stack of value-operand pairs representing the use-def chain from
+// a place where a size-multiple value is used, back to the instruction that
+// defines a multiplication by a constant multiple of the size, replace
+// the size constant and clone any intermediate values as needed based on
+// other uses of values in the chain.
+static void replaceSizeValue(
     Instruction *BaseI,
     SmallVectorImpl<std::pair<User *, unsigned>> &SizeUseStack,
     uint64_t OrigSize, uint64_t ReplSize) {
@@ -1074,6 +997,105 @@ void DTransOptBase::replaceSizeValue(
   LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
 }
 
+void llvm::dtrans::updateCallSizeOperand(llvm::Instruction *I,
+                                         llvm::dtrans::CallInfo *CInfo,
+                                         llvm::Type *OrigTy,
+                                         llvm::Type *ReplTy,
+                                         const llvm::TargetLibraryInfo &TLI) {
+  const DataLayout &DL = I->getModule()->getDataLayout();
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  updateCallSizeOperand(I, CInfo, OrigSize, ReplSize, TLI);
+}
+
+// This function performs the actual replacement for the size parameter
+// of a function call, by finding the original constant that is a
+// multiple of \p OrigSize, and replacing that value with a multiple
+// of \p ReplSize.
+void llvm::dtrans::updateCallSizeOperand(llvm::Instruction *I,
+                                         llvm::dtrans::CallInfo *CInfo,
+                                         uint64_t OrigSize,
+                                         uint64_t ReplSize,
+                                         const llvm::TargetLibraryInfo &TLI) {
+  // Find the User value that has a constant integer multiple of the original
+  // structure size as an operand.
+  bool Found = false;
+  SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+  if (auto *AInfo = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
+    dtrans::AllocKind AK = AInfo->getAllocKind();
+    switch (AK) {
+    case dtrans::AK_NotAlloc:
+      llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
+    case dtrans::AK_UserMalloc0:
+      llvm_unreachable("AK_UserMalloc0 not yet supported!");
+    case dtrans::AK_New:
+    case dtrans::AK_Malloc:
+    case dtrans::AK_Realloc:
+    case dtrans::AK_Calloc:
+    case dtrans::AK_UserMalloc: {
+      unsigned SizeArgPos = 0;
+      unsigned CountArgPos = 0;
+      getAllocSizeArgs(AK, CallSite(I), SizeArgPos, CountArgPos, TLI);
+      if (AK == dtrans::AK_Calloc) {
+        Found =
+            findValueMultipleOfSizeInst(I, CountArgPos, OrigSize, SizeUseStack);
+        assert((Found || SizeUseStack.empty()) &&
+               "SizeUseStack not empty after failed value search!");
+        if (!Found)
+          Found = findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize,
+                                              SizeUseStack);
+      } else {
+        Found =
+            findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize, SizeUseStack);
+      }
+      break;
+    }
+    }
+  } else {
+    // This asserts because we only expect alloc info or memfunc info.
+    assert(isa<dtrans::MemfuncCallInfo>(CInfo) &&
+           "Expected either alloc or memfunc!");
+    // All memfunc calls have the size as operand 2.
+    Found = findValueMultipleOfSizeInst(I, 2, OrigSize, SizeUseStack);
+  }
+
+  // The safety conditions should guarantee that we can find this constant.
+  assert(Found && "Constant multiple of size not found!");
+
+  replaceSizeValue(I, SizeUseStack, OrigSize, ReplSize);
+}
+
+void llvm::dtrans::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                  llvm::Type *OrigTy,
+                                                  llvm::Type *ReplTy,
+                                                  const DataLayout &DL) {
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  updatePtrSubDivUserSizeOperand(Sub, OrigSize, ReplSize);
+}
+
+void llvm::dtrans::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                  uint64_t OrigSize,
+                                                  uint64_t ReplSize) {
+  for (auto *U : Sub->users()) {
+    auto *BinOp = cast<BinaryOperator>(U);
+    assert((BinOp->getOpcode() == Instruction::SDiv ||
+            BinOp->getOpcode() == Instruction::UDiv) &&
+           "Unexpected user in updatePtrSubDivUserSizeOperand!");
+    // The sub instruction must be operand zero.
+    assert(BinOp->getOperand(0) == Sub &&
+           "Unexpected operand use for ptr sub!");
+    // Look for the size in operand 1.
+    SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+    bool Found = findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack);
+    assert(Found && "Couldn't find size div for ptr sub!");
+    if (Found)
+      replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
+  }
+}
+
 // This helper function searches, starting with \p U operand \p Idx and
 // following only multiply operations, for a User value with an operand that
 // is a constant integer and is an exact multiple of the specified size. If a
@@ -1082,7 +1104,7 @@ void DTransOptBase::replaceSizeValue(
 // found.
 //
 // The return value indicates whether or not a match was found.
-bool DTransOptBase::findValueMultipleOfSizeInst(
+bool llvm::dtrans::findValueMultipleOfSizeInst(
     User *U, unsigned Idx, uint64_t Size,
     SmallVectorImpl<std::pair<User *, unsigned>> &UseStack) {
   if (!U)
@@ -1133,14 +1155,4 @@ bool DTransOptBase::findValueMultipleOfSizeInst(
 
   // Otherwise, it's definitely not what we were looking for.
   return false;
-}
-
-void DTransOptBase::deleteCallInfo(dtrans::CallInfo *CInfo) {
-  Instruction *I = CInfo->getInstruction();
-  Function *F = I->getParent()->getParent();
-  auto &InfoVec = FunctionToCallInfoVec[F];
-
-  auto It = std::find(InfoVec.begin(), InfoVec.end(), CInfo);
-  InfoVec.erase(It);
-  DTInfo.deleteCallInfo(I);
 }
