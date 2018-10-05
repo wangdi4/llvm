@@ -126,6 +126,18 @@ For structurized phi conversion to work, the graph must have a form that the
 conversion can handle. There are three phases to structurized phi conversion:
 handling loops, creating pick trees for non-loops, and patching pick trees.
 
+We cannot properly generate picks using structurized phi conversion when the
+following kinds of graphs occur:
+
+1. Loops with multiple exiting blocks.
+2. Loops with exiting blocks in a different control-dependence region than the
+   loop header.
+3. Basic blocks whose pick conditions cannot be described with a single chain of
+   ``&&`` or ``||`` operators.
+
+We preemptively look for these cases and fallback to dynamic predication when
+such cases occur.
+
 Loop phi canonicalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -276,7 +288,119 @@ this scenario with a logical and instead:
 Dynamic predication
 -------------------
 
-To be written.
+The heart of dynamic predication is that every block is assigned a boolean
+predicate of whether or not it executes. For acyclic graphs, each block will
+have its predicate computed exactly once. This allows for the PHI nodes to
+decide which input of a PHI to pick without having to worry about having to
+filter out the pick computation logic when the block isn't executed. Thus the
+compiler's code is simpler and more readily correct.
+
+Cyclic graphs require more complex logic, as it means that children blocks may
+execute more frequently than their parents. Irreducible loops are not handled,
+but regular, reducible loops are. In these cases, the predicates for blocks
+inside the loop will be generated once for each iteration of the loop, in
+addition to when the loop itself is not executed.
+
+Block predicates are assigned in a reverse postorder traversal of the CFG. The
+initial predicate is a constant 1 gated on the input memory ordering edge. Edge
+predicates are assigned to blocks with branches using the predprop instruction.
+When a block has only one predecessor, its block predicate is identical to the
+edge predicate of its predecessor. Otherwise, block predicates are computed as a
+tree of predmerge instructions whose leaf values are the edge predicates of the
+incoming edges.
+
+When loops are involved, the predicates for the header and the exiting edges
+need to be different. The block predicate for a loop header is the logical or
+of the latch edge predicate with the loop preheader->header edge predicate, with
+an initial value of 0 being stored on the latch edge predicate. Predicates for
+exiting edges have an extra filter on them, controlled by the negation of the
+latch edge predicate. (If there is no preheader or single latch block, one is
+implicitly created by combining the incoming and latch edge predicates with
+predmerge operations to arrive at a single edge.)
+
+.. image:: DFConv-loop.png
+   :alt: A moderately complex CFG loop.
+
+In the above diagram, there are two exiting blocks to the loop, and the loop
+itself is conditionally exiting. If the edge S to E is taken, then the
+predicates for S to E and E to T will have a predicate of 1. As there is an
+initial value of 0 in the latch edge for the header, the block predicate for
+the header will consume the S to H predicate of 0, generate a 0, and pass the
+0 to all of the edges within a loop. This will leave a value of 0 in the
+logical or, awaiting the next S to H edge predicate. Since the generated value
+of the loop latch is 0, the results of the A and B exiting edges will not be
+ignored, allowing the predmerge operations of the T node to consume 0 values.
+
+Should the edge S to H be taken instead, then the H block will have a predicate
+of 1, allowing the loop to execute. Predicates will be generated for every edge
+in the loop, and then the latch edge is checked to see if another loop execution
+will be done. If that is the case, the edge predicates on exiting edges are
+suppressed, and the logical or that controls H's block predicate will result in
+a 1 without reading another entering edge value. When the loop's final
+execution is complete, the latch edge predicate will be 0. The loop header
+predicate will then wait for the next predicate for entering edges. Meanwhile,
+the edge predicates for exiting edges are no longer being filtered out, allowing
+these edge predicates to compute block predicates for the rest of the graph.
+
+The predicate logic for the above control flow graph is given here:
+
+.. code-block:: text
+
+   bb.0.S:
+     successors: %bb.1.E, %bb.2.H
+     %pred.S:ci1 = GATE1 %in_mem_ord:ci0, 1
+     %cmp.S:ci1 = ...
+     %pred.S_E:ci1, %pred.S_H:ci1 = PREDPROP %pred.S:ci1, %cmp.S:ci1
+     BT %cmp.S:ci1, %bb.2.H
+     BR %bb.1.E
+
+   bb.1.E:
+     successors: %bb.5.T
+     %pred.E:ci1 = MOV1 %pred.S_E:ci1
+     %pred.E_T:ci1 = MOV1 %pred.E:ci1
+     BR %bb.5.T
+
+   bb.2.H:
+     successors: %bb.3.A, %bb.4.B
+     %loop_continue:ci1 = MOV1 %pred.B_H:ci1
+     %loop_start:ci1 = MOV1 %pred.S_H:ci1
+     %loop_exited:ci1 = NOT1 %loop_continue:ci1
+     %latch_for_init:ci1 = MOV1 %loop_continue:ci1
+     %latch_for_init:ci1 = INIT1 0
+     %pred.H:ci1 = LOR1 %latch_for_init:ci1, %loop_start:ci1, 0, 0
+     %cmp.H:ci1 = ...
+     %pred.H_A:ci1, %pred.H_B:ci1 = PREDPROP %pred.H:ci1, %cmp.H:ci1
+     BT %cmp.H:ci1, %bb.4.B
+     BR %bb.3.A
+
+   bb.3.A:
+     successors: %bb.4.B, %bb.5.T
+     %pred.A:ci1 = MOV1 %pred.H_A:ci1
+     %cmp.A:ci1 = ...
+     %pred.A_B:ci1, %pred.inner.A_T:ci1 = PREDPROP %pred.A:ci1, %cmp.A:ci1
+     %pred.A_T:ci1 = FILTER1 %loop_exited:ci1, %pred.inner.A_T:ci1
+     BT %cmp.A:ci1, %bb.5.T
+     BR %bb.4.B
+
+   bb.4.B:
+     successors: %bb.2.H, %bb.5.T
+     %pred.B:ci1, %pick.B:ci1 = PREDMERGE %pred.H_B:ci1, %pred.A_B:ci1
+     %cmp.B:ci1 = ...
+     %pred.B_H:ci1, %pred.inner.B_T:ci1 = PREDPROP %pred.B:ci1, %cmp.B:ci1
+     %pred.B_T:ci1 = FILTER1 %loop_exited:ci1, %pred.inner.B_T:ci1
+     BT %cmp.B:ci1, %bb.5.T
+     BR %bb.2.H
+
+   bb.5.T:
+     %pred.T_0:ci1, %pick.T_0:ci1 = PREDMERGE %pred.E_T:ci1, %pred.B_T:ci1
+     %pred.T:ci1, %pick.T:ci1 = PREDMERGE %pred.T_0:ci1, %pred.A_T:ci1
+
+In this example, there is only a single loop latch, so the loop continuation
+predicate is simply that edge itself. If there were multiple latching blocks,
+then the computation of ``%loop_continue`` would be a predmerge tree of the
+relevant edge predicates. Similarly, since there is only one incoming edge to
+the loop header, the computation of ``%loop_start`` is that edge as opposed to
+a predmerge tree.
 
 Debugging
 =========

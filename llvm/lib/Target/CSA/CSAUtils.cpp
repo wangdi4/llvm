@@ -115,7 +115,8 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb, MachineBasicBlock::ite
 
   // Create a new element to combine some of the others.
   MachineInstrBuilder next =
-    BuildMI(*mbb, before, before->getDebugLoc(),
+    BuildMI(*mbb, before,
+            before == mbb->end() ? DebugLoc() : before->getDebugLoc(),
             TII->get(opcode), LMFI->allocateLIC(outTRC));
   next.setMIFlag(MachineInstr::NonSequential);
 

@@ -155,16 +155,20 @@ public:
 
     /// \brief Return true for a directive_region_entry/exit intrinsic.
     static bool isRegionDirective(Intrinsic::ID Id);
-    static bool isRegionDirective(Instruction *I);
+    static bool isRegionDirective(const Instruction *I, bool *IsEntry=nullptr);
 
     /// \brief If the instruction is a directive_region_entry/exit intrinsic,
     /// return its first OperandBundle's tagname. Otherwise, return an empty
     /// StringRef.
-    static StringRef getRegionDirectiveString(Instruction *I);
+    /// \param IsEntry is filled accorrding to whether the directive is entry
+    static StringRef getRegionDirectiveString(const Instruction *I,
+                                              bool *IsEntry = nullptr);
 
     /// \brief If getRegionDirectiveString(I) is an OpenMP directive name, then
     /// return its corresponding ID (enum). Otherwise, return -1.
-    static int getRegionDirectiveID(Instruction *I);
+    /// \param IsEntry is filled accorrding to whether the directive is entry
+    static int getRegionDirectiveID(const Instruction *I,
+                                    bool *IsEntry = nullptr);
 
     /// \brief Return true if the instruction is an intel_directive intrinsic
     /// or a directive_region_entry/exit intrinsic whose first OperandBundle's

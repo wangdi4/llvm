@@ -774,6 +774,7 @@ private:
   ///  specific privatization for OpenMP constructs.
   class CSAPrivatizer;
   class CSALoopPrivatizer;
+  class CSAExpLoopPrivatizer;
   class CSASectionsPrivatizer;
   friend CSAPrivatizer;
 

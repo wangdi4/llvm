@@ -43,6 +43,13 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
     } else {
       licGrouping.join(groupOperand, operand);
     }
+ };
+
+  auto joinVregs = [&](const MachineInstr &MI, ArrayRef<unsigned> OpIndexes) {
+    unsigned GroupOperand = UNMAPPED_REG;
+    for (unsigned Index : OpIndexes) {
+      joinWithGroup(getVregIndex(MI.getOperand(Index)), GroupOperand);
+    }
   };
 
   for (auto &BB : *thisMF) {
@@ -135,6 +142,12 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
         // result.
         licGrouping.join(getVregIndex(MI.getOperand(0)),
             getVregIndex(MI.getOperand(1)));
+      } else if (MI.getOpcode() == CSA::PREDPROP) {
+        // PREDPROP: merge the two edge outputs with the input block predicate
+        joinVregs(MI, {0, 1, 2});
+      } else if (MI.getOpcode() == CSA::PREDMERGE) {
+        // PREDMERGE: merge the two edge inputs with the output block predicate
+        joinVregs(MI, {0, 2, 3});
       } else {
         LLVM_DEBUG({
           errs() << "Multi-triggered-op: ";

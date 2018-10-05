@@ -36,6 +36,7 @@ namespace loopopt {
 
 class CanonExpr;
 class RegDDRef;
+class HLLoopParallelTraits;
 
 /// High level node representing a loop
 class HLLoop final : public HLDDNode {
@@ -114,6 +115,9 @@ private:
   bool DistributedForMemRec;
   // Associated !llvm.loop metadata.
   MDNode *LoopMetadata;
+
+  /// This loop's characteristics related to parallelism.
+  std::unique_ptr<HLLoopParallelTraits> ParTraits;
 
   uint64_t MaxTripCountEstimate;
   // This flag is set for stripmined loops so DD can override the Upper Bound to
@@ -969,6 +973,29 @@ public:
 
   // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);
+
+  void setParallelTraits(HLLoopParallelTraits *CT) {
+    assert(ParTraits == nullptr && "parallel traits already set");
+    ParTraits.reset(CT);
+  }
+};
+
+/// Loop information related to its parallel characteristics, such as
+/// OpenMP caluses (private variables, reductions, number of threads etc.).
+/// The source of this information can be incoming LLVM IR or
+/// HIRParVecAnalysis.
+/// TODO support other clauses - private variables, reductions,...
+class HLLoopParallelTraits {
+public:
+  HLLoopParallelTraits() : NumThreads(nullptr) {}
+  HLLoopParallelTraits(const HLLoopParallelTraits &O);
+
+  void setNumThreads(const RegDDRef *N) { NumThreads = N; }
+  const RegDDRef* getNumThreads() { return NumThreads; }
+
+private:
+  // Number of threads as found in the num_threads clause
+  const RegDDRef *NumThreads;
 };
 
 } // End namespace loopopt

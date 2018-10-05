@@ -32,6 +32,45 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 
 namespace llvm {
+
+/// A representation of the logic to convert PHI nodes to pick trees. This is a
+/// binary tree of nodes. Leaves correspond to an individual basic block, while
+/// interior nodes have a false and a true child, as well as a register that
+/// will indicate which node is to be picked.
+class PickTreeNode final {
+  PickTreeNode(const PickTreeNode &) = delete;
+
+  MachineBasicBlock *LeafKey;
+  std::unique_ptr<PickTreeNode> PickFalse;
+  std::unique_ptr<PickTreeNode> PickTrue;
+  unsigned PickReg;
+
+public:
+  /// Create a leaf node that is keyed off of the basic block.
+  explicit PickTreeNode(MachineBasicBlock *Key)
+    : LeafKey(Key), PickFalse(nullptr), PickTrue(nullptr), PickReg(0) {}
+
+  /// Create an interior node that takes ownership of the false and true
+  /// children.
+  PickTreeNode(std::unique_ptr<PickTreeNode> && FalseNode,
+      std::unique_ptr<PickTreeNode> && TrueNode, unsigned PickReg)
+    : LeafKey(nullptr), PickFalse(std::move(FalseNode)),
+    PickTrue(std::move(TrueNode)), PickReg(PickReg) {}
+
+  ~PickTreeNode() = default;
+
+  /// Returns true if this is a leaf node.
+  bool isLeafNode() const { return LeafKey != nullptr; }
+
+  /// Generate a pick tree for the given PHI node, returning the register that
+  /// will hold the result of the pick for this node. If UseOutput is true, this
+  /// output register is guaranteed to be the existing result of the PHI node,
+  /// otherwise, a new register may be created.
+  unsigned convertToPick(MachineInstr *Phi,
+      MachineBasicBlock::iterator InsertPoint, CSAMachineFunctionInfo &LMFI,
+      MachineRegisterInfo &MRI, const CSAInstrInfo &TII, bool UseOutput = true);
+};
+
 class CSACvtCFDFPass : public MachineFunctionPass {
 public:
   static char ID;
@@ -53,56 +92,21 @@ public:
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
-  void repeatOperandInLoop(MachineLoop *mloop, unsigned pickCtrlReg,
-                           unsigned backedgePred, bool pickCtrlInverted);
-  void repeatOperandInLoopUsePred(MachineLoop *mloop, MachineInstr *initInst,
-                                  unsigned backedgePred, unsigned exitPred);
   void replacePhiWithPICK();
-  void replaceLoopHdrPhi();
-  void replaceLoopHdrPhi(MachineLoop *L);
-  void replaceCanonicalLoopHdrPhi(MachineBasicBlock *lhdr);
-  void replaceCanonicalLoopHdrPhiPipelined(MachineBasicBlock *mbb,
-                                           unsigned numTokensSpecified = 1);
   MachineOperand *createUseTree(MachineBasicBlock *mbb,
                                 MachineBasicBlock::iterator before,
                                 unsigned opcode,
                                 const SmallVector<MachineOperand *, 4> vals,
                                 SmallVector<MachineInstr *, 4> *created = nullptr,
                                 unsigned unusedReg = CSA::IGN);
-  unsigned findLoopExitCondition(MachineLoop* mloop);
   unsigned generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
                            MachineBasicBlock *mbb, MachineInstr *MI = nullptr);
   unsigned generateOrSeq(SmallVectorImpl<unsigned> &orOpnds,
                          MachineBasicBlock *mbb, MachineInstr *ploc = nullptr);
-  void generateDynamicPickTreeForFooter(MachineBasicBlock *);
-  void generateDynamicPickTreeForHeader(MachineBasicBlock *);
   bool parentsLinearInCDG(MachineBasicBlock *mbb);
   bool needDynamicPreds();
   bool needDynamicPreds(MachineLoop *L);
   unsigned getInnerLoopPipeliningDegree(MachineLoop *L);
-  void generateDynamicPreds();
-  void generateDynamicPreds(MachineLoop *L);
-  unsigned getEdgePred(MachineBasicBlock *fromBB,
-                       ControlDependenceNode::EdgeType childType);
-  void setEdgePred(MachineBasicBlock *fromBB,
-                   ControlDependenceNode::EdgeType childType, unsigned ch);
-  unsigned getBBPred(MachineBasicBlock *inBB);
-  void setBBPred(MachineBasicBlock *inBB, unsigned ch);
-  MachineInstr *getOrInsertPredMerge(MachineBasicBlock *mbb, MachineInstr *loc,
-                                     unsigned e1, unsigned e2);
-  MachineInstr *InsertPredProp(MachineBasicBlock *mbb, unsigned bbPred = 0);
-  unsigned computeEdgePred(MachineBasicBlock *fromBB, MachineBasicBlock *toBB,
-                           std::list<MachineBasicBlock *> &path);
-  unsigned mergeIncomingEdgePreds(MachineBasicBlock *inBB,
-                                  std::list<MachineBasicBlock *> &path);
-  unsigned computeBBPred(MachineBasicBlock *inBB,
-                         std::list<MachineBasicBlock *> &path);
-  void CombineDuplicatePhiInputs(
-    SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values,
-    MachineInstr *iPhi);
-  void LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values,
-                 MachineInstr *MI);
-  bool CheckPhiInputBB(MachineBasicBlock *inBB, MachineBasicBlock *mbb);
   void assignLicForDF();
   void createFIEntryDefs();
   void removeBranch();
@@ -218,6 +222,7 @@ private:
 
   /// Assign Reg to PickFalseReg or PickTrueReg, and %ign to the other edge,
   /// based on whether or not the ctrlBB->inBB edge is the true or false edge.
+  ///
   /// If ctrlBB == inBB, use the direction of the control dependence from ctrlBB
   /// to phi's parent block.
   void assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickTrueReg,
@@ -242,11 +247,26 @@ private:
   /// This maps generated PICKs to the basic block whose switch they mirror.
   /// Structured phi conversion handles one PHI at a time, but that PHI may
   /// require multiple PICKs to be generated as a pick tree.
+  ///
   /// Since operands are traced one at a time, some of the PICKs in this map
   /// may have some of their inputs mapped to %IGN, as we have yet to trace the
   /// operands to join them.
   DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
+
+  /// Create picks for the header of the loop.
+  void generateLoopHeader(MachineLoop *L);
   /// @}
+
+  /// \defgroup Loop Headers
+  /// These functions set up the logic for loops. This includes the tasks of
+  /// converting MachineLoop to CSALoopInfo data and handling loop pipelining.
+  /// @{
+
+  /// Process all of the things we need to do for all the loops in the function.
+  void processLoops();
+
+  /// Process all of the things we need to do for a single loop.
+  void processLoop(MachineLoop *L);
 
   /// Given a dataflow loop, pipeline the loop using inner-loop pipelining
   /// that supports at most the given number of concurrent iterations.
@@ -257,7 +277,61 @@ private:
   /// switch information.
   void prefillLoopInfo(MachineLoop *Loop);
 
-private:
+  /// The map of MachineLoop to CSALoopInfo data for the current function.
+  DenseMap<MachineLoop *, CSALoopInfo> loopInfo;
+  /// @}
+
+  /// \defgroup Dynamic predication
+  /// These functions compute dynamic predication for the source code, which is
+  /// a technique that relies on the propagation of 1-bit block execution
+  /// predications through the entire CFG.
+  /// @{
+
+  /// Compute the predicate values for the function. This will fill in the
+  /// values for the block predicates, edge predicates, as well as the pick tree
+  /// information for generating picks.
+  void computeBlockPredicates();
+
+  /// Convert PHIs to PICK instructions using dynamic predication.
+  void generateDynamicPreds();
+
+  /// Get the edge predicate of the given outgoing edge of the basic block. If
+  /// the node has only one successor, this method will return the block
+  /// predicate instead.
+  unsigned getEdgePred(MachineBasicBlock *fromBB,
+                       ControlDependenceNode::EdgeType childType);
+
+  /// Set the edge predicate of the given outgoing edge of the basic block. This
+  /// method only works on nodes with two successors.
+  void setEdgePred(MachineBasicBlock *fromBB,
+                   ControlDependenceNode::EdgeType childType, unsigned ch);
+
+  /// Create and return a PREDPROP instruction in the basic block.
+  MachineInstr *InsertPredProp(MachineBasicBlock *mbb, unsigned bbPred);
+
+  /// Create a tree of PREDMERGE instructions. Returns the final PREDMERGE in
+  /// the tree and the final predicate output of the PREDMERGE tree.
+  ///
+  /// \param MBB         The block to insert the instructions in.
+  /// \param InsertPoint The insertion point for new instructions.
+  /// \param Blocks      The list of incoming edges to merge.
+  /// \param Predicates  The corresponding edge predicates for those blocks.
+  std::pair<std::unique_ptr<PickTreeNode>, unsigned> makePickTree(
+    MachineBasicBlock *MBB, MachineBasicBlock::iterator InsertPoint,
+    ArrayRef<MachineBasicBlock *> Blocks, ArrayRef<unsigned> Predicates);
+
+  /// This maps basic blocks to the pick tree for converting PHIs to PICKs.
+  DenseMap<MachineBasicBlock *, std::unique_ptr<PickTreeNode>> PredMergeTrees;
+
+  /// This maps basic blocks to the outgoing edge predicates for two-successor
+  /// basic blocks.
+  DenseMap<MachineBasicBlock *, std::pair<unsigned, unsigned>> EdgePredicates;
+
+  /// This maps basic blocks to their block predicates.
+  DenseMap<MachineBasicBlock *, unsigned> BlockPredicates;
+  /// @}
+
+  private:
   MachineFunction *thisMF;
   /// An iterator over basic blocks in RPO.
   ReversePostOrderTraversal<MachineFunction *> *RPOT;
@@ -269,18 +343,9 @@ private:
   MachinePostDominatorTree *PDT;
   ControlDependenceGraph *CDG;
   MachineLoopInfo *MLI;
-  AliasAnalysis *AA;
-  AliasSetTracker *AS;
-  MachineBasicBlock *entryBB;
-  DenseMap<MachineBasicBlock *, unsigned> bb2predcpy;
   DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *>
     bb2pick; // switch for Reg added in bb
-  DenseMap<MachineBasicBlock *, SmallVectorImpl<unsigned> *> edgepreds;
-  DenseMap<MachineBasicBlock *, unsigned> bbpreds;
-  DenseMap<MachineBasicBlock *, MachineInstr *> bb2predmerge;
   DenseMap<MachineBasicBlock *, unsigned> bb2rpo;
-  DenseMap<MachineLoop *, CSALoopInfo> loopInfo;
-  std::set<MachineBasicBlock *> dcgBBs;
 
   /// Assign a name to the LIC.
   /// The generated name will be a concatenation of the 5 pieces in order of

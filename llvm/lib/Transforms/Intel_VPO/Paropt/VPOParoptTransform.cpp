@@ -82,6 +82,12 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform"
 
+// TODO FIXME remove this after full implementation of HIR-based loop
+// transformation for CSA
+cl::opt<bool> UseOmpRegionsInLoopopt(
+  "loopopt-use-omp-region", cl::init(false), cl::ReallyHidden,
+  cl::desc("; TEMPORARY"));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -492,16 +498,21 @@ bool VPOParoptTransform::paroptTransforms() {
 
           AllocaInst *IsLastVal = nullptr;
           BasicBlock *IfLastIterBB = nullptr;
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
+            RemoveDirectives = true;
+
             if (W->getIsParSections())
               Changed |= genCSASections(W);
-            else if (W->getIsParLoop())
-              Changed |= genCSALoop(W);
-            else
+            else if (W->getIsParLoop()) {
+              if (UseOmpRegionsInLoopopt)
+                RemoveDirectives = false;
+              else
+                Changed |= genCSALoop(W);
+            } else
               llvm_unreachable("Unexpected work region kind");
-            RemoveDirectives = true;
             break;
           }
 #endif  // INTEL_FEATURE_CSA

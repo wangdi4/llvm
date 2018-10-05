@@ -138,6 +138,9 @@ FunctionPass *createHIRLastValueComputationPass();
 
 /// Create pass that propagate casted IV for memory references.
 FunctionPass *createHIRPropagateCastedIVPass();
+
+/// Creates a pass that recognizes loops marked with OpenMP region intrinsics
+FunctionPass *createHIRRecognizeOmpLoopPass();
 }
 
 #endif

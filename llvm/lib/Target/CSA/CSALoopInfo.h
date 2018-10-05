@@ -64,8 +64,8 @@ public:
   }
 
   /// Get the set of the header picks.
-  instr_iterator_range getHeaderPicks() const {
-    return instr_iterator_range(Picks);
+  ArrayRef<MachineInstr *> getHeaderPicks() const {
+    return ArrayRef<MachineInstr *>(Picks);
   }
 
   /// Get the set of switches for the exiting block referred to by ExitNum..

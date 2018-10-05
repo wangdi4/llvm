@@ -38,7 +38,7 @@ using namespace llvm;
 #define PASS_NAME "CSA: Inline Assembly Expansion"
 
 static cl::opt<bool> EnableExpandInlineAsm(
-  "csa-expand-asm", cl::Hidden,
+  "csa-expand-inline-asm", cl::Hidden,
   cl::desc("CSA Specific: Parse and expand inline assembly into MachineInstrs"),
   cl::init(true));
 

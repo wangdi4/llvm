@@ -742,3 +742,37 @@ const DebugLoc HLInst::getDebugLoc() const {
 
   return Inst->getDebugLoc();
 }
+
+int OMPRegionProxy::getOmpRegionEntryDir(const HLInst *I) {
+  bool IsEntry = false;
+  const Instruction *LI = I->getLLVMInstruction();
+  int Res = vpo::VPOAnalysisUtils::getRegionDirectiveID(LI, &IsEntry);
+  return IsEntry ? Res : -1;
+}
+
+int OMPRegionProxy::getOmpRegionExitDir(const HLInst *Exit, const HLInst *Entry) {
+#ifndef NDEBUG
+  int RegEntryDir = Entry ? getOmpRegionEntryDir(Entry) : -1;
+#endif // NDEBUG
+  assert((!Entry || (RegEntryDir >= 0)) && "must be region entry");
+  const Instruction *LI = Exit->getLLVMInstruction();
+  bool IsEntry = false;
+  int RegExitDir = vpo::VPOAnalysisUtils::getRegionDirectiveID(LI, &IsEntry);
+
+  if (RegExitDir < 0 || IsEntry)
+    return -1;
+  if (!Entry)
+    return RegExitDir;
+  // Entry is not NULL - additionally check it matches the exit:
+  if (!DDRefUtils::areEqual(Entry->getLvalDDRef(),
+                            *Exit->rval_op_ddref_begin()))
+    return -1;
+  assert(RegExitDir == vpo::VPOAnalysisUtils::getMatchingEndDirective(
+    RegEntryDir) && "OMP region entry/exit mismatch");
+  return RegExitDir;
+}
+
+int OMPRegionProxy::getOmpClauseID(unsigned I) const {
+  const OperandBundleUse &OBU = Impl->getOperandBundleAt(I+1);
+  return vpo::VPOAnalysisUtils::getClauseID(OBU.getTagName());
+}
