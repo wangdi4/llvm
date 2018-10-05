@@ -22,6 +22,43 @@
 using namespace clang;
 using namespace CodeGen;
 
+class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
+  CodeGenFunction::OMPPrivateScope Remaps;
+public:
+  OMPLateOutlineLexicalScope(
+      CodeGenFunction &CGF, const OMPExecutableDirective &S,
+      OpenMPDirectiveKind CapturedRegion = OMPD_unknown)
+      : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()), Remaps(CGF) {
+
+    for (const auto *C : S.clauses()) {
+      if (const auto *CPI = OMPClauseWithPreInit::get(C)) {
+        if (const auto *PreInit =
+                cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
+          for (const auto *I : PreInit->decls()) {
+            if (!I->hasAttr<OMPCaptureNoInitAttr>()) {
+              CGF.EmitVarDecl(cast<VarDecl>(*I));
+            } else {
+              CodeGenFunction::AutoVarEmission Emission =
+                  CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
+              CGF.EmitAutoVarCleanups(Emission);
+            }
+          }
+        }
+      }
+    }
+
+    CGF.RemapForLateOutlining(S, Remaps);
+    (void)Remaps.Privatize();
+  }
+
+  static bool isCapturedVar(CodeGenFunction &CGF, const VarDecl *VD) {
+    return CGF.LambdaCaptureFields.lookup(VD) ||
+           (CGF.CapturedStmtInfo && CGF.CapturedStmtInfo->lookup(VD)) ||
+           (CGF.CurCodeDecl && isa<BlockDecl>(CGF.CurCodeDecl));
+  }
+
+};
+
 namespace CGIntelOpenMP {
 
 enum OMPAtomicClause {
@@ -76,14 +113,15 @@ class OpenMPCodeOutliner {
 
   const OMPExecutableDirective &Directive;
 
-  ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E);
-  Address emitOMPArraySectionExpr(const OMPArraySectionExpr *E,
-                                  ArraySectionTy &AS);
+  const Expr *getArraySectionBase(const Expr *E, ArraySectionTy *AS);
+  ArraySectionDataTy emitArraySectionData(const Expr *E);
+  Address emitOMPArraySectionExpr(const Expr *E, ArraySectionTy *AS);
 
   void addArg(llvm::Value *Val);
   void addArg(StringRef Str);
   void addArg(const Expr *E);
 
+  void addFenceCalls(bool IsBegin);
   void getLegalDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
   void startDirectiveIntrinsicSet(StringRef B, StringRef E,
                                   OpenMPDirectiveKind K = OMPD_unknown);
@@ -143,6 +181,7 @@ class OpenMPCodeOutliner {
   void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *);
   void emitOMPTaskReductionClause(const OMPTaskReductionClause *);
   void emitOMPInReductionClause(const OMPInReductionClause *);
+  void emitOMPUnifiedAddressClause(const OMPUnifiedAddressClause *);
 
   llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitIntelOpenMPDestructor(QualType Ty);
@@ -174,6 +213,7 @@ class OpenMPCodeOutliner {
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
+  llvm::Value *ThisPointerValue = nullptr;
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D);
@@ -215,6 +255,10 @@ public:
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void setThisPointerValue(llvm::Value *ThisValue) {
+    ThisPointerValue = ThisValue;
+  }
+  llvm::Value *getThisPointerValue() { return ThisPointerValue; }
   void addExplicit(const Expr *E);
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
   void setOutsideInsertPoint() {
@@ -251,6 +295,9 @@ public:
   }
   void recordVariableReference(const VarDecl *VD) {
     Outliner.addVariableRef(VD);
+  }
+  void recordThisPointerReference(llvm::Value *ThisValue) {
+    Outliner.setThisPointerValue(ThisValue);
   }
 
 private:

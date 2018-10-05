@@ -2,8 +2,10 @@
 //          fails.  To work around that, disable xmain-specific inlining logic.
 // INTEL -- loopopt significantly changes the pass pipeline and makes the test
 //          fail so we disable it.
+// INTEL -- Our jump threading customizations can cause the unroll routine to be optimized as if loop
+//          unrolling had been done, so we disable them also.
 // RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
+// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -jump-thread-loop-header=false -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 // Checks if hot call is inlined by normal compile, but not inlined by
 // thinlto compile.
 

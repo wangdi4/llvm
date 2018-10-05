@@ -1393,17 +1393,14 @@ static void addBlockPointerConversion(Sema &S,
   Class->addDecl(Conversion);
 }
 
-static ExprResult performLambdaVarCaptureInitialization(Sema &S,
-                                                        const Capture &Capture,
-#if INTEL_CUSTOMIZATION
-                                                        FieldDecl *Field,
-  // Fix for CQ374573: Source correlation for lambda captured values.
-  bool ImplicitCapture, SourceLocation CaptureDefaultLoc) {
-#endif // INTEL_CUSTOMIZATION
+static ExprResult performLambdaVarCaptureInitialization(
+    Sema &S, const Capture &Capture, FieldDecl *Field,
+    SourceLocation ImplicitCaptureLoc, bool IsImplicitCapture) {
   assert(Capture.isVariableCapture() && "not a variable capture");
 
   auto *Var = Capture.getVariable();
-  SourceLocation Loc = Capture.getLocation();
+  SourceLocation Loc =
+      IsImplicitCapture ? ImplicitCaptureLoc : Capture.getLocation();
 
   // C++11 [expr.prim.lambda]p21:
   //   When the lambda-expression is evaluated, the entities that
@@ -1422,8 +1419,8 @@ static ExprResult performLambdaVarCaptureInitialization(Sema &S,
   ExprResult RefResult = S.BuildDeclarationNameExpr(
       CXXScopeSpec(),
       DeclarationNameInfo(Var->getDeclName(),
-                          (ImplicitCapture && S.getLangOpts().IntelCompat)
-                              ? CaptureDefaultLoc
+                          (IsImplicitCapture && S.getLangOpts().IntelCompat)
+                              ? ImplicitCaptureLoc
                               : Loc),
       Var);
 #else
@@ -1623,12 +1620,8 @@ ExprResult Sema::BuildLambdaExpr(SourceLocation StartLoc, SourceLocation EndLoc,
                                        Var, From.getEllipsisLoc()));
       Expr *Init = From.getInitExpr();
       if (!Init) {
-#if INTEL_CUSTOMIZATION
-        // Fix for CQ374573: Source correlation for lambda captured values.
-        auto InitResult =
-            performLambdaVarCaptureInitialization(*this, From, *CurField,
-            CaptureDefault != LCD_None, CaptureDefaultLoc);
-#endif // INTEL_CUSTOMIZATION
+        auto InitResult = performLambdaVarCaptureInitialization(
+            *this, From, *CurField, CaptureDefaultLoc, IsImplicit);
         if (InitResult.isInvalid())
           return ExprError();
         Init = InitResult.get();

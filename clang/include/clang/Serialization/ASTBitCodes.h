@@ -1525,6 +1525,9 @@ namespace serialization {
       /// An OMPThreadPrivateDecl record.
       DECL_OMP_THREADPRIVATE,
 
+      /// An OMPRequiresDecl record.
+      DECL_OMP_REQUIRES,
+	 
       /// An EmptyDecl record.
       DECL_EMPTY,
 

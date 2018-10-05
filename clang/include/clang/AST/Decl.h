@@ -615,10 +615,6 @@ public:
     return SourceRange(LocStart, RBraceLoc);
   }
 
-  LLVM_ATTRIBUTE_DEPRECATED(SourceLocation getLocStart() const LLVM_READONLY,
-                            "Use getBeginLoc instead") {
-    return getBeginLoc();
-  }
   SourceLocation getBeginLoc() const LLVM_READONLY { return LocStart; }
   SourceLocation getRBraceLoc() const { return RBraceLoc; }
   void setLocStart(SourceLocation L) { LocStart = L; }
@@ -740,10 +736,6 @@ public:
 
   SourceRange getSourceRange() const override LLVM_READONLY;
 
-  LLVM_ATTRIBUTE_DEPRECATED(SourceLocation getLocStart() const LLVM_READONLY,
-                            "Use getBeginLoc instead") {
-    return getBeginLoc();
-  }
   SourceLocation getBeginLoc() const LLVM_READONLY {
     return getOuterLocStart();
   }
@@ -2278,8 +2270,7 @@ public:
   unsigned getMinRequiredArguments() const;
 
   QualType getReturnType() const {
-    assert(getType()->getAs<FunctionType>() && "Expected a FunctionType!");
-    return getType()->getAs<FunctionType>()->getReturnType();
+    return getType()->castAs<FunctionType>()->getReturnType();
   }
 
   /// Attempt to compute an informative source range covering the
@@ -2287,14 +2278,22 @@ public:
   /// limited representation in the AST.
   SourceRange getReturnTypeSourceRange() const;
 
+  /// Get the declared return type, which may differ from the actual return
+  /// type if the return type is deduced.
+  QualType getDeclaredReturnType() const {
+    auto *TSI = getTypeSourceInfo();
+    QualType T = TSI ? TSI->getType() : getType();
+    return T->castAs<FunctionType>()->getReturnType();
+  }
+
   /// Attempt to compute an informative source range covering the
   /// function exception specification, if any.
   SourceRange getExceptionSpecSourceRange() const;
 
   /// Determine the type of an expression that calls this function.
   QualType getCallResultType() const {
-    assert(getType()->getAs<FunctionType>() && "Expected a FunctionType!");
-    return getType()->getAs<FunctionType>()->getCallResultType(getASTContext());
+    return getType()->castAs<FunctionType>()->getCallResultType(
+        getASTContext());
   }
 
   /// Returns the WarnUnusedResultAttr that is either declared on this
@@ -2877,10 +2876,6 @@ public:
   const Type *getTypeForDecl() const { return TypeForDecl; }
   void setTypeForDecl(const Type *TD) { TypeForDecl = TD; }
 
-  LLVM_ATTRIBUTE_DEPRECATED(SourceLocation getLocStart() const LLVM_READONLY,
-                            "Use getBeginLoc instead") {
-    return getBeginLoc();
-  }
   SourceLocation getBeginLoc() const LLVM_READONLY { return LocStart; }
   void setLocStart(SourceLocation L) { LocStart = L; }
   SourceRange getSourceRange() const override LLVM_READONLY {
@@ -4208,10 +4203,6 @@ public:
   SourceLocation getRBraceLoc() const { return RBraceLoc; }
   void setRBraceLoc(SourceLocation L) { RBraceLoc = L; }
 
-  LLVM_ATTRIBUTE_DEPRECATED(SourceLocation getLocEnd() const LLVM_READONLY,
-                            "Use getEndLoc instead") {
-    return getEndLoc();
-  }
   SourceLocation getEndLoc() const LLVM_READONLY {
     if (RBraceLoc.isValid())
       return RBraceLoc;

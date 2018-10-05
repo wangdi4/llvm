@@ -20,5 +20,5 @@ __kernel void foo() {
 // expected-warning@-10 {{unknown attribute 'max_global_work_dim' ignored}}
 // expected-warning@-10 {{unknown attribute 'num_compute_units' ignored}}
 // expected-warning@-10 {{unknown attribute 'autorun' ignored}}
-// expected-warning@-9 {{implicit declaration of function 'get_compute_id' is invalid in OpenCL}}
+// expected-error@-9 {{implicit declaration of function 'get_compute_id' is invalid in OpenCL}}
 #endif

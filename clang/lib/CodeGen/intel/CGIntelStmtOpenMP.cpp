@@ -267,22 +267,50 @@ llvm::Value *OpenMPCodeOutliner::emitIntelOpenMPCopyAssign(QualType Ty,
 }
 
 namespace CGIntelOpenMP {
-  /*--- Process array section expression ---*/
-  /// Emit an address of the base of OMPArraySectionExpr and fills data for
-  /// array sections.
+  /// Returns the base expression for an array section or an array subscript
+  /// used where an array section is expected.  Optionally (if AS is not
+  /// a nullptr) fills in the array section data for each dimension.
+  const Expr *OpenMPCodeOutliner::getArraySectionBase(const Expr *E,
+                                                      ArraySectionTy *AS) {
+    const Expr *Base = E->IgnoreParenImpCasts();
+    while (const auto *TempOASE = dyn_cast<OMPArraySectionExpr>(Base)) {
+      if (AS)
+        AS->insert(AS->begin(), emitArraySectionData(Base));
+      Base = TempOASE->getBase()->IgnoreParenImpCasts();
+    }
+    while (const auto *TempASE = dyn_cast<ArraySubscriptExpr>(Base)) {
+      if (AS)
+        AS->insert(AS->begin(), emitArraySectionData(Base));
+      Base = TempASE->getBase()->IgnoreParenImpCasts();
+    }
+    return Base;
+  }
+
   OpenMPCodeOutliner::ArraySectionDataTy
-  OpenMPCodeOutliner::emitArraySectionData(const OMPArraySectionExpr *E) {
+  OpenMPCodeOutliner::emitArraySectionData(const Expr *E) {
     ArraySectionDataTy Data;
     auto &C = CGF.getContext();
-    if (auto *LowerBound = E->getLowerBound()) {
+
+    if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E)) {
+      auto *Index = ASE->getIdx();
+      Data.LowerBound = CGF.EmitScalarConversion(
+          CGF.EmitScalarExpr(Index), Index->getType(),
+          C.getSizeType(), Index->getExprLoc());
+      Data.Length = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
+      Data.Stride = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
+      return Data;
+    }
+
+    auto *OASE = cast<OMPArraySectionExpr>(E);
+    if (auto *LowerBound = OASE->getLowerBound()) {
       Data.LowerBound = CGF.EmitScalarConversion(
           CGF.EmitScalarExpr(LowerBound), LowerBound->getType(),
           C.getSizeType(), LowerBound->getExprLoc());
     } else
       Data.LowerBound = llvm::ConstantInt::getNullValue(CGF.SizeTy);
     QualType BaseTy = OMPArraySectionExpr::getBaseOriginalType(
-        E->getBase()->IgnoreParenImpCasts());
-    if (auto *Length = E->getLength()) {
+        OASE->getBase()->IgnoreParenImpCasts());
+    if (auto *Length = OASE->getLength()) {
       Data.Length = CGF.EmitScalarConversion(CGF.EmitScalarExpr(Length),
                                              Length->getType(), C.getSizeType(),
                                              Length->getExprLoc());
@@ -310,20 +338,17 @@ namespace CGIntelOpenMP {
     Data.Stride = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
     return Data;
   }
-  Address OpenMPCodeOutliner::emitOMPArraySectionExpr(
-                                  const OMPArraySectionExpr *E,
-                                  ArraySectionTy &AS) {
-    const Expr *Base = E->getBase()->IgnoreParenImpCasts();
-    AS.push_back(emitArraySectionData(E));
-    while (auto *ASE = dyn_cast<OMPArraySectionExpr>(Base)) {
-      E = ASE;
-      Base = E->getBase()->IgnoreParenImpCasts();
-      AS.insert(AS.begin(), emitArraySectionData(E));
-    }
+
+  /// Emit an address of the base of OMPArraySectionExpr and fills data for
+  /// array sections.
+  Address
+  OpenMPCodeOutliner::emitOMPArraySectionExpr(const Expr *E,
+                                              ArraySectionTy *AS) {
+    const Expr *Base = getArraySectionBase(E, AS);
     QualType BaseTy = Base->getType();
     Address BaseAddr = CGF.EmitLValue(Base).getAddress();
     if (BaseTy->isVariablyModifiedType()) {
-      for (unsigned I = 0, E = AS.size(); I < E; ++I) {
+      for (auto &ASD : *AS) {
         if (const ArrayType *AT = BaseTy->getAsArrayTypeUnsafe()) {
           BaseTy = AT->getElementType();
           llvm::Value *Size = nullptr;
@@ -336,17 +361,16 @@ namespace CGIntelOpenMP {
             Size = llvm::ConstantInt::get(CGF.SizeTy, CAT->getSize());
           else
             Size = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
-          AS[I].VLASize = Size;
+          ASD.VLASize = Size;
         } else {
           assert((BaseTy->isPointerType()));
           BaseTy = BaseTy->getPointeeType();
-          AS[I].VLASize = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+          ASD.VLASize = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
         }
       }
     }
     return BaseAddr;
   }
-  /*--- Process array section expression ---*/
 
   void OpenMPCodeOutliner::addArg(llvm::Value *Val) {
     BundleValues.push_back(Val);
@@ -359,21 +383,12 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::addArg(const Expr *E) {
     auto SavedIP = CGF.Builder.saveIP();
     setOutsideInsertPoint();
-    if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       ArraySectionTy AS;
-      Address Base = emitOMPArraySectionExpr(
-          cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts()), AS);
+      Address Base = emitOMPArraySectionExpr(E, &AS);
       addArg(Base.getPointer());
       addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
-      // If VLASize of the first element is not nullptr, we have sizes for all
-      // dimensions of variably modified type.
-      if (0 && AS.begin()->VLASize) {
-        addArg("QUAL.OPND.ARRSIZE");
-        for (auto &V : AS) {
-          assert(V.VLASize);
-          addArg(V.VLASize);
-        }
-      }
       for (auto &V : AS) {
         assert(V.LowerBound);
         addArg(V.LowerBound);
@@ -495,18 +510,20 @@ namespace CGIntelOpenMP {
     if (K == ICK_unknown)
       return;
 
-    // We don't want this DeclRefExpr to generate entries in the Def/Ref lists,
-    // so temporarily save and null the CapturedStmtInfo.
-    auto savedCSI = CGF.CapturedStmtInfo;
-    CGF.CapturedStmtInfo = nullptr;
+    if (!OMPLateOutlineLexicalScope::isCapturedVar(CGF, VD)) {
+      // We don't want this DeclRefExpr to generate entries in the Def/Ref
+      // lists, so temporarily save and null the CapturedStmtInfo.
+      auto savedCSI = CGF.CapturedStmtInfo;
+      CGF.CapturedStmtInfo = nullptr;
 
-    DeclRefExpr DRE(const_cast<VarDecl *>(VD),
-                    /*RefersToEnclosingVariableOrCapture=*/false,
-                    VD->getType().getNonReferenceType(), VK_LValue,
-                    SourceLocation());
-    emitImplicit(&DRE, K);
+      DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+                      /*RefersToEnclosingVariableOrCapture=*/false,
+                      VD->getType().getNonReferenceType(), VK_LValue,
+                      SourceLocation());
+      emitImplicit(&DRE, K);
 
-    CGF.CapturedStmtInfo = savedCSI;
+      CGF.CapturedStmtInfo = savedCSI;
+    }
   }
 
   bool OpenMPCodeOutliner::isUnspecifiedImplicit(const VarDecl *V) {
@@ -532,6 +549,14 @@ namespace CGIntelOpenMP {
     // Add clause for implicit use of the 'this' pointer.
     if (Directive.hasAssociatedStmt() &&
         isAllowedClauseForDirective(DKind, OMPC_shared)) {
+      // Catch the use of the this pointer for a captured lambda field.
+      if (llvm::Value *TPV = getThisPointerValue()) {
+          CurrentClauseKind = OMPC_shared;
+          addArg("QUAL.OMP.SHARED");
+          addArg(TPV);
+          emitListClause();
+          CurrentClauseKind = OMPC_unknown;
+      }
       if (const Stmt *AS = Directive.getAssociatedStmt()) {
         auto CS = cast<CapturedStmt>(AS);
         for (auto &C : CS->captures()) {
@@ -594,27 +619,30 @@ namespace CGIntelOpenMP {
   }
 
   void OpenMPCodeOutliner::addExplicit(const Expr *E) {
-    if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
-      auto AE = cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts());
-      const Expr *Base = AE->getBase()->IgnoreParenImpCasts();
-      while (auto *ASE = dyn_cast<OMPArraySectionExpr>(Base)) {
-        AE = ASE;
-        Base = AE->getBase()->IgnoreParenImpCasts();
-      }
-      E = Base;
-    }
-    auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-    addExplicit(PVD);
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      E = getArraySectionBase(E, /*AS=*/nullptr);
+    addExplicit(cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl()));
   }
 
   void OpenMPCodeOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
-    addArg("QUAL.OMP.SHARED");
     for (auto *E : Cl->varlists()) {
+      // Shared fields (or fields generated for lambda captures) are not
+      // emitted since they are correctly handled through the shared this
+      // pointer.
+      if (const auto *ME = dyn_cast<MemberExpr>(E)) {
+        if (isa<CXXThisExpr>(ME->getBase()))
+          continue;
+      } else if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+        if (DRE->refersToEnclosingVariableOrCapture())
+          continue;
+      }
+      addArg("QUAL.OMP.SHARED");
       auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
       addExplicit(PVD);
       addArg(E);
+      emitListClause();
     }
-    emitListClause();
   }
 
   void OpenMPCodeOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
@@ -773,7 +801,8 @@ namespace CGIntelOpenMP {
         }
         break;
       }
-      if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+          E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
         Op += ":ARRSECT";
       addArg(Op);
       addArg(E);
@@ -1262,6 +1291,29 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
+  void OpenMPCodeOutliner::emitOMPUnifiedAddressClause(
+      const OMPUnifiedAddressClause *) {}
+
+  void OpenMPCodeOutliner::addFenceCalls(bool IsBegin) {
+    switch (Directive.getDirectiveKind()) {
+    case OMPD_atomic:
+    case OMPD_critical:
+    case OMPD_single:
+    case OMPD_master:
+      if (IsBegin)
+        CGF.Builder.CreateFence(llvm::AtomicOrdering::Acquire);
+      else
+       CGF.Builder.CreateFence(llvm::AtomicOrdering::Release);
+      break;
+    case OMPD_barrier:
+    case OMPD_taskwait:
+      if (IsBegin)
+       CGF.Builder.CreateFence(llvm::AtomicOrdering::AcquireRelease);
+      break;
+    default:
+      break;
+    }
+  }
 
   OpenMPCodeOutliner::OpenMPCodeOutliner(CodeGenFunction &CGF,
                                          const OMPExecutableDirective &D)
@@ -1306,6 +1358,7 @@ namespace CGIntelOpenMP {
         ImplicitMap.insert(std::make_pair(LBDecl, ICK_firstprivate));
       }
     }
+    addFenceCalls(/*IsBegin=*/true);
   }
 
   void OpenMPCodeOutliner::emitMultipleDirectives(DirectiveIntrinsicSet &D) {
@@ -1338,6 +1391,9 @@ namespace CGIntelOpenMP {
   }
 
   OpenMPCodeOutliner::~OpenMPCodeOutliner() {
+
+    addFenceCalls(/*IsBegin=*/false);
+
     addImplicitClauses();
 
     // Insert the start directives
@@ -1581,30 +1637,7 @@ namespace CGIntelOpenMP {
   void CGOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) {
     if (!CGF.HaveInsertPoint())
       return;
-    CodeGenFunction::OMPPrivateScope PrivScope(CGF);
     auto *CS = cast<CapturedStmt>(S);
-    // Make sure the globals captured in the provided statement are local by
-    // using the privatization logic. We assume the same variable is not
-    // captured more than once.
-    for (auto &C : CS->captures()) {
-      if (!C.capturesVariable() && !C.capturesVariableByCopy())
-        continue;
-
-      const VarDecl *VD = C.getCapturedVar();
-      if (VD->isLocalVarDeclOrParm())
-        continue;
-
-      DeclRefExpr DRE(const_cast<VarDecl *>(VD),
-                      /*RefersToEnclosingVariableOrCapture=*/false,
-                      VD->getType().getNonReferenceType(), VK_LValue,
-                      SourceLocation());
-      PrivScope.addPrivate(VD, [&CGF, &DRE]() -> Address {
-        return CGF.EmitLValue(&DRE).getAddress();
-      });
-    }
-    // 'private' clause must be handled separately.
-    CGF.RemapInlinedPrivates(D, PrivScope);
-    (void)PrivScope.Privatize();
     CGF.EmitStmt(CS->getCapturedStmt());
   }
 
@@ -1638,27 +1671,9 @@ namespace CGIntelOpenMP {
 
 } // namespace
 
-static
-void emitPreInitStmt(CodeGenFunction &CGF, const OMPExecutableDirective &S) {
-  for (const auto *C : S.clauses()) {
-    if (auto *CPI = OMPClauseWithPreInit::get(C)) {
-      if (auto *PreInit = cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
-        for (const auto *I : PreInit->decls()) {
-          if (!I->hasAttr<OMPCaptureNoInitAttr>())
-            CGF.EmitVarDecl(cast<VarDecl>(*I));
-          else {
-            CodeGenFunction::AutoVarEmission Emission =
-                CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
-            CGF.EmitAutoVarCleanups(Emission);
-          }
-        }
-      }
-    }
-  }
-}
-
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
+  OMPLateOutlineLexicalScope Scope(*this, S);
   OpenMPCodeOutliner Outliner(*this, S);
 
   // We don't want to emit private clauses for counters in regular loops.
@@ -1671,7 +1686,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   }
   auto SavedIP = Builder.saveIP();
   Outliner.setOutsideInsertPoint();
-  emitPreInitStmt(*this, S);
   Builder.restoreIP(SavedIP);
 
   // Some constructs have an extra captured OMPD_task pushed which causes
@@ -1786,6 +1800,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_distribute_parallel_for:
   case OMPD_distribute_parallel_for_simd:
   case OMPD_distribute_simd:
+  case OMPD_requires:
     break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:

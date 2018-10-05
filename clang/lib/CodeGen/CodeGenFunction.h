@@ -393,6 +393,7 @@ public:
 #if INTEL_CUSTOMIZATION
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
+    virtual void recordThisPointerReference(llvm::Value *) {}
 #endif // INTEL_CUSTOMIZATION
   private:
     /// The kind of captured statement being generated.
@@ -873,7 +874,7 @@ public:
     /// function \p CGF.
     /// \return true if at least one variable was set already, false otherwise.
     bool setVarAddr(CodeGenFunction &CGF, const VarDecl *LocalVD,
-                    Address TempAddr) {
+                    Address TempAddr, bool NoTemps = false) { // INTEL
       LocalVD = LocalVD->getCanonicalDecl();
       // Only save it once.
       if (SavedLocals.count(LocalVD)) return false;
@@ -887,7 +888,7 @@ public:
 
       // Generate the private entry.
       QualType VarTy = LocalVD->getType();
-      if (VarTy->isReferenceType()) {
+      if (!NoTemps && VarTy->isReferenceType()) { // INTEL
         Address Temp = CGF.CreateMemTemp(VarTy);
         CGF.Builder.CreateStore(TempAddr.getPointer(), Temp);
         TempAddr = Temp;
@@ -955,6 +956,15 @@ public:
       assert(PerformCleanup && "adding private to dead scope");
       return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen());
     }
+
+#if INTEL_CUSTOMIZATION
+    bool addPrivateNoTemps(const VarDecl *LocalVD,
+                           const llvm::function_ref<Address()> PrivateGen) {
+      assert(PerformCleanup && "adding private to dead scope");
+      return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen(),
+                                   /*NoTemps=*/true);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     /// Privatizes local variables previously registered as private.
     /// Registration is separate from the actual privatization to allow
@@ -3425,8 +3435,8 @@ private:
       const OMPDistributeParallelForSimdDirective &S);
 
 public:
-  void RemapInlinedPrivates(const OMPExecutableDirective &D,
-                            OMPPrivateScope &PrivScope);
+  void RemapForLateOutlining(const OMPExecutableDirective &D,
+                             OMPPrivateScope &PrivScope);
 #endif // INTEL_CUSTOMIZATION
 public:
 
@@ -4420,30 +4430,26 @@ public:
 
   void EmitSanitizerStatReport(llvm::SanitizerStatKind SSK);
 
-  struct TargetMultiVersionResolverOption {
+  struct MultiVersionResolverOption {
     llvm::Function *Function;
-    TargetAttr::ParsedTargetAttr ParsedAttribute;
-    unsigned Priority;
-    TargetMultiVersionResolverOption(
-        const TargetInfo &TargInfo, llvm::Function *F,
-        const clang::TargetAttr::ParsedTargetAttr &PT)
-        : Function(F), ParsedAttribute(PT), Priority(0u) {
-      for (StringRef Feat : PT.Features)
-        Priority = std::max(Priority,
-                            TargInfo.multiVersionSortPriority(Feat.substr(1)));
+    struct Conds {
+      StringRef Architecture;
+      llvm::SmallVector<StringRef, 8> Features;
 
-      if (!PT.Architecture.empty())
-        Priority = std::max(Priority,
-                            TargInfo.multiVersionSortPriority(PT.Architecture));
-    }
+      Conds(StringRef Arch, ArrayRef<StringRef> Feats)
+          : Architecture(Arch), Features(Feats.begin(), Feats.end()) {}
+    } Conditions;
 
-    bool operator>(const TargetMultiVersionResolverOption &Other) const {
-      return Priority > Other.Priority;
-    }
+    MultiVersionResolverOption(llvm::Function *F, StringRef Arch,
+                               ArrayRef<StringRef> Feats)
+        : Function(F), Conditions(Arch, Feats) {}
   };
-  void EmitTargetMultiVersionResolver(
-      llvm::Function *Resolver,
-      ArrayRef<TargetMultiVersionResolverOption> Options);
+
+  // Emits the body of a multiversion function's resolver. Assumes that the
+  // options are already sorted in the proper order, with the 'default' option
+  // last (if it exists).
+  void EmitMultiVersionResolver(llvm::Function *Resolver,
+                                ArrayRef<MultiVersionResolverOption> Options);
 
   struct CPUDispatchMultiVersionResolverOption {
     llvm::Function *Function;
@@ -4480,8 +4486,7 @@ private:
   llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
   llvm::Value *EmitX86CpuSupports(uint32_t Mask);
   llvm::Value *EmitX86CpuInit();
-  llvm::Value *
-  FormResolverCondition(const TargetMultiVersionResolverOption &RO);
+  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO);
 };
 
 inline DominatingLLVMValue::saved_type

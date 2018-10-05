@@ -131,6 +131,7 @@ def OpenCLLocalMemSize : Attr {
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
 // FIXME: Add documentation
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
   let LangOpts = [OpenCL, HLS];
 }
 
@@ -149,6 +150,7 @@ def MaxWorkGroupSize : InheritableAttr {
   let Subjects = SubjectList<[Function]>;
 // FIXME: Add documentation
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 def NumComputeUnits : InheritableAttr {
@@ -166,6 +168,7 @@ def NumSimdWorkItems : InheritableAttr {
   let Subjects = SubjectList<[Function]>;
 // FIXME: Add documentation
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 def MaxGlobalWorkDim : InheritableAttr {
@@ -205,6 +208,7 @@ def Component : InheritableAttr {
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 def ComponentInterface : InheritableAttr {
@@ -217,6 +221,7 @@ def ComponentInterface : InheritableAttr {
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
   let AdditionalMembers = [{
     static void generateValidStrings(SmallString<256> &Str) {
       auto Last = AlwaysRun;
@@ -235,6 +240,7 @@ def MaxConcurrency : InheritableAttr {
   let LangOpts = [OpenCL, HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
   let AdditionalMembers = [{
     static unsigned getMinValue() {
       return 0;
@@ -250,6 +256,7 @@ def StallFreeReturn : InheritableAttr {
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 def UseSingleClock : InheritableAttr {
@@ -257,6 +264,7 @@ def UseSingleClock : InheritableAttr {
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 // HLS parameter attributes
@@ -269,6 +277,7 @@ def ArgumentInterface : Attr {
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
   let AdditionalMembers = [{
     static void generateValidStrings(SmallString<256> &Str) {
       auto Last = Streaming;
@@ -286,6 +295,7 @@ def StableArgument : Attr {
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 def SlaveMemoryArgument : Attr {
@@ -293,6 +303,7 @@ def SlaveMemoryArgument : Attr {
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 // HLS local or static variable attributes
@@ -317,6 +328,7 @@ def StallFree : InheritableAttr {
   let LangOpts = [OpenCL, HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
 }
 
 def SchedulerPipeliningEffortPct : InheritableAttr {
@@ -324,6 +336,7 @@ def SchedulerPipeliningEffortPct : InheritableAttr {
   let Args = [ExprArgument<"SchedulerPipeliningEffortPct">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
   let LangOpts = [OpenCL, HLS];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -340,6 +353,7 @@ def InternalMaxBlockRamDepth : InheritableAttr {
   let Args = [ExprArgument<"InternalMaxBlockRamDepth">];
   let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar], ErrorDiag>;
   let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
   let LangOpts = [OpenCL, HLS];
   let AdditionalMembers = [{
     static unsigned getMinValue() {

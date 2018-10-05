@@ -12,7 +12,11 @@
 #include "../ClangTidyModuleRegistry.h"
 #include "DurationDivisionCheck.h"
 #include "FasterStrsplitDelimiterCheck.h"
+#include "NoInternalDependenciesCheck.h"
+#include "NoNamespaceCheck.h"
+#include "RedundantStrcatCallsCheck.h"
 #include "StringFindStartswithCheck.h"
+#include "StrCatAppendCheck.h"
 
 namespace clang {
 namespace tidy {
@@ -25,6 +29,13 @@ public:
         "abseil-duration-division");
     CheckFactories.registerCheck<FasterStrsplitDelimiterCheck>(
         "abseil-faster-strsplit-delimiter");
+    CheckFactories.registerCheck<NoInternalDependenciesCheck>(
+        "abseil-no-internal-dependencies");
+    CheckFactories.registerCheck<NoNamespaceCheck>("abseil-no-namespace");
+    CheckFactories.registerCheck<RedundantStrcatCallsCheck>(
+        "abseil-redundant-strcat-calls");
+    CheckFactories.registerCheck<StrCatAppendCheck>(
+        "abseil-str-cat-append");
     CheckFactories.registerCheck<StringFindStartswithCheck>(
         "abseil-string-find-startswith");
   }

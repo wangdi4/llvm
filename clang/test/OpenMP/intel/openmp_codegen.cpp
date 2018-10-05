@@ -104,9 +104,7 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 
-// CHECK: [[TARGCREF:%.+]] = load i32*, i32** [[ARGCREF_ADDR]],
-// CHECK-NEXT: store i32* [[TARGCREF]], i32** [[ARGCREFTMP:%tmp[0-9]+]]
-// CHECK: [[ARGCREF:%.+]] = load i32*, i32** [[ARGCREFTMP]],
+// CHECK: [[ARGCREF:%.+]] = load i32*, i32** [[ARGCREF_ADDR]],
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr
@@ -142,67 +140,148 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   n1 = 0;
-// CHECK: atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: add nsw i64 %{{.+}}, 1
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic
   ++n1;
-// CHECK-NEXT: atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: add nsw i64 %{{.+}}, 1
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic update
   ++n1;
-// CHECK-NEXT: [[ALOAD:%.+]] = load atomic i64, i64* [[N1_ADDR]] monotonic
-// CHECK-NEXT: store i64 [[ALOAD]], i64* [[N2_ADDR]], align 8
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.READ")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic read
   n2 = n1;
-// CHECK-NEXT: store atomic i64 1, i64* [[N1_ADDR]] monotonic, align 8
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.WRITE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: store i64 1, i64*
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic write
   n1 = 1;
-// CHECK-NEXT: [[L45:%.+]] = atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
-// CHECK-NEXT: [[A51:%.+]] = add nsw i64 [[L45]], 1
-// CHECK-NEXT: store i64 [[A51]], i64* [[N2_ADDR]], align 8
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.CAPTURE")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: add nsw i64 %{{.+}}, 1
+// CHECK-NEXT: store i64
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic capture
   n2 = ++n1;
-// CHECK-NEXT: atomicrmw add i64* [[N1_ADDR]], i64 1 seq_cst
-// CHECK-NEXT: call void @__kmpc_flush
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: add nsw i64 %{{.+}}, 1
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic seq_cst
   ++n1;
-// CHECK-NEXT: atomicrmw add i64* [[N1_ADDR]], i64 1 seq_cst
-// CHECK-NEXT: call void @__kmpc_flush
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.UPDATE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: add nsw i64 %{{.+}}, 1
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic seq_cst update
   ++n1;
-// CHECK-NEXT: [[ALOAD52:%.+]] = load atomic i64, i64* [[N1_ADDR]] seq_cst
-// CHECK-NEXT: call void @__kmpc_flush
-// CHECK-NEXT: store i64 [[ALOAD52]], i64* [[N2_ADDR]], align 8
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.READ.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic read, seq_cst
   n2 = n1;
-// CHECK-NEXT: store atomic i64 1, i64* [[N1_ADDR]] seq_cst, align 8
-// CHECK-NEXT: call void @__kmpc_flush
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.WRITE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: store i64 1, i64*
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic write seq_cst
   n1 = 1;
-// CHECK-NEXT: [[L48:%.+]] = atomicrmw add i64* [[N1_ADDR]], i64 1 seq_cst
-// CHECK-NEXT: [[ADD53:%.+]] = add nsw i64 [[L48]], 1
-// CHECK-NEXT: store i64 [[ADD53]], i64* [[N2_ADDR]], align 8
-// CHECK-NEXT: call void @__kmpc_flush
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive.qual(metadata !"QUAL.OMP.CAPTURE.SEQ_CST")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
+// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: add nsw i64 %{{.+}}, 1
+// CHECK-NEXT: store i64
+// CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ATOMIC")
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp atomic seq_cst, capture
   n2 = ++n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp critical
   n2 = n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.MASTER")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.MASTER")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp master
   n2 = n1;
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.SINGLE")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-NEXT: fence acquire
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
+// CHECK-NEXT: fence release
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.SINGLE")
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp single
@@ -354,7 +433,7 @@ int main(int argc, char **argv) {
   }
   {
     int local_int = 1;
-// CHECK-REG: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}IS_DEVICE_PTR{{.*}}glob_ptr{{.*}}FIRSTPRIVATE{{.*}}glob_int{{.*}}FIRSTPRIVATE{{.*}}local_int
+// CHECK-REG: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}IS_DEVICE_PTR{{.*}}glob_ptr{{.*}}FIRSTPRIVATE{{.*}}local_int{{.*}}FIRSTPRIVATE{{.*}}glob_int
 // CHECK-REG: region.exit(token [[TARG2_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
     #pragma omp target is_device_ptr(glob_ptr)
     {
@@ -394,6 +473,7 @@ int main(int argc, char **argv) {
 // CHECK-REG: region.exit(token [[TARGTE_TV]]) [ "DIR.OMP.END.TARGET"() ]
 
 // CHECK-REG: [[BARRIER_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.BARRIER
+// CHECK-REG: fence acq_rel
 // CHECK-REG: region.exit(token [[BARRIER_TOKENVAL]]) [ "DIR.OMP.END.BARRIER"
   #pragma omp barrier
 // CHECK-REG: [[FLUSH_TOKENVAL:%[0-9]+]] = call token{{.*}}DIR.OMP.FLUSH

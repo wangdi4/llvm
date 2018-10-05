@@ -182,6 +182,7 @@ bool X86TargetInfo::initFeatureMap(
       setFeatureEnabledImpl(Features, "sgx", true);
     setFeatureEnabledImpl(Features, "clflushopt", true);
     setFeatureEnabledImpl(Features, "rtm", true);
+    setFeatureEnabledImpl(Features, "aes", true);
     LLVM_FALLTHROUGH;
   case CK_Broadwell:
     setFeatureEnabledImpl(Features, "rdseed", true);
@@ -208,7 +209,6 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "xsaveopt", true);
     LLVM_FALLTHROUGH;
   case CK_Westmere:
-    setFeatureEnabledImpl(Features, "aes", true);
     setFeatureEnabledImpl(Features, "pclmul", true);
     LLVM_FALLTHROUGH;
   case CK_Nehalem:
@@ -260,10 +260,10 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "clflushopt", true);
     setFeatureEnabledImpl(Features, "mpx", true);
     setFeatureEnabledImpl(Features, "fsgsbase", true);
+    setFeatureEnabledImpl(Features, "aes", true);
     LLVM_FALLTHROUGH;
   case CK_Silvermont:
     setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "aes", true);
     setFeatureEnabledImpl(Features, "pclmul", true);
     setFeatureEnabledImpl(Features, "sse4.2", true);
     setFeatureEnabledImpl(Features, "prfchw", true);
@@ -1092,6 +1092,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasMWAITX)
     Builder.defineMacro("__MWAITX__");
+
+  if (HasMOVBE)
+    Builder.defineMacro("__MOVBE__");
 
   switch (XOPLevel) {
   case XOP:

@@ -2463,13 +2463,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   const NamedDecl *ND = E->getDecl();
   QualType T = E->getType();
 
-#if INTEL_CUSTOMIZATION
-  if (CapturedStmtInfo) {
-    if (const auto *VD = dyn_cast<VarDecl>(ND))
-      CapturedStmtInfo->recordVariableReference(VD);
-  }
-#endif // INTEL_CUSTOMIZATION
-
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Global Named registers access via intrinsics only
     if (VD->getStorageClass() == SC_Register &&
@@ -2505,6 +2498,27 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       return MakeAddrLValue(Address(Val, Alignment), T, AlignmentSource::Decl);
     }
 
+#if INTEL_CUSTOMIZATION
+    if (getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion) {
+      if (CapturedStmtInfo)
+        CapturedStmtInfo->recordVariableReference(VD);
+      if (isa<OMPCapturedExprDecl>(VD)) {
+        // All OMPCapturedExprDecls are remapped in OMPLateOutlineLexicalScope.
+        auto I = LocalDeclMap.find(VD);
+        assert(I != LocalDeclMap.end() && "OMPCapturedExprDecl not remapped.");
+        return MakeAddrLValue(I->second, T, AlignmentSource::Decl);
+      }
+      if (E->refersToEnclosingVariableOrCapture() &&
+          OMPLateOutlineLexicalScope::isCapturedVar(*this, VD)) {
+        VD = VD->getCanonicalDecl();
+        if (auto *FD = LambdaCaptureFields.lookup(VD)) {
+          if (CapturedStmtInfo)
+            CapturedStmtInfo->recordThisPointerReference(CXXABIThisValue);
+          return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
+        }
+      }
+    } else
+#endif // INTEL_CUSTOMIZATION
     // Check for captured variables.
     if (E->refersToEnclosingVariableOrCapture()) {
       VD = VD->getCanonicalDecl();
@@ -2527,15 +2541,9 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
             CapLVal.getTBAAInfo());
       }
 
-#if INTEL_CUSTOMIZATION
-      if (isa<BlockDecl>(CurCodeDecl) || LocalDeclMap.count(VD) == 0) {
-#endif  // INTEL_CUSTOMIZATION
       assert(isa<BlockDecl>(CurCodeDecl));
       Address addr = GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>());
       return MakeAddrLValue(addr, T, AlignmentSource::Decl);
-#if INTEL_CUSTOMIZATION
-      }
-#endif  // INTEL_CUSTOMIZATION
     }
   }
 
