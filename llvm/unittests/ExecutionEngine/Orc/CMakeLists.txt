@@ -14,6 +14,7 @@ add_llvm_unittest(OrcJITTests
   CoreAPIsTest.cpp
   IndirectionUtilsTest.cpp
   GlobalMappingLayerTest.cpp
+  LazyCallThroughAndReexportsTest.cpp
   LazyEmittingLayerTest.cpp
   LegacyAPIInteropTest.cpp
   ObjectTransformLayerTest.cpp
@@ -23,7 +24,9 @@ add_llvm_unittest(OrcJITTests
   RemoteObjectLayerTest.cpp
   RPCUtilsTest.cpp
   RTDyldObjectLinkingLayerTest.cpp
+  RTDyldObjectLinkingLayer2Test.cpp
   SymbolStringPoolTest.cpp
+  ThreadSafeModuleTest.cpp
   )
 
 target_link_libraries(OrcJITTests PRIVATE ${ORC_JIT_TEST_LIBS})

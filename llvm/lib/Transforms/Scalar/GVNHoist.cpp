@@ -748,11 +748,9 @@ private:
     // TODO: Remove fully-redundant expressions.
     // Get instruction from the Map, assume that all the Instructions
     // with same VNs have same rank (this is an approximation).
-    llvm::sort(Ranks.begin(), Ranks.end(),
-               [this, &Map](const VNType &r1, const VNType &r2) {
-                 return (rank(*Map.lookup(r1).begin()) <
-                         rank(*Map.lookup(r2).begin()));
-               });
+    llvm::sort(Ranks, [this, &Map](const VNType &r1, const VNType &r2) {
+      return (rank(*Map.lookup(r1).begin()) < rank(*Map.lookup(r2).begin()));
+    });
 
     // - Sort VNs according to their rank, and start with lowest ranked VN
     // - Take a VN and for each instruction with same VN
@@ -784,6 +782,7 @@ private:
       // which currently have dead terminators that are control
       // dependence sources of a block which is in NewLiveBlocks.
       IDFs.setDefiningBlocks(VNBlocks);
+      IDFBlocks.clear();
       IDFs.calculate(IDFBlocks);
 
       // Make a map of BB vs instructions to be hoisted.
@@ -792,7 +791,7 @@ private:
       }
       // Insert empty CHI node for this VN. This is used to factor out
       // basic blocks where the ANTIC can potentially change.
-      for (auto IDFB : IDFBlocks) { // TODO: Prune out useless CHI insertions.
+      for (auto IDFB : IDFBlocks) {
         for (unsigned i = 0; i < V.size(); ++i) {
           CHIArg C = {VN, nullptr, nullptr};
            // Ignore spurious PDFs.
