@@ -79,7 +79,7 @@ typedef std::stack<ValueValuePair, std::vector<ValueValuePair>> WorkListType;
 
 namespace intel {
 
-static Function *getPipeBuiltin(OCLBuiltins &Builtins, PipeKind &Kind) {
+static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
   if (Kind.Blocking) {
     // There are no declarations and definitions of blocking pipe built-ins in
     // RTL's.
@@ -147,7 +147,7 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
   Module *M = GV->getParent();
   Type *Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
-  size_t BSSize = __pipe_get_total_size(MD.PacketSize, MD.Depth,
+  size_t BSSize = __pipe_get_total_size_fpga(MD.PacketSize, MD.Depth,
       ChannelDepthEmulationMode);
   if (auto *PipePtrArrayTy =
           dyn_cast<ArrayType>(GV->getType()->getElementType())) {
@@ -270,7 +270,7 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
   SmallVector<size_t, 8> IndicesListForPipeElem(DimensionsNum, 0);
   SmallVector<Value *, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
 
-  size_t BSItemSize = __pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth,
+  size_t BSItemSize = __pipe_get_total_size_fpga(PipeMD.PacketSize, PipeMD.Depth,
                                             ChannelDepthEmulationMode);
   size_t BSItemsCount = CompilationUtils::getArrayNumElements(PipePtrArrayTy);
 
@@ -374,12 +374,12 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
                                      ChannelGV.getName() + ".pipe");
 
       initializeGlobalPipeArray(PipeGV, MD, GlobalCtor,
-                                Builtins.get("__pipe_init_array_intel"));
+                                Builtins.get("__pipe_init_array_fpga"));
     } else {
       PipeGV = createGlobalPipeScalar(M, PipeTy, ChannelGV.getName() + ".pipe");
 
       initializeGlobalPipeScalar(PipeGV, MD, GlobalCtor,
-                                 Builtins.get("__pipe_init_intel"));
+                                 Builtins.get("__pipe_init_fpga"));
     }
 
     auto ChannelMD = GlobalVariableMetadataAPI(&ChannelGV);
@@ -578,9 +578,10 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
   // void write_channel(channel, <value ty>)
 }
 
-static void replaceChannelBuiltinCall(CallInst *ChannelCall, Value *Pipe,
-                                      AllocaMapType &AllocaMap,
+static void replaceChannelBuiltinCall(CallInst *ChannelCall, Value *GlobalPipe,
+                                      Value *Pipe, AllocaMapType &AllocaMap,
                                       OCLBuiltins &Builtins) {
+  assert(GlobalPipe && "Failed to find corresponding global pipe");
   ChannelKind CK = CompilationUtils::getChannelKind(
       ChannelCall->getCalledFunction()->getName());
 
@@ -589,14 +590,21 @@ static void replaceChannelBuiltinCall(CallInst *ChannelCall, Value *Pipe,
   PK.Scope = PipeKind::WORK_ITEM;
   PK.Access = CK.Access == ChannelKind::READ ? PipeKind::READ : PipeKind::WRITE;
   PK.Blocking = CK.Blocking;
+  PK.FPGA = true;
 
   Value *PacketPtr = getPacketPtr(ChannelCall, CK, AllocaMap);
   Function *Builtin = getPipeBuiltin(Builtins, PK);
   FunctionType *FTy = Builtin->getFunctionType();
+
+  auto PipeMD = GlobalVariableMetadataAPI(cast<GlobalVariable>(GlobalPipe));
+
   Value *Args[] = {
+      // %opencl.pipe_rw_t to %opencl.pipe_ro_t/%opencl.pipe_wo_t
       CastInst::CreatePointerCast(Pipe, FTy->getParamType(0), "", ChannelCall),
       CastInst::CreatePointerCast(PacketPtr, FTy->getParamType(1), "",
-                                  ChannelCall)
+                                  ChannelCall),
+      ConstantInt::get(FTy->getParamType(2), PipeMD.PipePacketSize.get()),
+      ConstantInt::get(FTy->getParamType(3), PipeMD.PipePacketAlign.get())
   };
 
   Value *BoolRet =
@@ -654,31 +662,43 @@ static Function *createUserFunctionStub(CallInst *Call, Type *ChannelTy,
   return Replacement;
 }
 
+static Argument *getFunctionArg(Function *F, const unsigned ArgNo) {
+  assert(ArgNo < F->arg_size() && "Invalid ArgNo");
+  return F->arg_begin() + ArgNo;
+}
+
 static void
 replaceLocalChannelUses(Function *UserFunc, Type *ChannelTy, Type *PipeTy,
-                        ValueToValueMap &VMap,
+                        const unsigned ArgNo, ValueToValueMap &VMap,
                         SmallPtrSetImpl<Instruction *> &ToDelete,
                         WorkListType &WorkList) {
-  for (auto &Arg : UserFunc->args()) {
-    if (Arg.getType() != PipeTy)
-      continue;
+  Argument *Arg = getFunctionArg(UserFunc, ArgNo);
+  assert(Arg->getType() == PipeTy && "No appropriate function argument found");
 
-    for (auto *ArgUser : Arg.users()) {
-      if (auto *Store = dyn_cast<StoreInst>(ArgUser)) {
-        Value *POperand = Store->getPointerOperand();
-        assert(isa<AllocaInst>(POperand) && "Expected alloca for argument");
-        // Let's do an initial replacement of alloca
-        auto *&PipeUser = VMap[POperand];
-        if (!PipeUser) {
-          PipeUser = createPipeUserStub(POperand, &Arg);
-          WorkList.push(std::make_pair(POperand, PipeUser));
-        }
-        ToDelete.insert(Store);
+  // It is possible that replaceLocalChannelUses will be called several times
+  // for the same UserFunc and ArgNo, e.g. user-defined function were called
+  // several times
+  //
+  // It is enough to replace argument only once
+  if (VMap.count(Arg))
+    return;
+
+  for (auto *ArgUser : Arg->users()) {
+    if (auto *Store = dyn_cast<StoreInst>(ArgUser)) {
+      Value *POperand = Store->getPointerOperand();
+      assert(isa<AllocaInst>(POperand) && "Expected alloca for argument");
+      // Let's do an initial replacement of alloca
+      auto *&PipeUser = VMap[POperand];
+      if (!PipeUser) {
+        PipeUser = createPipeUserStub(POperand, Arg);
+        WorkList.push(std::make_pair(POperand, PipeUser));
       }
+      ToDelete.insert(Store);
     }
-
-    WorkList.push(std::make_pair(&Arg, &Arg));
   }
+
+  WorkList.push(std::make_pair(Arg, Arg));
+  VMap[Arg] = Arg;
 }
 
 static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
@@ -730,10 +750,15 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
     WorkList.push(std::make_pair(KV.first, KV.second));
   }
 
+  Value *GlobalPipe = nullptr;
+
   while (!WorkList.empty()) {
     Value *Channel = WorkList.top().first;
     Value *Pipe = WorkList.top().second;
     WorkList.pop();
+
+    if (GlobalVMap.count(Channel))
+      GlobalPipe = Pipe;
 
     for (const auto &U : Channel->uses()) {
       auto OpNo = U.getOperandNo();
@@ -742,17 +767,25 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
       if (CallInst *Call = dyn_cast<CallInst>(ChannelUser)) {
         ToDelete.insert(Call);
         if (isChannelBuiltinCall(Call)) {
-          replaceChannelBuiltinCall(Call, Pipe, AllocaMap, Builtins);
+          replaceChannelBuiltinCall(Call, GlobalPipe, Pipe, AllocaMap,
+                                    Builtins);
         } else {
           // handle calls to user-functions here
           assert(Call->getCalledFunction() && "Indirect function call?");
-          Value *&FuncReplacement = VMap[Call->getCalledFunction()];
-          if (!FuncReplacement) {
-            FuncReplacement =
+          Value *&FuncReplacementIt = VMap[Call->getCalledFunction()];
+          // FuncReplacementIt must be used only to save result of
+          // createUserFunctionStub. Further usages may result in segfaults due
+          // to invalid value of FuncReplacement. This may occur if VMap is
+          // re-allocated: all references to it's keys is going to be
+          // invalidated.
+          Value *FuncReplacement = FuncReplacementIt;
+          if (!FuncReplacement)
+            FuncReplacement = FuncReplacementIt =
                 createUserFunctionStub(Call, ChannelTy, Pipe->getType());
-            replaceLocalChannelUses(cast<Function>(FuncReplacement), ChannelTy,
-                                    Pipe->getType(), VMap, ToDelete, WorkList);
-          }
+
+          replaceLocalChannelUses(cast<Function>(FuncReplacement), ChannelTy,
+                                  Pipe->getType(), OpNo, VMap, ToDelete,
+                                  WorkList);
 
           Value *&CallInstReplacement = VMap[Call];
           if (!CallInstReplacement) {
@@ -797,17 +830,14 @@ bool ChannelPipeTransformation::runOnModule(Module &M) {
   auto *ChannelTy =
       PointerType::get(ChannelValueTy, Utils::OCLAddressSpace::Global);
 
-  auto PipeTyName = "opencl.pipe_t";
+  auto PipeTyName = "opencl.pipe_rw_t";
   auto *PipeValueTy = M.getTypeByName(PipeTyName);
-  if (!PipeValueTy) {
+  if (!PipeValueTy)
     PipeValueTy = StructType::create(M.getContext(), PipeTyName);
-  }
   auto *PipeTy = PointerType::get(PipeValueTy, Utils::OCLAddressSpace::Global);
 
   ValueToValueStableMap GlobalVMap;
-  bool Changed =
-      replaceGlobalChannels(M, ChannelTy, PipeTy, GlobalVMap, Builtins);
-  if (!Changed)
+  if (!replaceGlobalChannels(M, ChannelTy, PipeTy, GlobalVMap, Builtins))
     return false;
 
   replaceGlobalChannelUses(M, ChannelTy, GlobalVMap, Builtins);

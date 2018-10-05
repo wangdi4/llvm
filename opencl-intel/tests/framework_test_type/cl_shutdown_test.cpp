@@ -11,16 +11,6 @@
 //#define DEBUGGING_DEATH_TEST 
 //#define SilentCheck Check
 
-#if defined(_WIN32) || defined(BUILD_FPGA_EMULATOR)
-    // on Windows and FPGA emulator build we do not do clFinish for all queues
-    // during ShutDown - not all buffers may be destructed
-    // + TBB warning is printed last in Debug ------
-    #define EXPECTED_STDERR_STRING ""
-#else
-    // on Linux we DO clFinish for all queues during ShutDown - all buffers MUST be destructed
-    #define EXPECTED_STDERR_STRING "dst buffer destructed"
-#endif
-
 #define BUFFERS_LENGTH 20000
 extern cl_device_type gDeviceType;
 
@@ -300,7 +290,24 @@ void death_test_imp( TEST_CASE test_case, const char* name )
     EXPECT_TRUE( cl_shutdown_test( test_case, name ) );
 #else
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-    EXPECT_EXIT( { cl_shutdown_test( test_case, name ); exit(1); }, ::testing::ExitedWithCode(0), EXPECTED_STDERR_STRING );
+
+    // on Linux we DO clFinish for all queues during ShutDown - all buffers MUST
+    // be destructed
+    const char * expectedStdErrString = "dst buffer destructed";
+
+#ifdef _WIN32
+    // on Windows and FPGA emulator build we do not do clFinish for all queues
+    // during ShutDown - not all buffers may be destructed
+    // + TBB warning is printed last in Debug ------
+    expectedStdErrString = "";
+#endif
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+    {
+        expectedStdErrString = "";
+    }
+
+    EXPECT_EXIT( { cl_shutdown_test( test_case, name ); exit(1); },
+        ::testing::ExitedWithCode(0), expectedStdErrString );
 #endif
 }
 

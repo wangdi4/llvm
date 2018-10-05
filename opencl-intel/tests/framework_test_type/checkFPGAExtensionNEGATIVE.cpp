@@ -6,8 +6,7 @@
 
 extern cl_device_type gDeviceType;
 
-/* The test checks that if we don't pass CL_CONTEXT_FPGA_EMULATOR_INTEL
- * to context properties we are not able to compile program with FPGA
+/* The test checks that we are not able to compile program with FPGA
  * stuff(channels, attrs), to create buffer with CL_CHANNEL_5_INTELFPGA flag.
 */
 void checkFPGAExtensionNEGATIVE()
@@ -27,6 +26,10 @@ void checkFPGAExtensionNEGATIVE()
     ASSERT_EQ(CL_SUCCESS, iRet)
         << " clGetDeviceIDs failed on trying to obtain "
         << gDeviceType << " device type.";
+    if(gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+    {
+        return;
+    }
 
     //Create context.
     const cl_context_properties prop[5] = { CL_CONTEXT_PLATFORM,
@@ -38,7 +41,7 @@ void checkFPGAExtensionNEGATIVE()
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateContext failed.";
 
     const char* kernel = "\
-        #pragma OPENCL EXTENSION cl_altera_channels : enable\n \
+        #pragma OPENCL EXTENSION cl_intel_channels : enable\n \
         channel float4 rgb __attribute__((depth(43)));\
         __kernel void dummy_kernel()\
         {\
@@ -55,8 +58,7 @@ void checkFPGAExtensionNEGATIVE()
                           /*user_data=*/nullptr);
     ASSERT_EQ(CL_BUILD_PROGRAM_FAILURE, iRet)
         << " clBuildProgram is not supposed to succefully build program which"
-        << " contains fpga specific code without CL_CONTEXT_FPGA_EMULATOR_INTE"
-        << " property passed during context creation.";
+        << " contains fpga specific code";
 
     clReleaseProgram(program);
 
@@ -82,17 +84,13 @@ void checkFPGAExtensionNEGATIVE()
     clCreateBuffer(context, CL_CHANNEL_5_INTELFPGA, /*size=*/20,
                    /*host_ptr=*/nullptr, &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet)
-        << " clCreateBuffer is not supposed to accept CL_CHANNEL_5_INTELFPGA"
-        << " flag without CL_CONTEXT_FPGA_EMULATOR_INTEL property"
-        << " passed during context creation.";
+        << " clCreateBuffer is not supposed to accept CL_CHANNEL_5_INTELFPGA";
 
     clReleaseContext(context);
     clReleaseDevice(device);
 }
 
-#ifndef BUILD_FPGA_EMULATOR
 TEST(FrameworkTestType, Test_FPGAExtensionsNegative)
 {
     ASSERT_NO_FATAL_FAILURE(checkFPGAExtensionNEGATIVE());
 }
-#endif // BUILD_FPGA_EMULATOR

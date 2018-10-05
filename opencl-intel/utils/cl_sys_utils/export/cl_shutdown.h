@@ -29,7 +29,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
         AT_EXIT_PROCESS_UNLOADING_MODE
     } AT_EXIT_UNLOADING_MODE;
 
-    typedef void (CL_CALLBACK *at_exit_dll_callback_fn)( AT_EXIT_GLB_PROCESSING processing_state, AT_EXIT_UNLOADING_MODE mode );
+    typedef void (CL_CALLBACK *at_exit_dll_callback_fn)(
+       AT_EXIT_GLB_PROCESSING processing_state, AT_EXIT_UNLOADING_MODE mode,
+       bool doDisableAPIAtShutdown );
 
     class IAtExitCentralPoint
     {
@@ -67,7 +69,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
         static at_exit_local_callback_fn local_at_exit_callback;
 
         static void OS_atexit();
-        static void CL_CALLBACK AtExitProcessingState( AT_EXIT_GLB_PROCESSING processing_state,  AT_EXIT_UNLOADING_MODE mode );
+        static void CL_CALLBACK AtExitProcessingState(
+           AT_EXIT_GLB_PROCESSING processing_state, AT_EXIT_UNLOADING_MODE mode,
+           bool doDisableAPIAtShutdown );
 
     public:
         // do not use it except locally;

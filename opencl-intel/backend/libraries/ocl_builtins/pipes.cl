@@ -92,7 +92,7 @@
 // to guarantee non-blocking flush.
 
 
-#include "pipes.h"
+#include "pipes-defines.h"
 #include "pipes-internal.h"
 
 // There are no declarations of OpenCL 2.0 builtins in opencl-c.h for named
@@ -107,6 +107,13 @@ void __ovld atomic_store_explicit(__global volatile atomic_int *object,
                                   int desired, memory_order order);
 // Debug switches
 #define DEBUG_ASSERTS 0
+#define NOINLINE_SWITCH 0
+
+#if NOINLINE_SWITCH
+#define DEBUG_NOINLINE __attribute__((noinline))
+#else
+#define DEBUG_NOINLINE
+#endif
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
@@ -217,10 +224,10 @@ int get_write_capacity(__global struct __pipe_t* p) {
   return result;
 }
 
-void __pipe_init_intel(__global struct __pipe_t* p, int packet_size, int depth,
-                       int mode) {
+void __pipe_init_fpga(__global struct __pipe_t* p, int packet_size, int depth,
+                      int mode) {
   p->packet_size = packet_size;
-  p->max_packets = __pipe_get_max_packets(depth, mode);
+  p->max_packets = __pipe_get_max_packets_fpga(depth, mode);
   p->io = NULL;
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
@@ -249,44 +256,35 @@ void __pipe_init_intel(__global struct __pipe_t* p, int packet_size, int depth,
   }
 }
 
-void __pipe_release_intel(__global struct __pipe_t* p) {
+void __pipe_release_fpga(__global struct __pipe_t* p) {
   if (p->io != NULL)
     fclose(p->io);
 }
 
-void __pipe_init_array_intel(__global struct __pipe_t* __global* p,
-                             int array_size, int packet_size, int depth,
-                             int mode) {
+void __pipe_init_array_fpga(__global struct __pipe_t* __global* p,
+                            int array_size, int packet_size, int depth,
+                            int mode) {
   for (int i = 0; i < array_size; ++i) {
-    __pipe_init_intel(p[i], packet_size, depth, mode);
+    __pipe_init_fpga(p[i], packet_size, depth, mode);
   }
 }
 
-void __flush_read_pipe(__global struct __pipe_t* p) {
+void __flush_read_pipe(__global void* pp) {
+  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
   p->read_buf.size = -1;
   atomic_store_explicit(&p->head, p->read_buf.end, memory_order_release);
 }
 
-void __flush_read_pipe_array(__global struct __pipe_t* __global* p,
-                             int array_size) {
-  for (int i = 0; i < array_size; ++i) {
-    __flush_read_pipe(p[i]);
-  }
-}
-
-void __flush_write_pipe(__global struct __pipe_t* p) {
+void __flush_write_pipe(__global void* pp) {
+  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
   p->write_buf.size = -1;
   atomic_store_explicit(&p->tail, p->write_buf.end, memory_order_release);
 }
 
-void __flush_write_pipe_array(__global struct __pipe_t* __global* p,
-                             int array_size) {
-  for (int i = 0; i < array_size; ++i) {
-    __flush_write_pipe(p[i]);
-  }
-}
-
-int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
+DEBUG_NOINLINE
+int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
+                       uint align) {
+  __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
   __global struct __pipe_internal_buf* buf = &p->read_buf;
 
   if (buf->size < 0) {
@@ -295,7 +293,9 @@ int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
       return -1;
   }
 
-  __builtin_memcpy(dst, get_packet_ptr(p, buf->end), p->packet_size);
+  ASSERT(size == p->packet_size && "Runtime and compiler sizes are different.");
+  __builtin_memcpy(dst, get_packet_ptr(p, buf->end), size);
+
   buf->end = advance(p, buf->end, 1);
   buf->size++;
 
@@ -306,7 +306,10 @@ int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
   return 0;
 }
 
-int __write_pipe_2_intel(__global struct __pipe_t* p, const void* src) {
+DEBUG_NOINLINE
+int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
+                        uint align) {
+  __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
   __global struct __pipe_internal_buf* buf = &p->write_buf;
 
   if (buf->size < 0) {
@@ -315,7 +318,9 @@ int __write_pipe_2_intel(__global struct __pipe_t* p, const void* src) {
       return -1;
   }
 
-  __builtin_memcpy(get_packet_ptr(p, buf->end), src, p->packet_size);
+  ASSERT(size == p->packet_size && "Runtime and compiler sizes are different.");
+  __builtin_memcpy(get_packet_ptr(p, buf->end), src, size);
+
   buf->end = advance(p, buf->end, 1);
   buf->size++;
 
@@ -326,27 +331,33 @@ int __write_pipe_2_intel(__global struct __pipe_t* p, const void* src) {
   return 0;
 }
 
-int __read_pipe_2_io_intel(__global struct __pipe_t* p, void* dst,
-                           const char* dstName) {
+DEBUG_NOINLINE
+int __read_pipe_2_io_fpga(read_only pipe uchar pp, void* dst,
+                          const char* dstName, uint size, uint align) {
+  __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(dstName, "rb");
   if (p->io == NULL)
     return -2;
 
-  if (fread(dst, p->packet_size, 1, p->io) == 0)
+  ASSERT(size == p->packet_size && "Runtime and compiler sizes are different.");
+  if (fread(dst, size, 1, p->io) == 0)
     return -1;
 
   return 0;
 }
 
-int __write_pipe_2_io_intel(__global struct __pipe_t* p, const void* src,
-                            const char* srcName) {
+DEBUG_NOINLINE
+int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void* src,
+                           const char* srcName, uint size, uint align) {
+  __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(srcName, "wb");
   if (p->io == NULL)
     return -2;
 
-  if (fwrite(src, p->packet_size, 1, p->io) == 0)
+  ASSERT(size == p->packet_size && "Runtime and compiler sizes are different.");
+  if (fwrite(src, size, 1, p->io) == 0)
     return -1;
 
   fflush(p->io);
@@ -354,36 +365,10 @@ int __write_pipe_2_io_intel(__global struct __pipe_t* p, const void* src,
   return 0;
 }
 
-int __read_pipe_2_bl_io_intel(__global struct __pipe_t* p, void* dst,
-                              const char* dstName) {
-  if (p->io == NULL)
-    p->io = fopen(dstName, "rb");
-  if (p->io == NULL)
-    return -2;
-
-  while (!fread(dst, p->packet_size, 1, p->io))
-  {}
-
-  return 0;
-}
-
-int __write_pipe_2_bl_io_intel(__global struct __pipe_t* p, const void* src,
-                               const char* srcName) {
-  if (p->io == NULL)
-    p->io = fopen(srcName, "wb");
-  if (p->io == NULL)
-    return -2;
-
-  while (!fwrite(src, p->packet_size, 1, p->io))
-  {}
-
-  fflush(p->io);
-
-  return 0;
-}
-
-void __store_pipe_use(__global struct __pipe_t* __private* __private arr,
-                      __private int* size, __global struct __pipe_t* p) {
+DEBUG_NOINLINE
+void __store_write_pipe_use(__global void* __private* __private arr,
+                            __private int* size, write_only pipe uchar pp) {
+  __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
   for (int i = 0; i < *size; i++) {
     if (arr[i] == p)
       return;
@@ -392,14 +377,29 @@ void __store_pipe_use(__global struct __pipe_t* __private* __private arr,
   ++(*size);
 }
 
-void __flush_pipe_read_array(__global struct __pipe_t* __private* arr,
+DEBUG_NOINLINE
+void __store_read_pipe_use(__global void* __private* __private arr,
+                           __private int* size, read_only pipe uchar pp) {
+  __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
+  for (int i = 0; i < *size; i++) {
+    if (arr[i] == p)
+      return;
+  }
+  arr[*size] = p;
+  ++(*size);
+}
+
+DEBUG_NOINLINE
+void __flush_pipe_read_array(__global void* __private* arr,
                              __private int* size) {
   for (int i = 0; i < *size; ++i)
     __flush_read_pipe(arr[i]);
 }
 
-void __flush_pipe_write_array(__global struct __pipe_t* __private* arr,
+DEBUG_NOINLINE
+void __flush_pipe_write_array(__global void* __private* arr,
                               __private int* size) {
   for (int i = 0; i < *size; ++i)
     __flush_write_pipe(arr[i]);
 }
+

@@ -187,7 +187,8 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
         dev_entry->clDevReleaseProgram(prog);
         return false;
     }
-    if ( CPU_MAX_WORK_GROUP_SIZE != stWGMaxSize )
+    if ( CPU_MAX_WORK_GROUP_SIZE != stWGMaxSize &&
+        FPGA_MAX_WORK_GROUP_SIZE != stWGMaxSize )
     {
         dev_entry->clDevReleaseProgram(prog);
         return false;

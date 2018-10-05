@@ -1255,14 +1255,10 @@ PipeKind CompilationUtils::getPipeKind(const std::string &Name) {
     Kind.IO = false;
   }
 
-#ifdef BUILD_FPGA_EMULATOR
-  // TODO: drop this case when built-ins would be aligned b/w fpga
-  // and non-fpga.
-  if (!N.consume_front("_intel")) {
-    Kind.Op = PipeKind::NONE;
-    return Kind;
+  if (N.consume_front("_fpga")) {
+    Kind.FPGA = true;
   }
-#endif
+
   if (N.consume_front("_") && N.startswith("v")) {
     Kind.SimdSuffix = N;
   }
@@ -1321,11 +1317,9 @@ std::string CompilationUtils::getPipeName(PipeKind Kind) {
      Name += "_io";
   }
 
-#ifdef BUILD_FPGA_EMULATOR
-  // TODO: drop this case when built-ins would be aligned b/w fpga
-  // and non-fpga.
-  Name += "_intel";
-#endif
+  if (Kind.FPGA) {
+    Name += "_fpga";
+  }
 
   if (!Kind.SimdSuffix.empty()) {
     Name += "_";
@@ -1344,13 +1338,9 @@ ChannelKind CompilationUtils::getChannelKind(const std::string &Name) {
 
   std::tie(Kind.Access, Kind.Blocking)
     = StringSwitch<std::pair<ChannelKind::AccessKind, bool>>(Name)
-    .StartsWith("_Z19read_channel_altera", {ChannelKind::READ, true})
     .StartsWith("_Z18read_channel_intel",  {ChannelKind::READ, true})
-    .StartsWith("_Z22read_channel_nb_altera", {ChannelKind::READ, false})
     .StartsWith("_Z21read_channel_nb_intel",  {ChannelKind::READ, false})
-    .StartsWith("_Z20write_channel_altera", {ChannelKind::WRITE, true})
     .StartsWith("_Z19write_channel_intel",  {ChannelKind::WRITE, true})
-    .StartsWith("_Z23write_channel_nb_altera", {ChannelKind::WRITE, false})
     .StartsWith("_Z22write_channel_nb_intel",  {ChannelKind::WRITE, false})
     .Default({ChannelKind::NONE, false});
 

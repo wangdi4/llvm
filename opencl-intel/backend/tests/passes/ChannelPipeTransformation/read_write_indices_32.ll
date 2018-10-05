@@ -1,6 +1,6 @@
 ; Compiled from:
 ; ----------------------------------------------------
-; #pragma OPENCL EXTENSION cl_altera_channels : enable
+; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ;
 ; struct st {
 ;   int i;
@@ -53,7 +53,7 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK: %[[BAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX0]]
 ; CHECK: %[[GEP_BAR_PIPE_ARR_W:.*]] = getelementptr {{.*}} @bar_arr.pipe, i32 0, i32 %[[BAR_PIPE_ARR_W_INDEX0]]
 ; CHECK: %[[LOAD_BAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_BAR_PIPE_ARR_W]]
-; CHECK: %[[CAST_BAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE_ARR_W]]
+; CHECK: %[[CAST_BAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE_ARR_W]]
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_BAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX1:.*]] = load {{.*}} %char_index
@@ -63,7 +63,7 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK: %[[FAR_PIPE_ARR_W_INDEX1:.*]] = sext {{.*}} %[[SINDEX0]]
 ; CHECK: %[[GEP_FAR_PIPE_ARR_W1:.*]] = getelementptr {{.*}} %[[GEP_FAR_PIPE_ARR_W0]], i32 0, i32 %[[FAR_PIPE_ARR_W_INDEX1]]
 ; CHECK: %[[LOAD_FAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_FAR_PIPE_ARR_W1]]
-; CHECK: %[[CAST_FAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE_ARR_W]]
+; CHECK: %[[CAST_FAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_FAR_PIPE_ARR_W]]
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_FAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX2:.*]] = load {{.*}} %char_index
@@ -75,7 +75,7 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK: %[[STAR_PIPE_ARR_W_INDEX2:.*]] = load {{.*}} %int_index
 ; CHECK: %[[GEP_STAR_PIPE_ARR_W2:.*]] = getelementptr {{.*}} %[[GEP_STAR_PIPE_ARR_W1]], i32 0, i32 %[[STAR_PIPE_ARR_W_INDEX2]]
 ; CHECK: %[[LOAD_STAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_STAR_PIPE_ARR_W2]]
-; CHECK: %[[CAST_STAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE_ARR_W]]
+; CHECK: %[[CAST_STAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE_ARR_W]]
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX3:.*]] = load {{.*}} %char_index
@@ -90,14 +90,14 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK: %[[LAR_PIPE_ARR_W_INDEX3:.*]] = trunc {{.*}} %[[LINDEX0]]
 ; CHECK: %[[GEP_LAR_PIPE_ARR_W3:.*]] = getelementptr {{.*}} %[[GEP_LAR_PIPE_ARR_W2]], i32 0, i32 %[[LAR_PIPE_ARR_W_INDEX3]]
 ; CHECK: %[[LOAD_LAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_LAR_PIPE_ARR_W3]]
-; CHECK: %[[CAST_LAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_LAR_PIPE_ARR_W]]
+; CHECK: %[[CAST_LAR_PIPE_ARR_W:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_LAR_PIPE_ARR_W]]
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_LAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX4:.*]] = load {{.*}} %char_index
 ; CHECK: %[[BAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX4]]
 ; CHECK: %[[GEP_BAR_PIPE_ARR_R:.*]] = getelementptr {{.*}} @bar_arr.pipe, i32 0, i32 %[[BAR_PIPE_ARR_R_INDEX0]]
 ; CHECK: %[[LOAD_BAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_BAR_PIPE_ARR_R]]
-; CHECK: %[[CAST_BAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE_ARR_R]]
+; CHECK: %[[CAST_BAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_BAR_PIPE_ARR_R]]
 ; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_BAR_PIPE_ARR_R]]
 ;
 ; CHECK: %[[CINDEX5:.*]] = load {{.*}} %char_index
@@ -107,7 +107,7 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK: %[[FAR_PIPE_ARR_R_INDEX1:.*]] = sext {{.*}} %[[SINDEX3]]
 ; CHECK: %[[GEP_FAR_PIPE_ARR_R1:.*]] = getelementptr {{.*}} %[[GEP_FAR_PIPE_ARR_R0]], i32 0, i32 %[[FAR_PIPE_ARR_R_INDEX1]]
 ; CHECK: %[[LOAD_FAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_FAR_PIPE_ARR_R1]]
-; CHECK: %[[CAST_FAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE_ARR_R]]
+; CHECK: %[[CAST_FAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_FAR_PIPE_ARR_R]]
 ; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_FAR_PIPE_ARR_R]]
 ;
 ; CHECK: %[[CINDEX6:.*]] = load {{.*}} %char_index
@@ -119,7 +119,7 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK: %[[STAR_PIPE_ARR_R_INDEX2:.*]] = load {{.*}} %int_index
 ; CHECK: %[[GEP_STAR_PIPE_ARR_R2:.*]] = getelementptr {{.*}} %[[GEP_STAR_PIPE_ARR_R1]], i32 0, i32 %[[STAR_PIPE_ARR_R_INDEX2]]
 ; CHECK: %[[LOAD_STAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_STAR_PIPE_ARR_R2]]
-; CHECK: %[[CAST_STAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE_ARR_R]]
+; CHECK: %[[CAST_STAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_STAR_PIPE_ARR_R]]
 ; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_STAR_PIPE_ARR_R]]
 ;
 ; CHECK: %[[CINDEX7:.*]] = load {{.*}} %char_index
@@ -134,7 +134,7 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK: %[[LAR_PIPE_ARR_R_INDEX3:.*]] = trunc {{.*}} %[[LINDEX1]]
 ; CHECK: %[[GEP_LAR_PIPE_ARR_R3:.*]] = getelementptr {{.*}} %[[GEP_LAR_PIPE_ARR_R2]], i32 0, i32 %[[LAR_PIPE_ARR_R_INDEX3]]
 ; CHECK: %[[LOAD_LAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_LAR_PIPE_ARR_R3]]
-; CHECK: %[[CAST_LAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_LAR_PIPE_ARR_R]]
+; CHECK: %[[CAST_LAR_PIPE_ARR_R:.*]] = bitcast %opencl.pipe_rw_t{{.*}} %[[LOAD_LAR_PIPE_ARR_R]]
 ; CHECK: call i32 @__read_pipe_2{{.*}} %[[CAST_LAR_PIPE_ARR_R]]
 
 ; Function Attrs: nounwind

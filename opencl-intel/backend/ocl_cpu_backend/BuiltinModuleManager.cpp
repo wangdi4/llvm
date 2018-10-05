@@ -18,6 +18,7 @@
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
 #include "CPUBuiltinLibrary.h"
+#include "FPGABuiltinLibrary.h"
 
 void RegisterCPUBIFunctions(void);
 
@@ -74,6 +75,11 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
 
     m_BuiltinLibs[key] = pLibrary.get();
     return pLibrary.release();
+}
+
+void BuiltinModuleManager::LoadFPGALibraries()
+{
+    loadFPGALibraries();
 }
 
 }}}

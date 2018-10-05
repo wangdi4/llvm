@@ -34,7 +34,6 @@
 
 // TODO: get better name to this pass.
 // SPIR materialization now happens in front-end.
-// This pass updates pipe built-in calls for FPGA emulator.
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -43,9 +42,9 @@ static cl::opt<bool> RemoveFPGAReg("remove-fpga-reg",
     cl::init(false), cl::Hidden,
     cl::desc("Remove __builtin_fpga_reg built-in calls."));
 
-static cl::opt<bool> RemovePipeConstArgs("remove-pipe-const-args",
+static cl::opt<bool> DemangleFPGAPipes("demangle-fpga-pipes",
     cl::init(false), cl::Hidden,
-    cl::desc("Remove packet size and alignment arguments from pipe built-ins"));
+    cl::desc("Remove custom mangling from pipe built-ins"));
 
 namespace intel {
 
@@ -64,8 +63,8 @@ public:
           m_isChanged |= removeFPGARegInst(CI, InstToRemove);
         }
 
-        if (RemovePipeConstArgs) {
-          m_isChanged |= changePipeCall(CI, InstToRemove);
+        if (DemangleFPGAPipes) {
+          m_isChanged |= demangleFPGABICallInst(CI, InstToRemove);
         }
       }
     }
@@ -87,8 +86,9 @@ public:
     return false;
   }
 
-  bool changePipeCall(llvm::CallInst *CI,
-                      llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
+  bool
+  demangleFPGABICallInst(llvm::CallInst *CI,
+                         llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
     auto *F = CI->getCalledFunction();
     if (!F)
       return false;
@@ -96,90 +96,70 @@ public:
     StringRef FName = F->getName();
 
     bool PipeBI = StringSwitch<bool>(FName)
+      .Case("__read_pipe_2", true)
+      .Case("__write_pipe_2", true)
+      .Case("__read_pipe_2_bl", true)
+      .Case("__write_pipe_2_bl", true)
       .Case("__read_pipe_2_AS0", true)
       .Case("__read_pipe_2_AS1", true)
       .Case("__read_pipe_2_AS3", true)
-      .Case("__read_pipe_2", true)
-      .Case("__read_pipe_4", true)
       .Case("__read_pipe_2_bl_AS0", true)
       .Case("__read_pipe_2_bl_AS1", true)
       .Case("__read_pipe_2_bl_AS3", true)
-      .Case("__read_pipe_2_bl", true)
-      .Case("__read_pipe_4_bl", true)
-      .Case("__write_pipe_2", true)
       .Case("__write_pipe_2_AS0", true)
       .Case("__write_pipe_2_AS1", true)
       .Case("__write_pipe_2_AS2", true)
       .Case("__write_pipe_2_AS3", true)
-      .Case("__write_pipe_4", true)
       .Case("__write_pipe_2_bl_AS0", true)
       .Case("__write_pipe_2_bl_AS1", true)
       .Case("__write_pipe_2_bl_AS2", true)
       .Case("__write_pipe_2_bl_AS3", true)
-      .Case("__write_pipe_2_bl", true)
-      .Case("__write_pipe_4_bl", true)
-      .Case("__reserve_read_pipe", true)
-      .Case("__reserve_write_pipe", true)
       .Default(false);
 
     if (!PipeBI)
       return false;
 
     auto RTLs = BLI.getBuiltinModules();
-
-    llvm::StructType *InternalPipeTy = nullptr;
     llvm::Module *PipesModule = nullptr;
     for (auto *M : RTLs) {
-      if ((InternalPipeTy = M->getTypeByName("struct.__pipe_t"))) {
+      if (M->getTypeByName("struct.__pipe_t")) {
         PipesModule = M;
         break;
       }
     }
 
-    if (!InternalPipeTy) {
-      llvm_unreachable("Cannot find __pipe_t struct in RTL.");
-      return false;
-    }
-
-    auto *GlobalPipeTy = PointerType::get(InternalPipeTy,
-          Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Global);
-
-    auto PipeArg = BitCastInst::CreatePointerCast(CI->getArgOperand(0),
-                                                  GlobalPipeTy, "", CI);
+    assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
     SmallVector<Value *, 4> NewArgs;
-    NewArgs.push_back(PipeArg);
+    NewArgs.push_back(CI->getArgOperand(0)); // pipe argument
 
-    if (!FName.contains("_AS")) {
-      // skip the first argument (the pipe), and the 2 last arguments (packet size
-      // and max packets, they are not used by the BIs)
-      assert(CI->getNumArgOperands() > 2 && "Unexpected number of arguments");
-      for (size_t i = 1; i < CI->getNumArgOperands() - 2; ++i) {
-        NewArgs.push_back(CI->getArgOperand(i));
-      }
-    } else {
-      // For OpenCL 1.x we expect that built-in contains only 4 arguments.
-      // Else branch handles OpenCL 1.x case.
-      assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
+    if (FName.contains("_AS")) {
       FName = FName.drop_back(4);
       auto *Int8Ty = IntegerType::getInt8Ty(PipesModule->getContext());
       // We need to do a cast from global/local/private address spaces to
       // generic due to in backend we have pipe built-ins only with generic
       // address space.
       llvm::Type *I8PTy = llvm::PointerType::get(Int8Ty,
-              Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic);
+          Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic);
       auto ResArg = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
-                                          CI->getArgOperand(1), I8PTy, "", CI);
+          CI->getArgOperand(1), I8PTy, "", CI);
       NewArgs.push_back(ResArg);
+    } else {
+      // copy packet argument as-is
+      NewArgs.push_back(CI->getArgOperand(1));
     }
 
-    llvm::SmallString<256> NewFName(FName);
-    NewFName.append("_intel");
+    // copy rest arguments
+    for (size_t i = 2; i < CI->getNumArgOperands(); ++i)
+      NewArgs.push_back(CI->getArgOperand(i));
+
+    // Add _fpga suffix to pipe built-ins
+    PipeKind Kind = CompilationUtils::getPipeKind(FName.str());
+    Kind.FPGA = true;
+    auto NewFName = CompilationUtils::getPipeName(Kind);
 
     llvm::Module *M = CI->getModule();
-
     llvm::Function *NewF = M->getFunction(NewFName);
     if (!NewF) {
-      PipeKind Kind = CompilationUtils::getPipeKind(NewFName.str());
       if (Kind.Blocking) {
         // Blocking built-ins are not declared in RTL, they are resolved
         // in PipeSupport instead.

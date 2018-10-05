@@ -25,18 +25,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using Utils::CPUDetect;
 
-const char* CPU_DEVICE = "cpu";
-
-namespace Utils
-{
-    DEVICE_TYPE SelectDevice(const char* cpuArch)
-    {
-        if(0 == strcmp(cpuArch, CPU_DEVICE)) return CPU_MODE;
-
-        throw Exceptions::DeviceBackendExceptionBase("Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
-    }
-}
-
 ServiceFactory* ServiceFactory::s_pInstance = nullptr;
 
 ServiceFactory::ServiceFactory()
@@ -83,14 +71,17 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
             return CL_DEV_INVALID_VALUE;
         }
 
-        // TODO: (later) need to remove these lines select operation mode should get the operation from the options
-        DEVICE_TYPE mode = CPU_MODE;
         if(nullptr != pBackendOptions)
         {
-            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            mode = Utils::SelectDevice(device.c_str());
+            size_t device = pBackendOptions->
+              GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            {
+                throw Exceptions::DeviceBackendExceptionBase(
+                    "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
+            }
         }
-        //if(CPU_MODE == mode)
+
         CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
         *ppBackendCompilationService = new CPUCompileService(config);
         return CL_DEV_SUCCESS;
@@ -120,15 +111,17 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
             return CL_DEV_INVALID_VALUE;
         }
 
-        // TODO: maybe need to remove these lines select operation mode should get the operation from the options
-        DEVICE_TYPE mode = CPU_MODE;
         if(nullptr != pBackendOptions)
         {
-            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            mode = Utils::SelectDevice(device.c_str());
+            size_t device = pBackendOptions->
+              GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            {
+                throw Exceptions::DeviceBackendExceptionBase(
+                    "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
+            }
         }
 
-        //if(CPU_MODE == mode)
         *ppBackendExecutionService = new CPUExecutionService(pBackendOptions);
         return CL_DEV_SUCCESS;
     }
@@ -153,14 +146,17 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
             return CL_DEV_INVALID_VALUE;
         }
 
-        // TODO: maybe need to remove these lines select operation mode should get the operation from the options
-        DEVICE_TYPE mode = CPU_MODE;
         if(nullptr != pBackendOptions)
         {
-            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            mode = Utils::SelectDevice(device.c_str());
+            size_t device = pBackendOptions->
+              GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            {
+                throw Exceptions::DeviceBackendExceptionBase(
+                    "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
+            }
         }
-        //if(CPU_MODE == mode)
+
         throw Exceptions::DeviceBackendExceptionBase("Serialization Service Not Implemented for CPU Device", CL_DEV_INVALID_OPERATION_MODE);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
@@ -188,13 +184,15 @@ cl_dev_err_code ServiceFactory::GetImageService(
 {
     try
     {
-        //TODO:vlad
-        DEVICE_TYPE mode = CPU_MODE;
-
         if(nullptr != pBackendOptions)
         {
-            std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            mode = Utils::SelectDevice(device.c_str());
+            size_t device = pBackendOptions->
+              GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            {
+                throw Exceptions::DeviceBackendExceptionBase(
+                    "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
+            }
         }
 
         /// WORKAROUND!! Wee need to skip built-in module load for
@@ -202,7 +200,7 @@ cl_dev_err_code ServiceFactory::GetImageService(
         CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
         config.SkipBuiltins();
 
-        *ppBackendImageService = new ImageCallbackService(config, mode == CPU_MODE);
+        *ppBackendImageService = new ImageCallbackService(config, true);
         return CL_DEV_SUCCESS;
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )

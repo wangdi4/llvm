@@ -121,6 +121,8 @@ public:
     {
         switch(optionId)
         {
+        case CL_DEV_BACKEND_OPTION_DEVICE :
+            return CPU_DEVICE;
         case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
             return m_transposeSize;
         default:
@@ -132,8 +134,6 @@ public:
     {
         switch(optionId)
         {
-        case CL_DEV_BACKEND_OPTION_DEVICE :
-            return "cpu";
         case CL_DEV_BACKEND_OPTION_SUBDEVICE :
             return m_cpu.c_str();
         case CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES:
@@ -222,19 +222,15 @@ public:
 
     virtual const char* GetStringValue(int optionId, const char* defaultValue)const
     {
-        switch(optionId)
-        {
-        case CL_DEV_BACKEND_OPTION_DEVICE :
-            return "cpu";
-        default:
-            return CPUBackendOptions::GetStringValue(optionId, defaultValue);
-        }
+        return CPUBackendOptions::GetStringValue(optionId, defaultValue);
     }
 
     virtual int GetIntValue( int optionId, int defaultValue) const
     {
         switch(optionId)
         {
+        case CL_DEV_BACKEND_OPTION_DEVICE :
+            return CPU_DEVICE;
         case CL_DEV_BACKEND_OPTION_TARGET_DESC_SIZE:
             return m_targetDescSize;
         default:

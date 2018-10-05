@@ -36,6 +36,7 @@
 
  ****************************************************/
 
+#include "cl_config.h"
 #include "cl_shutdown.h"
 #include "cl_types.h"
 #include "cl_dynamic_lib.h"
@@ -99,7 +100,9 @@ void UseShutdownHandler::UnloadingDll( bool value )
 //
 // This function is called from inside lock - do not call global callback from inside
 //
-void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSING processing_state,  AT_EXIT_UNLOADING_MODE mode )
+void CL_CALLBACK UseShutdownHandler::AtExitProcessingState(
+    AT_EXIT_GLB_PROCESSING processing_state, AT_EXIT_UNLOADING_MODE mode,
+    bool needToDisableAPIAtShutdown )
 {
     switch (processing_state)
     {
@@ -108,7 +111,7 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSI
             {
                 shutdown_mode           = EXIT_STARTED;
                 global_at_exit_callback = nullptr;
-                OclDynamicLib::SetGlobalAtExitNotification( nullptr );                
+                OclDynamicLib::SetGlobalAtExitNotification( nullptr );
             }
             return;
 
@@ -118,15 +121,19 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSI
             {
                 if (nullptr != local_at_exit_callback)
                 {
-#if defined(_WIN32) || defined(BUILD_FPGA_EMULATOR)
-                    if (AT_EXIT_DLL_UNLOADING_MODE == mode)
-#endif
+                    if (needToDisableAPIAtShutdown)
+                    {
+                        if (AT_EXIT_DLL_UNLOADING_MODE == mode)
+                        {
+                            local_at_exit_callback();
+                        }
+                    }
+                    else
                     {
                         local_at_exit_callback();
                     }
                     local_at_exit_callback = nullptr;
                 }
-
                 shutdown_mode           = EXIT_DONE;
             }
             return;

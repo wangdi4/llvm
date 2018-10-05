@@ -37,4 +37,9 @@ enum {
   WG_SIZE_NUM                   // Number of WG size arrays.
 };
 
+// List of supported devices that differs from the a given one in cl.h
+enum DeviceMode {
+  CPU_DEVICE      = 0,
+  FPGA_EMU_DEVICE = 1
+};
 #endif // __COMMON_DEV_LIMITES_H__

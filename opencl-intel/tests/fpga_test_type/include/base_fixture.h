@@ -47,8 +47,6 @@ protected:
     ASSERT_EQ(CL_SUCCESS, error)
         << "clGetPlatformIDs failed with error " << ErrToStr(error);
 
-    m_default_context_properties[1] = (cl_context_properties)m_platform;
-
     cl_uint num_devices;
     error = clGetDeviceIDs(m_platform, CL_DEVICE_TYPE_ACCELERATOR, 0, NULL,
                            &num_devices);
@@ -122,44 +120,11 @@ protected:
    *
    *  \note Created context will be released automatically, \see TearDown
    *
-   *  \attention
-   *    Context will be created with the following properties:
-   *      cl_context_properties m_default_context_properties[5] = {
-   *          CL_CONTEXT_PLATFORM,
-   *          (cl_context_properties) selected_platform,
-   *          CL_CONTEXT_FPGA_EMULATOR_INTEL,
-   *          CL_TRUE,
-   *          0
-   *      };
-   *
    *  \param [in] device
    *  \returns context if created successfully, nullptr otherwise
    */
   cl_context createContext(const cl_device_id device) {
-    return createContext(m_default_context_properties, 1, &device);
-  }
-
-  /**
-   *  \brief Creates OpenCL context for the specified list of devices
-   *
-   *  \note Created context will be released automatically, \see TearDown
-   *
-   *  \attention
-   *    Context will be created with the following properties:
-   *      cl_context_properties m_default_context_properties[5] = {
-   *          CL_CONTEXT_PLATFORM,
-   *          (cl_context_properties) selected_platform,
-   *          CL_CONTEXT_FPGA_EMULATOR_INTEL,
-   *          CL_TRUE,
-   *          0
-   *      };
-   *
-   *  \param [in] device_list
-   *  \returns context if created successfully, nullptr otherwise
-   */
-  cl_context createContext(const std::vector<cl_device_id> &device_list) {
-    return createContext(m_default_context_properties, device_list.size(),
-                         device_list.data());
+    return createContext(1, &device);
   }
 
   /**
@@ -172,9 +137,8 @@ protected:
    *  \param [in] device_list
    *  \returns context if created successfully, nullptr otherwise
    */
-  cl_context createContext(const cl_context_properties *properties,
-                           const std::vector<cl_device_id> &device_list) {
-    return createContext(properties, device_list.size(), device_list.data());
+  cl_context createContext(const std::vector<cl_device_id> &device_list) {
+    return createContext(device_list.size(), device_list.data());
   }
 
   /**
@@ -188,11 +152,10 @@ protected:
    *  \param [in] device_list
    *  \returns context if created successfully, nullptr otherwise
    */
-  cl_context createContext(const cl_context_properties *properties,
-                           cl_uint num_devices,
+  cl_context createContext(cl_uint num_devices,
                            const cl_device_id *devices_list) {
     cl_int error = CL_SUCCESS;
-    cl_context context = clCreateContext(properties, num_devices, devices_list,
+    cl_context context = clCreateContext(nullptr, num_devices, devices_list,
                                          nullptr, nullptr, &error);
     EXPECT_EQ(CL_SUCCESS, error)
         << "clCreateContext failed with error " << ErrToStr(error);
@@ -378,13 +341,6 @@ private:
   cl_platform_id m_platform = nullptr;
   std::vector<cl_device_id> m_devices = std::vector<cl_device_id>();
 
-  cl_context_properties m_default_context_properties[5] = {
-      CL_CONTEXT_PLATFORM,
-      (cl_context_properties) nullptr,
-      CL_CONTEXT_FPGA_EMULATOR_INTEL,
-      CL_TRUE,
-      0
-  };
   std::vector<cl_context> m_contexts;
 
   std::vector<cl_mem> m_mem_objects;

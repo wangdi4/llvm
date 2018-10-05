@@ -503,13 +503,21 @@ class ITaskExecutor
 {
 public:
     /**
-     * Init TE for specified number of threads. The first call specifies the number of threads to be used, 
-     * all subsequent calls are ignored, just return number of threads from the first call.
+     * Init TE for specified number of threads. The first call specifies the
+     * number of threads to be used, all subsequent calls are ignored, just
+     * return number of threads from the first call.
      * @param  AUTO_THREADS cannot be used if uiNumOfLevels > 1.
-     * @param ulAdditionalRequiredStackSize can be used to increase amount of stack in threads
-     * @return the number of threads initialized, if succeeded, else -1
+     * @param ulAdditionalRequiredStackSize can be used to increase amount of
+     * stack in threads.
+     * @param deviceMode is responsible for a type of device we use (CPU, FPGA
+     * etc).
+     * @return the number of threads initialized, if succeeded, else -1.
      */
-    virtual int    Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = nullptr, size_t ulAdditionalRequiredStackSize = 0) = 0;
+    virtual int Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger,
+                     unsigned int uiNumOfThreads = TE_AUTO_THREADS,
+                     ocl_gpa_data * pGPAData = nullptr,
+                     size_t ulAdditionalRequiredStackSize = 0,
+                     DeviceMode deviceMode = CPU_DEVICE) = 0;
 
     virtual void Finalize() = 0;
 

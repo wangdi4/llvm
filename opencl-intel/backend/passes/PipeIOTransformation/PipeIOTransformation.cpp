@@ -49,16 +49,35 @@ typedef SmallVector<CallInst *, 4> PipesBuiltinsVector;
 
 namespace intel {
 
-static bool isPipe(const GlobalValue *GV, const Type *PipeTy) {
+static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
+  if (Kind.Blocking) {
+    // There are no declarations and definitions of blocking pipe built-ins in
+    // RTL's.
+    // Calls to blocking pipe built-ins will be resolved later in PipeSupport,
+    // so we just need to insert declarations here.
+    PipeKind NonBlockingKind = Kind;
+    NonBlockingKind.Blocking = false;
+
+    Function *NonBlockingBuiltin =
+        Builtins.get(CompilationUtils::getPipeName(NonBlockingKind));
+    return cast<Function>(Builtins.getTargetModule().getOrInsertFunction(
+        CompilationUtils::getPipeName(Kind),
+        NonBlockingBuiltin->getFunctionType()));
+  }
+
+  return Builtins.get(CompilationUtils::getPipeName(Kind));
+}
+
+static bool isPipe(const GlobalValue *GV, const PipeTypesHelper &PipeTypes) {
   auto *GVValueTy = GV->getType()->getElementType();
 
-  if (PipeTy == GVValueTy)
+  if (PipeTypes.isPipeType(GVValueTy))
     return true;
 
   if (auto *GVArrTy = dyn_cast<ArrayType>(GVValueTy)) {
-    if (PipeTy == CompilationUtils::getArrayElementType(GVArrTy)) {
+    auto *ElTy = CompilationUtils::getArrayElementType(GVArrTy);
+    if (PipeTypes.isPipeType(ElTy))
       return true;
-    }
   }
 
   return false;
@@ -109,14 +128,14 @@ static Function *createGlobalPipeDtor(Module &M) {
   return Dtor;
 }
 
-static bool processGlobalIOPipes(Module &M, Type *PipeTy,
+static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
                                  PipesWithMDVector &PipesWithMDVec,
                                  OCLBuiltins &Builtins) {
   bool Changed = false;
   Function *GlobalDtor = nullptr;
 
   for (auto &PipeGV : M.globals()) {
-    if (!isPipe(&PipeGV, PipeTy))
+    if (!isPipe(&PipeGV, PipeTypes))
       continue;
     if (PipeGV.hasMetadata() && !PipeGV.getMetadata("io"))
       continue;
@@ -125,7 +144,7 @@ static bool processGlobalIOPipes(Module &M, Type *PipeTy,
       GlobalDtor = createGlobalPipeDtor(M);
 
     initializeGlobalPipeReleaseCall(
-        M, GlobalDtor, Builtins.get("__pipe_release_intel"), &PipeGV);
+        M, GlobalDtor, Builtins.get("__pipe_release_fpga"), &PipeGV);
 
     ChannelPipeMD MD = getChannelPipeMetadata(&PipeGV);
     PipesWithMDVec.push_back(std::make_pair(&PipeGV, MD.IO));
@@ -179,12 +198,14 @@ static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
   assert(CF && "Indirect function call");
   PipeKind PK = CompilationUtils::getPipeKind(CF->getName());
   PK.IO = true;
+  PK.FPGA = true;
 
-  Function *Builtin = Builtins.get(CompilationUtils::getPipeName(PK));
+  Function *Builtin = getPipeBuiltin(Builtins, PK);
   FunctionType *FTy = Builtin->getFunctionType();
   Value *Args[] = {
       PipeCall->getArgOperand(0), PipeCall->getArgOperand(1),
-      CastInst::CreatePointerCast(TC, FTy->getParamType(2), "", PipeCall)};
+      CastInst::CreatePointerCast(TC, FTy->getParamType(2), "", PipeCall),
+      PipeCall->getArgOperand(2), PipeCall->getArgOperand(3)};
 
   auto PC = CallInst::Create(Builtin, Args, PipeCall->getName(), PipeCall);
   PipeCall->replaceAllUsesWith(PC);
@@ -203,20 +224,57 @@ static void replaceIOPipesBuiltins(Module &M, PipesWithMDVector &PipesWithMDVec,
   }
 }
 
+static void replaceLocalIOPipesBuiltins(Module &M,
+                                        PipesWithMDVector &PipesWithMDVec,
+                                        OCLBuiltins &Builtins) {
+  for (auto &PipeWithMD : PipesWithMDVec) {
+    auto *TC = createGlobalTextConstant(M, PipeWithMD.second);
+    PipesBuiltinsVector PBV;
+    getPipeBuiltinCalls(PBV, PipeWithMD.first);
+
+    // Sometimes not all optimizations are performed (-g, -profiling build
+    // options) and function arguments are used indirectly via additional
+    // alloca, store and load:
+    //
+    // define void @foo(%opencl.pipe_wo_t %0) {
+    //  entry:
+    //    %p1.addr = alloca %opencl.pipe_wo_t*
+    //    store %opencl.pipe_wo_t* %0, %opencl.pipe_wo_t** %p1.addr
+    //    %1 = load %opencl.pipe_wo_t*, %opencl.pipe_wo_t** %p1.addr
+    //    %2 = call i32 @__write_pipe_2(%opencl.pipe_wo_t* %1, ...
+    // }
+    for (auto *U : PipeWithMD.first->users()) {
+      if (auto *Store = dyn_cast<StoreInst>(U)) {
+        Value *PtrOp = Store->getPointerOperand();
+        assert(isa<AllocaInst>(PtrOp) && "Expected alloca for argument");
+        // We need to trace usages of alloca too
+        getPipeBuiltinCalls(PBV, PtrOp);
+      }
+    }
+
+    for (auto &PC : PBV) {
+      replacePipeBuiltinCall(PC, TC, Builtins);
+    }
+  }
+}
+
 bool PipeIOTransformation::runOnModule(Module &M) {
-  auto *PipeValueTy = CompilationUtils::getStructByName("opencl.pipe_t", &M);
-  if (!PipeValueTy)
-    return false;
-  auto *PipeTy = PointerType::get(PipeValueTy, Utils::OCLAddressSpace::Global);
-  PipesWithMDVector PipesWithMDVec;
+  PipeTypesHelper PipeTypes(M);
+  if (!PipeTypes.hasPipeTypes())
+    return false; // no pipes in the module, nothing to do
+
+  PipesWithMDVector GlobalPipes, LocalPipes;
   bool Changed = false;
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
-  Changed |= processGlobalIOPipes(M, PipeTy, PipesWithMDVec, Builtins);
-  Changed |= processIOPipesFromKernelArg(M, PipesWithMDVec);
+  Changed |= processGlobalIOPipes(M, PipeTypes, GlobalPipes, Builtins);
+  if (!GlobalPipes.empty())
+    replaceIOPipesBuiltins(M, GlobalPipes, Builtins);
 
-  replaceIOPipesBuiltins(M, PipesWithMDVec, Builtins);
+  Changed |= processIOPipesFromKernelArg(M, LocalPipes);
+  if (!LocalPipes.empty())
+    replaceLocalIOPipesBuiltins(M, LocalPipes, Builtins);
 
   return Changed;
 }

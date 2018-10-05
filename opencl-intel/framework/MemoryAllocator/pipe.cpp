@@ -52,17 +52,21 @@ cl_err_code Pipe::Initialize(cl_mem_flags flags, cl_uint uiPacketSize,
     err = GetBackingStore(CL_DEV_BS_GET_ALWAYS, &pBS);
     assert(CL_SUCCEEDED(err) && "GetBackingStore failed");
 
-#ifdef BUILD_FPGA_EMULATOR
-    int mode = FrameworkProxy::Instance()->GetOCLConfig()
-        ->GetChannelDepthEmulationMode();
-    __pipe_init_intel(pBS->GetRawData(), uiPacketSize, uiMaxPackets, mode);
-    m_mapBuffer.reserve(uiPacketSize * uiMaxPackets);
-#else
-    pipe_control_intel_t* pipeCtrl = (pipe_control_intel_t*)pBS->GetRawData();
-    memset(pipeCtrl, 0, INTEL_PIPE_HEADER_RESERVED_SPACE);
-    // one extra packet is required by the pipe implementation
-    pipeCtrl->pipe_max_packets_plus_one = uiMaxPackets + 1;
-#endif
+    if (this->GetContext()->IsFPGAEmulator())
+    {
+        int mode = FrameworkProxy::Instance()->GetOCLConfig()
+            ->GetChannelDepthEmulationMode();
+        __pipe_init_fpga(pBS->GetRawData(), uiPacketSize, uiMaxPackets, mode);
+        m_mapBuffer.reserve(uiPacketSize * uiMaxPackets);
+    }
+    else
+    {
+        pipe_control_intel_t* pipeCtrl =
+          (pipe_control_intel_t*)pBS->GetRawData();
+        memset(pipeCtrl, 0, INTEL_PIPE_HEADER_RESERVED_SPACE);
+       // one extra packet is required by the pipe implementation
+       pipeCtrl->pipe_max_packets_plus_one = uiMaxPackets + 1;
+    }
 
     return CL_SUCCESS;
 }
@@ -262,7 +266,9 @@ void Pipe::MapRead(MapSegment seg)
     size_t numPackets = seg.size / m_uiPacketSize;
     for (size_t i = 0; i < numPackets; ++i)
     {
-        while (__read_pipe_2_intel(pPipe, seg.ptr + i * m_uiPacketSize))
+        while (__read_pipe_2_fpga(pPipe, seg.ptr + i * m_uiPacketSize,
+                                  /*size=*/m_uiPacketSize,
+                                  /*align=*/m_uiPacketSize))
         {
             FlushRead();
         }
@@ -292,7 +298,9 @@ void Pipe::UnmapWrite(MapSegment seg)
     size_t numPackets = seg.size / m_uiPacketSize;
     for (size_t i = 0; i < numPackets; ++i)
     {
-        while (__write_pipe_2_intel(pPipe, seg.ptr + i * m_uiPacketSize))
+        while (__write_pipe_2_fpga(pPipe, seg.ptr + i * m_uiPacketSize,
+                                   /*size=*/m_uiPacketSize,
+                                   /*align=*/m_uiPacketSize))
         {
             FlushWrite();
         }
@@ -337,7 +345,8 @@ cl_err_code Pipe::ReadPacket(void* pDst)
     }
 
     void* pPipe = GetBackingStoreData();
-    if (__read_pipe_2_intel(pPipe, pDst))
+    if (__read_pipe_2_fpga(pPipe, pDst, /*size=*/m_uiPacketSize,
+                           /*align=*/m_uiPacketSize))
     {
         return CL_PIPE_EMPTY;
     }
@@ -384,7 +393,8 @@ cl_err_code Pipe::WritePacket(const void* pSrc)
     }
 
     void* pPipe = GetBackingStoreData();
-    if (__write_pipe_2_intel(pPipe, pSrc))
+    if (__write_pipe_2_fpga(pPipe, pSrc, /*size=*/m_uiPacketSize,
+                            /*align=*/m_uiPacketSize))
     {
         return CL_PIPE_FULL;
     }

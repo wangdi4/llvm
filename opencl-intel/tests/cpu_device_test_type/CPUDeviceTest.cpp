@@ -130,24 +130,20 @@ bool clGetDeviceInfo_TypeTest()
 	}
 	else
 	{
-		if(param_value_size != sizeof(cl_device_type))
+		if (param_value_size != sizeof(cl_device_type))
 		{
 			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_device_type));
 			return false;
 		}
-#ifdef BUILD_FPGA_EMULATOR
-		if(device_type != CL_DEVICE_TYPE_ACCELERATOR)
-#else
-		if(device_type != CL_DEVICE_TYPE_CPU)
-#endif
+		if (device_type != CL_DEVICE_TYPE_ACCELERATOR &&
+				device_type != CL_DEVICE_TYPE_CPU)
 		{
 			printf("clDevGetDeviceInfo failed wrong device type %lu instead of %d\n", device_type,CL_DEVICE_TYPE_CPU);
 			return false;
 		}
-			printf("clDevGetDeviceInfo succeeded\n");
-			return true;
+		printf("clDevGetDeviceInfo succeeded\n");
+		return true;
 	}
-
 }
 
 bool clGetDeviceInfo_Test()

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "PipeCommon.h"
+#include "common_dev_limits.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "cl_user_logger.h"
@@ -43,7 +44,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),
             m_forcedPrivateMemorySize(0),
-            m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT)
+            m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
+            m_targetDevice(CPU_DEVICE)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
@@ -57,6 +59,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         {
             switch(optionId )
             {
+                case CL_DEV_BACKEND_OPTION_DEVICE:
+                {
+                    return m_targetDevice;
+                }
                 case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
                 {
                     // The transpoze size is applicable only then
@@ -96,8 +102,9 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int  m_vectorizerMode;
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
-        int m_forcedPrivateMemorySize;
-        int m_channelDepthEmulationMode;
+        int  m_forcedPrivateMemorySize;
+        int  m_channelDepthEmulationMode;
+        DeviceMode  m_targetDevice;
     };
 
     /**

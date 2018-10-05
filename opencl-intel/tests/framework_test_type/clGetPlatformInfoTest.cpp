@@ -33,6 +33,8 @@
 **************************************************************************************************/
 using namespace Intel::OpenCL::Utils;
 
+extern cl_device_type gDeviceType;
+
 bool clGetPlatformInfoTest()
 {
     printf("---------------------------------------\n");
@@ -44,19 +46,21 @@ bool clGetPlatformInfoTest()
 
     cl_platform_id platform = 0;
 
+    bool isFPGAEmulator = false;
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+    {
+        isFPGAEmulator = true;
+    }
+
     cl_int iRes = clGetPlatformIDs(1, &platform, NULL);
     bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRes);
-
     if (!bResult)
     {
         return bResult;
     }
 
-#ifdef BUILD_FPGA_EMULATOR
-    const char * expectedProfile = "EMBEDDED_PROFILE";
-#else
-    const char * expectedProfile = "FULL_PROFILE";
-#endif
+    const char * expectedProfile = isFPGAEmulator ? "EMBEDDED_PROFILE"
+                                                  : "FULL_PROFILE";
     size_t expectedProfileSize = strlen(expectedProfile) + 1;
 
     // CL_PLATFORM_PROFILE
@@ -98,13 +102,18 @@ bool clGetPlatformInfoTest()
     bResult &= Check("CL_PLATFORM_VERSION, get size only", CL_SUCCESS, iRes);
     if (CL_SUCCEEDED(iRes))
     {
-#ifdef BUILD_FPGA_EMULATOR
-        bResult &= CheckSize("check value", 58, size_ret);
-#elif defined(_WIN32)
-        bResult &= CheckSize("check value", 19, size_ret);
+        if (isFPGAEmulator)
+        {
+            bResult &= CheckSize("check value", 58, size_ret);
+        }
+        else
+        {
+#ifdef _WIN32
+            bResult &= CheckSize("check value", 19, size_ret);
 #else
-        bResult &= CheckSize("check value", 17, size_ret);
+            bResult &= CheckSize("check value", 17, size_ret);
 #endif
+        }
     }
 
     // CL_PLATFORM_VERSION
@@ -121,16 +130,15 @@ bool clGetPlatformInfoTest()
         std::string expectedString;
         expectedString += "OpenCL ";
 
-        #ifdef BUILD_OPENCL_21
-        {
-            expectedString += "2.1 ";
-        }
-        #elif defined(BUILD_FPGA_EMULATOR)
+        if (isFPGAEmulator)
         {
             expectedString += "1.0 ";
         }
-        #else // BUILD_FPGA_EMULATOR
+        else
         {
+#ifdef BUILD_OPENCL_21
+            expectedString += "2.1 ";
+#else
             switch (GetOpenclVerByCpuModel())
             {
                 case OPENCL_VERSION_2_2:
@@ -154,25 +162,21 @@ bool clGetPlatformInfoTest()
                     break;
             }
         }
-        #endif //BUILD_EXPERIMENTAL_21
-
-        #ifdef BUILD_FPGA_EMULATOR
+#endif // BUILD_EXPERIMENTAL_21
+        if (isFPGAEmulator)
         {
-            expectedString += "Intel(R) FPGA SDK for OpenCL(TM), Version 18.0";
+            expectedString += "Intel(R) FPGA SDK for OpenCL(TM), Version 18.1";
         }
-        #elif defined (_WIN32)
+        else
         {
+#ifdef _WIN32
             expectedString += "WINDOWS";
-        }
-        #elif defined (__linux__)
-        {
+#elif defined (__linux__)
             expectedString += "LINUX";
+#else
+    #error Unhandled platform!
+#endif
         }
-        #else
-        {
-            #error Unhandled platform!
-        }
-        #endif
 
         bResult &= CheckStr("check value",
                 &expectedString[0], platformInfoStr);

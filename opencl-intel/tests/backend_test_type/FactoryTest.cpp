@@ -44,7 +44,7 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
 
     //-----------------------------------------------------------------
     // create valid set of options
-    options.InitFromTestConfiguration("", "auto", "", TRANSPOSE_SIZE_AUTO, false);
+    options.InitFromTestConfiguration(CPU_DEVICE, "auto", "", TRANSPOSE_SIZE_AUTO, false);
     EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
     EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
     EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
@@ -57,7 +57,7 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
     //-----------------------------------------------------------------
     // create another set of valid options
     std::string currCPU = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPUName();
-    options.InitFromTestConfiguration("", currCPU, "", TRANSPOSE_SIZE_1, true);
+    options.InitFromTestConfiguration(CPU_DEVICE, currCPU, "", TRANSPOSE_SIZE_1, true);
     EXPECT_TRUE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
     EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
     EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
@@ -71,7 +71,7 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
     // create another set of valid options - enabling special features
     const bool avx1Support = Utils::CPUDetect::GetInstance()->GetCPUId().HasAVX1();
     if(avx1Support){
-        options.InitFromTestConfiguration("", currCPU, "+avx", TRANSPOSE_SIZE_16, false);
+        options.InitFromTestConfiguration(CPU_DEVICE, currCPU, "+avx", TRANSPOSE_SIZE_16, false);
         EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
         EXPECT_TRUE(STRING_EQ("+avx",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
         EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
@@ -98,7 +98,7 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceFailure)
 
     //-----------------------------------------------------------------
     // create invalid set of options - unsupported architecture
-    options.InitFromTestConfiguration("", ARCH_UNSUPPORTED, "", TRANSPOSE_SIZE_AUTO, false);
+    options.InitFromTestConfiguration(CPU_DEVICE, ARCH_UNSUPPORTED, "", TRANSPOSE_SIZE_AUTO, false);
     EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
     EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
     EXPECT_EQ(TRANSPOSE_SIZE_AUTO,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
@@ -140,7 +140,7 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceCreation)
     //-----------------------------------------------------------------
     // create another set of valid options
     std::string currCPU = Utils::CPUDetect::GetInstance()->GetCPUId().GetCPUName();
-    options.InitFromTestConfiguration("", currCPU);
+    options.InitFromTestConfiguration(CPU_DEVICE, currCPU);
     EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     // call GetExecutionService with valid parameters - should success
     ret = funcGetFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
@@ -163,7 +163,7 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceFailure)
 
     //-----------------------------------------------------------------
     // create invalid opthions parameters - unsupported architecture
-    options.InitFromTestConfiguration(ARCH_UNSUPPORTED, ARCH_UNSUPPORTED);
+    options.InitFromTestConfiguration(static_cast<DeviceMode>(UNSUPPORTED_DEVICE), ARCH_UNSUPPORTED);
     EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto")));
     // call GetExecutionService with Options invalid - should fail
     ret = funcGetFactory->GetExecutionService(&options, spExecutionService.getOutPtr());
@@ -197,7 +197,7 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
 
     //-----------------------------------------------------------------
     // create invalid set of options - unsupported architecture
-    options.InitFromTestConfiguration(BW_CPU_DEVICE,ARCH_UNSUPPORTED, pJITAllocator);
+    options.InitFromTestConfiguration(BW_CPU_DEVICE, ARCH_UNSUPPORTED, pJITAllocator);
     EXPECT_TRUE(STRING_EQ(ARCH_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto")));
     pJITAllocatorTemp = NULL;
     size = 0;

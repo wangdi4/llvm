@@ -80,12 +80,12 @@ static bool hasUsersInFunction(Value &V, Function &F) {
   return false;
 }
 
-static int getNumUsedPipes(Function &F, PointerType *PipeTy) {
+static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
   int PipesNum = 0;
 
   // Count local pipes
   for (auto &Arg : F.args()) {
-    if (CompilationUtils::isSameStructPtrType(Arg.getType(), PipeTy))
+    if (PipeTypes.isPipeType(Arg.getType()))
       ++PipesNum;
   }
 
@@ -98,7 +98,7 @@ static int getNumUsedPipes(Function &F, PointerType *PipeTy) {
     if (ArrTy)
       Ty = CompilationUtils::getArrayElementType(ArrTy);
 
-    if (!CompilationUtils::isSameStructPtrType(Ty, PipeTy))
+    if (!PipeTypes.isGlobalPipeType(Ty))
       continue;
 
     if (hasUsersInFunction(GV, F))
@@ -124,11 +124,12 @@ static void findPipeCalls(Function &F,
   }
 }
 
-static PipeArrayView createPipeArray(Function &F,
-                                     PointerType* PipeTy, int Size) {
+static PipeArrayView createPipeArray(Function &F, int Size) {
   IRBuilder<> Builder(&F.getEntryBlock().front());
 
-  auto *Array = Builder.CreateAlloca(PipeTy, Builder.getInt32(Size));
+  auto *Array =
+      Builder.CreateAlloca(Builder.getInt8PtrTy(Utils::OCLAddressSpace::Global),
+                           Builder.getInt32(Size));
   auto *ArraySize = Builder.CreateAlloca(Builder.getInt32Ty());
   Builder.CreateStore(Builder.getInt32(0), ArraySize);
 
@@ -161,13 +162,12 @@ static void insertFlushAtExit(Function &F, Instruction *FlushReadCall,
   FlushWriteCall->deleteValue();
 }
 
-static void insertStorePipeCall(CallInst *Call, PipeArrayView StoreA,
-                                OCLBuiltins &Builtins) {
+static void insertStorePipeCall(StringRef Name, CallInst *Call,
+                                PipeArrayView StoreA, OCLBuiltins &Builtins) {
   IRBuilder<> Builder(Call);
 
-  auto *StoreF = Builtins.get("__store_pipe_use");
-  auto *Pipe = Builder.CreateBitCast(
-    Call->getOperand(0), StoreF->getFunctionType()->getParamType(2));
+  auto *StoreF = Builtins.get(Name);
+  auto *Pipe = Call->getOperand(0);
 
   Value *StoreArgs[] = {StoreA.Ptr, StoreA.Size, Pipe};
   Builder.CreateCall(StoreF, StoreArgs);
@@ -194,7 +194,7 @@ static PipeCallInfo replaceBlockingCall(const PipeCallInfo &PC,
   auto *NonBlockingFun =
     Builtins.get(CompilationUtils::getPipeName(NonBlockingKind));
 
-  SmallVector<Value *, 2> NewArgs(PC.Call->arg_operands());
+  SmallVector<Value *, 4> NewArgs(PC.Call->arg_operands());
 
   // Blocking SIMD read does not have a retcode, allocate it.
   if (NonBlockingKind.Access == PipeKind::READ &&
@@ -266,8 +266,7 @@ static BasicBlock *insertFlushAtBlockingCall(const PipeCallInfo &PC,
 }
 
 static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
-                                  PointerType *PipeTy,
-                                  PointerType *PipeImplTy) {
+                                  const PipeTypesHelper &PipeTypes) {
 
   SmallVector<PipeCallInfo, 16> PipeCalls;
   findPipeCalls(F, PipeCalls);
@@ -275,15 +274,15 @@ static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
   if (PipeCalls.empty())
     return false; // no pipe BI calls in the function, nothing to do
 
-  int NumPipes = getNumUsedPipes(F, PipeTy);
+  int NumPipes = getNumUsedPipes(F, PipeTypes);
   assert(NumPipes > 0 && "Expected pipe users in the function");
 
   // Implicit flush insertion requires to know which pipes are used in the
   // current function. In compile time we may not have such information
   // (in case of non-constant GEPs from arrays, for example).
   // Allocate 2 arrays in the function to store used pipes in run time.
-  PipeArrayView ReadArray = createPipeArray(F, PipeImplTy, NumPipes);
-  PipeArrayView WriteArray = createPipeArray(F, PipeImplTy, NumPipes);
+  PipeArrayView ReadArray = createPipeArray(F, NumPipes);
+  PipeArrayView WriteArray = createPipeArray(F, NumPipes);
 
   CallInst *FlushReadCall =
     createFlushCall("__flush_pipe_read_array", ReadArray, Builtins);
@@ -293,9 +292,12 @@ static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
   // Insert store pipe and flushes BI calls at every pipe BI call
   for (const auto &PC : PipeCalls) {
 
-    PipeArrayView &Array =
-      PC.Kind.Access == PipeKind::READ ? ReadArray : WriteArray;
-    insertStorePipeCall(PC.Call, Array, Builtins);
+    if (PC.Kind.Access == PipeKind::WRITE)
+      insertStorePipeCall("__store_write_pipe_use", PC.Call, WriteArray,
+                          Builtins);
+    else
+      insertStorePipeCall("__store_read_pipe_use", PC.Call, ReadArray,
+                          Builtins);
 
     if (PC.Kind.Blocking)
       insertFlushAtBlockingCall(
@@ -313,15 +315,9 @@ static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
 bool PipeSupport::runOnModule(Module &M) {
   bool Changed = false;
 
-  auto *PipeTy = M.getTypeByName("opencl.pipe_t");
-  if (!PipeTy) // no pipes in the module, nothing to do
-    return false;
-  auto *PipePtrTy = PointerType::get(PipeTy, Utils::OCLAddressSpace::Global);
-
-  auto *PipeImplTy = M.getTypeByName("struct.__pipe_t");
-  assert(PipeImplTy && "__pipe_t type should exists in the module");
-  auto *PipeImplPtrTy =
-    PointerType::get(PipeImplTy, Utils::OCLAddressSpace::Global);
+  PipeTypesHelper PipeTypes(M);
+  if (!PipeTypes.hasPipeTypes())
+    return false; // no pipes in the module, nothing to do
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
@@ -330,8 +326,7 @@ bool PipeSupport::runOnModule(Module &M) {
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
-    bool FuncUseFPGAPipes =
-        addImplicitFlushCalls(F, Builtins, PipePtrTy, PipeImplPtrTy);
+    bool FuncUseFPGAPipes = addImplicitFlushCalls(F, Builtins, PipeTypes);
     Changed |= FuncUseFPGAPipes;
 
     Intel::MetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(

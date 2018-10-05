@@ -455,16 +455,15 @@ list (APPEND OCL_20_SOURCE_FILES
   extended_execution_functions.cpp
   )
 
+list (APPEND OCL_20_SOURCE_FILES
+  pipes.cl
+  pipes-info.cl
+  pipe_functions.c
+)
+
 if( BUILD_FPGA_EMULATOR )
     list (APPEND OCL_20_SOURCE_FILES
-      pipes.cl
-      pipes-info.cl
       half.cl
-    )
-else( BUILD_FPGA_EMULATOR )
-    # Use old pipe implementation for no-fpga build
-    list (APPEND OCL_20_SOURCE_FILES
-      pipe_functions.c
     )
 endif( BUILD_FPGA_EMULATOR )
 
@@ -540,7 +539,7 @@ add_custom_target(clbltpipe_target
 
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
-  DEPENDS pipes.cl pipes-info.cl pipes.h pipes-internal.h pipes-defines.h
+  DEPENDS pipes.cl pipes-info.cl pipes-internal.h pipes-defines.h
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
@@ -580,7 +579,7 @@ add_custom_target(clbltpipeinfo_target
   DEPENDS clbltpipeinfo.obj)
 
 add_custom_command(OUTPUT clbltpipeinfo.obj
-  DEPENDS pipes-info.cl pipes.h pipes-internal.h pipes-defines.h
+  DEPENDS pipes-info.cl pipes-internal.h pipes-defines.h
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}

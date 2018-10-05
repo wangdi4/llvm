@@ -12,27 +12,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#ifndef __PIPE_IO_TRANSFORMATION_H__
-#define __PIPE_IO_TRANSFORMATION_H__
+#pragma once
 
-#include <llvm/IR/Module.h>
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-namespace intel {
+void loadFPGALibraries();
 
-class PipeIOTransformation : public llvm::ModulePass {
-public:
-  static char ID;
-  PipeIOTransformation();
-
-  llvm::StringRef getPassName() const override {
-    return "PipeIOTransformation";
-  }
-
-  bool runOnModule(llvm::Module &M) override;
-
-  void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
-};
-
-} // namespace intel
-
-#endif // __PIPE_IO_TRANSFORMATION_H__
+}}} // namespace
