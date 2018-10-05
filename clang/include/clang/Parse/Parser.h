@@ -1985,6 +1985,8 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> NoVectorHandler;
   // Pragma vector
   std::unique_ptr<PragmaHandler> VectorHandler;
+  // Pragma loop_count
+  std::unique_ptr<PragmaHandler> LoopCountHandler;
   // Pragma block_loop
   std::unique_ptr<PragmaHandler> BlockLoopHandler;
   StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,

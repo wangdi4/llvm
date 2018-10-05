@@ -35,7 +35,9 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
-      !Attrs.VectorizeAlwaysEnable &&
+      !Attrs.VectorizeAlwaysEnable && Attrs.LoopCount.size() == 0 &&
+      Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
+      Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
       Attrs.InterleaveCount == 0 && Attrs.UnrollCount == 0 &&
       Attrs.UnrollAndJamCount == 0 &&
@@ -168,6 +170,37 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
                                   "llvm.loop.vectorize.ignore_profitability")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
+  // Setting loop_count count
+  if (Attrs.LoopCount.size() > 0) {
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.intel.loopcount"));
+    for (auto LoopCount : Attrs.LoopCount) {
+      Vals.push_back(ConstantAsMetadata::get(
+          ConstantInt::get(Type::getInt32Ty(Ctx), LoopCount)));
+    }
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting loop_count min
+  if (Attrs.LoopCountMin > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.loopcount_minimum"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.LoopCountMin))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting loop_count max
+  if (Attrs.LoopCountMax > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.loopcount_maximum"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.LoopCountMax))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting loop_count avg
+  if (Attrs.LoopCountAvg > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.loopcount_average"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.LoopCountAvg))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Setting unroll.count
@@ -245,6 +278,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       MinIIAtTargetFmaxEnable(false), DisableLoopPipeliningEnable(false),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
+      LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
       UnrollAndJamEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
@@ -266,6 +300,10 @@ void LoopAttributes::clear() {
   IVDepLoop = false;
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
+  LoopCount.clear();
+  LoopCountMin = 0;
+  LoopCountMax = 0;
+  LoopCountAvg = 0;
 #endif // INTEL_CUSTOMIZATION
   VectorizeWidth = 0;
   InterleaveCount = 0;
@@ -377,6 +415,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::SpeculatedIterations:
       case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::LoopCount:
+      case LoopHintAttr::LoopCountMax:
+      case LoopHintAttr::LoopCountMin:
+      case LoopHintAttr::LoopCountAvg:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be disabled.");
         break;
@@ -409,6 +451,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::SpeculatedIterations:
+      case LoopHintAttr::LoopCount:
+      case LoopHintAttr::LoopCountMin:
+      case LoopHintAttr::LoopCountMax:
+      case LoopHintAttr::LoopCountAvg:
         llvm_unreachable("Options cannot enabled.");
         break;
       case LoopHintAttr::IVDep:
@@ -475,6 +521,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::LoopCount:
+      case LoopHintAttr::LoopCountMin:
+      case LoopHintAttr::LoopCountMax:
+      case LoopHintAttr::LoopCountAvg:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be used to assume mem safety.");
         break;
@@ -484,6 +534,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       switch (Option) {
       case LoopHintAttr::Unroll:
         setUnrollState(LoopAttributes::Full);
+        break;
+      case LoopHintAttr::UnrollAndJam:
+        setUnrollAndJamState(LoopAttributes::Full);
         break;
 #if INTEL_CUSTOMIZATION
       case LoopHintAttr::IVDepHLS:
@@ -503,10 +556,11 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::LoopCount:
+      case LoopHintAttr::LoopCountMin:
+      case LoopHintAttr::LoopCountMax:
+      case LoopHintAttr::LoopCountAvg:
 #endif // INTEL_CUSTOMIZATION
-      case LoopHintAttr::UnrollAndJam:
-        setUnrollAndJamState(LoopAttributes::Full);
-        break;
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
       case LoopHintAttr::UnrollCount:
@@ -553,6 +607,18 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         break;
       case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
+        break;
+      case LoopHintAttr::LoopCount:
+        setLoopCount(ValueInt);
+        break;
+      case LoopHintAttr::LoopCountMin:
+        setLoopCountMin(ValueInt);
+        break;
+      case LoopHintAttr::LoopCountMax:
+        setLoopCountMax(ValueInt);
+        break;
+      case LoopHintAttr::LoopCountAvg:
+        setLoopCountAvg(ValueInt);
         break;
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::DisableLoopPipelining:
@@ -601,6 +667,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
+      case LoopHintAttr::LoopCount:
+      case LoopHintAttr::LoopCountMax:
+      case LoopHintAttr::LoopCountMin:
+      case LoopHintAttr::LoopCountAvg:
         llvm_unreachable("Options cannot be assigned a loopexpr value.");
         break;
       }

@@ -110,6 +110,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
       St->getStmtClass() != Stmt::WhileStmtClass;
+  bool PragmaLoopCount = PragmaNameLoc->Ident->getName() == "loop_count";
 #endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameLoc->Ident->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameLoc->Ident->getName() == "nounroll";
@@ -154,6 +155,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
             .Case("nofusion", "#pragma nofusion")
             .Case("fusion", "#pragma fusion")
             .Case("novector", "#pragma novector")
+            .Case("loop_count", "#pragma loop_count")
 #endif // INTEL_CUSTOMIZATION
             .Default("#pragma clang loop");
     S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop) << Pragma;
@@ -290,6 +292,16 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                  OptionLoc->Ident->getName())
                  .Case("always", LoopHintAttr::VectorizeAlways)
                  .Default(LoopHintAttr::Vectorize);
+  } else if (PragmaLoopCount) {
+    State = LoopHintAttr::Numeric;
+    assert(OptionLoc && OptionLoc->Ident &&
+           "Attribute must have valid option info.");
+    Option = llvm::StringSwitch<LoopHintAttr::OptionType>(
+                 OptionLoc->Ident->getName())
+                 .Case("loop_count", LoopHintAttr::LoopCount)
+                 .Case("min", LoopHintAttr::LoopCountMin)
+                 .Case("max", LoopHintAttr::LoopCountMax)
+                 .Case("avg", LoopHintAttr::LoopCountAvg);
 #endif // INTEL_CUSTOMIZATION
   } else {
     // #pragma clang loop ...
@@ -609,6 +621,10 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // DisableLoopPipelining
                    {nullptr, nullptr}, // Fusion
                    {nullptr, nullptr}, // VectorAlways
+                   {nullptr, nullptr}, // LoopCount
+                   {nullptr, nullptr}, // LoopCountMin
+                   {nullptr, nullptr}, // LoopCountMax
+                   {nullptr, nullptr}, // LoopCountAvg
                                        // Interleave (below)
                                        // Unroll
                                        // UnrollAndJam
@@ -643,6 +659,10 @@ CheckForIncompatibleAttributes(Sema &S,
       DisableLoopPipelining,
       Fusion,
       VectorAlways,
+      LoopCount,
+      LoopCountMin,
+      LoopCountMax,
+      LoopCountAvg,
       Interleave,
       Unroll,
       UnrollAndJam,
@@ -685,6 +705,18 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::VectorizeAlways:
       Category = VectorAlways;
+      break;
+    case LoopHintAttr::LoopCount:
+      Category = LoopCount;
+      break;
+    case LoopHintAttr::LoopCountMax:
+      Category = LoopCountMax;
+      break;
+    case LoopHintAttr::LoopCountMin:
+      Category = LoopCountMin;
+      break;
+    case LoopHintAttr::LoopCountAvg:
+      Category = LoopCountAvg;
       break;
 #endif // INTEL_CUSTOMIZATION
     case LoopHintAttr::Vectorize:
@@ -759,9 +791,21 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::LoopCoalesce ||
                Option == LoopHintAttr::MaxConcurrency ||
                Option == LoopHintAttr::VectorizeAlways ||
+               Option == LoopHintAttr::LoopCount ||
+               Option == LoopHintAttr::LoopCountMin ||
+               Option == LoopHintAttr::LoopCountMax ||
+               Option == LoopHintAttr::LoopCountAvg ||
                Option == LoopHintAttr::Fusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
+        if (Option == LoopHintAttr::LoopCount &&  CategoryState.NumericAttr) {
+          SourceLocation OptionLoc = LH->getRange().getBegin();
+          SourceLocation PrevOptionLoc =
+              CategoryState.NumericAttr->getRange().getBegin();
+          // Allow multiple loop counts with same optionLoc only
+          if (PrevOptionLoc != OptionLoc)
+            PrevAttr = CategoryState.NumericAttr;
+        } else
         PrevAttr = CategoryState.NumericAttr;
         CategoryState.NumericAttr = LH;
         break;

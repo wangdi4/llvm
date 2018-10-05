@@ -277,6 +277,11 @@ struct PragmaVectorHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok);
 };
+struct PragmaLoopCountHandler : public PragmaHandler {
+  PragmaLoopCountHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION
 
 struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
@@ -463,6 +468,10 @@ void Parser::initializePragmaHandlers() {
     VectorHandler.reset(new PragmaVectorHandler("vector"));
     PP.AddPragmaHandler(VectorHandler.get());
   }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaLoopCount)) {
+    LoopCountHandler.reset(new PragmaLoopCountHandler("loop_count"));
+    PP.AddPragmaHandler(LoopCountHandler.get());
+  }
 #endif // INTEL_CUSTOMIZATION
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
   PP.AddPragmaHandler(UnrollHintHandler.get());
@@ -613,6 +622,10 @@ void Parser::resetPragmaHandlers() {
   if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
     PP.RemovePragmaHandler(VectorHandler.get());
     VectorHandler.reset();
+  }
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaLoopCount)) {
+    PP.RemovePragmaHandler(LoopCountHandler.get());
+    LoopCountHandler.reset();
   }
 #endif // INTEL_CUSTOMIZATION
   PP.RemovePragmaHandler(UnrollHintHandler.get());
@@ -1199,6 +1212,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   bool PragmaFusion = PragmaNameInfo->getName() == "fusion";
   bool PragmaNoVector = PragmaNameInfo->getName() == "novector";
   bool PragmaVector = PragmaNameInfo->getName() == "vector";
+  bool PragmaLoopCount = PragmaNameInfo->getName() == "loop_count";
 #endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameInfo->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameInfo->getName() == "nounroll";
@@ -1211,6 +1225,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
                        PragmaDisableLoopPipelining || PragmaMinIIAtTargetFmax ||
                        PragmaDistributePoint || PragmaNoFusion ||
                        PragmaFusion || PragmaNoVector || PragmaVector ||
+                       PragmaLoopCount ||
 #endif // INTEL_CUSTOMIZATION
                        PragmaNoUnrollAndJam)) {
     ConsumeAnnotationToken();
@@ -3631,6 +3646,165 @@ void PragmaFusionHandler::HandlePragma(Preprocessor &PP,
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
   PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+
+/// Parses loop_count value and fills in Info.
+static void ParseLoopCountValue(Preprocessor &PP, Token &Tok, Token PragmaName,
+                                Token Option, PragmaLoopHintInfo &Info) {
+  SmallVector<Token, 1> ValueList;
+
+  while (Tok.isNot(tok::eod) && Tok.isNot(tok::r_paren) &&
+         Tok.isNot(tok::l_paren) && Tok.isNot(tok::comma)) {
+    // Read constant expression.
+    if (Tok.is(tok::identifier)) {
+      IdentifierInfo *Id = Tok.getIdentifierInfo();
+      if (Id->isStr("loop_count") || Id->isStr("min") || Id->isStr("max") ||
+          Id->isStr("avg"))
+        break;
+    }
+    ValueList.push_back(Tok);
+    PP.Lex(Tok);
+  }
+
+  Token EOFTok;
+  EOFTok.startToken();
+  EOFTok.setKind(tok::eof);
+  EOFTok.setLocation(Tok.getLocation());
+  ValueList.push_back(EOFTok); // Terminates expression for parsing.
+
+  Info.Toks = llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
+
+  Info.PragmaName = PragmaName;
+  Info.Option = Option;
+}
+
+static void GenLoopHintToken(SmallVector<Token, 4> &TokenList, Token PragmaName,
+                             Token Option, PragmaLoopHintInfo &Info) {
+  Info.PragmaName = PragmaName;
+  Info.Option = Option;
+  Token LoopHintTok;
+  LoopHintTok.startToken();
+  LoopHintTok.setKind(tok::annot_pragma_loop_hint);
+  LoopHintTok.setLocation(PragmaName.getLocation());
+  LoopHintTok.setAnnotationEndLoc(PragmaName.getLocation());
+  LoopHintTok.setAnnotationValue(static_cast<void *>(&Info));
+  TokenList.push_back(LoopHintTok);
+}
+
+/// Handle the \#pragma loop_count directive.
+///  #pragma loop_count loopcount_component [loopcount_component]
+///
+///   loopcount_component := nlist | minmod | maxmod | avgmod
+///     nlist := (n1[,n2].) | = n1[,n2].
+///     minmod := min(x) | min=x
+///     maxmod := max(x) | max=x
+///     avgmid := avg(x) | avg=x
+///
+void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
+                                          PragmaIntroducerKind Introducer,
+                                          Token &Tok) {
+  // Incoming token is "loop_count" for "#pragma loop_count"
+  Token PragmaName = Tok;
+  SmallVector<Token, 4> TokenList;
+
+  bool HasLoopCount = false;
+  bool HasMax = false;
+  bool HasMin = false;
+  bool HasAvg = false;
+
+  do {
+    Token Option = Tok;
+    IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+
+    bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
+                           .Case("loop_count", true)
+                           .Case("min", true)
+                           .Case("max", true)
+                           .Case("avg", true)
+                           .Default(false);
+    if (!OptionValid) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
+      return;
+    }
+    if (OptionInfo->isStr("loop_count")) {
+      if (HasLoopCount) {
+        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 0;
+        return;
+      }
+      HasLoopCount = true;
+    }
+    if (OptionInfo->isStr("min")) {
+      if (HasMin) {
+        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 1;
+        return;
+      }
+      HasMin = true;
+    }
+    if (OptionInfo->isStr("max")) {
+      if (HasMax) {
+        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 2;
+        return;
+      }
+      HasMax = true;
+    }
+    if (OptionInfo->isStr("avg")) {
+      if (HasAvg) {
+        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 3;
+        return;
+      }
+      HasAvg = true;
+    }
+    // Read identifier
+    PP.Lex(Tok);
+    if (Tok.is(tok::identifier) && OptionInfo->isStr("loop_count"))
+      continue;
+    if (Tok.isNot(tok::l_paren) && Tok.isNot(tok::equal)) {
+      //invalid loop_count
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
+      return;
+    }
+    PragmaLoopHintInfo *Info = nullptr;
+    bool ValueInParens = Tok.is(tok::l_paren);
+    // Read "(" or "="
+    PP.Lex(Tok);
+    if (OptionInfo->isStr("loop_count")) {
+      do {
+        if (Tok.is(tok::comma))
+          PP.Lex(Tok);
+        Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+        ParseLoopCountValue(PP, Tok, PragmaName, Option, *Info);
+        GenLoopHintToken(TokenList, PragmaName, Option, *Info);
+      } while (Tok.is(tok::comma));
+      if (ValueInParens && Tok.isNot(tok::r_paren)) {
+         PP.Diag(Tok.getLocation(), diag::err_expected) << tok::r_paren;
+         return;
+      }
+    } else {
+      Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+      ParseLoopCountValue(PP, Tok, PragmaName, Option, *Info);
+      if (ValueInParens && Tok.isNot(tok::r_paren)) {
+         PP.Diag(Tok.getLocation(), diag::err_expected) << tok::r_paren;
+         return;
+      }
+      // Generate the loop hint token.
+      GenLoopHintToken(TokenList, PragmaName, Option, *Info);
+    }
+    if (ValueInParens && Tok.is(tok::r_paren))
+      PP.Lex(Tok);
+  } while (Tok.is(tok::identifier));
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "loop_count";
+    return;
+  }
+
+  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
+  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+
+  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
                       /*DisableMacroExpansion=*/false);
 }
 

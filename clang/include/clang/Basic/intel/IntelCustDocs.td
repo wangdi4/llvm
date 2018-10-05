@@ -572,6 +572,7 @@ Metadata:
 def PragmaBlockLoopDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
+  let RegressionTest = "Parser/intel/block_loop.cpp, Sema/intel/block_loop.cpp, CodeGenCXX/intel/block_loop.cpp";
   let Owner = "jyu2";
   let Content = [{
 The ``block_loop`` pragma lets you exert greater control over optimizations
@@ -611,6 +612,77 @@ IR:
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
 
+  }];
+
+}
+
+def PragmaLoopCountDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let RegressionTest = "Parser/intel/loop_count.cpp, Sema/intel/loop_count.cpp, CodeGen/intel/loop_count.cpp";
+  let BugTracker = "Cmplrllvm-5991, Cmplrllvm-1022";
+  let Owner = "jyu2";
+  let Content = [{
+The ``loop_count`` pragma specifies the minimum, maximum, or average number of
+iterations for a for loop. In addition, a list of commonly occurring values can
+be specified to help the compiler generate multiple versions and perform complete unrolling.
+
+.. code-block:: c
+
+ #pragma loop_count(1,2) min=1 max=5 avg=2
+    for (...)
+      for (...)
+
+.. csv-table::
+  :header: Syntax, Option, State, Metadata
+  :widths: 24,13,13,25
+
+  #pragma loop_count(4), LoopCount, Numeric, llvm.loop.intel.loopcount(4)
+  #pragma loop_count min(4), LoopCountMin, Numeric, llvm.loop.intel.loopcount_minimum(4)
+  #pragma loop_count max(4), LoopCountMax, Numeric, llvm.loop.intel.loopcount_maximum(4)
+  #pragma loop_count avg(4), LoopCountAvg, Numeric, llvm.loop.intel.loopcount_average(4)
+
+for example:
+using command line:
+
+.. code-block:: bash
+
+  $ clang -cc1 -fintel-compatibility -ast-dump -o - t.c
+  $ clang -cc1 -fintel-compatibility-enable=PragmaLoopCount -ast-dump -o - t.c
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+
+.. code-block:: c
+
+  void foo()
+  {
+    int a=0,i;
+    #pragma loop_count(2) min=1
+    for (i = 0; i < 10; ++i) a=a++;
+  }
+
+AST:
+
+AttributedStmt
+
+.. code-block:: c
+
+ `-AttributedStmt 0xed2f538 <<invalid sloc>, line:6:32>
+      |-LoopHintAttr 0xed2f4e8 <line:5:11, col:23> Implicit loop_count LoopCount Numeric
+      | |-IntegerLiteral 0xed2f238 <col:22> 'int' 2
+      | `-<<<NULL>>>
+      |-LoopHintAttr 0xed2f510 <col:11, col:30> Implicit loop_count LoopCountMin Numeric
+      | |-IntegerLiteral 0xed2f278 <col:29> 'int' 1
+      | `-<<<NULL>>>
+
+IR:
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+  ...
+  !2 = distinct !{!2, !3, !4}
+  !3 = !{!"llvm.loop.intel.loopcount", i32 2}
+  !4 = !{!"llvm.loop.intel.loopcount_minimum", i32 1}
   }];
 
 }
