@@ -3363,10 +3363,19 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
   return isKnownPositiveOrNegative(CE, ParentNode);
 }
 
+static cl::opt<bool> IgnoreWraparound(
+    "hir-ignore-wraparound", cl::init(false),
+    cl::Hidden, cl::desc("Disables wraparound check."));
+
+
 bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
                                 const HLNode *ParentNode) {
   assert(CE->getSrcType()->isIntegerTy() &&
          "CE does not have an integer type!");
+
+  if (IgnoreWraparound) {
+    return false;
+  }
 
   if (!CE->hasIV(Level)) {
     return false;

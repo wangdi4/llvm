@@ -11,6 +11,12 @@
 ; CHECK: + END LOOP
 
 
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=8 -hir-ignore-wraparound < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+
+; Verify that -hir-ignore-wraparound  works as expected.
+; IGNORE-WRAP: (<8 x i32>*)(%A)[i1]
+
+
 ;Module Before HIR; ModuleID = 'wrap1.c'
 source_filename = "wrap1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
