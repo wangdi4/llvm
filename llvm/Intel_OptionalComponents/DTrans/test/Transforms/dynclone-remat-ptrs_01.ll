@@ -23,7 +23,11 @@ define void @init() {
 
 ; CHECK-LABEL:   define internal void @init
 
+; CHECK:  [[ARET2:%dyn.alloc[0-9]*]] = alloca i8*
+
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
+; CHECK: store i8* %call1, i8** [[ARET2]]
+
   %tp1 = bitcast i8* %call1 to %struct.test.01*
   store %struct.test.01* %tp1, %struct.test.01** getelementptr (%struct.netw, %struct.netw* @glob, i64 0, i32 1)
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
@@ -35,6 +39,8 @@ define void @init() {
   %g2 = select i1 undef, i64 -5000, i64 20000
   store i64 %g2, i64* %F6, align 8
 
+; CHECK: [[APTR:%dyn.alloc.ld[0-9]*]] = load i8*, i8** [[ARET2]]
+
 ; Saved pointers are fixed like below:
 ; if (glob->field0) {
 ;    glob->field0 = call1 + ((glob->field0 - call1) / old_size) * new_size;
@@ -44,10 +50,10 @@ define void @init() {
 ; CHECK: [[CMP1:%[0-9]+]] = icmp ne %struct.test.01* [[LD1]], null
 ; CHECK: br i1 [[CMP1]],
 ; CHECK: [[P11:%[0-9]+]] = ptrtoint %struct.test.01* [[LD1]] to i64
-; CHECK: [[P12:%[0-9]+]]  = ptrtoint i8* %call1 to i64
+; CHECK: [[P12:%[0-9]+]]  = ptrtoint i8* [[APTR]] to i64
 ; CHECK: [[SUB1:%[0-9]+]] = sub i64 [[P11]], [[P12]]
 ; CHECK: [[SDIV1:%[0-9]+]] = sdiv i64 [[SUB1]], 48
-; CHECK: [[BC11:%[0-9]+]] = bitcast i8* %call1 to %__DYN_struct.test.01*
+; CHECK: [[BC11:%[0-9]+]] = bitcast i8* [[APTR]] to %__DYN_struct.test.01*
 ; CHECK: [[GEP1:%[0-9]+]] = getelementptr inbounds %__DYN_struct.test.01, %__DYN_struct.test.01* [[BC11]], i64 [[SDIV1]]
 ; CHECK:  [[BC12:%[0-9]+]] = bitcast %__DYN_struct.test.01* [[GEP1]] to %struct.test.01*
 ; CHECK: store %struct.test.01* [[BC12]],
@@ -56,10 +62,10 @@ define void @init() {
 ; CHECK: [[CMP2:%[0-9]+]] = icmp ne %struct.test.01* [[LD2]], null
 ; CHECK: br i1 [[CMP2]],
 ; CHECK: [[P21:%[0-9]+]] = ptrtoint %struct.test.01* [[LD2]] to i64
-; CHECK: [[P22:%[0-9]+]]  = ptrtoint i8* %call1 to i64
+; CHECK: [[P22:%[0-9]+]]  = ptrtoint i8* [[APTR]] to i64
 ; CHECK: [[SUB2:%[0-9]+]] = sub i64 [[P21]], [[P22]]
 ; CHECK: [[SDIV2:%[0-9]+]] = sdiv i64 [[SUB2]], 48
-; CHECK: [[BC21:%[0-9]+]] = bitcast i8* %call1 to %__DYN_struct.test.01*
+; CHECK: [[BC21:%[0-9]+]] = bitcast i8* [[APTR]] to %__DYN_struct.test.01*
 ; CHECK: [[GEP2:%[0-9]+]] = getelementptr inbounds %__DYN_struct.test.01, %__DYN_struct.test.01* [[BC21]], i64 [[SDIV2]]
 ; CHECK:  [[BC22:%[0-9]+]] = bitcast %__DYN_struct.test.01* [[GEP2]] to %struct.test.01*
 ; CHECK: store %struct.test.01* [[BC22]],

@@ -188,6 +188,18 @@ private:
   // List of modified allocation calls
   CallInstSet ModifiedAllocs;
 
+  // Return values of allocation calls of candidate structs are saved in
+  // local variables to reuse them later when copying data from old layout
+  // to new layout. Mapping between Alloc Instruction and load instruction of
+  // the corresponding local variable.
+  DenseMap<CallInst *, LoadInst *> AllocCallRets;
+
+  // Size of allocation calls of candidate structs are saved in local
+  // variables to reuse them later when copying data from old layout
+  // to new layout. Mapping between Alloc Instruction and load
+  // instruction of the corresponding local variable.
+  DenseMap<CallInst *, LoadInst *> AllocCallSizes;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyLegalityChecksForInitRoutine(void);
@@ -1238,14 +1250,15 @@ void DynCloneImpl::transformInitRoutine(void) {
   // Copy loop is generated before \p InsertBefore.
   //
   // Ex:   %ptr = calloc(asize, ssize)
+  //       l_size = (asize * ssize) / size_of_OrigTy;
+  //       l_ptr = %ptr;
   //
   // Assume NewTy is new shrunken record type for OrigTy.
   //
   // PreLoop:
-  //  LCount = (asize * ssize) / size_of_OrigTy;
   //  LoopIdx = 0;
-  //  SrcPtr = (OrigTy*) %ptr;
-  //  DstPtr = (NewTy*) %ptr;
+  //  SrcPtr = (OrigTy*) l_ptr;
+  //  DstPtr = (NewTy*) l_ptr;
   //  Goto Loop:
   // Loop:
   //   SGEP0 = getelementptr inbounds %OrigTy, %SrcPtr, LoopIdx, 0
@@ -1261,12 +1274,11 @@ void DynCloneImpl::transformInitRoutine(void) {
   //   Store %L1, %DGEP1
   //   ...
   //   LoopIdx++
-  //   if (LoopIdx < LCount) goto Loop:
+  //   if (LoopIdx < l_size) goto Loop:
   // PostLoop:
   //   __Shrink__Happened__ = 1;
   //
-  auto CopyDataFromOrigLayoutToNewLayout = [this, &CreateFieldAccessGEP,
-                                            &ComputeAllocCount](
+  auto CopyDataFromOrigLayoutToNewLayout = [this, &CreateFieldAccessGEP](
                                                CallInst *CI, Type *OrigTy,
                                                Instruction *InsertBefore) {
     // Get shrunken type.
@@ -1283,9 +1295,11 @@ void DynCloneImpl::transformInitRoutine(void) {
 
     IRBuilder<> PLB(PreLoopBB->getTerminator());
 
-    Value *LCount = ComputeAllocCount(CI, OrigTy, PLB);
-    Value *SrcPtr = PLB.CreateBitCast(CI, OrigTy->getPointerTo());
-    Value *DstPtr = PLB.CreateBitCast(CI, NewTy->getPointerTo());
+    Value *LCount = AllocCallSizes[CI];
+    Value *SrcPtr =
+        PLB.CreateBitCast(AllocCallRets[CI], OrigTy->getPointerTo());
+    Value *DstPtr = PLB.CreateBitCast(AllocCallRets[CI], NewTy->getPointerTo());
+
     PLB.CreateBr(LoopBB);
     PreLoopBB->getTerminator()->eraseFromParent();
     LLVM_DEBUG(dbgs() << "  " << *SrcPtr << "\n"
@@ -1333,29 +1347,30 @@ void DynCloneImpl::transformInitRoutine(void) {
 
   // Pointer to shrunken struct is fixed in this routine.
   //    Before:
-  //          CI:  p = calloc(sizeof(StTy) * N);
+  //               p = calloc(sizeof(StTy) * N);
   //               ...
   //               net->field = p + some_index;
   //               ...
   //               return;
   //    After:
-  //          CI:  p = calloc(sizeof(StTy) * N);
+  //               p = calloc(sizeof(StTy) * N);
+  //               local_var = p;
   //               ...
   //               net->field = p + some_index;
   //               ...
   //               if (net->field) {
   //                 Ptr1 = (int64) net->field;
-  //                 Ptr2 = (int64) p;
+  //                 Ptr2 = (int64) local_var;
   //                 PtrDiff = Ptr1 - Ptr2;
   //                 Index = PtrDiff / sizeof(StTy);
-  //                 NewPtr = p + Index * sizeof(new layout of StTy); // use GEP
+  //                 NewPtr = local_var + Index * sizeof(new layout of StTy); //
   //                 net->field = NewPtr;
   //               }
   //               return;
   //
   // \p Ptr represents address location where alloc pointer is saved.
   //
-  auto RematerializePtr = [&](Value *Ptr, CallInst *CI, Type *StTy,
+  auto RematerializePtr = [&](Value *Ptr, LoadInst *RetPtr, Type *StTy,
                               Instruction *InsertBefore) {
     Type *IntPtrTy = Type::getIntNTy(M.getContext(), DL.getPointerSizeInBits());
     IRBuilder<> PIRB(InsertBefore);
@@ -1374,14 +1389,14 @@ void DynCloneImpl::transformInitRoutine(void) {
 
     // Convert both pointers to IntTy.
     Value *Ptr1 = IRB.CreatePtrToInt(LdPtr, IntPtrTy);
-    Value *Ptr2 = IRB.CreatePtrToInt(CI, IntPtrTy);
+    Value *Ptr2 = IRB.CreatePtrToInt(RetPtr, IntPtrTy);
     // Compute index of the pointer in original layout.
     Value *PtrDiff = IRB.CreateSub(Ptr1, Ptr2);
     Value *SSize = ConstantInt::get(IntPtrTy, DL.getTypeAllocSize(StTy));
     Value *Index = IRB.CreateSDiv(PtrDiff, SSize);
     // Use Index to get position of the pointer in new layout.
     Type *NewTy = TransformedTypeMap[cast<StructType>(StTy)];
-    Value *BC = IRB.CreateBitCast(CI, NewTy->getPointerTo());
+    Value *BC = IRB.CreateBitCast(RetPtr, NewTy->getPointerTo());
     Value *NewPtr = IRB.CreateInBoundsGEP(NewTy, BC, makeArrayRef(Index));
     Value *NewBCPtr = IRB.CreateBitCast(NewPtr, StTy->getPointerTo());
     auto *UBI = IRB.CreateBr(MergeBB);
@@ -1399,6 +1414,33 @@ void DynCloneImpl::transformInitRoutine(void) {
                       << *NewBCPtr << "\n"
                       << *UBI << "\n");
     return NewBCPtr;
+  };
+
+  // Creates new local variable in the entry basic block, saves \p Val in
+  // the local variable immediately after \p CI and loads it again before \p
+  // InsertBefore.
+  //     Ex:
+  //         AI:   %dyn.alloc = alloca i8*
+  //               ...
+  //         CI:   %call1 = calloc()
+  //         SI:   store i8* %call1, i8** %dyn.alloc
+  //         ...
+  //         LI:   %dyn.alloc.ld = load i8*, i8** %dyn.alloc
+  //         InsertBefore:
+  //
+  auto UnNormalizeUsingNewlyCreatedLVar = [&](Value *Val, CallInst *CI,
+                                              Instruction *InsertBefore) {
+    AllocaInst *AI =
+        new AllocaInst(Val->getType(), DL.getAllocaAddrSpace(), nullptr,
+                       "dyn.alloc", &InitRoutine->getEntryBlock().front());
+    StoreInst *SI = new StoreInst(Val, AI, CI->getNextNode());
+    LoadInst *LI = new LoadInst(AI, "dyn.alloc.ld", InsertBefore);
+    (void)SI;
+    LLVM_DEBUG(dbgs() << " Save and Restore: " << *Val << "\n");
+    LLVM_DEBUG(dbgs() << "    " << *AI << "\n"
+                      << "    " << *SI << "\n"
+                      << "    " << *LI << "\n");
+    return LI;
   };
 
   SmallVector<BasicBlock *, 2> RetBBs;
@@ -1562,6 +1604,18 @@ void DynCloneImpl::transformInitRoutine(void) {
   LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
   BranchInst::Create(LastBB, NewBB);
   (void)BI;
+
+  // Save return and size values of alloc calls in local variables to
+  // avoid issues with SSA.
+  for (auto &AllocPair : AllocCalls) {
+    CallInst *CI = cast<CallInst>(AllocPair.first->getInstruction());
+    AllocCallRets[CI] = UnNormalizeUsingNewlyCreatedLVar(CI, CI, SI);
+
+    IRBuilder<> IRB(SI);
+    Value *ACount = ComputeAllocCount(CI, AllocPair.second, IRB);
+    AllocCallSizes[CI] = UnNormalizeUsingNewlyCreatedLVar(ACount, CI, SI);
+  }
+
   // Copy data from old layout to new layout.
   for (auto &AllocPair : AllocCalls) {
     auto *AInfo = AllocPair.first;
@@ -1578,8 +1632,8 @@ void DynCloneImpl::transformInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "      Rematerialize ptrs of :" << *CI << "\n");
     for (auto *St : SISet) {
       LLVM_DEBUG(dbgs() << "      Before Rematerialize:" << *St << "\n");
-      Value *NewPtr =
-          RematerializePtr(St->getPointerOperand(), CI, AllocPair.second, SI);
+      Value *NewPtr = RematerializePtr(St->getPointerOperand(),
+                                       AllocCallRets[CI], AllocPair.second, SI);
       IRBuilder<> IRB(cast<Instruction>(NewPtr)->getParent()->getTerminator());
       Instruction *NewSt = IRB.Insert(St->clone());
       NewSt->setOperand(0, NewPtr);
