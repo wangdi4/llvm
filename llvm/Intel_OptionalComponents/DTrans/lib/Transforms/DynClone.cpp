@@ -235,6 +235,15 @@ bool DynCloneImpl::gatherPossibleCandidateFields(void) {
                         << " based on safety data.\n");
       continue;
     }
+    // Heuristic: Consider only struct that has highest total field
+    // frequency for DynClone to avoid performance issues with runtime
+    // checks.
+    if (DTInfo.getMaxTotalFrequency() != StInfo->getTotalFrequency()) {
+      LLVM_DEBUG(dbgs() << "    Rejecting "
+                        << getStructName(StInfo->getLLVMType())
+                        << " based on heuristic.\n");
+      continue;
+    }
     StructType *StTy = cast<StructType>(StInfo->getLLVMType());
     for (unsigned I = 0; I < StTy->getNumElements(); ++I) {
       Type *Ty = StTy->getElementType(I);
@@ -2275,7 +2284,19 @@ bool DynCloneImpl::run(void) {
 
   if (!createCallGraphClone())
     return false;
+
   transformIR();
+
+  // Disable inlining InitRoutine even though it is okay to inline. Usually,
+  // it will be inlined due to single call-site heuristic. But, we know it
+  // is not hot function and a lot of new code is added to this routine
+  // by DynClone. Disabling inline for InitRouine may help other hot functions
+  // to be inlined.
+  LLVM_DEBUG(dbgs() << "    Disable inlining for InitRoutine: "
+                    << InitRoutine->getName() << "\n");
+  CallInst *CI = cast<CallInst>(InitRoutine->user_back());
+  CI->setIsNoInline();
+
   return true;
 }
 
