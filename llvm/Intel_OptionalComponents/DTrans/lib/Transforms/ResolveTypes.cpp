@@ -1354,9 +1354,17 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
                           dbgs() << "Array/vector mismatch @ " << i << "\n");
           return CompareResult::Distinct;
         }
+        // Both types must have the same number of elements.
+        auto *SeqATy = cast<SequentialType>(ElemATy);
+        auto *SeqBTy = cast<SequentialType>(ElemBTy);
+        if (SeqATy->getNumElements() != SeqBTy->getNumElements()) {
+          DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                          dbgs() << "Element count mismatch @ " << i << "\n");
+          return CompareResult::Distinct;
+        }
         // Arrays and vectors are handled together this way.
-        ElemATy = ElemATy->getSequentialElementType();
-        ElemBTy = ElemBTy->getSequentialElementType();
+        ElemATy = SeqATy->getElementType();
+        ElemBTy = SeqBTy->getElementType();
         ComparingPointerElements = false;
       }
     }
