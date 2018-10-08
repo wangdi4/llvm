@@ -108,6 +108,12 @@ namespace {
                     cl::desc("calls the given entry-point on a new thread "
                              "(jit-kind=orc-lazy only)"));
 
+  cl::opt<bool> PerModuleLazy(
+      "per-module-lazy",
+      cl::desc("Performs lazy compilation on whole module boundaries "
+               "rather than individual functions"),
+      cl::init(false));
+
   // The MCJIT supports building for a target address space separate from
   // the JIT compilation process. Use a forked process and a copying
   // memory manager with IPC to execute using this functionality.
@@ -349,6 +355,7 @@ static void reportError(SMDiagnostic Err, const char *ProgName) {
 }
 
 int runOrcLazyJIT(const char *ProgName);
+void disallowOrcOptions();
 
 //===----------------------------------------------------------------------===//
 // main Driver function
@@ -374,19 +381,8 @@ int main(int argc, char **argv, char * const *envp) {
 
   if (UseJITKind == JITKind::OrcLazy)
     return runOrcLazyJIT(argv[0]);
-  else {
-    // Make sure nobody used an orc-lazy specific option accidentally.
-
-    if (LazyJITCompileThreads != 0) {
-      errs() << "-compile-threads requires -jit-kind=orc-lazy\n";
-      exit(1);
-    }
-
-    if (!ThreadEntryPoints.empty()) {
-      errs() << "-thread-entry requires -jit-kind=orc-lazy\n";
-      exit(1);
-    }
-  }
+  else
+    disallowOrcOptions();
 
   LLVMContext Context;
 
@@ -702,10 +698,12 @@ int main(int argc, char **argv, char * const *envp) {
 static orc::IRTransformLayer2::TransformFunction createDebugDumper() {
   switch (OrcDumpKind) {
   case DumpKind::NoDump:
-    return [](orc::ThreadSafeModule TSM) { return TSM; };
+    return [](orc::ThreadSafeModule TSM,
+              const orc::MaterializationResponsibility &R) { return TSM; };
 
   case DumpKind::DumpFuncsToStdOut:
-    return [](orc::ThreadSafeModule TSM) {
+    return [](orc::ThreadSafeModule TSM,
+              const orc::MaterializationResponsibility &R) {
       printf("[ ");
 
       for (const auto &F : *TSM.getModule()) {
@@ -724,7 +722,8 @@ static orc::IRTransformLayer2::TransformFunction createDebugDumper() {
     };
 
   case DumpKind::DumpModsToStdOut:
-    return [](orc::ThreadSafeModule TSM) {
+    return [](orc::ThreadSafeModule TSM,
+              const orc::MaterializationResponsibility &R) {
       outs() << "----- Module Start -----\n"
              << *TSM.getModule() << "----- Module End -----\n";
 
@@ -732,7 +731,8 @@ static orc::IRTransformLayer2::TransformFunction createDebugDumper() {
     };
 
   case DumpKind::DumpModsToDisk:
-    return [](orc::ThreadSafeModule TSM) {
+    return [](orc::ThreadSafeModule TSM,
+              const orc::MaterializationResponsibility &R) {
       std::error_code EC;
       raw_fd_ostream Out(TSM.getModule()->getModuleIdentifier() + ".ll", EC,
                          sys::fs::F_Text);
@@ -790,14 +790,18 @@ int runOrcLazyJIT(const char *ProgName) {
   }
   auto J = ExitOnErr(orc::LLLazyJIT::Create(std::move(JTMB), DL, LazyJITCompileThreads));
 
+  if (PerModuleLazy)
+    J->setPartitionFunction(orc::CompileOnDemandLayer2::compileWholeModule);
+
   auto Dump = createDebugDumper();
 
-  J->setLazyCompileTransform([&](orc::ThreadSafeModule TSM) {
+  J->setLazyCompileTransform([&](orc::ThreadSafeModule TSM,
+                                 const orc::MaterializationResponsibility &R) {
     if (verifyModule(*TSM.getModule(), &dbgs())) {
       dbgs() << "Bad module: " << *TSM.getModule() << "\n";
       exit(1);
     }
-    return Dump(std::move(TSM));
+    return Dump(std::move(TSM), R);
   });
   J->getMainJITDylib().setFallbackDefinitionGenerator(
       orc::DynamicLibraryFallbackGenerator(
@@ -866,6 +870,25 @@ int runOrcLazyJIT(const char *ProgName) {
   CXXRuntimeOverrides.runDestructors();
 
   return Result;
+}
+
+void disallowOrcOptions() {
+  // Make sure nobody used an orc-lazy specific option accidentally.
+
+  if (LazyJITCompileThreads != 0) {
+    errs() << "-compile-threads requires -jit-kind=orc-lazy\n";
+    exit(1);
+  }
+
+  if (!ThreadEntryPoints.empty()) {
+    errs() << "-thread-entry requires -jit-kind=orc-lazy\n";
+    exit(1);
+  }
+
+  if (PerModuleLazy) {
+    errs() << "-per-module-lazy requires -jit-kind=orc-lazy\n";
+    exit(1);
+  }
 }
 
 std::unique_ptr<FDRawChannel> launchRemote() {
