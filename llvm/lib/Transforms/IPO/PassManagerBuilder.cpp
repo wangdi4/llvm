@@ -577,11 +577,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   addExtensionsToPM(EP_LateLoopOptimizations, MPM);
   MPM.add(createLoopDeletionPass());          // Delete dead loops
 
-  if (EnableLoopInterchange) {
-    // FIXME: These are function passes and break the loop pass pipeline.
+  if (EnableLoopInterchange)
     MPM.add(createLoopInterchangePass()); // Interchange loops
-    MPM.add(createCFGSimplificationPass());
-  }
   // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops

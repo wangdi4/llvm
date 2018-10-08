@@ -37,6 +37,7 @@ namespace PrintIR {
 /// Generic IR-printing helper that unpacks a pointer to IRUnit wrapped into
 /// llvm::Any and does actual print job.
 void unwrapAndPrint(StringRef Banner, Any IR) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (any_isa<const CallGraphSCC *>(IR) ||
       any_isa<const LazyCallGraph::SCC *>(IR))
     return;
@@ -49,12 +50,10 @@ void unwrapAndPrint(StringRef Banner, Any IR) {
     const Function *F = any_cast<const Function *>(IR);
     if (!llvm::isFunctionInPrintList(F->getName()))
       return;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     if (!llvm::forcePrintModuleIR()) {
       dbgs() << Banner << Extra << static_cast<const Value &>(*F);
       return;
     }
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     M = F->getParent();
     Extra = formatv(" (function: {0})\n", F->getName());
   } else if (any_isa<const Loop *>(IR)) {
@@ -62,12 +61,10 @@ void unwrapAndPrint(StringRef Banner, Any IR) {
     const Function *F = L->getHeader()->getParent();
     if (!isFunctionInPrintList(F->getName()))
       return;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     if (!llvm::forcePrintModuleIR()) {
       llvm::printLoop(const_cast<Loop &>(*L), dbgs(), Banner);
       return;
     }
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     M = F->getParent();
     {
       std::string LoopName;
@@ -82,19 +79,20 @@ void unwrapAndPrint(StringRef Banner, Any IR) {
   } else {
     llvm_unreachable("Unknown wrapped IR type");
   }
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 bool printBeforePass(StringRef PassID, Any IR) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (!llvm::shouldPrintBeforePass(PassID))
     return true;
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
     return true;
 
   SmallString<20> Banner = formatv("*** IR Dump Before {0} ***", PassID);
   unwrapAndPrint(Banner, IR);
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return true;
 }
 
@@ -102,7 +100,6 @@ void printAfterPass(StringRef PassID, Any IR) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (!llvm::shouldPrintAfterPass(PassID))
     return;
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
     return;
@@ -110,6 +107,7 @@ void printAfterPass(StringRef PassID, Any IR) {
   SmallString<20> Banner = formatv("*** IR Dump After {0} ***", PassID);
   unwrapAndPrint(Banner, IR);
   return;
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 } // namespace PrintIR
 } // namespace
