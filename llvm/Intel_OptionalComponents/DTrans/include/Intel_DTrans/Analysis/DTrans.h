@@ -370,13 +370,13 @@ const SafetyData SDDynClone =
     UnhandledUse | HasZeroSizedArray;
 
 const SafetyData SDSOAToAOS =
-    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    BadCasting | BadPtrManipulation |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
     UnsafePointerStore | FieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-    GlobalArray | HasFnPtr | HasZeroSizedArray | UnhandledUse;
+    GlobalArray | HasFnPtr | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a

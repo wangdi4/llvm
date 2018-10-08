@@ -28,6 +28,11 @@ using namespace llvm;
 static cl::opt<unsigned> DTransMemLayoutLevel("dtrans-mem-layout-level",
                                               cl::init(2), cl::ReallyHidden);
 
+// SOA-to-AOS transformation.
+static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(true),
+                                    cl::Hidden,
+                                    cl::desc("Enable DTrans SOAToAOS"));
+
 // Delete fields transformation.
 static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
                                         cl::init(true), cl::Hidden,
@@ -60,17 +65,11 @@ static cl::opt<bool>
                         cl::Hidden,
                         cl::desc("Enable pre-dtrans type resolution"));
 
-// SOA-to-AOS transformation.
-static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(false),
-                                    cl::Hidden,
-                                    cl::desc("Enable DTrans SOAToAOS"));
-
 #else
 
 #define hasDumpModuleBeforeDTransValue(x) (false)
 constexpr bool EnablePaddedPtrProp = false;
 constexpr bool EnableResolveTypes = false;
-constexpr bool EnableSOAToAOS = false;
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 

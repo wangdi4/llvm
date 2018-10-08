@@ -77,16 +77,6 @@
 ; };
 ;
 ; int main() { F *f = new F(); }
-;
-; CHECK: Struct's class.F methods:
-; CHECK-NEXT:_ZN1FC2Ev
-; CHECK-NEXT:Fields's struct.Arr methods:
-; CHECK-NEXT:_ZN3ArrIPiEC2EiP3Mem, #uses = 1
-; CHECK-NEXT:_ZN3ArrIPiE3setEiS0_, #uses = 1
-; CHECK-NEXT:Fields's struct.Arr.0 methods:
-; CHECK-NEXT:_ZN3ArrIPvEC2EiP3Mem, #uses = 1
-; CHECK-NEXT:_ZN3ArrIPvE3getEi, #uses = 1
-; CHECK: Rejecting %class.F because some methods contains unknown side effect
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

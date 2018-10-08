@@ -168,7 +168,7 @@ protected:
   }
 
   // Hook point. Top-level returns from populate* methods.
-  static bool FALSE(const char *Msg = "") {
+  static bool FALSE(const char *Msg) {
     DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE,
                     dbgs() << "; dtrans-soatoaos-layout: " << Msg << "\n");
     return false;

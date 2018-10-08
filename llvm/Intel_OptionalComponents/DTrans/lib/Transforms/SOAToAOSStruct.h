@@ -221,11 +221,12 @@ private:
       Ty = Ty->getPointerElementType();
 
     // For transformation, it is sufficient that only elements
-    // of array and integers are permitted.
+    // of array, integers and (float for tests) are permitted.
     //
     // For legality, it is necessary to prevent unchecked accesses
     // to pointers to arrays (only accessible through S.StrType).
-    return isa<IntegerType>(Ty) || (isa<StructType>(Ty) && Ty != S.StrType);
+    return isa<IntegerType>(Ty) || Ty->isFloatingPointTy() ||
+           (isa<StructType>(Ty) && Ty != S.StrType);
   }
 };
 

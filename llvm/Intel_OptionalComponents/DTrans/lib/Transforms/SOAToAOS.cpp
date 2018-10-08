@@ -37,7 +37,7 @@ using namespace llvm;
 using namespace dtrans;
 using namespace soatoaos;
 
-// This options makes populateCFGInformation to ignore
+// This option makes populateCFGInformation to ignore
 // number of uses and number of BasicBlocks in struct's and arrays' methods.
 //
 // It helps to debug issues in transformed code with debug prints, for
@@ -73,6 +73,7 @@ private:
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
+  void postprocessFunction(Function &OrigFunc, bool isCloned) override;
 
   // Relatively heavy weight checks to classify methods, see MethodKind.
   // Has internal memory handling for DepMap:
@@ -110,78 +111,223 @@ private:
     };
     CombinedCallSiteInfo CSInfo;
 
+    DenseMap<const Function *,
+             std::unique_ptr<StructureMethodAnalysis::TransformationData>>
+        StructTransInfo;
+    DenseMap<
+        const Function *,
+        std::unique_ptr<ComputeArrayMethodClassification::TransformationData>>
+        ArrayTransInfo;
 
   private:
-    // Compare call sites of methods to be combined.
-    bool compareCallSites(Function *F1, Function* F2, MethodKind MK) const;
-
     CandidateSideEffectsInfo(const CandidateSideEffectsInfo &) = delete;
     CandidateSideEffectsInfo &
     operator=(const CandidateSideEffectsInfo &) = delete;
 
   };
 
+  // Check debug passes in SOAToAOSArrays.cpp and SOAToAOSStruct.cpp.
   class CandidateInfo : public CandidateSideEffectsInfo {
   public:
-    void setCandidateStructs(SOAToAOSTransformImpl &Impl,
-                             dtrans::StructInfo *S) {
-      StructsToConvert.push_back(S);
-
-      unsigned I = 0;
-      for (auto *OrigTy : fields()) {
-        I++;
-        StructsToConvert.push_back(
-            cast<dtrans::StructInfo>(Impl.DTInfo.getTypeInfo(OrigTy)));
-      }
-    }
-
-    // FIXME: Place holder for experiments.
     void prepareTypes(SOAToAOSTransformImpl &Impl, Module &M) {
-      for (auto &S : StructsToConvert) {
-        auto *OrigTy = cast<StructType>(S->getLLVMType());
+      LLVMContext &Context = M.getContext();
 
-        StructType *NewStructTy = StructType::create(
-            Impl.Context, (Impl.DepTypePrefix + OrigTy->getName()).str());
-        Impl.TypeRemapper->addTypeMapping(OrigTy, NewStructTy);
-        Impl.OrigToNewTypeMapping[OrigTy] = NewStructTy;
+      NewStruct = StructType::create(
+          Context, (Twine(Impl.DepTypePrefix) + Struct->getName()).str());
+      Impl.TypeRemapper->addTypeMapping(Struct, NewStruct);
+      NewArray =
+          StructType::create(Context, (Twine(Impl.DepTypePrefix) + "AR_" +
+                                       (*fields_begin())->getName())
+                                          .str());
+      NewElement = StructType::create(
+          Context,
+          (Twine(Impl.DepTypePrefix) + "EL_" + Struct->getName()).str());
+
+      for (auto *Fld : fields())
+        Impl.TypeRemapper->addTypeMapping(Fld, NewArray);
+
+      FunctionType *NewFunctionTy = nullptr;
+      for (auto *Method : CSInfo.Appends) {
+        auto *FunctionTy = Method->getFunctionType();
+        if (!NewFunctionTy) {
+          SmallVector<PointerType *, MaxNumFieldCandidates> Elems;
+          for (auto *Elem : elements())
+            Elems.push_back(Elem);
+
+          NewFunctionTy = ArrayMethodTransformation::mapNewAppendType(
+              *Method,
+              getSOAElementType(getStructTypeOfMethod(*Method),
+                                BasePointerOffset),
+              Elems, Impl.TypeRemapper, AppendMethodElemParamOffset);
+        } else
+          Impl.TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
       }
     }
 
-    // FIXME: Place holder for experiments.
     void populateTypes(SOAToAOSTransformImpl &Impl, Module &M) {
-      for (auto &Elem : Impl.OrigToNewTypeMapping) {
-        SmallVector<Type *, 8> DataTypes;
-        auto NumFields = cast<StructType>(Elem.first)->getNumElements();
-        for (size_t i = 0; i < NumFields; ++i) {
-          DataTypes.push_back(Impl.TypeRemapper->remapType(
-              cast<StructType>(Elem.first)->getElementType(i)));
+      {
+        SmallVector<Type *, 6> Elements(elements_begin(), elements_end());
+        NewElement->setBody(Elements);
+      }
+
+      {
+        SmallVector<Type *, 6> ArrayElems((*fields_begin())->element_begin(),
+                                          (*fields_begin())->element_end());
+        ArrayElems[BasePointerOffset] = NewElement->getPointerTo(0);
+        NewArray->setBody(ArrayElems);
+      }
+
+      {
+        SmallVector<Type *, 6> StructElems(Struct->element_begin(),
+                                           Struct->element_end());
+
+        auto PlaceHolderType = Impl.DL.getIntPtrType(M.getContext(), 0);
+        // Do not change layout of structure, all but one
+        // pointer to transformed array is replaced with intptr_t.
+        for (auto O : ArrayFieldOffsets)
+          StructElems[O] = PlaceHolderType;
+
+        AOSOffset = *std::min_element(ArrayFieldOffsets.begin(),
+                                      ArrayFieldOffsets.end());
+
+        StructElems[AOSOffset] = NewArray->getPointerTo(0);
+        NewStruct->setBody(StructElems);
+      }
+    }
+
+    void postprocessStructMethod(
+        SOAToAOSTransformImpl &Impl, Function &OrigFunc,
+        const StructureMethodAnalysis::TransformationData &TI) {
+
+      SmallVector<StructType *, MaxNumFieldCandidates> Fields(fields_begin(),
+                                                              fields_end());
+      StructMethodTransformation SMT(Impl.DL, Impl.DTInfo, Impl.TLI, Impl.VMap,
+                                     CSInfo, TI,
+                                     OrigFunc.getParent()->getContext());
+
+      SMT.updateReferences(Struct, NewArray, Fields, AOSOffset,
+                           BasePointerOffset);
+    }
+
+    void postprocessArrayMethod(
+        SOAToAOSTransformImpl &Impl, Function &OrigFunc,
+        const ComputeArrayMethodClassification::TransformationData &TI) {
+
+      auto *ArrType = getStructTypeOfMethod(OrigFunc);
+      auto *CurrElem = getSOAElementType(ArrType, BasePointerOffset);
+
+      auto It = std::find(fields_begin(), fields_end(), ArrType);
+      assert(It != fields_end() && "Incorrect array method");
+      auto Ind = It - fields_begin();
+
+      bool CopyElemInsts = CSInfo.Reallocs[Ind] == &OrigFunc;
+      if (!CSInfo.CCtors.empty())
+        CopyElemInsts |= CSInfo.CCtors[Ind] == &OrigFunc;
+      if (!CSInfo.Ctors.empty())
+        CopyElemInsts |= CSInfo.Ctors[Ind] == &OrigFunc;
+      if (!CSInfo.Dtors.empty())
+        CopyElemInsts |= CSInfo.Dtors[Ind] == &OrigFunc;
+      if (!CSInfo.Appends.empty())
+        CopyElemInsts |= CSInfo.Appends[Ind] == &OrigFunc;
+
+      // Only one copy of combined methods is left.
+      if (CopyElemInsts &&
+          CurrElem != getSOAElementType(getSOAArrayType(Struct, AOSOffset),
+                                        BasePointerOffset)) {
+        auto *NewFunc = Impl.OrigFuncToCloneFuncMap[&OrigFunc];
+        for (auto &I : instructions(*NewFunc))
+          Impl.DTInfo.deleteCallInfo(&I);
+        NewFunc->deleteBody();
+        return;
+      }
+
+      ArrayMethodTransformation AMT(Impl.DL, Impl.DTInfo, Impl.TLI, Impl.VMap,
+                                    TI, OrigFunc.getParent()->getContext());
+
+      AMT.updateBasePointerInsts(CopyElemInsts, getNumArrays(),
+                                 NewElement->getPointerTo(0));
+
+      bool UpdateUnique = true;
+      unsigned Off = -1U;
+      unsigned CurrOff = 0U;
+      for (auto *Elem : elements()) {
+        ++Off;
+
+        if (Elem == CurrElem) {
+          CurrOff = Off;
+          continue;
         }
 
-        cast<StructType>(Elem.second)
-            ->setBody(DataTypes, cast<StructType>(Elem.first)->isPacked());
+        if (CopyElemInsts) {
+          ArrayMethodTransformation::OrigToCopyTy OrigToCopy;
+          AMT.rawCopyAndRelink(
+              OrigToCopy, UpdateUnique, getNumArrays(),
+              Elem /*Type related to copies*/,
+              AppendMethodElemParamOffset +
+                  Off /* Offset in argument list of new element*/);
+          AMT.gepRAUW(true /*Do copy*/, OrigToCopy,
+                      Off /*Elem's offset in NewElement*/,
+                      NewElement->getPointerTo(0));
+          UpdateUnique = false;
+        }
       }
+
+      // Original instructions from cloned function should be replaced as a
+      // last step to keep OrigToCopy valid.
+      AMT.gepRAUW(false /*Only update existing insts*/,
+                  ArrayMethodTransformation::OrigToCopyTy(),
+                  CurrOff /*CurElem's offset in NewElement*/,
+                  NewElement->getPointerTo(0));
     }
 
-    dtrans::StructInfo *getOuterStruct() const { return StructsToConvert[0]; }
+    void postprocessFunction(SOAToAOSTransformImpl &Impl, Function &OrigFunc,
+                             bool isCloned) {
+      if (!isCloned)
+        return;
+
+      auto SIt = StructTransInfo.find(&OrigFunc);
+      if (SIt != StructTransInfo.end()) {
+        postprocessStructMethod(Impl, OrigFunc, *SIt->second.get());
+        return;
+      }
+
+      auto AIt = ArrayTransInfo.find(&OrigFunc);
+      if (AIt != ArrayTransInfo.end()) {
+        postprocessArrayMethod(Impl, OrigFunc, *AIt->second.get());
+        return;
+      }
+    }
 
     CandidateInfo() {}
 
   private:
     CandidateInfo(const CandidateInfo &) = delete;
     CandidateInfo &operator=(const CandidateInfo &) = delete;
-    SmallVector<dtrans::StructInfo *, 3> StructsToConvert;
+
+    // Structure containing one element per each transformed array.
+    StructType *NewElement = nullptr;
+    // New array of structures, structure is NewElement.
+    StructType *NewArray = nullptr;
+    // Structure containing pointer to NewArray.
+    StructType *NewStruct = nullptr;
+
+    // Offset of array-of-structure in NewStruct.
+    unsigned AOSOffset = -1U;
+    // Offset of the first element parameter for MK_Append method.
+    // Element parameters are arranged in order of NewElement.
+    unsigned AppendMethodElemParamOffset = -1U;
   };
 
   constexpr static int MaxNumStructCandidates = 1;
 
   SmallVector<CandidateInfo *, MaxNumStructCandidates> Candidates;
-
-  // A mapping from the original structure type to the new structure type
-  TypeToTypeMap OrigToNewTypeMapping;
 };
 
 // Hook point. Top-level returns from populate* methods.
-inline bool FALSE() { return false; }
+inline bool FALSE(const char *Msg) {
+  LLVM_DEBUG(dbgs() << "; dtrans-soatoaos: " << Msg << "\n");
+  return false;
+}
 
 bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     SOAToAOSTransformImpl &Impl, Module &M) {
@@ -193,25 +339,33 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
                     *this);
 
       bool Result = DC.computeDepApproximation();
-      LLVM_DEBUG(dbgs() << "; Dep approximation for array's method "
-                        << F->getName()
-                        << (Result ? " is successful\n" : " incomplete\n"));
+      LLVM_DEBUG({
+        dbgs() << "; Dep approximation for array's method " << F->getName()
+               << (Result ? " is successful\n" : " incomplete.\n");
+        if (!Result)
+          dbgs() << "; See -debug-only=" << DTRANS_SOADEP
+                 << " RUN-lines in soatoaos02*.ll on debugging.";
+      });
       DEBUG_WITH_TYPE(DTRANS_SOADEP, {
         dbgs() << "; Dump computed dependencies ";
         DepMap::DepAnnotatedWriter Annotate(*this);
         F->print(dbgs(), &Annotate);
       });
       if (!Result)
-        return FALSE();
+        return FALSE("unhandled instruction seen in array method.");
     }
 
   for (auto *F : StructMethods) {
     DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
 
     bool Result = DC.computeDepApproximation();
-    LLVM_DEBUG(dbgs() << "; Dep approximation for struct's method "
-                      << F->getName()
-                      << (Result ? " is successful\n" : " incomplete\n"));
+    LLVM_DEBUG({
+      dbgs() << "; Dep approximation for struct's method " << F->getName()
+             << (Result ? " is successful\n" : " incomplete.\n");
+      if (!Result)
+        dbgs() << "; See -debug-only=" << DTRANS_SOADEP
+               << " RUN-lines in soatoaos05*.ll on debugging.\n";
+    });
     DEBUG_WITH_TYPE(DTRANS_SOADEP, {
       dbgs() << "; Dump computed dependencies ";
 
@@ -220,11 +374,9 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     });
 
     if (!Result)
-      return FALSE();
+      return FALSE("unhandled instruction seen in struct method.");
   }
 
-  // TODO: store results somewhere for transformation.
-  ComputeArrayMethodClassification::TransformationData Data;
   unsigned Cnt = 0;
   bool UnknownSeen = false;
   for (auto Tuple :
@@ -238,21 +390,30 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       LLVM_DEBUG(dbgs() << "; Checking array's method " << F->getName()
                         << "\n");
 
+      std::unique_ptr<ComputeArrayMethodClassification::TransformationData>
+          Data(new ComputeArrayMethodClassification::TransformationData());
+
       ComputeArrayMethodClassification MC(Impl.DL,
                                           // *this as DepMap to query.
                                           *this, S,
                                           // Info for transformation
-                                          Data);
+                                          *Data);
       auto Res = MC.classify();
       auto Kind = Res.first;
 
-      LLVM_DEBUG(dbgs() << "; Classification: " << Kind << "\n");
+      LLVM_DEBUG({
+        dbgs() << "; Classification: " << Kind << "\n";
+        if (Kind == MK_Unknown)
+          dbgs() << "; See -debug-only=" << DTRANS_SOAARR
+                 << " RUN-lines in soatoaos03*.ll and soatoaos04*.ll on "
+                    "debugging.\n";
+      });
 
       if (Kind == MK_Unknown)
         UnknownSeen = true;
 
       if (UnknownSeen && !DTransSOAToAOSComputeAllDep)
-        return FALSE();
+        return FALSE("cannot classify array method");
 
       bool ToCombine = true;
       if (Kind == MK_Ctor)
@@ -270,40 +431,44 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
       if (ToCombine) {
         if (!F->hasOneUse())
-          return FALSE();
+          return FALSE("combined array method does not have 1 use.");
         if (!ImmutableCallSite(F->use_begin()->getUser()))
-          return FALSE();
+          return FALSE(
+              "combined array method is referenced not in call/invoke.");
       }
 
       // Simple processing of MK_Append calling MK_Realloc.
       if (Res.second) {
         if (Kind != MK_Append)
-          return FALSE();
+          return FALSE(
+              "another array method called from not append-like method.");
         if (MethodsCalled)
-          return FALSE();
+          return FALSE("2 calls to realloc array method called from "
+                       "2 append-like methods.");
         MethodsCalled = Res.second;
       }
+      // Ownership is passed to ArrayTransInfo.
+      ArrayTransInfo[F] = decltype(Data)(Data.release());
     }
-
-    if (!Cnt)
-      return FALSE();
 
     if (CSInfo.Ctors.size() != Cnt || CSInfo.CCtors.size() != Cnt ||
         CSInfo.Dtors.size() != Cnt || CSInfo.Appends.size() != Cnt ||
         CSInfo.Reallocs.size() != Cnt)
-      return FALSE();
+      return FALSE("cannot combine array methods: number of "
+                   "ctor/cctor/dtor/realloc/append inconsistent.");
 
     // Simple processing of MK_Append.
     // As direct calls to MK_Realloc is not tested, forbid it, MK_Realloc is
     // called only from MK_Append.
     if (CSInfo.Reallocs.back() != MethodsCalled)
-      return FALSE();
+      return FALSE(
+          "method  called from append-like method is not realloc.");
   }
 
   if (UnknownSeen) {
     assert(DTransSOAToAOSComputeAllDep &&
            "MK_Unknown methods encountered too late");
-    return FALSE();
+    return FALSE(" could not classify array method.");
   }
 
   // Check combined methods.
@@ -342,7 +507,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
         LLVM_DEBUG(dbgs() << "; Comparison of " << F->getName() << " and "
                           << O->getName() << " showed some differences, "
                           << "this situation cannot be handled in SOAToAOS.\n");
-        return FALSE();
+        return FALSE("bit-to-bit equality failed.");
       }
     }
   }
@@ -354,37 +519,47 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
   for (auto *F : StructMethods) {
     SummaryForIdiom S(Struct, MemoryInterface, F);
 
-    // TODO: store results somewhere for transformation.
-    // FIXME: Make TI per-module and not per-function.
-    StructureMethodAnalysis::TransformationData TI;
-    // TODO: make order of arguments consistent.
-    // TODO: add diagnostic messages.
+    std::unique_ptr<StructureMethodAnalysis::TransformationData> Data(
+        new StructureMethodAnalysis::TransformationData());
+
     StructureMethodAnalysis MChecker(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S,
-                                     Arrays, TI);
+                                     Arrays, *Data);
     bool CheckResult = MChecker.checkStructMethod();
-    LLVM_DEBUG(dbgs() << "; Struct's method " << F->getName()
-                      << (CheckResult ? " has only expected side-effects\n"
-                                      : " needs analysis of instructions\n"));
+    LLVM_DEBUG({
+      dbgs() << "; Struct's method " << F->getName()
+             << (CheckResult ? " has only expected side-effects\n"
+                             : " needs analysis of instructions\n");
+      if (!CheckResult)
+        dbgs() << "; See -debug-only=" << DTRANS_SOASTR
+               << " RUN-lines in soatoaos05*.ll on debugging.\n";
+    });
+
     if (!CheckResult)
-      return FALSE();
+      return FALSE("cannot process all side-effects in struct method.");
 
     CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
-                             ArrayFieldOffsets, TI, CSInfo,
+                             ArrayFieldOffsets, *Data, CSInfo,
                              BasePointerOffset);
     bool Comparison = CSCmp.canCallSitesBeMerged();
-    LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
-                      << (Comparison
-                              ? "required call sites can be merged"
-                              : "problem with call sites required to be merged")
-                      << " in " << F->getName() << "\n");
+    LLVM_DEBUG({
+      dbgs() << "; Array call sites analysis result: "
+             << (Comparison ? "required call sites can be merged"
+                            : "problem with call sites required to be merged")
+             << " in " << F->getName() << "\n";
+      if (!Comparison)
+        dbgs() << "; See -debug-only=" << DTRANS_SOASTR
+               << " RUN-lines in soatoaos05*.ll on debugging.\n";
+    });
     if (!Comparison)
-      return FALSE();
+      return FALSE("cannot compare call sites of array methods to combine.");
+
+    // Pass ownership to StructTransInfo.
+    StructTransInfo[F] = decltype(Data)(Data.release());
   }
 
   return true;
 }
 
-// FIXME: make sure padding fields are dead.
 bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 
   for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
@@ -399,7 +574,30 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
       continue;
     }
 
-    // FIXME: FP exception handling.
+    bool SafetyViolation = false;
+    for (auto *Fld : Info->fields()) {
+      auto *FTI = DTInfo.getTypeInfo(Fld);
+      if (!FTI || DTInfo.testSafetyData(FTI, dtrans::DT_SOAToAOS)) {
+        SafetyViolation = true;
+        break;
+      }
+    }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (!DTransSOAToAOSType.empty() &&
+        DTransSOAToAOSType == cast<StructType>(TI->getLLVMType())->getName())
+      SafetyViolation = false;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+    if (SafetyViolation) {
+      LLVM_DEBUG({
+        dbgs() << "  ; Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because safety checks were violated\n";
+      });
+      continue;
+    }
+
     if (!Info->populateCFGInformation(M, DTransSOAToAOSSizeHeuristic, true)) {
       LLVM_DEBUG({
         dbgs() << "  ; Rejecting ";
@@ -437,22 +635,24 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
         TI->getLLVMType()->print(dbgs(), true, true);
         dbgs() << " based on dtrans-soatoaos-typename option.\n";
       });
-      return FALSE();
+      return FALSE("conflicting -dtrans-soatoaos-typename.");
     }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     if (Candidates.size() > MaxNumStructCandidates) {
-      LLVM_DEBUG(dbgs() << "  Too many candidates found. Give-up.\n");
-      return FALSE();
+      return FALSE("too many candidates found.");
     }
 
-    Info->setCandidateStructs(*this, cast<dtrans::StructInfo>(TI));
+    LLVM_DEBUG({
+      dbgs() << "  ; SOA-to-AOS possible for ";
+      TI->getLLVMType()->print(dbgs(), true, true);
+      dbgs() << ".\n";
+    });
     Candidates.push_back(Info.release());
   }
 
   if (Candidates.empty()) {
-    LLVM_DEBUG(dbgs() << "  No candidates found.\n");
-    return false;
+    return FALSE("no candidates found.");
   }
 
   for_each(Candidates,
@@ -464,6 +664,13 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 void SOAToAOSTransformImpl::populateTypes(Module &M) {
   for_each(Candidates,
            [this, &M](CandidateInfo *C) { C->populateTypes(*this, M); });
+}
+
+void SOAToAOSTransformImpl::postprocessFunction(Function &OrigFunc,
+                                                bool isCloned) {
+  for_each(Candidates, [this, &OrigFunc, isCloned](CandidateInfo *C) {
+    C->postprocessFunction(*this, OrigFunc, isCloned);
+  });
 }
 } // namespace
 

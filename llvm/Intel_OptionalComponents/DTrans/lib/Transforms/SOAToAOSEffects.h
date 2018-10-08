@@ -67,6 +67,7 @@ struct ArithInstructionsTrait {
     case Instruction::And:
     case Instruction::BitCast:
     case Instruction::ExtractValue:
+    case Instruction::FCmp:
     case Instruction::FMul:
     case Instruction::FPToUI:
     case Instruction::FPToSI:
