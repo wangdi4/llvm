@@ -416,6 +416,24 @@ enum ChannelUsageDiagHelper : int { Previous = 0, Current = 1 };
 void emitDiags(const FunctionDecl *CurKernel,
                Sema::ChannelDescSet &ChannelsUsedInDecl, Sema &S) {
   for (const auto &CurDesc : ChannelsUsedInDecl) {
+    unsigned Kind = static_cast<unsigned>(CurDesc.Kind);
+
+    // Check for I/O channels usage
+    if (CurKernel->hasAttr<AutorunAttr>() &&
+        CurDesc.ChannelDecl->hasAttr<OpenCLIOAttr>()) {
+      S.Diag(CurDesc.ChannelDecl->getBeginLoc(),
+             diag::warn_io_channel_is_used_from_autorun_kernel)
+          << CurDesc.Name << CurKernel->getName();
+      SmallVector<SourceLocation, 8> CurCallStack;
+      CollectCallStack(CurDesc, CurKernel, S, CurCallStack);
+      S.Diag(CurKernel->getBeginLoc(), diag::note_channel_is_used_through)
+          << CurDesc.Name << Kind;
+      for (const auto &SLoc : CurCallStack)
+        S.Diag(SLoc, diag::note_channel_is_used_through)
+            << CurDesc.Name << Kind;
+    }
+
+
     const FunctionDecl *&PrevKernel = S.ChannelToKernelMap[CurDesc];
     if (!PrevKernel) {
       PrevKernel = CurKernel;
@@ -423,7 +441,6 @@ void emitDiags(const FunctionDecl *CurKernel,
     }
 
     // More than one use of channel
-    unsigned Kind = static_cast<unsigned>(CurDesc.Kind);
     S.Diag(CurDesc.ChannelDecl->getBeginLoc(),
            diag::warn_channel_is_used_from_more_than_one_kernel) << Kind;
     // Show current usage of a channel to user

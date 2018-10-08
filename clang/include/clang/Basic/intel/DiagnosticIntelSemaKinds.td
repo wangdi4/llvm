@@ -320,6 +320,9 @@ def note_channel_usage_already_found_in_kernel : Note<
   "%select{reading|writing}2 found in the kernel '%3'. See call stack below:">;
 def note_channel_is_used_through : Note<
   "channel '%0' is used for %select{reading|writing}1 here">;
+def warn_io_channel_is_used_from_autorun_kernel : Warning<
+  "usage of I/O channel '%0' found in autorun kernel '%1'. "
+  "See call stack below:">, InGroup<FPGAChannelsUsage>, DefaultError;
 
 def err_hls_builtin_arg_mismatch : Error<
   "HLS builtin parameter must be %select{"
