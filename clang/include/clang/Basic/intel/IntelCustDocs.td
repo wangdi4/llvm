@@ -36,6 +36,7 @@ class DocumentationCategory<string name> {
 def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
 def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
 def DocCatIntelOptimization : DocumentationCategory<"Optimization">;
+def DocCatIntelOpenMP : DocumentationCategory<"OpenMP">;
 
 // Specifies the documentation to be associated with the given category.
 class Documentation {
@@ -916,6 +917,49 @@ Where:
  !8 = !{!9, !9, i64 0}
  !9 = !{!"pointer@_ZTSPi", !6, i64 0}
 
+  }];
+}
+
+def VolatileInOMPRegionsDocs : Documentation {
+  let Category = DocCatIntelOpenMP;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-1443";
+  let RegressionTest = "";
+  let Owner = "mprice1";
+  let Content = [{
+Community clang is removing volatile from variables captured in OpenMP
+regions. Whether it is a good idea or not, there doesn't seem to be
+justification for removing volatile in the OpenMP spec. This extension,
+controlled by -fintel-compatibility, retains volatile.
+
+.. code-block:: bash
+
+  $ clang -cc1 -fopenmp -fintel-compatibility -emit-llvm -o - t.c
+
+.. code-block:: c
+
+  int get_thread_num();
+  void foo() {
+    int volatile lck = 0;
+    #pragma omp parallel
+    {
+      if (get_thread_num() == 0)
+        lck = 1;
+    }
+  }
+
+.. code-block:: llvm
+
+  %call = call i32 (...) @get_thread_num()
+  %cmp = icmp eq i32 %call, 0
+  br i1 %cmp, label %if.then, label %if.end
+
+  if.then:                                          ; preds = %entry
+    store volatile i32 1, i32* %0, align 4
+    br label %if.end
+
+  if.end:                                           ; preds = %if.then, %entry
+    ret void
   }];
 }
 

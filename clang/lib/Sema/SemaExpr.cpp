@@ -15196,10 +15196,19 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
   if (S.getLangOpts().OpenMP && RSI->CapRegionKind == CR_OpenMP) {
     if (S.isOpenMPCapturedDecl(Var)) {
       bool HasConst = DeclRefType.isConstQualified();
+      bool HasVolatile = DeclRefType.isVolatileQualified(); // INTEL
       DeclRefType = DeclRefType.getUnqualifiedType();
       // Don't lose diagnostics about assignments to const.
       if (HasConst)
         DeclRefType.addConst();
+#if INTEL_CUSTOMIZATION
+      // TODO: We'd like to open source this but the community owner is not
+      // open to it. If we can provide a convincing argument or better test
+      // case in the future we'll try again.
+      if (HasVolatile &&
+          S.getLangOpts().isIntelCompat(LangOptions::VolatileInOMPRegions))
+        DeclRefType.addVolatile();
+#endif // INTEL_CUSTOMIZATION
     }
     ByRef = S.isOpenMPCapturedByRef(Var, RSI->OpenMPLevel);
   }
