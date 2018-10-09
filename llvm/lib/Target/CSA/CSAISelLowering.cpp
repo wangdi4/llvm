@@ -60,6 +60,7 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::i64, &CSA::I64RegClass);
   addRegisterClass(MVT::f32, &CSA::I32RegClass);
   addRegisterClass(MVT::f64, &CSA::I64RegClass);
+  addRegisterClass(MVT::v2f32, &CSA::I64RegClass);
 
   // always lower memset, memcpy, and memmove intrinsics to load/store
   // instructions, rather
@@ -246,6 +247,13 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
 
+  // SIMD ops--we have to mark what is not legal.
+  setOperationAction(ISD::FNEG, MVT::v2f32, Expand);
+  setOperationAction(ISD::FDIV, MVT::v2f32, Expand);
+  setOperationAction(ISD::FREM, MVT::v2f32, Expand);
+  setOperationAction(ISD::FP_ROUND, MVT::v2f32, Expand);
+  setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v2f32, Custom);
+
   /*  These are to enable as CG work is done
     // Short float
     setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
@@ -409,6 +417,8 @@ SDValue CSATargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     return LowerADDSUB_Carry(Op, DAG, true);
   case ISD::USUBO:
     return LowerADDSUB_Carry(Op, DAG, false);
+  case ISD::EXTRACT_VECTOR_ELT:
+    return LowerExtractElement(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -581,6 +591,30 @@ SDValue CSATargetLowering::LowerADDSUB_Carry(SDValue Op, SelectionDAG &DAG,
   SDValue carryOut = SDValue{carriedOp, 1}; 
   SDValue Ops[] = {res, carryOut};
   return DAG.getMergeValues(Ops, dl);
+}
+
+SDValue CSATargetLowering::LowerExtractElement(SDValue Op,
+    SelectionDAG &DAG) const {
+  SDLoc dl(Op);
+  SDValue Src     = Op.getOperand(0);
+  SDValue Idx     = Op.getOperand(1);
+  MVT VT          = Op.getSimpleValueType();
+  assert(VT.getSizeInBits() == 32 && "Only supporting 64->32 unpack");
+
+  // Unpack the value into two LICs.
+  SDNode *Unpack = DAG.getMachineNode(CSA::UNPACK64_32, dl,
+      {MVT::f32, MVT::f32}, Src);
+
+  // Create a select to choose the result of the UNPACK. If the condition is
+  // constant, this should be constant-folded away.
+  SDValue Res = DAG.getSelect(dl, MVT::f32, Idx, SDValue(Unpack, 1),
+      SDValue(Unpack, 0));
+
+  // If the type is not right, bitcast it.
+  if (VT != MVT::f32)
+    Res = DAG.getBitcast(VT, Res);
+
+  return Res;
 }
 
 SDValue CSATargetLowering::PerformDAGCombine(SDNode *N,
@@ -1382,6 +1416,8 @@ SDValue CSATargetLowering::LowerFormalArguments(
         tClass = isDF ? &CSA::CI64RegClass : &CSA::I64RegClass;
       } else if (tVT == MVT::f32) {
         tClass = isDF ? &CSA::CI32RegClass : &CSA::I32RegClass;
+      } else if (tVT == MVT::v2f32) {
+        tClass = isDF ? &CSA::CI64RegClass : &CSA::I64RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }

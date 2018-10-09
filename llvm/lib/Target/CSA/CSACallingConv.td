@@ -21,13 +21,13 @@
 
 // CSA 64-bit C return-value convention using registers
 def RetCC_Reg_CSA : CallingConv<[
-  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64], CCAssignToReg<[R0, R1]>>,
+  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64,v2f32], CCAssignToReg<[R0, R1]>>,
   CCAssignToStack<8, 8>
 ]>;
 
 // CSA 64-bit C Calling convention using registers
 def CC_Reg_CSA : CallingConv<[
-  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64],
+  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64,v2f32],
         CCAssignToReg<[R2, R3, R4, R5, R6, R7, R8, R9,
                        R10, R11, R12, R13, R14, R15, R16, R17]>>,
   CCAssignToStack<8, 8>
@@ -43,12 +43,12 @@ def CC_Reg_VarArg_CSA : CallingConv<[
 
 // CSA 64-bit C return-value convention using LICs
 def RetCC_LIC_CSA : CallingConv<[
-  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64], CCAssignToReg<[P64_0, P64_1]>>
+  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64,v2f32], CCAssignToReg<[P64_0, P64_1]>>
 ]>;
 
 // CSA 64-bit C Calling convention using LICs
 def CC_LIC_CSA : CallingConv<[
-  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64],
+  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64,v2f32],
         CCAssignToReg<[P64_2, P64_3, P64_4, P64_5, P64_6, P64_7, P64_8, P64_9,
 		         P64_10, P64_11, P64_12, P64_13, P64_14, P64_15, P64_16, P64_17, P64_18, P64_19, 
 					   P64_20, P64_21, P64_22, P64_23, P64_24, P64_25, P64_26, P64_27, P64_28, P64_29,

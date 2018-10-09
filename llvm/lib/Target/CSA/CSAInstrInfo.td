@@ -128,6 +128,7 @@ def RCLi32 : RegImmOperand<i32>;
 def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
 def RCLf64 : RegImmOperand<f64>;
+def RCLf32x2 : RegImmOperand<v2f32>;
 
 // Memory operands
 class Addr<int numArgs, string funcName, dag opInfo> :
@@ -213,6 +214,7 @@ def Ti64 : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Ts64 : CSAOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tu64 : CSAOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
+def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
 
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
@@ -2047,6 +2049,8 @@ def : Pat<(i1  (trunc  i8:$op1)),      (COPY_TO_REGCLASS $op1,  I1)>;
 // bitconvert (shows up in exp)
 def : Pat<(i64 (bitconvert f64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(f64 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(v2f32 (bitconvert i64:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(i64 (bitconvert v2f32:$op1)), (COPY_TO_REGCLASS $op1, I64)>;
 
 def : Pat<(i32 (bitconvert f32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(f32 (bitconvert i32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
@@ -2062,6 +2066,59 @@ let hasSideEffects = 1 in {
     IIVir
   >;
 }
+
+// Floating-point simd instructions
+multiclass SimdOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
+             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
+  def "" : FMTGEN<gen, oi,
+    (outs oi.RC:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2, i8imm:$disable, i8imm:$swizzle1,
+         i8imm:$swizzle2, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix,
+        "\t$dst, $op1, $op2, $disable, $swizzle1, $swizzle2, $rm"),
+    [],
+    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+  def : Pat<(v2f32 (opNode RCLf32x2:$op1, RCLf32x2:$op2)),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, 0, 0)>;
+}
+
+multiclass SimdTriOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
+             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
+  def "" : FMTGEN<gen, oi,
+    (outs oi.RC:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, i8imm:$disable, i8imm:$swizzle1,
+         i8imm:$swizzle2, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix,
+        "\t$dst, $op1, $op2, $op3, $disable, $swizzle1, $swizzle2, $rm"),
+    [],
+    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+  def : Pat<(v2f32 (opNode oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3)),
+      (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, 0, 0)>;
+}
+defm ADDF32X2: SimdOp<ADD, fadd, Tf32x2>;
+defm SUBF32X2: SimdOp<SUB, fsub, Tf32x2>;
+defm MULF32X2: SimdOp<MUL, fmul, Tf32x2>;
+
+defm FMAF32X2:  SimdTriOp<FMA,  fma, Tf32x2>;
+defm FMSF32X2:  SimdTriOp<FMS,  fms, Tf32x2>;
+defm FMRSF32X2: SimdTriOp<FMRS, fmrs, Tf32x2>;
+
+// Pack, unpack
+def PACK: GenericOp<"pack">;
+def UNPACK: GenericOp<"unpack">;
+def PACK32_64 : FMTGEN<PACK, Ti32,
+    (outs I64:$dst),
+    (ins RCLf32:$lo, RCLf32:$hi),
+    "pack32_64\t$dst, $lo, $hi",
+    [(set v2f32:$dst, (build_vector RCLf32:$lo, RCLf32:$hi))]>;
+def UNPACK64_32 : FMTGEN<UNPACK, Ti32,
+    (outs I32:$lo, I32:$hi),
+    (ins RCLi64:$src),
+    "unpack64_32\t$src, $lo, $hi",
+    []>;
+
 
 // Eventually
 //include "CSAIntrinsics.td"
