@@ -374,8 +374,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 // INTEL VPO BEGIN
     // TODO: This approach has the following issues:
     //     1. We shouldn't be processing Clang's flags in LLVM.
-    //     2. If -fintel-openmp is passed by other means than the VOLCANO env
-    //        var (OpenCL source code, for example), this is not going to work.
+    //     2. If -fintel-openmp-region is passed by other means than the VOLCANO
+    //        env var (OpenCL source code, for example), this is not going to
+    //        work.
     //     3. Default value of optionsClang has to be aligned with
     //        the clang_driver.
     //
@@ -387,7 +388,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     // -fintel-compatibility flag, which affects on clang behavior beyond
     // OpenMP. Should be enabled back when this issue gets resolved.
     //
-    // std::string optionsClang = "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility";
+    // std::string optionsClang = "-fopenmp -fintel-openmp-region -fopenmp-tbb
+    //                             -fintel-compatibility";
 
     if (const char* opts = getenv("VOLCANO_CLANG_OPTIONS")) {
 #ifdef NDEBUG
@@ -399,13 +401,13 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       // FIXME: This is primarily needed to disable VPO, but overriding options
       // in debug build is not obvious. There are better ways to do it:
       //
-      //    1. Pass -fno-openmp and -fno-intel-openmp flags through
+      //    1. Pass -fno-openmp and -fno-intel-openmp-region flags through
       //    VOLCANO_CLANG_OPTIONS.
       //
       //    2. Pass -disable-vplan-vectorizer through
       //    VOLCANO_LLVM_OPTIONS. Tricky part here is whether the IR produced by
-      //    the clang with -fopenmp and -fintel-openmp is compatible with our
-      //    backend without VPO.
+      //    the clang with -fopenmp and -fintel-openmp-region is compatible with
+      //    our backend without VPO.
       optionsClang = opts;
 #endif
     }
@@ -413,7 +415,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       std::stringstream optionsSS(optionsClang);
       std::string buf;
       while (getline(optionsSS, buf,' ')) {
-        if (buf.compare("-fintel-openmp") == 0) {
+        if (buf.compare("-fintel-openmp-region") == 0) {
           RunVPOParopt |= VPOParoptMode::ParPrepare;
           RunVPOParopt |= VPOParoptMode::ParTrans;
           RunVPOParopt |= VPOParoptMode::OmpPar;

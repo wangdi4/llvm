@@ -235,7 +235,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     // -fintel-compatibility flag, which affect on clang behavior beyond OpenMP.
     // Should be enabled back when this issue gets resolved.
     //
-    // optionsClang = "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility";
+    // optionsClang = "-fopenmp -fintel-openmp-region -fopenmp-tbb
+    //                 -fintel-compatibility";
 // INTEL VPO END
 
     std::string envVolcanoClangOptions;
