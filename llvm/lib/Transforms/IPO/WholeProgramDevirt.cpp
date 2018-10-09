@@ -500,7 +500,7 @@ struct DevirtModule {
   // Structure that contains the information related to a target
   // of a virtual call
   struct TargetData {
-    Value *FunctionAddress;           // Address of the target function
+    Value      *TargetFunc;           // Value of the target function
     BasicBlock *TargetBasicBlock;     // Basic block of the target's call site
     Instruction *CallInstruction;     // Target's call instruction
     std::string TargetName;           // Basic Block's name
@@ -1065,10 +1065,7 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
 
     TargetData *NewTarget = new TargetData();
 
-
-    // Create the BitCast of the function's address
-    Value *FuncAddr = Builder.CreateBitCast(Target.Fn, Int8PtrTy);
-    NewTarget->FunctionAddress = FuncAddr;
+    NewTarget->TargetFunc = cast<Value>(Target.Fn);
 
     // Create a new BasicBlock with the name
     // BBDevirt_TARGETNAME_CallSlotI_VCallI
@@ -1187,8 +1184,7 @@ DevirtModule::TargetData* DevirtModule::buildDefaultCase(Module &M,
 
   TargetData *DefaultTarget = new TargetData();
 
-  DefaultTarget->FunctionAddress =
-      Builder.CreateBitCast(CalledVal, Int8PtrTy);
+  DefaultTarget->TargetFunc = CalledVal;
   DefaultTarget->TargetBasicBlock = DefaultBB;
   DefaultTarget->CallInstruction = CSInst;
   DefaultTarget->TargetName = DefaultBBNameNum;
@@ -1275,9 +1271,9 @@ void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
   IRBuilder<> Builder(M.getContext());
 
   Builder.SetInsertPoint(MainBB);
-  Instruction *DefaultAddress =
-      cast<Instruction>(DefaultTarget->FunctionAddress);
-  DefaultAddress->removeFromParent();
+
+  BitCastInst *DefaultAddress =
+      new BitCastInst(DefaultTarget->TargetFunc, Int8PtrTy);
   Builder.Insert(DefaultAddress);
 
   BasicBlock *InsertPointBB = MainBB;
@@ -1303,8 +1299,11 @@ void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
     // Create the condition and branching
     Builder.SetInsertPoint(InsertPointBB);
 
-    Value *Cond = Builder.CreateICmpEQ(DefaultTarget->FunctionAddress,
-                                       Target->FunctionAddress);
+    BitCastInst *TargetAddress =
+        new BitCastInst(Target->TargetFunc, Int8PtrTy);
+    Builder.Insert(TargetAddress);
+
+    Value *Cond = Builder.CreateICmpEQ(DefaultAddress, TargetAddress);
     Builder.CreateCondBr(Cond, IfBB, ElseBB);
 
     // Insert the branch to merge point in case of CallInst
@@ -1554,6 +1553,7 @@ void DevirtModule::runDevirtVerifier(Module &M) {
   if (WPDevirtMultiversion && WPDevirtMultiversionVerify) {
     for (Function &F : M) {
       if (verifyFunction(F)) {
+
         report_fatal_error("Whole Program Devirtualization: Fails in"
                            " function: " + F.getName() + "()\n");
       }

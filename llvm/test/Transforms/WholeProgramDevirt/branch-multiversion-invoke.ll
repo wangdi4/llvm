@@ -64,7 +64,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }
@@ -403,39 +403,55 @@ attributes #11 = { noreturn nounwind }
 !32 = !{!33, !33, i64 0}
 !33 = !{!"pointer@_ZTSPKc", !10, i64 0}
 
+; Check that the transformation was applied correctly in function main
+; CHECK:       define hidden i32 @main(i32 %argc, i8** nocapture readnone %argv) local_unnamed_addr #3 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+
 ; Compare the address of the virtual function with Derived::foo
-; CHECK:       %3 = icmp eq i8* %2, bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*)
-; CHECK-NEXT:  br i1 %3, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
+; CHECK:       %tmp2 = bitcast i1 (%class.Base*, i32)* %tmp1 to i8*
+; CHECK-NEXT:  %tmp3 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
+; CHECK-NEXT:  %tmp4 = icmp eq i8* %tmp2, %tmp3
+; CHECK-NEXT:  br i1 %tmp4, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
 
 ; If the address matches with Derived:foo, then call it
-; CHECK:       BBDevirt__ZN7Derived3fooEi_0_0:                      ; preds = %entry
-; CHECK-NEXT:   %4 = invoke zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
+; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
+; CHECK:        %tmp5 = invoke zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
 ; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
 
 ; Else, compare the address with Derived2:foo
-; CHECK:       ElseDevirt__ZN7Derived3fooEi_0_0:                    ; preds = %entry
-; CHECK-NEXT:   %5 = icmp eq i8* %2, bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*)
-; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
+; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi_0_0:
+; CHECK:        %tmp6 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
+; CHECK-NEXT:   %tmp7 = icmp eq i8* %tmp2, %tmp6
+; CHECK-NEXT:   br i1 %tmp7, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
 
 ; The address matches Derived2::foo
-; CHECK:       BBDevirt__ZN8Derived23fooEi_0_0:                     ; preds = %ElseDevirt__ZN7Derived3fooEi_0_0
-; CHECK-NEXT:   %6 = invoke zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
+; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
+; CHECK:        %tmp8 = invoke zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
 ; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
 
 ; Default case
-; CHECK:       DefaultBB_0_0:                                      ; preds = %ElseDevirt__ZN7Derived3fooEi_0_0
-; CHECK-NEXT:   %7 = invoke zeroext i1 %1(%class.Base* %.16, i32 %argc)
+; CHECK-LABEL: DefaultBB_0_0:
+; CHECK:        %tmp9 = invoke zeroext i1 %tmp1(%class.Base* %.16, i32 %argc)
 ; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
 
 ; Check that the PhiNode was generated correctly
-; CHECK:       MergeBB_0_0:
-; CHECK-NEXT:  %8 = phi i1 [ %4, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %7, %DefaultBB_0_0 ]
+; CHECK-LABEL: MergeBB_0_0:
+; CHECK:        %tmp10 = phi i1 [ %tmp5, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %tmp8, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %tmp9, %DefaultBB_0_0 ]
 ; CHECK-NEXT: br label %invoke.cont
 
 
 ; Make sure that the users were replaced correctly
-; CHECK: invoke.cont:
-; CHECK-NEXT:  %call.i17 = invoke dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %8)
+; CHECK-LABEL: invoke.cont:
+; CHECK:        %call.i17 = invoke dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %tmp10)
 ; CHECK-NEXT:          to label %invoke.cont1 unwind label %lpad
 
 
+; Check that the unwind destination have all the basic blocks connected correctly
+; CHECK:       lpad:                                             ; preds = %BBDevirt__ZN8Derived23fooEi_0_0, %BBDevirt__ZN7Derived3fooEi_0_0, %invoke.cont1, %invoke.cont, %DefaultBB_0_0
+; CHECK-NEXT:   %tmp11 = landingpad { i8*, i32 }
+; CHECK-NEXT:            cleanup
+; CHECK-NEXT:            catch i8* bitcast (i8** @_ZTIPKc to i8*)
+; CHECK-NEXT:   %tmp12 = extractvalue { i8*, i32 } %tmp11, 0
+; CHECK-NEXT:   %tmp13 = extractvalue { i8*, i32 } %tmp11, 1
+; CHECK-NEXT:   %tmp14 = tail call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIPKc to i8*)) #2
+; CHECK-NEXT:   %matches = icmp eq i32 %tmp13, %tmp14
+; CHECK-NEXT:   br i1 %matches, label %catch, label %eh.resume
