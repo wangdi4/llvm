@@ -337,6 +337,34 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
   if (hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma()) {
     OS << " <ivdep>";
   }
+
+  if (getPragmaBasedMinimumTripCount(Count)) {
+    OS << " <min_trip_count = " << Count << ">";
+  }
+
+  if (getPragmaBasedAverageTripCount(Count)) {
+    OS << " <avg_trip_count = " << Count << ">";
+  }
+
+  if (getPragmaBasedMaximumTripCount(Count)) {
+    OS << " <max_trip_count = " << Count << ">";
+  }
+
+  SmallVector<unsigned, 4> TripCounts;
+
+  if (getPragmaBasedLikelyTripCounts(TripCounts)) {
+    OS << " <trip_counts = ";
+
+    bool FirstTC = true;
+    for (auto TC : TripCounts) {
+      if (!FirstTC) {
+        OS << ", ";
+      }
+      OS << TC;
+      FirstTC = false;
+    }
+    OS << ">";
+  }
 }
 
 void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
