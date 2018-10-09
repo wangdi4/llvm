@@ -62,6 +62,49 @@ namespace llvm {
 
 namespace vpo {
 
+#if INTEL_CUSTOMIZATION
+uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
+  uint32_t ElemSize = I->getType().getElementSize();
+  Type *ElemType = Type::getIntNTy(getContext(), ElemSize);
+  if (isa<OVLSLoad>(I) || isa<OVLSStore>(I)) {
+    VectorType *VecTy = VectorType::get(ElemType, VPCM.VF);
+    return TTI.getMemoryOpCost(
+        isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load, VecTy,
+        // FIXME: Next values are not used in getMemoryOpCost(), however
+        // that can change later.
+        0 /* Alignment */, 0 /* AddressSpace */);
+  }
+  if (auto Shuffle = dyn_cast<OVLSShuffle>(I)) {
+    SmallVector<uint32_t, 16> Mask;
+    Shuffle->getShuffleMask(Mask);
+    VectorType *VecTy = VectorType::get(ElemType, Mask.size());
+    return getShuffleCost(Mask, VecTy);
+  }
+  llvm_unreachable("Unexpected OVLSInstruction.");
+}
+
+uint64_t
+VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
+  const auto *VPMemref = dyn_cast<VPVLSClientMemref>(&Memref);
+  assert(VPMemref && "Wrong type of OVLSMemref is used.");
+#if 0
+  return VPCM.getLoadStoreCost(VPMemref->getInstruction());
+#else
+  Type *VecTy =
+      VPCM.getVectorizedType(VPMemref->getInstruction()->getType(), VPCM.VF);
+  // FIXME: Without proper decomposition it's impossible to call
+  // getLoadStoreCost(), because opcode may not be valid in the VPInstruction.
+  // Assume load instruction for non-memref opcode, because store instruction
+  // cannot be composed.
+  unsigned Opcode =
+      VPMemref->getInstruction()->getOpcode() != Instruction::Store
+          ? Instruction::Load
+          : Instruction::Store;
+  return TTI.getMemoryOpCost(Opcode, VecTy, 0, 0);
+#endif
+}
+#endif // INTEL_CUSTOMIZATION
+
 // TODO: ideally this function should be moved into utils.
 Type *VPlanCostModel::getVectorizedType(const Type *BaseTy, unsigned VF) {
   if (BaseTy->isVectorTy())
@@ -179,6 +222,37 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   return DL->getABITypeAlignment(getMemInstValueType(VPInst));
 }
 
+unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
+  unsigned Opcode = VPInst->getOpcode();
+  assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
+         "Load or Store instruction is expected.");
+  Type *OpTy = getMemInstValueType(VPInst);
+
+  // FIXME: That should be removed later.
+  if (!OpTy)
+    return UnknownCost;
+
+  assert(OpTy && "Can't get type of the load/store instruction!");
+  unsigned Alignment = getMemInstAlignment(VPInst);
+  unsigned AddrSpace = getMemInstAddressSpace(VPInst);
+  // FIXME: Take into account masked case.
+  // FIXME: Shouldn't use underlying IR, because at this point it can be
+  // invalid. For instance, vectorizer may decide to generate 32-bit gather
+  // instead of 64-bit, while GEP may have 64-bit index.
+  // There're 2 options to consider:
+  //  1. Rewrite getGatherScatterOpCost so that user will pass index size,
+  //  rather then GEP
+  //  2. Templatize TTI to use VPValue.
+  if (auto GEPInst = getGEP(VPInst)) {
+    Type *VecTy = getVectorizedType(OpTy, VF);
+    return TTI->getGatherScatterOpCost(Opcode, VecTy, GEPInst,
+                                       false /* Masked */, Alignment);
+  }
+  unsigned BaseCost =
+      TTI->getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
+  return VF*BaseCost;
+}
+
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
   // TODO: For instruction that are not contained inside the loop we're
   // vectorizing, VF should not be considered. That includes the instructions
@@ -220,34 +294,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     return 0;
   }
   case Instruction::Load:
-  case Instruction::Store: {
-    Type *OpTy = getMemInstValueType(VPInst);
-
-    // FIXME: That should be removed later.
-    if (!OpTy)
-      return UnknownCost;
-
-    assert(OpTy && "Can't get type of the load/store instruction!");
-    unsigned Alignment = getMemInstAlignment(VPInst);
-    unsigned AddrSpace = getMemInstAddressSpace(VPInst);
-    // FIXME: Take into account masked case.
-    // FIXME: Shouldn't use underlying IR, because at this point it can be
-    // invalid. For instance, vectorizer may decide to generate 32-bit gather
-    // instead of 64-bit, while GEP may have 64-bit index.
-    // There're 2 options to consider:
-    //  1. Rewrite getGatherScatterOpCost so that user will pass index size,
-    //  rather then GEP
-    //  2. Templatize TTI to use VPValue.
-    if (auto GEPInst = getGEP(VPInst)) {
-      Type *VecTy = getVectorizedType(OpTy, VF);
-      return TTI->getGatherScatterOpCost(Opcode, VecTy, GEPInst,
-                                         false /* Masked */, Alignment);
-    } else {
-      unsigned BaseCost =
-          TTI->getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
-      return VF*BaseCost;
-    }
-  }
+  case Instruction::Store:
+    return VPlanCostModel::getLoadStoreCost(VPInst);
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:

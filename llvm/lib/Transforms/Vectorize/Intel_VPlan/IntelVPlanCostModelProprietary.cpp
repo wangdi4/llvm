@@ -16,26 +16,19 @@
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanVLSAnalysis.h"
+#include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
+#include "VPlanHIR/IntelVPlanVLSClientHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
+static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(false),
+                               cl::desc("Consider cost returned by OVLSCostModel "
+                                        "for optimized gathers and scatters."));
+
 using namespace llvm::loopopt;
-
-// TODO: Replace this function with a call to divergence analysis when it is
-// ready.
-static bool isUnitStride(const RegDDRef *Ref, unsigned NestingLevel) {
-
-  if (!Ref->isMemRef())
-    return false;
-
-  bool IsNegStride;
-  if (!Ref->isUnitStride(NestingLevel, IsNegStride) || IsNegStride)
-    return false;
-
-  return true;
-}
 
 namespace llvm {
 
@@ -53,17 +46,24 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
     return false; // CHECKME: Is that correct?
 
   if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
+    // FIXME: It's not correct to getParentLoop() for outerloop
+    // vectorization.
+    assert(Inst->getParentLoop()->isInnermost() &&
+           "Outerloop vectorization is not supported.");
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
 
     return Opcode == Instruction::Load
-               ? isUnitStride(Inst->getOperandDDRef(1), NestingLevel)
-               : isUnitStride(Inst->getLvalDDRef(), NestingLevel);
+               ? VPlanVLSAnalysisHIR::isUnitStride(Inst->getOperandDDRef(1),
+                                                   NestingLevel)
+               : VPlanVLSAnalysisHIR::isUnitStride(Inst->getLvalDDRef(),
+                                                   NestingLevel);
   }
   return false;
 }
 
 unsigned
-VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst) const {
+VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
+                                            const bool UseVLSCost) const {
   Type *OpTy = getMemInstValueType(VPInst);
 
   // FIXME: That should be removed later.
@@ -82,9 +82,26 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst) const {
   // still not accurate. Masked loads or stores will be emulated with
   // if-then-else statements, thus additional cost of movemask and cmps
   // must be added.
-  return IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
-                                       Alignment, AddrSpace)
-                : VPlanCostModel::getCost(VPInst);
+  unsigned Cost =
+      IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
+                                    Alignment, AddrSpace)
+             : VPlanCostModel::getLoadStoreCost(VPInst);
+
+  if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)
+    if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
+      if (Group->size() > 1) {
+        unsigned VLSCost = OptVLSInterface::getGroupCost(*Group, *VLSCM);
+        if (VLSCost < Cost) {
+          LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
+                     dbgs() << " from " << Cost << " to " << VLSCost << '\n');
+          return VLSCost;
+        }
+        else
+          LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
+                     dbgs() << " was not reduced from " << Cost << " to " << VLSCost
+                            << '\n');
+      }
+  return Cost;
 }
 
 unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
@@ -92,7 +109,7 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
   switch (Opcode) {
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst);
+    return getLoadStoreCost(VPInst, true);
   // TODO: So far there's no explicit representation for reduction
   // initializations and finalizations. Need to account overhead for such
   // instructions, until VPlan is ready to have explicit representation for

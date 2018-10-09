@@ -884,6 +884,8 @@ private:
         0x80, // informs the runtime that the variable is a private variable.
     TGT_MAP_PRIVATE_VAL = 0x100, // instructs the runtime to forward the value
                                  // to target construct.
+    TGT_MAPTYPE_ND_DESC = 0x400  // indicates that the parameter is loop
+                                 // descriptor struct.
   };
 
   /// \brief Returns the corresponding flag for a given map clause modifier.
@@ -962,6 +964,9 @@ private:
   /// \brief Process the device information into the triples.
   void processDeviceTriples();
 
+  /// Return true if the device triple contains spir64 or spir.
+  bool deviceTriplesHasSPIRV();
+
   /// \brief Update the SSA form after the basic block LoopExitBB's successor
   /// is added one more incoming edge.
   void rewriteUsesOfOutInstructions(
@@ -981,6 +986,10 @@ private:
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
 
+  /// Transform the Ith level of the loop in the region W into the
+  /// OMP canonical loop form.
+  void regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
+
   /// \brief Transform the given do-while loop into the canonical form
   /// as follows.
   ///         do {
@@ -989,7 +998,7 @@ private:
   ///             %omp.inc = %omp.iv + 1;
   ///          }while (%omp.inc <= %omp.ub)
 
-  void fixOMPDoWhileLoop(WRegionNode *W);
+  void fixOMPDoWhileLoop(WRegionNode *W, Loop *L);
 
   /// \brief Utility to transform the given do-while loop loop into the
   /// canonical do-while loop.
@@ -1005,6 +1014,19 @@ private:
   /// \brief Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.
   bool hasParentTarget(WRegionNode *W);
+
+  /// Initialize the loop descriptor struct with the loop level
+  /// as well as the lb, ub, stride for each level of the loop.
+  /// The loop descriptor struct as follows.
+  ///    struct tgt_nd_desc {
+  ///      int64_t   levels;      // The levels of the loop nest
+  ///      struct tgt_loop_desc {
+  ///        int64_t lb;          // The lb of the ith loop
+  ///        int64_t ub;          // The ub of the ith loop
+  ///        int64_t stride;      // The stride of the ith loop
+  ///      }loop_desc[levels];
+  ///   };
+  AllocaInst *genTgtLoopParameter(WRegionNode *W, WRegionNode *WL);
 
   /// \brief Generate the cast i8* for the incoming value BPVal.
   Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
@@ -1099,16 +1121,16 @@ private:
   bool genOCLParallelLoop(WRegionNode *W);
 
   /// \brief Generate the placeholders for the loop lower bound and upper bound.
-  void genLoopBoundUpdatePrep(WRegionNode *W, AllocaInst *&LowerBnd,
-                              AllocaInst *&UpperBnd);
+  void genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
+                              AllocaInst *&LowerBnd, AllocaInst *&UpperBnd);
 
   /// \brief Generate the OCL loop update code.
-  void genOCLLoopBoundUpdateCode(WRegionNode *W, AllocaInst *LowerBnd,
-                                 AllocaInst *UpperBnd);
+  void genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
+                                 AllocaInst *LowerBnd, AllocaInst *UpperBnd);
 
   /// \breif Generate the OCL loop scheduling code.
-  void genOCLLoopPartitionCode(WRegionNode *W, AllocaInst *LowerBnd,
-                               AllocaInst *UpperBnd);
+  void genOCLLoopPartitionCode(WRegionNode *W, unsigned Idx,
+                               AllocaInst *LowerBnd, AllocaInst *UpperBnd);
 };
 } /// namespace vpo
 } /// namespace llvm

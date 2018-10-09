@@ -395,6 +395,70 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
       MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
     }
   }
+  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
+    Type *T = W->getParLoopNdInfoAlloca()->getType()->getPointerElementType();
+    ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+                                          DL.getTypeAllocSize(T)));
+    MapTypes.push_back(TGT_MAPTYPE_ND_DESC);
+  }
+}
+
+// Initialize the loop descriptor struct with the loop level
+// as well as the lb, ub, stride for each level of the loop.
+AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
+                                                    WRegionNode *WL) {
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
+  W->setEntryBBlock(NewEntryBB);
+  LLVMContext &C = F->getContext();
+  IntegerType *Int64Ty = Type::getInt64Ty(C);
+  Instruction *InsertPt = EntryBB->getTerminator();
+  IRBuilder<> Builder(InsertPt);
+  SmallVector<Type *, 4> CLLoopParameterRecTypeArgs;
+  CLLoopParameterRecTypeArgs.push_back(Int64Ty);
+  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+    CLLoopParameterRecTypeArgs.push_back(Int64Ty);
+    CLLoopParameterRecTypeArgs.push_back(Int64Ty);
+    CLLoopParameterRecTypeArgs.push_back(Int64Ty);
+  }
+  StructType *CLLoopParameterRecType =
+      StructType::get(C,
+                      makeArrayRef(CLLoopParameterRecTypeArgs.begin(),
+                                   CLLoopParameterRecTypeArgs.end()),
+                      false);
+  AllocaInst *DummyCLLoopParameterRec = Builder.CreateAlloca(
+      CLLoopParameterRecType, nullptr, "loop.parameter.rec");
+  Value *BaseGep =
+      Builder.CreateInBoundsGEP(CLLoopParameterRecType, DummyCLLoopParameterRec,
+                                {Builder.getInt32(0), Builder.getInt32(0)});
+
+  Builder.CreateStore(
+      Builder.CreateSExtOrTrunc(
+          Builder.getInt32(WL->getWRNLoopInfo().getNormIVSize()), Int64Ty),
+      BaseGep);
+
+  for (unsigned I = 0; I < WL->getWRNLoopInfo().getNormIVSize(); I++) {
+    Loop *L = WL->getWRNLoopInfo().getLoop(I);
+    Value *LowerBndGep = Builder.CreateInBoundsGEP(
+        CLLoopParameterRecType, DummyCLLoopParameterRec,
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 1)});
+    Builder.CreateStore(Builder.getInt64(0), LowerBndGep);
+
+    Value *UpperBndGep = Builder.CreateInBoundsGEP(
+        CLLoopParameterRecType, DummyCLLoopParameterRec,
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
+    Value *CloneUB = VPOParoptUtils::cloneInstructions(
+        WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
+                        UpperBndGep);
+
+    Value *StrideGep = Builder.CreateInBoundsGEP(
+        CLLoopParameterRecType, DummyCLLoopParameterRec,
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 3)});
+    Builder.CreateStore(Builder.getInt64(1), StrideGep);
+  }
+
+  return DummyCLLoopParameterRec;
 }
 
 // Generate the initialization code for the directive omp target.
@@ -447,6 +511,9 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
     Info.NumberOfPtrs = 1;
 
+  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
+    Info.NumberOfPtrs++;
+
   if (Info.NumberOfPtrs) {
 
     SmallVector<Constant *, 16> ConstSizes;
@@ -461,6 +528,9 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
         GenTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
                                  hasRuntimeEvaluationCaptureSize);
       }
+      if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
+        GenTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
+                                 MapTypes, hasRuntimeEvaluationCaptureSize);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
@@ -655,6 +725,10 @@ void VPOParoptTransform::genOffloadArraysInit(
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
   }
+  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
+    genOffloadArraysInitUtil(Builder, W->getParLoopNdInfoAlloca(),
+                             W->getParLoopNdInfoAlloca(), nullptr, Info,
+                             ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
 }
 
 // Return/Create a variable that binds the atexit to this shared
@@ -1147,6 +1221,16 @@ void VPOParoptTransform::processDeviceTriples() {
       break;
     Pos = Next + 1;
   }
+}
+
+// Return true if the device triple contains spir64 or spir.
+bool VPOParoptTransform::deviceTriplesHasSPIRV() {
+  for (const auto &T : TgtDeviceTriples) {
+    if (T.getArch() == Triple::ArchType::spir ||
+        T.getArch() == Triple::ArchType::spir64)
+      return true;
+  }
+  return false;
 }
 
 // Return true if one of the region W's ancestor is OMP target

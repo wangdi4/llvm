@@ -112,10 +112,9 @@ TEST_F(TBAATest, checkTBAAMerging) {
 }
 
 #if INTEL_CUSTOMIZATION
-// If one of the references is global Char type, it cannot be
-// aliased by an access to an enclosing (descendant) type. This test checks
-// if TBAA applies this rule commutatively i.e., it returns the same no alias
-// results for the same pair of values even if their ordering is different.
+// This test checks if TBAA applies its rule commutatively i.e.,
+// it returns the same alias results for the same pair of values
+// even if their ordering is different.
 // JIRA: LCPT-1366
 TEST_F(TBAATest, checkTBAACommutativity) {
   std::pair <StoreInst*, LoadInst*> LoadStore = getFunctionWithLoadStore(&M, "f3");

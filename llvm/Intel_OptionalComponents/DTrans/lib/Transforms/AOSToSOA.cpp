@@ -1852,7 +1852,7 @@ private:
       // Each memset created will multiply the size of the field by this
       // new value to set the expected number of bytes in the array.
       uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
-      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1, TLI);
       CountToSet = I->getOperand(2);
     }
 
@@ -1948,7 +1948,7 @@ private:
       // Each memcpy/memmove created will multiply the size of the field by this
       // new value to set the expected number of bytes in the array.
       uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
-      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1, TLI);
       CountToSet = I->getOperand(2);
     }
 
@@ -2078,7 +2078,7 @@ private:
 
     llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
     llvm::Type *ReplTy = TypeRemapper->remapType(PtrSubTy);
-    updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy);
+    updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy, DL);
   }
 
   // Update the offsets of a byte flattened GEP for dependent structure types.
@@ -2105,7 +2105,7 @@ private:
 
     llvm::Type *OrigTy = StInfo->getLLVMType();
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
-    updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy);
+    updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy, TLI);
   }
 
   // Update the memfunc size operand for a dependent structure type.
@@ -2121,7 +2121,7 @@ private:
 
     llvm::Type *OrigTy = StInfo->getLLVMType();
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
-    updateCallSizeOperand(CInfo->getInstruction(), CInfo, OrigTy, ReplTy);
+    updateCallSizeOperand(CInfo->getInstruction(), CInfo, OrigTy, ReplTy, TLI);
   }
 
   // Return an integer type that will be used as a replacement type for pointers
