@@ -2647,9 +2647,8 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   }
 
   llvm::sort(
-      Options.begin(), Options.end(),
-      [](const CodeGenFunction::MultiVersionResolverOption &LHS,
-         const CodeGenFunction::MultiVersionResolverOption &RHS) {
+      Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
+                  const CodeGenFunction::MultiVersionResolverOption &RHS) {
         return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
                CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
       });

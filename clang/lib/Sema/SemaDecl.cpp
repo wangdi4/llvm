@@ -10029,7 +10029,7 @@ static bool CheckTargetCausesMultiVersioning(
   const auto *OldTA = OldFD->getAttr<TargetAttr>();
   TargetAttr::ParsedTargetAttr NewParsed = NewTA->parse();
   // Sort order doesn't matter, it just needs to be consistent.
-  llvm::sort(NewParsed.Features.begin(), NewParsed.Features.end());
+  llvm::sort(NewParsed.Features);
 
   // If the old decl is NOT MultiVersioned yet, and we don't cause that
   // to change, this is a simple redeclaration.
@@ -10115,7 +10115,7 @@ static bool CheckMultiVersionAdditionalDecl(
   TargetAttr::ParsedTargetAttr NewParsed;
   if (NewTA) {
     NewParsed = NewTA->parse();
-    llvm::sort(NewParsed.Features.begin(), NewParsed.Features.end());
+    llvm::sort(NewParsed.Features);
   }
 
   bool UseMemberUsingDeclRules =

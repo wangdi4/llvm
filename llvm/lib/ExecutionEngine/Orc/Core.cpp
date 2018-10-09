@@ -367,11 +367,13 @@ MaterializationResponsibility::~MaterializationResponsibility() {
          "All symbols should have been explicitly materialized or failed");
 }
 
-SymbolNameSet MaterializationResponsibility::getRequestedSymbols() {
+SymbolNameSet MaterializationResponsibility::getRequestedSymbols() const {
   return JD.getRequestedSymbols(SymbolFlags);
 }
 
 void MaterializationResponsibility::resolve(const SymbolMap &Symbols) {
+  LLVM_DEBUG(dbgs() << "In " << JD.getName() << " resolving " << Symbols
+                    << "\n");
 #ifndef NDEBUG
   for (auto &KV : Symbols) {
     auto I = SymbolFlags.find(KV.first);
@@ -435,8 +437,8 @@ void MaterializationResponsibility::replace(
     SymbolFlags.erase(KV.first);
 
   LLVM_DEBUG(JD.getExecutionSession().runSessionLocked([&]() {
-    dbgs() << "In " << JD.getName() << " replacing symbols with MU@" << MU.get()
-           << " (" << MU->getName() << ")\n";
+    dbgs() << "In " << JD.getName() << " replacing symbols with " << *MU
+           << "\n";
   }););
 
   JD.replace(std::move(MU));
@@ -775,13 +777,14 @@ void JITDylib::replace(std::unique_ptr<MaterializationUnit> MU) {
     ES.dispatchMaterialization(*this, std::move(MustRunMU));
 }
 
-SymbolNameSet JITDylib::getRequestedSymbols(const SymbolFlagsMap &SymbolFlags) {
+SymbolNameSet
+JITDylib::getRequestedSymbols(const SymbolFlagsMap &SymbolFlags) const {
   return ES.runSessionLocked([&]() {
     SymbolNameSet RequestedSymbols;
 
     for (auto &KV : SymbolFlags) {
       assert(Symbols.count(KV.first) && "JITDylib does not cover this symbol?");
-      assert(Symbols[KV.first].getFlags().isMaterializing() &&
+      assert(Symbols.find(KV.first)->second.getFlags().isMaterializing() &&
              "getRequestedSymbols can only be called for materializing "
              "symbols");
       auto I = MaterializingInfos.find(KV.first);
@@ -1625,7 +1628,7 @@ Expected<SymbolMap> ExecutionSession::legacyLookup(
 }
 
 void ExecutionSession::lookup(
-    const JITDylibList &JDs, const SymbolNameSet &Symbols,
+    const JITDylibList &JDs, SymbolNameSet Symbols,
     SymbolsResolvedCallback OnResolve, SymbolsReadyCallback OnReady,
     RegisterDependenciesFunction RegisterDependencies) {
 
@@ -1637,7 +1640,7 @@ void ExecutionSession::lookup(
   auto Unresolved = std::move(Symbols);
   std::map<JITDylib *, MaterializationUnitList> MUsMap;
   auto Q = std::make_shared<AsynchronousSymbolQuery>(
-      Symbols, std::move(OnResolve), std::move(OnReady));
+      Unresolved, std::move(OnResolve), std::move(OnReady));
   bool QueryIsFullyResolved = false;
   bool QueryIsFullyReady = false;
   bool QueryFailed = false;
@@ -1870,7 +1873,7 @@ SymbolStringPtr MangleAndInterner::operator()(StringRef Name) {
     raw_string_ostream MangledNameStream(MangledName);
     Mangler::getNameWithPrefix(MangledNameStream, Name, DL);
   }
-  return ES.getSymbolStringPool().intern(MangledName);
+  return ES.intern(MangledName);
 }
 
 } // End namespace orc.
