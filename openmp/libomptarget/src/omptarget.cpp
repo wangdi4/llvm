@@ -617,9 +617,29 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
 
   // List of (first-)private arrays allocated for this target region
   std::vector<void *> fpArrays;
+#if INTEL_COLLAB
+  uint64_t LoopLevel = 0;
+  uint64_t LoopCount = 0;
+  struct __tgt_loop_desc {
+    uint64_t lower, upper, stride;
+  };
+
+  void *TgtNDLoopDesc = nullptr;
+#endif // INTEL_COLLAB
 
   for (int32_t i = 0; i < arg_num; ++i) {
     if (!(arg_types[i] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
+#if INTEL_COLLAB
+      if (arg_types[i] & OMP_TGT_MAPTYPE_ND_DESC) {
+        TgtNDLoopDesc = (void *)args[i];
+        LoopLevel = *(uint64_t*)args[i];
+        if (LoopLevel == 1) {
+          struct __tgt_loop_desc *loop_desc =
+            (struct __tgt_loop_desc *)(((uint64_t*)args[i]) + 1);
+          LoopCount = loop_desc->upper;
+        }
+      }
+#endif // INTEL_COLLAB
       // This is not a target parameter, do not push it into tgt_args.
       continue;
     }
@@ -687,13 +707,38 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       "Size mismatch in arguments and offsets");
 
   // Pop loop trip count
+#if INTEL_COLLAB
+  uint64_t ltc;
+  if (LoopLevel == 1)
+    ltc = LoopCount;
+  else
+    ltc = Device.loopTripCnt;
+#else
   uint64_t ltc = Device.loopTripCnt;
+#endif // INTEL_COLLAB
   Device.loopTripCnt = 0;
 
   // Launch device execution.
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
       TargetTable->EntriesBegin[TM->Index].name,
       DPxPTR(TargetTable->EntriesBegin[TM->Index].addr), TM->Index);
+#if INTEL_COLLAB
+  if (LoopLevel <= 1) {
+    if (IsTeamConstruct) {
+      rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
+           &tgt_args[0], &tgt_offsets[0], tgt_args.size(), team_num,
+           thread_limit, ltc);
+    } else {
+      rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
+           &tgt_args[0], &tgt_offsets[0], tgt_args.size(), 1, 0, ltc);
+    }
+  }
+  else
+    rc = Device.run_team_nd_region(TargetTable->EntriesBegin[TM->Index].addr,
+         &tgt_args[0], &tgt_offsets[0], tgt_args.size(),
+         team_num <= 0 ? 1 : team_num,
+         thread_limit <= 0 ? 0 : thread_limit, TgtNDLoopDesc);
+#else
   if (IsTeamConstruct) {
     rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
         &tgt_args[0], &tgt_offsets[0], tgt_args.size(), team_num,
@@ -702,6 +747,7 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
     rc = Device.run_region(TargetTable->EntriesBegin[TM->Index].addr,
         &tgt_args[0], &tgt_offsets[0], tgt_args.size());
   }
+#endif // INTEL_COLLAB
   if (rc != OFFLOAD_SUCCESS) {
     DP ("Executing target region abort target.\n");
     return OFFLOAD_FAIL;
