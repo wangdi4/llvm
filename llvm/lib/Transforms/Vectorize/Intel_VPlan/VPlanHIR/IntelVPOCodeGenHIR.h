@@ -29,6 +29,7 @@
 using namespace llvm::loopopt;
 
 namespace llvm { // LLVM Namespace
+class OVLSGroup;
 
 namespace loopopt {
 class HIRSafeReductionAnalysis;
@@ -36,20 +37,35 @@ class HIRSafeReductionAnalysis;
 
 namespace vpo {
 class WRNVecLoopNode;
+class VPlan;
+class VPlanVLSAnalysis;
 
 // VPOCodeGenHIR generates vector code by widening of scalars into
 // appropriate length vectors.
 class VPOCodeGenHIR {
 public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
-                Function &Fn, HLLoop *Loop, LoopOptReportBuilder &LORB,
-                WRNVecLoopNode *WRLp, const bool IsSearchLoop)
-      : TLI(TLI), SRA(SRA), Fn(Fn), OrigLoop(Loop), PeelLoop(nullptr),
+                VPlanVLSAnalysis *VLSA, const VPlan *Plan, Function &Fn,
+                HLLoop *Loop, LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
+                const bool IsSearchLoop)
+      : TLI(TLI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
+        Context(Fn.getContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
         IsSearchLoop(IsSearchLoop) {}
 
-  ~VPOCodeGenHIR() {}
+  ~VPOCodeGenHIR() {
+    SCEVWideRefMap.clear();
+    WidenMap.clear();
+    VPValWideRefMap.clear();
+    SCEVWideRefMap.clear();
+    VLSGroupLoadMap.clear();
+
+    for (auto StMap : VLSGroupStoreMap)
+      delete StMap.second;
+
+    VLSGroupStoreMap.clear();
+  }
 
   // Setup vector loop to perform the actual loop widening (vectorization) using
   // VF as the vectorization factor.
@@ -68,7 +84,9 @@ public:
   Function &getFunction() const { return Fn; }
   HLLoop *getOrigLoop() const { return OrigLoop; }
   HLLoop *getMainLoop() const { return MainLoop; }
-  int getVF() const { return VF; };
+  unsigned getVF() const { return VF; };
+  VPlanVLSAnalysis *getVLS() { return VLSA; }
+  const VPlan *getPlan() { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
   HLLoop *getRemainderLoop() const { return OrigLoop; }
 
@@ -80,10 +98,74 @@ public:
   // instructions can be placed.
   HLLoop *findRednHoistInsertionPoint(HLLoop *Lp);
 
+  // Propagate metadata from memory references in the group to the new DDRef.
+  void propagateMetadata(const OVLSGroup *Group, RegDDRef *NewRef);
+
   // Widen the given instruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
-  // current mask value if non-null.
-  HLInst *widenNode(const HLInst *Inst, RegDDRef *Mask = nullptr);
+  // current mask value if non-null. Group is non-null if Inst is part of a
+  // VLS group and in such a case InterleaveFactor specifies the memory access
+  // interleaving factor, InterleaveIndex specifies the index of the current
+  // memory access reference in the group, and GrpStartInst specifies the HLInst
+  // corresponding to the lowest memory address access in the group.
+  HLInst *widenNode(const HLInst *Inst, RegDDRef *Mask = nullptr,
+                    const OVLSGroup *Group = nullptr,
+                    int64_t InterleaveFactor = 0, int64_t InterleaveIndex = 0,
+                    const HLInst *GrpStartInst = nullptr);
+
+  // Widen an interleaved memory access - operands correspond to operands of
+  // WidenNode.
+  HLInst *widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
+                                 const OVLSGroup *Group,
+                                 int64_t InterleaveFactor,
+                                 int64_t InterleaveIndex,
+                                 const HLInst *GrpStartInst);
+
+  // A helper function for concatenating vectors. This function concatenates two
+  // vectors having the same element type. If the second vector has fewer
+  // elements than the first, it is padded with undefs. This function mimics
+  // the interface in VectorUtils.cpp modified to work with HIR. Vector values
+  // V1 and V2 are concatenated and masked using Mask.
+  RegDDRef *concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2, RegDDRef *Mask);
+
+  // Concatenate a list of vectors. This function generates code that
+  // concatenate the vectors in VecsArray into a single large vector. The number
+  // of vectors should be greater than one, and their element types should be
+  // the same. The number of elements in the vectors should also be the same;
+  // however, if the last vector has fewer elements, it will be padded with
+  // undefs. This function mimics the interface in VectorUtils.cpp modified to
+  // work with HIR. Vector values are concatenated and masked using Mask.
+  RegDDRef *concatenateVectors(RegDDRef **VecsArray, int64_t NumVecs,
+                               RegDDRef *Mask);
+
+  // Given the LvalRef of a load instruction belonging to an interleaved group,
+  // and the result of the corresponding wide interleaved load WLoadRes,
+  // generate a shuffle using WLoadRes and the interleave index of the
+  // current load instruction within the group. As an example, consider the
+  // following load group(factor = 2, VF = 4)
+  //     R = Pic[2*i];             // Member of index 0
+  //     G = Pic[2*i+1];           // Member of index 1
+  // The following shuffle is generated where for interleave index 0 and
+  // %wide.vec = load <8 x i32> Pic[2*i]
+  //    %R.vec = shuffle %wide.vec, undef, <0, 2, 4, 6>   ; R elements
+  HLInst *createInterleavedLoad(const RegDDRef *LvalRef, RegDDRef *WLoadRes,
+                                int64_t InterleaveFactor,
+                                int64_t InterleaveIndex, RegDDRef *Mask);
+
+  // Given the vector of values being stored for an interleaved store group,
+  // generate the sequence of shuffles to combine the stored values, interleave
+  // the concatenated vector and generate the wide store using the interleaved
+  // value.
+  // Given something like (factor = 2, VF=4)
+  //     Pic[2*i] = R;           // Member of index 0
+  //     Pic[2*i+1] = G;         // Member of index 1
+  // this function generates the following sequence
+  //     %R_G.vec = shuffle %R.vec, %G.vec, <0, 1, 2, ..., 7>
+  //     %interleaved.vec = shuffle %R_G.vec, undef,
+  //                                 <0, 4, 1, 5, 2, 6, 3, 7>
+  //     store <8 x i32> %interleaved.vec, Pic[2*i]
+  HLInst *createInterleavedStore(RegDDRef **StoreVals, const RegDDRef *StoreRef,
+                                 int64_t InterleaveFactor, RegDDRef *Mask);
 
   HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask);
 
@@ -205,8 +287,11 @@ public:
     return UnitStrideRefSet.count(Ref);
   }
 
-  // Widen Ref if needed and return the widened ref.
-  RegDDRef *widenRef(const RegDDRef *Ref);
+  // Widen Ref to specified VF if needed and return the widened ref. If
+  // Interleaveaccess is true we widen the reference treating it as a unit
+  // stride reference.
+  RegDDRef *widenRef(const RegDDRef *Ref, unsigned VF,
+                     bool InterleaveAccess = false);
 
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
@@ -230,8 +315,17 @@ private:
 
   HIRSafeReductionAnalysis *SRA;
 
-  // Current function
+  // VPlan for which vector code is being generated.
+  const VPlan *Plan;
+
+  // OPTVLS analysis.
+  VPlanVLSAnalysis *VLSA;
+
+  // Current function.
   Function &Fn;
+
+  // LLVMContext associated with current function.
+  LLVMContext &Context;
 
   // Original HIR loop corresponding to this VPlan region, if a remainder loop
   // is needed after vectorization, the original loop is used as the remainder
@@ -268,6 +362,14 @@ private:
 
   // Map of SCEV expression and widened DDRef.
   DenseMap<const SCEV *, RegDDRef *> SCEVWideRefMap;
+
+  // Map of load OVLSGroup and the corresponding RegDDRef containing the result
+  // of the interleaved wide store.
+  SmallDenseMap<const OVLSGroup *, RegDDRef *> VLSGroupLoadMap;
+
+  // Map of store OVLSGroup and the vector of values(RegDDRefs) being stored
+  // into memrefs in this group.
+  SmallDenseMap<const OVLSGroup *, RegDDRef **> VLSGroupStoreMap;
 
   // The loop for which it is safe to hoist the reduction initializer and sink
   // reduction last value compute instructions.

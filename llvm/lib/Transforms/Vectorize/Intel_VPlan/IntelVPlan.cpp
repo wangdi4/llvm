@@ -20,6 +20,7 @@
 #include "IntelVPlan.h"
 #include "IntelLoopVectorizationCodeGen.h"
 #include "IntelVPlanDominatorTree.h"
+#include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
 #include "VPlan.h"
@@ -702,7 +703,97 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
                              "VPInstruction at this point.");
     HLNode *HNode = HIR.getUnderlyingNode();
     if (auto *Inst = dyn_cast<HLInst>(HNode)) {
-      CG->widenNode(Inst, nullptr);
+      unsigned Opcode = getOpcode();
+      const OVLSGroup *Group = nullptr;
+      const HLInst *GrpStartInst = nullptr;
+      int64_t InterleaveFactor = 0, InterleaveIndex = 0;
+
+      if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
+        VPlanVLSAnalysis *VLSA = CG->getVLS();
+        const VPlan *Plan = CG->getPlan();
+        int64_t GroupStride = 0;
+        int32_t GrpSize = 0;
+
+        // Get OPTVLS group for current load/store instruction
+        Group = VLSA->getGroupsFor(Plan, this);
+
+        // Only handle strided OptVLS Groups with no access gaps for now.
+        if (Group && Group->hasAConstStride(GroupStride)) {
+          uint64_t AllAccessMask = ~(UINT64_MAX << GroupStride);
+          GrpSize = Group->size();
+
+          // Access mask is currently 64 bits, skip groups with group stride >
+          // 64 and access gaps.
+          if ((GroupStride > 64) ||
+              (Group->getNByteAccessMask() != AllAccessMask))
+            Group = nullptr;
+        } else
+          Group = nullptr;
+
+        if (Group) {
+          VPVLSClientMemrefHIR *FirstMemref = nullptr;
+          const RegDDRef *FirstMemrefDD = nullptr;
+          uint64_t RefSizeInBytes = 0;
+
+          // Check that all members of the group have same type. Currently we
+          // do not handle groups such as a[i].i, a[i].d for
+          //   struct {int i; double d} a[100]
+          // Also setup GrpStartInst, FirstMemref, FirstMemrefDD, and
+          // RefSizeInBytes.
+          bool TypesMatch = true;
+          for (int64_t Index = 0; Index < Group->size(); ++Index) {
+            auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
+            auto *VPInst = Memref->getInstruction();
+            const HLInst *HInst;
+            const RegDDRef *MemrefDD;
+            assert(VPInst->HIR.isValid() && VPInst->HIR.isMaster() &&
+                   "Expected valid master HIR instruction to start group");
+            HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
+            assert(HInst && "Expected non-null group start instruction");
+
+            MemrefDD = Memref->getRegDDRef();
+            if (Index == 0) {
+              auto DL = MemrefDD->getDDRefUtils().getDataLayout();
+
+              FirstMemref = Memref;
+              FirstMemrefDD = MemrefDD;
+              GrpStartInst = HInst;
+              RefSizeInBytes =
+                  DL.getTypeSizeInBits(FirstMemrefDD->getDestType()) >> 3;
+            } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
+              TypesMatch = false;
+
+            // Setup the interleave index of the current instruction within the
+            // VLS group.
+            if (Memref->getInstruction() == this) {
+              int64_t Dist = 0;
+              Memref->isAConstDistanceFrom(*FirstMemref, &Dist);
+              InterleaveIndex = Dist / RefSizeInBytes;
+            }
+          }
+
+          // Compute interleave factor based on the distance of the last memref
+          // in the group from the first memref. This may not be the same as
+          // the group size as we may see duplicate accesses like:
+          //     a[2*i]
+          //     a[2*i+1]
+          //     a[2*i]
+          auto *LastMemref =
+              cast<VPVLSClientMemrefHIR>(Group->getMemref(GrpSize - 1));
+          int64_t LastDist = 0;
+          LastMemref->isAConstDistanceFrom(*FirstMemref, &LastDist);
+          InterleaveFactor = LastDist / RefSizeInBytes + 1;
+
+          // If interleave factor is less than 2, nothing special needs to be
+          // done. Similarly, we do not handle the case where all memrefs in the
+          // group are not of the same type.
+          if (InterleaveFactor < 2 || !TypesMatch)
+            Group = nullptr;
+        }
+      }
+
+      CG->widenNode(Inst, nullptr, Group, InterleaveFactor, InterleaveIndex,
+                    GrpStartInst);
       return;
     }
     if (auto *HIf = dyn_cast<HLIf>(HNode)) {

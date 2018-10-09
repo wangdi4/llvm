@@ -45,8 +45,6 @@ private:
     return DDG;
   }
 
-  const RegDDRef *getRegDDRef() const { return Ref; }
-
 public:
   explicit VPVLSClientMemrefHIR(const OVLSAccessType &AccTy, const OVLSType &Ty,
                                 const VPInstruction *Inst,
@@ -152,6 +150,8 @@ public:
   static bool classof(const OVLSMemref *Memref) {
     return Memref->getKind() == VLSK_VPlanHIRVLSClientMemref;
   }
+
+  const RegDDRef *getRegDDRef() const { return Ref; }
 
   virtual void print(raw_ostream &Os, const Twine Indent = "") const final {
     VPVLSClientMemref::print(Os, Indent);
