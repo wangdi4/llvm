@@ -206,6 +206,8 @@ void initializeIndVarSimplifyLegacyPassPass(PassRegistry&);
 void initializeIndirectBrExpandPassPass(PassRegistry&);
 #if INTEL_COLLAB
 void initializeInferAddressSpacesLegacyPassPass(PassRegistry &);
+#else
+void initializeInferAddressSpacesPass(PassRegistry&);
 #endif // INTEL_COLLAB
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeInlineAggressiveWrapperPassPass(PassRegistry&); // INTEL
