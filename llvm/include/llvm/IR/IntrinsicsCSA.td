@@ -88,6 +88,47 @@ def int_csa_pipeline_loop_exit :
 def int_csa_pipelineable_loop_marker :
     Intrinsic<[], [llvm_i64_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
+// SIMD intrinsics.
+def int_csa_addf32x2 : GCCBuiltin<"__builtin_csa_addf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_subf32x2 : GCCBuiltin<"__builtin_csa_subf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_addsubf32x2 : GCCBuiltin<"__builtin_csa_addsubf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_subaddf32x2 : GCCBuiltin<"__builtin_csa_subaddf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_mulf32x2 : GCCBuiltin<"__builtin_csa_mulf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmaf32x2 : GCCBuiltin<"__builtin_csa_fmaf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmsf32x2 : GCCBuiltin<"__builtin_csa_fmsf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmrsf32x2 : GCCBuiltin<"__builtin_csa_fmrsf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmasf32x2 : GCCBuiltin<"__builtin_csa_fmasf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmsaf32x2 : GCCBuiltin<"__builtin_csa_fmsaf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
 }
 
 

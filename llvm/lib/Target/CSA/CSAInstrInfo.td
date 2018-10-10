@@ -251,6 +251,8 @@ def SDT_CSAWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
 def SDT_CSAMinMax       : SDTypeProfile<
   2, 2, [SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisVT<1, i1>]
 >;
+def SDT_CSASwizzle      : SDTypeProfile<
+  1, 2, [SDTCisSameAs<0, 1>, SDTCisVT<2, i8>]>;
 
 
 def CSARet : SDNode<"CSAISD::Ret", SDT_CSAReturn,
@@ -275,6 +277,12 @@ def CSAMin  : SDNode<"CSAISD::Min",  SDT_CSAMinMax>;
 def CSAUMin : SDNode<"CSAISD::UMin", SDT_CSAMinMax>;
 def CSAMax  : SDNode<"CSAISD::Max",  SDT_CSAMinMax>;
 def CSAUMax : SDNode<"CSAISD::UMax", SDT_CSAMinMax>;
+
+def CSAAddSub : SDNode<"CSAISD::ADDSUB", SDTFPBinOp>;
+def CSASubAdd : SDNode<"CSAISD::SUBADD", SDTFPBinOp>;
+def CSAFMAddSub : SDNode<"CSAISD::FMADDSUB", SDTFPTernaryOp>;
+def CSAFMSubAdd : SDNode<"CSAISD::FMSUBADD", SDTFPTernaryOp>;
+def CSASwizzleOp : SDNode<"CSAISD::Swizzle", SDT_CSASwizzle>;
 
 let Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN : PseudoInstCSA<(outs), (ins i64imm:$amt1, i64imm:$amt2),
@@ -2073,7 +2081,7 @@ let hasSideEffects = 1 in {
 }
 
 // Floating-point simd instructions
-multiclass SimdOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
+multiclass SimdOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo oi,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
   def "" : FMTGEN<gen, oi,
     (outs oi.RC:$dst),
@@ -2081,14 +2089,24 @@ multiclass SimdOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
          i8imm:$swizzle2, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix,
         "\t$dst, $op1, $op2, $disable, $swizzle1, $swizzle2, $rm"),
-    [],
+    [(set oi.RC:$dst, (intrinsic oi.RCL:$op1, oi.RCL:$op2, (i8 imm:$disable),
+        (i8 imm:$swizzle1), (i8 imm:$swizzle2)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-  def : Pat<(v2f32 (opNode RCLf32x2:$op1, RCLf32x2:$op2)),
+  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, imm:$swizzle2)>;
+  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+                           oi.RCL:$op2)),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, imm:$swizzle1, 0)>;
+  def : Pat<(v2f32 (opNode oi.RCL:$op1,
+                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)))),
+      (!cast<Instruction>(NAME) $op1, $op2, 0, 0, imm:$swizzle2)>;
+  def : Pat<(v2f32 (opNode oi.RCL:$op1, oi.RCL:$op2)),
       (!cast<Instruction>(NAME) $op1, $op2, 0, 0, 0)>;
 }
 
-multiclass SimdTriOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
+multiclass SimdTriOp<GenericOp gen, SDNode opNode, SDNode intrinsic, CSAOpInfo oi,
              InstrItinClass itin = NoItinerary, list<Predicate> preds = []> {
   def "" : FMTGEN<gen, oi,
     (outs oi.RC:$dst),
@@ -2096,19 +2114,41 @@ multiclass SimdTriOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
          i8imm:$swizzle2, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix,
         "\t$dst, $op1, $op2, $op3, $disable, $swizzle1, $swizzle2, $rm"),
-    [],
+    [(set oi.RC:$dst, (intrinsic oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3,
+        (i8 imm:$disable), (i8 imm:$swizzle1), (i8 imm:$swizzle2)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)),
+                           oi.RCL:$op3)),
+      (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, imm:$swizzle1, imm:$swizzle2)>;
+  def : Pat<(v2f32 (opNode (CSASwizzleOp oi.RCL:$op1, (i8 imm:$swizzle1)),
+                           oi.RCL:$op2, oi.RCL:$op3)),
+      (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, imm:$swizzle1, 0)>;
+  def : Pat<(v2f32 (opNode oi.RCL:$op1,
+                           (CSASwizzleOp oi.RCL:$op2, (i8 imm:$swizzle2)),
+                           oi.RCL:$op3)),
+      (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, 0, imm:$swizzle2)>;
   def : Pat<(v2f32 (opNode oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3)),
       (!cast<Instruction>(NAME) $op1, $op2, $op3, 0, 0, 0)>;
 }
-defm ADDF32X2: SimdOp<ADD, fadd, Tf32x2>;
-defm SUBF32X2: SimdOp<SUB, fsub, Tf32x2>;
-defm MULF32X2: SimdOp<MUL, fmul, Tf32x2>;
 
-defm FMAF32X2:  SimdTriOp<FMA,  fma, Tf32x2>;
-defm FMSF32X2:  SimdTriOp<FMS,  fms, Tf32x2>;
-defm FMRSF32X2: SimdTriOp<FMRS, fmrs, Tf32x2>;
+def ADDSUB : GenericOp<"addsub">;
+def SUBADD : GenericOp<"subadd">;
+def FMAS : GenericOp<"fmas">;
+def FMSA : GenericOp<"fmsa">;
+
+defm ADDF32X2:    SimdOp<ADD, fadd, int_csa_addf32x2, Tf32x2>;
+defm SUBF32X2:    SimdOp<SUB, fsub, int_csa_subf32x2, Tf32x2>;
+defm ADDSUBF32X2: SimdOp<ADDSUB, CSAAddSub, int_csa_addsubf32x2, Tf32x2>;
+defm SUBADDF32X2: SimdOp<SUBADD, CSASubAdd, int_csa_subaddf32x2, Tf32x2>;
+defm MULF32X2:    SimdOp<MUL, fmul, int_csa_mulf32x2, Tf32x2>;
+
+defm FMAF32X2:  SimdTriOp<FMA,  fma, int_csa_fmaf32x2, Tf32x2>;
+defm FMSF32X2:  SimdTriOp<FMS,  fms, int_csa_fmsf32x2, Tf32x2>;
+defm FMRSF32X2: SimdTriOp<FMRS, fmrs, int_csa_fmrsf32x2, Tf32x2>;
+defm FMASF32X2: SimdTriOp<FMAS, CSAFMAddSub, int_csa_fmasf32x2, Tf32x2>;
+defm FMSAF32X2: SimdTriOp<FMSA, CSAFMSubAdd, int_csa_fmsaf32x2, Tf32x2>;
 
 // Pack, unpack
 def PACK: GenericOp<"pack">;
@@ -2124,6 +2164,15 @@ def UNPACK64_32 : FMTGEN<UNPACK, Ti32,
     "unpack64_32\t$src, $lo, $hi",
     []>;
 
+let AddedComplexity = 4 in
+def : Pat<(v2f32 (build_vector RCLf32:$lo, (f32 (undef)))),
+    (COPY_TO_REGCLASS $lo, I64)>;
+
+def SHUFI32X2: FMTGEN<?, Tf32x2,
+    (outs I64:$res),
+    (ins RCLf32x2:$op1, RCLf32x2:$op2, i8imm:$sellow, i8imm:$selhigh),
+    "shufi32x2\t$res, $op1, $op2, $sellow, $selhigh",
+    []>;
 
 // Eventually
 //include "CSAIntrinsics.td"

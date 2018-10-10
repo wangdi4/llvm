@@ -39,6 +39,15 @@ enum {
   Max,
   UMax,
 
+  // SIMD operation nodes.
+  ADDSUB,
+  SUBADD,
+  FMADDSUB,
+  FMSUBADD,
+
+  // Single-parameter swizzle for an operation.
+  Swizzle,
+
   // Wrapper - A wrapper node for TargetConstantPool, TargetExternalSymbol,
   // and TargetGlobalAddress
   Wrapper
@@ -176,6 +185,7 @@ private:
 
   SDValue CombineSelect(SDNode *, SelectionDAG &) const;
   SDValue CombineMinMax(SDNode *, SelectionDAG &) const;
+  SDValue CombineShuffle(SDNode *, SelectionDAG &) const;
 
   /// Searches the SelectionDAG for compares with the same inputs as a
   /// recently-created min/max op and attempts to replace them with a value

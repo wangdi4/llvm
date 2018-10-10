@@ -219,6 +219,44 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
   case CSAISD::Max:
   case CSAISD::UMax:
     return SelectMinMax(Node);
+
+  case CSAISD::Swizzle: {
+    unsigned SwizzleMask = Node->getConstantOperandVal(1);
+    int LoLane, HiLane;
+    switch (SwizzleMask) {
+    case 0: LoLane = 0; HiLane = 1; break;
+    case 1: LoLane = 0; HiLane = 0; break;
+    case 2: LoLane = 1; HiLane = 1; break;
+    case 3: LoLane = 1; HiLane = 0; break;
+    default: llvm_unreachable("Unknown swizzle mask for CSA");
+    }
+    EVT VT = Node->getValueType(0);
+    SDValue Shuffle = CurDAG->getVectorShuffle(VT, dl, Node->getOperand(0),
+        CurDAG->getUNDEF(VT), { LoLane, HiLane });
+    ReplaceNode(Node, Shuffle.getNode());
+    // Select the UNDEF value first...
+    Select(Shuffle->getOperand(1).getNode());
+    // ... and then the shuffle itself.
+    return Select(Shuffle.getNode());
+  }
+  case ISD::VECTOR_SHUFFLE: {
+    // We could match this in the tablegen, but the mask parameters aren't
+    // operands that are exposed.
+    MVT VT = Node->getSimpleValueType(0);
+    assert(VT.getSizeInBits() == 64 && VT.getScalarSizeInBits() == 32 &&
+        "Only supporting <2 x *32> vectors");
+
+    ArrayRef<int> Mask = cast<ShuffleVectorSDNode>(Node)->getMask();
+    CurDAG->SelectNodeTo(Node, CSA::SHUFI32X2, VT,
+        {Node->getOperand(0), Node->getOperand(1),
+        CurDAG->getTargetConstant(Mask[0], dl, MVT::i8),
+        CurDAG->getTargetConstant(Mask[1], dl, MVT::i8)});
+    return;
+
+  // The shuffle vector instruction is quite literally the parameters of the
+  // shuffle vector itself, but SelectionDAG doesn't put the mask operands as
+  // actual operands, so we need to create the immediates manually for these.
+  }
   }
 
   // Select the default instruction

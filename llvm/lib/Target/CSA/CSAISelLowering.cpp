@@ -379,6 +379,7 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::FMAXNUM);
   setTargetDAGCombine(ISD::FMINNAN);
   setTargetDAGCombine(ISD::FMAXNAN);
+  setTargetDAGCombine(ISD::VECTOR_SHUFFLE);
 }
 
 EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL,
@@ -444,6 +445,16 @@ const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "CSAISD::Max";
   case CSAISD::UMax:
     return "CSAISD::UMax";
+  case CSAISD::ADDSUB:
+    return "CSAISD::ADDSUB";
+  case CSAISD::SUBADD:
+    return "CSAISD::SUBADD";
+  case CSAISD::FMADDSUB:
+    return "CSAISD::FMADDSUB";
+  case CSAISD::FMSUBADD:
+    return "CSAISD::FMSUBADD";
+  case CSAISD::Swizzle:
+    return "CSAISD::Swizzle";
   }
 }
 
@@ -632,6 +643,9 @@ SDValue CSATargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::FMINNAN:
   case ISD::FMAXNAN:
     return CombineMinMax(N, DAG);
+
+  case ISD::VECTOR_SHUFFLE:
+    return CombineShuffle(N, DAG);
 
   // Return SDValue{} for opcodes that we don't handle to show that we don't
   // handle them.
@@ -868,6 +882,37 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
       Cmp,
       (CC & ISD::SETOEQ) ? Sel : DAG.getLogicalNOT(SDLoc{Cmp}, Sel, MVT::i1));
   }
+}
+
+static SDValue makeSwizzle(SDValue V, int LoIdx, int HiIdx, SelectionDAG &DAG) {
+  SDLoc DL(V);
+  // Set the swizzle mask based on the index of the low and high lanes. If the
+  // index is not the natural result for the lane (i.e., 0 for the low lane and
+  // 1 for the high lane), then we set the appropriate bit for this parameter.
+  // If the index is below 0, then the value of that lane is undefined, in LLVM
+  // terms. For now, we will reuse the previous value, although we could use
+  // this parameter in the future to set the disable bit on the operand.
+  unsigned Swizzle = (LoIdx == 1 ? 2 : 0) | (HiIdx == 0 ? 1 : 0);
+  return DAG.getNode(CSAISD::Swizzle, DL, V.getSimpleValueType(), V,
+      DAG.getConstant(Swizzle, DL, MVT::i8));
+}
+
+SDValue CSATargetLowering::CombineShuffle(SDNode *N, SelectionDAG &DAG) const {
+  SDValue V1 = N->getOperand(0);
+  SDValue V2 = N->getOperand(1);
+
+  ShuffleVectorSDNode *VN = dyn_cast<ShuffleVectorSDNode>(N);
+  assert(VN && "This only works with shuffle vectors");
+
+  // If we only use one of the two inputs, turn the result into a swizzle node.
+  // Note that SelectionDAG canonicalization means that we should only ever see
+  // this case where all the vector elements come from a single input.
+  if (V2.isUndef())
+    return makeSwizzle(V1, VN->getMaskElt(0), VN->getMaskElt(1), DAG);
+  assert(!V1.isUndef() && !V2.isUndef() && "SelectionDAG didn't canonicalize?");
+
+  // Otherwise, just use regular shuffle instructions.
+  return SDValue{};
 }
 
 //===----------------------------------------------------------------------===//
