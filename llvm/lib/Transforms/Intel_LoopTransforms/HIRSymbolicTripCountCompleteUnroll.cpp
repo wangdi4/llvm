@@ -1213,7 +1213,7 @@ bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
   // 4: (%0)[0].8.0[%48]
   // 5: (%0)[0].8.0[%48]
 
-  DDGraph DDG = HDDA.getGraph(OuterLp, false);
+  DDGraph DDG = HDDA.getGraph(OuterLp);
   // LLVM_DEBUG(DDG.dump(););
 
   // Check: each Ref in MParentRefVec vs. MLibsRefV

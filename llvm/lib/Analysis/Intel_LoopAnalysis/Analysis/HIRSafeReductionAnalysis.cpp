@@ -150,7 +150,7 @@ void HIRSafeReductionAnalysis::identifySafeReduction(const HLLoop *Loop) {
     return;
   }
 
-  DDGraph DDG = DDA.getGraph(Loop, false);
+  DDGraph DDG = DDA.getGraph(Loop);
 
   identifySafeReductionChain(Loop, DDG);
 }

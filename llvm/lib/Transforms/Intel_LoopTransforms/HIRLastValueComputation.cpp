@@ -128,7 +128,7 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
     return false;
   }
 
-  DDGraph DDG = HDDA.getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp);
 
   if (DDG.getNumOutgoingEdges(LRef) != 0) {
     return false;

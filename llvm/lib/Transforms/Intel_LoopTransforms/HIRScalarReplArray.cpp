@@ -519,7 +519,7 @@ bool MemRefGroup::isCompleteStoreOnly(void) {
 bool MemRefGroup::isLegal(void) const {
   // TODO: first check unique group symbases returned by
   // populateTemporalLocalityGroups() to save compile time by avoiding DDG.
-  DDGraph DDG = HSRA.HDDA.getGraph(Lp, false);
+  DDGraph DDG = HSRA.HDDA.getGraph(Lp);
 
   // Check: outgoing edge(s)
   if (!areDDEdgesInSameMRG<false>(DDG)) {

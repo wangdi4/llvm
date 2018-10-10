@@ -218,12 +218,12 @@ public:
   // graph to avoid expensive recomputation.
   // Note, atm the graph does not filter edges to ensure src/sink are in Node.
   // some edges may be pointing to a node that is not of interest
-  DDGraph getGraph(const HLRegion *Region, bool InputEdgesReq = false) {
-    return getGraphImpl(static_cast<const HLNode *>(Region), InputEdgesReq);
+  DDGraph getGraph(const HLRegion *Region) {
+    return getGraphImpl(static_cast<const HLNode *>(Region));
   }
 
-  DDGraph getGraph(const HLLoop *Loop, bool InputEdgesReq = false) {
-    return getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq);
+  DDGraph getGraph(const HLLoop *Loop) {
+    return getGraphImpl(static_cast<const HLNode *>(Loop));
   }
 
   /// \brief Caller has DDG and the level it needs to refine. Should check
@@ -278,9 +278,9 @@ private:
   /// as invalid.
   void invalidateGraph(const HLLoop *Loop, bool InvalidateInnerLoops);
 
-  DDGraph getGraphImpl(const HLNode *Node, bool InputEdgesReq = false);
+  DDGraph getGraphImpl(const HLNode *Node);
 
-  void buildGraph(const HLNode *Node, bool BuildInputEdges);
+  void buildGraph(const HLNode *Node);
 
   void setInputDV(DirectionVector &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
 };
