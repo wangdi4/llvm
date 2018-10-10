@@ -1350,6 +1350,26 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
   CurLoopIsNSW = IsNSW;
 
+  // Helper for creating intrinsic calls.
+  auto && genIntrinCall =
+      [&](Intrinsic::ID ID, ArrayRef<Value*> Args, const Twine &Name) {
+    auto *Intrin = Intrinsic::getDeclaration(F.getParent(), ID);
+    return Builder.CreateCall(Intrin, Args, Name);
+  };
+
+  // Loop with parallel traits need to be annotated as parallel for CSA CG. So
+  // far this is done by creating a parallel region entry/exit intrinsic calls
+  // around the loop, and parallel section entry/exit calls around the loop
+  // body.
+  Value *ParRegion = nullptr;
+  Value *ParSection = nullptr;
+  if (Lp->getParallelTraits()) {
+    assert(!IsUnknownLoop && "unknown parallel loop");
+    auto *UniqueID = Builder.getInt32(4000u + Lp->getNumber());
+    ParRegion = genIntrinCall(Intrinsic::csa_parallel_region_entry,
+                              { UniqueID }, "par.reg");
+  }
+
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
   AllocaInst *Alloca = getLoopIVAlloca(Lp);
@@ -1386,6 +1406,10 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // explicit fallthru to loop, terminates current bblock
     Builder.CreateBr(LoopBB);
     Builder.SetInsertPoint(LoopBB);
+
+    if (ParRegion)
+      ParSection = genIntrinCall(Intrinsic::csa_parallel_section_entry,
+                                 { ParRegion }, "par.sec");
   }
 
   auto LastIt =
@@ -1432,6 +1456,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // Create store to IV.
     Builder.CreateStore(NextVar, Alloca);
 
+    if (ParSection)
+      genIntrinCall(Intrinsic::csa_parallel_section_exit, { ParSection }, "");
+
     // generate bottom test.
     Value *EndCond =
         Builder.CreateICmp(IsNSW ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
@@ -1452,6 +1479,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // new code goes after loop
     Builder.SetInsertPoint(AfterBB);
   }
+
+  if (ParRegion)
+    genIntrinCall(Intrinsic::csa_parallel_region_exit, { ParRegion }, "");
 
   CurIVValues.pop_back();
 

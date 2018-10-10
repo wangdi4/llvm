@@ -188,6 +188,7 @@ bool HIRRecognizeOmpLoopImpl::doTransform(HLLoop &Lp) {
     return false;
   HLLoopParallelTraits *CTr = parseOmpRegion(Entry);
   Lp.setParallelTraits(CTr);
+  Lp.getParentRegion()->setGenCode();
 
   // now remove the consumed region entry/exit intrinsics
   HLNodeUtils::remove(Entry);

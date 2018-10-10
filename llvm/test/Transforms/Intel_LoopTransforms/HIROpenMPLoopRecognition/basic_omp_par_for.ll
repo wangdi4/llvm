@@ -56,7 +56,7 @@
 ; ------- code after hir-rec-omp-loop
 ; CHECK: Function
 
-; CHECK: BEGIN REGION { }
+; CHECK: BEGIN REGION { modified }
 ; CHECK:       @llvm.lifetime.start.p0i8(4,  &((i8*)(%.omp.lb)[0]));
 ; CHECK:       (%.omp.lb)[0] = 0;
 ; CHECK:       %2 = (%.omp.lb)[0];
