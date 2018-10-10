@@ -46,6 +46,9 @@ set(files
   cpuid.h
   clflushoptintrin.h
   clwbintrin.h
+# INTEL_CUSTOMIZATION
+  csaintrin.h
+# end INTEL_CUSTOMIZATION
   emmintrin.h
   f16cintrin.h
   float.h

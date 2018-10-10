@@ -29,4 +29,16 @@ BUILTIN(__builtin_csa_spmd, "vii", "n")
 
 BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
 
+// SIMD ops.
+BUILTIN(__builtin_csa_addf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_mulf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_addsubf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subaddf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_fmaf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmsf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmrsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmasf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+
 #undef BUILTIN

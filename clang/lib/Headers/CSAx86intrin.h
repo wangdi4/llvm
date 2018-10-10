@@ -21,7 +21,7 @@
  *===-----------------------------------------------------------------------===
  */
 
-/*  
+/*
  *
  *  This file is placeholder for CSA specific intrinsics
  */
@@ -29,5 +29,6 @@
 #ifndef __X86INTRIN_H
 #define __X86INTRIN_H
 
+#include <csaintrin.h>
 
 #endif /* __X86INTRIN_H */
