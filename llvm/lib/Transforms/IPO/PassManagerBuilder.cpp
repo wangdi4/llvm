@@ -1093,15 +1093,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
-    // These passes get the IR into a form that DTrans is able to analyze.
+  // Simplify the graph before devirtualization
+  if (OptLevel > 1) {
     PM.add(createInstSimplifyLegacyPass());
     PM.add(createCFGSimplificationPass());
-    // This call adds the DTrans passes.
-    addDTransLegacyPasses(PM);
   }
-#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help
@@ -1115,6 +1111,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // That's all we need at opt level 1.
   if (OptLevel == 1)
     return;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans) {
+    // This call adds the DTrans passes.
+    addDTransLegacyPasses(PM);
+  }
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Now that we internalized some globals, see if we can hack on them!
   PM.add(createGlobalOptimizerPass());
