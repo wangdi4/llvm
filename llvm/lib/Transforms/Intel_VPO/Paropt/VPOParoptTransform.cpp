@@ -315,6 +315,8 @@ bool VPOParoptTransform::paroptTransforms() {
   LLVMContext &C = F->getContext();
   bool RoutineChanged = false;
 
+  processDeviceTriples();
+
   BasicBlock::iterator I = F->getEntryBlock().begin();
 
   // Setup Anchor Instuction Point
