@@ -59,6 +59,11 @@ static cl::opt<bool> RaceModeOrdering{
            "intra-function dependencies."),
   cl::init(false)};
 
+static cl::opt<bool> RacyLoops{
+  "csa-memop-ordering-racy-loops", cl::Hidden,
+  cl::desc("CSA-specific: Ignore all ordering across loop backedges."),
+  cl::init(false)};
+
 static cl::opt<bool> IgnoreAliasInfo{
   "csa-memop-ordering-ignore-aa", cl::Hidden,
   cl::desc("CSA-specific: ignore alias analysis results when constructing "
@@ -2199,9 +2204,7 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
       cur_dis.node->deepest_loop and not back_loop and
       (not loop or loop->depth < cur_dis.node->deepest_loop->depth) and
       cur_dis.node->deepest_loop->contains(cur_memop.parent);
-
-    bool IgnoreParallelDep = back_loop && back_loop->IsParallel;
-
+    bool IgnoreParallelDep = back_loop and (RacyLoops or back_loop->IsParallel);
     if (
 
       // The two memops were already ordered in a previous pass through this
@@ -2209,7 +2212,8 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
       not previously_ordered
 
       // We reached the second memop from the first memop via a back edge
-      // of a loop marked Parallel by CSALowerParallelIntrinsics.
+      // of a loop marked Parallel by CSALowerParallelIntrinsics or any loop
+      // if -csa-memop-ordering-racy-loops is used.
       and not IgnoreParallelDep
 
       // The section states indicate that no ordering is needed.
