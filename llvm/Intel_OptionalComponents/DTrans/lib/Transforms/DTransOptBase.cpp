@@ -20,6 +20,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -984,17 +985,41 @@ static void replaceSizeValue(
   std::pair<User *, unsigned> SizePair = SizeUseStack.back();
   User *SizeUser = SizePair.first;
   unsigned SizeOpIdx = SizePair.second;
-  auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
-  uint64_t ConstSize = ConstVal->getLimitedValue();
-  assert((ConstSize % OrigSize) == 0 && "Size multiplier search is broken");
-  uint64_t Multiplier = ConstSize / OrigSize;
+  auto *BinOp = dyn_cast<BinaryOperator>(SizeUser);
+  if (BinOp && (BinOp->getOpcode() == Instruction::Shl)) {
+    assert(SizeOpIdx == 1 && "Unexpected size operand for shl");
+    auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
+    uint64_t ConstShift = ConstVal->getLimitedValue();
+    assert((((1ull << ConstShift) % OrigSize) == 0ull) &&
+           "Size shift left handling in multiplier search is broken");
+    uint64_t Multiplier = (1ull << ConstShift) / OrigSize;
 
-  LLVM_DEBUG(dbgs() << "Delete field: Updating size operand (" << SizeOpIdx
+    // Rather than trying to update the shift value, which won't always work,
+    // we just replace the shift with a multiplication.
+    Value *NewSizeVal = ConstantInt::get(BinOp->getType(),
+                                         ReplSize * Multiplier);
+    Instruction *Mul = BinaryOperator::CreateMul(BinOp->getOperand(0),
+                                                 NewSizeVal);
+    Mul->insertBefore(BinOp);
+    LLVM_DEBUG(dbgs() << "Delete field: Replacing size-based shift:\n    "
+                      << *BinOp << ")\n  with:\n    "
+                      << *Mul << "\n");
+    Mul->takeName(BinOp);
+    BinOp->replaceAllUsesWith(Mul);
+    BinOp->eraseFromParent();
+  } else {
+    auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    assert((ConstSize % OrigSize) == 0 && "Size multiplier search is broken");
+    uint64_t Multiplier = ConstSize / OrigSize;
+
+    LLVM_DEBUG(dbgs() << "Delete field: Updating size operand (" << SizeOpIdx
                     << ") of " << *SizeUser << "\n");
-  llvm::Type *SizeOpTy = SizeUser->getOperand(SizeOpIdx)->getType();
-  SizeUser->setOperand(SizeOpIdx,
-                       ConstantInt::get(SizeOpTy, ReplSize * Multiplier));
-  LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
+    llvm::Type *SizeOpTy = SizeUser->getOperand(SizeOpIdx)->getType();
+    SizeUser->setOperand(SizeOpIdx,
+                         ConstantInt::get(SizeOpTy, ReplSize * Multiplier));
+    LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
+  }
 }
 
 void llvm::dtrans::updateCallSizeOperand(llvm::Instruction *I,
@@ -1126,6 +1151,23 @@ bool llvm::dtrans::findValueMultipleOfSizeInst(
 
   // Is it a binary operator?
   if (auto *BinOp = dyn_cast<BinaryOperator>(Val)) {
+    Value *LHS;
+    Value *RHS;
+    if (PatternMatch::match(
+                 Val, PatternMatch::m_Shl(PatternMatch::m_Value(LHS),
+                                          PatternMatch::m_Value(RHS)))) {
+      uint64_t Shift = 0;
+      if (dtrans::isValueConstant(RHS, &Shift) &&
+          ((uint64_t(1) << Shift) % Size == 0)) {
+        // In this case, the incoming size is shifted by some multiple of
+        // the structure size. That makes the shift instruction the final
+        // operation in our search.
+        UseStack.push_back(std::make_pair(U, Idx));
+        UseStack.push_back(std::make_pair(BinOp, 1));
+        return true;
+      }
+      return false;
+    }
     // Not a mul? Then it's not what we're looking for.
     if (BinOp->getOpcode() != Instruction::Mul)
       return false;

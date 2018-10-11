@@ -919,12 +919,11 @@ bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);
 bool isValueEqualToSize(const Value *Val, uint64_t Size);
 
 /// This helper function checks \p Val to see if it is either (a) a constant
-/// whose value is a multiple of \p Size, or (b) an integer multiplication
-/// operator where either operand is a constant multiple of \p Size.
-/// TODO: eliminate ShiftLeft, when all transformations support Shl
-/// instructions in address computations.
-bool isValueMultipleOfSize(const Value *Val, uint64_t Size,
-                           bool ShiftLeft = false);
+/// whose value is a multiple of \p Size, (b) an integer multiplication
+/// operator where either operand is a constant multiple of \p Size, or
+/// (c) an integer value left-shifted by a value that results in a multiple
+/// of the \p Size.
+bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
 
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The

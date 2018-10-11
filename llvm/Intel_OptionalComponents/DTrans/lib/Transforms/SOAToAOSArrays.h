@@ -760,9 +760,7 @@ private:
       return false;
 
     return dtrans::isValueMultipleOfSize(MS->getLength(),
-                                         DL.getTypeStoreSize(S.ElementType),
-                                         // Permit Shl.
-                                         true);
+                                         DL.getTypeStoreSize(S.ElementType));
   }
 
   // Wrapper for checkElementAccess, stores instruction and address for

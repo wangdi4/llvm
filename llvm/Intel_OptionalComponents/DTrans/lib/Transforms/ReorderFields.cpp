@@ -227,7 +227,7 @@ bool ReorderFieldsImpl::replaceOldSizeWithNewSize(Value *Val, uint64_t OldSize,
   if (!Val)
     return false;
   // Check if Val is multiple of OldSize.
-  if (!isValueMultipleOfSize(Val, OldSize, true))
+  if (!isValueMultipleOfSize(Val, OldSize))
     return false;
   if (replaceOldSizeWithNewSizeForConst(Val, OldSize, NewSize, I, APos))
     return true;
