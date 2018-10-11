@@ -1,13 +1,9 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=8 < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
-; Verify that vectorizer generates a unit stride store for this loop because umin blob (-1 * umax) is known positive.
+; Verify that the livein umin blob umin(%t1, %t2) is reverse engineered into %0.
 
-; + DO i1 = 0, umax((-1 + (-1 * %t2)), (-1 + (-1 * %t1))) + %N, 1   <DO_LOOP>
-; |   (%p)[i1 + (-1 * umax((-1 + (-1 * %t2)), (-1 + (-1 * %t1)))) + -1] = i1 + (-1 * umax((-1 + (-1 * %t2)), (-1 + (-1 * %t1)))) + -1;
-; + END LOOP
-
-; CHECK: + DO i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP> <nounroll>
-; CHECK: |   (<8 x i32>*)(%p)[i1 + (-1 * umax((-1 + (-1 * %t2)), (-1 + (-1 * %t1)))) + -1] = i1 + (-1 * umax((-1 + (-1 * %t2)), (-1 + (-1 * %t1)))) + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7> + -1;
+; CHECK: + DO i1 = 0, (-1 + (-1 * %0)) + %N, 1   <DO_LOOP>
+; CHECK: |   (%p)[i1 + (1 + %0) + -1] = i1 + (1 + %0) + -1;
 ; CHECK: + END LOOP
 
 

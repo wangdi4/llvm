@@ -531,14 +531,14 @@ static bool isAddWithNegativeOne(BlobTy Blob) {
   return Offset && (Offset->getAPInt().getSExtValue() == -1);
 }
 
-bool HIRParser::isUMinBlob(BlobTy Blob) {
-  // umin(x, y) is represented as !umax(!x, !y)
+static bool isMinBlobImpl(BlobTy Blob, bool IsUMin) {
+  // min(x, y) is represented as !max(!x, !y)
   // !x is represented as -1 + -1*x
   //
   // which means-
-  // umin(x, y) = -1 + -1*umax(-1 + -1*x, -1 + -1*y)
+  // min(x, y) = -1 + -1*max(-1 + -1*x, -1 + -1*y)
   //
-  // We just look for -1*umax(-1 + -1*x, -1 + -1*y) as -1 can easily get folded.
+  // We just look for -1*max(-1 + -1*x, -1 + -1*y) as -1 can easily get folded.
 
   auto Mul = dyn_cast<SCEVMulExpr>(Blob);
 
@@ -553,18 +553,20 @@ bool HIRParser::isUMinBlob(BlobTy Blob) {
     return false;
   }
 
-  auto *UMax = dyn_cast<SCEVUMaxExpr>(Mul->getOperand(1));
+  auto *Op1 = Mul->getOperand(1);
 
-  if (!UMax) {
+  if (IsUMin ? !isa<SCEVUMaxExpr>(Op1) : !isa<SCEVSMaxExpr>(Op1)) {
     return false;
   }
+
+  auto *Max = cast<SCEVNAryExpr>(Op1);
 
   // We are looking for constant operands or operands of type (-1 + x).
   // We do not check for multiplication with -1 as it can get folded into a
   // complicated operand. For example -1 * (t1 - t2) will be folded to
   // (t2 - t1).
-  for (unsigned I = 0, E = UMax->getNumOperands(); I < E; ++I) {
-    auto *Op = UMax->getOperand(I);
+  for (unsigned I = 0, E = Max->getNumOperands(); I < E; ++I) {
+    auto *Op = Max->getOperand(I);
 
     if (!isa<SCEVConstant>(Op) && !isAddWithNegativeOne(Op)) {
       return false;
@@ -573,6 +575,10 @@ bool HIRParser::isUMinBlob(BlobTy Blob) {
 
   return true;
 }
+
+bool HIRParser::isUMinBlob(BlobTy Blob) { return isMinBlobImpl(Blob, true); }
+
+bool HIRParser::isSMinBlob(BlobTy Blob) { return isMinBlobImpl(Blob, false); }
 
 bool HIRParser::getMinBlobValue(BlobTy Blob, int64_t &Val) const {
   auto Range = SE.getSignedRange(Blob);
@@ -646,15 +652,24 @@ struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
   void visit(HLGoto *Goto) { HIRP->parse(Goto); }
 };
 
-bool HIRParser::isMinMaxWithAddRecOperand(const SCEV *SC) const {
-  // Min is represented using !(Max) ==> (-1 -Max) so we call getNotSCEV() to
-  // undo the original 'not' operation.
+bool HIRParser::isMinMax(const SCEV *SC, bool CheckAddRecOperand) const {
+
   if (isa<SCEVAddExpr>(SC)) {
+    // Min is represented using !(Max) ==> (-1 -Max) so we call getNotSCEV() to
+    // undo the original 'not' operation.
     SC = SE.getNotSCEV(SC);
+
+  } else if (HIRParser::isUMinBlob(SC) || HIRParser::isSMinBlob(SC)) {
+    // SC looks like -1 * max()
+    SC = cast<SCEVMulExpr>(SC)->getOperand(1);
   }
 
   if (!isa<SCEVSMaxExpr>(SC) && !isa<SCEVUMaxExpr>(SC)) {
     return false;
+  }
+
+  if (!CheckAddRecOperand) {
+    return true;
   }
 
   for (const auto *Op : cast<SCEVNAryExpr>(SC)->operands()) {
@@ -664,6 +679,44 @@ bool HIRParser::isMinMaxWithAddRecOperand(const SCEV *SC) const {
   }
 
   return false;
+}
+
+class LiveInChecker {
+private:
+  const HLRegion *Reg;
+  bool IsLiveIn;
+
+public:
+  LiveInChecker(const HLRegion *Reg) : Reg(Reg), IsLiveIn(true) {}
+
+  bool follow(const SCEV *SC) {
+    auto *UnknownSC = dyn_cast<SCEVUnknown>(SC);
+
+    if (!UnknownSC) {
+      return true;
+    }
+
+    auto Inst = dyn_cast<Instruction>(UnknownSC->getValue());
+
+    if (!Inst) {
+      return false;
+    }
+
+    IsLiveIn = !Reg->containsBBlock(Inst->getParent());
+    return false;
+  }
+
+  bool isDone() const { return !isLiveIn(); }
+
+  bool isLiveIn() const { return IsLiveIn; }
+};
+
+static bool isRegionLiveIn(const HLRegion *Reg, const SCEV *SC) {
+  LiveInChecker LIC(Reg);
+  SCEVTraversal<LiveInChecker> Checker(LIC);
+  Checker.visitAll(SC);
+
+  return LIC.isLiveIn();
 }
 
 /// This class is used to process blob which is being added to the CanonExpr.
@@ -777,20 +830,25 @@ bool HIRParser::BlobProcessor::canProcessSafely(BlobTy Blob) {
 
 const SCEV *
 HIRParser::BlobProcessor::getProfitableMinMaxExprMapping(const SCEV *MinMax) {
-  if (!HIRP->isMinMaxWithAddRecOperand(MinMax)) {
-    return nullptr;
+  // This mapping recovers original (select) instruction from min exprs with
+  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
+  if (HIRP->isMinMaxWithAddRecOperand(MinMax)) {
+    if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
+      return SubSCEV;
+    }
   }
 
-  if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
-    return SubSCEV;
+  // Avoids region livein max operations.
+  if (HIRP->isMinMax(MinMax) && isRegionLiveIn(HIRP->CurRegion, MinMax)) {
+    if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
+      return SubSCEV;
+    }
   }
 
   return nullptr;
 }
 
 const SCEV *HIRParser::BlobProcessor::visitAddExpr(const SCEVAddExpr *Add) {
-  // This mapping recovers original (select) instruction from min exprs with
-  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
   const SCEV *MappedSC = nullptr;
 
   // This mapping is for profitability (not legality) so we can skip it in safe
@@ -833,6 +891,13 @@ const SCEV *HIRParser::BlobProcessor::visitMulExpr(const SCEVMulExpr *Mul) {
         return SubSCEV;
       }
     }
+  }
+
+  // This mapping is for profitability (not legality) so we can skip it in safe
+  // mode.
+  const SCEV *MappedSC = nullptr;
+  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Mul))) {
+    return MappedSC;
   }
 
   return SCEVRewriteVisitor<BlobProcessor>::visitMulExpr(Mul);
@@ -1062,6 +1127,26 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
   return nullptr;
 }
 
+static bool isReplacableUsingConstantAdditive(const SCEV *OrigSCEV,
+                                              const SCEV *NewSCEV,
+                                              ScalarEvolution &SE,
+                                              SCEV **Additive) {
+
+  if (OrigSCEV->getType() != NewSCEV->getType()) {
+    return false;
+  }
+
+  auto *Add = SE.getMinusSCEV(OrigSCEV, NewSCEV);
+
+  if (!isa<SCEVConstant>(Add)) {
+    return false;
+  }
+
+  *Additive = const_cast<SCEV *>(Add);
+
+  return true;
+}
+
 bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
                                             const SCEV *NewSCEV,
                                             bool *IsTruncOrSExt, bool *IsZExt,
@@ -1080,8 +1165,20 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
   auto OrigAddRec = dyn_cast<SCEVAddRecExpr>(OrigSCEV);
   auto NewAddRec = dyn_cast<SCEVAddRecExpr>(NewSCEV);
 
-  // TODO: extend for other SCEV types.
   if (!OrigAddRec || !NewAddRec) {
+    if (isReplacableUsingConstantAdditive(OrigSCEV, NewSCEV, HIRP->SE,
+                                             Additive)) {
+      return true;
+    }
+
+    NewSCEV = HIRP->SE.getNegativeSCEV(NewSCEV);
+
+    if (isReplacableUsingConstantAdditive(OrigSCEV, NewSCEV, HIRP->SE,
+                                             Additive)) {
+      *IsNegation = true;
+      return true;
+    }
+
     return false;
   }
 
@@ -1255,6 +1352,9 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
     SCEV::NoWrapFlags WrapFlags, SCEVConstant **ConstMultiplier,
     SCEV **Additive) const {
 
+  assert(ConstMultiplier && "Invalid argument!");
+  assert(Additive && "Invalid argument!");
+
   const SCEVConstant *Mul = nullptr;
   const SCEV *Add = nullptr;
   unsigned NumOperands = OrigAddRec->getNumOperands();
@@ -1262,10 +1362,6 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
   // Get constant multiplier, if any.
   if (NewAddRec->getOperand(NumOperands - 1) !=
       OrigAddRec->getOperand(NumOperands - 1)) {
-
-    if (!ConstMultiplier) {
-      return false;
-    }
 
     Mul = getPossibleMultiplier(NewAddRec, OrigAddRec);
 
@@ -1278,10 +1374,6 @@ bool HIRParser::BlobProcessor::isReplacableAddRec(
 
   // Get invariant additive, if any.
   if (NewAddRec->getOperand(0) != OrigAddRec->getOperand(0)) {
-
-    if (!Additive) {
-      return false;
-    }
 
     Add = HIRP->SE.getMinusSCEV(OrigAddRec->getOperand(0),
                                 NewAddRec->getOperand(0));

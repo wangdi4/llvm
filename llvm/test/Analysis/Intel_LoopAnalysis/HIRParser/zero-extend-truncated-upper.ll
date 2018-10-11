@@ -4,8 +4,8 @@
 
 ; Check parsing output for the loop verifying that we conservatively zero extend an upper (zext.i2.i32()) which has a truncate it in.
 
-; CHECK: + DO i1 = 0, zext.i2.i32((-1 + (-1 * trunc.i32.i2(smax(0, %n))))), 1   <DO_LOOP>  <MAX_TC_EST = 4>
-; CHECK: |   (%ptr)[0].1[i1 + smax(0, %n)] = 0;
+; CHECK: + DO i1 = 0, zext.i2.i32((-1 + (-1 * trunc.i32.i2(%spec.select.i)))), 1   <DO_LOOP>  <MAX_TC_EST = 4>
+; CHECK: |   (%ptr)[0].1[i1 + %spec.select.i] = 0;
 ; CHECK: + END LOOP
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"

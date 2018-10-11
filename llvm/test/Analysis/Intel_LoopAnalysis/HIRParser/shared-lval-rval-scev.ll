@@ -3,14 +3,16 @@
 ; Check parsing output for the loop verifying that the parser is able to distinguish between lval %conv6 and rval %dec.sink.lcssa which share the same SCEV.
 
 ; CHECK: + DO i1 = 0, 45, 1   <DO_LOOP>
+; CHECK: |   %dec.sink.lcssa = -1 * i1 + 46;
+; CHECK: |
 ; CHECK: |   + DO i2 = 0, zext.i8.i64((-25 + trunc.i64.i8(%indvars.iv118))), 1   <DO_LOOP>  <MAX_TC_EST = 232>
 ; CHECK: |   |   %3 = (@a1_ahj)[0][-1 * i1 + -1 * i2 + 46];
 ; CHECK: |   |   (@a1_ahj)[0][-1 * i1 + -1 * i2 + 46] = %3 + 1;
 ; CHECK: |   |   (@a1_ob)[0][-1 * i1 + -1 * i2 + 46] = 48;
 ; CHECK: |   + END LOOP
+; CHECK: |      %dec.sink.lcssa = 24;
 ; CHECK: |
-; CHECK: |   (@a1_ob)[0][-1 * i1 + 46] = -1 * trunc.i32.i8(umax(-25, (-1 + (-1 * %v_i.0101)))) + -1;
-; CHECK: |   %v_i.0101 = -1 * i1 + 45;
+; CHECK: |   (@a1_ob)[0][-1 * i1 + 46] = (1 + trunc.i32.i8(%dec.sink.lcssa)) + -1;
 ; CHECK: |   %indvars.iv118 = -1 * i1 + 45;
 ; CHECK: + END LOOP
 
