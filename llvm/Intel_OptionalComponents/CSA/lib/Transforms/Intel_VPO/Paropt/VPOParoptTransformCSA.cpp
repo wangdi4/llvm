@@ -1,4 +1,4 @@
-//===- VPOParoptTransformCSA.cpp - Transformation of W-Region for CSA -*- C++ -*-===//
+//=- VPOParoptTransformCSA.cpp - W-Region transformations for CSA -*- C++ -*-=//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -82,6 +82,9 @@ protected:
   BasicBlock *InitBB = nullptr;
   BasicBlock *FiniBB = nullptr;
   BasicBlock *LastIterBB = nullptr;
+
+  // Lower reduction clauses if set to true.
+  bool DoReds = true;
 
 private:
   // Creates alloca instruction for the given item, inserts it to the InitBB and
@@ -174,8 +177,8 @@ protected:
   }
 
 public:
-  CSAPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
-    : PT(PT), W(W), DT(PT.DT), LI(PT.LI), SE(PT.SE) {}
+  CSAPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds = true)
+    : PT(PT), W(W), DT(PT.DT), LI(PT.LI), SE(PT.SE), DoReds(DoReds) {}
 
   virtual bool run() {
     bool Changed = false;
@@ -203,7 +206,7 @@ public:
       }
       Changed = true;
     }
-    if (W->canHaveReduction() && !W->getRed().empty()) {
+    if (DoReds && W->canHaveReduction() && !W->getRed().empty()) {
       for (auto *I : W->getRed().items())
         genRedVar(I, W);
       Changed = true;
@@ -255,8 +258,8 @@ protected:
   }
 
 public:
-  CSALoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
-    : CSAPrivatizer(PT, W), L(W->getWRNLoopInfo().getLoop()) {
+  CSALoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds)
+    : CSAPrivatizer(PT, W, DoReds), L(W->getWRNLoopInfo().getLoop()) {
     assert(W->getIsOmpLoop() && "loop construct is expected");
     assert(L->isLoopSimplifyForm());
   }
@@ -356,8 +359,8 @@ private:
   }
 
 public:
-  CSAExpLoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W)
-    : CSALoopPrivatizer(PT, W) {
+  CSAExpLoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds)
+    : CSALoopPrivatizer(PT, W, DoReds) {
     // Initialize blocks list where private variable references will be replaced
     // with private instances. It includes loop preheader and all loop blocks.
     Blocks.push_back(L->getLoopPreheader());
@@ -598,12 +601,6 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   auto *Loop = W->getWRNLoopInfo().getLoop();
   assert(Loop->isLoopSimplifyForm());
 
-  // Generate privatization code.
-  if (UseExpLoopPrivatizer)
-    CSAExpLoopPrivatizer(*this, W).run();
-  else
-    CSALoopPrivatizer(*this, W).run();
-
   // Determine the number of workers to use for this loop.
   unsigned NumWorkers = 0;
   if (W->getIsPar())
@@ -611,6 +608,12 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
       NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
   if (!NumWorkers)
     NumWorkers = LoopWorkersDefault;
+
+  // Generate privatization code.
+  if (UseExpLoopPrivatizer)
+    CSAExpLoopPrivatizer(*this, W, NumWorkers > 1u).run();
+  else
+    CSALoopPrivatizer(*this, W, NumWorkers > 1u).run();
 
   // Annotating loop with spmdization entry/exit intrinsic calls if parallel
   // region has num_threads clause and the number of threads > 1.
