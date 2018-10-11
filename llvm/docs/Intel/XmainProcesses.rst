@@ -219,9 +219,11 @@ consideration is clarity & readability.
       }
   #endif // !INTEL_CUSTOMIZATION
 
-- For Intel-added files, you do not need to put any special markups in the
-  sources. Instead, the fully qualified file name should contain ``Intel``
-  or ``intel``. Intel-added files should be headed by an Intel copyright
+- For Intel-added files, the fully qualified file name should contain ``Intel``
+  or ``intel``. You do not need to put any special markups in the sources,
+  as these files can be thought of as having implicit INTEL_CUSTOMIZATION
+  begin/end markers enclosing them.
+  Intel-added files should be headed by an Intel copyright
   notice, not by the typical LLVM one. The following is a sample that you can
   adapt by changing the filename, file description, and copyright dates
   appropriately.
@@ -257,6 +259,258 @@ consideration is clarity & readability.
 
   This preprocessor symbol should be used the same in either modified LLVM
   files or Intel-specific source files.
+
+Marking Intel Code Intended for External Sharing in Xmain
+=========================================================
+
+``What are COLLAB changes``
+---------------------------
+
+This section describes the mechanism used to mark Intel code that is
+intended for external sharing and collaboration, and likely open-sourced
+at some point in the future.
+We refer to such Intel changes as `COLLAB changes`, mark them
+with INTEL_COLLAB instead of INTEL_CUSTOMIZATION, and apply different
+rules from the latter.
+
+Marking COLLAB changes as such facilitates automating the extraction of
+patches that include only the COLLAB changes and exclude **all** other
+Intel changes not so marked, such as the INTEL_CUSTOMIZATION changes.
+Thus, Intel can collaborate with the community by periodically providing
+patches with Intel-added features long before the actual open-sourcing
+of these features takes place.
+
+``Marking COLLAB changes in C/C++ source``
+------------------------------------------
+
+The smallest unit of a COLLAB change is a line. A change is either an
+`addition` of line(s), or a `deletion` of line(s).
+A `modification` is just addition plus deletion.
+The examples below show how to mark additions, deletions, and modifications
+in C/C++ source code with the INTEL_COLLAB marker.
+The part enclosed between a pair of INTEL_COLLAB begin/end markers is
+referred to as a `COLLAB region`.
+
+Assume that this is existing community code:
+
+.. code-block:: c++
+
+  void foo() {
+    bar(123);
+    bar(789);
+  }
+
+- How to mark a COLLAB addition:
+  Enclose the line(s) being added between a pair of
+  INTEL_COLLAB begin/end markers.
+  No code outside of this COLLAB region is changed by this addition.
+  Below is an example showing how to add a call to new_call():
+
+.. code-block:: c++
+
+  void foo() {
+    bar(123);
+  #if INTEL_COLLAB
+    new_call();
+  #endif // INTEL_COLLAB
+    bar(789);
+  }
+
+- How to mark a COLLAB deletion:
+  Enclose the line(s) being deleted between the #else and the #endif
+  of the COLLAB region. No change may be made to the line(s) being deleted.
+  No code outside of this COLLAB region is changed by this deletion.
+  Document the reason of the deletion, as shown in the example below
+  where the call to bar(789) is deleted:
+
+.. code-block:: c++
+
+  void foo() {
+    bar(123);
+  #if INTEL_COLLAB
+    // Removed call to bar(789) because ...
+  #else
+    bar(789);
+  #endif // INTEL_COLLAB
+  }
+
+- A modification is an addition combined with a deletion in the same
+  COLLAB region. The example below changes bar(123) to bar(123, x)
+
+.. code-block:: c++
+
+  void foo() {
+  #if INTEL_COLLAB
+    bar(123, x);
+  #else
+    bar(123);
+  #endif // INTEL_COLLAB
+    bar(789);
+  }
+
+
+``Marking COLLAB changes in other file types``
+----------------------------------------------
+
+The COLLAB changes also occur in files other than C/C++ source files.
+Shown below are the markers for other file types currently supported.
+For these file types we have not found a need to support deletion,
+so the "else" part is not defined and is not supported by the
+patch-extracting tool.
+
+- CMakeLists.txt
+
+.. code-block:: cmake
+
+   # INTEL_COLLAB
+    ...
+   # end INTEL_COLLAB
+
+- CMakeLists.txt (alternate form that is also supported)
+
+.. code-block:: cmake
+
+   if (INTEL_COLLAB)
+    ...
+   endif (INTEL_COLLAB)
+
+- LLVMBuild.txt
+
+.. code-block:: text
+
+   ; INTEL_COLLAB
+    ...
+   ; end INTEL_COLLAB
+
+- TableGen (.td) files
+
+.. code-block:: text
+
+   // INTEL_COLLAB
+    ...
+   // end INTEL_COLLAB
+
+
+``Marking an entire Intel-added file as COLLAB``
+------------------------------------------------
+
+If an Intel-added file is meant for external sharing then
+all of its content must be marked as a COLLAB region; i.e.,
+its first and last lines must be INTEL_COLLAB begin/end markers.
+Note that an Intel-added file either has no INTEL_COLLAB markers,
+or has the entire content enclosed between such markers.
+This is true even if only part of the Intel-added file
+is meant for external sharing; the next sub-section shows how to
+exclude code inside a COLLAB region from being shared externally.
+
+LLVM files often use an emacs file-type marker in a comment in their
+first line, so when an INTEL_COLLAB marker becomes the first
+line in such files, it must coexist with the emacs marker:
+
+- C++ include (.h) files
+
+.. code-block:: c++
+
+   #if INTEL_COLLAB // -*- C++ -*-
+    ...
+   #endif // INTEL_COLLAB
+
+- LLVMBuild.txt
+
+.. code-block:: text
+
+   ; INTEL_COLLAB   -*- Conf -*-
+    ...
+   ; end INTEL_COLLAB
+
+- TableGen (.td) files
+
+.. code-block:: text
+
+   // INTEL_COLLAB  -*- tablegen -*-
+    ...
+   // end INTEL_COLLAB
+
+
+``Excluding code from sharing within a COLLAB change``
+------------------------------------------------------
+
+It is not allowed to nest a an INTEL_COLLAB region inside another
+INTEL_COLLAB or INTEL_CUSTOMIZATION region.
+
+However, we allow nesting of INTEL_CUSTOMIZATION inside a COLLAB change
+to exclude portions of code from being shared externally. This is useful
+to mark portions of proprietary logic within a COLLAB region so that
+the proprietary logic is excluded from the COLLAB patch.
+In the example below, the calls to Intel_code_to_share() will appear in
+the COLLAB patch, but it will not include the call to Intel_prorietary_foo():
+
+.. code-block:: c++
+
+  #if INTEL_COLLAB
+  ...
+  void Intel_func_to_share() {
+    Intel_code_to_share();
+    ...
+    #if INTEL_CUSTOMIZATION
+      Intel_prorietary_foo();
+    #endif // INTEL_CUSTOMIZATION
+    ...
+    Intel_code_to_share();
+  }
+  ...
+  #endif // INTEL_COLLAB
+
+The example below uses an #else in the INTEL_CUSTOMIZATION region to switch
+between two versions of a function foo(), one proprietary and one for sharing.
+Under xmain, Intel_func_to_share() calls Intel_prorietary_version_of_foo().
+But in the COLLAB patch, Intel_func_to_share() calls
+Intel_shareable_version_of_foo() instead.
+
+.. code-block:: c++
+
+  #if INTEL_COLLAB
+  ...
+  void Intel_func_to_share() {
+    Intel_code_to_share();
+    ...
+    #if INTEL_CUSTOMIZATION
+      Intel_prorietary_version_of_foo();
+    #else
+      Intel_shareable_version_of_foo();
+    #endif // INTEL_CUSTOMIZATION
+    ...
+    Intel_code_to_share();
+  }
+  ...
+  #endif // INTEL_COLLAB
+
+The example below is similar, but the parent function is community code.
+For xmain, we want the parent function to call
+Intel_prorietary_version_of_foo(), but for the COLLAB patch we want it
+to call Intel_shareable_version_of_foo():
+
+.. code-block:: c++
+
+  void existing_community_function() {
+    some_community_code();
+    #if INTEL_COLLAB
+      #if INTEL_CUSTOMIZATION
+        Intel_prorietary_version_of_foo();
+      #else
+        Intel_shareable_version_of_foo();
+      #endif // INTEL_CUSTOMIZATION
+    #endif // INTEL_COLLAB
+    some_more_community_code();
+  }
+
+``When a COLLAB change is open-sourced``
+----------------------------------------
+
+When a COLLAB change is promoted to llvm.org, then it is considered
+community code and no longer Intel code, so we must remove its INTEL_COLLAB
+markers from xmain.
+
 
 Guarding Intel Proprietary Features in Xmain
 ============================================
