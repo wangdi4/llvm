@@ -136,6 +136,10 @@ static cl::opt<bool> WPDevirtMultiversion("wholeprogramdevirt-multiversion",
 static cl::opt<bool> WPDevirtMultiversionVerify(
     "wholeprogramdevirt-multiversion-verify", cl::init(false),
     cl::ReallyHidden);
+
+// Assume that whole program is safe for testing purposes
+static cl::opt<bool> WPDevirtAssumeSafe(
+    "wholeprogramdevirt-assume-safe", cl::init(false), cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
 
 // Find the minimum offset that we may store a value of size Size bits at. If
@@ -457,7 +461,8 @@ struct DevirtModule {
                function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
                function_ref<DominatorTree &(Function &)> LookupDomTree,
                ModuleSummaryIndex *ExportSummary,
-               const ModuleSummaryIndex *ImportSummary)
+               const ModuleSummaryIndex *ImportSummary,          // INTEL
+               bool IsWholeProgramSafe)                          // INTEL
       : M(M), AARGetter(AARGetter), LookupDomTree(LookupDomTree),
         ExportSummary(ExportSummary), ImportSummary(ImportSummary),
         Int8Ty(Type::getInt8Ty(M.getContext())),
@@ -465,7 +470,8 @@ struct DevirtModule {
         Int32Ty(Type::getInt32Ty(M.getContext())),
         Int64Ty(Type::getInt64Ty(M.getContext())),
         IntPtrTy(M.getDataLayout().getIntPtrType(M.getContext(), 0)),
-        RemarksEnabled(areRemarksEnabled()), OREGetter(OREGetter) {
+        RemarksEnabled(areRemarksEnabled()), OREGetter(OREGetter),    // INTEL
+        IsWholeProgramSafe(IsWholeProgramSafe) {                      // INTEL
     assert(!(ExportSummary && ImportSummary));
   }
 
@@ -505,6 +511,9 @@ struct DevirtModule {
     Instruction *CallInstruction;     // Target's call instruction
     std::string TargetName;           // Basic Block's name
   };
+
+  // True if whole program safe is achieved, else false
+  bool IsWholeProgramSafe : 1;
 
   // Build the basic block of the default case
   TargetData* buildDefaultCase(Module &M, std::string VCallStamp,
@@ -654,16 +663,21 @@ struct WholeProgramDevirt : public ModulePass {
       return DevirtModule::runForTesting(M, LegacyAARGetter(*this), OREGetter,
                                          LookupDomTree);
 
+    WholeProgramInfo &WPInfo =                                     // INTEL
+        getAnalysis<WholeProgramWrapperPass>().getResult();        // INTEL
+
     return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
-                        ExportSummary, ImportSummary)
+                        ExportSummary, ImportSummary,                // INTEL
+                        WPInfo.isWholeProgramSafe())                 // INTEL
         .run();
+
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
+    AU.addRequired<WholeProgramWrapperPass>(); // INTEL
   }
 };
 
@@ -674,6 +688,7 @@ INITIALIZE_PASS_BEGIN(WholeProgramDevirt, "wholeprogramdevirt",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)     // INTEL
 INITIALIZE_PASS_END(WholeProgramDevirt, "wholeprogramdevirt",
                     "Whole program devirtualization", false, false)
 char WholeProgramDevirt::ID = 0;
@@ -696,8 +711,11 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
   auto LookupDomTree = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
+                                                                    // INTEL
+  auto WPInfo = AM.getResult<WholeProgramAnalysis>(M);              // INTEL
+                                                                    // INTEL
   if (!DevirtModule(M, AARGetter, OREGetter, LookupDomTree, ExportSummary,
-                    ImportSummary)
+                    ImportSummary, WPInfo.isWholeProgramSafe())     // INTEL
            .run())
     return PreservedAnalyses::all();
 
@@ -726,12 +744,14 @@ bool DevirtModule::runForTesting(
     ExitOnErr(errorCodeToError(In.error()));
   }
 
+#if INTEL_CUSTOMIZATION
   bool Changed =
       DevirtModule(
           M, AARGetter, OREGetter, LookupDomTree,
           ClSummaryAction == PassSummaryAction::Export ? &Summary : nullptr,
-          ClSummaryAction == PassSummaryAction::Import ? &Summary : nullptr)
-          .run();
+          ClSummaryAction == PassSummaryAction::Import ? &Summary : nullptr,
+          WPDevirtAssumeSafe).run();
+#endif
 
   if (!ClWriteSummary.empty()) {
     ExitOnError ExitOnErr(
@@ -1068,7 +1088,7 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
 
     TargetData *NewTarget = new TargetData();
 
-    NewTarget->TargetFunc = cast<Value>(Target.Fn);
+    NewTarget->TargetFunc = Target.Fn;
 
     // Create a new BasicBlock with the name
     // BBDevirt_TARGETNAME_CallSlotI_VCallI
@@ -1250,8 +1270,10 @@ void DevirtModule::fixUnwindPhiNodes(VirtualCallSite &VCallSite,
         PhiNode.addIncoming(Val, Target->TargetBasicBlock);
     }
 
-    // Add the default case into the PHINode
-    PhiNode.addIncoming(Val, DefaultTarget->TargetBasicBlock);
+    if (!IsWholeProgramSafe) {
+      // Add the default case into the PHINode if whole program is not safe
+      PhiNode.addIncoming(Val, DefaultTarget->TargetBasicBlock);
+    }
   }
 }
 
@@ -1268,12 +1290,14 @@ void DevirtModule::fixUnwindPhiNodes(VirtualCallSite &VCallSite,
 //                    needed to generate the branching
 //   DefaultTarget: TargetData with the information related to the virtual
 //                    call site, this is used to generate the default case
+// If whole program safe is achieved, then the virtual call won't be added
+// since all possible targets were found and they are stored in the input
+// TargetsVector.
 void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
     BasicBlock *MainBB, BasicBlock *MergePointBB, bool IsCallInst,
     std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget) {
 
   unsigned int TargetI = 0;
-  unsigned int NumTargets = TargetsVector.size();
   StringRef ElseBaseName = StringRef("ElseDevirt_");
   Function *Func = DefaultTarget->CallInstruction->getFunction();
   IRBuilder<> Builder(M.getContext());
@@ -1286,13 +1310,35 @@ void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
 
   BasicBlock *InsertPointBB = MainBB;
 
+  TargetData *LastTarget = nullptr;
+
+  unsigned int EndTarget = TargetsVector.size();
+
+  // If whole program safe is achieved, then we are going to traverse until
+  // the second to last
+  if (IsWholeProgramSafe)
+    EndTarget--;
+
   // Create the branching and connect the whole structure
-  for (TargetData *Target : TargetsVector) {
+  for (TargetI = 0; TargetI < EndTarget; TargetI++) {
+
+    TargetData *Target = TargetsVector[TargetI];
 
     // Build the else BasicBlock
     BasicBlock *ElseBB;
-    if (TargetI == NumTargets - 1)
-      ElseBB = DefaultTarget->TargetBasicBlock;
+    if (TargetI == EndTarget - 1) {
+
+      // If whole program safe is achieved then the last target will
+      // be the else case
+      if (IsWholeProgramSafe) {
+        LastTarget = TargetsVector[TargetI+1];
+      }
+      // Else, the virtual call will be added as default case
+      else {
+        LastTarget = DefaultTarget;
+      }
+      ElseBB = LastTarget->TargetBasicBlock;
+    }
     else {
       // Create the name ElseDevirt_TARGETNAME_CallSlotI_VCallI
       std::string TargetName = Target->TargetName;
@@ -1329,23 +1375,24 @@ void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
     ElseBB->moveAfter(IfBB);
     // The next insert point will be the else branch
     InsertPointBB = ElseBB;
-    TargetI++;
   }
 
-  // Fix the destination of the default case
+  // Fix the last branch added
   if (IsCallInst) {
-    Builder.SetInsertPoint(DefaultTarget->TargetBasicBlock);
+    Builder.SetInsertPoint(LastTarget->TargetBasicBlock);
     Builder.CreateBr(MergePointBB);
   }
   else {
     InvokeInst *InvInst =
-                 cast<InvokeInst>(DefaultTarget->CallInstruction);
+                 cast<InvokeInst>(LastTarget->CallInstruction);
     InvInst->setNormalDest(MergePointBB);
   }
 
   // Rearrange the basic blocks
-  DefaultTarget->TargetBasicBlock->moveAfter(InsertPointBB);
-  MergePointBB->moveAfter(DefaultTarget->TargetBasicBlock);
+  if (!IsWholeProgramSafe)
+    DefaultTarget->TargetBasicBlock->moveAfter(InsertPointBB);
+
+  MergePointBB->moveAfter(LastTarget->TargetBasicBlock);
 }
 
 // Generate a PHINode that will replace all the Users of the virtual
@@ -1354,7 +1401,7 @@ void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
 //   MergePointBB:  BasicBlock that where all targets will branch into
 //   TargetsVector: vector with all target functions and the information
 //                    needed to generate the branching
-//   DefaultTaregt: TargetData with the information related to the virtual
+//   DefaultTarget: TargetData with the information related to the virtual
 //                    call site, this is used to generate the default case
 void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
     std::vector<TargetData *> TargetsVector, TargetData *DefaultTarget) {
@@ -1385,8 +1432,11 @@ void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
                      Target->TargetBasicBlock);
   }
 
-  // Insert the incoming Value from the default case
-  Phi->addIncoming(CSInst, DefaultTarget->TargetBasicBlock);
+  if (!IsWholeProgramSafe) {
+    // Insert the incoming Value from the default case if
+    // whole program is not safe
+    Phi->addIncoming(CSInst, DefaultTarget->TargetBasicBlock);
+  }
 }
 
 // This function will go through each virtual function call site and
@@ -1468,6 +1518,42 @@ void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
 // The address of the virtual function will be compared with the address
 // of each of the targets. If an address matches, then call the direct
 // target, else call the virtual function.
+//
+// In case whole program safe is achieved then the virtual call won't be added.
+// The result will be the following:
+//
+//  %2 = bitcast i1 (%class.Base*, i32)* %1 to i8*
+//  %3 = icmp eq i8* %2, bitcast (i1 (%class.Derived*, i32)*
+//       @_ZN7Derived3fooEi to i8*)
+//  br i1 %3, label %BBDevirt__ZN7Derived3fooEi_0_0,
+//            label %BBDevirt__ZN8Derived23fooEi_0_0:
+//
+// BBDevirt__ZN7Derived3fooEi_0_0:
+//  %4 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)*
+//       @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)
+//       (%class.Base* %.4, i32 %argc)
+//  br label %MergeBB_0_0
+//
+// BBDevirt__ZN8Derived23fooEi_0_0:
+//  %5 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)*
+//       @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)
+//       (%class.Base* %.4, i32 %argc)
+//  br label %MergeBB_0_0
+//
+// MergeBB_0_0:
+//  %6 = phi i1 [ %4, %BBDevirt__ZN7Derived3fooEi_0_0 ],
+//              [ %5, %BBDevirt__ZN8Derived23fooEi_0_0 ]
+//  br label %7
+//
+// <label>:7:
+//  %call.i = tail call dereferenceable(272)
+//            %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(
+//              %"class.std::basic_ostream"* nonnull @_ZSt4cout,
+//              i1 zeroext %6)
+//
+// In the previous example the virtual call is removed because we know that
+// everything is inside the LTO unit, therefore all targets were found.
+//
 // Parameters:
 //   TargetsForSlot: An array containing all the targets that are related
 //                     to the virtual call sites stored in SlotInfo
@@ -1482,11 +1568,15 @@ bool DevirtModule::tryMultiVersionDevirt(
   if (!WPDevirtMultiversion)
     return false;
 
-  // If there is no target or the size is larger than the threshold
-  // then don't do the partial devirtualization
-  if (TargetsForSlot.size() == 0)
+  // If the size of TargetsForSlot is 1, then it means that another pass
+  // devirtualized the virtual call. In this case trySingleImplDevirt will
+  // return false and the whole program devirtualization will call this
+  // function. We don't want to generate an if/else for the same call,
+  // therefore just return false.
+  if (TargetsForSlot.size() < 2)
     return false;
 
+  // If is larger than the threshold then don't do the multiversioning.
   if (TargetsForSlot.size() > WPDevirtMaxBranchTargets)
     return false;
 
@@ -1509,6 +1599,10 @@ bool DevirtModule::tryMultiVersionDevirt(
                            MutableArrayRef<VirtualCallTarget> TargetsForSlot) {
 
     for (auto &&VCallSite : CSInfo.CallSites) {
+
+      if (VCallSite.CS.getCalledFunction() != nullptr)
+        continue;
+
       BasicBlock *MainBB = VCallSite.CS.getParent();
 
       // Generate the number stamp _CallSlotI_VCallI
@@ -1538,6 +1632,13 @@ bool DevirtModule::tryMultiVersionDevirt(
       // Build the PHINode and the replacement in case there is any use
       generatePhiNodes(M, MergePoint, TargetsVector, DefaultTarget);
 
+      // Destroy the default target since we have whole program and we don't
+      // need the actual virtual call.
+      if (IsWholeProgramSafe) {
+        DefaultTarget->CallInstruction->eraseFromParent();
+        DefaultTarget->TargetBasicBlock->eraseFromParent();
+      }
+
       VCallI++;
     }
   };
@@ -1563,7 +1664,6 @@ void DevirtModule::runDevirtVerifier(Module &M) {
   if (WPDevirtMultiversion && WPDevirtMultiversionVerify) {
     for (Function &F : M) {
       if (verifyFunction(F)) {
-
         report_fatal_error("Whole Program Devirtualization: Fails in"
                            " function: " + F.getName() + "()\n");
       }
