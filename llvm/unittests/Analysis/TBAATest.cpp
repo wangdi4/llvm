@@ -132,6 +132,7 @@ TEST_F(TBAATest, checkTBAACommutativity) {
 
   Value *GlobalVal = SI->getPointerOperand();
   Type *CharType = GlobalVal->getType()->getPointerElementType();
+  (void)CharType;
   assert((isa<GlobalValue>(GlobalVal) &&
           CharType->getPrimitiveSizeInBits() == 8) &&
           "Variable should be a Global char!");
