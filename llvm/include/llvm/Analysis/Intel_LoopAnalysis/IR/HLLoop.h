@@ -1024,8 +1024,12 @@ public:
 
   /// Peels the first iteration of the loop and inserts the peel loop before
   /// this loop. Ztt, loop preheader and postexit are extracted before cloning
-  /// this loop to generate the peel loop.
-  HLLoop *peelFirstIteration();
+  /// this loop to generate the peel loop. If \p UpdateMainLoop is true, this
+  /// loop's UB and DDRefs are updated so that peeled iterations are not
+  /// executed again. Otherwise, this loop's UB and DDRefs won't be updated and
+  /// the loop will redundantly execute the iterations executed by the peel
+  /// loop.
+  HLLoop *peelFirstIteration(bool UpdateMainLoop = true);
 
   // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);

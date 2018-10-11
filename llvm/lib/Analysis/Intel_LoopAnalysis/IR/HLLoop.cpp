@@ -1571,7 +1571,7 @@ void HLLoop::shiftLoopBodyRegDDRefs(int64_t Amount) {
       });
 }
 
-HLLoop *HLLoop::peelFirstIteration() {
+HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
   assert(!isUnknown() && isNormalized() &&
          "Unsupported loop in 1st iteration peeling!");
 
@@ -1587,14 +1587,16 @@ HLLoop *HLLoop::peelFirstIteration() {
   // just one iteration.
   PeelLoop->getUpperDDRef()->clear();
 
-  // Update this loop's UB and loop body DDRefs so that it doesn't execute
-  // iterations now executed by the peel loop.
-  getUpperCanonExpr()->addConstant(-1, true /*IsMath*/);
-  shiftLoopBodyRegDDRefs(1);
+  // Update this loop's UB and DDRefs to avoid execution of peeled iteration
+  // only if UpdateMainLoop is true.
+  if (UpdateMainLoop) {
+    getUpperCanonExpr()->addConstant(-1, true /*IsMath*/);
+    shiftLoopBodyRegDDRefs(1);
 
-  // Original loop requires a new ztt because the it may only have a single
-  // iteration, now executed by the peel loop.
-  createZtt(false /*IsOverWrite*/, isNSW());
+    // Original loop requires a new ztt because the it may only have a single
+    // iteration, now executed by the peel loop.
+    createZtt(false /*IsOverWrite*/, isNSW());
+  }
 
   return PeelLoop;
 }

@@ -416,14 +416,10 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     // Peel first iteration of the loop. Ztt, preheader and postexit are
     // extracted as part of the peeling utility.
     LLVM_DEBUG(dbgs() << "Peeling first iteration of the loop!\n");
-    HLLoop *PeelLp = OrigLoop->peelFirstIteration();
+    HLLoop *PeelLp = OrigLoop->peelFirstIteration(
+        false /*OrigLoop will also executed peeled its.*/);
     if (PeelLoop)
       *PeelLoop = PeelLp;
-
-    // After peeling, we don't need a Ztt that covers both the main
-    // vector/unrolled loop and remainder loop. The individual Ztts for the
-    // vector/unroll loop and remainder are sufficient to guarantee safety.
-    OrigLoop->removeZtt();
   } else {
     // Extract Ztt and add it outside the loop.
     OrigLoop->extractZtt();
