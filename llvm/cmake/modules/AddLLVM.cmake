@@ -695,8 +695,8 @@ macro(add_llvm_loadable_module name)
 
         install(TARGETS ${name}
                 ${export_to_llvmexports}
-                LIBRARY DESTINATION ${dlldir}
-                ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+                LIBRARY DESTINATION ${dlldir} COMPONENT ${name}                 # INTEL - patch D51552 or D51748
+                ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT ${name}) # INTEL - patch D51552 or D51748
       endif()
       set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS ${name})
     endif()
