@@ -119,6 +119,8 @@ class DynCloneImpl {
   using CallInstSet = SmallPtrSet<CallInst *, 8>;
   using StoreInstSet = SmallPtrSet<StoreInst *, 4>;
   using PHIInstSet = SmallPtrSet<PHINode *, 4>;
+  using LoadInstSet = SmallPtrSet<LoadInst *, 8>;
+  using InstSet = SmallPtrSet<Instruction *, 32>;
 
 public:
   DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
@@ -772,14 +774,14 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
 bool DynCloneImpl::trackPointersOfAllocCalls(void) {
 
   std::function<bool(PHINode *, unsigned, bool &, StoreInstSet &,
-                     StoreInstSet &, PHIInstSet &)>
+                     StoreInstSet &, InstSet &)>
       TrackPHI;
-  std::function<bool(GetElementPtrInst *, bool &, StoreInstSet &,
-                     StoreInstSet &)>
+  std::function<bool(GetElementPtrInst *, unsigned, bool &, StoreInstSet &,
+                     StoreInstSet &, InstSet &)>
       TrackGEP;
   std::function<bool(Value *, bool &, StoreInstSet &, StoreInstSet &,
-                     PHIInstSet &)>
-      TrackUsesOfCall;
+                     InstSet &)>
+      TrackUsesOfVal;
 
   // Returns true if \p Val is a GEP that accesses any field from
   // a GlobalVariable at index zero.
@@ -812,19 +814,23 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
       ComplexPtrStoreSet.insert(SI);
   };
 
-  // This function tracks uses of \p GEPI. It allows only two types of uses:
-  // GEP or Store. This function is called recursively in case of GEP. Store
-  // instructions will be added to either \p SimplePtrStoreSet or
-  // \p ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set
-  // to true if allocated memory is modified.
-  TrackGEP = [this, &IsSimpleFieldInGlobalStructVar, &TrackGEP,
-              &ProcessStoreInst](GetElementPtrInst *GEPI, bool &ModifiedMem,
-                                 StoreInstSet &SimplePtrStoreSet,
-                                 StoreInstSet &ComplexPtrStoreSet) {
+  // This function tracks uses of \p GEPI. It allows only three types of uses:
+  // GEP/PHI/Store. This function is called recursively in case of GEP/PHI.
+  // Store instructions will be added to either \p SimplePtrStoreSet or \p
+  // ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set to
+  // true if allocated memory is modified. \p GEPI will be added to \p
+  // ProcessedInst.
+  TrackGEP = [this, &IsSimpleFieldInGlobalStructVar, &TrackGEP, &TrackPHI,
+              &ProcessStoreInst](
+                 GetElementPtrInst *GEPI, unsigned Depth, bool &ModifiedMem,
+                 StoreInstSet &SimplePtrStoreSet,
+                 StoreInstSet &ComplexPtrStoreSet, InstSet &ProcessedInst) {
     unsigned NumIndices = GEPI->getNumIndices();
     Type *ElemTy = GEPI->getSourceElementType();
     if (NumIndices > 2 || !isa<StructType>(ElemTy))
       return false;
+
+    ProcessedInst.insert(GEPI);
 
     // We are handling two cases when a pointer, which is being tracked,
     // is used in GEP.
@@ -851,11 +857,15 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
 
     // Case 2: Treat the result of the GEP as pointer of some element and track
     // uses of this GEP to collect the locations where it is saved. Allowed only
-    // either GEP or Store.
+    // GEP/PHI/Store.
     for (auto *GUSE : GEPI->users()) {
       if (auto *GEPUU = dyn_cast<GetElementPtrInst>(GUSE)) {
-        if (!TrackGEP(GEPUU, ModifiedMem, SimplePtrStoreSet,
-                      ComplexPtrStoreSet))
+        if (!TrackGEP(GEPUU, Depth, ModifiedMem, SimplePtrStoreSet,
+                      ComplexPtrStoreSet, ProcessedInst))
+          return false;
+      } else if (auto *PHI = dyn_cast<PHINode>(GUSE)) {
+        if (!TrackPHI(PHI, ++Depth, ModifiedMem, SimplePtrStoreSet,
+                      ComplexPtrStoreSet, ProcessedInst))
           return false;
       } else if (auto *St = dyn_cast<StoreInst>(GUSE))
         ProcessStoreInst(St, SimplePtrStoreSet, ComplexPtrStoreSet);
@@ -869,17 +879,17 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   // PHI/GEP/Store. This function is called recursively only in case of GEP.
   // Store instructions will be added to either \p SimplePtrStoreSet or
   // \p ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set
-  // to true if allocated memory is modified. All processed PHIs are added
-  // to \p ProcessedPHI for further processing later.
+  // to true if allocated memory is modified. \p PHI will added to
+  // \p ProcessedInst for further processing later.
   TrackPHI = [this, &TrackPHI, &TrackGEP, &ProcessStoreInst](
                  PHINode *PHI, unsigned Depth, bool &ModifiedMem,
                  StoreInstSet &SimplePtrStoreSet,
-                 StoreInstSet &ComplexPtrStoreSet, PHIInstSet &ProcessedPHI) {
+                 StoreInstSet &ComplexPtrStoreSet, InstSet &ProcessedInst) {
     // Limit recursion.
     if (Depth > 3)
       return false;
 
-    ProcessedPHI.insert(PHI);
+    ProcessedInst.insert(PHI);
     // Allows only PHI/GEP/Store
     for (auto *PUSE : PHI->users()) {
       if (!isa<Instruction>(PUSE))
@@ -887,10 +897,11 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
 
       if (auto *PHI2 = dyn_cast<PHINode>(PUSE)) {
         if (!TrackPHI(PHI2, ++Depth, ModifiedMem, SimplePtrStoreSet,
-                      ComplexPtrStoreSet, ProcessedPHI))
+                      ComplexPtrStoreSet, ProcessedInst))
           return false;
       } else if (auto *GEPI = dyn_cast<GetElementPtrInst>(PUSE)) {
-        if (!TrackGEP(GEPI, ModifiedMem, SimplePtrStoreSet, ComplexPtrStoreSet))
+        if (!TrackGEP(GEPI, Depth, ModifiedMem, SimplePtrStoreSet,
+                      ComplexPtrStoreSet, ProcessedInst))
           return false;
       } else if (auto *St = dyn_cast<StoreInst>(PUSE))
         ProcessStoreInst(St, SimplePtrStoreSet, ComplexPtrStoreSet);
@@ -905,14 +916,15 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   // in case of BitCast. Store instructions will be added to either
   // \p SimplePtrStoreSet or  \p ComplexPtrStoreSet depending
   // PointerOperand. \p ModifiedMem is set to true if allocated memory
-  // is modified. All processed PHI are added to ProcessedPHI for further
-  // processing.
-  TrackUsesOfCall = [this, &TrackUsesOfCall, &TrackPHI, &TrackGEP,
-                     &IsSimpleFieldInGlobalStructVar,
-                     &ProcessStoreInst](Value *Val, bool &ModifiedMem,
-                                        StoreInstSet &SimplePtrStoreSet,
-                                        StoreInstSet &ComplexPtrStoreSet,
-                                        PHIInstSet &ProcessedPHI) {
+  // is modified. All tracked instructions will be added to ProcessedInst for
+  // further processing.
+  TrackUsesOfVal = [this, &TrackUsesOfVal, &TrackPHI, &TrackGEP,
+                    &IsSimpleFieldInGlobalStructVar,
+                    &ProcessStoreInst](Value *Val, bool &ModifiedMem,
+                                       StoreInstSet &SimplePtrStoreSet,
+                                       StoreInstSet &ComplexPtrStoreSet,
+                                       InstSet &ProcessedInst) {
+    ProcessedInst.insert(cast<Instruction>(Val));
     for (User *U : Val->users()) {
       if (!isa<Instruction>(U))
         return false;
@@ -924,17 +936,18 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
       if (auto *BC = dyn_cast<BitCastInst>(I)) {
         // No need to check for Safe BitCast as safety checks are already
         // passed.
-        if (!TrackUsesOfCall(BC, ModifiedMem, SimplePtrStoreSet,
-                             ComplexPtrStoreSet, ProcessedPHI))
+        if (!TrackUsesOfVal(BC, ModifiedMem, SimplePtrStoreSet,
+                            ComplexPtrStoreSet, ProcessedInst))
           return false;
       } else if (auto *St = dyn_cast<StoreInst>(I))
         ProcessStoreInst(St, SimplePtrStoreSet, ComplexPtrStoreSet);
       else if (auto *GEPI = dyn_cast<GetElementPtrInst>(I)) {
-        if (!TrackGEP(GEPI, ModifiedMem, SimplePtrStoreSet, ComplexPtrStoreSet))
+        if (!TrackGEP(GEPI, 0, ModifiedMem, SimplePtrStoreSet,
+                      ComplexPtrStoreSet, ProcessedInst))
           return false;
       } else if (auto *PHI = dyn_cast<PHINode>(I)) {
         if (!TrackPHI(PHI, 1, ModifiedMem, SimplePtrStoreSet,
-                      ComplexPtrStoreSet, ProcessedPHI))
+                      ComplexPtrStoreSet, ProcessedInst))
           return false;
       } else
         return false;
@@ -942,21 +955,105 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
     return true;
   };
 
+  // \p SimplePtrStoreSet has store instructions that store tracking pointers,
+  // which point to currently processing memory allocation, to fields of global
+  // structure variable. This routine collects if there are any loads from those
+  // fields in init routine. It also tries to find if there are any stores to
+  // those fields other than ones in \p SimplePtrStoreSet. If there are other
+  // stores, that means some other pointer (i.e not allocated by the current
+  // allocation call) is saved in the fields.  Returns false if it finds any
+  // other store that is not in \p SimplePtrStoreSet.
+  auto CollectLoadInstFromSimplePtrStoreLocs =
+      [&](StoreInstSet &SimplePtrStoreSet, LoadInstSet &LoadSet) {
+        // Collect all locations where pointers are saved.
+        DynFieldSet SimpleStoreElems;
+        if (SimplePtrStoreSet.size() == 0)
+          return true;
+        for (auto *SI : SimplePtrStoreSet) {
+          auto StElem = DTInfo.getStoreElement(SI);
+          if (!StElem.first)
+            return false;
+          SimpleStoreElems.insert(StElem);
+        }
+
+        for (Instruction &I : instructions(InitRoutine)) {
+          if (auto *LI = dyn_cast<LoadInst>(&I)) {
+            auto LdElem = DTInfo.getLoadElement(LI);
+            // Check if LI is accessing locations where tracking pointers are
+            // saved.
+            if (SimpleStoreElems.count(LdElem))
+              LoadSet.insert(LI);
+          } else if (auto *SI = dyn_cast<StoreInst>(&I)) {
+            // Okay if SI is already processed simple pointer store.
+            if (SimplePtrStoreSet.count(SI))
+              continue;
+            // Return false if SI is storing to location where tracking pointers
+            // are saved.
+            auto StElem = DTInfo.getStoreElement(SI);
+            if (SimpleStoreElems.count(StElem))
+              return false;
+          }
+        }
+        return true;
+      };
+
   StoreInstSet SimplePtrStoreSet;
   StoreInstSet ComplexPtrStoreSet;
-  PHIInstSet ProcessedPHI;
+  InstSet ProcessedInst;
+  StoreInstSet NewSimplePtrStoreSet;
+  LoadInstSet LoadSet;
   for (auto &AllocPair : AllocCalls) {
     SimplePtrStoreSet.clear();
     ComplexPtrStoreSet.clear();
-    ProcessedPHI.clear();
+    ProcessedInst.clear();
+    NewSimplePtrStoreSet.clear();
+    LoadSet.clear();
     auto *AInfo = AllocPair.first;
     assert(AInfo->getAllocKind() == AK_Calloc && " Unexpected alloc kind");
     CallInst *CI = cast<CallInst>(AInfo->getInstruction());
     LLVM_DEBUG(dbgs() << "Tracking uses of  " << *CI << "\n");
     bool ModifiedMem = false;
-    if (!TrackUsesOfCall(CI, ModifiedMem, SimplePtrStoreSet, ComplexPtrStoreSet,
-                         ProcessedPHI))
+    if (!TrackUsesOfVal(CI, ModifiedMem, SimplePtrStoreSet, ComplexPtrStoreSet,
+                        ProcessedInst))
       return false;
+
+    // SimplePtrStoreSet: Check if there are any loads from the locations
+    // where alloc pointers are saved and track uses of those loads.
+    // Make sure pointers of same alloc call are assigned to any location.
+
+    // Collect load instructions that access saved locations and prove that all
+    // saved pointers are from same allocation call.
+    if (!CollectLoadInstFromSimplePtrStoreLocs(SimplePtrStoreSet, LoadSet))
+      return false;
+
+    // Track uses of all Load instructions that access saved locations.
+    // Note that NewSimplePtrStoreSet is passed instead of SimplePtrStoreSet
+    // to detect if use of any load instruction is saved to fields of global
+    // struct. For now, SimplePtrStores are not allowed for load instructions to
+    // simplify things.
+    for (auto *LI : LoadSet) {
+      if (!TrackUsesOfVal(LI, ModifiedMem, NewSimplePtrStoreSet,
+                          ComplexPtrStoreSet, ProcessedInst))
+        return false;
+    }
+    if (NewSimplePtrStoreSet.size() != 0) {
+      return false;
+    }
+
+    // PHI nodes in ProcessedInst: Make sure all operands of PHI nodes are
+    // pointing to the same memory allocation by checking all operands of PHI
+    // are processed while tracking uses of allocation call.
+    for (auto *II : ProcessedInst) {
+      if (auto *PN = dyn_cast<PHINode>(II)) {
+        for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
+          auto *PI = dyn_cast<Instruction>(PN->getIncomingValue((I)));
+          if (!PI)
+            return false;
+          if (ProcessedInst.count(PI) == 0)
+            return false;
+        }
+      }
+    }
 
     // Collect modified allocations to avoid coping data from old layout
     // to new layout if there are no modifications.
@@ -964,11 +1061,6 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
       ModifiedAllocs.insert(CI);
 
     // TODO:
-    // ProcessedPHI: Make sure all operands of PHI are pointing to the
-    // same memory allocation.
-    // SimplePtrStoreSet: Check if there are any loads from the locations
-    // where alloc pointers are saved and track uses of those loads.
-    // Make sure pointers of same alloc call are assigned to any location.
     // ComplexPtrStoreSet: Analyze these stores further to prove that
     // they are saved into array fields of a struct, which is transformed
     // by AOS2SOA. Also, prove that there are no loads from those array
