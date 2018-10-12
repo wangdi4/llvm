@@ -62,8 +62,8 @@ namespace {
 //
 constexpr std::pair<const char *, Intrinsic::ID> intrinsic_table[] = {
   {"builtin_csa_parallel_loop_", Intrinsic::csa_parallel_loop},
-  {"builtin_csa_spmdization_", Intrinsic::csa_spmdization},
-  {"builtin_csa_spmd_", Intrinsic::csa_spmd}};
+  {"builtin_csa_spmd_", Intrinsic::csa_spmd},
+  {"builtin_csa_pipeline_loop_", Intrinsic::csa_pipeline_loop}};
 
 struct CSAFortranIntrinsics : FunctionPass {
   static char ID;
@@ -88,32 +88,28 @@ char CSAFortranIntrinsics::ID = 0;
 bool CSAFortranIntrinsics::runOnFunction(Function &F) {
   using namespace std;
 
-  // look at all of the instructions in each function
+  // Look at all of the call instructions in each function.
   for (BasicBlock &BB : F)
     for (auto II = begin(BB); II != end(BB); ++II) {
-
-      // due to interesting Fortran calling conventions, the instructions that
-      // we're  interested in aren't direct calls but calls through a bitcast,
-      // like:
-      //
-      //  call void bitcast (void (...)* @builtin_csa_parallel_loop_ to void
-      //  ()*)()
-      //
-
-      CallInst *const call_inst = dyn_cast<CallInst>(II);
-      if (not call_inst)
+      CallInst *const CI = dyn_cast<CallInst>(II);
+      if (not CI)
         continue;
 
-      ConstantExpr *const call_expr =
-        dyn_cast<ConstantExpr>(call_inst->getCalledValue());
-      if (not call_expr)
-        continue;
+      // Depending on the Fortran frontend used, the function calls that this
+      // pass looks for can either be direct (ifx) or through a bitcast
+      // (gfortran).
+      Function *callee = CI->getCalledFunction();
+      if (not callee) {
+        ConstantExpr *const CE = dyn_cast<ConstantExpr>(CI->getCalledValue());
+        if (not CE)
+          continue;
+        if (not CE->isCast())
+          continue;
+        callee = dyn_cast<Function>(CE->getOperand(0));
+      }
+      assert(callee);
 
-      if (not call_expr->isCast())
-        continue;
-      assert(call_expr->getNumOperands() >= 1);
-
-      const StringRef proc_name = call_expr->getOperand(0)->getName();
+      const StringRef proc_name = callee->getName();
       const auto found =
         find_if(begin(intrinsic_table), end(intrinsic_table),
                 [proc_name](const pair<const char *, Intrinsic::ID> &p) {
@@ -127,28 +123,56 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
       bool bad_args   = false;
       string err_name = proc_name;
       err_name.pop_back();
-      for (Value *const arg : call_inst->arg_operands()) {
-        GlobalVariable *const glob_arg = dyn_cast<GlobalVariable>(arg);
-        if (dyn_cast<ConstantInt>(arg)) {
-          // this is the length of the string passed to the intrinsic
-          continue;
-        } else if (dyn_cast<ConstantExpr>(arg)) {
-          args.push_back(arg);
-          // the next arg is the length of the string, to be ignored
-        } else if (glob_arg and glob_arg->isConstant() and
-                   glob_arg->getInitializer()) {
-          args.push_back(glob_arg->getInitializer());
-        } else {
-          errs() << "\n";
-          errs().changeColor(raw_ostream::BLUE, true);
-          errs() << "!! WARNING: BAD CSA FORTRAN INTRINSIC !!";
-          errs().resetColor();
-          errs() << "\n\nA call to " << err_name
-                 << " was found with non-constant arguments.\n"
-                    "This call will be ignored.\n\n";
+      const auto emit_arg_warning = [err_name]() {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! WARNING: BAD CSA FORTRAN INTRINSIC !!";
+        errs().resetColor();
+        errs() << "\n\nA call to " << err_name
+               << " was found with non-constant arguments.\n"
+                  "This call will be ignored.\n\n";
+      };
+      for (Value *const A : CI->arg_operands()) {
 
-          bad_args = true;
-          break;
+        // Arguments can either be global constants (gfortran) or
+        // allocas (ifx).
+        // If they are global constants (gfortran), use the intializer.
+        if (const auto GA = dyn_cast<GlobalVariable>(A)) {
+          if (GA->isConstant() and GA->getInitializer()) {
+            args.push_back(GA->getInitializer());
+          } else {
+            emit_arg_warning();
+            bad_args = true;
+            break;
+          }
+        }
+
+        // If they are allocas (ifx), poke around in the users and try to find a
+        // store of a constant. If there are multiple stores, this argument is
+        // probably not constant enough.
+        if (const auto AA = dyn_cast<AllocaInst>(A)) {
+          StoreInst *SA     = nullptr;
+          bool multi_stores = false;
+          for (User *const AAU : AA->users()) {
+            if (const auto SAAU = dyn_cast<StoreInst>(AAU)) {
+              if (not SA)
+                SA = SAAU;
+              else
+                multi_stores = true;
+            }
+          }
+          if (not SA or multi_stores) {
+            emit_arg_warning();
+            bad_args = true;
+            break;
+          }
+          Constant *const SAC = dyn_cast<Constant>(SA->getValueOperand());
+          if (not SAC) {
+            emit_arg_warning();
+            bad_args = true;
+            break;
+          }
+          args.push_back(SAC);
         }
       }
       if (bad_args)
@@ -171,7 +195,7 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
         continue;
       }
 
-      // replace with the correct intrinsic if there is a match
+      // Replace with the correct intrinsic if there is a match.
       LLVM_DEBUG(errs() << "in function " << F.getName() << ":\n"
                  << "replacing:" << *II << "\n"
                  << "with intrinsic: " << intrinsic->getName() << "\n");

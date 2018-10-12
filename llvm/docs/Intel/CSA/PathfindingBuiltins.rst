@@ -165,21 +165,13 @@ The spmdization intrinsic is an older version of the spmd_ intrinsic that
 specifies the type of SPMDization to apply with a string rather than a chunk
 size. Unlike with the spmd_ intrinsic, there is no way to specify the chunk size
 used for hybrid SPMDization; if "hybrid" is passed for the second argument the
-chunk size will be assumed to be 8. The spmdization intrinsic is available in C:
+chunk size will be assumed to be 8. The spmdization intrinsic is only available
+in C:
 
 .. code-block:: c
 
    __builtin_csa_spmdization(8, "blocking");
    for (int i = 0; i < N; ++i) A[i] = B[i];
-
-As well as Fortran:
-
-.. code-block:: fortran
-
-   call builtin_csa_spmdization(8, 'blocking')
-   do i = 1,n
-     a(i) = b(i)
-   enddo
 
 The spmdization intrinsic is implemented by being internally translated to the
 equivalent spmd_ intrinsic during CLIE_.
@@ -188,7 +180,7 @@ pipeline_loop
 -------------
 
 The pipeline_loop intrinsic is used to apply ILPL [ILPL link here] to the marked
-loop. It can be used in C but is not exposed in Fortran yet:
+loop. It can be used in C:
 
 .. code-block:: c
 
@@ -197,6 +189,18 @@ loop. It can be used in C but is not exposed in Fortran yet:
      __builtin_csa_pipeline_loop(0);
      for (int j = 0; j < M; ++j) A[i] += B[i*M + j];
    }
+
+And in Fortran:
+
+.. code-block:: fortran
+
+   call builtin_csa_parallel_loop()
+   do i=1,n
+     call builtin_csa_pipeline_loop(0)
+     do j=0,m
+       a(i) = a(i) + b(i*m + j)
+     enddo
+   enddo
 
 The single argument is the maximum number of concurrent iterations to allow in
 the loop at a given time or 0 for the compiler to choose a number automatically.
@@ -1036,16 +1040,15 @@ based on a small table defined at the top of the file:
    //
    constexpr std::pair<const char *, Intrinsic::ID> intrinsic_table[] = {
      {"builtin_csa_parallel_loop_", Intrinsic::csa_parallel_loop},
-     {"builtin_csa_spmdization_", Intrinsic::csa_spmdization},
-     {"builtin_csa_spmd_", Intrinsic::csa_spmd}};
+     {"builtin_csa_spmd_", Intrinsic::csa_spmd},
+     {"builtin_csa_pipeline_loop_", Intrinsic::csa_pipeline_loop}};
 
 When it is converting one of the calls from this table, it will automatically
 translate parameters into forms that are more similar to how parameters are
-passed in C. This works for integral constants, string constants (though these
-don't necessarily come out null-terminated, so they may need special handling
-later on), and possibly floating-point constants though none of our builtins use
-those. Variable inputs are not supported by this translation because they aren't
-needed by the intrinsics that this pass supports.
+passed in C. This works for integral constants and possibly floating-point
+constants (though none of our builtins use those). Variable inputs and string
+constants are not supported by this translation because they aren't needed by
+the intrinsics that this pass supports.
 
 .. _CLIE: CSALoopIntrinsicExpander_
 .. _CSALoopIntrinsicExpander:

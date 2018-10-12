@@ -430,63 +430,50 @@ to see more location information.
     // spmdization to spmd intrinsic
     Value *chunk_size;
     if (intr->getIntrinsicID() == Intrinsic::csa_spmdization) {
-      Value *approach = intr->getArgOperand(1);
-      if (ConstantExpr *expr = dyn_cast<ConstantExpr>(approach)) {
-        if (expr->getOpcode() == Instruction::GetElementPtr) {
-          GlobalVariable *glob_arg =
-            dyn_cast<GlobalVariable>(expr->getOperand(0));
-          if (glob_arg and glob_arg->isConstant() and
-              glob_arg->getInitializer()) {
-            // Unlike C, Fortran string has no null byte at the end
-            StringRef user_approach;
-            if (dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
-                    ->isCString())
-              user_approach =
-                  dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
-                      ->getAsCString();
-            else
-              user_approach =
-                  dyn_cast<ConstantDataArray>(glob_arg->getInitializer())
-                      ->getAsString();
+      const auto emit_spmdization_warning = []() {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
+        errs().resetColor();
+        return false;
+      };
 
-            if (user_approach.compare_lower("cyclic") == 0) {
-              chunk_size = ConstantInt::get(IntegerType::get(context, 32), 1);
-            } else if (user_approach.compare_lower("blocked") == 0 ||
-                       user_approach.compare_lower("blocking") == 0 ||
-                       user_approach.compare_lower("block") == 0) {
-              chunk_size = ConstantInt::get(IntegerType::get(context, 32), 0);
-            } else if (user_approach.compare_lower("hybrid") == 0) {
-              // When using this SPMD syntax, we assume a fixed chunk size of 8
-              chunk_size = ConstantInt::get(IntegerType::get(context, 32), 8);
-            } else {
-              errs() << "\n";
-              errs().changeColor(raw_ostream::BLUE, true);
-              errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
-              errs().resetColor();
-              errs() << " Second argument should be Cyclic, Blocked, Blocking, "
-                "or Hybrid.\n"
-                "This call will be ignored.\n\n";
-              return false;
-            }
-          } else {
-            errs() << "\n";
-            errs().changeColor(raw_ostream::BLUE, true);
-            errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
-            errs().resetColor();
-            return false;
-          }
-        } else {
-          errs() << "\n";
-          errs().changeColor(raw_ostream::BLUE, true);
-          errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
-          errs().resetColor();
-          return false;
-        }
+      const auto approach = dyn_cast<ConstantExpr>(intr->getArgOperand(1));
+      if (not approach)
+        return emit_spmdization_warning();
+
+      // spmdization's string parameter is expected to be passed through a GEP.
+      if (approach->getOpcode() != Instruction::GetElementPtr)
+        return emit_spmdization_warning();
+
+      // ...and to also be a constant C string.
+      GlobalVariable *glob_arg =
+        dyn_cast<GlobalVariable>(approach->getOperand(0));
+      if (not glob_arg or not glob_arg->isConstant())
+        return emit_spmdization_warning();
+      const auto glob_array =
+        dyn_cast_or_null<ConstantDataArray>(glob_arg->getInitializer());
+      if (not glob_array or not glob_array->isCString())
+        return emit_spmdization_warning();
+
+      const StringRef user_approach = glob_array->getAsCString();
+      if (user_approach.compare_lower("cyclic") == 0) {
+        chunk_size = ConstantInt::get(IntegerType::get(context, 32), 1);
+      } else if (user_approach.compare_lower("blocked") == 0 ||
+                 user_approach.compare_lower("blocking") == 0 ||
+                 user_approach.compare_lower("block") == 0) {
+        chunk_size = ConstantInt::get(IntegerType::get(context, 32), 0);
+      } else if (user_approach.compare_lower("hybrid") == 0) {
+        // When using this SPMD syntax, we assume a fixed chunk size of 8
+        chunk_size = ConstantInt::get(IntegerType::get(context, 32), 8);
       } else {
         errs() << "\n";
         errs().changeColor(raw_ostream::BLUE, true);
         errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
         errs().resetColor();
+        errs() << " Second argument should be Cyclic, Block, Blocked, "
+                  "Blocking, or Hybrid.\n"
+                  "This call will be ignored.\n\n";
         return false;
       }
     } else {
