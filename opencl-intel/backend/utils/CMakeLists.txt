@@ -77,7 +77,7 @@ add_library(${TARGET_NAME} STATIC
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
 
-target_link_libraries(${TARGET_NAME} name_mangle)
+target_link_libraries(${TARGET_NAME} name_mangle LLVMSupport)
 
 add_dependencies(${TARGET_NAME} metadataapi)
 
