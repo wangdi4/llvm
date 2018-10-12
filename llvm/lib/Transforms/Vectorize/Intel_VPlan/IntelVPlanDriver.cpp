@@ -520,10 +520,6 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   bool ModifiedFunc =
       VPlanDriverBase::processFunction(Fn, WRegionCollection::LLVMIR);
 
-  // Remove calls to directive intrinsics since the LLVM back end does not know
-  // how to translate them.
-  VPOUtils::stripDirectives(Fn);
-
   return ModifiedFunc;
 }
 
@@ -587,6 +583,12 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
       LVP.executeBestPlan(VCodeGen);
+
+      // Strip the directives once the loop is vectorized. In stress testing,
+      // WRLp is null and no directives need deletion.
+      if (WRLp)
+        VPOUtils::stripDirectives(WRLp);
+
       ModifiedLoop = true;
     }
   }
