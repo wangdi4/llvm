@@ -1514,6 +1514,9 @@ private:
             continue;
           }
           return false;
+        case Instruction::Ret:
+          NextBB = nullptr;
+          continue;
         default:
           return false;
         }
@@ -1691,6 +1694,9 @@ private:
             }
           }
           return false;
+        case Instruction::Ret:
+          NextBB = nullptr;
+          continue;
         default:
           return false;
         }
