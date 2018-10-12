@@ -1423,28 +1423,6 @@ static bool isSupported(const OVLSGroup &Group) {
   if ((Stride + 1) < UsedBytes)
     return false;
 
-  // Check if the group's optimized sequence has been defined.
-  // If not, the sequence should be added/generated, either added as hard-coded
-  // sequences for the group, or generated using the general algorithm.
-  // Current supported groups in OptVLS are:
-  // Load       - ElemSize = 64, #neighbours = 2
-  // Load/Store - ElemSize = 32, #neighbours = 4, stride = 16
-  // Load       - ElemSize = 16, #neighbours = 8, stride = 16
-  // To Do: Support other types and remove this check.
-  // This check should be for cases that are not supported in OptVLS or cause
-  // stablity problems.
-  // It is currently at place mainly to avoid the execution to reach the Graph
-  // algorithm. The graph algorithm is stable only for ElemSize=64 Loads. It
-  // crashes for many other cases. The other groups mentioned below get
-  // optimized in getSequencePredefined() before Graph Algorithm.
-
-  if (!((Group.getElemSize() == 64 && Group.size() == 2 &&
-         Group.hasGathers()) ||
-        (Group.getElemSize() == 32 && Group.size() == 4 && Stride == 16) ||
-        (Group.getElemSize() == 16 && Group.size() == 8 && Stride == 16 &&
-         Group.hasGathers())))
-    return false;
-
   return true;
 }
 
@@ -1901,6 +1879,14 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
 
   if (getSequencePredefined(Group, InstVector, MemrefToInstMap))
     return true;
+
+  // Allowing execution of the graph algorithm only for this case.
+  // Stride = 16 , represents factor =2.
+  // Group.size = 2, has two neighbors.
+  int64_t stride = 0;
+  if (!(Group.getElemSize() == 64 && Group.size() == 2 && Group.hasGathers() &&
+        Group.hasAConstStride(stride) == true && (stride == 16)))
+    return false;
 
   OptVLS::Graph G(Group.getVectorLength(), CM);
 
