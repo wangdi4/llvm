@@ -163,6 +163,10 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     PM->add(llvm::createDeadArgEliminationPass());
   }
 
+  // VPOParopt and Barrier passes can't work with a token type, so here we
+  // remove region directives.
+  PM->add(llvm::createRemoveRegionDirectivesLegacyPass());
+
 // INTEL VPO BEGIN
 
   if (RunVPOParopt) {
@@ -588,10 +592,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   if (isFpgaEmulator) {
     PM.add(createInfiniteLoopCreatorPass());
   }
-
-  // Barrier pass can't work with a token type, so here we remove region
-  // directives
-  PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
 
   PM.add(createBarrierMainPass(debugType));
 
