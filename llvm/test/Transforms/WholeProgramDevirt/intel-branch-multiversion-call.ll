@@ -232,3 +232,7 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; CHECK-NEXT:   %call1.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l(%"class.std::basic_ostream"* nonnull dereferenceable(272) %call.i, i8* nonnull getelementptr inbounds ([2 x i8], [2 x i8]* @.str, i64 0, i64 0), i64 1)
 ; CHECK-NEXT:   ret i32 0
 ; CHECK-NEXT: }
+
+; Check that the metadata was added
+; CHECK: define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) unnamed_addr #5 comdat align 2 !_Intel.Devirt.Target
+; CHECK: define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this, i32 %a) unnamed_addr #5 comdat align 2 !_Intel.Devirt.Target
