@@ -2630,37 +2630,76 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_omp_destroy_lock:
-    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
-            FTy.getParamType(0)->isPointerTy());
-
-  case LibFunc_omp_get_max_threads:
-    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
-
-  case LibFunc_omp_get_num_threads:
-    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
-
-  case LibFunc_omp_get_thread_num:
-    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
-
   case LibFunc_omp_init_lock:
-    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
-            FTy.getParamType(0)->isPointerTy());
-
   case LibFunc_omp_set_lock:
-    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
-            FTy.getParamType(0)->isPointerTy());
-
   case LibFunc_omp_unset_lock:
+  case LibFunc_omp_destroy_nest_lock:
+  case LibFunc_omp_init_nest_lock:
+  case LibFunc_omp_set_nest_lock:
+  case LibFunc_omp_unset_nest_lock:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
 
-  case LibFunc_omp_set_num_threads:
-    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+  case LibFunc_omp_init_lock_with_hint:
+  case LibFunc_omp_init_nest_lock_with_hint:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_omp_test_lock:
+  case LibFunc_omp_test_nest_lock:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_omp_get_active_level:
+  case LibFunc_omp_get_cancellation:
+  case LibFunc_omp_get_default_device:
+  case LibFunc_omp_get_dynamic:
+  case LibFunc_omp_get_initial_device:
+  case LibFunc_omp_get_level:
+  case LibFunc_omp_get_max_active_levels:
+  case LibFunc_omp_get_max_task_priority:
+  case LibFunc_omp_get_max_threads:
+  case LibFunc_omp_get_nested:
+  case LibFunc_omp_get_num_devices:
+  case LibFunc_omp_get_num_procs:
+  case LibFunc_omp_get_num_teams:
+  case LibFunc_omp_get_num_threads:
+  case LibFunc_omp_get_proc_bind:
+  case LibFunc_omp_get_team_num:
+  case LibFunc_omp_get_thread_limit:
+  case LibFunc_omp_get_thread_num:
+  case LibFunc_omp_in_final:
+  case LibFunc_omp_in_parallel:
+  case LibFunc_omp_is_initial_device:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_omp_get_ancestor_thread_num:
+  case LibFunc_omp_get_team_size:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
+  case LibFunc_omp_get_wtick:
+  case LibFunc_omp_get_wtime:
+    return (NumParams == 0 && FTy.getReturnType()->isDoubleTy());
+
+  case LibFunc_omp_set_default_device:
+  case LibFunc_omp_set_dynamic:
+  case LibFunc_omp_set_max_active_levels:
+  case LibFunc_omp_set_num_threads:
   case LibFunc_omp_set_nested:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_omp_get_schedule:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_omp_set_schedule:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_pipe:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
