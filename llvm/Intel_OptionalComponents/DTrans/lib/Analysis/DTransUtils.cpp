@@ -433,6 +433,9 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
       dtrans::MismatchedArgUse | dtrans::GlobalArray | dtrans::HasVTable |
       dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
+      dtrans::BadCastingPending | dtrans::BadCastingConditional |
+      dtrans::UnsafePointerStorePending |
+      dtrans::UnsafePointerStoreConditional |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -452,6 +455,9 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::MismatchedArgUse ^
            dtrans::GlobalArray ^ dtrans::HasVTable ^ dtrans::HasFnPtr ^
            dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
+           dtrans::BadCastingPending ^ dtrans::BadCastingConditional ^
+           dtrans::UnsafePointerStorePending ^
+           dtrans::UnsafePointerStoreConditional ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
@@ -515,6 +521,14 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Has C++ handling");
   if (SafetyInfo & dtrans::HasZeroSizedArray)
     SafetyIssues.push_back("Has zero-sized array");
+  if (SafetyInfo & dtrans::BadCastingPending)
+    SafetyIssues.push_back("Bad casting (pending)");
+  if (SafetyInfo & dtrans::BadCastingConditional)
+    SafetyIssues.push_back("Bad casting (conditional)");
+  if (SafetyInfo & dtrans::UnsafePointerStorePending)
+    SafetyIssues.push_back("Unsafe pointer store (pending)");
+  if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
+    SafetyIssues.push_back("Unsafe pointer store (conditional)");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
