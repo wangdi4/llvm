@@ -611,9 +611,9 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
 
   // Generate privatization code.
   if (UseExpLoopPrivatizer)
-    CSAExpLoopPrivatizer(*this, W, NumWorkers > 1u).run();
+    CSAExpLoopPrivatizer(*this, W, NumWorkers <= 1u).run();
   else
-    CSALoopPrivatizer(*this, W, NumWorkers > 1u).run();
+    CSALoopPrivatizer(*this, W, NumWorkers <= 1u).run();
 
   // Annotating loop with spmdization entry/exit intrinsic calls if parallel
   // region has num_threads clause and the number of threads > 1.
