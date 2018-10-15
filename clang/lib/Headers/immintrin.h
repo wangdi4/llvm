@@ -515,6 +515,9 @@ _InterlockedCompareExchange64_HLERelease(__int64 volatile *_Destination,
   return _Comparand;
 }
 #endif
+
+extern int _may_i_use_cpu_feature(unsigned __int64);
+
 #ifdef __cplusplus
 }
 #endif
@@ -526,5 +529,61 @@ _InterlockedCompareExchange64_HLERelease(__int64 volatile *_Destination,
 #if !defined(_MSC_VER) || __has_feature(modules)
 #include <svmlintrin.h>
 #endif
+
+/* Definitions of feature list to be used by feature select intrinsics */
+#define _FEATURE_GENERIC_IA32        (1ULL     )
+#define _FEATURE_FPU                 (1ULL << 1)
+#define _FEATURE_CMOV                (1ULL << 2)
+#define _FEATURE_MMX                 (1ULL << 3)
+#define _FEATURE_FXSAVE              (1ULL << 4)
+#define _FEATURE_SSE                 (1ULL << 5)
+#define _FEATURE_SSE2                (1ULL << 6)
+#define _FEATURE_SSE3                (1ULL << 7)
+#define _FEATURE_SSSE3               (1ULL << 8)
+#define _FEATURE_SSE4_1              (1ULL << 9)
+#define _FEATURE_SSE4_2              (1ULL << 10)
+#define _FEATURE_MOVBE               (1ULL << 11)
+#define _FEATURE_POPCNT              (1ULL << 12)
+#define _FEATURE_PCLMULQDQ           (1ULL << 13)
+#define _FEATURE_AES                 (1ULL << 14)
+#define _FEATURE_F16C                (1ULL << 15)
+#define _FEATURE_AVX                 (1ULL << 16)
+#define _FEATURE_RDRND               (1ULL << 17)
+#define _FEATURE_FMA                 (1ULL << 18)
+#define _FEATURE_BMI                 (1ULL << 19)
+#define _FEATURE_LZCNT               (1ULL << 20)
+#define _FEATURE_HLE                 (1ULL << 21)
+#define _FEATURE_RTM                 (1ULL << 22)
+#define _FEATURE_AVX2                (1ULL << 23)
+#define _FEATURE_AVX512DQ            (1ULL << 24)
+#define _FEATURE_PTWRITE             (1ULL << 25)
+#define _FEATURE_AVX512F             (1ULL << 27)
+#define _FEATURE_ADX                 (1ULL << 28)
+#define _FEATURE_RDSEED              (1ULL << 29)
+#define _FEATURE_AVX512IFMA52        (1ULL << 30)
+#define _FEATURE_AVX512ER            (1ULL << 32)
+#define _FEATURE_AVX512PF            (1ULL << 33)
+#define _FEATURE_AVX512CD            (1ULL << 34)
+#define _FEATURE_SHA                 (1ULL << 35)
+#define _FEATURE_MPX                 (1ULL << 36)
+#define _FEATURE_AVX512BW            (1ULL << 37)
+#define _FEATURE_AVX512VL            (1ULL << 38)
+#define _FEATURE_AVX512VBMI          (1ULL << 39)
+#define _FEATURE_AVX512_4FMAPS       (1ULL << 40)
+#define _FEATURE_AVX512_4VNNIW       (1ULL << 41)
+#define _FEATURE_AVX512_VPOPCNTDQ    (1ULL << 42)
+#define _FEATURE_AVX512_BITALG       (1ULL << 43)
+#define _FEATURE_AVX512_VBMI2        (1ULL << 44)
+#define _FEATURE_GFNI                (1ULL << 45)
+#define _FEATURE_VAES                (1ULL << 46)
+#define _FEATURE_VPCLMULQDQ          (1ULL << 47)
+#define _FEATURE_AVX512_VNNI         (1ULL << 48)
+#define _FEATURE_CLWB                (1ULL << 49)
+#define _FEATURE_RDPID               (1ULL << 50)
+#define _FEATURE_IBT                 (1ULL << 51)
+#define _FEATURE_SHSTK               (1ULL << 52)
+#define _FEATURE_SGX                 (1ULL << 53)
+#define _FEATURE_WBNOINVD            (1ULL << 54)
+#define _FEATURE_PCONFIG             (1ULL << 55)
 
 #endif /* __IMMINTRIN_H */
