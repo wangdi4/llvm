@@ -6848,9 +6848,12 @@ private:
     // return value of an allocation call. So if it is a pointer to a pointer
     // then the allocated buffer is a buffer that will container a pointer
     // or array of pointers. Therefore, we do not want to trace all the way
-    // to the base type. If Ty is a pointer-to-pointer type then we do
-    // actually want to use the size of a pointer as the element size.
-    //
+    // to the base type. If Ty is a pointer-to-pointer type then we can return
+    // early because we can reason about the size of a pointer without finding
+    // the size in the IR.
+    if (Ty->getElementType()->isPointerTy())
+      return;
+
     // The size returned by DL.getTypeAllocSize() includes padding, both
     // within the type and between successive elements of the same type
     // if multiple elements are being allocated.
