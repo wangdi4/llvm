@@ -18,6 +18,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_CSA/CSAIRPasses.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
@@ -78,9 +79,9 @@ private:
                                  int NPEs);
   void AddHybridLoopLevel(Loop *L, int Chunk_Size, PHINode *ClonedInductionPHI,
                           ScalarEvolution *SE, DominatorTree *DT, LoopInfo *LI);
-  bool ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs,
-                          BasicBlock *AfterLoop, DominatorTree *DT,
-                          LoopInfo *LI);
+  int GetMinLoopIterations(Loop *L, ScalarEvolution *SE);
+  void AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs,
+                        BasicBlock *AfterLoop, DominatorTree *DT, LoopInfo *LI);
   bool AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &context, Module *M,
                                    BasicBlock *OrigPH, BasicBlock *E);
   IntrinsicInst *detectSPMDIntrinsic(Loop *L, LoopInfo *LI, DominatorTree *DT,
@@ -158,6 +159,9 @@ Branches to or from an OpenMP structured block are illegal
     // there is OldInst foreach reduction variable
     std::vector<Instruction *> OldInsts(r);
     FindReductionVariables(L, &ReduceVarExitOrig, &ReduceVarOrig);
+    // retrieve the minimum number of iterations of the loop in order to assess
+    // whether to insert the zero trip count check or not
+    int min_iterations = GetMinLoopIterations(L, SE);
     if (spmd_approach == SPMD_CYCLIC) {
       if (!TransformLoopInitandStep(L, SE, 0, NPEs, Chunk_Size)) {
         return false;
@@ -278,7 +282,16 @@ try a different SPMDization strategy instead.
       } else if (spmd_approach == SPMD_BLOCKING)
         TransformLoopInitandBound(NewLoop, SE, PE, NPEs);
 
-      ZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
+      if (min_iterations < PE) {
+        AddZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
+      } else {
+        ORE.emit(
+            OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
+            << "Loop SPMDization zero trip count check was not inserted for "
+               "Worker# " +
+                   std::to_string(PE) +
+                   "  ,as directed by the builtin_assume.");
+      }
       // This assumes -ffp-contract=fast is set
       bool success_p =
           FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs,
@@ -318,6 +331,7 @@ try a different SPMDization strategy instead.
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // getLoopAnalysisUsage(AU);
+    AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
@@ -333,6 +347,7 @@ char LoopSPMDization::ID = 0;
 
 INITIALIZE_PASS_BEGIN(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
@@ -390,10 +405,10 @@ void LoopSPMDization::AddUnrollDisableMetadata(Loop *L) {
   return;
 }
 
-unsigned LoopSPMDization:: FindReductionVectorsSize(Loop *L) {
+unsigned LoopSPMDization::FindReductionVectorsSize(Loop *L) {
   unsigned r = 0;
   for (Instruction &I : *L->getHeader()) {
-    if(isa<PHINode>(&I))
+    if (isa<PHINode>(&I))
       r++;
   }
   return r;
@@ -1192,9 +1207,131 @@ Failed to find the loop latch condition.
   return true;
 }
 
-bool LoopSPMDization::ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE,
-                                         int NPEs, BasicBlock *AfterLoop,
-                                         DominatorTree *DT, LoopInfo *LI) {
+/* This routine returns the minimum iterations the user assumes the loop L will
+be executing in order to help removing the zero trip case when replicating loops
+among workers. This routines implements the following two cases:
+
+case1: lower
+bound of loop is constant builtin_assume(hi>3); // or (hi-2>1)
+  __builtin_csa_spmdization(3,"cyclic");
+  for (int64_t i = 2; i < hi; i+=1)
+
+Case 2: lower bound of loop is not a constant
+ builtin_assume(hi-lo>2);
+ __builtin_csa_spmdization(3,"cyclic");
+ for (int64_t i = lo; i < hi; i+=1)
+Other cases will be implemented based on test cases
+*/
+int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
+  Function *F = L->getHeader()->getParent();
+  PHINode *InductionPHI = getInductionVariable(L, SE);
+  BasicBlock *PreHeader = L->getLoopPreheader();
+  BasicBlock *Header = L->getHeader();
+  BasicBlock *Latch = L->getLoopLatch();
+  BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
+
+  if (!InductionPHI) {
+    LLVM_DEBUG(dbgs() << "Failed to find the loop induction variable "
+                         "in one of the loops marked with SPMD intrinsic \n");
+    return -1;
+  }
+  Value *Cond;
+  if (LatchBR->isConditional())
+    Cond = LatchBR->getCondition();
+  else
+    Cond = (cast<BranchInst>(Header->getTerminator()))->getCondition();
+  Instruction *CondI = dyn_cast<Instruction>(Cond);
+  Value *UpperBound = CondI->getOperand(1);
+  if (InductionPHI->getIncomingBlock(0) == PreHeader) {
+    LowerBound = InductionPHI->getIncomingValue(0);
+  } else {
+    LowerBound = InductionPHI->getIncomingValue(1);
+  }
+  AssumptionCache *AC =
+      &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
+  // case1: lower bound of loop is constant
+  if (ConstantInt *CI = dyn_cast<ConstantInt>(LowerBound)) {
+    for (auto &AssumeVH : AC->assumptionsFor(UpperBound)) {
+      if (!AssumeVH)
+        continue;
+      auto *I = cast<CallInst>(AssumeVH);
+      ICmpInst *ICL = dyn_cast<ICmpInst>(I->getArgOperand(0));
+      Value *LHS = ICL->getOperand(0);
+      Value *RHS = ICL->getOperand(1);
+      CmpInst::Predicate Predicate = ICL->getPredicate();
+      if (isa<Constant>(RHS)) {
+        if (LHS == UpperBound) {
+          // Right now we support only the greater than case
+          if (Predicate == ICmpInst::ICMP_UGT ||
+              Predicate == ICmpInst::ICMP_SGT) {
+            if (ConstantInt *CRHS = cast<ConstantInt>(RHS)) {
+              int min_iterations = CRHS->getSExtValue();
+              int lowerC = CI->getSExtValue();
+              return min_iterations - lowerC;
+            }
+            /*else if ((Predicate == ICmpInst::ICMP_EQ))
+            //TO DO
+            else if (Predicate == ICmpInst::ICMP_ULT ||
+            Predicate == ICmpInst::ICMP_SLT)
+            //TODO
+            else if (Predicate == ICmpInst::ICMP_ULE ||
+            Predicate == ICmpInst::ICMP_SLE)
+            //TODO
+            } else if (Predicate == ICmpInst::ICMP_UGE ||
+            Predicate == ICmpInst::ICMP_SGE)
+            //TODO*/
+          }
+        }
+      }
+    }
+  } else {
+    // case1: lower bound of loop is not a constant
+    for (auto &AssumeVH : AC->assumptions()) {
+      if (!AssumeVH)
+        continue;
+      auto *I = cast<CallInst>(AssumeVH);
+      if (ICmpInst *ICL = dyn_cast<ICmpInst>(I->getArgOperand(0))) {
+        Value *LHS = ICL->getOperand(0);
+        if (Instruction *Isub = dyn_cast<Instruction>(LHS)) {
+          if (Isub->getOpcode() == Instruction::Sub) {
+            Value *upper = Isub->getOperand(0);
+            Value *lower = Isub->getOperand(1);
+            if (upper == UpperBound && lower == LowerBound) {
+              Value *RHS = ICL->getOperand(1);
+              CmpInst::Predicate Predicate = ICL->getPredicate();
+              if (isa<Constant>(RHS)) {
+                // Right now we support only the greater than case
+                if (Predicate == ICmpInst::ICMP_UGT ||
+                    Predicate == ICmpInst::ICMP_SGT) {
+                  if (ConstantInt *CRHS = cast<ConstantInt>(RHS)) {
+                    int min_iterations = CRHS->getSExtValue();
+                    return min_iterations;
+                  }
+                  /*if ((Predicate == ICmpInst::ICMP_EQ))
+                  //TODO
+                  else if (Predicate == ICmpInst::ICMP_ULT ||
+                  Predicate == ICmpInst::ICMP_SLT)
+                  //TODO
+                  else if (Predicate == ICmpInst::ICMP_ULE ||
+                  Predicate == ICmpInst::ICMP_SLE)
+                  //TODO
+                  else if (Predicate == ICmpInst::ICMP_UGE ||
+                  Predicate == ICmpInst::ICMP_SGE)
+                  //TODO*/
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return -1;
+}
+
+void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE,
+                                       int NPEs, BasicBlock *AfterLoop,
+                                       DominatorTree *DT, LoopInfo *LI) {
 
   BasicBlock *PreHeader = L->getLoopPreheader();
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
@@ -1275,7 +1412,7 @@ bool LoopSPMDization::ZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE,
         break;
       }
 
-  return true;
+  return;
 }
 
 bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &context,
