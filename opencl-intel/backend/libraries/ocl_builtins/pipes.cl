@@ -224,8 +224,8 @@ int get_write_capacity(__global struct __pipe_t* p) {
   return result;
 }
 
-void __pipe_init_fpga(__global struct __pipe_t* p, int packet_size, int depth,
-                      int mode) {
+void __pipe_init_fpga(__global void* pp, int packet_size, int depth, int mode) {
+  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
   p->packet_size = packet_size;
   p->max_packets = __pipe_get_max_packets_fpga(depth, mode);
   p->io = NULL;
@@ -256,14 +256,14 @@ void __pipe_init_fpga(__global struct __pipe_t* p, int packet_size, int depth,
   }
 }
 
-void __pipe_release_fpga(__global struct __pipe_t* p) {
+void __pipe_release_fpga(__global void* pp) {
+  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
   if (p->io != NULL)
     fclose(p->io);
 }
 
-void __pipe_init_array_fpga(__global struct __pipe_t* __global* p,
-                            int array_size, int packet_size, int depth,
-                            int mode) {
+void __pipe_init_array_fpga(__global void* __global* p, int array_size,
+                            int packet_size, int depth, int mode) {
   for (int i = 0; i < array_size; ++i) {
     __pipe_init_fpga(p[i], packet_size, depth, mode);
   }

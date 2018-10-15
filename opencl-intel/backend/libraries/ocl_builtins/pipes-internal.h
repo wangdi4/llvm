@@ -102,9 +102,10 @@ void __flush_write_pipe(__global void* p);
 //
 // Global constructor and desctructor
 //
-void __pipe_init_fpga(__global struct __pipe_t *p, int packet_size,
-                      int max_packets, int mode);
-void __pipe_release_fpga(__global struct __pipe_t* p);
+void __pipe_init_fpga(__global void* pp, int packet_size, int max_packets, int mode);
+void __pipe_init_array_fpga(__global void* __global* pp, int array_size, int packet_size,
+                            int depth, int mode);
+void __pipe_release_fpga(__global void* pp);
 
 //
 // Main read/write built-ins
