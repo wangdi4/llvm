@@ -70,6 +70,7 @@ MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
 MODULE_PASS("soatoaos-struct-methods-transform",                 // INTEL
             dtrans::SOAToAOSStructMethodsTransformDebug())       // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+MODULE_PASS("dtrans-annotator-cleaner", dtrans::AnnotatorCleanerPass()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())

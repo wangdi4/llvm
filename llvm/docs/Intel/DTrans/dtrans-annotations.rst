@@ -82,7 +82,7 @@ instruction.
 
   // Get the type that exists in an annotation, if one exists, for the
   // instruction.
-  llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction *I);
+  llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I);
 
 
 Pointer Annotations
@@ -168,7 +168,7 @@ structure of arrays.
   %4 = call i8* @llvm.ptr.annotation.p0i8(
                   i8* %mem,
                   i8* getelementptr inbounds ([31 x i8], [31 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0),
-                  i8* getelementptr inbounds ([13 x i8], [13 x i8]* @0, i32 0, i32 0), i32 0)
+                  i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0)
 
 
 [DTransAnnotator::DPA_AOSToSOAIndexField] AOS-to-SOA Peeling Index
@@ -209,8 +209,8 @@ would get transformed and annotated as:
                    %__SOADT_struct.test01dep* %struct_addr, i64 0, i32 1
   %1 = call i32* @llvm.ptr.annotation.p0i32(
                    i32* %field1_addr,
-                   i8* getelementptr ([26 x i8], [26 x i8]* @__DTransAOSToSOAIndexFieldName, i32 0, i32 0),
-                   i8* getelementptr ([13 x i8], [13 x i8]* @0, i32 0, i32 0), i32 0)
+                   i8* getelementptr ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0),
+                   i8* getelementptr ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0)
   %field1_val = load i32, i32* %field1_addr
 
 In this case, the annotation needs to be placed on a pointer within the IR

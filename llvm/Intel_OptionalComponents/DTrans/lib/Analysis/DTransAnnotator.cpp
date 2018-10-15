@@ -53,26 +53,28 @@ static_assert(sizeof(AnnotNames) / sizeof(char *) == DTransAnnotator::DPA_Last,
 // when DTrans transformations run because when the instruction referencing the
 // metadata is remapped, the type within the metadata will be remapped as well,
 // if the type changes.
-void DTransAnnotator::createDTransTypeAnnotation(Instruction *I,
+void DTransAnnotator::createDTransTypeAnnotation(Instruction &I,
                                                  llvm::Type *Ty) {
-  assert(Ty->isPointerTy() && "Annotation type must be pointer type");
-  assert(I->getMetadata(MetadataNames[DMD_DTransType]) == nullptr &&
+  assert(Ty && Ty->isPointerTy() && "Annotation type must be pointer type");
+  assert(I.getMetadata(MetadataNames[DMD_DTransType]) == nullptr &&
          "Only a single dtrans type metadata attachment allowed.");
 
-  LLVMContext &Ctx = I->getContext();
+  LLVMContext &Ctx = I.getContext();
   MDNode *MD =
       MDNode::get(Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty))});
-  I->setMetadata(MetadataNames[DMD_DTransType], MD);
+  I.setMetadata(MetadataNames[DMD_DTransType], MD);
 }
 
-void DTransAnnotator::removeDTransTypeAnnotation(Instruction *I) {
-  I->setMetadata(MetadataNames[DMD_DTransType], nullptr);
+bool DTransAnnotator::removeDTransTypeAnnotation(Instruction &I) {
+  bool HadMD = I.getMetadata(MetadataNames[DMD_DTransType]) ? true : false;
+  I.setMetadata(MetadataNames[DMD_DTransType], nullptr);
+  return HadMD;
 }
 
 // Get the type that exists in an annotation, if one exists, for the
 // instruction.
-llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction *I) {
-  auto *MD = I->getMetadata(MetadataNames[DMD_DTransType]);
+llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I) {
+  auto *MD = I.getMetadata(MetadataNames[DMD_DTransType]);
   if (!MD)
     return nullptr;
 

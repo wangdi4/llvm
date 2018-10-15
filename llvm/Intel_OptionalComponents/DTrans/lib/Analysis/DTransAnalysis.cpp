@@ -1683,7 +1683,7 @@ private:
     // transformations to apply to the type.
     if (auto *I = dyn_cast<Instruction>(V))
       if (auto *TyFromMD =
-              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(I))
+              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I))
         Info.addPointerTypeAlias(TyFromMD);
 
     // Build a stack of unresolved dependent values that must be analyzed
