@@ -1015,6 +1015,42 @@ controlled by -fintel-compatibility, retains volatile.
   }];
 }
 
+def MayIUseFeatureDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "None";
+  let RegressionTest ="test/CodeGen/intel/may-i-use-cpu-feature.cpp";
+  let Owner = "ekeane1";
+  let Content = [{
+The Intel Compiler implements a cpu-id like function to determine the
+current processor's features called _may_i_use_cpu_feature. This function
+accepts a compile-time constant unsigned 64 bit integer that contains a
+bitmask to validate against the current processor's feature list.
+
+This function returns a boolean 'true' if every feature in the bitmask
+parameter is supported by the current host processor.
+
+Most of this functionality is implemented in libirc. This library contains
+an init function (__intel_cpu_features_init/__intel_cpu_features_init_x)
+that initializes a global variable (__intel_cpu_feature_indicator/
+__intel_cpu_feature_indicator_x) with a bitmask that represents the features
+supported by the target machine architecture. Because of this, this feature
+requires linking with libirc. The '_x' versions do not check the Genuine Intel
+string, so this currently always checks those versions.
+
+From the compiler's perspective, this builtin ensures it is given a compile
+time constant integer parameter, then emits an and with the global variable,
+followed by an equality check against it, similar to this pseudo-code:
+
+.. code-block:: c
+
+  bool _may_i_use_cpu_feature(unsigned __int64 param) {
+    return (param & __intel_cpu_feature_indicator_x) == param;
+  }
+
+See additional documentation here:
+https://software.intel.com/en-us/node/523363
+  }];
+}
 
 def GlobalDocumentation {
   code Intro =[{..

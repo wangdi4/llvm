@@ -1306,6 +1306,33 @@ RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
       CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
   return EmitCall(FuncInfo, CGCallee::forDirect(Func), ReturnValue, Args);
 }
+
+llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
+  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy,
+                                                    /*Variadic*/ false);
+  llvm::Constant *Func =
+      CGM.CreateRuntimeFunction(FTy, "__cpu_indicator_init_x");
+  Builder.CreateCall(Func);
+
+  llvm::Constant *IndicatorPtr =
+      CGM.CreateRuntimeVariable(Int64Ty, "__intel_cpu_feature_indicator_x");
+  llvm::Value *Indicator = Builder.CreateAlignedLoad(
+      IndicatorPtr,
+      getContext().getTypeAlignInChars(E->getArg(0)->getType()),
+      "cpu_feature_indicator");
+
+  llvm::APSInt CompareFeatures;
+  bool IsConst =
+      E->getArg(0)->isIntegerConstantExpr(CompareFeatures, getContext());
+  assert(IsConst && "Constant arg isn't actually constant?"); (void)IsConst;
+
+  llvm::Value *Join =
+      Builder.CreateAnd(Indicator, CompareFeatures, "cpu_feature_join");
+
+  return Builder.CreateICmpEQ(Join,
+                              llvm::ConstantInt::get(Int64Ty, CompareFeatures),
+                              "cpu_feature_check");
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Determine if a binop is a checked mixed-sign multiply we can specialize.
@@ -9659,6 +9686,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86CpuInit();
 
 #if INTEL_CUSTOMIZATION
+  if (BuiltinID == X86::BI_may_i_use_cpu_feature)
+    return EmitX86MayIUseCpuFeature(E);
+
   // Enable FPGA feature built-ins for X86 target
   if (BuiltinID == X86::BIget_compute_id)
     return EmitGetComputeIDExpr(E);
