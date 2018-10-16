@@ -1000,7 +1000,7 @@ unsigned long __ovld atom_xor(volatile __local unsigned long *p, unsigned long v
 #if __OPENCL_C_VERSION__ >= CL_VERSION_1_2
 // OpenCL v1.2 s6.12.13, v2.0 s6.13.13 - printf
 
-int printf(__constant const char* st, ...);
+int printf(__constant const char* st, ...) __attribute__((format(printf, 1, 2)));
 #endif
 
 // Intel-Specific Sub Group Functions

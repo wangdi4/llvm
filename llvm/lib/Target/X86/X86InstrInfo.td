@@ -1210,12 +1210,12 @@ def POP32rmr: I<0x8F, MRM0r, (outs GR32:$reg), (ins), "pop{l}\t$reg", []>,
                 OpSize32, Requires<[Not64BitMode]>, NotMemoryFoldable;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 } // mayLoad, SchedRW
-let mayStore = 1, mayLoad = 1, SchedRW = [WriteRMW] in {
+let mayStore = 1, mayLoad = 1, SchedRW = [WriteCopy] in {
 def POP16rmm: I<0x8F, MRM0m, (outs), (ins i16mem:$dst), "pop{w}\t$dst", []>,
                 OpSize16;
 def POP32rmm: I<0x8F, MRM0m, (outs), (ins i32mem:$dst), "pop{l}\t$dst", []>,
                 OpSize32, Requires<[Not64BitMode]>;
-} // mayStore, mayLoad, WriteRMW
+} // mayStore, mayLoad, SchedRW
 
 let mayStore = 1, SchedRW = [WriteStore] in {
 def PUSH16r  : I<0x50, AddRegFrm, (outs), (ins GR16:$reg), "push{w}\t$reg",[]>,
@@ -1243,7 +1243,7 @@ def PUSHi32  : Ii32<0x68, RawFrm, (outs), (ins i32imm:$imm),
                    Requires<[Not64BitMode]>;
 } // mayStore, SchedRW
 
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in {
 def PUSH16rmm: I<0xFF, MRM6m, (outs), (ins i16mem:$src), "push{w}\t$src", []>,
                  OpSize16;
 def PUSH32rmm: I<0xFF, MRM6m, (outs), (ins i32mem:$src), "push{l}\t$src", []>,
@@ -1302,7 +1302,7 @@ def POP64rmr: I<0x8F, MRM0r, (outs GR64:$reg), (ins), "pop{q}\t$reg", []>,
                 OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 } // mayLoad, SchedRW
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteRMW] in
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in
 def POP64rmm: I<0x8F, MRM0m, (outs), (ins i64mem:$dst), "pop{q}\t$dst", []>,
                 OpSize32, Requires<[In64BitMode]>;
 let mayStore = 1, SchedRW = [WriteStore] in {
@@ -1314,7 +1314,7 @@ def PUSH64rmr: I<0xFF, MRM6r, (outs), (ins GR64:$reg), "push{q}\t$reg", []>,
                  OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 } // mayStore, SchedRW
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in {
 def PUSH64rmm: I<0xFF, MRM6m, (outs), (ins i64mem:$src), "push{q}\t$src", []>,
                  OpSize32, Requires<[In64BitMode]>;
 } // mayLoad, mayStore, SchedRW
@@ -1771,7 +1771,7 @@ def BT64rr : RI<0xA3, MRMDestReg, (outs), (ins GR64:$src1, GR64:$src2),
 // only for now. These instructions are also slow on modern CPUs so that's
 // another reason to avoid generating them.
 
-let mayLoad = 1, hasSideEffects = 0, SchedRW = [WriteALULd] in {
+let mayLoad = 1, hasSideEffects = 0, SchedRW = [WriteBitTestRegLd] in {
   def BT16mr : I<0xA3, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
                  "bt{w}\t{$src2, $src1|$src1, $src2}",
                  []>, OpSize16, TB, NotMemoryFoldable;
@@ -1799,7 +1799,7 @@ def BT64ri8 : RIi8<0xBA, MRM4r, (outs), (ins GR64:$src1, i64i8imm:$src2),
 
 // Note that these instructions aren't slow because that only applies when the
 // other operand is in a register. When it's an immediate, bt is still fast.
-let SchedRW = [WriteALULd] in {
+let SchedRW = [WriteBitTestImmLd] in {
 def BT16mi8 : Ii8<0xBA, MRM4m, (outs), (ins i16mem:$src1, i16i8imm:$src2),
                   "bt{w}\t{$src2, $src1|$src1, $src2}",
                   [(set EFLAGS, (X86bt (loadi16 addr:$src1),
@@ -1830,7 +1830,7 @@ def BTC64rr : RI<0xBB, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2
                  NotMemoryFoldable;
 } // SchedRW
 
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteALULd, WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetRegRMW] in {
 def BTC16mr : I<0xBB, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
                 "btc{w}\t{$src2, $src1|$src1, $src2}", []>,
                 OpSize16, TB, NotMemoryFoldable;
@@ -1851,7 +1851,7 @@ def BTC64ri8 : RIi8<0xBA, MRM7r, (outs GR64:$dst), (ins GR64:$src1, i64i8imm:$sr
                     "btc{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 } // SchedRW
 
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteALULd, WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetImmRMW] in {
 def BTC16mi8 : Ii8<0xBA, MRM7m, (outs), (ins i16mem:$src1, i16i8imm:$src2),
                     "btc{w}\t{$src2, $src1|$src1, $src2}", []>, OpSize16, TB;
 def BTC32mi8 : Ii8<0xBA, MRM7m, (outs), (ins i32mem:$src1, i32i8imm:$src2),
@@ -1873,7 +1873,7 @@ def BTR64rr : RI<0xB3, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2
                  NotMemoryFoldable;
 } // SchedRW
 
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteALULd, WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetRegRMW] in {
 def BTR16mr : I<0xB3, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
                 "btr{w}\t{$src2, $src1|$src1, $src2}", []>,
                 OpSize16, TB, NotMemoryFoldable;
@@ -1896,7 +1896,7 @@ def BTR64ri8 : RIi8<0xBA, MRM6r, (outs GR64:$dst), (ins GR64:$src1, i64i8imm:$sr
                     "btr{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 } // SchedRW
 
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteALULd, WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetImmRMW] in {
 def BTR16mi8 : Ii8<0xBA, MRM6m, (outs), (ins i16mem:$src1, i16i8imm:$src2),
                     "btr{w}\t{$src2, $src1|$src1, $src2}", []>,
                     OpSize16, TB;
@@ -1920,7 +1920,7 @@ def BTS64rr : RI<0xAB, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2
                NotMemoryFoldable;
 } // SchedRW
 
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteALULd, WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetRegRMW] in {
 def BTS16mr : I<0xAB, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
               "bts{w}\t{$src2, $src1|$src1, $src2}", []>,
               OpSize16, TB, NotMemoryFoldable;
@@ -1941,7 +1941,7 @@ def BTS64ri8 : RIi8<0xBA, MRM5r, (outs GR64:$dst), (ins GR64:$src1, i64i8imm:$sr
                     "bts{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 } // SchedRW
 
-let mayLoad = 1, mayStore = 1, SchedRW = [WriteALULd, WriteRMW] in {
+let mayLoad = 1, mayStore = 1, SchedRW = [WriteBitTestSetImmRMW] in {
 def BTS16mi8 : Ii8<0xBA, MRM5m, (outs), (ins i16mem:$src1, i16i8imm:$src2),
                     "bts{w}\t{$src2, $src1|$src1, $src2}", []>, OpSize16, TB;
 def BTS32mi8 : Ii8<0xBA, MRM5m, (outs), (ins i32mem:$src1, i32i8imm:$src2),
@@ -2423,7 +2423,7 @@ multiclass bmi_bextr<bits<8> opc, string mnemonic, RegisterClass RC,
                     ReadDefault, ReadDefault, ReadDefault, ReadDefault,
                     ReadDefault,
                     // RC:$src2
-                    ReadAfterLd]>;
+                    Sched.ReadAfterFold]>;
 }
 
 let Predicates = [HasBMI], Defs = [EFLAGS] in {
@@ -2449,7 +2449,7 @@ multiclass bmi_bzhi<bits<8> opc, string mnemonic, RegisterClass RC,
                     ReadDefault, ReadDefault, ReadDefault, ReadDefault,
                     ReadDefault,
                     // RC:$src2
-                    ReadAfterLd]>;
+                    Sched.ReadAfterFold]>;
 }
 
 let Predicates = [HasBMI2], Defs = [EFLAGS] in {
@@ -2585,7 +2585,7 @@ multiclass bmi_pdep_pext<string mnemonic, RegisterClass RC,
   def rm : I<0xF5, MRMSrcMem, (outs RC:$dst), (ins RC:$src1, x86memop:$src2),
              !strconcat(mnemonic, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
              [(set RC:$dst, (Int RC:$src1, (ld_frag addr:$src2)))]>,
-             VEX_4V, Sched<[WriteALULd, ReadAfterLd]>;
+             VEX_4V, Sched<[WriteALU.Folded, WriteALU.ReadAfterFold]>;
 }
 
 let Predicates = [HasBMI2] in {

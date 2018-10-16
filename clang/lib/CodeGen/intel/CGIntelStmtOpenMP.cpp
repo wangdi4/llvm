@@ -1222,6 +1222,10 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
   void OpenMPCodeOutliner::emitOMPUnifiedAddressClause(
       const OMPUnifiedAddressClause *) {}
+  void OpenMPCodeOutliner::emitOMPUnifiedSharedMemoryClause(
+      const OMPUnifiedSharedMemoryClause *) {}
+  void OpenMPCodeOutliner::emitOMPReverseOffloadClause(
+      const OMPReverseOffloadClause *) {}
 
   void OpenMPCodeOutliner::addFenceCalls(bool IsBegin) {
     switch (Directive.getDirectiveKind()) {

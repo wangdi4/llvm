@@ -195,6 +195,8 @@ class OpenMPCodeOutliner {
   void emitOMPTaskReductionClause(const OMPTaskReductionClause *);
   void emitOMPInReductionClause(const OMPInReductionClause *);
   void emitOMPUnifiedAddressClause(const OMPUnifiedAddressClause *);
+  void emitOMPUnifiedSharedMemoryClause(const OMPUnifiedSharedMemoryClause *);
+  void emitOMPReverseOffloadClause(const OMPReverseOffloadClause *);
 
   llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitIntelOpenMPDestructor(QualType Ty);

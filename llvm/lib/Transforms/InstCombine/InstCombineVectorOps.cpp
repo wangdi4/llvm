@@ -167,7 +167,8 @@ Instruction *InstCombiner::scalarizePHI(ExtractElementInst &EI, PHINode *PN) {
 }
 
 static Instruction *foldBitcastExtElt(ExtractElementInst &Ext,
-                                      InstCombiner::BuilderTy &Builder) {
+                                      InstCombiner::BuilderTy &Builder,
+                                      bool IsBigEndian) {
   Value *X;
   uint64_t ExtIndexC;
   if (!match(Ext.getVectorOperand(), m_BitCast(m_Value(X))) ||
@@ -185,6 +186,76 @@ static Instruction *foldBitcastExtElt(ExtractElementInst &Ext,
   if (NumSrcElts == NumElts)
     if (Value *Elt = findScalarElement(X, ExtIndexC))
       return new BitCastInst(Elt, DestTy);
+
+  // If the source elements are wider than the destination, try to shift and
+  // truncate a subset of scalar bits of an insert op.
+  if (NumSrcElts < NumElts) {
+    Value *Scalar;
+    uint64_t InsIndexC;
+    if (!match(X, m_InsertElement(m_Value(), m_Value(Scalar),
+                                  m_ConstantInt(InsIndexC))))
+      return nullptr;
+
+    // The extract must be from the subset of vector elements that we inserted
+    // into. Example: if we inserted element 1 of a <2 x i64> and we are
+    // extracting an i16 (narrowing ratio = 4), then this extract must be from 1
+    // of elements 4-7 of the bitcasted vector.
+    unsigned NarrowingRatio = NumElts / NumSrcElts;
+    if (ExtIndexC / NarrowingRatio != InsIndexC)
+      return nullptr;
+
+    // We are extracting part of the original scalar. How that scalar is
+    // inserted into the vector depends on the endian-ness. Example:
+    //              Vector Byte Elt Index:    0  1  2  3  4  5  6  7
+    //                                       +--+--+--+--+--+--+--+--+
+    // inselt <2 x i32> V, <i32> S, 1:       |V0|V1|V2|V3|S0|S1|S2|S3|
+    // extelt <4 x i16> V', 3:               |                 |S2|S3|
+    //                                       +--+--+--+--+--+--+--+--+
+    // If this is little-endian, S2|S3 are the MSB of the 32-bit 'S' value.
+    // If this is big-endian, S2|S3 are the LSB of the 32-bit 'S' value.
+    // In this example, we must right-shift little-endian. Big-endian is just a
+    // truncate.
+    unsigned Chunk = ExtIndexC % NarrowingRatio;
+    if (IsBigEndian)
+      Chunk = NarrowingRatio - 1 - Chunk;
+
+    // Bail out if this is an FP vector to FP vector sequence. That would take
+    // more instructions than we started with unless there is no shift, and it
+    // may not be handled as well in the backend.
+    bool NeedSrcBitcast = SrcTy->getScalarType()->isFloatingPointTy();
+    bool NeedDestBitcast = DestTy->isFloatingPointTy();
+    if (NeedSrcBitcast && NeedDestBitcast)
+      return nullptr;
+
+    unsigned SrcWidth = SrcTy->getScalarSizeInBits();
+    unsigned DestWidth = DestTy->getPrimitiveSizeInBits();
+    unsigned ShAmt = Chunk * DestWidth;
+
+    // TODO: This limitation is more strict than necessary. We could sum the
+    // number of new instructions and subtract the number eliminated to know if
+    // we can proceed.
+    if (!X->hasOneUse() || !Ext.getVectorOperand()->hasOneUse())
+      if (NeedSrcBitcast || NeedDestBitcast)
+        return nullptr;
+
+    if (NeedSrcBitcast) {
+      Type *SrcIntTy = IntegerType::getIntNTy(Scalar->getContext(), SrcWidth);
+      Scalar = Builder.CreateBitCast(Scalar, SrcIntTy);
+    }
+
+    if (ShAmt) {
+      // Bail out if we could end with more instructions than we started with.
+      if (!Ext.getVectorOperand()->hasOneUse())
+        return nullptr;
+      Scalar = Builder.CreateLShr(Scalar, ShAmt);
+    }
+
+    if (NeedDestBitcast) {
+      Type *DestIntTy = IntegerType::getIntNTy(Scalar->getContext(), DestWidth);
+      return new BitCastInst(Builder.CreateTrunc(Scalar, DestIntTy), DestTy);
+    }
+    return new TruncInst(Scalar, DestTy);
+  }
 
   return nullptr;
 }
@@ -224,7 +295,7 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
       }
     }
 
-    if (Instruction *I = foldBitcastExtElt(EI, Builder))
+    if (Instruction *I = foldBitcastExtElt(EI, Builder, DL.isBigEndian()))
       return I;
 
     // If there's a vector PHI feeding a scalar use through this extractelement
@@ -1374,8 +1445,8 @@ static Instruction *foldSelectShuffle(ShuffleVectorInst &Shuf,
 /// Match a shuffle-select-shuffle pattern where the shuffles are widening and
 /// narrowing (concatenating with undef and extracting back to the original
 /// length). This allows replacing the wide select with a narrow select.
-Instruction *narrowVectorSelect(ShuffleVectorInst &Shuf,
-                                InstCombiner::BuilderTy &Builder) {
+static Instruction *narrowVectorSelect(ShuffleVectorInst &Shuf,
+                                       InstCombiner::BuilderTy &Builder) {
   // This must be a narrowing identity shuffle. It extracts the 1st N elements
   // of the 1st vector operand of a shuffle.
   if (!match(Shuf.getOperand(1), m_Undef()) || !Shuf.isIdentityWithExtract())
@@ -1406,6 +1477,33 @@ Instruction *narrowVectorSelect(ShuffleVectorInst &Shuf,
   return SelectInst::Create(NarrowCond, NarrowX, NarrowY);
 }
 
+/// Try to combine 2 shuffles into 1 shuffle by concatenating a shuffle mask.
+static Instruction *foldIdentityExtractShuffle(ShuffleVectorInst &Shuf) {
+  Value *Op0 = Shuf.getOperand(0), *Op1 = Shuf.getOperand(1);
+  if (!Shuf.isIdentityWithExtract() || !isa<UndefValue>(Op1))
+    return nullptr;
+
+  Value *X, *Y;
+  Constant *Mask;
+  if (!match(Op0, m_ShuffleVector(m_Value(X), m_Value(Y), m_Constant(Mask))))
+    return nullptr;
+
+  // We are extracting a subvector from a shuffle. Remove excess elements from
+  // the 1st shuffle mask to eliminate the extract.
+  //   shuf (shuf X, Y, <C0, C1, C2, C3>), undef, <0, undef, 2> -->
+  //   shuf X, Y, <C0, undef, C2>
+  unsigned NumElts = Shuf.getType()->getVectorNumElements();
+  SmallVector<Constant *, 16> NewMask(NumElts);
+  for (unsigned i = 0; i != NumElts; ++i) {
+    // If the extracting shuffle has an undef mask element, it transfers to the
+    // new shuffle mask. Otherwise, copy the original mask element.
+    Constant *ExtractMaskElt = Shuf.getMask()->getAggregateElement(i);
+    Constant *MaskElt = Mask->getAggregateElement(i);
+    NewMask[i] = isa<UndefValue>(ExtractMaskElt) ? ExtractMaskElt : MaskElt;
+  }
+  return new ShuffleVectorInst(X, Y, ConstantVector::get(NewMask));
+}
+
 Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
   Value *LHS = SVI.getOperand(0);
   Value *RHS = SVI.getOperand(1);
@@ -1427,6 +1525,9 @@ Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
       return replaceInstUsesWith(SVI, V);
     return &SVI;
   }
+
+  if (Instruction *I = foldIdentityExtractShuffle(SVI))
+    return I;
 
   SmallVector<int, 16> Mask = SVI.getShuffleMask();
   Type *Int32Ty = Type::getInt32Ty(SVI.getContext());
