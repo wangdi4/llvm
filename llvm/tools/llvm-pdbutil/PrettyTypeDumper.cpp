@@ -19,6 +19,7 @@
 
 #include "llvm/DebugInfo/PDB/IPDBSession.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolExe.h"
+#include "llvm/DebugInfo/PDB/PDBSymbolTypeArray.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeBuiltin.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeEnum.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeFunctionSig.h"
@@ -201,8 +202,15 @@ void TypeDumper::start(const PDBSymbolExe &Exe) {
   if (opts::pretty::Typedefs)
     dumpSymbolCategory<PDBSymbolTypeTypedef>(Printer, Exe, *this, "Typedefs");
 
+  if (opts::pretty::Arrays)
+    dumpSymbolCategory<PDBSymbolTypeArray>(Printer, Exe, *this, "Arrays");
+
   if (opts::pretty::Pointers)
     dumpSymbolCategory<PDBSymbolTypePointer>(Printer, Exe, *this, "Pointers");
+
+  if (opts::pretty::VTShapes)
+    dumpSymbolCategory<PDBSymbolTypeVTableShape>(Printer, Exe, *this,
+                                                 "VFTable Shapes");
 
   if (opts::pretty::Classes) {
     if (auto Classes = Exe.findAllChildren<PDBSymbolTypeUDT>()) {
@@ -277,11 +285,24 @@ void TypeDumper::dump(const PDBSymbolTypeBuiltin &Symbol) {
   BD.start(Symbol);
 }
 
+void TypeDumper::dump(const PDBSymbolTypeUDT &Symbol) {
+  printClassDecl(Printer, Symbol);
+}
+
 void TypeDumper::dump(const PDBSymbolTypeTypedef &Symbol) {
   assert(opts::pretty::Typedefs);
 
   TypedefDumper Dumper(Printer);
   Dumper.start(Symbol);
+}
+
+void TypeDumper::dump(const PDBSymbolTypeArray &Symbol) {
+  auto ElementType = Symbol.getElementType();
+
+  ElementType->dump(*this);
+  Printer << "[";
+  WithColor(Printer, PDB_ColorItem::LiteralValue).get() << Symbol.getCount();
+  Printer << "]";
 }
 
 void TypeDumper::dump(const PDBSymbolTypeFunctionSig &Symbol) {
@@ -292,7 +313,7 @@ void TypeDumper::dump(const PDBSymbolTypeFunctionSig &Symbol) {
 void TypeDumper::dump(const PDBSymbolTypePointer &Symbol) {
   std::unique_ptr<PDBSymbol> P = Symbol.getPointeeType();
 
-  if (auto *FS = dyn_cast_or_null<PDBSymbolTypeFunctionSig>(P.get())) {
+  if (auto *FS = dyn_cast<PDBSymbolTypeFunctionSig>(P.get())) {
     FunctionDumper Dumper(Printer);
     FunctionDumper::PointerType PT =
         Symbol.isReference() ? FunctionDumper::PointerType::Reference
@@ -301,7 +322,7 @@ void TypeDumper::dump(const PDBSymbolTypePointer &Symbol) {
     return;
   }
 
-  if (auto *UDT = dyn_cast_or_null<PDBSymbolTypeUDT>(P.get())) {
+  if (auto *UDT = dyn_cast<PDBSymbolTypeUDT>(P.get())) {
     printClassDecl(Printer, *UDT);
   } else if (P) {
     P->dump(*this);
@@ -319,6 +340,10 @@ void TypeDumper::dump(const PDBSymbolTypePointer &Symbol) {
     Printer << "&&";
   else
     Printer << "*";
+}
+
+void TypeDumper::dump(const PDBSymbolTypeVTableShape &Symbol) {
+  Printer.format("<vtshape ({0} methods)>", Symbol.getCount());
 }
 
 void TypeDumper::dumpClassLayout(const ClassLayout &Class) {

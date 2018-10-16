@@ -193,6 +193,12 @@ static cl::opt<bool> Compilands("compilands",
 static cl::opt<bool> Funcsigs("funcsigs",
                               cl::desc("Dump function signature information"),
                               cl::sub(DiaDumpSubcommand));
+static cl::opt<bool> Arrays("arrays", cl::desc("Dump array types"),
+                            cl::sub(DiaDumpSubcommand));
+static cl::opt<bool> VTShapes("vtshapes", cl::desc("Dump virtual table shapes"),
+                              cl::sub(DiaDumpSubcommand));
+static cl::opt<bool> Typedefs("typedefs", cl::desc("Dump typedefs"),
+                              cl::sub(DiaDumpSubcommand));
 } // namespace diadump
 
 namespace pretty {
@@ -244,6 +250,10 @@ cl::opt<bool> Typedefs("typedefs", cl::desc("Display typedef types"),
 cl::opt<bool> Funcsigs("funcsigs", cl::desc("Display function signatures"),
                        cl::cat(TypeCategory), cl::sub(PrettySubcommand));
 cl::opt<bool> Pointers("pointers", cl::desc("Display pointer types"),
+                       cl::cat(TypeCategory), cl::sub(PrettySubcommand));
+cl::opt<bool> Arrays("arrays", cl::desc("Display arrays"),
+                     cl::cat(TypeCategory), cl::sub(PrettySubcommand));
+cl::opt<bool> VTShapes("vtshapes", cl::desc("Display vftable shapes"),
                        cl::cat(TypeCategory), cl::sub(PrettySubcommand));
 
 cl::opt<SymbolSortMode> SymbolOrder(
@@ -1015,9 +1025,15 @@ static void dumpDia(StringRef Path) {
     SymTypes.push_back(PDB_SymType::UDT);
   if (opts::diadump::Funcsigs)
     SymTypes.push_back(PDB_SymType::FunctionSig);
-
+  if (opts::diadump::Arrays)
+    SymTypes.push_back(PDB_SymType::ArrayType);
+  if (opts::diadump::VTShapes)
+    SymTypes.push_back(PDB_SymType::VTableShape);
+  if (opts::diadump::Typedefs)
+    SymTypes.push_back(PDB_SymType::Typedef);
   PdbSymbolIdField Ids = opts::diadump::NoSymIndexIds ? PdbSymbolIdField::None
                                                       : PdbSymbolIdField::All;
+
   PdbSymbolIdField Recurse = PdbSymbolIdField::None;
   if (opts::diadump::Recurse)
     Recurse = PdbSymbolIdField::All;
@@ -1182,7 +1198,8 @@ static void dumpPretty(StringRef Path) {
   }
 
   if (opts::pretty::Classes || opts::pretty::Enums || opts::pretty::Typedefs ||
-      opts::pretty::Funcsigs || opts::pretty::Pointers) {
+      opts::pretty::Funcsigs || opts::pretty::Pointers ||
+      opts::pretty::Arrays || opts::pretty::VTShapes) {
     Printer.NewLine();
     WithColor(Printer, PDB_ColorItem::SectionHeader).get() << "---TYPES---";
     Printer.Indent();
@@ -1275,6 +1292,7 @@ static void dumpPretty(StringRef Path) {
       dumpInjectedSources(Printer, *Session);
   }
 
+  Printer.NewLine();
   outs().flush();
 }
 

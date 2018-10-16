@@ -4330,10 +4330,13 @@ static bool CheckConstexprFunction(EvalInfo &Info, SourceLocation CallLoc,
       Declaration->isConstexpr())
     return false;
 
-  // Bail out with no diagnostic if the function declaration itself is invalid.
-  // We will have produced a relevant diagnostic while parsing it.
-  if (Declaration->isInvalidDecl())
+  // Bail out if the function declaration itself is invalid.  We will
+  // have produced a relevant diagnostic while parsing it, so just
+  // note the problematic sub-expression.
+  if (Declaration->isInvalidDecl()) {
+    Info.FFDiag(CallLoc, diag::note_invalid_subexpr_in_const_expr);
     return false;
+  }
 
   // Can we evaluate this function call?
   if (Definition && Definition->isConstexpr() &&
@@ -6237,6 +6240,10 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     QualType SrcT = Src.Designator.getType(Info.Ctx);
     if (!Info.Ctx.hasSameUnqualifiedType(T, SrcT)) {
       Info.FFDiag(E, diag::note_constexpr_memcpy_type_pun) << Move << SrcT << T;
+      return false;
+    }
+    if (T->isIncompleteType()) {
+      Info.FFDiag(E, diag::note_constexpr_memcpy_incomplete_type) << Move << T;
       return false;
     }
     if (!T.isTriviallyCopyableType(Info.Ctx)) {

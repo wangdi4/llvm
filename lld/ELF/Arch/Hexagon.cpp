@@ -40,6 +40,13 @@ public:
 Hexagon::Hexagon() {
   PltRel = R_HEX_JMP_SLOT;
   RelativeRel = R_HEX_RELATIVE;
+  GotRel = R_HEX_GLOB_DAT;
+  GotEntrySize = 4;
+  // The zero'th GOT entry is reserved for the address of _DYNAMIC.  The
+  // next 3 are reserved for the dynamic loader.
+  GotPltHeaderEntriesNum = 4;
+  GotPltEntrySize = 4;
+
   PltEntrySize = 16;
   PltHeaderSize = 32;
 
@@ -75,11 +82,16 @@ RelExpr Hexagon::getRelExpr(RelType Type, const Symbol &S,
   case R_HEX_B15_PCREL:
   case R_HEX_B15_PCREL_X:
   case R_HEX_6_PCREL_X:
+  case R_HEX_32_PCREL:
     return R_PC;
   case R_HEX_B22_PCREL:
+  case R_HEX_PLT_B22_PCREL:
   case R_HEX_B22_PCREL_X:
   case R_HEX_B32_PCREL_X:
     return R_PLT_PC;
+  case R_HEX_GOT_11_X:
+  case R_HEX_GOT_32_6_X:
+    return R_HEXAGON_GOT;
   default:
     return R_ABS;
   }
@@ -173,6 +185,7 @@ void Hexagon::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
     or32le(Loc, applyMask(0x00203fe0, Val & 0x3f));
     break;
   case R_HEX_11_X:
+  case R_HEX_GOT_11_X:
     or32le(Loc, applyMask(findMaskR11(read32le(Loc)), Val & 0x3f));
     break;
   case R_HEX_12_X:
@@ -182,9 +195,11 @@ void Hexagon::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
     or32le(Loc, applyMask(findMaskR16(read32le(Loc)), Val & 0x3f));
     break;
   case R_HEX_32:
+  case R_HEX_32_PCREL:
     or32le(Loc, Val);
     break;
   case R_HEX_32_6_X:
+  case R_HEX_GOT_32_6_X:
     or32le(Loc, applyMask(0x0fff3fff, Val >> 6));
     break;
   case R_HEX_B9_PCREL:
@@ -203,6 +218,7 @@ void Hexagon::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
     or32le(Loc, applyMask(0x00df20fe, Val & 0x3f));
     break;
   case R_HEX_B22_PCREL:
+  case R_HEX_PLT_B22_PCREL:
     or32le(Loc, applyMask(0x1ff3ffe, Val >> 2));
     break;
   case R_HEX_B22_PCREL_X:
