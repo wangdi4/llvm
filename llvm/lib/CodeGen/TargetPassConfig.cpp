@@ -43,6 +43,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Threading.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
@@ -111,10 +112,10 @@ static cl::opt<bool> PrintISelInput("print-isel-input", cl::Hidden,
     cl::desc("Print LLVM IR input to isel pass"));
 static cl::opt<bool> PrintGCInfo("print-gc", cl::Hidden,
     cl::desc("Dump garbage collector data"));
-static cl::opt<bool> VerifyMachineCode("verify-machineinstrs", cl::Hidden,
-    cl::desc("Verify generated machine code"),
-    cl::init(false),
-    cl::ZeroOrMore);
+static cl::opt<cl::boolOrDefault>
+    VerifyMachineCode("verify-machineinstrs", cl::Hidden,
+                      cl::desc("Verify generated machine code"),
+                      cl::ZeroOrMore);
 enum RunOutliner { AlwaysOutline, NeverOutline, TargetDefault };
 // Enable or disable the MachineOutliner.
 static cl::opt<RunOutliner> EnableMachineOutliner(
@@ -556,7 +557,7 @@ void TargetPassConfig::addPrintPass(const std::string &Banner) {
 }
 
 void TargetPassConfig::addVerifyPass(const std::string &Banner) {
-  bool Verify = VerifyMachineCode;
+  bool Verify = VerifyMachineCode == cl::BOU_TRUE;
 #ifdef EXPENSIVE_CHECKS
   if (VerifyMachineCode == cl::BOU_UNSET)
     Verify = TM->isMachineVerifierClean();
@@ -731,6 +732,7 @@ bool TargetPassConfig::addCoreISelPasses() {
        TM->Options.EnableGlobalISel && EnableFastISelOption != cl::BOU_TRUE)) {
     TM->setFastISel(false);
 
+    SaveAndRestore<bool> SavedAddingMachinePasses(AddingMachinePasses, true);
     if (addIRTranslator())
       return true;
 

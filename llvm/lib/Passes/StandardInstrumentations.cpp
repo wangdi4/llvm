@@ -120,4 +120,5 @@ void StandardInstrumentations::registerCallbacks(
   if (llvm::shouldPrintAfterPass())
     PIC.registerAfterPassCallback(PrintIR::printAfterPass);
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  TimePasses.registerCallbacks(PIC);
 }
