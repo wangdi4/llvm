@@ -193,6 +193,12 @@ static cl::opt<bool> Compilands("compilands",
 static cl::opt<bool> Funcsigs("funcsigs",
                               cl::desc("Dump function signature information"),
                               cl::sub(DiaDumpSubcommand));
+static cl::opt<bool> Arrays("arrays", cl::desc("Dump array types"),
+                            cl::sub(DiaDumpSubcommand));
+static cl::opt<bool> VTShapes("vtshapes", cl::desc("Dump virtual table shapes"),
+                              cl::sub(DiaDumpSubcommand));
+static cl::opt<bool> Typedefs("typedefs", cl::desc("Dump typedefs"),
+                              cl::sub(DiaDumpSubcommand));
 } // namespace diadump
 
 namespace pretty {
@@ -243,6 +249,13 @@ cl::opt<bool> Typedefs("typedefs", cl::desc("Display typedef types"),
                        cl::cat(TypeCategory), cl::sub(PrettySubcommand));
 cl::opt<bool> Funcsigs("funcsigs", cl::desc("Display function signatures"),
                        cl::cat(TypeCategory), cl::sub(PrettySubcommand));
+cl::opt<bool> Pointers("pointers", cl::desc("Display pointer types"),
+                       cl::cat(TypeCategory), cl::sub(PrettySubcommand));
+cl::opt<bool> Arrays("arrays", cl::desc("Display arrays"),
+                     cl::cat(TypeCategory), cl::sub(PrettySubcommand));
+cl::opt<bool> VTShapes("vtshapes", cl::desc("Display vftable shapes"),
+                       cl::cat(TypeCategory), cl::sub(PrettySubcommand));
+
 cl::opt<SymbolSortMode> SymbolOrder(
     "symbol-order", cl::desc("symbol sort order"),
     cl::init(SymbolSortMode::None),
@@ -513,6 +526,11 @@ cl::opt<bool> DumpGlobals("globals", cl::desc("dump Globals symbol records"),
                           cl::cat(SymbolOptions), cl::sub(DumpSubcommand));
 cl::opt<bool> DumpGlobalExtras("global-extras", cl::desc("dump Globals hashes"),
                                cl::cat(SymbolOptions), cl::sub(DumpSubcommand));
+cl::list<std::string> DumpGlobalNames(
+    "global-name",
+    cl::desc(
+        "With -globals, only dump globals whose name matches the given value"),
+    cl::cat(SymbolOptions), cl::sub(DumpSubcommand), cl::ZeroOrMore);
 cl::opt<bool> DumpPublics("publics", cl::desc("dump Publics stream data"),
                           cl::cat(SymbolOptions), cl::sub(DumpSubcommand));
 cl::opt<bool> DumpPublicExtras("public-extras",
@@ -1012,9 +1030,15 @@ static void dumpDia(StringRef Path) {
     SymTypes.push_back(PDB_SymType::UDT);
   if (opts::diadump::Funcsigs)
     SymTypes.push_back(PDB_SymType::FunctionSig);
-
+  if (opts::diadump::Arrays)
+    SymTypes.push_back(PDB_SymType::ArrayType);
+  if (opts::diadump::VTShapes)
+    SymTypes.push_back(PDB_SymType::VTableShape);
+  if (opts::diadump::Typedefs)
+    SymTypes.push_back(PDB_SymType::Typedef);
   PdbSymbolIdField Ids = opts::diadump::NoSymIndexIds ? PdbSymbolIdField::None
                                                       : PdbSymbolIdField::All;
+
   PdbSymbolIdField Recurse = PdbSymbolIdField::None;
   if (opts::diadump::Recurse)
     Recurse = PdbSymbolIdField::All;
@@ -1179,7 +1203,8 @@ static void dumpPretty(StringRef Path) {
   }
 
   if (opts::pretty::Classes || opts::pretty::Enums || opts::pretty::Typedefs ||
-      opts::pretty::Funcsigs) {
+      opts::pretty::Funcsigs || opts::pretty::Pointers ||
+      opts::pretty::Arrays || opts::pretty::VTShapes) {
     Printer.NewLine();
     WithColor(Printer, PDB_ColorItem::SectionHeader).get() << "---TYPES---";
     Printer.Indent();
@@ -1272,6 +1297,7 @@ static void dumpPretty(StringRef Path) {
       dumpInjectedSources(Printer, *Session);
   }
 
+  Printer.NewLine();
   outs().flush();
 }
 
@@ -1516,6 +1542,8 @@ int main(int Argc, const char **Argv) {
       opts::pretty::Classes = true;
       opts::pretty::Typedefs = true;
       opts::pretty::Enums = true;
+      opts::pretty::Pointers = true;
+      opts::pretty::Funcsigs = true;
     }
 
     // When adding filters for excluded compilands and types, we need to
