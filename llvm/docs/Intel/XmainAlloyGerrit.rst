@@ -304,6 +304,8 @@ Rest of the functionality is same as the regular reviewer ( ``xmain_checkin``,
         ``zperf_checkin_xmain``, ``xmain_alloy`` ) removed, it will not detect
         any new patches.
 
+.. _gerrit-alloy-fallback:
+
 Fallback
 --------
 

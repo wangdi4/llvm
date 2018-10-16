@@ -292,6 +292,7 @@ set(LLVM_ALL_TARGETS
   PowerPC
   Sparc
   SystemZ
+  WebAssembly
   X86
   XCore
   )

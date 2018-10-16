@@ -20,6 +20,9 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 
+#include "IntelVPlanVLSAnalysis.h"
+#include "llvm/Analysis/Intel_OptVLS.h"
+
 namespace llvm {
 class DataLayout;
 class TargetTransformInfo;
@@ -33,14 +36,52 @@ class VPBasicBlock;
 class VPBlockBase;
 class VPInstruction;
 
-class VPlanCostModel {
+#if INTEL_CUSTOMIZATION
+class VPlanVLSCostModel : public OVLSCostModel {
 public:
+  explicit VPlanVLSCostModel(const VPlanCostModel &VPCM,
+                             const TargetTransformInfo &TTI, LLVMContext &Cntx)
+      : OVLSCostModel(TTI, Cntx), VPCM(VPCM) {}
+  /// Generic function to get a cost of OVLSInstruction. Internally it has
+  /// dispatch functionality to return cost for OVLSShuffle
+  virtual uint64_t getInstructionCost(const OVLSInstruction *I) const final;
+
+  /// Return cost of a gather or scatter instruction.
+  virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Memref) const final;
+
+protected:
+  const VPlanCostModel &VPCM;
+};
+#endif // INTEL_CUSTOMIZATION
+
+class VPlanCostModel {
+#if INTEL_CUSTOMIZATION
+  // To access getMemInstValueType.
+  friend class VPlanVLSAnalysisHIR;
+  friend class VPlanVLSCostModel;
+#endif // INTEL_CUSTOMIZATION
+public:
+#if INTEL_CUSTOMIZATION
+  VPlanCostModel(const VPlan *Plan, const unsigned VF,
+                 const TargetTransformInfo *TTI, const DataLayout *DL,
+                 VPlanVLSAnalysis *VLSA)
+      : Plan(Plan), VF(VF), TTI(TTI), DL(DL), VLSA(VLSA) {
+    if (VLSA)
+      // FIXME: Really ugly to get LLVMContext from VLSA, which may not
+      // even exist, but so far there's no other simple way to pass it here.
+      // Unlike LLVM IR VPBB has no LLVMContext, because Type is not yet
+      // implemented
+      VLSCM = std::make_shared<VPlanVLSCostModel>(*this, *TTI, VLSA->getContext());
+  }
+#else
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
                  const TargetTransformInfo *TTI, const DataLayout *DL)
       : Plan(Plan), VF(VF), TTI(TTI), DL(DL) {}
+#endif // INTEL_CUSTOMIZATION
   virtual unsigned getCost(const VPInstruction *VPInst) const;
   virtual unsigned getCost(const VPBasicBlock *VPBB) const;
   virtual unsigned getCost() const;
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) const;
   void print(raw_ostream &OS) const;
   virtual ~VPlanCostModel() {}
 
@@ -49,6 +90,10 @@ protected:
   unsigned VF;
   const TargetTransformInfo *TTI;
   const DataLayout *DL;
+#if INTEL_CUSTOMIZATION
+  VPlanVLSAnalysis *VLSA;
+  std::shared_ptr<VPlanVLSCostModel> VLSCM;
+#endif // INTEL_CUSTOMIZATION
 
   static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
 

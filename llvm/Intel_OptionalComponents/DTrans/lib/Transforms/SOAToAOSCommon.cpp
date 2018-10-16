@@ -12,9 +12,12 @@
 // and structure containing arrays for SOA-to-AOS.
 //
 //===----------------------------------------------------------------------===//
+
 #include "llvm/Support/Compiler.h"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
+
 #include "SOAToAOSCommon.h"
 #include "SOAToAOSEffects.h"
 
@@ -23,7 +26,6 @@
 namespace llvm {
 namespace dtrans {
 namespace soatoaos {
-
 // Offset of memory interface in structure type.
 cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff(
     "dtrans-soatoaos-mem-off", cl::init(-1U), cl::ReallyHidden,
@@ -58,4 +60,3 @@ SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(const Function &F) {
 } // namespace dtrans
 } // namespace llvm
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-

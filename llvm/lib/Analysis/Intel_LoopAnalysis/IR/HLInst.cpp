@@ -334,14 +334,6 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
   }
 }
 
-bool HLInst::hasLval() const {
-  /// The following logic is copied from AssemblyWriter::printInstruction().
-  /// TODO: Is there a better way to determine this, probably by checking
-  /// non-zero uses?
-  return (Inst->hasName() || !Inst->getType()->isVoidTy() ||
-          isa<StoreInst>(Inst));
-}
-
 RegDDRef *HLInst::getLvalDDRef() {
   if (hasLval()) {
     return getOperandDDRefImpl(0);
@@ -356,11 +348,6 @@ RegDDRef *HLInst::removeLvalDDRef() {
   setLvalDDRef(nullptr);
 
   return TRef;
-}
-
-bool HLInst::hasRval() const {
-  return (isa<StoreInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
-          (hasLval() && isa<UnaryInstruction>(Inst)));
 }
 
 RegDDRef *HLInst::getRvalDDRef() {

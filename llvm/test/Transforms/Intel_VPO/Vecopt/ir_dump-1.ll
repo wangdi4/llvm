@@ -20,7 +20,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK:         [[BB2]] (BP: NULL) :
-; CHECK-NEXT:     [[VP2:%.*]] = phi i64 0 [[VP3:%.*]]
+; CHECK-NEXT:     [[VP2:%.*]] = phi [ i64 0, [[BBH:.*]] ], [ [[VP3:%.*]], [[BBL:.*]] ]
 ; CHECK-NEXT:     [[VP4:%.*]] = getelementptr [1024 x i32]* @a i64 0 [[VP2]]
 ; CHECK-NEXT:     [[VP5:%.*]] = load [[VP4]]
 ; CHECK-NEXT:     [[VP6:%.*]] = getelementptr [1024 x i32]* @b i64 0 [[VP2]]
@@ -41,10 +41,10 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:       [[VP15:%.*]] = mul [[VP5]] [[VP5]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
 ; CHECK:         [[BB5]] (BP: NULL) :
-; CHECK-NEXT:     [[VP16:%.*]] = phi [[VP14]] i32 0
-; CHECK-NEXT:     [[VP17:%.*]] = phi [[VP15]] i32 0
-; CHECK-NEXT:     [[VP18:%.*]] = phi [[VP12]] i32 1
-; CHECK-NEXT:     [[VP19:%.*]] = phi [[VP13]] i32 1
+; CHECK-NEXT:     [[VP16:%.*]] = phi [ [[VP14]], [[BB4]] ], [ i32 0, [[BBT:BB[0-9]+]] ]
+; CHECK-NEXT:     [[VP17:%.*]] = phi [ [[VP15]], [[BB4]] ], [ i32 0, [[BBT]] ]
+; CHECK-NEXT:     [[VP18:%.*]] = phi [ [[VP12]], [[BB4]] ], [ i32 1, [[BBT]] ]
+; CHECK-NEXT:     [[VP19:%.*]] = phi [ [[VP13]], [[BB4]] ], [ i32 1, [[BBT]] ]
 ; CHECK-NEXT:     [[VP20:%.*]] = mul [[VP18]] [[VP16]]
 ; CHECK-NEXT:     [[VP21:%.*]] = add [[VP20]] [[VP7]]
 ; CHECK-NEXT:     store [[VP21]] [[VP6]]

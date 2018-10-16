@@ -349,6 +349,37 @@ define void @test19() {
 ; CHECK: dtrans: Detected allocation cast to pointer type
 ; CHECK: Detected type: [0 x %struct.badsize.S5]
 
+define void @test21(i32 %n) {
+  ; size = n * 4 * sizeof(S1)
+  ;   (becomes) size = n * 4 * 8
+  ;   (becomes) size = n << 5
+  %n64 = zext i32 %n to i64
+  %size = shl i64 %n64, 5
+  ; s1 = (struct S1*)malloc(size);
+  %p = call noalias i8* @malloc(i64 %size)
+  %s1 = bitcast i8* %p to %struct.good.S1*
+  ret void
+}
+
+; CHECK: dtrans: Detected allocation cast to pointer type
+; CHECK: Detected type: %struct.good.S1 = type { i32, i32 }
+
+define void @test22(i32 %n) {
+  ; size = n * 4 * sizeof(S1)
+  ;   (becomes) size = n * 4 * 8
+  ;   (becomes) size = n << 5
+  %size32 = shl i32 %n, 5
+  %size = zext i32 %size32 to i64
+  ; s1 = (struct S1*)malloc(size);
+  %p = call noalias i8* @malloc(i64 %size)
+  %s1 = bitcast i8* %p to %struct.good.S1*
+  ret void
+}
+
+; CHECK: dtrans: Detected allocation cast to pointer type
+; CHECK: Detected type: %struct.good.S1 = type { i32, i32 }
+
+
 ; The allocation output immediately follows the test where the allocation
 ; occurs. All type safety info is printed at the end. We check that here.
 ; Types are sorted alphabetically for output.

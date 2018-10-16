@@ -214,6 +214,9 @@ public:
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
 
+  /// Return nullptr if W has no parent of the specified kind.
+  static WRegionNode *getParentRegion(WRegionNode *W, unsigned WRegionKind);
+
   ///\name Clause related Utilities
   /// @{
 

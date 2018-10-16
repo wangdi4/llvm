@@ -22,6 +22,9 @@
 #error SOAToAOSCommon.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
+#include "Intel_DTrans/Transforms/SOAToAOS.h"
+#include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
+
 #include "SOAToAOSEffects.h"
 
 namespace llvm {
@@ -299,22 +302,6 @@ private:
     return false;
   }
 };
-
-// Utility to extract array type at offset Off from Struct,
-// given Struct is a candidate for SOA-to-AOS.
-inline StructType *getSOAArrayType(StructType *Struct, unsigned Off) {
-  return cast<StructType>(
-      Struct->getElementType(Off)->getPointerElementType());
-}
-
-// Utility to extract array type's element,
-// given struct representing array.
-inline PointerType *getSOAElementType(StructType *ArrType,
-                                      unsigned BasePointerOffset) {
-  return cast<PointerType>(
-      ArrType->getElementType(BasePointerOffset)->getPointerElementType());
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Offset of memory interface in structure.
 extern cl::opt<unsigned> DTransSOAToAOSMemoryInterfaceOff;

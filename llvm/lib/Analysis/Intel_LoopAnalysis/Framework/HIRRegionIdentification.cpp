@@ -937,11 +937,17 @@ static bool isDebugMetadata(MDNode *Node) {
   return isa<DILocation>(Node) || isa<DINode>(Node);
 }
 
+static bool isLoopCountMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().startswith("llvm.loop.intel.loopcount");
+}
+
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
-      LoopOptReport::isOptReportMetadata(Node)) {
+      isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node)) {
     return true;
   }
 

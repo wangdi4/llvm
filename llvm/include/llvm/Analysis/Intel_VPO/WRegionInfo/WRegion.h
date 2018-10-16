@@ -104,7 +104,24 @@ public:
   void addNormUB(Value *UB) { NormUB.push_back(UB); }
   void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
   LoopInfo *getLoopInfo() const { return LI; }
-  Loop *getLoop() const { return Lp; }
+
+  /// Return the ith level of loop in a loop nest. This utility is valid
+  /// only if all the loops inside the loop nest up to depth I contains only
+  /// one child loop.
+  Loop *getLoop(unsigned I = 0) const {
+    // When I==0, allow Lp to be nullptr (do not assert)
+    if (I == 0)
+      return Lp;
+    Loop *CurLoop = Lp;
+    while (I > 0) {
+      assert(!CurLoop->getSubLoops().empty() &&
+             "getLoop(I): cannot have I >= loop_depth");
+      CurLoop = CurLoop->getSubLoops()[0];
+      I--;
+    }
+    assert(CurLoop && "getLoop(I): Loop not found");
+    return CurLoop;
+  }
   Value *getNormIV(unsigned I=0) const;
   Value *getNormUB(unsigned I=0) const;
   unsigned getNormIVSize() const { return NormIV.size(); }
@@ -475,6 +492,9 @@ private:
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
   bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
+#if INTEL_CUSTOMIZATION
+  int OffloadEntryIdx;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -484,6 +504,9 @@ protected:
   void setDevice(EXPR E) { Device = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
   void setDefaultmapTofromScalar(bool Flag) { DefaultmapTofromScalar = Flag; }
+#if INTEL_CUSTOMIZATION
+  void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
@@ -500,6 +523,9 @@ public:
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
   bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
+#if INTEL_CUSTOMIZATION
+  int getOffloadEntryIdx() const { return OffloadEntryIdx; }
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;

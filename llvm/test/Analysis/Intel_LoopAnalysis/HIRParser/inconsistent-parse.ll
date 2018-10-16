@@ -7,12 +7,8 @@
 
 ; The verifier asserted on this test case because %0 wasn't getting marked as livein. This is because parser was assuming that all blobs are discovered during parsing of rvals hence causing inconsistency.
 
-; TODO: %0 should be eliminated during parsing as it is unused.
-
 
 ; CHECK: + DO i64 i1 = 0, 1, 1   <DO_LOOP>
-; CHECK: |   %0 = i1  <<  2;
-; CHECK: |
 ; CHECK: |   + DO i64 i2 = 0, undef + -1, 1   <DO_LOOP>
 ; CHECK: |   |
 ; CHECK: |   |   %mul228 = 4 * i1  *  i2;

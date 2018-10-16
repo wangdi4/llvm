@@ -15,6 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPOCodeGenHIR.h"
+#include "../IntelVPlanVLSAnalysis.h"
+#include "IntelVPlanVLSClientHIR.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
@@ -52,6 +54,24 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
                        cl::desc("Enable vectorization of loops with blob IV coefficients"));
+
+static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(false),
+                                      cl::Hidden,
+                                      cl::desc("Enable VLS code generation"));
+
+/// Command line switches to control VLS optimizations
+static cl::opt<bool>
+    EnableVPlanVLSLoads("enable-vplan-vls-loads", cl::init(true), cl::Hidden,
+                        cl::desc("Enable VLS optimization for loads"));
+
+static cl::opt<bool>
+    EnableVPlanVLSStores("enable-vplan-vls-stores", cl::init(true), cl::Hidden,
+                         cl::desc("Enable VLS optimization for stores"));
+
+static cl::opt<int>
+    VPlanVLSNumLoops("vplan-vls-num-loops", cl::init(-1), cl::Hidden,
+                     cl::desc("If non-negative, limit VLS optimization to "
+                              "specified number of vectorized loops"));
 
 static cl::opt<bool> EnableFirstIterPeelMEVec(
       "enable-first-it-peel-me-vec", cl::init(true), cl::Hidden,
@@ -214,7 +234,7 @@ RegDDRef *NestedBlobCG::codegenStandAloneBlob(const SCEV *SC) {
   } else {
     WideRef = DDRU.createScalarRegDDRef(BDDR->getSymbase(),
                                         BDDR->getSingleCanonExpr()->clone());
-    WideRef = ACG->widenRef(WideRef);
+    WideRef = ACG->widenRef(WideRef, ACG->getVF());
   }
 
   return WideRef;
@@ -1127,7 +1147,8 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
   return SRA->isReductionRef(Ref, Opcode);
 }
 
-RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
+RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
+                                  bool InterLeaveAccess) {
   RegDDRef *WideRef;
   auto RefDestTy = Ref->getDestType();
   auto VecRefDestTy = VectorType::get(RefDestTy, VF);
@@ -1211,8 +1232,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref) {
   }
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
-  // For unit stride ref, nothing else to do
-  if (isUnitStrideRef(Ref))
+  // For unit stride ref, nothing else to do. We assume unit stride for
+  // interleaved access.
+  if (isUnitStrideRef(Ref) || InterLeaveAccess)
     return WideRef;
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
@@ -1445,8 +1467,8 @@ HLInst *VPOCodeGenHIR::widenIfPred(const HLIf *HIf, RegDDRef *Mask) {
   auto FirstPred = HIf->pred_begin();
   auto Op0 = HIf->getOperandDDRef(0);
   auto Op1 = HIf->getOperandDDRef(1);
-  WOp0 = widenRef(Op0);
-  WOp1 = widenRef(Op1);
+  WOp0 = widenRef(Op0, getVF());
+  WOp1 = widenRef(Op1, getVF());
 
   assert((WOp0 && WOp1) && "Unexpected null widened IF predicate operand(s)");
   auto WideInst =
@@ -1466,6 +1488,297 @@ HLInst *VPOCodeGenHIR::widenIfPred(const HLIf *HIf, RegDDRef *Mask) {
     createHLIf(PredicateTy::ICMP_NE, BitCastInst->getLvalDDRef()->clone(),
                WideInst->getDDRefUtils().createConstDDRef(IntTy, 0));
   }
+  return WideInst;
+}
+
+/// Create an interleave shuffle mask. This function mimics the interface in
+/// VectorUtils.cpp which requires us to pass in an IRBuilder. This function
+/// creates a shuffle mask for interleaving NumVecs vectors of vectorization
+/// factor VF into a single wide vector. The mask is of the form: <0, VF, VF *
+/// 2, ..., VF * (NumVecs - 1), 1, VF + 1, VF * 2 + 1, ...> For example, the
+/// mask for VF = 4 and NumVecs = 2 is: <0, 4, 1, 5, 2, 6, 3, 7>.
+static Constant *createInterleaveMask(LLVMContext &Context, unsigned VF,
+                                      unsigned NumVecs) {
+  SmallVector<Constant *, 16> Mask;
+  for (unsigned I = 0; I < VF; ++I)
+    for (unsigned J = 0; J < NumVecs; ++J)
+      Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), J * VF + I));
+
+  return ConstantVector::get(Mask);
+}
+
+/// Create a sequential shuffle mask. This function mimics the interface in
+/// VectorUtils.cpp which requires us to pass in an IRBuilder. This function
+/// creates shuffle mask whose elements are sequential and begin at Start. The
+/// mask contains NumInts integers and is padded with NumUndefs undef values.
+/// The mask is of the form: <Start, Start + 1, ... Start + NumInts - 1,
+/// undef_1, ... undef_NumUndefs> For example, the mask for Start = 0, NumInsts
+/// = 4, and NumUndefs = 4 is: <0, 1, 2, 3, undef, undef, undef, undef>
+static Constant *createSequentialMask(unsigned Start, unsigned NumInts,
+                                      unsigned NumUndefs,
+                                      LLVMContext &Context) {
+  SmallVector<Constant *, 16> Mask;
+  for (unsigned I = 0; I < NumInts; ++I)
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), I));
+
+  Constant *Undef = UndefValue::get(Type::getInt32Ty(Context));
+  for (unsigned I = 0; I < NumUndefs; ++I)
+    Mask.push_back(Undef);
+
+  return ConstantVector::get(Mask);
+}
+
+void VPOCodeGenHIR::propagateMetadata(const OVLSGroup *Group,
+                                      RegDDRef *NewRef) {
+  SmallVector<const RegDDRef *, 4> MemDDRefVec;
+  for (int64_t Index = 0, Size = Group->size(); Index < Size; ++Index) {
+    auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
+    MemDDRefVec.push_back(Memref->getRegDDRef());
+  }
+
+  const RegDDRef *R0 = MemDDRefVec[0];
+  for (auto Kind :
+       {LLVMContext::MD_tbaa, LLVMContext::MD_alias_scope,
+        LLVMContext::MD_noalias, LLVMContext::MD_fpmath,
+        LLVMContext::MD_nontemporal, LLVMContext::MD_invariant_load}) {
+    MDNode *MD = R0->getMetadata(Kind);
+
+    for (int J = 1, E = MemDDRefVec.size(); MD && J != E; ++J) {
+      const RegDDRef *RJ = MemDDRefVec[J];
+      MDNode *MDJ = RJ->getMetadata(Kind);
+      switch (Kind) {
+      case LLVMContext::MD_tbaa:
+        MD = MDNode::getMostGenericTBAA(MD, MDJ);
+        break;
+      case LLVMContext::MD_alias_scope:
+        MD = MDNode::getMostGenericAliasScope(MD, MDJ);
+        break;
+      case LLVMContext::MD_fpmath:
+        MD = MDNode::getMostGenericFPMath(MD, MDJ);
+        break;
+      case LLVMContext::MD_noalias:
+      case LLVMContext::MD_nontemporal:
+      case LLVMContext::MD_invariant_load:
+        MD = MDNode::intersect(MD, MDJ);
+        break;
+      default:
+        llvm_unreachable("unhandled metadata");
+      }
+    }
+
+    NewRef->setMetadata(Kind, MD);
+  }
+}
+
+RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
+                                               RegDDRef *Mask) {
+  VectorType *VecTy1 = dyn_cast<VectorType>(V1->getDestType());
+  VectorType *VecTy2 = dyn_cast<VectorType>(V2->getDestType());
+  assert(VecTy1 && VecTy2 &&
+         VecTy1->getScalarType() == VecTy2->getScalarType() &&
+         "Expect two vectors with the same element type");
+
+  unsigned NumElts1 = VecTy1->getNumElements();
+  unsigned NumElts2 = VecTy2->getNumElements();
+  assert(NumElts1 >= NumElts2 &&
+         "Unexpected the first vector has less elements");
+
+  if (NumElts1 > NumElts2) {
+    // Extend with UNDEFs.
+    Constant *ExtMask =
+        createSequentialMask(0, NumElts2, NumElts1 - NumElts2, Context);
+    RegDDRef *ExtMaskDDRef = V1->getDDRefUtils().createConstDDRef(ExtMask);
+
+    Constant *Undef = UndefValue::get(VecTy2);
+    RegDDRef *UndefDDRef = V1->getDDRefUtils().createConstDDRef(Undef);
+
+    HLInst *ExtShuffle = MainLoop->getHLNodeUtils().createShuffleVectorInst(
+        V2->clone(), UndefDDRef, ExtMaskDDRef, "ext.shuf");
+    addInst(ExtShuffle, Mask);
+    V2 = ExtShuffle->getLvalDDRef();
+  }
+
+  // V1 and V2 are same length now - join the two vectors.
+  Constant *CombMask = createSequentialMask(0, NumElts1 + NumElts2, 0, Context);
+  RegDDRef *CombMaskDDRef = V1->getDDRefUtils().createConstDDRef(CombMask);
+
+  HLInst *CombShuffle = MainLoop->getHLNodeUtils().createShuffleVectorInst(
+      V1->clone(), V2->clone(), CombMaskDDRef, "comb.shuf");
+  addInst(CombShuffle, Mask);
+  return CombShuffle->getLvalDDRef();
+}
+
+RegDDRef *VPOCodeGenHIR::concatenateVectors(RegDDRef **VecsArray,
+                                            int64_t NumVecs, RegDDRef *Mask) {
+  assert(NumVecs > 1 && "Should be at least two vectors");
+
+  SmallVector<RegDDRef *, 8> ResList;
+  for (unsigned Index = 0; Index < NumVecs; ++Index)
+    ResList.push_back(VecsArray[Index]);
+
+  do {
+    SmallVector<RegDDRef *, 8> TmpList;
+    for (unsigned Index = 0; Index < NumVecs - 1; Index += 2) {
+      RegDDRef *V0 = ResList[Index], *V1 = ResList[Index + 1];
+      assert((V0->getDestType() == V1->getDestType() || Index == NumVecs - 2) &&
+             "Only the last vector may have a different type");
+
+      TmpList.push_back(concatenateTwoVectors(V0, V1, Mask));
+    }
+
+    // Push the last vector if the total number of vectors is odd.
+    if (NumVecs % 2 != 0)
+      TmpList.push_back(ResList[NumVecs - 1]);
+
+    ResList = TmpList;
+    NumVecs = ResList.size();
+  } while (NumVecs > 1);
+
+  return ResList[0];
+}
+
+HLInst *VPOCodeGenHIR::createInterleavedLoad(const RegDDRef *LvalRef,
+                                             RegDDRef *WLoadRes,
+                                             int64_t InterleaveFactor,
+                                             int64_t InterleaveIndex,
+                                             RegDDRef *Mask) {
+  SmallVector<Constant *, 8> ShuffleMask;
+  // Create the interleaved load shuffle for memory access at position
+  // InterleaveIndex in the VLS group.
+  for (unsigned Index = 0; Index < VF; ++Index) {
+    Constant *Mask =
+        ConstantInt::get(Type::getInt32Ty(Context),
+                         InterleaveIndex + (InterleaveFactor * Index));
+    ShuffleMask.push_back(Mask);
+  }
+  Constant *MaskVec = ConstantVector::get(ShuffleMask);
+  RegDDRef *ShuffleMaskRef =
+      WLoadRes->getDDRefUtils().createConstDDRef(MaskVec);
+
+  Constant *UndefVal = UndefValue::get(WLoadRes->getDestType());
+  RegDDRef *UndefRef = WLoadRes->getDDRefUtils().createConstDDRef(UndefVal);
+
+  // Create shuffle instruction using the result of the wide load and the
+  // computed shuffle mask.
+  RegDDRef *WLvalRef = widenRef(LvalRef, getVF());
+  HLInst *Shuffle = MainLoop->getHLNodeUtils().createShuffleVectorInst(
+      WLoadRes->clone(), UndefRef, ShuffleMaskRef, "vls.shuf", WLvalRef);
+
+  addInst(Shuffle, Mask);
+  addToMapAndHandleLiveOut(LvalRef, Shuffle, MainLoop);
+
+  // Shuffle instruction creation creates a new Lval ref if the passed in
+  // Lval ref during HLInst creation is null.
+  WLvalRef = Shuffle->getLvalDDRef();
+  if (WLvalRef->isTerminalRef())
+    WLvalRef->makeSelfBlob();
+  return Shuffle;
+}
+
+HLInst *VPOCodeGenHIR::createInterleavedStore(RegDDRef **StoreVals,
+                                              const RegDDRef *StorePtrRef,
+                                              int64_t InterleaveFactor,
+                                              RegDDRef *Mask) {
+  RegDDRef *ConcatVec = concatenateVectors(StoreVals, InterleaveFactor, Mask);
+
+  // Create interleaved store mask shuffle instruction to shuffle the
+  // concatenated vectors in the desired order for the wide store.
+  Constant *UndefVal = UndefValue::get(ConcatVec->getDestType());
+  RegDDRef *UndefRef = StorePtrRef->getDDRefUtils().createConstDDRef(UndefVal);
+
+  Constant *InterleaveMask =
+      createInterleaveMask(Context, getVF(), InterleaveFactor);
+  RegDDRef *InterleaveMaskRef =
+      StorePtrRef->getDDRefUtils().createConstDDRef(InterleaveMask);
+
+  HLInst *Shuffle = MainLoop->getHLNodeUtils().createShuffleVectorInst(
+      ConcatVec->clone(), UndefRef, InterleaveMaskRef, "vls.interleave");
+  addInst(Shuffle, Mask);
+
+  // Create the wide store using the shuffled vector values and the widened
+  // store pointer reference.
+  RegDDRef *ShuffleRef = Shuffle->getLvalDDRef();
+  RegDDRef *WStorePtrRef =
+      widenRef(StorePtrRef, getVF() * InterleaveFactor, true);
+  HLInst *WideStore = MainLoop->getHLNodeUtils().createStore(
+      ShuffleRef->clone(), ".vls.store", WStorePtrRef);
+  addInst(WideStore, Mask);
+
+  return WideStore;
+}
+
+HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
+                                              RegDDRef *Mask,
+                                              const OVLSGroup *Grp,
+                                              int64_t InterleaveFactor,
+                                              int64_t InterleaveIndex,
+                                              const HLInst *GrpStartInst) {
+  auto CurInst = INode->getLLVMInstruction();
+  HLInst *WideInst = nullptr;
+
+  if (isa<LoadInst>(CurInst)) {
+    RegDDRef *WLoadRes;
+    auto It = VLSGroupLoadMap.find(Grp);
+
+    if (It == VLSGroupLoadMap.end()) {
+      // We are encountering the first instruction of a load group. Generate a
+      // wide load using the memory reference from the instruction starting the
+      // group.
+      const RegDDRef *MemRef = GrpStartInst->getOperandDDRef(1);
+      RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
+      HLInst *WideLoad = INode->getHLNodeUtils().createLoad(
+          WMemRef, CurInst->getName() + ".vls.load");
+      propagateMetadata(Grp, WMemRef);
+
+      addInst(WideLoad, Mask);
+
+      // Set the result of the wide load and add the same to VLS Group load map.
+      WLoadRes = WideLoad->getLvalDDRef();
+      VLSGroupLoadMap[Grp] = WLoadRes;
+    } else
+      WLoadRes = (*It).second;
+
+    WideInst = createInterleavedLoad(INode->getLvalDDRef(), WLoadRes,
+                                     InterleaveFactor, InterleaveIndex, Mask);
+  } else {
+    assert(isa<StoreInst>(CurInst) &&
+           "Unexpected interleaved access instruction");
+    RegDDRef **StoreValRefs;
+    const RegDDRef *StoreValRef = INode->getOperandDDRef(1);
+    RegDDRef *WStoreValRef = widenRef(StoreValRef, getVF());
+
+    auto It = VLSGroupStoreMap.find(Grp);
+    if (It == VLSGroupStoreMap.end()) {
+      // We are encountering the first instruction of an OPTVLS store group.
+      // Allocate an array of RegDDRef * that is big enough to store the values
+      // being stored in InterleaveFactor number of stores in the group.
+      // Initialize array elements to null and store in VLSGroupStoreMap.
+      StoreValRefs = new RegDDRef *[InterleaveFactor];
+      for (unsigned Index = 0; Index < InterleaveFactor; ++Index)
+        StoreValRefs[Index] = nullptr;
+      VLSGroupStoreMap[Grp] = StoreValRefs;
+    } else
+      StoreValRefs = (*It).second;
+
+    // Store the widened store value into StoreValRefs array.
+    StoreValRefs[InterleaveIndex] = WStoreValRef;
+
+    // Check if we are at the point of the last store in the VLS group.
+    unsigned Index;
+    for (Index = 0; Index < InterleaveFactor; ++Index)
+      if (StoreValRefs[Index] == nullptr)
+        break;
+
+    // If we have seen all the instructions in a store group, go ahead and
+    // generate the interleaved store.
+    if (Index == InterleaveFactor) {
+      WideInst =
+          createInterleavedStore(StoreValRefs, GrpStartInst->getOperandDDRef(0),
+                                 InterleaveFactor, Mask);
+      propagateMetadata(Grp, WideInst->getOperandDDRef(0));
+    }
+  }
+
   return WideInst;
 }
 
@@ -1637,10 +1950,40 @@ void VPOCodeGenHIR::handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto) {
   }
 }
 
-HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
+HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
+                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
+                                 int64_t InterleaveIndex,
+                                 const HLInst *GrpStartInst) {
   const HLInst *Node = INode;
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
+
+  // Check if we want to widen the current Inst as an interleaved memory access.
+  if (Grp) {
+    bool InterleaveAccess = EnableVPlanVLSCG;
+    const RegDDRef *MemRef;
+
+    // If the user is limiting the number of vectorized loops for which
+    // VLS optimization is enabled, only interleave for the specified
+    // number of loops.
+    if (VPlanVLSNumLoops >= 0)
+      InterleaveAccess &= LoopsVectorized <= ((unsigned)VPlanVLSNumLoops);
+
+    // Check if the user is limiting interleaved accesses to loads or stores.
+    if (isa<LoadInst>(CurInst)) {
+      MemRef = INode->getOperandDDRef(1);
+      InterleaveAccess &= EnableVPlanVLSLoads;
+    } else {
+      MemRef = INode->getOperandDDRef(0);
+      InterleaveAccess &= EnableVPlanVLSStores;
+    }
+
+    // If the reference is unit strided, we do not need interleaving
+    InterleaveAccess &= !refIsUnit(OrigLoop->getNestingLevel(), MemRef, this);
+    if (InterleaveAccess)
+      return widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor,
+                                    InterleaveIndex, GrpStartInst);
+  }
 
   // Widened values for SCEV expressions cannot be reused across HIR
   // instructions as temps that are part of such SCEV expressions can be
@@ -1672,7 +2015,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask) {
   for (auto Iter = (INode)->op_ddref_begin(), End = (INode)->op_ddref_end();
        Iter != End; ++Iter) {
     RegDDRef *WideRef;
-    WideRef = widenRef(*Iter);
+    WideRef = widenRef(*Iter, getVF());
     WideOps.push_back(WideRef);
   }
 

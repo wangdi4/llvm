@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "SOAToAOSEffects.h"
+#include "SOAToAOSCommon.h"
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
@@ -163,6 +164,135 @@ const Dep *DepCompute::computeValueDep(const Value *Val) const {
 
 // Compute approximation of arithmetic computations
 // in post-order of SCCs according to AllDepGraph.
+const Dep* DepCompute::computeInstDep(const Instruction *I) const {
+  const Dep *Rep = nullptr;
+  switch (I->getOpcode()) {
+  case Instruction::Load:
+    if (!cast<LoadInst>(I)->isSimple()) {
+      Rep = Dep::mkBottom(DM);
+      break;
+    }
+    Rep = Dep::mkLoad(DM,
+                      computeValueDep(cast<LoadInst>(I)->getPointerOperand()));
+    break;
+  case Instruction::Store:
+    if (!cast<StoreInst>(I)->isSimple()) {
+      Rep = Dep::mkBottom(DM);
+      break;
+    }
+    Rep =
+        Dep::mkStore(DM, computeValueDep(cast<StoreInst>(I)->getValueOperand()),
+                     computeValueDep(cast<StoreInst>(I)->getPointerOperand()));
+    break;
+  case Instruction::Unreachable:
+    Rep = Dep::mkConst(DM);
+    break;
+  case Instruction::Ret:
+    if (I->getNumOperands() == 0)
+      Rep = Dep::mkConst(DM);
+    else
+      // Did not introduce Ret special kind.
+      Rep = computeValueDep(I->getOperand(0));
+    break;
+  case Instruction::Resume:
+    Rep = computeValueDep(I->getOperand(0));
+    break;
+  case Instruction::LandingPad: {
+    auto *LP = cast<LandingPadInst>(I);
+    bool Supported = true;
+    for (unsigned Ind = 0, E = LP->getNumClauses(); Ind != E; ++Ind)
+      if (LP->isFilter(Ind)) {
+        Supported = false;
+        break;
+      }
+
+    if (!Supported) {
+      Rep = Dep::mkBottom(DM);
+      break;
+    }
+    // Explicitly embedded CFG.
+    Dep::Container Preds;
+    for (auto *BB : predecessors(I->getParent()))
+      Preds.insert(computeValueDep(BB->getTerminator()));
+
+    Rep = Dep::mkNonEmptyArgList(DM, Preds);
+    break;
+  }
+  case Instruction::Br: {
+    if (cast<BranchInst>(I)->isConditional())
+      Rep = computeValueDep(cast<BranchInst>(I)->getCondition());
+    else
+      Rep = Dep::mkConst(DM);
+    break;
+  }
+  case Instruction::Invoke:
+  case Instruction::Call: {
+    assert(!isa<DbgInfoIntrinsic>(I) &&
+           "Debug intrinsic is not expected in computeInstDep");
+
+    if (auto *M = dyn_cast<MemSetInst>(I)) {
+      Dep::Container Special;
+      Special.insert(computeValueDep(M->getRawDest()));
+      Special.insert(computeValueDep(M->getLength()));
+      Rep = Dep::mkStore(DM, computeValueDep(M->getValue()),
+                         Dep::mkNonEmptyArgList(DM, Special));
+      break;
+    }
+
+    SmallPtrSet<const Value *, 3> Args;
+    auto *Info = DTInfo.getCallInfo(I);
+    if (Info) {
+      if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
+        auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
+        collectSpecialAllocArgs(AK, ImmutableCallSite(I), Args, TLI);
+      } else if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
+        auto FK = cast<FreeCallInfo>(Info)->getFreeKind();
+        collectSpecialFreeArgs(FK, ImmutableCallSite(I), Args, TLI);
+      } else {
+        Rep = Dep::mkBottom(DM);
+        break;
+      }
+    }
+
+    Dep::Container Special;
+    Dep::Container Remaining;
+    for (auto &Op : I->operands()) {
+      // CFG is processed separately.
+      if (isa<BasicBlock>(Op.get()))
+        continue;
+      if (Args.count(Op.get()))
+        Special.insert(computeValueDep(Op.get()));
+      else
+        Remaining.insert(computeValueDep(Op.get()));
+    }
+
+    auto *F = dyn_cast<Function>(ImmutableCallSite(I).getCalledValue());
+
+    if (Info)
+      // Relying on check that Realloc is forbidden.
+      Rep = Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc
+                ? Dep::mkAlloc(DM, Dep::mkNonEmptyArgList(DM, Special),
+                               Dep::mkArgList(DM, Remaining))
+                : Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
+                              Dep::mkArgList(DM, Remaining));
+    else
+      Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
+                        F && getStructTypeOfMethod(*F) == ClassType);
+    break;
+  }
+  case Instruction::Alloca:
+    Rep = Dep::mkAlloc(DM, Dep::mkConst(DM), Dep::mkConst(DM));
+    break;
+  default:
+    Rep = Dep::mkBottom(DM);
+    break;
+  }
+
+  return Rep;
+}
+
+// Compute approximation of arithmetic computations
+// in post-order of SCCs according to AllDepGraph.
 bool DepCompute::computeDepApproximation() const {
 
   assert(getStructTypeOfMethod(*Method) == ClassType &&
@@ -177,9 +307,12 @@ bool DepCompute::computeDepApproximation() const {
     DM.ValDependencies[&Arg] = Dep::mkArg(DM, &Arg);
 
   SmallVector<const Instruction *, 32> Sinks;
-  for (auto &I : instructions(*Method))
-    if (I.hasNUses(0))
+  for (auto &I : instructions(*Method)) {
+    if (isa<DbgInfoIntrinsic>(I))
+      DM.ValDependencies[&I] = Dep::mkConst(DM);
+    else if (I.hasNUses(0))
       Sinks.push_back(&I);
+  }
 
   for (auto *S : Sinks)
     // SCCs are returned in post-order, for example, first instruction is
@@ -203,144 +336,32 @@ bool DepCompute::computeDepApproximation() const {
         continue;
 
       for (auto *I : *SCCIt) {
-        assert(Visited.find(I) == Visited.end() && "Traversal logic is broken");
+        assert(Visited.count(I) == 0 && "Traversal logic is broken");
         Visited.insert(I);
       }
 
       for (auto *PtrI : *SCCIt) {
         if (isa<Argument>(PtrI))
           continue;
-        auto &I = cast<Instruction>(*PtrI);
-        // Value dependencies involving pure arithmetic are computed on
-        // demand.
-        if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode())) {
-          continue;
-        }
 
         const Dep *Rep = nullptr;
-        switch (I.getOpcode()) {
-        case Instruction::Load:
-          if (!cast<LoadInst>(I).isSimple()) {
-            Rep = Dep::mkBottom(DM);
-            break;
-          }
-          Rep = Dep::mkLoad(
-              DM, computeValueDep(cast<LoadInst>(I).getPointerOperand()));
-          break;
-        case Instruction::Store:
-          if (!cast<StoreInst>(I).isSimple()) {
-            Rep = Dep::mkBottom(DM);
-            break;
-          }
-          Rep = Dep::mkStore(
-              DM, computeValueDep(cast<StoreInst>(I).getValueOperand()),
-              computeValueDep(cast<StoreInst>(I).getPointerOperand()));
-          break;
-        case Instruction::Unreachable:
-          Rep = Dep::mkConst(DM);
-          break;
-        case Instruction::Ret:
-          if (I.getNumOperands() == 0)
-            Rep = Dep::mkConst(DM);
-          else
-            // Did not introduce Ret special kind.
-            Rep = computeValueDep(I.getOperand(0));
-          break;
-        case Instruction::Resume:
-          Rep = computeValueDep(I.getOperand(0));
-          break;
-        case Instruction::LandingPad: {
-          auto &LP = cast<LandingPadInst>(I);
-          bool Supported = true;
-          for (unsigned I = 0, E = LP.getNumClauses(); I != E; ++I)
-            if (LP.isFilter(I)) {
-              Supported = false;
-              break;
-            }
 
-          if (!Supported) {
-            Rep = Dep::mkBottom(DM);
-            break;
+        if (auto I = dyn_cast<Instruction>(PtrI)) {
+          // Value dependencies involving pure arithmetic are computed on
+          // demand.
+          if (arith_inst_dep_iterator::isSupportedOpcode(I->getOpcode()) ||
+              isa<DbgInfoIntrinsic>(I)) {
+            continue;
           }
-          // Explicitly embedded CFG.
-          Dep::Container Preds;
-          for (auto *BB : predecessors(I.getParent()))
-            Preds.insert(computeValueDep(BB->getTerminator()));
-
-          Rep = Dep::mkNonEmptyArgList(DM, Preds);
-          break;
-        }
-        case Instruction::Br: {
-          if (cast<BranchInst>(I).isConditional())
-            Rep = computeValueDep(cast<BranchInst>(I).getCondition());
-          else
-            Rep = Dep::mkConst(DM);
-          break;
-        }
-        case Instruction::Invoke:
-        case Instruction::Call: {
-          if (auto *M = dyn_cast<MemSetInst>(&I)) {
-            Dep::Container Special;
-            Special.insert(computeValueDep(M->getRawDest()));
-            Special.insert(computeValueDep(M->getLength()));
-            Rep = Dep::mkStore(DM, computeValueDep(M->getValue()),
-                               Dep::mkNonEmptyArgList(DM, Special));
-            break;
-          }
-
-          SmallPtrSet<const Value *, 3> Args;
-          auto *Info = DTInfo.getCallInfo(&I);
-          if (Info) {
-            if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
-              auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
-              collectSpecialAllocArgs(AK, ImmutableCallSite(&I), Args, TLI);
-            } else if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
-              auto FK = cast<FreeCallInfo>(Info)->getFreeKind();
-              collectSpecialFreeArgs(FK, ImmutableCallSite(&I), Args, TLI);
-            } else {
-              Rep = Dep::mkBottom(DM);
-              break;
-            }
-          }
-
-          Dep::Container Special;
-          Dep::Container Remaining;
-          for (auto &Op : I.operands()) {
-            // CFG is processed separately.
-            if (isa<BasicBlock>(Op.get()))
-              continue;
-            if (Args.count(Op.get()))
-              Special.insert(computeValueDep(Op.get()));
-            else
-              Remaining.insert(computeValueDep(Op.get()));
-          }
-
-          auto *F = dyn_cast<Function>(ImmutableCallSite(&I).getCalledValue());
-
-          if (Info)
-            // Relying on check that Realloc is forbidden.
-            Rep = Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc
-                      ? Dep::mkAlloc(DM, Dep::mkNonEmptyArgList(DM, Special),
-                                     Dep::mkArgList(DM, Remaining))
-                      : Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
-                                    Dep::mkArgList(DM, Remaining));
-          else
-            Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
-                              F && getStructTypeOfMethod(*F) == ClassType);
-          break;
-        }
-        case Instruction::Alloca:
-          Rep = Dep::mkAlloc(DM, Dep::mkConst(DM), Dep::mkConst(DM));
-          break;
-        default:
+          Rep = computeInstDep(I);
+          assert(Rep && "Invalid switch in computeInstDep");
+        } else // ValueAsMetadata/InlineAsm/MemoryUse/etc
           Rep = Dep::mkBottom(DM);
-          break;
-        }
 
-        assert(Rep && "Invalid switch in computeDepApproximation");
         if (Rep->isBottom() && !DTransSOAToAOSComputeAllDep)
           return false;
-        DM.ValDependencies[&I] = Rep;
+
+        DM.ValDependencies[PtrI] = Rep;
       }
     }
   return true;

@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===------- VPOParoptPrepare.cpp - Paropt Prepare Pass for OpenMP --------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -147,9 +147,10 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
       dbgs() << "\n === VPOParoptPreparePass before Transformation === \n");
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
-  VPOParoptTransform VP(&F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
-                        WI.getTargetTransformInfo(), WI.getAssumptionCache(),
-                        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode);
+  VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
+                        WI.getSE(), WI.getTargetTransformInfo(),
+                        WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
+                        WI.getAliasAnalysis(), Mode);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(

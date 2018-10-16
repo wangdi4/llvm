@@ -20,12 +20,14 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-optbase"
+#define DEBUG_DTRANS_VERIFICATION "dtrans-verification"
 
 namespace {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -163,9 +165,32 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     }
   }
 
-  // Note: We do not look for 'struct' types directly in the above loop
-  // because those should have been directly added to the type mapping
-  // via AddTypeMapping by the transformation.
+  if (auto *StructTy = dyn_cast<StructType>(SrcTy)) {
+    if (StructTy->isLiteral()) {
+      bool NeedsReplaced = false;
+
+      SmallVector<Type *, 8> DataTypes;
+      for (auto *MemberTy : StructTy->elements()) {
+        Type *ReplMemTy = MemberTy;
+        Type *ReplTy = computeReplacementType(MemberTy);
+        if (ReplTy) {
+          ReplMemTy = ReplTy;
+          NeedsReplaced = true;
+        }
+
+        DataTypes.push_back(ReplMemTy);
+      }
+
+      if (NeedsReplaced) {
+        return StructType::get(StructTy->getContext(), DataTypes,
+                               StructTy->isPacked());
+      }
+    }
+  }
+
+  // Note: We do not look for named 'struct' types directly in the above tests
+  // because those should have been directly added to the type mapping via
+  // AddTypeMapping by the transformation.
 
   // Type does not need type replacement.
   return nullptr;
@@ -214,7 +239,7 @@ bool DTransOptBase::run(Module &M) {
   // code may be removed later after DTrans is stable. verifyModule returns
   // 'true' if errors are found.
   if (verifyModule(M, &dbgs())) {
-    LLVM_DEBUG(dbgs() << M);
+    DEBUG_WITH_TYPE(DEBUG_DTRANS_VERIFICATION, dbgs() << M);
     report_fatal_error(
         "Module verifier found errors following a DTrans optimization");
   }
@@ -493,12 +518,11 @@ void DTransOptBase::prepareDependentTypes(
     // been determined. For other types, such as arrays, we don't need to do
     // anything here, the replacements for them will be computed on demand.
     if (auto *StructTy = dyn_cast<StructType>(Ty)) {
-      // If StructTy is literal, don't give the replacement a name.
-      Type *ReplacementTy;
+      // If StructTy is literal, defer creation until it is used.
       if (StructTy->isLiteral())
-        ReplacementTy = StructType::create(Context);
-      else
-        ReplacementTy = StructType::create(
+        continue;
+
+      Type *ReplacementTy = StructType::create(
           Context, Twine(DepTypePrefix + StructTy->getStructName()).str());
       TypeRemapper->addTypeMapping(Ty, ReplacementTy);
       OrigToNewTypeReplacement[Ty] = ReplacementTy;
@@ -556,9 +580,9 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   // inlined function bodies may have already been removed.
   DebugInfoFinder DIFinder;
   DIFinder.processModule(M);
-  auto &MD = VMap.MD();
+  auto &MDVMap = VMap.MD();
   for (DISubprogram *SP : DIFinder.subprograms())
-    MD[SP].reset(SP);
+    MDVMap[SP].reset(SP);
 
   for (auto &F : M) {
     if (F.isDeclaration())
@@ -606,6 +630,52 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       // Let the derived class perform any additional actions needed on the
       // remapped function.
       postprocessFunction(F, /*is_clone=*/false);
+    }
+  }
+
+  // After cloning or remapping functions, it may be necessary to update debug
+  // information for the local variables being used by each function. The
+  // metadata nodes for a DILocalVariable may have been cloned because the
+  // DILocation or DICompositeType object references were cloned. The IR will
+  // have been updated to reference the cloned instance within the
+  // llvm.debug.declare intrinsic calls. However, the DISubprogram nodes are not
+  // being cloned, causing the DISubprogram to still be referring to the
+  // original DILocalVariable object. This will result in two variable instances
+  // that have same name belonging to the same scope which will result in errors
+  // when processing the debug information later. To resolve this, walk the
+  // retained nodes element of the subprogram, and update the references for any
+  // variable that has been remapped. This needs to be done for all subprograms
+  // found by the DIFinder to handle the case of a function that has been
+  // optimized away after being inlined.
+  //
+  // Alternatively, we could just prevent cloning of the DILocalVariables by
+  // setting up the metadata remap table with self references to them, like
+  // was done for the DISubprograms above. However, this would cause issues
+  // with being able to update the structure type descriptions in the debug
+  // information if we get to a point where we want the debug info to describe
+  // the new types that DTrans is creating with DICompositeType entries.
+  for (DISubprogram *SP : DIFinder.subprograms()) {
+    if (auto *RawNode = SP->getRawRetainedNodes()) {
+      auto *Node = dyn_cast<MDTuple>(RawNode);
+      unsigned NumOperands = Node->getNumOperands();
+      LLVM_DEBUG({
+        if (NumOperands)
+          dbgs() << "Updating local variable references for DISubprogram:\n"
+                 << *SP << "\n";
+      });
+
+      for (unsigned i = 0; i < NumOperands; ++i) {
+        auto &Op = Node->getOperand(i);
+        Metadata *MDOp = *&Op;
+
+        auto MappedTo = MDVMap.find(MDOp);
+        if (MappedTo != MDVMap.end() && MDOp != MappedTo->second) {
+          Node->replaceOperandWith(i, MappedTo->second);
+          LLVM_DEBUG(dbgs() << "replacing retained node:\n"
+                            << "  Was: " << *MDOp << "\n"
+                            << "  Now: " << *MappedTo->second << "\n");
+        }
+      }
     }
   }
 
@@ -846,102 +916,25 @@ void DTransOptBase::removeDeadValues() {
   GlobalsForRemoval.clear();
 }
 
-void DTransOptBase::updateCallSizeOperand(Instruction *I,
-                                          dtrans::CallInfo *CInfo,
-                                          llvm::Type *OrigTy,
-                                          llvm::Type *ReplTy) {
-  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
-  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+void DTransOptBase::deleteCallInfo(dtrans::CallInfo *CInfo) {
+  Instruction *I = CInfo->getInstruction();
+  Function *F = I->getParent()->getParent();
+  auto &InfoVec = FunctionToCallInfoVec[F];
 
-  updateCallSizeOperand(I, CInfo, OrigSize, ReplSize);
+  auto It = std::find(InfoVec.begin(), InfoVec.end(), CInfo);
+  InfoVec.erase(It);
+  DTInfo.deleteCallInfo(I);
 }
 
-// This function performs the actual replacement for the size parameter
-// of a function call, by finding the original constant that is a
-// multiple of \p OrigSize, and replacing that value with a multiple
-// of \p ReplSize.
-void DTransOptBase::updateCallSizeOperand(Instruction *I,
-                                          dtrans::CallInfo *CInfo,
-                                          uint64_t OrigSize,
-                                          uint64_t ReplSize) {
-  // Find the User value that has a constant integer multiple of the original
-  // structure size as an operand.
-  bool Found = false;
-  SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
-  if (auto *AInfo = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
-    dtrans::AllocKind AK = AInfo->getAllocKind();
-    switch (AK) {
-    case dtrans::AK_NotAlloc:
-      llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
-    case dtrans::AK_UserMalloc0:
-      llvm_unreachable("AK_UserMalloc0 not yet supported!");
-    case dtrans::AK_New:
-    case dtrans::AK_Malloc:
-    case dtrans::AK_Realloc:
-    case dtrans::AK_Calloc:
-    case dtrans::AK_UserMalloc: {
-      unsigned SizeArgPos = 0;
-      unsigned CountArgPos = 0;
-      getAllocSizeArgs(AK, CallSite(I), SizeArgPos, CountArgPos, TLI);
-      if (AK == dtrans::AK_Calloc) {
-        Found =
-            findValueMultipleOfSizeInst(I, CountArgPos, OrigSize, SizeUseStack);
-        assert((Found || SizeUseStack.empty()) &&
-               "SizeUseStack not empty after failed value search!");
-        if (!Found)
-          Found = findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize,
-                                              SizeUseStack);
-      } else {
-        Found =
-            findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize, SizeUseStack);
-      }
-      break;
-    }
-    }
-  } else {
-    // This asserts because we only expect alloc info or memfunc info.
-    assert(isa<dtrans::MemfuncCallInfo>(CInfo) &&
-           "Expected either alloc or memfunc!");
-    // All memfunc calls have the size as operand 2.
-    Found = findValueMultipleOfSizeInst(I, 2, OrigSize, SizeUseStack);
-  }
+using namespace llvm;
+using namespace dtrans;
 
-  // The safety conditions should guarantee that we can find this constant.
-  assert(Found && "Constant multiple of size not found!");
-
-  replaceSizeValue(I, SizeUseStack, OrigSize, ReplSize);
-}
-
-void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
-                                                   llvm::Type *OrigTy,
-                                                   llvm::Type *ReplTy) {
-  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
-  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
-
-  updatePtrSubDivUserSizeOperand(Sub, OrigSize, ReplSize);
-}
-
-void DTransOptBase::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
-                                                   uint64_t OrigSize,
-                                                   uint64_t ReplSize) {
-  for (auto *U : Sub->users()) {
-    auto *BinOp = cast<BinaryOperator>(U);
-    assert((BinOp->getOpcode() == Instruction::SDiv ||
-            BinOp->getOpcode() == Instruction::UDiv) &&
-           "Unexpected user in updatePtrSubDivUserSizeOperand!");
-    // The sub instruction must be operand zero.
-    assert(BinOp->getOperand(0) == Sub &&
-           "Unexpected operand use for ptr sub!");
-    // Look for the size in operand 1.
-    SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
-    bool Found = findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack);
-    assert(Found && "Couldn't find size div for ptr sub!");
-    if (Found)
-      replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
-  }
-}
-
-void DTransOptBase::replaceSizeValue(
+// Given a stack of value-operand pairs representing the use-def chain from
+// a place where a size-multiple value is used, back to the instruction that
+// defines a multiplication by a constant multiple of the size, replace
+// the size constant and clone any intermediate values as needed based on
+// other uses of values in the chain.
+static void replaceSizeValue(
     Instruction *BaseI,
     SmallVectorImpl<std::pair<User *, unsigned>> &SizeUseStack,
     uint64_t OrigSize, uint64_t ReplSize) {
@@ -992,17 +985,140 @@ void DTransOptBase::replaceSizeValue(
   std::pair<User *, unsigned> SizePair = SizeUseStack.back();
   User *SizeUser = SizePair.first;
   unsigned SizeOpIdx = SizePair.second;
-  auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
-  uint64_t ConstSize = ConstVal->getLimitedValue();
-  assert((ConstSize % OrigSize) == 0 && "Size multiplier search is broken");
-  uint64_t Multiplier = ConstSize / OrigSize;
+  auto *BinOp = dyn_cast<BinaryOperator>(SizeUser);
+  if (BinOp && (BinOp->getOpcode() == Instruction::Shl)) {
+    assert(SizeOpIdx == 1 && "Unexpected size operand for shl");
+    auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
+    uint64_t ConstShift = ConstVal->getLimitedValue();
+    assert((((1ull << ConstShift) % OrigSize) == 0ull) &&
+           "Size shift left handling in multiplier search is broken");
+    uint64_t Multiplier = (1ull << ConstShift) / OrigSize;
 
-  LLVM_DEBUG(dbgs() << "Delete field: Updating size operand (" << SizeOpIdx
+    // Rather than trying to update the shift value, which won't always work,
+    // we just replace the shift with a multiplication.
+    Value *NewSizeVal = ConstantInt::get(BinOp->getType(),
+                                         ReplSize * Multiplier);
+    Instruction *Mul = BinaryOperator::CreateMul(BinOp->getOperand(0),
+                                                 NewSizeVal);
+    Mul->insertBefore(BinOp);
+    LLVM_DEBUG(dbgs() << "Delete field: Replacing size-based shift:\n    "
+                      << *BinOp << ")\n  with:\n    "
+                      << *Mul << "\n");
+    Mul->takeName(BinOp);
+    BinOp->replaceAllUsesWith(Mul);
+    BinOp->eraseFromParent();
+  } else {
+    auto *ConstVal = cast<ConstantInt>(SizeUser->getOperand(SizeOpIdx));
+    uint64_t ConstSize = ConstVal->getLimitedValue();
+    assert((ConstSize % OrigSize) == 0 && "Size multiplier search is broken");
+    uint64_t Multiplier = ConstSize / OrigSize;
+
+    LLVM_DEBUG(dbgs() << "Delete field: Updating size operand (" << SizeOpIdx
                     << ") of " << *SizeUser << "\n");
-  llvm::Type *SizeOpTy = SizeUser->getOperand(SizeOpIdx)->getType();
-  SizeUser->setOperand(SizeOpIdx,
-                       ConstantInt::get(SizeOpTy, ReplSize * Multiplier));
-  LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
+    llvm::Type *SizeOpTy = SizeUser->getOperand(SizeOpIdx)->getType();
+    SizeUser->setOperand(SizeOpIdx,
+                         ConstantInt::get(SizeOpTy, ReplSize * Multiplier));
+    LLVM_DEBUG(dbgs() << "  New value: " << *SizeUser << "\n");
+  }
+}
+
+void llvm::dtrans::updateCallSizeOperand(llvm::Instruction *I,
+                                         llvm::dtrans::CallInfo *CInfo,
+                                         llvm::Type *OrigTy,
+                                         llvm::Type *ReplTy,
+                                         const llvm::TargetLibraryInfo &TLI) {
+  const DataLayout &DL = I->getModule()->getDataLayout();
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  updateCallSizeOperand(I, CInfo, OrigSize, ReplSize, TLI);
+}
+
+// This function performs the actual replacement for the size parameter
+// of a function call, by finding the original constant that is a
+// multiple of \p OrigSize, and replacing that value with a multiple
+// of \p ReplSize.
+void llvm::dtrans::updateCallSizeOperand(llvm::Instruction *I,
+                                         llvm::dtrans::CallInfo *CInfo,
+                                         uint64_t OrigSize,
+                                         uint64_t ReplSize,
+                                         const llvm::TargetLibraryInfo &TLI) {
+  // Find the User value that has a constant integer multiple of the original
+  // structure size as an operand.
+  bool Found = false;
+  SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+  if (auto *AInfo = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
+    dtrans::AllocKind AK = AInfo->getAllocKind();
+    switch (AK) {
+    case dtrans::AK_NotAlloc:
+      llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
+    case dtrans::AK_UserMalloc0:
+      llvm_unreachable("AK_UserMalloc0 not yet supported!");
+    case dtrans::AK_New:
+    case dtrans::AK_Malloc:
+    case dtrans::AK_Realloc:
+    case dtrans::AK_Calloc:
+    case dtrans::AK_UserMalloc: {
+      unsigned SizeArgPos = 0;
+      unsigned CountArgPos = 0;
+      getAllocSizeArgs(AK, CallSite(I), SizeArgPos, CountArgPos, TLI);
+      if (AK == dtrans::AK_Calloc) {
+        Found =
+            findValueMultipleOfSizeInst(I, CountArgPos, OrigSize, SizeUseStack);
+        assert((Found || SizeUseStack.empty()) &&
+               "SizeUseStack not empty after failed value search!");
+        if (!Found)
+          Found = findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize,
+                                              SizeUseStack);
+      } else {
+        Found =
+            findValueMultipleOfSizeInst(I, SizeArgPos, OrigSize, SizeUseStack);
+      }
+      break;
+    }
+    }
+  } else {
+    // This asserts because we only expect alloc info or memfunc info.
+    assert(isa<dtrans::MemfuncCallInfo>(CInfo) &&
+           "Expected either alloc or memfunc!");
+    // All memfunc calls have the size as operand 2.
+    Found = findValueMultipleOfSizeInst(I, 2, OrigSize, SizeUseStack);
+  }
+
+  // The safety conditions should guarantee that we can find this constant.
+  assert(Found && "Constant multiple of size not found!");
+
+  replaceSizeValue(I, SizeUseStack, OrigSize, ReplSize);
+}
+
+void llvm::dtrans::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                  llvm::Type *OrigTy,
+                                                  llvm::Type *ReplTy,
+                                                  const DataLayout &DL) {
+  uint64_t OrigSize = DL.getTypeAllocSize(OrigTy);
+  uint64_t ReplSize = DL.getTypeAllocSize(ReplTy);
+
+  updatePtrSubDivUserSizeOperand(Sub, OrigSize, ReplSize);
+}
+
+void llvm::dtrans::updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
+                                                  uint64_t OrigSize,
+                                                  uint64_t ReplSize) {
+  for (auto *U : Sub->users()) {
+    auto *BinOp = cast<BinaryOperator>(U);
+    assert((BinOp->getOpcode() == Instruction::SDiv ||
+            BinOp->getOpcode() == Instruction::UDiv) &&
+           "Unexpected user in updatePtrSubDivUserSizeOperand!");
+    // The sub instruction must be operand zero.
+    assert(BinOp->getOperand(0) == Sub &&
+           "Unexpected operand use for ptr sub!");
+    // Look for the size in operand 1.
+    SmallVector<std::pair<User *, unsigned>, 4> SizeUseStack;
+    bool Found = findValueMultipleOfSizeInst(U, 1, OrigSize, SizeUseStack);
+    assert(Found && "Couldn't find size div for ptr sub!");
+    if (Found)
+      replaceSizeValue(BinOp, SizeUseStack, OrigSize, ReplSize);
+  }
 }
 
 // This helper function searches, starting with \p U operand \p Idx and
@@ -1013,7 +1129,7 @@ void DTransOptBase::replaceSizeValue(
 // found.
 //
 // The return value indicates whether or not a match was found.
-bool DTransOptBase::findValueMultipleOfSizeInst(
+bool llvm::dtrans::findValueMultipleOfSizeInst(
     User *U, unsigned Idx, uint64_t Size,
     SmallVectorImpl<std::pair<User *, unsigned>> &UseStack) {
   if (!U)
@@ -1035,6 +1151,23 @@ bool DTransOptBase::findValueMultipleOfSizeInst(
 
   // Is it a binary operator?
   if (auto *BinOp = dyn_cast<BinaryOperator>(Val)) {
+    Value *LHS;
+    Value *RHS;
+    if (PatternMatch::match(
+                 Val, PatternMatch::m_Shl(PatternMatch::m_Value(LHS),
+                                          PatternMatch::m_Value(RHS)))) {
+      uint64_t Shift = 0;
+      if (dtrans::isValueConstant(RHS, &Shift) &&
+          ((uint64_t(1) << Shift) % Size == 0)) {
+        // In this case, the incoming size is shifted by some multiple of
+        // the structure size. That makes the shift instruction the final
+        // operation in our search.
+        UseStack.push_back(std::make_pair(U, Idx));
+        UseStack.push_back(std::make_pair(BinOp, 1));
+        return true;
+      }
+      return false;
+    }
     // Not a mul? Then it's not what we're looking for.
     if (BinOp->getOpcode() != Instruction::Mul)
       return false;
@@ -1064,14 +1197,4 @@ bool DTransOptBase::findValueMultipleOfSizeInst(
 
   // Otherwise, it's definitely not what we were looking for.
   return false;
-}
-
-void DTransOptBase::deleteCallInfo(dtrans::CallInfo *CInfo) {
-  Instruction *I = CInfo->getInstruction();
-  Function *F = I->getParent()->getParent();
-  auto &InfoVec = FunctionToCallInfoVec[F];
-
-  auto It = std::find(InfoVec.begin(), InfoVec.end(), CInfo);
-  InfoVec.erase(It);
-  DTInfo.deleteCallInfo(I);
 }

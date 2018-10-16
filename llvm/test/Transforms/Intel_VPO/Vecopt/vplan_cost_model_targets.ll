@@ -39,17 +39,17 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 69
-; VPLAN-CM-AVX2-NEXT:    Unknown cost for [[VP0:%.*]] = phi i64 0 [[VP1:%.*]]
-; VPLAN-CM-AVX2-NEXT:    Cost 0 for [[VP2:%.*]] = getelementptr [1024 x i64]* @arr.i64.1 i64 0 [[VP0]]
-; VPLAN-CM-AVX2-NEXT:    Cost 16 for [[VP3:%.*]] = load [[VP2]]
-; VPLAN-CM-AVX2-NEXT:    Cost 0 for [[VP4:%.*]] = getelementptr [1024 x i64]* @arr.i64.3 i64 0 [[VP0]]
-; VPLAN-CM-AVX2-NEXT:    Cost 16 for [[VP5:%.*]] = load [[VP4]]
-; VPLAN-CM-AVX2-NEXT:    Cost 2 for [[VP6:%.*]] = icmp [[VP3]] [[VP5]]
-; VPLAN-CM-AVX2-NEXT:    Cost 7 for [[VP7:%.*]] = zext [[VP6]]
-; VPLAN-CM-AVX2-NEXT:    Cost 0 for [[VP8:%.*]] = getelementptr [1024 x i64]* @arr.i64.2 i64 0 [[VP0]]
-; VPLAN-CM-AVX2-NEXT:    Cost 24 for store [[VP7]] [[VP8]]
-; VPLAN-CM-AVX2-NEXT:    Cost 2 for [[VP1]] = add [[VP0]] i64 1
-; VPLAN-CM-AVX2-NEXT:    Cost 2 for [[VP9:%.*]] = icmp [[VP1]] i64 1024
+; VPLAN-CM-AVX2-NEXT:    Unknown cost for [[VP1:%.*]] = phi [ i64 0, [[BBH:.*]] ], [ [[VP2:%.*]], [[BBL:.*]] ]
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i64]* @arr.i64.1 i64 0 [[VP1]]
+; VPLAN-CM-AVX2-NEXT:    Cost 16 for [[VP4:%.*]] = load [[VP3]]
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for [[VP5:%.*]] = getelementptr [1024 x i64]* @arr.i64.3 i64 0 [[VP1]]
+; VPLAN-CM-AVX2-NEXT:    Cost 16 for [[VP6:%.*]] = load [[VP5]]
+; VPLAN-CM-AVX2-NEXT:    Cost 2 for [[VP7:%.*]] = icmp [[VP4]] [[VP6]]
+; VPLAN-CM-AVX2-NEXT:    Cost 7 for [[VP8:%.*]] = zext [[VP7]]
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for [[VP9:%.*]] = getelementptr [1024 x i64]* @arr.i64.2 i64 0 [[VP1]]
+; VPLAN-CM-AVX2-NEXT:    Cost 24 for store [[VP8]] [[VP9]]
+; VPLAN-CM-AVX2-NEXT:    Cost 2 for [[VP2]] = add [[VP1]] i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost 2 for [[VP10:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
@@ -59,17 +59,17 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 131
-; VPLAN-CM-SSE2-NEXT:    Unknown cost for [[VP0:%.*]] = phi i64 0 [[VP1:%.*]]
-; VPLAN-CM-SSE2-NEXT:    Cost 0 for [[VP2:%.*]] = getelementptr [1024 x i64]* @arr.i64.1 i64 0 [[VP0]]
-; VPLAN-CM-SSE2-NEXT:    Cost 16 for [[VP3:%.*]] = load [[VP2]]
-; VPLAN-CM-SSE2-NEXT:    Cost 0 for [[VP4:%.*]] = getelementptr [1024 x i64]* @arr.i64.3 i64 0 [[VP0]]
-; VPLAN-CM-SSE2-NEXT:    Cost 16 for [[VP5:%.*]] = load [[VP4]]
-; VPLAN-CM-SSE2-NEXT:    Cost 32 for [[VP6:%.*]] = icmp [[VP3]] [[VP5]]
-; VPLAN-CM-SSE2-NEXT:    Cost 7 for [[VP7:%.*]] = zext [[VP6]]
-; VPLAN-CM-SSE2-NEXT:    Cost 0 for [[VP8:%.*]] = getelementptr [1024 x i64]* @arr.i64.2 i64 0 [[VP0]]
-; VPLAN-CM-SSE2-NEXT:    Cost 24 for store [[VP7]] [[VP8]]
-; VPLAN-CM-SSE2-NEXT:    Cost 4 for [[VP1]] = add [[VP0]] i64 1
-; VPLAN-CM-SSE2-NEXT:    Cost 32 for [[VP9:%.*]] = icmp [[VP1]] i64 1024
+; VPLAN-CM-SSE2-NEXT:    Unknown cost for [[VP1:%.*]] = phi [ i64 0, [[BBH:.*]] ], [ [[VP2:%.*]], [[BBL:.*]] ]
+; VPLAN-CM-SSE2-NEXT:    Cost 0 for [[VP3:%.*]] = getelementptr [1024 x i64]* @arr.i64.1 i64 0 [[VP1]]
+; VPLAN-CM-SSE2-NEXT:    Cost 16 for [[VP4:%.*]] = load [[VP3]]
+; VPLAN-CM-SSE2-NEXT:    Cost 0 for [[VP5:%.*]] = getelementptr [1024 x i64]* @arr.i64.3 i64 0 [[VP1]]
+; VPLAN-CM-SSE2-NEXT:    Cost 16 for [[VP6:%.*]] = load [[VP5]]
+; VPLAN-CM-SSE2-NEXT:    Cost 32 for [[VP7:%.*]] = icmp [[VP4]] [[VP6]]
+; VPLAN-CM-SSE2-NEXT:    Cost 7 for [[VP8:%.*]] = zext [[VP7]]
+; VPLAN-CM-SSE2-NEXT:    Cost 0 for [[VP9:%.*]] = getelementptr [1024 x i64]* @arr.i64.2 i64 0 [[VP1]]
+; VPLAN-CM-SSE2-NEXT:    Cost 24 for store [[VP8]] [[VP9]]
+; VPLAN-CM-SSE2-NEXT:    Cost 4 for [[VP2]] = add [[VP1]] i64 1
+; VPLAN-CM-SSE2-NEXT:    Cost 32 for [[VP10:%.*]] = icmp [[VP2]] i64 1024
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0

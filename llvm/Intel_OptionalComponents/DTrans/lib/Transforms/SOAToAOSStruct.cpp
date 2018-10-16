@@ -99,7 +99,6 @@ getSOAToAOSArrayMethods(const cl::list<std::string> &List,
   unsigned Count = 0;
   for (auto &Name : List) {
     auto *AF = F.getParent()->getFunction(Name);
-    // TODO: add remark.
     if (!AF)
       continue;
 
@@ -123,11 +122,12 @@ getSOAToAOSArrayMethods(const cl::list<std::string> &List,
     Methods[It - ArrayTypes.begin()] = AF;
   }
 
-  if (Count != 0 && Count != ArrayTypes.size())
-    report_fatal_error("There should be none or 1 method to combine for each array type.");
 
   if (Count == 0)
     return CallSiteComparator::FunctionSet();
+
+  if (Count != ArrayTypes.size())
+    report_fatal_error("There should be none or 1 method to combine for each array type.");
 
   return Methods;
 }
@@ -201,12 +201,21 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
                                  *DM, S, P.first,
                                  *Result /*TransformationData*/);
 
-  bool CheckedAll = Checks.checkStructMethod();
+  bool SeenArrays = false;
+  bool CheckedAll = Checks.checkStructMethod(SeenArrays);
   (void)CheckedAll;
-  LLVM_DEBUG(dbgs() << "; IR: "
-                    << (CheckedAll ? "analysed completely"
-                                   : "has some side-effect to analyse")
-                    << "\n");
+  LLVM_DEBUG(
+      dbgs() << "; IR: "
+             << (CheckedAll && SeenArrays
+                     ? " has only expected side-effects\n"
+                     : (SeenArrays
+                            ? " needs analysis of instructions)\n"
+                            : " no need to analyze: no accesses to arrays\n")));
+
+  // If there are no accesses to array, then there should be no instructions to
+  // update.
+  assert((SeenArrays || Checks.getTotal() == 0) &&
+         "Inconsistent checkStructMethod");
 
   // Dump results of analysis.
   DEBUG_WITH_TYPE(DTRANS_SOASTR, {
@@ -216,17 +225,21 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
     F.print(dbgs(), &Annotate);
   });
 
-  CallSiteComparator Cmp(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM, S,
-                         P.first, P.second, *Result, /* CsllSiteComparator */
-                         *Result,                    /*TransformationData*/
-                         DTransSOAToAOSBasePtrOff);
+  if (SeenArrays) {
+    CallSiteComparator Cmp(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM,
+                           S, P.first, P.second,
+                           *Result, /* CsllSiteComparator */
+                           *Result, /*TransformationData*/
+                           DTransSOAToAOSBasePtrOff);
 
-  bool Comparison = Cmp.canCallSitesBeMerged();
-  (void)Comparison;
-  LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
-                    << (Comparison ? "required call sites can be merged"
-                                   : "problem with call sites required to be merged")
-                    << "\n");
+    bool Comparison = Cmp.canCallSitesBeMerged();
+    (void)Comparison;
+    LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
+                      << (Comparison
+                              ? "required call sites can be merged"
+                              : "problem with call sites required to be merged")
+                      << "\n");
+  }
   return Ignore(Result.release());
 }
 
@@ -236,12 +249,12 @@ public:
   SOAStructMethodReplacement(
       DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
       const TargetLibraryInfo &TLI, const SummaryForIdiom &S,
-      const SmallVectorImpl<StructType *> &Fields,
+      const SmallVectorImpl<StructType *> &Arrays,
       const SmallVectorImpl<unsigned> &Offsets,
       const SOAToAOSStructMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
       : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
-        InstsToTransform(InstsToTransform), S(S), Fields(Fields),
+        InstsToTransform(InstsToTransform), S(S), Arrays(Arrays),
         Offsets(Offsets) {}
 
   bool prepareTypes(Module &M) override {
@@ -251,54 +264,31 @@ public:
         Context, (Twine(DepTypePrefix) + S.StrType->getName()).str());
     TypeRemapper->addTypeMapping(S.StrType, NewStruct);
     NewArray = StructType::create(
-        Context, (Twine(DepTypePrefix) + "AR_" + Fields[0]->getName()).str());
+        Context, (Twine(DepTypePrefix) + "AR_" + Arrays[0]->getName()).str());
     NewElement = StructType::create(
         Context, (Twine(DepTypePrefix) + "EL_" + S.StrType->getName()).str());
 
-    for (auto *Fld: Fields)
+    for (auto *Fld: Arrays)
       TypeRemapper->addTypeMapping(Fld, NewArray);
 
     FunctionType *NewFunctionTy = nullptr;
-    for (auto P : zip(InstsToTransform.Appends, Fields)) {
-      auto *Method = std::get<0>(P);
+    for (auto *Method : InstsToTransform.Appends) {
       auto *FunctionTy = Method->getFunctionType();
-      if (NewFunctionTy) {
+      if (!NewFunctionTy) {
+        SmallVector<PointerType *, 3> Elems;
+        for (auto *ArrType : Arrays)
+          Elems.push_back(getSOAElementType(ArrType, DTransSOAToAOSBasePtrOff));
+
+        // updateAppends in StructMethodTransformation compute necessary
+        // offset during CallSite creation.
+        unsigned IgnoreElemOffset = 0;
+        NewFunctionTy = ArrayMethodTransformation::mapNewAppendType(
+            *Method,
+            getSOAElementType(getStructTypeOfMethod(*Method),
+                              DTransSOAToAOSBasePtrOff),
+            Elems, TypeRemapper, IgnoreElemOffset);
+      } else
         TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
-        continue;
-      }
-
-      auto *ElementType = std::get<1>(P)
-                              ->getTypeAtIndex(DTransSOAToAOSBasePtrOff)
-                              ->getPointerElementType();
-
-      SmallVector<Type *, 5> Params;
-      for (auto *Param : FunctionTy->params()) {
-        if (Param == ElementType) {
-          for (auto *Fld : Fields)
-            Params.push_back(Fld->getTypeAtIndex(DTransSOAToAOSBasePtrOff)
-                                 ->getPointerElementType());
-          continue;
-        }
-
-        if (auto *Ptr = dyn_cast<PointerType>(Param)) {
-          if (Ptr->getElementType() == std::get<1>(P)) {
-            Params.push_back(NewArray->getPointerTo());
-            continue;
-          }
-
-          if (Ptr->getElementType() == ElementType) {
-            for (auto *Fld : Fields)
-              Params.push_back(Fld->getTypeAtIndex(DTransSOAToAOSBasePtrOff));
-            continue;
-          }
-        }
-        Params.push_back(Param);
-      }
-
-      NewFunctionTy =
-          FunctionType::get(FunctionTy->getReturnType(), Params, false);
-
-      TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
     }
 
     return true;
@@ -307,29 +297,21 @@ public:
   void populateTypes(Module &M) override {
     {
       SmallVector<Type *, 6> Elements;
-      for (auto *Fld : Fields)
-        Elements.push_back(Fld->getTypeAtIndex(DTransSOAToAOSBasePtrOff)
-                               ->getPointerElementType());
+      for (auto *Fld : Arrays)
+        Elements.push_back(getSOAElementType(Fld, DTransSOAToAOSBasePtrOff));
       NewElement->setBody(Elements);
     }
 
     {
-      SmallVector<Type *, 6> ArrayElems;
-      unsigned Off = 0;
-      for (auto *Fld : Fields[0]->elements()) {
-        if (Off == DTransSOAToAOSBasePtrOff)
-          ArrayElems.push_back(NewElement->getPointerTo(0));
-        else
-          ArrayElems.push_back(Fld);
-        ++Off;
-      }
+      SmallVector<Type *, 6> ArrayElems(Arrays[0]->element_begin(),
+                                        Arrays[0]->element_end());
+      ArrayElems[DTransSOAToAOSBasePtrOff] = NewElement->getPointerTo(0);
       NewArray->setBody(ArrayElems);
     }
 
     {
-      SmallVector<Type *, 6> StructElems;
-      for (auto *Fld : S.StrType->elements())
-        StructElems.push_back(Fld);
+      SmallVector<Type *, 6> StructElems(S.StrType->element_begin(),
+                                         S.StrType->element_end());
 
       auto PFloat = Type::getFloatTy(Context)->getPointerTo(0);
       // Do not change layout of structure, all but one
@@ -337,9 +319,9 @@ public:
       for (auto O : Offsets)
         StructElems[O] = PFloat;
 
-      AOSOff = *std::min_element(Offsets.begin(), Offsets.end());
+      AOSOffset = *std::min_element(Offsets.begin(), Offsets.end());
 
-      StructElems[AOSOff] = NewArray->getPointerTo(0);
+      StructElems[AOSOffset] = NewArray->getPointerTo(0);
       NewStruct->setBody(StructElems);
     }
   }
@@ -354,21 +336,24 @@ public:
         DL, DTInfo, TLI, VMap, InstsToTransform /* CsllSiteComparator */,
         InstsToTransform /*TransformationData*/, Context);
 
-    SMT.updateReferences(S.StrType, NewArray, Fields, AOSOff,
+    SMT.updateReferences(S.StrType, NewArray, Arrays, AOSOffset,
                          DTransSOAToAOSBasePtrOff);
   }
 
 private:
   const SOAToAOSStructMethodsCheckDebugResult &InstsToTransform;
   const SummaryForIdiom &S;
-  const SmallVectorImpl<StructType *> &Fields;
+  const SmallVectorImpl<StructType *> &Arrays;
   const SmallVectorImpl<unsigned> &Offsets;
 
+  // Structure containing one element per each transformed array.
   StructType *NewElement = nullptr;
+    // New array of structures, structure is NewElement.
   StructType *NewArray = nullptr;
+  // Structure containing pointer to NewArray.
   StructType *NewStruct = nullptr;
   // Offset of array-of-structure in NewStruct.
-  unsigned AOSOff = -1U;
+  unsigned AOSOffset = -1U;
 };
 } // namespace
 

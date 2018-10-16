@@ -163,6 +163,7 @@ typedef enum {
    NinlrPreferCloning,
    NinlrNullPtrMismatch,
    NinlrPreferMultiversioning,
+   NinlrPreferSOAToAOS,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -409,6 +410,7 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
               SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
+              SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
               ProfileSummaryInfo *PSI,
               OptimizationRemarkEmitter *ORE = nullptr);
 
@@ -425,6 +427,7 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
               SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
+              SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.

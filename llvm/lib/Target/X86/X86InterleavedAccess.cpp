@@ -302,6 +302,11 @@ public:
       return false;
 
     // FIXME: Support all other types.
+    // To Do: Remove this condition.
+    // This is currently added to filter in advance the unsupported groups in
+    // getSequence(). The ideal flow should be that we form the groups and at
+    // getSequence() we return false for unsupported Groups. This requires
+    // maintaining two places to check the supported Groups/types.
     if (!((VecTy->getScalarSizeInBits() == 64 && Factor == 2) ||
           (VecTy->getScalarSizeInBits() == 32 && Factor == 4) ||
           (VecTy->getScalarSizeInBits() == 16 && Factor == 8)))
@@ -1138,6 +1143,44 @@ bool X86TargetLowering::lowerInterleavedStore(StoreInst *SI,
   // This should be recognized in function isReInterleaveMask().
   if (SVI->getType()->getVectorNumElements() == Factor)
     return false;
+
+  // Check if there are any undefs in the Masks in ShuffleVectorInstruction.
+  // Currently, we do not support any undefs in the mask.
+  //
+  // For cases like:
+  // %interleave.vec = shufflevector <16 x i64> %a0, <16 x i64> undef, <16 x
+  // i32> <i32 0, i32 4, i32 8, i32 12, i32 undef, i32 undef, i32 undef, i32
+  // undef, i32 2, i32 6, i32 10, i32 14, i32 undef, i32 undef, i32 undef, i32
+  // undef>
+  //   Or
+  // %interleave.vec = shufflevector <16 x i64> %a0, <16 x i64> undef, <16 x
+  // i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32
+  // undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef,
+  // i32 undef, i32 undef>
+  // store <16 x i64> %interleave.vec, <16 x i64>* %ptr, align 16
+  // isReInterleavedMask() function will return this as a valid
+  // candidate, with factor = 4. These will get transformed incorrectly if the
+  // following check is not at place.
+  //
+  // To Do:
+  // 1. The undefs can be considered as masked accesses. A store of an undefined
+  // value can be assumed to not have any effect; we can assume that the value
+  // is overwritten with bits that happen to match what was already there. For
+  // OpenSource:
+  //    Remove this generic check here, and check the mask values in the
+  //    open-sourced - Grp.isSupported() function.
+  // For OptVLS (Over the OpenSource Change above):
+  //    Add the mask support to OVLSMemref, and extend the analysis to check and
+  //    consider the masks while grouping. The mask gets propagated to Groups,
+  //    and then to Sequences.
+  // 2. The same problem also exists for lowerInterleavedLoad() cases. The
+  // function isDeInterleaveMask() ignores undefs.
+  //
+  for (auto maskvalue : SVI->getShuffleMask()) {
+    if (maskvalue == -1)
+      return false;
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   // Holds the indices of SVI that correspond to the starting index of each

@@ -750,4 +750,18 @@ bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
   return false;
 }
 
+// Return nullptr if W has no parent of the specified kind.
+WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
+                                           unsigned WRegionKind) {
+  while (W) {
+    WRegionNode *ParentRegion = W->getParent();
+    if (!ParentRegion)
+      break;
+    if (WRegionKind == ParentRegion->getWRegionKindID())
+      return ParentRegion;
+    W = ParentRegion;
+  }
+  return nullptr;
+}
+
 #endif // INTEL_COLLAB

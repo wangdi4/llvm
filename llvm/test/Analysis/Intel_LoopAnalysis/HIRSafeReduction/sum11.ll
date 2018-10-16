@@ -10,8 +10,8 @@
 ;     }
 ;     d[j] = d[j] +s ;
 ; REQUIRES: asserts
-; RUN: opt < %s -loop-simplify  -hir-ssa-deconstruction | opt -hir-temp-cleanup -analyze -force-hir-safe-reduction-analysis  -hir-safe-reduction-analysis | FileCheck %s
-; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis 2>&1 | FileCheck %s
+; RUN: opt < %s -loop-simplify  -hir-ssa-deconstruction | opt -hir-temp-cleanup -analyze  -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 
 ; CHECK: <Safe Reduction>
 ; CHECK: No Safe Reduction

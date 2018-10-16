@@ -5,7 +5,7 @@
 ; then it should be whole program seen.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -whole-program-trace -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-assume-hidden -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
 ; CHECK:      FUNCTIONS UNRESOLVED: 0

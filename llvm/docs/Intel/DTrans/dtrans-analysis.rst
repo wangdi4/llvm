@@ -343,12 +343,46 @@ HasZeroSizedArray
 This indicates that the type is an array with zero size or the type is
 a structure with a zero-sized array member.
 
+BadCastingPending
+~~~~~~~~~~~~~~~~~
+
+A potential bad casting issue that will be either eliminated,
+converted to bad casting conditional, or converted to bad casting
+at the end of analysis by the bad casting analyzer. (See the description
+of the Bad Casting Analyzer below.) `Bad Casting Analyzer`_
+
+BadCastingConditional
+~~~~~~~~~~~~~~~~~~~~~
+
+Indicates that bad casting will occur only if specific conditions
+are not fulfilled.  These conditions are noted by the bad casting
+analyzer, and involve certain functions' arguments being nullptr on
+entry to those functions. (See the description of the Bad Casting
+Analyzer below.) `Bad Casting Analyzer`_
+
+UnsafePointerStorePending
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A potential unsafe pointer store issue that will be either eliminated,
+converted to unsafe pointer store conditional, or converted to unsafe
+pointer store at the end of analysis by the bad casting analyzer.
+(See the description of the Bad Casting Analyzer below.)
+`Bad Casting Analyzer`_
+
+UnsafePointerStoreConditional
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Indicates that an unsafe pointer store  will occur only if specific
+conditions are not fulfilled.  These conditions are noted by the bad
+casting analyzer, and involve certain functions' arguments being nullptr
+on entry to those functions. (See the description of the Bad Casting
+Analyzer below.) `Bad Casting Analyzer`_
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
 don't specifically recognize. The use might actually be safe or unsafe, but we
 will conservatively assume it is unsafe.
-
 
 Local Pointer Type Analysis
 ---------------------------
@@ -897,4 +931,154 @@ An escape analysis is performed to ensure that the pointer to memory in
 a field for which isSingleAllocFunction() is true is not manipulated in
 such a way to invalidate the isSingleAllocFunction() property.
 
+Bad Casting Analyzer
+====================
+
+The bad casting analyzer was written to allow up to deal with certain
+important bad casting and unsafe pointer store safety violations that
+arise in the following context:
+
+Consider the sequence of code fragments:
+
+(1) typedef struct {
+(2)    void *coder;
+(3)    void (*startup)(void *myarg);
+(4)    void (*shutdown)(void *myarg);
+(5) } mynextcoder;
+
+(6) typedef struct {
+(7)   int myint1;
+(8)   int *myptr1;
+(9) } mycoder1;
+
+(10) typedef struct {
+(11)  int *myptr2;
+(12)  int myint2;
+(13) } mycoder2;
+
+(14) int myglobalint1 = 50;
+(15) int myglobalint2 = 100;
+
+(16) void init_with_coder1(mynextcoder *next) {
+(17)   if (!next->coder)
+(18)     next->coder = malloc(sizeof(mycoder1));
+(19)  next->startup = coder1_startup;
+(20)  next->shutdown = coder1_shutdown;
+(21)  ((mycoder1 *)(next->coder))->myint1 = 15;
+(22)  ((mycoder1 *)(next->coder))->myptr1 = &myglobalint1;
+(23) }
+
+(24) void init_with_coder2(mynextcoder *next) {
+(25)   if (!next->coder)
+(26)    next->coder = malloc(sizeof(mycoder2));
+(27)  next->startup = coder2_startup;
+(28)  next->shutdown = coder2_shutdown;
+(29)  ((mycoder2 *)(next->coder))->myint2 = 20;
+(30)  ((mycoder2 *)(next->coder))->myptr2 = &myglobalint2;
+(31) }
+
+(32) void coder1_startup(void *myarg) {
+(33)   mycoder1 *ptr = (mycoder1 *) myarg;
+(34)   ...
+(35) }
+
+(36) void coder1_shutdown(void *myarg) {
+(37)   mycoder1 *ptr = (mycoder1 *) myarg;
+(38)   ...
+(39) }
+
+(40) void coder2_startup(void *myarg) {
+(41)   mycoder2 *ptr = (mycoder2 *) myarg;
+(42)  ...
+(43) );
+
+(44) void coder2_shutdown(void *myarg) {
+(45)   mycoder2 *ptr = (mycoder2 *) myarg;
+(46)   ...
+(47) );
+
+(48) void myoperation(mynextcoder *next) {
+(49)  next->startup(next->coder);
+(50)  ...
+(51)  next->shutdown(next->coder);
+(52) }
+
+Note that on lines 21-22 the 'coder' field is cast to the type coder1, while
+in lines 29-30 it is cast to the type coder2. This would, in general, yield
+"bad casting" and "unsafe pointer store" safety violations. However, note
+that as long as the type of structure assigned to a specific INSTANCE of
+next->coder is never accessed as a different type, the safety violations
+are not a real problem.  This is the key point behind the bad casting analysis.
+
+Note that in the above example, that calls to the functions which
+are assigned to function pointer fields in the structure 'mynextcoder' (as in
+lines 49 and 51), always have as their zeroth argument the 'coder' field
+of the same INSTANCE of the 'mynextcoder' structure.  Furthermore, note that
+the zeroth argument of those functions (as illustrated in lines 36-37,
+40-41, 44-45, and 48-49 is always used only as the type to which the 'coder'
+field was initially assigned.
+
+A special wrinkle to all of this comes in the code on lines 21-22 and 29-30.
+Here the pointer to the 'coder' field is cast to the type to which it could
+be assigned in the corresponding function, but that assignment is conditional.
+If it could happen that the allocaion did NOT happen, we might end up accessing
+the 'coder' field as a pointer to a different type than the type it was on
+entry.  This truly would be a case of bad casting, and any optimizations,
+like "single alloc analysis" that depend on the bad casting being absent
+would be invalid.
+
+We deal with this issue in the following way. We insert a test at the
+beginning of functions init_with_coder1() and init_with_coder2() (as
+shown below in lines 16a-16b and 24a-24b):
+
+(16) void init_with_coder1(mynextcoder *next) {
+(16a)  if (next->coder)
+(16b)    GIVE UP ON ANY OPTIMIZATION THAT DEPENDS ON "NO BAD CASTING"
+(17)   if (!next->coder)
+(18)     next->coder = malloc(sizeof(mycoder1));
+(19)  next->startup = coder1_startup;
+(20)  next->shutdown = coder1_shutdown;
+(21)  ((mycoder1 *)(next->coder))->myint1 = 15;
+(22)  ((mycoder1 *)(next->coder))->myptr1 = &myglobalint1;
+(23) }
+
+(24) void init_with_coder2(mynextcoder *next) {
+(24a)  if (next->coder)
+(24b)    GIVE UP ON ANY OPTIMIZATION THAT DEPENDS ON "NO BAD CASTING"
+(25)   if (!next->coder)
+(26)    next->coder = malloc(sizeof(mycoder2));
+(27)  next->startup = coder2_startup;
+(28)  next->shutdown->coder2_shutdown;
+(29)  ((mycoder2 *)(next->coder))->myint2 = 20;
+(30)  ((mycoder2 *)(next->coder))->myptr2 = &myglobalint2;
+(31) }
+
+
+The actual code in the bad casting analyzing executes in three steps:
+  (1) Find a candidate type and field on which to do the analysis.
+     (In our example above this would be the 'mynextcoder' structure and
+     the 'coder' field.)
+  (2) Analyze loads and stores to the 'mynextcoder' 'coder' field.
+  (3) Conclude whether the bad casting and unsafe pointer store safety
+      violations have actually occurred and mark the 'mynextcoder'
+      structure appropriately.
+
+In terms of the SafetyData violation types, we mark any potential "bad
+casting" and "unsafe pointer store" safety violations on the candidate
+type and field discovered during step (2) as BadCastingPending and/or
+UnsafePointerStorePending. In step (3), we have three choices:
+  (1) We can determine that no such safety violations exist, and
+      remove the BadCastingPending and UnsafePointerStorePending
+      safety violations.
+  (2) We can determine that the safety violations cannot be removed,
+      and convert the BadCastingPending violations to BadCasting and the
+      UnsafePointerStore violations to UnsafePointerStore.
+  (3) We can determine that the safety conditions can be removed under
+      certain conditions, and change the BadCastingPending violations
+      to BadCastingConditional and the UnsafePointerStore violations to
+      UnsafePointerStoreConditional. (This is what was illustrated in
+      the example above.)
+
+Further details on the operation of the bad casting analyzer, including
+examples with IR, can be found in the code in DTransAnalysis.cpp.
 

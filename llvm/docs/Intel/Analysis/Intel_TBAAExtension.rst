@@ -1,6 +1,6 @@
-======================================================
-TBAA Extension: New Metadata Nodes and Rules for TBAA
-======================================================
+============================================
+TBAA Extension: New Metadata Nodes for TBAA
+============================================
 
 .. contents::
    :local:
@@ -111,19 +111,15 @@ analysis needs to have a unified TBAA framework that supports not only scalar
 and structure types but also different array types and pointer types.
 
 
-Type Based Alias Analysis Extension
-=====================================
+TBAA New Metadata Node Extension
+=================================
 
 The existing LLVM TBAA framework is extended by adding new metadata nodes.
 This TBAA extension is a low overhead improvement to the LLVM TBAA framework.
 It reuses the ``Scalar`` type nodes from the LLVM framework, hence it does not
 require any modification to the TBAA metadata for the load and store
 instructions. These new types allow memory references to have distinct
-nodes in the type tree. Moreover, scalar global variables are processed
-specially during type match which removes unnecessary alias assumptions.
-
-New metadata nodes
-------------------
+nodes in the type tree.
 
 New metadata nodes supported by the extension are: ``Pointer`` and ``Array``
 type nodes. See the LLVM reference manual for the
@@ -173,100 +169,4 @@ follows:
 
 Here, TBAA metadata nodes !6 and !9 are generated for the two arrays
 and they are not aliasing each other.
-
-New TBAA rules for global scalars
-----------------------------------
-
-Each type descriptor node has a parent and via this parent relation, they form
-a tree. In LLVM TBAA, a type is considered to alias all of its descendants and
-all of its ancestors in the tree. Also, a type is considered to alias all types
-in other trees, so that bitcode produced from multiple front-ends is handled
-conservatively. To check if two ``Access Tags`` (tagX and tagY) can alias, we
-start from the base type of tagX, follow the edge with the correct offset in
-the type DAG and adjust the offset until we reach the base type of tagY or
-until we reach the Root node.
-
-If we reach the base type of tagY, compare the adjusted offset with offset of
-tagY, return "Alias" if the offsets are the same, return "NoAlias" otherwise.
-If we reach the Root node, perform the above in the other direction i.e.
-starting from base type of tagY to see if we reach base type of tagX.
-
-If they have different roots, they're part of different potentially unrelated
-type systems, so we return "Alias" to be conservative. If neither node is an
-ancestor of the other and they have the same root, then we say "NoAlias".
-
-Here is a running example:
-
-.. code-block:: c
-
-    char foo(char* a, int* s) {
-        *a = 12;
-        *s = 10;
-
-        return *a;
-    }
-
-Partial LLVM IR with access tag for the example would be:
-
-.. code-block:: llvm
-
-   store i8 12, i8* %a, align 1, !tbaa !1
-   store i32 10, i32* %s, align 4, !tbaa !4
-   %0 = load i8, i8* %a, align 1, !tbaa !1
-
-   !0 = !{!"clang version 3.8.0 (trunk 1684)"}
-   !1 = !{!2, !2, i64 0}
-   !2 = !{!"omnipotent char", !3, i64 0}
-   !3 = !{!"Simple C++ TBAA"}
-   !4 = !{!5, !5, i64 0}
-   !5 = !{!"int", !2, i64 0}
-
-The type based alias analysis for !1 and !4 would be:
-
-.. code-block:: text
-
-   Step 1: (!1, 0, !4, 0)
-   Step 2: (!2, 0, !5, 0)
-   Step 3: (!3, 0, !2, 0)   match fails
-   Step 4: (!2, 0, !5, 0)
-   Step 5: (!2, 0, !2, 0)   match successful means that they are aliased.
-
-The extension includes special handling of global scalar variables during type
-based alias analysis. Since a global scalar variable cannot be aliased by an
-access to an enclosing (descendant) type, checking only one direction in the
-type tree is sufficient for global scalars. For example:
-
-.. code-block:: c
-
-    char a;
-
-    int bar(int* s) {
-        *s = 10;
-        a = 12;
-
-        return *s;
-    }
-
-with access tags as:
-
-.. code-block:: llvm
-
-   store i32 10, i32* %s, align 4, !tbaa !1
-   store i8 12, i8* @a, align 1, !tbaa !5
-   %0 = load i32, i32* %s, align 4, !tbaa !1
-
-   !0 = !{!"clang version 3.8.0 (trunk 1684)"}
-   !1 = !{!2, !2, i64 0}
-   !2 = !{!"int", !3, i64 0}
-   !3 = !{!"omnipotent char", !4, i64 0}
-   !4 = !{!"Simple C++ TBAA"}
-   !5 = !{!3, !3, i64 0}
-
-Then the type based alias analysis for !5 and !1 would be:
-
-.. code-block:: text
-
-   Step 1: (!5, 0, !1, 0)
-   Step 2: (!3, 0, !2, 0)
-   Step 3: (!4, 0, !2, 0)   match fails (no alias) and we stop here
 

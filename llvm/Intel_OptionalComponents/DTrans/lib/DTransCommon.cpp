@@ -28,6 +28,16 @@ using namespace llvm;
 static cl::opt<unsigned> DTransMemLayoutLevel("dtrans-mem-layout-level",
                                               cl::init(2), cl::ReallyHidden);
 
+// SOA-to-AOS transformation.
+static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(true),
+                                    cl::Hidden,
+                                    cl::desc("Enable DTrans SOAToAOS"));
+
+// Delete fields transformation.
+static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
+                                        cl::init(true), cl::Hidden,
+                                        cl::desc("Enable DTrans delete field"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Valid values: early -> dump before early DTrans passes
 //               late -> dump before late DTrans passes
@@ -54,6 +64,7 @@ static cl::opt<bool>
     EnableResolveTypes("enable-resolve-types", cl::init(true),
                         cl::Hidden,
                         cl::desc("Enable pre-dtrans type resolution"));
+
 #else
 
 #define hasDumpModuleBeforeDTransValue(x) (false)
@@ -64,15 +75,15 @@ constexpr bool EnableResolveTypes = false;
 
 void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnalysisWrapperPass(PR);
-  initializeDTransAOSToSOAWrapperPass(PR);
-  initializeDTransDeleteFieldWrapperPass(PR);
   initializeDTransPaddedMallocWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
-  initializeDTransReorderFieldsWrapperPass(PR);
   initializeDTransResolveTypesWrapperPass(PR);
+  initializeDTransSOAToAOSWrapperPass(PR);
+  initializeDTransDeleteFieldWrapperPass(PR);
+  initializeDTransReorderFieldsWrapperPass(PR);
+  initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
   initializeDTransDynCloneWrapperPass(PR);
-  initializeDTransSOAToAOSWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
@@ -87,12 +98,14 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (EnableResolveTypes)
     MPM.addPass(dtrans::ResolveTypesPass());
 
-  MPM.addPass(dtrans::DeleteFieldPass());
+  if (EnableSOAToAOS)
+    MPM.addPass(dtrans::SOAToAOSPass());
+  if (EnableDeleteFields)
+    MPM.addPass(dtrans::DeleteFieldPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
   MPM.addPass(dtrans::AOSToSOAPass());
   MPM.addPass(dtrans::EliminateROFieldAccessPass());
   MPM.addPass(dtrans::DynClonePass());
-  MPM.addPass(dtrans::SOAToAOSPass());
 }
 
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
@@ -103,12 +116,14 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   if (EnableResolveTypes)
     PM.add(createDTransResolveTypesWrapperPass());
 
-  PM.add(createDTransDeleteFieldWrapperPass());
+  if (EnableSOAToAOS)
+    PM.add(createDTransSOAToAOSWrapperPass());
+  if (EnableDeleteFields)
+    PM.add(createDTransDeleteFieldWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
   PM.add(createDTransAOSToSOAWrapperPass());
   PM.add(createDTransEliminateROFieldAccessWrapperPass());
   PM.add(createDTransDynCloneWrapperPass());
-  PM.add(createDTransSOAToAOSWrapperPass());
 }
 
 void llvm::addLateDTransPasses(ModulePassManager &MPM) {

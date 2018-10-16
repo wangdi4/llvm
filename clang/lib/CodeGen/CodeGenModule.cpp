@@ -322,8 +322,6 @@ void CodeGenModule::checkAliases() {
       assert(FTy);
       if (!FTy->getReturnType()->isPointerTy())
         Diags.Report(Location, diag::err_ifunc_resolver_return);
-      if (FTy->getNumParams())
-        Diags.Report(Location, diag::err_ifunc_resolver_params);
     }
 
     llvm::Constant *Aliasee = Alias->getIndirectSymbol();
@@ -2554,9 +2552,8 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   }
 
   llvm::sort(
-      Options.begin(), Options.end(),
-      [](const CodeGenFunction::MultiVersionResolverOption &LHS,
-         const CodeGenFunction::MultiVersionResolverOption &RHS) {
+      Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
+                  const CodeGenFunction::MultiVersionResolverOption &RHS) {
         return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
                CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
       });

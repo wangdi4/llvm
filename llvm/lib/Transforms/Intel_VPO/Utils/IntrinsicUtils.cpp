@@ -397,15 +397,11 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
         Value *V1, *V2;
         V1 = LIA ? LIA->getPointerOperand() : STA->getPointerOperand();
         V2 = LIB ? LIB->getPointerOperand() : STB->getPointerOperand();
-        uint64_t I1Size = MemoryLocation::UnknownSize;
-        Type *I1ElTy = cast<PointerType>(V1->getType())->getElementType();
-        if (I1ElTy->isSized())
-          I1Size = DL->getTypeStoreSize(I1ElTy);
-        uint64_t I2Size = MemoryLocation::UnknownSize;
-        Type *I2ElTy = cast<PointerType>(V2->getType())->getElementType();
-        if (I2ElTy->isSized())
-          I2Size = DL->getTypeStoreSize(I2ElTy);
-        if (!AA->isNoAlias(V1, I1Size, V2, I2Size))
+        // If the size is UnknownSize, the alias result is valid for
+        // loop carried case. We have to make conservative assumption
+        // since the information may be used by the loop optimizations.
+        if (!AA->isNoAlias(V1, MemoryLocation::UnknownSize, V2,
+                           MemoryLocation::UnknownSize))
           BM.bitSet(J, I);
       }
     }

@@ -272,6 +272,30 @@ const SafetyData HasCppHandling = 0x0000000000010000000;
 /// The structure contains zero-sized array as the last field.
 const SafetyData HasZeroSizedArray = 0x0000000000020000000;
 
+/// For use with BadCastingAnalyzer
+
+// A potential bad casting issue that will be either eliminated,
+// converted to bad casting conditional, or converted to bad casting
+// at the end of analysis by the bad casting analyzer.
+const SafetyData BadCastingPending = 0x0000000000040000000;
+
+// Indicates that bad casting will occur only if specific conditions
+// are not fulfilled.  These conditions are noted by the bad casting
+// analyzer, and involve certain functions' arguments being nullptr on
+// entry to those functions.
+const SafetyData BadCastingConditional = 0x0000000000080000000;
+
+// A potential unsafe pointer store issue that will be either eliminated,
+// converted to unsafe pointer store conditional, or converted to unsafe
+// pointer store at the end of analysis by the bad casting analyzer.
+const SafetyData UnsafePointerStorePending = 0x0000000000100000000;
+
+// Indicates that an unsafe pointer store  will occur only if specific
+// conditions are not fulfilled.  These conditions are noted by the bad
+// casting analyzer, and involve certain functions' arguments being nullptr
+// on entry to those functions.
+const SafetyData UnsafePointerStoreConditional = 0x0000000000200000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -288,7 +312,8 @@ const SafetyData SDDeleteField =
     UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
-    HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr;
+    HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
+    BadCastingConditional | UnsafePointerStoreConditional;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -297,7 +322,8 @@ const SafetyData SDReorderFields =
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    MismatchedArgUse | LocalInstance | HasCppHandling | UnhandledUse;
+    MismatchedArgUse | LocalInstance | HasCppHandling |
+    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 //
 // Safety conditions for field single value analysis
 //
@@ -305,7 +331,7 @@ const SafetyData SDFieldSingleValue =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
     AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-    UnhandledUse;
+    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
@@ -318,7 +344,7 @@ const SafetyData SDElimROFieldAccess =
     MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
     HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-    UnhandledUse;
+    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -331,7 +357,8 @@ const SafetyData SDAOSToSOA =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    HasCppHandling | HasZeroSizedArray;
+    HasCppHandling | HasZeroSizedArray |
+    BadCastingConditional | UnsafePointerStoreConditional;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -342,7 +369,8 @@ const SafetyData SDAOSToSOADependent =
     MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
     UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
     NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
-    GlobalArray | HasVTable | HasCppHandling;
+    GlobalArray | HasVTable | HasCppHandling |
+    BadCastingConditional | UnsafePointerStoreConditional;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -357,7 +385,7 @@ const SafetyData SDAOSToSOADependentIndex32 =
     BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
     AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
     SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
-    HasZeroSizedArray;
+    HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -367,16 +395,18 @@ const SafetyData SDDynClone =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance |  MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    UnhandledUse | HasZeroSizedArray;
+    HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
+    UnhandledUse;
 
 const SafetyData SDSOAToAOS =
-    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    BadCasting | BadPtrManipulation |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
     UnsafePointerStore | FieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-    GlobalArray | HasFnPtr | HasZeroSizedArray | UnhandledUse;
+    GlobalArray | HasFnPtr | HasZeroSizedArray |
+    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -919,12 +949,11 @@ bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);
 bool isValueEqualToSize(const Value *Val, uint64_t Size);
 
 /// This helper function checks \p Val to see if it is either (a) a constant
-/// whose value is a multiple of \p Size, or (b) an integer multiplication
-/// operator where either operand is a constant multiple of \p Size.
-/// TODO: eliminate ShiftLeft, when all transformations support Shl
-/// instructions in address computations.
-bool isValueMultipleOfSize(const Value *Val, uint64_t Size,
-                           bool ShiftLeft = false);
+/// whose value is a multiple of \p Size, (b) an integer multiplication
+/// operator where either operand is a constant multiple of \p Size, or
+/// (c) an integer value left-shifted by a value that results in a multiple
+/// of the \p Size.
+bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
 
 /// Examine the specified types to determine if a bitcast from \p SrcTy to
 /// \p DestTy could be used to access the first element of SrcTy. The
@@ -967,15 +996,6 @@ StringRef getStructName(llvm::Type *Ty);
 /// type is zero-size array itself.
 bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 
-// Annotate an instruction to provide a pointer type that the result of the
-// instruction aliases. This method can be used by a DTrans transformation for
-// cases where the generated IR is unable to be analyzed directly by the
-// DTransAnalysis.
-void createDTransTypeAnnotation(Instruction *I, llvm::Type *Ty);
-
-// Get the type that exists in an annotation, if one exists, for the
-// instruction.
-llvm::Type *lookupDTransTypeAnnotation(Instruction *I);
 } // namespace dtrans
 
 } // namespace llvm

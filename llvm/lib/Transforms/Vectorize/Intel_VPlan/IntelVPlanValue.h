@@ -222,13 +222,20 @@ public:
     return Operands[N];
   }
 #if INTEL_CUSTOMIZATION
-  void setOperand(unsigned Idx, VPValue *Val) {
-    assert(Idx < Operands.size() && "setOperand() out of range!");
+  void setOperand(const unsigned Idx, VPValue *Operand) {
+    assert(Idx < getNumOperands() && "Out of range");
     Operands[Idx]->removeUser(*this);
-    Operands[Idx] = Val;
+    Operands[Idx] = Operand;
     Operands[Idx]->addUser(*this);
   }
 
+  void removeOperand(const unsigned Idx) {
+    assert(Idx < getNumOperands() && "Out of range");
+    Operands[Idx]->removeUser(*this);
+    auto It = op_begin();
+    std::advance(It, Idx);
+    Operands.erase(It);
+  }
   /// Return the number of operands that match \p Op.
   int getNumOperandsFrom(const VPValue *Op) const {
     return std::count(op_begin(), op_end(), Op);

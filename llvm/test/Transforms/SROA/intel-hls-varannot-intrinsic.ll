@@ -82,11 +82,30 @@ entry:
   ret i32 %3
 }
 
+; CHECK-NOT: %a = alloca
+; CHECK-NOT: %bitcast [2 x i8]
+; CHECK-NOT: @llvm.lifetime.start.p0i8
+; CHECK-NOT: @llvm.var.annotation
+; CHECK: ret void
+
+define dso_local void @f5() {
+entry:
+  %a = alloca [2 x i8], align 1
+  %lifetime_ptr = bitcast [2 x i8]* %a to i8*
+  call void @llvm.lifetime.start.p0i8(i64 288, i8* %lifetime_ptr) #1
+  %a1 = getelementptr inbounds [2 x i8], [2 x i8]* %a, i64 0, i64 0
+  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 14)
+  ret void
+}
 
 ; Function Attrs: nounwind
 declare void @llvm.var.annotation(i8*, i8*, i8*, i32) #0
 
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+
 declare dso_local void @f3(i32*)
 
 attributes #0 = { nounwind }
+attributes #1 = { argmemonly nounwind }
 

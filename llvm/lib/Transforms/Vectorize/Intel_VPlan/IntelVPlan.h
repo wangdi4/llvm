@@ -581,13 +581,16 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPBuilderHIR;
   friend class VPDecomposerHIR;
   // To get underlying HIRData until we have proper VPType.
+  friend class VPVLSClientMemrefHIR;
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
   friend class VPlanIdioms;
+  friend class VPlanVLSAnalysis;
+  friend class VPlanVLSAnalysisHIR;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
-  public: 
+  public:
     HIRSpecifics() {}
     ~HIRSpecifics() {
       if (isMaster())
@@ -893,7 +896,112 @@ public:
     return VPI->getOpcode() == Instruction::Br;
   }
 };
-#endif
+
+/// Concrete class for PHI instruction.
+class VPPHINode : public VPInstruction {
+private:
+  SmallVector<VPBasicBlock *, 2> VPBBUsers;
+
+public:
+  using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
+  using const_vpblock_iterator =
+      SmallVectorImpl<VPBasicBlock *>::const_iterator;
+
+  explicit VPPHINode(void) : VPInstruction(Instruction::PHI,
+                                           ArrayRef<VPValue *>()) {}
+
+  vpblock_iterator block_begin(void) { return VPBBUsers.begin(); }
+
+  vpblock_iterator block_end(void) { return VPBBUsers.end(); }
+
+  const_vpblock_iterator block_begin(void) const {
+    return VPBBUsers.begin();
+  }
+
+  const_vpblock_iterator block_end(void) const {
+    return VPBBUsers.end();
+  }
+
+  iterator_range<vpblock_iterator> blocks(void) {
+    return make_range(block_begin(), block_end());
+  }
+
+  iterator_range<const_vpblock_iterator> blocks(void) const {
+    return make_range(block_begin(), block_end());
+  }
+
+  operand_range incoming_values(void) { return operands(); }
+  const_operand_range incoming_values(void) const { return operands(); }
+
+  /// Return number of incoming values.
+  unsigned getNumIncomingValues(void) const { return getNumOperands(); }
+
+  /// Return VPValue that corresponds to Idx'th incomming VPBasicBlock.
+  VPValue *getIncomingValue(const unsigned Idx) const { return getOperand(Idx); }
+
+  /// Return VPValue that corresponds to incomming VPBB.
+  VPValue *getIncomingValue(const VPBasicBlock *VPBB) const {
+    auto Idx = getBlockIndexOrNone(VPBB);
+    assert(Idx && "Cannot find value for a given BB.");
+    return getIncomingValue(Idx.getValue());
+  }
+
+  void setIncomingValue(const unsigned Idx, VPValue *Value) {
+    assert(Value && "Value must not be null.");
+    setOperand(Idx, Value);
+  }
+
+  /// Add an incoming value to the end of the PHI list
+  void addIncoming(VPValue *Value, VPBasicBlock *Block) {
+    assert(Value && "Value must not be null.");
+    assert(Block && "Block must not be null.");
+    addOperand(Value);
+    VPBBUsers.push_back(Block);
+  }
+
+  /// Return incoming basic block number \p Idx.
+  VPBasicBlock *getIncomingBlock(const unsigned Idx) const {
+    return VPBBUsers[Idx];
+  }
+
+  /// Return incoming basic block corresponding to \p Value.
+  VPBasicBlock *getIncomingBlock(const VPValue *Value) const {
+    auto It = llvm::find(make_range(op_begin(), op_end()), Value);
+    return getIncomingBlock(std::distance(op_begin(), It));
+  }
+
+  /// Return index for a given \p Block.
+  int getBlockIndex(const VPBasicBlock *Block) const {
+    auto It = llvm::find(make_range(block_begin(), block_end()), Block);
+    if (It != block_end())
+      return std::distance(block_begin(), It);
+    return -1;
+  }
+
+  /// Return Optional index for a given basic block \p Block.
+  Optional<unsigned> getBlockIndexOrNone(const VPBasicBlock *Block) const {
+    int Idx = getBlockIndex(Block);
+    return Idx != -1 ? Optional<unsigned>(Idx) : None;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == Instruction::PHI;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  // FIXME: VPRecipeBase is going to be removed, so this classof
+  // should be removed. Right now it's needed to cast directly to VPPHINode
+  // during instruction traversal of VPBB
+  static inline bool classof(const VPRecipeBase *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+#endif // INTEL_CUSTOMIZATION
 
 /// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
 /// generation/modeling. Concrete sub-classes represent block & edge predicates
@@ -2209,11 +2317,20 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Insert NewBlock in the HCFG before BlockPtr and update parent region
-  /// accordingly
+  /// accordingly.
   static void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    insertBlockBefore(NewBlock, BlockPtr, BlockPtr->getPredecessors());
+  }
+
+  /// Insert NewBlock in the HCFG before BlockPtr, connect NewBlock with
+  /// given Preds of BlockPtr and update parent region accordingly.
+  /// Predecessors of BlockPtr that are not in the \p Preds will stay attached
+  /// to BlockPtr.
+  static void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr,
+                                SmallVectorImpl<VPBlockBase *> &Preds) {
     VPRegionBlock *ParentRegion = BlockPtr->getParent();
 
-    movePredecessors(BlockPtr, NewBlock);
+    movePredecessors(BlockPtr, NewBlock, Preds);
     NewBlock->setParent(ParentRegion);
     connectBlocks(NewBlock, BlockPtr);
     ++BlockPtr->Parent->Size;
@@ -2323,16 +2440,17 @@ public:
     From->removePredecessor(Pred);
   }
 
-  static void movePredecessors(VPBlockBase *From, VPBlockBase *To) {
-    auto &Predecessors = From->getPredecessors();
-
+  static void movePredecessors(VPBlockBase *From, VPBlockBase *To,
+                               SmallVectorImpl<VPBlockBase *> &Predecessors) {
     for (auto &Pred : Predecessors) {
       replaceBlockSuccessor(Pred, From, To);
       To->appendPredecessor(Pred);
+      From->removePredecessor(Pred);
     }
+  }
 
-    // Remove predecessors from From
-    Predecessors.clear();
+  static void movePredecessors(VPBlockBase *From, VPBlockBase *To) {
+    movePredecessors(From, To, From->getPredecessors());
   }
 
   static void moveSuccessors(VPBlockBase *From, VPBlockBase *To) {

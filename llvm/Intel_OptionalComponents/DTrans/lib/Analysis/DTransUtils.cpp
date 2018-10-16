@@ -29,10 +29,6 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
-// Name used for metadata attachment that associates an instruction as
-// being a specific type.
-const char *DTransOpMetadataName = "dtrans-type";
-
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
   if (!Ty->hasName())
     return false;
@@ -223,8 +219,7 @@ bool dtrans::isValueEqualToSize(const Value *Val, uint64_t Size) {
 // whose value is a multiple of the specified size, or (b) an integer
 // multiplication operator where either operand is a constant multiple of the
 // specified size.
-bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size,
-                                   bool ShiftLeft) {
+bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
   if (!Val)
     return false;
 
@@ -255,10 +250,9 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size,
   if (PatternMatch::match(Val,
                           PatternMatch::m_Mul(PatternMatch::m_Value(LHS),
                                               PatternMatch::m_Value(RHS)))) {
-    return (isValueMultipleOfSize(LHS, Size, ShiftLeft) ||
-            isValueMultipleOfSize(RHS, Size, ShiftLeft));
-  } else if (ShiftLeft &&
-             PatternMatch::match(
+    return (isValueMultipleOfSize(LHS, Size) ||
+            isValueMultipleOfSize(RHS, Size));
+  } else if (PatternMatch::match(
                  Val, PatternMatch::m_Shl(PatternMatch::m_Value(LHS),
                                           PatternMatch::m_Value(RHS)))) {
     uint64_t Shift = 0;
@@ -268,8 +262,7 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size,
   }
   // Handle sext and zext
   if (isa<SExtInst>(Val) || isa<ZExtInst>(Val))
-    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size,
-                                 ShiftLeft);
+    return isValueMultipleOfSize(cast<Instruction>(Val)->getOperand(0), Size);
   // Otherwise, it's not what we needed.
   return false;
 }
@@ -440,6 +433,9 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::SystemObject | dtrans::LocalPtr | dtrans::LocalInstance |
       dtrans::MismatchedArgUse | dtrans::GlobalArray | dtrans::HasVTable |
       dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
+      dtrans::BadCastingPending | dtrans::BadCastingConditional |
+      dtrans::UnsafePointerStorePending |
+      dtrans::UnsafePointerStoreConditional |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -459,6 +455,9 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::LocalPtr ^ dtrans::LocalInstance ^ dtrans::MismatchedArgUse ^
            dtrans::GlobalArray ^ dtrans::HasVTable ^ dtrans::HasFnPtr ^
            dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
+           dtrans::BadCastingPending ^ dtrans::BadCastingConditional ^
+           dtrans::UnsafePointerStorePending ^
+           dtrans::UnsafePointerStoreConditional ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
   std::vector<StringRef> SafetyIssues;
@@ -522,6 +521,14 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
     SafetyIssues.push_back("Has C++ handling");
   if (SafetyInfo & dtrans::HasZeroSizedArray)
     SafetyIssues.push_back("Has zero-sized array");
+  if (SafetyInfo & dtrans::BadCastingPending)
+    SafetyIssues.push_back("Bad casting (pending)");
+  if (SafetyInfo & dtrans::BadCastingConditional)
+    SafetyIssues.push_back("Bad casting (conditional)");
+  if (SafetyInfo & dtrans::UnsafePointerStorePending)
+    SafetyIssues.push_back("Unsafe pointer store (pending)");
+  if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
+    SafetyIssues.push_back("Unsafe pointer store (conditional)");
   if (SafetyInfo & dtrans::UnhandledUse)
     SafetyIssues.push_back("Unhandled use");
   // Print the safety issues found
@@ -845,44 +852,4 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
     return hasZeroSizedArrayAsLastField(PointerTy->getPointerElementType());
 
   return false;
-}
-
-// Annotate an instruction to indicate that the value should be treated as a
-// specific type for DTrans. Currently, this attaches metadata to the
-// instruction, but could be changed to insert an intrinsic in the IR in the
-// future. We currently limit this to holding a single type.
-//
-// The format of the metadata is to store a null value of the specified type
-// as follows:
-//   { Ty null }
-//
-// The use of a null value of the type enables the type to be kept up-to-date
-// when DTrans transformations run because when the instruction referencing the
-// metadata is remapped, the type within the metadata will be remapped as well,
-// if the type changes.
-void dtrans::createDTransTypeAnnotation(Instruction *I, llvm::Type *Ty) {
-  assert(Ty->isPointerTy() && "Annotation type must be pointer type");
-  assert(I->getMetadata(DTransOpMetadataName) == nullptr &&
-         "Only a single dtrans type metadata attachment allowed.");
-
-  LLVMContext &Ctx = I->getContext();
-  MDNode *MD =
-      MDNode::get(Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty))});
-  I->setMetadata(DTransOpMetadataName, MD);
-}
-
-// Get the type that exists in an annotation, if one exists, for the
-// instruction.
-llvm::Type *dtrans::lookupDTransTypeAnnotation(Instruction *I) {
-  auto *MD = I->getMetadata(DTransOpMetadataName);
-  if (!MD)
-    return nullptr;
-
-  assert(MD->getNumOperands() == 1 && "Unexpected metadata operand count");
-  auto &MDOpp1 = MD->getOperand(0);
-  auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
-  if (!TyMD)
-    return nullptr;
-
-  return TyMD->getType();
 }

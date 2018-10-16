@@ -3,8 +3,8 @@
 ;            sum = sum + A[i];
 ;
 ; REQUIRES: asserts
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -force-hir-safe-reduction-analysis  -hir-safe-reduction-analysis | FileCheck %s
-; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze  -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK:   No Safe Reduction
 ; ModuleID = 'sum5.c'
 source_filename = "sum5.c"

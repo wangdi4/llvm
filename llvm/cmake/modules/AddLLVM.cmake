@@ -695,8 +695,8 @@ macro(add_llvm_loadable_module name)
 
         install(TARGETS ${name}
                 ${export_to_llvmexports}
-                LIBRARY DESTINATION ${dlldir}
-                ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+                LIBRARY DESTINATION ${dlldir} COMPONENT ${name}                 # INTEL - patch D51552 or D51748
+                ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT ${name}) # INTEL - patch D51552 or D51748
       endif()
       set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS ${name})
     endif()
@@ -1367,6 +1367,17 @@ function(add_lit_target target comment)
       COMMAND ${CMAKE_COMMAND} -E echo "${target} does nothing, no tools built.")
     message(STATUS "${target} does nothing.")
   endif()
+
+  # Add lit test dependencies.
+  set(llvm_utils_deps
+    FileCheck count not
+  )
+  foreach(dep ${llvm_utils_deps})
+    if (TARGET ${dep})
+      add_dependencies(${target} ${dep})
+    endif()
+  endforeach()
+
   if (ARG_DEPENDS)
     add_dependencies(${target} ${ARG_DEPENDS})
   endif()

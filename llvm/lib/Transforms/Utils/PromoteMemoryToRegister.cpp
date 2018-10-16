@@ -98,7 +98,7 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
         return false;
       if (!GEPI->hasAllZeroIndices())
         return false;
-      if (!onlyUsedByLifetimeMarkers(GEPI))
+      if (!onlyUsedByLifetimeAndVarAnnot(GEPI))     //INTEL
         return false;
     } else {
       return false;

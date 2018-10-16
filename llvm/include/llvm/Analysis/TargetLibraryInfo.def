@@ -1777,30 +1777,135 @@ TLI_DEFINE_STRING_INTERNAL("obstack_free")
 /// void omp_destroy_lock(omp_lock_t *lock);
 TLI_DEFINE_ENUM_INTERNAL(omp_destroy_lock)
 TLI_DEFINE_STRING_INTERNAL("omp_destroy_lock")
+/// void omp_destroy_nest_lock(omp_nest_lock_t*);
+TLI_DEFINE_ENUM_INTERNAL(omp_destroy_nest_lock)
+TLI_DEFINE_STRING_INTERNAL("omp_destroy_nest_lock")
+/// int omp_get_active_level(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_active_level)
+TLI_DEFINE_STRING_INTERNAL("omp_get_active_level")
+/// int omp_get_ancestor_thread_num(int);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_ancestor_thread_num)
+TLI_DEFINE_STRING_INTERNAL("omp_get_ancestor_thread_num")
+/// int omp_get_cancellation(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_cancellation)
+TLI_DEFINE_STRING_INTERNAL("omp_get_cancellation")
+/// int omp_get_default_device(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_default_device)
+TLI_DEFINE_STRING_INTERNAL("omp_get_default_device")
+/// int omp_get_dynamic(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_dynamic)
+TLI_DEFINE_STRING_INTERNAL("omp_get_dynamic")
+/// int omp_get_initial_device(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_initial_device)
+TLI_DEFINE_STRING_INTERNAL("omp_get_initial_device")
+/// int omp_get_level(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_level)
+TLI_DEFINE_STRING_INTERNAL("omp_get_level")
+/// int omp_get_max_active_levels(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_max_active_levels)
+TLI_DEFINE_STRING_INTERNAL("omp_get_max_active_levels")
+/// int omp_get_max_task_priority(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_max_task_priority)
+TLI_DEFINE_STRING_INTERNAL("omp_get_max_task_priority")
 /// int omp_get_max_threads(void);
 TLI_DEFINE_ENUM_INTERNAL(omp_get_max_threads)
 TLI_DEFINE_STRING_INTERNAL("omp_get_max_threads")
+/// int omp_get_nested(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_nested)
+TLI_DEFINE_STRING_INTERNAL("omp_get_nested")
+/// int omp_get_num_devices(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_num_devices)
+TLI_DEFINE_STRING_INTERNAL("omp_get_num_devices")
+/// int omp_get_num_procs(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_num_procs)
+TLI_DEFINE_STRING_INTERNAL("omp_get_num_procs")
+/// int omp_get_num_teams(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_num_teams)
+TLI_DEFINE_STRING_INTERNAL("omp_get_num_teams")
 /// int omp_get_num_threads(void);
 TLI_DEFINE_ENUM_INTERNAL(omp_get_num_threads)
 TLI_DEFINE_STRING_INTERNAL("omp_get_num_threads")
+/// omp_proc_bind_t omp_get_proc_bind(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_proc_bind)
+TLI_DEFINE_STRING_INTERNAL("omp_get_proc_bind")
+/// void omp_get_schedule(omp_sched_t*, int*);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_schedule)
+TLI_DEFINE_STRING_INTERNAL("omp_get_schedule")
+/// int omp_get_team_num(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_team_num)
+TLI_DEFINE_STRING_INTERNAL("omp_get_team_num")
+/// int omp_get_team_size(int);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_team_size)
+TLI_DEFINE_STRING_INTERNAL("omp_get_team_size")
+/// int omp_get_thread_limit(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_thread_limit)
+TLI_DEFINE_STRING_INTERNAL("omp_get_thread_limit")
 /// int omp_get_thread_num(void);
 TLI_DEFINE_ENUM_INTERNAL(omp_get_thread_num)
 TLI_DEFINE_STRING_INTERNAL("omp_get_thread_num")
+/// double omp_get_wtick(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_wtick)
+TLI_DEFINE_STRING_INTERNAL("omp_get_wtick")
+/// double omp_get_wtime(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_get_wtime)
+TLI_DEFINE_STRING_INTERNAL("omp_get_wtime")
+/// int omp_in_final(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_in_final)
+TLI_DEFINE_STRING_INTERNAL("omp_in_final")
+/// int omp_in_parallel(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_in_parallel)
+TLI_DEFINE_STRING_INTERNAL("omp_in_parallel")
 /// void omp_init_lock(omp_lock_t *lock);
 TLI_DEFINE_ENUM_INTERNAL(omp_init_lock)
 TLI_DEFINE_STRING_INTERNAL("omp_init_lock")
+/// void omp_init_lock_with_hint(omp_lock_t*, omp_lock_hint_t);
+TLI_DEFINE_ENUM_INTERNAL(omp_init_lock_with_hint)
+TLI_DEFINE_STRING_INTERNAL("omp_init_lock_with_hint")
+/// void omp_init_nest_lock(omp_nest_lock_t*);
+TLI_DEFINE_ENUM_INTERNAL(omp_init_nest_lock)
+TLI_DEFINE_STRING_INTERNAL("omp_init_nest_lock")
+/// void omp_init_nest_lock_with_hint(omp_nest_lock_t*, omp_lock_hint_t);
+TLI_DEFINE_ENUM_INTERNAL(omp_init_nest_lock_with_hint)
+TLI_DEFINE_STRING_INTERNAL("omp_init_nest_lock_with_hint")
+/// int omp_is_initial_device(void);
+TLI_DEFINE_ENUM_INTERNAL(omp_is_initial_device)
+TLI_DEFINE_STRING_INTERNAL("omp_is_initial_device")
+/// void omp_set_default_device(int);
+TLI_DEFINE_ENUM_INTERNAL(omp_set_default_device)
+TLI_DEFINE_STRING_INTERNAL("omp_set_default_device")
+/// void omp_set_dynamic(int);
+TLI_DEFINE_ENUM_INTERNAL(omp_set_dynamic)
+TLI_DEFINE_STRING_INTERNAL("omp_set_dynamic")
 /// void omp_set_lock(omp_lock_t *lock);
 TLI_DEFINE_ENUM_INTERNAL(omp_set_lock)
 TLI_DEFINE_STRING_INTERNAL("omp_set_lock")
+/// void omp_set_max_active_levels(int);
+TLI_DEFINE_ENUM_INTERNAL(omp_set_max_active_levels)
+TLI_DEFINE_STRING_INTERNAL("omp_set_max_active_levels")
+/// void omp_set_nest_lock(omp_nest_lock_t*);
+TLI_DEFINE_ENUM_INTERNAL(omp_set_nest_lock)
+TLI_DEFINE_STRING_INTERNAL("omp_set_nest_lock")
 /// void omp_set_nested(int val);
 TLI_DEFINE_ENUM_INTERNAL(omp_set_nested)
 TLI_DEFINE_STRING_INTERNAL("omp_set_nested")
 /// void omp_set_num_threads(int num_threads);
 TLI_DEFINE_ENUM_INTERNAL(omp_set_num_threads)
 TLI_DEFINE_STRING_INTERNAL("omp_set_num_threads")
+/// void omp_set_schedule(omp_sched_t, int);
+TLI_DEFINE_ENUM_INTERNAL(omp_set_schedule)
+TLI_DEFINE_STRING_INTERNAL("omp_set_schedule")
+/// int omp_test_lock(omp_lock_t*);
+TLI_DEFINE_ENUM_INTERNAL(omp_test_lock)
+TLI_DEFINE_STRING_INTERNAL("omp_test_lock")
+/// int omp_test_nest_lock(omp_nest_lock_t*);
+TLI_DEFINE_ENUM_INTERNAL(omp_test_nest_lock)
+TLI_DEFINE_STRING_INTERNAL("omp_test_nest_lock")
 /// void omp_unset_lock(omp_lock_t *lock);
 TLI_DEFINE_ENUM_INTERNAL(omp_unset_lock)
 TLI_DEFINE_STRING_INTERNAL("omp_unset_lock")
+/// void omp_unset_nest_lock(omp_nest_lock_t*);
+TLI_DEFINE_ENUM_INTERNAL(omp_unset_nest_lock)
+TLI_DEFINE_STRING_INTERNAL("omp_unset_nest_lock")
 #endif // INTEL_CUSTOMIZATION
 
 /// int open(const char *path, int oflag, ... );

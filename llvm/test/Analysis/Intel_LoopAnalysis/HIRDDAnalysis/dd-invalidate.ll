@@ -5,7 +5,7 @@
 
 ; The test is checking DD edges after invalidation.
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-loop-interchange -hir-dd-analysis -hir-runtime-dd -hir-loop-interchange -hir-dd-analysis -scoped-noalias -analyze -print-after=hir-loop-interchange 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-loop-interchange -hir-dd-analysis -hir-runtime-dd -hir-loop-interchange -hir-dd-analysis -scoped-noalias -analyze -print-after=hir-loop-interchange -hir-dd-analysis-verify=Innermost 2>&1 | FileCheck %s
 
 ; CHECK: IR Dump After HIR Loop Interchange
 ; CHECK: (%A)[i2][i1]

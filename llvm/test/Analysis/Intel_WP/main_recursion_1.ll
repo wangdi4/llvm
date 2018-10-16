@@ -1,10 +1,10 @@
-; This test checks that norecurs attribute is set for main routine
+; This test checks that norecurse attribute is set for main routine
 ; also in addition to all other 4 user defined routines (allocate, free,
 ; dealloc, assign) by "Deduce function attributes". "norecuse" attribute
 ; is set to main only when whole-program-safe is detected and no uses of
 ; main are noticed.
 
-; RUN: opt < %s -wholeprogramanalysis -whole-program-assume-read -whole-program-assume-executable -functionattrs -rpo-functionattrs -disable-output -stats 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramanalysis -whole-program-assume-read -whole-program-assume-executable -whole-program-assume-hidden -functionattrs -rpo-functionattrs -disable-output -stats 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK:   5 functionattrs - Number of functions marked as norecurse
@@ -19,12 +19,12 @@
 ; Function Attrs: noinline nounwind uwtable
 define internal i8* @allocate()  {
 entry:
-  %call = call noalias i8* @malloc(i64 8) 
+  %call = call noalias i8* @malloc(i64 8)
   ret i8* %call
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) 
+declare noalias i8* @malloc(i64)
 
 ; Function Attrs: noinline nounwind uwtable
 define internal void @assign(i8* %ptr)  {
@@ -50,7 +50,7 @@ entry:
   ret void
 }
 
-declare i32 @fprintf(%struct._IO_FILE*, i8*, ...) 
+declare i32 @fprintf(%struct._IO_FILE*, i8*, ...)
 
 
 ; Function Attrs: noinline nounwind uwtable
@@ -59,12 +59,12 @@ entry:
   %ptr.addr = alloca i8*, align 8
   store i8* %ptr, i8** %ptr.addr, align 8
   %0 = load i8*, i8** %ptr.addr, align 8
-  call void @free(i8* %0) 
+  call void @free(i8* %0)
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @free(i8*) 
+declare void @free(i8*)
 
 ; Function Attrs: nounwind uwtable
 define i32 @main()  {

@@ -51,10 +51,6 @@ using namespace llvm::loopopt::unrollsymtc;
 const std::string TempName = "mv";
 
 // Flag to disable the HIR Loop Pattern Match Early Optimization
-//
-// Note:
-// The gain is still blocked by LCPT-1003 as dependency tests fail at
-// checkExclusiveEdge() function.
 static cl::opt<bool> DisableHIRSymbolicTripCountCompleteUnroll(
     "disable-hir-pm-symbolic-tripcount-completeunroll", cl::init(false),
     cl::Hidden,
@@ -401,8 +397,9 @@ bool HIRSymbolicTripCountCompleteUnroll::doPreliminaryChecks(
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  // Expect the InnerLoop to be on level 2
-  if (InnerLoop->getNestingLevel() != 2) {
+  // Expect the InnerLoop to be on level 2 or 3
+  if ((InnerLoop->getNestingLevel() != 2) &&
+      (InnerLoop->getNestingLevel() != 3)) {
     return false;
   }
 
@@ -535,9 +532,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doCollection(void) {
   return true;
 }
 
-//<17>  |   if (%nbr_par_cnt.061 > 0)                // HLIF0
-//
-// Test HLIf0:
+// Test HLIf0: if (%t38 > 0)
 //  .Predicate: Has 1 predicate only
 //    -Operand0: a function local variable
 //    -Operand1: 0
@@ -606,9 +601,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doHLIF0Test(void) {
   return true;
 }
 
-//<29>  |      |   if ((%nbr_pars)[0].0[i2] == %5)
-//
-// Test HLIf1:
+// Test HLIf1: if ((%t4)[0].0[i2] == %t48)
 // -Inside InnerLp;
 // -Overall:
 //  .Has ThenBlock, NO ElseBlock;
@@ -683,22 +676,21 @@ bool HIRSymbolicTripCountCompleteUnroll::doHLIF1Test(void) {
 // Do per-instruction deep pattern match on OuterLp-level instructions,
 // including label(s) and goto(s).
 //
-// Following is the expected complete list of OuterLp HLNode*:15
-// 1.  %nbr_par_cnt.060.out = %nbr_par_cnt.060;
-// 2.  %2 = (%this)[0].12.0[i1];
-// 3.  %3 = (%this)[0].10.0[%2 + %i];
-// 4.  (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
-// 5.  %5 = (%this)[0].7.0[%2 + %i];
-// 6.  goto if.then18;
-// 7.  if.end31.loopexit:
-// 8.  goto if.end31;
-// 9.  if.then18:
-// 10. %8 = (%this)[0].8.0[%5];
-// 11. (%this)[0].8.0[%5] = %8 + -1;
-// 12. %9 = (%this)[0].7.0[%2 + %i];
-// 13. %nbr_par_cnt.060 = %nbr_par_cnt.060  +  1;
-// 14. (%nbr_pars)[0].0[%nbr_par_cnt.060.out] = %9;
-// 15. if.end31:
+// Following is the expected complete list of OuterLp HLNode*: 14
+// 0.  %t38.out = %t38;
+// 1. %t40 = (%0)[0].12.0[i1];
+// 2.  %t44 = (%0)[0].10.0[%t40 + %2];
+// 3.  (%0)[0].10.0[%t40 + %2] = %t44 + %t35;
+// 4.  %t48 = (%0)[0].7.0[%t40 + %2];
+// 5.  goto t61;
+// 6.  t68:
+// 7.  goto t69;
+// 8.  t61:
+// 9.  %t64 = (%0)[0].8.0[%t48];
+// 10. (%0)[0].8.0[%t48] = %t64 + -1;
+// 11. %t38 = %t38  +  1;
+// 12. (%t4)[0].0[%t38.out] = %t48;
+// 13. t69:
 //
 bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 #ifndef NDEBUG
@@ -706,12 +698,12 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 #endif
   // LLVM_DEBUG(FOS << "OuterLpNodeVec: \n"; print(OuterLpNodeVec););
 
-  // Expect a total of 15 HLNode* in OuterLp-only level:
-  if (OuterLpNodeVec.size() != 15) {
+  // Expect a total of 14 HLNode* in OuterLp-only level:
+  if (OuterLpNodeVec.size() != 14) {
     return false;
   }
 
-  // 0.  %nbr_par_cnt.060.out = %nbr_par_cnt.060;
+  // 0. %t38.out = %t38;
   // Check: CopyInst, Lval is a temp, Rval is a temp;
   HLInst *HInst = dyn_cast<HLInst>(OuterLpNodeVec[0]);
   if (!HInst || !HInst->isCopyInst() ||
@@ -723,7 +715,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
   int64_t IntConst = 0;
   RegDDRef *LvalRef = nullptr, *RvalRef = nullptr;
 
-  // 1.  %2 = (%this)[0].12.0[i1];
+  // 1. %t40 = (%0)[0].12.0[i1];
   // Check:
   // - LoadInst
   // - Lval is a temp
@@ -752,7 +744,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 2.  %3 = (%this)[0].10.0[%2 + %i];
+  // 2. %t44 = (%0)[0].10.0[%t40 + %2];
   // Check:
   // - LoadInst
   // - Lval is a temp
@@ -782,7 +774,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 3.  (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
+  // 3. (%0)[0].10.0[%t40 + %2] = %t44 + %t35;
   // Check:
   // - StoreInst
   // - Lval is a 2-Dimensional non-local memref, Dim1 has IV, Dim2 is a const 0
@@ -823,7 +815,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 4.  %5 = (%this)[0].7.0[%2 + %i];
+  // 4. %t48 = (%0)[0].7.0[%t40 + %2];
   // Check:
   // - LoadInst
   // - Lval is a temp
@@ -853,7 +845,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 5. goto if.then18;
+  // 5. goto t61;
   HLGoto *Goto = dyn_cast<HLGoto>(OuterLpNodeVec[5]);
   if (!Goto) {
     return false;
@@ -867,13 +859,13 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 6. if.end31.loopexit:
+  // 6. t68:
   Label = dyn_cast<HLLabel>(OuterLpNodeVec[6]);
   if (!Label) {
     return false;
   }
 
-  // 7. goto if.end31;
+  // 7. goto t69;
   Goto = dyn_cast<HLGoto>(OuterLpNodeVec[7]);
   if (!Goto) {
     return false;
@@ -887,13 +879,13 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 8. if.then18:
+  // 8. t61:
   Label = dyn_cast<HLLabel>(OuterLpNodeVec[8]);
   if (!Label) {
     return false;
   }
 
-  // 9. %8 = (%this)[0].8.0[%5];
+  // 9. %t64 = (%0)[0].8.0[%t48];
   // Check:
   // - LoadInst
   // - Lval is a temp
@@ -922,7 +914,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 10. (%this)[0].8.0[%5] = %8 + -1;
+  // 10. (%0)[0].8.0[%t48] = %t64 + -1;
   // Check:
   // - StoreInst
   // - Lval is a 2-Dimensional non-local memref, Dim1 has NO IV, Dim2 is a
@@ -962,38 +954,13 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     }
   }
 
-  // 11. %9 = (%this)[0].7.0[%2 + %i];
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[11]);
-  if (!HInst) {
-    return false;
-  }
-  RvalRef = HInst->getRvalDDRef();
-  if (!isa<LoadInst>(HInst->getLLVMInstruction()) ||
-      !HInst->getLvalDDRef()->isTerminalRef() ||
-      !HIRSymbolicTripCountCompleteUnroll::isNonLocalMemRef(RvalRef)) {
-    return false;
-  }
-
-  if (RvalRef->getNumDimensions() != 2) {
-    return false;
-  }
-
-  CE = RvalRef->getDimensionIndex(1);
-  if (CE->hasIV()) {
-    return false;
-  }
-
-  if (!isCanonExprConstVal(RvalRef->getDimensionIndex(2), 0)) {
-    return false;
-  }
-
-  // 12. %nbr_par_cnt.060 = %nbr_par_cnt.060  +  1;
+  // 11. %t38 = %t38  +  1;
   // Check:
   // - BinaryOp (+) instruction:
   // - Operand0: a temp;
   // - Operand1: the same temp;
   // - Operand2: a constant integer (1)
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[12]);
+  HInst = dyn_cast<HLInst>(OuterLpNodeVec[11]);
   if (!HInst || !isa<BinaryOperator>(HInst->getLLVMInstruction()) ||
       !HInst->getOperandDDRef(0)->isTerminalRef()) {
     return false;
@@ -1028,13 +995,13 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 13. (%nbr_pars)[0].0[%nbr_par_cnt.060.out] = %9;
+  // 12. (%t4)[0].0[%t38.out] = %t48;
   // Check:
   // - StoreInst
   // - Lval is a 2-Dimensional local memref, Dim1 has NO IV, Dim2 is a
   //   const 0
   // - Rval is a temp
-  HInst = dyn_cast<HLInst>(OuterLpNodeVec[13]);
+  HInst = dyn_cast<HLInst>(OuterLpNodeVec[12]);
   if (!HInst) {
     return false;
   }
@@ -1057,8 +1024,8 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
     return false;
   }
 
-  // 14. if.end31:
-  Label = dyn_cast<HLLabel>(OuterLpNodeVec[14]);
+  // 13. t69:
+  Label = dyn_cast<HLLabel>(OuterLpNodeVec[13]);
   if (!Label) {
     return false;
   }
@@ -1074,7 +1041,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestOuterLp(void) {
 }
 
 // List of instructions in the InnerLp:
-// 1.      goto if.end31.loopexit;
+// 0. goto t68;
 //
 bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestInnerLp(void) {
 #ifndef NDEBUG
@@ -1086,7 +1053,7 @@ bool HIRSymbolicTripCountCompleteUnroll::doDeepPatternTestInnerLp(void) {
   if (InnerLpNodeVec.size() != 1) {
     return false;
   }
-  // 0. goto if.end31.loopexit;
+  // 0. goto t68;
   HLGoto *Goto = dyn_cast<HLGoto>(InnerLpNodeVec[0]);
   if (!Goto) {
     assert(0 && "Expect a valid entry on InnerLpNodeVec[0]\n");
@@ -1152,10 +1119,8 @@ bool HIRSymbolicTripCountCompleteUnroll::isLegal(void) {
     LLVM_DEBUG(FOS << "Failed MParent READ-ONLY test\n";);
     return false;
   }
+
   // Check: m_parent[.] and m_libs[.] refs are not aliased to each other
-  // Note:
-  // - this check fails because of the missing alias analysis support.
-  // - more details are in the function's implementation.
   if (!checkMParentAndMLibs()) {
     LLVM_DEBUG(FOS << "Failed MParentAndMLibs test\n";);
     return false;
@@ -1170,20 +1135,17 @@ bool HIRSymbolicTripCountCompleteUnroll::isMParentReadOnly(void) {
 #endif
 
   LLVM_DEBUG(print(NonLocalRefVec););
-  // NonLocalRefVec<7>:
-  // 0: (%this)[0].12.0[i1]
-  // 1: (%this)[0].10.0[%2 + %i]
-  // 2: (%this)[0].10.0[%2 + %i]
-  // 3: (%this)[0].7.0[%2 + %i]
-  // 4: (%this)[0].8.0[%5]
-  // 5: (%this)[0].8.0[%5]
-  // 6: (%this)[0].7.0[%2 + %i]
-
+  // 0. (%0)[0].12.0[i1]
+  // 1. (%0)[0].10.0[%t40 + %2]
+  // 2. (%0)[0].10.0[%t40 + %2]
+  // 3. (%0)[0].7.0[%t40 + %2]
+  // 4. (%0)[0].8.0[%t48]
+  // 5. (%0)[0].8.0[%t48]
   // Note:
-  // m_parent    <-> (%this)[0].07.0
-  // The Size-1 index Ref* in NonLocalRefVec[] is a reference to m_parent[.]
-  unsigned Size = NonLocalRefVec.size();
-  RegDDRef *MParentRef = NonLocalRefVec[Size - 1];
+  // m_parent    <-> (%0)[0].07.0
+  // The 3rd index Ref* in NonLocalRefVec[] is a reference to m_parent[.]
+  // unsigned Size = NonLocalRefVec.size();
+  RegDDRef *MParentRef = NonLocalRefVec[3];
   LLVM_DEBUG(MParentRef->dump(); FOS << "\n";);
 
   // Collect all m_parent[.] Refs
@@ -1195,8 +1157,7 @@ bool HIRSymbolicTripCountCompleteUnroll::isMParentReadOnly(void) {
 
   LLVM_DEBUG(print(MParentRefVec););
   // MParentRefVec:2
-  // 3: (%this)[0].7.0[%2 + %i]
-  // 6: (%this)[0].7.0[%2 + %i]
+  // 3: (%0)[0].7.0[%t40 + %2]
 
   // Check: each m_parent[.] ref is Rval.
   for (auto Ref : MParentRefVec) {
@@ -1210,23 +1171,11 @@ bool HIRSymbolicTripCountCompleteUnroll::isMParentReadOnly(void) {
 
 // Check: m_parent[] and m_libs[] refs are NOT aliased to each other.
 //
-// Note:
-// - This check is currently disabled, blocked on JIRA-LCPT-1003.
-//
-// Check: m_parent[.] alias to m_libs[.]?
-//
 // LLVM IR Mapping:
-// m_libs      <-> (%this)[0].08.0
-// m_parent    <-> (%this)[0].07.0
-//
-// Relevant part of DDG that forces to disable this function:
-// 15:47 (%this)[0].7.0[%2 + %i] --> (%this)[0].8.0[%5] ANTI (*) (?)
-// 47:15 (%this)[0].8.0[%5] --> (%this)[0].7.0[%2 + %i] FLOW (*) (?)
-// 47:48 (%this)[0].8.0[%5] --> (%this)[0].7.0[%2 + %i] FLOW (*) (?)
-// 48:47 (%this)[0].7.0[%2 + %i] --> (%this)[0].8.0[%5] ANTI (*) (?)
-//
-// - m_parent[.] and m_libs[.] have FLOW and ANTI edges, though there should
-//   be none.
+// m_libs      <-> (%0)[0].08.0
+// m_parent    <-> (%0)[0].07.0
+// - there should not be any FLOW or ANTI edges between m_parent[.] and
+// m_libs[.]
 //
 bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
 #ifndef NDEBUG
@@ -1235,15 +1184,14 @@ bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
 
   LLVM_DEBUG(print(NonLocalRefVec););
   // NonLocalRefVec<7>:
-  // 0: (%this)[0].12.0[i1]
-  // 1: (%this)[0].10.0[%2 + %i]
-  // 2: (%this)[0].10.0[%2 + %i]
-  // 3: (%this)[0].7.0[%2 + %i]
-  // 4: (%this)[0].8.0[%5]
-  // 5: (%this)[0].8.0[%5]
-  // 6: (%this)[0].7.0[%2 + %i]
+  // 0. (%0)[0].12.0[i1]
+  // 1. (%0)[0].10.0[%t40 + %2]
+  // 2. (%0)[0].10.0[%t40 + %2]
+  // 3. (%0)[0].7.0[%t40 + %2]
+  // 4. (%0)[0].8.0[%t48]
+  // 5. (%0)[0].8.0[%t48]
 
-  // m_libs[%5]    <-> (%this)[0].8.0[%5]
+  // m_libs[%t48]    <-> (%0)[0].8.0[%t48]
   // The last-2 index Ref* in NonLocalRefVec is a reference to m_libs[.]
   unsigned Size = NonLocalRefVec.size();
   RegDDRef *MLibsRef = NonLocalRefVec[Size - 2];
@@ -1258,15 +1206,14 @@ bool HIRSymbolicTripCountCompleteUnroll::checkMParentAndMLibs(void) {
 
   LLVM_DEBUG(print(MParentRefVec););
   // MParentRefVec:2
-  // 3: (%this)[0].7.0[%2 + %i]
-  // 6: (%this)[0].7.0[%2 + %i]
+  // 3: (%0)[0].7.0[%40 + %2]
 
   LLVM_DEBUG(print(MLibsRefVec););
   // MLibs RefVec:2
-  // 4: (%this)[0].8.0[%5]
-  // 5: (%this)[0].8.0[%5]
+  // 4: (%0)[0].8.0[%48]
+  // 5: (%0)[0].8.0[%48]
 
-  DDGraph DDG = HDDA.getGraph(OuterLp, false);
+  DDGraph DDG = HDDA.getGraph(OuterLp);
   // LLVM_DEBUG(DDG.dump(););
 
   // Check: each Ref in MParentRefVec vs. MLibsRefV
@@ -1364,46 +1311,30 @@ bool HIRSymbolicTripCountCompleteUnroll::doTransform(HLLoop *OuterLp) {
 // 2. Remove any instruction that load from/store to local data;
 // 3. Cleanup an extra Dead Load on a non-local MemRef array that has NO use;
 //
-//[BEFORE cleanOuterLpBody()]
-//<61>      + DO i1 = 0, 3, 1   <DO_LOOP>
-//<2>       |   %nbr_par_cnt.060.out = %nbr_par_cnt.060; 	//TOGO
-//<4>       |   %2 = (%this)[0].12.0[i1];
-//<8>       |   %3 = (%this)[0].10.0[%2 + %i];
-//<12>      |   (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
-//<15>      |   %5 = (%this)[0].7.0[%2 + %i];
-//<45>      |   %8 = (%this)[0].8.0[%5];
-//<47>      |   (%this)[0].8.0[%5] = %8 + -1;
-//<48>      |   %9 = (%this)[0].7.0[%2 + %i];
-//<50>      |   %nbr_par_cnt.060 = %nbr_par_cnt.060  +  1;  //TOGO
-//<52>      |   (%nbr_pars)[0].0[%nbr_par_cnt.060.out] = %9;//TOGO
-//<61>      + END LOOP
+// [BEFORE cleanOuterLpBody()]
+// <145>     + DO i1 = 0, 3, 1   <DO_LOOP>
+// <2>       |   %t38.out = %t38;
+// <4>       |   %t40 = (%0)[0].12.0[i1];
+// <8>       |   %t44 = (%0)[0].10.0[%t40 + %2];
+// <10>      |   (%0)[0].10.0[%t40 + %2] = %t44 + %t35;
+// <13>      |   %t48 = (%0)[0].7.0[%t40 + %2];
+// <40>      |   t61:
+// <43>      |   %t64 = (%0)[0].8.0[%t48];
+// <45>      |   (%0)[0].8.0[%t48] = %t64 + -1;
+// <46>      |   %t38 = %t38  +  1;
+// <48>      |   (%t4)[0].0[%t38.out] = %t48;
+// <50>      |   t69:
+// <145>     + END LOOP
 //
-//[After removal of Load(s)/Store(s) on local data]:
-//<61>      + DO i1 = 0, 3, 1   <DO_LOOP>
-//<4>       |   %2 = (%this)[0].12.0[i1];
-//<8>       |   %3 = (%this)[0].10.0[%2 + %i];
-//<12>      |   (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
-//<15>      |   %5 = (%this)[0].7.0[%2 + %i];
-//<45>      |   %8 = (%this)[0].8.0[%5];
-//<47>      |   (%this)[0].8.0[%5] = %8 + -1;
-//<48>      |   %9 = (%this)[0].7.0[%2 + %i]; //Dead Load, TOGO
-//<61>      + END LOOP
-//
-//[After removal of the Dead Load on a DEAD non-local load]
-//<61>      + DO i1 = 0, 3, 1   <DO_LOOP>
-//<4>       |   %2 = (%this)[0].12.0[i1];     //%2=m_dirs[k]
-//<8>       |   %3 = (%this)[0].10.0[%2 + %i];//%3=m_neighbour[%2+%i]
-//<12>      |   (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
-//              <<<m_neighbour[%2+%i]=m_neighbour[%2+%i] +%shl+65280>>>
-//<15>      |   %5 = (%this)[0].7.0[%2 + %i]; //%5=m_parent[%2+%i]
-//<45>      |   %8 = (%this)[0].8.0[%5];      //%8=mlibs[m_parent[%2+%i]]
-//<47>      |   (%this)[0].8.0[%5] = %8 + -1;
-//              <<<mlibs[m_parent[%2+%i]]=mlibs[m_parent[%2+%i]]-1;>>>
-//<61>      + END LOOP
-//
-// Note:
-// Instruction on <48> is a dead load (a Load of non-local MemRef, but its use
-// has been removed due to removeHLIF0).
+// [AFTER removal of Load/Store on local data in OuterLp]:
+// <145>     + DO i1 = 0, 3, 1   <DO_LOOP>
+// <4>       |   %t40 = (%0)[0].12.0[i1];
+// <8>       |   %t44 = (%0)[0].10.0[%t40 + %2];
+// <10>      |   (%0)[0].10.0[%t40 + %2] = %t44 + %t35;
+// <13>      |   %t48 = (%0)[0].7.0[%t40 + %2];
+// <43>      |   %t64 = (%0)[0].8.0[%t48];
+// <45>      |   (%0)[0].8.0[%t48] = %t64 + -1;
+// <145>     + END LOOP
 //
 void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
 #ifndef NDEBUG
@@ -1434,49 +1365,6 @@ void HIRSymbolicTripCountCompleteUnroll::cleanOuterLpBody(void) {
 
   LLVM_DEBUG(FOS << "AFTER removal of Load/Store on local data in OuterLp:\n";
              OuterLp->dump(); FOS << "\n";);
-
-  DDGraph DDG = HDDA.getGraph(OuterLp, false);
-  LLVM_DEBUG(DDG.dump(););
-
-  // Detect any Dead Load (a load without any use) on NON-Local Array:
-  auto isDeadLoad = [&](HLInst *HInst, HLLoop *Lp, DDGraph &DDG) {
-    // LLVM_DEBUG(HInst->dump(); FOS << "\n";);
-
-    // Only interested in Load instructions:
-    if (!isa<LoadInst>(HInst->getLLVMInstruction())) {
-      return false;
-    }
-
-    // Load can only have 1 RegDDRef * on its index 1:
-    RegDDRef *Ref = HInst->getOperandDDRef(1);
-    // LLVM_DEBUG(FOS << "Ref: "; Ref->dump(); FOS << "\n";);
-
-    // Only interested in Non-local Load:
-    if (!HIRSymbolicTripCountCompleteUnroll::isNonLocalMemRef(Ref)) {
-      return false;
-    }
-
-    // Check: is the target TerminalRef actually used in the loop?
-    RegDDRef *TargetRef = HInst->getOperandDDRef(0);
-    if (HIRSymbolicTripCountCompleteUnroll::hasEdgeInLoop(Lp, TargetRef, DDG)) {
-      return false;
-    }
-
-    return true;
-  };
-
-  // Collect and Remove the dead Load on NON-Local Array
-  // E.g., the DeadLoad is
-  // <48>  %9 = (%this)[0].7.0[%2 + %i];
-  for (HLInst *Inst : OuterLpInstVec) {
-    if (isDeadLoad(Inst, OuterLp, DDG)) {
-      HLNodeUtils::remove(Inst);
-    }
-  }
-
-  LLVM_DEBUG(
-      FOS << "AFTER removal of Dead Load on Non-local data in OuterLp:\n";
-      OuterLp->dump(); FOS << "\n";);
 }
 
 void HIRSymbolicTripCountCompleteUnroll::fixLoopIvToConst(HLContainerTy &V,
@@ -1503,21 +1391,21 @@ void HIRSymbolicTripCountCompleteUnroll::fixLoopIvToConst(HLContainerTy &V,
 
 // E.g. [Input code]
 //
-//<1>  %2 = (%this)[0].12.0[0];
-//<2>  %3 = (%this)[0].10.0[%2 + %i];
-//<3>  (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
-//<4>  %5 = (%this)[0].7.0[%2 + %i];
-//<5>  %8 = (%this)[0].8.0[%5];
-//<6>  (%this)[0].8.0[%5] = %8 + -1;
+// 1. %t40 = (%0)[0].12.0[i1];
+// 2. %t44 = (%0)[0].10.0[%t40 + %2];
+// 3. (%0)[0].10.0[%t40 + %2] = %t44 + %t35;
+// 4. %t48 = (%0)[0].7.0[%t40 + %2];
+// 5. %t64 = (%0)[0].8.0[%t48];
+// 6. (%0)[0].8.0[%t48] = %t64 + -1;
 //
 // Given the above code, all explicit def-use chain(s) on TempDDRefs are:
-//    def    use(s)
-//%2  <1>    <2,3,4>
-//%3  <2>    <3>
-//%5  <4>    <5,6>
-//%8  <5>    <6>
+//      def    use(s)
+//%t40  <1>    <2,3,4>
+//%t44  <2>    <3>
+//%t48  <4>    <5,6>
+//%t64  <5>    <6>
 //
-// All TempDefs are: {%2, %3, %5, %8}
+// All TempDefs are: {%t40, %t44, %t48, %t64}
 //
 void HIRSymbolicTripCountCompleteUnroll::collectTempDefition(
     HLContainerTy &V, SmallVectorImpl<RegDDRef *> &DefVec) {
@@ -1541,30 +1429,30 @@ void HIRSymbolicTripCountCompleteUnroll::collectTempDefition(
 }
 
 //[Original code]
-//<1>  %2 = (%this)[0].12.0[0];
-//<2>  %3 = (%this)[0].10.0[%2 + %i];
-//<3>  (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
-//<4>  %5 = (%this)[0].7.0[%2 + %i];
-//<5>  %8 = (%this)[0].8.0[%5];
-//<6>  (%this)[0].8.0[%5] = %8 + -1;
+// 1. %t40 = (%0)[0].12.0[i1];
+// 2. %t44 = (%0)[0].10.0[%t40 + %2];
+// 3. (%0)[0].10.0[%t40 + %2] = %t44 + %t35;
+// 4. %t48 = (%0)[0].7.0[%t40 + %2];
+// 5. %t64 = (%0)[0].8.0[%t48];
+// 6. (%0)[0].8.0[%t48] = %t64 + -1;
 //
 //[All explicit Non-overwrite definitions, with the mapping generated]
 // ----------------------
 // |OrigDef  | MappedDef |
 // ----------------------|
-// | %2      |  %mv      |
-// | %3      |  %mv2     |
-// | %5      |  %mv3     |
-// | %8      |  %mv4     |
+// | %t40    |  %mv      |
+// | %t44    |  %mv4     |
+// | %t48    |  %mv5     |
+// | %t64    |  %mv6     |
 // ----------------------
 //
-//[The definition-mapped code]
-//<1>  %mv = (%this)[0].12.0[0];
-//<2>  %mv2 = (%this)[0].10.0[%mv + %i];
-//<3>  (%this)[0].10.0[%mv + %i] = zext.i16.i32(%mv2) + %shl + 65280;
-//<4>  %mv3 = (%this)[0].7.0[%mv + %i];
-//<5>  %mv4 = (%this)[0].8.0[%mv3];
-//<6>  (%this)[0].8.0[%mv3] = %mv4 + -1;
+//[The definition-mapped code for 2nd iteration]
+// 0: %mv = (%0)[0].12.0[1];
+// 1: %mv4 = (%0)[0].10.0[%2 + %mv];
+// 2: (%0)[0].10.0[%2 + %mv] = %t35 + %mv4;
+// 3: %mv5 = (%0)[0].7.0[%2 + %mv];
+// 4: %mv6 = (%0)[0].8.0[%mv5];
+// 5: (%0)[0].8.0[%mv5] = %mv6 + -1;
 //
 void HIRSymbolicTripCountCompleteUnroll::buildTempDefMap(
     SmallVectorImpl<RegDDRef *> &DefVec,
@@ -1626,13 +1514,13 @@ void HIRSymbolicTripCountCompleteUnroll::updateTempUse(
 //
 //[BEFORE complete Unroll and Scheduled for OuterLp]
 //<61>  + DO i1 = 0, 3, 1   <DO_LOOP>
-//<4>   |   %2 = (%this)[0].12.0[i1]; //load: ai = m_dirs[k]
-//<8>   |   %3 = (%this)[0].10.0[%2 + %i]; //load: m_neighbour[ai+i]
-//<12>  |   (%this)[0].10.0[%2 + %i] = zext.i16.i32(%3) + %shl + 65280;
-//                                   //store: m_neighbour[ai] += %shl + 65280
-//<15>  |   %5 = (%this)[0].7.0[%2 + %i];//load: m_parent[ai+i]
-//<45>  |   %8 = (%this)[0].8.0[%5];     //load: m_libs[m_parent[ai+i]]
-//<47>  |   (%this)[0].8.0[%5] = %8 + -1;//store: m_libs[m_parent[ai+i]] += -1
+//<4>   |   %t40 = (%0)[0].12.0[i1]; //load: ai = m_dirs[k]
+//<8>   |   %t44 = (%0)[0].10.0[%t40 + %2]; //load: m_neighbour[ai+i]
+//<12>  |   (%0)[0].10.0[%t40 + %2] = %t44 + %35;
+//                                   //store: m_neighbour[ai] += %t35
+//<15>  |   %t48 = (%0)[0].7.0[%t40 + %2];//load: m_parent[ai+i]
+//<45>  |   %t64 = (%0)[0].8.0[%t48];     //load: m_libs[m_parent[ai+i]]
+//<47>  |   (%0)[0].8.0[%48] = %64 + -1;//store: m_libs[m_parent[ai+i]] += -1
 //<61>  + END LOOP
 //
 // Piggy-back to C source level:
@@ -1733,7 +1621,7 @@ void HIRSymbolicTripCountCompleteUnroll::doUnrollActions(void) {
   LLVM_DEBUG(FOS << "BEFORE doUnrollActions():\n"; Region->dump();
              FOS << "\n";);
 
-  const unsigned OuterLpLevel = 1;
+  const unsigned OuterLpLevel = OuterLp->getNestingLevel();
   HLContainerTy LoopBody; // Container for cloning loop body per iteration
   HLNodeUtils &HNU = OuterLp->getHLNodeUtils();
 

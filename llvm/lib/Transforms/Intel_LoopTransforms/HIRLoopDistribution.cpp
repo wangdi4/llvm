@@ -574,8 +574,8 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
 
   uint64_t TripCount;
   // Skip  some constant trip counts loops:  small, looks like copy stmt
-  if (Lp->isInnermost() && Lp->isConstTripLoop(&TripCount)) {
-    if (TripCount < 5 || HLR.getSelfLoopResource(Lp).getNumFPOps() == 0) {
+  if (Lp->isConstTripLoop(&TripCount)) {
+    if (TripCount < 5 || HLR.getTotalLoopResource(Lp).getNumFPOps() == 0) {
       return false;
     }
   }

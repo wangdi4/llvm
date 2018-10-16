@@ -519,7 +519,7 @@ bool MemRefGroup::isCompleteStoreOnly(void) {
 bool MemRefGroup::isLegal(void) const {
   // TODO: first check unique group symbases returned by
   // populateTemporalLocalityGroups() to save compile time by avoiding DDG.
-  DDGraph DDG = HSRA.HDDA.getGraph(Lp, false);
+  DDGraph DDG = HSRA.HDDA.getGraph(Lp);
 
   // Check: outgoing edge(s)
   if (!areDDEdgesInSameMRG<false>(DDG)) {
@@ -1139,6 +1139,17 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
   bool HasNegIVCoeff = false;
   if (!hasValidIV(FirstRef, LoopLevel, HasNegIVCoeff)) {
     return false;
+  }
+
+  // Bail out if group has references like A[i1] and (i32*)A[i1] as we cannot
+  // generate temp rotation code for different types. NOTE: we should move
+  // FloatToInt pass after LoopOpt to minimize such cases.
+  auto *BitCastTy = FirstRef->getBitCastDestType();
+
+  for (auto *Ref : Group) {
+    if (BitCastTy != Ref->getBitCastDestType()) {
+      return false;
+    }
   }
 
   // Reverse the group if it has any negative IVCoeff

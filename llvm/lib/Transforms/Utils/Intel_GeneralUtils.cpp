@@ -301,16 +301,20 @@ bool IntelGeneralUtils::isEscaped(const Value *V) {
 #endif // INTEL_CUSTOMIZATION
 
 // Return the size_t type for 32/64 bit architecture
-Type *IntelGeneralUtils::getSizeTTy(Function *F) {
-  LLVMContext &C = F->getContext();
+Type *IntelGeneralUtils::getSizeTTy(Module *M) {
+  LLVMContext &C = M->getContext();
 
   IntegerType *IntTy;
-  const DataLayout &DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
 
   if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
     IntTy = Type::getInt64Ty(C);
   else
     IntTy = Type::getInt32Ty(C);
   return IntTy;
+}
+
+Type *IntelGeneralUtils::getSizeTTy(Function *F) {
+  return getSizeTTy(F->getParent());
 }
 #endif // INTEL_COLLAB

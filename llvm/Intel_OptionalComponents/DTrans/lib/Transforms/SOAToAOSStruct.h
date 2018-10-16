@@ -25,9 +25,11 @@
 #include "SOAToAOSEffects.h"
 
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -219,11 +221,12 @@ private:
       Ty = Ty->getPointerElementType();
 
     // For transformation, it is sufficient that only elements
-    // of array and integers are permitted.
+    // of array, integers and (float for tests) are permitted.
     //
     // For legality, it is necessary to prevent unchecked accesses
     // to pointers to arrays (only accessible through S.StrType).
-    return isa<IntegerType>(Ty) || (isa<StructType>(Ty) && Ty != S.StrType);
+    return isa<IntegerType>(Ty) || Ty->isFloatingPointTy() ||
+           (isa<StructType>(Ty) && Ty != S.StrType);
   }
 };
 
@@ -639,11 +642,10 @@ public:
 
   unsigned getTotal() const { return TI.ArrayInstToTransform.size(); }
 
-  // TODO: there is no need to check all methods of struct,
-  // only methods accessing arrays, i.e. isLoadOrStoreOfArrayPtr and memset of
-  // structure.
-  bool checkStructMethod() const {
+  bool checkStructMethod(bool &SeenArrays) const {
     bool Invalid = false;
+
+    SeenArrays = false;
 
     for (auto &I : instructions(*S.Method)) {
       if (arith_inst_dep_iterator::isSupportedOpcode(I.getOpcode()))
@@ -685,6 +687,7 @@ public:
           // pointers to arrays.
           if (auto *ArrType =
                   StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I)) {
+            SeenArrays = true;
             // Related to arrays of interest, limited kinds of uses
             // permitted. In particular, analysis of uses prevents nested loads
             // with respect to arrays of interest.
@@ -714,6 +717,7 @@ public:
         // Explicitly check for Struct's field update.
         else if (auto *ArrType =
                      StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I)) {
+          SeenArrays = true;
           if (auto *C = dyn_cast<Constant>(
                   cast<StoreInst>(I).getValueOperand()->stripPointerCasts())) {
             if (C->isZeroValue()) {
@@ -743,9 +747,11 @@ public:
       case Instruction::Call:
       case Instruction::Invoke:
       case Instruction::Alloca:
+        if (isa<DbgInfoIntrinsic>(I))
+          break;
         // All calls should be structured here to avoid
         // expensive recursion in isStructuredLoad/isStructuredCall
-        if (StructIdioms::isStructuredCall(D, S))
+        else if (StructIdioms::isStructuredCall(D, S))
           break;
         else if (StructIdioms::isKnownCall(D, S)) {
           // Check if calls to Struct's method is structured.
@@ -760,6 +766,7 @@ public:
           break;
         // Memset of structure itself.
         else if (auto *MI = dyn_cast<MemSetInst>(&I)) {
+          SeenArrays = true;
           // Safety checks guarantee (CFG + legality) that constant address does not
           // refer to array of interest.
           if (isa<Constant>(MI->getDest()))
@@ -835,9 +842,12 @@ private:
 //  - completes checks of load/stores with respect to special array's methods;
 //  - checks that pointers to elements do not escape.
 class CallSiteComparator : public StructIdioms {
+  constexpr static int MaxNumFieldCandidates =
+      SOAToAOSLayoutInfo::MaxNumFieldCandidates;
+
 public:
-  constexpr static int MaxNumFieldCandidates = 2;
-  using FunctionSet = SmallVector<const Function *, 3>;
+  using FunctionSet =
+      SmallVector<const Function *, MaxNumFieldCandidates>;
   struct CallSitesInfo {
     FunctionSet Ctors;
     FunctionSet CCtors;
@@ -899,9 +909,17 @@ private:
           ArgNo1 != 0 || ArgNo2 != 0)
         return false;
 
+      auto *L1 = dyn_cast<LoadInst>(A1);
+      auto *L2 = dyn_cast<LoadInst>(A2);
+      if (!L1 || !L2)
+        return false;
+
+      if (CS1.getInstruction()->getParent() != L1->getParent() ||
+          CS2.getInstruction()->getParent() != L2->getParent())
+        return false;
+
       // Potentially conflicting stores to fields containing pointers to arrays
-      // are excluded by checking stores associated with ctors.
-      // Stores are associated with ctors by check in canCallSitesBeMerged.
+      // are excluded by checks in compareAllAppendCallSites.
     }
     return true;
   }
@@ -936,6 +954,9 @@ private:
         StartCmp = true;
         continue;
       case Instruction::Call:
+        if (isa<DbgInfoIntrinsic>(I))
+          break;
+
         StartCmp = true;
         if (std::find_if(CSs.begin(), CSs.end(),
                          [&I](ImmutableCallSite CS) -> bool {
@@ -954,6 +975,57 @@ private:
           return false;
         continue;
       }
+    return true;
+  }
+
+  // Checks that loads of MemoryInterface result in the same value.
+  //
+  // One needs only to check conflict with stores.
+  // checkStructMethod guarantees that stores are only in entry block,
+  // see isMemoryInterfaceSetFromArg and isMemoryInterfaceCopy calls.
+  //
+  // Load of MemoryInterface are essentially before all stores:
+  //  - not in entry block (no stores after entry block);
+  //  - after all stores in entry block;
+  //  - before some store in entry block, but stored value is from load being
+  //  checked.
+  bool checkDirectMemoryInterfaceLoads(const Value *A1, const Value *A2) const {
+    unsigned ArgNo1 = -1U;
+    unsigned ArgNo2 = -1U;
+    if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1),
+                                                   S, ArgNo1) ||
+        !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2),
+                                                   S, ArgNo2))
+      return false;
+
+    A1 = A1->stripPointerCasts();
+    A2 = A2->stripPointerCasts();
+    if (auto *I1 = dyn_cast<IntToPtrInst>(A1))
+      A1 = I1->getOperand(0);
+    if (auto *I2 = dyn_cast<IntToPtrInst>(A2))
+      A2 = I2->getOperand(0);
+
+    auto *L1 = dyn_cast<LoadInst>(A1);
+    auto *L2 = dyn_cast<LoadInst>(A2);
+
+    if (!L1 || !L2)
+      return false;
+
+    if (ArgNo1 != ArgNo2) {
+      const Instruction* Loads[] = {L1, L2};
+      for (auto *Load : Loads)
+        if (Load->getParent() == &S.Method->getEntryBlock())
+          // See isMemoryInterfaceSetFromArg/isMemoryInterfaceCopy check in
+          // checkStructMethod.
+          for (auto *I = Load; I; I = I->getNextNode())
+            if (auto *SI = dyn_cast<StoreInst>(I))
+              // If store is of the form:
+              //  store %Load, %Addr
+              // then it does not conflict with load.
+              if (SI->getValueOperand() != Load)
+                return false;
+    }
+
     return true;
   }
 
@@ -1002,16 +1074,8 @@ private:
         if (A1->stripPointerCasts() != FreePtr1->stripPointerCasts() ||
             A2->stripPointerCasts() != FreePtr2->stripPointerCasts())
           return false;
-      } else if (A1 != A2) {
-        unsigned ArgNo1 = -1U;
-        unsigned ArgNo2 = -1U;
-        // TODO: check ArgNos
-        if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1),
-                                                       S, ArgNo1) ||
-            !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2),
-                                                       S, ArgNo2))
-          return false;
-      }
+      } else if (A1 != A2 && !checkDirectMemoryInterfaceLoads(A1, A2))
+        return false;
     }
     return true;
   }
@@ -1097,6 +1161,9 @@ private:
 
       // Delete invocations are processed completely.
       if (auto CS1 = ImmutableCallSite(&I1)) {
+        if (isa<DbgInfoIntrinsic>(I1))
+          continue;
+
         if (!compareAllocDeallocCalls(CS1, ImmutableCallSite(&I2), FreePtr1,
                                       FreePtr2))
           return false;
@@ -1180,17 +1247,7 @@ private:
         continue;
       }
 
-      if (A1 == A2)
-        continue;
-
-      unsigned ArgNo1 = -1U;
-      unsigned ArgNo2 = -1U;
-      // See isMemoryInterface* checks in checkStructMethod.
-      // TODO: check ArgNos
-      if (!StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A1), S,
-                                                     ArgNo1) ||
-          !StructIdioms::isDirectMemoryInterfaceLoad(DM.getApproximation(A2), S,
-                                                     ArgNo2))
+      if (A1 != A2 && !checkDirectMemoryInterfaceLoads(A1, A2))
         return false;
     }
 
@@ -1354,8 +1411,7 @@ private:
     const BasicBlock *Last = nullptr;
 
     for (auto *S : post_order(&(*BBs.begin())->getParent()->getEntryBlock())) {
-      auto It = BBs.find(S);
-      if (It == BBs.end())
+      if (BBs.count(S) == 0)
         continue;
       if (Curr == 0)
         Last = S;
@@ -1430,7 +1486,7 @@ private:
           if (auto *ArrType =
                   StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I))
             // Load after store
-            if (ArrayTypes.find(ArrType) == ArrayTypes.end())
+            if (ArrayTypes.count(ArrType) == 0)
               return false;
           continue;
         }
@@ -1440,6 +1496,9 @@ private:
 
           LLVM_FALLTHROUGH;
         case Instruction::Call:
+          if (isa<DbgInfoIntrinsic>(I))
+            continue;
+
           if (std::find_if(CtorCSs.begin(), CtorCSs.end(),
                            [&I](ImmutableCallSite CS) -> bool {
                              return &I == CS.getInstruction();
@@ -1455,6 +1514,9 @@ private:
             continue;
           }
           return false;
+        case Instruction::Ret:
+          NextBB = nullptr;
+          continue;
         default:
           return false;
         }
@@ -1479,6 +1541,10 @@ private:
                   StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, I))
             ArrayTypes.erase(ArrType);
           continue;
+        case Instruction::Call:
+          if (isa<DbgInfoIntrinsic>(I))
+            continue;
+          return false;
         default:
           return false;
         }
@@ -1596,6 +1662,9 @@ private:
 
           LLVM_FALLTHROUGH;
         case Instruction::Call:
+          if (isa<DbgInfoIntrinsic>(I))
+            continue;
+
           if (std::find_if(DtorCSs.begin(), DtorCSs.end(),
                            [&I](ImmutableCallSite CS) -> bool {
                              return &I == CS.getInstruction();
@@ -1625,6 +1694,9 @@ private:
             }
           }
           return false;
+        case Instruction::Ret:
+          NextBB = nullptr;
+          continue;
         default:
           return false;
         }
@@ -1640,13 +1712,13 @@ private:
     auto Pivot = RegDeleteCSs[0];
     auto PivotFreeArg = Pivot.getArgOperand(FreePtrInd)->stripPointerCasts();
     // Checking that deallocation is associated with dtor.
-    if (ThisArgs.find(PivotFreeArg) == ThisArgs.end())
+    if (ThisArgs.count(PivotFreeArg) == 0)
       return false;
 
     for (auto Del : make_range(RegDeleteCSs.begin() + 1, RegDeleteCSs.end())) {
       auto FreeArg = Del.getArgOperand(FreePtrInd)->stripPointerCasts();
       // Checking that deallocation is associated with dtor.
-      if (ThisArgs.find(FreeArg) == ThisArgs.end())
+      if (ThisArgs.count(FreeArg) == 0)
         return false;
       if (!compareAllocDeallocCalls(Pivot, Del, PivotFreeArg, FreeArg))
         return false;
@@ -1695,6 +1767,10 @@ private:
       case Instruction::Store:
         InitSet.erase(cast<StoreInst>(&I));
         continue;
+      case Instruction::Call:
+        if (isa<DbgInfoIntrinsic>(I))
+          continue;
+        return false;
       default:
         return false;
       }
@@ -1833,6 +1909,9 @@ public:
         if (BasePtrType != CS.getType())
           continue;
 
+        DEBUG_WITH_TYPE(DTRANS_SOASTR,
+                        dbgs() << "; Seen pointer to element returned.\n");
+
         // Check that methods returning pointers to elements are dereferenced.
         for (auto &U : CS.getInstruction()->uses())
           if (!isa<LoadInst>(U.getUser()))
@@ -1877,7 +1956,8 @@ public:
 };
 
 class StructMethodTransformation {
-  constexpr static int MaxNumFieldCandidates = 2;
+  constexpr static int MaxNumFieldCandidates =
+      SOAToAOSLayoutInfo::MaxNumFieldCandidates;
 public:
   StructMethodTransformation(
       const DataLayout &DL, DTransAnalysisInfo &DTInfo,
@@ -1970,23 +2050,31 @@ private:
     // Alloc or load of a pointer.
     auto *This = cast<Instruction>(CS.getArgOperand(0)->stripPointerCasts());
 
-    SmallVector<Value*, 16> Insts;
+    SmallSetVector<Instruction *, 16> Insts;
+    // Trivial uses are removed in RecursivelyDeleteTriviallyDeadInstructions.
     for (auto *User : post_order(CastDepGraph<Value *>(This))) {
       for (auto &U : User->uses())
-        if (!isCastUse(U) && !CtorDtorCheck::isNullCheck(U.getUser()))
-          Insts.push_back(U.getUser());
-      if (!CtorDtorCheck::isNullCheck(User))
-        Insts.push_back(User);
+        if (auto *I = dyn_cast<Instruction>(U.getUser()))
+          // Avoid potential double removal.
+          if (!wouldInstructionBeTriviallyDead(I) &&
+              !CtorDtorCheck::isNullCheck(I))
+            Insts.insert(I);
+      if (auto *I = dyn_cast<Instruction>(User))
+        // Avoid potential double removal.
+        if (!wouldInstructionBeTriviallyDead(I) &&
+            !CtorDtorCheck::isNullCheck(I))
+          Insts.insert(I);
     }
 
-    for (auto *V : Insts) {
-      if (auto CS = CallSite(V)) {
-        if (auto *Inv = dyn_cast<InvokeInst>(V)) {
+    for (auto *Inst : Insts) {
+      bool ToRemove = false;
+      if (auto CS = CallSite(Inst)) {
+        if (auto *Inv = dyn_cast<InvokeInst>(Inst)) {
           Builder.SetInsertPoint(Inv);
           Builder.CreateBr(Inv->getNormalDest());
         }
         DTInfo.deleteCallInfo(CS.getInstruction());
-        CS.getInstruction()->eraseFromParent();
+        ToRemove = true;
       }
       // Some instructions may point to null checks in ICmpInst.
       // Redundant null-checks can be removed if their users (conditional
@@ -1994,9 +2082,22 @@ private:
       //
       // Essential instructions (allocation/deallocation/methods) should be
       // removed here due to checkArrPtrLoadUses/checkArrPtrStoreUses.
-      else if (V->hasNUses(0))
-        // Unused addresses of stores can be removed here.
-        cast<Instruction>(V)->eraseFromParent();
+      else if (Inst->hasNUses(0))
+        ToRemove = true;
+
+      if (ToRemove) {
+        auto *I = cast<Instruction>(Inst);
+
+        SmallPtrSet<Instruction *, 5> Ops;
+        for (auto &Op : I->operands())
+          if (auto *OpI = dyn_cast<Instruction>(Op.get()))
+            Ops.insert(OpI);
+
+        salvageDebugInfo(*I);
+        I->eraseFromParent();
+        for (auto *OpI : Ops)
+          RecursivelyDeleteTriviallyDeadInstructions(OpI);
+      }
     }
   }
 
@@ -2060,8 +2161,16 @@ private:
     Builder.CreateCall(NewAppend->getCalledValue(), NewArgs);
 
     for (auto *CI: OldAppends) {
-      auto *NewI = (Value *)VMap[CI];
-      cast<CallInst>(NewI)->eraseFromParent();
+      auto *NewCI = cast<CallInst>((Value *)VMap[CI]);
+
+      SmallPtrSet<Instruction *, 5> Ops;
+      for (auto &Op : NewCI->operands())
+        if (auto *OpI = dyn_cast<Instruction>(Op.get()))
+          Ops.insert(OpI);
+      salvageDebugInfo(*NewCI);
+      NewCI->eraseFromParent();
+      for (auto *OpI: Ops)
+        RecursivelyDeleteTriviallyDeadInstructions(OpI);
     }
   }
 

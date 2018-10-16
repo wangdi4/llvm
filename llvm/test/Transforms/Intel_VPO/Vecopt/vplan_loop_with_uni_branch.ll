@@ -5,13 +5,13 @@
 
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header>,BB4,BB5<latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
-; CHECK-NEXT: Divergent: [[VAL1:%vp[0-9]+]] = phi i64 0 [[VAL2:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: [[VAL1:%vp[0-9]+]] = phi [ i64 0, BB2 ], [ [[VAL2:%vp[0-9]+]], BB5 ]
 ; CHECK-NEXT: Uniform: [[VAL3:%vp[0-9]+]] = trunc [[VAL4:%vp[0-9]+]]
 ; CHECK-LABEL: Basic Block: BB4
 ; CHECK-NEXT: Uniform: [[VAL5:%vp[0-9]+]] = trunc [[VAL4:%vp[0-9]+]]
 ; CHECK-NEXT: Uniform: [[VAL6:%vp[0-9]+]] = sitofp [[VAL5:%vp[0-9]+]]
 ; CHECK-LABEL: Basic Block: BB5
-; CHECK-NEXT: Uniform: [[VAL7:%vp[0-9]+]] = phi [[VAL6:%vp[0-9]+]] float 4.200000e+01
+; CHECK-NEXT: Uniform: [[VAL7:%vp[0-9]+]] = phi [ [[VAL6:%vp[0-9]+]], BB4 ], [ float 4.200000e+01, BB3 ]
 ; CHECK-NEXT: Divergent: [[VAL8:%vp[0-9]+]] = getelementptr [[VAL9:%vp[0-9]+]] [[VAL1:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: store [[VAL7:%vp[0-9]+]] [[VAL8:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: [[VAL9:%vp[0-9]+]] = add [[VAL1:%vp[0-9]+]] i64 1

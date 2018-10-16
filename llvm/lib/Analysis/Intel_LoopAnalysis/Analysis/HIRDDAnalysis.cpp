@@ -186,24 +186,23 @@ void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *Region) {
   ValidationMap[Region] = GraphState::Invalid;
 }
 
-DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
+DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node) {
   auto State = ValidationMap[Node];
 
-  // TODO: We have to treat NoData graph as Invalid if there are edges
-  // associated with the Loop/Region. For ex. the distribution pass creates new
-  // loop and populates it with old HLNodes. Calling getGraph() on NoData nodes
-  // potentially can lead to duplicated edges or invalid dependencies.
-
-  // conservatively assume input edges are always invalid
-  if (ForceDDA || InputEdgesReq || State == GraphState::Invalid) {
+  if (ForceDDA || State == GraphState::Invalid ||
+      // If loop is marked NoData but the parent region is marked as Invalid, we
+      // should rebuild DD from scratch as some nodes could have been moved from
+      // an old loop to this loop.
+      (isa<HLLoop>(Node) && (State == GraphState::NoData) &&
+       (ValidationMap[Node->getParentRegion()] == GraphState::Invalid))) {
 
     // Clean whole graph if a graph is requested for invalid Node.
     FunctionDDGraph.clear();
     ValidationMap.clear();
 
-    buildGraph(Node, InputEdgesReq);
+    buildGraph(Node);
   } else if (State != GraphState::Valid) {
-    buildGraph(Node, InputEdgesReq);
+    buildGraph(Node);
   }
   return DDGraph(Node, &FunctionDDGraph);
 }
@@ -216,7 +215,7 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
                                       RefVectorTy<DDRef>::iterator Ref2It,
                                       RefVectorTy<DDRef>::iterator BeginIt,
                                       RefVectorTy<DDRef>::iterator EndIt,
-                                      bool InputEdgesReq) {
+                                      bool IsGraphForInnermostLoop) {
 
   DDRef *Ref1 = *Ref1It;
   DDRef *Ref2 = *Ref2It;
@@ -234,15 +233,20 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
     return ConstructDDEdgeType::None;
   }
 
-  auto Parent1 = Ref1->getLexicalParentLoop();
-  auto Parent2 = Ref2->getLexicalParentLoop();
+  auto Ref1Node = Ref1->getHLDDNode();
+  auto Ref2Node = Ref2->getHLDDNode();
 
-  if (!Parent1 || (Parent1 != Parent2) || !Parent1->isInnermost()) {
+  if (!isa<HLLoop>(Ref1Node->getParent()) ||
+      !isa<HLLoop>(Ref2Node->getParent())) {
     return ConstructDDEdgeType::Both;
   }
 
-  auto Ref1Node = Ref1->getHLDDNode();
-  auto Ref2Node = Ref2->getHLDDNode();
+  auto Parent1 = Ref1Node->getLexicalParentLoop();
+  if (!IsGraphForInnermostLoop &&
+      (!Parent1 || !Parent1->isInnermost() ||
+       (Parent1 != Ref2Node->getLexicalParentLoop()))) {
+    return ConstructDDEdgeType::Both;
+  }
 
   // Look refs in-between Ref1 and Ref2 to ignore the forward edge
   bool NeedForwardEdge = true;
@@ -270,7 +274,8 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
   std::reverse_iterator<decltype(BeginIt)> RE(BeginIt);
   for (auto It = RI; It != RE; ++It) {
     DDRef *UpwardRef = *It;
-    if (UpwardRef->getLexicalParentLoop() != Parent1) {
+    if (!IsGraphForInnermostLoop &&
+        (UpwardRef->getLexicalParentLoop() != Parent1)) {
       break;
     }
     if (UpwardRef->isLval() &&
@@ -293,7 +298,8 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
   if (NeedBackwardEdge) {
     for (auto It = std::next(Ref2It), E = EndIt; It != E; ++It) {
       DDRef *DownwardRef = *It;
-      if (DownwardRef->getLexicalParentLoop() != Parent1) {
+      if (!IsGraphForInnermostLoop &&
+          (DownwardRef->getLexicalParentLoop() != Parent1)) {
         break;
       }
       if (DownwardRef->isLval() &&
@@ -419,7 +425,7 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
   return ValidationMap[TopLoop->getParentRegion()] == GraphState::Valid;
 }
 
-void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
+void HIRDDAnalysis::buildGraph(const HLNode *Node) {
   assert((isa<HLRegion>(Node) || isa<HLLoop>(Node)) &&
          "Node should be HLLoop or HLRegion");
 
@@ -427,9 +433,11 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   LLVM_DEBUG(Node->dump());
 
   DDARefGatherer::MapTy RefMap;
+  bool IsGraphForInnermostLoop = false;
 
   if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
     DDARefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
+    IsGraphForInnermostLoop = Loop->isInnermost();
   } else {
     DDARefGatherer::gather(Node, RefMap);
   }
@@ -444,14 +452,14 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
     auto BeginIt = RefVec.begin();
     auto EndIt = RefVec.end();
 
-    for (auto Ref1It = BeginIt, E = EndIt; Ref1It != E; ++Ref1It) {
+    for (auto Ref1It = BeginIt; Ref1It != EndIt; ++Ref1It) {
       DDRef *Ref1 = *Ref1It;
 
-      for (auto Ref2It = Ref1It; Ref2It != E; ++Ref2It) {
+      for (auto Ref2It = Ref1It; Ref2It != EndIt; ++Ref2It) {
         DDRef *Ref2 = *Ref2It;
 
         ConstructDDEdgeType NeededEdgeType =
-            edgeNeeded(Ref1It, Ref2It, BeginIt, EndIt, BuildInputEdges);
+            edgeNeeded(Ref1It, Ref2It, BeginIt, EndIt, IsGraphForInnermostLoop);
         if (NeededEdgeType != ConstructDDEdgeType::None &&
             !isEdgeValid(Ref1, Ref2)) {
           DDTest DT(*AAR, Node->getHLNodeUtils());
@@ -627,14 +635,14 @@ void HIRDDAnalysis::printAnalysis(raw_ostream &OS) const {
 // Graph verifier does not build input edges
 void HIRDDAnalysis::GraphVerifier::visit(HLRegion *Region) {
   if (CurLevel == DDVerificationLevel::Region) {
-    CurDDA->getGraph(Region, false);
+    CurDDA->getGraph(Region);
   }
 }
 
 void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
   if (Loop->getNestingLevel() == CurLevel ||
       (Loop->isInnermost() && CurLevel == DDVerificationLevel::Innermost)) {
-    CurDDA->getGraph(Loop, false);
+    CurDDA->getGraph(Loop);
   }
 }
 

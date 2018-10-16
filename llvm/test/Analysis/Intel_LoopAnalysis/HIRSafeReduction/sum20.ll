@@ -4,8 +4,8 @@
 ;     s2 = d[i]  - s2;
 ;     s2 = e[i]  - s2; }
 ; REQUIRES: asserts
-; RUN: opt < %s  -hir-ssa-deconstruction   -analyze  -hir-temp-cleanup   -force-hir-safe-reduction-analysis -hir-safe-reduction-analysis | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -force-hir-safe-reduction-analysis 2>&1 | FileCheck %s
+; RUN: opt < %s  -hir-ssa-deconstruction   -analyze  -hir-temp-cleanup   -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 
 ; CHECK:   No Safe Reduction
 ; ModuleID = 'sum20.cpp'

@@ -1,4 +1,5 @@
-; This test cheks if  whole program is read by gold linker plugin.
+; This test checks if whole program is read by gold linker plugin. The
+; test also checks if all symbols are inside the LTO unit (hidden visibility).
 
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
@@ -14,13 +15,13 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @add(i32 %a) {
+define internal i32 @add(i32 %a) {
 entry:
   %add = add nsw i32 %a, 2
   ret i32 %add
 }
 
-define i32 @sub(i32 %a) {
+define internal i32 @sub(i32 %a) {
 entry:
   %sub = add nsw i32 %a, -2
   ret i32 %sub

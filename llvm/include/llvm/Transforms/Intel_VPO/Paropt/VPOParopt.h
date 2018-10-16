@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===-- VPOParopt.h - Paropt Class for AutoPar / OpenMP Support -*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -88,28 +88,6 @@ public:
           std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter);
 
 private:
-  /// \brief Creates the global llvm.global_ctors initialized
-  /// with the function .omp_offloading.descriptor_reg
-  void genCtorList(Module &M);
-
-  /// \brief Remove routines and global variables which has no target declare
-  /// attribute.
-  void removeTargetUndeclaredGlobals(Module &M);
-
-  /// \brief Transform the use of the tid global into __kmpc_global_thread_num
-  /// or the the use of the first argument of the OMP outlined function. The use
-  /// of bid global is transformed accordingly.
-  void fixTidAndBidGlobals(Module &M);
-
-  /// \brief The utility to transform the tid/bid global variable.
-  void processUsesOfGlobals(Constant *PtrHolder,
-                            SmallVectorImpl<Instruction *> &RewriteIns,
-                            bool IsTid);
-
-  // \brief Collect the uses of the given global variable.
-  void collectUsesOfGlobals(Constant *PtrHolder,
-                            SmallVectorImpl<Instruction *> &RewriteIns);
-
   // Paropt mode.
   unsigned Mode;
 

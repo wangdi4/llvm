@@ -452,7 +452,7 @@ void AvrDefUseHIR::visit(AVRLoopHIR *ALoopHIR) {
     return;
 
   TopLevelLoop = ALoopHIR;
-  DDG = DDA->getGraph(ALoopHIR->getLoop(), false);
+  DDG = DDA->getGraph(ALoopHIR->getLoop());
 
   LLVM_DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "Top-Level loop DDG:\n";
              DDG.print(FOS); FOS << "\n");

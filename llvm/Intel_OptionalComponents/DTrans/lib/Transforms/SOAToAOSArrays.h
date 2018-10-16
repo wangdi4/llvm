@@ -760,9 +760,7 @@ private:
       return false;
 
     return dtrans::isValueMultipleOfSize(MS->getLength(),
-                                         DL.getTypeStoreSize(S.ElementType),
-                                         // Permit Shl.
-                                         true);
+                                         DL.getTypeStoreSize(S.ElementType));
   }
 
   // Wrapper for checkElementAccess, stores instruction and address for
@@ -1060,7 +1058,9 @@ public:
         break;
       case Instruction::Call:
       case Instruction::Invoke:
-        if (ArrayIdioms::isKnownCall(D, S)) {
+        if (isa<DbgInfoIntrinsic>(I))
+          break;
+        else if (ArrayIdioms::isKnownCall(D, S)) {
           auto CS = ImmutableCallSite(&I);
           // Permit only one call to other method.
           if (!MC.CalledMethod && checkMethodCall(CS)) {
@@ -1186,11 +1186,13 @@ public:
     for (auto *I : InstsToTransform.BasePtrInst) {
       auto *NewI = cast<Instruction>((Value *)VMap[I]);
       if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // %base = laad %pelem*, %pelem** %base_off
         //
         // Special base with safe bitcast (to pass to deallocation function):
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // %i8ptr = bitcast %pelem** %base_off to i8**
         // %i8base = load i8*, i8** %i8ptr
         bool BC = false;
@@ -1202,11 +1204,13 @@ public:
           NewLoad->mutateType(NewBaseType);
       } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
         // Zero initialization of base pointer:
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // store %pelem* null, %pelem** %base_off
         //
         // Store of pointer to newly allocated memory to base pointer
-        // %base_off = getelementptr inbounds %class, %class* %this, i64 0, i32 3
+        // %base_off = getelementptr inbounds %class, %class* %this, i64 0,
+        //                                                           i32 3
         // %new_mem  = bitbast %i8 %alloc to %pelem*
         // store %pelem* %newmem, %pelem** %base_off
         bool BC = false;
@@ -1282,8 +1286,7 @@ public:
       assert((isa<GetElementPtrInst>(NewBC->getOperand(0)) ||
               isa<Argument>(NewBC->getOperand(0))) &&
              "Some peephole idiom is not processed");
-      auto It = OrigToCopy.find(NewBC);
-      if (It == OrigToCopy.end()) {
+      if (OrigToCopy.count(NewBC) == 0) {
         Builder.SetInsertPoint(NewBC);
         auto *CopyBC = Builder.CreateBitCast(
             // Assumed all pointer types have same alignment.

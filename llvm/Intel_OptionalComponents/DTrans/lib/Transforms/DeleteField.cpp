@@ -640,7 +640,7 @@ void DeleteFieldImpl::postprocessCallSite(CallSite CS) {
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
                         << *CS.getInstruction() << "\n"
                         << "  " << *OrigTy << "\n");
-      updateCallSizeOperand(CS.getInstruction(), CInfo, OrigTy, ReplTy);
+      updateCallSizeOperand(CS.getInstruction(), CInfo, OrigTy, ReplTy, TLI);
     }
   }
 }
@@ -659,7 +659,7 @@ void DeleteFieldImpl::processSubInst(Instruction *I) {
       continue;
     // Call the base class to find and update all users that divide this result
     // by the structure size.
-    updatePtrSubDivUserSizeOperand(BinOp, OrigTy, ReplTy);
+    llvm::dtrans::updatePtrSubDivUserSizeOperand(BinOp, OrigTy, ReplTy, DL);
   }
 }
 

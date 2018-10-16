@@ -901,6 +901,66 @@ public:
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
+  /// Returns true if minimum trip count of loop is specified using pragma and
+  /// returns the value in \p MinTripCount.
+  bool getPragmaBasedMinimumTripCount(unsigned &MinTripCount) const {
+    auto *MD = getLoopStringMetadata("llvm.loop.intel.loopcount_minimum");
+
+    if (!MD) {
+      return false;
+    }
+
+    MinTripCount =
+        mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+    return true;
+  }
+
+  /// Returns true if maximum trip count of loop is specified using pragma and
+  /// returns the value in \p MaxTripCount.
+  bool getPragmaBasedMaximumTripCount(unsigned &MaxTripCount) const {
+    auto *MD = getLoopStringMetadata("llvm.loop.intel.loopcount_maximum");
+
+    if (!MD) {
+      return false;
+    }
+
+    MaxTripCount =
+        mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+    return true;
+  }
+
+  /// Returns true if average trip count of loop is specified using pragma and
+  /// returns the value in \p AvgTripCount.
+  bool getPragmaBasedAverageTripCount(unsigned &AvgTripCount) const {
+    auto *MD = getLoopStringMetadata("llvm.loop.intel.loopcount_average");
+
+    if (!MD) {
+      return false;
+    }
+
+    AvgTripCount =
+        mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+    return true;
+  }
+
+  /// Returns true if likely trip counts of loop are specified using pragma and
+  /// returns the values in \p TripCounts.
+  bool
+  getPragmaBasedLikelyTripCounts(SmallVectorImpl<unsigned> &TripCounts) const {
+    auto *MD = getLoopStringMetadata("llvm.loop.intel.loopcount");
+
+    if (!MD) {
+      return false;
+    }
+
+    for (unsigned I = 1, E = MD->getNumOperands(); I < E; ++I) {
+      TripCounts.push_back(
+          mdconst::extract<ConstantInt>(MD->getOperand(I))->getZExtValue());
+    }
+
+    return true;
+  }
+
   // 0 means no estimate.
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 
@@ -1002,6 +1062,9 @@ private:
 
 // Traits of HLLoop for LoopOptReportBuilder.
 template <> struct LoopOptReportTraits<loopopt::HLLoop> {
+  using ObjectHandleTy = loopopt::HLLoop &;
+  using ChildLoopTy = loopopt::HLLoop;
+
   static LoopOptReport getOptReport(const loopopt::HLLoop &Loop) {
     return Loop.getOptReport();
   }
@@ -1024,8 +1087,7 @@ template <> struct LoopOptReportTraits<loopopt::HLLoop> {
   getOrCreateParentOptReport(loopopt::HLLoop &Loop,
                              const LoopOptReportBuilder &Builder);
 
-  using ChildLoopTy = loopopt::HLLoop;
-  using LoopVisitorTy = std::function<void(ChildLoopTy &)>;
+  using LoopVisitorTy = std::function<void(loopopt::HLLoop &)>;
   static void traverseChildLoopsBackward(loopopt::HLLoop &Loop,
                                          LoopVisitorTy Func);
 };

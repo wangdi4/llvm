@@ -84,9 +84,15 @@ public:
   const Instruction *getLLVMInstruction() const { return Inst; }
 
   /// Returns true if the underlying instruction has an lval.
-  virtual bool hasLval() const override;
+  virtual bool hasLval() const override {
+    return (!Inst->getType()->isVoidTy() || isa<StoreInst>(Inst));
+  }
+
   /// Returns true if the underlying instruction has a single rval.
-  virtual bool hasRval() const override;
+  virtual bool hasRval() const override {
+    return (isa<StoreInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
+            (hasLval() && isa<UnaryInstruction>(Inst)));
+  }
 
   /// Returns the lval DDRef of this node.
   virtual RegDDRef *getLvalDDRef() override;

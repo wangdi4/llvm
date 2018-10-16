@@ -106,6 +106,7 @@ public:
   // Checks if operand is a safe reduction operand and returns related opcode
   bool isReductionRef(const RegDDRef *Ref, unsigned &RedOpCode);
 
+  void printAnalysis(raw_ostream &OS) const override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop) override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop,
              const SafeRedChainList *SR);

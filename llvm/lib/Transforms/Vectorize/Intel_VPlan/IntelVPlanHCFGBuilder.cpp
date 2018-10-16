@@ -970,13 +970,21 @@ void PlainCFGBuilder::fixPhiNodes() {
   for (auto *Phi : PhisToFix) {
     assert(IRDef2VPValue.count(Phi) && "Missing VPInstruction for PHINode.");
     VPValue *VPVal = IRDef2VPValue[Phi];
-    assert(isa<VPInstruction>(VPVal) && "Expected VPInstruction for phi node.");
-    auto *VPPhi = cast<VPInstruction>(VPVal);
+#if INTEL_CUSTOMIZATION
+    assert(isa<VPPHINode>(VPVal) && "Expected VPPHINode for phi node.");
+    auto *VPPhi = cast<VPPHINode>(VPVal);
     assert(VPPhi->getNumOperands() == 0 &&
            "Expected VPInstruction with no operands.");
 
+    for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I)
+      VPPhi->addIncoming(createOrGetVPOperand(Phi->getIncomingValue(I)),
+                         createOrGetVPBB(Phi->getIncomingBlock(I)));
+#else
+    assert(isa<VPInstruction>(VPVal) && "Expected VPInstruction for phi node.");
+    auto *VPPhi = cast<VPInstruction>(VPVal);
     for (Value *Op : Phi->operands())
       VPPhi->addOperand(createOrGetVPOperand(Op));
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -1100,8 +1108,12 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       // Phi node's operands may have not been visited at this point. We create
       // an empty VPInstruction that we will fix once the whole plain CFG has
       // been built.
+#if INTEL_CUSTOMIZATION
+      NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
+#else
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
           Inst->getOpcode(), {} /*No operands*/, Inst));
+#endif // INTEL_CUSTOMIZATION
       PhisToFix.push_back(Phi);
     } else {
       // Translate LLVM-IR operands into VPValue operands and set them in the
@@ -1121,7 +1133,6 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       NewVPInst = cast<VPInstruction>(
           VPIRBuilder.createNaryOp(Inst->getOpcode(), VPOperands, Inst));
     }
-
     IRDef2VPValue[Inst] = NewVPInst;
   }
 }

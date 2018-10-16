@@ -20,6 +20,7 @@
 #ifndef LLVM_ANALYSIS_INTEL_OPTREPORT_MDOPTREPORTBUILDER_H
 #define LLVM_ANALYSIS_INTEL_OPTREPORT_MDOPTREPORTBUILDER_H
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugLoc.h"
@@ -81,11 +82,15 @@ public:
     return OutputVerbosity;
   }
 
-  template <typename T, typename X = typename std::enable_if<
-                            !std::is_const<T>::value>::type>
-  LoopOptReportThunk<T> operator()(T &Object) const {
+  template <
+    typename T, typename... Ts,
+    typename X = typename std::enable_if<!std::is_const<T>::value>::type>
+  LoopOptReportThunk<T> operator()(T &Arg, Ts &&... Args) const {
     assert(Context && "Uninitialized LoopOptReportBuilder");
-    return LoopOptReportThunk<T>(Object, *this);
+    using ObjectHandleTy = typename LoopOptReportTraits<T>::ObjectHandleTy;
+    return LoopOptReportThunk<T>(*this,
+                                 ObjectHandleTy(Arg,
+                                                std::forward<Ts>(Args)...));
   }
 
   bool isLoopOptReportOn() const { return getVerbosity() > 0; }
@@ -100,27 +105,35 @@ public:
 /// However, a few methods cannot have generic implementation, and explicit
 /// specializations should be provided for each supported type.
 template <typename T> class LoopOptReportThunk {
-  T &Object;
+  // Handle object must contain all the information required for
+  // managing optimization reports for a particular "Loop" object,
+  // i.e. it contains a reference of some sort to the "Loop" object.
+  // Handle must also provide all auxiliary information needed
+  // to configure the Builder for child "Loop" objects of the current
+  // "Loop" object.
+  using ObjectHandleTy = typename LoopOptReportTraits<T>::ObjectHandleTy;
+  typename LoopOptReportTraits<T>::ObjectHandleTy Handle;
   const LoopOptReportBuilder &Builder;
 
 public:
-  LoopOptReportThunk(T &Object, const LoopOptReportBuilder &Builder)
-      : Object(Object), Builder(Builder) {}
+  template <typename... Ts>
+  LoopOptReportThunk(const LoopOptReportBuilder &Builder, ObjectHandleTy Handle)
+      : Handle(Handle), Builder(Builder) {}
 
   LoopOptReport getOptReport() const {
-    return LoopOptReportTraits<T>::getOptReport(Object);
+    return LoopOptReportTraits<T>::getOptReport(Handle);
   }
 
   void setOptReport(LoopOptReport OR) const {
-    return LoopOptReportTraits<T>::setOptReport(Object, OR);
+    return LoopOptReportTraits<T>::setOptReport(Handle, OR);
   }
 
   void eraseOptReport() const {
-    return LoopOptReportTraits<T>::eraseOptReport(Object);
+    return LoopOptReportTraits<T>::eraseOptReport(Handle);
   }
 
   DebugLoc getDebugLoc() const {
-    return LoopOptReportTraits<T>::getDebugLoc(Object);
+    return LoopOptReportTraits<T>::getDebugLoc(Handle);
   }
 
   LoopOptReport getOrCreateOptReport() const {
@@ -138,18 +151,18 @@ public:
   // Return OptReport of previous sibling. Sibling's OptReport gets initialized
   // if necessary. If no sibling is found, nullptr is returned.
   LoopOptReport getOrCreatePrevOptReport() const {
-    return LoopOptReportTraits<T>::getOrCreatePrevOptReport(Object, Builder);
+    return LoopOptReportTraits<T>::getOrCreatePrevOptReport(Handle, Builder);
   }
 
   // Return OptReport for the parent. OptReport for the parent gets initialized
   // if necessary.
   LoopOptReport getOrCreateParentOptReport() const {
-    return LoopOptReportTraits<T>::getOrCreateParentOptReport(Object, Builder);
+    return LoopOptReportTraits<T>::getOrCreateParentOptReport(Handle, Builder);
   }
 
   // Backward traversal of child loops (without recursion).
   template <typename F> void traverseChildLoopsBackward(F &&Func) const {
-    LoopOptReportTraits<T>::traverseChildLoopsBackward(Object,
+    LoopOptReportTraits<T>::traverseChildLoopsBackward(Handle,
                                                        std::forward<F>(Func));
   }
 
@@ -205,9 +218,14 @@ public:
     // into it makes indirect recursive call back to preserveLostLoopOptReport,
     // so that all child loops are processed before their parent loop.
     using ChildLoopTy = typename LoopOptReportTraits<T>::ChildLoopTy;
+    using ChildHandleTy =
+      typename LoopOptReportTraits<ChildLoopTy>::ObjectHandleTy;
     const LoopOptReportBuilder &B = Builder;
     traverseChildLoopsBackward(
-        [&B](ChildLoopTy &L) { B(L).preserveLostLoopOptReport(); });
+        [&B](ChildHandleTy ChildHandle) {
+          LoopOptReportThunk<ChildLoopTy>(B, ChildHandle)
+              .preserveLostLoopOptReport();
+        });
 
     // Even if there is no optreport yet, create one to report at least source
     // location of the lost loop.
@@ -226,22 +244,34 @@ public:
     eraseOptReport();
   }
 
-  template <typename R, typename X = typename std::enable_if<
-                            !std::is_const<R>::value>::type>
-  void moveOptReportTo(R &Other) const {
+  // Moves OptReports from one loop to another.
+  //
+  // Some loops require auxiliary objects for the corresponding
+  // LoopOptReportBuilder to be configured properly.  For example,
+  // for LLVM Loop's there has to be LoopInfo available.  When
+  // you move an OptReport to an LLVM Loop, you have to pass
+  // LoopInfo as an additional parameter to moveOptReportTo().
+  template <
+      typename R, typename... AuxObjectTys,
+      typename X = typename std::enable_if<!std::is_const<R>::value>::type>
+  void moveOptReportTo(R &Other, AuxObjectTys &&... AuxObjects) const {
     if (!Builder.getVerbosity())
       return;
 
-    assert(!Builder(Other).getOptReport() &&
+    const auto &ThunkObj =
+        Builder(Other, std::forward<AuxObjectTys>(AuxObjects)...);
+    assert(!ThunkObj.getOptReport() &&
            "Cannot override existing OptReport");
-    Builder(Other).setOptReport(getOrCreateOptReport());
+    ThunkObj.setOptReport(getOrCreateOptReport());
     eraseOptReport();
   }
 
   // Re-attaches sibling OptReports as siblings to another loop.
-  template <typename R, typename X = typename std::enable_if<
-                            !std::is_const<R>::value>::type>
-  void moveSiblingsTo(R &Other) const {
+  // See moveOptReportTo() comment above for details on the auxiliary objects.
+  template <
+      typename R, typename... AuxObjectTys,
+      typename X = typename std::enable_if<!std::is_const<R>::value>::type>
+  void moveSiblingsTo(R &Other, AuxObjectTys &&... AuxObjects) const {
     if (!Builder.getVerbosity())
       return;
 
@@ -253,29 +283,16 @@ public:
     if (!Sibling)
       return;
 
-    Builder(Other).addSibling(Sibling);
+    Builder(Other, std::forward<AuxObjectTys>(AuxObjects)...)
+        .addSibling(Sibling);
     OR.eraseSiblings();
-  }
-};
-
-// Traits of LLVM Loop for LoopOptReportBuilder.
-template <> struct LoopOptReportTraits<Loop> {
-  static LoopOptReport getOptReport(const Loop &L) {
-    return LoopOptReport::findOptReportInLoopID(L.getLoopID());
-  }
-
-  static void setOptReport(Loop &L, LoopOptReport OR) {
-    LLVMContext &C = L.getHeader()->getContext();
-    L.setLoopID(LoopOptReport::addOptReportToLoopID(L.getLoopID(), OR, C));
-  }
-
-  static DebugLoc getDebugLoc(const Loop &L) {
-    return L.getLocRange().getStart();
   }
 };
 
 // Traits of LLVM Function for LoopOptReportBuilder.
 template <> struct LoopOptReportTraits<Function> {
+  using ObjectHandleTy = Function &;
+
   static LoopOptReport getOptReport(const Function &F) {
     return cast_or_null<MDTuple>(F.getMetadata(LoopOptReportTag::Root));
   }
@@ -292,6 +309,103 @@ template <> struct LoopOptReportTraits<Function> {
   static DebugLoc getDebugLoc(const Function &F) { return nullptr; }
 };
 
+// Traits of LLVM Loop for LoopOptReportBuilder.
+template <> struct LoopOptReportTraits<Loop> {
+  using ObjectHandleTy = std::pair<Loop &, LoopInfo &>;
+
+  static LoopOptReport getOptReport(const ObjectHandleTy &Handle) {
+    return LoopOptReport::findOptReportInLoopID(Handle.first.getLoopID());
+  }
+
+  static void setOptReport(const ObjectHandleTy &Handle, LoopOptReport OR) {
+    auto &L = Handle.first;
+    LLVMContext &C = L.getHeader()->getContext();
+    L.setLoopID(LoopOptReport::addOptReportToLoopID(L.getLoopID(), OR, C));
+  }
+
+  static void eraseOptReport(const ObjectHandleTy &Handle) {
+    auto &L = Handle.first;
+    auto *OrigLoopID = L.getLoopID();
+    auto *LoopID =
+      LoopOptReport::eraseOptReportFromLoopID(OrigLoopID,
+                                              L.getHeader()->getContext());
+
+    if (LoopID)
+      L.setLoopID(LoopID);
+    else if (OrigLoopID) {
+      // If OptReport was the only entry of the original LoopID,
+      // then we have to erase the Loop's LoopID completely.
+      // Unfortunately, there is no existing method for that,
+      // so we create a dummy LoopID and assign it to the Loop.
+      //
+      // We do not want to set the dummy LoopID, if the original
+      // LoopID was NULL, though.
+      LoopID = MDTuple::get(L.getHeader()->getContext(), { nullptr });
+      LoopID->replaceOperandWith(0, LoopID);
+      L.setLoopID(LoopID);
+    }
+  }
+
+  static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {
+    return Handle.first.getLocRange().getStart();
+  }
+
+  static LoopOptReport getOrCreatePrevOptReport(
+      const ObjectHandleTy &Handle, const LoopOptReportBuilder &Builder) {
+    auto &L = Handle.first;
+    Loop *PrevSiblingLoop = nullptr;
+
+    if (L.getParentLoop())
+      for (auto *ChildLoop : L.getParentLoop()->getSubLoops()) {
+        if (ChildLoop == &L)
+          break;
+
+        PrevSiblingLoop = ChildLoop;
+      }
+    else {
+      auto &LI = Handle.second;
+
+      for (LoopInfo::reverse_iterator I = LI.rbegin(), E = LI.rend();
+           I != E; ++I) {
+        if (*I == &L)
+          break;
+
+        PrevSiblingLoop = *I;
+      }
+    }
+
+    if (!PrevSiblingLoop)
+      return nullptr;
+
+    return Builder(*PrevSiblingLoop, Handle.second).getOrCreateOptReport();
+  }
+
+  static LoopOptReport getOrCreateParentOptReport(
+      const ObjectHandleTy &Handle, const LoopOptReportBuilder &Builder) {
+    auto &L = Handle.first;
+    // Attach to the parent Loop, if it exists.
+    if (Loop *Dest = L.getParentLoop())
+      return Builder(*Dest, Handle.second).getOrCreateOptReport();
+
+    // Attach to the Function, otherwise.
+    if (Function *Dest = L.getHeader()->getParent())
+      return Builder(*Dest).getOrCreateOptReport();
+
+    llvm_unreachable("Failed to find a parent.");
+  }
+
+  using ChildLoopTy = Loop;
+  using ChildHandleTy = typename LoopOptReportTraits<ChildLoopTy>::ObjectHandleTy;
+  using LoopVisitorTy = std::function<void(ChildHandleTy)>;
+  static void traverseChildLoopsBackward(const ObjectHandleTy &Handle,
+                                         LoopVisitorTy Func) {
+    auto &L = Handle.first;
+    std::for_each(L.rbegin(), L.rend(),
+                  [&Handle, &Func](Loop *CL) {
+                    Func(ChildHandleTy(*CL, Handle.second));
+                  });
+  }
+};
 } // namespace llvm
 
 #endif // LLVM_ANALYSIS_INTEL_OPTREPORT_MDOPTREPORTBUILDER_H

@@ -68,6 +68,10 @@ static cl::opt<bool> DTransInlineHeuristics(
     "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
     cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
 
+static cl::opt<bool> EnablePreLTOInlineCost(
+    "pre-lto-inline-cost", cl::Hidden, cl::init(false),
+    cl::desc("Enable pre-LTO inline cost"));
+
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 // CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
 static cl::opt<int> OptSizeThreshold(
@@ -206,6 +210,8 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   InlineAggressiveInfo *AI;
   // Set of candidate call sites for loop fusion
   SmallSet<CallSite, 20> *CallSitesForFusion;
+  // Set of candidate call sites for dtrans.
+  SmallSet<CallSite, 20> *CallSitesForDTrans;
 #endif // INTEL_CUSTOMIZATION
 
   bool IsCallerRecursive;
@@ -348,6 +354,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool visitCleanupReturnInst(CleanupReturnInst &RI);
   bool visitCatchReturnInst(CatchReturnInst &RI);
   bool visitUnreachableInst(UnreachableInst &I);
+#if INTEL_CUSTOMIZATION
+  bool preferDTransToInlining(CallSite &CS, bool PrepareForLTO) const;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   CallAnalyzer(const TargetTransformInfo &TTI,
@@ -358,6 +367,7 @@ public:
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallSite, 20> *CSForFusion, // INTEL
+               SmallSet<CallSite, 20> *CSForDTrans, // INTEL
                const InlineParams &Params)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
@@ -366,6 +376,7 @@ public:
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
             Params.ComputeFullInlineCost.getValueOr(false) || ORE),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
+        CallSitesForDTrans(CSForDTrans),
 #endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
@@ -1389,8 +1400,9 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // out. Pretend to inline the function, with a custom threshold.
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS,
-                  ILIC, AI, CallSitesForFusion, IndirectCallParams); // INTEL
+  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS, ILIC, AI,
+                  CallSitesForFusion, CallSitesForDTrans, // INTEL
+                  IndirectCallParams);                    // INTEL
   if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -2776,6 +2788,32 @@ static bool worthInliningForDeeplyNestedIfs(CallSite &CS,
 
   return true;
 }
+
+//
+// Return 'true' if 'CS' should not be inlined, because it would be better
+// to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile step
+// of an LTO compilation.
+//
+bool CallAnalyzer::preferDTransToInlining(CallSite &CS,
+                                          bool PrepareForLTO) const {
+  if (!PrepareForLTO)
+    return false;
+
+  if (!DTransInlineHeuristics)
+    return false;
+
+  if (!CallSitesForDTrans) {
+    LLVM_DEBUG(llvm::dbgs() << "IC: inlining for dtrans: no call site "
+                               "candidates to suppress inline.\n");
+    return false;
+  }
+
+  // The call site was stored as candidate to suppress inlining.
+  if (!CallSitesForDTrans->count(CS))
+    return false;
+
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Find dead blocks due to deleted CFG edges during inlining.
@@ -2875,6 +2913,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   if (InlineForXmain &&
       preferMultiversioningToInlining(CS, *ILIC, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferMultiversioning;
+    return false;
+  }
+  if (InlineForXmain &&
+      preferDTransToInlining(CS, PrepareForLTO)) {
+    *ReasonAddr = NinlrPreferSOAToAOS;
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3250,10 +3293,12 @@ InlineCost llvm::getInlineCost(
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
     SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
+    SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
                        GetAssumptionCache, GetBFI, ILIC, AI, // INTEL
-                       CallSitesForFusion, PSI, ORE);// INTEL
+                       CallSitesForFusion,                   // INTEL
+                       CallSitesForDTrans, PSI, ORE);        // INTEL
 }
 
 InlineCost llvm::getInlineCost(
@@ -3264,6 +3309,7 @@ InlineCost llvm::getInlineCost(
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
     SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
+    SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
   // Cannot inline indirect calls.
@@ -3351,7 +3397,8 @@ InlineCost llvm::getInlineCost(
                           << "... (caller:" << Caller->getName() << ")\n");
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee, CS,
-                  ILIC, AI, CallSitesForFusion, Params);  // INTEL
+                  ILIC, AI, CallSitesForFusion, CallSitesForDTrans, // INTEL
+                  Params);                                          // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyzeCall(CS, &Reason);
@@ -3438,7 +3485,7 @@ bool llvm::isInlineViable(Function &F, // INTEL
 
 InlineParams llvm::getInlineParams(int Threshold) {
   InlineParams Params;
-  Params.PrepareForLTO = false;     // INTEL
+  Params.PrepareForLTO = EnablePreLTOInlineCost;     // INTEL
 
   // This field is the threshold to use for a callee by default. This is
   // derived from one or more of:

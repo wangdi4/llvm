@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===-- VPO/Paropt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -79,6 +79,8 @@ enum AddressSpace {
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 
+class VPOParoptModuleTransform;
+
 /// \brief Provide all functionalities to perform paropt threadization
 /// such as outlining, privatization, loop partitioning, multithreaded
 /// code generation.
@@ -86,25 +88,29 @@ class VPOParoptTransform {
 
 public:
   /// \brief ParoptTransform object constructor
-  VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
+  VPOParoptTransform(VPOParoptModuleTransform *MT,
+                     Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
                      const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
                      unsigned OptLevel = 2, bool SwitchToOffload = false)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI),
-        AA(AA), Mode(Mode), TargetTriple(F->getParent()->getTargetTriple()),
-        OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+      : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
+        TLI(TLI), AA(AA), Mode(Mode),
+        TargetTriple(F->getParent()->getTargetTriple()), OptLevel(OptLevel),
+        SwitchToOffload(SwitchToOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
-        KmpTaskDependInfoTy(nullptr), TgOffloadRegionId(nullptr),
-        TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
-        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr) {}
+        KmpTaskDependInfoTy(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
 
 private:
+  /// A reference to the parent module transform object. It can be NULL if
+  /// paropt transform is construted from a function pass.
+  VPOParoptModuleTransform *MT;
+
   /// \brief The W-regions in the function F are to be transformed
   Function *F;
 
@@ -180,59 +186,6 @@ private:
   ///              char   depend_type;
   ///           };
   StructType *KmpTaskDependInfoTy;
-
-  /// The target region ID is an unique global varialble used by the runtime
-  /// libarary.
-  GlobalVariable *TgOffloadRegionId;
-
-  /// \brief Hold the struct type as follows.
-  ///    struct __tgt_offload_entry {
-  ///      void      *addr;       // The address of a global variable
-  ///                             // or entry point in the host.
-  ///      char      *name;       // Name of the symbol referring to the
-  ///                             // global variable or entry point.
-  ///      size_t     size;       // Size in bytes of the global variable or
-  ///                             // zero if it is entry point.
-  ///      int32_t    flags;      // Flags of the entry.
-  ///      int32_t    reserved;   // Reserved by the runtime library.
-  /// };
-  StructType *TgOffloadEntryTy;
-
-  /// \brief Hold the struct type as follows.
-  /// struct __tgt_device_image{
-  ///   void   *ImageStart;       // The address of the beginning of the
-  ///                             // target code.
-  ///   void   *ImageEnd;         // The address of the end of the target
-  ///                             // code.
-  ///   __tgt_offload_entry  *EntriesBegin;  // The first element of an array
-  ///                                        // containing the globals and
-  ///                                        // target entry points.
-  ///   __tgt_offload_entry  *EntriesEnd;    // The last element of an array
-  ///                                        // containing the globals and
-  ///                                        // target entry points.
-  /// };
-  StructType *TgDeviceImageTy;
-
-  /// \brief Hold the struct type as follows.
-  /// struct __tgt_bin_desc{
-  ///   uint32_t              NumDevices;     // Number of device types i
-  ///                                         // supported.
-  ///   __tgt_device_image   *DeviceImages;   // A pointer to an array of
-  ///                                         // NumDevices elements.
-  ///   __tgt_offload_entry  *EntriesBegin;   // The first element of an array
-  ///                                         // containing the globals and
-  ///                                         // target entry points.
-  ///   __tgt_offload_entry  *EntriesEnd;     // The last element of an array
-  ///                                         // containing the globals and
-  ///                                         // target entry points.
-  /// };
-  StructType *TgBinaryDescriptorTy;
-
-  /// \brief Create a variable that binds the atexit to this shared object.
-  GlobalVariable *DsoHandle;
-
-  /// \brief A string to describe the device information.
-  SmallVector<Triple, 16> TgtDeviceTriples;
 
   /// \brief Struct that keeps all the information needed to pass to
   /// the runtime library.
@@ -583,7 +536,7 @@ private:
   bool genTargetOffloadingCode(WRegionNode *W);
 
   /// \brief Generate the initialization code for the directive omp target
-  CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call,
+  CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call, Value *RegionId,
                               Instruction *InsertPt);
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
@@ -608,43 +561,6 @@ private:
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 unsigned &Cnt,
                                 bool hasRuntimeEvaluationCaptureSize);
-
-  /// \brief Register the offloading descriptors as well the offloading binary
-  /// descriptors.
-  void genRegistrationFunction(WRegionNode *W, Function *Fn);
-
-  /// \brief Register the offloading descriptors.
-  void genOffloadEntriesAndInfoMetadata(WRegionNode *W, Function *Fn);
-
-  /// \brief Register the offloading binary descriptors.
-  void genOffloadingBinaryDescriptorRegistration(WRegionNode *W);
-
-  /// \brief Create offloading entry for the provided entry ID and address.
-  void genOffloadEntry(Constant *ID, Constant *Addr);
-
-  /// \brief Return/Create the target region ID used by the runtime library to
-  /// identify the current target region.
-  GlobalVariable *getOMPOffloadRegionId();
-
-  /// \brief Return/Create a variable that binds the atexit to this shared
-  /// object.
-  GlobalVariable *getDsoHandle();
-
-  /// \brief Return/Create the struct type __tgt_offload_entry.
-  StructType *getTgOffloadEntryTy();
-
-  /// \brief Return/Create the struct type __tgt_device_image.
-  StructType *getTgDeviceImageTy();
-
-  /// \brief Return/Create the struct type __tgt_bin_desc.
-  StructType *getTgBinaryDescriptorTy();
-
-  /// \brief Create the function .omp_offloading.descriptor_reg
-  Function *createTgDescRegisterLib(WRegionNode *W, Function *TgDescUnregFn,
-                                    GlobalVariable *Desc);
-
-  /// \brief Create the function .omp_offloading.descriptor_unreg
-  Function *createTgDescUnregisterLib(WRegionNode *W, GlobalVariable *Desc);
 
   /// \brief If the incoming data is global variable, create the stack variable
   /// and replace the the global variable with the stack variable.
@@ -688,7 +604,7 @@ private:
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
 
   /// \brief Return true if the program is compiled at the offload mode.
-  bool hasOffloadCompilation() {
+  bool hasOffloadCompilation() const {
     return ((Mode & OmpOffload) || SwitchToOffload);
   }
 
@@ -931,6 +847,8 @@ private:
         0x80, // informs the runtime that the variable is a private variable.
     TGT_MAP_PRIVATE_VAL = 0x100, // instructs the runtime to forward the value
                                  // to target construct.
+    TGT_MAPTYPE_ND_DESC = 0x400  // indicates that the parameter is loop
+                                 // descriptor struct.
   };
 
   /// \brief Returns the corresponding flag for a given map clause modifier.
@@ -1006,8 +924,8 @@ private:
   /// \brief Generate the helper function for copying the copyprivate data.
   Function *genCopyPrivateFunc(WRegionNode *W, StructType *KmpCopyPrivateTy);
 
-  /// \brief Process the device information into the triples.
-  void processDeviceTriples();
+  /// Return true if the device triple contains spir64 or spir.
+  bool deviceTriplesHasSPIRV();
 
   /// \brief Update the SSA form after the basic block LoopExitBB's successor
   /// is added one more incoming edge.
@@ -1028,6 +946,10 @@ private:
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
 
+  /// Transform the Ith level of the loop in the region W into the
+  /// OMP canonical loop form.
+  void regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
+
   /// \brief Transform the given do-while loop into the canonical form
   /// as follows.
   ///         do {
@@ -1036,7 +958,7 @@ private:
   ///             %omp.inc = %omp.iv + 1;
   ///          }while (%omp.inc <= %omp.ub)
 
-  void fixOMPDoWhileLoop(WRegionNode *W);
+  void fixOMPDoWhileLoop(WRegionNode *W, Loop *L);
 
   /// \brief Utility to transform the given do-while loop loop into the
   /// canonical do-while loop.
@@ -1052,6 +974,19 @@ private:
   /// \brief Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.
   bool hasParentTarget(WRegionNode *W);
+
+  /// Initialize the loop descriptor struct with the loop level
+  /// as well as the lb, ub, stride for each level of the loop.
+  /// The loop descriptor struct as follows.
+  ///    struct tgt_nd_desc {
+  ///      int64_t   levels;      // The levels of the loop nest
+  ///      struct tgt_loop_desc {
+  ///        int64_t lb;          // The lb of the ith loop
+  ///        int64_t ub;          // The ub of the ith loop
+  ///        int64_t stride;      // The stride of the ith loop
+  ///      }loop_desc[levels];
+  ///   };
+  AllocaInst *genTgtLoopParameter(WRegionNode *W, WRegionNode *WL);
 
   /// \brief Generate the cast i8* for the incoming value BPVal.
   Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
@@ -1146,16 +1081,16 @@ private:
   bool genOCLParallelLoop(WRegionNode *W);
 
   /// \brief Generate the placeholders for the loop lower bound and upper bound.
-  void genLoopBoundUpdatePrep(WRegionNode *W, AllocaInst *&LowerBnd,
-                              AllocaInst *&UpperBnd);
+  void genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
+                              AllocaInst *&LowerBnd, AllocaInst *&UpperBnd);
 
   /// \brief Generate the OCL loop update code.
-  void genOCLLoopBoundUpdateCode(WRegionNode *W, AllocaInst *LowerBnd,
-                                 AllocaInst *UpperBnd);
+  void genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
+                                 AllocaInst *LowerBnd, AllocaInst *UpperBnd);
 
   /// \breif Generate the OCL loop scheduling code.
-  void genOCLLoopPartitionCode(WRegionNode *W, AllocaInst *LowerBnd,
-                               AllocaInst *UpperBnd);
+  void genOCLLoopPartitionCode(WRegionNode *W, unsigned Idx,
+                               AllocaInst *LowerBnd, AllocaInst *UpperBnd);
 };
 } /// namespace vpo
 } /// namespace llvm

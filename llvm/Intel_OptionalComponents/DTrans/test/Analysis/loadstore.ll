@@ -375,6 +375,39 @@ define void @test27( %struct.test27* %p) {
 
 ; CHECK: LLVMType: %struct.test27 = type { i32, [50 x %struct.test27*] }
 ; CHECK: Safety data: No issues found
+
+; Store of pointer to global struct cast as an pointer-sized integer.
+%struct.test28.a = type { i32, i32 }
+%struct.test28.b = type { i32, i32, %struct.test28.a* }
+@g_sa28 = dso_local local_unnamed_addr global %struct.test28.a zeroinitializer
+define void @test28(%struct.test28.b* %sb ) {
+  %pb.a = getelementptr %struct.test28.b, %struct.test28.b* %sb, i64 0, i32 2
+  %pb.a.as.pi = bitcast %struct.test28.a** %pb.a to i64*
+  store i64 ptrtoint (%struct.test28.a* @g_sa28 to i64), i64* %pb.a.as.pi
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test28.a = type { i32, i32 }
+; CHECK: Safety data: Global instance
+; CHECK: LLVMType: %struct.test28.b = type { i32, i32, %struct.test28.a* }
+; CHECK: Safety data: No issues found
+
+; Mismatched store of pointer to global struct cast as an pointer-sized integer.
+%struct.test29.a = type { i32, i32 }
+%struct.test29.b = type { i32, i32, %struct.test29.a* }
+@g_sb29 = dso_local local_unnamed_addr global %struct.test29.b zeroinitializer
+define void @test29( %struct.test29.b* %sb ) {
+  %pb.a = getelementptr %struct.test29.b, %struct.test29.b* %sb, i64 0, i32 2
+  %pb.a.as.pi = bitcast %struct.test29.a** %pb.a to i64*
+  store i64 ptrtoint (%struct.test29.b* @g_sb29 to i64), i64* %pb.a.as.pi
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test29.a = type { i32, i32 }
+; CHECK: Safety data: Unsafe pointer store
+; CHECK: LLVMType: %struct.test29.b = type { i32, i32, %struct.test29.a* }
+; CHECK: Safety data: Unsafe pointer store | Global instance
+
 ; This is here to make sure the test above finds the right safety data.
 ; CHECK-LABEL: DTRANS_ArrayInfo
 

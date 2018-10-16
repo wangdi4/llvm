@@ -567,7 +567,7 @@ bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
 // Launch legal test for each DV in the loop.
 /* ------------------------------------------------------------------- */
 bool HIRLoopReversal::isLegal(const HLLoop *Lp) {
-  DDGraph DDG = HDDA.getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp);
   // LLVM_DEBUG(dbgs() << "Dump the Full DDGraph:\n"; DDG.dump(););
 
   AnalyzeDDInfo ADDI(DDG, Lp, *this, LoopLevel);

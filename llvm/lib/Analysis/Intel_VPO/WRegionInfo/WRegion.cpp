@@ -236,6 +236,18 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setDefaultmapTofromScalar(false);
   setParLoopNdInfoAlloca(nullptr);
 
+#if INTEL_CUSTOMIZATION
+  // TODO: This should be reimplemented to use operand bundles.
+  // Get offload entry index for this region. It is attached to the begin
+  // directive as 'omp_offload.entry' metadata.
+  if (const auto *MD = BB->front().getMetadata("omp_offload.entry")) {
+    const auto *C = mdconst::extract<ConstantInt>(MD->getOperand(0));
+    setOffloadEntryIdx(C->getZExtValue());
+  }
+  else
+    setOffloadEntryIdx(-1);
+#endif // INTEL_CUSTOMIZATION
+
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }
 
@@ -811,6 +823,12 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
     StringRef Str = W->getDefaultmapTofromScalar() ?
                     "TOFROM:SCALAR" : "UNSPECIFIED";
     vpo::printStr("DEFAULTMAP", Str, OS, Indent, Verbosity);
+
+#if INTEL_CUSTOMIZATION
+    auto EntryIdx = W->getOffloadEntryIdx();
+    if (EntryIdx >= 0)
+      vpo::printInt("OFFLOAD_ENTRY_IDX", EntryIdx, OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

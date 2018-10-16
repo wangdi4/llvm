@@ -1426,20 +1426,23 @@ static bool isSupported(const OVLSGroup &Group) {
   // Check if the group's optimized sequence has been defined.
   // If not, the sequence should be added/generated, either added as hard-coded
   // sequences for the group, or generated using the general algorithm.
-  // This should be the same as in InterleavedAccessPass issupported function.
   // Current supported groups in OptVLS are:
   // Load       - ElemSize = 64, #neighbours = 2
-  // Load/Store - ElemSize = 32, #neighbours = 4
-  // Note: Store Factor = 2 would imply shuffle pattern like:
-  // %reorder_shuffle = shufflevector <4 x i64> %1, <4 x i64> undef, <4 x i32>
-  // <i32 0, i32 2, i32 1, i32 3> Or %reorder_shuffle = shufflevector <2 x i64>
-  // %1, <2 x i64> %2, <4 x i32> <i32 0, i32 2, i32 1, i32 3> The code is
-  // already optimized in this case.
+  // Load/Store - ElemSize = 32, #neighbours = 4, stride = 16
+  // Load       - ElemSize = 16, #neighbours = 8, stride = 16
+  // To Do: Support other types and remove this check.
+  // This check should be for cases that are not supported in OptVLS or cause
+  // stablity problems.
+  // It is currently at place mainly to avoid the execution to reach the Graph
+  // algorithm. The graph algorithm is stable only for ElemSize=64 Loads. It
+  // crashes for many other cases. The other groups mentioned below get
+  // optimized in getSequencePredefined() before Graph Algorithm.
 
   if (!((Group.getElemSize() == 64 && Group.size() == 2 &&
          Group.hasGathers()) ||
-        (Group.getElemSize() == 32 && Group.size() == 4) ||
-        (Group.getElemSize() == 16 && Group.size() == 8)))
+        (Group.getElemSize() == 32 && Group.size() == 4 && Stride == 16) ||
+        (Group.getElemSize() == 16 && Group.size() == 8 && Stride == 16 &&
+         Group.hasGathers())))
     return false;
 
   return true;
@@ -2067,10 +2070,12 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   for (int i = 0; i < 8; i++) {
     InstVector.push_back(ShuffleOnShuffles[i]);
   }
-  // Populate the memrefmap.
-  for (int i = 0; i < 4; i++)
-    MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
-        Group.getMemref(i), Results[i]));
+
+  if (MemrefToInstMap)
+    // Populate the memrefmap.
+    for (int i = 0; i < 4; i++)
+      MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
+          Group.getMemref(i), Results[i]));
   return true;
 }
 
@@ -2105,8 +2110,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
 // Second, The sequence will not consider these shuffle vectors in cost
 // computation for the optimization.
 bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
-    const OVLSGroup &Group, OVLSInstructionVector &InstVector,
-    OVLSMemrefToInstMap *MemrefToInstMap) {
+    const OVLSGroup &Group, OVLSInstructionVector &InstVector) {
 
   OVLSInstruction *ShuffleOnShuffles[16];
 
@@ -2431,10 +2435,11 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
     InstVector.push_back(ResultShuffles[i]);
   }
 
-  // Populate the memrefmap.
-  for (int i = 0; i < 8; i++)
-    MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
-        Group.getMemref(i), ResultShuffles[i]));
+  if (MemrefToInstMap)
+    // Populate the memrefmap.
+    for (int i = 0; i < 8; i++)
+      MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
+          Group.getMemref(i), ResultShuffles[i]));
   return true;
 }
 
@@ -2542,10 +2547,10 @@ bool OptVLSInterface::getSequencePredefined(
       (Group.getNumElems() == 8) && (Group.getElemSize() == 32) &&
       (Group.getNByteAccessMask() == 65535) &&
       (Group.getAccessType().isStridedAccess()) &&
-      (Group.hasGathers() == false) // Recognition of strided store
+      (Group.hasScatters() == true) // Recognition of strided store
   ) {
     // Sequence can be safely generated.
-    return genSeqStoreStride16Packed8xi32(Group, InstVector, MemrefToInstMap);
+    return genSeqStoreStride16Packed8xi32(Group, InstVector);
   }
 
   return false;
@@ -2568,39 +2573,17 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
   OVLSInstructionVector InstVector;
   if (getSequence(Group, CM, InstVector)) {
     for (OVLSInstruction *I : InstVector) {
-      OVLSdbgs() << *I;
       int64_t C = CM.getInstructionCost(I);
-      // OVLSdbgs() << "Cost = " << C << "\n";
+      if (C == OVLSCostModel::UnknownCost)
+        return OVLSCostModel::UnknownCost;
       Cost += C;
     }
+    OVLSDebug(OVLSdbgs() << "Optimized Cost for the Group = " << Cost << "\n");
+    // If the returned cost is 0, it implies that the CostModel isn't accurate
+    // and should do a better job in estimating the cost.
+    return Cost;
   }
-
-  // Leaving this code commented for future reference and information.
-  // 2. Obtain the cost of vectorizing this group using gathers/scatters.
-  // FORNOW: If gathers/scatters are not supported the cost is 0.
-  // TODO: We want to return the cost of the scalarized gathers/scatters
-  // if they are not supported, instead of zero.
-  // int64_t GatherScatterCost = 0;
-  // const OVLSMemrefVector &MemrefVec = Group.getMemrefVec();
-  // for (OVLSMemref *Memref : MemrefVec) {
-  //  int64_t C = CM.getGatherScatterOpCost(*Memref);
-  // OVLSdbgs() << "Cost = " << C << "\n";
-  //  GatherScatterCost += C;
-  //}
-  // OVLSdbgs() << "Shuffle Cost = " << Cost << "\n";
-  // OVLSdbgs() << "Gather/Scatter Cost = " << GatherScatterCost << "\n";
-
-  // 3. Return the minimum of the two costs.
-  // if (GatherScatterCost && GatherScatterCost <= Cost)
-  //  Cost = GatherScatterCost;
-
-  // Both gathers/scatters and shuffles not supported; return some high dummy
-  // cost. TODO: Instead, return the scalarization cost.
-  // Once the cost utilities are fully implemented we don't expect to get a
-  // zero cost.
-  if (Cost == 0)
-    Cost = OVLSCostModel::UnknownCost;
-  //      MemrefVec.size() * Group.getFirstMemref()->getType().getNumElements();
-
-  return Cost;
+  // 2. If the Optimized Sequence isn't present, return Unknown Cost.
+  OVLSDebug(OVLSdbgs() << "Returning UnknownCost for the Group.\n");
+  return OVLSCostModel::UnknownCost;
 }

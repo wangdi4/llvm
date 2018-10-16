@@ -323,8 +323,14 @@ public:
   virtual EXPR getNumTeams()              const {WRNERROR(QUAL_OMP_NUM_TEAMS);}
   virtual void setNumThreads(EXPR E)          {WRNERROR(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()          const {WRNERROR(QUAL_OMP_NUM_THREADS);}
+#if INTEL_CUSTOMIZATION
+  virtual int  setOffloadEntryIdx()            {WRNERROR("OFFLOAD_ENTRY_IDX");}
+  virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
+#endif // INTEL_CUSTOMIZATION
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }
   virtual int getOrdered()                const {WRNERROR(QUAL_OMP_ORDERED);  }
+  virtual void setParLoopNdInfoAlloca(AllocaInst *AI) { WRNERROR("LOOP_DESC"); }
+  virtual AllocaInst *getParLoopNdInfoAlloca() const { WRNERROR("LOOP_DESC"); }
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual EXPR getPriority()              const {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual void setProcBind(WRNProcBindKind P)   {WRNERROR("PROC_BIND");       }

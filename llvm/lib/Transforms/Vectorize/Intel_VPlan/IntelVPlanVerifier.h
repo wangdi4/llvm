@@ -34,9 +34,20 @@ private:
   // VPLoopInfo analysis information.
   const VPLoopInfo *VPLInfo = nullptr;
 
-  // Main functions driving the verification of regions and loops.
-  void verifyRegions(const VPRegionBlock *Region) const;
+  // Verify VPPHINode instruction.
+  void verifyPHINode(const VPPHINode *Phi, const VPBasicBlock *Block) const;
+
+  // Main functions driving the verification of instructions, blocks,
+  // loops and regions.
+
+  /// Verify VPInstructions.
+  void verifyInstruction(const VPInstruction *Inst,
+                         const VPBasicBlock *Block) const;
+
+  /// Verify VPBlockBase.
+  void verifyBlock(const VPBlockBase *Block, const VPRegionBlock *Region) const;
   void verifyLoops(const VPRegionBlock *TopRegion) const;
+  void verifyRegions(const VPRegionBlock *Region) const;
 
   // Auxiliary functions for loop verification.
   void verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const;
@@ -63,12 +74,6 @@ private:
 
   /// Verify that each user of \p Def has \p Def as an operand.
   static void verifyUsers(const VPValue *Def);
-
-  /// Verify both operands and uses of \p U.
-  static void verifyInstr(const VPUser *U);
-
-  /// Verify VPInstructions in \p VPBB.
-  static void verifyBBInstrs(const VPBasicBlock *VPBB);
 
 public:
   VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)

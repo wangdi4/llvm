@@ -59,10 +59,13 @@ this checklist when evaluating change sets.
    from someone who has taken the time to thoroughly understand your changes.
 #. Run an appropriate amount of
    :ref:`pre-commit testing <testing-requirements>`, and attach the test
-   results to the Gerrit review. We recommend that you use the integrated alloy
-   testing feature of Gerrit to do this. Any expected failures must be captured
-   in JIRA, and the Gerrit review must contain a clear explanation for why the
-   change should be approved for xmain in spite of the failures.
+   results to the Gerrit review. We recommend that you use the integrated
+   :doc:`alloy testing feature of Gerrit <XmainAlloyGerrit>` to do this.
+   Alternatively, please copy the contents of gerrit.log into the Gerrit review
+   as described :ref:`here <gerrit-alloy-fallback>`. Any expected failures
+   must be captured in JIRA, and the Gerrit review must contain a clear
+   explanation for why the change should be approved for xmain in spite of the
+   failures.
 
 The next step depends on whether you are submitting an individual change set or
 a branch promotion.
@@ -499,10 +502,17 @@ Code Reviews
 ============
 
 Our code review policy requires that every piece of code in xmain is thoroughly
-understood and accepted by more than one person. Having a second person read
-through your code and attempt to understand it helps identify pieces that are
-confusing, inefficient, or incorrect. Code reviews are a critical mechanism for
-ensuring that the code we commit to xmain is of the highest quality.
+understood and accepted by more than one person. Code reviews ensure
+consistently high code quality and maintainability, increase understanding of
+the code base among more developers, and provide a mechanism for fostering best
+coding practices across our development teams.
+
+Code reviews should be seen as more than just a final check for coding errors.
+Code reviews present an opportunity for developers to learn from one another and
+help one another improve their code as it is committed. Having a second person
+read through your code and attempt to understand it helps identify pieces that
+are confusing, inefficient, or incorrect. Code reviews are a critical mechanism
+for ensuring that the code we commit to xmain is of the highest quality.
 
 Code Review Tool
 ----------------
@@ -511,8 +521,26 @@ Code Review Tool
 review tool for xmain development. All xmain code reviews should be done
 through gerrit.
 
-Choosing a code reviewer
+Choosing code reviewers
 ------------------------
+
+Each change set should be reviewed by at least two developers. The code author
+should designate a primary reviewer, who is responsible for thoroughly
+understanding the change set and providing design-level feedback and guidance.
+In addition, a secondary reviewer should be chosen. The secondary reviewer
+is not required to be familiar with the particular code area being modified but
+should provide general feedback on the change set, focusing on clarity,
+complexity, common coding errors, data structure choice, etc.
+
+Developers are encouraged to seek out "critical" reviewers. Keeping in mind
+that improving your code is a primary goal of the review, receiving more
+feedback from reviewers should be viewed as a positive outcome.
+
+Developers are also encouraged to consider choosing reviewers who might benefit
+from seeing the changes. Remember that code reviews are an opportunity for
+reviewers to learn about parts of the code base with which they were not
+previously familiar. Selecting a reviewer from another team can extend their
+knowledge base while providing a fresh perspective for your changes.
 
 If you are unsure who should review your changes, the advice of the LLVM
 community documented `here <../Phabricator.html>`_ works just as well for
@@ -528,20 +556,103 @@ xmain. That is,
           check the root llvm directory for intel_code_owners.map or something
           similar.
 
+Expectations of change sets
+---------------------------
+
+- Changes should be small and incremental. Do not wait until a feature is
+  complete to begin the code review. Large change sets are more difficult for
+  reviewers to thoroughly comprehend and discourage design-level suggestions
+  that might have improved the entire implementation if they had been received
+  early in the development process. Incremental changes also encourage more
+  thorough testing.
+
+- Changes should have a single purpose. Avoid combining small changes into
+  patches for unrelated features. Combined changes cause details to be hidden
+  in the revision history and complicate the process of isolating the cause
+  of failures.
+
+- All new functionality should be tested in some way. Change sets should include
+  a regression test that verifies the correctness of the change. A well-written
+  test also helps to document the intended effect of the new code.
+
+- All changes should be appropriately documented. The level of documentation
+  required depends on the scope of the change. For trivial changes, the commit
+  message may be sufficient. More complex changes should be described in code
+  comments. High level design for features such as new optimization passes
+  should be accompanied by RST files describing the design of the feature.
+  The exact level of documentation required is at the discretion of the code
+  author and reviewers. In all cases, the commit message should provide a
+  good explanation of what you are trying to accomplish in the change set and
+  establish any necessary context.
+
+- Change sets should not include large scale re-formatting of existing code.
+  While running clang-format on a new file before uploading it for review is a
+  good practice, you should not reformat existing files in this way unless their
+  formatting was previously compliant. Formatting changes can obfuscate the
+  revision history and make it more difficult to identify the source of changes.
+  If it is necessary to re-format a file, the formatting changes should be
+  submitted as a separate change set marked "NFC" (no functional changes).
+
+- Change sets should not be rebased mid-review if the files being modified are
+  also being updated outside the change set. Rebasing files makes it more
+  difficult for reviewers to determine what the author of the patch changed
+  between updates of the review. It will often be necessary to rebase the code
+  before it can be committed, but unless new functionality introduced by other
+  commits is integral to the progression of the change under review, rebasing
+  should be deferred until the author and reviewers believe the change is ready
+  to be committed. If you **must** update your sources, it is helpful to upload
+  a version of your changes that **only** reflects the update with no other
+  changes.
+
+
 Expectations of code reviewers
 ------------------------------
+- It is the job of the primary code reviewer to **thoroughly** understand the
+  code changes under review. This reviewer must understand both the high level
+  design and the low level details. Every change in xmain must be given a
+  detailed line-by-line code review. A cursory reading of the code is not an
+  adequate code review.
 
-- It is the job of the code reviewer to **thoroughly** understand the code
-  changes under review. Reviewers must understand both the high level design
-  and the low level details. Every change in xmain must be given a detailed
-  line-by-line code review. A cursory reading of the code is not an adequate
-  code review. Code reviewers and code authors are equally responsible for the
-  quality of code that gets committed to xmain.
+- Secondary reviewers should inspect the code carefully with a focus on
+  clarity and correctness.
+
+- Code reviewers and code authors are equally responsible for the quality of
+  code that gets committed to xmain.
 
 - Reviews should be timely. At this time, we do not have a specific rule for
-  how long a review should take. But remember that the code reviewer is usually
+  how long a review should take. But remember that the code review is usually
   on the critical path for getting code committed. So make code reviews a
-  priority!
+  priority! The appropriate time for a review depends on the scope of the
+  changes. Reviewers should attempt to respond within a day for very small
+  change sets (less than 50 lines of code). If a reviewer cannot begin a review
+  in a timely manner, the author of the changes should be notified. For very
+  large change sets the code author and the primary reviewer should have a
+  discussion to form a review plan.
+
+- Reviewers should offer positive and constructive feedback. As a reviewer
+  you are collaborating with the author to ensure high quality code. Give the
+  sort of feedback you would like to receive.
+
+- Reviewers should have confidence in the code author. Start from a position
+  of trusting that the author had a reason for the way the code was implemented.
+  If something doesn't make sense to you, ask for an explanation.
+
+- Reviewers are encouraged to ask questions. It is not necessary to have
+  spotted a specific problem in order to provide valuable feedback. If something
+  is unclear to you, it may be unclear to others. It is best to have that
+  addressed during the review. It is also possible that your uncertainty is
+  caused by some condition that the code's author had not considered. At the
+  very least, asking questions will increase your understanding of the code.
+
+- Reviewers should be as specific as possible with their comments and
+  suggestions. Rather than just saying "this seems wrong" offer specific
+  suggestions for how it can be improved.
+
+- Reviewers should consider idioms and data structures, not just correctness.
+  There are many ways to correctly implement the same algorithm. By suggesting
+  better implementations during reviews we can all pass along our best
+  practices to one another. The author of the code may not be aware of a data
+  structure that can simplify the implementation.
 
 - For important issues that you find, e.g. correctness or efficiency problems,
   insist that the author either fix the problem or convince you that there is
@@ -550,35 +661,57 @@ Expectations of code reviewers
 - Defer to the code author on issues that are purely matters of personal
   preference. By all means make suggestions, but give the author the final say.
 
+
 Expectations of code authors
 ----------------------------
 
 - First and foremost, be appreciative of the time people take to review your
   code. We are all busy people.
 
-- Make things as easy as possible on your code reviewers, specifically
+- Proofread and test your code before requesting a code review. It is
+  frustrating for code reviewers to have to correct your typos, formatting
+  errors, etc.
 
-   - Partition large pieces of work into small, self-contained change sets.
+- Respond to code review comments in a timely manner so that reviewers don't
+  lose their train of thought.
 
-   - Proofread your code before requesting a code review. It is frustrating for
-     code reviewers to have to correct your typos, formatting errors, etc.
+- Respond to all questions asked by the reviewers. In most cases it is
+  preferable to have these answers included in the review itself so that it
+  can serve as a reference to anyone who might consult the review at a later
+  date. If the reviewer's question causes you to rethink your implementation
+  and re-write the code being asked about, still offer an answer so that the
+  reviewers have some insight into your thought process.
 
-   - Accompany each code review request with a good explanation of what you are
-     trying to accomplish in the change set, providing any necessary context.
-     Well-written unit tests are often the best way to establish context for a
-     review since they should illustrate what the change set is trying to
-     accomplish.
+- Address all comments and suggestions from the reviewer. In some cases it may
+  be sufficient to just implement the suggested change, but if there is any
+  ambiguity please respond saying how you think your changes address the
+  feedback. You are not required to implement all of the reviewers' suggestions,
+  but in cases where you do not agree with the suggestion you should at least
+  provide an explanation of why you do not agree. Ideally the code author and
+  reviewers will reach a consensus.
 
-   - Document your code well, either via source comments or via higher level
-     documentation in the llvm/docs area.
+- Be receptive to feedback from the reviewers. Remember that the code review is
+  a collaborative activity where the author and the reviewers are working
+  together to improve the code. This should never feel like an adversarial
+  relationship.
 
-   - Respond to code review comments in a timely manner so that reviewers don't
-     lose their train of thought.
+- Explain why you have done things as you did but avoid being defensive.
+  Trust that the reviewers are trying to be helpful and are not attacking your
+  code or questioning your abilities. There will be times when the reviewers
+  simply do not understand what you have done. Be patient with your explanations.
 
-   - Avoid updating your sources in between code review iterations. That makes
-     it difficult for reviewers to do incremental reviews. If you **must**
-     update your sources, it is helpful to upload a version of your changes
-     that **only** reflects the update with no other changes.
+- Document your response. In many cases it will be useful for code authors and
+  reviewers to talk offline to discuss a change set. This is a good practice,
+  but try to capture all important points that were discussed and mention them
+  either in code comments or review comments for the benefit of anyone else who
+  might have the same questions later.
+
+Suggestions for further reading
+-------------------------------
+
+| `How to Do Code Reviews Like a Human (Part One) <https://mtlynch.io/human-code-reviews-1>`_
+| `How to Do Code Reviews Like a Human (Part Two) <https://mtlynch.io/human-code-reviews-2>`_
+| `Unlearning toxic behaviors in a code review culture <https://medium.freecodecamp.org/unlearning-toxic-behaviors-in-a-code-review-culture-b7c295452a3c>`_
 
 .. _testing-requirements:
 
@@ -596,7 +729,13 @@ testing. The following alloy command is suitable.
 
 Of course, good judgment should always prevail. The gatekeeper may choose to
 permit less testing for low risk change sets and may choose to require extra
-testing for high risk change sets.
+testing for high risk change sets. In particular, for change sets that only
+modify LIT tests, running only the alloy LIT tasks is both sufficient and more
+efficient, i.e.
+
+::
+
+    alloy run -file xmain_lit -notify
 
 Developers can also take advantage of integrated
 :doc:`AlloyGerrit <XmainAlloyGerrit>` testing infrastructure.
@@ -637,3 +776,10 @@ regressions, but there may be exceptions in some cases.
 
 The developer must submit a JIRA report for any performance regression that
 requires follow-up work before the gatekeeper will approve the checkin request.
+
+Expectations Regarding Compile Time Regressions
+-----------------------------------------------
+
+All compile time regressions need to be approved by the architecture team
+prior to checkin. In general, compile time regressions will require
+improvements in generated code performance to justify the cost.

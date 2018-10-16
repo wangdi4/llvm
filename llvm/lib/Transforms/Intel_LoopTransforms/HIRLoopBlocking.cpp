@@ -703,9 +703,6 @@ public:
     adjustBlockSize(LoopToTC, LoopToBS);
 
     LoopSetTy ToStripmines;
-    // TODO: CMPLRS-52317 still do not know why alloy fails without this clear
-    //       and following assertions.
-    ToStripmines.clear();
 
     // SmallSet does not allow iteration, auxiliary data structure
     SmallVector<unsigned, MaxLoopNestLevel> ToStripLevels;
@@ -713,7 +710,6 @@ public:
     IsToStripmine =
         determineProfitableStripmineLoop(InnermostLoop, NewOutermost, Refs,
                                          ToStripmines, LoopToBS, ToStripLevels);
-    assert((IsToStripmine != (ToStripmines.empty())) && "Empty!!");
 
     if (!IsToStripmine) {
       LLVM_DEBUG(dbgs() << "Failed determineProfitableStipmineLoop\n";);

@@ -383,7 +383,7 @@ class HIRParser {
 
   /// Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType,
-                             bool IsNSW);
+                             const Loop *Lp);
 
   /// Returns the size of the contained type in bytes. Incoming type is expected
   /// to be a pointer type.
@@ -466,6 +466,10 @@ class HIRParser {
   /// \p LvalInst is non-null if this value represents an Lval.
   RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
                               HLInst *LvalInst = nullptr);
+
+  /// Populates all symbases which are required to be kept in HIR based on the
+  /// parsing for \p Ref. These are basically temp blobs contained in \p Ref.
+  void populateRequiredSymbases(const RegDDRef *Ref);
 
   /// Returns an rval DDRef created from Val.
   RegDDRef *createRvalDDRef(const Instruction *Inst, unsigned OpNum,

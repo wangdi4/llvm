@@ -208,3 +208,41 @@ exit:
 
 ; CHECK-LABEL: LLVMType: %struct.test06 = type { i32, i32 }
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Unsafe pointer merge
+
+; Swap a variable number of pointers in 32-bit chunks.
+; This is a minor variation of test3
+%struct.test07 = type { i32, i32 }
+define void @test7(i8* %p, i64 %n) {
+entry:
+  ; This is here to establish what %p actually points to.
+  %identify = bitcast i8* %p to %struct.test07**
+  %offset = mul i64 %n, 8
+  %init_count = mul i64 %n, 2
+  %other = getelementptr i8, i8* %p, i64 %offset
+  br label %pre_swap
+
+pre_swap:
+  %Cast1 = bitcast i8* %p to i32*
+  %Cast2 = bitcast i8* %other to i32*
+  br label %swap
+
+swap:
+  %Count = phi i64 [ %init_count, %pre_swap ], [ %NextCount, %swap ]
+  %HalfPtr1 = phi i32* [ %Cast1, %pre_swap ], [ %NextHalf1, %swap ]
+  %HalfPtr2 = phi i32* [ %Cast2, %pre_swap ], [ %NextHalf2, %swap ]
+  %HalfVal1 = load i32, i32* %HalfPtr1
+  %HalfVal2 = load i32, i32* %HalfPtr2
+  %NextHalf1 = getelementptr inbounds i32, i32* %HalfPtr1, i64 1
+  store i32 %HalfVal2, i32* %HalfPtr1
+  %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
+  store i32 %HalfVal1, i32* %HalfPtr2
+  %NextCount = add nsw i64 %Count, -1
+  %Cmp = icmp sgt i64 %NextCount, 0 
+  br i1 %Cmp, label %swap, label %exit
+
+exit:
+  ret void
+}
+
+; CHECK-LABEL: LLVMType: %struct.test07 = type { i32, i32 }
+; CHECK: Safety data: No issues found

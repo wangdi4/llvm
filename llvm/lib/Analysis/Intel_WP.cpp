@@ -48,6 +48,10 @@ static cl::opt<bool> WholeProgramAssert("whole-program-assert",
 static cl::opt<bool> AssumeWholeProgramRead("whole-program-assume-read",
                                             cl::init(false), cl::ReallyHidden);
 
+// The compiler will assume that all symbols have hidden visibility if turned on
+static cl::opt<bool> AssumeWholeProgramHidden("whole-program-assume-hidden",
+                                            cl::init(false), cl::ReallyHidden);
+
 // If it is true, compiler assumes that program is linked as executable.
 static cl::opt<bool> AssumeWholeProgramExecutable(
     "whole-program-assume-executable", cl::init(false), cl::ReallyHidden);
@@ -61,6 +65,10 @@ static bool WholeProgramRead = false;
 // exectubale.
 static bool LinkingExecutable = false;
 
+// True if the LTO process finds that all symbols are inside the LTO unit.
+// The only symbols that will be treated as externals are main and those
+// that are in the RuntimeLibcalls table.
+static bool HiddenVisibility = false;
 #define DEBUG_TYPE  "wholeprogramanalysis"
 
 
@@ -70,12 +78,18 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
-void llvm::SetWholeProgramRead(bool ProgramRead) {
+void llvm::setWholeProgramRead(bool ProgramRead) {
   WholeProgramRead = ProgramRead;
 }
 
-void llvm::SetLinkingExecutable(bool LinkingExe) {
+void llvm::setLinkingExecutable(bool LinkingExe) {
   LinkingExecutable = LinkingExe;
+}
+
+// Store if all symbols have hidden visibility. Called during LTO
+// symbols resolution.
+void llvm::setVisibilityHidden(bool AllSymbolsHidden) {
+  HiddenVisibility = AllSymbolsHidden;
 }
 
 static bool IsWholeProgramRead() {
@@ -238,6 +252,7 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
                                 CallGraph *CG) {
 
   WholeProgramInfo Result;
+
   Result.wholeProgramAllExternsAreIntrins(M, TLI);
 
   if (AssumeWholeProgram) {
@@ -451,13 +466,14 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
         errs() <<  "  WHOLE PROGRAM NOT DETECTED \n";
     }
 
-    WholeProgramSafe = WholeProgramSeen && IsWholeProgramRead() && IsLinkedAsExecutable();
+    WholeProgramSafe = isWholeProgramSeen() && IsWholeProgramRead()
+                       && IsLinkedAsExecutable();
     if (WholeProgramTrace) {
       if (WholeProgramSafe) {
         errs() <<  "  WHOLE PROGRAM SAFE is determined\n";
       } else {
         errs() <<  "  WHOLE PROGRAM SAFE is *NOT* determined:\n";
-        if (!WholeProgramSeen)
+        if (!isWholeProgramSeen())
           errs() <<  "    whole program not seen;\n";
         if (!IsWholeProgramRead())
           errs() <<  "    whole program not read;\n";
@@ -482,12 +498,20 @@ bool WholeProgramInfo::isWholeProgramSafe(void) {
   return WholeProgramSafe || AssumeWholeProgram;
 }
 
-// This returns true if AssumeWholeProgram or WholeProgramSeen is true.
-// WholeProgramSeen is set to true if all symbols have been resolved.
+// This function returns true if AssumeWholeProgram is turned on, or if
+// WholeProgramSeen is true and all symbols are internal to the LTO unit.
 bool WholeProgramInfo::isWholeProgramSeen(void) {
-  return WholeProgramSeen || AssumeWholeProgram;
+  return (WholeProgramSeen && isWholeProgramHidden()) || AssumeWholeProgram;
 }
 
+// Return true if all symbols are inside the LTO unit except
+// main, runtime library calls and library functions (LibFuncs).
+bool WholeProgramInfo::isWholeProgramHidden(void) {
+  if (AssumeWholeProgramHidden)
+    return true;
+
+  return HiddenVisibility;
+}
 char WholeProgramAnalysis::PassID;
 
 // Provide a definition for the static class member used to identify passes.

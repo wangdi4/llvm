@@ -28,7 +28,7 @@ define i32 @main() {
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.OUTERSTRUCT = type { %struct.INNERSTRUCT, %struct.INNERSTRUCT }
 ; CHECK: Field LLVM Type: %struct.INNERSTRUCT = type { i32, i32 }
-; CHECK: Field info: AddressTaken
+; CHECK: Field info: ComplexUse AddressTaken
 ; CHECK: Multiple Value
 ; CHECK: Field LLVM Type: %struct.INNERSTRUCT = type { i32, i32 }
 ; CHECK: Field info:

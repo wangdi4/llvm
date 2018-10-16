@@ -623,11 +623,11 @@ void llvm::getFunctionsToVectorize(
 }
 
 bool llvm::isOpenCLReadChannel(StringRef FnName) {
-  return (FnName == "__read_pipe_2_bl_intel");
+  return (FnName == "__read_pipe_2_bl_fpga");
 }
 
 bool llvm::isOpenCLWriteChannel(StringRef FnName) {
-  return (FnName == "__write_pipe_2_bl_intel");
+  return (FnName == "__write_pipe_2_bl_fpga");
 }
 
 bool llvm::isOpenCLReadChannelDest(StringRef FnName, unsigned i) {
@@ -1030,7 +1030,9 @@ void InterleavedAccessInfo::analyzeInterleaving() {
     // create a group for B, we continue with the bottom-up algorithm to ensure
     // we don't break any of B's dependences.
     InterleaveGroup *Group = nullptr;
-    if (isStrided(DesB.Stride)) {
+    // TODO: Ignore B if it is in a predicated block. This restriction can be 
+    // relaxed in the future once we handle masked interleaved groups.
+    if (isStrided(DesB.Stride) && !isPredicated(B->getParent())) {
       Group = getInterleaveGroup(B);
       if (!Group) {
         LLVM_DEBUG(dbgs() << "LV: Creating an interleave group with:" << *B

@@ -286,8 +286,8 @@ static cl::opt<bool> EnableEarlyCSEMemSSA(
     cl::desc("Enable the EarlyCSE w/ MemorySSA pass (default = on)"));
 
 static cl::opt<bool> EnableGVNHoist(
-    "enable-gvn-hoist", cl::init(true), cl::Hidden,
-    cl::desc("Enable the GVN hoisting pass (default = on)"));
+    "enable-gvn-hoist", cl::init(false), cl::Hidden,
+    cl::desc("Enable the GVN hoisting pass (default = off)"));
 
 static cl::opt<bool>
     DisableLibCallsShrinkWrap("disable-libcalls-shrinkwrap", cl::init(false),
@@ -584,11 +584,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   addExtensionsToPM(EP_LateLoopOptimizations, MPM);
   MPM.add(createLoopDeletionPass());          // Delete dead loops
 
-  if (EnableLoopInterchange) {
-    // FIXME: These are function passes and break the loop pass pipeline.
+  if (EnableLoopInterchange)
     MPM.add(createLoopInterchangePass()); // Interchange loops
-    MPM.add(createCFGSimplificationPass());
-  }
   // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
@@ -1114,15 +1111,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
-    // These passes get the IR into a form that DTrans is able to analyze.
+  // Simplify the graph before devirtualization
+  if (OptLevel > 1) {
     PM.add(createInstSimplifyLegacyPass());
     PM.add(createCFGSimplificationPass());
-    // This call adds the DTrans passes.
-    addDTransLegacyPasses(PM);
   }
-#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Split globals using inrange annotations on GEP indices. This can help
@@ -1136,6 +1129,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // That's all we need at opt level 1.
   if (OptLevel == 1)
     return;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans) {
+    // This call adds the DTrans passes.
+    addDTransLegacyPasses(PM);
+  }
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Now that we internalized some globals, see if we can hack on them!
   PM.add(createGlobalOptimizerPass());

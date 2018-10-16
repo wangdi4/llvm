@@ -176,13 +176,12 @@ private:
     }
   };
   using LUSetTy = std::unordered_set<LeafUserPair, HashIt<LeafUserPair>>;
-  using AssocDataSetTy =
-      std::unordered_set<AssocOpcodeData, HashIt<AssocOpcodeData>>;
   using LUPairVecTy = SmallVector<LeafUserPair, 16>;
 
   // The expression tree.
   class Tree {
   private:
+    const DataLayout *DL = nullptr;
     // Unique tree identifier. Used only for debugging.
     int Id = 0;
     // The root instruction of the tree.
@@ -199,7 +198,7 @@ private:
     int SharedLeavesCount = 0;
 
   public:
-    Tree() : Root(nullptr) {
+    Tree(const DataLayout *aDL) : DL(aDL), Root(nullptr) {
       static int IdCnt;
       Id = IdCnt++;
     }
@@ -239,6 +238,9 @@ private:
     bool replaceLeafUser(Value *Leaf, Instruction *OldU, Instruction *NewU);
     // Returns true if 'Leaf' is a leaf of this tree.
     bool hasLeaf(Value *Leaf) const;
+    // Returns true if specified instruction logically is part of the tree
+    // trunk. Please note that leafs are not part of the trunk.
+    bool hasTrunkInstruction(const Instruction *I) const;
     // Returns number of shared leaves that are part of the trunk.
     int getSharedLeavesCount() const { return SharedLeavesCount; }
     // Increases/decreases number of shared leaves.
@@ -251,6 +253,9 @@ private:
     bool operator<(const Tree &T2) const {
       return getLeavesCount() > T2.getLeavesCount();
     }
+    // Restores original tree state as of a construction time. After the call
+    // the tree is in valid state and empty.
+    void clear();
     // Debug print.
     void dump() const;
   };
@@ -288,7 +293,7 @@ private:
     // Returns a pair of unique and total number of associative instructions in
     // the group.
     std::pair<unsigned, unsigned> geAssocInstrCnt() const {
-      AssocDataSetTy Set;
+      std::unordered_set<AssocOpcodeData, HashIt<AssocOpcodeData>> Set;
 
       unsigned Total = 0;
       for (auto &Pair : Values) {
@@ -324,14 +329,15 @@ private:
   using GroupsVec = SmallVector<Group, 4>;
 
   static Value *skipAssocs(const OpcodeData &OD, Value *Leaf);
+  // Scans through \p AllTrees and returns the first one which containing \p I.
+  static Tree *findEnclosingTree(TreeVecTy &AllTrees, const Instruction *I);
+  // Scans through \p AllTrees and returns the first one which has root \p I.
+  static Tree *findTreeWithRoot(TreeVecTy &AllTrees, const Instruction *I,
+                                const Tree *skipTree);
 
   // Checks that instructions between root and leaves are in
   // canonical form, otherwise asserts with an error.
   void checkCanonicalized(Tree &T) const;
-
-  bool isAddSubInstr(const Instruction *I) const;
-  bool isAddSubInstr(const Value *V) const;
-  bool isAllowedTrunkInstr(const Value *V) const;
 
   // Returns true if we were able to compute distance of V1 and V2 or one of their
   // operands, false otherwise.
@@ -368,8 +374,8 @@ private:
   void removeDeadTrunkInstrs(Tree *T, Instruction *OldRootI) const;
   // Massage the code in T to be a flat single-branch +/- expression tree.
   bool canonicalizeIRForTree(Tree &T) const;
-  // Linearize the code that corresponds to the trees in TreeVec.
-  bool canonicalizeIRForTrees(const TreeArrayTy &TreeArray) const;
+  // Linearize the code that corresponds to the trees in \p TreeCluster.
+  bool canonicalizeIRForTrees(const TreeArrayTy &TreeCluster) const;
   // Applies 'G' onto 'T' and emits the code.
   void generateCode(Group &G, Tree *T, Instruction *Chain) const;
   // Simplifies the top instructions of the tree by removing the '0'.
@@ -377,31 +383,31 @@ private:
   // Emit Assoc Instructions for T.
   void emitAssocInstrs(Tree *T) const;
   // Calls generateCod(G, T) for all groups and all trees.
-  void generateCode(GroupsVec &Groups, TreeArrayTy &TreeArray) const;
+  void generateCode(GroupsVec &Groups, TreeArrayTy &TreeCluster) const;
   // Returns true if T1 and T2 contain similar values.
   bool treesMatch(const Tree *T1, const Tree *T2) const;
-  // Create clusters of the trees in TreeVec.
-  void clusterTrees(TreeVecTy &TreeVec,
+  // Create clusters of the trees in AllTrees.
+  void clusterTrees(TreeVecTy &AllTrees,
                     SmallVectorImpl<TreeArrayTy> &TreeClusters);
   // Grow the tree upwards, towards the definitions.
-  bool growTree(Tree *T, WorkListTy &&WorkList);
-  // Returns true if all uses of a \p Leaf are from one of a tree in \p TreeVec,
-  // false otherwise. Additionally for each such use a Tree * and Leaf index
-  // pair is put to \p WorkList.
+  bool growTree(TreeVecTy &AllTrees, Tree *T, WorkListTy &&WorkList);
+  // Returns true if all uses of a \p Leaf are from one of a tree in
+  // \pTreeCluster, false otherwise. Additionally for each such use a Tree * and
+  // Leaf index pair is put to \p WorkList.
   bool areAllUsesInsideTreeCluster(
-      TreeArrayTy &TreeVec, const Value *Leaf,
+      TreeArrayTy &TreeCluster, const Value *Leaf,
       SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList) const;
   // Returns true if we were able to find a leaf with multiple uses from trees
-  // in \p TreeVec only, false otherwise. Each found use is pushed to a \p
+  // in \p TreeCluster only, false otherwise. Each found use is pushed to a \p
   // WorkList as a Tree* and Leaf index pair.
-  bool getSharedLeave(TreeArrayTy &TreeVec,
+  bool getSharedLeave(TreeArrayTy &TreeCluster,
                       SmallVectorImpl<std::pair<Tree *, unsigned>> &WorkList);
-  // Enlarge trees by growing them towards shared leaves.
-  void extendTrees(TreeArrayTy &Trees);
+  // Enlarge trees in \p TreeCluster by growing them towards shared leaves.
+  void extendTrees(TreeVecTy &AllTrees, TreeArrayTy &TreeCluster);
   // Build Add/Sub trees from code in BB.
-  void buildInitialTrees(BasicBlock *BB, TreeVecTy &TreeVec);
+  void buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees);
   // Build all trees within BB.
-  void buildTrees(BasicBlock *BB, TreeVecTy &TreeVec,
+  void buildTrees(BasicBlock *BB, TreeVecTy &AllTrees,
                   SmallVector<TreeArrayTy, 8> &Clusters);
 
   // Debug print functions.

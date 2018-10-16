@@ -1,5 +1,9 @@
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
+; NOTE: This test is now obsolete, as the isSafeLoadForSingleAllocFunction
+; member function of DTransInstVisitor has been removed.  This was done
+; because it was too conservative.
+
 ; Show escaping conditions do invalidate the single alloc function
 
 ; Check a use that does not involve any of the checked instruction types
@@ -24,7 +28,7 @@ define i32 @foo_1() {
 ; CHECK: Field LLVM Type: i8*
 ; CHECK: Field info: Read Written
 ; CHECK: Multiple Value
-; CHECK: Bottom Alloc Function
+; CHECK-NOT: Bottom Alloc Function
 ; CHECK: Safety data: Global instance
 
 ; Check a call that is not to free or a mem intrinsic
@@ -50,7 +54,7 @@ define i32 @foo_2() {
 ; CHECK: Field LLVM Type: i8*
 ; CHECK: Field info: Read Written
 ; CHECK: Multiple Value
-; CHECK: Bottom Alloc Function
+; CHECK-NOT: Bottom Alloc Function
 ; CHECK: Safety data: Global instance
 
 ; Check a icmp that is not against null
@@ -84,7 +88,7 @@ t5:
 ; CHECK: Field LLVM Type: i8*
 ; CHECK: Field info: Read Written
 ; CHECK: Multiple Value
-; CHECK: Bottom Alloc Function
+; CHECK-NOT: Bottom Alloc Function
 ; CHECK: Safety data: Global instance
 
 ; Check an intrinsic that is not a mem intrinsic
@@ -113,7 +117,7 @@ define i32 @foo_4() {
 ; CHECK: Field LLVM Type: i8*
 ; CHECK: Field info: Read Written
 ; CHECK: Multiple Value
-; CHECK: Bottom Alloc Function
+; CHECK-NOT: Bottom Alloc Function
 ; CHECK: Safety data: Global instance
 
 ; Check a GEP instruction that does not feed a load
@@ -141,6 +145,6 @@ define i32 @foo_5() {
 ; CHECK: Field LLVM Type: i8*
 ; CHECK: Field info: Read Written
 ; CHECK: Multiple Value
-; CHECK: Bottom Alloc Function
+; CHECK-NOT: Bottom Alloc Function
 ; CHECK: Safety data: Global instance
 

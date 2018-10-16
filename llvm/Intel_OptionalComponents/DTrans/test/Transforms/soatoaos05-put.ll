@@ -65,7 +65,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Checks that all instructions can be dealt with.
 ; CHECK-TRANS: ; Checking structure's method FieldValueMap::put(IC_Field*, DatatypeValidator*, unsigned short const*)
-; CHECK-TRANS: ; IR: analysed completely
+; CHECK-TRANS: ; IR: has only expected side-effects
 
 ; Checks instructions related to transformations.
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 11
@@ -174,10 +174,9 @@ invoke.cont:                                      ; preds = %if.then
 
 ; CHECK-MOD:        invoke.cont9:
 invoke.cont9:                                     ; preds = %invoke.cont
+; Next 2 instructions are removed.
   %fValidators = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
   %tmp8 = bitcast %class.ValueVectorOf.1** %fValidators to i8**
-; Dead value
-; CHECK-MOD:          %tmp8 = bitcast %__SOA_AR_class.ValueVectorOf.0** %fValidators to i8**
 ; CHECK-TRANS:      ; ArrayInst: Init ptr to array
 ; CHECK-TRANS-NEXT:   store i8* %call6, i8** %tmp8
   store i8* %call6, i8** %tmp8
@@ -261,11 +260,9 @@ if.then18:                                        ; preds = %if.end
 ; CHECK-TRANS-NEXT:   call void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%class.ValueVectorOf.0* %tmp31, %class.IC_Field** %key.addr)
   call void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%class.ValueVectorOf.0* %tmp31, %class.IC_Field** %key.addr)
 ; Call removed.
-; CHECK-MOD-NEXT:     %fValidators20 = getelementptr inbounds %__SOA_class.FieldValueMap, %__SOA_class.FieldValueMap* %this, i64 0, i32 0
   %fValidators20 = getelementptr inbounds %class.FieldValueMap, %class.FieldValueMap* %this, i64 0, i32 1
 ; CHECK-TRANS:      ; ArrayInst: Load of array
 ; CHECK-TRANS-NEXT:   %tmp32 = load %class.ValueVectorOf.1*, %class.ValueVectorOf.1** %fValidators20
-; CHECK-MOD-NEXT:     %tmp32 = load %__SOA_AR_class.ValueVectorOf.0*, %__SOA_AR_class.ValueVectorOf.0** %fValidators20
   %tmp32 = load %class.ValueVectorOf.1*, %class.ValueVectorOf.1** %fValidators20
 ; CHECK-TRANS:      ; ArrayInst: Array method call
 ; CHECK-TRANS-NEXT:   call void @"ValueVectorOf<DatatypeValidator*>::addElement(DatatypeValidator* const&)"(%class.ValueVectorOf.1* %tmp32, %class.DatatypeValidator** %dv.addr)

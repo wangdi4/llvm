@@ -1,6 +1,6 @@
 ; RUN: opt %s -S -VPlanDriver 2>&1 | FileCheck %s
 
-; CHECK: __write_pipe_2_bl_intel_v4i8
+; CHECK: __write_pipe_2_bl_fpga_v4i8
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -47,7 +47,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   store i8 %0, i8* %write.src, align 1
   %1 = load %struct.__pipe_t addrspace(1)*, %struct.__pipe_t addrspace(1)* addrspace(1)* bitcast (%opencl.pipe_t addrspace(1)* addrspace(1)* @pipe.chan_0 to %struct.__pipe_t addrspace(1)* addrspace(1)*), align 8
   %2 = addrspacecast i8* %write.src to i8 addrspace(4)*
-  %3 = call i32 @__write_pipe_2_bl_intel(%struct.__pipe_t addrspace(1)* %1, i8 addrspace(4)* %2)
+  %3 = call i32 @__write_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)* %1, i8 addrspace(4)* %2)
   %inc = add nsw i32 %pointer.12, 1
   %add12 = add nsw i32 %.omp.iv.03, 1
   %cmp9 = icmp slt i32 %add12, %conv2
@@ -73,10 +73,10 @@ for.end:                                          ; preds = %for.inc, %entry
 }
 
 ; Function Attrs: alwaysinline nounwind
-declare i32 @__read_pipe_2_bl_intel(%struct.__pipe_t addrspace(1)*, i8 addrspace(4)*) #5
+declare i32 @__read_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)*, i8 addrspace(4)*) #5
 
 ; Function Attrs: alwaysinline nounwind
-declare i32 @__write_pipe_2_bl_intel(%struct.__pipe_t addrspace(1)*, i8 addrspace(4)*) #5
+declare i32 @__write_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)*, i8 addrspace(4)*) #5
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.intel.directive(metadata) #3

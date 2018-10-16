@@ -65,6 +65,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeIndVarSimplifyLegacyPassPass(Registry);
 #if INTEL_COLLAB
   initializeInferAddressSpacesLegacyPassPass(Registry);
+#else
+  initializeInferAddressSpacesPass(Registry);
 #endif // INTEL_COLLAB
   initializeInstSimplifyLegacyPassPass(Registry);
   initializeJumpThreadingPass(Registry);

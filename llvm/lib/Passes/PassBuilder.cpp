@@ -81,6 +81,7 @@
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/IPO/GlobalOpt.h"
 #include "llvm/Transforms/IPO/GlobalSplit.h"
+#include "llvm/Transforms/IPO/HotColdSplitting.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
@@ -256,8 +257,8 @@ static cl::opt<bool> EnableEarlyCSEMemSSA(
     cl::desc("Enable the EarlyCSE w/ MemorySSA pass for the new PM (default = on)"));
 
 static cl::opt<bool> EnableGVNHoist(
-    "enable-npm-gvn-hoist", cl::init(true), cl::Hidden,
-    cl::desc("Enable the GVN hoisting pass for the new PM (default = on)"));
+    "enable-npm-gvn-hoist", cl::init(false), cl::Hidden,
+    cl::desc("Enable the GVN hoisting pass for the new PM (default = off)"));
 
 static cl::opt<bool> EnableGVNSink(
     "enable-npm-gvn-sink", cl::init(false), cl::Hidden,
@@ -306,6 +307,8 @@ static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
     cl::desc("Enable DTrans optimizations"));
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
+
+extern cl::opt<bool> EnableHotColdSplit;
 
 static bool isOptimizingForSize(PassBuilder::OptimizationLevel Level) {
   switch (Level) {
@@ -466,6 +469,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   FPM.addPass(TbaaMDPropagationPass());
+  // Run OptReportOptionsPass early so that it is available to all users.
+  FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
@@ -733,6 +738,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
       MPM.addPass(PGOIndirectCallPromotion(Phase == ThinLTOPhase::PostLink,
                                            true));
   }
+
+  if (EnableHotColdSplit)
+    MPM.addPass(HotColdSplittingPass());
 
   // Interprocedural constant propagation now that basic cleanup has occurred
   // and prior to optimizing globals.

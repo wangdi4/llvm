@@ -86,7 +86,8 @@ public:
 
     return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
                                /*GetBFI=*/None, ILIC, AggI,           // INTEL
-                               &CallSitesForFusion,                    // INTEL
+                               &CallSitesForFusion,                   // INTEL
+                               &CallSitesForDTrans,                   // INTEL
                                PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
   }
 
@@ -96,6 +97,9 @@ public:
 private:
   TargetTransformInfoWrapperPass *TTIWP;
 
+#if INTEL_CUSTOMIZATION
+  const InlineParams *getInlineParams() const override { return &Params; }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end anonymous namespace

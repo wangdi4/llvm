@@ -444,7 +444,7 @@ bool HIRLMM::isProfitable(const HLLoop *Lp) {
 // A Loop is legal if there is it has at least 1 legal group
 bool HIRLMM::isLegal(const HLLoop *Lp) {
   bool Result = false;
-  DDGraph DDG = HDDA.getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp);
 
   // Do legal test on any profitable MRG
   for (unsigned Idx = 0, IdxE = MRC.getSize(); Idx != IdxE; ++Idx) {
@@ -562,7 +562,7 @@ bool HIRLMM::canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef,
     return false;
   }
 
-  DDGraph DDG = HDDA.getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp);
 
   for (DDEdge *E : DDG.incoming(LRef)) {
     if (E->isANTIdep()) {
@@ -613,7 +613,7 @@ bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
     return false;
   }
 
-  DDGraph DDG = HDDA.getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp);
 
   for (DDEdge *E : DDG.outgoing(RRef)) {
     if (E->isANTIdep()) {
@@ -669,7 +669,7 @@ bool HIRLMM::hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
 
   Lp->addLiveInTemp(TempRef->getSymbase());
 
-  DDGraph DDG = HDDA.getGraph(Lp, false);
+  DDGraph DDG = HDDA.getGraph(Lp);
 
   for (DDEdge *E : DDG.outgoing(TempRef)) {
     if (E->isFLOWdep()) {

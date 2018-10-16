@@ -3,7 +3,7 @@
 ; Verify that the trip count of the two loops in two different regions is parsed succesfully. After parsing the first region, we need to invalidate the HIR cache before processing the second region because the HIR SCEV may not be valid across regions. The issue is exposed here since the formed regions are not in lexical order in the function. The first region formed lies lexically after the second one. The IV of the first lexical loop is parsed as a blob while parsing the first region. When we get to the seond region, the backedge computation fails because the cache is reused and the IV is treated as a blob.
 
 ; CHECK: BEGIN REGION
-; CHECK: + DO i1 = 0, sext.i32.i64((-2 + %indvars.iv266)), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, zext.i32.i64((-2 + %indvars.iv266)), 1   <DO_LOOP>
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 

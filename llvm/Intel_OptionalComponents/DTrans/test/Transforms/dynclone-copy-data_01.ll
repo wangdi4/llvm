@@ -26,7 +26,13 @@ define void @init() {
 
 ; CHECK-LABEL:   define internal void @init
 
+; CHECK:  [[ARET1:%dyn.alloc[0-9]*]] = alloca i64
+; CHECK:  [[ARET2:%dyn.alloc[0-9]*]] = alloca i8*
+
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
+; CHECK: store i64 10, i64* [[ARET1]]
+; CHECK: store i8* %call1, i8** [[ARET2]]
+
   %tp1 = bitcast i8* %call1 to %struct.test.01*
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
@@ -35,8 +41,11 @@ define void @init() {
   %g2 = select i1 undef, i64 -5000, i64 20000
   store i64 %g2, i64* %F6, align 8
 
-; CHECK:  [[SRC:%[0-9]+]] = bitcast i8* %call1 to %struct.test.01*
-; CHECK: [[DST:%[0-9]+]] = bitcast i8* %call1 to %__DYN_struct.test.01*
+; CHECK: [[APTR:%dyn.alloc.ld[0-9]*]] = load i8*, i8** [[ARET2]]
+; CHECK: [[ASIZE:%dyn.alloc.ld[0-9]*]] = load i64, i64* [[ARET1]]
+
+; CHECK:  [[SRC:%[0-9]+]] = bitcast i8* [[APTR]] to %struct.test.01*
+; CHECK: [[DST:%[0-9]+]] = bitcast i8* [[APTR]] to %__DYN_struct.test.01*
 
 ; CHECK: [[LI:%lindex[0-9]*]] = phi i64 [ 0,
 ; CHECK: [[SG0:%[0-9]+]] = getelementptr inbounds %struct.test.01, %struct.test.01* [[SRC]], i64 [[LI]], i32 0
@@ -70,7 +79,7 @@ define void @init() {
 ; CHECK: [[BC2:%[0-9]+]] = trunc i64 [[LD6]] to i32
 ; CHECK: store i32 [[BC2]], i32* [[DG5]]
 ; CHECK: [[ADD1:%[0-9]+]] = add i64 [[LI]], 1
-; CHECK: [[CMP1:%[0-9]+]] = icmp ult i64 [[ADD1]], 10
+; CHECK: [[CMP1:%[0-9]+]] = icmp ult i64 [[ADD1]], [[ASIZE]]
 
 ; CHECK:  store i8 1, i8* @__Shrink__Happened__
 

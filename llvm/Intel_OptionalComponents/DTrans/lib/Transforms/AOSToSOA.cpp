@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/StringExtras.h"
@@ -161,7 +162,7 @@ public:
       : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper,
                       Materializer),
         PeelIndexWidth(64), PeelIndexType(nullptr),
-        PointerShrinkingEnabled(false) {
+        PointerShrinkingEnabled(false), AnnotationFilenameGEP(nullptr) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
 
     PtrSizedIntType = Type::getIntNTy(Context, DL.getPointerSizeInBits());
@@ -255,6 +256,16 @@ public:
 
     initializePeeledIndexType(PointerShrinkingEnabled ? 32 : PointerSizeInBits);
 
+    // Sort the structures by name so that the elements in vector of
+    // original types to new types will be in a consistent order regardless
+    // of the order the candidate structures were populated. This is only
+    // necessary for being sure the id values used for the pointer annotations
+    // that get inserted will always be deterministic.
+    std::sort(TypesToTransform.begin(), TypesToTransform.end(),
+              [](dtrans::StructInfo *a, dtrans::StructInfo *b) {
+                return cast<StructType>(a->getLLVMType())->getName() <
+                       cast<StructType>(b->getLLVMType())->getName();
+              });
     for (auto *StInfo : TypesToTransform) {
       StructType *OrigTy = cast<StructType>(StInfo->getLLVMType());
       StructType *NewTy = StructType::create(
@@ -262,7 +273,7 @@ public:
       TypeRemapper->addTypeMapping(OrigTy, NewTy);
       TypeRemapper->addTypeMapping(OrigTy->getPointerTo(),
                                    getPeeledIndexType());
-      OrigToNewTypeMapping[OrigTy] = NewTy;
+      OrigToNewTypeMapping.push_back({OrigTy, NewTy});
     }
 
     return !OrigToNewTypeMapping.empty();
@@ -285,6 +296,53 @@ public:
       LLVM_DEBUG(dbgs() << "\nDTRANS-AOSTOSOA: Type replacement:\n  Old: "
                         << *OrigTy << "\n  New: " << *NewStructTy << "\n\n");
     }
+
+    unsigned Count = 0;
+    for (auto &ONPair : OrigToNewTypeMapping) {
+      std::string AllocationStr("{dtrans} AOS-to-SOA allocation");
+      std::string PeelIndexStr("{dtrans} AOS-to-SOA peeling index");
+      std::string ExtensionName = "";
+      std::string CountStr(std::to_string(Count));
+
+      // We normally only expect a single structure to be transformed,
+      // so don't append a unique extension on the first set of variable
+      // names.
+      if (Count != 0)
+        ExtensionName = CountStr;
+      Count++;
+
+      // Create the variables and a constant Value object that will
+      // be used in calls to llvm.ptr.annoation intrinsics to mark
+      // the memory block allocation and peeling index addresses.
+      // Separate strings will be created for each structure transformed, where
+      // the 'id' element within the string can be used to pair the allocation
+      // annotation with the peeling index annotations.
+      //
+      // This will create a Value object of the form:
+      // i8 *getelementptr inbounds([38 x i8],
+      //       [38 x i8] * @__intel_dtrans_aostosoa_alloc, i32 0, i32 0)
+      AllocationAnnotationGEP[ONPair.first] =
+          DTransAnnotator::createConstantStringGEP(
+              DTransAnnotator::getAnnotationVariable(
+                  M, DTransAnnotator::DPA_AOSToSOAAllocation,
+                  AllocationStr + " {id:" + CountStr + "}", ExtensionName),
+              0);
+
+      // Create the object for the peeling index annotations:
+      // i8* getelementptr inbounds ([41 x i8],
+      //       [41 x i8]* @__intel_dtrans_aostosoa_index
+      PeelIndexAnnotationGEP[ONPair.first] =
+          DTransAnnotator::createConstantStringGEP(
+              DTransAnnotator::getAnnotationVariable(
+                  M, DTransAnnotator::DPA_AOSToSOAIndex,
+                  PeelIndexStr + " {id:" + CountStr + "}", ExtensionName),
+              0);
+    }
+
+    // Create an empty string for the filename operand of the ptr annotation
+    // call.
+    AnnotationFilenameGEP = DTransAnnotator::createConstantStringGEP(
+        DTransAnnotator::createGlobalVariableString(M, "", ""), 0);
   }
 
   // Create a new global variable for each type peeled that will serve as the
@@ -561,6 +619,11 @@ public:
   // level of indirection of the pointer should be updated. For instance,
   // %struct.test** will be i32* after the transformation takes place.
   bool checkConversionNeeded(LoadInst *LI) {
+    auto *Ty = LI->getType();
+    if (auto *PTy = dyn_cast<llvm::PointerType>(Ty))
+      if (isTypeToTransform(PTy->getPointerElementType()))
+        InstructionsToAnnotate.push_back({LI, PTy->getPointerElementType()});
+
     if (!isPointerShrinkingEnabled())
       return false;
 
@@ -586,6 +649,11 @@ public:
   // cases where the level of indirection of the pointer should be updated. For
   // instance, %struct.test** will be i32* after the transformation takes place.
   bool checkConversionNeeded(StoreInst *SI) {
+    auto *Ty = SI->getValueOperand()->getType();
+    if (auto *PTy = dyn_cast<llvm::PointerType>(Ty))
+      if (isTypeToTransform(PTy->getPointerElementType()))
+        InstructionsToAnnotate.push_back({SI, PTy->getPointerElementType()});
+
     if (!isPointerShrinkingEnabled())
       return false;
 
@@ -1020,6 +1088,13 @@ public:
     Repl->takeName(LI);
     IntermediateConverts.push_back(cast<CastInst>(Repl));
     InstructionsToDelete.insert(LI);
+    auto ActualPtrTy = cast<PointerType>(ActualTy);
+
+    // Only annotate it if the load is for the peeling index, not
+    // if it is a ptr-to-ptr for the peeling index.
+    if (NewLI->getType()->isIntegerTy())
+      InstructionsToAnnotate.push_back(
+          {NewLI, ActualPtrTy->getPointerElementType()});
 
     LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewPtrOp << "\n  " << *NewLI
                       << "\n  " << *Repl << "\n");
@@ -1106,8 +1181,14 @@ public:
     Instruction *NewSI =
         new StoreInst(NewValOp, NewPtrOp, SI->isVolatile(), Alignment,
                       SI->getOrdering(), SI->getSyncScopeID(), SI);
-    (void)NewSI;
     InstructionsToDelete.insert(SI);
+    auto *ActualPtrTy = cast<PointerType>(ActualTy);
+
+    // Only annotate it if the store is for the peeling index, not
+    // if it is a ptr-to-ptr for the peeling index.
+    if (RemapTy->isIntegerTy())
+      InstructionsToAnnotate.push_back(
+        {NewSI, ActualPtrTy->getPointerElementType()});
 
     LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewValOp << "\n  "
                       << *NewPtrOp << "\n  " << *NewSI << "\n");
@@ -1306,7 +1387,7 @@ public:
         // The only time we expect processing a function to change a pointer
         // type to an integer type is when the original argument was pointer to
         // the type being transformed, and integer type is the peeled type.
-        assert(OrigToNewTypeMapping.count(OrigRetTy->getPointerElementType()) &&
+        assert(isTypeToTransform(OrigRetTy->getPointerElementType()) &&
                "Expected original return type to be a type being transformed");
         assert(CloneRetTy == getPeeledIndexType() &&
                "Expected clone return type to be peeling index type");
@@ -1325,8 +1406,7 @@ public:
         llvm::Type *OrigArgType = OrigArgIt->getType();
         if (!CloneArgType->isPointerTy() && OrigArgType->isPointerTy()) {
           assert(
-              OrigToNewTypeMapping.count(
-                  OrigArgType->getPointerElementType()) &&
+              isTypeToTransform(OrigArgType->getPointerElementType()) &&
               "Expected original argument type to be a type being transformed");
           assert(CloneArgType == getPeeledIndexType() &&
                  "Expected clone argument type to be peeling index type");
@@ -1390,6 +1470,33 @@ public:
       I->eraseFromParent();
 
     IntermediateConverts.clear();
+
+    if (!InstructionsToAnnotate.empty()) {
+      Module *M = Func->getParent();
+      for (auto &InstTyPair : InstructionsToAnnotate) {
+        auto *I = InstTyPair.first;
+        auto *Ty = InstTyPair.second;
+        if (isCloned)
+          I = cast<Instruction>(VMap[I]);
+
+        Value *Ptr = nullptr;
+        if (auto *SI = dyn_cast<StoreInst>(I))
+          Ptr = SI->getPointerOperand();
+        else if (auto *LI = dyn_cast<LoadInst>(I))
+          Ptr = LI->getPointerOperand();
+        else
+          llvm_unreachable("Instruction expected to be load/store");
+
+        Value *Annot = DTransAnnotator::createPtrAnnotation(
+            *M, *Ptr, *PeelIndexAnnotationGEP[Ty], *AnnotationFilenameGEP, 0,
+            "alloc_idx", I);
+        (void)Annot;
+
+        LLVM_DEBUG(dbgs() << "Adding annotation for pointer: " << *Ptr
+                          << "\n  in: " << *I << "\n  " << *Annot << "\n");
+      }
+      InstructionsToAnnotate.clear();
+    }
 
     DEBUG_WITH_TYPE(AOSTOSOA_IR,
                     dbgs() << "\nDTRANS-AOSTOSOA: After postProcessFunction:\n"
@@ -1748,8 +1855,8 @@ private:
       // of DTransAnalysis to resolve the type as a pointer to an array of
       // elements. This is necessary because the allocated memory block is
       // being partitioned into multiple arrays.
-      dtrans::createDTransTypeAnnotation(cast<Instruction>(BlockAddr),
-                                         PeelFieldType);
+      DTransAnnotator::createDTransTypeAnnotation(cast<Instruction>(BlockAddr),
+                                                  PeelFieldType);
 
       // Cast to the pointer type that will be stored:
       //   %CastToMemberTy = bitcast i8* %BlockAddr to %PeelFieldType
@@ -1769,6 +1876,17 @@ private:
 
       PrevArrayElemType = ArrayElemType;
     }
+
+    // Annotate the allocation call for other the DTrans dynamic cloning
+    // optimization.
+    Module *M = AllocCallInst->getParent()->getParent()->getParent();
+    auto *Annot = DTransAnnotator::createPtrAnnotation(
+        *M, *AllocCallInst, *AllocationAnnotationGEP[StructTy],
+        *AnnotationFilenameGEP, 0, "annot_alloc", nullptr);
+    Annot->insertAfter(AllocCallInst);
+
+    LLVM_DEBUG(dbgs() << "Adding annotation for allocation: " << *AllocCallInst
+                      << "\n  : " << *Annot << "\n");
   }
 
   // The transformation of the call to free needs to change the parameter
@@ -1852,7 +1970,7 @@ private:
       // Each memset created will multiply the size of the field by this
       // new value to set the expected number of bytes in the array.
       uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
-      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1, TLI);
       CountToSet = I->getOperand(2);
     }
 
@@ -1948,7 +2066,7 @@ private:
       // Each memcpy/memmove created will multiply the size of the field by this
       // new value to set the expected number of bytes in the array.
       uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
-      updateCallSizeOperand(I, CInfo, OrigSize, 1);
+      updateCallSizeOperand(I, CInfo, OrigSize, 1, TLI);
       CountToSet = I->getOperand(2);
     }
 
@@ -2078,7 +2196,7 @@ private:
 
     llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
     llvm::Type *ReplTy = TypeRemapper->remapType(PtrSubTy);
-    updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy);
+    updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy, DL);
   }
 
   // Update the offsets of a byte flattened GEP for dependent structure types.
@@ -2105,7 +2223,7 @@ private:
 
     llvm::Type *OrigTy = StInfo->getLLVMType();
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
-    updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy);
+    updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy, TLI);
   }
 
   // Update the memfunc size operand for a dependent structure type.
@@ -2121,7 +2239,7 @@ private:
 
     llvm::Type *OrigTy = StInfo->getLLVMType();
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
-    updateCallSizeOperand(CInfo->getInstruction(), CInfo, OrigTy, ReplTy);
+    updateCallSizeOperand(CInfo->getInstruction(), CInfo, OrigTy, ReplTy, TLI);
   }
 
   // Return an integer type that will be used as a replacement type for pointers
@@ -2258,7 +2376,7 @@ private:
 
     Type *OrigRetTy = CS.getType();
     if (OrigRetTy->isPointerTy() &&
-        OrigToNewTypeMapping.count(OrigRetTy->getPointerElementType())) {
+        isTypeToTransform(OrigRetTy->getPointerElementType())) {
       // Argument index 0 is used for return type attributes
       Attrs = Attrs.removeAttributes(Context, 0, IncompatiblePeelTypeAttrs);
       Changed = true;
@@ -2269,7 +2387,7 @@ private:
     for (auto &Arg : CS.args()) {
       Type *ArgTy = Arg->getType();
       if (ArgTy->isPointerTy() &&
-          OrigToNewTypeMapping.count(ArgTy->getPointerElementType())) {
+          isTypeToTransform(ArgTy->getPointerElementType())) {
         Attrs = Attrs.removeAttributes(Context, Idx, IncompatiblePeelTypeAttrs);
         Changed = true;
       }
@@ -2292,7 +2410,7 @@ private:
   SetVector<llvm::Type *> DepTypesToTransform;
 
   // A mapping from the original structure type to the new structure type
-  TypeToTypeMap OrigToNewTypeMapping;
+  SmallVector<std::pair<llvm::Type *, llvm::Type *>, 4> OrigToNewTypeMapping;
 
   // A mapping from the peeled structure type to the global variable used to
   // access it.
@@ -2304,6 +2422,10 @@ private:
   uint64_t PeelIndexWidth;
   llvm::Type *PeelIndexType;
   bool PointerShrinkingEnabled;
+
+  SmallDenseMap<Type *, Value *> AllocationAnnotationGEP;
+  SmallDenseMap<Type *, Value *> PeelIndexAnnotationGEP;
+  Value *AnnotationFilenameGEP;
 
   // Integer type that has the same size as a pointer type. This may be
   // different than the peel index type.
@@ -2351,6 +2473,11 @@ private:
   // List of instructions that are to be removed at the end of
   // processFunction().
   SmallPtrSet<Instruction *, 16> InstructionsToDelete;
+
+  // List of instructions to be annotated as being pointers to the peeling
+  // index. The Type field stores the original type of structure that
+  // now uses a peeling index.
+  SmallVector<std::pair<Instruction *, Type *>, 16> InstructionsToAnnotate;
 };
 
 class DTransAOSToSOAWrapper : public ModulePass {

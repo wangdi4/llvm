@@ -114,7 +114,7 @@ class DDWalk final : public HLNodeVisitorBase {
 public:
   DDWalk(TargetLibraryInfo &TLI, HIRDDAnalysis &DDA,
          HIRSafeReductionAnalysis &SRA, HLLoop *CandidateLoop, ParVecInfo *Info)
-      : TLI(TLI), DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop, false)),
+      : TLI(TLI), DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop)),
         CandidateLoop(CandidateLoop), Info(Info), ComputedSafeRedn(false) {}
 
   /// \brief Visit all outgoing DDEdges for the given node.

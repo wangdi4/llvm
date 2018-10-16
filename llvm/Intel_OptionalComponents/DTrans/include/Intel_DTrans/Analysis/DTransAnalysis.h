@@ -130,7 +130,16 @@ public:
   // a structure element, return the type-index pair for the element accessed.
   // Otherwise, return (nullptr, 0).
   std::pair<llvm::Type *, size_t>
-  getByteFlattenedGEPElement(GetElementPtrInst *GEP);
+  getByteFlattenedGEPElement(GEPOperator *GEP);
+
+  // This is an adaptor for optimization passes which are always using
+  // the instruction form of GEP.
+  // Note: If those optimizations are not blocked by GlobalInstance they
+  //       really should be handling the ConstantExpr form somewhere also.
+  std::pair<llvm::Type *, size_t>
+  getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
+    return getByteFlattenedGEPElement(cast<GEPOperator>(GEP));
+  }
 
   // If the specified LdInst was identified as structure element read, return
   // the type-index pair for the element read. Otherwise, return <nullptr, 0>.
@@ -222,8 +231,8 @@ public:
 
   void addPtrSubMapping(llvm::BinaryOperator *BinOp, llvm::Type *Ty);
 
-  void addByteFlattenedGEPMapping(GetElementPtrInst *GEP,
-                                  std::pair<llvm::Type *, size_t> Pointee);
+  void addByteFlattenedGEPMapping(GEPOperator *GEP, std::pair<llvm::Type *,
+                                  size_t> Pointee);
 
   void addLoadMapping(LoadInst *LdInst,
                       std::pair<llvm::Type *, size_t> Pointee);

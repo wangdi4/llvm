@@ -67,6 +67,7 @@ struct ArithInstructionsTrait {
     case Instruction::And:
     case Instruction::BitCast:
     case Instruction::ExtractValue:
+    case Instruction::FCmp:
     case Instruction::FMul:
     case Instruction::FPToUI:
     case Instruction::FPToSI:
@@ -592,7 +593,7 @@ private:
         if (SCCIt != SCCEnd)
           DCFIt = DepIterTy::begin(*SCCIt);
       }
-      if (DCFIt.isEnd() || Visited.find(*DCFIt) == Visited.end())
+      if (DCFIt.isEnd() || Visited.count(*DCFIt) == 0)
         break;
 
       ++DCFIt;
@@ -914,7 +915,7 @@ private:
       if (Args->size() != Other.Args->size())
         return false;
       for (auto A : *Args)
-        if (Other.Args->find(A) == Other.Args->end())
+        if (Other.Args->count(A) == 0)
           return false;
       return true;
     default:
@@ -1022,6 +1023,9 @@ class DepCompute {
   // instruction.
   const Dep *computeValueDep(const Value *Val) const;
 
+  // Compute IR approximation for Instruction.
+  // Helper function for computeDepApproximation.
+  const Dep *computeInstDep(const Instruction *I) const;
 public:
   DepCompute(const DTransAnalysisInfo &DTInfo,
              // Need to compare pointers and integers of pointer size
@@ -1163,19 +1167,6 @@ inline bool isBitCastLikeGep(const DataLayout &DL, const Value *V) {
     return false;
 
   return true;
-}
-
-// Extract 'this` parameter and pointed-to type of 'this'.
-inline StructType *getStructTypeOfMethod(const Function &F) {
-  FunctionType *FTy = F.getFunctionType();
-  if (FTy->getNumParams() < 1)
-    return nullptr;
-
-  if (auto *PTy = dyn_cast<PointerType>(FTy->getParamType(0)))
-    if (auto *STy = dyn_cast<StructType>(PTy->getElementType()))
-      return STy;
-
-  return nullptr;
 }
 } // namespace soatoaos
 } // namespace dtrans

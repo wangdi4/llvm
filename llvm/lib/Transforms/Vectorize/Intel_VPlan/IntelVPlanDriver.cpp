@@ -240,14 +240,19 @@ public:
 template <typename CostModelTy = VPlanCostModel>
 void printCostModelAnalysisIfRequested(LoopVectorizationPlanner &LVP,
                                        const TargetTransformInfo *TTI,
-                                       const DataLayout *DL) {
+                                       const DataLayout *DL,
+                                       VPlanVLSAnalysis *VLSA) {
   for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
     if (!LVP.hasVPlanForVF(VFRequested)) {
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
     VPlan *Plan = LVP.getVPlanForVF(VFRequested);
+#if INTEL_CUSTOMIZATION
+    CostModelTy CM(Plan, VFRequested, TTI, DL, VLSA);
+#else
     CostModelTy CM(Plan, VFRequested, TTI, DL);
+#endif // INTEL_CUSTOMIZATION
 
     // If different stages in VPlanDriver were proper passes under pass manager
     // control it would have been opt's output stream (via "-o" switch). As it
@@ -542,10 +547,11 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       return false;
   }
 
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL);
+  VPlanVLSAnalysis VLSA(Lp->getHeader()->getContext());
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
   LVP.buildInitialVPlans();
-  printCostModelAnalysisIfRequested(LVP, TTI, DL);
+  printCostModelAnalysisIfRequested(LVP, TTI, DL, &VLSA);
 
   // VPlan Predicator
   LVP.predicate();
@@ -732,22 +738,23 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
 
   HLLoop *HLoop = WRLp->getTheLoop<HLLoop>();
+  (void) HLoop;
   assert(HLoop && "Expected HIR Loop.");
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
-
-  const DDGraph &DDG = DDA->getGraph(HLoop);
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization
   VPlanOptReportBuilder<HLLoop> VPORBuilder(LORBuilder);
 
+  VPlanVLSAnalysisHIR VLSA(DDA, Lp->getLLVMLoop()->getHeader()->getContext());
   // TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
-                                  DDG);
+                                  DDA, &VLSA);
 
   LVP.buildInitialVPlans();
 
-  printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI, DL);
+  printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI, DL,
+                                                               &VLSA);
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
@@ -756,7 +763,6 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   // VPlan Predicator
   LVP.predicate();
-
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF = LVP.selectBestPlan<VPlanCostModelProprietary>();
 
@@ -782,7 +788,8 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
     bool IsSearchLoop = VPlanIdioms::isAnySearchLoop(Plan, VF, true);
-    VPOCodeGenHIR VCodeGen(TLI, SRA, Fn, Lp, LORBuilder, WRLp, IsSearchLoop);
+    VPOCodeGenHIR VCodeGen(TLI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
+                           IsSearchLoop);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the

@@ -7,6 +7,28 @@
 ; optimized by OptVLS. These tests pass if OptVLS successfully generates the optimized
 ; seuqence and lowerInterleavedLoad/Store as a client successfully communicates with OptVLS.
 
+define void @interleaved_store_vf8_i32_undefs(<32 x i32> %a0,<32 x i32>* %ptr){
+; AVX2-LABEL: @interleaved_store_vf8_i32_undefs(
+; AVX2-NEXT:    [[INTERLEAVE_VEC:%.*]] = shufflevector <32 x i32> [[A0:%.*]], <32 x i32> undef, <32 x i32> <i32 0, i32 8, i32 16, i32 24, i32 undef, i32 undef, i32 undef, i32 undef, i32 2, i32 10, i32 18, i32 26, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 7, i32 15, i32 23, i32 31>
+; AVX2-NEXT:    store <32 x i32> [[INTERLEAVE_VEC]], <32 x i32>* [[PTR:%.*]], align 16
+; AVX2-NEXT:    ret void
+;
+  %interleave.vec = shufflevector <32 x i32> %a0, <32 x i32> undef, <32 x i32> <i32 0, i32 8, i32 16, i32 24, i32 undef, i32 undef, i32 undef, i32 undef, i32 2, i32 10, i32 18, i32 26, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 7, i32 15, i32 23, i32 31>
+  store <32 x i32> %interleave.vec, <32 x i32>* %ptr, align 16
+  ret void
+}
+
+define void @interleaved_store_vf4_i32_undefs(<16 x i32> %a0,<16 x i32>* %ptr){
+; AVX2-LABEL: @interleaved_store_vf4_i32_undefs(
+; AVX2-NEXT:    [[INTERLEAVE_VEC:%.*]] = shufflevector <16 x i32> [[A0:%.*]], <16 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; AVX2-NEXT:    store <16 x i32> [[INTERLEAVE_VEC]], <16 x i32>* [[PTR:%.*]], align 16
+; AVX2-NEXT:    ret void
+;
+  %interleave.vec = shufflevector <16 x i32> %a0, <16 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  store <16 x i32> %interleave.vec, <16 x i32>* %ptr, align 16
+  ret void
+}
+
 define <4 x double> @load_factorf64_4(<8 x double>* %ptr) {
 ; AVX-LABEL: @load_factorf64_4(
 ; AVX-NEXT:    [[TMP1:%.*]] = bitcast <8 x double>* %ptr to <4 x double>*

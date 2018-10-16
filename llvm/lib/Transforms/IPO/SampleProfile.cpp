@@ -727,8 +727,9 @@ bool SampleProfileLoader::inlineCallInstruction(Instruction *I) {
   // see if it is legal to inline the callsite.
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
-  InlineCost Cost = getInlineCost(CS, Params, GetTTI(*CalledFunction), GetAC,
-                                  None, ILIC, nullptr, nullptr, nullptr);
+  InlineCost Cost =
+      getInlineCost(CS, Params, GetTTI(*CalledFunction), GetAC, None, ILIC,
+                    nullptr, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
