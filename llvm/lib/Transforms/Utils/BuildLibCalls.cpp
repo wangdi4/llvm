@@ -1330,8 +1330,61 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_obstack_free:
     return Changed;
   case LibFunc_omp_destroy_lock:
+  case LibFunc_omp_destroy_nest_lock:
+    return Changed;
+  case LibFunc_omp_get_active_level:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_ancestor_thread_num:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_cancellation:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_default_device:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_dynamic:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_initial_device:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_level:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_max_active_levels:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_max_task_priority:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_get_max_threads:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_nested:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_num_devices:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_num_procs:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_num_teams:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1339,23 +1392,85 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_omp_get_proc_bind:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_schedule:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setDoesNotCapture(F, 1);
+    return Changed;
+  case LibFunc_omp_get_team_num:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_team_size:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_thread_limit:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_omp_get_thread_num:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_omp_get_wtick:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_get_wtime:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_in_final:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_in_parallel:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_is_initial_device:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_omp_init_lock:
+  case LibFunc_omp_init_lock_with_hint:
+  case LibFunc_omp_init_nest_lock:
+  case LibFunc_omp_init_nest_lock_with_hint:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_set_lock:
+  case LibFunc_omp_set_nest_lock:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_test_lock:
+  case LibFunc_omp_test_nest_lock:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_unset_lock:
+  case LibFunc_omp_unset_nest_lock:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_set_default_device:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_set_dynamic:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_set_max_active_levels:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_set_num_threads:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_set_nested:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_omp_set_schedule:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_pipe:
