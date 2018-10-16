@@ -621,6 +621,9 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
         llvm_unreachable("unexpected metadata!");
     }
   }
+
+  // Remove offload metadata from the module after parsing.
+  MD->eraseFromParent();
 }
 
 Constant* VPOParoptModuleTransform::registerTargetRegion(WRegionNode *W,
