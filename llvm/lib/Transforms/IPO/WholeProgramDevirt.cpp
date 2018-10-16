@@ -514,7 +514,7 @@ struct DevirtModule {
   void createCallSiteBasicBlocks(Module &M,
       std::vector<TargetData *> &TargetVector, std::string &VCallStamp,
       VirtualCallSite &VCallSite,
-      MutableArrayRef<VirtualCallTarget> TargetsForSlot);
+      MutableArrayRef<VirtualCallTarget> TargetsForSlot, MDNode *Node);
 
   // Fix the PHINodes in the unwind destinations
   void fixUnwindPhiNodes(VirtualCallSite &VCallSite, BasicBlock *MergePointBB,
@@ -535,13 +535,13 @@ struct DevirtModule {
       std::vector<TargetData *> TargetsVector,
       TargetData *DefaultTarget);
 
-  // Try to generate multiple targets with if and else instructions
-  // rather than a branch funnel
-  bool tryPartialDevirt(MutableArrayRef<VirtualCallTarget> TargetsForSlot,
-                        VTableSlotInfo &SlotInfo, unsigned int CallSlotI);
-
   // Verify that the transformation was done correctly
   void runDevirtVerifier(Module &M);
+
+  // Try to generate multiple targets with if and else instructions
+  // rather than a branch funnel
+  bool tryMultiVersionDevirt(MutableArrayRef<VirtualCallTarget> TargetsForSlot,
+                        VTableSlotInfo &SlotInfo, unsigned int CallSlotI);
 #endif
 
   bool tryEvaluateFunctionsWithArgs(
@@ -1043,15 +1043,18 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
 #if INTEL_CUSTOMIZATION
 
 // Create the BasicBlocks with the direct call sites.
-//   TargetVector: a TargetData vector that will be used to store the
-//                 information related to the targets
-//   VCallStamp: stamp generated for the current virtual call
-//   VCallSite: callsite of the virtual call
+//   TargetVector:   a TargetData vector that will be used to store the
+//                     information related to the targets
+//   VCallStamp:     stamp generated for the current virtual call
+//   VCallSite:      callsite of the virtual call
 //   TargetsForSlot: possible targets to the current virtual callsite
+//   MDNode:         node containing the metadata information for the
+//                     target functions
 void DevirtModule::createCallSiteBasicBlocks(Module &M,
     std::vector<TargetData *> &TargetVector, std::string &VCallStamp,
     VirtualCallSite &VCallSite,
-    MutableArrayRef<VirtualCallTarget> TargetsForSlot) {
+    MutableArrayRef<VirtualCallTarget> TargetsForSlot,
+    MDNode* Node) {
 
   IRBuilder<> Builder(M.getContext());
   StringRef BaseName = StringRef("BBDevirt_");
@@ -1094,6 +1097,11 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
     // Save the new instruction for PHINode
     NewTarget->CallInstruction = NewCS.getInstruction();
 
+    // Add the metadata "_Intel.Devirt.Target" in the target function
+    if (!Target.Fn->hasMetadata() ||
+        Target.Fn->getMetadata("_Intel.Devirt.Target") == nullptr)
+      Target.Fn->setMetadata("_Intel.Devirt.Target", Node);
+
     TargetVector.push_back(NewTarget);
   }
 }
@@ -1103,7 +1111,7 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
 //   M:          current module
 //   VCallStamp: stamp created for the current virtual call site
 //   VCallSite:  data structure holding the information related to the current
-//               virtual call site
+//                 virtual call site
 // This function returns the BasicBlock that all call sites will jump to.
 BasicBlock* DevirtModule::getMergePoint(Module &M, std::string &VCallStamp,
     VirtualCallSite &VCallSite) {
@@ -1201,7 +1209,7 @@ DevirtModule::TargetData* DevirtModule::buildDefaultCase(Module &M,
 //   MergePointBB:  BasicBlock that where all targets will branch into
 //   TargetsVector: Vector containing all the targets for the virtual call
 //   DefaultTarget: TargetData generated that contains the call to
-//                  the virtual function
+//                    the virtual function
 void DevirtModule::fixUnwindPhiNodes(VirtualCallSite &VCallSite,
     BasicBlock *MergePointBB, std::vector<TargetData *> &TargetsVector,
     TargetData *DefaultTarget) {
@@ -1257,9 +1265,9 @@ void DevirtModule::fixUnwindPhiNodes(VirtualCallSite &VCallSite,
 //   IsCallInst:    true if the virtual call site is a CallInst,
 //                    false if it is an InvokeInst
 //   TargetsVector: vector with all target functions and the information
-//                  needed to generate the branching
-//   DefaultTaregt: TargetData with the information related to the virtual
-//                  call site, this is used to generate the default case
+//                    needed to generate the branching
+//   DefaultTarget: TargetData with the information related to the virtual
+//                    call site, this is used to generate the default case
 void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
     BasicBlock *MainBB, BasicBlock *MergePointBB, bool IsCallInst,
     std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget) {
@@ -1345,9 +1353,9 @@ void DevirtModule::generateBranching(Module &M, std::string &VCallStamp,
 //   M:             current module
 //   MergePointBB:  BasicBlock that where all targets will branch into
 //   TargetsVector: vector with all target functions and the information
-//                  needed to generate the branching
+//                    needed to generate the branching
 //   DefaultTaregt: TargetData with the information related to the virtual
-//                  call site, this is used to generate the default case
+//                    call site, this is used to generate the default case
 void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
     std::vector<TargetData *> TargetsVector, TargetData *DefaultTarget) {
 
@@ -1380,7 +1388,6 @@ void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
   // Insert the incoming Value from the default case
   Phi->addIncoming(CSInst, DefaultTarget->TargetBasicBlock);
 }
-
 
 // This function will go through each virtual function call site and
 // multiversion it. For example, consider that there is a base class
@@ -1463,11 +1470,11 @@ void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
 // target, else call the virtual function.
 // Parameters:
 //   TargetsForSlot: An array containing all the targets that are related
-//                   to the virtual call sites stored in SlotInfo
+//                     to the virtual call sites stored in SlotInfo
 //   SlotInfo:       All virtual call sites that will use the same set of
-//                   targets
+//                     targets
 //   CallSlotI:      Number of SlotInfo in the CallSlots vector
-bool DevirtModule::tryPartialDevirt(
+bool DevirtModule::tryMultiVersionDevirt(
     MutableArrayRef<VirtualCallTarget> TargetsForSlot,
     VTableSlotInfo &SlotInfo, unsigned int CallSlotI) {
 
@@ -1493,9 +1500,12 @@ bool DevirtModule::tryPartialDevirt(
   unsigned int VCallI = 0;
   std::vector<TargetData *> TargetsVector;
 
+  MDNode *Node = MDNode::get(M.getContext(),
+               MDString::get(M.getContext(), "_Intel.Devirt.Target"));
+
   // Lambda function that will go through each call site
   // of a virtual function and replace it with the branching
-  auto PartialDevirt = [&](CallSiteInfo &CSInfo,
+  auto MultiVersionDevirt = [&](CallSiteInfo &CSInfo,
                            MutableArrayRef<VirtualCallTarget> TargetsForSlot) {
 
     for (auto &&VCallSite : CSInfo.CallSites) {
@@ -1510,7 +1520,7 @@ bool DevirtModule::tryPartialDevirt(
 
       // Generate the BasicBlocks that contain the direct call sites
       createCallSiteBasicBlocks(M, TargetsVector, VCallStamp, VCallSite,
-                                TargetsForSlot);
+                                TargetsForSlot, Node);
 
       // Compute the merge point
       BasicBlock *MergePoint = getMergePoint(M, VCallStamp, VCallSite);
@@ -1536,13 +1546,13 @@ bool DevirtModule::tryPartialDevirt(
   // Traverse through each of them and apply the partial devirtualization.
   //
   // CSInfo:      A structure that contains all the call sites in which the
-  //              arguments aren't constant integers.
+  //                arguments aren't constant integers.
   // ConstCSInfo: A map that handles all the call sites which have constant
-  //              integers as arguments. It maps a vector that represents the
-  //              arguments with a CSInfo.
-  PartialDevirt(SlotInfo.CSInfo, TargetsForSlot);
+  //                integers as arguments. It maps a vector that represents
+  //                the arguments with a CSInfo.
+  MultiVersionDevirt(SlotInfo.CSInfo, TargetsForSlot);
   for (auto &P : SlotInfo.ConstCSInfo)
-    PartialDevirt(P.second, TargetsForSlot);
+    MultiVersionDevirt(P.second, TargetsForSlot);
 
   return true;
 }
@@ -2258,7 +2268,7 @@ bool DevirtModule::run() {
       if (!trySingleImplDevirt(TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION
-        if (!tryPartialDevirt(TargetsForSlot, S.second, CallSlotI)) {
+        if (!tryMultiVersionDevirt(TargetsForSlot, S.second, CallSlotI)) {
 #endif // INTEL_CUSTOMIZATION
 
         DidVirtualConstProp |=
