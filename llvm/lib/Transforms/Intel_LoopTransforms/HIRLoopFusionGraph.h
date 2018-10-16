@@ -25,7 +25,6 @@
 
 #include <list>
 #include <queue>
-
 namespace llvm {
 namespace loopopt {
 
