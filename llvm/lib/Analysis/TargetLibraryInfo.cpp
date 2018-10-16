@@ -343,6 +343,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_chdir);
     TLI.setUnavailable(LibFunc_close);
     TLI.setUnavailable(LibFunc_dup);
+    TLI.setUnavailable(LibFunc_dup2);
+    TLI.setUnavailable(LibFunc_error);
     TLI.setUnavailable(LibFunc_execl);
     TLI.setUnavailable(LibFunc_execv);
     TLI.setUnavailable(LibFunc_execvp);
@@ -374,6 +376,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_lseek);
     TLI.setUnavailable(LibFunc_lseek64);
     TLI.setUnavailable(LibFunc_mkdtemp);
+    TLI.setUnavailable(LibFunc_mkstemps);
     TLI.setUnavailable(LibFunc_mmap);
     TLI.setUnavailable(LibFunc_munmap);
     TLI.setUnavailable(LibFunc_pipe);
@@ -2395,9 +2398,20 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
+  case LibFunc_dup2:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
   case LibFunc_erfc:
     return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
             FTy.getParamType(0)->isFloatingPointTy());
+
+  case LibFunc_error:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
 
   case LibFunc_execl:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
@@ -2609,6 +2623,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_mkdtemp:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_mkstemps:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_mmap:
     return (NumParams == 6 && FTy.getReturnType()->isPointerTy() &&

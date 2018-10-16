@@ -1159,11 +1159,15 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_dup:
+  case LibFunc_dup2:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_erfc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_error:
+    Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_execl:
     Changed |= setDoesNotThrow(F);
@@ -1319,6 +1323,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_mkdtemp:
+  case LibFunc_mkstemps:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_mmap:
