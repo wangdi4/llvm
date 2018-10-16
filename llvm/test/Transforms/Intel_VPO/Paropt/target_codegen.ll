@@ -42,6 +42,8 @@ entry:
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
+; Check that offload metadata is removed after outlining.
+; CHECK-ALL-NOT: !omp_offload.info
 !omp_offload.info = !{!0}
 
 !0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 2, i32 0}
