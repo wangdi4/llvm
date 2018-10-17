@@ -361,8 +361,11 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveDepend())
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
 
-  if (canHaveDepSink())
+  if (canHaveDepSrcSink())
     PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
+
+  if (canHaveDepSrcSink())
+    PrintedSomething |= getDepSource().print(OS, Depth, Verbosity);
 
   if (canHaveAligned())
     PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
@@ -553,10 +556,6 @@ void WRegionNode::handleQual(int ClauseID) {
     setIsDoacross(false);
     setIsThreads(false);
     break;
-  case QUAL_OMP_DEPEND_SOURCE:
-    setIsDoacross(true);
-    setIsDepSource(true);
-    break;
   case QUAL_OMP_CANCEL_PARALLEL:
     setCancelKind(WRNCancelParallel);
     break;
@@ -626,10 +625,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_NUM_THREADS:
     setNumThreads(V);
     break;
-  case QUAL_OMP_ORDERED:
-    assert(N >= 0 && "ORDERED parameter must be positive (for doacross), or "
-                     "zero (for ordered).");
-    setOrdered(N);
     break;
   case QUAL_OMP_FINAL:
     setFinal(V);
@@ -1057,12 +1052,42 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                         IsIn);
     break;
   }
+  case QUAL_OMP_ORDERED: {
+    assert(isa<ConstantInt>(Args[0]) &&
+           "Non-constant Value of N for ordered(N).");
+    ConstantInt *CI = cast<ConstantInt>(Args[0]);
+    unsigned N = *((CI->getValue()).getRawData());
+    setOrdered(N);
+
+    if (N == 0)
+      break;
+
+    // Reaching here means we're looking at doacross loops.
+    assert(NumArgs == N + 1 && "Unexpected number of args for Orderd(N).");
+
+    for (unsigned I = 1; I < NumArgs; ++I)
+      addOrderedTripCount(Args[I]);
+
+  } break;
   case QUAL_OMP_DEPEND_SINK: {
     setIsDoacross(true);
-    WRegionUtils::extractQualOpndList<DepSinkClause>(Args, NumArgs, ClauseID,
-                                                     getDepSink());
-    break;
-  }
+    SmallVector<Value *, 3> SinkExprs;
+    for (unsigned I = 0; I < NumArgs; ++I)
+      SinkExprs.push_back(Args[I]);
+
+    getDepSink().add(new DepSinkItem(std::move(SinkExprs)));
+  } break;
+  case QUAL_OMP_DEPEND_SOURCE: {
+    setIsDoacross(true);
+    assert(getDepSource().empty() &&
+           "More than one 'depend(source)' on the same directive.");
+
+    SmallVector<Value *, 3> SrcExprs;
+    for (unsigned I = 0; I < NumArgs; ++I)
+      SrcExprs.push_back(Args[I]);
+
+    getDepSource().add(new DepSourceItem(std::move(SrcExprs)));
+  } break;
   case QUAL_OMP_IS_DEVICE_PTR: {
     WRegionUtils::extractQualOpndList<IsDevicePtrClause>(Args, NumArgs,
                                                  ClauseInfo, getIsDevicePtr());
@@ -1427,10 +1452,10 @@ bool WRegionNode::canHaveDepend() const {
   return false;
 }
 
-bool WRegionNode::canHaveDepSink() const {
+bool WRegionNode::canHaveDepSrcSink() const {
   unsigned SubClassID = getWRegionKindID();
-  // only WRNOrderedNode can have a depend(sink : vec) clause
-  // but only if its "IsDoacross" field is true
+  // Only WRNOrderedNode can have a 'depend(src)' or 'depend(sink : vec)'
+  // clause, but but only if its "IsDoacross" field is true.
   if(SubClassID==WRNOrdered)
     return getIsDoacross();
 

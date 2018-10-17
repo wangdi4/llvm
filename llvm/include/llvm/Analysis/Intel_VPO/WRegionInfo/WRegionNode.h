@@ -200,7 +200,7 @@ public:
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
   bool canHaveDepend() const;
-  bool canHaveDepSink() const;
+  bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
@@ -225,6 +225,7 @@ public:
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
   virtual DepSinkClause &getDepSink()        {WRNERROR("DEPEND(SINK:..)");    }
+  virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
   virtual FirstprivateClause &getFpriv()     {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual FlushSet &getFlush()               {WRNERROR(QUAL_OMP_FLUSH);       }
   virtual IsDevicePtrClause &getIsDevicePtr()
@@ -256,6 +257,8 @@ public:
                                            {WRNERROR("DEPEND");             }
   virtual const DepSinkClause &getDepSink() const
                                            {WRNERROR("DEPEND(SINK:..)");    }
+  virtual const DepSourceClause &getDepSource() const
+                                           {WRNERROR("DEPEND(SOURCE)");     }
   virtual const FirstprivateClause &getFpriv() const
                                            {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
@@ -305,8 +308,6 @@ public:
   virtual bool getHasSeqCstClause()       const {WRNERROR("SEQ_CST");         }
   virtual void setIf(EXPR E)                    {WRNERROR(QUAL_OMP_IF);       }
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
-  virtual void setIsDepSource(bool F)           {WRNERROR("DEPEND(SOURCE)");  }
-  virtual bool getIsDepSource()           const {WRNERROR("DEPEND(SOURCE)");  }
   virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
@@ -327,6 +328,10 @@ public:
   virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }
   virtual int getOrdered()                const {WRNERROR(QUAL_OMP_ORDERED);  }
+  virtual void addOrderedTripCount(Value *TC)
+                                            {WRNERROR("ORDERED_TRIP_COUNTS"); }
+  virtual const SmallVectorImpl<Value *> &getOrderedTripCounts() const
+                                            {WRNERROR("ORDERED_TRIP_COUNTS"); }
   virtual void setParLoopNdInfoAlloca(AllocaInst *AI) { WRNERROR("LOOP_DESC"); }
   virtual AllocaInst *getParLoopNdInfoAlloca() const { WRNERROR("LOOP_DESC"); }
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }

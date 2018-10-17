@@ -3314,7 +3314,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   // Insert doacross_init call for ordered(n)
   if (IsDoacrossLoop)
     VPOParoptUtils::genKmpcDoacrossInit(W, IdentTy, LoadTid, KmpcInitCI,
-                                        LowerBnd, UpperBnd, Stride);
+                                        W->getOrderedTripCounts());
 
   LoadInst *LoadLB = new LoadInst(LowerBnd, "lb.new", InsertPt);
   LoadLB->setAlignment(4);
@@ -4504,15 +4504,12 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
   assert(WParent->getIsOmpLoop() && "Parent is not a loop-type WRN");
 
   // Emit doacross post call for 'depend(source)'
-  if (W->getIsDepSource()) {
-
-    // For doacross post, we send in the outer WRegion's loop index.
-    auto *ParentNormIV = WParent->getWRNLoopInfo().getNormIV();
-    assert(ParentNormIV && "Cannot find IV of outer construct.");
-
+  if (!W->getDepSource().empty()) {
+    assert(W->getDepSource().size() == 1 && "More than one depend(source)");
+    DepSourceItem *DSI = W->getDepSource().back();
     // Generate __kmpc_doacross_post call
     CallInst *DoacrossPostCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
-        W, IdentTy, TidPtrHolder, InsertPt, ParentNormIV,
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDepExprs(),
         true); // 'depend (source)'
     (void)DoacrossPostCI;
     assert(DoacrossPostCI && "Failed to emit doacross_post call.");
@@ -4522,7 +4519,7 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
   for (DepSinkItem *DSI : W->getDepSink().items()) {
     // Generate __kmpc_doacross_wait call
     CallInst *DoacrossWaitCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
-        W, IdentTy, TidPtrHolder, InsertPt, DSI->getSinkExpr(),
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDepExprs(),
         false); // 'depend (sink:...)'
     (void)DoacrossWaitCI;
     assert(DoacrossWaitCI && "Failed to emit doacross_wait call.");

@@ -782,6 +782,7 @@ class UseDevicePtrItem : public Item
 //
 //   DependItem    (for the depend  clause in task and target constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
+//   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
 //
@@ -830,29 +831,34 @@ class DependItem
     }
 };
 
-// TODO: Delete extra fields. Only SinkExpr is used at the moment.
-class DepSinkItem
-{
-  private:
-    EXPR  SinkExpr;       // LoopVar +/- Offset (eg: i-1)
-    VAR   LoopVar;        // LoopVar extracted from the SinkExpr
-    EXPR  Offset;         // Offset extracted from the SinkExpr
+class DepSrcSinkItem {
+private:
+  SmallVector<Value *, 3> DepExprs;
 
-  public:
-    DepSinkItem(EXPR E) : SinkExpr(E), LoopVar(nullptr), Offset(nullptr) {}
+public:
+  DepSrcSinkItem(SmallVectorImpl<Value *> &&DEs) : DepExprs(std::move(DEs)) {}
+  const SmallVectorImpl<Value *> &getDepExprs() const { return DepExprs; }
 
-    void setSinkExpr(EXPR S)    { SinkExpr = S;  }
-    void setLoopVar(EXPR LV)    { LoopVar = LV;  }
-    void setOffset(EXPR O)      { Offset = O;  }
-    EXPR getSinkExpr()  const   { return SinkExpr; }
-    EXPR getLoopVar()   const   { return LoopVar; }
-    EXPR getOffset()    const   { return Offset; }
-
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "(" ;
-      getSinkExpr()->printAsOperand(OS, PrintType);
-      OS << ") ";
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+    OS << "(";
+    for (const auto *E : DepExprs) {
+      E->printAsOperand(OS, PrintType);
+      OS << " ";
     }
+    OS << ") ";
+  }
+};
+
+class DepSourceItem: public DepSrcSinkItem {
+public:
+  DepSourceItem(SmallVectorImpl<Value *> &&DEs)
+      : DepSrcSinkItem(std::move(DEs)) {}
+};
+
+class DepSinkItem: public DepSrcSinkItem {
+public:
+  DepSinkItem(SmallVectorImpl<Value *> &&DEs)
+      : DepSrcSinkItem(std::move(DEs)) {}
 };
 
 class AlignedItem
@@ -1010,6 +1016,7 @@ typedef Clause<IsDevicePtrItem>  IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem> UseDevicePtrClause;
 typedef Clause<DependItem>       DependClause;
 typedef Clause<DepSinkItem>      DepSinkClause;
+typedef Clause<DepSourceItem>    DepSourceClause;
 typedef Clause<AlignedItem>      AlignedClause;
 typedef Clause<FlushItem>        FlushSet;
 
@@ -1027,6 +1034,7 @@ typedef std::vector<IsDevicePtrItem>::iterator  IsDevicePtrter;
 typedef std::vector<UseDevicePtrItem>::iterator UseDevicePtrter;
 typedef std::vector<DependItem>::iterator       DependIter;
 typedef std::vector<DepSinkItem>::iterator      DepSinkIter;
+typedef std::vector<DepSourceItem>::iterator    DepSourceIter;
 typedef std::vector<AlignedItem>::iterator      AlignedIter;
 typedef std::vector<FlushItem>::iterator        FlushIter;
 

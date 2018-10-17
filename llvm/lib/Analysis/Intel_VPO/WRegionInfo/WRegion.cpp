@@ -633,9 +633,7 @@ void WRNOrderedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   bool IsDoacross = getIsDoacross();
   // vpo::printBool("IS DOACROSS", IsDoacross, OS, Indent, Verbosity);
 
-  if (IsDoacross) // Depend clauses present for DoAcross
-    vpo::printBool("DEPEND(SOURCE)", getIsDepSource(), OS, Indent, Verbosity);
-  else {
+  if (!IsDoacross) { // Depend clauses present for DoAcross
     // No Depend clauses => not for DoAcross
     StringRef Kind = getIsThreads() ? "THREADS" : "SIMD";
     vpo::printStr("KIND", Kind, OS, Indent, Verbosity);
@@ -761,9 +759,11 @@ void vpo::printExtraForOmpLoop(WRegionNode const *W, formatted_raw_ostream &OS,
          "printExtraForOmpLoop is for WRNs with getIsOmpLoop()==true");
   unsigned Indent = 2 * Depth;
   vpo::printInt("COLLAPSE", W->getCollapse(), OS, Indent, Verbosity);
-  if (W->getOrdered() > 0)
+  if (W->getOrdered() > 0) {
     vpo::printInt("ORDERED(N)", W->getOrdered(), OS, Indent, Verbosity);
-  else
+    vpo::printValList("ORDERED(N) Trip Counts", W->getOrderedTripCounts(), OS, Indent,
+                      Verbosity);
+  } else
     vpo::printBool("ORDERED", W->getOrdered() == 0, OS, Indent, Verbosity);
 
   // WRNs with getIsPar()==true don't have the Nowait clause

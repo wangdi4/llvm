@@ -2234,59 +2234,64 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
 // This function generates and inserts calls to kmpc_doacross_wait/post for
 // '#pragma omp ordered depend(source/sink)'.
 //
-//   %dep.vec = alloca i64, align 8                           ; (1)
-//   %dv.val = load i32, i32* %<dep.vec.value>                ; (2)
-//   %conv = sext i32 %dv.val to i64                          ; (3)
-//   store i64 %conv, i64* %dep.vec, align 8                  ; (4)
-//   %tid = load i32, i32* %tidptr, align 4
-//   call void @__kmpc_doacross_wait/post({ i32, i32, i32, i32, i8* }* %loc, i32
-//   %tid, i64* %dims)
+// Incoming Directive:
+//   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
+//        "QUAL.OMP.DEPEND.SINK"(i32 %v1, i32 %v2) ]
 //
-// If DepVecValue is an alloca, a load is first done from it before
-// storing it to 'dims' for the runtime.
+// Generated IR:
+//   %dep.vec = alloca i64, i32 2                             ; (1)
+//   %conv1 = sext i32 %v1 to i64                             ; (2)
+//   %2 = getelementptr inbounds i64, i64* %dep.vec, i64 0    ; (3)
+//   store i64 %conv1, i64* %2                                ; (4)
+//   %conv2 = sext i32 %v2 to i64                             ; (5)
+//   %3 = getelementptr inbounds i64, i64* %dep.vec, i64 1    ; (6)
+//   store i64 %conv2, i64* %3                                ; (7)
+//   %4 = bitcast i64* %dep.vec to i8*                        ; (8)
+//   %tid = load i32, i32* %<tidptr>, align 4                 ; (9)
+//   call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @loc,
+//                                   i32 %tid, i8* %4)        ; (10)
 //
 // The call is inserted before InsertPt.
 //
 CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
     WRNOrderedNode *W, StructType *IdentTy, Value *TidPtr,
-    Instruction *InsertPt, Value *DepVecValue, bool IsDoacrossPost) {
+    Instruction *InsertPt, const ArrayRef<Value *> &DepVecValues,
+    bool IsDoacrossPost) {
 
-  assert(DepVecValue && "Null Dependence Vector Value for doacross wait/post.");
+  assert(!DepVecValues.empty() &&
+         "Empty Dependence Vector for doacross wait/post.");
 
-  BasicBlock *BB = InsertPt->getParent();
-  assert(BB && "InsertPt has no parent BB.");
-  Function *F = BB->getParent();
-  assert(F != nullptr && "insertpt has no parent Function");
-  Module *M = F->getParent();
-  assert(M != nullptr && ") has no parent Module");
-  LLVMContext &C = F->getContext();
+  IRBuilder<> Builder(InsertPt);
 
-  Type *Int64Ty = Type::getInt64Ty(C);
+  Type *Int64Ty = Builder.getInt64Ty();
+  unsigned NumLoops =
+      DepVecValues.size(); // Number of loops in the doacross nest.
+  Value *NumLoopsVal = Builder.getInt32(NumLoops);
 
-  // Since the frontend already collapses the loopnest, the depend vector (third
-  // argument of the runtime call), is just an i64 pointer.
   // (1) Allocate space for the Dependence Vector.
-  const DataLayout &DL = M->getDataLayout();
-  AllocaInst *DepVec = new AllocaInst(
-      Int64Ty, DL.getAllocaAddrSpace(), nullptr, 8, "dep.vec");
-  DepVec->insertBefore(InsertPt);
+  // It should contain one I64 for each loop in the doacross loop-nest.
+  AllocaInst *DepVec = Builder.CreateAlloca(Int64Ty, NumLoopsVal, "dep.vec");
+  // Populate dependence vector for each loop in the nest.
+  for (unsigned I = 0; I < NumLoops; ++I) {
+    Value *DepVecValue = DepVecValues[I];
 
-  // (2) If DepVecValue is an alloca, generate a load from it.
-  if (isa<AllocaInst>(DepVecValue))
-    DepVecValue = new LoadInst(DepVecValue, "dv.val", InsertPt);
+    // Cast to I64.
+    Value *DepVecValueCast =
+        Builder.CreateSExtOrBitCast(DepVecValue, Int64Ty, "conv"); // (2) (5)
 
-  // (3) Cast the value of the depend vector to I64.
-  CastInst *DepVecValueCast =
-      CastInst::CreateSExtOrBitCast(DepVecValue, Int64Ty, "conv", InsertPt);
+    // Get a pointer to where DepVecValue should go.
+    Value *PtrForLoopI =
+        Builder.CreateInBoundsGEP(DepVec, {Builder.getInt64(I)});  // (3) (6)
+    Builder.CreateStore(DepVecValueCast, PtrForLoopI);             // (4) (7)
+  }
 
-  // (4) Store to the dependence vector.
-  StoreInst *DepVecAssignment = new StoreInst(DepVecValueCast, DepVec);
-  DepVecAssignment->insertBefore(InsertPt);
+  // (8) Create a bitcast to I8* before sending DepVec to the runtime.
+  Value *DepVecI8 = Builder.CreateBitCast(DepVec, Builder.getInt8PtrTy());
 
   CallInst *Call = genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt,
                                       IsDoacrossPost ? "__kmpc_doacross_post"
                                                      : "__kmpc_doacross_wait",
-                                      nullptr, {DepVec});
+                                      nullptr, {DepVecI8}); //        (9) (10)
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross wait/post call emitted.\n");
 
@@ -2297,98 +2302,104 @@ CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
 // This function generates and inserts a call to kmpc_doacross_init,
 // for '#pragma omp [parallel] for ordered(n)'
 //
-//   %dims.vec = alloca { i64, i64, i64 }, align 16                      ; (1)
-//   %6 = load i32, i32* %lower.bnd                                      ; (2)
-//   %7 = sext i32 %6 to i64                                             ; (3)
-//   %8 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }*
-//   %dims.vec, i32 0, i32 0                                             ; (4)
+// Incoming Directive:
+//   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+//        "QUAL.OMP.ORDERED"(i32 2, i32 4, i32 2), ...]
 //
-//   store i64 %7, i64* %8                                               ; (5)
+// Generated IR:
+//   %dims.vec = alloca { i64, i64, i64 }, i32 2                         ; (1)
 //
-//   %9 = load i32, i32* %upper.bnd                                      ; (6)
-//   %10 = sext i32 %9 to i64                                            ; (7)
-//   %11 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }*
-//   %dims.vec, i32 0, i32 1                                             ; (8)
+//   %3 = getelementptr inbounds { i64, i64, i64 }, %dims.vec, i32 0     ; (2)
 //
-//   store i64 %10, i64* %11                                             ; (9)
+//   %4 = getelementptr inbounds { i64, i64, i64 }, %3, i32 0, i32 0     ; (3)
+//   store i64 0, i64* %4                                                ; (4)
+//   %5 = getelementptr inbounds { i64, i64, i64 }, %3, i32 0, i32 1     ; (5)
+//   store i64 4, i64* %5                                                ; (6)
+//   %6 = getelementptr inbounds { i64, i64, i64 }, %3, i32 0, i32 2     ; (7)
+//   store i64 1, i64* %6                                                ; (8)
 //
-//   %12 = load i32, i32* %stride                                        ; (10)
-//   %13 = sext i32 %12 to i64                                           ; (11)
-//   %14 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }*
-//   %dims.vec, i32 0, i32 2                                             ; (12)
+//   %7 = getelementptr inbounds { i64, i64, i64 }, %dims.vec, i32 1     ; (9)
 //
-//   store i64 %13, i64* %14                                             ; (13)
+//   %8 = getelementptr inbounds { i64, i64, i64 }, %7, i32 0, i32 0     ; (10)
+//   store i64 0, i64* %8                                                ; (11)
+//   %9 = getelementptr inbounds { i64, i64, i64 }, %7, i32 0, i32 1     ; (12)
+//   store i64 2, i64* %9                                                ; (13)
+//   %10 = getelementptr inbounds { i64, i64, i64 }, %7, i32 0, i32 2    ; (14)
+//   store i64 1, i64* %10                                               ; (15)
 //
-//   %my.tid32 = load i32, i32* %tid, align 4                            ; Tid
-//   call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }*        ; (14)
-//   @.kmpc_loc.0.0.8, i32 %my.tid32, i32 1, { i64, i64, i64 }* %dims.vec)
+//   %11 = bitcast { i64, i64, i64 }* %dims.vec to i8*                   ; (16)
+//   %tid = load i32, i32* %<tidptr>, align 4                            ; (17)
+//   call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @loc,
+//                                   i32 %tid, i32 2, i8* %11)           ; (18)
 //
 //   The call along with the above initializations of dims.vec, are inserted
 //   before InsertPt.
-CallInst *VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W,
-                                              StructType *IdentTy, Value *Tid,
-                                              Instruction *InsertPt,
-                                              Value *LBound, Value *UBound,
-                                              Value *Stride) {
+CallInst *
+VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
+                                    Value *Tid, Instruction *InsertPt,
+                                    const ArrayRef<Value *> &TripCounts) {
 
-  assert(LBound && "Null Lower Bound for doacross init.");
-  assert(UBound && "Null Upper Bound for doacross init.");
-  assert(Stride && "Null Stride for doacross init.");
+  assert(!TripCounts.empty() && "No loop trip counts for doacross loop-nest.");
 
-  BasicBlock *BB = InsertPt->getParent();
-  assert(BB && "InsertPt has no parent BB.");
+  IRBuilder<> Builder(InsertPt);
 
-  Function *F = BB->getParent();
-  assert(F != nullptr && "InsertPt has no parent Function");
+  LLVMContext &C = Builder.getContext();
+  Type *Int64Ty = Builder.getInt64Ty();
+  Value *Zero = Builder.getInt32(0);
+  Value *One = Builder.getInt32(1);
+  Value *Two = Builder.getInt32(2);
 
-  Module *M = F->getParent();
-  assert(M != nullptr && ") has no parent Module");
+  // The frontend computes doacross source/sink values and trip counts as if
+  // the loops in the loop-nest were normalized. So lbound is always 0, and
+  // stride 1.
+  Value *LBound = Zero;
+  Value *Stride = One;
+  unsigned NumLoops = TripCounts.size();
+  Value *NumLoopsVal = Builder.getInt32(NumLoops);
 
-  LLVMContext &C = F->getContext();
-
-  Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int32Ty = Type::getInt32Ty(C);
-  Value *Zero = ConstantInt::get(Int32Ty, 0);
-  Value *One = ConstantInt::get(Int32Ty, 1);
-  Value *Two = ConstantInt::get(Int32Ty, 2);
-
-  // The dims vector needs to be a struct of 3 i64s,  which should contain
-  // lb, ub and stride respectively. Note that since the incoming loop is
-  // already collapsed, there is only one struct needed, not an array of
-  // these structs.
+  // The dims vector needs a struct for each loop in the nest. The struct has 3
+  // i64s, which should contain lb, ub and stride respectively.
   StructType *DimsVecTy = StructType::get(C, {Int64Ty, Int64Ty, Int64Ty});
 
-  // (1) Create alloca for the struct.
-  const DataLayout &DL = M->getDataLayout();
-  AllocaInst *DimsVec = new AllocaInst(
-      DimsVecTy, DL.getAllocaAddrSpace(), nullptr, 16, "dims.vec");
-  DimsVec->insertBefore(InsertPt);
+  // (1) Create alloca for an array of size NumLoops of the struct.
+  AllocaInst *DimsVec =
+      Builder.CreateAlloca(DimsVecTy, NumLoopsVal, "dims.vec");
 
-  auto populateDimsVecAtIndex = [&](Value *Index, Value *ValPtr) {
-    assert(isa<AllocaInst>(ValPtr) &&
-           "populateDimsVecAtIndex: ValPtr is not an Alloca.");
-
-    Value *ValLoad = new LoadInst(ValPtr, "", InsertPt);   // (2), (6), (10)
-    CastInst *ValCast = CastInst::CreateSExtOrBitCast(
-        ValLoad, Int64Ty, "", InsertPt);                   // (3), (7), (11)
-    GetElementPtrInst *DstPtr = GetElementPtrInst::CreateInBounds(
-        DimsVec, {Zero, Index}, "", InsertPt);             // (4), (8), (12)
-    StoreInst *DstStore = new StoreInst(ValCast, DstPtr);  // (5), (9), (13)
-    DstStore->insertBefore(InsertPt);
+  auto populateDimsVecAtIndex = [&](Value *Base, Value *Index, Value *Val) {
+    Value *ValCast = Builder.CreateSExtOrBitCast(Val, Int64Ty);
+    Value *DstPtr = Builder.CreateInBoundsGEP(
+        Base, {Zero, Index});                     // (3) (5) (7) (10) (12) (14)
+    Builder.CreateStore(ValCast, DstPtr);         // (4) (6) (8) (11) (13) (15)
   };
 
-  // Store lbound to index 0 of the struct.
-  populateDimsVecAtIndex(Zero, LBound);  // (2), (3), (4), (5)
+  for (unsigned I = 0; I < NumLoops; ++I) {
 
-  // Store ubound to index 1 of the struct.
-  populateDimsVecAtIndex(One, UBound);   // (6), (7), (8), (9)
+    // Since the values for doacross runtime calls are based on normalized loop
+    // bounds with lbound 0 and stride 1, trip count of a loop is its ubound.
+    Value *UBound = TripCounts[I];
 
-  // Store stride to index 2 of the struct.
-  populateDimsVecAtIndex(Two, Stride);   // (10), (11), (12), (13)
+    // First get a handle on the DimsVecTy struct for this loop from the array.
+    Value *DimsVecForLoopI =
+        Builder.CreateInBoundsGEP(DimsVec, {Builder.getInt32(I)}); //   (2) (9)
+
+    // Store lbound to index 0 of the struct.
+    populateDimsVecAtIndex(DimsVecForLoopI, Zero, LBound); // (3) (4) (10) (11)
+
+    // Store ubound to index 1 of the struct.
+    populateDimsVecAtIndex(DimsVecForLoopI, One, UBound); //  (5) (6) (12) (13)
+
+    // Store stride to index 2 of the struct.
+    populateDimsVecAtIndex(DimsVecForLoopI, Two, Stride); //  (7) (8) (14) (15)
+  }
+
+  // Next, we cast our array of structs to I8* before sending it to the runtime.
+  Value *DimsVecI8 =
+      Builder.CreateBitCast(DimsVec, Builder.getInt8PtrTy()); //           (16)
 
   // Emit the call to __kmpc_doacross_init.
-  CallInst *Call = genKmpcCall(W, IdentTy, InsertPt, "__kmpc_doacross_init",
-                               nullptr, {Tid, One, DimsVec}); // (14)
+  CallInst *Call =
+      genKmpcCall(W, IdentTy, InsertPt, "__kmpc_doacross_init", nullptr,
+                  {Tid, NumLoopsVal, DimsVecI8}); //                  (17) (18)
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross init call emitted.\n");
 

@@ -585,7 +585,6 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_PROC_BIND_SPREAD:
     case QUAL_OMP_ORDERED_THREADS:
     case QUAL_OMP_ORDERED_SIMD:
-    case QUAL_OMP_DEPEND_SOURCE:
     case QUAL_OMP_CANCEL_PARALLEL:
     case QUAL_OMP_CANCEL_LOOP:
     case QUAL_OMP_CANCEL_SECTIONS:
@@ -599,7 +598,6 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_IF:
     case QUAL_OMP_NAME:
     case QUAL_OMP_NUM_THREADS:
-    case QUAL_OMP_ORDERED:
     case QUAL_OMP_FINAL:
     case QUAL_OMP_GRAINSIZE:
     case QUAL_OMP_NUM_TASKS:
