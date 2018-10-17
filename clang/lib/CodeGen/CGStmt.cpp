@@ -77,32 +77,36 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 
 #if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
-    if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
-      return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPForDirectiveClass)
-      return EmitIntelOMPForDirective(cast<OMPForDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
-      return EmitIntelOMPParallelForDirective(
-                                cast<OMPParallelForDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPParallelForSimdDirectiveClass)
-      return EmitIntelOMPParallelForSimdDirective(
-                                cast<OMPParallelForSimdDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPTaskLoopDirectiveClass)
-      return EmitIntelOMPTaskLoopDirective(
-                                cast<OMPTaskLoopDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPTaskLoopSimdDirectiveClass)
-      return EmitIntelOMPTaskLoopSimdDirective(
-                                cast<OMPTaskLoopSimdDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPDistributeDirectiveClass)
-      return EmitIntelOMPDistributeDirective(cast<OMPDistributeDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPDistributeParallelForDirectiveClass)
-      return EmitIntelOMPDistributeParallelForDirective(
-          cast<OMPDistributeParallelForDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPDistributeParallelForSimdDirectiveClass)
-      return EmitIntelOMPDistributeParallelForSimdDirective(
-          cast<OMPDistributeParallelForSimdDirective>(*S));
+    // Combined target directives
+    if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetParallelForDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetParallelForSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDistributeDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_target);
+    }
+    // Combined teams directives
+    if (S->getStmtClass() == Stmt::OMPTeamsDistributeDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_teams);
+    }
+    if (auto *LoopDir = dyn_cast<OMPLoopDirective>(S))
+      return EmitLateOutlineOMPLoopDirective(*LoopDir,
+                                             LoopDir->getDirectiveKind());
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
-      return EmitIntelOpenMPDirective(*Dir);
+      return EmitLateOutlineOMPDirective(*Dir);
   }
 #endif // INTEL_CUSTOMIZATION
 

@@ -23,6 +23,7 @@ void foo(int *arr1, int **arr2) {
   // CHECK: [[OMP_IV72:%.omp.iv.*]] = alloca i32,
   // CHECK: [[KLCV:%k.*]] = alloca i32,
   // CHECK: [[OMP_IV88:%.omp.iv.*]] = alloca i32,
+  // CHECK: [[OMP_IVAAA:%.omp.iv.*]] = alloca i32,
   // CHECK: [[OMP_IV105:%.omp.iv.*]] = alloca i32,
   // CHECK: [[OMP_IV138:%.omp.iv.*]] = alloca i32,
   // CHECK: [[OMP_IV178:%.omp.iv.*]] = alloca i32,
@@ -82,6 +83,23 @@ void foo(int *arr1, int **arr2) {
   #pragma omp for
   for (int k=0; k<10; k++) {
     bar(k);
+  }
+
+// CHECK: [[TOKENVAL0:%[0-9]+]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "DIR.OMP.LOOP"()
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IVAAA]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
+// CHECK: [[TOKENVAL1:%[0-9]+]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "DIR.OMP.SIMD"()
+// CHECK-SAME: "QUAL.OMP.SAFELEN"(i32 4)
+// CHECK: call void @llvm.directive.region.exit(token [[TOKENVAL1]])
+// CHECK-SAME: [ "DIR.OMP.END.SIMD"() ]
+// CHECK: call void @llvm.directive.region.exit(token [[TOKENVAL0]])
+// CHECK-SAME: [ "DIR.OMP.END.LOOP"() ]
+  #pragma omp for simd safelen(4)
+  for (iter = first1(); iter < last1(); ++iter) {
+    int pr = 4;
+    arr1[iter] = 42+iter+pr;
   }
 
 // CHECK: [[TOKENVAL0:%[0-9]+]] = call token @llvm.directive.region.entry()

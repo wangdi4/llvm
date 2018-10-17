@@ -1349,12 +1349,7 @@ void CodeGenFunction::EmitOMPInnerLoop(
     const Stmt &S, bool RequiresCleanup, const Expr *LoopCond,
     const Expr *IncExpr,
     const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
-#if INTEL_CUSTOMIZATION
-    const llvm::function_ref<void(CodeGenFunction &)> PostIncGen,
-    llvm::BasicBlock *IncomingBlock,
-    const Expr *IterationVariable) {
-    CodeGenFunction::OMPPrivateScope PrivScope(*this);
-#endif // INTEL_CUSTOMIZATION
+    const llvm::function_ref<void(CodeGenFunction &)> PostIncGen) {
   auto LoopExit = getJumpDestInCurrentScope("omp.inner.for.end");
 
   // Start the loop with a block that tests the condition.
@@ -4986,37 +4981,8 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 }
 
 #if INTEL_CUSTOMIZATION
-void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
-                                            OMPPrivateScope &PrivScope) {
-  SmallVector<const Expr *, 5> RemapVars;
-  for (const auto *C : D.getClausesOfKind<OMPPrivateClause>())
-     for (const auto *Ref : C->varlists())
-       RemapVars.push_back(Ref);
-  for (const auto *C : D.getClausesOfKind<OMPFirstprivateClause>())
-     for (const auto *Ref : C->varlists())
-       RemapVars.push_back(Ref);
-  for (const auto *C : D.getClausesOfKind<OMPLastprivateClause>())
-     for (const auto *Ref : C->varlists())
-       RemapVars.push_back(Ref);
-  for (const auto *C : D.getClausesOfKind<OMPReductionClause>())
-     for (const auto *Ref : C->varlists())
-       RemapVars.push_back(Ref);
-
-  for (const auto *Ref : RemapVars) {
-    if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
-      if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-        if (isa<OMPCapturedExprDecl>(VD)) {
-          PrivScope.addPrivateNoTemps(VD, [this, VD]() -> Address {
-            return EmitLValue(VD->getAnyInitializer()).getAddress();
-          });
-        }
-      }
-    }
-  }
-}
-
-void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
-                                       OpenMPDirectiveKind K) {
+void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
+                                             OpenMPDirectiveKind Kind) {
   // Emit the loop iteration variable.
   auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
   auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
@@ -5060,21 +5026,21 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getStrideVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getIsLastIterVariable()));
-    } else if (S.getDirectiveKind() == OMPD_simd) {
+    } else if (Kind == OMPD_simd) {
       EmitOMPHelperVar(*this,
                        cast<DeclRefExpr>(S.getLateOutlineUpperBoundVariable()));
     }
 
     // Emit 'then' code.
     {
-      CGIntelOpenMP::OpenMPCodeOutliner Outliner(*this, S);
+      CGIntelOpenMP::OpenMPCodeOutliner Outliner(*this, S, Kind);
       CGIntelOpenMP::InlinedOpenMPRegionRAII Region(*this, Outliner, S);
       OMPPrivateScope LoopScope(*this);
 
       auto LoopExit =
           getJumpDestInCurrentScope(createBasicBlock("omp.loop.exit"));
 
-      switch (K) {
+      switch (Kind) {
       case OMPD_distribute:
         Outliner.emitOMPDistributeDirective();
         break;
@@ -5083,6 +5049,9 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
         break;
       case OMPD_for:
         Outliner.emitOMPForDirective();
+        break;
+      case OMPD_for_simd:
+        Outliner.emitOMPForSimdDirective();
         break;
       case OMPD_parallel_for:
         Outliner.emitOMPParallelForDirective();
@@ -5102,6 +5071,9 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       case OMPD_distribute_parallel_for_simd:
         Outliner.emitOMPDistributeParallelForSimdDirective();
         break;
+      case OMPD_distribute_simd:
+        Outliner.emitOMPDistributeSimdDirective();
+        break;
       default:
         llvm_unreachable("unexpected loop kind");
       }
@@ -5113,7 +5085,8 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
         ThenBlock = Builder.GetInsertBlock();
       EmitOMPInnerLoop(
           S, LoopScope.requiresCleanups(),
-          (K == OMPD_simd ? S.getLateOutlineCond() : S.getCond()), S.getInc(),
+          (Kind == OMPD_simd ? S.getLateOutlineCond() : S.getCond()),
+          S.getInc(),
           [&S, LoopExit](CodeGenFunction &CGF) {
             CGF.EmitOMPLoopBody(S, LoopExit);
             CGF.EmitStopPoint(&S);
@@ -5136,8 +5109,7 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
                   CGF.EmitIgnoredExpr(FinalExpr);
               }
             }
-          },
-          ThenBlock, S.getIterationVariable());
+          });
       EmitBlock(LoopExit.getBlock());
     }
 
@@ -5148,92 +5120,6 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
     }
   }
 }
-
-static void emitIntelDirective(CodeGenFunction &CGF,
-                               OpenMPDirectiveKind InnerKind,
-                               const RegionCodeGenTy &CodeGen) {
-  if (!CGF.HaveInsertPoint())
-    return;
-  CGF.EHStack.pushTerminate();
-  CodeGen(CGF);
-  CGF.EHStack.popTerminate();
-}
-
-void CodeGenFunction::EmitIntelOMPSimdDirective(const OMPSimdDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_unknown);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_simd);
-  };
-  emitIntelDirective(*this, OMPD_simd, CodeGen);
-}
-
-void CodeGenFunction::EmitIntelOMPForDirective(const OMPForDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_unknown);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_for);
-  };
-  emitIntelDirective(*this, OMPD_for, CodeGen);
-}
-
-void CodeGenFunction::EmitIntelOMPParallelForDirective(
-                                      const OMPParallelForDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_parallel);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_parallel_for);
-  };
-  emitIntelDirective(*this, OMPD_parallel_for, CodeGen);
-}
-void CodeGenFunction::EmitIntelOMPParallelForSimdDirective(
-                                      const OMPParallelForSimdDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_parallel);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_parallel_for_simd);
-  };
-  emitIntelDirective(*this, OMPD_parallel_for_simd, CodeGen);
-}
-void CodeGenFunction::EmitIntelOMPTaskLoopDirective(
-                                             const OMPTaskLoopDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_taskloop);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_taskloop);
-  };
-  emitIntelDirective(*this, OMPD_taskloop, CodeGen);
-}
-void CodeGenFunction::EmitIntelOMPTaskLoopSimdDirective(
-                                         const OMPTaskLoopSimdDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_taskloop);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_taskloop_simd);
-  };
-  emitIntelDirective(*this, OMPD_taskloop_simd, CodeGen);
-}
-void CodeGenFunction::EmitIntelOMPDistributeDirective(
-                                         const OMPDistributeDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_unknown);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_distribute);
-  };
-  emitIntelDirective(*this, OMPD_distribute, CodeGen);
-}
-
-void CodeGenFunction::EmitIntelOMPDistributeParallelForDirective(
-    const OMPDistributeParallelForDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_parallel);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_distribute_parallel_for);
-  };
-  emitIntelDirective(*this, OMPD_distribute_parallel_for, CodeGen);
-}
-
-void CodeGenFunction::EmitIntelOMPDistributeParallelForSimdDirective(
-    const OMPDistributeParallelForSimdDirective &S) {
-  OMPLateOutlineLexicalScope Scope(*this, S, OMPD_parallel);
-  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
-    CGF.EmitIntelOMPLoop(S, OMPD_distribute_parallel_for_simd);
-  };
-  emitIntelDirective(*this, OMPD_distribute_parallel_for_simd, CodeGen);
-}
-
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitSimpleOMPExecutableDirective(

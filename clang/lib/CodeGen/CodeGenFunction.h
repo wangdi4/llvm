@@ -3330,11 +3330,7 @@ public:
       const Stmt &S, bool RequiresCleanup, const Expr *LoopCond,
       const Expr *IncExpr,
       const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
-#if INTEL_CUSTOMIZATION
-      const llvm::function_ref<void(CodeGenFunction &)> PostIncGen,
-      llvm::BasicBlock *IncomingBlock = nullptr,
-      const Expr *IterationVariable = nullptr);
-#endif // INTEL_CUSTOMIZATION
+      const llvm::function_ref<void(CodeGenFunction &)> PostIncGen);
 
   JumpDest getOMPCancelDestination(OpenMPDirectiveKind Kind);
   /// Emit initial code for loop counters of loop-based directives.
@@ -3421,20 +3417,14 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_CUSTOMIZATION
-  void EmitIntelOpenMPDirective(const OMPExecutableDirective &S);
-  void EmitIntelOMPLoop(const OMPLoopDirective &S, OpenMPDirectiveKind K);
-  void EmitIntelOMPSimdDirective(const OMPSimdDirective &S);
-  void EmitIntelOMPForDirective(const OMPForDirective &S);
-  void EmitIntelOMPParallelForDirective(const OMPParallelForDirective &S);
-  void EmitIntelOMPParallelForSimdDirective(
-                                    const OMPParallelForSimdDirective &S);
-  void EmitIntelOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
-  void EmitIntelOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
-  void EmitIntelOMPDistributeDirective(const OMPDistributeDirective &S);
-  void EmitIntelOMPDistributeParallelForDirective(
-      const OMPDistributeParallelForDirective &S);
-  void EmitIntelOMPDistributeParallelForSimdDirective(
-      const OMPDistributeParallelForSimdDirective &S);
+  void EmitLateOutlineOMPDirective(const OMPExecutableDirective &S,
+                                   OpenMPDirectiveKind Kind = OMPD_unknown);
+
+  void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
+                                       OpenMPDirectiveKind Kind);
+
+  void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
+                              OpenMPDirectiveKind Kind);
 
 public:
   void RemapForLateOutlining(const OMPExecutableDirective &D,
