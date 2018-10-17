@@ -495,7 +495,12 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
                              const ArgList &Args, bool IsOffloadingHost,
                              bool GompNeedsRT) {
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+#if INTEL_COLLAB
+                    options::OPT_fno_openmp, false) &&
+      !Args.hasArg(options::OPT_fiopenmp))
+#else
                     options::OPT_fno_openmp, false))
+#endif // INTEL_COLLAB
     return false;
 
   switch (TC.getDriver().getOpenMPRuntime(Args)) {

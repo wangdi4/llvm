@@ -629,7 +629,12 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
       // i.e. libomp or libiomp.
       bool HasValidOpenMPRuntime = C.getInputArgs().hasFlag(
           options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+#if INTEL_COLLAB
+          options::OPT_fno_openmp, false) ||
+          C.getInputArgs().hasArg(options::OPT_fiopenmp);
+#else
           options::OPT_fno_openmp, false);
+#endif // INTEL_COLLAB
       if (HasValidOpenMPRuntime) {
         OpenMPRuntimeKind OpenMPKind = getOpenMPRuntime(C.getInputArgs());
         HasValidOpenMPRuntime =

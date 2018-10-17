@@ -4191,11 +4191,23 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_fdiagnostics_show_template_tree);
   Args.AddLastArg(CmdArgs, options::OPT_fno_elide_type);
+#if INTEL_COLLAB
+  if (Args.hasArg(options::OPT_fiopenmp)) {
+    CmdArgs.push_back("-fintel-openmp-region");
+    CmdArgs.push_back("-fopenmp-threadprivate-legacy");
+  }
+#endif // INTEL_COLLAB
 
   // Forward flags for OpenMP. We don't do this if the current action is an
   // device offloading action other than OpenMP.
+#if INTEL_COLLAB
+  if ((Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+                    options::OPT_fno_openmp, false) ||
+       Args.hasArg(options::OPT_fiopenmp)) &&
+#else
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                    options::OPT_fno_openmp, false) &&
+#endif // INTEL_COLLAB
       (JA.isDeviceOffloading(Action::OFK_None) ||
        JA.isDeviceOffloading(Action::OFK_OpenMP))) {
     switch (D.getOpenMPRuntime(Args)) {
@@ -4947,12 +4959,43 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // along to tell the frontend that it is generating code for a device, so that
   // only the relevant declarations are emitted.
   if (IsOpenMPDevice) {
+#if INTEL_COLLAB
+    if (!Args.hasArg(options::OPT_fiopenmp))
+#endif // INTEL_COLLAB
     CmdArgs.push_back("-fopenmp-is-device");
     if (OpenMPDeviceInput) {
       CmdArgs.push_back("-fopenmp-host-ir-file-path");
       CmdArgs.push_back(Args.MakeArgString(OpenMPDeviceInput->getFilename()));
     }
   }
+#if INTEL_COLLAB
+  // fixup -paropt value
+  if (Args.hasArg(options::OPT_fiopenmp)) {
+    int paroptVal = IsOpenMPDevice ? 0x20 : 0x0;
+    bool paroptSeen = false;
+    StringRef paropt = "31";
+
+    for (const Arg *A : Args.filtered(options::OPT_mllvm)) {
+      StringRef Str(A->getValue(0));
+      if (Str.startswith("-paropt=")) {
+        paropt = &Str.str()[Str.find('=', 0) + 1];
+        paroptSeen = true;
+      }
+      // FIXME: adds overriding -paropt value instead of replacing
+    }
+    int ValueInt;
+    if (paropt.getAsInteger(10, ValueInt)) {
+      getToolChain().getDriver().Diag(
+                  diag::err_drv_unsupported_option_argument)
+                  << "-paropt=" << paropt;
+    }
+    paroptVal |= ValueInt;
+    if (!paroptSeen || (paroptVal != ValueInt && paroptSeen)) {
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back(Args.MakeArgString("-paropt=" + Twine(paroptVal)));
+    }
+  }
+#endif // INTEL_COLLAB
 
   // For all the host OpenMP offloading compile jobs we need to pass the targets
   // information using -fopenmp-targets= option.
