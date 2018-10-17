@@ -175,6 +175,10 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
 
         int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClause);
 
+        if (WRegionUtils::skipDirFromWrnConstruction(DirID))
+          // Ignore DirID, which is likely a new Dir still under development
+          continue;
+
         // If the intrinsic represents an intel BEGIN directive, then
         // W is a pointer to an object for the corresponding WRN.
         // Otherwise, W is nullptr.

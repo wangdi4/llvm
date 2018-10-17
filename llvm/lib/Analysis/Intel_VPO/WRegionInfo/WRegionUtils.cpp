@@ -296,6 +296,23 @@ WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
 }
 #endif // INTEL_CUSTOMIZATION
 
+// New OpenMP directives under development can be added to this routine
+// to make the WRN graph builder skip them instead of asserting.
+bool WRegionUtils::skipDirFromWrnConstruction(int DirID) {
+#if INTEL_CUSTOMIZATION
+  switch (DirID) {
+  case DIR_PRAGMA_IVDEP:
+  case DIR_PRAGMA_END_IVDEP:
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+  // Example:
+  // if (DirID == A_NEW_DIRECTIVE_UNDER_DEVELOPMENT)
+  //   // remove from this routine when directive is fully implemented
+  //   return true;
+  return false;
+}
+
 // Clause Utilities
 int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
   switch (Kind) {

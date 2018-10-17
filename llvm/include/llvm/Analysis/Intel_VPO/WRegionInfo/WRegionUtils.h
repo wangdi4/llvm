@@ -197,6 +197,10 @@ public:
   static WRContainerImpl *buildWRGraphFromHIR(loopopt::HIRFramework &HIRF);
 #endif // INTEL_CUSTOMIZATION
 
+  /// New OpenMP directives under development can be added to this routine
+  /// to make the WRN graph builder skip them instead of asserting.
+  static bool skipDirFromWrnConstruction(int DirID);
+
   /// Removal Utilities
 
   /// \brief Destroys the passed in WRegion node.

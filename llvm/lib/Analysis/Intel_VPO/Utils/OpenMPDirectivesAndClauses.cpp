@@ -227,6 +227,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
+  case DIR_PRAGMA_IVDEP:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
@@ -272,6 +273,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
+  case DIR_PRAGMA_END_IVDEP:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
@@ -459,6 +461,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   // Non-OpenMP Directives
   case DIR_VPO_AUTO_VEC:
     return DIR_VPO_END_AUTO_VEC;
+  case DIR_PRAGMA_IVDEP:
+    return DIR_PRAGMA_END_IVDEP;
 #endif // INTEL_CUSTOMIZATION
 
   // StandAlone Directives
