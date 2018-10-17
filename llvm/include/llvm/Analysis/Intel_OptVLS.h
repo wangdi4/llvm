@@ -267,6 +267,11 @@ public:
   /// \brief Returns true if this and Memref have the same number of elements.
   virtual bool haveSameNumElements(const OVLSMemref &Memref) = 0;
 
+  /// \brief Returns true if this and Memref have the same OVLSType.
+  virtual bool haveSameOVLSType(const OVLSMemref &Memref) {
+    return (DType == Memref.getType());
+  }
+
   /// \brief Returns true if this can move to the location of \p Memref. This
   /// means it does not violate any program/control flow semantics nor any
   /// memory dependencies. I.e., this is still alive at the location of
@@ -414,6 +419,7 @@ public:
     return MemrefVec[0]->getType().getNumElements();
   }
 
+  // Currently we assume that the group has Memrefs with same datatype.
   uint32_t getElemSize() const {
     return MemrefVec[0]->getType().getElementSize();
   }

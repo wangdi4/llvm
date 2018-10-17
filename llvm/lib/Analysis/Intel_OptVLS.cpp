@@ -1314,6 +1314,12 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
           Memref->getAccessType() == SetFirstSeenMrf->getAccessType() &&
           // same number of vector elements
           Memref->haveSameNumElements(*SetFirstSeenMrf) &&
+          // Check the size of the dataelements.
+          // Currently we support grouping Memrefs with same elementsize.
+          // Note that this check redundantly also checks the number of vector
+          // elements. We still keep it, so that when we extend to support
+          // different sized neighbors, we only remove this check below.
+          Memref->haveSameOVLSType(*SetFirstSeenMrf) &&
           // are a const distance apart
           // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get
           // Dist(Memref).

@@ -110,12 +110,9 @@ public:
     // to move FromRef, then there will be a DDG edge between any such nodes
     // and FromRef. If that's not the case we need to explicitly check for such
     // nodes (e.f. function calls?).
-    RegDDRef *RegRef = const_cast<RegDDRef *>(FromRef);
     const DDGraph &DDG = getDDGraph();
-    for (auto II = DDG.outgoing_edges_begin(RegRef),
-              EE = DDG.outgoing_edges_end(RegRef);
-         II != EE; ++II) {
-      const DDEdge *Edge = *II;
+    auto hasDependency = [](const HLDDNode *FromDDNode, const HLDDNode *ToDDNode,
+                            const DDEdge *Edge) -> bool {
       DDRef *SinkRef = Edge->getSink();
       HLDDNode *SinkNode = SinkRef->getHLDDNode();
       // DEBUG(dbgs() << "\nmove past loc " << HNode->getTopSortNum() << ". ");
@@ -128,15 +125,30 @@ public:
       // a stronger check for the general case
       if (!HLNodeUtils::isInTopSortNumRange(SinkNode, FromDDNode, ToDDNode) &&
           !HLNodeUtils::isInTopSortNumRange(SinkNode, ToDDNode, FromDDNode)) {
-        continue;
+        return false;
       }
       // Lastly: Check the dependence edge.
       if (Edge->getSrc() == Edge->getSink())
-        continue;
-      if (Edge->isINPUTdep())
-        continue;
-      else
         return false;
+      if (Edge->isINPUTdep())
+        return false;
+      return true;
+    };
+    for (auto RefIt = FromDDNode->all_dd_begin(),
+              RefEndIt = FromDDNode->all_dd_end(); RefIt != RefEndIt; ++RefIt) {
+      for (auto II = DDG.outgoing_edges_begin(*RefIt),
+                EE = DDG.outgoing_edges_end(*RefIt);
+           II != EE; ++II) {
+        if (hasDependency(FromDDNode, ToDDNode, *II))
+          return false;
+      }
+
+      for (auto II = DDG.incoming_edges_begin(*RefIt),
+                EE = DDG.incoming_edges_end(*RefIt);
+           II != EE; ++II) {
+        if (hasDependency(FromDDNode, ToDDNode, *II))
+          return false;
+      }
     }
     return true;
   }

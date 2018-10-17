@@ -55,7 +55,7 @@ static cl::opt<bool>
     EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
                        cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
-static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(false),
+static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(true),
                                       cl::Hidden,
                                       cl::desc("Enable VLS code generation"));
 

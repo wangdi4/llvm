@@ -24,7 +24,7 @@
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
-static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(false),
+static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(true),
                                cl::desc("Consider cost returned by OVLSCostModel "
                                         "for optimized gathers and scatters."));
 
