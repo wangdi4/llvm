@@ -117,18 +117,15 @@ ClangdServer::ClangdServer(GlobalCompilationDatabase &CDB,
                                : nullptr,
                     Opts.UpdateDebounce, Opts.RetentionPolicy) {
   if (DynamicIdx && Opts.StaticIndex) {
-    MergedIndex = mergeIndex(&DynamicIdx->index(), Opts.StaticIndex);
-    Index = MergedIndex.get();
+    MergedIdx =
+        llvm::make_unique<MergedIndex>(DynamicIdx.get(), Opts.StaticIndex);
+    Index = MergedIdx.get();
   } else if (DynamicIdx)
-    Index = &DynamicIdx->index();
+    Index = DynamicIdx.get();
   else if (Opts.StaticIndex)
     Index = Opts.StaticIndex;
   else
     Index = nullptr;
-}
-
-const SymbolIndex *ClangdServer::dynamicIndex() const {
-  return DynamicIdx ? &DynamicIdx->index() : nullptr;
 }
 
 void ClangdServer::setRootPath(PathRef RootPath) {
@@ -181,8 +178,6 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
     if (isCancelled())
       return CB(llvm::make_error<CancelledError>());
 
-    auto PreambleData = IP->Preamble;
-
     llvm::Optional<SpeculativeFuzzyFind> SpecFuzzyFind;
     if (CodeCompleteOpts.Index && CodeCompleteOpts.SpeculativeIndexRequest) {
       SpecFuzzyFind.emplace();
@@ -195,10 +190,8 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
     // FIXME(ibiryukov): even if Preamble is non-null, we may want to check
     // both the old and the new version in case only one of them matches.
     CodeCompleteResult Result = clangd::codeComplete(
-        File, IP->Command, PreambleData ? &PreambleData->Preamble : nullptr,
-        PreambleData ? PreambleData->Includes : IncludeStructure(),
-        IP->Contents, Pos, FS, PCHs, CodeCompleteOpts,
-        SpecFuzzyFind ? SpecFuzzyFind.getPointer() : nullptr);
+        File, IP->Command, IP->Preamble, IP->Contents, Pos, FS, PCHs,
+        CodeCompleteOpts, SpecFuzzyFind ? SpecFuzzyFind.getPointer() : nullptr);
     {
       clang::clangd::trace::Span Tracer("Completion results callback");
       CB(std::move(Result));
@@ -231,9 +224,8 @@ void ClangdServer::signatureHelp(PathRef File, Position Pos,
       return CB(IP.takeError());
 
     auto PreambleData = IP->Preamble;
-    CB(clangd::signatureHelp(File, IP->Command,
-                             PreambleData ? &PreambleData->Preamble : nullptr,
-                             IP->Contents, Pos, FS, PCHs, Index));
+    CB(clangd::signatureHelp(File, IP->Command, PreambleData, IP->Contents, Pos,
+                             FS, PCHs, Index));
   };
 
   // Unlike code completion, we wait for an up-to-date preamble here.

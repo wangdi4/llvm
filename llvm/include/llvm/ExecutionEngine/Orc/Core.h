@@ -146,7 +146,7 @@ class MaterializationResponsibility {
 public:
   MaterializationResponsibility(MaterializationResponsibility &&) = default;
   MaterializationResponsibility &
-  operator=(MaterializationResponsibility &&) = default;
+  operator=(MaterializationResponsibility &&) = delete;
 
   /// Destruct a MaterializationResponsibility instance. In debug mode
   ///        this asserts that all symbols being tracked have been either
@@ -167,7 +167,7 @@ public:
   /// MaterializationResponsibility object that have queries pending. This
   /// information can be used to return responsibility for unrequested symbols
   /// back to the JITDylib via the delegate method.
-  SymbolNameSet getRequestedSymbols();
+  SymbolNameSet getRequestedSymbols() const;
 
   /// Notifies the target JITDylib that the given symbols have been resolved.
   /// This will update the given symbols' addresses in the JITDylib, and notify
@@ -623,7 +623,7 @@ private:
 
   void replace(std::unique_ptr<MaterializationUnit> MU);
 
-  SymbolNameSet getRequestedSymbols(const SymbolFlagsMap &SymbolFlags);
+  SymbolNameSet getRequestedSymbols(const SymbolFlagsMap &SymbolFlags) const;
 
   void addDependencies(const SymbolStringPtr &Name,
                        const SymbolDependenceMap &Dependants);
@@ -661,8 +661,11 @@ public:
   /// SymbolStringPools may be shared between ExecutionSessions.
   ExecutionSession(std::shared_ptr<SymbolStringPool> SSP = nullptr);
 
-  /// Returns the SymbolStringPool for this ExecutionSession.
-  SymbolStringPool &getSymbolStringPool() const { return *SSP; }
+  /// Add a symbol name to the SymbolStringPool and return a pointer to it.
+  SymbolStringPtr intern(StringRef SymName) { return SSP->intern(SymName); }
+
+  /// Returns a shared_ptr to the SymbolStringPool for this ExecutionSession.
+  std::shared_ptr<SymbolStringPool> getSymbolStringPool() const { return SSP; }
 
   /// Run the given lambda with the session mutex locked.
   template <typename Func> auto runSessionLocked(Func &&F) -> decltype(F()) {
@@ -737,7 +740,7 @@ public:
   /// dependenant symbols for this query (e.g. it is being made by a top level
   /// client to get an address to call) then the value NoDependenciesToRegister
   /// can be used.
-  void lookup(const JITDylibList &JDs, const SymbolNameSet &Symbols,
+  void lookup(const JITDylibList &JDs, SymbolNameSet Symbols,
               SymbolsResolvedCallback OnResolve, SymbolsReadyCallback OnReady,
               RegisterDependenciesFunction RegisterDependencies);
 

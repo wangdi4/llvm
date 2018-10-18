@@ -76,6 +76,11 @@ BasicIRLayerMaterializationUnit::BasicIRLayerMaterializationUnit(
 void BasicIRLayerMaterializationUnit::materialize(
     MaterializationResponsibility R) {
 
+  // Throw away the SymbolToDefinition map: it's not usable after we hand
+  // off the module.
+  SymbolToDefinition.clear();
+
+  // If cloneToNewContextOnEmit is set, clone the module now.
   if (L.getCloneToNewContextOnEmit())
     TSM = cloneToNewContext(TSM);
 
@@ -165,7 +170,7 @@ Expected<SymbolFlagsMap> getObjectSymbolFlags(ExecutionSession &ES,
     auto Name = Sym.getName();
     if (!Name)
       return Name.takeError();
-    auto InternedName = ES.getSymbolStringPool().intern(*Name);
+    auto InternedName = ES.intern(*Name);
     auto SymFlags = JITSymbolFlags::fromObjectSymbol(Sym);
     if (!SymFlags)
       return SymFlags.takeError();

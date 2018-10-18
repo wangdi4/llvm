@@ -103,12 +103,15 @@ protected:
   bool HasCCDP = false;
   bool HasBTI = false;
   bool HasRandGen = false;
+  bool HasMTE = false;
 
   // HasZeroCycleRegMove - Has zero-cycle register mov instructions.
   bool HasZeroCycleRegMove = false;
 
   // HasZeroCycleZeroing - Has zero-cycle zeroing instructions.
   bool HasZeroCycleZeroing = false;
+  bool HasZeroCycleZeroingGP = false;
+  bool HasZeroCycleZeroingFP = false;
   bool HasZeroCycleZeroingFPWorkaround = false;
 
   // StrictAlign - Disallow unaligned memory accesses.
@@ -228,7 +231,9 @@ public:
 
   bool hasZeroCycleRegMove() const { return HasZeroCycleRegMove; }
 
-  bool hasZeroCycleZeroing() const { return HasZeroCycleZeroing; }
+  bool hasZeroCycleZeroingGP() const { return HasZeroCycleZeroingGP; }
+
+  bool hasZeroCycleZeroingFP() const { return HasZeroCycleZeroingFP; }
 
   bool hasZeroCycleZeroingFPWorkaround() const {
     return HasZeroCycleZeroingFPWorkaround;
@@ -318,12 +323,13 @@ public:
   bool hasAggressiveFMA() const { return HasAggressiveFMA; }
   bool hasAlternativeNZCV() const { return HasAlternativeNZCV; }
   bool hasFRInt3264() const { return HasFRInt3264; }
-  bool hasSpecRestrict() { return HasSpecRestrict; }
-  bool hasSpecCtrl() { return HasSpecCtrl; }
-  bool hasPredCtrl() { return HasPredCtrl; }
-  bool hasCCDP() { return HasCCDP; }
-  bool hasBTI() { return HasBTI; }
-  bool hasRandGen() { return HasRandGen; }
+  bool hasSpecRestrict() const { return HasSpecRestrict; }
+  bool hasSpecCtrl() const { return HasSpecCtrl; }
+  bool hasPredCtrl() const { return HasPredCtrl; }
+  bool hasCCDP() const { return HasCCDP; }
+  bool hasBTI() const { return HasBTI; }
+  bool hasRandGen() const { return HasRandGen; }
+  bool hasMTE() const { return HasMTE; }
 
   bool isLittleEndian() const { return IsLittle; }
 

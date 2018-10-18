@@ -1280,7 +1280,7 @@ define void @interleave_24i32_out(<24 x i32>* %p, <8 x i32>* %q1, <8 x i32>* %q2
 ; SSE2-NEXT:    pshufd {{.*#+}} xmm3 = xmm11[1,1,2,3]
 ; SSE2-NEXT:    punpckldq {{.*#+}} xmm6 = xmm6[0],xmm3[0],xmm6[1],xmm3[1]
 ; SSE2-NEXT:    shufps {{.*#+}} xmm6 = xmm6[0,1],xmm5[0,3]
-; SSE2-NEXT:    shufps {{.*#+}} xmm5 = xmm5[1,0],xmm11[2,3]
+; SSE2-NEXT:    shufps {{.*#+}} xmm5 = xmm5[1,0],xmm11[2,0]
 ; SSE2-NEXT:    movdqa %xmm0, %xmm3
 ; SSE2-NEXT:    shufps {{.*#+}} xmm3 = xmm3[0,3],xmm5[2,0]
 ; SSE2-NEXT:    movaps %xmm8, %xmm5
@@ -1288,7 +1288,7 @@ define void @interleave_24i32_out(<24 x i32>* %p, <8 x i32>* %q1, <8 x i32>* %q2
 ; SSE2-NEXT:    pshufd {{.*#+}} xmm1 = xmm9[2,3,0,1]
 ; SSE2-NEXT:    punpckldq {{.*#+}} xmm1 = xmm1[0],xmm4[0],xmm1[1],xmm4[1]
 ; SSE2-NEXT:    shufps {{.*#+}} xmm1 = xmm1[0,1],xmm8[0,3]
-; SSE2-NEXT:    shufps {{.*#+}} xmm8 = xmm8[1,0],xmm10[2,3]
+; SSE2-NEXT:    shufps {{.*#+}} xmm8 = xmm8[1,0],xmm10[2,0]
 ; SSE2-NEXT:    movdqa %xmm9, %xmm2
 ; SSE2-NEXT:    shufps {{.*#+}} xmm9 = xmm9[0,3],xmm8[2,0]
 ; SSE2-NEXT:    shufps {{.*#+}} xmm2 = xmm2[1,0],xmm10[0,0]
@@ -1648,8 +1648,8 @@ define void @interleave_24i32_in(<24 x i32>* %p, <8 x i32>* %q1, <8 x i32>* %q2,
 ; AVX2-FAST-NEXT:    vmovups (%rsi), %ymm0
 ; AVX2-FAST-NEXT:    vmovups (%rdx), %ymm1
 ; AVX2-FAST-NEXT:    vmovups (%rcx), %ymm2
-; AVX2-FAST-NEXT:    vpermilps {{.*#+}} xmm3 = xmm1[1,0,2,2]
-; AVX2-FAST-NEXT:    vpermpd {{.*#+}} ymm3 = ymm3[0,1,0,1]
+; AVX2-FAST-NEXT:    vmovaps {{.*#+}} ymm3 = [1,0,2,2,1,0,2,2]
+; AVX2-FAST-NEXT:    vpermps %ymm1, %ymm3, %ymm3
 ; AVX2-FAST-NEXT:    vpermpd {{.*#+}} ymm4 = ymm0[0,0,2,1]
 ; AVX2-FAST-NEXT:    vblendps {{.*#+}} ymm3 = ymm4[0],ymm3[1],ymm4[2,3],ymm3[4],ymm4[5,6],ymm3[7]
 ; AVX2-FAST-NEXT:    vbroadcastsd %xmm2, %ymm4

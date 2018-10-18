@@ -152,7 +152,11 @@ struct DeviceTy {
   int32_t run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
       ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
       int32_t ThreadLimit, uint64_t LoopTripCount);
-
+#if INTEL_COLLAB
+  int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
+      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
+      int32_t ThreadLimit, void *TgtNDLoopDesc);
+#endif // INTEL_COLLAB
 private:
   // Call to RTL
   void init(); // To be called only via DeviceTy::initOnce()
