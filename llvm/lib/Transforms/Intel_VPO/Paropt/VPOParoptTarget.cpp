@@ -238,7 +238,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     //   ...
     //
     Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
-    TerminatorInst *ThenTerm, *ElseTerm;
+    Instruction *ThenTerm, *ElseTerm;
     buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
     InsertPt = ThenTerm;
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
@@ -258,7 +258,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     ConstantInt *ValueZero =
         ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
     Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
-    TerminatorInst *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
+    Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
                                                      false, nullptr, DT, LI);
     Term->getParent()->setName("omp_offload.failed");
     LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(

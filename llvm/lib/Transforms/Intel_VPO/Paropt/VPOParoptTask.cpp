@@ -1289,7 +1289,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
                       DummyTaskTDependRec, NewCall, false);
       } else {
 
-        TerminatorInst *ThenTerm, *ElseTerm;
+        Instruction *ThenTerm, *ElseTerm;
 
         buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
         IRBuilder<> ElseBuilder(ElseTerm);
@@ -1336,8 +1336,8 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
 
 // build the CFG for if clause.
 void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
-                                             TerminatorInst *&ThenTerm,
-                                             TerminatorInst *&ElseTerm,
+                                             Instruction *&ThenTerm,
+                                             Instruction *&ElseTerm,
                                              Instruction *InsertPt) {
   BasicBlock *SplitBeforeBB = InsertPt->getParent();
   SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);

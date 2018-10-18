@@ -2100,8 +2100,8 @@ bool DynCloneImpl::createCallGraphClone(void) {
     LLVM_DEBUG(dbgs() << "      Cmp: " << *Cond << "\n");
 
     // Fix CFG and create new CallInst
-    TerminatorInst *TrueT = nullptr;
-    TerminatorInst *FalseT = nullptr;
+    Instruction *TrueT = nullptr;
+    Instruction *FalseT = nullptr;
     SplitBlockAndInsertIfThenElse(Cond, OrigInst, &TrueT, &FalseT);
     BasicBlock *TrueB = TrueT->getParent();
     BasicBlock *FalseB = FalseT->getParent();

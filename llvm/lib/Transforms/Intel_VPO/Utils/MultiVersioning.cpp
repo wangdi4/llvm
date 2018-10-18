@@ -263,7 +263,7 @@ void VPOUtils::singleRegionMultiVersioning(
   // the DebugLoc info. Note that, ClonedExitBB branches to NewTail
   // automatically after cloning.
   //
-  TerminatorInst *OldTerm = NewHead->getTerminator();
+  Instruction *OldTerm = NewHead->getTerminator();
   TerminatorInst *NewTerm = BranchInst::Create(
           /*ifTrue*/EntryBB, /*ifFalse*/ClonedEntryBB, Cond);
   ReplaceInstWithInst(OldTerm, NewTerm);

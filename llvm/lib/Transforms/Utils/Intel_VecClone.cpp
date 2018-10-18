@@ -1620,7 +1620,7 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
     llvm_unreachable("Unsupported mask compare");
   }
 
-  TerminatorInst *Term = LoopBlock->getTerminator();
+  Instruction *Term = LoopBlock->getTerminator();
   Term->eraseFromParent();
   BranchInst::Create(LoopThenBlock, LoopElseBlock, MaskCmp, LoopBlock);
 

@@ -25,6 +25,7 @@ add_llvm_library(LLVMAnalysis
   Delinearization.cpp
   DemandedBits.cpp
   DependenceAnalysis.cpp
+  DivergenceAnalysis.cpp
   DomPrinter.cpp
   DominanceFrontier.cpp
   EHPersonalities.cpp
@@ -97,6 +98,7 @@ add_llvm_library(LLVMAnalysis
   ScalarEvolutionAliasAnalysis.cpp
   ScalarEvolutionExpander.cpp
   ScalarEvolutionNormalization.cpp
+  SyncDependenceAnalysis.cpp
   SyntheticCountsUtils.cpp
   TargetLibraryInfo.cpp
   TargetTransformInfo.cpp

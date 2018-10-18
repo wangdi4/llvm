@@ -590,6 +590,10 @@ public:
   /// Enable matching of interleaved access groups.
   bool enableInterleavedAccessVectorization() const;
 
+  /// Enable matching of interleaved access groups that contain predicated 
+  /// accesses and are vectorized using masked vector loads/stores.
+  bool enableMaskedInterleavedAccessVectorization() const;
+
   /// Indicate that it is potentially unsafe to automatically vectorize
   /// floating-point operations because the semantics of vector and scalar
   /// floating-point semantics may differ. For example, ARM NEON v7 SIMD math
@@ -825,9 +829,11 @@ public:
   ///    load allows gaps)
   /// \p Alignment is the alignment of the memory operation
   /// \p AddressSpace is address space of the pointer.
+  /// \p IsMasked indicates if the memory access is predicated.
   int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
                                  ArrayRef<unsigned> Indices, unsigned Alignment,
-                                 unsigned AddressSpace) const;
+                                 unsigned AddressSpace, 
+                                 bool IsMasked = false) const;
 
   /// Calculate the cost of performing a vector reduction.
   ///
@@ -1088,6 +1094,7 @@ public:
   virtual const MemCmpExpansionOptions *enableMemCmpExpansion(
       bool IsZeroCmp) const = 0;
   virtual bool enableInterleavedAccessVectorization() = 0;
+  virtual bool enableMaskedInterleavedAccessVectorization() = 0;
   virtual bool isFPVectorizationPotentiallyUnsafe() = 0;
   virtual bool allowsMisalignedMemoryAccesses(LLVMContext &Context,
                                               unsigned BitWidth,
@@ -1148,7 +1155,8 @@ public:
                                          unsigned Factor,
                                          ArrayRef<unsigned> Indices,
                                          unsigned Alignment,
-                                         unsigned AddressSpace) = 0;
+                                         unsigned AddressSpace,
+                                         bool IsMasked = false) = 0;
   virtual int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
                                          bool IsPairwiseForm) = 0;
   virtual int getMinMaxReductionCost(Type *Ty, Type *CondTy,
@@ -1372,6 +1380,9 @@ public:
   bool enableInterleavedAccessVectorization() override {
     return Impl.enableInterleavedAccessVectorization();
   }
+  bool enableMaskedInterleavedAccessVectorization() override {
+    return Impl.enableMaskedInterleavedAccessVectorization();
+  }
   bool isFPVectorizationPotentiallyUnsafe() override {
     return Impl.isFPVectorizationPotentiallyUnsafe();
   }
@@ -1497,9 +1508,9 @@ public:
   }
   int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
                                  ArrayRef<unsigned> Indices, unsigned Alignment,
-                                 unsigned AddressSpace) override {
+                                 unsigned AddressSpace, bool IsMasked) override {
     return Impl.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
-                                           Alignment, AddressSpace);
+                                           Alignment, AddressSpace, IsMasked);
   }
   int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
                                  bool IsPairwiseForm) override {

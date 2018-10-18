@@ -72,7 +72,7 @@ static bool partitionOuterLoopBlocks(Loop *L, Loop *SubLoop,
   for (BasicBlock *BB : ForeBlocks) {
     if (BB == SubLoopPreHeader)
       continue;
-    TerminatorInst *TI = BB->getTerminator();
+    Instruction *TI = BB->getTerminator();
     for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
       if (!ForeBlocks.count(TI->getSuccessor(i)))
         return false;
@@ -772,7 +772,7 @@ bool llvm::isSafeToUnrollAndJam(Loop *L, ScalarEvolution &SE, DominatorTree &DT,
   }
 
   // Check the loop safety info for exceptions.
-  LoopSafetyInfo LSI;
+  SimpleLoopSafetyInfo LSI;
   LSI.computeLoopSafetyInfo(L);
   if (LSI.anyBlockMayThrow()) {
     LLVM_DEBUG(dbgs() << "Won't unroll-and-jam; Something may throw\n");

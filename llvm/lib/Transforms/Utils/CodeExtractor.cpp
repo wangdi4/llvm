@@ -567,7 +567,7 @@ void CodeExtractor::severSplitPHINodes(BasicBlock *&Header) {
     // changing them to branch to NewBB instead.
     for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i)
       if (Blocks.count(PN->getIncomingBlock(i))) {
-        TerminatorInst *TI = PN->getIncomingBlock(i)->getTerminator();
+        Instruction *TI = PN->getIncomingBlock(i)->getTerminator();
         TI->replaceUsesOfWith(OldPred, NewBB);
       }
 
@@ -781,7 +781,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       Value *Idx[2];
       Idx[0] = Constant::getNullValue(Type::getInt32Ty(header->getContext()));
       Idx[1] = ConstantInt::get(Type::getInt32Ty(header->getContext()), i);
-      TerminatorInst *TI = newFunction->begin()->getTerminator();
+      Instruction *TI = newFunction->begin()->getTerminator();
       GetElementPtrInst *GEP = GetElementPtrInst::Create(
           StructTy, &*AI, Idx, "gep_" + inputs[i]->getName(), TI);
       RewriteVal = new LoadInst(GEP, "loadgep_" + inputs[i]->getName(), TI);
@@ -811,10 +811,10 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   for (unsigned i = 0, e = Users.size(); i != e; ++i)
     // The BasicBlock which contains the branch is not in the region
     // modify the branch target to a new block
-    if (TerminatorInst *TI = dyn_cast<TerminatorInst>(Users[i]))
-      if (!Blocks.count(TI->getParent()) &&
-          TI->getParent()->getParent() == oldFunction)
-        TI->replaceUsesOfWith(header, newHeader);
+    if (Instruction *I = dyn_cast<Instruction>(Users[i]))
+      if (I->isTerminator() && !Blocks.count(I->getParent()) &&
+          I->getParent()->getParent() == oldFunction)
+        I->replaceUsesOfWith(header, newHeader);
 
   return newFunction;
 }
@@ -823,7 +823,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
 // Hoisting the alloca instructions in the non-entry blocks to the entry block.
 void CodeExtractor::hoistAlloca(Function &F) {
   Function::iterator I = F.begin();
-  TerminatorInst *FirstTerminatorInst = (I++)->getTerminator();
+  Instruction *FirstTerminatorInst = (I++)->getTerminator();
 
   for (Function::iterator E = F.end(); I != E; ++I) {
     for (BasicBlock::iterator BI = I->begin(), BE = I->end(); BI != BE;) {
@@ -991,7 +991,7 @@ emitCallAndSwitchStatement(Function *newFunction, BasicBlock *codeReplacer,
 
   unsigned switchVal = 0;
   for (BasicBlock *Block : Blocks) {
-    TerminatorInst *TI = Block->getTerminator();
+    Instruction *TI = Block->getTerminator();
     for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
       if (!Blocks.count(TI->getSuccessor(i))) {
         BasicBlock *OldTarget = TI->getSuccessor(i);
@@ -1097,7 +1097,7 @@ void CodeExtractor::calculateNewCallTerminatorWeights(
   using BlockNode = BlockFrequencyInfoImplBase::BlockNode;
 
   // Update the branch weights for the exit block.
-  TerminatorInst *TI = CodeReplacer->getTerminator();
+  Instruction *TI = CodeReplacer->getTerminator();
   SmallVector<unsigned, 8> BranchWeights(TI->getNumSuccessors(), 0);
 
   // Block Frequency distribution with dummy node.
@@ -1337,9 +1337,23 @@ Function *CodeExtractor::extractCodeRegion() {
         }
     }
 
+  // Erase debug info intrinsics. Variable updates within the new function are
+  // invisible to debuggers. This could be improved by defining a DISubprogram
+  // for the new function.
+  for (BasicBlock &BB : *newFunction) {
+    auto BlockIt = BB.begin();
+    while (BlockIt != BB.end()) {
+      Instruction *Inst = &*BlockIt;
+      ++BlockIt;
+      if (isa<DbgInfoIntrinsic>(Inst))
+        Inst->eraseFromParent();
+    }
+  }
+
 #if INTEL_COLLAB
   hoistAlloca(*newFunction);
 #endif // INTEL_COLLAB
+
   LLVM_DEBUG(if (verifyFunction(*newFunction))
                  report_fatal_error("verifyFunction failed!"));
   return newFunction;

@@ -1837,7 +1837,7 @@ static void countGlobalsAndConstants(Value* Op, unsigned& GlobalCount,
 // The intent is that such a branch has some likelihood of being eliminated
 // leaving a single basic block, and the heuristics should reflect this.
 //
-static bool forgivableCondition(TerminatorInst* TI) {
+static bool forgivableCondition(Instruction* TI) {
   BranchInst *BI = dyn_cast<BranchInst>(TI);
   if (!BI || !BI->isConditional())
     return false;
@@ -2692,7 +2692,7 @@ static int calculateMaxIfDepth(BasicBlock *Node, DominatorTree *DT,
   int CurrIfDepth = 0;
 
   while (BB) {
-    if (TerminatorInst *TermInst = BB->getTerminator()) {
+    if (Instruction *TermInst = BB->getTerminator()) {
       BranchInst *Inst = dyn_cast<BranchInst>(TermInst);
       if (Inst && Inst->isConditional()) {
         ++CurrIfDepth;
@@ -3114,7 +3114,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     }
 #endif // INTEL_CUSTOMIZATION
 
-    TerminatorInst *TI = BB->getTerminator();
+    Instruction *TI = BB->getTerminator();
 
     // Add in the live successors by first checking whether we have terminator
     // that may be simplified based on the values simplified by this call.

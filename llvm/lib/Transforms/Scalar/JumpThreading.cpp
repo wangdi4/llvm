@@ -496,7 +496,7 @@ static unsigned getJumpThreadDuplicationCost(
   const SmallVectorImpl<BasicBlock*> &RegionBlocks,
   const BasicBlock *RegionBottom,
   unsigned Threshold) {
-  const TerminatorInst *BBTerm = RegionBottom->getTerminator();
+  const Instruction *BBTerm = RegionBottom->getTerminator();
 
   unsigned Bonus = 0;
   // Threading through a switch statement is particularly profitable.  If this
@@ -1195,7 +1195,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
 /// Since we can pick an arbitrary destination, we pick the successor with the
 /// fewest predecessors.  This should reduce the in-degree of the others.
 static unsigned GetBestDestForJumpOnUndef(BasicBlock *BB) {
-  TerminatorInst *BBTerm = BB->getTerminator();
+  Instruction *BBTerm = BB->getTerminator();
   unsigned MinSucc = 0;
   BasicBlock *TestBB = BBTerm->getSuccessor(MinSucc);
   // Compute the successor with the minimum number of predecessors.
@@ -1236,7 +1236,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
   // because now the condition in this block can be threaded through
   // predecessors of our predecessor block.
   if (BasicBlock *SinglePred = BB->getSinglePredecessor()) {
-    const TerminatorInst *TI = SinglePred->getTerminator();
+    const Instruction *TI = SinglePred->getTerminator();
     if (!TI->isExceptionalTerminator() && TI->getNumSuccessors() == 1 &&
         DoCFGSimplifications &&                                         // INTEL
         SinglePred != BB && !hasAddressTakenAndUsed(BB)) {
@@ -1331,7 +1331,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
     std::vector<DominatorTree::UpdateType> Updates;
 
     // Fold the branch/switch.
-    TerminatorInst *BBTerm = BB->getTerminator();
+    Instruction *BBTerm = BB->getTerminator();
     Updates.reserve(BBTerm->getNumSuccessors());
     for (unsigned i = 0, e = BBTerm->getNumSuccessors(); i != e; ++i) {
       if (i == BestSucc) continue;
@@ -1812,7 +1812,7 @@ FindMostPopularDest(BasicBlock *BB,
   // successor list.
   if (!SamePopularity.empty()) {
     SamePopularity.push_back(MostPopularDest);
-    TerminatorInst *TI = BB->getTerminator();
+    Instruction *TI = BB->getTerminator();
     for (unsigned i = 0; ; ++i) {
       assert(i != TI->getNumSuccessors() && "Didn't find any successor!");
 
@@ -1954,7 +1954,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
       }
 
       // Finally update the terminator.
-      TerminatorInst *Term = BB->getTerminator();
+      Instruction *Term = BB->getTerminator();
       BranchInst::Create(OnlyDest, Term);
       Term->eraseFromParent();
       DTU->applyUpdates(Updates);
@@ -2635,7 +2635,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   // Update the terminator of PredBB to jump to the new thread head instead of
   // RegionTop.  This eliminates predecessors from RegionTop, which requires us
   // to simplify any PHI nodes in RegionTop.
-  TerminatorInst *PredTerm = PredBB->getTerminator();
+  Instruction *PredTerm = PredBB->getTerminator();
   for (unsigned i = 0, e = PredTerm->getNumSuccessors(); i != e; ++i)
     if (PredTerm->getSuccessor(i) == RegionTop) {
       RegionTop->removePredecessor(PredBB, true);
@@ -2769,7 +2769,7 @@ BasicBlock *JumpThreadingPass::SplitBlockPreds(BasicBlock *BB,
 }
 
 bool JumpThreadingPass::doesBlockHaveProfileData(BasicBlock *BB) {
-  const TerminatorInst *TI = BB->getTerminator();
+  const Instruction *TI = BB->getTerminator();
   assert(TI->getNumSuccessors() > 1 && "not a split");
 
   MDNode *WeightsNode = TI->getMetadata(LLVMContext::MD_prof);
@@ -3288,7 +3288,7 @@ bool JumpThreadingPass::TryToUnfoldSelectInCurrBB(BasicBlock *BB) {
     if (!SI)
       continue;
     // Expand the select.
-    TerminatorInst *Term =
+    Instruction *Term =
         SplitBlockAndInsertIfThen(SI->getCondition(), SI, false);
     BasicBlock *SplitBB = SI->getParent();
     BasicBlock *NewBB = Term->getParent();
