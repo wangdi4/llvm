@@ -1,8 +1,6 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-1
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-2
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=REG-1
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=REG-2
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=REG-1
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility \
+// RUN:  -fopenmp -fintel-openmp-region \
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 namespace std {
   struct random_access_iterator_tag { };
@@ -68,59 +66,29 @@ struct A {
 
 void baz(int);
 
-//
-// A counted loop will be generated when any loop index (counter) is:
-//   1) struct/class type (i.e. a c++ iterator)
-//   2) Is specified lastprivate or private
-//   3) Is global/address taken (i.e. NOT a local variable w/o address taken)
-//
-
 // CHECK-LABEL: @_Z4oneAv
-// CHECK-1: [[ONEA_IT1:%it1.*]] = alloca %class.GoodIter,
-// CHECK-2: [[ONEA_IT1:%it1.*]] = alloca %class.GoodIter,
-// REG-1: [[ONEA_IT1:%it1.*]] = alloca %class.GoodIter,
-// REG-2: [[ONEA_IT1:%it1.*]] = alloca %class.GoodIter,
-// CHECK-1: [[ONEA_IV:%.omp.iv.*]] = alloca
-// CHECK-2: [[ONEA_IV:%.omp.iv.*]] = alloca
-// REG-1: [[ONEA_IV:%.omp.iv.*]] = alloca
-// REG-2: [[ONEA_IV:%.omp.iv.*]] = alloca
-// CHECK-1: [[ONEA_I:%i.*]] = alloca i32,
-// CHECK-2: [[ONEA_I:%i.*]] = alloca i32,
-// REG-1: [[ONEA_I:%i.*]] = alloca i32,
-// REG-2: [[ONEA_I:%i.*]] = alloca i32,
+// CHECK: [[ONEA_IT1:%it1.*]] = alloca %class.GoodIter,
+// CHECK: [[ONEA_IV:%.omp.iv.*]] = alloca
+// CHECK: [[ONEA_I:%i.*]] = alloca i32,
 void oneA() {
   GoodIter begin1, end1;
 
   GoodIter it1;
 
-  // CHECK-1: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-  // CHECK-2: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-  // CHECK-1: (metadata !"QUAL.OMP.PRIVATE", i32* [[ONEA_I]])
-  // CHECK-2: (metadata !"QUAL.OMP.PRIVATE", %class.GoodIter* [[ONEA_IT1]])
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-2: directive(metadata !"DIR.QUAL.LIST.END")
-  // REG-1: region.entry() [ "DIR.OMP.PARALLEL.LOOP"{{.*}}"QUAL.OMP.PRIVATE"(i32* [[ONEA_I]]
-  // REG-2: region.entry() [ "DIR.OMP.PARALLEL.LOOP"{{.*}}"QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEA_IT1]]
+  // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEA_IT1]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[ONEA_I]]
   // Initialize IV
-  // CHECK-1: store {{.*}}[[ONEA_IV]]
-  // CHECK-2: store {{.*}}[[ONEA_IV]]
-  // REG-1: store {{.*}}[[ONEA_IV]]
-  // REG-2: store {{.*}}[[ONEA_IV]]
+  // CHECK: store {{.*}}[[ONEA_IV]]
   // Update it1
-  // CHECK-1: {{.*}} call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi(%class.GoodIter* [[ONEA_IT1]]
-  // CHECK-2: {{.*}} call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi(%class.GoodIter* [[ONEA_IT1]]
+  // CHECK: call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi
+  // CHECK-SAME: (%class.GoodIter* [[ONEA_IT1]]
   // Update i
-  // CHECK-1: store {{.*}}[[ONEA_I]]
-  // CHECK-2: store {{.*}}[[ONEA_I]]
-  // CHECK-1: {{.*}} call{{.*}}baz
-  // CHECK-2: {{.*}} call{{.*}}baz
+  // CHECK: store {{.*}}[[ONEA_I]]
+  // CHECK: {{.*}} call{{.*}}baz
   // Increment IV
-  // CHECK-1: store {{.*}}[[ONEA_IV]]
-  // CHECK-2: store {{.*}}[[ONEA_IV]]
-  // CHECK-1: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-  // CHECK-2: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-2: directive(metadata !"DIR.QUAL.LIST.END")
+  // CHECK: store {{.*}}[[ONEA_IV]]
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for collapse(2)
   for (it1 = begin1; it1 < end1; ++it1)
   for (int i=0; i < 2; ++i)
@@ -130,44 +98,25 @@ void oneA() {
 }
 
 // CHECK-LABEL: @_Z4oneBv
-// CHECK-1: [[ONEB_IV:%.omp.iv.*]] = alloca
-// CHECK-2: [[ONEB_IV:%.omp.iv.*]] = alloca
-// CHECK-1: [[ONEB_I:%i.*]] = alloca i32,
-// CHECK-2: [[ONEB_I:%i.*]] = alloca i32,
-// CHECK-1: [[ONEB_IT1:%it1.*]] = alloca %class.GoodIter,
-// CHECK-2: [[ONEB_IT1:%it1.*]] = alloca %class.GoodIter,
-// REG-1: [[ONEB_I:%i.*]] = alloca i32,
-// REG-1: [[ONEB_IT1:%it1.*]] = alloca %class.GoodIter,
-// REG-2: [[ONEB_I:%i.*]] = alloca i32,
-// REG-2: [[ONEB_IT1:%it1.*]] = alloca %class.GoodIter,
+// CHECK: [[ONEB_IV:%.omp.iv.*]] = alloca
+// CHECK: [[ONEB_I:%i.*]] = alloca i32,
+// CHECK: [[ONEB_IT1:%it1.*]] = alloca %class.GoodIter,
 void oneB() {
   GoodIter begin1, end1;
-  // CHECK-1: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-  // CHECK-2: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-  // CHECK-1: (metadata !"QUAL.OMP.PRIVATE", i32* [[ONEB_I]])
-  // CHECK-2: (metadata !"QUAL.OMP.PRIVATE", %class.GoodIter* [[ONEB_IT1]])
-  // REG-1: region.entry() [ "DIR.OMP.PARALLEL.LOOP"{{.*}}"QUAL.OMP.PRIVATE"(i32* [[ONEB_I]])
-  // REG-2: region.entry() [ "DIR.OMP.PARALLEL.LOOP"{{.*}}"QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEB_IT1]])
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-2: directive(metadata !"DIR.QUAL.LIST.END")
+  // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[ONEB_I]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEB_IT1]])
   // Initialize IV
-  // CHECK-1: store {{.*}}[[ONEB_IV]]
-  // CHECK-2: store {{.*}}[[ONEB_IV]]
+  // CHECK: store {{.*}}[[ONEB_IV]]
   // Update i
-  // CHECK-1: store {{.*}}[[ONEB_I]]
-  // CHECK-2: store {{.*}}[[ONEB_I]]
+  // CHECK: store {{.*}}[[ONEB_I]]
   // Update it1
-  // CHECK-1: {{.*}} call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi(%class.GoodIter* [[ONEB_IT1]]
-  // CHECK-2: {{.*}} call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi(%class.GoodIter* [[ONEB_IT1]]
-  // CHECK-1: {{.*}} call{{.*}}baz
-  // CHECK-2: {{.*}} call{{.*}}baz
+  // CHECK: call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi
+  // CHECK-SAME: (%class.GoodIter* [[ONEB_IT1]]
+  // CHECK: {{.*}} call{{.*}}baz
   // Increment IV
-  // CHECK-1: store {{.*}}[[ONEB_IV]]
-  // CHECK-2: store {{.*}}[[ONEB_IV]]
-  // CHECK-1: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-  // CHECK-2: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-2: directive(metadata !"DIR.QUAL.LIST.END")
+  // CHECK: store {{.*}}[[ONEB_IV]]
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for collapse(2)
   for (int i=0; i < 2; ++i)
   for (GoodIter it1 = begin1; it1 < end1; ++it1)
@@ -177,21 +126,15 @@ void oneB() {
 }
 
 // CHECK-LABEL: @_Z3twov
-// CHECK-1: [[TWO_I:%i.*]] = alloca i32,
-// CHECK-1: [[TWO_IV:%.omp.iv.*]] = alloca
-// REG-1: [[TWO_I:%i.*]] = alloca i32,
-// REG-1: [[TWO_IV:%.omp.iv.*]] = alloca
+// CHECK: [[TWO_I:%i.*]] = alloca i32,
+// CHECK: [[TWO_IV:%.omp.iv.*]] = alloca
 void two()
 {
   int i;
-  // CHECK-1: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-  // CHECK-1: (metadata !"QUAL.OMP.LASTPRIVATE", i32* [[TWO_I]])
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-1: store {{.*}}[[TWO_IV]]
-  // CHECK-1: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // REG-1: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.LASTPRIVATE"(i32* [[TWO_I]]
-  // REG-1: store {{.*}}[[TWO_IV]]
+  // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(i32* [[TWO_I]]
+  // CHECK: store {{.*}}[[TWO_IV]]
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for lastprivate(i)
   for (i=0; i < 2; ++i)
   {
@@ -199,21 +142,15 @@ void two()
 }
 
 // CHECK-LABEL: @_Z4twoAv
-// CHECK-1: [[TWOA_I:%i.*]] = alloca i32,
-// CHECK-1: [[TWOA_IV:%.omp.iv.*]] = alloca
-// REG-1: [[TWOA_I:%i.*]] = alloca i32,
-// REG-1: [[TWOA_IV:%.omp.iv.*]] = alloca
+// CHECK: [[TWOA_I:%i.*]] = alloca i32,
+// CHECK: [[TWOA_IV:%.omp.iv.*]] = alloca
 void twoA()
 {
   int i;
-  // CHECK-1: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-  // CHECK-1: (metadata !"QUAL.OMP.PRIVATE", i32* [[TWOA_I]])
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-1: store {{.*}}[[TWOA_IV]]
-  // CHECK-1: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // REG-1: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.PRIVATE"(i32* [[TWOA_I]]
-  // REG-1: store {{.*}}[[TWOA_IV]]
+  // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[TWOA_I]]
+  // CHECK: store {{.*}}[[TWOA_IV]]
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for private(i)
   for (i=0; i < 2; ++i)
   {
@@ -223,17 +160,12 @@ void twoA()
 int glob;
 void bar(int *);
 // CHECK-LABEL: @_Z6threeAv
-// CHECK-1: [[THREEA_IV:%.omp.iv.*]] = alloca
-// REG-1: [[THREEA_IV:%.omp.iv.*]] = alloca
+// CHECK: [[THREEA_IV:%.omp.iv.*]] = alloca
 void threeA()
 {
-  // CHECK-1: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-  // CHECK-1: (metadata !"QUAL.OMP.PRIVATE", i32* @glob)
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-1: store {{.*}}[[THREEA_IV]]
-  // CHECK-1: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // REG-1: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(){{.*}}"QUAL.OMP.PRIVATE"(i32* @glob
+  // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* @glob
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for
   for (glob=0; glob < 2; ++glob)
   {
@@ -241,19 +173,14 @@ void threeA()
 }
 
 // CHECK-LABEL: @_Z6threeBv
-// CHECK-1: [[THREEB_IV:%.omp.iv.*]] = alloca
-// REG-1: [[THREEB_IV:%.omp.iv.*]] = alloca
+// CHECK: [[THREEB_IV:%.omp.iv.*]] = alloca
 void threeB()
 {
-  // CHECK-1: directive(metadata !"DIR.OMP.LOOP")
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // CHECK-1: store {{.*}}[[THREEB_IV]]
-  // CHECK-1: directive(metadata !"DIR.OMP.END.LOOP")
-  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
-  // REG-1: region.entry() [ "DIR.OMP.LOOP"
+  // CHECK: region.entry() [ "DIR.OMP.LOOP"
+  // CHECK: store {{.*}}[[THREEB_IV]]
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.LOOP"()
   #pragma omp for
   for (glob=0; glob < 2; ++glob)
   {
   }
 }
-

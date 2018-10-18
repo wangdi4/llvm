@@ -1,7 +1,16 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -DONE -fopenmp-tbb -Werror -Wsource-uses-openmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-ONE
-// RUN: %clang_cc1 -emit-llvm -o - %s -DTWO -fopenmp-tbb -Wsource-uses-openmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu -verify
-// RUN: %clang_cc1 -emit-llvm -o - %s -DTHREE -fopenmp -fnoopenmp-tbb -Wsource-uses-openmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu -verify | FileCheck %s -check-prefix=CHECK-THREE
+// RUN: %clang_cc1 -emit-llvm -o - -DONE -fopenmp-tbb -Werror \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fintel-openmp-region \
+// RUN:  -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck %s -check-prefix=CHECK-ONE
 
+// RUN: %clang_cc1 -emit-llvm -o - -DTWO -fopenmp-tbb -Wsource-uses-openmp \
+// RUN:  -fintel-compatibility -fintel-openmp-region \
+// RUN:  -triple x86_64-unknown-linux-gnu -verify %s
+
+// RUN: %clang_cc1 -emit-llvm -o - -DTHREE -fopenmp -fnoopenmp-tbb \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fintel-openmp-region \
+// RUN:  -triple x86_64-unknown-linux-gnu -verify %s \
+// RUN:  | FileCheck %s -check-prefix=CHECK-THREE
 
 #ifdef ONE
 #pragma omp declare simd notinbranch aligned(a : 32)

@@ -44,6 +44,46 @@ void foo_max_concurrency()
   for (int i=0;i<32;++i) { bar(i); }
 }
 
+//CHECK-LABEL: foo_ii_at_most
+void foo_ii_at_most()
+{
+  //CHECK: br{{.*}}!llvm.loop [[IIMOST1:![0-9]+]]
+  #pragma ii_at_most 4
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK-LABEL: foo_ii_at_least
+void foo_ii_at_least()
+{
+  //CHECK: br{{.*}}!llvm.loop [[IILEAST1:![0-9]+]]
+  #pragma ii_at_least 4
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK-LABEL: foo_speculated_iterations
+void foo_speculated_iterations()
+{
+  //CHECK: br{{.*}}!llvm.loop [[SPECIT1:![0-9]+]]
+  #pragma speculated_iterations 4
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK-LABEL: foo_ii_most_least_fmax
+void foo_ii_most_least_fmax()
+{
+  //CHECK: br{{.*}}!llvm.loop [[IIMAX1:![0-9]+]]
+  #pragma min_ii_at_target_fmax
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK-LABEL: foo_disable_loop_pipelining
+void foo_disable_loop_pipelining()
+{
+  //CHECK: br{{.*}}!llvm.loop [[DISPIP1:![0-9]+]]
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+}
+
 struct SIVDep {
   int A[32];
 }SV;
@@ -138,6 +178,16 @@ void foo_ivdep(int select)
 //CHECK: [[II1A]] = !{!"llvm.loop.ii.count", i32 4}
 //CHECK: [[MAXC1]] = distinct !{[[MAXC1]], [[MAXC1A:![0-9]+]]}
 //CHECK: [[MAXC1A]] = !{!"llvm.loop.max_concurrency.count", i32 4}
+//CHECK: [[IIMOST1]] = distinct !{[[IIMOST1]], [[IIMOST1A:![0-9]+]]}
+//CHECK: [[IIMOST1A]] = !{!"llvm.loop.intel.ii.at.most.count", i32 4}
+//CHECK: [[IILEAST1]] = distinct !{[[IILEAST1]], [[IILEAST1A:![0-9]+]]}
+//CHECK: [[IILEAST1A]] = !{!"llvm.loop.intel.ii.at.least.count", i32 4}
+//CHECK: [[SPECIT1]] = distinct !{[[SPECIT1]], [[SPECIT1A:![0-9]+]]}
+//CHECK: [[SPECIT1A]] = !{!"llvm.loop.intel.speculated.iterations.count", i32 4}
+//CHECK: [[IIMAX1]] = distinct !{[[IIMAX1]], [[IIMAX2:![0-9]+]]}
+//CHECK: [[IIMAX2]] = !{!"llvm.loop.intel.min.ii.at.target.fmax"}
+//CHECK: [[DISPIP1]] = distinct !{[[DISPIP1]], [[DISPIP2:![0-9]+]]}
+//CHECK: [[DISPIP2]] = !{!"llvm.loop.intel.pipelining.disable"}
 //CHECK: [[IVDEP1]] = distinct !{[[IVDEP1]], [[IVDEP1A:![0-9]+]]}
 //CHECK: [[IVDEP1A]] = !{!"llvm.loop.ivdep.enable"}
 //CHECK: [[IVDEP2]] = distinct !{[[IVDEP2]], [[IVDEP2A:![0-9]+]]}

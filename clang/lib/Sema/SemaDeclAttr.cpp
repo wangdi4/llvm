@@ -2957,7 +2957,8 @@ static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
 
   uint32_t NumSimdWorkItems;
   const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0))
+  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0,
+                           /*StrictlyUnsigned=*/true))
     return;
   if (NumSimdWorkItems == 0) {
     S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
@@ -2991,7 +2992,8 @@ static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
 
   uint32_t MaxGlobalWorkDim;
   const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0))
+  if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0,
+                           /*StrictlyUnsigned=*/true))
     return;
   if (MaxGlobalWorkDim > 3) {
     S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_in_range)
@@ -3285,22 +3287,28 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   }
 
   Expr *E = Attr.getArgAsExpr(0);
-  llvm::APSInt LocalMemSize;
-  if (!E->EvaluateAsInt(LocalMemSize, S.Context)) {
+  llvm::APSInt APLocalMemSize;
+  if (!E->EvaluateAsInt(APLocalMemSize, S.Context)) {
     S.Diag(Attr.getLoc(), diag::err_intel_opencl_attribute_argument_type)
         << Attr << 4;
+    D->setInvalidDecl();
     return;
   }
 
-  int localMemSize = LocalMemSize.getExtValue();
-  if (localMemSize < 0) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
-        << Attr << "0";
+  int LocalMemSize = APLocalMemSize.getExtValue();
+  if (LocalMemSize < OpenCLLocalMemSizeAttr::getMinValue() ||
+      LocalMemSize > OpenCLLocalMemSizeAttr::getMaxValue() ||
+      !APLocalMemSize.isPowerOf2()) {
+    S.Diag(Attr.getLoc(), diag::err_opencl_power_of_two_in_range)
+        << Attr
+        << OpenCLLocalMemSizeAttr::getMinValue()
+        << OpenCLLocalMemSizeAttr::getMaxValue();
+    D->setInvalidDecl();
     return;
   }
 
   D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
-      Attr.getRange(), S.Context, localMemSize,
+      Attr.getRange(), S.Context, LocalMemSize,
       Attr.getAttributeSpellingListIndex()));
 }
 
@@ -5366,7 +5374,7 @@ static void handleSharedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   const auto *VD = cast<VarDecl>(D);
   // extern __shared__ is only allowed on arrays with no length (e.g.
   // "int x[]").
-  if (!S.getLangOpts().CUDARelocatableDeviceCode && VD->hasExternalStorage() &&
+  if (!S.getLangOpts().GPURelocatableDeviceCode && VD->hasExternalStorage() &&
       !isa<IncompleteArrayType>(VD->getType())) {
     S.Diag(AL.getLoc(), diag::err_cuda_extern_shared) << VD;
     return;
@@ -7757,6 +7765,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_InternalLinkage:
     handleInternalLinkageAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_ExcludeFromExplicitInstantiation:
+    handleSimpleAttribute<ExcludeFromExplicitInstantiationAttr>(S, D, AL);
+    break;
   case ParsedAttr::AT_LTOVisibilityPublic:
     handleSimpleAttribute<LTOVisibilityPublicAttr>(S, D, AL);
     break;
@@ -8090,6 +8101,9 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<MaxGlobalWorkDimAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<AutorunAttr>()) {

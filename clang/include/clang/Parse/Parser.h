@@ -1956,6 +1956,11 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> IIHandler;
   std::unique_ptr<PragmaHandler> IVDepHandler;
   std::unique_ptr<PragmaHandler> MaxConcurrencyHandler;
+  std::unique_ptr<PragmaHandler> IIAtMostHandler;
+  std::unique_ptr<PragmaHandler> IIAtLeastHandler;
+  std::unique_ptr<PragmaHandler> MinIIAtTargetFmaxHandler;
+  std::unique_ptr<PragmaHandler> SpeculatedIterationsHandler;
+  std::unique_ptr<PragmaHandler> DisableLoopPipeliningHandler;
 
   // Pragma inline
   std::unique_ptr<PragmaHandler> InlineHandler;

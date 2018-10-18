@@ -50,7 +50,7 @@ private:
 protected:
   /// An index into the spelling list of an
   /// attribute defined in Attr.td file.
-  unsigned SpellingListIndex : 4;
+  unsigned SpellingListIndex : 5; //INTEL
   unsigned Inherited : 1;
   unsigned IsPackExpansion : 1;
   unsigned Implicit : 1;

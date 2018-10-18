@@ -1798,6 +1798,10 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV,
 
   Address Ptr = LV.getBitFieldAddress();
   llvm::Value *Val = Builder.CreateLoad(Ptr, LV.isVolatileQualified(), "bf.load");
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().isIntelCompat(LangOptions::IntelTBAABF))
+    CGM.DecorateInstructionWithTBAA(cast<llvm::LoadInst>(Val), LV.getTBAAInfo());
+#endif  // INTEL_CUSTOMIZATION
 
   if (Info.IsSigned) {
     assert(static_cast<unsigned>(Info.Offset + Info.Size) <= Info.StorageSize);
@@ -2037,6 +2041,11 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     assert(Info.StorageSize > Info.Size && "Invalid bitfield size.");
     llvm::Value *Val =
       Builder.CreateLoad(Ptr, Dst.isVolatileQualified(), "bf.load");
+#if INTEL_CUSTOMIZATION
+    if (getLangOpts().isIntelCompat(LangOptions::IntelTBAABF)) {
+      CGM.DecorateInstructionWithTBAA(cast<llvm::LoadInst>(Val), Dst.getTBAAInfo());
+    }
+#endif  // INTEL_CUSTOMIZATION
 
     // Mask the source value as needed.
     if (!hasBooleanRepresentation(Dst.getType()))
@@ -2061,11 +2070,14 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     assert(Info.Offset == 0);
   }
 #if INTEL_CUSTOMIZATION
-  }
-#endif // INTEL_CUSTOMIZATION
+  }  // !ShouldSkipBitMasking
 
   // Write the new value back out.
-  Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
+  llvm::StoreInst *Store = Builder.CreateStore(SrcVal, Ptr,
+                                               Dst.isVolatileQualified());
+  if (getLangOpts().isIntelCompat(LangOptions::IntelTBAABF))
+    CGM.DecorateInstructionWithTBAA(Store, Dst.getTBAAInfo());
+#endif // INTEL_CUSTOMIZATION
 
   // Return the new value of the bit-field, if requested.
   if (Result) {
@@ -2499,7 +2511,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     }
 
 #if INTEL_CUSTOMIZATION
-    if (getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion) {
+    if (getLangOpts().IntelOpenMP) {
       if (CapturedStmtInfo)
         CapturedStmtInfo->recordVariableReference(VD);
       if (isa<OMPCapturedExprDecl>(VD)) {
@@ -2542,7 +2554,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       }
 
       assert(isa<BlockDecl>(CurCodeDecl));
-      Address addr = GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>());
+      Address addr = GetAddrOfBlockDecl(VD);
       return MakeAddrLValue(addr, T, AlignmentSource::Decl);
     }
   }
@@ -2597,7 +2609,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     }
 
     // Drill into block byref variables.
-    bool isBlockByref = VD->hasAttr<BlocksAttr>();
+    bool isBlockByref = VD->isEscapingByref();
     if (isBlockByref) {
       addr = emitBlockByrefAddress(addr, VD);
     }
@@ -3538,6 +3550,16 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
       if (!EltTBAAInfo.BaseType)
         EltTBAAInfo.BaseType = CGM.getTBAATypeInfo(Array->getType());
       EltTBAAInfo.AccessType = CGM.getTBAAAccessInfo(E->getType()).AccessType;
+      if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+        auto *I = dyn_cast<llvm::Instruction>(Addr.getPointer());
+        if (I && !EltTBAAInfo.isMayAlias()) {
+          TBAAAccessInfo AI(EltTBAAInfo);
+          AI.BaseType = CGM.getTBAATypeInfo(Array->getType());
+          AI.Offset = 0;
+          llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
+          I->setMetadata("intel-tbaa", N);
+        }
+      }
     } else
 #endif // INTEL_CUSTOMIZATION
     EltTBAAInfo = CGM.getTBAAInfoForSubobject(ArrayLV, E->getType());
@@ -3910,6 +3932,9 @@ static bool hasAnyVptr(const QualType Type, const ASTContext &Context) {
 LValue CodeGenFunction::EmitLValueForField(LValue base,
                                            const FieldDecl *field) {
   LValueBaseInfo BaseInfo = base.getBaseInfo();
+#if INTEL_CUSTOMIZATION
+  LValue BitfieldResult;
+#endif  // INTEL_CUSTOMIZATION
 
   if (field->isBitField()) {
     const CGRecordLayout &RL =
@@ -3931,8 +3956,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       field->getType().withCVRQualifiers(base.getVRQualifiers());
     // TODO: Support TBAA for bit fields.
     LValueBaseInfo FieldBaseInfo(BaseInfo.getAlignmentSource());
-    return LValue::MakeBitfield(Addr, Info, fieldType, FieldBaseInfo,
+#if INTEL_CUSTOMIZATION
+    BitfieldResult = LValue::MakeBitfield(Addr, Info, fieldType, FieldBaseInfo,
                                 TBAAAccessInfo());
+    if (!getLangOpts().isIntelCompat(LangOptions::IntelTBAABF))
+      return BitfieldResult;
+#endif  // INTEL_CUSTOMIZATION
   }
 
   // Fields of may-alias structures are may-alias themselves.
@@ -3966,12 +3995,73 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     if (FieldTBAAInfo.BaseType)
       FieldTBAAInfo.Offset +=
           Layout.getFieldOffset(field->getFieldIndex()) / CharWidth;
+#if INTEL_CUSTOMIZATION
+    if (field->isBitField()) {
+      const CGRecordLayout &RL =
+        CGM.getTypes().getCGRecordLayout(rec);
+      const CGBitFieldInfo &Info = RL.getBitFieldInfo(field);
+      auto fieldIntTy = getContext().getIntTypeForBitwidth(Info.StorageSize, 0);
+      if (fieldIntTy.isNull())
+        return BitfieldResult;
+      FieldTBAAInfo.Size = getContext().toCharUnitsFromBits(Info.StorageSize).getQuantity();
+      // Round down offset to the container boundary.
+      FieldTBAAInfo.Offset =
+          FieldTBAAInfo.Offset / FieldTBAAInfo.Size * FieldTBAAInfo.Size;
+
+      // AccessType of different fields needs to be same to enable commoning.
+      // Set access type as int of width StorageSize.
+      FieldTBAAInfo.AccessType = CGM.getTBAATypeInfo(fieldIntTy);
+
+      // Make sure the base actually has a matching field+offset pair at this
+      // position.
+      if (FieldTBAAInfo.BaseType == nullptr ||
+          FieldTBAAInfo.BaseType->getNumOperands() < 3) {
+        // base is not a struct node
+        return BitfieldResult;
+      }
+      bool found = false;
+      llvm::MDNode *baseMD = FieldTBAAInfo.BaseType;
+      // baseMD: { "name", type0, offset0, type1, offset1... }
+      for (uint64_t idx = 1; idx < baseMD->getNumOperands() - 1; idx++) {
+        llvm::MDNode *baseChild =
+            dyn_cast_or_null<llvm::MDNode>(baseMD->getOperand(idx));
+        if (FieldTBAAInfo.AccessType == baseChild) {
+          // field type matches, try to match the offset in the next slot
+          const llvm::MDOperand &offsetNode = baseMD->getOperand(idx + 1);
+          llvm::ConstantInt *offsetValue =
+              llvm::mdconst::dyn_extract_or_null<llvm::ConstantInt>(offsetNode);
+          if (offsetValue != nullptr) {
+            uint64_t offset = offsetValue->getZExtValue();
+            if (offset == FieldTBAAInfo.Offset) {
+              found = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!found) {
+        return BitfieldResult;
+      }
+
+      BitfieldResult.setTBAAInfo(FieldTBAAInfo);
+      return BitfieldResult;
+    }
+#endif  // INTEL_CUSTOMIZATION
 
     // Update the final access type and size.
     FieldTBAAInfo.AccessType = CGM.getTBAATypeInfo(FieldType);
     FieldTBAAInfo.Size =
         getContext().getTypeSizeInChars(FieldType).getQuantity();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (field->isBitField()) {
+    // If the field is a bitfield, then BitfieldResult lvalue is complete.
+    // Return it without any bitfield tbaa metadata.  The code after this
+    // statement does not expect to handle bitfields.
+    return BitfieldResult;
+  }
+#endif  // INTEL_CUSTOMIZATION
 
   Address addr = base.getAddress();
   if (auto *ClassDef = dyn_cast<CXXRecordDecl>(rec)) {
@@ -3999,6 +4089,39 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   } else {
     // For structs, we GEP to the field that the record layout suggests.
     addr = emitAddrOfFieldStorage(*this, addr, field);
+
+#if INTEL_CUSTOMIZATION
+    // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
+    // handled by the AA even without TBAA.
+    if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+      auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
+      if (GEP && !FieldTBAAInfo.isMayAlias()) {
+        // HACK: If the base didn't have a base type we created the base type
+        // for the field access exclusively above. In such case, we need to
+        // re-use that newly created BaseType. Otherwise, we already have a
+        // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
+        // to use the "base" of the last field access.
+        auto BaseType = base.getTBAAInfo().BaseType
+                            ? base.getTBAAInfo().AccessType
+                            : FieldTBAAInfo.BaseType;
+        // FIXME: isValidBaseType returns false for the structs with flexible
+        // array members. For some reason, for such structs TBAA access tags are
+        // completely disabled (even in LLORG), so we don't have a valid
+        // BaseType available. Don't emit anything in such case.
+        //
+        // Note: I'd expect that only annotation of the flexible array member
+        // itself should not contain the access path. Not sure why it affects
+        // other fields of the structs.
+        if (BaseType) {
+          TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
+                            FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
+                            FieldTBAAInfo.Size);
+          llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
+          GEP->setMetadata("intel-tbaa", N);
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // If this is a reference field, load the reference right now.
     if (FieldType->isReferenceType()) {

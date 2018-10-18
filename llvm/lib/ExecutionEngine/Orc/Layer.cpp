@@ -53,7 +53,8 @@ StringRef IRMaterializationUnit::getName() const {
   return "<null module>";
 }
 
-void IRMaterializationUnit::discard(const JITDylib &JD, SymbolStringPtr Name) {
+void IRMaterializationUnit::discard(const JITDylib &JD,
+                                    const SymbolStringPtr &Name) {
   LLVM_DEBUG(JD.getExecutionSession().runSessionLocked([&]() {
     dbgs() << "In " << JD.getName() << " discarding " << *Name << " from MU@"
            << this << " (" << getName() << ")\n";
@@ -76,6 +77,11 @@ BasicIRLayerMaterializationUnit::BasicIRLayerMaterializationUnit(
 void BasicIRLayerMaterializationUnit::materialize(
     MaterializationResponsibility R) {
 
+  // Throw away the SymbolToDefinition map: it's not usable after we hand
+  // off the module.
+  SymbolToDefinition.clear();
+
+  // If cloneToNewContextOnEmit is set, clone the module now.
   if (L.getCloneToNewContextOnEmit())
     TSM = cloneToNewContext(TSM);
 
@@ -140,7 +146,7 @@ void BasicObjectLayerMaterializationUnit::materialize(
 }
 
 void BasicObjectLayerMaterializationUnit::discard(const JITDylib &JD,
-                                                  SymbolStringPtr Name) {
+                                                  const SymbolStringPtr &Name) {
   // FIXME: Support object file level discard. This could be done by building a
   //        filter to pass to the object layer along with the object itself.
 }
@@ -165,7 +171,7 @@ Expected<SymbolFlagsMap> getObjectSymbolFlags(ExecutionSession &ES,
     auto Name = Sym.getName();
     if (!Name)
       return Name.takeError();
-    auto InternedName = ES.getSymbolStringPool().intern(*Name);
+    auto InternedName = ES.intern(*Name);
     auto SymFlags = JITSymbolFlags::fromObjectSymbol(Sym);
     if (!SymFlags)
       return SymFlags.takeError();

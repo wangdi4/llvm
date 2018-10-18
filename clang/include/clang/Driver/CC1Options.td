@@ -546,8 +546,6 @@ def ast_dump_lookups : Flag<["-"], "ast-dump-lookups">,
   HelpText<"Build ASTs and then debug dump their name lookup tables">;
 def ast_view : Flag<["-"], "ast-view">,
   HelpText<"Build ASTs and view them with GraphViz">;
-def print_decl_contexts : Flag<["-"], "print-decl-contexts">,
-  HelpText<"Print DeclContexts and their Decls">;
 def emit_module : Flag<["-"], "emit-module">,
   HelpText<"Generate pre-compiled module file from a module map">;
 def emit_module_interface : Flag<["-"], "emit-module-interface">,
@@ -792,8 +790,6 @@ def no_friend_injection : Flag<["--"], "no_friend_injection">,
   HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // IMF attributes support (CQ381541)
 def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
-def fintel_openmp : Flag<["-"], "fintel-openmp">,
-  HelpText<"Enable emitting of Intel specific OpenMP code">;
 def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
   HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
 def fno_intel_openmp_offload : Flag<["-"], "fno-intel-openmp-offload">,

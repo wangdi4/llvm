@@ -192,3 +192,170 @@ void foo_ivdep()
   #pragma ivdep array(mysp->lala)
   for (int i=0;i<32;++i) {}
 }
+
+//CHECK: FunctionDecl{{.*}}foo_ii_at_most
+void foo_ii_at_most()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}IIAtMost Numeric
+  //CHECK-NEXT: IntegerLiteral{{.*}}4
+  #pragma ii_at_most 4
+  for (int i=0;i<32;++i) {}
+
+  #pragma ii_at_most // expected-warning {{expected value}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ii_at_most 4
+  #pragma ii_at_most 8 // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+  int v;
+  #pragma ii_at_most 4
+    v = 0; // expected-error {{expected a for, while, or do-while loop to follow}}
+
+}
+
+//CHECK: FunctionDecl{{.*}}foo_ii_at_least
+void foo_ii_at_least()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}IIAtLeast Numeric
+  //CHECK-NEXT: IntegerLiteral{{.*}}4
+  #pragma ii_at_least 4
+  for (int i=0;i<32;++i) {}
+
+  #pragma ii_at_least // expected-warning {{expected value}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ii_at_least 4
+  #pragma ii_at_least 8 // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK: FunctionDecl{{.*}}foo_speculated_iterations
+void foo_speculated_iterations()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}SpeculatedIterations Numeric
+  //CHECK-NEXT: IntegerLiteral{{.*}} 4
+  #pragma speculated_iterations 4
+  for (int i=0;i<32;++i) {}
+
+  #pragma speculated_iterations // expected-warning {{expected value}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma speculated_iterations 4
+  #pragma speculated_iterations 8 // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK: FunctionDecl{{.*}}foo_min_ii_at_target_fmax
+void foo_min_ii_at_target_fmax()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}MinIIAtFmax Enable
+  #pragma min_ii_at_target_fmax
+  for (int i=0;i<32;++i) {}
+
+  #pragma min_ii_at_target_fmax
+  #pragma min_ii_at_target_fmax  // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK: FunctionDecl{{.*}}foo_ii_most_least_fmax
+void foo_ii_most_least_fmax()
+{
+  #pragma ii_at_least 1
+  #pragma ii_at_most  1  // expected-error {{duplicate directives}}
+  #pragma ii  1  // expected-error {{duplicate directives}}
+  #pragma min_ii_at_target_fmax  // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+
+}
+
+//CHECK: FunctionDecl{{.*}}foo_disable_loop_pipelining
+void foo_disable_loop_pipelining()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}DisableLoopPipelining Enable
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma disable_loop_pipelining  // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma max_concurrency 100  // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma max_concurrency 100  // expected-error {{incompatible directives}}
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  #pragma ii  1 // expected-error {{incompatible directives}}
+  #pragma max_concurrency 100
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  int i, myArray[10];
+  #pragma disable_loop_pipelining
+  #pragma ivdep array(myArray) // expected-error {{incompatible directives}}
+  #pragma ivdep safelen(8)  // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ivdep safelen(8)  // expected-error {{incompatible directives}}
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma ii 4  // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma ii_at_most 4 // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ii_at_most 4 // expected-error {{incompatible directives}}
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  #pragma ii_at_least 4444 // expected-error {{incompatible directives}}
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma ii_at_least 4 // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma min_ii_at_target_fmax  // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma min_ii_at_target_fmax  // eaxpected-error {{incompatible directives}}
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  #pragma speculated_iterations 4  // expected-error {{incompatible directives}}
+  #pragma disable_loop_pipelining
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma speculated_iterations 4  // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK: FunctionDecl{{.*}}nontypeargument
+template <int size>
+void nontypeargument()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}IIAtLeast Numeric
+  //CHECK-NEXT-NEXT: IntegerLiteral{{.*}}100
+  #pragma ii_at_least  size
+  for (int i=0;i<32;++i) {}
+}
+
+int main()
+{
+  nontypeargument<100>();
+}

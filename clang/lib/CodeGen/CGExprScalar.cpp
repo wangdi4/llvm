@@ -2930,8 +2930,22 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   if (CGF.getLangOpts().isSignedOverflowDefined())
     return CGF.Builder.CreateGEP(pointer, index, "add.ptr");
 
-  return CGF.EmitCheckedInBoundsGEP(pointer, index, isSigned, isSubtraction,
-                                    op.E->getExprLoc(), "add.ptr");
+#if INTEL_CUSTOMIZATION
+  Value *result = CGF.EmitCheckedInBoundsGEP(
+      pointer, index, isSigned, isSubtraction, op.E->getExprLoc(), "add.ptr");
+  // Intel TBAA for pointer arithmetic
+  if (CGF.CGM.getCodeGenOpts().StructPathTBAA &&
+      CGF.getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+    TBAAAccessInfo AI;
+    AI.AccessType = AI.BaseType = CGF.CGM.getTBAATypeInfo(elementType);
+    AI.Offset = 0;
+    llvm::MDNode *N = CGF.CGM.getTBAAAccessTagInfo(AI);
+    auto *I = dyn_cast<llvm::Instruction>(result);
+    if (I)
+      I->setMetadata("intel-tbaa", N);
+  }
+  return result;
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Construct an fmuladd intrinsic to represent a fused mul-add of MulOp and

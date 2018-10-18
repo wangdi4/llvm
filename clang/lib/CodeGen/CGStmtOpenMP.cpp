@@ -73,7 +73,7 @@ public:
 #endif  // INTEL_FEATURE_CSA
         S.getStmtClass() != Stmt::OMPAtomicDirectiveClass &&
         S.getStmtClass() != Stmt::OMPTargetDirectiveClass &&
-        (CGF.getLangOpts().IntelOpenMP || CGF.getLangOpts().IntelOpenMPRegion))
+        CGF.getLangOpts().IntelOpenMP)
       llvm_unreachable("Should be using OMPLateOutlineScope");
 #endif // INTEL_CUSTOMIZATION
     if (EmitPreInitStmt)
@@ -1316,7 +1316,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
+  if (CGM.getLangOpts().IntelOpenMP) {
     // Emit variables for orignal loop controls
     for (auto *E : D.counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
@@ -1335,7 +1335,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   // In distribute directives only loop counters may be marked as linear, no
   // need to generate the code for them.
 #if INTEL_CUSTOMIZATION
-  if (!CGM.getLangOpts().IntelOpenMP && !CGM.getLangOpts().IntelOpenMPRegion)
+  if (!CGM.getLangOpts().IntelOpenMP)
 #endif // INTEL_CUSTOMIZATION
   if (!isOpenMPDistributeDirective(D.getDirectiveKind())) {
     for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
@@ -1371,7 +1371,7 @@ void CodeGenFunction::EmitOMPInnerLoop(
   EmitBlock(CondBlock);
   const SourceRange R = S.getSourceRange();
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
+  if (CGM.getLangOpts().IntelOpenMP) {
     llvm::SmallVector<const clang::Attr *, 4> Attrs;
     llvm::ArrayRef<const clang::Attr *> AttrRef = Attrs;
     if (auto *LD = dyn_cast<OMPLoopDirective>(&S)) {
@@ -3453,20 +3453,7 @@ void CodeGenFunction::EmitOMPDistributeLoop(const OMPLoopDirective &S,
       if (isOpenMPSimdDirective(S.getDirectiveKind()) &&
           !isOpenMPParallelDirective(S.getDirectiveKind()) &&
           !isOpenMPTeamsDirective(S.getDirectiveKind())) {
-        OpenMPDirectiveKind ReductionKind = OMPD_unknown;
-        if (isOpenMPParallelDirective(S.getDirectiveKind()) &&
-            isOpenMPSimdDirective(S.getDirectiveKind())) {
-          ReductionKind = OMPD_parallel_for_simd;
-        } else if (isOpenMPParallelDirective(S.getDirectiveKind())) {
-          ReductionKind = OMPD_parallel_for;
-        } else if (isOpenMPSimdDirective(S.getDirectiveKind())) {
-          ReductionKind = OMPD_simd;
-        } else if (!isOpenMPTeamsDirective(S.getDirectiveKind()) &&
-                   S.hasClausesOfKind<OMPReductionClause>()) {
-          llvm_unreachable(
-              "No reduction clauses is allowed in distribute directive.");
-        }
-        EmitOMPReductionClauseFinal(S, ReductionKind);
+        EmitOMPReductionClauseFinal(S, OMPD_simd);
         // Emit post-update of the reduction variables if IsLastIter != 0.
         emitPostUpdateForReductionClause(
             *this, S, [IL, &S](CodeGenFunction &CGF) {
@@ -3965,6 +3952,8 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_use_device_ptr:
   case OMPC_is_device_ptr:
   case OMPC_unified_address:
+  case OMPC_unified_shared_memory:
+  case OMPC_reverse_offload:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }

@@ -72,16 +72,31 @@ struct LoopAttributes {
   /// Value for llvm.loop.ivdep.safelen metadata.
   unsigned IVDepCount;
 
-  /// \brief Value for llvm.loop.fusion.* metadata.
+  /// Value for llvm.loop.intel.ii.at.most.count metadata.
+  unsigned IIAtMost;
+
+  /// Value for llvm.loop.intel.ii.at.least.count metadata.
+  unsigned IIAtLeast;
+
+  /// Value for llvm.loop.intel.speculated.iterations.count metadata.
+  unsigned SpeculatedIterations;
+
+  /// Value for llvm.loop.intel.min.ii.at.target.fmax metadata.
+  bool MinIIAtTargetFmaxEnable;
+
+  /// Value for llvm.loop.intel.pipelining.disable metadata.
+  bool DisableLoopPipeliningEnable;
+
+  /// Value for llvm.loop.fusion.* metadata.
   LVEnableState FusionEnable;
 
-  /// \brief Value for llvm.loop.vectorize.ivdep_loop metadata.
+  /// Value for llvm.loop.vectorize.ivdep_loop metadata.
   bool IVDepLoop;
 
-  /// \brief Value for llvm.loop.vectorize.ivdep_back metadata.
+  /// Value for llvm.loop.vectorize.ivdep_back metadata.
   bool IVDepBack;
 
-  /// \brief Value for llvm.loop.vector_always.enable metadata.
+  /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
 #endif // INTEL_CUSTOMIZATION
 
@@ -209,18 +224,39 @@ public:
   /// Set the safelen count for the next loop pushed.
   void setIVDepCount(unsigned C) { StagedAttrs.IVDepCount = C; }
 
-  /// \brief Set the next pushed loop 'fusion.enable'
+
+  /// Set II_AT_MOST for the next loop pushed.
+  void setIIAtMost(unsigned C) { StagedAttrs.IIAtMost = C; }
+
+  /// Set II_AT_LEAST for the next loop pushed.
+  void setIIAtLeast(unsigned C) { StagedAttrs.IIAtLeast = C; }
+
+  /// Set SpeculatedIterations for the next loop pushed.
+  void setSpeculatedIterations(unsigned C) {
+    StagedAttrs.SpeculatedIterations = C;
+  }
+  /// Set the next pushed loop MinIIAtTargetFmaxEnable
+  void setMinIIAtTargetFmaxEnable() {
+    StagedAttrs.MinIIAtTargetFmaxEnable = true;
+  }
+
+  /// Set the next pushed loop DisableLoopPipeliningEnable
+  void setDisableLoopPipeliningEnable() {
+    StagedAttrs.DisableLoopPipeliningEnable = true;
+  }
+
+  /// Set the next pushed loop 'fusion.enable'
   void setFusionEnable(bool Enable = true) {
     StagedAttrs.FusionEnable =
         Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
   }
 
-  /// \brief Set the loop flag for ivdep.
+  /// Set the loop flag for ivdep.
   void setIVDepLoop() { StagedAttrs.IVDepLoop = true; }
 
-  /// \brief Set the back flag for ivdep.
+  /// Set the back flag for ivdep.
   void setIVDepBack() { StagedAttrs.IVDepBack = true; }
-  /// \brief Set next pushed loop  'vector_always.enable'
+  /// Set next pushed loop  'vector_always.enable'
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
   }

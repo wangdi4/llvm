@@ -28,6 +28,9 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       !Attrs.LoopCoalesceEnable &&
       Attrs.LoopCoalesceCount == 0 && Attrs.IICount == 0 &&
       Attrs.MaxConcurrencyCount == 0 && Attrs.IVDepCount == 0 &&
+      Attrs.IIAtMost == 0 && Attrs.IIAtLeast == 0 &&
+      Attrs.SpeculatedIterations == 0 &&
+      !Attrs.MinIIAtTargetFmaxEnable && !Attrs.DisableLoopPipeliningEnable &&
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
@@ -92,6 +95,33 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.coalesce.count"),
                         ConstantAsMetadata::get(ConstantInt::get(
                             Type::getInt32Ty(Ctx), Attrs.LoopCoalesceCount))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.IIAtMost > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.ii.at.most.count"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.IIAtMost))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.IIAtLeast > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.ii.at.least.count"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            Type::getInt32Ty(Ctx), Attrs.IIAtLeast))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.SpeculatedIterations > 0) {
+    Metadata *Vals[] = {
+        MDString::get(Ctx, "llvm.loop.intel.speculated.iterations.count"),
+        ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx),
+                                                 Attrs.SpeculatedIterations))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.MinIIAtTargetFmaxEnable) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.min.ii.at.target.fmax")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.DisableLoopPipeliningEnable) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.pipelining.disable")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
   // Setting loop_coalesce
@@ -210,6 +240,8 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       LoopCoalesceEnable(false), LoopCoalesceCount(0), IICount(0),
       MaxConcurrencyCount(0), IVDepEnable(false), IVDepHLSEnable(false),
       IVDepHLSIntelEnable(false), IVDepCount(0),
+      IIAtMost(0), IIAtLeast(0), SpeculatedIterations(0),
+      MinIIAtTargetFmaxEnable(false), DisableLoopPipeliningEnable(false),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
 #endif // INTEL_CUSTOMIZATION
@@ -338,6 +370,11 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
+      case LoopHintAttr::IIAtMost:
+      case LoopHintAttr::IIAtLeast:
+      case LoopHintAttr::MinIIAtFmax:
+      case LoopHintAttr::SpeculatedIterations:
+      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
         llvm_unreachable("Options cannot be disabled.");
@@ -368,6 +405,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 #if INTEL_CUSTOMIZATION
       case LoopHintAttr::II:
       case LoopHintAttr::MaxConcurrency:
+      case LoopHintAttr::IIAtMost:
+      case LoopHintAttr::IIAtLeast:
+      case LoopHintAttr::SpeculatedIterations:
         llvm_unreachable("Options cannot enabled.");
         break;
       case LoopHintAttr::IVDep:
@@ -387,6 +427,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         break;
       case LoopHintAttr::LoopCoalesce:
         setLoopCoalesceEnable();
+        break;
+      case LoopHintAttr::MinIIAtFmax:
+        setMinIIAtTargetFmaxEnable();
+        break;
+      case LoopHintAttr::DisableLoopPipelining:
+        setDisableLoopPipeliningEnable();
         break;
       case LoopHintAttr::Fusion:
         setFusionEnable(true);
@@ -421,6 +467,11 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
+      case LoopHintAttr::IIAtMost:
+      case LoopHintAttr::IIAtLeast:
+      case LoopHintAttr::MinIIAtFmax:
+      case LoopHintAttr::SpeculatedIterations:
+      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
 #endif // INTEL_CUSTOMIZATION
@@ -440,6 +491,11 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::II:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
+      case LoopHintAttr::IIAtMost:
+      case LoopHintAttr::IIAtLeast:
+      case LoopHintAttr::MinIIAtFmax:
+      case LoopHintAttr::SpeculatedIterations:
+      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
@@ -485,9 +541,20 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MaxConcurrency:
         setMaxConcurrencyCount(ValueInt);
         break;
+      case LoopHintAttr::IIAtMost:
+        setIIAtMost(ValueInt);
+        break;
+      case LoopHintAttr::IIAtLeast:
+        setIIAtLeast(ValueInt);
+        break;
+      case LoopHintAttr::SpeculatedIterations:
+        setSpeculatedIterations(ValueInt);
+        break;
       case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
         break;
+      case LoopHintAttr::MinIIAtFmax:
+      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
@@ -516,6 +583,11 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::II:
       case LoopHintAttr::LoopCoalesce:
       case LoopHintAttr::MaxConcurrency:
+      case LoopHintAttr::IIAtMost:
+      case LoopHintAttr::IIAtLeast:
+      case LoopHintAttr::MinIIAtFmax:
+      case LoopHintAttr::SpeculatedIterations:
+      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::Unroll:
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:

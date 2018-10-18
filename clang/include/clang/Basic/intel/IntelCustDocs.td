@@ -36,6 +36,7 @@ class DocumentationCategory<string name> {
 def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
 def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
 def DocCatIntelOptimization : DocumentationCategory<"Optimization">;
+def DocCatIntelOpenMP : DocumentationCategory<"OpenMP">;
 
 // Specifies the documentation to be associated with the given category.
 class Documentation {
@@ -95,6 +96,58 @@ Microsoft allows you to catch a string literal with catch(char \*).
   $ clang-cl /nologo /EHsc t.cpp && ./t.exe
   $ echo $?
   2
+
+  }];
+}
+def IntelTBAABFDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-2066";
+  let RegressionTest = "test/CodeGen/intel/bitfield-tbaa1.c";
+  let Content = [{
+Adds tbaa metadata to improve alias analysis for bitfields.
+Optimizer team identified a problem with leela benchmark due to missing
+TBAA metadata for bitfield load.  When you pick up (or store) a storage
+location which holds a bitfield, there are other bitfields which may share
+that location.  Optimizer team wants there to be metadata on the bitfield
+access, and it should be identical for all bitfields that share the same
+storage location. CJ suggested that essentially there is a hidden field
+in the struct, matching the size of the storage location loaded, that is
+accessed.
+
+With the option disabled, there is no tbaa on the bitfield load or store.
+
+In this example, xage and zage2 are in the same storage location so they
+use the same tbaa node.
+
+.. code-block:: c
+
+  struct in_t {
+      int x,y,w;
+      unsigned char  xage : 2;
+      unsigned char  yage1 : 2;
+      unsigned int  zage2 : 12;
+  };
+  struct in_t *sp
+  sp->xage = 2;  sp->zage2 = 2;
+
+.. code-block:: llvm
+
+  %xage = getelementptr ...
+  %bf.load = load i16, i16* %xage, align 4, !tbaa !6
+  %zage2 = getelementptr ...
+  %bf.load1 = load i16, i16* %zage2, align 4, !tbaa !6
+
+Note: 12 is the byte offset of the (short) storage location holding
+xage and zage2.
+
+.. code-block:: llvm
+
+  !4 = !{!"omnipotent char", !5, i64 0}
+  !5 = !{!"Simple C/C++ TBAA"}
+  !6 = !{!7, !9, i64 12}
+  !7 = !{!"struct@in_t", ... }
+  !9 = !{!"short", !4, i64 0}
 
   }];
 }
@@ -605,6 +658,82 @@ and intrinsic directives.  The table below shows how they relate.
   }];
 }
 
+def HLSPragmaDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let BugTracker = "Cmplrllvm-5584";
+  let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
+  let Owner = "jyu2";
+  let Content = [{
+The ``ii, ii_at_most, ...`` pragmas are FPGA loop pragmas
+
+The HLS form (enabled with -fhls) is:
+
+.. code-block:: c
+
+  #pragma ii <4>
+  #pragma ii_at_most <4>
+  #pragma ii_at_least <4>
+  #pragma speculated_iterations <4>
+  #pragma max_concurrency <4>
+  #pragma min_ii_at_target_fmax
+  #pragma disable_loop_pipelining
+
+The implementation uses the existing clang LoopHint attribute framework to
+produce LoopHint metadata.  The table below shows the Options, States, and the
+Metadata produced.
+
+
+.. csv-table::
+  :header: Syntax, Option, State, Metadata
+  :widths: 24,13,13,25
+
+  #pragma ii 4, II, Numeric, llvm.loop.ii.count(4)
+  #pragma max_concurrency 4, MaxConcurrency, Numeric, llvm.loop.max_concurrency.count(4)
+  #pragma ii_at_most 4, IIAtMost, Numeric, llvm.loop.intel.ii.at.most.count(4)
+  #pragma ii_at_least 4, IIAtLeast, Numeric, llvm.loop.intel.ii.at.least.count(4)
+  #pragma speculated_iterations 4, SpeculatedIterations, Numeric, llvm.loop.intel.speculated.iterations.count(4)
+  #pragma min_ii_at_target_fmax, MinIIAtFmax, Enable, llvm.loop.intel.min.ii.at.target.fmax
+  #pragma disable_loop_pipelining, DisableLoopPipelining, Enable, llvm.loop.intel.pipelining.disable
+
+for example:
+using command line:
+
+.. code-block:: bash
+
+  $ clang -cc1 -fhls -ast-dump -o - t.c
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
+
+.. code-block:: c
+
+  void foo() {
+    int var = 0;
+    #pragma max_concurrency  4
+    #pragma ii_at_least 4
+    for (int i = 0; i < 10; ++i) var = var+1;
+  }
+
+AST:
+
+AttributedStmt
+
+.. code-block:: c
+
+    `-AttributedStmt 0xd2b86c0 <<invalid sloc>, line:21:18>
+      |-LoopHintAttr 0xd2b8670 <line:15:11, col:30> Implicit max_concurrency MaxConcurrency Numeric
+      | |-IntegerLiteral 0xd2b83a0 <col:28> 'int' 4
+      | `-<<<NULL>>>
+      |-LoopHintAttr 0xd2b8698 <line:16:11, col:26> Implicit ii_at_least IIAtLeast Numeric
+      | |-IntegerLiteral 0xd2b83e0 <col:24> 'int' 4
+      | `-<<<NULL>>>
+
+.. code-block:: llvm
+
+  !3 = !{!"llvm.loop.max_concurrency.count", i32 4}
+  !4 = !{!"llvm.loop.intel.ii.at.least.count", i32 100}
+
+  }];
+}
+
 def RotateIntrinsicsDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "";
@@ -726,6 +855,163 @@ subscripts and member select expressions.
 The function EmitFakeLoadForRetPtr is then called to generate a new load with
 metadata.  The load and metadata is saved in a map and the fakeload intrinsic
 is created and emitted during EmitFunctionEpilog.
+  }];
+}
+
+def WholeProgramVTableWrapDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-5603";
+  let RegressionTest = "CodeGenCXX/intel/whole-prog-vtable-wrap.cpp";
+  let Owner = "mprice1";
+  let Content = [{
+Community clang/llvm supports whole program devirtualization when the
+``-fwhole-program-vtables`` option is used and the class has hidden
+`LTO Visibility <https://clang.llvm.org/docs/LTOVisibility.html>`_
+
+This optimization enables devirtualization with whole program analysis instead
+of relying on hidden LTO visibility.
+
+Example:
+
+.. code-block:: c++
+
+  struct A { A(); virtual void f(); };
+  struct B : virtual A { B(); virtual void g(); virtual void h(); };
+
+  A::A() {}
+  B::B() {}
+  void A::f() { }
+  void B::g() { }
+
+  void af(A *a) { a->f(); }
+
+Compiled with:
+
+.. code-block:: bash
+
+  clang -cc1 -fintel-compatibility w.cpp -flto -flto-unit -fwhole-program-vtables -emit-llvm -o -
+
+The compiler only calls type.test and assume when the wholeprogramsafe
+intrinsic returns true:
+
+.. code-block:: llvm
+
+    %vtable = load void (%struct.A*)**, void (%struct.A*)*** %1, align 8
+    %2 = call i1 @llvm.intel.wholeprogramsafe()
+    br i1 %2, label %whpr.wrap, label %whpr.continue
+
+  whpr.wrap:                                        ; preds = %entry
+    %3 = bitcast void (%struct.A*)** %vtable to i8*
+    %4 = call i1 @llvm.type.test(i8* %3, metadata !"_ZTS1A")
+    call void @llvm.assume(i1 %4)
+    br label %whpr.continue
+
+  whpr.continue:                                    ; preds = %whpr.wrap, %entry
+    %vfn = getelementptr inbounds void (%struct.A*)*, void (%struct.A*)** %vtable, i64 0
+  }];
+}
+
+def IntelTBAADocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker = "LCPT-1003";
+  let Content = [{
+This implements alias analysis improvements for LCPT-1003. It helps in the case
+where an array is nested in a struct. Previously we tried to add an "assume
+index < upper bound" node on top of the index expression but that was not
+successful.  Instead we introduce metadata to do the annotation on the GEP. And
+we give that metadata such meaning that combining the GEPs would be valid.
+There was a long email discussion between C++ experts on the cfe and the
+codegen teams. We determined that if the address of a struct member is taken,
+it is valid to do arithmetic which yields addresses to other fields within the
+struct. Therefore this patch doesn't allow propagation of array decay
+expressions.
+
+For example in this test case showing treatment of array decay:
+
+.. code-block:: c++
+
+  typedef struct S {
+    int a[10], b[10]
+  } s_type;
+
+  void foo(void) {
+    S s;
+    int *p1 = s.a;
+    int *p2 = s.b;
+    int *p3 = (int *) ((char *)p1 - __builtin_offsetof(s_type,a) +
+                                __builtin_offsetof(s_type,b));
+    // at this point, p2 and p3 are equivalent
+  }
+
+The output tbaa generated for the field reference s.a is intel-tbaa and is
+unique from the intel-tbaa generated for s.b
+
+.. code-block:: llvm
+
+ %a = getelementptr inbounds %struct.S, %struct.S* %s, i32 0, i32 0, !intel-tbaa !2
+ %b = getelementptr inbounds %struct.S, %struct.S* %s, i32 0, i32 1, !intel-tbaa !10
+
+However, the output tbaa generated for the array decay into p1 and p2 is unchanged and represents an undistinguished pointer into the struct object:
+
+.. code-block:: llvm
+
+  %arraydecay = getelementptr inbounds [10 x i32], [10 x i32]* %a, i32 0, i32 0
+  store i32* %arraydecay, i32** %p1, align 8, !tbaa !8
+  %arraydecay1 = getelementptr inbounds [10 x i32], [10 x i32]* %b, i32 0, i32 0
+  store i32* %arraydecay1, i32** %p2, align 8, !tbaa !8
+
+Where:
+
+.. code-block:: llvm
+
+ !8 = !{!9, !9, i64 0}
+ !9 = !{!"pointer@_ZTSPi", !6, i64 0}
+
+  }];
+}
+
+def VolatileInOMPRegionsDocs : Documentation {
+  let Category = DocCatIntelOpenMP;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-1443";
+  let RegressionTest = "";
+  let Owner = "mprice1";
+  let Content = [{
+Community clang is removing volatile from variables captured in OpenMP
+regions. Whether it is a good idea or not, there doesn't seem to be
+justification for removing volatile in the OpenMP spec. This extension,
+controlled by -fintel-compatibility, retains volatile.
+
+.. code-block:: bash
+
+  $ clang -cc1 -fopenmp -fintel-compatibility -emit-llvm -o - t.c
+
+.. code-block:: c
+
+  int get_thread_num();
+  void foo() {
+    int volatile lck = 0;
+    #pragma omp parallel
+    {
+      if (get_thread_num() == 0)
+        lck = 1;
+    }
+  }
+
+.. code-block:: llvm
+
+  %call = call i32 (...) @get_thread_num()
+  %cmp = icmp eq i32 %call, 0
+  br i1 %cmp, label %if.then, label %if.end
+
+  if.then:                                          ; preds = %entry
+    store volatile i32 1, i32* %0, align 4
+    br label %if.end
+
+  if.end:                                           ; preds = %if.then, %entry
+    ret void
   }];
 }
 

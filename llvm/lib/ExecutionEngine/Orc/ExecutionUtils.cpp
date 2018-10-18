@@ -19,45 +19,6 @@
 namespace llvm {
 namespace orc {
 
-JITTargetMachineBuilder::JITTargetMachineBuilder(Triple TT)
-    : TT(std::move(TT)) {}
-
-Expected<JITTargetMachineBuilder> JITTargetMachineBuilder::detectHost() {
-  return JITTargetMachineBuilder(Triple(sys::getProcessTriple()));
-}
-
-Expected<std::unique_ptr<TargetMachine>>
-JITTargetMachineBuilder::createTargetMachine() {
-  if (!Arch.empty()) {
-    Triple::ArchType Type = Triple::getArchTypeForLLVMName(Arch);
-
-    if (Type == Triple::UnknownArch)
-      return make_error<StringError>(std::string("Unknown arch: ") + Arch,
-                                     inconvertibleErrorCode());
-  }
-
-  std::string ErrMsg;
-  auto *TheTarget = TargetRegistry::lookupTarget(TT.getTriple(), ErrMsg);
-  if (!TheTarget)
-    return make_error<StringError>(std::move(ErrMsg), inconvertibleErrorCode());
-
-  auto *TM =
-      TheTarget->createTargetMachine(TT.getTriple(), CPU, Features.getString(),
-                                     Options, RM, CM, OptLevel, /*JIT*/ true);
-  if (!TM)
-    return make_error<StringError>("Could not allocate target machine",
-                                   inconvertibleErrorCode());
-
-  return std::unique_ptr<TargetMachine>(TM);
-}
-
-JITTargetMachineBuilder &JITTargetMachineBuilder::addFeatures(
-    const std::vector<std::string> &FeatureVec) {
-  for (const auto &F : FeatureVec)
-    Features.AddFeature(F);
-  return *this;
-}
-
 CtorDtorIterator::CtorDtorIterator(const GlobalVariable *GV, bool End)
   : InitList(
       GV ? dyn_cast_or_null<ConstantArray>(GV->getInitializer()) : nullptr),
@@ -138,6 +99,12 @@ void CtorDtorRunner2::add(iterator_range<CtorDtorIterator> CtorDtors) {
     assert(CtorDtor.Func && CtorDtor.Func->hasName() &&
            "Ctor/Dtor function must be named to be runnable under the JIT");
 
+    // FIXME: Maybe use a symbol promoter here instead.
+    if (CtorDtor.Func->hasLocalLinkage()) {
+      CtorDtor.Func->setLinkage(GlobalValue::ExternalLinkage);
+      CtorDtor.Func->setVisibility(GlobalValue::HiddenVisibility);
+    }
+
     if (CtorDtor.Data && cast<GlobalValue>(CtorDtor.Data)->isDeclaration()) {
       dbgs() << "  Skipping because why now?\n";
       continue;
@@ -212,6 +179,15 @@ DynamicLibraryFallbackGenerator::DynamicLibraryFallbackGenerator(
     sys::DynamicLibrary Dylib, const DataLayout &DL, SymbolPredicate Allow)
     : Dylib(std::move(Dylib)), Allow(std::move(Allow)),
       GlobalPrefix(DL.getGlobalPrefix()) {}
+
+Expected<DynamicLibraryFallbackGenerator> DynamicLibraryFallbackGenerator::Load(
+    const char *FileName, const DataLayout &DL, SymbolPredicate Allow) {
+  std::string ErrMsg;
+  auto Lib = sys::DynamicLibrary::getPermanentLibrary(FileName, &ErrMsg);
+  if (!Lib.isValid())
+    return make_error<StringError>(std::move(ErrMsg), inconvertibleErrorCode());
+  return DynamicLibraryFallbackGenerator(std::move(Lib), DL, std::move(Allow));
+}
 
 SymbolNameSet DynamicLibraryFallbackGenerator::
 operator()(JITDylib &JD, const SymbolNameSet &Names) {

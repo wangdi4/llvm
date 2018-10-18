@@ -23,6 +23,8 @@ def compress_debug_sections_eq : Joined<["--", "-"], "compress-debug-sections=">
                                  HelpText<"Compress DWARF debug sections using "
                                           "specified style. Supported styles: "
                                           "'zlib-gnu' and 'zlib'">;
+def decompress_debug_sections : Flag<["-", "--"], "decompress-debug-sections">,
+                                HelpText<"Decompress DWARF debug sections.">;
 def O : JoinedOrSeparate<["-"], "O">,
         Alias<output_target>;
 defm split_dwo : Eq<"split-dwo">,
@@ -65,10 +67,10 @@ defm add_section : Eq<"add-section">,
                    HelpText<"Make a section named <section> with the contents of <file>.">;
 def strip_all : Flag<["-", "--"], "strip-all">,
                 HelpText<"Remove non-allocated sections other than .gnu.warning* sections">;
+def S : Flag<["-"], "S">,
+        Alias<strip_all>;
 def strip_all_gnu : Flag<["-", "--"], "strip-all-gnu">,
                     HelpText<"Compaitable with GNU objcopy's --strip-all">;
-def S : Flag<["-"], "S">,
-        Alias<strip_all_gnu>;
 def strip_debug : Flag<["-", "--"], "strip-debug">,
                   HelpText<"Remove all debug information">;
 def strip_dwo : Flag<["-", "--"], "strip-dwo">,

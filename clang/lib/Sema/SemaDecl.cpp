@@ -9665,6 +9665,22 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Local memory size attribute can only be used for arguments of a kernel
+  // function.
+  if (getLangOpts().OpenCL &&
+      Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+      !NewFD->hasAttr<OpenCLKernelAttr>()) {
+    for (const ParmVarDecl *Param : NewFD->parameters()) {
+      if (const auto *LocalMemAttr = Param->getAttr<OpenCLLocalMemSizeAttr>()) {
+        Diag(Param->getLocation(), diag::err_opencl_kernel_attr)
+            << LocalMemAttr;
+        NewFD->setInvalidDecl();
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return NewFD;
 }
 
@@ -10029,7 +10045,7 @@ static bool CheckTargetCausesMultiVersioning(
   const auto *OldTA = OldFD->getAttr<TargetAttr>();
   TargetAttr::ParsedTargetAttr NewParsed = NewTA->parse();
   // Sort order doesn't matter, it just needs to be consistent.
-  llvm::sort(NewParsed.Features.begin(), NewParsed.Features.end());
+  llvm::sort(NewParsed.Features);
 
   // If the old decl is NOT MultiVersioned yet, and we don't cause that
   // to change, this is a simple redeclaration.
@@ -10115,7 +10131,7 @@ static bool CheckMultiVersionAdditionalDecl(
   TargetAttr::ParsedTargetAttr NewParsed;
   if (NewTA) {
     NewParsed = NewTA->parse();
-    llvm::sort(NewParsed.Features.begin(), NewParsed.Features.end());
+    llvm::sort(NewParsed.Features);
   }
 
   bool UseMemberUsingDeclRules =
@@ -12287,37 +12303,8 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
   QualType type = var->getType();
   if (type->isDependentType()) return;
 
-  // __block variables might require us to capture a copy-initializer.
-  if (var->hasAttr<BlocksAttr>()) {
-    // It's currently invalid to ever have a __block variable with an
-    // array type; should we diagnose that here?
-
-    // Regardless, we don't want to ignore array nesting when
-    // constructing this copy.
-    if (type->isStructureOrClassType()) {
-      EnterExpressionEvaluationContext scope(
-          *this, ExpressionEvaluationContext::PotentiallyEvaluated);
-      SourceLocation poi = var->getLocation();
-      Expr *varRef =new (Context) DeclRefExpr(var, false, type, VK_LValue, poi);
-      ExprResult result
-        = PerformMoveOrCopyInitialization(
-            InitializedEntity::InitializeBlock(poi, type, false),
-            var, var->getType(), varRef, /*AllowNRVO=*/true);
-      if (!result.isInvalid()) {
-        result = MaybeCreateExprWithCleanups(result);
-        Expr *init = result.getAs<Expr>();
-        Context.setBlockVarCopyInit(var, init, canThrow(init));
-      }
-
-      // The destructor's exception spefication is needed when IRGen generates
-      // block copy/destroy functions. Resolve it here.
-      if (const CXXRecordDecl *RD = type->getAsCXXRecordDecl())
-        if (CXXDestructorDecl *DD = RD->getDestructor()) {
-          auto *FPT = DD->getType()->getAs<FunctionProtoType>();
-          FPT = ResolveExceptionSpec(poi, FPT);
-        }
-    }
-  }
+  if (var->hasAttr<BlocksAttr>())
+    getCurFunction()->addByrefBlockVar(var);
 
   Expr *Init = var->getInit();
   bool IsGlobal = GlobalStorage && !var->isStaticLocal();

@@ -142,8 +142,15 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
   // Enable TBAA unless it's suppressed. ThreadSanitizer needs TBAA even at O0.
   if (LangOpts.Sanitize.has(SanitizerKind::Thread) ||
       (!CodeGenOpts.RelaxedAliasing && CodeGenOpts.OptimizationLevel > 0))
-    TBAA.reset(new CodeGenTBAA(Context, TheModule, CodeGenOpts, getLangOpts(),
-                               getCXXABI().getMangleContext()));
+#if INTEL_CUSTOMIZATION
+    {
+      CodeGenTBAA *cgTBAA =
+               new CodeGenTBAA(Context, TheModule, CodeGenOpts, getLangOpts(),
+                               getCXXABI().getMangleContext());
+      TBAA.reset(cgTBAA);
+      cgTBAA->set_CGM(this);
+    }
+#endif // INTEL_CUSTOMIZATION
 
   // If debug info or coverage generation is enabled, create the CGDebugInfo
   // object.
@@ -371,8 +378,6 @@ void CodeGenModule::checkAliases() {
       assert(FTy);
       if (!FTy->getReturnType()->isPointerTy())
         Diags.Report(Location, diag::err_ifunc_resolver_return);
-      if (FTy->getNumParams())
-        Diags.Report(Location, diag::err_ifunc_resolver_params);
     }
 
     llvm::Constant *Aliasee = Alias->getIndirectSymbol();
@@ -2647,9 +2652,8 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   }
 
   llvm::sort(
-      Options.begin(), Options.end(),
-      [](const CodeGenFunction::MultiVersionResolverOption &LHS,
-         const CodeGenFunction::MultiVersionResolverOption &RHS) {
+      Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
+                  const CodeGenFunction::MultiVersionResolverOption &RHS) {
         return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
                CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
       });
@@ -5452,7 +5456,7 @@ void CodeGenModule::EmitMSDebugInfoMetadata() {
 void CodeGenModule::EmitIntelDriverTempfile() {
   // Communication file should be generated only during host complication.
   if (!getLangOpts().IntelCompat ||
-      (!getLangOpts().IntelOpenMP && !getLangOpts().IntelOpenMPRegion) ||
+      !getLangOpts().IntelOpenMP ||
       getLangOpts().IntelDriverTempfileName.empty() ||
       getLangOpts().OpenMPIsDevice)
     return;

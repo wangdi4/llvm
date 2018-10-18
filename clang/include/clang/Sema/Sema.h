@@ -9292,6 +9292,14 @@ public:
   OMPClause *ActOnOpenMPUnifiedAddressClause(SourceLocation StartLoc,
                                              SourceLocation EndLoc);
 
+  /// Called on well-formed 'unified_address' clause.
+  OMPClause *ActOnOpenMPUnifiedSharedMemoryClause(SourceLocation StartLoc,
+                                                  SourceLocation EndLoc);
+  
+  /// Called on well-formed 'reverse_offload' clause.
+  OMPClause *ActOnOpenMPReverseOffloadClause(SourceLocation StartLoc,
+                                             SourceLocation EndLoc);
+
   OMPClause *ActOnOpenMPVarListClause(
       OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, Expr *TailExpr,
       SourceLocation StartLoc, SourceLocation LParenLoc,

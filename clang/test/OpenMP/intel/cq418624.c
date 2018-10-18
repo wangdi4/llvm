@@ -1,4 +1,7 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
+// RUN:  -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck %s
+
 int f(int);
 int aa;
 int *a;
@@ -16,4 +19,3 @@ void foo(int m1, int n1, int m2, int **b, int n2 )
       b[i][j] = b[i][j-1]+i+j;
     }
 }
-

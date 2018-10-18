@@ -136,6 +136,7 @@ namespace orc {
 
 char FailedToMaterialize::ID = 0;
 char SymbolsNotFound::ID = 0;
+char SymbolsCouldNotBeRemoved::ID = 0;
 
 RegisterDependenciesFunction NoDependenciesToRegister =
     RegisterDependenciesFunction();
@@ -240,6 +241,19 @@ std::error_code SymbolsNotFound::convertToErrorCode() const {
 
 void SymbolsNotFound::log(raw_ostream &OS) const {
   OS << "Symbols not found: " << Symbols;
+}
+
+SymbolsCouldNotBeRemoved::SymbolsCouldNotBeRemoved(SymbolNameSet Symbols)
+    : Symbols(std::move(Symbols)) {
+  assert(!this->Symbols.empty() && "Can not fail to resolve an empty set");
+}
+
+std::error_code SymbolsCouldNotBeRemoved::convertToErrorCode() const {
+  return orcError(OrcErrorCode::UnknownORCError);
+}
+
+void SymbolsCouldNotBeRemoved::log(raw_ostream &OS) const {
+  OS << "Symbols could not be removed: " << Symbols;
 }
 
 AsynchronousSymbolQuery::AsynchronousSymbolQuery(
@@ -367,11 +381,13 @@ MaterializationResponsibility::~MaterializationResponsibility() {
          "All symbols should have been explicitly materialized or failed");
 }
 
-SymbolNameSet MaterializationResponsibility::getRequestedSymbols() {
+SymbolNameSet MaterializationResponsibility::getRequestedSymbols() const {
   return JD.getRequestedSymbols(SymbolFlags);
 }
 
 void MaterializationResponsibility::resolve(const SymbolMap &Symbols) {
+  LLVM_DEBUG(dbgs() << "In " << JD.getName() << " resolving " << Symbols
+                    << "\n");
 #ifndef NDEBUG
   for (auto &KV : Symbols) {
     auto I = SymbolFlags.find(KV.first);
@@ -435,8 +451,8 @@ void MaterializationResponsibility::replace(
     SymbolFlags.erase(KV.first);
 
   LLVM_DEBUG(JD.getExecutionSession().runSessionLocked([&]() {
-    dbgs() << "In " << JD.getName() << " replacing symbols with MU@" << MU.get()
-           << " (" << MU->getName() << ")\n";
+    dbgs() << "In " << JD.getName() << " replacing symbols with " << *MU
+           << "\n";
   }););
 
   JD.replace(std::move(MU));
@@ -487,7 +503,7 @@ void AbsoluteSymbolsMaterializationUnit::materialize(
 }
 
 void AbsoluteSymbolsMaterializationUnit::discard(const JITDylib &JD,
-                                                 SymbolStringPtr Name) {
+                                                 const SymbolStringPtr &Name) {
   assert(Symbols.count(Name) && "Symbol is not part of this MU");
   Symbols.erase(Name);
 }
@@ -635,7 +651,7 @@ void ReExportsMaterializationUnit::materialize(
 }
 
 void ReExportsMaterializationUnit::discard(const JITDylib &JD,
-                                           SymbolStringPtr Name) {
+                                           const SymbolStringPtr &Name) {
   assert(Aliases.count(Name) &&
          "Symbol not covered by this MaterializationUnit");
   Aliases.erase(Name);
@@ -775,13 +791,14 @@ void JITDylib::replace(std::unique_ptr<MaterializationUnit> MU) {
     ES.dispatchMaterialization(*this, std::move(MustRunMU));
 }
 
-SymbolNameSet JITDylib::getRequestedSymbols(const SymbolFlagsMap &SymbolFlags) {
+SymbolNameSet
+JITDylib::getRequestedSymbols(const SymbolFlagsMap &SymbolFlags) const {
   return ES.runSessionLocked([&]() {
     SymbolNameSet RequestedSymbols;
 
     for (auto &KV : SymbolFlags) {
       assert(Symbols.count(KV.first) && "JITDylib does not cover this symbol?");
-      assert(Symbols[KV.first].getFlags().isMaterializing() &&
+      assert(Symbols.find(KV.first)->second.getFlags().isMaterializing() &&
              "getRequestedSymbols can only be called for materializing "
              "symbols");
       auto I = MaterializingInfos.find(KV.first);
@@ -1039,6 +1056,60 @@ void JITDylib::removeFromSearchOrder(JITDylib &JD) {
     auto I = std::find(SearchOrder.begin(), SearchOrder.end(), &JD);
     if (I != SearchOrder.end())
       SearchOrder.erase(I);
+  });
+}
+
+Error JITDylib::remove(const SymbolNameSet &Names) {
+  return ES.runSessionLocked([&]() -> Error {
+    using SymbolMaterializerItrPair =
+        std::pair<SymbolMap::iterator, UnmaterializedInfosMap::iterator>;
+    std::vector<SymbolMaterializerItrPair> SymbolsToRemove;
+    SymbolNameSet Missing;
+    SymbolNameSet Materializing;
+
+    for (auto &Name : Names) {
+      auto I = Symbols.find(Name);
+
+      // Note symbol missing.
+      if (I == Symbols.end()) {
+        Missing.insert(Name);
+        continue;
+      }
+
+      // Note symbol materializing.
+      if (I->second.getFlags().isMaterializing()) {
+        Materializing.insert(Name);
+        continue;
+      }
+
+      auto UMII = I->second.getFlags().isLazy() ? UnmaterializedInfos.find(Name)
+                                                : UnmaterializedInfos.end();
+      SymbolsToRemove.push_back(std::make_pair(I, UMII));
+    }
+
+    // If any of the symbols are not defined, return an error.
+    if (!Missing.empty())
+      return make_error<SymbolsNotFound>(std::move(Missing));
+
+    // If any of the symbols are currently materializing, return an error.
+    if (!Materializing.empty())
+      return make_error<SymbolsCouldNotBeRemoved>(std::move(Materializing));
+
+    // Remove the symbols.
+    for (auto &SymbolMaterializerItrPair : SymbolsToRemove) {
+      auto UMII = SymbolMaterializerItrPair.second;
+
+      // If there is a materializer attached, call discard.
+      if (UMII != UnmaterializedInfos.end()) {
+        UMII->second->MU->doDiscard(*this, UMII->first);
+        UnmaterializedInfos.erase(UMII);
+      }
+
+      auto SymI = SymbolMaterializerItrPair.first;
+      Symbols.erase(SymI);
+    }
+
+    return Error::success();
   });
 }
 
@@ -1625,7 +1696,7 @@ Expected<SymbolMap> ExecutionSession::legacyLookup(
 }
 
 void ExecutionSession::lookup(
-    const JITDylibList &JDs, const SymbolNameSet &Symbols,
+    const JITDylibList &JDs, SymbolNameSet Symbols,
     SymbolsResolvedCallback OnResolve, SymbolsReadyCallback OnReady,
     RegisterDependenciesFunction RegisterDependencies) {
 
@@ -1637,7 +1708,7 @@ void ExecutionSession::lookup(
   auto Unresolved = std::move(Symbols);
   std::map<JITDylib *, MaterializationUnitList> MUsMap;
   auto Q = std::make_shared<AsynchronousSymbolQuery>(
-      Symbols, std::move(OnResolve), std::move(OnReady));
+      Unresolved, std::move(OnResolve), std::move(OnReady));
   bool QueryIsFullyResolved = false;
   bool QueryIsFullyReady = false;
   bool QueryFailed = false;
@@ -1870,7 +1941,7 @@ SymbolStringPtr MangleAndInterner::operator()(StringRef Name) {
     raw_string_ostream MangledNameStream(MangledName);
     Mangler::getNameWithPrefix(MangledNameStream, Name, DL);
   }
-  return ES.getSymbolStringPool().intern(MangledName);
+  return ES.intern(MangledName);
 }
 
 } // End namespace orc.

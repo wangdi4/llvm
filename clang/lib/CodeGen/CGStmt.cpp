@@ -96,7 +96,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 
 #if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().IntelCompat && !useFrontEndOutlining(CGM, S) &&
-      (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
+      CGM.getLangOpts().IntelOpenMP) {
     if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
       return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
     if (S->getStmtClass() == Stmt::OMPForDirectiveClass)

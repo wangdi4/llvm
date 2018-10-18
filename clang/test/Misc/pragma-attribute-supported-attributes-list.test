@@ -4,7 +4,7 @@
 
 // if INTEL_CUSTOMIZATION
 // NOTE: The below value is currently Community value +10.
-// CHECK: #pragma clang attribute supports 138 attributes:
+// CHECK: #pragma clang attribute supports 139 attributes:
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: AMDGPUFlatWorkGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: AMDGPUNumSGPR (SubjectMatchRule_function)
@@ -56,6 +56,7 @@
 // CHECK-NEXT: DisableTailCalls (SubjectMatchRule_function, SubjectMatchRule_objc_method)
 // CHECK-NEXT: EnableIf (SubjectMatchRule_function)
 // CHECK-NEXT: EnumExtensibility (SubjectMatchRule_enum)
+// CHECK-NEXT: ExcludeFromExplicitInstantiation (SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_record)
 // CHECK-NEXT: ExternalSourceSymbol ((SubjectMatchRule_record, SubjectMatchRule_enum, SubjectMatchRule_enum_constant, SubjectMatchRule_field, SubjectMatchRule_function, SubjectMatchRule_namespace, SubjectMatchRule_objc_category, SubjectMatchRule_objc_interface, SubjectMatchRule_objc_method, SubjectMatchRule_objc_property, SubjectMatchRule_objc_protocol, SubjectMatchRule_record, SubjectMatchRule_type_alias, SubjectMatchRule_variable))
 // CHECK-NEXT: FlagEnum (SubjectMatchRule_enum)
 // CHECK-NEXT: Flatten (SubjectMatchRule_function)

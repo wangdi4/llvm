@@ -1,4 +1,6 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -fintel-compatibility -fopenmp -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fintel-compatibility -fopenmp \
+// RUN:  -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck %s
 
 typedef unsigned short ushort;
 typedef ushort ushort8 __attribute__((ext_vector_type(8)));

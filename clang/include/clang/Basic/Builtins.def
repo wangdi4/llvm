@@ -1038,6 +1038,7 @@ LANGBUILTIN(_InterlockedCompareExchange64,  "LLiLLiD*LLiLLi", "n", ALL_MS_LANGUA
 // pointer arguments are non-volatile. We do the same.
 LANGBUILTIN(_InterlockedCompareExchangePointer, "v*v*D*v*v*", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
+LANGBUILTIN(_InterlockedCompareExchangePointer_nf, "v*v*D*v*v*", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedDecrement16,        "ssD*",     "n", ALL_MS_LANGUAGES)
 #if INTEL_CUSTOMIZATION
 // CQ#374782: In icc, these builtins are availble on Linux as well. Also,
