@@ -1051,7 +1051,7 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
 
 bool CLWGLoopBoundaries::isEarlyExitSucc(BasicBlock *BB){
   do {
-    TerminatorInst *TI = BB->getTerminator();
+    Instruction *TI = BB->getTerminator();
     assert(TI && "no terminator?");
     // Block should have no side effect instructions.
     if (hasSideEffectInst(BB)) return false;
