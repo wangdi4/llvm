@@ -30,7 +30,7 @@ add_llvm_target(CSACodeGen
   CSALicGrouping.cpp
   CSALoopInfo.cpp
   CSALoopIntrinsicExpander.cpp
-  CSALowerAggrCopies.cpp
+  CSALowerLoopIdioms.cpp
   CSAMCInstLower.cpp
   CSAMachineFunctionInfo.cpp
   CSAMemopOrdering.cpp

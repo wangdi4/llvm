@@ -1855,8 +1855,13 @@ void CSACvtCFDFPass::computeBlockPredicates() {
         // Exiting a loop requires filtering the outgoing predicate so that the
         // exit block doesn't receive spurious not-executed predicates when the
         // loop continues for another iteration. A block can exit multiple loops
-        // at once, so we need to insert filters for all of them in turn.
+        // at once, so we need to insert filters for all of them in turn. The
+        // exit block could also be in a sibling loop to the one that is being
+        // converted, so this code goes up to the common ancestor of the current
+        // loop and the loop containing the exit block.
         MachineLoop *OuterLoop = MLI->getLoopFor(ExitBlock);
+        while (OuterLoop && !OuterLoop->contains(ML))
+          OuterLoop = OuterLoop->getParentLoop();
         auto EdgeType = CDG->getEdgeType(MBB, ExitBlock);
         unsigned ExitingEdge = getEdgePred(MBB, EdgeType);
         for (MachineLoop *ExitingLoop = ML; ExitingLoop != OuterLoop;

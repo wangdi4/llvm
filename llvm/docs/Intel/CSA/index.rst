@@ -10,6 +10,7 @@ CSA
 .. toctree::
    :hidden:
 
+   CSALowerLoopIdioms
    DataflowConversion
    PathfindingBuiltins
 
@@ -33,7 +34,8 @@ general compilation flow:
   user-facing pathfinding builtins into common/internal forms.
 - Generic IR optimizations + LoopSPMDization
 - Late CSA IR passes (CSAIRReductionOpt, StructurizeCFG, CSAInnerLoopPrep,
-  CSAStreamingMemoryPrep, :ref:`CSAIntrinsicCleaner`) - These perform extra
+  CSAStreamingMemoryPrep, :ref:`CSAIntrinsicCleaner`,
+  :doc:`CSALowerLoopIdioms`) - These perform extra
   CSA-advantaged optimizations and prepare the code for instruction selection.
 - Instruction Selection + CSAExpandInlineAsm
 - CSA Memory Operation Ordering (CSAMemopOrdering) - Inserts ordering edges
@@ -106,6 +108,8 @@ The following is a full list of CSA compilation topics documented here:
 
 .. NOTE: These should be in alphabetical order.
 
+:doc:`CSALowerLoopIdioms`
+  A pass that lowers memcpy/memmove/memset intrinsics to CSA-friendly loops.
 :doc:`Dataflow Conversion <DataflowConversion>`
   The dataflow conversion pass of CSA.
 :doc:`Pathfinding Builtins <PathfindingBuiltins>`

@@ -19,7 +19,7 @@
 #include "CSAIROpt.h"
 #include "CSAIntrinsicCleaner.h"
 #include "CSALoopIntrinsicExpander.h"
-#include "CSALowerAggrCopies.h"
+#include "CSALowerLoopIdioms.h"
 #include "CSAUtils.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -90,7 +90,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSAExpandInlineAsmPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
-  initializeCSALowerAggrCopiesPass(PR);
+  initializeCSALowerLoopIdiomsPass(PR);
   initializeCSAMemopOrderingPass(PR);
   initializeCSANameLICsPassPass(PR);
   initializeCSANormalizeDebugPass(PR);
@@ -168,9 +168,6 @@ public:
 
   bool addInstSelector() override {
 
-    // Add the pass to lower memset/memmove/memcpy
-    addPass(createLowerAggrCopies());
-
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
 
@@ -210,6 +207,14 @@ public:
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
+
+    // Add the pass to lower memset/memmove/memcpy
+    addPass(createLowerLoopIdioms());
+
+    // Clean up any redundant instructions/control flow that come from that
+    // expansion.
+    addPass(createInstructionCombiningPass());
+    addPass(createCFGSimplificationPass());
     return false;
   }
 

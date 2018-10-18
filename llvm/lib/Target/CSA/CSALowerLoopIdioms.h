@@ -1,4 +1,4 @@
-//===-- llvm/lib/Target/CSA/CSALowerAggrCopies.h ------------*- C++ -*-===//
+//===-- llvm/lib/Target/CSA/CSALowerLoopIdioms.h ----------------*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -9,17 +9,17 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the declaration of the NVIDIA specific lowering of
-// aggregate copies
+// This file contains the declaration of the CSA specific lowering of
+// memcpy/memmove/memset intrinsics.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_CSA_CSALOWERAGGRCOPIES_H
-#define LLVM_LIB_TARGET_CSA_CSALOWERAGGRCOPIES_H
+#ifndef LLVM_LIB_TARGET_CSA_CSALOWERLOOPIDIOMS_H
+#define LLVM_LIB_TARGET_CSA_CSALOWERLOOPIDIOMS_H
 
 namespace llvm {
 class FunctionPass;
-FunctionPass *createLowerAggrCopies();
+FunctionPass *createLowerLoopIdioms();
 } // namespace llvm
 
 #endif
