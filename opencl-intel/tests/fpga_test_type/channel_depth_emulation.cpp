@@ -312,7 +312,7 @@ protected:
     }
     if (vpo) {
       SETENV("VOLCANO_CLANG_OPTIONS",
-             "-fopenmp -fintel-openmp -fopenmp-tbb -fintel-compatibility");
+             "-fopenmp -fintel-openmp-region -fopenmp-tbb -fintel-compatibility");
     }
     parent_t::SetUp();
   }
