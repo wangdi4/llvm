@@ -298,7 +298,7 @@ void Predicator::LinearizeBlock(BasicBlock* block, BasicBlock* next,
 
   V_ASSERT(block && "Block must be valid");
 
-  TerminatorInst* term = block->getTerminator();
+  Instruction* term = block->getTerminator();
   V_ASSERT(term && "no terminator ?");
   unsigned term_successors = term->getNumSuccessors();
 
@@ -1067,7 +1067,7 @@ void Predicator::maskDummyEntry(BasicBlock *BB) {
 // in a non-divergent block
 void Predicator::maskOutgoing_useIncoming(BasicBlock *BB, BasicBlock* SrcBB) {
 
-  TerminatorInst* term = BB->getTerminator();
+  Instruction* term = BB->getTerminator();
   BranchInst* br = dyn_cast<BranchInst>(term);
   V_ASSERT(br && "Unable to handle non branch terminators");
 
@@ -1091,7 +1091,7 @@ bool Predicator::isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock) {
     BasicBlock* curr = unTracedBlocks.back();
     unTracedBlocks.pop_back();
 
-    TerminatorInst* term = curr->getTerminator();
+    Instruction* term = curr->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
     // if we reached a return instruction not via the exitBlock:
     if (!br)
@@ -1133,7 +1133,7 @@ bool Predicator::isReachableInsideIteration(BasicBlock* src, BasicBlock* dst) {
     BasicBlock* curr = unTracedBlocks.back();
     unTracedBlocks.pop_back();
 
-    TerminatorInst* term = curr->getTerminator();
+    Instruction* term = curr->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
     // if we reached a return instruction not via the exitBlock:
     if (!br)
@@ -1169,7 +1169,7 @@ bool Predicator::isReachableInsideIteration(BasicBlock* src, BasicBlock* dst) {
 void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
 
-  TerminatorInst* term = BB->getTerminator();
+  Instruction* term = BB->getTerminator();
   BranchInst* br = dyn_cast<BranchInst>(term);
   V_ASSERT(br && br->isConditional() && "expected conditional branch");
 
@@ -1291,7 +1291,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
 
 void Predicator::maskOutgoing_fork(BasicBlock *BB) {
 
-  TerminatorInst* term = BB->getTerminator();
+  Instruction* term = BB->getTerminator();
   BranchInst* br = dyn_cast<BranchInst>(term);
   V_ASSERT(br && "Unable to handle non branch terminators");
 
@@ -1352,7 +1352,7 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
 void Predicator::collectBranchesInfo(Function* F) {
   for (Function::iterator it = F->begin(), e = F->end(); it != e; ++ it) {
     BasicBlock* BB = &*it;
-    TerminatorInst* term = BB->getTerminator();
+    Instruction* term = BB->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
     if (!br || !br->isConditional()) {
       continue;
@@ -1729,7 +1729,7 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
   //"Masking Outgoing BasicBlock:"<<BB->getName()<<"\n");
 
   /// No outgoing edges - nothing to do.
-  TerminatorInst* term = BB->getTerminator();
+  Instruction* term = BB->getTerminator();
   if (dyn_cast<ReturnInst>(term)) {
     // Nothing to do for return inst.
     return;
@@ -2392,7 +2392,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
     pred != e2; ++pred) {
       if (*pred == original)
         continue;
-      TerminatorInst* term = (*pred)->getTerminator();
+      Instruction* term = (*pred)->getTerminator();
       BranchInst* br = dyn_cast<BranchInst>(term);
       V_ASSERT(br && "expected branch");
       for (unsigned int i = 0; i < br->getNumSuccessors(); ++i) {
@@ -2491,7 +2491,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
   // the condition itself remains unchanged,
   // only the successors must be replaced.
   bool isAllZeroCondition = true; // start by assuming non-uniform.
-  TerminatorInst* allOnesTerminator = allOnes->getTerminator();
+  Instruction* allOnesTerminator = allOnes->getTerminator();
   BranchInst* allOnesBr = dyn_cast<BranchInst>(allOnesTerminator);
   V_ASSERT(allOnesBr && allOnesBr->isConditional() && "expected conditional branch");
   Value* condition = allOnesBr->getCondition();
@@ -2593,7 +2593,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
 
   // 11. change terminator  in original and put terminator in exit.
   BasicBlock* originalSuccessor = nullptr;
-  TerminatorInst* originalTerm = original->getTerminator();
+  Instruction* originalTerm = original->getTerminator();
   BranchInst* originalBr = dyn_cast<BranchInst>(originalTerm);
   V_ASSERT(originalBr && originalBr->getNumSuccessors() == 2 && "expected conditional branch");
   for (unsigned int i = 0; i < originalBr->getNumSuccessors(); i++) {
@@ -2736,7 +2736,7 @@ void Predicator::insertAllOnesBypasses() {
       std::vector<BasicBlock*> preds(pred_begin(original),pred_end(original));
       for (std::vector<BasicBlock*>::iterator  pred = preds.begin(), e2 = preds.end();
         pred != e2; ++pred) {
-          TerminatorInst* term = (*pred)->getTerminator();
+          Instruction* term = (*pred)->getTerminator();
           BranchInst* br = dyn_cast<BranchInst>(term);
           V_ASSERT(br && "expected branch");
           for (unsigned int i = 0; i < br->getNumSuccessors(); ++i) {
@@ -2897,7 +2897,7 @@ void Predicator::clearRemainingOriginalInstructions() {
 // returns the terminator of BB if its a branch conditional on allones.
 // otherwise returns NULL.
 BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
-  TerminatorInst* term = BB->getTerminator();
+  Instruction* term = BB->getTerminator();
   V_ASSERT(term && "terminator cannot be null");
   BranchInst* br = dyn_cast<BranchInst>(term);
   if (!br) return nullptr;

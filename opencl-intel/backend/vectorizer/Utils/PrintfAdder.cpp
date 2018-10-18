@@ -176,7 +176,7 @@ void PrintfAdder::addGIDConditionPrint (Function *F, debug_print_args& print_arg
   for(Function::iterator bbi=F->begin(), bbe=F->end(); bbi!=bbe; ++bbi) {
     BasicBlock *BB = &*bbi;
     // replace ret with branch to tail
-    if(TerminatorInst *TI = BB->getTerminator() ) {
+    if(Instruction *TI = BB->getTerminator() ) {
       if (isa<ReturnInst>(TI)) {
         TI->eraseFromParent();
         BranchInst::Create(ifgid, BB);

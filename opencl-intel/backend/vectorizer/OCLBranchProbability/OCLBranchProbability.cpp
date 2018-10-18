@@ -48,7 +48,7 @@ namespace intel {
     //                        - the other successor gets high priority
     for (Function::iterator bb = F.begin(), bbe = F.end(); bb != bbe ; ++bb) {
       BasicBlock* I = &*bb;
-      TerminatorInst* term = bb->getTerminator();
+      Instruction* term = bb->getTerminator();
       BranchInst* br = dyn_cast<BranchInst>(term);
 
       if(!br || ! br->isConditional())
