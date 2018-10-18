@@ -29,6 +29,9 @@ void setLinkingExecutable(bool LinikingExe);
 // have hidden visibility
 void setVisibilityHidden(bool AllSymbolsHidden);
 
+// Store the symbols that are visible outside the LTO unit
+void storeVisibleSymbols(StringRef SymbolName);
+
 // It handles actual analysis and results of whole program analysis.
 class WholeProgramInfo {
 private:

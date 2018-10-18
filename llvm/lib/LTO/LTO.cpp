@@ -895,6 +895,9 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
         (Res.second.Libcall == GlobalResolution::LibcallKind::NotLibcall ||
          Res.second.Libcall == GlobalResolution::LibcallKind::UnknownLibcall));
 
+    if (!HiddenSymbol)
+      storeVisibleSymbols(SymbolName);
+
     AllSymbolsHidden &= HiddenSymbol;
 
     AllResolved &= Res.second.ResolvedByLinker;
