@@ -622,12 +622,6 @@ void AArch64FrameLowering::emitPrologue(MachineFunction &MF,
   if (ShouldSignReturnAddress(MF)) {
     BuildMI(MBB, MBBI, DL, TII->get(AArch64::PACIASP))
         .setMIFlag(MachineInstr::FrameSetup);
-
-    unsigned CFIIndex =
-        MF.addFrameInst(MCCFIInstruction::createNegateRAState(nullptr));
-    BuildMI(MBB, MBBI, DL, TII->get(TargetOpcode::CFI_INSTRUCTION))
-        .addCFIIndex(CFIIndex)
-        .setMIFlags(MachineInstr::FrameSetup);
   }
 
   // All calls are tail calls in GHC calling conv, and functions have no
@@ -933,7 +927,8 @@ void AArch64FrameLowering::emitEpilogue(MachineFunction &MF,
     DL = MBBI->getDebugLoc();
     unsigned RetOpcode = MBBI->getOpcode();
     IsTailCallReturn = RetOpcode == AArch64::TCRETURNdi ||
-      RetOpcode == AArch64::TCRETURNri;
+                       RetOpcode == AArch64::TCRETURNri ||
+                       RetOpcode == AArch64::TCRETURNriBTI;
   }
   int NumBytes = MFI.getStackSize();
   const AArch64FunctionInfo *AFI = MF.getInfo<AArch64FunctionInfo>();

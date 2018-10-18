@@ -2210,6 +2210,12 @@ void OMPClauseEnqueue::VisitOMPNogroupClause(const OMPNogroupClause *) {}
 void OMPClauseEnqueue::VisitOMPUnifiedAddressClause(
     const OMPUnifiedAddressClause *) {}
 
+void OMPClauseEnqueue::VisitOMPUnifiedSharedMemoryClause(
+    const OMPUnifiedSharedMemoryClause *) {}
+
+void OMPClauseEnqueue::VisitOMPReverseOffloadClause(
+    const OMPReverseOffloadClause *) {}
+
 void OMPClauseEnqueue::VisitOMPDeviceClause(const OMPDeviceClause *C) {
   Visitor->AddStmt(C->getDevice());
 }

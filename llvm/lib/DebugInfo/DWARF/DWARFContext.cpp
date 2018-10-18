@@ -328,21 +328,20 @@ void DWARFContext::dump(
                  DObj->getAbbrevDWOSection()))
     getDebugAbbrevDWO()->dump(OS);
 
-  auto dumpDebugInfo = [&](bool IsExplicit, const char *Name,
-                           DWARFSection Section, unit_iterator_range Units) {
-    if (shouldDump(IsExplicit, Name, DIDT_ID_DebugInfo, Section.Data)) {
-      if (DumpOffset)
-        getDIEForOffset(DumpOffset.getValue())
-            .dump(OS, 0, DumpOpts.noImplicitRecursion());
-      else
-        for (const auto &U : Units)
-          U->dump(OS, DumpOpts);
-    }
+  auto dumpDebugInfo = [&](unit_iterator_range Units) {
+    if (DumpOffset)
+      getDIEForOffset(DumpOffset.getValue())
+          .dump(OS, 0, DumpOpts.noImplicitRecursion());
+    else
+      for (const auto &U : Units)
+        U->dump(OS, DumpOpts);
   };
-  dumpDebugInfo(Explicit, ".debug_info", DObj->getInfoSection(),
-                info_section_units());
-  dumpDebugInfo(ExplicitDWO, ".debug_info.dwo", DObj->getInfoDWOSection(),
-                dwo_info_section_units());
+  if (shouldDump(Explicit, ".debug_info", DIDT_ID_DebugInfo,
+                 DObj->getInfoSection().Data))
+    dumpDebugInfo(info_section_units());
+  if (shouldDump(ExplicitDWO, ".debug_info.dwo", DIDT_ID_DebugInfo,
+                 DObj->getInfoDWOSection().Data))
+    dumpDebugInfo(dwo_info_section_units());
 
   auto dumpDebugType = [&](const char *Name, unit_iterator_range Units) {
     OS << '\n' << Name << " contents:\n";
@@ -543,7 +542,7 @@ void DWARFContext::dump(
     dumpStringOffsetsSection(OS, "debug_str_offsets.dwo", *DObj,
                              DObj->getStringOffsetDWOSection(),
                              DObj->getStringDWOSection(), dwo_units(),
-                             isLittleEndian(), getMaxVersion());
+                             isLittleEndian(), getMaxDWOVersion());
 
   if (shouldDump(Explicit, ".gnu_index", DIDT_ID_GdbIndex,
                  DObj->getGdbIndexSection())) {
@@ -693,11 +692,10 @@ const DWARFDebugLocDWO *DWARFContext::getDebugLocDWO() {
 
   LocDWO.reset(new DWARFDebugLocDWO());
   // Assume all compile units have the same address byte size.
-  if (getNumCompileUnits()) {
-    DataExtractor LocData(DObj->getLocDWOSection().Data, isLittleEndian(),
-                          getUnitAtIndex(0)->getAddressByteSize());
-    LocDWO->parse(LocData);
-  }
+  // FIXME: We don't need AddressSize for split DWARF since relocatable
+  // addresses cannot appear there. At the moment DWARFExpression requires it.
+  DataExtractor LocData(DObj->getLocDWOSection().Data, isLittleEndian(), 4);
+  LocDWO->parse(LocData);
   return LocDWO.get();
 }
 
@@ -725,7 +723,7 @@ const DWARFDebugFrame *DWARFContext::getDebugFrame() {
   // http://lists.dwarfstd.org/htdig.cgi/dwarf-discuss-dwarfstd.org/2011-December/001173.html
   DWARFDataExtractor debugFrameData(DObj->getDebugFrameSection(),
                                     isLittleEndian(), DObj->getAddressSize());
-  DebugFrame.reset(new DWARFDebugFrame(Arch, false /* IsEH */));
+  DebugFrame.reset(new DWARFDebugFrame(false /* IsEH */));
   DebugFrame->parse(debugFrameData);
   return DebugFrame.get();
 }
@@ -736,7 +734,7 @@ const DWARFDebugFrame *DWARFContext::getEHFrame() {
 
   DWARFDataExtractor debugFrameData(DObj->getEHFrameSection(), isLittleEndian(),
                                     DObj->getAddressSize());
-  DebugFrame.reset(new DWARFDebugFrame(Arch, true /* IsEH */));
+  DebugFrame.reset(new DWARFDebugFrame(true /* IsEH */));
   DebugFrame->parse(debugFrameData);
   return DebugFrame.get();
 }
@@ -1571,11 +1569,7 @@ DWARFContext::create(const object::ObjectFile &Obj, const LoadedObjectInfo *L,
                      function_ref<ErrorPolicy(Error)> HandleError,
                      std::string DWPName) {
   auto DObj = llvm::make_unique<DWARFObjInMemory>(Obj, L, HandleError);
-  std::unique_ptr<DWARFContext> Ctx =
-      llvm::make_unique<DWARFContext>(std::move(DObj), std::move(DWPName));
-  logAllUnhandledErrors(Ctx->loadArchitectureInfo(Obj), errs(),
-                        Obj.getFileName() + ": ");
-  return Ctx;
+  return llvm::make_unique<DWARFContext>(std::move(DObj), std::move(DWPName));
 }
 
 std::unique_ptr<DWARFContext>
@@ -1586,11 +1580,9 @@ DWARFContext::create(const StringMap<std::unique_ptr<MemoryBuffer>> &Sections,
   return llvm::make_unique<DWARFContext>(std::move(DObj), "");
 }
 
-Error DWARFContext::loadArchitectureInfo(const object::ObjectFile &Obj) {
+Error DWARFContext::loadRegisterInfo(const object::ObjectFile &Obj) {
   // Detect the architecture from the object file. We usually don't need OS
   // info to lookup a target and create register info.
-  Arch = Triple::ArchType(Obj.getArch());
-
   Triple TT;
   TT.setArch(Triple::ArchType(Obj.getArch()));
   TT.setVendor(Triple::UnknownVendor);

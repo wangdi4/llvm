@@ -86,12 +86,17 @@ public:
   IRMaterializationUnit(ThreadSafeModule TSM, SymbolFlagsMap SymbolFlags,
                         SymbolNameToDefinitionMap SymbolToDefinition);
 
+  /// Return the ModuleIdentifier as the name for this MaterializationUnit.
+  StringRef getName() const override;
+
+  const ThreadSafeModule &getModule() const { return TSM; }
+
 protected:
   ThreadSafeModule TSM;
   SymbolNameToDefinitionMap SymbolToDefinition;
 
 private:
-  void discard(const JITDylib &JD, SymbolStringPtr Name) override;
+  void discard(const JITDylib &JD, const SymbolStringPtr &Name) override;
 };
 
 /// MaterializationUnit that materializes modules by calling the 'emit' method
@@ -147,10 +152,13 @@ public:
                                       std::unique_ptr<MemoryBuffer> O,
                                       SymbolFlagsMap SymbolFlags);
 
+  /// Return the buffer's identifier as the name for this MaterializationUnit.
+  StringRef getName() const override;
+
 private:
 
   void materialize(MaterializationResponsibility R) override;
-  void discard(const JITDylib &JD, SymbolStringPtr Name) override;
+  void discard(const JITDylib &JD, const SymbolStringPtr &Name) override;
 
   ObjectLayer &L;
   VModuleKey K;

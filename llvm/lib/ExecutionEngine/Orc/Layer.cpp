@@ -9,6 +9,9 @@
 
 #include "llvm/ExecutionEngine/Orc/Layer.h"
 #include "llvm/Object/ObjectFile.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "orc"
 
 namespace llvm {
 namespace orc {
@@ -44,7 +47,19 @@ IRMaterializationUnit::IRMaterializationUnit(
     : MaterializationUnit(std::move(SymbolFlags)), TSM(std::move(TSM)),
       SymbolToDefinition(std::move(SymbolToDefinition)) {}
 
-void IRMaterializationUnit::discard(const JITDylib &JD, SymbolStringPtr Name) {
+StringRef IRMaterializationUnit::getName() const {
+  if (TSM.getModule())
+    return TSM.getModule()->getModuleIdentifier();
+  return "<null module>";
+}
+
+void IRMaterializationUnit::discard(const JITDylib &JD,
+                                    const SymbolStringPtr &Name) {
+  LLVM_DEBUG(JD.getExecutionSession().runSessionLocked([&]() {
+    dbgs() << "In " << JD.getName() << " discarding " << *Name << " from MU@"
+           << this << " (" << getName() << ")\n";
+  }););
+
   auto I = SymbolToDefinition.find(Name);
   assert(I != SymbolToDefinition.end() &&
          "Symbol not provided by this MU, or previously discarded");
@@ -62,11 +77,28 @@ BasicIRLayerMaterializationUnit::BasicIRLayerMaterializationUnit(
 void BasicIRLayerMaterializationUnit::materialize(
     MaterializationResponsibility R) {
 
+  // Throw away the SymbolToDefinition map: it's not usable after we hand
+  // off the module.
+  SymbolToDefinition.clear();
+
+  // If cloneToNewContextOnEmit is set, clone the module now.
   if (L.getCloneToNewContextOnEmit())
     TSM = cloneToNewContext(TSM);
 
+#ifndef NDEBUG
+  auto &ES = R.getTargetJITDylib().getExecutionSession();
+#endif // NDEBUG
+
   auto Lock = TSM.getContextLock();
+  LLVM_DEBUG(ES.runSessionLocked([&]() {
+    dbgs() << "Emitting, for " << R.getTargetJITDylib().getName() << ", "
+           << *this << "\n";
+  }););
   L.emit(std::move(R), std::move(K), std::move(TSM));
+  LLVM_DEBUG(ES.runSessionLocked([&]() {
+    dbgs() << "Finished emitting, for " << R.getTargetJITDylib().getName()
+           << ", " << *this << "\n";
+  }););
 }
 
 ObjectLayer::ObjectLayer(ExecutionSession &ES) : ES(ES) {}
@@ -102,13 +134,19 @@ BasicObjectLayerMaterializationUnit::BasicObjectLayerMaterializationUnit(
     : MaterializationUnit(std::move(SymbolFlags)), L(L), K(std::move(K)),
       O(std::move(O)) {}
 
+StringRef BasicObjectLayerMaterializationUnit::getName() const {
+  if (O)
+    return O->getBufferIdentifier();
+  return "<null object>";
+}
+
 void BasicObjectLayerMaterializationUnit::materialize(
     MaterializationResponsibility R) {
   L.emit(std::move(R), std::move(K), std::move(O));
 }
 
 void BasicObjectLayerMaterializationUnit::discard(const JITDylib &JD,
-                                                  SymbolStringPtr Name) {
+                                                  const SymbolStringPtr &Name) {
   // FIXME: Support object file level discard. This could be done by building a
   //        filter to pass to the object layer along with the object itself.
 }
@@ -133,7 +171,7 @@ Expected<SymbolFlagsMap> getObjectSymbolFlags(ExecutionSession &ES,
     auto Name = Sym.getName();
     if (!Name)
       return Name.takeError();
-    auto InternedName = ES.getSymbolStringPool().intern(*Name);
+    auto InternedName = ES.intern(*Name);
     auto SymFlags = JITSymbolFlags::fromObjectSymbol(Sym);
     if (!SymFlags)
       return SymFlags.takeError();

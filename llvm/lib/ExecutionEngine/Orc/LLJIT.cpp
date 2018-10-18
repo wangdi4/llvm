@@ -54,7 +54,7 @@ LLJIT::Create(JITTargetMachineBuilder JTMB, DataLayout DL,
 }
 
 Error LLJIT::defineAbsolute(StringRef Name, JITEvaluatedSymbol Sym) {
-  auto InternedName = ES->getSymbolStringPool().intern(Name);
+  auto InternedName = ES->intern(Name);
   SymbolMap Symbols({{InternedName, Sym}});
   return Main.define(absoluteSymbols(std::move(Symbols)));
 }
@@ -78,7 +78,7 @@ Error LLJIT::addObjectFile(JITDylib &JD, std::unique_ptr<MemoryBuffer> Obj) {
 
 Expected<JITEvaluatedSymbol> LLJIT::lookupLinkerMangled(JITDylib &JD,
                                                         StringRef Name) {
-  return llvm::orc::lookup({&JD}, ES->getSymbolStringPool().intern(Name));
+  return llvm::orc::lookup({&JD}, ES->intern(Name));
 }
 
 LLJIT::LLJIT(std::unique_ptr<ExecutionSession> ES,
@@ -184,8 +184,6 @@ Error LLLazyJIT::addLazyIRModule(JITDylib &JD, ThreadSafeModule TSM) {
 
   if (auto Err = applyDataLayout(*TSM.getModule()))
     return Err;
-
-  PromoteSymbols(*TSM.getModule());
 
   recordCtorDtors(*TSM.getModule());
 

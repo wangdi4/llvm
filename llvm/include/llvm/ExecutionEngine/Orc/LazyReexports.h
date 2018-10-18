@@ -161,9 +161,11 @@ public:
                                    JITDylib &SourceJD,
                                    SymbolAliasMap CallableAliases);
 
+  StringRef getName() const override;
+
 private:
   void materialize(MaterializationResponsibility R) override;
-  void discard(const JITDylib &JD, SymbolStringPtr Name) override;
+  void discard(const JITDylib &JD, const SymbolStringPtr &Name) override;
   static SymbolFlagsMap extractFlags(const SymbolAliasMap &Aliases);
 
   LazyCallThroughManager &LCTManager;
