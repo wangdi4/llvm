@@ -72,6 +72,8 @@ enum class FPGAChannelAccessKind : unsigned {
 
 struct FPGAChannelDescriptor {
   const ValueDecl *ChannelDecl = nullptr;
+  bool IsLocalChannel = false;
+  unsigned ArgNo = -1;
   FPGAChannelAccessKind Kind = FPGAChannelAccessKind::Undefined;
   std::string Name;
 
@@ -79,7 +81,8 @@ struct FPGAChannelDescriptor {
   FPGAChannelDescriptor(StringRef Name) : Name(Name) {}
 
   inline bool operator==(const FPGAChannelDescriptor &RHS) const {
-    return Kind == RHS.Kind && Name == RHS.Name;
+    return Kind == RHS.Kind && IsLocalChannel == RHS.IsLocalChannel &&
+           Name == RHS.Name;
   }
 
   inline bool operator!=(const FPGAChannelDescriptor &RHS) const {

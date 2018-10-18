@@ -245,8 +245,6 @@ __kernel void kernel_b(__global int *data) {
 
 #elif USE_CASE == 9
 
-// expected-no-diagnostics
-
 channel int a;
 
 void foo();
@@ -263,6 +261,15 @@ void foo() {
 __kernel void test2() {
   test();
 }
+
+// expected-error@-17 {{usage of the same channel for writing from different kernels is prohibited}}
+// expected-note@-5 {{usage of channel 'a' for writing found in the kernel 'test2'. See call stack below:}}
+// expected-note@-5 {{channel 'a' is used for writing here}}
+// expected-note@-15 {{channel 'a' is used for writing here}}
+// expected-note@-12 {{channel 'a' is used for writing here}}
+// expected-note@-18 {{previous usage of channel 'a' for writing found in the kernel 'test'. See call stack below:}}
+// expected-note@-18 {{channel 'a' is used for writing here}}
+// expected-note@-15 {{channel 'a' is used for writing here}}
 
 #elif USE_CASE == 10
 

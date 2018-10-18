@@ -23,7 +23,6 @@
 
 #include "clang/AST/Decl.h"
 #include "clang/AST/Redeclarable.h"
-#include "clang/AST/StmtVisitor.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
@@ -218,6 +217,76 @@
 /// Sema (like it is done for CUDA), but I decided to reduce number of changes
 /// in files created by the community.
 ///
+/// Channel-by-value support
+///
+/// Algorithm is extended with new type of channel descriptors: local
+/// descriptors which represents channel arguments in helper functions. Such
+/// descriptors are used to store information about how each channel argument
+/// is used: for reading or writing.
+///
+/// Here is some examples:
+///
+/// \anchor channel-by-value-callee-before-caller
+///
+/// channel int a;
+/// void helper(channel int ch, int data) {
+///   write_channel_intel(ch, data);
+/// }
+/// void helper2(int data, channel int ch) {
+///   helper(ch, data);
+/// }
+/// __kernel void test_a(int data) {
+///   helper2(data, a);
+/// }
+///
+/// How it is handled by the compiler:
+/// 1. helper: channel 'ch' is used for writing, build descriptor
+///    ('helper-0', write)
+/// 2. helper2: channel 'ch' is used as argument #0 of 'helper'. Let
+///    \c mode = how argument #0 is used inside the 'helper' function, i.e.
+///    write in this example. Algorithm builds new descriptor:
+///    ('helper2-1', write)
+/// 3. test_a: channel 'a' is used as argument #1 of 'helper2'. Let
+///    \c mode = how argument #1 is used inside the 'helper2' function, i.e.
+///    write in this example. Algorithm builds new descriptor:
+///    ('a', write)
+///
+/// And another one example:
+///
+/// \anchor channel-by-value-caller-before-callee
+///
+/// channel int a;
+/// void helper(channel int ch, int data);
+/// void helper2(int data, channel int ch);
+/// __kernel void test_a(int data) {
+///   helper2(data, a);
+/// }
+/// void helper2(int data, channel int ch) {
+///   helper(ch, data);
+/// }
+/// void helper(channel int ch, int data) {
+///   write_channel_intel(ch, data);
+/// }
+///
+/// How it is handled by the compiler:
+/// 1. test_a: channel 'a' is used as argument #1 of 'helper2'. But 'helper2' is
+///    not analyzed yet and we cannot build a descriptor because mode is unknown
+/// 2. helper2: channel 'ch' is used as argument #0 of 'helper'. But 'helper' is
+///    not analyzed yet and we cannot build a descriptor because mode is unknown
+/// 1. helper: channel 'ch' is used for writing, build descriptor
+///    ('helper-0', write).
+///    For each caller of helper and its callers:
+///     - helper is called from 'helper2'. Let \c name = name of channel
+///       descriptor which is passed to 'helper' from 'helper2', i.e.
+///       'helper2-1' in this example. Let \c mode = write (value from recently
+///       built descriptor). Add descriptor ('helper2-1', write) to list of
+///       channels used in helper2
+///     - helper2 is called from 'test_a'. Let \c name = name of channel
+///       descriptor which is passed to 'helper2' from 'test_a', i.e. 'a' in
+///       this example. Let \c mode = how argument #1 is used in 'helper2', i.e.
+///       write in this example. add descriptor ('a', write) to list of
+///       channels used in test_a
+///
 
 namespace {
 
@@ -236,7 +305,7 @@ using namespace clang;
 /// \returns false if is any of indices is not compile-time known.
 ///          \arg \c Indices will be incomplete in that case
 /// \returns true if there is no array access at all or all indices were
-///          extracted sucessfully
+///          extracted successfully
 bool ExtractArraySubscriptIndices(const CastExpr *&CE,
                                   llvm::SmallVectorImpl<int64_t> &Indices,
                                   ASTContext &Context) {
@@ -261,17 +330,21 @@ bool ExtractArraySubscriptIndices(const CastExpr *&CE,
 /// which represents a channel.
 ///
 /// \param [in] CE CallExpr from which to extract channel descriptor
+/// \param [in] ArgNo Argument number which is expected to be a channel
 /// \param [in] Kind Describes Kind which is set to built channel descriptor
 /// \param [in, out] Desc Contains constructed channel descriptor
+/// \param [in] CurFD FunctionDecl where \arg \c CE is located
 ///
-/// \returns true if channel descriptor were constructed sucessfully, false
+/// \returns true if channel descriptor were constructed successfully, false
 ///          otherwise
-bool BuildChannelDescriptor(const CallExpr *CE, FPGAChannelAccessKind Kind,
-                            FPGAChannelDescriptor &Desc, ASTContext &Context) {
+bool BuildChannelDescriptor(const CallExpr *CE, unsigned ArgNo,
+                            FPGAChannelAccessKind Kind,
+                            FPGAChannelDescriptor &Desc,
+                            const FunctionDecl *CurFD) {
   // I expect ImplicitCastExpr(LValueToRValue) here
-  const auto *Cast = cast<CastExpr>(CE->getArg(0));
+  const auto *Cast = cast<CastExpr>(CE->getArg(ArgNo));
   llvm::SmallVector<int64_t, 4> Indices;
-  if (!ExtractArraySubscriptIndices(Cast, Indices, Context))
+  if (!ExtractArraySubscriptIndices(Cast, Indices, CurFD->getASTContext()))
     return false;
 
   // TODO: this if should be an assert: support access to channels via pointer
@@ -283,16 +356,21 @@ bool BuildChannelDescriptor(const CallExpr *CE, FPGAChannelAccessKind Kind,
     return false;
   const ValueDecl *ChannelDecl = DeclRef->getDecl();
 
-  // TODO: update analysis to support channel-by-value feature
-  if (isa<ParmVarDecl>(ChannelDecl))
-    return false;
+  Desc.Kind = Kind;
+
+  if (const auto *PVD = dyn_cast<ParmVarDecl>(ChannelDecl)) {
+    Desc.ArgNo = PVD->getFunctionScopeIndex();
+    Desc.IsLocalChannel = true;
+    Desc.Name = CurFD->getName().str() + "-" + std::to_string(Desc.ArgNo);
+
+    return true;
+  }
 
   Desc.ChannelDecl = ChannelDecl;
   Desc.Name = Desc.ChannelDecl->getName().str();
   for (const auto &I : llvm::reverse(Indices))
     Desc.Name += "[" + std::to_string(I) + "]";
 
-  Desc.Kind = Kind;
   return true;
 }
 
@@ -305,6 +383,15 @@ FPGAChannelAccessKind GetChannelAccessKind(StringRef Name) {
   }
 
   return FPGAChannelAccessKind::Undefined;
+}
+
+bool HasChannelArgs(const FunctionDecl *FD) {
+  for (const ParmVarDecl *PVD : FD->parameters()) {
+    if (PVD->getType()->isChannelType())
+      return true;
+  }
+
+  return false;
 }
 
 /// Helper structure to maintain state of BFS while collecting call stack
@@ -325,9 +412,10 @@ struct State {
       : FD(FD), Depth(Depth), SLoc(SLoc) {}
 };
 
-void CollectCallStack(const FPGAChannelDescriptor &TargetDesc,
+void CollectCallStack(const FPGAChannelDescriptor &Desc,
                       const FunctionDecl *Kernel, Sema &S,
                       llvm::SmallVectorImpl<SourceLocation> &CallStack) {
+  FPGAChannelDescriptor TargetDesc = Desc;
   State CurrentState;
   llvm::SmallVector<State, 8> WorkList;
   llvm::SmallPtrSet<const FunctionDecl *, 16> Visited;
@@ -370,19 +458,21 @@ void CollectCallStack(const FPGAChannelDescriptor &TargetDesc,
     // Analyze current FunctionDecl to search for requested channel in directly
     // used channels
     const FunctionDecl *FD = CurrentState.FD;
+    Visited.insert(FD);
 
     GlobalChannelFound = false;
     for (const Sema::FunctionDeclAndCallSitesPair &It :
          S.OCLFPGACallGraph[FD]) {
+      bool LocalChannelFound = false;
       const FunctionDecl *Callee = It.first;
       FPGAChannelAccessKind Kind = GetChannelAccessKind(Callee->getName());
       if (FPGAChannelAccessKind::Undefined != Kind) {
         // channel BI call
         for (const CallExpr *CE : It.second) {
-          FPGAChannelDescriptor Desc;
-          if (!BuildChannelDescriptor(CE, Kind, Desc, Kernel->getASTContext()))
+          FPGAChannelDescriptor TempDesc;
+          if (!BuildChannelDescriptor(CE, 0, Kind, TempDesc, FD))
             continue;
-          if (TargetDesc != Desc)
+          if (TargetDesc != TempDesc)
             continue;
 
           GlobalChannelFound = true;
@@ -391,14 +481,41 @@ void CollectCallStack(const FPGAChannelDescriptor &TargetDesc,
         } // for CallExpr
       } else {
         // everything else
-        // TODO: support channel-by-value
-        bool NotVisitedYet = Visited.insert(Callee).second;
-        if (NotVisitedYet)
-          WorkList.push_back(State(Callee, CurrentState.Depth + 1,
-                                   It.second.front()->getBeginLoc()));
+        if (!HasChannelArgs(Callee)) {
+          bool NotVisitedYet = Visited.insert(Callee).second;
+          if (NotVisitedYet)
+            WorkList.push_back(State(Callee, CurrentState.Depth + 1,
+                                     It.second.front()->getBeginLoc()));
+          continue;
+        }
+
+        for (const FPGAChannelDescriptor &TempDesc :
+             S.FunctionToChannelMap[Callee]) {
+          if (!TempDesc.IsLocalChannel)
+            continue;
+
+          for (const CallExpr *CE : It.second) {
+            FPGAChannelDescriptor NewDesc;
+            if (!BuildChannelDescriptor(CE, TempDesc.ArgNo, TempDesc.Kind,
+                                        NewDesc, FD))
+              continue;
+            if (TargetDesc != NewDesc)
+              continue;
+
+            LocalChannelFound = true;
+            TargetDesc = TempDesc;
+            WorkList.clear();
+            WorkList.emplace_back(
+                State(Callee, CurrentState.Depth + 1, CE->getBeginLoc()));
+            break;
+          } // for CallExpr
+
+          if (LocalChannelFound)
+            break;
+        } // for Desc
       }
 
-      if (GlobalChannelFound)
+      if (GlobalChannelFound || LocalChannelFound)
         break;
     } // for Callee
 
@@ -432,7 +549,6 @@ void emitDiags(const FunctionDecl *CurKernel,
         S.Diag(SLoc, diag::note_channel_is_used_through)
             << CurDesc.Name << Kind;
     }
-
 
     const FunctionDecl *&PrevKernel = S.ChannelToKernelMap[CurDesc];
     if (!PrevKernel) {
@@ -488,25 +604,32 @@ void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S) {
       // Step 1.1 of the algorithm: collect all channels used directly from the
       // current FunctionDecl
       FPGAChannelDescriptor Desc;
-      if (BuildChannelDescriptor(CE, Kind, Desc, FD->getASTContext()))
+      // CE is a call to channel BI function. For all such functions channel
+      // argument is at first position, i.e. 0
+      if (BuildChannelDescriptor(CE, 0, Kind, Desc, FD))
         ChannelsUsedInDecl.insert(Desc);
-    } else {
-      // Step 1.2 of the algorithm: extend list of directly used channels with
-      // lists of indirectly used channels (via calls to helper functions and
-      // other kernels)
-      // TODO: support channel-by-value
-      Sema::ChannelDescSet &ChannelsUsedInCallee =
-          S.FunctionToChannelMap[Callee];
-      ChannelsUsedInDecl.insert(ChannelsUsedInCallee.begin(),
-                                ChannelsUsedInCallee.end());
+      continue;
+    }
+
+    // Step 1.2 of the algorithm: extend list of directly used channels with
+    // lists of indirectly used channels (via calls to helper functions and
+    // other kernels)
+    const Sema::ChannelDescSet &ChannelsUsedInCallee =
+        S.FunctionToChannelMap[Callee];
+    for (const FPGAChannelDescriptor &Desc : ChannelsUsedInCallee) {
+      if (!Desc.IsLocalChannel) {
+        ChannelsUsedInDecl.insert(Desc);
+      } else {
+        FPGAChannelDescriptor NewDesc;
+        if (BuildChannelDescriptor(CE, Desc.ArgNo, Desc.Kind, NewDesc, FD))
+          ChannelsUsedInDecl.insert(NewDesc);
+      }
     }
   }
 
   if (ChannelsUsedInDecl.empty())
     return;
 
-  // Step 1.3 of the algorithm: walk up in call graph and emit diagnostics if
-  // necessary
   S.FunctionToChannelMap[FD].insert(ChannelsUsedInDecl.begin(),
                                     ChannelsUsedInDecl.end());
 
@@ -516,6 +639,9 @@ void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S) {
   WorkList.push_back(State(FD, /* Depth = */ 0));
   // Used to detect recursion
   llvm::SmallVector<const FunctionDecl *, 8> Stack;
+
+  Sema::FunctionToChannelMapType NewChannels;
+  NewChannels[FD].insert(ChannelsUsedInDecl.begin(), ChannelsUsedInDecl.end());
 
   while (!WorkList.empty()) {
     State CurrentState = WorkList.back();
@@ -531,19 +657,38 @@ void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S) {
       Stack.resize(CurrentState.Depth);
     }
 
+    Sema::ChannelDescSet &ChannelsToPromote = NewChannels[CurFD];
+    if (ChannelsToPromote.empty())
+      continue;
+
     for (const Sema::FunctionDeclAndCallSitesPair &Node :
          S.OCLFPGAReverseCallGraph[CurFD]) {
-      const FunctionDecl *F = Node.first;
-      WorkList.push_back(State(F, CurrentState.Depth + 1));
-    } // for Node in call graph
+      const FunctionDecl *Caller = Node.first;
+      Sema::ChannelDescSet &NewChannelsForCaller = NewChannels[Caller];
+      WorkList.emplace_back(State(Caller, CurrentState.Depth + 1));
 
-    S.FunctionToChannelMap[FD].insert(ChannelsUsedInDecl.begin(),
-                                      ChannelsUsedInDecl.end());
+      for (const FPGAChannelDescriptor &Desc : ChannelsToPromote) {
+        if (!Desc.IsLocalChannel) {
+          NewChannelsForCaller.insert(Desc);
+        } else {
+          for (const CallExpr *Call : Node.second) {
+            FPGAChannelDescriptor NewDesc;
+            if (BuildChannelDescriptor(Call, Desc.ArgNo, Desc.Kind, NewDesc,
+                                       Caller)) {
+              NewChannelsForCaller.insert(NewDesc);
+            }
+          }
+        }
+      }
+      S.FunctionToChannelMap[Caller].insert(NewChannelsForCaller.begin(),
+                                            NewChannelsForCaller.end());
+    } // for Node in call graph
 
     if (!CurFD->hasAttr<OpenCLKernelAttr>())
       continue;
 
-    emitDiags(CurFD, ChannelsUsedInDecl, S);
+    emitDiags(CurFD, ChannelsToPromote, S);
+    ChannelsToPromote.clear();
   }
 }
 
