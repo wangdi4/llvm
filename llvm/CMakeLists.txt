@@ -781,6 +781,11 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16)
 # end INTEL_FEATURE_ISA_BF16
+
+# INTEL_FEATURE_ISA_FP16
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16)
+# end INTEL_FEATURE_ISA_FP16
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

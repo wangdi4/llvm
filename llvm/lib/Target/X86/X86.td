@@ -175,6 +175,13 @@ def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
 def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
+                           "Support 16-bit floating point",
+                           [FeatureBWI]>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
                          "Enable packed carry-less multiplication instructions",
                                [FeatureSSE2]>;

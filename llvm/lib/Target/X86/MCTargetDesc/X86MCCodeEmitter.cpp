@@ -684,6 +684,12 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
   case X86II::XOP8: VEX_5M = 0x8; break;
   case X86II::XOP9: VEX_5M = 0x9; break;
   case X86II::XOPA: VEX_5M = 0xA; break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86II::T_MAP5: VEX_5M = 0x5; break; //0F 39
+  case X86II::T_MAP6: VEX_5M = 0x6; break; //0F 3B
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   }
 
   // VEX_4V (VEX vvvv field): a register specifier
@@ -996,8 +1002,15 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
     // +-----+ +--------------+ +-------------------+ +------------------------+
     // | 62h | | RXBR' | 00mm | | W | vvvv | U | pp | | z | L'L | b | v' | aaa |
     // +-----+ +--------------+ +-------------------+ +------------------------+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    assert((VEX_5M & 0x7) == VEX_5M
+           && "More than 3 significant bits in VEX.m-mmmm fields for EVEX!");
+#else // INTEL_FEATURE_ISA_FP16
     assert((VEX_5M & 0x3) == VEX_5M
            && "More than 2 significant bits in VEX.m-mmmm fields for EVEX!");
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     EmitByte(0x62, CurByte, OS);
     EmitByte((VEX_R   << 7) |

@@ -42,7 +42,15 @@ private:
   /// [5] XOP9 map opcode
   /// [6] XOPA map opcode
   /// [7] 3dnow map opcode
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  /// [8] three-byte opcodes of the form 0f 39 __
+  /// [9] three-byte opcodes of the form 0f 3B __
+  std::unique_ptr<ContextDecision> Tables[10];
+#else // INTEL_FEATURE_ISA_FP16
   std::unique_ptr<ContextDecision> Tables[8];
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // Table of ModRM encodings.
   typedef std::map<std::vector<unsigned>, unsigned> ModRMMapTy;

@@ -1620,6 +1620,82 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::ANY_EXTEND,         MVT::v32i8, Custom);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (!Subtarget.useSoftFloat() && Subtarget.hasFP16()) {
+    auto setGroup = [&] (MVT VT) {
+      setOperationAction(ISD::FADD,               VT, Legal);
+      setOperationAction(ISD::FSUB,               VT, Legal);
+      setOperationAction(ISD::FMUL,               VT, Legal);
+      setOperationAction(ISD::FDIV,               VT, Legal);
+      setOperationAction(ISD::FSQRT,              VT, Legal);
+
+      setOperationAction(ISD::LOAD,               VT, Legal);
+      setOperationAction(ISD::STORE,              VT, Legal);
+
+      setOperationAction(ISD::FMA,                VT, Legal);
+      setOperationAction(ISD::VSELECT,            VT, Legal);
+      setOperationAction(ISD::BUILD_VECTOR,       VT, Custom);
+      setOperationAction(ISD::CONCAT_VECTORS,     VT, Custom);
+
+      setOperationAction(ISD::FNEG,               VT, Custom);
+      setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
+    };
+
+    // AVX512_FP16 scalar operations
+    addRegisterClass(MVT::f16,    &X86::FR16XRegClass);
+    setOperationAction(ISD::SELECT_CC,            MVT::f16,   Expand);
+    setOperationAction(ISD::BR_CC,                MVT::f16,   Expand);
+    setOperationAction(ISD::SETCC,                MVT::f16, Custom);
+    setOperationAction(ISD::SELECT,               MVT::f16, Custom);
+    setOperationAction(ISD::FDIV,                 MVT::f16, Legal);
+    setOperationAction(ISD::FSQRT,                MVT::f16, Legal);
+    setOperationAction(ISD::FNEG,                 MVT::f16, Custom);
+
+    if (Subtarget.useAVX512Regs()) {
+      setGroup(MVT::v32f16);
+      addRegisterClass(MVT::v32f16, &X86::VR512RegClass);
+      setOperationAction(ISD::SCALAR_TO_VECTOR,       MVT::v32f16, Custom);
+      setOperationAction(ISD::SINT_TO_FP,             MVT::v32i16, Legal);
+      setOperationAction(ISD::UINT_TO_FP,             MVT::v32i16, Legal);
+      setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v32f16, MVT::v32i16);
+      setOperationAction(ISD::INSERT_VECTOR_ELT,      MVT::v32f16, Custom);
+      setOperationAction(ISD::FP_ROUND,               MVT::v16f32, Legal);
+    }
+
+    if (Subtarget.hasVLX()) {
+      addRegisterClass(MVT::v8f16,  &X86::VR128XRegClass);
+      addRegisterClass(MVT::v16f16, &X86::VR256XRegClass);
+      for (auto VT : { MVT::v8f16, MVT::v16f16 }) {
+        setGroup(VT);
+      }
+      setOperationAction(ISD::SCALAR_TO_VECTOR,   MVT::v8f16,  Legal);
+      setOperationAction(ISD::SCALAR_TO_VECTOR,   MVT::v16f16, Custom);
+      setOperationAction(ISD::SINT_TO_FP,         MVT::v16i16, Legal);
+      setOperationAction(ISD::SINT_TO_FP,         MVT::v8i16,  Legal);
+      setOperationAction(ISD::UINT_TO_FP,         MVT::v16i16, Legal);
+      setOperationAction(ISD::UINT_TO_FP,         MVT::v8i16,  Legal);
+
+      setOperationAction(ISD::FP_TO_SINT,         MVT::v8i16, Legal);
+      setOperationAction(ISD::FP_TO_UINT,         MVT::v8i16, Legal);
+
+      setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v8f16, MVT::v8i16);
+      setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v16f16, MVT::v16i16);
+
+      // INSERT_VECTOR_ELT v8f16 extended to VECTOR_SHUFFLE
+      setOperationAction(ISD::INSERT_VECTOR_ELT,    MVT::v8f16,  Custom);
+      setOperationAction(ISD::INSERT_VECTOR_ELT,    MVT::v16f16, Custom);
+
+      setOperationAction(ISD::FP_TO_SINT,           MVT::v4f16, Custom);
+      setOperationAction(ISD::FP_ROUND,             MVT::v8f32, Legal);
+    }
+
+    // Support fp16 0 immediate
+    addLegalFPImmediate(APFloat::getZero(APFloat::IEEEhalf()));
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   // This block controls legalization for v32i16 and v64i8. 512-bits can be
   // disabled based on prefer-vector-width and required-vector-width function
   // attributes.

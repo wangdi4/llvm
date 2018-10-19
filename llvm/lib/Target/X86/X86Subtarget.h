@@ -342,6 +342,13 @@ protected:
   /// Processor has AVX-512 Vector Length eXtenstions
   bool HasVLX = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  /// Processor has AVX-512 16 bit floating-point extenstions
+  bool HasFP16 = false;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor has PKU extenstions
   bool HasPKU = false;
 
@@ -662,6 +669,11 @@ public:
   bool hasDQI() const { return HasDQI; }
   bool hasBWI() const { return HasBWI; }
   bool hasVLX() const { return HasVLX; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  bool hasFP16() const { return HasFP16; }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   bool hasPKU() const { return HasPKU; }
   bool hasVNNI() const { return HasVNNI; }
 #if INTEL_CUSTOMIZATION

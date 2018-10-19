@@ -5193,3 +5193,15 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+// avx512_fp16: vaddph
+let TargetPrefix = "x86" in {
+  def int_x86_avx512fp16_add_ph_512 :
+      GCCBuiltin<"__builtin_ia32_addph512">,
+          Intrinsic<[llvm_v32f16_ty], [llvm_v32f16_ty, llvm_v32f16_ty,
+                     llvm_i32_ty], [IntrNoMem]>;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION

@@ -117,9 +117,20 @@ StringRef llvm::getEnumName(MVT::SimpleValueType T) {
   case MVT::v16i64:   return "MVT::v16i64";
   case MVT::v32i64:   return "MVT::v32i64";
   case MVT::v1i128:   return "MVT::v1i128";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case MVT::v1f16:    return "MVT::v1f16";
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case MVT::v2f16:    return "MVT::v2f16";
   case MVT::v4f16:    return "MVT::v4f16";
   case MVT::v8f16:    return "MVT::v8f16";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case MVT::v16f16:   return "MVT::v16f16";
+  case MVT::v32f16:   return "MVT::v32f16";
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case MVT::v1f32:    return "MVT::v1f32";
   case MVT::v2f32:    return "MVT::v2f32";
   case MVT::v4f32:    return "MVT::v4f32";

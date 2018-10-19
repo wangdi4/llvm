@@ -50,6 +50,11 @@
 # INTEL_FEATURE_ISA_BF16
 @ISA_BF16:SECRET@
 # end INTEL_FEATURE_ISA_BF16
+
+# INTEL_FEATURE_ISA_FP16
+@ISA_FP16:SECRET@
+# end INTEL_FEATURE_ISA_FP16
+
 # === New ISA features section end ===
 
 # Support for a new target is usually covered by a feature named after
