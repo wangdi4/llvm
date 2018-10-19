@@ -373,6 +373,14 @@ bool VPOParoptTransform::paroptTransforms() {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Lower OpenMP runtime library calls for CSA in prepare pass.
+  if (isTargetCSA() && (Mode & ParPrepare))
+    RoutineChanged |= translateCSAOmpRtlCalls();
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   if (WI->WRGraphIsEmpty()) {
     LLVM_DEBUG(
         dbgs() << "\n... No WRegion Candidates for Parallelization ...\n\n");

@@ -16,6 +16,7 @@
 
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/InstIterator.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -694,4 +695,42 @@ bool VPOParoptTransform::genCSAParallel(WRegionNode *W) {
 bool VPOParoptTransform::genCSASingle(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
   return CSAPrivatizer(*this, W).run();
+}
+
+bool VPOParoptTransform::translateCSAOmpRtlCalls() {
+  assert(isTargetCSA() && "unexpected target");
+  bool Changed = false;
+  SmallVector<Instruction*, 8u> DeadInsts;
+  for (auto &I : instructions(F))
+    if (auto CS = CallSite(&I)) {
+      LibFunc LF = NumLibFuncs;
+      if (!TLI->getLibFunc(CS, LF))
+        continue;
+
+      Value *Val = nullptr;
+      switch (LF) {
+        case LibFunc_omp_get_thread_num:
+        case LibFunc_omp_get_dynamic:
+          Val = ConstantInt::get(Type::getInt32Ty(F->getContext()), 0);
+          break;
+        case LibFunc_omp_get_num_threads:
+        case LibFunc_omp_get_max_threads:
+        case LibFunc_omp_get_nested:
+          Val = ConstantInt::get(Type::getInt32Ty(F->getContext()), 1u);
+          break;
+        case LibFunc_omp_set_num_threads:
+        case LibFunc_omp_set_dynamic:
+        case LibFunc_omp_set_nested:
+          break;
+        default:
+          continue;
+      }
+      Changed = true;
+      if (Val)
+        CS->replaceAllUsesWith(Val);
+      DeadInsts.push_back(CS.getInstruction());
+    }
+  for (auto *I : DeadInsts)
+    I->eraseFromParent();
+  return Changed;
 }

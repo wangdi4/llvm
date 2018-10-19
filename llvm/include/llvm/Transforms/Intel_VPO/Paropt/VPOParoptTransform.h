@@ -715,6 +715,9 @@ private:
   /// \brief Transform "omp [parallel] sections" work region for CSA target.
   bool genCSASections(WRegionNode *W);
 
+  /// Lower OpenMP runtime library calls.
+  bool translateCSAOmpRtlCalls();
+
   /// \brief Transform "omp single" work region for CSA target.
   bool genCSASingle(WRegionNode *W);
 
