@@ -3,7 +3,7 @@
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_RECOGNIZED %s
 ;
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -hir-cg \
+; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -vplan-use-padding-info=false -hir-cg \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED %s
 ;
 ; REQUIRES: asserts

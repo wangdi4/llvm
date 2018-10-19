@@ -39,6 +39,11 @@ public:
   static bool isAnySearchLoop(const VPlan *Plan, const unsigned VF,
                               const bool CheckSafity);
 
+  static bool isAnySearchLoop(const VPlanIdioms::Opcode Opcode) {
+    return Opcode == VPlanIdioms::SearchLoopStrEq ||
+           Opcode == VPlanIdioms::SearchLoop;
+  }
+
 private:
   static bool isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block);
   static Opcode isStrEqSearchLoop(const VPBasicBlock *Block,

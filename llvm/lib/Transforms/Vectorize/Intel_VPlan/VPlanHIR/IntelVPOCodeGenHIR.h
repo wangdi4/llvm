@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
+#include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
@@ -47,12 +48,12 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
                 VPlanVLSAnalysis *VLSA, const VPlan *Plan, Function &Fn,
                 HLLoop *Loop, LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
-                const bool IsSearchLoop)
+                const VPlanIdioms::Opcode SearchLoopType)
       : TLI(TLI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(Fn.getContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
-        IsSearchLoop(IsSearchLoop) {}
+        SearchLoopType(SearchLoopType) {}
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -298,7 +299,10 @@ public:
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
 
-  bool isSearchLoop() const { return IsSearchLoop; }
+  bool isSearchLoop() const {
+    return VPlanIdioms::isAnySearchLoop(SearchLoopType);
+  }
+  VPlanIdioms::Opcode getSearchLoopType() const { return SearchLoopType; }
 
   HLDDNode *getInsertRegion() const { return InsertRegionsStack.back(); }
   void addInsertRegion(HLDDNode *Node) { InsertRegionsStack.push_back(Node); }
@@ -383,7 +387,7 @@ private:
   // Set of unit-stride Refs
   SmallPtrSet<const RegDDRef *, 4> UnitStrideRefSet;
   // The loop meets search loop idiom criteria.
-  bool IsSearchLoop;
+  VPlanIdioms::Opcode SearchLoopType;
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }

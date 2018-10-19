@@ -41,3 +41,9 @@ add_llvm_library(LLVMVectorize
   intel_directives_gen
 # end INTEL_CUSTOMIZATION
   )
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(LLVMVectorize PRIVATE LLVMIntel_DTransOpt)
+endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_CUSTOMIZATION

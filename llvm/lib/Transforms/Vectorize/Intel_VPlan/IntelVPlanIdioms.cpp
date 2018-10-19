@@ -17,11 +17,20 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
+
 #define DEBUG_TYPE "vplan-idioms"
 
 cl::opt<bool>
     AllowMemorySpeculation("allow-memory-speculation", cl::init(false),
                            cl::desc("Enable speculative vector unit loads."));
+
+static cl::opt<bool>
+    UsePaddingInformation("vplan-use-padding-info", cl::init(true),
+                          cl::desc("Enable use of IPO's padding information"));
 
 namespace llvm {
 
@@ -36,8 +45,8 @@ static bool canSpeculate(const RegDDRef *Ref) {
   if (Ref->isMemRef()) {
     // FIXME: Copied code from CM. Has to be removed.
     int64_t ConstStride;
-    unsigned NestingLevel =
-        Ref->getHLDDNode()->getParentLoop()->getNestingLevel();
+    const HLLoop *Loop = Ref->getParentLoop();
+    unsigned NestingLevel = Loop->getNestingLevel();
     if (!Ref->getConstStrideAtLevel(NestingLevel, &ConstStride) || !ConstStride)
       return false;
 
@@ -47,6 +56,26 @@ static bool canSpeculate(const RegDDRef *Ref) {
     ConstStride /= RefSizeInBytes;
     if (ConstStride != 1)
       return false;
+
+#if INTEL_INCLUDE_DTRANS
+    if (UsePaddingInformation)
+      if (Value *Base = Ref->getTempBaseValue()) {
+        // TODO: Need to look into data type, VF and return padded size.
+        if (llvm::getPaddingForValue(Base) > 0)
+          return true;
+        else
+          for (auto NodeIt = Loop->pre_begin(), NodeEndIt = Loop->pre_end();
+               NodeIt != NodeEndIt; ++NodeIt)
+            if (const auto *Inst = dyn_cast<HLInst>(&*NodeIt))
+              if (Inst->getLLVMInstruction() == Base) {
+                const RegDDRef *RvalRef = Inst->getRvalDDRef();
+                if (RvalRef->isAddressOf())
+                  Base = RvalRef->getTempBaseValue();
+                  if (llvm::getPaddingForValue(Base) > 0)
+                    return true;
+              }
+      }
+#endif // INTEL_INCLUDE_DTRANS
 
     if (AllowMemorySpeculation)
       return true;
@@ -149,18 +178,25 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
       }
 
       // FIXME: Need to look on VPPredicates, not on underlying IR.
-      if (!isa<HLIf>(HInst->getParent())) {
+      if (!isa<HLIf>(HInst->getParent()))
         // No support for assignment to live-out terminals or when memory
         // speculation is not allowed.
-        if (!AllowSpeculation &&
-            ((LvalRef->isTerminalRef() && LvalRef->isLiveOutOfParentLoop() &&
-              !RvalRef->isMemRef()) ||
-             (!canSpeculate(LvalRef) || !canSpeculate(RvalRef)))) {
-          LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
-                     dbgs() << " is unmasked, thus it's unsafe.\n");
-          return VPlanIdioms::Unsafe;
+        if (!AllowSpeculation && LvalRef->isTerminalRef() &&
+            LvalRef->isLiveOutOfParentLoop()) {
+          // FIXME: Current CG cannot handle multiple dimensions for
+          // live-out computation in early exit loop. Bail-out by now.
+          if (!RvalRef->isMemRef() || !canSpeculate(LvalRef) ||
+              !canSpeculate(RvalRef)) {
+            LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
+                       dbgs() << " is unmasked, thus it's unsafe.\n");
+            return VPlanIdioms::Unsafe;
+          } else if (RvalRef->getNumDimensions() != 1) {
+            LLVM_DEBUG(dbgs() << "        RvalRef "; RvalRef->dump();
+                       dbgs() << "  has multiple dimensions which is not "
+                                 "supported by current CG.\n");
+            return VPlanIdioms::Unsafe;
+          }
         }
-      }
     }
   }
   return VPlanIdioms::SearchLoopStrEq;
@@ -195,7 +231,8 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       const RegDDRef *LvalRef = HInst->getLvalDDRef();
       const RegDDRef *RvalRef = HInst->getRvalDDRef();
       if (!LvalRef || !RvalRef ||
-          (!LvalRef->isTerminalRef() || RvalRef->isNonLinear())) {
+          (!LvalRef->isTerminalRef() || RvalRef->isNonLinear() ||
+           RvalRef->getNumDimensions() != 1)) {
         LLVM_DEBUG(dbgs() << "      HLInst "; HInst->dump();
                    dbgs() << " is not supported by CG.\n");
         return false;
@@ -298,9 +335,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
 bool VPlanIdioms::isAnySearchLoop(const VPlan *Plan, const unsigned VF,
                                   const bool CheckSafity) {
 
-  VPlanIdioms::Opcode Opcode = isSearchLoop(Plan, VF, CheckSafity);
-  return Opcode == VPlanIdioms::SearchLoopStrEq ||
-         Opcode == VPlanIdioms::SearchLoop;
+  return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafity));
 }
 
 } // namespace vpo
