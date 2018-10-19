@@ -3989,7 +3989,8 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
       DeviceGlobalVarMetadataEmitter);
 
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP &&
+      CGM.getLangOpts().IntelOpenMPOffload)
     return;
 #endif // INTEL_CUSTOMIZATION
 
@@ -8355,7 +8356,8 @@ bool CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S, // INTEL
       return false; // INTEL
 
 #if INTEL_CUSTOMIZATION
-    if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+    if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP &&
+        CGM.getLangOpts().IntelOpenMPOffload)
       return true;
 #endif // INTEL_CUSTOMIZATION
 
@@ -8488,7 +8490,8 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
 
     // Emit functions with target regions if doing BE outlining.
     if (HasTargetRegions &&
-        CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+        CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP &&
+        CGM.getLangOpts().IntelOpenMPOffload)
       return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -8648,7 +8651,8 @@ llvm::Function *CGOpenMPRuntime::emitRegistrationFunction() {
 
 #if INTEL_CUSTOMIZATION
   // Offload registration is created by BE with late outlining.
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP &&
+      CGM.getLangOpts().IntelOpenMPOffload)
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
