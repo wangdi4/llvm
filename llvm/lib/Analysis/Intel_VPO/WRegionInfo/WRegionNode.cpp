@@ -599,6 +599,10 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     assert(N > 0 && "COLLAPSE parameter must be positive");
     setCollapse(N);
     break;
+  case QUAL_OMP_OFFLOAD_ENTRY_IDX:
+    assert(CI && "OFFLOAD_ENTRY_IDX expected to be constant");
+    setOffloadEntryIdx(N);
+    break;
   case QUAL_OMP_IF:
     setIf(V);
     break;
@@ -1515,18 +1519,21 @@ void vpo::printValList(StringRef Title, ArrayRef<Value *> const &Vals,
 }
 
 // Auxiliary function to print an Int in a WRN dump
-// If Num is 0:
+// If Num < Min:
 //   Verbosity == 0: exit without printing anything
 //   Verbosity >= 1: print "Title: UNSPECIFIED"
-// If Num is not 0:
+// If Num >= Min:
 //   print "Title: Num"
+// For clauses expecting positive constants (eg, COLLAPSE), use Min==1 (default)
+// For those expecting non-negative constants (eg, OFFLOAD_ENTRY_IDX), use Min==0
+//
 void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
-                   int Indent, unsigned Verbosity) {
-  if (Verbosity==0 && Num==0)
-    return; // When Verbosity==0; print nothing if Num==0
+                   int Indent, unsigned Verbosity, int Min) {
+  if (Verbosity==0 && Num < Min)
+    return; // When Verbosity==0; print nothing if Num < Min
 
   OS.indent(Indent) << Title << ": ";
-  if (Num==0) {
+  if (Num < Min) {
     OS << "UNSPECIFIED\n";
     return;
   }

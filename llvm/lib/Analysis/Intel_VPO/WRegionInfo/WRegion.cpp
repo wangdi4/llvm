@@ -230,9 +230,8 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setNowait(false);
   setDefaultmapTofromScalar(false);
   setParLoopNdInfoAlloca(nullptr);
-
 #if INTEL_CUSTOMIZATION
-  // TODO: This should be reimplemented to use operand bundles.
+  // TODO: Remove this once Clang emits OperandBbundle instead of metadata.
   // Get offload entry index for this region. It is attached to the begin
   // directive as 'omp_offload.entry' metadata.
   if (const auto *MD = BB->front().getMetadata("omp_offload.entry")) {
@@ -240,9 +239,8 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
     setOffloadEntryIdx(C->getZExtValue());
   }
   else
-    setOffloadEntryIdx(-1);
 #endif // INTEL_CUSTOMIZATION
-
+  setOffloadEntryIdx(-1);
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }
 
@@ -805,11 +803,8 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
                     "TOFROM:SCALAR" : "UNSPECIFIED";
     vpo::printStr("DEFAULTMAP", Str, OS, Indent, Verbosity);
 
-#if INTEL_CUSTOMIZATION
-    auto EntryIdx = W->getOffloadEntryIdx();
-    if (EntryIdx >= 0)
-      vpo::printInt("OFFLOAD_ENTRY_IDX", EntryIdx, OS, Indent, Verbosity);
-#endif // INTEL_CUSTOMIZATION
+    int EntryIdx = W->getOffloadEntryIdx();
+    vpo::printInt("OFFLOAD_ENTRY_IDX", EntryIdx, OS, Indent, Verbosity, 0);
   }
 }
 

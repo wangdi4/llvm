@@ -400,12 +400,29 @@ void WRegionCollectionWrapperPass::releaseMemory() {
 }
 
 void WRegionCollection::print(raw_ostream &OS) const {
+  formatted_raw_ostream FOS(OS);
+
+  if (WRGraph == nullptr) {
+    // For lit-tests with -analyze the WRGraph can be empty because the
+    // graph construction is called by demand only. In such cases, we
+    // need to call the graph builder here.
+
+    // Need a non-const pointer to force build for opt -analyze mode.
+    auto NonConstWRC = const_cast<WRegionCollection *>(this);
+    NonConstWRC->buildWRGraphFromLLVMIR(*Func);
+  }
+
+  for (auto I = begin(), E = end(); I != E; ++I) {
 #if INTEL_CUSTOMIZATION
-#if !INTEL_PRODUCT_RELEASE
-  /// TODO: implement later
-  /// WR.print(OS);
-#endif // !INTEL_PRODUCT_RELEASE
+  #if !INTEL_PRODUCT_RELEASE
+    FOS << "\n";
+    (*I)->print(FOS, 0);
+  #endif // !INTEL_PRODUCT_RELEASE
+#else
+    FOS << "\n";
+    (*I)->print(FOS, 0);
 #endif // INTEL_CUSTOMIZATION
+  }
 }
 
 #endif // INTEL_COLLAB

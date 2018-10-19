@@ -323,10 +323,8 @@ public:
   virtual EXPR getNumTeams()              const {WRNERROR(QUAL_OMP_NUM_TEAMS);}
   virtual void setNumThreads(EXPR E)          {WRNERROR(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()          const {WRNERROR(QUAL_OMP_NUM_THREADS);}
-#if INTEL_CUSTOMIZATION
-  virtual int  setOffloadEntryIdx()            {WRNERROR("OFFLOAD_ENTRY_IDX");}
+  virtual void setOffloadEntryIdx(int N)       {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
-#endif // INTEL_CUSTOMIZATION
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }
   virtual int getOrdered()                const {WRNERROR(QUAL_OMP_ORDERED);  }
   virtual void setParLoopNdInfoAlloca(AllocaInst *AI) { WRNERROR("LOOP_DESC"); }
@@ -669,14 +667,14 @@ extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
 
 /// Auxiliary function to print an Int in a WRN dump.
 ///
-/// If Num is 0:
-///  * Verbosity == 0: exit without printing anything
-///  * Verbosity >= 1: print "Title: UNSPECIFIED"
+/// If \p Num < \p Min:
+///  * \p Verbosity == 0: exit without printing anything
+///  * \p Verbosity >= 1: print "Title: UNSPECIFIED"
 ///
-/// If Num is not 0:
+/// If \p Num >= \p Min:
 ///  * print "Title: <Num>"
 extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
-                     int Indent, unsigned Verbosity=1);
+                     int Indent, unsigned Verbosity=1, int Min=1);
 
 /// Auxiliary function to print a boolean in a WRN dump.
 ///
