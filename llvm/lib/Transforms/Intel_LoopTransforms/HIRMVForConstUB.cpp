@@ -58,6 +58,7 @@ public:
 private:
   bool analyzeAndTransformLoop(HLLoop *Loop);
   void transformLoop(HLLoop *Loop, unsigned TempIndex, int64_t Constant);
+  void transformLoop(HLLoop *Loop, SmallVectorImpl<unsigned> &TripCounts);
 
   class LoopVisitor final : public HLNodeVisitorBase {
     HIRMVForConstUB &Pass;
@@ -138,6 +139,60 @@ static bool isProfitable(const CanonExpr *UpperBound, int64_t Constant) {
   return NewTCVal >= 8 && NewTCVal <= 32;
 }
 
+void HIRMVForConstUB::transformLoop(HLLoop *Loop,
+                                    SmallVectorImpl<unsigned> &TripCounts) {
+  Loop->removeLoopMetadata("llvm.loop.intel.loopcount");
+
+  if (TripCounts.size() == 1 && TripCounts[0] == 0) {
+    return;
+  }
+
+  Loop->extractZtt();
+
+  unsigned Level = Loop->getNestingLevel();
+  RegDDRef *OrigUpperRef = Loop->getUpperDDRef();
+  SmallVector<const RegDDRef *, 1> Aux = {OrigUpperRef};
+
+  // Maintain the last If so that we can insert other versions as the else case
+  // into the last If
+  HLIf *LastIf = nullptr;
+
+  for (unsigned I = 0; I < TripCounts.size(); ++I) {
+    if (TripCounts[I] == 0) {
+      continue;
+    }
+
+    RegDDRef *LHS = OrigUpperRef->clone();
+    RegDDRef *RHS = DRU.createConstDDRef(LHS->getDestType(), TripCounts[I] - 1);
+
+    HLIf *If =
+        Loop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
+
+    LHS->makeConsistent(&Aux, Level - 1);
+
+    if (!LastIf) {
+      HLNodeUtils::insertAfter(Loop, If);
+    } else {
+      HLNodeUtils::insertAsFirstChild(LastIf, If, false);
+    }
+
+    HLLoop *NewLoop = Loop->clone();
+    HLNodeUtils::insertAsFirstChild(If, NewLoop, true);
+    NewLoop->setMaxTripCountEstimate(0);
+
+    RegDDRef *UpperRef = NewLoop->getUpperDDRef();
+    CanonExpr *CE = UpperRef->getSingleCanonExpr();
+    UpperRef->clear();
+    CE->setConstant(static_cast<int64_t>(TripCounts[I] - 1));
+
+    LastIf = If;
+  }
+
+  HLNodeUtils::moveAsFirstChild(LastIf, Loop, false);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(LastIf);
+  LoopsMultiversioned++;
+}
+
 void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
                                     int64_t Constant) {
   unsigned Level = Loop->getNestingLevel();
@@ -162,8 +217,15 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
 }
 
 bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
-  if (!Loop->isNormalized()) {
+  if (!Loop->isNormalized() || Loop->isUnknown()) {
     return false;
+  }
+
+  SmallVector<unsigned, 8> TripCounts;
+
+  if (Loop->isInnermost() && Loop->getPragmaBasedLikelyTripCounts(TripCounts)) {
+    transformLoop(Loop, TripCounts);
+    return true;
   }
 
   RegDDRef *Ref = Loop->getUpperDDRef();
