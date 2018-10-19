@@ -449,12 +449,13 @@ static WRegionNode* findEnclosingParRegion(WRegionNode *W) {
 
 bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
   switch (W->getWRegionKindID()) {
+    case WRegionNode::WRNTarget:
     case WRegionNode::WRNParallel:
     case WRegionNode::WRNParallelSections:
     case WRegionNode::WRNParallelLoop:
     case WRegionNode::WRNWksLoop:
     case WRegionNode::WRNSections:
-    case WRegionNode::WRNAtomic:	// not fully supported, but may work
+    case WRegionNode::WRNAtomic:
     case WRegionNode::WRNSection:
     case WRegionNode::WRNMaster:
     case WRegionNode::WRNSingle:
