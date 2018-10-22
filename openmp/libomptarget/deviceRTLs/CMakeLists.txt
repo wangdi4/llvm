@@ -18,3 +18,7 @@ if(INTEL_CUSTOMIZATION)
   add_subdirectory(nios2)
 endif()
 #END INTEL_CUSTOMIZATION
+
+if(INTEL_COLLAB)
+  add_subdirectory(opencl)
+endif(INTEL_COLLAB)
