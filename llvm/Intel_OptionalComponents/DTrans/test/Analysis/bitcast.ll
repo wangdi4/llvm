@@ -639,6 +639,41 @@ exit:
 ; CHECK-LABEL: LLVMType: %struct.test38 = type { i32, i32 }
 ; CHECK: Safety data: No issues found
 
+
+; This test verifies that bad casting conditions are propagated through
+; pointer members.
+
+%struct.test39.a = type { i32, i32 }
+%struct.test39.b = type { i32, i32 }
+%struct.test39.c = type { [8 x i8], %struct.test39.a }
+%struct.test39.d = type { [8 x i8], %struct.test39.b }
+%struct.test39.e = type { i64, %struct.test39.c* }
+%struct.test39.f = type { i64, %struct.test39.d* }
+
+define i32 @test39(%struct.test39.f** %ppf) {
+  %ppe = bitcast %struct.test39.f** %ppf to %struct.test39.e**
+  %pe = load %struct.test39.e*, %struct.test39.e** %ppe
+  %ppc = getelementptr %struct.test39.e, %struct.test39.e* %pe, i64 0, i32 1
+  %pc = load %struct.test39.c*, %struct.test39.c** %ppc
+  %pa = getelementptr %struct.test39.c, %struct.test39.c* %pc, i64 0, i32 1
+  %pa2 = getelementptr %struct.test39.a, %struct.test39.a* %pa, i64 0, i32 1
+  %ret = load i32, i32* %pa2
+  ret i32 %ret
+}
+
+; CHECK-LABEL: %struct.test39.a = type { i32, i32 }
+; CHECK: Safety data: Bad casting | Nested structure
+; CHECK: %struct.test39.b = type { i32, i32 }
+; CHECK: Safety data: Bad casting | Nested structure
+; CHECK: %struct.test39.c = type { [8 x i8], %struct.test39.a }
+; CHECK: Safety data: Bad casting | Contains nested structure
+; CHECK: %struct.test39.d = type { [8 x i8], %struct.test39.b }
+; CHECK: Safety data: Bad casting | Contains nested structure
+; CHECK: %struct.test39.e = type { i64, %struct.test39.c* }
+; CHECK: Safety data: Bad casting | Ambiguous GEP
+; CHECK: %struct.test39.f = type { i64, %struct.test39.d* }
+; CHECK: Safety data: Bad casting | Ambiguous GEP
+
 ; Array types get printed last so theese checks aren't with their IR.
 
 ; CHECK: LLVMType: [16 x %struct.test10]

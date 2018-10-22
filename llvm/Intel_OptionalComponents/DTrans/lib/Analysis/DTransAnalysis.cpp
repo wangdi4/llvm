@@ -8221,6 +8221,26 @@ private:
     return true;
   }
 
+  // Return true if \p Data is a safety condition that should be cascaded
+  // across pointer field members within a structure. Most safety conditions
+  // detected on a structure do not apply to child structures that are only
+  // referenced by pointer fields (as opposed to fully nested structures)
+  // because changing the layout of the parent structure does not affect
+  // the type pointed to. However, some safety conditions relating to how
+  // a structure can be accessed in ways that we can't fully analyze must
+  // be transferred to contained pointers.
+  bool isPointerCarriedSafetyCondition(dtrans::SafetyData Data) {
+    switch (Data) {
+    case dtrans::AddressTaken:
+    case dtrans::BadCasting:
+    case dtrans::BadCastingPending:
+      return true;
+    default:
+      return false;
+    }
+    llvm_unreachable("Fully covered switch isn't fully covered?");
+  }
+
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
@@ -8237,9 +8257,10 @@ private:
     // structure field or array element types. If the field or element is an
     // instance of a type of interest, and not if it is merely a pointer to
     // such a type, the condition is propagated. If the field is a pointer,
-    // the condition is only propagated if it is AddressTaken. Propagation is
-    // done via a recursive call to setBaseTypeInfoSafetyData in order to
-    // handle additional levels of nesting.
+    // we call a helper function to see if this is a condition which requires
+    // propagation through pointer fields. Propagation is done via a recursive
+    // call to setBaseTypeInfoSafetyData in order to handle additional levels
+    // of nesting.
     auto maybePropagateSafetyCondition = [this](llvm::Type *FieldTy,
                                                 dtrans::SafetyData Data) {
       // If FieldTy is not a type of interest, there's no need to propagate.
@@ -8248,12 +8269,12 @@ private:
       // If the field is an instance of the type, propagate the condition.
       if (!FieldTy->isPointerTy()) {
         setBaseTypeInfoSafetyData(FieldTy, Data);
-      } else if (Data == dtrans::AddressTaken) {
-        // In the case of AddressTaken, we need to propagate the condition
-        // even to fields that are pointers to structures, but in order
-        // to avoid infinite loops in the case where two structures each
-        // have pointers to the other we need to avoid doing this for
-        // structures that already have the condition set.
+      } else if (isPointerCarriedSafetyCondition(Data)) {
+        // In some cases we need to propagate the condition even to fields
+        // that are pointers to structures, but in order to avoid infinite
+        // loops in the case where two structures each have pointers to the
+        // other we need to avoid doing this for structures that already have
+        // the condition set.
         llvm::Type *FieldBaseTy = FieldTy;
         while (FieldBaseTy->isPointerTy())
           FieldBaseTy = FieldBaseTy->getPointerElementType();
