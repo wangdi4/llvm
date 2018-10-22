@@ -716,7 +716,7 @@ private:
           // Base is direct access of base pointer in array structure,
           // or value returned from allocation.
           if (!ArrayIdioms::isBasePointerLoad(DO, S) &&
-              !ArrayIdioms::isAlloc(DO, S))
+               !checkAlloc(cast<Instruction>(V)))
             return false;
         } else {
           TI.ElementPtrGEP.insert(I);
@@ -738,6 +738,31 @@ private:
     return true;
   }
 
+  // Checks if V is a value returned from allocation.
+  bool checkSingleAlloc(const Value *V) const {
+    auto *VDep = DM.getApproximation(V->stripPointerCasts());
+    if (ArrayIdioms::isAlloc(VDep, S)) {
+      if (checkBasePointerInst(cast<Instruction>(V), "Allocation call"))
+        return true;
+    }
+    return false;
+  }
+
+  // Checks if store has value returned from some allocation.
+  bool checkAlloc(const Instruction *Ptr) const {
+    if (checkSingleAlloc(Ptr->stripPointerCasts())) {
+      return true;
+    }
+    // Multiple allocs.
+    else if (auto *PHI = dyn_cast<PHINode>(Ptr->stripPointerCasts())) {
+      for (auto &Use : PHI->incoming_values())
+        if (!checkSingleAlloc(cast<Instruction>(Use.get())))
+          return false;
+      return true;
+    }
+    return false;
+  }
+
   // Checks for structured memset.
   // Completes checks from DepCompute.
   // Helper method for classify.
@@ -748,15 +773,12 @@ private:
   //
   // Base address is a result of allocation functions and size is divisible by
   // element size.
-  bool checkMemset(const Value *Call) const {
-    auto *MS = dyn_cast<MemSetInst>(Call);
-    if (!MS)
-      return false;
-
-    const Dep *DO = DM.getApproximation(MS->getDest());
+  bool checkMemset(const MemSetInst *MS) const {
+    auto *Dest = cast<Instruction>(MS->getDest());
+    const Dep *DO = DM.getApproximation(Dest);
     // Base is direct access of base pointer in array structure,
     // or value returned from allocation.
-    if (!ArrayIdioms::isBasePointerLoad(DO, S) && !ArrayIdioms::isAlloc(DO, S))
+    if (!ArrayIdioms::isBasePointerLoad(DO, S) && !checkAlloc(Dest))
       return false;
 
     return dtrans::isValueMultipleOfSize(MS->getLength(),
@@ -783,12 +805,14 @@ private:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         return true;
       }
-    } else if (checkMemset(I)) {
-      TI.ElementInstToTransform.insert(I);
+    } else if (auto *MS = dyn_cast<MemSetInst>(I)) {
+      if (checkMemset(MS)) {
+        TI.ElementInstToTransform.insert(MS);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      InstDesc[I] = std::string("MemInst: ") + Desc;
+        InstDesc[MS] = std::string("MemInst: ") + Desc;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      return true;
+        return true;
+      }
     } else
       llvm_unreachable("Unexpected instruction.");
 
@@ -931,6 +955,9 @@ public:
 
         if (ArrayIdioms::isDependentOnIntegerFieldsOnly(D, S))
           break;
+        // Any recursive loads from MemoryInterface are permitted.
+        else if (ArrayIdioms::isMemoryInterfaceFieldLoadRec(D, S))
+          break;
         // No need to perform accurate check is done for load instruction
         else if (ArrayIdioms::isElementLoad(D, S)) {
           MC.HasExternalSideEffect = true;
@@ -989,14 +1016,10 @@ public:
           MC.HasBasePtrInitFromNewMemory = true;
           MC.HasFieldUpdate = true;
 
-          auto *StoreVal =
-              cast<StoreInst>(I).getValueOperand()->stripPointerCasts();
-          auto *VDep = DM.getApproximation(StoreVal);
-          if (ArrayIdioms::isAlloc(VDep, S)) {
-            if (checkBasePointerInst(cast<Instruction>(StoreVal),
-                                     "Allocation call") &&
-                checkBasePointerInst(&I,
-                                     "Init base pointer with allocated memory"))
+          if (checkBasePointerInst(&I,
+                                   "Init base pointer with allocated memory")) {
+            auto *StoreVal = cast<StoreInst>(I).getValueOperand();
+            if (checkAlloc(cast<Instruction>(StoreVal)))
               break;
           }
           DEBUG_WITH_TYPE(DTRANS_SOAARR,
