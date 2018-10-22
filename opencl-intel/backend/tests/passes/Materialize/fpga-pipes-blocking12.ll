@@ -34,6 +34,9 @@
 ; CHECK: %[[PR2GEN:[0-9]+]] = addrspacecast i8* %{{[0-9]+}} to i8 addrspace(4)*
 ; CHECK-NOT: call i32 @__read_pipe_2_bl_AS0
 ; CHECK: call i32 @__read_pipe_2_bl_fpga(%opencl.pipe_ro_t {{.*}}, i8 addrspace(4)* %[[PR2GEN]], i32 4, i32 4)
+; CHECK-NOT: declare i32 @__read_pipe_2_bl_AS1(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(1)*, i32, i32)
+; CHECK-NOT: declare i32 @__read_pipe_2_bl_AS3(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(3)*, i32, i32)
+; CHECK-NOT: declare i32 @__read_pipe_2_bl_AS0(%opencl.pipe_ro_t addrspace(1)*, i8*, i32, i32)
 ;
 ; CHECK-LABEL: define void @test2
 ; CHECK: %[[GL2GEN:[0-9]+]] = addrspacecast i8 addrspace(1)* %{{[0-9]+}} to i8 addrspace(4)*
@@ -48,6 +51,13 @@
 ; CHECK: %[[CO2GEN:[0-9]+]] = addrspacecast i8 addrspace(2)* %{{[0-9]+}} to i8 addrspace(4)*
 ; CHECK-NOT: call i32 @__write_pipe_2_bl_AS2
 ; CHECK: call i32 @__write_pipe_2_bl_fpga(%opencl.pipe_wo_t {{.*}}, i8 addrspace(4)* %[[CO2GEN]], i32 4, i32 4)
+; CHECK-NOT: declare i32 @__write_pipe_2_bl_AS2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(2)*, i32, i32)
+; CHECK-NOT: declare i32 @__write_pipe_2_bl_AS3(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(3)*, i32, i32)
+; CHECK-NOT: declare i32 @__write_pipe_2_bl_AS0(%opencl.pipe_wo_t addrspace(1)*, i8*, i32, i32)
+; CHECK-NOT: declare i32 @__write_pipe_2_bl_AS2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(2)*, i32, i32)
+;
+; CHECK: declare i32 @__read_pipe_2_bl_fpga
+; CHECK: declare i32 @__write_pipe_2_bl_fpga
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"

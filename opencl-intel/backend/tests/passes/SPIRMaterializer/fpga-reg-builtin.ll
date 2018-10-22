@@ -169,9 +169,11 @@ entry:
 
 ; Function Attrs: nounwind
 declare i32 @llvm.fpga.reg.i32(i32) #1
+; CHECK-NOT:  declare i32 @llvm.fpga.reg.i32(i32)
 
 ; Function Attrs: nounwind
 declare float @llvm.fpga.reg.f32(float) #1
+; CHECK-NOT: declare float @llvm.fpga.reg.f32(float)
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.memcpy.p0i8.p2i8.i32(i8* nocapture writeonly, i8 addrspace(2)* nocapture readonly, i32, i1) #2
@@ -181,18 +183,23 @@ declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture writeonly, i8* nocapture r
 
 ; Function Attrs: nounwind
 declare void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st*, %struct.st*) #1
+; CHECK-NOT: declare void @llvm.fpga.reg.struct.p0s_struct.sts(%struct.st*, %struct.st*)
 
 ; Function Attrs: nounwind
 declare %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st*) #1
+; CHECK-NOT: %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st*)
 
 ; Function Attrs: nounwind
 declare void @llvm.fpga.reg.struct.p0s_union.uns(%union.un*, %union.un*) #1
+; CHECK-NOT: declare void @llvm.fpga.reg.struct.p0s_union.uns(%union.un*, %union.un*)
 
 ; Function Attrs: nounwind
 declare %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un*) #1
+; CHECK-NOT: %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un*)
 
 ; Function Attrs: nounwind
 declare i32* @llvm.fpga.reg.p0i32(i32*) #1
+; CHECK-NOT: declare i32* @llvm.fpga.reg.p0i32(i32*)
 
 attributes #0 = { convergent noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }
