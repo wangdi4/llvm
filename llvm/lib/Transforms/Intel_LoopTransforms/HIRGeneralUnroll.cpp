@@ -344,9 +344,14 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     }
   }
 
-  if (!HasEnablingPragma &&
-      (IsConstTripLoop || (TripCount = HLoop->getMaxTripCountEstimate())) &&
-      (TripCount < MinTripCountThreshold)) {
+  if (HasEnablingPragma) {
+    // Use factor of 2 for small trip count loops.
+    if (IsConstTripLoop && (TripCount < MaxUnrollFactor)) {
+      return 2;
+    }
+  } else if ((IsConstTripLoop ||
+              (TripCount = HLoop->getMaxTripCountEstimate())) &&
+             (TripCount < MinTripCountThreshold)) {
     LLVM_DEBUG(dbgs() << "Skipping unroll of small trip count loop!\n");
     return 0;
   }

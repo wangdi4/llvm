@@ -43,81 +43,69 @@ Value *IntelIntrinsicUtils::createMetadataAsValueFromString(Module &M,
   return llvm::MetadataAsValue::get(M.getContext(), MDNodePtr);
 }
 
-// This function generates calls to llvm.intel.directive
-CallInst *IntelIntrinsicUtils::createDirectiveCall(Module &M,
-                                                   StringRef DirectiveStr) {
-  Function *DirIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive);
-
-  assert(DirIntrin && "Cannot get declaration for\
-                       @llvm.intel.directive(metadata) intrinsic");
-
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
-  CallInst *DirCall = CallInst::Create(DirIntrin, CallArg);
-  return DirCall;
-}
-
-// This function generates calls to llvm.intel.directive.qual
-CallInst *IntelIntrinsicUtils::createDirectiveQualCall(Module &M,
-                                                       StringRef DirectiveStr) {
-  Function *DirQualIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive_qual);
-
-  assert(DirQualIntrin && "Cannot get declaration for\
-                           @llvm.intel.directive.qual(metadata) intrinsic");
-
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
-  CallInst *DirQualCall = CallInst::Create(DirQualIntrin, CallArg);
-  return DirQualCall;
-}
-
-// This function generates calls to llvm.intel.directive.qual.opnd
-CallInst *IntelIntrinsicUtils::createDirectiveQualOpndCall(
+// This function generates calls to llvm.directive.region.entry() for SIMD and
+// inserts the operand bundles of the directive clauses
+CallInst *IntelIntrinsicUtils::createSimdDirectiveBegin(
     Module &M,
-    StringRef DirectiveStr,
-    Value *Val) {
-
-  SmallVector<Type *, 4> Tys;
-  Tys.push_back(Val->getType());
-  Function *DirIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive_qual_opnd, Tys);
-
-  assert(DirIntrin && "Cannot get declaration for\
-                       @llvm.intel.directive.qual.opnd(metadata, llvm_any_ty)\
-                       intrinsic");
-
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
-
-  SmallVector<Value *, 4> CallArgs;
-  CallArgs.push_back(CallArg);
-  CallArgs.push_back(Val);
-
-  CallInst *DirCall = CallInst::Create(DirIntrin, CallArgs);
-  return DirCall;
-}
-
-// This function generates calls to llvm.intel.directive.qual.opndlist
-CallInst *IntelIntrinsicUtils::createDirectiveQualOpndListCall(
-    Module &M,
-    StringRef DirectiveStr,
-    SmallVector<Value *, 4> &VarCallArgs) {
+    SmallDenseMap<StringRef, SmallVector<Value *, 4>> &DirectiveStrMap) {
 
   Function *DirIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive_qual_opndlist);
+      Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry);
 
-  assert(DirIntrin && "Cannot get declaration for\
-                       @llvm.intel.directive.qual.opndlist(metadata, ...)\
-                       intrinsic");
+  assert(
+      DirIntrin &&
+      "Cannot get declaration for @llvm.intel.directive(metadata) intrinsic");
 
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
+  SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
 
-  SmallVector<Value *, 4> CallArgs;
-  CallArgs.push_back(CallArg);
-  for (unsigned I = 0; I < VarCallArgs.size(); ++I) {
-    CallArgs.push_back(VarCallArgs[I]);
+  SmallVector<llvm::Value *, 1> OpBundleVal;
+  llvm::OperandBundleDef OpBundle(
+      IntelIntrinsicUtils::getDirectiveString(DIR_OMP_SIMD), OpBundleVal);
+  IntrinOpBundle.push_back(OpBundle);
+
+  for (SmallDenseMap<StringRef, SmallVector<Value *, 4>>::iterator
+           I = DirectiveStrMap.begin(),
+           E = DirectiveStrMap.end();
+       I != E; ++I) {
+    llvm::OperandBundleDef OpBundle(I->first, I->second);
+    IntrinOpBundle.push_back(OpBundle);
   }
 
-  CallInst *DirCall = CallInst::Create(DirIntrin, CallArgs);
+  SmallVector<llvm::Value *, 1> Arg;
+
+  CallInst *DirCall =
+      CallInst::Create(DirIntrin, Arg, IntrinOpBundle, "entry.region");
+  return DirCall;
+}
+
+// This function generates calls to llvm.directive.region.exit() for SIMD and
+// inserts the operand bundles of the directive clauses
+CallInst *IntelIntrinsicUtils::createSimdDirectiveEnd(Module &M,
+                                                      CallInst *EntryDirCall) {
+
+  Function *DirIntrin =
+      Intrinsic::getDeclaration(&M, Intrinsic::directive_region_exit);
+
+  assert(
+      DirIntrin &&
+      "Cannot get declaration for @llvm.intel.directive(metadata) intrinsic");
+
+  SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
+
+  SmallVector<llvm::Value *, 1> OpBundleVal1;
+  llvm::OperandBundleDef OpBundle1(
+      IntelIntrinsicUtils::getDirectiveString(DIR_OMP_END_SIMD), OpBundleVal1);
+  IntrinOpBundle.push_back(OpBundle1);
+
+  SmallVector<llvm::Value *, 1> OpBundleVal2;
+  llvm::OperandBundleDef OpBundle2(
+      IntelIntrinsicUtils::getDirectiveString(DIR_QUAL_LIST_END), OpBundleVal2);
+  IntrinOpBundle.push_back(OpBundle2);
+
+  SmallVector<llvm::Value *, 1> Arg;
+  Arg.push_back(EntryDirCall);
+
+  CallInst *DirCall = CallInst::Create(DirIntrin, Arg, IntrinOpBundle);
   return DirCall;
 }
 
@@ -134,13 +122,13 @@ StringRef IntelIntrinsicUtils::getClauseString(int Id) {
 }
 
 bool IntelIntrinsicUtils::isIntelDirective(Instruction *I) {
-  if (I==nullptr)
+  if (I == nullptr)
     return false;
   IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
   if (Call) {
     Intrinsic::ID Id = Call->getIntrinsicID();
-    if (Id == Intrinsic::intel_directive           ||
-        Id == Intrinsic::intel_directive_qual      ||
+    if (Id == Intrinsic::intel_directive ||
+        Id == Intrinsic::intel_directive_qual ||
         Id == Intrinsic::intel_directive_qual_opnd ||
         Id == Intrinsic::intel_directive_qual_opndlist)
       return true;

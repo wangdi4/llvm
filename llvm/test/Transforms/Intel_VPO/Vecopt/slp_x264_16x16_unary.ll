@@ -1,4 +1,15 @@
-; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -S | FileCheck %s -check-prefix=8WIDE
+; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=true -S | FileCheck %s -check-prefix=8WIDE_PATH_STEERING
+; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=false -S | FileCheck %s -check-prefix=8WIDE
+
+; 8WIDE_PATH_STEERING: [[L1:%.*]] = load <4 x i8>, <4 x i8>* 
+; 8WIDE_PATH_STEERING: [[L2:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L3:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L4:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L5:%.*]] = load <4 x i8>, <4 x i8>* 
+; 8WIDE_PATH_STEERING: [[L6:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L7:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L8:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: store <8 x i32> [[SEL1:%.*]]
 
 ; 8WIDE: [[Add1:%.*]] = add <8 x i32> [[L0:%.*]], [[L1:%.*]]
 ; 8WIDE: [[Sub1:%.*]] = sub <8 x i32> [[L0]], [[L1]]

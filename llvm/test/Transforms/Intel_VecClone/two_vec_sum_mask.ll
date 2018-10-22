@@ -20,10 +20,10 @@
 ; CHECK-NEXT: br label %simd.begin.region
 
 ; CHECK: simd.begin.region:
-; CHECK-NEXT: call void @llvm.intel.directive
-; CHECK-NEXT: call void @llvm.intel.directive.qual.opnd
+; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
+; CHECK-SAME: DIR.OMP.SIMD
+; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
-; CHECK-NEXT: call void @llvm.intel.directive
 ; CHECK-NEXT: br label %simd.loop
 
 ; CHECK: simd.loop:
@@ -52,8 +52,9 @@
 ; CHECK-NEXT: br i1 %vl.cond, label %simd.loop, label %simd.end.region
 
 ; CHECK: simd.end.region:
-; CHECK-NEXT: call void @llvm.intel.directive
-; CHECK-NEXT: call void @llvm.intel.directive
+; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
+; CHECK-SAME: DIR.OMP.END.SIMD
+; CHECK-SAME: DIR.QUAL.LIST.END
 ; CHECK-NEXT: br label %return
 
 ; CHECK: return:
