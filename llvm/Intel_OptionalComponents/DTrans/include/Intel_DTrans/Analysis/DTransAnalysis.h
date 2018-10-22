@@ -76,6 +76,8 @@ public:
 
   using GenericStoreInfoMapType = ValueMap<Value *, llvm::Type *>;
 
+  using MultiElemLoadStoreSetType = SmallPtrSet<Instruction *, 32>;
+
 public:
   DTransAnalysisInfo();
   DTransAnalysisInfo(DTransAnalysisInfo &&Other);
@@ -153,6 +155,10 @@ public:
   llvm::Type *getGenericLoadType(LoadInst *LI);
 
   llvm::Type *getGenericStoreType(StoreInst *SI);
+
+  // Returns true if \p I was identified as Load/Store instruction
+  // that is accessing more than one struct elements.
+  bool isMultiElemLoadStore(Instruction *I);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
@@ -244,6 +250,8 @@ public:
 
   void addGenericStoreMapping(StoreInst *SI, llvm::Type *Ty);
 
+  void addMultiElemLoadStore(Instruction *I);
+
   uint64_t getMaxTotalFrequency() const { return MaxTotalFrequency; }
   void setMaxTotalFrequency(uint64_t MTFreq) { MaxTotalFrequency = MTFreq; }
 
@@ -321,6 +329,10 @@ private:
   // A mapping from StoreInst instructions that store a pointer to an aggregate
   // type using as store of a pointer sized integer or generic i8*.
   GenericStoreInfoMapType GenericStoreInfoMap;
+
+  // Set of Load/Store instructions that accessing more than one structure
+  // elements.
+  MultiElemLoadStoreSetType MultiElemLoadStoreInfo;
 
   // Maximum of TotalFrequency of all structs.
   uint64_t MaxTotalFrequency;

@@ -223,17 +223,39 @@ private:
   // allowed.
   SmallDenseMap<CallInst *, GlobalVariable *> AOSSOACallGVMap;
 
+  // Set of struct fields that are marked with aostosoa index in IR.
+  // These will be collected while walking IR during analysis.
+  // Fields, which are marked with AOSTOSOA index, in candidate
+  // struct will be shrunken to 2 bytes. These fields will be
+  // treated differently from CandidateFields because there is no
+  // need to have compile-time/runtime checks on load/stores of these
+  // fields in the IR (except a runtime check on size of aostosoa
+  // allocation call).
+  DynFieldSet AOSTOSOAIndexFields;
+
+  // Set of Load/Store instructions that access more than one
+  // struct elements.
+  InstSet MultiElemLdStSet;
+
+  // Mapping between MultiElem Ld/St instruction and one of the fields that
+  // are accessed by the instruction. This map is used during transformation.
+  SmallDenseMap<Instruction *, DynField> MultiElemLdStAOSTOSOAIndexMap;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
+  bool verifyMultiFieldLoadStores(void);
   bool verifyLegalityChecksForInitRoutine(void);
   void createShrunkenTypes(void);
   bool trackPointersOfAllocCalls(void);
   void transformInitRoutine(void);
   bool createCallGraphClone(void);
   void transformIR(void);
+  bool isAOSTOSOAIndexField(DynField &DField) const;
+  bool isShrunkenField(DynField &DField) const;
   bool isCandidateField(DynField &DField) const;
   bool isCandidateStruct(Type *Ty);
   Type *getGEPStructType(GetElementPtrInst *GEP) const;
+  DynField getAccessStructField(GEPOperator *GEP) const;
   Type *getCallInfoElemTy(CallInfo *CInfo) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
@@ -298,12 +320,26 @@ void DynCloneImpl::printCandidateFields(raw_ostream &OS) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Returns true if \p DField is marked with AOSTOSOA index.
+bool DynCloneImpl::isAOSTOSOAIndexField(DynField &DField) const {
+  for (auto &CandidatePair : AOSTOSOAIndexFields)
+    if (CandidatePair == DField)
+      return true;
+  return false;
+}
+
 // Returns true if \p DField is in CandidateFields.
 bool DynCloneImpl::isCandidateField(DynField &DField) const {
   for (auto &CandidatePair : CandidateFields)
     if (CandidatePair == DField)
       return true;
   return false;
+}
+
+// Return true if \p DField is either regular candidate
+// field or AOSTOSOA index field.
+bool DynCloneImpl::isShrunkenField(DynField &DField) const {
+  return (isCandidateField(DField) || isAOSTOSOAIndexField(DField));
 }
 
 // Returns true if \p Ty is a struct that has candidate fields for
@@ -332,6 +368,22 @@ Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
   if (!isa<StructType>(ElemTy))
     return nullptr;
   return ElemTy;
+}
+
+// If \p GEP is accessing struct field, it returns the field.
+// It doesn't handle if NumIndices > 2.
+DynCloneImpl::DynField
+DynCloneImpl::getAccessStructField(GEPOperator *GEP) const {
+  int32_t NumIndices = GEP->getNumIndices();
+  if (NumIndices > 2)
+    return std::make_pair(nullptr, 0);
+  if (NumIndices == 1)
+    return DTInfo.getByteFlattenedGEPElement(GEP);
+  auto ElemTy = GEP->getSourceElementType();
+  if (!isa<StructType>(ElemTy))
+    return std::make_pair(nullptr, 0);
+  int32_t FieldIndex = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+  return std::make_pair(ElemTy, FieldIndex);
 }
 
 // Returns struct type associated with \p CInfo of either Alloc/Memfunc.
@@ -470,6 +522,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     Type *StTy = nullptr;
     // Treat a struct as accessed if the struct is referenced by
     // any of these instructions.
+    // Not checking for MultiElemLoadStore instructions here since
+    // those will be covered by GEPs.
     if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
       StTy = getGEPStructType(GEP);
     } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
@@ -528,10 +582,26 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
         return false;
       }
       // Collect AOSTOSOA alloc calls using DTransAnnotator.
-      if (DTransAnnotator::isDTransAnnotationOfType(
-              Inst, DTransAnnotator::DPA_AOSToSOAAllocation)) {
+      DTransAnnotator::DPA_AnnotKind DPAType;
+      DPAType = DTransAnnotator::getDTransPtrAnnotationKind(Inst);
+      if (DPAType == DTransAnnotator::DPA_AOSToSOAAllocation) {
         AOSSOAACalls.insert(
             cast<CallInst>(cast<IntrinsicInst>(Inst).getArgOperand(0)));
+        continue;
+      }
+      // Collect AOSTOSOA index fields of candidate structs.
+      if (DPAType == DTransAnnotator::DPA_AOSToSOAIndex) {
+        auto GEP =
+            dyn_cast<GEPOperator>(cast<IntrinsicInst>(Inst).getArgOperand(0));
+        if (!GEP)
+          continue;
+        DynField FPair = getAccessStructField(GEP);
+        if (FPair.first && isCandidateStruct(FPair.first))
+          AOSTOSOAIndexFields.insert(FPair);
+        continue;
+      }
+      if (DTInfo.isMultiElemLoadStore(&Inst)) {
+        MultiElemLdStSet.insert(&Inst);
         continue;
       }
 
@@ -662,6 +732,68 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   LLVM_DEBUG(dbgs() << "  Init Routine: " << InitRoutine->getName() << "\n");
 
   return !CandidateFields.empty();
+}
+
+// Analyze all MultiElem Load/Store instructions that are collected.
+// Return false if not able to detect all accessed fields by the
+// instructions.
+// For now, using the below pattern to detect all accessed fields.
+// DynClone will be disabled if any other pattern is noticed.
+//
+//   %GEP1 = getelementptr %struct.a, %struct.a* %p, 0, 2
+//   %GEP2 = getelementptr %struct.a, %struct.a* %p, 0, 3
+//   %S = select i1, %GEP1, %GEP2
+//   %ld = load %S
+//
+// Another main legality check here is that all accessed fields
+// should be marked with AOSTOSOA index. This helps us in two ways.
+// 1. During transformation, these loads/stores will be converted to
+//    single type (i.e 16 bits).
+// 2. During analysis, issue with compile-time/runtime checks for
+//    MultiElem load/store instructions can be avoided.
+//
+bool DynCloneImpl::verifyMultiFieldLoadStores(void) {
+
+  //
+  auto AnalyzeMultiElemLdSt = [&](Instruction *I) {
+    Value *PtrOp;
+    if (auto *LI = dyn_cast<LoadInst>(I))
+      PtrOp = LI->getPointerOperand();
+    else if (auto *SI = dyn_cast<StoreInst>(I))
+      PtrOp = SI->getPointerOperand();
+    else
+      llvm_unreachable("Unexpected Instruction for MultiElem ld/st");
+
+    auto *Sel = dyn_cast<SelectInst>(PtrOp);
+    if (!Sel)
+      return false;
+
+    Value *TV = Sel->getTrueValue();
+    Value *FV = Sel->getFalseValue();
+    GEPOperator *TGEP = dyn_cast<GEPOperator>(TV);
+    GEPOperator *FGEP = dyn_cast<GEPOperator>(FV);
+    if (!TGEP || !FGEP)
+      return false;
+    auto TElem = getAccessStructField(TGEP);
+    if (!TElem.first)
+      return false;
+    auto FElem = getAccessStructField(FGEP);
+    if (!FElem.first)
+      return false;
+    // Make sure both are marked with AOSTOSOA index.
+    if (!isAOSTOSOAIndexField(FElem) || !isAOSTOSOAIndexField(TElem))
+      return false;
+    // This map will be used during transformation.
+    MultiElemLdStAOSTOSOAIndexMap[I] = TElem;
+    return true;
+  };
+
+  for (auto *II : MultiElemLdStSet) {
+    LLVM_DEBUG(dbgs() << "  Verifying MultiElem load/Store: " << *II << "\n");
+    if (!AnalyzeMultiElemLdSt(II))
+      return false;
+  }
+  return true;
 }
 
 // Check legality issues for InitRoutine here. DynClone will be disabled
@@ -1316,6 +1448,12 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
 //
 void DynCloneImpl::createShrunkenTypes(void) {
 
+  // Return shrunken type for AOSTOSOA index fields. For now, it
+  // returns 16 bits always.
+  auto GetAOSTOSOAIndexShrunkenType = [&]() {
+    return Type::getInt16Ty(M.getContext());
+  };
+
   // Return shrunken type for given struct and field index.
   auto GetShrunkenType = [&](StructType *StTy, unsigned Idx) {
     Type *Ty = StTy->getElementType(Idx);
@@ -1333,7 +1471,9 @@ void DynCloneImpl::createShrunkenTypes(void) {
     DynField Field(std::make_pair(StTy, Idx));
     Type *ShrunkenTy;
     // Get shrunken field type if it is candidate field.
-    if (isCandidateField(Field))
+    if (isAOSTOSOAIndexField(Field))
+      ShrunkenTy = GetAOSTOSOAIndexShrunkenType();
+    else if (isCandidateField(Field))
       ShrunkenTy = GetShrunkenType(StTy, Idx);
     else
       ShrunkenTy = StTy->getElementType(Idx);
@@ -1523,13 +1663,12 @@ void DynCloneImpl::transformInitRoutine(void) {
         return;
       };
 
-  // Generate final condition and "or" with previous condition if available.
-  auto GenerateFinalCond = [&](AllocaInst *AI, Value *V,
-                               CmpInst::Predicate Pred, Value *PrevCond,
-                               ReturnInst *RI) -> Value * {
-    Value *LI = new LoadInst(AI, "d.ld", RI);
+  // Generate final condition with already loaded value \p LI and "or" with
+  // previous condition if available.
+  auto GenerateFinalCondWithLIValue =
+      [&](LoadInst *LI, Value *V, CmpInst::Predicate Pred, Value *PrevCond,
+          ReturnInst *RI) -> Value * {
     ICmpInst *ICmp = new ICmpInst(RI, Pred, LI, V, "d.cmp");
-    LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
     LLVM_DEBUG(dbgs() << "      " << *ICmp << "\n");
     if (!PrevCond)
       return ICmp;
@@ -1537,6 +1676,16 @@ void DynCloneImpl::transformInitRoutine(void) {
     Value *FinalCond = BinaryOperator::CreateOr(PrevCond, ICmp, "d.or", RI);
     LLVM_DEBUG(dbgs() << "      " << *FinalCond << "\n");
     return FinalCond;
+  };
+
+  // Generate final condition and "or" with previous condition if available.
+  auto GenerateFinalCond = [this, &GenerateFinalCondWithLIValue](
+                               AllocaInst *AI, Value *V,
+                               CmpInst::Predicate Pred, Value *PrevCond,
+                               ReturnInst *RI) -> Value * {
+    LoadInst *LI = new LoadInst(AI, "d.ld", RI);
+    LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
+    return GenerateFinalCondWithLIValue(LI, V, Pred, PrevCond, RI);
   };
 
   // Creates GEP instruction like below using \p IRB and returns it.
@@ -1882,10 +2031,14 @@ void DynCloneImpl::transformInitRoutine(void) {
     if (isa<ReturnInst>(BB.getTerminator()))
       RetBBs.push_back(&BB);
 
-    // Collect StoreInsts
+    // Collect StoreInsts.
     for (auto I = BB.begin(), E = BB.end(); I != E; I++) {
       auto *Inst = &*I;
       if (auto *StInst = dyn_cast<StoreInst>(Inst)) {
+        // Store instructions in MultiElemLoadStoreInfo are not
+        // considered here for checking because DynClone is
+        // disabled if any access field of those store instructions
+        // is not marked with aostosoa index field.
         auto StElem = DTInfo.getStoreElement(StInst);
         if (!StElem.first)
           continue;
@@ -2003,6 +2156,14 @@ void DynCloneImpl::transformInitRoutine(void) {
   for (auto &Pair : TypeMaxAllocIMap)
     FinalCond = GenerateFinalCond(Pair.second, GetShrunkenMaxValue(Pair.first),
                                   ICmpInst::ICMP_SGT, FinalCond, RetI);
+
+  // Generate runtime check for AOSTOSOA index.
+  for (auto *SOACI : AOSSOAACalls)
+    FinalCond = GenerateFinalCondWithLIValue(
+        AllocCallSizes[SOACI],
+        ConstantInt::get(AllocCallSizes[SOACI]->getType(),
+                         std::numeric_limits<int16_t>::max()),
+        ICmpInst::ICMP_SGT, FinalCond, RetI);
 
   // TODO: It is better not to set __Shrink__Happened__ when none of
   // StoreInst of candidate fields is executed at runtime in InitRoutine.
@@ -2412,6 +2573,12 @@ bool DynCloneImpl::createCallGraphClone(void) {
 // shrunken structs are transformed.
 void DynCloneImpl::transformIR(void) {
 
+  auto IsMultiElemLdSt = [&](Instruction *I) {
+    if (DTInfo.isMultiElemLoadStore(I))
+      return true;
+    return false;
+  };
+
   auto IsGEP = [&](GetElementPtrInst *GEP) {
     if (GEP->getNumIndices() > 2)
       return false;
@@ -2442,14 +2609,14 @@ void DynCloneImpl::transformIR(void) {
 
   auto IsLoad = [&](LoadInst *LI) {
     auto LdElem = DTInfo.getLoadElement(LI);
-    if (!LdElem.first || !isCandidateField(LdElem))
+    if (!LdElem.first || !isShrunkenField(LdElem))
       return false;
     return true;
   };
 
   auto IsStore = [&](StoreInst *SI) {
     auto StElem = DTInfo.getStoreElement(SI);
-    if (!StElem.first || !isCandidateField(StElem))
+    if (!StElem.first || !isShrunkenField(StElem))
       return false;
     return true;
   };
@@ -2573,9 +2740,8 @@ void DynCloneImpl::transformIR(void) {
   //       %41 = load i32, i32* %40, align 4
   //       %42 = sext i32 %41 to i64
   //
-  auto ProcessLoad = [&](LoadInst *LI) {
+  auto ProcessLoad = [&](LoadInst *LI, DynField &LdElem) {
     LLVM_DEBUG(dbgs() << "Load before convert: " << *LI << "\n");
-    auto LdElem = DTInfo.getLoadElement(LI);
     StructType *OldTy = cast<StructType>(LdElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][LdElem.second];
@@ -2586,7 +2752,6 @@ void DynCloneImpl::transformIR(void) {
     Instruction *NewLI = new LoadInst(
         NewSrcOp, "", LI->isVolatile(), DL.getABITypeAlignment(NewTy),
         LI->getOrdering(), LI->getSyncScopeID(), LI);
-
     Value *Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
     LI->replaceAllUsesWith(Res);
     Res->takeName(LI);
@@ -2607,9 +2772,8 @@ void DynCloneImpl::transformIR(void) {
   //       %267 = trunc i64 30 to i32
   //       store i32 %267, i32* %268, align 4
   //
-  auto ProcessStore = [&](StoreInst *SI) {
+  auto ProcessStore = [&](StoreInst *SI, DynField &StElem) {
     LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
-    auto StElem = DTInfo.getStoreElement(SI);
     StructType *OldTy = cast<StructType>(StElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][StElem.second];
@@ -2649,6 +2813,7 @@ void DynCloneImpl::transformIR(void) {
     LLVM_DEBUG(dbgs() << "MemFunc after convert: " << *I << "\n");
   };
 
+  SmallVector<Instruction *, 4> MultiElemLdStToProcess;
   SmallVector<GetElementPtrInst *, 16> GEPsToProcess;
   SmallVector<BinaryOperator *, 16> BinOpsToProcess;
   SmallVector<LoadInst *, 16> LoadsToProcess;
@@ -2664,6 +2829,7 @@ void DynCloneImpl::transformIR(void) {
   for (auto &CPair : CloningMap) {
 
     Function *F = CPair.first;
+    MultiElemLdStToProcess.clear();
     GEPsToProcess.clear();
     BinOpsToProcess.clear();
     LoadsToProcess.clear();
@@ -2677,7 +2843,9 @@ void DynCloneImpl::transformIR(void) {
     // Collect all instructions that need to be fixed.
     for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
       Instruction *I = &*It;
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+      if (IsMultiElemLdSt(I)) {
+        MultiElemLdStToProcess.push_back(I);
+      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
         if (IsGEP(GEP))
           GEPsToProcess.push_back(GEP);
         else if (IsByteGEP(GEP))
@@ -2701,6 +2869,24 @@ void DynCloneImpl::transformIR(void) {
       }
     }
 
+    for (auto *II : MultiElemLdStToProcess) {
+      auto It = MultiElemLdStAOSTOSOAIndexMap.find(II);
+      assert(It != MultiElemLdStAOSTOSOAIndexMap.end() &&
+             " Expected MultiElem instruction in map");
+
+      LLVM_DEBUG(dbgs() << " Processing MultiElem Load/Store:  " << *II
+                        << "\n");
+      // Since all fields accessed by MultiElem Ld/St will be reduced to the
+      // same type, it is okay to use any accessing field for processing Ld/St.
+      if (auto *LI = dyn_cast<LoadInst>(II))
+        ProcessLoad(LI, It->second);
+      else if (auto *SI = dyn_cast<StoreInst>(II))
+        ProcessStore(SI, It->second);
+      else
+        llvm_unreachable("Unexpected multi field load/store!");
+      InstsToRemove.push_back(II);
+    }
+
     for (auto *GEP : GEPsToProcess) {
       ProcessGEP(GEP);
       InstsToRemove.push_back(cast<Instruction>(GEP));
@@ -2713,12 +2899,14 @@ void DynCloneImpl::transformIR(void) {
       ProcessBinOp(BinOp);
 
     for (auto *LI : LoadsToProcess) {
-      ProcessLoad(LI);
+      auto LdElem = DTInfo.getLoadElement(LI);
+      ProcessLoad(LI, LdElem);
       InstsToRemove.push_back(cast<Instruction>(LI));
     }
 
     for (auto *SI : StoresToProcess) {
-      ProcessStore(SI);
+      auto StElem = DTInfo.getStoreElement(SI);
+      ProcessStore(SI, StElem);
       InstsToRemove.push_back(cast<Instruction>(SI));
     }
 
@@ -2743,6 +2931,12 @@ bool DynCloneImpl::run(void) {
   if (!prunePossibleCandidateFields())
     return false;
 
+  if (!verifyMultiFieldLoadStores()) {
+    LLVM_DEBUG(
+        dbgs() << "Verification of Multi field Load/Stores Failed... \n");
+    return false;
+  }
+
   if (!verifyLegalityChecksForInitRoutine())
     return false;
 
@@ -2752,11 +2946,6 @@ bool DynCloneImpl::run(void) {
   }
 
   LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
-
-  // TODO: Lot more checks are needed before generating runtime checks.
-  // Most of those checks are basically to prove it is legal to rematerialize
-  // struct pointers after shrining the struct. These checks will be
-  // implemented later.
 
   createShrunkenTypes();
 

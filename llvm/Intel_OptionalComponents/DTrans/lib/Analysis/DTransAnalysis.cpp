@@ -6618,6 +6618,12 @@ private:
         DTInfo.addStoreMapping(cast<StoreInst>(&I), *PointeeSet.begin());
     }
 
+    // Add I to MultiElemLoadStoreInfo if it is accessing more than one
+    // struct elements.
+    // TODO: Need to handle if PointeeSet has non-struct elements.
+    if (PointeeSet.size() > 1 && PointeeSet.begin()->first->isStructTy())
+      DTInfo.addMultiElemLoadStore(&I);
+
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
     // analysis as general as possible.
@@ -8502,6 +8508,16 @@ llvm::Type *DTransAnalysisInfo::getGenericStoreType(StoreInst *SI) {
   return It->second;
 }
 
+void DTransAnalysisInfo::addMultiElemLoadStore(Instruction *I) {
+  MultiElemLoadStoreInfo.insert(I);
+}
+
+bool DTransAnalysisInfo::isMultiElemLoadStore(Instruction *I) {
+  if (MultiElemLoadStoreInfo.count(I))
+    return true;
+  return false;
+}
+
 std::pair<llvm::Type *, size_t>
 DTransAnalysisInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
   auto It = ByteFlattenedGEPInfoMap.find(GEP);
@@ -8610,6 +8626,8 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
                              Other.GenericStoreInfoMap.end());
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
+  MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
+                            Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -8632,6 +8650,8 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
                              Other.GenericStoreInfoMap.end());
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
+  MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
+                            Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -8670,6 +8690,7 @@ void DTransAnalysisInfo::reset() {
   LoadInfoMap.clear();
   GenericStoreInfoMap.clear();
   GenericLoadInfoMap.clear();
+  MultiElemLoadStoreInfo.clear();
   TypeInfoMap.clear();
   IgnoreTypeMap.clear();
 }
