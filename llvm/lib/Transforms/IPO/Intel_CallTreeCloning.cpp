@@ -633,10 +633,30 @@ private:
 
 using DCGNodeList = SmallVector<DCGNode *, EST_NUM_CALL_SITES_PER_FUNC>;
 
+struct CompareDCGNodePtr
+    : public std::binary_function<DCGNode *, DCGNode *, bool> {
+  bool operator()(const DCGNode *lhs, const DCGNode *rhs) const {
+    if (lhs == nullptr || rhs == nullptr) {
+      return lhs < rhs;
+    }
+    return lhs->id() < rhs->id();
+  }
+};
+
+struct CompareFuncPtr
+    : public std::binary_function<Function *, Function *, bool> {
+  bool operator()(const Function *lhs, const Function *rhs) const {
+    if (lhs == nullptr || rhs == nullptr)
+      return lhs < rhs;
+    return lhs->getName().compare(rhs->getName()) == -1;
+  }
+};
+
 // A "detailed" call graph. Nodes are call sites, an edge from node n to node
 // M is present if n's callee is M's caller function. Also maps a function to
 // nodes where it is a caller
-class DetailedCallGraph : public std::map<const Function *, DCGNodeList> {
+class DetailedCallGraph
+    : public std::map<const Function *, DCGNodeList, CompareFuncPtr> {
 public:
   DetailedCallGraph() : NodeId(0) {}
 
@@ -808,7 +828,8 @@ StringRef to_string(ParamMappingResult R) {
   }
 }
 
-void print_node_set(const std::string &Msg, SmallPtrSet<DCGNode *, 8> Nodes) {
+void print_node_set(const std::string &Msg,
+                    std::set<DCGNode *, CompareDCGNodePtr> Nodes) {
   dbgs() << Msg << "\n";
 
   for (const auto X : Nodes)
@@ -954,8 +975,9 @@ private:
 };
 
 #ifndef NDEBUG
-void printSeeds(const std::string &Msg,
-                std::map<DCGNode *, SetOfParamIndSets> &Seeds) {
+void printSeeds(
+    const std::string &Msg,
+    std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds) {
   dbgs() << Msg << "<" << Seeds.size() << ">\n";
 
   for (auto &Seed : Seeds) {
@@ -967,8 +989,9 @@ void printSeeds(const std::string &Msg,
   dbgs() << "\n";
 }
 
-void printSeeds(const std::string &Msg,
-                std::map<Function *, SetOfParamIndSets> &Seeds) {
+void printSeeds(
+    const std::string &Msg,
+    std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &Seeds) {
   dbgs() << Msg << "\n";
 
   for (auto &Seed : Seeds) {
@@ -1667,10 +1690,10 @@ protected:
 
   // The main algorithm - performs bottom-up parameter sets propagation and
   // then top-down parameter sets propagation/evaluation and function cloning.
-  bool
-  findAndCloneCallSubtrees(DetailedCallGraph *Cgraph,
-                           std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds,
-                           CloneRegistry &Clones);
+  bool findAndCloneCallSubtrees(
+      DetailedCallGraph *Cgraph,
+      std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &AlgSeeds,
+      CloneRegistry &Clones);
 
   // Clone a given function 'F' by replacing some of the parameters with given
   // constants 'ConstParams'. Non-null at position i means i'th parameter
@@ -1688,17 +1711,17 @@ protected:
   // roots, live-in and live-out parameter sets, parameter transoform formulas
   // for detailed call graph nodes met along all paths from seeds to roots
   // (along reverse edges of the graph)
-  void findParamDepsRec(DCGNode *Top, SmallPtrSet<DCGNode *, 8> &CloneRoots,
+  void findParamDepsRec(DCGNode *Top,
+                        std::set<DCGNode *, CompareDCGNodePtr> &CloneRoots,
                         SmallVectorImpl<DCGNode *> *CallStack,
                         DCGParamFlows &Flows);
 
   // The recursive top-down pass which does actual cloning
-  Function *cloneCallSubtreeRec(DCGNode *Root,
-                                SmallVectorImpl<DCGNode *> *CallStack,
-                                const ConstParamVec &ConstParams,
-                                std::map<DCGNode *, SetOfParamIndSets> &Seeds,
-                                CloneRegistry &Clones,
-                                const DCGParamFlows &Flows);
+  Function *cloneCallSubtreeRec(
+      DCGNode *Root, SmallVectorImpl<DCGNode *> *CallStack,
+      const ConstParamVec &ConstParams,
+      std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds,
+      CloneRegistry &Clones, const DCGParamFlows &Flows);
 };
 
 // Do post-process cleanup after the recursive Call-Tree Cloning finished the
@@ -1725,12 +1748,12 @@ protected:
 // ...
 class PostProcessor {
 public:
-  PostProcessor(Module &M, std::map<DCGNode *, SetOfParamIndSets> &Seeds,
-                std::map<Function *, SetOfParamIndSets> &LeafSeeds,
-                CloneRegistry &Clones, TargetLibraryInfo *TLI,
-                CallTreeCloningImpl *CTCI)
-      : M(M), Seeds(Seeds), LeafSeeds(LeafSeeds), Clones(Clones),
-        DL(M.getDataLayout()), TLI(TLI), CTCI(CTCI) {}
+  PostProcessor(
+      Module &M,
+      std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds,
+      CloneRegistry &Clones, TargetLibraryInfo *TLI, CallTreeCloningImpl *CTCI)
+      : M(M), LeafSeeds(LeafSeeds), Clones(Clones), DL(M.getDataLayout()),
+        TLI(TLI), CTCI(CTCI) {}
 
   // Run post processing on the Module
   bool run();
@@ -1753,8 +1776,7 @@ public:
 
 private:
   Module &M;
-  std::map<DCGNode *, SetOfParamIndSets> &Seeds;
-  std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds;
   CloneRegistry &Clones;
   const DataLayout &DL;
   TargetLibraryInfo *TLI;
@@ -1819,10 +1841,10 @@ struct MVFunctionInfo {
 // Declaration of Multi-version Implementation Class
 class MultiVersionImpl {
 public:
-  MultiVersionImpl(Module &M,
-                   std::map<Function *, SetOfParamIndSets> &LeafSeeds,
-                   CloneRegistry &Clones, TargetLibraryInfo *TLI,
-                   CallTreeCloningImpl *CTCI)
+  MultiVersionImpl(
+      Module &M,
+      std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds,
+      CloneRegistry &Clones, TargetLibraryInfo *TLI, CallTreeCloningImpl *CTCI)
       : M(M), LeafSeeds(LeafSeeds), Clones(Clones), CTCI(CTCI) {}
 
   bool run();
@@ -1939,12 +1961,12 @@ public:
 
 private:
   Module &M;
-  std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds;
   CloneRegistry &Clones;
   CallTreeCloningImpl *CTCI;
 
-  std::map<Function *, SetOfParamIndSets> MVSeeds;
-  std::map<Function *, MVFunctionInfo> MVFIMap;
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> MVSeeds;
+  std::map<Function *, MVFunctionInfo, CompareFuncPtr> MVFIMap;
 };
 
 } // end of anonymous namespace
@@ -2071,9 +2093,9 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
 
   // now find "seed" nodes for the algorithm based on cost model and filters -
   // call sites with callees being functions profitable to clone
-  std::map<DCGNode *, SetOfParamIndSets> AlgSeeds;
+  std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> AlgSeeds;
   std::unique_ptr<CTCCostModel> CM;
-  std::map<Function *, SetOfParamIndSets> LeafSeeds;
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> LeafSeeds;
 
   if (!CCloneSeeds.empty())
     CM = llvm::make_unique<CTCDebugCostModel>(CCloneSeeds.begin(),
@@ -2124,7 +2146,7 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
     return false;
 
   // Do Post Processing Cleanup:
-  PostProcessor PostProc(M, AlgSeeds, LeafSeeds, Clones, TLI, this);
+  PostProcessor PostProc(M, LeafSeeds, Clones, TLI, this);
   bool PPResult = PostProc.run();
 
   // Do Multi-Version transformation:
@@ -2197,7 +2219,7 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
 } // end of anonymous namespace
 
 void CallTreeCloningImpl::findParamDepsRec(
-    DCGNode *Top, SmallPtrSet<DCGNode *, 8> &CloneRoots,
+    DCGNode *Top, std::set<DCGNode *, CompareDCGNodePtr> &CloneRoots,
     SmallVectorImpl<DCGNode *> *CallStack, DCGParamFlows &Flows) {
   DBGX(1, dbgs().indent(CallStack->size() * 2) << Top->toString());
   DCGNodeParamFlow *Flow = Flows.getOrCreate(Top);
@@ -2338,14 +2360,15 @@ void CallTreeCloningImpl::findParamDepsRec(
 // graph is DFS w/o tracking the 'visited' property
 //
 bool CallTreeCloningImpl::findAndCloneCallSubtrees(
-    DetailedCallGraph *Cgraph, std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds,
+    DetailedCallGraph *Cgraph,
+    std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &AlgSeeds,
     CloneRegistry &Clones) {
   // parameter data-flow information for each call graph node
   DCGParamFlows Flows;
 
   // storage of nodes which start call-trees leading to compile-time
   // defined parameter sets in any of the seed nodes
-  SmallPtrSet<DCGNode *, 8> CloneRoots;
+  std::set<DCGNode *, CompareDCGNodePtr> CloneRoots;
 
   DBGX(1, dbgs() << "\n--- Bottom-up pass (!-can't fold, C-constant)\n\n");
 
@@ -2379,16 +2402,19 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   //   \/  \
   //   Y----B
   // If X and Z are both seeds, X could be cloned unnecessarily w/o this step
-  for (auto N : CloneRoots)
+  auto CloneIter = CloneRoots.begin();
+  while (CloneIter != CloneRoots.end()) {
+    DCGNode *N = *CloneIter;
+    ++CloneIter; // Explicit increment here, because we may erase "N".
     for (const auto &E : N->inEdgesView()) {
       assert((E->dst() == N) && "bad call graph edge");
       DCGNode *N1 = E->src();
-
       if (N1->cnt() > 0) {
         CloneRoots.erase(N);
         break;
       }
     }
+  }
 
   LLVM_DEBUG(print_node_set("--- Clone roots:", CloneRoots));
   LLVM_DEBUG({ print_CloneRegistry("Clones: ", Clones); });
@@ -2450,8 +2476,8 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
 Function *CallTreeCloningImpl::cloneCallSubtreeRec(
     DCGNode *Root, SmallVectorImpl<DCGNode *> *CallStack,
     const ConstParamVec &ConstParams,
-    std::map<DCGNode *, SetOfParamIndSets> &Seeds, CloneRegistry &Clones,
-    const DCGParamFlows &Flows) {
+    std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds,
+    CloneRegistry &Clones, const DCGParamFlows &Flows) {
 
 #ifndef NDEBUG
   unsigned Depth = CallStack->size();
@@ -2885,10 +2911,10 @@ bool PostProcessor::run(void) {
 // - filter all leaf-seed functions by size and other conditions;
 //
 //[INPUT]
-// std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+// std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds;
 //
 //[OUTPUT]
-// std::map<Function *, SetOfParamIndSets> MVSeeds;
+// std::map<Function *, SetOfParamIndSets, CompareFuncPtr> MVSeeds;
 //
 bool MultiVersionImpl::doCollection(void) {
   auto countIR = [](const Function &F) {
@@ -2941,15 +2967,16 @@ bool MultiVersionImpl::doCollection(void) {
 //
 bool MultiVersionImpl::doAnalysis(void) {
   // Check: does Seeds map contains a given Function *
-  auto findFuncIn = [&](Function *Func,
-                        std::map<Function *, SetOfParamIndSets> &Seeds) {
-    for (auto I = Seeds.begin(), E = Seeds.end(); I != E; ++I) {
-      const Function *F = (*I).first;
-      if (Func == F)
-        return true;
-    }
-    return false;
-  };
+  auto findFuncIn =
+      [&](Function *Func,
+          std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &Seeds) {
+        for (auto I = Seeds.begin(), E = Seeds.end(); I != E; ++I) {
+          const Function *F = (*I).first;
+          if (Func == F)
+            return true;
+        }
+        return false;
+      };
 
   auto countIR = [](const Function &F) {
     unsigned IRSize = 0;

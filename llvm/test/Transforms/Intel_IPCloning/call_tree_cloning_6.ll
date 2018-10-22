@@ -125,6 +125,21 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 ; CHECK-NOT:  call fastcc void @"mc_chroma|8._"()
 ;
 
+; After CMPLRLLVM-454, we try to maintain a stable function ordering.
+;
+; CHECK: define internal fastcc void @"mc_chroma|8.8"()
+; CHECK: define internal fastcc void @"mc_chroma|8.16"()
+; CHECK: define internal fastcc void @"mc_chroma|16.8"()
+; CHECK: define internal fastcc void @"mc_chroma|16.16"()
+; CHECK: define internal fastcc void @"mc_chroma|_._"(i32, i32)
+; CHECK: define internal fastcc void @"mc_chroma|20._"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|16._"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|12._"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|8._"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|_.20"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|_.16"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|_.12"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|_.8"(i32)
 
 attributes #0 = { noinline norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
