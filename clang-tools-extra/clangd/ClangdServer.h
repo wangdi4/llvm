@@ -75,6 +75,9 @@ public:
     /// If true, ClangdServer builds a dynamic in-memory index for symbols in
     /// opened files and uses the index to augment code completion results.
     bool BuildDynamicSymbolIndex = false;
+    /// Use a heavier and faster in-memory index implementation.
+    /// FIXME: we should make this true if it isn't too slow to build!.
+    bool HeavyweightDynamicSymbolIndex = false;
 
     /// URI schemes to use when building the dynamic index.
     /// If empty, the default schemes in SymbolCollector will be used.
@@ -87,7 +90,7 @@ public:
     /// defaults and -resource-dir compiler flag).
     /// If None, ClangdServer calls CompilerInvocation::GetResourcePath() to
     /// obtain the standard resource directory.
-    llvm::Optional<StringRef> ResourceDir = llvm::None;
+    llvm::Optional<std::string> ResourceDir = llvm::None;
 
     /// Time to wait after a new file version before computing diagnostics.
     std::chrono::steady_clock::duration UpdateDebounce =
@@ -109,7 +112,8 @@ public:
   /// \p DiagConsumer. Note that a callback to \p DiagConsumer happens on a
   /// worker thread. Therefore, instances of \p DiagConsumer must properly
   /// synchronize access to shared state.
-  ClangdServer(GlobalCompilationDatabase &CDB, FileSystemProvider &FSProvider,
+  ClangdServer(const GlobalCompilationDatabase &CDB,
+               const FileSystemProvider &FSProvider,
                DiagnosticsConsumer &DiagConsumer, const Options &Opts);
 
   /// Set the root path of the workspace.
@@ -227,9 +231,9 @@ private:
 
   tooling::CompileCommand getCompileCommand(PathRef File);
 
-  GlobalCompilationDatabase &CDB;
+  const GlobalCompilationDatabase &CDB;
   DiagnosticsConsumer &DiagConsumer;
-  FileSystemProvider &FSProvider;
+  const FileSystemProvider &FSProvider;
 
   /// Used to synchronize diagnostic responses for added and removed files.
   llvm::StringMap<DocVersion> InternalVersion;

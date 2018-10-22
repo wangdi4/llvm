@@ -13,7 +13,6 @@
 #include "index/SymbolCollector.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
-#include "clang/Basic/VirtualFileSystem.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Index/IndexingAction.h"
 #include "clang/Tooling/Tooling.h"
@@ -21,6 +20,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -63,19 +63,19 @@ MATCHER_P2(IncludeHeaderWithRef, IncludeHeader, References,  "") {
   return (arg.IncludeHeader == IncludeHeader) && (arg.References == References);
 }
 MATCHER_P(DeclRange, Pos, "") {
-  return std::tie(arg.CanonicalDeclaration.Start.Line,
-                  arg.CanonicalDeclaration.Start.Column,
-                  arg.CanonicalDeclaration.End.Line,
-                  arg.CanonicalDeclaration.End.Column) ==
-         std::tie(Pos.start.line, Pos.start.character, Pos.end.line,
-                  Pos.end.character);
+  return std::make_tuple(arg.CanonicalDeclaration.Start.line(),
+                         arg.CanonicalDeclaration.Start.column(),
+                         arg.CanonicalDeclaration.End.line(),
+                         arg.CanonicalDeclaration.End.column()) ==
+         std::make_tuple(Pos.start.line, Pos.start.character, Pos.end.line,
+                         Pos.end.character);
 }
 MATCHER_P(DefRange, Pos, "") {
-  return std::tie(arg.Definition.Start.Line,
-                  arg.Definition.Start.Column, arg.Definition.End.Line,
-                  arg.Definition.End.Column) ==
-         std::tie(Pos.start.line, Pos.start.character, Pos.end.line,
-                  Pos.end.character);
+  return std::make_tuple(
+             arg.Definition.Start.line(), arg.Definition.Start.column(),
+             arg.Definition.End.line(), arg.Definition.End.column()) ==
+         std::make_tuple(Pos.start.line, Pos.start.character, Pos.end.line,
+                         Pos.end.character);
 }
 MATCHER_P(RefCount, R, "") { return int(arg.References) == R; }
 MATCHER_P(ForCodeCompletion, IsIndexedForCodeCompletion, "") {
@@ -83,13 +83,16 @@ MATCHER_P(ForCodeCompletion, IsIndexedForCodeCompletion, "") {
          IsIndexedForCodeCompletion;
 }
 MATCHER(Deprecated, "") { return arg.Flags & Symbol::Deprecated; }
+MATCHER(ImplementationDetail, "") {
+  return arg.Flags & Symbol::ImplementationDetail;
+}
 MATCHER(RefRange, "") {
   const Ref &Pos = testing::get<0>(arg);
   const Range &Range = testing::get<1>(arg);
-  return std::tie(Pos.Location.Start.Line, Pos.Location.Start.Column,
-                  Pos.Location.End.Line, Pos.Location.End.Column) ==
-         std::tie(Range.start.line, Range.start.character, Range.end.line,
-                  Range.end.character);
+  return std::make_tuple(Pos.Location.Start.line(), Pos.Location.Start.column(),
+                         Pos.Location.End.line(), Pos.Location.End.column()) ==
+         std::make_tuple(Range.start.line, Range.start.character,
+                         Range.end.line, Range.end.character);
 }
 testing::Matcher<const std::vector<Ref> &>
 HaveRanges(const std::vector<Range> Ranges) {
@@ -219,7 +222,7 @@ public:
 class SymbolCollectorTest : public ::testing::Test {
 public:
   SymbolCollectorTest()
-      : InMemoryFileSystem(new vfs::InMemoryFileSystem),
+      : InMemoryFileSystem(new llvm::vfs::InMemoryFileSystem),
         TestHeaderName(testPath("symbol.h")),
         TestFileName(testPath("symbol.cc")) {
     TestHeaderURI = URI::createFile(TestHeaderName).toString();
@@ -258,7 +261,7 @@ public:
   }
 
 protected:
-  llvm::IntrusiveRefCntPtr<vfs::InMemoryFileSystem> InMemoryFileSystem;
+  llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> InMemoryFileSystem;
   std::string TestHeaderName;
   std::string TestHeaderURI;
   std::string TestFileName;
@@ -477,6 +480,17 @@ TEST_F(SymbolCollectorTest, Refs) {
   EXPECT_THAT(Refs, Not(Contains(Pair(findSymbol(MainSymbols, "a").ID, _))));
   EXPECT_THAT(Refs, Not(Contains(Pair(findSymbol(MainSymbols, "b").ID, _))));
   EXPECT_THAT(Refs, Not(Contains(Pair(findSymbol(MainSymbols, "c").ID, _))));
+}
+
+TEST_F(SymbolCollectorTest, RefsInHeaders) {
+  CollectorOpts.RefFilter = RefKind::All;
+  CollectorOpts.RefsInHeaders = true;
+  Annotations Header(R"(
+  class [[Foo]] {};
+  )");
+  runSymbolCollector(Header.code(), "");
+  EXPECT_THAT(Refs, Contains(Pair(findSymbol(Symbols, "Foo").ID,
+                                  HaveRanges(Header.ranges()))));
 }
 
 TEST_F(SymbolCollectorTest, References) {
@@ -1024,6 +1038,21 @@ TEST_F(SymbolCollectorTest, DeprecatedSymbols) {
   EXPECT_THAT(Symbols, UnorderedElementsAre(
                            AllOf(QName("TestClangc"), Deprecated()),
                            AllOf(QName("TestClangd"), Not(Deprecated()))));
+}
+
+TEST_F(SymbolCollectorTest, ImplementationDetail) {
+  const std::string Header = R"(
+    #define DECL_NAME(x, y) x##_##y##_Decl
+    #define DECL(x, y) class DECL_NAME(x, y) {};
+    DECL(X, Y); // X_Y_Decl
+
+    class Public {};
+  )";
+  runSymbolCollector(Header, /**/ "");
+  EXPECT_THAT(Symbols,
+              UnorderedElementsAre(
+                  AllOf(QName("X_Y_Decl"), ImplementationDetail()),
+                  AllOf(QName("Public"), Not(ImplementationDetail()))));
 }
 
 } // namespace

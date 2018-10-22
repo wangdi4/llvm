@@ -4350,6 +4350,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_CopyAndAutoreleaseBlockObject:
   case CK_AddressSpaceConversion:
   case CK_IntToOCLSampler:
+  case CK_FixedPointCast:
 #if INTEL_CUSTOMIZATION
     // CQ#366312 - enable an extension that allows casts of lvalues to
     // be used as lvalues, as long as the size of the object is not lengthened
