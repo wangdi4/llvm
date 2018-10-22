@@ -12,6 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+// ocl_recommended_vector_length metadata is used by VPO passes e.g.(VecClone) only.
+
 #ifndef METADATAAPI_H
 #define METADATAAPI_H
 
@@ -175,6 +177,7 @@ struct KernelInternalMetadataAPI {
         KernelHasGlobalSync(Func, "kernel_has_global_sync"),
         NoBarrierPath(Func, "no_barrier_path"),
         VectorizedWidth(Func, "vectorized_width"),
+        OclRecommendedVectorLength(Func, "ocl_recommended_vector_length"),
         BlockLiteralSize(Func, "block_literal_size"),
         PrivateMemorySize(Func, "private_memory_size"),
         VectorizationDimension(Func, "vectorization_dimension"),
@@ -192,6 +195,7 @@ struct KernelInternalMetadataAPI {
       MDNames.push_back(KernelHasGlobalSync.getID());
       MDNames.push_back(NoBarrierPath.getID());
       MDNames.push_back(VectorizedWidth.getID());
+      MDNames.push_back(OclRecommendedVectorLength.getID());
       MDNames.push_back(BlockLiteralSize.getID());
       MDNames.push_back(PrivateMemorySize.getID());
       MDNames.push_back(VectorizationDimension.getID());
@@ -211,6 +215,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<KernelHasGlobalSyncTy> KernelHasGlobalSync;
   NamedMDValueAccessor<NoBarrierPathTy> NoBarrierPath;
   NamedMDValueAccessor<VectorizedWidthTy> VectorizedWidth;
+  NamedMDValueAccessor<VectorizedWidthTy> OclRecommendedVectorLength;
   NamedMDValueAccessor<BlockLiteralSizeTy> BlockLiteralSize;
   NamedMDValueAccessor<PrivateMemorySizeTy> PrivateMemorySize;
   NamedMDValueAccessor<VectorizationDimensionTy> VectorizationDimension;

@@ -259,9 +259,14 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   // Note that v16 support was already decided earlier. The reason the code is split
   // is that for the v16 we don't need to compute the various maps,
   // while in this part of the code we want to use them.
-  if (m_preVec)
+  if (m_preVec) {
     m_desiredWidth = getPreferredVectorizationWidth(F, IterMap, ProbMap);
 
+    // Here, ocl_recommended_vector_length.provisional is set. This metadata is
+    // only used by VPO-VecClone.
+    auto vkimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
+    vkimd.OclRecommendedVectorLength.set(m_desiredWidth);
+  }
   return false;
 }
 
