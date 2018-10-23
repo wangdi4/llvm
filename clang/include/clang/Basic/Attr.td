@@ -2842,7 +2842,8 @@ def LoopHint : Attr {
                    Pragma<"", "nofusion">,
                    Pragma<"", "fusion">,
                    Pragma<"", "novector">,
-                   Pragma<"", "vector">];
+                   Pragma<"", "vector">,
+                   Pragma<"", "loop_count">];
 //endif INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
@@ -2857,7 +2858,8 @@ def LoopHint : Attr {
                            "min_ii_at_target_fmax", "speculated_iterations",
                            "disable_loop_pipelining",
                            "distribute_point", "fusion",
-                           "novector", "always"],
+                           "novector", "always",
+                           "loop_count", "max", "min", "avg"],
 //endif INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
                            "Unroll", "UnrollCount", "UnrollAndJam", "UnrollAndJamCount",
@@ -2869,7 +2871,8 @@ def LoopHint : Attr {
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
                            "SpeculatedIterations", "DisableLoopPipelining",
                            "Distribute", "Fusion", "Vectorize",
-                           "VectorizeAlways"]>,
+                           "VectorizeAlways", "LoopCount",
+                           "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
 //endif INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
 //if INTEL_CUSTOMIZATION
@@ -2893,6 +2896,10 @@ def LoopHint : Attr {
     case Distribute: return "distribute";
 //if INTEL_CUSTOMIZATION
     case VectorizeAlways: return "vectorize_always";
+    case LoopCount: return "loop_count";
+    case LoopCountMin: return "loop_count min";
+    case LoopCountMax: return "loop_count max";
+    case LoopCountAvg: return "loop_count avg";
 //endif INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unhandled LoopHint option.");
@@ -2985,6 +2992,8 @@ def LoopHint : Attr {
       return "#pragma novector";
     else if (SpellingIndex == Pragma_vector)
       return "#pragma vector";
+    else if (SpellingIndex == Pragma_loop_count)
+      return getOptionName(option) + getValueString(Policy);
 //endif INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");

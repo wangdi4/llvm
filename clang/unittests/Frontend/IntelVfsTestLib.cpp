@@ -17,8 +17,8 @@
 #pragma warning(pop)
 #endif
 
-#include "clang/Basic/VirtualFileSystem.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/Support/VirtualFileSystem.h"
 
 #ifdef _WIN32
 #define EXPORT __declspec(dllexport)
@@ -26,8 +26,8 @@
 #define EXPORT
 #endif
 
-extern "C" EXPORT clang::vfs::FileSystem *__clang_create_vfs() {
-  auto *FS = new clang::vfs::InMemoryFileSystem();
+extern "C" EXPORT llvm::vfs::FileSystem *__clang_create_vfs() {
+  auto *FS = new llvm::vfs::InMemoryFileSystem();
 
   llvm::SmallString<128> FileName("virtual.file");
   std::error_code EC = llvm::sys::fs::make_absolute(FileName);

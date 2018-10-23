@@ -27,7 +27,14 @@ unsigned Variable::getPrimaryOperandIndex() const {
   return TiedOperands[0];
 }
 
-bool Variable::hasTiedOperands() const { return TiedOperands.size() > 1; }
+bool Variable::hasTiedOperands() const {
+  assert(TiedOperands.size() <= 2 &&
+         "No more than two operands can be tied together");
+  // By definition only Use and Def operands can be tied together.
+  // TiedOperands[0] is the Def operand (LLVM stores defs first).
+  // TiedOperands[1] is the Use operand.
+  return TiedOperands.size() > 1;
+}
 
 unsigned Operand::getIndex() const {
   assert(Index >= 0 && "Index must be set");
@@ -87,24 +94,25 @@ const llvm::MCOperandInfo &Operand::getExplicitOperandInfo() const {
   return *Info;
 }
 
-Instruction::Instruction(const llvm::MCInstrDesc &MCInstrDesc,
-                         const RegisterAliasingTrackerCache &RATC)
-    : Description(&MCInstrDesc) {
+Instruction::Instruction(const LLVMState &State, unsigned Opcode)
+    : Description(&State.getInstrInfo().get(Opcode)),
+      Name(State.getInstrInfo().getName(Opcode)) {
+  const auto &RATC = State.getRATC();
   unsigned OpIndex = 0;
-  for (; OpIndex < MCInstrDesc.getNumOperands(); ++OpIndex) {
-    const auto &OpInfo = MCInstrDesc.opInfo_begin()[OpIndex];
+  for (; OpIndex < Description->getNumOperands(); ++OpIndex) {
+    const auto &OpInfo = Description->opInfo_begin()[OpIndex];
     Operand Operand;
     Operand.Index = OpIndex;
-    Operand.IsDef = (OpIndex < MCInstrDesc.getNumDefs());
+    Operand.IsDef = (OpIndex < Description->getNumDefs());
     // TODO(gchatelet): Handle isLookupPtrRegClass.
     if (OpInfo.RegClass >= 0)
       Operand.Tracker = &RATC.getRegisterClass(OpInfo.RegClass);
     Operand.TiedToIndex =
-        MCInstrDesc.getOperandConstraint(OpIndex, llvm::MCOI::TIED_TO);
+        Description->getOperandConstraint(OpIndex, llvm::MCOI::TIED_TO);
     Operand.Info = &OpInfo;
     Operands.push_back(Operand);
   }
-  for (const llvm::MCPhysReg *MCPhysReg = MCInstrDesc.getImplicitDefs();
+  for (const llvm::MCPhysReg *MCPhysReg = Description->getImplicitDefs();
        MCPhysReg && *MCPhysReg; ++MCPhysReg, ++OpIndex) {
     Operand Operand;
     Operand.Index = OpIndex;
@@ -113,7 +121,7 @@ Instruction::Instruction(const llvm::MCInstrDesc &MCInstrDesc,
     Operand.ImplicitReg = MCPhysReg;
     Operands.push_back(Operand);
   }
-  for (const llvm::MCPhysReg *MCPhysReg = MCInstrDesc.getImplicitUses();
+  for (const llvm::MCPhysReg *MCPhysReg = Description->getImplicitUses();
        MCPhysReg && *MCPhysReg; ++MCPhysReg, ++OpIndex) {
     Operand Operand;
     Operand.Index = OpIndex;
@@ -175,6 +183,18 @@ bool Instruction::hasAliasingImplicitRegisters() const {
   return ImplDefRegs.anyCommon(ImplUseRegs);
 }
 
+bool Instruction::hasAliasingImplicitRegistersThrough(
+    const Instruction &OtherInstr) const {
+  return ImplDefRegs.anyCommon(OtherInstr.ImplUseRegs) &&
+         OtherInstr.ImplDefRegs.anyCommon(ImplUseRegs);
+}
+
+bool Instruction::hasAliasingRegistersThrough(
+    const Instruction &OtherInstr) const {
+  return AllDefRegs.anyCommon(OtherInstr.AllUseRegs) &&
+         OtherInstr.AllDefRegs.anyCommon(AllUseRegs);
+}
+
 bool Instruction::hasTiedRegisters() const {
   return llvm::any_of(
       Variables, [](const Variable &Var) { return Var.hasTiedOperands(); });
@@ -184,8 +204,13 @@ bool Instruction::hasAliasingRegisters() const {
   return AllDefRegs.anyCommon(AllUseRegs);
 }
 
+bool Instruction::hasOneUseOrOneDef() const {
+  return AllDefRegs.count() || AllUseRegs.count();
+}
+
 void Instruction::dump(const llvm::MCRegisterInfo &RegInfo,
                        llvm::raw_ostream &Stream) const {
+  Stream << "- " << Name << "\n";
   for (const auto &Op : Operands) {
     Stream << "- Op" << Op.getIndex();
     if (Op.isExplicit())
@@ -215,8 +240,15 @@ void Instruction::dump(const llvm::MCRegisterInfo &RegInfo,
   }
   for (const auto &Var : Variables) {
     Stream << "- Var" << Var.getIndex();
-    for (auto OperandIndex : Var.TiedOperands)
-      Stream << " Op" << OperandIndex;
+    Stream << " [";
+    bool IsFirst = true;
+    for (auto OperandIndex : Var.TiedOperands) {
+      if (!IsFirst)
+        Stream << ",";
+      Stream << "Op" << OperandIndex;
+      IsFirst = false;
+    }
+    Stream << "]";
     Stream << "\n";
   }
   if (hasMemoryOperands())
@@ -267,8 +299,7 @@ bool AliasingConfigurations::hasImplicitAliasing() const {
 }
 
 AliasingConfigurations::AliasingConfigurations(
-    const Instruction &DefInstruction, const Instruction &UseInstruction)
-    : DefInstruction(DefInstruction), UseInstruction(UseInstruction) {
+    const Instruction &DefInstruction, const Instruction &UseInstruction) {
   if (UseInstruction.AllUseRegs.anyCommon(DefInstruction.AllDefRegs)) {
     auto CommonRegisters = UseInstruction.AllUseRegs;
     CommonRegisters &= DefInstruction.AllDefRegs;

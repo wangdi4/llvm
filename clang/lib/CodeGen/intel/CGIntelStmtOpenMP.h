@@ -197,6 +197,7 @@ class OpenMPCodeOutliner {
   void emitOMPUnifiedAddressClause(const OMPUnifiedAddressClause *);
   void emitOMPUnifiedSharedMemoryClause(const OMPUnifiedSharedMemoryClause *);
   void emitOMPReverseOffloadClause(const OMPReverseOffloadClause *);
+  void emitOMPDynamicAllocatorsClause(const OMPDynamicAllocatorsClause *);
 
   llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitIntelOpenMPDestructor(QualType Ty);

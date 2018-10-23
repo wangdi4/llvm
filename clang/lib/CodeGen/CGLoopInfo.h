@@ -98,6 +98,19 @@ struct LoopAttributes {
 
   /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
+
+  /// Value for llvm.loop.intel.loopcount
+  llvm::SmallVector<unsigned, 2> LoopCount;
+
+  /// Value for llvm.loop.intel.loopcount_minimum
+  unsigned LoopCountMin;
+
+  /// Value for llvm.loop.intel.loopcount_maximum
+  unsigned LoopCountMax;
+
+  /// Value for llvm.loop.intel.loopcount_averag
+  unsigned LoopCountAvg;
+
 #endif // INTEL_CUSTOMIZATION
 
   /// Value for llvm.loop.unroll.* metadata (enable, disable, or full).
@@ -259,6 +272,26 @@ public:
   /// Set next pushed loop  'vector_always.enable'
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
+  }
+
+  /// Set the LoopCount for the next loop pushed.
+  void setLoopCount(unsigned C) {
+    StagedAttrs.LoopCount.push_back(C);
+  }
+
+  /// Set the LoopCountMin for the next loop pushed.
+  void setLoopCountMin(unsigned C) {
+    StagedAttrs.LoopCountMin = C;
+  }
+
+  /// Set the LoopCountMax for the next loop pushed.
+  void setLoopCountMax(unsigned C) {
+    StagedAttrs.LoopCountMax = C;
+  }
+
+  /// Set the LoopCountAvg for the next loop pushed.
+  void setLoopCountAvg(unsigned C) {
+    StagedAttrs.LoopCountAvg = C;
   }
 #endif // INTEL_CUSTOMIZATION
 

@@ -1698,6 +1698,7 @@ private:
   llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;
   bool IsFakeLoadCand(const Expr *RV);
   bool EmitFakeLoadForRetPtr(const Expr *RV);
+  llvm::Value *EmitX86MayIUseCpuFeature(const CallExpr *E);
 #endif // INTEL_CUSTOMIZATION
 
 public:

@@ -1306,6 +1306,33 @@ RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
       CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
   return EmitCall(FuncInfo, CGCallee::forDirect(Func), ReturnValue, Args);
 }
+
+llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
+  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy,
+                                                    /*Variadic*/ false);
+  llvm::Constant *Func =
+      CGM.CreateRuntimeFunction(FTy, "__cpu_indicator_init_x");
+  Builder.CreateCall(Func);
+
+  llvm::Constant *IndicatorPtr =
+      CGM.CreateRuntimeVariable(Int64Ty, "__intel_cpu_feature_indicator_x");
+  llvm::Value *Indicator = Builder.CreateAlignedLoad(
+      IndicatorPtr,
+      getContext().getTypeAlignInChars(E->getArg(0)->getType()),
+      "cpu_feature_indicator");
+
+  llvm::APSInt CompareFeatures;
+  bool IsConst =
+      E->getArg(0)->isIntegerConstantExpr(CompareFeatures, getContext());
+  assert(IsConst && "Constant arg isn't actually constant?"); (void)IsConst;
+
+  llvm::Value *Join =
+      Builder.CreateAnd(Indicator, CompareFeatures, "cpu_feature_join");
+
+  return Builder.CreateICmpEQ(Join,
+                              llvm::ConstantInt::get(Int64Ty, CompareFeatures),
+                              "cpu_feature_check");
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Determine if a binop is a checked mixed-sign multiply we can specialize.
@@ -9665,6 +9692,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86CpuInit();
 
 #if INTEL_CUSTOMIZATION
+  if (BuiltinID == X86::BI_may_i_use_cpu_feature)
+    return EmitX86MayIUseCpuFeature(E);
+
   // Enable FPGA feature built-ins for X86 target
   if (BuiltinID == X86::BIget_compute_id)
     return EmitGetComputeIDExpr(E);
@@ -11967,12 +11997,16 @@ Value *CodeGenFunction::EmitAMDGPUBuiltinExpr(unsigned BuiltinID,
 
   case AMDGPU::BI__builtin_amdgcn_ds_swizzle:
     return emitBinaryBuiltin(*this, E, Intrinsic::amdgcn_ds_swizzle);
-  case AMDGPU::BI__builtin_amdgcn_mov_dpp: {
-    llvm::SmallVector<llvm::Value *, 5> Args;
-    for (unsigned I = 0; I != 5; ++I)
+  case AMDGPU::BI__builtin_amdgcn_mov_dpp:
+  case AMDGPU::BI__builtin_amdgcn_update_dpp: {
+    llvm::SmallVector<llvm::Value *, 6> Args;
+    for (unsigned I = 0; I != E->getNumArgs(); ++I)
       Args.push_back(EmitScalarExpr(E->getArg(I)));
-    Value *F = CGM.getIntrinsic(Intrinsic::amdgcn_mov_dpp,
-                                    Args[0]->getType());
+    assert(Args.size() == 5 || Args.size() == 6);
+    if (Args.size() == 5)
+      Args.insert(Args.begin(), llvm::UndefValue::get(Args[0]->getType()));
+    Value *F =
+        CGM.getIntrinsic(Intrinsic::amdgcn_update_dpp, Args[0]->getType());
     return Builder.CreateCall(F, Args);
   }
   case AMDGPU::BI__builtin_amdgcn_div_fixup:
@@ -13075,6 +13109,30 @@ Value *CodeGenFunction::EmitWebAssemblyBuiltinExpr(unsigned BuiltinID,
     Value *Count = EmitScalarExpr(E->getArg(1));
     Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_atomic_notify);
     return Builder.CreateCall(Callee, {Addr, Count});
+  }
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_s_i32_f32:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_s_i32_f64:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_s_i64_f32:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_s_i64_f64:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_s_v4i32_v4f32:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_s_v2i64_v2f64: {
+    Value *Src = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ResT = ConvertType(E->getType());
+    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_trunc_saturate_signed,
+                                     {ResT, Src->getType()});
+    return Builder.CreateCall(Callee, {Src});
+  }
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_u_i32_f32:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_u_i32_f64:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_u_i64_f32:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_u_i64_f64:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_u_v4i32_v4f32:
+  case WebAssembly::BI__builtin_wasm_trunc_saturate_u_v2i64_v2f64: {
+    Value *Src = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ResT = ConvertType(E->getType());
+    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_trunc_saturate_unsigned,
+                                     {ResT, Src->getType()});
+    return Builder.CreateCall(Callee, {Src});
   }
   case WebAssembly::BI__builtin_wasm_extract_lane_s_i8x16:
   case WebAssembly::BI__builtin_wasm_extract_lane_u_i8x16:
