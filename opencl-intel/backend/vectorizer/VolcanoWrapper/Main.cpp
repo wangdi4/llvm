@@ -169,6 +169,13 @@ bool Vectorizer::runOnModule(Module &M)
       clone->eraseFromParent();
     }
     V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
+
+    // unset ocl_recommended_vector_length metadata. This metadata is only used
+    // by VPO-VecClone.
+    if (vectFunc)
+      MDValueGlobalObjectStrategy::unset(
+          vectFunc, "ocl_recommended_vector_length");
+
     //Initialize scalar kernel information, which contains:
     // * pointer to vectorized kernel
     // * vectorized width of 1 (as it is the scalar version)

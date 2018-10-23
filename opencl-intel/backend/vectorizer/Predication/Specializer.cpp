@@ -284,7 +284,7 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
     if (loop)
       loop->addBasicBlockToLoop(new_block, *m_LI);
 
-    TerminatorInst* term = info.m_postDom->getTerminator();
+    Instruction* term = info.m_postDom->getTerminator();
     assert (isa<BranchInst>(term) && "term should be a branch instruction");
     BranchInst *br = cast<BranchInst>(term);
 
@@ -487,7 +487,7 @@ void FunctionSpecializer::CollectDominanceInfo() {
   for (Function::iterator bbiter = m_func->begin(), bbe = m_func->end(); bbiter != bbe ; ++bbiter) {
     BasicBlock* bb = &*bbiter;
 
-    TerminatorInst* term = bb->getTerminator();
+    Instruction* term = bb->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
 
     // we calculate regions either for successors of divergent branches or
@@ -596,7 +596,7 @@ BasicBlock* FunctionSpecializer::createIntermediateBlock(
   // new block
   BasicBlock* new_block = BasicBlock::Create(before->getContext(), name, after->getParent(), after);
   // fix before
-  TerminatorInst* term = before->getTerminator();
+  Instruction* term = before->getTerminator();
   BranchInst *br = dyn_cast<BranchInst>(term);
   V_ASSERT(br);
 

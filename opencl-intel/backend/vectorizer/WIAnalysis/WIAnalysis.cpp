@@ -513,7 +513,7 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         BasicBlock *immDom = m_DT->getNode(defBlk)->getIDom()->getBlock();
         assert(immDom && "immDom cannot be null");
 
-        TerminatorInst* term = immDom->getTerminator();
+        Instruction* term = immDom->getTerminator();
         BranchInst* br = dyn_cast<BranchInst>(term);
         assert(br && "br cannot be null");
 

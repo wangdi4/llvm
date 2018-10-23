@@ -966,7 +966,7 @@ unsigned int Prefetch::IterLength(Loop *L)
   std::map<BasicBlock *, int> walkedBBs;
 #endif //NDEBUG
   do {
-    TerminatorInst *TI = BB->getTerminator();
+    Instruction *TI = BB->getTerminator();
     assert (TI->getNumSuccessors() > 0 && "Not expecting 0 successors");
 #ifndef NDEBUG
     assert (walkedBBs.find(BB) == walkedBBs.end() && "this BB length was already taken");

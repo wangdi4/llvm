@@ -270,7 +270,7 @@ void PhiCanon::fixBasicBlockSucessor(BasicBlock* to_fix,
                                    BasicBlock* old_target,
                                    BasicBlock* new_target) {
 
-  TerminatorInst* term = to_fix->getTerminator();
+  Instruction* term = to_fix->getTerminator();
   V_ASSERT(term && "Basic Block must have a terminator");
 
   /// Fix/replace branch inst
