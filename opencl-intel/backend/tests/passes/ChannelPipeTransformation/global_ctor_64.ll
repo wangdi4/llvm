@@ -25,7 +25,6 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 ; CHECK: %opencl.pipe_rw_t{{.*}} = type opaque
-; CHECK: %struct.__pipe_t = type { i32, i32, i32, i32, i32, i32, [0 x i8] }
 
 @bar = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0, !depth !1
 @far = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0, !depth !2
@@ -118,14 +117,14 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK-DAG: store {{.*}}* @[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 3, i32 1)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 3, i32 2)
 
-; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_STAR_ARR]] {{.*}}, i32 60, i32 4, i32 0
+; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_STAR_ARR]]{{.*}}, i32 60, i32 4, i32 0
 ;
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 0)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 1)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 2)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 3)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_BAR_ARR]], i32 0, i32 4)
-; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_BAR_ARR]] {{.*}}, i32 5, i32 4, i32 0
+; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_BAR_ARR]]{{.*}}, i32 5, i32 4, i32 0
 ;
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 0, i32 0)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 0, i32 1)
@@ -147,7 +146,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 1)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 2)
 ; CHECK-DAG: store {{.*}}* @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}) {{.*}}, {{.*}}* @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 3)
-; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_FAR_ARR]] {{.*}}, i32 20, i32 4, i32 3
+; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_FAR_ARR]]{{.*}}, i32 20, i32 4, i32 3
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !12 !kernel_arg_type !12 !kernel_arg_base_type !12 !kernel_arg_type_qual !12 {

@@ -53,9 +53,9 @@
 ; CHECK: call i32 @__write_pipe_2_bl_io_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE2WO]], i8 addrspace(4)* %{{[0-9]+}}, i8 addrspace(4)* %[[TESTCHOUTSTR]], i32 4, i32 4)
 ;
 ; CHECK: define void @__pipe_global_dtor()
-; CHECK: call void @__pipe_release_fpga(%struct.__pipe_t addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ichIn.pipe to %struct.__pipe_t addrspace(1)*))
-; CHECK: call void @__pipe_release_fpga(%struct.__pipe_t addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ichOut.pipe to %struct.__pipe_t addrspace(1)*))
-; CHECK: declare void @__pipe_release_fpga(%struct.__pipe_t addrspace(1)* nocapture readonly)
+; CHECK: call void @__pipe_release_fpga(%opencl.pipe_rw_t addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ichIn.pipe to %opencl.pipe_rw_t addrspace(1)*))
+; CHECK: call void @__pipe_release_fpga(%opencl.pipe_rw_t addrspace(1)* bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ichOut.pipe to %opencl.pipe_rw_t addrspace(1)*))
+; CHECK: declare void @__pipe_release_fpga(%opencl.pipe_rw_t addrspace(1)* nocapture readonly)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"

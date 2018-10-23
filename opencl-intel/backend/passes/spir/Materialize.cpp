@@ -127,6 +127,7 @@ public:
         break;
       }
     }
+    assert(PipesModule && "Module containing pipe built-ins not found!");
 
     assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
     SmallVector<Value *, 4> NewArgs;
