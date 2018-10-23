@@ -125,7 +125,7 @@ namespace intel {
     else if (PHINode            *inst = dyn_cast<PHINode>(pInst))           {newRelation = calculate_dep(inst); }
     else if (ShuffleVectorInst  *inst = dyn_cast<ShuffleVectorInst>(pInst)) {newRelation = calculate_dep(inst); }
     else if (StoreInst          *inst = dyn_cast<StoreInst>(pInst))         {newRelation = calculate_dep(inst); }
-    else if (TerminatorInst     *inst = dyn_cast<TerminatorInst>(pInst))    {newRelation = calculate_dep(inst); }
+    else if (pInst->isTerminator())                                         {newRelation = calculate_dep(pInst);}
     else if (SelectInst         *inst = dyn_cast<SelectInst>(pInst))        {newRelation = calculate_dep(inst); }
     else if (AllocaInst         *inst = dyn_cast<AllocaInst>(pInst))        {newRelation = calculate_dep(inst); }
     else if (CastInst           *inst = dyn_cast<CastInst>(pInst))          {newRelation = calculate_dep(inst); }
@@ -305,7 +305,7 @@ namespace intel {
     return false;
   }
 
-  bool WIRelatedValue::calculate_dep(TerminatorInst *pInst) {
+  bool WIRelatedValue::calculate_dep(Instruction *pInst) {
     //Instruction has no return value
     //Just need to know if this inst is uniform or not
     //because we may want to avoid predication if the control flows

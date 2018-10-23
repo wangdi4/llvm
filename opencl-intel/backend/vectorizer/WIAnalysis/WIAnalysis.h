@@ -129,7 +129,7 @@ private:
     WIDependancy calculate_dep(const CallInst* inst);
     WIDependancy calculate_dep(const GetElementPtrInst* inst);
     WIDependancy calculate_dep(const PHINode* inst);
-    WIDependancy calculate_dep(const TerminatorInst* inst);
+    WIDependancy calculate_dep(const Instruction* inst);
     WIDependancy calculate_dep(const SelectInst* inst);
     WIDependancy calculate_dep(const AllocaInst* inst);
     WIDependancy calculate_dep(const CastInst* inst);
@@ -152,7 +152,7 @@ private:
     /// s.t. the path from each successor accesses the partial join from a 
     /// predecessor
     /// @return
-    void findDivergePartialJoins(const TerminatorInst *inst);
+    void findDivergePartialJoins(const Instruction *inst);
 
     /// @brief mark all the Phi nodes in full/partial joins as random
     /// @return
@@ -161,7 +161,7 @@ private:
     /// @brief the main function to handle control flow divergence
     /// @param the divergent branch
     /// @return
-    void updateCfDependency(const TerminatorInst *inst);
+    void updateCfDependency(const Instruction *inst);
 
     /// @brief Provide known dependency type for requested value
     /// @param val Value to examine
@@ -177,7 +177,7 @@ private:
     // the branch inst. PDT is given for post dominance info
     // @param divergent branch
     // @return the full join
-    void calcInfoForBranch(const TerminatorInst *inst);
+    void calcInfoForBranch(const Instruction *inst);
 
     /// @brief  LLVM Interface
     /// @param AU Analysis
