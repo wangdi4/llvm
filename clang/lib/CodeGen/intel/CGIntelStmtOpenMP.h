@@ -231,7 +231,6 @@ class OpenMPCodeOutliner {
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
   llvm::Value *ThisPointerValue = nullptr;
-  llvm::StringMap<llvm::MDNode *> MDNodes;
 
 public:
   OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
@@ -248,7 +247,7 @@ public:
   void emitOMPMasterDirective();
   void emitOMPCriticalDirective(const StringRef Name);
   void emitOMPOrderedDirective();
-  void emitOMPTargetDirective();
+  void emitOMPTargetDirective(int OffloadEntryIndex);
   void emitOMPTargetDataDirective();
   void emitOMPTargetUpdateDirective();
   void emitOMPTargetEnterDataDirective();
@@ -285,7 +284,6 @@ public:
   void addExplicit(const Expr *E);
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
   void setInsertPoint() { CGF.Builder.SetInsertPoint(MarkerInstruction); }
-  void addMetadata(StringRef Kind, llvm::MDNode *N) { MDNodes[Kind] = N; }
 };
 
 /// Base class for handling code generation inside OpenMP regions.

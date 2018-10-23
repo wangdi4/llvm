@@ -31,7 +31,7 @@ void bar() {}
 // CHECK-ALL: define void @goo()
 void goo() {
   // CHECK-ALL-NEXT: entry:
-  // CHECK-ALL-NEXT: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"() ], !omp_offload.entry ![[ENTRYMD:[0-9]+]]
+  // CHECK-ALL-NEXT: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]) ]
   // CHECK-ALL-NEXT: call void @bar()
   // CHECK-ALL-NEXT: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
 #pragma omp target
@@ -47,6 +47,5 @@ void goo() {
 
 // Check that metadata is generated.
 // CHECK-ALL: !omp_offload.info = !{!{{[0-9]+}}, !{{[0-9]+}}}
-// CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"goo", i32 37, i32 [[ORDER:[0-9]+]]}
+// CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"goo", i32 37, i32 [[ENTRYIDX]]}
 // CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 1, !"Var1", i32 {{[0-9]+}}, i32 {{[0-9]+}}}
-// CHECK-ALL-DAG: ![[ENTRYMD]] = distinct !{i32 [[ORDER]]}

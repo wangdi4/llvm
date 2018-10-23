@@ -1323,8 +1323,6 @@ namespace CGIntelOpenMP {
     for (auto &D : Directives) {
       D.CallEntry =
           CGF.Builder.CreateCall(RegionEntryDirective, {}, D.OpBundles);
-      for (auto &MD : MDNodes)
-        D.CallEntry->setMetadata(MD.first(), MD.second);
       D.clear();
       // Place the end directive in place of the start.
       emitDirective(D, D.End);
@@ -1425,8 +1423,13 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPOrderedDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.ORDERED", "DIR.OMP.END.ORDERED");
   }
-  void OpenMPCodeOutliner::emitOMPTargetDirective() {
+  void OpenMPCodeOutliner::emitOMPTargetDirective(int OffloadEntryIndex) {
     startDirectiveIntrinsicSet("DIR.OMP.TARGET", "DIR.OMP.END.TARGET");
+
+    // Add operand bundle for the offload entry index.
+    ClauseEmissionHelper CEH(*this);
+    addArg("QUAL.OMP.OFFLOAD.ENTRY.IDX");
+    addArg(CGF.Builder.getInt32(OffloadEntryIndex));
   }
   void OpenMPCodeOutliner::emitOMPTargetDataDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TARGET.DATA",
@@ -1701,7 +1704,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_target: {
     CGM.setHasTargetCode();
 
-    // Register target region in the entry manager.
+    // Get an index of the associated offload entry for this target directive.
     assert(CurFuncDecl && "No parent declaration for target region!");
     StringRef ParentName;
     // In case we have Ctors/Dtors we use the complete type variant to produce
@@ -1717,13 +1720,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     int Order = CGM.getOpenMPRuntime().registerTargetRegion(S, ParentName);
     assert(Order >= 0 && "No entry for the target region");
 
-    // Attach entry's index to the directive as metadata.
-    llvm::Metadata *MD = llvm::ConstantAsMetadata::get(
-        llvm::ConstantInt::get(CGM.Int32Ty, Order));
-    Outliner.addMetadata("omp_offload.entry",
-        llvm::MDNode::getDistinct(CGM.getLLVMContext(), { MD }));
-
-    Outliner.emitOMPTargetDirective();
+    Outliner.emitOMPTargetDirective(Order);
     break;
   }
   case OMPD_target_data:
