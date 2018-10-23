@@ -21,6 +21,10 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
 
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
+#endif // INTEL_INCLUDE_DTRANS
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -558,6 +562,16 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   }
 
   CanonExpr *StrideAtLevel = nullptr;
+  bool FitsIn32Bits = false;
+#if INTEL_INCLUDE_DTRANS
+  // IPO's padding transformation and propagation is also responsible to
+  // generate RT check on malloc site to check that user doesn't try to
+  // allocate more than 4GB of memory. As soon as currently there's no
+  // other interface to ask about this RT check for 4GB, we have to assume
+  // that if pointer is padded, 4GB check is inserted.
+  if (Value *Base = getTempBaseValue())
+    FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
+#endif // INTEL_INCLUDE_DTRANS
 
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
@@ -582,7 +596,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
       return nullptr;
     }
 
-    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode())) {
+    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode(), FitsIn32Bits)) {
       return nullptr;
     }
 
@@ -634,6 +648,17 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
 
   int64_t StrideVal = 0;
 
+  bool FitsIn32Bits = false;
+#if INTEL_INCLUDE_DTRANS
+  // IPO's padding transformation and propagation is also responsible to
+  // generate RT check on malloc site to check that user doesn't try to
+  // allocate more than 4GB of memory. As soon as currently there's no
+  // other interface to ask about this RT check for 4GB, we have to assume
+  // that if pointer is padded, 4GB check is inserted.
+  if (Value *Base = getTempBaseValue())
+    FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
+#endif // INTEL_INCLUDE_DTRANS
+
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
 
@@ -655,7 +680,7 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
       return false;
     }
 
-    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode())) {
+    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode(), FitsIn32Bits)) {
       return false;
     }
 

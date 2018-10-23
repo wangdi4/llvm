@@ -19,7 +19,6 @@
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
-#include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_INCLUDE_DTRANS
 
 #define DEBUG_TYPE "vplan-idioms"

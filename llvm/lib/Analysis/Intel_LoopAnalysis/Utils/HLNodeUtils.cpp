@@ -3410,7 +3410,8 @@ static cl::opt<bool> IgnoreWraparound("hir-ignore-wraparound", cl::init(false),
                                       cl::desc("Disables wraparound check."));
 
 bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
-                                const HLNode *ParentNode) {
+                                const HLNode *ParentNode,
+                                const bool FitsIn32Bits) {
   assert(CE->getSrcType()->isIntegerTy() &&
          "CE does not have an integer type!");
 
@@ -3432,6 +3433,10 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
   // we will become too conservative. Handling sext is left as a TODO
   // until we have a real test case.
   if (!CE->isZExt()) {
+    return false;
+  }
+
+  if (FitsIn32Bits && CE->getSrcType()->getScalarSizeInBits() >= 32) {
     return false;
   }
 
