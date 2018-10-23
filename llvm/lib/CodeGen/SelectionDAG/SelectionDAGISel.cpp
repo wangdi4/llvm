@@ -459,7 +459,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
       if (!succ_empty(&BB))
         continue;
 
-      const TerminatorInst *Term = BB.getTerminator();
+      const Instruction *Term = BB.getTerminator();
       if (isa<UnreachableInst>(Term) || isa<ReturnInst>(Term))
         continue;
 

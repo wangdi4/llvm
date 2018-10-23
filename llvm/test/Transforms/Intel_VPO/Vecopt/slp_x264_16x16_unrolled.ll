@@ -471,9 +471,9 @@ attributes #9 = { nounwind }
 ; Just check for a few of them.
 
 
-; 16WIDE: sub <16 x i32>
-; 16WIDE: add <16 x i32>
-; 16WIDE: add <16 x i32>
-; 16WIDE: sub <16 x i32>
+; 16WIDE: sub nsw <16 x i32>
+; 16WIDE: add nsw <16 x i32>
+; 16WIDE: add nsw <16 x i32>
+; 16WIDE: sub nsw <16 x i32>
 ; 16WIDE: store <16 x i32> [[SEL1:%.*]], <16 x i32>*
 

@@ -217,7 +217,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   Value *NewUB = Builder.CreateAdd(LB, Ch);
 
   Value *Compare = Builder.CreateICmp(ICmpInst::ICMP_ULT, NewUB, UB);
-  TerminatorInst *ThenTerm = SplitBlockAndInsertIfThen(
+  Instruction *ThenTerm = SplitBlockAndInsertIfThen(
       Compare, InsertPt, false,
       MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
   BasicBlock *ThenBB = ThenTerm->getParent();
@@ -2475,7 +2475,7 @@ CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
 //          }while (%omp.ub + 1 > %omp.inc)
 void VPOParoptTransform::fixOmpBottomTestExpr(Loop *L) {
   BasicBlock *Backedge = L->getLoopLatch();
-  TerminatorInst *TermInst = Backedge->getTerminator();
+  Instruction *TermInst = Backedge->getTerminator();
   BranchInst *ExitBrInst = cast<BranchInst>(TermInst);
   ICmpInst *CondInst = cast<ICmpInst>(ExitBrInst->getCondition());
   assert((CondInst->getPredicate() == CmpInst::ICMP_SLE ||
@@ -2528,7 +2528,7 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
                ConstantInt::get(Type::getInt32Ty(F->getContext()), 1) ||
            Inc->getOperand(1) ==
                ConstantInt::get(Type::getInt64Ty(F->getContext()), 1))) {
-        TerminatorInst *TermInst = Inc->getParent()->getTerminator();
+        Instruction *TermInst = Inc->getParent()->getTerminator();
         BranchInst *ExitBrInst = dyn_cast<BranchInst>(TermInst);
         if (!ExitBrInst)
           continue;
@@ -3528,7 +3528,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
     DispatchBodyBB->setName("dispatch.body");
 
-    TerminatorInst *TermInst = DispatchHeaderBB->getTerminator();
+    Instruction *TermInst = DispatchHeaderBB->getTerminator();
 
     ICmpInst* MinUB;
 
@@ -3647,7 +3647,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
     DispatchBodyBB->setName("dispatch.body" + Twine(W->getNumber()));
 
-    TerminatorInst *TermInst = DispatchHeaderBB->getTerminator();
+    Instruction *TermInst = DispatchHeaderBB->getTerminator();
 
     ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
                                KmpcNextCI, ValueZero,
@@ -3738,7 +3738,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     ICmpInst* MinUB;
 
-    TerminatorInst *TermInst = TeamDispHeaderBB->getTerminator();
+    Instruction *TermInst = TeamDispHeaderBB->getTerminator();
 
     if (IsLeft)
       MinUB = new ICmpInst(TermInst, PD, TmpUB, TmpUD, "team.ub.min");
@@ -4001,7 +4001,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
     ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
-    TerminatorInst *TermInst = ForkTestBB->getTerminator();
+    Instruction *TermInst = ForkTestBB->getTerminator();
 
     Value *IfClauseValue = nullptr;
 
@@ -4233,7 +4233,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
     bool FirstArg = true;
 
     for (auto C : CP.items()) {
-      TerminatorInst *Term;
+      Instruction *Term;
       if (FirstArg) {
         FirstArg = false;
 
@@ -4437,7 +4437,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
 
-  TerminatorInst *TermInst = MasterTestBB->getTerminator();
+  Instruction *TermInst = MasterTestBB->getTerminator();
 
   ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                     MasterCI, ValueOne, "");
@@ -4534,7 +4534,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
 
   ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
 
-  TerminatorInst *TermInst = SingleTestBB->getTerminator();
+  Instruction *TermInst = SingleTestBB->getTerminator();
 
   ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                     SingleCI, ValueOne, "");
@@ -4769,7 +4769,7 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
       ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
   Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero);       // (2)
 
-  TerminatorInst *Term = SplitBlockAndInsertIfThen(LastCompare, BranchInsertPt,
+  Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, BranchInsertPt,
                                                    false, nullptr, DT, LI);
   Term->getParent()->setName("last.then");
   ExitBBPredecessor->getTerminator()->getSuccessor(1)->setName("last.done");
@@ -5136,7 +5136,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
             : CancelExitBB;
 
     OrgBB = CancellationPoint->getParent();
-    TerminatorInst *TermInst = OrgBB->getTerminator();
+    Instruction *TermInst = OrgBB->getTerminator();
     TerminatorInst *NewTermInst =
         BranchInst::Create(CurrentCancelExitBB, NotCancelledBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);

@@ -1855,7 +1855,7 @@ private:
       // of DTransAnalysis to resolve the type as a pointer to an array of
       // elements. This is necessary because the allocated memory block is
       // being partitioned into multiple arrays.
-      DTransAnnotator::createDTransTypeAnnotation(cast<Instruction>(BlockAddr),
+      DTransAnnotator::createDTransTypeAnnotation(*cast<Instruction>(BlockAddr),
                                                   PeelFieldType);
 
       // Cast to the pointer type that will be stored:

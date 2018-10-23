@@ -1,6 +1,30 @@
-; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -S | FileCheck %s -check-prefix=8WIDE
+; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=true -S | FileCheck %s -check-prefix=8WIDE_PATH_STEERING
+; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=false -S | FileCheck %s -check-prefix=8WIDE
 
 ; Check that we vectorize Multi-Node with vector length 8
+
+; 8WIDE_PATH_STEERING: [[L1:%.*]] = load <4 x i8>, <4 x i8>* 
+; 8WIDE_PATH_STEERING: [[L2:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L3:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L4:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L5:%.*]] = load <4 x i8>, <4 x i8>* 
+; 8WIDE_PATH_STEERING: [[L6:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L7:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: [[L8:%.*]] = load <4 x i8>, <4 x i8>*
+; 8WIDE_PATH_STEERING: store <8 x i32> [[SEL1:%.*]]
+
+; 8WIDE: [[Add1:%.*]] = add <8 x i32> [[L0:%.*]], [[L1:%.*]]
+; 8WIDE: [[Sub1:%.*]] = sub <8 x i32> [[L0]], [[L1]]
+; 8WIDE: [[Shuf1:%.*]] = shufflevector <8 x i32> [[Add1]], <8 x i32> [[Sub1]]
+; 8WIDE: [[Add2:%.*]] = add <8 x i32> [[Shuf1]], [[L2:%.*]]
+; 8WIDE: [[Sub2:%.*]] = sub <8 x i32> [[Shuf1]], [[L2]]
+; 8WIDE: [[Shuf2:%.*]] = shufflevector <8 x i32> [[Add2]], <8 x i32> [[Sub2]]
+; 8WIDE: [[Add3:%.*]] = add <8 x i32> [[Shuf2]], [[L3:%.*]]
+; 8WIDE: [[Sub3:%.*]] = sub <8 x i32> [[Shuf2]], [[L3]]
+; 8WIDE: [[Shuf3:%.*]] = shufflevector <8 x i32> [[Add3]], <8 x i32> [[Sub3]]
+; 8WIDE: store <8 x i32> [[Shuf3]]
+
+
 
 define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i_pix1, i8* nocapture readonly %pix2, i32 %i_pix2) {
 entry:
@@ -285,15 +309,3 @@ afterloop.1247:                                   ; preds = %loop.1247
 !2 = !{!3, !3, i64 0}
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
-
-; 8WIDE: [[Add1:%.*]] = add <8 x i32> [[L0:%.*]], [[L1:%.*]]
-; 8WIDE: [[Sub1:%.*]] = sub <8 x i32> [[L0]], [[L1]]
-; 8WIDE: [[Shuf1:%.*]] = shufflevector <8 x i32> [[Add1]], <8 x i32> [[Sub1]]
-; 8WIDE: [[Add2:%.*]] = add <8 x i32> [[Shuf1]], [[L2:%.*]]
-; 8WIDE: [[Sub2:%.*]] = sub <8 x i32> [[Shuf1]], [[L2]]
-; 8WIDE: [[Shuf2:%.*]] = shufflevector <8 x i32> [[Add2]], <8 x i32> [[Sub2]]
-; 8WIDE: [[Add3:%.*]] = add <8 x i32> [[Shuf2]], [[L3:%.*]]
-; 8WIDE: [[Sub3:%.*]] = sub <8 x i32> [[Shuf2]], [[L3]]
-; 8WIDE: [[Shuf3:%.*]] = shufflevector <8 x i32> [[Add3]], <8 x i32> [[Sub3]]
-; 8WIDE: store <8 x i32> [[Shuf3]]
-

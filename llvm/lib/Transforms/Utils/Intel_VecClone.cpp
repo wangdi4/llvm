@@ -116,6 +116,25 @@
 // alloca. Linear and uniform parameters will be used directly, instead of
 // through a load instruction.
 //
+// The function "insertDirectiveIntrinsics" creates a WRN region around the
+// for-loop. VPlan works on this region. The beginning of the WRN region is
+// marked with @llvm.directive.region.entry() and the end with
+// @llvm.directive.region.end(). In the above example, a new basic-block is
+// created before loop's header:
+//
+// simd.begin.region:                                ; preds = %entry
+// %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+// "QUAL.OMP.UNIFORM"(float* %a), "QUAL.OMP.LINEAR"(i32 %k, i32 1),
+// "QUAL.OMP.SIMDLEN"(i32 4) ]
+//     br label %simd.loop
+//
+// and a new basic-block is emitted after loop's latch:
+//
+// simd.loop.exit:                                   ; preds = %simd.loop
+// %indvar = add nuw i32 %index, 1
+// %vl.cond = icmp ult i32 %indvar, 4
+// br i1 %vl.cond, label %simd.loop, label %simd.end.region
+//
 // The pass must run at all optimization levels because it is possible that
 // a loop calling the vector function is vectorized, but the vector function
 // itself is not vectorized. For example, above main.cpp may be compiled at
@@ -144,6 +163,8 @@
 #include <map>
 #include <set>
 #include <string>
+
+#include "llvm/IR/Verifier.h"
 
 #define SV_NAME "vec-clone"
 #define DEBUG_TYPE "VecClone"
@@ -1417,40 +1438,28 @@ int VecClone::getParmIndexInFunction(Function *F, Value *Parm)
   Function::arg_iterator ArgIt = F->arg_begin();
   Function::arg_iterator ArgEnd = F->arg_end();
   for (unsigned Idx = 0; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
-    if (Parm == &*ArgIt) return Idx; 
+    if (Parm == &*ArgIt) return Idx;
   }
 
   return -1;
 }
 
-void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
-                                 VectorVariant &V, BasicBlock *EntryBlock)
-{
-  // Insert directive indicating the beginning of a SIMD loop.
-  CallInst *SIMDBeginCall =
-      IntelIntrinsicUtils::createDirectiveCall(
-          M, IntelIntrinsicUtils::getDirectiveString(DIR_OMP_SIMD));
-
-  SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
-
-  // Now, split into its own basic block and insert the remaining intrinsics
-  // after this one.
-  BasicBlock *BeginRegionBlock =
-      EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
+CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
+                                      VectorVariant &V,
+                                      BasicBlock *EntryBlock) {
+  SmallDenseMap<StringRef, SmallVector<Value *, 4>> DirectiveStrMap;
 
   // Insert vectorlength directive
-  Constant *VL = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
-                                  V.getVlen());
-  CallInst *VlenCall =
-      IntelIntrinsicUtils::createDirectiveQualOpndCall(
-          M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_SIMDLEN), VL);
-  VlenCall->insertAfter(SIMDBeginCall);
+  Constant *VL =
+      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), V.getVlen());
+  DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_SIMDLEN)]
+      .push_back(VL);
 
   // Add directives for linear and vector parameters. Vector parameters can be
   // marked as private.
-  SmallVector<Value*, 4> LinearVars;
-  SmallVector<Value*, 4> PrivateVars;
-  SmallVector<Value*, 4> UniformVars;
+  SmallVector<Value *, 4> LinearVars;
+  SmallVector<Value *, 4> PrivateVars;
+  SmallVector<Value *, 4> UniformVars;
   Function::arg_iterator ArgListIt = Clone->arg_begin();
   Function::arg_iterator ArgListEnd = Clone->arg_end();
   std::vector<VectorKind> ParmKinds = V.getParameters();
@@ -1460,60 +1469,49 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
     unsigned ParmIdx = ArgListIt->getArgNo();
 
     if (ParmKinds[ParmIdx].isLinear()) {
-      LinearVars.push_back(&*ArgListIt); 
-      Constant *Stride =
-        ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
-                         ParmKinds[ParmIdx].getStride());
+      LinearVars.push_back(&*ArgListIt);
+      Constant *Stride = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
+                                          ParmKinds[ParmIdx].getStride());
       LinearVars.push_back(Stride);
     }
 
     if (ParmKinds[ParmIdx].isUniform()) {
-      UniformVars.push_back(&*ArgListIt); 
+      UniformVars.push_back(&*ArgListIt);
     }
   }
 
-  if (LinearVars.size() > 0) {
-    CallInst *LinearCall =
-        IntelIntrinsicUtils::createDirectiveQualOpndListCall(
-            M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_LINEAR),
-                                         LinearVars);
-    LinearCall->insertAfter(VlenCall);
+  if (!LinearVars.empty()) {
+    DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_LINEAR)] =
+        LinearVars;
   }
 
   // Add PrivateAllocas to PrivateVars
   for (auto AllocaVal : PrivateAllocas)
     PrivateVars.push_back(AllocaVal);
 
-  if (PrivateVars.size() > 0) {
-    CallInst *PrivateCall =
-        IntelIntrinsicUtils::createDirectiveQualOpndListCall(
-            M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE),
-                                         PrivateVars);
-    PrivateCall->insertAfter(VlenCall);
+  if (!PrivateVars.empty()) {
+    DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE)] =
+        PrivateVars;
   }
 
-  if (UniformVars.size() > 0) {
-    CallInst *UniformCall =
-        IntelIntrinsicUtils::createDirectiveQualOpndListCall(
-            M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_UNIFORM),
-                                         UniformVars);
-
-    UniformCall->insertAfter(VlenCall);
+  if (!UniformVars.empty()) {
+    DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_UNIFORM)] =
+        UniformVars;
   }
 
-  CallInst *DirQualListEndCall =
-      IntelIntrinsicUtils::createDirectiveCall(
-          M, IntelIntrinsicUtils::getDirectiveString(DIR_QUAL_LIST_END));
-  DirQualListEndCall->insertBefore(BeginRegionBlock->getTerminator());
+  CallInst *SIMDBeginCall =
+      IntelIntrinsicUtils::createSimdDirectiveBegin(M, DirectiveStrMap);
+  SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
+  EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
+  return SIMDBeginCall;
 }
 
-void VecClone::insertEndRegion(Module& M, Function *Clone,
+void VecClone::insertEndRegion(Module &M, Function *Clone,
                                BasicBlock *LoopExitBlock,
-                               BasicBlock *ReturnBlock)
-{
-  BasicBlock *EndDirectiveBlock = BasicBlock::Create(Clone->getContext(),
-                                                     "simd.end.region",
-                                                     Clone, ReturnBlock);
+                               BasicBlock *ReturnBlock,
+                               CallInst *EntryDirCall) {
+  BasicBlock *EndDirectiveBlock = BasicBlock::Create(
+      Clone->getContext(), "simd.end.region", Clone, ReturnBlock);
 
   BranchInst *LoopExitBranch =
       dyn_cast<BranchInst>(LoopExitBlock->getTerminator());
@@ -1523,24 +1521,17 @@ void VecClone::insertEndRegion(Module& M, Function *Clone,
   BranchInst::Create(ReturnBlock, EndDirectiveBlock);
 
   CallInst *SIMDEndCall =
-      IntelIntrinsicUtils::createDirectiveCall(
-          M, IntelIntrinsicUtils::getDirectiveString(DIR_OMP_END_SIMD));
+      IntelIntrinsicUtils::createSimdDirectiveEnd(M, EntryDirCall);
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
-
-  CallInst *DirQualListEndCall =
-      IntelIntrinsicUtils::createDirectiveCall(
-          M, IntelIntrinsicUtils::getDirectiveString(DIR_QUAL_LIST_END));
-  DirQualListEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
-void VecClone::insertDirectiveIntrinsics(Module& M, Function *Clone,
+void VecClone::insertDirectiveIntrinsics(Module &M, Function *Clone,
                                          Function &F, VectorVariant &V,
                                          BasicBlock *EntryBlock,
                                          BasicBlock *LoopExitBlock,
-                                         BasicBlock *ReturnBlock)
-{
-  insertBeginRegion(M, Clone, F, V, EntryBlock);
-  insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock);
+                                         BasicBlock *ReturnBlock) {
+  CallInst *EntryDirCall = insertBeginRegion(M, Clone, F, V, EntryBlock);
+  insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock, EntryDirCall);
   LLVM_DEBUG(dbgs() << "After Directives Insertion\n");
   LLVM_DEBUG(Clone->dump());
 }
@@ -1620,7 +1611,7 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
     llvm_unreachable("Unsupported mask compare");
   }
 
-  TerminatorInst *Term = LoopBlock->getTerminator();
+  Instruction *Term = LoopBlock->getTerminator();
   Term->eraseFromParent();
   BranchInst::Create(LoopThenBlock, LoopElseBlock, MaskCmp, LoopBlock);
 

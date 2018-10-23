@@ -15,6 +15,7 @@
 #include "Intel_DTrans/Transforms/DynClone.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/SetOperations.h"
@@ -201,6 +202,26 @@ private:
   // to new layout. Mapping between Alloc Instruction and load
   // instruction of the corresponding local variable.
   DenseMap<CallInst *, LoadInst *> AllocCallSizes;
+
+  // Set of all AOS-2-SOA calls that are marked with
+  // "__intel_dtrans_aostosoa_alloc" pointer annotation.
+  CallInstSet AOSSOAACalls;
+
+  // Pointers of shrunken struct may be stored in some fields of AOS-2-SOA
+  // struct. This represents set of fields of AOS-2-SOA struct where pointers of
+  // shrunken struct are stored. This data structure needs to be changed if we
+  // allow more than one AOS-2-SOA allocation call.
+  DynFieldSet SOAGlobalVarFieldSet;
+
+  // Shrunken struct may have more than one allocation call. This is mapping
+  // between fields of AOS-2-SOA struct and alloc call of shrunken struct whose
+  // return pointers are only saved in the fields.
+  DenseMap<DynField, AllocCallInfo *> SOAFieldAllocCallMap;
+
+  // Mapping between AOSTOSOA allocation call and the corresponding AOSTOSOA
+  // global variable. For now, at most one AOSTOSOA allocation call is
+  // allowed.
+  SmallDenseMap<CallInst *, GlobalVariable *> AOSSOACallGVMap;
 
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
@@ -482,7 +503,11 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   // Returns true if \p CalledValue is a BitCast to convert a function
   // to the FunctionType of \p CI.
   auto IsSimpleFPtrBitCast = [&](Value *CalledValue, CallInst *CI) {
-    if (CalledValue->getType() != CI->getFunctionType())
+    Type *CalledValueType = CalledValue->getType();
+    if (!isa<PointerType>(CalledValueType))
+      return false;
+    PointerType *PTy = cast<PointerType>(CalledValueType);
+    if (PTy->getElementType() != CI->getFunctionType())
       return false;
     if (auto *BC = dyn_cast<BitCastOperator>(CalledValue))
       if (isa<Function>(BC->getOperand(0)))
@@ -502,6 +527,14 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
         LLVM_DEBUG(dbgs() << "    Unsupported Inst ... Skip DynClone\n");
         return false;
       }
+      // Collect AOSTOSOA alloc calls using DTransAnnotator.
+      if (DTransAnnotator::isDTransAnnotationOfType(
+              Inst, DTransAnnotator::DPA_AOSToSOAAllocation)) {
+        AOSSOAACalls.insert(
+            cast<CallInst>(cast<IntrinsicInst>(Inst).getArgOperand(0)));
+        continue;
+      }
+
       if (CallInst *CI = dyn_cast<CallInst>(&Inst)) {
         Value *CalledValue = CI->getCalledValue();
         // Calls using aliases are treated as indirect calls.
@@ -846,6 +879,10 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
       // modified.
       ModifiedMem = true;
       for (auto *GUSE : GEPI->users()) {
+        Instruction *I = cast<Instruction>(GUSE);
+        // Ignore PtrAnnotations of DTrans.
+        if (DTransAnnotator::isDTransPtrAnnotation(*I) && I->hasNUses(0))
+          continue;
         if (!isa<StoreInst>(GUSE))
           return false;
         StoreInst *SI = cast<StoreInst>(GUSE);
@@ -997,11 +1034,190 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
         return true;
       };
 
+  // This routine is used to get AOSTOSOA global variable for the given \p CI
+  // allocation call of AOSTOSOA. Currently, this is implemented using pattern
+  // match. This can be improved later. It returns nullptr if doesn't match the
+  // pattern.
+  //
+  // It returns @__soa_.n in the below example.
+  //
+  // CI:  %57 = call noalias i8* @calloc(i64 %56, i64 96)
+  // ...
+  // U:   %59 = getelementptr i8, i8* %57, i64 0
+  // U1:  %60 = bitcast i8* %59 to i64*
+  // SI:  store i64* %60, i64** getelementptr (%__SOA_struct.n, %__SOA_struct.n*
+  // @__soa_.n, i64 0, i32 0)
+  //
+  auto GetAOSSOAAllocType = [&](CallInst *CI) -> GlobalVariable * {
+    for (User *U : CI->users()) {
+      if (!isa<GetElementPtrInst>(U) || !U->hasOneUse())
+        continue;
+      User *U1 = *U->user_begin();
+      if (!isa<BitCastInst>(U1) || !U1->hasOneUse())
+        continue;
+      StoreInst *SI = dyn_cast<StoreInst>(*U1->user_begin());
+      if (!SI)
+        continue;
+      if (ConstantExpr *CE = dyn_cast<ConstantExpr>(SI->getPointerOperand())) {
+        if (CE->getOpcode() != Instruction::GetElementPtr)
+          continue;
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(CE->getOperand(0)))
+          return GV;
+      }
+    }
+    return nullptr;
+  };
+
+  // Returns true if \p GEP has no real use except \p SI. Caller knows \p SI is
+  // one of the use of \p GEP.
+  //   This checks the below pattern where load doesn't have any use.
+  //
+  // Ex:
+  // GEP:  %268 = getelementptr %__SOADT_struct.arc*, %__SOADT_struct.arc**
+  // %266, i64 %267
+  // U1: %269 = bitcast %__SOADT_struct.arc** %268 to i64* // Single use
+  // LI:  %270 = load i64, i64* %269   // No uses
+  // SI:  store %__SOADT_struct.arc* %242, %__SOADT_struct.arc** %268
+  //
+  auto GEPHasNoRealUseExceptStore = [&](GetElementPtrInst *GEP, StoreInst *SI) {
+    for (User *U : GEP->users()) {
+      if (U == SI)
+        continue;
+      User *U1 = U;
+      if (isa<BitCastInst>(U1)) {
+        if (U1->hasNUses(0))
+          continue;
+        if (!U1->hasOneUse())
+          return false;
+        U1 = *U1->user_begin();
+      }
+      LoadInst *LI = dyn_cast<LoadInst>(U1);
+      if (!LI || !LI->hasNUses(0))
+        return false;
+    }
+    return true;
+  };
+
+  // Analyze pointer operand of \p SI and check if it stores to an element in
+  // array field of SOA global variable. \p AInfo represents current processing
+  // alloc call of shrunken struct. Load instruction that loads address of array
+  // field of SOA global variable is added to \p SOAGVField, which is used later
+  // to prove that there are no other pointers from another allocation call are
+  // stored in the array field of SOA global variable. \p SOAGV represents AOS
+  // global variable.
+  //
+  //  Ex:
+  //  GEPI: %265 = getelementptr %__SOA_struct.n, %__SOA_struct.n* @__soa_.n,
+  //  i64 0, i32 8
+  //  LI:   %266 = load %__SOADT_struct.a**, %__SOADT_struct.a*** %265
+  //  GEP:  %268 = getelementptr %__SOADT_struct.a*, %__SOADT_struct.a**
+  //  %266, i64 %267
+  //  SI:   store %__SOADT_struct.a* %242, %__SOADT_struct.a** %268
+  //
+  auto AnalyzeComplexPtr = [&](StoreInst *SI, GlobalVariable *SOAGV,
+                               AllocCallInfo *AInfo,
+                               LoadInstSet &SOAGVFieldLoads) {
+    auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEP)
+      return false;
+    if (!GEPHasNoRealUseExceptStore(GEP, SI))
+      return false;
+    // Make sure it is just pointer arithmetic.
+    if (GEP->getNumIndices() != 1)
+      return false;
+    auto *LI = dyn_cast<LoadInst>(GEP->getOperand(0));
+    if (!LI)
+      return false;
+    auto *GEPI = dyn_cast<GetElementPtrInst>(LI->getOperand(0));
+    if (!GEPI)
+      return false;
+    if (GEPI->getOperand(0) != SOAGV)
+      return false;
+    auto LdElem = DTInfo.getLoadElement(LI);
+    if (!LdElem.first)
+      return false;
+    // Collect array field info of SOA global variable.
+    SOAGlobalVarFieldSet.insert(LdElem);
+
+    // Prove that pointers that are allocated from only one allocation call are
+    // assigned to any array field of SOA global variable.
+    auto *AI = SOAFieldAllocCallMap[LdElem];
+    if (!AI)
+      SOAFieldAllocCallMap[LdElem] = AInfo;
+    else if (AI != AInfo)
+      return false;
+
+    // Collect load instructions that load addresses of array fields of AOS
+    // global variable.
+    SOAGVFieldLoads.insert(LI);
+    return true;
+  };
+
+  // Analyze all stores in \p ComplexPtrStoreSet and find locations (i.e array
+  // fields of SOA global variable) if possible. Collects array fields of AOS
+  // global variable and the corresponding allocation call of shrunken struct
+  // whose return pointers are saved in the array fields. Prove that no pointers
+  // from other allocation calls are saved in those locations. Also, prove that
+  // saved pointers are not escaped. \p AInfo represents current processing
+  // allocation call of shrunken struct.
+  auto AnalyzeComplexPtrStores = [&](StoreInstSet &ComplexPtrStoreSet,
+                                     AllocCallInfo *AInfo,
+                                     GlobalVariable *SOAGV) {
+    if (ComplexPtrStoreSet.size() == 0)
+      return true;
+
+    if (!SOAGV)
+      return false;
+
+    // Analyze each store and collect locations where tracking pointers are
+    // stored.
+    LoadInstSet SOAGVFieldLoads;
+    for (auto *SI : ComplexPtrStoreSet)
+      if (!AnalyzeComplexPtr(SI, SOAGV, AInfo, SOAGVFieldLoads))
+        return false;
+    // Since it is AOSTOSOA struct, we can assume field addresses of the struct
+    // are not escaped. So, there is no way to store elements in array fields of
+    // SOA global struct without loading address of array field of SOA struct.
+    // Uses of load instructions in SOAGVFieldLoads are processed earlier. Prove
+    // that no other pointers are saved to array fields and the saved pointers
+    // are not escaped, where tracking pointer are saved, in the routine, by
+    // checking no other load of the array fields except the ones in
+    // SOAGVFieldLoads.
+    for (Instruction &I : instructions(InitRoutine)) {
+      if (auto *LI = dyn_cast<LoadInst>(&I)) {
+        auto LdElem = DTInfo.getLoadElement(LI);
+        if (!LdElem.first)
+          continue;
+        // Check fields only related to current processing memory allocation.
+        if (SOAGlobalVarFieldSet.count(LdElem) &&
+            SOAFieldAllocCallMap[LdElem] == AInfo && !SOAGVFieldLoads.count(LI))
+          return false;
+      }
+    }
+    return true;
+  };
+
   StoreInstSet SimplePtrStoreSet;
   StoreInstSet ComplexPtrStoreSet;
   InstSet ProcessedInst;
   StoreInstSet NewSimplePtrStoreSet;
   LoadInstSet LoadSet;
+
+  GlobalVariable *SOAGlobVar = nullptr;
+  // For now, allow only one AOSTOSOA allocation call.
+  if (AOSSOAACalls.size() == 1) {
+    // Make sure it is calloc call. We can't allow other calls since we expect
+    // zero in uninitialized memory locations.
+    CallInst *CI = *AOSSOAACalls.begin();
+    auto *ACI = DTInfo.getCallInfo(CI);
+    // Get corresponding SOA global variable.
+    if (ACI && cast<AllocCallInfo>(ACI)->getAllocKind() == dtrans::AK_Calloc) {
+      SOAGlobVar = GetAOSSOAAllocType(CI);
+      // This mapping is used during transformation.
+      AOSSOACallGVMap[CI] = SOAGlobVar;
+    }
+  }
+
   for (auto &AllocPair : AllocCalls) {
     SimplePtrStoreSet.clear();
     ComplexPtrStoreSet.clear();
@@ -1055,16 +1271,19 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
       }
     }
 
+    // ComplexPtrStoreSet: Analyze these stores further to prove that
+    // they are saved into array fields of a struct, which is transformed
+    // by AOS2SOA. Also, prove that there are no loads from those array
+    // fields of the struct.
+    if (!AnalyzeComplexPtrStores(ComplexPtrStoreSet, AInfo, SOAGlobVar))
+      return false;
+
     // Collect modified allocations to avoid coping data from old layout
     // to new layout if there are no modifications.
     if (ModifiedMem)
       ModifiedAllocs.insert(CI);
 
     // TODO:
-    // ComplexPtrStoreSet: Analyze these stores further to prove that
-    // they are saved into array fields of a struct, which is transformed
-    // by AOS2SOA. Also, prove that there are no loads from those array
-    // fields of the struct.
     // free/user_calls: Make sure allocations are not freed before copying/
     // fixing.
     AllocSimplePtrStores[AInfo] = SimplePtrStoreSet;
@@ -1189,6 +1408,8 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //              struct netw { ...} net;
 //
 //              InitRoutine() {
+//                  aosptr = calloc(); // AOSTOSOA alloc call
+//                  ...
 //                  ptr = calloc(); // Memory allocation for candidate struct
 //                  ...
 //                  net->field1 = ptr;
@@ -1198,6 +1419,8 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                  stp->candidate1 = value1;
 //                  ...
 //                  stp->candidate2 = value2;
+//                  ...
+//                  aosptr->fld5[index] = ptr + j;
 //                  ...
 //                  return;
 //              }
@@ -1240,7 +1463,14 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                         ((char*)ptr)) / sizeof(OldType)) * sizeof(NewType);
 //                    }
 //
-//                    // TODO: Fix more pointers of shrunken records if needed
+//                    // Rematerialize pointers that are saved in AOSTOSOA
+//                    // global variable.
+//                    for (i = 0; i < alloc_size_aostosoa_alloc_call; i++) {
+//                      if (aosptr->fld5[i])
+//                        aosptr->fld5[i] = ptr + ((((char*)aosptr->fld5[i]) -
+//                         ((char*)ptr)) / sizeof(OldType)) * sizeof(NewType);
+//                      }
+//                    }
 //
 //                    __Shrink__Happened__ = 1;
 //                  }
@@ -1517,6 +1747,104 @@ void DynCloneImpl::transformInitRoutine(void) {
     return NewBCPtr;
   };
 
+  // Rematerialize pointers of shrunken struct that are saved
+  // in array fields of AOSTOSOA global variable by generating loop.
+  // \p LCount represents loop count, which is basically array size of
+  // AOSTOSOA alloc call.  expected to be calloc instruction.
+  // Rematerialize loop is generated before \p InsertBefore.
+  // \p LoadVec has mapping of field address loads of array fields of
+  // AOSTOSOA global variable and allocation info of shrunken record whose
+  // only pointers are saved in the array field.
+  // Ex:
+  //       %aosptr = calloc(%aoselem, some_size); // AOSTOSOA alloc call
+  //       %l_loop_count = %aoselem;
+  //       ...
+  //       %ptr = calloc(asize, ssize)
+  //       %l_ptr = %ptr;
+  //
+  // Assume NewTy is new shrunken record type for OrigTy.
+  //
+  // %L1 = Load_address_of_field7;
+  // %L2 = Load_address_of_field8;
+  // PreLoop:
+  //  %LoopIdx = 0;
+  //  Goto Loop:
+  // Loop:
+  //   %GEP1 = getelementptr %struct.a*, %struct.a** %L1, i64 %LoopIdx
+  //   %Load1 = load %struct.a*, %struct.a** %GEP1
+  //   if (%Load1) {
+  //     %Ptr1 = (int64) %Load1;
+  //     %Ptr2 = (int64) %l_ptr;
+  //     %PtrDiff = %Ptr1 - %Ptr2;
+  //     %Index = %PtrDiff / sizeof(OrigTy);
+  //     %NewPtr = %l_ptr + %Index * sizeof(NewTy);
+  //     store %struct.arc* %NewPtr, %struct.arc** %GEP1
+  //   }
+  //   %GEP2 = getelementptr %struct.a*, %struct.a** %L2, i64 %LoopIdx
+  //   %Load2 = load %struct.a*, %struct.a** %GEP2
+  //   if (%Load2) {
+  //     %Ptr1 = (int64) %Load2;
+  //     %Ptr2 = (int64) %l_ptr;
+  //     %PtrDiff = %Ptr1 - %Ptr2;
+  //     %Index = %PtrDiff / sizeof(OrigTy);
+  //     %NewPtr = %l_ptr + %Index * sizeof(NewTy);
+  //     store %struct.arc* %NewPtr, %struct.arc** %GEP2
+  //   }
+  //   %LoopIdx++
+  //   if (%LoopIdx < %l_loop_count) goto Loop:
+  // PostLoop:
+  //   __Shrink__Happened__ = 1;
+  //
+  auto RematerializePtrsStoredInAOSTOSOAGlobVar =
+      [this, &RematerializePtr](
+          Value *LCount,
+          SmallVectorImpl<std::pair<LoadInst *, AllocCallInfo *>> &LoadVec,
+          Instruction *InsertBefore) {
+        BasicBlock *PreLoopBB = InsertBefore->getParent();
+        BasicBlock *PostLoopBB =
+            PreLoopBB->splitBasicBlock(InsertBefore, "rematpostloop");
+        BasicBlock *LoopBB = BasicBlock::Create(
+            PreLoopBB->getContext(), "rematptrs", InitRoutine, PostLoopBB);
+
+        IRBuilder<> PLB(PreLoopBB->getTerminator());
+        PLB.CreateBr(LoopBB);
+        PreLoopBB->getTerminator()->eraseFromParent();
+
+        IRBuilder<> LB(LoopBB);
+        Type *IdxTy = LCount->getType();
+        PHINode *LoopIdx = LB.CreatePHI(IdxTy, 2, "rematidx");
+        LoopIdx->addIncoming(ConstantInt::get(IdxTy, 0U), PreLoopBB);
+
+        Value *NewIdx = LB.CreateAdd(LoopIdx, ConstantInt::get(IdxTy, 1U));
+        LoopIdx->addIncoming(NewIdx, LoopBB);
+        auto *Br = LB.CreateCondBr(LB.CreateICmpULT(NewIdx, LCount), LoopBB,
+                                   PostLoopBB);
+        LLVM_DEBUG(dbgs() << "  " << *NewIdx << "\n");
+        LLVM_DEBUG(dbgs() << "  " << *Br << "\n");
+        (void)Br;
+
+        Instruction *AddInst = cast<Instruction>(NewIdx);
+        SmallVector<Value *, 2> Indices;
+        for (auto &LPair : LoadVec) {
+          IRBuilder<> LBody(AddInst);
+          Indices.clear();
+          Indices.push_back(LoopIdx);
+          Value *GEP = LBody.CreateInBoundsGEP(nullptr, LPair.first, Indices);
+          LLVM_DEBUG(dbgs() << "  " << *GEP << "\n");
+
+          auto *AInfo = LPair.second;
+          CallInst *CI = cast<CallInst>(AInfo->getInstruction());
+          Type *Ty = getCallInfoElemTy(AInfo);
+          Value *NewPtr = RematerializePtr(GEP, AllocCallRets[CI], Ty, AddInst);
+
+          IRBuilder<> MergeB(
+              cast<Instruction>(NewPtr)->getParent()->getTerminator());
+          StoreInst *StoreElem = MergeB.CreateStore(NewPtr, GEP);
+          LLVM_DEBUG(dbgs() << "  " << *StoreElem << "\n");
+          (void)StoreElem;
+        }
+      };
+
   // Creates new local variable in the entry basic block, saves \p Val in
   // the local variable immediately after \p CI and loads it again before \p
   // InsertBefore.
@@ -1659,6 +1987,16 @@ void DynCloneImpl::transformInitRoutine(void) {
   BasicBlock *OrigBB = RetBBs.front();
   ReturnInst *RetI = cast<ReturnInst>(OrigBB->getTerminator());
   Value *FinalCond = nullptr;
+  // Only calloc is expected to be the allocation call for AOSTOSOA struct.
+  // Usually, we get number elements allocated by computing ((1st argument
+  // * 2nd argument) / size_of_struct) for calloc. But, 2nd argument of calloc
+  // after AOSTOSOA transformation may not be same as size of original struct.
+  // So, just use 1st argument as number elements allocated for AOSTOSOA alloc
+  // calls.
+  for (auto *SOACI : AOSSOAACalls)
+    AllocCallSizes[SOACI] =
+        UnNormalizeUsingNewlyCreatedLVar(SOACI->getArgOperand(0), SOACI, RetI);
+
   for (auto &Pair : TypeMinAllocIMap)
     FinalCond = GenerateFinalCond(Pair.second, GetShrunkenMinValue(Pair.first),
                                   ICmpInst::ICMP_SLT, FinalCond, RetI);
@@ -1712,7 +2050,7 @@ void DynCloneImpl::transformInitRoutine(void) {
     CallInst *CI = cast<CallInst>(AllocPair.first->getInstruction());
     AllocCallRets[CI] = UnNormalizeUsingNewlyCreatedLVar(CI, CI, SI);
 
-    IRBuilder<> IRB(SI);
+    IRBuilder<> IRB(CI);
     Value *ACount = ComputeAllocCount(CI, AllocPair.second, IRB);
     AllocCallSizes[CI] = UnNormalizeUsingNewlyCreatedLVar(ACount, CI, SI);
   }
@@ -1740,6 +2078,61 @@ void DynCloneImpl::transformInitRoutine(void) {
       NewSt->setOperand(0, NewPtr);
       LLVM_DEBUG(dbgs() << "      After Rematerialize:" << *NewSt << "\n");
     }
+  }
+
+  // Rematerialize pointers of AllocCalls that are saved in array fields of
+  // AOSTOSOA global variable.
+  SmallVector<Value *, 2> Indices;
+  // Map between array field address of AOSTOSOA global variable and
+  // an allocation of shrunken struct whose only pointers are saved
+  // in the array field.
+  SmallVector<std::pair<LoadInst *, AllocCallInfo *>, 4> FieldAddrAllocVec;
+  IRBuilder<> IRB(SI);
+  CallInst *SOACI;
+  GlobalVariable *SOAGlobVar;
+  if (!SOAGlobalVarFieldSet.empty()) {
+    assert(AOSSOAACalls.size() == 1 && "Expected only one AOSTOSOA call");
+    SOACI = *AOSSOAACalls.begin();
+    SOAGlobVar = AOSSOACallGVMap[SOACI];
+    assert(SOAGlobVar && "Expected AOSTOSOA global variable");
+
+    LLVM_DEBUG(dbgs() << "    Field Address loads of AOSTOSOA Glob variable:"
+                      << *SOAGlobVar << "\n");
+    Type *IdxTy = Type::getIntNTy(M.getContext(), DL.getPointerSizeInBits());
+    // Before generating a loop to rematerialize shrunken struct pointers that
+    // are saved in array fields of AOSTOSOA struct, generate instructions to
+    // load addresses of the array fields. Let us assume 7th and 8th array
+    // fields of AOSTOSOA global variable where shrunken struct pointers are
+    // saved.
+    // Ex:
+    //  %L1 = load %struct.a**, %struct.a*** getelementptr
+    //                (%struct.n, %struct.n* @n, i64 0, i32 7)
+    //  %L2 = load %struct.a**, %struct.a*** getelementptr
+    //                (%struct.n, %struct.n* @n, i64 0, i32 8)
+    for (auto &FI : SOAGlobalVarFieldSet) {
+      Indices.clear();
+      Indices.push_back(ConstantInt::get(IdxTy, 0U));
+      Value *Op2 =
+          ConstantInt::get(Type::getInt32Ty(M.getContext()), FI.second);
+      Indices.push_back(Op2);
+      Value *GEP = IRB.CreateInBoundsGEP(
+          SOAGlobVar->getType()->getElementType(), SOAGlobVar, Indices);
+      LoadInst *LI = IRB.CreateLoad(GEP);
+      auto *AI = SOAFieldAllocCallMap[FI];
+      assert(AI && "Expected AInfo for each array field ");
+      // Maintain a map between array field address of AOSTOSOA global variable
+      // and an allocation of shrunken struct whose only pointers are saved
+      // in the array field.
+      FieldAddrAllocVec.push_back(std::make_pair(LI, AI));
+      LLVM_DEBUG(dbgs() << "      Load address of "; printDynField(dbgs(), FI);
+                 dbgs() << "\n"
+                        << "        GEP: " << *GEP << "\n"
+                        << "        LI: " << *LI << "\n");
+    }
+    // Generate loop to rematerialize all shrunken struct pointers that
+    // are saved in array fields of AOSTOSOA global variable.
+    RematerializePtrsStoredInAOSTOSOAGlobVar(AllocCallSizes[SOACI],
+                                             FieldAddrAllocVec, SI);
   }
 }
 
@@ -1897,8 +2290,8 @@ bool DynCloneImpl::createCallGraphClone(void) {
     LLVM_DEBUG(dbgs() << "      Cmp: " << *Cond << "\n");
 
     // Fix CFG and create new CallInst
-    TerminatorInst *TrueT = nullptr;
-    TerminatorInst *FalseT = nullptr;
+    Instruction *TrueT = nullptr;
+    Instruction *FalseT = nullptr;
     SplitBlockAndInsertIfThenElse(Cond, OrigInst, &TrueT, &FalseT);
     BasicBlock *TrueB = TrueT->getParent();
     BasicBlock *FalseB = FalseT->getParent();

@@ -570,8 +570,8 @@ private:
   bool genDevicePtrPrivationCode(WRegionNode *W);
 
   /// \brief build the CFG for if clause.
-  void buildCFGForIfClause(Value *Cmp, TerminatorInst *&ThenTerm,
-                           TerminatorInst *&ElseTerm, Instruction *InsertPt);
+  void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
+                           Instruction *&ElseTerm, Instruction *InsertPt);
 
   /// \brief Generate the sizes and map type flags for the given map type, map
   /// modifier and the expression V.

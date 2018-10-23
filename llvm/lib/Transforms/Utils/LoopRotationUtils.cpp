@@ -245,7 +245,7 @@ static bool isIVUpdate(const Value *Val, Loop *Lp) {
   return IVPhi && getHeaderPhiLatchVal(IVPhi, Lp) == Val;
 }
 
-static bool isIVComparisonBranch(const TerminatorInst *Term,
+static bool isIVComparisonBranch(const Instruction *Term,
                                  Loop *Lp) {
 
   auto *BI = dyn_cast<BranchInst>(Term);
@@ -435,7 +435,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
 
   // For the rest of the instructions, either hoist to the OrigPreheader if
   // possible or create a clone in the OldPreHeader if not.
-  TerminatorInst *LoopEntryBranch = OrigPreheader->getTerminator();
+  Instruction *LoopEntryBranch = OrigPreheader->getTerminator();
 
   // Record all debug intrinsics preceding LoopEntryBranch to avoid duplication.
   using DbgIntrinsicHash =

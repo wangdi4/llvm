@@ -325,6 +325,7 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
     }
 
     if (CurLp->hasUnrollEnablingPragma() ||
+        CurLp->hasUnrollAndJamEnablingPragma() ||
         CurLp->hasVectorizeEnablingPragma()) {
       break;
     }

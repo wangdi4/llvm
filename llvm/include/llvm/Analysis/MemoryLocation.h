@@ -250,7 +250,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   explicit MemoryLocation(const Value *Ptr = nullptr,
-                          LocationSize Size = UnknownSize,
+                          LocationSize Size = LocationSize::unknown(),
                           const AAMDNodes &AATags = AAMDNodes())
       : Ptr(Ptr), Size(Size), AATags(AATags) {}
 

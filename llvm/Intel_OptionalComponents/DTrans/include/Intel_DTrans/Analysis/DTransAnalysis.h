@@ -259,6 +259,12 @@ public:
   // of the structure.
   static bool getDTransOutOfBoundsOK();
 
+  // Returns true if the module requires runtime validation of possible bad cast
+  // issues. Returns functions where runtime checks are required.
+  bool requiresBadCastValidation(SmallPtrSetImpl<Function *> &Func,
+                                 unsigned &ArgumentIndex,
+                                 unsigned &StructIndex) const;
+
 private:
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
@@ -326,6 +332,10 @@ private:
 
   // Indicates that DTransAnalysis completely analyzed the module.
   bool DTransAnalysisRan;
+
+  // A set of functions where bad cast safety issue validation required in
+  // runtime.
+  std::set<Function *> FunctionsRequireBadCastValidation;
 };
 
 // Analysis pass providing a data transformation analysis result.

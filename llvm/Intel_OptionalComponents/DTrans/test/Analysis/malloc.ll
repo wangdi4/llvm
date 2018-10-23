@@ -349,6 +349,23 @@ define void @test19() {
 ; CHECK: dtrans: Detected allocation cast to pointer type
 ; CHECK: Detected type: [0 x %struct.badsize.S5]
 
+; The primary thing being tested here is that we don't transfer
+; bad alloc size to struct.S1. Since the type being allocated is
+; a pointer to S1 (the malloc returns a pointer-to-pointer) there
+; is no problem with transforming S1 even if we don't figure out
+; the size for this malloc.
+define void @test20(i64 %n) {
+  ; s1 = (struct S1**)malloc(n);
+  ; Since we're allocating pointers, n is assumed to be a multiple of
+  ; the pointer size.
+  %p = call noalias i8* @malloc(i64 %n)
+  %s1 = bitcast i8* %p to %struct.good.S1**
+  ret void
+}
+
+; CHECK: dtrans: Detected allocation cast to pointer type
+; CHECK: Detected type: %struct.good.S1*
+
 define void @test21(i32 %n) {
   ; size = n * 4 * sizeof(S1)
   ;   (becomes) size = n * 4 * 8
@@ -378,7 +395,6 @@ define void @test22(i32 %n) {
 
 ; CHECK: dtrans: Detected allocation cast to pointer type
 ; CHECK: Detected type: %struct.good.S1 = type { i32, i32 }
-
 
 ; The allocation output immediately follows the test where the allocation
 ; occurs. All type safety info is printed at the end. We check that here.

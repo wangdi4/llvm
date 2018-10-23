@@ -354,7 +354,7 @@ PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
         // The compiler locates the bottom test expression of the loop
         // and tests whether the loop index is in the bottom
         // test expression.
-        TerminatorInst *TermInst = L->getLoopLatch()->getTerminator();
+        Instruction *TermInst = L->getLoopLatch()->getTerminator();
         BranchInst *ExitBrInst = dyn_cast<BranchInst>(TermInst);
         if (!ExitBrInst)
           continue;

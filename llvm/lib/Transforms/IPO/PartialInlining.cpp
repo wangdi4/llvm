@@ -563,7 +563,7 @@ PartialInlinerImpl::computeOutliningInfo(Function *F) {
   };
 
   auto IsReturnBlock = [](BasicBlock *BB) {
-    TerminatorInst *TI = BB->getTerminator();
+    Instruction *TI = BB->getTerminator();
     return isa<ReturnInst>(TI);
   };
 

@@ -3,11 +3,33 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4lu_foo
+
+; CHECK: simd.begin.region:
+; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
+; CHECK-SAME: DIR.OMP.SIMD
+; CHECK-SAME: QUAL.OMP.UNIFORM
+; CHECK-SAME: i32 %x
+; CHECK-SAME: QUAL.OMP.LINEAR
+; CHECK-SAME: i32 %i
+; CHECK-SAME: i32 1
+; CHECK-SAME: QUAL.OMP.PRIVATE
+; CHECK-SAME: i32* %i.addr
+; CHECK-SAME: i32* %x.addr
+; CHECK-SAME: QUAL.OMP.SIMDLEN
+; CHECK-SAME: i32 4
+; CHECK-NEXT: br label %simd.loop
+
 ; CHECK: simd.loop:
 ; CHECK: %1 = load i32, i32* %i.addr
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK: %stride.add = add i32 %1, %stride.mul
 ; CHECK: %add = add nsw i32 %0, %stride.add
+
+; CHECK: simd.end.region:
+; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
+; CHECK-SAME: DIR.OMP.END.SIMD
+; CHECK-SAME: DIR.QUAL.LIST.END
+; CHECK-NEXT: br label %return
 
 ; ModuleID = 'linear.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

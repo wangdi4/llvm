@@ -1127,9 +1127,15 @@ TLI_DEFINE_STRING_INTERNAL("div")
 /// int dup(int oldfd);
 TLI_DEFINE_ENUM_INTERNAL(dup)
 TLI_DEFINE_STRING_INTERNAL("dup")
+/// int dup2(int fildes, int fildes2)
+TLI_DEFINE_ENUM_INTERNAL(dup2)
+TLI_DEFINE_STRING_INTERNAL("dup2")
 /// double erfc  (double x);
 TLI_DEFINE_ENUM_INTERNAL(erfc)
 TLI_DEFINE_STRING_INTERNAL("erfc")
+/// extern void error (int __status, int __errnum, const char *__format, ...)
+TLI_DEFINE_ENUM_INTERNAL(error)
+TLI_DEFINE_STRING_INTERNAL("error")
 /// int execl(const char *path, const char *arg, ...);
 TLI_DEFINE_ENUM_INTERNAL(execl)
 TLI_DEFINE_STRING_INTERNAL("execl")
@@ -1726,6 +1732,9 @@ TLI_DEFINE_STRING_INTERNAL("mkdir")
 /// char *mkdtemp(char *template);
 TLI_DEFINE_ENUM_INTERNAL(mkdtemp)
 TLI_DEFINE_STRING_INTERNAL("mkdtemp")
+/// int mkstemps(char *template, int suffixlen);
+TLI_DEFINE_ENUM_INTERNAL(mkstemps)
+TLI_DEFINE_STRING_INTERNAL("mkstemps")
 #endif // INTEL_CUSTOMIZATION
 
 /// time_t mktime(struct tm *timeptr);

@@ -192,7 +192,7 @@ namespace {
     BasicBlock *loopPreheader = nullptr;
 
     bool SanitizeMemory;
-    LoopSafetyInfo SafetyInfo;
+    SimpleLoopSafetyInfo SafetyInfo;
 
     // LoopBlocks contains all of the basic blocks of the loop, including the
     // preheader of the loop, the body of the loop, and the exit blocks of the
@@ -256,11 +256,11 @@ namespace {
     bool TryTrivialLoopUnswitch(bool &Changed);
 
     bool UnswitchIfProfitable(Value *LoopCond, Constant *Val,
-                              TerminatorInst *TI = nullptr);
+                              Instruction *TI = nullptr);
     void UnswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
-                                  BasicBlock *ExitBlock, TerminatorInst *TI);
+                                  BasicBlock *ExitBlock, Instruction *TI);
     void UnswitchNontrivialCondition(Value *LIC, Constant *OnVal, Loop *L,
-                                     TerminatorInst *TI);
+                                     Instruction *TI);
 
     void RewriteLoopBodyWithConditionConstant(Loop *L, Value *LIC,
                                               Constant *Val, bool isEqual);
@@ -268,8 +268,7 @@ namespace {
     void EmitPreheaderBranchOnCondition(Value *LIC, Constant *Val,
                                         BasicBlock *TrueDest,
                                         BasicBlock *FalseDest,
-                                        BranchInst *OldBranch,
-                                        TerminatorInst *TI);
+                                        BranchInst *OldBranch, Instruction *TI);
 
     void SimplifyCode(std::vector<Instruction*> &Worklist, Loop *L);
 
@@ -729,7 +728,7 @@ bool LoopUnswitch::processCurrentLoop() {
   // loop.
   for (Loop::block_iterator I = currentLoop->block_begin(),
          E = currentLoop->block_end(); I != E; ++I) {
-    TerminatorInst *TI = (*I)->getTerminator();
+    Instruction *TI = (*I)->getTerminator();
 
     // Unswitching on a potentially uninitialized predicate is not
     // MSan-friendly. Limit this to the cases when the original predicate is
@@ -738,7 +737,7 @@ bool LoopUnswitch::processCurrentLoop() {
     // This is a workaround for the discrepancy between LLVM IR and MSan
     // semantics. See PR28054 for more details.
     if (SanitizeMemory &&
-        !isGuaranteedToExecute(*TI, DT, currentLoop, &SafetyInfo))
+        !SafetyInfo.isGuaranteedToExecute(*TI, DT, currentLoop))
       continue;
 
     if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
@@ -892,7 +891,7 @@ static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
 /// simplify the loop.  If we decide that this is profitable,
 /// unswitch the loop, reprocess the pieces, then return true.
 bool LoopUnswitch::UnswitchIfProfitable(Value *LoopCond, Constant *Val,
-                                        TerminatorInst *TI) {
+                                        Instruction *TI) {
   // Check to see if it would be profitable to unswitch current loop.
   if (!BranchesInfo.CostAllowsUnswitching()) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
@@ -947,7 +946,7 @@ void LoopUnswitch::EmitPreheaderBranchOnCondition(Value *LIC, Constant *Val,
                                                   BasicBlock *TrueDest,
                                                   BasicBlock *FalseDest,
                                                   BranchInst *OldBranch,
-                                                  TerminatorInst *TI) {
+                                                  Instruction *TI) {
   assert(OldBranch->isUnconditional() && "Preheader is not split correctly");
   assert(TrueDest != FalseDest && "Branch targets should be different");
   // Insert a conditional branch on LIC to the two preheaders.  The original
@@ -1012,7 +1011,7 @@ void LoopUnswitch::EmitPreheaderBranchOnCondition(Value *LIC, Constant *Val,
 /// outside of the loop and updating loop info.
 void LoopUnswitch::UnswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                                             BasicBlock *ExitBlock,
-                                            TerminatorInst *TI) {
+                                            Instruction *TI) {
   LLVM_DEBUG(dbgs() << "loop-unswitch: Trivial-Unswitch loop %"
                     << loopHeader->getName() << " [" << L->getBlocks().size()
                     << " blocks] in Function "
@@ -1074,7 +1073,7 @@ void LoopUnswitch::UnswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
 /// condition.
 bool LoopUnswitch::TryTrivialLoopUnswitch(bool &Changed) {
   BasicBlock *CurrentBB = currentLoop->getHeader();
-  TerminatorInst *CurrentTerm = CurrentBB->getTerminator();
+  Instruction *CurrentTerm = CurrentBB->getTerminator();
   LLVMContext &Context = CurrentBB->getContext();
 
   // If loop header has only one reachable successor (currently via an
@@ -1247,7 +1246,7 @@ void LoopUnswitch::SplitExitEdges(Loop *L,
 /// Split it into loop versions and test the condition outside of either loop.
 /// Return the loops created as Out1/Out2.
 void LoopUnswitch::UnswitchNontrivialCondition(Value *LIC, Constant *Val,
-                                               Loop *L, TerminatorInst *TI) {
+                                               Loop *L, Instruction *TI) {
   Function *F = loopHeader->getParent();
   LLVM_DEBUG(dbgs() << "loop-unswitch: Unswitching loop %"
                     << loopHeader->getName() << " [" << L->getBlocks().size()

@@ -69,14 +69,15 @@ public:
   // instruction aliases. This method can be used by a DTrans transformation for
   // cases where the generated IR is unable to be analyzed directly by the
   // DTransAnalysis.
-  static void createDTransTypeAnnotation(Instruction *I, llvm::Type *Ty);
+  static void createDTransTypeAnnotation(Instruction &I, llvm::Type *Ty);
 
   // Get the type that exists in an annotation, if one exists, for the
   // instruction.
-  static llvm::Type *lookupDTransTypeAnnotation(Instruction *I);
+  static llvm::Type *lookupDTransTypeAnnotation(Instruction &I);
 
-  // Remove a type annotation from the instruction.
-  static void removeDTransTypeAnnotation(Instruction *I);
+  // Remove a type annotation from the instruction. Return 'true' if the
+  // instruction is changed.
+  static bool removeDTransTypeAnnotation(Instruction &I);
 
   /////////////////////////////////////////////////
   // Annotation intrinsic based annotating routines

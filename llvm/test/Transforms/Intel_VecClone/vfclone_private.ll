@@ -1,28 +1,37 @@
 ; ModuleID = 'vfclone_private.cpp'
 ; source_filename = "vfclone_private.cpp"
-; 
+;
 ; int foo2(int index, bool *valid);
-; 
+;
 ; #pragma omp declare simd uniform(arr)
 ; void foo1(int tindex, int *arr) {
 ;   bool valid = false;
 ;   int index = foo2(tindex, &valid);
-; 
+;
 ;   if (valid) {
 ;     arr[index] = -1;
-;   }    
+;   }
 ; }
-; 
+;
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK-LABEL: void @_ZGVbN4vu_4foo1iPi
 ; CHECK: entry:
 ; CHECK: %valid = alloca i8, align 1
-; CHECK: simd.begin.region: 
-; CHECK-NEXT: call void @llvm.intel.directive(metadata {{.*}})
-; CHECK: call void {{.*}} @llvm.intel.directive.qual.opndlist(metadata [[PRIVCLAUSE:.*]], i8* %valid)
+
+; CHECK: simd.begin.region:
+; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
+; CHECK-SAME: DIR.OMP.SIMD
+; CHECK-SAME: QUAL.OMP.SIMDLEN
+; CHECK-SAME: i32 4
+; CHECK-NEXT: br label %simd.loop
+
+; CHECK: simd.end.region:
+; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
+; CHECK-SAME: DIR.OMP.END.SIMD
+; CHECK-SAME: DIR.QUAL.LIST.END
+; CHECK-NEXT: br label %return
 ; CHECK: ret void
-; CHECK: [[PRIVCLAUSE]] =  !{!"QUAL.OMP.PRIVATE"}
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

@@ -1683,7 +1683,7 @@ private:
     // transformations to apply to the type.
     if (auto *I = dyn_cast<Instruction>(V))
       if (auto *TyFromMD =
-              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(I))
+              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I))
         Info.addPointerTypeAlias(TyFromMD);
 
     // Build a stack of unresolved dependent values that must be analyzed
@@ -2753,21 +2753,24 @@ public:
   void setSawBadCastBitCast(BitCastOperator *BCI);
   void setSawUnsafePointerStore(StoreInst *SI, llvm::Type *AliasType);
 
+public:
+  // Constants
+  // The candidate field. This is a void* (i8* in LLVM IR) field to which
+  // can be assigned pointers to various types of structures, which this
+  // analysis attempts to disambiguate.
+  static const unsigned CandidateVoidField = 0;
+
+  // Argument position of functions to which the field referred to above
+  // may be assigned.
+  static const unsigned VoidArgumentIndex = 0;
+
 private:
   // Accessed class objects
   DTransAnalysisInfo &DTInfo;
   DTransAllocAnalyzer &DTAA;
   const TargetLibraryInfo &TLI;
   const Module &M;
-  // Constants
-  //
-  // The candidate field. This is a void* (i8* in LLVM IR) field to which
-  // can be assigned pointers to various types of structures, which this
-  // analysis attempts to disambiguate.
-  const unsigned CandidateVoidField = 0;
-  // Argument position of functions to which the field referred to above
-  // may be assigned.
-  const unsigned VoidArgumentIndex = 0;
+
   // A lattice which indicates:
   //   BCCondTop: a store is unconditionally assigned
   //   BCCondSpecial: a store is conditionally assigned
@@ -2836,6 +2839,9 @@ private:
   void applySafetyCheckToCandidate(dtrans::SafetyData FindCondition,
                                    dtrans::SafetyData RemoveCondition,
                                    dtrans::SafetyData ReplaceByCondition);
+
+public:
+  void getConditionalFunctions(std::set<Function *> &Funcs) const;
 };
 
 //
@@ -4180,6 +4186,22 @@ void DTransBadCastingAnalyzer::setSawBadCastBitCast(BitCastOperator *I) {
 void DTransBadCastingAnalyzer::setSawUnsafePointerStore(StoreInst *SI,
                                                         llvm::Type *AliasType) {
   UnsafePtrStores.insert(std::make_pair(SI, AliasType));
+}
+
+void DTransBadCastingAnalyzer::getConditionalFunctions(
+    std::set<Function *> &Funcs) const {
+  Funcs.clear();
+
+  for (auto *F : CondLoadFunctions) {
+    Funcs.insert(F);
+  }
+
+  for (auto &Entry : AllocStores) {
+    // If store is conditional, it requires a value validation (should be NULL).
+    if (Entry.second.first) {
+      Funcs.insert(Entry.first->getParent()->getParent());
+    }
+  }
 }
 
 // End of member functions for class DTransBadCastingAnalyzer
@@ -6848,9 +6870,12 @@ private:
     // return value of an allocation call. So if it is a pointer to a pointer
     // then the allocated buffer is a buffer that will container a pointer
     // or array of pointers. Therefore, we do not want to trace all the way
-    // to the base type. If Ty is a pointer-to-pointer type then we do
-    // actually want to use the size of a pointer as the element size.
-    //
+    // to the base type. If Ty is a pointer-to-pointer type then we can return
+    // early because we can reason about the size of a pointer without finding
+    // the size in the IR.
+    if (Ty->getElementType()->isPointerTy())
+      return;
+
     // The size returned by DL.getTypeAllocSize() includes padding, both
     // within the type and between successive elements of the same type
     // if multiple elements are being allocated.
@@ -8794,6 +8819,19 @@ bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
   return DTransOutOfBoundsOK;
 }
 
+bool DTransAnalysisInfo::requiresBadCastValidation(
+    SmallPtrSetImpl<Function *> &Func, unsigned &ArgumentIndex,
+    unsigned &StructIndex) const {
+  Func.clear();
+  Func.insert(FunctionsRequireBadCastValidation.begin(),
+              FunctionsRequireBadCastValidation.end());
+
+  ArgumentIndex = DTransBadCastingAnalyzer::VoidArgumentIndex;
+  StructIndex = DTransBadCastingAnalyzer::CandidateVoidField;
+
+  return !Func.empty();
+}
+
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
@@ -8820,6 +8858,9 @@ bool DTransAnalysisInfo::analyzeModule(
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
   DTBCA.analyzeAfterVisit();
+
+  // Record functions require bad cast validation.
+  DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
 
   // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
   uint64_t MaxTFrequency = 0;

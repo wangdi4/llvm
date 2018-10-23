@@ -46,6 +46,7 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #define MODULE_PASS(NAME, CREATE_PASS)
 #endif
 MODULE_PASS("always-inline", AlwaysInlinerPass())
+MODULE_PASS("asan", AddressSanitizerPass(false, false, true))
 MODULE_PASS("called-value-propagation", CalledValuePropagationPass())
 MODULE_PASS("cg-profile", CGProfilePass())
 MODULE_PASS("constmerge", ConstantMergePass())
@@ -70,6 +71,7 @@ MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
 MODULE_PASS("soatoaos-struct-methods-transform",                 // INTEL
             dtrans::SOAToAOSStructMethodsTransformDebug())       // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+MODULE_PASS("dtrans-annotator-cleaner", dtrans::AnnotatorCleanerPass()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
@@ -206,6 +208,7 @@ FUNCTION_PASS("adce", ADCEPass())
 FUNCTION_PASS("add-discriminators", AddDiscriminatorsPass())
 FUNCTION_PASS("aggressive-instcombine", AggressiveInstCombinePass())
 FUNCTION_PASS("alignment-from-assumptions", AlignmentFromAssumptionsPass())
+FUNCTION_PASS("asan", AddressSanitizerPass(false, false, false))
 FUNCTION_PASS("bdce", BDCEPass())
 FUNCTION_PASS("bounds-checking", BoundsCheckingPass())
 FUNCTION_PASS("break-crit-edges", BreakCriticalEdgesPass())
