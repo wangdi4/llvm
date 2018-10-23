@@ -562,6 +562,8 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
   for (auto Subloop : *L)
     processLoop(Subloop);
 
+  CSALoopInfo &DFLoop = loopInfo[L];
+
   // Attempt to pipeline the loop.
   unsigned pipeliningDegree = getInnerLoopPipeliningDegree(L);
   if (pipeliningDegree > 1) {
@@ -574,10 +576,16 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
     // compiler output as.
     numTokens = std::min(32U, numTokens);
 
-    CSALoopInfo &DFLoop = loopInfo[L];
     assert(DFLoop.getNumExits() == 1 &&
       "Can only pipeline loops with single exit blocks");
     pipelineLoop(L->getHeader(), DFLoop, numTokens);
+  }
+
+  // Annotate all the edges on the pick backedge with csasim_backedge
+  auto PickBackedge = DFLoop.getPickBackedgeIndex();
+  for (MachineInstr *Pick : DFLoop.getHeaderPicks()) {
+    unsigned PickReg = Pick->getOperand(2 + PickBackedge).getReg();
+    LMFI->addLICAttribute(PickReg, "csasim_backedge");
   }
 }
 
