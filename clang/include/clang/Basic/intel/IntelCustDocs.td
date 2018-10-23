@@ -1124,6 +1124,131 @@ https://software.intel.com/en-us/node/523363
   }];
 }
 
+def ClusterDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let BugTracker = "CMPLRLLVM-5585";
+  let RegressionTest = "SemaIntelHLS/cluster.cpp, CodeGenIntelHLS/cluster.cpp, SemaOpenCL/intel-fpga-cluster.cl, CodeGenOpenCL/intel-fpga-cluster.cl";
+  let Owner = "eandrews";
+  let Content = [{
+``cluster`` attribute is an FPGA function and lambda function attribute used in
+HLS and OpenCL to generate FPGA hardware for the function, grouping the
+functionality of clusters with the same name. The attribute takes 1 optional
+string argument and adds metadata to the function/lambda definition.
+
+The syntax is:
+
+.. code-block:: c
+
+  __attribute__((cluster[("<user_string>")]))
+
+C++11 attribute spelling is also supported on HLS.
+
+.. code-block:: c
+
+  [[clang::cluster[("<user_string>")]]]
+
+The optional argument ``<user_string>`` determines the metadata produced. For example:
+
+.. code-block:: c
+
+  void __attribute__((cluster)) foo1() {}
+  void __attribute__((cluster("cluster_name"))) foo2 {}
+
+Becomes:
+
+.. code-block:: c
+
+  define void @foo1() !cluster !0 {}
+  define void @foo2() !cluster !1 {}
+  !0 = !{!””, i32 0}
+  !1 = !{!”cluster_name”, i32 1}
+
+The second operand in the metadata is i32 1 if ``<user_string>`` is specified.
+It is i32 0 if not.
+
+Using command line:
+
+.. code-block:: bash
+
+  $ clang -cc1 -fhls -ast-dump t.c
+  $ clang -cc1 -fhls -emit-llvm  t.c
+
+.. code-block:: c
+
+  void __attribute__((cluster("cluster_name"))) foo() {}
+
+AST:
+
+.. code-block:: c
+
+    `-FunctionDecl 0x1bfc6e39418 <test.c:5:1, col:56> col:6 foo2 'void ()'
+      |-CompoundStmt 0x1bfc6e39550 <col:55, col:56>
+      `-ClusterAttr 0x1bfc6e394b0 <col:29, col:51> "cluster_name" HasName
+
+.. code-block:: llvm
+
+  define void @_Z4foo1v() #0 !cluster !2 {
+  entry:
+    ret void
+  }
+  !2 = !{!"cluster_name", i32 1}
+
+  }];
+}
+
+def StallEnableDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let BugTracker = "CMPLRLLVM-5585";
+  let RegressionTest = "SemaIntelHLS/stall_enable.cpp, CodeGenIntelHLS/stall_enable.cpp, SemaOpenCL/intel-fpga-stall_enable.cl, CodeGenOpenCL/intel-fpga-stall_enable.cl";
+  let Owner = "eandrews";
+  let Content = [{
+``stall_enable`` attribute is an FPGA function and lambda function attribute used
+in HLS and OpenCL to generate FPGA hardware for the function using stall/enable
+protocol. The attribute takes no arguments and adds metadata to the function/lambda
+definition.
+
+The allowed forms are:
+
+.. code-block:: c
+
+  __attribute__((stall_enable))
+
+C++11 attribute spelling is also supported on HLS.
+
+.. code-block:: c
+
+  [[clang::stall_enable]]
+
+Using command line:
+
+.. code-block:: bash
+
+  $ clang -cc1 -fhls -ast-dump t.c
+  $ clang -cc1 -fhls -emit-llvm  t.c
+
+.. code-block:: c
+
+  void __attribute__((stall_enable)) foo() {}
+
+AST:
+
+.. code-block:: c
+
+    `-FunctionDecl 0x235b69b8d98 <t.c:1:1, col:43> col:36 foo 'void ()'
+      |-CompoundStmt 0x235b69b8eb0 <col:42, col:43>
+      `-StallEnableAttr 0x235b69b8e30 <col:21>
+
+.. code-block:: llvm
+
+    define void @_Z4foo1v() #0 !stall_enable !2 {
+    entry:
+      ret void
+    }
+  !2 = !{i32 1}
+
+  }];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------

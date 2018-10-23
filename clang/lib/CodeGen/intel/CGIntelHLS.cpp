@@ -134,6 +134,22 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
     Fn->setMetadata("stall_free", llvm::MDNode::get(Context, attrMDArgs));
   }
 
+  if (FD->hasAttr<ClusterAttr>()) {
+    SmallVector<llvm::Metadata *, 2> Args;
+    StringRef Name = FD->getAttr<ClusterAttr>()->getName();
+    int hasName = FD->getAttr<ClusterAttr>()->getHasName();
+    Args.push_back(llvm::MDString::get(Context, Name));
+    Args.push_back(llvm::ConstantAsMetadata::get(
+        llvm::ConstantInt::get(Int32Ty, hasName)));
+    Fn->setMetadata("cluster", llvm::MDNode::get(Context, Args));
+  }
+
+  if (FD->hasAttr<StallEnableAttr>()) {
+    Fn->setMetadata("stall_enable",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt32(1))));
+  }
+
   if (const auto *A = FD->getAttr<SchedulerPipeliningEffortPctAttr>()) {
     llvm::APSInt SPEPInt =
         A->getSchedulerPipeliningEffortPct()->EvaluateKnownConstInt(

@@ -3040,6 +3040,36 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
       Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  StringRef Str;
+  // Cluster Attribute can have atmost 1 user-defined argument.
+  if (!checkAttributeAtMostNumArgs(S, Attr, 1) ||
+      (Attr.getNumArgs() == 1 &&
+       !S.checkStringLiteralArgumentAttr(Attr, 0, Str)))
+    return;
+
+  D->addAttr(::new (S.Context)
+                 ClusterAttr(Attr.getRange(), S.Context, Str, Attr.isArgExpr(0),
+                             Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<StallEnableAttr>(S, D, Attr);
+}
+
 static void handleStallFreeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!S.getLangOpts().HLS &&
       !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
@@ -7956,6 +7986,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_InternalMaxBlockRamDepth:
     handleInternalMaxBlockRamDepthAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_Cluster:
+    handleClusterAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_StallEnable:
+    handleStallEnableAttr(S, D, AL);
     break;
   // Intel HLS specific attributes
   case ParsedAttr::AT_OptimizeFMax:
