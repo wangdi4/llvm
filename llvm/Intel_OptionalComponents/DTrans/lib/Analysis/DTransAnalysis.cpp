@@ -8796,7 +8796,8 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
                                         dtrans::Transform Transform) {
   assert(!(Transform & ~dtrans::DT_Legal) && "Illegal transform");
 
-  dtrans::SafetyData Conditions = dtrans::getConditionsForTransform(Transform);
+  dtrans::SafetyData Conditions =
+      dtrans::getConditionsForTransform(Transform, getDTransOutOfBoundsOK());
   bool checkFailed = TyInfo->testSafetyData(Conditions);
 
   // If there were no safety check violations, then no need to check ignore
@@ -8933,12 +8934,23 @@ bool DTransAnalysisInfo::analyzeModule(
   // the SafetyData checks.
   for (auto *TI : type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
-    if (StInfo && testSafetyData(TI, dtrans::DT_FieldSingleValue))
-      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
-        StInfo->getField(I).setMultipleValue();
-    if (StInfo && testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction))
-      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
-        StInfo->getField(I).setBottomAllocFunction();
+    bool IsInBounds = !getDTransOutOfBoundsOK();
+    if (StInfo) {
+      bool SD_FSV = testSafetyData(TI, dtrans::DT_FieldSingleValue);
+      bool SD_FSAF = testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction);
+      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
+        // Mark the field as 'incomplete' if safety conditions are not met.
+        // In case of DTransOutOfBoundsOK == false we change to 'incomplete'
+        // only those fields that are marked as address taken (if any).
+        if (SD_FSV || (IsInBounds && StInfo->getField(I).isAddressTaken()))
+          StInfo->getField(I).setMultipleValue();
+        // Mark the field as 'Bottom alloc function' if safety conditions are
+        // not met. In case of DTransOutOfBoundsOK == false we set 'Bottom alloc
+        // function' only to the fields marked as address taken (if any).
+        if (SD_FSAF || (IsInBounds && StInfo->getField(I).isAddressTaken()))
+          StInfo->getField(I).setBottomAllocFunction();
+      }
+    }
   }
 
   // Set all aggregate fields conservatively as MultipleValue and

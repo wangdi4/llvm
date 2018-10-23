@@ -327,17 +327,22 @@ const SafetyData SDReorderFields =
 //
 // Safety conditions for field single value analysis
 //
-const SafetyData SDFieldSingleValue =
+const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+    MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
+    UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
+
+const SafetyData SDFieldSingleValue =
+    SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
+
+const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+    AddressTaken | MismatchedArgUse | UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
-    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
+    SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
@@ -988,7 +993,8 @@ unsigned getMaxFieldsInStruct();
 /// Get the transformation printable name.
 StringRef getStringForTransform(dtrans::Transform Trans);
 /// Get the safety conditions for the transformation.
-dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans);
+dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans,
+                                             bool DTransOutOfBoundsOK);
 
 StringRef getStructName(llvm::Type *Ty);
 

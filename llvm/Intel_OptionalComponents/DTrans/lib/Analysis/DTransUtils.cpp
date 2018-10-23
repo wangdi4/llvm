@@ -789,15 +789,22 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
 }
 
 // Returns safety conditions for the transformation
-dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
+dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
+                                                     bool DTransOutOfBoundsOK) {
   if (Trans == 0 || Trans & ~dtrans::DT_Legal)
     return dtrans::NoIssues;
 
   switch (Trans) {
+  // In the cases of FSV and FSAF, if DTransOutOfBoundsOK is false we exclude
+  // FieldAddressTaken from the general safety checks and check each field
+  // individually.
   case dtrans::DT_FieldSingleValue:
-    return dtrans::SDFieldSingleValue;
+    return DTransOutOfBoundsOK ? dtrans::SDFieldSingleValue
+                               : dtrans::SDFieldSingleValueNoFieldAddressTaken;
   case dtrans::DT_FieldSingleAllocFunction:
-    return dtrans::SDSingleAllocFunction;
+    return DTransOutOfBoundsOK
+               ? dtrans::SDSingleAllocFunction
+               : dtrans::SDSingleAllocFunctionNoFieldAddressTaken;
   case dtrans::DT_DeleteField:
     return dtrans::SDDeleteField;
   case dtrans::DT_ReorderFields:
