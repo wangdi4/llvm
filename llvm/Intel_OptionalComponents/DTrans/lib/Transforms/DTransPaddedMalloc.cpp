@@ -484,6 +484,13 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
       continue;
     }
 
+    // The input value to the malloc must always
+    // be an integer
+    Value *InputVal = CS.getArgument(0);
+    Type *IntType = InputVal->getType();
+    if (!IntType->isIntegerTy())
+      continue;
+
     // Clone the instruction
     Instruction *mallocCallMod = &Inst;
     Instruction *mallocCall = mallocCallMod->clone();
@@ -493,15 +500,19 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
 
     // Insert the conditional for the multiversioning
     Value *PMLimitVal = Builder.getInt32(DTransPaddedMallocLimit);
-    LoadInst *load = Builder.CreateLoad(GlobalCounter);
+    LoadInst *LoadGlobal = Builder.CreateLoad(GlobalCounter);
     if (UseOpenMP) {
-      load->setAtomic(AtomicOrdering::SequentiallyConsistent);
-      load->setAlignment(4);
+      LoadGlobal->setAtomic(AtomicOrdering::SequentiallyConsistent);
+      LoadGlobal->setAlignment(4);
     }
-    Value *Cmp = Builder.CreateICmpULT(load, PMLimitVal);
+    Value *Cmp = Builder.CreateICmpULT(LoadGlobal, PMLimitVal);
+
+    // Build the BasicBlock for checking with the limit
+    Instruction *LoadInst = cast<Instruction>(LoadGlobal);
+    BasicBlock *NewBB = BB.splitBasicBlock(LoadInst);
 
     // Build the BasicBlocks structure
-    BasicBlock *BBMerge = BB.splitBasicBlock(mallocCallMod);
+    BasicBlock *BBMerge = NewBB->splitBasicBlock(mallocCallMod);
     BasicBlock *BBIf = BasicBlock::Create(M->getContext(), "BBif", F);
     BasicBlock *BBElse = BasicBlock::Create(M->getContext(), "BBelse", F);
 
@@ -509,17 +520,55 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     BBIf->moveBefore(BBMerge);
     BBElse->moveBefore(BBMerge);
 
-    // Remove the old terminator for BB
-    BB.getTerminator()->eraseFromParent();
+    // Remove the old terminator for NewBB
+    NewBB->getTerminator()->eraseFromParent();
 
     // The new terminator for BB will be the branch between BBIf and BBElse
-    Builder.SetInsertPoint(&BB);
+    Builder.SetInsertPoint(NewBB);
     Builder.CreateCondBr(Cmp, BBIf, BBElse);
+
+    // Create the check for INT_MAX
+    BasicBlock *TurnOffBB = BasicBlock::Create(M->getContext(), "MaxBB",
+                                               F, BBIf);
+
+    Builder.SetInsertPoint(&BB);
+    BB.getTerminator()->eraseFromParent();
+
+    // Generate the INT_MAX limit
+    APInt MaxIntAP = APInt::getMaxValue(32);
+    Type *Int32Ty = Type::getInt32Ty(M->getContext());
+    Value *MaxInt = cast<Value>(ConstantInt::get(Int32Ty, MaxIntAP));
+
+    // We need to cast the value of MaxInt to the integer type
+    // that is being used by the input value of malloc
+    Value *IntCast = Builder.CreateIntCast(MaxInt, IntType,
+                                            false /* isSigned */);
+
+    Value *LimitCmp = Builder.CreateICmpULT(InputVal, IntCast);
+    // If the size of the malloc function is lower than INT_MAX,
+    // then proceed with checking with the padded malloc limit.
+    // Else, turn off the padded malloc by setting the value of
+    // __Intel_PaddedMallocCounter to the limit.
+    Builder.CreateCondBr(LimitCmp, NewBB, TurnOffBB);
+    Builder.SetInsertPoint(TurnOffBB);
+    // Increase to the limit
+    if (UseOpenMP)
+      // Use the atomic exchange in case we are using OpenMP
+      Builder.CreateAtomicRMW(AtomicRMWInst::BinOp::Xchg, GlobalCounter,
+                              PMLimitVal,
+                              AtomicOrdering::SequentiallyConsistent, 1);
+    else
+      // Else use the regular store
+      Builder.CreateStore(PMLimitVal, GlobalCounter);
+
+    // Go to the branch that has the regular malloc
+    Builder.CreateBr(BBElse);
+
+    Builder.SetInsertPoint(NewBB);
 
     // Set the if side
     mallocCallMod->removeFromParent();
     Builder.SetInsertPoint(BBIf);
-    Value *InputVal = CS.getArgument(0);
     // Collect the BitWidth of the input Value for the malloc
     // function and use that size to create the new add operation
     unsigned BitWidthSize = InputVal->getType()->getIntegerBitWidth();
@@ -533,7 +582,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
                               Builder.getInt32(1),
                               AtomicOrdering::SequentiallyConsistent, 1);
     else {
-      Value *addOp = Builder.CreateAdd(Builder.getInt32(1), load);
+      Value *addOp = Builder.CreateAdd(Builder.getInt32(1), LoadGlobal);
       Builder.CreateStore(addOp, GlobalCounter);
     }
     Builder.CreateBr(BBMerge);
