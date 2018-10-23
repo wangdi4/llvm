@@ -230,16 +230,6 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setNowait(false);
   setDefaultmapTofromScalar(false);
   setParLoopNdInfoAlloca(nullptr);
-#if INTEL_CUSTOMIZATION
-  // TODO: Remove this once Clang emits OperandBbundle instead of metadata.
-  // Get offload entry index for this region. It is attached to the begin
-  // directive as 'omp_offload.entry' metadata.
-  if (const auto *MD = BB->front().getMetadata("omp_offload.entry")) {
-    const auto *C = mdconst::extract<ConstantInt>(MD->getOperand(0));
-    setOffloadEntryIdx(C->getZExtValue());
-  }
-  else
-#endif // INTEL_CUSTOMIZATION
   setOffloadEntryIdx(-1);
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }

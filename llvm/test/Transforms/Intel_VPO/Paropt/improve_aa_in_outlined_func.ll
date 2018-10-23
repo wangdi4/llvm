@@ -44,7 +44,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double* %arrayidx, double* %arrayidx, i64 32), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double* %arrayidx1, double* %arrayidx1, i64 16), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double* %glob, double* %glob, i64 7992), "QUAL.OMP.PRIVATE"(i32* %i) ], !omp_offload.entry !10
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double* %arrayidx, double* %arrayidx, i64 32), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double* %arrayidx1, double* %arrayidx1, i64 16), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double* %glob, double* %glob, i64 7992), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   %7 = bitcast i32* %i to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %7) #2
   store i32 0, i32* %i, align 4, !tbaa !3
@@ -119,7 +119,6 @@ attributes #2 = { nounwind }
 !7 = !{!8, !8, i64 0}
 !8 = !{!"double", !5, i64 0}
 !9 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 47, i32 0}
-!10 = distinct !{i32 0}
 
 ; CHECK:  NoAlias:   %1 = load i32, i32* %i.priv, align 4, !tbaa !3, !alias.scope !10, !noalias !17 <->   store double %add11, double* %arrayidx12, align 8, !tbaa !18, !alias.scope !17, !noalias !21
 ; CHECK:  MustAlias:   %1 = load i32, i32* %i.priv, align 4, !tbaa !3, !alias.scope !10, !noalias !17 <->   store i32 %inc, i32* %i.priv, align 4, !tbaa !3, !alias.scope !7, !noalias !11

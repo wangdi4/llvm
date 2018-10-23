@@ -31,7 +31,7 @@ entry:
 ; Host code should try offload and fall back to host in casse of offload failure.
 ; CHECK-HST: call i32 @__tgt_target(i64 -1, i8* [[ID]],
 ; CHECK-HST: call void @[[OUTLINEDTARGET]]()
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"() ], !omp_offload.entry !1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
@@ -47,4 +47,3 @@ declare void @llvm.directive.region.exit(token)
 !omp_offload.info = !{!0}
 
 !0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 2, i32 0}
-!1 = distinct !{i32 0}

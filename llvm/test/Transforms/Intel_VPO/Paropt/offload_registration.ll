@@ -29,7 +29,7 @@ target device_triples = "x86_64-pc-linux-gnu"
 ; CHECK: void @foo()
 define dso_local void @foo() {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"() ], !omp_offload.entry !2
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
@@ -37,7 +37,7 @@ entry:
 ; CHECK: void @bar()
 define dso_local void @bar() {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"() ], !omp_offload.entry !3
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
@@ -49,8 +49,6 @@ declare void @llvm.directive.region.exit(token)
 
 !0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 32, i32 0}
 !1 = !{i32 0, i32 54, i32 -698850821, !"bar", i32 40, i32 1}
-!2 = distinct !{i32 0}
-!3 = distinct !{i32 1}
 
 ; Check presence of outlined target regions from foo and bar.
 ; CHECK: define internal void [[OUTLINEDTARGET1:@.+]]()

@@ -30,7 +30,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr) ], !omp_offload.entry !7
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   br label %DIR.OMP.TEAMS.3
 
 DIR.OMP.TEAMS.3:                                  ; preds = %DIR.OMP.TARGET.1
@@ -68,6 +68,5 @@ attributes #2 = { nounwind }
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C++ TBAA"}
 !6 = !{i32 0, i32 54, i32 -698850821, !"_Z3fooi", i32 33, i32 0}
-!7 = distinct !{i32 0}
 
 ; CHECK:  call i32 @__tgt_target_teams({{.*}})
