@@ -2784,7 +2784,7 @@ private:
   // the candidate field has been detected, and the analysis cannot continue.
   bool FoundViolation;
   // The structure to which the candidate field belongs.
-  llvm::Type *CandidateRootType;
+  llvm::StructType *CandidateRootType;
   // A map of stores to pairs of a bool and a type.  Each store is the
   // target of the return of a call to an allocation function, which is a
   // pointer value and can be assigned to the candidate field.  The bool
@@ -3152,7 +3152,10 @@ DTransBadCastingAnalyzer::getRootGEPIFromConditional(BasicBlock *BB) {
 //
 bool DTransBadCastingAnalyzer::gepiMatchesCandidate(GetElementPtrInst *GEPI) {
   llvm::Type *IndexedTy = getLastType(GEPI);
-  if (IndexedTy != CandidateRootType)
+  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
+  if (!IndexedStructTy)
+    return false;
+  if (IndexedStructTy != CandidateRootType)
     return false;
   auto ConstIndex = GEPI->getOperand(GEPI->getNumOperands() - 1);
   auto *LastArg = dyn_cast<ConstantInt>(ConstIndex);
@@ -3510,6 +3513,9 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
   auto AV = STI->getValueOperand();
   llvm::Type *AVType = AV->getType();
   Type *IndexedTy = getLastType(GEPI);
+  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
+  if (!IndexedStructTy)
+    return false;
   if (IndexedTy != CandidateRootType)
     return true;
   // Find the field being stored
@@ -3818,6 +3824,9 @@ bool DTransBadCastingAnalyzer::analyzeLoad(dtrans::FieldInfo &FI,
   if (!GEPI)
     return true;
   Type *IndexedTy = getLastType(GEPI);
+  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
+  if (!IndexedStructTy)
+    return false;
   if (IndexedTy != CandidateRootType)
     return true;
   // Find the field being loaded
@@ -4106,9 +4115,13 @@ bool DTransBadCastingAnalyzer::analyzeAfterVisit() {
 //
 bool DTransBadCastingAnalyzer::isBadCastTypeAndFieldCandidate(llvm::Type *Type,
                                                               unsigned Index) {
-  return Type->isPointerTy() &&
-         (Type->getPointerElementType() == CandidateRootType) &&
-         (Index == CandidateVoidField);
+  if (!Type->isPointerTy())
+    return false;
+  llvm::Type *PTy = Type->getPointerElementType();
+  auto StPTy = dyn_cast<StructType>(PTy);
+  if (StPTy != CandidateRootType)
+    return false;
+  return Index == CandidateVoidField;
 }
 
 //
