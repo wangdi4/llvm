@@ -29,8 +29,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
-    : FullName(Name), IsArraySection(false), IsNonPod(false), IsUnsigned(false),
-      IsConditional(false), IsScheduleMonotonic(false),
+    : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
+      IsUnsigned(false), IsConditional(false), IsScheduleMonotonic(false),
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false) {
   StringRef Base;  // BaseName
@@ -87,6 +87,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
         if (ModSubString[i] == "ARRSECT")
           setIsArraySection();
+        else if (ModSubString[i] == "BYREF")
+          setIsByRef();
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
         else if (ModSubString[i] == "UNSIGNED")     // for reduction clause
@@ -106,6 +108,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   LLVM_DEBUG(dbgs() << "  ID: " << getId());
   LLVM_DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
   LLVM_DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
+  LLVM_DEBUG(dbgs() << "  ByRef: " << getIsByRef());
   LLVM_DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
   LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
   LLVM_DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());

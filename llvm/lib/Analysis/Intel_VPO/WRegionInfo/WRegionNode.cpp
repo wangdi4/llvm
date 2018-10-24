@@ -476,7 +476,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   } else if (ClauseNumArgs == 1) {
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
-    Value *V = (Value*)(Args[0]);
+    Value *V = cast<Value>(Args[0]);
     handleQualOpnd(ClauseID, V);
   } else {
     // The clause takes a list of arguments
@@ -670,8 +670,25 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                             int ClauseID, ClauseTy &C) {
   C.setClauseID(ClauseID);
   for (unsigned I = 0; I < NumArgs; ++I) {
-    Value *V = (Value*) Args[I];
+    Value *V = cast<Value>(Args[I]);
     C.add(V);
+  }
+}
+
+template <typename ClauseTy>
+void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                       const ClauseSpecifier &ClauseInfo,
+                                       ClauseTy &C) {
+  int ClauseID = ClauseInfo.getId();
+  C.setClauseID(ClauseID);
+  bool IsByRef = ClauseInfo.getIsByRef();
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = cast<Value>(Args[I]);
+    C.add(V);
+    if (IsByRef) {
+      auto *Item = C.back();
+      Item->setIsByRef(true);
+    }
   }
 }
 
@@ -682,6 +699,7 @@ void WRegionUtils::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
 
+  bool IsByRef = ClauseInfo.getIsByRef();
   bool IsConditional = ClauseInfo.getIsConditional();
   if (IsConditional)
     assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
@@ -700,14 +718,19 @@ void WRegionUtils::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       llvm_unreachable("NONPOD support for this clause type TBD");
 
     ClauseItemTy *Item = new ClauseItemTy(Args);
+    Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
     if (IsConditional)
       Item->setIsConditional(true);
     C.add(Item);
   } else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
+      if (IsByRef) {
+        auto *Item = C.back();
+        Item->setIsByRef(true);
+      }
       if (IsConditional) {
         auto *Item = C.back();
         Item->setIsConditional(true);
@@ -783,6 +806,7 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
     if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
       MI = new MapItem(Aggr);
       MI->setOrig(BasePtr);
+      MI->setIsByRef(ClauseInfo.getIsByRef());
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
@@ -795,10 +819,11 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
   else
     // Scalar map items; create a MapItem for each of them
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
       MapItem *MI = C.back();
       MI->setMapKind(MapKind);
+      MI->setIsByRef(ClauseInfo.getIsByRef());
     }
 }
 
@@ -812,14 +837,16 @@ void WRegionUtils::extractDependOpndList(const Use *Args, unsigned NumArgs,
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
       DependItem *DI = C.back();
       DI->setIsIn(IsIn);
+      DI->setIsByRef(ClauseInfo.getIsByRef());
     }
 }
 
 void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                         const ClauseSpecifier &ClauseInfo,
                                          LinearClause &C) {
   C.setClauseID(QUAL_OMP_LINEAR);
 
@@ -827,15 +854,16 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
   // last argument in the operand list. Therefore, NumArgs >= 2, and the step
   // is the Value in Args[NumArgs-1].
   assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
-  Value *StepValue = (Value*) Args[NumArgs-1];
+  Value *StepValue = cast<Value>(Args[NumArgs-1]);
   assert(StepValue != nullptr && "Null LINEAR 'step'");
 
   // The linear list items are in Args[0..NumArgs-2]
   for (unsigned I = 0; I < NumArgs-1; ++I) {
-    Value *V = (Value*) Args[I];
+    Value *V = cast<Value>(Args[I]);
     C.add(V);
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
+    LI->setIsByRef(ClauseInfo.getIsByRef());
   }
 }
 
@@ -880,12 +908,13 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
       RI->setIsInReduction(IsInReduction);
+      RI->setIsByRef(ClauseInfo.getIsByRef());
     }
 }
 #endif
@@ -951,7 +980,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
 
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
-    WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs, ClauseID,
+    WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs, ClauseInfo,
                                                     getShared());
     break;
   }
@@ -1011,13 +1040,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_COPYIN: {
-    WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseID,
+    WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseInfo,
                                                     getCopyin());
     break;
   }
   case QUAL_OMP_COPYPRIVATE: {
     WRegionUtils::extractQualOpndList<CopyprivateClause>(Args, NumArgs,
-                                                       ClauseID, getCpriv());
+                                                       ClauseInfo, getCpriv());
     break;
   }
   case QUAL_OMP_DEPEND_IN:
@@ -1036,12 +1065,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_IS_DEVICE_PTR: {
     WRegionUtils::extractQualOpndList<IsDevicePtrClause>(Args, NumArgs,
-                                                 ClauseID, getIsDevicePtr());
+                                                 ClauseInfo, getIsDevicePtr());
     break;
   }
   case QUAL_OMP_USE_DEVICE_PTR: {
     WRegionUtils::extractQualOpndList<UseDevicePtrClause>(Args, NumArgs,
-                                                ClauseID, getUseDevicePtr());
+                                                ClauseInfo, getUseDevicePtr());
     break;
   }
   case QUAL_OMP_TO:
@@ -1064,12 +1093,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_UNIFORM: {
-    WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs, ClauseID,
+    WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs, ClauseInfo,
                                                      getUniform());
     break;
   }
   case QUAL_OMP_LINEAR: {
-    WRegionUtils::extractLinearOpndList(Args, NumArgs, getLinear());
+    WRegionUtils::extractLinearOpndList(Args, NumArgs, ClauseInfo,
+                                        getLinear());
     break;
   }
   case QUAL_OMP_ALIGNED: {
@@ -1148,7 +1178,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_NORMALIZED_IV:
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       Constant *C = dyn_cast<Constant>(V);
       if (C && C->isNullValue()) {
         // After promoting %.omp.iv into a register, we change all pointers in
@@ -1164,7 +1194,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   case QUAL_OMP_NORMALIZED_UB:
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       Constant *C = dyn_cast<Constant>(V);
       if (C && C->isNullValue()) {
         assert(I==0 && "malformed NORMALIZED_UB clause");

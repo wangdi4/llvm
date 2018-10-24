@@ -232,10 +232,16 @@ public:
   template <typename ClauseTy>
   static void extractQualOpndList(const Use *Args, unsigned NumArgs,
                                   int ClauseID, ClauseTy &C);
+  // The following interface uses ClausInfo instead of ClauseID to support
+  // the "ByRef" attribute.
+  template <typename ClauseTy>
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                  const ClauseSpecifier &ClauseInfo,
+                                  ClauseTy &C);
   template <typename ClauseItemTy>
   static void extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
-                                  const ClauseSpecifier &ClauseInfo,
-                                  Clause<ClauseItemTy> &C);
+                                        const ClauseSpecifier &ClauseInfo,
+                                        Clause<ClauseItemTy> &C);
 
   /// \brief Extract operands from a map clause
   static void extractMapOpndList(const Use *Args, unsigned NumArgs,
@@ -249,6 +255,7 @@ public:
 
   /// \brief Extract operands from a linear clause
   static void extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                    const ClauseSpecifier &ClauseInfo,
                                     LinearClause &C);
 
   /// \brief Extract operands from a reduction clause

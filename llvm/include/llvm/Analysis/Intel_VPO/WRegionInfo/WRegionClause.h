@@ -77,6 +77,7 @@ class Item
     VAR   OrigItem;  // original var
     VAR   NewItem;   // new version (eg private) of the var
     VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
+    bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
@@ -86,14 +87,15 @@ class Item
 
   public:
     Item(VAR Orig) :
-      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonPod(false),
-      IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
-      NoAlias(nullptr) {}
+      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsByRef(false),
+      IsNonPod(false), IsVla(false), VlaSize(nullptr), ThunkIdx(-1),
+      AliasScope(nullptr), NoAlias(nullptr) {}
     virtual ~Item() = default;
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
     void setParm(VAR V)          { ParmItem = V;    }
+    void setIsByRef(bool Flag)   { IsByRef = Flag;  }
     void setIsNonPod(bool Flag)  { IsNonPod = Flag; }
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
@@ -104,6 +106,7 @@ class Item
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
     VAR  getParm()     const { return ParmItem; }
+    bool getIsByRef()  const { return IsByRef;  }
     bool getIsNonPod() const { return IsNonPod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
@@ -111,7 +114,17 @@ class Item
     MDNode *getAliasScope() const { return AliasScope; }
     MDNode *getNoAlias()    const { return NoAlias; }
 
+    void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsByRef())
+        OS << "BYREF(";
+      getOrig()->printAsOperand(OS, PrintType);
+      if (getIsByRef())
+        OS << ")";
+    }
+
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsByRef())
+        OS << "BYREF";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -173,7 +186,7 @@ class PrivateItem : public Item
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsNonPod()) {
         OS << "NONPOD(";
-        getOrig()->printAsOperand(OS, PrintType);
+        printOrig(OS, PrintType);
         OS << ", CTOR: ";
         printFnPtr(getConstructor(), OS, PrintType);
         OS << ", DTOR: ";
@@ -226,7 +239,7 @@ class FirstprivateItem : public Item
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsNonPod()) {
         OS << "NONPOD(";
-        getOrig()->printAsOperand(OS, PrintType);
+        printOrig(OS, PrintType);
         OS << ", CCTOR: ";
         printFnPtr(getCopyConstructor(), OS, PrintType);
         OS << ", DTOR: ";
@@ -290,7 +303,7 @@ class LastprivateItem : public Item
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsNonPod()) {
         OS << "NONPOD(";
-        getOrig()->printAsOperand(OS, PrintType);
+        printOrig(OS, PrintType);
         OS << ", CTOR: ";
         printFnPtr(getConstructor(), OS, PrintType);
         OS << ", COPYASSIGN: ";
@@ -501,7 +514,7 @@ public:
     // we need to print the Reduction operation too.
     void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       OS << "(" << getOpName() << ": ";
-      getOrig()->printAsOperand(OS, PrintType);
+      printOrig(OS, PrintType);
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
@@ -559,7 +572,7 @@ class LinearItem : public Item
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(";
-      getOrig()->printAsOperand(OS, PrintType);
+      printOrig(OS, PrintType);
       OS << ", ";
       auto *Step = getStep();
       assert(Step && "Null 'Step' for LINEAR clause.");
@@ -770,6 +783,7 @@ class UseDevicePtrItem : public Item
 //   DependItem    (for the depend  clause in task and target constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
+//   FlushItem     (for the flush clause)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
 // receives a single EXPR for depend(sink:sink_expr), which is already in
@@ -779,6 +793,7 @@ class DependItem
 {
   private:
     VAR   Base;           // scalar item or base of array section
+    bool  IsByRef;        // true if Base is by-reference
     bool  IsIn;           // depend type: true for IN; false for OUT/INOUT
     bool  IsArraySection; // if true, then lb, length, stride below are used
     EXPR  LowerBound;     // null if unspecified
@@ -786,10 +801,12 @@ class DependItem
     EXPR  Stride;         // null if unspecified
 
   public:
-    DependItem(VAR V=nullptr) : Base(V), IsIn(true), IsArraySection(false),
-      LowerBound(nullptr), Length(nullptr), Stride(nullptr) {}
+    DependItem(VAR V=nullptr) : Base(V), IsByRef(false), IsIn(true),
+    IsArraySection(false), LowerBound(nullptr), Length(nullptr),
+    Stride(nullptr) {}
 
     void setOrig(VAR V)         { Base = V; }
+    void setIsByRef(bool Flag)  { IsByRef = Flag; }
     void setIsIn(bool Flag)     { IsIn = Flag; }
     void setIsArrSec(bool Flag) { IsArraySection = Flag; }
     void setLb(EXPR Lb)         { LowerBound = Lb;   }
@@ -797,6 +814,7 @@ class DependItem
     void setStride(EXPR Str)    { Stride = Str;  }
 
     VAR  getOrig()      const   { return Base; }
+    bool getIsByRef()   const   { return IsByRef; }
     bool getIsIn()      const   { return IsIn; }
     bool getIsArrSec()  const   { return IsArraySection; }
     EXPR getLb()        const   { return LowerBound; }
@@ -804,6 +822,8 @@ class DependItem
     EXPR getStride()    const   { return Stride; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsByRef())
+        OS << "BYREF";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
