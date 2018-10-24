@@ -20,9 +20,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/IR/IRPrintingPasses.h"
 
 namespace llvm {
 
@@ -62,9 +62,9 @@ class HIRSafeReductionAnalysis;
 class HIRSparseArrayReductionAnalysis;
 class HIRVectVLSAnalysis;
 
-typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLoopLocality,
-                                HIRLoopResource, HIRLoopStatistics,
-                                HIRSafeReductionAnalysis, HIRSparseArrayReductionAnalysis,
+typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLoopLocality, HIRLoopResource,
+                                HIRLoopStatistics, HIRSafeReductionAnalysis,
+                                HIRSparseArrayReductionAnalysis,
                                 HIRVectVLSAnalysis>
     HIRAnalysisProvider;
 
@@ -216,15 +216,17 @@ public:
 
 class HIRFrameworkPrinterPass : public PassInfoMixin<HIRFrameworkPrinterPass> {
   raw_ostream &OS;
+  bool PrintDetails;
 
 public:
-  explicit HIRFrameworkPrinterPass(raw_ostream &OS) : OS(OS) {}
+  HIRFrameworkPrinterPass(raw_ostream &OS, bool PrintDetails)
+      : OS(OS), PrintDetails(PrintDetails) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
     if (llvm::isFunctionInPrintList(F.getName())) {
       OS << "Function: " << F.getName() << "\n";
 
-      AM.getResult<HIRFrameworkAnalysis>(F).print(false, OS);
+      AM.getResult<HIRFrameworkAnalysis>(F).print(PrintDetails, OS);
     }
 
     return PreservedAnalyses::all();
