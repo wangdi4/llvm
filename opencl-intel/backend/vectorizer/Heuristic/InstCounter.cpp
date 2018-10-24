@@ -262,7 +262,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   if (m_preVec) {
     m_desiredWidth = getPreferredVectorizationWidth(F, IterMap, ProbMap);
 
-    // Here, ocl_recommended_vector_length.provisional is set. This metadata is
+    // Here, ocl_recommended_vector_length is set. This metadata is
     // only used by VPO-VecClone.
     auto vkimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
     vkimd.OclRecommendedVectorLength.set(m_desiredWidth);
