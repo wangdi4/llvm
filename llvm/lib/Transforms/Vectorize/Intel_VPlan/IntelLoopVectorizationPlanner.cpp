@@ -160,20 +160,26 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
   // from the original loop. Has to be revisited after enabling of
   // peel/remainder vectorization.
-  unsigned TripCount = ::getTripCountForFirstLoopInDfs(ScalarPlan);
+
+  // Even if TripCount is more than 2^32 we can safely assume that it's equal
+  // to 2^32, otherwise all logic below will have a problem with overflow.
+  uint64_t TripCount = std::min(::getTripCountForFirstLoopInDfs(ScalarPlan),
+                                (uint64_t)std::numeric_limits<unsigned>::max());
 #if INTEL_CUSTOMIZATION
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL, VLSA);
 #else
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL);
 #endif // INTEL_CUSTOMIZATION
   unsigned ScalarIterationCost = ScalarCM.getCost();
+  ScalarIterationCost =
+      ScalarIterationCost == CostModelTy::UnknownCost ? 0 : ScalarIterationCost;
   // FIXME: that multiplication should be the part of CostModel - see below.
-  unsigned ScalarCost = ScalarIterationCost * TripCount;
+  uint64_t ScalarCost = ScalarIterationCost * TripCount;
 
   BestVF = 1;
   // FIXME: Currently, unroll is not in VPlan, so set it to 1.
   BestUF = 1;
-  unsigned BestCost = ScalarCost;
+  uint64_t BestCost = ScalarCost;
   LLVM_DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
 #if INTEL_CUSTOMIZATION
@@ -187,7 +193,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   bool IsVectorAlways = ShouldIgnoreProfitability || VecThreshold == 0;
 
   if (IsVectorAlways) {
-    BestCost = std::numeric_limits<unsigned>::max();
+    BestCost = std::numeric_limits<uint64_t>::max();
     LLVM_DEBUG(dbgs() << "'#pragma vector always'/ '#pragma omp simd' is used "
                          "for the given loop\n");
   }
@@ -212,20 +218,32 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 #else
     CostModelTy VectorCM(Plan, VF, TTI, DL);
 #endif // INTEL_CUSTOMIZATION
-    unsigned VectorIterationCost = VectorCM.getCost();
-    if (VectorIterationCost == CostModelTy::UnknownCost)
+    const unsigned VectorIterationCost = VectorCM.getCost();
+    if (VectorIterationCost == CostModelTy::UnknownCost) {
+      LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       continue;
+    }
+
+    const decltype(TripCount) VectorTripCount = TripCount / VF;
+    const decltype(TripCount) RemainderTripCount = TripCount % VF;
     // TODO: Take into account overhead for some instructions until explicit
     // representation of peel/remainder not ready.
-    unsigned VectorCost = VectorIterationCost * (TripCount / VF) +
-                          ScalarIterationCost * (TripCount % VF);
+    uint64_t VectorCost = VectorIterationCost * VectorTripCount +
+                          ScalarIterationCost * RemainderTripCount;
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
-                        << VF << ". Original cost = " << VectorCost << "\n");
-      VectorCost = (unsigned)(VectorCost * (100.0 - VecThreshold))/100.0f;
+                        << VF << ". Original cost = " << VectorCost << '\n');
+      VectorCost = (uint64_t)(VectorCost * (100.0 - VecThreshold))/100.0f;
     }
-    LLVM_DEBUG(dbgs() << "Cost of VPlan for VF=" << VF << ": " << VectorCost
-                      << '\n');
+    const char CmpChar =
+        ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
+    (void) CmpChar;
+    LLVM_DEBUG(dbgs() << "Scalar Cost = " << TripCount << " x "
+                      << ScalarIterationCost << " = " << ScalarCost << ' '
+                      << CmpChar << " VectorCost = " << VectorTripCount << "[x"
+                      << VF << "] x " << VectorIterationCost << " + "
+                      << ScalarIterationCost << " x " << RemainderTripCount
+                      << " = " << VectorCost << '\n';);
     if (VectorCost < BestCost) {
       BestCost = VectorCost;
       BestVF = VF;

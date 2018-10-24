@@ -1,12 +1,12 @@
 ; Test for overflow during cost modeling - check that the loop gets vectorized
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
+; RUN:     -debug -hir-cg -S  < %s 2>&1 | FileCheck %s
+;
+; REQUIRES: asserts
+;
 ; Check for vectorized HIR loop
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
 
-; CHECK: fadd <4 x float>
-; CHECK-NEXT: store <4 x float>
-; CHECK: nextiv{{.*}} = add {{.*}}, 4
+; CHECK: Cost of Scalar VPlan: 5000000000
 
 ; Generated from the following example using 
 ; clang -O1 -S -emit-llvm
