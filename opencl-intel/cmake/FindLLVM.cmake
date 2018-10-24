@@ -56,7 +56,7 @@ else(BUILD_LLVM_FROM_SOURCE )
   llvm_map_components_to_libnames(LLVM_MODULE_LIBS all)
 
   #remove predefined unnecessary components
-  list(REMOVE_ITEM LLVM_AVAILABLE_LIBS gtest gtest_main profile_rt-static profile_rt-shared LTO LTO_static)
+  list(REMOVE_ITEM LLVM_MODULE_LIBS gtest gtest_main profile_rt-static profile_rt-shared LTO LTO_static)
 endif(BUILD_LLVM_FROM_SOURCE )
 
 #kept as comment for the debug purposes.
