@@ -99,9 +99,7 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
   }
 
   void visit(const HLInst *HInst) {
-    auto Inst = HInst->getLLVMInstruction();
-
-    auto Call = dyn_cast<CallInst>(Inst);
+    auto *Call = HInst->getCallInst();
 
     if (Call) {
       if (isa<IntrinsicInst>(Call)) {

@@ -401,7 +401,7 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
 }
 
 bool HIRArrayTranspose::MallocAnalyzer::isMalloc(HLInst *HInst) {
-  auto Call = dyn_cast<CallInst>(HInst->getLLVMInstruction());
+  auto Call = HInst->getCallInst();
 
   if (!Call) {
     return false;
@@ -412,7 +412,7 @@ bool HIRArrayTranspose::MallocAnalyzer::isMalloc(HLInst *HInst) {
 }
 
 bool HIRArrayTranspose::MallocAnalyzer::isFree(HLInst *HInst) {
-  auto Call = dyn_cast<CallInst>(HInst->getLLVMInstruction());
+  auto Call = HInst->getCallInst();
 
   if (!Call) {
     return false;

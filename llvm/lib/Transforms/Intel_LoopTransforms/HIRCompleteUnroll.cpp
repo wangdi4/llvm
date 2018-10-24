@@ -996,7 +996,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
 
   // TODO: Add other types of non-simplifyable instructions.
   bool CanSimplifyRvals =
-      (!Inst || (!isa<CallInst>(Inst) && !isa<ReturnInst>(Inst)));
+      (!Inst || (!HInst->isCallInst() && !isa<ReturnInst>(Inst)));
   bool CanSimplifyLval = true;
   bool HasNonConstRval = false;
 

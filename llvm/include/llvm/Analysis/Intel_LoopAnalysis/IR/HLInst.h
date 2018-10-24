@@ -152,7 +152,7 @@ public:
   /// Returns the number of operand bundles associated with this instruction.
   /// Returns 0 for non-call instructions.
   unsigned getNumOperandBundles() const {
-    auto Call = dyn_cast<CallInst>(Inst);
+    auto Call = getCallInst();
     return Call ? Call->getNumOperandBundles() : 0;
   }
 
@@ -161,14 +161,15 @@ public:
   /// Note that we do not count the last function pointer operand for indirect
   /// calls.
   unsigned getNumNonBundleOperands() const {
-    auto Call = dyn_cast<CallInst>(Inst);
+    auto Call = getCallInst();
     return Call ? (Call->getNumArgOperands() + hasLval()) : getNumOperands();
   }
 
   /// Returns the number of operands in the bundle \p BundleNum which is in
   /// range [0, getNumOperandBundles()).
   unsigned getNumBundleOperands(unsigned BundleNum) const {
-    assert(BundleNum < getNumOperandBundles() && "Invalid bundle number!");
+    assert(isCallInst() && BundleNum < getNumOperandBundles() &&
+           "Invalid bundle number!");
     return cast<CallInst>(Inst)->getOperandBundleAt(BundleNum).Inputs.size();
   }
 
@@ -230,6 +231,9 @@ public:
   /// Returns true if this is a call instruction.
   bool isCallInst() const { return isa<CallInst>(Inst); }
 
+  /// Returns CallInst pointer if this is a call instruction.
+  const CallInst *getCallInst() const { return dyn_cast<CallInst>(Inst); }
+
   /// Returns true if \p Call only accesses inaccessible or arg memory.
   static bool onlyAccessesInaccessibleOrArgMemory(const CallInst *Call) {
     return Call->onlyAccessesArgMemory() ||
@@ -246,7 +250,7 @@ public:
 
   /// Returns true if this is a call instruction with unsafe side effects.
   bool isUnsafeSideEffectCallInst() const {
-    auto Call = dyn_cast<CallInst>(Inst);
+    auto Call = getCallInst();
     return Call && hasUnsafeSideEffect(Call);
   }
 
@@ -259,20 +263,26 @@ public:
 
   /// Returns true if this is a call instruction with unknown memory access.
   bool isUnknownMemoryAccessCallInst() const {
-    auto Call = dyn_cast<CallInst>(Inst);
+    auto Call = getCallInst();
     return Call && hasUnknownMemoryAccess(Call);
   }
 
   /// Returns true if this is an indirect call instruction.
   bool isIndirectCallInst() const {
-    auto Call = dyn_cast<CallInst>(Inst);
+    auto Call = getCallInst();
     return (Call && !Call->getCalledFunction());
   }
 
   /// Verifies HLInst integrity.
   virtual void verify() const override;
 
-  /// Checks whether the instruction is a call to intrinsic If so, IntrinID is
+  /// Returns IntrinsicInst whether the instruction is a call to intrinsic else
+  /// returns nullptr.
+  const IntrinsicInst *getIntrinCall() const {
+    return dyn_cast_or_null<IntrinsicInst>(getCallInst());
+  }
+
+  /// Checks whether the instruction is a call to intrinsic. If so, IntrinID is
   /// populated back.
   bool isIntrinCall(Intrinsic::ID &IntrinID) const;
 

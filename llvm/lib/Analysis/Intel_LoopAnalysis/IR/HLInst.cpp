@@ -144,7 +144,7 @@ bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
       printPredicate(OS, CmpOrSelectPred);
     }
   } else {
-    if (!isa<CallInst>(Inst)) {
+    if (!isCallInst()) {
       Ret = false;
     }
     if (Print && !isa<SelectInst>(Inst)) {
@@ -167,7 +167,7 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
       OS << *(CInst->getDestTy());
       OS << "(";
     }
-  } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
+  } else if (auto *FInst = getCallInst()) {
     if (isIndirectCallInst()) {
       // Use the last operand which is the function pointer.
       (*op_ddref_rbegin())->print(OS, false);
@@ -186,7 +186,7 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
 
 void HLInst::printEndOpcode(formatted_raw_ostream &OS) const {
 #if !INTEL_PRODUCT_RELEASE
-  if (isa<CallInst>(Inst) || (isa<CastInst>(Inst) && !isCopyInst())) {
+  if (isCallInst() || (isa<CastInst>(Inst) && !isCopyInst())) {
     OS << ")";
   }
 #endif // !INTEL_PRODUCT_RELEASE
@@ -465,23 +465,21 @@ void HLInst::verify() const {
 }
 
 bool HLInst::isIntrinCall(Intrinsic::ID &IntrinID) const {
-  auto Call = dyn_cast<IntrinsicInst>(getLLVMInstruction());
-  if (!Call) {
-    return false;
+  if (auto *Intrin = getIntrinCall()) {
+    IntrinID = Intrin->getIntrinsicID();
+    return true;
   }
-  IntrinID = Call->getIntrinsicID();
-  return true;
+
+  return false;
 }
 
 bool HLInst::isIntelDirective(int DirectiveID) const {
-  Intrinsic::ID IntrinID;
-
-  if (!isIntrinCall(IntrinID) ||
-      !vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
+  auto *Call = getIntrinCall();
+  if (!Call ||
+      !vpo::VPOAnalysisUtils::isIntelDirective(Call->getIntrinsicID())) {
     return false;
   }
 
-  auto Call = dyn_cast<IntrinsicInst>(getLLVMInstruction());
   auto DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(Call);
 
   return vpo::VPOAnalysisUtils::getDirectiveID(DirStr) == DirectiveID;

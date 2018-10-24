@@ -477,8 +477,7 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
-    if (Inst->isCallInst()) {
-      const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
+    if (const CallInst *Call = Inst->getCallInst()) {
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
         LLVM_DEBUG(Inst->dump());
@@ -906,17 +905,17 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     // Move to the next iterator now as HInst may get removed below
     ++Iter;
 
-    Intrinsic::ID IntrinID;
-    if (HInst->isIntrinCall(IntrinID)) {
+    if (auto *Inst = HInst->getIntrinCall()) {
+      Intrinsic::ID IntrinID = Inst->getIntrinsicID();
+
       if (vpo::VPOAnalysisUtils::isIntelClause(IntrinID)) {
         HLNodeUtils::remove(HInst);
         continue;
       }
 
       if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
-        auto Inst = cast<IntrinsicInst>(HInst->getLLVMInstruction());
-        StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
-            const_cast<IntrinsicInst *>(Inst));
+        StringRef DirStr =
+            vpo::VPOAnalysisUtils::getDirectiveMetadataString(Inst);
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
@@ -987,7 +986,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   // Used to remove the original math calls after iterating over them.
   SmallVector<HLInst *, 1> InstsToRemove;
 
-  const CallInst *Call = cast<CallInst>(HInst->getLLVMInstruction());
+  const CallInst *Call = HInst->getCallInst();
   Function *F = Call->getCalledFunction();
   assert(F && "Unexpected null called function");
   StringRef FnName = F->getName();
@@ -2051,7 +2050,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     // lval.
     WideInst = Node->getHLNodeUtils().createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
-  } else if (const CallInst *Call = dyn_cast<CallInst>(CurInst)) {
+  } else if (const CallInst *Call = INode->getCallInst()) {
 
     Function *Fn = Call->getCalledFunction();
     assert(Fn && "Unexpected null called function");

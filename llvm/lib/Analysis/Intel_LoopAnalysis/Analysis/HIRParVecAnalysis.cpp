@@ -211,7 +211,7 @@ void ParVecVisitor::visit(HLInst *Node) {
   if (isa<InvokeInst>(LIRInst) || isa<LandingPadInst>(LIRInst)) {
     Type = ParVecInfo::EH;
 
-  } else if (auto Call = dyn_cast<CallInst>(LIRInst)) {
+  } else if (auto *Call = Node->getCallInst()) {
     auto Func = Call->getCalledFunction();
 
     if (!Func || !TLI->isFunctionVectorizable(Func->getName())) {
@@ -423,7 +423,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 void DDWalk::visit(HLDDNode *Node) {
 
   if (auto Inst = dyn_cast<HLInst>(Node)) {
-    if (auto Call = dyn_cast<CallInst>(Inst->getLLVMInstruction())) {
+    if (auto *Call = Inst->getCallInst()) {
       auto Func = Call->getCalledFunction();
 
       bool IsVectorizable;

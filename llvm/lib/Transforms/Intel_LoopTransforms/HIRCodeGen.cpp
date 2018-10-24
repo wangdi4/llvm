@@ -1739,7 +1739,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
       }
     }
 
-  } else if (auto Call = dyn_cast<CallInst>(Inst)) {
+  } else if (auto Call = HInst->getCallInst()) {
 
     SmallVector<OperandBundleDef, 4> Bundles;
 
