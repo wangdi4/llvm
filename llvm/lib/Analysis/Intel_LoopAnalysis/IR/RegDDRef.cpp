@@ -295,11 +295,8 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
         OS << "]";
 
         auto Offsets = getTrailingStructOffsets(DimNum);
-
-        if (Offsets) {
-          for (auto OffsetVal : *Offsets) {
-            OS << "." << OffsetVal;
-          }
+        for (auto OffsetVal : Offsets) {
+          OS << "." << OffsetVal;
         }
       }
     }
@@ -334,9 +331,7 @@ Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
                            : RetTy->getArrayElementType();
 
     if (RetTy->isStructTy()) {
-      if (auto *Offsets = getTrailingStructOffsets(I)) {
-        RetTy = DDRefUtils::getOffsetType(RetTy, *Offsets);
-      }
+      RetTy = DDRefUtils::getOffsetType(RetTy, getTrailingStructOffsets(I));
     }
   }
 
@@ -361,10 +356,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 
     // Extract the type from the first dimension/offsets.
     auto RefTy = getDimensionElementType(1);
-    auto Offsets = getTrailingStructOffsets(1);
-    if (Offsets) {
-      RefTy = DDRefUtils::getOffsetType(RefTy, *Offsets);
-    }
+    RefTy = DDRefUtils::getOffsetType(RefTy, getTrailingStructOffsets(1));
 
     // For DDRefs representing addresses, we need to return a pointer to
     // RefTy.
@@ -1217,7 +1209,7 @@ void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
 }
 
 void RegDDRef::setTrailingStructOffsets(
-    unsigned DimensionNum, const SmallVectorImpl<unsigned> &Offsets) {
+    unsigned DimensionNum, ArrayRef<unsigned> Offsets) {
   createGEP();
 
   if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {
@@ -1236,30 +1228,26 @@ void RegDDRef::setTrailingStructOffsets(
   DimOffsets.append(Offsets.begin(), Offsets.end());
 }
 
-const SmallVectorImpl<unsigned> *
+ArrayRef<unsigned>
 RegDDRef::getTrailingStructOffsets(unsigned DimensionNum) const {
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
   assert(hasGEPInfo() && " Offsets are not meaningful for non-GEP DDRefs!");
 
   if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {
-    return nullptr;
+    return {};
   }
 
   if (getGEPInfo()->DimensionOffsets[DimensionNum - 1].empty()) {
-    return nullptr;
+    return {};
   }
 
-  return &getGEPInfo()->DimensionOffsets[DimensionNum - 1];
+  return getGEPInfo()->DimensionOffsets[DimensionNum - 1];
 }
 
 bool RegDDRef::hasNonZeroTrailingStructOffsets(unsigned DimensionNum) const {
   auto Offsets = getTrailingStructOffsets(DimensionNum);
 
-  if (!Offsets) {
-    return false;
-  }
-
-  for (auto Offset : (*Offsets)) {
+  for (auto Offset : Offsets) {
     if (Offset != 0) {
       return true;
     }

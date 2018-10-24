@@ -874,11 +874,11 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       // Push back indices for dimensions's trailing offsets.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
 
-      if (Offsets) {
+      if (!Offsets.empty()) {
         // Structure fields are always i32 type.
         auto I32Ty = Type::getInt32Ty(F.getContext());
 
-        for (auto OffsetVal : *Offsets) {
+        for (auto OffsetVal : Offsets) {
           auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
           IndexV.push_back(OffsetIndex);
         }

@@ -2990,7 +2990,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
         continue;
       }
 
-      Ref->addDimension(IndexCE, &CurDimOffsets);
+      Ref->addDimension(IndexCE, CurDimOffsets);
       CurDimOffsets.clear();
     }
 

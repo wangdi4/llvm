@@ -676,23 +676,22 @@ public:
   /// adding a zero canon expr as an additional dimension.
   void
   addDimension(CanonExpr *IndexCE,
-               const SmallVectorImpl<unsigned> *TrailingOffsets = nullptr) {
+               ArrayRef<unsigned> TrailingOffsets = {}) {
     assert(IndexCE && "IndexCE is null!");
     CanonExprs.push_back(IndexCE);
 
-    if (TrailingOffsets) {
-      setTrailingStructOffsets(getNumDimensions(), *TrailingOffsets);
+    if (!TrailingOffsets.empty()) {
+      setTrailingStructOffsets(getNumDimensions(), TrailingOffsets);
     }
   }
 
   /// Sets trailing offsets for \p DimensionNum.
   void setTrailingStructOffsets(unsigned DimensionNum,
-                                const SmallVectorImpl<unsigned> &Offsets);
+                                ArrayRef<unsigned> Offsets);
 
   /// Returns trailing offsets for \p DimensionNum. Returns null if there are no
   /// offsets.
-  const SmallVectorImpl<unsigned> *
-  getTrailingStructOffsets(unsigned DimensionNum) const;
+  ArrayRef<unsigned> getTrailingStructOffsets(unsigned DimensionNum) const;
 
   /// Removes trailing offsets for \p DimensionNum.
   void removeTrailingStructOffsets(unsigned DimensionNum) {
@@ -703,7 +702,7 @@ public:
 
   /// Returns true if the Ref has trailing offsets for \p DimensionNum.
   bool hasTrailingStructOffsets(unsigned DimensionNum) const {
-    return (getTrailingStructOffsets(DimensionNum) != nullptr);
+    return !getTrailingStructOffsets(DimensionNum).empty();
   }
 
   /// Returns true if \p DimensionNum has non-zero trailing offsets. For

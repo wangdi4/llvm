@@ -156,9 +156,8 @@ bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
   return true;
 }
 
-int64_t
-DDRefUtils::getOffsetDistance(Type *Ty, const DataLayout &DL,
-                              const SmallVectorImpl<unsigned> &Offsets) {
+int64_t DDRefUtils::getOffsetDistance(Type *Ty, const DataLayout &DL,
+                                      ArrayRef<unsigned> Offsets) {
   int64_t DistInBytes = 0;
 
   for (auto OffsetVal : Offsets) {
@@ -171,8 +170,8 @@ DDRefUtils::getOffsetDistance(Type *Ty, const DataLayout &DL,
   return DistInBytes;
 }
 
-int DDRefUtils::compareOffsets(const SmallVectorImpl<unsigned> &Offsets1,
-                               const SmallVectorImpl<unsigned> &Offsets2) {
+int DDRefUtils::compareOffsets(ArrayRef<unsigned> Offsets1,
+                               ArrayRef<unsigned> Offsets2) {
   unsigned MinSize = std::min(Offsets1.size(), Offsets2.size());
 
   for (unsigned I = 0, E = MinSize; I < E; ++I) {
@@ -207,17 +206,7 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
   auto Offsets1 = Ref1->getTrailingStructOffsets(DimensionNum);
   auto Offsets2 = Ref2->getTrailingStructOffsets(DimensionNum);
 
-  if (Offsets1 && Offsets2) {
-    return compareOffsets(*Offsets1, *Offsets2);
-  } else if (Offsets1) {
-    // Only Ref1 has offsets.
-    return 1;
-  } else if (Offsets2) {
-    // Only Ref2 has offsets.
-    return -1;
-  }
-
-  return 0;
+  return compareOffsets(Offsets1, Offsets2);
 }
 
 bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
@@ -346,7 +335,7 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   bool NeedIterDistance = (LoopLevel != 0);
   bool FoundDelta = false;
 
-  // Compare the subscripts in reverse order to accomodate offsets.
+  // Compare the subscripts in reverse order to accommodate offsets.
   for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
 
     // Compare trailing offsets.
@@ -356,13 +345,9 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
       auto Offsets1 = Ref1->getTrailingStructOffsets(1);
       auto Offsets2 = Ref2->getTrailingStructOffsets(1);
 
-      if (Offsets1) {
-        Delta += getOffsetDistance(Ty, DL, *Offsets1);
-      }
+      Delta += getOffsetDistance(Ty, DL, Offsets1);
+      Delta -= getOffsetDistance(Ty, DL, Offsets2);
 
-      if (Offsets2) {
-        Delta -= getOffsetDistance(Ty, DL, *Offsets2);
-      }
     } else if (compareOffsets(Ref1, Ref2, I)) {
       // Do not allow different trailing offsets for higher dimensions or when
       // computing iteration distance!
@@ -452,8 +437,7 @@ void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
   }
 }
 
-Type *DDRefUtils::getOffsetType(Type *Ty,
-                                const SmallVectorImpl<unsigned> &Offsets) {
+Type *DDRefUtils::getOffsetType(Type *Ty, ArrayRef<unsigned> Offsets) {
   Type *RetTy = Ty;
 
   for (auto OffsetVal : Offsets) {
