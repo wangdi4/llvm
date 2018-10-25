@@ -18,12 +18,6 @@ if (WIN32 AND NOT BUILD_X64)
     string( REPLACE /Ob2  "/Ob1" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
 endif (WIN32 AND NOT BUILD_X64)
 
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
-endif (WIN32)
-
 link_directories( ${TBB_LIB_DIR} )
 
 add_definitions(-DTASK_EXECUTOR_EXPORTS
@@ -51,7 +45,9 @@ add_opencl_library (${TARGET_NAME} SHARED
     INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
     ${CL_API_HEADERS}
-    ${OCL_BINARY_DIR})
+    ${OCL_BINARY_DIR}
+
+    RC_TEMPLATE DEFAULT)
 
 if (WIN32)
     list (APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib)
