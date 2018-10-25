@@ -33,13 +33,10 @@
 
 using namespace llvm;
 
-namespace llvm {
+namespace {
 // Forward declarations.
 class CSALowerParallelIntrinsicsImpl;
-} // end namespace llvm
 
-
-namespace {
 /// \brief The class defines a section defined by a pair of
 /// llvm.csa.parallel_section_entry/exit calls.
 class Section {
@@ -255,77 +252,74 @@ public:
   void processSectionRecursively(CSALowerParallelIntrinsicsImpl &Context);
 };
 
+// Legacy wrapper pass to provide the CSALowerParallelIntrinsics object.
+class CSALowerParallelIntrinsicsWrapper : public FunctionPass {
+  std::unique_ptr<CSALowerParallelIntrinsics> Result;
+
+public:
+  static char ID;
+  CSALowerParallelIntrinsics Impl;
+
+  bool runOnFunction(Function &) override;
+
+  CSALowerParallelIntrinsicsWrapper() : FunctionPass(ID) {
+    initializeCSALowerParallelIntrinsicsWrapperPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &) const override;
+
+  StringRef getPassName() const override {
+    return "CSA: Lower parallel intrinsics";
+  }
+};
+
+class CSALowerParallelIntrinsicsImpl {
+  friend Section;
+
+  DenseMap<IntrinsicInst *, Section *> CallToSectionMap;
+
+  /// \brief F - a reference to the current Function.
+  Function &F;
+  /// \brief DT - a reference to DominatorTree structure.
+  DominatorTree &DT;
+  /// \brief LI - a reference to LoopInfo structure.
+  LoopInfo &LI;
+
+  /// \brief Unique integer identifier of a section.
+  unsigned SectionID;
+
+  /// \brief Delete all CSA intrinsic calls in the current Function.
+  void deleteIntrinsicCalls(ArrayRef<Section *> Sections);
+
+  /// \brief Map the given CSA intrinsic call \p I to the given
+  /// Section \p S created for this call.
+  void setSectionForInst(IntrinsicInst *I, Section *S) {
+    CallToSectionMap[I] = S;
+  }
+
+  /// \brief Return Section corresponding to the given CSA intrinsic
+  /// call \p I.
+  Section *getSectionFromInst(IntrinsicInst *I) const {
+    auto MI = CallToSectionMap.find(I);
+
+    assert(MI != CallToSectionMap.end() &&
+           "Unmapped llvm.csa.parallel_section_entry.");
+
+    return MI->second;
+  }
+
+public:
+  /// \brief Constructor initializing the pass's context
+  /// with the given anlysis' results.
+  CSALowerParallelIntrinsicsImpl(
+      Function &F, DominatorTree &DT, LoopInfo &LI)
+      : F(F), DT(DT), LI(LI), SectionID(0) {}
+
+  /// \brief Pass entry point.
+  bool run();
+};
 } // end anonymous namespace
-
-namespace llvm {
-  // Legacy wrapper pass to provide the CSALowerParallelIntrinsics object.
-  class CSALowerParallelIntrinsicsWrapper : public FunctionPass {
-    std::unique_ptr<CSALowerParallelIntrinsics> Result;
-
-  public:
-    static char ID;
-    CSALowerParallelIntrinsics Impl;
-
-    bool runOnFunction(Function &) override;
-
-    CSALowerParallelIntrinsicsWrapper() : FunctionPass(ID) {
-      initializeCSALowerParallelIntrinsicsWrapperPass(
-          *PassRegistry::getPassRegistry());
-    }
-
-    void getAnalysisUsage(AnalysisUsage &) const override;
-
-    StringRef getPassName() const override {
-      return "CSA: Lower parallel intrinsics";
-    }
-  };
-
-  class CSALowerParallelIntrinsicsImpl {
-    friend Section;
-
-    DenseMap<IntrinsicInst *, Section *> CallToSectionMap;
-
-    /// \brief F - a reference to the current Function.
-    Function &F;
-    /// \brief DT - a reference to DominatorTree structure.
-    DominatorTree &DT;
-    /// \brief LI - a reference to LoopInfo structure.
-    LoopInfo &LI;
-
-    /// \brief Unique integer identifier of a section.
-    unsigned SectionID;
-
-    /// \brief Delete all CSA intrinsic calls in the current Function.
-    void deleteIntrinsicCalls(ArrayRef<Section *> Sections);
-
-    /// \brief Map the given CSA intrinsic call \p I to the given
-    /// Section \p S created for this call.
-    void setSectionForInst(IntrinsicInst *I, Section *S) {
-      CallToSectionMap[I] = S;
-    }
-
-    /// \brief Return Section corresponding to the given CSA intrinsic
-    /// call \p I.
-    Section *getSectionFromInst(IntrinsicInst *I) const {
-      auto MI = CallToSectionMap.find(I);
-
-      assert(MI != CallToSectionMap.end() &&
-             "Unmapped llvm.csa.parallel_section_entry.");
-
-      return MI->second;
-    }
-
-  public:
-    /// \brief Constructor initializing the pass's context
-    /// with the given anlysis' results.
-    CSALowerParallelIntrinsicsImpl(
-        Function &F, DominatorTree &DT, LoopInfo &LI) :
-      F(F), DT(DT), LI(LI), SectionID(0) {}
-
-    /// \brief Pass entry point.
-    bool run();
-  };
-} // end namespace llvm
 
 #define DEBUG_TYPE "csa-lower-parallel-intrinsic"
 
@@ -573,7 +567,7 @@ void Section::collectSectionRecursively(
 }
 
 void Section::processSectionRecursively(
-    llvm::CSALowerParallelIntrinsicsImpl &Context) {
+    CSALowerParallelIntrinsicsImpl &Context) {
 
   LLVM_DEBUG(dbgs() << "Processing section " << ID << ".\n");
 

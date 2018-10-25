@@ -39,9 +39,12 @@ using namespace llvm;
 
 namespace {
 
+// TODO (vzakhari 10/8/2018): replace the tuple with a real struct,
+//       to make the accesses to ReverseMap more readable.
 typedef std::vector<
   std::tuple<size_t, unsigned, unsigned, const CodeGenInstruction *>
   > ReverseMapTy;
+
 class CSAOpSizes {
   RecordKeeper &Records;
   CodeGenDAGPatterns CDP;
@@ -83,30 +86,30 @@ void CSAOpSizes::run(raw_ostream &OS) {
 
   OS << "static OpcGenericMap opcode_to_generic_map[] = {\n";
   for (auto &II : Target.getInstructionsByEnumValue()) {
-    RecordVal *genOpValue = II->TheDef->getValue("GenOp");
-    Record *genOp = nullptr, *opInfo = nullptr;
-    if (genOpValue && isa<DefInit>(genOpValue->getValue())) {
-      genOp = cast<DefInit>(genOpValue->getValue())->getDef();
+    RecordVal *GenOpValue = II->TheDef->getValue("GenOp");
+    Record *GenOp = nullptr, *opInfo = nullptr;
+    if (GenOpValue && isa<DefInit>(GenOpValue->getValue())) {
+      GenOp = cast<DefInit>(GenOpValue->getValue())->getDef();
       opInfo = II->TheDef->getValueAsDef("OpInfo");
     }
     OS << "  { " << Namespace << "::Generic::";
-    if (genOp) {
-      unsigned size = opInfo->getValueAsInt("OpBitSize");
-      unsigned classification;
+    if (GenOp) {
+      unsigned Size = opInfo->getValueAsInt("OpBitSize");
+      unsigned Classification;
       auto suffixStr = opInfo->getValueAsString("InstrSuffix");
       if (suffixStr[0] == 's')
-        classification = 2;
+        Classification = 2;
       else if (suffixStr[0] == 'u')
-        classification = 3;
+        Classification = 3;
       else if (suffixStr[0] == 'f')
-        classification = 1;
+        Classification = 1;
       else
-        classification = 0;
+        Classification = 0;
       ReverseMap.emplace_back(
-        std::find(GenericOps.begin(), GenericOps.end(), genOp) - GenericOps.begin(),
-        size, classification, II);
-      OS << genOp->getName() << ", ";
-      OS << size << ", " << classification;
+        std::find(GenericOps.begin(), GenericOps.end(), GenOp) - GenericOps.begin(),
+        Size, Classification, II);
+      OS << GenOp->getName() << ", ";
+      OS << Size << ", " << Classification;
     } else {
       OS << "INVALID_OP, 0, 0";
     }
@@ -117,12 +120,12 @@ void CSAOpSizes::run(raw_ostream &OS) {
   // Sort the reverse map
   std::sort(ReverseMap.begin(), ReverseMap.end());
   OS << "\nstatic GenericOpcMap generic_to_opcode_map[] = {\n";
-  for (auto &val : ReverseMap) {
+  for (auto &Val : ReverseMap) {
     OS << "  { " << Namespace << "::Generic::" <<
-      GenericOps[std::get<0>(val)]->getName();
-    auto II = std::get<3>(val);
+      GenericOps[std::get<0>(Val)]->getName();
+    auto II = std::get<3>(Val);
     OS << ", " << II->Namespace << "::" << II->TheDef->getName();
-    OS << ", " << std::get<1>(val) << ", " << std::get<2>(val) << " },\n";
+    OS << ", " << std::get<1>(Val) << ", " << std::get<2>(Val) << " },\n";
   }
   // An invalid operation at the end to prevent reading off the end of the
   // array.
@@ -132,17 +135,17 @@ void CSAOpSizes::run(raw_ostream &OS) {
   // Emit an index map that indexes into the first value of the array.
   OS << "\nstatic size_t generic_index_map[] = {\n";
   OS << "  ~0U,\n"; // INVALID_OP, which is invalid
-  unsigned expected = ~0U;
-  for (size_t i = 0; i < ReverseMap.size(); i++) {
-    unsigned index = std::get<0>(ReverseMap[i]);
-    if (index != expected) {
+  unsigned Expected = ~0U;
+  for (size_t I = 0; I < ReverseMap.size(); I++) {
+    unsigned Index = std::get<0>(ReverseMap[I]);
+    if (Index != Expected) {
       // This is the next index. Now, we should have everything in the reverse
       // map, but if we don't, then we need to emit extra entries.
-      for (unsigned val = expected + 1; val != index; val++)
-        OS << "  ~0U, // " << GenericOps[val]->getName() << "\n";
-      OS << "  " << i << ", // " << GenericOps[index]->getName() << "\n";
+      for (unsigned Val = Expected + 1; Val != Index; Val++)
+        OS << "  ~0U, // " << GenericOps[Val]->getName() << "\n";
+      OS << "  " << I << ", // " << GenericOps[Index]->getName() << "\n";
     }
-    expected = index;
+    Expected = Index;
   }
   OS << "};\n";
 
@@ -205,36 +208,36 @@ void CSAOpSizes::emitMIRMatcher(raw_ostream &OS, const ReverseMapTy &ReverseMap,
     // Ignore target-independent opcodes
     if (II->Namespace == "TargetOpcode")
       continue;
-    StringRef name = II->TheDef->getName();
+    StringRef Name = II->TheDef->getName();
     OS << "  constexpr mirmatch::Opcode<" << II->Namespace << "::"
-      << name << "> " << name.lower() << "{};\n";
+      << Name << "> " << Name.lower() << "{};\n";
   }
 
   OS << "\n";
 
   // Add the reverse opcode map.
-  unsigned expected = ~0U;
-  bool needToClose = false, needComma = false;
-  for (size_t i = 0; i < ReverseMap.size(); i++) {
-    unsigned index = std::get<0>(ReverseMap[i]);
-    if (index != expected) {
-      if (needToClose) {
-        OS << "> " << GenericOps[expected]->getName().lower() << "_N{};\n";
+  unsigned Expected = ~0U;
+  bool NeedToClose = false, NeedComma = false;
+  for (size_t I = 0; I < ReverseMap.size(); I++) {
+    unsigned Index = std::get<0>(ReverseMap[I]);
+    if (Index != Expected) {
+      if (NeedToClose) {
+        OS << "> " << GenericOps[Expected]->getName().lower() << "_N{};\n";
       }
       OS << "  constexpr mirmatch::OpcodeGroup<";
-      needToClose = true;
-      needComma = false;
+      NeedToClose = true;
+      NeedComma = false;
     }
-    expected = index;
+    Expected = Index;
 
-    if (needComma)
+    if (NeedComma)
       OS << ", ";
-    auto &II = std::get<3>(ReverseMap[i]);
+    auto &II = std::get<3>(ReverseMap[I]);
     OS << II->Namespace << "::" << II->TheDef->getName();
-    needComma = true;
+    NeedComma = true;
   }
-  if (needToClose) {
-    OS << "> " << GenericOps[expected]->getName().lower() << "_N{};\n";
+  if (NeedToClose) {
+    OS << "> " << GenericOps[Expected]->getName().lower() << "_N{};\n";
   }
   OS << "} // end " << Namespace << "Match namespace\n";
   OS << "} // end llvm namespace\n";

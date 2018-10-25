@@ -122,6 +122,8 @@ WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
   setIsPar();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
+  // Under CSA we do not always transform the Sections into
+  // a loop, so don't call setIsOmpLoop() in those cases.
   if (getWRNLoopInfo().getLoop())
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION

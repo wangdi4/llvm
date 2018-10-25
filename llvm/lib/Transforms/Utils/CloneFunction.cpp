@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/DenseMap.h"  // INTEL
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ConstantFolding.h"
@@ -739,7 +740,7 @@ void llvm::remapInstructionsInBlocks(
 /// \p ClonedLoopMap is updated to keep the mapping between the original
 /// descendant Loops and the newly created ones.
 static void createNewLoops(Loop *OrigLoop, LoopInfo *LI, Loop *NewLoop,
-                           std::map<Loop*, Loop*>  &ClonedLoopMap) {
+                           DenseMap<const Loop *, Loop *>  &ClonedLoopMap) {
   if (OrigLoop->empty()) return;
 
   for (auto CurrLoop :  OrigLoop->getSubLoops()) {
@@ -779,7 +780,7 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
 
 #if INTEL_CUSTOMIZATION
   // Map each old Loop with new one.
-  std::map<Loop*, Loop*> ClonedLoopMap;
+  DenseMap<const Loop *, Loop *> ClonedLoopMap;
   // Add the top level loop provided for cloning.
   ClonedLoopMap[OrigLoop] = NewLoop;
 
@@ -807,9 +808,9 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
 
 #if INTEL_CUSTOMIZATION
     // Get the innermost loop for the BB.
-    Loop* L = LI->getLoopFor(BB);
+    Loop *L = LI->getLoopFor(BB);
     // Get the corresponding cloned loop.
-    Loop* NewClonedLoop = ClonedLoopMap[L];
+    Loop *NewClonedLoop = ClonedLoopMap[L];
     assert(NewClonedLoop && "Could not find the corresponding cloned loop.");
     // Update LoopInfo.
     NewClonedLoop->addBasicBlockToLoop(NewBB, *LI);

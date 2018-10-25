@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #if !INTEL_FEATURE_CSA
-#error CSAIRPasses.h include in an non-INTEL_FEATURE_CSA build.
+#error CSAIRPasses.h include in a non-INTEL_FEATURE_CSA build.
 #endif  // INTEL_FEATURE_CSA
 
 #ifndef INTEL_CSA_CSAIRPASSES_H

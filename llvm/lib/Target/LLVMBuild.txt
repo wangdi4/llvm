@@ -25,9 +25,13 @@ subdirectories =
  AArch64
  AVR
  BPF
+; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_CSA
+ CSA
+; end INTEL_FEATURE_CSA
+; end INTEL_CUSTOMIZATION
  Lanai
  Hexagon
- CSA
  MSP430
  NVPTX
  Mips

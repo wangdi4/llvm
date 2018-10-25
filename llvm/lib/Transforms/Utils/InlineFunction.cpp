@@ -1719,7 +1719,7 @@ static void reassignCSAParallelRegionId(IntrinsicInst *Intr) {
   LLVMContext &Context = Intr->getContext();
 
   int TotalNumberOfInsts = 0;
-  for (const BasicBlock &BB : *Intr->getParent()->getParent()) {
+  for (const BasicBlock &BB : *Intr->getFunction()) {
     TotalNumberOfInsts += BB.size();
   }
 
@@ -1729,8 +1729,9 @@ static void reassignCSAParallelRegionId(IntrinsicInst *Intr) {
   if (!OldId) return;
 
   const auto NewIdName =
-    "inln_" + Twine{TotalNumberOfInsts} + "_" + Twine{OldId->getSExtValue()};
-  const int NewId = Context.getMDKindID(NewIdName.str()) + 1000;
+      ("inln_" + Twine(TotalNumberOfInsts) +
+       "_" + Twine(OldId->getSExtValue())).str();
+  const int NewId = Context.getMDKindID(NewIdName) + 1000;
 #define DEBUG_TYPE "csa-region-id-renumberer"
   LLVM_DEBUG(dbgs() << "Updating region id of " << Intr->getName() << " from "
              << OldId->getSExtValue() << " to " << NewId << " ("

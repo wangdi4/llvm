@@ -45,7 +45,10 @@ public:
   CSADiagInfo(const Function &F, const DiagnosticLocation &Loc,
               const Twine &Msg, DiagnosticSeverity DS = DS_Warning)
     : DiagnosticInfoWithLocationBase(
-        static_cast<DiagnosticKind>(DK_FirstPluginKind), DS, F, Loc),
+          // TODO (vzakhari 10/8/2018): we may want to introduce a real
+          //       DiagnosticKind.
+          static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind()),
+          DS, F, Loc),
       Msg(Msg)
   {}
 

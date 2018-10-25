@@ -29,12 +29,12 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case avr:            return "avr";
   case bpfel:          return "bpfel";
   case bpfeb:          return "bpfeb";
-  case hexagon:        return "hexagon";
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case csa:            return "csa";
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
+  case hexagon:        return "hexagon";
   case mips:           return "mips";
   case mipsel:         return "mipsel";
   case mips64:         return "mips64";

@@ -35,7 +35,7 @@ namespace llvm {
   /// \brief CSALowerParallelIntrinsics - new pass manager pass that lowers
   /// CSA specific intrinsics into metadata.
   ///
-  /// The pass lookes foer llvm.csa.parallel_section_entry/exit calls
+  /// The pass lookes for llvm.csa.parallel_section_entry/exit calls
   /// and identifies groups of independent memory accesses located
   /// in different sections.  The pass sets up alias.scope/noalias
   /// metadata for these memory accesses and removes the intrinsic
