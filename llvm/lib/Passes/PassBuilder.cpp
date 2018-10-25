@@ -247,6 +247,13 @@ static cl::opt<bool>
     RunPartialInlining("enable-npm-partial-inlining", cl::init(false),
                        cl::Hidden, cl::ZeroOrMore,
                        cl::desc("Run Partial inlinining pass"));
+#if INTEL_CUSTOMIZATION
+// Enable the partial inlining during LTO
+static cl::opt<bool>
+    RunLTOPartialInlining("enable-npm-lto-partial-inlining", cl::init(true),
+                       cl::Hidden, cl::ZeroOrMore,
+                       cl::desc("Run LTO Partial inlinining pass"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     RunNewGVN("enable-npm-newgvn", cl::init(false),
@@ -1278,6 +1285,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
+  if (RunLTOPartialInlining)
+    MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/));
+
   if (EnableIPCloning)
     MPM.addPass(IPCloningPass(/*AfterInl*/ true));
 #endif // INTEL_CUSTOMIZATION

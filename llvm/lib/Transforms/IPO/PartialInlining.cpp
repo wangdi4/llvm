@@ -154,6 +154,23 @@ static cl::opt<unsigned> ExtraOutliningPenalty(
     "partial-inlining-extra-penalty", cl::init(0), cl::Hidden,
     cl::desc("A debug option to add additional penalty to the computed one."));
 
+#if INTEL_CUSTOMIZATION
+// The probability that the outlined (splinter) function will be called after
+// partially inlining has been performed. The default value is 50, which
+// represents that there is a 50% chance that the branch will be taken and a
+// 50% chance that it won't be taken.
+static cl::opt<unsigned> DevirtBranchProbability(
+    "partial-inline-devirt-probability", cl::init(50), cl::Hidden,
+    cl::desc("The probability of taking a branch if the function is a "
+             "virtual function target"));
+
+// Force virtual function targets to be partially inlined. This is for
+// debugging purposes.
+static cl::opt<bool> LTOPartialInlineVirtual(
+    "partial-inline-virtual-functions", cl::init(false), cl::Hidden,
+    cl::desc("Force partial inlining on virtual function targets"));
+#endif
+
 namespace {
 
 struct FunctionOutliningInfo {
@@ -203,9 +220,11 @@ struct PartialInlinerImpl {
       std::function<AssumptionCache &(Function &)> *GetAC,
       std::function<TargetTransformInfo &(Function &)> *GTTI,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> GBFI,
-      InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI) // INTEL
-      : GetAssumptionCache(GetAC), GetTTI(GTTI), GetBFI(GBFI),      // INTEL
-        ILIC(InlLoopIC), PSI(ProfSI) {}                             // INTEL
+      InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI, // INTEL
+      bool RunLTOPartialInline) :                                   // INTEL
+        GetAssumptionCache(GetAC), GetTTI(GTTI), GetBFI(GBFI),      // INTEL
+        ILIC(InlLoopIC), PSI(ProfSI),                               // INTEL
+        RunLTOPartialInline(RunLTOPartialInline) {}                 // INTEL
 
   bool run(Module &M);
   // Main part of the transformation that calls helper functions to find
@@ -311,7 +330,35 @@ private:
     return CS;
   }
 
+#if INTEL_CUSTOMIZATION
+  // If the input function is a target of a virtual function
+  // then check if there is at least one user. This function
+  // returns the first call site found for the input function,
+  // else it returns a nullptr if no callsites were found.
+  static User* getOneDirectCallSiteUser(Function *Func) {
+    if (Func->hasAddressTaken() &&
+        Func->hasMetadata() &&
+        Func->getMetadata("_Intel.Devirt.Target") != nullptr) {
+      for (User *FuncUser : Func->users()) {
+        if (isa<CallInst>(FuncUser) || isa<InvokeInst>(FuncUser))
+          return FuncUser;
+      }
+    }
+
+    return nullptr;
+  }
+#endif
+
   static CallSite getOneCallSiteTo(Function *F) {
+
+#if INTEL_CUSTOMIZATION
+    // If the function is a target of a virtual function,
+    // then return the first user
+    User *VirtualFuncUser = getOneDirectCallSiteUser(F);
+    if (VirtualFuncUser)
+      return getCallSite(VirtualFuncUser);
+#endif
+
     User *User = *F->user_begin();
     return getCallSite(User);
   }
@@ -331,6 +378,23 @@ private:
   //   basic block Cloner.OutliningCallBB;
   std::tuple<int, int> computeOutliningCosts(FunctionCloner &Cloner);
 
+#if INTEL_CUSTOMIZATION
+  // The current function that is being partially inlined is a target
+  // of a virtual function
+  bool IsVirtualTarget = false;
+
+  // The partial inliner is being called from the LTO pass
+  bool RunLTOPartialInline = false;
+
+  // Return true if all the call sites for the input function
+  // are direct calls.
+  bool allCallSitesAreDirect(Function *Func);
+
+  // Return true if the input function is used as a target of
+  // a virtual call site, else return false
+  bool isVirtualFunctionTarget(Function *Func);
+#endif //INTEL_CUSTOMIZATION
+
   // Compute the 'InlineCost' of block BB. InlineCost is a proxy used to
   // approximate both the size and runtime cost (Note that in the current
   // inline cost analysis, there is no clear distinction there either).
@@ -347,6 +411,16 @@ struct PartialInlinerLegacyPass : public ModulePass {
   PartialInlinerLegacyPass() : ModulePass(ID) {
     initializePartialInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
   }
+
+#if INTEL_CUSTOMIZATION
+  PartialInlinerLegacyPass(bool RunLTOPartialInline) : ModulePass(ID),
+        RunLTOPartialInline(RunLTOPartialInline) {
+    initializePartialInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  // The partial inlining is being called from the LTO process
+  bool RunLTOPartialInline = false;
+#endif // INTEL_CUSTOMIZATION
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
@@ -377,7 +451,7 @@ struct PartialInlinerLegacyPass : public ModulePass {
 #if INTEL_CUSTOMIZATION
     auto ILIC = make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(&GetAssumptionCache, &GetTTI, NoneType::None,
-                              ILIC.get(), PSI)
+                              ILIC.get(), PSI, RunLTOPartialInline)
         .run(M);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -734,6 +808,17 @@ PartialInlinerImpl::getOutliningCallBBRelativeFreq(FunctionCloner &Cloner) {
   if (hasProfileData(Cloner.OrigFunc, Cloner.ClonedOI.get()))
     return OutlineRegionRelFreq;
 
+#if INTEL_CUSTOMIZATION
+  // If the function is a target of a virtual call, then we are going to
+  // use a conservative branch probability. This means that there will be
+  // a 50% chance that the branch will be taken or not taken.
+  Function *OldFunc = Cloner.OrigFunc;
+  if (isVirtualFunctionTarget(OldFunc)) {
+    auto DevirtProbability = BranchProbability(DevirtBranchProbability, 100);
+    return DevirtProbability;
+  }
+#endif
+
   // When profile data is not available, we need to be conservative in
   // estimating the overall savings. Static branch prediction can usually
   // guess the branch direction right (taken/non-taken), but the guessed
@@ -824,7 +909,6 @@ bool PartialInlinerImpl::shouldPartialInline(
              << ")"
              << " of making the outlined call is too high";
     });
-
     return false;
   }
 
@@ -1255,9 +1339,53 @@ PartialInlinerImpl::FunctionCloner::~FunctionCloner() {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// Return true if all call sites to the input function are direct
+// calls, else return false.
+bool PartialInlinerImpl::allCallSitesAreDirect(Function *Func) {
+
+  // We start with false because it is possible that the input
+  // function doesn't have any direct call site.
+  bool CallSitesAreDirect = false;
+
+  for (User *FuncUser : Func->users()) {
+    if (isa<CallInst>(FuncUser) || isa<InvokeInst>(FuncUser)) {
+      CallSite CS = getCallSite(FuncUser);
+      Function *CallFunc = CS.getCalledFunction();
+      if (!CallFunc || CallFunc != Func)
+        return false;
+
+      CallSitesAreDirect = true;
+    }
+  }
+
+  return CallSitesAreDirect;
+}
+
+// Return true if the input function is the target of a virtual
+// call.
+bool PartialInlinerImpl::isVirtualFunctionTarget(Function *Func) {
+  return ((RunLTOPartialInline || LTOPartialInlineVirtual)
+          && Func->hasMetadata() &&
+          Func->getMetadata("_Intel.Devirt.Target") != nullptr);
+}
+
+#endif
+
 std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
 
-  if (F->hasAddressTaken())
+#if INTEL_CUSTOMIZATION
+  // Only do LTO partial inlining for functions that are targets of
+  // virtual calls
+  if ((RunLTOPartialInline || LTOPartialInlineVirtual)
+      && !F->hasAddressTaken())
+    return {false, nullptr};
+
+  IsVirtualTarget = isVirtualFunctionTarget(F) &&
+                    allCallSitesAreDirect(F);
+#endif // INTEL_CUSTOMIZATION
+
+  if (F->hasAddressTaken() && !IsVirtualTarget)    // INTEL
     return {false, nullptr};
 
   // Let inliner handle it
@@ -1392,6 +1520,15 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 
   bool AnyInline = false;
   for (User *User : Users) {
+
+#if INTEL_CUSTOMIZATION
+    // If the function is a virtual target then, there may be users that
+    // are not call sites. We can skip those here.
+    if (IsVirtualTarget &&
+        !isa<CallInst>(User) && !isa<InvokeInst>(User))
+      continue;
+#endif
+
     CallSite CS = getCallSite(User);
 
     if (IsLimitReached())
@@ -1496,9 +1633,11 @@ INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(PartialInlinerLegacyPass, "partial-inliner",
                     "Partial Inliner", false, false)
 
-ModulePass *llvm::createPartialInliningPass() {
-  return new PartialInlinerLegacyPass();
+#if INTEL_CUSTOMIZATION
+ModulePass *llvm::createPartialInliningPass(bool RunLTOPartialInline) {
+  return new PartialInlinerLegacyPass(RunLTOPartialInline);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses PartialInlinerPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
@@ -1524,7 +1663,7 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
 #if INTEL_CUSTOMIZATION
   auto ILIC = make_unique<InliningLoopInfoCache>();
   if (PartialInlinerImpl(&GetAssumptionCache, &GetTTI, {GetBFI}, ILIC.get(),
-                         PSI)
+                         PSI, RunLTOPartialInline)
           .run(M))
 #endif // INTEL_CUSTOMIZATION
     return PreservedAnalyses::none();

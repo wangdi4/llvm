@@ -89,6 +89,14 @@ static cl::opt<bool>
     RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
                        cl::ZeroOrMore, cl::desc("Run Partial inlinining pass"));
 
+#if INTEL_CUSTOMIZATION
+// Enable partial inlining during LTO
+static cl::opt<bool>
+    RunLTOPartialInlining("enable-lto-partial-inlining", cl::init(true),
+                          cl::Hidden, cl::ZeroOrMore,
+                          cl::desc("Run LTO Partial inlinining pass"));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<bool>
     RunLoopVectorization("vectorize-loops", cl::Hidden,
                          cl::desc("Run the Loop vectorization passes"));
@@ -1189,6 +1197,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createGlobalOptimizerPass());
 
 #if INTEL_CUSTOMIZATION
+  if (RunLTOPartialInlining)
+    PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/));
+
   if (EnableIPCloning || EnableCallTreeCloning) {
     if (EnableIPCloning)
       // Enable generic IPCloning after Inlining.

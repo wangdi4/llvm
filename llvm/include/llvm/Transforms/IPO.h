@@ -210,7 +210,9 @@ ModulePass *createHotColdSplittingPass();
 //===----------------------------------------------------------------------===//
 /// createPartialInliningPass - This pass inlines parts of functions.
 ///
-ModulePass *createPartialInliningPass();
+#if INTEL_CUSTOMIZATION
+ModulePass *createPartialInliningPass(bool RunLTOPartialInline = false);
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 /// createBarrierNoopPass - This pass is purely a module pass barrier in a pass

@@ -130,7 +130,7 @@ static cl::opt<unsigned>
 // Allows us to perform the multiversioning for the devirtualization
 // as opposed to generating the branch funnels
 static cl::opt<bool> WPDevirtMultiversion("wholeprogramdevirt-multiversion",
-                                          cl::init(false), cl::ReallyHidden);
+                                          cl::init(true), cl::ReallyHidden);
 
 // Run the verifier to check if the multiversion generated something wrong
 static cl::opt<bool> WPDevirtMultiversionVerify(
