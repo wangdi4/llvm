@@ -910,6 +910,9 @@ public:
     return true;
   }
 
+  /// Sets the pragma based minimum trip count of the loop to \p MinTripCount.
+  void setPragmaBasedMinimumTripCount(unsigned MinTripCount);
+
   /// Returns true if maximum trip count of loop is specified using pragma and
   /// returns the value in \p MaxTripCount.
   bool getPragmaBasedMaximumTripCount(unsigned &MaxTripCount) const {
@@ -924,6 +927,9 @@ public:
     return true;
   }
 
+  /// Sets the pragma based maximum trip count of the loop to \p MaxTripCount.
+  void setPragmaBasedMaximumTripCount(unsigned MaxTripCount);
+
   /// Returns true if average trip count of loop is specified using pragma and
   /// returns the value in \p AvgTripCount.
   bool getPragmaBasedAverageTripCount(unsigned &AvgTripCount) const {
@@ -937,6 +943,12 @@ public:
         mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
     return true;
   }
+
+  /// Sets the pragma based average trip count of the loop to \p AvgTripCount.
+  void setPragmaBasedAverageTripCount(unsigned AvgTripCount);
+
+  /// Divides any existing pragma based min/max/avg trip count by \p Factor.
+  void dividePragmaBasedTripCount(unsigned Factor);
 
   /// Returns true if likely trip counts of loop are specified using pragma and
   /// returns the values in \p TripCounts.

@@ -254,6 +254,8 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     NewLoop->setMaxTripCountEstimate(
         NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
         NewLoop->isMaxTripCountEstimateUsefulForDD());
+
+    NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
   }
 
   // Set the code gen for modified region
@@ -321,6 +323,13 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // Update remainder loop's trip count estimate.
     // TODO: can set useful for DD flag if loop is normalized.
     OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
+
+    // Original min/avg trip count metadata does not apply to remainder loop.
+    OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
+    OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
+
+    // New max trip count metadata can be applied.
+    OrigLoop->setPragmaBasedMaximumTripCount(UnrollOrVecFactor - 1);
   }
 
   LLVM_DEBUG(dbgs() << "\n Remainder Loop \n");

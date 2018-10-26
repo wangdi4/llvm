@@ -11,14 +11,19 @@
 ;   return 0;
 ; }
 ; 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-before=VPlanDriverHIR -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
+
+; Before vectorization
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 1024> <min_trip_count = 10> <avg_trip_count = 55> <max_trip_count = 100>
+
+; After vectorization
 ; CHECK: %tgu = 
-; CHECK: DO i1 = 0, 4 * %tgu + -1, 4
+; CHECK: DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 256> <nounroll> <novectorize> <min_trip_count = 2> <avg_trip_count = 13> <max_trip_count = 25>
 ; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
-; CHECK: DO i1 = 4 * %tgu,{{.*}}, 1   <DO_LOOP>
+; CHECK: DO i1 = 4 * %tgu, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 3> <novectorize> <max_trip_count = 3>
 ; CHECK: (@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
 ; ModuleID = 'rem3.ll'
@@ -47,7 +52,7 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
-  br i1 %exitcond, label %for.end.loopexit, label %for.body
+  br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !5
 
 for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
@@ -65,3 +70,8 @@ attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-
 !2 = !{!"int", !3, i64 0}
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
+!5 = distinct !{!5, !6, !7, !8}
+!6 = !{!"llvm.loop.intel.loopcount_maximum", i32 100}
+!7 = !{!"llvm.loop.intel.loopcount_minimum", i32 10}
+!8 = !{!"llvm.loop.intel.loopcount_average", i32 55}
+

@@ -169,8 +169,6 @@ private:
   /// Returns 0 if unrolling is not profitable.
   unsigned refineUnrollFactorUsingReuseAnalysis(const HLLoop *Loop,
                                                 unsigned CurUnrollFactor) const;
-
-  void addUnrollDisablingPragma(HLLoop *Loop) const;
 };
 } // namespace
 
@@ -243,18 +241,6 @@ void HIRGeneralUnroll::sanitizeOptions() {
   }
 }
 
-void HIRGeneralUnroll::addUnrollDisablingPragma(HLLoop *Loop) const {
-  Loop->removeLoopMetadata("llvm.loop.unroll.enable");
-  Loop->removeLoopMetadata("llvm.loop.unroll.count");
-
-  auto &Context = Loop->getHLNodeUtils().getContext();
-
-  Metadata *DisableUnrollMD =
-      MDString::get(Context, "llvm.loop.unroll.disable");
-
-  Loop->addLoopMetadata({MDNode::get(Context, DisableUnrollMD)});
-}
-
 /// processGeneralUnroll - Main routine to perform unrolling.
 /// First, performs cost analysis and then do the transformation.
 void HIRGeneralUnroll::processGeneralUnroll(
@@ -280,13 +266,13 @@ void HIRGeneralUnroll::processGeneralUnroll(
       // pass after LoopOpt.
 
       // Add disabling pragma to unrolled loop.
-      addUnrollDisablingPragma(UnrolledLoop);
+      UnrolledLoop->markDoNotUnroll();
 
       // Add disabling pragma to remainder loop unless there is a possibility of
       // complete unroll by LLVM pass.
       // TODO: perform complete unroll in HIR.
       if (RemainderLoop && (HasEnablingPragma || !IsConstTrip)) {
-        addUnrollDisablingPragma(RemainderLoop);
+        RemainderLoop->markDoNotUnroll();
       }
 
       IsUnrollTriggered = true;

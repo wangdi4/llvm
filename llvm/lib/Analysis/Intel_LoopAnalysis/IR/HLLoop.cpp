@@ -1223,6 +1223,9 @@ void HLLoop::markDoNotVectorize() {
 }
 
 void HLLoop::markDoNotUnroll() {
+  removeLoopMetadata("llvm.loop.unroll.enable");
+  removeLoopMetadata("llvm.loop.unroll.count");
+
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
   addLoopMetadata(
       MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
@@ -1686,5 +1689,46 @@ void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
     LoopVisitor LV(Func);
     HLNodeUtils::visitRange<true, false, false>(LV, Loop.getFirstChild(),
                                                 Loop.getLastChild());
+  }
+}
+
+static void addTripCountMetadata(HLLoop *Loop, StringRef MetadataTy,
+                                 unsigned TripCount) {
+  LLVMContext &Context = Loop->getHLNodeUtils().getHIRFramework().getContext();
+
+  auto *TCNode = ConstantAsMetadata::get(
+      ConstantInt::get(Type::getInt32Ty(Context), TripCount));
+
+  auto MNode =
+      MDNode::get(Context, {MDString::get(Context, MetadataTy), TCNode});
+
+  Loop->addLoopMetadata(MNode);
+}
+
+void HLLoop::setPragmaBasedMinimumTripCount(unsigned MinTripCount) {
+  addTripCountMetadata(this, "llvm.loop.intel.loopcount_minimum", MinTripCount);
+}
+
+void HLLoop::setPragmaBasedMaximumTripCount(unsigned MaxTripCount) {
+  addTripCountMetadata(this, "llvm.loop.intel.loopcount_maximum", MaxTripCount);
+}
+
+void HLLoop::setPragmaBasedAverageTripCount(unsigned AvgTripCount) {
+  addTripCountMetadata(this, "llvm.loop.intel.loopcount_average", AvgTripCount);
+}
+
+void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
+  unsigned TC;
+
+  if (getPragmaBasedMinimumTripCount(TC)) {
+    setPragmaBasedMinimumTripCount(TC / Factor);
+  }
+
+  if (getPragmaBasedMaximumTripCount(TC)) {
+    setPragmaBasedMaximumTripCount(TC / Factor);
+  }
+
+  if (getPragmaBasedAverageTripCount(TC)) {
+    setPragmaBasedAverageTripCount(TC / Factor);
   }
 }

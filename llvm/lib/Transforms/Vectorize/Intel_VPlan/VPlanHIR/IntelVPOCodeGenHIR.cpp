@@ -831,18 +831,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     // leading to a performance degradation caused by entering the scalar code
     // path.
     if (!MainLoop->isConstTripLoop()) {
-      const Loop *Lp = MainLoop->getLLVMLoop();
-      LLVMContext &Context = Lp->getHeader()->getContext();
-      SmallVector<Metadata *, 4> MDs;
-      MDs.push_back(nullptr);
-      SmallVector<Metadata *, 1> DisableOperands;
-      DisableOperands.push_back(
-          MDString::get(Context, "llvm.loop.unroll.disable"));
-      MDNode *DisableUnroll = MDNode::get(Context, DisableOperands);
-      MDs.push_back(DisableUnroll);
-      MDNode *NewLoopID = MDNode::get(Context, MDs);
-      NewLoopID->replaceOperandWith(0, NewLoopID);
-      MainLoop->setLoopMetadata(NewLoopID);
+      MainLoop->markDoNotUnroll();
     }
   }
 

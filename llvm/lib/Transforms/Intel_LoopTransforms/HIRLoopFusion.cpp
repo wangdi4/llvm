@@ -345,20 +345,6 @@ bool HIRLoopFusion::generatePreOrPostLoops(
   return HasPeeledLoop;
 }
 
-static void addTripCountMetadata(HLLoop *FirstLoop, unsigned TripCount,
-                                 StringRef Info) {
-  LLVMContext &Context = FirstLoop->getHLNodeUtils().getContext();
-
-  Metadata *TC = ConstantAsMetadata::get(
-      ConstantInt::get(Type::getInt32Ty(Context), TripCount));
-
-  Metadata *MDTC[] = {MDString::get(Context, Info), TC};
-
-  MDNode *MDs[] = {MDNode::get(Context, MDTC)};
-
-  FirstLoop->addLoopMetadata(MDs);
-}
-
 // Update the pragma trip count metadata information for the loop after loop
 // fusion. Only preserve the trip count metadata for the fused loop if there
 // is no peeled loop and the loops have the same pragma trip count metadata
@@ -409,7 +395,7 @@ updatePragmaTripCountInfo(HLLoop *FirstLoop,
   } else if (MaxTripCountSet.size() == 1) {
 
     MaxTripCount = *MaxTripCountSet.begin();
-    addTripCountMetadata(FirstLoop, MaxTripCount, MaxInfo);
+    FirstLoop->setPragmaBasedMaximumTripCount(MaxTripCount);
   }
 
   if (MinTripCountSet.size() > 1) {
@@ -419,7 +405,7 @@ updatePragmaTripCountInfo(HLLoop *FirstLoop,
   } else if (MinTripCountSet.size() == 1) {
 
     MinTripCount = *MinTripCountSet.begin();
-    addTripCountMetadata(FirstLoop, MinTripCount, MinInfo);
+    FirstLoop->setPragmaBasedMinimumTripCount(MinTripCount);
   }
 
   if (AvgTripCountSet.size() > 1) {
@@ -429,7 +415,7 @@ updatePragmaTripCountInfo(HLLoop *FirstLoop,
   } else if (AvgTripCountSet.size() == 1) {
 
     AvgTripCount = *AvgTripCountSet.begin();
-    addTripCountMetadata(FirstLoop, AvgTripCount, AvgInfo);
+    FirstLoop->setPragmaBasedAverageTripCount(AvgTripCount);
   }
 }
 
