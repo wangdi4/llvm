@@ -273,6 +273,8 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   std::vector<Function *> DeadFunctions;
 
   for (Function &F : M) {
+    if (!VPOAnalysisUtils::mayHaveOpenmpDirective(F))
+      continue;
     if (!F.getAttributes().hasAttribute(AttributeList::FunctionIndex,
                                         "target.declare")) {
       DeadFunctions.push_back(&F);
@@ -650,9 +652,6 @@ Constant* VPOParoptModuleTransform::registerTargetRegion(WRegionNode *W,
                               Constant::getNullValue(Type::getInt8Ty(C)),
                               Func->getName() + ".region_id");
   };
-
-  if (VPOAnalysisUtils::isTargetSPIRV(&M))
-    return genRegionID();
 
   // Get offload entry for this target region.
   auto *Entry = getOffloadEntry();

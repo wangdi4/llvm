@@ -183,15 +183,17 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   CallInst *NewCall = cast<CallInst>(U);
   NewCall->setCallingConv(CC);
 
-  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-      hasOffloadCompilation())
-    finalizeKernelFunction(W, NewF, NewCall);
-
   Constant *RegionId = nullptr;
   if (isa<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
     RegionId = MT->registerTargetRegion(W, NewF);
   }
+
+  // Please note that the name of NewF is updated in the
+  // function registerTargetRegion.
+  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+      hasOffloadCompilation())
+    finalizeKernelFunction(W, NewF, NewCall);
 
   IRBuilder<> Builder(F->getEntryBlock().getTerminator());
   AllocaInst *OffloadError = Builder.CreateAlloca(

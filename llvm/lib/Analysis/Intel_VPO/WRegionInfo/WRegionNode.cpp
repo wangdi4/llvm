@@ -1280,7 +1280,6 @@ bool WRegionNode::canHaveSchedule() const {
   case WRNParallelLoop:
   case WRNDistributeParLoop:
   case WRNWksLoop:
-  case WRNDistribute:
     return true;
   }
   return false;
