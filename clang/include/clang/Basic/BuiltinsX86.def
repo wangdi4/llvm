@@ -33,7 +33,7 @@
 BUILTIN(__builtin_cpu_init, "v", "n")
 BUILTIN(__builtin_cpu_supports, "bcC*", "nc")
 // #if INTEL_CUSTOMIZATION
-BUILTIN(_may_i_use_cpu_feature, "bIUWi", "nc")
+BUILTIN(_may_i_use_cpu_feature, "iIUWi", "nc")
 // #endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_cpu_is, "bcC*", "nc")
 

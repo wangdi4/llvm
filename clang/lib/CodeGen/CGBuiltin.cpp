@@ -1329,9 +1329,14 @@ llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
   llvm::Value *Join =
       Builder.CreateAnd(Indicator, CompareFeatures, "cpu_feature_join");
 
-  return Builder.CreateICmpEQ(Join,
-                              llvm::ConstantInt::get(Int64Ty, CompareFeatures),
-                              "cpu_feature_check");
+  llvm::Value *Result = Builder.CreateICmpEQ(
+      Join, llvm::ConstantInt::get(Int64Ty, CompareFeatures),
+      "cpu_feature_check");
+
+  llvm::IntegerType *RetType = IntegerType::get(
+      getLLVMContext(), getContext().getTypeSize(E->getType()));
+
+  return Builder.CreateZExt(Result, RetType, "convert_to_int");
 }
 #endif // INTEL_CUSTOMIZATION
 

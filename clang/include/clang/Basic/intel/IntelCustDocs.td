@@ -1115,7 +1115,7 @@ followed by an equality check against it, similar to this pseudo-code:
 
 .. code-block:: c
 
-  bool _may_i_use_cpu_feature(unsigned __int64 param) {
+  int _may_i_use_cpu_feature(unsigned __int64 param) {
     return (param & __intel_cpu_feature_indicator_x) == param;
   }
 
