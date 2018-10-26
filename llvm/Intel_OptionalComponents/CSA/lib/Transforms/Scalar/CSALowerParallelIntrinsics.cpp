@@ -785,6 +785,44 @@ void CSALowerParallelIntrinsicsImpl::deleteIntrinsicCalls(
   // Collect all region entry calls and delete all region exit calls.
   SmallSetVector<IntrinsicInst *, 64> RegionEntryCalls;
 
+  // TODO (vzakhari 5/13/2018): Jump Threading transformation may
+  //       duplicate calls to llvm.csa.parallel_region_entry, e.g.:
+  //       B0:
+  //           %0 = llvm.csa.parallel_region_entry()
+  //           BR %cmp, loop_exit, loop_preheader
+  //
+  //       loop_preheader:
+  //           BR loop
+  //
+  //       loop:
+  //           ...
+  //
+  //       loop_exit:
+  //           llvm.csa.parallel_region_exit(%0)
+  //
+  //       may be tranformed into:
+  //       B0:
+  //           BR %cmp loop_exit_thread, loop_preheader
+  //
+  //       loop_exit_thread:
+  //           %0.0 = llvm.csa.parallel_region_entry()
+  //           BR loop_exit
+  //
+  //       loop_preheader:
+  //           %0.1 = llvm.csa.parallel_region_entry()
+  //           BR loop
+  //
+  //       loop:
+  //           ...
+  //
+  //       loop_exit:
+  //           %0 = PHI %0.0, %0.1
+  //           llmv.csa.parallel_region_exit(%0)
+  //
+  // The transformation is legal, so we may actually support such cases
+  // in this pass (see waveront_bug.c example in gerrit review
+  // https://git-amr-2.devtools.intel.com/gerrit/#/c/126624/).
+
   for (auto *S : Sections) {
     auto *RegionEntryCall =
       dyn_cast<IntrinsicInst>(S->getEntryCall()->getOperand(0));
@@ -795,54 +833,85 @@ void CSALowerParallelIntrinsicsImpl::deleteIntrinsicCalls(
            "Invalid operand of llvm.csa.parallel_section_entry.");
 
     RegionEntryCalls.insert(RegionEntryCall);
-
-    SmallSetVector<IntrinsicInst *, 2> RegionExitCalls;
-
-    // TODO (vzakhari 5/13/2018): Jump Threading transformation may
-    //       duplicate calls to llvm.csa.parallel_region_entry, e.g.:
-    //       B0:
-    //           BR B1
-    //
-    //       B1:
-    //           %0 = llvm.csa.parallel_region_entry()
-    //           BR loop_header
-    //
-    //       may be tranformed into:
-    //       B0:
-    //           %0.0 = llvm.csa.parallel_region_entry()
-    //           BR loop_header
-    //
-    //       B1:
-    //           %0.1 = llvm.csa.parallel_region_entry()
-    //           BR loop_header
-    //
-    //       loop_header:
-    //           %0 = PHI %0.0, %0.1
-    //
-    // The transformation is legal, so we may actually support such cases
-    // in this pass (see waveront_bug.c example in gerrit review for this
-    // change-set).
-    for (auto *I : RegionEntryCall->users()) {
-      IntrinsicInst *RegionExitCall = dyn_cast<IntrinsicInst>(I);
-
-      assert(RegionExitCall &&
-             (RegionExitCall->getIntrinsicID() ==
-              Intrinsic::csa_parallel_region_exit ||
-              RegionExitCall->getIntrinsicID() ==
-              Intrinsic::csa_parallel_section_entry) &&
-             "Invalid use of region entry call.");
-
-      // We cannot delete the exit call just yet, because
-      // this will invalidate the iterator.
-      if (RegionExitCall->getIntrinsicID() ==
-          Intrinsic::csa_parallel_region_exit)
-        RegionExitCalls.insert(RegionExitCall);
-    }
-
-    // Now we can delete the region exit call.
-    for (auto *I : RegionExitCalls)
-      I->eraseFromParent();
   }
+
+  SmallSetVector<IntrinsicInst *, 8> RegionExitCalls;
+  SmallSetVector<IntrinsicInst *, 64> NewRegionEntryCalls;
+  SmallSetVector<Instruction *, 8> RegionEntryPhis;
+
+  for (auto *RegionEntryCall : RegionEntryCalls) {
+    for (auto *I : RegionEntryCall->users()) {
+      if (auto *RegionExitCall = dyn_cast<IntrinsicInst>(I)) {
+        (void)RegionExitCall;
+        assert((RegionExitCall->getIntrinsicID() ==
+                Intrinsic::csa_parallel_region_exit ||
+                RegionExitCall->getIntrinsicID() ==
+                Intrinsic::csa_parallel_section_entry) &&
+               "Invalid use of region entry call.");
+      } else if (auto *PHI = dyn_cast<PHINode>(I)) {
+        // Try to solve the jump threading issues desribed above.
+        // This is not a complete fix, but it does the job for
+        // CMPLRLLVM-154.  It looks like the right way to solve
+        // this problem in general is to re-implement the state
+        // machine used in memory ordering pass.
+        // The long term solution is to get rid of this pass
+        // and generate the metadata during VPO lowering,
+        // so I am not fixing the general problem now.
+        //
+        // Basically, we collect the PHIs created for results
+        // of llvm.csa.parallel_region_entry.  The operands
+        // of these PHIs are used to populate RegionEntryCalls set.
+        // The PHIs themselves are also used later to collect
+        // llvm.csa.parallel_region_exit calls.
+        RegionEntryPhis.insert(cast<Instruction>(I));
+
+        for (Value *OI : PHI->incoming_values()) {
+          auto *Call = dyn_cast<IntrinsicInst>(OI);
+          assert(Call &&
+                 Call->getIntrinsicID() ==
+                 Intrinsic::csa_parallel_region_entry &&
+                 "Invalid PHI for region entry calls.");
+          NewRegionEntryCalls.insert(Call);
+        }
+      } else
+        llvm_unreachable("Invalud use of region entry call.");
+    }
+  }
+
+  RegionEntryCalls.set_union(NewRegionEntryCalls);
+
+  for (auto *RegionEntryCall : RegionEntryCalls) {
+    for (auto *I : RegionEntryCall->users()) {
+      if (isa<PHINode>(I))
+        assert(RegionEntryPhis.count(cast<Instruction>(I)) != 0 &&
+               "Untracked PHI use of region entry call.");
+      else if (auto *RegionExitCall = dyn_cast<IntrinsicInst>(I)) {
+        if (RegionExitCall->getIntrinsicID() ==
+            Intrinsic::csa_parallel_region_exit)
+          RegionExitCalls.insert(RegionExitCall);
+      } else
+        llvm_unreachable("Invalid use of region entry call.");
+    }
+  }
+
+  // Collect llvm.csa.parallel_region_exit uses of the PHIs.
+  for (auto *RegionEntryPhi : RegionEntryPhis) {
+    for (auto *I : RegionEntryPhi->users()) {
+      if (auto *RegionExitCall = dyn_cast<IntrinsicInst>(I)) {
+        if (RegionExitCall->getIntrinsicID() ==
+            Intrinsic::csa_parallel_region_exit)
+          RegionExitCalls.insert(RegionExitCall);
+      } else
+        llvm_unreachable("Invalid use of region entry phi.");
+    }
+  }
+
+  // Now we can delete the region exit calls...
+  for (auto *I : RegionExitCalls)
+    I->eraseFromParent();
+  // ... and any PHIs that are operands of the region exit calls.
+  for (auto *I : RegionEntryPhis)
+    I->eraseFromParent();
 
   // Delete all section entry calls.
   for (auto *S : Sections) {
