@@ -419,11 +419,10 @@ public:
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {
     auto StrideRef = getStrideDDRef();
-    assert(StrideRef && "Stride ref is null!");
     int64_t Val;
 
     // Stride is 0 for unknown loops.
-    return (StrideRef->isIntConstant(&Val) && (Val == 0));
+    return (!StrideRef || (StrideRef->isIntConstant(&Val) && (Val == 0)));
   }
 
   /// Returns true if this is a do loop.

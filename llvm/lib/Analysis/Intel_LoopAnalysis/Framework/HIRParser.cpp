@@ -1167,14 +1167,14 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
 
   if (!OrigAddRec || !NewAddRec) {
     if (isReplacableUsingConstantAdditive(OrigSCEV, NewSCEV, HIRP->SE,
-                                             Additive)) {
+                                          Additive)) {
       return true;
     }
 
     NewSCEV = HIRP->SE.getNegativeSCEV(NewSCEV);
 
     if (isReplacableUsingConstantAdditive(OrigSCEV, NewSCEV, HIRP->SE,
-                                             Additive)) {
+                                          Additive)) {
       *IsNegation = true;
       return true;
     }
@@ -3191,7 +3191,10 @@ void HIRParser::restructureOnePastTheEndRef(RegDDRef *Ref) const {
   auto HighestCE = Ref->getDimensionIndex(NumDims);
 
   int64_t Val;
-  if (!HighestCE->isIntConstant(&Val) || (Val != 1)) {
+  // The current logic doesn't work for non-contiguous dimensions so we bail
+  // out. Will wait for an actual test case to think about fixing such cases.
+  if (Ref->hasTrailingStructOffsets(NumDims) ||
+      !HighestCE->isIntConstant(&Val) || (Val != 1)) {
     return;
   }
 

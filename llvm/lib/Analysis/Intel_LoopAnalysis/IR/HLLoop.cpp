@@ -376,7 +376,7 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
 
-  if (getStrideDDRef() && (isDo() || isDoMultiExit())) {
+  if (isDo() || isDoMultiExit()) {
     OS << "+ DO ";
     if (Detailed) {
       getIVType()->print(OS);
@@ -402,7 +402,7 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
 
-  } else if (!getStrideDDRef() || isUnknown()) {
+  } else if (isUnknown()) {
     OS << "+ UNKNOWN LOOP i" << NestingLevel;
   } else {
     llvm_unreachable("Unexpected loop type!");
@@ -1032,6 +1032,10 @@ void HLLoop::replaceByFirstIteration() {
 
 void HLLoop::verify() const {
   HLDDNode::verify();
+
+  assert(getLowerDDRef() && "Null lower ref not expected!");
+  assert(getUpperDDRef() && "Null upper ref not expected");
+  assert(getStrideDDRef() && "Null stride ref not expected!");
 
   if (isUnknown()) {
     assert(getHeaderLabel() && "Could not find header label of unknown loop!");
