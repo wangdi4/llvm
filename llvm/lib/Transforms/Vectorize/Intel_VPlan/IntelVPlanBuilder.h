@@ -162,18 +162,15 @@ public:
 #else
 
   VPValue *createNot(VPValue *Operand) {
-    return createInstruction(VPInstruction::Not, Operand->getBaseType(),
-                             {Operand});
+    return createInstruction(VPInstruction::Not, {Operand});
   }
 
   VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::And, LHS->getBaseType(),
-                             {LHS, RHS});
+    return createInstruction(Instruction::BinaryOps::And, {LHS, RHS});
   }
 
   VPValue *createOr(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::Or, LHS->getBaseType(),
-                             {LHS, RHS});
+    return createInstruction(Instruction::BinaryOps::Or, {LHS, RHS});
   }
 #endif //INTEL_CUSTOMIZATION
 
