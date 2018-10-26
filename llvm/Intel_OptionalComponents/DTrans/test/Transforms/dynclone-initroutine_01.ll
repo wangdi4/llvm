@@ -24,8 +24,6 @@ define i32 @main() {
 entry:
   %call = tail call noalias i8* @calloc(i64 10, i64 50)
   %i = bitcast i8* %call to %struct.test.02*
-  %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
-  %j = bitcast i8* %call1 to %struct.test.01*
   %F1_2 = getelementptr %struct.test.02, %struct.test.02* %i, i32 0, i32 1
   br i1 undef, label %A, label %B
 
@@ -44,7 +42,9 @@ D:
   br label %F
 
 F:
-  call void @init(%struct.test.01* %j);
+  call void @init();
+  %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
+  %j = bitcast i8* %call1 to %struct.test.01*
   call void @proc1(%struct.test.01* %j);
   br label %E
 
@@ -56,7 +56,9 @@ E:
 }
 
 ; This routine is selected as InitRoutine.
-define void @init(%struct.test.01* %tp1) {
+define void @init() {
+  %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
+  %tp1 = bitcast i8* %call1 to %struct.test.01*
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
   store i64 %g1, i64* %F1, align 8

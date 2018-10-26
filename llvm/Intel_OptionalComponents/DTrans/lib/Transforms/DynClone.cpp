@@ -257,6 +257,7 @@ private:
   Type *getGEPStructType(GetElementPtrInst *GEP) const;
   DynField getAccessStructField(GEPOperator *GEP) const;
   Type *getCallInfoElemTy(CallInfo *CInfo) const;
+  Type *getTypeRelatedToInstruction(Instruction *I) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
 };
@@ -405,6 +406,32 @@ Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
   return ElemTy;
 }
 
+// Returns Type related to \p I. This is used to get candidate
+// struct type if the type is referenced by \p I.
+Type *DynCloneImpl::getTypeRelatedToInstruction(Instruction *I) const {
+  Type *StTy = nullptr;
+  // Treat a struct as accessed if the struct is referenced by
+  // any of these instructions.
+  // Not checking for MultiElemLoadStore instructions here since
+  // those will be covered by GEPs.
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+    StTy = getGEPStructType(GEP);
+  } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
+    if (BinOp->getOpcode() == Instruction::Sub)
+      StTy = DTInfo.getResolvedPtrSubType(BinOp);
+  } else if (auto *LI = dyn_cast<LoadInst>(I)) {
+    auto LdElem = DTInfo.getLoadElement(LI);
+    StTy = LdElem.first;
+  } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+    auto StElem = DTInfo.getStoreElement(SI);
+    StTy = StElem.first;
+  } else if (isa<CallInst>(I)) {
+    auto *CInfo = DTInfo.getCallInfo(I);
+    StTy = getCallInfoElemTy(CInfo);
+  }
+  return StTy;
+}
+
 // This routine tries to reduce possible candidate fields by analyzing IR
 // and also finds InitRoutine, where unknown values are assigned to the
 // all candidate fields. A candidate field is eliminated if we can't prove
@@ -519,27 +546,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   // If \p I is accessing a candidate struct, add \p F to the list
   // of routines where the candidate struct is accessed.
   auto UpdateTypeAccessInfo = [&](Instruction *I, Function *F) {
-    Type *StTy = nullptr;
-    // Treat a struct as accessed if the struct is referenced by
-    // any of these instructions.
-    // Not checking for MultiElemLoadStore instructions here since
-    // those will be covered by GEPs.
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
-      StTy = getGEPStructType(GEP);
-    } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
-      if (BinOp->getOpcode() == Instruction::Sub)
-        StTy = DTInfo.getResolvedPtrSubType(BinOp);
-    } else if (auto *LI = dyn_cast<LoadInst>(I)) {
-      auto LdElem = DTInfo.getLoadElement(LI);
-      StTy = LdElem.first;
-    } else if (auto *SI = dyn_cast<StoreInst>(I)) {
-      auto StElem = DTInfo.getStoreElement(SI);
-      StTy = StElem.first;
-    } else if (isa<CallInst>(I)) {
-      auto *CInfo = DTInfo.getCallInfo(I);
-      StTy = getCallInfoElemTy(CInfo);
-    }
-
+    Type *StTy = getTypeRelatedToInstruction(I);
     if (!StTy)
       return;
     if (isCandidateStruct(StTy))
@@ -846,20 +853,19 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
                             << I << "\n");
           return false;
         }
-      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
-        // DynClone is disabled if a struct with candidate fields is
-        // accessed before InitRoutine is called.
-        auto StType = getGEPStructType(GEP);
-        if (!StType)
-          continue;
-        for (auto &CandidatePair : CandidateFields)
-          if (CandidatePair.first == StType) {
-            LLVM_DEBUG(dbgs() << "    InitRoutine failed...Struct accessed "
-                                 "before InitRoutine:"
-                              << getStructName(StType) << "\n");
-            return false;
-          }
       }
+      auto StType = getTypeRelatedToInstruction(&I);
+      // DynClone is disabled if a candidate struct is accessed before
+      // InitRoutine is called.
+      if (!StType)
+        continue;
+      for (auto &CandidatePair : CandidateFields)
+        if (CandidatePair.first == StType) {
+          LLVM_DEBUG(dbgs() << "    InitRoutine failed...Struct accessed "
+                               "before InitRoutine:"
+                            << getStructName(StType) << "\n");
+          return false;
+        }
     }
     // Stop checking successors of CurrentBB if it is the BasicBlock that
     // has call to InitRoutine.
@@ -908,6 +914,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
   if (!CandidateFieldAccessAfterBB(StartBB, Visited, CS.getInstruction()))
     return false;
 
+  SmallPtrSet<Type *, 4> StructAllocFound;
   int32_t BBCount = 0;
   // Collect Alloc calls related to candidate structs and count return
   // stmts.
@@ -922,6 +929,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
             CInfo->getCallInfoKind() != CallInfo::CIK_Alloc)
           continue;
         AllocCalls.push_back(std::make_pair(cast<AllocCallInfo>(CInfo), StTy));
+        StructAllocFound.insert(StTy);
       }
   }
 
@@ -930,6 +938,19 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than one Return\n");
     return false;
   }
+  // We are not allowing memory allocation for candidate structs before
+  // init routine is called. DynClone is not triggered for a struct
+  // if there is global or local instance of it. So, we expect some
+  // memory allocation for every candidate struct in init routine since
+  // candidate struct's fields are accessed in the routine.
+  // If allocation for a candidate struct is not found in init routine,
+  // DynClone is disabled. Check here if each candidate struct has
+  // allocation in init routine.
+  for (auto &CandidatePair : CandidateFields)
+    if (StructAllocFound.count(CandidatePair.first) == 0) {
+      LLVM_DEBUG(dbgs() << "    InitRoutine failed...no allocation seen\n");
+      return false;
+    }
   return true;
 }
 

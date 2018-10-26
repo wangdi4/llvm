@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This routine is selected as InitRoutine. Runtime checks are generated
 ; in this routine.
-define void @init(%struct.test.01* %tp1) {
+define void @init() {
 
 ; Creates Local min and max variables and set initial values.
 ;
@@ -22,6 +22,8 @@ define void @init(%struct.test.01* %tp1) {
 ; CHECK-NEXT:  [[ALLOC_MIN:%d.min[0-9]*]] = alloca i64
 ; CHECK-NEXT:  store i64 2147483647, i64* [[ALLOC_MIN]]
 
+  %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
+  %tp1 = bitcast i8* %call1 to %struct.test.01*
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
 
@@ -69,7 +71,7 @@ define void @init(%struct.test.01* %tp1) {
 ; CHECK-NEXT:  [[MAX_LD_3:%d.ld[0-9]*]] = load i64, i64* [[ALLOC_MAX]]
 ; CHECK-NEXT:  [[MAX_CMP_3:%d.cmp[0-9]*]] = icmp sgt i64 [[MAX_LD_3]], 2147483647
 ; CHECK-NEXT:  [[OR_1:%d.or[0-9]*]] = or i1 [[MIN_CMP_3]], [[MAX_CMP_3]]
-; CHECK-NEXT:  br i1 [[OR_1]], label %1, label %d.set_happened
+; CHECK-NEXT:  br i1 [[OR_1]],
 
 ; CHECK-LABEL:  d.set_happened:
 ; CHECK_NEXT:  store i8 1, i8* @__Shrink__Happened__
@@ -80,9 +82,9 @@ define void @init(%struct.test.01* %tp1) {
 ; Call to "init" routine is qualified as InitRoutine for DynClone.
 define i32 @main() {
 entry:
+  call void @init();
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
   %j = bitcast i8* %call1 to %struct.test.01*
-  call void @init(%struct.test.01* %j);
   call void @proc1(%struct.test.01* %j);
   ret i32 0
 }

@@ -31,7 +31,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; In this routine, fields 1 and 6 are assigned with unknown values.
 ; Field 7 is assigned with large value.
-define void @init(%struct.test.01* %tp1) {
+define void @init() {
+  %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
+  %tp1 = bitcast i8* %call1 to %struct.test.01*
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
   store i64 %g1, i64* %F1, align 8
@@ -69,10 +71,10 @@ define void @proc2(%struct.test.01* %tp3) {
 
 define i32 @main() {
 entry:
+  call void @init();
   %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
   %j = bitcast i8* %call1 to %struct.test.01*
   %i = bitcast i8* %call1 to i32*
-  call void @init(%struct.test.01* %j);
   call void @proc1(%struct.test.01* %j);
   call void @proc2(%struct.test.01* %j);
   call void @llvm.memset.p0i8.i64(i8* %call1, i8 0, i64 56, i1 false)
