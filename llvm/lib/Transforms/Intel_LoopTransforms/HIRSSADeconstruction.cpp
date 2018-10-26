@@ -500,7 +500,7 @@ bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
   // Note that we are only checking for commonly occuring non-scevable
   // instructions.
   if (!SE->isSCEVable(CurInst->getType()) || isa<LoadInst>(CurInst) ||
-      isa<CallInst>(CurInst)) {
+      (isa<CallInst>(CurInst) && !isa<SubscriptInst>(CurInst))) {
     return true;
   }
 

@@ -161,8 +161,8 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(RegDDRef *TempRef) {
   FirstCE->addIV(LoopLevel, 0, 1);
   //  Create constant of 0
   CanonExpr *SecondCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
-  TmpArrayRef->addDimension(FirstCE);
   TmpArrayRef->addDimension(SecondCE);
+  TmpArrayRef->addDimension(FirstCE);
   HLInst *StoreInst = HNU.createStore(TempRef->clone(), ".TempSt", TmpArrayRef);
 
   HLNodeUtils::insertAfter(HLNode, StoreInst);

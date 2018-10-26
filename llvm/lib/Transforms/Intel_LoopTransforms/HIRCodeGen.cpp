@@ -39,6 +39,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 // TODO audit includes
@@ -846,30 +847,93 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
-  SmallVector<Value *, 4> IndexV;
   bool AnyVector = false;
-  bool NeedGEP = true;
   unsigned DimNum = Ref->getNumDimensions();
+
+  auto BitCastDestTy = Ref->getBitCastDestType();
+
+  for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
+       ++CEI) {
+    if ((*CEI)->getDestType()->isVectorTy()) {
+      AnyVector = true;
+      break;
+    }
+  }
+
+  // A GEP instruction is allowed to have a mix of scalar and vector operands.
+  // However, not all optimizations(especially LLVM loop unroller) are handling
+  // such cases. To workaround, the base pointer value needs to be broadcast.
+  // If Ref's dest type is a vector, we need to do a broadcast.
+  if (!BaseV->getType()->isVectorTy()) {
+    if (AnyVector || (BitCastDestTy && BitCastDestTy->isVectorTy())) {
+      auto VL = Ref->getDestType()->getVectorNumElements();
+      BaseV = Builder.CreateVectorSplat(VL, BaseV);
+    }
+  }
+
+  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPInBoundsHelper =
+      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
+        return Builder.CreateInBoundsGEP(BasePtr, IndexV, "arrayIdx");
+      };
+
+  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPHelper =
+      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
+        return Builder.CreateGEP(BasePtr, IndexV, "arrayIdx");
+      };
+
+  auto CreateGEP =
+      Ref->isInBounds() ? CreateGEPInBoundsHelper : CreateGEPHelper;
+
+  auto &DL = HIRF.getDataLayout();
+  Value *GEPVal = BaseV;
 
   // Ref either looks like t[0] or &t[0]. In such cases we don't need a GEP, we
   // can simply use the base value. Also, for opaque (forward declared) struct
   // types, LLVM doesn't allow any indices even if it is just a zero.
   if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
       (*Ref->canon_begin())->isZero()) {
-    NeedGEP = false;
+    // GEP is not needed.
   } else {
+    assert(DimNum && "No dimensions");
+    SmallVector<Value *, 4> IndexV;
 
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
-    for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
-         ++CEIt, --DimNum) {
-      auto IndexVal = visitCanonExpr(*CEIt);
+    for (; DimNum > 0; --DimNum) {
+      auto *IndexVal = visitCanonExpr(Ref->getDimensionIndex(DimNum));
+      auto *LowerVal = visitCanonExpr(Ref->getDimensionLower(DimNum));
+      auto *StrideVal = visitCanonExpr(Ref->getDimensionStride(DimNum));
 
-      if (IndexVal->getType()->isVectorTy()) {
-        AnyVector = true;
+      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
+
+      // Create a GEP offset that corresponds to the current dimension.
+      Value *OffsetVal = emitBaseOffset(&Builder, DL, GEPElementTy, GEPVal,
+                                        LowerVal, IndexVal, StrideVal);
+
+      // Adding an index to the GEP will change the result type to the element
+      // of an aggregate:
+      //   getelementptr [10 x float]*, 0    -> [10 x float]
+      //   getelementptr [10 x float]*, 0, 0 -> float
+      //
+      // For non-array dimensions instead of adding offset as a new index,
+      // another GEP should be created:
+      //
+      //   %p[0][i][j][k]
+      //        /   |   \
+      //      %vs1 %vs2 [10 x float];    %vs1, %vs2 - variable strides
+      //
+      //   %0 = getelementptr [10 x float]* %p, 0
+      //   %1 = getelementptr [10 x float]* %0, %offset1
+      //   %2 = getelementptr [10 x float]* %1, %offset2, %k
+      //
+      // The following check emits the indices for the previous dimension if the
+      // current dimension is not an array type.
+      if (!Ref->isDimensionLLVMArray(DimNum) && !IndexV.empty()) {
+        GEPVal = CreateGEP(GEPVal, IndexV);
+        IndexV.clear();
       }
 
-      IndexV.push_back(IndexVal);
+      IndexV.push_back(OffsetVal);
 
       // Push back indices for dimensions's trailing offsets.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
@@ -883,30 +947,10 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
       }
+
     }
-  }
 
-  auto BitCastDestTy = Ref->getBitCastDestType();
-
-  // A GEP instruction is allowed to have a mix of scalar and vector operands.
-  // However, not all optimizations(especially LLVM loop unroller) are handling
-  // such cases. To workaround, the base pointer value needs to be broadcast.
-  // If Ref's dest type is a vector, we need to do a broadcast.
-  if (!BaseV->getType()->isVectorTy()) {
-    if (AnyVector || (BitCastDestTy && BitCastDestTy->isVectorTy())) {
-      auto VL = Ref->getDestType()->getVectorNumElements();
-      BaseV = Builder.CreateVectorSplat(VL, BaseV);
-    }
-  }
-
-  Value *GEPVal;
-
-  if (!NeedGEP) {
-    GEPVal = BaseV;
-  } else if (Ref->isInBounds()) {
-    GEPVal = Builder.CreateInBoundsGEP(BaseV, IndexV, "arrayIdx");
-  } else {
-    GEPVal = Builder.CreateGEP(BaseV, IndexV, "arrayIdx");
+    GEPVal = CreateGEP(GEPVal, IndexV);
   }
 
   if (GEPVal->getType()->isVectorTy() && isa<PointerType>(BitCastDestTy)) {
@@ -1795,7 +1839,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
                              "hir.cmp." + std::to_string(HInst->getNumber()));
 
-  } else if (isa<GetElementPtrInst>(Inst)) {
+  } else if (isa<GEPOrSubsOperator>(Inst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
     // representation for them is always a single rhs ddref
     assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");

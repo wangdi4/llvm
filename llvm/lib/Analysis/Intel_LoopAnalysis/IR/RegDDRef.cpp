@@ -69,8 +69,9 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
       Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
       Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
-      MemDbgLoc(Info.MemDbgLoc) {}
+      LowerBounds(Info.LowerBounds), Strides(Info.Strides),
+      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes),
+      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -297,9 +298,24 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
         OS << "[";
       }
 
+      // Print dimensions details [lb:idx:stride(type:numelements)]
+
+      // Print LB
+      if (HasGEP && PrintDetailsRefs) {
+        getDimensionLower(DimNum)->print(OS, Detailed);
+        OS << ":";
+      }
+
+      // Print index
       *I ? (*I)->print(OS, Detailed) : (void)(OS << *I);
 
-      // Print dimensions details [lb:idx:stride(type:numelements)]
+      // Print stride
+      if (HasGEP && PrintDetailsRefs) {
+        OS << ":";
+        getDimensionStride(DimNum)->print(OS, Detailed);
+      }
+
+      // Print Type and Number of elements in dimensions
       if (HasGEP && PrintDetailsRefs) {
         OS << "(";
         getDimensionType(DimNum)->print(OS, true, false);
@@ -338,21 +354,65 @@ Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
   assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
 
-  unsigned NumDims = getNumDimensions();
-  Type *RetTy = getBaseCE()->getSrcType();
+  Type *DimTy = GepInfo->DimTypes[DimensionNum - 1];
+  assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
+         "Dimension type should be either a pointer or an array type!");
+  return DimTy;
+}
 
-  for (unsigned I = NumDims; I > DimensionNum; --I) {
-    RetTy = (I == NumDims) ? RetTy->getPointerElementType()
-                           : RetTy->getArrayElementType();
-
-    if (RetTy->isStructTy()) {
-      RetTy = DDRefUtils::getOffsetType(RetTy, getTrailingStructOffsets(I));
-    }
+Type *RegDDRef::getMorePreciseDimensionType(Type *DimTy1, Type *DimTy2) {
+  if (!DimTy2) {
+    assert(DimTy1 && "One of the types should be non-null");
+    return DimTy1;
   }
 
-  assert((RetTy->isArrayTy() || RetTy->isPointerTy()) &&
-         "Dimension type should be either a pointer or an array type!");
-  return RetTy;
+  if (!DimTy1) {
+    assert(DimTy2 && "One of the types should be non-null");
+    return DimTy2;
+  }
+
+  if (DimTy1 == DimTy2) {
+    return DimTy1;
+  }
+
+  // TODO: Instead of two asserts, how about asserting once after the swap
+  // below? assert(T1->isArrayTy() && T2->isPointerTy() && "One array and one
+  // pointer type expected!");
+
+  assert((!DimTy1->isArrayTy() || !DimTy2->isArrayTy()) &&
+         "Types should not be different arrays");
+
+  assert((!DimTy1->isPointerTy() || !DimTy2->isPointerTy()) &&
+         "Types should not be different pointers");
+
+  if (DimTy2->isArrayTy()) {
+    // T1 will always be an array type.
+    std::swap(DimTy1, DimTy2);
+  }
+
+  auto IsArrayOfElements = [](Type *ArrayTy, Type *ElTy) {
+    assert(ArrayTy->isArrayTy() && "Array type expected");
+    while(ArrayTy->isArrayTy()) {
+      ArrayTy = ArrayTy->getArrayElementType();
+      if (ArrayTy == ElTy) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  assert(IsArrayOfElements(DimTy1, DimTy2->getPointerElementType()) &&
+         "Element types should match");
+  (void)IsArrayOfElements;
+  return DimTy1;
+}
+
+void RegDDRef::setDimensionType(unsigned DimensionNum, Type *Ty) {
+  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+  assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+
+  Type *&ExistingTypeInfo = GepInfo->DimTypes[DimensionNum - 1];
+  ExistingTypeInfo = getMorePreciseDimensionType(ExistingTypeInfo, Ty);
 }
 
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
@@ -724,24 +784,26 @@ int64_t RegDDRef::getDimensionConstStride(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
-  auto DimElemType = getDimensionElementType(DimensionNum);
-  uint64_t Stride = getCanonExprUtils().getTypeSizeInBytes(DimElemType);
+  const CanonExpr *StrideCE = getDimensionStride(DimensionNum);
+  int64_t ConstStride;
+  if (StrideCE->isIntConstant(&ConstStride)) {
+    return ConstStride;
+  }
 
-  return Stride;
+  return 0;
 }
 
-uint64_t RegDDRef::getDimensionSize(unsigned DimensionNum) const {
-  auto DimTy = getDimensionType(DimensionNum);
-  return DimTy->isPointerTy() ? 0
-                              : getCanonExprUtils().getTypeSizeInBytes(DimTy);
-}
-
-unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
+int64_t RegDDRef::getDimensionConstLower(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
-  Type *DimType = getDimensionType(DimensionNum);
-  return DimType->isArrayTy() ? DimType->getArrayNumElements() : 0;
+  const CanonExpr *LB = getDimensionLower(DimensionNum);
+  int64_t ConstLB;
+  if (LB->isIntConstant(&ConstLB)) {
+    return ConstLB;
+  }
+
+  return 0;
 }
 
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
@@ -1244,6 +1306,96 @@ void RegDDRef::verify() const {
 
 void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
   Ref->getDDRefUtils().destroy(Ref);
+}
+
+void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
+                                   ArrayRef<unsigned> TrailingOffsets,
+                                   CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
+                                   Type *DimTy) {
+  // addDimension() assumes that the ref IS or WILL become a GEP reference.
+  createGEP();
+
+  assert(IndexCE && "IndexCE is null!");
+  CanonExprs.push_back(IndexCE);
+
+  if (!TrailingOffsets.empty()) {
+    setTrailingStructOffsets(getNumDimensions(), TrailingOffsets);
+  }
+
+  if (!LowerBoundCE) {
+    LowerBoundCE =
+        getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
+  }
+
+  GepInfo->LowerBounds.push_back(LowerBoundCE);
+
+  assert(StrideCE && "Stride may not be unknown");
+  GepInfo->Strides.push_back(StrideCE);
+
+  assert(DimTy && "DimTy may not be unknown");
+  assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
+         "Dimension type should be either array or pointer");
+  GepInfo->DimTypes.push_back(DimTy);
+}
+
+void RegDDRef::addDimension(CanonExpr *IndexCE,
+                            ArrayRef<unsigned> TrailingOffsets,
+                            CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
+                            Type *DimTy) {
+  //TODO: do not modify CanonExprs before we get all the dimension info.
+
+  // addDimension() assumes that the ref IS or WILL become a GEP reference.
+  createGEP();
+
+  assert(IndexCE && "IndexCE is null!");
+  CanonExprs.insert(CanonExprs.begin(), IndexCE);
+
+  GepInfo->DimensionOffsets.insert(
+      GepInfo->DimensionOffsets.begin(),
+      OffsetsTy(TrailingOffsets.begin(), TrailingOffsets.end()));
+
+  if (!LowerBoundCE) {
+    LowerBoundCE =
+        getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
+  }
+
+  // If no dimension information provided then try to compute it from the BaseCE
+  // type.
+  if (!StrideCE) {
+    assert(!DimTy && "Unexpected DimTy type when StrideCE is defined");
+
+    unsigned DimNum = getNumDimensions();
+    Type *ElemTy;
+    if (DimNum == 1) {
+      DimTy = getBaseCE()->getSrcType();
+      ElemTy = DimTy->getPointerElementType();
+    } else {
+      // Get the lowest dimension type, then apply struct offset if present. The
+      // result type will be a new dimension type. Then get the element type, it
+      // will be used to compute new stride.
+      // Note: for variable stride arrays the StrideCE and DimTy should be
+      // provided explicitly.
+      DimTy = getDimensionElementType(1);
+      DimTy = DDRefUtils::getOffsetType(
+          DimTy, getTrailingStructOffsets(1));
+      ElemTy = DimTy->isPointerTy() ? DimTy->getPointerElementType()
+                                    : DimTy->getArrayElementType();
+    }
+
+    StrideCE = getCanonExprUtils().createCanonExpr(
+        IndexCE->getDestType(), 0,
+        ElemTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElemTy) : 0);
+  }
+
+  GepInfo->LowerBounds.insert(GepInfo->LowerBounds.begin(), LowerBoundCE);
+
+  assert(StrideCE && "Stride may not be unknown");
+  GepInfo->Strides.insert(GepInfo->Strides.begin(), StrideCE);
+
+  assert(DimTy && "DimTy may not be unknown");
+  assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
+      "Dimension type should be either array or pointer");
+  GepInfo->DimTypes.insert(GepInfo->DimTypes.begin(), DimTy);
 }
 
 void RegDDRef::setTrailingStructOffsets(

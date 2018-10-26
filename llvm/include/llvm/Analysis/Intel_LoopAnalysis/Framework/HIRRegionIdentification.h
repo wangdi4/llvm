@@ -38,7 +38,7 @@ class DominatorTree;
 class PostDominatorTree;
 class ScalarEvolution;
 class GetElementPtrInst;
-class GEPOperator;
+class GEPOrSubsOperator;
 class SCEV;
 class TargetLibraryInfo;
 class MDNode;
@@ -188,7 +188,7 @@ public:
   static bool isSupported(Type *Ty);
 
   /// Returns true if \p GEPOp contains a type not supported by HIR.
-  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
+  static bool containsUnsupportedTy(const GEPOrSubsOperator *GEPOp);
 
   /// Returns the outermost parent loop of \p Lp.
   static const Loop *getOutermostParentLoop(const Loop *Lp);

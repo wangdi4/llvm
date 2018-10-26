@@ -114,6 +114,10 @@ private:
     // single trailing offset of 0.
     SmallVector<OffsetsTy, 3> DimensionOffsets;
 
+    CanonExprsTy LowerBounds;
+    CanonExprsTy Strides;
+    SmallVector<Type *, 3> DimTypes;
+
     // TODO: Atomic attribute is missing. Should we even build regions with
     // atomic load/stores since optimizing multi-threaded code might be
     // dangerous? IRBuilder doesn't even seem to have members to create atomic
@@ -215,10 +219,6 @@ private:
   /// Implements get*Type() functionality.
   Type *getTypeImpl(bool IsSrc) const;
 
-  /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
-  /// non-GEP DDRefs.
-  Type *getBaseType() const { return getBaseCE()->getSrcType(); }
-
   /// Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
   void updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel);
@@ -248,6 +248,23 @@ private:
   /// Dimension3 - [50 x %struct.S2]*
   Type *getDimensionType(unsigned DimensionNum) const;
 
+  /// Clarifies the result type associated with \p DimensionNum.
+  /// Pointer Ty* may be substituted to Ty* or to an array [ x Ty].
+  /// Arrays may be substituted to the same arrays only.
+  void setDimensionType(unsigned DimensionNum, Type *Ty);
+
+  static Type *getMorePreciseDimensionType(Type *T1, Type *T2);
+
+  /// Adds a dimension to the DDRef with optional trailing offsets. The new
+  /// dimension becomes the highest dimension of the ref. For example, if the
+  /// ref looks like A[i1] before the call, it will look like A[0][i1] after
+  /// adding a zero canon expr as an additional dimension.
+  void addDimensionHighest(CanonExpr *IndexCE,
+                           ArrayRef<unsigned> TrailingOffsets = {},
+                           CanonExpr *LowerBoundCE = nullptr,
+                           CanonExpr *StrideCE = nullptr,
+                           Type *DimTy = nullptr);
+
 public:
   /// Returns HLDDNode this DDRef is attached to.
   const HLDDNode *getHLDDNode() const override { return Node; };
@@ -261,10 +278,15 @@ public:
   /// Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }
 
+  /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
+  /// non-GEP DDRefs.
+  Type *getBaseType() const { return getBaseCE()->getSrcType(); }
+
   /// Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
   /// [101 x float]]*, we will return float.
   Type *getSrcType() const override { return getTypeImpl(true); }
+
   /// Returns the dest element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
   /// [101 x int32]]*, we will return int32.
@@ -545,8 +567,8 @@ public:
   void setSingleCanonExpr(CanonExpr *CE) {
     assert((getNumDimensions() == 0) && " RegDDRef already has one or more "
                                         "CanonExprs");
-    // TODO: Add replace dimension when available
-    addDimension(CE);
+    assert(CE && "CE is null!");
+    CanonExprs.push_back(CE);
   }
 
   /// CanonExpr iterator methods
@@ -671,19 +693,12 @@ public:
   bool containsUndef() const override;
 
   /// Adds a dimension to the DDRef with optional trailing offsets. The new
-  /// dimension becomes the highest dimension of the ref. For example, if the
-  /// ref looks like A[i1] before the call, it will look like A[0][i1] after
+  /// dimension becomes the lowest dimension of the ref. For example, if the
+  /// ref looks like A[i1] before the call, it will look like A[i1][0] after
   /// adding a zero canon expr as an additional dimension.
-  void
-  addDimension(CanonExpr *IndexCE,
-               ArrayRef<unsigned> TrailingOffsets = {}) {
-    assert(IndexCE && "IndexCE is null!");
-    CanonExprs.push_back(IndexCE);
-
-    if (!TrailingOffsets.empty()) {
-      setTrailingStructOffsets(getNumDimensions(), TrailingOffsets);
-    }
-  }
+  void addDimension(CanonExpr *IndexCE, ArrayRef<unsigned> TrailingOffsets = {},
+                    CanonExpr *LowerBoundCE = nullptr,
+                    CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr);
 
   /// Sets trailing offsets for \p DimensionNum.
   void setTrailingStructOffsets(unsigned DimensionNum,
@@ -713,19 +728,59 @@ public:
   /// Returns true if the Ref has trailing offsets for any dimension.
   bool hasTrailingStructOffsets() const;
 
-  /// Returns the stride in number of bytes for specified dimension.
-  /// This is computed on the fly. DimensionNum must be within
-  /// [1, getNumDimensions()].
-  int64_t getDimensionConstStride(unsigned DimensionNum) const;
-
   /// Returns the number of elements for specified dimension. 0 is returned for
   /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
-  unsigned getNumDimensionElements(unsigned DimensionNum) const;
+  unsigned getNumDimensionElements(unsigned DimensionNum) const {
+    assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+    Type *DimType = getDimensionType(DimensionNum);
+    return DimType->isArrayTy() ? DimType->getArrayNumElements() : 0;
+  }
+
+  /// Returns the stride in number of bytes for specified dimension if it is
+  /// constant, else returns 0. DimensionNum must be within [1,
+  /// getNumDimensions()].
+  int64_t getDimensionConstStride(unsigned DimensionNum) const;
+
+  /// Returns the stride associated with the \p DimensionNum. DimensionNum must
+  /// be within [1, getNumDimensions()].
+  CanonExpr *getDimensionStride(unsigned DimensionNum) {
+    assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+    return GepInfo->Strides[DimensionNum - 1];
+  }
+
+  const CanonExpr *getDimensionStride(unsigned DimensionNum) const {
+    return const_cast<RegDDRef *>(this)->getDimensionStride(DimensionNum);
+  }
+
+  /// Returns the lower bound of specified dimension if it is
+  /// constant, else returns 0. DimensionNum must be within [1,
+  /// getNumDimensions()].
+  int64_t getDimensionConstLower(unsigned DimensionNum) const;
+
+  /// Returns the lower bound associated with the \p DimensionNum. DimensionNum
+  /// must be within [1, getNumDimensions()].
+  CanonExpr *getDimensionLower(unsigned DimensionNum) {
+    assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+    return GepInfo->LowerBounds[DimensionNum - 1];
+  }
+
+  const CanonExpr *getDimensionLower(unsigned DimensionNum) const {
+    return const_cast<RegDDRef *>(this)->getDimensionLower(DimensionNum);
+  }
 
   /// Returns the size in number of bytes for specified dimension.
-  /// This is computed on the fly. 0 is returned for pointer dimension.
+  /// 0 is returned for pointer dimension.
   /// DimensionNum must be within [1, getNumDimensions()].
-  uint64_t getDimensionSize(unsigned DimensionNum) const;
+  uint64_t getDimensionSize(unsigned DimensionNum) const {
+    return getDimensionConstStride(DimensionNum) *
+           getNumDimensionElements(DimensionNum);
+  }
 
   /// Returns the canon expr (dimension) of this DDRef at specified
   /// position. DimensionNum must be within [1, getNumDimensions()].
@@ -735,6 +790,12 @@ public:
   }
   const CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
     return const_cast<RegDDRef *>(this)->getDimensionIndex(DimensionNum);
+  }
+
+  /// Returns true if the dimension associated with \p DimensionNum represent
+  /// LLVM array.
+  bool isDimensionLLVMArray(unsigned DimensionNum) const {
+    return getDimensionType(DimensionNum)->isArrayTy();
   }
 
   /// Returns the stride of this DDRef at specified loop level.

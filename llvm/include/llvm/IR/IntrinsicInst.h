@@ -727,6 +727,27 @@ namespace llvm {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
     }
 
+    // Returns the rank in the subscript call arguments plus a rank of the
+    // indexed type.
+    //
+    // For ex.:
+    //   call subscript(<rank> 1, ..., [10 x [5 x float]]* %p, ...)
+    //   This method will return 3, where indexed type rank is 2.
+    unsigned getTypeRank() const {
+      Type *PtrType = getPointerOperandType();
+      assert(PtrType->isPointerTy() && "Pointer type expected");
+
+      Type *MemoryType = PtrType->getPointerElementType();
+
+      unsigned TypeRank = 0;
+      while (MemoryType->isArrayTy()) {
+        ++TypeRank;
+        MemoryType = MemoryType->getArrayElementType();
+      }
+
+      return getRank() + TypeRank;
+    }
+
     unsigned getRank() const {
       return static_cast<unsigned>(
           cast<ConstantInt>(const_cast<Value *>(getArgOperand(0)))

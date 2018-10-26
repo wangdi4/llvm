@@ -2133,7 +2133,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     WideInst = Node->getHLNodeUtils().createCmp(
         INode->getPredicate(), WideOps[1], WideOps[2],
         CurInst->getName() + ".vec", WideOps[0]);
-  } else if (isa<GetElementPtrInst>(CurInst)) {
+  } else if (isa<GEPOrSubsOperator>(CurInst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
     // representation for them is always a single rhs ddref - copy rval to
     // lval.

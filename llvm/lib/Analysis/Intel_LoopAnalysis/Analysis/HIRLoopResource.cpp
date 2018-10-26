@@ -462,7 +462,7 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
 
   // Load/store/GEP accounted for in DDRefs.
   if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
-      isa<GetElementPtrInst>(Inst)) {
+      isa<GEPOrSubsOperator>(Inst)) {
     return;
   }
 

@@ -20,8 +20,8 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
@@ -29,13 +29,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -507,25 +507,16 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
   return true;
 }
 
-bool HIRRegionIdentification::containsUnsupportedTy(const GEPOperator *GEPOp) {
-  SmallVector<Value *, 8> Operands;
-
-  auto BaseTy =
-      cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
-
-  if (!isSupported(BaseTy)) {
-    return true;
+bool HIRRegionIdentification::containsUnsupportedTy(
+    const GEPOrSubsOperator *GEPOp) {
+  // Subscript intrinsic indexes only a single type which is
+  // PointerOperandType.
+  if (isa<SubscriptInst>(GEPOp)) {
+    return !isSupported(GEPOp->getPointerOperandType());
   }
 
-  unsigned NumOp = GEPOp->getNumOperands() - 1;
-  Operands.push_back(const_cast<Value *>(GEPOp->getOperand(1)));
-
-  for (unsigned I = 2; I <= NumOp; ++I) {
-    Operands.push_back(const_cast<Value *>(GEPOp->getOperand(I)));
-
-    auto OpTy = GetElementPtrInst::getIndexedType(BaseTy, Operands);
-
-    if (!isSupported(OpTy)) {
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+    if (!isSupported(I.getIndexedType())) {
       return true;
     }
   }
@@ -535,7 +526,7 @@ bool HIRRegionIdentification::containsUnsupportedTy(const GEPOperator *GEPOp) {
 
 bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst) {
 
-  if (auto GEPOp = dyn_cast<GEPOperator>(Inst)) {
+  if (auto GEPOp = dyn_cast<GEPOrSubsOperator>(Inst)) {
     return containsUnsupportedTy(GEPOp);
   }
 

@@ -293,7 +293,7 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   }
 
   // Phi SCCs do not have anything to do with calls.
-  if (isa<CallInst>(Node)) {
+  if (isa<CallInst>(Node) && !isa<SubscriptInst>(Node)) {
     return false;
   }
 

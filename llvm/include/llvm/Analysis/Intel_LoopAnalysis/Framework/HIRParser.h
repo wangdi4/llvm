@@ -47,7 +47,7 @@ class SCEVConstant;
 class SCEVAddRecExpr;
 class SCEVMulExpr;
 class SCEVUnknown;
-class GEPOperator;
+class GEPOrSubsOperator;
 class Value;
 class ConstantFP;
 class Loop;
@@ -396,12 +396,12 @@ class HIRParser {
   /// to be a pointer type.
   unsigned getElementSize(Type *Ty) const;
 
-  // Returns true if it is valid to parse this GEPOperator.
-  bool isValidGEPOp(const GEPOperator *GEPOp) const;
+  // Returns true if it is valid to parse this GEPOrSubsOperator.
+  bool isValidGEPOp(const GEPOrSubsOperator *GEPOp) const;
 
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.
-  const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
+  const GEPOrSubsOperator *getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const;
 
   /// Returns either the inital or update operand of header phi corresponding to
   /// the passed in boolean argument.
@@ -423,42 +423,46 @@ class HIRParser {
 
   /// Populates GEPOp's indices which represent structure field offsets into
   /// Offsets vector. Other GEP indices are marked with -1.
-  static void populateOffsets(const GEPOperator *GEPOp,
+  static void populateOffsets(const GEPOrSubsOperator *GEPOp,
                               SmallVectorImpl<int64_t> &Offsets);
 
   /// Returns true if the last index of \p GEPOp is a structure offset.
-  static bool representsStructOffset(const GEPOperator *GEPOp);
+  static bool representsStructOffset(const GEPOrSubsOperator *GEPOp);
 
-  /// Populates \p Ref's dimensions by processing GEPOperator starting from \p
-  /// GEPOp till we hit the base GEP. \p RequiresIndexMerging is set for phi
-  /// base GEPs to indicate that the inductive dimension of the base will be
+  /// Populates \p Ref's dimensions by processing GEPOrSubsOperator starting
+  /// from \p GEPOp till we hit the base GEP. \p RequiresIndexMerging is set for
+  /// phi base GEPs to indicate that the inductive dimension of the base will be
   /// merged into the populated highest dimension.
-  void populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
+  void populateRefDimensions(RegDDRef *Ref, const GEPOrSubsOperator *GEPOp,
                              unsigned Level, bool RequiresIndexMerging);
 
   /// Creates and adds dimensions for a phi base GEP.
-  /// \p InitGEPOp is the GEPOperator obtained from base phi's initial value.
-  /// \p IndexCE is merged with the highest \p Ref dimension.
-  void addPhiBaseGEPDimensions(const GEPOperator *GEPOp,
-                               const GEPOperator *InitGEPOp, RegDDRef *Ref,
-                               CanonExpr *IndexCE, unsigned Level);
+  /// \p InitGEPOp is the GEPOrSubsOperator obtained from base phi's initial
+  /// value. \p IndexCE is merged with the highest \p Ref dimension.
+  void addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
+                               const GEPOrSubsOperator *InitGEPOp,
+                               RegDDRef *Ref, CanonExpr *IndexCE,
+                               CanonExpr *StrideCE, Type *DimType,
+                               unsigned Level);
 
   /// Given the initial value of a header phi, it returns a value which can act
   /// as the base of the Ref formed using the header phi. A null value indicates
   /// that the phi cannot be decomposed into intial and stride. It also returns
-  /// the GEPOperator associated with the initial value, if applicable.
+  /// the GEPOrSubsOperator associated with the initial value, if applicable.
   const Value *getValidPhiBaseVal(const Value *PhiInitVal,
-                                  const GEPOperator **InitGEPOp) const;
+                                  const GEPOrSubsOperator **InitGEPOp) const;
 
   /// Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
-                                  const GEPOperator *GEPOp, unsigned Level);
+                                  const GEPOrSubsOperator *GEPOp,
+                                  unsigned Level);
 
   /// Creates a GEP RegDDRef representing a single element. For example- %t[0].
   RegDDRef *createSingleElementGEPDDRef(const Value *GEPVal, unsigned Level);
 
-  /// Creates a GEP RegDDRef for this GEPOperator.
-  RegDDRef *createRegularGEPDDRef(const GEPOperator *GEPOp, unsigned Level);
+  /// Creates a GEP RegDDRef for this GEPOrSubsOperator.
+  RegDDRef *createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
+                                  unsigned Level);
 
   /// For a var of type *[10 x i32], given a reference to one past the end
   /// element like &A[0][10], instcombine can turn it into equivalent &A[1][0].
@@ -685,6 +689,9 @@ class HIRParser {
 
   /// Returns CanonExprUtils object.
   CanonExprUtils &getCanonExprUtils() { return DDRU.getCanonExprUtils(); }
+  const CanonExprUtils &getCanonExprUtils() const {
+    return DDRU.getCanonExprUtils();
+  }
 
   /// Returns BlobUtils object.
   BlobUtils &getBlobUtils() { return DDRU.getBlobUtils(); }

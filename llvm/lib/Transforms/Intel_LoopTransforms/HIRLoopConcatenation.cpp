@@ -1125,9 +1125,9 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(
     auto OldRef = Node->getLvalDDRef();
 
     RegDDRef *NewRef = DDRU.createMemRef(NewAllocaIndex);
-    NewRef->addDimension(OldRef->getDimensionIndex(1));
-    NewRef->addDimension(OldRef->getDimensionIndex(2));
     NewRef->addDimension(OldRef->getDimensionIndex(3));
+    NewRef->addDimension(OldRef->getDimensionIndex(2));
+    NewRef->addDimension(OldRef->getDimensionIndex(1));
 
     Node->replaceOperandDDRef(OldRef, NewRef);
   }
@@ -1149,9 +1149,9 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(
       auto FirstCE = OldRef->getDimensionIndex(1);
       // First CE needs an adjustment.
       FirstCE->addConstant(4, true);
-      NewRef->addDimension(FirstCE);
-      NewRef->addDimension(OldRef->getDimensionIndex(2));
       NewRef->addDimension(OldRef->getDimensionIndex(3));
+      NewRef->addDimension(OldRef->getDimensionIndex(2));
+      NewRef->addDimension(FirstCE);
 
       Node->replaceOperandDDRef(OldRef, NewRef);
     }
@@ -1210,8 +1210,8 @@ void HIRLoopConcatenation::createAllocaInitializationLoop() {
     auto IV = Zero->clone();
     IV->setIVCoeff(1, InvalidBlobIndex, 1);
 
-    AllocaRef->addDimension(IV);
     AllocaRef->addDimension(Zero);
+    AllocaRef->addDimension(IV);
 
     auto ZeroRef = DDRU.createConstDDRef(Int32Ty, 0);
 
@@ -1311,9 +1311,9 @@ void HIRLoopConcatenation::createConcatenatedReadLoop(
     auto OldRef = Node->getRvalDDRef();
 
     RegDDRef *NewRef = DDRU.createMemRef(NewAllocaIndex);
-    NewRef->addDimension(OldRef->getDimensionIndex(1));
-    NewRef->addDimension(OldRef->getDimensionIndex(2));
     NewRef->addDimension(OldRef->getDimensionIndex(3));
+    NewRef->addDimension(OldRef->getDimensionIndex(2));
+    NewRef->addDimension(OldRef->getDimensionIndex(1));
 
     Node->replaceOperandDDRef(OldRef, NewRef);
   }
@@ -1352,12 +1352,13 @@ void HIRLoopConcatenation::adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp,
     auto OldRef = Node->getRvalDDRef();
 
     RegDDRef *NewRef = DDRU.createMemRef(NewAllocaIndex);
-    NewRef->addDimension(OldRef->getDimensionIndex(1));
     auto SecondCE = OldRef->getDimensionIndex(2);
     // Second CE needs an adjustment.
     SecondCE->addConstant(Offset, true);
-    NewRef->addDimension(SecondCE);
+
     NewRef->addDimension(OldRef->getDimensionIndex(3));
+    NewRef->addDimension(SecondCE);
+    NewRef->addDimension(OldRef->getDimensionIndex(1));
 
     Node->replaceOperandDDRef(OldRef, NewRef);
   }
