@@ -3502,15 +3502,6 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
     return true;
   };
 
-  auto hasDirectCall = [](Function *F) {
-    for (User *U : F->users()) {
-      CallSite Site(U);
-      if (Site && (Site.getCalledFunction() == F))
-        return true;
-    }
-    return false;
-  };
-
   if (foundViolation())
     return false;
   // Examine stores only from a GEPI.
@@ -3625,19 +3616,6 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
         setFoundViolation(true);
         return false;
       }
-    }
-    // Exclude Functions that can be directly called.  This could be
-    // generalized, but is not necessary for the case we are currently
-    // handling.
-    if (hasDirectCall(F)) {
-      DEBUG_WITH_TYPE(DTRANS_BCA, {
-        dbgs() << "dtrans-bca: ";
-        dbgs() << "(SF) [" << Index << "] Function is directly called: ";
-        F->printAsOperand(dbgs());
-        dbgs() << "\n";
-      });
-      setFoundViolation(true);
-      return false;
     }
   }
   // No special rules for any other fields.
