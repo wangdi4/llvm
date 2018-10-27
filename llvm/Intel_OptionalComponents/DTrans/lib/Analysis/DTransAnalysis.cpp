@@ -3577,7 +3577,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
     setFoundViolation(true);
     return false;
   }
-  if (AVType->isPointerTy() &&
+  if (!isa<ConstantPointerNull>(AV) && AVType->isPointerTy() &&
       AVType->getPointerElementType()->isFunctionTy()) {
     // For the case of a function pointer field being stored, ensure that the
     // VoidArgumentIndex of that function can be determined ...
