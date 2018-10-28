@@ -26,6 +26,7 @@ Supported Load File
         xmain_checkin: Run "alloy run -f xmain_checkin"
         zperf_checkin_xmain: Run "alloy run -f zperf_checkin_xmain"
         mainline_checkin: Run "alloy run -f mainline_checkin"
+        zperf_checkin: Run "alloy run -f zperf_checkin"
         alloy: Run the generic testing as selected by users.
 
 Supported Repo
@@ -175,8 +176,8 @@ user should get a Gerrit post like this:
         Patch 1 is already run: http://dss-sc.intel.com/review/lab_iclt/fresh/1250641.0/review.log
         To run alloy with patch 2 , reply to this gerrit post with #run#
 
-Reviewer ( ``mainline_checkin`` )
----------------------------------
+Reviewer ( ``mainline_checkin, zperf_checkin`` )
+------------------------------------------------
 
 Once a user selects this reviewer in Gerrit, it will immediately checkout a
 mainline workspace and apply the user's patch on top of it.
