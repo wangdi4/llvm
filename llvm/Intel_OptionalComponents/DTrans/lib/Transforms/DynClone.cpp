@@ -241,12 +241,15 @@ private:
   // are accessed by the instruction. This map is used during transformation.
   SmallDenseMap<Instruction *, DynField> MultiElemLdStAOSTOSOAIndexMap;
 
+  SmallPtrSet<CallInst *, 8> RuntimeCheckUnsafeCalls;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyMultiFieldLoadStores(void);
   bool verifyLegalityChecksForInitRoutine(void);
   void createShrunkenTypes(void);
   bool trackPointersOfAllocCalls(void);
+  bool verifyCallsInInitRoutine(void);
   void transformInitRoutine(void);
   bool createCallGraphClone(void);
   void transformIR(void);
@@ -1436,9 +1439,6 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
     if (ModifiedMem)
       ModifiedAllocs.insert(CI);
 
-    // TODO:
-    // free/user_calls: Make sure allocations are not freed before copying/
-    // fixing.
     AllocSimplePtrStores[AInfo] = SimplePtrStoreSet;
 
     LLVM_DEBUG({
@@ -1454,6 +1454,235 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
       dbgs() << "\n";
     });
   }
+  return true;
+}
+
+// Verifies the legality checks for calls in InitRoutine. Main objects of
+// these checks are:
+//  1. Make sure user calls don't access candidate structs
+//  2. Allocation pointers are stored in SimplePtrStores or ComplexPtrStores.
+//     Make sure these pointers are not accessed by getting them from
+//     SimplePtrStores or ComplexPtrStores.
+//  3. When DynClone is triggered, it copies data from old layout to
+//     new layout for all allocations. Make sure these pointers are valid
+//     when copying by checking that there are no unsafe calls like "free".
+//
+//  Checking conditions:
+//   1. Return false if InitRoutine has any unexpected intrinsic/lib call.
+//   2. Return false if any use call has direct access to candidate structs.
+//   3. User call is treated as unsafe call if it has any access to locations
+//      of SimplePtrStores or ComplexPtrStores. Returns false if more than
+//      one callsite of unsafe function call for now. That means, it still
+//      returns true if there is only one unsafe user call in InitRoutine.
+//      This unsafe call is handled with runtime check like below.
+//
+//      Ex:
+//      Before:
+//          init() {
+//          ...
+//          calloc();
+//          calloc();
+//          ...
+//          if (some_error)
+//            unsafecall();  // This call has access to locations of
+//                           // SimplePtrStores or ComplexPtrStores.
+//            return -1;
+//          }
+//
+//          return 0;
+//          }
+//
+//      After:
+//          init() {
+//          dyn.safe = 0; // New local variable is created and set to 0.
+//          ...
+//          dyn.safe = 1; // Set to 1 in BasicBlock where calloc are located.
+//          calloc();
+//          calloc();
+//          ...
+//          if (some_error)
+//            dyn.safe = 0; // Reset when unsafe call is executed.
+//            unsafecall();  // This call has access to locations of
+//                           // SimplePtrStores or ComplexPtrStores.
+//            return -1;
+//          }
+//
+//          if (L_Max > 0x000000007fffffff ||
+//              L_Min < 0xffffffff80000000 ||
+//              dyn.safe == 0)
+//              return 0;
+//          }
+//          else {
+//            //... Copy Data here and fix pointers
+//            __Shrink__Happened__ = 1;
+//            return 0;
+//          }
+//          }
+//
+bool DynCloneImpl::verifyCallsInInitRoutine(void) {
+  // Returns true if \p ID is safe intrinsic. This list is required
+  // for now but not complete. We can add more intrinsics if it is needed.
+  auto IsSafeIntrinsic = [&](Intrinsic::ID ID) {
+    switch (ID) {
+    case Intrinsic::lifetime_start:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::ptr_annotation:
+      return true;
+
+    default:
+      return false;
+    }
+  };
+
+  // Returns true if \p LF is safe libfunc call. This list is required
+  // for now but not complete. We can add more libfuncs if it is needed.
+  auto IsSafeLibFunc = [&](LibFunc LF) {
+    switch (LF) {
+    case LibFunc_calloc:
+    case LibFunc_dunder_isoc99_sscanf:
+    case LibFunc_fclose:
+    case LibFunc_fgets_unlocked:
+    case LibFunc_fopen:
+    case LibFunc_puts:
+      return true;
+
+    default:
+      return false;
+    }
+  };
+
+  // Returns true if a candidate struct is referenced by any
+  // instruction of \p F. It checks if \p F is in set of functions,
+  // which have any reference to candidate struct.
+  auto HasAnyAccessToCandidateStruct = [&](Function *F) {
+    for (auto TPair : TypeAccessedInFunctions) {
+      if (!isCandidateStruct(TPair.first))
+        continue;
+      if (TPair.second.count(F) != 0)
+        return true;
+    }
+    return false;
+  };
+
+  // Finds locations of SimplePtrStores for all allocations and
+  // add them to \p FSet.
+  auto ComputeAllSimplePtrLocs = [&](DynFieldSet &FSet) {
+    for (auto &AllocPair : AllocCalls) {
+      auto *AInfo = AllocPair.first;
+      StoreInstSet &SISet = AllocSimplePtrStores[AInfo];
+      for (auto *St : SISet) {
+        auto DF = DTInfo.getStoreElement(St);
+        FSet.insert(DF);
+      }
+    }
+  };
+
+  // Returns true if \p F may access to any location of SimplePtrStores
+  // (\p SimpleLocSet) or ComplexPtrStore (SOAGlobalVarFieldSet).
+  // Conservatively returns true if \p F has any call.
+  auto HasAnyAccessToPtrStoredLocs = [&](Function *F,
+                                         DynFieldSet &SimpleLocSet) {
+    for (Instruction &II : instructions(F)) {
+      if (isa<CallInst>(&II))
+        return true;
+      DynField DField;
+      if (auto *LI = dyn_cast<LoadInst>(&II)) {
+        DField = DTInfo.getLoadElement(LI);
+      } else if (auto *SI = dyn_cast<StoreInst>(&II)) {
+        DField = DTInfo.getStoreElement(SI);
+      } else {
+        continue;
+      }
+      if (!DField.first)
+        continue;
+      if (SimpleLocSet.count(DField) || SOAGlobalVarFieldSet.count(DField))
+        return true;
+    }
+    return false;
+  };
+
+  BasicBlock *AllocBB = nullptr;
+  // Make sure all allocations of candidate structs are in same
+  // basicblock.
+  for (auto &AllocPair : AllocCalls) {
+    BasicBlock *BB = AllocPair.first->getInstruction()->getParent();
+    if (AllocBB == nullptr)
+      AllocBB = BB;
+    else if (AllocBB != BB)
+      return false;
+  }
+  assert(AllocBB && "Expected BasicBlock for Alloc calls");
+  for (auto *SOACI : AOSSOAACalls)
+    if (AllocBB != SOACI->getParent())
+      return false;
+  LoopInfo &LI = (GetLI)(*InitRoutine);
+  // Make sure allocation call is not in loop.
+  if (!LI.empty() && LI.getLoopFor(AllocBB))
+    return false;
+
+  DenseMap<Function *, CallInstSet> UserCallFuncs;
+  // Check if InitRoutine has any unsafe lib or intrinsic
+  // calls. Collect all user functions that are called and their
+  // callsites.
+  for (Instruction &I : instructions(InitRoutine)) {
+    auto CS = CallSite(&I);
+    if (!CS)
+      continue;
+    Function *F = CS.getCalledFunction();
+    assert(F && "Expected direct call");
+    if (F->isIntrinsic()) {
+      if (!IsSafeIntrinsic(F->getIntrinsicID()))
+        return false;
+      continue;
+    }
+    LibFunc Func;
+    if (TLI.getLibFunc(*F, Func)) {
+      if (!IsSafeLibFunc(Func) || !TLI.has(Func))
+        return false;
+      continue;
+    }
+    UserCallFuncs[F].insert(cast<CallInst>(&I));
+  }
+
+  // Return false if any user call in InitRoutine has access to
+  // candidate struct.
+  for (auto FPair : UserCallFuncs)
+    if (HasAnyAccessToCandidateStruct(FPair.first))
+      return false;
+
+  // Compute locations of SimplePtrStores of all allocations.
+  DynFieldSet AllSimplePtrStoreLocSet;
+  ComputeAllSimplePtrLocs(AllSimplePtrStoreLocSet);
+
+  FunctionSet UnsafeUserFunction;
+  // Allocation pointers are saved in either SimplePtrStores or
+  // ComplexPtrStores. A user call in InitRoutine is treated as unsafe
+  // if it has any access to locations of SimplePtrStores or ComplexPtrStores.
+  // Collect unsafe calls here.
+  for (auto FPair : UserCallFuncs)
+    if (HasAnyAccessToPtrStoredLocs(FPair.first, AllSimplePtrStoreLocSet))
+      UnsafeUserFunction.insert(FPair.first);
+  auto UnsafeCount = UnsafeUserFunction.size();
+
+  // Everything okay if no unsafe calls.
+  if (UnsafeCount == 0)
+    return true;
+
+  // Handle this case for now with runtime check only if there is only
+  // one unsafe call and only one callsite.
+  if (UnsafeCount > 1)
+    return false;
+  // Check it has only one callsite.
+  auto CISet = UserCallFuncs[*UnsafeUserFunction.begin()];
+  if (CISet.size() > 1)
+    return false;
+  CallInst *CI = *CISet.begin();
+  // Make sure unsafe calls is not in loop.
+  if (!LI.empty() && LI.getLoopFor(CI->getParent()))
+    return false;
+
+  // RuntimeCheckUnsafeCalls is used later during transformation.
+  RuntimeCheckUnsafeCalls.insert(CI);
   return true;
 }
 
@@ -1569,9 +1798,14 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //              struct netw { ...} net;
 //
 //              InitRoutine() {
-//                  aosptr = calloc(); // AOSTOSOA alloc call
+//                  aosptr = calloc(sizeN * size_elem); // AOSTOSOA alloc call
 //                  ...
 //                  ptr = calloc(); // Memory allocation for candidate struct
+//                  ...
+//                  if (some_error) {
+//                    unsafecall();
+//                    return;
+//                  }
 //                  ...
 //                  net->field1 = ptr;
 //                  ...
@@ -1590,10 +1824,18 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //              __Shrink__Happened__ = 0;
 //
 //              InitRoutine() {
+//                  dyn.safeflag = 0;  // Initialize
 //                  L_i64_Max = 0xffffffff80000000;
 //                  L_i64_Min = 0x000000007fffffff;
+//                  ...
+//                  dyn.safeflag = 1;  // Set before allocation
 //                  ptr = calloc();
 //                  ...
+//                  if (some_error) {
+//                    dyn.safeflag = 0; // Reset if unsafecall is executed.
+//                    unsafecall();
+//                    return;
+//                  }
 //                  stp->candidate1 = value1;
 //                  L_i64_Max = (L_i64_Max < value1) ? value1 : L_i64_Max;
 //                  L_i64_Min = (L_i64_Min > value1) ? value1 : L_i64_Min;
@@ -1602,8 +1844,10 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                  L_i64_Max = (L_i64_Max < value2) ? value2 : L_i64_Max;
 //                  L_i64_Min = (L_i64_Min > value2) ? value2 : L_i64_Min;
 //                  ...
-//                  if (L_i64_Max > 0x000000007fffffff ||
-//                      L_i64_Min < 0xffffffff80000000) {
+//                  if !(L_i64_Max > 0x000000007fffffff ||
+//                      L_i64_Min < 0xffffffff80000000 ||
+//                      sizeN > 0x7fff ||
+//                      dyn.safeflag == 0) {
 //                    OldType* SPtr = ptr;
 //                    NewType* DPtr = ptr;
 //                    for (i = 0; i < alloc_size_of_calloc; i++) {
@@ -2042,6 +2286,34 @@ void DynCloneImpl::transformInitRoutine(void) {
     return LI;
   };
 
+  // Creates new safety flag to indicate allocation pointers are valid
+  // before returning from InitRoutine. This is needed because the pointers
+  // are used to copy data from old layout to new layout.
+  auto GenerateAllocSafetyFlagInsts = [&]() {
+    LLVM_DEBUG(dbgs() << "   Generated alloc Safety flag instructions:\n");
+    Type *FlagType = Type::getInt8Ty(M.getContext());
+    // Add instruction to initialize the flag with zero.
+    AllocaInst *AI =
+        new AllocaInst(FlagType, DL.getAllocaAddrSpace(), nullptr, "dyn.safe",
+                       &InitRoutine->getEntryBlock().front());
+    StoreInst *SI =
+        new StoreInst(ConstantInt::get(FlagType, 0), AI, AI->getNextNode());
+    LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+
+    // Add instruction to reset the flag before unsafe calls.
+    for (auto CIInst : RuntimeCheckUnsafeCalls)
+      SI = new StoreInst(ConstantInt::get(FlagType, 0), AI, CIInst);
+
+    // Already proved that all allocations are in same basicblock.
+    // Just add an instruction before first calloc to set the flag.
+    Instruction *I = AllocCalls.front().first->getInstruction();
+    SI = new StoreInst(ConstantInt::get(FlagType, 1), AI, I);
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+    (void)SI;
+    return AI;
+  };
+
   SmallVector<BasicBlock *, 2> RetBBs;
   SmallVector<StoreInst *, 16> RuntimeCheckStores;
 
@@ -2126,6 +2398,9 @@ void DynCloneImpl::transformInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
   }
 
+  // Generate instructions related to alloc safety flag.
+  AllocaInst *AllocSafetyFlag = GenerateAllocSafetyFlagInsts();
+
   // For each StoreInst, it generates instructions like
   //   Before:
   //     store i64 %g1, i64* %F1, align 8
@@ -2185,6 +2460,10 @@ void DynCloneImpl::transformInitRoutine(void) {
         ConstantInt::get(AllocCallSizes[SOACI]->getType(),
                          std::numeric_limits<int16_t>::max()),
         ICmpInst::ICMP_SGT, FinalCond, RetI);
+
+  // Generate runtime check for alloc safety flag
+  FinalCond = GenerateFinalCond(AllocSafetyFlag, ConstantInt::get(FlagType, 0),
+                                ICmpInst::ICMP_EQ, FinalCond, RetI);
 
   // TODO: It is better not to set __Shrink__Happened__ when none of
   // StoreInst of candidate fields is executed at runtime in InitRoutine.
@@ -2963,6 +3242,11 @@ bool DynCloneImpl::run(void) {
 
   if (!trackPointersOfAllocCalls()) {
     LLVM_DEBUG(dbgs() << "Track uses of AllocCalls Failed... \n");
+    return false;
+  }
+
+  if (!verifyCallsInInitRoutine()) {
+    LLVM_DEBUG(dbgs() << " Calls in InitRoutine Failed... \n");
     return false;
   }
 

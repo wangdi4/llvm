@@ -17,11 +17,14 @@ define void @init() {
 ; Creates Local min and max variables and set initial values.
 ;
 ; CHECK-LABEL:   define internal void @init
+; CHECK:  [[ALLOC_SAFE:%dyn.safe[0-9]*]] = alloca i8
+; CHECK:  store i8 0, i8* [[ALLOC_SAFE]]
 ; CHECK:   [[ALLOC_MAX:%d.max[0-9]*]] = alloca i64
 ; CHECK-NEXT:  store i64 -2147483648, i64* [[ALLOC_MAX]]
 ; CHECK-NEXT:  [[ALLOC_MIN:%d.min[0-9]*]] = alloca i64
 ; CHECK-NEXT:  store i64 2147483647, i64* [[ALLOC_MIN]]
 
+; CHECK: store i8 1, i8* [[ALLOC_SAFE]]
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
   %tp1 = bitcast i8* %call1 to %struct.test.01*
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
@@ -71,7 +74,10 @@ define void @init() {
 ; CHECK-NEXT:  [[MAX_LD_3:%d.ld[0-9]*]] = load i64, i64* [[ALLOC_MAX]]
 ; CHECK-NEXT:  [[MAX_CMP_3:%d.cmp[0-9]*]] = icmp sgt i64 [[MAX_LD_3]], 2147483647
 ; CHECK-NEXT:  [[OR_1:%d.or[0-9]*]] = or i1 [[MIN_CMP_3]], [[MAX_CMP_3]]
-; CHECK-NEXT:  br i1 [[OR_1]],
+; CHECK-NEXT:  [[MAX_LD_4:%d.ld[0-9]*]] = load i8, i8* [[ALLOC_SAFE]]
+; CHECK-NEXT:  [[MAX_CMP_4:%d.cmp[0-9]*]] = icmp eq i8 [[MAX_LD_4]], 0
+; CHECK-NEXT:  [[OR_2:%d.or[0-9]*]] = or i1 [[OR_1]], [[MAX_CMP_4]]
+; CHECK-NEXT:  br i1 [[OR_2]],
 
 ; CHECK-LABEL:  d.set_happened:
 ; CHECK_NEXT:  store i8 1, i8* @__Shrink__Happened__
