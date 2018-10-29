@@ -1686,6 +1686,9 @@ TLI_DEFINE_ENUM_INTERNAL(malloc)
 TLI_DEFINE_STRING_INTERNAL("malloc")
 
 #if INTEL_CUSTOMIZATION
+/// int mallopt(int, int);
+TLI_DEFINE_ENUM_INTERNAL(mallopt)
+TLI_DEFINE_STRING_INTERNAL("mallopt")
 /// int mblen( const char* s, size_t n );
 TLI_DEFINE_ENUM_INTERNAL(mblen)
 TLI_DEFINE_STRING_INTERNAL("mblen")

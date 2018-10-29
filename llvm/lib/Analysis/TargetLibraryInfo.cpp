@@ -375,6 +375,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_localtime_r);
     TLI.setUnavailable(LibFunc_lseek);
     TLI.setUnavailable(LibFunc_lseek64);
+    TLI.setUnavailable(LibFunc_mallopt);
     TLI.setUnavailable(LibFunc_mkdtemp);
     TLI.setUnavailable(LibFunc_mkstemps);
     TLI.setUnavailable(LibFunc_mmap);
@@ -2608,6 +2609,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_mallopt:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+      FTy.getParamType(0)->isIntegerTy() &&
+      FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_mblen:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&

@@ -1324,6 +1324,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_lseek64:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_mallopt:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_mblen:
     Changed |= setDoesNotThrow(F);
     return Changed;
