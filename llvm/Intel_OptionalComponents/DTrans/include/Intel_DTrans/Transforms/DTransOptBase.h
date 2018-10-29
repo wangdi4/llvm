@@ -422,6 +422,10 @@ namespace dtrans {
   bool findValueMultipleOfSizeInst(
       User *U, unsigned Idx, uint64_t Size,
       SmallVectorImpl<std::pair<User *, unsigned>> &UseStack);
+
+  // Returns 'true' if function, \p F, represents the program's main entry
+  // routine.
+  bool isMainFunction(Function &F);
 } // namespace dtrans
 } // namespace llvm
 

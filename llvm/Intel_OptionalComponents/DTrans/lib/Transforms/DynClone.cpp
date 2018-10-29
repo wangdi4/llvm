@@ -893,7 +893,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
     return false;
   }
   Function *Caller = CS.getCaller();
-  if (Caller->getName() != "main" || !Caller->use_empty()) {
+  if (!isMainFunction(*Caller) || !Caller->use_empty()) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...Not called from main \n");
     return false;
   }

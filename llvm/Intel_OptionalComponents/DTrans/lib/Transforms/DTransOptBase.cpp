@@ -1198,3 +1198,7 @@ bool llvm::dtrans::findValueMultipleOfSizeInst(
   // Otherwise, it's definitely not what we were looking for.
   return false;
 }
+
+bool dtrans::isMainFunction(Function &F) {
+  return F.getName() == "main";
+}
