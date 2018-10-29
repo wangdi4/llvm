@@ -638,6 +638,10 @@ public:
             TID2Num[Thr.first] = ThreadNum++;
       Width = ceil(log10(ThreadNum));
       ProcessName = get_process_name();
+
+      // Append MPI rank to the name if the process is running under MPI.
+      if (const auto *Rank = getenv("PMI_RANK"))
+        ProcessName = ProcessName + "-mpi" + Rank;
     }
 
     // Finish up - Dump the stats, release the CSA instances
