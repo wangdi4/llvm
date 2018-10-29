@@ -30,8 +30,6 @@ add_opencl_library (${TARGET_NAME} ${LIB_TYPE}
     ${SYSTEM_LIBS}
     )
 
-if (NOT WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_logger_linux_exports.txt )
-endif (NOT WIN32)
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_logger_linux_exports.txt )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
