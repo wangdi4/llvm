@@ -32,6 +32,7 @@
 #include "Intel_DTrans/Transforms/ReorderFields.h"
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
+#include "Intel_DTrans/Transforms/WeakAlign.h"
 
 #if !INTEL_PRODUCT_RELEASE
 #include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
@@ -57,6 +58,7 @@ void initializePaddedPtrPropWrapperPass(PassRegistry&);
 void initializeDTransDynCloneWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSWrapperPass(PassRegistry&);
 void initializeDTransAnnotatorCleanerWrapperPass(PassRegistry&);
+void initializeDTransWeakAlignWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOptBaseTestWrapperPass(PassRegistry&);

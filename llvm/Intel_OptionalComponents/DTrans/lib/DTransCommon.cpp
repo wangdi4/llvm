@@ -85,6 +85,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
   initializeDTransDynCloneWrapperPass(PR);
   initializeDTransAnnotatorCleanerWrapperPass(PR);
+  initializeDTransWeakAlignWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
@@ -101,6 +102,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
 
   if (EnableSOAToAOS)
     MPM.addPass(dtrans::SOAToAOSPass());
+  MPM.addPass(dtrans::WeakAlignPass());
   if (EnableDeleteFields)
     MPM.addPass(dtrans::DeleteFieldPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
@@ -120,6 +122,7 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
 
   if (EnableSOAToAOS)
     PM.add(createDTransSOAToAOSWrapperPass());
+  PM.add(createDTransWeakAlignWrapperPass());
   if (EnableDeleteFields)
     PM.add(createDTransDeleteFieldWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
@@ -164,6 +167,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
   (void)llvm::createDTransDynCloneWrapperPass();
+  (void)llvm::createDTransWeakAlignWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();

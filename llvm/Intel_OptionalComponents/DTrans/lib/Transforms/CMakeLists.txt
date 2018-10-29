@@ -28,6 +28,7 @@ add_llvm_library(LLVMIntel_DTransOpt
   SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
   SOAToAOSStruct.cpp
+  WeakAlign.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${DTRANS_MAIN_INCLUDE_DIR}/Transforms
