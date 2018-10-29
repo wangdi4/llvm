@@ -2120,9 +2120,14 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
 
   assert(Ref->isTerminalRef() && "Unexpected ref type!");
 
-  bool Simplified = processCanonExpr(Ref->getSingleCanonExpr(), Ref);
+  auto *CE = Ref->getSingleCanonExpr();
+  bool Simplified = processCanonExpr(CE, Ref);
 
-  if (!Simplified) {
+  // NumDDRefs is used as an approximate code bloat threshold. Accounting for
+  // self-blobs penalizes simple uses of temps which don't really contribute to
+  // code size. This especially affects vectorized code as vectorizer breaks up
+  // non-linear blobs into individual instructions.
+  if (!Simplified && !CE->isSelfBlob()) {
     NumDDRefs += LoopNestTripCount;
   }
 
