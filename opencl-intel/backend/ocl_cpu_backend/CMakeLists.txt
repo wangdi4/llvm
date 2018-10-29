@@ -203,7 +203,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
-include_directories(
+set (INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_FE_INCLUDE_DIRS}/cclang
     ${OCL_CPU_BACKEND_DIR}
@@ -229,20 +229,6 @@ endif( LLVM_USE_INTEL_JITEVENTS )
 if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
-
-# Create DLL
-add_opencl_library (${TARGET_NAME} SHARED
-    ${OCL_CPU_BACKEND_INCLUDE_FILES}
-    ${OCL_CPU_BACKEND_SOURCE_FILES}
-    ${ASM_ADD_TO_SOURCES_LIST}
-
-    RC_TEMPLATE DEFAULT
-)
-
-if (NOT WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
-endif (NOT WIN32)
-
 
 set( BACKEND_PASSES
     LLVMBarrier
@@ -296,24 +282,38 @@ set(UTILS_LIBS
     OclOptimizer
 )
 
-target_link_libraries (${TARGET_NAME}
-    ${UTILS_LIBS}
-    # internal passes
-    ${BACKEND_PASSES}
+# Create DLL
+add_opencl_library (${TARGET_NAME} SHARED
+    ${OCL_CPU_BACKEND_INCLUDE_FILES}
+    ${OCL_CPU_BACKEND_SOURCE_FILES}
+    ${ASM_ADD_TO_SOURCES_LIST}
 
-    LoopUtils
-    OclBackendUtils
-    reflection_module
-    name_mangle
-    dynamic_load
-    cl_sys_utils
-    metadataapi
-    CacheBinaryHandler
-    CLElfLib
+    INCLUDE_DIRS ${INCLUDE_DIRS}
 
-    # LLVM LIBS
-    ${LLVM_MODULE_LIBS}
-    )
+    LINK_LIBS
+      ${UTILS_LIBS}
+      # internal passes
+      ${BACKEND_PASSES}
+
+      LoopUtils
+      OclBackendUtils
+      reflection_module
+      name_mangle
+      dynamic_load
+      cl_sys_utils
+      metadataapi
+      CacheBinaryHandler
+      CLElfLib
+
+      # LLVM LIBS
+      ${LLVM_MODULE_LIBS}
+
+    RC_TEMPLATE DEFAULT
+)
+
+if (NOT WIN32)
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
+endif (NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

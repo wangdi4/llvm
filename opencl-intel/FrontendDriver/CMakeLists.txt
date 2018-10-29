@@ -31,7 +31,7 @@ endif(NOT WIN32)
 #
 # Include directories
 #
-include_directories( AFTER
+set( INCLUDE_DIRS
             ${LLVM_INCLUDE_DIRS}
             ${CCLANG_INCLUDE_DIRS}
             ${CL_API_HEADERS}
@@ -47,6 +47,12 @@ include_directories( AFTER
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
             )
+
+if (WIN32)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
+else (WIN32)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
+endif (WIN32)
 
 add_opencl_library (${TARGET_NAME} SHARED
     clang_device_info.h
@@ -67,38 +73,30 @@ add_opencl_library (${TARGET_NAME} SHARED
     SPIRVMaterializer.cpp
     SPIRVMaterializer.h
 
+    INCLUDE_DIRS ${INCLUDE_DIRS}
+
+    LINK_LIBS
+      ${COMMON_CLANG_LIB}
+      OclPluginManager
+      CacheBinaryHandler
+      CLElfLib
+      name_mangle
+      dynamic_load
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+      cl_sys_utils
+      # LLVM LIBS
+      # Doing so must be done with caution as cclang export all the symbols
+      # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
+      # be actually used for every particular call to LLVM.
+      LLVMBitWriter
+      LLVMCore
+      LLVMLinker
+      LLVMOption
+      LLVMSupport
+      LLVMSPIRVLib
+
     RC_TEMPLATE DEFAULT
 )
-if (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
-else (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
-endif (WIN32)
-
-target_link_libraries(${TARGET_NAME}
-    ${COMMON_CLANG_LIB}
-    OclPluginManager
-    CacheBinaryHandler
-    CLElfLib
-    name_mangle
-    dynamic_load
-    cl_logger${OPENCL_BINARIES_POSTFIX}
-    cl_sys_utils
-    # LLVM LIBS
-    # Doing so must be done with caution as cclang export all the symbols
-    # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
-    # be actually used for every particular call to LLVM.
-    LLVMBitWriter
-    LLVMCore
-    LLVMLinker
-    LLVMOption
-    LLVMSupport
-    LLVMSPIRVLib
-)
-
-if (NOT WIN32)
-    list(APPEND LINK_LIBS pthread)
-endif ()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 

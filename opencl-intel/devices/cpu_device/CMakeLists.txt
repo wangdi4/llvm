@@ -77,24 +77,26 @@ CALCULATE_TARGET_SOURCES()
 #include ITT notify sources
 include(itt)
 
+if(WIN32)
+    list(APPEND LINK_LIBS delayimp.lib)
+endif (WIN32)
+
 #add a target named ${TARGET_NAME}
 add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
 
+    LINK_LIBS
+      ${HW_UTILS_PROJ_NAME}
+      cl_sys_utils
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+      device_commands
+      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+      ${LINK_LIBS}
+
     RC_TEMPLATE DEFAULT)
 
-if(WIN32)
-    list(APPEND LINK_LIBS delayimp.lib)
-else (WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cpu_device_linux_exports.txt )
-endif (WIN32)
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cpu_device_linux_exports.txt )
 
-target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
-                                      cl_sys_utils
-                                      cl_logger${OPENCL_BINARIES_POSTFIX}
-                                      device_commands
-                                      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-                                      ${LINK_LIBS})
 if (INCLUDE_MKL)
     target_link_libraries( ${TARGET_NAME} LINK_PRIVATE ${MKL_LINK_LIBS})
 endif(INCLUDE_MKL)
