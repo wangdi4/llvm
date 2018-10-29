@@ -28,108 +28,9 @@ using std::string;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-#ifdef _WIN32
-
-static bool GetDisplayPrimaryDeviceIds(string& vendorId, string& devId)
-{
-    DISPLAY_DEVICE dd;
-    dd.cb = sizeof(DISPLAY_DEVICE);
-    DWORD devNum = 0;
-    string id;
-
-    while (EnumDisplayDevices(nullptr, devNum++, &dd, 0))
-    {
-        if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE)
-        {
-            id = dd.DeviceID;
-            break;
-        }
-    }
-    if (id.empty())
-    {
-        return false;
-    }
-    vendorId = id.substr(8, 4);
-    devId = id.substr(17, 4);
-    return true;
-}
-
-OPENCL_VERSION GetOpenclVerByCpuModel()
-{
-    string vendorId, devId;
-    // by using EnumDisplayDevices we don't need the GPU driver to be installed (this doesn't work in remote desktop)
-    if (GetDisplayPrimaryDeviceIds(vendorId, devId))
-    {
-        if (vendorId == "8086")
-        {
-            const char* opencl_12_skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A", "1906", "1913", "1902", "1917", // SKL
-                                            "1606", "160E"}; // BDW
-            const char* opencl_21_skus[] = {"591E", "5916", "5912", "591B"}; // KBL
-
-            for (size_t i = 0; i < sizeof(opencl_12_skus) / sizeof(opencl_12_skus[0]); ++i)
-            {
-                if (devId == opencl_12_skus[i])
-                {
-                    return OPENCL_VERSION_1_2;
-                }
-            }
-
-            for (size_t i = 0; i < sizeof(opencl_21_skus) / sizeof(opencl_21_skus[0]); ++i)
-            {
-                if (devId == opencl_21_skus[i])
-                {
-                    return OPENCL_VERSION_2_1;
-                }
-            }
-        }
-    }
-    // TODO: replace querying the registry with the above method for all SKUs
-
-    const string sKmdDevId = GetRegistryKeyValue<string>("SOFTWARE\\Intel\\KMD", "DevId", std::string());
-    if ("BDW GT1 MOBILE ULT" == sKmdDevId || "SKL GT1_5 ULT MOBILE F0" == sKmdDevId
-        || "SKL GT1_5 ULX MOBILE F0" == sKmdDevId || "SKL GT1_5 DESKTOP F0" == sKmdDevId)
-    {
-        return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
-    }
-
-    if(CPUDetect::GetInstance()->isCannonlake() ||
-       CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
-       CPUDetect::GetInstance()->isSkylake() ||
-       CPUDetect::GetInstance()->isIcelake())
-    {
-        return OPENCL_VERSION_2_1;
-    }
-
-    if(CPUDetect::GetInstance()->isBroadwell()
-       //Downgrade OpenCL version on GLK according to VPG targets
-       //CPUDetect::GetInstance()->isGeminilake()
-       //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
-    //   CPUDetect::GetInstance()->isBroxton()   ||
-       )
-    {
-        return OPENCL_VERSION_2_0;
-    }
-
-    // Workaround for Windows.
-    // TODO: Replace with isBroxton()
-    if ("0A84" == devId || // BXT A stepping
-        "1A84" == devId || // BXT B stepping
-        "5A84" == devId  ) // BXT A-C steppings
-    {
-    //TODO. Replace next line with OPENCL_VERSION_2_0 as soon as VPG support OpenCL 2.0.
-        return OPENCL_VERSION_1_2;
-    }
-
-    return OPENCL_VERSION_1_2;
-}
-
-#else
-
 OPENCL_VERSION GetOpenclVerByCpuModel()
 {
     if(CPUDetect::GetInstance()->isSkylake()   ||
-       //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
-       //CPUDetect::GetInstance()->isBroxton()  ||
        CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
        CPUDetect::GetInstance()->isCannonlake() ||
        CPUDetect::GetInstance()->isIcelake())
@@ -144,7 +45,6 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
 
     return OPENCL_VERSION_1_2;
 }
-#endif
 
 }}}
 
