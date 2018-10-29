@@ -13,14 +13,14 @@
 
 ; This simulates the dtrans-inline-heuristic for inlining in the compile step.
 
-; CHECK-IR: call i32 @myavg
-; CHECK-IR: call i32 @myavg
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @myweight
-; CHECK-RPT: -> myweight {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myweight {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-RPT: -> INLINE: myavg ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myavg ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-RPT: -> INLINE: myweight ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myweight ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
 ; CHECK-NOT-RPT: -> myinit {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> mynoloops {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> mythreeloops {{\[\[}}Callsite preferred for multiversioning{{\]\]}}

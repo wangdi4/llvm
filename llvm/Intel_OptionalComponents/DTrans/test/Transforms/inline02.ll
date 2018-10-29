@@ -9,17 +9,18 @@
 ; those address taken functions are also preferred for multiversioning.
 ; This simulates the dtrans-inline-heuristic for inlining in the link step.
 
-; CHECK-IR: call i32 @myavg
-; CHECK-IR: call i32 @myavg
-; CHECK-IR: call i32 @foo
-; CHECK-IR: call i32 @bar
-; CHECK-IR: call i32 @baz
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-IR-NOT: call i32 @foo
+; CHECK-IR-NOT: call i32 @bar
+; CHECK-IR-NOT: call i32 @baz
+
+; CHECK-RPT-NOT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-RPT-NOT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> myinit {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> foo {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> bar {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> baz {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-RPT-NOT: -> foo {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-RPT-NOT: -> bar {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-RPT: INLINE: myinit ({{[-0-9\<\=]+}}) <<Callee has single callsite and local linkage>>
 
 %struct.MYSTRUCT = type { i32 ()*, i32 ()*, i32 ()* }
 

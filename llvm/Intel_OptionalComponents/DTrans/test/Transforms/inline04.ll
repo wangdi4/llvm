@@ -13,25 +13,27 @@
 
 ; This simulates the dtrans-inline-heuristic for inlining in the link step.
 
-; CHECK-IR: call i32 @myavg
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @myavg
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @foo
-; CHECK-IR: call i32 @bar
-; CHECK-IR: call i32 @baz
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myweight {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myweight {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @foo
+; CHECK-IR-NOT: call i32 @bar
+; CHECK-IR-NOT: call i32 @baz
+;
+; CHECK-RPT: -> INLINE: myavg ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myavg ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myweight ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myweight ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
 ; CHECK-NOT-RPT: -> myinit {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> mynoloops {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> mythreeloops {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> foo {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> bar {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> baz {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-RPT: -> INLINE: foo ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: bar ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: baz ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+
 %struct.MYSTRUCT = type { i32 ()*, i32 ()*, i32 ()* }
 
 @myglobal = common dso_local global %struct.MYSTRUCT zeroinitializer, align 8

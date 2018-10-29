@@ -37,8 +37,8 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstVisitor.h" // INTEL
+#include "llvm/IR/InstIterator.h"                   // INTEL
+#include "llvm/IR/InstVisitor.h"                    // INTEL
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
@@ -2205,110 +2205,184 @@ static bool preferCloningToInlining(CallSite& CS,
   return false;
 }
 
-//
-// Return 'true' if 'SI' is a store of a function pointer which appears in a
-// series of 3 assignments to successive fields of a structure instance.
-// Like:
-//
-//   typedef int (*FP)();
-//
-//   typedef struct {
-//     FP field1;
-//     FP field2;
-//     FP field3;
-//   } MYSTRUCT;
-//   MYSTRUCT *ptr;
-//
-//   ptr->field1 = FunctionPtr1;
-//   ptr->field2 = FunctionPtr2;
-//   ptr->field3 = FunctionPtr3;
-//
-static bool inSpecialFxnPtrStructAssignCluster(StoreInst *SI,
-                                               SmallPtrSetImpl<Function *>
-                                                   &CalleeFxnPtrSet) {
-  static SmallPtrSet<Function *, 3> FxnPtrSet;
-    // Stores the function pointers in the series
-  static SmallPtrSet<StoreInst *, 3> StoreInstSet;
-    // Stores the StoreInsts series
-  if (!StoreInstSet.empty()) {
-    // If we have already computed the series of function pointers and
-    // stores, just query whether 'SI' is one of them.
-    return StoreInstSet.find(SI) != StoreInstSet.end();
-  }
-  // Scan for a series of GetElementPtrInsts followed by StoreInsts, like:
-  //
-  // %fp01 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 0
-  // store i32 ()* @fp1, i32 ()** %fp1, %fp01, align 8
-  // %fp02 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 1
-  // store i32 ()* @fp2, i32 ()** %fp2, %fp02, align 8
-  // %fp03 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 2
-  //  store i32 ()* @fp3, i32 ()** %fp3, %fp03, align 8
-  BasicBlock *BB = SI->getParent();
-  Value *GEPIPointerOperand = nullptr;
-  GetElementPtrInst *NGI = nullptr;
-  bool FoundStoreMatch = false;
-  int ExpectedCount = 0;
-  for (auto &I : *BB) {
-    // {NGI, NSI} will be the current GetElementPtrInst and StoreInst pair
-    if (!NGI || !NGI->hasAllConstantIndices()) {
-      NGI = dyn_cast<GetElementPtrInst>(&I);
-      continue;
-    }
-    auto NSI = dyn_cast<StoreInst>(&I);
-    if (!NSI)
-      break;
-    if (NSI == SI)
-      FoundStoreMatch = true;
-    // Ensure that NGI feeds NSI
-    if (GEPIPointerOperand == nullptr)
-      GEPIPointerOperand = NGI->getPointerOperand();
-    // Ensure that NGI has the form:
-    //   getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 X
-    // where X goes from 0 to 1 to 2
-    else if (GEPIPointerOperand != NGI->getPointerOperand())
-      break;
-    if (!cast<ConstantInt>(NGI->getOperand(1))->isZeroValue())
-      break;
-    if (cast<ConstantInt>(NGI->getOperand(2))->getSExtValue() != ExpectedCount)
-      break;
-    if (NSI->getPointerOperand() != NGI)
-      break;
-    auto F = dyn_cast<Function>(NSI->getValueOperand());
-    if (!F)
-      break;
-    // Save the candidate pair
-    StoreInstSet.insert(NSI);
-    FxnPtrSet.insert(F);
-    ++ExpectedCount;
-    if (FoundStoreMatch && (ExpectedCount == 3)) {
-      // Make each of the Functions found in the series preferred for
-      // multiversioning
-      for (auto Fxn : FxnPtrSet)
-        CalleeFxnPtrSet.insert(Fxn);
+// Function checkVToArg() is overloaded with different argument lists
+static bool checkVToArg(Value *, SmallPtrSetImpl<Value *> &);
+
+// Check that at least 1 of a given BinaryOperator's operand is either an
+// Argument, or can be traced to either an Argument.
+static bool checkVToArg(BinaryOperator *BO,
+                        SmallPtrSetImpl<Value *> &ValPtrSet) {
+  assert(BO && "Expect a valid BinaryOperator *\n");
+
+  for (unsigned I = 0, E = BO->getNumOperands(); I < E; ++I)
+    if (checkVToArg(BO->getOperand(I), ValPtrSet))
       return true;
-    }
-    NGI = nullptr;
-  }
-  // We didn't find a full series, so clear out what we have found so far.
-  StoreInstSet.clear();
-  FxnPtrSet.clear();
+
   return false;
 }
 
+// Check that at least 1 of PHINode's incoming value is either an Argument, or
+// can be traced to an Argument.
+static bool checkVToArg(PHINode *Phi, SmallPtrSetImpl<Value *> &ValPtrSet) {
+  assert(Phi && "Expect a valid PHINode *\n");
+
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I < E; ++I)
+    if (checkVToArg(Phi->getIncomingValue(I), ValPtrSet))
+      return true;
+
+  return false;
+}
+
+// Expect V be an Argument, or can ultimately trace back to an Argument.
 //
-// Return 'true' if 'F' is called by exactly two Functions
+// Support the following types only:
+// - Argument
+// - BinaryOperation
+// - PHINode
+// - CastInst
+// - SelectInst
 //
-static bool isCalledByTwoFxns(Function *F)
-{
-  SmallPtrSet<Function *, 2> CallerSet;
-  for (User *U : F->users()) {
-    CallSite Site(U);
-    if (!Site || Site.getCalledFunction() != F)
+static bool checkVToArg(Value *V, SmallPtrSetImpl<Value *> &ValPtrSet) {
+  assert(V && "Expect a valid Value *\n");
+
+  if (isa<Argument>(V))
+    return true;
+
+  if (BinaryOperator *BO = dyn_cast<BinaryOperator>(V))
+    return checkVToArg(BO, ValPtrSet);
+
+  if (CastInst *CI = dyn_cast<CastInst>(V))
+    return checkVToArg(CI->getOperand(0), ValPtrSet);
+
+  // SelectInst: expect at least 1 operand to converge
+  if (SelectInst *SI = dyn_cast<SelectInst>(V))
+    return checkVToArg(SI->getTrueValue(), ValPtrSet) ||
+           checkVToArg(SI->getFalseValue(), ValPtrSet);
+
+  // PHINode: check current Phi form any potential cycle
+  if (PHINode *Phi = dyn_cast<PHINode>(V))
+    if (ValPtrSet.find(V) == ValPtrSet.end()) {
+      ValPtrSet.insert(V);
+      return checkVToArg(Phi, ValPtrSet);
+    }
+
+  return false;
+}
+
+// Check: expect the given Function
+// - has 2 consecutive AND instructions;
+//   and
+// - each AND instruction has a value 0x07 on ones of its operands;
+//
+static bool has2SubInstWithValInF(Function *F, const Value *Val0,
+                                  const Value *Val1) {
+
+  for (inst_iterator I = inst_begin(F), E = std::prev(inst_end(F)); I != E;
+       ++I) {
+
+    auto NextI = std::next(I);
+
+    if ((!isa<BinaryOperator>(&*I)) || (!isa<BinaryOperator>(&*NextI)))
       continue;
-    if (CallerSet.insert(Site.getCaller()).second && CallerSet.size() > 2)
-      return false;
+
+    BinaryOperator *BOp = dyn_cast<BinaryOperator>(&*I);
+    BinaryOperator *NextBOp = dyn_cast<BinaryOperator>(&*NextI);
+
+    // Check: both are bit-wise AND instructions
+    if (BOp->getOpcode() != Instruction::And)
+      continue;
+    if (NextBOp->getOpcode() != Instruction::And)
+      continue;
+
+    // Check: each has the provided value on its operand
+    bool BCond = (BOp->getOperand(0) == Val0) || (BOp->getOperand(1) == Val0);
+    if (!BCond)
+      continue;
+
+    BCond =
+        (NextBOp->getOperand(0) == Val1) || (NextBOp->getOperand(1) == Val1);
+    if (!BCond)
+      continue;
+
+    // Good if both conditions fit:
+    return true;
   }
-  return CallerSet.size() == 2;
+
+  return false;
+}
+
+// Check that in a given loop (L):
+// - BottomTest (CmpInst) exists and is a supported predicate;
+// - CmpInst has only 2 operands;
+// - UpperBound (UB) ultimately refers to one of F's formal;
+//
+static bool checkLoop(Loop *L) {
+  assert(L && "Expect a valid Loop *\n");
+
+  ICmpInst *CInst = getLoopBottomTest(L);
+  if (!CInst)
+    return false;
+
+  if (!CInst->isIntPredicate())
+    return false;
+
+  if (CInst->getNumOperands() != 2)
+    return false;
+
+  // Check: comparison is <, <= or ==.
+  // (since the loop has not been normalized yet)
+  ICmpInst::Predicate Pred = CInst->getPredicate();
+  if (!(Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_ULT ||
+        Pred == ICmpInst::ICMP_ULE || Pred == ICmpInst::ICMP_SLT ||
+        Pred == ICmpInst::ICMP_SLE))
+    return false;
+
+  // Check: the loop's UpperBound traces to a formal Argument
+  llvm::SmallPtrSet<Value *, 16> ValPtrSet;
+  if (!checkVToArg(CInst->getOperand(1), ValPtrSet))
+    return false;
+
+  return true;
+}
+
+// Check: expect the given Function
+// - has at least 1 loop nest
+// - count the cases where the loop's upper bound (UB) traces back to one of
+//   arguments for the given function;
+//   The total count matches the expected count;
+//
+static bool checkLoopUBMatchArgInF(InliningLoopInfoCache &ILIC, Function *F,
+                                   const unsigned ExpectedUBInArgs) {
+  // Only consider candidates that have loops, otherwise there is nothing
+  // to multiversion.
+  LoopInfo *LI = ILIC.getLI(F);
+  if (!LI || LI->empty())
+    return false;
+  auto Loops = LI->getLoopsInPreorder();
+  unsigned Count = 0;
+
+  // Check + Count each loop:
+  for (auto L : Loops)
+    if (checkLoop(L))
+      ++Count;
+
+  return (Count == ExpectedUBInArgs);
+}
+
+static bool isLeafFunction(const Function &F) {
+
+  for (const auto &I : instructions(&F)) {
+    if (isa<InvokeInst>(&I))
+      return false;
+
+    if (auto CI = dyn_cast<CallInst>(&I)) {
+      Function *Callee = CI->getCalledFunction();
+      if (!Callee || !Callee->isIntrinsic())
+    	return false;
+    }
+  }
+
+  return true;
 }
 
 //
@@ -2316,9 +2390,13 @@ static bool isCalledByTwoFxns(Function *F)
 // to multiversion it. 'PrepareForLTO' is true if we are on the compile step
 // of an LTO compilation.
 //
-static bool preferMultiversioningToInlining(CallSite& CS,
-                                            InliningLoopInfoCache& ILIC,
+static bool preferMultiversioningToInlining(CallSite CS,
+                                            InliningLoopInfoCache &ILIC,
                                             bool PrepareForLTO) {
+
+  //Only focus on Link time at present:
+  if (PrepareForLTO)
+    return false;
 
   // Right now, only the callee is tested for multiversioning.  We use
   // this set to keep track of callees that have already been tested,
@@ -2327,57 +2405,35 @@ static bool preferMultiversioningToInlining(CallSite& CS,
   // be rejected quickly.
   static SmallPtrSet<Function *, 3> CalleeFxnPtrSet;
 
-  // Functions that were not called by exactly two functions when we first
-  // tested them. Inlining can change the number of functions which call
-  // a function, as can indirect call specialization.
-  static SmallPtrSet<Function *, 10> NotCalledByTwoFxnPtrSet;
-
+  // Quick tests:
   if (!DTransInlineHeuristics)
     return false;
-  Function* Callee = CS.getCalledFunction();
+  Function *Callee = CS.getCalledFunction();
   if (!Callee)
     return false;
   if (CalleeFxnPtrSet.find(Callee) != CalleeFxnPtrSet.end())
     return true;
-  // Must be called by exactly two Functions.
-  if (NotCalledByTwoFxnPtrSet.find(Callee) != NotCalledByTwoFxnPtrSet.end())
+
+  // Check: expect Callee be a leaf function
+  if (!isLeafFunction(*Callee))
     return false;
-  if (!isCalledByTwoFxns(Callee)) {
-    NotCalledByTwoFxnPtrSet.insert(Callee);
+
+  // Check: there are 2 consecutive AND instructions, and each AND instruction
+  // has a value 0x07 on its operand
+  llvm::Type *I32Ty = llvm::IntegerType::getInt32Ty(Callee->getContext());
+  llvm::Constant *I32Val7 = llvm::ConstantInt::get(I32Ty, 7 /*value*/, true);
+  if (!has2SubInstWithValInF(Callee, I32Val7, I32Val7))
     return false;
-  }
-  // Only consider candidates that have loops, otherwise there is nothing
-  // to multiversion.
-  LoopInfo *CalleeLI = ILIC.getLI(Callee);
-  if (!CalleeLI || CalleeLI->empty())
+
+  // Check: there are 2 loops in the given function,
+  // and each Loop's UB can trace to a formal Argument.
+  if (!checkLoopUBMatchArgInF(ILIC, Callee, 2))
     return false;
-  // Special criteria that narrow the candidate list.
-  bool FoundNonCallUser = false;
-  for (User *U : Callee->users()) {
-    CallSite Site(U);
-    if (!Site || Site.getCalledFunction() != Callee)
-      continue;
-    Function *Caller = Site.getCaller();
-    for (User *UU : Caller->users()) {
-      // After LTO pass indirect call resolution, some candidates may
-      // appear as direct calls, and we don't want to penalize them for that.
-      if (!PrepareForLTO && (isa<CallInst>(UU) || isa<InvokeInst>(UU)))
-        continue;
-      auto SI = dyn_cast<StoreInst>(UU);
-      if (!SI)
-        return false;
-      // Look for a list of function pointers assigned to successive
-      // fields in the same structure instance.
-      if (!inSpecialFxnPtrStructAssignCluster(SI, CalleeFxnPtrSet))
-        return false;
-      FoundNonCallUser = true;
-    }
-  }
-  if (!FoundNonCallUser)
-    return false;
+
   CalleeFxnPtrSet.insert(Callee);
   return true;
 }
+
 
 //
 // Return 'true' if 'CS' is worth inlining due to multiple arguments being
