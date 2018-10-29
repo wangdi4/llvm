@@ -1248,6 +1248,12 @@ int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
       &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
   // case1: lower bound of loop is constant
   if (ConstantInt *CI = dyn_cast<ConstantInt>(LowerBound)) {
+    // When upper bound is constant
+    if (ConstantInt *CU = dyn_cast<ConstantInt>(UpperBound)) {
+      int min_iterations = CU->getSExtValue();
+      int lowerC = CI->getSExtValue();
+      return min_iterations - lowerC;
+    }
     for (auto &AssumeVH : AC->assumptionsFor(UpperBound)) {
       if (!AssumeVH)
         continue;
