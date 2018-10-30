@@ -25,7 +25,8 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
-#include "llvm/Analysis/LoopInfo.h" // INTEL
+#include "llvm/Analysis/LoopInfo.h"                 // INTEL
+#include "llvm/Analysis/MemoryBuiltins.h"           // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -39,8 +40,8 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Transforms/IPO/Intel_IPCloning.h" // INTEL
-#include "llvm/Support/GenericDomTree.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
+#include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -204,6 +205,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int EarlyExitThreshold;
   int EarlyExitCost;
 
+  TargetLibraryInfo* TLI;
   InliningLoopInfoCache* ILIC;
 
   // Aggressive Analysis
@@ -364,6 +366,7 @@ public:
                Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
                ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
                Function &Callee, CallSite CSArg,   // INTEL
+               TargetLibraryInfo *TLI,             // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallSite, 20> *CSForFusion, // INTEL
@@ -375,7 +378,7 @@ public:
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
             Params.ComputeFullInlineCost.getValueOr(false) || ORE),
-        ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
+        TLI(TLI), ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         CallSitesForDTrans(CSForDTrans),
 #endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
@@ -1400,9 +1403,9 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // out. Pretend to inline the function, with a custom threshold.
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS, ILIC, AI,
-                  CallSitesForFusion, CallSitesForDTrans, // INTEL
-                  IndirectCallParams);                    // INTEL
+  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS, // INTEL
+                  TLI, ILIC, AI, CallSitesForFusion,                 // INTEL
+                  CallSitesForDTrans, IndirectCallParams);           // INTEL
   if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -2854,6 +2857,184 @@ void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
   }
 }
 
+//
+// Return 'true' if the Function F should be inlined because it exposes some
+// important stack computations. (NOTE: Right now, we only qualify such a
+// function when we are not in the compile time pass of a link time
+// compilation and if special DTRANS options are thrown. We also only qualify
+// a single function at this time.  The heuristic can be extended if we find
+// that inlining multiple functions is of value.)
+//
+static bool worthInliningForStackComputations(Function *F,
+                                              TargetLibraryInfo *TLI,
+                                              bool PrepareForLTO) {
+
+  //
+  // Return 'true' if Function *F passes the argument test.  We are looking
+  // for a Function that has two arguments.  The first should be a pointer,
+  // and the second should be an integer.
+  //
+  auto passesArgTest = [](Function *F) -> bool {
+    auto CalleeArgCount = std::distance(F->arg_begin(), F->arg_end());
+    if (CalleeArgCount != 2)
+      return false;
+    Argument *Arg0 = F->arg_begin();
+    if (!Arg0->getType()->isPointerTy())
+      return false;
+    Argument *Arg1 = F->arg_begin() + 1;
+    if (!Arg1->getType()->isIntegerTy())
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if the Function *F passes the control flow test.  We are
+  // looking for a Function that has three BasicBlocks:
+  //   EntryBB: Terminates in a > test which branches to IncBB if true and
+  //     RetBB if false
+  //   IncBB: Terminates in an unconditional branch to RetBB
+  //   RetBB: Has only a return in it.
+  //
+  auto passesControlFlowTest = [](Function *F) -> bool {
+    auto CalleeBBs = std::distance(F->begin(), F->end());
+    if (CalleeBBs != 3)
+      return false;
+    BasicBlock *EntryBB = &(F->getEntryBlock());
+    auto TI = EntryBB->getTerminator();
+    auto BI = dyn_cast<BranchInst>(TI);
+    if (!BI || !BI->isConditional())
+      return false;
+    auto IncBB = BI->getSuccessor(0);
+    BasicBlock *RetBB = BI->getSuccessor(1);
+    if (IncBB == EntryBB || IncBB == RetBB || EntryBB == RetBB)
+      return false;
+    auto IBI = dyn_cast<BranchInst>(IncBB->getTerminator());
+    if (!IBI || IBI->isConditional())
+      return false;
+    if (IncBB->getSingleSuccessor() != RetBB)
+      return false;
+    if (RetBB->size() != 1)
+      return false;
+    if (!isa<ReturnInst>(&RetBB->front()))
+      return false;
+    auto *ICI = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!ICI || ICI->getPredicate() != ICmpInst::ICMP_SGT)
+      return false;
+    return true;
+  };
+
+  //
+  // Starts with Value *V and traces back through a series of BinaryOperators
+  // which must have the form:
+  //   BinaryOperator W, constant or BinaryOperator constant, W
+  // to get to a load of a GlobalValue.  If such a GlobalValue is found, we
+  // return it, otherwise we return 'nullptr'.
+  //
+  auto traceBack = [](Value *V) -> GlobalValue * {
+    auto W = V;
+    auto BOp = dyn_cast<BinaryOperator>(W);
+    while (BOp) {
+      if (dyn_cast<ConstantInt>(BOp->getOperand(0))) {
+        W = BOp->getOperand(1);
+      } else if (dyn_cast<ConstantInt>(BOp->getOperand(1))) {
+        W = BOp->getOperand(0);
+      }
+      if (!W)
+        return nullptr;
+      BOp = dyn_cast<BinaryOperator>(W);
+    }
+    auto LI = dyn_cast<LoadInst>(W);
+    if (!LI)
+      return nullptr;
+    auto GV = dyn_cast<GlobalValue>(LI->getPointerOperand());
+    return GV;
+  };
+
+  //
+  // Returns 'true' if the Function *F calls a realloc-like function.
+  //
+  auto callsRealloc = [](Function *F, TargetLibraryInfo *TLI) -> bool {
+    for (auto &BB : *F)
+      for (auto &I : BB)
+        if (isReallocLikeFn(&I, TLI))
+          return true;
+    return false;
+  };
+
+  //
+  // Returns 'true' if the Function *F passes the contents test.  Here, we are
+  // looking for a test
+  //   BinOpTest(GlobalStack) .SGT. GlobalMax
+  // at the end of EntryBB, a StoreInst in IncBB to GlobalMax and a CallInst
+  // in IncBB to a function that calls a realloc-like function. Here BinOpTest
+  // is a series of BinaryOperators.
+  //
+  auto passesContentsTest = [traceBack, callsRealloc](Function *F,
+      TargetLibraryInfo *TLI) -> bool {
+    unsigned StoreCount = 0;
+    unsigned CallCount = 0;
+    BasicBlock *EntryBB = &(F->getEntryBlock());
+    auto TI = EntryBB->getTerminator();
+    // We have already tested the types of BI and ICI in passesControlFlowTest,
+    // so we can use casts here instead of dyn_casts.
+    auto BI = cast<BranchInst>(TI);
+    auto *ICI = cast<ICmpInst>(BI->getCondition());
+    auto GlobalMax = dyn_cast<LoadInst>(ICI->getOperand(1));
+    if (!GlobalMax)
+      return false;
+    auto GlobalMaxPtr = dyn_cast<GlobalValue>(GlobalMax->getPointerOperand());
+    if (!GlobalMaxPtr)
+      return false;
+    auto GlobalStackPtr = traceBack(ICI->getOperand(0));
+    if (!GlobalStackPtr)
+      return false;
+    auto IncBB = BI->getSuccessor(0);
+    for (auto &I : *IncBB) {
+      auto SI = dyn_cast<StoreInst>(&I);
+      if (SI) {
+        if (StoreCount > 0)
+          return false;
+        auto GV = dyn_cast<GlobalValue>(SI->getPointerOperand());
+        if (GV != GlobalMaxPtr)
+          return false;
+        StoreCount++;
+      }
+      auto CI = dyn_cast<CallInst>(&I);
+      if (CI) {
+        if (CallCount > 0)
+          return false;
+        if (!callsRealloc(CI->getCalledFunction(), TLI))
+          return false;
+        CallCount++;
+      }
+      if (StoreCount && CallCount)
+        return true;
+    }
+    return false;
+  };
+
+  //
+  // Use 'WorthyFunction' to store the single worthy Function if found.
+  // Use SmallPtrSet to store those Functions that have already been tested
+  // and have failed the test, so we don't need to test them again.
+  //
+  static Function *WorthyFunction = nullptr;
+  static SmallPtrSet<Function *, 32> FunctionsTestedFail;
+  if (!TLI || !DTransInlineHeuristics || PrepareForLTO)
+    return false;
+  if (WorthyFunction)
+    return WorthyFunction == F;
+  if (FunctionsTestedFail.find(F) != FunctionsTestedFail.end())
+    return false;
+  if (!passesArgTest(F) || !passesControlFlowTest(F) ||
+      !passesContentsTest(F, TLI)) {
+    FunctionsTestedFail.insert(F);
+    return false;
+  }
+  WorthyFunction = F;
+  return true;
+}
+
 /// Analyze a call site for potential inlining.
 ///
 /// Returns true if inlining this call is viable, and false if it is not
@@ -2970,6 +3151,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
       if (worthInliningForAddressComputations(CS, *ILIC, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrAddressComputations);
+      }
+
+      if (worthInliningForStackComputations(&F, TLI, PrepareForLTO)) {
+        Cost -= InlineConstants::InliningHeuristicBonus;
+        YesReasonVector.push_back(InlrStackComputations);
       }
     }
   }
@@ -3290,15 +3476,16 @@ InlineCost llvm::getInlineCost(
     CallSite CS, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    TargetLibraryInfo *TLI,      // INTEL
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
     SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
     SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, GetBFI, ILIC, AI, // INTEL
-                       CallSitesForFusion,                   // INTEL
-                       CallSitesForDTrans, PSI, ORE);        // INTEL
+                       GetAssumptionCache, GetBFI, TLI, ILIC, AI, // INTEL
+                       CallSitesForFusion,                        // INTEL
+                       CallSitesForDTrans, PSI, ORE);             // INTEL
 }
 
 InlineCost llvm::getInlineCost(
@@ -3306,6 +3493,7 @@ InlineCost llvm::getInlineCost(
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    TargetLibraryInfo *TLI,         // INTEL
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
     SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
@@ -3397,8 +3585,8 @@ InlineCost llvm::getInlineCost(
                           << "... (caller:" << Caller->getName() << ")\n");
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee, CS,
-                  ILIC, AI, CallSitesForFusion, CallSitesForDTrans, // INTEL
-                  Params);                                          // INTEL
+                  TLI, ILIC, AI, CallSitesForFusion,   // INTEL
+                  CallSitesForDTrans, Params);         // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyzeCall(CS, &Reason);

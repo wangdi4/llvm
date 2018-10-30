@@ -1051,7 +1051,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   SmallSet<CallSite, 20> CallSitesForDTrans;  // INTEL
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
+#if INTEL_CUSTOMIZATION
+  TargetLibraryInfo *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(M);
   InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
+#endif // INTEL_CUSTOMIZATION
   ProfileSummaryInfo *PSI = MAM.getCachedResult<ProfileSummaryAnalysis>(M);
   CG.registerCGReport(&Report); // INTEL
 
@@ -1207,8 +1210,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Function &Callee = *CS.getCalledFunction();
       auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
       return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                           ILIC, AggI, &CallSitesForFusion, // INTEL
-                           &CallSitesForDTrans, PSI, &ORE); // INTEL
+                           TLI, ILIC, AggI, &CallSitesForFusion, // INTEL
+                           &CallSitesForDTrans, PSI, &ORE);      // INTEL
     };
 
     // Now process as many calls as we have within this caller in the sequnece.

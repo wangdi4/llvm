@@ -124,6 +124,7 @@ typedef enum {
    InlrForFusion,
    InlrDeeplyNestedIfs,
    InlrAddressComputations,
+   InlrStackComputations,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -407,6 +408,7 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+              TargetLibraryInfo *TLI,          // INTEL
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
               SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
@@ -424,6 +426,7 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+              TargetLibraryInfo *TLI,                // INTEL
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
               SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL

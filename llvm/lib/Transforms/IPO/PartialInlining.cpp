@@ -772,9 +772,9 @@ bool PartialInlinerImpl::shouldPartialInline(
   Function *Caller = CS.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);
   InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,
-                                *GetAssumptionCache, GetBFI, ILIC,  // INTEL
-                                nullptr, nullptr, nullptr,          // INTEL
-                                PSI, &ORE);                         // INTEL
+                                *GetAssumptionCache, GetBFI, nullptr, // INTEL
+                                ILIC, nullptr, nullptr, nullptr,      // INTEL
+                                PSI, &ORE);                           // INTEL
 
   if (IC.isAlways()) {
     ORE.emit([&]() {

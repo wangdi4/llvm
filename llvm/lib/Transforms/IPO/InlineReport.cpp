@@ -101,6 +101,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee was inlined due to deeply nested ifs"},
     // InlrAddressComputations,
     {InlPrtCost, "Inlining for complicated address computations"},
+    // InlrStackComputations,
+    {InlPrtCost, "Inlining for stack computations"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,

@@ -62,6 +62,7 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
+    TargetLibraryInfo &TLI = TLIWP->getTLI(); // INTEL
 
     bool RemarksEnabled = false;
     const auto &BBs = CS.getCaller()->getBasicBlockList();
@@ -85,7 +86,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
     return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
-                               /*GetBFI=*/None, ILIC, AggI,           // INTEL
+                               /*GetBFI=*/None, &TLI, ILIC, AggI,      // INTEL
                                &CallSitesForFusion,                   // INTEL
                                &CallSitesForDTrans,                   // INTEL
                                PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
@@ -96,6 +97,7 @@ public:
 
 private:
   TargetTransformInfoWrapperPass *TTIWP;
+  TargetLibraryInfoWrapperPass *TLIWP;    // INTEL
 
 #if INTEL_CUSTOMIZATION
   const InlineParams *getInlineParams() const override { return &Params; }
@@ -141,6 +143,7 @@ Pass *llvm::createFunctionInliningPass(InlineParams &Params) {
 
 bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
   TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
+  TLIWP = &getAnalysis<TargetLibraryInfoWrapperPass>(); // INTEL
   return LegacyInlinerBase::runOnSCC(SCC);
 }
 
