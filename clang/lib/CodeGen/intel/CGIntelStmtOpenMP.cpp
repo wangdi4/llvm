@@ -612,11 +612,13 @@ namespace CGIntelOpenMP {
     }
   }
 
-  void OpenMPCodeOutliner::addExplicit(const Expr *E) {
+  const VarDecl *OpenMPCodeOutliner::getExplicitVarDecl(const Expr *E) {
+    const Expr *ExplicitVarExpr = E;
     if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
-        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
-      E = getArraySectionBase(E, /*AS=*/nullptr);
-    addExplicit(cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl()));
+      E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
+      ExplicitVarExpr = getArraySectionBase(E, /*AS=*/nullptr);
+    }
+    return cast<VarDecl>(cast<DeclRefExpr>(ExplicitVarExpr)->getDecl());
   }
 
   void OpenMPCodeOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
@@ -631,10 +633,9 @@ namespace CGIntelOpenMP {
         if (DRE->refersToEnclosingVariableOrCapture())
           continue;
       }
+      addExplicit(getExplicitVarDecl(E));
       ClauseEmissionHelper CEH(*this);
       addArg("QUAL.OMP.SHARED");
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      addExplicit(PVD);
       addArg(E);
     }
   }
@@ -642,15 +643,18 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
     auto IPriv = Cl->private_copies().begin();
     for (auto *E : Cl->varlists()) {
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      const VarDecl *PVD = getExplicitVarDecl(E);
       addExplicit(PVD);
+      bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
       auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
-      auto *Init = Private->getInit();
-      ClauseEmissionHelper CEH(*this);
+      const Expr *Init = Private->getInit();
+      ClauseEmissionHelper CEH(*this, "QUAL.OMP.PRIVATE");
+      ClauseStringBuilder &CSB = CEH.getBuilder();
       if (Init || Private->getType().isDestructedType())
-        addArg("QUAL.OMP.PRIVATE:NONPOD");
-      else
-        addArg("QUAL.OMP.PRIVATE");
+        CSB.setNonPod();
+      if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+        CSB.setByRef();
+      addArg(CSB.getString());
       addArg(E);
       if (Init || Private->getType().isDestructedType()) {
         addArg(emitIntelOpenMPDefaultConstructor(*IPriv));
@@ -666,16 +670,19 @@ namespace CGIntelOpenMP {
     auto IDestExpr = Cl->destination_exprs().begin();
     auto IAssignOp = Cl->assignment_ops().begin();
     for (auto *E : Cl->varlists()) {
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      const VarDecl *PVD = getExplicitVarDecl(E);
       addExplicit(PVD);
       bool IsPODType = E->getType().isPODType(CGF.getContext());
-      ClauseEmissionHelper CEH(*this);
+      bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
+      ClauseEmissionHelper CEH(*this, "QUAL.OMP.LASTPRIVATE");
+      ClauseStringBuilder &CSB = CEH.getBuilder();
       if (!IsPODType)
-        addArg("QUAL.OMP.LASTPRIVATE:NONPOD");
-      else if (Cl->isConditional())
-        addArg("QUAL.OMP.LASTPRIVATE:CONDITIONAL");
-      else
-        addArg("QUAL.OMP.LASTPRIVATE");
+        CSB.setNonPod();
+      if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+        CSB.setByRef();
+      if (Cl->isConditional())
+        CSB.setConditional();
+      addArg(CSB.getString());
       addArg(E);
       if (!IsPODType) {
         addArg(emitIntelOpenMPDefaultConstructor(*IPriv));
@@ -705,36 +712,38 @@ namespace CGIntelOpenMP {
         Cl->getNameInfo().getName().getCXXOverloadedOperator();
     auto I = Cl->reduction_ops().begin();
     for (auto *E : Cl->varlists()) {
-      addExplicit(E);
+      const VarDecl *PVD = getExplicitVarDecl(E);
+      addExplicit(PVD);
+      bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
       assert(isa<BinaryOperator>((*I)->IgnoreImpCasts()));
-      SmallString<64> Op;
-      Op += "QUAL.OMP.";
-      Op += QualName;
-      Op += ".";
+      ClauseEmissionHelper CEH(*this, "QUAL.OMP.");
+      ClauseStringBuilder &CSB = CEH.getBuilder();
+      CSB.add(QualName);
+      CSB.add(".");
       switch (OOK) {
       case OO_Plus:
-        Op += "ADD";
+        CSB.add("ADD");
         break;
       case OO_Minus:
-        Op += "SUB";
+        CSB.add("SUB");
         break;
       case OO_Star:
-        Op += "MUL";
+        CSB.add("MUL");
         break;
       case OO_Amp:
-        Op += "BAND";
+        CSB.add("BAND");
         break;
       case OO_Pipe:
-        Op += "BOR";
+        CSB.add("BOR");
         break;
       case OO_Caret:
-        Op += "BXOR";
+        CSB.add("BXOR");
         break;
       case OO_AmpAmp:
-        Op += "AND";
+        CSB.add("AND");
         break;
       case OO_PipePipe:
-        Op += "OR";
+        CSB.add("OR");
         break;
       case OO_New:
       case OO_Delete:
@@ -778,9 +787,9 @@ namespace CGIntelOpenMP {
       case OO_None:
         if (auto II = Cl->getNameInfo().getName().getAsIdentifierInfo()) {
           if (II->isStr("max"))
-            Op += "MAX";
+            CSB.add("MAX");
           else if (II->isStr("min"))
-            Op += "MIN";
+            CSB.add("MIN");
           QualType ElemType = E->getType();
           if (ElemType->isArrayType())
             ElemType = CGF.CGM.getContext().getBaseElementType(ElemType)
@@ -788,15 +797,16 @@ namespace CGIntelOpenMP {
           if (ElemType->isVectorType())
             ElemType = ElemType->getAs<VectorType>()->getElementType();
           if (ElemType->isUnsignedIntegerType())
-            Op += ":UNSIGNED";
+            CSB.setUnsigned();
         }
         break;
       }
+      if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+        CSB.setByRef();
       if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
           E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
-        Op += ":ARRSECT";
-      ClauseEmissionHelper CEH(*this);
-      addArg(Op);
+        CSB.setArrSect();
+      addArg(CSB.getString());
       addArg(E);
       ++I;
     }
@@ -830,60 +840,49 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::emitOMPScheduleClause(const OMPScheduleClause *C) {
     int DefaultChunkSize = 0;
-    SmallString<64> SchedString;
+    ClauseEmissionHelper CEH(*this, "QUAL.OMP.SCHEDULE.");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
     switch (C->getScheduleKind()) {
     case OMPC_SCHEDULE_static:
-      SchedString = "QUAL.OMP.SCHEDULE.STATIC";
+      CSB.add("STATIC");
       break;
     case OMPC_SCHEDULE_dynamic:
       DefaultChunkSize = 1;
-      SchedString = "QUAL.OMP.SCHEDULE.DYNAMIC";
+      CSB.add("DYNAMIC");
       break;
     case OMPC_SCHEDULE_guided:
       DefaultChunkSize = 1;
-      SchedString = "QUAL.OMP.SCHEDULE.GUIDED";
+      CSB.add("GUIDED");
       break;
     case OMPC_SCHEDULE_auto:
-      SchedString = "QUAL.OMP.SCHEDULE.AUTO";
+      CSB.add("AUTO");
       break;
     case OMPC_SCHEDULE_runtime:
-      SchedString = "QUAL.OMP.SCHEDULE.RUNTIME";
+      CSB.add("RUNTIME");
       break;
     case OMPC_SCHEDULE_unknown:
       llvm_unreachable("Unknown schedule clause");
     }
 
-    SmallString<64> Modifiers;
     for (int Count = 0; Count < 2; ++Count) {
-      SmallString<64> LocalModifier;
       auto Mod = Count == 0 ? C->getFirstScheduleModifier()
                             : C->getSecondScheduleModifier();
       switch (Mod) {
       case OMPC_SCHEDULE_MODIFIER_monotonic:
-        LocalModifier = "MONOTONIC";
+        CSB.setMonotonic();
         break;
       case OMPC_SCHEDULE_MODIFIER_nonmonotonic:
-        LocalModifier = "NONMONOTONIC";
+        CSB.setNonMonotonic();
         break;
       case OMPC_SCHEDULE_MODIFIER_simd:
-        LocalModifier = "SIMD";
+        CSB.setSimd();
         break;
       case OMPC_SCHEDULE_MODIFIER_last:
       case OMPC_SCHEDULE_MODIFIER_unknown:
         break;
       }
-      if (!LocalModifier.empty()) {
-        if (!Modifiers.empty())
-          Modifiers += ".";
-        Modifiers += LocalModifier;
-      }
     }
-    if (!Modifiers.empty()) {
-      SchedString += ':';
-      SchedString += Modifiers;
-    }
-    ClauseEmissionHelper CEH(*this);
-    addArg(SchedString);
+    addArg(CSB.getString());
     if (auto *E = C->getChunkSize())
       addArg(CGF.EmitScalarExpr(E));
     else
@@ -907,14 +906,17 @@ namespace CGIntelOpenMP {
     }
     auto *IPriv = Cl->private_copies().begin();
     for (auto *E : Cl->varlists()) {
-      ClauseEmissionHelper CEH(*this);
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      ClauseEmissionHelper CEH(*this, "QUAL.OMP.FIRSTPRIVATE");
+      ClauseStringBuilder &CSB = CEH.getBuilder();
+      const VarDecl *PVD = getExplicitVarDecl(E);
       addExplicit(PVD);
       bool IsPODType = E->getType().isPODType(CGF.getContext());
+      bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
       if (!IsPODType)
-        addArg("QUAL.OMP.FIRSTPRIVATE:NONPOD");
-      else
-        addArg("QUAL.OMP.FIRSTPRIVATE");
+        CSB.setNonPod();
+      if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+        CSB.setByRef();
+      addArg(CSB.getString());
       addArg(E);
       if (!IsPODType) {
         addArg(emitIntelOpenMPCopyConstructor(*IPriv));
@@ -930,8 +932,7 @@ namespace CGIntelOpenMP {
     for (auto *E : Cl->varlists()) {
       if (!E->getType().isPODType(CGF.getContext()))
         CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      addExplicit(PVD);
+      addExplicit(getExplicitVarDecl(E));
       addArg(E);
     }
   }
@@ -1061,25 +1062,25 @@ namespace CGIntelOpenMP {
       return;
     }
 
-    SmallString<64> Op;
     for (auto *E : Cl->varlists()) {
+      ClauseEmissionHelper CEH(*this);
+      ClauseStringBuilder &CSB = CEH.getBuilder();
       switch (DepKind) {
       case OMPC_DEPEND_in:
-        Op = "QUAL.OMP.DEPEND.IN";
+        CSB.add("QUAL.OMP.DEPEND.IN");
         break;
       case OMPC_DEPEND_out:
-        Op = "QUAL.OMP.DEPEND.OUT";
+        CSB.add("QUAL.OMP.DEPEND.OUT");
         break;
       case OMPC_DEPEND_inout:
-        Op = "QUAL.OMP.DEPEND.INOUT";
+        CSB.add("QUAL.OMP.DEPEND.INOUT");
         break;
       default:
         llvm_unreachable("Unknown depend clause");
       }
       if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
-        Op += ":ARRSECT";
-      ClauseEmissionHelper CEH(*this);
-      addArg(Op);
+        CSB.setArrSect();
+      addArg(CSB.getString());
       addArg(E);
     }
   }
@@ -1095,32 +1096,20 @@ namespace CGIntelOpenMP {
     ClauseEmissionHelper CEH(*this);
     addArg("QUAL.OMP.IS_DEVICE_PTR");
     for (auto *E : Cl->varlists()) {
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      addExplicit(PVD);
+      addExplicit(getExplicitVarDecl(E));
       addArg(E);
     }
   }
 
   void
   OpenMPCodeOutliner::emitOMPDefaultmapClause(const OMPDefaultmapClause *Cl) {
-    SmallString<64> DefaultmapString;
-    switch (Cl->getDefaultmapModifier()) {
-    case OMPC_DEFAULTMAP_MODIFIER_tofrom:
-      DefaultmapString += "QUAL.OMP.DEFAULTMAP.TOFROM";
-      break;
-    case OMPC_DEFAULTMAP_MODIFIER_last:
-    case OMPC_DEFAULTMAP_MODIFIER_unknown:
-      llvm_unreachable("Unknown defaultmap modifier");
-    }
-    switch (Cl->getDefaultmapKind()) {
-    case OMPC_DEFAULTMAP_scalar:
-      DefaultmapString += ".SCALAR";
-      break;
-    case OMPC_DEFAULTMAP_unknown:
-      llvm_unreachable("Unknown defaultmap kind");
-    }
+
+    if (Cl->getDefaultmapModifier() != OMPC_DEFAULTMAP_MODIFIER_tofrom ||
+        Cl->getDefaultmapKind() != OMPC_DEFAULTMAP_scalar)
+      llvm_unreachable("Unsupported defaultmap clause");
+
     ClauseEmissionHelper CEH(*this);
-    addArg(DefaultmapString);
+    addArg("QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR");
   }
 
   void OpenMPCodeOutliner::emitOMPNowaitClause(const OMPNowaitClause *Cl) {
@@ -1165,18 +1154,12 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::emitOMPDistScheduleClause(
                                              const OMPDistScheduleClause *Cl) {
-    int DefaultChunkSize = 0;
-    SmallString<64> SchedString;
-    switch (Cl->getDistScheduleKind()) {
-    case OMPC_DIST_SCHEDULE_static:
-      SchedString = "QUAL.OMP.DIST_SCHEDULE.STATIC";
-      break;
-    case OMPC_DIST_SCHEDULE_unknown:
-      llvm_unreachable("Unknown schedule clause");
-    }
+    if (Cl->getDistScheduleKind() != OMPC_DIST_SCHEDULE_static)
+      llvm_unreachable("Unsupported dist_schedule clause");
 
+    int DefaultChunkSize = 0;
     ClauseEmissionHelper CEH(*this);
-    addArg(SchedString);
+    addArg("QUAL.OMP.DIST_SCHEDULE.STATIC");
     if (auto *E = Cl->getChunkSize())
       addArg(CGF.EmitScalarExpr(E));
     else
@@ -1196,14 +1179,13 @@ namespace CGIntelOpenMP {
     auto IDestExpr = Cl->destination_exprs().begin();
     auto IAssignOp = Cl->assignment_ops().begin();
     for (auto *E : Cl->varlists()) {
-      ClauseEmissionHelper CEH(*this);
-      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      addExplicit(PVD);
+      ClauseEmissionHelper CEH(*this, "QUAL.OMP.COPYPRIVATE");
+      ClauseStringBuilder &CSB = CEH.getBuilder();
       bool IsPODType = E->getType().isPODType(CGF.getContext());
-      if (IsPODType)
-        addArg("QUAL.OMP.COPYPRIVATE");
-      else
-        addArg("QUAL.OMP.COPYPRIVATE:NONPOD");
+      addExplicit(getExplicitVarDecl(E));
+      if (!IsPODType)
+        CSB.setNonPod();
+      addArg(CSB.getString());
       addArg(E);
       if (!IsPODType) {
         addArg(emitIntelOpenMPCopyAssign(E->getType(), *ISrcExpr, *IDestExpr,
@@ -1526,21 +1508,20 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::emitOMPCancelDirective(OpenMPDirectiveKind Kind) {
     startDirectiveIntrinsicSet("DIR.OMP.CANCEL", "DIR.OMP.END.CANCEL");
-    SmallString<32> Qual;
-    Qual = "QUAL.OMP.CANCEL.";
-    Qual += getCancelQualString(Kind);
-    ClauseEmissionHelper CEH(*this);
-    addArg(Qual);
+    ClauseEmissionHelper CEH(*this, "QUAL.OMP.CANCEL.");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    CSB.add(getCancelQualString(Kind));
+    addArg(CSB.getString());
   }
+
   void OpenMPCodeOutliner::emitOMPCancellationPointDirective(
       OpenMPDirectiveKind Kind) {
     startDirectiveIntrinsicSet("DIR.OMP.CANCELLATION.POINT",
                                "DIR.OMP.END.CANCELLATION.POINT");
-    SmallString<32> Qual;
-    Qual = "QUAL.OMP.CANCEL.";
-    Qual += getCancelQualString(Kind);
-    ClauseEmissionHelper CEH(*this);
-    addArg(Qual);
+    ClauseEmissionHelper CEH(*this, "QUAL.OMP.CANCEL.");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    CSB.add(getCancelQualString(Kind));
+    addArg(CSB.getString());
   }
 
   OpenMPCodeOutliner &OpenMPCodeOutliner::
@@ -1565,7 +1546,7 @@ namespace CGIntelOpenMP {
     return *this;
   }
 
-  /// \brief Emit the captured statement body.
+  /// Emit the captured statement body.
   void CGOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) {
     if (!CGF.HaveInsertPoint())
       return;
@@ -1573,7 +1554,7 @@ namespace CGIntelOpenMP {
     CGF.EmitStmt(CS->getCapturedStmt());
   }
 
-  // \brief Retrieve the value of the context parameter.
+  /// Retrieve the value of the context parameter.
   llvm::Value *CGOpenMPRegionInfo::getContextValue() const {
     if (OldCSI)
       return OldCSI->getContextValue();
@@ -1586,7 +1567,7 @@ namespace CGIntelOpenMP {
     }
     llvm_unreachable("No context value for inlined OpenMP region");
   }
-  /// \brief Lookup the captured field decl for a variable.
+  /// Lookup the captured field decl for a variable.
   const FieldDecl *CGOpenMPRegionInfo::lookup(
                                    const VarDecl *VD) const {
     if (OldCSI)
