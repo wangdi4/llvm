@@ -245,7 +245,7 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
     uint64_t Stride = 1;     // Stride defaults to 1
     if (RegDD->isMemRef()) { // Non-uniform Stride is only available on MemRef
                              // DDRef
-      Stride = RegDD->getDimensionStride(Dimension);
+      Stride = RegDD->getDimensionConstStride(Dimension);
     }
 
     // Collect the MCE

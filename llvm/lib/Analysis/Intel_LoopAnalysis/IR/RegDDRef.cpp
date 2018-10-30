@@ -28,6 +28,10 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+static cl::opt<bool> PrintDetailsRefs(
+    "hir-details-refs", cl::ReallyHidden,
+    cl::desc("Print details of RegDDRef dimensions"));
+
 #define DEBUG_TYPE "hir-regddref"
 
 RegDDRef::RegDDRef(DDRefUtils &DDRU, unsigned SB)
@@ -294,6 +298,13 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
 
       *I ? (*I)->print(OS, Detailed) : (void)(OS << *I);
+
+      // Print dimensions details [lb:idx:stride(type:numelements)]
+      if (HasGEP && PrintDetailsRefs) {
+        OS << "(";
+        getDimensionType(DimNum)->print(OS, true, false);
+        OS << ":" << getNumDimensionElements(DimNum) << ")";
+      }
 
       if (HasGEP) {
         OS << "]";
@@ -610,7 +621,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
           DimCE->getSrcType(), DimCE->getDestType(), DimCE->isSExt());
     }
 
-    uint64_t DimStride = getDimensionStride(I);
+    uint64_t DimStride = getDimensionConstStride(I);
 
     if (Index != InvalidBlobIndex) {
       StrideAtLevel->addBlob(Index, Coeff * DimStride);
@@ -684,7 +695,7 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
       return false;
     }
 
-    StrideVal += (Coeff * getDimensionStride(I));
+    StrideVal += (Coeff * getDimensionConstStride(I));
   }
 
   if (Stride) {
@@ -709,7 +720,7 @@ bool RegDDRef::isUnitStride(unsigned Level, bool &IsNegStride) const {
   return (Size == (uint64_t)std::abs(Stride));
 }
 
-uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
+int64_t RegDDRef::getDimensionConstStride(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
@@ -725,10 +736,12 @@ uint64_t RegDDRef::getDimensionSize(unsigned DimensionNum) const {
                               : getCanonExprUtils().getTypeSizeInBytes(DimTy);
 }
 
-uint64_t RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
-  auto DimTy = getDimensionType(DimensionNum);
+unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
+  assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
-  return DimTy->isPointerTy() ? 0 : DimTy->getArrayNumElements();
+  Type *DimType = getDimensionType(DimensionNum);
+  return DimType->isArrayTy() ? DimType->getArrayNumElements() : 0;
 }
 
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {

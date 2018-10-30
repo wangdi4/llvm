@@ -31,7 +31,7 @@ static cl::opt<bool> PrintTopSortNum("hir-details-topsort", cl::init(false),
                                      cl::Hidden,
                                      cl::desc("Print HLNode TopSort numbers"));
 
-static cl::opt<bool> PrintLineNum("hir-details-line-num", cl::init(false),
+static cl::opt<bool> PrintLineNum("hir-details-line-num", cl::init(true),
                                   cl::Hidden,
                                   cl::desc("Print node origin line number"));
 

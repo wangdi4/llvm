@@ -391,7 +391,7 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
           TTI.getOperationCost(Instruction::Add, (*CEI)->getDestType()));
       SelfLRI.addIntOps(Cost);
 
-      auto Stride = Ref->getDimensionStride(DimNum);
+      auto Stride = Ref->getDimensionConstStride(DimNum);
 
       // Add cost of stride multiplication.
       Cost = getNormalizedCost(TTI.getOperationCost(
