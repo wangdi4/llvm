@@ -5321,6 +5321,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                        TC.useIntegratedAs()))
     CmdArgs.push_back("-faddrsig");
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel)) {
+    CmdArgs.push_back("-fintel-compatibility");
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-intel-libirc-allowed");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Finally add the compile command to the compilation.
   if (Args.hasArg(options::OPT__SLASH_fallback) &&
       Output.getType() == types::TY_Object &&

@@ -568,9 +568,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__clang_version__",
                       "\"" CLANG_VERSION_STRING " "
                       + getClangFullRepositoryVersion() + "\"");
-#if INTEL_CUSTOMIZATION
-  if (!LangOpts.IntelCompat)
-#endif  // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
@@ -719,10 +716,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__DEPRECATED");
 
   if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
-#if INTEL_CUSTOMIZATION
-    // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
-    if (!LangOpts.IntelCompat)
-#endif // INTEL_CUSTOMIZATION
     Builder.defineMacro("__GNUG__", "4");
     Builder.defineMacro("__GXX_WEAK__");
     Builder.defineMacro("__private_extern__", "extern");

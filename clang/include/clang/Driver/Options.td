@@ -331,6 +331,8 @@ def ccc_ : Joined<["-"], "ccc-">, Group<internal_Group>, Flags<[Unsupported]>;
 
 // Intel-specific options
 // if INTEL_CUSTOMIZATION
+def _intel : Flag<["--"], "intel">, Flags<[DriverOption]>,
+  HelpText<"Run in Intel Compiler mode">;
 def extended_float_types : Flag<["--"], "extended_float_types">, Flags<[CC1Option]>;
 // endif // INTEL_CUSTOMIZATION
 
