@@ -1556,8 +1556,8 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   if(EnableScatterGather && (type->getNumElements() < 16))
     return true;
 
-  if ((m_Cpu == Intel::CPU_KNL || m_Cpu == Intel::CPU_SKX) &&
-      (type->getElementType()->getPrimitiveSizeInBits() >= 32))
+  if (UseScatterGather
+      && (type->getElementType()->getPrimitiveSizeInBits() >= 32))
     return true;
 
   return false;
