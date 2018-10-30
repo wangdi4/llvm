@@ -2459,7 +2459,8 @@ private:
         if (!Ty1->getPointerElementType()->isAggregateType())
           continue;
         for (auto *Ty2 : CastTypes)
-          if (dtrans::isElementZeroAccess(Ty1, Ty2))
+          if (dtrans::isElementZeroAccess(Ty1, Ty2) ||
+              dtrans::isVTableAccess(Ty1, Ty2))
             TypesToRemove.insert(Ty2);
       }
       for (auto *Ty : TypesToRemove)
@@ -6350,9 +6351,11 @@ private:
 
     // If this can be interpreted as an element-zero access of SrcTy
     // or as a cast from a ptr-to-ptr to a type to a ptr-to-ptr to
-    // element zero of that type, it's a safe cast.
+    // element zero of that type or it's accessing the vtable, it's a
+    // safe cast.
     if (dtrans::isElementZeroAccess(SrcTy, DestTy) ||
-        dtrans::isPtrToPtrToElementZeroAccess(SrcTy, DestTy))
+        dtrans::isPtrToPtrToElementZeroAccess(SrcTy, DestTy) ||
+        dtrans::isVTableAccess(SrcTy, DestTy))
       return;
 
     // If element zero is an i8* and we're casting the source value as a

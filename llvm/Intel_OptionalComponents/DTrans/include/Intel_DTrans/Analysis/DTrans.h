@@ -979,7 +979,12 @@ bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
 /// equivalent to isElementZeroAccess with an additional level of indirection.
 bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
 
-/// Remove pointer, vector, and array types to uncover the base type which
+/// Examine the specified types to determine if a bitcast from \p SrcTy to
+/// \p DestTy could be used to access the vtable of a class pointed to by
+/// SrcTy.
+bool isVTableAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
+
+  /// Remove pointer, vector, and array types to uncover the base type which
 /// the contain.
 Type *unwrapType(Type *Ty);
 
