@@ -951,14 +951,18 @@ void HIRSSADeconstruction::replaceFunctionEntryBlock(IRRegion &FirstReg,
 void HIRSSADeconstruction::deconstructSSAForRegions(Function &Func) {
 
   auto FirstRegIt = RI->begin();
+  auto EndRegIt = RI->end();
+
+  if (FirstRegIt == EndRegIt) {
+    return;
+  }
 
   // Only the first region's entry block can be the function entry block as
   // regions are formed in lexical order.
   replaceFunctionEntryBlock(*FirstRegIt, Func);
 
   // Traverse regions.
-  for (auto RegIt = FirstRegIt, EndRegIt = RI->end(); RegIt != EndRegIt;
-       ++RegIt) {
+  for (auto RegIt = FirstRegIt; RegIt != EndRegIt; ++RegIt) {
 
     // Set current region
     CurRegIt = RegIt;
