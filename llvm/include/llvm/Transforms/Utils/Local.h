@@ -267,40 +267,36 @@ inline unsigned getKnownAlignment(Value *V, const DataLayout &DL,
 }
 
 #if INTEL_CUSTOMIZATION
-/// Given a llvm.intel.subscript instruction, emit the code necessary to
-/// compute the offset from the base pointer (without adding in the base
-/// pointer). Return the result as a signed integer of intptr size.
 template <typename IRBuilderTy>
-Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
-  SubscriptInst *CI = cast<SubscriptInst>(Subs);
-
-  Value *Lower = CI->getLowerBound();
-  Value *Stride = CI->getStride();
-  Value *Ptr = CI->getPointerOperand();
-  Value *Index = CI->getIndex();
-
-  Value *Args[] = {Lower, Stride, Ptr, Index};
-
+Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
+                      Value *BasePtr, Value *Lower, Value *Index,
+                      Value *Stride) {
   // Number of elements in vector result.
-  unsigned ResVNE = SubscriptInst::getResultVectorNumElements(Args);
-  Type *OffsetTy = DL.getIntPtrType(CI->getType());
+  unsigned NumVectorElements = SubscriptInst::getResultVectorNumElements(
+      {Lower, Stride, BasePtr, Index});
+
+  Type *OffsetTy = DL.getIntPtrType(BasePtr->getType());
 
   // Perform scalar/vector division of stride by sizeof(element).
   {
-    unsigned ElementSize = DL.getTypeStoreSize(
-        Ptr->getType()->getScalarType()->getPointerElementType());
+    unsigned ElementSize = DL.getTypeStoreSize(ElTy);
     // Stride is known to be divisible by ElementSize exactly.
-    Stride = Args[1] = Builder->CreateExactSDiv(
+    Stride = Builder->CreateExactSDiv(
         Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
   }
 
+  auto ExpandToVector = [Builder](Value *V, unsigned VL) {
+    if (!V->getType()->isVectorTy())
+      return Builder->CreateVectorSplat(VL, V);
+    return V;
+  };
+
   // Splat all values.
-  if (ResVNE != 0)
-    for (auto &CArg : Args) {
-      if (CArg->getType()->isVectorTy())
-        continue;
-      CArg = Builder->CreateVectorSplat(ResVNE, CArg);
-    }
+  if (NumVectorElements != 0) {
+    Lower = ExpandToVector(Lower, NumVectorElements);
+    Stride = ExpandToVector(Stride, NumVectorElements);
+    Index = ExpandToVector(Index, NumVectorElements);
+  }
 
   // 1. Index - Lower.
   Value *Diff = nullptr;
@@ -315,7 +311,9 @@ Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
       unsigned DiffWidth = std::max(Index->getType()->getScalarSizeInBits(),
                                     Lower->getType()->getScalarSizeInBits());
       Type *DestTy = Builder->getIntNTy(DiffWidth);
-      DestTy = ResVNE == 0 ? DestTy : VectorType::get(DestTy, ResVNE);
+      DestTy = NumVectorElements == 0
+                   ? DestTy
+                   : VectorType::get(DestTy, NumVectorElements);
 
       // No wrap, Index >= Lower
       Diff = Builder->CreateNSWSub(Builder->CreateSExt(Index, DestTy),
@@ -327,14 +325,30 @@ Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
   {
     if (Constant *CD = dyn_cast<Constant>(Diff))
       if (CD->isNullValue())
-        return Builder->CreateSExt(Diff, OffsetTy);
+        return Builder->CreateSExtOrTrunc(Diff, OffsetTy);
     if (Constant *CS = dyn_cast<Constant>(Stride))
       if (CS->isOneValue())
-        return Builder->CreateSExt(Diff, OffsetTy);
+        return Builder->CreateSExtOrTrunc(Diff, OffsetTy);
   }
 
   return Builder->CreateNSWMul(Builder->CreateSExt(Stride, OffsetTy),
                                Builder->CreateSExt(Diff, OffsetTy));
+}
+
+/// Given a llvm.intel.subscript instruction, emit the code necessary to
+/// compute the offset from the base pointer (without adding in the base
+/// pointer). Return the result as a signed integer of intptr size.
+template <typename IRBuilderTy>
+Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
+  SubscriptInst *CI = cast<SubscriptInst>(Subs);
+
+  // Extract element
+  Type *ElemTy = CI->getType()
+                     ->getScalarType() // Element of <vector of pointers>
+                     ->getPointerElementType();
+
+  return emitBaseOffset(Builder, DL, ElemTy, CI->getPointerOperand(),
+                        CI->getLowerBound(), CI->getIndex(), CI->getStride());
 }
 #endif // INTEL_CUSTOMIZATION
 
