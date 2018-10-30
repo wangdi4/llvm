@@ -4,9 +4,11 @@ include_directories(
   )
 
 set(LLVM_LINK_COMPONENTS
-  CSACodeGen
   CodeGen
   Core
+  CSACodeGen
+  CSADesc
+  CSAInfo
   MC
   MIRParser
   SelectionDAG
