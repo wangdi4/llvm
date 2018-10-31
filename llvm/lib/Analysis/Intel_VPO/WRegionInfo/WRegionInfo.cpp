@@ -103,11 +103,19 @@ WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
     : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
       WRC(WRC) {}
 
+#if INTEL_CUSTOMIZATION
 void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
-  LLVM_DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph(InpuIR=" << IR
-                    << "){\n");
+#else
+void WRegionInfo::buildWRGraph() {
+#endif // INTEL_CUSTOMIZATION
 
+  LLVM_DEBUG(dbgs() << "\nENTER WRegionInfo::buildWRGraph{\n");
+
+#if INTEL_CUSTOMIZATION
   WRC->buildWRGraph(IR);
+#else
+  WRC->buildWRGraph();
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)

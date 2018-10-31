@@ -76,7 +76,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
     // Walk the W-Region Graph top-down, and create W-Region List
     WRegionInfo &WI = WRegionInfoGetter(*F);
-    WI.buildWRGraph(WRegionCollection::LLVMIR);
+    WI.buildWRGraph();
 
     if (WI.WRGraphIsEmpty()) {
       LLVM_DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");

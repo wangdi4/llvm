@@ -903,9 +903,10 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
         continue;
       }
 
-      if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
-        StringRef DirStr =
-            vpo::VPOAnalysisUtils::getDirectiveMetadataString(Inst);
+      if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID) ||
+          vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
+        StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveString(
+            const_cast<IntrinsicInst *>(Inst));
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
@@ -918,8 +919,6 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
       }
     }
   }
-
-  assert(false && "Missing SIMD Begin/End directive");
 }
 
 void VPOCodeGenHIR::eraseLoopIntrins() {

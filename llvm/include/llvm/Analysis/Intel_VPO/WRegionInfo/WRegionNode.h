@@ -32,6 +32,9 @@
 #include "llvm/IR/BasicBlock.h"
 
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
 
@@ -41,6 +44,11 @@
 namespace llvm {
 
 namespace vpo {
+
+#if INTEL_CUSTOMIZATION
+using namespace loopopt;
+// Needed for HLNode and HLLoop
+#endif //INTEL_CUSTOMIZATION
 
 extern std::unordered_map<int, StringRef> WRNName;
 
@@ -181,6 +189,7 @@ protected:
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
   void getClausesFromOperandBundles();
+  void getClausesFromOperandBundles(IntrinsicInst *Call);
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -374,6 +383,20 @@ public:
 
   virtual void setTaskFlag(unsigned F)          {WRNERROR("TASK FLAG");       }
   virtual unsigned getTaskFlag()          const {WRNERROR("TASK FLAG");       }
+
+#if INTEL_CUSTOMIZATION
+  // These methods are only available in WRNs constructed from HIR
+  virtual void setIsAutoVec(bool)               {WRNERROR("IsAutoVec");       }
+  virtual bool getIsAutoVec() const             {WRNERROR("IsAutoVec");       }
+  virtual void setIgnoreProfitability(bool)     {WRNERROR("Profitability");   }
+  virtual bool getIgnoreProfitability() const   {WRNERROR("Profitability");   }
+  virtual void setEntryHLNode(HLNode *)         {WRNERROR("EntryHLNode");     }
+  virtual HLNode *getEntryHLNode() const        {WRNERROR("EntryHLNode");     }
+  virtual void setExitHLNode(HLNode *)          {WRNERROR("ExitHLNode");      }
+  virtual HLNode *getExitHLNode() const         {WRNERROR("ExitHLNode");      }
+  virtual void setHLLoop(HLLoop *)              {WRNERROR("HLLoop");          }
+  virtual HLLoop *getHLLoop() const             {WRNERROR("HLLoop");          }
+#endif //INTEL_CUSTOMIZATION
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;

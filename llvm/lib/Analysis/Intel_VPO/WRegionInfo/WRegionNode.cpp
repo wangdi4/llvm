@@ -1235,16 +1235,20 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
 }
 
 void WRegionNode::getClausesFromOperandBundles() {
-
-  Instruction *I;
-
   // Under the directive.region.entry/exit representation the intrinsic
   // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-  I = &(getEntryBBlock()->front());
+  BasicBlock *EntryBB = getEntryBBlock();
+  assert(EntryBB && "Entry Bblock is null");
+
+  Instruction *I = &(EntryBB->front());
   assert(isa<IntrinsicInst>(I) &&
          "Call not found for directive.region.entry()");
 
   IntrinsicInst *Call = cast<IntrinsicInst>(I);
+  getClausesFromOperandBundles(Call);
+}
+
+void WRegionNode::getClausesFromOperandBundles(IntrinsicInst *Call) {
   unsigned i, NumOB = Call->getNumOperandBundles();
 
   // Index i start from 1 (not 0) because we want to skip the first

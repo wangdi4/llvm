@@ -22,10 +22,122 @@
 #define DEBUG_TYPE "WRegionUtils"
 
 using namespace llvm;
+using namespace vpo;
 #if INTEL_CUSTOMIZATION
 using namespace loopopt;
 #endif // INTEL_CUSTOMIZATION
-using namespace vpo;
+
+/// \brief Update WRGraph from processing HIR representation
+void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
+                                 WRStack<WRegionNode *> &S, LoopInfo *LI,
+#if INTEL_CUSTOMIZATION
+                                 DominatorTree *DT, BasicBlock* BB, HLNode *H)
+#else
+                                 DominatorTree *DT, BasicBlock* BB)
+#endif // INTEL_CUSTOMIZATION
+{
+  if (!Call)
+    return;
+
+  WRegionNode *W = nullptr;
+
+  Intrinsic::ID IntrinId = Call->getIntrinsicID();
+
+  // Are we dealing with the directive.region.entry/exit representation?
+  bool IsRegion = VPOAnalysisUtils::isRegionDirective(IntrinId);
+
+  // Name of the directive or clause represented by this intrinsic
+  StringRef DirOrClause = VPOAnalysisUtils::getDirOrClauseString(Call);
+
+  LLVM_DEBUG(dbgs() << "\n=== updateWRGraph found: " << DirOrClause << "\n");
+
+  if (VPOAnalysisUtils::isOpenMPDirective(DirOrClause)) {
+
+    int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClause);
+
+    if (WRegionUtils::skipDirFromWrnConstruction(DirID))
+      // Ignore DirID, which is likely a new Dir still under development
+      return;
+
+    // If the intrinsic represents an intel BEGIN directive, then
+    // W is a pointer to an object for the corresponding WRN.
+    // Otherwise, W is nullptr.
+#if INTEL_CUSTOMIZATION
+    if (H)
+      W = WRegionUtils::createWRegionHIR(DirID, H, S.size(), IsRegion, Call);
+    else
+#endif // INTEL_CUSTOMIZATION
+    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), IsRegion);
+    if (W) {
+      // The intrinsic represents a BEGIN directive.
+      // W points to the WRN created for it.
+
+      assert((VPOAnalysisUtils::isBeginDirective(DirID) ||
+              VPOAnalysisUtils::isStandAloneBeginDirective(DirID)) &&
+             "An expected BEGIN directive is missing.");
+
+      if (S.empty()) {
+        // Top-level WRegionNode
+        WRGraph->push_back(W);
+      } else {
+        WRegionNode *Parent = S.top();
+        Parent->getChildren().push_back(W);
+        W->setParent(Parent);
+      }
+
+      S.push(W);
+      LLVM_DEBUG(dbgs() << "\n  === New WRegion. ");
+      LLVM_DEBUG(dbgs() << "Stacksize after push = " << S.size() << "\n");
+    } else if (VPOAnalysisUtils::isEndDirective(DirID) ||
+               VPOAnalysisUtils::isStandAloneEndDirective(DirID)) {
+      // The intrinsic represents the END directive for the WRN that is
+      // currently on S.top().
+      // TODO: verify the END directive is the expected one
+
+      assert(!(S.empty()) &&
+             "Unexpected empty WRN stack when seeing an END directive");
+
+      W = S.top();
+#if INTEL_CUSTOMIZATION
+      if (H)
+        W->setExitHLNode(H);
+      else
+#endif // INTEL_CUSTOMIZATION
+      W->finalize(BB, DT); // set the ExitBB and wrap up the WRN
+      S.pop();
+      LLVM_DEBUG(dbgs() << "\n  === Closed WRegion. ");
+      LLVM_DEBUG(dbgs() << "Stacksize after pop = " << S.size() << "\n");
+    } else if (VPOAnalysisUtils::isListEndDirective(DirID) &&
+             !(S.empty())) {
+      // We reach here only if using the intel_directive representation.
+      // Under this representation, stand-alone directives don't have a
+      // matching end directive.
+      W = S.top();
+      if (VPOAnalysisUtils::isStandAloneBeginDirective(W->getDirID())) {
+        // Current WRN is for a stand-alone directive, so
+        // pop the stack as soon as DIR_QUAL_LIST_END is seen
+        S.pop();
+        LLVM_DEBUG(dbgs() << "\n  === Closed WRegion (standalone dir). ");
+        LLVM_DEBUG(dbgs() << "Stacksize after pop = " << S.size() << "\n");
+      }
+    }
+  } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) {
+    // Process clauses from intel_directive_qual* intrinsics. We reach here
+    // only if using the intel_directive_qual* representation.
+    assert(!IsRegion &&
+           "Unexpected directive.region.entry/exit representation");
+
+    assert(!(S.empty()) &&
+           "Unexpected empty WRN stack when seeing a clause");
+    W = S.top();
+
+    // Extract clause properties
+    ClauseSpecifier ClauseInfo(DirOrClause);
+
+    // Parse the clause and update W
+    W->parseClause(ClauseInfo, Call);
+  }
+}
 
 /// \brief Create a specialized WRN based on the DirString.
 /// If the string corrensponds to a BEGIN directive, then create
@@ -155,12 +267,11 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
 
 #if INTEL_CUSTOMIZATION
 /// \brief Similar to createWRegion, but for HIR vectorizer support
-WRegionNode *WRegionUtils::createWRegionHIR(
-  int              DirID,
-  loopopt::HLNode *EntryHLNode,
-  unsigned         NestingLevel
-)
-{
+WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
+                                            loopopt::HLNode *EntryHLNode,
+                                            unsigned NestingLevel,
+                                            bool IsRegionIntrinsic,
+                                            IntrinsicInst *Call) {
   WRegionNode *W = nullptr;
 
   switch(DirID) {
@@ -176,65 +287,12 @@ WRegionNode *WRegionUtils::createWRegionHIR(
   if (W) {
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
+    if (IsRegionIntrinsic) {
+      W->getClausesFromOperandBundles(Call);
+    }
   }
   return W;
 }
-
-/// \brief Update WRGraph from processing HIR representation
-void WRegionUtils::updateWRGraphFromHIR (
-  IntrinsicInst   *Call,
-  Intrinsic::ID   IntrinId,
-  WRContainerImpl *WRGraph,
-  WRStack<WRegionNode*> &S,
-  loopopt::HLNode *H
-)
-{
-  WRegionNode *W = nullptr;
-  StringRef DirOrClauseStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-  if (IntrinId == Intrinsic::intel_directive) {
-    int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClauseStr);
-    // If the intrinsic represents a BEGIN directive for a construct
-    // needed by the vectorizer (eg: DIR.OMP.SIMD), then
-    // createWRegionHIR creates a WRN for it and returns its pointer.
-    // Otherwise, the W returned is a nullptr.
-    W = WRegionUtils::createWRegionHIR(DirID, H, S.size());
-    if (W) {
-      // LLVM_DEBUG(dbgs() << "\n Starting New WRegion from HIR{\n");
-      if (S.empty()) {
-        WRGraph->push_back(W);
-      }
-      else {
-        WRegionNode *Parent = S.top();
-        Parent->getChildren().push_back(W);
-        W->setParent(Parent);
-      }
-      S.push(W);
-    }
-    else if (VPOAnalysisUtils::isEndDirective(DirID)) {
-      // LLVM_DEBUG(dbgs() << "\n} Ending WRegion.\n");
-      if (!S.empty()) {
-        W = S.top();
-        if(WRNVecLoopNode *V = dyn_cast<WRNVecLoopNode>(W)) {
-          V->setExitHLNode(H);
-          S.pop();
-        }
-        else {
-          llvm_unreachable("VPO: Expected a WRNVecLoopNode");
-        }
-      }
-    }
-  } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) {
-    //process clauses
-    W = S.top();
-
-    // Extract clause properties
-    ClauseSpecifier ClauseInfo(DirOrClauseStr);
-
-    // Parse the clause and update W
-    W->parseClause(ClauseInfo, Call);
-  }
-}
-
 
 /// \brief Visitor class to walk the HIR and build WRNs
 /// based on HIR. Main logic is in the visit() member function
@@ -256,32 +314,24 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
     const Instruction *I = HI->getLLVMInstruction();
     Instruction *II = const_cast<Instruction *> (I);
     IntrinsicInst* Call = dyn_cast<IntrinsicInst>(II);
-    if (Call) {
-      Intrinsic::ID IntrinId = Call->getIntrinsicID();
-      if (VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId)) {
-        // The intrinsic is one of these: intel_directive,
-        //                                intel_directive_qual,
-        //                                intel_directive_qual_opnd,
-        //                                intel_directive_qual_opndlist
-        // Process them and create or update WRN accordingly
-        WRegionUtils::updateWRGraphFromHIR(
-                              Call, IntrinId, WRGraph, S, Node);
-      }
-    }
+    if (Call)
+      WRegionUtils::updateWRGraph(Call, WRGraph, S,
+                                  nullptr, nullptr, nullptr, // LI, DT, BB
+                                  Node);
   }
   else if (HLLoop *L = dyn_cast<HLLoop>(Node)) {
-    // Found a loop L; check if there's a pending WRNVecLoopNode
-    // that still has empty getHLLoop() and needs updating
+    // Found a loop L; check if there's a pending loop-type WRN such as
+    // WRNVecLoop that still has empty getHLLoop() and needs updating
     if (!S.empty()) {
       WRegionNode *W = S.top();
-      WRNVecLoopNode *VLN = dyn_cast<WRNVecLoopNode>(W);
-      if (VLN && !(VLN->getHLLoop())) {
-        VLN->setHLLoop(L);
-
-        // If the loop is marked with vector always pragma, mark that we
-        // should ignore vectorization profitability in vectorizer cost
-        // model.
-        VLN->setIgnoreProfitability(L->hasVectorizeAlwaysPragma());
+      if (W->getIsOmpLoop() && !W->getHLLoop()) {
+        W->setHLLoop(L);
+        if (isa<WRNVecLoopNode>(W)) {
+          // If the loop is marked with vector always pragma, mark that we
+          // should ignore vectorization profitability in vectorizer cost
+          // model.
+          W->setIgnoreProfitability(L->hasVectorizeAlwaysPragma());
+        }
       }
     }
   }

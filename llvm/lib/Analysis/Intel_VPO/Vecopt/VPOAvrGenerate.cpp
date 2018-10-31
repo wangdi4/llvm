@@ -765,8 +765,8 @@ void AVRGenerate::buildAbstractLayer() {
 
     LLVM_DEBUG(dbgs() << "\nAVR: Generating AVRs for vector candidates.\n");
 
-    // Build the WRGraph based on incoming LLVM IR
-    WR->buildWRGraph(WRegionCollection::LLVMIR);
+    // Build the WRGraph based on the CFG
+    WR->buildWRGraph();
 
     // Build AVR node representation for incoming vector candidates
     buildAvrsForVectorCandidates();
