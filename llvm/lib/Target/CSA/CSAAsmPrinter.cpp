@@ -418,13 +418,16 @@ void CSAAsmPrinter::EmitCsaCodeSection() {
   // Name: ".csa.code". I may want to append the module name.
   //
   // Flag values:
-  // - a - Section is allocatable - Which tells us very little. The ELF
-  //       docs expand this to explain that SHF_ALLOC means that the
-  //       section occupies memory during process execution
-  // - S - Section contains zero terminated strings
+  // - ELF::SHF_ALLOC - Section is allocatable - Which tells us very little. The
+  //       ELF docs expand this to explain that SHF_ALLOC means that the section
+  //       occupies memory during process execution
+  // - ELF::SHF_STRINGS - Section contains zero terminated strings
   //
-  // Type: "@progbits" - section contains data
-  OutStreamer->EmitRawText("\t.section\t\".csa.code\",\"aS\",@progbits");
+  // Type: ELF::SHT_PROGBITS - section contains data
+  MCSection *const CsaSec = OutContext.getELFSection(
+    ".csa.code", ELF::SHT_PROGBITS, ELF::SHF_ALLOC | ELF::SHF_STRINGS);
+  OutStreamer->PushSection();
+  OutStreamer->SwitchSection(CsaSec);
 }
 
 void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
@@ -478,6 +481,7 @@ void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
     OutStreamer->AddBlankLine();
     // Add the terminating null for the .csa section.
     OutStreamer->EmitRawText("\t.asciz \"\"");
+    OutStreamer->PopSection();
   }
 }
 
@@ -857,16 +861,19 @@ void CSAAsmPrinter::EmitConstantPool() {
 
 void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
 
-  // If the global's section name starts with .csa. it belongs on the CSA and
-  // needs to go in the target code. Otherwise, it is a normal global which
-  // should go on the host and be pulled in implicitly by the target code.
-  // However, if we aren't wrapping assembly nothing should go on the host.
-  const bool PutOnHost = CSAInstPrinter::WrapCsaAsm() and
-                         not GV->getSection().startswith(".csa.");
+  // If the global's section name starts with .csa. or if its linkage type is
+  // private, it belongs on the CSA and needs to go in the target code.
+  // Otherwise, it is a normal global which should go on the host and be pulled
+  // in implicitly by the target code. However, if we aren't wrapping assembly
+  // nothing should go on the host.
+  const bool PutOnHost =
+    CSAInstPrinter::WrapCsaAsm() and
+    not(GV->getSection().startswith(".csa.") or GV->hasPrivateLinkage());
   if (PutOnHost) {
     OutStreamer->AddBlankLine();
     endCSAAsmString(*OutStreamer);
     OutStreamer->AddBlankLine();
+    OutStreamer->PopSection();
   }
 
   AsmPrinter::EmitGlobalVariable(GV);
