@@ -49,9 +49,9 @@ public:
   ///     %not:ci1 = NOT1 %cmp:ci1
   ///     %filter:ci<WT> = FILTER<WT> %not:ci1, %N:ci<WT>
   ///     %sext:ci<WT> = SEXT<WT> %filter:ci<WT>, sizeof(<NT>)
-  ///     %add:ci<WT> = ADD<WT> %sext:ci<WT>, -S
+  ///     %add:ci<WT> = ADD<WT> %sext:ci<WT>, -C
   ///     (-, %pred:ci1, -, %last:ci1) =
-  ///         SEQOTLTS<WT> (C - 1 - S), %add:ci<WT>, S
+  ///         SEQOTLTS<WT> -1, %add:ci<WT>, S
   ///     optional-1: %lnot:ci1 = NOT1 %last:ci1
   ///     optional-1: ... = REPEATO<AT1> %lnot:ci1, %add:ci<WT>
   ///     optional-2: %anyfilter1:ci<AT2> = FILTER<AT2> %not:ci1, %fval1:ci<AT2>
@@ -74,15 +74,21 @@ public:
   ///       REPEATO instructions that use the inverted (NOT1)
   ///       'last' signal from the pattern's SEQOTLTS.
   ///     * %pred:ci1 may have uses in the graph, but thet all
-  //        have to follow the optional-2 FILTER/STRIDE pattern.
+  ///       have to follow the optional-2 FILTER/STRIDE pattern.
+  ///
+  /// NOTE: the CMPLTS<NT> checks (N < C);  if it is true, then
+  ///       the SEQOTLTS will not start and all the incoming values will
+  ///       be filtered away;  if it is false, then (sext(N) - C)
+  ///       is guaranteed to be not less than zero, so both SEQOTLTS
+  ///       and SEQLTS with the same operands will run at least once.
   ///
   /// Optimized sequence:
   ///     %cmp:ci1 = CMPLTS<NT> %N:ci<WT>, C
   ///     %not:ci1 = NOT1 %cmp:ci1
   ///     %sext:ci<WT> = SEXT<WT> %N:ci<WT>, sizeof(<NT>)
-  ///     %add:ci<WT> = ADD<WT> %sext:ci<WT>, -S
+  ///     %add:ci<WT> = ADD<WT> %sext:ci<WT>, -C
   ///     (-, %pred:ci1, -, %last:ci1) =
-  ///         SEQLTS<WT> (C - 1 - S), %add:ci<WT>, S
+  ///         SEQLTS<WT> -1, %add:ci<WT>, S
   ///     optional-1: ... = REPEAT<AT1> %pred:ci1, %add:ci<WT>
   ///     optional-2: ... = STRIDE<AT2> %pred:ci1, %fval:ci<AT2>, <any constant>
   ///     optional-3: ... = REPEAT<AT3> %pred:ci1, %fval:ci<AT3>
@@ -139,6 +145,22 @@ public:
   ///        to optimization set.
   ///     7. Modify all collected SEQOT, STRIDE and REPEATO instructions.
   ///        Go to step #1.
+  //
+  // TODO (vzakhari 10/30/2018): at least for optional-2 and optional-3
+  //       the pattern recognition has to be reworked.  We have to use
+  //       the idea that any DF tree that starts with FILTERs controlled
+  //       by %not:ci1 (these FILTERs are root nodes of the tree) and ends
+  //       with an operation that consumes its operands, given '0' control
+  //       (e.g. REPEATO/REPEAT, STRIDE, etc.), may be transformed
+  //       by eliminating the FILTERs, using %pred:ci1 to control
+  //       the leaf operations and sinking the FILTERs' value operands
+  //       to their uses inside the tree.  This will help to handle stencil
+  //       cases, where there is an intervening ADD between optional-2
+  //       FILTER and STRIDE operations.  The obvious drawback of such
+  //       a transformation is that the intervening operations may now
+  //       run unconditionally, thus taking power and having other side-effects
+  //       (like FP exceptions, though, we only work with integer operations
+  //       now).
   bool run();
 
   /// The method transforms the recognized pattern, which was proven
@@ -262,7 +284,7 @@ bool CSASeqotToSeqOptimizationImpl::run() {
       // Step #1:
 
       // Match: (-, %pred:ci1, -, %last:ci1) =
-      //            SEQOTLTS<WT> (C - 1 - S), %add<WT>:ci<WT>, S
+      //            SEQOTLTS<WT> -1, %add<WT>:ci<WT>, S
       if (!TII.isSeqOT(&StartingSeqot) ||
           VisitedOTInstructions.count(&StartingSeqot) != 0)
         continue;
@@ -279,34 +301,41 @@ bool CSASeqotToSeqOptimizationImpl::run() {
       LLVM_DEBUG(dbgs() << "--\nInitial candidate for SEQOT->SEQ opt: " <<
                  StartingSeqot);
 
-      auto StrideImm = StartingSeqot.getOperand(6).getImm();
-      if (StrideImm <= 0) {
+      if (StartingSeqot.getOperand(6).getImm() <= 0) {
         LLVM_DEBUG(dbgs() << "Problem - non-positive stride.\n");
         continue;
       }
 
       auto BoundReg = StartingSeqot.getOperand(5).getReg();
-      auto BaseImm = StartingSeqot.getOperand(4).getImm();
+      if (StartingSeqot.getOperand(4).getImm() != -1) {
+        LLVM_DEBUG(dbgs() << "Problem - lower bound is not -1.\n");
+        continue;
+      }
 
       // Step #2:
 
       // Quickly check, if the ADD matches the pattern.
-      // Match: %add:ci<WT> = ADD<WT> %sext<WT>:ci<WT>, -S
+      // Match: %add:ci<WT> = ADD<WT> %sext<WT>:ci<WT>, -C
       auto *AddInst = getSingleDef(BoundReg, MRI);
       if (!AddInst || !TII.isAdd(AddInst) ||
           !AddInst->getOperand(1).isReg() ||
           !AddInst->getOperand(2).isImm() ||
-          AddInst->getOperand(2).getImm() != -StrideImm ||
           !areTypesComplying(&StartingSeqot, AddInst)) {
         LLVM_DEBUG(dbgs() << "Problem - unsupported definition "
                    "of 'bound' value.\n");
         continue;
       }
 
+      auto AddImm = AddInst->getOperand(2).getImm();
+      if (AddImm >= 0) {
+        LLVM_DEBUG(dbgs() << "Problem - addend is non-negative.\n");
+        continue;
+      }
+
       // Match:
       //     %filter:ci<WT> = FILTER<WT> %not:ci1, %N:ci<WT>
       //     %sext:ci<WT> = SEXT<WT> %filter:ci<WT>, sizeof(<NT>)
-      //     %add:ci<WT> = ADD<WT> %sext:ci<WT>, -S
+      //     %add:ci<WT> = ADD<WT> %sext:ci<WT>, -C
       //
       // The matcher guarantees that %filter<WT>:ci<WT> and
       // %sext<WT>:ci<WT> have only one use each.
@@ -411,13 +440,13 @@ bool CSASeqotToSeqOptimizationImpl::run() {
         // registers).
         MachineInstr *BoundDef = nullptr;
         if (!SeqotInst->getOperand(4).isImm() ||
-            SeqotInst->getOperand(4).getImm() != BaseImm ||
+            SeqotInst->getOperand(4).getImm() != -1 ||
             !SeqotInst->getOperand(5).isReg() ||
             SeqotInst->getOperand(5).getReg() != BoundReg ||
             !(BoundDef = getSingleDef(BoundReg, MRI)) ||
             BoundDef != AddInst ||
             !SeqotInst->getOperand(6).isImm() ||
-            SeqotInst->getOperand(6).getImm() != StrideImm) {
+            SeqotInst->getOperand(6).getImm() <= 0) {
           LLVM_DEBUG(dbgs() << "Problem - non-matching SEQOT: " << SeqotInst);
           return true;
         }
@@ -549,11 +578,9 @@ bool CSASeqotToSeqOptimizationImpl::run() {
         continue;
       }
 
-      if (BaseImm != CImm - 1 - int64_t(StrideImm)) {
-        LLVM_DEBUG(dbgs() << "Problem - bounds do not match: SEQOT base(" <<
-                   BaseImm << "), C (" << CImm << "), S(" << StrideImm <<
-                   "), C - 1 - S (" << (CImm - 1 - int64_t(StrideImm)) <<
-                   ").\n");
+      if (AddImm != -CImm) {
+        LLVM_DEBUG(dbgs() << "Problem - bounds do not match: CMP bound(" <<
+                   CImm << "), ADD immediate(" << AddImm << ")\n");
         continue;
       }
 
@@ -603,7 +630,7 @@ bool CSASeqotToSeqOptimizationImpl::run() {
               !FilterInst->getOperand(1).isReg() ||
               !FilterInst->getOperand(2).isReg()) {
             LLVM_DEBUG(dbgs() << "Problem - unsupported STRIDE base: " <<
-                       FilterInst);
+                       (FilterInst ? *FilterInst : StrideInst));
             return true;
           }
 
@@ -694,6 +721,12 @@ bool CSASeqotToSeqOptimizationImpl::run() {
       // Remove a REPEATO from the optimization list, if any
       // of the corresponding FILTER's uses is not a REPEATO
       // currently in this list.
+      // The intention here is to avoid introducing fanouts
+      // for the FILTER's value operand.
+      //
+      // TODO (vzakhari 10/30/2018):  if the FILTER's value operand
+      //       is a parameter, maybe it is safe to assume that the
+      //       extra fanouts will not complicate the P&R?
       SmallPtrSet<MachineInstr *, 20> Opt3Instructions;
       for (auto *Repeato : Opt3InstructionsCandidates) {
         auto RepeatoValueReg = Repeato->getOperand(2).getReg();

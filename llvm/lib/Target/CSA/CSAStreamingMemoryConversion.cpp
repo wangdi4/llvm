@@ -315,7 +315,7 @@ using namespace CSAMatch;
 constexpr auto repeated_pat = mirmatch::graph(
   RESULT = repeato_N(CTL, REPEATED), CTL = not1(SEQ_LAST),
   (SEQ_VAL, SEQ_PRED, SEQ_FIRST, SEQ_LAST) =
-    seqot(mirmatch::AnyOperand, mirmatch::AnyOperand, mirmatch::AnyOperand));
+    seqozt(mirmatch::AnyOperand, mirmatch::AnyOperand, mirmatch::AnyOperand));
 
 MIRMATCHER_REGS(INMEM, OUTMEM1, OUTMEM2, VAL1, VAL2, BASE1, BASE2, LEN);
 constexpr auto match2 = mirmatch::LiteralMatcher<uint64_t, 2>{};
@@ -553,11 +553,19 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
   }
 
   bool isEqual = false;
+  bool isOneTrip = true;
   switch (TII->getGenericOpcode(stream->getOpcode())) {
+  case CSA::Generic::SEQNE:
+  case CSA::Generic::SEQLT:
+    isOneTrip = false;
+    LLVM_FALLTHROUGH;
   case CSA::Generic::SEQOTNE:
   case CSA::Generic::SEQOTLT:
     isEqual = false;
     break;
+  case CSA::Generic::SEQLE:
+    isOneTrip = false;
+    LLVM_FALLTHROUGH;
   case CSA::Generic::SEQOTLE:
     isEqual = true;
     break;
@@ -566,7 +574,7 @@ MachineInstr *CSAStreamingMemoryConversionPass::makeStreamMemOp(MachineInstr *MI
     return nullptr;
   }
   const MachineOp length =
-    getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), true, stream);
+    getLength(seqStart, seqEnd, isEqual, seqStep.getImm(), isOneTrip, stream);
   if (!length) {
     LLVM_DEBUG(dbgs() << "Stream operand is of unknown form.\n");
     return nullptr;
