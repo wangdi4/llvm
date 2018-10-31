@@ -19,6 +19,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/TargetFolder.h"
+#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL - Needed for LibFunc enum
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
@@ -101,6 +102,11 @@ bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 /// All functions except calloc return -1 as a second argument.
 std::pair<unsigned, unsigned>
 getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
+
+/// Returns 'true' if the LibFunc is contained within the list of library
+/// functions that are known to allocate memory. The list is maintained
+/// within MemoryBuiltins.cpp as 'AllocationFnData'.
+bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

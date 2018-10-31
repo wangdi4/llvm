@@ -23,17 +23,21 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+
+class TargetLibraryInfo;
+class WholeProgramInfo;
+
 namespace dtrans {
 
 // This class implements the DTrans weak align pass to allow using qkmalloc with
 // the weak memory alignment setting.
-class WeakAlignPass
-    : public PassInfoMixin<dtrans::WeakAlignPass> {
+class WeakAlignPass : public PassInfoMixin<dtrans::WeakAlignPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, const TargetLibraryInfo &TLI,
+               WholeProgramInfo &WPInfo);
 };
 
 } // namespace dtrans
