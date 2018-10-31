@@ -669,7 +669,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // ready yet. Innermost unknown loops embedded inside other loops are
   // throttled for compile time reasons.
   if (IsUnknownLoop && (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) ||
-                        (Lp.getLoopDepth() != 1))) {
+                        !Lp.empty() || (Lp.getLoopDepth() != 1))) {
     LLVM_DEBUG(
         dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
                   "time reasons.\n");
