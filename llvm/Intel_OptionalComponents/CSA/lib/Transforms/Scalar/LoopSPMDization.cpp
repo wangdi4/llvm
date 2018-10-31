@@ -81,7 +81,8 @@ private:
                           ScalarEvolution *SE, DominatorTree *DT, LoopInfo *LI);
   int GetMinLoopIterations(Loop *L, ScalarEvolution *SE);
   void AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs,
-                        BasicBlock *AfterLoop, DominatorTree *DT, LoopInfo *LI);
+                             BasicBlock *AfterLoop, DominatorTree *DT,
+                             LoopInfo *LI);
   bool AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &context, Module *M,
                                    BasicBlock *OrigPH, BasicBlock *E);
   IntrinsicInst *detectSPMDIntrinsic(Loop *L, LoopInfo *LI, DominatorTree *DT,
@@ -289,7 +290,8 @@ try a different SPMDization strategy instead.
             << "Loop SPMDization zero trip count check was not inserted for "
                "Worker# " +
                    std::to_string(PE) +
-                   "  ,as directed by the builtin_assume.");
+                   "  ,as directed by the builtin_assume or the constant value "
+                   "of the upper bound of the loop.");
       }
       // This assumes -ffp-contract=fast is set
       bool success_p =
@@ -443,11 +445,9 @@ bool LoopSPMDization::FindReductionVariables(
         if (redoperation) {
           redoperation = dyn_cast<PHINode>(
               dyn_cast<Instruction>(Phiop->getIncomingValue(1)));
-          ReduceVarOrig[r] =
-              dyn_cast<Instruction>(Phiop->getIncomingValue(1));
+          ReduceVarOrig[r] = dyn_cast<Instruction>(Phiop->getIncomingValue(1));
         } else
-          ReduceVarOrig[r] =
-              dyn_cast<Instruction>(Phiop->getIncomingValue(0));
+          ReduceVarOrig[r] = dyn_cast<Instruction>(Phiop->getIncomingValue(0));
       }
       BasicBlock::iterator i, ie;
       for (i = L->getExitBlock()->begin(), ie = L->getExitBlock()->end();
@@ -639,8 +639,7 @@ bool LoopSPMDization::FixReductionsIfAny(
               // block
               if (NewPhi->getBasicBlockIndex(predecessor) == -1 &&
                   predecessor != pred_AfterLoop) {
-                Value *Ident =
-                    findReductionIdentity(NewPhi, ReduceVarOrig[r]);
+                Value *Ident = findReductionIdentity(NewPhi, ReduceVarOrig[r]);
                 if (Ident)
                   NewPhi->addIncoming(Ident, predecessor);
                 else
@@ -1206,17 +1205,29 @@ Failed to find the loop latch condition.
 
 /* This routine returns the minimum iterations the user assumes the loop L will
 be executing in order to help removing the zero trip case when replicating loops
-among workers. This routines implements the following two cases:
+among workers. This routines implements the following cases:
 
-case1: lower
-bound of loop is constant builtin_assume(hi>3); // or (hi-2>1)
+case 1 lower bound is a constant and upper bound is a constant
+  This does not need builtin_assume insertion from the user
+  __builtin_csa_spmdization(3,"cyclic");
+  for (int64_t i = 2; i < 1024; i+=1)
+
+
+case 2: lower bound of loop is constant
+  builtin_assume(hi>3); // or (hi-2>1)
   __builtin_csa_spmdization(3,"cyclic");
   for (int64_t i = 2; i < hi; i+=1)
 
-Case 2: lower bound of loop is not a constant
+Case 3: lower bound of loop is not a constant
+ builtin_assume(hi>lo);
+ __builtin_csa_spmdization(3,"cyclic");
+ for (int64_t i = lo; i < hi; i+=1)
+
+Case 4: lower bound of loop is not a constant
  builtin_assume(hi-lo>2);
  __builtin_csa_spmdization(3,"cyclic");
  for (int64_t i = lo; i < hi; i+=1)
+
 Other cases will be implemented based on test cases
 */
 int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
@@ -1238,33 +1249,63 @@ int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
   else
     Cond = (cast<BranchInst>(Header->getTerminator()))->getCondition();
   Instruction *CondI = dyn_cast<Instruction>(Cond);
+  // TODO: Check the case when latch is driven by a <= instead of a < or !=
   Value *UpperBound = CondI->getOperand(1);
   if (InductionPHI->getIncomingBlock(0) == PreHeader) {
     LowerBound = InductionPHI->getIncomingValue(0);
   } else {
     LowerBound = InductionPHI->getIncomingValue(1);
   }
+  // The builtin assume uses the same names as in C code
+  // Retrieve lowerbound and upperbound if they are "hidden" in cast
+  // instructions to match the names used in C
+  Value *uppercast = UpperBound;
+  if (Instruction *Iupper = dyn_cast<Instruction>(UpperBound)) {
+    switch (Iupper->getOpcode()) {
+    case Instruction::Trunc:
+    case Instruction::ZExt:
+    case Instruction::SExt:
+      uppercast = Iupper->getOperand(0);
+      break;
+    }
+  }
+  Value *lowercast = LowerBound;
+  if (Instruction *Ilower = dyn_cast<Instruction>(LowerBound)) {
+    switch (Ilower->getOpcode()) {
+    case Instruction::Trunc:
+    case Instruction::ZExt:
+    case Instruction::SExt:
+      lowercast = Ilower->getOperand(0);
+      break;
+    }
+  }
+
+  // TODO:
+  // This does only handle a unit step
+  // The general formula is hi - lo < PE --> no zero trip count
+  // this will be ajusted to hi - lo < PE*step
   AssumptionCache *AC =
       &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
-  // case1: lower bound of loop is constant
+  // case 1 lower bound is a constant and upper bound is a constant
   if (ConstantInt *CI = dyn_cast<ConstantInt>(LowerBound)) {
-    // When upper bound is constant
     if (ConstantInt *CU = dyn_cast<ConstantInt>(UpperBound)) {
       int min_iterations = CU->getSExtValue();
       int lowerC = CI->getSExtValue();
       return min_iterations - lowerC;
     }
-    for (auto &AssumeVH : AC->assumptionsFor(UpperBound)) {
-      if (!AssumeVH)
-        continue;
-      auto *I = cast<CallInst>(AssumeVH);
-      ICmpInst *ICL = dyn_cast<ICmpInst>(I->getArgOperand(0));
+  }
+  // case2: lower bound of loop is not a constant
+  for (auto &AssumeVH : AC->assumptions()) {
+    if (!AssumeVH)
+      continue;
+    auto *I = cast<CallInst>(AssumeVH);
+    if (ICmpInst *ICL = dyn_cast<ICmpInst>(I->getArgOperand(0))) {
       Value *LHS = ICL->getOperand(0);
       Value *RHS = ICL->getOperand(1);
       CmpInst::Predicate Predicate = ICL->getPredicate();
-      if (isa<Constant>(RHS)) {
-        if (LHS == UpperBound) {
-          // Right now we support only the greater than case
+      // case2 lower bound of loop is constant and upper bound is not
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(LowerBound)) {
+        if (LHS == uppercast) {
           if (Predicate == ICmpInst::ICMP_UGT ||
               Predicate == ICmpInst::ICMP_SGT) {
             if (ConstantInt *CRHS = cast<ConstantInt>(RHS)) {
@@ -1272,56 +1313,41 @@ int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
               int lowerC = CI->getSExtValue();
               return min_iterations - lowerC;
             }
-            /*else if ((Predicate == ICmpInst::ICMP_EQ))
-            //TO DO
-            else if (Predicate == ICmpInst::ICMP_ULT ||
-            Predicate == ICmpInst::ICMP_SLT)
-            //TODO
-            else if (Predicate == ICmpInst::ICMP_ULE ||
-            Predicate == ICmpInst::ICMP_SLE)
-            //TODO
-            } else if (Predicate == ICmpInst::ICMP_UGE ||
-            Predicate == ICmpInst::ICMP_SGE)
-            //TODO*/
           }
         }
       }
-    }
-  } else {
-    // case1: lower bound of loop is not a constant
-    for (auto &AssumeVH : AC->assumptions()) {
-      if (!AssumeVH)
-        continue;
-      auto *I = cast<CallInst>(AssumeVH);
-      if (ICmpInst *ICL = dyn_cast<ICmpInst>(I->getArgOperand(0))) {
-        Value *LHS = ICL->getOperand(0);
-        if (Instruction *Isub = dyn_cast<Instruction>(LHS)) {
-          if (Isub->getOpcode() == Instruction::Sub) {
-            Value *upper = Isub->getOperand(0);
-            Value *lower = Isub->getOperand(1);
-            if (upper == UpperBound && lower == LowerBound) {
-              Value *RHS = ICL->getOperand(1);
-              CmpInst::Predicate Predicate = ICL->getPredicate();
-              if (isa<Constant>(RHS)) {
-                // Right now we support only the greater than case
-                if (Predicate == ICmpInst::ICMP_UGT ||
-                    Predicate == ICmpInst::ICMP_SGT) {
-                  if (ConstantInt *CRHS = cast<ConstantInt>(RHS)) {
-                    int min_iterations = CRHS->getSExtValue();
-                    return min_iterations;
-                  }
-                  /*if ((Predicate == ICmpInst::ICMP_EQ))
-                  //TODO
-                  else if (Predicate == ICmpInst::ICMP_ULT ||
-                  Predicate == ICmpInst::ICMP_SLT)
-                  //TODO
-                  else if (Predicate == ICmpInst::ICMP_ULE ||
-                  Predicate == ICmpInst::ICMP_SLE)
-                  //TODO
-                  else if (Predicate == ICmpInst::ICMP_UGE ||
-                  Predicate == ICmpInst::ICMP_SGE)
-                  //TODO*/
+      // lower bound is not a constant
+      // case 3: yend>ybegin
+      if (LHS == uppercast && RHS == lowercast) {
+        if (Predicate == ICmpInst::ICMP_UGT || Predicate == ICmpInst::ICMP_SGT)
+          return 0;
+      }
+      // lower bound is not a constant
+      // Case 4: yend - ybegin> X
+      if (Instruction *Isub = dyn_cast<Instruction>(LHS)) {
+        if (Isub->getOpcode() == Instruction::Sub) {
+          Value *upper = Isub->getOperand(0);
+          Value *lower = Isub->getOperand(1);
+          if (upper == uppercast && lower == lowercast) {
+            if (isa<Constant>(RHS)) {
+              // Right now we support only the greater than case
+              if (Predicate == ICmpInst::ICMP_UGT ||
+                  Predicate == ICmpInst::ICMP_SGT) {
+                if (ConstantInt *CRHS = cast<ConstantInt>(RHS)) {
+                  int min_iterations = CRHS->getSExtValue();
+                  return min_iterations;
                 }
+                /*if ((Predicate == ICmpInst::ICMP_EQ))
+                //TODO
+                else if (Predicate == ICmpInst::ICMP_ULT ||
+                Predicate == ICmpInst::ICMP_SLT)
+                //TODO
+                else if (Predicate == ICmpInst::ICMP_ULE ||
+                Predicate == ICmpInst::ICMP_SLE)
+                //TODO
+                else if (Predicate == ICmpInst::ICMP_UGE ||
+                Predicate == ICmpInst::ICMP_SGE)
+                //TODO*/
               }
             }
           }
@@ -1332,9 +1358,10 @@ int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
   return -1;
 }
 
-void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE,
-                                       int NPEs, BasicBlock *AfterLoop,
-                                       DominatorTree *DT, LoopInfo *LI) {
+void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
+                                            int PE, int NPEs,
+                                            BasicBlock *AfterLoop,
+                                            DominatorTree *DT, LoopInfo *LI) {
 
   BasicBlock *PreHeader = L->getLoopPreheader();
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
