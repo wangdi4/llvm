@@ -2511,7 +2511,8 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     }
 
 #if INTEL_CUSTOMIZATION
-    if (getLangOpts().IntelOpenMP) {
+    if (getLangOpts().IntelOpenMP &&
+        (!CapturedStmtInfo || CapturedStmtInfo->isLateOutlinedRegion())) {
       if (CapturedStmtInfo)
         CapturedStmtInfo->recordVariableReference(VD);
       if (isa<OMPCapturedExprDecl>(VD)) {

@@ -315,6 +315,7 @@ public:
   void recordThisPointerReference(llvm::Value *ThisValue) {
     Outliner.setThisPointerValue(ThisValue);
   }
+  bool isLateOutlinedRegion() { return true; }
 
 private:
   /// \brief CodeGen info about outer OpenMP region.

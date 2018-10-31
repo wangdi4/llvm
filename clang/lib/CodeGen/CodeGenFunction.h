@@ -394,6 +394,7 @@ public:
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
     virtual void recordThisPointerReference(llvm::Value *) {}
+    virtual bool isLateOutlinedRegion() { return false; }
 #endif // INTEL_CUSTOMIZATION
   private:
     /// The kind of captured statement being generated.
