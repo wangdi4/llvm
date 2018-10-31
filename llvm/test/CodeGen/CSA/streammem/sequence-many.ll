@@ -25,20 +25,20 @@ loop:
   %indvar.next = add nuw i64 %indvar, 1
   %exitcond = icmp eq i64 %indvar.next, %N
   br i1 %exitcond, label %exit, label %loop
-; CHECK: .param .lic .i1 %[[INORD:[a-z0-9_]+]]
-; CHECK: .param .lic .i64 %[[ADDRA:[a-z0-9_]+]]
-; CHECK: .param .lic .i64 %[[ADDRB:[a-z0-9_]+]]
-; CHECK: .param .lic .i64 %[[ADDRC:[a-z0-9_]+]]
-; CHECK: .param .lic .i64 %[[ADDRD:[a-z0-9_]+]]
-; CHECK: .param .lic .i64 %[[ADDRE:[a-z0-9_]+]]
-; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_]+]]
-; CHECK: cmpne64 %[[OT:[a-z0-9_]+]], %[[LEN]], 0
-; CHECK: merge64 %[[SAFELEN:[a-z0-9_]+]], %[[OT]], 1, %[[LEN]]
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRA]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRB]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRC]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sld64 %{{[a-z0-9_]+}}, %[[ADDRD]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
-; CHECK-DAG: sst64 %[[ADDRE]], %[[SAFELEN]], 1, %{{[a-z0-9_]+}}, %{{[a-z0-9_]+}}, %ign, MEMLEVEL_T0
+; CHECK: .param .lic .i0 %[[INORD:[a-z0-9_.]+]]
+; CHECK: .param .lic .i64 %[[ADDRA:[a-z0-9_.]+]]
+; CHECK: .param .lic .i64 %[[ADDRB:[a-z0-9_.]+]]
+; CHECK: .param .lic .i64 %[[ADDRC:[a-z0-9_.]+]]
+; CHECK: .param .lic .i64 %[[ADDRD:[a-z0-9_.]+]]
+; CHECK: .param .lic .i64 %[[ADDRE:[a-z0-9_.]+]]
+; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_.]+]]
+; CHECK: cmpne64 %[[OT:[a-z0-9_.]+]], %[[LEN]], 0
+; CHECK: merge64 %[[SAFELEN:[a-z0-9_.]+]], %[[OT]], 1, %[[LEN]]
+; CHECK-DAG: sld64 %{{[a-z0-9_.]+}}, %[[ADDRA]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sld64 %{{[a-z0-9_.]+}}, %[[ADDRB]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sld64 %{{[a-z0-9_.]+}}, %[[ADDRC]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sld64 %{{[a-z0-9_.]+}}, %[[ADDRD]], %[[SAFELEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
+; CHECK-DAG: sst64 %[[ADDRE]], %[[SAFELEN]], 1, %{{[a-z0-9_.]+}}, %{{[a-z0-9_.]+}}, %ign, MEMLEVEL_T0
 
 exit:
   ret void
