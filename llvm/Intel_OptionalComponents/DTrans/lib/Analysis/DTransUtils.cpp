@@ -354,6 +354,28 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     if (ElementZeroTy->isAggregateType())
       return isElementZeroAccess(ElementZeroTy->getPointerTo(), DestTy,
                                  AccessedTy);
+    // If element zero is a pointer to an aggregate type this cast might
+    // be creating a pointer to element zero of the type pointed to.
+    // For instance, if we have the following types:
+    //
+    //   %A = type { %B*, ... }
+    //   %B = type { %C, ... }
+    //   %C = type { ... }
+    //
+    // The following IR would get the address of A->C.
+    //
+    //   %ppc = bitcast %A* %pa to %C**
+    //
+    if (ElementZeroTy->isPointerTy() &&
+        ElementZeroTy->getPointerElementType()->isAggregateType()) {
+      // In this case, tracking the accessed type is tricky because
+      // the check is off by a level of indirection. If it's a match
+      // we need to record it as element zero of SrcTy.
+      bool Match = isElementZeroAccess(ElementZeroTy, DestPointeeTy);
+      if (Match && AccessedTy)
+        *AccessedTy = SrcTy;
+      return Match;
+    }
     // Otherwise, it must be a bad cast. The caller should handle that.
     return false;
   }
