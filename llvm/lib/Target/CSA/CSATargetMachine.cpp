@@ -233,9 +233,6 @@ public:
     // Add pass to replace alloca instructions
     addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
     addPass(createGlobalDCEPass());
-    // simplify loop has to be run last, data flow converter assume natural loop
-    // format, with prehdr etc...
-    addPass(createLoopSimplifyPass());
 
     // Add the pass to lower memset/memmove/memcpy
     addPass(createLowerLoopIdioms());
@@ -244,6 +241,11 @@ public:
     // expansion.
     addPass(createInstructionCombiningPass());
     addPass(createCFGSimplificationPass());
+
+    // simplify loop has to be run last, data flow converter assume natural loop
+    // format, with prehdr etc...
+    addPass(createLoopSimplifyPass());
+
     return false;
   }
 
