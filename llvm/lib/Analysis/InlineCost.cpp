@@ -152,6 +152,24 @@ static cl::opt<unsigned>
                             cl::ReallyHidden,
                             cl::desc("Minimal number of arguments appearing in "
                                      "array accesses inside callee."));
+
+// Options to set the number of formal arguments, basic blocks, and loops
+// for a huge function. We may suppress the inlining of functions which
+// have these many arguments, basic blocks, and loops, even if they are
+// have local linkage and a single call site.
+
+static cl::opt<unsigned> HugeFunctionBasicBlockCount(
+    "inlining-huge-bb-count", cl::init(90), cl::ReallyHidden,
+    cl::desc("Function with this many basic blocks or more may be huge"));
+
+static cl::opt<unsigned> HugeFunctionArgCount(
+    "inlining-huge-arg-count", cl::init(8), cl::ReallyHidden,
+    cl::desc("Function with this many arguments or more may be huge"));
+
+static cl::opt<unsigned> HugeFunctionLoopCount(
+    "inlining-huge-loop-count", cl::init(11), cl::ReallyHidden,
+    cl::desc("Function with this many loops or more may be huge"));
+
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -949,6 +967,30 @@ CallAnalyzer::getHotCallSiteThreshold(CallSite CS,
 void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
   InlineReasonVector &YesReasonVector) {                          // INTEL
   // If no size growth is allowed for this inlining, set Threshold to 0.
+
+#if INTEL_CUSTOMIZATION
+  // A function can be considered huge if it has too many formal arguments,
+  // basic blocks, and loops. We test them in this order (from cheapest to
+  // most expensive).
+  auto IsHugeFunction = [this](Function *F) {
+    if (!InlineForXmain || !DTransInlineHeuristics)
+      return false;
+    auto ArgSize = F->arg_size();
+    if (ArgSize < HugeFunctionArgCount)
+      return false;
+    auto BBCount = F->size();
+    if (BBCount < HugeFunctionBasicBlockCount)
+      return false;
+    LoopInfo *LI = ILIC->getLI(F);
+    if (!LI)
+      return false;
+    auto LoopCount = std::distance(LI->begin(), LI->end());
+    if (LoopCount < HugeFunctionLoopCount)
+      return false;
+    return true;
+  };
+#endif // INTEL_CUSTOMIZATION
+
   if (!allowSizeGrowth(CS)) {
     Threshold = 0;
     return;
@@ -1074,7 +1116,8 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
   bool OnlyOneCallAndLocalLinkage =
        (F.hasLocalLinkage()                                     // INTEL
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&   // INTEL
-       F.hasOneUse() &&  &F == CS.getCalledFunction();          // INTEL
+       F.hasOneUse() && &F == CS.getCalledFunction() &&         // INTEL
+       !IsHugeFunction(&F);                                     // INTEL
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
