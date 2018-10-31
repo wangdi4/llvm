@@ -33,7 +33,11 @@ VPlanVLSAnalysis::getInstructionAccessType(const VPInstruction *Inst,
   if (Opcode != Instruction::Load && Opcode != Instruction::Store)
     return MemAccessTy::Unknown;
 
-  if (auto *I = dyn_cast<HLInst>(Inst->HIR.getUnderlyingNode())) {
+  const HLNode *Node = Inst->HIR.isMaster()
+                           ? Inst->HIR.getUnderlyingNode()
+                           : Inst->HIR.getMaster()->HIR.getUnderlyingNode();
+
+  if (auto *I = dyn_cast<HLInst>(Node)) {
     // FIXME: It's not correct to getParentLoop() for outerloop
     // vectorization.
     int64_t Stride;
@@ -91,24 +95,13 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
                           : 0;
             MemAccessTy AccTy = getInstructionAccessType(Inst, Level);
 
-#if 0
             unsigned Opcode = Inst->getOpcode();
-            if ((AccTy == MemAccessTy::Strided ||
-                 AccTy == MemAccessTy::Indexed) &&
+            if (AccTy != MemAccessTy::Unknown &&
                 (Opcode == Instruction::Load || Opcode == Instruction::Store))
               if (OVLSMemref *Memref = createVLSMemref(Inst, AccTy, Level, VF)) {
                 VLSInfoIt->second.Memrefs.push_back(Memref);
                 LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; Inst->dump(););
               }
-#else
-            // FIXME: Decomposition doesn't create or extract RegDDRefs, so
-            // try to create memrefs unconditionally.
-            // This code is useless for LLVM-IR-based vectorizer.
-            if (OVLSMemref *Memref = createVLSMemref(Inst, AccTy, Level, VF)) {
-              VLSInfoIt->second.Memrefs.push_back(Memref);
-              LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; Inst->dump(););
-            }
-#endif
           }
         }
       }

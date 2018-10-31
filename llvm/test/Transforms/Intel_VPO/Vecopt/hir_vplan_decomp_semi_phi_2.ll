@@ -25,7 +25,7 @@
 
 ; CHECK: i64 [[IVPhi:%.*]] = semi-phi i64 0 i64 {{%.*}}
 ; CHECK: [[SemiPhi:%.*]] = semi-phi i32 [[IfT1:%.*]] i32 [[ElseT1:%.*]]
-; CHECK-NEXT: store i32 [[SemiPhi]] i32 {{%.*}}
+; CHECK: store i32 [[SemiPhi]] i32* {{%.*}}
 ; CHECK-NOT: {{%.*}} = semi-phi
 
 

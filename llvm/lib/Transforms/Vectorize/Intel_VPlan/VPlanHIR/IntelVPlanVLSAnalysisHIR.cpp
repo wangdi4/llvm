@@ -48,21 +48,13 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
                                                  const MemAccessTy &AT,
                                                  const unsigned Level,
                                                  const unsigned VF) const {
-  unsigned Size = 0;
-  if (Inst->getOpcode() == Instruction::Load ||
-      Inst->getOpcode() == Instruction::Store)
-    Size = VPlanCostModel::getMemInstValueType(Inst)->getScalarSizeInBits();
-  else if (Inst->getType())
-    Size = Inst->getType()->getScalarSizeInBits();
-
-  // TODO: Shouldn't see struct types here.
-  if (!Size)
-    return nullptr;
-
-  OVLSType Ty = OVLSType(Size, VF);
   unsigned Opcode = Inst->getOpcode();
 
-  const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+  const HLNode *Node = Inst->HIR.isMaster()
+                           ? Inst->HIR.getUnderlyingNode()
+                           : Inst->HIR.getMaster()->HIR.getUnderlyingNode();
+
+  const HLDDNode *DDNode = cast<HLDDNode>(Node);
   assert(DDNode && "HLDDNode is expected.");
 
   // TODO: Masked case is not supported right now by VPOCG. As soon as OVLS
@@ -99,6 +91,12 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
   }
 
   assert(Ref && "Unvisited RegDDRef must exist.");
+
+  unsigned Size = Ref->getDestType()->getScalarSizeInBits();
+  if (!Size)
+    return nullptr;
+
+  OVLSType Ty = OVLSType(Size, VF);
 
   int64_t Stride = 0;
   // Overrides incoming AT.

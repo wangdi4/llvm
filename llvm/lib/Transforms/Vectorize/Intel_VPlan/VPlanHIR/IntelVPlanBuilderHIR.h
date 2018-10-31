@@ -99,6 +99,14 @@ public:
     BranchInst->HIR.setValid();
     return BranchInst;
   }
+
+  /// Construct a GEP VPInstruction with \p Operands and set its type \p BaseTy.
+  /// NOTE: This will be removed after VPGEPInstruction is introduced
+  VPValue *createGEP(Type *BaseTy, ArrayRef<VPValue *> Operands) {
+    VPInstruction *NewGEP =
+        createInstruction(Instruction::GetElementPtr, BaseTy, Operands);
+    return NewGEP;
+  }
 };
 
 } // namespace vpo

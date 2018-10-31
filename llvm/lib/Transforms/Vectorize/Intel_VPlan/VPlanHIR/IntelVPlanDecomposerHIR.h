@@ -83,6 +83,7 @@ private:
   VPValue *decomposeIV(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE,
                        unsigned IVLevel, Type *Ty);
   VPValue *decomposeCanonExpr(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE);
+  VPValue *decomposeMemoryOp(loopopt::RegDDRef *RDDR);
   VPValue *decomposeVPOperand(loopopt::RegDDRef *RDDR);
 
   /// This class implements the decomposition of a blob in a RegDDRef. The

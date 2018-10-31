@@ -258,6 +258,148 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   return DecompDef;
 }
 
+// Decompose the incoming HIR memory reference \p Ref. Return the last VPValue
+// resulting from its decomposition.
+//
+// The incoming DDRef can either be a LHS or RHS operand for the parent DDNode.
+// In case of a RHS operand we generate an additional `load` VPInstruction along
+// with decomposing the DDRef into GEP (and bitcast if needed). For a LHS
+// operand no additional instruction is generated, since VPInstructions
+// representing the RHS must be generated first before generating the `store`.
+// This technique also simplifies the decomposition code to handle loads cleaned
+// up by HIR's Temp Cleanup pass (example 2). NOTE: If RHS operand is AddressOf
+// type then load will not be generated.
+//
+// Examples -
+// 1. %0 = (@b)[0][i1]
+//
+//    The RHS memory operand will be decomposed as -
+//    %vp0 = gep %b, 0, %vpi1
+//    %vpl = load %vp0
+//
+//    createVPInstruction will later pick the load (always the last generated
+//    "operand" for a load HLInst) as master VPI.
+//
+// 2. %0 = (@b)[0][i1]  +  (@c)[0][i1]
+//
+//    Both the RHS memory operands will be decomposed as -
+//    %vp0 = gep %b, 0, %vpi1
+//    %vp1 = load %vp0
+//    %vp2 = gep %c, 0, %vpi1
+//    %vp3 = load %vp2
+//
+//    createVPInstruction will be responsible for generating the `add`
+//    VPInstruction using %vp1 and %vp3 as operands and set as master VPI.
+//
+// 3. (@a)[0][i1] = %0
+//
+//    The LHS memory operand will be decomposed as -
+//    %vp0 = gep %a, 0, %vpi1
+//
+//    createVPInstruction will then generate a `store` VPInstruction using %vp0
+//    as operand.
+//
+VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
+  LLVM_DEBUG(dbgs() << "VPDecomp: Decomposing memory operand: "; Ref->dump();
+             dbgs() << "\n");
+
+  assert(Ref->hasGEPInfo() &&
+         "Expected a GEP RegDDRef to decompose memory operand.");
+  SmallVector<VPValue *, 4> GepOperands;
+
+  VPValue *DecompBaseCE = decomposeCanonExpr(Ref, Ref->getBaseCE());
+
+  LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompBaseCE: "; DecompBaseCE->dump();
+             dbgs() << "\n");
+  GepOperands.push_back(DecompBaseCE);
+
+  bool NeedGEP = true;
+  unsigned NumDims = Ref->getNumDimensions();
+  assert(NumDims > 0 && "Number of dimensions in memory operand is 0.");
+
+  // If Ref is of the form a[0] or &a[0], GEP instructions are not needed.
+  // TODO: This is needed for correctness of any analysis with opaque types.
+  // However HIR codegen should be aware of this lack of GEP for Refs of form
+  // a[0] and &a[0] and generate them if needed during codegen. For example
+  // check Transforms/Intel_VPO/Vecopt/hir_vector_opaque_type.ll
+  if (NumDims == 1 && !Ref->hasTrailingStructOffsets() &&
+      (*Ref->canon_begin())->isZero())
+    NeedGEP = false;
+  else {
+    // Process indices for each dimension and update GepOperands.
+    for (unsigned I = NumDims; I > 0; --I) {
+      VPValue *DecompIndex = decomposeCanonExpr(Ref, Ref->getDimensionIndex(I));
+      LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompIndex: "; DecompIndex->dump();
+                 dbgs() << "\n");
+      GepOperands.push_back(DecompIndex);
+
+      // TODO: Push indices for trailing struct offsets
+    }
+  }
+
+  // Determine resulting type of the GEP instruction
+  //
+  // Example: float a[1024];
+  //
+  // @a[0][i] will be decomposed as -
+  // float* %vp = getelementptr [1024 x float]* %a, i64 0, i64 %i
+  //
+  // Here -
+  // GepResultType = float*
+  //
+  // NOTE: Type information about pointer type or pointer element type can be
+  // retrieved anytime from the first operand of GEP instruction
+  //
+
+  Type *GepResultType = Ref->getSrcType();
+
+  // For store/load references we need to convert to PointerType
+  if (!Ref->isAddressOf())
+    GepResultType =
+        PointerType::get(GepResultType, Ref->getPointerAddressSpace());
+
+  // Final VPInstruction obtained on decomposing the MemOp
+  VPValue *MemOpVPI;
+
+  if (!NeedGEP)
+    MemOpVPI = DecompBaseCE;
+  else if (Ref->isInBounds())
+    // TODO: add extra field to store InBounds in VPGEPInstruction
+    MemOpVPI = Builder.createGEP(GepResultType, GepOperands);
+  else
+    MemOpVPI = Builder.createGEP(GepResultType, GepOperands);
+
+  // Create a bitcast instruction if needed
+  auto BitCastDestTy = Ref->getBitCastDestType();
+  if (BitCastDestTy) {
+    LLVM_DEBUG(dbgs() << "VPDecomp: BitCastDestTy: "; BitCastDestTy->dump();
+               dbgs() << "\n");
+    MemOpVPI =
+        Builder.createNaryOp(Instruction::BitCast, {MemOpVPI}, BitCastDestTy);
+  }
+
+  // If memory reference is AddressOf type, return the last generated
+  // VPInstruction
+  if (Ref->isAddressOf())
+    return MemOpVPI;
+
+  // If memory reference is an RVal, then it corresponds to a load. Create a new
+  // load VPInstruction to represent it.
+  if (Ref->isRval()) {
+    assert(cast<PointerType>(MemOpVPI->getBaseType()) &&
+           "Base type of load is not a pointer.");
+    // Result type of load will be element type of the pointer
+    MemOpVPI = Builder.createNaryOp(
+        Instruction::Load, {MemOpVPI},
+        cast<PointerType>(MemOpVPI->getBaseType())->getElementType());
+  }
+
+  LLVM_DEBUG(dbgs() << "VPDecomp: MemOpVPI: "; MemOpVPI->dump();
+             dbgs() << "\n");
+
+  return MemOpVPI;
+}
+
 // Decompose the RegDDRef operand of an HLDDNode. Return the last VPValue
 // resulting from its decomposition.
 VPValue *VPDecomposerHIR::decomposeVPOperand(RegDDRef *RDDR) {
@@ -266,7 +408,7 @@ VPValue *VPDecomposerHIR::decomposeVPOperand(RegDDRef *RDDR) {
     return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr());
 
   // Memory ops
-  return new VPValue(RDDR->getSrcType()); // TODO: decomposeMemoryOp(AVal);
+  return decomposeMemoryOp(RDDR);
 }
 
 // Utility function that returns a CmpInst::Predicate for a given DDNode. The
@@ -422,6 +564,18 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     // VPInstruction
     NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
         Instruction::Select, {Pred, TVal, FVal}, TVal->getBaseType(), DDNode));
+  } else if (HInst && isa<LoadInst>(HInst->getLLVMInstruction())) {
+    // No-op behavior for load nodes since the VPInstruction is already added by
+    // decomposeMemoryOp. Check comments in decomposeMemoryOp definition for
+    // more details.
+    assert(VPOperands.size() == 1 &&
+           "Load instruction must have single operand only.");
+    NewVPInst = cast<VPInstruction>(VPOperands.back());
+    assert(NewVPInst->getOpcode() == Instruction::Load &&
+           "Incorrect instruction added for load.");
+    // Set the underlying DDNode for the load instruction since it will be
+    // master VPI for this node
+    NewVPInst->HIR.setUnderlyingNode(DDNode);
   } else {
     // Generic VPInstruction.
     assert(HInst && HInst->getLLVMInstruction() &&
@@ -493,29 +647,27 @@ void VPDecomposerHIR::createVPOperandsForMasterVPInst(
   if (!DDNode)
     return;
 
-  auto *HInst = dyn_cast<HLInst>(Node);
-
-  bool IsStore =
-      HInst && HInst->getLLVMInstruction()->getOpcode() == Instruction::Store;
-
   // Collect operands necessary to build a VPInstruction out of an HLInst and
   // translate them into VPValue's.
   for (RegDDRef *HIROp :
        make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end())) {
-    // We skip LHS operands for most instructions.
-    if (HIROp->isLval() && !IsStore)
+    // We skip LHS operands for all instructions. Lval for stores is handled
+    // later.
+    if (HIROp->isLval())
       continue;
 
     VPOperands.push_back(decomposeVPOperand(HIROp));
   }
 
-  // Fix discrepancies in the order of operands between HLInst and
-  // VPInstruction:
-  //   - Store:
-  //       HLInst: (%A)[i1] = %add;
-  //       VPInstruction: store %add, %decompAi1
-  if (IsStore)
-    std::iter_swap(VPOperands.begin(), std::next(VPOperands.begin()));
+  if (RegDDRef *Lval = DDNode->getLvalDDRef()) {
+    // Insert the Lval operand of store for decomposition to the end. The Lval
+    // HIR operand of a store is identified by checking if the Lval of a DDNode
+    // is memref.
+    // HLInst: (%A)[i1] = %add;
+    // VPInstruction: store %add, %decompAi1
+    if (Lval->isMemRef())
+      VPOperands.push_back(decomposeVPOperand(Lval));
+  }
 }
 
 // Create or retrieve an existing VPValue that represents the definition of the

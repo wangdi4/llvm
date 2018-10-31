@@ -73,8 +73,9 @@
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
+; CHECK: load
 ; CHECK: i64 [[SEXT:%vp.*]] = sext i32 [[OP:%vp.*]]
-; CHECK: i1 [[CMP:%vp.*]] = icmp i64 [[OP1:%vp.*]] i64 [[SEXT]]
+; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp i64 [[OP1:%vp.*]] i64 [[SEXT]]
 
 ;Module Before HIR; ModuleID = 't4.c'
 source_filename = "t4.c"

@@ -16,7 +16,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: i64 [[IVPhi:%.*]] = semi-phi i64 0 i64 {{%.*}}
-; CHECK-NEXT: i32 [[ALoad:%.*]] = load i32 {{%.*}}
+; CHECK: i32 [[ALoad:%.*]] = load i32* {{%.*}}
 ; CHECK-NEXT: i32 [[SemiPhi:%.*]] = semi-phi i32 [[LiveIn:%.*]] i32 [[Sum:%.*]]
 ; CHECK-NEXT: i32 [[Sum]] = add i32 [[ALoad]] i32 [[SemiPhi]]
 ; CHECK-NOT: {{%.*}} = semi-phi

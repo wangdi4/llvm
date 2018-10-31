@@ -745,15 +745,15 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
           bool TypesMatch = true;
           for (int64_t Index = 0; Index < Group->size(); ++Index) {
             auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
-            auto *VPInst = Memref->getInstruction();
             const HLInst *HInst;
             const RegDDRef *MemrefDD;
-            assert(VPInst->HIR.isValid() && VPInst->HIR.isMaster() &&
-                   "Expected valid master HIR instruction to start group");
-            HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-            assert(HInst && "Expected non-null group start instruction");
 
+            // Members of the group can be memrefs which are not master
+            // VPInstructions (due to HIR Temp cleanup). Assertions for validity
+            // and to check if underlying HLInst is master VPI is not needed
+            // anymore. We directly obtain the HInst from memref's RegDDRef.
             MemrefDD = Memref->getRegDDRef();
+            HInst = cast<HLInst>(MemrefDD->getHLDDNode());
             if (Index == 0) {
               auto DL = MemrefDD->getDDRefUtils().getDataLayout();
 
