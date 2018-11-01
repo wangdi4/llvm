@@ -25,6 +25,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
 namespace llvm {
@@ -341,6 +342,12 @@ public:
   /// Returns \b true if \p W contains a `\#pragma omp cancel` construct
   /// directly inside its region; \b false otherwise.
   static bool hasCancelConstruct(WRegionNode *W);
+
+  /// Return \b true if the WRGraph contains OMP target construct(s).
+  /// This is used by offloading codegen to exclude routines with
+  /// target regions from the target code after outlining is done.
+  static bool hasTargetDirective(WRContainerImpl &WRC);
+  static bool hasTargetDirective(WRegionInfo *WI);
 };
 
 } // End VPO Namespace

@@ -774,4 +774,23 @@ WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
   return nullptr;
 }
 
+// Search the WRNs in the container for a Target construct.
+// The container can be the top-level WRGraph or the Children of a WRN.
+bool WRegionUtils::hasTargetDirective(WRContainerImpl &WrnContainer) {
+  for (WRegionNode *W : WrnContainer) {
+    if (W->getIsTarget())
+      return true;
+    if (hasTargetDirective(W->getChildren()))
+      return true;
+  }
+  return false;
+}
+
+bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
+  WRContainerImpl *WRGraph = WI->getWRGraph();
+  if (WRGraph)
+    return hasTargetDirective(*WRGraph);
+  return false;
+}
+
 #endif // INTEL_COLLAB

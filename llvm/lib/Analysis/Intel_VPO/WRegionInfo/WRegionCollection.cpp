@@ -412,6 +412,11 @@ void WRegionCollection::print(raw_ostream &OS) const {
     NonConstWRC->buildWRGraphFromLLVMIR(*Func);
   }
 
+  if (WRegionUtils::hasTargetDirective(*WRGraph))
+    FOS << "\nFunction contains OpenMP Target construct(s).\n";
+  else
+    FOS << "\nFunction does not contain OpenMP Target constructs.\n";
+
   for (auto I = begin(), E = end(); I != E; ++I) {
 #if INTEL_CUSTOMIZATION
   #if !INTEL_PRODUCT_RELEASE
