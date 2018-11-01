@@ -2853,6 +2853,15 @@ bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
     }
   }
 
+  // Use top sort num, if available.
+  if (unsigned TSNum = Node->getTopSortNum()) {
+    assert((isa<HLRegion>(Node) || Node->isAttached()) &&
+           "It is illegal to call top sort number "
+           "dependent utility on disconnected node!");
+    return (TSNum >= Parent->getMinTopSortNum() &&
+            TSNum <= Parent->getMaxTopSortNum());
+  }
+
   while (Node) {
     if (Parent == Node) {
       return true;
@@ -3389,10 +3398,9 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
   return isKnownPositiveOrNegative(CE, ParentNode);
 }
 
-static cl::opt<bool> IgnoreWraparound(
-    "hir-ignore-wraparound", cl::init(false),
-    cl::Hidden, cl::desc("Disables wraparound check."));
-
+static cl::opt<bool> IgnoreWraparound("hir-ignore-wraparound", cl::init(false),
+                                      cl::Hidden,
+                                      cl::desc("Disables wraparound check."));
 
 bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
                                 const HLNode *ParentNode) {
@@ -3760,13 +3768,20 @@ const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
   // 2) Once the levels are equal, we move up the chain for both loops
   // simultaneously until we discover the common parent.
 
-  while (Lp1->getNestingLevel() > Lp2->getNestingLevel()) {
+  unsigned Level1 = Lp1->getNestingLevel();
+  unsigned Level2 = Lp2->getNestingLevel();
+
+  while (Level1 > Level2) {
     Lp1 = Lp1->getParentLoop();
+    --Level1;
   }
 
-  while (Lp2->getNestingLevel() > Lp1->getNestingLevel()) {
+  while (Level2 > Level1) {
     Lp2 = Lp2->getParentLoop();
+    --Level2;
   }
+
+  assert(Level1 == Level2 && "Nesting level mismtach!");
 
   // Both loops have the same nesting level, so move up simultaneously.
   while (Lp1) {

@@ -247,7 +247,7 @@ HLLoop *HLNode::getLexicalParentLoop() const {
   auto ParLoop = getParentLoop();
 
   if (auto HInst = dyn_cast<HLInst>(this)) {
-    if (ParLoop && HInst->isInPreheaderOrPostexit()) {
+    if (ParLoop && HInst->isInPreheaderOrPostexit(ParLoop)) {
       ParLoop = ParLoop->getParentLoop();
     }
   }
@@ -272,8 +272,8 @@ HLLoop *HLNode::getParentLoopAtLevel(unsigned Level) const {
   assert((getNodeLevel() >= Level) && "Invalid level w.r.t this node!");
 
   const HLLoop *ParLoop = dyn_cast<HLLoop>(this);
-  
-  if (!ParLoop) { 
+
+  if (!ParLoop) {
     ParLoop = getParentLoop();
   }
 

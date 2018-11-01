@@ -48,7 +48,7 @@ protected:
   unsigned getNumOperandsInternal() const;
 
   /// Implements isInPreheader*()/isInPostexit*() functionality.
-  bool isInPreheaderPostexitImpl(bool Preheader) const;
+  bool isInPreheaderPostexitImpl(bool Preheader, HLLoop *ParLoop) const;
 
   /// Initializes some of the members to bring the object in a sane state.
   void initialize();
@@ -199,14 +199,24 @@ public:
   }
 
   /// Returns true if this is in a loop's preheader.
-  bool isInPreheader() const { return isInPreheaderPostexitImpl(true); }
+  /// \p User can optionally pass in the parent loop if readily available. This
+  /// is only for compile time savings.
+  bool isInPreheader(HLLoop *ParLoop = nullptr) const {
+    return isInPreheaderPostexitImpl(true, ParLoop);
+  }
 
   /// Returns true if this is in a loop's postexit.
-  bool isInPostexit() const { return isInPreheaderPostexitImpl(false); }
+  /// \p User can optionally pass in the parent loop if readily available. This
+  /// is only for compile time savings.
+  bool isInPostexit(HLLoop *ParLoop = nullptr) const {
+    return isInPreheaderPostexitImpl(false, ParLoop);
+  }
 
   /// Returns true if this is in a loop's preheader or postexit.
-  bool isInPreheaderOrPostexit() const {
-    return (isInPreheader() || isInPostexit());
+  /// \p User can optionally pass in the parent loop if readily available. This
+  /// is only for compile time savings.
+  bool isInPreheaderOrPostexit(HLLoop *ParLoop = nullptr) const {
+    return (isInPreheader(ParLoop) || isInPostexit(ParLoop));
   }
 
   /// Returns predicate for select instruction.
