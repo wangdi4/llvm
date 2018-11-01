@@ -153,8 +153,10 @@ static bool isSIMDOrParDirective(const Instruction *Inst, bool BeginDir) {
   } else if (IntrinInst->hasOperandBundles()) {
     StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
 
-    return BeginDir ? TagName.equals("DIR.OMP.PARALLEL.LOOP")
-                    : TagName.equals("DIR.OMP.END.PARALLEL.LOOP");
+    return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
+                       TagName.equals("DIR.OMP.SIMD"))
+                    : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
+                       TagName.equals("DIR.OMP.END.SIMD"));
   }
 
   return false;

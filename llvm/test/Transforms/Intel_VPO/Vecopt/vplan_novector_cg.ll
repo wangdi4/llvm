@@ -14,8 +14,8 @@
 define void @doit() local_unnamed_addr #0 {
 ; CHECK-LABEL: @doit(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TOK:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
+; CHECK:         [[TOK:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+; CHECK:         br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    [[LD_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 [[INDVARS_IV]]
