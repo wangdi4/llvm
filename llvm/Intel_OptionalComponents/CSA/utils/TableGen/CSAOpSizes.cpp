@@ -97,7 +97,9 @@ void CSAOpSizes::run(raw_ostream &OS) {
       unsigned Size = opInfo->getValueAsInt("OpBitSize");
       unsigned Classification;
       auto suffixStr = opInfo->getValueAsString("InstrSuffix");
-      if (suffixStr[0] == 's')
+      if (suffixStr == "f32x2")
+        Classification = 4;
+      else if (suffixStr[0] == 's')
         Classification = 2;
       else if (suffixStr[0] == 'u')
         Classification = 3;
