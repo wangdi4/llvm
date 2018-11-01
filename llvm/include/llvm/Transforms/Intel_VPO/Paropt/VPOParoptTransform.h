@@ -329,11 +329,17 @@ private:
   void computeArraySecReductionTypeOffsetSize(ReductionItem &RI,
                                               Instruction *InsertPt);
 
-  /// Return the Value to replace the occurrences of the original Reduction
+  /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
   /// some Instructions, which is done \b before \p InsertPt.
-  Value *getReductionItemReplacementValue(ReductionItem const &RedI,
-                                          Instruction *InsertPt);
+  static Value *getClauseItemReplacementValue(Item *I, Instruction *InsertPt);
+
+  /// Return the Value to replace the occurrences of the original Array Section
+  /// Reduction operand inside the body of the associated WRegion. It may need
+  /// to emit some Instructions, which is done \b before \p InsertPt.
+  static Value *
+  getArrSecReductionItemReplacementValue(ReductionItem const &RedI,
+                                         Instruction *InsertPt);
 
   /// \brief Generate the reduction initialization code.
   void genReductionInit(ReductionItem *RedI, Instruction *InsertPt,
