@@ -1,24 +1,44 @@
 ; INTEL CUSTOMIZATION:
 
-; RUN: opt -inline -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inline -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
 ; Test checks that inlining happens for all foo() call sites. The inlining is supposed to be followed by loop fusion and vectorization.
 
-; CHECK: COMPILE FUNC: bar
-; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; Check for old pass manager.
 
-; CHECK: COMPILE FUNC: baz
-; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
-; CHECK-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD: COMPILE FUNC: bar
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
-; CHECK-NOT: call i32 @foo
+; CHECK-OLD: COMPILE FUNC: baz
+; CHECK-OLD-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-OLD-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
 
+; Check for new pass manager.
+
+; CHECK-NEW: COMPILE FUNC: baz
+; CHECK-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NOT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; CHECK-NEW: COMPILE FUNC: bar
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+
 target triple = "x86_64-unknown-linux-gnu"
 
 @arr1 = common global [100 x i32] zeroinitializer, align 16
@@ -30,25 +50,25 @@ entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
-  %ptr1.addr.021 = phi i32* [ %ptr1, %entry ], [ %add.ptr, %for.body ]
-  %ptr2.addr.020 = phi i32* [ %ptr2, %entry ], [ %add.ptr7, %for.body ]
-  %sum.019 = phi i32 [ 0, %entry ], [ %add6, %for.body ]
-  %i.018 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  %0 = load i32, i32* %ptr1.addr.021, align 4, !tbaa !2
-  %1 = load i32, i32* %ptr2.addr.020, align 4, !tbaa !2
+  %ptr1.addr = phi i32* [ %ptr1, %entry ], [ %add.ptr, %for.body ]
+  %ptr2.addr = phi i32* [ %ptr2, %entry ], [ %add.ptr7, %for.body ]
+  %sum = phi i32 [ 0, %entry ], [ %add6, %for.body ]
+  %i = phi i32 [ 0, %entry ], [ %inc, %for.body ]
+  %0 = load i32, i32* %ptr1.addr, align 4, !tbaa !2
+  %1 = load i32, i32* %ptr2.addr, align 4, !tbaa !2
   %sub = sub nsw i32 %0, %1
-  %arrayidx2 = getelementptr inbounds i32, i32* %ptr1.addr.021, i64 1
+  %arrayidx2 = getelementptr inbounds i32, i32* %ptr1.addr, i64 1
   %2 = load i32, i32* %arrayidx2, align 4, !tbaa !2
-  %arrayidx3 = getelementptr inbounds i32, i32* %ptr2.addr.020, i64 1
+  %arrayidx3 = getelementptr inbounds i32, i32* %ptr2.addr, i64 1
   %3 = load i32, i32* %arrayidx3, align 4, !tbaa !2
   %sub4 = sub nsw i32 %2, %3
   %shl = shl i32 %sub, 1
   %shl5 = shl i32 %sub4, 2
-  %add = add i32 %shl, %sum.019
+  %add = add i32 %shl, %sum
   %add6 = add i32 %add, %shl5
-  %inc = add nuw nsw i32 %i.018, 1
-  %add.ptr = getelementptr inbounds i32, i32* %ptr1.addr.021, i64 2
-  %add.ptr7 = getelementptr inbounds i32, i32* %ptr2.addr.020, i64 2
+  %inc = add nuw nsw i32 %i, 1
+  %add.ptr = getelementptr inbounds i32, i32* %ptr1.addr, i64 2
+  %add.ptr7 = getelementptr inbounds i32, i32* %ptr2.addr, i64 2
   %exitcond = icmp eq i32 %inc, 4
   br i1 %exitcond, label %for.end, label %for.body
 
@@ -59,14 +79,52 @@ for.end:                                          ; preds = %for.body
 ; Function Attrs: nounwind uwtable
 define i32 @bar() local_unnamed_addr #0 {
 entry:
-  %call = call i32 @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr1, i64 0, i64 0), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr2, i64 0, i64 0))
-  %call1 = call i32 @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr1, i64 0, i64 8), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr2, i64 0, i64 8))
-  %add2 = add i32 %call, %call1
-  %call3 = call i32 @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr1, i64 0, i64 16), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr2, i64 0, i64 16))
-  %add4 = add i32 %add2, %call3
-  %call5 = call i32 @foo(i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr1, i64 0, i64 24), i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arr2, i64 0, i64 24))
-  %add6 = add i32 %add4, %call5
-  ret i32 %add6
+  %gep_arr1_1 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 0
+  %gep_arr2_1 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 0
+  %call1 = call i32 @foo(i32* %gep_arr1_1, i32* %gep_arr2_1)
+  %gep_arr1_2 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 8
+  %gep_arr2_2 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 8
+  %call2 = call i32 @foo(i32* %gep_arr1_2, i32* %gep_arr2_2)
+  %add1 = add i32 %call1, %call2
+  %mul1 = mul i32 %add1, 4
+  %sub1 = sub i32 %mul1, 10
+  %gep_arr1_3 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 16
+  %gep_arr2_3 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 16
+  %call3 = call i32 @foo(i32* %gep_arr1_3, i32* %gep_arr2_3)
+  %add2 = add i32 %mul1, %call3
+  %mul2 = mul i32 %add2, 4
+  %sub2 = sub i32 %mul2, 10
+  %gep_arr1_4 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 24
+  %gep_arr2_4 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 24
+  %call4 = call i32 @foo(i32* %gep_arr1_4, i32* %gep_arr2_4)
+  %add3 = add i32 %sub2, %call4
+  %mul3 = mul i32 %add3, 4
+  %sub3 = sub i32 %mul3, 10
+  %gep_arr1_5 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 0
+  %gep_arr2_5 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 0
+  %call5 = call i32 @foo(i32* %gep_arr1_5, i32* %gep_arr2_5)
+  %add4 = add i32 %sub3, %call5
+  %mul4 = mul i32 %add4, 4
+  %sub4 = sub i32 %mul4, 10
+  %gep_arr1_6 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 8
+  %gep_arr2_6 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 8
+  %call6 = call i32 @foo(i32* %gep_arr1_6, i32* %gep_arr2_6)
+  %add5 = add i32 %sub4, %call6
+  %mul5 = mul i32 %add5, 4
+  %sub5 = sub i32 %mul5, 10
+  %gep_arr1_7 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 16
+  %gep_arr2_7 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 16
+  %call7 = call i32 @foo(i32* %gep_arr1_7, i32* %gep_arr2_7)
+  %add6 = add i32 %sub5, %call7
+  %mul6 = mul i32 %add6, 4
+  %sub6 = sub i32 %mul6, 10
+  %gep_arr1_8 = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 24
+  %gep_arr2_8 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 24
+  %call8 = call i32 @foo(i32* %gep_arr1_8, i32* %gep_arr2_8)
+  %add7 = add i32 %sub6, %call8
+  %mul7 = mul i32 %add7, 4
+  %sub7 = sub i32 %mul7, 10
+  ret i32 %mul7
 }
 
 ; Function Attrs: nounwind uwtable

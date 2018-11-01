@@ -37,7 +37,8 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/InstVisitor.h" // INTEL
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
@@ -2535,8 +2536,8 @@ static bool isConstantTripCount(Loop *L) {
   }
 
   uint64_t LimTC = ConstValue.getLimitedValue();
-  if (LimTC < 3) {
-    // small TC - return false
+  // Currently allow only TC=4.
+  if (LimTC != 4) {
     return false;
   }
 
@@ -2557,25 +2558,17 @@ static cl::opt<int> MinArgRefs(
     cl::desc(
         "Min number of arguments appearing in loop candidates for fusion"));
 
-// Minimal number of successive callsites need to be inlined to benefit
+// Number of successive callsites need to be inlined to benefit
 // from loops fusion.
-static cl::opt<int>
-    MinCallSitesForFusion("inline-for-fusion-min-callsites", cl::Hidden,
-                          cl::init(2),
-                          cl::desc("Min number of calls inlined for fusion"));
-
-// Maximal number of successive callsites need to be inlined to benefit
-// from loops fusion.
-static cl::opt<int>
-    MaxCallSitesForFusion("inline-for-fusion-max-callsites", cl::Hidden,
-                          cl::init(20),
-                          cl::desc("Max number of calls inlined for fusion"));
+static cl::list<int> NumCallSitesForFusion("inline-for-fusion-num-callsites",
+                                           cl::ReallyHidden,
+                                           cl::CommaSeparated);
 
 // Temporary switch to control new callsite inlining heuristics
 // for fusion until tuning of loopopt is complete.
-static cl::opt<bool>
+static cl::opt<cl::boolOrDefault>
     InliningForFusionHeuristics("inlining-for-fusion-heuristics",
-                                cl::init(false), cl::ReallyHidden);
+                                cl::ReallyHidden);
 
 /// \brief Analyze a callsite for potential inlining for fusion.
 ///
@@ -2591,10 +2584,13 @@ static cl::opt<bool>
 /// then we store other CS to the same function in the same basic block in
 /// the set of inlining candidates for fusion.
 static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
-                                   SmallSet<CallSite, 20> *CallSitesForFusion) {
-  if (!InliningForFusionHeuristics) {
+                                   SmallSet<CallSite, 20> *CallSitesForFusion,
+                                   bool PrepareForLTO) {
+  // Heuristic is enabled if option is unset and it is first inliner run
+  // (on PrepareForLTO phase) OR if option is set to true.
+  if (((InliningForFusionHeuristics != cl::BOU_UNSET) || !PrepareForLTO) &&
+      (InliningForFusionHeuristics != cl::BOU_TRUE))
     return false;
-  }
 
   if (!CallSitesForFusion) {
     LLVM_DEBUG(llvm::dbgs()
@@ -2608,39 +2604,59 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
     return true;
   }
 
+  Function *Caller = CS.getCaller();
   Function *Callee = CS.getCalledFunction();
   BasicBlock *CSBB = CS->getParent();
 
   SmallVector<CallSite, 20> LocalCSForFusion;
-  // Go through each successive call in basic block and find all callsites.
-  int CSCount = 1;
-  bool CallSiteCountFlag = false;
-  for (auto I = CSBB->begin(), E = CSBB->end(); I != E; ++I) {
-    CallSite LocalCS(cast<Value>(I));
-    if (!LocalCS) {
+  // Check that all call sites in the Caller, that are not to intrinsics, are in
+  // the same basic block and are fusion candidates.
+  int CSCount = 0;
+  for (auto &I : instructions(Caller)) {
+    CallSite LocalCS(&I);
+    if (!LocalCS)
       continue;
-    }
-    if (LocalCS == CS) {
-      CallSiteCountFlag = true;
-      continue;
-    }
+
     Function *CurrCallee = LocalCS.getCalledFunction();
-    if (CallSiteCountFlag) {
-      if (CurrCallee == Callee) {
-        CSCount++;
-        LocalCSForFusion.push_back(LocalCS);
-      } else {
-        CallSiteCountFlag = false;
-      }
+    if (!CurrCallee) {
+      return false;
     }
+
+    if (CurrCallee->isIntrinsic())
+      continue;
+    if (CurrCallee != Callee) {
+      return false;
+    }
+
+    if (I.getParent() != CSBB) {
+      return false;
+    }
+
+    LocalCSForFusion.push_back(LocalCS);
+    CSCount++;
   }
 
-  // If number of successive calls is relatively small or too big
-  // then skip inlining
-  if ((CSCount < MinCallSitesForFusion) || (CSCount > MaxCallSitesForFusion)) {
+  // If the user doesn't specify number of call sites explicitly then use 8
+  // (and 2 later) as a default value,
+  if (NumCallSitesForFusion.empty()) {
+    NumCallSitesForFusion.push_back(8);
+    // TODO:   NumCallSitesForFusion.push_back(2);
+  }
+
+  // If call site candidates are the only calls in the caller function and the
+  // number of successive calls doesn't fit into the option - skip
+  // transformation.
+  bool CSCountApproved = false;
+  for (int CSCountVariant : NumCallSitesForFusion)
+    if (CSCount == CSCountVariant) {
+      CSCountApproved = true;
+      break;
+    }
+
+  if (!CSCountApproved) {
     LLVM_DEBUG(
         llvm::dbgs()
-        << "IC: No inlining for fusion: number of candidates is out of range:"
+        << "IC: No inlining for fusion. Inappropriate number of call sites: "
         << CSCount << "\n");
     return false;
   }
@@ -2682,27 +2698,23 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
     // the callee.
     for (auto *BB : LL->blocks()) {
       for (auto &I : *BB) {
-        if (ArgCnt > MinArgRefs) {
+        if (ArgCnt > MinArgRefs)
           break;
-        }
         if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
           Value *PtrOp = GEPI->getPointerOperand();
           if (PtrOp) {
-            if (isa<PHINode>(PtrOp)) {
+            if (isa<PHINode>(PtrOp))
               PtrOp = dyn_cast<PHINode>(PtrOp)->getIncomingValue(0);
-            }
             if (isa<Argument>(PtrOp))
               ArgCnt++;
           }
         }
       }
-      if (ArgCnt > MinArgRefs) {
+      if (ArgCnt > MinArgRefs)
         break;
-      }
     }
-    if (ArgCnt > MinArgRefs) {
+    if (ArgCnt > MinArgRefs)
       break;
-    }
   }
 
   // Not enough arguments-arrays were found in loop.
@@ -2711,6 +2723,10 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
                << "IC: No inlining for fusion: not enough array refs.\n");
     return false;
   }
+
+  // TODO: Remove this condition once 2 becomes a legal CSCount.
+  if (Caller->getInstructionCount() < 40)
+    return false;
 
   // Store other inlining candidates in a special map.
   if (CallSitesForFusion) {
@@ -3182,7 +3198,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
            }
         }
       }
-      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion)) {
+      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrForFusion);
       }
