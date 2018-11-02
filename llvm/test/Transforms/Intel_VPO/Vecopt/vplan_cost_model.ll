@@ -1383,49 +1383,55 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan  with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 8
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 11
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 8
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 11
 ; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = semi-phi i64 0 i64 [[VP1:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP2:%.*]] = load i32 [[VP3:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP4:%.*]] = load i32 [[VP5:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP6:%.*]] = load i32 [[VP7:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i32 [[VP8:%.*]] = smax i32 [[VP4]] i32 [[VP2]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i32 [[VP9:%.*]] = select i32 [[VP2]] i32 [[VP6]] i32 [[VP8]] i32 [[VP6]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store i32 [[VP9]] i32 [[VP10:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP11:%.*]] = load double [[VP12:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP13:%.*]] = load double [[VP14:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP15:%.*]] = load double [[VP16:%.*]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for double [[VP17:%.*]] = select double [[VP11]] double [[VP13]] double [[VP11]] double [[VP13]]
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for double [[VP18:%.*]] = select double [[VP11]] double [[VP15]] double [[VP17]] double [[VP15]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store double [[VP18]] double [[VP19:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i1 [[VP9:%.*]] = icmp i32 [[VP2]] i32 [[VP6]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i32 [[VP10:%.*]] = select i1 [[VP9]] i32 [[VP8]] i32 [[VP6]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store i32 [[VP10]] i32 [[VP11:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP12:%.*]] = load double [[VP13:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP14:%.*]] = load double [[VP15:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP16:%.*]] = load double [[VP17:%.*]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i1 [[VP18:%.*]] = fcmp double [[VP12]] double [[VP14]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for double [[VP19:%.*]] = select i1 [[VP18]] double [[VP12]] double [[VP14]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i1 [[VP20:%.*]] = fcmp double [[VP12]] double [[VP16]]
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for double [[VP21:%.*]] = select i1 [[VP20]] double [[VP19]] double [[VP16]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store double [[VP21]] double [[VP22:%.*]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i64 [[VP1]] = add i64 [[VP0]] i64 1
-; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i1 [[VP20:%.*]] = icmp i64 [[VP1]] i64 1023
+; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i1 [[VP23:%.*]] = icmp i64 [[VP1]] i64 1023
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan  with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 8
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 11
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 8
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 11
 ; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = semi-phi i64 0 i64 [[VP1:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP2:%.*]] = load i32 [[VP3:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP4:%.*]] = load i32 [[VP5:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP6:%.*]] = load i32 [[VP7:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for i32 [[VP8:%.*]] = smax i32 [[VP4]] i32 [[VP2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for i32 [[VP9:%.*]] = select i32 [[VP2]] i32 [[VP6]] i32 [[VP8]] i32 [[VP6]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store i32 [[VP9]] i32 [[VP10:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP11:%.*]] = load double [[VP12:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP13:%.*]] = load double [[VP14:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP15:%.*]] = load double [[VP16:%.*]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for double [[VP17:%.*]] = select double [[VP11]] double [[VP13]] double [[VP11]] double [[VP13]]
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for double [[VP18:%.*]] = select double [[VP11]] double [[VP15]] double [[VP17]] double [[VP15]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store double [[VP18]] double [[VP19:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i1 [[VP9:%.*]] = icmp i32 [[VP2]] i32 [[VP6]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for i32 [[VP10:%.*]] = select i1 [[VP9]] i32 [[VP8]] i32 [[VP6]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store i32 [[VP10]] i32 [[VP11:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP12:%.*]] = load double [[VP13:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP14:%.*]] = load double [[VP15:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP16:%.*]] = load double [[VP17:%.*]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i1 [[VP18:%.*]] = fcmp double [[VP12]] double [[VP14]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for double [[VP19:%.*]] = select i1 [[VP18]] double [[VP12]] double [[VP14]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i1 [[VP20:%.*]] = fcmp double [[VP12]] double [[VP16]]
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for double [[VP21:%.*]] = select i1 [[VP20]] double [[VP19]] double [[VP16]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store double [[VP21]] double [[VP22:%.*]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for i64 [[VP1]] = add i64 [[VP0]] i64 1
-; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for i1 [[VP20:%.*]] = icmp i64 [[VP1]] i64 1023
+; VPLAN-HIR-CM-VF1-NEXT:    Unknown cost for i1 [[VP23:%.*]] = icmp i64 [[VP1]] i64 1023
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0

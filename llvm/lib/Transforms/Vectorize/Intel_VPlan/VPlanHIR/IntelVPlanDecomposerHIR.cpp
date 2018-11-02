@@ -396,7 +396,24 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.
     NewVPInst = createVPInstsForHLIf(HIf, VPOperands);
-  else {
+  else if (HInst && isa<SelectInst>(HInst->getLLVMInstruction())) {
+    // Handle decomposition of select instruction
+    assert(VPOperands.size() == 4 &&
+           "Invalid number of operands for HIR select instruction.");
+
+    VPValue *CmpLHS = VPOperands[0];
+    VPValue *CmpRHS = VPOperands[1];
+    VPValue *TVal = VPOperands[2];
+    VPValue *FVal = VPOperands[3];
+
+    // Decompose first 2 operands into a CmpInst used as predicate for select
+    VPCmpInst *Pred =
+        Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
+    // Set underlying DDNode for the select VPInstruction since it's the master
+    // VPInstruction
+    NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+        Instruction::Select, {Pred, TVal, FVal}, TVal->getBaseType(), DDNode));
+  } else {
     // Generic VPInstruction.
     assert(HInst && HInst->getLLVMInstruction() &&
            "Expected HLInst with underlying LLVM IR.");
