@@ -118,7 +118,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
         unsigned char GetType() { return m_ucType; }
         const char *  GetCPUString() { return m_szCPUString; }
         const char *  GetCPUBrandString() { return m_szCPUBrandString; }
-        unsigned int  GetCPUFeatureSupport() { return m_uiCPUFeatures; }
         unsigned int  GetCoreCount() { return m_uiCoreCount; }
         std::string   GetCPUArchShortName() { return CPUArchStr[m_cpuArch]; }
         ECPUBrandFamily GetCPUBrandFamily() { return m_eCPUBrand; }

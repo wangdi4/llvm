@@ -167,6 +167,34 @@ unsigned int SelectCpuFeatures(
     {
         cpuFeatures |= CFS_AVX512VL;
     }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vbmi") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512VBMI;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512ifma") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512IFMA;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512bitalg") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512BITALG;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vbmi2") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512VBMI2;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+avx512vpopcntdq") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512POPCNTDQ;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+clwb") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_CLWB;
+    }
+    if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+wbnoinvd") != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_WBNOINVD;
+    }
 
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-sse41" ) != forcedFeatures.end())
     {
@@ -306,12 +334,27 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
       m_forcedCpuFeatures.push_back("+avx512pf");
     }
 
-    if (selectedCpuId == Intel::CPU_SKX) {
+    if (selectedCpuId >= Intel::CPU_SKX) {
       m_forcedCpuFeatures.push_back("+avx512f");
       m_forcedCpuFeatures.push_back("+avx512cd");
       m_forcedCpuFeatures.push_back("+avx512bw");
       m_forcedCpuFeatures.push_back("+avx512dq");
       m_forcedCpuFeatures.push_back("+avx512vl");
+    }
+
+    if (selectedCpuId >= Intel::CPU_ICL) {
+      // CNL features
+      m_forcedCpuFeatures.push_back("+avx512vbmi");
+      m_forcedCpuFeatures.push_back("+avx512ifma");
+      // ICL features
+      m_forcedCpuFeatures.push_back("+avx512vbmi2");
+      m_forcedCpuFeatures.push_back("+avx512bitalg");
+      m_forcedCpuFeatures.push_back("+avx512vpopcntdq");
+      m_forcedCpuFeatures.push_back("+clwb");
+    }
+    if (selectedCpuId == Intel::CPU_ICX) {
+      // ICX features
+      m_forcedCpuFeatures.push_back("+wbnoinvd");
     }
 
     unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );

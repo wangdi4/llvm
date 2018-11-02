@@ -224,7 +224,26 @@ CPUDetect::CPUDetect(void)
                       uiCPUFeatures |= CFS_AVX512BW;
                       uiCPUFeatures |= CFS_AVX512DQ;
                       uiCPUFeatures |= CFS_AVX512VL;
-                      CPU = CPU_SKX;
+                      // Ok, we have AVX512. Let's check IFMA for CNL level.
+                      if ((viCPUInfo[1] & 0x200000) == 0x200000) // CPUID.(EAX=07H, ECX=0):EBX[bit 21] - AVX512IFMA
+                      {
+                        uiCPUFeatures |= CFS_AVX512VBMI;
+                        uiCPUFeatures |= CFS_AVX512IFMA;
+                        // Check for Icelake-client level VBMI2.
+                        if ((viCPUInfo[2] & 0x40) == 0x40) // CPUID.(EAX=07H, ECX=0):ECX[bit 06] - AVX512VBMI2
+                        {
+                          uiCPUFeatures |= CFS_AVX512VBMI2;
+                          uiCPUFeatures |= CFS_AVX512BITALG;
+                          if ((viCPUInfo[3] & 0x40000) == 0x40000) // CPUID.(EAX=07H, ECX=0):EDX[bit 18] - PCONFIG
+                            CPU = CPU_ICX;
+                          else
+                            CPU = CPU_ICL;
+                        }
+                        else
+                          llvm_unreachable("Do not expect that CPU");
+                      }
+                      else
+                        CPU = CPU_SKX;
                     }
                     else
                     {
@@ -243,7 +262,6 @@ CPUDetect::CPUDetect(void)
             }
         }
     }
-
     assert(CPU!=DEVICE_INVALID && "Unknown CPU");
     m_CPUId = CPUId(CPU, uiCPUFeatures, sizeof(void*)==8);
 }
