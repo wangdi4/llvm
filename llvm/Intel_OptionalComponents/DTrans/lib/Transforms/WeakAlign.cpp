@@ -1,4 +1,4 @@
-//===---------------- WeakAlign.cpp - DTransWeakAlignPass------------------===//
+//===---------------- WeakAlign.cpp - DTransWeakAlignPass -----------------===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -77,6 +77,8 @@ public:
 private:
   bool analyzeModule(Module &M, const TargetLibraryInfo &TLI);
   bool analyzeFunction(Function &F);
+  bool isSupportedIntrinsicInst(IntrinsicInst *II);
+
   Constant *getMalloptFunction(Module &M, const TargetLibraryInfo &TLI);
 };
 
@@ -204,43 +206,151 @@ bool WeakAlignImpl::analyzeFunction(Function &F) {
 
   LLVM_DEBUG(dbgs() << "DTRANS Weak Align: Analyzing " << F.getName() << "\n");
   for (auto &I : instructions(&F)) {
-    if (auto *LI = dyn_cast<LoadInst>(&I)) {
-      if (!IsSupportedLoad(*LI)) {
+    switch (I.getOpcode()) {
+    case Instruction::Load:
+      if (!IsSupportedLoad(*cast<LoadInst>(&I))) {
         LLVM_DEBUG(
-            dbgs() << "DTRANS Weak Align: inhibited -- Unsupported LoadInst:\n  "
-                   << I << "\n");
+            dbgs()
+            << "DTRANS Weak Align: inhibited -- Unsupported LoadInst:\n  " << I
+            << "\n");
         return false;
       }
-    } else if (auto *SI = dyn_cast<StoreInst>(&I)) {
-      if (!IsSupportedStore(*SI)) {
+      break;
+
+    case Instruction::Store:
+      if (!IsSupportedStore(*cast<StoreInst>(&I))) {
         LLVM_DEBUG(
-            dbgs() << "DTRANS Weak Align: inhibited -- Unsupported StoreInst:\n  "
-                   << I << "\n");
+            dbgs()
+            << "DTRANS Weak Align: inhibited -- Unsupported StoreInst:\n  " << I
+            << "\n");
         return false;
       }
-    } else if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
-      if (II->getIntrinsicID() == Intrinsic::assume) {
-        // The __assume_aligned expression turns into an assume intrinsic
-        // call in the IR, so inhibit this transform for any case involving
-        // an assume intrinsic. This is more conservative than strictly
-        // necessary.
-        LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- Contains "
-                             "unsupported intrinsic:\n  "
-                          << I << "\n");
-        return false;
+      break;
+
+    case Instruction::Call: {
+      if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+        if (!isSupportedIntrinsicInst(II)) {
+          LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- Contains "
+                               "unsupported intrinsic:\n  "
+                            << I << "\n");
+          return false;
+        }
+        break;
       }
-    } else if (auto *CI = dyn_cast<CallInst>(&I)) {
+
+      auto *CI = cast<CallInst>(&I);
       if (CI->isInlineAsm()) {
         LLVM_DEBUG(
             dbgs() << "DTRANS Weak Align: inhibited -- Contains inline asm:\n  "
                    << I << "\n");
         return false;
       }
+      // All other calls are allowed.
+      break;
+    }
+
+    case Instruction::ExtractElement:
+    case Instruction::InsertElement:
+    case Instruction::ShuffleVector:
+      // Disallow vector instructions.
+      LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- Unsupported vector "
+                           "instruction:\n  "
+                        << I << "\n");
+      return false;
+
+    default:
+      // All other instructions are allowed.
+      break;
     }
   }
 
   return true;
 }
+
+// Check whether the intrinsic should be allowed for the transformation.
+//
+// This is an opt-in approach that covers the expected intrinsics for the case
+// of interest, and rejects everything else. i.e., there may be other intrinsics
+// that can be safely added to this list. However, there are some that we
+// definitely want to exclude, such as:
+//
+// Intrinsic::assume:
+//   The __assume_aligned expression turns into an assume intrinsic
+//   call in the IR, so inhibit this transform for any case involving
+//   an assume intrinsic. This is more conservative than strictly
+//   necessary.
+//
+// Intrinsic::x86_mmx_palignr_b
+//   This is using 16-byte aligned memory, and since we are excluding
+//   aligned access, we will exclude this (and all other mmx intrinsics)
+//
+bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
+  auto IntrinID = II->getIntrinsicID();
+  switch (IntrinID) {
+  default:
+    // Conservatively disallow any other intrinsics.
+    return false;
+
+    // The following intrinsics will be allowed. This captures the basic
+    // set required for the case being targeted, and may be expanded over time.
+  case Intrinsic::lifetime_end:
+  case Intrinsic::lifetime_start:
+  case Intrinsic::icall_branch_funnel:
+  case Intrinsic::dbg_addr:
+  case Intrinsic::dbg_declare:
+  case Intrinsic::dbg_label:
+  case Intrinsic::dbg_value:
+  case Intrinsic::annotation:
+  case Intrinsic::ptr_annotation:
+  case Intrinsic::var_annotation:
+  case Intrinsic::eh_typeid_for:
+  case Intrinsic::trap:
+  case Intrinsic::vastart:
+  case Intrinsic::vaend:
+  case Intrinsic::vacopy:
+  case Intrinsic::memcpy:
+  case Intrinsic::memmove:
+  case Intrinsic::memset:
+  case Intrinsic::sqrt:
+  case Intrinsic::pow:
+  case Intrinsic::powi:
+  case Intrinsic::sin:
+  case Intrinsic::cos:
+  case Intrinsic::exp:
+  case Intrinsic::exp2:
+  case Intrinsic::log:
+  case Intrinsic::log10:
+  case Intrinsic::fma:
+  case Intrinsic::fabs:
+  case Intrinsic::maxnum:
+  case Intrinsic::minimum:
+  case Intrinsic::maximum:
+  case Intrinsic::copysign:
+  case Intrinsic::floor:
+  case Intrinsic::ceil:
+  case Intrinsic::trunc:
+  case Intrinsic::rint:
+  case Intrinsic::nearbyint:
+  case Intrinsic::round:
+  case Intrinsic::bitreverse:
+  case Intrinsic::bswap:
+  case Intrinsic::ctpop:
+  case Intrinsic::ctlz:
+  case Intrinsic::cttz:
+  case Intrinsic::fshl:
+  case Intrinsic::fshr:
+  case Intrinsic::sadd_with_overflow:
+  case Intrinsic::uadd_with_overflow:
+  case Intrinsic::ssub_with_overflow:
+  case Intrinsic::usub_with_overflow:
+  case Intrinsic::smul_with_overflow:
+  case Intrinsic::umul_with_overflow:
+    break;
+  }
+
+  return true;
+}
+
 bool WeakAlignPass::runImpl(Module &M, const TargetLibraryInfo &TLI,
                             WholeProgramInfo &WPInfo) {
   if (!WPInfo.isWholeProgramSafe()) {
