@@ -1761,7 +1761,8 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
       // We are encountering the first instruction of a load group. Generate a
       // wide load using the memory reference from the instruction starting the
       // group.
-      const RegDDRef *MemRef = GrpStartInst->getOperandDDRef(1);
+      const RegDDRef *MemRef =
+          cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getRegDDRef();
       RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
       HLInst *WideLoad = INode->getHLNodeUtils().createLoad(
           WMemRef, CurInst->getName() + ".vls.load");

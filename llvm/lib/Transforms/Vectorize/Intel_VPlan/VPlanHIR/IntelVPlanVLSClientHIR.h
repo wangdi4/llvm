@@ -111,10 +111,12 @@ public:
     // and FromRef. If that's not the case we need to explicitly check for such
     // nodes (e.f. function calls?).
     const DDGraph &DDG = getDDGraph();
-    auto hasDependency = [](const HLDDNode *FromDDNode, const HLDDNode *ToDDNode,
-                            const DDEdge *Edge) -> bool {
-      DDRef *SinkRef = Edge->getSink();
-      HLDDNode *SinkNode = SinkRef->getHLDDNode();
+    auto hasDependency = [](const HLDDNode *FromDDNode,
+                            const HLDDNode *ToDDNode, const DDEdge *Edge,
+                            const bool IsOutgoingEdge) -> bool {
+      DDRef *Ref = IsOutgoingEdge ? Edge->getSink() : Edge->getSrc();
+      HLDDNode *Node = Ref->getHLDDNode();
+
       // DEBUG(dbgs() << "\nmove past loc " << HNode->getTopSortNum() << ". ");
       // Assuming structured code (no labels/gotos), we rely on the topological
       // sort number to reflect if sink is accessed between FromRef and ToRef.
@@ -123,8 +125,8 @@ public:
       // then the sink r3 is relevant, but the sink r0 and r6 are not relevant.
       // FIXME: Probably this check holds only for straight line code? may need
       // a stronger check for the general case
-      if (!HLNodeUtils::isInTopSortNumRange(SinkNode, FromDDNode, ToDDNode) &&
-          !HLNodeUtils::isInTopSortNumRange(SinkNode, ToDDNode, FromDDNode)) {
+      if (!HLNodeUtils::isInTopSortNumRange(Node, FromDDNode, ToDDNode) &&
+          !HLNodeUtils::isInTopSortNumRange(Node, ToDDNode, FromDDNode)) {
         return false;
       }
       // Lastly: Check the dependence edge.
@@ -139,14 +141,14 @@ public:
       for (auto II = DDG.outgoing_edges_begin(*RefIt),
                 EE = DDG.outgoing_edges_end(*RefIt);
            II != EE; ++II) {
-        if (hasDependency(FromDDNode, ToDDNode, *II))
+        if (hasDependency(FromDDNode, ToDDNode, *II, true))
           return false;
       }
 
       for (auto II = DDG.incoming_edges_begin(*RefIt),
                 EE = DDG.incoming_edges_end(*RefIt);
            II != EE; ++II) {
-        if (hasDependency(FromDDNode, ToDDNode, *II))
+        if (hasDependency(FromDDNode, ToDDNode, *II, false))
           return false;
       }
     }
