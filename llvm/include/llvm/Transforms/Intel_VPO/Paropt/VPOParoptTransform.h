@@ -694,9 +694,6 @@ private:
   class CSASectionsPrivatizer;
   friend CSAPrivatizer;
 
-  /// \brief Map work region to its region ID.
-  SmallDenseMap<WRegionNode*, Value*, 8u> CSAParallelRegions;
-
   /// \brief Insert CSA parallel region entry/exit calls to the work region
   /// and return region id.
   Value* genCSAParallelRegion(WRegionNode *W);

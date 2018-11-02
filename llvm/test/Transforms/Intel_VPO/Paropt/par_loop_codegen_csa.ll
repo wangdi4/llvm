@@ -237,11 +237,11 @@ entry:
   br label %DIR.OMP.PARALLEL
 
 DIR.OMP.PARALLEL:
-; CHECK: [[REGION:%.*]] = call i32 @llvm.csa.parallel.region.entry(i32 {{[0-9]+}})
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
   br label %DIR.OMP.LOOP
 
 DIR.OMP.LOOP:
+; CHECK: [[REGION:%.*]] = call i32 @llvm.csa.parallel.region.entry(i32 {{[0-9]+}})
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"() ]
   br label %DIR.OMP.LOOP.1
 
@@ -264,12 +264,99 @@ omp.inner.for.body:
   br i1 %cmp, label %omp.inner.for.body, label %DIR.OMP.END.LOOP
 
 DIR.OMP.END.LOOP:
+; CHECK: call void @llvm.csa.parallel.region.exit(i32 [[REGION]])
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.LOOP"() ]
   br label %DIR.OMP.END.PARALLEL
 
 DIR.OMP.END.PARALLEL:
-; CHECK: call void @llvm.csa.parallel.region.exit(i32 [[REGION]])
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.PARALLEL"() ]
+  br label %exit
+
+exit:
+  ret void
+}
+
+; CHECK-LABEL: @foo.par.and.loop.and.loop
+define void @foo.par.and.loop.and.loop() {
+entry:
+  %.omp.lb1 = alloca i32, align 4
+  %.omp.ub1 = alloca i32, align 4
+  %i1 = alloca i32, align 4
+  %0 = bitcast i32* %.omp.lb1 to i8*
+  store i32 0, i32* %.omp.lb1, align 4
+  %1 = bitcast i32* %.omp.ub1 to i8*
+  store i32 0, i32* %.omp.ub1, align 4
+  %.omp.lb2 = alloca i32, align 4
+  %.omp.ub2 = alloca i32, align 4
+  %i2 = alloca i32, align 4
+  %2 = bitcast i32* %.omp.lb2 to i8*
+  store i32 0, i32* %.omp.lb2, align 4
+  %3 = bitcast i32* %.omp.ub2 to i8*
+  store i32 0, i32* %.omp.ub2, align 4
+  br label %DIR.OMP.PARALLEL
+
+DIR.OMP.PARALLEL:
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+  br label %DIR.OMP.LOOP1
+
+DIR.OMP.LOOP1:
+; CHECK: [[REGION1:%.*]] = call i32 @llvm.csa.parallel.region.entry(i32 {{[0-9]+}})
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"() ]
+  br label %DIR.OMP.LOOP.11
+
+DIR.OMP.LOOP.11:
+  %6 = load i32, i32* %.omp.lb1, align 4
+  %7 = load i32, i32* %.omp.ub1, align 4
+  %cmp71 = icmp sle i32 %6, %7
+  br i1 %cmp71, label %omp.inner.for.body.lr.ph1, label %DIR.OMP.END.LOOP1
+
+omp.inner.for.body.lr.ph1:
+  br label %omp.inner.for.body1
+
+omp.inner.for.body1:
+  %.omp.iv.081 = phi i32 [ %6, %omp.inner.for.body.lr.ph1 ], [ %add11, %omp.inner.for.body1 ]
+; CHECK: [[SECTION1:%.*]] = call i32 @llvm.csa.parallel.section.entry(i32 [[REGION1]])
+  store i32 %.omp.iv.081, i32* %i1, align 4
+  %add11 = add nsw i32 %.omp.iv.081, 1
+  %cmp1 = icmp sle i32 %add11, %7
+; CHECK: call void @llvm.csa.parallel.section.exit(i32 [[SECTION1]])
+  br i1 %cmp1, label %omp.inner.for.body1, label %DIR.OMP.END.LOOP1
+
+DIR.OMP.END.LOOP1:
+; CHECK: call void @llvm.csa.parallel.region.exit(i32 [[REGION1]])
+  call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.LOOP"() ]
+  br label %DIR.OMP.LOOP2
+
+DIR.OMP.LOOP2:
+; CHECK: [[REGION2:%.*]] = call i32 @llvm.csa.parallel.region.entry(i32 {{[0-9]+}})
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"() ]
+  br label %DIR.OMP.LOOP.12
+
+DIR.OMP.LOOP.12:
+  %9 = load i32, i32* %.omp.lb2, align 4
+  %10 = load i32, i32* %.omp.ub2, align 4
+  %cmp72 = icmp sle i32 %9, %10
+  br i1 %cmp72, label %omp.inner.for.body.lr.ph2, label %DIR.OMP.END.LOOP2
+
+omp.inner.for.body.lr.ph2:
+  br label %omp.inner.for.body2
+
+omp.inner.for.body2:
+  %.omp.iv.082 = phi i32 [ %9, %omp.inner.for.body.lr.ph2 ], [ %add12, %omp.inner.for.body2 ]
+; CHECK: [[SECTION2:%.*]] = call i32 @llvm.csa.parallel.section.entry(i32 [[REGION2]])
+  store i32 %.omp.iv.082, i32* %i2, align 4
+  %add12 = add nsw i32 %.omp.iv.082, 1
+  %cmp2 = icmp sle i32 %add12, %10
+; CHECK: call void @llvm.csa.parallel.section.exit(i32 [[SECTION2]])
+  br i1 %cmp2, label %omp.inner.for.body2, label %DIR.OMP.END.LOOP2
+
+DIR.OMP.END.LOOP2:
+; CHECK: call void @llvm.csa.parallel.region.exit(i32 [[REGION2]])
+  call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.LOOP"() ]
+  br label %DIR.OMP.END.PARALLEL
+
+DIR.OMP.END.PARALLEL:
+  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.PARALLEL"() ]
   br label %exit
 
 exit:

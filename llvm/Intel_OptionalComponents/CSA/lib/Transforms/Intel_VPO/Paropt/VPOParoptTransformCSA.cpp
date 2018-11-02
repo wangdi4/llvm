@@ -445,12 +445,6 @@ public:
   }
 };
 
-static WRegionNode* findEnclosingParRegion(WRegionNode *W) {
-  while (W && !W->getIsPar())
-    W = W->getParent();
-  return W;
-}
-
 bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
   switch (W->getWRegionKindID()) {
     case WRegionNode::WRNTarget:
@@ -525,15 +519,6 @@ void VPOParoptTransform::reportCSAWarning(WRegionNode *W, const Twine &Msg) {
 Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
 
-  // CSA parallel region entry/exit calls will be inserted into the closest
-  // enclosing omp parallel region if such region exists.
-  if (auto *ParW = findEnclosingParRegion(W))
-    W = ParW;
-
-  auto &Region = CSAParallelRegions[W];
-  if (Region)
-    return Region;
-
   auto *M = F->getParent();
 
   // CSA parallel region entry/exit intrinsics
@@ -549,7 +534,7 @@ Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
   // loop intrinsics lowering pass which uses IDs starting from 1000).
   IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
   auto *UniqueID = Builder.getInt32(2000u + W->getNumber());
-  Region = Builder.CreateCall(RegionEntry, { UniqueID }, "region");
+  auto *Region = Builder.CreateCall(RegionEntry, { UniqueID }, "region");
 
   // And an "exit" call into the work region's exit bblock.
   Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
@@ -688,7 +673,6 @@ bool VPOParoptTransform::genCSASections(WRegionNode *W) {
 bool VPOParoptTransform::genCSAParallel(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
   CSAPrivatizer(*this, W).run();
-  genCSAParallelRegion(W);
   return true;
 }
 
