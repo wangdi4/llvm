@@ -529,7 +529,8 @@ via ICS build command option:
 
 .. code-block:: console
 
-  ics build FEATURES="AVX3_1,AVX3_2"
+  ics build FEATURES="AVX3_1,AVX3_2" (not supported yet)
+  ics build -extraopts="-DLLVM_INTEL_FEATURES=AVX3_1" (allows enabling only one feature)
 
 .. note:: Feature names may only consist of symbols that are valid for C/C++ identifiers.
 
@@ -538,6 +539,11 @@ via ICS build command option:
           in the consequent `ics build` commands will not take effect.
           To build a compiler with new list of features, please, build it
           from scratch.
+
+To use a new feature for a compiler build, you have to add the feature name
+into `llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt`, otherwise,
+the compiler build will fail instructing you to add the feature name
+into the file.
 
 'LLVM_INTEL_FEATURES' may be used for conditional CMake processing.  For example,
 we have the following code in `llvm/CMakeLists.txt`:
@@ -566,7 +572,9 @@ To guard Intel secret features in C/C++ files use feature checks in addition to
   #endif // INTEL_FEATURE_AVX3_2
   #endif // INTEL_CUSTOMIZATION
 
-.. note:: The compiler must build with and without any of INTEL_FEATURE_XXX defined.
+.. note:: The compiler must build with and without any of INTEL_FEATURE_XXX
+          defined.  If an INTEL_FEATURE_XXX is not defined, the compiler
+          must be fully functional, except for the disabled feature's support.
 
 To completely exclude a C/C++ file from compilation, when some feature is not
 enabled, we can use conditional processing of CMake files.  In the following
