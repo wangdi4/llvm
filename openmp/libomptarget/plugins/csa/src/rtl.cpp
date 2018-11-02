@@ -30,12 +30,6 @@
 #include <unordered_set>
 
 #include "omptargetplugin.h"
-
-// TODO: prevent csa/arch_value.h from being included because it causes build
-// problem due to compilation warnings which are treated as errors. This
-// workaround should be removed once this problem is fixed.
-#define CSA_ARCH_VALUE_H_
-class CsaArchValue64;
 #include "umr.h"
 #include "elf.h"
 
