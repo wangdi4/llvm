@@ -19,7 +19,7 @@ void foo() {
   //CHECK: call void @llvm.directive.region.exit(token [[T0]])
   //CHECK-SAME: [ "DIR.OMP.END.TARGET"() ]
 
-  //CHECK-FEOUTLINE: define internal void @__omp_offloading
+  //CHECK-FEOUTLINE: define internal void @__omp_offloading{{.*}}foo
   //CHECK-FEOUTLINE: [[I:%i[0-9]*]] = alloca i32, align
   //CHECK-FEOUTLINE-NOT: @glob
   //CHECK-FEOUTLINE: store i32 %0, i32* [[I]], align
@@ -29,4 +29,23 @@ void foo() {
   {
     int i = glob;
   }
+}
+
+extern int **ext_glob_array[10];
+//CHECK-FEOUTLINE-LABEL: bar
+void bar() {
+
+  #pragma omp target map(ext_glob_array[0:1])
+  {
+    #pragma omp parallel for
+    for(int j=0; j<100; j++) {
+      int ifoo = *ext_glob_array[1][j];
+    }
+  }
+  //CHECK-FEOUTLINE: define internal void @__omp_offloading{{.*}}bar
+  //CHECK-FEOUTLINE: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //CHECK-FEOUTLINE-SAME: [ "DIR.OMP.PARALLEL.LOOP"()
+  //CHECK-FEOUTLINE-NOT: @ext_glob_array
+  //CHECK-FEOUTLINE: call void @llvm.directive.region.exit(token [[T0]])
+  //CHECK-FEOUTLINE-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 }

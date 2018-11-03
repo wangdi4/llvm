@@ -2511,7 +2511,23 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     }
 
 #if INTEL_CUSTOMIZATION
+    bool Nested = false;
     if (getLangOpts().IntelOpenMP &&
+        CapturedStmtInfo && CapturedStmtInfo->isLateOutlinedRegion()) {
+      /* This is a late-outlined region, check if it is nested inside a
+         fe-outlined region. */
+      auto *CSI = cast<CGIntelOpenMP::CGOpenMPRegionInfo>(CapturedStmtInfo);
+      CodeGenFunction::CGCapturedStmtInfo *outer = CSI->getOldCSI();
+      while (outer && outer->isLateOutlinedRegion()) {
+        auto *CSI = cast<CGIntelOpenMP::CGOpenMPRegionInfo>(outer);
+        outer = CSI->getOldCSI();
+      }
+      if (outer)
+        Nested = true;
+    }
+    bool NestedGlobal =
+        Nested && (VD->hasLinkage() || VD->isStaticDataMember());
+    if (getLangOpts().IntelOpenMP && !NestedGlobal &&
         (!CapturedStmtInfo || CapturedStmtInfo->isLateOutlinedRegion())) {
       if (CapturedStmtInfo)
         CapturedStmtInfo->recordVariableReference(VD);
