@@ -96,15 +96,6 @@ INLINE void __kmp_barrier_dissem(global kmp_barrier_t *barrier) {
   work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 }
 
-/// Global barrier to be used internally.
-INLINE void __kmp_global_barrier() {
-  if (__kmp_get_num_groups() == 1) {
-    work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
-    return;
-  }
-  __kmp_barrier_counting(&gstate.g_barrier);
-}
-
 /// Team barrier
 INLINE void __kmp_team_barrier(int global_id) {
   // We need to implement this if we allow single-team-multi-group mapping
@@ -112,8 +103,8 @@ INLINE void __kmp_team_barrier(int global_id) {
 }
 
 void __kmpc_barrier(ident_t *id, int global_id) {
-  // This should work fine as long as team is mapped to at most one work group.
-  __kmp_global_barrier();
+  // Built-in work group barrier
+  work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 }
 
 ///
@@ -127,29 +118,64 @@ void __kmpc_barrier(ident_t *id, int global_id) {
 #define KMPC_ATOMIC_IMPL_FALLBACK(DATANAME, DATATYPE, OPNAME, OP)              \
   /* __kmpc_atomic_DATANAME_OPNAME(ident_t *id, int global_id, lhs, rhs) */    \
   KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
-    *lhs = *lhs OP rhs;                                                        \
     printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
   }
 
 /// Fallback for binary and/or
 #define KMPC_ATOMIC_IMPL_FALLBACK_B(DATANAME, DATATYPE, OPNAME, OP)            \
-  /* __kmpc_atomic_DATANAME_OPNAME(ident_t *id, int global_id, lhs, rhs) */    \
+  /* __kmpc_atomic_DATANAME_OPNAMEb(ident_t *id, int global_id, lhs, rhs) */   \
   KMPC_ATOMIC_FN_B(DATANAME, OPNAME, DATATYPE) {                               \
-    *lhs = *lhs OP rhs;                                                        \
+    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
+  }
+
+/// Fallback for capture atomics
+#define KMPC_ATOMIC_IMPL_FALLBACK_CPT(DATANAME, DATATYPE, OPNAME, OP)          \
+  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*id, global_id, *lhs, rhs, flag) */     \
+  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
+    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
+    return *lhs;                                                               \
+  }
+
+/// Fallback for binary and/or capture atomics
+#define KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(DATANAME, DATATYPE, OPNAME, OP)        \
+  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*id, global_id, *lhs, rhs, flag) */     \
+  KMPC_ATOMIC_FN_B_CPT(DATANAME, OPNAME, DATATYPE) {                           \
+    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
+    return *lhs;                                                               \
   }
 
 /// Use intrinsics
 #define KMPC_ATOMIC_IMPL_INTRINSIC(DATANAME, DATATYPE, OPNAME)                 \
-  /* __kmpc_atomic_DATANAME_OPNAME(ident_t *id, int global_id, lhs, rhs) */    \
+  /* __kmpc_atomic_DATANAME_OPNAME(ident_t *id, int global_id, *lhs, rhs) */   \
   KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
     atomic_fetch_##OPNAME((atomic_##DATATYPE *)lhs, rhs);                      \
   }
 
 /// Use intrinsics for binary and/or
 #define KMPC_ATOMIC_IMPL_INTRINSIC_B(DATANAME, DATATYPE, OPNAME)               \
-  /* __kmpc_atomic_DATANAME_OPNAME(ident_t *id, int global_id, lhs, rhs) */    \
+  /* __kmpc_atomic_DATANAME_OPNAMEb(ident_t *id, int global_id, *lhs, rhs) */  \
   KMPC_ATOMIC_FN_B(DATANAME, OPNAME, DATATYPE) {                               \
     atomic_fetch_##OPNAME((atomic_##DATATYPE *)lhs, rhs);                      \
+  }
+
+/// Use intrinsics for capture atomics
+#define KMPC_ATOMIC_IMPL_INTRINSIC_CPT(DATANAME, DATATYPE, OPNAME, OP)         \
+  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*id, global_id, *lhs, rhs, flag) */     \
+  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
+    DATATYPE captured = atomic_fetch_##OPNAME((atomic_##DATATYPE *)lhs, rhs);  \
+    if (flag)                                                                  \
+      captured = captured OP rhs;                                              \
+    return captured;                                                           \
+  }
+
+/// Use intrinsics for binary and/or capture atomics
+#define KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(DATANAME, DATATYPE, OPNAME, OP)       \
+  /* __kmpc_atomic_DATANAME_OPNAMEb_cpt(*id, global_id, *lhs, rhs, flag) */    \
+  KMPC_ATOMIC_FN_B_CPT(DATANAME, OPNAME, DATATYPE) {                           \
+    DATATYPE captured = atomic_fetch_##OPNAME((atomic_##DATATYPE *)lhs, rhs);  \
+    if (flag)                                                                  \
+      captured = captured OP rhs;                                              \
+    return captured;                                                           \
   }
 
 /// Use cmpxchg
@@ -165,9 +191,24 @@ void __kmpc_barrier(ident_t *id, int global_id) {
     }                                                                          \
   }
 
+/// Use cmpxchg for capture atomics
+#define KMPC_ATOMIC_IMPL_CMPXCHG_CPT(DATANAME, DATATYPE, OPNAME, OP)           \
+  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*id, global_id, *lhs, rhs, flag) */     \
+  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
+    atomic_##DATATYPE *obj = (atomic_##DATATYPE *)lhs;                         \
+    bool done = false;                                                         \
+    DATATYPE prev, next;                                                       \
+    while (!done) {                                                            \
+      prev = atomic_load(obj);                                                 \
+      next = prev OP rhs;                                                      \
+      done = atomic_compare_exchange_strong(obj, &prev, next);                 \
+    }                                                                          \
+    return flag ? next : prev;                                                 \
+  }
+
 /// Use cmpxchg with type cast
 #define KMPC_ATOMIC_IMPL_CMPXCHG_CAST(DATANAME, DATATYPE, BASETYPE, OPNAME, OP)\
-  /* __kmpc_atomic_DATANAME_OPNAME(ident_t *id, int global_id, lhs, rhs) */    \
+  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*id, global_id, *lhs, rhs) */           \
   KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
     union {                                                                    \
       BASETYPE base;                                                           \
@@ -182,6 +223,25 @@ void __kmpc_barrier(ident_t *id, int global_id) {
     }                                                                          \
   }
 
+/// Use cmpxchg with type cast for capture atomics
+#define KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(DATANAME, DATATYPE, BASETYPE,        \
+                                          OPNAME, OP)                          \
+  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*id, global_id, *lhs, rhs, flag) */     \
+  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
+    union {                                                                    \
+      BASETYPE base;                                                           \
+      DATATYPE data;                                                           \
+    } prev, next;                                                              \
+    atomic_##BASETYPE *obj = (atomic_##BASETYPE *)lhs;                         \
+    bool done = false;                                                         \
+    while (!done) {                                                            \
+      prev.base = atomic_load(obj);                                            \
+      next.data = prev.data OP rhs;                                            \
+      done = atomic_compare_exchange_strong(obj, &prev.base, next.base);       \
+    }                                                                          \
+    return flag ? next.data : prev.data;                                       \
+  }
+
 /// 4-byte fixed atomics
 #if KMP_ATOMIC_FIXED4_SUPPORTED
 KMPC_ATOMIC_IMPL_INTRINSIC(fixed4, int, add)
@@ -193,6 +253,15 @@ KMPC_ATOMIC_IMPL_CMPXCHG(fixed4, int, mul, *)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed4, int, div, /)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed4, int, shl, <<)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed4, int, shr, >>)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed4, int, add, +)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed4, int, sub, -)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed4, int, or, |)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed4, int, xor, ^)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed4, int, and, &)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4, int, mul, *)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4, int, div, /)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4, int, shl, <<)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4, int, shr, >>)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4, int, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4, int, sub, -)
@@ -203,6 +272,15 @@ KMPC_ATOMIC_IMPL_FALLBACK(fixed4, int, mul, *)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4, int, div, /)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4, int, shl, <<)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4, int, shr, >>)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4, int, add, +)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4, int, sub, -)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed4, int, or, |)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4, int, xor, ^)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed4, int, and, &)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4, int, mul, *)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4, int, div, /)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4, int, shl, <<)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4, int, shr, >>)
 #endif
 
 /// 4-byte unsigned fixed atomics
@@ -216,6 +294,15 @@ KMPC_ATOMIC_IMPL_CMPXCHG(fixed4u, uint, mul, *)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed4u, uint, div, /)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed4u, uint, shl, <<)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed4u, uint, shr, >>)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed4u, uint, add, +)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed4u, uint, sub, -)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed4u, uint, or, |)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed4u, uint, xor, ^)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed4u, uint, and, &)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4u, uint, mul, *)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4u, uint, div, /)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4u, uint, shl, <<)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed4u, uint, shr, >>)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4u, uint, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4u, uint, sub, -)
@@ -226,6 +313,15 @@ KMPC_ATOMIC_IMPL_FALLBACK(fixed4u, uint, mul, *)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4u, uint, div, /)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4u, uint, shl, <<)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed4u, uint, shr, >>)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, add, +)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, sub, -)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed4u, uint, or, |)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, xor, ^)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed4u, uint, and, &)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, mul, *)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, div, /)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, shl, <<)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, shr, >>)
 #endif
 
 /// 4-byte float atomics
@@ -234,11 +330,19 @@ KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, add, +)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, sub, -)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, mul, *)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, div, /)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, add, +)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, sub, -)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, mul, *)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, div, /)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(float4, float, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(float4, float, sub, -)
 KMPC_ATOMIC_IMPL_FALLBACK(float4, float, mul, *)
 KMPC_ATOMIC_IMPL_FALLBACK(float4, float, div, /)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float4, float, add, +)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float4, float, sub, -)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float4, float, mul, *)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float4, float, div, /)
 #endif
 
 /// 8-byte fixed atomics
@@ -252,6 +356,15 @@ KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, mul, *)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, div, /)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, shl, <<)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, shr, >>)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, add, +)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, sub, -)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8, long, or, |)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, xor, ^)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8, long, and, &)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, mul, *)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, div, /)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, shl, <<)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, shr, >>)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, sub, -)
@@ -262,6 +375,15 @@ KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, mul, *)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, div, /)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, shl, <<)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, shr, >>)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, add, +)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, sub, -)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed8, long, or, |)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, xor, ^)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed8, long, and, &)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, mul, *)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, div, /)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, shl, <<)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, shr, >>)
 #endif
 
 /// 8-byte unsigned fixed atomics
@@ -275,16 +397,34 @@ KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, mul, *)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, div, /)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, shl, <<)
 KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, shr, >>)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, add, +)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, sub, -)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8u, ulong, or, |)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, xor, ^)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8u, ulong, and, &)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, mul, *)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, div, /)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, shl, <<)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, shr, >>)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, sub, -)
-KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, or, |)
+KMPC_ATOMIC_IMPL_FALLBACK_B(fixed8u, ulong, or, |)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, xor, ^)
-KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, and, &)
+KMPC_ATOMIC_IMPL_FALLBACK_B(fixed8u, ulong, and, &)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, mul, *)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, div, /)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, shl, <<)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, shr, >>)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, add, +)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, sub, -)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed8u, ulong, or, |)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, xor, ^)
+KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(fixed8u, ulong, and, &)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, mul, *)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, div, /)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, shl, <<)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, shr, >>)
 #endif
 
 /// 8-byte float atomics
@@ -293,12 +433,32 @@ KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, add, +)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, sub, -)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, mul, *)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, div, /)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, add, +)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, sub, -)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, mul, *)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, div, /)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(float8, double, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(float8, double, sub, -)
 KMPC_ATOMIC_IMPL_FALLBACK(float8, double, mul, *)
 KMPC_ATOMIC_IMPL_FALLBACK(float8, double, div, /)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, add, +)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, sub, -)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, mul, *)
+KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, div, /)
 #endif
+
+///
+/// Other __kmpc_* entries
+///
+
+EXTERN int __kmpc_master(ident_t *id, int global_id) {
+  return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
+}
+
+EXTERN void __kmpc_end_master(ident_t *id, int global_id) {
+  // nothing to be done
+}
 
 
 ///
@@ -357,5 +517,25 @@ EXTERN int omp_is_initial_device(void) {
 EXTERN int omp_get_initial_device(void) {
   // Unspecified
   return KMP_UNSPECIFIED;
+}
+
+// Initialize global barrier
+EXTERN void kmp_global_barrier_init(void) {
+// TODO: decide default implementation based on performance
+#ifdef KMP_GLOBAL_BARRIER_DISSEM
+  __kmp_barrier_dissem_init(&gstate.g_barrier);
+#else
+  // nothing to be done
+#endif
+}
+
+// Global barrier
+EXTERN void kmp_global_barrier(void) {
+// TODO: decide default implementation based on performance
+#ifdef KMP_GLOBAL_BARRIER_DISSEM
+  __kmp_barrier_dissem(&gstate.g_barrier);
+#else
+  __kmp_barrier_counting(&gstate.g_barrier);
+#endif
 }
 #endif // INTEL_COLLAB

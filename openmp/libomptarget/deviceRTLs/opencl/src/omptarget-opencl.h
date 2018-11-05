@@ -207,6 +207,16 @@ EXTERN void __kmpc_atomic_##DATANAME##_##OPTYPE                                \
 EXTERN void __kmpc_atomic_##DATANAME##_##OPTYPE##b                             \
   (ident_t *id, int global_id, DATATYPE *lhs, DATATYPE rhs)
 
+/// Signature for capture atomics
+#define KMPC_ATOMIC_FN_CPT(DATANAME, OPTYPE, DATATYPE)                         \
+EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##_cpt                      \
+  (ident_t *id, int global_id, DATATYPE *lhs, DATATYPE rhs, int flag)
+
+/// Signature for binary and/or capture atomics
+#define KMPC_ATOMIC_FN_B_CPT(DATANAME, OPTYPE, DATATYPE)                       \
+EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##b_cpt                     \
+  (ident_t *id, int global_id, DATATYPE *lhs, DATATYPE rhs, int flag)
+
 /// 4-byte fixed
 KMPC_ATOMIC_FN(fixed4, add, int);
 KMPC_ATOMIC_FN(fixed4, sub, int);
@@ -217,6 +227,17 @@ KMPC_ATOMIC_FN(fixed4, mul, int);
 KMPC_ATOMIC_FN(fixed4, div, int);
 KMPC_ATOMIC_FN(fixed4, shl, int);
 KMPC_ATOMIC_FN(fixed4, shr, int);
+
+/// 4-byte fixed capture
+KMPC_ATOMIC_FN_CPT(fixed4, add, int);
+KMPC_ATOMIC_FN_CPT(fixed4, sub, int);
+KMPC_ATOMIC_FN_B_CPT(fixed4, or, int);
+KMPC_ATOMIC_FN_CPT(fixed4, xor, int);
+KMPC_ATOMIC_FN_B_CPT(fixed4, and, int);
+KMPC_ATOMIC_FN_CPT(fixed4, mul, int);
+KMPC_ATOMIC_FN_CPT(fixed4, div, int);
+KMPC_ATOMIC_FN_CPT(fixed4, shl, int);
+KMPC_ATOMIC_FN_CPT(fixed4, shr, int);
 
 /// 4-byte unsigned fixed
 KMPC_ATOMIC_FN(fixed4u, add, uint);
@@ -229,11 +250,28 @@ KMPC_ATOMIC_FN(fixed4u, div, uint);
 KMPC_ATOMIC_FN(fixed4u, shl, uint);
 KMPC_ATOMIC_FN(fixed4u, shr, uint);
 
+/// 4-byte unsigned fixed capture
+KMPC_ATOMIC_FN_CPT(fixed4u, add, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, sub, uint);
+KMPC_ATOMIC_FN_B_CPT(fixed4u, or, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, xor, uint);
+KMPC_ATOMIC_FN_B_CPT(fixed4u, and, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, mul, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, div, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, shl, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, shr, uint);
+
 /// 4-byte float
 KMPC_ATOMIC_FN(float4, add, float);
 KMPC_ATOMIC_FN(float4, sub, float);
 KMPC_ATOMIC_FN(float4, mul, float);
 KMPC_ATOMIC_FN(float4, div, float);
+
+/// 4-byte float capture
+KMPC_ATOMIC_FN_CPT(float4, add, float);
+KMPC_ATOMIC_FN_CPT(float4, sub, float);
+KMPC_ATOMIC_FN_CPT(float4, mul, float);
+KMPC_ATOMIC_FN_CPT(float4, div, float);
 
 /// 8-byte fixed
 KMPC_ATOMIC_FN(fixed8, add, long);
@@ -246,6 +284,17 @@ KMPC_ATOMIC_FN(fixed8, div, long);
 KMPC_ATOMIC_FN(fixed8, shl, long);
 KMPC_ATOMIC_FN(fixed8, shr, long);
 
+/// 8-byte fixed capture
+KMPC_ATOMIC_FN_CPT(fixed8, add, long);
+KMPC_ATOMIC_FN_CPT(fixed8, sub, long);
+KMPC_ATOMIC_FN_B_CPT(fixed8, or, long);
+KMPC_ATOMIC_FN_CPT(fixed8, xor, long);
+KMPC_ATOMIC_FN_B_CPT(fixed8, and, long);
+KMPC_ATOMIC_FN_CPT(fixed8, mul, long);
+KMPC_ATOMIC_FN_CPT(fixed8, div, long);
+KMPC_ATOMIC_FN_CPT(fixed8, shl, long);
+KMPC_ATOMIC_FN_CPT(fixed8, shr, long);
+
 /// 8-byte unsigned fixed
 KMPC_ATOMIC_FN(fixed8u, add, ulong);
 KMPC_ATOMIC_FN(fixed8u, sub, ulong);
@@ -257,13 +306,38 @@ KMPC_ATOMIC_FN(fixed8u, div, ulong);
 KMPC_ATOMIC_FN(fixed8u, shl, ulong);
 KMPC_ATOMIC_FN(fixed8u, shr, ulong);
 
+/// 8-byte unsigned fixed capture
+KMPC_ATOMIC_FN_CPT(fixed8u, add, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, sub, ulong);
+KMPC_ATOMIC_FN_B_CPT(fixed8u, or, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, xor, ulong);
+KMPC_ATOMIC_FN_B_CPT(fixed8u, and, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, mul, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, div, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, shl, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, shr, ulong);
+
 /// 8-byte float
 KMPC_ATOMIC_FN(float8, add, double);
 KMPC_ATOMIC_FN(float8, sub, double);
 KMPC_ATOMIC_FN(float8, mul, double);
 KMPC_ATOMIC_FN(float8, div, double);
 
+/// 8-byte float capture
+KMPC_ATOMIC_FN_CPT(float8, add, double);
+KMPC_ATOMIC_FN_CPT(float8, sub, double);
+KMPC_ATOMIC_FN_CPT(float8, mul, double);
+KMPC_ATOMIC_FN_CPT(float8, div, double);
+
 /// TODO: more data types
+
+
+///
+/// Other __kmpc_* entries
+///
+
+EXTERN int __kmpc_master(ident_t *, int);
+EXTERN void __kmpc_end_master(ident_t *, int);
 
 
 ///
@@ -291,6 +365,10 @@ EXTERN int omp_get_num_devices(void);
 EXTERN int omp_is_initial_device(void);
 
 EXTERN int omp_get_initial_device(void);
+
+EXTERN void kmp_global_barrier_init(void);
+
+EXTERN void kmp_global_barrier(void);
 
 ///
 /// Device runtime initialization

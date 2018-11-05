@@ -9,6 +9,9 @@ VERS1.0 {
     __tgt_rtl_data_retrieve;
     __tgt_rtl_data_delete;
     __tgt_rtl_run_target_team_region;
+# INTEL_COLLAB
+    __tgt_rtl_run_target_team_nd_region;
+# end INTEL_COLLAB
     __tgt_rtl_run_target_region;
   local:
     *;
