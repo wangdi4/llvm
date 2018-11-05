@@ -1311,7 +1311,7 @@ llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy,
                                                     /*Variadic*/ false);
   llvm::Constant *Func =
-      CGM.CreateRuntimeFunction(FTy, "__cpu_indicator_init_x");
+      CGM.CreateRuntimeFunction(FTy, "__intel_cpu_features_init_x");
   Builder.CreateCall(Func);
 
   llvm::Constant *IndicatorPtr =
