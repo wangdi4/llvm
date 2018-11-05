@@ -1197,11 +1197,26 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
       assert(isa<BranchInst>(TI) && "Unsupported terminator!");
       auto *Br = cast<BranchInst>(TI);
       Value *BrCond = Br->getCondition();
+#if INTEL_CUSTOMIZATION
+      VPValue *VPCondBit;
+      if (Constant *ConstBrCond = dyn_cast<Constant>(BrCond))
+        // Create new VPConstant for constant branch condition.
+        VPCondBit = Plan->getVPConstant(ConstBrCond);
+      else {
+        // Look up the branch condition to get the corresponding VPValue
+        // representing the condition bit in VPlan (which may be in another
+        // VPBB).
+        assert(IRDef2VPValue.count(BrCond) &&
+               "Missing condition bit in IRDef2VPValue!");
+        VPCondBit = IRDef2VPValue[BrCond];
+      }
+#else
       // Look up the branch condition to get the corresponding VPValue
       // representing the condition bit in VPlan (which may be in another VPBB).
       assert(IRDef2VPValue.count(BrCond) &&
              "Missing condition bit in IRDef2VPValue!");
       VPValue *VPCondBit = IRDef2VPValue[BrCond];
+#endif
       VPBB->setTwoSuccessors(VPCondBit, SuccVPBB0, SuccVPBB1, Plan);
 
       VPBB->setCBlock(BB);
