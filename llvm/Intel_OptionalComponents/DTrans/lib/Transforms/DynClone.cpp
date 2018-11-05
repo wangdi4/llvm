@@ -111,12 +111,24 @@ public:
 };
 
 class DynCloneImpl {
+
+  // Functor that compares Function* using alphabetical ordering of the
+  // function's name.
+  struct CompareFuncPtr
+      : public std::binary_function<Function *, Function *, bool> {
+    bool operator()(const Function *lhs, const Function *rhs) const {
+      if (lhs == nullptr || rhs == nullptr)
+        return lhs < rhs;
+      return lhs->getName().compare(rhs->getName()) == -1;
+    }
+  };
+
   using DynField = std::pair<llvm::Type *, size_t>;
   using DynFieldList = SmallVector<DynField, 16>;
   // Even though it will be very small set,  using std::set (instead of
   // SmallSet/SetVector) to do set operations like union/intersect.
   using DynFieldSet = std::set<DynField>;
-  using FunctionSet = SmallPtrSet<Function *, 16>;
+  using FunctionSet = std::set<Function *, CompareFuncPtr>;
   using CallInstSet = SmallPtrSet<CallInst *, 8>;
   using StoreInstSet = SmallPtrSet<StoreInst *, 4>;
   using PHIInstSet = SmallPtrSet<PHINode *, 4>;
