@@ -896,8 +896,6 @@ void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
   bool found = false;
   BlobIndexToCoeff Blob(OldIndex, 0);
 
-  assert(!BlobCoeffs.empty() && "Old blob index not found!");
-
   auto I = std::lower_bound(BlobCoeffs.begin(), BlobCoeffs.end(), Blob,
                             BlobIndexCompareLess());
 
