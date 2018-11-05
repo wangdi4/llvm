@@ -85,6 +85,16 @@ instruction.
   llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I);
 
 
+!dtrans-soatoaos
+~~~~~~~~~~~~~~~~
+This metadata tag is placed on a function that manages a type which was
+converted by the SOA-to-AOS transformation. Specifically, this will be placed
+on the constructor, copy constructor, destructor, append and realloc methods
+that manage the memory of the converted types. This is used to inform the weak
+alignment pass that the DTrans SOA-to-AOS transformation ran, and modified the
+the IR.
+
+
 Pointer Annotations
 ===================
 Pointer annotations may be used to communicate information from one DTrans pass

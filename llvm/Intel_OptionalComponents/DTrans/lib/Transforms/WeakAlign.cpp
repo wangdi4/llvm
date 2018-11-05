@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/WeakAlign.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -23,6 +24,13 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-weakalign"
+
+// This option controls whether the weak align transformation heuristics are
+// used for enabling the transformation. Setting this to true will allow the
+// transformation and safety analysis to be run without identifying a routine
+// marked by the SAO-to-AOS transformation.
+static cl::opt<bool> HeurOverride("dtrans-weakalign-heur-override",
+                                  cl::init(false), cl::ReallyHidden);
 
 namespace {
 class DTransWeakAlignWrapper : public ModulePass {
@@ -91,6 +99,10 @@ bool WeakAlignImpl::run(Module &M, const TargetLibraryInfo &TLI) {
   // Check for safety issues that prevent the transform.
   if (!analyzeModule(M, TLI))
     return false;
+
+  LLVM_DEBUG(
+      dbgs()
+      << "DTRANS Weak Align: enabled -- Heuristics and safety tests passed\n");
 
   bool Changed = false;
   // TODO: Add insertion of mallopt call at the start of main.
@@ -166,7 +178,14 @@ bool WeakAlignImpl::analyzeModule(Module &M, const TargetLibraryInfo &TLI) {
   // directly or indirectly without checking each call site since we know we
   // have the whole program. In other words, if it's not seen, there are no
   // calls to it.
+  //
+  // Also, search for functions marked by the SOA-to-AOS transformation to know
+  // whether this transformation should be applied. This is an ugly hack, but
+  // the only time we want this transform to run is on cases that are also
+  // transformed by the SOA-to-AOS transformation, and there's not another
+  // cheap mechanism to determine that.
   LibFunc TheLibFunc;
+  bool SawSOAToAOS = false;
   for (auto &F : M) {
     if (TLI.getLibFunc(F.getName(), TheLibFunc) && TLI.has(TheLibFunc) &&
         llvm::isAllocationLibFunc(TheLibFunc) &&
@@ -176,6 +195,15 @@ bool WeakAlignImpl::analyzeModule(Module &M, const TargetLibraryInfo &TLI) {
                         << F.getName() << "\n");
       return false;
     }
+
+    if (DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(F))
+      SawSOAToAOS = true;
+  }
+
+  if (!HeurOverride && !SawSOAToAOS) {
+    LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- Did not find "
+      "SOA-to-AOS transformed routine:\n");
+    return false;
   }
 
   for (auto &F : M)
