@@ -940,68 +940,70 @@ arise in the following context:
 
 Consider the sequence of code fragments:
 
-(1) typedef struct {
-(2)    void *coder;
-(3)    void (*startup)(void *myarg);
-(4)    void (*shutdown)(void *myarg);
-(5) } mynextcoder;
+.. code-block:: c++
 
-(6) typedef struct {
-(7)   int myint1;
-(8)   int *myptr1;
-(9) } mycoder1;
+  (1) typedef struct {
+  (2)    void *coder;
+  (3)    void (*startup)(void *myarg);
+  (4)    void (*shutdown)(void *myarg);
+  (5) } mynextcoder;
 
-(10) typedef struct {
-(11)  int *myptr2;
-(12)  int myint2;
-(13) } mycoder2;
+  (6) typedef struct {
+  (7)   int myint1;
+  (8)   int *myptr1;
+  (9) } mycoder1;
 
-(14) int myglobalint1 = 50;
-(15) int myglobalint2 = 100;
+  (10) typedef struct {
+  (11)  int *myptr2;
+  (12)  int myint2;
+  (13) } mycoder2;
 
-(16) void init_with_coder1(mynextcoder *next) {
-(17)   if (!next->coder)
-(18)     next->coder = malloc(sizeof(mycoder1));
-(19)  next->startup = coder1_startup;
-(20)  next->shutdown = coder1_shutdown;
-(21)  ((mycoder1 *)(next->coder))->myint1 = 15;
-(22)  ((mycoder1 *)(next->coder))->myptr1 = &myglobalint1;
-(23) }
+  (14) int myglobalint1 = 50;
+  (15) int myglobalint2 = 100;
 
-(24) void init_with_coder2(mynextcoder *next) {
-(25)   if (!next->coder)
-(26)    next->coder = malloc(sizeof(mycoder2));
-(27)  next->startup = coder2_startup;
-(28)  next->shutdown = coder2_shutdown;
-(29)  ((mycoder2 *)(next->coder))->myint2 = 20;
-(30)  ((mycoder2 *)(next->coder))->myptr2 = &myglobalint2;
-(31) }
+  (16) void init_with_coder1(mynextcoder *next) {
+  (17)   if (!next->coder)
+  (18)     next->coder = malloc(sizeof(mycoder1));
+  (19)  next->startup = coder1_startup;
+  (20)  next->shutdown = coder1_shutdown;
+  (21)  ((mycoder1 *)(next->coder))->myint1 = 15;
+  (22)  ((mycoder1 *)(next->coder))->myptr1 = &myglobalint1;
+  (23) }
 
-(32) void coder1_startup(void *myarg) {
-(33)   mycoder1 *ptr = (mycoder1 *) myarg;
-(34)   ...
-(35) }
+  (24) void init_with_coder2(mynextcoder *next) {
+  (25)   if (!next->coder)
+  (26)    next->coder = malloc(sizeof(mycoder2));
+  (27)  next->startup = coder2_startup;
+  (28)  next->shutdown = coder2_shutdown;
+  (29)  ((mycoder2 *)(next->coder))->myint2 = 20;
+  (30)  ((mycoder2 *)(next->coder))->myptr2 = &myglobalint2;
+  (31) }
 
-(36) void coder1_shutdown(void *myarg) {
-(37)   mycoder1 *ptr = (mycoder1 *) myarg;
-(38)   ...
-(39) }
+  (32) void coder1_startup(void *myarg) {
+  (33)   mycoder1 *ptr = (mycoder1 *) myarg;
+  (34)   ...
+  (35) }
 
-(40) void coder2_startup(void *myarg) {
-(41)   mycoder2 *ptr = (mycoder2 *) myarg;
-(42)  ...
-(43) );
+  (36) void coder1_shutdown(void *myarg) {
+  (37)   mycoder1 *ptr = (mycoder1 *) myarg;
+  (38)   ...
+  (39) }
 
-(44) void coder2_shutdown(void *myarg) {
-(45)   mycoder2 *ptr = (mycoder2 *) myarg;
-(46)   ...
-(47) );
+  (40) void coder2_startup(void *myarg) {
+  (41)   mycoder2 *ptr = (mycoder2 *) myarg;
+  (42)  ...
+  (43) );
 
-(48) void myoperation(mynextcoder *next) {
-(49)  next->startup(next->coder);
-(50)  ...
-(51)  next->shutdown(next->coder);
-(52) }
+  (44) void coder2_shutdown(void *myarg) {
+  (45)   mycoder2 *ptr = (mycoder2 *) myarg;
+  (46)   ...
+  (47) );
+
+  (48) void myoperation(mynextcoder *next) {
+  (49)  next->startup(next->coder);
+  (50)  ...
+  (51)  next->shutdown(next->coder);
+  (52) }
 
 Note that on lines 21-22 the 'coder' field is cast to the type coder1, while
 in lines 29-30 it is cast to the type coder2. This would, in general, yield
@@ -1031,34 +1033,39 @@ We deal with this issue in the following way. We insert a test at the
 beginning of functions init_with_coder1() and init_with_coder2() (as
 shown below in lines 16a-16b and 24a-24b):
 
-(16) void init_with_coder1(mynextcoder *next) {
-(16a)  if (next->coder)
-(16b)    GIVE UP ON ANY OPTIMIZATION THAT DEPENDS ON "NO BAD CASTING"
-(17)   if (!next->coder)
-(18)     next->coder = malloc(sizeof(mycoder1));
-(19)  next->startup = coder1_startup;
-(20)  next->shutdown = coder1_shutdown;
-(21)  ((mycoder1 *)(next->coder))->myint1 = 15;
-(22)  ((mycoder1 *)(next->coder))->myptr1 = &myglobalint1;
-(23) }
+.. code-block:: c++
 
-(24) void init_with_coder2(mynextcoder *next) {
-(24a)  if (next->coder)
-(24b)    GIVE UP ON ANY OPTIMIZATION THAT DEPENDS ON "NO BAD CASTING"
-(25)   if (!next->coder)
-(26)    next->coder = malloc(sizeof(mycoder2));
-(27)  next->startup = coder2_startup;
-(28)  next->shutdown->coder2_shutdown;
-(29)  ((mycoder2 *)(next->coder))->myint2 = 20;
-(30)  ((mycoder2 *)(next->coder))->myptr2 = &myglobalint2;
-(31) }
+  (16) void init_with_coder1(mynextcoder *next) {
+  (16a)  if (next->coder)
+  (16b)    GIVE UP ON ANY OPTIMIZATION THAT DEPENDS ON "NO BAD CASTING"
+  (17)   if (!next->coder)
+  (18)     next->coder = malloc(sizeof(mycoder1));
+  (19)  next->startup = coder1_startup;
+  (20)  next->shutdown = coder1_shutdown;
+  (21)  ((mycoder1 *)(next->coder))->myint1 = 15;
+  (22)  ((mycoder1 *)(next->coder))->myptr1 = &myglobalint1;
+  (23) }
+
+  (24) void init_with_coder2(mynextcoder *next) {
+  (24a)  if (next->coder)
+  (24b)    GIVE UP ON ANY OPTIMIZATION THAT DEPENDS ON "NO BAD CASTING"
+  (25)   if (!next->coder)
+  (26)    next->coder = malloc(sizeof(mycoder2));
+  (27)  next->startup = coder2_startup;
+  (28)  next->shutdown->coder2_shutdown;
+  (29)  ((mycoder2 *)(next->coder))->myint2 = 20;
+  (30)  ((mycoder2 *)(next->coder))->myptr2 = &myglobalint2;
+  (31) }
 
 
 The actual code in the bad casting analyzing executes in three steps:
+
   (1) Find a candidate type and field on which to do the analysis.
-     (In our example above this would be the 'mynextcoder' structure and
-     the 'coder' field.)
+      (In our example above this would be the 'mynextcoder' structure and
+      the 'coder' field.)
+
   (2) Analyze loads and stores to the 'mynextcoder' 'coder' field.
+
   (3) Conclude whether the bad casting and unsafe pointer store safety
       violations have actually occurred and mark the 'mynextcoder'
       structure appropriately.
@@ -1067,6 +1074,7 @@ In terms of the SafetyData violation types, we mark any potential "bad
 casting" and "unsafe pointer store" safety violations on the candidate
 type and field discovered during step (2) as BadCastingPending and/or
 UnsafePointerStorePending. In step (3), we have three choices:
+
   (1) We can determine that no such safety violations exist, and
       remove the BadCastingPending and UnsafePointerStorePending
       safety violations.

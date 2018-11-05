@@ -5176,6 +5176,7 @@ metadata.
 
 In order to improve the situation, ``intel-tbaa`` metadata on GEP instruction is
 introduced. It is expected to be used for annotating GEPs emitted for
+
   * accessing a field of a structure
   * indexing into an array
   * pointer arithmetic when both source pointer and the resulting one are in the
@@ -5200,6 +5201,7 @@ regular ``tbaa`` metadata, i.e. ``(OuterTy, InnerTy, Offset)``. The
    object.
 
    Notes about C++:
+
    * array-to-pointer might be annotated by the same ``intel-tbaa`` tag as the
      access of the first element of the array which is totally correct, even
      though there won't be any load/store directly using that GEP.
@@ -16232,7 +16234,7 @@ indexes.
 
 
 '``llvm.intel.wholeprogramsafe``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
