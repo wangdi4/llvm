@@ -445,6 +445,12 @@ void Parser::initializePragmaHandlers() {
     DisableLoopPipeliningHandler.reset(
                 new PragmaHLSNoArgHandler("disable_loop_pipelining"));
     PP.AddPragmaHandler(DisableLoopPipeliningHandler.get());
+    ForceHyperoptHandler.reset(
+                new PragmaHLSNoArgHandler("force_hyperopt"));
+    PP.AddPragmaHandler(ForceHyperoptHandler.get());
+    ForceNoHyperoptHandler.reset(
+                new PragmaHLSNoArgHandler("force_no_hyperopt"));
+    PP.AddPragmaHandler(ForceNoHyperoptHandler.get());
   }
   bool IntelCompat = getLangOpts().IntelCompat;
   if (IntelCompat) {
@@ -601,6 +607,10 @@ void Parser::resetPragmaHandlers() {
     SpeculatedIterationsHandler.reset();
     PP.RemovePragmaHandler(DisableLoopPipeliningHandler.get());
     DisableLoopPipeliningHandler.reset();
+    PP.RemovePragmaHandler(ForceHyperoptHandler.get());
+    ForceHyperoptHandler.reset();
+    PP.RemovePragmaHandler(ForceNoHyperoptHandler.get());
+    ForceNoHyperoptHandler.reset();
   }
   bool IntelCompat = getLangOpts().IntelCompat;
   if (IntelCompat) {
@@ -1207,6 +1217,10 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
         PragmaNameInfo->getName() == "min_ii_at_target_fmax";
   bool PragmaDisableLoopPipelining =
           PragmaNameInfo->getName() == "disable_loop_pipelining";
+  bool PragmaForceHyperopt =
+          PragmaNameInfo->getName() == "force_hyperopt";
+  bool PragmaForceNoHyperopt =
+          PragmaNameInfo->getName() == "force_no_hyperopt";
   bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameInfo->getName() == "nofusion";
   bool PragmaFusion = PragmaNameInfo->getName() == "fusion";
@@ -1223,6 +1237,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
                       (PragmaUnroll || PragmaNoUnroll || PragmaUnrollAndJam ||
                        PragmaLoopCoalesce || PragmaIVDep ||
                        PragmaDisableLoopPipelining || PragmaMinIIAtTargetFmax ||
+                       PragmaForceHyperopt || PragmaForceNoHyperopt ||
                        PragmaDistributePoint || PragmaNoFusion ||
                        PragmaFusion || PragmaNoVector || PragmaVector ||
                        PragmaLoopCount ||

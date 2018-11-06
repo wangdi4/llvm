@@ -84,6 +84,22 @@ void foo_disable_loop_pipelining()
   for (int i=0;i<32;++i) {}
 }
 
+//CHECK-LABEL: foo_force_hyperopt
+void foo_force_hyperopt()
+{
+  //CHECK: br{{.*}}!llvm.loop [[FH1:![0-9]+]]
+  #pragma force_hyperopt
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK-LABEL: foo_force_no_hyperopt
+void foo_force_no_hyperopt()
+{
+  //CHECK: br{{.*}}!llvm.loop [[FNH1:![0-9]+]]
+  #pragma force_no_hyperopt
+  for (int i=0;i<32;++i) {}
+}
+
 struct SIVDep {
   int A[32];
 }SV;
@@ -188,6 +204,10 @@ void foo_ivdep(int select)
 //CHECK: [[IIMAX2]] = !{!"llvm.loop.intel.min.ii.at.target.fmax"}
 //CHECK: [[DISPIP1]] = distinct !{[[DISPIP1]], [[DISPIP2:![0-9]+]]}
 //CHECK: [[DISPIP2]] = !{!"llvm.loop.intel.pipelining.disable"}
+//CHECK: [[FH1]] = distinct !{[[FH1]], [[FH2:![0-9]+]]}
+//CHECK: [[FH2]] = !{!"llvm.loop.intel.hyperopt"}
+//CHECK: [[FNH1]] = distinct !{[[FNH1]], [[FNH2:![0-9]+]]}
+//CHECK: [[FNH2]] = !{!"llvm.loop.intel.nohyperopt"}
 //CHECK: [[IVDEP1]] = distinct !{[[IVDEP1]], [[IVDEP1A:![0-9]+]]}
 //CHECK: [[IVDEP1A]] = !{!"llvm.loop.ivdep.enable"}
 //CHECK: [[IVDEP2]] = distinct !{[[IVDEP2]], [[IVDEP2A:![0-9]+]]}

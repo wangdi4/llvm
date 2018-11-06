@@ -33,10 +33,12 @@ class DocumentationCategory<string name> {
 }
 
 // New categories can be added by adding a new record here.
-def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
-def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
+def DocCatIntelLoops : DocumentationCategory<"Intel Loop Pragmas">;
 def DocCatIntelOptimization : DocumentationCategory<"Optimization">;
+def DocCatIntelHLS : DocumentationCategory<"HLS/FPGA">;
 def DocCatIntelOpenMP : DocumentationCategory<"OpenMP">;
+def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
+def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
 
 // Specifies the documentation to be associated with the given category.
 class Documentation {
@@ -315,7 +317,7 @@ A correct usage of these builtin functions are as follows:
 }
 
 def PragmaNoVectorDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let BugTracker= "";
   let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
@@ -369,7 +371,7 @@ A correct usage of this pragma:
 }
 
 def PragmaVectorDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let BugTracker= "";
   let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
@@ -437,7 +439,7 @@ Metadata:
 }
 
 def PragmaFusionDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Owner = "pmrao";
   let Content = [{
 The ``fusion`` pragma instructs the compiler to fuse the loop with adjacent loops.
@@ -465,7 +467,7 @@ Metadata:
 }
 
 def PragmaNoFusionDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Owner = "pmrao";
   let Content = [{
 The ``nofusion`` pragma instructs the compiler not to fuse the loop with adjacent loops.
@@ -493,7 +495,7 @@ Metadata:
 }
 
 def PragmaUnrollAndJamDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Owner = "pmrao";
   let Content = [{
 The ``unroll_and_jam`` pragma instructs the compiler to enable unrolling and jamming loops.
@@ -542,7 +544,7 @@ Metadata:
 }
 
 def PragmaNoUnrollAndJamDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Owner = "pmrao";
   let Content = [{
 The ``nounroll_and_jam`` pragma instructs the compiler to disable unrolling and jamming loops.
@@ -570,7 +572,7 @@ Metadata:
 }
 
 def PragmaBlockLoopDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let RegressionTest = "Parser/intel/block_loop.cpp, Sema/intel/block_loop.cpp, CodeGenCXX/intel/block_loop.cpp";
   let Owner = "jyu2";
@@ -617,7 +619,7 @@ IR:
 }
 
 def PragmaLoopCountDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let RegressionTest = "Parser/intel/loop_count.cpp, Sema/intel/loop_count.cpp, CodeGen/intel/loop_count.cpp";
   let BugTracker = "Cmplrllvm-5991, Cmplrllvm-1022";
@@ -688,7 +690,7 @@ IR:
 }
 
 def PragmaIVDepDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Owner = "mprice1,pmrao";
   let Content = [{
 The ``ivdep`` pragma instructs the compiler to ignore assumed vector
@@ -731,7 +733,7 @@ and intrinsic directives.  The table below shows how they relate.
 }
 
 def HLSPragmaDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelHLS;
   let BugTracker = "Cmplrllvm-5584";
   let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
   let Owner = "jyu2";
@@ -803,6 +805,76 @@ AttributedStmt
   !3 = !{!"llvm.loop.max_concurrency.count", i32 4}
   !4 = !{!"llvm.loop.intel.ii.at.least.count", i32 100}
 
+  }];
+}
+
+def HLSForceHyperoptPragmaDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7128";
+  let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
+  let Owner = "mprice1";
+  let Content = [{
+These pragmas will force enable or disable "hyperoptimizations" on the
+attached loop.  For example, on some architectures, hyperoptimization will
+optimize for initiation of loop iterations of a single loop invocation, at the
+possible expense of a delay between consecutive loop invocations.
+
+.. code-block:: c
+
+  #pragma force_hyperopt
+  #pragma force_no_hyperopt
+
+The implementation uses the existing clang LoopHint attribute framework to
+produce LoopHint metadata.  The table below shows the Options, States, and the
+Metadata produced.
+
+
+.. csv-table::
+  :header: Syntax, Option, State, Metadata
+  :widths: 24,13,13,25
+
+  #pragma force_hyperopt, ForceHyperopt, Enable, llvm.loop.intel.hyperopt
+  #pragma force_no_hyperopt, ForceHyperopt, Disable, llvm.loop.intel.nohyperopt
+
+Example:
+
+.. code-block:: bash
+
+  $ clang -cc1 -fhls -ast-dump -o - t.c
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
+
+.. code-block:: c
+
+  void foo() {
+    int var = 0;
+    #pragma force_hyperopt
+    for (int i = 0; i < 10; ++i) var = var+1;
+    #pragma force_no_hyperopt
+    for (int i = 0; i < 10; ++i) var = var+1;
+  }
+
+AST::
+
+  AttributedStmt 0xd1d9a90 <<invalid sloc>, line:4:44>
+  |-LoopHintAttr 0xd1d9a68 <line:3:13> Implicit force_hyperopt ForceHyperopt Enable
+
+  AttributedStmt 0xd1d9d88 <<invalid sloc>, line:6:44>
+  |-LoopHintAttr 0xd1d9d60 <line:5:13> Implicit force_no_hyperopt ForceHyperopt Disable
+
+.. code-block:: llvm
+
+  for.cond:
+  ; ...
+  br label %for.cond, !llvm.loop !2
+
+  for.cond2:
+  ; ...
+  br label %for.cond2, !llvm.loop !4
+
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.intel.hyperopt"}
+  !4 = distinct !{!4, !5}
+  !5 = !{!"llvm.loop.intel.nohyperopt"}
   }];
 }
 
@@ -1125,7 +1197,7 @@ https://software.intel.com/en-us/node/523363
 }
 
 def ClusterDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelHLS;
   let BugTracker = "CMPLRLLVM-5585";
   let RegressionTest = "SemaIntelHLS/cluster.cpp, CodeGenIntelHLS/cluster.cpp, SemaOpenCL/intel-fpga-cluster.cl, CodeGenOpenCL/intel-fpga-cluster.cl";
   let Owner = "eandrews";
@@ -1197,7 +1269,7 @@ AST:
 }
 
 def StallEnableDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelHLS;
   let BugTracker = "CMPLRLLVM-5585";
   let RegressionTest = "SemaIntelHLS/stall_enable.cpp, CodeGenIntelHLS/stall_enable.cpp, SemaOpenCL/intel-fpga-stall_enable.cl, CodeGenOpenCL/intel-fpga-stall_enable.cl";
   let Owner = "eandrews";

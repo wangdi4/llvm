@@ -87,6 +87,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.pipelining.disable metadata.
   bool DisableLoopPipeliningEnable;
 
+  /// Value for llvm.loop.intel.[hyperopt|nohyperopt] metadata.
+  LVEnableState ForceHyperoptEnable;
+
   /// Value for llvm.loop.fusion.* metadata.
   LVEnableState FusionEnable;
 
@@ -256,6 +259,12 @@ public:
   /// Set the next pushed loop DisableLoopPipeliningEnable
   void setDisableLoopPipeliningEnable() {
     StagedAttrs.DisableLoopPipeliningEnable = true;
+  }
+
+  /// Set the next pushed loop 'force_hyperopt/force_no_hyperopt'
+  void setForceHyperoptEnable(bool Enable = true) {
+    StagedAttrs.ForceHyperoptEnable =
+        Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
   }
 
   /// Set the next pushed loop 'fusion.enable'
