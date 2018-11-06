@@ -4255,7 +4255,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
         if (isFullGroupLoad()) {
           ++NumOpsWantToKeepOriginalOrder;
-          newTreeEntry(VL, true, UserTreeIdx);
+          newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
           assert(!ConsecutiveGroups.empty() && "No groups!");
           VectorizableTree.back().ConsecutiveLoadGroups = ConsecutiveGroups;
           LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
@@ -6118,7 +6118,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #if INTEL_CUSTOMIZATION
       // We encapsulate the load code generation code in a lambda function so
       // that we can call it for each of the split loads.
-      auto createVecLoad = [&](TreeEntry *E, ArrayRef<Value *> Scalars) {
+      auto createVecLoad = [&](TreeEntry *E, ArrayRef<Value *> Scalars, bool NeedToShuffleReuses) {
         Value *VL0 = Scalars[0];
         // Loads are inserted at the head of the tree because we don't want to
         // sink them all the way down past store instructions.
@@ -6176,7 +6176,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #if INTEL_CUSTOMIZATION
       };
 
-      Instruction *RetValue = nullptr;
+      Value *RetValue = nullptr;
       std::list<Value *> WorkList;
 
       // Set insertion point once per load. This is done outside of 'createLoad'
@@ -6188,7 +6188,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         assert(Group.size() > 1 && isPowerOf2_32(Group.size()) && "Bad Group");
         const auto &ScalarsGroup =
             ArrayRef<Value *>(&E->Scalars[Group.From], Group.size());
-        RetValue = cast<Instruction>(createVecLoad(E, ScalarsGroup));
+        RetValue = cast<Instruction>(createVecLoad(E, ScalarsGroup, false));
         WorkList.push_front(RetValue);
       }
 
@@ -6221,6 +6221,19 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
             VecLoad0, VecLoad1, ShuffleMask, "SplitLoadShuffle"));
         WorkList.push_front(RetValue);
       }
+
+      // When split load support is enabled we may need to shuffle resulting
+      // vector.
+      if (NeedToShuffleReuses) {
+        RetValue = Builder.CreateShuffleVector(
+            RetValue, UndefValue::get(RetValue->getType()),
+            E->ReuseShuffleIndices, "SplitLoadReuseShuffle");
+        if (auto *I = dyn_cast<Instruction>(RetValue)) {
+          GatherSeq.insert(I);
+          CSEBlocks.insert(I->getParent());
+        }
+      }
+
       E->VectorizedValue = RetValue;
       return RetValue;
 #endif // INTEL_CUSTOMIZATION
