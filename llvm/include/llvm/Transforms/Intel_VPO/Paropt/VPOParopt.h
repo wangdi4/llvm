@@ -58,16 +58,18 @@ namespace vpo {
 //   __tbb_omp_task_reduction_get_th_data
 
 enum VPOParoptMode {
-  ParoptOff  = 0x00000000,
-  ParPrepare = 0x00000001,
-  ParTrans   = 0x00000002,
-  OmpPar     = 0x00000004,
-  OmpVec     = 0x00000008,
-  OmpTpv     = 0x00000010, // thread-private legacy mode
-  OmpOffload = 0x00000020,
-  AutoVec    = 0x00000040,
-  AutoPar    = 0x00000080,
-  OmpTbb     = 0x00000100  // emit tbb_omp_task_* calls (instead of kmpc_task_*)
+  ParoptOff     = 0x00000000,
+  ParPrepare    = 0x00000001,
+  ParTrans      = 0x00000002,
+  OmpPar        = 0x00000004,
+  OmpVec        = 0x00000008,
+  OmpTpv        = 0x00000010, // thread-private legacy mode
+  OmpOffload    = 0x00000020,
+  AutoVec       = 0x00000040,
+  AutoPar       = 0x00000080,
+  OmpTbb        = 0x00000100, // emit tbb_omp_task_* calls (vs kmpc_task_*)
+  OmpNoCollapse = 0x00000200, // FE doesn't collapse loops
+  OmpSimt       = 0x00000400  // SIMT mode
 };
 
 } // end namespace vpo

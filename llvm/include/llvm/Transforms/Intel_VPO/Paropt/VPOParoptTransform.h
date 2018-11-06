@@ -105,6 +105,9 @@ public:
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
 
+  bool isModeOmpNoCollapse() { return Mode & vpo::OmpNoCollapse; }
+  bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
+
 private:
   /// A reference to the parent module transform object. It can be NULL if
   /// paropt transform is construted from a function pass.
