@@ -390,7 +390,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
       Type *T = FprivI->getOrig()->getType()->getPointerElementType();
       ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_TO);
+      MapTypes.push_back(TGT_MAP_TO | TGT_MAP_FIRST_REF);
     }
   }
 

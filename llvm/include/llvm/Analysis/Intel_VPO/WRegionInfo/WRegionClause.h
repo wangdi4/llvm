@@ -723,7 +723,8 @@ public:
   unsigned getMapKind()    const { return MapKind; }
   bool getIsMapTo()        const { return MapKind & WRNMapTo; }
   bool getIsMapFrom()      const { return MapKind & WRNMapFrom; }
-  bool getIsMapTofrom() const { return MapKind & (WRNMapFrom | WRNMapTo); }
+  bool getIsMapTofrom() const { return (MapKind & WRNMapFrom) &&
+                                       (MapKind & WRNMapTo); }
   bool getIsMapAlloc()     const { return MapKind & WRNMapAlloc; }
   bool getIsMapRelease()   const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
