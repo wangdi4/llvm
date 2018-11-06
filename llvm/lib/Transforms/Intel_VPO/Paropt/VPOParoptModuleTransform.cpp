@@ -406,11 +406,7 @@ GlobalVariable *VPOParoptModuleTransform::getDsoHandle() {
   if (DsoHandle)
     return DsoHandle;
 
-  DsoHandle =
-      new GlobalVariable(M, Type::getInt8Ty(C), false,
-                         GlobalValue::ExternalLinkage, nullptr, "__dso_handle");
-
-  DsoHandle->setVisibility(GlobalValue::HiddenVisibility);
+  DsoHandle = M.getGlobalVariable("__dso_handle");
   return DsoHandle;
 }
 
@@ -499,7 +495,8 @@ void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
 // Create the function .omp_offloading.descriptor_unreg.
 Function *VPOParoptModuleTransform::createTgDescUnregisterLib(
     GlobalVariable *Desc) {
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), false);
+  Type *Params[] = { Type::getInt8PtrTy(C) };
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), Params, false);
 
   Function *Fn = Function::Create(FnTy, GlobalValue::InternalLinkage,
                                   ".omp_offloading.descriptor_unreg", M);
