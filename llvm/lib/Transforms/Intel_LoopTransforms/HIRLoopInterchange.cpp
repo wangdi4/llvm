@@ -1,6 +1,6 @@
 //===----- HIRLoopInterchange.cpp - Permutations of HIR loops -------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -251,8 +251,7 @@ bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
   // Examine MemRefs in Pre/postloop or prehead/postexit of the innermost.
   // Recursive = true (pre/postexit), RecursiveInsidedLoop = false (no child)
   MemRefGatherer::VectorTy Refs;
-  MemRefGatherer::gatherRange<HLContainerTy::const_iterator,
-                              MemRefGatherer::VectorTy, true, false>(
+  MemRefGatherer::gatherRange<true, false>(
       ParentLp->child_begin(), ParentLp->child_end(), Refs);
   bool MayInterchange = false;
   for (RegDDRef *Ref : Refs) {

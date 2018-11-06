@@ -1493,6 +1493,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
     PM.add(createHIRLMMPass());
     PM.add(createHIRLastValueComputationPass());
+    PM.add(createHIRLoopRerollPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRLoopDistributionForMemRecPass());
