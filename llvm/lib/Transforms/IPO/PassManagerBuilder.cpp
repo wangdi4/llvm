@@ -88,6 +88,11 @@ static cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing",
                                           cl::init(true), cl::Hidden,
                                           cl::ZeroOrMore,
                                           cl::desc("Enable load coalescing"));
+
+static cl::opt<bool>
+    EnableSROAAfterSLP("enable-sroa-after-slp", cl::init(true), cl::Hidden,
+                       cl::desc("Run SROA pass after the SLP vectorizer"));
+
 #endif // INTEL_CUSTOMIZATION
 static cl::opt<bool>
     RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
@@ -972,6 +977,9 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       MPM.add(createLoadCoalescingPass());
+    if (EnableSROAAfterSLP)
+      // SLP creates opportunities for SROA.
+      MPM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
     if (OptLevel > 1 && ExtraVectorizerPasses) {
       MPM.add(createEarlyCSEPass());
@@ -1281,12 +1289,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
-  if (RunSLPAfterLoopVectorization)
-    if (SLPVectorize)
-      PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
 #if INTEL_CUSTOMIZATION
-  if (RunSLPAfterLoopVectorization && SLPVectorize && EnableLoadCoalescing)
-    PM.add(createLoadCoalescingPass());
+  if (RunSLPAfterLoopVectorization && SLPVectorize) {
+    PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    if (EnableLoadCoalescing)
+      PM.add(createLoadCoalescingPass());
+    if (EnableSROAAfterSLP)
+      // SLP creates opportunities for SROA.
+      PM.add(createSROAPass());
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // After vectorization, assume intrinsics may tell us more about pointer
