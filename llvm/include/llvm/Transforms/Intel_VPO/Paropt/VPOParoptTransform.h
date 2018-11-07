@@ -711,16 +711,9 @@ private:
   class CSALoopPrivatizer;
   class CSAExpLoopPrivatizer;
   class CSASectionsPrivatizer;
+  class CSALoopSplitter;
   friend CSAPrivatizer;
-
-  /// \brief Insert CSA parallel region entry/exit calls to the work region
-  /// and return region id.
-  Value* genCSAParallelRegion(WRegionNode *W);
-
-  /// \brief Insert a pair of CSA parallel section entry/exit calls before given
-  /// instructions.
-  void genCSAParallelSection(Value *RegionID, Instruction *EntryPt,
-                             Instruction *ExitPt);
+  friend CSALoopSplitter;
 
   /// \brief Transform "omp parallel" work region for CSA target.
   bool genCSAParallel(WRegionNode *W);
@@ -739,9 +732,6 @@ private:
 
   /// \brief Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
-
-  /// \brief Print diagnostic message for the work region.
-  void reportCSAWarning(WRegionNode *W, const Twine &Msg);
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 

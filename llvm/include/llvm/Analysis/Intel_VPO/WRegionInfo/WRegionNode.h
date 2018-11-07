@@ -545,8 +545,15 @@ public:
   bbset_reverse_iterator bbset_rend() { return BBlockSet.rend(); }
   bbset_const_reverse_iterator bbset_rend() const { return BBlockSet.rend(); }
 
+  iterator_range<bbset_iterator> blocks() {
+    return make_range(bbset_begin(), bbset_end());
+  }
+  iterator_range<bbset_const_iterator> blocks() const {
+    return make_range(bbset_begin(), bbset_end());
+  }
+
   bool contains(BasicBlock *BB) const {
-    return find(BBlockSet, BB) != BBlockSet.end();
+    return is_contained(blocks(), BB);
   }
 
   /// \brief Returns True if BasicBlockSet is empty.

@@ -37,6 +37,10 @@ static cl::opt<bool> UseExpLoopPrivatizer(
   "csa-omp-exp-loop-privatizer", cl::init(false), cl::ReallyHidden,
   cl::desc("Use experimental privatizer for OpenMP loops."));
 
+static cl::opt<bool> DoLoopSplitting(
+  "csa-omp-paropt-loop-splitting", cl::init(false), cl::ReallyHidden,
+  cl::desc("Do OpenMP loop splitting in VPO Paropt."));
+
 namespace {
 
 class CSADiagInfo : public DiagnosticInfoWithLocationBase {
@@ -262,8 +266,9 @@ protected:
   }
 
 public:
-  CSALoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds)
-    : CSAPrivatizer(PT, W, DoReds), L(W->getWRNLoopInfo().getLoop()) {
+  CSALoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds,
+                    Loop *LL = nullptr)
+    : CSAPrivatizer(PT, W, DoReds), L(LL ? LL : W->getWRNLoopInfo().getLoop()) {
     assert(W->getIsOmpLoop() && "loop construct is expected");
     assert(L->isLoopSimplifyForm());
   }
@@ -281,7 +286,7 @@ static bool findDefs(const WRegionNode *W, Value *V,
       auto *BB = I->getParent();
       if (!W->contains(BB))
         continue;
-      if (find(Blocks, BB) != Blocks.end() || findDefs(W, I, Blocks, Defs))
+      if (is_contained(Blocks, BB) || findDefs(W, I, Blocks, Defs))
         IsDef = true;
     }
   }
@@ -349,7 +354,7 @@ private:
       SmallVector<Value*, 8u> Uses;
       copy_if(V->users(), std::back_inserter(Uses), [&](const Value *V) {
         if (auto *I = dyn_cast<Instruction>(V))
-          return find(Blocks, I->getParent()) != Blocks.end();
+          return is_contained(Blocks, I->getParent());
         return false;
       });
       for (auto *U : Uses)
@@ -357,7 +362,7 @@ private:
 
       // Defs with no uses can be safely deleted.
       if (auto *I = dyn_cast<Instruction>(V))
-        if (I->user_empty())
+        if (I->use_empty())
           I->eraseFromParent();
     }
   }
@@ -445,7 +450,596 @@ public:
   }
 };
 
+// Insert a pair of CSA parallel region entry/exit calls at specified insertion
+// points.
+static Value* genParRegionCalls(unsigned ID,
+                                Instruction *EntryPt,
+                                Instruction *ExitPt,
+                                const Twine &Name = "region") {
+  auto *M = EntryPt->getModule();
+  assert(M == ExitPt->getModule());
+
+  // CSA parallel region entry/exit intrinsics
+  auto *RegionEntry = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_region_entry);
+
+  auto *RegionExit = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_region_exit);
+
+  IRBuilder<> Builder(EntryPt);
+  auto *UniqueID = Builder.getInt32(ID);
+  auto *Region = Builder.CreateCall(RegionEntry, { UniqueID }, Name);
+
+  Builder.SetInsertPoint(ExitPt);
+  Builder.CreateCall(RegionExit, { Region }, {});
+
+  return Region;
+}
+
+// Insert a pair of CSA parallel section entry/exit calls before given
+// instructions.
+static void genParSectionCalls(Value *Region,
+                               Instruction *EntryPt,
+                               Instruction *ExitPt,
+                               const Twine &Name = "section") {
+  auto *M = EntryPt->getModule();
+  assert(M == ExitPt->getModule());
+
+  // CSA parallel section entry/exit intrinsics
+  auto *SectionEntry = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_section_entry);
+
+  auto *SectionExit = Intrinsic::getDeclaration(M,
+      Intrinsic::csa_parallel_section_exit);
+
+  IRBuilder<> Builder(EntryPt);
+  auto *Section = Builder.CreateCall(SectionEntry, { Region }, Name);
+
+  Builder.SetInsertPoint(ExitPt);
+  Builder.CreateCall(SectionExit, { Section }, {});
+}
+
+// Returns the number of workers to be created for the loop WRN.
+static unsigned getNumWorkers(const WRegionNode *W) {
+  assert(W->getIsOmpLoop() && "expecting a loop construct");
+  unsigned NumWorkers = 0;
+  if (W->getIsPar())
+    if (auto *NumThreads = W->getNumThreads())
+      NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
+  if (!NumWorkers)
+    NumWorkers = LoopWorkersDefault;
+  return NumWorkers;
+}
+
+// Returns SPMDization mode for the loop WRN. It depends on a schedule clause.
+//   No schedule, schedule(auto) or
+//   schedule(static)                 => blocked SPMD (0)
+//   schedule(static, chunksize)
+//     (chunksize == 1)               => cyclic SPMD  (1)
+//     (chunksize > 1)                => hybrid SPMD  (chunksize)
+static int getSPMDMode(const WRegionNode *W) {
+  assert(W->getIsOmpLoop() && "expecting a loop construct");
+  const auto &Sched = W->getSchedule();
+  return Sched.getChunkExpr() ? Sched.getChunk() : LoopSpmdModeDefault;
+}
+
+template <typename U, typename B>
+static void findUsers(Value *V, U &Users, const B &Blocks) {
+  copy_if(V->users(), std::back_inserter(Users), [&](Value *V) {
+    if (auto *I = dyn_cast<Instruction>(V))
+      if (is_contained(Blocks, I->getParent()))
+        return true;
+    return false;
+  });
+}
+
+template <typename T>
+static void replaceUses(Value *Old, Value *New, const T &Users) {
+  for (auto *User : Users)
+    cast<Instruction>(User)->replaceUsesOfWith(Old, New);
+}
+
+// Unified way of calculating parallel region ID for CSA parallel region entry
+// intrinsic call.
+static unsigned getParRegionID(WRegionNode *W,
+                               unsigned Worker = 0,
+                               bool IsHybrid = false) {
+  return 2000u + W->getNumber() + (Worker << 16u) + (IsHybrid << 28u);
+}
+
+class VPOParoptTransform::CSALoopSplitter {
+  VPOParoptTransform &PT;
+
+  // A structure that represents a single worker in a split loop.
+  class Worker {
+    // Reference to the parent.
+    CSALoopSplitter &LS;
+
+    // Worker ID. Goes from zero to LS.getNumWorkers() - 1u.
+    unsigned ID = 0;
+
+  public:
+    // Work region that is being split.
+    WRegionNode *W = nullptr;
+
+    // Worker's loop. This is a clone of the work region's loops.
+    Loop *WL = nullptr;
+
+    // Loop around the work region's loop that is created in hybrid mode.
+    Loop *HL = nullptr;
+
+    // String that is appended to the worker clones.
+    SmallString<8u> Suffix;
+
+    // Worker's basic blocks.
+    SmallVector<BasicBlock*, 16u> Blocks;
+
+    BasicBlock *Head = nullptr;
+    BasicBlock *Tail = nullptr;
+
+  private:
+    void fixupLoopBounds(Value *NewLB, Value *NewUB, BasicBlock *Entry) {
+      // Need to update ZTT, induction variable value comming
+      // from the preheader block and loop bottom test.
+      auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(WL);
+      auto *LB = cast<Instruction>(WRegionUtils::getOmpLoopLowerBound(WL));
+      assert(LB && is_contained(IV->operands(), LB));
+      if (NewLB)
+        IV->replaceUsesOfWith(LB, NewLB);
+      if (auto *Ztt = WRegionUtils::getOmpLoopZeroTripTest(WL, Entry)) {
+        assert(is_contained(Ztt->operands(), LB));
+        if (NewUB)
+          Ztt->setOperand(Ztt->getOperand(0) == LB, NewUB);
+        if (NewLB)
+          Ztt->setOperand(Ztt->getOperand(0) != LB, NewLB);
+      }
+      if (NewUB) {
+        auto *Inc = IV->getIncomingValueForBlock(WL->getLoopLatch());
+        auto *Cmp = WRegionUtils::getOmpLoopBottomTest(WL);
+        assert(Cmp && is_contained(Cmp->operands(), Inc));
+        Cmp->setOperand(Cmp->getOperand(0) == Inc, NewUB);
+      }
+    }
+
+  public:
+    Worker(CSALoopSplitter &LS, WRegionNode *W, unsigned ID)
+      : LS(LS), ID(ID), W(W) {
+      if (ID)
+        raw_svector_ostream(Suffix) << ".W" << ID;
+    }
+
+    void makeCyclic() {
+      // Update loop LB.
+      auto *LB = cast<Instruction>(WRegionUtils::getOmpLoopLowerBound(WL));
+      auto *NewLB = ConstantInt::get(LB->getType(), ID);
+      fixupLoopBounds(NewLB, nullptr, Head);
+
+      // Update stride. For that we need to fixup loop increment instruction
+      // which is the IV's value comming from the latch block.
+      auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(WL);
+
+      auto *Inc =
+          cast<Instruction>(IV->getIncomingValueForBlock(WL->getLoopLatch()));
+      assert(Inc && Inc->getOpcode() == Instruction::Add &&
+            is_contained(Inc->operands(), IV));
+
+      auto *Stride = Inc->getOperand(Inc->getOperand(0) == IV);
+      assert(cast<ConstantInt>(Stride)->isOne() && "unexpected loop stride");
+
+      auto *NewStride = ConstantInt::get(Stride->getType(), LS.Workers.size());
+      Inc->replaceUsesOfWith(Stride, NewStride);
+
+      // Remove dead instructions.
+      if (LB->use_empty())
+        LB->eraseFromParent();
+    }
+
+    void makeBlocked() {
+      auto *LB = cast<Instruction>(WRegionUtils::getOmpLoopLowerBound(WL));
+      auto *UB = WRegionUtils::getOmpLoopUpperBound(WL);
+
+      bool IsSigned = WRegionUtils::getOmpLoopBottomTest(WL)->isSigned();
+
+      auto *Ty = cast<IntegerType>(LB->getType());
+      assert(UB->getType() == Ty && "ub/lb type mismatch");
+
+      auto *NWC = ConstantInt::get(Ty, LS.Workers.size(), IsSigned);
+      auto *One = ConstantInt::get(Ty, 1u, IsSigned);
+
+      IRBuilder<> Builder(LB);
+      auto *Chunk = IsSigned ?
+          Builder.CreateSDiv(Builder.CreateAdd(UB, NWC), NWC) :
+          Builder.CreateUDiv(Builder.CreateAdd(UB, NWC), NWC);
+
+      Value *NewLB = nullptr;
+      if (ID == 0)
+        NewLB = ConstantInt::get(Ty, 0, IsSigned);
+      else if (ID == 1)
+        NewLB = Chunk;
+      else
+        NewLB = Builder.CreateMul(Chunk, ConstantInt::get(Ty, ID, IsSigned),
+                                  "lb" + Suffix);
+
+      auto *Next = (ID == 0) ? Chunk : Builder.CreateAdd(NewLB, Chunk);
+
+      auto *TC = Builder.CreateAdd(UB, One);
+
+      auto *Cmp = IsSigned ? Builder.CreateICmpSLE(Next, TC) :
+                             Builder.CreateICmpULE(Next, TC);
+
+      auto *Min = Builder.CreateSelect(Cmp, Next, TC);
+
+      auto *NewUB = Builder.CreateSub(Min, One, "ub" + Suffix);
+
+      fixupLoopBounds(NewLB, NewUB, Head);
+
+      // Remove dead instructions.
+      if (LB->use_empty())
+        LB->eraseFromParent();
+    }
+
+    void makeHybrid(unsigned Chunk) {
+      // head:
+      //  br label %cyclic.ztt
+      //
+      // cyclic.ztt:
+      //   %clb = (Worker * Chunk)
+      //   %ztt = icmp sle %clb, %UB
+      //   br %ztt, label %cyclic.ph, label %tail
+      //
+      // cyclic.ph:
+      //  br label %cyclic.loop
+      //
+      // cyclic.loop:
+      //   %blocked.lb = phi [ %clb, %cyclic.ph ], [%cnext, %cyclic.latch ]
+      //   %blocked.ub = min(%blocked.lb + Chunk - 1, %UB)
+      //   ...
+      //
+      //  ...
+      //
+      // cyclic.latch:
+      //   %cnext = add nsw i32 %blocked.lb, (NWorker * Chunk)
+      //   %cmp = icmp sle %cnext, %UB
+      //   br %cmp, label %cyclic.loop, %cyclic.exit
+      //
+      // cyclic.exit:
+      //  br label %tail
+      //
+      // tail:
+      //   ...
+      //
+      auto *LB = cast<Instruction>(WRegionUtils::getOmpLoopLowerBound(WL));
+      auto *UB = WRegionUtils::getOmpLoopUpperBound(WL);
+
+      bool IsSigned = WRegionUtils::getOmpLoopBottomTest(WL)->isSigned();
+
+      auto *Ty = cast<IntegerType>(LB->getType());
+      assert(UB->getType() == Ty && "ub/lb type mismatch");
+
+      // Create blocks for the cyclic loop.
+      auto *CZtt = SplitBlock(Head, Head->getTerminator(), LS.PT.DT, LS.PT.LI);
+      CZtt->setName("cyclic.ztt" + Suffix);
+      Blocks.push_back(CZtt);
+
+      auto *CLPH = SplitBlock(CZtt, CZtt->getTerminator(), LS.PT.DT, LS.PT.LI);
+      CLPH->setName("cyclic.ph" + Suffix);
+      Blocks.push_back(CLPH);
+
+      auto *CLoop = SplitBlock(CLPH, CLPH->getTerminator(), LS.PT.DT, LS.PT.LI);
+      CLoop->setName("cyclic.loop" + Suffix);
+      Blocks.push_back(CLoop);
+
+      auto *CLatch = Tail;
+      Tail = SplitBlock(Tail, &Tail->front(), LS.PT.DT, LS.PT.LI);
+      CLatch->setName("cyclic.latch" + Suffix);
+      Blocks.push_back(Tail);
+
+      auto *CExit = Tail;
+      Tail = SplitBlock(Tail, &Tail->front(), LS.PT.DT, LS.PT.LI);
+      CExit->setName("cyclic.exit" + Suffix);
+      Blocks.push_back(Tail);
+
+      // Create ZTT code.
+      IRBuilder<> Builder(CZtt->getTerminator());
+      auto *CLB = ConstantInt::get(Ty, ID * Chunk, IsSigned);
+      auto *ZttCond = IsSigned ? Builder.CreateICmpSLE(CLB, UB) :
+                                 Builder.CreateICmpULE(CLB, UB);
+      Builder.CreateCondBr(ZttCond, CLPH, Tail);
+
+      // Create blocked LB.
+      Builder.SetInsertPoint(&CLoop->front());
+      auto *BLB = Builder.CreatePHI(Ty, 2, "blocked.lb" + Suffix);
+      BLB->addIncoming(CLB, CLPH);
+
+      // And blocked UB.
+      auto *BNext = Builder.CreateAdd(BLB,
+          ConstantInt::get(Ty, Chunk - 1u, IsSigned));
+      auto *BCmp = IsSigned ? Builder.CreateICmpSLE(BNext, UB) :
+                              Builder.CreateICmpULE(BNext, UB);
+      auto *BUB = Builder.CreateSelect(BCmp, BNext, UB, "blocked.ub" + Suffix);
+
+      // Create latch code.
+      Builder.SetInsertPoint(CLatch->getTerminator());
+      auto *CStride = ConstantInt::get(Ty, LS.Workers.size() * Chunk, IsSigned);
+      auto *CNext = Builder.CreateAdd(BLB, CStride);
+      BLB->addIncoming(CNext, CLatch);
+
+      auto *LatchCond = IsSigned ? Builder.CreateICmpSLE(CNext, UB) :
+                                   Builder.CreateICmpULE(CNext, UB);
+      Builder.CreateCondBr(LatchCond, CLoop, CExit);
+
+      // Fixup inner loop to run from blocked LB to blocked UB.
+      fixupLoopBounds(BLB, BUB, CLoop);
+
+      // Mark inner loop as parallel.
+      auto *Region = genParRegionCalls(getParRegionID(W, ID + 1u, true),
+                                       CLoop->getTerminator(),
+                                       CLatch->getFirstNonPHI(),
+                                       "inner.region" + Suffix);
+      genParSectionCalls(Region,
+                         WL->getHeader()->getFirstNonPHI(),
+                         WL->getLoopLatch()->getTerminator(),
+                         "inner.section" + Suffix);
+
+      // Update loop structure, create outer hubrid loop.
+      HL = WRegionUtils::createLoop(WL, WL->getParentLoop(), LS.PT.LI);
+      WRegionUtils::updateBBForLoop(CLoop, HL, WL->getParentLoop(), LS.PT.LI);
+      WRegionUtils::updateBBForLoop(CLatch, HL, WL->getParentLoop(), LS.PT.LI);
+      HL->moveToHeader(CLoop);
+
+      // Remove dead instructions.
+      CZtt->getTerminator()->eraseFromParent();
+      CLatch->getTerminator()->eraseFromParent();
+      if (LB->use_empty())
+        cast<Instruction>(LB)->eraseFromParent();
+    }
+
+    void addParallelIntrinsicCalls() {
+      // Add region entry/exit calls.
+      auto *Region = genParRegionCalls(getParRegionID(W, ID + 1u),
+                                       Head->getTerminator(),
+                                       Tail->getFirstNonPHI(),
+                                       "region" + Suffix);
+
+      // And section entry/exit calls.
+      auto *L = HL ? HL : WL;
+      genParSectionCalls(Region,
+                         L->getHeader()->getFirstNonPHI(),
+                         L->getLoopLatch()->getTerminator(),
+                         "section" + Suffix);
+    }
+  };
+  friend Worker;
+
+  // Privatizer for the worker.
+  class WorkerPrivatizer final : public CSALoopPrivatizer {
+    const Worker &WI;
+    function_ref<BasicBlock*()> InitBBGetter;
+    function_ref<BasicBlock*()> FiniBBGetter;
+
+  private:
+    BasicBlock* getInitBB() override {
+      if (InitBB)
+        return InitBB;
+      InitBB = InitBBGetter();
+      return InitBB;
+    }
+
+    BasicBlock* getFiniBB() override {
+      if (FiniBB)
+        return FiniBB;
+      FiniBB = FiniBBGetter();
+      return FiniBB;
+    }
+
+    void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) override {
+      auto *Old = I->getOrig();
+      assert(!isa<Constant>(Old) && "unexpected private item");
+      SmallVector<Value*, 8u> Users;
+      findUsers(Old, Users, WI.Blocks);
+
+      auto *New = VPOParoptTransform::genPrivatizationAlloca(Old,
+          getInitBB()->getTerminator(), Suffix);
+      I->setNew(New);
+      replaceUses(Old, New, Users);
+    }
+
+  public:
+    WorkerPrivatizer(VPOParoptTransform &PT, const Worker &WI,
+                     function_ref<BasicBlock*()> InitBBGetter,
+                     function_ref<BasicBlock*()> FiniBBGetter)
+      : CSALoopPrivatizer(PT, WI.W, true, WI.WL), WI(WI),
+        InitBBGetter(InitBBGetter), FiniBBGetter(FiniBBGetter)
+    {}
+
+    bool run() override {
+      bool Changed = CSALoopPrivatizer::run();
+      for (auto *I : W->getPriv().items())
+        I->setNew(nullptr);
+      for (auto *I : W->getFpriv().items())
+        I->setNew(nullptr);
+      for (auto *I : W->getLpriv().items())
+        I->setNew(nullptr);
+      for (auto *I : W->getRed().items())
+        I->setNew(nullptr);
+      return Changed;
+    }
+  };
+
+private:
+  SmallVector<Worker, 8u> Workers;
+
+private:
+  // Clones given loop with subloops.
+  Loop* cloneLoops(const Loop *L, DenseMap<const Loop*, Loop*> &LMap) {
+    if (auto *PL = L->getParentLoop())
+      LMap[PL] = PL;
+    std::list<const Loop*> Loops;
+    Loops.push_back(L);
+    do {
+      auto *OldL = Loops.front();
+      Loops.pop_front();
+      auto *NewL = PT.LI->AllocateLoop();
+      if (auto *PL = OldL->getParentLoop())
+        LMap[PL]->addChildLoop(NewL);
+      else
+        PT.LI->addTopLevelLoop(NewL);
+      LMap[OldL] = NewL;
+      copy(OldL->getSubLoops(), std::back_inserter(Loops));
+    } while (!Loops.empty());
+    return LMap[L];
+  }
+
+  void cloneWorkers(WRegionNode *W) {
+    // Get the number of workers to use for this loop.
+    auto NumWorkers = getNumWorkers(W);
+
+    auto *Entry = W->getEntryBBlock();
+    auto *Exit = W->getExitBBlock();
+
+    // Create single entry, single exit subgraph for the work region that will
+    // be cloned. Head will be an entry of this subgraph and tail an exit.
+    auto *Head = SplitBlock(Entry, Entry->getTerminator(), PT.DT, PT.LI);
+    if (!Head->getSingleSuccessor())
+      SplitBlock(Head, &Head->front(), PT.DT, PT.LI);
+    Head->setName("omp.clone.head");
+
+    auto *Tail = Exit;
+    Exit = SplitBlock(Exit, &Exit->front(), PT.DT, PT.LI);
+    W->setExitBBlock(Exit);
+    if (!Tail->getSinglePredecessor())
+      Tail = SplitBlock(Tail, Tail->getTerminator(), PT.DT, PT.LI);
+    Tail->setName("omp.clone.tail");
+
+    assert(W->isBBSetEmpty() && "CSALoopSplitter: BBSET should start empty");
+    W->populateBBSet();
+
+    // Reserve enough space to avoid any reallocation during cloning.
+    Workers.reserve(NumWorkers);
+
+    // Setup the first worker. No cloning is necessary because we will reuse
+    // existing blocks for it.
+    Workers.emplace_back(*this, W, 0u);
+    auto &W0 = Workers.back();
+    W0.WL = W->getWRNLoopInfo().getLoop();
+    W0.Head = Head;
+    W0.Tail = Tail;
+    copy_if(W->blocks(), std::back_inserter(W0.Blocks), [=](BasicBlock *B) {
+      return B != Entry && B != Exit;
+    });
+
+    // Create workers.
+    auto *Last = W0.Tail;
+    for (unsigned ID = 1u; ID < NumWorkers; ++ID) {
+      Workers.emplace_back(*this, W, ID);
+      auto &WI = Workers.back();
+
+      // Clone loop structure.
+      DenseMap<const Loop*, Loop*> LMap;
+      WI.WL = cloneLoops(W0.WL, LMap);
+
+      // Clone blocks.
+      ValueToValueMapTy VMap;
+      for (auto *B : W0.Blocks) {
+        auto *NewB = CloneBasicBlock(B, VMap, WI.Suffix, B->getParent());
+        if (auto *BL = PT.LI->getLoopFor(B))
+          LMap[BL]->addBasicBlockToLoop(NewB, *PT.LI);
+        WI.Blocks.push_back(NewB);
+        VMap[B] = NewB;
+      }
+      remapInstructionsInBlocks(WI.Blocks, VMap);
+
+      WI.Head = cast<BasicBlock>(VMap[W0.Head]);
+      WI.Tail = cast<BasicBlock>(VMap[W0.Tail]);
+
+      // Link cloned worker to cfg.
+      cast<BranchInst>(Last->getTerminator())->setOperand(0, WI.Head);
+      Last = WI.Tail;
+    }
+
+    // Connect the last worker to the exit block.
+    cast<BranchInst>(Last->getTerminator())->setOperand(0, Exit);
+
+    W->resetBBSet();
+  }
+
+public:
+  CSALoopSplitter(VPOParoptTransform &PT) : PT(PT) {}
+
+  bool run(WRegionNode *W) {
+    assert(W->getIsOmpLoop() && "must be a loop");
+
+    // Create workers.
+    cloneWorkers(W);
+
+    // Helper lamdas for the privatizer.
+    BasicBlock *InitBB = nullptr;
+    auto && getInitBB = [&]() {
+      if (InitBB)
+        return InitBB;
+      auto *EntryBB = W->getEntryBBlock();
+      InitBB = SplitBlock(EntryBB, EntryBB->getTerminator(), PT.DT, PT.LI);
+      InitBB->setName("omp.priv.init");
+      return InitBB;
+    };
+
+    BasicBlock *FiniBB = nullptr;
+    auto && getFiniBB = [&]() {
+      if (FiniBB)
+        return FiniBB;
+      FiniBB = W->getExitBBlock();
+      auto *New = SplitBlock(FiniBB, FiniBB->getFirstNonPHI(), PT.DT, PT.LI);
+      W->setExitBBlock(New);
+      FiniBB->setName(".omp.priv.fini");
+      return FiniBB;
+    };
+
+    // Fixup workers.
+    auto Mode = getSPMDMode(W);
+    for (auto &WI : Workers) {
+      switch (Mode) {
+        case 0:
+          WI.makeBlocked();
+          break;
+        case 1:
+          WI.makeCyclic();
+          break;
+        default:
+          WI.makeHybrid(Mode);
+      }
+
+      // Generate privatization code.
+      WorkerPrivatizer(PT, WI, getInitBB, getFiniBB).run();
+
+      // Mark loop as parallel.
+      WI.addParallelIntrinsicCalls();
+    }
+
+    // Make workers independent.
+    if (Workers.size() > 1u) {
+      auto *Region = genParRegionCalls(getParRegionID(W),
+                                       W->getEntryBBlock()->getTerminator(),
+                                       W->getExitBBlock()->getFirstNonPHI());
+      for (auto &WI : Workers)
+        genParSectionCalls(Region,
+                           WI.Head->getFirstNonPHI(),
+                           WI.Tail->getTerminator());
+    }
+
+    // Rebuild dominator tree.
+    PT.DT->recalculate(*W->getEntryBBlock()->getParent());
+    return true;
+  }
+};
+
 bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
+  auto && reportWarning = [&](const Twine &Msg) {
+    DebugLoc Loc;
+    if (const auto *I = W->getEntryBBlock()->getFirstNonPHI())
+      Loc = I->getDebugLoc();
+    F->getContext().diagnose(CSADiagInfo(*F, Loc, Msg));
+  };
+
   switch (W->getWRegionKindID()) {
     case WRegionNode::WRNTarget:
     case WRegionNode::WRNParallel:
@@ -460,7 +1054,7 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
     case WRegionNode::WRNBarrier:
       break;
     default:
-      reportCSAWarning(W, "ignoring unsupported \"omp " + W->getName() + "\"");
+      reportWarning("ignoring unsupported \"omp " + W->getName() + "\"");
       return false;
   }
 
@@ -468,13 +1062,13 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
   if (W->getIsParLoop())
     if (auto *NumThreads = W->getNumThreads())
       if (!dyn_cast<ConstantInt>(NumThreads)) {
-        reportCSAWarning(W, "num_threads must be a compile time constant");
+        reportWarning("num_threads must be a compile time constant");
         W->setNumThreads(nullptr);
       }
 
   // proc_bind
   if (W->getIsPar() && W->getProcBind() != WRNProcBindAbsent)
-    reportCSAWarning(W, "ignoring unsupported proc_bind clause");
+    reportWarning("ignoring unsupported proc_bind clause");
 
   // schedule
   if (W->canHaveSchedule()) {
@@ -484,7 +1078,7 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
       // So far we support only static and auto schedule types.
       if (Sched.getKind() != WRNScheduleStatic &&
           Sched.getKind() != WRNScheduleAuto) {
-        reportCSAWarning(W, "ignoring unsupported schedule type");
+        reportWarning("ignoring unsupported schedule type");
         Sched.setChunkExpr(nullptr);
       }
       // Three options for the chunk size
@@ -492,80 +1086,12 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
       //   Sched->getChunk() > 0  => chunk is a compile time constant
       //   Sched->getChunk() < 0  => chunk is an expression (unsupported)
       else if (Sched.getChunk() < 0) {
-        reportCSAWarning(W, "schedule chunk must be a compile time constant");
+        reportWarning("schedule chunk must be a compile time constant");
         Sched.setChunkExpr(nullptr);
       }
     }
   }
   return true;
-}
-
-void VPOParoptTransform::reportCSAWarning(WRegionNode *W, const Twine &Msg) {
-  DebugLoc Loc;
-  if (auto *I = W->getEntryBBlock()->getFirstNonPHI())
-    Loc = I->getDebugLoc();
-  F->getContext().diagnose(CSADiagInfo(*F, Loc,  Msg));
-}
-
-// Insert a pair of CSA parallel region enter and exit intrinsic calls around
-// the parallel work region body as follows
-//
-//   %region = call i32 @llvm.csa.parallel.region.entry(i32 2002);
-//   <parallel construct body>
-//   call void @llvm.csa.parallel.region.exit(i32 %region);
-//
-// These calls mark the beginning and end of the parallel region for back-end.
-//
-Value* VPOParoptTransform::genCSAParallelRegion(WRegionNode *W) {
-  assert(isTargetCSA() && "unexpected target");
-
-  auto *M = F->getParent();
-
-  // CSA parallel region entry/exit intrinsics
-  auto *RegionEntry = Intrinsic::getDeclaration(M,
-      Intrinsic::csa_parallel_region_entry);
-
-  auto *RegionExit = Intrinsic::getDeclaration(M,
-      Intrinsic::csa_parallel_region_exit);
-
-  // Insert a "entry" call into the work region's entry bblock. The argument
-  // is a unique ID which is a work region's unique number plus 2000 (using
-  // 2000 as base to avoid conflicts with IDs inserted by CSA builtin parallel
-  // loop intrinsics lowering pass which uses IDs starting from 1000).
-  IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
-  auto *UniqueID = Builder.getInt32(2000u + W->getNumber());
-  auto *Region = Builder.CreateCall(RegionEntry, { UniqueID }, "region");
-
-  // And an "exit" call into the work region's exit bblock.
-  Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
-  Builder.CreateCall(RegionExit, { Region }, {});
-
-  return Region;
-}
-
-// Insert a pair of CSA parallel section entry/exit calls before given
-// instructions.
-void VPOParoptTransform::genCSAParallelSection(Value *Region,
-                                               Instruction *EntryPt,
-                                               Instruction *ExitPt) {
-  assert(isTargetCSA() && "unexpected target");
-
-  auto *M = F->getParent();
-
-  // CSA parallel section entry/exit intrinsics
-  auto *SectionEntry = Intrinsic::getDeclaration(M,
-      Intrinsic::csa_parallel_section_entry);
-
-  auto *SectionExit = Intrinsic::getDeclaration(M,
-      Intrinsic::csa_parallel_section_exit);
-
-  // Insert section entry call into the beginning of the loop header.
-  IRBuilder<> Builder(EntryPt);
-  auto *Section = Builder.CreateCall(SectionEntry, { Region }, "section");
-
-  // And section exit call before the the loop latch terminator.
-  Builder.SetInsertPoint(ExitPt);
-  Builder.CreateCall(SectionExit, { Section }, {});
 }
 
 // Transform "omp parallel for" construct for CSA by inserting CSA builtins
@@ -588,16 +1114,14 @@ void VPOParoptTransform::genCSAParallelSection(Value *Region,
 bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
 
+  if (DoLoopSplitting)
+    return CSALoopSplitter(*this).run(W);
+
   auto *Loop = W->getWRNLoopInfo().getLoop();
   assert(Loop->isLoopSimplifyForm());
 
   // Determine the number of workers to use for this loop.
-  unsigned NumWorkers = 0;
-  if (W->getIsPar())
-    if (auto *NumThreads = W->getNumThreads())
-      NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
-  if (!NumWorkers)
-    NumWorkers = LoopWorkersDefault;
+  auto NumWorkers = getNumWorkers(W);
 
   // Generate privatization code.
   if (UseExpLoopPrivatizer)
@@ -616,19 +1140,13 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
     auto *Exit = Intrinsic::getDeclaration(M,
         Intrinsic::csa_spmdization_exit);
 
-    // Determine SPMDization mode, it depends on a schedule clause.
-    //   No schedule, schedule(auto) or
-    //   schedule(static)                 => blocked SPMD (0)
-    //   schedule(static, chunksize)
-    //     (chunksize == 1)               => cyclic SPMD  (1)
-    //     (chunksize > 1)                => hybrid SPMD  (chunksize)
-    const auto &Sched = W->getSchedule();
-    Value *Mode = ConstantInt::get(Type::getInt32Ty(F->getContext()),
-        Sched.getChunkExpr() ? Sched.getChunk() : LoopSpmdModeDefault);
+    // Determine SPMDization mode.
+    auto Mode = getSPMDMode(W);
 
     IRBuilder<> Builder(W->getEntryBBlock()->getTerminator());
     auto *SpmdID = Builder.CreateCall(Entry,
-                                      { Builder.getInt32(NumWorkers), Mode },
+                                      { Builder.getInt32(NumWorkers),
+                                        Builder.getInt32(Mode) },
                                       "spmd");
 
     Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
@@ -636,12 +1154,14 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   }
 
   // Insert parallel region entry/exit calls
-  auto *Region = genCSAParallelRegion(W);
+  auto *Region = genParRegionCalls(getParRegionID(W),
+                                   W->getEntryBBlock()->getTerminator(),
+                                   W->getExitBBlock()->getFirstNonPHI());
 
   // and CSA parallel section entry/exit intrinsics
-  genCSAParallelSection(Region,
-                        Loop->getHeader()->getFirstNonPHI(),
-                        Loop->getLoopLatch()->getTerminator());
+  genParSectionCalls(Region,
+                     Loop->getHeader()->getFirstNonPHI(),
+                     Loop->getLoopLatch()->getTerminator());
   return true;
 }
 
@@ -652,7 +1172,9 @@ bool VPOParoptTransform::genCSASections(WRegionNode *W) {
   CSASectionsPrivatizer(*this, W).run();
 
   // Insert parallel region entry/exit calls
-  auto *Region = genCSAParallelRegion(W);
+  auto *Region = genParRegionCalls(getParRegionID(W),
+                                   W->getEntryBBlock()->getTerminator(),
+                                   W->getExitBBlock()->getFirstNonPHI());
 
   // Insert section entry/exit calls in child work regions which all are
   // supposed to be sections.
@@ -660,9 +1182,9 @@ bool VPOParoptTransform::genCSASections(WRegionNode *W) {
     assert(WSec->getWRegionKindID() == WRegionNode::WRNSection &&
            "Unexpected work region kind");
 
-    genCSAParallelSection(Region,
-                          WSec->getEntryBBlock()->getTerminator(),
-                          WSec->getExitBBlock()->getFirstNonPHI());
+    genParSectionCalls(Region,
+                       WSec->getEntryBBlock()->getTerminator(),
+                       WSec->getExitBBlock()->getFirstNonPHI());
 
     // Remove directives from section
     VPOUtils::stripDirectives(WSec);
