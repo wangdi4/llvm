@@ -976,16 +976,16 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
   auto IsHugeFunction = [this](Function *F) {
     if (!InlineForXmain || !DTransInlineHeuristics)
       return false;
-    auto ArgSize = F->arg_size();
+    size_t ArgSize = F->arg_size();
     if (ArgSize < HugeFunctionArgCount)
       return false;
-    auto BBCount = F->size();
+    size_t BBCount = F->size();
     if (BBCount < HugeFunctionBasicBlockCount)
       return false;
     LoopInfo *LI = ILIC->getLI(F);
     if (!LI)
       return false;
-    auto LoopCount = std::distance(LI->begin(), LI->end());
+    size_t LoopCount = std::distance(LI->begin(), LI->end());
     if (LoopCount < HugeFunctionLoopCount)
       return false;
     return true;
