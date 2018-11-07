@@ -110,11 +110,11 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK:   br i1 %fork.test2, label %if.then.fork.1, label %if.else.call.1
 ;
 ; CHECK-LABEL: if.then.fork.1:                                   ; preds = %codeRepl
-; CHECK:   call void ({ i32, i32, i32, i32, i8* }*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main_.split to void (i32*, i32*, ...)*))
+; CHECK:   call void ({ i32, i32, i32, i32, i8* }*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main..split to void (i32*, i32*, ...)*))
 ; CHECK:   br label %codeRepl.split
 ;
 ; CHECK-LABEL: if.else.call.1:                                   ; preds = %codeRepl
-; CHECK:   call void @main_.split(i32* %2, i32* [[TMP1:%.*]])
+; CHECK:   call void @main..split(i32* %2, i32* [[TMP1:%.*]])
 ; CHECK:   br label %codeRepl.split
 ;
 ; CHECK-LABEL: codeRepl.split:                                   ; preds = %if.then.fork.1, %if.else.call.1
@@ -125,7 +125,7 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK: }
 
 ; Verify that the outline function was created
-; CHECK-LABEL: define internal void @main_.split(i32* %tid, i32* %bid) #1 {
+; CHECK-LABEL: define internal void @main..split(i32* %tid, i32* %bid) #1 {
 ; CHECK-LABEL: newFuncRoot:
 ; CHECK:   br label %.split
 ;

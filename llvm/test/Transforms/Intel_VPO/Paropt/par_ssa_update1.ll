@@ -167,5 +167,5 @@ attributes #2 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-m
 !10 = !{!11, !11, i64 0}
 !11 = !{!"float", !4, i64 0}
 
-; CHECK-LABEL: define internal void @__omp_offloading_3b_8c022feb__ZN5Radar24apply_filter_gen_offloadEPfiS0_iS0_i_l221_DIR.OMP.PARALLEL.LOOP.1
+; CHECK-LABEL: define internal void @__omp_offloading_3b_8c022feb__ZN5Radar24apply_filter_gen_offloadEPfiS0_iS0_i_l221.DIR.OMP.PARALLEL.LOOP.1
 ; CHECK: %t1.0.i = phi float [ 0.000000e+00, %{{.*}} ], [ %{{.*}}, %{{.*}} ]

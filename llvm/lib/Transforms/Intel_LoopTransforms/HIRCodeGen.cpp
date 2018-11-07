@@ -1269,7 +1269,7 @@ Value *CGVisitor::generateAllPredicates(HLIf *HIf) {
 void CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
   auto InsertBB = Builder.GetInsertBlock();
 
-  if (InsertBB->empty() || !isa<TerminatorInst>(InsertBB->back())) {
+  if (InsertBB->empty() || !(InsertBB->back().isTerminator())) {
     Builder.CreateBr(ToBB);
   }
 }

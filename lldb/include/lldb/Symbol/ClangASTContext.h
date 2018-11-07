@@ -744,7 +744,8 @@ public:
   size_t GetTypeBitAlign(lldb::opaque_compiler_type_t type) override;
 
   uint32_t GetNumChildren(lldb::opaque_compiler_type_t type,
-                          bool omit_empty_base_classes) override;
+                          bool omit_empty_base_classes,
+                          const ExecutionContext *exe_ctx) override;
 
   CompilerType GetBuiltinTypeByName(const ConstString &name) override;
 
@@ -833,7 +834,7 @@ public:
   // Modifying RecordType
   //----------------------------------------------------------------------
   static clang::FieldDecl *AddFieldToRecordType(const CompilerType &type,
-                                                const char *name,
+                                                llvm::StringRef name,
                                                 const CompilerType &field_type,
                                                 lldb::AccessType access,
                                                 uint32_t bitfield_bit_size);
@@ -843,7 +844,7 @@ public:
   static void SetIsPacked(const CompilerType &type);
 
   static clang::VarDecl *AddVariableToRecordType(const CompilerType &type,
-                                                 const char *name,
+                                                 llvm::StringRef name,
                                                  const CompilerType &var_type,
                                                  lldb::AccessType access);
 
@@ -858,18 +859,14 @@ public:
   void AddMethodOverridesForCXXRecordType(lldb::opaque_compiler_type_t type);
 
   // C++ Base Classes
-  clang::CXXBaseSpecifier *
+  std::unique_ptr<clang::CXXBaseSpecifier>
   CreateBaseClassSpecifier(lldb::opaque_compiler_type_t type,
                            lldb::AccessType access, bool is_virtual,
                            bool base_of_class);
 
-  static void DeleteBaseClassSpecifiers(clang::CXXBaseSpecifier **base_classes,
-                                        unsigned num_base_classes);
-
-  bool
-  SetBaseClassesForClassType(lldb::opaque_compiler_type_t type,
-                             clang::CXXBaseSpecifier const *const *base_classes,
-                             unsigned num_base_classes);
+  bool TransferBaseClasses(
+      lldb::opaque_compiler_type_t type,
+      std::vector<std::unique_ptr<clang::CXXBaseSpecifier>> bases);
 
   static bool SetObjCSuperClass(const CompilerType &type,
                                 const CompilerType &superclass_compiler_type);
@@ -930,6 +927,8 @@ public:
   //----------------------------------------------------------------------
   // Dumping types
   //----------------------------------------------------------------------
+  void Dump(Stream &s);
+
   void DumpValue(lldb::opaque_compiler_type_t type, ExecutionContext *exe_ctx,
                  Stream *s, lldb::Format format, const DataExtractor &data,
                  lldb::offset_t data_offset, size_t data_byte_size,

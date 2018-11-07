@@ -96,14 +96,10 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
-  if (INTEL_CUSTOMIZATION)
-  # This is required to ignore warnings thrown by Microsoft Standard Libraries
-  add_definitions(-D_HAS_EXCEPTIONS=0)
-  endif (INTEL_CUSTOMIZATION)
-
   if (NOT BENCHMARK_ENABLE_EXCEPTIONS)
     add_cxx_compiler_flag(-EHs-)
     add_cxx_compiler_flag(-EHa-)
+    add_definitions(-D_HAS_EXCEPTIONS=0)
   endif()
   # Link time optimisation
   if (BENCHMARK_ENABLE_LTO)

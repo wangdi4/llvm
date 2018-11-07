@@ -267,7 +267,7 @@ void VPOParoptTransform::genOCLLoopPartitionCode(WRegionNode *W, unsigned Idx,
     W->setExitBBlock(LoopRegionExitBB);
 
   std::swap(LoopExitBB, LoopRegionExitBB);
-  TerminatorInst *NewTermInst =
+  Instruction *NewTermInst =
       BranchInst::Create(PreHdrInst->getSuccessor(0), LoopExitBB, CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
@@ -2493,7 +2493,7 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   Loop *L = W->getWRNLoopInfo().getLoop(Index);
   const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = {DL, TLI, DT, AC};
-  LoopRotation(L, LI, TTI, AC, DT, SE, SQ, true, unsigned(-1), true);
+  LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
   std::vector<AllocaInst *> Allocas;
   SmallVector<Value *, 2> LoopEssentialValues;
   if (Index < W->getWRNLoopInfo().getNormIVSize())
@@ -3351,7 +3351,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     W->setExitBBlock(LoopRegionExitBB);
 
   std::swap(LoopExitBB, LoopRegionExitBB);
-  TerminatorInst *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
+  Instruction *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
                                                    LoopExitBB, CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
@@ -3439,7 +3439,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     TermInst = DispatchHeaderBB->getTerminator();
 
     // Generate branch for dispatch.cond for get MIN upper bound
-    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB,
+    Instruction *NewTermInst = BranchInst::Create(DispatchBodyBB,
                                                      DispatchMinUBB, MinUB);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -3547,7 +3547,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                KmpcNextCI, ValueZero,
                               "dispatch.cond" + Twine(W->getNumber()));
 
-    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB,
+    Instruction *NewTermInst = BranchInst::Create(DispatchBodyBB,
                                                     LoopExitBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -3647,7 +3647,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     TermInst = TeamDispHeaderBB->getTerminator();
 
     // Generate branch for team.dispatch.cond for get MIN upper bound
-    TerminatorInst *NewTermInst = BranchInst::Create(TeamDispBodyBB,
+    Instruction *NewTermInst = BranchInst::Create(TeamDispBodyBB,
                                                      TeamDispMinUBB, MinUB);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -3664,7 +3664,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
       TeamTopTest = new ICmpInst(TermInst, PD, TeamUB, TeamLB, "team.top.test");
 
     // Generate branch for team.dispatch.cond for get MIN upper bound
-    TerminatorInst *TeamTopTestBI = BranchInst::Create(TeamInnerBodyBB,
+    Instruction *TeamTopTestBI = BranchInst::Create(TeamInnerBodyBB,
                                                        TeamExitBB, TeamTopTest);
     ReplaceInstWithInst(TermInst, TeamTopTestBI);
 
@@ -3915,11 +3915,11 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
       CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
                               ForkTestCI, ValueZero, "fork.test");
 
-    TerminatorInst *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
+    Instruction *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
                                                      CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
-    TerminatorInst *NewForkBI = BranchInst::Create(
+    Instruction *NewForkBI = BranchInst::Create(
                                   ElseCallBB->getTerminator()->getSuccessor(0));
 
     ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
@@ -4336,7 +4336,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
   ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                     MasterCI, ValueOne, "");
 
-  TerminatorInst *NewTermInst = BranchInst::Create(ThenMasterBB,
+  Instruction *NewTermInst = BranchInst::Create(ThenMasterBB,
                                                    SuccEndMasterBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -4433,7 +4433,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
   ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                     SingleCI, ValueOne, "");
 
-  TerminatorInst *NewTermInst = BranchInst::Create(ThenSingleBB,
+  Instruction *NewTermInst = BranchInst::Create(ThenSingleBB,
                                                    EndSingleSuccBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -5028,7 +5028,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
     OrgBB = CancellationPoint->getParent();
     Instruction *TermInst = OrgBB->getTerminator();
-    TerminatorInst *NewTermInst =
+    Instruction *NewTermInst =
         BranchInst::Create(CurrentCancelExitBB, NotCancelledBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 

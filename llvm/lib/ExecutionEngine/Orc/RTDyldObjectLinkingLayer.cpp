@@ -50,10 +50,11 @@ public:
       MR.addDependenciesForAll(Deps);
     };
 
-    MR.getTargetJITDylib().withSearchOrderDo([&](const JITDylibList &JDs) {
-      ES.lookup(JDs, InternedSymbols, OnResolvedWithUnwrap, OnReady,
-                RegisterDependencies, &MR.getTargetJITDylib());
-    });
+    JITDylibSearchList SearchOrder;
+    MR.getTargetJITDylib().withSearchOrderDo(
+        [&](const JITDylibSearchList &JDs) { SearchOrder = JDs; });
+    ES.lookup(SearchOrder, InternedSymbols, OnResolvedWithUnwrap, OnReady,
+              RegisterDependencies);
   }
 
   Expected<LookupSet> getResponsibilitySet(const LookupSet &Symbols) {
@@ -121,10 +122,6 @@ void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
   }
 
   auto K = R.getVModuleKey();
-#if INTEL_CUSTOMIZATION
-  // This change was cherry-picked from LLVM r344956.
-  // When it conflicts during the pulldown the community version should
-  // be accepted completely, even if it differs from the code here.
   RuntimeDyld::MemoryManager *MemMgr = nullptr;
 
   // Create a record a memory manager for this object.
@@ -155,7 +152,6 @@ void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
       [this, K, SharedR](Error Err) {
         onObjEmit(K, *SharedR, std::move(Err));
       });
-#endif // INTEL_CUSTOMIZATION
 }
 
 Error RTDyldObjectLinkingLayer::onObjLoad(

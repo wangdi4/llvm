@@ -1572,8 +1572,8 @@ static Value *getNaturalGEPWithType(IRBuilderTy &IRB, const DataLayout &DL,
   if (Ty == TargetTy)
     return buildGEP(IRB, BasePtr, Indices, NamePrefix);
 
-  // Pointer size to use for the indices.
-  unsigned PtrSize = DL.getPointerTypeSizeInBits(BasePtr->getType());
+  // Offset size to use for the indices.
+  unsigned OffsetSize = DL.getIndexTypeSizeInBits(BasePtr->getType());
 
   // See if we can descend into a struct and locate a field with the correct
   // type.
@@ -1585,7 +1585,7 @@ static Value *getNaturalGEPWithType(IRBuilderTy &IRB, const DataLayout &DL,
 
     if (ArrayType *ArrayTy = dyn_cast<ArrayType>(ElementTy)) {
       ElementTy = ArrayTy->getElementType();
-      Indices.push_back(IRB.getIntN(PtrSize, 0));
+      Indices.push_back(IRB.getIntN(OffsetSize, 0));
     } else if (VectorType *VectorTy = dyn_cast<VectorType>(ElementTy)) {
       ElementTy = VectorTy->getElementType();
       Indices.push_back(IRB.getInt32(0));
@@ -2549,7 +2549,7 @@ private:
 #endif
 
     return getAdjustedPtr(IRB, DL, &NewAI,
-                          APInt(DL.getPointerTypeSizeInBits(PointerTy), Offset),
+                          APInt(DL.getIndexTypeSizeInBits(PointerTy), Offset),
                           PointerTy,
 #ifndef NDEBUG
                           Twine(OldName) + "."
@@ -3071,8 +3071,8 @@ private:
     unsigned OtherAS = OtherPtrTy->getPointerAddressSpace();
 
     // Compute the relative offset for the other pointer within the transfer.
-    unsigned IntPtrWidth = DL.getPointerSizeInBits(OtherAS);
-    APInt OtherOffset(IntPtrWidth, NewBeginOffset - BeginOffset);
+    unsigned OffsetWidth = DL.getIndexSizeInBits(OtherAS);
+    APInt OtherOffset(OffsetWidth, NewBeginOffset - BeginOffset);
     unsigned OtherAlign =
       IsDest ? II.getSourceAlignment() : II.getDestAlignment();
     OtherAlign =  MinAlign(OtherAlign ? OtherAlign : 1,

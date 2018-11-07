@@ -585,7 +585,7 @@ attributes #12 = { builtin nounwind }
 ;
 ; Call the outline function of Derived::foo
 ; CHECK-LABEL: codeRepl.i14:                                     ; preds = %for.cond.preheader.i13
-; CHECK:         call void @_ZN7Derived3fooEPvi.2_for.body.preheader(i32 %Size, i32* %A) #2
+; CHECK:         call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, i32* %A) #2
 ; CHECK-NEXT:    br label %_ZN7Derived3fooEPvi.2.exit
 ;
 ; CHECK-LABEL: _ZN7Derived3fooEPvi.2.exit:                       ; preds = %BBDevirt__ZN7Derived3fooEPvi_0_0, %for.cond.preheader.i13, %codeRepl.i14
@@ -604,7 +604,7 @@ attributes #12 = { builtin nounwind }
 ;
 ; Call the outline function of Derived2:foo
 ; CHECK-LABEL: codeRepl.i:                                       ; preds = %for.cond.preheader.i
-; CHECK:         call void @_ZN8Derived23fooEPvi.1_for.body.preheader(i32 %Size, i32* %A) #2
+; CHECK:         call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, i32* %A) #2
 ; CHECK-NEXT:    br label %_ZN8Derived23fooEPvi.1.exit
 ;
 ; CHECK_LABEL: _ZN8Derived23fooEPvi.1.exit:

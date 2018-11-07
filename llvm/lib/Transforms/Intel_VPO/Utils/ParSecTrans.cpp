@@ -281,7 +281,7 @@ void VPOUtils::gatherImplicitSectionRecursive(
         BasicBlock::iterator SI = SuccBB->begin();
         bool IsDirSection = false;
 
-        if (isa<TerminatorInst>(SI)) {
+        if (SI->isTerminator()) {
           SuccBB = SuccBB->getUniqueSuccessor();
           SI = SuccBB->begin();
         }
@@ -324,7 +324,7 @@ void VPOUtils::gatherImplicitSectionRecursive(
             assert(PredBB && "No predecessor BB found.");
             BasicBlock::iterator EI = PredBB->begin();
 
-            if (isa<TerminatorInst>(EI)) {
+            if (EI->isTerminator()) {
               PredBB = PredBB->getUniquePredecessor();
               assert(PredBB && "No predecessor BB found.");
               EI = PredBB->begin();

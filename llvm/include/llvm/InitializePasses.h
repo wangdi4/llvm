@@ -91,8 +91,8 @@ void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
-void initializeAddressSanitizerModuleLegacyPassPass(PassRegistry &);
-void initializeAddressSanitizerLegacyPassPass(PassRegistry &);
+void initializeAddressSanitizerModulePass(PassRegistry&);
+void initializeAddressSanitizerPass(PassRegistry&);
 void initializeAggInlAALegacyPassPass(PassRegistry&); // INTEL
 void initializeAggressiveInstCombinerLegacyPassPass(PassRegistry&);
 void initializeAliasSetPrinterPass(PassRegistry&);

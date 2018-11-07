@@ -6572,7 +6572,7 @@ private:
         return false;
 
       // If the value is used by a terminator, it's used.
-      if (isa<TerminatorInst>(U))
+      if (cast<Instruction>(U)->isTerminator())
         return false;
 
       // If the user is a store, check the target address.

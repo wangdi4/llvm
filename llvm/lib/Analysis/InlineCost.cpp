@@ -25,7 +25,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
-#include "llvm/Analysis/LoopInfo.h"                 // INTEL
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"           // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -843,6 +843,7 @@ bool CallAnalyzer::visitCastInst(CastInst &I) {
   case Instruction::FPToSI:
     if (TTI.getFPOpCost(I.getType()) == TargetTransformInfo::TCC_Expensive)
       Cost += InlineConstants::CallPenalty;
+    break;
   default:
     break;
   }
@@ -3497,6 +3498,24 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     *ReasonAddr = NinlrDuplicateCall; // INTEL
     return "noduplicate";
   } // INTEL
+
+  // Loops generally act a lot like calls in that they act like barriers to
+  // movement, require a certain amount of setup, etc. So when optimising for
+  // size, we penalise any call sites that perform loops. We do this after all
+  // other costs here, so will likely only be dealing with relatively small
+  // functions (and hence DT and LI will hopefully be cheap).
+  if (Caller->optForMinSize()) {
+    DominatorTree DT(F);
+    LoopInfo LI(DT);
+    int NumLoops = 0;
+    for (Loop *L : LI) {
+      // Ignore loops that will not be executed
+      if (DeadBlocks.count(L->getHeader()))
+        continue;
+      NumLoops++;
+    }
+    Cost += NumLoops * InlineConstants::CallPenalty;
+  }
 
   // We applied the maximum possible vector bonus at the beginning. Now,
   // subtract the excess bonus, if any, from the Threshold before

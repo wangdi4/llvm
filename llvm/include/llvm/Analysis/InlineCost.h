@@ -54,7 +54,6 @@ const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
 const int InliningHeuristicBonus = 1000;       // INTEL
 const int ColdccPenalty = 2000;
-const int NoreturnPenalty = 10000;
 /// Do not inline functions which allocate this many bytes on the stack
 /// when the caller is recursive.
 const unsigned TotalAllocaSizeRecursiveCaller = 1024;

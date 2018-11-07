@@ -21,6 +21,7 @@
 #include "intel/STIDebug.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif  // INTEL_CUSTOMIZATION
+#include "WasmException.h"
 #include "WinCFGuard.h"
 #include "WinException.h"
 #include "llvm/ADT/APFloat.h"
@@ -399,7 +400,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     }
     break;
   case ExceptionHandling::Wasm:
-    // TODO to prevent warning
+    ES = new WasmException(this);
     break;
   }
   if (ES)
