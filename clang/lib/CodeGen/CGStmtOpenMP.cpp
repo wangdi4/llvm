@@ -1777,6 +1777,8 @@ static void emitOMPSimdRegion(CodeGenFunction &CGF, const OMPLoopDirective &S,
     CGF.EmitOMPReductionClauseInit(S, LoopScope);
     bool HasLastprivateClause = CGF.EmitOMPLastprivateClauseInit(S, LoopScope);
     (void)LoopScope.Privatize();
+    if (isOpenMPTargetExecutionDirective(S.getDirectiveKind()))
+      CGF.CGM.getOpenMPRuntime().adjustTargetSpecificDataForLambdas(CGF, S);
     CGF.EmitOMPInnerLoop(S, LoopScope.requiresCleanups(), S.getCond(),
                          S.getInc(),
                          [&S](CodeGenFunction &CGF) {
@@ -2045,7 +2047,7 @@ void CodeGenFunction::EmitOMPDistributeOuterLoop(
   RT.emitDistributeStaticInit(*this, S.getBeginLoc(), ScheduleKind, StaticInit);
 
   // for combined 'distribute' and 'for' the increment expression of distribute
-  // is store in DistInc. For 'distribute' alone, it is in Inc.
+  // is stored in DistInc. For 'distribute' alone, it is in Inc.
   Expr *IncExpr;
   if (isOpenMPLoopBoundSharingDirective(S.getDirectiveKind()))
     IncExpr = S.getDistInc();
@@ -2335,24 +2337,32 @@ bool CodeGenFunction::EmitOMPWorksharingLoop(
       EmitOMPPrivateLoopCounters(S, LoopScope);
       EmitOMPLinearClause(S, LoopScope);
       (void)LoopScope.Privatize();
+      if (isOpenMPTargetExecutionDirective(S.getDirectiveKind()))
+        CGM.getOpenMPRuntime().adjustTargetSpecificDataForLambdas(*this, S);
 
       // Detect the loop schedule kind and chunk.
-      llvm::Value *Chunk = nullptr;
+      const Expr *ChunkExpr = nullptr;
       OpenMPScheduleTy ScheduleKind;
       if (const auto *C = S.getSingleClause<OMPScheduleClause>()) {
         ScheduleKind.Schedule = C->getScheduleKind();
         ScheduleKind.M1 = C->getFirstScheduleModifier();
         ScheduleKind.M2 = C->getSecondScheduleModifier();
-        if (const Expr *Ch = C->getChunkSize()) {
-          Chunk = EmitScalarExpr(Ch);
-          Chunk = EmitScalarConversion(Chunk, Ch->getType(),
-                                       S.getIterationVariable()->getType(),
-                                       S.getBeginLoc());
-        }
+        ChunkExpr = C->getChunkSize();
       } else {
         // Default behaviour for schedule clause.
         CGM.getOpenMPRuntime().getDefaultScheduleAndChunk(
-            *this, S, ScheduleKind.Schedule, Chunk);
+            *this, S, ScheduleKind.Schedule, ChunkExpr);
+      }
+      bool HasChunkSizeOne = false;
+      llvm::Value *Chunk = nullptr;
+      if (ChunkExpr) {
+        Chunk = EmitScalarExpr(ChunkExpr);
+        Chunk = EmitScalarConversion(Chunk, ChunkExpr->getType(),
+                                     S.getIterationVariable()->getType(),
+                                     S.getBeginLoc());
+        llvm::APSInt EvaluatedChunk;
+        if (ChunkExpr->EvaluateAsInt(EvaluatedChunk, getContext()))
+          HasChunkSizeOne = (EvaluatedChunk.getLimitedValue() == 1);
       }
       const unsigned IVSize = getContext().getTypeSize(IVExpr->getType());
       const bool IVSigned = IVExpr->getType()->hasSignedIntegerRepresentation();
@@ -2360,8 +2370,12 @@ bool CodeGenFunction::EmitOMPWorksharingLoop(
       // If the static schedule kind is specified or if the ordered clause is
       // specified, and if no monotonic modifier is specified, the effect will
       // be as if the monotonic modifier was specified.
-      if (RT.isStaticNonchunked(ScheduleKind.Schedule,
-                                /* Chunked */ Chunk != nullptr) &&
+      bool StaticChunkedOne = RT.isStaticChunked(ScheduleKind.Schedule,
+          /* Chunked */ Chunk != nullptr) && HasChunkSizeOne &&
+          isOpenMPLoopBoundSharingDirective(S.getDirectiveKind());
+      if ((RT.isStaticNonchunked(ScheduleKind.Schedule,
+                                 /* Chunked */ Chunk != nullptr) ||
+           StaticChunkedOne) &&
           !Ordered) {
         if (isOpenMPSimdDirective(S.getDirectiveKind()))
           EmitOMPSimdInit(S, /*IsMonotonic=*/true);
@@ -2372,23 +2386,38 @@ bool CodeGenFunction::EmitOMPWorksharingLoop(
         // unspecified in this case.
         CGOpenMPRuntime::StaticRTInput StaticInit(
             IVSize, IVSigned, Ordered, IL.getAddress(), LB.getAddress(),
-            UB.getAddress(), ST.getAddress());
+            UB.getAddress(), ST.getAddress(),
+            StaticChunkedOne ? Chunk : nullptr);
         RT.emitForStaticInit(*this, S.getBeginLoc(), S.getDirectiveKind(),
                              ScheduleKind, StaticInit);
         JumpDest LoopExit =
             getJumpDestInCurrentScope(createBasicBlock("omp.loop.exit"));
         // UB = min(UB, GlobalUB);
-        EmitIgnoredExpr(S.getEnsureUpperBound());
+        if (!StaticChunkedOne)
+          EmitIgnoredExpr(S.getEnsureUpperBound());
         // IV = LB;
         EmitIgnoredExpr(S.getInit());
-        // while (idx <= UB) { BODY; ++idx; }
-        EmitOMPInnerLoop(S, LoopScope.requiresCleanups(), S.getCond(),
-                         S.getInc(),
-                         [&S, LoopExit](CodeGenFunction &CGF) {
-                           CGF.EmitOMPLoopBody(S, LoopExit);
-                           CGF.EmitStopPoint(&S);
-                         },
-                         [](CodeGenFunction &) {});
+        // For unchunked static schedule generate:
+        //
+        // while (idx <= UB) {
+        //   BODY;
+        //   ++idx;
+        // }
+        //
+        // For static schedule with chunk one:
+        //
+        // while (IV <= PrevUB) {
+        //   BODY;
+        //   IV += ST;
+        // }
+        EmitOMPInnerLoop(S, LoopScope.requiresCleanups(),
+            StaticChunkedOne ? S.getCombinedParForInDistCond() : S.getCond(),
+            StaticChunkedOne ? S.getDistInc() : S.getInc(),
+            [&S, LoopExit](CodeGenFunction &CGF) {
+             CGF.EmitOMPLoopBody(S, LoopExit);
+             CGF.EmitStopPoint(&S);
+            },
+            [](CodeGenFunction &) {});
         EmitBlock(LoopExit.getBlock());
         // Tell the runtime we are done.
         auto &&CodeGen = [&S](CodeGenFunction &CGF) {
@@ -2603,6 +2632,8 @@ void CodeGenFunction::EmitSections(const OMPExecutableDirective &S) {
     HasLastprivates = CGF.EmitOMPLastprivateClauseInit(S, LoopScope);
     CGF.EmitOMPReductionClauseInit(S, LoopScope);
     (void)LoopScope.Privatize();
+    if (isOpenMPTargetExecutionDirective(S.getDirectiveKind()))
+      CGF.CGM.getOpenMPRuntime().adjustTargetSpecificDataForLambdas(CGF, S);
 
     // Emit static non-chunked loop.
     OpenMPScheduleTy ScheduleKind;
@@ -3356,6 +3387,8 @@ void CodeGenFunction::EmitOMPDistributeLoop(const OMPLoopDirective &S,
       HasLastprivateClause = EmitOMPLastprivateClauseInit(S, LoopScope);
       EmitOMPPrivateLoopCounters(S, LoopScope);
       (void)LoopScope.Privatize();
+      if (isOpenMPTargetExecutionDirective(S.getDirectiveKind()))
+        CGM.getOpenMPRuntime().adjustTargetSpecificDataForLambdas(*this, S);
 
       // Detect the distribute schedule kind and chunk.
       llvm::Value *Chunk = nullptr;
@@ -3384,13 +3417,18 @@ void CodeGenFunction::EmitOMPDistributeLoop(const OMPLoopDirective &S,
       // iteration space is divided into chunks that are approximately equal
       // in size, and at most one chunk is distributed to each team of the
       // league. The size of the chunks is unspecified in this case.
+      bool StaticChunked = RT.isStaticChunked(
+          ScheduleKind, /* Chunked */ Chunk != nullptr) &&
+          isOpenMPLoopBoundSharingDirective(S.getDirectiveKind());
       if (RT.isStaticNonchunked(ScheduleKind,
-                                /* Chunked */ Chunk != nullptr)) {
+                                /* Chunked */ Chunk != nullptr) ||
+          StaticChunked) {
         if (isOpenMPSimdDirective(S.getDirectiveKind()))
           EmitOMPSimdInit(S, /*IsMonotonic=*/true);
         CGOpenMPRuntime::StaticRTInput StaticInit(
             IVSize, IVSigned, /* Ordered = */ false, IL.getAddress(),
-            LB.getAddress(), UB.getAddress(), ST.getAddress());
+            LB.getAddress(), UB.getAddress(), ST.getAddress(),
+            StaticChunked ? Chunk : nullptr);
         RT.emitDistributeStaticInit(*this, S.getBeginLoc(), ScheduleKind,
                                     StaticInit);
         JumpDest LoopExit =
@@ -3409,15 +3447,45 @@ void CodeGenFunction::EmitOMPDistributeLoop(const OMPLoopDirective &S,
                 ? S.getCombinedCond()
                 : S.getCond();
 
-        // for distribute alone,  codegen
-        // while (idx <= UB) { BODY; ++idx; }
-        // when combined with 'for' (e.g. as in 'distribute parallel for')
-        // while (idx <= UB) { <CodeGen rest of pragma>; idx += ST; }
+        if (StaticChunked)
+          Cond = S.getCombinedDistCond();
+
+        // For static unchunked schedules generate:
+        //
+        //  1. For distribute alone, codegen
+        //    while (idx <= UB) {
+        //      BODY;
+        //      ++idx;
+        //    }
+        //
+        //  2. When combined with 'for' (e.g. as in 'distribute parallel for')
+        //    while (idx <= UB) {
+        //      <CodeGen rest of pragma>(LB, UB);
+        //      idx += ST;
+        //    }
+        //
+        // For static chunk one schedule generate:
+        //
+        // while (IV <= GlobalUB) {
+        //   <CodeGen rest of pragma>(LB, UB);
+        //   LB += ST;
+        //   UB += ST;
+        //   UB = min(UB, GlobalUB);
+        //   IV = LB;
+        // }
+        //
         EmitOMPInnerLoop(S, LoopScope.requiresCleanups(), Cond, IncExpr,
                          [&S, LoopExit, &CodeGenLoop](CodeGenFunction &CGF) {
                            CodeGenLoop(CGF, S, LoopExit);
                          },
-                         [](CodeGenFunction &) {});
+                         [&S, StaticChunked](CodeGenFunction &CGF) {
+                           if (StaticChunked) {
+                             CGF.EmitIgnoredExpr(S.getCombinedNextLowerBound());
+                             CGF.EmitIgnoredExpr(S.getCombinedNextUpperBound());
+                             CGF.EmitIgnoredExpr(S.getCombinedEnsureUpperBound());
+                             CGF.EmitIgnoredExpr(S.getCombinedInit());
+                           }
+                         });
         EmitBlock(LoopExit.getBlock());
         // Tell the runtime we are done.
         RT.emitForStaticFinish(*this, S.getBeginLoc(), S.getDirectiveKind());
@@ -3941,6 +4009,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
+  case OMPC_atomic_default_mem_order:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }
@@ -3957,13 +4026,13 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   }
 
   const Stmt *CS = S.getInnermostCapturedStmt()->IgnoreContainers();
-  if (const auto *EWC = dyn_cast<ExprWithCleanups>(CS))
-    enterFullExpression(EWC);
+  if (const auto *FE = dyn_cast<FullExpr>(CS))
+    enterFullExpression(FE);
   // Processing for statements under 'atomic capture'.
   if (const auto *Compound = dyn_cast<CompoundStmt>(CS)) {
     for (const Stmt *C : Compound->body()) {
-      if (const auto *EWC = dyn_cast<ExprWithCleanups>(C))
-        enterFullExpression(EWC);
+      if (const auto *FE = dyn_cast<FullExpr>(C))
+        enterFullExpression(FE);
     }
   }
 
@@ -4050,6 +4119,8 @@ static void emitTargetRegion(CodeGenFunction &CGF, const OMPTargetDirective &S,
   (void)CGF.EmitOMPFirstprivateClause(S, PrivateScope);
   CGF.EmitOMPPrivateClause(S, PrivateScope);
   (void)PrivateScope.Privatize();
+  if (isOpenMPTargetExecutionDirective(S.getDirectiveKind()))
+    CGF.CGM.getOpenMPRuntime().adjustTargetSpecificDataForLambdas(CGF, S);
 
   CGF.EmitStmt(S.getCapturedStmt(OMPD_target)->getCapturedStmt());
 }
@@ -4130,6 +4201,8 @@ static void emitTargetTeamsRegion(CodeGenFunction &CGF, PrePostActionTy &Action,
     CGF.EmitOMPPrivateClause(S, PrivateScope);
     CGF.EmitOMPReductionClauseInit(S, PrivateScope);
     (void)PrivateScope.Privatize();
+    if (isOpenMPTargetExecutionDirective(S.getDirectiveKind()))
+      CGF.CGM.getOpenMPRuntime().adjustTargetSpecificDataForLambdas(CGF, S);
     CGF.EmitStmt(CS->getCapturedStmt());
     CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_teams);
   };
@@ -4688,6 +4761,8 @@ static void emitTargetParallelRegion(CodeGenFunction &CGF,
     CGF.EmitOMPPrivateClause(S, PrivateScope);
     CGF.EmitOMPReductionClauseInit(S, PrivateScope);
     (void)PrivateScope.Privatize();
+    if (isOpenMPTargetExecutionDirective(S.getDirectiveKind()))
+      CGF.CGM.getOpenMPRuntime().adjustTargetSpecificDataForLambdas(CGF, S);
     // TODO: Add support for clauses.
     CGF.EmitStmt(CS->getCapturedStmt());
     CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_parallel);
@@ -5130,10 +5205,16 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
     if (isOpenMPSimdDirective(D.getDirectiveKind())) {
       emitOMPSimdRegion(CGF, cast<OMPLoopDirective>(D), Action);
     } else {
+      OMPPrivateScope LoopGlobals(CGF);
       if (const auto *LD = dyn_cast<OMPLoopDirective>(&D)) {
         for (const Expr *E : LD->counters()) {
-          if (const auto *VD = dyn_cast<OMPCapturedExprDecl>(
-                  cast<DeclRefExpr>(E)->getDecl())) {
+          const auto *VD = dyn_cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+          if (!VD->hasLocalStorage() && !CGF.LocalDeclMap.count(VD)) {
+            LValue GlobLVal = CGF.EmitLValue(E);
+            LoopGlobals.addPrivate(
+                VD, [&GlobLVal]() { return GlobLVal.getAddress(); });
+          }
+          if (isa<OMPCapturedExprDecl>(VD)) {
             // Emit only those that were not explicitly referenced in clauses.
             if (!CGF.LocalDeclMap.count(VD))
               CGF.EmitVarDecl(*VD);
@@ -5154,6 +5235,7 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
           }
         }
       }
+      LoopGlobals.Privatize();
       CGF.EmitStmt(D.getInnermostCapturedStmt()->getCapturedStmt());
     }
   };

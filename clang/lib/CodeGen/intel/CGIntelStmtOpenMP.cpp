@@ -1218,6 +1218,8 @@ namespace CGIntelOpenMP {
       const OMPReverseOffloadClause *) {}
   void OpenMPCodeOutliner::emitOMPDynamicAllocatorsClause(
       const OMPDynamicAllocatorsClause *) {}
+  void OpenMPCodeOutliner::emitOMPAtomicDefaultMemOrderClause(
+      const OMPAtomicDefaultMemOrderClause *) {}
 
   void OpenMPCodeOutliner::addFenceCalls(bool IsBegin) {
     switch (Directive.getDirectiveKind()) {

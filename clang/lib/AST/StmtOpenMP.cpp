@@ -1115,6 +1115,8 @@ OMPDistributeParallelForDirective *OMPDistributeParallelForDirective::Create(
   Dir->setCombinedCond(Exprs.DistCombinedFields.Cond);
   Dir->setCombinedNextLowerBound(Exprs.DistCombinedFields.NLB);
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
+  Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
+  Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
   Dir->HasCancel = HasCancel;
 #if INTEL_CUSTOMIZATION
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
@@ -1185,6 +1187,8 @@ OMPDistributeParallelForSimdDirective::Create(
   Dir->setCombinedCond(Exprs.DistCombinedFields.Cond);
   Dir->setCombinedNextLowerBound(Exprs.DistCombinedFields.NLB);
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
+  Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
+  Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
 #if INTEL_CUSTOMIZATION
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
   Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
@@ -1521,6 +1525,8 @@ OMPTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCombinedCond(Exprs.DistCombinedFields.Cond);
   Dir->setCombinedNextLowerBound(Exprs.DistCombinedFields.NLB);
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
+  Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
+  Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
 #if INTEL_CUSTOMIZATION
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
   Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
@@ -1592,6 +1598,8 @@ OMPTeamsDistributeParallelForDirective::Create(
   Dir->setCombinedCond(Exprs.DistCombinedFields.Cond);
   Dir->setCombinedNextLowerBound(Exprs.DistCombinedFields.NLB);
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
+  Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
+  Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
   Dir->HasCancel = HasCancel;
 #if INTEL_CUSTOMIZATION
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
@@ -1746,6 +1754,8 @@ OMPTargetTeamsDistributeParallelForDirective::Create(
   Dir->setCombinedCond(Exprs.DistCombinedFields.Cond);
   Dir->setCombinedNextLowerBound(Exprs.DistCombinedFields.NLB);
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
+  Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
+  Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
   Dir->HasCancel = HasCancel;
 #if INTEL_CUSTOMIZATION
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
@@ -1821,6 +1831,8 @@ OMPTargetTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCombinedCond(Exprs.DistCombinedFields.Cond);
   Dir->setCombinedNextLowerBound(Exprs.DistCombinedFields.NLB);
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
+  Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
+  Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
 #if INTEL_CUSTOMIZATION
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
   Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);

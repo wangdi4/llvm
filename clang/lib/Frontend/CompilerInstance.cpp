@@ -377,6 +377,9 @@ static void InitializeFileRemapping(DiagnosticsEngine &Diags,
 void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
   const PreprocessorOptions &PPOpts = getPreprocessorOpts();
 
+  // The module manager holds a reference to the old preprocessor (if any).
+  ModuleManager.reset();
+
   // Create a PTH manager if we are using some form of a token cache.
   PTHManager *PTHMgr = nullptr;
   if (!PPOpts.TokenCache.empty())
@@ -1029,7 +1032,7 @@ static InputKind::Language getLanguageFromOptions(const LangOptions &LangOpts) {
     return InputKind::OpenCL;
   if (LangOpts.CUDA)
     return InputKind::CUDA;
-  if (LangOpts.ObjC1)
+  if (LangOpts.ObjC)
     return LangOpts.CPlusPlus ? InputKind::ObjCXX : InputKind::ObjC;
   return LangOpts.CPlusPlus ? InputKind::CXX : InputKind::C;
 }
@@ -1274,7 +1277,7 @@ static bool compileAndLoadModule(CompilerInstance &ImportingInstance,
           << Module->Name << Locked.getErrorMessage();
       // Clear out any potential leftover.
       Locked.unsafeRemoveLockFile();
-      // FALLTHROUGH
+      LLVM_FALLTHROUGH;
     case llvm::LockFileManager::LFS_Owned:
       // We're responsible for building the module ourselves.
       if (!compileModuleImpl(ImportingInstance, ModuleNameLoc, Module,
