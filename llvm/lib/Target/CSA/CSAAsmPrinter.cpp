@@ -81,11 +81,6 @@ static cl::opt<bool>
               cl::desc("CSA Specific: Print LIC frequency attributes"),
               cl::init(false));
 
-static cl::opt<bool>
-  AllowUndefRegs("csa-allow-undef-regs", cl::Hidden,
-                 cl::desc("CSA Specific: Allow LICs without definition"),
-                 cl::init(false));
-
 namespace {
 class LineReader {
 private:
@@ -664,7 +659,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
             if (isParam || isResult) continue;
           }
         }
-        if (!csa_utils::isAlwaysDataFlowLinkageSet() && !AllowUndefRegs)
+        if (!csa_utils::isAlwaysDataFlowLinkageSet())
           assert(!MRI->use_nodbg_empty(vreg) && "LIC without consumers");
         StringRef name = LMFI->getLICName(vreg);
         if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {

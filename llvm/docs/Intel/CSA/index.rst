@@ -12,6 +12,7 @@ CSA
 
    CSALowerLoopIdioms
    DataflowConversion
+   DataflowMIR
    PathfindingBuiltins
 
 Introduction
@@ -54,8 +55,6 @@ general compilation flow:
     issues.
   - CSARedundantMovElim, CSADeadInstructionElim - Dataflow-aware DCE and simple
     value propagation.
-  - CSAProcedureCalls - Converts functions from their initial SXU-based calling
-    conventions to dataflow calling conventions.
   - CSAReassocReduc - If enabled, expands reduction operations to increase
     throughput via reassociation.
 
@@ -64,14 +63,17 @@ general compilation flow:
   lics. CSANormalizeDebugPass is a small pass that runs beforehand to make sure
   that there aren't disconnected lics hanging around as a result of debug
   values.
+- :ref:`CSADataflowVerifier` - Verifies dataflow machine code
+- CSAProcedureCalls - Converts functions from their initial SXU-based calling
+  conventions to dataflow calling conventions.
 - Assembly Printing
 
 Passes before instruction selection operate on standard LLVM IR and many of the
 CSA-specific ones exist mostly to manipulate intrinsics used by backend passes
 later on. Memory ordering operates on "standard" SSA Machine IR but passes
 starting with dataflow conversion operate on Machine IR interpreted as dataflow
-code. See "CSA Dataflow Machine Code Representation" (TODO: replace with link)
-for more information on this format and how to use it.
+code. See :doc:`CSA Dataflow Machine Code Representation <DataflowMIR>` for more
+information on this format and how to use it.
 
 Usage Models
 ============
@@ -112,6 +114,8 @@ The following is a full list of CSA compilation topics documented here:
   A pass that lowers memcpy/memmove/memset intrinsics to CSA-friendly loops.
 :doc:`Dataflow Conversion <DataflowConversion>`
   The dataflow conversion pass of CSA.
+:doc:`Dataflow Machine Code Representation <DataflowMIR>`
+  Structure and rules of CSA dataflow machine code.
 :doc:`Pathfinding Builtins <PathfindingBuiltins>`
   The set of intrinsics added to annotate code in the pathfinding compiler and
   related passes.

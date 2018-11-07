@@ -144,7 +144,7 @@ public:
   void setLICName(unsigned vreg, const Twine &name, const Twine &fname = "") const;
 
   /// Get the lic size (e.g., 0, 1, 8, 16, 32, 64) for a register number.
-  int getLICSize(unsigned reg) const;
+  unsigned getLICSize(unsigned reg) const;
 
   MachineInstr *getEntryMI() const { return entryMI; }
   MachineInstr *getReturnMI() const { return returnMI; }

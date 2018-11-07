@@ -16,6 +16,7 @@ add_llvm_target(CSACodeGen
   CSAAsmWrapOstream.cpp
   CSACvtCFDFPass.cpp
   CSADataflowCanonicalization.cpp
+  CSADataflowVerifier.cpp
   CSADeadInstructionElim.cpp
   CSAExpandInlineAsm.cpp
   CSAFortranIntrinsics.cpp

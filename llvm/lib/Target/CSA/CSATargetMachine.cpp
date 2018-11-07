@@ -86,6 +86,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSAAllocUnitPassPass(PR);
   initializeCSACvtCFDFPassPass(PR);
   initializeCSADataflowCanonicalizationPassPass(PR);
+  initializeCSADataflowVerifierPass(PR);
   initializeCSADeadInstructionElimPass(PR);
   initializeCSAExpandInlineAsmPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
@@ -300,10 +301,15 @@ public:
   }
 
   void addPreEmitPass2() override {
+
+    // TODO: This should be running right before AsmPrinter, but the procedure
+    // calls pass is causing problems with it. We should be able to move it
+    // later when the call lowering is improved.
+    addPass(createCSADataflowVerifier(), false);
+
     if (csa_utils::isAlwaysDataFlowLinkageSet()) {
       addPass(createCSAProcCallsPass(), false);
     }
-
   }
 
   void addIRPasses() override {

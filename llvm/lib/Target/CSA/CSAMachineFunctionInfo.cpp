@@ -164,7 +164,7 @@ CSAMachineFunctionInfo::getLICInfo(unsigned regno) {
   return licInfo[index];
 }
 
-int CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
+unsigned CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
   const TargetRegisterClass *RC = TII->getRegisterClass(regno, MRI);
   return TII->getSizeOfRegisterClass(RC);
 }
