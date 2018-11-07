@@ -858,7 +858,7 @@ private:
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
   bool IsAutoVec;
-  bool IgnoreProfitability;
+  bool HasVectorAlways;
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -879,7 +879,7 @@ public:
   void setCollapse(int N) { Collapse = N; }
 #if INTEL_CUSTOMIZATION
   void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
-  void setIgnoreProfitability(bool Flag) { IgnoreProfitability = Flag; }
+  void setHasVectorAlways(bool Flag) { HasVectorAlways = Flag; }
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
@@ -898,10 +898,11 @@ public:
   int getCollapse() const { return Collapse; }
 #if INTEL_CUSTOMIZATION
   bool getIsAutoVec() const { return IsAutoVec; }
-  bool getIgnoreProfitability() const { return IgnoreProfitability; }
+  bool getHasVectorAlways() const { return HasVectorAlways; }
   loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const { return HLp; }
+  bool isOmpSIMDLoop() const { return !getIsAutoVec(); }
 #endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

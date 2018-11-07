@@ -51,13 +51,10 @@ for.end:                                          ; preds = %for.body
 
 define void @test_do_not_vectorize() local_unnamed_addr #0 {
 ; CHECK-LLVM-LABEL: test_do_not_vectorize
-; CHECK-LLVM-NOT: load <{{.*}} x i32>
-; CHECK-LLVM-NOT: store <{{.*}} x i32>
 ; CHECK-HIR-LABEL: test_do_not_vectorize
 ; CHECK-HIR-NOT: load <{{.*}} x i32>
 ; CHECK-HIR-NOT: store <{{.*}} x i32>
 entry:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:
@@ -84,7 +81,6 @@ for.body:
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   ret void
 }
 

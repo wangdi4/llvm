@@ -388,8 +388,8 @@ public:
   // These methods are only available in WRNs constructed from HIR
   virtual void setIsAutoVec(bool)               {WRNERROR("IsAutoVec");       }
   virtual bool getIsAutoVec() const             {WRNERROR("IsAutoVec");       }
-  virtual void setIgnoreProfitability(bool)     {WRNERROR("Profitability");   }
-  virtual bool getIgnoreProfitability() const   {WRNERROR("Profitability");   }
+  virtual void setHasVectorAlways(bool)         {WRNERROR("HasVectorAlways"); }
+  virtual bool getHasVectorAlways() const       {WRNERROR("HasVectorAlways"); }
   virtual void setEntryHLNode(HLNode *)         {WRNERROR("EntryHLNode");     }
   virtual HLNode *getEntryHLNode() const        {WRNERROR("EntryHLNode");     }
   virtual void setExitHLNode(HLNode *)          {WRNERROR("ExitHLNode");      }

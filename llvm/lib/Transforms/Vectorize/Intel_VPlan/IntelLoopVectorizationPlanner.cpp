@@ -181,11 +181,15 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // to be vectorized. In order to force the loop to be vectorized, we set
   // BestCost to MAX value for such a case. WRLp can be null when stress testing
   // vector code generation.
-  bool IsVectorAlways =
-      (WRLp && WRLp->getIgnoreProfitability()) || VecThreshold == 0;
+  bool ShouldIgnoreProfitability =
+      WRLp && (WRLp->getHasVectorAlways() || WRLp->isOmpSIMDLoop());
+
+  bool IsVectorAlways = ShouldIgnoreProfitability || VecThreshold == 0;
+
   if (IsVectorAlways) {
     BestCost = std::numeric_limits<unsigned>::max();
-    LLVM_DEBUG(dbgs() << "vector always is used for the given loop\n");
+    LLVM_DEBUG(dbgs() << "'#pragma vector always'/ '#pragma omp simd' is used "
+                         "for the given loop\n");
   }
 #endif // INTEL_CUSTOMIZATION
 
