@@ -15,6 +15,7 @@
 #include "Intel_DTrans/Transforms/WeakAlign.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -33,6 +34,18 @@ static cl::opt<bool> HeurOverride("dtrans-weakalign-heur-override",
                                   cl::init(false), cl::ReallyHidden);
 
 namespace {
+// This constant is used for the mallopt parameter argument to control whether
+// qkmalloc is configured to use weak alignment or not.
+const int32_t WeakAlignParam = 0xc99;
+
+// This constant is used for the mallopt value argument to enable weak alignment
+// mode, by disabling the c99 compliance configuration parameter.
+const int32_t WeakAlignEnableValue = 0;
+
+// This constant is used for the mallopt value argument to disable weak
+// alignment mode, by enabling the c99 compliance configuration parameter.
+const int32_t WeakAlignDisableValue = 1;
+
 class DTransWeakAlignWrapper : public ModulePass {
 private:
   dtrans::WeakAlignPass Impl;
@@ -87,12 +100,30 @@ private:
   bool analyzeFunction(Function &F);
   bool isSupportedIntrinsicInst(IntrinsicInst *II);
 
+  // Identify the "mallopt" function, if it exists on the target being compiled
+  // for.
   Constant *getMalloptFunction(Module &M, const TargetLibraryInfo &TLI);
+
+  // Insert the necessary calls to mallopt.
+  void insertMalloptCalls();
+
+  // Create a call to mallopt as: mallopt(Param, Val);
+  // If \p InsertBefore is non-null, the call instruction will be inserted prior
+  // to that instruction. Returns the newly created function call.
+  CallInst *createMalloptCall(int32_t Param, int32_t Val,
+                              Instruction *InsertBefore);
+
+  // Handle to mallopt function, which this transformation will be generating
+  // calls to.
+  Constant *MalloptFunc = nullptr;
+
+  // Handle to the program's "main" function found during analysis.
+  Function *MainFunc = nullptr;
 };
 
 bool WeakAlignImpl::run(Module &M, const TargetLibraryInfo &TLI) {
   // Make sure the mallopt function is available before analyzing the IR.
-  Constant *MalloptFunc = getMalloptFunction(M, TLI);
+  MalloptFunc = getMalloptFunction(M, TLI);
   if (!MalloptFunc)
     return false;
 
@@ -104,9 +135,8 @@ bool WeakAlignImpl::run(Module &M, const TargetLibraryInfo &TLI) {
       dbgs()
       << "DTRANS Weak Align: enabled -- Heuristics and safety tests passed\n");
 
-  bool Changed = false;
-  // TODO: Add insertion of mallopt call at the start of main.
-  return Changed;
+  insertMalloptCalls();
+  return true;
 }
 
 // Get a handle the mallopt() function, if it is available. Otherwise,
@@ -198,11 +228,26 @@ bool WeakAlignImpl::analyzeModule(Module &M, const TargetLibraryInfo &TLI) {
 
     if (DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(F))
       SawSOAToAOS = true;
+
+    if (!F.isDeclaration() && isMainFunction(F)) {
+      if (MainFunc) {
+        LLVM_DEBUG(
+            dbgs()
+            << "DTrans Weak Align: inhibited -- Multiple main functions\n");
+        return false;
+      }
+      MainFunc = &F;
+    }
+  }
+
+  if (!MainFunc) {
+    LLVM_DEBUG(dbgs() << "DTrans Weak Align: inhibited -- No main function\n");
+    return false;
   }
 
   if (!HeurOverride && !SawSOAToAOS) {
     LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- Did not find "
-      "SOA-to-AOS transformed routine:\n");
+                         "SOA-to-AOS transformed routine:\n");
     return false;
   }
 
@@ -377,6 +422,35 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   }
 
   return true;
+}
+
+// To enable qkmalloc to use weak alignment, all that is necessary is to make a
+// call to mallopt with the enabling value. This will allow small allocations
+// with a size that is not a multiple of 8-bytes to be allocated with 4-byte
+// alignment.
+//
+// This just needs to enable the qkmalloc configuration at the start of "main".
+// There is no need to turn off the configuration before exiting the
+// application.
+void WeakAlignImpl::insertMalloptCalls() {
+  assert(MainFunc && "MainFunc expected prior to insertMalloptCalls");
+  assert(MalloptFunc && "MalloptFunc expected prior to insertMalloptCalls");
+
+  auto IP = MainFunc->getEntryBlock().getFirstInsertionPt();
+  createMalloptCall(WeakAlignParam, WeakAlignEnableValue, &*IP);
+}
+
+// Utility function to generate and insert a call to mallopt.
+CallInst *WeakAlignImpl::createMalloptCall(int32_t Param, int32_t Val,
+                                           Instruction *InsertBefore) {
+  LLVMContext &Ctx = MalloptFunc->getContext();
+  llvm::Type *Int32Ty = IntegerType::getInt32Ty(Ctx);
+  Value *Params[] = {ConstantInt::get(Int32Ty, Param),
+                     ConstantInt::get(Int32Ty, Val)};
+
+  CallInst *CI = CallInst::Create(MalloptFunc, Params, "mo", InsertBefore);
+  LLVM_DEBUG(dbgs() << "Created call: " << *CI << "\n");
+  return CI;
 }
 
 bool WeakAlignPass::runImpl(Module &M, const TargetLibraryInfo &TLI,
