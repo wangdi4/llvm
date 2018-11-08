@@ -3,18 +3,22 @@
 ; RUN: opt -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
 ; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
 
-; Check that myavg(), which has loops and is referenced from functions
-; which are address taken and stored into the same structure instance,
-; is preferred for multiversioning, while @myinit is not. Furthermore, that
-; those address taken functions are also preferred for multiversioning.
-; This simulates the dtrans-inline-heuristic for inlining in the link step.
+; ------------------------------------------------------------------------------------------------------------------
+; Function Description                                                  | Inline Heuristic                         |
+; ------------------------------------------------------------------------------------------------------------------
+; @myavg: short function with a loop (trip count is 101), leaf function | inlined (profitable)                     |
+; @myinit:short function 3 repeats of GETP+STORE seq, leaf function     | inlined (single callsite, local linkage) |
+; @foo:   single BB, short, leaf function                               | inlined (single BB)                      |
+; @bar:   short function, a single call to myavg()                      | inlined (profitable)                     |
+; @baz:   short function, a single call to myavg()                      | inlined (profitable)                     |
+; ------------------------------------------------------------------------------------------------------------------
 
 ; CHECK-IR-NOT: call i32 @myavg
 ; CHECK-IR-NOT: call i32 @myavg
 ; CHECK-IR-NOT: call i32 @foo
 ; CHECK-IR-NOT: call i32 @bar
 ; CHECK-IR-NOT: call i32 @baz
-
+;
 ; CHECK-RPT-NOT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-RPT-NOT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> myinit {{\[\[}}Callsite preferred for multiversioning{{\]\]}}

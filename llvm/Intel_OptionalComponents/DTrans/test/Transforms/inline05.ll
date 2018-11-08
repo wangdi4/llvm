@@ -2,10 +2,12 @@
 ; RUN: opt -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 ; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 
-; Checks that mc_chroma() is NOT inlined:
+; Checks that mc_chroma() is NOT inlined because it
 ; - has 2 consecutive AND instructions with 0x07 on their operands;
 ; - has 2 loops where each loop's UB traces back to a formal;
-; - mc_chroma() is prefered for multiversioning than inlining;
+; - is a leaf function;
+;
+; As a result, mc_chroma() is prefered for multiversioning than inlining.
 ;
 
 ; CHECK-IR: -> mc_chroma {{\[\[}}Callsite preferred for multiversioning{{\]\]}}

@@ -4,10 +4,12 @@
 ; RUN: opt -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
 ; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
 
-; Check that myavg(), which has loops and is referenced from functions
-; which are address taken and stored into the same structure instance,
-; is prefered for multiversioning, while @myinit is not.
-; This simulates the dtrans-inline-heuristic for inlining in the compile step.
+; ------------------------------------------------------------------------------------------------------------------
+; Function Description                                                  | Inline Heuristic                         |
+; ------------------------------------------------------------------------------------------------------------------
+; @myavg: short function with a loop (trip count is 101), leaf function | inlined (profitable)                     |
+; @myinit:short function 3 repeats of GETP+STORE seq, leaf function     | inlined (single callsite, local linkage) |
+; ------------------------------------------------------------------------------------------------------------------
 
 ; CHECK-IR-NOT: call i32 @myavg
 ; CHECK-IR-NOT: call i32 @myavg
