@@ -69,8 +69,10 @@ public:
 
   MemInstGroup(const MemInstGroup &G) = delete;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Unique ID for debugging.
   size_t getId() const { return Id; }
+#endif
 
   /// Helper for checking if G + RunnerSize > MaxVecRegSize
   bool willExceedSize(size_t RunnerSize, size_t MaxVecRegSize) const {
