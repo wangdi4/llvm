@@ -224,4 +224,4 @@ attributes #6 = { inlinehint nounwind uwtable "correctly-rounded-divide-sqrt-fp-
 !15 = !{!9, !11, i64 8}
 
 ; CHECK-LABEL: define internal void @"_ZZN9my_struct4workERA12_sENK3$_0clEv"
-; CHECK: %y22 = alloca [12 x i16]
+; CHECK: %{{[a-zA-Z._0-9]+}} = alloca [12 x i16]

@@ -73,8 +73,26 @@ extern std::unordered_map<int, StringRef> WRNProcBindName;
 class Item
 {
   friend class WRegionUtils;
-  private:
-    VAR   OrigItem;  // original var
+
+  public:
+    /// Enum of various derived Item kinds for LLVM's RTTI (isa, cast etc.)
+    enum ItemKind {
+      IK_Shared,
+      IK_Private,
+      IK_Firstprivate,
+      IK_Lastprivate,
+      IK_Reduction,
+      IK_Copyin,
+      IK_Copyprivate,
+      IK_Linear,
+      IK_Uniform,
+      IK_Map,
+      IK_IsDevicePtr,
+      IK_UseDevicePtr
+    };
+
+  private :
+    VAR   OrigItem; // original var
     VAR   NewItem;   // new version (eg private) of the var
     VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
     bool  IsByRef;   // true for a by-reference var
@@ -84,12 +102,13 @@ class Item
     int   ThunkIdx;  // used for task/taskloop codegen
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
+    const ItemKind Kind; // Item kind for LLVM's RTTI
 
   public:
-    Item(VAR Orig) :
-      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsByRef(false),
-      IsNonPod(false), IsVla(false), VlaSize(nullptr), ThunkIdx(-1),
-      AliasScope(nullptr), NoAlias(nullptr) {}
+    Item(VAR Orig, ItemKind K)
+        : OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr),
+          IsByRef(false), IsNonPod(false), IsVla(false), VlaSize(nullptr),
+          ThunkIdx(-1), AliasScope(nullptr), NoAlias(nullptr), Kind(K) {}
     virtual ~Item() = default;
 
     void setOrig(VAR V)          { OrigItem = V;    }
@@ -113,6 +132,7 @@ class Item
     int getThunkIdx()  const { return ThunkIdx; }
     MDNode *getAliasScope() const { return AliasScope; }
     MDNode *getNoAlias()    const { return NoAlias; }
+    ItemKind getKind() const { return Kind;     }
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsByRef())
@@ -150,9 +170,10 @@ class SharedItem : public Item
     bool  IsPassedDirectly;
 
   public:
-    SharedItem(VAR Orig) : Item(Orig), IsPassedDirectly(false) {}
+    SharedItem(VAR Orig) : Item(Orig, IK_Shared), IsPassedDirectly(false) {}
     void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
+    static bool classof(const Item *I) { return I->getKind() == IK_Shared; }
 };
 
 //
@@ -166,10 +187,10 @@ class PrivateItem : public Item
     RDECL Destructor;
 
   public:
-    PrivateItem(VAR Orig) :
-      Item(Orig), Constructor(nullptr), Destructor(nullptr) {}
+    PrivateItem(VAR Orig)
+        : Item(Orig, IK_Private), Constructor(nullptr), Destructor(nullptr) {}
     PrivateItem(const Use *Args) :
-      Item(nullptr), Constructor(nullptr), Destructor(nullptr) {
+      Item(nullptr, IK_Private), Constructor(nullptr), Destructor(nullptr) {
       // PRIVATE nonPOD Args are: var, ctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -195,6 +216,7 @@ class PrivateItem : public Item
       } else  //invoke parent's print function for regular case
         Item::print(OS, PrintType);
     }
+    static bool classof(const Item *I) { return I->getKind() == IK_Private; }
 };
 
 class LastprivateItem; // forward declaration
@@ -214,11 +236,11 @@ class FirstprivateItem : public Item
 
   public:
     FirstprivateItem(VAR Orig)
-        : Item(Orig), InLastprivate(nullptr), InMap(nullptr),
+        : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
           CopyConstructor(nullptr), Destructor(nullptr) {}
     FirstprivateItem(const Use *Args)
-        : Item(nullptr), InLastprivate(nullptr), InMap(nullptr),
-          CopyConstructor(nullptr), Destructor(nullptr) {
+        : Item(nullptr, IK_Firstprivate), InLastprivate(nullptr),
+          InMap(nullptr), CopyConstructor(nullptr), Destructor(nullptr) {
       // FIRSTPRIVATE nonPOD Args are: var, cctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -248,6 +270,9 @@ class FirstprivateItem : public Item
       } else  //invoke parent's print function for regular case
         Item::print(OS, PrintType);
     }
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_Firstprivate;
+    }
 };
 
 
@@ -266,11 +291,12 @@ class LastprivateItem : public Item
 
   public:
     LastprivateItem(VAR Orig)
-        : Item(Orig), IsConditional(false), InFirstprivate(nullptr),
+        : Item(Orig, IK_Lastprivate), IsConditional(false), InFirstprivate(nullptr),
           Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {}
     LastprivateItem(const Use *Args)
-        : Item(nullptr), IsConditional(false), InFirstprivate(nullptr),
-          Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {
+        : Item(nullptr, IK_Lastprivate), IsConditional(false),
+          InFirstprivate(nullptr), Constructor(nullptr), CopyAssign(nullptr),
+          Destructor(nullptr) {
       // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -313,6 +339,9 @@ class LastprivateItem : public Item
         OS << ") ";
       } else  //invoke parent's print function for regular case
         Item::print(OS, PrintType);
+    }
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_Lastprivate;
     }
 };
 
@@ -411,9 +440,9 @@ public:
     ArraySectionInfo ArrSecInfo;
 
   public:
-    ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
-      Ty(Op), IsUnsigned(false), IsInReduction(false), Combiner(nullptr),
-      Initializer(nullptr) {}
+    ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
+        : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false),
+          IsInReduction(false), Combiner(nullptr), Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
@@ -521,6 +550,7 @@ public:
       }
       OS << ") ";
     }
+    static bool classof(const Item *I) { return I->getKind() == IK_Reduction; }
 };
 
 //
@@ -533,9 +563,10 @@ class CopyinItem : public Item
     RDECL Copy;
 
   public:
-    CopyinItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
+    CopyinItem(VAR Orig) : Item(Orig, IK_Copyin), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
+    static bool classof(const Item *I) { return I->getKind() == IK_Copyin; }
 };
 
 
@@ -548,9 +579,10 @@ class CopyprivateItem : public Item
     RDECL Copy;
 
   public:
-    CopyprivateItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
+    CopyprivateItem(VAR Orig) : Item(Orig, IK_Copyprivate), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
+    static bool classof(const Item *I) { return I->getKind() == IK_Copyprivate; }
 };
 
 
@@ -565,7 +597,7 @@ class LinearItem : public Item
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
-    LinearItem(VAR Orig) : Item(Orig), Step(nullptr) {}
+    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr) {}
     void setStep(EXPR S) { Step = S; }
     EXPR getStep() const { return Step; }
 
@@ -579,6 +611,7 @@ class LinearItem : public Item
       Step->printAsOperand(OS, PrintType);
       OS << ") ";
     }
+    static bool classof(const Item *I) { return I->getKind() == IK_Linear; }
 };
 
 //
@@ -587,7 +620,8 @@ class LinearItem : public Item
 class UniformItem : public Item
 {
   public:
-    UniformItem(VAR Orig) : Item(Orig) {}
+    UniformItem(VAR Orig) : Item(Orig, IK_Uniform) {}
+    static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
 };
 
 //  To support an aggregate object in a MAP clause, a chain of triples is used.
@@ -668,8 +702,9 @@ public:
     WRNMapRelease = 0x0020,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig), MapKind(0), InFirstprivate(nullptr) {}
-  MapItem(MapAggrTy* Aggr): Item(nullptr), MapKind(0), InFirstprivate(nullptr){
+  MapItem(VAR Orig) : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr) {}
+  MapItem(MapAggrTy *Aggr)
+      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr) {
     MapChain.push_back(Aggr);
   }
 
@@ -763,7 +798,10 @@ public:
 class IsDevicePtrItem : public Item
 {
   public:
-    IsDevicePtrItem(VAR Orig) : Item(Orig) {}
+    IsDevicePtrItem(VAR Orig) : Item(Orig, IK_IsDevicePtr) {}
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_IsDevicePtr;
+    }
 };
 
 
@@ -773,7 +811,10 @@ class IsDevicePtrItem : public Item
 class UseDevicePtrItem : public Item
 {
   public:
-    UseDevicePtrItem(VAR Orig) : Item(Orig) {}
+    UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_UseDevicePtr;
+    }
 };
 
 

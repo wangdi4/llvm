@@ -250,20 +250,36 @@ private:
   /// \brief Generate destructor calls for [first|last]private variables
   bool genDestructorCode(WRegionNode *W);
 
-  /// \brief A utility to privatize a variable within the region.
-  /// It creates and returns an AllocaInst for \p PrivValue.
-  AllocaInst *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
-                                     Instruction *InsertPt,
-                                     const StringRef VarNameSuff);
+  /// Extract the type and size of local Alloca to be created to privatize
+  /// \p OrigValue.
+  /// \param [in] OrigValue Input Value
+  /// \param [out] ElementType Type of one element
+  /// \param [out] NumElements Number of elements, in case \p OrigValue is
+  /// an array, \b nullptr otherwise.
+  static void getItemInfoFromValue(Value *OrigValue, Type *&ElementType,
+                                   Value *&NumElements);
 
-  /// Creates and return an AllocaInst for the local copy of \p PrivValue within
-  /// \p W. If \p ArrSecSize is provided, the local copy is a VLA of type \p
-  /// ArrSecType and size \p ArrSecSize. Otherwise, the type and length are same
-  /// as \p PrivValue.
-  AllocaInst *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
-                                     Instruction *InsertPt,
-                                     const StringRef VarNameSuff,
-                                     Type *ArrSecType, Value *ArrSecSize);
+  /// Generate an AllocaInst for an array of Type \p ElementType, size \p
+  /// NumElements, and name \p VarName. \p NumElements can be null for one
+  /// element. The generated Instruction is inserted before \pInsertPt.
+  static AllocaInst *genPrivatizationAlloca(Type *ElementType,
+                                            Value *NumElements,
+                                            Instruction *InsertPt,
+                                            const Twine &VarName = "");
+
+  /// Generate an AllocaInst for the local copy of \p OrigValue, with \p
+  /// NameSuffix appended at the end of its name. The AllocaInst is inserted
+  /// before \p InsertPt.
+  static AllocaInst *genPrivatizationAlloca(Value *OrigValue,
+                                            Instruction *InsertPt,
+                                            const Twine &NameSuffix = "");
+
+  /// Generate an AllocaInst for the local copy of ClauseItem \I for various
+  /// data-sharing clauses like private, firstprivate, lastprivate, reduction,
+  /// linear. \p NameSuffix is appended at the end of the generated
+  /// Instruction's name. The AllocaInst is inserted before \p InsertPt.
+  static AllocaInst *genPrivatizationAlloca(Item *I, Instruction *InsertPt,
+                                            const Twine &NameSuffix = "");
 
   /// \brief Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,

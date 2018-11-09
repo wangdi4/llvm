@@ -1901,10 +1901,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       computeArraySecReductionTypeOffsetSize(*RedI, InsertPt);
 
-      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-      NewRedInst = genPrivatizationAlloca(W, Orig, InsertPt, ".red",
-                                          ArrSecInfo.getElementType(),
-                                          ArrSecInfo.getSize());
+      NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
       RedI->setNew(NewRedInst);
 
       Value *ReplacementVal = getReductionItemReplacementValue(*RedI, InsertPt);
@@ -2196,62 +2193,87 @@ VPOParoptTransform::getReductionItemReplacementValue(ReductionItem const &RedI,
   return NewMinusOffsetAddr;
 }
 
-// A utility to privatize the variables within the region.
-AllocaInst *
-VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
-                                           Instruction *InsertPt,
-                                           const StringRef VarNameSuff) {
-  // LLVM_DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
-  // Generate a new Alloca instruction as privatization action
-  AllocaInst *NewPrivInst = nullptr;
+// Extract the type and size of local Alloca to be created to privatize
+// OrigValue.
+void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
+                                              Type *&ElementType,    // out
+                                              Value *&NumElements) { // out
 
-  assert(!(W->isBBSetEmpty()) &&
-         "genPrivatizationAlloca: WRN has empty BBSet");
+  assert(OrigValue && "Null input value.");
 
-  if (auto PrivInst = dyn_cast<AllocaInst>(PrivValue)) {
-    NewPrivInst = (AllocaInst *)PrivInst->clone();
+  ElementType = nullptr;
+  NumElements = nullptr;
 
-    // Add 'priv' suffix for the new alloca instruction
-    if (PrivInst->hasName())
-      NewPrivInst->setName(PrivInst->getName() + VarNameSuff);
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(OrigValue)) {
+    ElementType = AI->getAllocatedType();
+    if (AI->isArrayAllocation())
+      NumElements = AI->getArraySize();
 
-    NewPrivInst->insertBefore(InsertPt);
-  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(PrivValue)){
-    Type *ElemTy = GV->getValueType();
-    const DataLayout &DL = F->getParent()->getDataLayout();
-    NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
-                                 GV->getName());
-    NewPrivInst->insertBefore(InsertPt);
-  } else {
-    assert((isa<Argument>(PrivValue) || isa<GetElementPtrInst>(PrivValue)) &&
-           "genPrivatizationAlloca: unsupported private item");
-    Type *ElemTy = cast<PointerType>(PrivValue->getType())->getElementType();
-    const DataLayout &DL = F->getParent()->getDataLayout();
-    NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
-                                 PrivValue->getName());
-    NewPrivInst->insertBefore(InsertPt);
+    return;
   }
 
-  return NewPrivInst;
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(OrigValue)) {
+    ElementType = GV->getValueType();
+    return;
+  }
+
+  assert((isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue)) &&
+         "unsupported input Value");
+
+  ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
 }
 
-// A utility to privatize the variables within the region.
-AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
-    WRegionNode *W, Value *PrivValue, Instruction *InsertPt,
-    const StringRef VarNameSuff, Type *ArrSecElementType, Value *ArrSecSize) {
+// Generate an AllocaInst for an array of Type ElementType, size NumElements,
+// and name VarName.
+AllocaInst *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
+                                                       Value *NumElements,
+                                                       Instruction *InsertPt,
+                                                       const Twine &VarName) {
+  assert(ElementType && "Null element type.");
+  assert(InsertPt && "Null insertion anchor.");
 
-  if (!ArrSecSize)
-    return genPrivatizationAlloca(W, PrivValue, InsertPt, VarNameSuff);
-
-  Function *F = InsertPt->getParent()->getParent();
-  const DataLayout &DL = F->getParent()->getDataLayout();
+  Module *M = InsertPt->getModule();
+  const DataLayout &DL = M->getDataLayout();
   IRBuilder<> Builder(InsertPt);
 
-  assert(ArrSecElementType && "Null array section element type.");
-  auto *NewPrivInst =
-      Builder.CreateAlloca(ArrSecElementType, DL.getAllocaAddrSpace(),
-                           ArrSecSize, PrivValue->getName() + VarNameSuff);
-  return NewPrivInst;
+  return Builder.CreateAlloca(ElementType, DL.getAllocaAddrSpace(), NumElements,
+                              VarName);
+}
+
+// Generate an AllocaInst for the local copy of OrigValue.
+AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
+    Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix) {
+
+  assert(OrigValue && "genPrivatizationAlloca: Null input value.");
+
+  Type *ElementType = nullptr;
+  Value *NumElements = nullptr;
+
+  getItemInfoFromValue(OrigValue, ElementType, NumElements);
+  return genPrivatizationAlloca(ElementType, NumElements, InsertPt,
+                                OrigValue->getName() + NameSuffix);
+}
+
+// Generate an AllocaInst for the local copy of ClauseItem I for various
+// data-sharing clauses.
+AllocaInst *
+VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
+                                           const Twine &NameSuffix) {
+  assert(I && "Null Clause Item.");
+
+  Value *Orig = I->getOrig();
+  assert(Orig && "Null original Value in clause item.");
+
+  if (ReductionItem *RedI = dyn_cast<ReductionItem>(I)) {
+    if (RedI->getIsArraySection()) {
+      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+      return genPrivatizationAlloca(ArrSecInfo.getElementType(),
+                                    ArrSecInfo.getSize(), InsertPt,
+                                    Orig->getName() + NameSuffix);
+    }
+  }
+
+  return genPrivatizationAlloca(Orig, InsertPt, NameSuffix);
 }
 
 // Replace the variable with the privatized variable
@@ -2399,12 +2421,12 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
 
     // (A) Create private copy of the linear var to be used instead of the
     // original var inside the WRegion. (2)
-    NewLinearVar = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
-                                          ".linear");                   // (2)
+    NewLinearVar = genPrivatizationAlloca(LinearI, EntryBB->getFirstNonPHI(),
+                                          ".linear"); //                   (2)
 
     // Create a copy of the linear variable to capture its starting value (1)
     LinearStartVar =
-        genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(), ""); // (1)
+        genPrivatizationAlloca(LinearI, EntryBB->getFirstNonPHI()); //     (1)
     LinearStartVar->setName("linear.start");
 
     // Replace original var with the new var inside the region.
@@ -2496,8 +2518,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
-        NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
-                                             ".fpriv");
+        NewPrivInst =
+            genPrivatizationAlloca(FprivI, EntryBB->getFirstNonPHI(), ".fpriv");
 
         // By this it can uniformly handle the global/local firstprivate.
         // For the case of local firstprivate, the New is the same as the Orig.
@@ -2573,7 +2595,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       Value *NewPrivInst;
       if (!ForTask)
         NewPrivInst =
-            genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".lpriv");
+            genPrivatizationAlloca(LprivI, &EntryBB->front(), ".lpriv");
       else
         NewPrivInst = LprivI->getNew();
       genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
@@ -3118,7 +3140,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
 
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        NewPrivInst = genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
+        NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
 
         if (!ForTask) {
@@ -5568,8 +5590,8 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
         Builder.CreateInBoundsGEP(KmpCopyPrivateTy, DstArg, Indices);
     LoadInst *SrcLoad = Builder.CreateLoad(SrcGep);
     LoadInst *DstLoad = Builder.CreateLoad(DstGep);
-    Value *NewCopyPrivInst = genPrivatizationAlloca(
-        W, CprivI->getOrig(), EntryBB->getTerminator(), ".cp.priv");
+    Value *NewCopyPrivInst =
+        genPrivatizationAlloca(CprivI, EntryBB->getTerminator(), ".cp.priv");
     genLprivFini(NewCopyPrivInst, DstLoad, EntryBB->getTerminator());
     NewCopyPrivInst->replaceAllUsesWith(SrcLoad);
     cast<AllocaInst>(NewCopyPrivInst)->eraseFromParent();

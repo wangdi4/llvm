@@ -786,7 +786,7 @@ Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
   G->setTargetDeclare(true);
   Instruction *InsertPt = EntryBB->getFirstNonPHI();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  auto NewPrivInst = genPrivatizationAlloca(W, G, InsertPt, ".priv.mp");
+  auto NewPrivInst = genPrivatizationAlloca(G, InsertPt, ".priv.mp");
   genPrivatizationReplacement(W, G, NewPrivInst, IT);
 
   if (!VPOUtils::canBeRegisterized(NewPrivInst->getAllocatedType(), DL)) {
@@ -909,7 +909,7 @@ bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       Value *Orig = IsDevicePtrI->getOrig();
       Value *NewPrivInst = genPrivatizationAlloca(
-          W, Orig, EntryBB->getFirstNonPHI(), ".isdeviceptr");
+          IsDevicePtrI, EntryBB->getFirstNonPHI(), ".isdeviceptr");
       genPrivatizationReplacement(W, Orig, NewPrivInst, IsDevicePtrI);
       IsDevicePtrI->setNew(NewPrivInst);
       createEmptyPrvInitBB(W, PrivInitEntryBB);
