@@ -534,7 +534,7 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
   TermInst = TeamDispHeaderBB->getTerminator();
 
   // Generate branch for team.dispatch.cond for get MIN upper bound
-  TerminatorInst *NewTermInst =
+  Instruction *NewTermInst =
       BranchInst::Create(TeamDispBodyBB, TeamDispMinUBB, MinUB);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -549,7 +549,7 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
                              "team.top.test");
 
   // Generate branch for team.dispatch.cond for get MIN upper bound
-  TerminatorInst *TeamTopTestBI =
+  Instruction *TeamTopTestBI =
       BranchInst::Create(TeamInnerBodyBB, TeamExitBB, TeamTopTest);
   ReplaceInstWithInst(TermInst, TeamTopTestBI);
 
@@ -661,7 +661,7 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
   TermInst = DispatchHeaderBB->getTerminator();
 
   // Generate branch for dispatch.cond for get MIN upper bound
-  TerminatorInst *NewTermInst =
+  Instruction *NewTermInst =
       BranchInst::Create(DispatchBodyBB, DispatchMinUBB, MinUB);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
