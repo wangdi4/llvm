@@ -4104,6 +4104,12 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
   case Intrinsic::experimental_constrained_log2:
   case Intrinsic::experimental_constrained_rint:
   case Intrinsic::experimental_constrained_nearbyint:
+  case Intrinsic::experimental_constrained_maxnum:
+  case Intrinsic::experimental_constrained_minnum:
+  case Intrinsic::experimental_constrained_ceil:
+  case Intrinsic::experimental_constrained_floor:
+  case Intrinsic::experimental_constrained_round:
+  case Intrinsic::experimental_constrained_trunc:
     visitConstrainedFPIntrinsic(
         cast<ConstrainedFPIntrinsic>(*CS.getInstruction()));
     break;
@@ -4474,13 +4480,18 @@ void Verifier::visitIntrinsicCallSite(Intrinsic::ID ID, CallSite CS) {
 
     break;
   }
-  case Intrinsic::sadd_sat: {
+  case Intrinsic::sadd_sat:
+  case Intrinsic::uadd_sat:
+  case Intrinsic::ssub_sat:
+  case Intrinsic::usub_sat: {
     Value *Op1 = CS.getArgOperand(0);
     Value *Op2 = CS.getArgOperand(1);
     Assert(Op1->getType()->isIntOrIntVectorTy(),
-           "first operand of sadd_sat must be an int type or vector of ints");
+           "first operand of [us][add|sub]_sat must be an int type or vector "
+           "of ints");
     Assert(Op2->getType()->isIntOrIntVectorTy(),
-           "second operand of sadd_sat must be an int type or vector of ints");
+           "second operand of [us][add|sub]_sat must be an int type or vector "
+           "of ints");
     break;
   }
   };
