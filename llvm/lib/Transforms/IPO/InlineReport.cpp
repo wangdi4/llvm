@@ -103,7 +103,7 @@ const static InlPrtRecord InlineReasonText[] = {
     // InlrAddressComputations,
     {InlPrtCost, "Inlining for complicated address computations"},
     // InlrStackComputations,
-    {InlPrtCost, "Inlining for stack computations"},
+    {InlPrtCost, "Callee has key stack computations"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -184,6 +184,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callsite preferred for multiversioning"},
     // NinlrPreferSOAToAOS,
     {InlPrtSimple, "Callsite preferred for SOA-to-AOS"},
+    // NinlrStackComputations
+    {InlPrtSimple, "Callsite has key stack computations"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

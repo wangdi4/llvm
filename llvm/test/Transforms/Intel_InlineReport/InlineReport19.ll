@@ -137,20 +137,20 @@ define dso_local i32 @main() {
   ret i32 0
 }
 
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
-; CHECK: INLINE: mypushptr{{.*}}Inlining for stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
+; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
 ; CHECK: INLINE: mypushptr{{.*}}Callee has single callsite and local linkage
 ; CHECK-NOT: call void @mypushptr

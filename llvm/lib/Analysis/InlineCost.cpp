@@ -41,13 +41,15 @@
 #include "llvm/IR/InstVisitor.h"                    // INTEL
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/PatternMatch.h"                   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 #include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
-using namespace InlineReportTypes; // INTEL
+using namespace InlineReportTypes;  // INTEL
+using namespace llvm::PatternMatch; // INTEL
 
 #define DEBUG_TYPE "inline-cost"
 
@@ -2191,7 +2193,7 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
   return true;
 }
 
-static bool preferCloningToInlining(CallSite& CS,
+static bool preferCloningToInlining(CallSite CS,
                                     InliningLoopInfoCache& ILIC,
                                     bool PrepareForLTO) {
   // We don't need to check this if !PrepareForLTO because cloning after
@@ -2973,6 +2975,58 @@ void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
 }
 
 //
+// Starts with Value *V and traces back through a series of at least
+// 'MinBOpCount' but no more than 'MaxBOpCount' BinaryOperators which must
+// have the form:
+//   BinaryOperator W, constant or BinaryOperator constant, W
+// to get to a load of a GlobalValue.  If such a GlobalValue is found, we
+// return it, otherwise we return 'nullptr'.
+//
+static GlobalValue *traceBack(Value *V, unsigned MinBOpCount,
+                              unsigned MaxBOpCount) {
+  auto W = V;
+  auto BOp = dyn_cast<BinaryOperator>(W);
+  unsigned BOpCount = 0;
+  while (BOp) {
+    if (++BOpCount > MaxBOpCount)
+      return nullptr;
+    if (dyn_cast<ConstantInt>(BOp->getOperand(0))) {
+      W = BOp->getOperand(1);
+    } else if (dyn_cast<ConstantInt>(BOp->getOperand(1))) {
+      W = BOp->getOperand(0);
+    }
+    if (!W)
+      return nullptr;
+    BOp = dyn_cast<BinaryOperator>(W);
+  }
+  if (BOpCount < MinBOpCount)
+    return nullptr;
+  auto LI = dyn_cast<LoadInst>(W);
+  if (!LI)
+    return nullptr;
+  auto GV = dyn_cast<GlobalValue>(LI->getPointerOperand());
+  return GV;
+}
+
+//
+// Returns 'true' if the Function *F calls a realloc-like function, or if
+// heuristically we suspect it is a realloc-like function. (In a non-LTO
+// compilation, or the compile phase of an LTO, there are fewer functions with
+// IR than in the link phase of an LTO compilation of the same application.
+// So, a function that appears with IR in the link phase of an LTO
+// compilation could be merely a declaration in the compile phase, and
+// we would have no knowledge of its contents in the compile phase.)
+//
+static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
+  if (F->getName().contains("realloc"))
+    return true;
+  for (auto &I : instructions(F))
+    if (isReallocLikeFn(&I, TLI))
+      return true;
+  return false;
+}
+
+//
 // Return 'true' if the Function F should be inlined because it exposes some
 // important stack computations. (NOTE: Right now, we only qualify such a
 // function when we are not in the compile time pass of a link time
@@ -2989,8 +3043,8 @@ static bool worthInliningForStackComputations(Function *F,
   // for a Function that has two arguments.  The first should be a pointer,
   // and the second should be an integer.
   //
-  auto passesArgTest = [](Function *F) -> bool {
-    auto CalleeArgCount = std::distance(F->arg_begin(), F->arg_end());
+  auto PassesArgTest = [](Function *F) -> bool {
+    auto CalleeArgCount = F->arg_size();
     if (CalleeArgCount != 2)
       return false;
     Argument *Arg0 = F->arg_begin();
@@ -3010,8 +3064,8 @@ static bool worthInliningForStackComputations(Function *F,
   //   IncBB: Terminates in an unconditional branch to RetBB
   //   RetBB: Has only a return in it.
   //
-  auto passesControlFlowTest = [](Function *F) -> bool {
-    auto CalleeBBs = std::distance(F->begin(), F->end());
+  auto PassesControlFlowTest = [](Function *F) -> bool {
+    auto CalleeBBs = F->size();
     if (CalleeBBs != 3)
       return false;
     BasicBlock *EntryBB = &(F->getEntryBlock());
@@ -3039,44 +3093,6 @@ static bool worthInliningForStackComputations(Function *F,
   };
 
   //
-  // Starts with Value *V and traces back through a series of BinaryOperators
-  // which must have the form:
-  //   BinaryOperator W, constant or BinaryOperator constant, W
-  // to get to a load of a GlobalValue.  If such a GlobalValue is found, we
-  // return it, otherwise we return 'nullptr'.
-  //
-  auto traceBack = [](Value *V) -> GlobalValue * {
-    auto W = V;
-    auto BOp = dyn_cast<BinaryOperator>(W);
-    while (BOp) {
-      if (dyn_cast<ConstantInt>(BOp->getOperand(0))) {
-        W = BOp->getOperand(1);
-      } else if (dyn_cast<ConstantInt>(BOp->getOperand(1))) {
-        W = BOp->getOperand(0);
-      }
-      if (!W)
-        return nullptr;
-      BOp = dyn_cast<BinaryOperator>(W);
-    }
-    auto LI = dyn_cast<LoadInst>(W);
-    if (!LI)
-      return nullptr;
-    auto GV = dyn_cast<GlobalValue>(LI->getPointerOperand());
-    return GV;
-  };
-
-  //
-  // Returns 'true' if the Function *F calls a realloc-like function.
-  //
-  auto callsRealloc = [](Function *F, TargetLibraryInfo *TLI) -> bool {
-    for (auto &BB : *F)
-      for (auto &I : BB)
-        if (isReallocLikeFn(&I, TLI))
-          return true;
-    return false;
-  };
-
-  //
   // Returns 'true' if the Function *F passes the contents test.  Here, we are
   // looking for a test
   //   BinOpTest(GlobalStack) .SGT. GlobalMax
@@ -3084,7 +3100,7 @@ static bool worthInliningForStackComputations(Function *F,
   // in IncBB to a function that calls a realloc-like function. Here BinOpTest
   // is a series of BinaryOperators.
   //
-  auto passesContentsTest = [traceBack, callsRealloc](Function *F,
+  auto PassesContentsTest = [](Function *F,
       TargetLibraryInfo *TLI) -> bool {
     unsigned StoreCount = 0;
     unsigned CallCount = 0;
@@ -3100,7 +3116,7 @@ static bool worthInliningForStackComputations(Function *F,
     auto GlobalMaxPtr = dyn_cast<GlobalValue>(GlobalMax->getPointerOperand());
     if (!GlobalMaxPtr)
       return false;
-    auto GlobalStackPtr = traceBack(ICI->getOperand(0));
+    auto GlobalStackPtr = traceBack(ICI->getOperand(0), 1, 3);
     if (!GlobalStackPtr)
       return false;
     auto IncBB = BI->getSuccessor(0);
@@ -3139,15 +3155,157 @@ static bool worthInliningForStackComputations(Function *F,
     return false;
   if (WorthyFunction)
     return WorthyFunction == F;
-  if (FunctionsTestedFail.find(F) != FunctionsTestedFail.end())
+  if (FunctionsTestedFail.count(F))
     return false;
-  if (!passesArgTest(F) || !passesControlFlowTest(F) ||
-      !passesContentsTest(F, TLI)) {
+  if (!PassesArgTest(F) || !PassesControlFlowTest(F) ||
+      !PassesContentsTest(F, TLI)) {
     FunctionsTestedFail.insert(F);
     return false;
   }
   WorthyFunction = F;
   return true;
+}
+
+//
+// Return 'true' if Function *F should not be inlined due to its special
+// manipulation of stack instructions.
+//
+static bool preferNotToInlineForStackComputations(Function *F,
+                                                  TargetLibraryInfo *TLI) {
+  //
+  // Returns 'true' if the Function *F has no arguments.
+  //
+  auto PassesArgTest = [](Function *F) -> bool {
+    return F->arg_size() == 0;
+  };
+
+  //
+  // Returns 'true' if the Function *F has only one basic block.
+  //
+  auto PassesControlFlowTest = [](Function *F) -> bool {
+    return F->size() == 1;
+  };
+
+  //
+  // Returns 'true' if the Function *F passes the contents test.
+  // We are looking for two stores with the forms:
+  //   GlobalValue1 = BinOpTest(GlobalValue1)
+  //   GlobalValue2 = BitCast(call Realloc(BitCast(GlobalValue2),
+  //                                       ConstantInt * GlobalValue1)
+  // where the BitCasts are optional.
+  //
+  auto PassesContentsTest = [](Function *F,
+      TargetLibraryInfo *TLI) -> bool {
+    unsigned StoreCount = 0;
+    StoreInst *S0 = nullptr;
+    for (auto &I : F->getEntryBlock()) {
+      auto SI = dyn_cast<StoreInst>(&I);
+      if (SI) {
+        if (StoreCount == 0) {
+          // Find:  GlobalValue1 = BinOpTest(GlobalValue1)
+          auto GV1 = dyn_cast<GlobalValue>(SI->getPointerOperand());
+          if (!GV1)
+            return false;
+          auto GV2 = traceBack(SI->getValueOperand(), 3, 3);
+          if (GV2 != GV1)
+            return false;
+          S0 = SI;
+          StoreCount++;
+        } else if (StoreCount == 1) {
+          // Find:
+          //   GlobalValue2 = BitCast(call Realloc(BitCast(GlobalValue2),
+          //                                       ConstantInt * GlobalValue1)
+          auto SIP = SI->getPointerOperand();
+          auto BCSO = dyn_cast<BitCastOperator>(SIP);
+          if (BCSO)
+            SIP = BCSO->getOperand(0);
+          auto GV1 = dyn_cast<GlobalValue>(SIP);
+          if (!GV1)
+            return false;
+          // Look through a possible BitCast to find the call.
+          auto V = SI->getValueOperand();
+          auto BCI = dyn_cast<BitCastInst>(V);
+          if (BCI)
+            V = BCI->getOperand(0);
+          auto CI = dyn_cast<CallInst>(V);
+          if (!CI)
+            return false;
+          auto CS = CallSite(CI);
+          // Check the call's arguments.
+          if (CS.arg_size() != 2)
+            return false;
+          // Arg0 should be BitCast(GlobalValue2), where BitCast is optional.
+          auto V0 = CS.arg_begin();
+          auto LI = dyn_cast<LoadInst>(V0);
+          if (!LI)
+            return false;
+          auto W0 = LI->getPointerOperand();
+          auto BCO = dyn_cast<BitCastOperator>(W0);
+          if (BCO)
+            W0 = BCO->getOperand(0);
+          auto GV2 = dyn_cast<GlobalValue>(W0);
+          if (GV2 != GV1)
+            return false;
+          // Arg1 should be ConstantInt * GlobalValue1, where the multiply
+          // is implemented with a shift.
+          auto U = CS.arg_begin() + 1;
+          auto V1 = dyn_cast<Value>(U);
+          if (!V1)
+            return false;
+          Value *V2;
+          ConstantInt *ShlC;
+          if (!match(V1, m_Shl(m_Value(V2), m_ConstantInt(ShlC))))
+            return false;
+          auto SE = dyn_cast<SExtInst>(V2);
+          if (SE)
+            V2 = SE->getOperand(0);
+          if (V2 != S0->getValueOperand())
+            return false;
+          // The call should call realloc, or at least be something we
+          // suspect calls realloc.
+          if (!callsRealloc(CI->getCalledFunction(), TLI))
+            return false;
+          StoreCount++;
+        } else
+          // A third store is a deal breaker.
+          return false;
+      }
+    }
+    return StoreCount == 2;
+  };
+
+  //
+  // Use 'WorthyFunction' to store the single worthy Function if found.
+  // Use SmallPtrSet to store those Functions that have already been tested
+  // and have failed the test, so we don't need to test them again.
+  //
+  static Function *WorthyFunction = nullptr;
+  static SmallPtrSet<Function *, 32> FunctionsTestedFail;
+  if (!F || !TLI || !DTransInlineHeuristics)
+    return false;
+  if (WorthyFunction)
+    return WorthyFunction == F;
+  if (FunctionsTestedFail.count(F))
+    return false;
+  if (!PassesArgTest(F) || !PassesControlFlowTest(F) ||
+      !PassesContentsTest(F, TLI)) {
+    FunctionsTestedFail.insert(F);
+    return false;
+  }
+  WorthyFunction = F;
+  return true;
+}
+
+//
+// Return 'true' if Function *F should not be inlined due to its special
+// manipulation of stack instructions. (Note that inhibit calls into
+// CS.getCaller() so that the worthy function looks relatively similar in
+// both the compile and link step.
+//
+static bool preferNotToInlineForStackComputations(CallSite CS,
+                                                  TargetLibraryInfo *TLI) {
+   return preferNotToInlineForStackComputations(CS.getCaller(), TLI)
+     || preferNotToInlineForStackComputations(CS.getCalledFunction(), TLI);
 }
 
 /// Analyze a call site for potential inlining.
@@ -3216,6 +3374,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     *ReasonAddr = NinlrPreferSOAToAOS;
     return false;
   }
+  if (InlineForXmain &&
+      preferNotToInlineForStackComputations(CS, TLI)) {
+    *ReasonAddr = NinlrStackComputations;
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Give out bonuses for the callsite, as the instructions setting them up
@@ -3254,7 +3417,8 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
            }
         }
       }
-      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion, PrepareForLTO)) {
+      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion,
+                                 PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrForFusion);
       }
@@ -3267,7 +3431,6 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrAddressComputations);
       }
-
       if (worthInliningForStackComputations(&F, TLI, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrStackComputations);

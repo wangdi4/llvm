@@ -164,6 +164,7 @@ typedef enum {
    NinlrNullPtrMismatch,
    NinlrPreferMultiversioning,
    NinlrPreferSOAToAOS,
+   NinlrStackComputations,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
