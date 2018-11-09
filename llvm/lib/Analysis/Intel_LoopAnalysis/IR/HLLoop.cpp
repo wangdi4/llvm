@@ -1098,6 +1098,25 @@ bool HLLoop::hasDirective(int DirectiveID) const {
   return false;
 }
 
+bool HLLoop::hasSIMDRegionDirective() const {
+  const HLNode *PrevNode = this;
+
+  while ((PrevNode = PrevNode->getPrevNode())) {
+    const HLInst *Inst = dyn_cast<HLInst>(PrevNode);
+
+    // Loop, IF, Switch, etc.
+    if (!Inst)
+      return false;
+
+    // Check if the instruction has an operand bundle with DIR.OMP.SIMD tag
+    if (Inst->getNumOperandBundles() &&
+        Inst->getOperandBundleAt(0).getTagName().equals("DIR.OMP.SIMD"))
+      return true;
+  }
+
+  return false;
+}
+
 bool HLLoop::hasVectorizeIVDepPragma() const {
   return hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma() ||
          (AssumeIVDEPInnermostLoop && isInnermost());

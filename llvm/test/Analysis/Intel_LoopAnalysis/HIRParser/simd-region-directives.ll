@@ -1,0 +1,87 @@
+; Check parsing output for OMP SIMD loop verifying that it has the SIMD region directives are prepended/appended to it
+; Input LLVM IR generated for below C program with command: icx -O3 -fiopenmp -mllvm -print-module-before-loopopt
+
+; float arr[1024];
+;
+; float  foo(int n1)
+; {
+;     int index;
+;
+; #pragma omp simd
+;     for (index = 0; index < 1024; index++) {
+;         if (arr[index] > 0) {
+;             arr[index + n1] = index + n1 * n1 + 3;
+;         }
+;     }
+;     return arr[0];
+; }
+
+
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+
+; CHECK: %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+; CHECK: + DO i1 = 0, 1023, 1   <DO_LOOP>
+; CHECK: |   %1 = (@arr)[0][i1];
+; CHECK: |   if (%1 > 0.000000e+00)
+; CHECK: |   {
+; CHECK: |      %conv = sitofp.i32.float(i1 + (%n1 * %n1) + 3);
+; CHECK: |      (@arr)[0][i1 + %n1] = %conv;
+; CHECK: |   }
+; CHECK: + END LOOP
+; CHECK: @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@arr = common dso_local local_unnamed_addr global [1024 x float] zeroinitializer, align 16
+
+; Function Attrs: nounwind uwtable
+define dso_local float @foo(i32 %n1) local_unnamed_addr {
+omp.inner.for.body.lr.ph:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %mul2 = mul nsw i32 %n1, %n1
+  %add3 = add nuw i32 %mul2, 3
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %omp.inner.for.body.lr.ph
+  %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %omp.inner.for.body.lr.ph ]
+  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %cmp1 = fcmp ogt float %1, 0.000000e+00
+  br i1 %cmp1, label %if.then, label %omp.inner.for.inc
+
+if.then:                                          ; preds = %omp.inner.for.body
+  %2 = trunc i64 %indvars.iv to i32
+  %add4 = add i32 %add3, %2
+  %conv = sitofp i32 %add4 to float
+  %add5 = add nsw i32 %2, %n1
+  %idxprom6 = sext i32 %add5 to i64
+  %arrayidx7 = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %idxprom6, !intel-tbaa !2
+  store float %conv, float* %arrayidx7, align 4, !tbaa !2
+  br label %omp.inner.for.inc
+
+omp.inner.for.inc:                                ; preds = %if.then, %omp.inner.for.body
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  %3 = load float, float* getelementptr inbounds ([1024 x float], [1024 x float]* @arr, i64 0, i64 0), align 16, !tbaa !2
+  ret float %3
+}
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
+
+attributes #1 = { nounwind }
+
+!2 = !{!3, !4, i64 0}
+!3 = !{!"array@_ZTSA1024_f", !4, i64 0}
+!4 = !{!"float", !5, i64 0}
+!5 = !{!"omnipotent char", !6, i64 0}
+!6 = !{!"Simple C/C++ TBAA"}

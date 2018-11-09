@@ -308,8 +308,9 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
     }
 
     return areEqualImpl(BRef1, BRef2);
+  }
 
-  } else if (auto RRef1 = dyn_cast<RegDDRef>(Ref1)) {
+  if (auto RRef1 = dyn_cast<RegDDRef>(Ref1)) {
     auto RRef2 = dyn_cast<RegDDRef>(Ref2);
     // Ref2 is Blob/Unknown Type, whereas Ref1 is Blob.
     if (!RRef2) {
@@ -319,17 +320,15 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
 
     return areEqualImpl(RRef1, RRef2, RelaxedMode);
 
-  } else {
-    llvm_unreachable("Unknown DDRef kind!");
   }
 
+  llvm_unreachable("Unknown DDRef kind!");
   return false;
 }
 
 bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2, unsigned LoopLevel,
                                       int64_t *Distance, bool RelaxedMode) {
-
   // Dealing with GEP refs only
   if (!Ref1->hasGEPInfo() || !Ref2->hasGEPInfo()) {
     return false;
@@ -390,7 +389,7 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
         Delta = CurDelta;
       }
     } else {
-      uint64_t DimStride = Ref1->getDimensionStride(I);
+      int64_t DimStride = Ref1->getDimensionConstStride(I);
       Delta += CurDelta * DimStride;
     }
   }

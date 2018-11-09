@@ -6,8 +6,8 @@ LLVM Specific JIRA Policies
    :local:
 
 The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `David Kreitzer
-<mailto:david.l.kreitzer@intel.com>`_.
+anything looks wrong to you, please contact `ICL Process Team
+<mailto:ICLProcessTeam@intel.com>`_.
 
 Introduction
 ============

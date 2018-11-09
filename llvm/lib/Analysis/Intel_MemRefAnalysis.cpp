@@ -34,9 +34,10 @@ OffsetResultTy BasicBlockMemRefAnalysis::isConstantOffset(MemInstType *A,
   assert(A && B && "Operands of isConstantOffset cannot be nullptr");
   Value *PtrA = A->getPointerOperand();
   Value *PtrB = B->getPointerOperand();
-  assert(PtrA->getType()->getPointerAddressSpace() ==
-             PtrB->getType()->getPointerAddressSpace() &&
-         "The address-space of the two pointers cannot be different");
+  if (PtrA->getType()->getPointerAddressSpace() !=
+             PtrB->getType()->getPointerAddressSpace())
+    return std::make_tuple(false, -1);
+
   const SCEV *Scev0 = SE.getSCEV(PtrA);
   const SCEV *Scev = SE.getSCEV(PtrB);
   const auto *Diff =

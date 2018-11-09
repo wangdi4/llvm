@@ -768,9 +768,31 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   bool NeedFirstItPeelLoop = SearchLoopNeedsPeeling & IsTCValidForPeeling;
   bool NeedRemainderLoop = false;
   HLLoop *PeelLoop = nullptr;
+  // Generate call to __Intel_PaddedMallocInterface() function and use its
+  // return value in runtime check. If the function returned 0 it means that
+  // vector code is not safe to execute.
+  // TODO: This code has to be moved out into VPlan xforms.
+  SmallVector<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>, 2> RTChecks;
+  if (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq) {
+    HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+    if (Function *PMFunction =
+            HNU.getModule().getFunction("__Intel_PaddedMallocInterface")) {
+      SmallVector<RegDDRef *, 0> Args;
+      HLInst *PaddingIsValid = HNU.createCall(PMFunction, Args, "padding.is.valid");
+      HLNodeUtils::insertBefore(OrigLoop, PaddingIsValid);
+      LLVMContext &Context = HNU.getContext();
+      Type *BoolTy = IntegerType::get(Context, 1);
+      DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
+      RegDDRef *ZeroRef = DDRU.createConstDDRef(BoolTy, 0);
+      HLPredicate Pred(PredicateTy::ICMP_NE);
+      auto Check = std::make_tuple(
+          Pred, PaddingIsValid->getLvalDDRef()->clone(), ZeroRef);
+      RTChecks.push_back(Check);
+    }
+  }
   auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
       OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
-      &PeelLoop, NeedFirstItPeelLoop);
+      &PeelLoop, NeedFirstItPeelLoop, &RTChecks);
 
   if (PeelLoop) {
     setNeedFirstItPeelLoop(NeedFirstItPeelLoop);

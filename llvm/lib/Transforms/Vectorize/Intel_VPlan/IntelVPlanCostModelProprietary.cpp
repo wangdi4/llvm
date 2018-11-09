@@ -90,7 +90,8 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
   if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)
     if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
       if (Group->size() > 1) {
-        unsigned VLSCost = OptVLSInterface::getGroupCost(*Group, *VLSCM);
+        unsigned VLSCost =
+            OptVLSInterface::getGroupCost(*Group, *VLSCM) / Group->size();
         if (VLSCost < Cost) {
           LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
                      dbgs() << " from " << Cost << " to " << VLSCost << '\n');

@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 
@@ -278,6 +279,15 @@ private:
                   ArrayMethodTransformation::OrigToCopyTy(),
                   CurrOff /*CurElem's offset in NewElement*/,
                   NewElement->getPointerTo(0));
+
+      // If the function was the constructor, copy constructor, destructor,
+      // realloc or append method, mark it so that the Weak Align pass can
+      // recognize it.
+      if (CopyElemInsts) {
+        auto *NewFunc = Impl.OrigFuncToCloneFuncMap[&OrigFunc];
+        DTransAnnotator::createDTransSOAToAOSTypeAnnotation(
+            *NewFunc, NewElement->getPointerTo());
+      }
     }
 
     void postprocessFunction(SOAToAOSTransformImpl &Impl, Function &OrigFunc,

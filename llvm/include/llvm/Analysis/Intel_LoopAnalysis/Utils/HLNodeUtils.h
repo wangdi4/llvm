@@ -1442,7 +1442,8 @@ public:
 
   /// Returns true if \p CE can wrap around at loop \p Level.
   static bool mayWraparound(const CanonExpr *CE, unsigned Level,
-                            const HLNode *ParentNode);
+                            const HLNode *ParentNode,
+                            const bool FitsIn32Bits = false);
 
   // Returns true if both HLIf nodes are equal.
   static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);

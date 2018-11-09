@@ -1,8 +1,4 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S < %s | FileCheck %s
-;
-; XFAIL: *
-; Enable this lit test after HIR patch to produce SIMD directives using the
-; OperandBundle representation is submitted
 
 ; CMPLRLLVM-7224: WRN support in HIR for SIMD with OperandBundle representation
 ; Test case from the Jira:

@@ -348,7 +348,7 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
       // of 5, the number of accesses are 3: A[0], A[1] and A[2].
       auto NumAccesses = ((IVCoeff * (NumElem - 1)) / Denom) + 1;
 
-      DimSize = NumAccesses * Ref->getDimensionStride(I);
+      DimSize = NumAccesses * Ref->getDimensionConstStride(I);
     }
 
     // (CacheLineSize - 1) is added to take the ceiling.

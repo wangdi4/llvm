@@ -568,6 +568,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *ReturnTy; // void for _tgt_target_data_*(); i32 otherwise
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
   Value *NumTeams = nullptr;
   Value *ThreadLimit = nullptr;
@@ -592,8 +593,9 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
     ReturnTy = Int32Ty;
 
     // Handle the "void *host_addr" parm of __tgt_target and __tgt_target_teams
-    FnArgs.push_back(HostAddr);
-    FnArgTypes.push_back(HostAddr->getType());
+    Value *BitCast = Builder.CreateBitCast(HostAddr, Int8PtrTy);
+    FnArgs.push_back(BitCast);
+    FnArgTypes.push_back(BitCast->getType());
     if (FnName == "__tgt_target_teams") {
       // __tgt_target_teams has two more parms: "int32_t num_teams" and
       // "int32_t thread_limit".  Initialize them here.

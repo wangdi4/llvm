@@ -716,16 +716,16 @@ public:
   /// Returns the stride in number of bytes for specified dimension.
   /// This is computed on the fly. DimensionNum must be within
   /// [1, getNumDimensions()].
-  uint64_t getDimensionStride(unsigned DimensionNum) const;
+  int64_t getDimensionConstStride(unsigned DimensionNum) const;
+
+  /// Returns the number of elements for specified dimension. 0 is returned for
+  /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
+  unsigned getNumDimensionElements(unsigned DimensionNum) const;
 
   /// Returns the size in number of bytes for specified dimension.
   /// This is computed on the fly. 0 is returned for pointer dimension.
   /// DimensionNum must be within [1, getNumDimensions()].
   uint64_t getDimensionSize(unsigned DimensionNum) const;
-
-  /// Returns the number of elements for specified dimension. 0 is returned for
-  /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
-  uint64_t getNumDimensionElements(unsigned DimensionNum) const;
 
   /// Returns the canon expr (dimension) of this DDRef at specified
   /// position. DimensionNum must be within [1, getNumDimensions()].
