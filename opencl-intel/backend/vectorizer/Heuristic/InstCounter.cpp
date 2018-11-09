@@ -242,7 +242,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
       Instruction* const I = &*IIter;
       if (discardPhis && dyn_cast<PHINode>(I))
         continue;
-      if (discardTerminator &&  dyn_cast<TerminatorInst>(I))
+      if (discardTerminator &&  I->isTerminator())
         continue;
 
       int instWeight = getInstructionWeight(I, MemOpCostMap);

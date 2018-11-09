@@ -345,7 +345,7 @@ void WIAnalysis::calculate_dep(const Value* val) {
   else if (const PHINode *Phi = dyn_cast<PHINode>(inst))                      dep = calculate_dep(Phi);
   else if (isa<ShuffleVectorInst>(inst))                                      dep = calculate_dep_simple(inst);
   else if (isa<StoreInst>(inst))                                              dep = calculate_dep_simple(inst);
-  else if (const TerminatorInst *TI = dyn_cast<TerminatorInst>(inst))         dep = calculate_dep(TI);
+  else if (inst->isTerminator())                                              dep = calculate_dep(inst);
   else if (const SelectInst *SI = dyn_cast<SelectInst>(inst))                 dep = calculate_dep(SI);
   else if (const AllocaInst *AI = dyn_cast<AllocaInst>(inst))                 dep = calculate_dep(AI);
   else if (const CastInst *CI = dyn_cast<CastInst>(inst))                     dep = calculate_dep(CI);
@@ -357,7 +357,7 @@ void WIAnalysis::calculate_dep(const Value* val) {
 }
 
 // Find divergent partial joins
-void WIAnalysis::findDivergePartialJoins(const TerminatorInst *inst) {
+void WIAnalysis::findDivergePartialJoins(const Instruction *inst) {
   assert(inst && "inst cannot be null");
   assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
   assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
@@ -473,7 +473,7 @@ void WIAnalysis::markDependentPhiRandom() {
   }
 }
 
-void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
+void WIAnalysis::updateCfDependency(const Instruction *inst) {
   BasicBlock *blk = (BasicBlock *)(inst->getParent());
 
   // If the root block is marked as divergent then we should not add
@@ -605,9 +605,8 @@ void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy 
     }
 
     // divergent branch, trigger updates due to control-dependence
-    const TerminatorInst *term = dyn_cast<TerminatorInst>(inst);
-    if (term && dep != WIAnalysis::UNIFORM) {
-      const BranchInst* br = dyn_cast<BranchInst>(term);
+    if (inst->isTerminator() && dep != WIAnalysis::UNIFORM) {
+      const BranchInst* br = dyn_cast<BranchInst>(inst);
       if (br && br->isConditional()) {
         m_divBranchesQueue.push(br);
         // Due to data structures sharing, every divergent branch should
@@ -881,7 +880,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const PHINode* inst) {
   return totalDep;
 }
 
-WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const TerminatorInst* inst) {
+WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Instruction* inst) {
   // Instruction has no return value
   // Just need to know if this inst is uniform or not
   // because we may want to avoid predication if the control flows
@@ -994,7 +993,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const VAArgInst* inst) {
 
 
 // Calculating the influence region, partial joins, and block uniformity
-void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
+void WIAnalysis::calcInfoForBranch(const Instruction *inst)
 {
   assert(inst && "inst cannot be null");
   assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");

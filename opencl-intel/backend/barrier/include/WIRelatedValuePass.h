@@ -101,7 +101,7 @@ namespace intel {
     bool calculate_dep(PHINode *pInst);
     bool calculate_dep(ShuffleVectorInst *pInst);
     bool calculate_dep(StoreInst *pInst);
-    bool calculate_dep(TerminatorInst *pInst);
+    bool calculate_dep(Instruction *pInst);
     bool calculate_dep(SelectInst *pInst);
     bool calculate_dep(AllocaInst *pInst);
     bool calculate_dep(CastInst *pInst);
