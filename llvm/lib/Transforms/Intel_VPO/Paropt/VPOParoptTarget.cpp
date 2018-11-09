@@ -251,28 +251,31 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   } else
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
 
-  if (isa<WRNTargetNode>(W)) {
-    Builder.SetInsertPoint(InsertPt);
-    Builder.CreateStore(Call, OffloadError);
+  if (!hasOffloadCompilation()) {
+    if (isa<WRNTargetNode>(W)) {
+      Builder.SetInsertPoint(InsertPt);
+      Builder.CreateStore(Call, OffloadError);
 
-    Builder.SetInsertPoint(NewCall);
-    LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
-    ConstantInt *ValueZero =
-        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
-    Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
-    Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
-                                                     false, nullptr, DT, LI);
-    Term->getParent()->setName("omp_offload.failed");
-    LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
-        "omp_offload.cont");
-    NewCall->removeFromParent();
-    NewCall->insertBefore(Term->getParent()->getTerminator());
-  } else if (isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
-    NewCall->removeFromParent();
-    NewCall->insertAfter(Call);
-  } else if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W)) {
-    NewCall->removeFromParent();
-    NewF->removeFromParent();
+      Builder.SetInsertPoint(NewCall);
+      LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
+      ConstantInt *ValueZero =
+          ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
+      Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
+      Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
+                                                    false, nullptr, DT, LI);
+      Term->getParent()->setName("omp_offload.failed");
+      LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
+          "omp_offload.cont");
+      NewCall->removeFromParent();
+      NewCall->insertBefore(Term->getParent()->getTerminator());
+    } else if (isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
+      NewCall->removeFromParent();
+      NewCall->insertAfter(Call);
+    } else if (isa<WRNTargetEnterDataNode>(W) ||
+               isa<WRNTargetExitDataNode>(W)) {
+      NewCall->removeFromParent();
+      NewF->removeFromParent();
+    }
   }
 
   W->resetBBSet(); // Invalidate BBSet after transformations
@@ -587,6 +590,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   }
 
   genOffloadArraysArgument(&Info, InsertPt, hasRuntimeEvaluationCaptureSize);
+  if (hasOffloadCompilation())
+    return Call;
 
   CallInst *TgtCall;
   if (isa<WRNTargetNode>(W)) {

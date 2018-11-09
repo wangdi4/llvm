@@ -409,6 +409,13 @@ GlobalVariable *VPOParoptModuleTransform::getDsoHandle() {
     return DsoHandle;
 
   DsoHandle = M.getGlobalVariable("__dso_handle");
+  if (!DsoHandle) {
+    DsoHandle = new GlobalVariable(M, Type::getInt8Ty(C), false,
+                                   GlobalValue::ExternalLinkage, nullptr,
+                                   "__dso_handle");
+    DsoHandle->setVisibility(GlobalValue::HiddenVisibility);
+  }
+
   return DsoHandle;
 }
 

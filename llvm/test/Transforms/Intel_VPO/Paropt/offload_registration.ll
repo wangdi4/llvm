@@ -55,7 +55,7 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK: define internal void [[OUTLINEDTARGET2:@.+]]()
 
 ; Check presence of unregistration code.
-; CHECK:     define internal void @[[UNREGFN:.+]]()
+; CHECK:     define internal void @[[UNREGFN:.+]](i8*)
 ; CHECK-SAME: comdat($[[REGFN]]) {
 ; CHECK:     call i32 @__tgt_unregister_lib({{.+}}* [[DESC]])
 ; CHECK:     ret void
@@ -65,6 +65,6 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK:     define linkonce hidden void @[[REGFN]]()
 ; CHECK-SAME: comdat {
 ; CHECK:     call i32 @__tgt_register_lib({{.+}}* [[DESC]])
-; CHECK:     call i32 @__cxa_atexit(void ()* @[[UNREGFN]], i8* bitcast ({{.+}}* [[DESC]] to i8*), i8* [[DSO_HANDLE]])
+; CHECK:     call i32 @__cxa_atexit(void (i8*)* @[[UNREGFN]], i8* bitcast ({{.+}}* [[DESC]] to i8*), i8* [[DSO_HANDLE]])
 ; CHECK:     ret void
 ; CHECK:     declare i32 @__tgt_register_lib({{.+}}*)
