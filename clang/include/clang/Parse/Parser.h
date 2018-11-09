@@ -1961,6 +1961,8 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> MinIIAtTargetFmaxHandler;
   std::unique_ptr<PragmaHandler> SpeculatedIterationsHandler;
   std::unique_ptr<PragmaHandler> DisableLoopPipeliningHandler;
+  std::unique_ptr<PragmaHandler> ForceHyperoptHandler;
+  std::unique_ptr<PragmaHandler> ForceNoHyperoptHandler;
 
   // Pragma inline
   std::unique_ptr<PragmaHandler> InlineHandler;

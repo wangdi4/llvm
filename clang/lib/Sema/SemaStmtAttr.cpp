@@ -99,6 +99,10 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
           PragmaNameLoc->Ident->getName() == "speculated_iterations";
   bool PragmaDisableLoopPipelining =
             PragmaNameLoc->Ident->getName() == "disable_loop_pipelining";
+  bool PragmaForceHyperopt =
+            PragmaNameLoc->Ident->getName() == "force_hyperopt";
+  bool PragmaForceNoHyperopt =
+            PragmaNameLoc->Ident->getName() == "force_no_hyperopt";
   bool PragmaDistributePoint =
       PragmaNameLoc->Ident->getName() == "distribute_point";
   bool PragmaNoFusion = PragmaNameLoc->Ident->getName() == "nofusion";
@@ -152,6 +156,8 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
             .Case("min_ii_at_target_fmax", "pragma min_ii_at_target_fmax")
             .Case("speculated_iterations", "pragma speculated_iterations")
             .Case("disable_loop_pipelining", "pragma disable_loop_pipelining")
+            .Case("force_hyperopt", "pragma force_hyperopt")
+            .Case("force_no_hyperopt", "pragma force_no_hyperopt")
             .Case("nofusion", "#pragma nofusion")
             .Case("fusion", "#pragma fusion")
             .Case("novector", "#pragma novector")
@@ -272,6 +278,12 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   } else if (PragmaDisableLoopPipelining) {
     Option = LoopHintAttr::DisableLoopPipelining;
     State = LoopHintAttr::Enable;
+  } else if (PragmaForceHyperopt) {
+    Option = LoopHintAttr::ForceHyperopt;
+    State = LoopHintAttr::Enable;
+  } else if (PragmaForceNoHyperopt) {
+    Option = LoopHintAttr::ForceHyperopt;
+    State = LoopHintAttr::Disable;
   } else if (PragmaDistributePoint) {
     Option = LoopHintAttr::Distribute;
     State = LoopHintAttr::Enable;
@@ -619,6 +631,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // MaxConcurrency
                    {nullptr, nullptr}, // SpeculatedIterations
                    {nullptr, nullptr}, // DisableLoopPipelining
+                   {nullptr, nullptr}, // ForceHyperopt
                    {nullptr, nullptr}, // Fusion
                    {nullptr, nullptr}, // VectorAlways
                    {nullptr, nullptr}, // LoopCount
@@ -657,6 +670,7 @@ CheckForIncompatibleAttributes(Sema &S,
       MaxConcurrency,
       SpeculatedIterations,
       DisableLoopPipelining,
+      ForceHyperopt,
       Fusion,
       VectorAlways,
       LoopCount,
@@ -699,6 +713,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::DisableLoopPipelining:
       Category = DisableLoopPipelining;
+      break;
+    case LoopHintAttr::ForceHyperopt:
+      Category = ForceHyperopt;
       break;
     case LoopHintAttr::Fusion:
       Category = Fusion;
@@ -782,6 +799,22 @@ CheckForIncompatibleAttributes(Sema &S,
       if (Category == IVDep)
         IVDepAttr = LH;
       Category = Unroll; // For multiple safelen diagnostics.
+    } else if (Option == LoopHintAttr::ForceHyperopt) {
+      assert(LH->getState() == LoopHintAttr::Enable ||
+             LH->getState() == LoopHintAttr::Disable);
+      PrevAttr = CategoryState.StateAttr;
+      CategoryState.StateAttr = LH;
+      if (PrevAttr) {
+        // Diagnose this here to get incompatible error instead of
+        // duplicate in cases with 'no' variants.
+        PrintingPolicy Policy(S.Context.getLangOpts());
+        SourceLocation OptionLoc = LH->getRange().getBegin();
+        bool Duplicate = PrevAttr->getState() == LH->getState();
+        S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
+          << Duplicate << PrevAttr->getDiagnosticName(Policy)
+          << LH->getDiagnosticName(Policy);
+        PrevAttr = nullptr; // Prevent additional diagnostics.
+      }
     } else if (Option == LoopHintAttr::II ||
                Option == LoopHintAttr::IIAtMost ||
                Option == LoopHintAttr::IIAtLeast ||
@@ -872,38 +905,35 @@ CheckForIncompatibleAttributes(Sema &S,
          IVDepAttr != nullptr ||
          HintAttrs[IVDep].NumericAttr != nullptr ||
          HintAttrs[IVDep].StateAttr != nullptr ||
+         HintAttrs[ForceHyperopt].StateAttr != nullptr ||
          HintAttrs[MaxConcurrency].NumericAttr != nullptr)) {
 
-      const LoopHintAttr *Attr = IVDepAttr;
+      const LoopHintAttr *PrevAttr = IVDepAttr;
       if (HintAttrs[II].NumericAttr)
-        Attr = HintAttrs[II].NumericAttr;
+        PrevAttr = HintAttrs[II].NumericAttr;
       else if (HintAttrs[MaxConcurrency].NumericAttr)
-        Attr = HintAttrs[MaxConcurrency].NumericAttr;
+        PrevAttr = HintAttrs[MaxConcurrency].NumericAttr;
       else if (HintAttrs[IVDep].NumericAttr)
-        Attr = HintAttrs[IVDep].NumericAttr;
+        PrevAttr = HintAttrs[IVDep].NumericAttr;
       else if (HintAttrs[IVDep].StateAttr)
-        Attr = HintAttrs[IVDep].StateAttr;
+        PrevAttr = HintAttrs[IVDep].StateAttr;
       else if (HintAttrs[SpeculatedIterations].NumericAttr)
-        Attr = HintAttrs[SpeculatedIterations].NumericAttr;
-      OptionLoc = Attr->getRange().getBegin();
+        PrevAttr = HintAttrs[SpeculatedIterations].NumericAttr;
+      else if (HintAttrs[ForceHyperopt].StateAttr)
+        PrevAttr = HintAttrs[ForceHyperopt].StateAttr;
+      OptionLoc = LH->getRange().getBegin();
       S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
-              << /*Duplicate=*/false
-              << CategoryState.StateAttr->getDiagnosticName(Policy)
-              << Attr->getDiagnosticName(Policy);
+              << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)
+              << LH->getDiagnosticName(Policy);
     } else if (HintAttrs[DisableLoopPipelining].StateAttr != nullptr &&
                (Category == II || Category == MaxConcurrency ||
-                Category == SpeculatedIterations ||
+                Category == SpeculatedIterations || Category == ForceHyperopt ||
                 (Category == Unroll && (IVDepAttr || CategoryState.StateAttr ||
                                         CategoryState.NumericAttr)))) {
-      const LoopHintAttr *Attr = IVDepAttr;
-      if (CategoryState.NumericAttr)
-        Attr = CategoryState.NumericAttr;
-      else if (CategoryState.StateAttr)
-        Attr = CategoryState.StateAttr;
+      const LoopHintAttr *PrevAttr = HintAttrs[DisableLoopPipelining].StateAttr;
       S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
-          << /*Duplicate=*/false << Attr->getDiagnosticName(Policy)
-          << HintAttrs[DisableLoopPipelining].StateAttr->getDiagnosticName(
-                 Policy);
+          << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)
+          << LH->getDiagnosticName(Policy);
     }
 #endif // INTEL_CUSTOMIZATION
   }

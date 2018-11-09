@@ -288,13 +288,13 @@ void foo_disable_loop_pipelining()
   #pragma max_concurrency 100  // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma max_concurrency 100  // expected-error {{incompatible directives}}
-  #pragma disable_loop_pipelining
+  #pragma max_concurrency 100
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ii  1 // expected-error {{incompatible directives}}
+  #pragma ii  1
   #pragma max_concurrency 100
-  #pragma disable_loop_pipelining
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
   int i, myArray[10];
@@ -303,8 +303,8 @@ void foo_disable_loop_pipelining()
   #pragma ivdep safelen(8)  // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep safelen(8)  // expected-error {{incompatible directives}}
-  #pragma disable_loop_pipelining
+  #pragma ivdep safelen(8)
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
   #pragma disable_loop_pipelining
@@ -315,12 +315,12 @@ void foo_disable_loop_pipelining()
   #pragma ii_at_most 4 // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ii_at_most 4 // expected-error {{incompatible directives}}
-  #pragma disable_loop_pipelining
+  #pragma ii_at_most 4
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ii_at_least 4444 // expected-error {{incompatible directives}}
-  #pragma disable_loop_pipelining
+  #pragma ii_at_least 4444
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
   #pragma disable_loop_pipelining
@@ -331,12 +331,12 @@ void foo_disable_loop_pipelining()
   #pragma min_ii_at_target_fmax  // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma min_ii_at_target_fmax  // eaxpected-error {{incompatible directives}}
-  #pragma disable_loop_pipelining
+  #pragma min_ii_at_target_fmax
+  #pragma disable_loop_pipelining // eaxpected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma speculated_iterations 4  // expected-error {{incompatible directives}}
-  #pragma disable_loop_pipelining
+  #pragma speculated_iterations 4
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
   #pragma disable_loop_pipelining
@@ -344,6 +344,58 @@ void foo_disable_loop_pipelining()
   for (int i=0;i<32;++i) {}
 }
 
+//CHECK: FunctionDecl{{.*}}foo_force_hyperopt
+void foo_force_hyperopt()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}ForceHyperopt Enable
+  #pragma force_hyperopt
+  for (int i=0;i<32;++i) {}
+
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}ForceHyperopt Disable
+  #pragma force_no_hyperopt
+  for (int i=0;i<32;++i) {}
+
+  #pragma force_hyperopt
+  #pragma force_hyperopt // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma force_hyperopt
+  #pragma force_no_hyperopt // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma force_no_hyperopt
+  #pragma force_hyperopt // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma force_no_hyperopt
+  #pragma force_no_hyperopt // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma force_hyperopt
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma force_no_hyperopt
+  #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma force_hyperopt // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma disable_loop_pipelining
+  #pragma force_no_hyperopt // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  int v;
+  #pragma force_hyperopt
+   v = 0; // expected-error {{expected a for, while, or do-while loop to follow}}
+  #pragma force_no_hyperopt
+   v = 0; // expected-error {{expected a for, while, or do-while loop to follow}}
+
+}
 //CHECK: FunctionDecl{{.*}}nontypeargument
 template <int size>
 void nontypeargument()

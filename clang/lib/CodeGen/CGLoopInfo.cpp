@@ -32,6 +32,7 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       Attrs.IIAtMost == 0 && Attrs.IIAtLeast == 0 &&
       Attrs.SpeculatedIterations == 0 &&
       !Attrs.MinIIAtTargetFmaxEnable && !Attrs.DisableLoopPipeliningEnable &&
+      Attrs.ForceHyperoptEnable == LoopAttributes::Unspecified &&
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
@@ -125,6 +126,13 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
   }
   if (Attrs.DisableLoopPipeliningEnable) {
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.pipelining.disable")};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.ForceHyperoptEnable != LoopAttributes::Unspecified) {
+    Metadata *Vals[] = {
+        MDString::get(Ctx, Attrs.ForceHyperoptEnable == LoopAttributes::Enable
+                               ? "llvm.loop.intel.hyperopt"
+                               : "llvm.loop.intel.nohyperopt")};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
   // Setting loop_coalesce
@@ -276,6 +284,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       IVDepHLSIntelEnable(false), IVDepCount(0),
       IIAtMost(0), IIAtLeast(0), SpeculatedIterations(0),
       MinIIAtTargetFmaxEnable(false), DisableLoopPipeliningEnable(false),
+      ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
       LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
@@ -296,6 +305,7 @@ void LoopAttributes::clear() {
   IVDepHLSEnable = false;
   IVDepHLSIntelEnable = false;
   IVDepCount = 0;
+  ForceHyperoptEnable = LoopAttributes::Unspecified;
   FusionEnable = LoopAttributes::Unspecified;
   IVDepLoop = false;
   IVDepBack = false;
@@ -395,12 +405,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Fusion:
         setFusionEnable(false);
         break;
-#endif // INTEL_CUSTOMIZATION
-      case LoopHintAttr::UnrollCount:
-      case LoopHintAttr::UnrollAndJamCount:
-      case LoopHintAttr::VectorizeWidth:
-      case LoopHintAttr::InterleaveCount:
-#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::ForceHyperopt:
+        setForceHyperoptEnable(false);
+        break;
       case LoopHintAttr::II:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
@@ -420,6 +427,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountAvg:
 #endif // INTEL_CUSTOMIZATION
+      case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::UnrollAndJamCount:
+      case LoopHintAttr::VectorizeWidth:
+      case LoopHintAttr::InterleaveCount:
         llvm_unreachable("Options cannot be disabled.");
         break;
       }
@@ -439,24 +450,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Distribute:
         setDistributeState(true);
         break;
-      case LoopHintAttr::UnrollCount:
-      case LoopHintAttr::UnrollAndJamCount:
-      case LoopHintAttr::VectorizeWidth:
-      case LoopHintAttr::InterleaveCount:
-        llvm_unreachable("Options cannot enabled.");
-        break;
 #if INTEL_CUSTOMIZATION
-      case LoopHintAttr::II:
-      case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::IIAtMost:
-      case LoopHintAttr::IIAtLeast:
-      case LoopHintAttr::SpeculatedIterations:
-      case LoopHintAttr::LoopCount:
-      case LoopHintAttr::LoopCountMin:
-      case LoopHintAttr::LoopCountMax:
-      case LoopHintAttr::LoopCountAvg:
-        llvm_unreachable("Options cannot enabled.");
-        break;
       case LoopHintAttr::IVDep:
         setIVDepEnable();
         break;
@@ -481,13 +475,31 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::DisableLoopPipelining:
         setDisableLoopPipeliningEnable();
         break;
+      case LoopHintAttr::ForceHyperopt:
+        setForceHyperoptEnable(true);
+        break;
       case LoopHintAttr::Fusion:
         setFusionEnable(true);
         break;
       case LoopHintAttr::VectorizeAlways:
         setVectorizeAlwaysEnable();
         break;
+      case LoopHintAttr::II:
+      case LoopHintAttr::MaxConcurrency:
+      case LoopHintAttr::IIAtMost:
+      case LoopHintAttr::IIAtLeast:
+      case LoopHintAttr::SpeculatedIterations:
+      case LoopHintAttr::LoopCount:
+      case LoopHintAttr::LoopCountMin:
+      case LoopHintAttr::LoopCountMax:
+      case LoopHintAttr::LoopCountAvg:
 #endif // INTEL_CUSTOMIZATION
+      case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::UnrollAndJamCount:
+      case LoopHintAttr::VectorizeWidth:
+      case LoopHintAttr::InterleaveCount:
+        llvm_unreachable("Options cannot enabled.");
+        break;
       }
       break;
     case LoopHintAttr::AssumeSafety:
@@ -498,13 +510,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setParallel(true);
         setVectorizeEnable(true);
         break;
-      case LoopHintAttr::Unroll:
-      case LoopHintAttr::UnrollAndJam:
-      case LoopHintAttr::UnrollCount:
-      case LoopHintAttr::UnrollAndJamCount:
-      case LoopHintAttr::VectorizeWidth:
-      case LoopHintAttr::InterleaveCount:
-      case LoopHintAttr::Distribute:
 #if INTEL_CUSTOMIZATION
       case LoopHintAttr::II:
       case LoopHintAttr::IVDep:
@@ -519,6 +524,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::SpeculatedIterations:
       case LoopHintAttr::DisableLoopPipelining:
+      case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::LoopCount:
@@ -526,6 +532,13 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountAvg:
 #endif // INTEL_CUSTOMIZATION
+      case LoopHintAttr::Unroll:
+      case LoopHintAttr::UnrollAndJam:
+      case LoopHintAttr::UnrollCount:
+      case LoopHintAttr::UnrollAndJamCount:
+      case LoopHintAttr::VectorizeWidth:
+      case LoopHintAttr::InterleaveCount:
+      case LoopHintAttr::Distribute:
         llvm_unreachable("Options cannot be used to assume mem safety.");
         break;
       }
@@ -550,6 +563,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::SpeculatedIterations:
       case LoopHintAttr::DisableLoopPipelining:
+      case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
@@ -622,6 +636,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         break;
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::DisableLoopPipelining:
+      case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
@@ -655,6 +670,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::SpeculatedIterations:
       case LoopHintAttr::DisableLoopPipelining:
+      case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Unroll:
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:

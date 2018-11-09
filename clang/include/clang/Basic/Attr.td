@@ -276,10 +276,10 @@ class SubjectDiag<bit warn, bit intel_warn = 0> { // INTEL
 }
 def WarnDiag : SubjectDiag<1>;
 def ErrorDiag : SubjectDiag<0>;
-//#if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 // Intel specific, allows converting a clang error to a warning in Intel mode.
 def IntelWarnDiag : SubjectDiag<0, 1>;
-//#endif // INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 class SubjectList<list<AttrSubject> subjects, SubjectDiag diag = WarnDiag,
                   string customDiag = ""> {
@@ -581,12 +581,12 @@ def Alias : Attr {
 def Aligned : InheritableAttr {
   let Spellings = [GCC<"aligned">, Declspec<"align">, Keyword<"alignas">,
                    Keyword<"_Alignas">];
-//#if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
   let Args = [AlignedArgument<"Alignment", 1>
 // Fix for CQ368132: __declspec (align) in icc can take more than one argument.
               , AlignedArgument<"Offset", 1>
   ];
-//#endif // INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
   let Accessors = [Accessor<"isGNU", [GCC<"aligned">]>,
                    Accessor<"isC11", [Keyword<"_Alignas">]>,
                    Accessor<"isAlignas", [Keyword<"alignas">,
@@ -2851,7 +2851,7 @@ def LoopHint : Attr {
 
   let Spellings = [Pragma<"clang", "loop">, Pragma<"", "unroll">,
                    Pragma<"", "nounroll">, Pragma<"", "unroll_and_jam">,
-//if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
                    Pragma<"", "nounroll_and_jam">,
                    Pragma<"", "ii">, Pragma<"", "ivdep">,
                    Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
@@ -2859,50 +2859,52 @@ def LoopHint : Attr {
                    Pragma<"", "min_ii_at_target_fmax">,
                    Pragma<"", "speculated_iterations">,
                    Pragma<"", "disable_loop_pipelining">,
+                   Pragma<"", "force_hyperopt">,
+                   Pragma<"", "force_no_hyperopt">,
                    Pragma<"", "distribute_point">,
                    Pragma<"", "nofusion">,
                    Pragma<"", "fusion">,
                    Pragma<"", "novector">,
                    Pragma<"", "vector">,
                    Pragma<"", "loop_count">];
-//endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
                            "unroll", "unroll_count", "unroll_and_jam", "unroll_and_jam_count",
-//if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
                            "distribute",
                            "ii", "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
                            "loop_coalesce", "max_concurrency",
                            "ii_at_most", "ii_at_least",
                            "min_ii_at_target_fmax", "speculated_iterations",
-                           "disable_loop_pipelining",
+                           "disable_loop_pipelining", "force_hyperopt",
                            "distribute_point", "fusion",
                            "novector", "always",
                            "loop_count", "max", "min", "avg"],
-//endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
                            "Unroll", "UnrollCount", "UnrollAndJam", "UnrollAndJamCount",
-//if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
                            "Distribute",
                            "II", "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
                            "LoopCoalesce", "MaxConcurrency",
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
                            "SpeculatedIterations", "DisableLoopPipelining",
-                           "Distribute", "Fusion", "Vectorize",
+                           "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
                            "VectorizeAlways", "LoopCount",
                            "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
-//endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
-//if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
                            ["enable", "disable", "numeric", "assume_safety",
                             "full", "loopexpr"],
                            ["Enable", "Disable", "Numeric", "AssumeSafety",
                             "Full", "LoopExpr"]>,
               ExprArgument<"Value">, ExprArgument<"LoopExprValue">];
-//endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
   let AdditionalMembers = [{
   static const char *getOptionName(int Option) {
     switch(Option) {
@@ -2915,13 +2917,13 @@ def LoopHint : Attr {
     case UnrollAndJam: return "unroll_and_jam";
     case UnrollAndJamCount: return "unroll_and_jam_count";
     case Distribute: return "distribute";
-//if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
     case VectorizeAlways: return "vectorize_always";
     case LoopCount: return "loop_count";
     case LoopCountMin: return "loop_count min";
     case LoopCountMax: return "loop_count max";
     case LoopCountAvg: return "loop_count avg";
-//endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unhandled LoopHint option.");
   }
@@ -2935,7 +2937,7 @@ def LoopHint : Attr {
     else if (SpellingIndex == Pragma_unroll || SpellingIndex == Pragma_unroll_and_jam) {
       OS << ' ' << getValueString(Policy);
       return;
-//if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
     } else if (SpellingIndex == Pragma_distribute_point)
       return;
     else if (SpellingIndex == Pragma_nofusion)
@@ -2946,7 +2948,11 @@ def LoopHint : Attr {
       return;
     else if (SpellingIndex == Pragma_vector)
       return;
-//endif INTEL_CUSTOMIZATION
+    else if (SpellingIndex == Pragma_force_hyperopt)
+      return;
+    else if (SpellingIndex == Pragma_force_no_hyperopt)
+      return;
+// end INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     OS << ' ' << getOptionName(option) << getValueString(Policy);
@@ -2984,7 +2990,7 @@ def LoopHint : Attr {
     else if (SpellingIndex == Pragma_unroll_and_jam)
       return "#pragma unroll_and_jam" +
         (option == UnrollAndJamCount ? getValueString(Policy) : "");
-//if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
     else if (SpellingIndex == Pragma_ii)
       return "#pragma ii";
     else if (SpellingIndex == Pragma_ivdep)
@@ -3003,6 +3009,10 @@ def LoopHint : Attr {
       return "#pragma speculated_iterations";
     else if (SpellingIndex == Pragma_disable_loop_pipelining)
       return "#pragma disable_loop_pipelining";
+    else if (SpellingIndex == Pragma_force_hyperopt)
+      return "#pragma force_hyperopt";
+    else if (SpellingIndex == Pragma_force_no_hyperopt)
+      return "#pragma force_no_hyperopt";
     else if (SpellingIndex == Pragma_distribute_point)
       return "#pragma distribute_point";
     else if (SpellingIndex == Pragma_nofusion)
@@ -3015,7 +3025,7 @@ def LoopHint : Attr {
       return "#pragma vector";
     else if (SpellingIndex == Pragma_loop_count)
       return getOptionName(option) + getValueString(Policy);
-//endif INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     return getOptionName(option) + getValueString(Policy);
