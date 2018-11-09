@@ -312,7 +312,7 @@ class Configuration(object):
             "inferred use_system_cxx_lib as: %r" % self.use_system_cxx_lib)
 
     def configure_availability(self):
-        # See http://llvm.org/docs/AvailabilityMarkup.html
+        # See https://libcxx.llvm.org/docs/DesignDocs/AvailabilityMarkup.html
         self.with_availability = self.get_lit_bool('with_availability', False)
         self.lit_config.note(
             "inferred with_availability as: %r" % self.with_availability)
@@ -585,7 +585,7 @@ class Configuration(object):
             self.cxx.flags += ['-arch', arch]
             self.cxx.flags += ['-m' + name + '-version-min=' + version]
 
-        # Disable availability unless explicitely requested
+        # Disable availability unless explicitly requested
         if not self.with_availability:
             self.cxx.flags += ['-D_LIBCPP_DISABLE_AVAILABILITY']
         # FIXME(EricWF): variant_size.pass.cpp requires a slightly larger

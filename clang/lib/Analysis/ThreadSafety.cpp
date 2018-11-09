@@ -1398,8 +1398,8 @@ const CallExpr* ThreadSafetyAnalyzer::getTrylockCallExpr(const Stmt *Cond,
     return getTrylockCallExpr(PE->getSubExpr(), C, Negate);
   else if (const auto *CE = dyn_cast<ImplicitCastExpr>(Cond))
     return getTrylockCallExpr(CE->getSubExpr(), C, Negate);
-  else if (const auto *EWC = dyn_cast<ExprWithCleanups>(Cond))
-    return getTrylockCallExpr(EWC->getSubExpr(), C, Negate);
+  else if (const auto *FE = dyn_cast<FullExpr>(Cond))
+    return getTrylockCallExpr(FE->getSubExpr(), C, Negate);
   else if (const auto *DRE = dyn_cast<DeclRefExpr>(Cond)) {
     const Expr *E = LocalVarMap.lookupExpr(DRE->getDecl(), C);
     return getTrylockCallExpr(E, C, Negate);
@@ -1435,6 +1435,17 @@ const CallExpr* ThreadSafetyAnalyzer::getTrylockCallExpr(const Stmt *Cond,
     if (BOP->getOpcode() == BO_LOr)
       return getTrylockCallExpr(BOP->getRHS(), C, Negate);
     return nullptr;
+  } else if (const auto *COP = dyn_cast<ConditionalOperator>(Cond)) {
+    bool TCond, FCond;
+    if (getStaticBooleanValue(COP->getTrueExpr(), TCond) &&
+        getStaticBooleanValue(COP->getFalseExpr(), FCond)) {
+      if (TCond && !FCond)
+        return getTrylockCallExpr(COP->getCond(), C, Negate);
+      if (!TCond && FCond) {
+        Negate = !Negate;
+        return getTrylockCallExpr(COP->getCond(), C, Negate);
+      }
+    }
   }
   return nullptr;
 }
@@ -1449,7 +1460,8 @@ void ThreadSafetyAnalyzer::getEdgeLockset(FactSet& Result,
   Result = ExitSet;
 
   const Stmt *Cond = PredBlock->getTerminatorCondition();
-  if (!Cond)
+  // We don't acquire try-locks on ?: branches, only when its result is used.
+  if (!Cond || isa<ConditionalOperator>(PredBlock->getTerminator()))
     return;
 
   bool Negate = false;

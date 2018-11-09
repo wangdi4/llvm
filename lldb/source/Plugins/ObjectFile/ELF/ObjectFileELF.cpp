@@ -18,6 +18,7 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
+#include "lldb/Host/FileSystem.h"
 #include "lldb/Symbol/DWARFCallFrameInfo.h"
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Target/SectionLoadList.h"
@@ -713,7 +714,8 @@ size_t ObjectFileELF::GetModuleSpecifications(
                   func_cat,
                   "Calculating module crc32 %s with size %" PRIu64 " KiB",
                   file.GetLastPathComponent().AsCString(),
-                  (file.GetByteSize() - file_offset) / 1024);
+                  (FileSystem::Instance().GetByteSize(file) - file_offset) /
+                      1024);
 
               // For core files - which usually don't happen to have a
               // gnu_debuglink, and are pretty bulky - calculating whole
@@ -953,7 +955,7 @@ lldb_private::FileSpecList ObjectFileELF::GetDebugSymbolFilePaths() {
   FileSpecList file_spec_list;
 
   if (!m_gnu_debuglink_file.empty()) {
-    FileSpec file_spec(m_gnu_debuglink_file, false);
+    FileSpec file_spec(m_gnu_debuglink_file);
     file_spec_list.Append(file_spec);
   }
   return file_spec_list;
@@ -1107,7 +1109,9 @@ size_t ObjectFileELF::ParseDependentModules() {
 
       uint32_t str_index = static_cast<uint32_t>(symbol.d_val);
       const char *lib_name = dynstr_data.PeekCStr(str_index);
-      m_filespec_ap->Append(FileSpec(lib_name, true));
+      FileSpec file_spec(lib_name);
+      FileSystem::Instance().Resolve(file_spec);
+      m_filespec_ap->Append(file_spec);
     }
   }
 
@@ -1790,12 +1794,14 @@ void ObjectFileELF::CreateSections(SectionList &unified_section_list) {
       static ConstString g_sect_name_dwarf_debug_line(".debug_line");
       static ConstString g_sect_name_dwarf_debug_line_str(".debug_line_str");
       static ConstString g_sect_name_dwarf_debug_loc(".debug_loc");
+      static ConstString g_sect_name_dwarf_debug_loclists(".debug_loclists");
       static ConstString g_sect_name_dwarf_debug_macinfo(".debug_macinfo");
       static ConstString g_sect_name_dwarf_debug_macro(".debug_macro");
       static ConstString g_sect_name_dwarf_debug_names(".debug_names");
       static ConstString g_sect_name_dwarf_debug_pubnames(".debug_pubnames");
       static ConstString g_sect_name_dwarf_debug_pubtypes(".debug_pubtypes");
       static ConstString g_sect_name_dwarf_debug_ranges(".debug_ranges");
+      static ConstString g_sect_name_dwarf_debug_rnglists(".debug_rnglists");
       static ConstString g_sect_name_dwarf_debug_str(".debug_str");
       static ConstString g_sect_name_dwarf_debug_str_offsets(
           ".debug_str_offsets");
@@ -1806,6 +1812,7 @@ void ObjectFileELF::CreateSections(SectionList &unified_section_list) {
       static ConstString g_sect_name_dwarf_debug_line_str_dwo(".debug_line_str.dwo");
       static ConstString g_sect_name_dwarf_debug_macro_dwo(".debug_macro.dwo");
       static ConstString g_sect_name_dwarf_debug_loc_dwo(".debug_loc.dwo");
+      static ConstString g_sect_name_dwarf_debug_loclists_dwo(".debug_loclists.dwo");
       static ConstString g_sect_name_dwarf_debug_str_dwo(".debug_str.dwo");
       static ConstString g_sect_name_dwarf_debug_str_offsets_dwo(
           ".debug_str_offsets.dwo");
@@ -1867,6 +1874,8 @@ void ObjectFileELF::CreateSections(SectionList &unified_section_list) {
         sect_type = eSectionTypeDWARFDebugLineStr;
       else if (name == g_sect_name_dwarf_debug_loc)
         sect_type = eSectionTypeDWARFDebugLoc;
+      else if (name == g_sect_name_dwarf_debug_loclists)
+        sect_type = eSectionTypeDWARFDebugLocLists;
       else if (name == g_sect_name_dwarf_debug_macinfo)
         sect_type = eSectionTypeDWARFDebugMacInfo;
       else if (name == g_sect_name_dwarf_debug_macro)
@@ -1879,6 +1888,8 @@ void ObjectFileELF::CreateSections(SectionList &unified_section_list) {
         sect_type = eSectionTypeDWARFDebugPubTypes;
       else if (name == g_sect_name_dwarf_debug_ranges)
         sect_type = eSectionTypeDWARFDebugRanges;
+      else if (name == g_sect_name_dwarf_debug_rnglists)
+        sect_type = eSectionTypeDWARFDebugRngLists;
       else if (name == g_sect_name_dwarf_debug_str)
         sect_type = eSectionTypeDWARFDebugStr;
       else if (name == g_sect_name_dwarf_debug_types)
@@ -1897,6 +1908,8 @@ void ObjectFileELF::CreateSections(SectionList &unified_section_list) {
         sect_type = eSectionTypeDWARFDebugMacro;
       else if (name == g_sect_name_dwarf_debug_loc_dwo)
         sect_type = eSectionTypeDWARFDebugLoc;
+      else if (name == g_sect_name_dwarf_debug_loclists_dwo)
+        sect_type = eSectionTypeDWARFDebugLocLists;
       else if (name == g_sect_name_dwarf_debug_str_dwo)
         sect_type = eSectionTypeDWARFDebugStr;
       else if (name == g_sect_name_dwarf_debug_str_offsets_dwo)
@@ -2863,8 +2876,6 @@ Symtab *ObjectFileELF::GetSymtab() {
     // do the section lookup next time.
     if (m_symtab_ap == nullptr)
       m_symtab_ap.reset(new Symtab(this));
-
-    m_symtab_ap->CalculateSymbolSizes();
   }
 
   return m_symtab_ap.get();

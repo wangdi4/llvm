@@ -582,7 +582,7 @@ static int64_t computeMipsAddend(const RelTy &Rel, const RelTy *End,
   if (PairTy == R_MIPS_NONE)
     return 0;
 
-  const uint8_t *Buf = Sec.Data.data();
+  const uint8_t *Buf = Sec.data().data();
   uint32_t SymIndex = Rel.getSymbol(Config->IsMips64EL);
 
   // To make things worse, paired relocations might not be contiguous in
@@ -610,7 +610,7 @@ static int64_t computeAddend(const RelTy &Rel, const RelTy *End,
   if (RelTy::IsRela) {
     Addend = getAddend<ELFT>(Rel);
   } else {
-    const uint8_t *Buf = Sec.Data.data();
+    const uint8_t *Buf = Sec.data().data();
     Addend = Target->getImplicitAddend(Buf + Rel.r_offset, Type);
   }
 
@@ -962,7 +962,7 @@ static void scanReloc(InputSectionBase &Sec, OffsetGetter &GetOffset, RelTy *&I,
   if (maybeReportUndefined(Sym, Sec, Rel.r_offset))
     return;
 
-  const uint8_t *RelocatedAddr = Sec.Data.begin() + Rel.r_offset;
+  const uint8_t *RelocatedAddr = Sec.data().begin() + Rel.r_offset;
   RelExpr Expr = Target->getRelExpr(Type, Sym, RelocatedAddr);
 
   // Ignore "hint" relocations because they are only markers for relaxation.
@@ -1086,6 +1086,20 @@ static bool mergeCmp(const InputSection *A, const InputSection *B) {
   }
 
   return false;
+}
+
+// Call Fn on every executable InputSection accessed via the linker script
+// InputSectionDescription::Sections.
+static void forEachInputSectionDescription(
+    ArrayRef<OutputSection *> OutputSections,
+    llvm::function_ref<void(OutputSection *, InputSectionDescription *)> Fn) {
+  for (OutputSection *OS : OutputSections) {
+    if (!(OS->Flags & SHF_ALLOC) || !(OS->Flags & SHF_EXECINSTR))
+      continue;
+    for (BaseCommand *BC : OS->SectionCommands)
+      if (auto *ISD = dyn_cast<InputSectionDescription>(BC))
+        Fn(OS, ISD);
+  }
 }
 
 // Thunk Implementation
@@ -1353,20 +1367,6 @@ std::pair<Thunk *, bool> ThunkCreator::getThunk(Symbol &Sym, RelType Type,
   Thunk *T = addThunk(Type, Sym);
   ThunkVec->push_back(T);
   return std::make_pair(T, true);
-}
-
-// Call Fn on every executable InputSection accessed via the linker script
-// InputSectionDescription::Sections.
-void ThunkCreator::forEachInputSectionDescription(
-    ArrayRef<OutputSection *> OutputSections,
-    llvm::function_ref<void(OutputSection *, InputSectionDescription *)> Fn) {
-  for (OutputSection *OS : OutputSections) {
-    if (!(OS->Flags & SHF_ALLOC) || !(OS->Flags & SHF_EXECINSTR))
-      continue;
-    for (BaseCommand *BC : OS->SectionCommands)
-      if (auto *ISD = dyn_cast<InputSectionDescription>(BC))
-        Fn(OS, ISD);
-  }
 }
 
 // Return true if the relocation target is an in range Thunk.

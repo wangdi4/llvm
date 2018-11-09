@@ -13,10 +13,10 @@
 #include <cassert>
 #include <numeric>
 
+using namespace llvm;
 namespace clang {
 namespace clangd {
 namespace dex {
-
 namespace {
 
 /// Implements Iterator over the intersection of other iterators.
@@ -40,11 +40,10 @@ public:
     // highest element starting from the front. When child iterators in the
     // beginning have smaller estimated size, the sync() will have less restarts
     // and become more effective.
-    std::sort(begin(Children), end(Children),
-              [](const std::unique_ptr<Iterator> &LHS,
-                 const std::unique_ptr<Iterator> &RHS) {
-                return LHS->estimateSize() < RHS->estimateSize();
-              });
+    llvm::sort(Children, [](const std::unique_ptr<Iterator> &LHS,
+                            const std::unique_ptr<Iterator> &RHS) {
+      return LHS->estimateSize() < RHS->estimateSize();
+    });
   }
 
   bool reachedEnd() const override { return ReachedEnd; }
@@ -78,7 +77,7 @@ public:
   }
 
 private:
-  llvm::raw_ostream &dump(llvm::raw_ostream &OS) const override {
+  raw_ostream &dump(raw_ostream &OS) const override {
     OS << "(& ";
     auto Separator = "";
     for (const auto &Child : Children) {
@@ -199,7 +198,7 @@ public:
   }
 
 private:
-  llvm::raw_ostream &dump(llvm::raw_ostream &OS) const override {
+  raw_ostream &dump(raw_ostream &OS) const override {
     OS << "(| ";
     auto Separator = "";
     for (const auto &Child : Children) {
@@ -247,9 +246,7 @@ public:
   size_t estimateSize() const override { return Size; }
 
 private:
-  llvm::raw_ostream &dump(llvm::raw_ostream &OS) const override {
-    return OS << "true";
-  }
+  raw_ostream &dump(raw_ostream &OS) const override { return OS << "true"; }
 
   DocID Index = 0;
   /// Size of the underlying virtual PostingList.
@@ -274,9 +271,7 @@ public:
   size_t estimateSize() const override { return 0; }
 
 private:
-  llvm::raw_ostream &dump(llvm::raw_ostream &OS) const override {
-    return OS << "false";
-  }
+  raw_ostream &dump(raw_ostream &OS) const override { return OS << "false"; }
 };
 
 /// Boost iterator is a wrapper around its child which multiplies scores of
@@ -299,7 +294,7 @@ public:
   size_t estimateSize() const override { return Child->estimateSize(); }
 
 private:
-  llvm::raw_ostream &dump(llvm::raw_ostream &OS) const override {
+  raw_ostream &dump(raw_ostream &OS) const override {
     return OS << "(* " << Factor << ' ' << *Child << ')';
   }
 
@@ -339,7 +334,7 @@ public:
   }
 
 private:
-  llvm::raw_ostream &dump(llvm::raw_ostream &OS) const override {
+  raw_ostream &dump(raw_ostream &OS) const override {
     return OS << "(LIMIT " << Limit << " " << *Child << ')';
   }
 

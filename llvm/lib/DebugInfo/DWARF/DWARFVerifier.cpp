@@ -194,6 +194,7 @@ unsigned DWARFVerifier::verifyUnitContents(DWARFUnit &Unit) {
       dump(Die) << '\n';
       NumUnitErrors++;
     }
+    NumUnitErrors += verifyDebugInfoCallSite(Die);
   }
 
   DWARFDie Die = Unit.getUnitDIE(/* ExtractUnitDIEOnly = */ false);
@@ -221,6 +222,38 @@ unsigned DWARFVerifier::verifyUnitContents(DWARFUnit &Unit) {
   NumUnitErrors += verifyDieRanges(Die, RI);
 
   return NumUnitErrors;
+}
+
+unsigned DWARFVerifier::verifyDebugInfoCallSite(const DWARFDie &Die) {
+  if (Die.getTag() != DW_TAG_call_site)
+    return 0;
+
+  DWARFDie Curr = Die.getParent();
+  for (; Curr.isValid() && !Curr.isSubprogramDIE(); Curr = Die.getParent()) {
+    if (Curr.getTag() == DW_TAG_inlined_subroutine) {
+      error() << "Call site entry nested within inlined subroutine:";
+      Curr.dump(OS);
+      return 1;
+    }
+  }
+
+  if (!Curr.isValid()) {
+    error() << "Call site entry not nested within a valid subprogram:";
+    Die.dump(OS);
+    return 1;
+  }
+
+  Optional<DWARFFormValue> CallAttr =
+      Curr.find({DW_AT_call_all_calls, DW_AT_call_all_source_calls,
+                 DW_AT_call_all_tail_calls});
+  if (!CallAttr) {
+    error() << "Subprogram with call site entry has no DW_AT_call attribute:";
+    Curr.dump(OS);
+    Die.dump(OS, /*indent*/ 1);
+    return 1;
+  }
+
+  return 0;
 }
 
 unsigned DWARFVerifier::verifyAbbrevSection(const DWARFDebugAbbrev *Abbrev) {
@@ -292,9 +325,10 @@ unsigned DWARFVerifier::verifyUnitSection(const DWARFSection &S,
       case dwarf::DW_UT_split_type: {
         Unit = TypeUnitVector.addUnit(llvm::make_unique<DWARFTypeUnit>(
             DCtx, S, Header, DCtx.getDebugAbbrev(), &DObj.getRangeSection(),
-            DObj.getStringSection(), DObj.getStringOffsetSection(),
-            &DObj.getAppleObjCSection(), DObj.getLineSection(),
-            DCtx.isLittleEndian(), false, TypeUnitVector));
+            &DObj.getLocSection(), DObj.getStringSection(),
+            DObj.getStringOffsetSection(), &DObj.getAppleObjCSection(),
+            DObj.getLineSection(), DCtx.isLittleEndian(), false,
+            TypeUnitVector));
         break;
       }
       case dwarf::DW_UT_skeleton:
@@ -305,9 +339,10 @@ unsigned DWARFVerifier::verifyUnitSection(const DWARFSection &S,
       case 0: {
         Unit = CompileUnitVector.addUnit(llvm::make_unique<DWARFCompileUnit>(
             DCtx, S, Header, DCtx.getDebugAbbrev(), &DObj.getRangeSection(),
-            DObj.getStringSection(), DObj.getStringOffsetSection(),
-            &DObj.getAppleObjCSection(), DObj.getLineSection(),
-            DCtx.isLittleEndian(), false, CompileUnitVector));
+            &DObj.getLocSection(), DObj.getStringSection(),
+            DObj.getStringOffsetSection(), &DObj.getAppleObjCSection(),
+            DObj.getLineSection(), DCtx.isLittleEndian(), false,
+            CompileUnitVector));
         break;
       }
       default: { llvm_unreachable("Invalid UnitType."); }
@@ -359,20 +394,42 @@ unsigned DWARFVerifier::verifyDieRanges(const DWARFDie &Die,
   // Build RI for this DIE and check that ranges within this DIE do not
   // overlap.
   DieRangeInfo RI(Die);
-  for (auto Range : Ranges) {
-    if (!Range.valid()) {
-      ++NumErrors;
-      error() << "Invalid address range " << Range << "\n";
-      continue;
-    }
 
-    // Verify that ranges don't intersect.
-    const auto IntersectingRange = RI.insert(Range);
-    if (IntersectingRange != RI.Ranges.end()) {
-      ++NumErrors;
-      error() << "DIE has overlapping address ranges: " << Range << " and "
-              << *IntersectingRange << "\n";
-      break;
+  // TODO support object files better
+  //
+  // Some object file formats (i.e. non-MachO) support COMDAT.  ELF in
+  // particular does so by placing each function into a section.  The DWARF data
+  // for the function at that point uses a section relative DW_FORM_addrp for
+  // the DW_AT_low_pc and a DW_FORM_data4 for the offset as the DW_AT_high_pc.
+  // In such a case, when the Die is the CU, the ranges will overlap, and we
+  // will flag valid conflicting ranges as invalid.
+  //
+  // For such targets, we should read the ranges from the CU and partition them
+  // by the section id.  The ranges within a particular section should be
+  // disjoint, although the ranges across sections may overlap.  We would map
+  // the child die to the entity that it references and the section with which
+  // it is associated.  The child would then be checked against the range
+  // information for the associated section.
+  //
+  // For now, simply elide the range verification for the CU DIEs if we are
+  // processing an object file.
+
+  if (!IsObjectFile || IsMachOObject || Die.getTag() != DW_TAG_compile_unit) {
+    for (auto Range : Ranges) {
+      if (!Range.valid()) {
+        ++NumErrors;
+        error() << "Invalid address range " << Range << "\n";
+        continue;
+      }
+
+      // Verify that ranges don't intersect.
+      const auto IntersectingRange = RI.insert(Range);
+      if (IntersectingRange != RI.Ranges.end()) {
+        ++NumErrors;
+        error() << "DIE has overlapping address ranges: " << Range << " and "
+                << *IntersectingRange << "\n";
+        break;
+      }
     }
   }
 
@@ -475,14 +532,15 @@ unsigned DWARFVerifier::verifyDebugInfoAttribute(const DWARFDie &Die,
                   "incompatible tag " +
                   TagString(RefTag));
     }
+    break;
   }
   case DW_AT_type: {
     DWARFDie TypeDie = Die.getAttributeValueAsReferencedDie(DW_AT_type);
     if (TypeDie && !isType(TypeDie.getTag())) {
       ReportError("DIE has " + AttributeString(Attr) +
                   " with incompatible tag " + TagString(TypeDie.getTag()));
-      break;
     }
+    break;
   }
   default:
     break;
@@ -706,6 +764,16 @@ void DWARFVerifier::verifyDebugLineRows() {
         PrevAddress = Row.Address;
       ++RowIndex;
     }
+  }
+}
+
+DWARFVerifier::DWARFVerifier(raw_ostream &S, DWARFContext &D,
+                             DIDumpOptions DumpOpts)
+    : OS(S), DCtx(D), DumpOpts(std::move(DumpOpts)), IsObjectFile(false),
+      IsMachOObject(false) {
+  if (const auto *F = DCtx.getDWARFObj().getFile()) {
+    IsObjectFile = F->isRelocatableObject();
+    IsMachOObject = F->isMachO();
   }
 }
 

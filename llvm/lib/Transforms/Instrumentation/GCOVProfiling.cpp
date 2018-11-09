@@ -570,9 +570,14 @@ void GCOVProfiler::emitProfileNotes() {
                                                 Options.ExitBlockBeforeBody));
       GCOVFunction &Func = *Funcs.back();
 
+      // Add the function line number to the lines of the entry block
+      // to have a counter for the function definition.
+      uint32_t Line = SP->getLine();
+      Func.getBlock(&EntryBlock).getFile(SP->getFilename()).addLine(Line);
+
       for (auto &BB : F) {
         GCOVBlock &Block = Func.getBlock(&BB);
-        TerminatorInst *TI = BB.getTerminator();
+        Instruction *TI = BB.getTerminator();
         if (int successors = TI->getNumSuccessors()) {
           for (int i = 0; i != successors; ++i) {
             Block.addEdge(Func.getBlock(TI->getSuccessor(i)));
@@ -581,7 +586,6 @@ void GCOVProfiler::emitProfileNotes() {
           Block.addEdge(Func.getReturnBlock());
         }
 
-        uint32_t Line = 0;
         for (auto &I : BB) {
           // Debug intrinsic locations correspond to the location of the
           // declaration, not necessarily any statements or expressions.
@@ -603,6 +607,7 @@ void GCOVProfiler::emitProfileNotes() {
           GCOVLines &Lines = Block.getFile(SP->getFilename());
           Lines.addLine(Loc.getLine());
         }
+        Line = 0;
       }
       EdgeDestinations += Func.getEdgeDestinations();
     }
@@ -640,7 +645,7 @@ bool GCOVProfiler::emitProfileArcs() {
       DenseMap<std::pair<BasicBlock *, BasicBlock *>, unsigned> EdgeToCounter;
       unsigned Edges = 0;
       for (auto &BB : F) {
-        TerminatorInst *TI = BB.getTerminator();
+        Instruction *TI = BB.getTerminator();
         if (isa<ReturnInst>(TI)) {
           EdgeToCounter[{&BB, nullptr}] = Edges++;
         } else {
@@ -684,7 +689,7 @@ bool GCOVProfiler::emitProfileArcs() {
           Count = Builder.CreateAdd(Count, Builder.getInt64(1));
           Builder.CreateStore(Count, Phi);
 
-          TerminatorInst *TI = BB.getTerminator();
+          Instruction *TI = BB.getTerminator();
           if (isa<ReturnInst>(TI)) {
             auto It = EdgeToCounter.find({&BB, nullptr});
             assert(It != EdgeToCounter.end());

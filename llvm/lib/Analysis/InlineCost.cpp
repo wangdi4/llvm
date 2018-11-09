@@ -720,6 +720,7 @@ bool CallAnalyzer::visitCastInst(CastInst &I) {
   case Instruction::FPToSI:
     if (TTI.getFPOpCost(I.getType()) == TargetTransformInfo::TCC_Expensive)
       Cost += InlineConstants::CallPenalty;
+    break;
   default:
     break;
   }
@@ -1831,7 +1832,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS) {
     if (!IR)
       return IR;
 
-    TerminatorInst *TI = BB->getTerminator();
+    Instruction *TI = BB->getTerminator();
 
     // Add in the live successors by first checking whether we have terminator
     // that may be simplified based on the values simplified by this call.

@@ -318,6 +318,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(ignoringParenCasts);
   REGISTER_MATCHER(ignoringParenImpCasts);
   REGISTER_MATCHER(ignoringParens);
+  REGISTER_MATCHER(imaginaryLiteral);
   REGISTER_MATCHER(implicitCastExpr);
   REGISTER_MATCHER(implicitValueInitExpr);
   REGISTER_MATCHER(incompleteArrayType);
@@ -377,6 +378,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(isPure);
   REGISTER_MATCHER(isScoped);
   REGISTER_MATCHER(isSignedInteger);
+  REGISTER_MATCHER(isStaticLocal);
   REGISTER_MATCHER(isStaticStorageClass);
   REGISTER_MATCHER(isStruct);
   REGISTER_MATCHER(isTemplateInstantiation);
