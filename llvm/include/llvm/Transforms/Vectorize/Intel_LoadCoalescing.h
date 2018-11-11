@@ -170,7 +170,7 @@ protected:
   size_t getPosition(Instruction *I) const { return PosMap.lookup(I); }
 
 public:
-  using DefsTy = SmallPtrSet<Instruction *, 2>;
+  using DefsTy = SmallSetVector<Instruction *, 4>;
 
   GroupDependenceGraph() = delete;
   GroupDependenceGraph(const GroupDependenceGraph &) = delete;
@@ -210,7 +210,7 @@ private:
   AAResults *AA = nullptr;
   std::unique_ptr<GroupDependenceGraph> DAG;
 
-  SmallPtrSet<Instruction *, 8> ReadyList;
+  SmallSetVector<Instruction *, 8> ReadyList;
 
   SmallSetVector<Instruction *, 16> BottomUpScheduledInstrs;
 

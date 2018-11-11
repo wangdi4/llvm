@@ -324,7 +324,7 @@ bool GroupDependenceGraph::isInRegion(Instruction *I) const {
 
 Instruction *Scheduler::popReady(Instruction *I) {
   assert(ReadyList.count(I) && "'I' not in ready list.");
-  ReadyList.erase(I);
+  ReadyList.remove(I);
   return I;
 }
 

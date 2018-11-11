@@ -58,9 +58,9 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 !5 = !{!"Simple C/C++ TBAA"}
 
 ; CHECK:  [[L1:%.*]] = load <4 x double>, <4 x double>*
-; CHECK:  [[SH1:%.*]] = shufflevector <4 x double> [[L1]], <4 x double> undef, <2 x i32> <i32 2, i32 3>
-; CHECK:  [[SH2:%.*]] = shufflevector <4 x double> [[L1]], <4 x double> undef, <2 x i32> <i32 0, i32 1>
+; CHECK-DAG:  [[SH1:%.*]] = shufflevector <4 x double> [[L1]], <4 x double> undef, <2 x i32> <i32 2, i32 3>
+; CHECK-DAG:  [[SH2:%.*]] = shufflevector <4 x double> [[L1]], <4 x double> undef, <2 x i32> <i32 0, i32 1>
 
-; CHECK:  [[L2:%.*]] = load <4 x double>, <4 x double>*
-; CHECK:  [[SH4:%.*]] = shufflevector <4 x double> [[L2]], <4 x double> undef, <2 x i32> <i32 0, i32 1>
-; CHECK:  [[SH3:%.*]] = shufflevector <4 x double> [[L2]], <4 x double> undef, <2 x i32> <i32 2, i32 3>
+; CHECK-DAG:  [[L2:%.*]] = load <4 x double>, <4 x double>*
+; CHECK-DAG:  [[SH4:%.*]] = shufflevector <4 x double> [[L2]], <4 x double> undef, <2 x i32> <i32 0, i32 1>
+; CHECK-DAG:  [[SH3:%.*]] = shufflevector <4 x double> [[L2]], <4 x double> undef, <2 x i32> <i32 2, i32 3>

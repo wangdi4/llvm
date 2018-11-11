@@ -58,9 +58,9 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 !5 = !{!"Simple C/C++ TBAA"}
 
 ; CHECK:  [[L1:%.*]] = load <2 x double>, <2 x double>*
-; CHECK:  [[SH1:%.*]] = extractelement <2 x double> [[L1]], i32 1
-; CHECK:  [[SH2:%.*]] = extractelement <2 x double> [[L1]], i32 0
+; CHECK-DAG:  [[SH1:%.*]] = extractelement <2 x double> [[L1]], i32 1
+; CHECK-DAG:  [[SH2:%.*]] = extractelement <2 x double> [[L1]], i32 0
 
-; CHECK:  [[L2:%.*]] = load <2 x double>, <2 x double>*
-; CHECK:  [[SH4:%.*]] = extractelement <2 x double> [[L2]], i32 0
-; CHECK:  [[SH3:%.*]] = extractelement <2 x double> [[L2]], i32 1
+; CHECK-DAG:  [[L2:%.*]] = load <2 x double>, <2 x double>*
+; CHECK-DAG:  [[SH3:%.*]] = extractelement <2 x double> [[L2]], i32 1
+; CHECK-DAG:  [[SH4:%.*]] = extractelement <2 x double> [[L2]], i32 0
