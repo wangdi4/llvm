@@ -13,7 +13,7 @@
 
 ; CHECK-LABEL: BEGIN REGION { }
 ; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK-NEXT:    |   (%ptr_cast)[1:i1 + 1:4(float*:0)] = 1.500000e+01;
+; CHECK-NEXT:    |   (%"foo_$X")[0:0:400([100 x float]*:0)][1:i1 + 1:4([100 x float]:100)] = 1.500000e+01;
 ; CHECK-NEXT:    + END LOOP
 ; CHECK-NEXT:  END REGION
 

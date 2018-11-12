@@ -1,11 +1,21 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
 
 ; Check parsing output for the loop verifying that the load and store whose address is formed using multiple geps is parsed correctly.
 
+; BEGIN REGION { }
+;       + DO i1 = 0, %n + -1, 1
+;       |   + DO i2 = 0, %n + -1, 1
+;       |   |   %0 = (@B)[0][i2][i1];
+;       |   |   (@A)[0][i1][i2] = %0;
+;       |   + END LOOP
+;       + END LOOP
+; END REGION
+
 ; CHECK: DO i1 = 0, %n + -1
 ; CHECK-NEXT: DO i2 = 0, %n + -1
-; CHECK-NEXT: %0 = (@B)[0][i2][i1]
-; CHECK-NEXT: (@A)[0][i1][i2] = %0
+; CHECK-NEXT: %[[TMP:.*]] = (@B)[0:0:40000([100 x [100 x i32]]*:0)][0:i2:400([100 x [100 x i32]]:100)][0:i1:4([100 x i32]:100)]
+; CHECK-NEXT: (@A)[0:0:40000([100 x [100 x i32]]*:0)][0:i1:400([100 x [100 x i32]]:100)][0:i2:4([100 x i32]:100)] = %[[TMP]]
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 

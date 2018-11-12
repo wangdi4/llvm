@@ -360,61 +360,6 @@ Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
   return DimTy;
 }
 
-Type *RegDDRef::getMorePreciseDimensionType(Type *DimTy1, Type *DimTy2) {
-  if (!DimTy2) {
-    assert(DimTy1 && "One of the types should be non-null");
-    return DimTy1;
-  }
-
-  if (!DimTy1) {
-    assert(DimTy2 && "One of the types should be non-null");
-    return DimTy2;
-  }
-
-  if (DimTy1 == DimTy2) {
-    return DimTy1;
-  }
-
-  // TODO: Instead of two asserts, how about asserting once after the swap
-  // below? assert(T1->isArrayTy() && T2->isPointerTy() && "One array and one
-  // pointer type expected!");
-
-  assert((!DimTy1->isArrayTy() || !DimTy2->isArrayTy()) &&
-         "Types should not be different arrays");
-
-  assert((!DimTy1->isPointerTy() || !DimTy2->isPointerTy()) &&
-         "Types should not be different pointers");
-
-  if (DimTy2->isArrayTy()) {
-    // T1 will always be an array type.
-    std::swap(DimTy1, DimTy2);
-  }
-
-  auto IsArrayOfElements = [](Type *ArrayTy, Type *ElTy) {
-    assert(ArrayTy->isArrayTy() && "Array type expected");
-    while(ArrayTy->isArrayTy()) {
-      ArrayTy = ArrayTy->getArrayElementType();
-      if (ArrayTy == ElTy) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  assert(IsArrayOfElements(DimTy1, DimTy2->getPointerElementType()) &&
-         "Element types should match");
-  (void)IsArrayOfElements;
-  return DimTy1;
-}
-
-void RegDDRef::setDimensionType(unsigned DimensionNum, Type *Ty) {
-  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
-  assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
-
-  Type *&ExistingTypeInfo = GepInfo->DimTypes[DimensionNum - 1];
-  ExistingTypeInfo = getMorePreciseDimensionType(ExistingTypeInfo, Ty);
-}
-
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   const CanonExpr *CE = nullptr;
 

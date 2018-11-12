@@ -1,17 +1,19 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 
 ; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -hir-cost-model-throttling=0 2>&1 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -hir-cost-model-throttling=0 2>&1 | FileCheck %s
 
 ; Check parsing output for reduction chain in the loopnest
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, sext.i32.i64((-1 + %m)), 1   <DO_LOOP>
-; CHECK: |   |   %0 = (@A)[0][i2][i1];
-; CHECK: |   |   %t.034 = %0  +  %t.034;
-; CHECK: |   |   %t.034.out = %t.034;
-; CHECK: |   |   %1 = (@B)[0][i2][i1];
-; CHECK: |   |   %t.034 = %t.034  +  %1;
-; CHECK: |   |   %call = @foo1(%t.034.out);
+; CHECK: |   |   %[[T0:.*]] = (@A)[0][i2][i1];
+; CHECK: |   |   %[[T1:.*]] = %[[T0]]  +  %[[T1]];
+; CHECK: |   |   %[[T2:.*]] = %[[T1]];
+; CHECK: |   |   %[[T3:.*]] = (@B)[0][i2][i1];
+; CHECK: |   |   %[[T1]] = %[[T1]]  +  %[[T3]];
+; CHECK: |   |   %call = @foo1(%[[T2]]);
 ; CHECK: |   + END LOOP
 ; CHECK: |      %r.035 = %t.034.out;
 ; CHECK: |

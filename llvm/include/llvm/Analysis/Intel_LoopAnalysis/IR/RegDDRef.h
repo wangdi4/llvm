@@ -251,7 +251,12 @@ private:
   /// Clarifies the result type associated with \p DimensionNum.
   /// Pointer Ty* may be substituted to Ty* or to an array [ x Ty].
   /// Arrays may be substituted to the same arrays only.
-  void setDimensionType(unsigned DimensionNum, Type *Ty);
+  void setDimensionType(unsigned DimensionNum, Type *Ty) {
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+
+    GepInfo->DimTypes[DimensionNum - 1] = Ty;
+  }
 
   static Type *getMorePreciseDimensionType(Type *T1, Type *T2);
 
@@ -712,8 +717,8 @@ public:
   void setTrailingStructOffsets(unsigned DimensionNum,
                                 ArrayRef<unsigned> Offsets);
 
-  /// Returns trailing offsets for \p DimensionNum. Returns null if there are no
-  /// offsets.
+  /// Returns trailing offsets for \p DimensionNum. The array would be empty if
+  /// there are no offsets.
   ArrayRef<unsigned> getTrailingStructOffsets(unsigned DimensionNum) const;
 
   /// Removes trailing offsets for \p DimensionNum.
