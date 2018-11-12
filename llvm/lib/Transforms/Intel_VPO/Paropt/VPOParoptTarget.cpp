@@ -593,7 +593,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   if (hasOffloadCompilation())
     return Call;
 
-  CallInst *TgtCall;
+  CallInst *TgtCall = nullptr;
   if (isa<WRNTargetNode>(W)) {
     auto *IT = W->wrn_child_begin();
     if (IT != W->wrn_child_end() && isa<WRNTeamsNode>(*IT)) {
