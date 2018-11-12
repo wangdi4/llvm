@@ -1552,10 +1552,14 @@ bool DynCloneImpl::verifyCallsInInitRoutine(void) {
     switch (LF) {
     case LibFunc_calloc:
     case LibFunc_dunder_isoc99_sscanf:
+    case LibFunc_sscanf:
     case LibFunc_fclose:
+    case LibFunc_fgets:
     case LibFunc_fgets_unlocked:
     case LibFunc_fopen:
+    case LibFunc_fopen64:
     case LibFunc_puts:
+    case LibFunc_printf:
       return true;
 
     default:
@@ -1595,6 +1599,8 @@ bool DynCloneImpl::verifyCallsInInitRoutine(void) {
   auto HasAnyAccessToPtrStoredLocs = [&](Function *F,
                                          DynFieldSet &SimpleLocSet) {
     for (Instruction &II : instructions(F)) {
+      if (isa<DbgInfoIntrinsic>(II))
+        continue;
       if (isa<CallInst>(&II))
         return true;
       DynField DField;
@@ -1637,20 +1643,26 @@ bool DynCloneImpl::verifyCallsInInitRoutine(void) {
   // calls. Collect all user functions that are called and their
   // callsites.
   for (Instruction &I : instructions(InitRoutine)) {
+    if (isa<DbgInfoIntrinsic>(I))
+      continue;
     auto CS = CallSite(&I);
     if (!CS)
       continue;
     Function *F = CS.getCalledFunction();
     assert(F && "Expected direct call");
     if (F->isIntrinsic()) {
-      if (!IsSafeIntrinsic(F->getIntrinsicID()))
+      if (!IsSafeIntrinsic(F->getIntrinsicID())) {
+        LLVM_DEBUG(dbgs() << "Unexpected intrinsic call  " << I << "\n");
         return false;
+      }
       continue;
     }
     LibFunc Func;
     if (TLI.getLibFunc(*F, Func)) {
-      if (!IsSafeLibFunc(Func) || !TLI.has(Func))
+      if (!IsSafeLibFunc(Func) || !TLI.has(Func)) {
+        LLVM_DEBUG(dbgs() << "Unexpected Lib call  " << I << "\n");
         return false;
+      }
       continue;
     }
     UserCallFuncs[F].insert(cast<CallInst>(&I));
