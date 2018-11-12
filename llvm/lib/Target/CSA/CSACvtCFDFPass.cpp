@@ -344,8 +344,11 @@ MachineInstr *CSACvtCFDFPass::insertSWITCHForReg(unsigned Reg,
     MachineInstr *bi                = &*loc;
     unsigned switchFalseReg         = MRI->createVirtualRegister(TRC);
     unsigned switchTrueReg          = MRI->createVirtualRegister(TRC);
-    nameLIC(switchTrueReg, "", Reg, ".switch.", cdgpBB, ".true");
-    nameLIC(switchFalseReg, "", Reg, ".switch.", cdgpBB, ".false");
+    StringRef Name = LMFI->getLICName(Reg);
+    if (!Name.empty()) {
+      LMFI->setLICName(switchTrueReg, Name);
+      LMFI->setLICName(switchFalseReg, Name);
+    }
     assert(bi->getOperand(0).isReg());
     // generate switch op
     const unsigned switchOpcode = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
@@ -1850,9 +1853,7 @@ void CSACvtCFDFPass::setEdgePred(MachineBasicBlock *mbb,
     EdgePredicates[mbb] = std::make_pair(0, 0);
   }
   getEdge(EdgePredicates[mbb], childType) = ch;
-  nameLIC(ch, "", 0, "", mbb,
-    (childType == ControlDependenceNode::FALSE ? ".false.pred" :
-     childType == ControlDependenceNode::TRUE ? ".true.pred" : ".other.pred"));
+  LMFI->setLICName(ch, "edgePred");
   LLVM_DEBUG(dbgs() << "  Edge predicate of BB#" << mbb->getNumber() << "->BB#"
       << (*(mbb->succ_begin() + childType))->getNumber()
       << " is " << printReg(ch) << "\n");
@@ -2308,23 +2309,6 @@ bool CSACvtCFDFPass::replaceUndefWithIgn() {
 
   LLVM_DEBUG(errs() << "Finished converting implicit defs to %IGN reads.\n\n");
   return modified;
-}
-
-void CSACvtCFDFPass::nameLIC(unsigned vreg, const Twine &prefix,
-    unsigned baseReg, const Twine &infix,
-    const MachineBasicBlock *containingBlock, const Twine &suffix) {
-  // Ensure that the base register has a printable name.
-  if (baseReg && LMFI->getLICName(baseReg).empty())
-    LMFI->setLICName(baseReg,
-        "lic" + Twine(TargetRegisterInfo::virtReg2Index(vreg)));
-
-  if (vreg && LMFI->getLICName(vreg).empty())
-  LMFI->setLICName(vreg,
-      prefix +
-      (baseReg ? LMFI->getLICName(baseReg) : "") +
-      infix +
-      (containingBlock ? containingBlock->getName() : "") +
-      suffix);
 }
 
 std::pair<std::unique_ptr<PickTreeNode>, unsigned>

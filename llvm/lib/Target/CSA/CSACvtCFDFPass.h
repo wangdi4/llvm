@@ -352,15 +352,6 @@ private:
     bb2pick; // switch for Reg added in bb
   DenseMap<MachineBasicBlock *, unsigned> bb2rpo;
 
-  /// Assign a name to the LIC.
-  /// The generated name will be a concatenation of the 5 pieces in order of
-  /// the argument, although passing in 0 for baseReg or nullptr for the
-  /// containingBlock will cause those to be treated as the empty string.
-  void nameLIC(unsigned vreg, const Twine &prefix,
-      unsigned baseReg = 0, const Twine &infix = "",
-      const MachineBasicBlock *containingBlock = nullptr,
-      const Twine &suffix = "");
-
   /// Propagate block frequency and branch probability information to generated
   /// LIC groups.
   void assignLicFrequencies(MachineBlockFrequencyInfo &MBFI);
