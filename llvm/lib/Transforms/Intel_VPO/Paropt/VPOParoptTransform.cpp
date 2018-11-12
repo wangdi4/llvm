@@ -1188,7 +1188,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNCancel:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = genCancelCode(dyn_cast<WRNCancelNode>(W));
+          Changed = genCancelCode(cast<WRNCancelNode>(W));
           RemoveDirectives = true;
         }
         break;
@@ -3204,8 +3204,8 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
     PHINode *PN = dyn_cast<PHINode>(&I);
     unsigned NumPHIValues = PN->getNumIncomingValues();
     unsigned II;
-    Value *V = nullptr, *OV;
-    bool Match;
+    Value *V = nullptr, *OV = nullptr;
+    bool Match = false;
     for (II = 0; II < NumPHIValues; II++) {
       V = PN->getIncomingValue(II);
       if (!ValueToLiveinMap.count(V))
@@ -3251,7 +3251,7 @@ void VPOParoptTransform::wrnCollectLiveInVals(
     unsigned NumPHIValues = PN->getNumIncomingValues();
     unsigned II;
     BasicBlock *InBB;
-    Value *IV;
+    Value *IV = nullptr;
     for (II = 0; II < NumPHIValues; ++II) {
       InBB = PN->getIncomingBlock(II);
       if (InBB == PreheaderBB) {
@@ -3319,7 +3319,7 @@ void VPOParoptTransform::wrnCollectLiveOutVals(
         if (!L.contains(UserBB)) {
           LiveOutVals.insert(&I);
           if (isa<PHINode>(I))
-            buildECs(&L, dyn_cast<PHINode>(&I), ECs);
+            buildECs(&L, cast<PHINode>(&I), ECs);
         }
       }
     }
