@@ -64,8 +64,6 @@ VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
 
 // Create a VPInstruction with \p Src as source operand, \p ConvOpCode as
 // conversion opcode (ZExt, SExt or Trunc) and \p DestType as destination type.
-// TODO: \p DestType is not used at this point since VPInstruction doesn't have
-// type representation.
 VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
                                                     unsigned ConvOpCode,
                                                     Type *DestType) {
@@ -73,9 +71,8 @@ VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
           ConvOpCode == Instruction::Trunc) &&
          "Unexpected conversion OpCode.");
 
-  // TODO: We need to set the conversion type (DestType)!
   auto *NewConv = cast<VPInstruction>(
-      Builder.createNaryOp(ConvOpCode, {Src}, Src->getBaseType()));
+      Builder.createNaryOp(ConvOpCode, {Src}, DestType));
   return NewConv;
 }
 
@@ -185,6 +182,20 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
     // beginning of this function to return an existing external definition in
     // the VPlan pool.
     VPIndVar = Plan->getVPExternalDefForIV(IVLevel, Ty);
+
+  auto IVTy = VPIndVar->getBaseType();
+
+  // Add a conversion for VPIndVar if its type does not match canon expr
+  // type specified in Ty. We mimic the code from HIR CG here.
+  if (Ty != IVTy) {
+    assert(Ty->isIntegerTy() && "Expected integer type");
+    if (Ty->getPrimitiveSizeInBits() > IVTy->getPrimitiveSizeInBits()) {
+      bool IsNSW = OutermostHLp->isNSW();
+      VPIndVar = IsNSW ? decomposeConversion(VPIndVar, Instruction::SExt, Ty)
+                       : decomposeConversion(VPIndVar, Instruction::ZExt, Ty);
+    } else
+      VPIndVar = decomposeConversion(VPIndVar, Instruction::Trunc, Ty);
+  }
 
   DecompIV = combineDecompDefs(DecompIV, VPIndVar, Ty, Instruction::Mul);
   return DecompIV;

@@ -59,9 +59,9 @@
 ; CHECK-NEXT: i32 [[MUL2:%vp.*]] = mul i32 {{.*}} i32 2
 ; CHECK-NEXT: i32 [[ADD2:%vp.*]] = add i32 [[PHI3]] i32 [[MUL2]]
 ; CHECK-NEXT: i32 [[ADD3:%vp.*]] = add i32 [[ADD2]] i32 [[D_I1]]
-; CHECK-NEXT: i32 [[SEXT:%vp.*]] = sext i32 [[ADD3]]
+; CHECK-NEXT: i64 [[SEXT:%vp.*]] = sext i32 [[ADD3]]
 ; CHECK-NEXT: i32 [[PHI4:%vp.*]] = semi-phi i32 [[IFT]] i32 [[IFF]]
-; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp i64 [[IV:%vp.*]] i32 [[SEXT]]
+; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp i64 [[IV:%vp.*]] i64 [[SEXT]]
 ; CHECK-NEXT: i32 [[SEL:%vp.*]] = select i1 [[CMP]] i32 [[PHI4]] i32 [[D_I1]]
 ; CHECK-NEXT: store i32 [[SEL]] i32 {{.*}}
 

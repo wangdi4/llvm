@@ -17,9 +17,9 @@
 ;     } while (i < n);
 ; }
 
-; CHECK: i32 [[Sext:%.*]] = sext i32 {{.*}}
-; CHECK-NEXT: i32 [[Max:%.*]] = smax i32 [[Sext]] i64 1
-; CHECK-NEXT: i32 [[Add:%.*]] = add i32 [[Max]] i64 -1
+; CHECK: i64 [[Sext:%.*]] = sext i32 {{.*}}
+; CHECK-NEXT: i64 [[Max:%.*]] = smax i64 [[Sext]] i64 1
+; CHECK-NEXT: i64 [[Add:%.*]] = add i64 [[Max]] i64 -1
 ; CHECK-NEXT: SUCCESSORS(1):[[H:BB.*]]
 ; CHECK: [[H]] {{.*}}:
 ; CHECK-NEXT: i64 [[IVPhi:%.*]] = semi-phi

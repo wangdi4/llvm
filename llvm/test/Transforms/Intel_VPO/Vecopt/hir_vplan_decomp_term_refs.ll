@@ -25,7 +25,8 @@
 ; CHECK-NEXT: [[AddM6:%.*]] = add i32 [[MulAF]] i32 6
 ; CHECK-NEXT: [[Div7:%.*]] = sdiv i32 [[AddM6]] i32 7
 ; CHECK: [[Mul15F:%.*]] = mul i32 15 i32 {{%.*}}
-; CHECK-NEXT: [[MulMIV:%.*]] = mul i32 [[Mul15F]] i64 [[IVPhi]]
+; CHECK-NEXT: [[Trunc:%.*]] = trunc i64 [[IVPhi]]
+; CHECK-NEXT: [[MulMIV:%.*]] = mul i32 [[Mul15F]] i32 [[Trunc]]
 ; CHECK-NEXT: [[Div2:%.*]] = sdiv i32 [[MulMIV]] i32 2
 ; CHECK-NEXT: [[FinalAdd:%.*]] = add i32 [[Div7]] i32 [[Div2]]
 ; CHECK: store i32 [[FinalAdd]]
