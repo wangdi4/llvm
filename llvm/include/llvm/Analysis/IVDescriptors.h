@@ -59,8 +59,8 @@ class TargetTransformInfo;
 /// special case of chains of recurrences (CR). See ScalarEvolution for CR
 /// references.
 
-/// This struct holds information about recurrence variables.
-class RecurrenceDescriptor {
+/// This struct holds information about recurrence, kind, type, etc // INTEL.
+class RecurrenceDescriptorData { // INTEL
 public:
   /// This enum represents the kinds of recurrences that we support.
   enum RecurrenceKind {
@@ -86,14 +86,93 @@ public:
     MRK_FloatMin,
     MRK_FloatMax
   };
+#if INTEL_CUSTOMIZATION
+  RecurrenceKind getRecurrenceKind() const { return Kind; }
+  MinMaxRecurrenceKind getMinMaxRecurrenceKind() const { return MinMaxKind; }
 
+  /// Returns the type of the recurrence. This type can be narrower than the
+  /// actual type of the Phi if the recurrence has been type-promoted.
+  Type *getRecurrenceType() const { return RecurrenceType; }
+
+  /// Returns true if all source operands of the recurrence are SExtInsts.
+  bool isSigned() const { return IsSigned; }
+
+  /// Returns identity corresponding to the RecurrenceKind.
+  static Constant *getRecurrenceIdentity(RecurrenceKind K, Type *Tp);
+
+  /// Returns the opcode of binary operation corresponding to the
+  /// RecurrenceKind.
+  static unsigned getRecurrenceBinOp(RecurrenceKind Kind);
+
+  /// Returns true if the recurrence kind is an integer kind.
+  static bool isIntegerRecurrenceKind(RecurrenceKind Kind);
+
+  /// Returns true if the recurrence kind is a floating point kind.
+  static bool isFloatingPointRecurrenceKind(RecurrenceKind Kind);
+
+  /// Returns true if the recurrence kind is an arithmetic kind.
+  static bool isArithmeticRecurrenceKind(RecurrenceKind Kind);
+
+protected:
+  RecurrenceDescriptorData() = default;
+
+  RecurrenceDescriptorData(RecurrenceKind K, MinMaxRecurrenceKind MK, Type *RT,
+                           bool Signed)
+      : Kind(K), MinMaxKind(MK), RecurrenceType(RT), IsSigned(Signed) {}
+
+  // The kind of the recurrence.
+  RecurrenceKind Kind = RK_NoRecurrence;
+  // If this a min/max recurrence the kind of recurrence.
+  MinMaxRecurrenceKind MinMaxKind = MRK_Invalid;
+  // The type of the recurrence.
+  Type *RecurrenceType = nullptr;
+  // True if all source operands of the recurrence are SExtInsts.
+  bool IsSigned = false;
+};
+
+/// This struct holds information about recurrence variables.
+template <class ValueTy, class InstructionTy, typename ValueStorageTy>
+class RecurrenceDescriptorTempl : public RecurrenceDescriptorData {
+  using RDData = RecurrenceDescriptorData;
+
+public:
+  ValueTy *getRecurrenceStartValue() const { return StartValue; }
+  InstructionTy *getLoopExitInstr() const { return LoopExitInstr; }
+
+protected:
+  RecurrenceDescriptorTempl() = default;
+
+  RecurrenceDescriptorTempl(ValueTy *Start, InstructionTy *Exit,
+                           RecurrenceKind K, MinMaxRecurrenceKind MK, Type *RT,
+                           bool Signed)
+      : RDData(K, MK, RT, Signed), StartValue(Start), LoopExitInstr(Exit) {}
+
+  ValueStorageTy StartValue;
+  InstructionTy *LoopExitInstr = nullptr;
+};
+
+typedef TrackingVH<Value> DescriptorValueStorage;
+
+/// This struct holds information about recurrence variables.
+class RecurrenceDescriptor
+    : public RecurrenceDescriptorTempl<Value, Instruction,
+                                      DescriptorValueStorage> {
+  using RDTempl =
+      RecurrenceDescriptorTempl<Value, Instruction, DescriptorValueStorage>;
+
+public:
+#endif
   RecurrenceDescriptor() = default;
 
   RecurrenceDescriptor(Value *Start, Instruction *Exit, RecurrenceKind K,
                        MinMaxRecurrenceKind MK, Instruction *UAI, Type *RT,
                        bool Signed, SmallPtrSetImpl<Instruction *> &CI)
+#if INTEL_CUSTOMIZATION
+      : RDTempl(Start, Exit, K, MK, RT, Signed), UnsafeAlgebraInst(UAI) {
+#else
       : StartValue(Start), LoopExitInstr(Exit), Kind(K), MinMaxKind(MK),
         UnsafeAlgebraInst(UAI), RecurrenceType(RT), IsSigned(Signed) {
+#endif
     CastInsts.insert(CI.begin(), CI.end());
   }
 
@@ -150,13 +229,14 @@ public:
   /// or max(X, Y).
   static InstDesc isMinMaxSelectCmpPattern(Instruction *I, InstDesc &Prev);
 
+#if !INTEL_CUSTOMIZATION
   /// Returns identity corresponding to the RecurrenceKind.
   static Constant *getRecurrenceIdentity(RecurrenceKind K, Type *Tp);
 
   /// Returns the opcode of binary operation corresponding to the
   /// RecurrenceKind.
   static unsigned getRecurrenceBinOp(RecurrenceKind Kind);
-
+#endif
   /// Returns true if Phi is a reduction of type Kind and adds it to the
   /// RecurrenceDescriptor. If either \p DB is non-null or \p AC and \p DT are
   /// non-null, the minimal bit width needed to compute the reduction will be
@@ -190,6 +270,7 @@ public:
                          DenseMap<Instruction *, Instruction *> &SinkAfter,
                          DominatorTree *DT);
 
+#if !INTEL_CUSTOMIZATION
   RecurrenceKind getRecurrenceKind() { return Kind; }
 
   MinMaxRecurrenceKind getMinMaxRecurrenceKind() { return MinMaxKind; }
@@ -198,6 +279,7 @@ public:
 
   Instruction *getLoopExitInstr() { return LoopExitInstr; }
 
+#endif
   /// Returns true if the recurrence has unsafe algebra which requires a relaxed
   /// floating-point model.
   bool hasUnsafeAlgebra() { return UnsafeAlgebraInst != nullptr; }
@@ -205,6 +287,7 @@ public:
   /// Returns first unsafe algebra instruction in the PHI node's use-chain.
   Instruction *getUnsafeAlgebraInst() { return UnsafeAlgebraInst; }
 
+#if !INTEL_CUSTOMIZATION
   /// Returns true if the recurrence kind is an integer kind.
   static bool isIntegerRecurrenceKind(RecurrenceKind Kind);
 
@@ -218,14 +301,18 @@ public:
   /// actual type of the Phi if the recurrence has been type-promoted.
   Type *getRecurrenceType() { return RecurrenceType; }
 
+#endif
   /// Returns a reference to the instructions used for type-promoting the
   /// recurrence.
   SmallPtrSet<Instruction *, 8> &getCastInsts() { return CastInsts; }
 
+#if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
   bool isSigned() { return IsSigned; }
 
+#endif
 private:
+#if !INTEL_CUSTOMIZATION
   // The starting value of the recurrence.
   // It does not have to be zero!
   TrackingVH<Value> StartValue;
@@ -235,18 +322,21 @@ private:
   RecurrenceKind Kind = RK_NoRecurrence;
   // If this a min/max recurrence the kind of recurrence.
   MinMaxRecurrenceKind MinMaxKind = MRK_Invalid;
+#endif
   // First occurrence of unasfe algebra in the PHI's use-chain.
   Instruction *UnsafeAlgebraInst = nullptr;
+#if !INTEL_CUSTOMIZATION
   // The type of the recurrence.
   Type *RecurrenceType = nullptr;
   // True if all source operands of the recurrence are SExtInsts.
   bool IsSigned = false;
+#endif
   // Instructions used for type-promoting the recurrence.
   SmallPtrSet<Instruction *, 8> CastInsts;
 };
 
-/// A struct for saving information about induction variables.
-class InductionDescriptor {
+/// A struct for saving basic information about induction variables. // INTEL
+class InductionDescriptorData { // INTEL
 public:
   /// This enum represents the kinds of inductions that we support.
   enum InductionKind {
@@ -256,6 +346,61 @@ public:
     IK_FpInduction   ///< Floating point induction variable.
   };
 
+#if INTEL_CUSTOMIZATION
+  InductionKind getKind() const { return IK; }
+protected:
+  InductionDescriptorData() = default;
+  InductionDescriptorData(InductionKind K) : IK(K) {
+    assert(IK != IK_NoInduction && "Not an induction");
+  }
+
+  InductionKind IK = IK_NoInduction;
+};
+
+template<class ValueTy, class BinaryOperatorTy, typename ValueStorageTy>
+class InductionDescriptorTempl: public InductionDescriptorData {
+public:
+  ValueTy *getStartValue() const { return StartValue; }
+  BinaryOperatorTy *getInductionBinOp() const { return InductionBinOp; }
+
+  /// Returns binary opcode of the induction operator.
+  Instruction::BinaryOps getInductionOpcode() const {
+    return InductionBinOp ? InductionBinOp->getOpcode()
+                          : Instruction::BinaryOpsEnd;
+  }
+protected:
+  InductionDescriptorTempl() = default;
+
+  InductionDescriptorTempl(ValueTy *Start, InductionKind K,
+                          BinaryOperatorTy *BinOp)
+      : InductionDescriptorData(K), StartValue(Start), InductionBinOp(BinOp) {
+    // Start value type should match the induction kind and the value
+    // itself should not be null.
+    assert(StartValue && "StartValue is null");
+    assert((IK != IK_PtrInduction || StartValue->getType()->isPointerTy()) &&
+           "StartValue is not a pointer for pointer induction");
+    assert((IK != IK_IntInduction || StartValue->getType()->isIntegerTy()) &&
+           "StartValue is not an integer for integer induction");
+    // Check for the correct opcode.
+    assert((IK != IK_FpInduction ||
+            (InductionBinOp &&
+             (InductionBinOp->getOpcode() == Instruction::FAdd ||
+              InductionBinOp->getOpcode() == Instruction::FSub))) &&
+           "Binary opcode should be specified for FP induction");
+  }
+
+  /// Start value.
+  ValueStorageTy StartValue;
+
+  /// Instruction that advances induction variable.
+  BinaryOperatorTy *InductionBinOp = nullptr;
+};
+
+/// A struct for saving information about induction variables.
+class InductionDescriptor
+    : public InductionDescriptorTempl<Value, BinaryOperator,
+                                     DescriptorValueStorage> {
+#endif
 public:
   /// Default constructor - creates an invalid induction.
   InductionDescriptor() = default;
@@ -266,10 +411,14 @@ public:
   ///  -1 - consecutive and decreasing.
   int getConsecutiveDirection() const;
 
+#if !INTEL_CUSTOMIZATION
   Value *getStartValue() const { return StartValue; }
   InductionKind getKind() const { return IK; }
+#endif
   const SCEV *getStep() const { return Step; }
+#if !INTEL_CUSTOMIZATION
   BinaryOperator *getInductionBinOp() const { return InductionBinOp; }
+#endif
   ConstantInt *getConstIntStepValue() const;
 
   /// Returns true if \p Phi is an induction in the loop \p L. If \p Phi is an
@@ -315,12 +464,14 @@ public:
     return InductionBinOp;
   }
 
+#if !INTEL_CUSTOMIZATION
   /// Returns binary opcode of the induction operator.
   Instruction::BinaryOps getInductionOpcode() const {
     return InductionBinOp ? InductionBinOp->getOpcode()
                           : Instruction::BinaryOpsEnd;
   }
 
+#endif
   /// Returns a reference to the type cast instructions in the induction
   /// update chain, that are redundant when guarded with a runtime
   /// SCEV overflow check.
@@ -334,14 +485,18 @@ private:
                       BinaryOperator *InductionBinOp = nullptr,
                       SmallVectorImpl<Instruction *> *Casts = nullptr);
 
+#if !INTEL_CUSTOMIZATION
   /// Start value.
   TrackingVH<Value> StartValue;
   /// Induction kind.
   InductionKind IK = IK_NoInduction;
+#endif
   /// Step value.
   const SCEV *Step = nullptr;
+#if !INTEL_CUSTOMIZATION
   // Instruction that advances induction variable.
   BinaryOperator *InductionBinOp = nullptr;
+#endif
   // Instructions used for type-casts of the induction variable,
   // that are redundant when guarded with a runtime SCEV overflow check.
   SmallVector<Instruction *, 2> RedundantCasts;

@@ -49,7 +49,12 @@ bool RecurrenceDescriptor::areAllUsesIn(Instruction *I,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+bool RecurrenceDescriptorData::isIntegerRecurrenceKind(RecurrenceKind Kind) {
+#else
 bool RecurrenceDescriptor::isIntegerRecurrenceKind(RecurrenceKind Kind) {
+#endif
+
   switch (Kind) {
   default:
     break;
@@ -64,11 +69,20 @@ bool RecurrenceDescriptor::isIntegerRecurrenceKind(RecurrenceKind Kind) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool RecurrenceDescriptorData::isFloatingPointRecurrenceKind(
+    RecurrenceKind Kind) {
+#else
 bool RecurrenceDescriptor::isFloatingPointRecurrenceKind(RecurrenceKind Kind) {
+#endif
   return (Kind != RK_NoRecurrence) && !isIntegerRecurrenceKind(Kind);
 }
 
+#if INTEL_CUSTOMIZATION
+bool RecurrenceDescriptorData::isArithmeticRecurrenceKind(RecurrenceKind Kind) {
+#else
 bool RecurrenceDescriptor::isArithmeticRecurrenceKind(RecurrenceKind Kind) {
+#endif
   switch (Kind) {
   default:
     break;
@@ -657,8 +671,13 @@ bool RecurrenceDescriptor::isFirstOrderRecurrence(
 
 /// This function returns the identity element (or neutral element) for
 /// the operation K.
+#if INTEL_CUSTOMIZATION
+Constant *RecurrenceDescriptorData::getRecurrenceIdentity(RecurrenceKind K,
+                                                          Type *Tp) {
+#else
 Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurrenceKind K,
                                                       Type *Tp) {
+#endif
   switch (K) {
   case RK_IntegerXor:
   case RK_IntegerAdd:
@@ -683,7 +702,11 @@ Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurrenceKind K,
 }
 
 /// This function translates the recurrence kind to an LLVM binary operator.
+#if INTEL_CUSTOMIZATION
+unsigned RecurrenceDescriptorData::getRecurrenceBinOp(RecurrenceKind Kind) {
+#else
 unsigned RecurrenceDescriptor::getRecurrenceBinOp(RecurrenceKind Kind) {
+#endif
   switch (Kind) {
   case RK_IntegerAdd:
     return Instruction::Add;
@@ -711,6 +734,9 @@ unsigned RecurrenceDescriptor::getRecurrenceBinOp(RecurrenceKind Kind) {
 InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
                                          const SCEV *Step, BinaryOperator *BOp,
                                          SmallVectorImpl<Instruction *> *Casts)
+#if INTEL_CUSTOMIZATION
+    : InductionDescriptorTempl(Start, K, BOp), Step(Step) {
+#else
     : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp) {
   assert(IK != IK_NoInduction && "Not an induction");
 
@@ -721,6 +747,7 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
          "StartValue is not a pointer for pointer induction");
   assert((IK != IK_IntInduction || StartValue->getType()->isIntegerTy()) &&
          "StartValue is not an integer for integer induction");
+#endif
 
   // Check the Step Value. It should be non-zero integer value.
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
@@ -733,11 +760,13 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
 
   assert((IK != IK_FpInduction || Step->getType()->isFloatingPointTy()) &&
          "StepValue is not FP for FpInduction");
+#if !INTEL_CUSTOMIZATION
   assert((IK != IK_FpInduction ||
           (InductionBinOp &&
            (InductionBinOp->getOpcode() == Instruction::FAdd ||
             InductionBinOp->getOpcode() == Instruction::FSub))) &&
          "Binary opcode should be specified for FP induction");
+#endif
 
   if (Casts) {
     for (auto &Inst : *Casts) {
