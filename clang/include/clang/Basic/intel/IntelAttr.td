@@ -277,6 +277,19 @@ def MaxConcurrency : InheritableAttr {
   }];
 }
 
+def StallLatency : InheritableAttr {
+  let Spellings = [GNU<"stall_latency_enabled">, GNU<"stall_latency_disabled">];
+  let LangOpts = [OpenCL, HLS];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let PragmaAttributeSupport = 0;
+  let Documentation = [Undocumented];
+  let AdditionalMembers = [{
+    bool isEnabled() const {
+      return getSemanticSpelling() == GNU_stall_latency_enabled;
+    }
+  }];
+}
+
 def StallFreeReturn : InheritableAttr {
   let Spellings = [GNU<"stall_free_return">];
   let LangOpts = [HLS];

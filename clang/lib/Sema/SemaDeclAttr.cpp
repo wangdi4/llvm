@@ -3070,6 +3070,29 @@ static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttribute<StallEnableAttr>(S, D, Attr);
 }
 
+static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, AL, /*NumArgsExpected=*/0))
+    return;
+
+  if (const auto *SLA = D->getAttr<StallLatencyAttr>()) {
+    if (AL.getSemanticSpelling() == SLA->getSemanticSpelling())
+      S.Diag(AL.getLoc(), diag::warn_duplicate_attribute_exact) << SLA;
+    else {
+      S.Diag(AL.getLoc(), diag::err_attributes_are_not_compatible) << AL << SLA;
+      S.Diag(SLA->getLocation(), diag::note_conflicting_attribute);
+    }
+    return;
+  }
+
+  handleSimpleAttribute<StallLatencyAttr>(S, D, AL);
+}
+
 static void handleStallFreeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!S.getLangOpts().HLS &&
       !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
@@ -7991,6 +8014,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_StallEnable:
     handleStallEnableAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_StallLatency:
+    handleStallLatencyAttr(S, D, AL);
+    break;
   // Intel HLS specific attributes
   case ParsedAttr::AT_OptimizeFMax:
     handleOptimizeFMaxAttr(S, D, AL);
@@ -8185,6 +8211,16 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       Diag(A->getLocation(),
           diag::err_opencl_attribute_requires_another_to_be_specified)
           << A << "'reqd_work_group_size' or 'max_global_work_dim' attribute";
+      D->setInvalidDecl();
+    }
+  }
+  if (const auto *SLA = D->getAttr<StallLatencyAttr>()) {
+    if (getLangOpts().HLS && !D->hasAttr<ComponentAttr>()) {
+      Diag(D->getLocation(), diag::err_component_func_attr) << SLA;
+      D->setInvalidDecl();
+    } else if (Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+               !D->hasAttr<OpenCLKernelAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << SLA;
       D->setInvalidDecl();
     }
   }

@@ -1561,6 +1561,106 @@ IR:
   !2 = !{i32 1}
   }];
 }
+def StallLatencyDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7128";
+  let RegressionTest = "SemaIntelHLS/stall_latency.cpp, CodeGenIntelHLS/stall_latency.cpp, SemaOpenCL/intel-fpga-stall_latency.cl, CodeGenOpenCL/intel-fpga-stall_latency.cl";
+  let Owner = "mprice1";
+  let Content = [{
+This attribute turns on/off the stall latency protocol for the component or
+kernel. When off, a node immediately asserts a stall signal when it cannot
+accept data. When on, we pipeline signals and data between nodes to increase
+fmax at the expense of area.
+
+These attributes can be applied only to HLS components or OpenCL kernels.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((stall_latency_enabled))
+  __attribute__((stall_latency_disabled))
+
+HLS Example:
+
+.. code-block:: c++
+
+  __attribute__((ihc_component,stall_latency_enabled)) void foo1() {}
+  __attribute__((ihc_component,stall_latency_disabled)) void foo2() {}
+
+HLS AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp
+
+.. code-block:: text
+
+  FunctionDecl 0xed2e6f8 <t.cpp:1:1, col:67> col:59 foo1 'void ()'
+  |-CompoundStmt 0xed2e830 <col:66, col:67>
+  |-ComponentAttr 0xed2e790 <col:16>
+  |-ComponentInterfaceAttr 0xed2e7d0 <<invalid sloc>> Implicit Streaming
+  `-StallLatencyAttr 0xed2e7e0 <col:30> stall_latency_enabled
+
+  FunctionDecl 0xed2e860 <line:2:1, col:68> col:60 foo2 'void ()'
+  |-CompoundStmt 0xed2e958 <col:67, col:68>
+  |-ComponentAttr 0xed2e8f8 <col:16>
+  |-ComponentInterfaceAttr 0xed2e938 <<invalid sloc>> Implicit Streaming
+  `-StallLatencyAttr 0xed2e948 <col:30> stall_latency_disabled
+
+HLS IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+  define void @_Z4foo1v() #0 !ihc_component !stall_latency !6
+  define void @_Z4foo2v() #0 !ihc_component !stall_latency !5
+  !5 = !{i32 0}
+  !6 = !{i32 1}
+
+OpenCL Example:
+
+.. code-block:: c
+
+  __kernel __attribute__((stall_latency_enabled)) void foo1() {}
+  __kernel __attribute__((stall_latency_disabled)) void foo2() {}
+
+OpenCL AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -ast-dump t.cl
+
+.. code-block:: text
+
+  FunctionDecl 0xd867f98 <t.cl:1:1, col:62> col:54 foo1 'void (void)'
+  |-CompoundStmt 0xd8680c0 <col:61, col:62>
+  |-OpenCLKernelAttr 0xd868030 <col:1>
+  `-StallLatencyAttr 0xd868070 <col:25> stall_latency_enabled
+
+  FunctionDecl 0xd8680f0 <line:2:1, col:63> col:55 foo2 'void (void)'
+  |-CompoundStmt 0xd8681d8 <col:62, col:63>
+  |-OpenCLKernelAttr 0xd868188 <col:1>
+  `-StallLatencyAttr 0xd8681c8 <col:25> stall_latency_disabled
+
+
+OpenCL IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -o - t.cl
+
+.. code-block:: llvm
+
+  define spir_kernel void @foo1() local_unnamed_addr #0 !stall_latency !5
+  define spir_kernel void @foo2() local_unnamed_addr #0 !stall_latency !6
+  !5 = !{i32 1}
+  !6 = !{i32 0}
+  }];
+}
 
 def GlobalDocumentation {
   code Intro =[{..
