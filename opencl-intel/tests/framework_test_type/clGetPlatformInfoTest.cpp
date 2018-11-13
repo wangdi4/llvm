@@ -165,7 +165,7 @@ bool clGetPlatformInfoTest()
 #endif // BUILD_EXPERIMENTAL_21
         if (isFPGAEmulator)
         {
-            expectedString += "Intel(R) FPGA SDK for OpenCL(TM), Version 18.1";
+            expectedString += "Intel(R) FPGA SDK for OpenCL(TM), Version 19.1";
         }
         else
         {
