@@ -2320,6 +2320,7 @@ protected:
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
+  VPLoopEntities LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2332,11 +2333,13 @@ public:
   /// the underlying IR.
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
+
   VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
         VPBlockBase *Entry = nullptr)
-      : Context(Context), Entry(Entry), VPLA(VPLA) {}
-#endif
+      : Context(Context), Entry(Entry), VPLA(VPLA), LoopEntities(this) {}
+#else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+#endif
 
   ~VPlan() {
     if (Entry)
@@ -2369,6 +2372,8 @@ public:
   LLVMContext *getLLVMContext(void) const { return Context; }
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
+
+  VPLoopEntities& getLoopEntities() { return LoopEntities; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
