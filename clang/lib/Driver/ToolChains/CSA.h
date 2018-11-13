@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_CSA//===-----------------------------------*- C++ -*-===//
 //===--- CSA.h - CSA ToolChain Implementations --------------*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
@@ -64,3 +65,4 @@ protected:
 } // end namespace clang
 
 #endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_CSA_H
+#endif // INTEL_FEATURE_CSA

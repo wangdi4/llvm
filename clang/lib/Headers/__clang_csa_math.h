@@ -1,3 +1,4 @@
+/* INTEL_FEATURE_CSA */
 #ifndef __CLANG_CSA_MATH_H
 #define __CLANG_CSA_MATH_H
 
@@ -34,3 +35,4 @@ __attribute__((always_inline)) inline float modff(float x, float *iptr) {
 #endif
 
 #endif //__CLANG_CSA_MATH_H
+/* end INTEL_FEATURE_CSA */

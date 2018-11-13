@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_HEADERS)
+intel_add_file(INTEL_HEADERS
+# Add custom Intel files below.  Files listed here will be included in
+# INTEL_CUSTOMIZATION build.
+  )
+
+# INTEL_FEATURE_CSA
+intel_add_file(INTEL_HEADERS
+  FEATURE CSA
+  __clang_csa_math.h
+  csaintrin.h
+  CSAx86intrin.h
+  )
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
+
 set(files
   adxintrin.h
   altivec.h
@@ -31,7 +48,6 @@ set(files
   avxintrin.h
   bmi2intrin.h
   bmiintrin.h
-  __clang_csa_math.h
   __clang_cuda_builtin_vars.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h
@@ -47,7 +63,7 @@ set(files
   clflushoptintrin.h
   clwbintrin.h
 # INTEL_CUSTOMIZATION
-  csaintrin.h
+  ${INTEL_HEADERS}
 # end INTEL_CUSTOMIZATION
   emmintrin.h
   f16cintrin.h
@@ -128,7 +144,6 @@ set(files
   xsaveoptintrin.h
   xsavesintrin.h
   xtestintrin.h
-  CSAx86intrin.h
   )
 
 set(cuda_wrapper_files
