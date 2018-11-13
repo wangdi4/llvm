@@ -50,7 +50,7 @@ define void @proc1() {
   %L = load i32, i32* %M
 ; CHECK:  [[BC3:%[0-9]+]] = bitcast i32* %M to i16*
 ; CHECK: [[LD:%[0-9]+]] = load i16, i16* [[BC3]], align 2
-; CHECK: %L = sext i16 [[LD]] to i32
+; CHECK: %L = zext i16 [[LD]] to i32
 ; CHECK-NOT: %L = load i32, i32* %M
 
   store i32 0, i32* %M

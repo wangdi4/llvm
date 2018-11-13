@@ -3076,7 +3076,14 @@ void DynCloneImpl::transformIR(void) {
     Instruction *NewLI = new LoadInst(
         NewSrcOp, "", LI->isVolatile(), DL.getABITypeAlignment(NewTy),
         LI->getOrdering(), LI->getSyncScopeID(), LI);
-    Value *Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
+    // ZExt is used for AOSToSOA index field to avoid unnecessary "mov"
+    // instructions (in generated code) since AOSTOSOA transformation
+    // uses ZExt for the AOSToSOA index.
+    Value *Res;
+    if (isAOSTOSOAIndexField(LdElem))
+      Res = CastInst::CreateZExtOrBitCast(NewLI, LI->getType(), "", LI);
+    else
+      Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
     LI->replaceAllUsesWith(Res);
     Res->takeName(LI);
 

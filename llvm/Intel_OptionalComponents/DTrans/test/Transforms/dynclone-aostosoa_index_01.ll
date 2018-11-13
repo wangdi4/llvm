@@ -51,7 +51,7 @@ define void @proc1() {
   %L1 = load i32, i32* %F2
 ; CHECK: [[BC2:%[0-9]+]] = bitcast i32* %F2 to i16*
 ; CHECK: [[LD1:%[0-9]+]] = load i16, i16* [[BC2]], align 2
-; CHECK: %L1 = sext i16 [[LD1]] to i32
+; CHECK: %L1 = zext i16 [[LD1]] to i32
 
   %F3 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 3
 ; CHECK: [[BC3:%[0-9]+]] = bitcast %struct.test.01* %tp2 to %__DYN_struct.test.01*
