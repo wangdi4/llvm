@@ -740,7 +740,10 @@ private:
   bool genCSAParallel(WRegionNode *W);
 
   /// \brief Transform "omp [parallel] for" work region for CSA target.
-  bool genCSALoop(WRegionNode *W);
+  /// Returns a pair of boolean values where the first value tells if function
+  /// was changed and the second whether work region's directives should be
+  /// removed.
+  std::pair<bool, bool> genCSALoop(WRegionNode *W);
 
   /// \brief Transform "omp [parallel] sections" work region for CSA target.
   bool genCSASections(WRegionNode *W);

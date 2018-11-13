@@ -37,6 +37,10 @@ static cl::opt<bool> UseExpLoopPrivatizer(
   "csa-omp-exp-loop-privatizer", cl::init(false), cl::ReallyHidden,
   cl::desc("Use experimental privatizer for OpenMP loops."));
 
+cl::opt<bool> UseOmpRegionsInLoopopt(
+  "loopopt-use-omp-region", cl::init(false), cl::Hidden,
+  cl::desc("Handle OpenMP directives in LoopOpt"));
+
 static cl::opt<bool> DoLoopSplitting(
   "csa-omp-paropt-loop-splitting", cl::init(false), cl::ReallyHidden,
   cl::desc("Do OpenMP loop splitting in VPO Paropt."));
@@ -1170,23 +1174,31 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
 // *Optional spmdization entry/exit calls are inserted only if parallel for
 // has num_threads clause.
 //
-bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
+std::pair<bool, bool> VPOParoptTransform::genCSALoop(WRegionNode *W) {
   assert(isTargetCSA() && "unexpected target");
-
-  if (DoLoopSplitting)
-    return CSALoopSplitter(*this).run(W);
-
-  auto *Loop = W->getWRNLoopInfo().getLoop();
-  assert(Loop->isLoopSimplifyForm());
 
   // Determine the number of workers to use for this loop.
   auto NumWorkers = getNumWorkers(W);
 
+  // LoopOpt can do parallel lowering for loops with 1 worker so far.
+  bool UseLoopOptLowering = UseOmpRegionsInLoopopt && NumWorkers <= 1u;
+
+  if (!UseLoopOptLowering && DoLoopSplitting)
+    return { CSALoopSplitter(*this).run(W), true };
+
+  auto *Loop = W->getWRNLoopInfo().getLoop();
+  assert(Loop->isLoopSimplifyForm());
+
   // Generate privatization code.
+  bool Changed = false;
   if (UseExpLoopPrivatizer)
-    CSAExpLoopPrivatizer(*this, W, NumWorkers <= 1u).run();
+    Changed |= CSAExpLoopPrivatizer(*this, W, NumWorkers <= 1u).run();
   else
-    CSALoopPrivatizer(*this, W, NumWorkers <= 1u).run();
+    Changed |= CSALoopPrivatizer(*this, W, NumWorkers <= 1u).run();
+
+  // We are done if LoopOpt takes care of OpenMP lowering.
+  if (UseLoopOptLowering)
+    return { Changed, false };
 
   // Annotating loop with spmdization entry/exit intrinsic calls if parallel
   // region has num_threads clause and the number of threads > 1.
@@ -1221,7 +1233,7 @@ bool VPOParoptTransform::genCSALoop(WRegionNode *W) {
   genParSectionCalls(Region,
                      Loop->getHeader()->getFirstNonPHI(),
                      Loop->getLoopLatch()->getTerminator());
-  return true;
+  return { true, true };
 }
 
 bool VPOParoptTransform::genCSASections(WRegionNode *W) {

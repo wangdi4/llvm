@@ -82,10 +82,6 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform"
 
-cl::opt<bool> UseOmpRegionsInLoopopt(
-  "loopopt-use-omp-region", cl::init(false), cl::Hidden,
-  cl::desc("Handle OpenMP directives in LoopOpt"));
-
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -991,16 +987,16 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
-            RemoveDirectives = true;
-
-            if (W->getIsParSections())
+            if (W->getIsParSections()) {
               Changed |= genCSASections(W);
+              RemoveDirectives = true;
+            }
             else if (W->getIsParLoop()) {
-              if (UseOmpRegionsInLoopopt)
-                RemoveDirectives = false;
-              else
-                Changed |= genCSALoop(W);
-            } else
+              auto Res = genCSALoop(W);
+              Changed |= Res.first;
+              RemoveDirectives = Res.second;
+            }
+            else
               llvm_unreachable("Unexpected work region kind");
             break;
           }
@@ -1187,13 +1183,17 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
-            if (W->getIsSections())
+            if (W->getIsSections()) {
               Changed |= genCSASections(W);
-            else if (W->getIsOmpLoop())
-              Changed |= genCSALoop(W);
+              RemoveDirectives = true;
+            }
+            else if (W->getIsOmpLoop()) {
+              auto Res = genCSALoop(W);
+              Changed |= Res.first;
+              RemoveDirectives = Res.second;
+            }
             else
               llvm_unreachable("Unexpected work region kind");
-            RemoveDirectives = true;
             break;
           }
 #endif  // INTEL_FEATURE_CSA
