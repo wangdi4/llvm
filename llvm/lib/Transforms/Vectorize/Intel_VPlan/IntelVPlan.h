@@ -778,6 +778,11 @@ public:
       SemiPhi,
       SMax,
       UMax,
+      InductionInit,
+      InductionInitStep,
+      InductionFinal,
+      ReductionInit,
+      ReductionFinal,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -1201,6 +1206,187 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 };
+
+// VPInstruction to initialize vector for induction variable.
+// It's initialized depending on the binary operation,
+// For +/-   : broadcast(start) + step*{0, 1,..,VL -1}
+// For */div : broadcast(start) + pow(step,{0, 1,..,VL -1})
+// Other binary operations are not induction-compatible.
+class VPInductionInit : public VPInstruction {
+public:
+  VPInductionInit(VPValue *Start, VPValue *Step, Instruction::BinaryOps Opc)
+      : VPInstruction(VPInstruction::InductionInit, Start->getBaseType(),
+                      {Start, Step}),
+        BinOpcode(Opc) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::InductionInit;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+private:
+  Instruction::BinaryOps BinOpcode;
+};
+
+// VPInstruction to initialize vector for induction step.
+// It's initialized depending on the binary operation,
+// For +/-   : broadcast(step*VL)
+// For */div : broadcast(pow(step,VL))
+// Other binary operations are not induction-compatible.
+class VPInductionInitStep : public VPInstruction {
+public:
+  VPInductionInitStep(VPValue *Step, Instruction::BinaryOps Opcode)
+      : VPInstruction(VPInstruction::InductionInitStep, Step->getBaseType(),
+                      {Step}),
+        BinOpcode(Opcode) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::InductionInitStep;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+private:
+  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+};
+
+// VPInstruction for induction last value calculation.
+// It's calculated depending on the binary operation,
+// For +/-   : lv = start OP step*count
+// For */div : lv = start OP pow(step, count)
+// Other binary operations are not induction-compatible.
+//
+// We should choose the optimal way for that - probably, for mul/div we should
+// prefer scalar calculations in the loop body or extraction from the final
+// vector.
+class VPInductionFinal : public VPInstruction {
+public:
+  VPInductionFinal(VPValue *InducVec)
+      : VPInstruction(VPInstruction::InductionFinal, InducVec->getBaseType(),
+                      {}) {}
+
+  VPInductionFinal(VPValue *Start, VPValue *Count, VPValue *Step,
+                   Instruction::BinaryOps Opcode)
+      : VPInstruction(VPInstruction::InductionFinal, Start->getBaseType(),
+                      {Start, Count, Step}),
+        BinOpcode(Opcode) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::InductionFinal;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+private:
+  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+};
+
+// VPInstruction for reduction initialization.
+// It can be done in two ways and should be aligned with last value
+// calculation  The first way is just broadcast(identity), the second one is
+// to calculate vector of {start_value, identity,...,identity}. The second way
+// is acceptable for some reductions (+,-,*) and allows eliminating one scalar
+// operation during last value calculation. Though, that is ineffective for
+// multiplication, while for summation the movd/movq x86 instructions
+// perfectly fit this way.
+//
+class VPReductionInit : public VPInstruction {
+public:
+  VPReductionInit(VPValue *Identity)
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+                      {Identity}) {}
+
+  VPReductionInit(VPValue *Identity, VPValue *StartValue)
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+                      {Identity, StartValue}) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionInit;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
+// VPInstruction for reduction last value calculation.
+// It's calculated depending on the binary operation. A general sequence
+// is generated:
+// v_tmp = shuffle(value,m1) // v_tmp contains the upper half of value
+// v_tmp = value OP v_tmp;
+// v_tmp2 = shuffle(v_tmp, m2) // v_tmp2 contains the upper half of v_tmp1
+// v_tmp2 = v_tmp1 OP v_tmp2;
+// ...
+// res = (is_minmax || optimized_plus) ? vtmp_N : start OP vtp_N;
+// (For minmax and optimized summation (see VPReductionInit) we don't
+// need operation in the last step.)
+//
+// A special way is required for min/max+index reductions. The index
+// part of the reduction has a link to the main, min/max, part and code
+// generation for it requires two values of the main part, the last vector
+// value and the last scalar value. They can be accesses having a link
+// to the main instruction, which is passed as an additional argument to
+// the index part.
+//
+class VPReductionFinal : public VPInstruction {
+public:
+  /// General constructor
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
+                   bool Sign)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+                      {ReducVec, StartValue}),
+        BinOpcode(BinOp), Signed(Sign) {}
+
+  /// Constructor for optimized summation
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+                      {ReducVec}),
+        BinOpcode(BinOp), Signed(false) {}
+
+  /// Constructor for index part of min/max+index reduction.
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
+                   bool Sign, VPReductionFinal *MinMax)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+                      {ReducVec, StartValue, MinMax}),
+        BinOpcode(BinOp), Signed(Sign) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionFinal;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+  unsigned getBinOpcode() const { return BinOpcode; }
+  bool isSigned() const { return Signed; }
+
+private:
+  unsigned BinOpcode;
+  bool Signed;
+};
+
 #endif // INTEL_CUSTOMIZATION
 
 /// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
