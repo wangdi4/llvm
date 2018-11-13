@@ -68,8 +68,8 @@ static cl::opt<bool>
 #else
 
 #define hasDumpModuleBeforeDTransValue(x) (false)
-constexpr bool EnablePaddedPtrProp = false;
-constexpr bool EnableResolveTypes = false;
+constexpr bool EnablePaddedPtrProp = true;
+constexpr bool EnableResolveTypes = true;
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
