@@ -1735,3 +1735,81 @@ macro(find_first_existing_vc_file out_var path)
       )
     endif()
 endmacro()
+
+# INTEL_CUSTOMIZATION
+# is_intel_feature_enabled() macro returns TRUE in 'result',
+# if the given 'feature' is supported in the current compiler
+# build, FALSE - otherwise.
+macro(is_intel_feature_enabled result feature)
+  set(${result} FALSE)
+  if (";${LLVM_INTEL_FEATURES};" MATCHES ";${feature};")
+    set(${result} TRUE)
+  endif()
+endmacro()
+
+# intel_add_file() is a helper macro to populate a list
+# with strings depending on the compiler build configuration.
+# The mandatory parameter is 'result_list'.
+# If the specified 'feature' is enabled for the current compiler build,
+# then the unnamed parameters are put into the 'result_list'.
+# If the specified 'feature' is disabled for the current compiler build,
+# and the optional 'COMPLEMENT' list is provided, then the unnamed
+# parameters are put into this list.
+# If optional 'FEATURE' parameter is provided, then 'feature' is set
+# to its value, otherwise 'feature' represents a generic INTEL_CUSTOMIZATION
+# feature.
+#
+# For example:
+#     intel_add_file(result FEATURE ISA_AVX512 Intel_Avx512.cpp) - will add
+#     'Intel_Avx512.cpp' into the 'result' list, only if ISA_AVX512 is enabled
+#     for the current compiler build.
+#
+#     intel_add_file(result Intel_CustomFile.cpp) - will add
+#     'Intel_CustomFile.cpp' into the 'result' list, only if the compiler
+#     is built with INTEL_CUSTOMIZATION.
+#
+#     intel_add_file(result COMPLEMENT compl FEATURE ISA_AVX512 Intel_512.cpp) -
+#     if ISA_AVX512 is enabled, then it will add 'Intel_512.cpp' into
+#     the 'result' list, otherwise, it will add it to 'compl' list.
+#
+# Note that a compiler built without INTEL_CUSTOMIZATION cannot be built
+# with any other Intel feature (e.g. ISA_AVX512).
+macro(intel_add_file result_list)
+  cmake_parse_arguments(ARG "" "FEATURE;COMPLEMENT" "" ${ARGN})
+  if (ARG_UNPARSED_ARGUMENTS)
+    if (INTEL_CUSTOMIZATION)
+      # This is a customized Intel compiler build.
+      if (ARG_FEATURE)
+        # The files must be added to result iff the specified feature
+        # is enabled.
+        is_intel_feature_enabled(p ${ARG_FEATURE})
+        if (p)
+          # The feature is enabled.  Add files to the result.
+          list(APPEND ${result_list} ${ARG_UNPARSED_ARGUMENTS})
+          message(STATUS
+              "INTEL: file(s) added to build for feature "
+              "${ARG_FEATURE}: ${ARG_UNPARSED_ARGUMENTS}")
+        else()
+          # The feature is not enabled.
+          if(ARG_COMPLEMENT)
+            # Add files to the complement list.
+            list(APPEND ${ARG_COMPLEMENT} ${ARG_UNPARSED_ARGUMENTS})
+          endif()
+          message(STATUS
+              "INTEL: file(s) ignored for build for feature "
+              "${ARG_FEATURE}: ${ARG_UNPARSED_ARGUMENTS}")
+        endif()
+      else()
+        # The files must be added to any Intel customized build.
+        list(APPEND ${result_list} ${ARG_UNPARSED_ARGUMENTS})
+          message(STATUS
+              "INTEL: custom file(s) added to build: ${ARG_UNPARSED_ARGUMENTS}")
+      endif()
+    else()
+      # This is not a customized Intel compiler build.
+      # Add the files to the complement list.
+      list(APPEND ${ARG_COMPLEMENT} ${ARG_UNPARSED_ARGUMENTS})
+    endif()
+  endif()
+endmacro()
+# end INTEL_CUSTOMIZATION

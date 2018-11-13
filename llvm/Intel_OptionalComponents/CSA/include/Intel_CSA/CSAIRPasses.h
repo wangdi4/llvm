@@ -12,9 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_FEATURE_CSA
-#error CSAIRPasses.h include in a non-INTEL_FEATURE_CSA build.
-#endif  // INTEL_FEATURE_CSA
+#if INTEL_FEATURE_CSA
+// Keep xmain->shared filtering tool happy by using #if/#else/#endif.
+#else  // INTEL_FEATURE_CSA
+#error CSAIRPasses.h include in a non-INTEL FEATURE CSA build.
+#endif // INTEL_FEATURE_CSA
 
 #ifndef INTEL_CSA_CSAIRPASSES_H
 #define INTEL_CSA_CSAIRPASSES_H

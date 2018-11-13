@@ -56,7 +56,10 @@ add_llvm_library(LLVMipo
 if(INTEL_INCLUDE_DTRANS)
   target_link_libraries(LLVMipo PRIVATE LLVMIntel_DTrans)
 endif(INTEL_INCLUDE_DTRANS)
-if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
+# INTEL_FEATURE_CSA
+is_intel_feature_enabled(p CSA)
+if (p)
   target_link_libraries(LLVMipo PRIVATE LLVMIntel_CSAScalarOpt)
 endif()
+# end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION

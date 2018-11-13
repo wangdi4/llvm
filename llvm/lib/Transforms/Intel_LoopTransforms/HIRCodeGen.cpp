@@ -1373,7 +1373,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     CsaParRegion = genCsaIntrinCall(Intrinsic::csa_parallel_region_entry,
                                     {UniqueID}, "par.reg");
   }
-#endif
+#endif  // INTEL_FEATURE_CSA
 
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
@@ -1416,7 +1416,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     if (CsaParRegion)
       CsaParSection = genCsaIntrinCall(Intrinsic::csa_parallel_section_entry,
                                        {CsaParRegion}, "par.sec");
-#endif
+#endif  // INTEL_FEATURE_CSA
   }
 
   auto LastIt =
@@ -1466,7 +1466,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 #if INTEL_FEATURE_CSA
     if (CsaParSection)
       genCsaIntrinCall(Intrinsic::csa_parallel_section_exit, {CsaParSection}, "");
-#endif
+#endif  // INTEL_FEATURE_CSA
 
     // generate bottom test.
     Value *EndCond =
@@ -1492,7 +1492,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 #if INTEL_FEATURE_CSA
   if (CsaParRegion)
     genCsaIntrinCall(Intrinsic::csa_parallel_region_exit, {CsaParRegion}, "");
-#endif
+#endif  // INTEL_FEATURE_CSA
 
   CurIVValues.pop_back();
 

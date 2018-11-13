@@ -1,3 +1,4 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -vpo-paropt-prepare -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
 ; REQUIRES: csa-registered-target
@@ -123,3 +124,4 @@ entry:
 ; CHECK-NEXT: ret i32 [[RES]]
   ret i32 %call
 }
+; end INTEL_FEATURE_CSA

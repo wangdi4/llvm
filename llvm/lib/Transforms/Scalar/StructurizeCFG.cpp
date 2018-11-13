@@ -1048,9 +1048,7 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
 
 #if INTEL_CUSTOMIZATION
 bool StructurizeCFG::isRestructRequired() {
-#if !INTEL_FEATURE_CSA
-  return true;
-#else  // INTEL_FEATURE_CSA
+#if INTEL_FEATURE_CSA
   // TODO (vzakhari 6/20/2018): figure out why this code is needed.
   //       If it is needed, then we have to abstract it into the target's
   //       property and do not check for CSA explicitly.
@@ -1065,6 +1063,8 @@ bool StructurizeCFG::isRestructRequired() {
     }
   }
   return false;
+#else  // INTEL_FEATURE_CSA
+  return true;
 #endif  // INTEL_FEATURE_CSA
 }
 

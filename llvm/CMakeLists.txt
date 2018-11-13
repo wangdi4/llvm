@@ -676,6 +676,7 @@ if(INTEL_CUSTOMIZATION)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
   endif()
 
+# INTEL_FEATURE_CSA
   if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
     if (NOT ";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
       list(APPEND LLVM_INTEL_FEATURES "CSA")
@@ -689,9 +690,12 @@ if(INTEL_CUSTOMIZATION)
                                Intel_CSATableGen
                                Intel_CSAScalarOpt)
   endif()
+# end INTEL_FEATURE_CSA
 
   foreach(f ${LLVM_INTEL_FEATURES})
-    string(CONCAT FOPT "-DINTEL_FEATURE_" ${f} "=1")
+    # Keep xmain->shared filtering tool happy by using
+    # "-DINTEL_" and "FEATURE_" separately below.
+    string(CONCAT FOPT "-DINTEL_" "FEATURE_" ${f} "=1")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
   endforeach(f)
 

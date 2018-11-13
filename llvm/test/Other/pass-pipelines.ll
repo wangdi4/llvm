@@ -7,8 +7,12 @@
 ; INTEL - break the pass pipeline this is trying to check for.
 ; INTEL - Disabled svml translation pass to prevent this test from breaking
 ; INTEL - Enabled loop vectorizer to prevent this test from breaking
+; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_CSA
 ; INTEL - Disable test for CSA compiler due to extra passes in pipeline.
 ; UNSUPPORTED: csa-registered-target
+; end INTEL_FEATURE_CSA
+; end INTEL_CUSTOMIZATION
 ;
 ; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
 ; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 -enable-lv %s 2>&1 \
