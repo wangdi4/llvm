@@ -1996,8 +1996,13 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
 
+  if (!Mask)
+    Mask = CurMaskValue;
+
   // Check if we want to widen the current Inst as an interleaved memory access.
-  if (Grp) {
+  // TODO: Mask for the interleaved accesse must be shuffled as well. Currently
+  // it's not done, thus disable CG for it.
+  if (Grp && !Mask) {
     bool InterleaveAccess = EnableVPlanVLSCG;
     const RegDDRef *MemRef;
 
@@ -2032,9 +2037,6 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
   //    = zext(t1)
   // We clear the map at the start of widening of each HLInst.
   SCEVWideRefMap.clear();
-
-  if (!Mask)
-    Mask = CurMaskValue;
 
   HLInst *WideInst = nullptr;
 

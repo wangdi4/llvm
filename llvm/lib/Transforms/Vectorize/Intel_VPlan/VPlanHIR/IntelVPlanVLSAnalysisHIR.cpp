@@ -64,6 +64,13 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
 
   const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
   assert(DDNode && "HLDDNode is expected.");
+
+  // TODO: Masked case is not supported right now by VPOCG. As soon as OVLS
+  // still groups such masked memrefs, CM will try to reduce costs for them,
+  // thus it's better to disable collection of masked memrefs here by now.
+  // FIXME: This check is not complete for outer loop vectorization.
+  if (isa<HLIf>(DDNode->getParent()))
+    return nullptr;
   const RegDDRef *Ref = nullptr;
 
   // FIXME: This code is not needed with proper decomposition and DA.
