@@ -1266,12 +1266,15 @@ const Twine VPlanPrinter::getOrCreateName(const VPBlockBase *Block) {
 void VPlan::dump(raw_ostream &OS) const {
   if (!getName().empty())
     OS << "VPlan IR for: " << getName() << "\n";
+  for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
+       EIter != End; ++EIter) {
+    VPLoopEntities *E = EIter->second.get();
+    E->dump(OS, EIter->first->getHeader());
+  }
   getEntry()->dump(OS, 1);
 }
 void VPlan::dump() const {
-  if (!getName().empty())
-    errs() << "VPlan IR for: " << getName() << "\n";
-  getEntry()->dump(errs(), 1);
+  dump(errs());
 }
 
 void VPlan::dumpLivenessInfo(raw_ostream &OS) const {

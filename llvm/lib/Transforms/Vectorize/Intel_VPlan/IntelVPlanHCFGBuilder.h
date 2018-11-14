@@ -35,6 +35,9 @@ class Loop;
 namespace vpo {
 
 class VPlanHCFGBuilder {
+public:
+  typedef SmallVector<std::unique_ptr<VPLoopEntitiesConverterBase>, 2>
+      VPLoopEntityConverterList;
 private:
   /// The outermost loop to be vectorized.
   Loop *TheLoop;
@@ -81,13 +84,16 @@ protected:
   // of the new loop, so the old one can become dead.
   // SmallPtrSet<Instruction *, 4> DeadInstructions;
 
-  virtual VPRegionBlock *buildPlainCFG();
+  virtual VPRegionBlock *buildPlainCFG(VPLoopEntityConverterList &Cvts);
+
   virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
     assert(VPLp && "Expected a valid VPLoop.");
     VPLoopRegion *Loop =
         new VPLoopRegion(VPlanUtils::createUniqueName("loop"), VPLp);
     return Loop;
   }
+
+  virtual void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts);
 
   void simplifyPlainCFG();
   void splitLoopsPreheader(VPLoop *VPLp);

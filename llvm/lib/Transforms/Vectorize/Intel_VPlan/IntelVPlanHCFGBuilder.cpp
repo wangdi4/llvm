@@ -21,8 +21,10 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
+#include "IntelVPLoopAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include <deque>
 
@@ -1037,8 +1039,10 @@ void VPlanHCFGBuilder::collectUniforms(VPRegionBlock *Region) {
 
 void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
+  VPLoopEntityConverterList CvtVec;
+
   // Build Top Region enclosing the plain CFG
-  VPRegionBlock *TopRegion = buildPlainCFG();
+  VPRegionBlock *TopRegion = buildPlainCFG(CvtVec);
 
   // Collecte divergence information
   collectUniforms(TopRegion);
@@ -1067,6 +1071,8 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
   LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";
              VPLInfo->print(dbgs()));
+
+  passEntitiesToVPlan(CvtVec);
 
   // Compute postdom tree for the plain CFG.
   VPPostDomTree.recalculate(*TopRegion);
@@ -1326,7 +1332,7 @@ private:
   // Check whether Val has uses outside the vectorized loop and create
   // VPExternalUse-s for NewVPInst accordingly.
   void addExternalUses(Value *Val, VPValue *NewVPInst);
-  VPValue *createOrGetVPOperand(Value *IROp);
+
   void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
 
 public:
@@ -1335,6 +1341,10 @@ public:
       : TheLoop(Lp), LI(LI), Legal(Legal), Plan(Plan) {}
 
   VPRegionBlock *buildPlainCFG();
+  void
+  convertEntityDescriptors(LoopVectorizationLegality *Legal,
+                           VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts);
+  VPValue *createOrGetVPOperand(Value *IROp);
 };
 } // anonymous namespace
 
@@ -1346,6 +1356,256 @@ void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
     VPBBPreds.push_back(createOrGetVPBB(Pred));
 
   VPBB->setPredecessors(VPBBPreds);
+}
+
+// Base class for VPLoopEntity conversion functors.
+class VPEntityConverterBase {
+public:
+  using InductionList = VPOVectorizationLegality::InductionList;
+  using LinearListTy = VPOVectorizationLegality::LinearListTy;
+  using ReductionList = VPOVectorizationLegality::ReductionList;
+  using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
+  using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+
+  VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
+
+protected:
+  PlainCFGBuilder &Builder;
+};
+
+// Conversion functor for auto-recognized reductions
+class ReductionListCvt : public VPEntityConverterBase {
+public:
+  ReductionListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+
+  void operator()(ReductionDescr &Descriptor,
+                  const ReductionList::value_type &CurValue) {
+    Descriptor.clear();
+    const RecurrenceDescriptor &RD = CurValue.second;
+    Descriptor.setStartPhi(
+        dyn_cast<VPInstruction>(Builder.createOrGetVPOperand(CurValue.first)));
+    Descriptor.setStart(
+        Builder.createOrGetVPOperand(RD.getRecurrenceStartValue()));
+    Descriptor.setExit(dyn_cast<VPInstruction>(
+        Builder.createOrGetVPOperand(RD.getLoopExitInstr())));
+    Descriptor.setKind(RD.getRecurrenceKind());
+    Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
+    Descriptor.setRecType(RD.getRecurrenceType());
+    Descriptor.setSigned(RD.isSigned());
+    Descriptor.setAllocaInst(nullptr);
+    Descriptor.setLinkPhi(nullptr);
+  }
+};
+// Conversion functor for explicit reductions
+class ExplicitReductionListCvt : public VPEntityConverterBase {
+public:
+  ExplicitReductionListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+
+  void operator()(ReductionDescr &Descriptor,
+                  const ExplicitReductionList::value_type &CurValue) {
+    Descriptor.clear();
+    const RecurrenceDescriptor &RD = CurValue.second.first;
+    Descriptor.setStartPhi(
+        dyn_cast<VPInstruction>(Builder.createOrGetVPOperand(CurValue.first)));
+    Descriptor.setStart(
+        Builder.createOrGetVPOperand(RD.getRecurrenceStartValue()));
+    Descriptor.setExit(dyn_cast<VPInstruction>(
+        Builder.createOrGetVPOperand(RD.getLoopExitInstr())));
+    Descriptor.setKind(RD.getRecurrenceKind());
+    Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
+    Descriptor.setRecType(RD.getRecurrenceType());
+    Descriptor.setSigned(RD.isSigned());
+    Descriptor.setAllocaInst(
+        Builder.createOrGetVPOperand(CurValue.second.second));
+    Descriptor.setLinkPhi(nullptr);
+  }
+};
+// Conversion functor for in-memory reductions
+class InMemoryReductionListCvt : public VPEntityConverterBase {
+public:
+  InMemoryReductionListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+
+  void operator()(ReductionDescr &Descriptor,
+                  const InMemoryReductionList::value_type &CurValue) {
+    Descriptor.clear();
+    VPValue *AllocaInst = Builder.createOrGetVPOperand(CurValue.first);
+    Descriptor.setStartPhi(nullptr);
+    Descriptor.setStart(AllocaInst);
+    Descriptor.setExit(nullptr);
+    Descriptor.setKind(CurValue.second.first);
+    Descriptor.setMinMaxKind(CurValue.second.second);
+    Descriptor.setRecType(nullptr);
+    Descriptor.setSigned(false);
+    Descriptor.setAllocaInst(AllocaInst);
+    Descriptor.setLinkPhi(nullptr);
+  }
+};
+
+// Conversion functor for auto-recognized inductions
+class InductionListCvt : public VPEntityConverterBase {
+public:
+  InductionListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+
+  void operator()(InductionDescr &Descriptor,
+                  const InductionList::value_type &CurValue) {
+    Descriptor.clear();
+    const InductionDescriptor &ID = CurValue.second;
+    Descriptor.setStartPhi(dyn_cast<VPInstruction>(
+        Builder.createOrGetVPOperand(CurValue.first)));
+    Descriptor.setKind(ID.getKind());
+    Descriptor.setStart(Builder.createOrGetVPOperand(ID.getStartValue()));
+    const SCEV *Step = ID.getStep();
+    Value *V = nullptr;
+    if (auto UndefStep = dyn_cast<SCEVUnknown>(Step))
+      V = UndefStep->getValue();
+    else if (auto ConstStep = dyn_cast<SCEVConstant>(Step))
+      V = ConstStep->getValue();
+    assert(V && "Unknown scev kind");
+    Descriptor.setStep(Builder.createOrGetVPOperand(V));
+    if (ID.getInductionBinOp()) {
+      Descriptor.setInductionBinOp(dyn_cast<VPInstruction>(
+          Builder.createOrGetVPOperand(ID.getInductionBinOp())));
+      Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
+    } else {
+      Type *IndTy = Descriptor.getStartPhi()->getType();
+      (void)IndTy;
+      assert((IndTy->isIntegerTy() || IndTy->isPointerTy()) &&
+             "unexpected induction type");
+      Descriptor.setInductionBinOp(nullptr);
+      Descriptor.setBinOpcode(Instruction::Add);
+    }
+    Descriptor.setAllocaInst(nullptr);
+  }
+};
+
+// Conversion functor for explcit linears
+class LinearListCvt : public VPEntityConverterBase {
+public:
+  LinearListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+
+  void operator()(InductionDescr &Descriptor,
+                  const LinearListTy::value_type &CurValue) {
+    Descriptor.clear();
+    Descriptor.setStartPhi(nullptr);
+    Descriptor.setStart(Builder.createOrGetVPOperand(CurValue.first));
+
+    Type *IndTy = CurValue.first->getType();
+    assert(IndTy->isPointerTy() &&
+           "expected pointer type for explicit induction");
+    IndTy = IndTy->getPointerElementType();
+    Type *StepTy = IndTy;
+    if (IndTy->isIntegerTy())
+      Descriptor.setKind(InductionDescriptor::IK_IntInduction);
+    else if (IndTy->isPointerTy()) {
+      Descriptor.setKind(InductionDescriptor::IK_PtrInduction);
+      const DataLayout &DL = dyn_cast<Instruction>(CurValue.first)
+                                 ->getModule()
+                                 ->getDataLayout();
+      StepTy = DL.getIntPtrType(IndTy);
+    } else {
+      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
+      Descriptor.setKind(InductionDescriptor::IK_FpInduction);
+    }
+    Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
+    Descriptor.setStep(Builder.createOrGetVPOperand(Cstep));
+
+    Descriptor.setInductionBinOp(nullptr);
+    Descriptor.setBinOpcode(Instruction::Add);
+    Descriptor.setAllocaInst(
+        isa<AllocaInst>(CurValue.first) ? Descriptor.getStart() : nullptr);
+  }
+};
+
+class Loop2VPLoopMapper {
+public:
+  Loop2VPLoopMapper() = delete;
+  explicit Loop2VPLoopMapper(const Loop *TheLoop, const VPlan *Plan) {
+    DenseMap<const BasicBlock *, const Loop *> Head2Loop;
+    // First fill in the header->loop map
+    std::function<void(const Loop *)> getLoopHeaders = [&](const Loop *L) {
+      Head2Loop[L->getHeader()] = L;
+      for (auto Loop : *L)
+        getLoopHeaders(Loop);
+    };
+    getLoopHeaders(TheLoop);
+    // Next fill in the Loop->VPLoop map
+    std::function<void(const VPLoop *)> mapLoop2VPLoop =
+        [&](const VPLoop *VPL) {
+          VPBasicBlock *BB = cast<VPBasicBlock>(VPL->getHeader());
+          const Loop *L = Head2Loop[BB->getOriginalBB()];
+          assert(L != nullptr && "Can't find Loop");
+          LoopMap[L] = VPL;
+          for (auto VLoop : *VPL)
+            mapLoop2VPLoop(VLoop);
+        };
+    const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
+    mapLoop2VPLoop(TopLoop);
+  }
+
+  const VPLoop *operator[](const Loop *L) const {
+    auto Iter = LoopMap.find(L);
+    return Iter == LoopMap.end() ? nullptr : Iter->second;
+  }
+
+protected:
+  DenseMap<const Loop *, const VPLoop *> LoopMap;
+};
+
+// Specialization of reductions and inductions converters.
+typedef VPLoopEntitiesConverter<ReductionDescr, Loop, Loop2VPLoopMapper>
+    ReductionConverter;
+typedef VPLoopEntitiesConverter<InductionDescr, Loop, Loop2VPLoopMapper>
+    InductionConverter;
+
+/// Convert incoming loop entities to the VPlan format.
+void PlainCFGBuilder::convertEntityDescriptors(
+    VPOVectorizationLegality *Legal,
+    VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts) {
+
+  using InductionList = VPOVectorizationLegality::InductionList;
+  using LinearListTy = VPOVectorizationLegality::LinearListTy;
+  using ReductionList = VPOVectorizationLegality::ReductionList;
+  using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
+  using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+
+  ReductionConverter *RedCvt = new ReductionConverter(Plan);
+  InductionConverter *IndCvt = new InductionConverter(Plan);
+
+  // TODO: create legality and import descriptors for all inner loops too.
+
+  const InductionList *IL = Legal->getInductionVars();
+  iterator_range<InductionList::const_iterator> InducRange(IL->begin(), IL->end());
+  InductionListCvt InducListCvt(*this);
+
+  const LinearListTy *LL = Legal->getLinears();
+  iterator_range<LinearListTy::const_iterator> LinearRange(LL->begin(), LL->end());
+  LinearListCvt LinListCvt(*this);
+
+  const ReductionList *RL = Legal->getReductionVars();
+  iterator_range<ReductionList::const_iterator> ReducRange(RL->begin(), RL->end());
+  ReductionListCvt RedListCvt(*this);
+
+  const ExplicitReductionList *ERL = Legal->getExplicitReductionVars();
+  iterator_range<ExplicitReductionList::const_iterator> ExplicitReductionRange(
+      ERL->begin(), ERL->end());
+  ExplicitReductionListCvt ExpRLCvt(*this);
+
+  const InMemoryReductionList *IMRL = Legal->getInMemoryReductionVars();
+  iterator_range<InMemoryReductionList::const_iterator> InMemoryReductionRange(
+      IMRL->begin(), IMRL->end());
+  InMemoryReductionListCvt IMRLCvt(*this);
+  auto ReducPair = std::make_pair(ReducRange, RedListCvt);
+  auto ExplicitRedPair = std::make_pair(ExplicitReductionRange, ExpRLCvt);
+  auto InMemoryRedPair = std::make_pair(InMemoryReductionRange, IMRLCvt);
+
+  RedCvt->createDescrList(TheLoop, ReducPair, ExplicitRedPair, InMemoryRedPair);
+
+  auto InducPair = std::make_pair(InducRange, InducListCvt);
+  auto LinearPair = std::make_pair(LinearRange, LinListCvt);
+  IndCvt->createDescrList(TheLoop, InducPair, LinearPair);
+
+  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
+  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
 }
 
 // Set operands to VPInstructions representing phi nodes from the input IR.
@@ -1707,9 +1967,22 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
   return TopRegion;
 }
 
-VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
+VPRegionBlock *
+VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Legal, Plan);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
+  // Converting loop enities.
+  PCFGBuilder.convertEntityDescriptors(Legal, Cvts);
   return TopRegion;
+}
+
+void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
+  typedef VPLoopEntitiesConverterTempl<Loop2VPLoopMapper> BaseConverter;
+
+  Loop2VPLoopMapper Mapper(TheLoop, Plan);
+  for (auto &Cvt : Cvts) {
+    BaseConverter *Converter = dyn_cast<BaseConverter>(Cvt.get());
+    Converter->passToVPlan(Plan, Mapper);
+  }
 }
 

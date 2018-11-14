@@ -73,6 +73,10 @@ public:
   /// induction descriptor.
   typedef MapVector<PHINode *, InductionDescriptor> InductionList;
 
+  /// Linear list contains explicit linear specifications, mapping linear values
+  /// and their strides.
+  typedef DenseMap<Value *, int> LinearListTy;
+
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
 
@@ -187,8 +191,8 @@ private:
   SmallPtrSet<Value *, 8> LastPrivates;
   SmallPtrSet<Value *, 8> CondLastPrivates;
 
-  /// Map of linear values and linear step
-  DenseMap<Value *, int> Linears;
+  /// List of explicit linears.
+  LinearListTy  Linears;
 
   /// Map of pointer values and stride
   DenseMap<Value *, int> PtrStrides;
@@ -271,7 +275,7 @@ public:
                         Value **NewScal = nullptr);
 
   // Return pointer to Linears map
-  DenseMap<Value *, int> *getLinears() {
+  LinearListTy *getLinears() {
     return &Linears;
   }
 

@@ -1276,9 +1276,9 @@ private:
 // vector.
 class VPInductionFinal : public VPInstruction {
 public:
-  VPInductionFinal(VPValue *InducVec)
+  VPInductionFinal(VPValue *InducVec, VPValue *Start)
       : VPInstruction(VPInstruction::InductionFinal, InducVec->getBaseType(),
-                      {}) {}
+                      {InducVec, Start}) {}
 
   VPInductionFinal(VPValue *Start, VPValue *Count, VPValue *Step,
                    Instruction::BinaryOps Opcode)
@@ -2529,7 +2529,7 @@ protected:
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
-  VPLoopEntities LoopEntities;
+  DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntities>> LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2545,10 +2545,9 @@ public:
 
   VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
         VPBlockBase *Entry = nullptr)
-      : Context(Context), Entry(Entry), VPLA(VPLA), LoopEntities(this) {}
-#else
-  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+      : Context(Context), Entry(Entry), VPLA(VPLA) {}
 #endif
+  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 
   ~VPlan() {
     if (Entry)
@@ -2582,7 +2581,29 @@ public:
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
 
-  VPLoopEntities& getLoopEntities() { return LoopEntities; }
+  /// Return an existing or newly created LoopEntities for the loop \p L.
+  VPLoopEntities *getOrCreateLoopEntities(const VPLoop *L) {
+    // Sanity check
+    VPBlockBase *HeaderBB = L->getHeader(); (void)HeaderBB;
+    assert(VPLInfo->getLoopFor(HeaderBB) == L &&
+           "the loop does not exist in VPlan");
+
+    std::unique_ptr<VPLoopEntities> &Ptr = LoopEntities[L];
+    if (!Ptr) {
+      VPLoopEntities *E = new VPLoopEntities(this);
+      Ptr.reset(E);
+    }
+    return Ptr.get();
+  }
+
+  /// Return LoopEntities list for the loop \p L. The nullptr is returned if
+  /// the descriptors were not created for the loop.
+  const VPLoopEntities* getLoopEntities(const VPLoop* L) const {
+    auto Iter = LoopEntities.find(L);
+    if (Iter == LoopEntities.end())
+      return nullptr;
+    return Iter->second.get();
+  }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }

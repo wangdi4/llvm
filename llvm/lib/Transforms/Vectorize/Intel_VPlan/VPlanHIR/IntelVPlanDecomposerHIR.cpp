@@ -563,6 +563,15 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
   }
 }
 
+VPValue *VPDecomposerHIR::getVPValueForNode(const loopopt::HLNode *Node) {
+  if (auto DDNode = dyn_cast<HLDDNode>(Node)) {
+    auto VPValIt = HLDef2VPValue.find(DDNode);
+    if (VPValIt != HLDef2VPValue.end())
+      return VPValIt->second;
+  }
+  return nullptr;
+}
+
 // Create VPInstruction for \p Node and insert it in VPBuilder's insertion
 // point. If \p Node is an HLIf, we create VPCmpInsts to handle multiple
 // predicates. HLLoop are not expected.
@@ -837,12 +846,21 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
   Builder.setInsertPoint(LpLatch);
-  auto *IVNext = cast<VPInstruction>(Builder.createAdd(
-      IndVPPhi,
-      Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1)), HLp));
+  VPConstant *One =
+      Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
+  auto *IVNext = cast<VPInstruction>(Builder.createAdd(IndVPPhi, One, HLp));
 
   // Add IVNext to induction PHI.
   IndVPPhi->addIncoming(IVNext, LpLatch);
+
+  // Add to the induction descriptors. Push it at the beginning as main
+  // induction.
+  std::unique_ptr<VPInductionHIRList> &IndList = Inductions[HLp];
+  if (!IndList)
+    IndList.reset(new VPInductionHIRList);
+  IndList->insert(IndList->begin(),
+                  std::unique_ptr<VPInductionHIR>(
+                      new VPInductionHIR(IVNext, One, nullptr)));
 
   // Create VPValue for bottom test condition. If decomposition is needed:
   //   1) decompose UB operand. Decomposed VPInstructions are inserted into the

@@ -29,6 +29,7 @@ namespace llvm {
 namespace loopopt {
 class DDGraph;
 class HLLoop;
+class HIRSafeReductionAnalysis;
 } // namespace loopopt
 
 namespace vpo {
@@ -42,18 +43,22 @@ private:
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   const DDGraph &DDG;
 
+  HIRSafeReductionAnalysis *SRA;
+
   /// Loop header VPBasicBlock to HLLoop map. To be used when building loop
   /// regions.
   SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
 
-  VPRegionBlock *buildPlainCFG() override;
+  VPRegionBlock *buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
+  void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
+
   void collectUniforms(VPRegionBlock *Region) override {
     // Do nothing for now
   }
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,
-                      VPOVectorizationLegality *Legal, const DDGraph &DDG);
+                      HIRSafeReductionAnalysis *SRA, const DDGraph &DDG);
 
   VPLoopRegion *createLoopRegion(VPLoop *VPLp) override;
 };

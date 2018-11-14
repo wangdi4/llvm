@@ -876,9 +876,12 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder);
 
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext());
-  // TODO: No Legal for HIR.
-  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
-                                  DDA, &VLSA);
+
+  HIRSafeReductionAnalysis *SafeRedAnalysis;
+  SafeRedAnalysis =
+      &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, SafeRedAnalysis, DDA,
+                                  &VLSA);
 
   if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");

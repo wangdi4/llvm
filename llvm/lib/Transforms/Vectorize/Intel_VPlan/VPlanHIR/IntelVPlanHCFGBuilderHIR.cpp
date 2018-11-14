@@ -54,8 +54,11 @@
 #include "IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
+#include "llvm/Pass.h"
+#include "llvm/PassAnalysisSupport.h"
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -132,6 +135,11 @@ public:
   /// Build a plain CFG for an HLLoop loop nest. Return the TopRegion containing
   /// the plain CFG.
   VPRegionBlock *buildPlainCFG();
+
+  /// Convert incoming loop entities to the VPlan format.
+  void
+  convertEntityDescriptors(llvm::loopopt::HIRSafeReductionAnalysis *SRA,
+                           VPlanHCFGBuilder::VPLoopEntityConverterList &CvtVec);
 };
 
 /// Retrieve an existing VPBasicBlock for \p HNode. It there is no existing
@@ -451,20 +459,353 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
 
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                                          VPlan *Plan,
-                                         VPOVectorizationLegality *Legal,
+                                         HIRSafeReductionAnalysis *SRA,
                                          const DDGraph &DDG)
     : VPlanHCFGBuilder(nullptr, nullptr, nullptr,
-                       Lp->getHLNodeUtils().getDataLayout(), WRL, Plan, Legal),
-      TheLoop(Lp), DDG(DDG) {
+                       Lp->getHLNodeUtils().getDataLayout(), WRL, Plan,
+                       nullptr),
+      TheLoop(Lp), DDG(DDG), SRA(SRA) {
   Verifier = new VPlanVerifierHIR(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
          "Inconsistent Loop information");
 }
 
-VPRegionBlock *VPlanHCFGBuilderHIR::buildPlainCFG() {
+/// Class implements input iterator for reductions. The input is done
+/// from HIRSafeReductionAnalysis object.
+class ReductionInputIteratorHIR {
+  using RecurrenceKind = VPReduction::RecurrenceKind;
+  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
+
+public:
+  class ReductionDescriptorHIR {
+    using DataType = SafeRedChain::value_type;
+    friend class ReductionInputIteratorHIR;
+
+  public:
+    ReductionDescriptorHIR() { clear(); }
+
+    DataType getHLInst() const { return HLInst; }
+    RecurrenceKind getKind() const { return RKind; }
+    MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
+    Type *getRedType() const { return RedType; }
+    bool getSigned() const { return Signed; }
+
+  private:
+    void clear() {
+      HLInst = nullptr;
+      RKind = RecurrenceKind::RK_NoRecurrence;
+      MK = MinMaxRecurrenceKind::MRK_Invalid;
+      RedType = nullptr;
+      Signed = false;
+      ;
+    }
+
+    DataType HLInst;
+    RecurrenceKind RKind;
+    MinMaxRecurrenceKind MK;
+    Type *RedType;
+    bool Signed;
+  };
+
+  using iterator_category = std::input_iterator_tag;
+  using value_type = ReductionDescriptorHIR;
+  using const_pointer = const ReductionDescriptorHIR *;
+  using const_reference = const ReductionDescriptorHIR &;
+
+  /// Constructor. The \p begin defines for which point the iterator is created,
+  /// either for the beginning of the sequence or for the end.
+  ReductionInputIteratorHIR(bool Begin, const SafeRedInfoList &SRCL) {
+    /// Obtain iterators of the three lists mentioned above.
+    ChainCurrent = Begin ? SRCL.begin() : SRCL.end();
+    ChainEnd = SRCL.end();
+    resetRedIterators();
+    fillData();
+  }
+
+  inline bool operator==(const ReductionInputIteratorHIR &R) const {
+    return ChainCurrent == R.ChainCurrent && ChainEnd == R.ChainEnd &&
+           RedCurrent == R.RedCurrent && RedEnd == R.RedEnd;
+  }
+  inline bool operator!=(const ReductionInputIteratorHIR &R) const {
+    return !operator==(R);
+  }
+  inline const_reference operator*() { return Descriptor; }
+  inline const_pointer operator->()  { return &operator*(); }
+
+  ReductionInputIteratorHIR &operator++() {
+    advance();
+    return *this;
+  }
+
+private:
+  /// Move the iterator forward.
+  void advance() {
+    if (RedCurrent != RedEnd)
+      RedCurrent++;
+    if (RedCurrent == RedEnd) {
+      if (ChainCurrent != ChainEnd) {
+        ChainCurrent++;
+        resetRedIterators();
+      } else
+        llvm_unreachable("Can't advance iterator");
+    }
+    fillData();
+  }
+
+  void resetRedIterators() {
+    RedCurrent = RedEnd = nullptr;
+    while (ChainCurrent != ChainEnd) {
+      RedCurrent = ChainCurrent->Chain.begin();
+      RedEnd = ChainCurrent->Chain.end();
+      if (RedCurrent != RedEnd) {
+        // TODO: the only last statement in reduction chain is decomposed
+        // as reduction, i.e. has a PHI instruction. Probably, it's ok but
+        // need to investigate whether we need other statements as reductions.
+        RedCurrent = RedEnd;
+        RedCurrent--;
+        fillReductionKinds();
+        break;
+      }
+      ChainCurrent++;
+    }
+  }
+
+  void fillData() {
+    if (RedCurrent != RedEnd) {
+      Descriptor.HLInst = *RedCurrent;
+    }
+  }
+
+  void fillReductionKinds() {
+    Descriptor.MK = MinMaxRecurrenceKind::MRK_Invalid;
+    Descriptor.RedType = (*RedCurrent)->getLvalDDRef()->getDestType();
+    Descriptor.Signed = false;
+    switch (ChainCurrent->OpCode) {
+    case Instruction::FAdd:
+    case Instruction::FSub:
+      Descriptor.RKind = RecurrenceKind::RK_FloatAdd;
+      break;
+    case Instruction::Add:
+    case Instruction::Sub:
+      Descriptor.RKind = RecurrenceKind::RK_IntegerAdd;
+      break;
+    case Instruction::FMul:
+      Descriptor.RKind = RecurrenceKind::RK_FloatMult;
+      break;
+    case Instruction::Mul:
+      Descriptor.RKind = RecurrenceKind::RK_IntegerMult;
+      break;
+    case Instruction::And:
+      Descriptor.RKind = RecurrenceKind::RK_IntegerAnd;
+      break;
+    case Instruction::Or:
+      Descriptor.RKind = RecurrenceKind::RK_IntegerOr;
+      break;
+    case Instruction::Xor:
+      Descriptor.RKind = RecurrenceKind::RK_IntegerXor;
+      break;
+    case Instruction::Select: {
+      if (Descriptor.RedType->isIntegerTy()) {
+        Descriptor.RKind = RecurrenceKind::RK_IntegerMinMax;
+      } else {
+        assert(Descriptor.RedType->isFloatingPointTy() &&
+               "Floating point type expected at this point!");
+        Descriptor.RKind = RecurrenceKind::RK_FloatMinMax;
+      }
+      PredicateTy Pred = (*RedCurrent)->getPredicate();
+      bool isMax = (*RedCurrent)->isMax();
+      switch (Pred) {
+      case PredicateTy::ICMP_SGE:
+      case PredicateTy::ICMP_SGT:
+      case PredicateTy::ICMP_SLE:
+      case PredicateTy::ICMP_SLT:
+        Descriptor.MK = isMax ? MinMaxRecurrenceKind::MRK_SIntMax
+                              : MinMaxRecurrenceKind::MRK_SIntMin;
+        Descriptor.Signed = true;
+        break;
+      case PredicateTy::ICMP_UGE:
+      case PredicateTy::ICMP_UGT:
+      case PredicateTy::ICMP_ULE:
+      case PredicateTy::ICMP_ULT:
+        Descriptor.MK = isMax ? MinMaxRecurrenceKind::MRK_UIntMax
+                              : MinMaxRecurrenceKind::MRK_UIntMin;
+        break;
+      default:
+        Descriptor.MK = isMax ? MinMaxRecurrenceKind::MRK_FloatMax
+                              : MinMaxRecurrenceKind::MRK_FloatMin;
+        break;
+      }
+    }
+    default:
+      llvm_unreachable("Unexpected reduction opcode");
+      break;
+    }
+  }
+
+private:
+  ReductionDescriptorHIR Descriptor;
+  SafeRedInfoList::const_iterator ChainCurrent;
+  SafeRedInfoList::const_iterator ChainEnd;
+  SafeRedChain::const_iterator RedCurrent;
+  SafeRedChain::const_iterator RedEnd;
+};
+
+// Base class for VPLoopEntity conversion functors.
+class VPEntityConverterBase {
+public:
+  using InductionList = VPDecomposerHIR::VPInductionHIRList;
+  using ReductionList = VPOVectorizationLegality::ReductionList;
+
+  VPEntityConverterBase(VPDecomposerHIR &Decomp) : Decomposer(Decomp) {}
+
+protected:
+  VPDecomposerHIR &Decomposer;
+};
+
+/// Convert the data from auto-recognized induction list.
+class InductionListCvt : public VPEntityConverterBase {
+public:
+  InductionListCvt(VPDecomposerHIR &Decomp) : VPEntityConverterBase(Decomp) {}
+
+  void operator()(InductionDescr &Descriptor,
+                  const InductionList::value_type &CurValue) {
+    VPDecomposerHIR::VPInductionHIR *ID = CurValue.get();
+    Descriptor.setInductionBinOp(ID->getUpdateInstr());
+    Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
+    Type *IndTy = Descriptor.getInductionBinOp()->getType();
+    if (IndTy->isIntegerTy())
+      Descriptor.setKind(VPInduction::InductionKind::IK_IntInduction);
+    else if (IndTy->isPointerTy())
+      Descriptor.setKind(VPInduction::InductionKind::IK_PtrInduction);
+    else if (IndTy->isFloatingPointTy())
+      Descriptor.setKind(VPInduction::InductionKind::IK_FpInduction);
+    else
+      llvm_unreachable("Unsupported induction data type.");
+    Descriptor.setStartPhi(nullptr);
+    Descriptor.setStart(ID->getStart());
+    Descriptor.setStep(ID->getStep());
+    Descriptor.setAllocaInst(nullptr);
+  }
+};
+
+/// Convert data from auto-recognized reductions list.
+class ReductionListCvt : public VPEntityConverterBase {
+public:
+  ReductionListCvt(VPDecomposerHIR &Decomp) : VPEntityConverterBase(Decomp) {}
+
+  void operator()(ReductionDescr &Descriptor,
+                  const ReductionInputIteratorHIR::value_type &CurValue) {
+    Descriptor.setExit(dyn_cast<VPInstruction>(
+        Decomposer.getVPValueForNode(CurValue.getHLInst())));
+    Descriptor.setStartPhi(nullptr);
+    Descriptor.setStart(nullptr);
+    Descriptor.setKind(CurValue.getKind());
+    Descriptor.setMinMaxKind(CurValue.getMinMaxKind());
+    Descriptor.setRecType(CurValue.getRedType());
+    Descriptor.setSigned(CurValue.getSigned());
+    Descriptor.setAllocaInst(nullptr);
+    Descriptor.setLinkPhi(nullptr);
+  }
+};
+
+class HLLoop2VPLoopMapper {
+public:
+  HLLoop2VPLoopMapper() = delete;
+  explicit HLLoop2VPLoopMapper(
+      const VPlan *Plan,
+      SmallDenseMap<VPBasicBlock *, HLLoop *> Header2HLLoop) {
+
+    std::function<void(const VPLoop *)> mapLoop2VPLoop =
+        [&](const VPLoop *VPL) {
+          const HLLoop *L = Header2HLLoop[cast<VPBasicBlock>(VPL->getHeader())];
+          assert(L != nullptr && "Can't find Loop");
+          LoopMap[L] = VPL;
+          for (auto VLoop : *VPL)
+            mapLoop2VPLoop(VLoop);
+        };
+
+    VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
+    mapLoop2VPLoop(TopLoop);
+  }
+
+  const VPLoop *operator[](const HLLoop *L) const {
+    auto Iter = LoopMap.find(L);
+    return Iter == LoopMap.end() ? nullptr : Iter->second;
+  }
+protected:
+  DenseMap<const HLLoop *, const VPLoop *> LoopMap;
+};
+
+typedef VPLoopEntitiesConverter<ReductionDescr, HLLoop,
+                                HLLoop2VPLoopMapper> ReductionConverter;
+typedef VPLoopEntitiesConverter<InductionDescr, HLLoop,
+                                HLLoop2VPLoopMapper> InductionConverter;
+
+void PlainCFGBuilderHIR::convertEntityDescriptors(
+    llvm::loopopt::HIRSafeReductionAnalysis *SRA,
+    VPlanHCFGBuilder::VPLoopEntityConverterList &CvtVec) {
+
+  using InductionList = VPDecomposerHIR::VPInductionHIRList;
+
+  ReductionConverter *RedCvt = new ReductionConverter(Plan);
+  InductionConverter *IndCvt = new InductionConverter(Plan);
+
+  for (auto LoopDescr = Header2HLLoop.begin(); LoopDescr != Header2HLLoop.end();
+       LoopDescr++) {
+    HLLoop *HL = LoopDescr->second;
+    SRA->computeSafeReductionChains(HL);
+    const SafeRedInfoList &SRCL = SRA->getSafeRedInfoList(HL);
+
+    LLVM_DEBUG(
+        dbgs() << "Found the following auto-recognized reductions in the loop "
+                  "with header ";
+        dbgs() << LoopDescr->first->getName() << "\n";
+        for (auto &SafeRedInfo : SRCL)
+          for (auto &HlInst : SafeRedInfo.Chain) {
+            const VPInstruction *Inst =
+              dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HlInst));
+            Inst->dump();
+          }
+        );
+
+    const InductionList &IL = Decomposer.getInductions(HL);
+    iterator_range<InductionList::const_iterator> InducRange(IL.begin(), IL.end());
+    InductionListCvt InducListCvt(Decomposer);
+    auto InducPair = std::make_pair(InducRange, InducListCvt);
+#if 0
+    LinearList *LL = Legal->getLinears();
+    iterator_range<LinearList::iterator> LinearRange(LL->begin(), LL->end());
+    LinearListCvt LinListCvt(Decomposer);
+#endif
+
+    iterator_range<ReductionInputIteratorHIR> ReducRange(
+                   ReductionInputIteratorHIR(true, SRCL), ReductionInputIteratorHIR(false, SRCL));
+    ReductionListCvt RedListCvt(Decomposer);
+    auto ReducPair = std::make_pair(ReducRange, RedListCvt);
+
+    RedCvt->createDescrList(HL, ReducPair);
+    IndCvt->createDescrList(HL, InducPair);
+  }
+  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
+  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
+}
+
+VPRegionBlock *
+VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
   PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
+  PCFGBuilder.convertEntityDescriptors(SRA, CvtVec);
   return TopRegion;
+}
+
+void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
+  typedef VPLoopEntitiesConverterTempl<HLLoop2VPLoopMapper> BaseConverter;
+
+  HLLoop2VPLoopMapper Mapper(Plan, Header2HLLoop);
+  for (auto &Cvt : Cvts) {
+    BaseConverter *Converter = dyn_cast<BaseConverter>(Cvt.get());
+    Converter->passToVPlan(Plan, Mapper);
+  }
 }
 
 VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
