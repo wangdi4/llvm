@@ -8578,8 +8578,11 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
 
     // Emit functions with target regions if doing BE outlining.
     if (HasTargetRegions &&
-        CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP)
+        CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
+      // Force function to be emitted
+      (void) CGM.GetAddrOfFunction(FD);
       return false;
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
