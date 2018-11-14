@@ -1363,7 +1363,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
   // body.
   Value *ParRegion = nullptr;
   Value *ParSection = nullptr;
-  if (Lp->getParallelTraits()) {
+  Triple Target(F.getParent()->getTargetTriple());
+
+  if (Target.getArch() == Triple::ArchType::csa && Lp->getParallelTraits()) {
     assert(!IsUnknownLoop && "unknown parallel loop");
     auto *UniqueID = Builder.getInt32(4000u + Lp->getNumber());
     ParRegion = genIntrinCall(Intrinsic::csa_parallel_region_entry,
