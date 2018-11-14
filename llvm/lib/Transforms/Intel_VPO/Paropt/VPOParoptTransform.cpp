@@ -1025,8 +1025,13 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTarget:
         debugPrintHeader(W, IsPrepare);
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
+          // Override function linkage for the target compilation to prevent
+          // functions with target regions from being deleted by LTO.
+          if (hasOffloadCompilation())
+            F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           genCodemotionFenceforAggrData(W);
+        }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
