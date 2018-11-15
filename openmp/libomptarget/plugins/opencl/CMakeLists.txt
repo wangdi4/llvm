@@ -1,3 +1,17 @@
+# INTEL_COLLAB
+##===----------------------------------------------------------------------===##
+#
+#                      The LLVM Compiler Infrastructure
+#
+# This file is dual licensed under the MIT and the University of Illinois Open
+# Source Licenses. See LICENSE.txt for details.
+#
+##===----------------------------------------------------------------------===##
+#
+# Plugin for OpenCL device
+#
+##===----------------------------------------------------------------------===##
+
 if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)$" AND CMAKE_SYSTEM_NAME MATCHES "Linux")
 
@@ -19,6 +33,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
         install(TARGETS omptarget.rtl.opencl LIBRARY DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX})
         target_link_libraries(omptarget.rtl.opencl
                 ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES}
+                dl
                 "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
 
         # Report to the parent scope that we are building a plugin for OpenCL.
@@ -29,3 +44,4 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 else()
     libomptarget_say("Not building OpenCL offloading plugin: OpenCL not found in system.")
 endif()
+# end INTEL_COLLAB

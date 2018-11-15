@@ -777,7 +777,7 @@ private:
 
   // Reachability handling.
   void updateReachableEdge(BasicBlock *, BasicBlock *);
-  void processOutgoingEdges(TerminatorInst *, BasicBlock *);
+  void processOutgoingEdges(Instruction *, BasicBlock *);
   Value *findConditionEquivalence(Value *) const;
 
   // Elimination.
@@ -1751,7 +1751,7 @@ NewGVN::performSymbolicPHIEvaluation(ArrayRef<ValPair> PHIOps,
     return true;
   });
   // If we are left with no operands, it's dead.
-  if (Filtered.begin() == Filtered.end()) {
+  if (empty(Filtered)) {
     // If it has undef at this point, it means there are no-non-undef arguments,
     // and thus, the value of the phi node must be undef.
     if (HasUndef) {
@@ -2483,7 +2483,7 @@ Value *NewGVN::findConditionEquivalence(Value *Cond) const {
 }
 
 // Process the outgoing edges of a block for reachability.
-void NewGVN::processOutgoingEdges(TerminatorInst *TI, BasicBlock *B) {
+void NewGVN::processOutgoingEdges(Instruction *TI, BasicBlock *B) {
   // Evaluate reachability of terminator instruction.
   BranchInst *BR;
   if ((BR = dyn_cast<BranchInst>(TI)) && BR->isConditional()) {
@@ -3133,7 +3133,7 @@ void NewGVN::valueNumberInstruction(Instruction *I) {
       auto *Symbolized = createUnknownExpression(I);
       performCongruenceFinding(I, Symbolized);
     }
-    processOutgoingEdges(dyn_cast<TerminatorInst>(I), I->getParent());
+    processOutgoingEdges(I, I->getParent());
   }
 }
 

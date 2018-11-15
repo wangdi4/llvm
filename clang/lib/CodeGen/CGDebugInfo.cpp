@@ -528,11 +528,11 @@ void CGDebugInfo::CreateCompileUnit() {
   llvm::dwarf::SourceLanguage LangTag;
   const LangOptions &LO = CGM.getLangOpts();
   if (LO.CPlusPlus) {
-    if (LO.ObjC1)
+    if (LO.ObjC)
       LangTag = llvm::dwarf::DW_LANG_ObjC_plus_plus;
     else
       LangTag = llvm::dwarf::DW_LANG_C_plus_plus;
-  } else if (LO.ObjC1) {
+  } else if (LO.ObjC) {
     LangTag = llvm::dwarf::DW_LANG_ObjC;
   } else if (LO.RenderScript) {
     LangTag = llvm::dwarf::DW_LANG_GOOGLE_RenderScript;
@@ -546,7 +546,7 @@ void CGDebugInfo::CreateCompileUnit() {
 
   // Figure out which version of the ObjC runtime we have.
   unsigned RuntimeVers = 0;
-  if (LO.ObjC1)
+  if (LO.ObjC)
     RuntimeVers = LO.ObjCRuntime.isNonFragile() ? 2 : 1;
 
   llvm::DICompileUnit::DebugEmissionKind EmissionKind;
@@ -1955,8 +1955,17 @@ static bool isDefinedInClangModule(const RecordDecl *RD) {
   if (auto *CXXDecl = dyn_cast<CXXRecordDecl>(RD)) {
     if (!CXXDecl->isCompleteDefinition())
       return false;
+    // Check wether RD is a template.
     auto TemplateKind = CXXDecl->getTemplateSpecializationKind();
     if (TemplateKind != TSK_Undeclared) {
+      // Unfortunately getOwningModule() isn't accurate enough to find the
+      // owning module of a ClassTemplateSpecializationDecl that is inside a
+      // namespace spanning multiple modules.
+      bool Explicit = false;
+      if (auto *TD = dyn_cast<ClassTemplateSpecializationDecl>(CXXDecl))
+        Explicit = TD->isExplicitInstantiationOrSpecialization();
+      if (!Explicit && CXXDecl->getEnclosingNamespaceContext())
+        return false;
       // This is a template, check the origin of the first member.
       if (CXXDecl->field_begin() == CXXDecl->field_end())
         return TemplateKind == TSK_ExplicitInstantiationDeclaration;
@@ -3168,6 +3177,7 @@ llvm::DISubprogram *CGDebugInfo::getFunctionFwdDeclOrStub(GlobalDecl GD,
   QualType FnType = CGM.getContext().getFunctionType(
       FD->getReturnType(), ArgTypes, FunctionProtoType::ExtProtoInfo(CC));
   if (Stub) {
+    Flags |= getCallSiteRelatedAttrs();
     return DBuilder.createFunction(
         DContext, Name, LinkageName, Unit, Line,
         getOrCreateFunctionType(GD.getDecl(), FnType, Unit),
@@ -3407,6 +3417,8 @@ void CGDebugInfo::EmitFunctionStart(GlobalDecl GD, SourceLocation Loc,
   if (CurFuncIsThunk)
     Flags |= llvm::DINode::FlagThunk;
 
+  llvm::DINode::DIFlags FlagsForDef = Flags | getCallSiteRelatedAttrs();
+
   unsigned LineNo = getLineNumber(Loc);
   unsigned ScopeLine = getLineNumber(ScopeLoc);
 
@@ -3418,7 +3430,7 @@ void CGDebugInfo::EmitFunctionStart(GlobalDecl GD, SourceLocation Loc,
   llvm::DISubprogram *SP = DBuilder.createFunction(
       FDContext, Name, LinkageName, Unit, LineNo,
       getOrCreateFunctionType(D, FnType, Unit), Fn->hasLocalLinkage(),
-      true /*definition*/, ScopeLine, Flags, CGM.getLangOpts().Optimize,
+      true /*definition*/, ScopeLine, FlagsForDef, CGM.getLangOpts().Optimize,
       TParamsArray.get(), getFunctionDeclaration(D));
   Fn->setSubprogram(SP);
   // We might get here with a VarDecl in the case we're generating
@@ -4421,4 +4433,23 @@ llvm::DebugLoc CGDebugInfo::SourceLocToDebugLoc(SourceLocation Loc) {
 
   llvm::MDNode *Scope = LexicalBlockStack.back();
   return llvm::DebugLoc::get(getLineNumber(Loc), getColumnNumber(Loc), Scope);
+}
+
+llvm::DINode::DIFlags CGDebugInfo::getCallSiteRelatedAttrs() const {
+  // Call site-related attributes are only useful in optimized programs, and
+  // when there's a possibility of debugging backtraces.
+  if (!CGM.getLangOpts().Optimize || DebugKind == codegenoptions::NoDebugInfo ||
+      DebugKind == codegenoptions::LocTrackingOnly)
+    return llvm::DINode::FlagZero;
+
+  // Call site-related attributes are available in DWARF v5. Some debuggers,
+  // while not fully DWARF v5-compliant, may accept these attributes as if they
+  // were part of DWARF v4.
+  bool SupportsDWARFv4Ext =
+      CGM.getCodeGenOpts().DwarfVersion == 4 &&
+      CGM.getCodeGenOpts().getDebuggerTuning() == llvm::DebuggerKind::LLDB;
+  if (!SupportsDWARFv4Ext && CGM.getCodeGenOpts().DwarfVersion < 5)
+    return llvm::DINode::FlagZero;
+
+  return llvm::DINode::FlagAllCallsDescribed;
 }

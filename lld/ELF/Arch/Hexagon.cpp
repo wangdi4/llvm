@@ -55,8 +55,19 @@ Hexagon::Hexagon() {
   NoneRel = R_HEX_NONE;
 }
 
-// Support V60 only at the moment.
-uint32_t Hexagon::calcEFlags() const { return 0x60; }
+uint32_t Hexagon::calcEFlags() const {
+  assert(!ObjectFiles.empty());
+
+  // The architecture revision must always be equal to or greater than
+  // greatest revision in the list of inputs.
+  uint32_t Ret = 0;
+  for (InputFile *F : ObjectFiles) {
+    uint32_t EFlags = cast<ObjFile<ELF32LE>>(F)->getObj().getHeader()->e_flags;
+    if (EFlags > Ret)
+      Ret = EFlags;
+  }
+  return Ret;
+}
 
 static uint32_t applyMask(uint32_t Mask, uint32_t Data) {
   uint32_t Result = 0;
@@ -90,6 +101,7 @@ RelExpr Hexagon::getRelExpr(RelType Type, const Symbol &S,
   case R_HEX_B32_PCREL_X:
     return R_PLT_PC;
   case R_HEX_GOT_11_X:
+  case R_HEX_GOT_16_X:
   case R_HEX_GOT_32_6_X:
     return R_HEXAGON_GOT;
   default:
@@ -191,7 +203,8 @@ void Hexagon::relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const {
   case R_HEX_12_X:
     or32le(Loc, applyMask(0x000007e0, Val));
     break;
-  case R_HEX_16_X: // This reloc only has 6 effective bits.
+  case R_HEX_16_X: // These relocs only have 6 effective bits.
+  case R_HEX_GOT_16_X:
     or32le(Loc, applyMask(findMaskR16(read32le(Loc)), Val & 0x3f));
     break;
   case R_HEX_32:
@@ -252,11 +265,12 @@ void Hexagon::writePltHeader(uint8_t *Buf) const {
   };
   memcpy(Buf, PltData, sizeof(PltData));
 
-  // offset from PLT0 to the GOT.
-  relocateOne(Buf, R_HEX_B32_PCREL_X, In.GotPlt->getVA() - In.Plt->getVA());
-  relocateOne(Buf + 4, R_HEX_6_PCREL_X,
-              In.GotPlt->getVA() - In.Plt->getVA());
+  // Offset from PLT0 to the GOT.
+  uint64_t Off = In.GotPlt->getVA() - In.Plt->getVA();
+  relocateOne(Buf, R_HEX_B32_PCREL_X, Off);
+  relocateOne(Buf + 4, R_HEX_6_PCREL_X, Off);
 }
+
 void Hexagon::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
                        uint64_t PltEntryAddr, int32_t Index,
                        unsigned RelOff) const {

@@ -709,7 +709,7 @@ static Value *simplifyX86round(IntrinsicInst &II,
   }
 
   Intrinsic::ID ID = (RoundControl == 2) ? Intrinsic::ceil : Intrinsic::floor;
-  Value *Res = Builder.CreateIntrinsic(ID, {Src}, &II);
+  Value *Res = Builder.CreateUnaryIntrinsic(ID, Src, &II);
   if (!IsScalar) {
     if (auto *C = dyn_cast<Constant>(Mask))
       if (C->isAllOnesValue())
@@ -2020,7 +2020,9 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   }
 
   case Intrinsic::minnum:
-  case Intrinsic::maxnum: {
+  case Intrinsic::maxnum:
+  case Intrinsic::minimum:
+  case Intrinsic::maximum: {
     Value *Arg0 = II->getArgOperand(0);
     Value *Arg1 = II->getArgOperand(1);
     // Canonicalize constants to the RHS.
@@ -2030,19 +2032,68 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
       return II;
     }
 
+    Intrinsic::ID IID = II->getIntrinsicID();
     Value *X, *Y;
     if (match(Arg0, m_FNeg(m_Value(X))) && match(Arg1, m_FNeg(m_Value(Y))) &&
         (Arg0->hasOneUse() || Arg1->hasOneUse())) {
       // If both operands are negated, invert the call and negate the result:
-      // minnum(-X, -Y) --> -(maxnum(X, Y))
-      // maxnum(-X, -Y) --> -(minnum(X, Y))
-      Intrinsic::ID NewIID = II->getIntrinsicID() == Intrinsic::maxnum ?
-          Intrinsic::minnum : Intrinsic::maxnum;
-      Value *NewCall = Builder.CreateIntrinsic(NewIID, { X, Y }, II);
+      // min(-X, -Y) --> -(max(X, Y))
+      // max(-X, -Y) --> -(min(X, Y))
+      Intrinsic::ID NewIID;
+      switch (IID) {
+      case Intrinsic::maxnum:
+        NewIID = Intrinsic::minnum;
+        break;
+      case Intrinsic::minnum:
+        NewIID = Intrinsic::maxnum;
+        break;
+      case Intrinsic::maximum:
+        NewIID = Intrinsic::minimum;
+        break;
+      case Intrinsic::minimum:
+        NewIID = Intrinsic::maximum;
+        break;
+      default:
+        llvm_unreachable("unexpected intrinsic ID");
+      }
+      Value *NewCall = Builder.CreateBinaryIntrinsic(NewIID, X, Y, II);
       Instruction *FNeg = BinaryOperator::CreateFNeg(NewCall);
       FNeg->copyIRFlags(II);
       return FNeg;
     }
+
+    // m(m(X, C2), C1) -> m(X, C)
+    const APFloat *C1, *C2;
+    if (auto *M = dyn_cast<IntrinsicInst>(Arg0)) {
+      if (M->getIntrinsicID() == IID && match(Arg1, m_APFloat(C1)) &&
+          ((match(M->getArgOperand(0), m_Value(X)) &&
+            match(M->getArgOperand(1), m_APFloat(C2))) ||
+           (match(M->getArgOperand(1), m_Value(X)) &&
+            match(M->getArgOperand(0), m_APFloat(C2))))) {
+        APFloat Res(0.0);
+        switch (IID) {
+        case Intrinsic::maxnum:
+          Res = maxnum(*C1, *C2);
+          break;
+        case Intrinsic::minnum:
+          Res = minnum(*C1, *C2);
+          break;
+        case Intrinsic::maximum:
+          Res = maximum(*C1, *C2);
+          break;
+        case Intrinsic::minimum:
+          Res = minimum(*C1, *C2);
+          break;
+        default:
+          llvm_unreachable("unexpected intrinsic ID");
+        }
+        Instruction *NewCall = Builder.CreateBinaryIntrinsic(
+            IID, X, ConstantFP::get(Arg0->getType(), Res));
+        NewCall->copyIRFlags(II);
+        return replaceInstUsesWith(*II, NewCall);
+      }
+    }
+
     break;
   }
   case Intrinsic::fmuladd: {
@@ -2116,8 +2167,8 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     Value *ExtSrc;
     if (match(II->getArgOperand(0), m_OneUse(m_FPExt(m_Value(ExtSrc))))) {
       // Narrow the call: intrinsic (fpext x) -> fpext (intrinsic x)
-      Value *NarrowII = Builder.CreateIntrinsic(II->getIntrinsicID(),
-                                                { ExtSrc }, II);
+      Value *NarrowII =
+          Builder.CreateUnaryIntrinsic(II->getIntrinsicID(), ExtSrc, II);
       return new FPExtInst(NarrowII, II->getType());
     }
     break;
@@ -2138,7 +2189,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     Value *X;
     if (match(II->getArgOperand(0), m_OneUse(m_FNeg(m_Value(X))))) {
       // sin(-x) --> -sin(x)
-      Value *NewSin = Builder.CreateIntrinsic(Intrinsic::sin, { X }, II);
+      Value *NewSin = Builder.CreateUnaryIntrinsic(Intrinsic::sin, X, II);
       Instruction *FNeg = BinaryOperator::CreateFNeg(NewSin);
       FNeg->copyFastMathFlags(II);
       return FNeg;
@@ -3732,7 +3783,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // Scan down this block to see if there is another stack restore in the
     // same block without an intervening call/alloca.
     BasicBlock::iterator BI(II);
-    TerminatorInst *TI = II->getParent()->getTerminator();
+    Instruction *TI = II->getParent()->getTerminator();
     bool CannotRemove = false;
     for (++BI; &*BI != TI; ++BI) {
       if (isa<AllocaInst>(BI)) {
@@ -3960,7 +4011,11 @@ Instruction *InstCombiner::tryOptimizeCall(CallInst *CI) {
   auto InstCombineRAUW = [this](Instruction *From, Value *With) {
     replaceInstUsesWith(*From, With);
   };
-  LibCallSimplifier Simplifier(DL, &TLI, ORE, InstCombineRAUW);
+  auto InstCombineErase = [this](Instruction *I) {
+    eraseInstFromFunction(*I);
+  };
+  LibCallSimplifier Simplifier(DL, &TLI, ORE, InstCombineRAUW,
+                               InstCombineErase);
   if (Value *With = Simplifier.optimizeCall(CI)) {
     ++NumSimplified;
     return CI->use_empty() ? CI : replaceInstUsesWith(*CI, With);

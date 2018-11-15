@@ -45,8 +45,6 @@
 #include <cstdarg>
 #include <utility>
 
-using llvm::StrInStrNoCase;
-
 namespace clang {
 namespace ento {
 namespace retaincountchecker {
@@ -284,7 +282,7 @@ public:
   ~RetainCountChecker() override { DeleteContainerSeconds(DeadSymbolTags); }
 
   bool shouldCheckOSObjectRetainCount() const {
-    return Options.getBooleanOption("CheckOSObject", false, this);
+    return Options.getBooleanOption("CheckOSObject", true, this);
   }
 
   void checkEndAnalysis(ExplodedGraph &G, BugReporter &BR,

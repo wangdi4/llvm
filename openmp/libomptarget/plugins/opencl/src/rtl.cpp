@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===----RTLs/spir/src/rtl.cpp - Target RTLs Implementation ------- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -20,8 +21,11 @@
 #include <cstdlib>
 #include <list>
 #include <vector>
+#include <string>
+#include <fstream>
 #include <gelf.h>
 #include <CL/cl.h>
+#include <dlfcn.h>
 
 #include "omptargetplugin.h"
 
@@ -92,6 +96,8 @@ public:
         // get device specific information
         for (unsigned i = 0; i < numDevices; i++) {
           cl_device_id deviceId = deviceIDs[i];
+          clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 128, buffer, nullptr);
+          DP("Device#%d: %s\n", i, buffer);
           clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4, &maxWorkGroups[i], nullptr);
           DP("max WGs is: %d\n", maxWorkGroups[i]);
 
@@ -179,18 +185,76 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   // create Program
   cl_int status;
-  cl_program program = clCreateProgramWithIL(DeviceInfo.CTX[device_id], image->ImageStart, ImageSize, &status);
+  cl_program program[3];
+  cl_uint num_programs = 0;
+
+  // Create program for the device RTL if it exits.
+  Dl_info rtl_info;
+
+  if (dladdr(&DeviceInfo, &rtl_info)) {
+    std::string device_rtl_base = "libomptarget-opencl.a";
+    std::string device_rtl_path = rtl_info.dli_fname;
+    size_t split = device_rtl_path.find_last_of("/\\");
+    device_rtl_path.replace(split + 1, std::string::npos, device_rtl_base);
+    std::ifstream device_rtl(device_rtl_path, std::ios::binary);
+
+    if (device_rtl.is_open()) {
+      DP("Found device RTL: %s\n", device_rtl_path.c_str());
+      device_rtl.seekg(0, device_rtl.end);
+      int device_rtl_len = device_rtl.tellg();
+      std::string device_rtl_bin(device_rtl_len, '\0');
+      device_rtl.seekg(0);
+      if (!device_rtl.read(&device_rtl_bin[0], device_rtl_len)) {
+        DP("I/O Error: Failed to read device RTL.\n");
+        return NULL;
+      }
+
+      program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+                                         device_rtl_bin.c_str(), device_rtl_len,
+                                         &status);
+      if (status != CL_SUCCESS) {
+        DP("OpenCL Error: Failed to create device RTL from IL: %d\n", status);
+        return NULL;
+      }
+
+      status = clCompileProgram(program[0], 0, nullptr, nullptr, 0, nullptr,
+                                nullptr, nullptr, nullptr);
+      if (status != CL_SUCCESS) {
+        DP("OpenCL Error: Failed to compile device RTL: %d\n", status);
+        return NULL;
+      }
+      num_programs++;
+    }
+  }
+
+  // Create program for the target regions.
+  program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+                                     image->ImageStart, ImageSize, &status);
   if (status != 0) {
     DP("OpenCL Error: Failed to create program: %d\n", status);
     return NULL;
   }
 
-  status = clBuildProgram(program, 0, nullptr, nullptr, nullptr, nullptr);
-  if (status != 0) {
-    DP("OpenCL Error: Failed to build program: %d\n", status);
+  status = clCompileProgram(program[1], 0, nullptr, nullptr, 0, nullptr,
+                            nullptr, nullptr, nullptr);
+  if (status != CL_SUCCESS) {
+    DP("OpenCL Error: Failed to compile program: %d\n", status);
+    return NULL;
+  }
+  num_programs++;
+
+  if (num_programs < 2)
+    DP("Skipped device RTL.\n");
+
+  program[2] = clLinkProgram(DeviceInfo.CTX[device_id], 1,
+                             &DeviceInfo.deviceIDs[device_id], nullptr,
+                             num_programs, &program[0], nullptr, nullptr,
+                             &status);
+  if (status != CL_SUCCESS) {
+    DP("OpenCL Error: Failed to link program: %d\n", status);
     return NULL;
   } else {
-    DP("OpenCL: Successfully build program\n");
+    DP("OpenCL: Successfully linked program.\n");
   }
 
   // create kernel and target entries
@@ -200,7 +264,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   std::vector<cl_kernel>& kernels = DeviceInfo.FuncGblEntries[device_id].Kernels;
   for(unsigned i = 0; i< NumEntries; i++) {
     char *name = image->EntriesBegin[i].name;
-    kernels[i] = clCreateKernel(program, name, &status);
+    kernels[i] = clCreateKernel(program[2], name, &status);
     if (status != 0) {
       DP("OpenCL Error: Failed to create kernel %s, %d\n", name, status);
       return NULL;
@@ -332,3 +396,4 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
 #ifdef __cplusplus
 }
 #endif
+#endif // INTEL_COLLAB

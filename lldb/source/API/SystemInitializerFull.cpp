@@ -106,6 +106,7 @@
 #include "Plugins/Platform/MacOSX/PlatformDarwinKernel.h"
 #include "Plugins/Platform/MacOSX/PlatformRemoteAppleTV.h"
 #include "Plugins/Platform/MacOSX/PlatformRemoteAppleWatch.h"
+#include "Plugins/Platform/MacOSX/PlatformRemoteAppleBridge.h"
 #include "Plugins/Platform/MacOSX/PlatformiOSSimulator.h"
 #include "Plugins/Process/MacOSX-Kernel/ProcessKDP.h"
 #include "Plugins/SymbolVendor/MacOSX/SymbolVendorMacOSX.h"
@@ -233,6 +234,13 @@ extern "C" void *
 LLDBSWIGPythonCreateOSPlugin(const char *python_class_name,
                              const char *session_dictionary_name,
                              const lldb::ProcessSP &process_sp);
+
+extern "C" void *LLDBSWIGPython_CreateFrameRecognizer(
+    const char *python_class_name,
+    const char *session_dictionary_name);
+
+extern "C" void *LLDBSwigPython_GetRecognizedArguments(void *implementor,
+    const lldb::StackFrameSP& frame_sp);
 
 extern "C" bool LLDBSWIGPythonRunScriptKeywordProcess(
     const char *python_function_name, const char *session_dictionary_name,
@@ -378,6 +386,7 @@ void SystemInitializerFull::Initialize() {
   PlatformAppleWatchSimulator::Initialize();
   PlatformRemoteAppleTV::Initialize();
   PlatformRemoteAppleWatch::Initialize();
+  PlatformRemoteAppleBridge::Initialize();
   DynamicLoaderDarwinKernel::Initialize();
 #endif
 
@@ -421,7 +430,9 @@ void SystemInitializerFull::InitializeSWIG() {
       LLDBSwigPython_MightHaveChildrenSynthProviderInstance,
       LLDBSwigPython_GetValueSynthProviderInstance, LLDBSwigPythonCallCommand,
       LLDBSwigPythonCallCommandObject, LLDBSwigPythonCallModuleInit,
-      LLDBSWIGPythonCreateOSPlugin, LLDBSWIGPythonRunScriptKeywordProcess,
+      LLDBSWIGPythonCreateOSPlugin, LLDBSWIGPython_CreateFrameRecognizer,
+      LLDBSwigPython_GetRecognizedArguments,
+      LLDBSWIGPythonRunScriptKeywordProcess,
       LLDBSWIGPythonRunScriptKeywordThread,
       LLDBSWIGPythonRunScriptKeywordTarget, LLDBSWIGPythonRunScriptKeywordFrame,
       LLDBSWIGPythonRunScriptKeywordValue, LLDBSWIGPython_GetDynamicSetting,
@@ -499,6 +510,7 @@ void SystemInitializerFull::Terminate() {
   PlatformAppleWatchSimulator::Terminate();
   PlatformRemoteAppleTV::Terminate();
   PlatformRemoteAppleWatch::Terminate();
+  PlatformRemoteAppleBridge::Terminate();
 #endif
 
 #if defined(__FreeBSD__)

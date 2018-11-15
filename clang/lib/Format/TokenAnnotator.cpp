@@ -2555,8 +2555,11 @@ bool TokenAnnotator::spaceRequiredBetween(const AnnotatedLine &Line,
     return false;
   if (Left.is(TT_TemplateCloser) && Left.MatchingParen &&
       Left.MatchingParen->Previous &&
-      Left.MatchingParen->Previous->is(tok::period))
+      (Left.MatchingParen->Previous->is(tok::period) ||
+       Left.MatchingParen->Previous->is(tok::coloncolon)))
+    // Java call to generic function with explicit type:
     // A.<B<C<...>>>DoSomething();
+    // A::<B<C<...>>>DoSomething();  // With a Java 8 method reference.
     return false;
   if (Left.is(TT_TemplateCloser) && Right.is(tok::l_square))
     return false;
@@ -2775,6 +2778,9 @@ bool TokenAnnotator::spaceRequiredBefore(const AnnotatedLine &Line,
     return false;
   if (!Style.SpaceBeforeAssignmentOperators &&
       Right.getPrecedence() == prec::Assignment)
+    return false;
+  if (Style.Language == FormatStyle::LK_Java && Right.is(tok::coloncolon) &&
+      (Left.is(tok::identifier) || Left.is(tok::kw_this)))
     return false;
   if (Right.is(tok::coloncolon) && Left.is(tok::identifier))
     // Generally don't remove existing spaces between an identifier and "::".
@@ -3040,6 +3046,30 @@ bool TokenAnnotator::mustBreakBefore(const AnnotatedLine &Line,
     // If there was a comment between `}` an `key` above, then `key` would be
     // put on a new line anyways.
     if (Left.isOneOf(tok::r_brace, tok::greater, tok::r_square))
+      return true;
+  }
+
+  // Deal with lambda arguments in C++ - we want consistent line breaks whether
+  // they happen to be at arg0, arg1 or argN. The selection is a bit nuanced
+  // as aggressive line breaks are placed when the lambda is not the last arg.
+  if ((Style.Language == FormatStyle::LK_Cpp ||
+       Style.Language == FormatStyle::LK_ObjC) &&
+      Left.is(tok::l_paren) && Left.BlockParameterCount > 0 &&
+      !Right.isOneOf(tok::l_paren, TT_LambdaLSquare)) {
+    // Multiple lambdas in the same function call force line breaks.
+    if (Left.BlockParameterCount > 1)
+      return true;
+
+    // A lambda followed by another arg forces a line break.
+    if (!Left.Role)
+      return false;
+    auto Comma = Left.Role->lastComma();
+    if (!Comma)
+      return false;
+    auto Next = Comma->getNextNonComment();
+    if (!Next)
+      return false;
+    if (!Next->isOneOf(TT_LambdaLSquare, tok::l_brace, tok::caret))
       return true;
   }
 

@@ -33,8 +33,8 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugPubTable.h"
-#include "llvm/Object/Decompressor.h"
 #include "llvm/Object/ELFObjectFile.h"
+#include "llvm/Support/Compression.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/MD5.h"
@@ -105,7 +105,7 @@ MipsAbiFlagsSection<ELFT> *MipsAbiFlagsSection<ELFT>::create() {
     Create = true;
 
     std::string Filename = toString(Sec->File);
-    const size_t Size = Sec->Data.size();
+    const size_t Size = Sec->data().size();
     // Older version of BFD (such as the default FreeBSD linker) concatenate
     // .MIPS.abiflags instead of merging. To allow for this case (or potential
     // zero padding) we ignore everything after the first Elf_Mips_ABIFlags
@@ -114,7 +114,7 @@ MipsAbiFlagsSection<ELFT> *MipsAbiFlagsSection<ELFT>::create() {
             Twine(Size) + " instead of " + Twine(sizeof(Elf_Mips_ABIFlags)));
       return nullptr;
     }
-    auto *S = reinterpret_cast<const Elf_Mips_ABIFlags *>(Sec->Data.data());
+    auto *S = reinterpret_cast<const Elf_Mips_ABIFlags *>(Sec->data().data());
     if (S->version != 0) {
       error(Filename + ": unexpected .MIPS.abiflags version " +
             Twine(S->version));
@@ -177,7 +177,7 @@ MipsOptionsSection<ELFT> *MipsOptionsSection<ELFT>::create() {
     Sec->Live = false;
 
     std::string Filename = toString(Sec->File);
-    ArrayRef<uint8_t> D = Sec->Data;
+    ArrayRef<uint8_t> D = Sec->data();
 
     while (!D.empty()) {
       if (D.size() < sizeof(Elf_Mips_Options)) {
@@ -233,12 +233,12 @@ MipsReginfoSection<ELFT> *MipsReginfoSection<ELFT>::create() {
   for (InputSectionBase *Sec : Sections) {
     Sec->Live = false;
 
-    if (Sec->Data.size() != sizeof(Elf_Mips_RegInfo)) {
+    if (Sec->data().size() != sizeof(Elf_Mips_RegInfo)) {
       error(toString(Sec->File) + ": invalid size of .reginfo section");
       return nullptr;
     }
 
-    auto *R = reinterpret_cast<const Elf_Mips_RegInfo *>(Sec->Data.data());
+    auto *R = reinterpret_cast<const Elf_Mips_RegInfo *>(Sec->data().data());
     Reginfo.ri_gprmask |= R->ri_gprmask;
     Sec->getFile<ELFT>()->MipsGp0 = R->ri_gp_value;
   };
@@ -1491,11 +1491,14 @@ void RelocationBaseSection::addReloc(const DynamicReloc &Reloc) {
 }
 
 void RelocationBaseSection::finalizeContents() {
-  // If all relocations are R_*_RELATIVE they don't refer to any
-  // dynamic symbol and we don't need a dynamic symbol table. If that
-  // is the case, just use 0 as the link.
-  getParent()->Link =
-      In.DynSymTab ? In.DynSymTab->getParent()->SectionIndex : 0;
+  // When linking glibc statically, .rel{,a}.plt contains R_*_IRELATIVE
+  // relocations due to IFUNC (e.g. strcpy). sh_link will be set to 0 in that
+  // case.
+  InputSection *SymTab = Config->Relocatable ? In.SymTab : In.DynSymTab;
+  getParent()->Link = SymTab ? SymTab->getParent()->SectionIndex : 0;
+
+  if (In.RelaIplt == this || In.RelaPlt == this)
+    getParent()->Info = In.GotPlt->getParent()->SectionIndex;
 }
 
 RelrBaseSection::RelrBaseSection()
@@ -1720,6 +1723,11 @@ bool AndroidPackedRelocationSection<ELFT>::updateAllocSize() {
       }
     }
   }
+
+  // Don't allow the section to shrink; otherwise the size of the section can
+  // oscillate infinitely.
+  if (RelocData.size() < OldSize)
+    RelocData.append(OldSize - RelocData.size(), 0);
 
   // Returns whether the section size changed. We need to keep recomputing both
   // section layout and the contents of this section until the size converges
@@ -2587,7 +2595,7 @@ void GdbIndexSection::writeTo(uint8_t *Buf) {
   }
 }
 
-bool GdbIndexSection::empty() const { return !Out::DebugInfo; }
+bool GdbIndexSection::empty() const { return Chunks.empty(); }
 
 EhFrameHeader::EhFrameHeader()
     : SyntheticSection(SHF_ALLOC, SHT_PROGBITS, 4, ".eh_frame_hdr") {}
@@ -2896,12 +2904,6 @@ static MergeSyntheticSection *createMergeSynthetic(StringRef Name,
   if (ShouldTailMerge)
     return make<MergeTailSection>(Name, Type, Flags, Alignment);
   return make<MergeNoTailSection>(Name, Type, Flags, Alignment);
-}
-
-// Debug sections may be compressed by zlib. Decompress if exists.
-void elf::decompressSections() {
-  parallelForEach(InputSections,
-                  [](InputSectionBase *Sec) { Sec->maybeDecompress(); });
 }
 
 template <class ELFT> void elf::splitSections() {
