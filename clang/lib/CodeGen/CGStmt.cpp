@@ -34,6 +34,9 @@ using namespace CodeGen;
 
 #if INTEL_CUSTOMIZATION
 static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
+  if (S->getStmtClass() == Stmt::OMPTargetDirectiveClass)
+    return !CGM.getLangOpts().IntelOpenMPOffload;
+
   if (S->getStmtClass() != Stmt::OMPAtomicDirectiveClass)
     return false;
 
@@ -97,34 +100,36 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().IntelCompat && !useFrontEndOutlining(CGM, S) &&
       CGM.getLangOpts().IntelOpenMP) {
-    if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
-      return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPForDirectiveClass)
-      return EmitIntelOMPForDirective(cast<OMPForDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
-      return EmitIntelOMPParallelForDirective(
-                                cast<OMPParallelForDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPParallelForSimdDirectiveClass)
-      return EmitIntelOMPParallelForSimdDirective(
-                                cast<OMPParallelForSimdDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPTaskLoopDirectiveClass)
-      return EmitIntelOMPTaskLoopDirective(
-                                cast<OMPTaskLoopDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPTaskLoopSimdDirectiveClass)
-      return EmitIntelOMPTaskLoopSimdDirective(
-                                cast<OMPTaskLoopSimdDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPDistributeDirectiveClass)
-      return EmitIntelOMPDistributeDirective(cast<OMPDistributeDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPDistributeParallelForDirectiveClass)
-      return EmitIntelOMPDistributeParallelForDirective(
-          cast<OMPDistributeParallelForDirective>(*S));
-    if (S->getStmtClass() == Stmt::OMPDistributeParallelForSimdDirectiveClass)
-      return EmitIntelOMPDistributeParallelForSimdDirective(
-          cast<OMPDistributeParallelForSimdDirective>(*S));
-    if (S->getStmtClass() != Stmt::OMPTargetDirectiveClass ||
-        CGM.getLangOpts().IntelOpenMPOffload)
-      if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
-        return EmitIntelOpenMPDirective(*Dir);
+    // Combined target directives
+    if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetParallelForDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetParallelForSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDistributeDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_target);
+    }
+    // Combined teams directives
+    if (S->getStmtClass() == Stmt::OMPTeamsDistributeDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_teams);
+    }
+    if (auto *LoopDir = dyn_cast<OMPLoopDirective>(S))
+      return EmitLateOutlineOMPLoopDirective(*LoopDir,
+                                             LoopDir->getDirectiveKind());
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+      return EmitLateOutlineOMPDirective(*Dir);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1316,10 +1321,9 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   // exception to our over-conservative rules about not jumping to
   // statements following block literals with non-trivial cleanups.
   RunCleanupsScope cleanupScope(*this);
-  if (const ExprWithCleanups *cleanups =
-        dyn_cast_or_null<ExprWithCleanups>(RV)) {
-    enterFullExpression(cleanups);
-    RV = cleanups->getSubExpr();
+  if (const FullExpr *fe = dyn_cast_or_null<FullExpr>(RV)) {
+    enterFullExpression(fe);
+    RV = fe->getSubExpr();
   }
 
   // FIXME: Clean this up by using an LValue for ReturnTemp,

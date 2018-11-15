@@ -111,14 +111,78 @@ class OpenMPCodeOutliner {
   // Used to insert instructions outside the region.
   llvm::Instruction *MarkerInstruction = nullptr;
 
+  /// This class manages the building of the clause qualifier string.  An
+  /// object is used in ClauseEmissionHelper to ensure the string is alive
+  /// until the end of the emission.  Use it in all cases where a constant
+  /// string cannot be used for the BundleString part of the clause.
+  class ClauseStringBuilder {
+    SmallString<128> Str;
+    StringRef Separator = ":";
+
+    // Modifiers
+    bool NonPod = false;
+    bool ByRef = false;
+    bool Unsigned = false;
+    bool Conditional = false;
+    bool ArrSect = false;
+    bool Monotonic = false;
+    bool NonMonotonic = false;
+    bool Simd = false;
+
+    void addSeparated(StringRef QualString) {
+      Str += Separator;
+      Str += QualString;
+      Separator = ".";
+    }
+
+    void insertModifiers() {
+      if (NonPod)
+        addSeparated("NONPOD");
+      if (ByRef)
+        addSeparated("BYREF");
+      if (Unsigned)
+        addSeparated("UNSIGNED");
+      if (Conditional)
+        addSeparated("CONDITIONAL");
+      if (ArrSect)
+        addSeparated("ARRSECT");
+      if (Monotonic)
+        addSeparated("MONOTONIC");
+      if (NonMonotonic)
+        addSeparated("NONMONOTONIC");
+      if (Simd)
+        addSeparated("SIMD");
+    }
+
+  public:
+    ClauseStringBuilder() = default;
+    ClauseStringBuilder(StringRef InitStr) { Str = InitStr; }
+    void setNonPod() { NonPod = true; }
+    void setByRef() { ByRef = true; }
+    void setUnsigned() { Unsigned = true; }
+    void setConditional() { Conditional = true; }
+    void setArrSect() { ArrSect = true; }
+    void setMonotonic() { Monotonic = true; }
+    void setNonMonotonic() { NonMonotonic = true; }
+    void setSimd() { Simd = true; }
+
+    void add(StringRef S) { Str += S; }
+    StringRef getString() {
+      insertModifiers();
+      return Str;
+    }
+  };
+
   class ClauseEmissionHelper final {
     llvm::IRBuilderBase::InsertPoint SavedIP;
     OpenMPCodeOutliner &O;
+    ClauseStringBuilder CSB;
     bool EmitClause;
 
   public:
-    ClauseEmissionHelper(OpenMPCodeOutliner &O, bool EmitClause = true)
-        : O(O), EmitClause(EmitClause) {
+    ClauseEmissionHelper(OpenMPCodeOutliner &O, StringRef InitStr = "",
+                         bool EmitClause = true)
+        : O(O), CSB(InitStr), EmitClause(EmitClause) {
       SavedIP = O.CGF.Builder.saveIP();
       O.setInsertPoint();
     }
@@ -127,12 +191,15 @@ class OpenMPCodeOutliner {
       if (EmitClause)
         O.emitClause();
     }
+    ClauseStringBuilder &getBuilder() { return CSB; }
   };
   const OMPExecutableDirective &Directive;
+  OpenMPDirectiveKind CurrentDirectiveKind;
 
   const Expr *getArraySectionBase(const Expr *E, ArraySectionTy *AS);
   ArraySectionDataTy emitArraySectionData(const Expr *E);
   Address emitOMPArraySectionExpr(const Expr *E, ArraySectionTy *AS);
+  const VarDecl *getExplicitVarDecl(const Expr *E);
 
   void addArg(llvm::Value *Val);
   void addArg(StringRef Str);
@@ -198,6 +265,8 @@ class OpenMPCodeOutliner {
   void emitOMPUnifiedSharedMemoryClause(const OMPUnifiedSharedMemoryClause *);
   void emitOMPReverseOffloadClause(const OMPReverseOffloadClause *);
   void emitOMPDynamicAllocatorsClause(const OMPDynamicAllocatorsClause *);
+  void
+  emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
 
   llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitIntelOpenMPDestructor(QualType Ty);
@@ -230,22 +299,23 @@ class OpenMPCodeOutliner {
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
   llvm::Value *ThisPointerValue = nullptr;
-  llvm::StringMap<llvm::MDNode *> MDNodes;
 
 public:
-  OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D);
+  OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
+                     OpenMPDirectiveKind Kind);
   ~OpenMPCodeOutliner();
   void emitOMPParallelDirective();
   void emitOMPParallelForDirective();
   void emitOMPSIMDDirective();
   void emitOMPForDirective();
+  void emitOMPForSimdDirective();
   void emitOMPParallelForSimdDirective();
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();
   void emitOMPCriticalDirective(const StringRef Name);
   void emitOMPOrderedDirective();
-  void emitOMPTargetDirective();
+  void emitOMPTargetDirective(int OffloadEntryIndex);
   void emitOMPTargetDataDirective();
   void emitOMPTargetUpdateDirective();
   void emitOMPTargetEnterDataDirective();
@@ -260,6 +330,7 @@ public:
   void emitOMPFlushDirective();
   void emitOMPTeamsDirective();
   void emitOMPDistributeDirective();
+  void emitOMPDistributeSimdDirective();
   void emitOMPDistributeParallelForDirective();
   void emitOMPDistributeParallelForSimdDirective();
   void emitOMPSectionsDirective();
@@ -267,6 +338,7 @@ public:
   void emitOMPParallelSectionsDirective();
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
+
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
@@ -276,10 +348,9 @@ public:
     ThisPointerValue = ThisValue;
   }
   llvm::Value *getThisPointerValue() { return ThisPointerValue; }
-  void addExplicit(const Expr *E);
+  OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
   void setInsertPoint() { CGF.Builder.SetInsertPoint(MarkerInstruction); }
-  void addMetadata(StringRef Kind, llvm::MDNode *N) { MDNodes[Kind] = N; }
 };
 
 /// Base class for handling code generation inside OpenMP regions.
@@ -292,14 +363,14 @@ public:
                            CR_OpenMP),
         OldCSI(OldCSI), Outliner(O), D(D) {}
 
-  /// \brief Emit the captured statement body.
+  /// Emit the captured statement body.
   void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
 
-  // \brief Retrieve the value of the context parameter.
+  /// Retrieve the value of the context parameter.
   llvm::Value *getContextValue() const override;
   void setContextValue(llvm::Value *V) override;
 
-  /// \brief Lookup the captured field decl for a variable.
+  /// Lookup the captured field decl for a variable.
   const FieldDecl *lookup(const VarDecl *VD) const override;
 
   FieldDecl *getThisFieldDecl() const override;
@@ -318,19 +389,19 @@ public:
   bool isLateOutlinedRegion() { return true; }
 
 private:
-  /// \brief CodeGen info about outer OpenMP region.
+  /// CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
   OpenMPCodeOutliner &Outliner;
   const OMPExecutableDirective &D;
 };
 
-/// \brief RAII for emitting code of OpenMP constructs.
+/// RAII for emitting code of OpenMP constructs.
 class InlinedOpenMPRegionRAII {
   CodeGenFunction &CGF;
   OpenMPCodeOutliner &Outliner;
   const OMPExecutableDirective &Dir;
 public:
-  /// \brief Constructs region for combined constructs.
+  /// Constructs region for combined constructs.
   /// \param CodeGen Code generation sequence for combined directives. Includes
   /// a list of functions used for code generation of implicitly inlined
   /// regions.

@@ -6,7 +6,12 @@
 
 ; RUN: opt -thinlto-bc -o %t.o %s
 
-; RUN: llvm-lto2 run -thinlto-distributed-indexes %t.o \
+; INTEL_CUSTOMIZATION
+; This customization is for turning off the multiversioning
+; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
+
+; RUN: llvm-lto2 run -thinlto-distributed-indexes -wholeprogramdevirt-multiversion=false %t.o \
+; RUN:   -verify-machineinstrs=0 \
 ; RUN:   -o %t2.index \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \
@@ -19,6 +24,7 @@
 ; RUN:   -r=%t.o,_ZN1C1fEi, \
 ; RUN:   -r=%t.o,_ZTV1B,px \
 ; RUN:   -r=%t.o,_ZTV1C,px
+; END INTEL_CUSTOMIZATION
 
 ; Ensure that typeids are in the index.
 ; RUN: llvm-bcanalyzer -dump %t.o.thinlto.bc | FileCheck %s

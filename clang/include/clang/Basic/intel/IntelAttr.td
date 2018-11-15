@@ -212,6 +212,15 @@ def VecLenHint : InheritableAttr {
 }
 
 // HLS function attributes
+def Cluster : InheritableAttr {
+  let Spellings = [Clang<"cluster">];
+  let Args = [StringArgument<"Name" , 1> , BoolArgument<"HasName" , 1>];
+  let LangOpts = [OpenCL, HLS];
+  let Subjects = SubjectList<[Function]>;
+  let PragmaAttributeSupport = 0;
+  let Documentation = [Undocumented];
+}
+
 def Component : InheritableAttr {
   let Spellings = [GNU<"ihc_component">];
   let LangOpts = [HLS];
@@ -241,6 +250,14 @@ def ComponentInterface : InheritableAttr {
       }
     }
   }];
+}
+
+def StallEnable : InheritableAttr {
+  let Spellings = [Clang<"stall_enable">];
+  let LangOpts = [OpenCL, HLS];
+  let Subjects = SubjectList<[Function]>;
+  let PragmaAttributeSupport = 0;
+  let Documentation = [Undocumented];
 }
 
 def MaxConcurrency : InheritableAttr {

@@ -52,7 +52,7 @@ channel float4 fch1;
 // CHECKWIN: declare dso_local void @"?write_channel_intel@@$$J0YAXU?$ocl_channel@H@__clang@@H@Z"(%opencl.channel_t*, i32)
 // CHECKWIN: declare dso_local void @"?write_channel_intel@@$$J0YAXU?$ocl_channel@J@__clang@@J@Z"(%opencl.channel_t*, i64)
 // CHECKWIN: declare dso_local void @"?write_channel_intel@@$$J0YAXU?$ocl_channel@Ust@@@__clang@@Ust@@@Z"(%opencl.channel_t*, %struct.st*)
-// CHECKWIN: declare dso_local void @"?write_channel_intel@@$$J0YAXU?$ocl_channel@T__m128@@@__clang@@T__m128@@@Z"(%opencl.channel_t*, <4 x float>)
+// CHECKWIN: declare dso_local void @"?write_channel_intel@@$$J0YAXU?$ocl_channel@T?$__vector@M$03@__clang@@@__clang@@T?$__vector@M$03@2@@Z"(%opencl.channel_t*, <4 x float>)
 //
 // CHECK: declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channelii(%opencl.channel_t {{.*}}*, i32)
 // CHECK: declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channelll(%opencl.channel_t {{.*}}*, i64)
@@ -62,7 +62,7 @@ channel float4 fch1;
 // CHECKWIN: declare dso_local zeroext i1 @"?write_channel_nb_intel@@$$J0YA_NU?$ocl_channel@H@__clang@@H@Z"(%opencl.channel_t*, i32)
 // CHECKWIN: declare dso_local zeroext i1 @"?write_channel_nb_intel@@$$J0YA_NU?$ocl_channel@J@__clang@@J@Z"(%opencl.channel_t*, i64)
 // CHECKWIN: declare dso_local zeroext i1 @"?write_channel_nb_intel@@$$J0YA_NU?$ocl_channel@Ust@@@__clang@@Ust@@@Z"(%opencl.channel_t*, %struct.st*)
-// CHECKWIN: declare dso_local zeroext i1 @"?write_channel_nb_intel@@$$J0YA_NU?$ocl_channel@T__m128@@@__clang@@T__m128@@@Z"(%opencl.channel_t*, <4 x float>)
+// CHECKWIN: declare dso_local zeroext i1 @"?write_channel_nb_intel@@$$J0YA_NU?$ocl_channel@T?$__vector@M$03@__clang@@@__clang@@T?$__vector@M$03@2@@Z"(%opencl.channel_t*, <4 x float>)
 
 // CHECK: declare i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t {{.*}}*)
 // CHECK: declare i64 @_Z18read_channel_intel11ocl_channell(%opencl.channel_t {{.*}}*)
@@ -72,7 +72,7 @@ channel float4 fch1;
 // CHECKWIN: declare dso_local i32 @"?read_channel_intel@@$$J0YAHU?$ocl_channel@H@__clang@@@Z"(%opencl.channel_t*)
 // CHECKWIN: declare dso_local i64 @"?read_channel_intel@@$$J0YAJU?$ocl_channel@J@__clang@@@Z"(%opencl.channel_t*)
 // CHECKWIN: declare dso_local void @"?read_channel_intel@@$$J0YA?AUst@@U?$ocl_channel@Ust@@@__clang@@@Z"(%struct.st* sret, %opencl.channel_t*)
-// CHECKWIN: declare dso_local <4 x float> @"?read_channel_intel@@$$J0YAT__m128@@U?$ocl_channel@T__m128@@@__clang@@@Z"(%opencl.channel_t*)
+// CHECKWIN: declare dso_local <4 x float> @"?read_channel_intel@@$$J0YAT?$__vector@M$03@__clang@@U?$ocl_channel@T?$__vector@M$03@__clang@@@2@@Z"(%opencl.channel_t*)
 //
 // CL12: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
 // CL12: declare void @_Z21read_channel_nb_intel11ocl_channel2stPb(%struct.st* sret, %opencl.channel_t {{.*}}*, i8*)
@@ -86,7 +86,7 @@ channel float4 fch1;
 // CHECKWIN: declare dso_local i32 @"?read_channel_nb_intel@@$$J0YAHU?$ocl_channel@H@__clang@@PEA_N@Z"(%opencl.channel_t*, i8*)
 // CHECKWIN: declare dso_local i64 @"?read_channel_nb_intel@@$$J0YAJU?$ocl_channel@J@__clang@@PEA_N@Z"(%opencl.channel_t*, i8*)
 // CHECKWIN: declare dso_local void @"?read_channel_nb_intel@@$$J0YA?AUst@@U?$ocl_channel@Ust@@@__clang@@PEA_N@Z"(%struct.st* sret, %opencl.channel_t*, i8*)
-// CHECKWIN: declare dso_local <4 x float> @"?read_channel_nb_intel@@$$J0YAT__m128@@U?$ocl_channel@T__m128@@@__clang@@PEA_N@Z"(%opencl.channel_t*, i8*)
+// CHECKWIN: declare dso_local <4 x float> @"?read_channel_nb_intel@@$$J0YAT?$__vector@M$03@__clang@@U?$ocl_channel@T?$__vector@M$03@__clang@@@2@PEA_N@Z"(%opencl.channel_t*, i8*)
 //
 // CL12-NOT: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
 // CL12-NOT: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)

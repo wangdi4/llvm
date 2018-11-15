@@ -33,10 +33,12 @@ class DocumentationCategory<string name> {
 }
 
 // New categories can be added by adding a new record here.
-def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
-def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
+def DocCatIntelLoops : DocumentationCategory<"Intel Loop Pragmas">;
 def DocCatIntelOptimization : DocumentationCategory<"Optimization">;
+def DocCatIntelHLS : DocumentationCategory<"HLS/FPGA">;
 def DocCatIntelOpenMP : DocumentationCategory<"OpenMP">;
+def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
+def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
 
 // Specifies the documentation to be associated with the given category.
 class Documentation {
@@ -315,7 +317,7 @@ A correct usage of these builtin functions are as follows:
 }
 
 def PragmaNoVectorDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let BugTracker= "";
   let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
@@ -325,135 +327,176 @@ def PragmaNoVectorDocs : Documentation {
 The ``novector`` pragma specifies that a particular loop should never be
 vectorized, even if it is legal to do so. When avoiding vectorization of a
 loop is desirable (when vectorization results in a performance regression
-rather than improvement), the ``novector`` pragma can be used in the source text
-to disable vectorization of a loop. This behavior is in contrast to the ``vector
-always`` pragma.
+rather than improvement), the ``novector`` pragma can be used in the source
+text to disable vectorization of a loop. This behavior is in contrast to the
+``vector always`` pragma.
 
-the ``pragma novector`` will be recognized and map to existing
+This pragma is implemented as an additional spelling for the existing
+community-supported ``pragma vector(disable)``.
 
-.. code-block:: c
+Syntax:
 
-  #pragma vectorize(disable)
-
-For :
-
-.. code-block:: c
+.. code-block:: text
 
   #pragma novector
-  for(;;);
+
+Example:
+
+.. code-block:: c
+
+  void foo(int lb, int ub, int *a, int *b) {
+    #pragma novector
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+  }
 
 AST:
 
-AttributedStmt
-      LoopHintAttr Implicit novector Vectorize Disable
+.. code-block:: console
 
-Metadata:
+  $ clang -cc1 -fintel-compatibility -ast-dump t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xedc1b28 <<invalid sloc>, line:3:31>
+  |-LoopHintAttr 0xedc1b00 <line:2:11> Implicit novector Vectorize Disable
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
 
 .. code-block:: llvm
 
   br label %for.cond, !llvm.loop !2
+
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.vector.vectorize.width", i32 1}
-
-A correct usage of this pragma:
-
-.. code-block:: c
-
-  void foo(int lb, int ub) {
-  #pragma novector
-  for(j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
-  }
-
   }];
-
 }
 
 def PragmaVectorDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let BugTracker= "";
   let RegressionTest = "test/Sema/intel/vector.cpp,test/CodeGenCXX/intel/vector.cpp";
   let Owner = "jyu2";
   let CompatVersions = "";
   let Content = [{
-The ''pragma vector'' indicates to the compiler that the loop should be vectorized according to the argument keywords.
-  "assert, aligned, unaligned, vecremainder, novecremainder">;
+The ``pragma vector`` indicates to the compiler that the loop should be
+vectorized according to the argument keywords,
+'assert', 'aligned', 'unaligned', 'vecremainder', and 'novecremainder'.
+
+
+Syntax:
+
+.. code-block:: text
+
+  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}
+
+``pragma vector`` with no other keyword will be treated as an additional
+spelling of the community-supported ``pragma vectorize(enable)``.
+
+Currently we only support ``pragma vector`` with no keywords, or with 'always'.
+
+Example:
 
 .. code-block:: c
 
-  vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}
-
-``pragma vector`` will be represented like the existing:
-
-.. code-block:: c
-
-  #pragma vectorize(enable)
-
-For :
-
-.. code-block:: c
-
-  #pragma vector
-  for(;;);
+  void foo(int lb, int ub, int *a, int *b) {
+    #pragma vector
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector always
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+  }
 
 AST:
 
-AttributedStmt
-      LoopHintAttr Implicit vector Vectorize Enable
+.. code-block:: console
 
-Metadata:
+  $ clang -cc1 -fintel-compatibility -ast-dump t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xed8d0f0 <<invalid sloc>, line:3:46>
+  | |-LoopHintAttr 0xed8d0c8 <line:2:11> Implicit vector Vectorize Enable
+  | | |-<<<NULL>>>
+  | | `-<<<NULL>>>
+  | `-ForStmt 0xed8d090 <line:3:3, col:46>
+
+  AttributedStmt 0xed8d628 <<invalid sloc>, line:5:46>
+  |-LoopHintAttr 0xed8d5d8 <line:4:11> Implicit vector Vectorize Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+  |-LoopHintAttr 0xed8d600 <col:11> Implicit vector VectorizeAlways Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+  `-ForStmt 0xed8d5a0 <line:5:3, col:46>
+
+Note than ``#pragma vector always`` will be represented as two LoopHint
+attributes.
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
 
 .. code-block:: llvm
 
   br label %for.cond, !llvm.loop !2
+
+  br label %for.cond6, !llvm.loop !4
+
   !2 = distinct !{!2, !3}
-  !3 = !{!"llvm.loop.vector.vectorize.enable", i1 true}
-
-``#pragma vector always`` will be represented as two LoopHint attributes:
-
-.. code-block:: c
-
-  #pragma vector always
-  for(;;);
-
-AST:
-
-AttributedStmt
-      LoopHintAttr Implicit vector VectorizeAlways Enable
-
-      LoopHintAttr Implicit vector Vectorize Enable
-
-Metadata:
-
-.. code-block:: llvm
-
-  br label %for.cond, !llvm.loop !2
-  !2 = distinct !{!2, !3 !4}
-  !3 = !{!"llvm.loop.ignore_profitability"}
-  !4 = !{!"llvm.loop.vectorize.enable", i1 true}
-
+  !3 = !{!"llvm.loop.vectorize.enable", i1 true}
+  !4 = distinct !{!4, !5, !3}
+  !5 = !{!"llvm.loop.vectorize.ignore_profitability"}
   }];
-
 }
 
 def PragmaFusionDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
+  let Option = "IntelCompat";
   let Owner = "pmrao";
   let Content = [{
-The ``fusion`` pragma instructs the compiler to fuse the loop with adjacent loops.
+The ``fusion`` pragma instructs the compiler to fuse the loop with adjacent
+loops.
 
-This is enabled with -fintel-compatibility as:
+Syntax:
 
-.. code-block:: c
+.. code-block:: text
 
   #pragma fusion
 
+Example:
+
+.. code-block:: c
+
+  void foo() {
+    #pragma fusion
+    for (int i=0; i<1024;++i) { }
+  }
+
 AST:
 
-AttributedStmt
-      LoopHintAttr Implicit fusion Fusion Enable
+.. code-block:: console
 
-Metadata:
+  $ clang -cc1 -fintel-compatibility -ast-dump t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xee32b28 <<invalid sloc>, line:3:31>
+  |-LoopHintAttr 0xee32b00 <line:2:11> Implicit fusion Fusion Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+  `-ForStmt 0xee32ac8 <line:3:3, col:31>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
 
 .. code-block:: llvm
 
@@ -465,112 +508,162 @@ Metadata:
 }
 
 def PragmaNoFusionDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
+  let Option = "IntelCompat";
   let Owner = "pmrao";
   let Content = [{
-The ``nofusion`` pragma instructs the compiler not to fuse the loop with adjacent loops.
+The ``nofusion`` pragma instructs the compiler not to fuse the loop with
+adjacent loops.
 
-This is enabled with -fintel-compatibility as:
+Syntax:
 
-.. code-block:: c
+.. code-block:: text
 
   #pragma nofusion
 
+Example:
+
+.. code-block:: c
+
+  void foo() {
+    #pragma nofusion
+    for (int i=0; i<1024;++i) { }
+  }
+
 AST:
 
-AttributedStmt
-      LoopHintAttr Implicit nofusion Fusion Disable
+.. code-block:: console
 
-Metadata:
+  $ clang -cc1 -fintel-compatibility -ast-dump t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xda3cb28 <<invalid sloc>, line:3:31>
+  |-LoopHintAttr 0xda3cb00 <line:2:11> Implicit nofusion Fusion Disable
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
 
 .. code-block:: llvm
 
   br label %for.cond, !llvm.loop !2
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.fusion.disable"}
-
   }];
 }
 
 def PragmaUnrollAndJamDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
+  let Option = "IntelCompat";
   let Owner = "pmrao";
   let Content = [{
-The ``unroll_and_jam`` pragma instructs the compiler to enable unrolling and jamming loops.
+The ``unroll_and_jam`` pragma instructs the compiler to enable unrolling and
+jamming loops.
 
-This is enabled with -fintel-compatibility as:
+Syntax:
+
+.. code-block:: text
+
+  #pragma unroll_and_jam [(<integral-constant>)]
+
+Example:
 
 .. code-block:: c
 
-  #pragma unroll_and_jam
+  void foo() {
+    #pragma unroll_and_jam
+    for(int i=0;i<8;++i) {}
+    #pragma unroll_and_jam(4)
+    for(int i=0;i<8;++i) {}
+  }
 
 AST:
 
-AttributedStmt
-      LoopHintAttr Implicit unroll_and_jam UnrollAndJam Enable
+.. code-block:: console
 
-Metadata:
+  $ clang -cc1 -ast-dump -o - -fintel-compatibility t.c
+
+.. code-block:: text
+
+  AttributedStmt
+  |-LoopHintAttr Implicit unroll_and_jam UnrollAndJam Enable
+
+  AttributedStmt 0xe3d1e28 <<invalid sloc>, line:6:25>
+  |-LoopHintAttr 0xe3d1e00 <line:5:11, col:28> Implicit unroll_and_jam UnrollAndJamCount Numeric
+  | |-IntegerLiteral 0xe3d1c18 <col:26> 'int' 4
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -emit-llvm -o - -fintel-compatibility t.c
 
 .. code-block:: llvm
 
   br label %for.cond, !llvm.loop !2
+
+  br label %for.cond2, !llvm.loop !4
+
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.unroll_and_jam.enable"}
-
-The pragma accepts an optional integer argument as:
-
-.. code-block:: c
-
-  #pragma unroll_and_jam (n)
-
-AST:
-
-AttributedStmt
-      LoopHintAttr Implicit unroll_and_jam UnrollAndJam Numeric
-        -IntegerLiteral 'int' n
-
-
-Metadata:
-
-.. code-block:: llvm
-
-  br label %for.cond, !llvm.loop !2
-  !2 = distinct !{!2, !3}
-  !3 = !{!"llvm.loop.unroll_and_jam.count", i32 n}
-
+  !4 = distinct !{!4, !5}
+  !5 = !{!"llvm.loop.unroll_and_jam.count", i32 4}
   }];
 }
 
 def PragmaNoUnrollAndJamDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
+  let Option = "IntelCompat";
   let Owner = "pmrao";
   let Content = [{
-The ``nounroll_and_jam`` pragma instructs the compiler to disable unrolling and jamming loops.
+The ``nounroll_and_jam`` pragma instructs the compiler to disable unrolling
+and jamming loops.
 
-This is enabled with -fintel-compatibility as:
+Syntax:
 
-.. code-block:: c
+.. code-block:: text
 
   #pragma nounroll_and_jam
 
+Example:
+
+.. code-block:: c
+
+  void foo() {
+    #pragma nounroll_and_jam
+    for (int i=0; i<1024;++i) { }
+  }
+
 AST:
 
-AttributedStmt
-      LoopHintAttr Implicit nounroll_and_jam NoUnrollAndJam Disable
+.. code-block:: console
 
-Metadata:
+  $ clang -cc1 -fintel-compatibility -ast-dump t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xd992b28 <<invalid sloc>, line:3:31>
+  |-LoopHintAttr 0xd992b00 <line:2:11> Implicit nounroll_and_jam UnrollAndJam Disable
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
 
 .. code-block:: llvm
 
   br label %for.cond, !llvm.loop !2
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.unroll_and_jam.disable"}
-
   }];
 }
 
 def PragmaBlockLoopDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let RegressionTest = "Parser/intel/block_loop.cpp, Sema/intel/block_loop.cpp, CodeGenCXX/intel/block_loop.cpp";
   let Owner = "jyu2";
@@ -578,60 +671,79 @@ def PragmaBlockLoopDocs : Documentation {
 The ``block_loop`` pragma lets you exert greater control over optimizations
 on a specific loop inside a nested loop.
 
-.. code-block:: c
+Syntax:
+
+.. code-block:: text
 
   #pragma block_loop [level(levels)] [private(vars)] [factor(expr)]
 
-Adding new IntelBlockLoopAttr intead using LoopHint attribute framework. No
-metadata are generated.  Directives are requested here.
+Implements a new attribute (IntelBlockLoopAttr) instead of using the LoopHint
+attribute framework used.  LoopHintAttrs create metadata but this pragma
+generates only directives.
 
-For:
+Example:
 
 .. code-block:: c
 
-  #pragma block_loop level(1:2) factor(256) private(var)
-   for (...)
-    for (...);
+  void foo(int var, void (*bar)(int)) {
+    #pragma block_loop level(1:2) factor(256) private(var)
+    for (int i=0; i<1024;++i)
+    for (int j=0; j<512; ++j) { bar(var); }
+  }
 
 AST:
 
-AttributedStmt
+.. code-block:: console
 
-.. code-block:: c
+  $ clang -cc1 -fintel-compatibility -ast-dump -o - t.c
 
-   |-IntelBlockLoopAttr 0xcf13e98 <line:5:9, col:54> Implicit 1 2
-      | |-IntegerLiteral 0xcee1508 <col:40> 'int' 256
-      | |-IntegerLiteral 0xcee1538 <col:40> 'int' 256
-      | `-DeclRefExpr 0xcee1588 <col:51> 'int' lvalue Var 0xcee1460 'var' 'int'
+.. code-block:: text
+
+  AttributedStmt 0xdb151f8 <<invalid sloc>, line:5:41>
+  |-IntelBlockLoopAttr 0xdb15190 <line:3:11, col:56> Implicit 1 2
+  | |-IntegerLiteral 0xdb14cb0 <col:40> 'int' 256
+  | |-IntegerLiteral 0xdb14cb0 <col:40> 'int' 256
+  | `-DeclRefExpr 0xdb14d30 <col:53> 'int' lvalue ParmVar 0xdab48c0 'var' 'int'
+  `-ForStmt 0xdb15158 <line:4:3, line:5:41>
 
 IR:
 
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+
 .. code-block:: llvm
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(double* %var.addr), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 16), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 16) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(i32* %var.addr), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 256), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 256) ]
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
-
   }];
-
 }
 
 def PragmaLoopCountDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
   let RegressionTest = "Parser/intel/loop_count.cpp, Sema/intel/loop_count.cpp, CodeGen/intel/loop_count.cpp";
-  let BugTracker = "Cmplrllvm-5991, Cmplrllvm-1022";
+  let BugTracker = "CMPLRLLVM-5991, CMPLRLLVM-1022";
   let Owner = "jyu2";
   let Content = [{
 The ``loop_count`` pragma specifies the minimum, maximum, or average number of
 iterations for a for loop. In addition, a list of commonly occurring values can
-be specified to help the compiler generate multiple versions and perform complete unrolling.
+be specified to help the compiler generate multiple versions and perform
+complete unrolling.
 
-.. code-block:: c
+Syntax:
 
- #pragma loop_count(1,2) min=1 max=5 avg=2
-    for (...)
-      for (...)
+.. code-block:: text
+
+  constant-int-list := (n1[,n2]...) | = n1[,n2]...
+  minmod := min(n) | min=n
+  maxmod := max(n) | max=n
+  avgmid := avg(n) | avg=n
+
+  loopcount_component := constant-int-list | minmod | maxmod | avgmod
+
+  #pragma loop_count loopcount_component [loopcount_component]...
 
 .. csv-table::
   :header: Syntax, Option, State, Metadata
@@ -642,69 +754,78 @@ be specified to help the compiler generate multiple versions and perform complet
   #pragma loop_count max(4), LoopCountMax, Numeric, llvm.loop.intel.loopcount_maximum(4)
   #pragma loop_count avg(4), LoopCountAvg, Numeric, llvm.loop.intel.loopcount_average(4)
 
-for example:
-using command line:
-
-.. code-block:: bash
-
-  $ clang -cc1 -fintel-compatibility -ast-dump -o - t.c
-  $ clang -cc1 -fintel-compatibility-enable=PragmaLoopCount -ast-dump -o - t.c
-  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+Example:
 
 .. code-block:: c
 
-  void foo()
-  {
-    int a=0,i;
-    #pragma loop_count(2) min=1
-    for (i = 0; i < 10; ++i) a=a++;
+  void foo() {
+    #pragma loop_count(1,2) min=1 max=5 avg=2
+    for (int i=0; i<1024;++i)
+    for (int j=0; i<1024;++i) { }
   }
 
 AST:
 
-AttributedStmt
+.. code-block:: console
 
-.. code-block:: c
+  $ clang -cc1 -fintel-compatibility -ast-dump t.c
 
- `-AttributedStmt 0xed2f538 <<invalid sloc>, line:6:32>
-      |-LoopHintAttr 0xed2f4e8 <line:5:11, col:23> Implicit loop_count LoopCount Numeric
-      | |-IntegerLiteral 0xed2f238 <col:22> 'int' 2
-      | `-<<<NULL>>>
-      |-LoopHintAttr 0xed2f510 <col:11, col:30> Implicit loop_count LoopCountMin Numeric
-      | |-IntegerLiteral 0xed2f278 <col:29> 'int' 1
-      | `-<<<NULL>>>
+.. code-block:: text
+
+  AttributedStmt 0xf03bea0 <<invalid sloc>, line:4:31>
+  |-LoopHintAttr 0xf03bdd8 <line:2:11, col:23> Implicit loop_count LoopCount Numeric
+  | |-IntegerLiteral 0xf03b938 <col:22> 'int' 1
+  | `-<<<NULL>>>
+  |-LoopHintAttr 0xf03be00 <col:11, col:25> Implicit loop_count LoopCount Numeric
+  | |-IntegerLiteral 0xf03b978 <col:24> 'int' 2
+  | `-<<<NULL>>>
+  |-LoopHintAttr 0xf03be28 <col:11, col:33> Implicit loop_count LoopCountMin Numeric
+  | |-IntegerLiteral 0xf03b9b8 <col:31> 'int' 1
+  | `-<<<NULL>>>
+  |-LoopHintAttr 0xf03be50 <col:11, col:39> Implicit loop_count LoopCountMax Numeric
+  | |-IntegerLiteral 0xf03b9f8 <col:37> 'int' 5
+  | `-<<<NULL>>>
+  |-LoopHintAttr 0xf03be78 <col:11, col:44> Implicit loop_count LoopCountAvg Numeric
+  | |-IntegerLiteral 0xf03ba38 <col:43> 'int' 2
+  | `-<<<NULL>>>
+  `-ForStmt 0xf03bda0 <line:3:3, line:4:31>
 
 IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
 
 .. code-block:: llvm
 
   br label %for.cond, !llvm.loop !2
-  ...
-  !2 = distinct !{!2, !3, !4}
-  !3 = !{!"llvm.loop.intel.loopcount", i32 2}
-  !4 = !{!"llvm.loop.intel.loopcount_minimum", i32 1}
-  }];
 
+  !2 = distinct !{!2, !3, !4, !5, !6}
+  !3 = !{!"llvm.loop.intel.loopcount", i32 1, i32 2}
+  !4 = !{!"llvm.loop.intel.loopcount_minimum", i32 1}
+  !5 = !{!"llvm.loop.intel.loopcount_maximum", i32 5}
+  !6 = !{!"llvm.loop.intel.loopcount_average", i32 2}
+  }];
 }
 
 def PragmaIVDepDocs : Documentation {
-  let Category = DocCatIntelCompat;
+  let Category = DocCatIntelLoops;
   let Owner = "mprice1,pmrao";
   let Content = [{
 The ``ivdep`` pragma instructs the compiler to ignore assumed vector
 dependencies in a loop.
 
-The HLS form (enabled with -fhls) is:
+Intel form (enabled with -fintel-compatibility) syntax:
 
-.. code-block:: c
-
-  #pragma ivdep [safelen(n)] [array(<arrayname>)]
-
-The Intel form (enabled with -fintel-compatibility) is:
-
-.. code-block:: c
+.. code-block:: text
 
   #pragma ivdep [back|loop]
+
+HLS form (enabled with -fhls) syntax:
+
+.. code-block:: text
+
+  #pragma ivdep [safelen(n)] [array(<arrayname>)]
 
 The implementation uses the existing clang LoopHint attribute framework.  We
 are using five new Options and four States and produce both LoopHint metadata
@@ -727,33 +848,140 @@ and intrinsic directives.  The table below shows how they relate.
 
   #pragma ivdep safelen(4) array(Arr), IVDepHLS, Full, "", "QUAL.PRAGMA.ARRAY(%Arr, i32 4)"
 
+IntelCompat form example:
+
+.. code-block:: c
+
+  void foo() {
+    #pragma ivdep
+    for (int i=0; i<1024;++i) { }
+    #pragma ivdep back
+    for (int i=0; i<1024;++i) { }
+    #pragma ivdep loop
+    for (int i=0; i<1024;++i) { }
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -ast-dump t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xe26ac08 <<invalid sloc>, line:3:31>
+  |-LoopHintAttr 0xe26abe0 <line:2:11> Implicit ivdep IVDep Enable
+
+  AttributedStmt 0xe26ae38 <<invalid sloc>, line:5:31>
+  |-LoopHintAttr 0xe26ae10 <line:4:11> Implicit ivdep IVDepBack Enable
+
+  AttributedStmt 0xe26b068 <<invalid sloc>, line:7:31>
+  |-LoopHintAttr 0xe26b040 <line:6:11> Implicit ivdep IVDepLoop Enable
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+
+  br label %for.cond2, !llvm.loop !4
+
+  br label %for.cond9, !llvm.loop !5
+
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.vectorize.ivdep_back"}
+  !4 = distinct !{!4, !3}
+  !5 = distinct !{!5, !6}
+  !6 = !{!"llvm.loop.vectorize.ivdep_loop"}
+
+HLS form example:
+
+.. code-block:: c
+
+  void foo() {
+    int Arr[16];
+    #pragma ivdep
+    for (int i=0; i<1024;++i) { }
+    #pragma ivdep safelen(4)
+    for (int i=0; i<1024;++i) { }
+    #pragma ivdep array(Arr)
+    for (int i=0; i<1024;++i) { }
+    #pragma ivdep safelen(4) array(Arr)
+    for (int i=0; i<1024;++i) { }
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xe315d38 <<invalid sloc>, line:4:31>
+  |-LoopHintAttr 0xe315d10 <line:3:11> Implicit ivdep IVDepHLS Enable
+
+  AttributedStmt 0xe315f88 <<invalid sloc>, line:6:31>
+  |-LoopHintAttr 0xe315f60 <line:5:11, col:27> Implicit ivdep IVDepHLS Numeric
+
+  AttributedStmt 0xe3161e0 <<invalid sloc>, line:8:31>
+  |-LoopHintAttr 0xe3161b8 <line:7:11, col:27> Implicit ivdep IVDepHLS LoopExpr
+
+  AttributedStmt 0xe316458 <<invalid sloc>, line:10:31>
+  |-LoopHintAttr 0xe316430 <line:9:11, col:28> Implicit ivdep IVDepHLS Full
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+
+  br label %for.cond2, !llvm.loop !4
+
+  %4 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([16 x i32]* %Arr, i32 -1) ]
+  call void @llvm.directive.region.exit(token %4) [ "DIR.PRAGMA.END.IVDEP"() ]
+
+  %7 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([16 x i32]* %Arr, i32 4) ]
+  call void @llvm.directive.region.exit(token %7) [ "DIR.PRAGMA.END.IVDEP"() ]
+
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.ivdep.enable"}
+  !4 = distinct !{!4, !5}
+  !5 = !{!"llvm.loop.ivdep.safelen", i32 4}
+
   }];
 }
 
 def HLSPragmaDocs : Documentation {
-  let Category = DocCatIntelCompat;
-  let BugTracker = "Cmplrllvm-5584";
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-5584";
   let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
   let Owner = "jyu2";
   let Content = [{
-The ``ii, ii_at_most, ...`` pragmas are FPGA loop pragmas
+These are simple HLS/FPGA loop pragmas that either have one constant integral
+argument,or no arguments.  ** Note: Let's add new topics for any additional
+pragmas instead of adding onto to this topic. **
 
-The HLS form (enabled with -fhls) is:
+Syntax:
 
-.. code-block:: c
+.. code-block:: text
 
-  #pragma ii <4>
-  #pragma ii_at_most <4>
-  #pragma ii_at_least <4>
-  #pragma speculated_iterations <4>
-  #pragma max_concurrency <4>
+  #pragma [ii|ii_at_most|ii_at_least] [<constant-int>]
+  #pragma [speculated_iterations|max_concurrency] [<constant-int>]
   #pragma min_ii_at_target_fmax
   #pragma disable_loop_pipelining
 
 The implementation uses the existing clang LoopHint attribute framework to
 produce LoopHint metadata.  The table below shows the Options, States, and the
 Metadata produced.
-
 
 .. csv-table::
   :header: Syntax, Option, State, Metadata
@@ -767,42 +995,122 @@ Metadata produced.
   #pragma min_ii_at_target_fmax, MinIIAtFmax, Enable, llvm.loop.intel.min.ii.at.target.fmax
   #pragma disable_loop_pipelining, DisableLoopPipelining, Enable, llvm.loop.intel.pipelining.disable
 
-for example:
-using command line:
-
-.. code-block:: bash
-
-  $ clang -cc1 -fhls -ast-dump -o - t.c
-  $ clang -cc1 -fhls -emit-llvm -o - t.c
+Example:
 
 .. code-block:: c
 
   void foo() {
     int var = 0;
-    #pragma max_concurrency  4
     #pragma ii_at_least 4
+    for (int i = 0; i < 10; ++i) var++;
+    #pragma disable_loop_pipelining
+    for (int i = 0; i < 10; ++i) var++;
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump  t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xe4efd70 <<invalid sloc>, line:4:42>
+  |-LoopHintAttr 0xe4efd48 <line:3:11, col:24> Implicit ii_at_least IIAtLeast Numeric
+  | | |-IntegerLiteral 0xe4efa98 <col:23> 'int' 4
+  | | `-<<<NULL>>>
+  | `-ForStmt 0xe4efd10 <line:4:3, col:42>
+
+  AttributedStmt 0xe4f0068 <<invalid sloc>, line:6:42>
+  |-LoopHintAttr 0xe4f0040 <line:5:11> Implicit disable_loop_pipelining DisableLoopPipelining Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+  `-ForStmt 0xe4f0008 <line:6:3, col:42>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  br label %for.cond, !llvm.loop !2
+
+  br label %for.cond2, !llvm.loop !4
+
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.intel.ii.at.least.count", i32 4}
+  !4 = distinct !{!4, !3, !5}
+  !5 = !{!"llvm.loop.intel.pipelining.disable"}
+  }];
+}
+
+def HLSForceHyperoptPragmaDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7128";
+  let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
+  let Owner = "mprice1";
+  let Content = [{
+These pragmas will force enable or disable "hyperoptimizations" on the
+attached loop.  For example, on some architectures, hyperoptimization will
+optimize for initiation of loop iterations of a single loop invocation, at the
+possible expense of a delay between consecutive loop invocations.
+
+.. csv-table::
+  :header: Syntax, Option, State, Metadata
+  :widths: 24,13,13,25
+
+  #pragma force_hyperopt, ForceHyperopt, Enable, llvm.loop.intel.hyperopt
+  #pragma force_no_hyperopt, ForceHyperopt, Disable, llvm.loop.intel.nohyperopt
+
+
+The implementation uses the existing clang LoopHint attribute framework to
+produce LoopHint metadata.  The table above shows the Options, States, and the
+Metadata produced.
+
+Example:
+
+.. code-block:: c
+
+  void foo() {
+    int var = 0;
+    #pragma force_hyperopt
+    for (int i = 0; i < 10; ++i) var = var+1;
+    #pragma force_no_hyperopt
     for (int i = 0; i < 10; ++i) var = var+1;
   }
 
 AST:
 
-AttributedStmt
+.. code-block:: console
 
-.. code-block:: c
+  $ clang -cc1 -fhls -ast-dump t.c
 
-    `-AttributedStmt 0xd2b86c0 <<invalid sloc>, line:21:18>
-      |-LoopHintAttr 0xd2b8670 <line:15:11, col:30> Implicit max_concurrency MaxConcurrency Numeric
-      | |-IntegerLiteral 0xd2b83a0 <col:28> 'int' 4
-      | `-<<<NULL>>>
-      |-LoopHintAttr 0xd2b8698 <line:16:11, col:26> Implicit ii_at_least IIAtLeast Numeric
-      | |-IntegerLiteral 0xd2b83e0 <col:24> 'int' 4
-      | `-<<<NULL>>>
+.. code-block:: text
+
+  AttributedStmt 0xd1d9a90 <<invalid sloc>, line:4:44>
+  |-LoopHintAttr 0xd1d9a68 <line:3:13> Implicit force_hyperopt ForceHyperopt Enable
+
+  AttributedStmt 0xd1d9d88 <<invalid sloc>, line:6:44>
+  |-LoopHintAttr 0xd1d9d60 <line:5:13> Implicit force_no_hyperopt ForceHyperopt Disable
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
 
 .. code-block:: llvm
 
-  !3 = !{!"llvm.loop.max_concurrency.count", i32 4}
-  !4 = !{!"llvm.loop.intel.ii.at.least.count", i32 100}
+  br label %for.cond, !llvm.loop !2
 
+  br label %for.cond2, !llvm.loop !4
+
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.intel.hyperopt"}
+  !4 = distinct !{!4, !5}
+  !5 = !{!"llvm.loop.intel.nohyperopt"}
   }];
 }
 
@@ -960,9 +1268,9 @@ Example:
 
 Compiled with:
 
-.. code-block:: bash
+.. code-block:: console
 
-  clang -cc1 -fintel-compatibility w.cpp -flto -flto-unit -fwhole-program-vtables -emit-llvm -o -
+  $ clang -cc1 -fintel-compatibility w.cpp -flto -flto-unit -fwhole-program-vtables -emit-llvm -o -
 
 The compiler only calls type.test and assume when the wholeprogramsafe
 intrinsic returns true:
@@ -1056,7 +1364,7 @@ regions. Whether it is a good idea or not, there doesn't seem to be
 justification for removing volatile in the OpenMP spec. This extension,
 controlled by -fintel-compatibility, retains volatile.
 
-.. code-block:: bash
+.. code-block:: console
 
   $ clang -cc1 -fopenmp -fintel-compatibility -emit-llvm -o - t.c
 
@@ -1115,12 +1423,142 @@ followed by an equality check against it, similar to this pseudo-code:
 
 .. code-block:: c
 
-  bool _may_i_use_cpu_feature(unsigned __int64 param) {
+  int _may_i_use_cpu_feature(unsigned __int64 param) {
     return (param & __intel_cpu_feature_indicator_x) == param;
   }
 
 See additional documentation here:
 https://software.intel.com/en-us/node/523363
+  }];
+}
+
+def ClusterDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-5585";
+  let RegressionTest = "SemaIntelHLS/cluster.cpp, CodeGenIntelHLS/cluster.cpp, SemaOpenCL/intel-fpga-cluster.cl, CodeGenOpenCL/intel-fpga-cluster.cl";
+  let Owner = "eandrews";
+  let Content = [{
+The ``cluster`` attribute is an FPGA function and lambda function attribute
+used in HLS and OpenCL to generate FPGA hardware for the function, grouping the
+functionality of clusters with the same name. The attribute takes 1 optional
+string argument and adds metadata to the function/lambda definition.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((cluster[("<user_string>")]))
+
+C++11 attribute syntax is also supported for HLS:
+
+.. code-block:: text
+
+  [[clang::cluster[("<user_string>")]]]
+
+The optional argument ``<user_string>`` determines the metadata produced.
+
+Example:
+
+.. code-block:: c
+
+  void __attribute__((cluster)) foo1() {}
+  void __attribute__((cluster("clustername"))) foo2() {}
+  void __attribute__((cluster(""))) foo3() {}
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.c
+
+.. code-block:: text
+
+  FunctionDecl 0xd776498 <x.cpp:1:1, col:39> col:31 foo1 'void ()'
+  |-CompoundStmt 0xd7765c0 <col:38, col:39>
+  `-ClusterAttr 0xd776530 <col:21> ""
+
+  FunctionDecl 0xd7766a0 <line:2:1, col:54> col:46 foo2 'void ()'
+  |-CompoundStmt 0xd776798 <col:53, col:54>
+  `-ClusterAttr 0xd776738 <col:21, col:42> "clustername" HasName
+
+  FunctionDecl 0xd776870 <line:3:1, col:43> col:35 foo3 'void ()'
+  |-CompoundStmt 0xd776958 <col:42, col:43>
+  `-ClusterAttr 0xd776908 <col:21, col:31> "" HasName
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  define void @_Z4foo1v() #0 !cluster !2 {}
+
+  define void @_Z4foo2v() #0 !cluster !3 {}
+
+  define void @_Z4foo3v() #0 !cluster !4 {}
+
+  !2 = !{!"", i32 0}
+  !3 = !{!"clustername", i32 1}
+  !4 = !{!"", i32 1}
+
+The second operand in the metadata is i32 1 if ``<user_string>`` is specified.
+It is i32 0 if not.
+  }];
+}
+
+def StallEnableDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-5585";
+  let RegressionTest = "SemaIntelHLS/stall_enable.cpp, CodeGenIntelHLS/stall_enable.cpp, SemaOpenCL/intel-fpga-stall_enable.cl, CodeGenOpenCL/intel-fpga-stall_enable.cl";
+  let Owner = "eandrews";
+  let Content = [{
+The ``stall_enable`` attribute is an FPGA function and lambda function
+attribute used in HLS and OpenCL to generate FPGA hardware for the function
+using stall/enable protocol. The attribute takes no arguments and adds
+metadata to the function/lambda definition.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((stall_enable))
+
+C++11 attribute syntax is also supported on HLS:
+
+.. code-block:: text
+
+  [[clang::stall_enable]]
+
+Example:
+
+.. code-block:: c
+
+  void __attribute__((stall_enable)) foo() {}
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.c
+
+.. code-block:: text
+
+  FunctionDecl 0x235b69b8d98 <t.c:1:1, col:43> col:36 foo 'void ()'
+  |-CompoundStmt 0x235b69b8eb0 <col:42, col:43>
+  `-StallEnableAttr 0x235b69b8e30 <col:21>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  define void @_Z4foo1v() #0 !stall_enable !2 {}
+  !2 = !{i32 1}
   }];
 }
 
@@ -1266,5 +1704,54 @@ There are also online sphinx editors that you can paste your rST into to see
 how it looks.  One is here:
 
 https://livesphinx.herokuapp.com/
-}];
+
+Suggested Content / Template
+============================
+In order to make investigating merge conflicts or bugs in our customizations
+easier we'd like to have a fully compilable, but very small test case for each
+entry. It should also include the exact command line to compile that example
+to view the AST and/or see the IR.  Assume the reader knows nothing about the
+item and wants to quickly see what it does or step through it in the debugger.
+
+Here is a suggested minimal template for cases that introduce new syntax
+(such as pragmas and attributes).  Additional info can be added anywhere
+it makes sense.  Extensions that do not add new syntax would likely omit
+some of these or add different sections.
+
+.. code-block:: text
+
+  <A very high level user description of what this pragma/attribute does.>
+
+  Syntax:
+
+  .. code-block:: text
+
+    <syntax diagram or other description of the syntax>
+
+  Example:
+
+  .. code-block:: c
+
+    <fully-compilable small test case>
+
+  AST:
+
+  .. code-block:: console
+
+    $ <full command line to display the AST for the above example>
+
+  .. code-block:: text
+
+    <snippet from the AST showing the new construct>
+
+  IR:
+
+  .. code-block:: console
+
+    $ <full command line to displat the LLVM IR for the above example>
+
+  .. code-block:: llvm
+
+    <snippet from the IR dump showing the new construct>
+  }];
 }

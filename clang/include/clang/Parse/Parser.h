@@ -826,7 +826,7 @@ private:
   ///
   /// Should only be used in Objective-C language modes.
   bool isObjCInstancetype() {
-    assert(getLangOpts().ObjC1);
+    assert(getLangOpts().ObjC);
     if (Tok.isAnnotation())
       return false;
     if (!Ident_instancetype)
@@ -1961,6 +1961,8 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> MinIIAtTargetFmaxHandler;
   std::unique_ptr<PragmaHandler> SpeculatedIterationsHandler;
   std::unique_ptr<PragmaHandler> DisableLoopPipeliningHandler;
+  std::unique_ptr<PragmaHandler> ForceHyperoptHandler;
+  std::unique_ptr<PragmaHandler> ForceNoHyperoptHandler;
 
   // Pragma inline
   std::unique_ptr<PragmaHandler> InlineHandler;
@@ -2231,6 +2233,8 @@ private:  //***INTEL
   // 'for-init-statement' part of a 'for' statement.
   /// Returns true for declaration, false for expression.
   bool isForInitDeclaration(bool AllowForRangeDecl = true) {    //***INTEL
+    if (getLangOpts().OpenMP)
+      Actions.startOpenMPLoop();
     if (getLangOpts().CPlusPlus)
       return isCXXSimpleDeclaration(AllowForRangeDecl);         //***INTEL
     return isDeclarationSpecifier(true);

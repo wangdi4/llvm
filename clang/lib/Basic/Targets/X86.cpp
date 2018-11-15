@@ -292,7 +292,6 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "lzcnt", true);
     setFeatureEnabledImpl(Features, "bmi", true);
     setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "rtm", true);
     setFeatureEnabledImpl(Features, "fma", true);
     setFeatureEnabledImpl(Features, "rdrnd", true);
     setFeatureEnabledImpl(Features, "f16c", true);
@@ -1291,8 +1290,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__SIZEOF_FLOAT128__", "16");
 
 #if INTEL_CUSTOMIZATION
-  if (getTriple().getEnvironment() == llvm::Triple::IntelFPGA)
+  if (getTriple().getEnvironment() == llvm::Triple::IntelFPGA) {
     Builder.defineMacro("__fpga_reg", "__builtin_fpga_reg");
+    Builder.defineMacro("INTELFPGA_CL", "191");
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1709,6 +1710,7 @@ bool X86TargetInfo::validateOperandSize(StringRef Constraint,
         return false;
       break;
     }
+    LLVM_FALLTHROUGH;
   case 'v':
   case 'x':
     if (SSELevel >= AVX512F)

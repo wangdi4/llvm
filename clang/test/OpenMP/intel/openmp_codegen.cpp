@@ -325,12 +325,12 @@ int main(int argc, char **argv) {
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
-//CHECK-SAME: "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.MONOTONIC"(i32 16)
+//CHECK-SAME: "QUAL.OMP.SCHEDULE.DYNAMIC:MONOTONIC.SIMD"(i32 16)
 #pragma omp parallel for schedule(simd,monotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
-//CHECK-SAME: "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.NONMONOTONIC"(i32 16)
+//CHECK-SAME: "QUAL.OMP.SCHEDULE.DYNAMIC:NONMONOTONIC.SIMD"(i32 16)
 #pragma omp parallel for schedule(simd,nonmonotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 

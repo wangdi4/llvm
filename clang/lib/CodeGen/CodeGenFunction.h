@@ -3331,11 +3331,7 @@ public:
       const Stmt &S, bool RequiresCleanup, const Expr *LoopCond,
       const Expr *IncExpr,
       const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
-#if INTEL_CUSTOMIZATION
-      const llvm::function_ref<void(CodeGenFunction &)> PostIncGen,
-      llvm::BasicBlock *IncomingBlock = nullptr,
-      const Expr *IterationVariable = nullptr);
-#endif // INTEL_CUSTOMIZATION
+      const llvm::function_ref<void(CodeGenFunction &)> PostIncGen);
 
   JumpDest getOMPCancelDestination(OpenMPDirectiveKind Kind);
   /// Emit initial code for loop counters of loop-based directives.
@@ -3422,20 +3418,14 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_CUSTOMIZATION
-  void EmitIntelOpenMPDirective(const OMPExecutableDirective &S);
-  void EmitIntelOMPLoop(const OMPLoopDirective &S, OpenMPDirectiveKind K);
-  void EmitIntelOMPSimdDirective(const OMPSimdDirective &S);
-  void EmitIntelOMPForDirective(const OMPForDirective &S);
-  void EmitIntelOMPParallelForDirective(const OMPParallelForDirective &S);
-  void EmitIntelOMPParallelForSimdDirective(
-                                    const OMPParallelForSimdDirective &S);
-  void EmitIntelOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
-  void EmitIntelOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
-  void EmitIntelOMPDistributeDirective(const OMPDistributeDirective &S);
-  void EmitIntelOMPDistributeParallelForDirective(
-      const OMPDistributeParallelForDirective &S);
-  void EmitIntelOMPDistributeParallelForSimdDirective(
-      const OMPDistributeParallelForSimdDirective &S);
+  void EmitLateOutlineOMPDirective(const OMPExecutableDirective &S,
+                                   OpenMPDirectiveKind Kind = OMPD_unknown);
+
+  void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
+                                       OpenMPDirectiveKind Kind);
+
+  void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
+                              OpenMPDirectiveKind Kind);
 
 public:
   void RemapForLateOutlining(const OMPExecutableDirective &D,
@@ -3671,6 +3661,7 @@ public:
 
   ConstantEmission tryEmitAsConstant(DeclRefExpr *refExpr);
   ConstantEmission tryEmitAsConstant(const MemberExpr *ME);
+  llvm::Value *emitScalarConstant(const ConstantEmission &Constant, Expr *E);
 
   RValue EmitPseudoObjectRValue(const PseudoObjectExpr *e,
                                 AggValueSlot slot = AggValueSlot::ignored());
@@ -4052,6 +4043,8 @@ public:
   AddInitializerToStaticVarDecl(const VarDecl &D,
                                 llvm::GlobalVariable *GV);
 
+  // Emit an @llvm.invariant.start call for the given memory region.
+  void EmitInvariantStart(llvm::Constant *Addr, CharUnits Size);
 
   /// EmitCXXGlobalVarDeclInit - Create the initializer for a C++
   /// variable with global storage.
@@ -4087,9 +4080,10 @@ public:
 
   /// GenerateCXXGlobalInitFunc - Generates code for initializing global
   /// variables.
-  void GenerateCXXGlobalInitFunc(llvm::Function *Fn,
-                                 ArrayRef<llvm::Function *> CXXThreadLocals,
-                                 Address Guard = Address::invalid());
+  void
+  GenerateCXXGlobalInitFunc(llvm::Function *Fn,
+                            ArrayRef<llvm::Function *> CXXThreadLocals,
+                            ConstantAddress Guard = ConstantAddress::invalid());
 
   /// GenerateCXXGlobalDtorsFunc - Generates code for destroying global
   /// variables.
@@ -4107,11 +4101,13 @@ public:
 
   void EmitSynthesizedCXXCopyCtor(Address Dest, Address Src, const Expr *Exp);
 
-  void enterFullExpression(const ExprWithCleanups *E) {
-    if (E->getNumObjects() == 0) return;
+  void enterFullExpression(const FullExpr *E) {
+    if (const auto *EWC = dyn_cast<ExprWithCleanups>(E))
+      if (EWC->getNumObjects() == 0)
+        return;
     enterNonTrivialFullExpression(E);
   }
-  void enterNonTrivialFullExpression(const ExprWithCleanups *E);
+  void enterNonTrivialFullExpression(const FullExpr *E);
 
   void EmitCXXThrowExpr(const CXXThrowExpr *E, bool KeepInsertionPoint = true);
 
@@ -4435,6 +4431,7 @@ public:
 
   struct MultiVersionResolverOption {
     llvm::Function *Function;
+    FunctionDecl *FD;
     struct Conds {
       StringRef Architecture;
       llvm::SmallVector<StringRef, 8> Features;
@@ -4454,22 +4451,7 @@ public:
   void EmitMultiVersionResolver(llvm::Function *Resolver,
                                 ArrayRef<MultiVersionResolverOption> Options);
 
-  struct CPUDispatchMultiVersionResolverOption {
-    llvm::Function *Function;
-    // Note: EmitX86CPUSupports only has 32 bits available, so we store the mask
-    // as 32 bits here.  When 64-bit support is added to __builtin_cpu_supports,
-    // this can be extended to 64 bits.
-    uint32_t FeatureMask;
-    CPUDispatchMultiVersionResolverOption(llvm::Function *F, uint64_t Mask)
-        : Function(F), FeatureMask(static_cast<uint32_t>(Mask)) {}
-    bool operator>(const CPUDispatchMultiVersionResolverOption &Other) const {
-      return FeatureMask > Other.FeatureMask;
-    }
-  };
-  void EmitCPUDispatchMultiVersionResolver(
-      llvm::Function *Resolver,
-      ArrayRef<CPUDispatchMultiVersionResolverOption> Options);
-  static uint32_t GetX86CpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
+  static uint64_t GetX86CpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
 
 private:
   QualType getVarArgType(const Expr *Arg);
@@ -4487,7 +4469,7 @@ private:
   llvm::Value *EmitX86CpuIs(StringRef CPUStr);
   llvm::Value *EmitX86CpuSupports(const CallExpr *E);
   llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
-  llvm::Value *EmitX86CpuSupports(uint32_t Mask);
+  llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
   llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO);
 };

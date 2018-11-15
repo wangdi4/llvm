@@ -506,7 +506,12 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
                              const ArgList &Args, bool IsOffloadingHost,
                              bool GompNeedsRT) {
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+#if INTEL_COLLAB
+                    options::OPT_fno_openmp, false) &&
+      !Args.hasArg(options::OPT_fiopenmp))
+#else
                     options::OPT_fno_openmp, false))
+#endif // INTEL_COLLAB
     return false;
 
   switch (TC.getDriver().getOpenMPRuntime(Args)) {
@@ -570,6 +575,40 @@ static bool addSanitizerDynamicList(const ToolChain &TC, const ArgList &Args,
   }
   return false;
 }
+
+static void addSanitizerLibPath(const ToolChain &TC, const ArgList &Args,
+                                ArgStringList &CmdArgs, StringRef Name) {
+  for (const auto &LibPath : TC.getLibraryPaths()) {
+    if (!LibPath.empty()) {
+      SmallString<128> P(LibPath);
+      llvm::sys::path::append(P, Name);
+      if (TC.getVFS().exists(P))
+        CmdArgs.push_back(Args.MakeArgString(StringRef("-L") + P));
+    }
+  }
+}
+
+void tools::addSanitizerPathLibArgs(const ToolChain &TC, const ArgList &Args,
+                                    ArgStringList &CmdArgs) {
+  const SanitizerArgs &SanArgs = TC.getSanitizerArgs();
+  if (SanArgs.needsAsanRt()) {
+    addSanitizerLibPath(TC, Args, CmdArgs, "asan");
+  }
+  if (SanArgs.needsHwasanRt()) {
+    addSanitizerLibPath(TC, Args, CmdArgs, "hwasan");
+  }
+  if (SanArgs.needsLsanRt()) {
+    addSanitizerLibPath(TC, Args, CmdArgs, "lsan");
+  }
+  if (SanArgs.needsMsanRt()) {
+    addSanitizerLibPath(TC, Args, CmdArgs, "msan");
+  }
+  if (SanArgs.needsTsanRt()) {
+    addSanitizerLibPath(TC, Args, CmdArgs, "tsan");
+  }
+}
+
+
 
 void tools::linkSanitizerRuntimeDeps(const ToolChain &TC,
                                      ArgStringList &CmdArgs) {
