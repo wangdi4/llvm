@@ -2529,14 +2529,15 @@ bool RenderScriptRuntime::LoadAllocation(Stream &strm, const uint32_t alloc_id,
          "Allocation information not available");
 
   // Check we can read from file
-  FileSpec file(path, true);
-  if (!file.Exists()) {
+  FileSpec file(path);
+  FileSystem::Instance().Resolve(file);
+  if (!FileSystem::Instance().Exists(file)) {
     strm.Printf("Error: File %s does not exist", path);
     strm.EOL();
     return false;
   }
 
-  if (!file.Readable()) {
+  if (!FileSystem::Instance().Readable(file)) {
     strm.Printf("Error: File %s does not have readable permissions", path);
     strm.EOL();
     return false;
@@ -2753,9 +2754,14 @@ bool RenderScriptRuntime::SaveAllocation(Stream &strm, const uint32_t alloc_id,
          "Allocation information not available");
 
   // Check we can create writable file
-  FileSpec file_spec(path, true);
-  File file(file_spec, File::eOpenOptionWrite | File::eOpenOptionCanCreate |
-                           File::eOpenOptionTruncate);
+  FileSpec file_spec(path);
+  FileSystem::Instance().Resolve(file_spec);
+  File file;
+  FileSystem::Instance().Open(file, file_spec,
+                              File::eOpenOptionWrite |
+                                  File::eOpenOptionCanCreate |
+                                  File::eOpenOptionTruncate);
+
   if (!file) {
     strm.Printf("Error: Failed to open '%s' for writing", path);
     strm.EOL();
@@ -3718,7 +3724,8 @@ bool RenderScriptRuntime::GetKernelCoordinate(RSCoordinate &coord,
       continue;
 
     // Find the function name
-    const SymbolContext sym_ctx = frame_sp->GetSymbolContext(false);
+    const SymbolContext sym_ctx =
+        frame_sp->GetSymbolContext(eSymbolContextFunction);
     const ConstString func_name = sym_ctx.GetFunctionName();
     if (!func_name)
       continue;
@@ -4650,8 +4657,9 @@ public:
 
       switch (short_option) {
       case 'f':
-        m_outfile.SetFile(option_arg, true, FileSpec::Style::native);
-        if (m_outfile.Exists()) {
+        m_outfile.SetFile(option_arg, FileSpec::Style::native);
+        FileSystem::Instance().Resolve(m_outfile);
+        if (FileSystem::Instance().Exists(m_outfile)) {
           m_outfile.Clear();
           err.SetErrorStringWithFormat("file already exists: '%s'",
                                        option_arg.str().c_str());
@@ -4706,16 +4714,17 @@ public:
         m_options.m_outfile; // Dump allocation to file instead
     if (outfile_spec) {
       // Open output file
-      char path[256];
-      outfile_spec.GetPath(path, sizeof(path));
-      if (outfile_stream.GetFile()
-              .Open(path, File::eOpenOptionWrite | File::eOpenOptionCanCreate)
-              .Success()) {
+      std::string path = outfile_spec.GetPath();
+      auto error = FileSystem::Instance().Open(
+          outfile_stream.GetFile(), outfile_spec,
+          File::eOpenOptionWrite | File::eOpenOptionCanCreate);
+      if (error.Success()) {
         output_strm = &outfile_stream;
-        result.GetOutputStream().Printf("Results written to '%s'", path);
+        result.GetOutputStream().Printf("Results written to '%s'",
+                                        path.c_str());
         result.GetOutputStream().EOL();
       } else {
-        result.AppendErrorWithFormat("Couldn't open file '%s'", path);
+        result.AppendErrorWithFormat("Couldn't open file '%s'", path.c_str());
         result.SetStatus(eReturnStatusFailed);
         return false;
       }

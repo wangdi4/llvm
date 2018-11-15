@@ -23,8 +23,8 @@ using testing::ElementsAre;
 using testing::Pair;
 using testing::Pointee;
 using testing::UnorderedElementsAre;
-using namespace llvm;
 
+using namespace llvm;
 namespace clang {
 namespace clangd {
 namespace {
@@ -46,10 +46,15 @@ TEST(SymbolLocation, Position) {
   EXPECT_EQ(1u, Pos.line());
   Pos.setColumn(2);
   EXPECT_EQ(2u, Pos.column());
+  EXPECT_FALSE(Pos.hasOverflow());
 
   Pos.setLine(Position::MaxLine + 1); // overflow
+  EXPECT_TRUE(Pos.hasOverflow());
   EXPECT_EQ(Pos.line(), Position::MaxLine);
+  Pos.setLine(1); // reset the overflowed line.
+
   Pos.setColumn(Position::MaxColumn + 1); // overflow
+  EXPECT_TRUE(Pos.hasOverflow());
   EXPECT_EQ(Pos.column(), Position::MaxColumn);
 }
 
@@ -85,6 +90,7 @@ TEST(MemIndexTest, MemIndexDeduplicate) {
                                  symbol("2") /* duplicate */};
   FuzzyFindRequest Req;
   Req.Query = "2";
+  Req.AnyScope = true;
   MemIndex I(Symbols, RefSlab());
   EXPECT_THAT(match(I, Req), ElementsAre("2"));
 }
@@ -93,6 +99,7 @@ TEST(MemIndexTest, MemIndexLimitedNumMatches) {
   auto I = MemIndex::build(generateNumSymbols(0, 100), RefSlab());
   FuzzyFindRequest Req;
   Req.Query = "5";
+  Req.AnyScope = true;
   Req.Limit = 3;
   bool Incomplete;
   auto Matches = match(*I, Req, &Incomplete);
@@ -107,6 +114,7 @@ TEST(MemIndexTest, FuzzyMatch) {
       RefSlab());
   FuzzyFindRequest Req;
   Req.Query = "lol";
+  Req.AnyScope = true;
   Req.Limit = 2;
   EXPECT_THAT(match(*I, Req),
               UnorderedElementsAre("LaughingOutLoud", "LittleOldLady"));
@@ -117,6 +125,7 @@ TEST(MemIndexTest, MatchQualifiedNamesWithoutSpecificScope) {
       MemIndex::build(generateSymbols({"a::y1", "b::y2", "y3"}), RefSlab());
   FuzzyFindRequest Req;
   Req.Query = "y";
+  Req.AnyScope = true;
   EXPECT_THAT(match(*I, Req), UnorderedElementsAre("a::y1", "b::y2", "y3"));
 }
 
