@@ -11,7 +11,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Track uses of AllocCalls Failed
 ; CHECK-NOT: store i8 1, i8* @__Shrink__Happened__
 
-; 1 and 6 fields are shrunk to i32.
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64 }
 
 ; Type of AOSTOSOA variable.

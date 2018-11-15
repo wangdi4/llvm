@@ -21,18 +21,70 @@
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#include <algorithm>
+#include <cmath>
+#include <set>
+#include <string>
+
 using namespace llvm;
+using namespace PatternMatch;
 
 #define DEBUG_TYPE "dtrans-dynclone"
+#define REENCODING "dtrans-dynclone-reencoding"
 
 namespace {
+
+// Shrunken int type width
+static cl::opt<int>
+    DTransDynCloneShrTyWidth("dtrans-dynclone-shrunken-type-width",
+                             cl::init(16), cl::ReallyHidden);
+// (Reencoding)
+// A delta that allows encoding big constants into shrunken int type. The main
+// idea is that candidate field values generally fit into even smaller int type
+// besides a number of big constants known in compile time.
+static cl::opt<int>
+    DTransDynCloneShrTyDelta("dtrans-dynclone-shrunken-type-width-delta",
+                             cl::init(1), cl::ReallyHidden);
+
+// Max value for int type with the width equal (DTransDynCloneShrTyWidth -
+// DTransDynCloneShrTyDelta). Calculated as max for intX = 2^(X-1)-1.
+int64_t getMaxShrIntTyValueWithDelta() {
+  if (DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta > 0)
+    return std::pow(2,
+                    DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta - 1) -
+           1;
+  llvm_unreachable("Unexpected type width for shrinking");
+}
+
+// Min value for int type with the width equal (DTransDynCloneShrTyWidth -
+// DTransDynCloneShrTyDelta). Calculated as min for intX = 0 - 2^(X-1).
+int64_t getMinShrIntTyValueWithDelta() {
+  if (DTransDynCloneShrTyWidth - DTransDynCloneShrTyDelta > 0)
+    return (0 - std::pow(2, DTransDynCloneShrTyWidth -
+                                DTransDynCloneShrTyDelta - 1));
+  llvm_unreachable("Unexpected type width for shrinking");
+}
+
+// Max unsigned value for 32 and 16 bit int.
+int64_t getMaxShrunkenUIntTypeValue() {
+  switch (DTransDynCloneShrTyWidth) {
+  case 32:
+    return std::numeric_limits<uint32_t>::max();
+  case 16:
+    return std::numeric_limits<uint16_t>::max();
+  };
+  llvm_unreachable("Unexpected type width for shrinking");
+}
 
 class DTransDynCloneWrapper : public ModulePass {
 private:
@@ -139,8 +191,14 @@ public:
   DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
                LoopInfoFuncType &GetLI, TargetLibraryInfo &TLI)
       : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI), TLI(TLI),
-        ShrunkenIntTy(Type::getInt32Ty(M.getContext())), InitRoutine(nullptr),
-        ShrinkHappenedVar(nullptr){};
+        ShrunkenIntTy(
+            Type::getIntNTy(M.getContext(), DTransDynCloneShrTyWidth)),
+        ShrunkenIntTyWithDelta(
+            Type::getIntNTy(M.getContext(), DTransDynCloneShrTyWidth -
+                                                DTransDynCloneShrTyDelta)),
+        InitRoutine(nullptr), ShrinkHappenedVar(nullptr),
+        DynFieldEncodeFunc(nullptr), DynFieldDecodeFunc(nullptr){};
+
   bool run(void);
 
 private:
@@ -150,8 +208,9 @@ private:
   LoopInfoFuncType &GetLI;
   TargetLibraryInfo &TLI;
 
-  // Holds result Type after shrinking 64-bit to 32-bit integer values.
+  // Holds result Type after shrinking 64-bit to 16-bit integer values.
   llvm::Type *ShrunkenIntTy;
+  llvm::Type *ShrunkenIntTyWithDelta;
 
   // List of candidate fields which are represented as <Type of struct,
   // field_index>.
@@ -255,6 +314,22 @@ private:
 
   SmallPtrSet<CallInst *, 8> RuntimeCheckUnsafeCalls;
 
+  // (Reencoding)
+  // Constant values for candidate fields.
+  DenseMap<DynField, std::set<int64_t>> DynFieldConstValueMap;
+  // Complete set of constants to use in encode/decode functions.
+  std::set<int64_t> AllDynFieldConstSet;
+
+  // Encode function for candidate fields.
+  Function *DynFieldEncodeFunc;
+
+  // Decode function for candidate fields.
+  Function *DynFieldDecodeFunc;
+
+  // Stores that were traced back to compile-time known constants in
+  // InitRoutine.
+  DenseMap<DynField, std::set<Value *>> DynFieldTracedToConstantValues;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
   bool verifyMultiFieldLoadStores(void);
@@ -273,6 +348,8 @@ private:
   DynField getAccessStructField(GEPOperator *GEP) const;
   Type *getCallInfoElemTy(CallInfo *CInfo) const;
   Type *getTypeRelatedToInstruction(Instruction *I) const;
+  void createEncodeDecodeFunctions(void); // (Reencoding)
+  void fillupCoderRoutine(Function *F, bool IsEncoder); // (Reencoding)
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
 };
@@ -450,16 +527,17 @@ Type *DynCloneImpl::getTypeRelatedToInstruction(Instruction *I) const {
 // This routine tries to reduce possible candidate fields by analyzing IR
 // and also finds InitRoutine, where unknown values are assigned to the
 // all candidate fields. A candidate field is eliminated if we can't prove
-// that value of the field always fits in 32-bit.
-// Analysis does look at memset and store instructions.
+// that value of the field always fits in 16-bit besides a number of
+// compile-time known constants. Analysis does look at memset and store
+// instructions.
 //
 // memset: For now, only zero value is considered as safe. For all other
 // values, fields in structure are not qualified for DynClone transformation.
 //
 // Store Inst:
 //   If Store operand is
-//     1. Constant Value: If it doesn't fit in 32-bit, it will be not be
-//        qualified.
+//     1. Constant Value: If it doesn't fit in shrunken type with delta, it will
+//     be added to the set of constants for encoding.
 //
 //     2. Load Value:
 //           a. Same Field: No issues.
@@ -469,9 +547,10 @@ Type *DynCloneImpl::getTypeRelatedToInstruction(Instruction *I) const {
 //
 //     TODO: Support for Args will be added later.
 //
-//     3. Other (Unknown value): Map between field and the function where it
-//        is assigned is recorded. All unknown assignments should be in the
-//        same routine (i.e InitRoutine).
+//     3. Other (Unknown value): First try to trace it back to compile-time
+//     known constant value set. If not - map between field and the function
+//     where it is assigned is recorded. All unknown assignments should be in
+//     the same routine (i.e InitRoutine).
 //
 //  Dependence Set Analysis: Disable DynClone transformation conservatively
 //  if dependent field of any candidate field is not qualified.
@@ -484,18 +563,99 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   DynFieldSet InvalidFields;
 
   // Analyze constant assignments:  str->field = 200;
-  // Field will be added to invalid fields if constant doesn't fit
-  // in 32-bits.
+  // (Reencoding)
+  // Collect large constants which doesn't fit into shrunken type with delta.
   auto CheckConstInt = [&](Value *V, DynField &StElem) {
     assert(isa<ConstantInt>(V) && "Expected ConstantInt");
     auto *CInt = cast<ConstantInt>(V);
-
-    if (!ConstantInt::isValueValidForType(ShrunkenIntTy,
-                                          CInt->getValue().getLimitedValue())) {
-      InvalidFields.insert(StElem);
-      LLVM_DEBUG(dbgs() << "    Large constant... Added to Invalid Field:";
+    int64_t CValue = CInt->getValue().getLimitedValue();
+    // If constant does not fit into shrunken type with delta, then add the
+    // constant to the encoding constants set.
+    if (!ConstantInt::isValueValidForType(ShrunkenIntTyWithDelta, CValue)) {
+      DynFieldTracedToConstantValues[StElem].insert(V);
+      DynFieldConstValueMap[StElem].insert(CValue);
+      LLVM_DEBUG(dbgs() << "    Large constant added to const field value map: "
+                        << CValue << " : ";
                  printDynField(dbgs(), StElem));
+      DEBUG_WITH_TYPE(
+          REENCODING,
+          dbgs() << "        (Reencoding) Constant collected for encoding.\n");
     }
+  };
+
+  // (Reencoding) Returns 'true' if the value could be traced back to the set of
+  // constants. In case of success those constants are stored in
+  // DynFieldConstValueMap, the root values are stored into
+  // DynFieldTracedToConstantValues map.
+  // Currently the following pattern is supported:
+  //     V = X + const1     |    V = const1 + X
+  //     X = Y * const2     |    X = const2 * Y   |   X = Y << const2
+  //     Y = max (Z, const3)
+  //     Z = S.a   where S.a has a complete set of constant values calculated by
+  //     FSV analysis.
+  auto TraceConstantValue = [&](Value *V, DynField &StElem) {
+    Value *AddOp = nullptr, *MulOp = nullptr;
+    Value *MaxLHS = nullptr, *MaxRHS = nullptr;
+    ConstantInt *AddC = nullptr, *MulC = nullptr, *ShlC = nullptr;
+    if (!match(V, m_Add(m_Value(AddOp), m_ConstantInt(AddC))) &&
+        !match(V, m_Add(m_ConstantInt(AddC), m_Value(AddOp)))) {
+      if (llvm::IntegerType *VIntType = dyn_cast<IntegerType>(V->getType())) {
+        AddC = ConstantInt::getSigned(VIntType, 0);
+        AddOp = V;
+      } else
+        return false;
+    }
+
+    if (!match(AddOp, m_Mul(m_Value(MulOp), m_ConstantInt(MulC))) &&
+        !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(MulOp))) &&
+        !match(AddOp, m_Shl(m_Value(MulOp), m_ConstantInt(ShlC)))) {
+      MulOp = AddOp;
+    }
+
+    if (SelectInst *SI = dyn_cast<SelectInst>(MulOp)) {
+      SelectPatternResult SPR = matchSelectPattern(SI, MaxLHS, MaxRHS);
+      if (SPR.Flavor != SPF_SMAX)
+        return false;
+      MulOp = MaxLHS;
+    }
+
+    ConstantInt *MaxC = dyn_cast_or_null<ConstantInt>(MaxRHS);
+    LoadInst *Load = dyn_cast<LoadInst>(MulOp);
+    if (!Load || (MaxRHS && !MaxC))
+      return false;
+
+    std::pair<dtrans::StructInfo *, uint64_t> Res =
+        DTInfo.getInfoFromLoad(Load);
+
+    if (!Res.first)
+      return false;
+
+    dtrans::FieldInfo &FI = Res.first->getField(Res.second);
+    if (!FI.isValueSetComplete())
+      return false;
+
+    for (auto *C : FI.values()) {
+      ConstantInt *CurrC = dyn_cast<ConstantInt>(C);
+      int64_t Const = CurrC->getSExtValue();
+      if (MaxC)
+        Const = std::max(Const, MaxC->getSExtValue());
+      if (MulC)
+        Const *= MulC->getSExtValue();
+      if (ShlC)
+        Const <<= ShlC->getSExtValue();
+      if (AddC)
+        Const += AddC->getSExtValue();
+      if (!ConstantInt::isValueValidForType(ShrunkenIntTyWithDelta, Const)) {
+        DynFieldConstValueMap[StElem].insert(Const);
+        DynFieldTracedToConstantValues[StElem].insert(V);
+        DEBUG_WITH_TYPE(REENCODING, dbgs() << "        (Reencoding) "
+                                              "Constant collected for "
+                                              "encoding: "
+                                           << Const << " : ";
+                        printDynField(dbgs(), StElem));
+      }
+    }
+    return true;
   };
 
   // Analyze assignment of Load value:  str1->fielda = str2->fieldb
@@ -519,6 +679,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     auto It = DynFieldFuncMap.find(StElem);
     if (It == DynFieldFuncMap.end()) {
       DynFieldFuncMap.insert({StElem, F});
+      LLVM_DEBUG(dbgs() << "    InitRoutine identified for ";
+                 printDynField(dbgs(), StElem));
     } else if (It->second != F) {
       InvalidFields.insert(StElem);
       LLVM_DEBUG(dbgs() << "    Invalid...More than one init routine:";
@@ -529,8 +691,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   // Analyze memset here: memset(ptr2str, 0, size)
   //   Any call/ memset with zero value: No issues
   //
-  //   memset with non-zero value: If there are any candidate fields in the
-  //   struct, make them as invalid fields.
+  //   memset with non-zero value: If there are any candidate fields in
+  //   the struct, make them as invalid fields.
   auto WrittenUnknownValue = [&](Instruction *I) {
     auto *CInfo = DTInfo.getCallInfo(I);
     if (!CInfo || CInfo->getCallInfoKind() != dtrans::CallInfo::CIK_Memfunc)
@@ -637,10 +799,10 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
           return false;
         }
         Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
-        // Collecting all uses of routines that are marked with AddressTaken.
-        // Use info of AddressTaken functions are not properly updated after
-        // IPSCCP. So, we can't get all CallSites of AddressTaken function
-        // by walking over uses of the function.
+        // Collecting all uses of routines that are marked with
+        // AddressTaken. Use info of AddressTaken functions are not
+        // properly updated after IPSCCP. So, we can't get all CallSites
+        // of AddressTaken function by walking over uses of the function.
         // FunctionCallInsts will be used later during transformation.
         if (Callee->hasAddressTaken())
           FunctionCallInsts[Callee].insert(cast<CallInst>(&Inst));
@@ -661,15 +823,23 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
         } else if (isa<LoadInst>(V)) {
           CheckLoadValue(V, StElem, &F);
         } else {
-          auto It = DynFieldFuncMap.find(StElem);
-          if (It == DynFieldFuncMap.end()) {
-            DynFieldFuncMap.insert({StElem, &F});
-            LLVM_DEBUG(dbgs() << "    unknown value assigned in init routine:";
-                       printDynField(dbgs(), StElem));
-          } else if (It->second != &F) {
-            InvalidFields.insert(StElem);
-            LLVM_DEBUG(dbgs() << "    Invalid...More than one init routine:";
-                       printDynField(dbgs(), StElem));
+          if (TraceConstantValue(V, StElem)) {
+            LLVM_DEBUG(
+                dbgs()
+                    << "    Value traced back to constants in init routine: ";
+                printDynField(dbgs(), StElem));
+          } else {
+            auto It = DynFieldFuncMap.find(StElem);
+            if (It == DynFieldFuncMap.end()) {
+              DynFieldFuncMap.insert({StElem, &F});
+              LLVM_DEBUG(dbgs()
+                             << "    unknown value assigned in init routine:";
+                         printDynField(dbgs(), StElem));
+            } else if (It->second != &F) {
+              InvalidFields.insert(StElem);
+              LLVM_DEBUG(dbgs() << "    Invalid...More than one init routine: ";
+                         printDynField(dbgs(), StElem));
+            }
           }
         }
       } else if (isa<CallInst>(Inst)) {
@@ -692,15 +862,40 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   LLVM_DEBUG(dbgs() << "  Candidate fields after Pruning: \n";
              printCandidateFields(dbgs()));
 
+  // Print collected large constant values for candidate fields.
+  DEBUG_WITH_TYPE(REENCODING, {
+    for (auto CPair : CandidateFields) {
+      if (DynFieldConstValueMap[CPair].empty()) {
+        dbgs() << "Candidate Field has no large const values.\n";
+        printDynField(dbgs(), CPair);
+      } else {
+        dbgs() << "Candidate Field large const values ";
+        printDynField(dbgs(), CPair);
+        for (auto C : DynFieldConstValueMap[CPair])
+          dbgs() << "\t" << C;
+        dbgs() << "\n";
+      }
+    }
+  });
+
   // Check Dependency sets here. If a field in dependence set of any
-  // candidate field is not qualified, remove all fields from CandidateFields
-  // conservatively. union/intersect operations are used to do this.
-  LLVM_DEBUG(dbgs() << "  Processing Dependency Sets: \n");
+  // candidate field is not qualified, remove all fields from
+  // CandidateFields conservatively. union/intersect operations are used
+  // to do this.
+  // (Reencoding) currently only one dependancy set for candidates fields is
+  // supported.
+  LLVM_DEBUG(dbgs() << "\n  Processing Dependency Sets: \n");
   LLVM_DEBUG(dbgs() << "    Dependency Sets for Candidate fields: \n");
+  DynFieldSet FieldEquivSet;
   DynFieldSet AllDepFieldsSet;
+  bool FirstField = true;
   for (auto &CPair : CandidateFields) {
     auto It = DependentFieldSet.find(CPair);
     if (It == DependentFieldSet.end()) {
+      if (FirstField) {
+        FieldEquivSet.insert(CPair);
+        FirstField = false;
+      }
       LLVM_DEBUG(dbgs() << "      Candidate Field doesn't have Dep Set:";
                  printDynField(dbgs(), CPair));
       continue;
@@ -712,6 +907,27 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
                  dbgs() << "        ";
                  printDynField(dbgs(), SetField);
                } dbgs() << "\n";);
+
+    // (Reencoding) We start from adding a first field and its dependents to the
+    // field equivalence set. Later if current field or its dependents are in
+    // the equivalence set - add current node and its dependents to the
+    // equivalence set.
+    if (FirstField) {
+      FieldEquivSet.insert(CPair);
+      set_union(FieldEquivSet, It->second);
+      FirstField = false;
+    } else {
+      bool HasCommonMembers = FieldEquivSet.count(CPair);
+      for (auto DF : It->second)
+        if (FieldEquivSet.count(DF)) {
+          HasCommonMembers = true;
+          break;
+        }
+      if (HasCommonMembers) {
+        FieldEquivSet.insert(CPair);
+        set_union(FieldEquivSet, It->second);
+      }
+    }
   }
   set_intersect(AllDepFieldsSet, InvalidFields);
 
@@ -721,6 +937,35 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     CandidateFields.clear();
     return false;
   }
+
+  // (Reencoding) Bail out candidates that are not in the equivalence set.
+  ValidCandidates.clear();
+  for (auto &CandidatePair : CandidateFields)
+    if (FieldEquivSet.count(CandidatePair))
+      ValidCandidates.push_back(CandidatePair);
+
+  std::swap(CandidateFields, ValidCandidates);
+
+  // (Reencoding) Collect all possible constants for candidate fields in one
+  // set and use them in the unified encode and decode routines.
+  for (auto &CPair : CandidateFields) {
+    auto It2 = DynFieldConstValueMap.find(CPair);
+    if (It2 != DynFieldConstValueMap.end())
+      set_union(AllDynFieldConstSet, It2->second);
+  }
+
+  // (Reencoding) Delta is needed to encode those constants that doesn't fit
+  // into ShunkenIntType. Limit number of constants to 10 for runtime effectiveness.
+  if (AllDynFieldConstSet.size() > 10) {
+    DEBUG_WITH_TYPE(
+        REENCODING,
+        dbgs()
+            << "    Too many large constants for encoding...Skip DynClone\n");
+    CandidateFields.clear();
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << "  Candidate fields after Pruning: \n";
+             printCandidateFields(dbgs()));
 
   // Verify that all qualified candidate fields have unknown assignments
   // in the same routine. Otherwise, clear CandidateFields.
@@ -1914,7 +2159,7 @@ void DynCloneImpl::transformInitRoutine(void) {
   //    i64  ==>  Max value that fits in int32_t
   auto GetShrunkenMaxValue = [&](Type *Ty) -> Value * {
     if (Ty->isIntegerTy(64)) {
-      return ConstantInt::get(Ty, std::numeric_limits<int32_t>::max());
+      return ConstantInt::get(Ty, getMaxShrIntTyValueWithDelta());
     }
     llvm_unreachable("Unexpected shrunken type for Max Value");
   };
@@ -1924,7 +2169,7 @@ void DynCloneImpl::transformInitRoutine(void) {
   //    i64  ==>  Max value that fits in int32_t
   auto GetShrunkenMinValue = [&](Type *Ty) -> Value * {
     if (Ty->isIntegerTy(64))
-      return ConstantInt::get(Ty, std::numeric_limits<int32_t>::min());
+      return ConstantInt::get(Ty, getMinShrIntTyValueWithDelta());
     llvm_unreachable("Unexpected shrunken type for Min Value");
   };
 
@@ -2017,6 +2262,7 @@ void DynCloneImpl::transformInitRoutine(void) {
   // generating loop. \p CI is expected to be calloc instruction.
   // \p Memory is allocated for OrigTy with the calloc instruction.
   // Copy loop is generated before \p InsertBefore.
+  // (Reencode) Encode values before storing.
   //
   // Ex:   %ptr = calloc(asize, ssize)
   //       l_size = (asize * ssize) / size_of_OrigTy;
@@ -2037,7 +2283,7 @@ void DynCloneImpl::transformInitRoutine(void) {
   //   ...
   //
   //   DGEP0 = getelementptr inbounds %NewTy, %DstPtr, LoopIdx, new_idx_of_0
-  //   %t1 = Trunk %L0
+  //   %t1 = call __DYN_encoder(%L0)
   //   Store %t1, %DGEP0
   //   DGEP1 = getelementptr inbounds %NewTy, %DstPtr, LoopIdx, new_idx_of_1
   //   Store %L1, %DGEP1
@@ -2097,7 +2343,13 @@ void DynCloneImpl::transformInitRoutine(void) {
       Type *NewElemTy = NewSt->getElementType(NewI);
       Value *LI = LoadVec[I];
       if (LI->getType() != NewElemTy) {
-        LI = LB.CreateTruncOrBitCast(LI, NewElemTy);
+        // (Reencoding) We need to encode each stored value for the candidate
+        // fields of the new struct.
+        DynField DF(std::make_pair(OrigSt, I));
+        if (isCandidateField(DF) && DynFieldEncodeFunc)
+          LI = LB.CreateCall(DynFieldEncodeFunc, {LI});
+        else
+          LI = LB.CreateTruncOrBitCast(LI, NewElemTy);
         LLVM_DEBUG(dbgs() << "  " << *LI << "\n");
       }
       StoreInst *SI = LB.CreateStore(LI, DstGEP);
@@ -2443,6 +2695,15 @@ void DynCloneImpl::transformInitRoutine(void) {
   for (auto StInst : RuntimeCheckStores) {
     auto StElem = DTInfo.getStoreElement(StInst);
     LLVM_DEBUG(dbgs() << "    Find min and max for " << *StInst << "\n");
+    auto It =
+        DynFieldTracedToConstantValues[StElem].find(StInst->getValueOperand());
+    if (It != DynFieldTracedToConstantValues[StElem].end()) {
+      DEBUG_WITH_TYPE(REENCODING, dbgs()
+                                      << "      (Reencoding) Skip store: store "
+                                         "a value evaluating to constant "
+                                      << *(StInst->getValueOperand()) << "\n");
+      continue;
+    }
     GenerateMinMaxInsts(StElem, StInst, ICmpInst::ICMP_SLT, TypeMinAllocIMap);
     GenerateMinMaxInsts(StElem, StInst, ICmpInst::ICMP_SGT, TypeMaxAllocIMap);
   }
@@ -3059,12 +3320,16 @@ void DynCloneImpl::transformIR(void) {
   //   Before:
   //       %40 = load i64, i64* %39, align 8
   //
-  //   After:
-  //       %40 = bitcast i64* %39 to i32*
-  //       %41 = load i32, i32* %40, align 4
-  //       %42 = sext i32 %41 to i64
+  //   After (for AOSToSOA field):
+  //       %40 = bitcast i32* %39 to i16*
+  //       %41 = load i16, i16* %40, align 2
+  //       %42 = sext i16 %41 to i32
+  //   After (for Candidate field which needs decoding):
+  //       %40 = bitcast i64* %39 to i16*
+  //       %41 = load i16, i16* %40, align 2
+  //       %42 = call __DYN_decoder(i16 %40)
   //
-  auto ProcessLoad = [&](LoadInst *LI, DynField &LdElem) {
+  auto ProcessLoad = [&](LoadInst *LI, DynField &LdElem, bool NeedsDecoding) {
     LLVM_DEBUG(dbgs() << "Load before convert: " << *LI << "\n");
     StructType *OldTy = cast<StructType>(LdElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
@@ -3079,11 +3344,20 @@ void DynCloneImpl::transformIR(void) {
     // ZExt is used for AOSToSOA index field to avoid unnecessary "mov"
     // instructions (in generated code) since AOSTOSOA transformation
     // uses ZExt for the AOSToSOA index.
-    Value *Res;
-    if (isAOSTOSOAIndexField(LdElem))
+    Value *Res = nullptr;
+    // (Reencoding) if encoding is not needed, then all values should fit
+    // into shrunken bits.
+    if (isAOSTOSOAIndexField(LdElem)) {
       Res = CastInst::CreateZExtOrBitCast(NewLI, LI->getType(), "", LI);
-    else
+    } else if (NeedsDecoding) {
+      Res = CallInst::Create(DynFieldDecodeFunc, NewLI, "", LI);
+      DEBUG_WITH_TYPE(
+          REENCODING,
+          dbgs() << "   (Reencoding) Insert a call to decoder function\n");
+    } else {
       Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
+    }
+
     LI->replaceAllUsesWith(Res);
     Res->takeName(LI);
 
@@ -3098,12 +3372,16 @@ void DynCloneImpl::transformIR(void) {
   //   Before:
   //       store i64 30, i64* %266, align 8
   //
-  //   After:
-  //       %268 = bitcast i64* %266 to i32*
-  //       %267 = trunc i64 30 to i32
-  //       store i32 %267, i32* %268, align 4
+  //   After (for AOSToSOA fields):
+  //       %268 = bitcast i32* %266 to i16*
+  //       %267 = trunc i32 30 to i16
+  //       store i16 %267, i16* %268, align 2
+  //   After (for Candidate fields which needs encoding):
+  //       %268 = call __DYN_encoder(i64 30)
+  //       %267 = bitcast i64* %266 to i16*
+  //       store i16 %268, i16* %267, align 2
   //
-  auto ProcessStore = [&](StoreInst *SI, DynField &StElem) {
+  auto ProcessStore = [&](StoreInst *SI, DynField &StElem, bool NeedsEncoding) {
     LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
     StructType *OldTy = cast<StructType>(StElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
@@ -3111,7 +3389,17 @@ void DynCloneImpl::transformIR(void) {
     Type *NewTy = NewSt->getElementType(NewIdx);
     Type *PNewTy = NewTy->getPointerTo();
     Value *ValOp = SI->getValueOperand();
-    Value *NewVal = CastInst::CreateTruncOrBitCast(ValOp, NewTy, "", SI);
+    Value *NewVal = nullptr;
+    // (Reencoding) if encoding is not needed, then all values should fit
+    // into shrunken bits.
+    if (NeedsEncoding) {
+      NewVal = CallInst::Create(DynFieldEncodeFunc, ValOp, "", SI);
+      DEBUG_WITH_TYPE(
+          REENCODING,
+          dbgs() << "   (Reencoding) Insert a call to encoder function\n");
+    } else {
+      NewVal = CastInst::CreateTruncOrBitCast(ValOp, NewTy, "", SI);
+    }
     Value *SrcOp = SI->getPointerOperand();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
     Instruction *NewSI = new StoreInst(
@@ -3147,8 +3435,8 @@ void DynCloneImpl::transformIR(void) {
   SmallVector<Instruction *, 4> MultiElemLdStToProcess;
   SmallVector<GetElementPtrInst *, 16> GEPsToProcess;
   SmallVector<BinaryOperator *, 16> BinOpsToProcess;
-  SmallVector<LoadInst *, 16> LoadsToProcess;
-  SmallVector<StoreInst *, 16> StoresToProcess;
+  DenseMap<LoadInst *, bool> LoadsToProcess;
+  DenseMap<StoreInst *, bool> StoresToProcess;
   SmallVector<GetElementPtrInst *, 16> ByteGEPsToProcess;
   SmallVector<std::pair<CallInfo *, Type *>, 4> CallsToProcess;
   SmallVector<Instruction *, 32> InstsToRemove;
@@ -3186,10 +3474,10 @@ void DynCloneImpl::transformIR(void) {
           BinOpsToProcess.push_back(BinOp);
       } else if (auto *LI = dyn_cast<LoadInst>(I)) {
         if (IsLoad(LI))
-          LoadsToProcess.push_back(LI);
+          LoadsToProcess.insert({LI, (DynFieldDecodeFunc != nullptr)});
       } else if (auto *SI = dyn_cast<StoreInst>(I)) {
         if (IsStore(SI))
-          StoresToProcess.push_back(SI);
+          StoresToProcess.insert({SI, (DynFieldEncodeFunc != nullptr)});
       } else if (isa<CallInst>(I)) {
         auto *CInfo = DTInfo.getCallInfo(I);
         Type *ElemTy = getCallInfoElemTy(CInfo);
@@ -3200,7 +3488,46 @@ void DynCloneImpl::transformIR(void) {
       }
     }
 
-    for (auto *II : MultiElemLdStToProcess) {
+    // (Reencoding) For each load, check if all its uses land in the store to
+    // candidate fields. If so skip enoding/decoding for such load and stores.
+    for (auto &LP : LoadsToProcess) {
+      // LP.second is false if the load is an AOSToSOA index field load or
+      // decoder function is null. In either case encoding is not needed.
+      if (LP.second) {
+        auto *LI = LP.first;
+        auto ItEnd = StoresToProcess.end();
+        SmallPtrSet<StoreInst *, 4> StoresWithNoEncoding;
+        // Dummy check: if load has no uses, we still need to decode loaded
+        // result.
+        bool NeedsEncoding = LI->getNumUses() ? false : true;
+        for (auto &U : LI->uses()) {
+          // If there is at least one use that is not a store to candidate
+          // field, then we need encoding/decoding for the load and all its
+          // uses.
+          if (StoreInst *SI = dyn_cast<StoreInst>(U.getUser())) {
+            auto It = StoresToProcess.find(SI);
+            if (It == ItEnd) {
+              NeedsEncoding = true;
+              break;
+            } else if (It->second) {
+              StoresWithNoEncoding.insert(SI);
+            }
+          } else {
+            NeedsEncoding = true;
+            break;
+          }
+        }
+        if (!NeedsEncoding) {
+          // Otherwise - mark the load and all corresponding stores as not a
+          // candidate for encoding.
+          LP.second = false;
+          for (auto SI : StoresWithNoEncoding)
+            StoresToProcess[SI] = false;
+        }
+      }
+    }
+
+    for (auto &II : MultiElemLdStToProcess) {
       auto It = MultiElemLdStAOSTOSOAIndexMap.find(II);
       assert(It != MultiElemLdStAOSTOSOAIndexMap.end() &&
              " Expected MultiElem instruction in map");
@@ -3210,9 +3537,9 @@ void DynCloneImpl::transformIR(void) {
       // Since all fields accessed by MultiElem Ld/St will be reduced to the
       // same type, it is okay to use any accessing field for processing Ld/St.
       if (auto *LI = dyn_cast<LoadInst>(II))
-        ProcessLoad(LI, It->second);
+        ProcessLoad(LI, It->second, false /*no reencoding*/);
       else if (auto *SI = dyn_cast<StoreInst>(II))
-        ProcessStore(SI, It->second);
+        ProcessStore(SI, It->second, false /*no reencoding*/);
       else
         llvm_unreachable("Unexpected multi field load/store!");
       InstsToRemove.push_back(II);
@@ -3229,16 +3556,18 @@ void DynCloneImpl::transformIR(void) {
     for (auto *BinOp : BinOpsToProcess)
       ProcessBinOp(BinOp);
 
-    for (auto *LI : LoadsToProcess) {
-      auto LdElem = DTInfo.getLoadElement(LI);
-      ProcessLoad(LI, LdElem);
-      InstsToRemove.push_back(cast<Instruction>(LI));
+    for (auto &LP : LoadsToProcess) {
+      auto LdElem = DTInfo.getLoadElement(LP.first);
+      auto NeedsDecoding = isAOSTOSOAIndexField(LdElem) ? false : LP.second;
+      ProcessLoad(LP.first, LdElem, NeedsDecoding);
+      InstsToRemove.push_back(cast<Instruction>(LP.first));
     }
 
-    for (auto *SI : StoresToProcess) {
-      auto StElem = DTInfo.getStoreElement(SI);
-      ProcessStore(SI, StElem);
-      InstsToRemove.push_back(cast<Instruction>(SI));
+    for (auto &SP : StoresToProcess) {
+      auto StElem = DTInfo.getStoreElement(SP.first);
+      auto NeedsEncoding = isAOSTOSOAIndexField(StElem) ? false : SP.second;
+      ProcessStore(SP.first, StElem, NeedsEncoding);
+      InstsToRemove.push_back(cast<Instruction>(SP.first));
     }
 
     for (auto &CallPair : CallsToProcess)
@@ -3246,6 +3575,87 @@ void DynCloneImpl::transformIR(void) {
 
     for (auto *DI : InstsToRemove)
       DI->eraseFromParent();
+  }
+}
+
+// Create encoder and decoder functions that will translate the original
+// 64bit value into/from a smaller ShrunkenIntTy value.
+void DynCloneImpl::createEncodeDecodeFunctions(void) {
+  if (AllDynFieldConstSet.size() == 0) {
+    DynFieldEncodeFunc = nullptr;
+    DynFieldDecodeFunc = nullptr;
+    return;
+  }
+
+  llvm::Type *Int64Ty = Type::getIntNTy(M.getContext(), 64);
+  FunctionType *EncoderFT = FunctionType::get(ShrunkenIntTy, {Int64Ty}, false);
+  FunctionType *DecoderFT = FunctionType::get(Int64Ty, {ShrunkenIntTy}, false);
+  DynFieldEncodeFunc = Function::Create(EncoderFT, GlobalValue::InternalLinkage,
+                                        "__DYN_encoder", &M);
+  fillupCoderRoutine(DynFieldEncodeFunc, true /*encoder*/);
+  DynFieldDecodeFunc = Function::Create(DecoderFT, GlobalValue::InternalLinkage,
+                                        "__DYN_decoder", &M);
+  fillupCoderRoutine(DynFieldDecodeFunc, false /*decoder*/);
+}
+
+// Generate all instructions for encoder/decoder functions.
+// i16 __DYN_encoder(i64 arg) {
+//   i16 RetVal, Max = max_int_15bit;
+//   switch(arg) {
+//     case C1: RetVal = Max;
+//     case C2: RetVal = Max+1;
+//     case C3: RetVal = Max+2;
+//     ...
+//     default: RetVal = Trunc(arg);
+//     };
+//   return RetVal;
+// }
+//
+// i64 __DYN_decoder(i16 arg) {
+//   i16 Max = max_int_15bit;
+//   i64 RetVal;
+//   switch(arg) {
+//     case Max: RetVal = C1;
+//     case Max+1: RetVal = C2;
+//     case Max+2: RetVal = C3;
+//     ...
+//     default: RetVal = SExt(arg);
+//     };
+//   return RetVal;
+// }
+//
+void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
+  llvm::IntegerType *SrcType = dyn_cast<IntegerType>(F->arg_begin()->getType());
+  llvm::IntegerType *DstType = dyn_cast<IntegerType>(F->getReturnType());
+  BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", F);
+  IRBuilder<> IRB(BB);
+  BasicBlock *DefaultBB = BasicBlock::Create(M.getContext(), "default", F);
+  SwitchInst *SI =
+      IRB.CreateSwitch(F->arg_begin(), DefaultBB, AllDynFieldConstSet.size());
+  BasicBlock *ReturnBB = BasicBlock::Create(M.getContext(), "return", F);
+  IRBuilder<> IRBDefault(DefaultBB);
+  Value *Trunc = IRBDefault.CreateSExtOrTrunc(F->arg_begin(), DstType);
+  IRBDefault.CreateBr(ReturnBB);
+  IRBuilder<> IRBReturn(ReturnBB);
+  PHINode *Phi = IRBReturn.CreatePHI(DstType, 0, "phival");
+  IRBReturn.CreateRet(Phi);
+  Phi->addIncoming(Trunc, DefaultBB);
+  int64_t CurrEncodeValue = getMaxShrIntTyValueWithDelta() + 1;
+  for (int64_t ConstValue : AllDynFieldConstSet) {
+    ConstantInt *CaseValue;
+    ConstantInt *CaseReturnValue;
+    if (IsEncoder) {
+      CaseValue = ConstantInt::get(SrcType, ConstValue);
+      CaseReturnValue = ConstantInt::get(DstType, CurrEncodeValue++);
+    } else {
+      CaseValue = ConstantInt::get(SrcType, CurrEncodeValue++);
+      CaseReturnValue = ConstantInt::get(DstType, ConstValue);
+    }
+    BasicBlock *CaseBB = BasicBlock::Create(M.getContext(), "case", F);
+    Phi->addIncoming(CaseReturnValue, CaseBB);
+    IRBuilder<> IRBCase(CaseBB);
+    IRBCase.CreateBr(ReturnBB);
+    SI->addCase(CaseValue, CaseBB);
   }
 }
 
@@ -3284,6 +3694,8 @@ bool DynCloneImpl::run(void) {
   LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
 
   createShrunkenTypes();
+
+  createEncodeDecodeFunctions();
 
   transformInitRoutine();
 

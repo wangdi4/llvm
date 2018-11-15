@@ -9,7 +9,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; 1 and 6 fields are shrunk to i32. 2nd and 3rd fields are marked
+; 1 and 6 fields are shrunk to i16. 2nd and 3rd fields are marked
 ; with aostosoa index fields.
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64 }
 
