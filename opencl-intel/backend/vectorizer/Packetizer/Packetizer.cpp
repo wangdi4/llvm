@@ -992,7 +992,7 @@ bool PacketizeFunction::isGatherScatterType(bool masked,
                                 VectorType *VecTy) {
   unsigned NumElements = VecTy->getNumElements();
   Type *ElemTy = VecTy->getElementType();
-  if ((m_Cpu == Intel::CPU_KNL || m_Cpu == Intel::CPU_SKX) && ElemTy->getPrimitiveSizeInBits() < 32)
+  if ( UseScatterGather && ElemTy->getPrimitiveSizeInBits() < 32)
     return false;
   if (EnableScatterGather_v4i8 &&
       (NumElements == 4) &&

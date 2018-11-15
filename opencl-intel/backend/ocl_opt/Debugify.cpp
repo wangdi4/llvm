@@ -87,7 +87,7 @@ bool applyDebugifyMetadata(Module &M) {
           continue;
 
         // Skip the terminator instruction and any just-inserted intrinsics.
-        if (isa<TerminatorInst>(&I) || isa<DbgValueInst>(&I))
+        if (I.isTerminator() || isa<DbgValueInst>(&I))
           break;
 
         std::string Name = utostr(NextVar++);

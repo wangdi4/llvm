@@ -31,7 +31,7 @@ endif(NOT WIN32)
 #
 # Include directories
 #
-include_directories( AFTER
+set( INCLUDE_DIRS
             ${LLVM_INCLUDE_DIRS}
             ${CCLANG_INCLUDE_DIRS}
             ${CL_API_HEADERS}
@@ -49,10 +49,10 @@ include_directories( AFTER
             )
 
 if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-endif ()
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
+else (WIN32)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
+endif (WIN32)
 
 add_opencl_library (${TARGET_NAME} SHARED
     clang_device_info.h
@@ -60,7 +60,6 @@ add_opencl_library (${TARGET_NAME} SHARED
     Compile.h
     FrontendDriver.cpp
     FrontendDriver.h
-    FrontendDriver.rc
     FrontendResultImpl.h
     GetKernelArgInfo.cpp
     GetKernelArgInfo.h
@@ -73,37 +72,31 @@ add_opencl_library (${TARGET_NAME} SHARED
     SPIRMaterializer.h
     SPIRVMaterializer.cpp
     SPIRVMaterializer.h
-)
-if (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
-else (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
-endif (WIN32)
 
-target_link_libraries(${TARGET_NAME}
-    ${COMMON_CLANG_LIB}
-    OclPluginManager
-    CacheBinaryHandler
-    CLElfLib
-    name_mangle
-    dynamic_load
-    cl_logger${OPENCL_BINARIES_POSTFIX}
-    cl_sys_utils
-    # LLVM LIBS
-    # Doing so must be done with caution as cclang export all the symbols
-    # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
-    # be actually used for every particular call to LLVM.
-    LLVMBitWriter
-    LLVMCore
-    LLVMLinker
-    LLVMOption
-    LLVMSupport
-    LLVMSPIRVLib
-)
+    INCLUDE_DIRS ${INCLUDE_DIRS}
 
-if (NOT WIN32)
-    list(APPEND LINK_LIBS pthread)
-endif ()
+    LINK_LIBS
+      ${COMMON_CLANG_LIB}
+      OclPluginManager
+      CacheBinaryHandler
+      CLElfLib
+      name_mangle
+      dynamic_load
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+      cl_sys_utils
+      # LLVM LIBS
+      # Doing so must be done with caution as cclang export all the symbols
+      # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
+      # be actually used for every particular call to LLVM.
+      LLVMBitWriter
+      LLVMCore
+      LLVMLinker
+      LLVMOption
+      LLVMSupport
+      LLVMSPIRVLib
+
+    RC_TEMPLATE DEFAULT
+)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 
@@ -117,7 +110,7 @@ if (WIN32)
         list (APPEND ${COMMON_CLANG_FILES} ${LLVM_BINARY_DIR}/common_clang${BUILD_PLATFORM}.pdb)
     endif (INSTALL_PDBS)
     list (APPEND ${COMMON_CLANG_FILES} ${LLVM_BINARY_DIR}/common_clang${BUILD_PLATFORM}_stripped.pdb)
-else (WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 endif (WIN32)
+
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 copy_to (${COMMON_CLANG_FILES} DESTINATION lib)

@@ -76,21 +76,21 @@ add_opencl_library(OCLBuiltinsRef SHARED
   OCLBuiltinParser.h
   OCLBuiltinParser.cpp
   IWorkItemBuiltins.h
+
+  INCLUDE_DIRS
+    ${LLVM_INCLUDE_DIRS}
+    ${CL_API_HEADERS}
+    ${BACKEND_ROOT_DIR}/name_mangling
+    ${VALIDATIONS_ROOT}/Common
+    ${VALIDATIONS_ROOT}/REFALU
+    ${REF_CL_BUILTIN_SOURCE_DIR}
+
+  LINK_LIBS
+    REFALU
 )
 
 add_dependencies(OCLBuiltinsRef
   ${TARGET_NAME}
 )
-
-include_directories (
-  ${LLVM_INCLUDE_DIRS}
-  ${CL_API_HEADERS}
-  ${BACKEND_ROOT_DIR}/name_mangling
-  ${VALIDATIONS_ROOT}/Common
-  ${VALIDATIONS_ROOT}/REFALU
-  ${REF_CL_BUILTIN_SOURCE_DIR}
-)
-
-target_link_libraries(OCLBuiltinsRef REFALU)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

@@ -33,6 +33,8 @@ TEST_F(TestFPGABasic, INTELFPGACLDefine) {
   const std::string program_sources = "                                      \n\
     #ifndef INTELFPGA_CL                                                     \n\
       #error \"INTELFPGA_CL define is missed!\"                              \n\
+    #elif (INTELFPGA_CL != 191)                                              \n\
+      #error \"INTELFPGA_CL contains a wrong version\"                       \n\
     #endif                                                                   \n\
     ";
 

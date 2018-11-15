@@ -51,20 +51,23 @@ namespace intel {
 // Basic block functors, to be applied on each block in the module.
 class MaterializeBlockFunctor : public BlockFunctor {
 public:
-  MaterializeBlockFunctor(BuiltinLibInfo &BLI) : BLI(BLI) {}
+  MaterializeBlockFunctor(BuiltinLibInfo &BLI,
+                          llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove)
+    : BLI(BLI), FuncDeclToRemove(FuncDeclToRemove) {}
   void operator()(llvm::BasicBlock &BB) {
     llvm::SmallVector<Instruction *, 4> InstToRemove;
 
-    for (llvm::BasicBlock::iterator b = BB.begin(), e = BB.end(); e != b; ++b) {
-      if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&*b)) {
+    for (auto &b : BB) {
+      if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&b)) {
         m_isChanged |= changeCallingConv(CI);
 
         if (RemoveFPGAReg) {
-          m_isChanged |= removeFPGARegInst(CI, InstToRemove);
+          m_isChanged |= removeFPGARegInst(CI, InstToRemove, FuncDeclToRemove);
         }
 
         if (DemangleFPGAPipes) {
-          m_isChanged |= demangleFPGABICallInst(CI, InstToRemove);
+          m_isChanged |=
+            demangleFPGABICallInst(CI, InstToRemove, FuncDeclToRemove);
         }
       }
     }
@@ -88,7 +91,8 @@ public:
 
   bool
   demangleFPGABICallInst(llvm::CallInst *CI,
-                         llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
+                         llvm::SmallVectorImpl<Instruction *> &InstToRemove,
+                         llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove) {
     auto *F = CI->getCalledFunction();
     if (!F)
       return false;
@@ -127,6 +131,7 @@ public:
         break;
       }
     }
+    assert(PipesModule && "Module containing pipe built-ins not found!");
 
     assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
     SmallVector<Value *, 4> NewArgs;
@@ -180,6 +185,12 @@ public:
       }
     }
 
+    // With materilization of fpga pipe built-in calls we import new
+    // declarations for them leaving old declarations unused. Add these unused
+    // declarations with avoiding of duplications to the list of functions
+    // to remove.
+    FuncDeclToRemove.insert(F);
+
     llvm::CallInst *NewCI = llvm::CallInst::Create(NewF, NewArgs, "", CI);
 
     NewCI->setCallingConv(CI->getCallingConv());
@@ -196,7 +207,8 @@ public:
   }
 
   bool removeFPGARegInst(llvm::CallInst *CI,
-                         llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
+                         llvm::SmallVectorImpl<Instruction *> &InstToRemove,
+                         llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove) {
     auto *F = CI->getCalledFunction();
     if (!F)
       return false;
@@ -212,19 +224,23 @@ public:
       Value *Src = CI->getArgOperand(1);
       Dest->replaceAllUsesWith(Src);
     }
+    FuncDeclToRemove.insert(F);
     InstToRemove.push_back(CI);
     return true;
   }
 
 private:
   BuiltinLibInfo &BLI;
+  llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove;
 };
 
 // Function functor, to be applied for every function in the module.
 // Delegates call to basic-block functors.
 class MaterializeFunctionFunctor : public FunctionFunctor {
 public:
-  MaterializeFunctionFunctor(BuiltinLibInfo &BLI): BLI(BLI) {}
+  MaterializeFunctionFunctor(BuiltinLibInfo &BLI,
+                             llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove)
+    : BLI(BLI), FuncDeclToRemove(FuncDeclToRemove) {}
 
   void operator()(llvm::Function &F) {
     llvm::CallingConv::ID CConv = F.getCallingConv();
@@ -233,13 +249,14 @@ public:
       F.setCallingConv(llvm::CallingConv::C);
       m_isChanged = true;
     }
-    MaterializeBlockFunctor bbMaterializer(BLI);
+    MaterializeBlockFunctor bbMaterializer(BLI, FuncDeclToRemove);
     std::for_each(F.begin(), F.end(), bbMaterializer);
     m_isChanged |= bbMaterializer.isChanged();
   }
 
 private:
   BuiltinLibInfo &BLI;
+  llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove;
 };
 
 static void setBlockLiteralSizeMetadata(Function &F) {
@@ -336,11 +353,19 @@ bool SpirMaterializer::runOnModule(llvm::Module &Module) {
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
 
+  llvm::SmallPtrSet<Function *, 4> FuncDeclToRemove;
+
   // form kernel list in the module.
   FormOpenCLKernelsMetadata(Module);
-  MaterializeFunctionFunctor fMaterializer(BLI);
+  MaterializeFunctionFunctor fMaterializer(BLI, FuncDeclToRemove);
   // Take care of calling conventions
   std::for_each(Module.begin(), Module.end(), fMaterializer);
+  // Remove unused declarations
+  for (auto *funcDecl : FuncDeclToRemove) {
+    assert(funcDecl->use_empty() && "Cannot erase used declarations");
+    funcDecl->eraseFromParent();
+  }
+  FuncDeclToRemove.clear();
 
   return Ret || fMaterializer.isChanged();
 }

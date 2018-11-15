@@ -20,20 +20,6 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-    #
-    # Usage
-    #     SET_LINUX_EXPORTS_FILE( TARGET FILE_NAME )
-    # This function provides special linkage options for OCL Back-End. These options prevents exposure of function symbols
-    # externally (except functions which are explicitly listed in version script
-
-    function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
-            get_target_property( SOURCE_FILES ${TARGET_NAME} SOURCES )
-            list( GET SOURCE_FILES 0 FIRST_SOURCE )
-            set_source_files_properties( ${FIRST_SOURCE} PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME} )
-            set_property( TARGET ${TARGET_NAME} APPEND_STRING PROPERTY
-                            LINK_FLAGS "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}" )
-    endfunction ( SET_LINUX_EXPORTS_FILE )
-
     set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
 
     # Compiler switches that CANNOT be modified during makefile generation
@@ -193,16 +179,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     opencl_printf_ext.cpp
   )
 
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    # Resources
-    set (OCL_CPU_BACKEND_RESOURCE_FILES llvm_backend.rc)
-else (WIN32)
-    set (OCL_CPU_BACKEND_RESOURCE_FILES)
-endif (WIN32)
-
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
         set (ASM_SOURCES kernel_execute_64.asm)
@@ -213,7 +189,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
-include_directories(
+set (INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_FE_INCLUDE_DIRS}/cclang
     ${OCL_CPU_BACKEND_DIR}
@@ -239,19 +215,6 @@ endif( LLVM_USE_INTEL_JITEVENTS )
 if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
-
-# Create DLL
-add_opencl_library (${TARGET_NAME} SHARED
-    ${OCL_CPU_BACKEND_INCLUDE_FILES}
-    ${OCL_CPU_BACKEND_SOURCE_FILES}
-    ${OCL_CPU_BACKEND_RESOURCE_FILES}
-    ${ASM_ADD_TO_SOURCES_LIST}
-)
-
-if (NOT WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
-endif (NOT WIN32)
-
 
 set( BACKEND_PASSES
     LLVMBarrier
@@ -305,24 +268,36 @@ set(UTILS_LIBS
     OclOptimizer
 )
 
-target_link_libraries (${TARGET_NAME}
-    ${UTILS_LIBS}
-    # internal passes
-    ${BACKEND_PASSES}
+# Create DLL
+add_opencl_library (${TARGET_NAME} SHARED
+    ${OCL_CPU_BACKEND_INCLUDE_FILES}
+    ${OCL_CPU_BACKEND_SOURCE_FILES}
+    ${ASM_ADD_TO_SOURCES_LIST}
 
-    LoopUtils
-    OclBackendUtils
-    reflection_module
-    name_mangle
-    dynamic_load
-    cl_sys_utils
-    metadataapi
-    CacheBinaryHandler
-    CLElfLib
+    INCLUDE_DIRS ${INCLUDE_DIRS}
 
-    # LLVM LIBS
-    ${LLVM_MODULE_LIBS}
-    )
+    LINK_LIBS
+      ${UTILS_LIBS}
+      # internal passes
+      ${BACKEND_PASSES}
+
+      LoopUtils
+      OclBackendUtils
+      reflection_module
+      name_mangle
+      dynamic_load
+      cl_sys_utils
+      metadataapi
+      CacheBinaryHandler
+      CLElfLib
+
+      # LLVM LIBS
+      ${LLVM_MODULE_LIBS}
+
+    RC_TEMPLATE DEFAULT
+)
+
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

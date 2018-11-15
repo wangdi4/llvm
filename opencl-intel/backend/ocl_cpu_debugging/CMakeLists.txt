@@ -44,7 +44,6 @@ link_directories (
 
 set( SOCKETLIB ws2_32 )
 
-
 # Create DLL
 add_opencl_library (${TARGET_NAME} SHARED
     dllmain.cpp
@@ -53,7 +52,6 @@ add_opencl_library (${TARGET_NAME} SHARED
     debuginfo_utils.cpp
     debugservermessages.pb.cc
     protobufpackedmessage.cpp
-    OclCpuDebugging.rc
 
     INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
@@ -66,6 +64,9 @@ add_opencl_library (${TARGET_NAME} SHARED
     cl_sys_utils
     protobuf
     ${LLVM_MODULE_LIBS}
+
+    RC_TEMPLATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/OclCpuDebugging.rc.in
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

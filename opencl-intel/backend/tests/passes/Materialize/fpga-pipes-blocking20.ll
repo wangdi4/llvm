@@ -25,25 +25,30 @@
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -spir-materializer -verify -S %s | FileCheck %s
 
 ; CHECK-LABEL: define void @test1
-; CHECK-NOT: call i32 @__read_pipe_2_bl
-; CHECK: call i32 @__read_pipe_2_bl
-; CHECK-NOT: call i32 @__read_pipe_2_bl
-; CHECK: call i32 @__read_pipe_2_bl
-; CHECK-NOT: call i32 @__read_pipe_2_bl
-; CHECK: call i32 @__read_pipe_2_bl
-; CHECK-NOT: call i32 @__read_pipe_2_bl
+; CHECK-NOT: call i32 @__read_pipe_2_bl_AS{{[0-9]}}
+; CHECK: call i32 @__read_pipe_2_bl_fpga
+; CHECK-NOT: call i32 @__read_pipe_2_bl_AS{{[0-9]}}
+; CHECK: call i32 @__read_pipe_2_bl_fpga
+; CHECK-NOT: call i32 @__read_pipe_2_bl_AS{{[0-9]}}
+; CHECK: call i32 @__read_pipe_2_bl_fpga
+; CHECK-NOT: call i32 @__read_pipe_2_bl_AS{{[0-9]}}
+; CHECK-NOT: declare i32 @__read_pipe_2_bl_AS{{[0-9]}}
 ;
 ; CHECK-LABEL: define void @test2
 ;
-; CHECK-NOT: call i32 @__write_pipe_2_bl
-; CHECK: call i32 @__write_pipe_2_bl
-; CHECK-NOT: call i32 @__write_pipe_2_bl
-; CHECK: call i32 @__write_pipe_2_bl
-; CHECK-NOT: call i32 @__write_pipe_2_bl
-; CHECK: call i32 @__write_pipe_2_bl
-; CHECK-NOT: call i32 @__write_pipe_2_bl
-; CHECK: call i32 @__write_pipe_2_bl
-; CHECK-NOT: call i32 @__write_pipe_2_bl
+; CHECK-NOT: call i32 @__write_pipe_2_bl_AS{{[0-9]}}
+; CHECK: call i32 @__write_pipe_2_bl_fpga
+; CHECK-NOT: call i32 @__write_pipe_2_bl_AS{{[0-9]}}
+; CHECK: call i32 @__write_pipe_2_bl_fpga
+; CHECK-NOT: call i32 @__write_pipe_2_bl_AS{{[0-9]}}
+; CHECK: call i32 @__write_pipe_2_bl_fpga
+; CHECK-NOT: call i32 @__write_pipe_2_bl_AS{{[0-9]}}
+; CHECK: call i32 @__write_pipe_2_bl_fpga
+; CHECK-NOT: call i32 @__write_pipe_2_bl_AS{{[0-9]}}
+; CHECK-NOT: declare i32 @__write_pipe_2_bl_AS{{[0-9]}}
+;
+; CHECK: declare i32 @__read_pipe_2_bl_fpga
+; CHECK: declare i32 @__write_pipe_2_bl_fpga
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"

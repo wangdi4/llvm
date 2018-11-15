@@ -43,15 +43,8 @@ set (OCL_RECORDER_SOURCE_FILES
   ${VALIDATIONS_ROOT}/Common/md5.cpp
   )
 
-# Resources
-if (WIN32)
-  set (OCL_RECORDER_RESOURCE_FILES ocl_recorder.rc)
-else (WIN32)
-  set (OCL_RECORDER_RESOURCE_FILES)
-endif (WIN32)
-
 # Add include directories
-include_directories(
+set (INCLUDE_DIRS
   ${LLVM_INCLUDE_DIRS}
   ${LLVM_FE_INCLUDE_DIRS}/cclang
   ${CL_API_HEADERS}
@@ -81,22 +74,25 @@ endif()
 add_opencl_library (${TARGET_NAME} SHARED
     ${OCL_RECORDER_INCLUDE_FILES}
     ${OCL_RECORDER_SOURCE_FILES}
-    ${OCL_RECORDER_RESOURCE_FILES}
     ${ASM_ADD_TO_SOURCES_LIST}
+
+    INCLUDE_DIRS ${INCLUDE_DIRS}
+
+    LINK_LIBS
+        tinyxml_STL
+        DataManager
+        OclPluginManager
+        ${LLVM_MODULE_LIBS}
+        NEAT
+
+    RC_TEMPLATE DEFAULT
 )
 
 # Create static library for unit tests
 add_opencl_library (OCLRecorderStat STATIC
     ${OCL_RECORDER_SOURCE_FILES}
-)
 
-# Link with appropriate libs
-target_link_libraries (${TARGET_NAME}
-    tinyxml_STL
-    DataManager
-    OclPluginManager
-    ${LLVM_MODULE_LIBS}
-    NEAT
+    INCLUDE_DIRS ${INCLUDE_DIRS}
 )
 
 if(WIN32)

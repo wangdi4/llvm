@@ -37,29 +37,38 @@ enum ECPU {
     CPU_HASWELL,
     CPU_KNL,
     CPU_SKX,
+    CPU_ICL, // Icelake client
+    CPU_ICX, // Icelake server
     DEVICE_INVALID // Always last
 };
 // CPU Features enumeration
 enum ECPUFeatureSupport {
-    CFS_NONE     = 0x0000,
-    CFS_SSE2     = 1,
-    CFS_SSE3     = 1 << 1,
-    CFS_SSSE3    = 1 << 2,
-    CFS_SSE41    = 1 << 3,
-    CFS_SSE42    = 1 << 4,
-    CFS_AVX1     = 1 << 5,
-    CFS_AVX2     = 1 << 6,
-    CFS_FMA      = 1 << 7,
-    CFS_BMI      = 1 << 8,
-    CFS_BMI2     = 1 << 9,
-    CFS_AVX512F  = 1 << 10, // KNL, SKX
-    CFS_AVX512CD = 1 << 11, // KNL, SKX
-    CFS_AVX512ER = 1 << 12, // KNL
-    CFS_AVX512PF = 1 << 13, // KNL
-    CFS_AVX512BW = 1 << 14, // SKX
-    CFS_AVX512DQ = 1 << 15, // SKX
-    CFS_AVX512VL = 1 << 16, // SKX
-    CFS_F16C     = 1 << 17,
+    CFS_NONE           = 0x0000,
+    CFS_SSE2           = 1,
+    CFS_SSE3           = 1 << 1,
+    CFS_SSSE3          = 1 << 2,
+    CFS_SSE41          = 1 << 3,
+    CFS_SSE42          = 1 << 4,
+    CFS_AVX1           = 1 << 5,
+    CFS_AVX2           = 1 << 6,
+    CFS_FMA            = 1 << 7,
+    CFS_BMI            = 1 << 8,
+    CFS_BMI2           = 1 << 9,
+    CFS_AVX512F        = 1 << 10, // KNL, SKX
+    CFS_AVX512CD       = 1 << 11, // KNL, SKX
+    CFS_AVX512ER       = 1 << 12, // KNL
+    CFS_AVX512PF       = 1 << 13, // KNL
+    CFS_AVX512BW       = 1 << 14, // SKX
+    CFS_AVX512DQ       = 1 << 15, // SKX
+    CFS_AVX512VL       = 1 << 16, // SKX
+    CFS_AVX512VBMI     = 1 << 18, // CNL
+    CFS_AVX512IFMA     = 1 << 19, // CNL
+    CFS_AVX512BITALG   = 1 << 20, // ICL
+    CFS_AVX512VBMI2    = 1 << 21, // ICL
+    CFS_AVX512POPCNTDQ = 1 << 23, //ICL
+    CFS_CLWB           = 1 << 24, // ICL
+    CFS_WBNOINVD       = 1 << 25,  // ICX
+    CFS_F16C           = 1 << 26
 };
 
 enum TransposeSizeSupport { SUPPORTED, UNSUPPORTED, INVALID };
@@ -106,6 +115,8 @@ public:
 
       static ECPU GetCPUByName(const char *CPUName) {
         std::string Name(CPUName);
+        if (Name == "icelake-client") return CPU_ICL;
+        if (Name == "icelake-server") return CPU_ICX;
         if (Name == "knl") return CPU_KNL;
         if (Name == "skx") return CPU_SKX;
         if (Name == "core-avx2") return CPU_HASWELL;
@@ -142,6 +153,10 @@ public:
             return "knl";
         case CPU_SKX:
             return "skx";
+        case CPU_ICL:
+            return "icelake-client";
+        case CPU_ICX:
+            return "icelake-server";
         }
         llvm_unreachable("Unknown CPU!");
     }
@@ -174,7 +189,9 @@ public:
                 return "s9";
             case CPU_KNL:
                 return "d3";
-            case CPU_SKX:
+            case CPU_SKX: // fallthrough
+            case CPU_ICL: // fallthrough
+            case CPU_ICX:
                 return "x0";
             }
         }
@@ -198,11 +215,10 @@ public:
         case CPU_KNL:
             return "b3";
         case CPU_SKX:
+        case CPU_ICL:
+        case CPU_ICX:
             return "z0";
         }
-    }
-    unsigned GetLatestSupportedFeature() const {
-        return 1 << m_CPU;
     }
     ECPU GetCPU() const {
         return m_CPU;
@@ -217,7 +233,8 @@ public:
         return HasGatherScatter(m_CPU);
     }
     static bool HasGatherScatter(ECPU CPU) {
-        return (CPU == CPU_KNL || CPU == CPU_SKX);
+        return (CPU == CPU_KNL || CPU == CPU_SKX
+             || CPU == CPU_ICL || CPU == CPU_ICX);
     }
     static bool HasGatherScatterPrefetch(ECPU CPU) {
         return (CPU == CPU_KNL);
@@ -249,9 +266,6 @@ public:
     }
     bool HasAVX512() const {
       return IsFeatureOn(CFS_AVX512F);
-    }
-    static unsigned GetLatestSupportedFeature(ECPU CPU) {
-        return (1 << CPU);
     }
     bool Is64BitOS() const {
         return m_is64BitOS > 0;

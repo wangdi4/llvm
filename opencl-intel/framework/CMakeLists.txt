@@ -89,10 +89,6 @@ if (WIN32)
 
     source_group( "API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp framework_proxy.h)
 
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-
     source_group( "Resource Files" FILES ${CONFIG_FILES} )
     list( APPEND TARGET_SOURCES ${CONFIG_FILES} )
 
@@ -108,7 +104,21 @@ link_directories( ${TBB_LIB_DIR} )
 include(itt)
 
 # add a target named ${TARGET_NAME}
-add_opencl_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
+
+    LINK_LIBS
+      Context
+      Execution
+      Platform
+      MemoryAllocator
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+      cl_sys_utils
+      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+      CLElfLib
+      ${LINK_LIBS}
+
+    RC_TEMPLATE DEFAULT)
 
 copy_to (${CONFIG_FILES} DESTINATION lib)
 
@@ -117,18 +127,8 @@ if (WIN32)
     set_target_properties (${TARGET_NAME} PROPERTIES
         LINK_FLAGS_DEBUG  "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
     list( APPEND LINK_LIBS delayimp.lib )
-else (WIN32)
-    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
 endif (WIN32)
 
-target_link_libraries( ${TARGET_NAME} Context
-                                      Execution
-                                      Platform
-                                      MemoryAllocator
-                                      cl_logger${OPENCL_BINARIES_POSTFIX}
-                                      cl_sys_utils
-                                      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-                                      CLElfLib
-                                      ${LINK_LIBS} )
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

@@ -18,12 +18,6 @@ if (WIN32 AND NOT BUILD_X64)
     string( REPLACE /Ob2  "/Ob1" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
 endif (WIN32 AND NOT BUILD_X64)
 
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
-endif (WIN32)
-
 link_directories( ${TBB_LIB_DIR} )
 
 add_definitions(-DTASK_EXECUTOR_EXPORTS
@@ -51,7 +45,9 @@ add_opencl_library (${TARGET_NAME} SHARED
     INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
     ${CL_API_HEADERS}
-    ${OCL_BINARY_DIR})
+    ${OCL_BINARY_DIR}
+
+    RC_TEMPLATE DEFAULT)
 
 if (WIN32)
     list (APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib)
@@ -80,6 +76,6 @@ if (WIN32)
             LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} ocltbbmalloc32_debug.lib ocltbb32_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc32_debug.dll /DELAYLOAD:ocltbb32_debug${TBB_BINARIES_POSTFIX}.dll"
             LINK_FLAGS_RELEASE "${LK_FLAGS_RELEASE} ocltbbmalloc32.lib ocltbb32${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:ocltbbmalloc32.dll  /DELAYLOAD:ocltbb32${TBB_BINARIES_POSTFIX}.dll")
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-else ()
-    SET_LINUX_EXPORTS_FILE (${TARGET_NAME} task_executor_linux_exports.txt)
 endif(WIN32)
+
+SET_LINUX_EXPORTS_FILE (${TARGET_NAME} task_executor_linux_exports.txt)

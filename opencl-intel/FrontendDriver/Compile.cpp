@@ -212,8 +212,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -cl-ext=+cl_khr_fp64";
     optionsEx << " -cl-ext=+cl_khr_fp16";
     optionsEx << " -cl-ext=+cl_khr_3d_image_writes ";
-
-    optionsEx << " -DINTELFPGA_CL";
   }
 
   if (m_sDeviceInfo.bImageSupport) {
