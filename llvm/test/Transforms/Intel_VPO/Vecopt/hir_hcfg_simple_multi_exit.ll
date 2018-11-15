@@ -18,43 +18,43 @@
 ; BB2 (BP: NULL) :
 ;  <Empty Block>
 ; SUCCESSORS(1):loop11
-;
+
 ; REGION: loop11 (BP: NULL)
 ; BB3 (BP: NULL) :
-;  %vp12304 = add %vp12176 i32 -2
+;  i32 %vp512 = add i32 %vp384 i32 -2
 ; SUCCESSORS(1):BB5
-;
+
 ; BB5 (BP: NULL) :
-;  %vp1296 = semi-phi i32 0 %vp11920
-;  %vp5184 = load %vp46704
-;  %vp6432 = load %vp6368
-;  %vp6576 = icmp %vp5184 %vp6432
+;  i32 %vp58864 = semi-phi i32 0 i32 %vp112
+;  i32 %vp59024 = load i32 %vp34848
+;  i32 %vp60224 = load i32 %vp54976
+;  i1 %vp60384 = icmp i32 %vp59024 i32 %vp60224
 ; SUCCESSORS(1):BB10
-;
+
 ; BB10 (BP: NULL) :
 ;  <Empty Block>
-;  Condition(BB5): %vp6576 = icmp %vp5184 %vp6432
-; SUCCESSORS(2):BB6(%vp6576), BB7(!%vp6576)
-;
-;   BB7 (BP: NULL) :
-;    %vp11920 = add %vp1296 i32 1
-;    %vp12448 = icmp %vp11920 %vp12304
-;   SUCCESSORS(2):BB5(%vp12448), BB8(!%vp12448)
-;
-;   BB8 (BP: NULL) :
-;    <Empty Block>
-;   SUCCESSORS(1):BB4
-;
-;   BB6 (BP: NULL) :
-;    <Empty Block>
-;   SUCCESSORS(1):BB4
-;
+;  Condition(BB5): i1 %vp60384 = icmp i32 %vp59024 i32 %vp60224
+; SUCCESSORS(2):BB6(i1 %vp60384), BB7(!i1 %vp60384)
+
+; BB7 (BP: NULL) :
+;  i32 %vp112 = add i32 %vp58864 i32 1
+;  i1 %vp672 = icmp i32 %vp112 i32 %vp512
+; SUCCESSORS(2):BB5(i1 %vp672), BB8(!i1 %vp672)
+
+; BB8 (BP: NULL) :
+;  <Empty Block>
+; SUCCESSORS(1):BB4
+
+; BB6 (BP: NULL) :
+;  <Empty Block>
+; SUCCESSORS(1):BB4
+
 ; BB4 (BP: NULL) :
 ;  <Empty Block>
 ; END Block - no SUCCESSORS
 ; SUCCESSORS(1):BB9
 ; END Region(loop11)
-;
+
 ; BB9 (BP: NULL) :
 ;  <Empty Block>
 ; END Block - no SUCCESSORS
@@ -70,10 +70,10 @@
 ; CHECK: [[H]] (BP: NULL) :
 
 ; Early exit condition.
-; CHECK: SUCCESSORS(2):[[EEXIT:BB[0-9]+]](%vp{{[0-9]+}}), [[LATCH:BB[0-9]+]]
+; CHECK: SUCCESSORS(2):[[EEXIT:BB[0-9]+]](i1 %vp{{[0-9]+}}), [[LATCH:BB[0-9]+]]
 
 ; Latch condition.
-; CHECK: SUCCESSORS(2):[[H]](%vp{{[0-9]+}}), [[REG_EXIT:BB[0-9]+]]
+; CHECK: SUCCESSORS(2):[[H]](i1 %vp{{[0-9]+}}), [[REG_EXIT:BB[0-9]+]]
 
 ; Regular exit going to landing pad.
 ; CHECK: [[REG_EXIT]] (BP: NULL)

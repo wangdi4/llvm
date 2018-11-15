@@ -1,8 +1,12 @@
-; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -wholeprogramdevirt-branch-funnel-threshold=1 -S -o - %s | not grep @llvm.icall.branch.funnel | count 0
+; INTEL_CUSTOMIZATION
+; The customization is for turning off the multiversioning.
 
-; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -wholeprogramdevirt-branch-funnel-threshold=10 -S -o - %s | grep @llvm.icall.branch.funnel | count 4
+; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -wholeprogramdevirt-branch-funnel-threshold=1 -S -o - %s | not grep @llvm.icall.branch.funnel | count 0
 
-; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -wholeprogramdevirt-branch-funnel-threshold=100 -S -o - %s | grep @llvm.icall.branch.funnel | count 5
+; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -wholeprogramdevirt-branch-funnel-threshold=10 -S -o - %s | grep @llvm.icall.branch.funnel | count 4
+
+; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -wholeprogramdevirt-branch-funnel-threshold=100 -S -o - %s | grep @llvm.icall.branch.funnel | count 5
+; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"

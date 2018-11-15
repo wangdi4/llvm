@@ -802,7 +802,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
       // value for the conditional branch. We need a mapping between this
       // VPValue and the widened value so that we can generate code for the
       // predicate recipes.
-      WInst = CG->widenIfPred(HIf, nullptr);
+      WInst = CG->widenIfNode(HIf, nullptr);
       CG->addVPValueWideRefMapping(this, WInst->getOperandDDRef(0));
       return;
     }
@@ -1564,9 +1564,7 @@ void VPBranchInst::print(raw_ostream &O) const {
     // FIXME: Call HGoto print.
     O << "<External Basic Block>";
 }
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 using VPDomTree = DomTreeBase<VPBlockBase>;
 template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 

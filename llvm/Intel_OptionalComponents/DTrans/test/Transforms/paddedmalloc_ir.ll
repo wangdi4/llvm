@@ -27,20 +27,27 @@ declare void @free(i8* nocapture)
 ; Malloc function
 define internal noalias i8* @mallocFunc(i64) {
 ; CHECK-LABEL: @mallocFunc(
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* @__Intel_PaddedMallocCounter
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i32 [[TMP2]], 250
-; CHECK-NEXT:    br i1 [[TMP3]], label [[BBIF:%.*]], label [[BBELSE:%.*]]
-; CHECK:       BBif:
-; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[TMP0:%.*]], 32
-; CHECK-NEXT:    [[TMP5:%.*]] = tail call noalias i8* @malloc(i64 [[TMP4]])
-; CHECK-NEXT:    [[TMP6:%.*]] = add i32 1, [[TMP2]]
-; CHECK-NEXT:    store i32 [[TMP6]], i32* @__Intel_PaddedMallocCounter
-; CHECK-NEXT:    br label [[TMP8:%.*]]
-; CHECK:       BBelse:
-; CHECK-NEXT:    [[TMP7:%.*]] = tail call noalias i8* @malloc(i64 [[TMP0]])
-; CHECK-NEXT:    br label [[TMP8]]
-; CHECK:         [[TMP9:%.*]] = phi i8* [ [[TMP5]], [[BBIF]] ], [ [[TMP7]], [[BBELSE]] ]
-; CHECK-NEXT:    ret i8* [[TMP9]]
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP0:%.*]], 4294967295
+; CHECK-NEXT:    br i1 [[TMP2:%.*]], label [[TMP3:%.*]], label %MaxBB
+; CHECK-LABEL: <label>:3:
+; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* @__Intel_PaddedMallocCounter
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i32 [[TMP4]], 250
+; CHECK-NEXT:    br i1 [[TMP5]], label [[BBIF:%.*]], label [[BBELSE:%.*]]
+; CHECK-LABEL: MaxBB:
+; CHECK-NEXT:    store i32 250, i32* @__Intel_PaddedMallocCounter
+; CHECK-NEXT:    br label %BBelse
+; CHECK-LABEL: BBif:
+; CHECK-NEXT:    [[TMP6:%.*]] = add i64 [[TMP0:%.*]], 32
+; CHECK-NEXT:    [[TMP7:%.*]] = tail call noalias i8* @malloc(i64 [[TMP6]])
+; CHECK-NEXT:    [[TMP8:%.*]] = add i32 1, [[TMP4]]
+; CHECK-NEXT:    store i32 [[TMP8]], i32* @__Intel_PaddedMallocCounter
+; CHECK-NEXT:    br label [[TMP10:%.*]]
+; CHECK-LABEL: BBelse:
+; CHECK-NEXT:    [[TMP9:%.*]] = tail call noalias i8* @malloc(i64 [[TMP0]])
+; CHECK-NEXT:    br label [[TMP10]]
+; CHECK-LABEL: <label>:10:
+; CHECK-NEXT:    [[TMP11:%.*]] = phi i8* [ [[TMP7]], [[BBIF]] ], [ [[TMP9]], [[BBELSE]] ]
+; CHECK-NEXT:    ret i8* [[TMP11]]
 
   %2 = tail call noalias i8* @malloc(i64 %0)
   ret i8* %2
@@ -106,9 +113,9 @@ define i32 @main() {
 ; Verify that the interface was created correctly
 ; CHECK: define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize !0 {
 ; CHECK: entry:
-; CHECK:   %0 = load i32, i32* @__Intel_PaddedMallocCounter
-; CHECK:   %1 = icmp ult i32 %0, 250
-; CHECK:   ret i1 %1
+; CHECK:   [[TMP0:%.*]] = load i32, i32* @__Intel_PaddedMallocCounter
+; CHECK:   [[TMP1:%.*]] = icmp ult i32 [[TMP0:%.*]], 250
+; CHECK:   ret i1 [[TMP1:%.*]]
 ; CHECK: }
 
 ; CHECK: !0 = !{i32 32}

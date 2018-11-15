@@ -270,7 +270,7 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   }
 
   // Phi SCCs do not have anything to do with control flow.
-  if (isa<TerminatorInst>(Node)) {
+  if (Node->isTerminator()) {
     return false;
   }
 

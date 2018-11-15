@@ -41,7 +41,7 @@ class HIRFramework;
 
 namespace vpo {
 
-/// \brief template classe for WRStack
+/// template class for WRStack
 template <class T> class WRStack {
 public:
   WRStack() {}
@@ -113,44 +113,42 @@ private:
   }
 
 public:
-  enum InputIRKind{
-    LLVMIR
 #if INTEL_CUSTOMIZATION
-    , HIR
-#endif // INTEL_CUSTOMIZATION
+  enum InputIRKind{
+    LLVMIR,
+    HIR
   };
+#endif // INTEL_CUSTOMIZATION
   friend class WRegionNode;
 
   WRegionCollection(Function *F, DominatorTree *DT, LoopInfo *LI,
                     ScalarEvolution *SE, const TargetTransformInfo *TTI,
                     AssumptionCache *AC, const TargetLibraryInfo *TLI,
-                    AliasAnalysis *AA
 #if INTEL_CUSTOMIZATION
-                    ,
-                    loopopt::HIRFramework *HIRF
+                    AliasAnalysis *AA, loopopt::HIRFramework *HIRF);
+#else
+                    AliasAnalysis *AA);
 #endif // INTEL_CUSTOMIZATION
-  );
 
   ~WRegionCollection() { releaseMemory(); }
 
   void print(raw_ostream &OS) const;
 
-  /// \brief Entry point for on-demand call to build the WRGraph.
+  /// Entry point for on-demand call to build the WRGraph.
 #if INTEL_CUSTOMIZATION
   /// If IR==HIR, it walks the HIR; else, it walks the LLVM IR
+  void buildWRGraph(InputIRKind IR = LLVMIR);
+#else
+  void buildWRGraph();
 #endif // INTEL_CUSTOMIZATION
-  void buildWRGraph(InputIRKind IR);
 
-  /// \brief Returns true if ParOpt/VecOpt is able to handle this loop.
+  /// Builds the WRGraph by walking the CFG to extract WRegionNodes
+  void buildWRGraphImpl(Function &F);
+
+  /// Returns true if ParOpt/VecOpt is able to handle this loop.
   bool isCandidateLoop(Loop &Lp);
 
-  /// \brief Process a BB to extract W-Region information
-  void getWRegionFromBB(BasicBlock *BB, WRStack<WRegionNode *> *S);
-
-  /// \brief Identifies WRegionNodes and builds WRGraph for LLVM Dom-Tree
-  void buildWRGraphFromLLVMIR(Function &F);
-
-  /// \brief Getter methods
+  /// Getter methods
   WRContainerImpl *getWRGraph() { return WRGraph; }
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
@@ -160,7 +158,7 @@ public:
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
   AliasAnalysis *getAliasAnalysis() { return AA; }
 
-  /// \brief Returns the size of the WRGraph container
+  /// Returns the size of the WRGraph container
   unsigned getWRGraphSize() { return WRGraph->size(); }
 
   // Iterators to traverse WRGraph
@@ -180,7 +178,7 @@ public:
   const_reverse_iterator rend() const { return WRGraph->rend(); }
 };
 
-/// \brief WRegionCollection Pass for the legacy Pass Manager.
+/// WRegionCollection Pass for the legacy Pass Manager.
 class WRegionCollectionWrapperPass: public FunctionPass {
   std::unique_ptr<WRegionCollection> WRC;
 
@@ -201,7 +199,7 @@ public:
 
 } // End namespace vpo
 
-/// \brief WRegionCollection Pass for the new Pass Manager.
+/// WRegionCollection Pass for the new Pass Manager.
 class WRegionCollectionAnalysis
     : public AnalysisInfoMixin<WRegionCollectionAnalysis> {
   friend struct AnalysisInfoMixin<WRegionCollectionAnalysis>;

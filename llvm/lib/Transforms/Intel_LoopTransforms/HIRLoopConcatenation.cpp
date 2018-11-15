@@ -1159,6 +1159,11 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(
     // Move 5th loop's body to 1st loop and adjust its upper canon.
     HLNodeUtils::moveAsLastChildren(FirstLp, Lp->child_begin(),
                                     Lp->child_end());
+
+    auto &Context = FirstLp->getHLNodeUtils().getContext();
+    Metadata *UnrollMD = MDString::get(Context, "llvm.loop.unroll.full");
+
+    FirstLp->addLoopMetadata(MDNode::get(Context, UnrollMD));
   }
 
   FirstLp->getUpperCanonExpr()->setConstant(Is16LoopMode ? 15 : 7);

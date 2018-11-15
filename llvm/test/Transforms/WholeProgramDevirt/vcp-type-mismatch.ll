@@ -1,4 +1,8 @@
-; RUN: opt -S -wholeprogramdevirt %s | FileCheck %s
+; INTEL_CUSTOMIZATION
+; This customization is for turning off the multiversioning.
+
+; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=false %s | FileCheck %s
+; END INTEL_CUSTOMIZATION
 
 ; Test that we correctly handle function type mismatches in argument counts
 ; and bitwidths. We handle an argument count mismatch by refusing

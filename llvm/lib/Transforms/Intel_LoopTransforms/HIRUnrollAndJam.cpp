@@ -1421,6 +1421,7 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     MainLoop = Loop;
     MainLoop->getParentRegion()->setGenCode();
     MainLoop->setNumExits(MainLoop->getNumExits() * UnrollFactor);
+    MainLoop->dividePragmaBasedTripCount(UnrollFactor);
 
     LORBuilder(*MainLoop).addRemark(
         OptReportVerbosity::Low,

@@ -44,7 +44,7 @@ int verbose = 0;
 LLVMContext context{};
 Module IRModule("TestModule", context);
 
-TargetMachine*     TM      = nullptr;
+LLVMTargetMachine* TM      = nullptr;
 MachineModuleInfo* MMI     = nullptr;
 
 // Initialize the target machine and create a machine module.
@@ -62,8 +62,9 @@ bool initTargetMachine() {
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
   if (! TheTarget) return false;
 
-  TM = TheTarget->createTargetMachine(TT, CPU, FS, TargetOptions(), None,
-                                      CodeModel::Large, CodeGenOpt::Default);
+  TM = static_cast<LLVMTargetMachine*>(
+      TheTarget->createTargetMachine(TT, CPU, FS, TargetOptions(), None,
+                                     CodeModel::Large, CodeGenOpt::Default));
   if (! TM) return false;
 
   IRModule.setDataLayout(TM->createDataLayout());

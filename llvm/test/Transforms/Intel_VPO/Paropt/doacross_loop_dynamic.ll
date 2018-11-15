@@ -21,8 +21,8 @@
 ;   }
 ; }
 
-; ModuleID = 'doacross_test.c'
-source_filename = "doacross_test.c"
+; ModuleID = 'doacross_loop_dynamic.c'
+source_filename = "doacross_loop_dynamic.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -34,23 +34,41 @@ entry:
   %j = alloca i32, align 4
   %.omp.iv = alloca i32, align 4
   %tmp = alloca i32, align 4
-  %tmp1 = alloca i32, align 4
   %.omp.lb = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
   %.omp.stride = alloca i32, align 4
   %.omp.is_last = alloca i32, align 4
   store [5 x [4 x i32]]* %v_ptr, [5 x [4 x i32]]** %v_ptr.addr, align 8
   store i32 0, i32* %.omp.lb, align 4
-  store i32 7, i32* %.omp.ub, align 4
+  store i32 3, i32* %.omp.ub, align 4
   store i32 1, i32* %.omp.stride, align 4
   store i32 0, i32* %.omp.is_last, align 4
 ; TFORM-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() {{.*}}
 ; TFORM-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.ORDERED"(i32 2), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SCHEDULE.DYNAMIC"(i32 1), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.ORDERED"(i32 2, i32 4, i32 2), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SCHEDULE.DYNAMIC"(i32 1), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 ; #pragma omp for ordered(2) schedule(dynamic)
-; TFORM: call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID:[a-zA-Z._0-9]*]], i32 1, { i64, i64, i64 }* %{{[a-zA-Z._0-9]*}})
-; TFORM-NEXT:  call void @__kmpc_dispatch_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]], i32 35, i32 %{{[a-zA-Z._0-9]*}}, i32 7, i32 1, i32 1)
+; TFORM: %[[INITVEC:[a-zA-Z._0-9]+]] = alloca { i64, i64, i64 }, i32 2
+
+; TFORM-NEXT: %[[L1:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[INITVEC]], i32 0
+; TFORM-NEXT: %[[L1LB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L1]], i32 0, i32 0
+; TFORM-NEXT: store i64 0, i64* %[[L1LB]]
+; TFORM-NEXT: %[[L1UB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L1]], i32 0, i32 1
+; TFORM-NEXT: store i64 4, i64* %[[L1UB]]
+; TFORM-NEXT: %[[L1ST:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L1]], i32 0, i32 2
+; TFORM-NEXT: store i64 1, i64* %[[L1ST]]
+
+; TFORM-NEXT: %[[L2:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[INITVEC]], i32 1
+; TFORM-NEXT: %[[L2LB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L2]], i32 0, i32 0
+; TFORM-NEXT: store i64 0, i64* %[[L2LB]]
+; TFORM-NEXT: %[[L2UB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L2]], i32 0, i32 1
+; TFORM-NEXT: store i64 2, i64* %[[L2UB]]
+; TFORM-NEXT: %[[L2ST:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L2]], i32 0, i32 2
+; TFORM-NEXT: store i64 1, i64* %[[L2ST]]
+
+; TFORM-NEXT: %[[INITVECI8:[0-9]+]] = bitcast { i64, i64, i64 }* %[[INITVEC]] to i8*
+; TFORM-NEXT: call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID:[a-zA-Z._0-9]*]], i32 2, i8* %[[INITVECI8]])
+; TFORM-NEXT:  call void @__kmpc_dispatch_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]], i32 35, i32 %{{[a-zA-Z._0-9]*}}, i32 3, i32 1, i32 1)
 
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
@@ -64,64 +82,127 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, 
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %4 = load i32, i32* %.omp.iv, align 4
-  %div = sdiv i32 %4, 2
-  %mul = mul nsw i32 %div, 1
+  %mul = mul nsw i32 %4, 1
   %add = add nsw i32 1, %mul
   store i32 %add, i32* %i, align 4
-  %5 = load i32, i32* %.omp.iv, align 4
-  %rem = srem i32 %5, 2
-  %mul2 = mul nsw i32 %rem, 1
-  %add3 = add nsw i32 2, %mul2
-  store i32 %add3, i32* %j, align 4
-  %6 = load i32, i32* %.omp.iv, align 4
+  store i32 2, i32* %j, align 4
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.inc, %omp.inner.for.body
+  %5 = load i32, i32* %j, align 4
+  %cmp1 = icmp slt i32 %5, 4
+  br i1 %cmp1, label %for.body, label %for.end
+
+for.body:                                         ; preds = %for.cond
+  %6 = load i32, i32* %i, align 4
   %sub = sub nsw i32 %6, 1
-  %sub4 = sub nsw i32 %sub, 2
-  %7 = load i32, i32* %.omp.iv, align 4
-  %sub5 = sub nsw i32 %7, 2
-  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SINK"(i32 %sub4), "QUAL.OMP.DEPEND.SINK"(i32 %sub5) ]
-  call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.ORDERED"() ]
-; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i64* %{{[a-zA-Z._0-9]*}})
-; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i64* %{{[a-zA-Z._0-9]*}})
-  %9 = load [5 x [4 x i32]]*, [5 x [4 x i32]]** %v_ptr.addr, align 8
-  %10 = load i32, i32* %i, align 4
-  %sub6 = sub nsw i32 %10, 1
-  %idxprom = sext i32 %sub6 to i64
-  %arrayidx = getelementptr inbounds [5 x [4 x i32]], [5 x [4 x i32]]* %9, i64 0, i64 %idxprom
-  %11 = load i32, i32* %j, align 4
-  %sub7 = sub nsw i32 %11, 1
-  %idxprom8 = sext i32 %sub7 to i64
-  %arrayidx9 = getelementptr inbounds [4 x i32], [4 x i32]* %arrayidx, i64 0, i64 %idxprom8
-  %12 = load i32, i32* %arrayidx9, align 4
-  %13 = load [5 x [4 x i32]]*, [5 x [4 x i32]]** %v_ptr.addr, align 8
-  %14 = load i32, i32* %i, align 4
-  %idxprom10 = sext i32 %14 to i64
-  %arrayidx11 = getelementptr inbounds [5 x [4 x i32]], [5 x [4 x i32]]* %13, i64 0, i64 %idxprom10
-  %15 = load i32, i32* %j, align 4
-  %sub12 = sub nsw i32 %15, 2
+  %sub2 = sub nsw i32 %sub, 1
+  %div = sdiv i32 %sub2, 1
+  %7 = load i32, i32* %j, align 4
+  %sub3 = sub nsw i32 %7, 1
+  %sub4 = sub nsw i32 %sub3, 2
+  %div5 = sdiv i32 %sub4, 1
+  %8 = load i32, i32* %i, align 4
+  %sub6 = sub nsw i32 %8, 1
+  %div7 = sdiv i32 %sub6, 1
+  %9 = load i32, i32* %j, align 4
+  %sub8 = sub nsw i32 %9, 2
+  %sub9 = sub nsw i32 %sub8, 2
+  %div10 = sdiv i32 %sub9, 1
+  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SINK"(i32 %div, i32 %div5), "QUAL.OMP.DEPEND.SINK"(i32 %div7, i32 %div10) ]
+; ALL: %[[SINK1VEC:[a-zA-Z._0-9]+]] = alloca i64, i32 2
+; ALL: %[[S1E1:[a-zA-Z._0-9]+]] = sext i32 %div to i64
+; ALL: %[[S1GEP1:[a-zA-Z._0-9]+]] = getelementptr inbounds i64, i64* %[[SINK1VEC]], i64 0
+; ALL: store i64 %[[S1E1]], i64* %[[S1GEP1]]
+
+; ALL: %[[S1E2:[a-zA-Z._0-9]+]] = sext i32 %div5 to i64
+; ALL: %[[S1GEP2:[a-zA-Z._0-9]+]] = getelementptr inbounds i64, i64* %[[SINK1VEC]], i64 1
+; ALL: store i64 %[[S1E2]], i64* %[[S1GEP2]]
+
+; ALL: %[[SINK1VECI8:[a-zA-Z._0-9]+]] = bitcast i64* %[[SINK1VEC]] to i8*
+; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SINK1VECI8]])
+
+
+; ALL: %[[SINK2VEC:[a-zA-Z._0-9]+]] = alloca i64, i32 2
+; ALL: %[[S2E1:[a-zA-Z._0-9]+]] = sext i32 %div7 to i64
+; ALL: %[[S2GEP1:[a-zA-Z._0-9]+]] = getelementptr inbounds i64, i64* %[[SINK2VEC]], i64 0
+; ALL: store i64 %[[S2E1]], i64* %[[S2GEP1]]
+
+; ALL: %[[S2E2:[a-zA-Z._0-9]+]] = sext i32 %div10 to i64
+; ALL: %[[S2GEP2:[a-zA-Z._0-9]+]] = getelementptr inbounds i64, i64* %[[SINK2VEC]], i64 1
+; ALL: store i64 %[[S2E2]], i64* %[[S2GEP2]]
+
+; ALL: %[[SINK2VECI8:[a-zA-Z._0-9]+]] = bitcast i64* %[[SINK2VEC]] to i8*
+; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SINK2VECI8]])
+  call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.ORDERED"() ]
+
+
+  %11 = load [5 x [4 x i32]]*, [5 x [4 x i32]]** %v_ptr.addr, align 8
+  %12 = load i32, i32* %i, align 4
+  %sub11 = sub nsw i32 %12, 1
+  %idxprom = sext i32 %sub11 to i64
+  %arrayidx = getelementptr inbounds [5 x [4 x i32]], [5 x [4 x i32]]* %11, i64 0, i64 %idxprom
+  %13 = load i32, i32* %j, align 4
+  %sub12 = sub nsw i32 %13, 1
   %idxprom13 = sext i32 %sub12 to i64
-  %arrayidx14 = getelementptr inbounds [4 x i32], [4 x i32]* %arrayidx11, i64 0, i64 %idxprom13
-  %16 = load i32, i32* %arrayidx14, align 4
-  %add15 = add nsw i32 %12, %16
-  %17 = load [5 x [4 x i32]]*, [5 x [4 x i32]]** %v_ptr.addr, align 8
-  %18 = load i32, i32* %i, align 4
-  %idxprom16 = sext i32 %18 to i64
-  %arrayidx17 = getelementptr inbounds [5 x [4 x i32]], [5 x [4 x i32]]* %17, i64 0, i64 %idxprom16
-  %19 = load i32, i32* %j, align 4
-  %idxprom18 = sext i32 %19 to i64
-  %arrayidx19 = getelementptr inbounds [4 x i32], [4 x i32]* %arrayidx17, i64 0, i64 %idxprom18
-  store i32 %add15, i32* %arrayidx19, align 4
-  %20 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SOURCE"() ]
-  call void @llvm.directive.region.exit(token %20) [ "DIR.OMP.END.ORDERED"() ]
-; ALL: call void @__kmpc_doacross_post({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i64* %{{[a-zA-Z._0-9]*}})
+  %arrayidx14 = getelementptr inbounds [4 x i32], [4 x i32]* %arrayidx, i64 0, i64 %idxprom13
+  %14 = load i32, i32* %arrayidx14, align 4
+  %15 = load [5 x [4 x i32]]*, [5 x [4 x i32]]** %v_ptr.addr, align 8
+  %16 = load i32, i32* %i, align 4
+  %idxprom15 = sext i32 %16 to i64
+  %arrayidx16 = getelementptr inbounds [5 x [4 x i32]], [5 x [4 x i32]]* %15, i64 0, i64 %idxprom15
+  %17 = load i32, i32* %j, align 4
+  %sub17 = sub nsw i32 %17, 2
+  %idxprom18 = sext i32 %sub17 to i64
+  %arrayidx19 = getelementptr inbounds [4 x i32], [4 x i32]* %arrayidx16, i64 0, i64 %idxprom18
+  %18 = load i32, i32* %arrayidx19, align 4
+  %add20 = add nsw i32 %14, %18
+  %19 = load [5 x [4 x i32]]*, [5 x [4 x i32]]** %v_ptr.addr, align 8
+  %20 = load i32, i32* %i, align 4
+  %idxprom21 = sext i32 %20 to i64
+  %arrayidx22 = getelementptr inbounds [5 x [4 x i32]], [5 x [4 x i32]]* %19, i64 0, i64 %idxprom21
+  %21 = load i32, i32* %j, align 4
+  %idxprom23 = sext i32 %21 to i64
+  %arrayidx24 = getelementptr inbounds [4 x i32], [4 x i32]* %arrayidx22, i64 0, i64 %idxprom23
+  store i32 %add20, i32* %arrayidx24, align 4
+  %22 = load i32, i32* %i, align 4
+  %sub25 = sub nsw i32 %22, 1
+  %div26 = sdiv i32 %sub25, 1
+  %23 = load i32, i32* %j, align 4
+  %sub27 = sub nsw i32 %23, 2
+  %div28 = sdiv i32 %sub27, 1
+  %24 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SOURCE"(i32 %div26, i32 %div28) ]
+; ALL: %[[SOURCEVEC:[a-zA-Z._0-9]+]] = alloca i64, i32 2
+; ALL: %[[SRCE1:[a-zA-Z._0-9]+]] = sext i32 %div26 to i64
+; ALL: %[[SRCGEP1:[a-zA-Z._0-9]+]] = getelementptr inbounds i64, i64* %[[SOURCEVEC]], i64 0
+; ALL: store i64 %[[SRCE1]], i64* %[[SRCGEP1]]
+
+; ALL: %[[SRCE2:[a-zA-Z._0-9]+]] = sext i32 %div28 to i64
+; ALL: %[[SRCGEP2:[a-zA-Z._0-9]+]] = getelementptr inbounds i64, i64* %[[SOURCEVEC]], i64 1
+; ALL: store i64 %[[SRCE2]], i64* %[[SRCGEP2]]
+
+; ALL: %[[SOURCEVECI8:[a-zA-Z._0-9]+]] = bitcast i64* %[[SOURCEVEC]] to i8*
+; ALL: call void @__kmpc_doacross_post({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SOURCEVECI8]])
+
+  call void @llvm.directive.region.exit(token %24) [ "DIR.OMP.END.ORDERED"() ]
+  br label %for.inc
+
+for.inc:                                          ; preds = %for.body
+  %25 = load i32, i32* %j, align 4
+  %inc = add nsw i32 %25, 1
+  store i32 %inc, i32* %j, align 4
+  br label %for.cond
+
+for.end:                                          ; preds = %for.cond
   br label %omp.body.continue
 
-omp.body.continue:                                ; preds = %omp.inner.for.body
+omp.body.continue:                                ; preds = %for.end
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %21 = load i32, i32* %.omp.iv, align 4
-  %add20 = add nsw i32 %21, 1
-  store i32 %add20, i32* %.omp.iv, align 4
+  %26 = load i32, i32* %.omp.iv, align 4
+  %add29 = add nsw i32 %26, 1
+  store i32 %add29, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
@@ -129,7 +210,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.LOOP"() ]
-;TFORM: call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]])
+; TFORM: call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]])
   ret void
 }
 
@@ -146,4 +227,4 @@ attributes #1 = { nounwind }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang ffaaa2e50b66dde2113bde1a427bdc17d68d2fe9) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 92a24020d54c6b1d0f6865765d777f88c2fc1c39)"}
+!1 = !{!"clang version 8.0.0"}

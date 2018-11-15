@@ -111,12 +111,24 @@ public:
 };
 
 class DynCloneImpl {
+
+  // Functor that compares Function* using alphabetical ordering of the
+  // function's name.
+  struct CompareFuncPtr
+      : public std::binary_function<Function *, Function *, bool> {
+    bool operator()(const Function *lhs, const Function *rhs) const {
+      if (lhs == nullptr || rhs == nullptr)
+        return lhs < rhs;
+      return lhs->getName().compare(rhs->getName()) == -1;
+    }
+  };
+
   using DynField = std::pair<llvm::Type *, size_t>;
   using DynFieldList = SmallVector<DynField, 16>;
   // Even though it will be very small set,  using std::set (instead of
   // SmallSet/SetVector) to do set operations like union/intersect.
   using DynFieldSet = std::set<DynField>;
-  using FunctionSet = SmallPtrSet<Function *, 16>;
+  using FunctionSet = std::set<Function *, CompareFuncPtr>;
   using CallInstSet = SmallPtrSet<CallInst *, 8>;
   using StoreInstSet = SmallPtrSet<StoreInst *, 4>;
   using PHIInstSet = SmallPtrSet<PHINode *, 4>;
@@ -223,18 +235,44 @@ private:
   // allowed.
   SmallDenseMap<CallInst *, GlobalVariable *> AOSSOACallGVMap;
 
+  // Set of struct fields that are marked with aostosoa index in IR.
+  // These will be collected while walking IR during analysis.
+  // Fields, which are marked with AOSTOSOA index, in candidate
+  // struct will be shrunken to 2 bytes. These fields will be
+  // treated differently from CandidateFields because there is no
+  // need to have compile-time/runtime checks on load/stores of these
+  // fields in the IR (except a runtime check on size of aostosoa
+  // allocation call).
+  DynFieldSet AOSTOSOAIndexFields;
+
+  // Set of Load/Store instructions that access more than one
+  // struct elements.
+  InstSet MultiElemLdStSet;
+
+  // Mapping between MultiElem Ld/St instruction and one of the fields that
+  // are accessed by the instruction. This map is used during transformation.
+  SmallDenseMap<Instruction *, DynField> MultiElemLdStAOSTOSOAIndexMap;
+
+  SmallPtrSet<CallInst *, 8> RuntimeCheckUnsafeCalls;
+
   bool gatherPossibleCandidateFields(void);
   bool prunePossibleCandidateFields(void);
+  bool verifyMultiFieldLoadStores(void);
   bool verifyLegalityChecksForInitRoutine(void);
   void createShrunkenTypes(void);
   bool trackPointersOfAllocCalls(void);
+  bool verifyCallsInInitRoutine(void);
   void transformInitRoutine(void);
   bool createCallGraphClone(void);
   void transformIR(void);
+  bool isAOSTOSOAIndexField(DynField &DField) const;
+  bool isShrunkenField(DynField &DField) const;
   bool isCandidateField(DynField &DField) const;
   bool isCandidateStruct(Type *Ty);
   Type *getGEPStructType(GetElementPtrInst *GEP) const;
+  DynField getAccessStructField(GEPOperator *GEP) const;
   Type *getCallInfoElemTy(CallInfo *CInfo) const;
+  Type *getTypeRelatedToInstruction(Instruction *I) const;
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
 };
@@ -298,12 +336,26 @@ void DynCloneImpl::printCandidateFields(raw_ostream &OS) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Returns true if \p DField is marked with AOSTOSOA index.
+bool DynCloneImpl::isAOSTOSOAIndexField(DynField &DField) const {
+  for (auto &CandidatePair : AOSTOSOAIndexFields)
+    if (CandidatePair == DField)
+      return true;
+  return false;
+}
+
 // Returns true if \p DField is in CandidateFields.
 bool DynCloneImpl::isCandidateField(DynField &DField) const {
   for (auto &CandidatePair : CandidateFields)
     if (CandidatePair == DField)
       return true;
   return false;
+}
+
+// Return true if \p DField is either regular candidate
+// field or AOSTOSOA index field.
+bool DynCloneImpl::isShrunkenField(DynField &DField) const {
+  return (isCandidateField(DField) || isAOSTOSOAIndexField(DField));
 }
 
 // Returns true if \p Ty is a struct that has candidate fields for
@@ -334,6 +386,22 @@ Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
   return ElemTy;
 }
 
+// If \p GEP is accessing struct field, it returns the field.
+// It doesn't handle if NumIndices > 2.
+DynCloneImpl::DynField
+DynCloneImpl::getAccessStructField(GEPOperator *GEP) const {
+  int32_t NumIndices = GEP->getNumIndices();
+  if (NumIndices > 2)
+    return std::make_pair(nullptr, 0);
+  if (NumIndices == 1)
+    return DTInfo.getByteFlattenedGEPElement(GEP);
+  auto ElemTy = GEP->getSourceElementType();
+  if (!isa<StructType>(ElemTy))
+    return std::make_pair(nullptr, 0);
+  int32_t FieldIndex = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+  return std::make_pair(ElemTy, FieldIndex);
+}
+
 // Returns struct type associated with \p CInfo of either Alloc/Memfunc.
 Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
   if (!CInfo)
@@ -351,6 +419,32 @@ Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
   if (!isa<StructType>(ElemTy))
     return nullptr;
   return ElemTy;
+}
+
+// Returns Type related to \p I. This is used to get candidate
+// struct type if the type is referenced by \p I.
+Type *DynCloneImpl::getTypeRelatedToInstruction(Instruction *I) const {
+  Type *StTy = nullptr;
+  // Treat a struct as accessed if the struct is referenced by
+  // any of these instructions.
+  // Not checking for MultiElemLoadStore instructions here since
+  // those will be covered by GEPs.
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+    StTy = getGEPStructType(GEP);
+  } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
+    if (BinOp->getOpcode() == Instruction::Sub)
+      StTy = DTInfo.getResolvedPtrSubType(BinOp);
+  } else if (auto *LI = dyn_cast<LoadInst>(I)) {
+    auto LdElem = DTInfo.getLoadElement(LI);
+    StTy = LdElem.first;
+  } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+    auto StElem = DTInfo.getStoreElement(SI);
+    StTy = StElem.first;
+  } else if (isa<CallInst>(I)) {
+    auto *CInfo = DTInfo.getCallInfo(I);
+    StTy = getCallInfoElemTy(CInfo);
+  }
+  return StTy;
 }
 
 // This routine tries to reduce possible candidate fields by analyzing IR
@@ -467,25 +561,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   // If \p I is accessing a candidate struct, add \p F to the list
   // of routines where the candidate struct is accessed.
   auto UpdateTypeAccessInfo = [&](Instruction *I, Function *F) {
-    Type *StTy = nullptr;
-    // Treat a struct as accessed if the struct is referenced by
-    // any of these instructions.
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
-      StTy = getGEPStructType(GEP);
-    } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
-      if (BinOp->getOpcode() == Instruction::Sub)
-        StTy = DTInfo.getResolvedPtrSubType(BinOp);
-    } else if (auto *LI = dyn_cast<LoadInst>(I)) {
-      auto LdElem = DTInfo.getLoadElement(LI);
-      StTy = LdElem.first;
-    } else if (auto *SI = dyn_cast<StoreInst>(I)) {
-      auto StElem = DTInfo.getStoreElement(SI);
-      StTy = StElem.first;
-    } else if (isa<CallInst>(I)) {
-      auto *CInfo = DTInfo.getCallInfo(I);
-      StTy = getCallInfoElemTy(CInfo);
-    }
-
+    Type *StTy = getTypeRelatedToInstruction(I);
     if (!StTy)
       return;
     if (isCandidateStruct(StTy))
@@ -528,10 +604,26 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
         return false;
       }
       // Collect AOSTOSOA alloc calls using DTransAnnotator.
-      if (DTransAnnotator::isDTransAnnotationOfType(
-              Inst, DTransAnnotator::DPA_AOSToSOAAllocation)) {
+      DTransAnnotator::DPA_AnnotKind DPAType;
+      DPAType = DTransAnnotator::getDTransPtrAnnotationKind(Inst);
+      if (DPAType == DTransAnnotator::DPA_AOSToSOAAllocation) {
         AOSSOAACalls.insert(
             cast<CallInst>(cast<IntrinsicInst>(Inst).getArgOperand(0)));
+        continue;
+      }
+      // Collect AOSTOSOA index fields of candidate structs.
+      if (DPAType == DTransAnnotator::DPA_AOSToSOAIndex) {
+        auto GEP =
+            dyn_cast<GEPOperator>(cast<IntrinsicInst>(Inst).getArgOperand(0));
+        if (!GEP)
+          continue;
+        DynField FPair = getAccessStructField(GEP);
+        if (FPair.first && isCandidateStruct(FPair.first))
+          AOSTOSOAIndexFields.insert(FPair);
+        continue;
+      }
+      if (DTInfo.isMultiElemLoadStore(&Inst)) {
+        MultiElemLdStSet.insert(&Inst);
         continue;
       }
 
@@ -664,6 +756,68 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   return !CandidateFields.empty();
 }
 
+// Analyze all MultiElem Load/Store instructions that are collected.
+// Return false if not able to detect all accessed fields by the
+// instructions.
+// For now, using the below pattern to detect all accessed fields.
+// DynClone will be disabled if any other pattern is noticed.
+//
+//   %GEP1 = getelementptr %struct.a, %struct.a* %p, 0, 2
+//   %GEP2 = getelementptr %struct.a, %struct.a* %p, 0, 3
+//   %S = select i1, %GEP1, %GEP2
+//   %ld = load %S
+//
+// Another main legality check here is that all accessed fields
+// should be marked with AOSTOSOA index. This helps us in two ways.
+// 1. During transformation, these loads/stores will be converted to
+//    single type (i.e 16 bits).
+// 2. During analysis, issue with compile-time/runtime checks for
+//    MultiElem load/store instructions can be avoided.
+//
+bool DynCloneImpl::verifyMultiFieldLoadStores(void) {
+
+  //
+  auto AnalyzeMultiElemLdSt = [&](Instruction *I) {
+    Value *PtrOp;
+    if (auto *LI = dyn_cast<LoadInst>(I))
+      PtrOp = LI->getPointerOperand();
+    else if (auto *SI = dyn_cast<StoreInst>(I))
+      PtrOp = SI->getPointerOperand();
+    else
+      llvm_unreachable("Unexpected Instruction for MultiElem ld/st");
+
+    auto *Sel = dyn_cast<SelectInst>(PtrOp);
+    if (!Sel)
+      return false;
+
+    Value *TV = Sel->getTrueValue();
+    Value *FV = Sel->getFalseValue();
+    GEPOperator *TGEP = dyn_cast<GEPOperator>(TV);
+    GEPOperator *FGEP = dyn_cast<GEPOperator>(FV);
+    if (!TGEP || !FGEP)
+      return false;
+    auto TElem = getAccessStructField(TGEP);
+    if (!TElem.first)
+      return false;
+    auto FElem = getAccessStructField(FGEP);
+    if (!FElem.first)
+      return false;
+    // Make sure both are marked with AOSTOSOA index.
+    if (!isAOSTOSOAIndexField(FElem) || !isAOSTOSOAIndexField(TElem))
+      return false;
+    // This map will be used during transformation.
+    MultiElemLdStAOSTOSOAIndexMap[I] = TElem;
+    return true;
+  };
+
+  for (auto *II : MultiElemLdStSet) {
+    LLVM_DEBUG(dbgs() << "  Verifying MultiElem load/Store: " << *II << "\n");
+    if (!AnalyzeMultiElemLdSt(II))
+      return false;
+  }
+  return true;
+}
+
 // Check legality issues for InitRoutine here. DynClone will be disabled
 // if any legality check is failed for InitRoutine. Basically, it proves
 // that structs with candidate fields are not accessed before
@@ -714,20 +868,19 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
                             << I << "\n");
           return false;
         }
-      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
-        // DynClone is disabled if a struct with candidate fields is
-        // accessed before InitRoutine is called.
-        auto StType = getGEPStructType(GEP);
-        if (!StType)
-          continue;
-        for (auto &CandidatePair : CandidateFields)
-          if (CandidatePair.first == StType) {
-            LLVM_DEBUG(dbgs() << "    InitRoutine failed...Struct accessed "
-                                 "before InitRoutine:"
-                              << getStructName(StType) << "\n");
-            return false;
-          }
       }
+      auto StType = getTypeRelatedToInstruction(&I);
+      // DynClone is disabled if a candidate struct is accessed before
+      // InitRoutine is called.
+      if (!StType)
+        continue;
+      for (auto &CandidatePair : CandidateFields)
+        if (CandidatePair.first == StType) {
+          LLVM_DEBUG(dbgs() << "    InitRoutine failed...Struct accessed "
+                               "before InitRoutine:"
+                            << getStructName(StType) << "\n");
+          return false;
+        }
     }
     // Stop checking successors of CurrentBB if it is the BasicBlock that
     // has call to InitRoutine.
@@ -755,7 +908,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
     return false;
   }
   Function *Caller = CS.getCaller();
-  if (Caller->getName() != "main" || !Caller->use_empty()) {
+  if (!isMainFunction(*Caller) || !Caller->use_empty()) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...Not called from main \n");
     return false;
   }
@@ -776,6 +929,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
   if (!CandidateFieldAccessAfterBB(StartBB, Visited, CS.getInstruction()))
     return false;
 
+  SmallPtrSet<Type *, 4> StructAllocFound;
   int32_t BBCount = 0;
   // Collect Alloc calls related to candidate structs and count return
   // stmts.
@@ -790,6 +944,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
             CInfo->getCallInfoKind() != CallInfo::CIK_Alloc)
           continue;
         AllocCalls.push_back(std::make_pair(cast<AllocCallInfo>(CInfo), StTy));
+        StructAllocFound.insert(StTy);
       }
   }
 
@@ -798,6 +953,19 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than one Return\n");
     return false;
   }
+  // We are not allowing memory allocation for candidate structs before
+  // init routine is called. DynClone is not triggered for a struct
+  // if there is global or local instance of it. So, we expect some
+  // memory allocation for every candidate struct in init routine since
+  // candidate struct's fields are accessed in the routine.
+  // If allocation for a candidate struct is not found in init routine,
+  // DynClone is disabled. Check here if each candidate struct has
+  // allocation in init routine.
+  for (auto &CandidatePair : CandidateFields)
+    if (StructAllocFound.count(CandidatePair.first) == 0) {
+      LLVM_DEBUG(dbgs() << "    InitRoutine failed...no allocation seen\n");
+      return false;
+    }
   return true;
 }
 
@@ -1283,9 +1451,6 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
     if (ModifiedMem)
       ModifiedAllocs.insert(CI);
 
-    // TODO:
-    // free/user_calls: Make sure allocations are not freed before copying/
-    // fixing.
     AllocSimplePtrStores[AInfo] = SimplePtrStoreSet;
 
     LLVM_DEBUG({
@@ -1304,6 +1469,247 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   return true;
 }
 
+// Verifies the legality checks for calls in InitRoutine. Main objects of
+// these checks are:
+//  1. Make sure user calls don't access candidate structs
+//  2. Allocation pointers are stored in SimplePtrStores or ComplexPtrStores.
+//     Make sure these pointers are not accessed by getting them from
+//     SimplePtrStores or ComplexPtrStores.
+//  3. When DynClone is triggered, it copies data from old layout to
+//     new layout for all allocations. Make sure these pointers are valid
+//     when copying by checking that there are no unsafe calls like "free".
+//
+//  Checking conditions:
+//   1. Return false if InitRoutine has any unexpected intrinsic/lib call.
+//   2. Return false if any use call has direct access to candidate structs.
+//   3. User call is treated as unsafe call if it has any access to locations
+//      of SimplePtrStores or ComplexPtrStores. Returns false if more than
+//      one callsite of unsafe function call for now. That means, it still
+//      returns true if there is only one unsafe user call in InitRoutine.
+//      This unsafe call is handled with runtime check like below.
+//
+//      Ex:
+//      Before:
+//          init() {
+//          ...
+//          calloc();
+//          calloc();
+//          ...
+//          if (some_error)
+//            unsafecall();  // This call has access to locations of
+//                           // SimplePtrStores or ComplexPtrStores.
+//            return -1;
+//          }
+//
+//          return 0;
+//          }
+//
+//      After:
+//          init() {
+//          dyn.safe = 0; // New local variable is created and set to 0.
+//          ...
+//          dyn.safe = 1; // Set to 1 in BasicBlock where calloc are located.
+//          calloc();
+//          calloc();
+//          ...
+//          if (some_error)
+//            dyn.safe = 0; // Reset when unsafe call is executed.
+//            unsafecall();  // This call has access to locations of
+//                           // SimplePtrStores or ComplexPtrStores.
+//            return -1;
+//          }
+//
+//          if (L_Max > 0x000000007fffffff ||
+//              L_Min < 0xffffffff80000000 ||
+//              dyn.safe == 0)
+//              return 0;
+//          }
+//          else {
+//            //... Copy Data here and fix pointers
+//            __Shrink__Happened__ = 1;
+//            return 0;
+//          }
+//          }
+//
+bool DynCloneImpl::verifyCallsInInitRoutine(void) {
+  // Returns true if \p ID is safe intrinsic. This list is required
+  // for now but not complete. We can add more intrinsics if it is needed.
+  auto IsSafeIntrinsic = [&](Intrinsic::ID ID) {
+    switch (ID) {
+    case Intrinsic::lifetime_start:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::ptr_annotation:
+      return true;
+
+    default:
+      return false;
+    }
+  };
+
+  // Returns true if \p LF is safe libfunc call. This list is required
+  // for now but not complete. We can add more libfuncs if it is needed.
+  auto IsSafeLibFunc = [&](LibFunc LF) {
+    switch (LF) {
+    case LibFunc_calloc:
+    case LibFunc_dunder_isoc99_sscanf:
+    case LibFunc_sscanf:
+    case LibFunc_fclose:
+    case LibFunc_fgets:
+    case LibFunc_fgets_unlocked:
+    case LibFunc_fopen:
+    case LibFunc_fopen64:
+    case LibFunc_puts:
+    case LibFunc_printf:
+      return true;
+
+    default:
+      return false;
+    }
+  };
+
+  // Returns true if a candidate struct is referenced by any
+  // instruction of \p F. It checks if \p F is in set of functions,
+  // which have any reference to candidate struct.
+  auto HasAnyAccessToCandidateStruct = [&](Function *F) {
+    for (auto TPair : TypeAccessedInFunctions) {
+      if (!isCandidateStruct(TPair.first))
+        continue;
+      if (TPair.second.count(F) != 0)
+        return true;
+    }
+    return false;
+  };
+
+  // Finds locations of SimplePtrStores for all allocations and
+  // add them to \p FSet.
+  auto ComputeAllSimplePtrLocs = [&](DynFieldSet &FSet) {
+    for (auto &AllocPair : AllocCalls) {
+      auto *AInfo = AllocPair.first;
+      StoreInstSet &SISet = AllocSimplePtrStores[AInfo];
+      for (auto *St : SISet) {
+        auto DF = DTInfo.getStoreElement(St);
+        FSet.insert(DF);
+      }
+    }
+  };
+
+  // Returns true if \p F may access to any location of SimplePtrStores
+  // (\p SimpleLocSet) or ComplexPtrStore (SOAGlobalVarFieldSet).
+  // Conservatively returns true if \p F has any call.
+  auto HasAnyAccessToPtrStoredLocs = [&](Function *F,
+                                         DynFieldSet &SimpleLocSet) {
+    for (Instruction &II : instructions(F)) {
+      if (isa<DbgInfoIntrinsic>(II))
+        continue;
+      if (isa<CallInst>(&II))
+        return true;
+      DynField DField;
+      if (auto *LI = dyn_cast<LoadInst>(&II)) {
+        DField = DTInfo.getLoadElement(LI);
+      } else if (auto *SI = dyn_cast<StoreInst>(&II)) {
+        DField = DTInfo.getStoreElement(SI);
+      } else {
+        continue;
+      }
+      if (!DField.first)
+        continue;
+      if (SimpleLocSet.count(DField) || SOAGlobalVarFieldSet.count(DField))
+        return true;
+    }
+    return false;
+  };
+
+  BasicBlock *AllocBB = nullptr;
+  // Make sure all allocations of candidate structs are in same
+  // basicblock.
+  for (auto &AllocPair : AllocCalls) {
+    BasicBlock *BB = AllocPair.first->getInstruction()->getParent();
+    if (AllocBB == nullptr)
+      AllocBB = BB;
+    else if (AllocBB != BB)
+      return false;
+  }
+  assert(AllocBB && "Expected BasicBlock for Alloc calls");
+  for (auto *SOACI : AOSSOAACalls)
+    if (AllocBB != SOACI->getParent())
+      return false;
+  LoopInfo &LI = (GetLI)(*InitRoutine);
+  // Make sure allocation call is not in loop.
+  if (!LI.empty() && LI.getLoopFor(AllocBB))
+    return false;
+
+  DenseMap<Function *, CallInstSet> UserCallFuncs;
+  // Check if InitRoutine has any unsafe lib or intrinsic
+  // calls. Collect all user functions that are called and their
+  // callsites.
+  for (Instruction &I : instructions(InitRoutine)) {
+    if (isa<DbgInfoIntrinsic>(I))
+      continue;
+    auto CS = CallSite(&I);
+    if (!CS)
+      continue;
+    Function *F = CS.getCalledFunction();
+    assert(F && "Expected direct call");
+    if (F->isIntrinsic()) {
+      if (!IsSafeIntrinsic(F->getIntrinsicID())) {
+        LLVM_DEBUG(dbgs() << "Unexpected intrinsic call  " << I << "\n");
+        return false;
+      }
+      continue;
+    }
+    LibFunc Func;
+    if (TLI.getLibFunc(*F, Func)) {
+      if (!IsSafeLibFunc(Func) || !TLI.has(Func)) {
+        LLVM_DEBUG(dbgs() << "Unexpected Lib call  " << I << "\n");
+        return false;
+      }
+      continue;
+    }
+    UserCallFuncs[F].insert(cast<CallInst>(&I));
+  }
+
+  // Return false if any user call in InitRoutine has access to
+  // candidate struct.
+  for (auto FPair : UserCallFuncs)
+    if (HasAnyAccessToCandidateStruct(FPair.first))
+      return false;
+
+  // Compute locations of SimplePtrStores of all allocations.
+  DynFieldSet AllSimplePtrStoreLocSet;
+  ComputeAllSimplePtrLocs(AllSimplePtrStoreLocSet);
+
+  FunctionSet UnsafeUserFunction;
+  // Allocation pointers are saved in either SimplePtrStores or
+  // ComplexPtrStores. A user call in InitRoutine is treated as unsafe
+  // if it has any access to locations of SimplePtrStores or ComplexPtrStores.
+  // Collect unsafe calls here.
+  for (auto FPair : UserCallFuncs)
+    if (HasAnyAccessToPtrStoredLocs(FPair.first, AllSimplePtrStoreLocSet))
+      UnsafeUserFunction.insert(FPair.first);
+  auto UnsafeCount = UnsafeUserFunction.size();
+
+  // Everything okay if no unsafe calls.
+  if (UnsafeCount == 0)
+    return true;
+
+  // Handle this case for now with runtime check only if there is only
+  // one unsafe call and only one callsite.
+  if (UnsafeCount > 1)
+    return false;
+  // Check it has only one callsite.
+  auto CISet = UserCallFuncs[*UnsafeUserFunction.begin()];
+  if (CISet.size() > 1)
+    return false;
+  CallInst *CI = *CISet.begin();
+  // Make sure unsafe calls is not in loop.
+  if (!LI.empty() && LI.getLoopFor(CI->getParent()))
+    return false;
+
+  // RuntimeCheckUnsafeCalls is used later during transformation.
+  RuntimeCheckUnsafeCalls.insert(CI);
+  return true;
+}
+
 // Create new shrunken structs for all candidate structs and maintain
 // mapping between old and new layouts.
 //
@@ -1315,6 +1721,12 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
 //  3. Eliminate padding by applying "isPacked" attribute.
 //
 void DynCloneImpl::createShrunkenTypes(void) {
+
+  // Return shrunken type for AOSTOSOA index fields. For now, it
+  // returns 16 bits always.
+  auto GetAOSTOSOAIndexShrunkenType = [&]() {
+    return Type::getInt16Ty(M.getContext());
+  };
 
   // Return shrunken type for given struct and field index.
   auto GetShrunkenType = [&](StructType *StTy, unsigned Idx) {
@@ -1333,7 +1745,9 @@ void DynCloneImpl::createShrunkenTypes(void) {
     DynField Field(std::make_pair(StTy, Idx));
     Type *ShrunkenTy;
     // Get shrunken field type if it is candidate field.
-    if (isCandidateField(Field))
+    if (isAOSTOSOAIndexField(Field))
+      ShrunkenTy = GetAOSTOSOAIndexShrunkenType();
+    else if (isCandidateField(Field))
       ShrunkenTy = GetShrunkenType(StTy, Idx);
     else
       ShrunkenTy = StTy->getElementType(Idx);
@@ -1408,9 +1822,14 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //              struct netw { ...} net;
 //
 //              InitRoutine() {
-//                  aosptr = calloc(); // AOSTOSOA alloc call
+//                  aosptr = calloc(sizeN * size_elem); // AOSTOSOA alloc call
 //                  ...
 //                  ptr = calloc(); // Memory allocation for candidate struct
+//                  ...
+//                  if (some_error) {
+//                    unsafecall();
+//                    return;
+//                  }
 //                  ...
 //                  net->field1 = ptr;
 //                  ...
@@ -1429,10 +1848,18 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //              __Shrink__Happened__ = 0;
 //
 //              InitRoutine() {
+//                  dyn.safeflag = 0;  // Initialize
 //                  L_i64_Max = 0xffffffff80000000;
 //                  L_i64_Min = 0x000000007fffffff;
+//                  ...
+//                  dyn.safeflag = 1;  // Set before allocation
 //                  ptr = calloc();
 //                  ...
+//                  if (some_error) {
+//                    dyn.safeflag = 0; // Reset if unsafecall is executed.
+//                    unsafecall();
+//                    return;
+//                  }
 //                  stp->candidate1 = value1;
 //                  L_i64_Max = (L_i64_Max < value1) ? value1 : L_i64_Max;
 //                  L_i64_Min = (L_i64_Min > value1) ? value1 : L_i64_Min;
@@ -1441,8 +1868,10 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                  L_i64_Max = (L_i64_Max < value2) ? value2 : L_i64_Max;
 //                  L_i64_Min = (L_i64_Min > value2) ? value2 : L_i64_Min;
 //                  ...
-//                  if (L_i64_Max > 0x000000007fffffff ||
-//                      L_i64_Min < 0xffffffff80000000) {
+//                  if !(L_i64_Max > 0x000000007fffffff ||
+//                      L_i64_Min < 0xffffffff80000000 ||
+//                      sizeN > 0x7fff ||
+//                      dyn.safeflag == 0) {
 //                    OldType* SPtr = ptr;
 //                    NewType* DPtr = ptr;
 //                    for (i = 0; i < alloc_size_of_calloc; i++) {
@@ -1523,13 +1952,12 @@ void DynCloneImpl::transformInitRoutine(void) {
         return;
       };
 
-  // Generate final condition and "or" with previous condition if available.
-  auto GenerateFinalCond = [&](AllocaInst *AI, Value *V,
-                               CmpInst::Predicate Pred, Value *PrevCond,
-                               ReturnInst *RI) -> Value * {
-    Value *LI = new LoadInst(AI, "d.ld", RI);
+  // Generate final condition with already loaded value \p LI and "or" with
+  // previous condition if available.
+  auto GenerateFinalCondWithLIValue =
+      [&](LoadInst *LI, Value *V, CmpInst::Predicate Pred, Value *PrevCond,
+          ReturnInst *RI) -> Value * {
     ICmpInst *ICmp = new ICmpInst(RI, Pred, LI, V, "d.cmp");
-    LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
     LLVM_DEBUG(dbgs() << "      " << *ICmp << "\n");
     if (!PrevCond)
       return ICmp;
@@ -1537,6 +1965,16 @@ void DynCloneImpl::transformInitRoutine(void) {
     Value *FinalCond = BinaryOperator::CreateOr(PrevCond, ICmp, "d.or", RI);
     LLVM_DEBUG(dbgs() << "      " << *FinalCond << "\n");
     return FinalCond;
+  };
+
+  // Generate final condition and "or" with previous condition if available.
+  auto GenerateFinalCond = [this, &GenerateFinalCondWithLIValue](
+                               AllocaInst *AI, Value *V,
+                               CmpInst::Predicate Pred, Value *PrevCond,
+                               ReturnInst *RI) -> Value * {
+    LoadInst *LI = new LoadInst(AI, "d.ld", RI);
+    LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
+    return GenerateFinalCondWithLIValue(LI, V, Pred, PrevCond, RI);
   };
 
   // Creates GEP instruction like below using \p IRB and returns it.
@@ -1872,6 +2310,34 @@ void DynCloneImpl::transformInitRoutine(void) {
     return LI;
   };
 
+  // Creates new safety flag to indicate allocation pointers are valid
+  // before returning from InitRoutine. This is needed because the pointers
+  // are used to copy data from old layout to new layout.
+  auto GenerateAllocSafetyFlagInsts = [&]() {
+    LLVM_DEBUG(dbgs() << "   Generated alloc Safety flag instructions:\n");
+    Type *FlagType = Type::getInt8Ty(M.getContext());
+    // Add instruction to initialize the flag with zero.
+    AllocaInst *AI =
+        new AllocaInst(FlagType, DL.getAllocaAddrSpace(), nullptr, "dyn.safe",
+                       &InitRoutine->getEntryBlock().front());
+    StoreInst *SI =
+        new StoreInst(ConstantInt::get(FlagType, 0), AI, AI->getNextNode());
+    LLVM_DEBUG(dbgs() << "      " << *AI << "\n");
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+
+    // Add instruction to reset the flag before unsafe calls.
+    for (auto CIInst : RuntimeCheckUnsafeCalls)
+      SI = new StoreInst(ConstantInt::get(FlagType, 0), AI, CIInst);
+
+    // Already proved that all allocations are in same basicblock.
+    // Just add an instruction before first calloc to set the flag.
+    Instruction *I = AllocCalls.front().first->getInstruction();
+    SI = new StoreInst(ConstantInt::get(FlagType, 1), AI, I);
+    LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
+    (void)SI;
+    return AI;
+  };
+
   SmallVector<BasicBlock *, 2> RetBBs;
   SmallVector<StoreInst *, 16> RuntimeCheckStores;
 
@@ -1882,10 +2348,14 @@ void DynCloneImpl::transformInitRoutine(void) {
     if (isa<ReturnInst>(BB.getTerminator()))
       RetBBs.push_back(&BB);
 
-    // Collect StoreInsts
+    // Collect StoreInsts.
     for (auto I = BB.begin(), E = BB.end(); I != E; I++) {
       auto *Inst = &*I;
       if (auto *StInst = dyn_cast<StoreInst>(Inst)) {
+        // Store instructions in MultiElemLoadStoreInfo are not
+        // considered here for checking because DynClone is
+        // disabled if any access field of those store instructions
+        // is not marked with aostosoa index field.
         auto StElem = DTInfo.getStoreElement(StInst);
         if (!StElem.first)
           continue;
@@ -1952,6 +2422,9 @@ void DynCloneImpl::transformInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "      " << *SI << "\n");
   }
 
+  // Generate instructions related to alloc safety flag.
+  AllocaInst *AllocSafetyFlag = GenerateAllocSafetyFlagInsts();
+
   // For each StoreInst, it generates instructions like
   //   Before:
   //     store i64 %g1, i64* %F1, align 8
@@ -2003,6 +2476,18 @@ void DynCloneImpl::transformInitRoutine(void) {
   for (auto &Pair : TypeMaxAllocIMap)
     FinalCond = GenerateFinalCond(Pair.second, GetShrunkenMaxValue(Pair.first),
                                   ICmpInst::ICMP_SGT, FinalCond, RetI);
+
+  // Generate runtime check for AOSTOSOA index.
+  for (auto *SOACI : AOSSOAACalls)
+    FinalCond = GenerateFinalCondWithLIValue(
+        AllocCallSizes[SOACI],
+        ConstantInt::get(AllocCallSizes[SOACI]->getType(),
+                         std::numeric_limits<int16_t>::max()),
+        ICmpInst::ICMP_SGT, FinalCond, RetI);
+
+  // Generate runtime check for alloc safety flag
+  FinalCond = GenerateFinalCond(AllocSafetyFlag, ConstantInt::get(FlagType, 0),
+                                ICmpInst::ICMP_EQ, FinalCond, RetI);
 
   // TODO: It is better not to set __Shrink__Happened__ when none of
   // StoreInst of candidate fields is executed at runtime in InitRoutine.
@@ -2412,6 +2897,12 @@ bool DynCloneImpl::createCallGraphClone(void) {
 // shrunken structs are transformed.
 void DynCloneImpl::transformIR(void) {
 
+  auto IsMultiElemLdSt = [&](Instruction *I) {
+    if (DTInfo.isMultiElemLoadStore(I))
+      return true;
+    return false;
+  };
+
   auto IsGEP = [&](GetElementPtrInst *GEP) {
     if (GEP->getNumIndices() > 2)
       return false;
@@ -2442,14 +2933,14 @@ void DynCloneImpl::transformIR(void) {
 
   auto IsLoad = [&](LoadInst *LI) {
     auto LdElem = DTInfo.getLoadElement(LI);
-    if (!LdElem.first || !isCandidateField(LdElem))
+    if (!LdElem.first || !isShrunkenField(LdElem))
       return false;
     return true;
   };
 
   auto IsStore = [&](StoreInst *SI) {
     auto StElem = DTInfo.getStoreElement(SI);
-    if (!StElem.first || !isCandidateField(StElem))
+    if (!StElem.first || !isShrunkenField(StElem))
       return false;
     return true;
   };
@@ -2573,9 +3064,8 @@ void DynCloneImpl::transformIR(void) {
   //       %41 = load i32, i32* %40, align 4
   //       %42 = sext i32 %41 to i64
   //
-  auto ProcessLoad = [&](LoadInst *LI) {
+  auto ProcessLoad = [&](LoadInst *LI, DynField &LdElem) {
     LLVM_DEBUG(dbgs() << "Load before convert: " << *LI << "\n");
-    auto LdElem = DTInfo.getLoadElement(LI);
     StructType *OldTy = cast<StructType>(LdElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][LdElem.second];
@@ -2586,8 +3076,14 @@ void DynCloneImpl::transformIR(void) {
     Instruction *NewLI = new LoadInst(
         NewSrcOp, "", LI->isVolatile(), DL.getABITypeAlignment(NewTy),
         LI->getOrdering(), LI->getSyncScopeID(), LI);
-
-    Value *Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
+    // ZExt is used for AOSToSOA index field to avoid unnecessary "mov"
+    // instructions (in generated code) since AOSTOSOA transformation
+    // uses ZExt for the AOSToSOA index.
+    Value *Res;
+    if (isAOSTOSOAIndexField(LdElem))
+      Res = CastInst::CreateZExtOrBitCast(NewLI, LI->getType(), "", LI);
+    else
+      Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
     LI->replaceAllUsesWith(Res);
     Res->takeName(LI);
 
@@ -2607,9 +3103,8 @@ void DynCloneImpl::transformIR(void) {
   //       %267 = trunc i64 30 to i32
   //       store i32 %267, i32* %268, align 4
   //
-  auto ProcessStore = [&](StoreInst *SI) {
+  auto ProcessStore = [&](StoreInst *SI, DynField &StElem) {
     LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
-    auto StElem = DTInfo.getStoreElement(SI);
     StructType *OldTy = cast<StructType>(StElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][StElem.second];
@@ -2649,6 +3144,7 @@ void DynCloneImpl::transformIR(void) {
     LLVM_DEBUG(dbgs() << "MemFunc after convert: " << *I << "\n");
   };
 
+  SmallVector<Instruction *, 4> MultiElemLdStToProcess;
   SmallVector<GetElementPtrInst *, 16> GEPsToProcess;
   SmallVector<BinaryOperator *, 16> BinOpsToProcess;
   SmallVector<LoadInst *, 16> LoadsToProcess;
@@ -2664,6 +3160,7 @@ void DynCloneImpl::transformIR(void) {
   for (auto &CPair : CloningMap) {
 
     Function *F = CPair.first;
+    MultiElemLdStToProcess.clear();
     GEPsToProcess.clear();
     BinOpsToProcess.clear();
     LoadsToProcess.clear();
@@ -2677,7 +3174,9 @@ void DynCloneImpl::transformIR(void) {
     // Collect all instructions that need to be fixed.
     for (inst_iterator It = inst_begin(F), E = inst_end(F); It != E; ++It) {
       Instruction *I = &*It;
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+      if (IsMultiElemLdSt(I)) {
+        MultiElemLdStToProcess.push_back(I);
+      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
         if (IsGEP(GEP))
           GEPsToProcess.push_back(GEP);
         else if (IsByteGEP(GEP))
@@ -2701,6 +3200,24 @@ void DynCloneImpl::transformIR(void) {
       }
     }
 
+    for (auto *II : MultiElemLdStToProcess) {
+      auto It = MultiElemLdStAOSTOSOAIndexMap.find(II);
+      assert(It != MultiElemLdStAOSTOSOAIndexMap.end() &&
+             " Expected MultiElem instruction in map");
+
+      LLVM_DEBUG(dbgs() << " Processing MultiElem Load/Store:  " << *II
+                        << "\n");
+      // Since all fields accessed by MultiElem Ld/St will be reduced to the
+      // same type, it is okay to use any accessing field for processing Ld/St.
+      if (auto *LI = dyn_cast<LoadInst>(II))
+        ProcessLoad(LI, It->second);
+      else if (auto *SI = dyn_cast<StoreInst>(II))
+        ProcessStore(SI, It->second);
+      else
+        llvm_unreachable("Unexpected multi field load/store!");
+      InstsToRemove.push_back(II);
+    }
+
     for (auto *GEP : GEPsToProcess) {
       ProcessGEP(GEP);
       InstsToRemove.push_back(cast<Instruction>(GEP));
@@ -2713,12 +3230,14 @@ void DynCloneImpl::transformIR(void) {
       ProcessBinOp(BinOp);
 
     for (auto *LI : LoadsToProcess) {
-      ProcessLoad(LI);
+      auto LdElem = DTInfo.getLoadElement(LI);
+      ProcessLoad(LI, LdElem);
       InstsToRemove.push_back(cast<Instruction>(LI));
     }
 
     for (auto *SI : StoresToProcess) {
-      ProcessStore(SI);
+      auto StElem = DTInfo.getStoreElement(SI);
+      ProcessStore(SI, StElem);
       InstsToRemove.push_back(cast<Instruction>(SI));
     }
 
@@ -2743,6 +3262,12 @@ bool DynCloneImpl::run(void) {
   if (!prunePossibleCandidateFields())
     return false;
 
+  if (!verifyMultiFieldLoadStores()) {
+    LLVM_DEBUG(
+        dbgs() << "Verification of Multi field Load/Stores Failed... \n");
+    return false;
+  }
+
   if (!verifyLegalityChecksForInitRoutine())
     return false;
 
@@ -2751,12 +3276,12 @@ bool DynCloneImpl::run(void) {
     return false;
   }
 
-  LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
+  if (!verifyCallsInInitRoutine()) {
+    LLVM_DEBUG(dbgs() << " Calls in InitRoutine Failed... \n");
+    return false;
+  }
 
-  // TODO: Lot more checks are needed before generating runtime checks.
-  // Most of those checks are basically to prove it is legal to rematerialize
-  // struct pointers after shrining the struct. These checks will be
-  // implemented later.
+  LLVM_DEBUG(dbgs() << "    Verified InitRoutine ... \n");
 
   createShrunkenTypes();
 

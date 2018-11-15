@@ -31,35 +31,39 @@ private:
   VPBasicBlock::iterator InsertPt = VPBasicBlock::iterator();
 
 #if INTEL_CUSTOMIZATION
-  VPInstruction *createInstruction(unsigned Opcode,
+  VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
                                    ArrayRef<VPValue *> Operands) {
-    VPInstruction *Instr = new VPInstruction(Opcode, Operands);
+    VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     if (BB)
       BB->insert(Instr, InsertPt);
     return Instr;
   }
-#endif
 
-  VPInstruction *createInstruction(unsigned Opcode,
+  VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
                                    std::initializer_list<VPValue *> Operands) {
-    return createInstruction(Opcode, ArrayRef<VPValue *>(Operands));
+    return createInstruction(Opcode, BaseTy, ArrayRef<VPValue *>(Operands));
   }
 
-#if INTEL_CUSTOMIZATION
   /// \brief Create VPCmpInst with its two operands.
-  VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp,
-                           CmpInst::Predicate Pred) {
+  VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
+                           VPValue *RightOp) {
     assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
     VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
     if (BB)
       BB->insert(Instr, InsertPt);
     return Instr;
   }
-#endif
+#else
+  VPInstruction *createInstruction(unsigned Opcode,
+                                   std::initializer_list<VPValue *> Operands) {
+    VPInstruction *Instr = new VPInstruction(Opcode, Operands);
+    BB->insert(Instr, InsertPt);
+    return Instr;
+  }
+#endif //INTEL_CUSTOMIZATION
 
 public:
   VPBuilder() {}
-
 #if INTEL_CUSTOMIZATION
   /// \brief Clear the insertion point: created instructions will not be
   /// inserted into a block.
@@ -130,24 +134,32 @@ public:
 
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
   // its underlying Instruction.
-  VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
+  VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
+                        ArrayRef<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
-    VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
+    VPInstruction *NewVPInst = createInstruction(Opcode, BaseTy, Operands);
     NewVPInst->setUnderlyingValue(Inst);
     return NewVPInst;
   }
-  VPValue *createNaryOp(unsigned Opcode,
+  VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
                         std::initializer_list<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
-    return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
+    return createNaryOp(Opcode, BaseTy, ArrayRef<VPValue *>(Operands), Inst);
   }
 
   // Create a VPInstruction with \p LHS and \p RHS as operands and Add opcode.
   // For now, no no-wrap flags are used since they cannot be modeled in VPlan.
   VPValue *createAdd(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::Add, {LHS, RHS});
+    return createInstruction(Instruction::BinaryOps::Add, LHS->getBaseType(),
+                             {LHS, RHS});
   }
-#endif
+
+  VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
+    return createInstruction(Instruction::BinaryOps::And, LHS->getBaseType(),
+                             {LHS, RHS});
+  }
+
+#else
 
   VPValue *createNot(VPValue *Operand) {
     return createInstruction(VPInstruction::Not, {Operand});
@@ -160,6 +172,7 @@ public:
   VPValue *createOr(VPValue *LHS, VPValue *RHS) {
     return createInstruction(Instruction::BinaryOps::Or, {LHS, RHS});
   }
+#endif //INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // Create a VPCmpInst with \p LeftOp and \p RightOp as operands, and \p CI's
@@ -167,28 +180,33 @@ public:
   VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp, CmpInst *CI) {
     // TODO: If a null CI is needed, please create a new interface.
     assert(CI && "CI can't be null.");
-    assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
-    VPCmpInst *VPCI = createCmpInst(LeftOp, RightOp, CI->getPredicate());
+    VPCmpInst *VPCI =
+        createCmpInst(CI->getPredicate(), LeftOp, RightOp);
     VPCI->setUnderlyingValue(CI);
     return VPCI;
   }
 
   // Create dummy VPBranchInst instruction.
-  VPBranchInst *createBr() {
-    VPBranchInst *Instr = new VPBranchInst();
+  VPBranchInst *createBr(Type *BaseTy) {
+    VPBranchInst *Instr = new VPBranchInst(BaseTy);
     if (BB)
       BB->insert(Instr, InsertPt);
     return Instr;
   }
 
-  VPInstruction *createPhiInstruction(Instruction *Inst = nullptr) {
-    VPInstruction *NewVPInst = new VPPHINode();
+  VPInstruction *createPhiInstruction(Instruction *Inst) {
+    assert(Inst != nullptr && "Instruction cannot be a nullptr");
+    VPInstruction *NewVPInst = createPhiInstruction(Inst->getType());
     NewVPInst->setUnderlyingValue(Inst);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
+  VPInstruction *createPhiInstruction(Type *BaseTy) {
+    VPInstruction *NewVPInst = new VPPHINode(BaseTy);
+    return NewVPInst;
+  }
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//

@@ -76,17 +76,38 @@
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
+static cl::opt<bool> ConvertToSubs(
+    "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
+    cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
+
 static cl::opt<bool>
 EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
                    cl::desc("Run the early jump threading pass"));
 static cl::opt<bool>
 EnableLV("enable-lv", cl::init(false), cl::Hidden,
          cl::desc("Enable community loop vectorizer"));
-#endif // INTEL_CUSTOMIZATION
 
+static cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing",
+                                          cl::init(true), cl::Hidden,
+                                          cl::ZeroOrMore,
+                                          cl::desc("Enable load coalescing"));
+
+static cl::opt<bool>
+    EnableSROAAfterSLP("enable-sroa-after-slp", cl::init(true), cl::Hidden,
+                       cl::desc("Run SROA pass after the SLP vectorizer"));
+
+#endif // INTEL_CUSTOMIZATION
 static cl::opt<bool>
     RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
                        cl::ZeroOrMore, cl::desc("Run Partial inlinining pass"));
+
+#if INTEL_CUSTOMIZATION
+// Enable partial inlining during LTO
+static cl::opt<bool>
+    RunLTOPartialInlining("enable-lto-partial-inlining", cl::init(true),
+                          cl::Hidden, cl::ZeroOrMore,
+                          cl::desc("Run LTO Partial inlinining pass"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     RunLoopVectorization("vectorize-loops", cl::Hidden,
@@ -744,9 +765,6 @@ void PassManagerBuilder::populateModulePassManager(
   // Infer attributes about declarations if possible.
   MPM.add(createInferFunctionAttrsLegacyPass());
 
-  if (EnableHotColdSplit)
-    MPM.add(createHotColdSplittingPass());
-
   addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
 
   if (OptLevel > 2)
@@ -969,6 +987,13 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (RunSLPAfterLoopVectorization && SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+#if INTEL_CUSTOMIZATION
+    if (EnableLoadCoalescing)
+      MPM.add(createLoadCoalescingPass());
+    if (EnableSROAAfterSLP)
+      // SLP creates opportunities for SROA.
+      MPM.add(createSROAPass());
+#endif // INTEL_CUSTOMIZATION
     if (OptLevel > 1 && ExtraVectorizerPasses) {
       MPM.add(createEarlyCSEPass());
     }
@@ -1037,6 +1062,9 @@ void PassManagerBuilder::populateModulePassManager(
   // passes to avoid re-sinking, but before SimplifyCFG because it can allow
   // flattening of blocks.
   MPM.add(createDivRemPairsPass());
+
+  if (EnableHotColdSplit)
+    MPM.add(createHotColdSplittingPass());
 
   // LoopSink (and other loop passes since the last simplifyCFG) might have
   // resulted in single-entry-single-exit or empty blocks. Clean up the CFG.
@@ -1203,6 +1231,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createGlobalOptimizerPass());
 
 #if INTEL_CUSTOMIZATION
+  if (RunLTOPartialInlining)
+    PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/));
+
   if (EnableIPCloning || EnableCallTreeCloning) {
     if (EnableIPCloning)
       // Enable generic IPCloning after Inlining.
@@ -1283,9 +1314,16 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
-  if (RunSLPAfterLoopVectorization)
-    if (SLPVectorize)
-      PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+#if INTEL_CUSTOMIZATION
+  if (RunSLPAfterLoopVectorization && SLPVectorize) {
+    PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    if (EnableLoadCoalescing)
+      PM.add(createLoadCoalescingPass());
+    if (EnableSROAAfterSLP)
+      // SLP creates opportunities for SROA.
+      PM.add(createSROAPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.
@@ -1406,6 +1444,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   if (VerifyInput)
     PM.add(createVerifierPass());
 
+  if (ConvertToSubs)
+    PM.add(createConvertGEPToSubscriptIntrinsicLegacyPass());
+
   PM.add(createHIRSSADeconstructionLegacyPass());
   // This is expected to be the first pass in the HIR pipeline as it cleans up
   // unnecessary temps from the HIR and doesn't invalidate any analysis. It is
@@ -1419,7 +1460,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRPropagateCastedIVPass());
     if (OptLevel > 2) {
       PM.add(createHIRLoopConcatenationPass());
-      PM.add(createHIRSymbolicTripCountCompleteUnrollPass());
+      PM.add(createHIRSymbolicTripCountCompleteUnrollLegacyPass());
       PM.add(createHIRArrayTransposePass());
     }
 

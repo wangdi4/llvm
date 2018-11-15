@@ -33,6 +33,47 @@ using namespace llvm::loopopt;
 using namespace llvm::loopopt::reversal;
 using namespace llvm::loopopt::lmm;
 
+namespace {
+
+/// This function creates HLIf using predicates that are stored in RuntimeChecks
+/// vector. This HLIf has following form:
+///
+/// if (pred1 && pred2 && ... && predN) {
+/// } else {
+///   tgu = 0;
+/// }
+/// // Remainder loop
+HLIf *createRuntimeChecks(
+    SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
+        *RuntimeChecks,
+    HLLoop *RemainderLoop, RegDDRef **NewTCRef) {
+  assert(RuntimeChecks && !RuntimeChecks->empty() &&
+         "At least one runtime check must be passed.");
+  HLNodeUtils &HNU = RemainderLoop->getHLNodeUtils();
+
+  HLIf *If = nullptr;
+  for (auto &Check : *RuntimeChecks)
+    if (!If)
+      If = HNU.createHLIf(std::get<0>(Check), std::get<1>(Check),
+                          std::get<2>(Check));
+    else
+      If->addPredicate(std::get<0>(Check), std::get<1>(Check),
+                       std::get<2>(Check));
+
+  // In case if RT-check failed, remainder loop has to start from the beginning.
+  RegDDRef *Ref = RemainderLoop->getUpperDDRef();
+  RegDDRef *LB = Ref->getDDRefUtils().createNullDDRef(Ref->getDestType());
+  HLInst *TempInst = RemainderLoop->getHLNodeUtils().createCopyInst(LB, "tgu");
+  HLNodeUtils::insertAsLastChild(If, TempInst, false);
+  *NewTCRef = TempInst->getLvalDDRef();
+
+  HLNodeUtils::insertBefore(RemainderLoop, If);
+
+  return If;
+}
+
+} // end of anonymous namespace
+
 bool HIRTransformUtils::isHIRLoopReversible(
     HLLoop *InnermostLp,            // INPUT + OUTPUT: a given loop
     HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
@@ -132,7 +173,8 @@ bool HIRTransformUtils::doHIRLoopMemoryMotion(
 bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
                                               unsigned UnrollOrVecFactor,
                                               uint64_t *NewTripCountP,
-                                              RegDDRef **NewTCRef) {
+                                              RegDDRef **NewTCRef,
+                                              HLIf *RuntimeCheck) {
 
   uint64_t TripCount;
 
@@ -140,13 +182,23 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
     uint64_t NewTripCount = TripCount / UnrollOrVecFactor;
     *NewTripCountP = NewTripCount;
+    if (RuntimeCheck) {
+      assert(*NewTCRef && "Trip count must be assigned in RT check.");
+      RegDDRef *UpperRef = OrigLoop->getUpperDDRef();
+      RegDDRef *LowerRef = UpperRef->getDDRefUtils().createConstDDRef(
+          UpperRef->getDestType(), NewTripCount);
+      HLInst *TempInst = OrigLoop->getHLNodeUtils().createCopyInst(
+          LowerRef, "tgu", (*NewTCRef)->clone());
+      HLNodeUtils::insertAsLastChild(RuntimeCheck, TempInst, true);
+      return true;
+    }
 
     // Return true if UnrollOrVecFactor does not evenly divide TripCount.
     return ((NewTripCount * UnrollOrVecFactor) != TripCount);
   }
 
-  // Process for non-const trip loop.
   RegDDRef *Ref = OrigLoop->getTripCountDDRef();
+  // Process for non-const trip loop.
   // New instruction should only be created for non-constant trip loops.
   assert(!Ref->isIntConstant() && " Creating a new instruction for constant"
                                   "trip loops should not occur.");
@@ -161,7 +213,11 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
     // Create DDRef for Unroll Factor.
     RegDDRef *UFDD = Ref->getDDRefUtils().createConstDDRef(Ref->getDestType(),
                                                            UnrollOrVecFactor);
-    TempInst = OrigLoop->getHLNodeUtils().createUDiv(Ref, UFDD, "tgu");
+    if (*NewTCRef)
+      TempInst = OrigLoop->getHLNodeUtils().createUDiv(Ref, UFDD, "tgu",
+                                                       (*NewTCRef)->clone());
+    else
+      TempInst = OrigLoop->getHLNodeUtils().createUDiv(Ref, UFDD, "tgu");
   } else {
     SmallVector<const RegDDRef *, 3> AuxRefs = {OrigLoop->getStrideDDRef(),
                                                 OrigLoop->getLowerDDRef(),
@@ -175,9 +231,17 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
     Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
 
-    TempInst = OrigLoop->getHLNodeUtils().createCopyInst(Ref, "tgu");
+    if (*NewTCRef)
+      TempInst = OrigLoop->getHLNodeUtils().createCopyInst(Ref, "tgu",
+                                                           (*NewTCRef)->clone());
+    else
+      TempInst = OrigLoop->getHLNodeUtils().createCopyInst(Ref, "tgu");
   }
-  HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
+
+  if (RuntimeCheck)
+    HLNodeUtils::insertAsLastChild(RuntimeCheck, TempInst, true);
+  else
+    HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
   *NewTCRef = TempInst->getLvalDDRef();
 
   return true;
@@ -196,7 +260,7 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
     const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder,
-    OptimizationType OptTy) {
+    OptimizationType OptTy, HLIf *RuntimeCheck) {
   HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
@@ -204,7 +268,12 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollOrVecFactor + 1);
   }
 
-  OrigLoop->getHLNodeUtils().insertBefore(OrigLoop, NewLoop);
+  if (RuntimeCheck)
+    // With runtime check assume that main loop is valid only when condition
+    // of the rt check is true, thus insert it in the true branch.
+    HLNodeUtils::insertAsLastChild(RuntimeCheck, NewLoop, true);
+  else
+    OrigLoop->getHLNodeUtils().insertBefore(OrigLoop, NewLoop);
 
   // Update the loop upper bound.
   if (NewTripCount != 0) {
@@ -254,6 +323,8 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     NewLoop->setMaxTripCountEstimate(
         NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
         NewLoop->isMaxTripCountEstimateUsefulForDD());
+
+    NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
   }
 
   // Set the code gen for modified region
@@ -289,12 +360,15 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
                                              unsigned UnrollOrVecFactor,
                                              uint64_t NewTripCount,
-                                             const RegDDRef *NewTCRef) {
+                                             const RegDDRef *NewTCRef,
+                                             const bool HasRuntimeCheck) {
   // Mark Loop bounds as modified.
   HIRInvalidationUtils::invalidateBounds(OrigLoop);
 
   // Modify the LB of original loop.
-  if (NewTripCount) {
+  // For loops with runtime checks NewTCRef must be used as LB of the remainder
+  // loop.
+  if (!HasRuntimeCheck && NewTripCount) {
     // OrigLoop is a const-trip loop.
     RegDDRef *OrigLBRef = OrigLoop->getLowerDDRef();
     CanonExpr *LBCE = OrigLBRef->getSingleCanonExpr();
@@ -320,7 +394,16 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
 
     // Update remainder loop's trip count estimate.
     // TODO: can set useful for DD flag if loop is normalized.
-    OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
+    if (!HasRuntimeCheck) {
+      OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
+      // New max trip count metadata can be applied.
+      OrigLoop->setPragmaBasedMaximumTripCount(UnrollOrVecFactor - 1);
+    }
+
+    // Original min/avg trip count metadata does not apply to remainder loop.
+    OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
+    OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
+
   }
 
   LLVM_DEBUG(dbgs() << "\n Remainder Loop \n");
@@ -411,19 +494,18 @@ void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
 HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
     LoopOptReportBuilder &LORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
-    bool PeelFirstIteration) {
+    bool PeelFirstIteration,
+    SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
+        *RuntimeChecks) {
+
   if (PeelFirstIteration) {
     // Peel first iteration of the loop. Ztt, preheader and postexit are
     // extracted as part of the peeling utility.
     LLVM_DEBUG(dbgs() << "Peeling first iteration of the loop!\n");
-    HLLoop *PeelLp = OrigLoop->peelFirstIteration();
+    HLLoop *PeelLp = OrigLoop->peelFirstIteration(
+        false /*OrigLoop will also executed peeled its.*/);
     if (PeelLoop)
       *PeelLoop = PeelLp;
-
-    // After peeling, we don't need a Ztt that covers both the main
-    // vector/unrolled loop and remainder loop. The individual Ztts for the
-    // vector/unroll loop and remainder are sufficient to guarantee safety.
-    OrigLoop->removeZtt();
   } else {
     // Extract Ztt and add it outside the loop.
     OrigLoop->extractZtt();
@@ -432,21 +514,27 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     OrigLoop->extractPreheaderAndPostexit();
   }
 
+  HLIf *RuntimeCheck = nullptr;
+  RegDDRef *NewTCRef = nullptr;
+  if (RuntimeChecks && !RuntimeChecks->empty())
+    RuntimeCheck = createRuntimeChecks(RuntimeChecks, OrigLoop, &NewTCRef);
+
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollOrVecFactor)'
   // for non-constant trip loops. For const trip loops calculate the bound.
-  RegDDRef *NewTCRef = nullptr;
   uint64_t NewTripCount = 0;
-  NeedRemainderLoop = isRemainderLoopNeeded(OrigLoop, UnrollOrVecFactor,
-                                            &NewTripCount, &NewTCRef);
+  NeedRemainderLoop = isRemainderLoopNeeded(
+      OrigLoop, UnrollOrVecFactor, &NewTripCount, &NewTCRef, RuntimeCheck);
 
   // Create the main loop.
-  HLLoop *MainLoop = createUnrollOrVecLoop(
-      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, OptTy);
+  HLLoop *MainLoop =
+      createUnrollOrVecLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef,
+                            LORBuilder, OptTy, RuntimeCheck);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
   if (NeedRemainderLoop) {
-    processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef);
+    processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef,
+                         RuntimeCheck != nullptr);
     addCloningInducedLiveouts(MainLoop, OrigLoop);
 
     // Since OrigLoop became a remainder and will be lexicographicaly
@@ -462,6 +550,9 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
     }
   }
+  else
+    assert((!RuntimeChecks || RuntimeChecks->empty()) &&
+           "Remainder loop must exist with rt-checks.");
 
   // Mark parent for invalidation
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(OrigLoop);

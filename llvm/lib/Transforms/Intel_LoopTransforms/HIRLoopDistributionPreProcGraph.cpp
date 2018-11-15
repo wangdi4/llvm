@@ -133,7 +133,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   void visit(HLSwitch *Switch) { visitDistPPNode(Switch); }
   void postVisit(HLSwitch *Switch) { postVisitDistPPNode(Switch); }
   void visit(HLInst *I) {
-    if (isa<CallInst>(I->getLLVMInstruction())) {
+    if (I->isCallInst()) {
       DGraph->setInvalid("Cannot distribute loops with calls");
       return;
     }

@@ -41,7 +41,7 @@ IRRegion::IRRegion(IRRegion &&Reg)
       LiveOutMap(std::move(Reg.LiveOutMap)), ParentRegion(Reg.ParentRegion),
       IsFunctionLevel(Reg.IsFunctionLevel) {}
 
-IRRegion &IRRegion::operator =(IRRegion &&Reg) {
+IRRegion &IRRegion::operator=(IRRegion &&Reg) {
   EntryBBlock = Reg.EntryBBlock;
   ExitBBlock = Reg.ExitBBlock;
   BBlocks = std::move(Reg.BBlocks);
@@ -202,4 +202,14 @@ void IRRegion::replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
     ReverseLiveOutMap.erase(Temp);
     addLiveOutTemp(NewSymbase, Temp);
   }
+}
+
+void IRRegion::replaceEntryBBlock(BasicBlock *NewEntryBB) {
+  BBlocksSet.erase(EntryBBlock);
+  auto EntryIt = std::find(BBlocks.begin(), BBlocks.end(), EntryBBlock);
+  assert(EntryIt != BBlocks.end() && "bblocks are out of sync!");
+
+  *EntryIt = NewEntryBB;
+  BBlocksSet.insert(NewEntryBB);
+  EntryBBlock = NewEntryBB;
 }

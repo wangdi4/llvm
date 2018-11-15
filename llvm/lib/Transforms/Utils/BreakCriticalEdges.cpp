@@ -374,7 +374,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
   SmallSetVector<BasicBlock *, 16> Targets;
   for (auto &BB : F) {
 #if INTEL_CUSTOMIZATION
-    TerminatorInst *TI = dyn_cast<IndirectBrInst>(BB.getTerminator());
+    Instruction *TI = dyn_cast<IndirectBrInst>(BB.getTerminator());
     // If specified then consider switch as an alias of indirectbr instruction.
     if (!TI && ConsiderSwitch)
       TI = dyn_cast<SwitchInst>(BB.getTerminator());

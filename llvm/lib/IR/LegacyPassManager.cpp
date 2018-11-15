@@ -87,6 +87,15 @@ static cl::opt<bool> PrintAfterAll("print-after-all",
                                    llvm::cl::desc("Print IR after each pass"),
                                    cl::init(false), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> HIRPrintBeforeAll("hir-print-before-all",
+            llvm::cl::desc("Prints IR before each pass starting with 'hir'"),
+            cl::init(false), cl::Hidden);
+
+static cl::opt<bool> HIRPrintAfterAll("hir-print-after-all",
+            llvm::cl::desc("Prints IR after each pass starting with 'hir'"),
+            cl::init(false), cl::Hidden);
+#endif //INTEL_CUSTOMIZATION
 static cl::opt<bool>
     PrintModuleScope("print-module-scope",
                      cl::desc("When printing IR for print-[before|after]{-all} "
@@ -123,11 +132,17 @@ static bool ShouldPrintBeforeOrAfterPass(StringRef PassID,
 }
 
 bool llvm::shouldPrintBeforePass(StringRef PassID) {
-  return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PassID, PrintBefore);
+#if INTEL_CUSTOMIZATION
+  return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PassID, PrintBefore)
+           || (HIRPrintBeforeAll && PassID.startswith("hir"));
+#endif //INTEL_CUSTOMIZATION
 }
 
 bool llvm::shouldPrintAfterPass(StringRef PassID) {
-  return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PassID, PrintAfter);
+#if INTEL_CUSTOMIZATION
+  return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PassID, PrintAfter)
+           || (HIRPrintAfterAll && PassID.startswith("hir"));
+#endif //INTEL_CUSTOMIZATION
 }
 
 bool llvm::forcePrintModuleIR() { return PrintModuleScope; }

@@ -46,7 +46,6 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #define MODULE_PASS(NAME, CREATE_PASS)
 #endif
 MODULE_PASS("always-inline", AlwaysInlinerPass())
-MODULE_PASS("asan", AddressSanitizerPass(false, false, true))
 MODULE_PASS("called-value-propagation", CalledValuePropagationPass())
 MODULE_PASS("cg-profile", CGProfilePass())
 MODULE_PASS("constmerge", ConstantMergePass())
@@ -58,8 +57,9 @@ MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
 MODULE_PASS("dtrans-dynclone", dtrans::DynClonePass())           // INTEL
 MODULE_PASS("dtrans-soatoaos", dtrans::SOAToAOSPass())           // INTEL
+MODULE_PASS("dtrans-weakalign", dtrans::WeakAlignPass())         // INTEL
 MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
-MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass()) // INTEL
+MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass())          // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
             dtrans::EliminateROFieldAccessPass())                // INTEL
 #if !INTEL_PRODUCT_RELEASE
@@ -208,7 +208,6 @@ FUNCTION_PASS("adce", ADCEPass())
 FUNCTION_PASS("add-discriminators", AddDiscriminatorsPass())
 FUNCTION_PASS("aggressive-instcombine", AggressiveInstCombinePass())
 FUNCTION_PASS("alignment-from-assumptions", AlignmentFromAssumptionsPass())
-FUNCTION_PASS("asan", AddressSanitizerPass(false, false, false))
 FUNCTION_PASS("bdce", BDCEPass())
 FUNCTION_PASS("bounds-checking", BoundsCheckingPass())
 FUNCTION_PASS("break-crit-edges", BreakCriticalEdgesPass())
@@ -284,6 +283,7 @@ FUNCTION_PASS("sroa", SROA())
 FUNCTION_PASS("tailcallelim", TailCallElimPass())
 FUNCTION_PASS("unreachableblockelim", UnreachableBlockElimPass())
 FUNCTION_PASS("unroll", LoopUnrollPass())
+FUNCTION_PASS("unroll<peeling;no-runtime>",LoopUnrollPass(LoopUnrollOptions().setPeeling(true).setRuntime(false)))
 FUNCTION_PASS("verify", VerifierPass())
 FUNCTION_PASS("verify<domtree>", DominatorTreeVerifierPass())
 FUNCTION_PASS("verify<loops>", LoopVerifierPass())
@@ -293,12 +293,13 @@ FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
 
 #if INTEL_CUSTOMIZATION
+FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
 FUNCTION_PASS("hir-ssa-deconstruction", loopopt::HIRSSADeconstructionPass())
 FUNCTION_PASS("print<hir-region-identification>", loopopt::HIRRegionIdentificationPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-scc-formation>", loopopt::HIRSCCFormationPrinterPass(dbgs()))
-FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs(), true))
 FUNCTION_PASS("verify<hir-framework>", loopopt::HIRFrameworkVerifierPass())
-FUNCTION_PASS("print<hir>", loopopt::HIRFrameworkPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir>", loopopt::HIRFrameworkPrinterPass(dbgs(), false))
 FUNCTION_PASS("verify<hir>", loopopt::HIRFrameworkVerifierPass())
 FUNCTION_PASS("print<hir-loop-statistics>", loopopt::HIRLoopStatisticsPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-loop-resource>", loopopt::HIRLoopResourcePrinterPass(dbgs()))

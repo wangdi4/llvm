@@ -69,8 +69,14 @@ static bool LinkingExecutable = false;
 // The only symbols that will be treated as externals are main and those
 // that are in the RuntimeLibcalls table.
 static bool HiddenVisibility = false;
-#define DEBUG_TYPE  "wholeprogramanalysis"
 
+// SetVector for storing the symbols that are visible to regular objects.
+// These symbols might have IR in the summary section, but the LTO
+// visibility analysis found that there might be a none-LTO unit that
+// are accessing them.
+static SetVector<StringRef> VisibleSymbolsVector;
+
+#define DEBUG_TYPE  "wholeprogramanalysis"
 
 INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
@@ -90,6 +96,13 @@ void llvm::setLinkingExecutable(bool LinkingExe) {
 // symbols resolution.
 void llvm::setVisibilityHidden(bool AllSymbolsHidden) {
   HiddenVisibility = AllSymbolsHidden;
+}
+
+// Store the input symbol name in the VisibleSymbolsVector. These
+// symbols will be printed during the whole program analysis trace.
+void llvm::storeVisibleSymbols(StringRef SymbolName) {
+  if (WholeProgramTrace)
+    VisibleSymbolsVector.insert(SymbolName);
 }
 
 static bool IsWholeProgramRead() {
@@ -421,7 +434,11 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
         errs() << "      " << F->getName() << "\n";
     }
 
-
+    // Print those symbols that are visible outside the LTO unit
+    errs() << "  VISIBLE OUTSIDE LTO: " << VisibleSymbolsVector.size() << "\n";
+    for (StringRef SymbolName : VisibleSymbolsVector) {
+      errs() << "      " << SymbolName << "\n";
+    }
   }
 
   // Print only the libfuncs

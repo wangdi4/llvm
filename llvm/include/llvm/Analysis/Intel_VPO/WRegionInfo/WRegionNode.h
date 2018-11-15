@@ -32,6 +32,9 @@
 #include "llvm/IR/BasicBlock.h"
 
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
 
@@ -41,6 +44,11 @@
 namespace llvm {
 
 namespace vpo {
+
+#if INTEL_CUSTOMIZATION
+using namespace loopopt;
+// Needed for HLNode and HLLoop
+#endif //INTEL_CUSTOMIZATION
 
 extern std::unordered_map<int, StringRef> WRNName;
 
@@ -181,6 +189,7 @@ protected:
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
   void getClausesFromOperandBundles();
+  void getClausesFromOperandBundles(IntrinsicInst *Call);
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -200,7 +209,7 @@ public:
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
   bool canHaveDepend() const;
-  bool canHaveDepSink() const;
+  bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
@@ -225,6 +234,7 @@ public:
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
   virtual DepSinkClause &getDepSink()        {WRNERROR("DEPEND(SINK:..)");    }
+  virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
   virtual FirstprivateClause &getFpriv()     {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual FlushSet &getFlush()               {WRNERROR(QUAL_OMP_FLUSH);       }
   virtual IsDevicePtrClause &getIsDevicePtr()
@@ -256,6 +266,8 @@ public:
                                            {WRNERROR("DEPEND");             }
   virtual const DepSinkClause &getDepSink() const
                                            {WRNERROR("DEPEND(SINK:..)");    }
+  virtual const DepSourceClause &getDepSource() const
+                                           {WRNERROR("DEPEND(SOURCE)");     }
   virtual const FirstprivateClause &getFpriv() const
                                            {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
@@ -305,8 +317,6 @@ public:
   virtual bool getHasSeqCstClause()       const {WRNERROR("SEQ_CST");         }
   virtual void setIf(EXPR E)                    {WRNERROR(QUAL_OMP_IF);       }
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
-  virtual void setIsDepSource(bool F)           {WRNERROR("DEPEND(SOURCE)");  }
-  virtual bool getIsDepSource()           const {WRNERROR("DEPEND(SOURCE)");  }
   virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
@@ -323,12 +333,14 @@ public:
   virtual EXPR getNumTeams()              const {WRNERROR(QUAL_OMP_NUM_TEAMS);}
   virtual void setNumThreads(EXPR E)          {WRNERROR(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()          const {WRNERROR(QUAL_OMP_NUM_THREADS);}
-#if INTEL_CUSTOMIZATION
-  virtual int  setOffloadEntryIdx()            {WRNERROR("OFFLOAD_ENTRY_IDX");}
+  virtual void setOffloadEntryIdx(int N)       {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
-#endif // INTEL_CUSTOMIZATION
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }
   virtual int getOrdered()                const {WRNERROR(QUAL_OMP_ORDERED);  }
+  virtual void addOrderedTripCount(Value *TC)
+                                            {WRNERROR("ORDERED_TRIP_COUNTS"); }
+  virtual const SmallVectorImpl<Value *> &getOrderedTripCounts() const
+                                            {WRNERROR("ORDERED_TRIP_COUNTS"); }
   virtual void setParLoopNdInfoAlloca(AllocaInst *AI) { WRNERROR("LOOP_DESC"); }
   virtual AllocaInst *getParLoopNdInfoAlloca() const { WRNERROR("LOOP_DESC"); }
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }
@@ -371,6 +383,20 @@ public:
 
   virtual void setTaskFlag(unsigned F)          {WRNERROR("TASK FLAG");       }
   virtual unsigned getTaskFlag()          const {WRNERROR("TASK FLAG");       }
+
+#if INTEL_CUSTOMIZATION
+  // These methods are only available in WRNs constructed from HIR
+  virtual void setIsAutoVec(bool)               {WRNERROR("IsAutoVec");       }
+  virtual bool getIsAutoVec() const             {WRNERROR("IsAutoVec");       }
+  virtual void setIgnoreProfitability(bool)     {WRNERROR("Profitability");   }
+  virtual bool getIgnoreProfitability() const   {WRNERROR("Profitability");   }
+  virtual void setEntryHLNode(HLNode *)         {WRNERROR("EntryHLNode");     }
+  virtual HLNode *getEntryHLNode() const        {WRNERROR("EntryHLNode");     }
+  virtual void setExitHLNode(HLNode *)          {WRNERROR("ExitHLNode");      }
+  virtual HLNode *getExitHLNode() const         {WRNERROR("ExitHLNode");      }
+  virtual void setHLLoop(HLLoop *)              {WRNERROR("HLLoop");          }
+  virtual HLLoop *getHLLoop() const             {WRNERROR("HLLoop");          }
+#endif //INTEL_CUSTOMIZATION
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
@@ -675,14 +701,14 @@ extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
 
 /// Auxiliary function to print an Int in a WRN dump.
 ///
-/// If Num is 0:
-///  * Verbosity == 0: exit without printing anything
-///  * Verbosity >= 1: print "Title: UNSPECIFIED"
+/// If \p Num < \p Min:
+///  * \p Verbosity == 0: exit without printing anything
+///  * \p Verbosity >= 1: print "Title: UNSPECIFIED"
 ///
-/// If Num is not 0:
+/// If \p Num >= \p Min:
 ///  * print "Title: <Num>"
 extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
-                     int Indent, unsigned Verbosity=1);
+                     int Indent, unsigned Verbosity=1, int Min=1);
 
 /// Auxiliary function to print a boolean in a WRN dump.
 ///

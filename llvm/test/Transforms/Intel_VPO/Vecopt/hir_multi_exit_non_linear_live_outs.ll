@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -enable-first-it-peel-me-vec=false -VPlanDriverHIR -hir-cg -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -enable-first-it-peel-me-vec=false -VPlanDriverHIR -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 
 ; Verify that we properly generate code for non-linear live-outs when
 ; vectorizing a multi-exit loop.
@@ -60,11 +60,10 @@
 ;            + END LOOP
 ;      END REGION
 
-; CHECK: DO i1 =
+; CHECK: DO i1 = {{.*}}, 32
 ; CHECK: if (%intmask != 0)
-; CHECK: %bsf = @llvm.cttz.i2(%bsfintmask,  0);
-; CHECK-NEXT: %cast = zext.i2.i32(%bsf);
-; CHECK-NEXT: %{{[0-9]+}} = (%pb)[i1 + %cast + 1];
+; CHECK: %bsf = @llvm.cttz.i32(%bsfintmask,  0);
+; CHECK-NEXT: %{{[0-9]+}} = (%pb)[i1 + %bsf + 1];
 ; CHECK-NEXT: goto while.end.loopexit;
 
 define dso_local i32 @liveout_example(i32 %len_limit, i8* nocapture readonly %pb, i8* nocapture readonly %cur) local_unnamed_addr #0 {

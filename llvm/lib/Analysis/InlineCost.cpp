@@ -25,7 +25,8 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
-#include "llvm/Analysis/LoopInfo.h" // INTEL
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/MemoryBuiltins.h"           // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -36,16 +37,19 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/InstIterator.h"                   // INTEL
+#include "llvm/IR/InstVisitor.h"                    // INTEL
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Transforms/IPO/Intel_IPCloning.h" // INTEL
-#include "llvm/Support/GenericDomTree.h" // INTEL
+#include "llvm/IR/PatternMatch.h"                   // INTEL
+#include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
+#include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
-using namespace InlineReportTypes; // INTEL
+using namespace InlineReportTypes;  // INTEL
+using namespace llvm::PatternMatch; // INTEL
 
 #define DEBUG_TYPE "inline-cost"
 
@@ -151,6 +155,24 @@ static cl::opt<unsigned>
                             cl::ReallyHidden,
                             cl::desc("Minimal number of arguments appearing in "
                                      "array accesses inside callee."));
+
+// Options to set the number of formal arguments, basic blocks, and loops
+// for a huge function. We may suppress the inlining of functions which
+// have these many arguments, basic blocks, and loops, even if they are
+// have local linkage and a single call site.
+
+static cl::opt<unsigned> HugeFunctionBasicBlockCount(
+    "inlining-huge-bb-count", cl::init(90), cl::ReallyHidden,
+    cl::desc("Function with this many basic blocks or more may be huge"));
+
+static cl::opt<unsigned> HugeFunctionArgCount(
+    "inlining-huge-arg-count", cl::init(8), cl::ReallyHidden,
+    cl::desc("Function with this many arguments or more may be huge"));
+
+static cl::opt<unsigned> HugeFunctionLoopCount(
+    "inlining-huge-loop-count", cl::init(11), cl::ReallyHidden,
+    cl::desc("Function with this many loops or more may be huge"));
+
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -204,6 +226,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   int EarlyExitThreshold;
   int EarlyExitCost;
 
+  TargetLibraryInfo* TLI;
   InliningLoopInfoCache* ILIC;
 
   // Aggressive Analysis
@@ -364,6 +387,7 @@ public:
                Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
                ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
                Function &Callee, CallSite CSArg,   // INTEL
+               TargetLibraryInfo *TLI,             // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallSite, 20> *CSForFusion, // INTEL
@@ -375,7 +399,7 @@ public:
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
             Params.ComputeFullInlineCost.getValueOr(false) || ORE),
-        ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
+        TLI(TLI), ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         CallSitesForDTrans(CSForDTrans),
 #endif // INTEL_CUSTOMIZATION
         IsCallerRecursive(false), IsRecursiveCall(false),
@@ -821,6 +845,7 @@ bool CallAnalyzer::visitCastInst(CastInst &I) {
   case Instruction::FPToSI:
     if (TTI.getFPOpCost(I.getType()) == TargetTransformInfo::TCC_Expensive)
       Cost += InlineConstants::CallPenalty;
+    break;
   default:
     break;
   }
@@ -946,6 +971,30 @@ CallAnalyzer::getHotCallSiteThreshold(CallSite CS,
 void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
   InlineReasonVector &YesReasonVector) {                          // INTEL
   // If no size growth is allowed for this inlining, set Threshold to 0.
+
+#if INTEL_CUSTOMIZATION
+  // A function can be considered huge if it has too many formal arguments,
+  // basic blocks, and loops. We test them in this order (from cheapest to
+  // most expensive).
+  auto IsHugeFunction = [this](Function *F) {
+    if (!InlineForXmain || !DTransInlineHeuristics)
+      return false;
+    size_t ArgSize = F->arg_size();
+    if (ArgSize < HugeFunctionArgCount)
+      return false;
+    size_t BBCount = F->size();
+    if (BBCount < HugeFunctionBasicBlockCount)
+      return false;
+    LoopInfo *LI = ILIC->getLI(F);
+    if (!LI)
+      return false;
+    size_t LoopCount = std::distance(LI->begin(), LI->end());
+    if (LoopCount < HugeFunctionLoopCount)
+      return false;
+    return true;
+  };
+#endif // INTEL_CUSTOMIZATION
+
   if (!allowSizeGrowth(CS)) {
     Threshold = 0;
     return;
@@ -1071,7 +1120,8 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
   bool OnlyOneCallAndLocalLinkage =
        (F.hasLocalLinkage()                                     // INTEL
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&   // INTEL
-       F.hasOneUse() &&  &F == CS.getCalledFunction();          // INTEL
+       F.hasOneUse() && &F == CS.getCalledFunction() &&         // INTEL
+       !IsHugeFunction(&F);                                     // INTEL
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
@@ -1400,9 +1450,9 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // out. Pretend to inline the function, with a custom threshold.
   auto IndirectCallParams = Params;
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
-  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS, ILIC, AI,
-                  CallSitesForFusion, CallSitesForDTrans, // INTEL
-                  IndirectCallParams);                    // INTEL
+  CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS, // INTEL
+                  TLI, ILIC, AI, CallSitesForFusion,                 // INTEL
+                  CallSitesForDTrans, IndirectCallParams);           // INTEL
   if (CA.analyzeCall(CS, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
@@ -2143,13 +2193,12 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
   return true;
 }
 
-static bool preferCloningToInlining(CallSite& CS,
+static bool preferCloningToInlining(CallSite CS,
                                     InliningLoopInfoCache& ILIC,
                                     bool PrepareForLTO) {
-  // As a workaround, commenting out the below source line until changes
-  // in BackendUtil.cpp, which sets PrepareForLTO flag, will be checked
-  // into xmain branch. BackendUtil.cpp is not branch on ltoprof-xmain.
-  // if (!PrepareForLTO) return false;
+  // We don't need to check this if !PrepareForLTO because cloning after
+  // inlining is only generic cloning, not cloning with specialization.
+  if (!PrepareForLTO) return false;
   Function *Callee = CS.getCalledFunction();
   if (!Callee) return false;
   LoopInfo *LI = ILIC.getLI(Callee);
@@ -2159,110 +2208,184 @@ static bool preferCloningToInlining(CallSite& CS,
   return false;
 }
 
-//
-// Return 'true' if 'SI' is a store of a function pointer which appears in a
-// series of 3 assignments to successive fields of a structure instance.
-// Like:
-//
-//   typedef int (*FP)();
-//
-//   typedef struct {
-//     FP field1;
-//     FP field2;
-//     FP field3;
-//   } MYSTRUCT;
-//   MYSTRUCT *ptr;
-//
-//   ptr->field1 = FunctionPtr1;
-//   ptr->field2 = FunctionPtr2;
-//   ptr->field3 = FunctionPtr3;
-//
-static bool inSpecialFxnPtrStructAssignCluster(StoreInst *SI,
-                                               SmallPtrSetImpl<Function *>
-                                                   &CalleeFxnPtrSet) {
-  static SmallPtrSet<Function *, 3> FxnPtrSet;
-    // Stores the function pointers in the series
-  static SmallPtrSet<StoreInst *, 3> StoreInstSet;
-    // Stores the StoreInsts series
-  if (!StoreInstSet.empty()) {
-    // If we have already computed the series of function pointers and
-    // stores, just query whether 'SI' is one of them.
-    return StoreInstSet.find(SI) != StoreInstSet.end();
-  }
-  // Scan for a series of GetElementPtrInsts followed by StoreInsts, like:
-  //
-  // %fp01 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 0
-  // store i32 ()* @fp1, i32 ()** %fp1, %fp01, align 8
-  // %fp02 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 1
-  // store i32 ()* @fp2, i32 ()** %fp2, %fp02, align 8
-  // %fp03 = getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 2
-  //  store i32 ()* @fp3, i32 ()** %fp3, %fp03, align 8
-  BasicBlock *BB = SI->getParent();
-  Value *GEPIPointerOperand = nullptr;
-  GetElementPtrInst *NGI = nullptr;
-  bool FoundStoreMatch = false;
-  int ExpectedCount = 0;
-  for (auto &I : *BB) {
-    // {NGI, NSI} will be the current GetElementPtrInst and StoreInst pair
-    if (!NGI || !NGI->hasAllConstantIndices()) {
-      NGI = dyn_cast<GetElementPtrInst>(&I);
-      continue;
-    }
-    auto NSI = dyn_cast<StoreInst>(&I);
-    if (!NSI)
-      break;
-    if (NSI == SI)
-      FoundStoreMatch = true;
-    // Ensure that NGI feeds NSI
-    if (GEPIPointerOperand == nullptr)
-      GEPIPointerOperand = NGI->getPointerOperand();
-    // Ensure that NGI has the form:
-    //   getelementptr inbounds %MYSTRUCT, %MYSTRUCT* %0, i32 0, i32 X
-    // where X goes from 0 to 1 to 2
-    else if (GEPIPointerOperand != NGI->getPointerOperand())
-      break;
-    if (!cast<ConstantInt>(NGI->getOperand(1))->isZeroValue())
-      break;
-    if (cast<ConstantInt>(NGI->getOperand(2))->getSExtValue() != ExpectedCount)
-      break;
-    if (NSI->getPointerOperand() != NGI)
-      break;
-    auto F = dyn_cast<Function>(NSI->getValueOperand());
-    if (!F)
-      break;
-    // Save the candidate pair
-    StoreInstSet.insert(NSI);
-    FxnPtrSet.insert(F);
-    ++ExpectedCount;
-    if (FoundStoreMatch && (ExpectedCount == 3)) {
-      // Make each of the Functions found in the series preferred for
-      // multiversioning
-      for (auto Fxn : FxnPtrSet)
-        CalleeFxnPtrSet.insert(Fxn);
+// Function checkVToArg() is overloaded with different argument lists
+static bool checkVToArg(Value *, SmallPtrSetImpl<Value *> &);
+
+// Check that at least 1 of a given BinaryOperator's operand is either an
+// Argument, or can be traced to either an Argument.
+static bool checkVToArg(BinaryOperator *BO,
+                        SmallPtrSetImpl<Value *> &ValPtrSet) {
+  assert(BO && "Expect a valid BinaryOperator *\n");
+
+  for (unsigned I = 0, E = BO->getNumOperands(); I < E; ++I)
+    if (checkVToArg(BO->getOperand(I), ValPtrSet))
       return true;
-    }
-    NGI = nullptr;
-  }
-  // We didn't find a full series, so clear out what we have found so far.
-  StoreInstSet.clear();
-  FxnPtrSet.clear();
+
   return false;
 }
 
+// Check that at least 1 of PHINode's incoming value is either an Argument, or
+// can be traced to an Argument.
+static bool checkVToArg(PHINode *Phi, SmallPtrSetImpl<Value *> &ValPtrSet) {
+  assert(Phi && "Expect a valid PHINode *\n");
+
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I < E; ++I)
+    if (checkVToArg(Phi->getIncomingValue(I), ValPtrSet))
+      return true;
+
+  return false;
+}
+
+// Expect V be an Argument, or can ultimately trace back to an Argument.
 //
-// Return 'true' if 'F' is called by exactly two Functions
+// Support the following types only:
+// - Argument
+// - BinaryOperation
+// - PHINode
+// - CastInst
+// - SelectInst
 //
-static bool isCalledByTwoFxns(Function *F)
-{
-  SmallPtrSet<Function *, 2> CallerSet;
-  for (User *U : F->users()) {
-    CallSite Site(U);
-    if (!Site || Site.getCalledFunction() != F)
+static bool checkVToArg(Value *V, SmallPtrSetImpl<Value *> &ValPtrSet) {
+  assert(V && "Expect a valid Value *\n");
+
+  if (isa<Argument>(V))
+    return true;
+
+  if (BinaryOperator *BO = dyn_cast<BinaryOperator>(V))
+    return checkVToArg(BO, ValPtrSet);
+
+  if (CastInst *CI = dyn_cast<CastInst>(V))
+    return checkVToArg(CI->getOperand(0), ValPtrSet);
+
+  // SelectInst: expect at least 1 operand to converge
+  if (SelectInst *SI = dyn_cast<SelectInst>(V))
+    return checkVToArg(SI->getTrueValue(), ValPtrSet) ||
+           checkVToArg(SI->getFalseValue(), ValPtrSet);
+
+  // PHINode: check current Phi form any potential cycle
+  if (PHINode *Phi = dyn_cast<PHINode>(V))
+    if (ValPtrSet.find(V) == ValPtrSet.end()) {
+      ValPtrSet.insert(V);
+      return checkVToArg(Phi, ValPtrSet);
+    }
+
+  return false;
+}
+
+// Check: expect the given Function
+// - has 2 consecutive AND instructions;
+//   and
+// - each AND instruction has a value 0x07 on ones of its operands;
+//
+static bool has2SubInstWithValInF(Function *F, const Value *Val0,
+                                  const Value *Val1) {
+
+  for (inst_iterator I = inst_begin(F), E = std::prev(inst_end(F)); I != E;
+       ++I) {
+
+    auto NextI = std::next(I);
+
+    if ((!isa<BinaryOperator>(&*I)) || (!isa<BinaryOperator>(&*NextI)))
       continue;
-    if (CallerSet.insert(Site.getCaller()).second && CallerSet.size() > 2)
-      return false;
+
+    BinaryOperator *BOp = dyn_cast<BinaryOperator>(&*I);
+    BinaryOperator *NextBOp = dyn_cast<BinaryOperator>(&*NextI);
+
+    // Check: both are bit-wise AND instructions
+    if (BOp->getOpcode() != Instruction::And)
+      continue;
+    if (NextBOp->getOpcode() != Instruction::And)
+      continue;
+
+    // Check: each has the provided value on its operand
+    bool BCond = (BOp->getOperand(0) == Val0) || (BOp->getOperand(1) == Val0);
+    if (!BCond)
+      continue;
+
+    BCond =
+        (NextBOp->getOperand(0) == Val1) || (NextBOp->getOperand(1) == Val1);
+    if (!BCond)
+      continue;
+
+    // Good if both conditions fit:
+    return true;
   }
-  return CallerSet.size() == 2;
+
+  return false;
+}
+
+// Check that in a given loop (L):
+// - BottomTest (CmpInst) exists and is a supported predicate;
+// - CmpInst has only 2 operands;
+// - UpperBound (UB) ultimately refers to one of F's formal;
+//
+static bool checkLoop(Loop *L) {
+  assert(L && "Expect a valid Loop *\n");
+
+  ICmpInst *CInst = getLoopBottomTest(L);
+  if (!CInst)
+    return false;
+
+  if (!CInst->isIntPredicate())
+    return false;
+
+  if (CInst->getNumOperands() != 2)
+    return false;
+
+  // Check: comparison is <, <= or ==.
+  // (since the loop has not been normalized yet)
+  ICmpInst::Predicate Pred = CInst->getPredicate();
+  if (!(Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_ULT ||
+        Pred == ICmpInst::ICMP_ULE || Pred == ICmpInst::ICMP_SLT ||
+        Pred == ICmpInst::ICMP_SLE))
+    return false;
+
+  // Check: the loop's UpperBound traces to a formal Argument
+  llvm::SmallPtrSet<Value *, 16> ValPtrSet;
+  if (!checkVToArg(CInst->getOperand(1), ValPtrSet))
+    return false;
+
+  return true;
+}
+
+// Check: expect the given Function
+// - has at least 1 loop nest
+// - count the cases where the loop's upper bound (UB) traces back to one of
+//   arguments for the given function;
+//   The total count matches the expected count;
+//
+static bool checkLoopUBMatchArgInF(InliningLoopInfoCache &ILIC, Function *F,
+                                   const unsigned ExpectedUBInArgs) {
+  // Only consider candidates that have loops, otherwise there is nothing
+  // to multiversion.
+  LoopInfo *LI = ILIC.getLI(F);
+  if (!LI || LI->empty())
+    return false;
+  auto Loops = LI->getLoopsInPreorder();
+  unsigned Count = 0;
+
+  // Check + Count each loop:
+  for (auto L : Loops)
+    if (checkLoop(L))
+      ++Count;
+
+  return (Count == ExpectedUBInArgs);
+}
+
+static bool isLeafFunction(const Function &F) {
+
+  for (const auto &I : instructions(&F)) {
+    if (isa<InvokeInst>(&I))
+      return false;
+
+    if (auto CI = dyn_cast<CallInst>(&I)) {
+      Function *Callee = CI->getCalledFunction();
+      if (!Callee || !Callee->isIntrinsic())
+    	return false;
+    }
+  }
+
+  return true;
 }
 
 //
@@ -2270,9 +2393,13 @@ static bool isCalledByTwoFxns(Function *F)
 // to multiversion it. 'PrepareForLTO' is true if we are on the compile step
 // of an LTO compilation.
 //
-static bool preferMultiversioningToInlining(CallSite& CS,
-                                            InliningLoopInfoCache& ILIC,
+static bool preferMultiversioningToInlining(CallSite CS,
+                                            InliningLoopInfoCache &ILIC,
                                             bool PrepareForLTO) {
+
+  //Only focus on Link time at present:
+  if (PrepareForLTO)
+    return false;
 
   // Right now, only the callee is tested for multiversioning.  We use
   // this set to keep track of callees that have already been tested,
@@ -2281,57 +2408,35 @@ static bool preferMultiversioningToInlining(CallSite& CS,
   // be rejected quickly.
   static SmallPtrSet<Function *, 3> CalleeFxnPtrSet;
 
-  // Functions that were not called by exactly two functions when we first
-  // tested them. Inlining can change the number of functions which call
-  // a function, as can indirect call specialization.
-  static SmallPtrSet<Function *, 10> NotCalledByTwoFxnPtrSet;
-
+  // Quick tests:
   if (!DTransInlineHeuristics)
     return false;
-  Function* Callee = CS.getCalledFunction();
+  Function *Callee = CS.getCalledFunction();
   if (!Callee)
     return false;
   if (CalleeFxnPtrSet.find(Callee) != CalleeFxnPtrSet.end())
     return true;
-  // Must be called by exactly two Functions.
-  if (NotCalledByTwoFxnPtrSet.find(Callee) != NotCalledByTwoFxnPtrSet.end())
+
+  // Check: expect Callee be a leaf function
+  if (!isLeafFunction(*Callee))
     return false;
-  if (!isCalledByTwoFxns(Callee)) {
-    NotCalledByTwoFxnPtrSet.insert(Callee);
+
+  // Check: there are 2 consecutive AND instructions, and each AND instruction
+  // has a value 0x07 on its operand
+  llvm::Type *I32Ty = llvm::IntegerType::getInt32Ty(Callee->getContext());
+  llvm::Constant *I32Val7 = llvm::ConstantInt::get(I32Ty, 7 /*value*/, true);
+  if (!has2SubInstWithValInF(Callee, I32Val7, I32Val7))
     return false;
-  }
-  // Only consider candidates that have loops, otherwise there is nothing
-  // to multiversion.
-  LoopInfo *CalleeLI = ILIC.getLI(Callee);
-  if (!CalleeLI || CalleeLI->empty())
+
+  // Check: there are 2 loops in the given function,
+  // and each Loop's UB can trace to a formal Argument.
+  if (!checkLoopUBMatchArgInF(ILIC, Callee, 2))
     return false;
-  // Special criteria that narrow the candidate list.
-  bool FoundNonCallUser = false;
-  for (User *U : Callee->users()) {
-    CallSite Site(U);
-    if (!Site || Site.getCalledFunction() != Callee)
-      continue;
-    Function *Caller = Site.getCaller();
-    for (User *UU : Caller->users()) {
-      // After LTO pass indirect call resolution, some candidates may
-      // appear as direct calls, and we don't want to penalize them for that.
-      if (!PrepareForLTO && (isa<CallInst>(UU) || isa<InvokeInst>(UU)))
-        continue;
-      auto SI = dyn_cast<StoreInst>(UU);
-      if (!SI)
-        return false;
-      // Look for a list of function pointers assigned to successive
-      // fields in the same structure instance.
-      if (!inSpecialFxnPtrStructAssignCluster(SI, CalleeFxnPtrSet))
-        return false;
-      FoundNonCallUser = true;
-    }
-  }
-  if (!FoundNonCallUser)
-    return false;
+
   CalleeFxnPtrSet.insert(Callee);
   return true;
 }
+
 
 //
 // Return 'true' if 'CS' is worth inlining due to multiple arguments being
@@ -2489,8 +2594,8 @@ static bool isConstantTripCount(Loop *L) {
   }
 
   uint64_t LimTC = ConstValue.getLimitedValue();
-  if (LimTC < 3) {
-    // small TC - return false
+  // Currently allow only TC=4.
+  if (LimTC != 4) {
     return false;
   }
 
@@ -2511,25 +2616,17 @@ static cl::opt<int> MinArgRefs(
     cl::desc(
         "Min number of arguments appearing in loop candidates for fusion"));
 
-// Minimal number of successive callsites need to be inlined to benefit
+// Number of successive callsites need to be inlined to benefit
 // from loops fusion.
-static cl::opt<int>
-    MinCallSitesForFusion("inline-for-fusion-min-callsites", cl::Hidden,
-                          cl::init(2),
-                          cl::desc("Min number of calls inlined for fusion"));
-
-// Maximal number of successive callsites need to be inlined to benefit
-// from loops fusion.
-static cl::opt<int>
-    MaxCallSitesForFusion("inline-for-fusion-max-callsites", cl::Hidden,
-                          cl::init(20),
-                          cl::desc("Max number of calls inlined for fusion"));
+static cl::list<int> NumCallSitesForFusion("inline-for-fusion-num-callsites",
+                                           cl::ReallyHidden,
+                                           cl::CommaSeparated);
 
 // Temporary switch to control new callsite inlining heuristics
 // for fusion until tuning of loopopt is complete.
-static cl::opt<bool>
+static cl::opt<cl::boolOrDefault>
     InliningForFusionHeuristics("inlining-for-fusion-heuristics",
-                                cl::init(false), cl::ReallyHidden);
+                                cl::ReallyHidden);
 
 /// \brief Analyze a callsite for potential inlining for fusion.
 ///
@@ -2545,10 +2642,13 @@ static cl::opt<bool>
 /// then we store other CS to the same function in the same basic block in
 /// the set of inlining candidates for fusion.
 static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
-                                   SmallSet<CallSite, 20> *CallSitesForFusion) {
-  if (!InliningForFusionHeuristics) {
+                                   SmallSet<CallSite, 20> *CallSitesForFusion,
+                                   bool PrepareForLTO) {
+  // Heuristic is enabled if option is unset and it is first inliner run
+  // (on PrepareForLTO phase) OR if option is set to true.
+  if (((InliningForFusionHeuristics != cl::BOU_UNSET) || !PrepareForLTO) &&
+      (InliningForFusionHeuristics != cl::BOU_TRUE))
     return false;
-  }
 
   if (!CallSitesForFusion) {
     LLVM_DEBUG(llvm::dbgs()
@@ -2562,39 +2662,59 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
     return true;
   }
 
+  Function *Caller = CS.getCaller();
   Function *Callee = CS.getCalledFunction();
   BasicBlock *CSBB = CS->getParent();
 
   SmallVector<CallSite, 20> LocalCSForFusion;
-  // Go through each successive call in basic block and find all callsites.
-  int CSCount = 1;
-  bool CallSiteCountFlag = false;
-  for (auto I = CSBB->begin(), E = CSBB->end(); I != E; ++I) {
-    CallSite LocalCS(cast<Value>(I));
-    if (!LocalCS) {
+  // Check that all call sites in the Caller, that are not to intrinsics, are in
+  // the same basic block and are fusion candidates.
+  int CSCount = 0;
+  for (auto &I : instructions(Caller)) {
+    CallSite LocalCS(&I);
+    if (!LocalCS)
       continue;
-    }
-    if (LocalCS == CS) {
-      CallSiteCountFlag = true;
-      continue;
-    }
+
     Function *CurrCallee = LocalCS.getCalledFunction();
-    if (CallSiteCountFlag) {
-      if (CurrCallee == Callee) {
-        CSCount++;
-        LocalCSForFusion.push_back(LocalCS);
-      } else {
-        CallSiteCountFlag = false;
-      }
+    if (!CurrCallee) {
+      return false;
     }
+
+    if (CurrCallee->isIntrinsic())
+      continue;
+    if (CurrCallee != Callee) {
+      return false;
+    }
+
+    if (I.getParent() != CSBB) {
+      return false;
+    }
+
+    LocalCSForFusion.push_back(LocalCS);
+    CSCount++;
   }
 
-  // If number of successive calls is relatively small or too big
-  // then skip inlining
-  if ((CSCount < MinCallSitesForFusion) || (CSCount > MaxCallSitesForFusion)) {
+  // If the user doesn't specify number of call sites explicitly then use 8
+  // (and 2 later) as a default value,
+  if (NumCallSitesForFusion.empty()) {
+    NumCallSitesForFusion.push_back(8);
+    // TODO:   NumCallSitesForFusion.push_back(2);
+  }
+
+  // If call site candidates are the only calls in the caller function and the
+  // number of successive calls doesn't fit into the option - skip
+  // transformation.
+  bool CSCountApproved = false;
+  for (int CSCountVariant : NumCallSitesForFusion)
+    if (CSCount == CSCountVariant) {
+      CSCountApproved = true;
+      break;
+    }
+
+  if (!CSCountApproved) {
     LLVM_DEBUG(
         llvm::dbgs()
-        << "IC: No inlining for fusion: number of candidates is out of range:"
+        << "IC: No inlining for fusion. Inappropriate number of call sites: "
         << CSCount << "\n");
     return false;
   }
@@ -2636,27 +2756,23 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
     // the callee.
     for (auto *BB : LL->blocks()) {
       for (auto &I : *BB) {
-        if (ArgCnt > MinArgRefs) {
+        if (ArgCnt > MinArgRefs)
           break;
-        }
         if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(&I)) {
           Value *PtrOp = GEPI->getPointerOperand();
           if (PtrOp) {
-            if (isa<PHINode>(PtrOp)) {
+            if (isa<PHINode>(PtrOp))
               PtrOp = dyn_cast<PHINode>(PtrOp)->getIncomingValue(0);
-            }
             if (isa<Argument>(PtrOp))
               ArgCnt++;
           }
         }
       }
-      if (ArgCnt > MinArgRefs) {
+      if (ArgCnt > MinArgRefs)
         break;
-      }
     }
-    if (ArgCnt > MinArgRefs) {
+    if (ArgCnt > MinArgRefs)
       break;
-    }
   }
 
   // Not enough arguments-arrays were found in loop.
@@ -2665,6 +2781,10 @@ static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
                << "IC: No inlining for fusion: not enough array refs.\n");
     return false;
   }
+
+  // TODO: Remove this condition once 2 becomes a legal CSCount.
+  if (Caller->getInstructionCount() < 40)
+    return false;
 
   // Store other inlining candidates in a special map.
   if (CallSitesForFusion) {
@@ -2854,6 +2974,340 @@ void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
   }
 }
 
+//
+// Starts with Value *V and traces back through a series of at least
+// 'MinBOpCount' but no more than 'MaxBOpCount' BinaryOperators which must
+// have the form:
+//   BinaryOperator W, constant or BinaryOperator constant, W
+// to get to a load of a GlobalValue.  If such a GlobalValue is found, we
+// return it, otherwise we return 'nullptr'.
+//
+static GlobalValue *traceBack(Value *V, unsigned MinBOpCount,
+                              unsigned MaxBOpCount) {
+  auto W = V;
+  auto BOp = dyn_cast<BinaryOperator>(W);
+  unsigned BOpCount = 0;
+  while (BOp) {
+    if (++BOpCount > MaxBOpCount)
+      return nullptr;
+    if (dyn_cast<ConstantInt>(BOp->getOperand(0))) {
+      W = BOp->getOperand(1);
+    } else if (dyn_cast<ConstantInt>(BOp->getOperand(1))) {
+      W = BOp->getOperand(0);
+    }
+    if (!W)
+      return nullptr;
+    BOp = dyn_cast<BinaryOperator>(W);
+  }
+  if (BOpCount < MinBOpCount)
+    return nullptr;
+  auto LI = dyn_cast<LoadInst>(W);
+  if (!LI)
+    return nullptr;
+  auto GV = dyn_cast<GlobalValue>(LI->getPointerOperand());
+  return GV;
+}
+
+//
+// Returns 'true' if the Function *F calls a realloc-like function, or if
+// heuristically we suspect it is a realloc-like function. (In a non-LTO
+// compilation, or the compile phase of an LTO, there are fewer functions with
+// IR than in the link phase of an LTO compilation of the same application.
+// So, a function that appears with IR in the link phase of an LTO
+// compilation could be merely a declaration in the compile phase, and
+// we would have no knowledge of its contents in the compile phase.)
+//
+static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
+  if (F->getName().contains("realloc"))
+    return true;
+  for (auto &I : instructions(F))
+    if (isReallocLikeFn(&I, TLI))
+      return true;
+  return false;
+}
+
+//
+// Return 'true' if the Function F should be inlined because it exposes some
+// important stack computations. (NOTE: Right now, we only qualify such a
+// function when we are not in the compile time pass of a link time
+// compilation and if special DTRANS options are thrown. We also only qualify
+// a single function at this time.  The heuristic can be extended if we find
+// that inlining multiple functions is of value.)
+//
+static bool worthInliningForStackComputations(Function *F,
+                                              TargetLibraryInfo *TLI,
+                                              bool PrepareForLTO) {
+
+  //
+  // Return 'true' if Function *F passes the argument test.  We are looking
+  // for a Function that has two arguments.  The first should be a pointer,
+  // and the second should be an integer.
+  //
+  auto PassesArgTest = [](Function *F) -> bool {
+    auto CalleeArgCount = F->arg_size();
+    if (CalleeArgCount != 2)
+      return false;
+    Argument *Arg0 = F->arg_begin();
+    if (!Arg0->getType()->isPointerTy())
+      return false;
+    Argument *Arg1 = F->arg_begin() + 1;
+    if (!Arg1->getType()->isIntegerTy())
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if the Function *F passes the control flow test.  We are
+  // looking for a Function that has three BasicBlocks:
+  //   EntryBB: Terminates in a > test which branches to IncBB if true and
+  //     RetBB if false
+  //   IncBB: Terminates in an unconditional branch to RetBB
+  //   RetBB: Has only a return in it.
+  //
+  auto PassesControlFlowTest = [](Function *F) -> bool {
+    auto CalleeBBs = F->size();
+    if (CalleeBBs != 3)
+      return false;
+    BasicBlock *EntryBB = &(F->getEntryBlock());
+    auto TI = EntryBB->getTerminator();
+    auto BI = dyn_cast<BranchInst>(TI);
+    if (!BI || !BI->isConditional())
+      return false;
+    auto IncBB = BI->getSuccessor(0);
+    BasicBlock *RetBB = BI->getSuccessor(1);
+    if (IncBB == EntryBB || IncBB == RetBB || EntryBB == RetBB)
+      return false;
+    auto IBI = dyn_cast<BranchInst>(IncBB->getTerminator());
+    if (!IBI || IBI->isConditional())
+      return false;
+    if (IncBB->getSingleSuccessor() != RetBB)
+      return false;
+    if (RetBB->size() != 1)
+      return false;
+    if (!isa<ReturnInst>(&RetBB->front()))
+      return false;
+    auto *ICI = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!ICI || ICI->getPredicate() != ICmpInst::ICMP_SGT)
+      return false;
+    return true;
+  };
+
+  //
+  // Returns 'true' if the Function *F passes the contents test.  Here, we are
+  // looking for a test
+  //   BinOpTest(GlobalStack) .SGT. GlobalMax
+  // at the end of EntryBB, a StoreInst in IncBB to GlobalMax and a CallInst
+  // in IncBB to a function that calls a realloc-like function. Here BinOpTest
+  // is a series of BinaryOperators.
+  //
+  auto PassesContentsTest = [](Function *F,
+      TargetLibraryInfo *TLI) -> bool {
+    unsigned StoreCount = 0;
+    unsigned CallCount = 0;
+    BasicBlock *EntryBB = &(F->getEntryBlock());
+    auto TI = EntryBB->getTerminator();
+    // We have already tested the types of BI and ICI in passesControlFlowTest,
+    // so we can use casts here instead of dyn_casts.
+    auto BI = cast<BranchInst>(TI);
+    auto *ICI = cast<ICmpInst>(BI->getCondition());
+    auto GlobalMax = dyn_cast<LoadInst>(ICI->getOperand(1));
+    if (!GlobalMax)
+      return false;
+    auto GlobalMaxPtr = dyn_cast<GlobalValue>(GlobalMax->getPointerOperand());
+    if (!GlobalMaxPtr)
+      return false;
+    auto GlobalStackPtr = traceBack(ICI->getOperand(0), 1, 3);
+    if (!GlobalStackPtr)
+      return false;
+    auto IncBB = BI->getSuccessor(0);
+    for (auto &I : *IncBB) {
+      auto SI = dyn_cast<StoreInst>(&I);
+      if (SI) {
+        if (StoreCount > 0)
+          return false;
+        auto GV = dyn_cast<GlobalValue>(SI->getPointerOperand());
+        if (GV != GlobalMaxPtr)
+          return false;
+        StoreCount++;
+      }
+      auto CI = dyn_cast<CallInst>(&I);
+      if (CI) {
+        if (CallCount > 0)
+          return false;
+        if (!callsRealloc(CI->getCalledFunction(), TLI))
+          return false;
+        CallCount++;
+      }
+      if (StoreCount && CallCount)
+        return true;
+    }
+    return false;
+  };
+
+  //
+  // Use 'WorthyFunction' to store the single worthy Function if found.
+  // Use SmallPtrSet to store those Functions that have already been tested
+  // and have failed the test, so we don't need to test them again.
+  //
+  static Function *WorthyFunction = nullptr;
+  static SmallPtrSet<Function *, 32> FunctionsTestedFail;
+  if (!TLI || !DTransInlineHeuristics || PrepareForLTO)
+    return false;
+  if (WorthyFunction)
+    return WorthyFunction == F;
+  if (FunctionsTestedFail.count(F))
+    return false;
+  if (!PassesArgTest(F) || !PassesControlFlowTest(F) ||
+      !PassesContentsTest(F, TLI)) {
+    FunctionsTestedFail.insert(F);
+    return false;
+  }
+  WorthyFunction = F;
+  return true;
+}
+
+//
+// Return 'true' if Function *F should not be inlined due to its special
+// manipulation of stack instructions.
+//
+static bool preferNotToInlineForStackComputations(Function *F,
+                                                  TargetLibraryInfo *TLI) {
+  //
+  // Returns 'true' if the Function *F has no arguments.
+  //
+  auto PassesArgTest = [](Function *F) -> bool {
+    return F->arg_size() == 0;
+  };
+
+  //
+  // Returns 'true' if the Function *F has only one basic block.
+  //
+  auto PassesControlFlowTest = [](Function *F) -> bool {
+    return F->size() == 1;
+  };
+
+  //
+  // Returns 'true' if the Function *F passes the contents test.
+  // We are looking for two stores with the forms:
+  //   GlobalValue1 = BinOpTest(GlobalValue1)
+  //   GlobalValue2 = BitCast(call Realloc(BitCast(GlobalValue2),
+  //                                       ConstantInt * GlobalValue1)
+  // where the BitCasts are optional.
+  //
+  auto PassesContentsTest = [](Function *F,
+      TargetLibraryInfo *TLI) -> bool {
+    unsigned StoreCount = 0;
+    StoreInst *S0 = nullptr;
+    for (auto &I : F->getEntryBlock()) {
+      auto SI = dyn_cast<StoreInst>(&I);
+      if (SI) {
+        if (StoreCount == 0) {
+          // Find:  GlobalValue1 = BinOpTest(GlobalValue1)
+          auto GV1 = dyn_cast<GlobalValue>(SI->getPointerOperand());
+          if (!GV1)
+            return false;
+          auto GV2 = traceBack(SI->getValueOperand(), 3, 3);
+          if (GV2 != GV1)
+            return false;
+          S0 = SI;
+          StoreCount++;
+        } else if (StoreCount == 1) {
+          // Find:
+          //   GlobalValue2 = BitCast(call Realloc(BitCast(GlobalValue2),
+          //                                       ConstantInt * GlobalValue1)
+          auto SIP = SI->getPointerOperand();
+          auto BCSO = dyn_cast<BitCastOperator>(SIP);
+          if (BCSO)
+            SIP = BCSO->getOperand(0);
+          auto GV1 = dyn_cast<GlobalValue>(SIP);
+          if (!GV1)
+            return false;
+          // Look through a possible BitCast to find the call.
+          auto V = SI->getValueOperand();
+          auto BCI = dyn_cast<BitCastInst>(V);
+          if (BCI)
+            V = BCI->getOperand(0);
+          auto CI = dyn_cast<CallInst>(V);
+          if (!CI)
+            return false;
+          auto CS = CallSite(CI);
+          // Check the call's arguments.
+          if (CS.arg_size() != 2)
+            return false;
+          // Arg0 should be BitCast(GlobalValue2), where BitCast is optional.
+          auto V0 = CS.arg_begin();
+          auto LI = dyn_cast<LoadInst>(V0);
+          if (!LI)
+            return false;
+          auto W0 = LI->getPointerOperand();
+          auto BCO = dyn_cast<BitCastOperator>(W0);
+          if (BCO)
+            W0 = BCO->getOperand(0);
+          auto GV2 = dyn_cast<GlobalValue>(W0);
+          if (GV2 != GV1)
+            return false;
+          // Arg1 should be ConstantInt * GlobalValue1, where the multiply
+          // is implemented with a shift.
+          auto U = CS.arg_begin() + 1;
+          auto V1 = dyn_cast<Value>(U);
+          if (!V1)
+            return false;
+          Value *V2;
+          ConstantInt *ShlC;
+          if (!match(V1, m_Shl(m_Value(V2), m_ConstantInt(ShlC))))
+            return false;
+          auto SE = dyn_cast<SExtInst>(V2);
+          if (SE)
+            V2 = SE->getOperand(0);
+          if (V2 != S0->getValueOperand())
+            return false;
+          // The call should call realloc, or at least be something we
+          // suspect calls realloc.
+          if (!callsRealloc(CI->getCalledFunction(), TLI))
+            return false;
+          StoreCount++;
+        } else
+          // A third store is a deal breaker.
+          return false;
+      }
+    }
+    return StoreCount == 2;
+  };
+
+  //
+  // Use 'WorthyFunction' to store the single worthy Function if found.
+  // Use SmallPtrSet to store those Functions that have already been tested
+  // and have failed the test, so we don't need to test them again.
+  //
+  static Function *WorthyFunction = nullptr;
+  static SmallPtrSet<Function *, 32> FunctionsTestedFail;
+  if (!F || !TLI || !DTransInlineHeuristics)
+    return false;
+  if (WorthyFunction)
+    return WorthyFunction == F;
+  if (FunctionsTestedFail.count(F))
+    return false;
+  if (!PassesArgTest(F) || !PassesControlFlowTest(F) ||
+      !PassesContentsTest(F, TLI)) {
+    FunctionsTestedFail.insert(F);
+    return false;
+  }
+  WorthyFunction = F;
+  return true;
+}
+
+//
+// Return 'true' if Function *F should not be inlined due to its special
+// manipulation of stack instructions. (Note that inhibit calls into
+// CS.getCaller() so that the worthy function looks relatively similar in
+// both the compile and link step.
+//
+static bool preferNotToInlineForStackComputations(CallSite CS,
+                                                  TargetLibraryInfo *TLI) {
+   return preferNotToInlineForStackComputations(CS.getCaller(), TLI)
+     || preferNotToInlineForStackComputations(CS.getCalledFunction(), TLI);
+}
+
 /// Analyze a call site for potential inlining.
 ///
 /// Returns true if inlining this call is viable, and false if it is not
@@ -2920,6 +3374,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     *ReasonAddr = NinlrPreferSOAToAOS;
     return false;
   }
+  if (InlineForXmain &&
+      preferNotToInlineForStackComputations(CS, TLI)) {
+    *ReasonAddr = NinlrStackComputations;
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Give out bonuses for the callsite, as the instructions setting them up
@@ -2958,7 +3417,8 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
            }
         }
       }
-      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion)) {
+      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion,
+                                 PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrForFusion);
       }
@@ -2970,6 +3430,10 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
       if (worthInliningForAddressComputations(CS, *ILIC, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrAddressComputations);
+      }
+      if (worthInliningForStackComputations(&F, TLI, PrepareForLTO)) {
+        Cost -= InlineConstants::InliningHeuristicBonus;
+        YesReasonVector.push_back(InlrStackComputations);
       }
     }
   }
@@ -3198,6 +3662,24 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     return "noduplicate";
   } // INTEL
 
+  // Loops generally act a lot like calls in that they act like barriers to
+  // movement, require a certain amount of setup, etc. So when optimising for
+  // size, we penalise any call sites that perform loops. We do this after all
+  // other costs here, so will likely only be dealing with relatively small
+  // functions (and hence DT and LI will hopefully be cheap).
+  if (Caller->optForMinSize()) {
+    DominatorTree DT(F);
+    LoopInfo LI(DT);
+    int NumLoops = 0;
+    for (Loop *L : LI) {
+      // Ignore loops that will not be executed
+      if (DeadBlocks.count(L->getHeader()))
+        continue;
+      NumLoops++;
+    }
+    Cost += NumLoops * InlineConstants::CallPenalty;
+  }
+
   // We applied the maximum possible vector bonus at the beginning. Now,
   // subtract the excess bonus, if any, from the Threshold before
   // comparing against Cost.
@@ -3290,15 +3772,16 @@ InlineCost llvm::getInlineCost(
     CallSite CS, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    TargetLibraryInfo *TLI,      // INTEL
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
     SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
     SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, GetBFI, ILIC, AI, // INTEL
-                       CallSitesForFusion,                   // INTEL
-                       CallSitesForDTrans, PSI, ORE);        // INTEL
+                       GetAssumptionCache, GetBFI, TLI, ILIC, AI, // INTEL
+                       CallSitesForFusion,                        // INTEL
+                       CallSitesForDTrans, PSI, ORE);             // INTEL
 }
 
 InlineCost llvm::getInlineCost(
@@ -3306,6 +3789,7 @@ InlineCost llvm::getInlineCost(
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    TargetLibraryInfo *TLI,         // INTEL
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
     SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
@@ -3397,8 +3881,8 @@ InlineCost llvm::getInlineCost(
                           << "... (caller:" << Caller->getName() << ")\n");
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee, CS,
-                  ILIC, AI, CallSitesForFusion, CallSitesForDTrans, // INTEL
-                  Params);                                          // INTEL
+                  TLI, ILIC, AI, CallSitesForFusion,   // INTEL
+                  CallSitesForDTrans, Params);         // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyzeCall(CS, &Reason);

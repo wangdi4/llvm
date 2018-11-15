@@ -345,6 +345,8 @@ void VPlanVerifier::verifyPHINode(const VPPHINode *Phi,
 void VPlanVerifier::verifyInstruction(
     const VPInstruction *Inst, const VPBasicBlock *Block) const
 {
+  assert(Inst->getBaseType() != nullptr &&
+         "VPInstruction cannot have a nullptr base-type");
   assert(Inst->getParent() == Block &&
          "Incorrect VPBB parent for a VPInstruction");
   assert((Inst->getOpcode() != Instruction::PHI || isa<VPPHINode>(Inst)) &&

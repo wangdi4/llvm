@@ -33,14 +33,14 @@ C:
   br label %D
 
 D:
-  %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
-  %j = bitcast i8* %call1 to %struct.test.01*
-  call void @init(%struct.test.01* %j)
+  call void @init()
   ret i32 0
 }
 
 ; This routine is selected as InitRoutine.
-define void @init(%struct.test.01* %tp1) {
+define void @init() {
+  %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
+  %tp1 = bitcast i8* %call1 to %struct.test.01*
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
   store i64 %g1, i64* %F1, align 8

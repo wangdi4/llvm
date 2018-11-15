@@ -70,13 +70,19 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "ARRSECT"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
-/// 3. NonPOD operands. Example:
+/// 3. ByRef operands. Example:
+///      FullName = "QUAL.OMP.PRIVATE:BYREF"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "BYREF"
+///      Id = QUAL_OMP_PRIVATE
+///
+/// 4. NonPOD operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:NONPOD"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
 ///
-/// 4. MAP clause for aggregate objects. Example:
+/// 5. MAP clause for aggregate objects. Example:
 ///      FullName = "QUAL.OMP.MAP.TOFROM:AGGRHEAD"
 ///      BaseName = "QUAL.OMP.MAP.TOFROM"
 ///      Modifier = "AGGRHEAD"
@@ -94,6 +100,7 @@ private:
 
   // Data properties
   bool IsArraySection:1;
+  bool IsByRef:1;
   bool IsNonPod:1;
   bool IsUnsigned:1;     // needed by min/max reduction
 
@@ -120,6 +127,7 @@ public:
   void setModifier(StringRef S) { Modifier = S; }
   void setId(int N) { Id = N; }
   void setIsArraySection()         { IsArraySection = true; }
+  void setIsByRef()                { IsByRef = true; }
   void setIsNonPod()               { IsNonPod = true; }
   void setIsUnsigned()             { IsUnsigned = true; }
   void setIsConditional()          { IsConditional = true; }
@@ -135,6 +143,7 @@ public:
   StringRef getModifier() const { return Modifier; }
   int getId() const { return Id; }
   bool getIsArraySection() const { return IsArraySection; }
+  bool getIsByRef() const { return IsByRef; }
   bool getIsNonPod() const { return IsNonPod; }
   bool getIsUnsigned() const { return IsUnsigned; }
   bool getIsConditional() const { return IsConditional; }

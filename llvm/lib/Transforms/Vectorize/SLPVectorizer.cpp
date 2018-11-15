@@ -1163,6 +1163,8 @@ public:
   bool FoundPSLPCandidate = false;
   /// If Enabled PSLP will kick in for the current tree.
   bool DoPSLP = false;
+  /// This is set to true if PSLP was succesful.
+  bool PSLPSuccess = false;
 private:
   /// Look-Ahead: Score multiplier for consecutive loads.
   static const int SCORE_LOADS_CONSEC = 3;
@@ -1180,11 +1182,11 @@ private:
   static const int SCORE_FAIL = 0;
   /// Multiplier for getScoreAtLevel() in order to avoid floats.
   static const int COST_MULTIPLIER = 10;
-
   // The look-ahead score measured how well the frontier-rooted sub-trees match.
   // This score is adjusted by this much when the frontier nodes (users of the
   // sub-tree) don't match and require Padding by PSLP to get vectorized.
   // The more negative the number the worse the resulting score.
+  // Its main purpose is to break ties across scores.
   static const int BLEND_COST = -2;
 
   /// Contains the padded instructions emitted by PSLP, that should be removed
@@ -2523,6 +2525,7 @@ void BoUpSLP::PSLPInit(void) {
     FoundPSLPCandidate = false;
     PaddedInstrsEmittedByPSLP.clear();
     SelectsEmittedByPSLP.clear();
+    PSLPSuccess = false;
   }
 }
 
@@ -2530,6 +2533,7 @@ void BoUpSLP::PSLPSuccessCleanup() {
   if (PSLPEnabled) {
     PaddedInstrsEmittedByPSLP.clear();
     SelectsEmittedByPSLP.clear();
+    PSLPSuccess = false;
   }
 }
 
@@ -3121,7 +3125,8 @@ int BoUpSLP::getBestOperand(OpVec &BestOps, OperandData *LHSOp, int RHSLane,
     Instruction *RHSNewFrontierI =
         (FrontierOperandToSwapWith) ? FrontierOperandToSwapWith->getFrontier()
                                     : OrigRHSOperand->getFrontier();
-    Score += areConsecutive(LHSFrontierI, RHSNewFrontierI) ? 0 : BLEND_COST;
+    auto S = getSameOpcode({LHSFrontierI, RHSNewFrontierI});
+    Score += S.isAltShuffle() ? massageScore(BLEND_COST) : 0;
 
     // Check score and set best if needed.
     if (Score > 0 && Score >= BestScore) {
@@ -5763,6 +5768,9 @@ Value *BoUpSLP::vectorizeTree(ArrayRef<Value *> VL) {
   // Check that every instruction appears once in this bundle.
   SmallVector<unsigned, 4> ReuseShuffleIndicies;
   SmallVector<Value *, 4> UniqueValues;
+#if INTEL_CUSTOMIZATION
+  if (!PSLPSuccess)
+#endif
   if (VL.size() > 2) {
     DenseMap<Value *, unsigned> UniquePositions;
     for (Value *V : VL) {
@@ -5782,6 +5790,9 @@ Value *BoUpSLP::vectorizeTree(ArrayRef<Value *> VL) {
   VectorType *VecTy = VectorType::get(ScalarTy, VL.size());
 
   Value *V = Gather(VL, VecTy);
+#if INTEL_CUSTOMIZATION
+  if (!PSLPSuccess)
+#endif
   if (!ReuseShuffleIndicies.empty()) {
     V = Builder.CreateShuffleVector(V, UndefValue::get(VecTy),
                                     ReuseShuffleIndicies, "shuffle");
@@ -7840,8 +7851,10 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
         int SLPCost = R.getTreeCost();
         assert(SLPCost == Cost && "Should be equal to original cost");
         Cost = SLPCost;
-      } else
+      } else {
         Cost = PSLPCost;
+        R.PSLPSuccess = true;
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -8282,9 +8295,12 @@ class HorizontalReduction {
     /// Checks if the reduction operation can be vectorized.
     bool isVectorizable() const {
       return LHS && RHS &&
-             // We currently only support adds && min/max reductions.
+             // We currently only support add/mul/logical && min/max reductions.
              ((Kind == RK_Arithmetic &&
-               (Opcode == Instruction::Add || Opcode == Instruction::FAdd)) ||
+               (Opcode == Instruction::Add || Opcode == Instruction::FAdd ||
+                Opcode == Instruction::Mul || Opcode == Instruction::FMul ||
+                Opcode == Instruction::And || Opcode == Instruction::Or ||
+                Opcode == Instruction::Xor)) ||
               ((Opcode == Instruction::ICmp || Opcode == Instruction::FCmp) &&
                (Kind == RK_Min || Kind == RK_Max)) ||
               (Opcode == Instruction::ICmp &&
@@ -8983,6 +8999,7 @@ public:
         } else {
           // Update the cost.
           Cost = PSLPCost;
+          V.PSLPSuccess = true;
         }
       }
 #endif // INTEL_CUSTOMIZATION

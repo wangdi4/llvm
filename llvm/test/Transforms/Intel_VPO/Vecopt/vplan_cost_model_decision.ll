@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -VPlanDriver  -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \

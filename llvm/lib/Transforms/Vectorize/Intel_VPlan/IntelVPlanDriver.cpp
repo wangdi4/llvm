@@ -128,13 +128,21 @@ protected:
   VPlanDriverBase(char &ID) : FunctionPass(ID){};
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+#if INTEL_CUSTOMIZATION
   bool processFunction(Function &Fn, WRegionCollection::InputIRKind IR);
+#else
+  bool processFunction(Function &Fn);
+#endif // INTEL_CUSTOMIZATION
   // TODO: Try to refactor at least part of it.
   virtual bool processLoop(LoopType *Lp, Function &Fn,
                            WRNVecLoopNode *WRLp = 0) = 0;
 
   // VPlan Driver running modes
+#if INTEL_CUSTOMIZATION
   bool runStandardMode(Function &Fn, WRegionCollection::InputIRKind IR);
+#else
+  bool runStandardMode(Function &Fn);
+#endif // INTEL_CUSTOMIZATION
   bool runCGStressTestMode(Function &Fn);
   bool runConstructStressTestMode(Function &Fn);
 
@@ -309,11 +317,16 @@ void VPlanDriverBase<LoopType>::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
+#if INTEL_CUSTOMIZATION
 // Common LLVM-IR/HIR high-level implementation to process a function. It gets
 // LLVM-IR-HIR common analyses and choose an execution mode.
 template <class LoopType>
 bool VPlanDriverBase<LoopType>::processFunction(
     Function &Fn, WRegionCollection::InputIRKind IR) {
+#else
+template <class LoopType>
+bool VPlanDriverBase<LoopType>::processFunction(Function &Fn) {
+#endif // INTEL_CUSTOMIZATION
 
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
 
@@ -337,7 +350,11 @@ bool VPlanDriverBase<LoopType>::processFunction(
   if (VPlanVectCand) {
     ModifiedFunc = runCGStressTestMode(Fn);
   } else if (!VPlanConstrStressTest) {
+#if INTEL_CUSTOMIZATION
     ModifiedFunc = runStandardMode(Fn, IR);
+#else
+    ModifiedFunc = runStandardMode(Fn);
+#endif // INTEL_CUSTOMIZATION
   } else {
     ModifiedFunc = runConstructStressTestMode(Fn);
     assert(!ModifiedFunc &&
@@ -355,13 +372,21 @@ bool VPlanDriverBase<LoopType>::processFunction(
 /// Explicit vectorization: it uses WRegion analysis to collect and vectorize
 /// all the WRNVecLoopNode's.
 template <class LoopType>
+#if INTEL_CUSTOMIZATION
 bool VPlanDriverBase<LoopType>::runStandardMode(
     Function &Fn, WRegionCollection::InputIRKind IR) {
+#else
+bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "VD: Stardard Vectorization mode\n");
 
   WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+#if INTEL_CUSTOMIZATION
   WR->buildWRGraph(IR);
+#else
+  WR->buildWRGraph();
+#endif // INTEL_CUSTOMIZATION
   WRContainerImpl *WRGraph = WR->getWRGraph();
 
   LLVM_DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
@@ -520,10 +545,6 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   bool ModifiedFunc =
       VPlanDriverBase::processFunction(Fn, WRegionCollection::LLVMIR);
 
-  // Remove calls to directive intrinsics since the LLVM back end does not know
-  // how to translate them.
-  VPOUtils::stripDirectives(Fn);
-
   return ModifiedFunc;
 }
 
@@ -587,6 +608,12 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
       LVP.executeBestPlan(VCodeGen);
+
+      // Strip the directives once the loop is vectorized. In stress testing,
+      // WRLp is null and no directives need deletion.
+      if (WRLp)
+        VPOUtils::stripDirectives(WRLp);
+
       ModifiedLoop = true;
     }
   }
@@ -787,9 +814,8 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-    bool IsSearchLoop = VPlanIdioms::isAnySearchLoop(Plan, VF, true);
     VPOCodeGenHIR VCodeGen(TLI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
-                           IsSearchLoop);
+                           VPlanIdioms::isSearchLoop(Plan, VF, true));
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the

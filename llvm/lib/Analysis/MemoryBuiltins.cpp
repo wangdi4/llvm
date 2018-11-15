@@ -224,6 +224,14 @@ llvm::getAllocSizeArgumentIndices(const Value *I,
 
   return std::make_pair(Res->FstParam, Res->SndParam);
 }
+
+/// Checks if \p LF is in the AllocationFnData list.
+bool llvm::isAllocationLibFunc(LibFunc LF) {
+  auto Fns = makeArrayRef(AllocationFnData);
+  return std::any_of(
+    Fns.begin(), Fns.end(),
+    [&LF](std::pair<LibFunc, AllocFnsTy> Elem) { return Elem.first == LF; });
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool hasNoAliasAttr(const Value *V, bool LookThroughBitCast) {

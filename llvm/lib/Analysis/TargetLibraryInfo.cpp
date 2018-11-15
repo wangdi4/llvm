@@ -375,6 +375,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_localtime_r);
     TLI.setUnavailable(LibFunc_lseek);
     TLI.setUnavailable(LibFunc_lseek64);
+    TLI.setUnavailable(LibFunc_mallopt);
     TLI.setUnavailable(LibFunc_mkdtemp);
     TLI.setUnavailable(LibFunc_mkstemps);
     TLI.setUnavailable(LibFunc_mmap);
@@ -585,9 +586,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_flsll);
   }
 
-  // The following functions are available on Linux,
-  // but Android uses bionic instead of glibc.
-  if (!T.isOSLinux() || T.isAndroid()) {
+  // The following functions are only available on GNU/Linux (using glibc).
+  // Linux variants without glibc (eg: bionic, musl) may have some subset.
+  if (!T.isOSLinux() || !T.isGNUEnvironment()) {
     TLI.setUnavailable(LibFunc_dunder_strdup);
     TLI.setUnavailable(LibFunc_dunder_strtok_r);
     TLI.setUnavailable(LibFunc_dunder_isoc99_fscanf);                   // INTEL
@@ -595,8 +596,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_dunder_isoc99_sscanf);
     TLI.setUnavailable(LibFunc_under_IO_getc);
     TLI.setUnavailable(LibFunc_under_IO_putc);
-    // But, Android has memalign.
-    if (!T.isAndroid())
+    // But, Android and musl have memalign.
+    if (!T.isAndroid() && !T.isMusl())
       TLI.setUnavailable(LibFunc_memalign);
     TLI.setUnavailable(LibFunc_fopen64);
     TLI.setUnavailable(LibFunc_fseeko64);
@@ -2608,6 +2609,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_mallopt:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+      FTy.getParamType(0)->isIntegerTy() &&
+      FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_mblen:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&

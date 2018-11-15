@@ -24,6 +24,7 @@ class CanonExpr;
 class DDGraph;
 class DDEdge;
 class DDRef;
+class HLIf;
 } // namespace loopopt
 
 namespace vpo {
@@ -63,6 +64,8 @@ private:
                                   VPBasicBlock *VPBB);
   VPInstruction *createVPInstruction(loopopt::HLNode *Node,
                                      ArrayRef<VPValue *> VPOperands);
+  VPInstruction *createVPInstsForHLIf(loopopt::HLIf *HIf,
+                                      ArrayRef<VPValue *> VPOperands);
   void createVPOperandsForMasterVPInst(loopopt::HLNode *Node,
                                        SmallVectorImpl<VPValue *> &VPOperands);
   void createOrGetVPDefsForUse(loopopt::DDRef *UseDDR,

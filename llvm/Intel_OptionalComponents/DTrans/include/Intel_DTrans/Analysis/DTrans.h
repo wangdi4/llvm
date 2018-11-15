@@ -327,17 +327,22 @@ const SafetyData SDReorderFields =
 //
 // Safety conditions for field single value analysis
 //
-const SafetyData SDFieldSingleValue =
+const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    AmbiguousPointerTarget | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+    MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
+    UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
+
+const SafetyData SDFieldSingleValue =
+    SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
+
+const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
+    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
+    MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+    AddressTaken | MismatchedArgUse | UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
-    BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
+    SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
@@ -974,7 +979,12 @@ bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
 /// equivalent to isElementZeroAccess with an additional level of indirection.
 bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
 
-/// Remove pointer, vector, and array types to uncover the base type which
+/// Examine the specified types to determine if a bitcast from \p SrcTy to
+/// \p DestTy could be used to access the vtable of a class pointed to by
+/// SrcTy.
+bool isVTableAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
+
+  /// Remove pointer, vector, and array types to uncover the base type which
 /// the contain.
 Type *unwrapType(Type *Ty);
 
@@ -988,7 +998,8 @@ unsigned getMaxFieldsInStruct();
 /// Get the transformation printable name.
 StringRef getStringForTransform(dtrans::Transform Trans);
 /// Get the safety conditions for the transformation.
-dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans);
+dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans,
+                                             bool DTransOutOfBoundsOK);
 
 StringRef getStructName(llvm::Type *Ty);
 

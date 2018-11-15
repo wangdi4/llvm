@@ -379,7 +379,7 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
 
-  if (getStrideDDRef() && (isDo() || isDoMultiExit())) {
+  if (isDo() || isDoMultiExit()) {
     OS << "+ DO ";
     if (Detailed) {
       getIVType()->print(OS);
@@ -405,7 +405,7 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
 
-  } else if (!getStrideDDRef() || isUnknown()) {
+  } else if (isUnknown()) {
     OS << "+ UNKNOWN LOOP i" << NestingLevel;
   } else {
     llvm_unreachable("Unexpected loop type!");
@@ -1036,6 +1036,10 @@ void HLLoop::replaceByFirstIteration() {
 void HLLoop::verify() const {
   HLDDNode::verify();
 
+  assert(getLowerDDRef() && "Null lower ref not expected!");
+  assert(getUpperDDRef() && "Null upper ref not expected");
+  assert(getStrideDDRef() && "Null stride ref not expected!");
+
   if (isUnknown()) {
     assert(getHeaderLabel() && "Could not find header label of unknown loop!");
     assert(getBottomTest() && "Could not find bottom test of unknown loop!");
@@ -1092,6 +1096,25 @@ bool HLLoop::hasDirective(int DirectiveID) const {
     if (I->isIntelDirective(DirectiveID)) {
       return true;
     }
+  }
+
+  return false;
+}
+
+bool HLLoop::hasSIMDRegionDirective() const {
+  const HLNode *PrevNode = this;
+
+  while ((PrevNode = PrevNode->getPrevNode())) {
+    const HLInst *Inst = dyn_cast<HLInst>(PrevNode);
+
+    // Loop, IF, Switch, etc.
+    if (!Inst)
+      return false;
+
+    // Check if the instruction has an operand bundle with DIR.OMP.SIMD tag
+    if (Inst->getNumOperandBundles() &&
+        Inst->getOperandBundleAt(0).getTagName().equals("DIR.OMP.SIMD"))
+      return true;
   }
 
   return false;
@@ -1222,6 +1245,9 @@ void HLLoop::markDoNotVectorize() {
 }
 
 void HLLoop::markDoNotUnroll() {
+  removeLoopMetadata("llvm.loop.unroll.enable");
+  removeLoopMetadata("llvm.loop.unroll.count");
+
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
   addLoopMetadata(
       MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
@@ -1574,7 +1600,7 @@ void HLLoop::shiftLoopBodyRegDDRefs(int64_t Amount) {
       });
 }
 
-HLLoop *HLLoop::peelFirstIteration() {
+HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
   assert(!isUnknown() && isNormalized() &&
          "Unsupported loop in 1st iteration peeling!");
 
@@ -1590,14 +1616,16 @@ HLLoop *HLLoop::peelFirstIteration() {
   // just one iteration.
   PeelLoop->getUpperDDRef()->clear();
 
-  // Update this loop's UB and loop body DDRefs so that it doesn't execute
-  // iterations now executed by the peel loop.
-  getUpperCanonExpr()->addConstant(-1, true /*IsMath*/);
-  shiftLoopBodyRegDDRefs(1);
+  // Update this loop's UB and DDRefs to avoid execution of peeled iteration
+  // only if UpdateMainLoop is true.
+  if (UpdateMainLoop) {
+    getUpperCanonExpr()->addConstant(-1, true /*IsMath*/);
+    shiftLoopBodyRegDDRefs(1);
 
-  // Original loop requires a new ztt because the it may only have a single
-  // iteration, now executed by the peel loop.
-  createZtt(false /*IsOverWrite*/, isNSW());
+    // Original loop requires a new ztt because the it may only have a single
+    // iteration, now executed by the peel loop.
+    createZtt(false /*IsOverWrite*/, isNSW());
+  }
 
   return PeelLoop;
 }
@@ -1683,5 +1711,46 @@ void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
     LoopVisitor LV(Func);
     HLNodeUtils::visitRange<true, false, false>(LV, Loop.getFirstChild(),
                                                 Loop.getLastChild());
+  }
+}
+
+static void addTripCountMetadata(HLLoop *Loop, StringRef MetadataTy,
+                                 unsigned TripCount) {
+  LLVMContext &Context = Loop->getHLNodeUtils().getHIRFramework().getContext();
+
+  auto *TCNode = ConstantAsMetadata::get(
+      ConstantInt::get(Type::getInt32Ty(Context), TripCount));
+
+  auto MNode =
+      MDNode::get(Context, {MDString::get(Context, MetadataTy), TCNode});
+
+  Loop->addLoopMetadata(MNode);
+}
+
+void HLLoop::setPragmaBasedMinimumTripCount(unsigned MinTripCount) {
+  addTripCountMetadata(this, "llvm.loop.intel.loopcount_minimum", MinTripCount);
+}
+
+void HLLoop::setPragmaBasedMaximumTripCount(unsigned MaxTripCount) {
+  addTripCountMetadata(this, "llvm.loop.intel.loopcount_maximum", MaxTripCount);
+}
+
+void HLLoop::setPragmaBasedAverageTripCount(unsigned AvgTripCount) {
+  addTripCountMetadata(this, "llvm.loop.intel.loopcount_average", AvgTripCount);
+}
+
+void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
+  unsigned TC;
+
+  if (getPragmaBasedMinimumTripCount(TC)) {
+    setPragmaBasedMinimumTripCount(TC / Factor);
+  }
+
+  if (getPragmaBasedMaximumTripCount(TC)) {
+    setPragmaBasedMaximumTripCount(TC / Factor);
+  }
+
+  if (getPragmaBasedAverageTripCount(TC)) {
+    setPragmaBasedAverageTripCount(TC / Factor);
   }
 }

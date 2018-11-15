@@ -11,7 +11,7 @@
 
 ; CHECK-LABEL: define i32 @test(i32 %x, i32* %y)
 ; CHECK-LABEL: codeRepl:
-; CHECK: call void @test_if.else
+; CHECK: call void @test.if.else
 
 ; Verify that the function entry for the split routine is given a non-zero
 ; execution count based on the frequency/probability information of the original.
@@ -19,7 +19,7 @@
 ; the code extractor functionality that is outside of the control of the
 ; function splitter.
 
-; CHECK: define internal void @test_if.else(i32* %y, i32* %.out)
+; CHECK: define internal void @test.if.else(i32* %y, i32* %.out)
 ; CHECK-SAME: !prof ![[META_FEC:[0-9]+]]
 ; CHECK: ![[META_FEC]] =
 ; CHECK-NOT: i64 0

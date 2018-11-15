@@ -54,7 +54,6 @@ const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
 const int InliningHeuristicBonus = 1000;       // INTEL
 const int ColdccPenalty = 2000;
-const int NoreturnPenalty = 10000;
 /// Do not inline functions which allocate this many bytes on the stack
 /// when the caller is recursive.
 const unsigned TotalAllocaSizeRecursiveCaller = 1024;
@@ -124,6 +123,7 @@ typedef enum {
    InlrForFusion,
    InlrDeeplyNestedIfs,
    InlrAddressComputations,
+   InlrStackComputations,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -164,6 +164,7 @@ typedef enum {
    NinlrNullPtrMismatch,
    NinlrPreferMultiversioning,
    NinlrPreferSOAToAOS,
+   NinlrStackComputations,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -407,6 +408,7 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+              TargetLibraryInfo *TLI,          // INTEL
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
               SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
@@ -424,6 +426,7 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+              TargetLibraryInfo *TLI,                // INTEL
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
               SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL

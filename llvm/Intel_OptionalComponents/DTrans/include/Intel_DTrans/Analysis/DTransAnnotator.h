@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSANNOTOR_H
 
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Type.h"
 
 namespace llvm {
 
@@ -42,6 +43,10 @@ public:
     // Marks the type of pointer an instruction should be considered as
     // producing for the DTrans local pointer analyzer.
     DMD_DTransType,
+
+    // Marks a function as having been transformed to use an array of
+    // structures in place of a structure of arrays (SOA-to-AOS)
+    DMD_DTransSOAToOAS,
 
     // End of list marker.
     DMD_Last
@@ -78,6 +83,18 @@ public:
   // Remove a type annotation from the instruction. Return 'true' if the
   // instruction is changed.
   static bool removeDTransTypeAnnotation(Instruction &I);
+
+  // Annotate a function as having been transformed by the DTrans SOA-to-AOS
+  // transformation with the data type used.
+  static void createDTransSOAToAOSTypeAnnotation(Function &F, llvm::Type *Ty);
+
+  // Get the SOA-to-AOS transformation type for the Function, if one exists.
+  // Otherwise, nullptr.
+  static llvm::Type *lookupDTransSOAToAOSTypeAnnotation(Function &F);
+
+  // Remove the SOA-to-AOS transformation annotation marker from the Function.
+  // Return 'true' if the metadata is changed.
+  static bool removeDTransSOAToAOSTypeAnnotation(Function &F);
 
   /////////////////////////////////////////////////
   // Annotation intrinsic based annotating routines
@@ -130,6 +147,63 @@ public:
   // If the GlobalVariable is one of the types managed by this class, return the
   // type of annotation it corresponds to. Otherwise, return DPA_Last.
   static DPA_AnnotKind lookupDTransAnnotationVariable(GlobalVariable *GV);
+
+private:
+  // The following template methods provide implementations for the metadata
+  // methods in order to have a common implementation that works for both
+  // Instructions and Functions.
+  //
+  // Annotate an object that can take a metadata annotation (Instruction,
+  // Function, ...) to associate a type with that object. We currently limit
+  // this to holding a single type per metadata tag.
+  //
+  // The format of the metadata is to store a null value of the specified type
+  // as follows:
+  //   { Ty null }
+  //
+  // The use of a null value of the type enables the type to be kept up-to-date
+  // when DTrans transformations run because when the instruction referencing
+  // the metadata is remapped, the type within the metadata will be remapped as
+  // well, if the type changes.
+  template <typename Annotatable>
+  static void createDTransTypeAnnotationImpl(Annotatable &A, StringRef Name,
+                                             llvm::Type *Ty) {
+    assert(Ty && Ty->isPointerTy() && "Annotation type must be pointer type");
+    assert(A.getMetadata(Name) == nullptr &&
+           "Only a single SOA-to-AOS type metadata attachment allowed.");
+
+    LLVMContext &Ctx = A.getContext();
+    MDNode *MD =
+        MDNode::get(Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty))});
+    A.setMetadata(Name, MD);
+  }
+
+  // Get the type that exists in an annotation, if one exists, for the
+  // Annotatable object.
+  template <typename Annotatable>
+  static llvm::Type *lookupDTransTypeAnnotationImpl(Annotatable &A,
+                                                    StringRef Name) {
+    auto *MD = A.getMetadata(Name);
+    if (!MD)
+      return nullptr;
+
+    assert(MD->getNumOperands() == 1 && "Unexpected metadata operand count");
+    auto &MDOpp1 = MD->getOperand(0);
+    auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
+    if (!TyMD)
+      return nullptr;
+
+    return TyMD->getType();
+  }
+
+  // Remove a type annotation. Return 'true' if metadata was removed from the
+  // object.
+  template <typename Annotatable>
+  static bool removeDTransTypeAnnotationImpl(Annotatable &A, StringRef Name) {
+    bool HadMD = A.getMetadata(Name) ? true : false;
+    A.setMetadata(Name, nullptr);
+    return HadMD;
+  }
 };
 
 } // namespace dtrans

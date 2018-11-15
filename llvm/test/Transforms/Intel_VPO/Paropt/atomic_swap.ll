@@ -27,12 +27,14 @@ entry:
 ; CHECK-NOT: %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
 
+  fence acquire
   %1 = load i16, i16* @x, align 2
   %conv = sext i16 %1 to i64
   store i64 %conv, i64* @v, align 8
   %2 = load double, double* @e, align 8
   %conv1 = fptosi double %2 to i16
   store i16 %conv1, i16* @x, align 2
+  fence release
 
 ; CHECK: %[[EXPR:[0-9]+]] = load double, double* @e, align 8
 ; CHECK-NEXT: %[[EXPRCAST:conv[0-9]*]] = fptosi double %[[EXPR]] to i16

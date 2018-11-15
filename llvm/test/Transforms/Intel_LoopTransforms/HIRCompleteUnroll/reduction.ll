@@ -25,6 +25,9 @@
 
 ; CHECK: Savings: 10
 
+; One ddref each accounted for %0, %t.018 and (%A)[i2].
+; CHECK: Number of ddrefs: 30
+
 ; CHECK: + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   %0 = (%A)[i2];
 ; CHECK: |   %t.018 = %0  +  %t.018;

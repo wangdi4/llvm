@@ -113,6 +113,6 @@ attributes #2 = { nounwind }
 !6 = !{!7, !7, i64 0}
 !7 = !{!"int", !4, i64 0}
 
-; CHECK-LABEL: define internal void @foo_DIR.OMP.PARALLEL.LOOP.1
+; CHECK-LABEL: define internal void @foo.DIR.OMP.PARALLEL.LOOP.1
 ; CHECK: alloca
 ; CHECK: %0 = bitcast

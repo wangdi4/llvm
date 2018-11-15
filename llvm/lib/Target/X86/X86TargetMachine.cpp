@@ -67,21 +67,6 @@ MaxLegalVectorWidth("x86-experimental-max-legal-vector-width",
                     cl::init(0), cl::Hidden);
 #endif
 
-namespace llvm {
-
-void initializeWinEHStatePassPass(PassRegistry &);
-void initializeFixupLEAPassPass(PassRegistry &);
-void initializeShadowCallStackPass(PassRegistry &);
-void initializeX86CallFrameOptimizationPass(PassRegistry &);
-void initializeX86CmovConverterPassPass(PassRegistry &);
-void initializeX86ExecutionDomainFixPass(PassRegistry &);
-void initializeX86DomainReassignmentPass(PassRegistry &);
-void initializeX86AvoidSFBPassPass(PassRegistry &);
-void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
-void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
-
-} // end namespace llvm
-
 extern "C" void LLVMInitializeX86Target() {
   // Register the target.
   RegisterTargetMachine<X86TargetMachine> X(getTheX86_32Target());
@@ -302,13 +287,14 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     }
   }
 
-  // Extract required-vector-width attribute.
+  // Extract min-legal-vector-width attribute.
   unsigned RequiredVectorWidth = UINT32_MAX;
-  if (F.hasFnAttribute("required-vector-width")) {
-    StringRef Val = F.getFnAttribute("required-vector-width").getValueAsString();
+  if (F.hasFnAttribute("min-legal-vector-width")) {
+    StringRef Val =
+        F.getFnAttribute("min-legal-vector-width").getValueAsString();
     unsigned Width;
     if (!Val.getAsInteger(0, Width)) {
-      Key += ",required-vector-width=";
+      Key += ",min-legal-vector-width=";
       Key += Val;
       RequiredVectorWidth = Width;
     }

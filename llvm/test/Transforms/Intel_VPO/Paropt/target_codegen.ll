@@ -26,15 +26,17 @@ target device_triples = "x86_64-pc-linux-gnu"
 ; Function containing target region should remain in the host compilation, but not in target.
 ; CHECK-HST:     void @foo()
 ; CHECK-TGT-NOT: void @foo()
-define dso_local void @foo() {
+define dso_local void @foo() #0 {
 entry:
 ; Host code should try offload and fall back to host in casse of offload failure.
 ; CHECK-HST: call i32 @__tgt_target(i64 -1, i8* [[ID]],
 ; CHECK-HST: call void @[[OUTLINEDTARGET]]()
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"() ], !omp_offload.entry !1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
+
+attributes #0 = { "may-have-openmp-directive"="true" }
 
 ; Check presence of the outlined target region.
 ; CHECK-ALL: define internal void @[[OUTLINEDTARGET]]()
@@ -47,4 +49,3 @@ declare void @llvm.directive.region.exit(token)
 !omp_offload.info = !{!0}
 
 !0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 2, i32 0}
-!1 = distinct !{i32 0}

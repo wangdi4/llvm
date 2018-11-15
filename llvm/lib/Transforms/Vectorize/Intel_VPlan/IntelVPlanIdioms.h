@@ -35,9 +35,14 @@ public:
   /// VPlanIdioms::Unsafe if unsafe instructions are found in the pattern, or
   /// VPlanIdioms::Unknown if the loop doesn't fit into any known pattern.
   static Opcode isSearchLoop(const VPlan *Plan, const unsigned VF,
-                             const bool CheckSafity);
+                             const bool CheckSafety);
   static bool isAnySearchLoop(const VPlan *Plan, const unsigned VF,
-                              const bool CheckSafity);
+                              const bool CheckSafety);
+
+  static bool isAnySearchLoop(const VPlanIdioms::Opcode Opcode) {
+    return Opcode == VPlanIdioms::SearchLoopStrEq ||
+           Opcode == VPlanIdioms::SearchLoop;
+  }
 
 private:
   static bool isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block);

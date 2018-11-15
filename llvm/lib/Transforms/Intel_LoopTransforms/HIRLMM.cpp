@@ -8,7 +8,7 @@
 // from the company.
 //
 //===-----------------------------------------------------------------===//
-// HIR LIMM Case1: Load Hosting Only
+// HIR LIMM Case1: Load Hoisting Only
 //
 // [ORIGINAL]                       [AFTER LIMM]
 //
@@ -133,6 +133,7 @@ void MemRefGroup::analyze(void) {
 
   IsAnalyzed = true;
   const HLNode *LoopTail = Lp->getLastChild();
+  const HLNode *LoopHead = Lp->getFirstChild();
 
   // Scan each Ref in group, and do statistical collection, for:
   // Load, LoadOnDomPath, Store, StoreOnDomPath
@@ -145,7 +146,7 @@ void MemRefGroup::analyze(void) {
 
       // Load on DomPath
       if (!HasLoadOnDomPath &&
-          HLNodeUtils::dominates(Ref->getHLDDNode(), LoopTail)) {
+          HLNodeUtils::postDominates(Ref->getHLDDNode(), LoopHead)) {
         HasLoadOnDomPath = true;
       }
     }
@@ -317,16 +318,11 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
 }
 
 // The following preliminary conditions are currently checked:
-// - Multiple exits
 // - Empty loop body
 // - LoopStatistics
 //   . no call
 //
 bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
-  if (!Lp->isDo()) {
-    return false;
-  }
-
   const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects()) {
@@ -511,6 +507,7 @@ bool HIRLMM::areDDEdgesLegal(const HLLoop *Lp, const RegDDRef *Ref,
 void HIRLMM::doTransform(HLLoop *Lp) {
   unsigned NumLIMM = 0;
   SmallSet<unsigned, 32> TempRefSet;
+
   // Iterate over each group in MRC, do LMM promotion if suitable.
   for (unsigned Idx = 0, IdxE = MRC.getSize(); Idx < IdxE; ++Idx) {
     MemRefGroup &MRG = MRC.get(Idx);
@@ -526,6 +523,7 @@ void HIRLMM::doTransform(HLLoop *Lp) {
     ++NumLIMM;
     // LLVM_DEBUG(dbgs() << "After LIMM on a MRG\n"; Lp->dump(););
   }
+
   HIRLIMMRefPromoted += NumLIMM;
 
   // Mark the loop and its parent loop/region have been changed
@@ -544,6 +542,7 @@ bool HIRLMM::canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef,
   }
 
   HLDDNode *LoadDDNode = FirstRef->getHLDDNode();
+
   HLInst *LoadHInst = dyn_cast<HLInst>(LoadDDNode);
 
   if (!LoadHInst) {
@@ -582,6 +581,10 @@ bool HIRLMM::canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef,
 bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
                                 MemRefGroup &MRG,
                                 SmallSet<unsigned, 32> &TempRefSet) const {
+  if (Lp->getNumExits() > 1) {
+    return false;
+  }
+
   if (MRG.getSize() != 1 || !FirstRef->isLval()) {
     return false;
   }
@@ -777,8 +780,20 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
   if (NeedStoreInPostexit) {
     LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                               "Store sinked out of the loop");
+    RegDDRef *FirstStore = FirstRef;
 
-    createStoreInPostexit(Lp, FirstRef, TmpDDRef);
+    // In the multi-exit loop, we need to find the exact store ref to compare
+    // the top sort number with gotos.
+    if (Lp->getNumExits() > 1) {
+      for (unsigned Idx = 0, IdxE = MRG.getSize(); Idx < IdxE; ++Idx) {
+        if (MRG.get(Idx)->isLval()) {
+          FirstStore = MRG.get(Idx);
+          break;
+        }
+      }
+    }
+
+    createStoreInPostexit(Lp, FirstStore, TmpDDRef, NeedLoadInPrehdr);
   }
 
   // LMM process each Ref in MRG
@@ -814,7 +829,6 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
                                 bool IsLoadOnly) {
   // Debug: Examine the Loop Before processing
   // LLVM_DEBUG(Lp->dump(););
-
   HLDDNode *DDNode = Ref->getHLDDNode();
   RegDDRef *TmpRefClone = TmpRef->clone();
 
@@ -896,6 +910,49 @@ HLInst *HIRLMM::createLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
   return LoadInPrehdr;
 }
 
+// Creates the following HLIf-
+// if (i1 != 0)
+static HLIf *createNewIVComparison(HLLoop *Lp) {
+  auto &HNU = Lp->getHLNodeUtils();
+  auto &DRU = HNU.getDDRefUtils();
+  auto &CEU = DRU.getCanonExprUtils();
+  auto IVType = Lp->getIVType();
+  unsigned LoopLevel = Lp->getNestingLevel();
+
+  CanonExpr *CEIV = CEU.createCanonExpr(IVType);
+  CEIV->addIV(LoopLevel, InvalidBlobIndex, 1);
+
+  RegDDRef *LHS = DRU.createScalarRegDDRef(GenericRvalSymbase, CEIV);
+  RegDDRef *RHS = DRU.createNullDDRef(LHS->getDestType());
+
+  HLIf *IVCheckIf = HNU.createHLIf(PredicateTy::ICMP_NE, LHS, RHS);
+
+  return IVCheckIf;
+}
+
+// Looks for a HLIf of the form 'if (i1 != 0)' before goto.
+// Creates one, if not present.
+static HLIf *getIVComparisonIf(HLLoop *Lp, HLGoto *Goto) {
+  if (auto *PrevIf = dyn_cast_or_null<HLIf>(Goto->getPrevNode())) {
+    auto PredI = PrevIf->pred_begin();
+    const RegDDRef *LHSRef = PrevIf->getPredicateOperandDDRef(PredI, true);
+    const RegDDRef *RHSRef = PrevIf->getPredicateOperandDDRef(PredI, false);
+    PredicateTy Pred = *PredI;
+    unsigned Level;
+    unsigned LoopLevel = Lp->getNestingLevel();
+
+    if (PrevIf->getNumPredicates() == 1 && Pred == CmpInst::ICMP_NE &&
+        LHSRef->isStandAloneIV(true, &Level) && (Level == LoopLevel) &&
+        RHSRef->isZero()) {
+      return PrevIf;
+    }
+  }
+
+  HLIf *IVCheckIf = createNewIVComparison(Lp);
+  HLNodeUtils::insertBefore(Goto, IVCheckIf);
+  return IVCheckIf;
+}
+
 // Create a StoreInst In Loop's postexit
 // (If the Store already exists, obtain the StoreInst.)
 //
@@ -904,8 +961,8 @@ HLInst *HIRLMM::createLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
 // - linear, defined at level = looplevel -1
 // - Call updateDefLevel() for the Lval of the new store
 //
-void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
-                                   RegDDRef *TmpRef) const {
+void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
+                                   bool NeedLoadInPrehdr) const {
   // Debug: Examine the Loop
   // LLVM_DEBUG(Lp->dump(););
 
@@ -915,6 +972,36 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
 
   auto LvalRef = Ref->clone();
   auto *StoreInPostexit = HNU.createStore(TmpRefClone, LIMMTempName, LvalRef);
+
+  if (Lp->getNumExits() > 1) {
+    // Collect all the Gotos if it is a multi-exit loop
+    SmallVector<HLGoto *, 16> Gotos;
+    Lp->populateEarlyExits(Gotos);
+    bool TmpIsInitialized = NeedLoadInPrehdr;
+
+    for (auto &Goto : Gotos) {
+      auto *StoreInst = StoreInPostexit->clone();
+
+      if (Ref->getHLDDNode()->getTopSortNum() < Goto->getTopSortNum()) {
+        HLNodeUtils::insertBefore(Goto, StoreInst);
+      } else {
+        // Create an inst like %t = 0 and insert it as first prehearder of the
+        // loop
+        if (!TmpIsInitialized) {
+          RegDDRef *LHS = TmpRefClone->clone();
+          RegDDRef *RHS =
+              HIRF.getDDRefUtils().createNullDDRef(LHS->getDestType());
+          auto *InitialTemp = HNU.createCopyInst(RHS, "copy", LHS);
+          Lp->addLiveInTemp(LHS->getSymbase());
+          HLNodeUtils::insertAsFirstPreheaderNode(Lp, InitialTemp);
+          TmpIsInitialized = true;
+        }
+
+        HLIf *IVCheckIf = getIVComparisonIf(Lp, Goto);
+        HLNodeUtils::insertAsFirstChild(IVCheckIf, StoreInst, true);
+      }
+    }
+  }
 
   // Insert the new store as the 1st HLInst in Lp's Postexit
   HLNodeUtils::insertAsFirstPostexitNode(Lp, StoreInPostexit);

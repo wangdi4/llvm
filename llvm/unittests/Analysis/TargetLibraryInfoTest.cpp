@@ -758,6 +758,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
     "declare void @longjmp(%struct*, i32)\n"
     "declare i32 @lseek(i32, i32, i32)\n"
     "declare i64 @lseek64(i32, i32, i32)\n"
+    "declare i32 @mallopt(i32, i32)\n"
     "declare i32 @mblen(i8*, i32)\n"
     "declare i32 @mbstowcs(i8*, i8*, i32)\n"
     "declare i8* @mkdtemp(i8*)\n"

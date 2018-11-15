@@ -39,7 +39,7 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TOFROM"(i32* @x) ], !omp_offload.entry !6
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TOFROM"(i32* @x), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   %3 = load i32, i32* @x, align 4, !tbaa !1
   %add = add nsw i32 %3, 1
   store i32 %add, i32* @x, align 4, !tbaa !1
@@ -88,7 +88,6 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
 !5 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 42, i32 0}
-!6 = distinct !{i32 0}
 
 ; CHECK:  @.omp_offloading.img_start.x86_64-mic
 ; CHECK:  @.omp_offloading.img_end.x86_64-mic

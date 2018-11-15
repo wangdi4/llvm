@@ -205,6 +205,9 @@ protected:
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
 
+  /// Return true if the loop has OMP.SIMD region entry directive
+  bool hasSIMDRegionDirective() const;
+
 public:
   /// Prints preheader of loop.
   void printPreheader(formatted_raw_ostream &OS, unsigned Depth,
@@ -423,11 +426,10 @@ public:
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {
     auto StrideRef = getStrideDDRef();
-    assert(StrideRef && "Stride ref is null!");
     int64_t Val;
 
     // Stride is 0 for unknown loops.
-    return (StrideRef->isIntConstant(&Val) && (Val == 0));
+    return (!StrideRef || (StrideRef->isIntConstant(&Val) && (Val == 0)));
   }
 
   /// Returns true if this is a do loop.
@@ -645,13 +647,13 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const { return hasDirective(DIR_OMP_SIMD); }
+  bool isSIMD() const {
+    return hasDirective(DIR_OMP_SIMD) || hasSIMDRegionDirective();
+  }
 
   /// Checks whether we have a vectorizable loop by checking if SIMD
   /// or AUTO_VEC directive is attached to the loop.
-  bool isVecLoop() const {
-    return hasDirective(DIR_OMP_SIMD) || hasDirective(DIR_VPO_AUTO_VEC);
-  }
+  bool isVecLoop() const { return isSIMD() || hasDirective(DIR_VPO_AUTO_VEC); }
 
   unsigned getMVTag() const { return MVTag; }
 
@@ -915,6 +917,9 @@ public:
     return true;
   }
 
+  /// Sets the pragma based minimum trip count of the loop to \p MinTripCount.
+  void setPragmaBasedMinimumTripCount(unsigned MinTripCount);
+
   /// Returns true if maximum trip count of loop is specified using pragma and
   /// returns the value in \p MaxTripCount.
   bool getPragmaBasedMaximumTripCount(unsigned &MaxTripCount) const {
@@ -929,6 +934,9 @@ public:
     return true;
   }
 
+  /// Sets the pragma based maximum trip count of the loop to \p MaxTripCount.
+  void setPragmaBasedMaximumTripCount(unsigned MaxTripCount);
+
   /// Returns true if average trip count of loop is specified using pragma and
   /// returns the value in \p AvgTripCount.
   bool getPragmaBasedAverageTripCount(unsigned &AvgTripCount) const {
@@ -942,6 +950,12 @@ public:
         mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
     return true;
   }
+
+  /// Sets the pragma based average trip count of the loop to \p AvgTripCount.
+  void setPragmaBasedAverageTripCount(unsigned AvgTripCount);
+
+  /// Divides any existing pragma based min/max/avg trip count by \p Factor.
+  void dividePragmaBasedTripCount(unsigned Factor);
 
   /// Returns true if likely trip counts of loop are specified using pragma and
   /// returns the values in \p TripCounts.
@@ -1028,8 +1042,12 @@ public:
 
   /// Peels the first iteration of the loop and inserts the peel loop before
   /// this loop. Ztt, loop preheader and postexit are extracted before cloning
-  /// this loop to generate the peel loop.
-  HLLoop *peelFirstIteration();
+  /// this loop to generate the peel loop. If \p UpdateMainLoop is true, this
+  /// loop's UB and DDRefs are updated so that peeled iterations are not
+  /// executed again. Otherwise, this loop's UB and DDRefs won't be updated and
+  /// the loop will redundantly execute the iterations executed by the peel
+  /// loop.
+  HLLoop *peelFirstIteration(bool UpdateMainLoop = true);
 
   // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);

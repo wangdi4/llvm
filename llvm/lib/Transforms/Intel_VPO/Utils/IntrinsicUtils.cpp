@@ -221,6 +221,20 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
   return NewCallInst;
 }
 
+// Recursively strip Casts from ValWithCasts, until a non CastInst is found.
+Value *VPOUtils::stripCasts(Value *ValWithCasts,
+                            SmallVectorImpl<Instruction *> &SeenCastInsts) {
+
+  assert(ValWithCasts && "Null input value.");
+
+  while (CastInst *CI = dyn_cast<CastInst>(ValWithCasts)) {
+    SeenCastInsts.push_back(CI);
+    ValWithCasts = CI->getOperand(0);
+  }
+
+  return ValWithCasts;
+}
+
 // Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from the Function F.
 // This is a workaround for now till CodeExtractor learns to handle these.
 void VPOUtils::stripDebugInfoInstrinsics(Function &F)

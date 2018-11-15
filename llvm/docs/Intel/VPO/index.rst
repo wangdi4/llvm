@@ -205,6 +205,9 @@ Vectorizer Passes
 **Predication**
    Describes the Predication transformation: :doc:`Predication <Predication/index>`
 
+**LoadCoalescing**
+  Describes the approach to Load-Coalescing: :doc:`LoadCoalescing <LoadCoalescing>`
+
 **Miscellaneous**
    Describes miscellaneous issues encountered: :doc:`Miscellaneous <Misc/index>`
 

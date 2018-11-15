@@ -133,9 +133,10 @@ static void debugPrintHeader(WRegionNode *W, bool IsPrepare) {
 }
 
 // Generate the placeholders for the loop lower bound and upper bound.
-void VPOParoptTransform::genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
-                                                AllocaInst *&LowerBnd,
-                                                AllocaInst *&UpperBnd) {
+void VPOParoptTransform::genLoopBoundUpdatePrep(
+    WRegionNode *W, unsigned Idx, AllocaInst *&LowerBnd, AllocaInst *&UpperBnd,
+    AllocaInst *&SchedStride, AllocaInst *&TeamLowerBnd,
+    AllocaInst *&TeamUpperBnd, AllocaInst *&TeamStride, Value *&UpperBndVal) {
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L->isLoopSimplifyForm() &&
          "genLoopBoundUpdatePrep: Expect the loop is in SimplifyForm.");
@@ -161,13 +162,26 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
 
   UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
 
+  SchedStride = Builder.CreateAlloca(IndValTy, nullptr, "sched.inc");
+
+  bool IsDistParLoop = isa<WRNDistributeParLoopNode>(W);
+  bool IsDistForLoop = isa<WRNDistributeNode>(W);
+
+  if (IsDistParLoop || IsDistForLoop) {
+    TeamLowerBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.lb");
+
+    TeamUpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.ub");
+
+    TeamStride = Builder.CreateAlloca(IndValTy, nullptr, "team.inc");
+  }
+
   if (InitVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
     InitVal = Builder.CreateSExtOrTrunc(InitVal, IndValTy);
 
   Builder.CreateStore(InitVal, LowerBnd);
 
-  Value *UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
+  UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
@@ -176,18 +190,163 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
   Builder.CreateStore(UpperBndVal, UpperBnd);
 }
 
-// Generate the OCL loop update code.
-void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
-                                                   AllocaInst *LowerBnd,
-                                                   AllocaInst *UpperBnd) {
+// Initialize the incoming array Arg with the constant Idx.
+void VPOParoptTransform::initArgArray(SmallVectorImpl<Value *> *Arg,
+                                      unsigned Idx) {
+  LLVMContext &C = F->getContext();
+
+  switch (Idx) {
+  case 0: {
+    ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+    Arg->push_back(ValueZero);
+  } break;
+  case 1: {
+    ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
+    Arg->push_back(ValueOne);
+  } break;
+  case 2: {
+    ConstantInt *ValueTwo = ConstantInt::get(Type::getInt32Ty(C), 2);
+    Arg->push_back(ValueTwo);
+  } break;
+  }
+}
+
+// If the user provides the clause collapse(n), where n is greater
+// than 1, the utility getNormIVSize() returns the value n.
+// For this case, the compiler simply sets the
+// DistSchedKind to be TargetScheduleKind in order
+// to simplify the transformation under OpenCL based OMP offloading.
+void VPOParoptTransform::
+  setSchedKindForMultiLevelLoops(WRegionNode *W,
+                                 WRNScheduleKind &SchedKind,
+                                 WRNScheduleKind TargetScheduleKind) {
+  if (W->getWRNLoopInfo().getNormIVSize() > 1) {
+    if (SchedKind != TargetScheduleKind)
+      LLVM_DEBUG(dbgs() << "DistSchedKind is forced to be StaticEven."
+                        << "\n");
+    SchedKind = TargetScheduleKind;
+  }
+}
+
+// #pragma omp target teams distribute
+// for (i = lb; i <= ub; i++)
+// The output of loop partitioning for dimension Idx.
+// as below, where 0 <= Idx <= 2.
+//
+// team_chunk_size = (ub - lb + get_num_groups(Idx)) / get_num_groups(Idx);
+// new_team_lb = lb + get_group_id(Idx) * team_chunk_size;
+// new_team_ub = min(new_team_lb + team_chunk_size - 1, ub);
+//
+// for (i = new_team_lb; i <= new_team_ub; i++TeamUB)
+//
+// Idx -- the dimension index.
+// LowerBnd -- the stack variable which holds the loop lower bound.
+// UpperBnd -- the stack variable which holds the loop upper bound.
+void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
+    WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
+    AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd, AllocaInst *TeamStride,
+    WRNScheduleKind &DistSchedKind, Instruction *&TeamLB, Instruction *&TeamUB,
+    Instruction *&TeamST) {
+  if (!W->getIsDistribute())
+    return;
+  assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "genOCLDistParLoopBoundUpdateCode: Expect non-empty loop.");
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
-  LLVMContext &C = F->getContext();
   IRBuilder<> Builder(InsertPt);
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+  LLVMContext &C = F->getContext();
+
+  // Call the function get_num_group to get the group size for dimension Idx.
+  SmallVector<Value *, 3> Arg;
+  initArgArray(&Arg, Idx);
+  CallInst *NumGroupsCall =
+      VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj", Arg, InsertPt);
+  Value *NumGroups =
+      Builder.CreateSExtOrTrunc(NumGroupsCall, Type::getInt32Ty(C));
+  Value *LB = Builder.CreateLoad(LowerBnd);
+  Value *UB = Builder.CreateLoad(UpperBnd);
+  Value *ItSpace = Builder.CreateSub(UB, LB);
+
+  DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
+
+  setSchedKindForMultiLevelLoops(W, DistSchedKind,
+                                 WRNScheduleDistributeStaticEven);
+
+  // Compute team_chunk_size
+  Value *Chunk = nullptr;
+  if (DistSchedKind == WRNScheduleDistributeStaticEven) {
+    Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumGroups);
+    Chunk = Builder.CreateSDiv(ItSpaceRounded, NumGroups);
+  } else if (DistSchedKind == WRNScheduleDistributeStatic)
+    Chunk = W->getDistSchedule().getChunkExpr();
+  else
+    llvm_unreachable(
+        "Unsupported distribute schedule type in OpenCL based offloading!");
+  Value *TeamStrideVal = Builder.CreateMul(NumGroups, Chunk);
+  Builder.CreateStore(TeamStrideVal, TeamStride);
+
+  CallInst *GroupIdCall =
+      VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj", Arg, InsertPt);
+  Value *GroupId = Builder.CreateSExtOrTrunc(GroupIdCall, Type::getInt32Ty(C));
+
+  // Compute new_team_lb
+  Value *LBDiff = Builder.CreateMul(GroupId, Chunk);
+  LB = Builder.CreateAdd(LB, LBDiff);
+  Builder.CreateStore(LB, LowerBnd);
+  Builder.CreateStore(LB, TeamLowerBnd);
+  Builder.CreateStore(UB, TeamUpperBnd);
+
+  // Compute new_team_ub
   ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
-  Value *Arg[] = {ValueZero};
+  Value *Ch = Builder.CreateSub(Chunk, ValueOne);
+  Value *NewUB = Builder.CreateAdd(LB, Ch);
+
+  Value *Compare = Builder.CreateICmp(ICmpInst::ICMP_ULT, NewUB, UB);
+  Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+      Compare, InsertPt, false,
+      MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
+  BasicBlock *ThenBB = ThenTerm->getParent();
+  ThenBB->setName("then.bb.");
+  IRBuilder<> BuilderThen(ThenBB);
+  BuilderThen.SetInsertPoint(ThenBB->getTerminator());
+  BuilderThen.CreateStore(NewUB, UpperBnd);
+  BuilderThen.CreateStore(NewUB, TeamUpperBnd);
+
+  Builder.SetInsertPoint(InsertPt);
+  TeamLB = Builder.CreateLoad(TeamLowerBnd);
+  TeamUB = Builder.CreateLoad(TeamUpperBnd);
+  TeamST = Builder.CreateLoad(TeamStride);
+}
+
+// Generate the OCL loop bound update code.
+//
+// #pragma omp target teams distribute
+// for (i = lb; i <= ub; i++)
+// The output of loop partitioning for the Idxth dimension.
+// chunk_size = (new_team_ub - new_team_lb + get_local_size(Idx)) /
+//              get_local_size(Idx);
+// new_lb = new_team_lb + get_local_id(Idx) * chunk_size;
+// new_ub = min(new_lb + chunk_size - 1, new_team_ub);
+//
+// for (i = new_lb; i <= new_ub; i++)
+//
+// Idx -- the dimension index.
+// LowerBnd -- the stack variable which holds the loop lower bound.
+// UpperBnd -- the stack variable which holds the loop upper bound.
+void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
+                                                   AllocaInst *LowerBnd,
+                                                   AllocaInst *UpperBnd,
+                                                   AllocaInst *SchedStride) {
+  assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
+  Loop *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "genOCLLoopBoundUpdateCode: Expect non-empty loop.");
+  Instruction *InsertPt =
+      cast<Instruction>(L->getLoopPreheader()->getTerminator());
+  IRBuilder<> Builder(InsertPt);
+  SmallVector<Value *, 3> Arg;
+  LLVMContext &C = F->getContext();
+  initArgArray(&Arg, Idx);
   CallInst *LocalSize =
       VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej", Arg, InsertPt);
   Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, Type::getInt32Ty(C));
@@ -197,13 +356,21 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
 
+  setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
+
+  ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
   Value *Chunk = nullptr;
-  if (SchedKind == WRNScheduleStaticEven ||
-      SchedKind == WRNScheduleOrderedStaticEven) {
+  if (SchedKind == WRNScheduleStaticEven) {
     Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
     Chunk = Builder.CreateSDiv(ItSpaceRounded, NumThreads);
-  } else
-    Chunk = ValueOne;
+  } else if (SchedKind == WRNScheduleStatic)
+    Chunk = W->getSchedule().getChunkExpr();
+  else
+    llvm_unreachable(
+        "Unsupported loop schedule type in OpenCL based offloading!");
+
+  Value *SchedStrideVal = Builder.CreateMul(NumThreads, Chunk);
+  Builder.CreateStore(SchedStrideVal, SchedStride);
 
   CallInst *LocalId =
       VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj", Arg, InsertPt);
@@ -227,12 +394,17 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   BuilderThen.CreateStore(NewUB, UpperBnd);
 }
 
-// Generate the OCL loop scheduling code.
-void VPOParoptTransform::genOCLLoopPartitionCode(WRegionNode *W, unsigned Idx,
-                                                 AllocaInst *LowerBnd,
-                                                 AllocaInst *UpperBnd) {
+// Generate the GPU loop scheduling code.
+void VPOParoptTransform::genOCLLoopPartitionCode(
+    WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
+    AllocaInst *SchedStride, AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
+    AllocaInst *TeamStride, Value *UpperBndVal, WRNScheduleKind DistSchedKind,
+    Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST) {
+
+  assert(W->getIsOmpLoop() && "genOCLLoopPartitionCode: W is not a loop-type WRN");
 
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "genOCLLoopPartitionCode: Expect non-empty loop.");
   DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
   SmallSetVector<Instruction *, 8> LiveOutVals;
   EquivalenceClasses<Value *> ECs;
@@ -253,11 +425,8 @@ void VPOParoptTransform::genOCLLoopPartitionCode(WRegionNode *W, unsigned Idx,
 
   BasicBlock *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
 
-  bool IsLeft;
-  CmpInst::Predicate PD = VPOParoptUtils::computeOmpPredicate(
-      WRegionUtils::getOmpPredicate(L, IsLeft));
-  ICmpInst *CompInst;
-  CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
+  ICmpInst *CompInst =
+      new ICmpInst(InsertPt, ICmpInst::ICMP_SLE, LoadLB, LoadUB, "");
 
   VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, InsertPt);
 
@@ -273,37 +442,333 @@ void VPOParoptTransform::genOCLLoopPartitionCode(WRegionNode *W, unsigned Idx,
     W->setExitBBlock(LoopRegionExitBB);
 
   std::swap(LoopExitBB, LoopRegionExitBB);
-  TerminatorInst *NewTermInst =
+  Instruction *NewTermInst =
       BranchInst::Create(PreHdrInst->getSuccessor(0), LoopExitBB, CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
-  if (DT)
-    DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
+  WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
 
-  wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
-  rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+  setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
+
+  if (SchedKind == WRNScheduleStaticEven) {
+    if (DT)
+      DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
+
+    wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
+    rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+  } else if (SchedKind == WRNScheduleStatic) {
+    Loop *OuterLoop = genDispatchLoopForStatic(
+        L, LoadLB, LoadUB, LowerBnd, UpperBnd, UpperBndVal, SchedStride,
+        LoopExitBB, StaticInitBB, LoopRegionExitBB);
+    wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
+    wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
+                                       ECs);
+    rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+  } else
+    llvm_unreachable(
+        "Unsupported loop schedule type in OpenCL based offloading!");
+
+  if (DistSchedKind == WRNScheduleDistributeStatic) {
+
+    Loop *OuterLoop = genDispatchLoopForTeamDistirbute(
+        L, TeamLB, TeamUB, TeamST, TeamLowerBnd, TeamUpperBnd, TeamStride,
+        UpperBndVal, LoopExitBB, LoopRegionExitBB, TeamST->getParent(),
+        LoopExitBB);
+    wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
+    wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
+                                       ECs);
+    rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+  }
 }
+
+// Generate dispatch loop for teams distriubte.
+Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
+    Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
+    AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd, AllocaInst *TeamStride,
+    Value *UpperBndVal, BasicBlock *LoopExitBB, BasicBlock *LoopRegionExitBB,
+    BasicBlock *TeamInitBB, BasicBlock *TeamExitBB) {
+
+  //                          |
+  //                team.dispatch.header <---------------+
+  //                       |       |                     |
+  //                       |   team.dispatch.min.ub      |
+  //                       |       |                     |
+  //   +------------- team.dispatch.body                 |
+  //   |                   |                             |
+  //   |                   |                             |
+  //   |           team.dispatch.inner.body              |
+  //   |                      |                          |
+  //   |                  par loop  <-------+            |
+  //   |                      |             |            |
+  //   |                    .....           |            |
+  //   |                      |             |            |
+  //   |            par loop bottom test ---+            |
+  //   |                      |                          |
+  //   |                      |                          |
+  //   |               team.dispatch.inc                 |
+  //   |                      |                          |
+  //   |                      +--------------------------+
+  //   |
+  //   +------------> team dispatch.latch
+  //                          |
+
+  // Generate dispatch header BBlock
+  BasicBlock *TeamDispHeaderBB = SplitBlock(TeamInitBB, TeamLB, DT, LI);
+  TeamDispHeaderBB->setName("team.dispatch.header");
+
+  // Generate a upper bound load instruction at top of TeamDispHeaderBB
+  LoadInst *TmpUB = new LoadInst(TeamUpperBnd, "team.ub.tmp", TeamLB);
+
+  // Generate a upper bound load instruction at top of TeamDispHeaderBB
+  Value *TmpUD = UpperBndVal;
+
+  BasicBlock *TeamDispBodyBB = SplitBlock(TeamDispHeaderBB, TeamLB, DT, LI);
+  TeamDispBodyBB->setName("team.dispatch.body");
+
+  ICmpInst *MinUB;
+
+  Instruction *TermInst = TeamDispHeaderBB->getTerminator();
+
+  MinUB =
+      new ICmpInst(TermInst, ICmpInst::ICMP_SLE, TmpUB, TmpUD, "team.ub.min");
+
+  StoreInst *NewUB = new StoreInst(TmpUD, TeamUpperBnd, false, TermInst);
+
+  BasicBlock *TeamDispMinUBB = SplitBlock(TeamDispHeaderBB, NewUB, DT, LI);
+  TeamDispMinUBB->setName("team.dispatch.min.ub");
+
+  TermInst = TeamDispHeaderBB->getTerminator();
+
+  // Generate branch for team.dispatch.cond for get MIN upper bound
+  Instruction *NewTermInst =
+      BranchInst::Create(TeamDispBodyBB, TeamDispMinUBB, MinUB);
+  ReplaceInstWithInst(TermInst, NewTermInst);
+
+  BasicBlock *TeamInnerBodyBB = SplitBlock(TeamDispBodyBB, TeamST, DT, LI);
+  TeamInnerBodyBB->setName("team.dispatch.inner.body");
+
+  ICmpInst *TeamTopTest;
+
+  TermInst = TeamDispBodyBB->getTerminator();
+
+  TeamTopTest = new ICmpInst(TermInst, ICmpInst::ICMP_SLE, TeamLB, TeamUB,
+                             "team.top.test");
+
+  // Generate branch for team.dispatch.cond for get MIN upper bound
+  Instruction *TeamTopTestBI =
+      BranchInst::Create(TeamInnerBodyBB, TeamExitBB, TeamTopTest);
+  ReplaceInstWithInst(TermInst, TeamTopTestBI);
+
+  // Generate dispatch chunk increment BBlock
+  BasicBlock *TeamDispLatchBB =
+      SplitBlock(TeamExitBB, &(TeamExitBB->front()), DT, LI);
+
+  TermInst = TeamExitBB->getTerminator();
+  TeamExitBB->setName("team.dispatch.inc");
+  IRBuilder<> Builder(TermInst);
+
+  LoadInst *TeamStrideVal =
+      Builder.CreateLoad(TeamStride, false, "team.st.inc");
+
+  // Generate team.inc.lb = team.new.lb + team.new.st
+  BinaryOperator *IncLB =
+      BinaryOperator::CreateAdd(TeamLB, TeamStrideVal, "team.inc.lb");
+  IncLB->insertBefore(TermInst);
+
+  // Generate team.inc.ub = team.new.lb + team.new.st
+  BinaryOperator *IncUB =
+      BinaryOperator::CreateAdd(TeamUB, TeamStrideVal, "team.inc.ub");
+  IncUB->insertBefore(TermInst);
+
+  StoreInst *NewIncLB = new StoreInst(IncLB, TeamLowerBnd, false, TermInst);
+  NewIncLB->setAlignment(4);
+
+  StoreInst *NewIncUB = new StoreInst(IncUB, TeamUpperBnd, false, TermInst);
+  NewIncUB->setAlignment(4);
+
+  TermInst->setSuccessor(0, TeamDispHeaderBB);
+
+  TeamDispLatchBB->setName("team.dispatch.latch");
+
+  TermInst = TeamDispBodyBB->getTerminator();
+
+  TermInst->setSuccessor(1, TeamDispLatchBB);
+
+  if (DT) {
+    DT->changeImmediateDominator(TeamDispHeaderBB, TeamInitBB);
+    DT->changeImmediateDominator(TeamDispBodyBB, TeamDispHeaderBB);
+    DT->changeImmediateDominator(TeamDispMinUBB, TeamDispHeaderBB);
+    DT->changeImmediateDominator(TeamInnerBodyBB, TeamDispBodyBB);
+    DT->changeImmediateDominator(TeamDispLatchBB, TeamDispBodyBB);
+  }
+  Loop *OuterLoop = WRegionUtils::createLoop(L, L->getParentLoop(), LI);
+  WRegionUtils::updateBBForLoop(TeamDispHeaderBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  WRegionUtils::updateBBForLoop(TeamDispMinUBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  WRegionUtils::updateBBForLoop(TeamDispBodyBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  WRegionUtils::updateBBForLoop(TeamExitBB, OuterLoop, L->getParentLoop(), LI);
+  WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  OuterLoop->moveToHeader(TeamDispHeaderBB);
+  return OuterLoop;
+}
+
+// Generate dispatch loop for static chunk.
+Loop *VPOParoptTransform::genDispatchLoopForStatic(
+    Loop *L, LoadInst *LoadLB, LoadInst *LoadUB, AllocaInst *LowerBnd,
+    AllocaInst *UpperBnd, Value *UpperBndVal, AllocaInst *SchedStride,
+    BasicBlock *LoopExitBB, BasicBlock *StaticInitBB,
+    BasicBlock *LoopRegionExitBB) {
+  //                          |
+  //                    dispatch.header <----------------+
+  //                       |       |                     |
+  //                       |   dispatch.min.ub           |
+  //                       |       |                     |
+  //   +---------------- dispatch.body                   |
+  //   |                      |                          |
+  //   |                  loop body <------+             |
+  //   |                      |            |             |
+  //   |                    .....          |             |
+  //   |                      |            |             |
+  //   |               loop bottom test ---+             |
+  //   |                      |                          |
+  //   |                      |                          |
+  //   |                dispatch.inc                     |
+  //   |                      |                          |
+  //   |                      +--------------------------+
+  //   |
+  //   +--------------> dispatch.latch
+  //                          |
+
+  // Generate dispatch header BBlock
+  BasicBlock *DispatchHeaderBB = SplitBlock(StaticInitBB, LoadLB, DT, LI);
+  DispatchHeaderBB->setName("dispatch.header");
+
+  // Generate a upper bound load instruction at top of DispatchHeaderBB
+  LoadInst *TmpUB = new LoadInst(UpperBnd, "ub.tmp", LoadLB);
+
+  BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
+  DispatchBodyBB->setName("dispatch.body");
+
+  Instruction *TermInst = DispatchHeaderBB->getTerminator();
+
+  ICmpInst *MinUB;
+
+  MinUB =
+      new ICmpInst(TermInst, ICmpInst::ICMP_SLE, TmpUB, UpperBndVal, "ub.min");
+
+  StoreInst *NewUB = new StoreInst(UpperBndVal, UpperBnd, false, TermInst);
+
+  BasicBlock *DispatchMinUBB = SplitBlock(DispatchHeaderBB, NewUB, DT, LI);
+  DispatchMinUBB->setName("dispatch.min.ub");
+
+  TermInst = DispatchHeaderBB->getTerminator();
+
+  // Generate branch for dispatch.cond for get MIN upper bound
+  Instruction *NewTermInst =
+      BranchInst::Create(DispatchBodyBB, DispatchMinUBB, MinUB);
+  ReplaceInstWithInst(TermInst, NewTermInst);
+
+  // Generate dispatch chunk increment BBlock
+  BasicBlock *DispatchLatchBB =
+      SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+
+  TermInst = LoopExitBB->getTerminator();
+  LoopExitBB->setName("dispatch.inc");
+  IRBuilder<> Builder(TermInst);
+
+  // Load Stride value to st.new
+  LoadInst *StrideVal = Builder.CreateLoad(SchedStride, false, "st.inc");
+
+  // Generate inc.lb.new = lb.new + st.new
+  auto IncLB =
+      Builder.CreateAdd(Builder.CreateLoad(LowerBnd), StrideVal, "lb.inc");
+
+  // Generate inc.lb.new = lb.new + st.new
+  auto IncUB =
+      Builder.CreateAdd(Builder.CreateLoad(UpperBnd), StrideVal, "ub.inc");
+
+  Builder.CreateStore(IncLB, LowerBnd);
+  Builder.CreateStore(IncUB, UpperBnd);
+
+  TermInst->setSuccessor(0, DispatchHeaderBB);
+
+  DispatchLatchBB->setName("dispatch.latch");
+
+  TermInst = DispatchBodyBB->getTerminator();
+  TermInst->setSuccessor(1, DispatchLatchBB);
+
+  if (DT) {
+    DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
+
+    DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
+    DT->changeImmediateDominator(DispatchMinUBB, DispatchHeaderBB);
+
+    DT->changeImmediateDominator(DispatchLatchBB, DispatchBodyBB);
+  }
+
+  Loop *OuterLoop = WRegionUtils::createLoop(L, L->getParentLoop(), LI);
+  WRegionUtils::updateBBForLoop(DispatchHeaderBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  WRegionUtils::updateBBForLoop(DispatchMinUBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  WRegionUtils::updateBBForLoop(DispatchBodyBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  WRegionUtils::updateBBForLoop(LoopExitBB, OuterLoop, L->getParentLoop(), LI);
+  WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop, L->getParentLoop(),
+                                LI);
+  OuterLoop->moveToHeader(DispatchHeaderBB);
+
+  return OuterLoop;
+}
+
 // Generate the iteration space partitioning code based on OpenCL.
 // Given a loop as follows.
 //   for (i = lb; i <= ub; i++)
 // The output of partitioning as below.
 //   chunk_size = (ub - lb + get_local_size()) / get_local_size();
 //   new_lb = lb + get_local_id * chunk_size;
-//   new_ub = min(lb + chunk_size - 1, ub);
+//   new_ub = min(new_lb + chunk_size - 1, ub);
 //   for (i = new_lb; i <= new_ub; i++)
 // Here we assume the global_size is equal to local_size, which means
 // there is only one workgroup.
 //
 bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
-  AllocaInst *LowerBnd, *UpperBnd;
+  AllocaInst *LowerBnd, *UpperBnd, *SchedStride;
+  AllocaInst *TeamLowerBnd, *TeamUpperBnd, *TeamStride;
+  Value *UpperBndVal;
+  WRNScheduleKind DistSchedKind;
+  Instruction *TeamLB, *TeamUB, *TeamST;
+
+  LowerBnd = nullptr;
+  UpperBnd = nullptr;
+  SchedStride = nullptr;
+  TeamLowerBnd = nullptr;
+  TeamUpperBnd = nullptr;
+  TeamStride = nullptr;
+  UpperBndVal = nullptr;
+  TeamLB = nullptr;
+  TeamUB = nullptr;
+  TeamST = nullptr;
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
-    genLoopBoundUpdatePrep(W, I - 1, LowerBnd, UpperBnd);
+    genLoopBoundUpdatePrep(W, I - 1, LowerBnd, UpperBnd, SchedStride,
+                           TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal);
 
-    genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd);
+    genOCLDistParLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, TeamLowerBnd,
+                                     TeamUpperBnd, TeamStride, DistSchedKind,
+                                     TeamLB, TeamUB, TeamST);
 
-    genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd);
+    if (isa<WRNParallelSectionsNode>(W) || isa<WRNParallelLoopNode>(W) ||
+        isa<WRNDistributeParLoopNode>(W))
+      genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, SchedStride);
+
+    genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,
+                            TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,
+                            DistSchedKind, TeamLB, TeamUB, TeamST);
   }
 
   return true;
@@ -702,8 +1167,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          AllocaInst *IsLastVal = nullptr;
-          BasicBlock *IfLastIterBB = nullptr;
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
@@ -721,20 +1184,33 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          Changed |= genLoopSchedulingCode(W, IsLastVal);
-          Changed |= genPrivatizationCode(W);
-          Changed |= genBarrierForFpLpAndLinears(W);
-          Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
-          Changed |= genLinearCode(W, IfLastIterBB);
-          Changed |= genLastPrivatizationCode(W, IfLastIterBB);
-          Changed |= genFirstPrivatizationCode(W);
-          if (!W->getIsDistribute()) {
-            Changed |= genReductionCode(W);
-            Changed |= genCancellationBranchingCode(W);
+          if (deviceTriplesHasSPIRV()) {
+            if (WRegionNode *WT =
+                    WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
+              WT->setParLoopNdInfoAlloca(genTgtLoopParameter(WT, W));
           }
-          Changed |= genDestructorCode(W);
-          if (!W->getIsDistribute() && !W->getNowait())
-            Changed |= genBarrier(W, false);
+          if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+              hasOffloadCompilation()) {
+            Changed |= genOCLParallelLoop(W);
+            Changed |= genPrivatizationCode(W);
+          } else {
+            AllocaInst *IsLastVal = nullptr;
+            BasicBlock *IfLastIterBB = nullptr;
+            Changed |= genLoopSchedulingCode(W, IsLastVal);
+            Changed |= genPrivatizationCode(W);
+            Changed |= genBarrierForFpLpAndLinears(W);
+            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+            Changed |= genLinearCode(W, IfLastIterBB);
+            Changed |= genLastPrivatizationCode(W, IfLastIterBB);
+            Changed |= genFirstPrivatizationCode(W);
+            if (!W->getIsDistribute()) {
+              Changed |= genReductionCode(W);
+              Changed |= genCancellationBranchingCode(W);
+            }
+            Changed |= genDestructorCode(W);
+            if (!W->getIsDistribute() && !W->getNowait())
+              Changed |= genBarrier(W, false);
+          }
           RemoveDirectives = true;
         }
         break;
@@ -815,7 +1291,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNCancel:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = genCancelCode(dyn_cast<WRNCancelNode>(W));
+          Changed = genCancelCode(cast<WRNCancelNode>(W));
           RemoveDirectives = true;
         }
         break;
@@ -1528,10 +2004,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       computeArraySecReductionTypeOffsetSize(*RedI, InsertPt);
 
-      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-      NewRedInst = genPrivatizationAlloca(W, Orig, InsertPt, ".red",
-                                          ArrSecInfo.getElementType(),
-                                          ArrSecInfo.getSize());
+      NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
       RedI->setNew(NewRedInst);
 
       Value *ReplacementVal = getReductionItemReplacementValue(*RedI, InsertPt);
@@ -1823,62 +2296,87 @@ VPOParoptTransform::getReductionItemReplacementValue(ReductionItem const &RedI,
   return NewMinusOffsetAddr;
 }
 
-// A utility to privatize the variables within the region.
-AllocaInst *
-VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
-                                           Instruction *InsertPt,
-                                           const StringRef VarNameSuff) {
-  // LLVM_DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
-  // Generate a new Alloca instruction as privatization action
-  AllocaInst *NewPrivInst = nullptr;
+// Extract the type and size of local Alloca to be created to privatize
+// OrigValue.
+void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
+                                              Type *&ElementType,    // out
+                                              Value *&NumElements) { // out
 
-  assert(!(W->isBBSetEmpty()) &&
-         "genPrivatizationAlloca: WRN has empty BBSet");
+  assert(OrigValue && "Null input value.");
 
-  if (auto PrivInst = dyn_cast<AllocaInst>(PrivValue)) {
-    NewPrivInst = (AllocaInst *)PrivInst->clone();
+  ElementType = nullptr;
+  NumElements = nullptr;
 
-    // Add 'priv' suffix for the new alloca instruction
-    if (PrivInst->hasName())
-      NewPrivInst->setName(PrivInst->getName() + VarNameSuff);
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(OrigValue)) {
+    ElementType = AI->getAllocatedType();
+    if (AI->isArrayAllocation())
+      NumElements = AI->getArraySize();
 
-    NewPrivInst->insertBefore(InsertPt);
-  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(PrivValue)){
-    Type *ElemTy = GV->getValueType();
-    const DataLayout &DL = F->getParent()->getDataLayout();
-    NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
-                                 GV->getName());
-    NewPrivInst->insertBefore(InsertPt);
-  } else {
-    assert((isa<Argument>(PrivValue) || isa<GetElementPtrInst>(PrivValue)) &&
-           "genPrivatizationAlloca: unsupported private item");
-    Type *ElemTy = cast<PointerType>(PrivValue->getType())->getElementType();
-    const DataLayout &DL = F->getParent()->getDataLayout();
-    NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
-                                 PrivValue->getName());
-    NewPrivInst->insertBefore(InsertPt);
+    return;
   }
 
-  return NewPrivInst;
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(OrigValue)) {
+    ElementType = GV->getValueType();
+    return;
+  }
+
+  assert((isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue)) &&
+         "unsupported input Value");
+
+  ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
 }
 
-// A utility to privatize the variables within the region.
-AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
-    WRegionNode *W, Value *PrivValue, Instruction *InsertPt,
-    const StringRef VarNameSuff, Type *ArrSecElementType, Value *ArrSecSize) {
+// Generate an AllocaInst for an array of Type ElementType, size NumElements,
+// and name VarName.
+AllocaInst *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
+                                                       Value *NumElements,
+                                                       Instruction *InsertPt,
+                                                       const Twine &VarName) {
+  assert(ElementType && "Null element type.");
+  assert(InsertPt && "Null insertion anchor.");
 
-  if (!ArrSecSize)
-    return genPrivatizationAlloca(W, PrivValue, InsertPt, VarNameSuff);
-
-  Function *F = InsertPt->getParent()->getParent();
-  const DataLayout &DL = F->getParent()->getDataLayout();
+  Module *M = InsertPt->getModule();
+  const DataLayout &DL = M->getDataLayout();
   IRBuilder<> Builder(InsertPt);
 
-  assert(ArrSecElementType && "Null array section element type.");
-  auto *NewPrivInst =
-      Builder.CreateAlloca(ArrSecElementType, DL.getAllocaAddrSpace(),
-                           ArrSecSize, PrivValue->getName() + VarNameSuff);
-  return NewPrivInst;
+  return Builder.CreateAlloca(ElementType, DL.getAllocaAddrSpace(), NumElements,
+                              VarName);
+}
+
+// Generate an AllocaInst for the local copy of OrigValue.
+AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
+    Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix) {
+
+  assert(OrigValue && "genPrivatizationAlloca: Null input value.");
+
+  Type *ElementType = nullptr;
+  Value *NumElements = nullptr;
+
+  getItemInfoFromValue(OrigValue, ElementType, NumElements);
+  return genPrivatizationAlloca(ElementType, NumElements, InsertPt,
+                                OrigValue->getName() + NameSuffix);
+}
+
+// Generate an AllocaInst for the local copy of ClauseItem I for various
+// data-sharing clauses.
+AllocaInst *
+VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
+                                           const Twine &NameSuffix) {
+  assert(I && "Null Clause Item.");
+
+  Value *Orig = I->getOrig();
+  assert(Orig && "Null original Value in clause item.");
+
+  if (ReductionItem *RedI = dyn_cast<ReductionItem>(I)) {
+    if (RedI->getIsArraySection()) {
+      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+      return genPrivatizationAlloca(ArrSecInfo.getElementType(),
+                                    ArrSecInfo.getSize(), InsertPt,
+                                    Orig->getName() + NameSuffix);
+    }
+  }
+
+  return genPrivatizationAlloca(Orig, InsertPt, NameSuffix);
 }
 
 // Replace the variable with the privatized variable
@@ -2026,12 +2524,12 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
 
     // (A) Create private copy of the linear var to be used instead of the
     // original var inside the WRegion. (2)
-    NewLinearVar = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
-                                          ".linear");                   // (2)
+    NewLinearVar = genPrivatizationAlloca(LinearI, EntryBB->getFirstNonPHI(),
+                                          ".linear"); //                   (2)
 
     // Create a copy of the linear variable to capture its starting value (1)
     LinearStartVar =
-        genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(), ""); // (1)
+        genPrivatizationAlloca(LinearI, EntryBB->getFirstNonPHI()); //     (1)
     LinearStartVar->setName("linear.start");
 
     // Replace original var with the new var inside the region.
@@ -2123,8 +2621,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
-        NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
-                                             ".fpriv");
+        NewPrivInst =
+            genPrivatizationAlloca(FprivI, EntryBB->getFirstNonPHI(), ".fpriv");
 
         // By this it can uniformly handle the global/local firstprivate.
         // For the case of local firstprivate, the New is the same as the Orig.
@@ -2200,7 +2698,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       Value *NewPrivInst;
       if (!ForTask)
         NewPrivInst =
-            genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".lpriv");
+            genPrivatizationAlloca(LprivI, &EntryBB->front(), ".lpriv");
       else
         NewPrivInst = LprivI->getNew();
       genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
@@ -2596,7 +3094,7 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   Loop *L = W->getWRNLoopInfo().getLoop(Index);
   const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = {DL, TLI, DT, AC};
-  LoopRotation(L, LI, TTI, AC, DT, SE, SQ, true, unsigned(-1), true);
+  LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
   std::vector<AllocaInst *> Allocas;
   SmallVector<Value *, 2> LoopEssentialValues;
   if (Index < W->getWRNLoopInfo().getNormIVSize())
@@ -2756,7 +3254,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
 
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        NewPrivInst = genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
+        NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
 
         if (!ForTask) {
@@ -2820,8 +3318,8 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
     PHINode *PN = dyn_cast<PHINode>(&I);
     unsigned NumPHIValues = PN->getNumIncomingValues();
     unsigned II;
-    Value *V = nullptr, *OV;
-    bool Match;
+    Value *V = nullptr, *OV = nullptr;
+    bool Match = false;
     for (II = 0; II < NumPHIValues; II++) {
       V = PN->getIncomingValue(II);
       if (!ValueToLiveinMap.count(V))
@@ -2867,7 +3365,7 @@ void VPOParoptTransform::wrnCollectLiveInVals(
     unsigned NumPHIValues = PN->getNumIncomingValues();
     unsigned II;
     BasicBlock *InBB;
-    Value *IV;
+    Value *IV = nullptr;
     for (II = 0; II < NumPHIValues; ++II) {
       InBB = PN->getIncomingBlock(II);
       if (InBB == PreheaderBB) {
@@ -2935,7 +3433,7 @@ void VPOParoptTransform::wrnCollectLiveOutVals(
         if (!L.contains(UserBB)) {
           LiveOutVals.insert(&I);
           if (isa<PHINode>(I))
-            buildECs(&L, dyn_cast<PHINode>(&I), ECs);
+            buildECs(&L, cast<PHINode>(&I), ECs);
         }
       }
     }
@@ -3127,7 +3625,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   bool IsDistChunkedParLoop = false;
 
-  Value *DistChunkVal = NULL;
+  LLVMContext &C = F->getContext();
+  IntegerType *Int32Ty = Type::getInt32Ty(C);
+  Value *DistChunkVal = ConstantInt::getSigned(Int32Ty, 1);
 
   WRNScheduleKind DistSchedKind;
 
@@ -3168,8 +3668,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   // TBD: handle all loop forms: Top test loop, bottom test loop, with
   // PHI and without PHI nodes as SCEV bails out for many cases
   //
-  LLVMContext &C = F->getContext();
-  IntegerType *Int32Ty = Type::getInt32Ty(C);
   const DataLayout &DL = F->getParent()->getDataLayout();
 
   Type *LoopIndexType =
@@ -3428,7 +3926,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   // Insert doacross_init call for ordered(n)
   if (IsDoacrossLoop)
     VPOParoptUtils::genKmpcDoacrossInit(W, IdentTy, LoadTid, KmpcInitCI,
-                                        LowerBnd, UpperBnd, Stride);
+                                        W->getOrderedTripCounts());
 
   LoadInst *LoadLB = new LoadInst(LowerBnd, "lb.new", InsertPt);
   LoadLB->setAlignment(4);
@@ -3465,7 +3963,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     W->setExitBBlock(LoopRegionExitBB);
 
   std::swap(LoopExitBB, LoopRegionExitBB);
-  TerminatorInst *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
+  Instruction *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
                                                    LoopExitBB, CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
@@ -3505,112 +4003,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     if (IsDoacrossLoop)
       VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
 
-    //                          |
-    //                    dispatch.header <----------------+
-    //                       |       |                     |
-    //                       |   dispatch.min.ub           |
-    //                       |       |                     |
-    //   +---------------- dispatch.body                   |
-    //   |                      |                          |
-    //   |                  loop body <------+             |
-    //   |                      |            |             |
-    //   |                    .....          |             |
-    //   |                      |            |             |
-    //   |               loop bottom test ---+             |
-    //   |                      |                          |
-    //   |                      |                          |
-    //   |                dispatch.inc                     |
-    //   |                      |                          |
-    //   |                      +--------------------------+
-    //   |
-    //   +--------------> dispatch.latch
-    //                          |
-
-    // Generate dispatch header BBlock
-    BasicBlock *DispatchHeaderBB = SplitBlock(StaticInitBB, LoadLB, DT, LI);
-    DispatchHeaderBB->setName("dispatch.header");
-
-    // Generate a upper bound load instruction at top of DispatchHeaderBB
-    LoadInst *TmpUB = new LoadInst(UpperBnd, "ub.tmp", LoadLB);
-
-    BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
-    DispatchBodyBB->setName("dispatch.body");
-
-    Instruction *TermInst = DispatchHeaderBB->getTerminator();
-
-    ICmpInst* MinUB;
-
-    if (IsLeft)
-      MinUB = new ICmpInst(TermInst, PD, TmpUB, UpperBndVal, "ub.min");
-    else
-      MinUB = new ICmpInst(TermInst, PD, UpperBndVal, TmpUB, "ub.min");
-
-    StoreInst *NewUB = new StoreInst(UpperBndVal, UpperBnd, false, TermInst);
-
-    BasicBlock *DispatchMinUBB = SplitBlock(DispatchHeaderBB, NewUB, DT, LI);
-    DispatchMinUBB->setName("dispatch.min.ub");
-
-    TermInst = DispatchHeaderBB->getTerminator();
-
-    // Generate branch for dispatch.cond for get MIN upper bound
-    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB,
-                                                     DispatchMinUBB, MinUB);
-    ReplaceInstWithInst(TermInst, NewTermInst);
-
-    // Generate dispatch chunk increment BBlock
-    BasicBlock *DispatchLatchBB = SplitBlock(LoopExitBB, KmpcFiniCI, DT, LI);
-
-    TermInst = LoopExitBB->getTerminator();
-    LoopExitBB->setName("dispatch.inc");
-
-    // Load Stride value to st.new
-    LoadInst *StrideVal = new LoadInst(Stride, "st.inc", TermInst);
-
-    // Generate inc.lb.new = lb.new + st.new
-    BinaryOperator *IncLB = BinaryOperator::CreateAdd(
-                                            LoadLB, StrideVal, "lb.inc");
-    IncLB->insertBefore(TermInst);
-
-    // Generate inc.lb.new = lb.new + st.new
-    BinaryOperator *IncUB = BinaryOperator::CreateAdd(
-                                            LoadUB, StrideVal, "ub.inc");
-    IncUB->insertBefore(TermInst);
-
-    StoreInst *NewIncLB = new StoreInst(IncLB, LowerBnd, false, TermInst);
-    NewIncLB->setAlignment(4);
-
-    StoreInst *NewIncUB = new StoreInst(IncUB, UpperBnd, false, TermInst);
-    NewIncUB->setAlignment(4);
-
-    TermInst->setSuccessor(0, DispatchHeaderBB);
-
-    DispatchLatchBB->setName("dispatch.latch");
-
-    TermInst = DispatchBodyBB->getTerminator();
-    TermInst->setSuccessor(1, DispatchLatchBB);
-
-    if (DT) {
-      DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
-
-      DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
-      DT->changeImmediateDominator(DispatchMinUBB, DispatchHeaderBB);
-
-      DT->changeImmediateDominator(DispatchLatchBB, DispatchBodyBB);
-    }
-
-    Loop *OuterLoop = WRegionUtils::createLoop(L, L->getParentLoop(), LI);
-    WRegionUtils::updateBBForLoop(DispatchHeaderBB, OuterLoop,
-                                  L->getParentLoop(), LI);
-    WRegionUtils::updateBBForLoop(DispatchMinUBB, OuterLoop, L->getParentLoop(),
-                                  LI);
-    WRegionUtils::updateBBForLoop(DispatchBodyBB, OuterLoop, L->getParentLoop(),
-                                  LI);
-    WRegionUtils::updateBBForLoop(LoopExitBB, OuterLoop, L->getParentLoop(),
-                                  LI);
-    WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop,
-                                  L->getParentLoop(), LI);
-    OuterLoop->moveToHeader(DispatchHeaderBB);
-
+    Loop *OuterLoop = genDispatchLoopForStatic(
+        L, LoadLB, LoadUB, LowerBnd, UpperBnd, UpperBndVal, Stride, LoopExitBB,
+        StaticInitBB, LoopRegionExitBB);
     wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
     wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
                                        ECs);
@@ -3661,7 +4056,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                KmpcNextCI, ValueZero,
                               "dispatch.cond" + Twine(W->getNumber()));
 
-    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB,
+    Instruction *NewTermInst = BranchInst::Create(DispatchBodyBB,
                                                     LoopExitBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -3704,136 +4099,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   }
 
   if (IsDistChunkedParLoop) {
-    BasicBlock *TeamInitBB = KmpcTeamInitCI->getParent();
-    BasicBlock *TeamExitBB = KmpcFiniCI->getParent();
-
-    //                          |
-    //                team.dispatch.header <---------------+
-    //                       |       |                     |
-    //                       |   team.dispatch.min.ub      |
-    //                       |       |                     |
-    //   +------------- team.dispatch.body                 |
-    //   |                   |                             |
-    //   |                   |                             |
-    //   |           team.dispatch.inner.body              |
-    //   |                      |                          |
-    //   |                  par loop  <------_+            |
-    //   |                      |             |            |
-    //   |                    .....           |            |
-    //   |                      |             |            |
-    //   |            par loop bottom test ---+            |
-    //   |                      |                          |
-    //   |                      |                          |
-    //   |               team.dispatch.inc                 |
-    //   |                      |                          |
-    //   |                      +--------------------------+
-    //   |
-    //   +------------> team dispatch.latch
-    //                          |
-
-    // Generate dispatch header BBlock
-    BasicBlock *TeamDispHeaderBB = SplitBlock(TeamInitBB, TeamLB, DT, LI);
-    TeamDispHeaderBB->setName("team.dispatch.header");
-
-    // Generate a upper bound load instruction at top of TeamDispHeaderBB
-    LoadInst *TmpUB = new LoadInst(TeamUpperBnd, "team.ub.tmp", TeamLB);
-
-    // Generate a upper bound load instruction at top of TeamDispHeaderBB
-    LoadInst *TmpUD = new LoadInst(TeamUpperD, "team.ud.tmp", TeamLB);
-
-    BasicBlock *TeamDispBodyBB = SplitBlock(TeamDispHeaderBB, TeamLB, DT, LI);
-    TeamDispBodyBB->setName("team.dispatch.body");
-
-    ICmpInst* MinUB;
-
-    Instruction *TermInst = TeamDispHeaderBB->getTerminator();
-
-    if (IsLeft)
-      MinUB = new ICmpInst(TermInst, PD, TmpUB, TmpUD, "team.ub.min");
-    else
-      MinUB = new ICmpInst(TermInst, PD, TmpUD, TmpUB, "team.ub.min");
-
-    StoreInst *NewUB = new StoreInst(TmpUD, TeamUpperBnd, false, TermInst);
-
-    BasicBlock *TeamDispMinUBB = SplitBlock(TeamDispHeaderBB, NewUB, DT, LI);
-    TeamDispMinUBB->setName("team.dispatch.min.ub");
-
-    TermInst = TeamDispHeaderBB->getTerminator();
-
-    // Generate branch for team.dispatch.cond for get MIN upper bound
-    TerminatorInst *NewTermInst = BranchInst::Create(TeamDispBodyBB,
-                                                     TeamDispMinUBB, MinUB);
-    ReplaceInstWithInst(TermInst, NewTermInst);
-
-    BasicBlock *TeamInnerBodyBB = SplitBlock(TeamDispBodyBB, TeamST, DT, LI);
-    TeamInnerBodyBB->setName("team.dispatch.inner.body");
-
-    ICmpInst* TeamTopTest;
-
-    TermInst = TeamDispBodyBB->getTerminator();
-
-    if (IsLeft)
-      TeamTopTest = new ICmpInst(TermInst, PD, TeamLB, TeamUB, "team.top.test");
-    else
-      TeamTopTest = new ICmpInst(TermInst, PD, TeamUB, TeamLB, "team.top.test");
-
-    // Generate branch for team.dispatch.cond for get MIN upper bound
-    TerminatorInst *TeamTopTestBI = BranchInst::Create(TeamInnerBodyBB,
-                                                       TeamExitBB, TeamTopTest);
-    ReplaceInstWithInst(TermInst, TeamTopTestBI);
-
-    // Generate dispatch chunk increment BBlock
-    BasicBlock *TeamDispLatchBB = SplitBlock(TeamExitBB,
-                                             &(TeamExitBB->front()), DT, LI);
-
-    TermInst = TeamExitBB->getTerminator();
-    TeamExitBB->setName("team.dispatch.inc");
-
-    // Generate team.inc.lb = team.new.lb + team.new.st
-    BinaryOperator *IncLB = BinaryOperator::CreateAdd(
-                                            TeamLB, TeamST, "team.inc.lb");
-    IncLB->insertBefore(TermInst);
-
-    // Generate team.inc.ub = team.new.lb + team.new.st
-    BinaryOperator *IncUB = BinaryOperator::CreateAdd(
-                                            TeamUB, TeamST, "team.inc.ub");
-    IncUB->insertBefore(TermInst);
-
-    StoreInst *NewIncLB = new StoreInst(IncLB, TeamLowerBnd, false, TermInst);
-    NewIncLB->setAlignment(4);
-
-    StoreInst *NewIncUB = new StoreInst(IncUB, TeamUpperBnd, false, TermInst);
-    NewIncUB->setAlignment(4);
-
-    TermInst->setSuccessor(0, TeamDispHeaderBB);
-
-    TeamDispLatchBB->setName("team.dispatch.latch");
-
-    TermInst = TeamDispBodyBB->getTerminator();
-
-    TermInst->setSuccessor(1, TeamDispLatchBB);
-
-    if (DT) {
-      DT->changeImmediateDominator(TeamDispHeaderBB, TeamInitBB);
-      DT->changeImmediateDominator(TeamDispBodyBB, TeamDispHeaderBB);
-      DT->changeImmediateDominator(TeamDispMinUBB, TeamDispHeaderBB);
-      DT->changeImmediateDominator(TeamInnerBodyBB, TeamDispBodyBB);
-      DT->changeImmediateDominator(TeamDispLatchBB, TeamDispBodyBB);
-    }
-
-    Loop *OuterLoop = WRegionUtils::createLoop(L, L->getParentLoop(), LI);
-    WRegionUtils::updateBBForLoop(TeamDispHeaderBB, OuterLoop,
-                                  L->getParentLoop(), LI);
-    WRegionUtils::updateBBForLoop(TeamDispMinUBB, OuterLoop, L->getParentLoop(),
-                                  LI);
-    WRegionUtils::updateBBForLoop(TeamDispBodyBB, OuterLoop, L->getParentLoop(),
-                                  LI);
-    WRegionUtils::updateBBForLoop(TeamExitBB, OuterLoop, L->getParentLoop(),
-                                  LI);
-    WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop,
-                                  L->getParentLoop(), LI);
-    OuterLoop->moveToHeader(TeamDispHeaderBB);
-
+    Loop *OuterLoop = genDispatchLoopForTeamDistirbute(
+        L, TeamLB, TeamUB, TeamST, TeamLowerBnd, TeamUpperBnd, TeamStride,
+        UpperBndVal, LoopExitBB, LoopRegionExitBB, KmpcTeamInitCI->getParent(),
+        KmpcFiniCI->getParent());
     wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
     wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
                                        ECs);
@@ -4029,11 +4298,11 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
       CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
                               ForkTestCI, ValueZero, "fork.test");
 
-    TerminatorInst *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
+    Instruction *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
                                                      CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
-    TerminatorInst *NewForkBI = BranchInst::Create(
+    Instruction *NewForkBI = BranchInst::Create(
                                   ElseCallBB->getTerminator()->getSuccessor(0));
 
     ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
@@ -4450,7 +4719,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
   ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                     MasterCI, ValueOne, "");
 
-  TerminatorInst *NewTermInst = BranchInst::Create(ThenMasterBB,
+  Instruction *NewTermInst = BranchInst::Create(ThenMasterBB,
                                                    SuccEndMasterBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -4547,7 +4816,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
   ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
                                     SingleCI, ValueOne, "");
 
-  TerminatorInst *NewTermInst = BranchInst::Create(ThenSingleBB,
+  Instruction *NewTermInst = BranchInst::Create(ThenSingleBB,
                                                    EndSingleSuccBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -4618,15 +4887,12 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
   assert(WParent->getIsOmpLoop() && "Parent is not a loop-type WRN");
 
   // Emit doacross post call for 'depend(source)'
-  if (W->getIsDepSource()) {
-
-    // For doacross post, we send in the outer WRegion's loop index.
-    auto *ParentNormIV = WParent->getWRNLoopInfo().getNormIV();
-    assert(ParentNormIV && "Cannot find IV of outer construct.");
-
+  if (!W->getDepSource().empty()) {
+    assert(W->getDepSource().size() == 1 && "More than one depend(source)");
+    DepSourceItem *DSI = W->getDepSource().back();
     // Generate __kmpc_doacross_post call
     CallInst *DoacrossPostCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
-        W, IdentTy, TidPtrHolder, InsertPt, ParentNormIV,
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDepExprs(),
         true); // 'depend (source)'
     (void)DoacrossPostCI;
     assert(DoacrossPostCI && "Failed to emit doacross_post call.");
@@ -4636,7 +4902,7 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
   for (DepSinkItem *DSI : W->getDepSink().items()) {
     // Generate __kmpc_doacross_wait call
     CallInst *DoacrossWaitCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
-        W, IdentTy, TidPtrHolder, InsertPt, DSI->getSinkExpr(),
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDepExprs(),
         false); // 'depend (sink:...)'
     (void)DoacrossWaitCI;
     assert(DoacrossWaitCI && "Failed to emit doacross_wait call.");
@@ -5145,7 +5411,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
     OrgBB = CancellationPoint->getParent();
     Instruction *TermInst = OrgBB->getTerminator();
-    TerminatorInst *NewTermInst =
+    Instruction *NewTermInst =
         BranchInst::Create(CurrentCancelExitBB, NotCancelledBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
@@ -5438,8 +5704,8 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
         Builder.CreateInBoundsGEP(KmpCopyPrivateTy, DstArg, Indices);
     LoadInst *SrcLoad = Builder.CreateLoad(SrcGep);
     LoadInst *DstLoad = Builder.CreateLoad(DstGep);
-    Value *NewCopyPrivInst = genPrivatizationAlloca(
-        W, CprivI->getOrig(), EntryBB->getTerminator(), ".cp.priv");
+    Value *NewCopyPrivInst =
+        genPrivatizationAlloca(CprivI, EntryBB->getTerminator(), ".cp.priv");
     genLprivFini(NewCopyPrivInst, DstLoad, EntryBB->getTerminator());
     NewCopyPrivInst->replaceAllUsesWith(SrcLoad);
     cast<AllocaInst>(NewCopyPrivInst)->eraseFromParent();

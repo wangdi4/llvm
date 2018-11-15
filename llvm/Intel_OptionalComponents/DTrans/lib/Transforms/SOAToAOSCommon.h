@@ -223,8 +223,8 @@ protected:
     {
       Type *Out = nullptr;
       // 1. Access pointer field in outer structure.
-      // 2. Access pointer to vtable
-      // 3. Access pointer to function
+      // 2. Access pointer to vtable.
+      // 3. Access pointer to function.
       if (Deref <= 3 && isFieldAddr(A, S, Out) && Out->isPointerTy() &&
           Out->getPointerElementType() == S.MemoryInterface) {
         return true;

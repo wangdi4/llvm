@@ -453,46 +453,87 @@ public:
   /// Insert a call to `kmpc_doacross_wait/post` for `#pragma omp ordered
   /// depend(source/sink)` before \p InsertPt and return it.
   ///
+  /// Incoming Directive:
   /// \code
-  ///   %dep.vec = alloca i64, align 8
-  ///   %dv.val = load i32, i32* %<dep.vec.value>
-  ///   %conv = sext i32 %dv.val to i64
-  ///   store i64 %conv, i64* %dep.vec, align 8
-  ///   %tid = load i32, i32* %tidptr, align 4
-  ///   call void @__kmpc_doacross_wait/post(%{ i32, i32, i32, i32, i8* }*
-  ///   %loc, i32 %tid, i64* %dims)
+  ///   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
+  ///        "QUAL.OMP.DEPEND.SINK"(i32 %v1, i32 %v2) ]
   /// \endcode
   ///
-  /// If \p DepVecValue is an alloca, a load is first done from it before
-  /// storing it to `dims` for the runtime.
+  /// Generated IR:
+  /// \code
+  ///   %dep.vec = alloca i64, i32 2
+  ///   %conv1 = sext i32 %v1 to i64
+  ///   %2 = getelementptr inbounds i64, i64* %dep.vec, i64 0
+  ///   store i64 %conv1, i64* %2
+  ///   %conv2 = sext i32 %v2 to i64
+  ///   %3 = getelementptr inbounds i64, i64* %dep.vec, i64 1
+  ///   store i64 %conv2, i64* %3
+  ///   %4 = bitcast i64* %dep.vec to i8*
+  ///   %tid = load i32, i32* %<tidptr>, align 4
+  ///   call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @loc,
+  ///                                   i32 %tid, i8* %4)
+  /// \endcode
+  ///
+  /// \param DepVecValues is an ArrayRef of Values to be passed to the runtime
+  /// as the dependence vector. ({%v1, $v2} in the above example).
+  /// \param IsDoacrossPost If \b true, emit `kmpc_doacross_post`, otherwise
+  /// emit `kmpc_doacross_wait`.
   ///
   /// A load from \p TidPtr is emitted to get `tid` for the call.
-  ///
-  /// If \p IsDoacrossPost is \b true, call emitted is `kmpc_doacross_post`.
-  /// If \p IsDoacrossPost is \b false, the call is `kmpc_doacros_wait`.
-  static CallInst *genDoacrossWaitOrPostCall(WRNOrderedNode *W,
-                                             StructType *IdentTy, Value *TidPtr,
-                                             Instruction *InsertPt,
-                                             Value *DepVecValue,
-                                             bool IsDoacrossPost);
+  static CallInst *
+  genDoacrossWaitOrPostCall(WRNOrderedNode *W, StructType *IdentTy,
+                            Value *TidPtr, Instruction *InsertPt,
+                            const ArrayRef<Value *> &DepVecValues,
+                            bool IsDoacrossPost);
 
   /// Insert a call to `kmpc_doacross_init` for `#pragma omp for ordered(n)`
   /// before \p InsertPt, and return it.
   ///
+  /// Incoming Directive:
   /// \code
-  ///   call void @__kmpc_doacross_init(%{ i32, i32, i32, i32, i8* }* %loc,
-  ///   i32 %tid, {i64, i64, i64}* %dims.vec)
+  ///   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+  ///        "QUAL.OMP.ORDERED"(i32 2, i32 4, i32 2), ...]
   /// \endcode
   ///
-  /// Here `%dims.vec` is a struct of 3 I64s corresponding to \p LBound, \p
-  /// UBound and \p Stride respectively.
+  /// Generated IR:
+  /// \code
+  ///   %dims.vec = alloca { i64, i64, i64 }, i32 2
+  ///
+  ///   %3 = getelementptr inbounds { i64, i64, i64 }, %dims.vec, i32 0
+  ///
+  ///   %4 = getelementptr inbounds { i64, i64, i64 }, %3, i32 0, i32 0
+  ///   store i64 0, i64* %4
+  ///   %5 = getelementptr inbounds { i64, i64, i64 }, %3, i32 0, i32 1
+  ///   store i64 4, i64* %5
+  ///   %6 = getelementptr inbounds { i64, i64, i64 }, %3, i32 0, i32 2
+  ///   store i64 1, i64* %6
+  ///
+  ///   %7 = getelementptr inbounds { i64, i64, i64 }, %dims.vec, i32 1
+  ///
+  ///   %8 = getelementptr inbounds { i64, i64, i64 }, %7, i32 0, i32 0
+  ///   store i64 0, i64* %8
+  ///   %9 = getelementptr inbounds { i64, i64, i64 }, %7, i32 0, i32 1
+  ///   store i64 2, i64* %9
+  ///   %10 = getelementptr inbounds { i64, i64, i64 }, %7, i32 0, i32 2
+  ///   store i64 1, i64* %10
+  ///
+  ///   %11 = bitcast { i64, i64, i64 }* %dims.vec to i8*
+  ///   %tid = load i32, i32* %<tidptr>, align 4
+  ///   call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @loc,
+  ///                                   i32 %tid, i32 2, i8* %11)
+  /// \endcode
+  ///
+  /// Here `%dims.vec` is a vector of structs of type {i64, i64, i64},
+  /// containing a loop's lower bound, upper bound and stride respectively. The
+  /// vector contains a struct for each loop in the doacross loop-nest.
   ///
   /// The call, along with the initialization of %dims.vec, is inserted before
   /// \p InsertPt.
+  ///
+  /// \param TripCounts contains trip counts for each loop in the nest.
   static CallInst *genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
                                        Value *Tid, Instruction *InsertPt,
-                                       Value *LBound, Value *UBound,
-                                       Value *Stride);
+                                       const ArrayRef<Value *> &TripCounts);
 
   /// Insert a call to `kmpc_doacross_fini` for `#pragma omp for ordered(n)`
   /// \b after \p InsertPt and return it.

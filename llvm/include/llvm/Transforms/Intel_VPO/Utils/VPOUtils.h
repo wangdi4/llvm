@@ -90,6 +90,13 @@ public:
   static void CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                                LoopInfo *LI = nullptr);
 
+  /// If \p ValWithCasts is a CastInst, or a chain of CastInsts, the function
+  /// recursively gets its operand until it encounters a non-CastInst. All
+  /// CastInsts seen in this process are added to \p SeenCastInsts.
+  /// \returns The base Value obtained after traversing all Casts.
+  static Value *stripCasts(Value *ValWithCasts,
+                           SmallVectorImpl<Instruction *> &SeenCastInsts);
+
   /// Remove calls to directive intrinsics from WRegionNode \p WRN.
   /// By default, the util removes the directive intrinsic calls from the
   /// Entry and Exit BBlocks of \p WRN. This can be extended to handle needs

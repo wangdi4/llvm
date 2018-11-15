@@ -136,8 +136,12 @@ private:
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
 
+  /// Replaces the entry block of \p FirstReg if it is the same as the function
+  /// entry block by splitting it.
+  void replaceFunctionEntryBlock(IRRegion &FirstReg, Function &Func);
+
   /// \brief Performs SSA deconstruction on the regions.
-  void deconstructSSAForRegions();
+  void deconstructSSAForRegions(Function &Func);
 
 private:
   DominatorTree *DT;
@@ -897,10 +901,68 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
   }
 }
 
-void HIRSSADeconstruction::deconstructSSAForRegions() {
+void HIRSSADeconstruction::replaceFunctionEntryBlock(IRRegion &FirstReg,
+                                                     Function &Func) {
+  if (FirstReg.isFunctionLevel()) {
+    // Function level region is a special case where we don't need to do
+    // anything as the region technically starts from the branch condition of
+    // the entry block. This might be an issue if someone uses function level
+    // region mode when the function entry block was included because of region
+    // entry intrinsics.
+    return;
+  }
+
+  auto *FuncEntry = &Func.getEntryBlock();
+
+  if (FirstReg.getEntryBBlock() != FuncEntry) {
+    return;
+  }
+
+  // Now we look for region entry intrinsic or intel directive intrinsic as that
+  // is the only case we expect the function entry block to be part of the
+  // region. This instruction will be the bblock splitting point.
+  Instruction *RegionEntryIntrin = nullptr;
+
+  for (auto &Inst : *FuncEntry) {
+    auto *Intrin = dyn_cast<IntrinsicInst>(&Inst);
+
+    if (!Intrin) {
+      continue;
+    }
+
+    auto Id = Intrin->getIntrinsicID();
+    if ((Id != Intrinsic::directive_region_entry) &&
+        (Id != Intrinsic::intel_directive)) {
+      continue;
+    }
+
+    RegionEntryIntrin = Intrin;
+    break;
+  }
+
+  assert(RegionEntryIntrin &&
+         "Region entry intrinsic expected in function entry!");
+
+  auto *NewEntryBB = SplitBlock(FuncEntry, RegionEntryIntrin, DT, LI);
+
+  FirstReg.replaceEntryBBlock(NewEntryBB);
+}
+
+void HIRSSADeconstruction::deconstructSSAForRegions(Function &Func) {
+
+  auto FirstRegIt = RI->begin();
+  auto EndRegIt = RI->end();
+
+  if (FirstRegIt == EndRegIt) {
+    return;
+  }
+
+  // Only the first region's entry block can be the function entry block as
+  // regions are formed in lexical order.
+  replaceFunctionEntryBlock(*FirstRegIt, Func);
+
   // Traverse regions.
-  for (auto RegIt = RI->begin(), EndRegIt = RI->end(); RegIt != EndRegIt;
-       ++RegIt) {
+  for (auto RegIt = FirstRegIt; RegIt != EndRegIt; ++RegIt) {
 
     // Set current region
     CurRegIt = RegIt;
@@ -948,7 +1010,7 @@ bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
   F.getParent()->setIntelProprietary();
 #endif // INTEL_PRODUCT_RELEASE
 
-  deconstructSSAForRegions();
+  deconstructSSAForRegions(F);
 
   return ModifiedIR;
 }

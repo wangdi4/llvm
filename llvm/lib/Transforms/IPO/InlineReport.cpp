@@ -96,11 +96,14 @@ const static InlPrtRecord InlineReasonText[] = {
     // InlrAggInline,
     {InlPrtCost, "Aggressive inline to expose uses of global ptrs"},
     // InlrForFusion,
-    {InlPrtCost, "Callee has multiple callsites with loops that could be fused"},
+    {InlPrtCost,
+     "Callee has multiple callsites with loops that could be fused"},
     // InlrDeeplyNestedIfs,
     {InlPrtCost, "Callee was inlined due to deeply nested ifs"},
     // InlrAddressComputations,
     {InlPrtCost, "Inlining for complicated address computations"},
+    // InlrStackComputations,
+    {InlPrtCost, "Callee has key stack computations"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -181,6 +184,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callsite preferred for multiversioning"},
     // NinlrPreferSOAToAOS,
     {InlPrtSimple, "Callsite preferred for SOA-to-AOS"},
+    // NinlrStackComputations
+    {InlPrtSimple, "Callsite has key stack computations"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 
@@ -521,9 +526,7 @@ void InlineReport::beginFunction(Function *F) {
   }
 }
 
-void InlineReport::endSCC(void) {
-  makeAllNotCurrent();
-}
+void InlineReport::endSCC(void) { makeAllNotCurrent(); }
 
 void InlineReport::setDead(Function *F) {
   if (Level == 0) {

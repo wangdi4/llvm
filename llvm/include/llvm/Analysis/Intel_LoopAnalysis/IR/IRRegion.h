@@ -61,6 +61,7 @@ protected:
 private:
   BasicBlock *EntryBBlock;
   BasicBlock *ExitBBlock;
+  // TODO: replace following two data structures by SetVector.
   // SmallVector of bblocks is used for deterministic iteration.
   RegionBBlocksTy BBlocks;
   // DenseSet of bblocks is used for faster query results to containsBBlock().
@@ -88,7 +89,7 @@ public:
   /// \brief Move constructor. This is used by HIRRegionIdentification pass to
   /// push_back regions onto SmallVector.
   IRRegion(IRRegion &&);
-  IRRegion &operator =(IRRegion &&);
+  IRRegion &operator=(IRRegion &&);
 
   /// \brief Dumps IRRegion.
   void dump() const;
@@ -103,6 +104,9 @@ public:
 
   /// \brief Sets the entry(first) bblock of this region.
   void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }
+
+  /// Replaces the existing entry bblock of the region by the new one.
+  void replaceEntryBBlock(BasicBlock *NewEntryBB);
 
   /// \brief Sets the exit(last) bblock of this region.
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }

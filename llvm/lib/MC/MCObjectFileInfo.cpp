@@ -178,6 +178,11 @@ void MCObjectFileInfo::initMachOMCObjectFileInfo(const Triple &T) {
                            MachO::S_THREAD_LOCAL_VARIABLE_POINTERS,
                            SectionKind::getMetadata());
 
+#if INTEL_CUSTOMIZATION
+  OptReportSection = Ctx->getMachOSection("__DATA", "__debug_opt_rpt", 0,
+                                          SectionKind::getReadOnlyWithRel());
+#endif  // INTEL_CUSTOMIZATION
+
   // Exception Handling.
   LSDASection = Ctx->getMachOSection("__TEXT", "__gcc_except_tab", 0,
                                      SectionKind::getReadOnlyWithRel());
@@ -254,9 +259,16 @@ void MCObjectFileInfo::initMachOMCObjectFileInfo(const Triple &T) {
   DwarfStrOffSection =
       Ctx->getMachOSection("__DWARF", "__debug_str_offs", MachO::S_ATTR_DEBUG,
                            SectionKind::getMetadata(), "section_str_off");
+  DwarfAddrSection =
+      Ctx->getMachOSection("__DWARF", "__debug_addr", MachO::S_ATTR_DEBUG,
+                           SectionKind::getMetadata(), "section_info");
   DwarfLocSection =
       Ctx->getMachOSection("__DWARF", "__debug_loc", MachO::S_ATTR_DEBUG,
                            SectionKind::getMetadata(), "section_debug_loc");
+  DwarfLoclistsSection =
+      Ctx->getMachOSection("__DWARF", "__debug_loclists", MachO::S_ATTR_DEBUG,
+                           SectionKind::getMetadata(), "section_debug_loc");
+
   DwarfARangesSection =
       Ctx->getMachOSection("__DWARF", "__debug_aranges", MachO::S_ATTR_DEBUG,
                            SectionKind::getMetadata());
@@ -385,6 +397,11 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
   if (T.isMIPS())
     DebugSecType = ELF::SHT_MIPS_DWARF;
 
+#if INTEL_CUSTOMIZATION
+  OptReportSection =
+      Ctx->getELFSection(".debug_opt_report", ELF::SHT_PROGBITS, 0);
+#endif  // INTEL_CUSTOMIZATION
+
   // Debug Info Sections.
   DwarfAbbrevSection =
       Ctx->getELFSection(".debug_abbrev", DebugSecType, 0);
@@ -432,6 +449,7 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
       Ctx->getELFSection(".debug_str_offsets", DebugSecType, 0);
   DwarfAddrSection = Ctx->getELFSection(".debug_addr", DebugSecType, 0);
   DwarfRnglistsSection = Ctx->getELFSection(".debug_rnglists", DebugSecType, 0);
+  DwarfLoclistsSection = Ctx->getELFSection(".debug_loclists", DebugSecType, 0);
 
   // Fission Sections
   DwarfInfoDWOSection =
@@ -515,6 +533,14 @@ void MCObjectFileInfo::initCOFFMCObjectFileInfo(const Triple &T) {
                                           COFF::IMAGE_SCN_MEM_READ,
                                       SectionKind::getReadOnly());
   }
+
+#if INTEL_CUSTOMIZATION
+  OptReportSection = Ctx->getCOFFSection(
+      ".debug_opt_report",
+      COFF::IMAGE_SCN_MEM_DISCARDABLE | COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+          COFF::IMAGE_SCN_MEM_READ,
+      SectionKind::getMetadata());
+#endif  // INTEL_CUSTOMIZATION
 
   // Debug info.
   COFFDebugSymbolsSection =
@@ -742,6 +768,12 @@ void MCObjectFileInfo::initWasmMCObjectFileInfo(const Triple &T) {
   DwarfFrameSection = Ctx->getWasmSection(".debug_frame", SectionKind::getMetadata());
   DwarfPubNamesSection = Ctx->getWasmSection(".debug_pubnames", SectionKind::getMetadata());
   DwarfPubTypesSection = Ctx->getWasmSection(".debug_pubtypes", SectionKind::getMetadata());
+
+  // Wasm use data section for LSDA.
+  // TODO Consider putting each function's exception table in a separate
+  // section, as in -function-sections, to facilitate lld's --gc-section.
+  LSDASection = Ctx->getWasmSection(".rodata.gcc_except_table",
+                                    SectionKind::getReadOnlyWithRel());
 
   // TODO: Define more sections.
 }

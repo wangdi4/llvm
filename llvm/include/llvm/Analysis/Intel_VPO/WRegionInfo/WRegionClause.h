@@ -73,27 +73,48 @@ extern std::unordered_map<int, StringRef> WRNProcBindName;
 class Item
 {
   friend class WRegionUtils;
-  private:
-    VAR   OrigItem;  // original var
+
+  public:
+    /// Enum of various derived Item kinds for LLVM's RTTI (isa, cast etc.)
+    enum ItemKind {
+      IK_Shared,
+      IK_Private,
+      IK_Firstprivate,
+      IK_Lastprivate,
+      IK_Reduction,
+      IK_Copyin,
+      IK_Copyprivate,
+      IK_Linear,
+      IK_Uniform,
+      IK_Map,
+      IK_IsDevicePtr,
+      IK_UseDevicePtr
+    };
+
+  private :
+    VAR   OrigItem; // original var
     VAR   NewItem;   // new version (eg private) of the var
     VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
+    bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
     int   ThunkIdx;  // used for task/taskloop codegen
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
+    const ItemKind Kind; // Item kind for LLVM's RTTI
 
   public:
-    Item(VAR Orig) :
-      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonPod(false),
-      IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
-      NoAlias(nullptr) {}
+    Item(VAR Orig, ItemKind K)
+        : OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr),
+          IsByRef(false), IsNonPod(false), IsVla(false), VlaSize(nullptr),
+          ThunkIdx(-1), AliasScope(nullptr), NoAlias(nullptr), Kind(K) {}
     virtual ~Item() = default;
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
     void setParm(VAR V)          { ParmItem = V;    }
+    void setIsByRef(bool Flag)   { IsByRef = Flag;  }
     void setIsNonPod(bool Flag)  { IsNonPod = Flag; }
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
@@ -104,14 +125,26 @@ class Item
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
     VAR  getParm()     const { return ParmItem; }
+    bool getIsByRef()  const { return IsByRef;  }
     bool getIsNonPod() const { return IsNonPod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
     int getThunkIdx()  const { return ThunkIdx; }
     MDNode *getAliasScope() const { return AliasScope; }
     MDNode *getNoAlias()    const { return NoAlias; }
+    ItemKind getKind() const { return Kind;     }
+
+    void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsByRef())
+        OS << "BYREF(";
+      getOrig()->printAsOperand(OS, PrintType);
+      if (getIsByRef())
+        OS << ")";
+    }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsByRef())
+        OS << "BYREF";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -137,9 +170,10 @@ class SharedItem : public Item
     bool  IsPassedDirectly;
 
   public:
-    SharedItem(VAR Orig) : Item(Orig), IsPassedDirectly(false) {}
+    SharedItem(VAR Orig) : Item(Orig, IK_Shared), IsPassedDirectly(false) {}
     void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
+    static bool classof(const Item *I) { return I->getKind() == IK_Shared; }
 };
 
 //
@@ -153,10 +187,10 @@ class PrivateItem : public Item
     RDECL Destructor;
 
   public:
-    PrivateItem(VAR Orig) :
-      Item(Orig), Constructor(nullptr), Destructor(nullptr) {}
+    PrivateItem(VAR Orig)
+        : Item(Orig, IK_Private), Constructor(nullptr), Destructor(nullptr) {}
     PrivateItem(const Use *Args) :
-      Item(nullptr), Constructor(nullptr), Destructor(nullptr) {
+      Item(nullptr, IK_Private), Constructor(nullptr), Destructor(nullptr) {
       // PRIVATE nonPOD Args are: var, ctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -173,7 +207,7 @@ class PrivateItem : public Item
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsNonPod()) {
         OS << "NONPOD(";
-        getOrig()->printAsOperand(OS, PrintType);
+        printOrig(OS, PrintType);
         OS << ", CTOR: ";
         printFnPtr(getConstructor(), OS, PrintType);
         OS << ", DTOR: ";
@@ -182,6 +216,7 @@ class PrivateItem : public Item
       } else  //invoke parent's print function for regular case
         Item::print(OS, PrintType);
     }
+    static bool classof(const Item *I) { return I->getKind() == IK_Private; }
 };
 
 class LastprivateItem; // forward declaration
@@ -201,11 +236,11 @@ class FirstprivateItem : public Item
 
   public:
     FirstprivateItem(VAR Orig)
-        : Item(Orig), InLastprivate(nullptr), InMap(nullptr),
+        : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
           CopyConstructor(nullptr), Destructor(nullptr) {}
     FirstprivateItem(const Use *Args)
-        : Item(nullptr), InLastprivate(nullptr), InMap(nullptr),
-          CopyConstructor(nullptr), Destructor(nullptr) {
+        : Item(nullptr, IK_Firstprivate), InLastprivate(nullptr),
+          InMap(nullptr), CopyConstructor(nullptr), Destructor(nullptr) {
       // FIRSTPRIVATE nonPOD Args are: var, cctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -226,7 +261,7 @@ class FirstprivateItem : public Item
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsNonPod()) {
         OS << "NONPOD(";
-        getOrig()->printAsOperand(OS, PrintType);
+        printOrig(OS, PrintType);
         OS << ", CCTOR: ";
         printFnPtr(getCopyConstructor(), OS, PrintType);
         OS << ", DTOR: ";
@@ -234,6 +269,9 @@ class FirstprivateItem : public Item
         OS << ") ";
       } else  //invoke parent's print function for regular case
         Item::print(OS, PrintType);
+    }
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_Firstprivate;
     }
 };
 
@@ -253,11 +291,12 @@ class LastprivateItem : public Item
 
   public:
     LastprivateItem(VAR Orig)
-        : Item(Orig), IsConditional(false), InFirstprivate(nullptr),
+        : Item(Orig, IK_Lastprivate), IsConditional(false), InFirstprivate(nullptr),
           Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {}
     LastprivateItem(const Use *Args)
-        : Item(nullptr), IsConditional(false), InFirstprivate(nullptr),
-          Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {
+        : Item(nullptr, IK_Lastprivate), IsConditional(false),
+          InFirstprivate(nullptr), Constructor(nullptr), CopyAssign(nullptr),
+          Destructor(nullptr) {
       // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -290,7 +329,7 @@ class LastprivateItem : public Item
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsNonPod()) {
         OS << "NONPOD(";
-        getOrig()->printAsOperand(OS, PrintType);
+        printOrig(OS, PrintType);
         OS << ", CTOR: ";
         printFnPtr(getConstructor(), OS, PrintType);
         OS << ", COPYASSIGN: ";
@@ -300,6 +339,9 @@ class LastprivateItem : public Item
         OS << ") ";
       } else  //invoke parent's print function for regular case
         Item::print(OS, PrintType);
+    }
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_Lastprivate;
     }
 };
 
@@ -398,9 +440,9 @@ public:
     ArraySectionInfo ArrSecInfo;
 
   public:
-    ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
-      Ty(Op), IsUnsigned(false), IsInReduction(false), Combiner(nullptr),
-      Initializer(nullptr) {}
+    ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
+        : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false),
+          IsInReduction(false), Combiner(nullptr), Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
@@ -501,13 +543,14 @@ public:
     // we need to print the Reduction operation too.
     void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       OS << "(" << getOpName() << ": ";
-      getOrig()->printAsOperand(OS, PrintType);
+      printOrig(OS, PrintType);
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
       }
       OS << ") ";
     }
+    static bool classof(const Item *I) { return I->getKind() == IK_Reduction; }
 };
 
 //
@@ -520,9 +563,10 @@ class CopyinItem : public Item
     RDECL Copy;
 
   public:
-    CopyinItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
+    CopyinItem(VAR Orig) : Item(Orig, IK_Copyin), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
+    static bool classof(const Item *I) { return I->getKind() == IK_Copyin; }
 };
 
 
@@ -535,9 +579,10 @@ class CopyprivateItem : public Item
     RDECL Copy;
 
   public:
-    CopyprivateItem(VAR Orig) : Item(Orig), Copy(nullptr) {}
+    CopyprivateItem(VAR Orig) : Item(Orig, IK_Copyprivate), Copy(nullptr) {}
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
+    static bool classof(const Item *I) { return I->getKind() == IK_Copyprivate; }
 };
 
 
@@ -552,20 +597,21 @@ class LinearItem : public Item
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
-    LinearItem(VAR Orig) : Item(Orig), Step(nullptr) {}
+    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr) {}
     void setStep(EXPR S) { Step = S; }
     EXPR getStep() const { return Step; }
 
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(";
-      getOrig()->printAsOperand(OS, PrintType);
+      printOrig(OS, PrintType);
       OS << ", ";
       auto *Step = getStep();
       assert(Step && "Null 'Step' for LINEAR clause.");
       Step->printAsOperand(OS, PrintType);
       OS << ") ";
     }
+    static bool classof(const Item *I) { return I->getKind() == IK_Linear; }
 };
 
 //
@@ -574,7 +620,8 @@ class LinearItem : public Item
 class UniformItem : public Item
 {
   public:
-    UniformItem(VAR Orig) : Item(Orig) {}
+    UniformItem(VAR Orig) : Item(Orig, IK_Uniform) {}
+    static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
 };
 
 //  To support an aggregate object in a MAP clause, a chain of triples is used.
@@ -655,8 +702,9 @@ public:
     WRNMapRelease = 0x0020,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig), MapKind(0), InFirstprivate(nullptr) {}
-  MapItem(MapAggrTy* Aggr): Item(nullptr), MapKind(0), InFirstprivate(nullptr){
+  MapItem(VAR Orig) : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr) {}
+  MapItem(MapAggrTy *Aggr)
+      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr) {
     MapChain.push_back(Aggr);
   }
 
@@ -710,7 +758,8 @@ public:
   unsigned getMapKind()    const { return MapKind; }
   bool getIsMapTo()        const { return MapKind & WRNMapTo; }
   bool getIsMapFrom()      const { return MapKind & WRNMapFrom; }
-  bool getIsMapTofrom() const { return MapKind & (WRNMapFrom | WRNMapTo); }
+  bool getIsMapTofrom() const { return (MapKind & WRNMapFrom) &&
+                                       (MapKind & WRNMapTo); }
   bool getIsMapAlloc()     const { return MapKind & WRNMapAlloc; }
   bool getIsMapRelease()   const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
@@ -749,7 +798,10 @@ public:
 class IsDevicePtrItem : public Item
 {
   public:
-    IsDevicePtrItem(VAR Orig) : Item(Orig) {}
+    IsDevicePtrItem(VAR Orig) : Item(Orig, IK_IsDevicePtr) {}
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_IsDevicePtr;
+    }
 };
 
 
@@ -759,7 +811,10 @@ class IsDevicePtrItem : public Item
 class UseDevicePtrItem : public Item
 {
   public:
-    UseDevicePtrItem(VAR Orig) : Item(Orig) {}
+    UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+    static bool classof(const Item *I) {
+      return I->getKind() == IK_UseDevicePtr;
+    }
 };
 
 
@@ -769,7 +824,9 @@ class UseDevicePtrItem : public Item
 //
 //   DependItem    (for the depend  clause in task and target constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
+//   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
+//   FlushItem     (for the flush clause)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
 // receives a single EXPR for depend(sink:sink_expr), which is already in
@@ -779,6 +836,7 @@ class DependItem
 {
   private:
     VAR   Base;           // scalar item or base of array section
+    bool  IsByRef;        // true if Base is by-reference
     bool  IsIn;           // depend type: true for IN; false for OUT/INOUT
     bool  IsArraySection; // if true, then lb, length, stride below are used
     EXPR  LowerBound;     // null if unspecified
@@ -786,10 +844,12 @@ class DependItem
     EXPR  Stride;         // null if unspecified
 
   public:
-    DependItem(VAR V=nullptr) : Base(V), IsIn(true), IsArraySection(false),
-      LowerBound(nullptr), Length(nullptr), Stride(nullptr) {}
+    DependItem(VAR V=nullptr) : Base(V), IsByRef(false), IsIn(true),
+    IsArraySection(false), LowerBound(nullptr), Length(nullptr),
+    Stride(nullptr) {}
 
     void setOrig(VAR V)         { Base = V; }
+    void setIsByRef(bool Flag)  { IsByRef = Flag; }
     void setIsIn(bool Flag)     { IsIn = Flag; }
     void setIsArrSec(bool Flag) { IsArraySection = Flag; }
     void setLb(EXPR Lb)         { LowerBound = Lb;   }
@@ -797,6 +857,7 @@ class DependItem
     void setStride(EXPR Str)    { Stride = Str;  }
 
     VAR  getOrig()      const   { return Base; }
+    bool getIsByRef()   const   { return IsByRef; }
     bool getIsIn()      const   { return IsIn; }
     bool getIsArrSec()  const   { return IsArraySection; }
     EXPR getLb()        const   { return LowerBound; }
@@ -804,35 +865,42 @@ class DependItem
     EXPR getStride()    const   { return Stride; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsByRef())
+        OS << "BYREF";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
     }
 };
 
-// TODO: Delete extra fields. Only SinkExpr is used at the moment.
-class DepSinkItem
-{
-  private:
-    EXPR  SinkExpr;       // LoopVar +/- Offset (eg: i-1)
-    VAR   LoopVar;        // LoopVar extracted from the SinkExpr
-    EXPR  Offset;         // Offset extracted from the SinkExpr
+class DepSrcSinkItem {
+private:
+  SmallVector<Value *, 3> DepExprs;
 
-  public:
-    DepSinkItem(EXPR E) : SinkExpr(E), LoopVar(nullptr), Offset(nullptr) {}
+public:
+  DepSrcSinkItem(SmallVectorImpl<Value *> &&DEs) : DepExprs(std::move(DEs)) {}
+  const SmallVectorImpl<Value *> &getDepExprs() const { return DepExprs; }
 
-    void setSinkExpr(EXPR S)    { SinkExpr = S;  }
-    void setLoopVar(EXPR LV)    { LoopVar = LV;  }
-    void setOffset(EXPR O)      { Offset = O;  }
-    EXPR getSinkExpr()  const   { return SinkExpr; }
-    EXPR getLoopVar()   const   { return LoopVar; }
-    EXPR getOffset()    const   { return Offset; }
-
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-      OS << "(" ;
-      getSinkExpr()->printAsOperand(OS, PrintType);
-      OS << ") ";
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+    OS << "(";
+    for (const auto *E : DepExprs) {
+      E->printAsOperand(OS, PrintType);
+      OS << " ";
     }
+    OS << ") ";
+  }
+};
+
+class DepSourceItem: public DepSrcSinkItem {
+public:
+  DepSourceItem(SmallVectorImpl<Value *> &&DEs)
+      : DepSrcSinkItem(std::move(DEs)) {}
+};
+
+class DepSinkItem: public DepSrcSinkItem {
+public:
+  DepSinkItem(SmallVectorImpl<Value *> &&DEs)
+      : DepSrcSinkItem(std::move(DEs)) {}
 };
 
 class AlignedItem
@@ -990,6 +1058,7 @@ typedef Clause<IsDevicePtrItem>  IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem> UseDevicePtrClause;
 typedef Clause<DependItem>       DependClause;
 typedef Clause<DepSinkItem>      DepSinkClause;
+typedef Clause<DepSourceItem>    DepSourceClause;
 typedef Clause<AlignedItem>      AlignedClause;
 typedef Clause<FlushItem>        FlushSet;
 
@@ -1007,6 +1076,7 @@ typedef std::vector<IsDevicePtrItem>::iterator  IsDevicePtrter;
 typedef std::vector<UseDevicePtrItem>::iterator UseDevicePtrter;
 typedef std::vector<DependItem>::iterator       DependIter;
 typedef std::vector<DepSinkItem>::iterator      DepSinkIter;
+typedef std::vector<DepSourceItem>::iterator    DepSourceIter;
 typedef std::vector<AlignedItem>::iterator      AlignedIter;
 typedef std::vector<FlushItem>::iterator        FlushIter;
 

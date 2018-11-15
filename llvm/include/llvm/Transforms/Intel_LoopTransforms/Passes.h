@@ -92,10 +92,9 @@ FunctionPass *createHIRLMMPass();
 /// Collapse
 FunctionPass *createHIRLoopCollapsePass();
 
-/// createHIRSymbolicTripCountCompleteUnrollPass - This creates a HIR Loop pass
-/// that
-/// performs Loop based pattern matching.
-FunctionPass *createHIRSymbolicTripCountCompleteUnrollPass();
+/// createHIRSymbolicTripCountCompleteUnrollLegacyPass - This creates a HIR Loop
+/// pass that performs Loop based pattern matching.
+FunctionPass *createHIRSymbolicTripCountCompleteUnrollLegacyPass();
 
 /// createHIRParDirInsertPass - This creates a pass that injects
 /// directives for auto parallelization loops.
@@ -141,6 +140,6 @@ FunctionPass *createHIRPropagateCastedIVPass();
 
 /// Creates a pass that recognizes loops marked with OpenMP region intrinsics
 FunctionPass *createHIRRecognizeOmpLoopPass();
-}
+} // namespace llvm
 
 #endif

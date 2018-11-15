@@ -20,12 +20,19 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
 
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+static Type *getBaseTypeForSemiPhiOp(ArrayRef<VPValue *> Operands) {
+  assert(Operands.size() >= 1 &&
+         "Expecting atleast one operand expected for Semi-Phi Op");
+  return Operands[0]->getBaseType();
+}
 
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
 // using \p OpCode as operator and \p MasterVPI as master VPInstruction. If \p
@@ -39,7 +46,8 @@ VPValue *VPDecomposerHIR::combineDecompDefs(VPValue *LHS, VPValue *RHS,
   if (RHS == nullptr)
     return LHS;
 
-  auto *NewVPI = cast<VPInstruction>(Builder.createNaryOp(OpCode, {LHS, RHS}));
+  auto *NewVPI = cast<VPInstruction>(
+      Builder.createNaryOp(OpCode, {LHS, RHS}, LHS->getBaseType()));
   return NewVPI;
 }
 
@@ -66,7 +74,8 @@ VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
          "Unexpected conversion OpCode.");
 
   // TODO: We need to set the conversion type (DestType)!
-  auto *NewConv = cast<VPInstruction>(Builder.createNaryOp(ConvOpCode, {Src}));
+  auto *NewConv = cast<VPInstruction>(
+      Builder.createNaryOp(ConvOpCode, {Src}, Src->getBaseType()));
   return NewConv;
 }
 
@@ -175,7 +184,7 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
     // this external definition cannot be mapped to an HLInst. Add check at the
     // beginning of this function to return an existing external definition in
     // the VPlan pool.
-    VPIndVar = new VPValue();
+    VPIndVar = new VPValue(Ty);
     Plan->addExternalDef(VPIndVar);
   }
 
@@ -248,46 +257,21 @@ VPValue *VPDecomposerHIR::decomposeVPOperand(RegDDRef *RDDR) {
     return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr());
 
   // Memory ops
-  return new VPValue(); // TODO: decomposeMemoryOp(AVal);
+  return new VPValue(RDDR->getSrcType()); // TODO: decomposeMemoryOp(AVal);
 }
 
 // Utility function that returns a CmpInst::Predicate for a given DDNode. The
 // return value is in the context of the *plain* CFG construction:
 //   1) HLInst representing a CmpInst -> CmpInst's opcode.
-//   2) Single-predicate HLIf -> HLIf single predicate.
-//   3) Multi-predicate HLIf -> BAD_ICMP_PREDICATE (to be fixed during
-//      decomposition).
-//      TODO: Multi-predicate HLIfs should be properly decomposed and its logic
-//      shouldn't be necessary.
-//   4) HLLoop -> ICMP_SLE or ICMP_ULE (bottom test).
+//   2) HLLoop -> ICMP_SLE or ICMP_ULE (bottom test).
+// NOTE: Decomposition of HLIf nodes currently don't use this utility function
 static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
-  assert((isa<HLInst>(DDNode) || isa<HLIf>(DDNode) || isa<HLLoop>(DDNode)) &&
-         "Expected HLInst, HLIf or HLLoop.");
+  assert((isa<HLInst>(DDNode) || isa<HLLoop>(DDNode)) &&
+         "Expected HLInst or HLLoop.");
 
   if (auto *HInst = dyn_cast<HLInst>(DDNode)) {
     assert(isa<CmpInst>(HInst->getLLVMInstruction()) && "Expected CmpInst.");
     return cast<CmpInst>(HInst->getLLVMInstruction())->getPredicate();
-  }
-
-  if (auto *HIf = dyn_cast<HLIf>(DDNode)) {
-    assert(HIf->getNumPredicates() && "HLIf with no predicate?");
-    CmpInst::Predicate FirstPred = HIf->pred_begin()->Kind;
-
-    // Multiple predicates need decomposition. We mark this with a bad
-    // predicate.
-    if (HIf->getNumPredicates() > 1) {
-      // TODO: HIR recently added support for a mix of INT/FP predicates so this
-      // assert will become invalid soon. This might not impact this function
-      // but decomposition should generate the right predicate for each
-      // comparison.
-      assert(CmpInst::isIntPredicate(FirstPred) &&
-             "Multiple predicates only expected on integer types.");
-
-      return CmpInst::BAD_ICMP_PREDICATE;
-    }
-
-    // Single predicate.
-    return FirstPred;
   }
 
   // Get the predicate for the HLLoop bottom test condition.
@@ -379,22 +363,24 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
 }
 
 // Create VPInstruction for \p Node and insert it in VPBuilder's insertion
-// point. If \p Node is an HLIf, create a VPCmpInst representing the
-// (multi-)predicate comparisons. HLLoop are not expected.
+// point. If \p Node is an HLIf, we create VPCmpInsts to handle multiple
+// predicates. HLLoop are not expected.
 VPInstruction *
 VPDecomposerHIR::createVPInstruction(HLNode *Node,
                                      ArrayRef<VPValue *> VPOperands) {
   assert(Node && "Expected Node to create a VPInstruction.");
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
-  if (isa<HLGoto>(Node))
-    return Builder.createBr(cast<HLGoto>(Node));
+  if (isa<HLGoto>(Node)) {
+    Type *BaseTy = Type::getInt1Ty(Node->getHLNodeUtils().getContext());
+    return Builder.createBr(BaseTy, cast<HLGoto>(Node));
+  }
 
   auto *HInst = dyn_cast<HLInst>(Node);
   assert((!HInst || HInst->getLLVMInstruction()) &&
          "Missing LLVM Instruction for HLInst.");
 
-  // Create VPCmpInst for HLInst representing a CmpInst or HLIf.
+  // Create VPCmpInst for HLInst representing a CmpInst.
   VPInstruction *NewVPInst;
   auto DDNode = cast<HLDDNode>(Node);
 
@@ -402,21 +388,88 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert(!HLDef2VPValue.count(DDNode) && "Node shouldn't have been visited.");
 
-  if ((HInst && isa<CmpInst>(HInst->getLLVMInstruction())) ||
-      isa<HLIf>(Node)) {
+  if (HInst && isa<CmpInst>(HInst->getLLVMInstruction())) {
     assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-    NewVPInst = Builder.createCmpInst(VPOperands[0], VPOperands[1],
-                                      getPredicateFromHIR(DDNode), DDNode);
+    CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
+    NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
+                                      VPOperands[1], DDNode);
+  } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
+    // Handle decomposition of HLIf node.
+    NewVPInst = createVPInstsForHLIf(HIf, VPOperands);
+  else if (HInst && isa<SelectInst>(HInst->getLLVMInstruction())) {
+    // Handle decomposition of select instruction
+    assert(VPOperands.size() == 4 &&
+           "Invalid number of operands for HIR select instruction.");
+
+    VPValue *CmpLHS = VPOperands[0];
+    VPValue *CmpRHS = VPOperands[1];
+    VPValue *TVal = VPOperands[2];
+    VPValue *FVal = VPOperands[3];
+
+    // Decompose first 2 operands into a CmpInst used as predicate for select
+    VPCmpInst *Pred =
+        Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
+    // Set underlying DDNode for the select VPInstruction since it's the master
+    // VPInstruction
+    NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+        Instruction::Select, {Pred, TVal, FVal}, TVal->getBaseType(), DDNode));
   } else {
     // Generic VPInstruction.
     assert(HInst && HInst->getLLVMInstruction() &&
            "Expected HLInst with underlying LLVM IR.");
     NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-        HInst->getLLVMInstruction()->getOpcode(), VPOperands, DDNode));
+        HInst->getLLVMInstruction()->getOpcode(), VPOperands,
+        HInst->getLLVMInstruction()->getType(), DDNode));
   }
 
   HLDef2VPValue[DDNode] = NewVPInst;
   return NewVPInst;
+}
+
+// A specialized method to handle decomposition of HLIf nodes in HIR. The input
+// \p HIf is expected to be an HLIf and \p VPOperands is a list of operands
+// corresponding to each predicate in the HLIf. This method creates a new
+// VPCmpInst for each predicate and combines multiple predicates using the
+// implicit AND operator. The last VPInstruction created by this function is
+// returned and it is set as MasterVPI for the other instructions created for
+// this HLIf node.
+VPInstruction *
+VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
+                                      ArrayRef<VPValue *> VPOperands) {
+  // Check if number of operands for a HLIf is twice the number of its
+  // predicates
+  assert((HIf->getNumPredicates() * 2 == VPOperands.size()) &&
+         "Incorrect number of operands for a HLIf");
+
+  auto FirstPred = HIf->pred_begin();
+  // Create a new VPCmpInst corresponding to the first predicate
+  VPInstruction *CurVPInst =
+      Builder.createCmpInst(FirstPred->Kind, VPOperands[0], VPOperands[1]);
+  LLVM_DEBUG(dbgs() << "VPDecomp: First Pred VPInst: "; CurVPInst->dump());
+
+  unsigned OperandIt = 2;
+
+  // Create VPInstructions for remaining predicates in the HLIf
+  for (auto It = HIf->pred_begin() + 1, E = HIf->pred_end(); It != E; ++It) {
+    assert(OperandIt + 1 < VPOperands.size() &&
+           "Out-of-range access on VPOperands.");
+    // Create a new VPCmpInst for the current predicate
+    VPInstruction *NewVPInst = Builder.createCmpInst(
+        It->Kind, VPOperands[OperandIt], VPOperands[OperandIt + 1]);
+    LLVM_DEBUG(dbgs() << "VPDecomp: NewVPInst: "; NewVPInst->dump());
+    // Conjoin the new VPInst with current VPInst using implicit AND
+    CurVPInst = cast<VPInstruction>(Builder.createAnd(CurVPInst, NewVPInst));
+    LLVM_DEBUG(dbgs() << "VPDecomp: CurVPInst: "; CurVPInst->dump());
+    // Increment OperandIt for next predicate
+    OperandIt += 2;
+  }
+
+  assert(CurVPInst && "No VPInstruction generated for HLIf?");
+
+  // Set underlying HLDDNode for current VPInst since it's the last created
+  // instruction for decomposition of this HLIf
+  CurVPInst->HIR.setUnderlyingNode(HIf);
+  return CurVPInst;
 }
 
 // Return a sequence of VPValues (VPOperands) that represents Node's operands
@@ -470,7 +523,7 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
   // TODO: We are creating redundant external definitions. To be fixed with the
   // introduction of VPExternalDef class.
   if (isExternalDef(UseDDR)) {
-    VPValue *VPExtDef = new VPValue();
+    VPValue *VPExtDef = new VPValue(UseDDR->getSrcType());
     Plan->addExternalDef(VPExtDef);
     VPDefs.push_back(VPExtDef);
   }
@@ -484,8 +537,16 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
     HLDDNode *DefNode = Edge->getSrc()->getHLDDNode();
 
     auto VPValIt = HLDef2VPValue.find(DefNode);
-    assert(VPValIt != HLDef2VPValue.end() &&
-           "Missing VPInstruction for HLDDNode!");
+    if (VPValIt == HLDef2VPValue.end()) {
+      // Changing hard-assert.  This is because in 'decomposeStandAloneBlob' we
+      // create a SemiPhiOp without any operands. We might not have all the
+      // operands, but we have at least one operand at that time. We are peeking
+      // into the operand list and just getting the BaseTy of that operand.
+      // Deleting the hard-assert allows that.
+      assert(getNumReachingDefinitions(UseDDR) > 1 &&
+             "Missing VPInstruction for HLDDNode!");
+      continue;
+    }
     VPDefs.push_back(VPValIt->second);
   }
 }
@@ -511,8 +572,11 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   // level. HLp is set as underlying HIR of the induction phi.
   VPBuilder::InsertPointGuard Guard(Builder);
   Builder.setInsertPoint(LpH, LpH->begin());
+  SmallVector<VPValue *, 4> PhiArgs;
+  PhiArgs.push_back(IVStart);
+  Type *BaseTy = getBaseTypeForSemiPhiOp(PhiArgs);
   VPInstruction *IndSemiPhi =
-      cast<VPInstruction>(Builder.createSemiPhiOp({IVStart}, HLp));
+      cast<VPInstruction>(Builder.createSemiPhiOp(BaseTy, PhiArgs, HLp));
   assert(!HLLp2IVSemiPhi.count(HLp) && "HLLoop has multiple IVs?");
   HLLp2IVSemiPhi[HLp] = IndSemiPhi;
   IndSemiPhi->HIR.setValid();
@@ -577,8 +641,9 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   }
 
   // #2.
-  auto *BottomTest = Builder.createCmpInst(VPOperands[0], VPOperands[1],
-                                           getPredicateFromHIR(HLp), HLp);
+  CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HLp);
+  auto *BottomTest = Builder.createCmpInst(CmpPredicate, VPOperands[0],
+                                           VPOperands[1], HLp);
 
   if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {
     // #3. Turn last decomposed VPInstruction of UB as master VPInstruction of
@@ -704,9 +769,9 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   // associated to the sources DDRefs (definitions). If there are multiple
   // definitions, in addition, we introduce a semi-phi operation that "blends"
   // all the VPValue definitions.
+  SmallVector<VPValue *, 2> VPDefs;
   if (BlobNumReachDefs == 1) {
     // Single definition.
-    SmallVector<VPValue *, 1> VPDefs;
     Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
     assert(VPDefs.size() == 1 && "Expected single definition.");
     return VPDefs.front();
@@ -714,8 +779,10 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     // The operands of the semi-phi are not set right now since some of them
     // might not have been created yet. They will be set by fixPhiNodes.
     // Add the corresponding Instruction and DDRef to PhisToFix.
-    auto *SemiPhi = cast<VPInstruction>(
-        Decomposer.Builder.createSemiPhiOp({} /*No operands*/));
+    Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
+    Type *BaseTy = VPDefs.front()->getBaseType();
+    auto *SemiPhi = cast<VPInstruction>(Decomposer.Builder.createSemiPhiOp(
+        BaseTy, {} /*No operands*/, nullptr));
     Decomposer.PhisToFix.push_back(std::make_pair(SemiPhi, DDR));
     return SemiPhi;
   }

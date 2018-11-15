@@ -209,7 +209,7 @@ public:
   // Specific methods (3) and integer fields accessors (3).
   constexpr static int NumSupportedMethods = 3 + 3;
   constexpr static int MaxNumMethods = NumRequiredMethods + NumSupportedMethods;
-  constexpr static int MaxMethodBBCount = 10;
+  constexpr static int MaxMethodBBCount = 24;
 
   // Field methods are used only in Struct's methods,
   // it should not be too big.
@@ -574,7 +574,7 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
     for (auto *F : *std::get<0>(Triple)) {
       // Given that only primitive methods are recognized,
       // restrict the size.
-      if (std::distance(F->begin(), F->end()) > MaxMethodBBCount &&
+      if (F->size() > MaxMethodBBCount &&
           RespectSizeHeuristic)
         return FALSE("array method is too big.");
 

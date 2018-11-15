@@ -10,9 +10,9 @@
 
 ; CHECK-LABEL: define i32 @test(i32 %x, i32* %y)
 ; CHECK-LABEL: codeRepl:
-; CHECK: call void @test_if.else
+; CHECK: call void @test.if.else
 ; CHECK: Function Attrs: noinline nounwind uwtable
-; CHECK-NEXT: define internal void @test_if.else
+; CHECK-NEXT: define internal void @test.if.else
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

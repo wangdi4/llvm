@@ -84,6 +84,8 @@ bool dtrans::AnnotatorCleanerPass::cleanFunction(Function &F) {
   // Identify/remove the annotations. Metadata can be directly removed while
   // iterating, annotation intrinsic calls are collected for deletion after
   // iterating all the instructions.
+  Changed |= DTransAnnotator::removeDTransSOAToAOSTypeAnnotation(F);
+
   SmallVector<Instruction *, 16> InstToDelete;
   for (auto &I : instructions(&F)) {
     if (DTransAnnotator::isDTransPtrAnnotation(I)) {

@@ -543,33 +543,74 @@ public:
   static bool classof(const Instruction *I) {
     return GetElementPtrInst::classof(I) || SubscriptInst::classof(I);
   }
+
   static bool classof(const ConstantExpr *CE) {
     return CE->getOpcode() == Instruction::GetElementPtr;
   }
+
   static bool classof(const Value *V) {
     return (isa<Instruction>(V) && classof(cast<Instruction>(V))) ||
            (isa<ConstantExpr>(V) && classof(cast<ConstantExpr>(V)));
   }
+
   const Value *getPointerOperand() const {
     return const_cast<GEPOrSubsOperator *>(this)->getPointerOperand();
   }
+
   Value *getPointerOperand() {
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(this))
       return GEP->getPointerOperand();
     return cast<SubscriptInst>(this)->getPointerOperand();
   }
+
   /// Method to return the pointer operand as a PointerType.
   Type *getPointerOperandType() const {
     return getPointerOperand()->getType();
   }
+
   /// Method to return the address space of the pointer operand.
   unsigned getPointerAddressSpace() const {
     return getPointerOperandType()->getPointerAddressSpace();
   }
+
   bool isInBounds() const {
     if (const GEPOperator *GEP = dyn_cast<GEPOperator>(this))
       return GEP->isInBounds();
+
     return true;
+  }
+
+  unsigned getNumIndices() const {
+    if (const GEPOperator *GEP = dyn_cast<GEPOperator>(this))
+      return GEP->getNumIndices();
+
+    // Subscript operators have a single index only.
+    return 1;
+  }
+
+  Value *getIndex(unsigned IndexNum) const {
+    assert(IndexNum < getNumIndices() && "Incorrect IndexNum");
+
+    if (const GEPOperator *GEP = dyn_cast<GEPOperator>(this))
+      return *(GEP->idx_begin() + IndexNum);
+
+    const SubscriptInst *Subs = cast<SubscriptInst>(this);
+    return Subs->getIndex();
+  }
+
+  inline op_iterator idx_begin() { return op_begin() + 1; }
+  inline const_op_iterator idx_begin() const { return op_begin() + 1; }
+
+  inline op_iterator idx_end() {
+    if (isa<SubscriptInst>(this)) {
+      return idx_begin() + 1;
+    }
+
+    return op_end();
+  }
+
+  inline const_op_iterator idx_end() const {
+    return const_cast<GEPOrSubsOperator *>(this)->idx_end();
   }
 };
 

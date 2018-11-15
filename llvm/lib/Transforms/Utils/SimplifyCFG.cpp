@@ -2463,24 +2463,10 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
     // Move all 'aggressive' instructions, which are defined in the
     // conditional parts of the if's to the conditional block.
-    if (IfBlock1) {
-      for (auto &I : *IfBlock1) {
-        I.dropUnknownNonDebugMetadata();
-        dropDebugUsers(I);
-      }
-      CondBlock->getInstList().splice(InsertPt->getIterator(),
-                                     IfBlock1->getInstList(), IfBlock1->begin(),
-                                     IfBlock1->getTerminator()->getIterator());
-    }
-    if (IfBlock2) {
-      for (auto &I : *IfBlock2) {
-        I.dropUnknownNonDebugMetadata();
-        dropDebugUsers(I);
-      }
-      CondBlock->getInstList().splice(InsertPt->getIterator(),
-                                     IfBlock2->getInstList(), IfBlock2->begin(),
-                                     IfBlock2->getTerminator()->getIterator());
-    }
+    if (IfBlock1)
+      hoistAllInstructionsInto(CondBlock, InsertPt, IfBlock1);
+    if (IfBlock2)
+      hoistAllInstructionsInto(CondBlock, InsertPt, IfBlock2);
 
     for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
@@ -4841,11 +4827,11 @@ GetCaseResultPHIValues(SwitchInst *SI, BasicBlock *CaseDest,
   // destination block.
   for (BasicBlock::iterator I = CaseDest->begin(), E = CaseDest->end();
                             I != E; ++I) {
-    if (TerminatorInst *T = dyn_cast<TerminatorInst>(I)) {
-      if (T->getNumSuccessors() != 1)
+    if (I->isTerminator()) {
+      if (I->getNumSuccessors() != 1)
         return false;
       Pred = CaseDest;
-      CaseDest = T->getSuccessor(0);
+      CaseDest = I->getSuccessor(0);
     } else if (isa<DbgInfoIntrinsic>(I)) {
       // Skip debug intrinsic.
       continue;
@@ -5518,7 +5504,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
 
   // Figure out the corresponding result for each case value and phi node in the
   // common destination, as well as the min and max case values.
-  assert(SI->case_begin() != SI->case_end());
+  assert(!empty(SI->cases()));
   SwitchInst::CaseIt CI = SI->case_begin();
   ConstantInt *MinCaseVal = CI->getCaseValue();
   ConstantInt *MaxCaseVal = CI->getCaseValue();

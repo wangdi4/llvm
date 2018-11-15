@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @b = local_unnamed_addr global [1600 x i32] zeroinitializer, align 16
 @c = local_unnamed_addr global [1600 x i32] zeroinitializer, align 16
 
-; CHECK-PHI-LABEL: {{%vp.*}} = phi [ i64 0, {{BB[0-9]+}} ], [ {{%vp.*}}, {{BB[0-9]+}} ]
+; CHECK-PHI-LABEL: {{%vp.*}} = phi [ i64 0, {{BB[0-9]+}} ], [ i64 {{%vp.*}}, {{BB[0-9]+}} ]
 
 ; Function Attrs: noinline norecurse nounwind uwtable
 define void @_Z3foov() local_unnamed_addr #0 {

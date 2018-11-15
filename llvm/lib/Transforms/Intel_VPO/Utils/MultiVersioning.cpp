@@ -264,7 +264,7 @@ void VPOUtils::singleRegionMultiVersioning(
   // automatically after cloning.
   //
   Instruction *OldTerm = NewHead->getTerminator();
-  TerminatorInst *NewTerm = BranchInst::Create(
+  Instruction *NewTerm = BranchInst::Create(
           /*ifTrue*/EntryBB, /*ifFalse*/ClonedEntryBB, Cond);
   ReplaceInstWithInst(OldTerm, NewTerm);
 

@@ -646,8 +646,8 @@ public:
   /// DDRef for %t2 to the DDRef.
   bool isSelfBlob() const override;
 
-  // Returns true if the DDRef is a unitary blob. A unitary blob is a
-  // single (non-nested) standalone blob.
+  /// Returns true if the DDRef is a unitary blob. A unitary blob is a single
+  /// (non-nested) standalone blob.
   bool isUnitaryBlob() const;
 
   /// Returns true if this ref looks like 1 * undef.
@@ -676,23 +676,22 @@ public:
   /// adding a zero canon expr as an additional dimension.
   void
   addDimension(CanonExpr *IndexCE,
-               const SmallVectorImpl<unsigned> *TrailingOffsets = nullptr) {
+               ArrayRef<unsigned> TrailingOffsets = {}) {
     assert(IndexCE && "IndexCE is null!");
     CanonExprs.push_back(IndexCE);
 
-    if (TrailingOffsets) {
-      setTrailingStructOffsets(getNumDimensions(), *TrailingOffsets);
+    if (!TrailingOffsets.empty()) {
+      setTrailingStructOffsets(getNumDimensions(), TrailingOffsets);
     }
   }
 
   /// Sets trailing offsets for \p DimensionNum.
   void setTrailingStructOffsets(unsigned DimensionNum,
-                                const SmallVectorImpl<unsigned> &Offsets);
+                                ArrayRef<unsigned> Offsets);
 
   /// Returns trailing offsets for \p DimensionNum. Returns null if there are no
   /// offsets.
-  const SmallVectorImpl<unsigned> *
-  getTrailingStructOffsets(unsigned DimensionNum) const;
+  ArrayRef<unsigned> getTrailingStructOffsets(unsigned DimensionNum) const;
 
   /// Removes trailing offsets for \p DimensionNum.
   void removeTrailingStructOffsets(unsigned DimensionNum) {
@@ -703,7 +702,7 @@ public:
 
   /// Returns true if the Ref has trailing offsets for \p DimensionNum.
   bool hasTrailingStructOffsets(unsigned DimensionNum) const {
-    return (getTrailingStructOffsets(DimensionNum) != nullptr);
+    return !getTrailingStructOffsets(DimensionNum).empty();
   }
 
   /// Returns true if \p DimensionNum has non-zero trailing offsets. For
@@ -717,16 +716,16 @@ public:
   /// Returns the stride in number of bytes for specified dimension.
   /// This is computed on the fly. DimensionNum must be within
   /// [1, getNumDimensions()].
-  uint64_t getDimensionStride(unsigned DimensionNum) const;
+  int64_t getDimensionConstStride(unsigned DimensionNum) const;
+
+  /// Returns the number of elements for specified dimension. 0 is returned for
+  /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
+  unsigned getNumDimensionElements(unsigned DimensionNum) const;
 
   /// Returns the size in number of bytes for specified dimension.
   /// This is computed on the fly. 0 is returned for pointer dimension.
   /// DimensionNum must be within [1, getNumDimensions()].
   uint64_t getDimensionSize(unsigned DimensionNum) const;
-
-  /// Returns the number of elements for specified dimension. 0 is returned for
-  /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
-  uint64_t getNumDimensionElements(unsigned DimensionNum) const;
 
   /// Returns the canon expr (dimension) of this DDRef at specified
   /// position. DimensionNum must be within [1, getNumDimensions()].

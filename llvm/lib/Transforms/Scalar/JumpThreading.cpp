@@ -527,7 +527,7 @@ static unsigned getJumpThreadDuplicationCost(
     for (; I != BB->end(); ++I) {
       // Don't include the terminator in the region bottom, because the copy
       // won't include it.
-      if (isa<TerminatorInst>(I) && BB == RegionBottom)
+      if (I->isTerminator() && BB == RegionBottom)
         continue;
 
       if (IntelIntrinsicUtils::isIntelDirective(const_cast<Instruction *>(&*I)))
@@ -2486,7 +2486,7 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     // the mapping. Delay remapping until all blocks in the region have been
     // cloned. That ensures all required cross-block mappings are available.
     // In RegionBottom, stop cloning at the terminator instruction.
-    for (; BI != BE && (!isa<TerminatorInst>(BI) || OldBB != RegionBottom);
+    for (; BI != BE && (!BI->isTerminator() || OldBB != RegionBottom);
          ++BI) {
       Instruction *New = BI->clone();
       New->setName(BI->getName());

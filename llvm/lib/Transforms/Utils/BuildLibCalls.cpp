@@ -1148,7 +1148,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_clock:
-    Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_close:
@@ -1324,6 +1323,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_lseek64:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_mallopt:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_mblen:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1435,7 +1437,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_get_wtime:
-    Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_omp_in_final:

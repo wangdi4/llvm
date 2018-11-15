@@ -210,6 +210,7 @@ private:
   int Collapse;
   int Ordered;
   WRNLoopInfo WRNLI;
+  SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
@@ -241,6 +242,10 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
+  const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
+    return OrderedTripCounts;
+  }
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
     return CancellationPoints;
   }
@@ -492,9 +497,7 @@ private:
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
   bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
-#if INTEL_CUSTOMIZATION
   int OffloadEntryIdx;
-#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -504,9 +507,7 @@ protected:
   void setDevice(EXPR E) { Device = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
   void setDefaultmapTofromScalar(bool Flag) { DefaultmapTofromScalar = Flag; }
-#if INTEL_CUSTOMIZATION
   void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
-#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
@@ -523,9 +524,7 @@ public:
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
   bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
-#if INTEL_CUSTOMIZATION
   int getOffloadEntryIdx() const { return OffloadEntryIdx; }
-#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -950,6 +949,7 @@ private:
   int Ordered;
   bool Nowait;
   WRNLoopInfo WRNLI;
+  SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 
@@ -973,6 +973,10 @@ public:
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   bool getNowait() const { return Nowait; }
+  void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
+  const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
+    return OrderedTripCounts;
+  }
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
     return CancellationPoints;
   }
@@ -1254,8 +1258,8 @@ private:
   bool IsThreads;          // true for "threads" (default); false for "simd"
 
   // The following two fields are meaningful only if IsDoacross==true
-  bool IsDepSource;        // true if the directive has depend(source)
-  DepSinkClause DepSink;  // meaningful only when DepSource==false
+  DepSinkClause DepSink;
+  DepSourceClause DepSource;
   void assertDoacrossTrue() const  { assert (IsDoacross &&
                               "This WRNOrdered represents Doacross"); }
   void assertDoacrossFalse() const { assert (!IsDoacross &&
@@ -1267,16 +1271,18 @@ public:
 protected:
   void setIsDoacross(bool Flag) { IsDoacross = Flag; }
   void setIsThreads(bool Flag) { assertDoacrossFalse(); IsThreads = Flag; }
-  void setIsDepSource(bool Flag) { assertDoacrossTrue(); IsDepSource = Flag; }
 
 public:
   bool getIsDoacross() const {  return IsDoacross; }
   bool getIsThreads() const { assertDoacrossFalse(); return IsThreads; }
-  bool getIsDepSource() const { assertDoacrossTrue(); return IsDepSource; }
 
   const DepSinkClause &getDepSink() const {assertDoacrossTrue();
                                            return DepSink; }
   DepSinkClause &getDepSink() { assertDoacrossTrue(); return DepSink; }
+
+  const DepSourceClause &getDepSource() const {assertDoacrossTrue();
+                                           return DepSource; }
+  DepSourceClause &getDepSource() { assertDoacrossTrue(); return DepSource; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;

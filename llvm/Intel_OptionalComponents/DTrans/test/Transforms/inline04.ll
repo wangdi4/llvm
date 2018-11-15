@@ -3,35 +3,37 @@
 ; RUN: opt -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
 ; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
 
-; Check that myavg() and myweight() which have loops and are referenced from
-; functions which are address taken and stored into the same structure
-; instance, are preferred for multiversioning, while @myinit is not.
+; ------------------------------------------------------------------------------------------------------------------
+; Function Description                                                  | Inline Heuristic                         |
+; ------------------------------------------------------------------------------------------------------------------
+; @myavg:       short function with a loop (trip count is 101), leaf    | inlined (profitable)                     |
+; @myweight:    short function with a loop (TC: 101), leaf              | inlined (profitable)                     |
+; @myinit:      short function 3 repeats of GETP+STORE seq, leaf        | inlined (single callsite, local linkage) |
+; @mynoloops:   single BB, short, leaf function                         | inlined (single BB)                      |
+; @mythreecalls:short function with a loop (TC is 11), leaf             | inlined (profitable)                     |
+; ------------------------------------------------------------------------------------------------------------------
 
-; Check also that @mynoloops is not preferred for multiversioning, as it has
-; no loops, and that @mythreeloops is not preferred for multiversioning, as
-; it is called from three functions.
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @myavg
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @myweight
+; CHECK-IR-NOT: call i32 @foo
+; CHECK-IR-NOT: call i32 @bar
+; CHECK-IR-NOT: call i32 @baz
 
-; This simulates the dtrans-inline-heuristic for inlining in the link step.
-
-; CHECK-IR: call i32 @myavg
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @myavg
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @myweight
-; CHECK-IR: call i32 @foo
-; CHECK-IR: call i32 @bar
-; CHECK-IR: call i32 @baz
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myavg {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myweight {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> myweight {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-RPT: -> INLINE: myavg ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myavg ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myweight ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: myweight ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
 ; CHECK-NOT-RPT: -> myinit {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> mynoloops {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
 ; CHECK-NOT-RPT: -> mythreeloops {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> foo {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> bar {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
-; CHECK-RPT: -> baz {{\[\[}}Callsite preferred for multiversioning{{\]\]}}
+; CHECK-RPT: -> INLINE: foo ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: bar ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+; CHECK-RPT: -> INLINE: baz ({{[-0-9\<\=]+}}) <<Inlining is profitable>>
+
 %struct.MYSTRUCT = type { i32 ()*, i32 ()*, i32 ()* }
 
 @myglobal = common dso_local global %struct.MYSTRUCT zeroinitializer, align 8

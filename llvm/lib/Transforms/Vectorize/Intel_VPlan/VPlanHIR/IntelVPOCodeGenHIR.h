@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
+#include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
@@ -47,12 +48,12 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
                 VPlanVLSAnalysis *VLSA, const VPlan *Plan, Function &Fn,
                 HLLoop *Loop, LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
-                const bool IsSearchLoop)
+                const VPlanIdioms::Opcode SearchLoopType)
       : TLI(TLI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(Fn.getContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
-        IsSearchLoop(IsSearchLoop) {}
+        SearchLoopType(SearchLoopType) {}
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -194,10 +195,12 @@ public:
 
   HLInst *createCTTZCall(RegDDRef *Ref, const Twine &Name = "bsf");
 
-  // Generate a wide compare using VF as the vector length. Only
-  // single if predicates are currently handled. The given Mask value
-  // overrides the current mask value if non-null.
-  HLInst *widenIfPred(const HLIf *HIf, RegDDRef *Mask = nullptr);
+  // Generates wide compares using VF as the vector length. Multiple
+  // predicates are handled by conjoining the results of generated
+  // wide compares with an implicit wide AND. The given Mask value
+  // overrides the current mask value if non-null. The last HLInst
+  // generated for this HLIf node is returned.
+  HLInst *widenIfNode(const HLIf *HIf, RegDDRef *Mask = nullptr);
 
   // Add WideVal as the widened vector value corresponding  to VPVal
   void addVPValueWideRefMapping(VPValue *VPVal, RegDDRef *WideVal) {
@@ -296,7 +299,10 @@ public:
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
 
-  bool isSearchLoop() const { return IsSearchLoop; }
+  bool isSearchLoop() const {
+    return VPlanIdioms::isAnySearchLoop(SearchLoopType);
+  }
+  VPlanIdioms::Opcode getSearchLoopType() const { return SearchLoopType; }
 
   HLDDNode *getInsertRegion() const { return InsertRegionsStack.back(); }
   void addInsertRegion(HLDDNode *Node) { InsertRegionsStack.push_back(Node); }
@@ -381,7 +387,7 @@ private:
   // Set of unit-stride Refs
   SmallPtrSet<const RegDDRef *, 4> UnitStrideRefSet;
   // The loop meets search loop idiom criteria.
-  bool IsSearchLoop;
+  VPlanIdioms::Opcode SearchLoopType;
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
@@ -422,6 +428,11 @@ private:
   // Replace math library calls in the remainder loop with the vectorized one
   // used in the main vector loop.
   void replaceLibCallsInRemainderLoop(HLInst *HInst);
+
+  // Helper function to generate a wide Cmp HLInst for given predicate
+  // PredIt found in the HLIf node. VF is used as vector length.
+  HLInst *widenPred(const HLIf *HIf, HLIf::const_pred_iterator PredIt,
+                    RegDDRef *Mask);
 
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to

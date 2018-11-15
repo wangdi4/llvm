@@ -375,7 +375,7 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
 #endif  // INTEL_CUSTOMIZATION
     if (MBB->pred_empty()) {
       MBB->getParent()->verify();
-      errs() << "Use of " << printReg(PhysReg)
+      errs() << "Use of " << printReg(PhysReg, MRI->getTargetRegisterInfo())
              << " does not have a corresponding definition on every path:\n";
       const MachineInstr *MI = Indexes->getInstructionFromIndex(Use);
       if (MI != nullptr)

@@ -24,7 +24,7 @@
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
-static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(false),
+static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(true),
                                cl::desc("Consider cost returned by OVLSCostModel "
                                         "for optimized gathers and scatters."));
 
@@ -90,7 +90,8 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
   if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)
     if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
       if (Group->size() > 1) {
-        unsigned VLSCost = OptVLSInterface::getGroupCost(*Group, *VLSCM);
+        unsigned VLSCost =
+            OptVLSInterface::getGroupCost(*Group, *VLSCM) / Group->size();
         if (VLSCost < Cost) {
           LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
                      dbgs() << " from " << Cost << " to " << VLSCost << '\n');
@@ -140,9 +141,11 @@ unsigned VPlanCostModelProprietary::getCost() const {
   case VPlanIdioms::SearchLoopStrEq:
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
+    if (VF == 1)
+      return 1000;
     if (VF != 32)
       // Return some huge value, so that VectorCost still could be computed.
-      return 10000000;
+      return UnknownCost;
     break;
   default:
     // FIXME: Keep VF = 32 as unsupported right now due to huge perf

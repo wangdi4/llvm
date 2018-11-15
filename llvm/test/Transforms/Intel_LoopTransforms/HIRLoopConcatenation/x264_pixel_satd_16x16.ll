@@ -39,7 +39,7 @@
 ; CHECK: BEGIN REGION { modified }
 
 ; Check that 1st loop is fused alloca write loop
-; CHECK: DO i1 = 0, 15, 1
+; CHECK: DO i1 = 0, 15, 1   <DO_LOOP> <unroll>
 ; CHECK: (%alloca{{.*}})[0][i1][0] =
 
 ; Check that 2nd loop is alloca initialization loop

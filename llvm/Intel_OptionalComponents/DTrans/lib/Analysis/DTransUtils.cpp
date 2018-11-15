@@ -354,6 +354,28 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     if (ElementZeroTy->isAggregateType())
       return isElementZeroAccess(ElementZeroTy->getPointerTo(), DestTy,
                                  AccessedTy);
+    // If element zero is a pointer to an aggregate type this cast might
+    // be creating a pointer to element zero of the type pointed to.
+    // For instance, if we have the following types:
+    //
+    //   %A = type { %B*, ... }
+    //   %B = type { %C, ... }
+    //   %C = type { ... }
+    //
+    // The following IR would get the address of A->C.
+    //
+    //   %ppc = bitcast %A* %pa to %C**
+    //
+    if (ElementZeroTy->isPointerTy() &&
+        ElementZeroTy->getPointerElementType()->isAggregateType()) {
+      // In this case, tracking the accessed type is tricky because
+      // the check is off by a level of indirection. If it's a match
+      // we need to record it as element zero of SrcTy.
+      bool Match = isElementZeroAccess(ElementZeroTy, DestPointeeTy);
+      if (Match && AccessedTy)
+        *AccessedTy = SrcTy;
+      return Match;
+    }
     // Otherwise, it must be a bad cast. The caller should handle that.
     return false;
   }
@@ -377,6 +399,60 @@ bool dtrans::isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy) {
     return true;
   }
   return false;
+}
+
+bool dtrans::isVTableAccess(llvm::Type *SrcTy, llvm::Type *DestTy) {
+  // We're looking for a bitcast from a pointer to a class type (StructTy) to
+  // the vtable element for that type. The destination type can have many
+  // forms but it will always be a ptr-to-ptr-to-ptr-to-fn where the first
+  // parameter of the function type (the 'this' argument) is the source type
+  // or a pointer to a base class at element zero of the class pointed to by
+  // SrcTy.
+
+  // First we check to see if DestTy is a ptr-to-ptr-to-ptr-to-fn
+  if (!DestTy->isPointerTy())
+    return false;
+  auto *DestTy2 = DestTy->getPointerElementType();
+  if (!DestTy2->isPointerTy())
+    return false;
+  auto *DestTy3 = DestTy2->getPointerElementType();
+  if (!DestTy3->isPointerTy())
+    return false;
+  auto *DestFnTy = dyn_cast<FunctionType>(DestTy3->getPointerElementType());
+  if (!DestFnTy)
+    return false;
+
+  // Next check that the first parameter (the 'this' parameter) of DestFnTy
+  // is compatible with SrcTy. The isElementZeroAccess check below tests to
+  // see if the type pointed to by ThisParamTy is a base class of the type
+  // pointed to by SrcTy. If the destination type is has zero parameters and
+  // is variadic, we don't need to check the parameter type. If it has zero
+  // parameters and is not variadic, it isn't a match.
+  if (DestFnTy->getNumParams() == 0) {
+    if (!DestFnTy->isVarArg())
+      return false;
+  } else {
+    auto *ThisParamTy = DestFnTy->getParamType(0);
+    if ((ThisParamTy != SrcTy) &&
+        !dtrans::isElementZeroAccess(SrcTy, ThisParamTy))
+      return false;
+  }
+
+  // Finally, look for a vtable pointer at element zero of the type pointed
+  // to by SrcTy. The vtable is represented as i32 (...)** and an extra
+  // level of indirection is added because the field points to it.
+  // Get the expected vtable function type, i32 (...), then add three levels
+  // of indirection to that type and see if it tests position as an
+  // element zero access of SrcTy.
+  auto VTablePtrTy =
+      FunctionType::get(Type::getInt32Ty(SrcTy->getContext()), true)
+          ->getPointerTo()
+          ->getPointerTo()
+          ->getPointerTo();
+  if (!dtrans::isElementZeroAccess(SrcTy, VTablePtrTy))
+    return false;
+
+  return true;
 }
 
 // This function is used to recognize IR patterns like this:
@@ -789,15 +865,22 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
 }
 
 // Returns safety conditions for the transformation
-dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans) {
+dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
+                                                     bool DTransOutOfBoundsOK) {
   if (Trans == 0 || Trans & ~dtrans::DT_Legal)
     return dtrans::NoIssues;
 
   switch (Trans) {
+  // In the cases of FSV and FSAF, if DTransOutOfBoundsOK is false we exclude
+  // FieldAddressTaken from the general safety checks and check each field
+  // individually.
   case dtrans::DT_FieldSingleValue:
-    return dtrans::SDFieldSingleValue;
+    return DTransOutOfBoundsOK ? dtrans::SDFieldSingleValue
+                               : dtrans::SDFieldSingleValueNoFieldAddressTaken;
   case dtrans::DT_FieldSingleAllocFunction:
-    return dtrans::SDSingleAllocFunction;
+    return DTransOutOfBoundsOK
+               ? dtrans::SDSingleAllocFunction
+               : dtrans::SDSingleAllocFunctionNoFieldAddressTaken;
   case dtrans::DT_DeleteField:
     return dtrans::SDDeleteField;
   case dtrans::DT_ReorderFields:

@@ -68,29 +68,37 @@ DIR.OMP.END.PARALLEL.EXIT:
 
 ; Verify that the counter was set correctly
 ; CHECK-LABEL: define internal noalias i8* @mallocFunc(i64) {
-; CHECK:   %2 = load atomic i32, i32* @__Intel_PaddedMallocCounter seq_cst, align 4
-; CHECK:   %3 = icmp ult i32 %2, 250
-; CHECK:   br i1 %3, label %BBif, label %BBelse
+; CHECK-NEXT: [[TMP2:%.*]] = icmp ult i64 [[TMP0:%.*]], 4294967295
+; CHECK-NEXT: br i1 [[TMP2:%.*]], label [[TMP3:%.*]], label %MaxBB
 ;
-; CHECK-LABEL: BBif:                                             ; preds = %1
-; CHECK:   %4 = add i64 %0, 32
-; CHECK:   %5 = tail call noalias i8* @malloc(i64 %4)
-; CHECK:   %6 = atomicrmw add i32* @__Intel_PaddedMallocCounter, i32 1 seq_cst
-; CHECK:   br label %8
+; CHECK-LABEL: <label>:3:
+; CHECK-NEXT:   [[TMP4:%.*]] = load atomic i32, i32* @__Intel_PaddedMallocCounter seq_cst, align 4
+; CHECK-NEXT:   [[TMP5:%.*]] = icmp ult i32 [[TMP4]], 250
+; CHECK-NEXT:   br i1 [[TMP5]], label %BBif, label %BBelse
 ;
-; CHECK-LABEL: BBelse:                                           ; preds = %1
-; CHECK:   %7 = tail call noalias i8* @malloc(i64 %0)
-; CHECK:   br label %8
+; CHECK-LABEL: MaxBB:
+; CHECK-NEXT:   [[TMP6:%.*]] = atomicrmw xchg i32* @__Intel_PaddedMallocCounter, i32 250 seq_cst
+; CHECK-NEXT:   br label %BBelse
 ;
-; CHECK-LABEL: ; <label>:8:                                      ; preds = %BBelse, %BBif
-; CHECK:   %9 = phi i8* [ %5, %BBif ], [ %7, %BBelse ]
-; CHECK:   ret i8* %9
+; CHECK-LABEL: BBif:
+; CHECK-NEXT:   [[TMP7:%.*]] = add i64 [[TMP0:%.*]], 32
+; CHECK-NEXT:   [[TMP8:%.*]] = tail call noalias i8* @malloc(i64 [[TMP7:%.*]])
+; CHECK-NEXT:   [[TMP9:%.*]] = atomicrmw add i32* @__Intel_PaddedMallocCounter, i32 1 seq_cst
+; CHECK-NEXT:   br label [[TMP11:%.*]]
+;
+; CHECK-LABEL: BBelse:
+; CHECK-NEXT:   [[TMP10:%.*]] = tail call noalias i8* @malloc(i64 [[TMP0:%.*]])
+; CHECK-NEXT:   br label [[TMP11:%.*]]
+;
+; CHECK-LABEL: ; <label>:11:
+; CHECK-NEXT:   [[TMP12:%.*]] = phi i8* [ [[TMP8:%.*]], %BBif ], [ [[TMP10:%.*]], %BBelse ]
+; CHECK-NEXT:   ret i8* [[TMP12:%.*]]
 ; CHECK: }
 
 ; Verify that the __kmpc functions were created
 ; CHECK-LABEL: define i32 @main() {
-; CHECK:   %1 = alloca i32
-; CHECK:   store i32 0, i32* %1
+; CHECK:   [[TMP1:%.*]] = alloca i32
+; CHECK:   store i32 0, i32* [[TMP1:%.*]]
 ; CHECK:   %tid.val = tail call i32 @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.4)
 ; CHECK:   %2 = alloca i32
 ; CHECK:   store i32 %tid.val, i32* %2
@@ -102,11 +110,11 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK:   br i1 %fork.test2, label %if.then.fork.1, label %if.else.call.1
 ;
 ; CHECK-LABEL: if.then.fork.1:                                   ; preds = %codeRepl
-; CHECK:   call void ({ i32, i32, i32, i32, i8* }*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main_.split to void (i32*, i32*, ...)*))
+; CHECK:   call void ({ i32, i32, i32, i32, i8* }*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main..split to void (i32*, i32*, ...)*))
 ; CHECK:   br label %codeRepl.split
 ;
 ; CHECK-LABEL: if.else.call.1:                                   ; preds = %codeRepl
-; CHECK:   call void @main_.split(i32* %2, i32* %1)
+; CHECK:   call void @main..split(i32* %2, i32* [[TMP1:%.*]])
 ; CHECK:   br label %codeRepl.split
 ;
 ; CHECK-LABEL: codeRepl.split:                                   ; preds = %if.then.fork.1, %if.else.call.1
@@ -117,7 +125,7 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK: }
 
 ; Verify that the outline function was created
-; CHECK-LABEL: define internal void @main_.split(i32* %tid, i32* %bid) #1 {
+; CHECK-LABEL: define internal void @main..split(i32* %tid, i32* %bid) #1 {
 ; CHECK-LABEL: newFuncRoot:
 ; CHECK:   br label %.split
 ;
@@ -125,11 +133,11 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK:   ret void
 ;
 ; CHECK-LABEL: DIR.OMP.PARALLEL.START:                           ; preds = %.split
-; CHECK:   %0 = tail call noalias i8* @mallocFunc(i64 100)
-; CHECK:   store i8* %0, i8** getelementptr inbounds (%struct.testStruct, %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
-; CHECK:   tail call void @free(i8* %0)
+; CHECK:   [[TMP0:%.*]] = tail call noalias i8* @mallocFunc(i64 100)
+; CHECK:   store i8* [[TMP0:%.*]], i8** getelementptr inbounds (%struct.testStruct, %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
+; CHECK:   tail call void @free(i8* [[TMP0:%.*]])
 ; CHECK:   store i8* null, i8** getelementptr inbounds (%struct.testStruct, %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
-; CHECK:   %1 = call zeroext i1 @searchloop()
+; CHECK:   [[TMP1:%.*]] = call zeroext i1 @searchloop()
 ; CHECK:   br label %DIR.OMP.END.PARALLEL.EXIT
 ;
 ; CHECK-LABEL: DIR.OMP.END.PARALLEL.EXIT:                        ; preds = %DIR.OMP.PARALLEL.START
@@ -142,9 +150,9 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; Verify that the interface was created
 ; CHECK-LABEL: define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize !2 {
 ; CHECK-LABEL: entry:
-; CHECK:   %0 = load i32, i32* @__Intel_PaddedMallocCounter
-; CHECK:   %1 = icmp ult i32 %0, 250
-; CHECK:   ret i1 %1
+; CHECK:   [[TMP0:%.*]] = load i32, i32* @__Intel_PaddedMallocCounter
+; CHECK:   [[TMP1:%.*]] = icmp ult i32 [[TMP0:%.*]], 250
+; CHECK:   ret i1 [[TMP1:%.*]]
 ; CHECK: }
 
 ; CHECK: !2 = !{i32 32}

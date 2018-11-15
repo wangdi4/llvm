@@ -282,7 +282,8 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+      (void)llvm::createLoadCoalescingPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       // HIR passes
@@ -315,7 +316,7 @@ namespace {
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRLoopCollapsePass();
-      (void) llvm::createHIRSymbolicTripCountCompleteUnrollPass();
+      (void) llvm::createHIRSymbolicTripCountCompleteUnrollLegacyPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();

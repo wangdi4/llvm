@@ -75,8 +75,11 @@ public:
   /// \brief Entry point for on-demand call to gather WRegion info from the IR
 #if INTEL_CUSTOMIZATION
   /// If IR==HIR, it walks the HIR; else, it walks the LLVM IR
+  void
+  buildWRGraph(WRegionCollection::InputIRKind IR = WRegionCollection::LLVMIR);
+#else
+  void buildWRGraph();
 #endif // INTEL_CUSTOMIZATION
-  void buildWRGraph(WRegionCollection::InputIRKind IR);
 
   /// WRN Graph
   WRContainerImpl *getWRGraph() const { return WRC->getWRGraph(); }

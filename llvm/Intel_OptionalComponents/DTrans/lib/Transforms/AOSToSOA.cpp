@@ -2913,7 +2913,7 @@ bool AOSToSOAPass::collectCallChain(
 
   // Verify the top of the callchain is the 'main' routine
   if (!Callsite)
-    return F->getName() == "main";
+    return isMainFunction(*F);
 
   CallChain.push_back(
       std::make_pair(Callsite->getParent()->getParent(), Callsite));

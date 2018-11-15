@@ -237,19 +237,7 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setNowait(false);
   setDefaultmapTofromScalar(false);
   setParLoopNdInfoAlloca(nullptr);
-
-#if INTEL_CUSTOMIZATION
-  // TODO: This should be reimplemented to use operand bundles.
-  // Get offload entry index for this region. It is attached to the begin
-  // directive as 'omp_offload.entry' metadata.
-  if (const auto *MD = BB->front().getMetadata("omp_offload.entry")) {
-    const auto *C = mdconst::extract<ConstantInt>(MD->getOperand(0));
-    setOffloadEntryIdx(C->getZExtValue());
-  }
-  else
-    setOffloadEntryIdx(-1);
-#endif // INTEL_CUSTOMIZATION
-
+  setOffloadEntryIdx(-1);
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }
 
@@ -666,9 +654,7 @@ void WRNOrderedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   bool IsDoacross = getIsDoacross();
   // vpo::printBool("IS DOACROSS", IsDoacross, OS, Indent, Verbosity);
 
-  if (IsDoacross) // Depend clauses present for DoAcross
-    vpo::printBool("DEPEND(SOURCE)", getIsDepSource(), OS, Indent, Verbosity);
-  else {
+  if (!IsDoacross) { // Depend clauses present for DoAcross
     // No Depend clauses => not for DoAcross
     StringRef Kind = getIsThreads() ? "THREADS" : "SIMD";
     vpo::printStr("KIND", Kind, OS, Indent, Verbosity);
@@ -794,9 +780,11 @@ void vpo::printExtraForOmpLoop(WRegionNode const *W, formatted_raw_ostream &OS,
          "printExtraForOmpLoop is for WRNs with getIsOmpLoop()==true");
   unsigned Indent = 2 * Depth;
   vpo::printInt("COLLAPSE", W->getCollapse(), OS, Indent, Verbosity);
-  if (W->getOrdered() > 0)
+  if (W->getOrdered() > 0) {
     vpo::printInt("ORDERED(N)", W->getOrdered(), OS, Indent, Verbosity);
-  else
+    vpo::printValList("ORDERED(N) Trip Counts", W->getOrderedTripCounts(), OS, Indent,
+                      Verbosity);
+  } else
     vpo::printBool("ORDERED", W->getOrdered() == 0, OS, Indent, Verbosity);
 
   // WRNs with getIsPar()==true don't have the Nowait clause
@@ -826,11 +814,8 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
                     "TOFROM:SCALAR" : "UNSPECIFIED";
     vpo::printStr("DEFAULTMAP", Str, OS, Indent, Verbosity);
 
-#if INTEL_CUSTOMIZATION
-    auto EntryIdx = W->getOffloadEntryIdx();
-    if (EntryIdx >= 0)
-      vpo::printInt("OFFLOAD_ENTRY_IDX", EntryIdx, OS, Indent, Verbosity);
-#endif // INTEL_CUSTOMIZATION
+    int EntryIdx = W->getOffloadEntryIdx();
+    vpo::printInt("OFFLOAD_ENTRY_IDX", EntryIdx, OS, Indent, Verbosity, 0);
   }
 }
 

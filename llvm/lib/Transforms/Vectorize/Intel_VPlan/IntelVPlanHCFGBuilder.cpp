@@ -1072,7 +1072,7 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
 
   // A and B: Create VPValue and add it to the pool of external definitions and
   // to the Value->VPValue map.
-  VPValue *NewVPVal = new VPValue(IROp);
+  VPValue *NewVPVal = new VPValue(IROp->getType(), IROp);
   Plan->addExternalDef(NewVPVal);
   IRDef2VPValue[IROp] = NewVPVal;
   return NewVPVal;
@@ -1112,7 +1112,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
 #else
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), {} /*No operands*/, Inst));
+          Inst->getOpcode(), Inst->getType(), {} /*No operands*/, Inst));
 #endif // INTEL_CUSTOMIZATION
       PhisToFix.push_back(Phi);
     } else {
@@ -1130,8 +1130,8 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
 #endif
       // Build VPInstruction for any arbitraty Instruction without specific
       // representation in VPlan.
-      NewVPInst = cast<VPInstruction>(
-          VPIRBuilder.createNaryOp(Inst->getOpcode(), VPOperands, Inst));
+      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+          Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
     }
     IRDef2VPValue[Inst] = NewVPInst;
   }
@@ -1197,11 +1197,26 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
       assert(isa<BranchInst>(TI) && "Unsupported terminator!");
       auto *Br = cast<BranchInst>(TI);
       Value *BrCond = Br->getCondition();
+#if INTEL_CUSTOMIZATION
+      VPValue *VPCondBit;
+      if (Constant *ConstBrCond = dyn_cast<Constant>(BrCond))
+        // Create new VPConstant for constant branch condition.
+        VPCondBit = Plan->getVPConstant(ConstBrCond);
+      else {
+        // Look up the branch condition to get the corresponding VPValue
+        // representing the condition bit in VPlan (which may be in another
+        // VPBB).
+        assert(IRDef2VPValue.count(BrCond) &&
+               "Missing condition bit in IRDef2VPValue!");
+        VPCondBit = IRDef2VPValue[BrCond];
+      }
+#else
       // Look up the branch condition to get the corresponding VPValue
       // representing the condition bit in VPlan (which may be in another VPBB).
       assert(IRDef2VPValue.count(BrCond) &&
              "Missing condition bit in IRDef2VPValue!");
       VPValue *VPCondBit = IRDef2VPValue[BrCond];
+#endif
       VPBB->setTwoSuccessors(VPCondBit, SuccVPBB0, SuccVPBB1, Plan);
 
       VPBB->setCBlock(BB);

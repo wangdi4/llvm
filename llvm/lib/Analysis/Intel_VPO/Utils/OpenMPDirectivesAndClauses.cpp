@@ -29,8 +29,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
-    : FullName(Name), IsArraySection(false), IsNonPod(false), IsUnsigned(false),
-      IsConditional(false), IsScheduleMonotonic(false),
+    : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
+      IsUnsigned(false), IsConditional(false), IsScheduleMonotonic(false),
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false) {
   StringRef Base;  // BaseName
@@ -87,6 +87,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
         if (ModSubString[i] == "ARRSECT")
           setIsArraySection();
+        else if (ModSubString[i] == "BYREF")
+          setIsByRef();
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
         else if (ModSubString[i] == "UNSIGNED")     // for reduction clause
@@ -106,6 +108,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   LLVM_DEBUG(dbgs() << "  ID: " << getId());
   LLVM_DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
   LLVM_DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
+  LLVM_DEBUG(dbgs() << "  ByRef: " << getIsByRef());
   LLVM_DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
   LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
   LLVM_DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());
@@ -227,6 +230,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
+  case DIR_PRAGMA_IVDEP:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
@@ -272,6 +276,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
+  case DIR_PRAGMA_END_IVDEP:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
@@ -459,6 +464,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   // Non-OpenMP Directives
   case DIR_VPO_AUTO_VEC:
     return DIR_VPO_END_AUTO_VEC;
+  case DIR_PRAGMA_IVDEP:
+    return DIR_PRAGMA_END_IVDEP;
 #endif // INTEL_CUSTOMIZATION
 
   // StandAlone Directives
@@ -578,7 +585,6 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_PROC_BIND_SPREAD:
     case QUAL_OMP_ORDERED_THREADS:
     case QUAL_OMP_ORDERED_SIMD:
-    case QUAL_OMP_DEPEND_SOURCE:
     case QUAL_OMP_CANCEL_PARALLEL:
     case QUAL_OMP_CANCEL_LOOP:
     case QUAL_OMP_CANCEL_SECTIONS:
@@ -592,7 +598,6 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_IF:
     case QUAL_OMP_NAME:
     case QUAL_OMP_NUM_THREADS:
-    case QUAL_OMP_ORDERED:
     case QUAL_OMP_FINAL:
     case QUAL_OMP_GRAINSIZE:
     case QUAL_OMP_NUM_TASKS:
@@ -600,6 +605,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_NUM_TEAMS:
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
+    case QUAL_OMP_OFFLOAD_ENTRY_IDX:
       return 1;
   }
   return 2; //everything else

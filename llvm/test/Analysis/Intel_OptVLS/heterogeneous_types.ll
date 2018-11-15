@@ -1,6 +1,8 @@
 ; Tests whether following two heterogeneous typed accesses get grouped together.
 ; REQUIRES: asserts
 ; RUN: intelovls-test < %s -debug 2>&1 | FileCheck %s
+
+; XFAIL: *
 ;
 ; CHECK: Group#
 ; CHECK-NOT: Group#

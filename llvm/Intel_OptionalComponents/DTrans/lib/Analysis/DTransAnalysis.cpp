@@ -2077,17 +2077,18 @@ private:
                dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
                                           &AccessedTy))) {
             Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
+            IsElementZeroAccess = true;
             // If the bitcast is to an i8** and element zero of the accessed
             // type is a pointer, we need to add the type of that pointer
-            // to the destination value's alias set. If the bitcast destination
-            // is not an i8** it will be the type of the accessed element
-            // zero, so we don't need to check that condition. We can just
-            // always add the element zero pointer type to the alias set.
-            Info.addPointerTypeAlias(
-                cast<CompositeType>(AccessedTy->getPointerElementType())
-                    ->getTypeAtIndex(0u)
-                    ->getPointerTo());
-            IsElementZeroAccess = true;
+            // to the destination value's alias set.
+            auto *Int8PtrPtrTy = llvm::Type::getInt8PtrTy(DestTy->getContext())
+                                     ->getPointerTo();
+            if (DestTy == Int8PtrPtrTy) {
+              Info.addPointerTypeAlias(
+                  cast<CompositeType>(AccessedTy->getPointerElementType())
+                      ->getTypeAtIndex(0u)
+                      ->getPointerTo());
+            }
           } else if (dtrans::isPtrToPtrToElementZeroAccess(AliasTy, DestTy)) {
             // If the DestTy and the AliasTy are both pointers to pointers
             // this may be an element zero access with an additional level
@@ -2459,7 +2460,8 @@ private:
         if (!Ty1->getPointerElementType()->isAggregateType())
           continue;
         for (auto *Ty2 : CastTypes)
-          if (dtrans::isElementZeroAccess(Ty1, Ty2))
+          if (dtrans::isElementZeroAccess(Ty1, Ty2) ||
+              dtrans::isVTableAccess(Ty1, Ty2))
             TypesToRemove.insert(Ty2);
       }
       for (auto *Ty : TypesToRemove)
@@ -2784,7 +2786,7 @@ private:
   // the candidate field has been detected, and the analysis cannot continue.
   bool FoundViolation;
   // The structure to which the candidate field belongs.
-  llvm::Type *CandidateRootType;
+  llvm::StructType *CandidateRootType;
   // A map of stores to pairs of a bool and a type.  Each store is the
   // target of the return of a call to an allocation function, which is a
   // pointer value and can be assigned to the candidate field.  The bool
@@ -3152,7 +3154,10 @@ DTransBadCastingAnalyzer::getRootGEPIFromConditional(BasicBlock *BB) {
 //
 bool DTransBadCastingAnalyzer::gepiMatchesCandidate(GetElementPtrInst *GEPI) {
   llvm::Type *IndexedTy = getLastType(GEPI);
-  if (IndexedTy != CandidateRootType)
+  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
+  if (!IndexedStructTy)
+    return false;
+  if (IndexedStructTy != CandidateRootType)
     return false;
   auto ConstIndex = GEPI->getOperand(GEPI->getNumOperands() - 1);
   auto *LastArg = dyn_cast<ConstantInt>(ConstIndex);
@@ -3510,6 +3515,9 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
   auto AV = STI->getValueOperand();
   llvm::Type *AVType = AV->getType();
   Type *IndexedTy = getLastType(GEPI);
+  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
+  if (!IndexedStructTy)
+    return false;
   if (IndexedTy != CandidateRootType)
     return true;
   // Find the field being stored
@@ -3571,7 +3579,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
     setFoundViolation(true);
     return false;
   }
-  if (AVType->isPointerTy() &&
+  if (!isa<ConstantPointerNull>(AV) && AVType->isPointerTy() &&
       AVType->getPointerElementType()->isFunctionTy()) {
     // For the case of a function pointer field being stored, ensure that the
     // VoidArgumentIndex of that function can be determined ...
@@ -3818,6 +3826,9 @@ bool DTransBadCastingAnalyzer::analyzeLoad(dtrans::FieldInfo &FI,
   if (!GEPI)
     return true;
   Type *IndexedTy = getLastType(GEPI);
+  auto IndexedStructTy = dyn_cast<StructType>(IndexedTy);
+  if (!IndexedStructTy)
+    return false;
   if (IndexedTy != CandidateRootType)
     return true;
   // Find the field being loaded
@@ -4106,9 +4117,13 @@ bool DTransBadCastingAnalyzer::analyzeAfterVisit() {
 //
 bool DTransBadCastingAnalyzer::isBadCastTypeAndFieldCandidate(llvm::Type *Type,
                                                               unsigned Index) {
-  return Type->isPointerTy() &&
-         (Type->getPointerElementType() == CandidateRootType) &&
-         (Index == CandidateVoidField);
+  if (!Type->isPointerTy())
+    return false;
+  llvm::Type *PTy = Type->getPointerElementType();
+  auto StPTy = dyn_cast<StructType>(PTy);
+  if (StPTy != CandidateRootType)
+    return false;
+  return Index == CandidateVoidField;
 }
 
 //
@@ -6337,9 +6352,11 @@ private:
 
     // If this can be interpreted as an element-zero access of SrcTy
     // or as a cast from a ptr-to-ptr to a type to a ptr-to-ptr to
-    // element zero of that type, it's a safe cast.
+    // element zero of that type or it's accessing the vtable, it's a
+    // safe cast.
     if (dtrans::isElementZeroAccess(SrcTy, DestTy) ||
-        dtrans::isPtrToPtrToElementZeroAccess(SrcTy, DestTy))
+        dtrans::isPtrToPtrToElementZeroAccess(SrcTy, DestTy) ||
+        dtrans::isVTableAccess(SrcTy, DestTy))
       return;
 
     // If element zero is an i8* and we're casting the source value as a
@@ -6555,7 +6572,7 @@ private:
         return false;
 
       // If the value is used by a terminator, it's used.
-      if (isa<TerminatorInst>(U))
+      if (cast<Instruction>(U)->isTerminator())
         return false;
 
       // If the user is a store, check the target address.
@@ -6617,6 +6634,12 @@ private:
       else
         DTInfo.addStoreMapping(cast<StoreInst>(&I), *PointeeSet.begin());
     }
+
+    // Add I to MultiElemLoadStoreInfo if it is accessing more than one
+    // struct elements.
+    // TODO: Need to handle if PointeeSet has non-struct elements.
+    if (PointeeSet.size() > 1 && PointeeSet.begin()->first->isStructTy())
+      DTInfo.addMultiElemLoadStore(&I);
 
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
@@ -8180,6 +8203,26 @@ private:
     return true;
   }
 
+  // Return true if \p Data is a safety condition that should be cascaded
+  // across pointer field members within a structure. Most safety conditions
+  // detected on a structure do not apply to child structures that are only
+  // referenced by pointer fields (as opposed to fully nested structures)
+  // because changing the layout of the parent structure does not affect
+  // the type pointed to. However, some safety conditions relating to how
+  // a structure can be accessed in ways that we can't fully analyze must
+  // be transferred to contained pointers.
+  bool isPointerCarriedSafetyCondition(dtrans::SafetyData Data) {
+    switch (Data) {
+    case dtrans::AddressTaken:
+    case dtrans::BadCasting:
+    case dtrans::BadCastingPending:
+      return true;
+    default:
+      return false;
+    }
+    llvm_unreachable("Fully covered switch isn't fully covered?");
+  }
+
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
@@ -8196,9 +8239,10 @@ private:
     // structure field or array element types. If the field or element is an
     // instance of a type of interest, and not if it is merely a pointer to
     // such a type, the condition is propagated. If the field is a pointer,
-    // the condition is only propagated if it is AddressTaken. Propagation is
-    // done via a recursive call to setBaseTypeInfoSafetyData in order to
-    // handle additional levels of nesting.
+    // we call a helper function to see if this is a condition which requires
+    // propagation through pointer fields. Propagation is done via a recursive
+    // call to setBaseTypeInfoSafetyData in order to handle additional levels
+    // of nesting.
     auto maybePropagateSafetyCondition = [this](llvm::Type *FieldTy,
                                                 dtrans::SafetyData Data) {
       // If FieldTy is not a type of interest, there's no need to propagate.
@@ -8207,12 +8251,12 @@ private:
       // If the field is an instance of the type, propagate the condition.
       if (!FieldTy->isPointerTy()) {
         setBaseTypeInfoSafetyData(FieldTy, Data);
-      } else if (Data == dtrans::AddressTaken) {
-        // In the case of AddressTaken, we need to propagate the condition
-        // even to fields that are pointers to structures, but in order
-        // to avoid infinite loops in the case where two structures each
-        // have pointers to the other we need to avoid doing this for
-        // structures that already have the condition set.
+      } else if (isPointerCarriedSafetyCondition(Data)) {
+        // In some cases we need to propagate the condition even to fields
+        // that are pointers to structures, but in order to avoid infinite
+        // loops in the case where two structures each have pointers to the
+        // other we need to avoid doing this for structures that already have
+        // the condition set.
         llvm::Type *FieldBaseTy = FieldTy;
         while (FieldBaseTy->isPointerTy())
           FieldBaseTy = FieldBaseTy->getPointerElementType();
@@ -8502,6 +8546,16 @@ llvm::Type *DTransAnalysisInfo::getGenericStoreType(StoreInst *SI) {
   return It->second;
 }
 
+void DTransAnalysisInfo::addMultiElemLoadStore(Instruction *I) {
+  MultiElemLoadStoreInfo.insert(I);
+}
+
+bool DTransAnalysisInfo::isMultiElemLoadStore(Instruction *I) {
+  if (MultiElemLoadStoreInfo.count(I))
+    return true;
+  return false;
+}
+
 std::pair<llvm::Type *, size_t>
 DTransAnalysisInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
   auto It = ByteFlattenedGEPInfoMap.find(GEP);
@@ -8610,6 +8664,8 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
                              Other.GenericStoreInfoMap.end());
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
+  MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
+                            Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -8632,6 +8688,8 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
                              Other.GenericStoreInfoMap.end());
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
+  MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
+                            Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -8670,6 +8728,7 @@ void DTransAnalysisInfo::reset() {
   LoadInfoMap.clear();
   GenericStoreInfoMap.clear();
   GenericLoadInfoMap.clear();
+  MultiElemLoadStoreInfo.clear();
   TypeInfoMap.clear();
   IgnoreTypeMap.clear();
 }
@@ -8740,7 +8799,8 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
                                         dtrans::Transform Transform) {
   assert(!(Transform & ~dtrans::DT_Legal) && "Illegal transform");
 
-  dtrans::SafetyData Conditions = dtrans::getConditionsForTransform(Transform);
+  dtrans::SafetyData Conditions =
+      dtrans::getConditionsForTransform(Transform, getDTransOutOfBoundsOK());
   bool checkFailed = TyInfo->testSafetyData(Conditions);
 
   // If there were no safety check violations, then no need to check ignore
@@ -8877,12 +8937,23 @@ bool DTransAnalysisInfo::analyzeModule(
   // the SafetyData checks.
   for (auto *TI : type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
-    if (StInfo && testSafetyData(TI, dtrans::DT_FieldSingleValue))
-      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
-        StInfo->getField(I).setMultipleValue();
-    if (StInfo && testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction))
-      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
-        StInfo->getField(I).setBottomAllocFunction();
+    bool IsInBounds = !getDTransOutOfBoundsOK();
+    if (StInfo) {
+      bool SD_FSV = testSafetyData(TI, dtrans::DT_FieldSingleValue);
+      bool SD_FSAF = testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction);
+      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
+        // Mark the field as 'incomplete' if safety conditions are not met.
+        // In case of DTransOutOfBoundsOK == false we change to 'incomplete'
+        // only those fields that are marked as address taken (if any).
+        if (SD_FSV || (IsInBounds && StInfo->getField(I).isAddressTaken()))
+          StInfo->getField(I).setMultipleValue();
+        // Mark the field as 'Bottom alloc function' if safety conditions are
+        // not met. In case of DTransOutOfBoundsOK == false we set 'Bottom alloc
+        // function' only to the fields marked as address taken (if any).
+        if (SD_FSAF || (IsInBounds && StInfo->getField(I).isAddressTaken()))
+          StInfo->getField(I).setBottomAllocFunction();
+      }
+    }
   }
 
   // Set all aggregate fields conservatively as MultipleValue and

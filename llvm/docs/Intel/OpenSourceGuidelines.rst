@@ -125,7 +125,7 @@ Decision Making Process
 
 - If you cannot identify the Code Categories your code belongs to, or you would
   like to appeal for an exception, send mail to
-  `David Kreitzer <mailto:david.l.kreitzer@intel.com>`_ and/or
+  `ICL Process Team <mailto:ICLProcessTeam@intel.com>`_ and/or
   `Alice Chan <mailto:alice.s.chan@intel.com>`_.
 
 .. _open-source-guide:

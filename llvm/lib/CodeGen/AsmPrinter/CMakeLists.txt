@@ -27,6 +27,10 @@ add_llvm_library(LLVMAsmPrinter
   intel/STIDebug.cpp
   intel/STIIR.cpp
   intel/pdbInterface.cpp
+#if INTEL_CUSTOMIZATION
+  intel/Intel_AsmOptReport.cpp
+#end INTEL_CUSTOMIZATION
+  WasmException.cpp
 
   DEPENDS
   intrinsics_gen

@@ -76,7 +76,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
     // Walk the W-Region Graph top-down, and create W-Region List
     WRegionInfo &WI = WRegionInfoGetter(*F);
-    WI.buildWRGraph(WRegionCollection::LLVMIR);
+    WI.buildWRGraph();
 
     if (WI.WRGraphIsEmpty()) {
       LLVM_DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
@@ -273,6 +273,8 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   std::vector<Function *> DeadFunctions;
 
   for (Function &F : M) {
+    if (!VPOAnalysisUtils::mayHaveOpenmpDirective(F))
+      continue;
     if (!F.getAttributes().hasAttribute(AttributeList::FunctionIndex,
                                         "target.declare")) {
       DeadFunctions.push_back(&F);
@@ -406,11 +408,14 @@ GlobalVariable *VPOParoptModuleTransform::getDsoHandle() {
   if (DsoHandle)
     return DsoHandle;
 
-  DsoHandle =
-      new GlobalVariable(M, Type::getInt8Ty(C), false,
-                         GlobalValue::ExternalLinkage, nullptr, "__dso_handle");
+  DsoHandle = M.getGlobalVariable("__dso_handle");
+  if (!DsoHandle) {
+    DsoHandle = new GlobalVariable(M, Type::getInt8Ty(C), false,
+                                   GlobalValue::ExternalLinkage, nullptr,
+                                   "__dso_handle");
+    DsoHandle->setVisibility(GlobalValue::HiddenVisibility);
+  }
 
-  DsoHandle->setVisibility(GlobalValue::HiddenVisibility);
   return DsoHandle;
 }
 
@@ -499,7 +504,8 @@ void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
 // Create the function .omp_offloading.descriptor_unreg.
 Function *VPOParoptModuleTransform::createTgDescUnregisterLib(
     GlobalVariable *Desc) {
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), false);
+  Type *Params[] = { Type::getInt8PtrTy(C) };
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), Params, false);
 
   Function *Fn = Function::Create(FnTy, GlobalValue::InternalLinkage,
                                   ".omp_offloading.descriptor_unreg", M);
@@ -653,9 +659,6 @@ Constant* VPOParoptModuleTransform::registerTargetRegion(WRegionNode *W,
                               Constant::getNullValue(Type::getInt8Ty(C)),
                               Func->getName() + ".region_id");
   };
-
-  if (VPOAnalysisUtils::isTargetSPIRV(&M))
-    return genRegionID();
 
   // Get offload entry for this target region.
   auto *Entry = getOffloadEntry();

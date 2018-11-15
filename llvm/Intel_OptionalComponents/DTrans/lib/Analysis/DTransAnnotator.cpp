@@ -26,7 +26,8 @@ namespace dtrans {
 
 namespace {
 constexpr const char *MetadataNames[] = {
-    /*DMD_DTransType=*/"dtrans-type"};
+    /*DMD_DTransType=*/"dtrans-type",
+    /*DMD_DTransSOAToOAS=*/"dtrans-soatoaos"};
 
 static_assert(sizeof(MetadataNames) / sizeof(char *) ==
                   DTransAnnotator::DMD_Last,
@@ -55,36 +56,30 @@ static_assert(sizeof(AnnotNames) / sizeof(char *) == DTransAnnotator::DPA_Last,
 // if the type changes.
 void DTransAnnotator::createDTransTypeAnnotation(Instruction &I,
                                                  llvm::Type *Ty) {
-  assert(Ty && Ty->isPointerTy() && "Annotation type must be pointer type");
-  assert(I.getMetadata(MetadataNames[DMD_DTransType]) == nullptr &&
-         "Only a single dtrans type metadata attachment allowed.");
-
-  LLVMContext &Ctx = I.getContext();
-  MDNode *MD =
-      MDNode::get(Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty))});
-  I.setMetadata(MetadataNames[DMD_DTransType], MD);
+  createDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType], Ty);
 }
 
 bool DTransAnnotator::removeDTransTypeAnnotation(Instruction &I) {
-  bool HadMD = I.getMetadata(MetadataNames[DMD_DTransType]) ? true : false;
-  I.setMetadata(MetadataNames[DMD_DTransType], nullptr);
-  return HadMD;
+  return removeDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType]);
 }
 
 // Get the type that exists in an annotation, if one exists, for the
 // instruction.
 llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I) {
-  auto *MD = I.getMetadata(MetadataNames[DMD_DTransType]);
-  if (!MD)
-    return nullptr;
+  return lookupDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType]);
+}
 
-  assert(MD->getNumOperands() == 1 && "Unexpected metadata operand count");
-  auto &MDOpp1 = MD->getOperand(0);
-  auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
-  if (!TyMD)
-    return nullptr;
+void DTransAnnotator::createDTransSOAToAOSTypeAnnotation(Function &F,
+                                                         llvm::Type *Ty) {
+  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToOAS], Ty);
+}
 
-  return TyMD->getType();
+bool DTransAnnotator::removeDTransSOAToAOSTypeAnnotation(Function &F) {
+  return removeDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToOAS]);
+}
+
+llvm::Type *DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(Function &F) {
+  return lookupDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToOAS]);
 }
 
 GlobalVariable &DTransAnnotator::getAnnotationVariable(Module &M,

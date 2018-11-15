@@ -72,6 +72,18 @@ void MCTargetStreamer::emitValue(const MCExpr *Value) {
   Streamer.EmitRawText(OS.str());
 }
 
+void MCTargetStreamer::emitRawBytes(StringRef Data) {
+  const MCAsmInfo *MAI = Streamer.getContext().getAsmInfo();
+  const char *Directive = MAI->getData8bitsDirective();
+  for (const unsigned char C : Data.bytes()) {
+    SmallString<128> Str;
+    raw_svector_ostream OS(Str);
+
+    OS << Directive << (unsigned)C;
+    Streamer.EmitRawText(OS.str());
+  }
+}
+
 void MCTargetStreamer::emitAssignment(MCSymbol *Symbol, const MCExpr *Value) {}
 
 MCStreamer::MCStreamer(MCContext &Ctx)
@@ -130,6 +142,23 @@ void MCStreamer::EmitULEB128IntValue(uint64_t Value) {
   encodeULEB128(Value, OSE);
   EmitBytes(OSE.str());
 }
+
+#if INTEL_CUSTOMIZATION
+/// EmitULEB128Buffer - Special case of EmitULEB128Value that works
+/// for an arbitrary number of bytes in the input \p Buffer represented
+/// as StringRef.
+/// Returns the length in bytes of ULEB128 representation of the input buffer.
+unsigned MCStreamer::EmitULEB128Buffer(StringRef Buffer) {
+  SmallString<128> Tmp;
+  raw_svector_ostream OSE(Tmp);
+  unsigned Count = encodeULEB128Buffer(
+                       reinterpret_cast<const uint8_t *>(Buffer.data()),
+                       Buffer.size(), OSE);
+  EmitBytes(OSE.str());
+
+  return Count;
+}
+#endif  // INTEL_CUSTOMIZATION
 
 /// EmitSLEB128IntValue - Special case of EmitSLEB128Value that avoids the
 /// client having to pass in a MCExpr for constant integers.
@@ -347,10 +376,10 @@ void MCStreamer::EmitCFISections(bool EH, bool Debug) {
   assert(EH || Debug);
 }
 
-void MCStreamer::EmitCFIStartProc(bool IsSimple) {
+void MCStreamer::EmitCFIStartProc(bool IsSimple, SMLoc Loc) {
   if (hasUnfinishedDwarfFrameInfo())
-    getContext().reportError(
-        SMLoc(), "starting new .cfi frame before finishing the previous one");
+    return getContext().reportError(
+        Loc, "starting new .cfi frame before finishing the previous one");
 
   MCDwarfFrameInfo Frame;
   Frame.IsSimple = IsSimple;
@@ -613,6 +642,17 @@ void MCStreamer::EmitWinCFIEndProc(SMLoc Loc) {
 
   MCSymbol *Label = EmitCFILabel();
   CurFrame->End = Label;
+}
+
+void MCStreamer::EmitWinCFIFuncletOrFuncEnd(SMLoc Loc) {
+  WinEH::FrameInfo *CurFrame = EnsureValidWinFrameInfo(Loc);
+  if (!CurFrame)
+    return;
+  if (CurFrame->ChainedParent)
+    getContext().reportError(Loc, "Not all chained regions terminated!");
+
+  MCSymbol *Label = EmitCFILabel();
+  CurFrame->FuncletOrFuncEnd = Label;
 }
 
 void MCStreamer::EmitWinCFIStartChained(SMLoc Loc) {

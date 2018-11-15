@@ -366,8 +366,11 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveDepend())
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
 
-  if (canHaveDepSink())
+  if (canHaveDepSrcSink())
     PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
+
+  if (canHaveDepSrcSink())
+    PrintedSomething |= getDepSource().print(OS, Depth, Verbosity);
 
   if (canHaveAligned())
     PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
@@ -481,7 +484,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   } else if (ClauseNumArgs == 1) {
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
-    Value *V = (Value*)(Args[0]);
+    Value *V = cast<Value>(Args[0]);
     handleQualOpnd(ClauseID, V);
   } else {
     // The clause takes a list of arguments
@@ -558,10 +561,6 @@ void WRegionNode::handleQual(int ClauseID) {
     setIsDoacross(false);
     setIsThreads(false);
     break;
-  case QUAL_OMP_DEPEND_SOURCE:
-    setIsDoacross(true);
-    setIsDepSource(true);
-    break;
   case QUAL_OMP_CANCEL_PARALLEL:
     setCancelKind(WRNCancelParallel);
     break;
@@ -604,6 +603,10 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     assert(N > 0 && "COLLAPSE parameter must be positive");
     setCollapse(N);
     break;
+  case QUAL_OMP_OFFLOAD_ENTRY_IDX:
+    assert(CI && "OFFLOAD_ENTRY_IDX expected to be constant");
+    setOffloadEntryIdx(N);
+    break;
   case QUAL_OMP_IF:
     setIf(V);
     break;
@@ -627,10 +630,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_NUM_THREADS:
     setNumThreads(V);
     break;
-  case QUAL_OMP_ORDERED:
-    assert(N >= 0 && "ORDERED parameter must be positive (for doacross), or "
-                     "zero (for ordered).");
-    setOrdered(N);
     break;
   case QUAL_OMP_FINAL:
     setFinal(V);
@@ -671,8 +670,25 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                             int ClauseID, ClauseTy &C) {
   C.setClauseID(ClauseID);
   for (unsigned I = 0; I < NumArgs; ++I) {
-    Value *V = (Value*) Args[I];
+    Value *V = cast<Value>(Args[I]);
     C.add(V);
+  }
+}
+
+template <typename ClauseTy>
+void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                       const ClauseSpecifier &ClauseInfo,
+                                       ClauseTy &C) {
+  int ClauseID = ClauseInfo.getId();
+  C.setClauseID(ClauseID);
+  bool IsByRef = ClauseInfo.getIsByRef();
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = cast<Value>(Args[I]);
+    C.add(V);
+    if (IsByRef) {
+      auto *Item = C.back();
+      Item->setIsByRef(true);
+    }
   }
 }
 
@@ -683,6 +699,7 @@ void WRegionUtils::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
 
+  bool IsByRef = ClauseInfo.getIsByRef();
   bool IsConditional = ClauseInfo.getIsConditional();
   if (IsConditional)
     assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
@@ -701,14 +718,19 @@ void WRegionUtils::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       llvm_unreachable("NONPOD support for this clause type TBD");
 
     ClauseItemTy *Item = new ClauseItemTy(Args);
+    Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
     if (IsConditional)
       Item->setIsConditional(true);
     C.add(Item);
   } else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
+      if (IsByRef) {
+        auto *Item = C.back();
+        Item->setIsByRef(true);
+      }
       if (IsConditional) {
         auto *Item = C.back();
         Item->setIsConditional(true);
@@ -784,6 +806,7 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
     if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
       MI = new MapItem(Aggr);
       MI->setOrig(BasePtr);
+      MI->setIsByRef(ClauseInfo.getIsByRef());
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
@@ -796,10 +819,11 @@ void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
   else
     // Scalar map items; create a MapItem for each of them
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
       MapItem *MI = C.back();
       MI->setMapKind(MapKind);
+      MI->setIsByRef(ClauseInfo.getIsByRef());
     }
 }
 
@@ -813,14 +837,16 @@ void WRegionUtils::extractDependOpndList(const Use *Args, unsigned NumArgs,
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
       DependItem *DI = C.back();
       DI->setIsIn(IsIn);
+      DI->setIsByRef(ClauseInfo.getIsByRef());
     }
 }
 
 void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                         const ClauseSpecifier &ClauseInfo,
                                          LinearClause &C) {
   C.setClauseID(QUAL_OMP_LINEAR);
 
@@ -828,15 +854,16 @@ void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
   // last argument in the operand list. Therefore, NumArgs >= 2, and the step
   // is the Value in Args[NumArgs-1].
   assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
-  Value *StepValue = (Value*) Args[NumArgs-1];
+  Value *StepValue = cast<Value>(Args[NumArgs-1]);
   assert(StepValue != nullptr && "Null LINEAR 'step'");
 
   // The linear list items are in Args[0..NumArgs-2]
   for (unsigned I = 0; I < NumArgs-1; ++I) {
-    Value *V = (Value*) Args[I];
+    Value *V = cast<Value>(Args[I]);
     C.add(V);
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
+    LI->setIsByRef(ClauseInfo.getIsByRef());
   }
 }
 
@@ -881,12 +908,13 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       C.add(V);
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
       RI->setIsInReduction(IsInReduction);
+      RI->setIsByRef(ClauseInfo.getIsByRef());
     }
 }
 #endif
@@ -952,7 +980,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
 
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
-    WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs, ClauseID,
+    WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs, ClauseInfo,
                                                     getShared());
     break;
   }
@@ -1012,13 +1040,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_COPYIN: {
-    WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseID,
+    WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseInfo,
                                                     getCopyin());
     break;
   }
   case QUAL_OMP_COPYPRIVATE: {
     WRegionUtils::extractQualOpndList<CopyprivateClause>(Args, NumArgs,
-                                                       ClauseID, getCpriv());
+                                                       ClauseInfo, getCpriv());
     break;
   }
   case QUAL_OMP_DEPEND_IN:
@@ -1029,20 +1057,50 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                         IsIn);
     break;
   }
+  case QUAL_OMP_ORDERED: {
+    assert(isa<ConstantInt>(Args[0]) &&
+           "Non-constant Value of N for ordered(N).");
+    ConstantInt *CI = cast<ConstantInt>(Args[0]);
+    unsigned N = *((CI->getValue()).getRawData());
+    setOrdered(N);
+
+    if (N == 0)
+      break;
+
+    // Reaching here means we're looking at doacross loops.
+    assert(NumArgs == N + 1 && "Unexpected number of args for Orderd(N).");
+
+    for (unsigned I = 1; I < NumArgs; ++I)
+      addOrderedTripCount(Args[I]);
+
+  } break;
   case QUAL_OMP_DEPEND_SINK: {
     setIsDoacross(true);
-    WRegionUtils::extractQualOpndList<DepSinkClause>(Args, NumArgs, ClauseID,
-                                                     getDepSink());
-    break;
-  }
+    SmallVector<Value *, 3> SinkExprs;
+    for (unsigned I = 0; I < NumArgs; ++I)
+      SinkExprs.push_back(Args[I]);
+
+    getDepSink().add(new DepSinkItem(std::move(SinkExprs)));
+  } break;
+  case QUAL_OMP_DEPEND_SOURCE: {
+    setIsDoacross(true);
+    assert(getDepSource().empty() &&
+           "More than one 'depend(source)' on the same directive.");
+
+    SmallVector<Value *, 3> SrcExprs;
+    for (unsigned I = 0; I < NumArgs; ++I)
+      SrcExprs.push_back(Args[I]);
+
+    getDepSource().add(new DepSourceItem(std::move(SrcExprs)));
+  } break;
   case QUAL_OMP_IS_DEVICE_PTR: {
     WRegionUtils::extractQualOpndList<IsDevicePtrClause>(Args, NumArgs,
-                                                 ClauseID, getIsDevicePtr());
+                                                 ClauseInfo, getIsDevicePtr());
     break;
   }
   case QUAL_OMP_USE_DEVICE_PTR: {
     WRegionUtils::extractQualOpndList<UseDevicePtrClause>(Args, NumArgs,
-                                                ClauseID, getUseDevicePtr());
+                                                ClauseInfo, getUseDevicePtr());
     break;
   }
   case QUAL_OMP_TO:
@@ -1065,12 +1123,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_UNIFORM: {
-    WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs, ClauseID,
+    WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs, ClauseInfo,
                                                      getUniform());
     break;
   }
   case QUAL_OMP_LINEAR: {
-    WRegionUtils::extractLinearOpndList(Args, NumArgs, getLinear());
+    WRegionUtils::extractLinearOpndList(Args, NumArgs, ClauseInfo,
+                                        getLinear());
     break;
   }
   case QUAL_OMP_ALIGNED: {
@@ -1149,7 +1208,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_NORMALIZED_IV:
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       Constant *C = dyn_cast<Constant>(V);
       if (C && C->isNullValue()) {
         // After promoting %.omp.iv into a register, we change all pointers in
@@ -1165,7 +1224,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   case QUAL_OMP_NORMALIZED_UB:
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = (Value*) Args[I];
+      Value *V = cast<Value>(Args[I]);
       Constant *C = dyn_cast<Constant>(V);
       if (C && C->isNullValue()) {
         assert(I==0 && "malformed NORMALIZED_UB clause");
@@ -1181,16 +1240,20 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
 }
 
 void WRegionNode::getClausesFromOperandBundles() {
-
-  Instruction *I;
-
   // Under the directive.region.entry/exit representation the intrinsic
   // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
-  I = &(getEntryBBlock()->front());
+  BasicBlock *EntryBB = getEntryBBlock();
+  assert(EntryBB && "Entry Bblock is null");
+
+  Instruction *I = &(EntryBB->front());
   assert(isa<IntrinsicInst>(I) &&
          "Call not found for directive.region.entry()");
 
   IntrinsicInst *Call = cast<IntrinsicInst>(I);
+  getClausesFromOperandBundles(Call);
+}
+
+void WRegionNode::getClausesFromOperandBundles(IntrinsicInst *Call) {
   unsigned i, NumOB = Call->getNumOperandBundles();
 
   // Index i start from 1 (not 0) because we want to skip the first
@@ -1222,7 +1285,6 @@ bool WRegionNode::canHaveSchedule() const {
   case WRNParallelLoop:
   case WRNDistributeParLoop:
   case WRNWksLoop:
-  case WRNDistribute:
     return true;
   }
   return false;
@@ -1398,10 +1460,10 @@ bool WRegionNode::canHaveDepend() const {
   return false;
 }
 
-bool WRegionNode::canHaveDepSink() const {
+bool WRegionNode::canHaveDepSrcSink() const {
   unsigned SubClassID = getWRegionKindID();
-  // only WRNOrderedNode can have a depend(sink : vec) clause
-  // but only if its "IsDoacross" field is true
+  // Only WRNOrderedNode can have a 'depend(src)' or 'depend(sink : vec)'
+  // clause, but but only if its "IsDoacross" field is true.
   if(SubClassID==WRNOrdered)
     return getIsDoacross();
 
@@ -1520,18 +1582,21 @@ void vpo::printValList(StringRef Title, ArrayRef<Value *> const &Vals,
 }
 
 // Auxiliary function to print an Int in a WRN dump
-// If Num is 0:
+// If Num < Min:
 //   Verbosity == 0: exit without printing anything
 //   Verbosity >= 1: print "Title: UNSPECIFIED"
-// If Num is not 0:
+// If Num >= Min:
 //   print "Title: Num"
+// For clauses expecting positive constants (eg, COLLAPSE), use Min==1 (default)
+// For those expecting non-negative constants (eg, OFFLOAD_ENTRY_IDX), use Min==0
+//
 void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
-                   int Indent, unsigned Verbosity) {
-  if (Verbosity==0 && Num==0)
-    return; // When Verbosity==0; print nothing if Num==0
+                   int Indent, unsigned Verbosity, int Min) {
+  if (Verbosity==0 && Num < Min)
+    return; // When Verbosity==0; print nothing if Num < Min
 
   OS.indent(Indent) << Title << ": ";
-  if (Num==0) {
+  if (Num < Min) {
     OS << "UNSPECIFIED\n";
     return;
   }

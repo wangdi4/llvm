@@ -81,8 +81,6 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -99,6 +97,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <bitset>
 #include <list>
@@ -186,19 +185,47 @@ static cl::opt<bool>
     EnableMV(PASS_NAME_STR "-do-mv", cl::init(true), cl::ReallyHidden,
              cl::desc("option to enable multi-version transformation"));
 
-// Max allowed # of LLVM Instructions in a function that may enable
-// Multi-Version (MV) transformation for 2-variable clones
-static cl::opt<unsigned> MVMax2VarInstNum(
-    PASS_NAME_STR "-mv-max2var-inst-num", cl::init(60), cl::ReallyHidden,
-    cl::desc("max # of LLVM Instructions allowed for a candidate function to "
-             "subject to 2-variable-clone multi-version transformation"));
+// Max allowed # of LLVM Instructions in a large function that may enable
+// Multi-Version (MV) transformation
+static cl::opt<unsigned> MVMaxInstNumLargeF(
+    PASS_NAME_STR "-mv-max-instnum-largef", cl::init(242), cl::ReallyHidden,
+    cl::desc("Max allowed # of LLVM Instructions in a large "
+             "function that may enable Multi-Version (MV) transformation"));
 
-// Max allowed # of LLVM Instructions in a function that may enable
-// Multi-Version (MV) transformation for 1-variable clones
-static cl::opt<unsigned> MVMax1VarInstNum(
-    PASS_NAME_STR "-mv-max1var-inst-num", cl::init(50), cl::ReallyHidden,
-    cl::desc("max # of LLVM Instructions allowed for a candidate function to "
-             "subject to 1-variable-clone multi-version transformation"));
+// Min allowed # of LLVM Instructions in a large function that may enable
+// Multi-Version (MV) transformation
+static cl::opt<unsigned> MVMinInstNumLargeF(
+    PASS_NAME_STR "-mv-min-instnum-largef", cl::init(240), cl::ReallyHidden,
+    cl::desc("Min allowed # of LLVM Instructions in a large "
+             "function that may enable Multi-Version (MV) transformation"));
+
+// Expected # of arguments in a function that may enable Multi-Version (MV)
+// transformation for 2-variable clones
+static cl::opt<unsigned> MV2VarCloneFuncExpectedArgs(
+    PASS_NAME_STR "-mv-2varclonef-expected-args", cl::init(9), cl::ReallyHidden,
+    cl::desc("Expected # of arguments in a function that may enable "
+             "Multi-Version (MV) transformation for 2-variable clones"));
+
+// Max allowed # of LLVM Instructions in a small function that may enable
+// Multi-Version (MV) transformation
+static cl::opt<unsigned> MVMaxInstNumSmallF(
+    PASS_NAME_STR "-mv-max-instnum-smallf", cl::init(60), cl::ReallyHidden,
+    cl::desc("Max allowed # of LLVM Instructions in a small "
+             "function that may enable Multi-Version (MV) transformation"));
+
+// Min allowed # of LLVM Instructions in a small function that may enable
+// Multi-Version (MV) transformation
+static cl::opt<unsigned> MVMinInstNumSmallF(
+    PASS_NAME_STR "-mv-min-instnum-smallf", cl::init(58), cl::ReallyHidden,
+    cl::desc("Min allowed # of LLVM Instructions in a small "
+             "function that may enable Multi-Version (MV) transformation"));
+
+// Expected # of arguments in a function that may enable Multi-Version (MV)
+// transformation for 1-variable clones
+static cl::opt<unsigned> MV1VarCloneFuncExpectedArgs(
+    PASS_NAME_STR "-mv-1varclonef-expected-args", cl::init(8), cl::ReallyHidden,
+    cl::desc("Expected # of arguments in a function that may enable "
+             "Multi-Version (MV) transformation for 1-variable clones"));
 
 static cl::opt<unsigned> MVMaxValueSetSize(
     PASS_NAME_STR "-mv-max-valueset-size", cl::init(2), cl::ReallyHidden,
@@ -206,11 +233,6 @@ static cl::opt<unsigned> MVMaxValueSetSize(
              "formal can be cloned. For example, we may be able to prove that "
              "the formal can have values {16, 8, 4, 2} but we only want to "
              "clone over 2 values, and so we may choose {16, 8}"));
-
-static cl::opt<unsigned> MVDesiredArgNum(
-    PASS_NAME_STR "-mv-desired-arg-num", cl::init(8), cl::ReallyHidden,
-    cl::desc("A function must have exactly this number of arguments to be a "
-             "candidate for multiversioning"));
 
 static cl::opt<bool> MVBypassCollectionForLITTestOnly(
     PASS_NAME_STR "-mv-bypass-coll-for-littest", cl::init(false),
@@ -220,6 +242,38 @@ static cl::opt<bool> MVBypassCollectionForLITTestOnly(
              "This flag should be off at all other times."));
 
 #define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
+
+// Check: is the given value V within the range of [LB, UB]?
+template <typename T> static bool isInRange(T V, T LB, T UB) {
+  assert((LB <= UB) && "Expect LB <= UB\n");
+  return (V >= LB) && (V <= UB);
+}
+
+// Count the # of Pointer Argument(s) Instructions in a given Function
+static unsigned countPtrArgs(const Function &F) {
+  unsigned NumPtrArgs = 0;
+  for (auto &Arg : F.args()) {
+    if (Arg.getType()->isPointerTy())
+      ++NumPtrArgs;
+  }
+  return NumPtrArgs;
+}
+
+static bool isLeafFunction(const Function &F) {
+
+  for (const auto &I : instructions(&F)) {
+    if (isa<InvokeInst>(&I))
+      return false;
+
+    if (auto CI = dyn_cast<CallInst>(&I)) {
+      Function *Callee = CI->getCalledFunction();
+      if (!Callee || !Callee->isIntrinsic())
+        return false;
+    }
+  }
+
+  return true;
+}
 
 // Get a loop's bottom-test: an ICmpInst in form of: ICmp IV op UB
 static ICmpInst *getLoopBottomTest(Loop *L) {
@@ -440,27 +494,6 @@ static bool checkLoop(Loop *L, ParamIndSet &Pset) {
   return true;
 }
 
-static bool isLeafFunction(const Function &F) {
-  bool HasUserCall = false;
-
-  for (const auto &I : instructions(&F)) {
-    if (isa<InvokeInst>(&I)) {
-      HasUserCall = true;
-      break;
-    }
-
-    if (auto CI = dyn_cast<CallInst>(&I)) {
-      Function *Callee = CI->getCalledFunction();
-      if (Callee && !Callee->isIntrinsic()) {
-        HasUserCall = true;
-        break;
-      }
-    }
-  }
-
-  return !HasUserCall;
-}
-
 // Represents a set of constant values of a parameter set - basically maps
 // parameter index to its concrete value
 class ConstParamVec
@@ -633,10 +666,30 @@ private:
 
 using DCGNodeList = SmallVector<DCGNode *, EST_NUM_CALL_SITES_PER_FUNC>;
 
+struct CompareDCGNodePtr
+    : public std::binary_function<DCGNode *, DCGNode *, bool> {
+  bool operator()(const DCGNode *lhs, const DCGNode *rhs) const {
+    if (lhs == nullptr || rhs == nullptr) {
+      return lhs < rhs;
+    }
+    return lhs->id() < rhs->id();
+  }
+};
+
+struct CompareFuncPtr
+    : public std::binary_function<Function *, Function *, bool> {
+  bool operator()(const Function *lhs, const Function *rhs) const {
+    if (lhs == nullptr || rhs == nullptr)
+      return lhs < rhs;
+    return lhs->getName().compare(rhs->getName()) == -1;
+  }
+};
+
 // A "detailed" call graph. Nodes are call sites, an edge from node n to node
 // M is present if n's callee is M's caller function. Also maps a function to
 // nodes where it is a caller
-class DetailedCallGraph : public std::map<const Function *, DCGNodeList> {
+class DetailedCallGraph
+    : public std::map<const Function *, DCGNodeList, CompareFuncPtr> {
 public:
   DetailedCallGraph() : NodeId(0) {}
 
@@ -808,7 +861,8 @@ StringRef to_string(ParamMappingResult R) {
   }
 }
 
-void print_node_set(const std::string &Msg, SmallPtrSet<DCGNode *, 8> Nodes) {
+void print_node_set(const std::string &Msg,
+                    std::set<DCGNode *, CompareDCGNodePtr> Nodes) {
   dbgs() << Msg << "\n";
 
   for (const auto X : Nodes)
@@ -954,8 +1008,9 @@ private:
 };
 
 #ifndef NDEBUG
-void printSeeds(const std::string &Msg,
-                std::map<DCGNode *, SetOfParamIndSets> &Seeds) {
+void printSeeds(
+    const std::string &Msg,
+    std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds) {
   dbgs() << Msg << "<" << Seeds.size() << ">\n";
 
   for (auto &Seed : Seeds) {
@@ -967,8 +1022,9 @@ void printSeeds(const std::string &Msg,
   dbgs() << "\n";
 }
 
-void printSeeds(const std::string &Msg,
-                std::map<Function *, SetOfParamIndSets> &Seeds) {
+void printSeeds(
+    const std::string &Msg,
+    std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &Seeds) {
   dbgs() << Msg << "\n";
 
   for (auto &Seed : Seeds) {
@@ -1667,10 +1723,10 @@ protected:
 
   // The main algorithm - performs bottom-up parameter sets propagation and
   // then top-down parameter sets propagation/evaluation and function cloning.
-  bool
-  findAndCloneCallSubtrees(DetailedCallGraph *Cgraph,
-                           std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds,
-                           CloneRegistry &Clones);
+  bool findAndCloneCallSubtrees(
+      DetailedCallGraph *Cgraph,
+      std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &AlgSeeds,
+      CloneRegistry &Clones);
 
   // Clone a given function 'F' by replacing some of the parameters with given
   // constants 'ConstParams'. Non-null at position i means i'th parameter
@@ -1688,17 +1744,17 @@ protected:
   // roots, live-in and live-out parameter sets, parameter transoform formulas
   // for detailed call graph nodes met along all paths from seeds to roots
   // (along reverse edges of the graph)
-  void findParamDepsRec(DCGNode *Top, SmallPtrSet<DCGNode *, 8> &CloneRoots,
+  void findParamDepsRec(DCGNode *Top,
+                        std::set<DCGNode *, CompareDCGNodePtr> &CloneRoots,
                         SmallVectorImpl<DCGNode *> *CallStack,
                         DCGParamFlows &Flows);
 
   // The recursive top-down pass which does actual cloning
-  Function *cloneCallSubtreeRec(DCGNode *Root,
-                                SmallVectorImpl<DCGNode *> *CallStack,
-                                const ConstParamVec &ConstParams,
-                                std::map<DCGNode *, SetOfParamIndSets> &Seeds,
-                                CloneRegistry &Clones,
-                                const DCGParamFlows &Flows);
+  Function *cloneCallSubtreeRec(
+      DCGNode *Root, SmallVectorImpl<DCGNode *> *CallStack,
+      const ConstParamVec &ConstParams,
+      std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds,
+      CloneRegistry &Clones, const DCGParamFlows &Flows);
 };
 
 // Do post-process cleanup after the recursive Call-Tree Cloning finished the
@@ -1725,12 +1781,12 @@ protected:
 // ...
 class PostProcessor {
 public:
-  PostProcessor(Module &M, std::map<DCGNode *, SetOfParamIndSets> &Seeds,
-                std::map<Function *, SetOfParamIndSets> &LeafSeeds,
-                CloneRegistry &Clones, TargetLibraryInfo *TLI,
-                CallTreeCloningImpl *CTCI)
-      : M(M), Seeds(Seeds), LeafSeeds(LeafSeeds), Clones(Clones),
-        DL(M.getDataLayout()), TLI(TLI), CTCI(CTCI) {}
+  PostProcessor(
+      Module &M,
+      std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds,
+      CloneRegistry &Clones, TargetLibraryInfo *TLI, CallTreeCloningImpl *CTCI)
+      : M(M), LeafSeeds(LeafSeeds), Clones(Clones), DL(M.getDataLayout()),
+        TLI(TLI), CTCI(CTCI) {}
 
   // Run post processing on the Module
   bool run();
@@ -1753,8 +1809,7 @@ public:
 
 private:
   Module &M;
-  std::map<DCGNode *, SetOfParamIndSets> &Seeds;
-  std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds;
   CloneRegistry &Clones;
   const DataLayout &DL;
   TargetLibraryInfo *TLI;
@@ -1781,6 +1836,8 @@ struct ConstantIntGreaterThan { // Descent-order comparator
 // -Size: # of LLVM Instructions inside F
 // -Param2CloneMap: map (F, ConstParamVec) -> CloneF
 // -Pos2ValMap:     map: formal position -> sorted ConstantInt* set
+// - bool Gen2VarClones: true if 2-variable clones will be generated
+// - bool Gen1VarClones: true if 1-variable clones will be generated
 //
 struct MVFunctionInfo {
   MVFunctionInfo() : F(nullptr), Size(0) {}
@@ -1802,6 +1859,10 @@ struct MVFunctionInfo {
   }
   void set(unsigned Idx, ConstantInt *C) { Pos2ValMap[Idx].insert(C); }
   void set(unsigned Size) { this->Size = Size; }
+  void set(bool Gen2VarC, bool Gen1VarC) {
+    this->Gen2VarClones = Gen2VarC;
+    this->Gen1VarClones = Gen1VarC;
+  }
 
 #ifndef NDEBUG
   std::string toString(void) const;
@@ -1814,15 +1875,73 @@ struct MVFunctionInfo {
   std::map<ConstParamVec, Function *> Param2CloneMap;
   std::map<unsigned, std::set<ConstantInt *, ConstantIntGreaterThan>>
       Pos2ValMap;
+  bool Gen2VarClones = false;
+  bool Gen1VarClones = false;
+};
+
+// All information needed to match a function based on its signature.
+//
+// Note:
+// This is used as a generic filter to identify the function candidates for
+// multi-version (MV) transformation.
+//
+class FunctionSignatureMatcher {
+public:
+  FunctionSignatureMatcher(unsigned LBSize, unsigned UBSize, unsigned NumArgs,
+                           unsigned NumPtrArgs, bool IsLeafF)
+      : LBSize(LBSize), UBSize(UBSize), NumPtrArgs(NumPtrArgs),
+        IsLeafF(IsLeafF) {
+    NumArgsV.push_back(NumArgs);
+    assert(checkSanity() && "FunctionSignatureMatcher's SanityCheck failed\n");
+  }
+
+  bool checkSanity(void) const { return (LBSize <= UBSize); }
+
+  bool match(Function *F) const {
+    assert(F && "Expect Function* F be a valid pointer\n");
+
+    // Check IsLeafF:
+    if (IsLeafF && !isLeafFunction(*F))
+      return false;
+
+    // Check LBSize and UBSize: strict compare
+    unsigned FSize = F->getInstructionCount();
+    if (!isInRange<unsigned>(FSize, LBSize, UBSize))
+      return false;
+
+    // Check NumArgs: find the desired #args in the vector
+    unsigned NumArgs = F->arg_size();
+    if (std::find(NumArgsV.begin(), NumArgsV.end(), NumArgs) == NumArgsV.end())
+      return false;
+
+    // Check NumPtrArgs: < match
+    unsigned FnPtrArgs = countPtrArgs(*F);
+    if (FnPtrArgs < NumPtrArgs)
+      return false;
+
+    return true;
+  }
+
+private:
+  unsigned LBSize, UBSize;
+  SmallVector<unsigned, 4> NumArgsV;
+  unsigned NumPtrArgs;
+  bool IsLeafF;
+
+public:
+#ifndef NDEBUG
+  std::string toString(void) const;
+  LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
+#endif
 };
 
 // Declaration of Multi-version Implementation Class
 class MultiVersionImpl {
 public:
-  MultiVersionImpl(Module &M,
-                   std::map<Function *, SetOfParamIndSets> &LeafSeeds,
-                   CloneRegistry &Clones, TargetLibraryInfo *TLI,
-                   CallTreeCloningImpl *CTCI)
+  MultiVersionImpl(
+      Module &M,
+      std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds,
+      CloneRegistry &Clones, TargetLibraryInfo *TLI, CallTreeCloningImpl *CTCI)
       : M(M), LeafSeeds(LeafSeeds), Clones(Clones), CTCI(CTCI) {}
 
   bool run();
@@ -1877,9 +1996,18 @@ private:
   // Note:
   // - Current clause's MergeBB is the CommonBB for the next clause.
   //
-  bool doCodeGenMV(Function *F, unsigned Pos0, ConstantInt *C0, unsigned Pos1,
-                   ConstantInt *C1, BasicBlock *&CommonBB, BasicBlock *&ThenBB,
-                   BasicBlock *&MergeBB);
+  bool doCodeGenMV2VarClone(Function *F, unsigned Pos0, ConstantInt *C0,
+                            unsigned Pos1, ConstantInt *C1,
+                            BasicBlock *&CommonBB, BasicBlock *&ThenBB,
+                            BasicBlock *&MergeBB);
+
+  // Generate a "ret" instruction;
+  //
+  // Note:
+  // it can be a simple return of void or it can also be a return with a proper
+  // value;
+  //
+  void doCodeGenRet(CallInst *CI, IRBuilder<> &Builder);
 
   // Generate
   // - a call to the original clone (with empty ConstParamsVector)
@@ -1918,9 +2046,9 @@ private:
   //
   //                           --------------------------------------------
   //
-  bool doCodeGen1VarClone(Function *F, unsigned Pos, ConstantInt *C,
-                          BasicBlock *&CommonBB, BasicBlock *&ThenBB,
-                          BasicBlock *&MergeBB);
+  bool doCodeGenMV1VarClone(Function *F, unsigned Pos, ConstantInt *C,
+                            BasicBlock *&CommonBB, BasicBlock *&ThenBB,
+                            BasicBlock *&MergeBB);
 
   // Main entry for Multi-Version Code generation for Function F:
   //- wipe F clean;
@@ -1939,13 +2067,13 @@ public:
 
 private:
   Module &M;
-  std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds;
   CloneRegistry &Clones;
   CallTreeCloningImpl *CTCI;
 
-  std::map<Function *, SetOfParamIndSets> MVSeeds;
-  std::map<Function *, MVFunctionInfo> MVFIMap;
-};
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> MVSeeds;
+  std::map<Function *, MVFunctionInfo, CompareFuncPtr> MVFIMap;
+}; // namespace
 
 } // end of anonymous namespace
 
@@ -2017,6 +2145,32 @@ std::string MVFunctionInfo::toString(void) const {
     S << "\n";
   }
 
+  // print: Gen2VarClones, Gen1VarClones
+  S << std::boolalpha << "Gen2VarClones: " << Gen2VarClones << ",  "
+    << "Gen1VarClones: " << Gen1VarClones << "\n";
+
+  return S.str();
+}
+
+std::string FunctionSignatureMatcher::toString(void) const {
+  std::ostringstream S;
+  S << "FunctionSignature Object: \n";
+
+  // LBSize, UBSize:
+  S << "LBSize: " << LBSize << ", UBSize: " << UBSize << "\n";
+
+  // NumArgs: a std::vector<unsigned> type
+  S << "NumArgs: ";
+  for (auto V : NumArgsV) {
+    S << V << ", ";
+  }
+
+  // NumPtrArgs:
+  S << "NumPtrArgs: " << NumPtrArgs << ", ";
+
+  // IsLeafF:
+  S << "IsLeafF: " << std::boolalpha << IsLeafF << "\n";
+
   return S.str();
 }
 
@@ -2071,9 +2225,9 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
 
   // now find "seed" nodes for the algorithm based on cost model and filters -
   // call sites with callees being functions profitable to clone
-  std::map<DCGNode *, SetOfParamIndSets> AlgSeeds;
+  std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> AlgSeeds;
   std::unique_ptr<CTCCostModel> CM;
-  std::map<Function *, SetOfParamIndSets> LeafSeeds;
+  std::map<Function *, SetOfParamIndSets, CompareFuncPtr> LeafSeeds;
 
   if (!CCloneSeeds.empty())
     CM = llvm::make_unique<CTCDebugCostModel>(CCloneSeeds.begin(),
@@ -2124,16 +2278,15 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
     return false;
 
   // Do Post Processing Cleanup:
-  PostProcessor PostProc(M, AlgSeeds, LeafSeeds, Clones, TLI, this);
+  PostProcessor PostProc(M, LeafSeeds, Clones, TLI, this);
   bool PPResult = PostProc.run();
 
-  // Do Multi-Version transformation:
-  // [optional, default is ON]
-  bool MVResult = false;
-  if (EnableMV) {
-    MultiVersionImpl MV(M, LeafSeeds, Clones, TLI, this);
-    MVResult = MV.run();
-  }
+  // Check + Do Multi-version (MV) transformation:
+  if (!EnableMV)
+    return PPResult;
+
+  MultiVersionImpl MV(M, LeafSeeds, Clones, TLI, this);
+  bool MVResult = MV.run();
 
   return PPResult || MVResult;
 }
@@ -2197,7 +2350,7 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
 } // end of anonymous namespace
 
 void CallTreeCloningImpl::findParamDepsRec(
-    DCGNode *Top, SmallPtrSet<DCGNode *, 8> &CloneRoots,
+    DCGNode *Top, std::set<DCGNode *, CompareDCGNodePtr> &CloneRoots,
     SmallVectorImpl<DCGNode *> *CallStack, DCGParamFlows &Flows) {
   DBGX(1, dbgs().indent(CallStack->size() * 2) << Top->toString());
   DCGNodeParamFlow *Flow = Flows.getOrCreate(Top);
@@ -2338,14 +2491,15 @@ void CallTreeCloningImpl::findParamDepsRec(
 // graph is DFS w/o tracking the 'visited' property
 //
 bool CallTreeCloningImpl::findAndCloneCallSubtrees(
-    DetailedCallGraph *Cgraph, std::map<DCGNode *, SetOfParamIndSets> &AlgSeeds,
+    DetailedCallGraph *Cgraph,
+    std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &AlgSeeds,
     CloneRegistry &Clones) {
   // parameter data-flow information for each call graph node
   DCGParamFlows Flows;
 
   // storage of nodes which start call-trees leading to compile-time
   // defined parameter sets in any of the seed nodes
-  SmallPtrSet<DCGNode *, 8> CloneRoots;
+  std::set<DCGNode *, CompareDCGNodePtr> CloneRoots;
 
   DBGX(1, dbgs() << "\n--- Bottom-up pass (!-can't fold, C-constant)\n\n");
 
@@ -2379,16 +2533,19 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   //   \/  \
   //   Y----B
   // If X and Z are both seeds, X could be cloned unnecessarily w/o this step
-  for (auto N : CloneRoots)
+  auto CloneIter = CloneRoots.begin();
+  while (CloneIter != CloneRoots.end()) {
+    DCGNode *N = *CloneIter;
+    ++CloneIter; // Explicit increment here, because we may erase "N".
     for (const auto &E : N->inEdgesView()) {
       assert((E->dst() == N) && "bad call graph edge");
       DCGNode *N1 = E->src();
-
       if (N1->cnt() > 0) {
         CloneRoots.erase(N);
         break;
       }
     }
+  }
 
   LLVM_DEBUG(print_node_set("--- Clone roots:", CloneRoots));
   LLVM_DEBUG({ print_CloneRegistry("Clones: ", Clones); });
@@ -2450,8 +2607,8 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
 Function *CallTreeCloningImpl::cloneCallSubtreeRec(
     DCGNode *Root, SmallVectorImpl<DCGNode *> *CallStack,
     const ConstParamVec &ConstParams,
-    std::map<DCGNode *, SetOfParamIndSets> &Seeds, CloneRegistry &Clones,
-    const DCGParamFlows &Flows) {
+    std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds,
+    CloneRegistry &Clones, const DCGParamFlows &Flows) {
 
 #ifndef NDEBUG
   unsigned Depth = CallStack->size();
@@ -2885,43 +3042,43 @@ bool PostProcessor::run(void) {
 // - filter all leaf-seed functions by size and other conditions;
 //
 //[INPUT]
-// std::map<Function *, SetOfParamIndSets> &LeafSeeds;
+// std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds;
 //
 //[OUTPUT]
-// std::map<Function *, SetOfParamIndSets> MVSeeds;
+// std::map<Function *, SetOfParamIndSets, CompareFuncPtr> MVSeeds;
 //
 bool MultiVersionImpl::doCollection(void) {
-  auto countIR = [](const Function &F) {
-    unsigned IRSize = 0;
-    for (const auto &I : instructions(&F)) {
-      ++IRSize;
-      (void)I;
-    }
-    return IRSize;
-  };
+  // 2VarMV function matcher:
+  FunctionSignatureMatcher Match2VarMV(MVMinInstNumLargeF, MVMaxInstNumLargeF,
+                                       MV2VarCloneFuncExpectedArgs, 2, true);
 
-  // Allow Functions to be collected by bypassing collection testing.
+  // 1VarMV function matcher:
+  FunctionSignatureMatcher Match1VarMV(MVMinInstNumSmallF, MVMaxInstNumSmallF,
+                                       MV1VarCloneFuncExpectedArgs, 2, true);
+
+  LLVM_DEBUG(dbgs() << "Match2VarMV: " << Match2VarMV.toString() << "\n");
+  LLVM_DEBUG(dbgs() << "Match1VarMV: " << Match1VarMV.toString() << "\n");
+
+  // Short-cut collection:
+  // - Allow Functions to be collected through bypassing collection testing.
   if (MVBypassCollectionForLITTestOnly) {
     for (auto &LeafSeed : LeafSeeds) {
       Function *F = LeafSeed.first;
       MVSeeds[F] = LeafSeed.second;
     }
   } else {
-    // Normal collection process: with testing
+    // Normal collection process: with function signature matching
     for (auto &LeafSeed : LeafSeeds) {
       Function *F = LeafSeed.first;
-      if (!isLeafFunction(*F) || (F->arg_size() != MVDesiredArgNum))
-        continue;
 
-      unsigned FSize = countIR(*F);
-      // LLVM_DEBUG(dbgs() << F->getName() << "(), size: " << FSize << "\n");
-
-      if (FSize < MVMax2VarInstNum)
+      if (Match2VarMV.match(F) || Match1VarMV.match(F)) {
+        LLVM_DEBUG(dbgs() << "matched: " << F->getName() << "()\n");
         MVSeeds[F] = LeafSeed.second;
+      }
     }
   }
 
-  // See what we have collected in MVSeeds:
+  // see what we have collected in MVSeeds:
   LLVM_DEBUG({ printSeeds("MVSeeds: ", MVSeeds); });
 
   return MVSeeds.size();
@@ -2941,24 +3098,21 @@ bool MultiVersionImpl::doCollection(void) {
 //
 bool MultiVersionImpl::doAnalysis(void) {
   // Check: does Seeds map contains a given Function *
-  auto findFuncIn = [&](Function *Func,
-                        std::map<Function *, SetOfParamIndSets> &Seeds) {
-    for (auto I = Seeds.begin(), E = Seeds.end(); I != E; ++I) {
-      const Function *F = (*I).first;
-      if (Func == F)
-        return true;
-    }
-    return false;
-  };
+  auto findFuncIn =
+      [&](Function *Func,
+          std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &Seeds) {
+        for (auto I = Seeds.begin(), E = Seeds.end(); I != E; ++I) {
+          const Function *F = (*I).first;
+          if (Func == F)
+            return true;
+        }
+        return false;
+      };
 
-  auto countIR = [](const Function &F) {
-    unsigned IRSize = 0;
-    for (const auto &I : instructions(&F)) {
-      ++IRSize;
-      (void)I;
-    }
-    return IRSize;
-  };
+  // 2VarMV function matcher:
+  FunctionSignatureMatcher Match2VarMV(MVMinInstNumLargeF, MVMaxInstNumLargeF,
+                                       MV2VarCloneFuncExpectedArgs, 2, true);
+  LLVM_DEBUG(dbgs() << "Match2VarMV: " << Match2VarMV.toString() << "\n");
 
   // 1. fill in MVFunctionInfo record for each unique Function* from MVSeed, and
   //    populate the map:
@@ -2975,16 +3129,23 @@ bool MultiVersionImpl::doAnalysis(void) {
     if (findFuncIn(OrigF, MVSeeds)) {
       MVFunctionInfo &MVFI = MVFIMap[OrigF];
       MVFI.set(OrigF);
-      MVFI.set(countIR(*OrigF));
+      MVFI.set(OrigF->getInstructionCount());
       MVFI.set(ConstParams, CloneF);
       MVFI.set(MVSeeds[OrigF]);
+
+      if (MVBypassCollectionForLITTestOnly || Match2VarMV.match(OrigF))
+        MVFI.set(true, true);
+      // ^Gen2VarClones, ^ Gen1VarClones
+      else
+        MVFI.set(true, false);
+      // ^Gen2VarClones, ^ Gen1VarClones
 
       SmallVector<std::pair<unsigned, ConstantInt *>, 4> PosValVec;
       ConstParams.enumPosVal(PosValVec);
       for (auto &Pair : PosValVec) {
         unsigned PosIdx = Pair.first;
         ConstantInt *C = Pair.second;
-        LLVM_DEBUG(dbgs() << "pos: " << PosIdx << " -> C: " << *C);
+        LLVM_DEBUG(dbgs() << "pos: " << PosIdx << " -> C: " << *C << "\n");
         MVFI.set(PosIdx, C);
       }
     }
@@ -3023,7 +3184,7 @@ bool MultiVersionImpl::doAnalysis(void) {
       unsigned SetSize = ValSet.size();
       unsigned MaxItems =
           (SetSize > MVMaxValueSetSize) ? MVMaxValueSetSize : SetSize;
-      // remove additional items from the set
+      // purge set: remove additional items from the set
       ValSet.erase(std::next(ValSet.begin(), MaxItems), ValSet.end());
 
       LLVM_DEBUG(dbgs() << F->getName() << "() , PosIdx: " << PosIdx
@@ -3066,7 +3227,7 @@ bool MultiVersionImpl::createAdditionalClones(Function *F) {
   ConstParams.resize(FArgSize);
 
   // 1. Create a cloned Function for all-empty ConstParams
-  // E.g.  pixel_avg|_._._._._._._();
+  // E.g.  get_ref|_._._._._._._._();
   Function *CloneF = CTCI->cloneFunction(F, ConstParams, Call2Clone, Clones);
   if (!CloneF) {
     LLVM_DEBUG(dbgs() << "Fail to create a clone on " << F->getName() << " : "
@@ -3075,18 +3236,23 @@ bool MultiVersionImpl::createAdditionalClones(Function *F) {
   }
 
   // 2. Create single-variable argument clone(s)
-  // E.g. pixel_avg|_._._._._._.4();
-  // 	  pixel_avg|_._._._._._.8();
+  // E.g. get_ref|_._._._._._.4._();
+  // 	  get_ref|_._._._._._.8._();
   //
   // Note:
   // Data Input is in std::map<unsigned, std::set<ConstantInt *>>Pos2ValMap;
   //
   MVFunctionInfo &MVFI = MVFIMap[F];
-  bool Is1VarCloneCandidate = (MVFI.Size < MVMax1VarInstNum);
+  bool Is1VarCloneCandidate = MVFI.Gen1VarClones;
   for (auto &Pos2ValPair : MVFIMap[F].Pos2ValMap) {
     unsigned PosIdx = Pos2ValPair.first;
     auto &ValSet = Pos2ValPair.second;
 
+    if (!Is1VarCloneCandidate)
+      continue;
+
+    // Code block to deal with valid Is1VarCloneCandidate.
+    //
     // Note:
     // - Just create additional clone functions, not to extend ValSet.
     // - IValSet begins with ValSet, maybe extended via interpolation, but will
@@ -3095,8 +3261,7 @@ bool MultiVersionImpl::createAdditionalClones(Function *F) {
     //   only create additional clones.
     //
     auto IValSet = ValSet;
-
-    if (Is1VarCloneCandidate && !interpolateForRTValues(IValSet)) {
+    if (!interpolateForRTValues(IValSet)) {
       LLVM_DEBUG(dbgs() << "Failed to interpolate Value Set\n");
       return false;
     }
@@ -3122,10 +3287,32 @@ bool MultiVersionImpl::createAdditionalClones(Function *F) {
   return true;
 }
 
-bool MultiVersionImpl::doCodeGenMV(Function *F, unsigned Pos0, ConstantInt *C0,
-                                   unsigned Pos1, ConstantInt *C1,
-                                   BasicBlock *&CommonBB, BasicBlock *&ThenBB,
-                                   BasicBlock *&MergeBB) {
+// generate a "ret" instruction properly.
+// note:
+// - either return void if CI's return type is void;
+// or
+// - return whatever CI's returned value is;
+//
+void MultiVersionImpl::doCodeGenRet(CallInst *CI, IRBuilder<> &Builder) {
+
+  Function *Callee = CI->getCalledFunction();
+  assert(Callee && "Expect Callee be a valid ptr\n");
+  FunctionType *FTy = Callee->getFunctionType();
+  assert(FTy && "Expect FTy be a valid ptr\n");
+  Type *RetTy = FTy->getReturnType();
+  assert(RetTy && "Expect RetTy be a valid ptr\n");
+
+  // Create a proper "ret" instruction:
+  if (RetTy->isVoidTy())
+    Builder.CreateRetVoid();
+  else
+    Builder.CreateRet(CI);
+}
+
+bool MultiVersionImpl::doCodeGenMV2VarClone(
+    Function *F, unsigned Pos0, ConstantInt *C0, unsigned Pos1, ConstantInt *C1,
+    BasicBlock *&CommonBB, BasicBlock *&ThenBB, BasicBlock *&MergeBB) {
+
   unsigned static Count = 0;
   // Figure out the CloneF Function: mapped from F and (Pos0,C0),(Pos1,C1)
   unsigned ArgSize = F->arg_size();
@@ -3213,10 +3400,14 @@ bool MultiVersionImpl::doCodeGenMV(Function *F, unsigned Pos0, ConstantInt *C0,
   CallInst *CI = Builder.CreateCall(CloneF, Args);
   CI->setCallingConv(CloneF->getCallingConv());
 
-  // generate a "ret" inside ThenBB after the call to clone:
-  Builder.CreateRetVoid();
+  // generate a "ret" inside ThenBB after the call to clone.
+  // note:
+  // - either return void if CI's return type is void;
+  // or
+  // - return whatever CI's returned value is.
+  doCodeGenRet(CI, Builder);
 
-  LLVM_DEBUG(F->dump());
+  LLVM_DEBUG(dbgs() << " Generated a call block for 2-var clone\n" << *F);
 
   return true;
 }
@@ -3248,11 +3439,11 @@ bool MultiVersionImpl::doCodeGenOrigClone(Function *F, BasicBlock *CallBB) {
   CallInst *CI = Builder.CreateCall(OrigCloneF, Args);
   CI->setCallingConv(OrigCloneF->getCallingConv());
 
-  // Generate a "ret" instruction inside CallBB
+  // Generate a proper "ret" instruction inside CallBB
   Builder.SetInsertPoint(CallBB);
-  Builder.CreateRetVoid();
+  doCodeGenRet(CI, Builder);
 
-  // LLVM_DEBUG(F->dump());
+  LLVM_DEBUG(dbgs() << " Generated a call block for original clone\n" << *F);
   return true;
 }
 
@@ -3312,10 +3503,11 @@ bool MultiVersionImpl::interpolateForRTValues(
 // if.end.0:                                        Merge Block
 //
 //                                   ----------------------------------------------
-bool MultiVersionImpl::doCodeGen1VarClone(Function *F, unsigned Pos,
-                                          ConstantInt *C, BasicBlock *&CommonBB,
-                                          BasicBlock *&ThenBB,
-                                          BasicBlock *&MergeBB) {
+bool MultiVersionImpl::doCodeGenMV1VarClone(Function *F, unsigned Pos,
+                                            ConstantInt *C,
+                                            BasicBlock *&CommonBB,
+                                            BasicBlock *&ThenBB,
+                                            BasicBlock *&MergeBB) {
   unsigned ArgSize = F->arg_size();
   assert((Pos < ArgSize) && "Pos is out of bound\n");
   IRBuilder<> Builder(M.getContext());
@@ -3366,9 +3558,9 @@ bool MultiVersionImpl::doCodeGen1VarClone(Function *F, unsigned Pos,
   CI->setCallingConv(CloneF->getCallingConv());
 
   // generate a "ret" inside ThenBB after the call to clone:
-  Builder.CreateRetVoid();
+  doCodeGenRet(CI, Builder);
 
-  LLVM_DEBUG(dbgs() << " Generated 1-var clone\n" << *F);
+  LLVM_DEBUG(dbgs() << " Generated a call block for 1-var clone\n" << *F);
 
   return true;
 }
@@ -3383,7 +3575,6 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
   // Figure out the mapping between F's parameter list and C0,C1, etc.
   MVFunctionInfo &MVFI = MVFIMap[F];
   auto &Pos2ValsMap = MVFI.Pos2ValMap;
-  bool Is1VarCloneCandidate = (MVFI.Size < MVMax1VarInstNum);
 
   // handle only 2 positions here
   const unsigned PosSize = 2;
@@ -3418,7 +3609,7 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
     }
   });
 
-  // For each valid 2-value pair, call doCodeGenMV():
+  // For each valid 2-value pair, call doCodeGenMV2VarClone2VarClone():
   std::set<ConstantInt *, ConstantIntGreaterThan> ValSet0 = ValSetVec[0];
   std::set<ConstantInt *, ConstantIntGreaterThan> ValSet1 = ValSetVec[1];
   unsigned Pos0 = PosVec[0];
@@ -3523,13 +3714,14 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
     // Generate code for 1 set of 2-variable clone.
     //
     // Note:
-    // The very 1st call to doCodeGenMV() is treated differently because the
-    // reuse of MergeBB for CommonBB happens after CodeGen of 1st 2-variable
-    // clone.
+    // The very 1st call to doCodeGenMV2VarClone() is treated differently
+    // because the reuse of MergeBB for CommonBB happens after CodeGen of 1st
+    // 2-variable clone.
     //
     if (IsFirst) {
-      if (!doCodeGenMV(F, Pos0, C0, Pos1, C1, CommonBB, ThenBB, MergeBB)) {
-        LLVM_DEBUG(dbgs() << "doCodeGenMV() failed: Pos0: " << Pos0
+      if (!doCodeGenMV2VarClone(F, Pos0, C0, Pos1, C1, CommonBB, ThenBB,
+                                MergeBB)) {
+        LLVM_DEBUG(dbgs() << "doCodeGenMV2VarClone() failed: Pos0: " << Pos0
                           << " Pos1: " << Pos1 << "\n");
         return false;
       }
@@ -3538,8 +3730,9 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
       // iteration.
       CommonBB = MergeBB;
 
-      if (!doCodeGenMV(F, Pos0, C0, Pos1, C1, CommonBB, ThenBB, MergeBB)) {
-        LLVM_DEBUG(dbgs() << "doCodeGenMV() failed: Pos0: " << Pos0
+      if (!doCodeGenMV2VarClone(F, Pos0, C0, Pos1, C1, CommonBB, ThenBB,
+                                MergeBB)) {
+        LLVM_DEBUG(dbgs() << "doCodeGenMV2VarClone() failed: Pos0: " << Pos0
                           << " Pos1: " << Pos1 << "\n");
         return false;
       }
@@ -3550,6 +3743,7 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
   LLVM_DEBUG(dbgs() << *F);
 
   // Do code generation for all 1-variable clones:
+  bool Is1VarCloneCandidate = MVFI.Gen1VarClones;
   if (Is1VarCloneCandidate) {
     std::set<ConstantInt *, ConstantIntGreaterThan> ValSet = ValSet0;
 
@@ -3562,17 +3756,19 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
       // rotate, same as before
       CommonBB = MergeBB;
 
-      if (!doCodeGen1VarClone(F, Pos0, C, CommonBB, ThenBB, MergeBB)) {
-        LLVM_DEBUG(dbgs() << "doCodeGen1VarClone() failed: Position: " << Pos0
+      if (!doCodeGenMV1VarClone(F, Pos0, C, CommonBB, ThenBB, MergeBB)) {
+        LLVM_DEBUG(dbgs() << "doCodeGenMV1VarClone() failed: Position: " << Pos0
                           << " ConstantInt: " << *C << "\n");
         return false;
       }
     }
-  }
-  LLVM_DEBUG(dbgs() << *F);
 
-  // Create a call to the original clone (e.g. mc_chrome|_._..._())
-  // at end of the last MergBB
+    LLVM_DEBUG(dbgs() << *F);
+  }
+
+  // Create a call to the original clone (e.g. mc_chrome|_._..._()) at end of
+  // the last MergeBB.
+  // This is the default fail-over protection path.
   if (!doCodeGenOrigClone(F, MergeBB))
     return false;
 

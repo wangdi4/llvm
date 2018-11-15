@@ -75,6 +75,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusion.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -117,7 +118,7 @@ class HIRLoopFusion {
   HIRLoopStatistics &HLS;
 
   template <bool PreLoop>
-  void generatePreOrPostLoops(HLNode *AnchorNode,
+  bool generatePreOrPostLoops(HLNode *AnchorNode,
                               const SmallVectorImpl<unsigned> &Indices,
                               const SmallVectorImpl<int64_t> &Bounds,
                               const SmallVectorImpl<HLLoop *> &Candidates,
@@ -239,7 +240,7 @@ static void scavengeLoopParts(const SmallVectorImpl<HLLoop *> &Candidates,
 }
 
 template <bool PreLoop>
-void HIRLoopFusion::generatePreOrPostLoops(
+bool HIRLoopFusion::generatePreOrPostLoops(
     HLNode *AnchorNode, const SmallVectorImpl<unsigned> &Indices,
     const SmallVectorImpl<int64_t> &Bounds,
     const SmallVectorImpl<HLLoop *> &Candidates,
@@ -253,6 +254,11 @@ void HIRLoopFusion::generatePreOrPostLoops(
                                              RegDDRef *UpperDDRef) {
     HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
+    // No pragma trip count metadata for a peeled loop
+    NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_maximum");
+    NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
+    NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
+
     LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
                                    "Peeled loop after fusion");
     NewLoop->setLowerDDRef(LowerDDRef);
@@ -261,6 +267,7 @@ void HIRLoopFusion::generatePreOrPostLoops(
     return NewLoop;
   };
 
+  bool HasPeeledLoop = false;
   unsigned LastIndex = Indices.front();
   for (unsigned I = 1, E = Indices.size(); I < E; ++I) {
     unsigned ThisIndex = Indices[I];
@@ -313,6 +320,7 @@ void HIRLoopFusion::generatePreOrPostLoops(
                        LiveOuts.begin(), LiveOuts.end());
 
       NewLoop->normalize();
+      HasPeeledLoop = true;
     } else {
       // Empty loop
     }
@@ -332,6 +340,82 @@ void HIRLoopFusion::generatePreOrPostLoops(
 
   if (LastPostLoop) {
     LORBuilder(*FirstLoop).moveSiblingsTo(*LastPostLoop);
+  }
+
+  return HasPeeledLoop;
+}
+
+// Update the pragma trip count metadata information for the loop after loop
+// fusion. Only preserve the trip count metadata for the fused loop if there
+// is no peeled loop and the loops have the same pragma trip count metadata
+static void
+updatePragmaTripCountInfo(HLLoop *FirstLoop,
+                          const SmallVectorImpl<HLLoop *> &Candidates,
+                          bool HasPeeledLoop) {
+  StringRef MaxInfo = "llvm.loop.intel.loopcount_maximum";
+  StringRef MinInfo = "llvm.loop.intel.loopcount_minimum";
+  StringRef AvgInfo = "llvm.loop.intel.loopcount_average";
+
+  // If there exists peeled loop, pragma trip count metadata will be removed
+  if (HasPeeledLoop) {
+    FirstLoop->removeLoopMetadata(MaxInfo);
+    FirstLoop->removeLoopMetadata(MinInfo);
+    FirstLoop->removeLoopMetadata(AvgInfo);
+    return;
+  }
+
+  SmallDenseSet<unsigned> MaxTripCountSet;
+  SmallDenseSet<unsigned> MinTripCountSet;
+  SmallDenseSet<unsigned> AvgTripCountSet;
+
+  unsigned MaxTripCount = 0;
+  unsigned MinTripCount = 0;
+  unsigned AvgTripCount = 0;
+
+  for (unsigned I = 0, E = Candidates.size(); I < E; ++I) {
+
+    if (Candidates[I]->getPragmaBasedMaximumTripCount(MaxTripCount)) {
+      MaxTripCountSet.insert(MaxTripCount);
+    }
+
+    if (Candidates[I]->getPragmaBasedMinimumTripCount(MinTripCount)) {
+      MinTripCountSet.insert(MinTripCount);
+    }
+
+    if (Candidates[I]->getPragmaBasedAverageTripCount(AvgTripCount)) {
+      AvgTripCountSet.insert(AvgTripCount);
+    }
+  }
+
+  // Different pragma trip count metadata in the loops will be removed
+  if (MaxTripCountSet.size() > 1) {
+
+    FirstLoop->removeLoopMetadata(MaxInfo);
+
+  } else if (MaxTripCountSet.size() == 1) {
+
+    MaxTripCount = *MaxTripCountSet.begin();
+    FirstLoop->setPragmaBasedMaximumTripCount(MaxTripCount);
+  }
+
+  if (MinTripCountSet.size() > 1) {
+
+    FirstLoop->removeLoopMetadata(MinInfo);
+
+  } else if (MinTripCountSet.size() == 1) {
+
+    MinTripCount = *MinTripCountSet.begin();
+    FirstLoop->setPragmaBasedMinimumTripCount(MinTripCount);
+  }
+
+  if (AvgTripCountSet.size() > 1) {
+
+    FirstLoop->removeLoopMetadata(AvgInfo);
+
+  } else if (AvgTripCountSet.size() == 1) {
+
+    AvgTripCount = *AvgTripCountSet.begin();
+    FirstLoop->setPragmaBasedAverageTripCount(AvgTripCount);
   }
 }
 
@@ -391,11 +475,13 @@ HLLoop *HIRLoopFusion::fuseLoops(const SmallVectorImpl<HLLoop *> &Candidates) {
   // loop.
   SmallDenseSet<unsigned> IndexSet;
   IndexSet.insert(IndexLower.front());
-  generatePreOrPostLoops<true>(Marker, IndexLower, LowerConst, Candidates,
-                               IndexSet);
+  bool HasPreLoop = generatePreOrPostLoops<true>(Marker, IndexLower, LowerConst,
+                                                 Candidates, IndexSet);
   IndexSet.erase(IndexUpper.front());
-  generatePreOrPostLoops<false>(Marker, IndexUpper, UpperConst, Candidates,
-                                IndexSet);
+  bool HasPostLoop = generatePreOrPostLoops<false>(
+      Marker, IndexUpper, UpperConst, Candidates, IndexSet);
+
+  updatePragmaTripCountInfo(FirstLoop, Candidates, (HasPreLoop || HasPostLoop));
 
   for (auto LoopI = std::next(Candidates.begin()), E = Candidates.end();
        LoopI != E; ++LoopI) {

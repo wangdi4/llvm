@@ -146,6 +146,9 @@ public:
   /// metadata and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(Value *Val);
 
+  /// Creates a ref representing '0' for \p Ty wich may be int, ptr, fp etc.
+  RegDDRef *createNullDDRef(Type *Ty);
+
   /// Returns a RegDDRef representing an undef value with type \p Type.
   RegDDRef *createUndefDDRef(Type *Type);
 
@@ -231,18 +234,17 @@ public:
 
   /// Returns the type obtained by applying element offsets from \p Offsets to
   /// \p Ty. This is a no-op for non-struct types.
-  static Type *getOffsetType(Type *Ty,
-                             const SmallVectorImpl<unsigned> &Offsets);
+  static Type *getOffsetType(Type *Ty, ArrayRef<unsigned> Offsets);
 
   /// Given a type and field offset numbers, calculates the total byte offset.
   static int64_t getOffsetDistance(Type *Ty, const DataLayout &DL,
-                                   const SmallVectorImpl<unsigned> &Offsets);
+                                   ArrayRef<unsigned> Offsets);
 
   /// Given two sets of offsets returns negative, positive or zero value based
   /// on whether \p Offset1 has lower, higher or equal total byte offset than \p
   /// Offset2. This is useful for ordering DDRefs.
-  static int compareOffsets(const SmallVectorImpl<unsigned> &Offsets1,
-                            const SmallVectorImpl<unsigned> &Offsets2);
+  static int compareOffsets(ArrayRef<unsigned> Offsets1,
+                            ArrayRef<unsigned> Offsets2);
 
   /// Returns negative, positive or zero value based on whether \p Ref1 has
   /// lower, higher or equal total byte offset than \p Ref2 at \p DimensionNum.

@@ -25,33 +25,40 @@ Supported Load File
         xmain_checkin_sanity: Run "alloy run -f xmain_checkin_sanity"
         xmain_checkin: Run "alloy run -f xmain_checkin"
         zperf_checkin_xmain: Run "alloy run -f zperf_checkin_xmain"
-        xmain_alloy: Run the generic testing as selected by users.
+        mainline_checkin: Run "alloy run -f mainline_checkin"
+        zperf_checkin: Run "alloy run -f zperf_checkin"
+        alloy: Run the generic testing as selected by users.
 
-Supported Xmain Repo
+Supported Repo
 --------------------
 
 ::
 
-        llvm
+        alloy
         clang
         compiler-rt
-        openmp
-        xdev
-        ocl-rt
-        ocl-headers
-        ocl-icd
-        ocl-cclang
-        ocl-spirv-headers
-        ocl-externals
-        xtoolsup
-        xalloy
+        dev
         icsconfig
         icsproject
-        sycl-xmain
+        libdev
+        llvm
         llvm_opencl-icd-loader_worldread
-        opencl_headers_worldread
         llvm_spirv_translator_worldread
-
+        ocl-cclang
+        ocl-externals
+        ocl-headers
+        ocl-icd
+        ocl-rt
+        ocl-spirv-headers
+        opencl_headers_worldread
+        openmp
+        sycl-xmain
+        toolsup
+        xalloy
+        xdev
+        xfort
+        xfpp
+        xtoolsup
 
 Reviewer ( ``xmain_checkin_sanity, xmain_checkin, zperf_checkin_xmain`` )
 -------------------------------------------------------------------------
@@ -169,27 +176,145 @@ user should get a Gerrit post like this:
         Patch 1 is already run: http://dss-sc.intel.com/review/lab_iclt/fresh/1250641.0/review.log
         To run alloy with patch 2 , reply to this gerrit post with #run#
 
-Reviewer ( ``xmain_alloy`` )
+Reviewer ( ``mainline_checkin, zperf_checkin`` )
+------------------------------------------------
+
+Once a user selects this reviewer in Gerrit, it will immediately checkout a
+mainline workspace and apply the user's patch on top of it.
+
+If the patch fails to apply, the user should get a Gerrit post like this:
+
+::
+
+        mainline_checkin
+        May 8 5:52 PM
+        ↩
+        Patch Set 8: Verified-1
+        Gerrit Patch failed to apply:git pull --no-edit ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm refs/changes/97/125497/8
+
+If the patch is successfully applied, the user should get a Gerrit post like
+this:
+
+::
+
+        mainline_checkin
+        Apr 20 4:42 PM
+        ↩
+        Patch Set 1:
+        !!gralloyid!!lab_iclc!!1!!
+        Alloy run mainline_checkin 0 started.
+        Review Log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250641.0/review.log
+        To abort this run reply to this gerrit post with #abort# keyword.
+
+To abort an Alloy test, one can just reply to this Gerrit post with:
+
+::
+
+        > !!gralloyid!!lab_iclc!!2!!
+        > Alloy run -f mainline_checkin 0 started.
+        > Review Log: http://dss-sc.intel.com/review/lab_iclc/fresh/1187772.0/review.log
+        > To abort this run reply to this gerrit post with #abort# keyword.
+        #abort#
+
+Users can track the progress of an alloy run by clicking on the Review Log link,
+such as:
+
+::
+
+        Review Log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250641.0/review.log
+
+If testing fails due to a bad patch, the user should get a Gerrit post like
+this:
+
+::
+
+        mainline_checkin
+        Apr 21 1:11 AM
+        ↩
+        Patch Set 2: Verified-1
+        !!gralloyid!!lab_iclc!!2!!
+        Alloy Run Failed:alloy run -f mainline_checkin
+        All fail log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250642.0/all_fail.log
+        Fail log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250642.0/fail.log
+        Status log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250642.0/status.log
+        Zperf BT log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250642.0/zperf_bt_rpt.log
+        Review Log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250642.0/review.log
+        Alloy Triage log: http://dss-sc.intel.com/review/lab_iclc/fresh/1250642.0/alloy_triage.log
+        Reply to this gerrit post with #restartfail# keyword to retest failed alloy run
+
+If testing hits a problem due to an alloy infrastructure issue, the user should
+get a Gerrit post like this:
+
+::
+
+        mainline_checkin
+        Apr 23 9:14 PM
+        ↩
+        Patch Set 2: Verified-1 (-1 if issue with user code otherwise no markup for verified field)
+        !!gralloyid!!lab_iclc!!2!!
+        Alloy Run Failed:alloy run -f mainline_checkin
+        Soft Problem log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/soft-problem.log
+        All fail log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/all_fail.log
+        Fail log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/fail.log
+        Problem log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/problem.log
+        Status log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/status.log
+        Zperf BT log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/zperf_bt_rpt.log
+        Review Log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/review.log
+        Alloy Triage log: http://dss-sc.intel.com/review/lab_iclc/fresh/1246862.0/alloy_triage.log
+        Reply to this gerrit post with #restartfail# keyword to restart problematic run. OR #restartscratch# keyword to restart all over again ( NOT recommended )
+
+If testing finishes successfully, with no failure, the user should get
+a Gerrit post like this:
+
+::
+
+        mainline_checkin
+        Apr 23 6:39 AM
+        ↩
+        Patch Set 1: Verified+1
+        !!gralloyid!!lab_iclt!!1!!
+        Alloy Run Success:alloy run -f mainline_checkin
+        All fail log: http://dss-sc.intel.com/review/lab_iclc/restartfail/1249871.1/all_fail.log
+        Status log: http://dss-sc.intel.com/review/lab_iclc/restartfail/1249871.1/status.log
+        Zperf BT log: http://dss-sc.intel.com/review/lab_iclc/restartfail/1249871.1/zperf_bt_rpt.log
+        Review Log: http://dss-sc.intel.com/review/lab_iclc/restartfail/1249871.1/review.log
+
+If alloy testing is already running/finished, and user uploads a new patch, the
+user should get a Gerrit post like this:
+
+::
+
+        mainline_checkin
+        Apr 23 10:01 AM
+        ↩
+        Patch Set 2:
+        !!gralloyid!!lab_iclc!!2!!
+        Patch 1 is already run: http://dss-sc.intel.com/review/lab_iclc/fresh/1250641.0/review.log
+        To run alloy with patch 2 , reply to this gerrit post with #run#
+
+Reviewer ( ``alloy`` )
 ----------------------------
 
 This is most flexible reviewer in terms of selecting load files. Remember,
 flexibility comes at a cost. There is no error checking due to its limited i/o
 capability. If you make a typo in load files' names or syntax it will simply
 error out. It is NOT recommended to use this reviewer unless you absolutely
-need it. As soon as a user select ``xmain_alloy`` reviewer, it should
+need it. As soon as a user selects the ``alloy`` reviewer, it should
 immediately post a message in Gerrit like this.
 
 ::
 
-        xmain_alloy
+        alloy
         6:27 AM
         ↩
         Patch Set 1:
         !!gralloyid!!lab_icla!!1!!
         To choose a custom load file run, Reply this gerrit post with comma separated loadfile keyword
         Example:
-        #custom#xmain_checkin,zperf_checkin_xmain# OR 
-        #custom#sycl_checkin#sycl#
+        #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR 
+        #custom#sycl_checkin#sycl# OR
+        #custom#ocl_checkin#xmain# OR
+        #custom#mainline_checkin#19_0#
 
 **Generic**
 
@@ -203,16 +328,18 @@ The user can reply to this Gerrit post with the desired alloy load file name
         > To choose a custom load file run, Reply this gerrit post with comma
         > separated loadfile keyword
         > Example:
-        > #custom#xmain_checkin,zperf_checkin_xmain# OR
-        > #custom#sycl_checkin#sycl#
+        > #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR
+        > #custom#sycl_checkin#sycl# OR
+        > #custom#ocl_checkin#xmain# OR
+        > #custom#mainline_checkin#19_0#
 
-        #custom#xmain_checkin,zperf_checkin_xmain#
+        #custom#xmain_checkin,zperf_checkin_xmain#xmain-70#
 
 After replying to this message, the user should expect a Gerrit post like this:
 
 ::
 
-        xmain_alloy
+        alloy
         3:35 PM
         ↩
         Patch Set 2:
@@ -236,16 +363,18 @@ The user can reply to this Gerrit post with the desired alloy load file name
         > To choose a custom load file run, Reply this gerrit post with comma
         > separated loadfile keyword
         > Example:
-        > #custom#xmain_checkin,zperf_checkin_xmain# OR
-        > #custom#sycl_checkin#sycl#
+        > #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR
+        > #custom#sycl_checkin#sycl# OR
+        > #custom#ocl_checkin#xmain# OR
+        > #custom#mainline_checkin#19_0#
 
-        #custom#ocl_checkin#
+        #custom#ocl_checkin#xmain#
 
 After replying to this message, the user should expect a Gerrit post like this:
 
 ::
 
-        xmain_alloy
+        alloy
         Aug 5 12:41 AM
         ↩
         Patch Set 2:
@@ -272,8 +401,11 @@ the patch, applied on top of ``sycl head``.
         > To choose a custom load file run, Reply this gerrit post with comma
         > separated loadfile keyword
         > Example:
-        > #custom#xmain_checkin,zperf_checkin_xmain# OR
-        > #custom#sycl_checkin#sycl#
+        > #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR
+        > #custom#sycl_checkin#sycl# OR
+        > #custom#ocl_checkin#xmain# OR
+        > #custom#mainline_checkin#19_0#
+
 
         #custom#sycl_checkin#sycl#
 
@@ -281,7 +413,7 @@ After replying to this message, the user should expect a Gerrit post like this:
 
 ::
 
-        xmain_alloy
+        alloy
         6:43 AM
         ↩
         Patch Set 1:
@@ -291,7 +423,8 @@ After replying to this message, the user should expect a Gerrit post like this:
         To abort this run reply to this gerrit post with #abort# keyword.
 
 Rest of the functionality is same as the regular reviewer ( ``xmain_checkin``,
-``xmain_checkin_sanity``, ``zperf_checkin_xmain`` ) discussed above.
+``xmain_checkin_sanity``, ``zperf_checkin_xmain``, ``mainline_checkin`` )
+discussed above.
 
 .. note::
 
@@ -300,9 +433,9 @@ Rest of the functionality is same as the regular reviewer ( ``xmain_checkin``,
       - Sometime patch change resulting from rebase is not detected by Gerrit
         auto reviewers. If it happens and you really want to run alloy on the
         rebased patch, just remove and re-add Gerrit auto reviewers.
-      - If Gerrit auto reviewers ( ``xmain_checkin_sanity``, ``xmain_checkin``,
-        ``zperf_checkin_xmain``, ``xmain_alloy`` ) removed, it will not detect
-        any new patches.
+      - If a gerrit auto reviewer ( ``xmain_checkin_sanity``, ``xmain_checkin``,
+        ``zperf_checkin_xmain``, ``mainline_checkin``, ``alloy`` ) is removed,
+        it will not detect any new patches.
 
 .. _gerrit-alloy-fallback:
 
@@ -358,4 +491,4 @@ Gerrit post.
         Reproduce WS: http://dss-sc.intel.com/review/lab_iclt/1315035.reproduce.txt
 
 Any other issue with Alloy Gerrit infrastructure: Contact
-sunil.k.pandey@intel.com
+icl-tools-alloy@intel.com

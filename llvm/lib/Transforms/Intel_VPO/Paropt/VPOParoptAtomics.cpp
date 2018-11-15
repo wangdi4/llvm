@@ -117,31 +117,18 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   // The first and last BasicBlocks contain directive intrinsic calls.
   // We're interested in only the middle one here.
   BasicBlock *BB = *(AtomicNode->bbset_begin() + 1);
+  Instruction *Inst = nullptr;
 
-  // We expect there to be one load/store inside this BBlock, followed by a
-  // branch to the next BBlock. We're concerned with the first one.
-  if (BB->size() != 2) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Atomic Read/Write BBlock has more than"
-                         " 2 Instructions. Returning...\n");
+  if (AtomicRead)
+    Inst = getLoneInstructionOfTypeInBB<LoadInst>(*BB);
+  else
+    Inst = getLoneInstructionOfTypeInBB<StoreInst>(*BB);
+
+  if (!Inst) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": No lone Load/Store in the BB "
+                      << "for AtomicRead/Write. Returning...\n");
     return false; // Handle using critical section.
   }
-
-  Instruction *Inst = &(*(BB->begin()));
-
-  assert(Inst != nullptr && "Inst is null.");
-
-  if ((AtomicKind == WRNAtomicRead) && !isa<LoadInst>(Inst)) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a load "
-                      << "for AtomicRead. Returning...\n");
-    return false; // Handle using critical section.
-  };
-
-  if ((AtomicKind == WRNAtomicWrite) && !isa<StoreInst>(Inst)) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a store "
-                      << "for AtomicWrite. Returning...\n");
-    return false; // Handle using critical section.
-  };
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Source Instruction: " << *Inst
                     << "\n");
@@ -214,10 +201,10 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
     return false; // Handle using critical section.
   }
 
-  // Now, the last instruction of the BBlock will be an unconditional branch to
-  // the next BBlock, and its predecessor is the a store to the Atomic Operand.
-  // We start off with this Instruction to get the atomic operand.
-  StoreInst *OpndStore = dyn_cast<StoreInst>(&*(++(BB->rbegin())));
+  // The last store in the BBlock should be to the atomic operand. In the
+  // future, to improve flexibility, the frontend could send in the atomic
+  // operand as part of the intrinsic.
+  StoreInst *OpndStore = VPOParoptAtomics::getLastStoreInBB(*BB);
   if (OpndStore == nullptr) {
     LLVM_DEBUG(
         dbgs() << __FUNCTION__
@@ -491,11 +478,7 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
   // operation (Op). But to get that, we need to strip off any casts, if
   // present.
   Value *OpResult = AtomicStore->getValueOperand();
-  auto *OpResultCast = dyn_cast<CastInst>(OpResult);
-  if (OpResultCast != nullptr) {
-    OpResult = OpResultCast->getOperand(0);
-    InstsToDelete.push_back(OpResultCast); // (iv)
-  }
+  OpResult = VPOUtils::stripCasts(OpResult, InstsToDelete); // (iv)
 
   Op = dyn_cast<Instruction>(OpResult);
 
@@ -512,18 +495,19 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
   unsigned Idx;
   for (Idx = 0; Idx <= 1; ++Idx) {
     Value *Opnd = Op->getOperand(Idx);
-    auto *OpndLoadCast = dyn_cast<CastInst>(Opnd);
-    if (OpndLoadCast != nullptr)
-      Opnd = OpndLoadCast->getOperand(0);
+
+    SmallVector<Instruction*, 2> OpndLoadCasts;
+    Opnd = VPOUtils::stripCasts(Opnd, OpndLoadCasts);
 
     auto *OpndLoad = dyn_cast<LoadInst>(Opnd);
     if (OpndLoad == nullptr)
       continue;
 
     if (OpndLoad->getPointerOperand() == AtomicOpnd) {
-      if (OpndLoadCast != nullptr)
-        InstsToDelete.push_back(OpndLoadCast); // (ii)
-      InstsToDelete.push_back(OpndLoad);       // (i)
+      if (!OpndLoadCasts.empty())
+        InstsToDelete.append(OpndLoadCasts.begin(),
+                             OpndLoadCasts.end()); // (ii)
+      InstsToDelete.push_back(OpndLoad);           // (i)
       break;
     }
   }
@@ -989,6 +973,30 @@ VPOParoptAtomics::gatherFirstSecondToLastAndLastStores(BasicBlock &BB) {
   }
 
   return StoreList;
+}
+
+// Find the last StoreInst in the BasicBlock BB.
+StoreInst *VPOParoptAtomics::getLastStoreInBB(BasicBlock &BB) {
+  StoreInst *LastStore = nullptr;
+  for (Instruction &I : BB) {
+    if (StoreInst *SI = dyn_cast<StoreInst>(&I))
+      LastStore = SI;
+  }
+  return LastStore;
+}
+
+// If the BB has only one Instruction of type InstTy, return it.
+template <typename InstTy>
+InstTy *VPOParoptAtomics::getLoneInstructionOfTypeInBB(BasicBlock &BB) {
+  InstTy *SeenInst = nullptr;
+  for (Instruction &I : BB) {
+    if (InstTy *TI = dyn_cast<InstTy>(&I)) {
+      if (SeenInst) // There is another Instruction of InstTy in BB.
+        return nullptr;
+      SeenInst = TI;
+    }
+  }
+  return SeenInst;
 }
 
 // If there is a single StoreInst to Opnd inside BasicBlock BB, then return it.
@@ -1471,6 +1479,22 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
         {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_rev"},
         {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_rev"},
         {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_rev"},
+        // I8 = F128 op I8
+        {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_rev_fp"},
+        {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_rev_fp"},
+        {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_rev_fp"},
+        // I16 = F128 op I16
+        {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_rev_fp"},
+        {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_rev_fp"},
+        {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_rev_fp"},
+        // I32 = F128 op I32
+        {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_rev_fp"},
+        {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_rev_fp"},
+        {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_rev_fp"},
+        // I64 = F128 op I64
+        {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_rev_fp"},
+        {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_rev_fp"},
+        {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_rev_fp"},
         // F32 = F32 op F32
         {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_rev"},
         {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_rev"},
@@ -1539,6 +1563,30 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
         {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt"},
         {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt"},
         {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt"},
+        // I8 = I8 op F128
+        {{Instruction::FAdd, {I8, F128}}, "__kmpc_atomic_fixed1_add_cpt_fp"},
+        {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_cpt_fp"},
+        {{Instruction::FMul, {I8, F128}}, "__kmpc_atomic_fixed1_mul_cpt_fp"},
+        {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_cpt_fp"},
+        {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_cpt_fp"},
+        // I16 = I16 op F128
+        {{Instruction::FAdd, {I16, F128}}, "__kmpc_atomic_fixed2_add_cpt_fp"},
+        {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_cpt_fp"},
+        {{Instruction::FMul, {I16, F128}}, "__kmpc_atomic_fixed2_mul_cpt_fp"},
+        {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_cpt_fp"},
+        {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_cpt_fp"},
+        // I32 = I32 op F128
+        {{Instruction::FAdd, {I32, F128}}, "__kmpc_atomic_fixed4_add_cpt_fp"},
+        {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_cpt_fp"},
+        {{Instruction::FMul, {I32, F128}}, "__kmpc_atomic_fixed4_mul_cpt_fp"},
+        {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_cpt_fp"},
+        {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_cpt_fp"},
+        // I64 = I64 op F128
+        {{Instruction::FAdd, {I64, F128}}, "__kmpc_atomic_fixed8_add_cpt_fp"},
+        {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_cpt_fp"},
+        {{Instruction::FMul, {I64, F128}}, "__kmpc_atomic_fixed8_mul_cpt_fp"},
+        {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_cpt_fp"},
+        {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_cpt_fp"},
         // F32 = F32 op F32
         {{Instruction::FAdd, {F32, F32}}, "__kmpc_atomic_float4_add_cpt"},
         {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt"},
@@ -1594,6 +1642,22 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
         {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt_rev"},
         {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt_rev"},
         {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt_rev"},
+        // I8 = F128 op I8
+        {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_cpt_rev_fp"},
+        {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_cpt_rev_fp"},
+        {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_cpt_rev_fp"},
+        // I16 = F128 op I16
+        {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_cpt_rev_fp"},
+        {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_cpt_rev_fp"},
+        {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_cpt_rev_fp"},
+        // I32 = F128 op I32
+        {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_cpt_rev_fp"},
+        {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_cpt_rev_fp"},
+        {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_cpt_rev_fp"},
+        // I64 = F128 op I64
+        {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_cpt_rev_fp"},
+        {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_cpt_rev_fp"},
+        {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_cpt_rev_fp"},
         // F32 = F32 op F32
         {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt_rev"},
         {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt_rev"},

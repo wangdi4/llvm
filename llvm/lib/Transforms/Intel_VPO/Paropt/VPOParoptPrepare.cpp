@@ -129,7 +129,7 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
   }
 
   // Walk the W-Region Graph top-down, and create W-Region List
-  WI.buildWRGraph(WRegionCollection::LLVMIR);
+  WI.buildWRGraph();
 
   LLVM_DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName()
                     << "\n");

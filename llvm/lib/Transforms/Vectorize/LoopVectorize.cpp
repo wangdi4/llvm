@@ -173,6 +173,8 @@ static cl::opt<bool> EnableInterleavedMemAccesses(
     "enable-interleaved-mem-accesses", cl::init(false), cl::Hidden,
     cl::desc("Enable vectorization on interleaved memory accesses in a loop"));
 
+/// An interleave-group may need masking if it resides in a block that needs
+/// predication, or in order to mask away gaps. 
 static cl::opt<bool> EnableMaskedInterleavedMemAccesses(
     "enable-masked-interleaved-mem-accesses", cl::init(false), cl::Hidden,
     cl::desc("Enable vectorization on masked interleaved memory accesses in a loop"));
@@ -1135,10 +1137,14 @@ public:
   }
 
   /// Returns true if an interleaved group requires a scalar iteration
-  /// to handle accesses with gaps.
+  /// to handle accesses with gaps, and there is nothing preventing us from
+  /// creating a scalar epilogue.
   bool requiresScalarEpilogue() const {
-    return InterleaveInfo.requiresScalarEpilogue();
+    return IsScalarEpilogueAllowed && InterleaveInfo.requiresScalarEpilogue();
   }
+
+  /// Returns true if a scalar epilogue is not allowed due to optsize.
+  bool isScalarEpilogueAllowed() const { return IsScalarEpilogueAllowed; }
 
   /// Returns true if all loop blocks should be masked to fold tail loop.
   bool foldTailByMasking() const { return FoldTailByMasking; }
@@ -1229,6 +1235,15 @@ private:
   /// A set containing all BasicBlocks that are known to present after
   /// vectorization as a predicated block.
   SmallPtrSet<BasicBlock *, 4> PredicatedBBsAfterVectorization;
+
+  /// Records whether it is allowed to have the original scalar loop execute at
+  /// least once. This may be needed as a fallback loop in case runtime 
+  /// aliasing/dependence checks fail, or to handle the tail/remainder
+  /// iterations when the trip count is unknown or doesn't divide by the VF,
+  /// or as a peel-loop to handle gaps in interleave-groups.
+  /// Under optsize and when the trip count is very small we don't allow any
+  /// iterations to execute in the scalar loop.
+  bool IsScalarEpilogueAllowed = true;
 
   /// All blocks of loop are to be masked to fold tail of scalar iterations.
   bool FoldTailByMasking = false;
@@ -1939,6 +1954,17 @@ Value *InnerLoopVectorizer::reverseVector(Value *Vec) {
                                      "reverse");
 }
 
+// Return whether we allow using masked interleave-groups (for dealing with
+// strided loads/stores that reside in predicated blocks, or for dealing
+// with gaps).
+static bool useMaskedInterleavedAccesses(const TargetTransformInfo &TTI) {
+  // If an override option has been passed in for interleaved accesses, use it.
+  if (EnableMaskedInterleavedMemAccesses.getNumOccurrences() > 0)
+    return EnableMaskedInterleavedMemAccesses;
+
+  return TTI.enableMaskedInterleavedAccessVectorization();
+}
+
 // Try to vectorize the interleave group that \p Instr belongs to.
 //
 // E.g. Translate following interleaved load group (factor = 3):
@@ -1991,12 +2017,12 @@ void InnerLoopVectorizer::vectorizeInterleaveGroup(Instruction *Instr,
   unsigned Index = Group->getIndex(Instr);
 
   VectorParts Mask;
-  bool IsMaskRequired = BlockInMask;
-  if (IsMaskRequired) {
+  bool IsMaskForCondRequired = BlockInMask;
+  if (IsMaskForCondRequired) {
     Mask = *BlockInMask;
     // TODO: extend the masked interleaved-group support to reversed access.
     assert(!Group->isReverse() && "Reversed masked interleave-group "
-                                  "not supported."); 
+                                  "not supported.");
   }
 
   // If the group is reverse, adjust the index to refer to the last vector lane
@@ -2037,20 +2063,35 @@ void InnerLoopVectorizer::vectorizeInterleaveGroup(Instruction *Instr,
   setDebugLocFromInst(Builder, Instr);
   Value *UndefVec = UndefValue::get(VecTy);
 
+  Value *MaskForGaps = nullptr;
+  if (Group->requiresScalarEpilogue() && !Cost->isScalarEpilogueAllowed()) {
+    MaskForGaps = createBitMaskForGaps(Builder, VF, *Group);
+    assert(MaskForGaps && "Mask for Gaps is required but it is null");
+  }
+
   // Vectorize the interleaved load group.
   if (isa<LoadInst>(Instr)) {
     // For each unroll part, create a wide load for the group.
     SmallVector<Value *, 2> NewLoads;
     for (unsigned Part = 0; Part < UF; Part++) {
       Instruction *NewLoad;
-      if (IsMaskRequired) {
-        auto *Undefs = UndefValue::get(Mask[Part]->getType());
-        auto *RepMask = createReplicatedMask(Builder, InterleaveFactor, VF);
-        Value *ShuffledMask = Builder.CreateShuffleVector(
-            Mask[Part], Undefs, RepMask, "interleaved.mask");
-        NewLoad = Builder.CreateMaskedLoad(NewPtrs[Part], Group->getAlignment(), 
-                                           ShuffledMask, UndefVec,
-                                           "wide.masked.vec");
+      if (IsMaskForCondRequired || MaskForGaps) {
+        assert(useMaskedInterleavedAccesses(*TTI) &&
+               "masked interleaved groups are not allowed.");
+        Value *GroupMask = MaskForGaps;
+        if (IsMaskForCondRequired) {
+          auto *Undefs = UndefValue::get(Mask[Part]->getType());
+          auto *RepMask = createReplicatedMask(Builder, InterleaveFactor, VF);
+          Value *ShuffledMask = Builder.CreateShuffleVector(
+              Mask[Part], Undefs, RepMask, "interleaved.mask");
+          GroupMask = MaskForGaps
+                          ? Builder.CreateBinOp(Instruction::And, ShuffledMask,
+                                                MaskForGaps)
+                          : ShuffledMask;
+        }
+        NewLoad =
+            Builder.CreateMaskedLoad(NewPtrs[Part], Group->getAlignment(),
+                                     GroupMask, UndefVec, "wide.masked.vec");
       }
       else
         NewLoad = Builder.CreateAlignedLoad(NewPtrs[Part], 
@@ -2122,7 +2163,7 @@ void InnerLoopVectorizer::vectorizeInterleaveGroup(Instruction *Instr,
                                               "interleaved.vec");
 
     Instruction *NewStoreInstr;
-    if (IsMaskRequired) {
+    if (IsMaskForCondRequired) {
       auto *Undefs = UndefValue::get(Mask[Part]->getType());
       auto *RepMask = createReplicatedMask(Builder, InterleaveFactor, VF);
       Value *ShuffledMask = Builder.CreateShuffleVector(
@@ -2517,7 +2558,8 @@ void InnerLoopVectorizer::emitSCEVChecks(Loop *L, BasicBlock *Bypass) {
     if (C->isZero())
       return;
 
-  assert(!Cost->foldTailByMasking() && "Cannot check stride when folding tail");
+  assert(!Cost->foldTailByMasking() &&
+         "Cannot SCEV check stride or overflow when folding tail");
   // Create a new block containing the stride check.
   BB->setName("vector.scevcheck");
   auto *NewBB = BB->splitBasicBlock(BB->getTerminator(), "vector.ph");
@@ -2982,6 +3024,10 @@ static unsigned getScalarizationOverhead(Instruction *I, unsigned VF,
       (!isa<LoadInst>(I) ||
        !TTI.supportsEfficientVectorElementLoadStore()))
     Cost += TTI.getScalarizationOverhead(RetTy, true, false);
+
+  // Some targets keep addresses scalar.
+  if (isa<LoadInst>(I) && !TTI.prefersVectorizedAddressing())
+    return Cost;
 
   if (CallInst *CI = dyn_cast<CallInst>(I)) {
     SmallVector<const Value *, 4> Operands(CI->arg_operands());
@@ -4335,29 +4381,32 @@ bool LoopVectorizationCostModel::isScalarWithPredication(Instruction *I, unsigne
   return false;
 }
 
-static bool useMaskedInterleavedAccesses(const TargetTransformInfo &TTI) {
-  if (!(EnableMaskedInterleavedMemAccesses.getNumOccurrences() > 0))
-    return TTI.enableMaskedInterleavedAccessVectorization();
-
-  // If an override option has been passed in for interleaved accesses, use it.
-  return EnableMaskedInterleavedMemAccesses;
-}
-
 bool LoopVectorizationCostModel::interleavedAccessCanBeWidened(Instruction *I,
                                                                unsigned VF) {
   assert(isAccessInterleaved(I) && "Expecting interleaved access.");
   assert(getWideningDecision(I, VF) == CM_Unknown &&
          "Decision should not be set yet.");
+  auto *Group = getInterleavedAccessGroup(I);
+  assert(Group && "Must have a group.");
 
-  if (!Legal->blockNeedsPredication(I->getParent()) ||
-      !Legal->isMaskRequired(I))
+  // Check if masking is required.
+  // A Group may need masking for one of two reasons: it resides in a block that
+  // needs predication, or it was decided to use masking to deal with gaps.
+  bool PredicatedAccessRequiresMasking = 
+      Legal->blockNeedsPredication(I->getParent()) && Legal->isMaskRequired(I);
+  bool AccessWithGapsRequiresMasking = 
+      Group->requiresScalarEpilogue() && !IsScalarEpilogueAllowed;
+  if (!PredicatedAccessRequiresMasking && !AccessWithGapsRequiresMasking)
     return true;
 
-  if (!useMaskedInterleavedAccesses(TTI))
-    return false;
+  // If masked interleaving is required, we expect that the user/target had
+  // enabled it, because otherwise it either wouldn't have been created or
+  // it should have been invalidated by the CostModel.
+  assert(useMaskedInterleavedAccesses(TTI) &&
+         "Masked interleave-groups for predicated accesses are not enabled.");
 
   auto *Ty = getMemInstValueType(I);
-  return isa<LoadInst>(I) ? TTI.isLegalMaskedLoad(Ty) 
+  return isa<LoadInst>(I) ? TTI.isLegalMaskedLoad(Ty)
                           : TTI.isLegalMaskedStore(Ty);
 }
 
@@ -4595,6 +4644,29 @@ Optional<unsigned> LoopVectorizationCostModel::computeMaxVF(bool OptForSize) {
     return None;
   }
 
+  if (!PSE.getUnionPredicate().getPredicates().empty()) {
+    ORE->emit(createMissedAnalysis("CantVersionLoopWithOptForSize")
+              << "runtime SCEV checks needed. Enable vectorization of this "
+                 "loop with '#pragma clang loop vectorize(enable)' when "
+                 "compiling with -Os/-Oz");
+    LLVM_DEBUG(
+        dbgs()
+        << "LV: Aborting. Runtime SCEV check is required with -Os/-Oz.\n");
+    return None;
+  }
+
+  // FIXME: Avoid specializing for stride==1 instead of bailing out.
+  if (!Legal->getLAI()->getSymbolicStrides().empty()) {
+    ORE->emit(createMissedAnalysis("CantVersionLoopWithOptForSize")
+              << "runtime stride == 1 checks needed. Enable vectorization of "
+                 "this loop with '#pragma clang loop vectorize(enable)' when "
+                 "compiling with -Os/-Oz");
+    LLVM_DEBUG(
+        dbgs()
+        << "LV: Aborting. Runtime stride check is required with -Os/-Oz.\n");
+    return None;
+  }
+
   // If we optimize the program for size, avoid creating the tail loop.
   LLVM_DEBUG(dbgs() << "LV: Found trip count: " << TC << '\n');
 
@@ -4604,6 +4676,17 @@ Optional<unsigned> LoopVectorizationCostModel::computeMaxVF(bool OptForSize) {
     LLVM_DEBUG(dbgs() << "LV: Aborting, single iteration (non) loop.\n");
     return None;
   }
+
+  // Record that scalar epilogue is not allowed.
+  LLVM_DEBUG(dbgs() << "LV: Not allowing scalar epilogue due to -Os/-Oz.\n");
+
+  IsScalarEpilogueAllowed = !OptForSize;
+
+  // We don't create an epilogue when optimizing for size.
+  // Invalidate interleave groups that require an epilogue if we can't mask
+  // the interleave-group.
+  if (!useMaskedInterleavedAccesses(TTI)) 
+    InterleaveInfo.invalidateGroupsRequiringScalarEpilogue();
 
   unsigned MaxVF = computeFeasibleMaxVF(OptForSize, TC);
 
@@ -4616,8 +4699,6 @@ Optional<unsigned> LoopVectorizationCostModel::computeMaxVF(bool OptForSize) {
   // found modulo the vectorization factor is not zero, try to fold the tail
   // by masking.
   // FIXME: look for a smaller MaxVF that does divide TC rather than masking.
-  // FIXME: return None if loop requiresScalarEpilog(<MaxVF>), or look for a
-  //        smaller MaxVF that does not require a scalar epilog.
   if (Legal->canFoldTailByMasking()) {
     FoldTailByMasking = true;
     return MaxVF;
@@ -5373,6 +5454,7 @@ static bool isStrideMul(Instruction *I, LoopVectorizationLegality *Legal) {
 
 unsigned LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
                                                                  unsigned VF) {
+  assert(VF > 1 && "Scalarization cost of instruction implies vectorization.");
   Type *ValTy = getMemInstValueType(I);
   auto SE = PSE.getSE();
 
@@ -5388,9 +5470,11 @@ unsigned LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
   // Get the cost of the scalar memory instruction and address computation.
   unsigned Cost = VF * TTI.getAddressComputationCost(PtrTy, SE, PtrSCEV);
 
+  // Don't pass *I here, since it is scalar but will actually be part of a
+  // vectorized loop where the user of it is a vectorized instruction.
   Cost += VF *
           TTI.getMemoryOpCost(I->getOpcode(), ValTy->getScalarType(), Alignment,
-                              AS, I);
+                              AS);
 
   // Get the overhead of the extractelement and insertelement instructions
   // we might create due to scalarization.
@@ -5489,13 +5573,15 @@ unsigned LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
   }
 
   // Calculate the cost of the whole interleaved group.
+  bool UseMaskForGaps = 
+      Group->requiresScalarEpilogue() && !IsScalarEpilogueAllowed;
   unsigned Cost = TTI.getInterleavedMemoryOpCost(
       I->getOpcode(), WideVecTy, Group->getFactor(), Indices,
-      Group->getAlignment(), AS, Legal->isMaskRequired(I));
+      Group->getAlignment(), AS, Legal->isMaskRequired(I), UseMaskForGaps);
 
   if (Group->isReverse()) {
     // TODO: Add support for reversed masked interleaved access.
-    assert(!Legal->isMaskRequired(I) && 
+    assert(!Legal->isMaskRequired(I) &&
            "Reverse masked interleaved access not supported.");
     Cost += Group->getNumMembers() *
             TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, VectorTy, 0);
@@ -5748,7 +5834,7 @@ unsigned LoopVectorizationCostModel::getInstructionCost(Instruction *I,
     // First-order recurrences are replaced by vector shuffles inside the loop.
     if (VF > 1 && Legal->isFirstOrderRecurrence(Phi))
       return TTI.getShuffleCost(TargetTransformInfo::SK_ExtractSubvector,
-                                VectorTy, VF - 1, VectorTy);
+                                VectorTy, VF - 1, ToVectorTy(RetTy, 1));
 
     // Phi nodes in non-header blocks (not inductions, reductions, etc.) are
     // converted into select instructions. We require N - 1 selects per phi
@@ -6018,8 +6104,14 @@ LoopVectorizationPlanner::plan(bool OptForSize, unsigned UserVF) {
     return NoVectorization;
 
   // Invalidate interleave groups if all blocks of loop will be predicated.
-  if (CM.blockNeedsPredication(OrigLoop->getHeader()))
+  if (CM.blockNeedsPredication(OrigLoop->getHeader()) &&
+      !useMaskedInterleavedAccesses(*TTI)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "LV: Invalidate all interleaved groups due to fold-tail by masking "
+           "which requires masked-interleaved support.\n");
     CM.InterleaveInfo.reset();
+  }
 
   if (UserVF) {
     LLVM_DEBUG(dbgs() << "LV: Using user VF " << UserVF << ".\n");

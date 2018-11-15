@@ -2008,8 +2008,8 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FATAN2:
 #endif
     case ISD::FDIV:
-    case ISD::FMAXNAN:
-    case ISD::FMINNAN:
+    case ISD::FMAXIMUM:
+    case ISD::FMINIMUM:
     case ISD::FMAXNUM:
     case ISD::FMINNUM:
     case ISD::FMUL:

@@ -377,8 +377,8 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::UMAX);
   setTargetDAGCombine(ISD::FMINNUM);
   setTargetDAGCombine(ISD::FMAXNUM);
-  setTargetDAGCombine(ISD::FMINNAN);
-  setTargetDAGCombine(ISD::FMAXNAN);
+  setTargetDAGCombine(ISD::FMINIMUM);
+  setTargetDAGCombine(ISD::FMAXIMUM);
   setTargetDAGCombine(ISD::VECTOR_SHUFFLE);
 }
 
@@ -640,8 +640,8 @@ SDValue CSATargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::UMAX:
   case ISD::FMINNUM:
   case ISD::FMAXNUM:
-  case ISD::FMINNAN:
-  case ISD::FMAXNAN:
+  case ISD::FMINIMUM:
+  case ISD::FMAXIMUM:
     return CombineMinMax(N, DAG);
 
   case ISD::VECTOR_SHUFFLE:
@@ -759,11 +759,11 @@ static unsigned CSAISDMinMaxOpForISDMinMaxOp(unsigned SDOp) {
   switch (SDOp) {
   case ISD::SMIN:
   case ISD::FMINNUM:
-  case ISD::FMINNAN:
+  case ISD::FMINIMUM:
     return CSAISD::Min;
   case ISD::SMAX:
   case ISD::FMAXNUM:
-  case ISD::FMAXNAN:
+  case ISD::FMAXIMUM:
     return CSAISD::Max;
   case ISD::UMIN:
     return CSAISD::UMin;

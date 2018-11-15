@@ -77,7 +77,7 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         AllocaInst *NewPrivInst =
-            genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".red");
+            genPrivatizationAlloca(RedI, AllocaInsertPt, ".red");
         genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
 
         IRBuilder<> Builder(EntryBB->getTerminator());
@@ -834,7 +834,7 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
   IRBuilder<> Builder(EntryBB);
   Builder.CreateRetVoid();
   Value *NewRedInst =
-      genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(), ".red");
+      genPrivatizationAlloca(RedI, EntryBB->getFirstNonPHI(), ".red");
 
   RedI->setNew(NewRedInst);
   genReductionInit(RedI, EntryBB->getTerminator(), &DT);

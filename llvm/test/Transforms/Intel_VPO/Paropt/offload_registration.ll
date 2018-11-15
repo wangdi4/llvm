@@ -29,7 +29,7 @@ target device_triples = "x86_64-pc-linux-gnu"
 ; CHECK: void @foo()
 define dso_local void @foo() {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"() ], !omp_offload.entry !2
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
@@ -37,7 +37,7 @@ entry:
 ; CHECK: void @bar()
 define dso_local void @bar() {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"() ], !omp_offload.entry !3
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
@@ -49,15 +49,13 @@ declare void @llvm.directive.region.exit(token)
 
 !0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 32, i32 0}
 !1 = !{i32 0, i32 54, i32 -698850821, !"bar", i32 40, i32 1}
-!2 = distinct !{i32 0}
-!3 = distinct !{i32 1}
 
 ; Check presence of outlined target regions from foo and bar.
 ; CHECK: define internal void [[OUTLINEDTARGET1:@.+]]()
 ; CHECK: define internal void [[OUTLINEDTARGET2:@.+]]()
 
 ; Check presence of unregistration code.
-; CHECK:     define internal void @[[UNREGFN:.+]]()
+; CHECK:     define internal void @[[UNREGFN:.+]](i8*)
 ; CHECK-SAME: comdat($[[REGFN]]) {
 ; CHECK:     call i32 @__tgt_unregister_lib({{.+}}* [[DESC]])
 ; CHECK:     ret void
@@ -67,6 +65,6 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK:     define linkonce hidden void @[[REGFN]]()
 ; CHECK-SAME: comdat {
 ; CHECK:     call i32 @__tgt_register_lib({{.+}}* [[DESC]])
-; CHECK:     call i32 @__cxa_atexit(void ()* @[[UNREGFN]], i8* bitcast ({{.+}}* [[DESC]] to i8*), i8* [[DSO_HANDLE]])
+; CHECK:     call i32 @__cxa_atexit(void (i8*)* @[[UNREGFN]], i8* bitcast ({{.+}}* [[DESC]] to i8*), i8* [[DSO_HANDLE]])
 ; CHECK:     ret void
 ; CHECK:     declare i32 @__tgt_register_lib({{.+}}*)

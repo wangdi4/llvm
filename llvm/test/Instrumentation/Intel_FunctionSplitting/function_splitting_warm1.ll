@@ -11,11 +11,11 @@
 
 ; CHECK-LABEL: define i32 @test(i32 %x, i32* %y)
 ; SPLITANY: codeRepl:
-; SPLITANY: call void @test_if.else
-; SPLITANY: define internal void @test_if.else
+; SPLITANY: call void @test.if.else
+; SPLITANY: define internal void @test.if.else
 ; SPLITHOTONLY-NOT: codeRepl
-; SPLITHOTONLY-NOT: call void @test_if.else
-; SPLITHOTONLY-NOT: define internal void @test_if.else
+; SPLITHOTONLY-NOT: call void @test.if.else
+; SPLITHOTONLY-NOT: define internal void @test.if.else
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

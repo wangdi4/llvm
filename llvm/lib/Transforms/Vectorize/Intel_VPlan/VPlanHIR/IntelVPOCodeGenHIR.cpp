@@ -55,7 +55,7 @@ static cl::opt<bool>
     EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
                        cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
-static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(false),
+static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(true),
                                       cl::Hidden,
                                       cl::desc("Enable VLS code generation"));
 
@@ -477,8 +477,7 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
-    if (Inst->isCallInst()) {
-      const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
+    if (const CallInst *Call = Inst->getCallInst()) {
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
         LLVM_DEBUG(Inst->dump());
@@ -754,7 +753,8 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   // to have 1-iteration peeling functionality working for vectorized search
   // loops.
   bool SearchLoopNeedsPeeling =
-      EnableFirstIterPeelMEVec && isSearchLoop() && AllowMemorySpeculation;
+      EnableFirstIterPeelMEVec && isSearchLoop() &&
+      getSearchLoopType() == VPlanIdioms::SearchLoopStrEq;
   // We cannot peel any iteration of the loop when the trip count is constant
   // and lower or equal than VF since we have already made the decision of
   // vectorizing that loop with such a VF.
@@ -768,9 +768,31 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   bool NeedFirstItPeelLoop = SearchLoopNeedsPeeling & IsTCValidForPeeling;
   bool NeedRemainderLoop = false;
   HLLoop *PeelLoop = nullptr;
+  // Generate call to __Intel_PaddedMallocInterface() function and use its
+  // return value in runtime check. If the function returned 0 it means that
+  // vector code is not safe to execute.
+  // TODO: This code has to be moved out into VPlan xforms.
+  SmallVector<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>, 2> RTChecks;
+  if (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq) {
+    HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+    if (Function *PMFunction =
+            HNU.getModule().getFunction("__Intel_PaddedMallocInterface")) {
+      SmallVector<RegDDRef *, 0> Args;
+      HLInst *PaddingIsValid = HNU.createCall(PMFunction, Args, "padding.is.valid");
+      HLNodeUtils::insertBefore(OrigLoop, PaddingIsValid);
+      LLVMContext &Context = HNU.getContext();
+      Type *BoolTy = IntegerType::get(Context, 1);
+      DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
+      RegDDRef *ZeroRef = DDRU.createConstDDRef(BoolTy, 0);
+      HLPredicate Pred(PredicateTy::ICMP_NE);
+      auto Check = std::make_tuple(
+          Pred, PaddingIsValid->getLvalDDRef()->clone(), ZeroRef);
+      RTChecks.push_back(Check);
+    }
+  }
   auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
       OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
-      &PeelLoop, NeedFirstItPeelLoop);
+      &PeelLoop, NeedFirstItPeelLoop, &RTChecks);
 
   if (PeelLoop) {
     setNeedFirstItPeelLoop(NeedFirstItPeelLoop);
@@ -832,18 +854,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     // leading to a performance degradation caused by entering the scalar code
     // path.
     if (!MainLoop->isConstTripLoop()) {
-      const Loop *Lp = MainLoop->getLLVMLoop();
-      LLVMContext &Context = Lp->getHeader()->getContext();
-      SmallVector<Metadata *, 4> MDs;
-      MDs.push_back(nullptr);
-      SmallVector<Metadata *, 1> DisableOperands;
-      DisableOperands.push_back(
-          MDString::get(Context, "llvm.loop.unroll.disable"));
-      MDNode *DisableUnroll = MDNode::get(Context, DisableOperands);
-      MDs.push_back(DisableUnroll);
-      MDNode *NewLoopID = MDNode::get(Context, MDs);
-      NewLoopID->replaceOperandWith(0, NewLoopID);
-      MainLoop->setLoopMetadata(NewLoopID);
+      MainLoop->markDoNotUnroll();
     }
   }
 
@@ -906,16 +917,17 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     // Move to the next iterator now as HInst may get removed below
     ++Iter;
 
-    Intrinsic::ID IntrinID;
-    if (HInst->isIntrinCall(IntrinID)) {
+    if (auto *Inst = HInst->getIntrinCall()) {
+      Intrinsic::ID IntrinID = Inst->getIntrinsicID();
+
       if (vpo::VPOAnalysisUtils::isIntelClause(IntrinID)) {
         HLNodeUtils::remove(HInst);
         continue;
       }
 
-      if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
-        auto Inst = cast<IntrinsicInst>(HInst->getLLVMInstruction());
-        StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
+      if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID) ||
+          vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
+        StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveString(
             const_cast<IntrinsicInst *>(Inst));
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
@@ -929,8 +941,6 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
       }
     }
   }
-
-  assert(false && "Missing SIMD Begin/End directive");
 }
 
 void VPOCodeGenHIR::eraseLoopIntrins() {
@@ -987,7 +997,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   // Used to remove the original math calls after iterating over them.
   SmallVector<HLInst *, 1> InstsToRemove;
 
-  const CallInst *Call = cast<CallInst>(HInst->getLLVMInstruction());
+  const CallInst *Call = HInst->getCallInst();
   Function *F = Call->getCalledFunction();
   assert(F && "Unexpected null called function");
   StringRef FnName = F->getName();
@@ -1457,38 +1467,65 @@ void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
   }
 }
 
-HLInst *VPOCodeGenHIR::widenIfPred(const HLIf *HIf, RegDDRef *Mask) {
-  RegDDRef *WOp0, *WOp1;
+HLInst *VPOCodeGenHIR::widenPred(const HLIf *HIf,
+                                 HLIf::const_pred_iterator PredIt,
+                                 RegDDRef *Mask) {
 
+  auto PredLHS = HIf->getPredicateOperandDDRef(PredIt, true);
+  auto PredRHS = HIf->getPredicateOperandDDRef(PredIt, false);
+  RegDDRef *WideLHS = widenRef(PredLHS, getVF());
+  RegDDRef *WideRHS = widenRef(PredRHS, getVF());
+
+  assert((WideLHS && WideRHS) &&
+         "Unexpected null widened IF predicate operand(s)");
+  auto WideCmpInst =
+      HIf->getHLNodeUtils().createCmp(*PredIt, WideLHS, WideRHS, "wide.cmp.");
+  // Add the new wide compare instruction
+  addInst(WideCmpInst, Mask);
+  return WideCmpInst;
+}
+
+HLInst *VPOCodeGenHIR::widenIfNode(const HLIf *HIf, RegDDRef *Mask) {
   if (!Mask)
     Mask = CurMaskValue;
 
-  // TODO - supports only single if predicate for now
   auto FirstPred = HIf->pred_begin();
-  auto Op0 = HIf->getOperandDDRef(0);
-  auto Op1 = HIf->getOperandDDRef(1);
-  WOp0 = widenRef(Op0, getVF());
-  WOp1 = widenRef(Op1, getVF());
+  HLInst *CurWideInst = widenPred(HIf, FirstPred, Mask);
+  LLVM_DEBUG(dbgs() << "VPCodegen: First Pred WideInst: "; CurWideInst->dump());
 
-  assert((WOp0 && WOp1) && "Unexpected null widened IF predicate operand(s)");
-  auto WideInst =
-      HIf->getHLNodeUtils().createCmp(*FirstPred, WOp0, WOp1, "wide.cmp.");
-  addInst(WideInst, Mask);
+  // Create Cmp HLInsts for remaining predicates in the HLIf
+  for (auto It = HIf->pred_begin() + 1, E = HIf->pred_end(); It != E; ++It) {
+    HLInst *NewWideInst = widenPred(HIf, It, Mask);
+    LLVM_DEBUG(dbgs() << "VPCodegen: NewWideInst: "; NewWideInst->dump());
+    // Conjoin the new wideInst with the current wideInst using implicit AND
+    CurWideInst = HIf->getHLNodeUtils().createAnd(
+        CurWideInst->getLvalDDRef()->clone(),
+        NewWideInst->getLvalDDRef()->clone(), "wide.and.");
+    LLVM_DEBUG(dbgs() << "VPCodegen: CurWideInst: "; CurWideInst->dump());
+    addInst(CurWideInst, Mask);
+  }
+
+  assert(CurWideInst && "No HLInst generated for HLIf?");
+
   // For the search loop simply generate HLIf instruction and move
   // InsertionPoint into then-branch of that HLIf.
   // Blindly assume that this if is for exit block.
   // TODO: For general case of early exit vectorization, this code is not
   // correct for all ifs and it has to be changed.
   if (isSearchLoop()) {
-    RegDDRef *Ref = WideInst->getLvalDDRef();
+    assert(
+        HIf->getNumPredicates() == 1 &&
+        "Search loop vectorization handles HLIfs with single predicate only.");
+    RegDDRef *Ref = CurWideInst->getLvalDDRef();
     Type *Ty = Ref->getDestType();
     LLVMContext &Context = Ty->getContext();
     Type *IntTy = IntegerType::get(Context, Ty->getPrimitiveSizeInBits());
     HLInst *BitCastInst = createBitCast(IntTy, Ref, "intmask");
     createHLIf(PredicateTy::ICMP_NE, BitCastInst->getLvalDDRef()->clone(),
-               WideInst->getDDRefUtils().createConstDDRef(IntTy, 0));
+               CurWideInst->getDDRefUtils().createConstDDRef(IntTy, 0));
   }
-  return WideInst;
+
+  return CurWideInst;
 }
 
 /// Create an interleave shuffle mask. This function mimics the interface in
@@ -1724,7 +1761,8 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
       // We are encountering the first instruction of a load group. Generate a
       // wide load using the memory reference from the instruction starting the
       // group.
-      const RegDDRef *MemRef = GrpStartInst->getOperandDDRef(1);
+      const RegDDRef *MemRef =
+          cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getRegDDRef();
       RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
       HLInst *WideLoad = INode->getHLNodeUtils().createLoad(
           WMemRef, CurInst->getName() + ".vls.load");
@@ -2051,7 +2089,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     // lval.
     WideInst = Node->getHLNodeUtils().createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
-  } else if (const CallInst *Call = dyn_cast<CallInst>(CurInst)) {
+  } else if (const CallInst *Call = INode->getCallInst()) {
 
     Function *Fn = Call->getCalledFunction();
     assert(Fn && "Unexpected null called function");

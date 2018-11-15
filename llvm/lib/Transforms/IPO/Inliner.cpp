@@ -1051,7 +1051,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   SmallSet<CallSite, 20> CallSitesForDTrans;  // INTEL
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
+#if INTEL_CUSTOMIZATION
+  TargetLibraryInfo *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(M);
   InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
+#endif // INTEL_CUSTOMIZATION
   ProfileSummaryInfo *PSI = MAM.getCachedResult<ProfileSummaryAnalysis>(M);
   CG.registerCGReport(&Report); // INTEL
 
@@ -1207,8 +1210,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Function &Callee = *CS.getCalledFunction();
       auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
       return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                           ILIC, AggI, &CallSitesForFusion, // INTEL
-                           &CallSitesForDTrans, PSI, &ORE); // INTEL
+                           TLI, ILIC, AggI, &CallSitesForFusion, // INTEL
+                           &CallSitesForDTrans, PSI, &ORE);      // INTEL
     };
 
     // Now process as many calls as we have within this caller in the sequnece.
@@ -1384,10 +1387,19 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // SCC splits and merges. To avoid this, we capture the originating caller
     // node and the SCC containing the call edge. This is a slight over
     // approximation of the possible inlining decisions that must be avoided,
-    // but is relatively efficient to store.
+    // but is relatively efficient to store. We use C != OldC to know when
+    // a new SCC is generated and the original SCC may be generated via merge
+    // in later iterations.
+    //
+    // It is also possible that even if no new SCC is generated
+    // (i.e., C == OldC), the original SCC could be split and then merged
+    // into the same one as itself. and the original SCC will be added into
+    // UR.CWorklist again, we want to catch such cases too.
+    //
     // FIXME: This seems like a very heavyweight way of retaining the inline
     // history, we should look for a more efficient way of tracking it.
-    if (C != OldC && llvm::any_of(InlinedCallees, [&](Function *Callee) {
+    if ((C != OldC || UR.CWorklist.count(OldC)) &&
+        llvm::any_of(InlinedCallees, [&](Function *Callee) {
           return CG.lookupSCC(*CG.lookup(*Callee)) == OldC;
         })) {
       LLVM_DEBUG(dbgs() << "Inlined an internal call edge and split an SCC, "

@@ -153,8 +153,10 @@ static bool isSIMDOrParDirective(const Instruction *Inst, bool BeginDir) {
   } else if (IntrinInst->hasOperandBundles()) {
     StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
 
-    return BeginDir ? TagName.equals("DIR.OMP.PARALLEL.LOOP")
-                    : TagName.equals("DIR.OMP.END.PARALLEL.LOOP");
+    return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
+                       TagName.equals("DIR.OMP.SIMD"))
+                    : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
+                       TagName.equals("DIR.OMP.END.SIMD"));
   }
 
   return false;
@@ -669,7 +671,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // ready yet. Innermost unknown loops embedded inside other loops are
   // throttled for compile time reasons.
   if (IsUnknownLoop && (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) ||
-                        (Lp.getLoopDepth() != 1))) {
+                        !Lp.empty() || (Lp.getLoopDepth() != 1))) {
     LLVM_DEBUG(
         dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
                   "time reasons.\n");

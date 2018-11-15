@@ -1,0 +1,44 @@
+# ./Intel_OptionalComponents/Intel_SupportedFeatures.txt
+#
+# Copyright (C) 2018 Intel Corporation. All rights reserved.
+#
+# The information and source code contained herein is the exclusive
+# property of Intel Corporation and may not be disclosed, examined
+# or reproduced in whole or in part without explicit written authorization
+# from the company.
+#
+# ------------------------------------------------------------------------------
+#
+# This file contains a list of features that are supported by the compiler
+# build system, i.e. you may pass these features via LLVM_INTEL_FEATURES cmake
+# variable.  Read more details in 'Xmain Development Processes' document.
+#
+# Each feature name must be on a new line and must not contain any blank
+# symbols.
+#
+# TODO (vzakhari 11/1/2018): we may come up with some markup in this file
+#                            that would make some of the features, declared
+#                            here, "public", meaning that their implementation
+#                            can be merged from the "safe" repo to "shared"
+#                            repo.  This will require changing the processing
+#                            of this file in llvm/CMakeLists.txt.  The tools
+#                            making merges from "safe" to "shared" repo, then
+#                            will be able to use this file for classifying
+#                            the merged code.
+
+# New ISA features usually use ISA_ prefix, e.g. ISA_VNNI.
+# === New ISA features section begin ===
+# === New ISA features section end ===
+
+# Support for a new target is usually covered by a feature named after
+# the target name, e.g. NIOS.
+# === New targets section begin ===
+# INTEL_FEATURE_CSA
+CSA
+# end INTEL_FEATURE_CSA
+# === New targets section end ===
+
+# Software features that need to be kept in the "safe" repo use SW_ prefix,
+# e.g. SW_G2S.
+# === New SW features section begin ===
+# === New SW features section end ===

@@ -958,10 +958,17 @@ HLNodeUtils::createCallImpl(Function *Func,
   SmallVector<Value *, 8> Args;
 
   for (unsigned I = 0; I < NumArgs; I++) {
-    MetadataAsValue *Val = nullptr;
-    Args.push_back(CallArgs[I]->isMetadata(&Val)
-                       ? cast<Value>(Val)
-                       : UndefValue::get(CallArgs[I]->getDestType()));
+    MetadataAsValue *MVal = nullptr;
+    int64_t IVal = 0;
+
+    Value *Val = nullptr;
+    RegDDRef *Arg = CallArgs[I];
+    if (Arg->isMetadata(&MVal))
+      Val = MVal;
+    else if (Arg->isIntConstant(&IVal))
+      Val = cast<Value>(ConstantInt::getSigned(Arg->getSrcType(), IVal));
+
+    Args.push_back(Val ? Val : UndefValue::get(CallArgs[I]->getDestType()));
   }
   auto InstVal = DummyIRBuilder->CreateCall(
       Func, Args, HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
@@ -2525,16 +2532,19 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   if (UpwardTraversal) {
     FirstNode = isa<HLLoop>(Parent) ? getFirstLexicalChild(Parent)
                                     : getFirstLexicalChild(Parent, Node);
-    LastNode = Node;
+
+    LastNode = Node ? Node : getLastLexicalChild(Parent);
+
   } else {
-    FirstNode = Node;
+    FirstNode = Node ? Node : getFirstLexicalChild(Parent);
+
     LastNode = isa<HLLoop>(Parent) ? getLastLexicalChild(Parent)
                                    : getLastLexicalChild(Parent, Node);
   }
 
   assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
 
-  if (FirstNode == LastNode) {
+  if (Node && (FirstNode == LastNode)) {
     // Both are set to 'Node' which we don't need to check.
     return true;
   }
@@ -2546,14 +2556,19 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   // TODO: We probably need to enhance it to recurse into multi-exit loops.
   if (UpwardTraversal) {
     // We want to traverse the range [FirstNode, LastNode) in the backward
-    // direction. LastNode is the incoming 'Node' and should be skipped.
-    visitRange<true, false, false>(SFC, FirstNode->getIterator(),
-                                   LastNode->getIterator());
+    // direction. If Node is same as LastNode we skip it.
+    auto EndIt = (Node == LastNode) ? LastNode->getIterator()
+                                    : ++(LastNode->getIterator());
+
+    visitRange<true, false, false>(SFC, FirstNode->getIterator(), EndIt);
+
   } else {
     // We want to traverse the range (FirstNode, LastNode] in the forward
-    // direction. FirstNode is the incoming 'Node' and should be skipped.
-    visitRange<true, false, true>(SFC, ++(FirstNode->getIterator()),
-                                  ++(LastNode->getIterator()));
+    // direction. If Node is same as FirstNode we skip it.
+    auto BeginIt = (Node != FirstNode) ? FirstNode->getIterator()
+                                       : ++(FirstNode->getIterator());
+
+    visitRange<true, false, true>(SFC, BeginIt, ++(LastNode->getIterator()));
   }
 
   return SFC.isStructured();
@@ -2620,8 +2635,26 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
 const HLNode *HLNodeUtils::getCommonDominatingParent(
     const HLNode *Parent1, const HLNode *LastParent1, const HLNode *Node2,
     bool PostDomination, HIRLoopStatistics *HLS, const HLNode **LastParent2) {
-  const HLNode *CommonParent = Node2->getParent();
-  *LastParent2 = Node2;
+
+  // For post-domination, Node2 itself needs to be checked in case it is a
+  // parent node type like if/switch as they can contain gotos. In the example
+  // below, Node1 does not post-dominate Node2 due to the goto.
+  //
+  // if (t > 0) { // Node2
+  //   goto exit;
+  // }
+  // t2 = 0;      // Node1
+  bool CheckNode2 = (PostDomination && Node2->isParentNode());
+
+  // If Node2 itself is parent of Node1 then Node1 cannot post-dominate it if
+  // Node2 is an If or Switch but it can post-dominate loop.
+  if (CheckNode2 && (Node2 == Parent1) &&
+      (isa<HLIf>(Node2) || isa<HLSwitch>(Node2))) {
+    return nullptr;
+  }
+
+  const HLNode *CommonParent = CheckNode2 ? Node2 : Node2->getParent();
+  *LastParent2 = CheckNode2 ? nullptr : Node2;
 
   // Trace back Node2 to Parent1.
   while (CommonParent) {
@@ -2825,6 +2858,15 @@ bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
     if (Inst && Inst->isInPreheaderOrPostexit()) {
       Node = Node->getParent()->getParent();
     }
+  }
+
+  // Use top sort num, if available.
+  if (unsigned TSNum = Node->getTopSortNum()) {
+    assert((isa<HLRegion>(Node) || Node->isAttached()) &&
+           "It is illegal to call top sort number "
+           "dependent utility on disconnected node!");
+    return (TSNum >= Parent->getMinTopSortNum() &&
+            TSNum <= Parent->getMaxTopSortNum());
   }
 
   while (Node) {
@@ -3363,13 +3405,13 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
   return isKnownPositiveOrNegative(CE, ParentNode);
 }
 
-static cl::opt<bool> IgnoreWraparound(
-    "hir-ignore-wraparound", cl::init(false),
-    cl::Hidden, cl::desc("Disables wraparound check."));
-
+static cl::opt<bool> IgnoreWraparound("hir-ignore-wraparound", cl::init(false),
+                                      cl::Hidden,
+                                      cl::desc("Disables wraparound check."));
 
 bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
-                                const HLNode *ParentNode) {
+                                const HLNode *ParentNode,
+                                const bool FitsIn32Bits) {
   assert(CE->getSrcType()->isIntegerTy() &&
          "CE does not have an integer type!");
 
@@ -3391,6 +3433,10 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
   // we will become too conservative. Handling sext is left as a TODO
   // until we have a real test case.
   if (!CE->isZExt()) {
+    return false;
+  }
+
+  if (FitsIn32Bits && CE->getSrcType()->getScalarSizeInBits() >= 32) {
     return false;
   }
 
@@ -3734,13 +3780,20 @@ const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
   // 2) Once the levels are equal, we move up the chain for both loops
   // simultaneously until we discover the common parent.
 
-  while (Lp1->getNestingLevel() > Lp2->getNestingLevel()) {
+  unsigned Level1 = Lp1->getNestingLevel();
+  unsigned Level2 = Lp2->getNestingLevel();
+
+  while (Level1 > Level2) {
     Lp1 = Lp1->getParentLoop();
+    --Level1;
   }
 
-  while (Lp2->getNestingLevel() > Lp1->getNestingLevel()) {
+  while (Level2 > Level1) {
     Lp2 = Lp2->getParentLoop();
+    --Level2;
   }
+
+  assert(Level1 == Level2 && "Nesting level mismtach!");
 
   // Both loops have the same nesting level, so move up simultaneously.
   while (Lp1) {

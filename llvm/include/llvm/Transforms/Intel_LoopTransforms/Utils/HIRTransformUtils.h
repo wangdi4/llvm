@@ -66,7 +66,8 @@ private:
   static bool isRemainderLoopNeeded(HLLoop *OrigLoop,
                                     unsigned UnrollOrVecFactor,
                                     uint64_t *NewTripCountP,
-                                    RegDDRef **NewTCRef);
+                                    RegDDRef **NewTCRef,
+                                    HLIf *RTIf);
 
   /// \brief Creates a new loop for unrolling or vectorization. \p NewTripCount
   /// contains the new loop trip count if the original loop is a constant trip
@@ -75,7 +76,8 @@ private:
   static HLLoop *
   createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                         uint64_t NewTripCount, const RegDDRef *NewTCRef,
-                        LoopOptReportBuilder &LORBuilder, OptimizationType);
+                        LoopOptReportBuilder &LORBuilder, OptimizationType,
+                        HLIf *RTIf);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -83,7 +85,8 @@ private:
   /// \p NewTCRef.
   static void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                                    uint64_t NewTripCount,
-                                   const RegDDRef *NewTCRef);
+                                   const RegDDRef *NewTCRef,
+                                   const bool HasRuntimeCheck);
 
   /// \brief Update CE for stripmined Loops
   static void updateStripminedLoopCE(HLLoop *Loop);
@@ -233,7 +236,9 @@ public:
   static HLLoop *setupPeelMainAndRemainderLoops(
       HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
       LoopOptReportBuilder &LORBuilder, OptimizationType,
-      HLLoop **PeelLoop = nullptr, bool PeelFirstIteration = false);
+      HLLoop **PeelLoop = nullptr, bool PeelFirstIteration = false,
+      SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
+          *RTChecks = nullptr);
 
   /// Updates Loop properties (Bounds, etc) based on input Permutations
   /// Used by Interchange now.

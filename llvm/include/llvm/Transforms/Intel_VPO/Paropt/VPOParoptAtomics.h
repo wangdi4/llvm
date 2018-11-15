@@ -554,6 +554,14 @@ private:
   static SmallVector<StoreInst *, 3>
   gatherFirstSecondToLastAndLastStores(BasicBlock &BB); // In
 
+  /// Returns the last StoreInst in the BasicBlock \p BB.
+  static StoreInst *getLastStoreInBB(BasicBlock &BB);
+
+  /// If \p BB has only one Instruction of type \p InstTy, return it.
+  /// Otherwise, return \b nullptr.
+  template <typename InstTy>
+  static InstTy *getLoneInstructionOfTypeInBB(BasicBlock &BB);
+
   /// \brief If there is only one StoreInst to \p Opnd inside BasicBlock \p
   /// BB, then return it. Otherwise, return nullptr.
   static StoreInst *getStoreToOpndIfUnique(BasicBlock &BB,     // In

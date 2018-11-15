@@ -20,8 +20,8 @@ define i32 @foo() local_unnamed_addr #0 {
 ; REPORT-LABEL:  Predicator report
 ; REPORT-NEXT:  [[REGION0:region[0-9]+]]:
 ; REPORT-NEXT:    [[BB0:BB[0-9]+]]:
-; REPORT-NEXT:      [[IFF0:IfF[0-9]+]] = ![[VP0:%.*]]
-; REPORT-NEXT:      [[IFT1:IfT[0-9]+]] = [[VP0]]
+; REPORT-NEXT:      [[IFF0:IfF[0-9]+]] = !i1 [[VP0:%.*]]
+; REPORT-NEXT:      [[IFT1:IfT[0-9]+]] = i1 [[VP0]]
 ; REPORT-NEXT:    [[BB1:BB[0-9]+]]:
 ; REPORT-NEXT:    [[BB2:BB[0-9]+]]:
 ; REPORT-NEXT:  End of the Predicator report.

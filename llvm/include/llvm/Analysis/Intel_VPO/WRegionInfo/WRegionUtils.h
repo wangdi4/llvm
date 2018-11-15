@@ -25,6 +25,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
 namespace llvm {
@@ -168,6 +169,27 @@ public:
 
   /// Creation Utilities
 
+  /// Update WRGraph from processing intrinsic calls representing directives.
+  /// @param[in]     Call     The call instruction with the intrinsic
+  /// @param[in,out] WRGraph  The WRN graph being updated
+  /// @param[in,out] S        Stack of pending WRN nodes
+  /// @param[in]     LI       LoopInfo, needed to call createWRegion()
+  /// @param[in]     DT       DomTree, needed to call finalize()
+  /// @param[in]     BB       The BasicBlock containing the intrinsic call
+#if INTEL_CUSTOMIZATION
+  /// @param[in]     H        The HLNode containing the intrinsic call
+  ///                         If \p H != null, then HIR is assumed; otherwise
+  ///                         LLVM IR CFG is assumed (using BB, DT, LI)
+#endif // INTEL_CUSTOMIZATION
+  static void updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
+                            WRStack<WRegionNode *> &S, LoopInfo *LI,
+                            DominatorTree *DT,
+#if INTEL_CUSTOMIZATION
+                            BasicBlock *BB, HLNode *H = nullptr);
+#else
+                            BasicBlock *BB);
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Returns a new node derived from WRegionNode node that
   /// matches the construct type based on DirID.
   static WRegionNode *createWRegion(int DirID, BasicBlock *EntryBB,
@@ -176,26 +198,18 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// \brief Similar to createWRegion, but for HIR vectorizer support
-  static WRegionNode *createWRegionHIR(int DirID,
-                                       loopopt::HLNode *EntryHLNode,
-                                       unsigned NestingLevel);
-
-  /// \brief Update WRGraph from processing intrinsic calls extracted
-  /// from HIR.  This is needed to support vectorizer in HIR.
-  ///   Call: the call instruction with the intrinsic
-  ///   IntrinId: the intrinsic id (eg intel_directive/_qual, etc.)
-  ///   WRGraph: points to the WRN graph being built
-  ///   S: stack of pending WRN nodes
-  ///   H: The HLNode containing the intrinsic call
-  static void updateWRGraphFromHIR(IntrinsicInst *Call,
-                                   Intrinsic::ID IntrinId,
-                                   WRContainerImpl *WRGraph,
-                                   WRStack<WRegionNode*> &S,
-                                   loopopt::HLNode *H);
+  static WRegionNode *createWRegionHIR(int DirID, loopopt::HLNode *EntryHLNode,
+                                       unsigned NestingLevel,
+                                       bool IsRegionIntrinsic,
+                                       IntrinsicInst *Call);
 
   /// \brief Driver routine to build WRGraph based on HIR representation
   static WRContainerImpl *buildWRGraphFromHIR(loopopt::HIRFramework &HIRF);
 #endif // INTEL_CUSTOMIZATION
+
+  /// New OpenMP directives under development can be added to this routine
+  /// to make the WRN graph builder skip them instead of asserting.
+  static bool skipDirFromWrnConstruction(int DirID);
 
   /// Removal Utilities
 
@@ -228,10 +242,16 @@ public:
   template <typename ClauseTy>
   static void extractQualOpndList(const Use *Args, unsigned NumArgs,
                                   int ClauseID, ClauseTy &C);
+  // The following interface uses ClausInfo instead of ClauseID to support
+  // the "ByRef" attribute.
+  template <typename ClauseTy>
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                  const ClauseSpecifier &ClauseInfo,
+                                  ClauseTy &C);
   template <typename ClauseItemTy>
   static void extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
-                                  const ClauseSpecifier &ClauseInfo,
-                                  Clause<ClauseItemTy> &C);
+                                        const ClauseSpecifier &ClauseInfo,
+                                        Clause<ClauseItemTy> &C);
 
   /// \brief Extract operands from a map clause
   static void extractMapOpndList(const Use *Args, unsigned NumArgs,
@@ -245,6 +265,7 @@ public:
 
   /// \brief Extract operands from a linear clause
   static void extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                    const ClauseSpecifier &ClauseInfo,
                                     LinearClause &C);
 
   /// \brief Extract operands from a reduction clause
@@ -330,6 +351,12 @@ public:
   /// Returns \b true if \p W contains a `\#pragma omp cancel` construct
   /// directly inside its region; \b false otherwise.
   static bool hasCancelConstruct(WRegionNode *W);
+
+  /// Return \b true if the WRGraph contains OMP target construct(s).
+  /// This is used by offloading codegen to exclude routines with
+  /// target regions from the target code after outlining is done.
+  static bool hasTargetDirective(WRContainerImpl &WRC);
+  static bool hasTargetDirective(WRegionInfo *WI);
 };
 
 } // End VPO Namespace

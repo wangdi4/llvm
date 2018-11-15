@@ -21,8 +21,16 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
 
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
+#endif // INTEL_INCLUDE_DTRANS
+
 using namespace llvm;
 using namespace llvm::loopopt;
+
+static cl::opt<bool> PrintDetailsRefs(
+    "hir-details-refs", cl::ReallyHidden,
+    cl::desc("Print details of RegDDRef dimensions"));
 
 #define DEBUG_TYPE "hir-regddref"
 
@@ -291,15 +299,19 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 
       *I ? (*I)->print(OS, Detailed) : (void)(OS << *I);
 
+      // Print dimensions details [lb:idx:stride(type:numelements)]
+      if (HasGEP && PrintDetailsRefs) {
+        OS << "(";
+        getDimensionType(DimNum)->print(OS, true, false);
+        OS << ":" << getNumDimensionElements(DimNum) << ")";
+      }
+
       if (HasGEP) {
         OS << "]";
 
         auto Offsets = getTrailingStructOffsets(DimNum);
-
-        if (Offsets) {
-          for (auto OffsetVal : *Offsets) {
-            OS << "." << OffsetVal;
-          }
+        for (auto OffsetVal : Offsets) {
+          OS << "." << OffsetVal;
         }
       }
     }
@@ -334,9 +346,7 @@ Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
                            : RetTy->getArrayElementType();
 
     if (RetTy->isStructTy()) {
-      if (auto *Offsets = getTrailingStructOffsets(I)) {
-        RetTy = DDRefUtils::getOffsetType(RetTy, *Offsets);
-      }
+      RetTy = DDRefUtils::getOffsetType(RetTy, getTrailingStructOffsets(I));
     }
   }
 
@@ -361,10 +371,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 
     // Extract the type from the first dimension/offsets.
     auto RefTy = getDimensionElementType(1);
-    auto Offsets = getTrailingStructOffsets(1);
-    if (Offsets) {
-      RefTy = DDRefUtils::getOffsetType(RefTy, *Offsets);
-    }
+    RefTy = DDRefUtils::getOffsetType(RefTy, getTrailingStructOffsets(1));
 
     // For DDRefs representing addresses, we need to return a pointer to
     // RefTy.
@@ -566,6 +573,16 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   }
 
   CanonExpr *StrideAtLevel = nullptr;
+  bool FitsIn32Bits = false;
+#if INTEL_INCLUDE_DTRANS
+  // IPO's padding transformation and propagation is also responsible to
+  // generate RT check on malloc site to check that user doesn't try to
+  // allocate more than 4GB of memory. As soon as currently there's no
+  // other interface to ask about this RT check for 4GB, we have to assume
+  // that if pointer is padded, 4GB check is inserted.
+  if (Value *Base = getTempBaseValue())
+    FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
+#endif // INTEL_INCLUDE_DTRANS
 
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
@@ -590,7 +607,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
       return nullptr;
     }
 
-    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode())) {
+    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode(), FitsIn32Bits)) {
       return nullptr;
     }
 
@@ -604,7 +621,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
           DimCE->getSrcType(), DimCE->getDestType(), DimCE->isSExt());
     }
 
-    uint64_t DimStride = getDimensionStride(I);
+    uint64_t DimStride = getDimensionConstStride(I);
 
     if (Index != InvalidBlobIndex) {
       StrideAtLevel->addBlob(Index, Coeff * DimStride);
@@ -642,6 +659,17 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
 
   int64_t StrideVal = 0;
 
+  bool FitsIn32Bits = false;
+#if INTEL_INCLUDE_DTRANS
+  // IPO's padding transformation and propagation is also responsible to
+  // generate RT check on malloc site to check that user doesn't try to
+  // allocate more than 4GB of memory. As soon as currently there's no
+  // other interface to ask about this RT check for 4GB, we have to assume
+  // that if pointer is padded, 4GB check is inserted.
+  if (Value *Base = getTempBaseValue())
+    FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
+#endif // INTEL_INCLUDE_DTRANS
+
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
 
@@ -663,11 +691,11 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
       return false;
     }
 
-    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode())) {
+    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode(), FitsIn32Bits)) {
       return false;
     }
 
-    StrideVal += (Coeff * getDimensionStride(I));
+    StrideVal += (Coeff * getDimensionConstStride(I));
   }
 
   if (Stride) {
@@ -692,7 +720,7 @@ bool RegDDRef::isUnitStride(unsigned Level, bool &IsNegStride) const {
   return (Size == (uint64_t)std::abs(Stride));
 }
 
-uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
+int64_t RegDDRef::getDimensionConstStride(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
@@ -708,10 +736,12 @@ uint64_t RegDDRef::getDimensionSize(unsigned DimensionNum) const {
                               : getCanonExprUtils().getTypeSizeInBytes(DimTy);
 }
 
-uint64_t RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
-  auto DimTy = getDimensionType(DimensionNum);
+unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
+  assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
-  return DimTy->isPointerTy() ? 0 : DimTy->getArrayNumElements();
+  Type *DimType = getDimensionType(DimensionNum);
+  return DimType->isArrayTy() ? DimType->getArrayNumElements() : 0;
 }
 
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
@@ -1217,7 +1247,7 @@ void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
 }
 
 void RegDDRef::setTrailingStructOffsets(
-    unsigned DimensionNum, const SmallVectorImpl<unsigned> &Offsets) {
+    unsigned DimensionNum, ArrayRef<unsigned> Offsets) {
   createGEP();
 
   if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {
@@ -1236,30 +1266,26 @@ void RegDDRef::setTrailingStructOffsets(
   DimOffsets.append(Offsets.begin(), Offsets.end());
 }
 
-const SmallVectorImpl<unsigned> *
+ArrayRef<unsigned>
 RegDDRef::getTrailingStructOffsets(unsigned DimensionNum) const {
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
   assert(hasGEPInfo() && " Offsets are not meaningful for non-GEP DDRefs!");
 
   if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {
-    return nullptr;
+    return {};
   }
 
   if (getGEPInfo()->DimensionOffsets[DimensionNum - 1].empty()) {
-    return nullptr;
+    return {};
   }
 
-  return &getGEPInfo()->DimensionOffsets[DimensionNum - 1];
+  return getGEPInfo()->DimensionOffsets[DimensionNum - 1];
 }
 
 bool RegDDRef::hasNonZeroTrailingStructOffsets(unsigned DimensionNum) const {
   auto Offsets = getTrailingStructOffsets(DimensionNum);
 
-  if (!Offsets) {
-    return false;
-  }
-
-  for (auto Offset : (*Offsets)) {
+  for (auto Offset : Offsets) {
     if (Offset != 0) {
       return true;
     }

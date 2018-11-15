@@ -1873,6 +1873,6 @@ INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnrollLegacyPass,
                     "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass",
                     false, false)
 
-FunctionPass *llvm::createHIRSymbolicTripCountCompleteUnrollPass() {
+FunctionPass *llvm::createHIRSymbolicTripCountCompleteUnrollLegacyPass() {
   return new HIRSymbolicTripCountCompleteUnrollLegacyPass();
 }
