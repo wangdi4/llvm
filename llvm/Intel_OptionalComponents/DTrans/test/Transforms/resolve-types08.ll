@@ -1,4 +1,5 @@
 ; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
 
 ; This test verifies that the dtrans::ResolveTypes correctly combines
 ; types that are nested within other structures.

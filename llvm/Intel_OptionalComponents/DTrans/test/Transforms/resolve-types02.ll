@@ -1,5 +1,7 @@
 ; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes \
 ; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes \
+; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Verify that types which are similar but not compatible or equivalent are
