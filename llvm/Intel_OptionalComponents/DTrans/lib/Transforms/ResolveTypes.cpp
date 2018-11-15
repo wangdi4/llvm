@@ -426,16 +426,16 @@ private:
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast from the TypeUseInfoType *to* the set entry type.
-    SmallPtrSet<Type *, 4> BitcastToSet;
-    SmallPtrSet<Type *, 4> FnBitcastToSet;
+    SetVector<Type *> BitcastToSet;
+    SetVector<Type *> FnBitcastToSet;
 
     // Each type in this set is a type that was seen as the source of
     // a bitcast (or implicit conversion in a bitcast call) to the type
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast *from* the set entry type to the TypeUseInfo type.
-    SmallPtrSet<Type *, 4> BitcastFromSet;
-    SmallPtrSet<Type *, 4> FnBitcastFromSet;
+    SetVector<Type *> BitcastFromSet;
+    SetVector<Type *> FnBitcastFromSet;
 
     // This value indicates whether or not we saw a GEP access to the type
     // using a non-constant index.
@@ -454,22 +454,47 @@ private:
   // testing.
   LLVM_DUMP_METHOD
   void dumpCollectedData() {
+    auto CompareStructName = [](StructType *ElemA, StructType *ElemB) {
+      return ElemA->getName() < ElemB->getName();
+    };
+
     dbgs() << "\n========================\n";
     dbgs() << " DTRT-compat: Type data\n";
     dbgs() << "========================\n\n";
-    // Iterate over all of the equivalence sets.
-    for (EquivalenceClasses<StructType *>::iterator I = CompatibleTypes.begin(),
-                                                    E = CompatibleTypes.end();
-         I != E; ++I) {
+
+    // Iterate over all of the equivalence sets finding the starting element for
+    // each group, known as a "Leader" in the EquivalenceClasses class
+    // terminology.
+    SmallVector<StructType *, 16> SetLeaders;
+    for (auto I = CompatibleTypes.begin(), E = CompatibleTypes.end(); I != E;
+         ++I) {
       // A "Leader" in an EquivalenceClasses set is just the first entry
       // in a group of entries that have been marked as belonging together.
       // It serves as the head of a linked list.
       if (!I->isLeader())
         continue; // Skip over non-leader sets.
-      dbgs() << "    ===== Group =====\n\n";
+      SetLeaders.emplace_back(I->getData());
+    }
+
+    // Sort the leaders based on the structure's name. Only named structures
+    // are maintained in the CompatibleTypes set.
+    std::sort(SetLeaders.begin(), SetLeaders.end(), CompareStructName);
+
+    // Output each group.
+    for (auto *LeaderTy : SetLeaders) {
+
+      // Get all the members of the group, and sort those by name to prepare
+      // for outputting them.
+      auto I = CompatibleTypes.findValue(LeaderTy);
+
       auto MI = CompatibleTypes.member_begin(I);
       auto ME = CompatibleTypes.member_end();
-      StructType *LeaderTy = *MI;
+      SmallVector<StructType *, 8> SetMembers;
+      for (; MI != ME; ++MI)
+        SetMembers.emplace_back(*MI);
+      std::sort(SetMembers.begin(), SetMembers.end(), CompareStructName);
+
+      dbgs() << "    ===== Group =====\n\n";
       unsigned NumElements = LeaderTy->getNumElements();
       dbgs() << "\n" << LeaderTy->getName() << "\n";
       dbgs() << *LeaderTy << "\n";
@@ -486,8 +511,7 @@ private:
 
       // Loop over members in this set.
       SmallBitVector ConflictingFields;
-      while (MI != ME) {
-        StructType *Ty = *MI;
+      for (auto *Ty : SetMembers) {
         dbgs() << Ty->getName() << "\n";
 
         TypeUseInfo &UseInfo = TypeUseInfoMap[Ty];
@@ -527,7 +551,7 @@ private:
         }
 
         dbgs() << "  Bitcast to:";
-        SmallPtrSetImpl<Type *> &CastTo = UseInfo.BitcastToSet;
+        auto &CastTo = UseInfo.BitcastToSet;
         if (CastTo.empty()) {
           dbgs() << " None\n";
         } else {
@@ -542,7 +566,7 @@ private:
         }
 
         dbgs() << "  Bitcast from:";
-        SmallPtrSetImpl<Type *> &CastFrom = UseInfo.BitcastFromSet;
+        auto &CastFrom = UseInfo.BitcastFromSet;
         if (CastFrom.empty()) {
           dbgs() << " None\n";
         } else {
@@ -557,7 +581,7 @@ private:
         }
 
         dbgs() << "  Fn Bitcast to:";
-        SmallPtrSetImpl<Type *> &FnCastTo = UseInfo.FnBitcastToSet;
+        auto &FnCastTo = UseInfo.FnBitcastToSet;
         if (FnCastTo.empty()) {
           dbgs() << " None\n";
         } else {
@@ -572,7 +596,7 @@ private:
         }
 
         dbgs() << "  Fn Bitcast from:";
-        SmallPtrSetImpl<Type *> &FnCastFrom = UseInfo.FnBitcastFromSet;
+        auto &FnCastFrom = UseInfo.FnBitcastFromSet;
         if (FnCastFrom.empty()) {
           dbgs() << " None\n";
         } else {
@@ -594,7 +618,6 @@ private:
                  << "\n";
 
         dbgs() << "\n";
-        ++MI;
       }
       dbgs() << "\n    =================\n\n";
     }
@@ -861,9 +884,11 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
   // Sometimes previous optimizations will have left types that are not
   // used in a way that allows Module::getIndentifiedStructTypes() to find
   // them. This can confuse our mapping algorithm, so here we check for
-  // missing types and add them to the set we're looking at.
+  // missing types and add them to the set we're looking at. In order to
+  // consistently choose the same target type for equivalent types and
+  // compatible types, a SetVector is used for collecting the available types.
   std::vector<StructType *> StTypes = M.getIdentifiedStructTypes();
-  SmallPtrSet<StructType *, 32> SeenTypes;
+  SetVector<StructType *> SeenTypes;
   std::function<void(StructType *)> findMissedNestedTypes =
       [&](StructType *Ty) {
         for (Type *ElemTy : Ty->elements()) {
@@ -871,7 +896,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
           // If the element is a structure, add it to the SeenTypes set.
           // If it wasn't already there, check for nested types.
           if (StructType *ElemStTy = getContainedStructTy(ElemTy))
-            if (SeenTypes.insert(ElemStTy).second)
+            if (SeenTypes.insert(ElemStTy))
               findMissedNestedTypes(ElemStTy);
         }
         if (!Ty->hasName())
@@ -884,13 +909,13 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
           return;
         // Add the base type now. This might be the only way it is found.
         StructType *BaseTy = M.getTypeByName(BaseName);
-        if (!BaseTy || !SeenTypes.insert(BaseTy).second)
+        if (!BaseTy || !SeenTypes.insert(BaseTy))
           return;
         findMissedNestedTypes(BaseTy);
       };
   for (StructType *Ty : M.getIdentifiedStructTypes()) {
     // If we've seen this type already, skip it.
-    if (!SeenTypes.insert(Ty).second)
+    if (!SeenTypes.insert(Ty))
       continue;
     findMissedNestedTypes(Ty);
   }
