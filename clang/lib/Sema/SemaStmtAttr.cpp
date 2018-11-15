@@ -160,6 +160,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
             .Case("force_no_hyperopt", "pragma force_no_hyperopt")
             .Case("nofusion", "#pragma nofusion")
             .Case("fusion", "#pragma fusion")
+            .Case("vector", "#pragma vector")
             .Case("novector", "#pragma novector")
             .Case("loop_count", "#pragma loop_count")
 #endif // INTEL_CUSTOMIZATION
