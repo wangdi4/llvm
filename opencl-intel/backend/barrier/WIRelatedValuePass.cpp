@@ -115,7 +115,7 @@ namespace intel {
     //LLVM does not have compile time polymorphisms
     //TODO: to make things faster we may want to sort the list below according
     //to the order of their probability of appearance.
-    if (BinaryOperator     *inst = dyn_cast<BinaryOperator>(pInst))    {newRelation = calculate_dep(inst); }
+    if      (BinaryOperator     *inst = dyn_cast<BinaryOperator>(pInst))    {newRelation = calculate_dep(inst); }
     else if (CallInst           *inst = dyn_cast<CallInst>(pInst))          {newRelation = calculate_dep(inst); }
     else if (CmpInst            *inst = dyn_cast<CmpInst>(pInst))           {newRelation = calculate_dep(inst); }
     else if (ExtractElementInst *inst = dyn_cast<ExtractElementInst>(pInst)){newRelation = calculate_dep(inst); }
@@ -125,7 +125,7 @@ namespace intel {
     else if (PHINode            *inst = dyn_cast<PHINode>(pInst))           {newRelation = calculate_dep(inst); }
     else if (ShuffleVectorInst  *inst = dyn_cast<ShuffleVectorInst>(pInst)) {newRelation = calculate_dep(inst); }
     else if (StoreInst          *inst = dyn_cast<StoreInst>(pInst))         {newRelation = calculate_dep(inst); }
-    else if (pInst->isTerminator())                                         {newRelation = calculate_dep(pInst);}
+    else if (pInst->isTerminator())                                         {newRelation = calculate_dep_terminator(pInst);}
     else if (SelectInst         *inst = dyn_cast<SelectInst>(pInst))        {newRelation = calculate_dep(inst); }
     else if (AllocaInst         *inst = dyn_cast<AllocaInst>(pInst))        {newRelation = calculate_dep(inst); }
     else if (CastInst           *inst = dyn_cast<CastInst>(pInst))          {newRelation = calculate_dep(inst); }
@@ -305,7 +305,8 @@ namespace intel {
     return false;
   }
 
-  bool WIRelatedValue::calculate_dep(Instruction *pInst) {
+  bool WIRelatedValue::calculate_dep_terminator(Instruction *pInst) {
+    assert(pInst->isTerminator() && "Expect a terminator instruction!");
     //Instruction has no return value
     //Just need to know if this inst is uniform or not
     //because we may want to avoid predication if the control flows

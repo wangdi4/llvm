@@ -129,7 +129,7 @@ private:
     WIDependancy calculate_dep(const CallInst* inst);
     WIDependancy calculate_dep(const GetElementPtrInst* inst);
     WIDependancy calculate_dep(const PHINode* inst);
-    WIDependancy calculate_dep(const Instruction* inst);
+    WIDependancy calculate_dep_terminator(const Instruction* inst);
     WIDependancy calculate_dep(const SelectInst* inst);
     WIDependancy calculate_dep(const AllocaInst* inst);
     WIDependancy calculate_dep(const CastInst* inst);
