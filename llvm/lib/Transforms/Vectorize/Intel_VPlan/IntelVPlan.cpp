@@ -234,8 +234,10 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         if (PredVPBB->getSuccessors()[0] == this) {
           FirstSuccBB = NewBB;
           SecondSuccBB = PredBB->getSingleSuccessor();
+          assert(SecondSuccBB && "Expected single successor!");
         } else {
           FirstSuccBB = PredBB->getSingleSuccessor();
+          assert(FirstSuccBB && "Expected single successor!");
           SecondSuccBB = NewBB;
         }
 
