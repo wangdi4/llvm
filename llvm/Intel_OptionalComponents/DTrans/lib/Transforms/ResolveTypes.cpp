@@ -264,6 +264,14 @@ public:
         return Ty;
       }
 
+      if (!CompatibleTypes.isEquivalent(Ty, MaybeTy)) {
+          DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                          dbgs() << "DTRT-compat: Rejecting mapping ("
+                          << Ty->getName() << " -> " << MaybeTy->getName()
+                          << " because the types are not compatible.\n");
+          break;
+      }
+
       const TypeUseInfo &MaybeUseInfo = TypeUseInfoMap[MaybeTy];
 
       assert((NumElements == MaybeTy->getNumElements()) &&
