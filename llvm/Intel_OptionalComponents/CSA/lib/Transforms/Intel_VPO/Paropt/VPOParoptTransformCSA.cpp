@@ -96,8 +96,8 @@ private:
   // private instance.
   virtual void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) {
     auto *Old = I->getOrig();
-    auto *New = PT.genPrivatizationAlloca(Old, getInitBB()->getTerminator(),
-                                          Suffix);
+    auto *New = VPOParoptTransform::genPrivatizationAlloca(Old,
+        getInitBB()->getTerminator(), Suffix);
     I->setNew(New);
     PT.genPrivatizationReplacement(W, Old, New, I);
   }
@@ -329,7 +329,7 @@ private:
     auto *InsPt = getInitBB()->getFirstNonPHI();
 
     // Create alloca for the private variable.
-    auto *New = PT.genPrivatizationAlloca(Old, InsPt, Suffix);
+    auto *New = VPOParoptTransform::genPrivatizationAlloca(Old, InsPt, Suffix);
     I->setNew(New);
 
     // Create clones of all collected defs at the beginning of the loop
