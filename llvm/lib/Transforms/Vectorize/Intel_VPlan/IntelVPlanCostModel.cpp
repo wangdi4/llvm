@@ -219,7 +219,10 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
   // be different.
-  return DL->getABITypeAlignment(getMemInstValueType(VPInst));
+  if (Type *Ty = getMemInstValueType(VPInst))
+    return DL->getABITypeAlignment(Ty);
+
+  return 0;
 }
 
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
