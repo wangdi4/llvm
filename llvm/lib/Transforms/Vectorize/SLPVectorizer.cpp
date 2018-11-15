@@ -2548,7 +2548,7 @@ void BoUpSLP::PSLPFailureCleanup() {
        it != SelectsEmittedByPSLP.end();) {
     auto nextIt = it;
     ++nextIt;
-    SelectInst *Select = dyn_cast<SelectInst>(*it);
+    SelectInst *Select = *it;
     // 1. Remove the non-selected operand.
     Value *NonSelectedOperand = (Select->getCondition() == Builder.getTrue())
                                     ? Select->getFalseValue()
