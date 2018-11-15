@@ -1132,6 +1132,19 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   Entry->executeHIR(CG);
 }
 
+void VPlan::verifyVPConstants() const {
+  SmallPtrSet<const Constant *, 16> ConstantSet;
+  for (const auto &Pair : VPConstants) {
+    const Constant *KeyConst = Pair.first;
+    assert(KeyConst == Pair.second->getConstant() &&
+           "Value key and VPConstant's underlying Constant must be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!ConstantSet.count(KeyConst) && "Repeated VPConstant!");
+    ConstantSet.insert(KeyConst);
+  }
+}
+
 void VPlan::verifyVPExternalDefs() const {
   SmallPtrSet<const Value *, 16> ValueSet;
   for (const auto &Pair : VPExternalDefs) {

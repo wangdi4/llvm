@@ -2196,7 +2196,7 @@ protected:
 
 #if INTEL_CUSTOMIZATION
   /// Holds all the VPConstants created for this VPlan.
-  DenseSet<VPConstant*> VPConstants;
+  DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
   /// Holds all the external definitions representing an underlying Value
   /// in this VPlan. The key is the underlying Value that uniquely identifies
@@ -2236,8 +2236,6 @@ public:
       delete (VPLInfo);
     if (VPlanDA)
       delete VPlanDA;
-    for (auto *VPConst : VPConstants)
-      delete VPConst;
 #else
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
@@ -2306,9 +2304,12 @@ public:
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.
   VPConstant *getVPConstant(Constant *Const) {
-    // Dropping the const qualifier is not a problem because VPConstant is
-    // immutable.
-    return *VPConstants.insert(new VPConstant(Const)).first;
+    std::unique_ptr<VPConstant> &UPtr = VPConstants[Const];
+    if (!UPtr)
+      // Const is a new VPConstant to be inserted in the map.
+      UPtr.reset(new VPConstant(Const));
+
+    return UPtr.get();
   }
 
   // Create or retrieve a VPExternalDef for a given Value \p ExtVal.
@@ -2343,6 +2344,10 @@ public:
 
     return UPtr.get();
   }
+
+  // Verify that VPConstants are unique in the pool and that the map keys are
+  // consistent with the underlying IR information of each VPConstant.
+  void verifyVPConstants() const;
 
   // Verify that VPExternalDefs are unique in the pool and that the map keys are
   // consistent with the underlying IR information of each VPExternalDef.

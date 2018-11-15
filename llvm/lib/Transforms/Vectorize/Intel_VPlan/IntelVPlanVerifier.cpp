@@ -295,6 +295,7 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
 
 #if INTEL_CUSTOMIZATION
 void VPlanVerifier::verifyHCFGContext(const VPlan *Plan) {
+  Plan->verifyVPConstants();
   Plan->verifyVPExternalDefs();
   Plan->verifyVPExternalDefsHIR();
 }

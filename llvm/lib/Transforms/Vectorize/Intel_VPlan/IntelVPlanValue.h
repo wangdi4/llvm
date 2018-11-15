@@ -322,7 +322,7 @@ protected:
   /// Return the underlying Constant attached to this VPConstant. This interface
   /// is similar to getValue() but hides the cast when we are working with
   /// VPConstant pointers.
-  Constant *getConstant() {
+  Constant *getConstant() const {
     assert(isa<Constant>(UnderlyingVal) &&
            "Expected Constant as underlying Value.");
     return cast<Constant>(UnderlyingVal);
@@ -331,14 +331,6 @@ protected:
 public:
   VPConstant(const VPConstant &) = delete;
   VPConstant &operator=(const VPConstant &) const = delete;
-
-  // Structural comparators.
-  bool operator==(const VPConstant &C) const {
-    return UnderlyingVal == C.UnderlyingVal;
-  };
-  bool operator<(const VPConstant &C) const {
-    return UnderlyingVal < C.UnderlyingVal;
-  };
 
   void printAsOperand(raw_ostream &OS) const override {
     UnderlyingVal->printAsOperand(OS);
