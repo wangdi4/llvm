@@ -1477,7 +1477,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DRIVER_VERSION ):
         {
             std::string driverVer = isCPUDeviceMode ? GetModuleProductVersion()
-                                                    : "18.1";
+                                                    : "19.1";
             *pinternalRetunedValueSize = driverVer.length() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {

@@ -22,7 +22,7 @@ bool clGetDeviceInfoTest()
   const char * desiredDriverVerStr = "7.6.0.0";
   if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
   {
-    desiredDriverVerStr = "18.1";
+    desiredDriverVerStr = "19.1";
   }
 
 	cl_platform_id platform = 0;
