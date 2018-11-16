@@ -1,0 +1,547 @@
+# RUN: llc %s -spill-freq-boost=true -run-pass=greedy \
+# RUN: -spill-freq-boost-threshold=5 -debug-only=spill-code-placement \
+# RUN: -o /dev/null 2>&1 | FileCheck %s
+# REQUIRES: asserts
+
+# CHECK: Block's {{.*}}while.body{{.*}} frequency boosted due to 'while' heuristics
+
+--- |
+  ; ModuleID = '2.c'
+  source_filename = "2.c"
+  target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+  target triple = "x86_64-unknown-linux-gnu"
+  
+  @a = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+  @s = common dso_local local_unnamed_addr global [1024 x i8] zeroinitializer, align 16
+  
+  ; Function Attrs: nounwind uwtable
+  define dso_local void @foo(i32 %c) local_unnamed_addr #0 {
+  entry:
+    %0 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @a, i64 0, i64 1), align 4, !tbaa !2
+    %cmp91 = icmp eq i32 %0, 0
+    br i1 %cmp91, label %cleanup, label %while.cond3.preheader.preheader
+  
+  while.cond3.preheader.preheader:                  ; preds = %entry
+    br label %while.cond3.preheader
+  
+  while.cond.loopexit:                              ; preds = %while.cond3.loopexit, %while.cond3.preheader
+    %c.addr.1.lcssa = phi i32 [ %j.094, %while.cond3.preheader ], [ %inc, %while.cond3.loopexit ]
+    %i.1.lcssa = phi i32 [ %i.093, %while.cond3.preheader ], [ %i.3.lcssa, %while.cond3.loopexit ]
+    %idxprom1 = sext i32 %i.1.lcssa to i64
+    %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %idxprom1, !intel-tbaa !2
+    %1 = load i32, i32* %arrayidx2, align 4, !tbaa !2
+    %cmp = icmp eq i32 %1, 0
+    br i1 %cmp, label %cleanup, label %while.cond3.preheader
+  
+  while.cond3.preheader:                            ; preds = %while.cond3.preheader.preheader, %while.cond.loopexit
+    %j.094 = phi i32 [ %c.addr.1.lcssa, %while.cond.loopexit ], [ %0, %while.cond3.preheader.preheader ]
+    %i.093 = phi i32 [ %i.1.lcssa, %while.cond.loopexit ], [ 1, %while.cond3.preheader.preheader ]
+    %c.addr.092 = phi i32 [ %c.addr.1.lcssa, %while.cond.loopexit ], [ %c, %while.cond3.preheader.preheader ]
+    %cmp484 = icmp eq i32 %j.094, %c.addr.092
+    br i1 %cmp484, label %while.cond.loopexit, label %while.body5.preheader
+  
+  while.body5.preheader:                            ; preds = %while.cond3.preheader
+    br label %while.body5
+  
+  while.cond3.loopexit.loopexit:                    ; preds = %while.body24
+    %tmp = trunc i64 %lsr.iv.next291 to i32
+    br label %while.cond3.loopexit
+  
+  while.cond3.loopexit:                             ; preds = %while.cond3.loopexit.loopexit, %while.cond22.preheader
+    %i.3.lcssa = phi i32 [ %i.186, %while.cond22.preheader ], [ %lsr, %while.cond3.loopexit.loopexit ]
+    %dec.lcssa = phi i32 [ %dec79, %while.cond22.preheader ], [ %tmp, %while.cond3.loopexit.loopexit ]
+    %cmp4 = icmp eq i32 %inc, %dec.lcssa
+    br i1 %cmp4, label %while.cond.loopexit, label %while.body5
+  
+  while.body5:                                      ; preds = %while.body5.preheader, %while.cond3.loopexit
+    %j.187 = phi i32 [ %inc, %while.cond3.loopexit ], [ %j.094, %while.body5.preheader ]
+    %i.186 = phi i32 [ %i.3.lcssa, %while.cond3.loopexit ], [ %i.093, %while.body5.preheader ]
+    %c.addr.185 = phi i32 [ %dec.lcssa, %while.cond3.loopexit ], [ %c.addr.092, %while.body5.preheader ]
+    %inc = add nsw i32 %j.187, 1
+    switch i32 %j.187, label %while.cond22.preheader [
+      i32 0, label %sw.bb
+      i32 2, label %sw.bb6
+      i32 4, label %while.cond8.preheader
+      i32 6, label %sw.bb16
+      i32 7, label %sw.bb17
+      i32 16, label %sw.bb18
+      i32 26, label %sw.bb19
+      i32 27, label %sw.bb20
+      i32 36, label %sw.bb21
+    ]
+  
+  while.cond22.preheader:                           ; preds = %while.body5
+    %dec79 = add nsw i32 %c.addr.185, -1
+    %cmp2380 = icmp slt i32 %i.186, %c.addr.185
+    br i1 %cmp2380, label %while.body24.preheader, label %while.cond3.loopexit
+  
+  while.body24.preheader:                           ; preds = %while.cond22.preheader
+    %2 = sext i32 %i.186 to i64
+    %3 = sext i32 %c.addr.185 to i64
+    %4 = add i64 %3, -1
+    br label %while.body24
+  
+  while.cond8.preheader:                            ; preds = %while.body5
+    %cmp977 = icmp slt i32 %i.186, %c.addr.185
+    br i1 %cmp977, label %while.body10.preheader, label %while.end
+  
+  while.body10.preheader:                           ; preds = %while.cond8.preheader
+    %5 = sext i32 %i.186 to i64
+    %wide.trip.count = sext i32 %c.addr.185 to i64
+    %6 = sub nsw i64 %wide.trip.count, %5
+    %7 = and i64 %6, -4
+    %hir.cmp.20 = icmp eq i64 %7, 0
+    br i1 %hir.cmp.20, label %ifmerge.20, label %then.20
+  
+  sw.bb:                                            ; preds = %while.body5
+    store i8 5, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 1), align 1, !tbaa !7
+    br label %cleanup
+  
+  sw.bb6:                                           ; preds = %while.body5
+    store i8 15, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 2), align 2, !tbaa !7
+    br label %cleanup
+  
+  while.end:                                        ; preds = %loop.13, %ifmerge.20, %while.cond8.preheader
+    tail call void (...) @goo() #2
+    ret void
+  
+  sw.bb16:                                          ; preds = %while.body5
+    store i8 25, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 3), align 1, !tbaa !7
+    br label %cleanup
+  
+  sw.bb17:                                          ; preds = %while.body5
+    store i8 45, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 4), align 4, !tbaa !7
+    br label %cleanup
+  
+  sw.bb18:                                          ; preds = %while.body5
+    store i8 55, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 5), align 1, !tbaa !7
+    br label %cleanup
+  
+  sw.bb19:                                          ; preds = %while.body5
+    store i8 35, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 13), align 1, !tbaa !7
+    br label %cleanup
+  
+  sw.bb20:                                          ; preds = %while.body5
+    store i8 35, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 14), align 2, !tbaa !7
+    br label %cleanup
+  
+  sw.bb21:                                          ; preds = %while.body5
+    store i8 35, i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 15), align 1, !tbaa !7
+    br label %cleanup
+  
+  while.body24:                                     ; preds = %while.body24.preheader, %while.body24
+    %lsr.iv290 = phi i64 [ %4, %while.body24.preheader ], [ %lsr.iv.next291, %while.body24 ]
+    %indvars.iv125 = phi i64 [ %2, %while.body24.preheader ], [ %indvars.iv.next126, %while.body24 ]
+    %8 = shl i64 %indvars.iv125, 2
+    %uglygep283 = getelementptr i8, i8* bitcast ([1024 x i32]* @a to i8*), i64 %8
+    %uglygep283284 = bitcast i8* %uglygep283 to i32*
+    %9 = load i32, i32* %uglygep283284, align 4, !tbaa !2
+    %10 = shl i64 %indvars.iv125, 2
+    %uglygep285 = getelementptr i8, i8* bitcast ([1024 x i32]* @a to i8*), i64 %10
+    %uglygep285286 = bitcast i8* %uglygep285 to i32*
+    %scevgep287 = getelementptr i32, i32* %uglygep285286, i64 -1
+    store i32 %9, i32* %scevgep287, align 4, !tbaa !2
+    %indvars.iv.next126 = add nsw i64 %indvars.iv125, 1
+    %lsr = trunc i64 %indvars.iv.next126 to i32
+    %lsr.iv.next291 = add i64 %lsr.iv290, -1
+    %cmp23 = icmp slt i64 %indvars.iv.next126, %lsr.iv290
+    br i1 %cmp23, label %while.body24, label %while.cond3.loopexit.loopexit
+  
+  cleanup:                                          ; preds = %while.cond.loopexit, %entry, %sw.bb21, %sw.bb20, %sw.bb19, %sw.bb18, %sw.bb17, %sw.bb16, %sw.bb6, %sw.bb
+    ret void
+  
+  then.20:                                          ; preds = %while.body10.preheader
+    %11 = add nsw i64 %7, -1
+    %scevgep275 = getelementptr [1024 x i32], [1024 x i32]* @a, i64 0, i64 %5
+    br label %loop.19
+  
+  loop.19:                                          ; preds = %loop.19, %then.20
+    %i1.i64.0 = phi i64 [ 0, %then.20 ], [ %nextivloop.19, %loop.19 ]
+    %scevgep278 = getelementptr i32, i32* %scevgep275, i64 %i1.i64.0
+    %scevgep278279 = bitcast i32* %scevgep278 to <4 x i32>*
+    %scevgep278279280 = bitcast <4 x i32>* %scevgep278279 to i8*
+    %uglygep281 = getelementptr i8, i8* %scevgep278279280, i64 -4
+    %uglygep281282 = bitcast i8* %uglygep281 to <4 x i32>*
+    %scevgep276 = getelementptr i32, i32* %scevgep275, i64 %i1.i64.0
+    %scevgep276277 = bitcast i32* %scevgep276 to <4 x i32>*
+    %gepload = load <4 x i32>, <4 x i32>* %scevgep276277, align 4, !tbaa !2
+    store <4 x i32> %gepload, <4 x i32>* %uglygep281282, align 4, !tbaa !2
+    %nextivloop.19 = add nuw i64 %i1.i64.0, 4
+    %condloop.19 = icmp ugt i64 %nextivloop.19, %11
+    br i1 %condloop.19, label %ifmerge.20, label %loop.19, !llvm.loop !9
+  
+  ifmerge.20:                                       ; preds = %loop.19, %while.body10.preheader
+    %hir.cmp.21 = icmp ult i64 %7, %6
+    br i1 %hir.cmp.21, label %then.21, label %while.end
+  
+  then.21:                                          ; preds = %ifmerge.20
+    %12 = add nsw i64 %6, -1
+    %13 = add i64 %7, -1
+    %14 = shl i64 %5, 2
+    br label %loop.13
+  
+  loop.13:                                          ; preds = %loop.13, %then.21
+    %lsr.iv = phi i64 [ %lsr.iv.next, %loop.13 ], [ %13, %then.21 ]
+    %sunkaddr = mul i64 %lsr.iv, 4
+    %sunkaddr293 = add i64 %14, %sunkaddr
+    %sunkaddr294 = getelementptr i8, i8* bitcast ([1024 x i32]* @a to i8*), i64 %sunkaddr293
+    %sunkaddr295 = getelementptr i8, i8* %sunkaddr294, i64 4
+    %15 = bitcast i8* %sunkaddr295 to i32*
+    %gepload198 = load i32, i32* %15, align 4, !tbaa !2
+    %sunkaddr296 = mul i64 %lsr.iv, 4
+    %sunkaddr297 = add i64 %14, %sunkaddr296
+    %sunkaddr298 = getelementptr i8, i8* bitcast ([1024 x i32]* @a to i8*), i64 %sunkaddr297
+    %16 = bitcast i8* %sunkaddr298 to i32*
+    store i32 %gepload198, i32* %16, align 4, !tbaa !2
+    %lsr.iv.next = add i64 %lsr.iv, 1
+    %condloop.13 = icmp ult i64 %lsr.iv.next, %12
+    br i1 %condloop.13, label %loop.13, label %while.end, !llvm.loop !13
+  }
+  
+  declare dso_local void @goo(...) local_unnamed_addr #1
+  
+  ; Function Attrs: nounwind
+  declare void @llvm.stackprotector(i8*, i8**) #2
+  
+  attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+  attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+  attributes #2 = { nounwind }
+  
+  !llvm.module.flags = !{!0}
+  !llvm.ident = !{!1}
+  
+  !0 = !{i32 1, !"wchar_size", i32 4}
+  !1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 9973144f8ba1c2df0c998d1b1d525417f408a63e) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm e3c76b18b976efd9ba5b9167a736dc2cdbe967b8)"}
+  !2 = !{!3, !4, i64 0}
+  !3 = !{!"array@_ZTSA1024_i", !4, i64 0}
+  !4 = !{!"int", !5, i64 0}
+  !5 = !{!"omnipotent char", !6, i64 0}
+  !6 = !{!"Simple C/C++ TBAA"}
+  !7 = !{!8, !5, i64 0}
+  !8 = !{!"array@_ZTSA1024_h", !5, i64 0}
+  !9 = distinct !{!9, !10, !11, !12}
+  !10 = !{!"llvm.loop.vectorize.width", i32 1}
+  !11 = !{!"llvm.loop.interleave.count", i32 1}
+  !12 = !{!"llvm.loop.unroll.disable"}
+  !13 = distinct !{!13, !14, !10, !11}
+  !14 = !{!"llvm.loop.intel.loopcount_maximum", i32 3}
+
+...
+---
+name:            foo
+alignment:       4
+exposesReturnsTwice: false
+legalized:       false
+regBankSelected: false
+selected:        false
+failedISel:      false
+tracksRegLiveness: true
+hasWinCFI:       false
+registers:       
+  - { id: 0, class: gr32, preferred-register: '' }
+  - { id: 1, class: gr32, preferred-register: '' }
+  - { id: 2, class: gr32, preferred-register: '' }
+  - { id: 3, class: gr32, preferred-register: '' }
+  - { id: 4, class: gr32, preferred-register: '' }
+  - { id: 5, class: gr32, preferred-register: '' }
+  - { id: 6, class: gr32, preferred-register: '' }
+  - { id: 7, class: gr32, preferred-register: '' }
+  - { id: 8, class: gr32, preferred-register: '' }
+  - { id: 9, class: gr32, preferred-register: '' }
+  - { id: 10, class: gr32, preferred-register: '' }
+  - { id: 11, class: gr32, preferred-register: '' }
+  - { id: 12, class: gr32, preferred-register: '' }
+  - { id: 13, class: gr32, preferred-register: '' }
+  - { id: 14, class: gr64, preferred-register: '' }
+  - { id: 15, class: gr64, preferred-register: '' }
+  - { id: 16, class: gr64_nosp, preferred-register: '' }
+  - { id: 17, class: gr64, preferred-register: '' }
+  - { id: 18, class: gr64_nosp, preferred-register: '' }
+  - { id: 19, class: gr64, preferred-register: '' }
+  - { id: 20, class: gr64_nosp, preferred-register: '' }
+  - { id: 21, class: gr64_nosp, preferred-register: '' }
+  - { id: 22, class: gr32, preferred-register: '' }
+  - { id: 23, class: gr64, preferred-register: '' }
+  - { id: 24, class: gr64, preferred-register: '' }
+  - { id: 25, class: gr64, preferred-register: '' }
+  - { id: 26, class: gr64_nosp, preferred-register: '' }
+  - { id: 27, class: gr64_nosp, preferred-register: '' }
+  - { id: 28, class: gr64, preferred-register: '' }
+  - { id: 29, class: gr64, preferred-register: '' }
+  - { id: 30, class: gr64_nosp, preferred-register: '' }
+  - { id: 31, class: gr64_nosp, preferred-register: '' }
+  - { id: 32, class: gr64_nosp, preferred-register: '' }
+  - { id: 33, class: gr32, preferred-register: '' }
+  - { id: 34, class: gr32, preferred-register: '' }
+  - { id: 35, class: gr32, preferred-register: '' }
+  - { id: 36, class: gr64_nosp, preferred-register: '' }
+  - { id: 37, class: gr32, preferred-register: '' }
+  - { id: 38, class: gr32, preferred-register: '' }
+  - { id: 39, class: gr32, preferred-register: '' }
+  - { id: 40, class: gr64, preferred-register: '' }
+  - { id: 41, class: gr64_with_sub_8bit, preferred-register: '' }
+  - { id: 42, class: gr32, preferred-register: '' }
+  - { id: 43, class: vr128, preferred-register: '' }
+  - { id: 44, class: gr64, preferred-register: '' }
+  - { id: 45, class: gr64, preferred-register: '' }
+  - { id: 46, class: gr32, preferred-register: '' }
+  - { id: 47, class: gr64, preferred-register: '' }
+  - { id: 48, class: gr32, preferred-register: '' }
+  - { id: 49, class: gr8, preferred-register: '' }
+  - { id: 50, class: gr32, preferred-register: '' }
+  - { id: 51, class: gr64, preferred-register: '' }
+  - { id: 52, class: gr32, preferred-register: '' }
+  - { id: 53, class: gr64, preferred-register: '' }
+  - { id: 54, class: gr32, preferred-register: '' }
+  - { id: 55, class: gr64_nosp, preferred-register: '' }
+  - { id: 56, class: gr64, preferred-register: '' }
+  - { id: 57, class: gr32, preferred-register: '' }
+  - { id: 58, class: gr32, preferred-register: '' }
+  - { id: 59, class: gr32, preferred-register: '' }
+  - { id: 60, class: gr32, preferred-register: '' }
+  - { id: 61, class: gr32, preferred-register: '' }
+  - { id: 62, class: gr32, preferred-register: '' }
+  - { id: 63, class: gr32, preferred-register: '' }
+  - { id: 64, class: gr32, preferred-register: '' }
+  - { id: 65, class: gr64_with_sub_8bit, preferred-register: '' }
+  - { id: 66, class: gr64_nosp, preferred-register: '' }
+  - { id: 67, class: gr64_nosp, preferred-register: '' }
+  - { id: 68, class: gr64_nosp, preferred-register: '' }
+liveins:         
+  - { reg: '$edi', virtual-reg: '%33' }
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+  stackProtector:  ''
+  maxCallFrameSize: 4294967295
+  cvBytesOfCalleeSavedRegisters: 0
+  hasOpaqueSPAdjustment: false
+  hasVAStart:      false
+  hasMustTailInVarArgFunc: false
+  localFrameSize:  0
+  savePoint:       ''
+  restorePoint:    ''
+fixedStack:      []
+stack:           []
+constants:       []
+jumpTable:       
+  kind:            block-address
+  entries:         
+    - id:              0
+      blocks:          [ '%bb.13', '%bb.8', '%bb.14', '%bb.8', '%bb.11', 
+                         '%bb.8', '%bb.16', '%bb.17', '%bb.8', '%bb.8', 
+                         '%bb.8', '%bb.8', '%bb.8', '%bb.8', '%bb.8', '%bb.8', 
+                         '%bb.18', '%bb.8', '%bb.8', '%bb.8', '%bb.8', 
+                         '%bb.8', '%bb.8', '%bb.8', '%bb.8', '%bb.8', '%bb.19', 
+                         '%bb.20', '%bb.8', '%bb.8', '%bb.8', '%bb.8', 
+                         '%bb.8', '%bb.8', '%bb.8', '%bb.8', '%bb.21' ]
+body:             |
+  bb.0.entry:
+    successors: %bb.23(0x30000000), %bb.1(0x50000000)
+    liveins: $edi
+  
+    undef %65.sub_32bit:gr64_with_sub_8bit = COPY $edi
+    %57:gr32 = MOV32rm $rip, 1, $noreg, @a + 4, $noreg :: (dereferenceable load 4 from `i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @a, i64 0, i64 1)`, !tbaa !2)
+    TEST32rr %57, %57, implicit-def $eflags
+    JE_1 %bb.23, implicit killed $eflags
+    JMP_1 %bb.1
+  
+  bb.1.while.cond3.preheader.preheader:
+    successors: %bb.3(0x80000000)
+  
+    undef %66.sub_32bit:gr64_nosp = MOV32ri 1
+    JMP_1 %bb.3
+  
+  bb.2.while.cond.loopexit:
+    successors: %bb.23(0x04000000), %bb.3(0x7c000000)
+  
+    %55:gr64_nosp = MOVSX64rr32 %66.sub_32bit
+    CMP32mi8 $noreg, 4, %55, @a, $noreg, 0, implicit-def $eflags :: (load 4 from %ir.arrayidx2, !tbaa !2)
+    undef %65.sub_32bit:gr64_with_sub_8bit = COPY %57
+    JE_1 %bb.23, implicit killed $eflags
+    JMP_1 %bb.3
+  
+  bb.3.while.cond3.preheader:
+    successors: %bb.2(0x40000000), %bb.6(0x40000000)
+  
+    CMP32rr %57, %65.sub_32bit, implicit-def $eflags
+    JE_1 %bb.2, implicit killed $eflags
+    JMP_1 %bb.6
+  
+  bb.4.while.cond3.loopexit.loopexit:
+    successors: %bb.5(0x80000000)
+  
+  
+  bb.5.while.cond3.loopexit:
+    successors: %bb.2(0x04000000), %bb.6(0x7c000000)
+  
+    CMP32rr %57, %65.sub_32bit, implicit-def $eflags
+    JE_1 %bb.2, implicit killed $eflags
+    JMP_1 %bb.6
+  
+  bb.6.while.body5:
+    successors: %bb.8(0x3e000002), %bb.7(0x41fffffe)
+  
+    CMP32ri8 %57, 36, implicit-def $eflags
+    JA_1 %bb.8, implicit killed $eflags
+  
+  bb.7.while.body5:
+    successors: %bb.13(0x00dca8f1), %bb.8(0x783e0f8b), %bb.14(0x00dca8f1), %bb.11(0x00dca8f1), %bb.16(0x00dca8f1), %bb.17(0x00dca8f1), %bb.18(0x00dca8f1), %bb.19(0x00dca8f1), %bb.20(0x00dca8f1), %bb.21(0x00dca8f1)
+  
+    undef %36.sub_32bit:gr64_nosp = MOV32rr %57
+    JMP64m $noreg, 8, %36, %jump-table.0, $noreg :: (load 8 from jump-table)
+  
+  bb.8.while.cond22.preheader:
+    successors: %bb.10(0x40000000), %bb.9(0x40000000)
+  
+    %57:gr32 = nsw ADD32ri8 %57, 1, implicit-def dead $eflags
+    CMP32rr %66.sub_32bit, %65.sub_32bit, implicit-def $eflags
+    JL_1 %bb.10, implicit killed $eflags
+  
+  bb.9.while.cond22.preheader:
+    successors: %bb.5(0x80000000)
+  
+    %65.sub_32bit:gr64_with_sub_8bit = nsw ADD32ri8 %65.sub_32bit, -1, implicit-def dead $eflags
+    JMP_1 %bb.5
+  
+  bb.10.while.body24.preheader:
+    successors: %bb.22(0x80000000)
+  
+    %66:gr64_nosp = MOVSX64rr32 %66.sub_32bit
+    %65:gr64_with_sub_8bit = MOVSX64rr32 %65.sub_32bit
+    %65:gr64_with_sub_8bit = ADD64ri8 %65, -1, implicit-def dead $eflags
+    JMP_1 %bb.22
+  
+  bb.11.while.cond8.preheader:
+    successors: %bb.12(0x40000000), %bb.15(0x40000000)
+  
+    CMP32rr %66.sub_32bit, %65.sub_32bit, implicit-def $eflags
+    JGE_1 %bb.15, implicit killed $eflags
+    JMP_1 %bb.12
+  
+  bb.12.while.body10.preheader:
+    successors: %bb.26(0x30000000), %bb.24(0x50000000)
+  
+    %30:gr64_nosp = MOVSX64rr32 %66.sub_32bit
+    %17:gr64 = MOVSX64rr32 %65.sub_32bit
+    %17:gr64 = nsw SUB64rr %17, %30, implicit-def dead $eflags
+    %18:gr64_nosp = COPY %17
+    %18:gr64_nosp = AND64ri8 %18, -4, implicit-def $eflags
+    JE_1 %bb.26, implicit killed $eflags
+    JMP_1 %bb.24
+  
+  bb.13.sw.bb:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 1, $noreg, 5 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 1)`, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.14.sw.bb6:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 2, $noreg, 15 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 2)`, align 2, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.15.while.end:
+    dead $eax = MOV32r0 implicit-def dead $eflags, implicit-def $al
+    TCRETURNdi64 @goo, 0, csr_64, implicit $rsp, implicit $ssp, implicit killed $al
+  
+  bb.16.sw.bb16:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 3, $noreg, 25 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 3)`, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.17.sw.bb17:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 4, $noreg, 45 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 4)`, align 4, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.18.sw.bb18:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 5, $noreg, 55 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 5)`, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.19.sw.bb19:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 13, $noreg, 35 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 13)`, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.20.sw.bb20:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 14, $noreg, 35 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 14)`, align 2, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.21.sw.bb21:
+    successors: %bb.23(0x80000000)
+  
+    MOV8mi $rip, 1, $noreg, @s + 15, $noreg, 35 :: (store 1 into `i8* getelementptr inbounds ([1024 x i8], [1024 x i8]* @s, i64 0, i64 15)`, !tbaa !7)
+    JMP_1 %bb.23
+  
+  bb.22.while.body24:
+    successors: %bb.22(0x7c000000), %bb.4(0x04000000)
+  
+    %52:gr32 = MOV32rm $noreg, 4, %66, @a, $noreg :: (load 4 from %ir.uglygep283284, !tbaa !2)
+    MOV32mr $noreg, 4, %66, @a - 4, $noreg, %52 :: (store 4 into %ir.scevgep287, !tbaa !2)
+    %66:gr64_nosp = nsw ADD64ri8 %66, 1, implicit-def dead $eflags
+    CMP64rr %66, %65, implicit-def $eflags
+    %65:gr64_with_sub_8bit = LEA64r %65, 1, $noreg, -1, $noreg
+    JL_1 %bb.22, implicit killed $eflags
+    JMP_1 %bb.4
+  
+  bb.23.cleanup:
+    RET 0
+  
+  bb.24.then.20:
+    successors: %bb.25(0x80000000)
+  
+    %24:gr64 = LEA64r %18, 1, $noreg, -1, $noreg
+    %25:gr64 = LEA64r $noreg, 4, %30, @a, $noreg
+    undef %67.sub_32bit:gr64_nosp = MOV32r0 implicit-def dead $eflags
+  
+  bb.25.loop.19:
+    successors: %bb.26(0x04000000), %bb.25(0x7c000000)
+  
+    %43:vr128 = MOVUPSrm %25, 4, %67, 0, $noreg :: (load 16 from %ir.scevgep276277, align 4, !tbaa !2)
+    MOVUPSmr %25, 4, %67, -4, $noreg, %43 :: (store 16 into %ir.uglygep281282, align 4, !tbaa !2)
+    %67:gr64_nosp = nuw ADD64ri8 %67, 4, implicit-def dead $eflags
+    CMP64rr %67, %24, implicit-def $eflags
+    JBE_1 %bb.25, implicit killed $eflags
+    JMP_1 %bb.26
+  
+  bb.26.ifmerge.20:
+    successors: %bb.27(0x40000000), %bb.15(0x40000000)
+  
+    CMP64rr %18, %17, implicit-def $eflags
+    JAE_1 %bb.15, implicit killed $eflags
+    JMP_1 %bb.27
+  
+  bb.27.then.21:
+    successors: %bb.28(0x80000000)
+  
+    %17:gr64 = nsw ADD64ri8 %17, -1, implicit-def dead $eflags
+    %18:gr64_nosp = ADD64ri8 %18, -1, implicit-def dead $eflags
+    %30:gr64_nosp = SHL64ri %30, 2, implicit-def dead $eflags
+  
+  bb.28.loop.13:
+    successors: %bb.28(0x7c000000), %bb.15(0x04000000)
+  
+    %46:gr32 = MOV32rm %30, 4, %18, @a + 4, $noreg :: (load 4 from %ir.15, !tbaa !2)
+    MOV32mr %30, 4, %18, @a, $noreg, %46 :: (store 4 into %ir.16, !tbaa !2)
+    %18:gr64_nosp = ADD64ri8 %18, 1, implicit-def dead $eflags
+    CMP64rr %18, %17, implicit-def $eflags
+    JB_1 %bb.28, implicit killed $eflags
+    JMP_1 %bb.15
+
+...

@@ -35,6 +35,8 @@
 #include "llvm/CodeGen/EdgeBundles.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
+#include "llvm/CodeGen/MachineDominators.h"    // INTEL
+#include "llvm/CodeGen/MachineJumpTableInfo.h" // INTEL
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/Passes.h"
@@ -53,9 +55,39 @@ char SpillPlacement::ID = 0;
 
 char &llvm::SpillPlacementID = SpillPlacement::ID;
 
+#if INTEL_CUSTOMIZATION
+// Consider the following code snippet.
+// while () {
+//   ... code1 ...
+//   switch() {
+//     case 1:
+//       ... code2 ...
+//     case 2:
+//       ... code3 ...
+//     ...
+//   }
+// }
+//
+// SpillFreqBoost allows boosting execution frequency of basic blocks
+// that 'code1' reside in (the code that is between 'while' and 'switch').
+//
+// In some applications, that have large switch-case clause in a loop,
+// the code that preceeds 'switch' statement appears to be hotter
+// comparing to other code in the loop.
+static cl::opt<bool> SpillFreqBoost(
+  "spill-freq-boost", cl::init(false), cl::Hidden,
+  cl::desc("Fix frequency of while entry blocks."));
+
+static cl::opt<uint32_t> SpillFreqBoostThreshold(
+  "spill-freq-boost-threshold", cl::init(100), cl::Hidden,
+  cl::desc("The number of 'cases' that a 'switch' should have at the least to"
+           " qualify for special 'while' heuristics."));
+#endif // INTEL_CUSTOMIZATION
+
 INITIALIZE_PASS_BEGIN(SpillPlacement, DEBUG_TYPE,
                       "Spill Code Placement Analysis", true, true)
 INITIALIZE_PASS_DEPENDENCY(EdgeBundles)
+INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)  // INTEL
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_END(SpillPlacement, DEBUG_TYPE,
                     "Spill Code Placement Analysis", true, true)
@@ -63,6 +95,8 @@ INITIALIZE_PASS_END(SpillPlacement, DEBUG_TYPE,
 void SpillPlacement::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<MachineBlockFrequencyInfo>();
+  if (SpillFreqBoost)                        // INTEL
+    AU.addRequired<MachineDominatorTree>();  // INTEL
   AU.addRequiredTransitive<EdgeBundles>();
   AU.addRequiredTransitive<MachineLoopInfo>();
   MachineFunctionPass::getAnalysisUsage(AU);
@@ -204,6 +238,21 @@ bool SpillPlacement::runOnMachineFunction(MachineFunction &mf) {
   TodoList.clear();
   TodoList.setUniverse(bundles->getNumBundles());
 
+#if INTEL_CUSTOMIZATION
+  // We don't want to affect anything but spill code placement decisions
+  // that is why we 'fix' block frequencies in this pass.
+  const std::vector<MachineJumpTableEntry> *JT = nullptr;
+  if (SpillFreqBoost) {
+    const MachineJumpTableInfo *MJTI = MF->getJumpTableInfo();
+    if (MJTI && MJTI->getEntryKind() != MachineJumpTableInfo::EK_Inline)
+      JT = &MJTI->getJumpTables();
+  }
+  // WhileSwitchMult is multiplier for the frequency of the blocks that
+  // we know is more frequent comparing to their static frequency.
+  const uint64_t WhileSwitchMult = 20;
+  SmallVector<const MachineInstr*, 0> WhileJumpInsts;
+#endif // INTEL_CUSTOMIZATION
+
   // Compute total ingoing and outgoing block frequencies for all bundles.
   BlockFrequencies.resize(mf.getNumBlockIDs());
   MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
@@ -211,7 +260,57 @@ bool SpillPlacement::runOnMachineFunction(MachineFunction &mf) {
   for (auto &I : mf) {
     unsigned Num = I.getNumber();
     BlockFrequencies[Num] = MBFI->getBlockFreq(&I);
+#if INTEL_CUSTOMIZATION
+    // Find indirect jumps that are in a nested loop and that loop in turn
+    // contains some nested loops.
+    if (JT && !JT->empty() && loops->getLoopDepth(&I) > 1 &&
+        !loops->getLoopFor(&I)->getSubLoops().empty()) {
+      MachineBasicBlock::const_iterator T = I.getFirstTerminator();
+      if (T != I.end() && T->isIndirectBranch())
+        for (const MachineOperand &Op : T->operands()) {
+          if (!Op.isJTI()) continue;
+          // Check only those indirect jumps that have more than
+          // SpillFreqBoostThreshold targets in WhileJumpInsts.
+          if ((*JT)[Op.getIndex()].MBBs.size() > SpillFreqBoostThreshold) {
+            // Calculate the number of unique items in jump table for more
+            // precise check.
+            std::set<MachineBasicBlock *> JtTargets;
+            for (auto &BB : (*JT)[Op.getIndex()].MBBs)
+              JtTargets.insert(BB);
+            if (JtTargets.size() > SpillFreqBoostThreshold)
+              WhileJumpInsts.push_back(&*T);
+          }
+        }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
+
+#if INTEL_CUSTOMIZATION
+  if (!WhileJumpInsts.empty()) {
+    MachineDominatorTree *DT = &getAnalysis<MachineDominatorTree>();
+
+    for (auto &BB : mf) {
+      MachineLoop *BBLoop = loops->getLoopFor(&BB);
+      if (!BBLoop) continue;
+      for (auto I : WhileJumpInsts)
+        // Boost frequency those blocks that are within the loop with the jmp
+        // of interest and either dominates this jmp or their single successor
+        // dominates the jump and is the same loop exactly (we don't want to
+        // boost blocks that are in nested loops).
+        if (BBLoop == loops->getLoopFor(I->getParent()) &&
+            (DT->dominates(&BB, I->getParent()) ||
+             (BB.succ_size() == 1 &&
+              loops->getLoopFor(*BB.succ_begin()) ==
+              loops->getLoopFor(I->getParent()) &&
+              DT->dominates(*BB.succ_begin(), I->getParent())))) {
+          LLVM_DEBUG(dbgs() << "Block's " << BB.getName() <<
+                     " frequency boosted due to \'while\' heuristics\n");
+          BlockFrequencies[BB.getNumber()] /=
+            BranchProbability(1, WhileSwitchMult);
+        }
+    } // for (auto &BB : mf)
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // We never change the function.
   return false;
