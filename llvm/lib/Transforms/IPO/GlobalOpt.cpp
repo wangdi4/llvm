@@ -1754,6 +1754,12 @@ static bool deleteIfDead(
   if (const Comdat *C = GV.getComdat())
     if (!GV.hasLocalLinkage() && NotDiscardableComdats.count(C))
       return false;
+#if INTEL_COLLAB
+
+  // Removing unused target-declare vars causes compfails in OpenMP codegen
+  if (GV.isTargetDeclare())
+    return false;
+#endif // INTEL_COLLAB
 
   bool Dead;
   if (auto *F = dyn_cast<Function>(&GV))
@@ -1987,6 +1993,13 @@ static bool isStoredOnceValueUsedByAllUsesInFunction(
 static bool processInternalGlobal(
     GlobalVariable *GV, const GlobalStatus &GS, TargetLibraryInfo *TLI,
     function_ref<DominatorTree &(Function &)> LookupDomTree) {
+#if INTEL_COLLAB
+
+  // Do not optimize away target-declare vars
+  if (GV->isTargetDeclare())
+    return false;
+
+#endif // INTEL_COLLAB
   auto &DL = GV->getParent()->getDataLayout();
   // If this is a first class global and has only one accessing function and
   // this function is non-recursive, we replace the global with a local alloca

@@ -917,6 +917,32 @@ getDecodedDLLStorageClass(unsigned Val) {
   }
 }
 
+#if INTEL_COLLAB
+// Return \b true if Val==1; else return \b false.
+static bool getDecodedUnsignedToBool(unsigned Val) {
+  switch(Val) {
+  default: // Map unknown values to false
+  case 0:  return false;
+  case 1:  return true;
+  }
+}
+
+static bool getDecodedDSOLocal(unsigned Val) {
+  // Map unknown values to preemptable.
+  return getDecodedUnsignedToBool(Val);
+}
+
+static bool getDecodedThreadPrivate(unsigned Val) {
+  // Map unknown values to false.
+  return getDecodedUnsignedToBool(Val);
+}
+
+static bool getDecodedTargetDeclare(unsigned Val) {
+  // Map unknown values to false.
+  return getDecodedUnsignedToBool(Val);
+}
+
+#else
 static bool getDecodedDSOLocal(unsigned Val) {
   switch(Val) {
   default: // Map unknown values to preemptable.
@@ -925,6 +951,7 @@ static bool getDecodedDSOLocal(unsigned Val) {
   }
 }
 
+#endif // INTEL_COLLAB
 static GlobalVariable::ThreadLocalMode getDecodedThreadLocalMode(unsigned Val) {
   switch (Val) {
     case 0: return GlobalVariable::NotThreadLocal;
@@ -2856,7 +2883,12 @@ static void inferDSOLocal(GlobalValue *GV) {
 Error BitcodeReader::parseGlobalVarRecord(ArrayRef<uint64_t> Record) {
   // v1: [pointer type, isconst, initid, linkage, alignment, section,
   // visibility, threadlocal, unnamed_addr, externally_initialized,
+#if INTEL_COLLAB
+  // dllstorageclass, comdat, attributes, preemption specifier,
+  // thread_private, target_declare] (name in VST)
+#else
   // dllstorageclass, comdat, attributes, preemption specifier] (name in VST)
+#endif // INTEL_COLLAB
   // v2: [strtab_offset, strtab_size, v1]
   StringRef Name;
   std::tie(Name, Record) = readNameFromStrtab(Record);
@@ -2947,6 +2979,16 @@ Error BitcodeReader::parseGlobalVarRecord(ArrayRef<uint64_t> Record) {
   }
   inferDSOLocal(NewGV);
 
+#if INTEL_COLLAB
+  if (Record.size() > 14) {
+    NewGV->setThreadPrivate(getDecodedThreadPrivate(Record[14]));
+  }
+
+  if (Record.size() > 15) {
+    NewGV->setTargetDeclare(getDecodedTargetDeclare(Record[15]));
+  }
+
+#endif // INTEL_COLLAB
   return Error::success();
 }
 
