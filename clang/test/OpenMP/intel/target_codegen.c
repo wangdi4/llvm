@@ -8,7 +8,7 @@
 // expected-no-diagnostics
 
 // Target declare variable should be retained in both compilations.
-// CHECK-ALL: @Var1 = global i32 5
+// CHECK-ALL: @Var1 = target_declare global i32 5
 #pragma omp declare target
 int Var1 = 5;
 #pragma omp end declare target
