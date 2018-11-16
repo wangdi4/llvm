@@ -1158,6 +1158,10 @@ private:
   void setSchedKindForMultiLevelLoops(WRegionNode *W,
                                       WRNScheduleKind &ScheduleKind,
                                       WRNScheduleKind TargetScheduleKind);
+
+  /// Return original global variable if the value Orig is the return value
+  /// of a fence call.
+  Value *getRootValueFromFenceCall(Value *Orig);
 };
 } /// namespace vpo
 } /// namespace llvm

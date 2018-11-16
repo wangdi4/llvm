@@ -1031,8 +1031,9 @@ bool VPOParoptTransform::paroptTransforms() {
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           genCodemotionFenceforAggrData(W);
-        }
-        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationCode(W);
+        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
@@ -1055,9 +1056,11 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetData:
       case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
           genCodemotionFenceforAggrData(W);
-        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationCode(W);
+        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genGlobalPrivatizationCode(W);
@@ -2585,15 +2588,20 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
-      //
+
       // assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
       //      "genFirstPrivatizationCode: Unexpected firstprivate variable");
       //
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
-        NewPrivInst =
-            genPrivatizationAlloca(FprivI, EntryBB->getFirstNonPHI(), ".fpriv");
+        if (W->getIsTarget())
+          NewPrivInst =
+              genPrivatizationAlloca(getRootValueFromFenceCall(Orig),
+                                     EntryBB->getFirstNonPHI(), ".fpriv");
+        else
+          NewPrivInst = genPrivatizationAlloca(
+              FprivI, EntryBB->getFirstNonPHI(), ".fpriv");
 
         // By this it can uniformly handle the global/local firstprivate.
         // For the case of local firstprivate, the New is the same as the Orig.

@@ -239,6 +239,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // if.end:
     //   ...
     //
+    Builder.SetInsertPoint(NewCall);
     Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     Instruction *ThenTerm, *ElseTerm;
     buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
@@ -776,55 +777,91 @@ void VPOParoptTransform::genOffloadArraysArgument(
   }
 }
 
-// The utility to generate the stack variable to pass the value of
-// global variable.
+// Given a global variable reference in a OMP target construct, the
+// corresponding target outline function needs to pass the address of
+// global variable as one of its arguments. The utility CodeExtractor which
+// is used by the paropt cannot generate such argument since the global
+// variable is live in the module. In order to help the CodeExtractor to
+// achieve this, the following utilty is used to generate place holder for
+// global variable. The later outline function can have corresponding
+// argument for this global variable.
+//
+// %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+//      "QUAL.OMP.FIRSTPRIVATE"(i32* @pvtPtr) ]
+// ===>
+// entry:
+//   %0 = call i8* @llvm.launder.invariant.group.p0i8
+//                  (i8* bitcast (i32* @pvtPtr to i8*))
+//   %1 = bitcast i8* %0 to i32*
+//   br label %entry.split
+// ...
+// %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+//      "QUAL.OMP.FIRSTPRIVATE"(i32* %1) ]
 Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
                                                       GlobalVariable *G,
                                                       BasicBlock *EntryBB,
                                                       BasicBlock *NextExitBB,
                                                       Item *IT) {
   G->setTargetDeclare(true);
-  Instruction *InsertPt = EntryBB->getFirstNonPHI();
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  auto NewPrivInst = genPrivatizationAlloca(G, InsertPt, ".priv.mp");
+  IRBuilder<> Builder(EntryBB->getFirstNonPHI());
+  Value *NewPrivInst = Builder.CreateLaunderInvariantGroup(G);
   genPrivatizationReplacement(W, G, NewPrivInst, IT);
-
-  if (!VPOUtils::canBeRegisterized(NewPrivInst->getAllocatedType(), DL)) {
-    VPOUtils::genMemcpy(NewPrivInst, G, DL, NewPrivInst->getAlignment(),
-                        InsertPt->getParent());
-    VPOUtils::genMemcpy(G, NewPrivInst, DL, NewPrivInst->getAlignment(),
-                        NextExitBB);
-  } else {
-    LoadInst *Load = new LoadInst(G);
-    Load->insertAfter(cast<Instruction>(NewPrivInst));
-    StoreInst *Store = new StoreInst(Load, NewPrivInst);
-    Store->insertAfter(Load);
-    IRBuilder<> Builder(NextExitBB->getTerminator());
-    Builder.CreateStore(Builder.CreateLoad(NewPrivInst), G);
-  }
   return NewPrivInst;
 }
 
 // Replace the new generated local variables with global variables
 // in the target initialization code.
 bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
-  MapClause const &MpClause = W->getMap();
 
+  // Clean up the fence call and replace the use of its return value
+  // with call's operand.
+  auto propagateGlobals = [&](Value *Orig) {
+    if (!Orig)
+      return;
+    BitCastInst *BI = dyn_cast<BitCastInst>(Orig);
+    if (!BI)
+      return;
+    Value *V = BI->getOperand(0);
+    CallInst *CI = dyn_cast<CallInst>(V);
+    if (CI && isFenceCall(CI)) {
+      CI->replaceAllUsesWith(CI->getOperand(0));
+      CI->eraseFromParent();
+    }
+  };
+
+  MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
-    if (!Orig)
-      continue;
-    GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
-    if (!G) {
-      LoadInst *LI = dyn_cast<LoadInst>(Orig);
-      if (LI)
-        G = dyn_cast<GlobalVariable>(LI->getPointerOperand());
-    }
-    if (G) {
-      MapI->getNew()->replaceAllUsesWith(G);
+    propagateGlobals(Orig);
+  }
+
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Value *Orig = FprivI->getOrig();
+      propagateGlobals(Orig);
     }
   }
   return false;
+}
+
+// Return original global variable if the value Orig is the return value
+// of a fence call.
+Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
+  BitCastInst *BI = dyn_cast<BitCastInst>(Orig);
+  if (!BI)
+    return Orig;
+  Value *V = BI->getOperand(0);
+  CallInst *CI = dyn_cast<CallInst>(V);
+  if (CI && isFenceCall(CI)) {
+    Value *CallOperand = CI->getOperand(0);
+    ConstantExpr *Expr = dyn_cast_or_null<ConstantExpr>(CallOperand);
+    assert(Expr && "getRootValue: expect non empty constant expression");
+    if (Expr->isCast())
+      return Expr->getOperand(0);
+    return CallOperand;
+  }
+  return Orig;
 }
 
 // If the incoming data is global variable, Create the stack variable and
@@ -832,21 +869,20 @@ bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
 bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
   MapClause const &MpClause = W->getMap();
   BasicBlock *EntryBB = &(F->getEntryBlock());
+  BasicBlock *NewEntryBB =
+      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+  if (W->getEntryBBlock() == EntryBB)
+    W->setEntryBBlock(NewEntryBB);
   BasicBlock *ExitBB = W->getExitBBlock();
   BasicBlock *NextExitBB = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);
   bool Changed = false;
-
 
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
     if (!Orig)
       continue;
     GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
-    if (!G) {
-      LoadInst *LI = dyn_cast<LoadInst>(Orig);
-      if (LI)
-        G = dyn_cast<GlobalVariable>(LI->getPointerOperand());
-    }
+
     if (G) {
       if (!Changed)
         W->populateBBSet();
@@ -879,10 +915,6 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
             genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
 
         FprivI->setNew(NewPrivInst);
-        // The Orig of the firstprivate is set to the new private alloca
-        // instruction so that the corresponding firstprivate item will
-        // not be processed later.
-        FprivI->setOrig(NewPrivInst);
         Changed = true;
       } else
         FprivI->setNew(Orig);
