@@ -13,7 +13,7 @@
 ; CHECK-NEXT: Divergent: i64 [[VAL7:%vp[0-9]+]] = add i64 [[VAL5:%vp[0-9]+]] i64 [[VAL3:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: i32 [[VAL8:%vp[0-9]+]] = trunc i64 [[VAL7:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: float [[VAL9:%vp[0-9]+]] = sitofp i32 [[VAL8:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: float* [[VAL10:%vp[0-9]+]] = getelementptr float* [[VAL11:%ptr]] i64 [[VAL7:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: float* [[VAL10:%vp[0-9]+]] = getelementptr inbounds float* [[VAL11:%ptr]] i64 [[VAL7:%vp[0-9]+]]
 ; CHECK-NEXT: Divergent: store float [[VAL9:%vp[0-9]+]] float* [[VAL10:%vp[0-9]+]]
 ; CHECK-NEXT: Uniform: i64 [[VAL11:%vp[0-9]+]] = add i64 [[VAL3:%vp[0-9]+]] i64 1
 ; CHECK-NEXT: Divergent: i1 [[VAL12:%vp[0-9]+]] = icmp i64 [[VAL4:%vp[0-9]+]] i64 [[VAL1:%vp[0-9]+]]

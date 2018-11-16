@@ -100,12 +100,26 @@ public:
     return BranchInst;
   }
 
-  /// Construct a GEP VPInstruction with \p Operands and set its type \p BaseTy.
-  /// NOTE: This will be removed after VPGEPInstruction is introduced
-  VPValue *createGEP(Type *BaseTy, ArrayRef<VPValue *> Operands) {
-    VPInstruction *NewGEP =
-        createInstruction(Instruction::GetElementPtr, BaseTy, Operands);
-    return NewGEP;
+  /// In the HIR-path we restrict creation of a VPGEPInstruction by making sure
+  /// that GEP instructions can be created via the builder only with the base
+  /// pointer operand. The index operands must be added subsequently by the
+  /// client. This is needed to track the information about a given index
+  /// operand being a trailing struct offset or not.
+
+  /// Construct a GEP VPInstruction with type \p BaseTy and base pointer \p Ptr.
+  VPInstruction *createGEP(Type *BaseTy, VPValue *Ptr) {
+    VPInstruction *NewVPInst = new VPGEPInstruction(BaseTy, Ptr, {});
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  /// Construct an inbounds GEP VPInstruction with type \p BaseTy and base
+  /// pointer \p Ptr.
+  VPInstruction *createInBoundsGEP(Type *BaseTy, VPValue *Ptr) {
+    VPInstruction *NewVPInst = createGEP(BaseTy, Ptr);
+    cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
+    return NewVPInst;
   }
 };
 

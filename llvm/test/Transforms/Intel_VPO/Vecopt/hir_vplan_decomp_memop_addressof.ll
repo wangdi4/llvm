@@ -24,8 +24,8 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = semi-phi i64 0 i64 {{%vp.*}}
-; CHECK-NEXT: i32* [[GEP1:%vp.*]] = getelementptr i32* %b i64 [[I1]]
-; CHECK-NEXT: i32** [[GEP2:%vp.*]] = getelementptr i32** %a i64 [[I1]]
+; CHECK-NEXT: i32* [[GEP1:%vp.*]] = getelementptr inbounds i32* %b i64 [[I1]]
+; CHECK-NEXT: i32** [[GEP2:%vp.*]] = getelementptr inbounds i32** %a i64 [[I1]]
 ; CHECK-NEXT: store i32* [[GEP1]] i32** [[GEP2]]
 
 

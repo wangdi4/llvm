@@ -20,44 +20,44 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK:         [[BB2]] (BP: NULL) :
-; CHECK-NEXT:     i64 [[VP2:%.*]] = phi [ i64 0, [[BBH:.*]] ], [ i64 [[VP3:%.*]], [[BBL:.*]] ]
-; CHECK-NEXT:     i32* [[VP4:%.*]] = getelementptr [1024 x i32]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP0]]
+; CHECK-NEXT:     i32 [[VP3:%.*]] = load i32* [[VP2]]
+; CHECK-NEXT:     i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
 ; CHECK-NEXT:     i32 [[VP5:%.*]] = load i32* [[VP4]]
-; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr [1024 x i32]* @b i64 0 i64 [[VP2]]
-; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp i32 [[VP5]] i32 [[VP7]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK:         [[BB3]] (BP: NULL) :
+; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp i32 [[VP3]] i32 [[VP5]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK:         [[BB4]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB2]]): i1 [[VP8]] = icmp i32 [[VP5]] i32 [[VP7]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP8]]), [[BB5:BB[0-9]+]](!i1 [[VP8]])
-; CHECK:           [[BB4]] (BP: NULL) :
-; CHECK-NEXT:       i1 [[VP9:%.*]] = icmp i32 [[VP5]] i32 16
-; CHECK-NEXT:       i32 [[VP10:%.*]] = mul i32 [[VP7]] i32 [[VP5]]
-; CHECK-NEXT:       i32 [[VP11:%.*]] = add i32 [[VP7]] i32 [[VP5]]
-; CHECK-NEXT:       i32 [[VP12:%.*]] = select i1 [[VP9]] i32 [[VP10]] i32 1
-; CHECK-NEXT:       i32 [[VP13:%.*]] = select i1 [[VP9]] i32 [[VP11]] i32 1
-; CHECK-NEXT:       i32 [[VP14:%.*]] = mul i32 [[VP7]] i32 [[VP7]]
-; CHECK-NEXT:       i32 [[VP15:%.*]] = mul i32 [[VP5]] i32 [[VP5]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
-; CHECK:         [[BB5]] (BP: NULL) :
-; CHECK-NEXT:     [[VP16:%.*]] = phi [ i32 [[VP14]], [[BB4]] ], [ i32 0, [[BBT:BB[0-9]+]] ]
-; CHECK-NEXT:     [[VP17:%.*]] = phi [ i32 [[VP15]], [[BB4]] ], [ i32 0, [[BBT]] ]
-; CHECK-NEXT:     [[VP18:%.*]] = phi [ i32 [[VP12]], [[BB4]] ], [ i32 1, [[BBT]] ]
-; CHECK-NEXT:     [[VP19:%.*]] = phi [ i32 [[VP13]], [[BB4]] ], [ i32 1, [[BBT]] ]
-; CHECK-NEXT:     i32 [[VP20:%.*]] = mul i32 [[VP18]] i32 [[VP16]]
-; CHECK-NEXT:     i32 [[VP21:%.*]] = add i32 [[VP20]] i32 [[VP7]]
-; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP6]]
-; CHECK-NEXT:     i32 [[VP22:%.*]] = mul i32 [[VP19]] i32 [[VP17]]
-; CHECK-NEXT:     i32 [[VP23:%.*]] = add i32 [[VP22]] i32 [[VP5]]
-; CHECK-NEXT:     store i32 [[VP23]] i32* [[VP4]]
-; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP24:%.*]] = icmp i64 [[VP3]] i64 [[VP1:%.*]]
+; CHECK-NEXT:     Condition([[BB2]]): i1 [[VP6]] = icmp i32 [[VP3]] i32 [[VP5]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP6]]), [[BB3]](!i1 [[VP6]])
+; CHECK:           [[BB5]] (BP: NULL) :
+; CHECK-NEXT:       i1 [[VP7:%.*]] = icmp i32 [[VP3]] i32 16
+; CHECK-NEXT:       i32 [[VP8:%.*]] = mul i32 [[VP5]] i32 [[VP3]]
+; CHECK-NEXT:       i32 [[VP9:%.*]] = add i32 [[VP5]] i32 [[VP3]]
+; CHECK-NEXT:       i32 [[VP10:%.*]] = select i1 [[VP7]] i32 [[VP8]] i32 1
+; CHECK-NEXT:       i32 [[VP11:%.*]] = select i1 [[VP7]] i32 [[VP9]] i32 1
+; CHECK-NEXT:       i32 [[VP12:%.*]] = mul i32 [[VP5]] i32 [[VP5]]
+; CHECK-NEXT:       i32 [[VP13:%.*]] = mul i32 [[VP3]] i32 [[VP3]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
+; CHECK:         [[BB3]] (BP: NULL) :
+; CHECK-NEXT:     i32 [[VP14:%.*]] = phi  [ i32 [[VP12]], [[BB5]] ],  [ i32 0, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP15:%.*]] = phi  [ i32 [[VP13]], [[BB5]] ],  [ i32 0, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP16:%.*]] = phi  [ i32 [[VP10]], [[BB5]] ],  [ i32 1, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP17:%.*]] = phi  [ i32 [[VP11]], [[BB5]] ],  [ i32 1, [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP18:%.*]] = mul i32 [[VP16]] i32 [[VP14]]
+; CHECK-NEXT:     i32 [[VP19:%.*]] = add i32 [[VP18]] i32 [[VP5]]
+; CHECK-NEXT:     store i32 [[VP19]] i32* [[VP4]]
+; CHECK-NEXT:     i32 [[VP20:%.*]] = mul i32 [[VP17]] i32 [[VP15]]
+; CHECK-NEXT:     i32 [[VP21:%.*]] = add i32 [[VP20]] i32 [[VP3]]
+; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP2]]
+; CHECK-NEXT:     i64 [[VP1]] = add i64 [[VP0]] i64 1
+; CHECK-NEXT:     i1 [[VP22:%.*]] = icmp i64 [[VP1]] i64 [[VP23:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK:         [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB5]]): i1 [[VP24]] = icmp i64 [[VP3]] i64 [[VP1]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP24]]), [[BB7:BB[0-9]+]](!i1 [[VP24]])
+; CHECK-NEXT:     Condition([[BB3]]): i1 [[VP22]] = icmp i64 [[VP1]] i64 [[VP23]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP22]]), [[BB7:BB[0-9]+]](!i1 [[VP22]])
 ; CHECK:         [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]

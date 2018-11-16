@@ -1149,6 +1149,15 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
         assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
         NewVPInst = VPIRBuilder.createCmpInst(VPOperands[0], VPOperands[1], CI);
+      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Inst)) {
+        // Build VPGEPInstruction to represent GEP instructions
+        SmallVector<VPValue *, 3> IdxList(VPOperands.begin() + 1,
+                                          VPOperands.end());
+        if (GEP->isInBounds())
+          NewVPInst =
+              VPIRBuilder.createInBoundsGEP(VPOperands[0], IdxList, Inst);
+        else
+          NewVPInst = VPIRBuilder.createGEP(VPOperands[0], IdxList, Inst);
       } else
 #endif
       // Build VPInstruction for any arbitraty Instruction without specific

@@ -23,8 +23,8 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = semi-phi i64 0 i64 {{%vp.*}}
-; CHECK-NEXT: i32* [[GEP1:%vp.*]] = getelementptr [1024 x i32]* @arr i64 0 i64 [[I1]]
-; CHECK-NEXT: float** [[GEP2:%vp.*]] = getelementptr [1024 x float*]* @ip i64 0 i64 [[I1]]
+; CHECK-NEXT: i32* [[GEP1:%vp.*]] = getelementptr inbounds [1024 x i32]* @arr i64 0 i64 [[I1]]
+; CHECK-NEXT: float** [[GEP2:%vp.*]] = getelementptr inbounds [1024 x float*]* @ip i64 0 i64 [[I1]]
 ; CHECK-NEXT: i32** [[BITCAST:%vp.*]] = bitcast float** [[GEP2]]
 ; CHECK-NEXT: store i32* [[GEP1]] i32** [[BITCAST]]
 

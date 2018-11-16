@@ -889,6 +889,14 @@ void VPInstruction::print(raw_ostream &O) const {
   case Instruction::Br:
     cast<VPBranchInst>(this)->print(O);
     return;
+  case Instruction::GetElementPtr:
+    O << Instruction::getOpcodeName(getOpcode());
+    if (auto *VPGEP = dyn_cast<const VPGEPInstruction>(this)) {
+      if (VPGEP->isInBounds()) {
+        O << " inbounds";
+      }
+    }
+    break;
 #endif
   default:
     O << Instruction::getOpcodeName(getOpcode());
@@ -912,8 +920,7 @@ void VPInstruction::print(raw_ostream &O) const {
       O << ",";
     }
     PrintValueWithBB(size-1);
-  }
-  else
+  } else
 #endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
       O << " ";

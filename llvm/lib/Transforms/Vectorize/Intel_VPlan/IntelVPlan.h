@@ -1014,6 +1014,117 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 };
+
+/// Concrete class to represent GEP instruction in VPlan.
+class VPGEPInstruction : public VPInstruction {
+  friend class VPlanVerifier;
+
+private:
+  // Trailing struct offsets for a GEP are tracked via a vector of bools called
+  // OperandIsStructOffset. This vector will always be consistent with the
+  // number of operands stored in a given GEP instruction. An operand's
+  // corresponding index entry in OperandIsStructOffset is set to true if it's a
+  // trailing struct offset, false otherwise. NOTE: This information is needed
+  // only if the GEP is created via HIR-path. For LLVM-IR path the vector will
+  // always be false for all entries.
+  //
+  // Examples:
+  // 1. (@a)[0].1[i1] --> gep %a, 0, 1, %vpi1
+  //
+  //    Vector will look like:
+  //    <false, false, true, false>
+  //
+  //    i.e. operand at index 2 is a struct offset corresponding to the previous
+  //    last-found non struct offset operand (index 1).
+  //
+  // 2. (@a)[0].2.1[5][i1] --> gep %a, 0, 2, 1, 5, %vpi1
+  //
+  //    Vector will look like:
+  //    <false, false, true, true, false, false>
+  //
+
+  bool InBounds;
+  SmallVector<bool, 4> OperandIsStructOffset;
+
+public:
+  /// Default constructor for VPGEPInstruction. The default value for \p
+  /// InBounds is false.
+  VPGEPInstruction(Type *BaseTy, VPValue *Ptr, ArrayRef<VPValue *> IdxList,
+                   bool InBounds = false)
+      : VPInstruction(Instruction::GetElementPtr, BaseTy, {}),
+        InBounds(InBounds) {
+    assert(Ptr && "Base pointer operand of GEP cannot be null.");
+    // Base pointer should be the first operand of GEP followed by index
+    // operands
+    assert(!getNumOperands() &&
+           "GEP instruction already has operands before base pointer.");
+    VPInstruction::addOperand(Ptr);
+    for (auto Idx : IdxList)
+      VPInstruction::addOperand(Idx);
+    // Track all operands as non struct offsets, since that information is not
+    // available at this point.
+    OperandIsStructOffset.resize(1 + IdxList.size(), false);
+  }
+
+  /// Setter and getter functions for InBounds.
+  void setIsInBounds(bool IsInBounds) { InBounds = IsInBounds; }
+  bool isInBounds() const { return InBounds; }
+
+  /// Get the base pointer operand of given VPGEPInstruction.
+  VPValue *getPointerOperand() const { return VPInstruction::getOperand(0); }
+
+  /// Overloaded method for adding an operand \p Operand. The struct offset
+  /// tracker is accordingly updated after operand addition.
+  void addOperand(VPValue *Operand, bool IsStructOffset = false) {
+    VPInstruction::addOperand(Operand);
+    OperandIsStructOffset.push_back(IsStructOffset);
+    assert(OperandIsStructOffset.size() == getNumOperands() &&
+           "Number of operands and struct offset tracker sizes don't match.");
+  }
+
+  /// Overloaded method for setting index \p Idx with operand \p Operand. The
+  /// struct offset tracker is accordingly updated after operand is set.
+  void setOperand(const unsigned Idx, VPValue *Operand,
+                  bool IsStructOffset = false) {
+    assert((Idx > 1 || !IsStructOffset) &&
+           "Base pointer and first index operand of GEP cannot be a struct "
+           "offset.");
+    VPInstruction::setOperand(Idx, Operand);
+    OperandIsStructOffset[Idx] = IsStructOffset;
+  }
+
+  /// Overloaded method for removing an operand at index \p Idx. The struct
+  /// offset tracker is accordingly updated after operand removal.
+  void removeOperand(const unsigned Idx) {
+    VPInstruction::removeOperand(Idx);
+    OperandIsStructOffset.erase(OperandIsStructOffset.begin() + Idx);
+    assert(OperandIsStructOffset.size() == getNumOperands() &&
+           "Number of operands and struct offset tracker sizes don't match.");
+  }
+
+  /// Check if a given operand \p Operand of this GEP is a struct offset.
+  bool isOperandStructOffset(VPValue *Operand) const {
+    auto It = llvm::find(operands(), Operand);
+    assert(It != op_end() && "Operand not found in VPGEPInstruction.");
+    return OperandIsStructOffset[std::distance(op_begin(), It)];
+  }
+
+  /// Check if operand at index \p Idx of this GEP is a struct offset.
+  bool isOperandStructOffset(const unsigned Idx) const {
+    assert(Idx < OperandIsStructOffset.size() &&
+           "Operand index out of bounds.");
+    return OperandIsStructOffset[Idx];
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == Instruction::GetElementPtr;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
 #endif // INTEL_CUSTOMIZATION
 
 /// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate

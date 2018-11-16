@@ -41,6 +41,9 @@ private:
   // Verify VPPHINode instruction.
   void verifyPHINode(const VPPHINode *Phi) const;
 
+  // Verify VPGEPInstruction instruction.
+  void verifyGEPInstruction(const VPGEPInstruction *GEP) const;
+
   // Main functions driving the verification of instructions, blocks,
   // loops and regions.
 
