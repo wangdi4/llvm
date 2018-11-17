@@ -363,45 +363,78 @@ class OMPLoopDirective : public OMPExecutableDirective {
     CalcLastIterationOffset = 3,
     PreConditionOffset = 4,
     CondOffset = 5,
-    InitOffset = 6,
-    IncOffset = 7,
-    PreInitsOffset = 8,
-#if INTEL_CUSTOMIZATION
-    // Added two in the 'Default' range, so all existing need + 2.
-    LateOutlineCondOffset = 9,
-    LateOutlineUpperBoundVariableOffset = 10,
+#if INTEL_COLLAB
+    LateOutlineCondOffset = 6,
+    InitOffset = 7,
+    IncOffset = 8,
+    PreInitsOffset = 9,
+    UpperBoundVariableOffset = 10,
     // The '...End' enumerators do not correspond to child expressions - they
     // specify the offset to the end (and start of the following counters/
     // updates/finals arrays).
-    DefaultEnd = 9 + 2,
-    // The following 8 exprs are used by worksharing and distribute loops only.
-    IsLastIterVariableOffset = 9 + 2,
-    LowerBoundVariableOffset = 10 + 2,
-    UpperBoundVariableOffset = 11 + 2,
-    StrideVariableOffset = 12 + 2,
-    EnsureUpperBoundOffset = 13 + 2,
-    NextLowerBoundOffset = 14 + 2,
-    NextUpperBoundOffset = 15 + 2,
-    NumIterationsOffset = 16 + 2,
+    DefaultEnd = 11,
+    // The following 7 exprs are used by worksharing and distribute loops only.
+    IsLastIterVariableOffset = 11,
+    LowerBoundVariableOffset = 12,
+    StrideVariableOffset = 13,
+    EnsureUpperBoundOffset = 14,
+    NextLowerBoundOffset = 15,
+    NextUpperBoundOffset = 16,
+    NumIterationsOffset = 17,
     // Offset to the end for worksharing loop directives.
-    WorksharingEnd = 17 + 2,
-    PrevLowerBoundVariableOffset = 17 + 2,
-    PrevUpperBoundVariableOffset = 18 + 2,
-    DistIncOffset = 19 + 2,
-    PrevEnsureUpperBoundOffset = 20 + 2,
-    CombinedLowerBoundVariableOffset = 21 + 2,
-    CombinedUpperBoundVariableOffset = 22 + 2,
-    CombinedEnsureUpperBoundOffset = 23 + 2,
-    CombinedInitOffset = 24 + 2,
-    CombinedConditionOffset = 25 + 2,
-    CombinedNextLowerBoundOffset = 26 + 2,
-    CombinedNextUpperBoundOffset = 27 + 2,
-    CombinedDistConditionOffset = 28 + 2,
-    CombinedParForInDistConditionOffset = 29 + 2,
+    WorksharingEnd = 18,
+    PrevLowerBoundVariableOffset = 18,
+    PrevUpperBoundVariableOffset = 19,
+    DistIncOffset = 20,
+    PrevEnsureUpperBoundOffset = 21,
+    CombinedLowerBoundVariableOffset = 22,
+    CombinedUpperBoundVariableOffset = 23,
+    CombinedEnsureUpperBoundOffset = 24,
+    CombinedInitOffset = 25,
+    CombinedConditionOffset = 26,
+    CombinedNextLowerBoundOffset = 27,
+    CombinedNextUpperBoundOffset = 28,
+    CombinedDistConditionOffset = 29,
+    CombinedParForInDistConditionOffset = 30,
     // Offset to the end (and start of the following counters/updates/finals
     // arrays) for combined distribute loop directives.
-    CombinedDistributeEnd = 30 + 2,
-#endif // INTEL_CUSTOMIZATION
+    CombinedDistributeEnd = 31,
+#else
+    InitOffset = 6,
+    IncOffset = 7,
+    PreInitsOffset = 8,
+    // The '...End' enumerators do not correspond to child expressions - they
+    // specify the offset to the end (and start of the following counters/
+    // updates/finals arrays).
+    DefaultEnd = 9,
+    // The following 8 exprs are used by worksharing and distribute loops only.
+    IsLastIterVariableOffset = 9,
+    LowerBoundVariableOffset = 10,
+    UpperBoundVariableOffset = 11,
+    StrideVariableOffset = 12,
+    EnsureUpperBoundOffset = 13,
+    NextLowerBoundOffset = 14,
+    NextUpperBoundOffset = 15,
+    NumIterationsOffset = 16,
+    // Offset to the end for worksharing loop directives.
+    WorksharingEnd = 17,
+    PrevLowerBoundVariableOffset = 17,
+    PrevUpperBoundVariableOffset = 18,
+    DistIncOffset = 19,
+    PrevEnsureUpperBoundOffset = 20,
+    CombinedLowerBoundVariableOffset = 21,
+    CombinedUpperBoundVariableOffset = 22,
+    CombinedEnsureUpperBoundOffset = 23,
+    CombinedInitOffset = 24,
+    CombinedConditionOffset = 25,
+    CombinedNextLowerBoundOffset = 26,
+    CombinedNextUpperBoundOffset = 27,
+    CombinedDistConditionOffset = 28,
+    CombinedParForInDistConditionOffset = 29,
+    // Offset to the end (and start of the following counters/updates/finals
+    // arrays) for combined distribute loop directives.
+    CombinedDistributeEnd = 30,
+#endif // INTEL_COLLAB
   };
 
   /// Get the counters storage.
@@ -501,15 +534,11 @@ protected:
   void setPreInits(Stmt *PreInits) {
     *std::next(child_begin(), PreInitsOffset) = PreInits;
   }
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   void setLateOutlineCond(Stmt *LateOutlineCond) {
     *std::next(child_begin(), LateOutlineCondOffset) = LateOutlineCond;
   }
-  void setLateOutlineUpperBoundVariable(Stmt *LateOutlineUpperBoundVariable) {
-    *std::next(child_begin(), LateOutlineUpperBoundVariableOffset) =
-        LateOutlineUpperBoundVariable;
-  }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   void setIsLastIterVariable(Expr *IL) {
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
@@ -525,10 +554,15 @@ protected:
     *std::next(child_begin(), LowerBoundVariableOffset) = LB;
   }
   void setUpperBoundVariable(Expr *UB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     *std::next(child_begin(), UpperBoundVariableOffset) = UB;
   }
   void setStrideVariable(Expr *ST) {
@@ -688,6 +722,10 @@ public:
     Expr *PreCond;
     /// Loop condition.
     Expr *Cond;
+#if INTEL_COLLAB
+    /// Late-outlining loop condition.
+    Expr *LateOutlineCond;
+#endif // INTEL_COLLAB
     /// Loop iteration variable init.
     Expr *Init;
     /// Loop increment.
@@ -734,12 +772,6 @@ public:
     SmallVector<Expr *, 4> Finals;
     /// Init statement for all captured expressions.
     Stmt *PreInits;
-#if INTEL_CUSTOMIZATION
-    /// Loop condition with UB for late-outlining.
-    Expr *LateOutlineCond;
-    /// UpperBound - local variable upper bound for late-outlining.
-    Expr *LateOutlineUB;
-#endif // INTEL_CUSTOMIZATION
 
     /// Expressions used when combining OpenMP loop pragmas
     DistCombinedHelperExprs DistCombinedFields;
@@ -760,6 +792,9 @@ public:
       CalcLastIteration = nullptr;
       PreCond = nullptr;
       Cond = nullptr;
+#if INTEL_COLLAB
+      LateOutlineCond = nullptr;
+#endif // INTEL_COLLAB
       Init = nullptr;
       Inc = nullptr;
       IL = nullptr;
@@ -787,10 +822,6 @@ public:
         Finals[i] = nullptr;
       }
       PreInits = nullptr;
-#if INTEL_CUSTOMIZATION
-      LateOutlineCond = nullptr;
-      LateOutlineUB = nullptr;
-#endif // INTEL_CUSTOMIZATION
       DistCombinedFields.LB = nullptr;
       DistCombinedFields.UB = nullptr;
       DistCombinedFields.EUB = nullptr;
@@ -826,6 +857,12 @@ public:
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), CondOffset)));
   }
+#if INTEL_COLLAB
+  Expr *getLateOutlineCond() const {
+    return const_cast<Expr *>(reinterpret_cast<const Expr *>(
+        *std::next(child_begin(), LateOutlineCondOffset)));
+  }
+#endif // INTEL_COLLAB
   Expr *getInit() const {
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), InitOffset)));
@@ -838,16 +875,6 @@ public:
     return *std::next(child_begin(), PreInitsOffset);
   }
   Stmt *getPreInits() { return *std::next(child_begin(), PreInitsOffset); }
-#if INTEL_CUSTOMIZATION
-  Expr *getLateOutlineCond() const {
-    return const_cast<Expr *>(reinterpret_cast<const Expr *>(
-        *std::next(child_begin(), LateOutlineCondOffset)));
-  }
-  Expr *getLateOutlineUpperBoundVariable() const {
-    return const_cast<Expr *>(reinterpret_cast<const Expr *>(
-        *std::next(child_begin(), LateOutlineUpperBoundVariableOffset)));
-  }
-#endif // INTEL_CUSTOMIZATION
   Expr *getIsLastIterVariable() const {
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
@@ -865,10 +892,15 @@ public:
         *std::next(child_begin(), LowerBoundVariableOffset)));
   }
   Expr *getUpperBoundVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), UpperBoundVariableOffset)));
   }

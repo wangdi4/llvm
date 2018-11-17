@@ -1,11 +1,11 @@
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility \
-// RUN:  -fopenmp -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility -DSPLIT \
-// RUN:  -fopenmp -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fexceptions \
-// RUN:  -fintel-compatibility -fopenmp -fintel-openmp-region \
+// RUN:  -fintel-compatibility -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 void bar(int,int,...);

@@ -390,11 +390,11 @@ public:
     /// Get the name of the capture helper.
     virtual StringRef getHelperName() const { return "__captured_stmt"; }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
     virtual void recordThisPointerReference(llvm::Value *) {}
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   private:
     /// The kind of captured statement being generated.
     CapturedRegionKind Kind;
@@ -873,8 +873,13 @@ public:
     /// Sets the address of the variable \p LocalVD to be \p TempAddr in
     /// function \p CGF.
     /// \return true if at least one variable was set already, false otherwise.
+#if INTEL_COLLAB
     bool setVarAddr(CodeGenFunction &CGF, const VarDecl *LocalVD,
-                    Address TempAddr, bool NoTemps = false) { // INTEL
+                    Address TempAddr, bool NoTemps = false) {
+#else
+    bool setVarAddr(CodeGenFunction &CGF, const VarDecl *LocalVD,
+                    Address TempAddr) {
+#endif // INTEL_COLLAB
       LocalVD = LocalVD->getCanonicalDecl();
       // Only save it once.
       if (SavedLocals.count(LocalVD)) return false;
@@ -888,7 +893,11 @@ public:
 
       // Generate the private entry.
       QualType VarTy = LocalVD->getType();
-      if (!NoTemps && VarTy->isReferenceType()) { // INTEL
+#if INTEL_COLLAB
+      if (!NoTemps && VarTy->isReferenceType()) {
+#else
+      if (VarTy->isReferenceType()) {
+#endif // INTEL_COLLAB
         Address Temp = CGF.CreateMemTemp(VarTy);
         CGF.Builder.CreateStore(TempAddr.getPointer(), Temp);
         TempAddr = Temp;
@@ -957,14 +966,14 @@ public:
       return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen());
     }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     bool addPrivateNoTemps(const VarDecl *LocalVD,
                            const llvm::function_ref<Address()> PrivateGen) {
       assert(PerformCleanup && "adding private to dead scope");
       return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen(),
                                    /*NoTemps=*/true);
     }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
     /// Privatizes local variables previously registered as private.
     /// Registration is separate from the actual privatization to allow
@@ -1468,6 +1477,8 @@ public:
     }
     ~LocalVarsDeclGuard() { CGF.LocalDeclMap.swap(LocalDeclMap); }
   };
+#endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   // Save and clear the TerminateLandingPad on entry to each OpenMP region.
   // This will ensure we have one for each OpenMP region when it is outlined.
   class OMPTerminateLandingPadHandler {
@@ -1489,7 +1500,7 @@ public:
       CGF.TerminateLandingPad = TerminateLandingPad;
     }
   };
-#endif  // INTEL_CUSTOMIZATION
+#endif  // INTEL_COLLAB
   /// A scope within which we are constructing the fields of an object which
   /// might use a CXXDefaultInitExpr. This stashes away a 'this' value to use
   /// if we need to evaluate a CXXDefaultInitExpr within the evaluation.
@@ -3416,7 +3427,7 @@ private:
   /// Emit code for sections directive.
   void EmitSections(const OMPExecutableDirective &S);
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   void EmitLateOutlineOMPDirective(const OMPExecutableDirective &S,
                                    OpenMPDirectiveKind Kind = OMPD_unknown);
 
@@ -3429,7 +3440,7 @@ private:
 public:
   void RemapForLateOutlining(const OMPExecutableDirective &D,
                              OMPPrivateScope &PrivScope);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 public:
 
   //===--------------------------------------------------------------------===//

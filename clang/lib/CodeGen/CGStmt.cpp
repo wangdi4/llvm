@@ -75,8 +75,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   // Generate a stoppoint if we are emitting debug info.
   EmitStopPoint(S);
 
-#if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline) {
     // Combined target directives
     if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetParallelForDirectiveClass ||
@@ -108,7 +108,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       return EmitLateOutlineOMPDirective(*Dir);
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   // Ignore all OpenMP directives except for simd if OpenMP with Simd is
   // enabled.

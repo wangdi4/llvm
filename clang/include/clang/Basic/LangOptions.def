@@ -84,7 +84,6 @@ LANGOPT(C99               , 1, 0, "C99")
 LANGOPT(C11               , 1, 0, "C11")
 LANGOPT(C17               , 1, 0, "C17")
 #if INTEL_CUSTOMIZATION
-LANGOPT(IntelOpenMP, 1, 0, "Intel specific OpenMP late-outlining codegen")
 LANGOPT(OpenMPThreadPrivateLegacy, 1, 0, "Use legacy OpenMP threadprivate")
 LANGOPT(OpenMPSimdOnly,     1, 0, "Enable OpenMP SIMD only")
 LANGOPT(OpenMPSimdDisabled, 1, 0, "Disable OpenMP SIMD only")
@@ -234,6 +233,9 @@ LANGOPT(HIP               , 1, 0, "HIP")
 LANGOPT(OpenMP            , 32, 0, "OpenMP support and version of OpenMP (31, 40 or 45)")
 LANGOPT(OpenMPSimd        , 1, 0, "Use SIMD only OpenMP support.")
 LANGOPT(OpenMPUseTLS      , 1, 0, "Use TLS for threadprivates or runtime calls")
+#if INTEL_COLLAB
+LANGOPT(OpenMPLateOutline , 1, 0, "Outline OpenMP constructs in the back end")
+#endif // INTEL_COLLAB
 LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")
 LANGOPT(OpenMPCUDAForceFullRuntime , 1, 0, "Force to use full runtime in all constructs when offloading to CUDA devices")

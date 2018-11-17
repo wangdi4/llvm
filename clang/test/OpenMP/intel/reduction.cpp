@@ -1,7 +1,7 @@
 //RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility \
-//RUN:   -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s
+//RUN:   -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
 //RUN: %clang_cc1 -emit-llvm -o - %s -fexceptions -fopenmp \
-//RUN:   -fintel-compatibility -fintel-openmp-region       \
+//RUN:   -fintel-compatibility -fopenmp-late-outline       \
 //RUN:   -triple x86_64-unknown-linux-gnu | FileCheck %s
 
 int bar(int i);

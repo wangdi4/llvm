@@ -5,7 +5,7 @@
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -mllvm -paropt=4 -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-OPENMP --check-prefix=CHECK-PAR4
 //
 // CHECK-CC1-OPENMP: "-cc1"
-// CHECK-CC1-OPENMP: "-fintel-openmp-region"
+// CHECK-CC1-OPENMP: "-fopenmp-late-outline"
 // CHECK-CC1-OPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK-CC1-OPENMP: "-fopenmp"
 //
@@ -40,7 +40,7 @@
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -fopenmp-targets=x86_64-unknown-linux-gnu -mllvm -paropt=4 -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK2-CC1-OPENMP --check-prefix=CHECK2-PAR4
 //
 // CHECK2-CC1-OPENMP: "-cc1"
-// CHECK2-CC1-OPENMP: "-fintel-openmp-region"
+// CHECK2-CC1-OPENMP: "-fopenmp-late-outline"
 // CHECK2-CC1-OPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK2-CC1-OPENMP: "-fopenmp"
 // CHECK2-CC1-OPENMP-NOT: "-fopenmp-is-device"

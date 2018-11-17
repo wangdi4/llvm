@@ -3152,7 +3152,8 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
   // For OpenMP backend outlining, the globals in a declare target region must
   // be marked with the target_declare attribute so they're not optimized away
   // by backend optimizations.
-  if(getLangOpts().IntelOpenMP && D && D->hasAttr<OMPDeclareTargetDeclAttr>())
+  if (getLangOpts().OpenMPLateOutline && D &&
+      D->hasAttr<OMPDeclareTargetDeclAttr>())
     GV->setTargetDeclare(true);
 #endif // INTEL_COLLAB
 
@@ -5577,7 +5578,7 @@ void CodeGenModule::EmitMSDebugInfoMetadata() {
 void CodeGenModule::EmitIntelDriverTempfile() {
   // Communication file should be generated only during host complication.
   if (!getLangOpts().IntelCompat ||
-      !getLangOpts().IntelOpenMP ||
+      !getLangOpts().OpenMPLateOutline ||
       getLangOpts().IntelDriverTempfileName.empty() ||
       getLangOpts().OpenMPIsDevice)
     return;

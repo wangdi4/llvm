@@ -97,6 +97,9 @@ OMPSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setCounters(Exprs.Counters);
@@ -105,10 +108,9 @@ OMPSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  Dir->setUpperBoundVariable(Exprs.UB);
+#endif // INTEL_COLLAB
   return Dir;
 }
 
@@ -141,6 +143,9 @@ OMPForDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -158,10 +163,6 @@ OMPForDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -195,6 +196,9 @@ OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -211,10 +215,6 @@ OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -362,6 +362,9 @@ OMPParallelForDirective *OMPParallelForDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -379,10 +382,6 @@ OMPParallelForDirective *OMPParallelForDirective::Create(
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -415,6 +414,9 @@ OMPParallelForSimdDirective *OMPParallelForSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -431,10 +433,6 @@ OMPParallelForSimdDirective *OMPParallelForSimdDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -759,6 +757,9 @@ OMPTargetParallelForDirective *OMPTargetParallelForDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -776,10 +777,6 @@ OMPTargetParallelForDirective *OMPTargetParallelForDirective::Create(
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -905,6 +902,9 @@ OMPTaskLoopDirective *OMPTaskLoopDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -921,10 +921,6 @@ OMPTaskLoopDirective *OMPTaskLoopDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -958,6 +954,9 @@ OMPTaskLoopSimdDirective *OMPTaskLoopSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -974,10 +973,6 @@ OMPTaskLoopSimdDirective *OMPTaskLoopSimdDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1010,6 +1005,9 @@ OMPDistributeDirective *OMPDistributeDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1026,10 +1024,6 @@ OMPDistributeDirective *OMPDistributeDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1088,6 +1082,9 @@ OMPDistributeParallelForDirective *OMPDistributeParallelForDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1118,10 +1115,6 @@ OMPDistributeParallelForDirective *OMPDistributeParallelForDirective::Create(
   Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
   Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
   Dir->HasCancel = HasCancel;
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1160,6 +1153,9 @@ OMPDistributeParallelForSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1189,10 +1185,6 @@ OMPDistributeParallelForSimdDirective::Create(
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
   Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
   Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1230,6 +1222,9 @@ OMPDistributeSimdDirective *OMPDistributeSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1246,10 +1241,6 @@ OMPDistributeSimdDirective *OMPDistributeSimdDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1286,6 +1277,9 @@ OMPTargetParallelForSimdDirective *OMPTargetParallelForSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1302,10 +1296,6 @@ OMPTargetParallelForSimdDirective *OMPTargetParallelForSimdDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1342,6 +1332,9 @@ OMPTargetSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setCounters(Exprs.Counters);
@@ -1350,10 +1343,9 @@ OMPTargetSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  Dir->setUpperBoundVariable(Exprs.UB);
+#endif // INTEL_COLLAB
   return Dir;
 }
 
@@ -1386,6 +1378,9 @@ OMPTeamsDistributeDirective *OMPTeamsDistributeDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1402,10 +1397,6 @@ OMPTeamsDistributeDirective *OMPTeamsDistributeDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1441,6 +1432,9 @@ OMPTeamsDistributeSimdDirective *OMPTeamsDistributeSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1457,10 +1451,6 @@ OMPTeamsDistributeSimdDirective *OMPTeamsDistributeSimdDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1498,6 +1488,9 @@ OMPTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1527,10 +1520,6 @@ OMPTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
   Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
   Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1571,6 +1560,9 @@ OMPTeamsDistributeParallelForDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1601,10 +1593,6 @@ OMPTeamsDistributeParallelForDirective::Create(
   Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
   Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
   Dir->HasCancel = HasCancel;
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1667,6 +1655,9 @@ OMPTargetTeamsDistributeDirective *OMPTargetTeamsDistributeDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1683,10 +1674,6 @@ OMPTargetTeamsDistributeDirective *OMPTargetTeamsDistributeDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1727,6 +1714,9 @@ OMPTargetTeamsDistributeParallelForDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1757,10 +1747,6 @@ OMPTargetTeamsDistributeParallelForDirective::Create(
   Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
   Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
   Dir->HasCancel = HasCancel;
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1804,6 +1790,9 @@ OMPTargetTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1833,10 +1822,6 @@ OMPTargetTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCombinedNextUpperBound(Exprs.DistCombinedFields.NUB);
   Dir->setCombinedDistCond(Exprs.DistCombinedFields.DistCond);
   Dir->setCombinedParForInDistCond(Exprs.DistCombinedFields.ParForInDistCond);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 
@@ -1877,6 +1862,9 @@ OMPTargetTeamsDistributeSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1893,10 +1881,6 @@ OMPTargetTeamsDistributeSimdDirective::Create(
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   Dir->setPreInits(Exprs.PreInits);
-#if INTEL_CUSTOMIZATION
-  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-  Dir->setLateOutlineUpperBoundVariable(Exprs.LateOutlineUB);
-#endif // INTEL_CUSTOMIZATION
   return Dir;
 }
 

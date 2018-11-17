@@ -17,6 +17,9 @@
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
@@ -37,9 +40,6 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
-#if INTEL_CUSTOMIZATION
-#include "intel/CGIntelStmtOpenMP.h"
-#endif // INTEL_CUSTOMIZATION
 
 #include <string>
 
@@ -2520,8 +2520,8 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       return MakeAddrLValue(Address(Val, Alignment), T, AlignmentSource::Decl);
     }
 
-#if INTEL_CUSTOMIZATION
-    if (getLangOpts().IntelOpenMP) {
+#if INTEL_COLLAB
+    if (getLangOpts().OpenMPLateOutline) {
       if (CapturedStmtInfo)
         CapturedStmtInfo->recordVariableReference(VD);
       if (isa<OMPCapturedExprDecl>(VD)) {
@@ -2540,7 +2540,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         }
       }
     } else
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
     // Check for captured variables.
     if (E->refersToEnclosingVariableOrCapture()) {
       VD = VD->getCanonicalDecl();

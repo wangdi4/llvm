@@ -81,6 +81,9 @@ add_clang_library(clangCodeGen
   CGRecordLayoutBuilder.cpp
   CGStmt.cpp
   CGStmtOpenMP.cpp
+# INTEL_COLLAB
+  intel/CGOpenMPLateOutline.cpp
+# end INTEL_COLLAB
   CGVTT.cpp
   CGVTables.cpp
   CodeGenABITypes.cpp
@@ -103,7 +106,6 @@ add_clang_library(clangCodeGen
   VarBypassDetector.cpp
 # INTEL_CUSTOMIZATION
   intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
-  intel/CGIntelStmtOpenMP.cpp
   intel/CGSPIRMetadataAdder.cpp
   intel/CGIntelHLS.cpp
 # end INTEL_CUSTOMIZATION

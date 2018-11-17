@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-openmp-region \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 //CHECK-DAG: _ZGVbM4vv_vec_sum

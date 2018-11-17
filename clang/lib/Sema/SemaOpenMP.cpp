@@ -5221,6 +5221,13 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
 
   // Build variables passed into runtime, necessary for worksharing directives.
   ExprResult LB, UB, IL, ST, EUB, CombLB, CombUB, PrevLB, PrevUB, CombEUB;
+#if INTEL_COLLAB
+  // Upper bound variable, initialized with last iteration number.
+  VarDecl *UBDecl = buildVarDecl(SemaRef, InitLoc, VType, ".omp.ub");
+  UB = buildDeclRefExpr(SemaRef, UBDecl, VType, InitLoc);
+  SemaRef.AddInitializerToDecl(UBDecl, LastIteration.get(),
+                               /*DirectInit*/ false);
+#endif // INTEL_COLLAB
   if (isOpenMPWorksharingDirective(DKind) || isOpenMPTaskLoopDirective(DKind) ||
       isOpenMPDistributeDirective(DKind)) {
     // Lower bound variable, initialized with zero.
@@ -5230,12 +5237,14 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
                                  SemaRef.ActOnIntegerConstant(InitLoc, 0).get(),
                                  /*DirectInit*/ false);
 
+#if INTEL_COLLAB
+#else
     // Upper bound variable, initialized with last iteration number.
     VarDecl *UBDecl = buildVarDecl(SemaRef, InitLoc, VType, ".omp.ub");
     UB = buildDeclRefExpr(SemaRef, UBDecl, VType, InitLoc);
     SemaRef.AddInitializerToDecl(UBDecl, LastIteration.get(),
                                  /*DirectInit*/ false);
-
+#endif // INTEL_COLLAB
     // A 32-bit variable-flag where runtime returns 1 for the last iteration.
     // This will be used to implement clause 'lastprivate'.
     QualType Int32Ty = SemaRef.Context.getIntTypeForBitwidth(32, true);
@@ -5312,13 +5321,6 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
           buildDeclRefExpr(SemaRef, PrevUBDecl, PrevUBDecl->getType(), InitLoc);
     }
   }
-#if INTEL_CUSTOMIZATION
-  // Upper bound variable, initialized with last iteration number.
-  VarDecl *UBDecl = buildVarDecl(SemaRef, InitLoc, VType, ".omp.ub");
-  ExprResult LateOutlineUB = buildDeclRefExpr(SemaRef, UBDecl, VType, InitLoc);
-  SemaRef.AddInitializerToDecl(UBDecl, LastIteration.get(),
-                               /*DirectInit*/ false);
-#endif // INTEL_CUSTOMIZATION
 
   // Build the iteration variable and its initialization before loop.
   ExprResult IV;
@@ -5355,10 +5357,10 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
           ? SemaRef.BuildBinOp(CurScope, CondLoc, BO_LE, IV.get(), UB.get())
           : SemaRef.BuildBinOp(CurScope, CondLoc, BO_LT, IV.get(),
                                NumIterations.get());
-#if INTEL_CUSTOMIZATION
-  ExprResult LateOutlineCond = SemaRef.BuildBinOp(
-      CurScope, CondLoc, BO_LE, IV.get(), LateOutlineUB.get());
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  ExprResult LateOutlineCond =
+      SemaRef.BuildBinOp(CurScope, CondLoc, BO_LE, IV.get(), UB.get());
+#endif // INTEL_COLLAB
   ExprResult CombDistCond;
   if (isOpenMPLoopBoundSharingDirective(DKind)) {
     CombDistCond =
@@ -5571,6 +5573,9 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.PreCond = PreCond.get();
   Built.PreInits = buildPreInits(C, Captures);
   Built.Cond = Cond.get();
+#if INTEL_COLLAB
+  Built.LateOutlineCond = LateOutlineCond.get();
+#endif // INTEL_COLLAB
   Built.Init = Init.get();
   Built.Inc = Inc.get();
   Built.LB = LB.get();
@@ -5593,10 +5598,6 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.DistCombinedFields.NUB = CombNextUB.get();
   Built.DistCombinedFields.DistCond = CombDistCond.get();
   Built.DistCombinedFields.ParForInDistCond = ParForInDistCond.get();
-#if INTEL_CUSTOMIZATION
-  Built.LateOutlineCond = LateOutlineCond.get();
-  Built.LateOutlineUB = LateOutlineUB.get();
-#endif // INTEL_CUSTOMIZATION
 
   return NestedLoopCount;
 }
@@ -10165,7 +10166,7 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
 
 #if INTEL_CUSTOMIZATION
     if (IsConditional) {
-      bool VectorTypeAllowed = getLangOpts().IntelOpenMP;
+      bool VectorTypeAllowed = getLangOpts().OpenMPLateOutline;
 
       if (!Type->isScalarType() &&
           (!VectorTypeAllowed || !Type->isVectorType())) {
@@ -10874,7 +10875,7 @@ static bool actOnOMPReductionKindClause(
       Type = Context.getBaseElementType(D->getType().getNonReferenceType());
     }
 #if INTEL_CUSTOMIZATION
-    if (S.getLangOpts().IntelOpenMP && Type->isVectorType())
+    if (S.getLangOpts().OpenMPLateOutline && Type->isVectorType())
       Type = Type->getAs<VectorType>()->getElementType();
 #endif  // INTEL_CUSTOMIZATION
     auto *VD = dyn_cast<VarDecl>(D);

@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 #define LOOP for(int i=0;i<16;++i) {}
 

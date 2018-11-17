@@ -13,6 +13,9 @@
 
 #include "CGCleanup.h"
 #include "CGOpenMPRuntime.h"
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -20,9 +23,6 @@
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/DeclOpenMP.h"
 #include "llvm/IR/CallSite.h"
-#if INTEL_CUSTOMIZATION
-#include "intel/CGIntelStmtOpenMP.h"
-#endif // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace CodeGen;
 
@@ -63,10 +63,10 @@ public:
       const bool EmitPreInitStmt = true)
       : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()),
         InlinedShareds(CGF) {
-#if INTEL_CUSTOMIZATION
-    if (CGF.getLangOpts().IntelOpenMP)
+#if INTEL_COLLAB
+    if (CGF.getLangOpts().OpenMPLateOutline)
       llvm_unreachable("Should be using OMPLateOutlineScope");
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
     if (EmitPreInitStmt)
       emitPreInitStmt(CGF, S);
     if (!CapturedRegion.hasValue())
@@ -1306,8 +1306,8 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
 void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
-#if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelOpenMP) {
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline) {
     // Emit variables for orignal loop controls
     for (auto *E : D.counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
@@ -1318,16 +1318,16 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
       }
     }
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
   // Update counters values on current iteration.
   for (const Expr *UE : D.updates())
     EmitIgnoredExpr(UE);
   // Update the linear variables.
   // In distribute directives only loop counters may be marked as linear, no
   // need to generate the code for them.
-#if INTEL_CUSTOMIZATION
-  if (!CGM.getLangOpts().IntelOpenMP)
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  if (!CGM.getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
   if (!isOpenMPDistributeDirective(D.getDirectiveKind())) {
     for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
       for (const Expr *UE : C->updates())
@@ -1357,7 +1357,7 @@ void CodeGenFunction::EmitOMPInnerLoop(
   EmitBlock(CondBlock);
   const SourceRange R = S.getSourceRange();
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelOpenMP) {
+  if (CGM.getLangOpts().IntelCompat) {
     llvm::SmallVector<const clang::Attr *, 4> Attrs;
     llvm::ArrayRef<const clang::Attr *> AttrRef = Attrs;
     if (auto *LD = dyn_cast<OMPLoopDirective>(&S)) {
@@ -5055,7 +5055,7 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
   CGM.getOpenMPRuntime().emitTargetDataStandAloneCall(*this, S, IfCond, Device);
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                                              OpenMPDirectiveKind Kind) {
   // Emit the loop iteration variable.
@@ -5103,13 +5103,13 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getIsLastIterVariable()));
     } else if (Kind == OMPD_simd) {
       EmitOMPHelperVar(*this,
-                       cast<DeclRefExpr>(S.getLateOutlineUpperBoundVariable()));
+                       cast<DeclRefExpr>(S.getUpperBoundVariable()));
     }
 
     // Emit 'then' code.
     {
-      CGIntelOpenMP::OpenMPCodeOutliner Outliner(*this, S, Kind);
-      CGIntelOpenMP::InlinedOpenMPRegionRAII Region(*this, Outliner, S);
+      OpenMPLateOutliner Outliner(*this, S, Kind);
+      LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
       OMPPrivateScope LoopScope(*this);
 
       auto LoopExit =
@@ -5195,7 +5195,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
     }
   }
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void CodeGenFunction::EmitSimpleOMPExecutableDirective(
     const OMPExecutableDirective &D) {

@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
-// RUN:  -fintel-openmp-region -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 
 int f(int);
