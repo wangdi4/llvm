@@ -267,6 +267,14 @@ private:
       SmallPtrSetImpl<StructType *> &ExternTypes,
       DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets);
 
+  // Examine the types that are dependent on types used externally to determine
+  // types that cannot be remapped.
+  void findNonRemappableTypes(
+      Module &M,
+      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+      SmallPtrSetImpl<StructType *> &ExternTypes,
+      SmallPtrSetImpl<StructType *> &NonRemappableTypes);
+
   // Examine the \p CandidateTypeSets to determine which types are equivalent
   // and which types are compatible. Refer to the description of compareTypes
   // for the distinction between "equivalent" and "compatible". For equivalent
@@ -1013,10 +1021,21 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
   if (CandidateTypeSets.empty())
     return false;
 
+  SmallPtrSet<StructType *, 16> NonRemappableTypes;
+  findNonRemappableTypes(M, CandidateTypeSets, ExternTypes, NonRemappableTypes);
+
   bool TypesRemapped = false;
   EquivalenceClasses<StructType *> CompatibleTypes;
+
+  // TODO: For now, pass the NonRemappableTypes into the function for types
+  // to be skipped over when picking types that may be remapped. Later, this
+  // will be changed back to passing the ExternTypes set, and NonRemappableTypes
+  // will be used when choosing a target mapping. The types within
+  // NonRemappableTypes cannot be remapped to something else, but something
+  // could be remapped to them, so they will need to be part of the
+  // compatibility set when the logic for that is enhanced.
   TypesRemapped = identifyEquivalentAndCompatibleTypes(
-      CandidateTypeSets, ExternTypes, CompatibleTypes);
+      CandidateTypeSets, NonRemappableTypes, CompatibleTypes);
 
   if (CompatibleTypes.getNumClasses()) {
     CompatibleTypeAnalyzer CTA(M, CompatibleTypes);
@@ -1031,7 +1050,8 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
 void ResolveTypesImpl::collectExternalStructTypes(
     Module &M, SmallPtrSetImpl<StructType *> &ExternTypes) {
   std::function<void(StructType *)> addExternalType = [&](StructType *Ty) {
-    // If this type was already in the set, don't bother with its dependencies.
+    // If this type was already in the set, everything it contains is already in
+    // the set, or in the process of being added.
     if (!ExternTypes.insert(Ty).second)
       return;
 
@@ -1042,10 +1062,6 @@ void ResolveTypesImpl::collectExternalStructTypes(
     for (auto *MemberType : Ty->elements())
       if (auto *ElemStTy = getContainedStructTy(MemberType))
         addExternalType(ElemStTy);
-    // Add any types that depend on this type.
-    for (auto *DepTy : TypeToDependentTypes[Ty])
-      if (auto *DepStTy = dyn_cast<StructType>(DepTy))
-        addExternalType(DepStTy);
   };
 
   // Collect the types that are used by external functions and any types
@@ -1103,6 +1119,114 @@ void ResolveTypesImpl::identifyCandidateSets(
                     dbgs() << "resolve-types: Found candidate type\n  "
                            << TyName << " -> " << BaseName << "\n");
     CandidateTypeSets[BaseTy].insert(Ty);
+  }
+}
+
+// Examine the dependencies of the externally used types to determine other
+// types that cannot be remapped. This is necessary to avoid having an incorrect
+// type for a GEP access of a structure field due to the merging of types. This
+// is done based on the candidate sets that were found because once we reach a
+// type dependency that is not a candidate, we can stop walking the dependencies
+// because that type is not going to be remapped anyway.
+//
+// As a concrete example, consider the following structure types, each box
+// represents a structure type, multiple types within a box represent a
+// candidate set, and arrows represent the structure containing or using the
+// arrow's target type:
+//
+//    +-----------+     +------------+
+//    |  InFile   |---->|  RawData   |--\
+//    +-----------+     +------------+  |
+//    |  InFile.1 |                     |
+//    +-----------+                     |
+//                                      |
+//    +-----------+     +------------+  v  +------------+     +-----------+
+//    | TokenStrm |---->| ITxtStrm   |---->| IStream    |---->| IOBase    |
+//    +-----------+     |---------- -|     |---------- -|     |-----------|
+//                      | ITxtStrm.1 |---->| IStream.22 |---->| IOBase.68 |
+//                      |------------|     |---------- -|     |-----------|
+//                      | ITxtStrm.4 |---->| IStream.92 |---->| IOBase.91 |
+//                      +------------+     +-------------+    +-----------+
+//
+// In this case, if "IOBase" is an external type, it cannot be remapped to
+// another type. This creates a constraint on the group of "IStream" types,
+// because if "IStream.22" were chosen as the target for all "IStream" types
+// mapped to, there would be an invalid GEP operation, because the original
+// users of "IStream" would have expected the type to be an "IOBase", but the
+// field would still be an "IOBase.68". Likewise, this will also prevent
+// remapping of the "ITxtStrm" group. However, any dependencies of "RawData" or
+// "TokenStrm" are not affected because once we know that "IStream" is not going
+// to be remapped, we know that "RawData" and "TokenStrm" will not get modified,
+// so we can stop propagating the dependency that was triggered about the
+// external type at that point. This prevents the dependent types from
+// propagating to all types, and also enables "InFile" to be processed as a
+// candidate.
+void ResolveTypesImpl::findNonRemappableTypes(
+    Module &M,
+    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+    SmallPtrSetImpl<StructType *> &ExternTypes,
+    SmallPtrSetImpl<StructType *> &NonRemappableTypes) {
+
+  SmallVector<StructType *, 16> Worklist(ExternTypes.begin(),
+                                         ExternTypes.end());
+
+  // Items in this set have examined.
+  SmallPtrSet<StructType *, 16> Visited;
+
+  while (!Worklist.empty()) {
+    auto *Ty = Worklist.back();
+    Worklist.pop_back();
+    if (!Visited.insert(Ty).second)
+      continue;
+
+    // This type will not be permitted to be remapped because remapping it
+    // would require remapping an extern type, or some type that depends on
+    // an external type. This is a conservative approximation of the
+    // types that will not be able to be remapped. It is possible that the field
+    // that had the dependency for the type is never accessed, but that
+    // determination is not made until the CompatibleTypeAnalyzer is run.
+    NonRemappableTypes.insert(Ty);
+
+    for (auto *DepTy : TypeToDependentTypes[Ty])
+      if (auto *DepStTy = dyn_cast<StructType>(DepTy)) {
+        // Only named structures are important.
+        if (!DepStTy->hasName())
+          continue;
+
+        StringRef DepTyName = DepStTy->getName();
+        StringRef BaseName = getTypeBaseName(DepTyName);
+
+        // If the type is a candidate, there will always be a type available
+        // with the base name because identifyCandidateSets will create a type
+        // with that name, if one does not exist previously. If there is not a
+        // type with the name, then the dependent type was not a candidate for
+        // being remapped, and we can move on to the next element.
+        StructType *BaseTy = M.getTypeByName(BaseName);
+        if (!BaseTy)
+          continue;
+
+        auto It = CandidateTypeSets.find(BaseTy);
+        if (It == CandidateTypeSets.end())
+          continue;
+
+        // A candidate was found, mark the type, and all types belonging to the
+        // same candidate set as not being able to be remapped.
+        // TODO: This is a conservative approximation because the candidate sets
+        // will be further split into equivalent types and compatible types, so
+        // not all elements of the set may be impacted by the dependency. This
+        // will be changed to be identifyEquivalentAndCompatibleTypes(), so that
+        // it can work with the refined sets, in a future version.
+        DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Cannot remap type: "
+                                             << BaseTy->getName() << "\n");
+        Worklist.emplace_back(BaseTy);
+        for (auto *CandTy : It->getSecond()) {
+          if (!Visited.count(CandTy)) {
+            DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Cannot remap type: "
+                                                 << CandTy->getName() << "\n");
+            Worklist.emplace_back(CandTy);
+          }
+        }
+      }
   }
 }
 
