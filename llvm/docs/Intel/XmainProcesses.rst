@@ -551,11 +551,11 @@ we have the following code in `llvm/CMakeLists.txt`:
 .. code-block:: cmake
 
   foreach(f ${LLVM_INTEL_FEATURES})
-    string(CONCAT FOPT "-DINTEL_FEATURE_" ${f} "=1")
+    string(CONCAT FOPT "-DINTEL_FEATURE" "_" ${f} "=1")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
   endforeach(f)
 
-This code populates C++ compilation flags with options like '-DINTEL_FEATURE_XXX=1'
+This code populates C++ compilation flags with options like '-DINTEL_FEATURE\_XXX=1'
 based on the list of features provided in 'LLVM_INTEL_FEATURES' list.
 
 .. note:: We do not currently update CMAKE_C_FLAGS, so pure C files are compiled
@@ -567,13 +567,13 @@ To guard Intel secret features in C/C++ files use feature checks in addition to
 .. code-block:: c++
 
   #if INTEL_CUSTOMIZATION
-  #if INTEL_FEATURE_AVX3_2
-  // AVX3_2 specific code.
-  #endif // INTEL_FEATURE_AVX3_2
+  #if INTEL_FEATURE\_XXX
+  // XXX specific code.
+  #endif // INTEL_FEATURE\_XXX
   #endif // INTEL_CUSTOMIZATION
 
-.. note:: The compiler must build with and without any of INTEL_FEATURE_XXX
-          defined.  If an INTEL_FEATURE_XXX is not defined, the compiler
+.. note:: The compiler must build with and without any of INTEL_FEATURE\_XXX
+          defined.  If an INTEL_FEATURE\_XXX is not defined, the compiler
           must be fully functional, except for the disabled feature's support.
 
 To completely exclude a C/C++ file from compilation, when some feature is not
@@ -673,9 +673,9 @@ but we have agreed on the following direction:
 
 .. code-block:: c++
 
-  // INTEL_FEATURE_AVX3_2
+  // INTEL_FEATURE\_AVX3_2
   // AVX3_2 specific code.
-  // end INTEL_FEATURE_AVX3_2
+  // end INTEL_FEATURE\_AVX3_2
 
 - A special Intel tool will be called from `llvm/cmake/modules/TableGen.cmake`
   (and, maybe, other cmake scripts) to preprocess a .td file into a temporary
@@ -722,7 +722,7 @@ build in `llvm/CMakeLists.txt`:
 
 This code allows using flat C/C++ include paths for header files located
 in `llvm/Intel_OptionalComponents/AVX3_2/include`.  Such include directives
-obviously need to be guarded with the corresponding INTEL_FEATURE_AVX3_2
+obviously need to be guarded with the corresponding INTEL_FEATURE\_AVX3_2
 macro check.
 
 The same way, C/C++ source files may be conditionally added to the compiler
