@@ -533,14 +533,18 @@ DINode *SPIRVToLLVMDbgTran::transFunctionDecl(const SPIRVExtInst *DebugInst) {
   llvm::DITemplateParameterArray TParamsArray = TParams.get();
 
   DISubprogram *DIS = nullptr;
-  if (isa<DICompositeType>(Scope) || isa<DINamespace>(Scope))
+  if (isa<DICompositeType>(Scope) || isa<DINamespace>(Scope)) {
     DIS = Builder.createMethod(Scope, Name, LinkageName, File, LineNo, Ty,
                                isLocal, isDefinition, 0, 0, 0, nullptr, Flags,
                                isOptimized, TParamsArray);
-  else
-    DIS = Builder.createFunction(Scope, Name, LinkageName, File, LineNo, Ty,
-                                 isLocal, isDefinition, 0, Flags, isOptimized,
-                                 TParamsArray);
+  } else {
+    DIS = Builder.createTempFunctionFwdDecl(Scope, Name, LinkageName,
+                                            File, LineNo, Ty, isLocal,
+                                            isDefinition, 0, Flags,
+                                            isOptimized, TParamsArray);
+    llvm::TempMDNode FwdDecl(cast<llvm::MDNode>(DIS));
+    DIS = Builder.replaceTemporary(std::move(FwdDecl), DIS);
+  }
   DebugInstCache[DebugInst] = DIS;
 
   return DIS;
