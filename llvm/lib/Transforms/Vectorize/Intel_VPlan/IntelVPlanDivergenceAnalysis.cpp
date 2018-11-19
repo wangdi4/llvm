@@ -37,8 +37,8 @@
 
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlan.h"
-#include "IntelVPlanBranchDependenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "vplan-divergence-analysis"
@@ -113,8 +113,8 @@ void VPlanDivergenceAnalysis::compute(VPLoop *CandidateLoop, VPLoopInfo *VPLI,
   SmallPtrSet<const VPValue *, 1> UniformOverrides;
   SmallVector<const VPInstruction *, 4> Worklist;
 
-  VPlanBranchDependenceAnalysis VPBDA(CandidateLoop->getHeader(), DomTree,
-                                      PostDomTree, VPLI);
+  SyncDependenceAnalysis SDA(CandidateLoop->getHeader(), *DomTree, *PostDomTree,
+                             *VPLI);
 
   // Right now, there is only one vector loop candidate in the VPlan, the outer
   // most loop provided in the region, so DA is computed for it. For this
@@ -178,14 +178,14 @@ void VPlanDivergenceAnalysis::compute(VPLoop *CandidateLoop, VPLoopInfo *VPLI,
     // other than a cmp instruction.
     const VPValue *Cond = I->getParent()->getCondBit();
     if (I == Cond) {
-      const VPBasicBlock *TermBlock = I->getParent();
+      const VPBlockBase *TermBlock = I->getParent();
       // Since we don't have an explicit branch instruction in VPlan, mark
       // the Condition Bit VPValue as divergent.
       markDivergent(Cond);
-      for (const auto *JoinBlock :
-           VPBDA.joinBlocks(const_cast<VPBasicBlock *>(TermBlock))) {
-        DivergentBlocks.insert(JoinBlock);
-        for (const VPRecipeBase &Recipe : JoinBlock->getRecipes()) {
+      for (const auto *JoinBlock : SDA.joinBlocks(*TermBlock)) {
+        DivergentBlocks.insert(cast<VPBasicBlock>(JoinBlock));
+        for (const VPRecipeBase &Recipe :
+             cast<VPBasicBlock>(JoinBlock)->getRecipes()) {
           if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
             unsigned OpCode = VPInst->getOpcode();
             if (OpCode != Instruction::PHI)

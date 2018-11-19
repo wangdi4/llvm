@@ -18,10 +18,10 @@
 
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelLoopCFU.h"
-#include "IntelVPlanBranchDependenceAnalysis.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/IntrinsicInst.h"
