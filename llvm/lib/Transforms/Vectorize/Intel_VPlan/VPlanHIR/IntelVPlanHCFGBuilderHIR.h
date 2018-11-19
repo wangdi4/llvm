@@ -53,13 +53,7 @@ private:
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,
-                      VPOVectorizationLegality *Legal, const DDGraph &DDG)
-      : VPlanHCFGBuilder(nullptr, nullptr, nullptr, WRL, Plan, Legal),
-        TheLoop(Lp), DDG(DDG) {
-    Verifier = new VPlanVerifierHIR(Lp);
-    assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
-           "Inconsistent Loop information");
-  }
+                      VPOVectorizationLegality *Legal, const DDGraph &DDG);
 
   VPLoopRegion *createLoopRegion(VPLoop *VPLp) override;
 };

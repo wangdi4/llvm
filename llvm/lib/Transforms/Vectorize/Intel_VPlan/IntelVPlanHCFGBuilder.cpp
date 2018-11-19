@@ -66,6 +66,18 @@ static cl::opt<bool>
                    cl::desc("Print plain dump after build VPlan H-CFG."));
 #endif
 
+VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
+                                   const DataLayout &DL,
+                                   const WRNVecLoopNode *WRL, VPlan *Plan,
+                                   VPOVectorizationLegality *Legal)
+    : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
+  // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
+  // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
+  Verifier = new VPlanVerifier(Lp, LI, DL);
+  assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
+         "Inconsistent Loop information");
+}
+
 // Split loops' preheader block that are not in canonical form
 void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
 
