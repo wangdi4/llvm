@@ -54,6 +54,8 @@ struct TypeListBase {
   static constexpr std::size_t size       = 0;
   static constexpr bool        isEmpty    = true;
 
+  using ListBase = TypeListBase; // Convenient name for use by derived class
+
   template <class Tp> using Predicate = typename Pred<Tp>::type;
 
   using EmptyListType = TypeList<>;
@@ -67,6 +69,8 @@ struct TypeListBase<TypeList, Pred, Type1, Types...> {
   // Specialization for at least one parameter
   static constexpr std::size_t size       = 1 + sizeof...(Types);
   static constexpr bool        isEmpty    = false;
+
+  using ListBase = TypeListBase; // Convenient name for use by derived class
 
   template <class Tp> using Predicate = typename Pred<Tp>::type;
 
@@ -320,11 +324,11 @@ template <class... Operands>
 struct OperandMatcherList
   : internal::TypeListBase<OperandMatcherList, IsOperandMatcher, Operands...>
 {
-  using ThisType  = OperandMatcherList;
-  using First     = typename ThisType::First;
-  using Rest      = typename ThisType::Rest;
+  using Base      = typename OperandMatcherList::ListBase;
+  using First     = typename Base::First;
+  using Rest      = typename Base::Rest;
 
-  static_assert(ThisType::hasValidTypes,
+  static_assert(Base::hasValidTypes,
                 "All parameters must be operand matchers");
 
   static constexpr auto registers = (First::registers | Rest::registers);
@@ -332,7 +336,7 @@ struct OperandMatcherList
   CONSTEXPR_DEFAULT_CTOR(OperandMatcherList)
 
   template <typename Op, typename Uses>
-  constexpr InstructionMatcher<Op, ThisType, Uses>
+  constexpr InstructionMatcher<Op, OperandMatcherList, Uses>
   operator=(InstructionMatcher<Op, OperandMatcherList<>, Uses>) const
     { return EMPTY_CLASS_INITIALIZER; }
 
@@ -347,8 +351,6 @@ template <>
 struct OperandMatcherList<>
   : internal::TypeListBase<OperandMatcherList, IsOperandMatcher>
 {
-  using ThisType = OperandMatcherList;
-
   static constexpr RegisterSet<> registers{};
 
   CONSTEXPR_DEFAULT_CTOR(OperandMatcherList)
@@ -575,13 +577,11 @@ struct GraphMatcher
   // Combines zero or more code matchers such that, if ALL match, then this
   // matches.
 
-  using ThisType  = GraphMatcher;
-  using Base      =
-    internal::TypeListBase<GraphMatcher, IsPatternMatcher, PatternMatchers...>;
+  using Base      = typename GraphMatcher::ListBase;
   using First     = typename Base::First;
   using Rest      = typename Base::Rest;
 
-  static_assert(ThisType::hasValidTypes,
+  static_assert(Base::hasValidTypes,
                 "All parameters must be instruction matchers");
 
   static constexpr auto registers = (First::registers | Rest::registers);
@@ -600,8 +600,6 @@ struct GraphMatcher<>
    : internal::TypeListBase<GraphMatcher, IsPatternMatcher>
 {
   // Specialization for an empty graph.
-
-  using ThisType  = GraphMatcher;
 
   static constexpr RegisterSet<> registers{};
 
@@ -638,13 +636,11 @@ struct AlternativeMatcher
   // matches. This primary template is used for a list of alternatives of length
   // greather than zero.
 
-  using ThisType = AlternativeMatcher;
-  using Base     =
-    internal::TypeListBase<AlternativeMatcher, IsPatternMatcher, PatternMatchers...>;
+  using Base     = typename AlternativeMatcher::ListBase;
   using First    = typename Base::First;
   using Rest     = typename Base::Rest;
 
-  static_assert(ThisType::hasValidTypes,
+  static_assert(Base::hasValidTypes,
                 "All parameters must be instruction matchers");
 
   static constexpr auto registers = (First::registers & Rest::registers);
@@ -664,8 +660,6 @@ struct AlternativeMatcher<>
 {
   // Combines zero or more code matchers such that, if ANY match, then this
   // matches. This specialization template is used for an empty list of alternatives.
-
-  using ThisType = AlternativeMatcher;
 
   static constexpr RegisterSet<~0UL> registers{};
 
