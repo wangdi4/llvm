@@ -125,7 +125,6 @@ WIAnalysis::WIAnalysis(unsigned int vectorizationDimension) :
   m_vectorizedDim = vectorizationDimension;
 }
 
-
 bool WIAnalysis::runOnFunction(Function &F) {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
@@ -335,23 +334,23 @@ void WIAnalysis::calculate_dep(const Value* val) {
   // LLVM does not have compile time polymorphisms
   // TODO: to make things faster we may want to sort the list below according
   // to the order of their probability of appearance.
-  if      (const BinaryOperator *BI = dyn_cast<BinaryOperator>(inst))         dep = calculate_dep(BI);
-  else if (const CallInst *CI = dyn_cast<CallInst>(inst))                     dep = calculate_dep(CI);
-  else if (isa<CmpInst>(inst))                                                dep = calculate_dep_simple(inst);
-  else if (isa<ExtractElementInst>(inst))                                     dep = calculate_dep_simple(inst);
-  else if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(inst))  dep = calculate_dep(GEP);
-  else if (isa<InsertElementInst>(inst))                                      dep = calculate_dep_simple(inst);
-  else if (isa<InsertValueInst>(inst))                                        dep = calculate_dep_simple(inst);
-  else if (const PHINode *Phi = dyn_cast<PHINode>(inst))                      dep = calculate_dep(Phi);
-  else if (isa<ShuffleVectorInst>(inst))                                      dep = calculate_dep_simple(inst);
-  else if (isa<StoreInst>(inst))                                              dep = calculate_dep_simple(inst);
-  else if (inst->isTerminator())                                              dep = calculate_dep(inst);
-  else if (const SelectInst *SI = dyn_cast<SelectInst>(inst))                 dep = calculate_dep(SI);
-  else if (const AllocaInst *AI = dyn_cast<AllocaInst>(inst))                 dep = calculate_dep(AI);
-  else if (const CastInst *CI = dyn_cast<CastInst>(inst))                     dep = calculate_dep(CI);
-  else if (isa<ExtractValueInst>(inst))                                       dep = calculate_dep_simple(inst);
-  else if (isa<LoadInst>(inst))                                               dep = calculate_dep_simple(inst);
-  else if (const VAArgInst *VAI = dyn_cast<VAArgInst>(inst))                  dep = calculate_dep(VAI);
+  if      (const BinaryOperator *BI = dyn_cast<BinaryOperator>(inst))          dep = calculate_dep(BI);
+  else if (const CallInst *CI = dyn_cast<CallInst>(inst))                      dep = calculate_dep(CI);
+  else if (const CmpInst* CI = dyn_cast<CmpInst>(inst))                        dep = calculate_dep_simple(CI);
+  else if (const ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(inst)) dep = calculate_dep_simple(EEI);
+  else if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(inst))   dep = calculate_dep(GEP);
+  else if (const InsertElementInst *IEI = dyn_cast<InsertElementInst>(inst))   dep = calculate_dep_simple(IEI);
+  else if (const InsertValueInst* IVI = dyn_cast<InsertValueInst>(inst))       dep = calculate_dep_simple(IVI);
+  else if (const PHINode *Phi = dyn_cast<PHINode>(inst))                       dep = calculate_dep(Phi);
+  else if (const ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(inst))   dep = calculate_dep_simple(SVI);
+  else if (const StoreInst *SI  = dyn_cast<StoreInst>(inst))                   dep = calculate_dep_simple(SI);
+  else if (inst->isTerminator())                                               dep = calculate_dep_terminator(inst);
+  else if (const SelectInst *SI = dyn_cast<SelectInst>(inst))                  dep = calculate_dep(SI);
+  else if (const AllocaInst *AI = dyn_cast<AllocaInst>(inst))                  dep = calculate_dep(AI);
+  else if (const CastInst *CI = dyn_cast<CastInst>(inst))                      dep = calculate_dep(CI);
+  else if (const ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(inst))     dep = calculate_dep_simple(EVI);
+  else if (const LoadInst* LI = dyn_cast<LoadInst>(inst))                      dep = calculate_dep_simple(LI);
+  else if (const VAArgInst *VAI = dyn_cast<VAArgInst>(inst))                   dep = calculate_dep(VAI);
 
   updateDepMap(inst, dep);
 }
@@ -359,6 +358,7 @@ void WIAnalysis::calculate_dep(const Value* val) {
 // Find divergent partial joins
 void WIAnalysis::findDivergePartialJoins(const Instruction *inst) {
   assert(inst && "inst cannot be null");
+  assert(inst->isTerminator() && "Expect a terminator instruction!");
   assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
   assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
 
@@ -474,6 +474,7 @@ void WIAnalysis::markDependentPhiRandom() {
 }
 
 void WIAnalysis::updateCfDependency(const Instruction *inst) {
+  assert(inst->isTerminator() && "Expect a terminator instruction!");
   BasicBlock *blk = (BasicBlock *)(inst->getParent());
 
   // If the root block is marked as divergent then we should not add
@@ -627,7 +628,6 @@ void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy 
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep_simple(const Instruction *I) {
-  // simply check that all operands are uniform, if so return uniform, else random
   const unsigned nOps = I->getNumOperands();
   for (unsigned i=0; i<nOps; ++i) {
     const Value *op = I->getOperand(i);
@@ -880,7 +880,9 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const PHINode* inst) {
   return totalDep;
 }
 
-WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const Instruction* inst) {
+WIAnalysis::WIDependancy WIAnalysis::calculate_dep_terminator(const Instruction* inst) {
+  V_ASSERT(inst->isTerminator() && "Expect a terminator instruction!");
+  // simply check that all operands are uniform, if so return uniform, else random
   // Instruction has no return value
   // Just need to know if this inst is uniform or not
   // because we may want to avoid predication if the control flows
@@ -996,6 +998,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const VAArgInst* inst) {
 void WIAnalysis::calcInfoForBranch(const Instruction *inst)
 {
   assert(inst && "inst cannot be null");
+  assert(inst->isTerminator() && "Expect a terminator instruction!");
   assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
   assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
 
