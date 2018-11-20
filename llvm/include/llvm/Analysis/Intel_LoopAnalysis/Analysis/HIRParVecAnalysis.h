@@ -38,6 +38,10 @@ class DDEdge;
 class HLRegion;
 class HLSwitch;
 
+class ParVecInfo;
+using HIRParVecInfoMapType =
+    DenseMap<const HLLoop *, std::unique_ptr<ParVecInfo>>;
+
 /// \brief Main data structure describing parallelizability/vectorizability
 /// of a given loop. If not parallelizable/vectorizable, reason and source
 /// location are stored for later reporting.
@@ -187,33 +191,32 @@ public:
   void print(raw_ostream &OS, bool WithLoop = true) const;
 
   /// \brief Main accessor for the ParVecInfo.
-  static ParVecInfo *get(AnalysisMode Mode,
-                         DenseMap<HLLoop *, ParVecInfo *> &InfoMap,
+  static ParVecInfo *get(AnalysisMode Mode, HIRParVecInfoMapType &InfoMap,
                          TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
                          HIRSafeReductionAnalysis *SRA, HLLoop *Loop) {
 
-    auto Info = InfoMap[Loop];
+    auto &Info = InfoMap[Loop];
 
     if (!Info)
-      InfoMap[Loop] = Info = new ParVecInfo(Mode, Loop);
+      Info.reset(new ParVecInfo(Mode, Loop));
     // TODO: Query Mode and cached Mode may be different. Add code
     //       to deal with such situation.
 
     if (!Info->isDone())
       Info->analyze(Loop, TLI, DDA, SRA);
 
-    return Info;
+    return Info.get();
   }
 
   // TODO: This function doesn't handle vectorizable but not parallelizable.
-  static void set(AnalysisMode Mode, DenseMap<HLLoop *, ParVecInfo *> &InfoMap,
+  static void set(AnalysisMode Mode, HIRParVecInfoMapType &InfoMap,
                   HLLoop *Loop, AnalysisMode InfoMode, LoopType T,
                   DebugLoc Loc) {
 
-    auto Info = InfoMap[Loop];
+    auto &Info = InfoMap[Loop];
 
     if (!Info)
-      InfoMap[Loop] = Info = new ParVecInfo(Mode, Loop);
+      Info.reset(new ParVecInfo(Mode, Loop));
 
     if (isParallelMode(InfoMode)) {
       Info->setParLoc(Loc);
@@ -235,7 +238,7 @@ private:
   HIRFramework *HIRF;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *SRA;
-  DenseMap<HLLoop *, ParVecInfo *> InfoMap;
+  HIRParVecInfoMapType InfoMap;
 
 public:
   HIRParVecAnalysis()

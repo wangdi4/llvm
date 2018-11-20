@@ -55,7 +55,7 @@ private:
   /// Mode - curent analysis mode running, auto-par or auto-vec.
   ParVecInfo::AnalysisMode Mode;
   /// InfoMap - Map associating HLLoops with corresponding par vec info.
-  DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
+  HIRParVecInfoMapType &InfoMap;
   /// TLI - Target library info analysis.
   TargetLibraryInfo *TLI;
   /// DDA - Data dependency analysis handle.
@@ -66,7 +66,7 @@ private:
 public:
   ParVecVisitor(ParVecInfo::AnalysisMode Mode, TargetLibraryInfo *TLI,
                 HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
-                DenseMap<HLLoop *, ParVecInfo *> &InfoMap)
+                HIRParVecInfoMapType &InfoMap)
       : Mode(Mode), InfoMap(InfoMap), TLI(TLI), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
@@ -135,16 +135,12 @@ public:
 
 /// \brief Visitor class to invalidate the cached ParVec analysis results.
 class ParVecForgetVisitor final : public HLNodeVisitorBase {
-  DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
+  HIRParVecInfoMapType &InfoMap;
 
 public:
-  ParVecForgetVisitor(DenseMap<HLLoop *, ParVecInfo *> &theMap)
-      : InfoMap(theMap) {}
+  ParVecForgetVisitor(HIRParVecInfoMapType &theMap) : InfoMap(theMap) {}
   /// \brief Invalidate the cached result.
-  void visit(HLLoop *Loop) {
-    delete InfoMap[Loop];
-    InfoMap[Loop] = nullptr;
-  }
+  void visit(HLLoop *Loop) { InfoMap.erase(Loop); }
 
   /// \brief catch-all visit().
   void visit(HLNode *Node) {}
@@ -154,18 +150,17 @@ public:
 
 /// \brief Visitor class to print the cached ParVec analysis results.
 class ParVecPrintVisitor final : public HLNodeVisitorBase {
-  const DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
+  const HIRParVecInfoMapType &InfoMap;
   raw_ostream &OS;
 
 public:
-  ParVecPrintVisitor(const DenseMap<HLLoop *, ParVecInfo *> &theMap,
-                     raw_ostream &theOS)
+  ParVecPrintVisitor(const HIRParVecInfoMapType &theMap, raw_ostream &theOS)
       : InfoMap(theMap), OS(theOS) {}
   /// \brief Print for one loop.
   void visit(HLLoop *Loop) {
-    auto Info = InfoMap.lookup(Loop);
-    if (Info)
-      Info->print(OS);
+    auto Info = InfoMap.find(Loop);
+    if (Info != InfoMap.end())
+      Info->second->print(OS);
   }
 
   /// \brief catch-all visit().
@@ -286,10 +281,6 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
 }
 
 void HIRParVecAnalysis::releaseMemory() {
-  for (auto Iter = InfoMap.begin(), End = InfoMap.end(); Iter != End; Iter++) {
-    delete Iter->second;
-    Iter->second = nullptr;
-  }
   InfoMap.clear();
 }
 
@@ -300,8 +291,7 @@ void HIRParVecAnalysis::forget(HLRegion *Region) {
 
 void HIRParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
   if (!Nest) {
-    delete InfoMap[Loop];
-    InfoMap[Loop] = nullptr;
+    InfoMap.erase(Loop);
     return;
   }
   ParVecForgetVisitor Vis(InfoMap);
