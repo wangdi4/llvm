@@ -571,25 +571,25 @@ attributes #12 = { builtin nounwind }
 ; partially inlined correctly.
 ;
 ; CHECK: define internal zeroext i1 @_ZN7Manager6runnerEPii(%class.Manager* %this, i32* %A, i32 %Size)
-; CHECK: br i1 %tmp7, label %BBDevirt__ZN7Derived3fooEPvi_0_0, label %BBDevirt__ZN8Derived23fooEPvi_0_0
+; CHECK: br i1 %tmp6, label %BBDevirt__ZN7Derived3fooEPvi_0_0, label %BBDevirt__ZN8Derived23fooEPvi_0_0
 ;
 ; Partially inline (A == null) in Derived::foo
 ; CHECK-LABEL: BBDevirt__ZN7Derived3fooEPvi_0_0:                 ; preds = %entry
-; CHECK:         %cmp.i11 = icmp eq i8* %tmp1, null
-; CHECK-NEXT:    br i1 %cmp.i11, label %_ZN7Derived3fooEPvi.2.exit, label %for.cond.preheader.i13
+; CHECK:         %cmp.i10 = icmp eq i8* %tmp1, null
+; CHECK-NEXT:    br i1 %cmp.i10, label %_ZN7Derived3fooEPvi.2.exit, label %for.cond.preheader.i12
 ;
 ; Partially inline (Size = 0) in Derived::foo
-; CHECK-LABEL: for.cond.preheader.i13:                           ; preds = %BBDevirt__ZN7Derived3fooEPvi_0_0
-; CHECK:         %cmp29.i12 = icmp sgt i32 %Size, 0
-; CHECK-NEXT:    br i1 %cmp29.i12, label %codeRepl.i14, label %_ZN7Derived3fooEPvi.2.exit
+; CHECK-LABEL: for.cond.preheader.i12:                           ; preds = %BBDevirt__ZN7Derived3fooEPvi_0_0
+; CHECK:         %cmp29.i11 = icmp sgt i32 %Size, 0
+; CHECK-NEXT:    br i1 %cmp29.i11, label %codeRepl.i13, label %_ZN7Derived3fooEPvi.2.exit
 ;
 ; Call the outline function of Derived::foo
-; CHECK-LABEL: codeRepl.i14:                                     ; preds = %for.cond.preheader.i13
+; CHECK-LABEL: codeRepl.i13:                                     ; preds = %for.cond.preheader.i12
 ; CHECK:         call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, i32* %A) #2
 ; CHECK-NEXT:    br label %_ZN7Derived3fooEPvi.2.exit
 ;
-; CHECK-LABEL: _ZN7Derived3fooEPvi.2.exit:                       ; preds = %BBDevirt__ZN7Derived3fooEPvi_0_0, %for.cond.preheader.i13, %codeRepl.i14
-; CHECK:        %retval.0.i15 = phi i1 [ false, %BBDevirt__ZN7Derived3fooEPvi_0_0 ], [ true, %for.cond.preheader.i13 ], [ true, %codeRepl.i14 ]
+; CHECK-LABEL: _ZN7Derived3fooEPvi.2.exit:                       ; preds = %BBDevirt__ZN7Derived3fooEPvi_0_0, %for.cond.preheader.i12, %codeRepl.i13
+; CHECK:        %retval.0.i14 = phi i1 [ false, %BBDevirt__ZN7Derived3fooEPvi_0_0 ], [ true, %for.cond.preheader.i12 ], [ true, %codeRepl.i13 ]
 ; CHECK-NEXT:    br label %MergeBB_0_0
 ;
 ; Partially inline (A == null) in Derived2::foo
@@ -612,7 +612,7 @@ attributes #12 = { builtin nounwind }
 ; CHECK-NEXT:    br label %MergeBB_0_0
 ;
 ; CHECK-LABEL: MergeBB_0_0:                                      ; preds = %_ZN8Derived23fooEPvi.1.exit, %_ZN7Derived3fooEPvi.2.exit
-; CHECK-NEXT:    %tmp10 = phi i1 [ %retval.0.i15, %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
+; CHECK-NEXT:    %tmp9 = phi i1 [ %retval.0.i14, %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
 ; CHECK-NEXT:    br label %bb
 
 

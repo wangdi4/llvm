@@ -192,31 +192,33 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; Check that the transformation was applied correctly in function main.
 ; CHECK:       define hidden i32 @main(i32 %argc, i8** nocapture readnone %argv) local_unnamed_addr #3 {
 
+; Check that the unused bitcast instruction was removed
+; CHECK-NOT: %tmp = bitcast i1 (%class.Base*, i32)** %vtable to i8*
 
 ; This part checks if the address of the virtual function is the same as Derived::foo
-; CHECK:       %tmp1 = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*
-; CHECK-NEXT:  %tmp3 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
-; CHECK-NEXT:  %tmp4 = icmp eq i8* %tmp1, %tmp3
-; CHECK-NEXT:  br i1 %tmp4, label %BBDevirt__ZN7Derived3fooEi_0_0, label %BBDevirt__ZN8Derived23fooEi_0_0
+; CHECK:       %tmp = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*
+; CHECK-NEXT:  %tmp1 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
+; CHECK-NEXT:  %tmp3 = icmp eq i8* %tmp, %tmp1
+; CHECK-NEXT:  br i1 %tmp3, label %BBDevirt__ZN7Derived3fooEi_0_0, label %BBDevirt__ZN8Derived23fooEi_0_0
 
 ; If the address is the same, then call Derived::foo
 ; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
-; CHECK:        %tmp5 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
+; CHECK:        %tmp4 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
 ; CHECK-NEXT:   br label %MergeBB_0_0
 
 ; If the address is the same as Derived2::foo, then call it
 ; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
-; CHECK:        %tmp6 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
+; CHECK:        %tmp5 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
 ; CHECK-NEXT:   br label %MergeBB_0_0
 
 ; We need to collect back the result and generate the PhiNode
 ; CHECK-LABEL: MergeBB_0_0:
-; CHECK-NEXT:   %tmp7 = phi i1 [ %tmp5, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %tmp6, %BBDevirt__ZN8Derived23fooEi_0_0 ]
+; CHECK-NEXT:   %tmp6 = phi i1 [ %tmp4, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %tmp5, %BBDevirt__ZN8Derived23fooEi_0_0 ]
 ; CHECK-NEXT:   br label %bb
 
 ; Now check that the users were replaced correctly
 ; CHECK-LABEL: bb:
-; CHECK-NEXT:   %call.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %tmp7)
+; CHECK-NEXT:   %call.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %tmp6)
 ; CHECK-NEXT:   %call1.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l(%"class.std::basic_ostream"* nonnull dereferenceable(272) %call.i, i8* nonnull getelementptr inbounds ([2 x i8], [2 x i8]* @.str, i64 0, i64 0), i64 1)
 ; CHECK-NEXT:   ret i32 0
 ; CHECK-NEXT: }
