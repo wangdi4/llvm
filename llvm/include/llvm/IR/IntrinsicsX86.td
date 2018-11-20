@@ -5153,3 +5153,43 @@ let TargetPrefix = "x86" in {
   def int_x86_invpcid : GCCBuiltin<"__builtin_ia32_invpcid">,
               Intrinsic<[], [llvm_i32_ty, llvm_ptr_ty], []>;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+let TargetPrefix = "x86" in {
+  def int_x86_avx512bf16_cvtne2ps2bf16_128:
+              GCCBuiltin<"__builtin_ia32_cvtne2ps2bf16_128">,
+              Intrinsic<[llvm_v8i16_ty], [llvm_v4f32_ty, llvm_v4f32_ty],
+              [IntrNoMem]>;
+  def int_x86_avx512bf16_cvtne2ps2bf16_256:
+              GCCBuiltin<"__builtin_ia32_cvtne2ps2bf16_256">,
+              Intrinsic<[llvm_v16i16_ty], [llvm_v8f32_ty, llvm_v8f32_ty],
+              [IntrNoMem]>;
+  def int_x86_avx512bf16_cvtne2ps2bf16_512:
+              GCCBuiltin<"__builtin_ia32_cvtne2ps2bf16_512">,
+              Intrinsic<[llvm_v32i16_ty], [llvm_v16f32_ty, llvm_v16f32_ty],
+              [IntrNoMem]>;
+  def int_x86_avx512bf16_cvtneps2bf16_128:
+              GCCBuiltin<"__builtin_ia32_cvtneps2bf16_128">,
+              Intrinsic<[llvm_v8i16_ty], [llvm_v4f32_ty], [IntrNoMem]>;
+  def int_x86_avx512bf16_cvtneps2bf16_256:
+              GCCBuiltin<"__builtin_ia32_cvtneps2bf16_256">,
+              Intrinsic<[llvm_v8i16_ty], [llvm_v8f32_ty], [IntrNoMem]>;
+  def int_x86_avx512bf16_cvtneps2bf16_512:
+              GCCBuiltin<"__builtin_ia32_cvtneps2bf16_512">,
+              Intrinsic<[llvm_v16i16_ty], [llvm_v16f32_ty], [IntrNoMem]>;
+  def int_x86_avx512bf16_dpbf16ps_128:
+              GCCBuiltin<"__builtin_ia32_dpbf16ps_128">,
+              Intrinsic<[llvm_v4f32_ty],
+              [llvm_v4f32_ty, llvm_v4i32_ty, llvm_v4i32_ty], [IntrNoMem]>;
+  def int_x86_avx512bf16_dpbf16ps_256:
+              GCCBuiltin<"__builtin_ia32_dpbf16ps_256">,
+              Intrinsic<[llvm_v8f32_ty],
+              [llvm_v8f32_ty, llvm_v8i32_ty, llvm_v8i32_ty], [IntrNoMem]>;
+  def int_x86_avx512bf16_dpbf16ps_512:
+              GCCBuiltin<"__builtin_ia32_dpbf16ps_512">,
+              Intrinsic<[llvm_v16f32_ty],
+              [llvm_v16f32_ty, llvm_v16i32_ty, llvm_v16i32_ty], [IntrNoMem]>;
+}
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION

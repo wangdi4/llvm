@@ -513,6 +513,13 @@ namespace llvm {
       // Vector signed/unsigned integer to float/double.
       CVTSI2P, CVTUI2P,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+      // Vector float to bfloat16
+      CVTNE2PS2BF16, CVTNEPS2BF16, DPBF16PS,
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
+
       // Save xmm argument registers to the stack, according to %al. An operator
       // is needed so that this can be expanded with control flow.
       VASTART_SAVE_XMM_REGS,

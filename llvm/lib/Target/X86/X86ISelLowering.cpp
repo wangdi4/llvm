@@ -27257,6 +27257,13 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::CVTS2UI:            return "X86ISD::CVTS2UI";
   case X86ISD::CVTS2SI_RND:        return "X86ISD::CVTS2SI_RND";
   case X86ISD::CVTS2UI_RND:        return "X86ISD::CVTS2UI_RND";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+  case X86ISD::CVTNE2PS2BF16:      return "X86ISD::CVTNE2PS2BF16";
+  case X86ISD::CVTNEPS2BF16:       return "X86ISD::CVTNEPS2BF16";
+  case X86ISD::DPBF16PS:           return "X86ISD::DPBF16PS";
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
   case X86ISD::LWPINS:             return "X86ISD::LWPINS";
   case X86ISD::MGATHER:            return "X86ISD::MGATHER";
   case X86ISD::MSCATTER:           return "X86ISD::MSCATTER";

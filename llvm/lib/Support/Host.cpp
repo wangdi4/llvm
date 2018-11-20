@@ -1341,6 +1341,14 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // detecting features using the "-march=native" flag.
   // For more info, see X86 ISA docs.
   Features["pconfig"] = HasLeaf7 && ((EDX >> 18) & 1);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+  bool HasLeaf7Subleaf1 =
+      MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
+  Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1)
+                           && HasAVX512Save;
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
 
   bool HasLeafD = MaxLevel >= 0xd &&
                   !getX86CpuIDAndInfoEx(0xd, 0x1, &EAX, &EBX, &ECX, &EDX);
