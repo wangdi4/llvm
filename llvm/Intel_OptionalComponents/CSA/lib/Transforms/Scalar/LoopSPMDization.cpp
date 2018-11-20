@@ -120,6 +120,25 @@ private:
         detectSPMDIntrinsic(L, LI, DT, PDT, NPEs, Chunk_Size);
     if (!found_spmd)
       return false;
+    if (NPEs == 1) {
+      // Add CSA parallel intrinsics:
+      AddParallelIntrinsicstoLoop(L, context, M, OrigPH, L->getExitBlock());
+      ORE.emit(
+          OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
+          << "Number of workers is one, loop SPMDization is equivalent to "
+             "__buitlin_csa_parallel_loop() in this "
+             "case.");
+      return false;
+    }
+    if (NPEs < 1) {
+      errs() << "\n";
+      errs().changeColor(raw_ostream::BLUE, true);
+      errs() << "!! WARNING: BAD CSA SPMD INTRINSIC !!";
+      errs().resetColor();
+      errs() << " Number of workers should be a positive integer.\n"
+                "This call will be ignored.\n\n";
+      return false;
+    }
     if (Chunk_Size == 0)
       spmd_approach = SPMD_BLOCKING;
     else if (Chunk_Size == 1)
@@ -1249,6 +1268,8 @@ int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
   else
     Cond = (cast<BranchInst>(Header->getTerminator()))->getCondition();
   Instruction *CondI = dyn_cast<Instruction>(Cond);
+  if (!CondI)
+    return -1;
   // TODO: Check the case when latch is driven by a <= instead of a < or !=
   Value *UpperBound = CondI->getOperand(1);
   if (InductionPHI->getIncomingBlock(0) == PreHeader) {
