@@ -60,3 +60,66 @@ entry:
 
 declare dso_local void @omp_set_nested(i32)
 declare dso_local i32 @omp_get_nested()
+
+%struct.omp_lock_t = type { i8* }
+declare void @omp_init_lock(%struct.omp_lock_t*)
+declare void @omp_destroy_lock(%struct.omp_lock_t*)
+declare void @omp_set_lock(%struct.omp_lock_t*)
+declare void @omp_unset_lock(%struct.omp_lock_t*)
+declare i32 @omp_test_lock(%struct.omp_lock_t*)
+
+; CHECK-LABEL: @check.init.lock
+define void @check.init.lock(%struct.omp_lock_t* %lock) {
+entry:
+; CHECK-NO: @omp_init_lock
+  call void @omp_init_lock(%struct.omp_lock_t* %lock)
+; CHECK:      [[CAST:%.*]] = bitcast %struct.omp_lock_t* %lock to i64*
+; CHECK-NEXT: store atomic i64 0, i64* [[CAST]] seq_cst
+  ret void
+}
+
+; CHECK-LABEL: @check.destroy.lock
+define void @check.destroy.lock(%struct.omp_lock_t* %lock) {
+entry:
+; CHECK-NO: @omp_destroy_lock
+  call void @omp_destroy_lock(%struct.omp_lock_t* %lock)
+  ret void
+}
+
+; CHECK-LABEL: @check.set.lock
+define void @check.set.lock(%struct.omp_lock_t* %lock) {
+entry:
+; CHECK-NO: @omp_set_lock
+  call void @omp_set_lock(%struct.omp_lock_t* %lock)
+; CHECK:      [[CAST:%.*]] = bitcast %struct.omp_lock_t* %lock to i64*
+; CHECK-NEXT: br label %[[LOOP:.*]]
+; CHECK:    [[LOOP]]:
+; CHECK-NEXT: [[XCHG:%.*]] = cmpxchg i64* [[CAST]], i64 0, i64 1 seq_cst seq_cst
+; CHECK-NEXT: [[COND:%.*]] = extractvalue { i64, i1 } [[XCHG]], 1
+; CHECK-NEXT: br i1 [[COND]], label %[[EXIT:.*]], label %[[LOOP]]
+; CHECK:    [[EXIT]]:
+  ret void
+}
+
+; CHECK-LABEL: @check.unset.lock
+define void @check.unset.lock(%struct.omp_lock_t* %lock) {
+entry:
+; CHECK-NO: @omp_unset_lock
+  call void @omp_unset_lock(%struct.omp_lock_t* %lock)
+; CHECK:      [[CAST:%.*]] = bitcast %struct.omp_lock_t* %lock to i64*
+; CHECK-NEXT: store atomic i64 0, i64* [[CAST]] seq_cst
+  ret void
+}
+
+; CHECK-LABEL: @check.test.lock
+define i32 @check.test.lock(%struct.omp_lock_t* %lock) {
+entry:
+; CHECK-NO: @omp_test_lock
+  %call = call i32 @omp_test_lock(%struct.omp_lock_t* %lock)
+; CHECK:      [[CAST:%.*]] = bitcast %struct.omp_lock_t* %lock to i64*
+; CHECK-NEXT: [[XCHG:%.*]] = cmpxchg i64* [[CAST]], i64 0, i64 1 seq_cst seq_cst
+; CHECK-NEXT: [[COND:%.*]] = extractvalue { i64, i1 } [[XCHG]], 1
+; CHECK-NEXT: [[RES:%.*]] = select i1 [[COND]], i32 1, i32 0
+; CHECK-NEXT: ret i32 [[RES]]
+  ret i32 %call
+}

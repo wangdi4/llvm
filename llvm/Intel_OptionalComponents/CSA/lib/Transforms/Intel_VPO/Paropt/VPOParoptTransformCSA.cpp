@@ -16,7 +16,6 @@
 
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/IR/InstIterator.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -1207,12 +1206,103 @@ bool VPOParoptTransform::genCSASingle(WRegionNode *W) {
   return CSAPrivatizer(*this, W).run();
 }
 
+// Generates the following instruction sequence for intializing lock.
+//
+//   %0 = bitcast %arg to i64*
+//   store atomic i64 0, i64* %0 seq_cst
+//
+static void genInitLock(Value *Arg, Instruction *InsPt) {
+  auto AS = cast<PointerType>(Arg->getType())->getAddressSpace();
+  const auto &DL = InsPt->getModule()->getDataLayout();
+  auto PtrSize = DL.getPointerSizeInBits();
+  auto *IntPtrTy = Type::getIntNPtrTy(InsPt->getContext(), PtrSize, AS);
+
+  IRBuilder<> Builder(InsPt);
+  auto *Lock = Builder.CreateBitCast(Arg, IntPtrTy);
+  auto *Store = Builder.CreateStore(Builder.getIntN(PtrSize, 0), Lock);
+  Store->setAlignment(DL.getABIIntegerTypeAlignment(PtrSize));
+  Store->setAtomic(AtomicOrdering::SequentiallyConsistent);
+}
+
+// Generates the following instruction sequence for setting lock.
+//
+//   %0 = bitcast %Arg to i64*
+//   br label %lock.loop
+//
+// lock.loop:
+//   %1 = cmpxchg i64* %0, i64 0, i64 1 seq_cst seq_cst
+//   %2 = extractvalue { i64, i1 } %1, 1
+//   br i1 %2, label %loop.exit, label %lock.loop
+//
+// loop.exit:
+//   InsPt
+//
+static void genSetLock(Value *Arg, Instruction *InsPt,
+                       DominatorTree *DT, LoopInfo *LI) {
+  auto AS = cast<PointerType>(Arg->getType())->getAddressSpace();
+  auto PtrSize = InsPt->getModule()->getDataLayout().getPointerSizeInBits();
+  auto *IntPtrTy = Type::getIntNPtrTy(InsPt->getContext(), PtrSize, AS);
+
+  IRBuilder<> Builder(InsPt);
+  auto *Lock = Builder.CreateBitCast(Arg, IntPtrTy);
+
+  auto *LoopBB = SplitBlock(InsPt->getParent(), InsPt, DT, LI);
+  LoopBB->setName("lock.loop");
+
+  auto *ExitBB = SplitBlock(InsPt->getParent(), InsPt, DT, LI);
+  ExitBB->setName("loop.exit");
+
+  Builder.SetInsertPoint(LoopBB->getTerminator());
+  auto *Xchg = Builder.CreateAtomicCmpXchg(Lock,
+      Builder.getIntN(PtrSize, 0),
+      Builder.getIntN(PtrSize, 1),
+      AtomicOrdering::SequentiallyConsistent,
+      AtomicOrdering::SequentiallyConsistent);
+
+  auto *Res = Builder.CreateExtractValue(Xchg, { 1u });
+  Builder.CreateCondBr(Res, ExitBB, LoopBB);
+  LoopBB->getTerminator()->eraseFromParent();
+}
+
+// Unset lock. Instrustion sequence is the same as for lock initialization.
+static void genUnsetLock(Value *Arg, Instruction *InsPt) {
+  genInitLock(Arg, InsPt);
+}
+
+// Generates the following instruction sequence for testing lock.
+//
+//    %0 = bitcast %Arg to i64*
+//    %1 = cmpxchg i64* %0, i64 0, i64 1 seq_cst seq_cst
+//    %2 = extractvalue { i64, i1 } %1, 1
+//    %3 = select i1 %2, i32 1, i32 0
+//
+static Value* genTestLock(Value *Arg, Instruction *InsPt) {
+  auto AS = cast<PointerType>(Arg->getType())->getAddressSpace();
+  auto PtrSize = InsPt->getModule()->getDataLayout().getPointerSizeInBits();
+  auto *IntPtrTy = Type::getIntNPtrTy(InsPt->getContext(), PtrSize, AS);
+
+  IRBuilder<> Builder(InsPt);
+  auto *Lock = Builder.CreateBitCast(Arg, IntPtrTy);
+  auto *Xchg = Builder.CreateAtomicCmpXchg(Lock,
+      Builder.getIntN(PtrSize, 0),
+      Builder.getIntN(PtrSize, 1),
+      AtomicOrdering::SequentiallyConsistent,
+      AtomicOrdering::SequentiallyConsistent);
+
+  auto *Cond = Builder.CreateExtractValue(Xchg, { 1u });
+  return Builder.CreateSelect(Cond, Builder.getInt32(1), Builder.getInt32(0));
+}
+
 bool VPOParoptTransform::translateCSAOmpRtlCalls() {
   assert(isTargetCSA() && "unexpected target");
+
   bool Changed = false;
-  SmallVector<Instruction*, 8u> DeadInsts;
-  for (auto &I : instructions(F))
-    if (auto CS = CallSite(&I)) {
+  for (auto BI = F->begin(); BI != F->end(); ++BI) {
+    for (auto II = BI->begin(); II != BI->end();) {
+      CallSite CS(&*II++);
+      if (!CS)
+        continue;
+
       LibFunc LF = NumLibFuncs;
       if (!TLI->getLibFunc(CS, LF))
         continue;
@@ -1232,16 +1322,33 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
         case LibFunc_omp_set_dynamic:
         case LibFunc_omp_set_nested:
           break;
+        case LibFunc_omp_init_lock:
+          genInitLock(CS.getArgument(0), CS.getInstruction());
+          break;
+        case LibFunc_omp_set_lock:
+          genSetLock(CS.getArgument(0), CS.getInstruction(), DT, LI);
+          break;
+        case LibFunc_omp_unset_lock:
+          genUnsetLock(CS.getArgument(0), CS.getInstruction());
+          break;
+        case LibFunc_omp_test_lock:
+          Val = genTestLock(CS.getArgument(0), CS.getInstruction());
+          break;
+        case LibFunc_omp_destroy_lock:
+          break;
         default:
           continue;
       }
+
       Changed = true;
       if (Val)
         CS->replaceAllUsesWith(Val);
-      DeadInsts.push_back(CS.getInstruction());
+      if (auto *Invoke = dyn_cast<InvokeInst>(CS.getInstruction()))
+        BranchInst::Create(Invoke->getNormalDest(), CS.getInstruction());
+      BI = CS->getParent()->getIterator();
+      II = CS->eraseFromParent();
     }
-  for (auto *I : DeadInsts)
-    I->eraseFromParent();
+  }
   return Changed;
 }
 
