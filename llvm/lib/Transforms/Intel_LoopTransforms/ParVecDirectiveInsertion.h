@@ -86,7 +86,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRParVecAnalysis>();
+    AU.addRequiredTransitive<HIRParVecAnalysisWrapperPass>();
     AU.setPreservesAll();
   }
 };

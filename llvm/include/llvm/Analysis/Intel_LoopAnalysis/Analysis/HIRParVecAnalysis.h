@@ -230,7 +230,7 @@ public:
   }
 };
 
-class HIRParVecAnalysis : public FunctionPass {
+class HIRParVecAnalysis {
 
 private:
   bool Enabled;
@@ -241,18 +241,9 @@ private:
   HIRParVecInfoMapType InfoMap;
 
 public:
-  HIRParVecAnalysis()
-      : FunctionPass(ID), Enabled(false), TLI(nullptr), HIRF(nullptr),
-        DDA(nullptr), SRA(nullptr) {
-    initializeHIRParVecAnalysisPass(*PassRegistry::getPassRegistry());
-    InfoMap.clear();
-  }
-
-  static char ID;
-  bool runOnFunction(Function &F) override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void releaseMemory() override;
+  HIRParVecAnalysis(bool Enabled, TargetLibraryInfo *TLI, HIRFramework *HIRF,
+                    HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA)
+      : Enabled(Enabled), TLI(TLI), HIRF(HIRF), DDA(DDA), SRA(SRA) {}
 
   /// \brief Analyze (if invalid) the loop and return the info.
   const ParVecInfo *getInfo(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
@@ -274,8 +265,41 @@ public:
   /// \brief Invalidate the cached result for the region.
   void forget(HLRegion *Region);
 
+  void print(raw_ostream &OS, const Module * = nullptr) const;
+
   /// \brief Helper for skipping ParVec analysis on SIMD enabled functions.
   static bool isSIMDEnabledFunction(Function &F);
+};
+
+class HIRParVecAnalysisWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRParVecAnalysis> HPVA;
+
+public:
+  static char ID;
+  HIRParVecAnalysisWrapperPass() : FunctionPass(ID) {
+    initializeHIRParVecAnalysisWrapperPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override { HPVA.reset(); }
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    getHPVA().print(OS);
+  }
+
+  HIRParVecAnalysis &getHPVA() { return *HPVA; }
+  const HIRParVecAnalysis &getHPVA() const { return *HPVA; }
+};
+
+class HIRParVecAnalysisPass : public AnalysisInfoMixin<HIRParVecAnalysisPass> {
+  friend struct AnalysisInfoMixin<HIRParVecAnalysisPass>;
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRParVecAnalysis;
+  HIRParVecAnalysis run(Function &F, FunctionAnalysisManager &AM);
 };
 
 } // namespace loopopt

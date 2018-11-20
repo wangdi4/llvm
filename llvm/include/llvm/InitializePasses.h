@@ -478,7 +478,7 @@ void initializeHIRSparseArrayReductionAnalysisWrapperPassPass(PassRegistry&);
 void initializeHIRLoopStatisticsWrapperPassPass(PassRegistry&);
 void initializeHIRSSADeconstructionLegacyPassPass(PassRegistry&);
 void initializeHIRTempCleanupLegacyPassPass(PassRegistry&);
-void initializeHIRParVecAnalysisPass(PassRegistry&);
+void initializeHIRParVecAnalysisWrapperPassPass(PassRegistry &);
 void initializeHIRParDirInsertPass(PassRegistry&);
 void initializeHIRVecDirInsertPass(PassRegistry&);
 void initializeHIRVectVLSAnalysisPass(PassRegistry&);

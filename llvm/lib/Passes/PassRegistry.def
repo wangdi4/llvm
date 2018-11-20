@@ -183,6 +183,7 @@ FUNCTION_ANALYSIS("hir-locality-analysis", loopopt::HIRLoopLocalityAnalysis())
 FUNCTION_ANALYSIS("hir-dd-analysis", loopopt::HIRDDAnalysisPass())
 FUNCTION_ANALYSIS("hir-safe-reduction-analysis", loopopt::HIRSafeReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-sparse-array-reduction-analysis", loopopt::HIRSparseArrayReductionAnalysisPass())
+FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
 FUNCTION_ANALYSIS("vpo-wrncollection", WRegionCollectionAnalysis())
 FUNCTION_ANALYSIS("vpo-wrninfo", WRegionInfoAnalysis())
 #endif // INTEL_CUSTOMIZATION

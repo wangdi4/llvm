@@ -69,7 +69,7 @@ public:
 char HIRParDirInsert::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRParDirInsert, "hir-par-dir-insert",
                       "HIR Par Directive Insertion Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRParVecAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRParVecAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRParDirInsert, "hir-par-dir-insert",
                     "HIR Par Directive Insertion Pass", false, false)
 
