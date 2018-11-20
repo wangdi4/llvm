@@ -1350,8 +1350,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
   CurLoopIsNSW = IsNSW;
 
+#if INTEL_FEATURE_CSA
   // Helper for creating intrinsic calls.
-  auto && genIntrinCall =
+  auto genCsaIntrinCall =
       [&](Intrinsic::ID ID, ArrayRef<Value*> Args, const Twine &Name) {
     auto *Intrin = Intrinsic::getDeclaration(F.getParent(), ID);
     return Builder.CreateCall(Intrin, Args, Name);
@@ -1361,16 +1362,18 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
   // far this is done by creating a parallel region entry/exit intrinsic calls
   // around the loop, and parallel section entry/exit calls around the loop
   // body.
-  Value *ParRegion = nullptr;
-  Value *ParSection = nullptr;
-  Triple Target(F.getParent()->getTargetTriple());
+  Value *CsaParRegion = nullptr;
+  Value *CsaParSection = nullptr;
+  bool IsCsaTarget = Triple(F.getParent()->getTargetTriple()).getArch() ==
+                     Triple::ArchType::csa;
 
-  if (Target.getArch() == Triple::ArchType::csa && Lp->getParallelTraits()) {
+  if (IsCsaTarget && Lp->getParallelTraits()) {
     assert(!IsUnknownLoop && "unknown parallel loop");
     auto *UniqueID = Builder.getInt32(4000u + Lp->getNumber());
-    ParRegion = genIntrinCall(Intrinsic::csa_parallel_region_entry,
-                              { UniqueID }, "par.reg");
+    CsaParRegion = genCsaIntrinCall(Intrinsic::csa_parallel_region_entry,
+                                    {UniqueID}, "par.reg");
   }
+#endif
 
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
@@ -1409,9 +1412,11 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     Builder.CreateBr(LoopBB);
     Builder.SetInsertPoint(LoopBB);
 
-    if (ParRegion)
-      ParSection = genIntrinCall(Intrinsic::csa_parallel_section_entry,
-                                 { ParRegion }, "par.sec");
+#if INTEL_FEATURE_CSA
+    if (CsaParRegion)
+      CsaParSection = genCsaIntrinCall(Intrinsic::csa_parallel_section_entry,
+                                       {CsaParRegion}, "par.sec");
+#endif
   }
 
   auto LastIt =
@@ -1458,8 +1463,10 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // Create store to IV.
     Builder.CreateStore(NextVar, Alloca);
 
-    if (ParSection)
-      genIntrinCall(Intrinsic::csa_parallel_section_exit, { ParSection }, "");
+#if INTEL_FEATURE_CSA
+    if (CsaParSection)
+      genCsaIntrinCall(Intrinsic::csa_parallel_section_exit, {CsaParSection}, "");
+#endif
 
     // generate bottom test.
     Value *EndCond =
@@ -1482,8 +1489,10 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     Builder.SetInsertPoint(AfterBB);
   }
 
-  if (ParRegion)
-    genIntrinCall(Intrinsic::csa_parallel_region_exit, { ParRegion }, "");
+#if INTEL_FEATURE_CSA
+  if (CsaParRegion)
+    genCsaIntrinCall(Intrinsic::csa_parallel_region_exit, {CsaParRegion}, "");
+#endif
 
   CurIVValues.pop_back();
 
