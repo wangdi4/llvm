@@ -195,6 +195,22 @@
 #include <avx512pfintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_BF16 */
+/*
+ * TODO: when BF16 is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__AVX512BF16__)
+#include <intel_avx512bf16intrin.h>
+#endif
+
+#if (defined(__AVX512VL__) && defined(__AVX512BF16__))
+#include <intel_avx512vlbf16intrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_BF16 */
+/* end INTEL_CUSTOMIZATION */
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__)
 #include <pkuintrin.h>
 #endif

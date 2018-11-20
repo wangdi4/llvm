@@ -2864,6 +2864,12 @@ def mavx512vnni : Flag<["-"], "mavx512vnni">, Group<m_x86_Features_Group>;
 def mno_avx512vnni : Flag<["-"], "mno-avx512vnni">, Group<m_x86_Features_Group>;
 def mavx512vpopcntdq : Flag<["-"], "mavx512vpopcntdq">, Group<m_x86_Features_Group>;
 def mno_avx512vpopcntdq : Flag<["-"], "mno-avx512vpopcntdq">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+def mavx512bf16 : Flag<["-"], "mavx512bf16">, Group<m_x86_Features_Group>;
+def mno_avx512bf16 : Flag<["-"], "mno-avx512bf16">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
 def madx : Flag<["-"], "madx">, Group<m_x86_Features_Group>;
 def mno_adx : Flag<["-"], "mno-adx">, Group<m_x86_Features_Group>;
 def maes : Flag<["-"], "maes">, Group<m_x86_Features_Group>;
