@@ -339,35 +339,44 @@ void Sema::Initialize() {
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
 
 #if INTEL_CUSTOMIZATION
-  if (PP.getLangOpts().IntelCompat && PP.getLangOpts().CPlusPlus) {
-    auto *StdNamespace = getOrCreateStdNamespace();
-    if (StdNamespace->isImplicit())
+  bool PushedStdNamespace = false;
+  if (PP.getLangOpts().CPlusPlus && PP.getLangOpts().AlignedAllocation &&
+      PP.getLangOpts().isIntelCompat(LangOptions::PredeclareAlignValT)) {
+    NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
+    if (StdNamespace->isImplicit()) {
       PushOnScopeChains(StdNamespace, TUScope);
+      PushedStdNamespace = true;
+    }
 
-    // Fix for CQ#367961: clang does not support automatically-aligned dynamic
-    // allocation via <aligned_new> header.
-    auto *AlignValT = &Context.Idents.get("align_val_t");
-    LookupResult R(*this, AlignValT, SourceLocation(), LookupTagName);
-    LookupQualifiedName(R, StdNamespace);
-    if (R.empty()) {
+    // In C++17 this should be picked up in <new> but the Intel compiler
+    // supported it before this, so predeclare it here for compatibility.
+    // Since it is only used correctly when AlignedAllocation is enabled
+    // only predeclare it in that case.
+    IdentifierInfo *AlignValT = &Context.Idents.get("align_val_t");
+    if (IdResolver.begin(AlignValT) == IdResolver.end()) {
       auto *AlignValTTy = EnumDecl::Create(
           Context, StdNamespace, SourceLocation(), SourceLocation(), AlignValT,
           /*PrevDecl=*/nullptr, /*IsScoped=*/true,
           /*IsScopedUsingClassTag=*/true, /*IsFixed=*/true);
-      auto BestType = Context.getSizeType();
+      QualType BestType = Context.getSizeType();
       AlignValTTy->setIntegerType(BestType);
       StdNamespace->addDecl(AlignValTTy);
     }
+  }
+
+  if (PP.getLangOpts().CPlusPlus &&
+      PP.getLangOpts().isIntelCompat(LangOptions::PredeclareTypeInfo)) {
+    NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
+    if (!PushedStdNamespace && StdNamespace->isImplicit())
+      PushOnScopeChains(StdNamespace, TUScope);
 
     // Fix for CQ#374800: For gcc compatibility sake, we should recognize
     // "std::type_info" even without inclusion of <typeinfo> header. This should
     // happen on Linux only, as in MS mode even open-source clang recognizes
     // "type_info" (but not std::type_info!)
     if (!PP.getLangOpts().MSVCCompat) {
-      auto *TypeInfo = &Context.Idents.get("type_info");
-      R.setLookupName(TypeInfo);
-      LookupQualifiedName(R, StdNamespace);
-      if (R.empty()) {
+      IdentifierInfo *TypeInfo = &Context.Idents.get("type_info");
+      if (IdResolver.begin(TypeInfo) == IdResolver.end()) {
         auto *TypeInfoTy =
           CXXRecordDecl::Create(Context, TTK_Class, StdNamespace,
                                 SourceLocation(), SourceLocation(), TypeInfo);

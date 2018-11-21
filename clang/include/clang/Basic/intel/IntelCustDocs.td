@@ -1352,6 +1352,93 @@ Where:
   }];
 }
 
+def PredeclareAlignValTDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-3383,cq367961";
+  let RegressionTest = "cfeCpp/align_new(1-24)";
+  let Owner = "mprice1";
+  let Content = [{
+This is part of the support for automatically-aligned dynamic allocation.
+See https://software.intel.com/en-us/node/522531 for a description.  This
+is now part of C++17 but the Intel compiler supported it earlier.
+
+In C++17 std::align_val_t will be defined in <new> but this extension
+predeclares it to enable earlier code.
+
+Note that in clang the LangOpt AlignedAllocation (-faligned-allocation)
+controls whether this feature is enabled.  In C++17 mode it is enabled
+by default but can be turned off with -fno-aligned-allocation.
+
+Example:
+
+.. code-block:: c
+
+  typedef long unsigned int size_t;
+  int posix_memalign(void **__memptr, size_t __alignment, size_t __size);
+  void *foo(size_t _S, std::align_val_t _A) {
+    void *_P;
+    posix_memalign(&_P, (size_t)_A, _S);
+    return _P;
+  }
+
+With unmodified clang:
+
+.. code-block:: console
+
+  $ clang -cc1 -faligned-allocation t.cpp
+  t.cpp:3:22: error: use of undeclared identifier 'std'
+  void *foo(size_t _S, std::align_val_t _A)
+                     ^
+  1 error generated.
+
+With -fintel-compatibility:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -faligned-allocation t.cpp
+  $
+  }];
+}
+
+def PredeclareTypeInfoDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-4059,cq164324";
+  let RegressionTest = "cfeCpp/cq164324";
+  let Owner = "mprice1";
+  let Content = [{
+For gcc compatibility std::type_info is recognized even without inclusion of
+the <typeinfo> header.  This applies only to Linux, since open-source clang
+in MSVCCompat mode already recognizes type_info (but not std::type_info).
+
+Example:
+
+.. code-block:: c
+
+  namespace std {
+    const type_info* f();
+  }
+
+With unmodified clang:
+
+.. code-block:: console
+
+  $ clang -cc1 t.cpp
+  t.cpp:2:9: error: unknown type name 'type_info'
+  const type_info* f();
+        ^
+  1 error generated.
+
+With -fintel-compatibility:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility t.cpp
+  $
+  }];
+}
+
 def VolatileInOMPRegionsDocs : Documentation {
   let Category = DocCatIntelOpenMP;
   let Option = "IntelCompat";
