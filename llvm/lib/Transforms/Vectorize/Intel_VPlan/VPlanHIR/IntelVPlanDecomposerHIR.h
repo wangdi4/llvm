@@ -51,10 +51,20 @@ private:
   /// Map HLLoop to the semi-phi instruction representing its IV in VPlan.
   SmallDenseMap<loopopt::HLLoop *, VPInstruction *> HLLp2IVSemiPhi;
 
-  // Hold pairs with VPPhi nodes that need to be fixed once the plain CFG
-  // has been built and the sink DDRef that triggered the creating of such
-  // VPPhis.
-  SmallVector<std::pair<VPInstruction *, loopopt::DDRef *>, 8> PhisToFix;
+  // A map to track empty VPPhi nodes that are added during decomposition. We
+  // know that there can be only one unique PHI node per VPBasicBlock for a
+  // given Symbase (corresponding to the sink DDRef). Currently we are also
+  // storing the sink DDRef that triggered the placement of this VPPhi node, but
+  // this will be removed in the future when the new algorithm to fix empty PHI
+  // nodes is implemented.
+  // TODO: Remove DDRef after implementing new VPPhi node fixing algorithm
+
+  // Key for the PhisToFix map is <Symbase, VPBlockID>
+  using PhiFixMapKey = std::pair<unsigned, unsigned>;
+  // The value mapped to the key is the semi-phi instruction and the ambiguous
+  // sink DDRef
+  using PhiFixMapValue = std::pair<VPInstruction *, loopopt::DDRef *>;
+  DenseMap<PhiFixMapKey, PhiFixMapValue> PhisToFix;
 
   // Methods to create VPInstructions out of an HLNode.
   bool isExternalDef(loopopt::DDRef *UseDDR);

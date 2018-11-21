@@ -34,6 +34,16 @@ static Type *getBaseTypeForSemiPhiOp(ArrayRef<VPValue *> Operands) {
   return Operands[0]->getBaseType();
 }
 
+// Splice the instruction list of the VPBB where \p Phi belongs, by moving the
+// VPPhi instruction to the front of the list
+static void moveSemiPhiToFront(VPInstruction *Phi) {
+  assert(Phi->getOpcode() == VPInstruction::SemiPhi &&
+         "move operation called on a non-semiphi instruction!");
+  VPBasicBlock *BB = Phi->getParent();
+  BB->getInstList().splice((BB->front()).getIterator(), BB->getInstList(),
+                           Phi->getIterator());
+}
+
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
 // using \p OpCode as operator and \p MasterVPI as master VPInstruction. If \p
 // LHS or \p RHS is null, it returns the non-null VPValue.
@@ -892,10 +902,13 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 // PhisToFix contains a pair with VPPhi and its associated sink DDRef. We get
 // the source of each incoming edge of DDRef and set the VPValue associated to
 // that source as operand of the VPPhi.
+// TODO: Above documentation is incorrect. Update after new algorithm.
 void VPDecomposerHIR::fixPhiNodes() {
-  for (auto &VPPhiDDRPair : PhisToFix) {
-    VPInstruction *VPPhi = VPPhiDDRPair.first;
-    DDRef *UseDDR = VPPhiDDRPair.second;
+  for (auto &VPPhiMapPair : PhisToFix) {
+    VPInstruction *VPPhi = VPPhiMapPair.second.first;
+    // Move the VPPhi node to the top of its VPBB
+    moveSemiPhiToFront(VPPhi);
+    DDRef *UseDDR = VPPhiMapPair.second.second;
     assert(VPPhi->getNumOperands() == 0 &&
            "Expected VPInstruction with no operands.");
 
@@ -909,6 +922,7 @@ void VPDecomposerHIR::fixPhiNodes() {
     VPPhi->HIR.getMaster()->HIR.setValid();
   }
 }
+
 
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
@@ -1001,12 +1015,28 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   } else {
     // The operands of the semi-phi are not set right now since some of them
     // might not have been created yet. They will be set by fixPhiNodes.
-    // Add the corresponding Instruction and DDRef to PhisToFix.
+    // Map the corresponding Instruction to <DDRef's Symbase, VPBlockID> in
+    // PhisToFix if not found.
     Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
     Type *BaseTy = VPDefs.front()->getBaseType();
+
+    // Build the key pair to look-up PhiToFix map
+    PhiFixMapKey SymVPBBPair = std::make_pair(
+        DDR->getSymbase(), Decomposer.Builder.getInsertBlock()->getVPBlockID());
+
+    auto VPPhiMapIt = Decomposer.PhisToFix.find(SymVPBBPair);
+    // If a VPPhi node was already created for this sink DDRef's Symbase in
+    // current VPBB, then reuse that.
+    if (VPPhiMapIt != Decomposer.PhisToFix.end())
+      return (VPPhiMapIt->second).first;
+
+    // If no entry is found in PhisToFix then create a new VPPhi node and add it
+    // to the map
     auto *SemiPhi = cast<VPInstruction>(Decomposer.Builder.createSemiPhiOp(
         BaseTy, {} /*No operands*/, nullptr));
-    Decomposer.PhisToFix.push_back(std::make_pair(SemiPhi, DDR));
+    LLVM_DEBUG(dbgs() << "VPDecomp: Empty SemiPhi "; SemiPhi->dump();
+               dbgs() << "\n");
+    Decomposer.PhisToFix[SymVPBBPair] = std::make_pair(SemiPhi, DDR);
     return SemiPhi;
   }
 }
