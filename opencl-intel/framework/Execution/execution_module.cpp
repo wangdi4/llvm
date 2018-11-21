@@ -30,20 +30,11 @@
 #include "svm_commands.h"
 #include "svm_buffer.h"
 
-#if defined (_WIN32)
-#include "gl_mem_objects.h"
-#include "gl_commands.h"
-#endif
 #include "kernel.h"
 #include "Device.h"
 #include "cl_sys_defines.h"
 
 #include <CL/cl_ext.h>
-#if defined (DX_MEDIA_SHARING)
-#include "d3d9_sharing/d3d9_context.h"
-#include "d3d9_sharing/d3d9_resource.h"
-#include "d3d9_sharing/d3d9_sync_d3d9_resources.h"
-#endif
 #include <cassert>
 #include <cl_objects_map.h>
 #include <Logger.h>
@@ -3515,102 +3506,6 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
         return err;
     }
     return CL_SUCCESS;
-}
-
-/******************************************************************
- *
- ******************************************************************/
-cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueue,
-                                                     cl_command_type cmdType,
-                                                     cl_uint uiNumObjects,
-                                                     const cl_mem * pclMemObjects,
-                                                     cl_uint uiNumEventsInWaitList,
-                                                     const cl_event * pclEventWaitList,
-                                                     cl_event * pclEvent,
-                                                     ApiLogger* apiLogger)
-{
-#if defined (_WIN32) //TODO GL support for Linux
-    cl_err_code errVal = CL_SUCCESS;
-    if ( (NULL == pclMemObjects) || (0 == uiNumObjects) )
-    {
-        return CL_INVALID_VALUE;
-    }
-    if ((NULL == pclEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pclEventWaitList && 0 == uiNumEventsInWaitList))
-    {
-        return CL_INVALID_EVENT_WAIT_LIST;
-    }
-
-    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
-    }
-
-    SharedPtr<GLContext> pContext = m_pContextModule->GetContext(pCommandQueue->GetParentHandle()).DynamicCast<GLContext>();
-    if (NULL == pContext)
-    {
-        return CL_INVALID_CONTEXT;
-    }
-
-    SharedPtr<GraphicsApiMemoryObject>* pMemObjects = new SharedPtr<GraphicsApiMemoryObject>[uiNumObjects];
-    if ( NULL == pMemObjects )
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    for(unsigned int i=0; i<uiNumObjects; ++i)
-    {
-        SharedPtr<MemoryObject> pMemObj = m_pContextModule->GetMemoryObject(pclMemObjects[i]);
-        if (NULL == pMemObj)
-        {
-            delete []pMemObjects;
-            return CL_INVALID_MEM_OBJECT;
-        }
-        if (pMemObj->GetContext()->GetId() != pCommandQueue->GetContextId())
-        {
-            delete []pMemObjects;
-            return CL_INVALID_CONTEXT;
-        }
-        // Check if it's a GL object
-         if ( NULL != (pMemObjects[i] = pMemObj.DynamicCast<GLMemoryObject>()))
-        {
-            continue;
-        }
-
-        // If got here invalid GL buffer
-        delete []pMemObjects;
-        return CL_INVALID_GL_OBJECT;
-    }
-
-    Command* pAcquireCmd  = new SyncGLObjects(cmdType, pContext, pMemObjects, uiNumObjects, pCommandQueue);
-    if (NULL == pAcquireCmd)
-    {
-        delete []pMemObjects;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
-    errVal = pAcquireCmd->Init();
-    if ( CL_FAILED(errVal) )
-    {
-        delete pAcquireCmd;
-        delete []pMemObjects;
-        return  errVal;
-    }
-
-    errVal = pAcquireCmd->EnqueueSelf(FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent, apiLogger);
-    if(CL_FAILED(errVal))
-    {
-        // Enqueue failed, free resources
-        pAcquireCmd->SetReturnCode(errVal);
-        pAcquireCmd->CommandDone();
-        delete pAcquireCmd;
-    }
-
-    delete []pMemObjects;
-    return  errVal;
-#else
-    assert (0 && "NOT Implemented on Linux");
-        return CL_OUT_OF_HOST_MEMORY;
-#endif
 }
 
 class QueueFlusher

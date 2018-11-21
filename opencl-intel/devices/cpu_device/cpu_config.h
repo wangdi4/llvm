@@ -30,7 +30,6 @@
 #define CL_CONFIG_USE_VECTORIZER                "CL_CONFIG_USE_VECTORIZER"                  // bool
 #define CL_CONFIG_USE_VTUNE                     "CL_CONFIG_USE_VTUNE"                       // bool
 #define CL_CONFIG_USE_TRAPPING                  "CL_CONFIG_USE_TRAPPING"                    // bool
-#define CL_CONFIG_GL_DIRECTX_INTEROP            "CL_CONFIG_GL_DIRECTX_INTEROP"              // bool
 #define CL_CONFIG_CPU_EMULATE_DEVICES           "CL_CONFIG_CPU_EMULATE_DEVICES"             // int
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {

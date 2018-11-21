@@ -78,14 +78,6 @@ EXPORTS
 	clEnqueueMarker
 	clEnqueueWaitForEvents
 	clEnqueueBarrier
-	clCreateFromGLBuffer
-	clCreateFromGLTexture2D
-	clCreateFromGLTexture3D
-	clCreateFromGLRenderbuffer
-	clGetGLObjectInfo
-	clGetGLTextureInfo
-	clEnqueueAcquireGLObjects
-	clEnqueueReleaseGLObjects
 	clCreateUserEvent
 	clSetEventCallback
 	clSetUserEventStatus
@@ -94,20 +86,6 @@ EXPORTS
 	clReleaseDevice
 	clRetainDevice
 	clCreateSubDevices	
-	clCreateFromDX9MediaSurfaceINTEL	
-	clEnqueueAcquireDX9ObjectsINTEL
-	clEnqueueReleaseDX9ObjectsINTEL
-	clGetDeviceIDsFromDX9INTEL
-	clCreateFromDX9MediaSurfaceKHR
-	clGetDeviceIDsFromDX9MediaAdapterKHR
-	clEnqueueAcquireDX9MediaSurfacesKHR
-	clEnqueueReleaseDX9MediaSurfacesKHR
-	clGetDeviceIDsFromD3D11KHR
-	clCreateFromD3D11BufferKHR
-	clCreateFromD3D11Texture2DKHR
-	clCreateFromD3D11Texture3DKHR
-	clEnqueueAcquireD3D11ObjectsKHR
-	clEnqueueReleaseD3D11ObjectsKHR
 	clEnqueueFillBuffer
 	clEnqueueMigrateMemObjects
 	clCreateSubDevices

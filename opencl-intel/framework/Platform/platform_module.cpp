@@ -16,9 +16,6 @@
 #include "Device.h"
 #include "fe_compiler.h"
 
-#ifdef WIN32
-#include <gl_shr_utils.h>
-#endif
 #include <cl_object_info.h>
 #include <cl_objects_map.h>
 #include <cl_device_api.h>
@@ -629,104 +626,6 @@ cl_int PlatformModule::UnloadCompiler(void)
         }
     }
     return CL_SUCCESS;
-}
-
-cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
-{
-#if defined (_WIN32) //TODO GL support for Linux
-    if ( nullptr == properties )
-    {
-        return CL_INVALID_VALUE;
-    }
-
-    cl_context_properties hGL, hDC;
-    cl_int ret;
-    SharedPtr<FissionableDevice> pDevice = nullptr;
-    cl_device_id    devId = nullptr;
-
-    switch(param_name)
-    {
-    case CL_DEVICES_FOR_GL_CONTEXT_KHR:
-    {
-        // Return all device in context
-        param_value_size /= sizeof(cl_device_id);
-        cl_uint uiNumDevices;
-        assert(param_value_size <= MAXUINT32);
-        ret = GetDeviceIDs(0, CL_DEVICE_TYPE_ALL, (cl_uint)param_value_size, (cl_device_id*)param_value, &uiNumDevices);
-        if ( CL_FAILED(ret))
-        {
-            return ret;
-        }
-
-        if ( nullptr != param_value_size_ret )
-        {
-            *param_value_size_ret = ( uiNumDevices * sizeof(cl_device_id) );
-        }
-        break;
-    }
-
-    case CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR:
-        // Parse options
-        ret = ParseGLContextOptions(properties, &hGL, &hDC);
-        if (CL_FAILED(ret))
-        {
-            return ret;
-        }
-        // Find appropriate device
-        for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
-        {
-            
-            pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-            if (NULL != pDevice)
-            {
-                size_t extensionsSize = 0;                
-                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionsSize);                
-                if (CL_FAILED(ret))
-                {
-                    return ret;
-                }
-                std::string extensions;
-                extensions.resize(extensionsSize);
-                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, extensionsSize, &extensions[0], nullptr);
-                if (CL_FAILED(ret))
-                {
-                    return ret;
-                } 
-                if (extensions.find("cl_khr_gl_sharing") != std::string::npos)
-                {
-                    devId = pDevice->GetHandle();
-                    break;
-                }                                                
-            }
-        }
-
-        // Check parameters
-        if ( (nullptr == param_value) && (0 == param_value_size) && (nullptr != param_value_size_ret) )
-        {
-            *param_value_size_ret = sizeof(cl_device_id);
-            return CL_SUCCESS;
-        }
-
-        if ( (nullptr == param_value) || (sizeof(cl_device_id) > param_value_size) )
-        {
-            return CL_INVALID_VALUE;
-        }
-
-        *(cl_device_id*)param_value = devId;
-        if ( nullptr != param_value_size_ret)
-        {
-            *param_value_size_ret = nullptr == devId ? 0 : sizeof(cl_device_id);
-        }
-        break;
-
-    default:
-        return CL_INVALID_VALUE;
-    }
-    return CL_SUCCESS;
-#else
-    assert(0 && "GL NOT Implemented on Linux");
-#endif
-       return CL_SUCCESS;
 }
 
 // Device Fission

@@ -171,18 +171,6 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clEnqueueBarrier = (KHRpfn_clEnqueueBarrier)GET_ALIAS(clEnqueueBarrier);
     ICDDispatchTable.clGetExtensionFunctionAddress = (KHRpfn_clGetExtensionFunctionAddress)GET_ALIAS(clGetExtensionFunctionAddress);
     ICDDispatchTable.clGetExtensionFunctionAddressForPlatform = (KHRpfn_clGetExtensionFunctionAddressForPlatform)GET_ALIAS(clGetExtensionFunctionAddressForPlatform);
-#ifdef WIN32
-    ICDDispatchTable.clCreateFromGLBuffer = (KHRpfn_clCreateFromGLBuffer)GET_ALIAS(clCreateFromGLBuffer);
-    ICDDispatchTable.clCreateFromGLTexture = (KHRpfn_clCreateFromGLTexture)GET_ALIAS(clCreateFromGLTexture);
-    ICDDispatchTable.clCreateFromGLTexture2D = (KHRpfn_clCreateFromGLTexture2D)GET_ALIAS(clCreateFromGLTexture2D);
-    ICDDispatchTable.clCreateFromGLTexture3D = (KHRpfn_clCreateFromGLTexture3D)GET_ALIAS(clCreateFromGLTexture3D);
-    ICDDispatchTable.clCreateFromGLRenderbuffer = (KHRpfn_clCreateFromGLRenderbuffer)GET_ALIAS(clCreateFromGLRenderbuffer);
-    ICDDispatchTable.clGetGLObjectInfo = (KHRpfn_clGetGLObjectInfo)GET_ALIAS(clGetGLObjectInfo);
-    ICDDispatchTable.clGetGLTextureInfo = (KHRpfn_clGetGLTextureInfo)GET_ALIAS(clGetGLTextureInfo);
-    ICDDispatchTable.clEnqueueAcquireGLObjects = (KHRpfn_clEnqueueAcquireGLObjects)GET_ALIAS(clEnqueueAcquireGLObjects);
-    ICDDispatchTable.clEnqueueReleaseGLObjects = (KHRpfn_clEnqueueReleaseGLObjects)GET_ALIAS(clEnqueueReleaseGLObjects);
-    ICDDispatchTable.clGetGLContextInfoKHR = (KHRpfn_clGetGLContextInfoKHR)GET_ALIAS(clGetGLContextInfoKHR);
-#else
     ICDDispatchTable.clCreateFromGLBuffer = nullptr;
     ICDDispatchTable.clCreateFromGLTexture = nullptr;
     ICDDispatchTable.clCreateFromGLTexture2D = nullptr;
@@ -193,7 +181,6 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clEnqueueAcquireGLObjects = nullptr;
     ICDDispatchTable.clEnqueueReleaseGLObjects = nullptr;
     ICDDispatchTable.clGetGLContextInfoKHR = nullptr;
-#endif
     ICDDispatchTable.clGetDeviceIDsFromD3D10KHR = nullptr;
     ICDDispatchTable.clCreateFromD3D10BufferKHR = nullptr;
     ICDDispatchTable.clCreateFromD3D10Texture2DKHR = nullptr;
@@ -241,24 +228,6 @@ void FrameworkProxy::InitOCLEntryPoints()
 
     /// Extra functions for Common Runtime
     CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
-#if defined DX_MEDIA_SHARING
-    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = (INTELpfn_clGetDeviceIDsFromDX9INTEL)GET_ALIAS(clGetDeviceIDsFromDX9INTEL);
-    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = (INTELpfn_clCreateFromDX9MediaSurfaceINTEL)GET_ALIAS(clCreateFromDX9MediaSurfaceINTEL);
-    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = (INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)GET_ALIAS(clEnqueueAcquireDX9ObjectsINTEL);
-    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = (INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)GET_ALIAS(clEnqueueReleaseDX9ObjectsINTEL);
-
-    ICDDispatchTable.clGetDeviceIDsFromDX9MediaAdapterKHR = (KHRpfn_clGetDeviceIDsFromDX9MediaAdapterKHR)GET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
-    ICDDispatchTable.clCreateFromDX9MediaSurfaceKHR = (KHRpfn_clCreateFromDX9MediaSurfaceKHR)GET_ALIAS(clCreateFromDX9MediaSurfaceKHR);
-    ICDDispatchTable.clEnqueueAcquireDX9MediaSurfacesKHR = (KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR)GET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
-    ICDDispatchTable.clEnqueueReleaseDX9MediaSurfacesKHR = (KHRpfn_clEnqueueReleaseDX9MediaSurfacesKHR)GET_ALIAS(clEnqueueReleaseDX9MediaSurfacesKHR);
-
-    ICDDispatchTable.clGetDeviceIDsFromD3D11KHR = (KHRpfn_clGetDeviceIDsFromD3D11KHR)GET_ALIAS(clGetDeviceIDsFromD3D11KHR);
-    ICDDispatchTable.clCreateFromD3D11BufferKHR = (KHRpfn_clCreateFromD3D11BufferKHR)GET_ALIAS(clCreateFromD3D11BufferKHR);
-    ICDDispatchTable.clCreateFromD3D11Texture2DKHR = (KHRpfn_clCreateFromD3D11Texture2DKHR)GET_ALIAS(clCreateFromD3D11Texture2DKHR);
-    ICDDispatchTable.clCreateFromD3D11Texture3DKHR = (KHRpfn_clCreateFromD3D11Texture3DKHR)GET_ALIAS(clCreateFromD3D11Texture3DKHR);
-    ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR = (KHRpfn_clEnqueueAcquireD3D11ObjectsKHR)GET_ALIAS(clEnqueueAcquireD3D11ObjectsKHR);
-    ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR = (KHRpfn_clEnqueueReleaseD3D11ObjectsKHR)GET_ALIAS(clEnqueueReleaseD3D11ObjectsKHR);
-#else
     CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = nullptr;
     CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = nullptr;
     CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = nullptr;
@@ -275,7 +244,6 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clCreateFromD3D11Texture3DKHR        = nullptr;
     ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR      = nullptr;
     ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR      = nullptr;
-#endif
     // Nullify entries which are not relevant for CPU
     CRTDispatchTable.clGetImageParamsINTEL = nullptr;
     CRTDispatchTable.clCreatePerfCountersCommandQueueINTEL = nullptr;
