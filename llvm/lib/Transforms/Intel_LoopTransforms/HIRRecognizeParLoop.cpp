@@ -9,7 +9,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Finds HIR patterns:
+// The pass recognizes parallel loops and attaches HLLoopParallelTraits to such
+// loops. First, the pass tries to find parallel OpenMP directives and extract
+// necessary information from them. Then, if there is no directives,
+// HIRParVecAnalysis is used.
+//
+// When using OpenMP directives, the pass finds the following HIR patterns:
 //   HLInst(
 //     %x = call token @llvm.directive.region.entry()["DIR.OMP.xxx.LOOP"(),...])
 //   ...
@@ -22,11 +27,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
+
 #include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 using namespace llvm;
@@ -56,6 +63,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRParVecAnalysisWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -65,6 +73,7 @@ char HIRRecognizeParLoop::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRecognizeParLoop, OPT_SWITCH, OPT_DESC, false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRParVecAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRRecognizeParLoop, OPT_SWITCH, OPT_DESC, false, false)
 
 namespace {
@@ -80,9 +89,11 @@ private:
   /// Attempts to transform given loop.
   /// \param Lp
   ///     the loop
+  /// \param HIRF
+  ///     the HIR created for the current function
   /// \return
   ///     \c true if the loop was transformed, \c false otherwise
-  bool doTransform(HLLoop &Lp);
+  bool doTransform(HLLoop &Lp, HIRFramework &HIRF);
 
   /// Searches for region entry and exit OpenMP intrinsics associated with
   /// given loop.
@@ -114,7 +125,7 @@ bool HIRRecognizeParLoop::runOnFunction(Function &F) {
 
 PreservedAnalyses
 HIRRecognizeParLoopPass::run(llvm::Function &F,
-  llvm::FunctionAnalysisManager &AM) {
+                             llvm::FunctionAnalysisManager &AM) {
   HIRRecognizeParLoopImpl Impl;
   Impl.run(AM.getResult<HIRFrameworkAnalysis>(F));
   return PreservedAnalyses::all();
@@ -181,19 +192,36 @@ static HLLoopParallelTraits* parseOmpRegion(const HLInst *Entry) {
   return PTr;
 }
 
-bool HIRRecognizeParLoopImpl::doTransform(HLLoop &Lp) {
+bool HIRRecognizeParLoopImpl::doTransform(HLLoop &Lp, HIRFramework &HIRF) {
   HLInst *Entry = nullptr, *Exit = nullptr;
+  HLLoopParallelTraits *CTr = nullptr;
 
-  if (getOmpRegion(Lp, &Entry, &Exit) < 0)
+  // First, try to parse OpenMP pragmas.
+  if (getOmpRegion(Lp, &Entry, &Exit) >= 0) {
+    CTr = parseOmpRegion(Entry);
+
+    // Remove the consumed region entry/exit intrinsics.
+    HLNodeUtils::remove(Entry);
+    HLNodeUtils::remove(Exit);
+  }
+
+  // Then, try to refine the information based on the analysis.
+  if (!CTr) {
+    auto *HPVA = HIRF.getHIRAnalysisProvider().get<HIRParVecAnalysis>();
+    const ParVecInfo *Info =
+        HPVA ? HPVA->getInfo(ParVecInfo::Parallel, &Lp) : nullptr;
+    if (Info && Info->getParType() == ParVecInfo::ParOkay)
+      CTr = new HLLoopParallelTraits;
+  }
+
+  // Early return if the loop is not parallel.
+  if (!CTr)
     return false;
-  HLLoopParallelTraits *CTr = parseOmpRegion(Entry);
+
   Lp.setParallelTraits(CTr);
   Lp.getParentRegion()->setGenCode();
-
-  // now remove the consumed region entry/exit intrinsics
-  HLNodeUtils::remove(Entry);
-  HLNodeUtils::remove(Exit);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(&Lp);
+
   return true;
 }
 
@@ -212,7 +240,7 @@ bool HIRRecognizeParLoopImpl::run(HIRFramework &HIRF) {
   bool Result = false;
 
   for (auto Lp : CandidateLoops) {
-    Result = doTransform(*Lp) || Result;
+    Result = doTransform(*Lp, HIRF) || Result;
   }
   return Result;
 }

@@ -8,8 +8,8 @@
 // from the company.
 //
 //===----------------------------------------------------------------------===//
-// This pass recognizes and consumes OpenMP region entry/exit instructions
-// (wrapped in HLInst) around loops.
+// This pass recognizes parallel loops using OpenMP directives and
+// HIRParVecAnalysis.
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_PAR_LOOP_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_PAR_LOOP_H

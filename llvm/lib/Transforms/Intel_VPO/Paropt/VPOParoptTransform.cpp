@@ -82,15 +82,9 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform"
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-// TODO FIXME remove this after full implementation of HIR-based loop
-// transformation for CSA
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
 cl::opt<bool> UseOmpRegionsInLoopopt(
-  "loopopt-use-omp-region", cl::init(false), cl::ReallyHidden,
-  cl::desc("; TEMPORARY"));
+  "loopopt-use-omp-region", cl::init(false), cl::Hidden,
+  cl::desc("Handle OpenMP directives in LoopOpt"));
 
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
