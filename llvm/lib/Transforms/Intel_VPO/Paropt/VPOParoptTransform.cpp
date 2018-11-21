@@ -896,8 +896,17 @@ bool VPOParoptTransform::paroptTransforms() {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-    if (isTargetCSA() && !isSupportedOnCSA(W))
+    if (isTargetCSA() && !isSupportedOnCSA(W)) {
+      if (Mode & ParPrepare)
+        switch (W->getWRegionKindID()) {
+          case WRegionNode::WRNAtomic:
+          case WRegionNode::WRNCritical:
+          case WRegionNode::WRNTaskwait:
+            Changed |= removeCompilerGeneratedFences(W);
+            break;
+        }
       RemoveDirectives = true;
+    }
     else
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
@@ -1222,6 +1231,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
+            Changed |= removeCompilerGeneratedFences(W);
             Changed |= genCSASingle(W);
             RemoveDirectives = true;
             break;
@@ -1243,7 +1253,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
-            // This is a NOP on CSA.
+            Changed |= removeCompilerGeneratedFences(W);
             RemoveDirectives = true;
             break;
           }
@@ -1278,7 +1288,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
-            // This is a NOP on CSA.
+            Changed |= removeCompilerGeneratedFences(W);
             RemoveDirectives = true;
             break;
           }

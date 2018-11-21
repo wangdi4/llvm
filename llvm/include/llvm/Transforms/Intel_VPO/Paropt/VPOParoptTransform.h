@@ -732,6 +732,11 @@ private:
 
   /// \brief Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
+
+  /// \brief Remove fence acquire/release instructions inserted by FE for
+  /// certain work regions (atomic, critical, single, master, barrier and
+  /// taskwait).
+  bool removeCompilerGeneratedFences(WRegionNode *W);
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 

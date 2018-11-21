@@ -1047,12 +1047,16 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
     case WRegionNode::WRNParallelLoop:
     case WRegionNode::WRNWksLoop:
     case WRegionNode::WRNSections:
-    case WRegionNode::WRNAtomic:
     case WRegionNode::WRNSection:
     case WRegionNode::WRNMaster:
     case WRegionNode::WRNSingle:
     case WRegionNode::WRNBarrier:
       break;
+    case WRegionNode::WRNAtomic:
+      // Atomics for variables <= 64-bits are lowered by FE.
+      reportWarning("\"omp atomic\" is not supported for variables larger "
+                    "64 bits");
+      return false;
     default:
       reportWarning("ignoring unsupported \"omp " + W->getName() + "\"");
       return false;
@@ -1238,5 +1242,46 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
     }
   for (auto *I : DeadInsts)
     I->eraseFromParent();
+  return Changed;
+}
+
+template <typename Range>
+static bool removeFirstFence(Range &&R, AtomicOrdering AO) {
+  for (auto &I : R)
+    if (auto *Fence = dyn_cast<FenceInst>(&I)) {
+      if (Fence->getOrdering() == AO) {
+        Fence->eraseFromParent();
+        return true;
+      }
+      break;
+    }
+  return false;
+}
+
+bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
+  assert(isTargetCSA() && "unexpected target");
+
+  bool Changed = false;
+  switch (W->getWRegionKindID()) {
+    case WRegionNode::WRNAtomic:
+    case WRegionNode::WRNCritical:
+    case WRegionNode::WRNMaster:
+    case WRegionNode::WRNSingle:
+      if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
+        Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
+                                    AtomicOrdering::Acquire);
+      if (auto *BB = W->getExitBBlock()->getSinglePredecessor())
+        Changed |= removeFirstFence(make_range(BB->rbegin(), BB->rend()),
+                                    AtomicOrdering::Release);
+      break;
+    case WRegionNode::WRNBarrier:
+    case WRegionNode::WRNTaskwait:
+      if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
+        Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
+                                    AtomicOrdering::AcquireRelease);
+      break;
+    default:
+      llvm_unreachable("unexpected work region kind");
+  }
   return Changed;
 }
