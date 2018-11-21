@@ -133,21 +133,6 @@ public:
   void postVisit(HLNode *Node) {}
 };
 
-/// \brief Visitor class to invalidate the cached ParVec analysis results.
-class ParVecForgetVisitor final : public HLNodeVisitorBase {
-  HIRParVecInfoMapType &InfoMap;
-
-public:
-  ParVecForgetVisitor(HIRParVecInfoMapType &theMap) : InfoMap(theMap) {}
-  /// \brief Invalidate the cached result.
-  void visit(HLLoop *Loop) { InfoMap.erase(Loop); }
-
-  /// \brief catch-all visit().
-  void visit(HLNode *Node) {}
-  /// \brief catch-all postVisit().
-  void postVisit(HLNode *Node) {}
-};
-
 /// \brief Visitor class to print the cached ParVec analysis results.
 class ParVecPrintVisitor final : public HLNodeVisitorBase {
   const HIRParVecInfoMapType &InfoMap;
@@ -242,7 +227,7 @@ bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   // doesn't print anything.
   LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA)));
   LLVM_DEBUG(HPVA->analyze(ParVecInfo::ParallelVector));
-  LLVM_DEBUG(HPVA->print(dbgs()));
+  LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
 
   HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA));
 
@@ -278,7 +263,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF->getHLNodeUtils().visitAllInnerToOuter(Vis);
+  HIRF.getHLNodeUtils().visitAllInnerToOuter(Vis);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
@@ -287,7 +272,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Region);
+  HIRF.getHLNodeUtils().visitInnerToOuter(Vis, Region);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
@@ -295,26 +280,12 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Loop);
+  HIRF.getHLNodeUtils().visitInnerToOuter(Vis, Loop);
 }
 
-void HIRParVecAnalysis::forget(HLRegion *Region) {
-  ParVecForgetVisitor Vis(InfoMap);
-  HIRF->getHLNodeUtils().visit(Vis, Region);
-}
-
-void HIRParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
-  if (!Nest) {
-    InfoMap.erase(Loop);
-    return;
-  }
-  ParVecForgetVisitor Vis(InfoMap);
-  HIRF->getHLNodeUtils().visit(Vis, Loop);
-}
-
-void HIRParVecAnalysis::print(raw_ostream &OS, const Module *M) const {
+void HIRParVecAnalysis::printAnalysis(raw_ostream &OS) const {
   ParVecPrintVisitor Vis(InfoMap, OS);
-  HIRF->getHLNodeUtils().visitAll(Vis);
+  HIRF.getHLNodeUtils().visitAll(Vis);
 }
 
 bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {

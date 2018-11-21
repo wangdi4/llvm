@@ -44,7 +44,7 @@ bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
   // is rock solid.
   HPVA->analyze(Mode);
   LLVM_DEBUG(dbgs() << "Analysis results for all regions\n");
-  LLVM_DEBUG(HPVA->print(dbgs()));
+  LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
 
   // Insert Directives where VecOkay/ParOkay are seen. Recompute
   // ParVecAnalysis result if stored info doesn't match the analysis

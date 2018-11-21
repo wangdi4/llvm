@@ -24,6 +24,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Pass.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 
 namespace llvm {
@@ -230,12 +232,9 @@ public:
   }
 };
 
-class HIRParVecAnalysis {
-
-private:
+class HIRParVecAnalysis : public HIRAnalysis {
   bool Enabled;
   TargetLibraryInfo *TLI;
-  HIRFramework *HIRF;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *SRA;
   HIRParVecInfoMapType InfoMap;
@@ -243,7 +242,7 @@ private:
 public:
   HIRParVecAnalysis(bool Enabled, TargetLibraryInfo *TLI, HIRFramework *HIRF,
                     HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA)
-      : Enabled(Enabled), TLI(TLI), HIRF(HIRF), DDA(DDA), SRA(SRA) {}
+      : HIRAnalysis(*HIRF), Enabled(Enabled), TLI(TLI), DDA(DDA), SRA(SRA) {}
 
   /// \brief Analyze (if invalid) the loop and return the info.
   const ParVecInfo *getInfo(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
@@ -259,13 +258,9 @@ public:
   /// info. For analyzing just this loop, use getInfo() instead.
   void analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
 
-  /// \brief Invalidate the cached result for the loop or the loop nest.
-  void forget(HLLoop *Loop, bool Nest = false);
+  void markLoopBodyModified(const HLLoop *L) override { InfoMap.erase(L); }
 
-  /// \brief Invalidate the cached result for the region.
-  void forget(HLRegion *Region);
-
-  void print(raw_ostream &OS, const Module * = nullptr) const;
+  void printAnalysis(raw_ostream &OS) const override;
 
   /// \brief Helper for skipping ParVec analysis on SIMD enabled functions.
   static bool isSIMDEnabledFunction(Function &F);
@@ -286,7 +281,7 @@ public:
   void releaseMemory() override { HPVA.reset(); }
 
   void print(raw_ostream &OS, const Module * = nullptr) const override {
-    getHPVA().print(OS);
+    getHPVA().printAnalysis(OS);
   }
 
   HIRParVecAnalysis &getHPVA() { return *HPVA; }

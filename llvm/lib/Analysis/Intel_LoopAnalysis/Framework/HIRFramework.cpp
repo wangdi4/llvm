@@ -102,6 +102,7 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
           [&]() { return AM.getCachedResult<HIRLoopLocalityAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRLoopResourceAnalysis>(F); },
           [&]() { return AM.getCachedResult<HIRLoopStatisticsAnalysis>(F); },
+          [&]() { return AM.getCachedResult<HIRParVecAnalysisPass>(F); },
           [&]() { return AM.getCachedResult<HIRSafeReductionAnalysisPass>(F); },
           [&]() {
             return AM.getCachedResult<HIRSparseArrayReductionAnalysisPass>(F);
@@ -179,6 +180,11 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
             auto *Wrapper =
                 getAnalysisIfAvailable<HIRLoopStatisticsWrapperPass>();
             return Wrapper ? &Wrapper->getHLS() : nullptr;
+          },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRParVecAnalysisWrapperPass>();
+            return Wrapper ? &Wrapper->getHPVA() : nullptr;
           },
           [&]() {
             auto *Wrapper =
