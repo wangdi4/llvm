@@ -188,7 +188,9 @@ static std::error_code GetFileNameFromHandle(HANDLE FileHandle,
 
   // Create a file mapping object.
   FileMappingScopedHandle FileMapping(
-    ::CreateFileMappingA(FileHandle,
+#if INTEL_CUSTOMIZATION
+    ::CreateFileMappingW(FileHandle,
+#endif // INTEL_CUSTOMIZATION
                          NULL,
                          PAGE_READONLY,
                          0,
