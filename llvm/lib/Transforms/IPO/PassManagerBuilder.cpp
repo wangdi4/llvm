@@ -1477,7 +1477,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
   if (!RunLoopOptFrameworkOnly) {
     if (UseOmpRegionsInLoopopt)
-      PM.add(createHIRRecognizeOmpLoopPass());
+      PM.add(createHIRRecognizeParLoopPass());
 
     PM.add(createHIRPropagateCastedIVPass());
     if (OptLevel > 2) {

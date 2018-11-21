@@ -1,4 +1,4 @@
-//===----- HIRRecognizeOmpLoop.h - Recognizes OpenMP loops ----------------===//
+//===----- HIRRecognizeParLoop.h - Recognizes Parallel loops --------------===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -26,13 +26,13 @@
 #include "llvm/Analysis/Intel_Directives.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeOmpLoop.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define OPT_SWITCH "hir-rec-omp-loop"
+#define OPT_SWITCH "hir-recognize-par-loop"
 #define OPT_DESC "HIR Recognize OpenMP Loops"
 #define DEBUG_TYPE OPT_SWITCH
 
@@ -43,12 +43,12 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 namespace {
 
 // The old-style optimization pass
-class HIRRecognizeOmpLoop : public HIRTransformPass {
+class HIRRecognizeParLoop : public HIRTransformPass {
 
 public:
   static char ID;
-  HIRRecognizeOmpLoop() : HIRTransformPass(ID) {
-    initializeHIRRecognizeOmpLoopPass(*PassRegistry::getPassRegistry());
+  HIRRecognizeParLoop() : HIRTransformPass(ID) {
+    initializeHIRRecognizeParLoopPass(*PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override;
@@ -61,15 +61,15 @@ public:
 };
 } // namespace
 
-char HIRRecognizeOmpLoop::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRRecognizeOmpLoop, OPT_SWITCH, OPT_DESC, false,
+char HIRRecognizeParLoop::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRRecognizeParLoop, OPT_SWITCH, OPT_DESC, false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRRecognizeOmpLoop, OPT_SWITCH, OPT_DESC, false, false)
+INITIALIZE_PASS_END(HIRRecognizeParLoop, OPT_SWITCH, OPT_DESC, false, false)
 
 namespace {
 /// Actual implementation shared by the old- and new-style passes
-class HIRRecognizeOmpLoopImpl {
+class HIRRecognizeParLoopImpl {
 public:
   /// The entry point.
   /// \param HIRF
@@ -99,28 +99,28 @@ private:
 };
 } // namespace
 
-FunctionPass *llvm::createHIRRecognizeOmpLoopPass() {
-  return new HIRRecognizeOmpLoop();
+FunctionPass *llvm::createHIRRecognizeParLoopPass() {
+  return new HIRRecognizeParLoop();
 }
 
-bool HIRRecognizeOmpLoop::runOnFunction(Function &F) {
+bool HIRRecognizeParLoop::runOnFunction(Function &F) {
   if (skipFunction(F)) {
     LLVM_DEBUG(dbgs() << OPT_DESC << " Disabled \n");
     return false;
   }
-  HIRRecognizeOmpLoopImpl Impl;
+  HIRRecognizeParLoopImpl Impl;
   return Impl.run(getAnalysis<HIRFrameworkWrapperPass>().getHIR());
 }
 
 PreservedAnalyses
-HIRRecognizeOmpLoopPass::run(llvm::Function &F,
+HIRRecognizeParLoopPass::run(llvm::Function &F,
   llvm::FunctionAnalysisManager &AM) {
-  HIRRecognizeOmpLoopImpl Impl;
+  HIRRecognizeParLoopImpl Impl;
   Impl.run(AM.getResult<HIRFrameworkAnalysis>(F));
   return PreservedAnalyses::all();
 }
 
-void HIRRecognizeOmpLoop::releaseMemory() {}
+void HIRRecognizeParLoop::releaseMemory() {}
 
 // Given the source:
 //   void loop1(int *ip, int n) {
@@ -181,7 +181,7 @@ static HLLoopParallelTraits* parseOmpRegion(const HLInst *Entry) {
   return PTr;
 }
 
-bool HIRRecognizeOmpLoopImpl::doTransform(HLLoop &Lp) {
+bool HIRRecognizeParLoopImpl::doTransform(HLLoop &Lp) {
   HLInst *Entry = nullptr, *Exit = nullptr;
 
   if (getOmpRegion(Lp, &Entry, &Exit) < 0)
@@ -197,7 +197,7 @@ bool HIRRecognizeOmpLoopImpl::doTransform(HLLoop &Lp) {
   return true;
 }
 
-bool HIRRecognizeOmpLoopImpl::run(HIRFramework &HIRF) {
+bool HIRRecognizeParLoopImpl::run(HIRFramework &HIRF) {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << OPT_DESC << " Disabled \n");
     return false;
@@ -266,7 +266,7 @@ static int getOmpRegionImpl(HLNode &Node, HLInst **EntryInst, HLInst **ExitInst)
 
 // Assumptions:
 // - there can be only one region entry marker per loop.
-int HIRRecognizeOmpLoopImpl::getOmpRegion(HLLoop &Lp, HLInst **EntryInst,
+int HIRRecognizeParLoopImpl::getOmpRegion(HLLoop &Lp, HLInst **EntryInst,
                                           HLInst **ExitInst) {
   int Res = getOmpRegionImpl(Lp, EntryInst, ExitInst);
 

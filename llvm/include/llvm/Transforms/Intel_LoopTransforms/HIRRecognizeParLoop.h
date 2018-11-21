@@ -1,4 +1,4 @@
-//===----- HIRRecognizeOmpLoop.h - Recognizes OpenMP loops ----------------===//
+//===----- HIRRecognizeParLoop.h - Recognizes Parallel loops --------------===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -11,16 +11,16 @@
 // This pass recognizes and consumes OpenMP region entry/exit instructions
 // (wrapped in HLInst) around loops.
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_OMP_LOOP_H
-#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_OMP_LOOP_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_PAR_LOOP_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_PAR_LOOP_H
 
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
 namespace loopopt {
 
-class HIRRecognizeOmpLoopPass
-    : public PassInfoMixin<HIRRecognizeOmpLoopPass> {
+class HIRRecognizeParLoopPass
+    : public PassInfoMixin<HIRRecognizeParLoopPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
@@ -28,4 +28,4 @@ public:
 }
 }
 
-#endif // LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_OMP_LOOP_H
+#endif // LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIR_RECOGNIZE_PAR_LOOP_H

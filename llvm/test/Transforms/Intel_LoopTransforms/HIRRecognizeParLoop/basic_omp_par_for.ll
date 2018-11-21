@@ -1,10 +1,10 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-rec-omp-loop -print-before=hir-rec-omp-loop -print-after=hir-rec-omp-loop -S 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-rec-omp-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-recognize-par-loop -print-before=hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
 ; The test checks if
 ;   '%1 = @llvm.directive.region.entry()' / '@llvm.directive.region.exit(%1)'
 ; pair of intrinsics originating from OpenMP's 'parallel for' is recognized and
-; consumed by the hir-rec-omp-loop pass.
+; consumed by the hir-recognize-par-loop pass.
 
 ; Generated on Linux from the following source src.cpp below.
 ; --- Host compilation:
@@ -19,7 +19,7 @@
 ;   -fopenmp-host-ir-file-path src.bc -O2 -fno-intel-openmp-offload \
 ;   -mllvm -paropt=31 -mllvm -disable-hir-vec-dir-insert \
 ;   -mllvm -disable-hir-general-unroll -fintel-openmp-region \
-;   -mllvm -hir-rec-omp-loop src.cpp
+;   -mllvm -hir-recognize-par-loop src.cpp
 ; end INTEL_FEATURE_CSA
 ;
 ; void loop1(int *ip, int n) {
@@ -33,7 +33,7 @@
 ;     }
 ; }
 
-; ------- code before hir-rec-omp-loop
+; ------- code before hir-recognize-par-loop
 ; CHECK: Function
 
 ; CHECK: BEGIN REGION { }
@@ -55,7 +55,7 @@
 ; CHECK:      @llvm.directive.region.exit(%1); [ DIR.OMP.END.PARALLEL.LOOP() ]
 ; CHECK: END REGION
 
-; ------- code after hir-rec-omp-loop
+; ------- code after hir-recognize-par-loop
 ; CHECK: Function
 
 ; CHECK: BEGIN REGION { modified }
