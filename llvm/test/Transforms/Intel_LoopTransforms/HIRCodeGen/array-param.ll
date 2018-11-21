@@ -31,10 +31,6 @@ define i32 @foo([64 x i32]* nocapture readonly %A) {
 entry:
   br label %for.body
 
-for.cond.cleanup:                                 ; preds = %for.body
-  %add.lcssa = phi i32 [ %add, %for.body ]
-  ret i32 %add.lcssa
-
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %sum.09 = phi i32 [ 0, %entry ], [ %add, %for.body ]
@@ -44,5 +40,9 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 64
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  %add.lcssa = phi i32 [ %add, %for.body ]
+  ret i32 %add.lcssa
 }
 
