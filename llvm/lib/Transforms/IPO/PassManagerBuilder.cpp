@@ -801,8 +801,9 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt == InvokeParoptAfterInliner)
-    addVPOPasses(MPM, false);
+  if (RunVPOOpt == InvokeParoptAfterInliner) {
+    addVPOPasses(MPM, false, /* Simplify= */ true);
+  }
 #endif // INTEL_COLLAB
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
   if (OptLevel > 2)
@@ -1336,9 +1337,20 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 }
 
 #if INTEL_COLLAB
-void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
-                                      bool RunVec) const {
+void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
+                                      bool Simplify) const {
   if (RunVPOParopt) {
+    if (Simplify) {
+      // Inlining may introduce BasicBlocks without predecessors into an OpenMP
+      // region. This breaks CodeExtractor when outlining the region because it
+      // expects a single-entry-single-exit region. Calling CFG simplification
+      // to remove unreachable BasicBlocks fixes this problem.
+#if INTEL_CUSTOMIZATION
+      // The inlining issue is documented in CMPLRLLVM-7516. It affects these
+      // tests: ompo_kernelsCpp/aobenchan*,ribbon*,terrain*
+#endif // INTEL_CUSTOMIZATION
+      PM.add(createCFGSimplificationPass());
+    }
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
   }
