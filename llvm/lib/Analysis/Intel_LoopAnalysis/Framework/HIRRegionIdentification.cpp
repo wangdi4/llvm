@@ -598,7 +598,7 @@ class HIRRegionIdentification::CostModelAnalyzer
 
 public:
   CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
-                    const SCEV *BECount);
+                    const SCEV *BECount, bool &ThrottleParentLoop);
 
   bool isProfitable() const { return IsProfitable; }
 
@@ -613,7 +613,8 @@ public:
 };
 
 HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
-    const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount)
+    const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount,
+    bool &ThrottleParentLoop)
     : RI(RI), Lp(Lp), IsInnermostLoop(Lp.empty()),
       IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
@@ -625,6 +626,9 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
   IsSmallTripLoop =
       (ConstBECount &&
        (ConstBECount->getValue()->getZExtValue() <= SmallTripThreshold));
+
+  // Suppress parent loops of unknown loops.
+  ThrottleParentLoop = IsUnknownLoop;
 }
 
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
@@ -649,8 +653,8 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // We don't do much for outer unknown loops except prefetching which isn't
   // ready yet. Innermost unknown loops embedded inside other loops are
   // throttled for compile time reasons.
-  if (IsUnknownLoop && (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) ||
-                        !Lp.empty() || (Lp.getLoopDepth() != 1))) {
+  if (IsUnknownLoop &&
+      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !Lp.empty())) {
     LLVM_DEBUG(
         dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
                   "time reasons.\n");
@@ -876,14 +880,14 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   return true;
 }
 
-bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
-                                                 const SCEV *BECount) const {
+bool HIRRegionIdentification::shouldThrottleLoop(
+    const Loop &Lp, const SCEV *BECount, bool &ThrottleParentLoop) const {
 
   if (!CostModelThrottling) {
     return false;
   }
 
-  CostModelAnalyzer CMA(*this, Lp, BECount);
+  CostModelAnalyzer CMA(*this, Lp, BECount, ThrottleParentLoop);
   CMA.analyze();
 
   return !CMA.isProfitable();
@@ -1275,7 +1279,8 @@ const Loop *HIRRegionIdentification::getOutermostParentLoop(const Loop *Lp) {
 
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
                                               unsigned LoopnestDepth,
-                                              bool IsFunctionRegionMode) const {
+                                              bool IsFunctionRegionMode,
+                                              bool &ThrottleParentLoop) const {
 
   // At least one of this loop's subloops reach MaxLoopNestLevel so we cannot
   // generate this loop.
@@ -1384,7 +1389,8 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // We skip cost model throttling for function level region.
-  if (!IsFunctionRegionMode && shouldThrottleLoop(Lp, BECount)) {
+  if (!IsFunctionRegionMode &&
+      shouldThrottleLoop(Lp, BECount, ThrottleParentLoop)) {
     return false;
   }
 
@@ -1450,8 +1456,10 @@ bool HIRRegionIdentification::isGenerableLoopnest(
     }
   }
 
+  bool ThrottleParentLoop = false;
   // Check whether Lp is generable.
-  if (Generable && !isSelfGenerable(Lp, ++LoopnestDepth, false)) {
+  if (Generable &&
+      !isSelfGenerable(Lp, ++LoopnestDepth, false, ThrottleParentLoop)) {
     Generable = false;
   }
 
@@ -1463,7 +1471,7 @@ bool HIRRegionIdentification::isGenerableLoopnest(
     GenerableLoops.append(SubGenerableLoops.begin(), SubGenerableLoops.end());
   }
 
-  return Generable;
+  return (!ThrottleParentLoop && Generable);
 }
 
 void HIRRegionIdentification::formRegions() {
@@ -1544,8 +1552,9 @@ bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
 
   SmallVector<Loop *, 16> AllLoops = LI.getLoopsInPreorder();
 
+  bool ThrottleParentLoop;
   for (auto Lp : AllLoops) {
-    if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true)) {
+    if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true, ThrottleParentLoop)) {
       return false;
     }
   }

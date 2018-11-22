@@ -109,11 +109,13 @@ private:
   /// loops. \p IsFunctionRegionMode is set to true when we want to form a
   /// single function level region.
   bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth,
-                       bool IsFunctionRegionMode) const;
+                       bool IsFunctionRegionMode,
+                       bool &ThrottleParentLoop) const;
 
   /// Returns true if this loop should be throttled based on cost model
   /// analysis.
-  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount) const;
+  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount,
+                          bool &ThrottleParentLoop) const;
 
   /// Creates a Region out of Loops' and \p IntermediateBlocks basic blocks.
   void
