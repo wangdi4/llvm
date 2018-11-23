@@ -3,7 +3,7 @@
 
 ; Verify that we are able to scalar replace load-only groups for unknown loops.
 
-; CHECK: + UNKNOWN LOOP i1
+; CHECK: + UNKNOWN LOOP i1  <MAX_TC_EST = 99>
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body:
 ; CHECK: |   %0 = (@A)[0][i1];
@@ -18,7 +18,7 @@
 ; CHECK: + END LOOP
 
 ; CHECK:    %scalarepl = (@A)[0][0];
-; CHECK: + UNKNOWN LOOP i1
+; CHECK: + UNKNOWN LOOP i1  <MAX_TC_EST = 99>
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body:
 ; CHECK: |   %0 = %scalarepl;

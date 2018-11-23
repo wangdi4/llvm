@@ -405,7 +405,7 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
     int64_t Coeff, BlobVal = 1, NonIVVal = 0;
     uint64_t MaxTC = 0;
 
-    if (Lp->getUpperDDRef()->getSingleCanonExpr()->isIntConstant()) {
+    if (!Lp->isUnknown() && Lp->getUpperCanonExpr()->isIntConstant()) {
       continue;
     }
 
