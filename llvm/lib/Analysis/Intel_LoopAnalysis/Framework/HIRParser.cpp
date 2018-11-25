@@ -2641,8 +2641,7 @@ void HIRParser::postParse(HLIf *If) {
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
   if (!If->hasThenChildren() && (If->getNumPredicates() == 1)) {
     If->invertPredicate(PredIter);
-    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(),
-                                     true);
+    HLNodeUtils::moveAsFirstThenChildren(If, If->else_begin(), If->else_end());
   }
 }
 

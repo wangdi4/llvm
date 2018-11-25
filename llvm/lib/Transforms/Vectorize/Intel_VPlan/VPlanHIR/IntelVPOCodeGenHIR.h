@@ -177,16 +177,14 @@ public:
   /// exit of the loop we are vectorizing. \p Goto's parent must be an HLIf.
   void handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto);
 
-  HLInst *createBitCast(Type *Ty, RegDDRef *Ref,
-                        const Twine &Name = "cast") {
+  HLInst *createBitCast(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
     HLInst *BitCastInst =
         MainLoop->getHLNodeUtils().createBitCast(Ty, Ref->clone(), Name);
     addInstUnmasked(BitCastInst);
     return BitCastInst;
   }
 
-  HLInst *createZExt(Type *Ty, RegDDRef *Ref,
-                     const Twine &Name = "cast") {
+  HLInst *createZExt(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
     HLInst *ZExtInst =
         MainLoop->getHLNodeUtils().createZExt(Ty, Ref->clone(), Name);
     addInstUnmasked(ZExtInst);
@@ -239,9 +237,7 @@ public:
 
   // Add the given instruction at the end of the main loop unmasked.
   // Currently used for predicate computation.
-  void addInstUnmasked(HLInst *Inst) {
-    addInst(Inst, nullptr);
-  }
+  void addInstUnmasked(HLInst *Inst) { addInst(Inst, nullptr); }
 
   void addInstUnmasked(HLInst *Inst, const bool IsThenChild) {
     addInst(Inst, nullptr, IsThenChild);
@@ -274,7 +270,8 @@ public:
     }
     auto InsertRegion = dyn_cast<HLIf>(getInsertRegion());
     assert(InsertRegion && "HLIf is expected as insert region.");
-    HLNodeUtils::insertAsLastChild(InsertRegion, Node, IsThenChild);
+    IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Node)
+                : HLNodeUtils::insertAsLastElseChild(InsertRegion, Node);
   }
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }

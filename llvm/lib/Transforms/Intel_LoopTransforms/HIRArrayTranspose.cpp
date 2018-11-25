@@ -852,8 +852,8 @@ void HIRArrayTranspose::propagateConstantBlobsByCloning() {
     auto ElseClone = Store.Node->clone();
     auto PrevIfNode = cast<HLIf>(Store.Node->getPrevNode());
 
-    HLNodeUtils::moveAsLastChild(PrevIfNode, Store.Node, true);
-    HLNodeUtils::insertAsLastChild(PrevIfNode, ElseClone, false);
+    HLNodeUtils::moveAsLastThenChild(PrevIfNode, Store.Node);
+    HLNodeUtils::insertAsLastElseChild(PrevIfNode, ElseClone);
 
     // Replace blob with stored constant.
     auto ThenLval = Store.Node->getLvalDDRef();

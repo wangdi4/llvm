@@ -47,13 +47,13 @@ static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
-static cl::opt<bool>
-    EnableNestedBlobVec("enable-nested-blob-vec", cl::init(true), cl::Hidden,
-                        cl::desc("Enable vectorization of loops with nested blobs"));
+static cl::opt<bool> EnableNestedBlobVec(
+    "enable-nested-blob-vec", cl::init(true), cl::Hidden,
+    cl::desc("Enable vectorization of loops with nested blobs"));
 
-static cl::opt<bool>
-    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
-                       cl::desc("Enable vectorization of loops with blob IV coefficients"));
+static cl::opt<bool> EnableBlobCoeffVec(
+    "enable-blob-coeff-vec", cl::init(true), cl::Hidden,
+    cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
 static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(true),
                                       cl::Hidden,
@@ -74,9 +74,9 @@ static cl::opt<int>
                               "specified number of vectorized loops"));
 
 static cl::opt<bool> EnableFirstIterPeelMEVec(
-      "enable-first-it-peel-me-vec", cl::init(true), cl::Hidden,
-          cl::desc(
-                    "Enable first iteration peel loop for vectorized multi-exit loops."));
+    "enable-first-it-peel-me-vec", cl::init(true), cl::Hidden,
+    cl::desc(
+        "Enable first iteration peel loop for vectorized multi-exit loops."));
 
 extern cl::opt<bool> AllowMemorySpeculation;
 
@@ -148,7 +148,8 @@ private:
       Inst->setMaskDDRef(MaskDDRef->clone());
     auto InsertRegion = dyn_cast<HLIf>(ACG->getInsertRegion());
     assert(InsertRegion && "HLIf is expected as insert region.");
-    HLNodeUtils::insertAsLastChild(InsertRegion, Inst, IsThenChild);
+    IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Inst)
+                : HLNodeUtils::insertAsLastElseChild(InsertRegion, Inst);
   }
 
   RegDDRef *codegenStandAloneBlob(const SCEV *SC);
@@ -160,8 +161,8 @@ private:
                               Type *DestType);
 
 public:
-  NestedBlobCG(const RegDDRef *R, HLNodeUtils &H, DDRefUtils &D, VPOCodeGenHIR *C,
-               RegDDRef *M)
+  NestedBlobCG(const RegDDRef *R, HLNodeUtils &H, DDRefUtils &D,
+               VPOCodeGenHIR *C, RegDDRef *M)
       : RDDR(R), HNU(H), DDRU(D), ACG(C), MaskDDRef(M) {}
 
   RegDDRef *visit(const SCEV *SC) {
@@ -515,9 +516,10 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
-      // These intrinsics need the second argument to remain scalar(consequently loop
-      // invariant). Support to be added later.
-      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz || ID == Intrinsic::powi) {
+      // These intrinsics need the second argument to remain scalar(consequently
+      // loop invariant). Support to be added later.
+      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz ||
+          ID == Intrinsic::powi) {
         LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - "
                              "ctlz/cttz/powi intrinsic\n");
         IsHandled = false;
@@ -770,7 +772,8 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
     if (Function *PMFunction =
             HNU.getModule().getFunction("__Intel_PaddedMallocInterface")) {
       SmallVector<RegDDRef *, 0> Args;
-      HLInst *PaddingIsValid = HNU.createCall(PMFunction, Args, "padding.is.valid");
+      HLInst *PaddingIsValid =
+          HNU.createCall(PMFunction, Args, "padding.is.valid");
       HLNodeUtils::insertBefore(OrigLoop, PaddingIsValid);
       LLVMContext &Context = HNU.getContext();
       Type *BoolTy = IntegerType::get(Context, 1);
@@ -1264,18 +1267,22 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       auto CV = ConstantVector::get(AR);
 
       if (BlobCoeff != InvalidBlobIndex) {
-        // Compute Addend = WidenedBlob * CV and add Addend to the canon expression
+        // Compute Addend = WidenedBlob * CV and add Addend to the canon
+        // expression
         NestedBlobCG CGBlob(Ref, MainLoop->getHLNodeUtils(),
                             WideRef->getDDRefUtils(), this, nullptr);
 
         auto NewRef = CGBlob.visit(WideRef->getBlobUtils().getBlob(BlobCoeff));
-        auto CRef  = Ref->getDDRefUtils().createConstDDRef(CV);
+        auto CRef = Ref->getDDRefUtils().createConstDDRef(CV);
 
-        auto TWideInst = MainLoop->getHLNodeUtils().createBinaryHLInst(Instruction::Mul, 
-                                                                       NewRef->clone(), CRef, ".BlobMul");
+        auto TWideInst = MainLoop->getHLNodeUtils().createBinaryHLInst(
+            Instruction::Mul, NewRef->clone(), CRef, ".BlobMul");
         addInst(TWideInst, nullptr);
         AuxRefs.push_back(TWideInst->getLvalDDRef());
-        CE->addBlob(TWideInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(), 1);
+        CE->addBlob(TWideInst->getLvalDDRef()
+                        ->getSingleCanonExpr()
+                        ->getSingleBlobIndex(),
+                    1);
       } else {
         unsigned Idx = 0;
         CE->getBlobUtils().createBlob(CV, true, &Idx);
@@ -1307,8 +1314,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
       auto OldSymbase = CE->getBlobUtils().getTempBlobSymbase(BI);
 
-      // A temp blob not widened before is a loop invariant - it will be broadcast
-      // in HIRCG when needed.
+      // A temp blob not widened before is a loop invariant - it will be
+      // broadcast in HIRCG when needed.
       if (WidenMap.find(OldSymbase) != WidenMap.end()) {
         auto WInst1 = WidenMap[OldSymbase];
         auto WRef = WInst1->getLvalDDRef();
@@ -1383,8 +1390,8 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
         Constant *UndefVal = UndefValue::get(Type::getInt32Ty(Context));
         ShuffleMask.push_back(UndefVal);
       } else {
-        Constant *Mask = ConstantInt::get(Type::getInt32Ty(Context),
-                                          MaskElemVal);
+        Constant *Mask =
+            ConstantInt::get(Type::getInt32Ty(Context), MaskElemVal);
         ShuffleMask.push_back(Mask);
         MaskElemVal++;
       }

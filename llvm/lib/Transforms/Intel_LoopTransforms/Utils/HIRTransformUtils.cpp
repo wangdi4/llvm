@@ -64,7 +64,7 @@ HLIf *createRuntimeChecks(
   RegDDRef *Ref = RemainderLoop->getUpperDDRef();
   RegDDRef *LB = Ref->getDDRefUtils().createNullDDRef(Ref->getDestType());
   HLInst *TempInst = RemainderLoop->getHLNodeUtils().createCopyInst(LB, "tgu");
-  HLNodeUtils::insertAsLastChild(If, TempInst, false);
+  HLNodeUtils::insertAsLastElseChild(If, TempInst);
   *NewTCRef = TempInst->getLvalDDRef();
 
   HLNodeUtils::insertBefore(RemainderLoop, If);
@@ -189,7 +189,7 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
           UpperRef->getDestType(), NewTripCount);
       HLInst *TempInst = OrigLoop->getHLNodeUtils().createCopyInst(
           LowerRef, "tgu", (*NewTCRef)->clone());
-      HLNodeUtils::insertAsLastChild(RuntimeCheck, TempInst, true);
+      HLNodeUtils::insertAsLastThenChild(RuntimeCheck, TempInst);
       return true;
     }
 
@@ -239,7 +239,7 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
   }
 
   if (RuntimeCheck)
-    HLNodeUtils::insertAsLastChild(RuntimeCheck, TempInst, true);
+    HLNodeUtils::insertAsLastThenChild(RuntimeCheck, TempInst);
   else
     HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
   *NewTCRef = TempInst->getLvalDDRef();
@@ -271,7 +271,7 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   if (RuntimeCheck)
     // With runtime check assume that main loop is valid only when condition
     // of the rt check is true, thus insert it in the true branch.
-    HLNodeUtils::insertAsLastChild(RuntimeCheck, NewLoop, true);
+    HLNodeUtils::insertAsLastThenChild(RuntimeCheck, NewLoop);
   else
     OrigLoop->getHLNodeUtils().insertBefore(OrigLoop, NewLoop);
 
