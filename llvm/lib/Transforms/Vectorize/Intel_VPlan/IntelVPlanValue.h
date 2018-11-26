@@ -116,7 +116,14 @@ public:
   /// the SubclassID field of the VPValue objects. They are used for concrete
   /// type identification.
 #if INTEL_CUSTOMIZATION
-  enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC, VPExternalDefSC };
+  enum {
+    VPValueSC,
+    VPUserSC,
+    VPInstructionSC,
+    VPConstantSC,
+    VPExternalDefSC,
+    VPMetadataAsValueSC
+  };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
 #endif // INTEL_CUSTOMIZATION
@@ -400,6 +407,52 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
     return V->getVPValueID() == VPExternalDefSC;
+  }
+};
+
+/// This class augments VPValue with Metadata that is used as operand of another
+/// VPValue class. It contains a pointer to the underlying MetadataAsValue.
+class VPMetadataAsValue : public VPValue {
+  // VPlan is currently the context where we hold the pool of
+  // VPMetadataAsValues.
+  friend class VPlan;
+
+protected:
+  VPMetadataAsValue(MetadataAsValue *MDAsValue)
+      : VPValue(VPValue::VPMetadataAsValueSC, MDAsValue->getType(), MDAsValue) {
+  }
+
+  /// Return the underlying MetadataAsValue.
+  MetadataAsValue *getMetadataAsValue() {
+    assert(isa<MetadataAsValue>(UnderlyingVal) &&
+           "Expected MetadataAsValue as underlying Value.");
+    return cast<MetadataAsValue>(UnderlyingVal);
+  }
+
+  /// Return the Metadata of the underlying MetadataAsValue.
+  Metadata *getMetadata() { return getMetadataAsValue()->getMetadata(); }
+
+public:
+  VPMetadataAsValue(const VPMetadataAsValue &) = delete;
+  VPMetadataAsValue &operator=(const VPMetadataAsValue &) const = delete;
+
+  // Structural comparators.
+  bool operator==(const VPMetadataAsValue &C) const {
+    return UnderlyingVal == C.UnderlyingVal;
+  };
+  bool operator<(const VPMetadataAsValue &C) const {
+    return UnderlyingVal < C.UnderlyingVal;
+  };
+
+  void printAsOperand(raw_ostream &OS) const override {
+    UnderlyingVal->printAsOperand(OS);
+  }
+  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
+  void dump() const override { dump(errs()); }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPMetadataAsValueSC;
   }
 };
 } // namespace vpo

@@ -1052,6 +1052,8 @@ bool PlainCFGBuilder::isExternalDef(Value *Val) {
 #if INTEL_CUSTOMIZATION
   assert(!isa<Constant>(Val) &&
          "Constants should have been processed separately.");
+  assert(!isa<MetadataAsValue>(Val) &&
+         "MetadataAsValue should have been processed separately.");
 #endif
   // All the Values that are not Instructions are considered external
   // definitions for now.
@@ -1072,6 +1074,9 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
   // Constant operand
   if (Constant *IRConst = dyn_cast<Constant>(IROp))
     return Plan->getVPConstant(IRConst);
+
+  if (MetadataAsValue *MDAsValue = dyn_cast<MetadataAsValue>(IROp))
+    return Plan->getVPMetadataAsValue(MDAsValue);
 #endif
 
   auto VPValIt = IRDef2VPValue.find(IROp);
@@ -1081,8 +1086,8 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
     return VPValIt->second;
 
 #if INTEL_CUSTOMIZATION
-  // Operand is not a Constant and doesn't have a previously created
-  // VPInstruction/VPVailue. This means that operand is:
+  // Operand is not Constant or MetadataAsValue and doesn't have a previously
+  // created VPInstruction/VPValue. This means that operand is:
 #else
   // Operand doesn't have a previously created VPInstruction/VPValue. This
   // means that operand is:

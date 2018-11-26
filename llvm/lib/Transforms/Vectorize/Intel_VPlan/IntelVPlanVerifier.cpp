@@ -298,6 +298,7 @@ void VPlanVerifier::verifyHCFGContext(const VPlan *Plan) {
   Plan->verifyVPConstants();
   Plan->verifyVPExternalDefs();
   Plan->verifyVPExternalDefsHIR();
+  Plan->verifyVPMetadataAsValues();
 }
 #endif
 

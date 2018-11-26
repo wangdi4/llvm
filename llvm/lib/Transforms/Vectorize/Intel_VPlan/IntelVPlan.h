@@ -2203,6 +2203,10 @@ protected:
   /// each external definition.
   DenseMap<Value *, std::unique_ptr<VPExternalDef>> VPExternalDefs;
 
+  /// Holds all the VPMetadataAsValues created for this VPlan.
+  DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
+      VPMetadataAsValues;
+
   /// Holds all the external definitions representing an HIR underlying entity
   /// in this VPlan. The key is the underlying HIR information that uniquely
   /// identifies each external definition.
@@ -2345,6 +2349,24 @@ public:
     return UPtr.get();
   }
 
+  /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
+  /// retrieve the existing one.
+  VPMetadataAsValue *getVPMetadataAsValue(MetadataAsValue *MDAsValue) {
+    std::unique_ptr<VPMetadataAsValue> &UPtr = VPMetadataAsValues[MDAsValue];
+    if (!UPtr)
+      // MDAsValue is a new VPMetadataAsValue to be inserted in the map.
+      UPtr.reset(new VPMetadataAsValue(MDAsValue));
+
+    return UPtr.get();
+  }
+
+  /// Create a new VPMetadataAsValue for Metadata \p MD if it doesn't exist or
+  /// retrieve the existing one.
+  VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
+    // TODO: implement this method when needed.
+    llvm_unreachable("Not implemented yet!");
+  }
+
   // Verify that VPConstants are unique in the pool and that the map keys are
   // consistent with the underlying IR information of each VPConstant.
   void verifyVPConstants() const;
@@ -2356,6 +2378,11 @@ public:
   // Verify that VPExternalDefs are unique in the pool and that the map keys are
   // consistent with the underlying HIR information of each VPExternalDef.
   void verifyVPExternalDefsHIR() const;
+
+  // Verify that VPMetadataAsValues are unique in the pool and that the map keys
+  // are consistent with the underlying IR information of each
+  // VPMetadataAsValue.
+  void verifyVPMetadataAsValues() const;
 #else
   void addVPValue(Value &V) {
     if (!Value2VPValue.count(&V))

@@ -1149,6 +1149,8 @@ void VPlan::verifyVPExternalDefs() const {
   SmallPtrSet<const Value *, 16> ValueSet;
   for (const auto &Pair : VPExternalDefs) {
     const Value *KeyVal = Pair.first;
+    assert(!isa<Constant>(KeyVal) && !isa<MetadataAsValue>(KeyVal) &&
+           "Unexpected underlying IR for external definition!");
     assert(KeyVal == Pair.second->getUnderlyingValue() &&
            "Value key and VPExternalDef's underlying Value must be the same!");
     // Checking that an element is repeated in a map is unnecessary but it
@@ -1186,6 +1188,20 @@ void VPlan::verifyVPExternalDefsHIR() const {
       assert(!MDSet.count(MD) && "Repeated Metadata VPExternalDef!");
       MDSet.insert(MD);
     }
+  }
+}
+
+void VPlan::verifyVPMetadataAsValues() const {
+  SmallPtrSet<const MetadataAsValue *, 16> MDAsValueSet;
+  for (const auto &Pair : VPMetadataAsValues) {
+    const MetadataAsValue *KeyMD = Pair.first;
+    assert(KeyMD == Pair.second->getMetadataAsValue() &&
+           "Value key and VPMetadataAsValue's underlying MetadataAsValue must "
+           "be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!MDAsValueSet.count(KeyMD) && "Repeated MetadataAsValue!");
+    MDAsValueSet.insert(KeyMD);
   }
 }
 #endif
