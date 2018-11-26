@@ -80,7 +80,8 @@ public:
 
   // \brief Return a clone of *this, but do not copy its children, and
   // use the IIMap to get a new value for the 'Call'.
-  InlineReportCallSite *cloneBase(const ValueToValueMapTy &IIMap);
+  InlineReportCallSite *cloneBase(const ValueToValueMapTy &IIMap,
+                                  Instruction *ActiveInlineInstruction);
 
   InlineReportFunction *getIRCallee() const { return IRCallee; }
   InlineReportTypes::InlineReason getReason() const { return Reason; }
@@ -126,7 +127,7 @@ public:
     EarlyExitInlineThreshold = EEThreshold;
   }
   Instruction *getCall() const { return Call; }
-  void setCall(Instruction *call) { Call = call; }
+  void setCall(Instruction *Call) { this->Call = Call; }
   void addChild(InlineReportCallSite *IRCS) { Children.push_back(IRCS); }
 
   /// \brief Print the info in the inlining instance for the inling report
@@ -209,7 +210,14 @@ public:
   char getLinkageChar(void) { return LinkageChar; }
 
   /// brief Set a single character indicating the linkage type
-  void setLinkageChar(Function *F);
+  void setLinkageChar(Function *F) {
+    LinkageChar =
+      (F->hasLocalLinkage()
+           ? 'L'
+           : (F->hasLinkOnceODRLinkage()
+                  ? 'O'
+                  : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
+  }
 
   std::string &getName() { return Name; }
 
@@ -238,8 +246,7 @@ class InlineReport : public CallGraphReport {
 public:
   explicit InlineReport(unsigned MyLevel)
       : Level(MyLevel), ActiveInlineInstruction(nullptr),
-        ActiveCallSite(nullptr), ActiveCallee(nullptr), ActiveIRCS(nullptr),
-        M(nullptr){};
+        ActiveCallee(nullptr), ActiveIRCS(nullptr), M(nullptr) {};
   virtual ~InlineReport(void);
 
   // \brief Indicate that we have begun inlining functions in the current
@@ -251,27 +258,38 @@ public:
   // \brief Indicate that we are done inlining functions in the current SCC.
   void endSCC();
 
-  void beginUpdate(CallSite &CS) {
-    ActiveCallSite = &CS;
+  void beginUpdate(CallSite CS) {
     ActiveCallee = CS.getCalledFunction();
-    ActiveIRCS = getCallSite(&CS);
+    // New call sites can be added from inlining even if they are not a
+    // cloned from the inlined callee.
+    ActiveIRCS = addNewCallSite(CS.getCaller(), CS, M);
     ActiveInlineInstruction = CS.getInstruction();
+    ActiveOriginalCalls.clear();
+    ActiveInlinedCalls.clear();
   }
 
   void endUpdate() {
-    ActiveCallSite = nullptr;
     ActiveCallee = nullptr;
     ActiveIRCS = nullptr;
     ActiveInlineInstruction = nullptr;
+    ActiveOriginalCalls.clear();
+    ActiveInlinedCalls.clear();
   }
 
   /// \brief Indicate that the current CallSite CS has been inlined in
   /// the inline report.  Use the InlineInfo collected during inlining
   /// to update the report.
-  void inlineCallSite(InlineFunctionInfo &InlineInfo);
+  void inlineCallSite();
 
   // \brief Indicate that the Function is dead
-  void setDead(Function *F);
+  void setDead(Function *F) {
+    if (!Level)
+      return;
+    InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
+    assert(MapIt != IRFunctionMap.end());
+    InlineReportFunction *INR = MapIt->second;
+    INR->setDead(true);
+  }
 
   /// \brief Print the inlining report at the given level.
   void print() const;
@@ -279,18 +297,41 @@ public:
   /// \brief Check if report has data
   bool isEmpty() { return IRFunctionMap.empty(); }
 
+  // The level of the inline report
+  unsigned getLevel() { return Level; }
+
   /// \brief Record the reason a call site is or is not inlined.
-  void setReasonNotInlined(const CallSite &CS,
+  void setReasonNotInlined(const CallSite CS,
                            InlineReportTypes::InlineReason Reason);
-  void setReasonNotInlined(const CallSite &CS, const InlineCost &IC);
-  void setReasonNotInlined(const CallSite &CS, const InlineCost &IC,
+  void setReasonNotInlined(const CallSite CS, const InlineCost &IC);
+  void setReasonNotInlined(const CallSite CS, const InlineCost &IC,
                            int TotalSecondaryCost);
-  void setReasonIsInlined(const CallSite &CS,
+  void setReasonIsInlined(const CallSite CS,
                           InlineReportTypes::InlineReason Reason);
-  void setReasonIsInlined(const CallSite &CS, const InlineCost &IC);
+  void setReasonIsInlined(const CallSite CS, const InlineCost &IC);
 
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction) override;
+
+  /// Add a pair of old and new call sites.  The 'NewCall' is a clone of
+  /// the 'OldCall' produced by InlineFunction().
+  void addActiveCallSitePair(Value *OldCall, Value *NewCall) {
+    ActiveOriginalCalls.push_back(OldCall);
+    ActiveInlinedCalls.push_back(NewCall);
+    addCallback(NewCall);
+  }
+
+  /// Update the 'OldCall' to 'NewCall' in the ActiveInlinedCalls.
+  /// This needs to happen if we manually replace an active inlined
+  /// call during InlineFunction().
+  void updateActiveCallSiteTarget(Value *OldCall, Value *NewCall) {
+    for (unsigned I = 0; I < ActiveInlinedCalls.size(); ++I)
+      if (ActiveInlinedCalls[I] == OldCall) {
+        ActiveInlinedCalls[I] = NewCall;
+        addCallback(NewCall);
+        break;
+      }
+  }
 
 private:
   /// \brief The Level is specified by the option -inline-report=N.
@@ -300,14 +341,19 @@ private:
   // \brief The instruction for the call site currently being inlined
   Instruction *ActiveInlineInstruction;
 
-  // \brief The CallSite* currently being inlined
-  CallSite *ActiveCallSite;
-
   // \brief The Callee currently being inlined
   Function *ActiveCallee;
 
   // \brief The InlineReportCallSite* of the CallSite currently being inlined
   InlineReportCallSite *ActiveIRCS;
+
+  /// InlineFunction() fills this in with callsites that were cloned from
+  /// the callee.  This is used only for inline report.
+  SmallVector<Value *, 8> ActiveOriginalCalls;
+
+  /// InlineFunction() fills this in with callsites that are cloned from
+  /// the callee.  This is used only for inline report.
+  SmallVector<Value *, 8> ActiveInlinedCalls;
 
   // \brief The Module* of the SCC being tested for inlining
   Module *M;
@@ -351,6 +397,10 @@ private:
             IRCS->setReason(InlineReportTypes::NinlrDeleted);
           }
         }
+        // If necessary, remove any reference in the ActiveInlinedCalls
+        for (unsigned II = 0, E = IR->ActiveInlinedCalls.size(); II < E; ++II)
+          if (IR->ActiveInlinedCalls[II] == I)
+            IR->ActiveInlinedCalls[II] = nullptr;
       } else if (isa<Function>(getValPtr())) {
         /// \brief Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
@@ -380,11 +430,11 @@ private:
   InlineReportFunction *addFunction(Function *F, Module *M);
 
   // \brief Create an InlineReportCallSite to represent CS
-  InlineReportCallSite *addCallSite(Function *F, CallSite *CS, Module *M);
+  InlineReportCallSite *addCallSite(Function *F, CallSite CS, Module *M);
 
   // \brief Create an InlineReportCallSite to represent CS, if one does
   // not already exist
-  InlineReportCallSite *addNewCallSite(Function *F, CallSite *CS, Module *M);
+  InlineReportCallSite *addNewCallSite(Function *F, CallSite CS, Module *M);
 
 #ifndef NDEBUG
   /// \brief Run some simple consistency checking on 'F', e.g.
@@ -406,9 +456,12 @@ private:
   /// additional inlining.
   void makeAllNotCurrent(void);
 
-  void addCallback(Value *V);
+  void addCallback(Value *V) {
+    InlineReportCallback *IRCB = new InlineReportCallback(V, this);
+    IRCallbackVector.push_back(IRCB);
+  }
 
-  InlineReportCallSite *getCallSite(CallSite *CS);
+  InlineReportCallSite *getCallSite(CallSite CS);
 };
 
 } // namespace llvm

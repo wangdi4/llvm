@@ -60,7 +60,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
         // FIXME: We really shouldn't be able to fail to inline at this point!
         // We should do something to log or check the inline failures here.
         Changed |=
-            InlineFunction(CS, IFI, /*CalleeAAR=*/nullptr, InsertLifetime);
+            InlineFunction(CS, IFI, &getReport(), &Reason,           // INTEL
+                           /*CalleeAAR=*/nullptr, InsertLifetime);   // INTEL
 
       // Remember to try and delete this function afterward. This both avoids
       // re-walking the rest of the module and avoids dealing with any iterator
