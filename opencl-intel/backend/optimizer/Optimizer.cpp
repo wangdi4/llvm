@@ -61,14 +61,22 @@ llvm::FunctionPass* createFMASplitterPass();
 static cl::opt<bool> DisableVPlanVec("disable-vplan-vectorizer",
                                      cl::init(false), cl::Hidden,
                                      cl::desc("Disable VPlan Vectorizer"));
+
+// This flag enables VPlan for OpenCL.
+static cl::opt<bool>
+    EnableVPlanVecForOpenCL("enable-vpo-vectorizer", cl::init(false),
+                            cl::Hidden, cl::desc("Enable VPlan Vectorizer"));
 // INTEL VPO END
 
 extern "C"{
 
 void *createInstToFuncCallPass(bool);
-
+FunctionPass *createWeightedInstCounter(bool, Intel::CPUId);
+FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
+llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
+                                  bool EnableVPlanVecForOpenCL);
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
@@ -520,7 +528,34 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(createSinCosFoldPass());
 
     if (!pRtlModuleList.empty()) {
-      PM.add(createVectorizerPass(pRtlModuleList, pConfig));
+      if (EnableVPlanVecForOpenCL) {
+        // Merge returns : this pass ensures that the function has at most one
+        // return instruction.
+        PM.add(createUnifyFunctionExitNodesPass());
+        PM.add(createScalarizerPass(pConfig->GetCpuId()));
+        PM.add(createDeadCodeEliminationPass());
+
+        // Calculate VL.
+        PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));
+
+        // Prepare Function for VecClone and call VecClone
+        PM.add(createOCLVecClonePass(pConfig, EnableVPlanVecForOpenCL));
+
+        // Call VPlan
+        PM.add(llvm::createPromoteMemoryToRegisterPass());
+        PM.add(createLoopSimplifyPass());
+        PM.add(createLCSSAPass());
+        PM.add(createVPOCFGRestructuringPass());
+        PM.add(createVPlanDriverPass());
+
+        // Final cleaning up
+        PM.add(createVPODirectiveCleanupPass());
+        PM.add(createInstructionCombiningPass());
+        PM.add(createCFGSimplificationPass());
+        PM.add(createPromoteMemoryToRegisterPass());
+        PM.add(createAggressiveDCEPass());
+      } else
+        PM.add(createVectorizerPass(pRtlModuleList, pConfig));
     }
 
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
