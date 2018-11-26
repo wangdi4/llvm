@@ -41,17 +41,28 @@ static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Valid values: early -> dump before early DTrans passes
 //               late -> dump before late DTrans passes
-enum DumpModuleBeforeDTransValues { early, late };
+enum DumpModuleDTransValues { early, late };
 
-static cl::list<DumpModuleBeforeDTransValues> DumpModuleBeforeDTrans(
+static cl::list<DumpModuleDTransValues> DumpModuleBeforeDTrans(
     "dump-module-before-dtrans", cl::ReallyHidden,
     cl::desc("Dumps LLVM module to dbgs() before DTRANS transformation"),
     cl::values(clEnumVal(early, "Dump LLVM Module before early DTRANS passes"),
                clEnumVal(late, "Dump LLVM Module before late DTRANS passes")));
 
-static bool hasDumpModuleBeforeDTransValue(DumpModuleBeforeDTransValues V) {
+static bool hasDumpModuleBeforeDTransValue(DumpModuleDTransValues V) {
   return std::find(DumpModuleBeforeDTrans.begin(), DumpModuleBeforeDTrans.end(),
                    V) != DumpModuleBeforeDTrans.end();
+}
+
+static cl::list<DumpModuleDTransValues> DumpModuleAfterDTrans(
+    "dump-module-after-dtrans", cl::ReallyHidden,
+    cl::desc("Dumps LLVM module to dbgs() after DTRANS transformation"),
+    cl::values(clEnumVal(early, "Dump LLVM Module after early DTRANS passes"),
+               clEnumVal(late, "Dump LLVM Module after late DTRANS passes")));
+
+static bool hasDumpModuleAfterDTransValue(DumpModuleDTransValues V) {
+  return std::find(DumpModuleAfterDTrans.begin(), DumpModuleAfterDTrans.end(),
+                   V) != DumpModuleAfterDTrans.end();
 }
 
 // Padded pointer propagation
@@ -68,6 +79,7 @@ static cl::opt<bool>
 #else
 
 #define hasDumpModuleBeforeDTransValue(x) (false)
+#define hasDumpModuleAfterDTransValue(x) (false)
 constexpr bool EnablePaddedPtrProp = true;
 constexpr bool EnableResolveTypes = true;
 
@@ -110,6 +122,9 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   MPM.addPass(dtrans::EliminateROFieldAccessPass());
   MPM.addPass(dtrans::DynClonePass());
   MPM.addPass(dtrans::AnnotatorCleanerPass());
+
+  if (hasDumpModuleAfterDTransValue(early))
+    MPM.addPass(PrintModulePass(dbgs(), "; Module After Early DTrans\n"));
 }
 
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
@@ -130,6 +145,9 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   PM.add(createDTransEliminateROFieldAccessWrapperPass());
   PM.add(createDTransDynCloneWrapperPass());
   PM.add(createDTransAnnotatorCleanerWrapperPass());
+
+  if (hasDumpModuleAfterDTransValue(early))
+    PM.add(createPrintModulePass(dbgs(), "; Module After Early DTrans\n"));
 }
 
 void llvm::addLateDTransPasses(ModulePassManager &MPM) {
@@ -141,6 +159,9 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
   }
 
   MPM.addPass(dtrans::PaddedMallocPass());
+
+  if (hasDumpModuleAfterDTransValue(late))
+    MPM.addPass(PrintModulePass(dbgs(), "; Module After Late DTrans\n"));
 }
 
 void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
@@ -152,6 +173,9 @@ void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
   }
 
   PM.add(createDTransPaddedMallocWrapperPass());
+
+  if (hasDumpModuleAfterDTransValue(late))
+    PM.add(createPrintModulePass(dbgs(), "; Module After Late DTrans\n"));
 }
 
 // This is used by LinkAllPasses.h. The passes are never actually used when
