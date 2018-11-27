@@ -376,14 +376,20 @@ void OpenMPLateOutliner::addArg(llvm::Value *Val) {
 
 void OpenMPLateOutliner::addArg(StringRef Str) { BundleString = Str; }
 
-void OpenMPLateOutliner::addArg(const Expr *E) {
+void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
   auto SavedIP = CGF.Builder.saveIP();
   setInsertPoint();
   if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
       E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
     ArraySectionTy AS;
     Address Base = emitOMPArraySectionExpr(E, &AS);
-    addArg(Base.getPointer());
+    llvm::Value *V = Base.getPointer();
+    if (IsRef) {
+      auto *LI = dyn_cast<llvm::LoadInst>(V);
+      assert(LI && "expected load instruction for reference type");
+      V = LI->getPointerOperand();
+    }
+    addArg(V);
     addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
     for (auto &V : AS) {
       assert(V.LowerBound);
@@ -395,7 +401,13 @@ void OpenMPLateOutliner::addArg(const Expr *E) {
     }
   } else {
     assert(E->isGLValue());
-    addArg(CGF.EmitLValue(E).getPointer());
+    llvm::Value *V = CGF.EmitLValue(E).getPointer();
+    if (IsRef) {
+      auto *LI = dyn_cast<llvm::LoadInst>(V);
+      assert(LI && "expected load instruction for reference type");
+      V = LI->getPointerOperand();
+    }
+    addArg(V);
   }
   CGF.Builder.restoreIP(SavedIP);
 }
@@ -635,16 +647,17 @@ void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
     const VarDecl *PVD = getExplicitVarDecl(E);
     addExplicit(PVD);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
+    bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
     const Expr *Init = Private->getInit();
     ClauseEmissionHelper CEH(*this, "QUAL.OMP.PRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     if (Init || Private->getType().isDestructedType())
       CSB.setNonPod();
-    if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+    if (IsRef)
       CSB.setByRef();
     addArg(CSB.getString());
-    addArg(E);
+    addArg(E, IsRef);
     if (Init || Private->getType().isDestructedType()) {
       addArg(emitOpenMPDefaultConstructor(*IPriv));
       addArg(emitOpenMPDestructor(Private->getType()));
@@ -663,18 +676,19 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
     addExplicit(PVD);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
+    bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     ClauseEmissionHelper CEH(*this, "QUAL.OMP.LASTPRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     if (!IsPODType)
       CSB.setNonPod();
-    if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+    if (IsRef)
       CSB.setByRef();
 #if INTEL_CUSTOMIZATION
     if (Cl->isConditional())
       CSB.setConditional();
 #endif // INTEL_CUSTOMIZATION
     addArg(CSB.getString());
-    addArg(E);
+    addArg(E, IsRef);
     if (!IsPODType) {
       addArg(emitOpenMPDefaultConstructor(*IPriv));
       addArg(emitOpenMPCopyAssign(E->getType(), *ISrcExpr, *IDestExpr,
@@ -706,6 +720,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     const VarDecl *PVD = getExplicitVarDecl(E);
     addExplicit(PVD);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
+    bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     assert(isa<BinaryOperator>((*I)->IgnoreImpCasts()));
     ClauseEmissionHelper CEH(*this, "QUAL.OMP.");
     ClauseStringBuilder &CSB = CEH.getBuilder();
@@ -793,13 +808,13 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       }
       break;
     }
-    if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+    if (IsRef)
       CSB.setByRef();
     if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
         E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
       CSB.setArrSect();
     addArg(CSB.getString());
-    addArg(E);
+    addArg(E, IsRef);
     ++I;
   }
 }
@@ -903,12 +918,13 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     addExplicit(PVD);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
+    bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     if (!IsPODType)
       CSB.setNonPod();
-    if (!IsCapturedExpr && PVD->getType()->isReferenceType())
+    if (IsRef)
       CSB.setByRef();
     addArg(CSB.getString());
-    addArg(E);
+    addArg(E, IsRef);
     if (!IsPODType) {
       addArg(emitOpenMPCopyConstructor(*IPriv));
       addArg(emitOpenMPDestructor(E->getType()));

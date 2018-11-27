@@ -200,7 +200,7 @@ class OpenMPLateOutliner {
 
   void addArg(llvm::Value *Val);
   void addArg(StringRef Str);
-  void addArg(const Expr *E);
+  void addArg(const Expr *E, bool IsRef = false);
 
   void addFenceCalls(bool IsBegin);
   void getApplicableDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
