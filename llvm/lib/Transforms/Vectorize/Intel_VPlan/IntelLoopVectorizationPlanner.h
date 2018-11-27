@@ -69,7 +69,7 @@ public:
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
         LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
-    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
+    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip, LI);
   }
 
   void setUseNewPredicator() { UseNewPredicator = true; }

@@ -18,19 +18,14 @@
 #include "IntelVPLoopAnalysisHIR.h"
 #include "IntelVPLoopRegionHIR.h"
 
-#define DEBUG_TYPE "vploop-analysis"
-
 namespace llvm {
 namespace vpo {
 
 void VPLoopAnalysisHIR::computeTripCountImpl(const VPLoopRegion *Lp) {
   uint64_t TripCount;
-  unsigned MinTripCount;
-  unsigned MaxTripCount;
-  unsigned AvgTripCount;
-  bool IsMaxTakenFromLoop= false;
-  bool IsMinTakenFromPragma = false;
-  bool IsAverageTakenFromPragma = false;
+  unsigned MinTripCount = 0;
+  unsigned MaxTripCount = 0;
+  unsigned AvgTripCount = 0;
 
   assert(isa<VPLoopRegionHIR>(Lp) && "Not a VPLoopRegionHIR");
   const HLLoop *HLoop = cast<const VPLoopRegionHIR>(Lp)->getHLLoop();
@@ -42,52 +37,10 @@ void VPLoopAnalysisHIR::computeTripCountImpl(const VPLoopRegion *Lp) {
     return;
   }
 
-  if ((MaxTripCount = HLoop->getMaxTripCountEstimate())) {
-    setMaxTripCountFor(Lp, MaxTripCount);
-    IsMaxTakenFromLoop = true;
-  }
-  else
-    setMaxTripCountFor(Lp, DefaultTripCount);
-
-  if (HLoop->getPragmaBasedMinimumTripCount(MinTripCount)) {
-    setMinTripCountFor(Lp, MinTripCount);
-    IsMinTakenFromPragma = true;
-  } else
-    setMinTripCountFor(Lp, 0);
-
-  if (HLoop->getPragmaBasedAverageTripCount(AvgTripCount)) {
-    setEstimatedTripCountFor(Lp, AvgTripCount);
-    IsAverageTakenFromPragma = true;
-  } else if (IsMaxTakenFromLoop && IsMinTakenFromPragma)
-    setEstimatedTripCountFor(Lp, (MaxTripCount + MinTripCount) >> 1);
-  else if (IsMaxTakenFromLoop)
-    setEstimatedTripCountFor(Lp, MaxTripCount);
-  else if (IsMinTakenFromPragma)
-    setEstimatedTripCountFor(Lp, MinTripCount);
-  else
-    setEstimatedTripCountFor(Lp, DefaultTripCount);
-
-  (void) IsMaxTakenFromLoop;
-  (void) IsMinTakenFromPragma;
-  (void) IsAverageTakenFromPragma;
-
-  LLVM_DEBUG(
-      dbgs()
-      << "Max trip count is " << getMaxTripCountFor(Lp)
-      << (IsMaxTakenFromLoop
-              ? " updated by loop opt upon retrieving loop count from pragma"
-              : " assumed default trip count by vectorizer")
-      << '\n');
-  LLVM_DEBUG(dbgs() << "Average trip count is " << getTripCountFor(Lp)
-                    << (IsAverageTakenFromPragma
-                            ? " set by pragma loop count"
-                            : " assumed default trip count by vectorizer")
-                    << '\n');
-  LLVM_DEBUG(dbgs() << "Min trip count is " << getMinTripCountFor(Lp)
-                    << (IsMinTakenFromPragma
-                            ? " set by pragma loop count"
-                            : " assumed default trip count by vectorizer")
-                    << '\n');
+  MaxTripCount = HLoop->getMaxTripCountEstimate();
+  HLoop->getPragmaBasedMinimumTripCount(MinTripCount);
+  HLoop->getPragmaBasedAverageTripCount(AvgTripCount);
+  setTripCountsFromPragma(Lp, MinTripCount, MaxTripCount, AvgTripCount);
 }
 
 } // namespace vpo

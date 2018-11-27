@@ -2271,7 +2271,7 @@ public:
   bool hasFalseEdge() { return CBlock && FBlock; }
 
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
-  BasicBlock *getOriginalBB() { return OriginalBB; }
+  BasicBlock *getOriginalBB() const { return OriginalBB; }
 
   // Pair of incoming edge mask and predecessor basic block. This
   // information is used to convert phis to select blends.

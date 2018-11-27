@@ -28,6 +28,7 @@ using namespace llvm;
 namespace llvm {
 
 class ScalarEvolution;
+class LoopInfo;
 
 namespace vpo {
 
@@ -80,6 +81,8 @@ protected:
 public:
   explicit VPLoopAnalysisBase(const TripCountTy DefaultTripCount)
       : DefaultTripCount(DefaultTripCount) {}
+
+  virtual ~VPLoopAnalysisBase(){}
 
   void computeTripCount(const VPLoopRegion *Lp) { computeTripCountImpl(Lp); }
 
@@ -136,23 +139,24 @@ public:
     if (TripCount < getMinTripCountFor(Lp))
       setMinTripCountFor(Lp, TripCount);
   }
+
+  void setTripCountsFromPragma(const VPLoopRegion *Lp, uint64_t MinTripCount,
+                               uint64_t MaxTripCount, uint64_t AvgTripCount);
 };
 
 class VPLoopAnalysis : public VPLoopAnalysisBase {
 private:
   ScalarEvolution *SE;
+  LoopInfo *LI;
   // TODO: templatizing of getSmallConstantMaxTripCount() is required to support
   // VPLoop.
-  void computeTripCountImpl(const VPLoopRegion *Lp) final {
-    setMaxTripCountFor(Lp, DefaultTripCount);
-    setEstimatedTripCountFor(Lp, DefaultTripCount);
-    setMinTripCountFor(Lp, DefaultTripCount);
-  }
+
+  void computeTripCountImpl(const VPLoopRegion *Lp) final;
 
 public:
   explicit VPLoopAnalysis(ScalarEvolution *SE,
-                          const TripCountTy DefaultTripCount)
-      : VPLoopAnalysisBase(DefaultTripCount), SE(SE) {}
+                          const TripCountTy DefaultTripCount, LoopInfo *LI)
+      : VPLoopAnalysisBase(DefaultTripCount), SE(SE), LI(LI) {}
 };
 
 /// Base class for loop entities
