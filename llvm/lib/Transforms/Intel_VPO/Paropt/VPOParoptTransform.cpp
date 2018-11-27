@@ -1745,14 +1745,19 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
   IRBuilder<> Builder(InsertPt);
 
+  Value *OldV = FprivI->getOrig();
+  // For by-refs, do a pointer dereference to reach the actual operand.
+  if (FprivI->getIsByRef())
+    OldV = Builder.CreateLoad(OldV);
+
   if (Function *Cctor = FprivI->getCopyConstructor())
-    VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(),
-                                           FprivI->getOrig(), InsertPt);
+    VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(), OldV,
+                                           InsertPt);
   else if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL))
-    VPOUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
+    VPOUtils::genMemcpy(AI, OldV, DL, AI->getAlignment(),
                         InsertPt->getParent());
   else {
-    LoadInst *Load = Builder.CreateLoad(FprivI->getOrig());
+    LoadInst *Load = Builder.CreateLoad(OldV);
     Builder.CreateStore(Load, AI);
   }
 }
@@ -1796,6 +1801,10 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
                                       Instruction *InsertPt) {
   Value *NewV = LprivI->getNew();
   Value *OldV = LprivI->getOrig();
+  // For by-refs, do a pointer dereference to reach the actual operand.
+  if (LprivI->getIsByRef())
+    OldV = new LoadInst(OldV, "", InsertPt);
+
   if (Function *CpAssn = LprivI->getCopyAssign())
     VPOParoptUtils::genCopyAssignCall(CpAssn, OldV, NewV, InsertPt);
   else
@@ -2167,6 +2176,8 @@ VPOParoptTransform::getClauseItemReplacementValue(Item *ClauseI,
   if (IsArraySection)
     ReplacementVal = VPOParoptTransform::getArrSecReductionItemReplacementValue(
         *(cast<ReductionItem>(ClauseI)), InsertPt);
+  else if (ClauseI->getNewOnTaskStack())
+    ReplacementVal = ClauseI->getNewOnTaskStack();
   else
     ReplacementVal = ClauseI->getNew();
 
@@ -2490,26 +2501,32 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
   auto *LoopBodyBBIter = L->block_begin();
   LoopBodyBB = *LoopBodyBBIter;
   assert(LoopBodyBB && "genLinearCode: Null loop body.");
+  Instruction *NewLinearInsertPt = EntryBB->getFirstNonPHI();
   IRBuilder<> InitBuilder(LoopBodyBB->getFirstNonPHI());
   Value *Index = WRegionUtils::getOmpCanonicalInductionVariable(L);
   assert(Index && "genLinearCode: Null Loop index.");
 
   for (LinearItem *LinearI : LrClause.items()) {
     Value *Orig = LinearI->getOrig();
-
     // (A) Create private copy of the linear var to be used instead of the
     // original var inside the WRegion. (2)
-    NewLinearVar = genPrivatizationAlloca(LinearI, EntryBB->getFirstNonPHI(),
+    NewLinearVar = genPrivatizationAlloca(LinearI, NewLinearInsertPt,
                                           ".linear"); //                   (2)
+    LinearI->setNew(NewLinearVar);
 
     // Create a copy of the linear variable to capture its starting value (1)
     LinearStartVar =
-        genPrivatizationAlloca(LinearI, EntryBB->getFirstNonPHI()); //     (1)
+        genPrivatizationAlloca(LinearI, NewLinearInsertPt); //             (1)
     LinearStartVar->setName("linear.start");
 
     // Replace original var with the new var inside the region.
-    genPrivatizationReplacement(W, Orig, NewLinearVar, LinearI);
-    LinearI->setNew(NewLinearVar);
+    Value *ReplacementVal =
+        getClauseItemReplacementValue(LinearI, NewLinearInsertPt);
+    genPrivatizationReplacement(W, Orig, ReplacementVal, LinearI);
+
+    // For by-refs, do a pointer dereference to reach the actual operand.
+    if (LinearI->getIsByRef())
+      Orig = new LoadInst(Orig, "", NewLinearInsertPt);
 
     // (B) Capture value of linear variable before entering the loop
     LoadInst *LoadOrig = CaptureBuilder.CreateLoad(Orig);               // (3)
@@ -2603,11 +2620,14 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           if (MapI)
             ValueToReplace = MapI->getNew();
         }
-        NewPrivInst = genPrivatizationAlloca(
-              FprivI,
-              EntryBB->getFirstNonPHI(), ".fpriv");
 
-        genPrivatizationReplacement(W, ValueToReplace, NewPrivInst, FprivI);
+        Instruction *InsertPt = EntryBB->getFirstNonPHI();
+        NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv");
+        FprivI->setNewOnTaskStack(NewPrivInst);
+
+        Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
+        genPrivatizationReplacement(W, ValueToReplace, ReplacementVal, FprivI);
+
         // For a given firstprivate variable, if it also occurs in a map
         // clause with "from" attribute, the compiler needs to generate
         // the code to copy the value back to the target memory.
@@ -2675,14 +2695,16 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                    "genLastPrivatizationCode: Unexpected lastprivate variable");
       */
       Value *NewPrivInst;
+      Instruction *InsertPt = &EntryBB->front();
       if (!ForTask)
-        NewPrivInst =
-            genPrivatizationAlloca(LprivI, &EntryBB->front(), ".lpriv");
+        NewPrivInst = genPrivatizationAlloca(LprivI, InsertPt, ".lpriv");
       else
         NewPrivInst = LprivI->getNew();
-      genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
+      LprivI->setNew(NewPrivInst);
+
+      Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
+      genPrivatizationReplacement(W, Orig, ReplacementVal, LprivI);
       if (!ForTask) {
-        LprivI->setNew(NewPrivInst);
         // Emit constructor call for lastprivate var if it is not also a
         // firstprivate (in which case the firsprivate init emits a cctor).
         if (LprivI->getInFirstprivate() == nullptr)
@@ -3223,7 +3245,10 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
-        genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
+        PrivI->setNew(NewPrivInst);
+        Value *ReplacementVal =
+            getClauseItemReplacementValue(PrivI, AllocaInsertPt);
+        genPrivatizationReplacement(W, Orig, ReplacementVal, PrivI);
 
         if (!ForTask) {
           PrivI->setNew(NewPrivInst);
