@@ -1163,7 +1163,6 @@ void VPlan::verifyVPExternalDefs() const {
 void VPlan::verifyVPExternalDefsHIR() const {
   SmallSet<unsigned, 16> SymbaseSet;
   SmallSet<unsigned, 16> IVLevelSet;
-  SmallPtrSet<const MetadataAsValue *, 16> MDSet;
   for (const auto &Pair : VPExternalDefsHIR) {
     const UnitaryBlobOrIV &KeyHIROp = Pair.first;
     assert(KeyHIROp.isStructurallyEqual(Pair.second->getUnitaryBlobOrIV()) &&
@@ -1171,22 +1170,17 @@ void VPlan::verifyVPExternalDefsHIR() const {
            "the same!");
 
     // Deeper verification depending on the kind of the underlying HIR operand.
-    if (KeyHIROp.isNonMDBlob()) {
+    if (KeyHIROp.isBlob()) {
       // For blobs we check that the symbases are unique.
       unsigned Symbase = KeyHIROp.getBlob()->getSymbase();
       assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
       SymbaseSet.insert(Symbase);
-    } else if (KeyHIROp.isIV()) {
+    } else {
       // For IVs we check that the IV levels are unique.
+      assert(KeyHIROp.isIV() && "Expected IV VPExternalDef!");
       unsigned IVLevel = KeyHIROp.getIVLevel();
       assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalDef!");
       IVLevelSet.insert(IVLevel);
-    } else {
-      assert(KeyHIROp.isMDBlob() && "Expected metadata VPExternalDef!");
-      // For metadata we check that the underlying metadata is unique.
-      const MetadataAsValue *MD = KeyHIROp.getMetadata();
-      assert(!MDSet.count(MD) && "Repeated Metadata VPExternalDef!");
-      MDSet.insert(MD);
     }
   }
 }
