@@ -235,6 +235,7 @@ bool HIRPropagateCastedIV::propagateCastedIV(HLLoop *Lp) {
   const SmallVector<const RegDDRef *, 1> Aux = {CandidateRef};
 
   for (auto UseRef : MemRefs) {
+    ArrayRef<unsigned> Offsets = UseRef->getTrailingStructOffsets(1);
     HLDDNode *UseNode = UseRef->getHLDDNode();
     unsigned OpNum = UseNode->getOperandNum(UseRef);
     UseNode->removeOperandDDRef(OpNum);
@@ -243,6 +244,7 @@ bool HIRPropagateCastedIV::propagateCastedIV(HLLoop *Lp) {
     UseRef->setInBounds(false);
 
     UseRef->getSingleCanonExpr()->removeBlob(CandidateBlobIndex);
+    UseRef->removeTrailingStructOffsets(1);
     UseRef->makeConsistent(nullptr, LoopLevel - 1);
 
     // Insert the new inst as a last node into Loop's Prehdr
@@ -257,7 +259,8 @@ bool HIRPropagateCastedIV::propagateCastedIV(HLLoop *Lp) {
     // %t118 = (%ptr)[i1 + %t108]
     RegDDRef *NewRef = DRU.createMemRef(LvalRef->getSelfBlobIndex(),
                                         LoopLevel - 1, UseRef->getSymbase());
-    NewRef->addDimension(CandidateCE->clone());
+
+    NewRef->addDimension(CandidateCE->clone(), Offsets);
     NewRef->makeConsistent(&Aux, LoopLevel);
     UseNode->setOperandDDRef(NewRef, OpNum);
   }
