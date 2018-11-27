@@ -316,9 +316,13 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
 }
 
 // Returns the corresponding flag for a given map clause modifier.
-unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
+uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
+                                            bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
-  unsigned Res = 0u;
+  uint64_t Res = 0u;
+
+  if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
+    return TGT_MAP_TARGET_PARAM;
 
   if (MapI->getIsMapTofrom())
     Res = TGT_MAP_TO | TGT_MAP_FROM;
@@ -334,10 +338,16 @@ unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
   if (MapI->getIsMapAlways())
     Res |= TGT_MAP_ALWAYS;
 
-  if (IsFirstExprFlag)
-    Res |= TGT_MAP_IS_PTR;
-  if (IsFirstComponentFlag)
-    Res |= TGT_MAP_FIRST_REF;
+  // Memberof is given by the 16 MSB of the flag, so rotate by 48 bits.
+  // It is workaroud. Need more work.
+  auto getMemberOfFlag = [&]() {
+    return (uint64_t)1 << 48;
+  };
+
+  if (AddrPtrFlag)
+    Res |= TGT_MAP_PTR_AND_OBJ | getMemberOfFlag();
+  else if (AddrIsTargetParamFlag)
+    Res |= TGT_MAP_TARGET_PARAM;
 
   return Res;
 }
@@ -347,10 +357,10 @@ unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
 void VPOParoptTransform::GenTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
-    bool &hasRuntimeEvaluationCaptureSize) {
+    bool &hasRuntimeEvaluationCaptureSize,
+    bool &IsFirstExprFlag) {
   const DataLayout DL = F->getParent()->getDataLayout();
 
-  bool IsFirstExprFlag = true;
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -370,12 +380,14 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
         } else
           ConstSizes.push_back(ConstValue);
         MapTypes.push_back(
-            getMapTypeFlag(MapI, !IsFirstExprFlag, I == 0 ? true : false));
+            getMapTypeFlag(MapI, !IsFirstExprFlag, false,
+                           I == 0 ? true : false));
+        IsFirstExprFlag = false;
       }
     } else {
       ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true));
+      MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true, true));
     }
 
     IsFirstExprFlag = false;
@@ -391,7 +403,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
       Type *T = FprivI->getOrig()->getType()->getPointerElementType();
       ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_TO | TGT_MAP_FIRST_REF);
+      MapTypes.push_back(TGT_MAP_TO | TGT_MAP_TARGET_PARAM);
     }
   }
 
@@ -402,14 +414,14 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
         continue;
       Type *T = IntelGeneralUtils::getSizeTTy(F);
       ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
+      MapTypes.push_back(TGT_MAP_PRIVATE | TGT_MAP_TARGET_PARAM);
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
     Type *T = W->getParLoopNdInfoAlloca()->getType()->getPointerElementType();
     ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                           DL.getTypeAllocSize(T)));
-    MapTypes.push_back(TGT_MAPTYPE_ND_DESC);
+    MapTypes.push_back(TGT_MAP_ND_DESC);
   }
 }
 
@@ -529,19 +541,23 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     SmallVector<Constant *, 16> ConstSizes;
     SmallVector<uint64_t, 16> MapTypes;
+    bool IsFirstExprFlag = true;
 
     if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
       GenTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
-                               hasRuntimeEvaluationCaptureSize);
+                               hasRuntimeEvaluationCaptureSize,
+                               IsFirstExprFlag);
     else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         GenTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
-                                 hasRuntimeEvaluationCaptureSize);
+                                 hasRuntimeEvaluationCaptureSize,
+                                 IsFirstExprFlag);
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         GenTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, hasRuntimeEvaluationCaptureSize);
+                                 MapTypes, hasRuntimeEvaluationCaptureSize,
+                                 IsFirstExprFlag);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
