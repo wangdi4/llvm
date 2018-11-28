@@ -376,6 +376,23 @@ public:
   }
 };
 
+// Traverses work region's [first|last]private clauses and sets item's new
+// value to nullptr.
+static void cleanupPrivateItems(WRegionNode *W) {
+  if (W->canHavePrivate())
+    for (auto *I : W->getPriv().items())
+      I->setNew(nullptr);
+  if (W->canHaveFirstprivate())
+    for (auto *I : W->getFpriv().items())
+      I->setNew(nullptr);
+  if (W->canHaveLastprivate())
+    for (auto *I : W->getLpriv().items())
+      I->setNew(nullptr);
+  if (W->canHaveReduction())
+    for (auto *I : W->getRed().items())
+      I->setNew(nullptr);
+}
+
 // CSA privatizer customization for the sections construct. Each section
 // is treated as an idependent worker, so privatization is done for each
 // section.
@@ -414,6 +431,7 @@ public:
       assert(SecW->isBBSetEmpty() &&
              "CSASectionsPrivatizer: BBSET should start empty");
       SecW->populateBBSet();
+      cleanupPrivateItems(W);
       if (!W->getPriv().empty()) {
         for (auto *I : W->getPriv().items())
           genPrivVar(I, SecW);
@@ -852,16 +870,8 @@ class VPOParoptTransform::CSALoopSplitter {
     {}
 
     bool run() override {
-      bool Changed = CSALoopPrivatizer::run();
-      for (auto *I : W->getPriv().items())
-        I->setNew(nullptr);
-      for (auto *I : W->getFpriv().items())
-        I->setNew(nullptr);
-      for (auto *I : W->getLpriv().items())
-        I->setNew(nullptr);
-      for (auto *I : W->getRed().items())
-        I->setNew(nullptr);
-      return Changed;
+      cleanupPrivateItems(W);
+      return CSALoopPrivatizer::run();
     }
   };
 
