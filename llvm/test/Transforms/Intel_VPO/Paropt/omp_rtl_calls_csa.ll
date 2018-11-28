@@ -38,7 +38,7 @@ entry:
   call void @omp_set_dynamic(i32 0)
 ; CHECK-NO: @omp_get_dynamic
   %0 = call i32 @omp_get_dynamic()
-; CHECK: store i32 0, i32* %dynamic
+; CHECK: store i32 1, i32* %dynamic
   store i32 %0, i32* %dynamic, align 4
   ret void
 }
@@ -53,7 +53,7 @@ entry:
   call void @omp_set_nested(i32 0)
 ; CHECK-NO: @omp_get_nested
   %0 = call i32 @omp_get_nested()
-; CHECK: store i32 1, i32* %nested
+; CHECK: store i32 0, i32* %nested
   store i32 %0, i32* %nested, align 4
   ret void
 }

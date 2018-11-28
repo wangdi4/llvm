@@ -1310,12 +1310,12 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
       Value *Val = nullptr;
       switch (LF) {
         case LibFunc_omp_get_thread_num:
-        case LibFunc_omp_get_dynamic:
+        case LibFunc_omp_get_nested:
           Val = ConstantInt::get(Type::getInt32Ty(F->getContext()), 0);
           break;
         case LibFunc_omp_get_num_threads:
         case LibFunc_omp_get_max_threads:
-        case LibFunc_omp_get_nested:
+        case LibFunc_omp_get_dynamic:
           Val = ConstantInt::get(Type::getInt32Ty(F->getContext()), 1u);
           break;
         case LibFunc_omp_set_num_threads:
