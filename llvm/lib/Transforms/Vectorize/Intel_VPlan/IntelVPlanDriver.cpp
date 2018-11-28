@@ -399,8 +399,10 @@ bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
       //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
       //      formLCSSARecursively(*Lp, *DT, LI, SE);
 
-      assert((VPlanForceBuild || isSupported(Lp)) &&
-             "Loop is not supported by VPlan");
+      if (!VPlanForceBuild && !isSupported(Lp)) {
+        LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
+        continue;
+      }
 
       LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
       LLVM_DEBUG(WRNode->dump());

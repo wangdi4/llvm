@@ -1364,6 +1364,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
   #if INTEL_CUSTOMIZATION
   // TODO: Temporary hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
+    PM.add(createLowerSwitchPass());
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
   }
