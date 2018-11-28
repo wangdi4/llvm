@@ -377,8 +377,6 @@ void OpenMPLateOutliner::addArg(llvm::Value *Val) {
 void OpenMPLateOutliner::addArg(StringRef Str) { BundleString = Str; }
 
 void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
-  auto SavedIP = CGF.Builder.saveIP();
-  setInsertPoint();
   if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
       E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
     ArraySectionTy AS;
@@ -409,7 +407,6 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
     }
     addArg(V);
   }
-  CGF.Builder.restoreIP(SavedIP);
 }
 
 void OpenMPLateOutliner::getApplicableDirectives(
@@ -1338,11 +1335,6 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
   RegionExitDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit);
 
-  // Create a marker call at the start of the region.  The values generated
-  // from clauses must be inserted before this point.
-  SmallVector<llvm::Value *, 1> CallArgs;
-  MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, CallArgs);
-
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
     for (auto *E : LoopDir->counters()) {
@@ -1380,13 +1372,9 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
       ImplicitMap.insert(std::make_pair(LBDecl, ICK_firstprivate));
     }
   }
-  addFenceCalls(/*IsBegin=*/true);
 }
 
 OpenMPLateOutliner::~OpenMPLateOutliner() {
-
-  addFenceCalls(/*IsBegin=*/false);
-
   addImplicitClauses();
 
   // Insert the start directives.
@@ -1399,7 +1387,10 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
     // Place the end directive in place of the start.
     emitDirective(D, D.End);
   }
+
+  addFenceCalls(/*IsBegin=*/true);
   CGF.Builder.restoreIP(EndIP);
+  addFenceCalls(/*IsBegin=*/false);
 
   // Insert the end directives.
   for (auto I = Directives.rbegin(), E = Directives.rend(); I != E; ++I)
@@ -1898,6 +1889,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     llvm_unreachable("Combined directives not handled here");
   }
   Outliner << S.clauses();
+  Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
     if (S.getDirectiveKind() != CurrentDirectiveKind) {

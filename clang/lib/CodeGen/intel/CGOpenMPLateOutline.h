@@ -180,11 +180,14 @@ class OpenMPLateOutliner {
     ClauseEmissionHelper(OpenMPLateOutliner &O, StringRef InitStr = "",
                          bool EmitClause = true)
         : O(O), CSB(InitStr), EmitClause(EmitClause) {
-      SavedIP = O.CGF.Builder.saveIP();
-      O.setInsertPoint();
+      if (O.insertPointChangeNeeded()) {
+        SavedIP = O.CGF.Builder.saveIP();
+        O.setInsertPoint();
+      }
     }
     ~ClauseEmissionHelper() {
-      O.CGF.Builder.restoreIP(SavedIP);
+      if (O.insertPointChangeNeeded())
+        O.CGF.Builder.restoreIP(SavedIP);
       if (EmitClause)
         O.emitClause();
     }
@@ -345,7 +348,16 @@ public:
   llvm::Value *getThisPointerValue() { return ThisPointerValue; }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
-  void setInsertPoint() { CGF.Builder.SetInsertPoint(MarkerInstruction); }
+  bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
+  void setInsertPoint() {
+    assert(MarkerInstruction);
+    CGF.Builder.SetInsertPoint(MarkerInstruction);
+  }
+  void insertMarker() {
+    // Create a marker call at the start of the region.  The values generated
+    // from clauses must be inserted before this point.
+    MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, {});
+  }
 };
 
 class CGLateOutlineOpenMPRegionInfo

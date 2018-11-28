@@ -39,7 +39,20 @@ void bar(int if_val, int num_threads_val) {
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[IF2_ADDR]])
   // CHECK-SAME: "QUAL.OMP.IF"(i1 [[TOBOOL]])
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL"
   #pragma omp parallel private(if2) if(if_val)
+  { foo(); }
+
+  // CHECK: [[L1:%.+]] = load i32, i32* [[IF1_ADDR]]
+  // CHECK-NEXT: [[TB2:%.+]] = icmp ne i32 [[L1]], 0
+  // CHECK-NEXT: br i1 [[TB2]]
+  // CHECK: [[L2:%.+]] = load i32, i32* [[IF2_ADDR]]
+  // CHECK-NEXT: [[TB3:%.+]] = icmp ne i32 [[L2]], 0
+  // CHECK: [[P5:%.+]] = phi i1
+  // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
+  // CHECK-SAME: "QUAL.OMP.IF"(i1 [[P5]])
+  // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL"
+  #pragma omp parallel if(if1 && if2)
   { foo(); }
 
   // proc_bind
