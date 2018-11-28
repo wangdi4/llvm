@@ -61,7 +61,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 245
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 8 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
@@ -88,7 +88,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 12 for store float [[VP19]] float* [[VP22]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i1 [[VP23:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -97,7 +97,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 25
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
@@ -124,7 +124,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store float [[VP19]] float* [[VP22]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i1 [[VP23:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -340,7 +340,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 163
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 8 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i8* [[VP4:%.*]] = getelementptr inbounds [1024 x i8]* @arr.i8.1 i64 0 i64 [[VP0]]
@@ -378,7 +378,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 12 for store double [[VP27]] double* [[VP18]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i1 [[VP28:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -387,7 +387,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 23
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i8* [[VP4:%.*]] = getelementptr inbounds [1024 x i8]* @arr.i8.1 i64 0 i64 [[VP0]]
@@ -425,7 +425,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store double [[VP27]] double* [[VP18]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i1 [[VP28:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -711,7 +711,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 52
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 8 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i16 [[VP4:%.*]] = trunc i32 [[VP3]]
@@ -727,7 +727,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 12 for store float [[VP12]] float* [[VP13]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i1 [[VP14:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -736,7 +736,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 12
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i16 [[VP4:%.*]] = trunc i32 [[VP3]]
@@ -752,7 +752,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store float [[VP12]] float* [[VP13]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i1 [[VP14:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -901,7 +901,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 134
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 8 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
@@ -954,7 +954,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 12 for store i32 [[VP50]] i32* [[VP49]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i1 [[VP51:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -963,7 +963,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 39
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
@@ -1016,7 +1016,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store i32 [[VP50]] i32* [[VP49]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i1 [[VP51:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -1384,7 +1384,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 82
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 8 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
@@ -1411,7 +1411,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 12 for store double [[VP22]] double* [[VP23]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i1 [[VP24:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -1420,7 +1420,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 18
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
@@ -1447,7 +1447,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store double [[VP22]] double* [[VP23]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i1 [[VP24:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -1675,16 +1675,16 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 8
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 8 for i32 [[VP3:%.*]] = load i32* [[VP2]]
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 14
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i32 [[VP4:%.*]] = phi  [ i32 [[VP3]], [[BB5]] ],  [ i32 [[VP5:%.*]], [[BB6:BB[0-9]+]] ]
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB6:BB[0-9]+]], total cost: 14
+; VPLAN-CM-VF4-NEXT:    Unknown cost for i32 [[VP4:%.*]] = phi  [ i32 [[VP3]], [[BB5]] ],  [ i32 [[VP5:%.*]], [[BB7:BB[0-9]+]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP6:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 12 for store i32 [[VP4]] i32* [[VP6]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i1 [[VP7:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 8
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB7]], total cost: 8
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP8:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Cost 8 for i32 [[VP5]] = load i32* [[VP8]]
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB7:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB8:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB9:BB[0-9]+]], total cost: 0
 ;
@@ -1698,16 +1698,16 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 3
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i32 [[VP4:%.*]] = phi  [ i32 [[VP3]], [[BB5]] ],  [ i32 [[VP5:%.*]], [[BB6:BB[0-9]+]] ]
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB6:BB[0-9]+]], total cost: 3
+; VPLAN-CM-VF1-NEXT:    Unknown cost for i32 [[VP4:%.*]] = phi  [ i32 [[VP3]], [[BB5]] ],  [ i32 [[VP5:%.*]], [[BB7:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP6:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store i32 [[VP4]] i32* [[VP6]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i1 [[VP7:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 1
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB7]], total cost: 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP8:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i32 [[VP5]] = load i32* [[VP8]]
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB7:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB8:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB9:BB[0-9]+]], total cost: 0
 ;
@@ -1857,7 +1857,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 10
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for <2 x i32>* [[VP3:%.*]] = bitcast i32* [[VP2]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for <2 x i32> [[VP4:%.*]] = load <2 x i32>* [[VP3]]
@@ -1866,7 +1866,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for store <2 x i32> [[VP4]] <2 x i32>* [[VP6]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 2
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i1 [[VP7:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;
@@ -1875,7 +1875,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 4
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for <2 x i32>* [[VP3:%.*]] = bitcast i32* [[VP2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for <2 x i32> [[VP4:%.*]] = load <2 x i32>* [[VP3]]
@@ -1884,7 +1884,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store <2 x i32> [[VP4]] <2 x i32>* [[VP6]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 2
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for i1 [[VP7:%.*]] = icmp i64 [[VP1]] i64 1024
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
 ;

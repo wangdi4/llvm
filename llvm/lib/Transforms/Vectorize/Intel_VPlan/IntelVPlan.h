@@ -983,6 +983,13 @@ public:
     return getIncomingBlock(std::distance(op_begin(), It));
   }
 
+  /// Set incoming basic block as \p Block corresponding to basic block number
+  /// \p Idx.
+  void setIncomingBlock(const unsigned Idx, VPBasicBlock *Block) {
+    assert(Block && "VPPHI node got a null basic block");
+    VPBBUsers[Idx] = Block;
+  }
+
   /// Return index for a given \p Block.
   int getBlockIndex(const VPBasicBlock *Block) const {
     auto It = llvm::find(make_range(block_begin(), block_end()), Block);
@@ -1862,6 +1869,20 @@ public:
   /// \brief Returns a pointer to a member of the instruction list.
   static RecipeListTy VPBasicBlock::*getSublistAccess(VPRecipeBase *) {
     return &VPBasicBlock::Recipes;
+  }
+
+  /// Returns a range that iterates over the VPPHINodes in the VPBasicBlock
+  iterator_range<iterator> getVPPhis() {
+    // If the block is empty or if it has no PHIs, return null range
+    if (empty() || !isa<VPPHINode>(begin()))
+      return make_range(nullptr, nullptr);
+
+    // Increment iterator till a non PHI VPInstruction is found
+    iterator It = begin();
+    while (It != end() && isa<VPPHINode>(It))
+      ++It;
+
+    return make_range(begin(), It);
   }
 
   VPBasicBlock(const std::string &Name, VPRecipeBase *Recipe = nullptr)

@@ -97,6 +97,27 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
     Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
   }
 
+  // Update incoming block of VPPHINodes in successors, if any
+  for (auto &Successor : NewBlock->getSuccessors()) {
+    // Iterate over all VPPHINodes in Successor
+    // NOTE: Here we assume that all VPPHINodes are always placed at the top of
+    // its parent VPBasicBlock
+    for (auto &Inst : cast<VPBasicBlock>(Successor)->getVPPhis()) {
+      assert(isa<VPPHINode>(Inst) &&
+             "Non VPPHINode found in sublist returned by getVPPhis().");
+      VPPHINode *VPN = cast<VPPHINode>(&Inst);
+
+      // Transform the VPBBUsers vector of the PHI node by replacing any
+      // occurrence of Block with NewBlock
+      llvm::transform(VPN->blocks(), VPN->block_begin(),
+                      [Block, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
+                        if (A == cast<VPBasicBlock>(Block))
+                          return NewBlock;
+                        return A;
+                      });
+    }
+  }
+
   // Update dom information
 
   VPDomTreeNode *BlockDT = DomTree.getNode(Block);

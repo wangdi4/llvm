@@ -756,12 +756,21 @@ void VPlanVerifier::verifyUsers(const VPValue *Def) {
 }
 
 // Verify that number of incoming values matches to number of predecessors
-// of a where PHI node is located.
+// of the block where PHI node is located. Also verify that each incoming block
+// is found in the predecessor list of \p Phi node's parent VPBB.
 void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
   assert(Phi->getOpcode() == Instruction::PHI);
   assert(Phi->getNumIncomingValues() ==
              Phi->getParent()->getNumPredecessors() &&
          "Number of incoming values doesn't match with number of preds");
+
+  const auto &Preds = Phi->getParent()->getPredecessors();
+  for (auto &Block : Phi->blocks()) {
+    assert(llvm::find(Preds, Block) != Preds.end() &&
+           "Incoming VPBB for VPPHINode is not a predecessor");
+    (void)Block;
+  }
+  (void)Preds;
 }
 
 // Verify operand types of the \p GEP instruction. Also check that the
