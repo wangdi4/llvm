@@ -3844,6 +3844,81 @@ static void handleSlaveMemoryArgumentAttr(Sema &S, Decl *D,
   handleSimpleAttribute<SlaveMemoryArgumentAttr>(S, D, Attr);
 }
 
+template <typename AttrType, typename IncompatAttrType1,
+          typename IncompatAttrType2>
+static void handleHLSIIAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  if (checkAttrMutualExclusion<IncompatAttrType1>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<IncompatAttrType2>(S, D, Attr))
+    return;
+
+  const auto *Existing = D->getAttr<HLSForceLoopPipeliningAttr>();
+
+  if (Existing && Existing->getForceLoopPipelining() == "off") {
+    S.Diag(Attr.getLoc(), diag::err_hls_force_loop_pipelining_conflict) << Attr;
+    S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
+    return;
+  }
+
+  S.AddOneConstantValueAttr<AttrType>(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                 Attr.getAttributeSpellingListIndex());
+}
+
+static void handleHLSMaxInvocationDelayAttr(Sema &S, Decl *D,
+                                            const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  const auto *Existing = D->getAttr<HLSForceLoopPipeliningAttr>();
+
+  if (Existing && Existing->getForceLoopPipelining() == "off") {
+    S.Diag(Attr.getLoc(), diag::err_hls_force_loop_pipelining_conflict) << Attr;
+    S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
+    return;
+  }
+
+  S.AddOneConstantValueAttr<HLSMaxInvocationDelayAttr>(Attr.getRange(),
+        D, Attr.getArgAsExpr(0), Attr.getAttributeSpellingListIndex());
+}
+
+static void handleHLSForceLoopPipeliningAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  StringRef Str;
+  if (Attr.getNumArgs() == 1 &&
+      !S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
+    return;
+  }
+
+  if (Str == "off") {
+    if (checkAttrMutualExclusion<HLSIIAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<HLSMaxIIAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<HLSMinIIAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<HLSMaxInvocationDelayAttr>(S, D, Attr))
+      return;
+  } else if (Str != "on") {
+    S.Diag(Attr.getLoc(), diag::err_hls_force_loop_pipelining_invalid) << Attr;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) HLSForceLoopPipeliningAttr(
+      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
                                            const ParsedAttr &Attr) {
 
@@ -8103,6 +8178,21 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_SlaveMemoryArgument:
     handleSlaveMemoryArgumentAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSII:
+    handleHLSIIAttr<HLSIIAttr, HLSMinIIAttr, HLSMaxIIAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSMinII:
+    handleHLSIIAttr<HLSMinIIAttr, HLSIIAttr, HLSMaxIIAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSMaxII:
+    handleHLSIIAttr<HLSMaxIIAttr, HLSIIAttr, HLSMinIIAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSForceLoopPipelining:
+    handleHLSForceLoopPipeliningAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSMaxInvocationDelay:
+    handleHLSMaxInvocationDelayAttr(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_AnyX86NoCallerSavedRegisters:

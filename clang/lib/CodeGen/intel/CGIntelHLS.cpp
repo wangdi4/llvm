@@ -164,4 +164,48 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
                                                    Builder.getInt(SPEPInt))));
   }
+  if (FD->hasAttr<HLSIIAttr>()) {
+    llvm::APSInt Cycle =
+        FD->getAttr<HLSIIAttr>()->getValue()->EvaluateKnownConstInt(
+            getContext());
+    Fn->setMetadata("loop_ii_count",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Cycle))));
+  }
+
+  if (FD->hasAttr<HLSMinIIAttr>()) {
+    llvm::APSInt Cycle =
+        FD->getAttr<HLSMinIIAttr>()->getValue()->EvaluateKnownConstInt(
+            getContext());
+    Fn->setMetadata("min_ii",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Cycle))));
+  }
+
+  if (FD->hasAttr<HLSMaxIIAttr>()) {
+    llvm::APSInt Cycle =
+        FD->getAttr<HLSMaxIIAttr>()->getValue()->EvaluateKnownConstInt(
+            getContext());
+    Fn->setMetadata("max_ii",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Cycle))));
+  }
+
+  if (FD->hasAttr<HLSMaxInvocationDelayAttr>()) {
+    llvm::APSInt Delay = FD->getAttr<HLSMaxInvocationDelayAttr>()
+                             ->getValue()
+                             ->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("max_invocation_delay",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Delay))));
+  }
+
+  if (FD->hasAttr<HLSForceLoopPipeliningAttr>()) {
+    StringRef ForceLoopPipelining =
+        FD->getAttr<HLSForceLoopPipeliningAttr>()->getForceLoopPipelining();
+    Fn->setMetadata(
+        "force_loop_pipelining",
+        llvm::MDNode::get(Context,
+                          (llvm::MDString::get(Context, ForceLoopPipelining))));
+  }
 }

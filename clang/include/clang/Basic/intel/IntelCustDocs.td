@@ -1839,6 +1839,270 @@ IR:
   }];
 }
 
+def AttributeHLSIIDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7080";
+  let RegressionTest = "SemaIntelHLS/hls_ii.cpp, CodeGenIntelHLS/hls_ii.cpp";
+  let Owner = "eandrews";
+  let Content = [{
+The ``hls_ii`` attribute is a function attribute used to indicate that
+consecutive invocations of an HLS component will be exactly 'k' cycles apart,
+where 'k' is an unsigned integer argument greater than 0. This attribute is
+incompatible with ``hls_force_loop_pipelining(off)`` , ``hls_min_ii`` and
+``hls_max_ii``.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((hls_ii(k)))
+
+Example:
+
+.. code-block:: c++
+
+  __attribute__((hls_ii(8))) void foo() {}
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp
+
+.. code-block:: text
+
+  FunctionDecl 0xed2eb38 <line:76:1, line:78:10> col:1 foo 'void ()'
+  |-CompoundStmt 0xed2ec50 <col:9, col:10>
+  `-HLSIIAttr 0xed2ec38 <line:77:16, col:24>
+    `-ConstantExpr 0xed2ec20 <col:23> 'int'
+      `-IntegerLiteral 0xed2eaf8 <col:23> 'int' 8
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+  define void @_Z3foov() #0 !loop_ii_count !2
+  !2 = !{i32 8}
+
+  }];
+}
+
+def AttributeHLSMinIIDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7080";
+  let RegressionTest = "SemaIntelHLS/hls_min_ii.cpp, CodeGenIntelHLS/hls_min_ii.cpp";
+  let Owner = "eandrews";
+  let Content = [{
+The ``hls_min_ii`` attribute is a function attribute used to indicate that
+consecutive invocations of an HLS component will be atleast 'k' cycles apart,
+where 'k' is an unsigned integer argument greater than 0. This attribute is
+incompatible with ``hls_force_loop_pipelining(off)`` , ``hls_ii`` and
+``hls_max_ii``.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((hls_min_ii(k)))
+
+Example:
+
+.. code-block:: c++
+
+  __attribute__((hls_min_ii(8))) void foo() {}
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp
+
+.. code-block:: text
+
+  FunctionDecl 0xed2eb38 <line:76:1, line:78:10> col:1 foo 'void ()'
+  |-CompoundStmt 0xed2ec50 <col:9, col:10>
+  `-HLSMinIIAttr 0xed2ec38 <line:77:16, col:24>
+    `-ConstantExpr 0xed2ec20 <col:23> 'int'
+      `-IntegerLiteral 0xed2eaf8 <col:23> 'int' 8
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+  define void @_Z3foov() #0 !min_ii !2
+  !2 = !{i32 8}
+
+  }];
+}
+
+def AttributeHLSMaxIIDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7080";
+  let RegressionTest = "SemaIntelHLS/hls_max_ii.cpp, CodeGenIntelHLS/hls_max_ii.cpp";
+  let Owner = "eandrews";
+  let Content = [{
+The ``hls_max_ii`` attribute is a function attribute used to indicate that
+consecutive invocations of an HLS component will be at most 'k' cycles apart,
+where 'k' is an unsigned integer argument greater than 0. This attribute is
+incompatible with ``hls_force_loop_pipelining(off)`` , ``hls_ii`` and
+``hls_min_ii``.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((hls_max_ii(k)))
+
+Example:
+
+.. code-block:: c++
+
+  __attribute__((hls_max_ii(8))) void foo() {}
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp
+
+.. code-block:: text
+
+  FunctionDecl 0xed2eb38 <line:76:1, line:78:10> col:1 foo 'void ()'
+  |-CompoundStmt 0xed2ec50 <col:9, col:10>
+  `-HLSMaxIIAttr 0xed2ec38 <line:77:16, col:24>
+    `-ConstantExpr 0xed2ec20 <col:23> 'int'
+      `-IntegerLiteral 0xed2eaf8 <col:23> 'int' 8
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+  define void @_Z3foov() #0 !max_ii !2
+  !2 = !{i32 8}
+
+  }];
+}
+
+def AttributeHLSMaxInvocationDelayDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7080";
+  let RegressionTest = "SemaIntelHLS/hls_max_invocation_delay.cpp, CodeGenIntelHLS/hls_max_invocation_delay.cpp";
+  let Owner = "eandrews";
+  let Content = [{
+The ``hls_max_invocation_delay`` attribute is a function attribute used to
+indicate that the delay between the end of an invocation and start of the next
+invocation, of an HLS component, will be at most 'k', where 'k' is an unsigned
+integer argument greater than or equal to 0. This attribute is
+incompatible with ``hls_force_loop_pipelining(off)``.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((hls_max_invocation_delay(k)))
+
+Example:
+
+.. code-block:: c++
+
+  __attribute__((hls_max_invocation_delay(8))) void foo() {}
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp
+
+.. code-block:: text
+
+  FunctionDecl 0xed2eb38 <line:76:1, line:78:10> col:1 foo 'void ()'
+  |-CompoundStmt 0xed2ec50 <col:9, col:10>
+  `-HLSMaxInvocationDelayAttr 0xed2ec38 <line:77:16, col:24>
+    `-ConstantExpr 0xed2ec20 <col:23> 'int'
+      `-IntegerLiteral 0xed2eaf8 <col:23> 'int' 8
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+  define void @_Z3foov() #0 !max_invocation_delay !2
+  !2 = !{i32 8}
+
+  }];
+}
+
+def AttributeHLSForceLoopPipeliningDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7080";
+  let RegressionTest = "SemaIntelHLS/hls_force_loop_pipelining.cpp, CodeGenIntelHLS/hls_force_loop_pipelining.cpp";
+  let Owner = "eandrews";
+  let Content = [{
+The ``hls_force_loop_pipelining`` attribute is a function attribute used to
+indicate whether the component will be pipelined to support multiple
+invocations running concurrently. Valid attribute arguments are 'on' and 'off'.
+When 'off', this attribute is incompatible with ``hls_ii`` , ``hls_min_ii`` ,
+``hls_max_ii`` and ``hls_max_invocation_delay``.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((hls_force_loop_pipelining(F)))
+
+Example:
+
+.. code-block:: c++
+
+  __attribute__((hls_force_loop_pipelining("on"))) void foo1() {}
+  __attribute__((hls_force_loop_pipelining("off"))) void foo2() {}
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp
+
+.. code-block:: text
+
+  FunctionDecl 0xdff19d8 <t.cpp:2:1, col:64> col:6 foo1 'void ()'
+  -CompoundStmt 0xdff1b00 <col:63, col:64>
+  `-HLSForceLoopPipeliningAttr 0xdff1a70 <col:29, col:59> "on"
+  FunctionDecl 0xdff1bd8 <line:3:1, col:66> col:6 foo2 'void ()'
+  -CompoundStmt 0xdff1cc0 <col:65, col:66>
+  `-HLSForceLoopPipeliningAttr 0xdff1c70 <col:30, col:61> "off"
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
+
+.. code-block:: llvm
+
+  define void @_Z4foo1v() #0 !force_loop_pipelining !2
+  define void @_Z4foo2v() #0 !force_loop_pipelining !3
+  !2 =  !{!"on"}
+  !3 =  !{!"off"}
+
+  }];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------

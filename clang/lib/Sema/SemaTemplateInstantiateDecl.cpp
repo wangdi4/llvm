@@ -475,6 +475,35 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 #if INTEL_CUSTOMIZATION
+    const HLSIIAttr *II = dyn_cast<HLSIIAttr>(TmplAttr);
+    if (II) {
+      instantiateDependentOneConstantValueAttr<HLSIIAttr>(
+          *this, TemplateArgs, II, New);
+      continue;
+    }
+
+    const HLSMinIIAttr *MinII = dyn_cast<HLSMinIIAttr>(TmplAttr);
+    if (MinII) {
+      instantiateDependentOneConstantValueAttr<HLSMinIIAttr>(
+          *this, TemplateArgs, MinII, New);
+      continue;
+    }
+
+    const HLSMaxIIAttr *MaxII = dyn_cast<HLSMaxIIAttr>(TmplAttr);
+    if (MaxII) {
+      instantiateDependentOneConstantValueAttr<HLSMaxIIAttr>(
+          *this, TemplateArgs, MaxII, New);
+      continue;
+    }
+
+    const HLSMaxInvocationDelayAttr *MID =
+        dyn_cast<HLSMaxInvocationDelayAttr>(TmplAttr);
+    if (MID) {
+      instantiateDependentOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
+          *this, TemplateArgs, MID, New);
+      continue;
+    }
+
     const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
     if (MCA) {
       instantiateDependentOneConstantValueAttr<MaxConcurrencyAttr>(

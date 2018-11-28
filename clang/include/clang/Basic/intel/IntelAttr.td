@@ -252,6 +252,83 @@ def ComponentInterface : InheritableAttr {
   }];
 }
 
+def HLSForceLoopPipelining : InheritableAttr {
+  let Spellings = [GNU<"hls_force_loop_pipelining">];
+  let Args = [StringArgument<"ForceLoopPipelining">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
+}
+
+def HLSII : InheritableAttr {
+  let Spellings = [GNU<"hls_ii">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return INT_MAX;
+    }
+  }];
+}
+
+def HLSMaxII : InheritableAttr {
+  let Spellings = [GNU<"hls_max_ii">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return INT_MAX;
+    }
+  }];
+}
+
+def HLSMinII : InheritableAttr {
+  let Spellings = [GNU<"hls_min_ii">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return INT_MAX;
+    }
+  }];
+}
+
+def HLSMaxInvocationDelay : InheritableAttr {
+  let Spellings = [GNU<"hls_max_invocation_delay">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [HLS];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return INT_MAX;
+    }
+  }];
+}
+
 def StallEnable : InheritableAttr {
   let Spellings = [Clang<"stall_enable">];
   let LangOpts = [OpenCL, HLS];
