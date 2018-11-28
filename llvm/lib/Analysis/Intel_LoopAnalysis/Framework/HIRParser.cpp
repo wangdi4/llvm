@@ -2637,11 +2637,58 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
 void HIRParser::postParse(HLIf *If) {
 
   auto PredIter = If->pred_begin();
+  unsigned NumPreds = If->getNumPredicates();
 
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
-  if (!If->hasThenChildren() && (If->getNumPredicates() == 1)) {
+  if ((NumPreds == 1) && !If->hasThenChildren()) {
     If->invertPredicate(PredIter);
     HLNodeUtils::moveAsFirstThenChildren(If, If->else_begin(), If->else_end());
+    return;
+  }
+
+  // Converts-
+  //
+  // if () {
+  //   goto bb;
+  // } else {
+  //   A[i] = t;
+  // }
+  //
+  // To-
+  //
+  // if () {
+  //   goto bb;
+  // }
+  // A[i] = t;
+  if (auto Goto = dyn_cast_or_null<HLGoto>(If->getLastThenChild())) {
+    (void)Goto;
+    HLNodeUtils::moveAfter(If, If->else_begin(), If->else_end());
+    return;
+  }
+
+  // Converts-
+  //
+  // if (Cond) {
+  //   A[i] = t;
+  // } else {
+  //   goto bb;
+  // }
+  //
+  // To-
+  //
+  // if (!Cond) {
+  //   goto bb;
+  // }
+  // A[i] = t;
+  if (auto Goto = dyn_cast_or_null<HLGoto>(If->getLastElseChild())) {
+    (void)Goto;
+    if (NumPreds == 1) {
+      If->invertPredicate(PredIter);
+
+      HLNodeUtils::moveAfter(If, If->then_begin(), If->then_end());
+      HLNodeUtils::moveAsFirstThenChildren(If, If->else_begin(),
+                                           If->else_end());
+    }
   }
 }
 
@@ -2994,7 +3041,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       // previous GEP's first index as it is redundant.
       if (PrevGEPFirstIndexCE) {
         assert(PrevGEPFirstIndexCE->isZero() &&
-            "PrevGEPFirstIndexCE expected to be zero!");
+               "PrevGEPFirstIndexCE expected to be zero!");
         getCanonExprUtils().destroy(PrevGEPFirstIndexCE);
         PrevGEPFirstIndexCE = nullptr;
         IndexedType = nullptr;
@@ -3021,8 +3068,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
       bool CanMergeIndex = !IsBaseGEPOp && (I == 0);
       if (CanMergeIndex) {
-        auto *NextGEPOp =
-            cast<GEPOrSubsOperator>(GEPOp->getPointerOperand());
+        auto *NextGEPOp = cast<GEPOrSubsOperator>(GEPOp->getPointerOperand());
         auto *NextSubs = dyn_cast<SubscriptInst>(NextGEPOp);
 
         if (NextSubs || Subs) {
@@ -3048,8 +3094,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
                     (!PrevGEPFirstIndexCE || PrevGEPFirstIndexCE->isZero()) &&
                     ((I != 0) || (IsBaseGEPOp && !RequiresIndexMerging)));
 
-      CanonExpr *IndexCE =
-          parse(GEPOp->getIndex(I), Level, IsTop, OffsetTy);
+      CanonExpr *IndexCE = parse(GEPOp->getIndex(I), Level, IsTop, OffsetTy);
 
       // Store the first GEP index in PrevGEPFirstIndexCE. It will be merged
       // into the last index of next GEP.
@@ -3198,8 +3243,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   // looks like this: (%p)[i]
 
   auto OffsetTy = Type::getIntNTy(
-      getContext(),
-      getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
+      getContext(), getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
 
   // A phi can be initialized using another phi so we should trace back.
   do {

@@ -5,7 +5,7 @@
 
 ; CHECK DO i1
 
-; CHECK: if (bitcast ([0 x i64]* @global to %struct.barney*) <u inttoptr (i64 -24 to %struct.barney*))
+; CHECK: if (bitcast ([0 x i64]* @global to %struct.barney*) >=u inttoptr (i64 -24 to %struct.barney*))
 
 %struct.quux = type { %struct.wobble }
 %struct.wobble = type { i8* }
