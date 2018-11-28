@@ -53,6 +53,8 @@ this checklist when evaluating change sets.
    customizations in xmain.
 #. Make sure all changes to community files are
    :ref:`properly marked <xmain-markups>` as Intel customizations.
+#. Make sure all changes related to non-public (secret) features are
+   :ref:`properly marked <secret-feature-guards>` as Intel features.
 #. Make sure behavioral changes in the compiler are adequately covered by
    :ref:`unit tests <unit-testing>`.
 #. Conduct a :ref:`code review <code-reviews>` using Gerrit and get +1 approval
@@ -154,6 +156,9 @@ to do the right thing. There are several acceptable ways to mark Intel-specific
 code changes. When choosing a method for marking your code, the most important
 consideration is clarity & readability.
 
+For the reader's convenience, the comprehensive list of supported markups
+is in the :ref:`Intel code markup references table <supported-markups>`.
+
 - For multi-line additions, the preferred method is to enclose the
   Intel-specific code like this.
 
@@ -196,25 +201,22 @@ consideration is clarity & readability.
   +  }
   +#endif
 
-- Some files, e.g. CMakeLists.txt, are not run through the preprocessor.
-  Use # INTEL_CUSTOMIZATION, # end INTEL_CUSTOMIZATION pair. In situations
-  where # INTEL_CUSTOMIZATION does not work, e.g. tablegen (.td), additions
-  should be enclosed in comments like this.
+- Use `# INTEL_CUSTOMIZATION`, `# end INTEL_CUSTOMIZATION` pair for files
+  that are not run through the preprocessor, and support `#` as a comment mark,
+  e.g. CMakeLists.txt and other CMake files.
 
-.. code-block:: c++
+- Use `// INTEL_CUSTOMIZATION`, `// end INTEL_CUSTOMIZATION` pair for files
+  that are not run through the preprocessor, and support `//` as a comment mark.
+  The tablegen files (.td) used to fall into this category, but they do support
+  preprocessing directives now.
 
-  // INTEL_CUSTOMIZATION
-  // X86_RegCall return-value convention.
-  multiclass RetCC_X86_RegCall<RC_X86_RegCall RC, CallingConv CC> :
-    X86_RegCall_base<RC, CC>;
+- Use `; INTEL_CUSTOMIZATION`, `; end INTEL_CUSTOMIZATION` pair for files
+  that are not run through the preprocessor, and support `;` as a comment mark.
 
-  defm RetCC_X86_32_RegCall :
-       RetCC_X86_RegCall<RC_X86_32_RegCall, RetCC_X86Common>;
-  defm RetCC_X86_64_RegCall_Win :
-       RetCC_X86_RegCall<RC_X86_64_RegCall_Win, RetCC_X86_Win64_C>;
-  defm RetCC_X86_64_RegCall_Lin :
-       RetCC_X86_RegCall<RC_X86_64_RegCall_Lin, RetCC_X86Common>;
-  // end INTEL_CUSTOMIZATION
+- Use `\.\. INTEL_CUSTOMIZATION`, `\.\. end INTEL_CUSTOMIZATION` pair
+  for documentation files (see the
+  :ref:`Intel code markup references table <supported-markups>`
+  for more detail).
 
 - For small additions or modifications, it is often clearer to add a comment at
   the end of **each** modified line like this.
@@ -261,25 +263,29 @@ consideration is clarity & readability.
   //
   // ===--------------------------------------------------------------------=== //
 
-- For code which should be excluded from final release builds but included
-  in 'prod' builds during development (such as IR printing capabilities),
-  you should use the 'INTEL_PRODUCT_RELEASE' preprocessor symbol.  This
-  symbol will be defined only for 'release' builds when ics usage is set to
-  qa mode (using 'ics set usage qa').  For example:
+- For code which should be excluded from final release
+  builds but included in 'prod' builds during development (such as IR
+  printing capabilities), you should use the `INTEL_INTERNAL_BUILD`
+  markup symbol (this includes both the files that are run through
+  the preprocessor and the files that are not).  This macro symbol will be
+  **undefined** for the `release` builds when ics usage is set to qa mode
+  (using `ics set usage qa`).  For example:
 
-.. code-block:: c++
+.. parsed-literal::
 
   void MyClass::print(raw_ostream &OS) const {
-  #if !INTEL_PRODUCT_RELEASE
+  #if INTEL_INTERNAL_BUILD
     // Print the IR for MyClass to OS.
     OS << MyClass.A << "\n";
-  #endif // !INTEL_PRODUCT_RELEASE
+  #endif // INTEL_INTERNAL_BUILD
   }
 
 ..
 
-  This preprocessor symbol should be used the same in either modified LLVM
-  files or Intel-specific source files.
+  `INTEL_INTERNAL_BUILD` **must not** be used in release package's files
+  (e.g. compiler header files).  Any non-release changes in such files
+  must correspond to some feature and be appropriately
+  :ref:`guarded <secret-feature-guards>`.
 
 Marking Intel Code Intended for External Sharing in Xmain
 =========================================================
@@ -532,98 +538,264 @@ When a COLLAB change is promoted to llvm.org, then it is considered
 community code and no longer Intel code, so we must remove its INTEL_COLLAB
 markers from xmain.
 
+.. _secret-feature-guards:
 
-Guarding Intel Proprietary Features in Xmain
-============================================
+Guarding Intel Secret Features in Xmain
+=======================================
 
-``Customized compiler builds``
-------------------------------
+Source code changes added to support some non-public software or hardware
+feature are called `secret`, and the feature itself is called
+a `secret feature`.
 
-This section describes development practices that allow producing customized
-compiler builds from the common source base.  Development of some SW features
-and early support of HW features may require build time controls, so that
-Intel secret features are not exposed in product compiler builds.
+As long as ICL team may share its source code contributions to LLVM with
+other Intel teams, and not all of these teams have access to all
+`secret features`, the following development practices must be applied
+to guarantee that the information about a `secret feature` is not shared
+with someone who does not have the business need to know.
 
-We use CMake list variable 'LLVM_INTEL_FEATURES' to hold a list of features
-enabled for a particular compiler build.  Additional features may be enabled
-via ICS build command option:
+Currently, most ICL software contributions, such as the HIR vectorizer and
+the loop optimizer, although being Intel Top Secret in terms of IP
+classification, may be shared with Intel groups outside of ICL and so
+are not considered `secret` for the purposes of this process.
+At the same time, any IP that was not created by ICL and that has some
+compiler support (e.g. new ISA support) is considered `secret`
+and the corresponding compiler changes must be guarded as described
+in this section.
 
-.. code-block:: console
+These development practices are tightly tied to the processes run inside ICL,
+e.g. :ref:`xmain-shared repository <xmain-shared-process>` and
+:ref:`release builds <release-compiler-build>`, so it is
+critical to follow every rule, especially while the verification and
+enforcement tools/processes are not in place.
 
-  ics build FEATURES="AVX3_1,AVX3_2" (not supported yet)
-  ics build -extraopts="-DLLVM_INTEL_FEATURES=AVX3_1" (allows enabling only one feature)
+.. _secret-commits:
 
-.. note:: Feature names may only consist of symbols that are valid for C/C++ identifiers.
+Commits of changes for a secret feature
+---------------------------------------
 
-.. note:: During the initial run of `ics build`, the list of features is fixed
-          in CMake configuration, so any changes in the `FEATURES="..."` list
-          in the consequent `ics build` commands will not take effect.
-          To build a compiler with new list of features, please, build it
-          from scratch.
+**Any** git commit message containing explicit information about a secret
+feature must use the following guards to keep the message secret:
 
-To use a new feature for a compiler build, you have to add the feature name
-into `llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt`, otherwise,
-the compiler build will fail instructing you to add the feature name
-into the file.
+.. parsed-literal::
 
-'LLVM_INTEL_FEATURES' may be used for conditional CMake processing.  For example,
-we have the following code in `llvm/CMakeLists.txt`:
+  // INTEL_FEATURE\_ISA_AVX512VL
+  This commit is to fix JIRA #777 with ISA_AVX512VL.
+  // end INTEL_FEATURE\_ISA_AVX512VL
 
-.. code-block:: cmake
+A more neutral message may be used for the same commit without guarding
+the message itself.
 
-  foreach(f ${LLVM_INTEL_FEATURES})
-    string(CONCAT FOPT "-DINTEL_FEATURE" "_" ${f} "=1")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
-  endforeach(f)
+.. parsed-literal::
 
-This code populates C++ compilation flags with options like '-DINTEL_FEATURE\_XXX=1'
-based on the list of features provided in 'LLVM_INTEL_FEATURES' list.
+  This commit is to fix JIRA #777.
 
-.. note:: We do not currently update CMAKE_C_FLAGS, so pure C files are compiled
-          without any INTEL_FEATURE\_ macros enabled.
+If your commit message contains information about multiple `secret` features,
+you must guard each reference separately with the corresponding feature name:
 
-To guard Intel secret features in C/C++ files use feature checks in addition to
-'INTEL_CUSTOMIZATION' checks, e.g.:
+.. parsed-literal::
 
-.. code-block:: c++
+  // INTEL_FEATURE\_ISA_AVX512VL
+  This commit is to fix JIRA #777 with ISA_AVX512VL.
+  // end INTEL_FEATURE\_ISA_AVX512VL
+  // INTEL_FEATURE\_ISA_AVX512DQ
+  This commit is to fix JIRA #777 with ISA_AVX512DQ.
+  // end INTEL_FEATURE\_ISA_AVX512DQ
+
+Marking Intel secret code in files
+----------------------------------
+
+All changes exposing any information about a `secret` feature must be guarded.
+The guards described in this section must accompany the `INTEL_CUSTOMIZATION`
+:ref:`guards <xmain-markups>`.
+
+- Files that are run through the preprocessor must use usual syntax:
+
+.. parsed-literal::
 
   #if INTEL_CUSTOMIZATION
-  #if INTEL_FEATURE\_XXX
-  // XXX specific code.
-  #endif // INTEL_FEATURE\_XXX
+  #if INTEL_FEATURE\_ISA_AVX512VL
+  // AVX512VL specific code.
+  #endif // INTEL_FEATURE\_ISA_AVX512VL
   #endif // INTEL_CUSTOMIZATION
+
+..
 
 .. note:: The compiler must build with and without any of INTEL_FEATURE\_XXX
           defined.  If an INTEL_FEATURE\_XXX is not defined, the compiler
           must be fully functional, except for the disabled feature's support.
 
-To completely exclude a C/C++ file from compilation, when some feature is not
-enabled, we can use conditional processing of CMake files.  In the following
-example in `llvm/lib/CodeGen/CMakeLists.txt` we conditionally add `Intel_Avx3_2.cpp`
-file to compilation only if AVX3_2 feature is enabled:
+..
 
-.. _conditional-comp:
+  These guards must be used the same in either modified LLVM files or
+  Intel-added source files.  `INTEL_CUSTOMIZATION` guard may be omitted
+  in Intel-added source, unless the file is intended for external collaboration
+  (i.e. the whole file is guarded with `INTEL_COLLAB`) - in this case,
+  the `INTEL_CUSTOMIZATION` guard must be used.
 
-.. code-block:: cmake
+- Files that are not run through the preprocessor must use the appropriate
+  markup syntax from the
+  :ref:`Intel code markup references table <supported-markups>`.
+
+.. _whole-file-guards:
+
+- If you add a feature specific file (thus, Intel-added file) into
+  a community directory, you must enclose the whole file content
+  into the corresponding `INTEL_FEATURE\_` region, i.e. the region
+  must start at the first line and end at the last line of the file.
+  The file name may contain the feature name, e.g. `Intel_ISA_AVX512VL.cpp`.
+  If the file's complete contents are not guarded, then this file
+  may leak to :ref:`xmain-shared repository <xmain-shared-process>`.
+
+.. _feature-specific-dir:
+
+- For convenience, feature specific directories may be marked,
+  so that the files inside such directories may avoid `INTEL_FEATURE\_`
+  guards.  To mark a directory as feature specific you create
+  `.intel_features` file inside it and put the corresponding feature
+  name into it like this:
+
+.. parsed-literal::
+
+  INTEL_FEATURE\_ISA_AVX512VL
+  <EOF>
+
+..
+
+  The file must contain **exactly** one feature name.  With this,
+  all the files inside this directory may be written without
+  `INTEL_FEATURE\_` guards.  Obviously, only Intel-added directories
+  may be marked as feature specific.  Do not forget to name the directory
+  using `Intel_` prefix.  Alternatively, you may choose to put all your
+  new directories into `llvm/Intel_OptionalComponents` sub-directory
+  with a name corresponding to the feature name, e.g. `ISA_AVX512VL`.
+
+- Changes in header files that are shipped with the compiler release package
+  must also be guarded.  If you make feature specific modifications in an
+  existing header file, you must use C-style region guards like this, unless
+  this is a known C++ header that can use C++-style region guards:
+
+.. _header-mod:
+
+.. parsed-literal::
+
+  \/\* INTEL_FEATURE\_ISA_AVX512VL \*\/
+  \/\*
+   \* Most likely your ISA_AVX512VL compiler will define a macro,
+   \* which you can use to actually guard the declarations below:
+   \*\/
+  #if defined(__AVX512VL__)
+  \/\*
+   \* Declarations guarded by a macro check that is only true
+   \* for ISA_AVX512VL compiler build.
+   \*\/
+  #endif
+  \/\* end INTEL_FEATURE\_ISA_AVX512VL \*\/
+
+..
+
+  These region guards in header files are used for both
+  :ref:`xmain-shared repository <xmain-shared-process>` update process and
+  :ref:`release builds <release-compiler-build>` process,
+  so it is very important to have them in place.
+
+  If you add a new feature specific header, you must either place it
+  into a :ref:`feature specific directory <feature-specific-dir>` or
+  :ref:`guard the whole header's contents <whole-file-guards>`.
+
+  The recommended solution is to create a
+  :ref:`feature specific directory <feature-specific-dir>`, e.g. a sub-directory
+  inside the headers directory, place your new header files into this
+  sub-directory and include them as shown :ref:`here <header-mod>`.
+  You must also modify the copy-lists or the corresponding `make install`
+  rules (**TBD**) to copy your new header files into the deploy structure's
+  header directory (not into the sub-directory, in which they exist in
+  the repository.
+
+- Just as with the compiler headers, any files shipped with the release
+  package must have proper regions markups in place.
+
+- Avoid any feature specific changes in LLVMBuild.txt files
+  because the correct regions markup is not always possible.  Instead,
+  modify the corresponding CMakeLists.txt as shown
+  :ref:`here <cmake-customization>`.
+
+- Changes in `dpd_icl-xtoolsup` repository (e.g. in copylist.txt)
+  cannot be currently guarded in any way.  Since we are deprecating
+  the copylist usage, it is allowed to make feature specific changes unguarded
+  in these files.
+
+Feature specific Intel compiler builds
+======================================
+
+This section describes methods that allow producing customized compiler
+builds from the common source base of xmain.
+
+When you add source files for a new feature, you must use
+the `LLVM_INTEL_FEATURES` CMake variable to enable the corresponding
+preprocessing macro and include your new files in the compiler build.
+
+.. _vrd-config:
+
+- First, you create a new or use an existing ICS VRD file located in
+  `icsconfig` directory of the ICS workspace.  A custom value of the
+  `LLVM_INTEL_FEATURES` variable may be passed to ICS build scripts
+  using the following option:
+
+.. parsed-literal::
+
+  \-extraopts="-DLLVM_INTEL_FEATURES=INTEL_FEATURE\_ISA_AVX512VL"
+
+..
+
+.. note:: **TBD** -extraopts allows enabling only one feature, so we need
+          a new option that will accept more than one feature, e.g.
+          \-intel-features="INTEL_FEATURE\_ISA_AVX512VL;
+          INTEL_FEATURE\_ISA_AVX512F".
+
+..
+
+.. _supported-features:
+
+- Second, you add the feature name into
+  `llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt`, otherwise,
+  the compiler build will fail instructing you to add the feature name
+  into the file.  At this point, the feature has to be classified as
+  either `public` or `secret` in
+  `llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt` file.
+  The classification is only used for
+  :ref:`xmain-shared repository <xmain-shared-process>`
+  update process, and it does not affect
+  :ref:`release builds <release-compiler-build>` process,
+  i.e. a release build may be done with whatever features both `secret`
+  and `public`.  Please refer to
+  `llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt` for more details
+  on the syntax and the feature naming conventions.
+
+- Third, you modify the corresponding CMakeLists.txt files to include your
+  new feature specific files only into builds that support this feature:
+
+.. parsed-literal::
 
   # INTEL_CUSTOMIZATION
-  set(INTEL_SOURCE_FILES
-    Intel_MachineLoopOptReportEmitter.cpp
-    )
-  set(INTEL_AVX3_2_SOURCE_FILES
-    Intel_Avx3_2.cpp
-    )
   set(INTEL_SOURCE_FILES_TO_BUILD)
-  if (INTEL_CUSTOMIZATION)
-    if(";${LLVM_INTEL_FEATURES};" MATCHES ";AVX3_2;")
-      list(APPEND INTEL_SOURCE_FILES ${INTEL_AVX3_2_SOURCE_FILES})
-    else()
-      list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_AVX3_2_SOURCE_FILES})
-    endif()
-    set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
-  else()
-    list(APPEND LLVM_OPTIONAL_SOURCES ${INTEL_SOURCE_FILES} ${INTEL_AVX3_2_SOURCE_FILES})
-  endif(INTEL_CUSTOMIZATION)
+  # Add 'Intel_ExistingCustomFile.cpp' to INTEL_SOURCE_FILES_TO_BUILD,
+  # if INTEL_CUSTOMIZATION is enabled;  add it to LLVM_OPTIONAL_SOURCES
+  # otherwise.
+  intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+    COMPLEMENT LLVM_OPTIONAL_SOURCES
+    Intel_ExistingCustomFile.cpp
+    )
+
+  # INTEL_FEATURE\_ISA_AVX512VL
+  # Add 'Intel_ISA_AVX512VL.cpp' into INTEL_SOURCE_FILES_TO_BUILD,
+  # if Intel feature ISA_AVX512VL and INTEL_CUSTOMIZATION are enabled;
+  # add it to LLVM_OPTIONAL_SOURCES otherwise.
+  intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+    COMPLEMENT LLVM_OPTIONAL_SOURCES
+    FEATURE ISA_AVX512VL
+    ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/AVX512VL/lib/Transforms/Intel_ISA_AVX512VL.cpp
+    )
+  # end INTEL_FEATURE\_ISA_AVX512VL
   # end INTEL_CUSTOMIZATION
 
   add_llvm_library(LLVMCodeGen
@@ -633,122 +805,441 @@ file to compilation only if AVX3_2 feature is enabled:
     ...
     )
 
+..
+
 .. note:: LLVM_OPTIONAL_SOURCES variable helps to avoid build errors for files
           that are not used during build but are present in the source tree.
 
-C/C++ preprocessor is not run for files of other types, so we have to use
-different techniques to conditionally compile them.
+..
 
-One of the most often changes in `LLVMBuild.txt` files is adding dependencies
-to some Intel proprietary LLVM component libraries.  `LLVMBuild.txt` also do not
-support inline comments, so we used to put INTEL_CUSTOMIZATION comments on
-separate lines - this complicated merges for these files a little bit.
+  If you create new header files that need to be included in existing files,
+  then you must modify `llvm/CMakeLists.txt` like this:
 
-An alternative solution is to add LLVM component libraries dependencies
-in CMakeLists.txt.  For example, instead of having the following code
-in `llvm/lib/Transforms/Scalar/LLVMBuild.txt`:
+.. parsed-literal::
+
+  # INTEL_CUSTOMIZATION
+  set(INTEL_FEATURESPECIFIC_INCLUDE_DIRS)
+  # INTEL_FEATURE\_ISA_AVX512VL
+  intel_add_file(INTEL_FEATURESPECIFIC_INCLUDE_DIRS
+    FEATURE ISA_AVX512VL
+    ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/AVX512VL/include
+  )
+  # end INTEL_FEATURE\_ISA_AVX512VL
+  include_directories(AFTER ${INTEL_FEATURESPECIFIC_INCLUDE_DIRS})
+  # end INTEL_CUSTOMIZATION
+
+..
+
+  If you create a new LLVM component library for your feature, you must
+  put all the files into a feature specific
+  :ref:`directory <feature-specific-dir>` and create the corresponding
+  LLVMBuild.txt file declaring this library as `optional` (as long as
+  it will not be built in all ICS configurations):
 
 .. code-block:: text
+
+  [component_0]
+  type = OptionalLibrary
+  name = Intel_ISA_AVX512VLSupport
+  ...
+
+..
+
+  To add dependencies to this new library avoid modifying the existing
+  (community and Intel-added) LLVMBuild.txt files, such as:
+
+.. parsed-literal::
 
   [component_0]
   type = Library
   name = Scalar
   parent = Transforms
   library_name = ScalarOpts
-  required_libraries = AggressiveInstCombine Analysis Core InstCombine Support TransformUtils Intel_OptReport
-  ; ***INTEL: Intel_OptReport
+  required_libraries = AggressiveInstCombine Analysis Core InstCombine Support TransformUtils
+  ; INTEL_CUSTOMIZATION
+  ; INTEL_FEATURE\_ISA_AVX512VL
+    Intel_ISA_AVX512VLSupport
+  ; end INTEL_FEATURE\_ISA_AVX512VL
+  ; end INTEL_CUSTOMIZATION
 
-We may have the following in `llvm/lib/Transforms/Scalar/CMakeLists.txt`:
+..
 
-.. _lib-dependencies:
+.. _cmake-customization:
 
-.. code-block:: cmake
+  **Instead**, you must modify the corresponding CMakeLists.txt file like this:
+
+.. parsed-literal::
 
   # INTEL_CUSTOMIZATION
-  target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_OptReport)
+  # INTEL_FEATURE\_ISA_AVX512VL
+  # Set p to TRUE, if ISA_AVX512VL is enabled.
+  is_intel_feature_enabled(p ISA_AVX512VL)
+  if (p)
+    target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_ISA_AVX512VLSupport)
+  endif()
+  # end INTEL_FEATURE\_ISA_AVX512VL
   # end INTEL_CUSTOMIZATION
 
-It is obvious how the LLVM component library dependence may be added
-in a CMakeLists.txt based, for example, on LLVM_INTEL_FEATURES.
-The only caveat is: if an Intel proprietary LLVM component library is not
-used in some compiler build, this build will complain about an unused library
-not being marked as `optional`.  In this case, we should mark this library
-as `optional` using the following `LLVMBuild.txt` syntax:
+..
 
-.. _optional-lib:
+  The two provided methods (`intel_add_file` and `is_intel_feature_enabled`)
+  should allow you to do whatever customization in CMakeLists.txt files.
+  Please remember to guard your feature specific modifications in these files.
 
-.. code-block:: text
+LIT testing for feature specific Intel compiler builds
+======================================================
 
-  [component_0]
-  type = OptionalLibrary
-  name = Intel_Avx3_2ScalarOpt
-  ...
+The recommended way of adding feature specific LIT tests is to put
+the tests into the corresponding :ref:`sub-directory <feature-specific-dir>`
+of `llvm/Intel_OptionalComponents`, and add the test suite conditionally
+based on the `LLVM_INTEL_FEATURES` CMake variable value.  For example,
+see how `DTrans` tests are added in
+`llvm/Intel_OptionalComponents/DTrans/test/CMakeLists.txt`.
 
-.. note:: Otherwise, we do not currently support any sort of preprocessing
-          of LLVMBuild.txt files during the compiler build.
+**TBD** For convenience, it is allowed to add new tests into the existing test
+suites.  As usual, the test files must be properly
+:ref:`guarded <whole-file-guards>`.  You may use the
+`REQUIRES\: \<feature\>` and `UNSUPPORTED\: \<feature\>` directives,
+supported by `llvm-lit`, to identify whether a LIT test
+must run with the current compiler build.
 
-Conditional processing of tablegen (.td) files is not currently supported,
-but we have agreed on the following direction:
+We will have all `lit.site.cfg.py.in`
+and `lit.cfg.py` modified to define `llvm-lit` features based on
+`LLVM_INTEL_FEATURES` variable value for the particular compiler build.
+Every feature specific LIT test must use the corresponding `REQUIRES`
+directive.  For example, a C++ LIT test will look like this:
 
-- We will support simple preprocessor syntax, such as:
+.. parsed-literal::
 
-.. code-block:: c++
+  // INTEL_FEATURE\_ISA_AVX512VL
+  // REQUIRES: ISA_AVX512VL
+  void foo() {} // sanity test
+  // end INTEL_FEATURE\_ISA_AVX512VL
 
-  // INTEL_FEATURE\_AVX3_2
-  // AVX3_2 specific code.
-  // end INTEL_FEATURE\_AVX3_2
+..
 
-- A special Intel tool will be called from `llvm/cmake/modules/TableGen.cmake`
-  (and, maybe, other cmake scripts) to preprocess a .td file into a temporary
-  .td file before passing it to the tablegen.
+Existing LIT tests that become invalid for a feature specific compiler build
+must use `UNSUPPORTED` directive to disable the test for this particular
+build, e.g.:
 
-- The preprocessing will only work for .td files participating in tablegen()
-  commands in `CMakeLists.txt` files, i.e. preprocessing will not work
-  for "included" .td files.
+.. parsed-literal::
 
-.. note:: TODO: update this text, when the preprocessing tool is ready and
-          plugged into the build process.
+  // INTEL_FEATURE\_ISA_AVX512VL
+  // UNSUPPORTED: ISA_AVX512VL
+  // end INTEL_FEATURE\_ISA_AVX512VL
+  void foo() {} // sanity test
 
-``Source code isolation``
--------------------------
+..
 
-There may be cases, when some parts of the source code must be isolated
-into a separate directory with its own access rights.  For example,
-the compiler team is developing a secret feature, which cannot be exposed
-in any way to other teams that have access to xmain repository.
-The approved solution for this is to put such source code into a subdirectory
-of `llvm/Intel_OptionalComponents` and plug in things from this subdirectory
-during the compiler build using LLVM_INTEL_FEATURES controls.  Each subdirectory
-of `llvm/Intel_OptionalComponents` may be put into a separate repository
-providing a way for access control.
+TC testing for feature specific Intel compiler builds
+=====================================================
 
-If implementation of a feature may done as a LLVM component library, then
-this library must be declared as :ref:`optional <optional-lib>` and it may
-be optionally :ref:`linked <lib-dependencies>` to some existing LLVM component
-library to extend its functionality.
+TC has comprehensive list of controls to enable/disable particular
+tests, based, for example, on the compiler build's ICS configuration.
 
-In most cases, we will have to have source code references to the isolated
-feature implmenentation, e.g. to C/C++ header files containing common
-interfaces.  This may be done by setting include directories for the compiler
-build in `llvm/CMakeLists.txt`:
+There is currently no way to partition the TC tests data base and
+use different access rights to different portions.  This means
+any person having access to TC tests data base, has access to all
+tests.  This does not constrain adding TC tests for `secret` features,
+but special care must be taken when a person is granted access
+to TC test data base.  Basically, the person must be approved
+to get access to all `secret` features.
 
-.. code-block:: cmake
+.. _release-compiler-build:
 
-  if (";${LLVM_INTEL_FEATURES};" MATCHES ";AVX3_2;")
-    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
-    set(INTEL_AVX3_2_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/AVX3_2/include)
-    include_directories(AFTER ${INTEL_AVX3_2_INCLUDE_DIR})
-    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} Intel_Avx3_2ScalarOpt)
-  endif()
+**Release** feature specific Intel compiler builds
+==================================================
 
-This code allows using flat C/C++ include paths for header files located
-in `llvm/Intel_OptionalComponents/AVX3_2/include`.  Such include directives
-obviously need to be guarded with the corresponding INTEL_FEATURE\_AVX3_2
-macro check.
+ICL develops many `public` and `secret` features in xmain,
+and we have to be able to build a `release` compiler at any point
+in time for any subset of the features :ref:`supported <supported-features>`
+by the compiler.  This section describes a process of building a `release`
+compiler, and it starts with the requirements:
 
-The same way, C/C++ source files may be conditionally added to the compiler
-build using full paths like :ref:`${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/\
-AVX3_2/lib/Transforms/Intel_Avx3_2.cpp <conditional-comp>`.
+- Each `release` compiler build is defined by a list of features
+  (both `public` and `secret`).  We will refer to this list
+  as `features-list`.
+
+- A built `release` compiler must support all features from `features-list`
+  e.g. the compiler binaries are functional a for these features.
+  Any features not listed must not be supported by the compiler binaries.
+
+- Compiler header files shipped with the compiler package may contain
+  code for the features from `features-list` - this code must remain
+  in the heder files, otherwise, the code for any feature not listed
+  must be stripped from the `release` compiler package.
+
+- The special `INTEL_INTERNAL_BUILD` feature must never be
+  listed in `features-list` for a `release` build.
+
+ICL uses the following process for building `release` compilers:
+
+- Every different flavor of the `release` compilers is defined
+  by the corresponding ICS configuration file (.vrd), for example,
+  xmainavx512vlefi2linux - compiler with `ISA_AVX512VL` support
+  that may be shipped to customer `A` under NDA; xmainfutureisaefi2linux -
+  compiler with all future `ISA` support that may be shipped to AEs
+  for early evaluation; xmainefi2linux - compiler without any `secret`
+  features that may be used as a generic product release.
+
+- Such a configuration file :ref:`defines <vrd-config>` all features from
+  `features-list` for the ICS build tools.  This guarantees that the compiler
+  binary files only support the specified list of features.
+  'prod' and 'debug' configurations must list `INTEL_INTERNAL_BUILD`,
+  whereas 'release' configuration must not list it.
+
+- The default 'debug' and 'prod' builds should have the same feature list
+  as the default release build with the exception of
+  `INTEL_INTERNAL_BUILD`.
+
+- ICS QA/deploy tools use the same list of features from the configuration file
+  to process source files shipped with the `release` package, such as compiler
+  header files.  The tools strip regions for all features not from
+  `features-list`.  The list of formats of the regions for stripping
+  is in the :ref:`Intel code markup references table <supported-markups>`.
+  There is a filtering :ref:`tool <feature-filter-tool>` that must be used
+  for stripping the regions.  The QA/deploy tools specify the list of features
+  from the ICS configuration file to the filtering
+  :ref:`tool <feature-filter-tool>` - the tool filters out all the not listed
+  features' regions.
+
+Intel code markup references table
+==================================
+
+.. _supported-markups:
+
+The table below lists all the supported ways of marking Intel custom code.
+There are different allowed markups for INTEL_CUSTOMIZATION and INTEL_FEATURE\_.
+All the markups allow an arbitrary amount of whitespace, but otherwise should
+be used exactly as written in the table.
+
+If it is not listed in the table, then it is **NOT SUPPORTED**.
+If you use something that is not in the table, expect that your code will
+fail QA verification.  For example, you cannot use negation for INTEL_FEATURE\_
+checks, but you can use it for INTEL_CUSTOMIZATION checks:
+
+.. note:: The table may be extended.  All extensions need to be discussed with
+          `ICL Process Management Team <mailto:ICLProcessTeam@intel.com>`_
+
+.. parsed-literal::
+
+  // This usage is **not** allowed.
+  #if !INTEL_FEATURE\_ISA_AVX512VL
+  // Some code.
+  #endif // INTEL_FEATURE\_ISA_AVX512VL
+
+.. parsed-literal::
+
+  // This usage with empty #if clause is allowed.
+  #if INTEL_FEATURE\_ISA_AVX512VL
+  #else // INTEL_FEATURE\_ISA_AVX512VL
+  // Some code.
+  #endif // INTEL_FEATURE\_ISA_AVX512VL
+
+.. |br| raw:: html
+
+   <br />
+
++-------------------------+-------------------------------------+------------------------------------+
+| File type               | Intel customization markup          | Intel feature markup               |
++=========================+=====================================+====================================+
+| `.cpp/.h`               |                                     |                                    |
+| |br|                    | `#if INTEL_CUSTOMIZATION`           | `#if INTEL_FEATURE\_XXX`           |
+| Other files             | |br|                                | |br|                               |
+| included into           | `...`                               | `...`                              |
+| C/C++ files,            | |br|                                | |br|                               |
+| e.g. `.def`             | `#endif // INTEL_CUSTOMIZATION`     | `#endif // INTEL_FEATURE\_XXX`     |
+|                         +-------------------------------------+------------------------------------+
+|                         | `#if INTEL_CUSTOMIZATION`           | `#if INTEL_FEATURE\_XXX`           |
+|                         | |br|                                | |br|                               |
+|                         | `...`                               | `...`                              |
+|                         | |br|                                | |br|                               |
+|                         | `#else // INTEL_CUSTOMIZATION`      | `#else // INTEL_FEATURE\_XXX`      |
+|                         | |br|                                | |br|                               |
+|                         | `...`                               | `...`                              |
+|                         | |br|                                | |br|                               |
+|                         | `#endif // INTEL_CUSTOMIZATION`     | `#endif // INTEL_FEATURE\_XXX`     |
+|                         +-------------------------------------+------------------------------------+
+|                         | `#if !INTEL_CUSTOMIZATION`          |                                    |
+|                         | |br|                                |                                    |
+|                         | `...`                               |                                    |
+|                         | |br|                                |                                    |
+|                         | `#endif // INTEL_CUSTOMIZATION`     |                                    |
+|                         +-------------------------------------+                                    |
+|                         | `#if !INTEL_CUSTOMIZATION`          |                                    |
+|                         | |br|                                |                                    |
+|                         | `...`                               |                                    |
+|                         | |br|                                |                                    |
+|                         | `#else // INTEL_CUSTOMIZATION`      |                                    |
+|                         | |br|                                |                                    |
+|                         | `...`                               |                                    |
+|                         | |br|                                |                                    |
+|                         | `#endif // INTEL_CUSTOMIZATION`     |                                    |
+|                         +-------------------------------------+                                    |
+|                         | `\<single-line change\> // INTEL`   |                                    |
+|                         +-------------------------------------+                                    |
+|                         | `\<single-line change\>`            |                                    |
+|                         | `// INTEL_CUSTOMIZATION`            |                                    |
++-------------------------+-------------------------------------+------------------------------------+
+| Compiler header         |                                     |                                    |
+| files that are shipped  | `\/\* INTEL_CUSTOMIZATION \*\/`     | `\/\* INTEL_FEATURE\_XXX \*\/`     |
+| with the compiler       | |br|                                | |br|                               |
+| package                 | `...`                               | `...`                              |
+|                         | |br|                                | |br|                               |
+|                         | `\/\* end INTEL_CUSTOMIZATION \*\/` | `\/\* end INTEL_FEATURE\_XXX \*\/` |
+|                         +-------------------------------------+------------------------------------+
+|                         | `\<single-line change\>`            |                                    |
+|                         | `\/\* INTEL \*\/`                   |                                    |
+|                         +-------------------------------------+                                    |
+|                         | `\<single-line change\>`            |                                    |
+|                         | `// INTEL_CUSTOMIZATION`            |                                    |
++-------------------------+-------------------------------------+------------------------------------+
+| `.td`                   | `// INTEL_CUSTOMIZATION`            | `// INTEL_FEATURE\_XXX`            |
+| |br|                    | |br|                                | |br|                               |
+| We will have C-like     | `...`                               | `...`                              |
+| preprocessing support   | |br|                                | |br|                               |
+| for .td files soon      | `// end INTEL_CUSTOMIZATION`        | `// end INTEL_FEATURE\_XXX`        |
++-------------------------+-------------------------------------+------------------------------------+
+| `CMakeLists.txt`        | `# INTEL_CUSTOMIZATION`             | `# INTEL_FEATURE\_XXX`             |
+| |br|                    | |br|                                | |br|                               |
+| Other files             | `...`                               | `...`                              |
+| recognizing `\#`        | |br|                                | |br|                               |
+| as a comment, e.g.      | `# end INTEL_CUSTOMIZATION`         | `# end INTEL_FEATURE\_XXX`         |
+| `.py`, `.mir`,          +-------------------------------------+                                    |
+| `.gitignore`,           | `\<single-line change\> # INTEL`    |                                    |
+| `.gitattribute`         +-------------------------------------+                                    |
+|                         | `\<single-line change\>`            |                                    |
+|                         | `# INTEL_CUSTOMIZATION`             |                                    |
++-------------------------+-------------------------------------+------------------------------------+
+| Dynamic checks in       | `if(INTEL_CUSTOMIZATION)`           | Dynamic checks are supported       |
+| `CMakeLists.txt` only   | |br|                                | by is_intel_feature_enabled()      |
+|                         | `...`                               | macro, but they still              |
+|                         | |br|                                | have to be guarded as shown        |
+|                         | `else(INTEL_CUSTOMIZATION)`         | in the cell above.                 |
+|                         | |br|                                |                                    |
+|                         | `...`                               |                                    |
+|                         | |br|                                |                                    |
+|                         | `endif(INTEL_CUSTOMIZATION)`        |                                    |
+|                         +-------------------------------------+                                    |
+|                         | `if(INTEL_CUSTOMIZATION)`           |                                    |
+|                         | |br|                                |                                    |
+|                         | `...`                               |                                    |
+|                         | |br|                                |                                    |
+|                         | `endif(INTEL_CUSTOMIZATION)`        |                                    |
++-------------------------+-------------------------------------+------------------------------------+
+| `LLVMBuild.txt`         | `; INTEL_CUSTOMIZATION`             | `; INTEL_FEATURE\_XXX`             |
+| |br|                    | |br|                                | |br|                               |
+| Other files recognizing | `...`                               | `...`                              |
+| `\;` as a comment, e.g. | |br|                                | |br|                               |
+| `.ll`                   | `; end INTEL_CUSTOMIZATION`         | `; end INTEL_FEATURE\_XXX`         |
+|                         +-------------------------------------+                                    |
+|                         | `\<single-line change\> ; INTEL`    |                                    |
+|                         +-------------------------------------+                                    |
+|                         | `\<single-line change\>`            |                                    |
+|                         | `; INTEL_CUSTOMIZATION`             |                                    |
++-------------------------+-------------------------------------+------------------------------------+
+| `.rst` |br|             | `\<blank line\>`                    | `\<blank line\>`                   |
+| In some constructs      | |br|                                | |br|                               |
+| it is not possible      | `\.\. INTEL_CUSTOMIZATION \.\*`     | `\.\. INTEL_FEATURE\_XXX`          |
+| to use this syntax,     | |br|                                | |br|                               |
+| though.                 | `\<blank line\>`                    | `\<blank line\>`                   |
+| `\<blank line\>`  may   | |br|                                | |br|                               |
+| be omitted in some      | `\.\. end INTEL_CUSTOMIZATION \.\*` | `\.\. end INTEL_FEATURE\_XXX`      |
+| cases                   +-------------------------------------+                                    |
+|                         | `\<blank line\>`                    |                                    |
+|                         | |br|                                |                                    |
+|                         | `\.\. INTEL_CUSTOMIZATION \.\*`     |                                    |
+|                         | |br|                                |                                    |
+|                         | `\<blank line\>`                    |                                    |
+|                         | `\<single-line change\>`            |                                    |
++-------------------------+-------------------------------------+------------------------------------+
+
+.. _xmain-shared-process:
+
+Maintaining xmain-shared collaborative repository
+=================================================
+
+ICL provides access to its own IP added to LLVM compiler.  The access for Intel
+teams is done via `xmain-shared` collaborative repository.  Right now we
+anticipate only one `xmain-shared` repository that will not contain code
+related to any `secret` features.  In the future, it may be possible
+to have a set of collaborative repositories with different sets of shared
+features.  This section describes the process of creation and regular
+updates of `xmain-shared` from `xmain`.  Herefrom, `xmain` stands
+for only the following repositories: `dpd_icl-llvm`, `dpd_icl-clang`
+and `dpd_icl-openmp` (this list may be extended, as needed by collaborating
+teams).
+
+`dpd_icl-xtoolsup` repository must never be made available to
+collaborators, because there is currently no way to guard feature
+specific changes in these files.
+
+- `xmain-shared` is created from the `xmain` repository that does not
+  contain any `secret` features' implementations.  The reference date
+  for such a `clean xmain` is 1/1/2017.
+
+- Every commit to `xmain` happened after the reference date
+  must be processed and put into `xmain-shared`:
+
+  * Branch merge commit to `xmain` is processed as a single commit,
+    i.e. the history of the branch commits does not get propagated to
+    `xmain-shared`.
+
+  * Merges from LLorg cannot hold any `secrets`, so they are merged
+    into `xmain-shared` as merge-from-master commits, and the corresponding
+    individual commits history is preserved in `xmain-shared`.
+
+  * For each single commit, the `xmain-shared` update demon runs
+    the :ref:`filtering tool <feature-filter-tool>` and passes all
+    `public` features listed in :ref:`llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt <supported-features>`.
+    The filtering tool is applied to a complete ICS workspace (regardless
+    of the files that were modified by the single commit).
+    The ICS workspace created as the result of filtering is copied over
+    the current `head` `xmain-shared` workspace.
+    If there are no modified files after the filtering, then this commit
+    is ignored, i.e. it is not put into `xmain-shared`.
+
+  * The original `xmain` commit message is filtered by the `xmain-shared` update
+    demon regarding `INTEL_FEATURE` :ref:`regions <secret-commits>`.
+    If the commit message becomes empty due to filtering, the `xmain-shared`
+    commit message must say "Commit message filtered out".
+
+- In future we may want to maintain several features list
+  :ref:`files <supported-features>` for different `xmain-shared` repositories.
+
+.. _feature-filter-tool:
+
+Feature filtering tool specification
+====================================
+
+The following describes the functionality of the feature filtering tool:
+
+- The tool supports feature regions guard formats listed in the
+  :ref:`Intel code markup references table <supported-markups>`.
+
+- The tool accepts `source` and `destination` paths.  All files and
+  directories from `source` are recursively filtered as defined below
+  and put into `destination`.
+
+- **TBD** The tool accepts a list of features that must not be filtered out.
+  The regions for features not listed must be filtered out.
+
+- If a `source` directory contains a file named
+  :ref:`.intel_features <feature-specific-dir>`,
+  and inside the file there is a feature that must be filtered out
+  (i.e. it is not in the list passed to the tool), then the whole
+  directory is left out of `destination`.
+
+- The tool does not process `.git` and `.repo` directories and does not
+  copy them into `destination`.
+
+- The tool reports errors on malformed regions.
+
+- If a file from `source` must be processed (i.e. it is not located
+  inside :ref:`feature specific directory <feature-specific-dir>` that
+  must be completely filtered out), it contains at least one
+  feature regions, and it becomes empty due to filtering, then
+  this file is not copied to `destination`.
 
 Coding Standards
 ================
