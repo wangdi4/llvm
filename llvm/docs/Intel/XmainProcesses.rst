@@ -84,6 +84,24 @@ resolve them and upload a new change set for further review. The amount of
 testing of the new change set is at your discretion but requires agreement
 from the gatekeeper.
 
+For branch promotions, gatekeeping is done primarily via
+`Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ and `repo upload`,
+using the following process:
+
+- Multiple-repository promotions must be tested locally using alloy,
+  whereas single-repository promotions may still use alloy testing
+  integrated to `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_.
+
+- The promoter may set the code review +1 or ask one or more team members
+  to inspect the promotion changes and set code review +1.
+
+- The actual push of the promotion changes must be done using `ics merge -push`,
+  because `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ does not
+  support submitting promotion changes.
+
+- The created `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ review
+  must be abandoned after `ics merge -push` is done.
+
 ..
     The following paragraph provides a link that automatically opens up an email
     with the xmain checkin request form. It is not very human-readable, because
@@ -91,7 +109,10 @@ from the gatekeeper.
     %20. We should change this if there is a more human-readable form that
     achieves the same functionality.
 
-For branch promotions, gatekeeping is done via email. When a developer is ready
+Whenever possible, perform branch promotions using
+`Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ to notify
+``xmain gatekeeper``.  If for some reason it is not possible, then
+gatekeeping must be done via email. When a developer is ready
 to commit a change, the `xmain checkin request form
 <mailto:icl.xmain.gatekeeper@intel.com?
 subject=xmain%20checkin%20request%20(Edit%20this%20description%20and%20date%20
