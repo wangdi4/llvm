@@ -393,8 +393,9 @@ class HIRParser {
                              const Loop *Lp);
 
   /// Returns the size of the contained type in bytes. Incoming type is expected
-  /// to be a pointer type.
-  unsigned getElementSize(Type *Ty) const;
+  /// to be a pointer type. May return zero if the pointer element type is
+  /// not-sized.
+  unsigned getPointerElementSize(Type *Ty) const;
 
   // Returns true if it is valid to parse this GEPOrSubsOperator.
   bool isValidGEPOp(const GEPOrSubsOperator *GEPOp) const;

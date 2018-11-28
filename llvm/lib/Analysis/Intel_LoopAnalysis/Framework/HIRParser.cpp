@@ -2719,12 +2719,12 @@ void HIRParser::parse(HLSwitch *Switch) {
   }
 }
 
-unsigned HIRParser::getElementSize(Type *Ty) const {
+unsigned HIRParser::getPointerElementSize(Type *Ty) const {
   assert(isa<PointerType>(Ty) && "Invalid type!");
 
   auto ElTy = cast<PointerType>(Ty)->getElementType();
 
-  return getDataLayout().getTypeStoreSize(ElTy);
+  return ElTy->isSized() ? getDataLayout().getTypeStoreSize(ElTy) : 0;
 }
 
 const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
@@ -2803,7 +2803,7 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
   auto PhiTy = Phi->getType();
 
   // Divide by element size to convert byte offset to number of elements.
-  IndexCE->divide(getElementSize(PhiTy));
+  IndexCE->divide(getPointerElementSize(PhiTy));
   IndexCE->simplify(true);
 
   // Bail out if element size does not divide stride evenly and Phi has an
@@ -3269,7 +3269,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     Type *CurBasePhiTy = CurBasePhi->getType();
 
     CanonExpr *StrideCE = getCanonExprUtils().createCanonExpr(
-        OffsetTy, 0, getElementSize(CurBasePhiTy));
+        OffsetTy, 0, getPointerElementSize(CurBasePhiTy));
 
     addPhiBaseGEPDimensions(GEPOp, InitGEPOp, Ref, IndexCE, StrideCE,
                             CurBasePhiTy, Level);
