@@ -64,7 +64,12 @@ void foo_ii_at_least()
 void foo_speculated_iterations()
 {
   //CHECK: br{{.*}}!llvm.loop [[SPECIT1:![0-9]+]]
+  #pragma speculated_iterations 0
+  for (int i=0;i<32;++i) {}
+  //CHECK: br{{.*}}!llvm.loop [[SPECIT2:![0-9]+]]
   #pragma speculated_iterations 4
+  for (int i=0;i<32;++i) {}
+  //CHECK-NOT:br{{.*}}!llvm.loop
   for (int i=0;i<32;++i) {}
 }
 
@@ -199,7 +204,9 @@ void foo_ivdep(int select)
 //CHECK: [[IILEAST1]] = distinct !{[[IILEAST1]], [[IILEAST1A:![0-9]+]]}
 //CHECK: [[IILEAST1A]] = !{!"llvm.loop.intel.ii.at.least.count", i32 4}
 //CHECK: [[SPECIT1]] = distinct !{[[SPECIT1]], [[SPECIT1A:![0-9]+]]}
-//CHECK: [[SPECIT1A]] = !{!"llvm.loop.intel.speculated.iterations.count", i32 4}
+//CHECK: [[SPECIT1A]] = !{!"llvm.loop.intel.speculated.iterations.count", i32 0}
+//CHECK: [[SPECIT2]] = distinct !{[[SPECIT2]], [[SPECIT2A:![0-9]+]]}
+//CHECK: [[SPECIT2A]] = !{!"llvm.loop.intel.speculated.iterations.count", i32 4}
 //CHECK: [[IIMAX1]] = distinct !{[[IIMAX1]], [[IIMAX2:![0-9]+]]}
 //CHECK: [[IIMAX2]] = !{!"llvm.loop.intel.min.ii.at.target.fmax"}
 //CHECK: [[DISPIP1]] = distinct !{[[DISPIP1]], [[DISPIP2:![0-9]+]]}

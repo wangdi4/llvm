@@ -979,6 +979,8 @@ Syntax:
   #pragma min_ii_at_target_fmax
   #pragma disable_loop_pipelining
 
+Note: the speculated_iterations accept 0.
+
 The implementation uses the existing clang LoopHint attribute framework to
 produce LoopHint metadata.  The table below shows the Options, States, and the
 Metadata produced.

@@ -328,4 +328,6 @@ def err_ap_int_bad_size : Error <
   "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
 def err_fpga_reg_limitations : Error <
   "non-POD and array types cannot be passed to __builtin_fpga_reg">;
+def err_pragma_loop_invalid_negative_value : Error<
+  "invalid value '%0'; must be non-negative">;
 } // end of sema component.
