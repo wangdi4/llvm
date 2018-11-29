@@ -67,6 +67,7 @@ class OptReportDiag;
 } // namespace loopopt
 
 namespace vpo {
+class SyncDependenceAnalysis;
 class VPValue;
 class VPlan;
 class VPBlockBase;

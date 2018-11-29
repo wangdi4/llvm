@@ -749,8 +749,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // TODO: Determine if we want to have a separate DA instance for each VF.
     // Currently, there is only one instance and no distinction between VFs.
     // i.e., values are either uniform or divergent for all VFs.
+    VPLoop *CandidateLoop = *VPLInfo->begin();
     auto *VPDA = new VPlanDivergenceAnalysis();
-    VPDA->compute(*(VPLInfo->begin()), VPLInfo, &VPDomTree, &VPPostDomTree);
+    VPDA->compute(CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
     Plan->setVPlanDA(VPDA);
   }
 #endif /* INTEL_CUSTOMIZATION */
