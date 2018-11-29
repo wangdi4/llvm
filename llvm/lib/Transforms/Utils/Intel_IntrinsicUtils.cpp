@@ -97,11 +97,6 @@ CallInst *IntelIntrinsicUtils::createSimdDirectiveEnd(Module &M,
       IntelIntrinsicUtils::getDirectiveString(DIR_OMP_END_SIMD), OpBundleVal1);
   IntrinOpBundle.push_back(OpBundle1);
 
-  SmallVector<llvm::Value *, 1> OpBundleVal2;
-  llvm::OperandBundleDef OpBundle2(
-      IntelIntrinsicUtils::getDirectiveString(DIR_QUAL_LIST_END), OpBundleVal2);
-  IntrinOpBundle.push_back(OpBundle2);
-
   SmallVector<llvm::Value *, 1> Arg;
   Arg.push_back(EntryDirCall);
 

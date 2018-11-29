@@ -42,7 +42,6 @@
 ; CHECK: simd.end.region:
 ; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
 ; CHECK-SAME: DIR.OMP.END.SIMD
-; CHECK-SAME: DIR.QUAL.LIST.END
 ; CHECK-NEXT: br label %return
 
 ; CHECK: return:
