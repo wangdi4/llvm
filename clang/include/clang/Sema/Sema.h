@@ -7118,8 +7118,7 @@ public:
                           QualType ArgFunctionType,
                           FunctionDecl *&Specialization,
                           sema::TemplateDeductionInfo &Info,
-                          bool InOverloadResolution = false, // INTEL
-                          bool IgnoreExceptionSpecDifferences = false); // INTEL
+                          bool InOverloadResolution = false);
 
   TemplateDeductionResult
   DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
