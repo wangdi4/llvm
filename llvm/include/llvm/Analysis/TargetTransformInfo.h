@@ -440,6 +440,12 @@ public:
   /// \brief Get target-customized default threshold for loop rotation.
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
 
+#if INTEL_CUSTOMIZATION
+  /// Return true if introducing less structured control flow will generally
+  /// cause performance degradations for the target.
+  bool needsStructuredCFG() const;
+#endif
+
   /// @}
 
   /// \name Scalar Target Information
@@ -1189,6 +1195,7 @@ public:
 
   virtual bool
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const = 0;
+  virtual bool needsStructuredCFG() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                           unsigned SrcAlign,
@@ -1575,6 +1582,11 @@ public:
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const override {
     return Impl.isTargetSpecificShuffleMask(Mask);
   }
+
+  bool needsStructuredCFG() const override {
+    return Impl.needsStructuredCFG();
+  }
+
 #endif // INTEL_CUSTOMIZATION
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAlign,

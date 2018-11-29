@@ -50,6 +50,7 @@ add_llvm_target(CSACodeGen
   CSAStreamingMemoryPrep.cpp
   CSASubtarget.cpp
   CSATargetMachine.cpp
+  CSATargetTransformInfo.cpp
   MachineCDG.cpp
   CSAUtils.cpp
   CSAProcedureCalls.cpp

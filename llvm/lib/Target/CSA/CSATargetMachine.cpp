@@ -20,6 +20,7 @@
 #include "CSAIntrinsicCleaner.h"
 #include "CSALoopIntrinsicExpander.h"
 #include "CSALowerLoopIdioms.h"
+#include "CSATargetTransformInfo.h"
 #include "CSAUtils.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -159,6 +160,11 @@ CSATargetMachine::getSubtargetImpl(const Function &F) const {
     I = llvm::make_unique<CSASubtarget>(TargetTriple, CPU, FS, *this);
   }
   return I.get();
+}
+
+TargetTransformInfo
+CSATargetMachine::getTargetTransformInfo(const Function &F) {
+  return TargetTransformInfo(CSATTIImpl(this, F));
 }
 
 namespace {

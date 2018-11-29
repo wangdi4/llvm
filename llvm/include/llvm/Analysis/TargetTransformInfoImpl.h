@@ -517,6 +517,8 @@ public:
     return false;
   }
 
+  bool needsStructuredCFG() const { return false; }
+
 #endif
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAlign, unsigned DestAlign) const {

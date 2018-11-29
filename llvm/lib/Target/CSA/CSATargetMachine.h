@@ -74,6 +74,8 @@ public:
   bool addPassesToEmitFile(PassManagerBase &PM, raw_pwrite_stream &Out,
                            raw_pwrite_stream *DwoOut, CodeGenFileType FileType,
                            bool DisableVerify, MachineModuleInfo *MMI) override;
+
+  TargetTransformInfo getTargetTransformInfo(const Function &F) override;
 };
 
 } // namespace llvm
