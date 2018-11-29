@@ -251,12 +251,6 @@ class StructurizeCFG : public RegionPass {
 
   void rebuildSSA();
 
-#if INTEL_CUSTOMIZATION
-  bool isRestructRequired();
-
-  bool isMultiExitingLoop(Loop *);
-#endif
-
 public:
   static char ID;
 
@@ -1019,11 +1013,6 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-#if INTEL_CUSTOMIZATION
-  if (!isRestructRequired())
-    return false;
-#endif  // INTEL_CUSTOMIZATION
-
   orderNodes();
   collectInfos();
   createFlow();
@@ -1045,41 +1034,6 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
 
   return true;
 }
-
-#if INTEL_CUSTOMIZATION
-bool StructurizeCFG::isRestructRequired() {
-#if INTEL_FEATURE_CSA
-  // TODO (vzakhari 6/20/2018): figure out why this code is needed.
-  //       If it is needed, then we have to abstract it into the target's
-  //       property and do not check for CSA explicitly.
-
-  // Restructuring is required by default for non-CSA targets.
-  if (Func->getParent()->getTargetTriple().compare("csa") != 0)
-    return true;
-
-  for (auto ILoop = LI->begin(), LE = LI->end(); ILoop != LE; ++ILoop) {
-    if (isMultiExitingLoop(*ILoop)) {
-      return true;
-    }
-  }
-  return false;
-#else  // INTEL_FEATURE_CSA
-  return true;
-#endif  // INTEL_FEATURE_CSA
-}
-
-bool StructurizeCFG::isMultiExitingLoop(Loop *L) {
-  if (L->getExitingBlock() == nullptr)
-    return true;
-
-  for (auto ILoop = L->begin(), LE = L->end(); ILoop != LE; ++ILoop) {
-    if (isMultiExitingLoop(*ILoop))
-      return true;
-  }
-
-  return false;
-}
-#endif  // INTEL_CUSTOMIZATION
 
 Pass *llvm::createStructurizeCFGPass(bool SkipUniformRegions) {
   return new StructurizeCFG(SkipUniformRegions);

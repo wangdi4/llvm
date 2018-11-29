@@ -65,11 +65,6 @@ static cl::opt<int> RunCSAStatistics(
   cl::desc("CSA Specific: collect statistics for DF instructions"),
   cl::init(0));
 
-static cl::opt<int>
-  CSAStructurizeCFG("csa-structurize-cfg", cl::Hidden,
-                    cl::desc("CSA Specific: leverage llvm StructurizeCFG"),
-                    cl::init(1));
-
 // Helper function to build a DataLayout string
 static std::string computeDataLayout() { return "e-m:e-i64:64-n32:64"; }
 
@@ -212,13 +207,6 @@ public:
     addPass(createLowerSwitchPass());
     // Add a pass to generate more candidates for reduction operations
     addPass(createCSAIRReductionOptPass());
-    if (CSAStructurizeCFG) {
-      addPass(createStructurizeCFGPass(false));
-      // remove the single input phi and constant branch created from
-      // StructurizeCFG
-      addPass(createInstructionCombiningPass());
-      addPass(createCFGSimplificationPass());
-    }
     // Add a pass to identify and prepare inner loops for pipelinling. This
     // only happens at O1+ so as to avoid requiring excessive additional
     // analyses at O0.
