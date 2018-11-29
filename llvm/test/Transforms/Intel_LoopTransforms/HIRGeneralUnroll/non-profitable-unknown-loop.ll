@@ -10,9 +10,8 @@
 ; CHECK: |   if (&((%t523)[0]) != null)
 ; CHECK: |   {
 ; CHECK: |      @free(&((%t523)[0]));
-; CHECK: |      %t527 = (@g_inputLine)[0];
 ; CHECK: |      %t519 = (@rule_count)[0];
-; CHECK: |      %t521 = &((%t527)[0]);
+; CHECK: |      %t521 = (@g_inputLine)[0];
 ; CHECK: |   }
 ; CHECK: |   if (i1 + 1 < %t519)
 ; CHECK: |   {

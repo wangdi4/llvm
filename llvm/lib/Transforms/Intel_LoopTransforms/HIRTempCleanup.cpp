@@ -411,6 +411,12 @@ void TempSubstituter::visit(HLDDNode *Node) {
       }
 
       if (Temp.isLoad()) {
+        // Loaded pointer values may also be substituted the same as
+        // self blobs if they represent a self value not an expression.
+        //   %16 = (%4)[4 * i1];
+        //   &((%16)[0]) -> (%4)[4 * i1]
+        bool IsSelfPointer = Ref->isSelfAddressOf();
+
         // Cannot subtitute load if-
         // 1) There is more than one use, OR
         // 2) Temp is not substitutable, OR
@@ -418,8 +424,8 @@ void TempSubstituter::visit(HLDDNode *Node) {
         // tree), OR
         // 4) Node is a HLLoop.
         // 5) The use is inside a different loop.
-        if (Temp.getUseRef() || !Temp.isSubstitutable() || !IsSelfBlob ||
-            isa<HLLoop>(Node) ||
+        if (Temp.getUseRef() || !Temp.isSubstitutable() ||
+            !(IsSelfBlob || IsSelfPointer) || isa<HLLoop>(Node) ||
             (Node->getLexicalParentLoop() != Temp.getLoop())) {
           Temp.markInvalid();
 
@@ -537,9 +543,7 @@ bool TempSubstituter::isLiveoutCopy(HLInst *HInst) const {
          "Lval of liveout copy is not a self blob!");
 
   RegDDRef *RvalRef = HInst->getRvalDDRef();
-  if (!RvalRef->isSelfBlob() &&
-      !(RvalRef->isAddressOf() && (RvalRef->getNumDimensions() == 1) &&
-        (*RvalRef->canon_begin())->isZero())) {
+  if (!RvalRef->isSelfBlob() && !RvalRef->isSelfAddressOf()) {
     return false;
   }
 

@@ -319,6 +319,14 @@ public:
     return StructElemTy && StructElemTy->isOpaque();
   }
 
+  // Returns true if the reference really represents a pointer value equal
+  // to the BaseCE: &((%b)[0]).
+  bool isSelfAddressOf() const {
+    return isAddressOf() && (getNumDimensions() == 1) &&
+           getSingleCanonExpr()->isZero() &&
+           getTrailingStructOffsets(1).empty() && !getBitCastDestType();
+  }
+
   /// Returns the dest type of the bitcast applied to GEP DDRefs, asserts
   /// for non-GEP DDRefs. For example-
   ///

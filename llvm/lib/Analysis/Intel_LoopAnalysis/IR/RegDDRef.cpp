@@ -1427,10 +1427,6 @@ RegDDRef::getTrailingStructOffsets(unsigned DimensionNum) const {
     return {};
   }
 
-  if (getGEPInfo()->DimensionOffsets[DimensionNum - 1].empty()) {
-    return {};
-  }
-
   return getGEPInfo()->DimensionOffsets[DimensionNum - 1];
 }
 
