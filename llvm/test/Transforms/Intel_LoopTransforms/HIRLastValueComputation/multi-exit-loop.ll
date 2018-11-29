@@ -25,7 +25,6 @@
 ; CHECK:        |   %0 = (%A)[i1];
 ; CHECK:        |   if (%0 > 0)
 ; CHECK:        |   {
-; CHECK:        |      %i.012.out = i1;
 ; CHECK:        |      goto for.end.loopexit;
 ; CHECK:        |   }
 ; CHECK:        |   (%A)[i1] = %0 + 1;

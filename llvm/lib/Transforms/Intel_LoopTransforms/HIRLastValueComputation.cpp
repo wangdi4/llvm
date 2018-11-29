@@ -137,14 +137,76 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
   return true;
 }
 
-static void
+static bool isLiveOutOfEdge(unsigned Symbase, BasicBlock *SrcBB,
+                            BasicBlock *TargetBB, HLRegion *ParRegion) {
+  bool IsLiveout = false;
+
+  // Check if the symbase of any liveout value going from src -> target bblock
+  // matches incoming symbase.
+  for (auto &Phi : TargetBB->phis()) {
+    auto *LiveoutInst =
+        dyn_cast<Instruction>(Phi.getIncomingValueForBlock(SrcBB));
+
+    if (!LiveoutInst || !ParRegion->containsBBlock(LiveoutInst->getParent()) ||
+        (ParRegion->getLiveOutSymbase(LiveoutInst) != Symbase)) {
+      continue;
+    }
+
+    IsLiveout = true;
+    break;
+  }
+
+  return IsLiveout;
+}
+
+static bool isLiveOutOfNormalExit(unsigned Symbase, HLLoop *Lp) {
+  auto *ParRegion = Lp->getParentRegion();
+
+  if (Lp != ParRegion->getLastChild()) {
+    // This information cannot be computed easily for other cases so we give
+    // up.
+    return true;
+  }
+
+  auto *SrcBB = ParRegion->getExitBBlock();
+  auto *TargetBB = ParRegion->getSuccBBlock();
+
+  if (!SrcBB || !TargetBB) {
+    // Can we assert on this?
+    return false;
+  }
+
+  return isLiveOutOfEdge(Symbase, SrcBB, TargetBB, ParRegion);
+}
+
+static bool isLiveOutOfGoto(unsigned Symbase, HLGoto *Goto,
+                            HLRegion *ParRegion) {
+  if (!Goto->isExternal()) {
+    // This information cannot be computed easily for internal jumps so we give
+    // up.
+    return true;
+  }
+
+  auto *SrcBB = Goto->getSrcBBlock();
+  auto *TargetBB = Goto->getTargetBBlock();
+
+  return isLiveOutOfEdge(Symbase, SrcBB, TargetBB, ParRegion);
+}
+
+static bool
 processEarlyExits(SmallVectorImpl<HLGoto *> &Gotos, HLInst *HInst,
                   SmallDenseMap<HLGoto *, HLNode *, 16> &GotoInsertPosition) {
+
+  auto *ParRegion = HInst->getParentRegion();
+  unsigned LvalSymbase = HInst->getLvalDDRef()->getSymbase();
+  bool Cloned = false;
 
   for (auto &Goto : Gotos) {
     HLInst *CloneInst = HInst->clone();
 
-    if (HInst->getTopSortNum() < Goto->getTopSortNum()) {
+    if (HInst->getTopSortNum() < Goto->getTopSortNum() &&
+        isLiveOutOfGoto(LvalSymbase, Goto, ParRegion)) {
+
       // We are transforming this-
       //
       // DO i1 = 0, N
@@ -172,8 +234,11 @@ processEarlyExits(SmallVectorImpl<HLGoto *> &Gotos, HLInst *HInst,
       }
 
       GotoInsertPosition[Goto] = CloneInst;
+      Cloned = true;
     }
   }
+
+  return Cloned;
 }
 
 bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
@@ -223,12 +288,21 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
 
   for (auto *HInst : CandidateInsts) {
 
+    unsigned LvalSymbase = HInst->getLvalDDRef()->getSymbase();
+
     if (IsMultiExit) {
-      // TODO:Remove LiveOut Temp if we did not clone it for an early exits
-      // after the instruction
-      processEarlyExits(Gotos, HInst, GotoInsertPosition);
+      bool Cloned = processEarlyExits(Gotos, HInst, GotoInsertPosition);
+
+      if (!Cloned) {
+        Lp->removeLiveOutTemp(LvalSymbase);
+      }
+
+      if (!isLiveOutOfNormalExit(LvalSymbase, Lp)) {
+        HLNodeUtils::remove(HInst);
+        continue;
+      }
     } else {
-      Lp->removeLiveOutTemp(HInst->getLvalDDRef()->getSymbase());
+      Lp->removeLiveOutTemp(LvalSymbase);
     }
 
     for (auto I = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); I != E;
