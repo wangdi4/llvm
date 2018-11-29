@@ -258,7 +258,7 @@ public:
   /// info. For analyzing just this loop, use getInfo() instead.
   void analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
 
-  void markLoopBodyModified(const HLLoop *L) override { InfoMap.erase(L); }
+  void markLoopBodyModified(const HLLoop *L) override;
 
   void printAnalysis(raw_ostream &OS) const override;
 
