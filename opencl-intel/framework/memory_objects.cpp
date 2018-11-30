@@ -29,7 +29,7 @@ using namespace Intel::OpenCL::Framework;
 typedef GenericImageArray<1> Image1DArray;
 typedef GenericImageArray<2> Image2DArray;
 
-// CL_DEVICE_TYPE_ALL matches any device/device group, and may be overridden by specific setting 
+// CL_DEVICE_TYPE_ALL matches any device/device group, and may be overridden by specific setting
 
 REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_ALL, CL_MEMOBJ_GFX_SHARE_NONE, CL_MEM_OBJECT_BUFFER, 0, GenericMemObject)
 REGISTER_MEMORY_OBJECT_CREATOR(CL_DEVICE_TYPE_ALL, CL_MEMOBJ_GFX_SHARE_NONE, CL_MEM_OBJECT_IMAGE1D, 0, GenericMemObject)
