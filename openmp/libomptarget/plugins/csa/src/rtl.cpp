@@ -827,3 +827,11 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
   return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
                                           tgt_offsets, arg_num, 1, 1, 0);
 }
+
+int32_t
+__tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
+                                    void **tgt_args, ptrdiff_t *tgt_offsets,
+                                    int32_t num_args, int32_t num_teams,
+                                    int32_t thread_limit, void *loop_desc) {
+  return OFFLOAD_FAIL;
+}

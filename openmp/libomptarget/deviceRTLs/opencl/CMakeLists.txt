@@ -24,7 +24,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
   set(opencl_flags
     -cc1 -emit-spirv -triple spir64-unknown-unknown -cl-std=CL2.0
-    -include opencl-c.h -o ${opencl_device_rtl}
+    -include opencl-c.h -D INTEL_COLLAB=1 -o ${opencl_device_rtl}
   )
 
   add_custom_target(omptarget-opencl ALL DEPENDS ${opencl_device_rtl})

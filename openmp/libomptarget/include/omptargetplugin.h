@@ -85,6 +85,15 @@ int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry, void **Args,
                                          int32_t NumTeams, int32_t ThreadLimit,
                                          uint64_t loop_tripcount);
 
+#if INTEL_COLLAB
+// Unlike __tgt_rtl_run_target_team_region, a loop descriptor for
+// multi-dimensional loop is passed to this function.
+int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,
+                                            void **Args, ptrdiff_t *Offsets,
+                                            int32_t NumArgs, int32_t NumTeams,
+                                            int32_t ThreadLimit,
+                                            void *LoopDesc);
+#endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
 #endif
