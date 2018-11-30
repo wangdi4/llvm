@@ -1,5 +1,102 @@
 //RUN: %clang_cc1 -fhls -fsyntax-only -ast-dump -verify -pedantic %s | FileCheck %s
 
+//CHECK: VarDecl{{.*}}global_const1
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: DoublePumpAttr
+__attribute__((__doublepump__)) const int global_const1 = 1;
+
+//CHECK: VarDecl{{.*}}global_const2
+//CHECK: MemoryAttr
+__attribute__((__memory__)) const int global_const2 = 1;
+
+//CHECK: VarDecl{{.*}}global_const3
+//CHECK: RegisterAttr
+__attribute__((__register__)) const int global_const3 = 1;
+
+//CHECK: VarDecl{{.*}}global_const4
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: SinglePumpAttr
+__attribute__((__singlepump__)) const int global_const4 = 1;
+
+//CHECK: VarDecl{{.*}}global_const5
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: BankWidthAttr
+//CHECK: IntegerLiteral{{.*}}4{{$}}
+__attribute__((__bankwidth__(4))) const int global_const5 = 1;
+
+//CHECK: VarDecl{{.*}}global_const6
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: NumBanksAttr
+//CHECK: IntegerLiteral{{.*}}8{{$}}
+__attribute__((__numbanks__(8))) const int global_const6 = 1;
+
+//CHECK: VarDecl{{.*}}global_const7
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: NumReadPortsAttr
+//CHECK: IntegerLiteral{{.*}}2{{$}}
+__attribute__((__numreadports__(2))) const int global_const7 = 1;
+
+//CHECK: VarDecl{{.*}}global_const8
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: NumWritePortsAttr
+//CHECK: IntegerLiteral{{.*}}4{{$}}
+__attribute__((__numwriteports__(4))) const int global_const8 = 1;
+
+//CHECK: VarDecl{{.*}}global_const9
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: NumReadPortsAttr
+//CHECK: IntegerLiteral{{.*}}4{{$}}
+//CHECK: NumWritePortsAttr
+//CHECK: IntegerLiteral{{.*}}16{{$}}
+__attribute__((__numports_readonly_writeonly__(4, 16))) const int global_const9 = 1;
+
+//CHECK: VarDecl{{.*}}global_const10
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: MergeAttr{{.*}}"mrg1" "depth"{{$}}
+__attribute__((__merge__("mrg1", "depth"))) const int global_const10 = 1;
+
+//CHECK: VarDecl{{.*}}global_const11
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: MergeAttr{{.*}}"mrg1" "width"{{$}}
+__attribute__((__merge__("mrg1", "width"))) const int global_const11 = 1;
+
+//CHECK: VarDecl{{.*}}global_const12
+//CHECK: StaticArrayResetAttr
+//CHECK: IntegerLiteral{{.*}}0{{$}}
+__attribute__((__static_array_reset__(0))) const int global_const12 = 1;
+
+//CHECK: VarDecl{{.*}}global_const13
+//CHECK: StaticArrayResetAttr
+//CHECK: IntegerLiteral{{.*}}1{{$}}
+__attribute__((__static_array_reset__(1))) const int global_const13 = 1;
+
+//CHECK: VarDecl{{.*}}global_const14
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: InternalMaxBlockRamDepthAttr
+//CHECK: IntegerLiteral{{.*}}32{{$}}
+__attribute__((internal_max_block_ram_depth(32))) const int global_const14 = 1;
+
+//CHECK: VarDecl{{.*}}global_const15
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: OptimizeFMaxAttr
+__attribute__((optimize_fmax)) const int global_const15 = 1;
+
+//CHECK: VarDecl{{.*}}global_const16
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: OptimizeRamUsageAttr
+__attribute__((optimize_ram_usage)) const int global_const16 = 1;
+
+//CHECK: VarDecl{{.*}}global_const17
+//CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+//CHECK: IntegerLiteral{{.*}}16{{$}}
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: BankBitsAttr
+//CHECK: IntegerLiteral{{.*}}2{{$}}
+//CHECK: IntegerLiteral{{.*}}3{{$}}
+//CHECK: IntegerLiteral{{.*}}4{{$}}
+//CHECK: IntegerLiteral{{.*}}5{{$}}
+__attribute__((__bank_bits__(2, 3, 4, 5))) const int global_const17 = 1;
+
 //CHECK: FunctionDecl{{.*}}foo1
 __attribute__((ihc_component))
 void foo1()
@@ -547,7 +644,7 @@ void foo1()
   unsigned int nwp_three[4];
 
   // static_array_reset
-  //expected-error@+1{{attribute only applies to local static variables and non-static data members}}
+  //expected-error@+1{{attribute only applies to constant variables, local static variables, and non-static data members}}
   __attribute__((static_array_reset(0)))
   unsigned int sar_one[8];
 
@@ -808,7 +905,7 @@ void other()
   type_temp(i);
 }
 
-//expected-error@+1{{attribute only applies to local or static variables or slave memory arguments and non-static data members}}
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 __attribute__((__doublepump__)) unsigned int ext_one[64];
 
 //expected-error@+1{{only applies to functions and local non-const variables}}
@@ -966,3 +1063,51 @@ struct foo {
   //CHECK: OptimizeRamUsageAttr
   int __attribute__((optimize_ram_usage)) G2;
 };
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__memory__)) int ext_2;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
+__attribute__((__register__)) int ext_3;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__singlepump__)) int ext_4;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__bankwidth__(4))) int ext_5;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__numbanks__(8))) int ext_6;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__numreadports__(2))) int ext_7;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__numwriteports__(4))) int ext_8;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__numports_readonly_writeonly__(4, 16))) int ext_9;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
+__attribute__((__merge__("mrg1", "depth"))) int ext_10;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
+__attribute__((__merge__("mrg1", "width"))) int ext_11;
+
+//expected-error@+1{{'__static_array_reset__' attribute only applies to constant variables, local static variables, and non-static data members}}
+__attribute__((__static_array_reset__(0))) int ext_12;
+
+//expected-error@+1{{'__static_array_reset__' attribute only applies to constant variables, local static variables, and non-static data members}}
+__attribute__((__static_array_reset__(1))) int ext_13;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((internal_max_block_ram_depth(32))) int ext_14;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((optimize_fmax)) int ext_15;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((optimize_ram_usage)) int ext_16;
+
+//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+__attribute__((__bank_bits__(2, 3, 4, 5))) int ext_17;

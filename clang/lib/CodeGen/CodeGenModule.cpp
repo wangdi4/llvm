@@ -3695,9 +3695,14 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
     if (VD->getStorageClass() == SC_Static) {
       llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.
-      if (const auto *SARA = D->getAttr<StaticArrayResetAttr>())
+      if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
         SARAInt = SARA->getValue()->EvaluateKnownConstInt(getContext());
       Out << "{staticreset:" << SARAInt << '}';
+    } else if (VD->getType().isConstQualified() ||
+               VD->getType().getAddressSpace() == LangAS::opencl_constant) {
+      if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
+        Out << "{staticreset:"
+            << SARA->getValue()->EvaluateKnownConstInt(getContext()) << '}';
     }
   } else if (const auto *FD = dyn_cast<FieldDecl>(D)) {
     if (const auto *SARA = FD->getAttr<StaticArrayResetAttr>())

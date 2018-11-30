@@ -158,6 +158,6 @@ void bar17() {
 // expected-note@-1{{conflicting attribute is here}}
 }
 
-__attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__internal_max_block_ram_depth__' attribute only applies to local or static variables or slave memory arguments and non-static data members}}
+__attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__internal_max_block_ram_depth__' attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 void bar18() {
 }
